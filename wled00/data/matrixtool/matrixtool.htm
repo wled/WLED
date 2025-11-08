@@ -42,24 +42,37 @@ h3 {
 	margin: 20px 0;
 	padding: 0 5px;
 }
+
+/* shared border styles */
+.it, #cv, #pv, .dp, button, .btn {
+	border: 2px solid #555;
+}
+.it:hover, .dp:hover, button:hover, .btn:hover {
+	border-color: #48a;
+}
+
+/* shared transitions */
+.it, .dp {
+	transition: all 0.3s ease;
+}
+
 .it {
 	aspect-ratio: 1;
-	border: 2px solid #555;
 	border-radius: 4px;
-	background-size: cover;
+	background-size: 100% 100%;
 	background-position: center;
 	cursor: pointer;
-	transition: all 0.3s ease;
 	image-rendering: pixelated;
 }
-.it:hover {
-	border-color: #09a;
-}
-.it.loading {
-	background: #222;
+
+/* shared flex centering */
+.it.loading, .crw, .cs {
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+.it.loading {
+	background: #222;
 }
 .it.loading::before {
 	content: "Loading...";
@@ -99,25 +112,27 @@ input[type="color"] {
 	border: 0;
 }
 
-/* canvas wrap - initial */
+/* canvas wrap */
 .cw {
 	display: flex;
-	gap: 20px;
-	align-items: flex-start;
-	flex-wrap: wrap;
+	flex-direction: column;
+	gap: 5px;
+	align-items: center;
+	width: 100%;
+}
+
+/* shared canvas styles */
+#cv, #pv {
+	background: #333;
 }
 #cv {
-	background: #333;
 	cursor: crosshair;
-	border: 2px solid #555;
 	max-width: 100%;
-	border-radius:8px;
+	border-radius: 8px;
 }
 #pv {
-	background: #333;
-	border: 2px solid #555;
 	image-rendering: pixelated;
-	border-radius:4px;
+	border-radius: 4px;
 }
 
 /* toast */
@@ -130,23 +145,21 @@ input[type="color"] {
 	padding: 12px 20px;
 	border-radius: 8px;
 	font-size: 14px;
-	z-index: 9999;
+	z-index: 888;
 	border: 2px solid #888;
 }
 
 /* drop zone */
 .dp {
-	border:2px dashed #555;
-	border-radius:8px;
-	padding:40px 20px;
-	background:#222;
-	cursor:pointer;
-	transition:all 0.3s ease;
-	margin:20px auto;
-	max-width:80%;
+	border: 2px dashed #555;
+	border-radius: 8px;
+	padding: 40px 20px;
+	background: #222;
+	cursor: pointer;
+	margin: 20px auto;
+	max-width: 80%;
 }
 .dp:hover {
-	border-color: #48a;
 	background: #333;
 }
 
@@ -154,14 +167,11 @@ input[type="color"] {
 button, .btn {
 	border: 2px solid #333;
 }
-button:hover, .btn:hover {
-	border-color: #48a;
-}
 
 /* size controls */
-.sz{
-	display:none;
-	margin:15px 0;
+.sz {
+	display: none;
+	margin: 15px 0;
 }
 .sz.show {
 	display: block;
@@ -193,21 +203,10 @@ button:hover, .btn:hover {
 	max-width: 500px;
 }
 
-/* canvas wrap - override for column layout */
-.cw {
-	display: flex;
-	flex-direction: column;
-	gap: 5px;
-	align-items: center;
-	width: 100%;
-}
-
 /* controls row */
 .crw {
-	display: flex;
 	gap: 8px;
 	flex-wrap: wrap;
-	justify-content: center;
 	margin: 15px 0;
 }
 
@@ -246,9 +245,7 @@ button:hover, .btn:hover {
 
 /* text tool */
 .cs {
-	display: flex;
 	flex-direction: column;
-	align-items: center;
 	gap: 0;
 }
 .fr {
@@ -467,14 +464,12 @@ function segLoad(){
 		s1.innerHTML=''; s2.innerHTML='';
 		if(j.seg&&j.seg.length){
 			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
-				const t=(n||`Segment ${id}`)+(fx===53?' [Image]':(fx===122?' [Scrolling Text]':''));
-				const o=new Option(t,id);
 				const w=stop-start,h=stopY-startY;
-				if(h>1&&w>1){ /* skip 1D segments */
-					o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
-					s1.add(o);
-					s2.add(o.cloneNode(true));
-				}
+				const t = (n || `Segment ${id}`) + ` (${w}x${h})` + (fx===53 ? ' [Image]' : (fx===122 ? ' [Scrolling Text]' : ''));
+				const o=new Option(t,id);
+				o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
+				s1.add(o);
+				s2.add(o.cloneNode(true));
 			});
 		}else{
 			const o=new Option('Segment 0',0);
@@ -515,7 +510,7 @@ async function imgLoad(){
 			grid.innerHTML='';
 			iL=[...newList];
 			if(!imgs.length){
-				grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
+				grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images</div>';
 				return;
 			}
 			await imgLoad2(imgs);
@@ -554,9 +549,9 @@ function imgRm(nm){
 	iL=iL.filter(n=>n!==nm);
 	const grid=gId('gr');
 	grid.querySelectorAll('.it').forEach(it=>{ if(it.dataset.name===nm) it.remove(); });
-	if(iL.length===0){
-		grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
-	}
+	//if(iL.length===0){
+	//	grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
+	//}
 }
 
 /* pxmagic presence/install */
@@ -570,7 +565,7 @@ async function pxChk(){
 			b.innerHTML='Open PIXEL MAGIC TOOL';
 			b.onclick=()=>window.open(`${wu}/pxmagic.htm`,'_blank');
 		}else{
-			b.innerHTML='Install classic PIXEL MAGIC TOOL<br>(convert image to json preset)';
+			b.innerHTML='Install classic PIXEL MAGIC TOOL<br>';
 			b.onclick=async()=>{
 				if(!confirm('Download from GitHub?'))return;
 				try{
@@ -606,121 +601,121 @@ gId('drop').ondragleave=()=>gId('drop').classList.remove('active');
 gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;fileHandle();};
 gId('src').onchange=fileHandle;
 
-/* static image loader helper (used by non-GIF and GIF-fallback) */
-function imgLoadStatic(file){
-	const r=new FileReader();
-	r.onload=e=>{
-		cI=new Image();
-		cI.onload=()=>{
-			gF=null;gI=null;
-			gId('ed').classList.add('active');
-			gId('drop').innerHTML=`<p>Image loaded: ${file.name}<br><small>Drop another to replace</small></p>`;
-			gId('fn').value=file.name.split('.')[0].substring(0,16);
-			viewReset();
-			cr.w=cv.width*0.8; cr.h=cv.height*0.8;
-			cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
-			crClamp(); crDraw();
-		};
-		cI.src=e.target.result;
-	};
-	r.readAsDataURL(file);
-}
-
 /* file handler */
-function fileHandle(){
-	const file=gId('src').files[0];
-	if(!file)return;
-	sF=file; gI=null;
+function fileHandle() {
+	const file = gId('src').files[0];
+	if (!file) return;
+	sF = file; gI = null; gF = [];
 	gId('sz').classList.add('show');
 
-	if(file.type==='image/gif'){
-		const rdr=new FileReader();
-		rdr.onload=e=>{
-			const arr=new Uint8Array(e.target.result);
-			try{
-				const gif=new GifReader(arr);
-				gI={width:gif.width,height:gif.height,numFrames:gif.numFrames()};
-				gF=[];
-				/* build complete frames with disposal handling */
-				const ac=cE('canvas'); ac.width=gif.width; ac.height=gif.height;
-				const acx=ac.getContext('2d',{willReadFrequently:true});
-				let saved=null;
-				for(let i=0;i<gI.numFrames;i++){
-					const fi=gif.frameInfo(i),disp=fi.disposal||0;
-					if(disp===3) saved=acx.getImageData(0,0,gif.width,gif.height);
-					const tp=new Uint8Array(gif.width*gif.height*4);
-					gif.decodeAndBlitFrameRGBA(i,tp);
-					const tc=cE('canvas'); tc.width=gif.width; tc.height=gif.height;
-					const tctx=tc.getContext('2d');
-					const tid=new ImageData(new Uint8ClampedArray(tp),gif.width,gif.height);
-					tctx.putImageData(tid,0,0);
-					acx.drawImage(tc,0,0);
-					const full=acx.getImageData(0,0,gif.width,gif.height);
-					gF.push({pixels:new Uint8Array(full.data),delay:fi.delay||10});
-					if(disp===2) acx.clearRect(0,0,gif.width,gif.height);
-					else if(disp===3 && saved) acx.putImageData(saved,0,0);
+	const isGif = file.type === 'image/gif';
+	const rdr = new FileReader();
+
+	rdr.onload = e => {
+		if (isGif) {
+			try {
+				const arr = new Uint8Array(e.target.result);
+				const gif = new GifReader(arr);
+				gI = { width: gif.width, height: gif.height, numFrames: gif.numFrames() };
+				const ac = cE('canvas'); ac.width = gif.width; ac.height = gif.height;
+				const acx = ac.getContext('2d', { willReadFrequently: true });
+				let saved = null;
+				for (let i = 0; i < gI.numFrames; i++) {
+					const fi = gif.frameInfo(i), disp = fi.disposal || 0;
+					if (disp === 3) saved = acx.getImageData(0, 0, gif.width, gif.height);
+					const tp = new Uint8Array(gif.width * gif.height * 4);
+					gif.decodeAndBlitFrameRGBA(i, tp);
+					const tc = cE('canvas'); tc.width = gif.width; tc.height = gif.height;
+					const tctx = tc.getContext('2d');
+					const tid = new ImageData(new Uint8ClampedArray(tp), gif.width, gif.height);
+					tctx.putImageData(tid, 0, 0);
+					acx.drawImage(tc, 0, 0);
+					const full = acx.getImageData(0, 0, gif.width, gif.height);
+					gF.push({ pixels: new Uint8Array(full.data), delay: fi.delay || 10 });
+					if (disp === 2) acx.clearRect(0, 0, gif.width, gif.height);
+					else if (disp === 3 && saved) acx.putImageData(saved, 0, 0);
 				}
-				gifCanvas();
-			}catch(e){
-				msg('GIF load failed','error');
-				console.error(e);
-				imgLoadStatic(file);
+				const tc = cE('canvas'); tc.width = gI.width; tc.height = gI.height;
+				const tctx = tc.getContext('2d');
+				tctx.putImageData(new ImageData(new Uint8ClampedArray(gF[0].pixels), gI.width, gI.height), 0, 0);
+				imgShow(tc.toDataURL(), file.name);
+			} catch (err) {
+				msg('GIF load failed', 'error');
+				console.error(err);
 			}
-		};
-		rdr.readAsArrayBuffer(file);
-	}else{
-		imgLoadStatic(file);
-	}
+		} else {
+			// static image → treat as single-frame GIF
+			const im = new Image();
+			im.onload = () => {
+				const c = cE('canvas');
+				c.width = im.width; c.height = im.height;
+				const ctx = c.getContext('2d');
+				ctx.drawImage(im, 0, 0);
+				const id = ctx.getImageData(0, 0, im.width, im.height);
+				gF = [{ pixels: new Uint8Array(id.data), delay: 0 }];
+				gI = { width: im.width, height: im.height, numFrames: 1 };
+				imgShow(c.toDataURL(), file.name);
+			};
+			im.src = e.target.result;
+		}
+	};
+
+	isGif ? rdr.readAsArrayBuffer(file) : rdr.readAsDataURL(file);
 }
 
-/* build first frame canvas and start anim */
-function gifCanvas(){
-	gId('ed').classList.add('active');
-	gId('drop').innerHTML=`<p>Animated GIF loaded: ${sF.name} (${gI.numFrames} frames)<br><small>Drop another to replace</small></p>`;
-	gId('fn').value=sF.name.split('.')[0].substring(0,16);
-
-	const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
-	const tctx=tc.getContext('2d');
-	const id=new ImageData(new Uint8ClampedArray(gF[0].pixels),gI.width,gI.height);
-	tctx.putImageData(id,0,0);
-
-	cI=new Image();
-	cI.onload=()=>{
+/* display image on canvas */
+function imgShow(src, name) {
+	cI = new Image();
+	cI.onload = () => {
+		gId('ed').classList.add('active');
+		gId('drop').innerHTML = `<p>Image loaded: ${name}<br><small>Drop another to replace</small></p>`;
+		gId('fn').value = name.split('.')[0].substring(0, 16);
 		viewReset();
-		cr.w=cv.width*0.8; cr.h=cv.height*0.8;
-		cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
-		crClamp(); gifStart();
+		cr.w = cv.width * 0.8; cr.h = cv.height * 0.8;
+		cr.x = (cv.width - cr.w) / 2; cr.y = (cv.height - cr.h) / 2;
+		crClamp();
+		gifStart(); // handles both single- and multi-frame
 	};
-	cI.src=tc.toDataURL();
+	cI.src = src;
 }
 
-function gifStart(){
-	if(aT) clearInterval(aT);
-	if(!gF||gF.length<=1||!gI){ crDraw(); return; }
-	let idx=0;
-	const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
-	const tctx=tc.getContext('2d');
-	const step=()=>{
-		const id=new ImageData(new Uint8ClampedArray(gF[idx].pixels),gI.width,gI.height);
-		tctx.putImageData(id,0,0);
-		cI.src=tc.toDataURL();
-		idx=(idx+1)%gF.length;
+function gifStart() {
+	if (aT) clearInterval(aT);
+	if (!gF || !gI || gF.length === 0) return crDraw();
+
+	let idx = 0;
+	const tc = cE('canvas');
+	tc.width = gI.width;
+	tc.height = gI.height;
+	const tctx = tc.getContext('2d');
+
+	const step = () => {
+		const id = new ImageData(new Uint8ClampedArray(gF[idx].pixels), gI.width, gI.height);
+		tctx.putImageData(id, 0, 0);
+		cI.src = tc.toDataURL();
+		idx = (idx + 1) % gF.length;
 	};
-	cI.onload=()=>crDraw();
+
+	cI.onload = () => crDraw();
 	step();
-	const avg=gF.reduce((s,f)=>s+f.delay,0)/gF.length;
-	aT=setInterval(step,Math.max(avg*10,50));
+
+	if (gF.length > 1) {
+		const avg = gF.reduce((s, f) => s + f.delay, 0) / gF.length;
+		aT = setInterval(step, Math.max(avg * 10, 50));
+	}
 }
 function gifStop(){ if(aT){ clearInterval(aT); aT=null; } }
 
 /* formats not supported by WLED */
-function unsup(url,name){
-	alert(`Image format not supported by WLED.\nPlease convert to GIF below or use the Pixel Magic Tool.`);
-	fetch(url).then(r=>r.blob()).then(b=>{
-		const f=new File([b],name,{type:b.type});
-		const dt=new DataTransfer(); dt.items.add(f);
-		gId('src').files=dt.files; fileHandle();
-	}).catch(()=>msg('Failed to load image','error'));
+function unsup(url, name) {
+	alert(`Image format not supported.\nPlease convert to GIF or use PIXEL MAGIC TOOL`);
+	fetch(url).then(r => r.blob()).then(b => {
+		const f = new File([b], name, { type: b.type });
+		const dt = new DataTransfer();
+		dt.items.add(f);
+		gId('src').files = dt.files;
+		fileHandle();
+	}).catch(() => msg('Failed to load image', 'error'));
 }
 
 /* size change -> redraw */
@@ -893,92 +888,123 @@ function prevUpd(){
 	pvx.drawImage(pv,0,0,w,h,0,0,pv.width,pv.height);
 }
 
-/* upload */
-gId('up').onclick=async()=>{
-	if(!sF){msg('Select an image','error');return;}
-	const w=+gId('w').value,h=+gId('h').value,fn=gId('fn').value.trim()||'image';
-	const filename=`${fn}.gif`;
-	const repl=iL.includes(filename);
-	if(repl){ if(!confirm(`${filename} already exists. Do you want to overwrite it?`))return; }
+// generate gif palette using median-cut algorithm, palette is padded to power of 2 size (gif standard)
+function genPal(pix){
+	const map=new Map();
+	for(let i=0;i<pix.length;i+=4){
+		const c=(pix[i]<<16)|(pix[i+1]<<8)|pix[i+2];
+		map.set(c,(map.get(c)||0)+1);
+	}
+	let buckets=[Array.from(map,([rgb,count])=>({r:rgb>>16&255,g:rgb>>8&255,b:rgb&255,count}))];
+	while(buckets.length<256&&buckets.some(b=>b.length>1)){
+		buckets.sort((a,b)=>b.length-a.length);
+		const b=buckets.shift();
+		const ch=['r','g','b'].map(k=>({k,range:Math.max(...b.map(c=>c[k]))-Math.min(...b.map(c=>c[k]))}))
+			.reduce((a,b)=>a.range>b.range?a:b).k;
+		b.sort((a,c)=>a[ch]-c[ch]);
+		const m=b.length>>1;
+		buckets.push(b.slice(0,m),b.slice(m));
+	}
+	const pal=buckets.map(b=>{
+		const t=b.reduce((s,c)=>s+c.count,0);
+		const r=Math.round(b.reduce((s,c)=>s+c.r*c.count,0)/t);
+		const g=Math.round(b.reduce((s,c)=>s+c.g*c.count,0)/t);
+		const bl=Math.round(b.reduce((s,c)=>s+c.b*c.count,0)/t);
+		return(r<<16)|(g<<8)|bl;
+	});
+	let p2=1;
+	while(p2<pal.length)p2<<=1;
+	for(let i=pal.length;i<p2;i++)pal[i]=pal[pal.length-1];
+	const idx=new Uint8Array(pix.length/4);
+	for(let i=0,j=0;i<pix.length;i+=4,j++){
+		let r=pix[i],g=pix[i+1],b=pix[i+2],best=0,min=1e9;
+		for(let k=0;k<buckets.length;k++){
+			const p=pal[k],pr=p>>16&255,pg=p>>8&255,pb=p&255;
+			const d=(r-pr)**2+(g-pg)**2+(b-pb)**2;
+			if(d<min){min=d;best=k;}
+		}
+		idx[j]=best;
+	}
+	return{indexed:idx,palette:pal};
+}
+
+// calculate optimal grid dimensions for 1D pixel data (gif is restricted to 320x320)
+function grid(length) {
+	if (length <= 320) return { w: length, h: 1 };
+	let best = [1, length], waste = length;
+	// find best matching width/height with least wasted pixels (should never be more than 1)
+	for (let w = 320; w >= 2; w--) {
+		const h = Math.ceil(length / w);
+		const wst = w * h - length;
+		if (wst < waste) {
+			best = [w, h];
+			waste = wst;
+			if (!waste) break;
+		}
+	}
+	return { w: best[0], h: best[1] };
+}
+
+/* create GIF and upload */
+gId('up').onclick = async () => {
+	if (!gF || !gI) return; // no image
+	const w = +gId('w').value, h = +gId('h').value, fn = gId('fn').value.trim() || 'image';
+	const filename = `${fn}.gif`;
+	const repl = iL.includes(filename);
+	if (repl && !confirm(`${filename} already exists. Overwrite?`)) return;
 
 	ovShow();
-	try{
-		let fU;
-		if(gF){
-			const gifData=[],wr=new GifWriter(gifData,w,h,{loop:0});
-			const tc=cE('canvas'); tc.width=gI.width; tc.height=gI.height;
-			const tctx=tc.getContext('2d');
-			const cc=cE('canvas'); cc.width=w; cc.height=h;
-			const cctx=cc.getContext('2d');
+	try {
+		const tc = cE('canvas'); tc.width = gI.width; tc.height = gI.height;
+		const tctx = tc.getContext('2d');
+		const cc = cE('canvas'); cc.width = w; cc.height = h;
+		const cctx = cc.getContext('2d');
+		cctx.imageSmoothingEnabled = false;
 
-			for(let i=0;i<gF.length;i++){
-				const id=new ImageData(new Uint8ClampedArray(gF[i].pixels),gI.width,gI.height);
-				tctx.putImageData(id,0,0);
-				cctx.imageSmoothingEnabled=false;
-				cctx.fillStyle=gId('bg').value; cctx.fillRect(0,0,w,h);
-				cctx.drawImage(tc,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
-				blackTh(cctx);
-				const fd=cctx.getImageData(0,0,w,h);
-				let {indexed,palette}=qz(fd.data); palette=palPad(palette);
-				wr.addFrame(0,0,w,h,indexed,{palette,delay:gF[i].delay,disposal:2});
-			}
-			wr.end();
-			fU=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
-		}else if(sF.type==='image/gif'){
-			fU=sF;
-		}else{
-			if(!cI){msg('Image not loaded','error');ovHide();return;}
-			let tmp=cE('canvas'); tmp.width=w; tmp.height=h;
-			let tctx=tmp.getContext('2d'); tctx.imageSmoothingEnabled=false;
-			tctx.fillStyle=gId('bg').value; tctx.fillRect(0,0,w,h);
-			tctx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
-			blackTh(tctx);
-			const id=tctx.getImageData(0,0,w,h);
-			let {indexed,palette}=qz(id.data); palette=palPad(palette);
-			const gifData=[],wr=new window.GifWriter(gifData,w,h,{loop:0});
-			wr.addFrame(0,0,w,h,indexed,{palette}); wr.end();
-			fU=new File([new Uint8Array(gifData)],filename,{type:'image/gif'});
+		const frames = [];
+		for (let i = 0; i < gF.length; i++) {
+			const id = new ImageData(new Uint8ClampedArray(gF[i].pixels), gI.width, gI.height);
+			tctx.putImageData(id, 0, 0);
+			cctx.fillStyle = gId('bg').value;
+			cctx.fillRect(0, 0, w, h);
+			cctx.drawImage(tc, (cr.x - pX) / iS, (cr.y - pY) / iS, cr.w / iS, cr.h / iS, 0, 0, w, h);
+			blackTh(cctx);
+			const fd = cctx.getImageData(0, 0, w, h);
+			frames.push({ data: fd.data, delay: gF[i].delay });
 		}
-		const fd=new FormData(); fd.append('file',fU,filename);
-		const r=await fetch(`${wu}/upload`,{method:'POST',body:fd});
-		if(r.ok){
+
+		// global palette
+		const all = new Uint8Array(frames.length * w * h * 4);
+		frames.forEach((f, i) => all.set(f.data, i * f.data.length));
+		const { indexed, palette } = genPal(all);
+
+		const gifData = [];
+		const wr = new GifWriter(gifData, w, h, { palette, loop: 0 });
+		const pixelsPerFrame = w * h;
+		for (let i = 0; i < frames.length; i++) {
+			const framePixels = indexed.slice(i * pixelsPerFrame, (i + 1) * pixelsPerFrame);
+			wr.addFrame(0, 0, w, h, framePixels, { delay: frames[i].delay, disposal: 2 });
+		}
+		wr.end();
+
+		const fU = new File([new Uint8Array(gifData)], filename, { type: 'image/gif' });
+		const fd = new FormData();
+		fd.append('file', fU, filename);
+		const r = await fetch(`${wu}/upload`, { method: 'POST', body: fd });
+
+		if (r.ok) {
 			msg(`${filename} uploaded`);
-			if(repl) imgRm(filename);
+			if (repl) imgRm(filename);
 			await imgLoad();
-			gId('src').value='';
-			gId('drop').innerHTML='<p>Drop image or click to select</p>';
-		}else msg('Upload failed','error');
-	}catch(e){msg(`Error: ${e.message}`,'error');}
-	finally{ovHide();}
-};
-
-/* palette + quantize */
-function qz(pix){
-	let mask=0xFF;
-	while(true){
-		const map=new Map(),idx=new Uint8Array(pix.length/4);
-		const pal=[]; let over=false;
-		for(let i=0,j=0;i<pix.length;i+=4,j++){
-			const r=pix[i]&mask,g=pix[i+1]&mask,b=pix[i+2]&mask;
-			const key=`${r},${g},${b}`;
-			if(!map.has(key)){
-				map.set(key,map.size);
-				pal.push((r<<16)|(g<<8)|b);
-				if(map.size>256){over=true;break;}
-			}
-			idx[j]=map.get(key);
-		}
-		if(!over) return {indexed:idx,palette:pal};
-		mask&=(mask<<1)&0xFF;
-		if(mask===0) return {indexed:idx,palette:pal.slice(0,256)};
+			gId('src').value = '';
+			gId('drop').innerHTML = '<p>Drop image or click to select</p>';
+		} else msg('Upload failed', 'error');
+	} catch (e) {
+		msg(`Error: ${e.message}`, 'error');
+	} finally {
+		ovHide();
 	}
-}
-function palPad(pal){
-	let p2=1;
-	while(p2<pal.length) p2<<=1;
-	while(pal.length<p2) pal.push(pal[pal.length-1]);
-	return pal;
-}
+};
 
 /* play on device */
 async function imgPlay(url,name){
@@ -1012,8 +1038,7 @@ function menuShow(x,y){
 	m.style.left=x+'px'; m.style.top=y+'px';
 	m.innerHTML=`
 		<button onclick="imgDl()">Download</button>
-		<button class="danger" onclick="imgDel()">Delete</button>
-		<button onclick="menuClose()">Cancel</button>`;
+		<button class="danger" onclick="imgDel()">Delete</button>`;
 	d.body.appendChild(m);
 	setTimeout(()=>{
 		const h=e=>{
@@ -1047,23 +1072,17 @@ async function imgDel(){
 }
 
 /* tabs */
-gId('tImg').onclick=async()=>{
-	gId('iTab').classList.add('active');
-	gId('xTab').classList.remove('active');
-	gId('tImg').classList.add('active');
-	gId('tTxt').classList.remove('active');
-	await pxChk();
-	await imgLoad();
-	localStorage.setItem('tab','img');
-};
-gId('tTxt').onclick=async()=>{
-	gId('iTab').classList.remove('active');
-	gId('xTab').classList.add('active');
-	gId('tImg').classList.remove('active');
-	gId('tTxt').classList.add('active');
-	localStorage.setItem('tab','txt');
-	await txtSegLoad();
-};
+function tabSw(isTxt) {
+	gId('iTab').classList.toggle('active', !isTxt);
+	gId('xTab').classList.toggle('active', isTxt);
+	gId('tImg').classList.toggle('active', !isTxt);
+	gId('tTxt').classList.toggle('active', isTxt);
+	localStorage.setItem('tab', isTxt ? 'txt' : 'img');
+	if (isTxt) txtSegLoad(); else { pxChk(); imgLoad(); }
+}
+gId('tImg').onclick = () => tabSw(false);
+gId('tTxt').onclick = () => tabSw(true);
+
 (()=>{const t=localStorage.getItem('tab');
 	if(t==='txt') gId('tTxt').click(); else gId('tImg').click();
 })();
