@@ -129,10 +129,13 @@ class PWMFanUsermod : public Usermod {
       if (pwmChannel == 255) { //no more free LEDC channels
         deinitPWMfan(); return;
       }
-      // configure LED PWM functionalitites
+      // configure LED PWM functionalitites - ESP-IDF 5.x API
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      ledcAttach(pwmPin, 25000, 8);  // New API: ledcAttach(pin, freq, resolution)
+      #else
       ledcSetup(pwmChannel, 25000, 8);
-      // attach the channel to the GPIO to be controlled
       ledcAttachPin(pwmPin, pwmChannel);
+      #endif
       #endif
       DEBUG_PRINTLN(F("Fan PWM sucessfully initialized."));
     }
