@@ -636,8 +636,31 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   return (doc["sv"] | true);
 }
 
-
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
+
+bool backupConfig() {
+  return backupFile(s_cfg_json);
+}
+
+bool restoreConfig() {
+  return restoreFile(s_cfg_json);
+}
+
+bool verifyConfig() {
+  return validateJsonFile(s_cfg_json);
+}
+
+// rename config file and reboot
+// if the cfg file doesn't exist, such as after a reset, do nothing
+void resetConfig() {
+  if (WLED_FS.exists(s_cfg_json)) {
+    DEBUG_PRINTLN(F("Reset config"));
+    char backupname[32];
+    snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_json[1]);
+    WLED_FS.rename(s_cfg_json, backupname);
+    doReboot = true;
+  }
+}
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
@@ -676,6 +699,7 @@ bool deserializeConfigFromFS() {
 
 void serializeConfig() {
   serializeConfigSec();
+  backupConfig(); // backup before writing new config
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 

@@ -73,6 +73,9 @@ static void endOTA(AsyncWebServerRequest *request) {
       // If the upload is incomplete, Update.end(false) should error out.
       if (Update.end(context->uploadComplete)) {
         // Update successful!
+        #ifndef ESP8266
+        bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+        #endif
         doReboot = true;
         context->needsRestart = false;
       }
@@ -109,6 +112,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   strip.suspend();
   strip.resetSegments();  // free as much memory as you can
   context->needsRestart = true;
+  backupConfig(); // backup current config in case the update ends badly
 
   DEBUG_PRINTF_P(PSTR("OTA Update Start, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
 
