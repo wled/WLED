@@ -300,7 +300,8 @@ void createEditHandler() {
       return;
     }
 
-    return;
+    // unrecognized func
+    request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Invalid function"));
   });
 }
 
