@@ -658,11 +658,17 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
-  if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
+if (multiWiFi.empty()) {                       // guard: handle empty WiFi list safely
+  WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
+ } else {
+  if (selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // guard: ensure valid index
+  if (multiWiFi[selectedWiFi].staticIP != IPAddress((uint32_t)0) &&
+    multiWiFi[selectedWiFi].staticGW != IPAddress((uint32_t)0)) { // guard: compare as IPAddress to avoid pointer overload
     WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
   } else {
     WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
   }
+ }
 
   lastReconnectAttempt = millis();
 
