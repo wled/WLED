@@ -1,3 +1,6 @@
+#include "wled.h"
+#ifdef ESP32
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
 #include "mbedtls/sha1.h"
 #include "SHA1Builder.h"
 
@@ -42,3 +45,6 @@ void mbedtls_sha1_free(mbedtls_sha1_context *ctx) {
 
 } // extern "C"
 
+#endif
+
+#endif
