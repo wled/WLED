@@ -222,11 +222,11 @@ bool initEthernet()
   #endif
 
   if (!ETH.begin(
-                (uint8_t) es.eth_address,
-                (int)     es.eth_power,
+                (eth_phy_type_t)   es.eth_type,
+                (int32_t) es.eth_address,
                 (int)     es.eth_mdc,
                 (int)     es.eth_mdio,
-                (eth_phy_type_t)   es.eth_type,
+                (int)     es.eth_power,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
     DEBUG_PRINTLN(F("initC: ETH.begin() failed"));
@@ -396,7 +396,7 @@ void WiFiEvent(WiFiEvent_t event)
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
-      if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+      if (multiWiFi[0].staticIP != IPAddress(0,0,0,0) && multiWiFi[0].staticGW != IPAddress(0,0,0,0)) {
         ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
       } else {
         ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
