@@ -5,6 +5,12 @@
  */
 #ifdef WLED_ENABLE_WEBSOCKETS
 
+// define some constants for binary protocols, dont use defines but C++ style constexpr
+constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
+constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
+constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
+constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
+
 uint16_t wsLiveClientId = 0;
 unsigned long wsLastLiveTime = 0;
 //uint8_t* wsFrameBuffer = nullptr;
@@ -25,7 +31,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
     // data packet
     AwsFrameInfo * info = (AwsFrameInfo*)arg;
     if(info->final && info->index == 0 && info->len == len){
-      // the whole message is in a single frame and we got all of its data (max. 1450 bytes)
+      // the whole message is in a single frame and we got all of its data (max. 1428 bytes / ESP8266: 528 bytes)
       if(info->opcode == WS_TEXT)
       {
         if (len > 0 && len < 10 && data[0] == 'p') {
@@ -59,6 +65,10 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
 
         if (!interfaceUpdateCallMode) { // individual client response only needed if no WS broadcast soon
           if (verboseResponse) {
+            #ifndef WLED_DISABLE_MQTT
+            // publish state to MQTT as requested in wled#4643 even if only WS response selected
+            publishMqtt();
+            #endif
             sendDataWs(client);
           } else {
             // we have to send something back otherwise WS connection closes
@@ -67,8 +77,29 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           // force broadcast in 500ms after updating client
           //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
+      }else if (info->opcode == WS_BINARY) {
+        // first byte determines protocol. Note: since e131_packet_t is "packed", the compiler handles alignment issues
+        //DEBUG_PRINTF_P(PSTR("WS binary message: len %u, byte0: %u\n"), len, data[0]);
+        int offset = 1; // offset to skip protocol byte
+        switch (data[0]) {
+          case BINARY_PROTOCOL_E131:
+            handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_E131);
+            break;
+          case BINARY_PROTOCOL_ARTNET:
+            handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_ARTNET);
+            break;
+          case BINARY_PROTOCOL_DDP:
+            if (len < 10 + offset) return; // DDP header is 10 bytes (+1 protocol byte)
+            size_t ddpDataLen = (data[8+offset] << 8) | data[9+offset]; // data length in bytes from DDP header
+            uint8_t flags = data[0+offset];
+            if ((flags & DDP_TIMECODE_FLAG) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
+            if (len < (10 + offset + ddpDataLen)) return; // not enough data, prevent out of bounds read
+            // could be a valid DDP packet, forward to handler
+            handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_DDP);
+        }
       }
     } else {
+      DEBUG_PRINTF_P(PSTR("WS multipart message: final %u index %u len %u total %u\n"), info->final, info->index, len, (uint32_t)info->len);
       //message is comprised of multiple frames or the frame is split into multiple packets
       //if(info->index == 0){
         //if (!wsFrameBuffer && len < 4096) wsFrameBuffer = new uint8_t[4096];
@@ -124,8 +155,8 @@ void sendDataWs(AsyncWebSocketClient * client)
   DEBUG_PRINTF_P(PSTR("JSON buffer size: %u for WS request (%u).\n"), pDoc->memoryUsage(), len);
 
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
-  size_t heap1 = ESP.getFreeHeap();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  size_t heap1 = getFreeHeapSize();
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
   #ifdef ESP8266
   if (len>heap1) {
     DEBUG_PRINTLN(F("Out of memory (WS)!"));
@@ -134,8 +165,8 @@ void sendDataWs(AsyncWebSocketClient * client)
   #endif
   AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
-  size_t heap2 = ESP.getFreeHeap();
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), ESP.getFreeHeap());
+  size_t heap2 = getFreeHeapSize();
+  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
   #else
   size_t heap2 = 0; // ESP32 variants do not have the same issue and will work without checking heap allocation
   #endif
