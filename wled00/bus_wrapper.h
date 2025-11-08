@@ -5,6 +5,20 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
 
+// --- temporary shim for NeoPixelBus CORE3 / RMT driver_v2 ------------------
+#if __has_include(<NeoPixelBus.h>)
+  #define NeoEsp32RmtNWs2812xMethod  NeoEsp32RmtXWs2812xMethod
+  #define NeoEsp32RmtNSk6812Method   NeoEsp32RmtXSk6812Method
+  #define NeoEsp32RmtN800KbpsMethod  NeoEsp32RmtX800KbpsMethod
+  #define NeoEsp32RmtN400KbpsMethod  NeoEsp32RmtX400KbpsMethod
+  #define NeoEsp32RmtNTm1814Method   NeoEsp32RmtXTm1814Method
+  #define NeoEsp32RmtNTm1829Method   NeoEsp32RmtXTm1829Method
+  #define NeoEsp32RmtNTm1914Method   NeoEsp32RmtXTm1914Method
+  #define NeoEsp32RmtNApa106Method   NeoEsp32RmtXApa106Method
+  #define NeoEsp32RmtNWs2805Method   NeoEsp32RmtXWs2805Method
+#endif
+// ---------------------------------------------------------------------------
+
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
 #define P_8266_HS_CLK  14

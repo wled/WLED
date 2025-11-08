@@ -1,6 +1,7 @@
 #include "wled.h"
 
 #ifdef WLED_ENABLE_DMX_INPUT
+#pragma message "DMX physical input driver enabled"
 
 #ifdef ESP8266
 #error DMX input is only supported on ESP32
@@ -9,8 +10,8 @@
 #include "dmx_input.h"
 #include <rdm/responder.h>
 
-void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                             void *context)
+void rdmPersonalityChangedCb(dmx_port_t dmxPort, rdm_header_t *request_header,
+                             rdm_header_t *response_header, void *context)
 {
   DMXInput *dmx = static_cast<DMXInput *>(context);
 
@@ -19,7 +20,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
     return;
   }
 
-  if (header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
+  if (response_header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
     const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
     DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
     configNeedsWrite = true;
@@ -27,8 +28,8 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   }
 }
 
-void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
-                         void *context)
+void rdmAddressChangedCb(dmx_port_t dmxPort, rdm_header_t *request_header,
+                         rdm_header_t *response_header, void *context)
 {
   DMXInput *dmx = static_cast<DMXInput *>(context);
 
@@ -37,7 +38,7 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
     return;
   }
 
-  if (header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
+  if (response_header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
     const uint16_t addr = dmx_get_start_address(dmx->inputPortNum);
     DMXAddress = std::min(512, int(addr));
     configNeedsWrite = true;
@@ -47,44 +48,51 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
 
 static dmx_config_t createConfig()
 {
-  dmx_config_t config;
-  config.pd_size = 255;
-  config.dmx_start_address = DMXAddress;
+  dmx_config_t config = DMX_CONFIG_DEFAULT;
   config.model_id = 0;
   config.product_category = RDM_PRODUCT_CATEGORY_FIXTURE;
   config.software_version_id = VERSION;
-  strcpy(config.device_label, "WLED_MM");
 
   const std::string versionString = "WLED_V" + std::to_string(VERSION);
-  strncpy(config.software_version_label, versionString.c_str(), 32);
-  config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
-
-  config.personalities[0].description = "SINGLE_RGB";
-  config.personalities[0].footprint = 3;
-  config.personalities[1].description = "SINGLE_DRGB";
-  config.personalities[1].footprint = 4;
-  config.personalities[2].description = "EFFECT";
-  config.personalities[2].footprint = 15;
-  config.personalities[3].description = "MULTIPLE_RGB";
-  config.personalities[3].footprint = std::min(512, int(strip.getLengthTotal()) * 3);
-  config.personalities[4].description = "MULTIPLE_DRGB";
-  config.personalities[4].footprint = std::min(512, int(strip.getLengthTotal()) * 3 + 1);
-  config.personalities[5].description = "MULTIPLE_RGBW";
-  config.personalities[5].footprint = std::min(512, int(strip.getLengthTotal()) * 4);
-  config.personalities[6].description = "EFFECT_W";
-  config.personalities[6].footprint = 18;
-  config.personalities[7].description = "EFFECT_SEGMENT";
-  config.personalities[7].footprint = std::min(512, strip.getSegmentsNum() * 15);
-  config.personalities[8].description = "EFFECT_SEGMENT_W";
-  config.personalities[8].footprint = std::min(512, strip.getSegmentsNum() * 18);
-  config.personalities[9].description = "PRESET";
-  config.personalities[9].footprint = 1;
-
-  config.personality_count = 10;
-  // rdm personalities are numbered from 1, thus we can just set the DMXMode directly.
-  config.current_personality = DMXMode;
+  config.software_version_label = versionString.c_str();
 
   return config;
+}
+
+static dmx_personality_t personalities[10];
+
+static void createPersonalities()
+{
+  // Initialize personalities array
+  strncpy(personalities[0].description, "SINGLE_RGB", 32);
+  personalities[0].footprint = 3;
+
+  strncpy(personalities[1].description, "SINGLE_DRGB", 32);
+  personalities[1].footprint = 4;
+
+  strncpy(personalities[2].description, "EFFECT", 32);
+  personalities[2].footprint = 15;
+
+  strncpy(personalities[3].description, "MULTIPLE_RGB", 32);
+  personalities[3].footprint = std::min(512, int(strip.getLengthTotal()) * 3);
+
+  strncpy(personalities[4].description, "MULTIPLE_DRGB", 32);
+  personalities[4].footprint = std::min(512, int(strip.getLengthTotal()) * 3 + 1);
+
+  strncpy(personalities[5].description, "MULTIPLE_RGBW", 32);
+  personalities[5].footprint = std::min(512, int(strip.getLengthTotal()) * 4);
+
+  strncpy(personalities[6].description, "EFFECT_W", 32);
+  personalities[6].footprint = 18;
+
+  strncpy(personalities[7].description, "EFFECT_SEGMENT", 32);
+  personalities[7].footprint = std::min(512, strip.getSegmentsNum() * 15);
+
+  strncpy(personalities[8].description, "EFFECT_SEGMENT_W", 32);
+  personalities[8].footprint = std::min(512, strip.getSegmentsNum() * 18);
+
+  strncpy(personalities[9].description, "PRESET", 32);
+  personalities[9].footprint = 1;
 }
 
 void dmxReceiverTask(void *context)
@@ -103,10 +111,11 @@ void dmxReceiverTask(void *context)
 
 bool DMXInput::installDriver()
 {
-
   const auto config = createConfig();
+  createPersonalities();
+
   DEBUG_PRINTF("DMX port: %u\n", inputPortNum);
-  if (!dmx_driver_install(inputPortNum, &config, DMX_INTR_FLAGS_DEFAULT)) {
+  if (!dmx_driver_install(inputPortNum, &config, personalities, 10)) {
     DEBUG_PRINTF("Error: Failed to install dmx driver\n");
     return false;
   }
@@ -116,8 +125,14 @@ bool DMXInput::installDriver()
   DEBUG_PRINTF("DMX enable pin is: %u\n", enPin);
   dmx_set_pin(inputPortNum, txPin, rxPin, enPin);
 
+  // Set initial DMX start address and personality
+  dmx_set_start_address(inputPortNum, DMXAddress);
+  dmx_set_current_personality(inputPortNum, DMXMode);
+
+  // Register RDM callbacks for start address and personality changes
   rdm_register_dmx_start_address(inputPortNum, rdmAddressChangedCb, this);
-  rdm_register_dmx_personality(inputPortNum, rdmPersonalityChangedCb, this);
+  rdm_register_dmx_personality(inputPortNum, 10, rdmPersonalityChangedCb, this);
+
   initialized = true;
   return true;
 }
@@ -151,9 +166,9 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     const bool pinsAllocated = PinManager::allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
     if (!pinsAllocated) {
       DEBUG_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
-      DEBUG_PRINTF("rx in use by: %s\n", PinManager::getPinOwner(rxPin));
-      DEBUG_PRINTF("tx in use by: %s\n", PinManager::getPinOwner(txPin));
-      DEBUG_PRINTF("en in use by: %s\n", PinManager::getPinOwner(enPin));
+      DEBUG_PRINTF("rx in use by: %hhd\n", PinManager::getPinOwner(rxPin));
+      DEBUG_PRINTF("tx in use by: %hhd\n", PinManager::getPinOwner(txPin));
+      DEBUG_PRINTF("en in use by: %hhd\n", PinManager::getPinOwner(enPin));
       return;
     }
 
@@ -247,12 +262,11 @@ void DMXInput::enable()
 
 bool DMXInput::isIdentifyOn() const
 {
-
-  uint8_t identify = 0;
+  bool identify = false;
   const bool gotIdentify = rdm_get_identify_device(inputPortNum, &identify);
   // gotIdentify should never be false because it is a default parameter in rdm
   // but just in case we check for it anyway
-  return bool(identify) && gotIdentify;
+  return identify && gotIdentify;
 }
 
 void DMXInput::checkAndUpdateConfig()

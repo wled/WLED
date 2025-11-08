@@ -1,3 +1,4 @@
+#if false
 /*-------------------------------------------------------------------------
 NeoPixel driver for ESP32 RMTs using High-priority Interrupt
 
@@ -467,3 +468,5 @@ typedef NeoEsp32RmtHI7Ws2805InvertedMethod NeoEsp32RmtHI7Ws2814InvertedMethod;
 #endif // !defined(CONFIG_IDF_TARGET_ESP32C3)
 
 #endif
+
+#endif // NEOE_SP32_RMT_HI_METHODS_H
