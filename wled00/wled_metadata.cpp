@@ -166,17 +166,30 @@ bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessa
   if (firmwareDescription.desc_version > 1) {
     // Add safe version check
     // Parse our version (x.y.z) and compare it to the "safe version" array
-    char* our_version = const_cast<char*>(versionString);  // rip off const for legacy strtol compatibility
+    const char* our_version = versionString;
     for(unsigned v_index = 0; v_index < 3; ++v_index) {
-      long our_v_parsed = strtol(our_version, &our_version, 10);
-      ++our_version;  // skip the decimal point
-      if (firmwareDescription.safe_update_version[v_index] < our_v_parsed) {
-        snprintf_P(errorMessage, errorMessageLen, PSTR("Cannot update from this version: requires at least %d.%d.%d, current='%s'."), 
-                firmwareDescription.safe_update_version[0], firmwareDescription.safe_update_version[1], firmwareDescription.safe_update_version[2],
-                versionString);
-        errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
-        return false;
+      char* our_version_end = nullptr;
+      long our_v_parsed = strtol(our_version, &our_version_end, 10); 
+      if (!our_version_end || (our_version_end == our_version)) {
+        // We were built with a malformed version string
+        // We blame the integrator and attempt the update anyways - nothing the user can do to fix this
+        break;
       }
+
+      if (firmwareDescription.safe_update_version[v_index] > our_v_parsed) {
+        if (errorMessage && errorMessageLen > 0) {
+          snprintf_P(errorMessage, errorMessageLen, PSTR("Cannot update from this version: requires at least %d.%d.%d, current='%s'."), 
+                  firmwareDescription.safe_update_version[0], firmwareDescription.safe_update_version[1], firmwareDescription.safe_update_version[2],
+                  versionString);
+          errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
+        }
+        return false;
+      } else if (firmwareDescription.safe_update_version[v_index] < our_v_parsed) {
+        break;  // no need to check the other components
+      }
+
+      if (*our_version_end == '.') ++our_version_end;
+      our_version = our_version_end;
     }  
   }
 
