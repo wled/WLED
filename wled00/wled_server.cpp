@@ -420,6 +420,45 @@ void initServer()
   });
 #endif
 
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // ESP32 bootloader update endpoint
+  server.on(F("/updatebootloader"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (request->_tempObject) {
+      auto bootloader_result = getBootloaderOTAResult(request);
+      if (bootloader_result.first) {
+        if (bootloader_result.second.length() > 0) {
+          serveMessage(request, 500, F("Bootloader update failed!"), bootloader_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Bootloader updated successfully!"), FPSTR(s_rebooting), 131);
+        }
+      }
+    } else {
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Bootloader update failed!"), F("Internal server fault"), 254);
+    }
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    if (index == 0) {
+      // Privilege checks
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+
+      // Allocate the context structure
+      if (!initBootloaderOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
+      }
+    }
+
+    handleBootloaderOTAData(request, index, data, len, isFinal);
+  });
+#endif
 
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
