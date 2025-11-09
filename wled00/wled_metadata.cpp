@@ -59,11 +59,7 @@ const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUIL
     TOSTRING(WLED_VERSION),
     WLED_RELEASE_NAME,                        // release_name
     std::integral_constant<uint32_t, djb2_hash_constexpr(WLED_RELEASE_NAME)>::value, // hash - computed at compile time; integral_constant enforces this
-#if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32)
-    { 0, 15, 3 },  // Some older ESP32 might have bootloader issues; assume we'll have it sorted by 0.15.3
-#else    
-    { 0, 15, 2 },  // All other platforms can update safely
-#endif
+    { 0, 0, 0 },  // All other platforms can update safely
 };
 
 static const char repoString_s[] PROGMEM = WLED_REPO;
