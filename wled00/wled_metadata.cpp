@@ -16,7 +16,7 @@
 #endif
 
 constexpr uint32_t WLED_CUSTOM_DESC_MAGIC = 0x57535453;  // "WSTS" (WLED System Tag Structure)
-constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 1;
+constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 2;    // v1 - original PR; v2 - "safe to update from" version
 
 // Compile-time validation that release name doesn't exceed maximum length
 static_assert(sizeof(WLED_RELEASE_NAME) <= WLED_RELEASE_NAME_MAX_LEN, 
@@ -59,6 +59,7 @@ const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUIL
     TOSTRING(WLED_VERSION),
     WLED_RELEASE_NAME,                        // release_name
     std::integral_constant<uint32_t, djb2_hash_constexpr(WLED_RELEASE_NAME)>::value, // hash - computed at compile time; integral_constant enforces this
+    { 0, 0, 0 },  // All other platforms can update safely
 };
 
 static const char repoString_s[] PROGMEM = WLED_REPO;
@@ -80,40 +81,47 @@ const __FlashStringHelper* brandString = FPSTR(brandString_s);
  * @return true if structure was found and extracted, false otherwise
  */
 bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc) {
-    if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
-        return false;
-    }
-
-    for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
-        const wled_metadata_t* custom_desc = (const wled_metadata_t*)(binaryData + offset);
-        
-        // Check for magic number
-        if (custom_desc->magic == WLED_CUSTOM_DESC_MAGIC) {
-            // Found potential match, validate version
-            if (custom_desc->desc_version != WLED_CUSTOM_DESC_VERSION) {
-                DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
-                              offset, custom_desc->desc_version);
-                continue;
-            }
-            
-            // Validate hash using runtime function
-            uint32_t expected_hash = djb2_hash_runtime(custom_desc->release_name);
-            if (custom_desc->hash != expected_hash) {
-                DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
-                continue;
-            }
-            
-            // Valid structure found - copy entire structure
-            memcpy(extractedDesc, custom_desc, sizeof(wled_metadata_t));
-            
-            DEBUG_PRINTF_P(PSTR("Extracted WLED structure at offset %u: '%s'\n"), 
-                          offset, extractedDesc->release_name);
-            return true;
-        }
-    }
-    
-    DEBUG_PRINTLN(F("No WLED custom description found in binary"));
+  if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
     return false;
+  }
+
+  for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
+    if ((binaryData[offset]) == static_cast<char>(WLED_CUSTOM_DESC_MAGIC)) {
+      // First byte matched; check next in an alignment-safe way
+      uint32_t data_magic;
+      memcpy(&data_magic, binaryData + offset, sizeof(data_magic));
+      
+      // Check for magic number
+      if (data_magic == WLED_CUSTOM_DESC_MAGIC) {            
+        wled_metadata_t candidate;
+        memcpy(&candidate, binaryData + offset, sizeof(candidate));
+
+        // Found potential match, validate version
+        if (candidate.desc_version > WLED_CUSTOM_DESC_VERSION) {
+          DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
+                        offset, candidate.desc_version);
+          continue;
+        }
+        
+        // Validate hash using runtime function
+        uint32_t expected_hash = djb2_hash_runtime(candidate.release_name);
+        if (candidate.hash != expected_hash) {
+          DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
+          continue;
+        }
+        
+        // Valid structure found - copy entire structure
+        *extractedDesc = candidate;
+        
+        DEBUG_PRINTF_P(PSTR("Extracted WLED structure at offset %u: '%s'\n"), 
+                      offset, extractedDesc->release_name);
+        return true;
+      }
+    }
+  }
+  
+  DEBUG_PRINTLN(F("No WLED custom description found in binary"));
+  return false;
 }
 
 
@@ -144,11 +152,41 @@ bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessa
 
   if (strncmp_P(safeFirmwareRelease, releaseString, WLED_RELEASE_NAME_MAX_LEN) != 0) {
     if (errorMessage && errorMessageLen > 0) {
-      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
+      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware release name mismatch: current='%s', uploaded='%s'."), 
                releaseString, safeFirmwareRelease);
       errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
     }
     return false;
+  }
+
+  if (firmwareDescription.desc_version > 1) {
+    // Add safe version check
+    // Parse our version (x.y.z) and compare it to the "safe version" array
+    const char* our_version = versionString;
+    for(unsigned v_index = 0; v_index < 3; ++v_index) {
+      char* our_version_end = nullptr;
+      long our_v_parsed = strtol(our_version, &our_version_end, 10); 
+      if (!our_version_end || (our_version_end == our_version)) {
+        // We were built with a malformed version string
+        // We blame the integrator and attempt the update anyways - nothing the user can do to fix this
+        break;
+      }
+
+      if (firmwareDescription.safe_update_version[v_index] > our_v_parsed) {
+        if (errorMessage && errorMessageLen > 0) {
+          snprintf_P(errorMessage, errorMessageLen, PSTR("Cannot update from this version: requires at least %d.%d.%d, current='%s'."), 
+                  firmwareDescription.safe_update_version[0], firmwareDescription.safe_update_version[1], firmwareDescription.safe_update_version[2],
+                  versionString);
+          errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
+        }
+        return false;
+      } else if (firmwareDescription.safe_update_version[v_index] < our_v_parsed) {
+        break;  // no need to check the other components
+      }
+
+      if (*our_version_end == '.') ++our_version_end;
+      our_version = our_version_end;
+    }  
   }
 
   // TODO: additional checks go here
