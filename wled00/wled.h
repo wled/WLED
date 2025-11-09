@@ -189,6 +189,9 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "FastLED.h"
 #include "const.h"
 #include "fcn_declare.h"
+#ifndef WLED_DISABLE_OTA
+  #include "ota_update.h"
+#endif
 #include "NodeStruct.h"
 #include "pin_manager.h"
 #include "colors.h"

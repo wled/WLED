@@ -541,7 +541,6 @@ void handleSerial();
 void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
-void createEditHandler(bool enable);
 void initServer();
 void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& headl, const String& subl="", byte optionT=255);
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);
