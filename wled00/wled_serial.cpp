@@ -69,9 +69,11 @@ void sendBytes(){
 
 void handleSerial()
 {
-  if (serialCanRX == false && Serial) {
-    return;
-  }; // arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  #if ARDUINO_USB_CDC_ON_BOOT
+    if (!Serial) return;// arduino docs: `if (Serial)` indicates whether or not the USB CDC serial connection is open. For all non-USB CDC ports, this will always return true
+  #else
+    if (!(serialCanRX)) return; // check via pin manager if UART pin is NOT allocated by other function.
+  #endif 
 
   static auto state = AdaState::Header_A;
   static uint16_t count = 0;
