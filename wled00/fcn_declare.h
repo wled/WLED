@@ -27,6 +27,7 @@ void IRAM_ATTR touchButtonISR();
 bool backupConfig();
 bool restoreConfig();
 bool verifyConfig();
+bool configBackupExists();
 void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 bool deserializeConfigFromFS();
@@ -103,6 +104,7 @@ inline bool readObjectFromFile(const String &file, const char* key, JsonDocument
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
+bool checkBackupExists(const char* filename);
 bool validateJsonFile(const char* filename);
 void dumpFilesToSerial();
 
@@ -539,7 +541,6 @@ void handleSerial();
 void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
-void createEditHandler(bool enable);
 void initServer();
 void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& headl, const String& subl="", byte optionT=255);
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);

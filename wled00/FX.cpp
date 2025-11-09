@@ -678,7 +678,7 @@ uint16_t mode_twinkle(void) {
     SEGENV.step = it;
   }
 
-  unsigned PRNG16 = SEGENV.aux1;
+  uint16_t PRNG16 = SEGENV.aux1;
 
   for (unsigned i = 0; i < SEGENV.aux0; i++)
   {
@@ -5196,112 +5196,162 @@ static const char _data_FX_MODE_2DFRIZZLES[] PROGMEM = "Frizzles@X frequency,Y f
 ///////////////////////////////////////////
 //   2D Cellular Automata Game of life   //
 ///////////////////////////////////////////
-typedef struct ColorCount {
-  CRGB color;
-  int8_t count;
-} colorCount;
+typedef struct Cell {
+    uint8_t alive : 1, faded : 1, toggleStatus : 1, edgeCell: 1, oscillatorCheck : 1, spaceshipCheck : 1, unused : 2;
+} Cell;
 
-uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ and https://github.com/DougHaber/nlife-color
+uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ 
+                                   // and https://github.com/DougHaber/nlife-color , Modified By: Brandon Butler
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
+  const int cols = SEG_W, rows = SEG_H;
+  const unsigned maxIndex = cols * rows;
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
-  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
-  const unsigned dataSize = sizeof(CRGB) * SEGMENT.length();  // using width*height prevents reallocation if mirroring is enabled
-  const int crcBufferLen = 2; //(SEGMENT.width() + SEGMENT.height())*71/100; // roughly sqrt(2)/2 for better repetition detection (Ewowi)
+  if (!SEGENV.allocateData(SEGMENT.length() * sizeof(Cell))) return mode_static(); // allocation failed
 
-  if (!SEGENV.allocateData(dataSize + sizeof(uint16_t)*crcBufferLen)) return mode_static(); //allocation failed
-  CRGB *prevLeds = reinterpret_cast<CRGB*>(SEGENV.data);
-  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize); 
+  Cell *cells = reinterpret_cast<Cell*> (SEGENV.data);
 
-  CRGB backgroundColor = SEGCOLOR(1);
+  uint16_t& generation = SEGENV.aux0, &gliderLength = SEGENV.aux1; // rename aux variables for clarity
+  bool mutate = SEGMENT.check3;
+  uint8_t blur = map(SEGMENT.custom1, 0, 255, 255, 4);
 
-  if (SEGENV.call == 0 || strip.now - SEGMENT.step > 3000) {
-    SEGENV.step = strip.now;
-    SEGENV.aux0 = 0;
+  uint32_t bgColor    = SEGCOLOR(1);
+  uint32_t birthColor = SEGMENT.color_from_palette(128, false, PALETTE_SOLID_WRAP, 255);
 
-    //give the leds random state and colors (based on intensity, colors from palette or all posible colors are chosen)
-    for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-      unsigned state = hw_random8()%2;
-      if (state == 0)
-        SEGMENT.setPixelColorXY(x,y, backgroundColor);
-      else
-        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+  bool setup = SEGENV.call == 0;
+  if (setup) {
+    // Calculate glider length LCM(rows,cols)*4 once
+    unsigned a = rows, b = cols;
+    while (b) { unsigned t = b; b = a % b; a = t; }
+    gliderLength = (cols * rows / a) << 2;
+  }
+
+  if (abs(long(strip.now) - long(SEGENV.step)) > 2000) SEGENV.step = 0; // Timebase jump fix
+  bool paused = SEGENV.step > strip.now;
+
+  // Setup New Game of Life
+  if ((!paused && generation == 0) || setup) {
+    SEGENV.step = strip.now + 1280; // show initial state for 1.28 seconds
+    generation = 1;
+    paused = true;
+    //Setup Grid
+    memset(cells, 0, maxIndex * sizeof(Cell));
+
+    for (unsigned i = 0; i < maxIndex; i++) {
+      bool isAlive = !hw_random8(3); // ~33%
+      cells[i].alive = isAlive;
+      cells[i].faded = !isAlive;
+      unsigned x = i % cols, y = i / cols;
+      cells[i].edgeCell = (x == 0 || x == cols-1 || y == 0 || y == rows-1);
+
+      SEGMENT.setPixelColor(i, isAlive ? SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 0) : bgColor);
     }
+  }
 
-    for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) prevLeds[XY(x,y)] = CRGB::Black;
-    memset(crcBuffer, 0, sizeof(uint16_t)*crcBufferLen);
-  } else if (strip.now - SEGENV.step < FRAMETIME_FIXED * (uint32_t)map(SEGMENT.speed,0,255,64,4)) {
-    // update only when appropriate time passes (in 42 FPS slots)
+  if (paused || (strip.now - SEGENV.step < 1000 / map(SEGMENT.speed,0,255,1,42))) {
+    // Redraw if paused or between updates to remove blur
+    for (unsigned i = maxIndex; i--; ) {
+      if (!cells[i].alive) {
+        uint32_t cellColor = SEGMENT.getPixelColor(i);
+        if (cellColor != bgColor) {
+          uint32_t newColor;
+          bool needsColor = false;
+          if (cells[i].faded) { newColor = bgColor; needsColor = true; }
+          else {
+            uint32_t blended = color_blend(cellColor, bgColor, 2);
+            if (blended == cellColor) { blended = bgColor; cells[i].faded = 1; }
+            newColor = blended; needsColor = true;
+          }
+          if (needsColor) SEGMENT.setPixelColor(i, newColor);
+        }
+      }
+    }
     return FRAMETIME;
   }
 
-  //copy previous leds (save previous generation)
-  //NOTE: using lossy getPixelColor() is a benefit as endlessly repeating patterns will eventually fade out causing a reset
-  for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) prevLeds[XY(x,y)] = SEGMENT.getPixelColorXY(x,y);
+  // Repeat detection
+  bool updateOscillator = generation % 16 == 0;
+  bool updateSpaceship  = gliderLength && generation % gliderLength == 0;
+  bool repeatingOscillator = true, repeatingSpaceship = true, emptyGrid = true;
 
-  //calculate new leds
-  for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
+  unsigned cIndex = maxIndex-1;
+  for (unsigned y = rows; y--; ) for (unsigned x = cols; x--; cIndex--) {
+    Cell& cell = cells[cIndex];
 
-    colorCount colorsCount[9]; // count the different colors in the 3*3 matrix
-    for (int i=0; i<9; i++) colorsCount[i] = {backgroundColor, 0}; // init colorsCount
+    if (cell.alive) emptyGrid = false;
+    if (cell.oscillatorCheck != cell.alive) repeatingOscillator = false;
+    if (cell.spaceshipCheck  != cell.alive) repeatingSpaceship  = false;
+    if (updateOscillator) cell.oscillatorCheck = cell.alive;
+    if (updateSpaceship)  cell.spaceshipCheck  = cell.alive;
 
-    // iterate through neighbors and count them and their different colors
-    int neighbors = 0;
-    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) { // iterate through 3*3 matrix
-      if (i==0 && j==0) continue; // ignore itself
-      // wrap around segment
-      int xx = x+i, yy = y+j;
-      if (x+i < 0) xx = cols-1; else if (x+i >= cols) xx = 0;
-      if (y+j < 0) yy = rows-1; else if (y+j >= rows) yy = 0;
-
-      unsigned xy = XY(xx, yy); // previous cell xy to check
-      // count different neighbours and colors
-      if (prevLeds[xy] != backgroundColor) {
-        neighbors++;
-        bool colorFound = false;
-        int k;
-        for (k=0; k<9 && colorsCount[k].count != 0; k++)
-          if (colorsCount[k].color == prevLeds[xy]) {
-            colorsCount[k].count++;
-            colorFound = true;
-          }
-        if (!colorFound) colorsCount[k] = {prevLeds[xy], 1}; //add new color found in the array
+    unsigned neighbors = 0, aliveParents = 0, parentIdx[3];
+    // Count alive neighbors
+    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) if (i || j) {
+      int nX = x + j, nY = y + i;
+      if (cell.edgeCell) {
+        nX = (nX + cols) % cols;
+        nY = (nY + rows) % rows;
       }
-    } // i,j
-
-    // Rules of Life
-    uint32_t col = uint32_t(prevLeds[XY(x,y)]) & 0x00FFFFFF;  // uint32_t operator returns RGBA, we want RGBW -> cut off "alpha" byte
-    uint32_t bgc = RGBW32(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0);
-    if      ((col != bgc) && (neighbors <  2)) SEGMENT.setPixelColorXY(x,y, bgc); // Loneliness
-    else if ((col != bgc) && (neighbors >  3)) SEGMENT.setPixelColorXY(x,y, bgc); // Overpopulation
-    else if ((col == bgc) && (neighbors == 3)) {                                  // Reproduction
-      // find dominant color and assign it to a cell
-      colorCount dominantColorCount = {backgroundColor, 0};
-      for (int i=0; i<9 && colorsCount[i].count != 0; i++)
-        if (colorsCount[i].count > dominantColorCount.count) dominantColorCount = colorsCount[i];
-      // assign the dominant color w/ a bit of randomness to avoid "gliders"
-      if (dominantColorCount.count > 0 && hw_random8(128)) SEGMENT.setPixelColorXY(x,y, dominantColorCount.color);
-    } else if ((col == bgc) && (neighbors == 2) && !hw_random8(128)) {               // Mutation
-      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+      unsigned nIndex = nX + nY * cols;
+      Cell& neighbor = cells[nIndex];
+      if (neighbor.alive) {
+        neighbors++;
+        if (!neighbor.toggleStatus && neighbors < 4) { // Alive and not dying
+          parentIdx[aliveParents++] = nIndex;
+        }
+      }
     }
-    // else do nothing!
-  } //x,y
 
-  // calculate CRC16 of leds
-  uint16_t crc = crc16((const unsigned char*)prevLeds, dataSize);
-  // check if we had same CRC and reset if needed
-  bool repetition = false;
-  for (int i=0; i<crcBufferLen && !repetition; i++) repetition = (crc == crcBuffer[i]); // (Ewowi)
-  // same CRC would mean image did not change or was repeating itself
-  if (!repetition) SEGENV.step = strip.now; //if no repetition avoid reset
-  // remember CRCs across frames
-  crcBuffer[SEGENV.aux0] = crc;
-  ++SEGENV.aux0 %= crcBufferLen;
+    uint32_t newColor;
+    bool needsColor = false;
 
+    if (cell.alive && (neighbors < 2 || neighbors > 3)) { // Loneliness or Overpopulation
+      cell.toggleStatus = 1;
+      if (blur == 255) cell.faded = 1;
+      newColor = cell.faded ? bgColor : color_blend(SEGMENT.getPixelColor(cIndex), bgColor, blur);
+      needsColor = true;
+    }
+    else if (!cell.alive) {
+      byte mutationRoll = mutate ? hw_random8(128) : 1; // if 0: 3 neighbor births fail and 2 neighbor births mutate
+      if ((neighbors == 3 && mutationRoll) || (mutate && neighbors == 2 && !mutationRoll)) { // Reproduction or Mutation
+        cell.toggleStatus = 1;
+        cell.faded = 0;
+
+        if (aliveParents) {
+          // Set color based on random neighbor
+          unsigned parentIndex = parentIdx[random8(aliveParents)];
+          birthColor = SEGMENT.getPixelColor(parentIndex);
+        }
+        newColor = birthColor;
+        needsColor = true;
+      }
+      else if (!cell.faded) {// No change, fade dead cells
+          uint32_t cellColor = SEGMENT.getPixelColor(cIndex);
+          uint32_t blended = color_blend(cellColor, bgColor, blur);
+          if (blended == cellColor) { blended = bgColor; cell.faded = 1; }
+          newColor = blended;
+          needsColor = true;
+      }
+    }
+
+    if (needsColor) SEGMENT.setPixelColor(cIndex, newColor);
+  }
+  // Loop through cells, if toggle, swap alive status
+  for (unsigned i = maxIndex; i--; ) {
+    cells[i].alive ^= cells[i].toggleStatus;
+    cells[i].toggleStatus = 0;
+  }
+
+  if (repeatingOscillator || repeatingSpaceship || emptyGrid) {
+    generation = 0; // reset on next call
+    SEGENV.step += 1024; // pause final generation for ~1 second
+  }
+  else {
+    ++generation;
+    SEGENV.step = strip.now;
+  }
   return FRAMETIME;
 } // mode_2Dgameoflife()
-static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!;!,!;!;2";
+static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!,,Blur,,,,,Mutation;!,!;!;2;pal=11,sx=128";
 
 
 /////////////////////////

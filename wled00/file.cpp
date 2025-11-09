@@ -557,6 +557,12 @@ bool restoreFile(const char* filename) {
   return false;
 }
 
+bool checkBackupExists(const char* filename) {
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
+  return WLED_FS.exists(backupname);
+}
+
 bool validateJsonFile(const char* filename) {
   if (!WLED_FS.exists(filename)) return false;
   File file = WLED_FS.open(filename, "r");
