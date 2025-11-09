@@ -51,6 +51,9 @@ namespace {
     if (a.custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
     if (a.custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
     if (a.custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
+    if (a.check1 != b.check1)       d |= SEG_DIFFERS_FX;
+    if (a.check2 != b.check2)       d |= SEG_DIFFERS_FX;
+    if (a.check3 != b.check3)       d |= SEG_DIFFERS_FX;
     if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
     if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
 
