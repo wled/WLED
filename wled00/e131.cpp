@@ -30,10 +30,18 @@ void handleDDPPacket(e131_packet_t* p) {
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
-  unsigned stop = start + htons(p->dataLen) / ddpChannelsPerLed;
+  uint16_t dataLen = htons(p->dataLen);
+  unsigned stop = start + dataLen / ddpChannelsPerLed;
   uint8_t* data = p->data;
   unsigned c = 0;
   if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+
+  unsigned numLeds = stop - start; // stop >= start is guaranteed
+  unsigned maxDataIndex = c + numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
+  if (maxDataIndex > dataLen) {
+    DEBUG_PRINTLN(F("DDP packet data bounds exceeded, rejecting."));
+    return;
+  }
 
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
@@ -191,7 +199,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         // only change brightness if value changed
         if (bri != e131_data[dataOffset]) {                                        
           bri = e131_data[dataOffset];
-          strip.setBrightness(scaledBri(bri), false);
+          strip.setBrightness(bri, false);
           stateUpdated(CALL_MODE_WS_SEND);
         }
         return;
@@ -414,7 +422,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
+  char * numberEnd = (char*) versionString; // strtol promises not to try to edit this.
   reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);

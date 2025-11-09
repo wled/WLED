@@ -8,7 +8,6 @@
   Parts of the code adapted from WLED Sound Reactive
 */
 #include "wled.h"
-#include "palettes.h"
 
 // setUpMatrix() - constructs ledmap array from matrix of panels with WxH pixels
 // this converts physical (possibly irregular) LED arrangement into well defined
@@ -18,6 +17,7 @@
 // note: matrix may be comprised of multiple panels each with different orientation
 // but ledmap takes care of that. ledmap is constructed upon initialization
 // so matrix should disable regular ledmap processing
+// WARNING: effect drawing has to be suspended (strip.suspend()) or must be called from loop() context
 void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
   // isMatrix is set in cfg.cpp or set.cpp
@@ -46,12 +46,12 @@ void WS2812FX::setUpMatrix() {
       return;
     }
 
-    suspend();
-    waitForIt();
-
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     d_free(customMappingTable);
+    // Segment::maxWidth and Segment::maxHeight are set according to panel layout
+    // and the product will include at least all leds in matrix
+    // if actual LEDs are more, getLengthTotal() will return correct number of LEDs
     customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer to not use SPI RAM
 
     if (customMappingTable) {
@@ -114,7 +114,6 @@ void WS2812FX::setUpMatrix() {
 
       // delete gap array as we no longer need it
       p_free(gapTable);
-      resume();
 
       #ifdef WLED_DEBUG
       DEBUG_PRINT(F("Matrix ledmap:"));
@@ -146,7 +145,7 @@ void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
-bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
+bool Segment::isPixelXYClipped(int x, int y) const {
   if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
@@ -186,7 +185,7 @@ bool IRAM_ATTR_YN Segment::isPixelXYClipped(int x, int y) const {
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) const
 {
   if (!isActive()) return; // not active
-  if (x >= (int)vWidth() || y >= (int)vHeight() || x < 0 || y < 0) return;  // if pixel would fall out of virtual segment just exit
+  if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return;  // if pixel would fall out of virtual segment just exit
   setPixelColorXYRaw(x, y, col);
 }
 
@@ -236,7 +235,7 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 // returns RGBW values of pixel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (!isActive()) return 0; // not active
-  if (x >= (int)vWidth() || y >= (int)vHeight() || x<0 || y<0) return 0;  // if pixel would fall out of virtual segment just exit
+  if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return 0;  // if pixel would fall out of virtual segment just exit
   return getPixelColorXYRaw(x,y);
 }
 
@@ -246,52 +245,42 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
   const unsigned cols = vWidth();
   const unsigned rows = vHeight();
   const auto XY = [&](unsigned x, unsigned y){ return x + y*cols; };
-  uint32_t lastnew; // not necessary to initialize lastnew and last, as both will be initialized by the first loop iteration
-  uint32_t last;
   if (blur_x) {
     const uint8_t keepx = smear ? 255 : 255 - blur_x;
     const uint8_t seepx = blur_x >> 1;
     for (unsigned row = 0; row < rows; row++) { // blur rows (x direction)
-      uint32_t carryover = BLACK;
-      uint32_t curnew = BLACK;
-      for (unsigned x = 0; x < cols; x++) {
-        uint32_t cur = getPixelColorRaw(XY(x, row));
-        uint32_t part = color_fade(cur, seepx);
-        curnew = color_fade(cur, keepx);
-        if (x > 0) {
-          if (carryover) curnew = color_add(curnew, carryover);
-          uint32_t prev = color_add(lastnew, part);
-          // optimization: only set pixel if color has changed
-          if (last != prev) setPixelColorRaw(XY(x - 1, row), prev);
-        } else setPixelColorRaw(XY(x, row), curnew); // first pixel
-        lastnew = curnew;
-        last = cur; // save original value for comparison on next iteration
+      // handle first pixel in row to avoid conditional in loop (faster)
+      uint32_t cur = getPixelColorRaw(XY(0, row));
+      uint32_t carryover = fast_color_scale(cur, seepx);
+      setPixelColorRaw(XY(0, row), fast_color_scale(cur, keepx));
+      for (unsigned x = 1; x < cols; x++) {
+         cur = getPixelColorRaw(XY(x, row));
+        uint32_t part = fast_color_scale(cur, seepx);
+        cur = fast_color_scale(cur, keepx);
+        cur = color_add(cur, carryover);
+        setPixelColorRaw(XY(x - 1, row), color_add(getPixelColorRaw(XY(x-1, row)), part)); // previous pixel
+        setPixelColorRaw(XY(x, row), cur); // current pixel
         carryover = part;
       }
-      setPixelColorRaw(XY(cols-1, row), curnew); // set last pixel
     }
   }
   if (blur_y) {
     const uint8_t keepy = smear ? 255 : 255 - blur_y;
     const uint8_t seepy = blur_y >> 1;
     for (unsigned col = 0; col < cols; col++) {
-      uint32_t carryover = BLACK;
-      uint32_t curnew = BLACK;
-      for (unsigned y = 0; y < rows; y++) {
-        uint32_t cur = getPixelColorRaw(XY(col, y));
-        uint32_t part = color_fade(cur, seepy);
-        curnew = color_fade(cur, keepy);
-        if (y > 0) {
-          if (carryover) curnew = color_add(curnew, carryover);
-          uint32_t prev = color_add(lastnew, part);
-          // optimization: only set pixel if color has changed
-          if (last != prev) setPixelColorRaw(XY(col, y - 1), prev);
-        } else setPixelColorRaw(XY(col, y), curnew); // first pixel
-        lastnew = curnew;
-        last = cur; //save original value for comparison on next iteration
+      // handle first pixel in column
+      uint32_t cur = getPixelColorRaw(XY(col, 0));
+      uint32_t carryover = fast_color_scale(cur, seepy);
+      setPixelColorRaw(XY(col, 0), fast_color_scale(cur, keepy));
+      for (unsigned y = 1; y < rows; y++) {
+        cur = getPixelColorRaw(XY(col, y));
+        uint32_t part = fast_color_scale(cur, seepy);
+        cur = fast_color_scale(cur, keepy);
+        cur = color_add(cur, carryover);
+        setPixelColorRaw(XY(col, y - 1), color_add(getPixelColorRaw(XY(col, y-1)), part)); // previous pixel
+        setPixelColorRaw(XY(col, y), cur); // current pixel
         carryover = part;
       }
-      setPixelColorRaw(XY(col, rows - 1), curnew);
     }
   }
 }

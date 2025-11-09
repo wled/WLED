@@ -5,6 +5,9 @@ on:
     paths:
       - usermods/**
       - .github/workflows/usermods.yml
+  pull_request:
+    paths:
+      - usermods/**
     
 jobs:
 

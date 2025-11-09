@@ -11,7 +11,8 @@
       function gId(e) {return d.getElementById(e);}
       function cE(e) {return d.createElement(e);}
     </script>
-    
+  	<script src="common.js" type="text/javascript"></script>
+
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -21,39 +22,39 @@
         margin: 0 10px;
         line-height: 0.5;
       }
-      #parent-container {
+      #pCont {
         position: relative;
         width: 100%;
         height: 20px;
       }
-      #bottomContainer {
+      #bCont {
         position: absolute;
         margin-top: 50px;
       }
-      #gradient-box {
+      #gBox {
         width: 100%;
         height: 100%;
       }
-      .color-marker, .color-picker-marker {
+      .cMark, .cPickMark {
         position: absolute;
         border-radius: 3px;
         background-color: rgb(192, 192, 192);
         border: 2px solid rgba(68, 68, 68, 0.5);
         z-index: 2;
       }
-      .color-marker {
+      .cMark {
         height: 30px;
         width: 7px;
         top: 50%;
         transform: translateY(-50%);
         touch-action: none;
       }
-      .color-picker-marker {
+      .cPickMark {
         height: 7px;
         width: 7px;
         top: 150%;
       }
-      .delete-marker {
+      .dMark {
         position: absolute;
         height: 5px;
         width: 5px;
@@ -63,7 +64,7 @@
         top: 220%;
         z-index: 2;
       }
-      .color-picker {
+      .cPick {
         position: absolute;
         height: 1px;
         width: 1px;
@@ -73,21 +74,20 @@
         border-color: #111;
         background-color: #111;
       }
-      .buttonclass {
+      .btnCls {
         padding: 0;
         margin: 0;
         vertical-align: bottom;
         background-color: #111;
       }
-      #bottomContainer span {
+      #bCont span {
         display: inline-flex;
         align-items: center;
-        color: #fff; 
+        color: #fff;
         font-size: 12px;
         vertical-align: middle;
       }
       #info {
-        display: "";
         text-align: center;
         color: #fff; 
         font-size: 12px;
@@ -104,119 +104,76 @@
           width: 800px;
         }
       }
-      .palette {
-        height: 20px;
-      }
-      .paletteGradients {
-        flex: 1;
-        height: 20px;
-        border-radius: 3px;
-      }
-      .palettesMain {
-        margin-top: 50px;
-        width: 100%;
-      }
-      .palTop {
-        height: fit-content;
-        text-align: center;
-        color: #fff; 
-        font-size: 12px;
-        position: relative;
-        line-height: 1;
-      }
-      .palGradientParent {
-        display: flex;
-        align-items: center; 
-        height: fit-content;
-        margin-top: 10px;
-        text-align: center;
-        color: #fff; 
-        font-size: 12px;
-        position: relative;
-        line-height: 1;
-      }
-      .buttonsDiv {
-        display: inline-flex;
-        margin-left: 5px;
-        width: 50px;
-      }
-      .sendSpan, .editSpan{
-        cursor: pointer;
-      }
-      h1 {
-        font-size: 1.6rem;
-      }
+      .pal {height: 20px;}
+      .pGrads {flex: 1; height: 20px; border-radius: 3px;}
+      .pMain {margin-top: 50px; width: 100%;}
+      .pTop {height: fit-content; text-align: center; color: #fff; font-size: 14px; line-height: 1;}
+      .pGradPar {display: flex; align-items: center; height: fit-content; margin-top: 10px; text-align: center; color: #fff; font-size: 12px; line-height: 1;}
+      .btnsDiv {display: inline-flex; margin-left: 5px; width: 50px;}
+      .sSpan, .eSpan {cursor: pointer;}
+      h1 {font-size: 1.6rem;}
     </style>
   </head>
 <body>
 <div id="wrap" class="wrap">
   <div style="display: flex; justify-content: center;">
     <h1 style="display: flex; align-items: center;">
-      <svg style="width:36px;height:36px;margin-right:6px;" viewBox="0 0 32 32">
-        <rect style="fill:#003FFF" x="6" y="22" width="8" height="4"/>
-        <rect style="fill:#003FFF" x="14" y="14" width="4" height="8"/>
-        <rect style="fill:#003FFF" x="18" y="10" width="4" height="8"/>
-        <rect style="fill:#003FFF" x="22" y="6" width="8" height="4"/>
+      <svg style="width: 36px; height: 36px; margin-right: 6px;" viewBox="0 0 32 32">
+        <rect style="fill: #03F" x="6" y="22" width="8" height="4"/>
+        <rect style="fill: #03F" x="14" y="14" width="4" height="8"/>
+        <rect style="fill: #03F" x="18" y="10" width="4" height="8"/>
+        <rect style="fill: #03F" x="22" y="6" width="8" height="4"/>
       </svg>
-      <span id="head">WLED Custom Palette Editor</span>
+      <span id="head">WLED Palette Editor</span>
     </h1>
   </div>
 
-  <div id="parent-container">
-    <div id="gradient-box"></div>
-  </div>
+  <div id="pCont"><div id="gBox"></div></div>
   <div style="display: flex; justify-content: center;">
-    <div id="palettes" class="palettesMain">
-      <div id="distDiv" class="palTop"></div>
-      <div id="palTop" class="palTop">
-        Currently in use custom palettes
-      </div>
+    <div id="pals" class="pMain">
+      <div id="distDiv" class="pTop"></div>
+      <div id="memWarn" class="pTop" style="display:none; color:#ff6600; margin-bottom:8px; font-size:16px;">
+        Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup" style="color:#ff9900">backups</a> before proceeding.</div>
+      <div id="pTop" class="pTop">Custom palettes</div>
     </div>
   </div>
 
   <div style="display: flex; justify-content: center;">
-    <div id="info">
-      Click on the gradient editor to add new color slider, then the colored box below the slider to change its color. 
-      Click the red box below indicator (and confirm) to delete. 
-      Once finished, click the arrow icon to upload into the desired slot. 
-      To edit existing palette, click the pencil icon.
-    </div>
+    <div id="info">Click gradient to add. Box = color. Red = delete. Arrow = upload. Pencil = edit.</div>
   </div>
   <div style="display: flex; justify-content: center;">
-    <div id="staticPalettes" class="palettesMain">
-        <div id="statpalTop" class="palTop">
-          Available static palettes
-        </div>
+    <div id="sPals" class="pMain">
+        <div id="spTop" class="pTop">Static palettes</div>
     </div>
   </div>
-
 </body>
 
 <script type="text/javascript">
-  //global variables
-  var gradientBox = gId('gradient-box');
-  var cpalc = -1;
-  var pxCol = {};
-  var tCol = {};
-  var rect = gradientBox.getBoundingClientRect();
-  var gradientLength = rect.width;
-  var mOffs = Math.round((gradientLength / 256) / 2) - 5;
-  var paletteArray = []; //Holds the palettes after load.
-  var paletteName = []; // Holds the names of the palettes after load.
+  // global vars
+  var gBox = gId('gBox');     // gradientBox
+  var cpalc = -1, cpalm = 10; // current palette count, max custom
+  var pxCol = {};             // pixel color map
+  var tCol = {};              // true color map
+  var rect = gBox.getBoundingClientRect(); // bounding rect of gBox
+  var gLen = rect.width;      // gradientLength
+  var mOffs = Math.round((gLen / 256) / 2) - 5; // marker offset
+  var palArr = [];            // paletteArray
+  var palNm = [];             // paletteName
+
   var svgSave = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12M7,12L12,17V14H16V10H12V7L7,12Z"/></svg>'
   var svgEdit = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M15.1,7.07C15.24,7.07 15.38,7.12 15.5,7.23L16.77,8.5C17,8.72 17,9.07 16.77,9.28L15.77,10.28L13.72,8.23L14.72,7.23C14.82,7.12 14.96,7.07 15.1,7.07M13.13,8.81L15.19,10.87L9.13,16.93H7.07V14.87L13.13,8.81Z"/></svg>'
   var svgDist = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M4 22H2V2H4V22M22 2H20V22H22V2M13.5 7H10.5V17H13.5V7Z"/></svg>'
   var svgTrash = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="30px" height="30px"><path style="fill:#880000; stroke: #888888; stroke-width: -2px;stroke-dasharray: 0.1, 8;" d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>'
 
   const distDiv = gId("distDiv");
-  distDiv.addEventListener('click', distribute);
-  distDiv.setAttribute('title', 'Distribute colors equally');
+  distDiv.addEventListener('click', distrib);
+  distDiv.setAttribute('title', 'Distribute equally');
   distDiv.innerHTML = svgDist;
 
   function recOf() {
-    rect = gradientBox.getBoundingClientRect();
-    gradientLength = rect.width;
-    mOffs = Math.round((gradientLength / 256) / 2) - 5;
+    rect = gBox.getBoundingClientRect();
+    gLen = rect.width;
+    mOffs = Math.round((gLen / 256) / 2) - 5;
   }
 
   //Initiation
@@ -224,277 +181,220 @@
   window.addEventListener('load', chkW);
   window.addEventListener('resize', chkW);
 
-  gradientBox.addEventListener("click", clikOnGradient);
-  
+  gBox.addEventListener("click", clikGrad);
+
   //Sets start and stop, mandatory
   addC(0);
   addC(255);
 
-  updateGradient(); //Sets the gradient at startup
+  updGrad(); // updateGradient at startup
 
-  function clikOnGradient(e) {
-    removeTrashcan(e);
-    addC(Math.round((e.offsetX/gradientLength)*256));
+  function clikGrad(e) { // clickOnGradient
+    rmTrash(e); // removeTrashcan
+    addC(Math.round((e.offsetX/gLen)*256));
   }
 
-  ///////// Add a new colorMarker
-  function addC(truePos, thisColor = '') {
-    let position = -1;
-    let iExist = false;
-    const colorMarkers = gradientBox.querySelectorAll('.color-marker');
+  ///////// Add a new color marker
+  function addC(tPos, thisCol = '') {
+    let pos = -1;
+    let exist = false;
+    const cMarks = gBox.querySelectorAll('.cMark'); // color markers
 
-    colorMarkers.forEach((colorMarker, i) => {
-      if (colorMarker.getAttribute("data-truepos") == truePos) {
-        iExist = true;
-      } 
+    cMarks.forEach((cm) => {
+      if (cm.getAttribute("data-tpos") == tPos) exist = true;
     });
 
-    if (colorMarkers.length > 17) iExist = true;
-    if (iExist) return; // Exit the function early if iExist is true
-    
-    if (truePos > 0 && truePos < 255) {
-      //calculate first available > 0
-      for (var i = 1; i <= 16 && position < 1; i++) {
-        if (!gId("colorMarker"+i)) {
-          position = i;
-        }
+    if (cMarks.length > 17) exist = true;
+    if (exist) return;
+
+    if (tPos > 0 && tPos < 255) {
+      for (var i=1; i<=16 && pos<1; i++) {
+        if (!gId("cMark"+i)) pos = i;
       }
-    } else{
-      position = truePos;
+    } else {
+      pos = tPos;
     }
-    if (thisColor == ''){
-      thisColor = `#${(Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0')}`;// set random color as default
-    }
-      
-    const colorMarker = cE('span'); // create a marker for the color position
-    colorMarker.className = 'color-marker';
-    colorMarker.id = 'colorMarker' + position.toString();
-    colorMarker.setAttribute("data-truepos", truePos); //Used to always have a true position no matter what screen or percentage we use
-    colorMarker.setAttribute("data-truecol", thisColor); //Used to hold the color of the position in the gradient connected to a true position
-    colorMarker.setAttribute("data-offset", mOffs);
-    colorMarker.addEventListener('click', stopFurtherProp); //Added to prevent the gradient click to fire when covered by a marker
-    colorMarker.style.left = `${Math.round((gradientLength / 256) * truePos)+mOffs}px`;
-    
-    const colorPicker = cE('input');
-    colorPicker.type = 'color';
-    colorPicker.value = thisColor;
-    colorPicker.className = 'color-picker';
-    colorPicker.id = 'colorPicker' + position.toString();
-    colorPicker.addEventListener('input', updateGradient);
-    colorPicker.addEventListener('click',cpClk)
-
-    const colorPickerMarker = cE('span'); // create a marker for the color position
-    colorPickerMarker.className = 'color-picker-marker';
-    colorPickerMarker.id = 'colorPickerMarker' + position.toString();
-    colorPickerMarker.addEventListener('click', colClk);
-    colorPickerMarker.style.left = colorMarker.style.left;
-    colorPicker.style.left = colorMarker.style.left;
-    
-    const deleteMarker = cE('span'); // create a delete marker for the color position
-    if (position > 0 && position < 255) {
-      deleteMarker.className = 'delete-marker';
-      deleteMarker.id = 'deleteMarker' + position.toString();
-      deleteMarker.addEventListener('click', (e) => {
-        deleteColor(e);
-      });
-      deleteMarker.style.left = colorMarker.style.left
+    if (thisCol == '') {
+      thisCol = `#${(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0')}`;
     }
 
-    colorMarker.style.backgroundColor = colorPicker.value; // set marker color to match color picker
-    colorPickerMarker.style.backgroundColor = colorPicker.value;
+    const cMark = cE('span'); // color marker
+    cMark.className = 'cMark';
+    cMark.id = 'cMark' + pos;
+    cMark.setAttribute("data-tpos", tPos);
+    cMark.setAttribute("data-tcol", thisCol);
+    cMark.setAttribute("data-offset", mOffs);
+    cMark.addEventListener('click', stopProp);
+    cMark.style.left = `${Math.round((gLen/256)*tPos)+mOffs}px`;
 
-    gradientBox.appendChild(colorPicker); 
-    gradientBox.appendChild(colorMarker);
-    gradientBox.appendChild(colorPickerMarker); 
-    if (position != 0 && position != 255) gradientBox.appendChild(deleteMarker); // append the marker if not start or end
-    //make markers slidable IF they are not the first or last slider
-    if (position > 0 && position < 255) makeMeDrag(gId(colorMarker.id));
+    const cPick = cE('input'); // colorPicker
+    cPick.type = 'color';
+    cPick.value = thisCol;
+    cPick.className = 'cPick';
+    cPick.id = 'cPick' + pos;
+    cPick.addEventListener('input', updGrad);
+    cPick.addEventListener('click', cpClk);
 
-    setTooltipMarker(gId(colorMarker.id));
+    const cPM = cE('span'); // colorPickerMarker
+    cPM.className = 'cPickMark';
+    cPM.id = 'cPM' + pos;
+    cPM.addEventListener('click', colClk);
+    cPM.style.left = cMark.style.left;
+    cPick.style.left = cMark.style.left;
 
-    updateGradient();
+    if (pos > 0 && pos < 255) {
+      const dMark = cE('span'); // deleteMarker
+      dMark.className = 'dMark';
+      dMark.id = 'dMark' + pos;
+      dMark.addEventListener('click', (e) => { delCol(e); });
+      dMark.style.left = cMark.style.left;
+      gBox.appendChild(dMark);
+    }
+
+    cMark.style.backgroundColor = cPick.value;
+    cPM.style.backgroundColor = cPick.value;
+
+    gBox.appendChild(cPick);
+    gBox.appendChild(cMark);
+    gBox.appendChild(cPM);
+    if (pos > 0 && pos < 255) mkDrag(gId(cMark.id)); // makeMeDrag
+
+    setTip(gId(cMark.id)); // setTooltipMarker
+    updGrad();
   }
 
   ///////// Update Gradient
-  function updateGradient() {
-    const colorMarkers = gradientBox.querySelectorAll('.color-marker');
+  function updGrad() { // updateGradient
+    const cMarks = gBox.querySelectorAll('.cMark');
     pxCol = {};
-    tCol = {}
-    colorMarkers.forEach((colorMarker, index) => {
-      const thisColorPicker = gId(colorMarkers[index].id.replace('colorMarker', 'colorPicker'));
-      const colorToSet = thisColorPicker.value;
-      gId(colorMarkers[index].id.replace('colorMarker', 'colorPickerMarker')).style.backgroundColor = colorToSet;
-      colorMarkers[index].style.backgroundColor = colorToSet;
-      colorMarkers[index].setAttribute("data-truecol", colorToSet);
-      const tPos = colorMarkers[index].getAttribute("data-truepos");
-      const gradientPos = Math.round((gradientLength / 256)*tPos);
-      pxCol[gradientPos] = colorToSet;
-      tCol[tPos] = colorToSet;
+    tCol = {};
+    cMarks.forEach((cm) => {
+      const cp = gId(cm.id.replace('cMark','cPick'));
+      const col = cp.value;
+      gId(cm.id.replace('cMark','cPM')).style.backgroundColor = col;
+      cm.style.backgroundColor = col;
+      cm.setAttribute("data-tcol", col);
+      const tPos = cm.getAttribute("data-tpos");
+      const gPos = Math.round((gLen/256)*tPos);
+      pxCol[gPos] = col;
+      tCol[tPos] = col;
     });
-    gradientString = 'linear-gradient(to right';
-    Object.entries(pxCol).forEach(([p, c]) => {
-      gradientString += `, ${c} ${p}px`;
+    let gStr = 'linear-gradient(to right';
+    Object.entries(pxCol).forEach(([p,c]) => {
+      gStr += `, ${c} ${p}px`;
     });
-    gradientString += ')';
-    gradientBox.style.background = gradientString;
-    //gId("jsonstring").innerHTML = calcJSON();
+    gStr += ')';
+    gBox.style.background = gStr;
   }
 
-  function stopFurtherProp(e) {
-    e.stopPropagation();
-  }
+  function stopProp(e) { e.stopPropagation(); }
 
-  function colClk(e){
-    removeTrashcan(e)
+  function colClk(e) {
+    rmTrash(e);
     e.stopPropagation();
-    let cp = gId(e.srcElement.id.replace("Marker",""));
+    const src = e.target || e.srcElement;
+    let cp = gId(src.id.replace("cPM","cPick"));
     cp.click();
   }
 
   function cpClk(e) {
-    removeTrashcan(event)
+    rmTrash(e);
     e.stopPropagation();
   }
 
-  //This neat little function makes any element draggable on the X-axis.
-  //Just call: makeMeDrag(myElement); And you are good to go.
-  function makeMeDrag(elmnt) {
-    var posNew = 0, mousePos = 0, mouseOffset = 0
-    
-    //Set these to whatever you want to limit your movement to
-    var rect = gradientBox.getBoundingClientRect();
-    var maxX = rect.right; // maximum X coordinate
-    var minX = rect.left; // minimum X coordinate i.e. also offset from left of screen
-    var gradientLength = maxX - minX + 1;
+  // make element draggable
+  function mkDrag(el) { // makeMeDrag
+    var posNew=0, mPos=0;
+    var rect=gBox.getBoundingClientRect();
+    var maxX=rect.right, minX=rect.left, gLen=maxX-minX+1;
 
-    elmnt.onmousedown = dragMouseDown;
-    elmnt.ontouchstart = dragMouseDown;
+    el.onmousedown=dragStart;
+    el.ontouchstart=dragStart;
 
-    function dragMouseDown(e) {
-      removeTrashcan(event)
-      e = e || window.event;
-      var isTouch = e.type.startsWith('touch');
-      if (!isTouch) e.preventDefault();
-      // get the mouse cursor position at startup:
-      mousePos = isTouch ? e.touches[0].clientX : e.clientX;
-      d.onmouseup = closeDragElement;
-      d.ontouchcancel = closeDragElement;
-      d.ontouchend = closeDragElement;
-      // call a function whenever the cursor moves:
-      d.onmousemove = elementDrag;
-      d.ontouchmove = elementDrag;
+    function dragStart(e) {
+      rmTrash(e);
+      var isT=e.type.startsWith('touch');
+      if (!isT) e.preventDefault();
+      mPos=isT?e.touches[0].clientX:e.clientX;
+      d.onmouseup=dragEnd; d.ontouchend=dragEnd; d.ontouchcancel=dragEnd;
+      d.onmousemove=dragMove; d.ontouchmove=dragMove;
     }
 
-    function elementDrag(e) {
-      e = e || window.event;
-      var isTouch = e.type.startsWith('touch');
-      if (!isTouch) e.preventDefault();
-      // calculate the new cursor position:
-      var clientX = isTouch ? e.touches[0].clientX : e.clientX;
-      posNew = mousePos - clientX;
-      mousePos = clientX;
-      mousePosInGradient = mousePos - (minX + 1)
-      
-      truePos = Math.round((mousePosInGradient/gradientLength)*256);
-      oldTruePos = elmnt.getAttribute("data-truepos");
-      // set the element's new position if new position within min/max limits:
-      if (truePos > 0 && truePos < 255 && oldTruePos != truePos) {
-        if (truePos < 64) {
-          thisOffset = 0;
-        } else if (truePos > 192) {
-          thisOffset = 7;
-        } else {
-          thisOffset=3;
-        }
-        elmnt.style.left = (Math.round((gradientLength/256)*truePos)+mOffs) + "px";
-        gId(elmnt.id.replace('colorMarker', 'colorPickerMarker')).style.left = elmnt.style.left;
-        gId(elmnt.id.replace('colorMarker', 'deleteMarker')).style.left = elmnt.style.left;
-        gId(elmnt.id.replace('colorMarker', 'colorPicker')).style.left = elmnt.style.left;
-        elmnt.setAttribute("data-truepos", truePos);
-        setTooltipMarker(elmnt);
-        updateGradient();
+    function dragMove(e) {
+      var isT=e.type.startsWith('touch');
+      if (!isT) e.preventDefault();
+      var cX=isT?e.touches[0].clientX:e.clientX;
+      posNew=mPos-cX; mPos=cX;
+      var mInG=mPos-(minX+1);
+      var tPos=Math.round((mInG/gLen)*256);
+      var old=el.getAttribute("data-tpos");
+      if (tPos>0 && tPos<255 && old!=tPos) {
+        el.style.left=(Math.round((gLen/256)*tPos)+mOffs)+"px";
+        gId(el.id.replace('cMark','cPM')).style.left=el.style.left;
+        gId(el.id.replace('cMark','dMark')).style.left=el.style.left;
+        gId(el.id.replace('cMark','cPick')).style.left=el.style.left;
+        el.setAttribute("data-tpos",tPos);
+        setTip(el);
+        updGrad();
       }
     }
 
-    function closeDragElement() {
-      /* stop moving when mouse button is released:*/
-      d.onmouseup = null;
-      d.ontouchcancel = null;
-      d.ontouchend = null;
-      d.onmousemove = null;
-      d.ontouchmove = null;
+    function dragEnd() {
+      d.onmouseup=null; d.ontouchend=null; d.ontouchcancel=null;
+      d.onmousemove=null; d.ontouchmove=null;
     }
   }
 
-  function setTooltipMarker(elmnt) {
-    elmnt.setAttribute('title', `${elmnt.getAttribute("data-truepos")} : ${elmnt.getAttribute("data-truecol")}`)
+  function setTip(el) { // setTooltipMarker
+    el.setAttribute('title', `${el.getAttribute("data-tpos")} : ${el.getAttribute("data-tcol")}`);
   }
 
-  function deleteColor(e) {
-    var trash = cE("div");
-    thisDeleteMarker = e.srcElement;
-    thisColorMarker = gId(thisDeleteMarker.id.replace("delete", "color"));
-    thisColorPickerMarker = gId(thisDeleteMarker.id.replace("delete", "colorPicker"));
-    thisColorPicker = gId(thisDeleteMarker.id.replace("deleteMarker", "colorPicker"));
-    renderOffsetX = 15 - 5;
-    renderX = e.srcElement.getBoundingClientRect().x - renderOffsetX;
-    renderY = e.srcElement.getBoundingClientRect().y + 13;
-    
-    trash.id = "trash";
-    trash.innerHTML = svgTrash;
-    trash.style.position = "absolute";
-    trash.style.left = (renderX) + "px";
-    trash.style.top = (renderY) + "px";
+  function delCol(e) { // deleteColor
+    var trash=cE("div");
+    var dM=e.target || e.srcElement;
+    var cM=gId(dM.id.replace("d","c"));
+    var cPM=gId(dM.id.replace("dMark","cPM"));
+    var cP=gId(dM.id.replace("dMark","cPick"));
+    var rX=dM.getBoundingClientRect().x-10;
+    var rY=dM.getBoundingClientRect().y+13;
+
+    trash.id="trash";
+    trash.innerHTML=svgTrash;
+    trash.style.position="absolute";
+    trash.style.left=rX+"px";
+    trash.style.top=rY+"px";
     d.body.appendChild(trash);
-    
-    trash.addEventListener("click", (e)=>{
-      trash.parentNode.removeChild(trash);
-      thisDeleteMarker.parentNode.removeChild(thisDeleteMarker);
-      thisColorPickerMarker.parentNode.removeChild(thisColorPickerMarker);
-      thisColorMarker.parentNode.removeChild(thisColorMarker);
-      thisColorPicker.parentNode.removeChild(thisColorPicker);
-      updateGradient();
+
+    trash.addEventListener("click",()=>{
+      trash.remove(); cM.remove(); cPM.remove(); cP.remove(); dM.remove();
+      updGrad();
     });
     e.stopPropagation();
-    // Add event listener to close the trashcan on outside click
-    d.addEventListener("click", removeTrashcan);
-    e.stopPropagation();
+    d.addEventListener("click", rmTrash);
   }
 
-  function removeTrashcan(event) {
-    trash = gId("trash");
-    if (event.target != trash && trash) {
-      trash.parentNode.removeChild(trash);
-      d.removeEventListener("click", removeTrashcan);
-    }
+  function rmTrash(e) { // removeTrashcan
+    var t=gId("trash");
+    if (t && e.target!=t) { t.remove(); d.removeEventListener("click", rmTrash);} 
   }
 
   function chkW() {
-    //Possibly add more code that recalculates the gradient... Massive job ;)
-    const wrap = gId('wrap');
-    const head = gId('head');
-    if (wrap.offsetWidth < 600) {
-      head.style.display = 'none';
-    } else {
-      head.style.display = 'inline';
-    }
+    const wrap=gId('wrap'); const head=gId('head');
+    head.style.display=(wrap.offsetWidth<600)?'none':'inline';
   }
 
   function calcJSON() {
-    let rStr = '{"palette":['
-    Object.entries(tCol).forEach(([p, c]) => {
-      if (p > 0) rStr += ',';
-      rStr += `${p},"${c.slice(1)}"`; // store in hex notation
-      //rStr += `${p},${parseInt(c.slice(1, 3), 16)},${parseInt(c.slice(3, 5), 16)},${parseInt(c.slice(5, 7), 16)}`;
+    let rStr='{"palette":[';
+    Object.entries(tCol).forEach(([p,c],i)=>{
+      if (i>0) rStr+=',';
+      rStr+=`${p},"${c.slice(1)}"`;
     });
-    rStr += ']}';
+    rStr+=']}';
     return rStr;
   }
 
-  function initiateUpload(idx) {
-    const data = calcJSON();
-    const fileName = `/palette${idx}.json`;
-    uploadJSON(data, fileName);
+  function initUpload(i) {
+    uploadJSON(calcJSON(), `/palette${i}.json`);
   }
 
   function uploadJSON(jsonString, fileName) {
@@ -525,41 +425,38 @@
   }
 
   async function getInfo() {
-    hst = location.host;
-    if (hst.length > 0 ) {
-      try {
-        var arr = [];
-        const responseInfo = await fetch('http://'+hst+'/json/info');
-        const responsePalettes = await fetch('http://'+hst+'/json/palettes');
-        const json = await responseInfo.json();
-        paletteName = await responsePalettes.json();
-        cpalc = json.cpalcount;
-        fetchPalettes(cpalc-1);
-      } catch (error) {
-        console.error(error);
-      }
-    } else {
-      console.error('cannot identify host');
+		getLoc();
+    try {
+      var arr = [];
+      const resInfo = await fetch(getURL('/json/info')); // fetch info (includes cpalcount and cpalmax)
+      const resPals = await fetch(getURL('/json/pal'));  // fetch palette names
+      const json = await resInfo.json();
+      palNm = await resPals.json();
+      cpalc = json.cpalcount;
+      cpalm = json.cpalmax;
+      fetchPals(cpalc-1);
+    } catch (error) {
+      console.error(error);
     }
   }
 
-  async function fetchPalettes(lastPal) {
-    paletteArray.length = 0;
+  async function fetchPals(lastPal) {
+    palArr.length = 0;
     for (let i = 0; i <= lastPal; i++) {
-      const url = `http://${hst}/palette${i}.json`;
+      const url = getURL(`/palette${i}.json`);
       try {
         const response = await fetch(url);
         const json = await response.json();
-        paletteArray.push(json);
+        palArr.push(json);
       } catch (error) {
         cpalc--; //remove audio/dynamically generated palettes
         console.error(`Error fetching JSON from ${url}: `, error);
       }
     }
     //If there is room for more custom palettes, add an empty, gray slot
-    if (paletteArray.length < 10) {
+    if (palArr.length < cpalm) {
       //Room for one more :)
-      paletteArray.push({"palette":[0,70,70,70,255,70,70,70]});
+      palArr.push({"palette":[0,70,70,70,255,70,70,70]});
     }
 
     //Get static palettes from localStorage and do some magic to reformat them into the same format as the palette JSONs
@@ -569,12 +466,12 @@
 
     const wledPalx = JSON.parse(localStorage.getItem('wledPalx'));
     if (!wledPalx) {
-      alert("The cache of palettes are missig from your browser. You should probably return to the main page and let it load properly for the palettes cache to regenerate before returning here.","Missing cached palettes!")
+      alert("Palette cache missing from browser. Return to main page first.","Missing cache!")
     } else {
       for (const key in wledPalx.p) {
-        wledPalx.p[key].name = paletteName[key];
-        if (key > 245) {
-          delete wledPalx.p[key];
+        wledPalx.p[key].name = palNm[key];
+        if (key > 255-cpalm) {
+          delete wledPalx.p[key]; // remove custom palettes
           continue;
         }
         const arr = wledPalx.p[key];
@@ -610,130 +507,133 @@
       // Sort pArray by name
       pArray.sort((a, b) => a.name.localeCompare(b.name));
 
-      paletteArray.push( ...pArray);
+      palArr.push( ...pArray);
     }
-    generatePaletteDivs();
+    genPalDivs();
   }
 
-  function generatePaletteDivs() {
-    const palettesDiv = gId("palettes");
-    const staticPalettesDiv = gId("staticPalettes");
-    const paletteDivs = Array.from(palettesDiv.children).filter((child) => {
-      return child.id.match(/^palette\d$/); // match only elements with id starting with "palette" followed by a single digit
+  function genPalDivs() {
+    const palsDiv = gId("pals");
+    const sPalsDiv = gId("sPals");
+    const memWarn = gId("memWarn");
+    const palDivs = Array.from(palsDiv.children).filter((child) => {
+      return /^pal\d+$/.test(child.id); // match ids "pal" followed by one or more digits
     });
 
-    for (const div of paletteDivs) {
-      palettesDiv.removeChild(div); // remove each div that matches the above selector
+    for (const div of palDivs) {
+      palsDiv.removeChild(div); // remove each div that matches the above selector
     }
 
-    for (let i = 0; i < paletteArray.length; i++) {
-      const palette = paletteArray[i];
-      const paletteDiv = cE("div");
-      paletteDiv.id = `palette${i}`;
-      paletteDiv.classList.add("palette");
-      const thisKey = Object.keys(palette)[0];
-      paletteDiv.dataset.colarray = JSON.stringify(palette[thisKey]);
+    memWarn.style.display = (cpalc >= 10) ? 'block' : 'none'; // Show/hide memory warning based on custom palette count
 
-      const gradientDiv = cE("div");
-      gradientDiv.id = `paletteGradient${i}`
-      const buttonsDiv = cE("div");
-      buttonsDiv.id = `buttonsDiv${i}`;
-      buttonsDiv.classList.add("buttonsDiv")
+    for (let i = 0; i < palArr.length; i++) {
+      const pal = palArr[i];
+      const palDiv = cE("div");
+      palDiv.id = `pal${i}`;
+      palDiv.classList.add("pal");
+      const thisKey = Object.keys(pal)[0];
+      palDiv.dataset.colarray = JSON.stringify(pal[thisKey]);
 
-      const sendSpan = cE("span");
-      sendSpan.id = `sendSpan${i}`;
-      sendSpan.onclick = function() {initiateUpload(i)};
-      sendSpan.setAttribute('title', `Send current editor to slot ${i}`); // perhaps Save instead of Send?
-      sendSpan.innerHTML = svgSave;
-      sendSpan.classList.add("sendSpan")
-      const editSpan = cE("span");
-      editSpan.id = `editSpan${i}`;
-      editSpan.onclick = function() {loadForEdit(i)};
-      editSpan.setAttribute('title', `Copy slot ${i} palette to editor`);
-      if (paletteArray[i].name) {
-        editSpan.setAttribute('title', `Copy ${paletteArray[i].name} palette to editor`);
+      const gradDiv = cE("div");
+      gradDiv.id = `pGrad${i}`
+      const btnsDiv = cE("div");
+      btnsDiv.id = `btns${i}`;
+      btnsDiv.classList.add("btnsDiv")
+
+      const sSpan = cE("span");
+      sSpan.id = `s${i}`;
+      sSpan.onclick = function() {initUpload(i)};
+      sSpan.setAttribute('title', `Send current editor to slot ${i}`); // perhaps Save instead of Send?
+      sSpan.innerHTML = svgSave;
+      sSpan.classList.add("sSpan")
+      const eSpan = cE("span");
+      eSpan.id = `e${i}`;
+      eSpan.onclick = function() {loadEdit(i)};
+      eSpan.setAttribute('title', `Copy slot ${i} to editor`);
+      if (palArr[i].name) {
+        eSpan.setAttribute('title', `Copy ${palArr[i].name} to editor`);
       }
-      editSpan.innerHTML = svgEdit;
-      editSpan.classList.add("editSpan")
+      eSpan.innerHTML = svgEdit;
+      eSpan.classList.add("eSpan")
 
-      gradientDiv.classList.add("paletteGradients");
-      let gradientColors = "";
+      gradDiv.classList.add("pGrads");
+      let gCols = "";
 
-      for (let j = 0; j < palette[thisKey].length; j += 2) {
-        const position = palette[thisKey][j];
-        if (typeof(palette[thisKey][j+1]) === "string") {
-          gradientColors += `#${palette[thisKey][j+1]} ${position/255*100}%, `;
+      for (let j = 0; j < pal[thisKey].length; j += 2) {
+        const pos = pal[thisKey][j];
+        if (typeof(pal[thisKey][j+1]) === "string") {
+          gCols += `#${pal[thisKey][j+1]} ${pos/255*100}%, `;
         } else {
-          const red = palette[thisKey][j + 1];
-          const green = palette[thisKey][j + 2];
-          const blue = palette[thisKey][j + 3];
-          gradientColors += `rgba(${red}, ${green}, ${blue}, 1) ${position/255*100}%, `;
+          const r = pal[thisKey][j + 1];
+          const g = pal[thisKey][j + 2];
+          const b = pal[thisKey][j + 3];
+          gCols += `rgba(${r}, ${g}, ${b}, 1) ${pos/255*100}%, `;
           j += 2;
         }
       }
 
-      gradientColors = gradientColors.slice(0, -2); // remove the last comma and space
-      gradientDiv.style.backgroundImage = `linear-gradient(to right, ${gradientColors})`;
-      paletteDiv.className = "palGradientParent";
+      gCols = gCols.slice(0, -2); // remove the last comma and space
+      gradDiv.style.backgroundImage = `linear-gradient(to right, ${gCols})`;
+      palDiv.className = "pGradPar";
       if (thisKey == "palette") {
-        buttonsDiv.appendChild(sendSpan); //Only offer to send to custom palettes
+        btnsDiv.appendChild(sSpan); //Only offer to send to custom palettes
       } else{
-        editSpan.style.marginLeft = "25px";
+        eSpan.style.marginLeft = "25px";
       }
       if (i!=cpalc) {
-        buttonsDiv.appendChild(editSpan); //Dont offer to edit the empty spot
+        btnsDiv.appendChild(eSpan); //Dont offer to edit the empty spot
       }
-      paletteDiv.appendChild(gradientDiv);
-      paletteDiv.appendChild(buttonsDiv);
+      palDiv.appendChild(gradDiv);
+      palDiv.appendChild(btnsDiv);
       if (thisKey == "palette") {
-        palettesDiv.appendChild(paletteDiv);
+        palsDiv.appendChild(palDiv);
       } else {
-        staticPalettesDiv.appendChild(paletteDiv);
+        sPalsDiv.appendChild(palDiv);
       }
     }
   }
 
-  function loadForEdit(i) {
-    d.querySelectorAll('input[id^="colorPicker"]').forEach((input) => {
+  function loadEdit(i) {
+    d.querySelectorAll('input[id^="cPick"]').forEach((input) => {
       input.parentNode.removeChild(input);
     });
-    d.querySelectorAll('span[id^="colorMarker"], span[id^="colorPickerMarker"], span[id^="deleteMarker"]').forEach((span) => {
+    d.querySelectorAll('span[id^="cMark"], span[id^="cPM"], span[id^="dMark"]').forEach((span) => {
       span.parentNode.removeChild(span);
     });
-    
-    let colArray = JSON.parse(gId(`palette${i}`).getAttribute("data-colarray"));
-    
-    for (let j = 0; j < colArray.length; j += 2) {
-      const position = colArray[j];
+
+    let colArr = JSON.parse(gId(`pal${i}`).getAttribute("data-colarray"));
+
+    for (let j = 0; j < colArr.length; j += 2) {
+      const pos = colArr[j];
       let hex;
-      if (typeof(colArray[j+1]) === "string") {
-        hex = `#${colArray[j+1]}`;
+      if (typeof(colArr[j+1]) === "string") {
+        hex = `#${colArr[j+1]}`;
       } else {
-        const red = colArray[j + 1];
-        const green = colArray[j + 2];
-        const blue = colArray[j + 3];
-        hex = rgbToHex(red, green, blue);
+        const r = colArr[j + 1];
+        const g = colArr[j + 2];
+        const b = colArr[j + 3];
+        hex = rgbToHex(r, g, b);
         j += 2;
       }
-      addC(position, hex);
+      addC(pos, hex);
       window.scroll(0, 0);
     }
   }
 
-  function distribute() {
-    let colorMarkers = [...gradientBox.querySelectorAll('.color-marker')];
-    colorMarkers.sort((a, b) => a.getAttribute('data-truepos') - b.getAttribute('data-truepos'));
-    colorMarkers = colorMarkers.slice(1, -1);
-    const spacing = Math.round(256 / (colorMarkers.length + 1));
+  function distrib() {
+    let cMarks = [...gBox.querySelectorAll('.cMark')];
+    cMarks.sort((a, b) => a.getAttribute('data-tpos') - b.getAttribute('data-tpos'));
+    cMarks = cMarks.slice(1, -1);
+    const spacing = Math.round(256 / (cMarks.length + 1));
 
-    colorMarkers.forEach((e, i) => {
-      const markerId = e.id.match(/\d+/)[0];
-      const trueCol = e.getAttribute("data-truecol");
-      gradientBox.removeChild(e);
-      gradientBox.removeChild(gId(`colorPicker${markerId}`));
-      gradientBox.removeChild(gId(`colorPickerMarker${markerId}`));
-      gradientBox.removeChild(gId(`deleteMarker${markerId}`));
-      addC(spacing * (i + 1), trueCol);
+    cMarks.forEach((e, i) => {
+      const mId = e.id.match(/\d+/)[0];
+      const tCol = e.getAttribute("data-tcol");
+      gBox.removeChild(e);
+      gBox.removeChild(gId(`cPick${mId}`));
+      gBox.removeChild(gId(`cPM${mId}`));
+      gBox.removeChild(gId(`dMark${mId}`));
+      addC(spacing * (i + 1), tCol);
     });
   }
 
