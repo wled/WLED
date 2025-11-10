@@ -12,6 +12,10 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+#ifdef ARDUINO_ARCH_ESP32
+#include <esp_ota_ops.h>
+#endif
+
 extern "C" void usePWMFixedNMI();
 
 /*
@@ -547,6 +551,36 @@ void WLED::setup()
   // Seed FastLED random functions with an esp random value, which already works properly at this point.
   const uint32_t seed32 = hw_random();
   random16_set_seed((uint16_t)seed32);
+
+#ifdef ARDUINO_ARCH_ESP32
+  // Mark OTA app as valid to prevent automatic rollback by ESP-IDF bootloader
+  // This is critical for OTA updates from 0.15 to 0.16+ on ESP32-C3 and other ESP32 variants
+  // Without this call, ESP-IDF 4.4+ will automatically roll back to the previous firmware
+  // after detecting that the new app hasn't validated itself
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  esp_ota_img_states_t ota_state;
+  if (esp_ota_get_state_partition(running, &ota_state) == ESP_OK) {
+    DEBUG_PRINTF_P(PSTR("OTA partition state: %d\n"), ota_state);
+    if (ota_state == ESP_OTA_IMG_PENDING_VERIFY) {
+      DEBUG_PRINTLN(F("Marking OTA app as valid (preventing rollback)"));
+      if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
+        DEBUG_PRINTLN(F("OTA app marked as valid successfully"));
+      } else {
+        DEBUG_PRINTLN(F("Failed to mark OTA app as valid"));
+      }
+    } else if (ota_state == ESP_OTA_IMG_VALID) {
+      DEBUG_PRINTLN(F("OTA app already marked as valid"));
+    } else if (ota_state == ESP_OTA_IMG_INVALID) {
+      DEBUG_PRINTLN(F("WARNING: OTA app marked as INVALID"));
+    } else if (ota_state == ESP_OTA_IMG_ABORTED) {
+      DEBUG_PRINTLN(F("WARNING: OTA app marked as ABORTED"));
+    } else {
+      DEBUG_PRINTLN(F("OTA app in undefined state"));
+    }
+  } else {
+    DEBUG_PRINTLN(F("Failed to get OTA partition state"));
+  }
+#endif
 
   #if WLED_WATCHDOG_TIMEOUT > 0
   enableWatchdog();
