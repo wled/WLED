@@ -1997,6 +1997,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
     isMatrix = true;
+    DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
 
   d_free(customMappingTable);
@@ -2020,9 +2021,9 @@ bool WS2812FX::deserializeMap(unsigned n) {
         } while (i < 32);
         if (!foundDigit) break;
         int index = atoi(number);
-        if (index < 0 || index > 16384) index = 0xFFFF;
+        if (index < 0 || index > 65535) index = 0xFFFF; // prevent integer wrap around
         customMappingTable[customMappingSize++] = index;
-        if (customMappingSize > getLengthTotal()) break;
+        if (customMappingSize >= getLengthTotal()) break;
       } else break; // there was nothing to read, stop
     }
     currentLedmap = n;
@@ -2032,7 +2033,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     DEBUG_PRINT(F("Loaded ledmap:"));
     for (unsigned i=0; i<customMappingSize; i++) {
       if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
-      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i] < 0xFFFFU ? customMappingTable[i] : -1);
     }
     DEBUG_PRINTLN();
     #endif
