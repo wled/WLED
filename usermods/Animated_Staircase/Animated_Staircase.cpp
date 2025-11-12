@@ -550,8 +550,9 @@ class Animated_Staircase : public Usermod {
           PinManager::deallocatePin(oldBottomAPin, PinOwner::UM_AnimatedStaircase);
           PinManager::deallocatePin(oldBottomBPin, PinOwner::UM_AnimatedStaircase);
         }
-        if (changed || changedSentinel) setup();
-        //if (changedSentinel) updateSegments();
+        if (changed) setup();
+        //if (changed || changedSentinel) setup();
+        if (changedSentinel) updateSegments();
       }
       // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
       return !top[FPSTR(_sentinelDimOpacity)].isNull();
