@@ -528,6 +528,7 @@ class Animated_Staircase : public Usermod {
 
       enabledSentinel = top[FPSTR(_enabledSentinel)] | enabledSentinel;
       sentinelDimOpacity = top[FPSTR(_sentinelDimOpacity)] | sentinelDimOpacity;
+      sentinelDimOpacity = min(255, max(0, (int)sentinelDimOpacity));
       changedSentinel = (oldEnabledSentinel != enabledSentinel) || (oldSentinelDimOpacity != sentinelDimOpacity);
 
       DEBUG_PRINT(FPSTR(_name));
