@@ -454,7 +454,7 @@ void WLED::setup()
 
   // all GPIOs are allocated at this point
 #ifdef ARDUINO_USB_CDC_ON_BOOT
-  // USB CDC means USB D+ D- are used .. pin allocator will always return. force it as enabled instead
+  // USB CDC means USB D+ D- are used .. pin allocator will always return false in this case. force it as enabled instead
   serialCanRX = true;
   serialCanTX = true;
 #else 
