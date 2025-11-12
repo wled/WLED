@@ -1,6 +1,7 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#include "ota_update.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
   #include <ArduinoOTA.h>
@@ -166,16 +167,15 @@ void WLED::loop()
   // 15min PIN time-out
   if (strlen(settingsPIN)>0 && correctPIN && millis() - lastEditTime > PIN_TIMEOUT) {
     correctPIN = false;
-    createEditHandler(false);
   }
 
   // reconnect WiFi to clear stale allocations if heap gets too low
   if (millis() - heapTime > 15000) {
     uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
-      forceReconnect = true;
+      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);      
       strip.resetSegments(); // remove all but one segments from memory
+      if (!Update.isRunning()) forceReconnect = true;
     } else if (heap < MIN_HEAP_SIZE) {
       DEBUG_PRINTLN(F("Heap low, purging segments."));
       strip.purgeSegments();
@@ -474,7 +474,7 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
-  if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
+  if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
   WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
