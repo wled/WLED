@@ -1,0 +1,4 @@
+# Optional requirements for fork statistics visualization tool
+# Install with: pip install -r tools/fork_stats_visualizer_requirements.txt
+
+matplotlib>=3.5.0
