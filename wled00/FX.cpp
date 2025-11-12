@@ -1018,11 +1018,10 @@ void mode_colorful(void) {
         cols[i] = SEGMENT.color_from_palette(i*fac, false, false, 255);
       }
     } else { //get all non-repeating colors from palette (up to 16)
-      cols[0] = RGBW32(SEGPALETTE[0].r, SEGPALETTE[0].g, SEGPALETTE[0].b, 0);
-      numColors = 1;
-      for (size_t i = 1; i < 16; ++i) {
-        uint32_t iCol = RGBW32(SEGPALETTE[i].r, SEGPALETTE[i].g, SEGPALETTE[i].b, 0);
-        if (iCol && (iCol != cols[numColors-1])) cols[numColors++] = iCol;
+      for (uint8_t i = 0; i < 16; ++i) {
+        CRGB c = SEGPALETTE[i];
+        uint32_t iCol = RGBW32(c.r, c.g, c.b, 0);
+        if (numColors == 0 || (iCol && iCol != cols[numColors-1])) cols[numColors++] = iCol;
       }
     }
   } else { //default Red - Amber - Green - Blue
