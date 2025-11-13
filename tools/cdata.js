@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -246,6 +246,21 @@ writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
 //writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+//writeHtmlGzipped("wled00/data/edit.htm", "wled00/html_edit.h", 'edit');
+
+
+writeChunks(
+  "wled00/data",
+  [
+    {
+      file: "edit.htm",
+      name: "PAGE_edit",
+      method: "gzip",
+      filter: "html-minify"
+    }
+  ],
+  "wled00/html_edit.h"
+);
 
 writeChunks(
   "wled00/data/cpal",
@@ -388,12 +403,6 @@ const char PAGE_dmxmap[] PROGMEM = R"=====()=====";
       name: "PAGE_update",
       method: "gzip",
       filter: "html-minify",
-      mangle: (str) =>
-        str
-          .replace(
-            /function GetV().*\<\/script\>/gms,
-            "</script><script src=\"/settings/s.js?p=9\"></script>"
-          )
     },
     {
       file: "welcome.htm",
