@@ -1757,6 +1757,7 @@ function requestJson(command=null)
 			let i = json.info;
 			parseInfo(i);
 			populatePalettes(i);
+			redrawPalPrev(); // ensure custom palette previews are updated after populatePalettes
 			if (isInfo) populateInfo(i);
 			if (simplifiedUI) simplifyUI();
 		}
