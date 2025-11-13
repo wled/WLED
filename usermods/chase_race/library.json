@@ -1,0 +1,7 @@
+{
+  "name": "chase_race",
+  "version": "0.1.0",
+  "description": "Scaffolding for the Chase Race WLED effect usermod.",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}
