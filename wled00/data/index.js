@@ -22,7 +22,7 @@ var fxdata = [];
 var pJson = {}, eJson = {}, lJson = {};
 var plJson = {}; // array of playlists
 var pN = "", pI = 0, pNum = 0;
-var pmt = 1, pmtLS = 0, pmtLast = 0;
+var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
 var ws, wsRpt=0;
@@ -283,9 +283,10 @@ function onLoad()
 			await loadFXData();          // loads fx data
 			await loadFX();              // populates effect list
 			await loadPalettesData();    // fills palettesData[] for previews
-			await requestJson();         // fills lastinfo.cpalcount (safe now, pallist exists)
+			await requestJson();         // updates info variables
 			populatePalettes();          // repopulate with custom palettes now that cpalcount is known
-			await loadPresets();         // load presets last
+			if(pmt == pmtLS) populatePresets(true); // load presets from localStorage if signature matches (i.e. no device reboot)
+			else await loadPresets();    // load presets
 			if (cfg.comp.css) await loadSkinCSS('skinCss');
 			if (!ws) makeWS();
 		} catch(e) {
@@ -449,7 +450,7 @@ function presetError(empty)
 		if (bckstr.length > 10) hasBackup = true;
 	} catch (e) {}
 
-	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="pmtLast=0;loadPresets();"'}>`;
+	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="loadPresets();"'}>`;
 	if (empty)
 		cn += `You have no presets yet!`;
 	else
@@ -482,23 +483,12 @@ function restore(txt) {
 	return false;
 }
 
-async function loadPresets(callback = null) {
-	// check if already loaded
-	if (pmt == pmtLS && pmt > 0) {
-		// we have a copy of the presets in local storage and don't need to fetch another one
-		populatePresets(true);
-		pmtLast = pmt;
-		return;
-	}
-	// afterwards
-	if (pmt == pmtLast) return;
-
+async function loadPresets() {
 	return new Promise((resolve) => {
 		fetch(getURL('/presets.json'), {method: 'get'})
 		.then(res => res.status=="404" ? {"0":{}} : res.json())
 		.then(json => {
 			pJson = json;
-			pmtLast = pmt;
 			populatePresets();
 			resolve();
 		})
@@ -593,10 +583,10 @@ function populateQL()
 	gId('pql').innerHTML = cn;
 }
 
-function populatePresets(fromls)
+async function populatePresets(fromls)
 {
 	if (fromls) pJson = JSON.parse(localStorage.getItem("wledP"));
-	if (!pJson) {setTimeout(loadPresets,250); return;}
+	if (!pJson) {await loadPresets(); return;}
 	delete pJson["0"];
 	var cn = "";
 	var arr = Object.entries(pJson).sort(cmpP);
@@ -1690,7 +1680,7 @@ async function requestJson(command=null) {
 		gId('connind').style.backgroundColor = "var(--c-y)";
 		if (command && !reqsLegal) {resolve(); return;}
 		if (!jsonTimeout) jsonTimeout = setTimeout(()=>{if (ws) ws.close(); ws=null; showErrorToast()}, 3000);
-		
+
 		var useWs = (ws && ws.readyState === WebSocket.OPEN);
 		var req = null;
 		if (command) {
@@ -1735,16 +1725,6 @@ async function requestJson(command=null) {
 			}
 			var s = json.state ? json.state : json;
 			readState(s);
-
-			// Load presets and open websocket sequentially
-			if (!pJson || isEmpty(pJson)) {
-				setTimeout(()=>{
-					loadPresets(()=>{
-						wsRpt = 0;
-						if (!(ws && ws.readyState === WebSocket.OPEN)) makeWS();
-					});
-				}, 25);
-			}
 
 			reqsLegal = true;
 			retry = 0;
@@ -2533,7 +2513,7 @@ function saveP(i,pl)
 	}
 	populatePresets();
 	resetPUtil();
-	setTimeout(()=>{pmtLast=0; loadPresets();}, 750); // force reloading of presets
+	setTimeout(()=>{loadPresets();}, 750); // force reloading of presets
 }
 
 function testPl(i,bt) {
