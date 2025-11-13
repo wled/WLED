@@ -483,16 +483,15 @@ function restore(txt) {
 }
 
 async function loadPresets(callback = null) {
-	// 1st boot (because there is a callback)
-	if (callback && pmt == pmtLS && pmt > 0) {
+	// check if already loaded
+	if (pmt == pmtLS && pmt > 0) {
 		// we have a copy of the presets in local storage and don't need to fetch another one
 		populatePresets(true);
 		pmtLast = pmt;
-		callback();
 		return;
 	}
 	// afterwards
-	if (!callback && pmt == pmtLast) return;
+	if (pmt == pmtLast) return;
 
 	return new Promise((resolve) => {
 		fetch(getURL('/presets.json'), {method: 'get'})
@@ -507,9 +506,6 @@ async function loadPresets(callback = null) {
 			presetError(false);
 			resolve();
 		})
-		.finally(() => {
-			if (callback) setTimeout(callback, 99);
-		});
 	});
 }
 

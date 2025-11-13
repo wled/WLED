@@ -9,29 +9,16 @@
 		(function loadFiles() {
 			const l = document.createElement('script');
 			l.src = 'common.js';
-			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			// load style.css then initialize
+			l.onload = () => loadResources(['style.css'], () => {
+				getLoc();
+				loadJS(getURL('/settings/s.js?p=0'), false);
+			});
 			l.onerror = () => setTimeout(loadFiles, 100);
 			document.head.appendChild(l);
 		})();
-
-		function S() {
-			getLoc();
-			loadJS(getURL('/settings/s.js?p=0'), false);	// If we set async false, file is loaded and executed, then next statement is processed
-		}
 	</script>
-</head>
-<body>
-<button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
-<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
-<button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>
-<button id="2dbtn" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
-<button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
-<button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
-<button type="submit" onclick="window.location=getURL('/settings/sync')">Sync Interfaces</button>
-<button type="submit" onclick="window.location=getURL('/settings/time')">Time & Macros</button>
-<button type="submit" onclick="window.location=getURL('/settings/um')">Usermods</button>
-<button type="submit" onclick="window.location=getURL('/settings/sec')">Security & Updates</button>
-	<style>
+		<style>
 		body {
 			text-align: center;
 			background: #222;
@@ -55,5 +42,17 @@
 			cursor: pointer;
 		}
 	</style>
+</head>
+<body>
+<button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
+<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
+<button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>
+<button id="2dbtn" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
+<button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
+<button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
+<button type="submit" onclick="window.location=getURL('/settings/sync')">Sync Interfaces</button>
+<button type="submit" onclick="window.location=getURL('/settings/time')">Time & Macros</button>
+<button type="submit" onclick="window.location=getURL('/settings/um')">Usermods</button>
+<button type="submit" onclick="window.location=getURL('/settings/sec')">Security & Updates</button>
 </body>
 </html>
