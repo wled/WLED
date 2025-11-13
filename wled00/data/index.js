@@ -498,8 +498,7 @@ async function loadPresets() {
 	});
 }
 
-async function loadPalettes() {
-	let retry = 0;
+async function loadPalettes(retry=0) {
 	return new Promise((resolve) => {
 		fetch(getURL('/json/palettes'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
@@ -510,8 +509,7 @@ async function loadPalettes() {
 		})
 		.catch((e) => {
 			if (retry<5) {
-				retry++;
-				setTimeout(() => loadPalettes().then(resolve), 100);
+				setTimeout(() => loadPalettes(retry+1).then(resolve), 100);
 			} else {
 				showToast(e, true);
 				resolve();
@@ -520,8 +518,7 @@ async function loadPalettes() {
 	});
 }
 
-async function loadFX() {
-	let retry = 0;
+async function loadFX(retry=0) {
 	return new Promise((resolve) => {
 		fetch(getURL('/json/effects'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
@@ -532,8 +529,7 @@ async function loadFX() {
 		})
 		.catch((e) => {
 			if (retry<5) {
-				retry++;
-				setTimeout(() => loadFX().then(resolve), 100);
+				setTimeout(() => loadFX(retry+1).then(resolve), 100);
 			} else {
 				showToast(e, true);
 				resolve();
@@ -542,8 +538,7 @@ async function loadFX() {
 	});
 }
 
-async function loadFXData() {
-	let retry = 0;
+async function loadFXData(retry=0) {
 	return new Promise((resolve) => {
 		fetch(getURL('/json/fxdata'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
@@ -556,8 +551,7 @@ async function loadFXData() {
 		.catch((e) => {
 			fxdata = [];
 			if (retry<5) {
-				retry++;
-				setTimeout(() => loadFXData().then(resolve), 100);
+				setTimeout(() => loadFXData(retry+1).then(resolve), 100);
 			} else {
 				showToast(e, true);
 				resolve();
@@ -1673,8 +1667,7 @@ function setEffectParameters(idx)
 
 var jsonTimeout;
 var reqsLegal = false;
-async function requestJson(command=null) {
-	let retry = 0;
+async function requestJson(command=null, retry=0) {
 	return new Promise((resolve, reject) => {
 		gId('connind').style.backgroundColor = "var(--c-y)";
 		if (command && !reqsLegal) {resolve(); return;}
@@ -1730,8 +1723,7 @@ async function requestJson(command=null) {
 		})
 		.catch((e)=>{
 			if (retry<10) {
-				retry++;
-				setTimeout(() => requestJson(command).then(resolve).catch(reject), 100);
+				setTimeout(() => requestJson(command,retry+1).then(resolve).catch(reject), 100);
 			} else {
 				showToast(e, true);
 				resolve();
@@ -2803,8 +2795,7 @@ function loadPalettesData() {
 	});
 }
 
-function getPalettesData(page, callback) {
-	let retry = 0;
+function getPalettesData(page, callback, retry=0) {
 	fetch(getURL(`/json/palx?page=${page}`), {method: 'get'})
 	.then(res => res.ok ? res.json() : Promise.reject())
 	.then(json => {
@@ -2814,8 +2805,7 @@ function getPalettesData(page, callback) {
 	})
 	.catch((error)=>{
 		if (retry<5) {
-			retry++;
-			setTimeout(()=>{getPalettesData(page,callback);}, 100);
+			setTimeout(()=>{getPalettesData(page,callback,retry+1);}, 100);
 		} else {
 			showToast(error, true);
 			callback();
