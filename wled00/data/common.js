@@ -57,7 +57,7 @@ function loadResources(files, init) {
 	const loadNext = () => {
 		if (i >= files.length) {
 			if (init) {
-				d.documentElement.style.visibility = 'visible'; // make page visible after all files are laoded if it was hidden (prevent ugly display)
+				d.documentElement.style.visibility = 'visible'; // make page visible after all files are loaded if it was hidden (prevent ugly display)
 				d.readyState === 'complete' ? init() : window.addEventListener('load', init);
 			}
 			return;
@@ -75,7 +75,7 @@ function loadResources(files, init) {
 			el.src = file;
 			d.head.appendChild(el);
 		}
-		el.onload = () => {	setTimeout(loadNext, 0);};
+		el.onload = () => {	loadNext(); };
 		el.onerror = () => {
 			i--; // load this file again
 			setTimeout(loadNext, 100);
@@ -161,7 +161,7 @@ function connectWs(onOpen) {
 		let url = loc ? getURL('/ws').replace("http", "ws")
 									: "ws://" + window.location.hostname + "/ws";
 		ws = new WebSocket(url);
-		if (onOpen) ws.onopen = onOpen(ws);
+		if (onOpen) ws.onopen = () => onOpen(ws);
 		ws.binaryType = "arraybuffer";
 	}
 	return ws;
