@@ -16,7 +16,6 @@ var simplifiedUI = false;
 var tr = 7;
 var d = document;
 const ranges = RangeTouch.setup('input[type="range"]', {});
-var retry = 0;
 var palettesData;
 var fxdata = [];
 var pJson = {}, eJson = {}, lJson = {};
@@ -500,14 +499,13 @@ async function loadPresets() {
 }
 
 async function loadPalettes() {
-	// Just wrap existing code in Promise
+	let retry = 0;
 	return new Promise((resolve) => {
 		fetch(getURL('/json/palettes'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
 		.then(json => {
 			lJson = Object.entries(json);
 			populatePalettes();
-			retry = 0;
 			resolve();
 		})
 		.catch((e) => {
@@ -523,13 +521,13 @@ async function loadPalettes() {
 }
 
 async function loadFX() {
+	let retry = 0;
 	return new Promise((resolve) => {
 		fetch(getURL('/json/effects'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
 		.then(json => {
 			eJson = Object.entries(json);
 			populateEffects();
-			retry = 0;
 			resolve();
 		})
 		.catch((e) => {
@@ -545,6 +543,7 @@ async function loadFX() {
 }
 
 async function loadFXData() {
+	let retry = 0;
 	return new Promise((resolve) => {
 		fetch(getURL('/json/fxdata'), {method: 'get'})
 		.then(res => res.ok ? res.json() : Promise.reject())
@@ -552,7 +551,6 @@ async function loadFXData() {
 			fxdata = json||[];
 			fxdata.shift();
 			fxdata.unshift(";!;");
-			retry = 0;
 			resolve();
 		})
 		.catch((e) => {
@@ -1676,6 +1674,7 @@ function setEffectParameters(idx)
 var jsonTimeout;
 var reqsLegal = false;
 async function requestJson(command=null) {
+	let retry = 0;
 	return new Promise((resolve, reject) => {
 		gId('connind').style.backgroundColor = "var(--c-y)";
 		if (command && !reqsLegal) {resolve(); return;}
@@ -1727,7 +1726,6 @@ async function requestJson(command=null) {
 			readState(s);
 
 			reqsLegal = true;
-			retry = 0;
 			resolve();
 		})
 		.catch((e)=>{
@@ -2806,10 +2804,10 @@ function loadPalettesData() {
 }
 
 function getPalettesData(page, callback) {
+	let retry = 0;
 	fetch(getURL(`/json/palx?page=${page}`), {method: 'get'})
 	.then(res => res.ok ? res.json() : Promise.reject())
 	.then(json => {
-		retry = 0;
 		palettesData = Object.assign({}, palettesData, json.p);
 		if (page < json.m) setTimeout(()=>{ getPalettesData(page + 1, callback); }, 75);
 		else callback();
