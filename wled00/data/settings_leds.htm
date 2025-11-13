@@ -458,7 +458,7 @@
 				var cn = `<div class="iST">
 <hr class="sml">
 ${i+1}:
-<select name="LT${s}" onchange="UI(true)"></select><br>
+<select name="LT${s}" onchange="updateTypeDropdowns();UI(true)"></select><br>
 <div id="abl${s}">
 mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
@@ -518,6 +518,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 				sel.value = sel.querySelector('option[data-type="N"]').value;
 				updateTypeDropdowns(); // update valid bus options including this new one
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
+				updateTypeDropdowns(); // update again for the newly selected type
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
