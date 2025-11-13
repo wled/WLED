@@ -2782,12 +2782,11 @@ function rSegs()
 function loadPalettesData() {
 	return new Promise((resolve) => {
 		if (palettesData) return resolve(); // already loaded
-		const lsKey = "wledPalx";
-		var lsPalData = localStorage.getItem(lsKey);
+		var lsPalData = localStorage.getItem("wledPalx");
 		if (lsPalData) {
 			try {
 				var d = JSON.parse(lsPalData);
-				if (d && d.vid == d.vid) {
+				if (d && d.vid == lastinfo.vid) {
 					palettesData = d.p;
 					return resolve();
 				}
@@ -2796,7 +2795,7 @@ function loadPalettesData() {
 
 		palettesData = {};
 		getPalettesData(0, () => {
-			localStorage.setItem(lsKey, JSON.stringify({
+			localStorage.setItem("wledPalx", JSON.stringify({
 				p: palettesData,
 				vid: lastinfo.vid
 			}));
@@ -2804,7 +2803,7 @@ function loadPalettesData() {
 			setTimeout(resolve, 99); // delay optional
 		});
 	});
-	}
+}
 
 function getPalettesData(page, callback) {
 	fetch(getURL(`/json/palx?page=${page}`), {method: 'get'})
