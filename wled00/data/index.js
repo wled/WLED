@@ -529,6 +529,7 @@ function loadPalettes(callback = null)
 	.then((json)=>{
 		lJson = Object.entries(json);
 		populatePalettes();
+		if (palettesData) redrawPalPrev(); // redraw previews if palette data is already loaded
 		retry = false;
 	})
 	.catch((e)=>{
@@ -1757,7 +1758,7 @@ function requestJson(command=null)
 			let i = json.info;
 			parseInfo(i);
 			populatePalettes(i);
-			redrawPalPrev(); // ensure custom palette previews are updated after populatePalettes
+			if (palettesData) redrawPalPrev(); // ensure custom palette previews are updated after populatePalettes
 			if (isInfo) populateInfo(i);
 			if (simplifiedUI) simplifyUI();
 		}
@@ -2894,6 +2895,7 @@ function search(field, listId = null) {
 		if (listId === 'pallist') {
 			let id = parseInt(d.querySelector('#pallist input[name="palette"]:checked').value); // preserve selected palette
 			populatePalettes();
+			if (palettesData) redrawPalPrev(); // redraw previews after repopulating
 			updateSelectedPalette(id);
 			return;
 		}
