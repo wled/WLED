@@ -7,7 +7,7 @@
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="stylesheet" href="style.css"> <!-- do not use @import url() for css file, it prevents minifying! -->
 <title>WLED Matrix Tool</title>
-<script src="omggif.js"></script>
+<script src="omggif.js"></script> <!-- TODO: add sequential loading, also addin common.js and optimize code size (getURL() etc.) -->
 <style>
 body {
 	max-width: 800px;
@@ -28,11 +28,11 @@ h3 {
 	background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
 	-webkit-background-clip: text;
 	-webkit-text-fill-color: transparent;
-	background-size: 300% 200%;
+	background-size: 200% 200%;
 	animation: rb 5s linear infinite;
 	font-size: 36px;
 }
-@keyframes rb{0%{background-position:0% 0}100%{background-position:200% 0}}
+@keyframes rb{0%{background-position:200% 0}100%{background-position:0 0}}
 
 /* image grid */
 .g {
@@ -265,11 +265,12 @@ button, .btn {
 </head>
 <body>
 <div class="cont">
-	<div class="title">WLED <span class="rb">MATRIX</span> TOOL</div>
+	<div class="title">WLED<span class="rb">MATRIX</span>TOOL</div>
 
 	<div class="tb">
 		<button class="active" id="tImg">Image Tool</button>
 		<button id="tTxt">Scrolling Text</button>
+		<button id="tOth">Other Tools</button>
 	</div>
 
 	<div id="iTab" class="tabc active">
@@ -278,12 +279,8 @@ button, .btn {
 
 		<h3>Images on Device</h3>
 		<div class="g" id="gr"></div>
-		<div style="text-align:center;margin:15px 0">
-			<button class="sml" id="pxm" style="display:none"> </button>
-		</div>
 
 		<h3>Upload New Image</h3>
-
 		<div id="drop" class="dp">
 			<p>Drop image or click to select</p>
 		</div>
@@ -324,11 +321,9 @@ button, .btn {
 				<div class="sz" id="sz">
 					<div style="display:flex;gap:20px;align-items:center;justify-content:center;margin-bottom:10px">
 						<div class="szc">
-							<label for="w">Width</label>
+							<label>Output size:</label>
 							<input type="number" id="w" value="16" min="1" class="s">
-						</div>
-						<div class="szc">
-							<label for="h">Height</label>
+							x
 							<input type="number" id="h" value="16" min="1" class="s">
 						</div>
 					</div>
@@ -345,10 +340,6 @@ button, .btn {
 			</div>
 		</div>
 		<button class="btn" id="up">Convert & Upload to WLED</button>
-	</div>
-
-	<div style="text-align:center;margin:20px 0">
-		<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
 	</div>
 </div>
 
@@ -416,14 +407,32 @@ button, .btn {
 			• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
 		</div>
 	</div>
-
-	<div style="text-align:center;margin:20px 0">
-		<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
+</div>
+<div id="oTab" class="tabc">
+	<div class="ed active">
+		<div>
+			<h3>Pixel Paint</h3>
+			<div><small>Interactive painting tool</small></div>
+			<button class="sml" id="t1" style="display:none"></button>
+		</div>
 	</div>
+	<hr>
+	<div class="ed active">
+		<div>
+			<h3>PIXEL MAGIC Tool</h3>
+			<div><small>Legacy pixel art editor</small></div>
+			<button class="sml" id="t2" style="display:none"></button>
+		</div>
+	</div>
+	<hr>
+</div>
+
+<div style="margin:20px 0">
+	<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
 </div>
 
 <div id="ov"></div>
-<div id="mem" style="display:none;font-size:12px;color:#aaa;text-align:center;margin-top:6px"></div>
+<div id="mem" style="display:none;font-size:12px;color:#aaa;"></div>
 
 <script>
 const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
@@ -554,32 +563,34 @@ function imgRm(nm){
 	//}
 }
 
-/* pxmagic presence/install */
-async function pxChk(){
-	try{
-		const r=await fetch(`${wu}/edit?list=/`),data=await r.json();
-		const hasPx=data.some(f=>f.name==="/pxmagic.htm"||f.name==="/pxmagic.htm.gz");
-		const b=gId('pxm');
-		b.style.display='inline-block';
-		if(hasPx){
-			b.innerHTML='Open PIXEL MAGIC TOOL';
-			b.onclick=()=>window.open(`${wu}/pxmagic.htm`,'_blank');
-		}else{
-			b.innerHTML='Install classic PIXEL MAGIC TOOL<br>';
-			b.onclick=async()=>{
-				if(!confirm('Download from GitHub?'))return;
-				try{
-					const f=await fetch("https://dedehai.github.io/pxmagic.htm.gz");
-					if(!f.ok) throw new Error("Download failed "+f.status);
-					const blob=await f.blob(),fd=new FormData();
-					fd.append("data",blob,"pxmagic.htm.gz");
-					const u=await fetch(wu+"/upload",{method:"POST",body:fd});
-					alert(u.ok?"PxMagic installed!":"Upload failed");
-					pxChk();
-				}catch(e){alert("Error "+e.message);}
+/* additional tools: check if present, install if not */
+async function toolChk(file, btnId) {
+	try {
+		const r = await fetch(`${wu}/edit?list=/`), data = await r.json();
+		const has = data.some(f => f.name === `/${file}` || f.name === `/${file}.gz`);
+		const b = gId(btnId);
+		b.style.display = 'block';
+		b.style.margin = '10px auto';
+		if (has) {
+			b.textContent = 'Launch';
+			b.onclick = () => window.open(`${wu}/${file.replace('.gz','')}`, '_blank'); // open tool: remove gz to not trigger download
+		} else {
+			b.textContent = 'Download';
+			b.onclick = async () => {
+				 const url = `https://dedehai.github.io/${file}`;
+        if (!confirm(`Download ${url}?`)) return;
+				try {
+					const f = await fetch(url);
+					if (!f.ok) throw new Error("Download failed " + f.status);
+					const blob = await f.blob(), fd = new FormData();
+					fd.append("data", blob, file);
+					const u = await fetch(wu + "/upload", { method: "POST", body: fd });
+					alert(u.ok ? "Tool installed!" : "Upload failed");
+					toolChk(file, btnId);
+				} catch (e) { alert("Error " + e.message); }
 			};
 		}
-	}catch(e){console.error(e);}
+	} catch (e) { console.error(e); }
 }
 
 /* fs/mem info */
@@ -1071,21 +1082,18 @@ async function imgDel(){
 	menuClose();
 }
 
-/* tabs */
-function tabSw(isTxt) {
-	gId('iTab').classList.toggle('active', !isTxt);
-	gId('xTab').classList.toggle('active', isTxt);
-	gId('tImg').classList.toggle('active', !isTxt);
-	gId('tTxt').classList.toggle('active', isTxt);
-	localStorage.setItem('tab', isTxt ? 'txt' : 'img');
-	if (isTxt) txtSegLoad(); else { pxChk(); imgLoad(); }
+/* tab select and additional tools */
+function tabSw(tab) {
+	'iTab,xTab,oTab,tImg,tTxt,tOth'.split(',').forEach((id,i)=>{
+		gId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
+	});
+	localStorage.tab=tab;
+	({txt:txtSegLoad,img:imgLoad,oth:()=>{toolChk('pixelpaint.htm.gz','t1');toolChk('pxmagic.htm.gz','t2');}}[tab]||0)();
 }
-gId('tImg').onclick = () => tabSw(false);
-gId('tTxt').onclick = () => tabSw(true);
-
-(()=>{const t=localStorage.getItem('tab');
-	if(t==='txt') gId('tTxt').click(); else gId('tImg').click();
-})();
+'Img,Txt,Oth'.split(',').forEach((s,i)=>{
+	gId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
+});
+tabSw(localStorage.tab||'img');
 
 /* tokens insert */
 function txtIns(el,t){
