@@ -1024,8 +1024,8 @@ void mode_colorful(void) {
         if (numColors == 0 || (iCol && iCol != cols[numColors-1])) cols[numColors++] = iCol;
       }
       if (numColors == 0) {
-        numColors = 1;
-        cols[0] = RGBW32(0, 0, 0);
+        numColors++;
+        cols[0] = RGBW32(0, 0, 0, 0);
       }
     }
   } else { //default Red - Amber - Green - Blue
