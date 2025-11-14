@@ -1051,7 +1051,9 @@ void mode_colorful(void) {
 
   for (unsigned i = 0; i < SEGLEN; i+= numColors)
   {
-    for (unsigned j = 0; j < numColors; j++) SEGMENT.setPixelColor(i + j, cols[SEGENV.aux0 + j]);
+    for (unsigned j = 0; j < numColors  && (i + j) < SEGLEN; j++){
+      SEGMENT.setPixelColor(i + j, cols[SEGENV.aux0 + j]);
+    }
   }
 }
 static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Color scheme,,,# of colors;1,2,3;!;;c3=4";
