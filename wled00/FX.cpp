@@ -1023,6 +1023,10 @@ void mode_colorful(void) {
         uint32_t iCol = RGBW32(c.r, c.g, c.b, 0);
         if (numColors == 0 || (iCol && iCol != cols[numColors-1])) cols[numColors++] = iCol;
       }
+      if (numColors == 0) {
+        numColors = 1;
+        cols[0] = RGBW32(0, 0, 0);
+      }
     }
   } else { //default Red - Amber - Green - Blue
     numColors = (numColors > 0 && numColors < 4) ? numColors : 4; //1 to 4, default 4
@@ -1050,7 +1054,7 @@ void mode_colorful(void) {
     for (unsigned j = 0; j < numColors; j++) SEGMENT.setPixelColor(i + j, cols[SEGENV.aux0 + j]);
   }
 }
-static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Colors (pastels/default/color slots),,,# of colors (0=auto);1,2,3;!;;c3=4";
+static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Color scheme,,,# of colors;1,2,3;!;;c3=4";
 
 
 /*
