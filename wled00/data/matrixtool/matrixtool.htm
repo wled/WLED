@@ -426,7 +426,7 @@ let cr={x:50,y:50,w:200,h:150},drag=false,dH=null,oX=0,oY=0;
 let pan=false,psX=0,psY=0,poX=0,poY=0;
 let iL=[]; // image list
 let gF=null,gI=null,aT=null;
-let fl; // file list
+let fL; // file list
 
 /* init */
 (async()=>{
@@ -435,16 +435,16 @@ let fl; // file list
 
 	await segLoad(); // load available segments
 	await flU(); // update file list
-	toolChk('pixelpaint.htm.gz','t1'); // update buttons of additional tools
-	toolChk('pxmagic.htm.gz','t2');
+	toolChk('pixelpaint.htm','t1'); // update buttons of additional tools
+	toolChk('pxmagic.htm','t2');
 	await fsMem(); // show file system memory info
 })();
 
 /* update file list */
 async function flU(){
 	try{
-		const r=await fetch(`${wu}/edit?list=/`),data=await r.json();
-		fl=data;
+		const r = await fetch(`${wu}/edit?list=/`);
+		fL = await r.json();
 	}catch(e){console.error(e);}
 }
 
@@ -512,7 +512,7 @@ async function imgLoad(){
 		await flU(); // update file list
 		const grid=gId('gr');
 		const types=['gif','png','jpg','jpeg','bmp'];
-		const imgs=fl.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
+		const imgs=fL.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
 		const newList=imgs.map(f=>f.name.replace('/',''));
 		const miss=newList.filter(n=>!iL.includes(n));
 
@@ -549,6 +549,8 @@ async function imgLoad2(imgs){
 				it.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
 				if(!isGif) it.style.border="5px solid red";
 				it.classList.remove('loading'); res();
+				const kb=Math.round(f.size/1024);
+				it.title=`${name}\n${im.width}x${im.height}\n${kb} KB`;
 			};
 			im.onerror=()=>{it.classList.remove('loading');it.style.background='#222';res();};
 			im.src=url+'?cb='+Date.now();
@@ -566,29 +568,30 @@ function imgRm(nm){
 }
 
 /* additional tools: check if present, install if not */
-async function toolChk(file, btnId) {
+function toolChk(file, btnId) {
 	try {
-		const has = fl.some(f => f.name === `/${file}` || f.name === `/${file}.gz`);
+		const has = fL.some(f => f.name.includes(file));
 		const b = gId(btnId);
 		b.style.display = 'block';
 		b.style.margin = '10px auto';
 		if (has) {
 			b.textContent = 'Open';
-			b.onclick = () => window.open(`${wu}/${file.replace('.gz','')}`, '_blank'); // open tool: remove gz to not trigger download
+			b.onclick = () => window.open(`${wu}/${file}`, '_blank'); // open tool: remove gz to not trigger download
 		} else {
 			b.textContent = 'Download';
 			b.onclick = async () => {
-				 const url = `https://dedehai.github.io/${file}`;
-        if (!confirm(`Download ${url}?`)) return;
+				const fileGz = file + '.gz'; // use gz version
+				const url = `https://dedehai.github.io/${fileGz}`; // always download gz version
+				if (!confirm(`Download ${url}?`)) return;
 				try {
 					const f = await fetch(url);
 					if (!f.ok) throw new Error("Download failed " + f.status);
 					const blob = await f.blob(), fd = new FormData();
-					fd.append("data", blob, file);
+					fd.append("data", blob, fileGz);
 					const u = await fetch(wu + "/upload", { method: "POST", body: fd });
 					alert(u.ok ? "Tool installed!" : "Upload failed");
 					await flU(); // update file list
-					toolChk(file, btnId);
+					toolChk(file, btnId); // re-check and update button (must pass non-gz file name)
 				} catch (e) { alert("Error " + e.message); }
 			};
 		}
@@ -1087,8 +1090,7 @@ async function imgDel(){
 	if(!confirm(`Delete ${sI.name}?`))return;
 	ovShow();
 	try{
-		const fd=new FormData();fd.append('path',`/${sI.name}`);
-		const r=await fetch(`${wu}/edit`,{method:'DELETE',body:fd});
+		const r = await fetch(`${wu}/edit?func=delete&path=/${sI.name}`);
 		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
 		else msg('Delete failed','err');
 	}catch(e){msg('Delete failed','err');}
@@ -1139,7 +1141,7 @@ async function txtSegLoad(){
 			gId('o1').checked=!(!s.o1);
 			gId('o3').checked=!(!s.o3);
 		}
-	}catch(e){console.log(e);}
+	}catch(e){console.error(e);}
 }
 
 /* auto apply on change */
