@@ -625,6 +625,9 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      #ifdef WLED_ENABLE_GIF
+      endImagePlayback(this);
+      #endif
       deallocateData();
       p_free(pixels);
     }
