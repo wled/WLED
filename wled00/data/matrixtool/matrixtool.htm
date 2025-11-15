@@ -168,27 +168,6 @@ button, .btn {
 	border: 2px solid #333;
 }
 
-/* size controls */
-.sz {
-	display: none;
-	margin: 15px 0;
-}
-.sz.show {
-	display: block;
-}
-.szc {
-	display: flex;
-	flex-direction: row;
-	align-items: center;
-	gap: 5px;
-	min-width: 80px;
-}
-.szc label {
-	margin-bottom: 0px;
-	font-size: 16px;
-	color: #ccc;
-}
-
 /* sliders */
 .slc {
 	text-align: center;
@@ -275,7 +254,7 @@ button, .btn {
 
 	<div id="iTab" class="tabc active">
 		<h3 style="margin-top:20px;">Target Segment</h3>
-		<select id="seg"><option value="0" data-w="16" data-h="16">Segment 0 (16x16)</option></select>
+		<select id="seg"></select>
 
 		<h3>Images on Device</h3>
 		<div class="g" id="gr"></div>
@@ -307,7 +286,7 @@ button, .btn {
 
 				<small>Preview at target size</small>
 
-				<canvas id="pv" width="128"></canvas>
+				<canvas id="pv"></canvas>
 
 				<div class="slc">
 					<label>Dark Pixel Cutoff</label>
@@ -318,14 +297,12 @@ button, .btn {
 					</div>
 				</div>
 
-				<div class="sz" id="sz">
-					<div style="display:flex;gap:20px;align-items:center;justify-content:center;margin-bottom:10px">
-						<div class="szc">
-							<label>Output size:</label>
-							<input type="number" id="w" value="16" min="1" class="s">
-							x
-							<input type="number" id="h" value="16" min="1" class="s">
-						</div>
+				<div style="display:none" id="sz">
+					<div>
+						<label>Output size:</label>
+						<input type="number" id="w" value="16" min="1" size="5">
+						x
+						<input type="number" id="h" value="16" min="1" size="5">
 					</div>
 				</div>
 
@@ -345,75 +322,77 @@ button, .btn {
 
 <div id="xTab" class="tabc">
 	<h3 style="margin-top:20px;">Target Segment</h3>
-	<select id="segT"><option value="0"></option></select>
+	<select id="segT"></select>
+	<div id="ti">
+		<h3>Text to show</h3>
+		<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+			<input type="text" id="txt" placeholder="Enter text" maxlength="64"  style="margin-left:15px;flex:1;min-width:300px;">
+			<button class="btn" id="aTxt">✓</button>
+		</div>
 
-	<h3>Text to show</h3>
-	<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
-		<input type="text" id="txt" placeholder="Enter text" maxlength="64"  style="margin-left:15px;flex:1;min-width:300px;">
-		<button class="btn" id="aTxt">✓</button>
-	</div>
+		<h3>Settings</h3>
+		<div class="cs">
+			<div class="fr">
+				Speed	<input type="range" id="sx" min="0" max="255">
+			</div>
+			<div class="fr">
+				Y Offset	<input type="range" id="ix" min="0" max="255">
+			</div>
+			<div class="fr">
+				Trail	<input type="range" id="c1" min="0" max="255">
+			</div>
+			<div class="fr">
+				Font Size	<input type="range" id="c2" min="0" max="255">
+			</div>
+			<div class="fr">
+				Rotate <input type="range" id="c3" min="0" max="31">
+			</div>
+		</div>
 
-	<h3>Settings</h3>
-	<div class="cs">
-		<div class="fr">
-			Speed	<input type="range" id="sx" min="0" max="255">
+		<div class="col" style="display:flex;gap:20px;justify-content:center;">
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o1"> Gradient
+			</label>
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o3"> Reverse
+			</label>
 		</div>
-		<div class="fr">
-			Y Offset	<input type="range" id="ix" min="0" max="255">
-		</div>
-		<div class="fr">
-			Trail	<input type="range" id="c1" min="0" max="255">
-		</div>
-		<div class="fr">
-			Font Size	<input type="range" id="c2" min="0" max="255">
-		</div>
-		<div class="fr">
-			Rotate <input type="range" id="c3" min="0" max="31">
-		</div>
-	</div>
 
-	<div class="col" style="display:flex;gap:20px;justify-content:center;">
-		<label style="display:flex;align-items:center;gap:5px">
-			<input type="checkbox" id="o1"> Gradient
-		</label>
-		<label style="display:flex;align-items:center;gap:5px">
-			<input type="checkbox" id="o3"> Reverse
-		</label>
-	</div>
-
-	<h3>Available Tokens</h3>
-	<div style="padding:15px;">
-		<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;text-align:left">
-			<div><a href="#" class="tk" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
-			<div><a href="#" class="tk" data-t="#HHMM">#HHMM</a> - HH:MM</div>
-			<div><a href="#" class="tk" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
-			<div><a href="#" class="tk" data-t="#DDMM">#DDMM</a> - Day.Month</div>
-			<div><a href="#" class="tk" data-t="#MMDD">#MMDD</a> - Month/Day</div>
-			<div><a href="#" class="tk" data-t="#YYYY">#YYYY</a> - Year</div>
-			<div><a href="#" class="tk" data-t="#YY">#YY</a> - Year 2-digit</div>
-			<div><a href="#" class="tk" data-t="#HH">#HH</a> - Hours</div>
-			<div><a href="#" class="tk" data-t="#MM">#MM</a> - Minutes</div>
-			<div><a href="#" class="tk" data-t="#SS">#SS</a> - Seconds</div>
-			<div><a href="#" class="tk" data-t="#MO">#MO</a> - Month number</div>
-			<div><a href="#" class="tk" data-t="#DD">#DD</a> - Day number</div>
-			<div><a href="#" class="tk" data-t="#MON">#MON</a> - Month (Jan)</div>
-			<div><a href="#" class="tk" data-t="#MONL">#MONL</a> - Month (January)</div>
-			<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
-			<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
-		</div>
-		<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
-			<strong>Tips:</strong></small><br>
-			• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
-			• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
+		<h3>Available Tokens</h3>
+		<div style="padding:15px;">
+			<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;text-align:left">
+				<div><a href="#" class="tk" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
+				<div><a href="#" class="tk" data-t="#HHMM">#HHMM</a> - HH:MM</div>
+				<div><a href="#" class="tk" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
+				<div><a href="#" class="tk" data-t="#DDMM">#DDMM</a> - Day.Month</div>
+				<div><a href="#" class="tk" data-t="#MMDD">#MMDD</a> - Month/Day</div>
+				<div><a href="#" class="tk" data-t="#YYYY">#YYYY</a> - Year</div>
+				<div><a href="#" class="tk" data-t="#YY">#YY</a> - Year 2-digit</div>
+				<div><a href="#" class="tk" data-t="#HH">#HH</a> - Hours</div>
+				<div><a href="#" class="tk" data-t="#MM">#MM</a> - Minutes</div>
+				<div><a href="#" class="tk" data-t="#SS">#SS</a> - Seconds</div>
+				<div><a href="#" class="tk" data-t="#MO">#MO</a> - Month number</div>
+				<div><a href="#" class="tk" data-t="#DD">#DD</a> - Day number</div>
+				<div><a href="#" class="tk" data-t="#MON">#MON</a> - Month (Jan)</div>
+				<div><a href="#" class="tk" data-t="#MONL">#MONL</a> - Month (January)</div>
+				<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
+				<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
+			</div>
+			<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+				<strong>Tips:</strong></small><br>
+				• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
+				• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
+			</div>
 		</div>
 	</div>
+	<div id="ti1D" style="display:none;">Not available in 1D</div>
 </div>
 <div id="oTab" class="tabc">
 	<div class="ed active">
 		<div>
 			<h3>Pixel Paint</h3>
 			<div><small>Interactive painting tool</small></div>
-			<button class="sml" id="t1" style="display:none"></button>
+			<button class="btn" id="t1" style="display:none"></button>
 		</div>
 	</div>
 	<hr>
@@ -421,7 +400,7 @@ button, .btn {
 		<div>
 			<h3>PIXEL MAGIC Tool</h3>
 			<div><small>Legacy pixel art editor</small></div>
-			<button class="sml" id="t2" style="display:none"></button>
+			<button class="btn" id="t2" style="display:none"></button>
 		</div>
 	</div>
 	<hr>
@@ -445,24 +424,37 @@ const pv=gId('pv'),pvx=pv.getContext('2d',{willReadFrequently:true});
 let wu='',sI=null,sF=null,cI=null,bS=1,iS=1,pX=0,pY=0;
 let cr={x:50,y:50,w:200,h:150},drag=false,dH=null,oX=0,oY=0;
 let pan=false,psX=0,psY=0,poX=0,poY=0;
-let iL=[];
+let iL=[]; // image list
 let gF=null,gI=null,aT=null;
+let fl; // file list
 
 /* init */
 (async()=>{
 	const params=new URLSearchParams(window.location.search);
 	wu=`http://${params.get('host')||window.location.host}`;
 
-	await segLoad();
-	await fsMem();
+	await segLoad(); // load available segments
+	await flU(); // update file list
+	toolChk('pixelpaint.htm.gz','t1'); // update buttons of additional tools
+	toolChk('pxmagic.htm.gz','t2');
+	await fsMem(); // show file system memory info
 })();
 
-/* ui msg + overlay */
-function msg(m,t='success'){
+/* update file list */
+async function flU(){
+	try{
+		const r=await fetch(`${wu}/edit?list=/`),data=await r.json();
+		fl=data;
+	}catch(e){console.error(e);}
+}
+
+/* toast */
+function msg(m,t=''){
 	const el=cE('div');el.className='t';el.textContent=m;
-	if(t==='error')el.style.background='var(--eDark)';
+	if(t==='err')el.style.background='#a00';
 	d.body.appendChild(el);setTimeout(()=>el.remove(),3000);
 }
+/* "loading" overlay */
 function ovShow(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
 function ovHide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
 
@@ -473,18 +465,19 @@ function segLoad(){
 		s1.innerHTML=''; s2.innerHTML='';
 		if(j.seg&&j.seg.length){
 			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
-				const w=stop-start,h=stopY-startY;
-				const t = (n || `Segment ${id}`) + ` (${w}x${h})` + (fx===53 ? ' [Image]' : (fx===122 ? ' [Scrolling Text]' : ''));
+				const w=stop-start,h=(stopY-startY)||1;
+				const t = (n || `Segment ${id}`) + (h>1 ? ` (${w}x${h})` : ` (${w}px)`) + (fx===53 ? ' [Image]' : (fx===122 ? ' [Scrolling Text]' : ''));
 				const o=new Option(t,id);
 				o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
-				s1.add(o);
-				s2.add(o.cloneNode(true));
+				s1.add(o); // gif tool
+				s2.add(o.cloneNode(true)); // scrolling text tool
 			});
 		}else{
 			const o=new Option('Segment 0',0);
 			s1.add(o); s2.add(o.cloneNode(true));
 		}
 		if(v1) s1.value=v1; if(v2) s2.value=v2;
+		s2.onchange(); // trigger on load to toggle show/hide of text tool
 		const o=s1.options[s1.selectedIndex];
 		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; }
 	}).catch(console.error);
@@ -500,18 +493,26 @@ function curImgSeg(){
 }
 
 /* seg change -> update target size */
-gId('seg').onchange=e=>{
-	const o=e.target.selectedOptions[0];
-	gId('w').value=o.dataset.w;gId('h').value=o.dataset.h;
+gId('seg').onchange = () =>{
+	const o=gId('seg').selectedOptions[0];
+	gId('w').value=o.dataset.w;
+	gId('h').value=o.dataset.h;
 	if(cI) crDraw();
+};
+
+gId('segT').onchange = () => {
+	const is2D = (gId('segT').selectedOptions[0].dataset.h || 1) > 1;
+	gId('ti').style.display = is2D ? 'block' : 'none';
+	gId('ti1D').style.display = is2D ? 'none' : 'block';
 };
 
 /* image list */
 async function imgLoad(){
 	try{
-		const r=await fetch(`${wu}/edit?list=/`),data=await r.json(),grid=gId('gr');
+		await flU(); // update file list
+		const grid=gId('gr');
 		const types=['gif','png','jpg','jpeg','bmp'];
-		const imgs=data.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
+		const imgs=fl.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
 		const newList=imgs.map(f=>f.name.replace('/',''));
 		const miss=newList.filter(n=>!iL.includes(n));
 
@@ -531,6 +532,7 @@ async function imgLoad(){
 	}catch(e){console.error(e);}
 }
 
+/* load images into grid TODO: when switching tabs, it can throw 503 and have unloaded images, tried to fix it but all my attempts failed*/
 async function imgLoad2(imgs){
 	const grid=gId('gr');
 	for(const f of imgs){
@@ -566,13 +568,12 @@ function imgRm(nm){
 /* additional tools: check if present, install if not */
 async function toolChk(file, btnId) {
 	try {
-		const r = await fetch(`${wu}/edit?list=/`), data = await r.json();
-		const has = data.some(f => f.name === `/${file}` || f.name === `/${file}.gz`);
+		const has = fl.some(f => f.name === `/${file}` || f.name === `/${file}.gz`);
 		const b = gId(btnId);
 		b.style.display = 'block';
 		b.style.margin = '10px auto';
 		if (has) {
-			b.textContent = 'Launch';
+			b.textContent = 'Open';
 			b.onclick = () => window.open(`${wu}/${file.replace('.gz','')}`, '_blank'); // open tool: remove gz to not trigger download
 		} else {
 			b.textContent = 'Download';
@@ -586,6 +587,7 @@ async function toolChk(file, btnId) {
 					fd.append("data", blob, file);
 					const u = await fetch(wu + "/upload", { method: "POST", body: fd });
 					alert(u.ok ? "Tool installed!" : "Upload failed");
+					await flU(); // update file list
 					toolChk(file, btnId);
 				} catch (e) { alert("Error " + e.message); }
 			};
@@ -617,7 +619,7 @@ function fileHandle() {
 	const file = gId('src').files[0];
 	if (!file) return;
 	sF = file; gI = null; gF = [];
-	gId('sz').classList.add('show');
+	gId('sz').style.display = 'block';
 
 	const isGif = file.type === 'image/gif';
 	const rdr = new FileReader();
@@ -651,7 +653,7 @@ function fileHandle() {
 				tctx.putImageData(new ImageData(new Uint8ClampedArray(gF[0].pixels), gI.width, gI.height), 0, 0);
 				imgShow(tc.toDataURL(), file.name);
 			} catch (err) {
-				msg('GIF load failed', 'error');
+				msg('GIF load failed', 'err');
 				console.error(err);
 			}
 		} else {
@@ -726,7 +728,7 @@ function unsup(url, name) {
 		dt.items.add(f);
 		gId('src').files = dt.files;
 		fileHandle();
-	}).catch(() => msg('Failed to load image', 'error'));
+	}).catch(() => msg('Failed to load image', 'err'));
 }
 
 /* size change -> redraw */
@@ -891,12 +893,24 @@ function blackTh(c){
 function prevUpd(){
 	if(!cI)return;
 	let w=+gId('w').value,h=+gId('h').value;
-	pv.height=Math.round(pv.width*(h/w));
-	pvx.imageSmoothingEnabled=false; pvx.fillStyle=gId('bg').value;
-	pvx.fillRect(0,0,pv.width,pv.height);
-	pvx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
-	blackTh(pvx);
-	pvx.drawImage(pv,0,0,w,h,0,0,pv.width,pv.height);
+	// Temporary canvas at target size
+	const tc = cE('canvas'); tc.width = w; tc.height = h;
+	const tcx = tc.getContext('2d');
+	tcx.fillStyle=gId('bg').value;
+	tcx.fillRect(0,0,w,h); // fill background (for transparent images)
+	tcx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
+	blackTh(tcx);
+	// scale/stretch to preview canvas, limit to 256px in largest dimension but keep aspect ratio
+	const ratio = h/w;
+	if(ratio > 1) {
+		pv.height = 256;
+		pv.width = Math.max(4, Math.round(256 / ratio)); // min 4px width for better visibility
+	} else {
+		pv.width = 256;
+		pv.height = Math.max(4, Math.round(256 * ratio));
+	}
+	pvx.imageSmoothingEnabled=false;
+	pvx.drawImage(tc,0,0,w,h,0,0,pv.width,pv.height);
 }
 
 // generate gif palette using median-cut algorithm, palette is padded to power of 2 size (gif standard)
@@ -984,17 +998,17 @@ gId('up').onclick = async () => {
 			frames.push({ data: fd.data, delay: gF[i].delay });
 		}
 
-		// global palette
-		const all = new Uint8Array(frames.length * w * h * 4);
-		frames.forEach((f, i) => all.set(f.data, i * f.data.length));
+		const g = grid(w); // calculate optimal grid size: 1D image is saved as "2D gif" if w > 320 (WLED gif size limit), 2D can not be larger than 256x256 so is unchange
+		let gw = g.w, gh = g.h; // gif width and height
+		const all = new Uint8Array(frames.length * gw * gh * 4);
+		frames.forEach((f, i) => all.set(f.data, i * f.data.length)); // concat all frames to single array to create palette from all colors
 		const { indexed, palette } = genPal(all);
-
 		const gifData = [];
-		const wr = new GifWriter(gifData, w, h, { palette, loop: 0 });
-		const pixelsPerFrame = w * h;
+		const wr = new GifWriter(gifData, gw, gh, { palette, loop: 0 });
+		const pixelsPerFrame = gw * gh;
 		for (let i = 0; i < frames.length; i++) {
-			const framePixels = indexed.slice(i * pixelsPerFrame, (i + 1) * pixelsPerFrame);
-			wr.addFrame(0, 0, w, h, framePixels, { delay: frames[i].delay, disposal: 2 });
+			const framePixels = indexed.slice(i * pixelsPerFrame, (i + 1) * pixelsPerFrame); // slice global array back into per-frame data
+			wr.addFrame(0, 0, gw, gh, framePixels, { delay: frames[i].delay, disposal: 2 });
 		}
 		wr.end();
 
@@ -1009,9 +1023,9 @@ gId('up').onclick = async () => {
 			await imgLoad();
 			gId('src').value = '';
 			gId('drop').innerHTML = '<p>Drop image or click to select</p>';
-		} else msg('Upload failed', 'error');
+		} else msg('Upload failed', 'err');
 	} catch (e) {
-		msg(`Error: ${e.message}`, 'error');
+		msg(`Error: ${e.message}`, 'err');
 	} finally {
 		ovHide();
 	}
@@ -1036,8 +1050,8 @@ async function imgPlay(url,name){
 		if(out.success){
 			msg(`Playing ${name}`);
 			await segLoad();
-		}else msg('Failed to play','error');
-	}catch(e){msg(`Error: ${e.message}`,'error');}
+		}else msg('Failed to play','err');
+	}catch(e){msg(`Error: ${e.message}`,'err');}
 	finally{ovHide();}
 }
 
@@ -1066,7 +1080,7 @@ async function imgDl(){
 		const u=URL.createObjectURL(b),a=cE('a');
 		a.href=u;a.download=sI.name;a.click();
 		URL.revokeObjectURL(u); msg('Downloaded');
-	}catch(e){msg('Download failed','error');}
+	}catch(e){msg('Download failed','err');}
 	menuClose();
 }
 async function imgDel(){
@@ -1076,8 +1090,8 @@ async function imgDel(){
 		const fd=new FormData();fd.append('path',`/${sI.name}`);
 		const r=await fetch(`${wu}/edit`,{method:'DELETE',body:fd});
 		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
-		else msg('Delete failed','error');
-	}catch(e){msg('Delete failed','error');}
+		else msg('Delete failed','err');
+	}catch(e){msg('Delete failed','err');}
 	finally{ovHide();}
 	menuClose();
 }
@@ -1088,7 +1102,7 @@ function tabSw(tab) {
 		gId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
-	({txt:txtSegLoad,img:imgLoad,oth:()=>{toolChk('pixelpaint.htm.gz','t1');toolChk('pxmagic.htm.gz','t2');}}[tab]||0)();
+	({txt:txtSegLoad,img:imgLoad}[tab]||(()=>{}))(); // functions to execute on tab switch (currently none for oth)
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	gId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
@@ -1112,6 +1126,7 @@ document.addEventListener('click',e=>{
 async function txtSegLoad(){
 	const id=+gId('segT').value;
 	try{
+
 		const r=await fetch(`${wu}/json/state`),j=await r.json();
 		if(j.seg&&j.seg[id]){
 			const s=j.seg[id];
@@ -1147,8 +1162,8 @@ gId('aTxt').onclick=async()=>{
 		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
 		const out=await r.json();
 		if(out.success!==false){ msg(`Applied to Segment ${id}`); await segLoad(); }
-		else msg('Failed to apply','error');
-	}catch(e){ msg(`Error: ${e.message}`,'error'); }
+		else msg('Failed to apply','err');
+	}catch(e){ msg(`Error: ${e.message}`,'err'); }
 	finally{ ovHide(); }
 };
 </script>
