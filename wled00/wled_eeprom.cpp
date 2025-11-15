@@ -16,7 +16,7 @@
 
 //eeprom Version code, enables default settings instead of 0 init on update
 #define EEPVER 22
-#define EEPSIZE 2560  //Maximum is 4096
+#define EEPSIZE 2570  //Maximum is 4096
 //0 -> old version, default
 //1 -> 0.4p 1711272 and up
 //2 -> 0.4p 1711302 and up
@@ -343,20 +343,23 @@ void loadSettingsFromEEPROM()
   //1024-2047 reserved
 
   #ifdef WLED_ENABLE_DMX
-  // DMX (2530 - 2549)2535
+  // DMX (2530 - 2566)2535,2552
   DMXChannels = EEPROM.read(2530);
   DMXGap = EEPROM.read(2531) + ((EEPROM.read(2532) << 8) & 0xFF00);
   DMXStart = EEPROM.read(2533) + ((EEPROM.read(2534) << 8) & 0xFF00);
 
-  for (int i=0;i<15;i++) {
+  for (int i=0;i<MAX_CHANNELS_PER_FIXTURE;i++) {
     DMXFixtureMap[i] = EEPROM.read(2535+i);
   } //last used: 2549
-  DMXStartLED = EEPROM.read(2550);
+  DMXStartLED = EEPROM.read(2550) + ((EEPROM.read(2551) << 8) & 0xFF00);
+  for (int i=0;i<MAX_CHANNELS_PER_FIXTURE;i++) {
+    DMXChannelsValue[i] = EEPROM.read(2552+i);
+  } //last used: 2566
   #endif
 
   //Usermod memory
-  //2551 - 2559 reserved for Usermods, usable by default
-  //2560 - 2943 usable, NOT reserved (need to increase EEPSIZE accordingly, new WLED core features may override this section)
+  //2571 - 2579 reserved for Usermods, usable by default
+  //2580 - 2943 usable, NOT reserved (need to increase EEPSIZE accordingly, new WLED core features may override this section)
   //2944 - 3071 reserved for Usermods (need to increase EEPSIZE to 3072 in const.h)
 }
 
