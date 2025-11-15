@@ -4,12 +4,22 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>Usermod Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var umCfg = {};
 	var pins = [], pinO = [], owner;
 	var urows;
 	var numM = 0;
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
+
 	function S() {
 		getLoc();
 		// load settings and insert values into DOM
@@ -269,10 +279,9 @@
 		if (d.Sf.checkValidity()) d.Sf.submit(); //https://stackoverflow.com/q/37323914
 	}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
 
-<body onload="S()">
+<body>
 	<form id="form_s" name="Sf" method="post" onsubmit="svS(event)">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H()">?</button></div>

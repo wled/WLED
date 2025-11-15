@@ -4,8 +4,16 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Sync Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
 	function adj(){if (d.Sf.DI.value == 6454) {if (d.Sf.EU.value == 1) d.Sf.EU.value = 0;}
 					else if (d.Sf.DI.value == 5568) {if (d.Sf.DA.value == 0) d.Sf.DA.value = 1; if (d.Sf.EU.value == 0) d.Sf.EU.value = 1;} }
 	function FC()
@@ -43,9 +51,8 @@
 	function hideDMXInput(){gId("dmxInput").style.display="none";}
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 <form id="form_s" name="Sf" method="post" onsubmit="GC()">
 <div class="toprow">
 <div class="helpB"><button type="button" onclick="H('interfaces/udp-notifier/')">?</button></div>
