@@ -1,5 +1,13 @@
 #include "wled.h"
 
+// Include SHA1 libraries for device ID generation
+#ifdef ESP8266
+  #include <Hash.h>
+#endif
+#ifdef ESP32
+  #include "mbedtls/sha1.h"
+#endif
+
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -690,6 +698,38 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
+// Generate a device ID based on SHA1 hash of MAC address
+String getDeviceId() {
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+
+  #ifdef ESP8266
+    // For ESP8266 we use the Hash.h library which is built into the ESP8266 Core
+    char macStr[18];
+    sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    String macString = String(macStr);
+    return sha1(macString);
+  #endif
+
+  #ifdef ESP32
+    // For ESP32 we use the mbedtls library which is built into the ESP32 core
+    unsigned char shaResult[20]; // SHA1 produces a hash of 20 bytes (which is 40 HEX characters)
+    mbedtls_sha1_context ctx;
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, mac, 6);
+    mbedtls_sha1_finish_ret(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+
+    // Convert the Hash to a hexadecimal string
+    char buf[41];
+    for (int i = 0; i < 20; i++) {
+      sprintf(&buf[i*2], "%02x", shaResult[i]);
+    }
+    return String(buf);
+  #endif
+}
+
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -697,6 +737,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+  root[F("deviceId")] = getDeviceId();
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
