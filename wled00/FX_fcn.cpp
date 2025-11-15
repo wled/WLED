@@ -55,6 +55,10 @@ uint16_t Segment::_clipStop = 0;
 uint8_t  Segment::_clipStartY = 0;
 uint8_t  Segment::_clipStopY = 1;
 
+// Ignore warnings about "mode" for now
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+
 // copy constructor
 Segment::Segment(const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copy segment constructor: %p -> %p\n"), &orig, this);
@@ -143,6 +147,8 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   }
   return *this;
 }
+
+#pragma GCC diagnostic pop
 
 // allocates effect data buffer on heap and initialises (erases) it
 bool Segment::allocateData(size_t len) {
@@ -548,33 +554,54 @@ Segment &Segment::setOption(uint8_t n, bool val) {
   return *this;
 }
 
+// extracts parameter defaults from last section of effect data (e.g. "Juggle@!,Trail;!,!,;!;012;sx=16,ix=240")
+static int16_t extractEffectDefault(const char* data, const char *segVar)
+{
+  if (!data) return -1;
+
+  char* stopPtr = strstr(data, segVar);
+  if (!stopPtr) return -1;
+
+  stopPtr += strlen(segVar) +1; // skip "="
+  return atoi(stopPtr);
+}
+
 Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
-  // skip reserved
-  while (fx < strip.getModeCount() && strncmp_P("RSVD", strip.getModeData(fx), 4) == 0) fx++;
-  if (fx >= strip.getModeCount()) fx = 0; // set solid mode
-  // if we have a valid mode & is not reserved
-  if (fx != mode) {
+  const Effect* new_effect = Effects::getEffectById(fx);
+  if (effect != new_effect) {
     startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
-    mode = fx;
+    effect = new_effect;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+    mode = Effects::getIdForEffect(effect);
+#pragma GCC diagnostic pop    
     int sOpt;
+
+    // Cache string on the stack to avoid PROGMEM issues
+    char lineBuffer[256];
+    strncpy_P(lineBuffer, effect->data, sizeof(lineBuffer)/sizeof(char)-1);
+    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
+    // Find start of defaults section
+    char* defPtr = strrchr(lineBuffer, ';'); // last ";" in FX data
+
     // load default values from effect string
     if (loadDefaults) {
-      sOpt = extractModeDefaults(fx, "sx");  speed     = (sOpt >= 0) ? sOpt : DEFAULT_SPEED;
-      sOpt = extractModeDefaults(fx, "ix");  intensity = (sOpt >= 0) ? sOpt : DEFAULT_INTENSITY;
-      sOpt = extractModeDefaults(fx, "c1");  custom1   = (sOpt >= 0) ? sOpt : DEFAULT_C1;
-      sOpt = extractModeDefaults(fx, "c2");  custom2   = (sOpt >= 0) ? sOpt : DEFAULT_C2;
-      sOpt = extractModeDefaults(fx, "c3");  custom3   = (sOpt >= 0) ? sOpt : DEFAULT_C3;
-      sOpt = extractModeDefaults(fx, "o1");  check1    = (sOpt >= 0) ? (bool)sOpt : false;
-      sOpt = extractModeDefaults(fx, "o2");  check2    = (sOpt >= 0) ? (bool)sOpt : false;
-      sOpt = extractModeDefaults(fx, "o3");  check3    = (sOpt >= 0) ? (bool)sOpt : false;
-      sOpt = extractModeDefaults(fx, "m12"); if (sOpt >= 0) map1D2D   = constrain(sOpt, 0, 7); else map1D2D = M12_Pixels;  // reset mapping if not defined (2D FX may not work)
-      sOpt = extractModeDefaults(fx, "si");  if (sOpt >= 0) soundSim  = constrain(sOpt, 0, 3);
-      sOpt = extractModeDefaults(fx, "rev"); if (sOpt >= 0) reverse   = (bool)sOpt;
-      sOpt = extractModeDefaults(fx, "mi");  if (sOpt >= 0) mirror    = (bool)sOpt; // NOTE: setting this option is a risky business
-      sOpt = extractModeDefaults(fx, "rY");  if (sOpt >= 0) reverse_y = (bool)sOpt;
-      sOpt = extractModeDefaults(fx, "mY");  if (sOpt >= 0) mirror_y  = (bool)sOpt; // NOTE: setting this option is a risky business
+      sOpt = extractEffectDefault(defPtr, "sx");  speed     = (sOpt >= 0) ? sOpt : DEFAULT_SPEED;
+      sOpt = extractEffectDefault(defPtr, "ix");  intensity = (sOpt >= 0) ? sOpt : DEFAULT_INTENSITY;
+      sOpt = extractEffectDefault(defPtr, "c1");  custom1   = (sOpt >= 0) ? sOpt : DEFAULT_C1;
+      sOpt = extractEffectDefault(defPtr, "c2");  custom2   = (sOpt >= 0) ? sOpt : DEFAULT_C2;
+      sOpt = extractEffectDefault(defPtr, "c3");  custom3   = (sOpt >= 0) ? sOpt : DEFAULT_C3;
+      sOpt = extractEffectDefault(defPtr, "o1");  check1    = (sOpt >= 0) ? (bool)sOpt : false;
+      sOpt = extractEffectDefault(defPtr, "o2");  check2    = (sOpt >= 0) ? (bool)sOpt : false;
+      sOpt = extractEffectDefault(defPtr, "o3");  check3    = (sOpt >= 0) ? (bool)sOpt : false;
+      sOpt = extractEffectDefault(defPtr, "m12"); if (sOpt >= 0) map1D2D   = constrain(sOpt, 0, 7); else map1D2D = M12_Pixels;  // reset mapping if not defined (2D FX may not work)
+      sOpt = extractEffectDefault(defPtr, "si");  if (sOpt >= 0) soundSim  = constrain(sOpt, 0, 3);
+      sOpt = extractEffectDefault(defPtr, "rev"); if (sOpt >= 0) reverse   = (bool)sOpt;
+      sOpt = extractEffectDefault(defPtr, "mi");  if (sOpt >= 0) mirror    = (bool)sOpt; // NOTE: setting this option is a risky business
+      sOpt = extractEffectDefault(defPtr, "rY");  if (sOpt >= 0) reverse_y = (bool)sOpt;
+      sOpt = extractEffectDefault(defPtr, "mY");  if (sOpt >= 0) mirror_y  = (bool)sOpt; // NOTE: setting this option is a risky business
     }
-    sOpt = extractModeDefaults(fx, "pal"); // always extract 'pal' to set _default_palette
+    sOpt = extractEffectDefault(defPtr, "pal"); // always extract 'pal' to set _default_palette
     if (sOpt >= 0 && loadDefaults) setPalette(sOpt);
     if (sOpt <= 0) sOpt = 6; // partycolors if zero or not set
     _default_palette = sOpt; // _deault_palette is loaded into pal0 in loadPalette() (if selected)
@@ -601,7 +628,7 @@ Segment &Segment::setName(const char *newName) {
     if (newLen) {
       if (name) p_free(name); // free old name
       name = static_cast<char*>(allocate_buffer(newLen+1, BFRALLOC_PREFER_PSRAM));
-      if (mode == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
+      if (Effects::getIdForEffect(effect) == FX_MODE_2DSCROLLTEXT) startTransition(strip.getTransition(), true); // if the name changes in scrolling text mode, we need to copy the segment for blending
       if (name) strlcpy(name, newName, newLen+1);
       return *this;
     }
@@ -1281,7 +1308,7 @@ void WS2812FX::service() {
     if (!seg.isActive()) continue;
 
     // last condition ensures all solid segments are updated at the same time
-    if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
+    if (nowUp > seg.next_time || _triggered || (doShow && Effects::getIdForEffect(seg.effect) == FX_MODE_STATIC))
     {
       doShow = true;
       unsigned frameDelay = FRAMETIME;
@@ -1292,18 +1319,18 @@ void WS2812FX::service() {
         seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
-        frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
+        frameDelay = seg.effect->fcn();  // run new/current mode (needed for bri workaround)
         seg.call++;
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
         Segment *segO = seg.getOldSegment();
-        if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != BLEND_STYLE_FADE ||
+        if (segO && segO->isActive() && (seg.effect != segO->effect || blendingStyle != BLEND_STYLE_FADE ||
             (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
           Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
-          frameDelay = min(frameDelay, (unsigned)(*_mode[segO->mode])());  // run old mode (needed for bri workaround; semaphore!!)
+          frameDelay = min(frameDelay, (unsigned)(segO->effect->fcn()));  // run old mode (needed for bri workaround; semaphore!!)
           segO->call++;                     // increment old mode run counter
           Segment::modeBlend(false);        // unset semaphore
         }
@@ -1497,7 +1524,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       uint32_t c_a = BLACK;
       if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
       if (segO && blendingStyle == BLEND_STYLE_FADE
-        && (topSegment.mode != segO->mode || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
+        && (topSegment.effect != segO->effect || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
         && x < oCols && y < oRows) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
@@ -1565,10 +1592,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       switch (blendingStyle) {
         case BLEND_STYLE_PUSH_RIGHT: i = (i + offsetI) % nLen;        break;
         case BLEND_STYLE_PUSH_LEFT:  i = (i - offsetI + nLen) % nLen; break;
+        default: ;
       }
       uint32_t c_a = BLACK;
       if (i < vLen) c_a = seg->getPixelColorRaw(i); // will get clipped pixel from old segment or unclipped pixel from new segment
-      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.mode != segO->mode && i < oLen) {
+      if (segO && blendingStyle == BLEND_STYLE_FADE && topSegment.effect != segO->effect && i < oLen) {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
@@ -1953,8 +1981,7 @@ void WS2812FX::printSize() {
   for (const Segment &seg : _segments) size += seg.getSize();
   DEBUG_PRINTF_P(PSTR("Segments: %d -> %u/%dB\n"), _segments.size(), size, Segment::getUsedSegmentData());
   for (const Segment &seg : _segments) DEBUG_PRINTF_P(PSTR("  Seg: %d,%d [A=%d, 2D=%d, RGB=%d, W=%d, CCT=%d]\n"), seg.width(), seg.height(), seg.isActive(), seg.is2D(), seg.hasRGB(), seg.hasWhite(), seg.isCCT());
-  DEBUG_PRINTF_P(PSTR("Modes: %d*%d=%uB\n"), sizeof(mode_ptr), _mode.size(), (_mode.capacity()*sizeof(mode_ptr)));
-  DEBUG_PRINTF_P(PSTR("Data: %d*%d=%uB\n"), sizeof(const char *), _modeData.size(), (_modeData.capacity()*sizeof(const char *)));
+  DEBUG_PRINTF_P(PSTR("Modes: %d*(%d of %d)=%uB\n"), sizeof(Effect), Effects::getCount(), Effects::getCapacity(), (Effects::getCapacity()*sizeof(Effect)));
   DEBUG_PRINTF_P(PSTR("Map: %d*%d=%uB\n"), sizeof(uint16_t), (int)customMappingSize, customMappingSize*sizeof(uint16_t));
 }
 #endif
@@ -2054,7 +2081,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
 }
 
 
-const char JSON_mode_names[] PROGMEM = R"=====(["FX names moved"])=====";
 const char JSON_palette_names[] PROGMEM = R"=====([
 "Default","* Random Cycle","* Color 1","* Colors 1&2","* Color Gradient","* Colors Only","Party","Cloud","Lava","Ocean",
 "Forest","Rainbow","Rainbow Bands","Sunset","Rivendell","Breeze","Red & Blue","Yellowout","Analogous","Splash",

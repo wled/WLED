@@ -213,21 +213,13 @@ void releaseJSONBufferLock()
 // caller must provide large enough buffer for name (including SR extensions)!
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
-  if (src == JSON_mode_names || src == nullptr) {
-    if (mode < strip.getModeCount()) {
-      char lineBuffer[256];
-      //strcpy_P(lineBuffer, (const char*)pgm_read_dword(&(WS2812FX::_modeData[mode])));
-      strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
-      lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-      size_t len = strlen(lineBuffer);
-      size_t j = 0;
-      for (; j < maxLen && j < len; j++) {
-        if (lineBuffer[j] == '\0' || lineBuffer[j] == '@') break;
-        dest[j] = lineBuffer[j];
-      }
-      dest[j] = 0; // terminate string
-      return strlen(dest);
-    } else return 0;
+  if (src == nullptr) {
+    const Effect* effect = Effects::getEffectById(mode);
+    if (effect) {
+      return effect->getName(dest, maxLen);
+    } else {
+      return 0;
+    }
   }
 
   if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
@@ -272,97 +264,71 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 {
   dest[0] = '\0'; // start by clearing buffer
 
-  if (mode < strip.getModeCount()) {
-    String lineBuffer = FPSTR(strip.getModeData(mode));
-    if (lineBuffer.length() > 0) {
-      int start = lineBuffer.indexOf('@');   // String::indexOf() returns an int, not an unsigned; -1 means "not found"
-      int stop  = lineBuffer.indexOf(';', start);
-      if (start>0 && stop>0) {
-        String names = lineBuffer.substring(start, stop); // include @
-        int nameBegin = 1, nameEnd, nameDefault;
-        if (slider < 10) {
-          for (size_t i=0; i<=slider; i++) {
-            const char *tmpstr;
-            dest[0] = '\0'; //clear dest buffer
-            if (nameBegin <= 0) break; // there are no more names
-            nameEnd = names.indexOf(',', nameBegin);
-            if (i == slider) {
-              nameDefault = names.indexOf('=', nameBegin); // find default value
-              if (nameDefault > 0 && var && ((nameEnd>0 && nameDefault<nameEnd) || nameEnd<0)) {
-                *var = (uint8_t)atoi(names.substring(nameDefault+1).c_str());
-              }
-              if (names.charAt(nameBegin) == '!') {
-                switch (slider) {
-                  case  0: tmpstr = PSTR("FX Speed");     break;
-                  case  1: tmpstr = PSTR("FX Intensity"); break;
-                  case  2: tmpstr = PSTR("FX Custom 1");  break;
-                  case  3: tmpstr = PSTR("FX Custom 2");  break;
-                  case  4: tmpstr = PSTR("FX Custom 3");  break;
-                  default: tmpstr = PSTR("FX Custom");    break;
-                }
-                strncpy_P(dest, tmpstr, maxLen); // copy the name into buffer (replacing previous)
-                dest[maxLen-1] = '\0';
-              } else {
-                if (nameEnd<0) tmpstr = names.substring(nameBegin).c_str(); // did not find ",", last name?
-                else           tmpstr = names.substring(nameBegin, nameEnd).c_str();
-                strlcpy(dest, tmpstr, maxLen); // copy the name into buffer (replacing previous)
-              }
+  String lineBuffer = FPSTR(Effects::getModeData(mode));
+  if (lineBuffer.length() > 0) {
+    int start = lineBuffer.indexOf('@');   // String::indexOf() returns an int, not an unsigned; -1 means "not found"
+    int stop  = lineBuffer.indexOf(';', start);
+    if (start>0 && stop>0) {
+      String names = lineBuffer.substring(start, stop); // include @
+      int nameBegin = 1, nameEnd, nameDefault;
+      if (slider < 10) {
+        for (size_t i=0; i<=slider; i++) {
+          const char *tmpstr;
+          dest[0] = '\0'; //clear dest buffer
+          if (nameBegin <= 0) break; // there are no more names
+          nameEnd = names.indexOf(',', nameBegin);
+          if (i == slider) {
+            nameDefault = names.indexOf('=', nameBegin); // find default value
+            if (nameDefault > 0 && var && ((nameEnd>0 && nameDefault<nameEnd) || nameEnd<0)) {
+              *var = (uint8_t)atoi(names.substring(nameDefault+1).c_str());
             }
-            nameBegin = nameEnd+1; // next name (if "," is not found it will be 0)
-          } // next slider
-        } else if (slider == 255) {
-          // palette
-          strlcpy(dest, "pal", maxLen);
-          names = lineBuffer.substring(stop+1); // stop has index of color slot names
-          nameBegin = names.indexOf(';'); // look for palette
-          if (nameBegin >= 0) {
-            nameEnd = names.indexOf(';', nameBegin+1);
-            if (!isdigit(names[nameBegin+1])) nameBegin = names.indexOf('=', nameBegin+1); // look for default value
-            if (nameEnd >= 0 && nameBegin > nameEnd) nameBegin = -1;
-            if (nameBegin >= 0 && var) {
-              *var = (uint8_t)atoi(names.substring(nameBegin+1).c_str());
+            if (names.charAt(nameBegin) == '!') {
+              switch (slider) {
+                case  0: tmpstr = PSTR("FX Speed");     break;
+                case  1: tmpstr = PSTR("FX Intensity"); break;
+                case  2: tmpstr = PSTR("FX Custom 1");  break;
+                case  3: tmpstr = PSTR("FX Custom 2");  break;
+                case  4: tmpstr = PSTR("FX Custom 3");  break;
+                default: tmpstr = PSTR("FX Custom");    break;
+              }
+              strncpy_P(dest, tmpstr, maxLen); // copy the name into buffer (replacing previous)
+              dest[maxLen-1] = '\0';
+            } else {
+              if (nameEnd<0) tmpstr = names.substring(nameBegin).c_str(); // did not find ",", last name?
+              else           tmpstr = names.substring(nameBegin, nameEnd).c_str();
+              strlcpy(dest, tmpstr, maxLen); // copy the name into buffer (replacing previous)
             }
           }
+          nameBegin = nameEnd+1; // next name (if "," is not found it will be 0)
+        } // next slider
+      } else if (slider == 255) {
+        // palette
+        strlcpy(dest, "pal", maxLen);
+        names = lineBuffer.substring(stop+1); // stop has index of color slot names
+        nameBegin = names.indexOf(';'); // look for palette
+        if (nameBegin >= 0) {
+          nameEnd = names.indexOf(';', nameBegin+1);
+          if (!isdigit(names[nameBegin+1])) nameBegin = names.indexOf('=', nameBegin+1); // look for default value
+          if (nameEnd >= 0 && nameBegin > nameEnd) nameBegin = -1;
+          if (nameBegin >= 0 && var) {
+            *var = (uint8_t)atoi(names.substring(nameBegin+1).c_str());
+          }
         }
-        // we have slider name (including default value) in the dest buffer
-        for (size_t i=0; i<strlen(dest); i++) if (dest[i]=='=') { dest[i]='\0'; break; } // truncate default value
-
-      } else {
-        // defaults to just speed and intensity since there is no slider data
-        switch (slider) {
-          case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
-          case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
-        }
-        dest[maxLen] = '\0'; // strncpy does not necessarily null terminate string
       }
-    }
-    return strlen(dest);
-  }
-  return 0;
-}
+      // we have slider name (including default value) in the dest buffer
+      for (size_t i=0; i<strlen(dest); i++) if (dest[i]=='=') { dest[i]='\0'; break; } // truncate default value
 
-
-// extracts mode parameter defaults from last section of mode data (e.g. "Juggle@!,Trail;!,!,;!;012;sx=16,ix=240")
-int16_t extractModeDefaults(uint8_t mode, const char *segVar)
-{
-  if (mode < strip.getModeCount()) {
-    char lineBuffer[256];
-    strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
-      char* startPtr = strrchr(lineBuffer, ';'); // last ";" in FX data
-      if (!startPtr) return -1;
-
-      char* stopPtr = strstr(startPtr, segVar);
-      if (!stopPtr) return -1;
-
-      stopPtr += strlen(segVar) +1; // skip "="
-      return atoi(stopPtr);
+    } else {
+      // defaults to just speed and intensity since there is no slider data
+      switch (slider) {
+        case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
+        case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
+      }
+      dest[maxLen] = '\0'; // strncpy does not necessarily null terminate string
     }
   }
-  return -1;
+  return strlen(dest);
 }
-
 
 void checkSettingsPIN(const char* pin) {
   if (!pin) return;

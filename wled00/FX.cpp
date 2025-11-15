@@ -902,7 +902,7 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t a = (counter * SEGLEN) >> 16;
 
-  bool chase_random = (SEGMENT.mode == FX_MODE_CHASE_RANDOM);
+  bool chase_random = (Effects::getIdForEffect(SEGMENT.effect) == FX_MODE_CHASE_RANDOM);
   if (chase_random) {
     if (a < SEGENV.step) //we hit the start again, choose new color for Chase random
     {
@@ -10750,41 +10750,12 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
-static const char _data_RESERVED[] PROGMEM = "RSVD";
-
-// add (or replace reserved) effect mode and data into vector
-// use id==255 to find unallocated gaps (with "Reserved" data string)
-// if vector size() is smaller than id (single) data is appended at the end (regardless of id)
-// return the actual id used for the effect or 255 if the add failed.
-uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name) {
-  if (id == 255) { // find empty slot
-    for (size_t i=1; i<_mode.size(); i++) if (_modeData[i] == _data_RESERVED) { id = i; break; }
-  }
-  if (id < _mode.size()) {
-    if (_modeData[id] != _data_RESERVED) return 255; // do not overwrite an already added effect
-    _mode[id]     = mode_fn;
-    _modeData[id] = mode_name;
-    return id;
-  } else if (_mode.size() < 255) { // 255 is reserved for indicating the effect wasn't added
-    _mode.push_back(mode_fn);
-    _modeData.push_back(mode_name);
-    if (_modeCount < _mode.size()) _modeCount++;
-    return _mode.size() - 1;
-  } else {
-    return 255; // The vector is full so return 255
-  }
-}
 
 void WS2812FX::setupEffectData() {
-  // Solid must be first! (assuming vector is empty upon call to setup)
-  _mode.push_back(&mode_static);
-  _modeData.push_back(_data_FX_MODE_STATIC);
-  // fill reserved word in case there will be any gaps in the array
-  for (size_t i=1; i<_modeCount; i++) {
-    _mode.push_back(&mode_static);
-    _modeData.push_back(_data_RESERVED);
-  }
-  // now replace all pre-allocated effects
+  // TODO: make this a static initializer for _effects
+  addEffect(FX_MODE_STATIC, mode_static, _data_FX_MODE_STATIC);
+
+  // now add all pre-allocated effects
   addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);

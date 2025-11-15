@@ -23,7 +23,7 @@ namespace {
     uint16_t startY;
     uint16_t stopY;
     uint16_t options;
-    uint8_t  mode;
+    const Effect* effect;
     uint8_t  palette;
     uint8_t  opacity;
     uint8_t  speed;
@@ -44,7 +44,7 @@ namespace {
     if (a.grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
     if (a.spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
     if (a.opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-    if (a.mode != b.mode)           d |= SEG_DIFFERS_FX;
+    if (a.effect != b.effect)       d |= SEG_DIFFERS_FX;
     if (a.speed != b.speed)         d |= SEG_DIFFERS_FX;
     if (a.intensity != b.intensity) d |= SEG_DIFFERS_FX;
     if (a.palette != b.palette)     d |= SEG_DIFFERS_FX;
@@ -97,7 +97,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     seg.startY,
     seg.stopY,
     seg.options,
-    seg.mode,
+    seg.effect,
     seg.palette,
     seg.opacity,
     seg.speed,
@@ -247,7 +247,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         if (!colValid) continue;
 
         seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3])); // use transition
-        if (seg.mode == FX_MODE_STATIC) strip.trigger(); //instant refresh
+        if (Effects::getIdForEffect(seg.effect) == FX_MODE_STATIC) strip.trigger(); //instant refresh
       }
     } else {
       // non RGB & non White segment (usually On/Off bus)
@@ -279,10 +279,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.transpose = transpose;
   #endif
 
-  byte fx = seg.mode;
-  if (getVal(elem["fx"], fx, 0, strip.getModeCount())) {
+  byte fx = Effects::getIdForEffect(seg.effect);
+  if (getVal(elem["fx"], fx, 0, 255)) {
     if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
+    if (fx != seg.effect->id) seg.setMode(fx, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
   }
 
   getVal(elem["sx"], seg.speed);
@@ -607,7 +607,7 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   strcat(colstr, "]");
   root["col"] = serialized(colstr);
 
-  root["fx"]  = seg.mode;
+  root["fx"]  = Effects::getIdForEffect(seg.effect);
   root["sx"]  = seg.speed;
   root["ix"]  = seg.intensity;
   root["pal"] = seg.palette;
@@ -770,7 +770,7 @@ void serializeInfo(JsonObject root)
   root[F("ws")] = -1;
   #endif
 
-  root[F("fxcount")] = strip.getModeCount();
+  root[F("fxcount")] = Effects::getCount();
   root[F("palcount")] = getPaletteCount();
   root[F("cpalcount")] = customPalettes.size();   // number of custom palettes
   root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
@@ -1042,36 +1042,44 @@ void serializeNodes(JsonObject root)
   }
 }
 
-// deserializes mode data string into JsonArray
+// deserializes mode data string into JsonArray, omitting names
 void serializeModeData(JsonArray fxdata)
 {
-  char lineBuffer[256];
-  for (size_t i = 0; i < strip.getModeCount(); i++) {
-    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
+  for (auto& effect: Effects::all()) {
+    uint8_t id = Effects::getIdForEffect(effect);
+    if (id < 255) {
+      // Copy data to stack for analysis
+      char lineBuffer[256];
+      strncpy_P(lineBuffer, effect->data, sizeof(lineBuffer)/sizeof(char)-1);
+      lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
       char* dataPtr = strchr(lineBuffer,'@');
-      if (dataPtr) fxdata.add(dataPtr+1);
-      else         fxdata.add("");
+      if (dataPtr) {
+        fxdata[id] = (dataPtr+1);
+      }
     }
   }
-}
+  // Fill out empty elements
+  for(unsigned i = 0; i < fxdata.size(); ++i) {
+    if (fxdata[i].isNull()) fxdata[i] = "";
+  }  
+}    
 
 // deserializes mode names string into JsonArray
 // also removes effect data extensions (@...) from deserialised names
 void serializeModeNames(JsonArray arr)
 {
-  char lineBuffer[256];
-  for (size_t i = 0; i < strip.getModeCount(); i++) {
-    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
-      char* dataPtr = strchr(lineBuffer,'@');
-      if (dataPtr) *dataPtr = 0; // terminate mode data after name
-      arr.add(lineBuffer);
+  for (auto& effect: Effects::all()) {
+    uint8_t id = Effects::getIdForEffect(effect);
+    if (id < 255) {
+      arr[id] = effect->getName();
     }
   }
+  // Fill out empty elements
+  for(unsigned i = 0; i < arr.size(); ++i) {
+    if (arr[i].isNull()) arr[i] = FPSTR("RSVD");
+  }
 }
+
 
 // Global buffer locking response helper class (to make sure lock is released when AsyncJsonResponse is destroyed)
 class LockedJsonResponse: public AsyncJsonResponse {
