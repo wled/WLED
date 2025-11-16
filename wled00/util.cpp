@@ -647,7 +647,8 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 #ifdef ESP8266
 static void *validateFreeHeap(void *buffer) {
   // make sure there is enough free heap left if buffer was allocated in DRAM region, free it if not
-  if (getContiguousFreeHeap() < MIN_HEAP_SIZE) {
+  // note: ESP826 needs very little contiguous heap for webserver, checking total free heap works better
+  if (getFreeHeapSize() < MIN_HEAP_SIZE) {
     free(buffer);
     return nullptr;
   }
