@@ -1092,6 +1092,67 @@ void serializeModeNames(JsonArray arr)
   }
 }
 
+void serveFxMap(AsyncWebServerRequest* request)
+{
+  // sendChunked allows us to stream the data out without needing to buffer it all up front.
+  // We use a mutable lambda as the function type to preserve state across calls.
+  // This isn't the most packet-efficient -- we'd need to preserve some partially serialized traffic
+  // for that -- but it's low memory, no matter how big the data gets.
+  auto effect = Effects::all().begin();
+  bool done = false;    
+  request->sendChunked(
+    FPSTR(CONTENT_TYPE_JSON),
+    [effect, done](uint8_t* buf, size_t len, size_t filledLength) mutable {
+      size_t buf_len = len;;
+      //DEBUG_PRINTF_P(PSTR("SFM: eff %08X, done %d, buf %08X, len %d, fL %d\n"), (intptr_t)*effect, done, (intptr_t)buf, len, filledLength);
+      if (done) return 0U;
+      
+      if (filledLength == 0) {
+        *buf = '{';
+        ++buf, --len;
+      }
+
+      while(1) {          
+        if (effect == Effects::all().end()) {
+          *buf = '}'; --len;
+          done = true;
+          //DEBUG_PRINTF_P(PSTR("SFM: done\n"));
+          return (buf_len - len);  // Done
+        }
+        if (len < (strlen_P((*effect)->data) + 24)) { // "":{"info":"","id":nnn},
+          //DEBUG_PRINTF_P(PSTR("SFM: exiting: wanted %d, have %d\n"), (strlen_P((*effect)->data) + 24), len);
+          return (buf_len - len);  // not enough space
+        }
+
+        // Copy data to stack for analysis
+        char lineBuffer[256];
+        strncpy_P(lineBuffer, (*effect)->data, sizeof(lineBuffer)/sizeof(char)-1);
+        lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
+        char* dataPtr = strchr(lineBuffer,'@');
+        if (dataPtr) {
+          *dataPtr = '\0';
+        } else {
+          // point to null terminator
+          dataPtr = lineBuffer + strlen(lineBuffer);
+        }
+        //DEBUG_PRINTF_P(PSTR("SFM: sending eff %08X, buf %08X, len %d\n"), (intptr_t)*effect, (intptr_t)buf, len);
+        auto l_used = snprintf_P((char*) buf, len, PSTR("\"%s\":{\"info\":\"%s\""), lineBuffer, dataPtr+1);
+        buf += l_used; len -= l_used;
+
+        uint8_t id = Effects::getIdForEffect(*effect);
+        if (id < 255) {
+          l_used = snprintf_P((char*) buf, len, PSTR(",\"id\":%d"), id);
+          buf += l_used; len -= l_used;
+        }
+        *buf = '}'; ++buf, --len;
+        ++effect;
+        if (effect != Effects::all().end()) {
+          *buf = ','; ++buf, --len;
+        }
+      }
+    }
+  );
+}
 
 // Global buffer locking response helper class (to make sure lock is released when AsyncJsonResponse is destroyed)
 class LockedJsonResponse: public AsyncJsonResponse {
@@ -1134,6 +1195,10 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
+  else if (url.indexOf(F("fxmap")) > 0) {
+    serveFxMap(request);
+    return;
+  }
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
