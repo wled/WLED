@@ -4669,7 +4669,8 @@ static const char _data_FX_MODE_TV_SIMULATOR[] PROGMEM = "TV Simulator@!,!;;!;01
 
 
 /*
-  Aurora effect
+  Aurora effect by @Mazen
+  improved and converted to integer math by @dedehai
 */
 
 //CONFIG
@@ -4681,140 +4682,138 @@ static const char _data_FX_MODE_TV_SIMULATOR[] PROGMEM = "TV Simulator@!,!;;!;01
 #define W_MAX_SPEED 6             //Higher number, higher speed
 #define W_WIDTH_FACTOR 6          //Higher number, smaller waves
 
-//24 bytes
+// fixed-point math scaling
+#define AW_SHIFT 16
+#define AW_SCALE (1 << AW_SHIFT)  // 65536 representing 1.0
+
+// 32 bytes
 class AuroraWave {
   private:
+    int32_t center;               // scaled by AW_SCALE
+    uint32_t ageFactor_cached;    // cached age factor scaled by AW_SCALE
     uint16_t ttl;
-    CRGB basecolor;
-    float basealpha;
     uint16_t age;
     uint16_t width;
-    float center;
+    uint16_t basealpha;           // scaled by AW_SCALE
+    uint16_t speed_factor;        // scaled by AW_SCALE
+    int16_t  wave_start;          // wave start LED index
+    int16_t  wave_end;            // wave end LED index
     bool goingleft;
-    float speed_factor;
     bool alive = true;
+    CRGBW basecolor;
 
   public:
-    void init(uint32_t segment_length, CRGB color) {
+    void init(uint32_t segment_length, CRGBW color) {
       ttl = hw_random16(500, 1501);
       basecolor = color;
-      basealpha = hw_random8(60, 101) / (float)100;
+      basealpha = hw_random8(60, 100) * AW_SCALE / 100; // 0-99% note: if using 100% there is risk of integer overflow
       age = 0;
-      width = hw_random16(segment_length / 20, segment_length / W_WIDTH_FACTOR); //half of width to make math easier
-      if (!width) width = 1;
-      center = hw_random8(101) / (float)100 * segment_length;
-      goingleft = hw_random8(0, 2) == 0;
-      speed_factor = (hw_random8(10, 31) / (float)100 * W_MAX_SPEED / 255);
+      width = hw_random16(segment_length / 20, segment_length / W_WIDTH_FACTOR) + 1;
+      center = (((uint32_t)hw_random8(101) << AW_SHIFT) / 100) * segment_length; // 0-100%
+      goingleft = hw_random8() & 0x01; // 50/50 chance
+      speed_factor = (((uint32_t)hw_random8(10, 31) * W_MAX_SPEED) << AW_SHIFT) / (100 * 255);
       alive = true;
     }
 
-    CRGB getColorForLED(int ledIndex) {
-      if(ledIndex < center - width || ledIndex > center + width) return 0; //Position out of range of this wave
-
-      CRGB rgb;
-
-      //Offset of this led from center of wave
-      //The further away from the center, the dimmer the LED
-      float offset = ledIndex - center;
-      if (offset < 0) offset = -offset;
-      float offsetFactor = offset / width;
-
-      //The age of the wave determines it brightness.
-      //At half its maximum age it will be the brightest.
-      float ageFactor = 0.1;
-      if((float)age / ttl < 0.5) {
-        ageFactor = (float)age / (ttl / 2);
+    void updateCachedValues() {
+      uint32_t half_ttl = ttl >> 1;
+      if (age < half_ttl) {
+        ageFactor_cached = ((uint32_t)age << AW_SHIFT) / half_ttl;
       } else {
-        ageFactor = (float)(ttl - age) / ((float)ttl * 0.5);
+        ageFactor_cached = ((uint32_t)(ttl - age) << AW_SHIFT) / half_ttl;
       }
+      if (ageFactor_cached >= AW_SCALE) ageFactor_cached = AW_SCALE - 1; // prevent overflow
 
-      //Calculate color based on above factors and basealpha value
-      float factor = (1 - offsetFactor) * ageFactor * basealpha;
-      rgb.r = basecolor.r * factor;
-      rgb.g = basecolor.g * factor;
-      rgb.b = basecolor.b * factor;
+      uint32_t center_led = center >> AW_SHIFT;
+      wave_start = (int16_t)center_led - (int16_t)width;
+      wave_end = (int16_t)center_led + (int16_t)width;
+    }
+
+    CRGBW getColorForLED(int ledIndex) {
+      // linear brightness falloff from center to edge of wave
+      if (ledIndex < wave_start || ledIndex > wave_end) return 0;
+      int32_t ledIndex_scaled = (int32_t)ledIndex << AW_SHIFT;
+      int32_t offset = ledIndex_scaled - center;
+      if (offset < 0) offset = -offset;
+      uint32_t offsetFactor = offset / width;  // scaled by AW_SCALE
+      if (offsetFactor > AW_SCALE) return 0;   // outside of wave
+      uint32_t brightness_factor = (AW_SCALE - offsetFactor);
+      brightness_factor = (brightness_factor * ageFactor_cached) >> AW_SHIFT;
+      brightness_factor = (brightness_factor * basealpha) >> AW_SHIFT;
+
+      CRGBW rgb;
+      rgb.r = (basecolor.r * brightness_factor) >> AW_SHIFT;
+      rgb.g = (basecolor.g * brightness_factor) >> AW_SHIFT;
+      rgb.b = (basecolor.b * brightness_factor) >> AW_SHIFT;
+      rgb.w = (basecolor.w * brightness_factor) >> AW_SHIFT;
 
       return rgb;
     };
 
     //Change position and age of wave
-    //Determine if its sill "alive"
+    //Determine if its still "alive"
     void update(uint32_t segment_length, uint32_t speed) {
-      if(goingleft) {
-        center -= speed_factor * speed;
-      } else {
-        center += speed_factor * speed;
-      }
-
+      int32_t step = speed_factor * speed;
+      center += goingleft ? -step : step;
       age++;
 
-      if(age > ttl) {
+      if (age > ttl) {
         alive = false;
       } else {
-        if(goingleft) {
-          if(center + width < 0) {
-            alive = false;
-          }
-        } else {
-          if(center - width > segment_length) {
-            alive = false;
-          }
-        }
+        uint32_t width_scaled = (uint32_t)width << AW_SHIFT;
+        uint32_t segment_length_scaled = segment_length << AW_SHIFT;
+
+         if (goingleft) {
+           if (center < - (int32_t)width_scaled) {
+             alive = false;
+           }
+         } else {
+           if (center > (int32_t)segment_length_scaled + (int32_t)width_scaled) {
+             alive = false;
+           }
+         }
       }
     };
 
-    bool stillAlive() {
-      return alive;
-    };
+    bool stillAlive() { return alive; }
 };
 
 uint16_t mode_aurora(void) {
   AuroraWave* waves;
   SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
-  if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 20 on ESP32, 9 on ESP8266
-    return mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {
+    return mode_static();
   }
   waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
-  if(SEGENV.call == 0) {
-    for (int i = 0; i < SEGENV.aux1; i++) {
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
-    }
-  }
-
+  // note: on first call, SEGENV.data is zero -> all waves are dead and will be initialized
   for (int i = 0; i < SEGENV.aux1; i++) {
-    //Update values of wave
     waves[i].update(SEGLEN, SEGMENT.speed);
-
-    if(!(waves[i].stillAlive())) {
-      //If a wave dies, reinitialize it starts over.
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
+    if (!(waves[i].stillAlive())) {
+      waves[i].init(SEGLEN, SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
     }
+    waves[i].updateCachedValues();
   }
 
-  uint8_t backlight = 1; //dimmer backlight if less active colors
+  uint8_t backlight = 0; // note: original code used 1, with inverse gamma applied background would never be black
   if (SEGCOLOR(0)) backlight++;
   if (SEGCOLOR(1)) backlight++;
   if (SEGCOLOR(2)) backlight++;
-  //Loop through LEDs to determine color
+  backlight = gamma8inv(backlight); // preserve backlight when using gamma correction
+
   for (unsigned i = 0; i < SEGLEN; i++) {
-    CRGB mixedRgb = CRGB(backlight, backlight, backlight);
+    CRGBW mixedRgb = CRGBW(backlight, backlight, backlight);
 
-    //For each LED we must check each wave if it is "active" at this position.
-    //If there are multiple waves active on a LED we multiply their values.
-    for (int  j = 0; j < SEGENV.aux1; j++) {
-      CRGB rgb = waves[j].getColorForLED(i);
-
-      if(rgb != CRGB(0)) {
-        mixedRgb += rgb;
-      }
+    for (int j = 0; j < SEGENV.aux1; j++) {
+      CRGBW rgb = waves[j].getColorForLED(i);
+      mixedRgb = color_add(mixedRgb, rgb); // sum all waves influencing this pixel
     }
 
-    SEGMENT.setPixelColor(i, mixedRgb[0], mixedRgb[1], mixedRgb[2]);
+    SEGMENT.setPixelColor(i, mixedRgb);
   }
-
   return FRAMETIME;
 }
+
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
 // WLED-SR effects
