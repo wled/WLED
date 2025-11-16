@@ -279,10 +279,21 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.transpose = transpose;
   #endif
 
-  byte fx = Effects::getIdForEffect(seg.effect);
-  if (getVal(elem["fx"], fx, 0, 255)) {
-    if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.effect->id) seg.setMode(fx, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
+  {
+    const Effect* new_effect = nullptr;
+    JsonVariant ef = elem["ef"];
+    if (ef.is<String>()) {
+      new_effect = Effects::getEffectByName(ef.as<String>());
+    } else {
+      byte fx = Effects::getIdForEffect(seg.effect);
+      if (getVal(elem["fx"], fx, 0, 255) && (fx < 255)) {
+        new_effect = Effects::getEffectById(fx);
+      }
+    }
+    if (new_effect) {
+        if (!presetId && currentPlaylist>=0) unloadPlaylist();
+        if (new_effect != seg.effect) seg.setEffect(new_effect, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
+    }
   }
 
   getVal(elem["sx"], seg.speed);
@@ -607,6 +618,7 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   strcat(colstr, "]");
   root["col"] = serialized(colstr);
 
+  root["ef"] = seg.effect->getName();
   root["fx"]  = Effects::getIdForEffect(seg.effect);
   root["sx"]  = seg.speed;
   root["ix"]  = seg.intensity;

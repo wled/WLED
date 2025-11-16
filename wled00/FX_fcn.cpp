@@ -566,8 +566,7 @@ static int16_t extractEffectDefault(const char* data, const char *segVar)
   return atoi(stopPtr);
 }
 
-Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
-  const Effect* new_effect = Effects::getEffectById(fx);
+Segment &Segment::setEffect(const Effect* new_effect, bool loadDefaults) {
   if (effect != new_effect) {
     startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     effect = new_effect;

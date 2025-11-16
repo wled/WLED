@@ -54,7 +54,14 @@ uint8_t Effects::addEffect(const char *mode_name, effect_function mode_fn, uint8
   return id;
 }
 
-// const Effect* Effects::getEffectByName(const char* name) {}  TODO
+const Effect* Effects::getEffectByName(const char* name, size_t len) {
+  auto effect_iter = std::find_if(_globalEffectsList().begin(), _globalEffectsList().end(), [=](const Effect* e) { 
+      auto match = strncmp_P(e->data, name, len);
+      return (match == 0) && ((e->data[len] == '@') || (e->data[len] == 0));
+    });
+  if (effect_iter == _globalEffectsList().end()) effect_iter = _globalEffectsList().begin(); // set solid mode, always the first element of the list  
+  return *effect_iter;  
+}
 
 const Effect* Effects::getEffectById(uint8_t id) {
   auto effect_iter = std::find_if(_globalEffectsList().begin(), _globalEffectsList().end(), [=](const Effect* e) { return getIdForEffect(e) == id; });

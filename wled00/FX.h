@@ -427,7 +427,7 @@ namespace Effects { uint8_t getIdForEffect(const Effect*); };
 // Effect information structure
 typedef uint16_t (*effect_function)(); // pointer to mode function
 struct Effect {
-  const char *data; // mode (effect) name and its UI control data  
+  const char *data; // mode (effect) name and its UI control data
   effect_function    fcn;  // mode (effect) function
   /* Future: per-effect constructor function pointer goes here */
 
@@ -451,7 +451,10 @@ namespace Effects {
   void addEffect(const Effect* effect);     // add an effect to the global list
   uint8_t addEffect(const char *mode_name, effect_function mode_fn, uint8_t id);  // Add a non-static effect to the list; returns id
   
-  const Effect* getEffectByName(const char* name);
+  const Effect* getEffectByName(const char* name, size_t name_len);
+  inline const Effect* getEffectByName(const char* name) { return getEffectByName(name, strlen(name)); }
+  inline const Effect* getEffectByName(const String& name) { return getEffectByName(name.c_str(), name.length()); }
+
   const Effect* getEffectById(uint8_t id);    // Returns an effect pointer by id number; if not found, returns first effect
   inline uint8_t getIdForEffect(const Effect* effect) { return effect->id; }   // Returns the ID number assigned to an effect, or 255 if none available
   uint8_t getHighestId(); // Returns the highest assigned ID value; often used by older code to iterate through fx by id
@@ -724,7 +727,8 @@ class Segment {
     Segment &setCCT(uint16_t k);
     Segment &setOpacity(uint8_t o);
     Segment &setOption(uint8_t n, bool val);
-    Segment &setMode(uint8_t fx, bool loadDefaults = false);
+    Segment &setEffect(const Effect* effect, bool loadDefaults = false);
+    inline Segment &setMode(uint8_t fx, bool loadDefaults = false) { return setEffect(Effects::getEffectById(fx), loadDefaults); }
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
     void    refreshLightCapabilities() const;
