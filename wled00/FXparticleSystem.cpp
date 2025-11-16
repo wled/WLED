@@ -17,8 +17,7 @@
 // local shared functions (used both in 1D and 2D system)
 static int32_t calcForce_dv(const int8_t force, uint8_t &counter);
 static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32_t particleradius, const bool wrap); // returns false if out of bounds by more than particleradius
-static uint32_t fast_color_add(CRGBW c1, const CRGBW c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
-static uint32_t fast_color_scale(CRGBW c, const uint8_t scale); // fast scaling function using 32bit variable and pointer. note: keep 'scale' within 0-255
+static uint32_t fast_color_scaleAdd(const uint32_t c1, const uint32_t c2, uint8_t scale = 255); // fast and accurate color adding with scaling (scales c2 before adding)
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
@@ -625,7 +624,7 @@ void ParticleSystem2D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY) {
+void WLED_O2_ATTR ParticleSystem2D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY) {
   uint32_t size = particlesize;
   if (advPartProps && advPartProps[particleindex].size > 0) // use advanced size properties (0 means use global size including single pixel rendering)
     size = advPartProps[particleindex].size;
@@ -635,7 +634,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
     uint32_t y = particles[particleindex].y >> PS_P_RADIUS_SHIFT;
     if (x <= (uint32_t)maxXpixel && y <= (uint32_t)maxYpixel) {
       uint32_t index = x + (maxYpixel - y) * (maxXpixel + 1); // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
-      framebuffer[index] = fast_color_add(framebuffer[index], color, brightness);
+      framebuffer[index] = fast_color_scaleAdd(framebuffer[index], color, brightness);
     }
     return;
   }
@@ -687,10 +686,10 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
     memset(renderbuffer, 0, sizeof(renderbuffer)); // clear buffer
     //particle size to pixels: < 64 is 4x4, < 128 is 6x6, < 192 is 8x8, bigger is 10x10
     //first, render the pixel to the center of the renderbuffer, then apply 2D blurring
-    renderbuffer[4 + (4 * 10)] = fast_color_add(renderbuffer[4 + (4 * 10)], color, pxlbrightness[0]); // order is: bottom left, bottom right, top right, top left
-    renderbuffer[5 + (4 * 10)] = fast_color_add(renderbuffer[5 + (4 * 10)], color, pxlbrightness[1]);
-    renderbuffer[5 + (5 * 10)] = fast_color_add(renderbuffer[5 + (5 * 10)], color, pxlbrightness[2]);
-    renderbuffer[4 + (5 * 10)] = fast_color_add(renderbuffer[4 + (5 * 10)], color, pxlbrightness[3]);
+    renderbuffer[4 + (4 * 10)] = fast_color_scaleAdd(renderbuffer[4 + (4 * 10)], color, pxlbrightness[0]); // order is: bottom left, bottom right, top right, top left
+    renderbuffer[5 + (4 * 10)] = fast_color_scaleAdd(renderbuffer[5 + (4 * 10)], color, pxlbrightness[1]);
+    renderbuffer[5 + (5 * 10)] = fast_color_scaleAdd(renderbuffer[5 + (5 * 10)], color, pxlbrightness[2]);
+    renderbuffer[4 + (5 * 10)] = fast_color_scaleAdd(renderbuffer[4 + (5 * 10)], color, pxlbrightness[3]);
     uint32_t rendersize = 2; // initialize render size, minimum is 4x4 pixels, it is incremented int he loop below to start with 4
     uint32_t offset = 4; // offset to zero coordinate to write/read data in renderbuffer (actually needs to be 3, is decremented in the loop below)
     uint32_t maxsize = advPartProps[particleindex].size;
@@ -748,7 +747,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
           continue;
         }
         uint32_t idx = xfb + (maxYpixel - yfb) * (maxXpixel + 1); // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
-        framebuffer[idx] = fast_color_add(framebuffer[idx], renderbuffer[xrb + yrb * 10]);
+        framebuffer[idx] = fast_color_scaleAdd(framebuffer[idx], renderbuffer[xrb + yrb * 10]);
       }
     }
     } else { // standard rendering (2x2 pixels)
@@ -785,7 +784,7 @@ __attribute__((optimize("O2"))) void ParticleSystem2D::renderParticle(const uint
     for (uint32_t i = 0; i < 4; i++) {
       if (pixelvalid[i]) {
         uint32_t idx = pixco[i].x + (maxYpixel - pixco[i].y) * (maxXpixel + 1); // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
-        framebuffer[idx] = fast_color_add(framebuffer[idx], color, pxlbrightness[i]); // order is: bottom left, bottom right, top right, top left
+        framebuffer[idx] = fast_color_scaleAdd(framebuffer[idx], color, pxlbrightness[i]); // order is: bottom left, bottom right, top right, top left
       }
     }
   }
@@ -857,7 +856,7 @@ void ParticleSystem2D::handleCollisions() {
 
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
+void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
   int32_t distanceSquared = dx * dx + dy * dy;
   // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
@@ -1028,9 +1027,8 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
     for (uint32_t x = xstart; x < xstart + xsize; x++) {
       seeppart = fast_color_scale(colorbuffer[indexXY], seep); // scale it and seep to neighbours
       if (x > 0) {
-        colorbuffer[indexXY - 1] = fast_color_add(colorbuffer[indexXY - 1], seeppart);
-        if (carryover.color32) // note: check adds overhead but is faster on average
-          colorbuffer[indexXY] = fast_color_add(colorbuffer[indexXY], carryover);
+        colorbuffer[indexXY - 1] = fast_color_scaleAdd(colorbuffer[indexXY - 1], seeppart);
+        colorbuffer[indexXY]     = fast_color_scaleAdd(colorbuffer[indexXY], carryover);
       }
       carryover = seeppart;
       indexXY++; // next pixel in x direction
@@ -1049,9 +1047,8 @@ void blur2D(uint32_t *colorbuffer, uint32_t xsize, uint32_t ysize, uint32_t xblu
     for (uint32_t y = ystart; y < ystart + ysize; y++) {
       seeppart = fast_color_scale(colorbuffer[indexXY], seep); // scale it and seep to neighbours
       if (y > 0) {
-        colorbuffer[indexXY - width] = fast_color_add(colorbuffer[indexXY - width], seeppart);
-        if (carryover.color32) // note: check adds overhead but is faster on average
-          colorbuffer[indexXY] = fast_color_add(colorbuffer[indexXY], carryover);
+        colorbuffer[indexXY - width] = fast_color_scaleAdd(colorbuffer[indexXY - width], seeppart);
+        colorbuffer[indexXY]         = fast_color_scaleAdd(colorbuffer[indexXY], carryover);
       }
       carryover = seeppart;
       indexXY += width; // next pixel in y direction
@@ -1470,7 +1467,7 @@ void ParticleSystem1D::render() {
   CRGBW bg_color = SEGCOLOR(1);
   if (bg_color > 0) { //if not black
     for (int32_t i = 0; i <= maxXpixel; i++) {
-      framebuffer[i] = fast_color_add(framebuffer[i], bg_color);
+      framebuffer[i] = fast_color_scaleAdd(framebuffer[i], bg_color);
     }
   }
 #ifndef WLED_DISABLE_2D
@@ -1485,7 +1482,7 @@ void ParticleSystem1D::render() {
 }
 
 // calculate pixel positions and brightness distribution and render the particle to local buffer or global buffer
-__attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap) {
+void WLED_O2_ATTR ParticleSystem1D::renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap) {
   uint32_t size = particlesize;
   if (advPartProps) // use advanced size properties (1D system has no large size global rendering TODO: add large global rendering?)
     size = advPartProps[particleindex].size;
@@ -1493,7 +1490,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
   if (size == 0) { //single pixel particle, can be out of bounds as oob checking is made for 2-pixel particles (and updating it uses more code)
     uint32_t x =  particles[particleindex].x >> PS_P_RADIUS_SHIFT_1D;
     if (x <= (uint32_t)maxXpixel) { //by making x unsigned there is no need to check < 0 as it will overflow
-      framebuffer[x] = fast_color_add(framebuffer[x], color, brightness);
+      framebuffer[x] = fast_color_scaleAdd(framebuffer[x], color, brightness);
     }
     return;
   }
@@ -1530,8 +1527,8 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
     //render particle to a bigger size
     //particle size to pixels: 2 - 63 is 4 pixels, < 128 is 6pixels, < 192 is 8 pixels, bigger is 10 pixels
     //first, render the pixel to the center of the renderbuffer, then apply 1D blurring
-    renderbuffer[4] = fast_color_add(renderbuffer[4], color, pxlbrightness[0]);
-    renderbuffer[5] = fast_color_add(renderbuffer[5], color, pxlbrightness[1]);
+    renderbuffer[4] = fast_color_scaleAdd(renderbuffer[4], color, pxlbrightness[0]);
+    renderbuffer[5] = fast_color_scaleAdd(renderbuffer[5], color, pxlbrightness[1]);
     uint32_t rendersize = 2; // initialize render size, minimum is 4 pixels, it is incremented int he loop below to start with 4
     uint32_t offset = 4; // offset to zero coordinate to write/read data in renderbuffer (actually needs to be 3, is decremented in the loop below)
     uint32_t blurpasses = size/64 + 1; // number of blur passes depends on size, four passes max
@@ -1565,7 +1562,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
       #ifdef ESP8266 // no local buffer on ESP8266
       SEGMENT.addPixelColor(xfb, renderbuffer[xrb], true);
       #else
-      framebuffer[xfb] = fast_color_add(framebuffer[xfb], renderbuffer[xrb]);
+      framebuffer[xfb] = fast_color_scaleAdd(framebuffer[xfb], renderbuffer[xrb]);
       #endif
     }
   }
@@ -1585,7 +1582,7 @@ __attribute__((optimize("O2"))) void ParticleSystem1D::renderParticle(const uint
     }
     for (uint32_t i = 0; i < 2; i++) {
       if (pxlisinframe[i]) {
-        framebuffer[pixco[i]] = fast_color_add(framebuffer[pixco[i]], color, pxlbrightness[i]);
+        framebuffer[pixco[i]] = fast_color_scaleAdd(framebuffer[pixco[i]], color, pxlbrightness[i]);
       }
     }
   }
@@ -1648,7 +1645,7 @@ void ParticleSystem1D::handleCollisions() {
 }
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-__attribute__((optimize("O2"))) void ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance) {
+void WLED_O2_ATTR ParticleSystem1D::collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance) {
   int32_t dv = particle2.vx - particle1.vx;
   int32_t dotProduct = (dx * dv); // is always negative if moving towards each other
 
@@ -1837,9 +1834,8 @@ void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start)
   for (uint32_t x = start; x < start + size; x++) {
     seeppart = fast_color_scale(colorbuffer[x], seep); // scale it and seep to neighbours
     if (x > 0) {
-      colorbuffer[x-1] = fast_color_add(colorbuffer[x-1], seeppart);
-      if (carryover.color32) // note: check adds overhead but is faster on average
-        colorbuffer[x] = fast_color_add(colorbuffer[x], carryover); // is black on first pass
+      colorbuffer[x-1] = fast_color_scaleAdd(colorbuffer[x-1], seeppart);
+      colorbuffer[x]   = fast_color_scaleAdd(colorbuffer[x], carryover); // is black on first pass
     }
     carryover = seeppart;
   }
@@ -1888,36 +1884,34 @@ static bool checkBoundsAndWrap(int32_t &position, const int32_t max, const int32
   return true; // particle is in bounds
 }
 
-// this is a fast version for CRGBW color adding ignoring white channel (PS does not handle white) including scaling of second color
+// this is a fast version for RGB color adding ignoring white channel (PS does not handle white) including scaling of second color
 // note: function is mainly used to add scaled colors, so checking if one color is black is slower
-// note2: returning CRGBW value is slightly slower as the return value gets written to uint32_t framebuffer
- __attribute__((optimize("O2"))) static uint32_t fast_color_add(CRGBW c1, const CRGBW c2, const uint8_t scale) {
-  uint32_t r, g, b;
-  r = c1.r + ((c2.r * scale) >> 8);
-  g = c1.g + ((c2.g * scale) >> 8);
-  b = c1.b + ((c2.b * scale) >> 8);
+static uint32_t fast_color_scaleAdd(const uint32_t c1, const uint32_t c2, const uint8_t scale) {
+    constexpr uint32_t MASK_RB = 0x00FF00FF;  // red and blue mask
+    constexpr uint32_t MASK_G  = 0x0000FF00;  // green mask
 
-  // note: this chained comparison is the fastest method for max of 3 values (faster than std:max() or using xor)
-  uint32_t max = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
-  if (max <= 255) {
-    c1.r = r; // save result to c1
-    c1.g = g;
-    c1.b = b;
-  } else {
-    uint32_t newscale = (255U << 16) / max;
-    c1.r = (r * newscale) >> 16;
-    c1.g = (g * newscale) >> 16;
-    c1.b = (b * newscale) >> 16;
-  }
-  return c1.color32;
-}
+    uint32_t rb = c2 & MASK_RB; // 0x00RR00BB
+    uint32_t g  = c2 & MASK_G;  // 0x0000GG00
+    // scale second color
+    rb = ((rb * scale) >> 8) & MASK_RB;
+    g  = ((g  * scale) >> 8) & MASK_G;
+    // add colors
+    rb = (c1 & MASK_RB) + rb;
+    g = ((c1 & MASK_G)  + g);
 
-// fast CRGBW color scaling ignoring white channel (PS does not handle white)
- __attribute__((optimize("O2"))) static uint32_t fast_color_scale(CRGBW c, const uint8_t scale) {
-  c.r = ((c.r * scale) >> 8);
-  c.g = ((c.g * scale) >> 8);
-  c.b = ((c.b * scale) >> 8);
-  return c.color32;
+    // check for overflow by looking at the 9th bit of each channel
+    if ((rb | (g >> 8)) & 0x01000100) {
+        // find max among the three 16-bit values
+        g = g >> 8; // shift to get 0x000000GG
+        uint32_t max_val = (rb >> 16); // red
+        max_val = ((rb & 0xFFFF) > max_val) ? rb & 0xFFFF : max_val;  // blue
+        max_val = (g > max_val) ? g : max_val; // green
+        // scale down to avoid saturation
+        uint32_t scale_factor = (255 << 8) / max_val;
+        rb = ((rb * scale_factor) >> 8) & MASK_RB;
+        g = (g * scale_factor) & MASK_G;
+    }
+    return rb | g;
 }
 
 #endif  // !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))

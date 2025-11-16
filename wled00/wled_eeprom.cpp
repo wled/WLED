@@ -96,7 +96,7 @@ void loadSettingsFromEEPROM()
   if (apHide > 1) apHide = 1;
   uint16_t length = EEPROM.read(229) + ((EEPROM.read(398) << 8) & 0xFF00); //was ledCount
   if (length > MAX_LEDS || length == 0) length = 30;
-  uint8_t pins[5] = {2, 255, 255, 255, 255};
+  uint8_t pins[OUTPUT_MAX_PINS] = {2, 255, 255, 255, 255};
   uint8_t colorOrder = COL_ORDER_GRB;
   if (lastEEPROMversion > 9) colorOrder = EEPROM.read(383);
   if (colorOrder > COL_ORDER_GBR) colorOrder = COL_ORDER_GRB;

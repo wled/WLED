@@ -672,7 +672,6 @@ function parseInfo(i) {
 	//syncTglRecv   = i.str;
 	maxSeg       = i.leds.maxseg;
 	pmt          = i.fs.pmt;
-	if (pcMode && !i.wifi.ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('buttonNodes').style.display = lastinfo.ndc > 0 ? null:"none";
 	// do we have a matrix set-up
 	mw = i.leds.matrix ? i.leds.matrix.w : 0;
@@ -1042,8 +1041,7 @@ function genPalPrevCss(id)
 	}
 
 	var gradient = [];
-	for (let j = 0; j < paletteData.length; j++) {
-		const e = paletteData[j];
+	paletteData.forEach((e,j) => {
 		let r, g, b;
 		let index = false;
 		if (Array.isArray(e)) {
@@ -1065,9 +1063,8 @@ function genPalPrevCss(id)
 		if (index === false) {
 			index = Math.round(j / paletteData.length * 100);
 		}
-
 		gradient.push(`rgb(${r},${g},${b}) ${index}%`);
-	}
+	});
 
 	return `background: linear-gradient(to right,${gradient.join()});`;
 }
@@ -3088,11 +3085,9 @@ function unify(e) {	return e.changedTouches ? e.changedTouches[0] : e; }
 
 function hasIroClass(classList)
 {
-	for (var i = 0; i < classList.length; i++) {
-		var element = classList[i];
-		if (element.startsWith('Iro')) return true;
-	}
-	return false;
+	let found = false;
+	classList.forEach((e)=>{ if (e.startsWith('Iro')) found = true; });
+	return found;
 }
 //required by rangetouch.js
 function lock(e)
@@ -3155,7 +3150,6 @@ function togglePcMode(fromB = false)
 	if (!fromB && ((wW < 1024 && lastw < 1024) || (wW >= 1024 && lastw >= 1024))) return; // no change in size and called from size()
 	if (pcMode) openTab(0, true);
 	gId('buttonPcm').className = (pcMode) ? "active":"";
-	if (pcMode && !ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('bot').style.height = (pcMode && !cfg.comp.pcmbot) ? "0":"auto";
 	sCol('--bh', gId('bot').clientHeight + "px");
 	_C.style.width = (pcMode || simplifiedUI)?'100%':'400%';

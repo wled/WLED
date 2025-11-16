@@ -33,6 +33,6 @@
           run: |
             jq -n \
               --arg content "Pull Request #${PR_NUMBER} \"${PR_TITLE}\" merged by ${ACTOR}
-            ${PR_URL}. It will be included in the next nightly builds, please test" \
+            ${PR_URL} . It will be included in the next nightly builds, please test" \
               '{content: $content}' \
               | curl -H "Content-Type: application/json" -d @- ${{ secrets.DISCORD_WEBHOOK_BETA_TESTERS }}

@@ -27,6 +27,7 @@ void IRAM_ATTR touchButtonISR();
 bool backupConfig();
 bool restoreConfig();
 bool verifyConfig();
+bool configBackupExists();
 void resetConfig();
 bool deserializeConfig(JsonObject doc, bool fromFS = false);
 bool deserializeConfigFromFS();
@@ -103,6 +104,7 @@ inline bool readObjectFromFile(const String &file, const char* key, JsonDocument
 bool copyFile(const char* src_path, const char* dst_path);
 bool backupFile(const char* filename);
 bool restoreFile(const char* filename);
+bool checkBackupExists(const char* filename);
 bool validateJsonFile(const char* filename);
 void dumpFilesToSerial();
 
@@ -434,35 +436,44 @@ inline uint8_t hw_random8() { return HW_RND_REGISTER; };
 inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
-// PSRAM allocation wrappers
-#if !defined(ESP8266) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+// memory allocation wrappers (util.cpp)
 extern "C" {
-  void *p_malloc(size_t);           // prefer PSRAM over DRAM
-  void *p_calloc(size_t, size_t);   // prefer PSRAM over DRAM
-  void *p_realloc(void *, size_t);  // prefer PSRAM over DRAM
-  void *p_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer PSRAM over DRAM
-  inline void p_free(void *ptr) { heap_caps_free(ptr); }
-  void *d_malloc(size_t);           // prefer DRAM over PSRAM
-  void *d_calloc(size_t, size_t);   // prefer DRAM over PSRAM
-  void *d_realloc(void *, size_t);  // prefer DRAM over PSRAM
-  void *d_realloc_malloc(void *ptr, size_t size); // realloc with malloc fallback, prefer DRAM over PSRAM
+  // prefer DRAM in d_xalloc functions, PSRAM as fallback
+  void *d_malloc(size_t);
+  void *d_calloc(size_t, size_t);
+  void *d_realloc_malloc(void *ptr, size_t size);
+  #ifndef ESP8266
   inline void d_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  inline void d_free(void *ptr) { free(ptr); }
+  #endif
+  #if defined(BOARD_HAS_PSRAM)
+  // prefer PSRAM in p_xalloc functions, DRAM as fallback
+  void *p_malloc(size_t);
+  void *p_calloc(size_t, size_t);
+  void *p_realloc_malloc(void *ptr, size_t size);
+  inline void p_free(void *ptr) { heap_caps_free(ptr); }
+  #else
+  #define p_malloc d_malloc
+  #define p_calloc d_calloc
+  #define p_realloc_malloc d_realloc_malloc
+  #define p_free d_free
+  #endif
 }
+#ifndef ESP8266
+inline size_t getFreeHeapSize() { return heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns free heap (ESP.getFreeHeap() can include other memory types)
+inline size_t getContiguousFreeHeap() { return heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); } // returns largest contiguous free block
 #else
-extern "C" {
-  void *realloc_malloc(void *ptr, size_t size);
-}
-#define p_malloc malloc
-#define p_calloc calloc
-#define p_realloc realloc
-#define p_realloc_malloc realloc_malloc
-#define p_free free
-#define d_malloc malloc
-#define d_calloc calloc
-#define d_realloc realloc
-#define d_realloc_malloc realloc_malloc
-#define d_free free
+inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free heap
+inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
 #endif
+#define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
+#define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
+void *allocate_buffer(size_t size, uint32_t type);
 
 void handleBootLoop();   // detect and handle bootloops
 #ifndef ESP8266
@@ -530,7 +541,6 @@ void handleSerial();
 void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
-void createEditHandler(bool enable);
 void initServer();
 void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& headl, const String& subl="", byte optionT=255);
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);
