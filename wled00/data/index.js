@@ -281,11 +281,11 @@ function onLoad()
 			await loadPalettes();        // loads base palettes and builds #pallist (safe first)
 			await loadFXData();          // loads fx data
 			await loadFX();              // populates effect list
-			await loadPalettesData();    // fills palettesData[] for previews
 			await requestJson();         // updates info variables
+			await loadPalettesData();    // fills palettesData[] for previews
 			populatePalettes();          // repopulate with custom palettes now that cpalcount is known
 			if(pmt == pmtLS) populatePresets(true); // load presets from localStorage if signature matches (i.e. no device reboot)
-			else await loadPresets();    // load presets
+			else await loadPresets();    // load and populate presets
 			if (cfg.comp.css) await loadSkinCSS('skinCss');
 			if (!ws) makeWS();
 		} catch(e) {
@@ -575,10 +575,10 @@ function populateQL()
 	gId('pql').innerHTML = cn;
 }
 
-async function populatePresets(fromls)
+function populatePresets(fromls)
 {
 	if (fromls) pJson = JSON.parse(localStorage.getItem("wledP"));
-	if (!pJson) {await loadPresets(); return;}
+	if (!pJson) {loadPresets(); return;} // note: no await as this is a fallback that should not be needed as init function fetches pJson
 	delete pJson["0"];
 	var cn = "";
 	var arr = Object.entries(pJson).sort(cmpP);
