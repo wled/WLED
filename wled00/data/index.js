@@ -3393,16 +3393,16 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 	})
 	.then(res => res.json())
 	.then(infoData => {
-		// Create UpgradeEventRequest structure as per OpenAPI spec
-		// Based on typical upgrade event tracking, include only essential fields
+		// Map to UpgradeEventRequest structure per OpenAPI spec
+		// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix
 		const upgradeData = {
-			// TODO: Map fields according to actual UpgradeEventRequest schema from openapi spec
-			// Current mapping is a best guess based on common upgrade tracking patterns
-			// The actual schema should be verified at: https://usage.wled.me/v3/api-docs
-			
-			// Core WLED info - send the complete info object
-			// The backend API will extract what it needs according to UpgradeEventRequest schema
-			info: infoData
+			deviceId: infoData.mac || '',                    // Use MAC address as unique device ID
+			version: infoData.ver || '',                     // Current version string
+			previousVersion: oldVersion || '',               // Previous version from version-info.json
+			releaseName: infoData.cn || infoData.ver || '',  // Release codename or version
+			chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
+			ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
+			isMatrix: !!(infoData.leds && infoData.leds.matrix)  // Whether it's a 2D matrix setup
 		};
 		
 		// Make AJAX call to postUpgradeEvent API
