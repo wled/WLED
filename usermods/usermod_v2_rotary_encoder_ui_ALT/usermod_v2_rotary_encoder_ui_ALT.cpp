@@ -178,9 +178,6 @@ class RotaryEncoderUIUsermod : public Usermod {
     void* display;
   #endif
 
-    // Pointers the start of the mode names within JSON_mode_names
-    const char **modes_qstrings;
-
     // Array of mode indexes in alphabetical order.
     byte *modes_alpha_indexes;
 
@@ -265,7 +262,6 @@ class RotaryEncoderUIUsermod : public Usermod {
       , currentSat1(255)
       , currentCCT(128)
       , display(nullptr)
-      , modes_qstrings(nullptr)
       , modes_alpha_indexes(nullptr)
       , palettes_qstrings(nullptr)
       , palettes_alpha_indexes(nullptr)
@@ -395,10 +391,12 @@ byte RotaryEncoderUIUsermod::readPin(uint8_t pin) {
  */
 void RotaryEncoderUIUsermod::sortModesAndPalettes() {
   DEBUG_PRINT(F("Sorting modes: ")); DEBUG_PRINTLN(strip.getModeCount());
-  //modes_qstrings = re_findModeStrings(JSON_mode_names, strip.getModeCount());
-  modes_qstrings = strip.getModeDataSrc();
+  std::vector<const char*> modes_qstrings  { strip.getModeCount(), "RSVD" };
+  for (auto& effect_ptr: Effects::all()) {
+    modes_qstrings[Effects::getIdForEffect(effect_ptr)] = effect_ptr->data;
+  }
   modes_alpha_indexes = re_initIndexArray(strip.getModeCount());
-  re_sortModes(modes_qstrings, modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
+  re_sortModes(modes_qstrings.data(), modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
 
   DEBUG_PRINT(F("Sorting palettes: ")); DEBUG_PRINT(getPaletteCount()); DEBUG_PRINT('/'); DEBUG_PRINTLN(customPalettes.size());
   palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount());
