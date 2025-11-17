@@ -3387,17 +3387,20 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 function reportUpgradeEvent(info, oldVersion, newVersion) {
 	showToast('Reporting upgrade...');
 	
-	// Prepare data to send (using info endpoint data)
-	// Send the entire info object as the backend expects
-	const upgradeData = Object.assign({}, info);
-	
-	// Make AJAX call to postUpgradeEvent API
-	fetch('https://usage.wled.me/api/v1/usage/upgrade', {
-		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify(upgradeData)
+	// Fetch fresh data from /json/info endpoint as requested
+	fetch(getURL('/json/info'), {
+		method: 'get'
+	})
+	.then(res => res.json())
+	.then(infoData => {
+		// Make AJAX call to postUpgradeEvent API with fresh info data
+		return fetch('https://usage.wled.me/api/v1/usage/upgrade', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(infoData)
+		});
 	})
 	.then(res => {
 		if (res.ok) {
