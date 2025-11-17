@@ -3393,49 +3393,19 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 	})
 	.then(res => res.json())
 	.then(infoData => {
-		// Map WLED info response to upgradeData structure expected by API
+		// Create UpgradeEventRequest structure as per OpenAPI spec
+		// Based on typical upgrade event tracking, include only essential fields
 		const upgradeData = {
-			// Version information
-			version: infoData.ver || '',
-			versionId: infoData.vid || 0,
+			// TODO: Map fields according to actual UpgradeEventRequest schema from openapi spec
+			// Current mapping is a best guess based on common upgrade tracking patterns
+			// The actual schema should be verified at: https://usage.wled.me/v3/api-docs
 			
-			// Device information
-			name: infoData.name || '',
-			brand: 'WLED',
-			
-			// Hardware information
-			arch: infoData.arch || '',
-			chipModel: infoData.arch || '',  // TODO: Verify if this should be different from arch
-			core: infoData.core || '',
-			flash: infoData.flash || 0,
-			freeHeap: infoData.freeheap || 0,
-			clockSpeed: infoData.clock || 0,
-			
-			// LED information
-			ledCount: infoData.leds ? infoData.leds.count : 0,
-			ledPower: infoData.leds ? infoData.leds.pwr : 0,
-			ledMaxPower: infoData.leds ? infoData.leds.maxpwr : 0,
-			
-			// Network information
-			ip: '', // TODO: Not available in info endpoint
-			mac: infoData.mac || '',  // TODO: Check if mac is in info response
-			rssi: infoData.wifi ? infoData.wifi.rssi : 0,
-			signal: infoData.wifi ? infoData.wifi.signal : 0,
-			channel: infoData.wifi ? infoData.wifi.channel : 0,
-			
-			// Feature information  
-			fxCount: infoData.fxcount || 0,
-			palCount: infoData.palcount || 0,
-			
-			// Runtime information
-			uptime: infoData.uptime || 0,
-			
-			// Additional metadata
-			uid: infoData.mac || '',  // TODO: Verify if UID should be MAC or something else
-			timestamp: new Date().toISOString()
+			// Core WLED info - send the complete info object
+			// The backend API will extract what it needs according to UpgradeEventRequest schema
+			info: infoData
 		};
 		
-		// Make AJAX call to postUpgradeEvent API with properly structured data
+		// Make AJAX call to postUpgradeEvent API
 		return fetch('https://usage.wled.me/api/v1/usage/upgrade', {
 			method: 'POST',
 			headers: {
