@@ -1756,6 +1756,7 @@ function requestJson(command=null)
 		if (json.info) {
 			let i = json.info;
 			parseInfo(i);
+			checkVersionUpgrade(i); // Check for version upgrade
 			populatePalettes(i);
 			if (isInfo) populateInfo(i);
 			if (simplifiedUI) simplifyUI();
@@ -3302,6 +3303,141 @@ function simplifyUI() {
 
 	// Hide buttons for pixel art and custom palettes (add / delete)
 	gId("btns").style.display = "none";
+}
+
+// Version reporting feature
+var versionCheckDone = false;
+
+function checkVersionUpgrade(info) {
+	// Only check once per page load
+	if (versionCheckDone) return;
+	versionCheckDone = true;
+
+	// Fetch version-info.json
+	fetch(getURL('/version-info.json'), {
+		method: 'get'
+	})
+	.then(res => res.json())
+	.then(versionInfo => {
+		// Check if user opted out
+		if (versionInfo.neverAsk) return;
+		
+		// Check if version has changed
+		const currentVersion = info.ver;
+		const storedVersion = versionInfo.version || '';
+		
+		if (storedVersion && storedVersion !== currentVersion) {
+			// Version has changed, show upgrade prompt
+			showVersionUpgradePrompt(info, storedVersion, currentVersion);
+		} else if (!storedVersion) {
+			// First time, just save current version
+			updateVersionInfo(currentVersion, false);
+		}
+	})
+	.catch(e => {
+		console.log('Failed to load version-info.json', e);
+		// On error, save current version for next time
+		if (info && info.ver) {
+			updateVersionInfo(info.ver, false);
+		}
+	});
+}
+
+function showVersionUpgradePrompt(info, oldVersion, newVersion) {
+	// Create overlay and dialog
+	const overlay = d.createElement('div');
+	overlay.id = 'versionUpgradeOverlay';
+	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+	
+	const dialog = d.createElement('div');
+	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
+	
+	dialog.innerHTML = `
+		<h2 style="margin-top:0;color:var(--c-f);">🎉 WLED Upgrade Detected!</h2>
+		<p style="color:var(--c-f);">Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.</p>
+		<p style="color:var(--c-f);">Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.</p>
+		<div style="margin-top:20px;">
+			<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
+			<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
+			<button id="versionReportNever" class="btn">Never Ask</button>
+		</div>
+	`;
+	
+	overlay.appendChild(dialog);
+	d.body.appendChild(overlay);
+	
+	// Add event listeners
+	gId('versionReportYes').addEventListener('click', () => {
+		reportUpgradeEvent(info, newVersion);
+		d.body.removeChild(overlay);
+	});
+	
+	gId('versionReportNo').addEventListener('click', () => {
+		// Don't update version, will ask again on next load
+		d.body.removeChild(overlay);
+	});
+	
+	gId('versionReportNever').addEventListener('click', () => {
+		updateVersionInfo(newVersion, true);
+		d.body.removeChild(overlay);
+		showToast('You will not be asked again.');
+	});
+}
+
+function reportUpgradeEvent(info, newVersion) {
+	showToast('Reporting upgrade...');
+	
+	// Prepare data to send (using info endpoint data)
+	const upgradeData = {
+		previousVersion: info.ver, // This would ideally be oldVersion but we'll use current
+		currentVersion: newVersion,
+		deviceInfo: info
+	};
+	
+	// Make AJAX call to postUpgradeEvent API
+	fetch('https://usage.wled.me/api/v1/usage/upgrade', {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(upgradeData)
+	})
+	.then(res => {
+		if (res.ok) {
+			showToast('Thank you for reporting!');
+			updateVersionInfo(newVersion, false);
+		} else {
+			showToast('Report failed, but version saved.', true);
+			updateVersionInfo(newVersion, false);
+		}
+	})
+	.catch(e => {
+		console.log('Failed to report upgrade', e);
+		showToast('Report failed, but version saved.', true);
+		updateVersionInfo(newVersion, false);
+	});
+}
+
+function updateVersionInfo(version, neverAsk) {
+	const versionInfo = {
+		version: version,
+		neverAsk: neverAsk
+	};
+	
+	fetch(getURL('/version-info.json'), {
+		method: 'POST',
+		headers: {
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(versionInfo)
+	})
+	.then(res => res.json())
+	.then(data => {
+		console.log('Version info updated', data);
+	})
+	.catch(e => {
+		console.log('Failed to update version-info.json', e);
+	});
 }
 
 size();

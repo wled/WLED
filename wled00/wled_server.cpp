@@ -448,6 +448,49 @@ void initServer()
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)millis());
   });
 
+  // Endpoint to get version-info.json
+  server.on(F("/version-info.json"), HTTP_GET, [](AsyncWebServerRequest *request){
+    File file = WLED_FS.open("/version-info.json", "r");
+    if (!file) {
+      // Create default version-info.json if it doesn't exist
+      request->send(200, FPSTR(CONTENT_TYPE_JSON), F("{\"version\":\"\",\"neverAsk\":false}"));
+      return;
+    }
+    request->send(file, "/version-info.json", FPSTR(CONTENT_TYPE_JSON));
+    file.close();
+  });
+
+  // Endpoint to update version-info.json  
+  AsyncCallbackJsonWebHandler* versionInfoHandler = new AsyncCallbackJsonWebHandler(F("/version-info.json"), [](AsyncWebServerRequest *request) {
+    if (!requestJSONBufferLock(15)) {
+      request->deferResponse();
+      return;
+    }
+
+    DeserializationError error = deserializeJson(*pDoc, (uint8_t*)(request->_tempObject));
+    JsonObject root = pDoc->as<JsonObject>();
+    if (error || root.isNull()) {
+      releaseJSONBufferLock();
+      request->send(400, FPSTR(CONTENT_TYPE_JSON), F("{\"error\":\"Invalid JSON\"}"));
+      return;
+    }
+
+    // Write version-info.json
+    File file = WLED_FS.open("/version-info.json", "w");
+    if (!file) {
+      releaseJSONBufferLock();
+      request->send(500, FPSTR(CONTENT_TYPE_JSON), F("{\"error\":\"Failed to open file\"}"));
+      return;
+    }
+    
+    serializeJson(root, file);
+    file.close();
+    releaseJSONBufferLock();
+
+    request->send(200, FPSTR(CONTENT_TYPE_JSON), F("{\"success\":true}"));
+  }, JSON_BUFFER_SIZE);
+  server.addHandler(versionInfoHandler);
+
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
