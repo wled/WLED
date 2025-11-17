@@ -700,6 +700,9 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
 
 // Generate a device ID based on SHA1 hash of MAC address
 String getDeviceId() {
+  static String cachedDeviceId = "";
+  if (cachedDeviceId.length() > 0) return cachedDeviceId;
+
   uint8_t mac[6];
   WiFi.macAddress(mac);
 
@@ -708,7 +711,8 @@ String getDeviceId() {
     char macStr[18];
     sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     String macString = String(macStr);
-    return sha1(macString);
+    cachedDeviceId = sha1(macString);
+    return cachedDeviceId;
   #endif
 
   #ifdef ESP32
@@ -726,8 +730,11 @@ String getDeviceId() {
     for (int i = 0; i < 20; i++) {
       sprintf(&buf[i*2], "%02x", shaResult[i]);
     }
-    return String(buf);
+    cachedDeviceId = String(buf);
+    return cachedDeviceId;
   #endif
+
+  return String("");
 }
 
 void serializeInfo(JsonObject root)
