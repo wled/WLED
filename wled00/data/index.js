@@ -3394,7 +3394,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 	.then(res => res.json())
 	.then(infoData => {
 		// Map to UpgradeEventRequest structure per OpenAPI spec
-		// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix
+		// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 		const upgradeData = {
 			deviceId: infoData.mac || '',                    // Use MAC address as unique device ID
 			version: infoData.ver || '',                     // Current version string
@@ -3402,7 +3402,8 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 			releaseName: infoData.cn || infoData.ver || '',  // Release codename or version
 			chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
 			ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
-			isMatrix: !!(infoData.leds && infoData.leds.matrix)  // Whether it's a 2D matrix setup
+			isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
+			bootloaderSHA256: infoData.bootloaderSHA256 || ''    // Bootloader SHA256 hash
 		};
 		
 		// Make AJAX call to postUpgradeEvent API
