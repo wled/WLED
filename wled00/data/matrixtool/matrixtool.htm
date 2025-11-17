@@ -443,7 +443,7 @@ let fL; // file list
 /* update file list */
 async function flU(){
 	try{
-		const r = await fetch(`${wu}/edit?list=/`);
+		const r = await fetch(`${wu}/edit?func=list`);
 		fL = await r.json();
 	}catch(e){console.error(e);}
 }
@@ -941,7 +941,7 @@ function genPal(pix){
 		return(r<<16)|(g<<8)|bl;
 	});
 	let p2=1;
-	while(p2<pal.length)p2<<=1;
+	while(p2<pal.length)p2<<=1; // make it power of 2
 	for(let i=pal.length;i<p2;i++)pal[i]=pal[pal.length-1];
 	const idx=new Uint8Array(pix.length/4);
 	for(let i=0,j=0;i<pix.length;i+=4,j++){
@@ -1008,8 +1008,8 @@ gId('up').onclick = async () => {
 		frames.forEach((f, i) => {
 			const off = i * gw * gh * 4;
 			for (let j = 0; j < gw * gh; j++) {
-				const c = f.data[j]||f.data[off+w*h-1]; // pad with last pixel if out of bounds (for 1D images)
-				all[off + j*4] = c.r; all[off + j*4 + 1] = c.g; all[off + j*4 + 2] = c.b; all[off + j*4 + 3] = 255;
+				const src = (j < w*h ? j : w*h-1) * 4; // pad with last pixel of source frame if out of bounds (for 1D images)
+				all[off + j*4] = f.data[src]; all[off + j*4 + 1] = f.data[src + 1]; all[off + j*4 + 2] = f.data[src + 2]; all[off + j*4 + 3] = 255;
 			}
 		});
 		const { indexed, palette } = genPal(all);
@@ -1098,7 +1098,7 @@ async function imgDel(){
 	try{
 		const r = await fetch(`${wu}/edit?func=delete&path=/${sI.name}`);
 		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
-		else msg('Delete failed','err');
+		else msg('Delete failed! File in use?','err');
 	}catch(e){msg('Delete failed','err');}
 	finally{ovHide();}
 	menuClose();
