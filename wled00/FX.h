@@ -441,7 +441,7 @@ struct Effect {
   uint8_t id;   // mode (effect) id for legacy table (this may later be moved elsewhere)    
 
   public:
-  Effect(const char* data_, effect_function fcn_, uint8_t id_ = 255) : data(data_), fcn(fcn_), id(id_) {};
+  constexpr Effect(const char* data_, effect_function fcn_, uint8_t id_ = 255) : data(data_), fcn(fcn_), id(id_) {};
 };
 
 // Global effect list
