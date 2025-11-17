@@ -3449,14 +3449,14 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 			showToast('Thank you for reporting!');
 			updateVersionInfo(newVersion, false);
 		} else {
-			showToast('Report failed, but version saved.', true);
-			updateVersionInfo(newVersion, false);
+			showToast('Report failed. Please try again later.', true);
+			// Do NOT update version info on failure - user will be prompted again
 		}
 	})
 	.catch(e => {
 		console.log('Failed to report upgrade', e);
-		showToast('Report failed, but version saved.', true);
-		updateVersionInfo(newVersion, false);
+		showToast('Report failed. Please try again later.', true);
+		// Do NOT update version info on error - user will be prompted again
 	});
 }
 
