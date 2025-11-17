@@ -284,7 +284,7 @@ button, .btn {
 					<canvas id="cv" width="500" height="400"></canvas>
 				</div>
 
-				<small>Preview at target size</small>
+				<small>Preview at target resolution</small>
 
 				<canvas id="pv"></canvas>
 
@@ -1002,15 +1002,21 @@ gId('up').onclick = async () => {
 		}
 
 		const g = grid(w); // calculate optimal grid size: 1D image is saved as "2D gif" if w > 320 (WLED gif size limit), 2D can not be larger than 256x256 so is unchange
-		let gw = g.w, gh = g.h; // gif width and height
+		let gw = g.w, gh = Math.max(g.h, h); // gif width and height
 		const all = new Uint8Array(frames.length * gw * gh * 4);
-		frames.forEach((f, i) => all.set(f.data, i * f.data.length)); // concat all frames to single array to create palette from all colors
+		// concat all frames to single array to create palette from all colors
+		frames.forEach((f, i) => {
+			const off = i * gw * gh * 4;
+			for (let j = 0; j < gw * gh; j++) {
+				const c = f.data[j]||f.data[off+w*h-1]; // pad with last pixel if out of bounds (for 1D images)
+				all[off + j*4] = c.r; all[off + j*4 + 1] = c.g; all[off + j*4 + 2] = c.b; all[off + j*4 + 3] = 255;
+			}
+		});
 		const { indexed, palette } = genPal(all);
 		const gifData = [];
 		const wr = new GifWriter(gifData, gw, gh, { palette, loop: 0 });
-		const pixelsPerFrame = gw * gh;
 		for (let i = 0; i < frames.length; i++) {
-			const framePixels = indexed.slice(i * pixelsPerFrame, (i + 1) * pixelsPerFrame); // slice global array back into per-frame data
+			const framePixels = indexed.slice(i * gw * gh, (i + 1) * gw * gh); // slice global array back into per-frame data
 			wr.addFrame(0, 0, gw, gh, framePixels, { delay: frames[i].delay, disposal: 2 });
 		}
 		wr.end();
