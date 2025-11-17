@@ -112,7 +112,14 @@ byte renderImageToSegment(Segment &seg) {
   if (!seg.name) return IMAGE_ERROR_NO_NAME;
   // disable during effect transition, causes flickering, multiple allocations and depending on image, part of old FX remaining
   //if (seg.mode != seg.currentMode()) return IMAGE_ERROR_WAITING;
-  if (activeSeg && activeSeg != &seg) return IMAGE_ERROR_SEG_LIMIT; // only one segment at a time
+  if (activeSeg && activeSeg != &seg) {            // only one segment at a time
+    if (!seg.isActive()) return IMAGE_ERROR_SEG_LIMIT; // sanity check: calling segment must be active
+    if (gifDecodeFailed || !activeSeg->isActive())     // decoder failed, or last segment became inactive
+      endImagePlayback(activeSeg);                     // => allow takeover but clean up first
+    else
+      return IMAGE_ERROR_SEG_LIMIT;                
+  }
+
   activeSeg = &seg;
 
   if (strncmp(lastFilename +1, seg.name, WLED_MAX_SEGNAME_LEN) != 0) { // segment name changed, load new image
@@ -223,6 +230,7 @@ void endImagePlayback(Segment *seg) {
   gifDecodeFailed = false;
   activeSeg = nullptr;
   strcpy(lastFilename, "/");  // reset filename
+  gifWidth = gifHeight = 0;   // reset dimensions
   DEBUG_PRINTLN(F("Image playback ended"));
 }
 
