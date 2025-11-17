@@ -213,7 +213,7 @@ function createTop(element, editor){
 	function httpPostCb(st,resp){
 		if (st!=200) alert("ERROR "+st+": "+resp);
 		else {
-			alert("Upload successful!");
+			showToast("Upload successful!");
 			refreshTree();
 		}
 	}
@@ -493,7 +493,7 @@ function createEditor(element,file){
 		req.add("POST","/upload",fd,function(st,resp){
 			if (st!=200) alert("ERROR "+st+": "+resp);
 			else {
-				alert("File saved successfully!");
+				showToast("File saved");
 				refreshTree();
 			}
 		});
@@ -567,10 +567,18 @@ function onBodyLoad(){
 	var editor=createEditor("editor",vars.file);
 	globalTree=createTree("tree",editor);
 	createTop("top",editor);
+	// Add Ctrl+S / Cmd+S override to save the file
+	document.addEventListener('keydown', function(e) {
+		if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+			e.preventDefault();
+			editor.save();
+		}
+	});
 }
 </script>
 </head>
 <body onload="onBodyLoad()">
+	<div id="toast"></div>
 	<div id="loader"><div class="loader"></div></div>
 	<div id="top"></div>
 	<div style="flex:1;position:relative">
