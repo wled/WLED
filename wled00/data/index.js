@@ -3368,7 +3368,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
-		reportUpgradeEvent(info, newVersion);
+		reportUpgradeEvent(info, oldVersion, newVersion);
 		d.body.removeChild(overlay);
 	});
 	
@@ -3384,15 +3384,12 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	});
 }
 
-function reportUpgradeEvent(info, newVersion) {
+function reportUpgradeEvent(info, oldVersion, newVersion) {
 	showToast('Reporting upgrade...');
 	
 	// Prepare data to send (using info endpoint data)
-	const upgradeData = {
-		previousVersion: info.ver, // This would ideally be oldVersion but we'll use current
-		currentVersion: newVersion,
-		deviceInfo: info
-	};
+	// Send the entire info object as the backend expects
+	const upgradeData = Object.assign({}, info);
 	
 	// Make AJAX call to postUpgradeEvent API
 	fetch('https://usage.wled.me/api/v1/usage/upgrade', {
