@@ -698,7 +698,6 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
-// Generate a device ID based on SHA1 hash of MAC address
 String getDeviceId() {
   static String cachedDeviceId = "";
   if (cachedDeviceId.length() > 0) return cachedDeviceId;
@@ -710,8 +709,10 @@ String getDeviceId() {
     // For ESP8266 we use the Hash.h library which is built into the ESP8266 Core
     char macStr[18];
     sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    String macString = String(macStr);
-    cachedDeviceId = sha1(macString);
+    String macString = String(macStr) + "WLED";  // Salt with "WLED"
+    String firstHash = sha1(macString);
+    String secondHash = sha1(firstHash);
+    cachedDeviceId = firstHash + secondHash.substring(38);  // Concatenate first hash + last 2 chars of second
     return cachedDeviceId;
   #endif
 
@@ -719,18 +720,39 @@ String getDeviceId() {
     // For ESP32 we use the mbedtls library which is built into the ESP32 core
     unsigned char shaResult[20]; // SHA1 produces a hash of 20 bytes (which is 40 HEX characters)
     mbedtls_sha1_context ctx;
+
+    // First hash: MAC address + "WLED" salt
     mbedtls_sha1_init(&ctx);
     mbedtls_sha1_starts_ret(&ctx);
     mbedtls_sha1_update_ret(&ctx, mac, 6);
+    mbedtls_sha1_update_ret(&ctx, (const unsigned char*)"WLED", 4);
     mbedtls_sha1_finish_ret(&ctx, shaResult);
     mbedtls_sha1_free(&ctx);
 
-    // Convert the Hash to a hexadecimal string
-    char buf[41];
+    // Convert first hash to hexadecimal string
+    char firstHash[41];
     for (int i = 0; i < 20; i++) {
-      sprintf(&buf[i*2], "%02x", shaResult[i]);
+      sprintf(&firstHash[i*2], "%02x", shaResult[i]);
     }
-    cachedDeviceId = String(buf);
+
+    // Second hash: SHA1 of the first hash
+    unsigned char shaResult2[20];
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, (const unsigned char*)firstHash, 40);
+    mbedtls_sha1_finish_ret(&ctx, shaResult2);
+    mbedtls_sha1_free(&ctx);
+
+    // Convert second hash to hexadecimal string
+    char secondHash[41];
+    for (int i = 0; i < 20; i++) {
+      sprintf(&secondHash[i*2], "%02x", shaResult2[i]);
+    }
+
+    // Return first hash + last 2 chars of second hash
+    char result[43];
+    sprintf(result, "%s%c%c", firstHash, secondHash[38], secondHash[39]);
+    cachedDeviceId = String(result);
     return cachedDeviceId;
   #endif
 
