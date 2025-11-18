@@ -26,6 +26,7 @@ typedef struct {
     char wled_version[WLED_VERSION_MAX_LEN];
     char release_name[WLED_RELEASE_NAME_MAX_LEN]; // Release name (null-terminated)    
     uint32_t hash;               // Structure sanity check
+    uint8_t safe_update_version[3]; // Indicates version it's known to be safe to install this update from: major, minor, patch
 } __attribute__((packed)) wled_metadata_t;
 
 
