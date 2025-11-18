@@ -264,7 +264,7 @@ function createTree(element, editor){
 		leaf.textContent=name;
 		var span = cE("span");
 		span.style.cssText = "font-size: 14px; color: #aaa; margin-left: 8px;";
-		span.textContent =  Math.max(0.1, (size / 1024)).toFixed(1) + "KB"; // show size in KB, minimum 0.1 to not show 0KB for small files
+		span.textContent =  (size > 0 ? Math.max(0.1, (size / 1024)).toFixed(1) : 0) + "KB"; // show size in KB, minimum 0.1 to not show 0KB for small files
 		leaf.appendChild(span);
 		leaf.onmouseover=function(){ leaf.style.background="#333"; };
 		leaf.onmouseout=function(){ leaf.style.background=""; };
@@ -377,13 +377,13 @@ function prettyLedmap(json){
 			rows.push("    " + obj.map.slice(i, i + width).map(pad).join(", "));
 		}
 
-		let pretty = "{\n  \"map\": [\n" + rows.join(",\n") + "\n  ]";
+		let pretty = "{\n";
 		for (let k of Object.keys(obj)) {
 			if (k !== "map") {
-				pretty += ",\n  \"" + k + "\": " + JSON.stringify(obj[k]);
+				pretty += " \"" + k + "\": " + JSON.stringify(obj[k]) + ",\n"; // print all keys first (speeds up loading)
 			}
 		}
-		pretty += "\n}";
+		pretty += " \"map\": [\n" + rows.join(",\n") + "\n  ]\n}";
 		return pretty;
 	} catch (e) {
 		return json;
