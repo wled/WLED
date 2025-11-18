@@ -1687,8 +1687,9 @@ void WS2812FX::setTransitionMode(bool t) {
 // rare circumstances are: setting FPS to high number (i.e. 120) and have very slow effect that will need more
 // time than 2 * _frametime (1000/FPS) to draw content
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + 2*getFrameTime() + 100; // TODO: this needs a proper fix for timeout! see #4779
-  while (isServicing() && maxWait > millis()) delay(1);
+  unsigned long waitStart = millis();
+  unsigned long maxWait = 2*getFrameTime() + 100; // TODO: this needs a proper fix for timeout! see #4779
+  while (isServicing() && (millis() - waitStart < maxWait)) delay(1); // safe even when millis() rolls over
   #ifdef WLED_DEBUG
   if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
   #endif
