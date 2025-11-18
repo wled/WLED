@@ -3,6 +3,7 @@
 #include "const.h"
 #ifdef ESP8266
 #include "user_interface.h" // for bootloop detection
+#include <Hash.h>            // for SHA1 on ESP8266
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
@@ -10,6 +11,7 @@
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
+#include "mbedtls/sha1.h"   // for SHA1 on ESP32
 #endif
 
 
@@ -1125,3 +1127,54 @@ uint8_t perlin8(uint16_t x, uint16_t y) {
 uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
+
+// Platform-agnostic SHA1 computation from String input
+String computeSHA1(const String& input) {
+  #ifdef ESP8266
+    return sha1(input); // ESP8266 has built-in sha1() function
+  #else
+    // ESP32: Compute SHA1 hash using mbedtls
+    unsigned char shaResult[20]; // SHA1 produces 20 bytes
+    mbedtls_sha1_context ctx;
+
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish_ret(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+
+    // Convert to hexadecimal string
+    char hexString[41];
+    for (int i = 0; i < 20; i++) {
+      sprintf(&hexString[i*2], "%02x", shaResult[i]);
+    }
+    hexString[40] = '\0';
+
+    return String(hexString);
+  #endif
+}
+
+// Generate a device ID based on SHA1 hash of MAC address salted with "WLED"
+// Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
+String getDeviceId() {
+  static String cachedDeviceId = "";
+  if (cachedDeviceId.length() > 0) return cachedDeviceId;
+
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  char macStr[18];
+  sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+  // First hash: MAC address + "WLED" salt
+  String macString = String(macStr) + "WLED";
+  String firstHash = computeSHA1(macString);
+
+  // Second hash: SHA1 of the first hash
+  String secondHash = computeSHA1(firstHash);
+
+  // Concatenate first hash + last 2 chars of second hash
+  cachedDeviceId = firstHash + secondHash.substring(38);
+
+  return cachedDeviceId;
+}
+
