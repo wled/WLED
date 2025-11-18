@@ -3304,6 +3304,108 @@ function simplifyUI() {
 	gId("btns").style.display = "none";
 }
 
+
+function genPresets() {
+    let result = "";
+    let sep = "{";
+    const effects = eJson;
+    const playlistData = {};
+
+    function addToPlaylist(m, id, ql) {
+        if (!playlistData[m]) playlistData[m] = { ps: [], dur: [], trans: [], ql: undefined };
+        playlistData[m].ps.push(id);
+        playlistData[m].dur.push(300);
+        playlistData[m].trans.push(0);
+        if (ql) playlistData[m].ql = ql;
+    }
+
+    let seq = 230;
+    for (let ef of effects) {
+        if (ef.name.indexOf("RSVD") < 0 && Array.isArray(fxdata) && fxdata.length > ef.id) {
+            let fd = fxdata[ef.id];
+            let eP = fd === '' ? [] : fd.split(";");
+            let m = (eP.length < 4 || eP[3] === '') ? '1' : eP[3];
+
+            // Build defaultString
+            let defaultString = "";
+            if (eP.length > 4) {
+                let defaults = eP[4] === '' ? [] : eP[4].split(",");
+                for (let d of defaults) {
+                    if (!d) continue;
+                    let [k, v] = d.split("=");
+                    defaultString += `,"${k}":${v}`;
+                }
+            }
+            const defaults = [
+                ["sx", 128], ["ix", 128], ["c1", 128], ["c2", 128], ["c3", 16],
+                ["o1", 0], ["o2", 0], ["o3", 0], ["pal", 11]
+            ];
+            for (let [k, v] of defaults) {
+                if (!defaultString.includes(k)) defaultString += `,"${k}":${v}`;
+            }
+            if (!defaultString.includes("m12") && m.includes("1") && !m.includes("1.5") && !m.includes("12"))
+                defaultString += ',"rev":true,"mi":true,"rY":true,"mY":true,"m12":2';
+            else {
+                for (let k of ["rev", "mi", "rY", "mY"])
+                    if (!defaultString.includes(k)) defaultString += `,"${k}":false`;
+            }
+
+            result += `${sep}"${ef.id}":{"n":"${ef.name}","mainseg":0,"seg":[{"id":0,"fx":${ef.id}${defaultString}}]}`;
+            sep = "\n,";
+
+            if (m.length <= 3) addToPlaylist(m, ef.id, m);
+            else addToPlaylist(m, ef.id);
+            addToPlaylist("All", ef.id, "ALL");
+            if (ef.name.startsWith("Y💡")) addToPlaylist("AnimARTrix", ef.id, "AM");
+            if (ef.name.startsWith("PS ")) addToPlaylist("Particle System", ef.id, "PS");
+            if (m.includes("1")) addToPlaylist("All 1D", ef.id, "1D");
+            if (m.includes("2")) addToPlaylist("All 2D", ef.id, "2D");
+
+            seq = Math.max(seq, parseInt(ef.id) + 1);
+        }
+    }
+
+    for (const m in playlistData) {
+        const pl = playlistData[m];
+        const ql = pl.ql || seq;
+        result += `\n,"${seq}":{"n":"${m} Playlist","ql":"${ql}","on":true,"playlist":{"ps":[${pl.ps.join()}],"dur":[${pl.dur.join()}],"transition":[${pl.trans.join()}],"repeat":0,"end":0,"r":1}}`;
+        seq++;
+    }
+
+    result += "}";
+
+    gId("genPresets").hidden = true;
+    gId("savePresetsGen").hidden = false;
+    gId("presetsGen").hidden = false;
+    gId("presetsGen").value = result;
+}
+
+
+function uploadFileWithText(name, text)
+{
+  var req = new XMLHttpRequest();
+  req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
+  req.addEventListener('error', function(e){showToast(e.stack,true);});
+  req.open("POST", "/upload");
+  var formData = new FormData();
+
+  var blob = new Blob([text], {type : 'application/text'});
+  var fileOfBlob = new File([blob], name);
+  formData.append("upload", fileOfBlob);
+
+  req.send(formData);
+}
+
+function savePresetsGen()
+{
+       if (!confirm('Are you sure to (over)write presets.json?')) return;
+
+       uploadFileWithText("/presets.json", gId("presetsGen").value);
+}
+
+// (duplicate savePresetsGen removed)
+
+
 size();
 _C.style.setProperty('--n', N);
 
