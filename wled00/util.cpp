@@ -1169,7 +1169,7 @@ String getDeviceId() {
 #ifdef ESP8266
   String deviceString = String(macStr) + "WLED" + ESP.getCoreVersion();
 #else
-  String deviceString = String(macStr) + "WLED" + ESP. getChipModel() + ESP.getChipRevision();
+  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
 #endif
   String firstHash = computeSHA1(deviceString);
 
