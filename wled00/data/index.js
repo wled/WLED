@@ -3427,7 +3427,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 			deviceId: infoData.mac || '',                    // Use MAC address as unique device ID
 			version: infoData.ver || '',                     // Current version string
 			previousVersion: oldVersion || '',               // Previous version from version-info.json
-			releaseName: infoData.cn || infoData.ver || '',  // Release codename or version
+			releaseName: infoData.release,
 			chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
 			ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
 			isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
