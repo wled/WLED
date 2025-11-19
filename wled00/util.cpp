@@ -1166,8 +1166,7 @@ String getDeviceId() {
   char macStr[18];
   sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
-  // First hash: MAC address + "WLED" salt
-  String macString = String(macStr) + "WLED";
+  String macString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
   String firstHash = computeSHA1(macString);
 
   // Second hash: SHA1 of the first hash
