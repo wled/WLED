@@ -3437,14 +3437,16 @@ function updateVersionInfo(version, neverAsk) {
 		neverAsk: neverAsk
 	};
 	
-	fetch(getURL('/version-info.json'), {
+	// Create a Blob with JSON content and use /upload endpoint
+	const blob = new Blob([JSON.stringify(versionInfo)], { type: 'application/json' });
+	const formData = new FormData();
+	formData.append('data', blob, 'version-info.json');
+	
+	fetch(getURL('/upload'), {
 		method: 'POST',
-		headers: {
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify(versionInfo)
+		body: formData
 	})
-	.then(res => res.json())
+	.then(res => res.text())
 	.then(data => {
 		console.log('Version info updated', data);
 	})
