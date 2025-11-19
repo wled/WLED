@@ -3367,31 +3367,29 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	const dialog = d.createElement('div');
 	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
 	
-	if (isInstall) {
-		// Install message
-		dialog.innerHTML = `
-			<h2 style="margin-top:0;color:var(--c-f);">🎉 Thank you for installing WLED!</h2>
-			<p style="color:var(--c-f);">You are now running WLED <strong>${newVersion}</strong>.</p>
-			<p style="color:var(--c-f);">Would you like to help the WLED development team by reporting your installation? This helps us understand which versions and hardware are being used.</p>
-			<div style="margin-top:20px;">
-				<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
-				<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
-				<button id="versionReportNever" class="btn">Never Ask</button>
-			</div>
-		`;
-	} else {
-		// Upgrade message
-		dialog.innerHTML = `
-			<h2 style="margin-top:0;color:var(--c-f);">🎉 WLED Upgrade Detected!</h2>
-			<p style="color:var(--c-f);">Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.</p>
-			<p style="color:var(--c-f);">Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.</p>
-			<div style="margin-top:20px;">
-				<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
-				<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
-				<button id="versionReportNever" class="btn">Never Ask</button>
-			</div>
-		`;
-	}
+	// Build contextual message based on install vs upgrade
+	const title = isInstall 
+		? '🎉 Thank you for installing WLED!' 
+		: '🎉 WLED Upgrade Detected!';
+	
+	const description = isInstall
+		? `You are now running WLED <strong>${newVersion}</strong>.`
+		: `Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.`;
+	
+	const question = isInstall
+		? 'Would you like to help the WLED development team by reporting your installation? This helps us understand which versions and hardware are being used.'
+		: 'Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.';
+	
+	dialog.innerHTML = `
+		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
+		<p style="color:var(--c-f);">${description}</p>
+		<p style="color:var(--c-f);">${question}</p>
+		<div style="margin-top:20px;">
+			<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
+			<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
+			<button id="versionReportNever" class="btn">Never Ask</button>
+		</div>
+	`;
 	
 	overlay.appendChild(dialog);
 	d.body.appendChild(overlay);
