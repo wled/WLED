@@ -3435,7 +3435,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 		};
 		
 		// Make AJAX call to postUpgradeEvent API
-		return fetch('https://usage.wled.me/api/v1/usage/upgrade', {
+		return fetch('https://usage.wled.me/api/usage/upgrade', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
