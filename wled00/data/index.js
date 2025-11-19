@@ -3376,10 +3376,8 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		? `You are now running WLED <strong>${newVersion}</strong>.`
 		: `Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.`;
 	
-	const question = isInstall
-		? 'Would you like to help the WLED development team by reporting your installation? This helps us understand which versions and hardware are being used.'
-		: 'Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.';
-	
+	const question = 'Would you like to help the WLED development team by reporting your installation? This helps us understand what hardware and versions are being used.'
+
 	dialog.innerHTML = `
 		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
 		<p style="color:var(--c-f);">${description}</p>
