@@ -452,8 +452,8 @@ void initServer()
   server.on(F("/version-info.json"), HTTP_GET, [](AsyncWebServerRequest *request){
     File file = WLED_FS.open("/version-info.json", "r");
     if (!file) {
-      // Create default version-info.json if it doesn't exist
-      request->send(200, FPSTR(CONTENT_TYPE_JSON), F("{\"version\":\"\",\"neverAsk\":false}"));
+      // Return 404 if file doesn't exist - represents no previous version reported
+      request->send(404, FPSTR(CONTENT_TYPE_JSON), F("{\"error\":\"Not found\"}"));
       return;
     }
     request->send(file, "/version-info.json", FPSTR(CONTENT_TYPE_JSON));

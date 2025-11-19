@@ -3317,8 +3317,20 @@ function checkVersionUpgrade(info) {
 	fetch(getURL('/version-info.json'), {
 		method: 'get'
 	})
-	.then(res => res.json())
+	.then(res => {
+		if (res.status === 404) {
+			// File doesn't exist - first time, save current version
+			updateVersionInfo(info.ver, false);
+			return null;
+		}
+		if (!res.ok) {
+			throw new Error('Failed to fetch version-info.json');
+		}
+		return res.json();
+	})
 	.then(versionInfo => {
+		if (!versionInfo) return; // 404 case already handled
+		
 		// Check if user opted out
 		if (versionInfo.neverAsk) return;
 		
@@ -3330,7 +3342,7 @@ function checkVersionUpgrade(info) {
 			// Version has changed, show upgrade prompt
 			showVersionUpgradePrompt(info, storedVersion, currentVersion);
 		} else if (!storedVersion) {
-			// First time, just save current version
+			// Empty version in file, save current version
 			updateVersionInfo(currentVersion, false);
 		}
 	})
