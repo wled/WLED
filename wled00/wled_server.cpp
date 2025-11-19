@@ -448,18 +448,6 @@ void initServer()
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)millis());
   });
 
-  // Endpoint to get version-info.json
-  server.on(F("/version-info.json"), HTTP_GET, [](AsyncWebServerRequest *request){
-    File file = WLED_FS.open("/version-info.json", "r");
-    if (!file) {
-      // Return 404 if file doesn't exist - represents no previous version reported
-      request->send(404, FPSTR(CONTENT_TYPE_JSON), F("{\"error\":\"Not found\"}"));
-      return;
-    }
-    request->send(file, "/version-info.json", FPSTR(CONTENT_TYPE_JSON));
-    file.close();
-  });
-
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });

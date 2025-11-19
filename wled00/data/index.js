@@ -3313,8 +3313,8 @@ function checkVersionUpgrade(info) {
 	if (versionCheckDone) return;
 	versionCheckDone = true;
 
-	// Fetch version-info.json
-	fetch(getURL('/version-info.json'), {
+	// Fetch version-info.json using existing /edit endpoint
+	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
 		method: 'get'
 	})
 	.then(res => {
