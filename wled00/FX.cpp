@@ -15,14 +15,21 @@
 #include "fcn_declare.h"
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
-  #include "FXparticleSystem.h"
+  #include "FXparticleSystem.h" // include particle system code only if at least one system is enabled
+  #ifdef WLED_DISABLE_PARTICLESYSTEM2D
+    #define WLED_PS_DONT_REPLACE_2D_FX
+  #endif
+  #ifdef WLED_DISABLE_PARTICLESYSTEM1D
+    #define WLED_PS_DONT_REPLACE_1D_FX
+  #endif
   #ifdef ESP8266
     #if !defined(WLED_DISABLE_PARTICLESYSTEM2D) && !defined(WLED_DISABLE_PARTICLESYSTEM1D)
-    #error ESP8266 does not support 1D and 2D particle systems simultaneously. Please disable one of them.
+      #error ESP8266 does not support 1D and 2D particle systems simultaneously. Please disable one of them.
     #endif
   #endif
 #else
-  #define WLED_PS_DONT_REPLACE_FX
+  #define WLED_PS_DONT_REPLACE_1D_FX
+  #define WLED_PS_DONT_REPLACE_2D_FX
 #endif
 
  //////////////
@@ -755,7 +762,7 @@ uint16_t mode_dissolve_random(void) {
 }
 static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat speed,Dissolve speed;,!;!";
 
-
+#ifdef WLED_PS_DONT_REPLACE_1D_FX
 /*
  * Blinks one LED at a time.
  * Inspired by www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/
@@ -776,7 +783,7 @@ uint16_t mode_sparkle(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_SPARKLE[] PROGMEM = "Sparkle@!,,,,,,Overlay;!,!;!;;m12=0";
-
+#endif // WLED_PS_DONT_REPLACE_1D_FX
 
 /*
  * Lights all LEDs in the color. Flashes single col 1 pixels randomly. (List name: Sparkle Dark)
@@ -1752,7 +1759,7 @@ uint16_t mode_tricolor_fade(void) {
 }
 static const char _data_FX_MODE_TRICOLOR_FADE[] PROGMEM = "Tri Fade@!;1,2,3;!";
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#ifdef WLED_PS_DONT_REPLACE_1D_FX
 /*
  * Creates random comets
  * Custom mode by Keith Lord: https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/MultiComet.h
@@ -1791,7 +1798,7 @@ uint16_t mode_multi_comet(void) {
 }
 static const char _data_FX_MODE_MULTI_COMET[] PROGMEM = "Multi Comet@!,Fade;!,!;!;1";
 #undef MAX_COMETS
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_1D_FX
 
 /*
  * Running random pixels ("Stream 2")
@@ -2118,7 +2125,7 @@ uint16_t mode_palette() {
 }
 static const char _data_FX_MODE_PALETTE[] PROGMEM = "Palette@Shift,Size,Rotation,,,Animate Shift,Animate Rotation,Anamorphic;;!;12;ix=112,c1=0,o1=1,o2=0,o3=1";
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#if defined(WLED_PS_DONT_REPLACE_1D_FX) || defined(WLED_PS_DONT_REPLACE_2D_FX)
 // WLED limitation: Analog Clock overlay will NOT work when Fire2012 is active
 // Fire2012 by Mark Kriegsman, July 2012
 // as part of "Five Elements" shown here: http://youtu.be/knWiGsmgycY
@@ -2205,7 +2212,7 @@ uint16_t mode_fire_2012() {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_FIRE_2012[] PROGMEM = "Fire 2012@Cooling,Spark rate,,2D Blur,Boost;;!;1;pal=35,sx=64,ix=160,m12=1,c2=128"; // bars
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_x_FX
 
 // colored stripes pulsing at a defined Beats-Per-Minute (BPM)
 uint16_t mode_bpm() {
@@ -3056,7 +3063,7 @@ uint16_t mode_bouncing_balls(void) {
 }
 static const char _data_FX_MODE_BOUNCINGBALLS[] PROGMEM = "Bouncing Balls@Gravity,# of balls,,,,,Overlay;!,!,!;!;1;m12=1"; //bar
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#if defined(WLED_PS_DONT_REPLACE_1D_FX) || defined(WLED_PS_DONT_REPLACE_2D_FX)
 /*
  *  bouncing balls on a track track Effect modified from Aircoookie's bouncing balls
  *  Courtesy of pjhatch (https://github.com/pjhatch)
@@ -3156,7 +3163,7 @@ static uint16_t rolling_balls(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of balls,,,,Collide,Overlay,Trails;!,!,!;!;1;m12=1"; //bar
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_x_FX
 
 /*
 * Sinelon stolen from FASTLED examples
@@ -3213,7 +3220,7 @@ uint16_t mode_sinelon_rainbow(void) {
 }
 static const char _data_FX_MODE_SINELON_RAINBOW[] PROGMEM = "Sinelon Rainbow@!,Trail;,,!;!";
 
-
+#ifdef WLED_PS_DONT_REPLACE_1D_FX
 // utility function that will add random glitter to SEGMENT
 void glitter_base(uint8_t intensity, uint32_t col = ULTRAWHITE) {
   if (intensity > hw_random8()) SEGMENT.setPixelColor(hw_random16(SEGLEN), col);
@@ -3250,6 +3257,7 @@ uint16_t mode_solid_glitter()
   return FRAMETIME;
 }
 static const char _data_FX_MODE_SOLID_GLITTER[] PROGMEM = "Solid Glitter@,!;Bg,,Glitter color;;;m12=0";
+#endif // WLED_PS_DONT_REPLACE_1D_FX
 
 //each needs 20 bytes
 //Spark type is used for popcorn, 1D fireworks, and drip
@@ -3418,7 +3426,7 @@ uint16_t mode_candle_multi()
 }
 static const char _data_FX_MODE_CANDLE_MULTI[] PROGMEM = "Candle Multi@!,!;!,!;!;;sx=96,ix=224,pal=0";
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#ifdef WLED_PS_DONT_REPLACE_1D_FX
 /*
 / Fireworks in starburst effect
 / based on the video: https://www.reddit.com/r/arduino/comments/c3sd46/i_made_this_fireworks_effect_for_my_led_strips/
@@ -3550,9 +3558,9 @@ uint16_t mode_starburst(void) {
 }
 #undef STARBURST_MAX_FRAG
 static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chance,Fragments,,,,,Overlay;,!;!;;pal=11,m12=0";
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_1DFX
 
- #ifdef WLED_PS_DONT_REPLACE_FX
+#if defined(WLED_PS_DONT_REPLACE_1D_FX) || defined(WLED_PS_DONT_REPLACE_2D_FX)
 /*
  * Exploding fireworks effect
  * adapted from: http://www.anirama.com/1000leds/1d-fireworks/
@@ -3690,7 +3698,7 @@ uint16_t mode_exploding_fireworks(void)
 }
 #undef MAX_SPARKS
 static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gravity,Firing side;!,!;!;12;pal=11,ix=128";
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_x_FX
 
 /*
  * Drip Effect
@@ -4338,7 +4346,7 @@ static const char _data_FX_MODE_CHUNCHUN[] PROGMEM = "Chunchun@!,Gap size;!,!;!"
   #define SPOT_MAX_COUNT 49          //Number of simultaneous waves
 #endif
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#ifdef WLED_PS_DONT_REPLACE_1D_FX
 //13 bytes
 typedef struct Spotlight {
   float speed;
@@ -4472,7 +4480,7 @@ uint16_t mode_dancing_shadows(void)
   return FRAMETIME;
 }
 static const char _data_FX_MODE_DANCING_SHADOWS[] PROGMEM = "Dancing Shadows@!,# of shadows;!;!";
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_1D_FX
 
 /*
   Imitates a washing machine, rotating same waves forward, then pause, then backward.
@@ -6033,7 +6041,7 @@ uint16_t mode_2Dcrazybees(void) {
 static const char _data_FX_MODE_2DCRAZYBEES[] PROGMEM = "Crazy Bees@!,Blur,,,,Smear;;!;2;pal=11,ix=0";
 #undef MAX_BEES
 
-#ifdef WLED_PS_DONT_REPLACE_FX
+#ifdef WLED_PS_DONT_REPLACE_2D_FX
 /////////////////////////
 //     2D Ghost Rider  //
 /////////////////////////
@@ -6221,7 +6229,7 @@ uint16_t mode_2Dfloatingblobs(void) {
 }
 static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;!;!;2;c1=8";
 #undef MAX_BLOBS
-#endif // WLED_PS_DONT_REPLACE_FX
+#endif // WLED_PS_DONT_REPLACE_2D_FX
 
 ////////////////////////////
 //     2D Scrolling text  //
@@ -10871,7 +10879,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SPOTS, &mode_spots, _data_FX_MODE_SPOTS);
   addEffect(FX_MODE_SPOTS_FADE, &mode_spots_fade, _data_FX_MODE_SPOTS_FADE);
   addEffect(FX_MODE_COMET, &mode_comet, _data_FX_MODE_COMET);
-  #ifdef WLED_PS_DONT_REPLACE_FX
+  #ifdef WLED_PS_DONT_REPLACE_1D_FX
   addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
   addEffect(FX_MODE_ROLLINGBALLS, &rolling_balls, _data_FX_MODE_ROLLINGBALLS);
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
@@ -10944,7 +10952,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DSPACESHIPS, &mode_2Dspaceships, _data_FX_MODE_2DSPACESHIPS);
   addEffect(FX_MODE_2DCRAZYBEES, &mode_2Dcrazybees, _data_FX_MODE_2DCRAZYBEES);
 
-  #ifdef WLED_PS_DONT_REPLACE_FX
+  #ifdef WLED_PS_DONT_REPLACE_2D_FX
   addEffect(FX_MODE_2DGHOSTRIDER, &mode_2Dghostrider, _data_FX_MODE_2DGHOSTRIDER);
   addEffect(FX_MODE_2DBLOBS, &mode_2Dfloatingblobs, _data_FX_MODE_2DBLOBS);
   #endif
