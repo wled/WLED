@@ -3385,8 +3385,8 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		<p style="color:var(--c-f);">${description}</p>
 		<p style="color:var(--c-f);">${question}</p>
 		<div style="margin-top:20px;">
-			<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
-			<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
+			<button id="versionReportYes" class="btn">Yes</button>
+			<button id="versionReportNo" class="btn">Not Now</button>
 			<button id="versionReportNever" class="btn">Never Ask</button>
 		</div>
 	`;
