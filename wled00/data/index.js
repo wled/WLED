@@ -3319,8 +3319,8 @@ function checkVersionUpgrade(info) {
 	})
 	.then(res => {
 		if (res.status === 404) {
-			// File doesn't exist - first time, save current version
-			updateVersionInfo(info.ver, false);
+			// File doesn't exist - first install, show install prompt
+			showVersionUpgradePrompt(info, null, info.ver);
 			return null;
 		}
 		if (!res.ok) {
@@ -3342,8 +3342,8 @@ function checkVersionUpgrade(info) {
 			// Version has changed, show upgrade prompt
 			showVersionUpgradePrompt(info, storedVersion, currentVersion);
 		} else if (!storedVersion) {
-			// Empty version in file, save current version
-			updateVersionInfo(currentVersion, false);
+			// Empty version in file, show install prompt
+			showVersionUpgradePrompt(info, null, currentVersion);
 		}
 	})
 	.catch(e => {
@@ -3356,6 +3356,9 @@ function checkVersionUpgrade(info) {
 }
 
 function showVersionUpgradePrompt(info, oldVersion, newVersion) {
+	// Determine if this is an install or upgrade
+	const isInstall = !oldVersion;
+	
 	// Create overlay and dialog
 	const overlay = d.createElement('div');
 	overlay.id = 'versionUpgradeOverlay';
@@ -3364,16 +3367,31 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	const dialog = d.createElement('div');
 	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
 	
-	dialog.innerHTML = `
-		<h2 style="margin-top:0;color:var(--c-f);">🎉 WLED Upgrade Detected!</h2>
-		<p style="color:var(--c-f);">Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.</p>
-		<p style="color:var(--c-f);">Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.</p>
-		<div style="margin-top:20px;">
-			<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
-			<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
-			<button id="versionReportNever" class="btn">Never Ask</button>
-		</div>
-	`;
+	if (isInstall) {
+		// Install message
+		dialog.innerHTML = `
+			<h2 style="margin-top:0;color:var(--c-f);">🎉 Thank you for installing WLED!</h2>
+			<p style="color:var(--c-f);">You are now running WLED <strong>${newVersion}</strong>.</p>
+			<p style="color:var(--c-f);">Would you like to help the WLED development team by reporting your installation? This helps us understand which versions and hardware are being used.</p>
+			<div style="margin-top:20px;">
+				<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
+				<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
+				<button id="versionReportNever" class="btn">Never Ask</button>
+			</div>
+		`;
+	} else {
+		// Upgrade message
+		dialog.innerHTML = `
+			<h2 style="margin-top:0;color:var(--c-f);">🎉 WLED Upgrade Detected!</h2>
+			<p style="color:var(--c-f);">Your WLED has been upgraded from <strong>${oldVersion}</strong> to <strong>${newVersion}</strong>.</p>
+			<p style="color:var(--c-f);">Would you like to report your successful upgrade to the WLED development team? This helps us understand which versions are being used.</p>
+			<div style="margin-top:20px;">
+				<button id="versionReportYes" class="btn btn-p" style="margin-right:10px;">Yes, Report</button>
+				<button id="versionReportNo" class="btn" style="margin-right:10px;">Not Now</button>
+				<button id="versionReportNever" class="btn">Never Ask</button>
+			</div>
+		`;
+	}
 	
 	overlay.appendChild(dialog);
 	d.body.appendChild(overlay);
