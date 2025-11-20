@@ -26,6 +26,8 @@ var pmt = 1, pmtLS = 0, pmtLast = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
 var ws, wsRpt=0;
+var errorLog = []; // Store last 5 errors/warnings
+var hasUnreadErrors = false;
 var cfg = {
 	theme:{base:"dark", bg:{url:"", rnd: false, rndGrayscale: false, rndBlur: false}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
 	comp :{colors:{picker: true, rgb: false, quick: true, hex: false},
@@ -382,6 +384,152 @@ function getRuntimeStr(rt)
 function inforow(key, val, unit = "")
 {
 	return `<tr><td class="keytd">${key}</td><td class="valtd">${val}${unit}</td></tr>`;
+}
+
+function getErrorMessage(errorCode) {
+	switch (errorCode) {
+		case 1: return "Operation denied by current settings";
+		case 2: return "Cannot process request while client is active";
+		case 3: return "JSON buffer is locked, try again in a moment";
+		case 4: return "Feature not implemented on this version";
+		case 7: return "Insufficient RAM to allocate pixel buffer";
+		case 8: return "Not enough RAM available for effect processing";
+		case 9: return "JSON parsing failed - data may be too large";
+		case 10: return "Could not initialize filesystem - check partition";
+		case 11: return "Not enough space to save preset to filesystem";
+		case 12: return "Requested preset does not exist";
+		case 13: return "IR configuration file 'ir.json' not found";
+		case 14: return "Remote configuration file 'remote.json' not found";
+		case 19: return "An unspecified filesystem error occurred";
+		case 30: return "Temperature sensor reading above safe threshold";
+		case 31: return "Current sensor reading above safe threshold";  
+		case 32: return "Voltage sensor reading below safe threshold";
+		case 33: return "Insufficient RAM to allocate LED bus";
+		case 34: return "Insufficient RAM to allocate segment data";
+		case 35: return "Insufficient RAM for transition effects";
+		case 36: return "Pin assignment conflict detected";
+		case 37: return "Invalid pin number for this platform";
+		case 38: return "Failed to load configuration from filesystem";
+		case 39: return "Failed to save configuration to filesystem";
+		case 100: return "Memory usage is approaching limits";
+		case 101: return "Temperature is approaching safe limits";
+		case 102: return "Voltage is below optimal operating range";
+		case 103: return "Current draw is approaching safe limits";
+		case 104: return "WiFi signal strength is poor";
+		case 105: return "Filesystem space is running low";
+		default: return `Unknown error code ${errorCode}`;
+	}
+}
+
+function addToErrorLog(errorCode, timestamp = null) {
+	if (!timestamp) timestamp = Date.now();
+	
+	const errorEntry = {
+		code: errorCode,
+		message: getErrorMessage(errorCode),
+		timestamp: timestamp,
+		isWarning: errorCode >= 100
+	};
+	
+	// Add to beginning of array
+	errorLog.unshift(errorEntry);
+	
+	// Keep only last 5 entries
+	if (errorLog.length > 5) {
+		errorLog = errorLog.slice(0, 5);
+	}
+	
+	hasUnreadErrors = true;
+	updateInfoButtonIcon();
+}
+
+function updateInfoButtonIcon() {
+	const infoBtn = gId('buttonI');
+	const icon = infoBtn.querySelector('i');
+	if (hasUnreadErrors) {
+		// Change to red exclamation mark icon
+		icon.innerHTML = '&#xe18a;'; // Use add/warning icon
+		icon.style.color = 'var(--c-r)';
+	} else {
+		// Reset to normal info icon
+		icon.innerHTML = '&#xe066;'; // Info icon
+		icon.style.color = '';
+	}
+}
+
+function handleServerErrorLog(serverErrors, serverTime) {
+	// Clear client-side log and replace with server data
+	errorLog = [];
+	hasUnreadErrors = false;
+	
+	for (let i = 0; i < serverErrors.length; i++) {
+		const serverEntry = serverErrors[i];
+		// Calculate absolute timestamp using server time and error timestamp
+		const absoluteTime = Date.now() - (serverTime - serverEntry.t);
+		
+		const errorEntry = {
+			code: serverEntry.c,
+			// Use custom message if provided, otherwise use error code lookup
+			message: serverEntry.m ? serverEntry.m : getErrorMessage(serverEntry.c),
+			timestamp: absoluteTime,
+			// If custom message provided, determine warning/error based on code range
+			isWarning: serverEntry.c >= 100,
+			tag1: serverEntry.t1 || 0,
+			tag2: serverEntry.t2 || 0,
+			tag3: serverEntry.t3 || 0
+		};
+		
+		errorLog.push(errorEntry);
+	}
+	
+	if (errorLog.length > 0) {
+		hasUnreadErrors = true;
+	}
+	
+	updateInfoButtonIcon();
+}
+
+function clearErrorLog() {
+	// Send clear command to server
+	fetch(getURL('/json/state'), {
+		method: 'post',
+		body: JSON.stringify({clrErrLog: true}),
+		headers: {
+			'Content-Type': 'application/json'
+		}
+	})
+	.then(res => {
+		// Clear local state
+		errorLog = [];
+		hasUnreadErrors = false;
+		updateInfoButtonIcon();
+		const errorArea = gId('errorLogArea');
+		if (errorArea) {
+			errorArea.style.display = 'none';
+		}
+	})
+	.catch((error) => {
+		console.log('Error clearing log:', error);
+	});
+}
+
+function generateErrorLogHtml() {
+	if (errorLog.length === 0) return '';
+	
+	let html = '';
+	for (let i = 0; i < errorLog.length; i++) {
+		const entry = errorLog[i];
+		// Use 24h format without seconds
+		const timeStr = new Date(entry.timestamp).toLocaleTimeString([], {hour12: false, hour: '2-digit', minute: '2-digit'});
+		const prefix = entry.isWarning ? 'Warning' : 'Error';
+		const color = entry.isWarning ? 'var(--c-y)' : 'var(--c-r)';
+		
+		html += `<div style="margin: 2px 0; padding: 3px; word-wrap: break-word; color: ${color};">
+			${timeStr} ${prefix} ${entry.code}: ${entry.message}
+		</div>`;
+	}
+	
+	return html;
 }
 
 function getLowestUnusedP()
@@ -745,7 +893,17 @@ ${inforow("Flash size",i.flash," MB")}
 ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
 ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 </table>`;
+	
 	gId('kv').innerHTML = cn;
+	
+	// Update error log area visibility and content
+	const errorArea = gId('errorLogArea');
+	if (errorLog.length > 0) {
+		errorArea.style.display = 'block';
+		gId('errorLogContent').innerHTML = generateErrorLogHtml();
+	} else {
+		errorArea.style.display = 'none';
+	}
 	//  update all sliders in Info
 	d.querySelectorAll('#kv .sliderdisplay').forEach((sd,i) => {
 		let s = sd.previousElementSibling;
@@ -1517,40 +1675,13 @@ function readState(s,command=false)
 	gId('checkO3').checked = !(!i.o3);
 
 	if (s.error && s.error != 0) {
-		var errstr = "";
-		switch (s.error) {
-			case  1:
-				errstr = "Denied!";
-				break;
-			case  3:
-				errstr = "Buffer locked!";
-				break;
-			case  7:
-				errstr = "No RAM for buffer!";
-				break;
-			case  8:
-				errstr = "Effect RAM depleted!";
-				break;
-			case  9:
-				errstr = "JSON parsing error!";
-				break;
-			case 10:
-				errstr = "Could not mount filesystem!";
-				break;
-			case 11:
-				errstr = "Not enough space to save preset!";
-				break;
-			case 12:
-				errstr = "Preset not found.";
-				break;
-			case 13:
-				errstr = "Missing ir.json.";
-				break;
-			case 19:
-				errstr = "A filesystem error has occured.";
-				break;
-		}
-		showToast('Error ' + s.error + ": " + errstr, true);
+		// Add to error log for detailed tracking
+		addToErrorLog(s.error);
+	}
+	
+	// Handle server-side error log
+	if (s.errorLog && s.errorLogTime) {
+		handleServerErrorLog(s.errorLog, s.errorLogTime);
 	}
 
 	selectedPal = i.pal;
@@ -1845,7 +1976,12 @@ function toggleInfo()
 	if (isNodes) toggleNodes();
 	if (isLv && isM) toggleLiveview();
 	isInfo = !isInfo;
-	if (isInfo) requestJson();
+	if (isInfo) {
+		requestJson();
+		// Mark errors as read when info panel is opened
+		hasUnreadErrors = false;
+		updateInfoButtonIcon();
+	}
 	gId('info').style.transform = (isInfo) ? "translateY(0px)":"translateY(100%)";
 	gId('buttonI').className = (isInfo) ? "active":"";
 }
