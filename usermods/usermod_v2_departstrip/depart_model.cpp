@@ -107,13 +107,14 @@ namespace {
     {"AC", "51A",  0x806000, false},
     {"AC", "72",   0x00804D, false},
     {"AC", "72M",  0x630080, false},
-    {"AC", "88",   0x808040, false},
+    {"AC", "88",   0x706030, false},
     {"AC", "633",  0x808080, false},
     {"AC", "651",  0x808080, false},
     {"AC", "800",  0x4C8032, false},
     {"AC", "802",  0x804F59, false},
     {"AC", "805",  0x800058, false},
     {"AC", "851",  0x496F80, false},
+    {"AC", "F",    0x803000, false},
 
     // Metro-North Railroad core line
     {"MNR", "1",         0x009B3A, false}, // Hudson Line brand green
