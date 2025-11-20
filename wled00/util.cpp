@@ -1165,10 +1165,15 @@ String getDeviceId() {
   char macStr[18];
   sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
+  // The device string is deterministic as it needs to be consistent for the same device, even after a full flash erase
+  // MAC is salted with other consistent device info to avoid rainbow table attacks.
+  // If the MAC address is known by malicious actors, they could precompute SHA1 hashes to impersonate devices,
+  // but as WLED developers are just looking at statistics and not authenticating devices, this is acceptable.
+  // If the usage data was exfiltrated, you could not easily determine the MAC from the device ID without brute forcing SHA1
 #ifdef ESP8266
-  String deviceString = String(macStr) + "WLED" + ESP.getCoreVersion();
+  String deviceString = String(macStr) + "WLED" + ESP.getChipId();
 #else
-  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
+  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision() + ESP.getEfuseMac();
 #endif
   String firstHash = computeSHA1(deviceString);
 
