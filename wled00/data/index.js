@@ -3431,11 +3431,11 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 			isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
 			bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
 			brand: infoData.brand,                           // Device brand (always present)
-			product: infoData.product                        // Product name (always present)
+			product: infoData.product,                       // Product name (always present)
+			flashSize: infoData.flash + 'MB'                 // Flash size (always present)
 		};
 		
 		// Add optional fields if available
-		if (infoData.flash) upgradeData.flashSize = infoData.flash + 'MB';
 		if (infoData.psram !== undefined) upgradeData.psramSize = infoData.psram + 'B';
 		// Note: partitionSizes not currently available in /json/info endpoint
 		
