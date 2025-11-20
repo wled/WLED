@@ -3382,6 +3382,9 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
 		<p style="color:var(--c-f);">${description}</p>
 		<p style="color:var(--c-f);">${question}</p>
+		<p style="color:var(--c-f);font-size:0.9em;">
+			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
+		</p>
 		<div style="margin-top:20px;">
 			<button id="versionReportYes" class="btn">Yes</button>
 			<button id="versionReportNo" class="btn">Not Now</button>
