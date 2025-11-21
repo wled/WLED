@@ -12,6 +12,7 @@
   #include "soc/rtc.h"
 #endif
 #include "mbedtls/sha1.h"   // for SHA1 on ESP32
+#include "esp_efuse.h"
 #endif
 
 
@@ -1155,6 +1156,35 @@ String computeSHA1(const String& input) {
   #endif
 }
 
+#ifdef ESP32
+static String dump_raw_block(esp_efuse_block_t block)
+{
+  const int WORDS = 8; // ESP32: 8×32-bit words per block i.e. 256bits
+  uint32_t buf[WORDS] = {0};
+
+  const esp_efuse_desc_t d = {
+    .efuse_block = block,
+    .bit_start = 0,
+    .bit_count = WORDS * 32
+  };
+  const esp_efuse_desc_t* field[2] = { &d, NULL };
+
+  esp_err_t err = esp_efuse_read_field_blob(field, buf, WORDS * 32);
+  if (err != ESP_OK) {
+    return "";
+  }
+
+  String result = "";
+  for (const unsigned int i : buf) {
+    char line[32];
+    sprintf(line, "0x%08X", i);
+    result += line;
+  }
+  return result;
+}
+#endif
+
+
 // Generate a device ID based on SHA1 hash of MAC address salted with "WLED"
 // Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
 String getDeviceId() {
@@ -1174,7 +1204,11 @@ String getDeviceId() {
 #ifdef ESP8266
   String deviceString = String(macStr) + "WLED" + ESP.getChipId();
 #else
-  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision() + ESP.getEfuseMac();
+  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
+  deviceString += dump_raw_block(EFUSE_BLK0);
+  deviceString += dump_raw_block(EFUSE_BLK1);
+  deviceString += dump_raw_block(EFUSE_BLK2);
+  deviceString += dump_raw_block(EFUSE_BLK3);
 #endif
   String firstHash = computeSHA1(deviceString);
 
