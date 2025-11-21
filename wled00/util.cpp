@@ -1201,7 +1201,7 @@ String getDeviceId() {
   // but as WLED developers are just looking at statistics and not authenticating devices, this is acceptable.
   // If the usage data was exfiltrated, you could not easily determine the MAC from the device ID without brute forcing SHA1
 #ifdef ESP8266
-  String deviceString = String(macStr) + "WLED" + ESP.getChipId();
+  String deviceString = String(macStr) + "WLED" + ESP.getFlashChipId();
 #else
   String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
   deviceString += dump_raw_block(EFUSE_BLK0);
