@@ -166,7 +166,7 @@ class Bus {
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
-    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 3 : is2Pin(type) + 1; } // credit @PaoloTK
+    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
     static constexpr size_t   getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
@@ -395,12 +395,15 @@ class BusHub75Matrix : public Bus {
     VirtualMatrixPanel  *virtualDisp = nullptr;
     HUB75_I2S_CFG mxconfig;
     unsigned _panelWidth = 0;
-    CRGB *_ledBuffer = nullptr;
+    uint8_t _rows = 1; // panels per row
+    uint8_t _cols = 1; // panels per column
+    bool _isVirtual = false; // note: this is not strictly needed but there are padding bytes here anyway
+    CRGB *_ledBuffer = nullptr; // note: using uint32_t buffer is only 2% faster and not worth the extra RAM
     byte *_ledsDirty = nullptr;
     // workaround for missing constants on include path for non-MM
-    uint32_t IS_BLACK = 0x000000;
-    uint32_t IS_DARKGREY = 0x333333;
-    const int PIN_COUNT = 14;
+    static constexpr uint32_t IS_BLACK = 0x000000u;
+    static constexpr uint32_t IS_DARKGREY = 0x333333u;
+    static constexpr int PIN_COUNT = 14;
 };
 #endif
 
