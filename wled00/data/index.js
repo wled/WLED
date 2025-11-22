@@ -3428,7 +3428,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 		// Map to UpgradeEventRequest structure per OpenAPI spec
 		// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 		const upgradeData = {
-			deviceId: infoData.mac || '',                    // Use MAC address as unique device ID
+			deviceId: infoData.deviceid,                     // Use anonymous unique device ID
 			version: infoData.ver || '',                     // Current version string
 			previousVersion: oldVersion || '',               // Previous version from version-info.json
 			releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
