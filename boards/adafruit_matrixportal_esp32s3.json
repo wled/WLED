@@ -1,0 +1,66 @@
+{
+  "build": {
+    "arduino":{
+      "ldscript": "esp32s3_out.ld",
+      "partitions": "partitions-8MB-tinyuf2.csv"
+    },
+    "core": "esp32",
+    "extra_flags": [
+      "-DARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3",
+      "-DARDUINO_USB_CDC_ON_BOOT=1",
+      "-DARDUINO_RUNNING_CORE=1",
+      "-DARDUINO_EVENT_RUNNING_CORE=1",
+      "-DBOARD_HAS_PSRAM"
+    ],
+    "f_cpu": "240000000L",
+    "f_flash": "80000000L",
+    "flash_mode": "qio",
+    "hwids": [
+      [
+        "0x239A",
+        "0x8125"
+      ],
+      [
+        "0x239A",
+        "0x0125"
+      ],
+      [
+        "0x239A",
+        "0x8126"
+      ]
+    ],
+    "mcu": "esp32s3",
+    "variant": "adafruit_matrixportal_esp32s3"
+  },
+  "connectivity": [
+    "bluetooth",
+    "wifi"
+  ],
+  "debug": {
+    "openocd_target": "esp32s3.cfg"
+  },
+  "frameworks": [
+    "arduino",
+    "espidf"
+  ],
+  "name": "Adafruit MatrixPortal ESP32-S3",
+  "upload": {
+    "arduino": {
+      "flash_extra_images": [
+        [
+          "0x410000",
+          "variants/adafruit_matrixportal_esp32s3/tinyuf2.bin"
+        ]
+      ]
+    },
+    "flash_size": "8MB",
+    "maximum_ram_size": 327680,
+    "maximum_size": 8388608,
+    "use_1200bps_touch": true,
+    "wait_for_upload_port": true,
+    "require_upload_port": true,
+    "speed": 460800
+  },
+  "url": "https://www.adafruit.com/product/5778",
+  "vendor": "Adafruit"
+}
