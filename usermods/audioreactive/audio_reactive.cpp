@@ -1227,7 +1227,6 @@ class AudioReactive : public Usermod {
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
         case 0:
-        default:
           DEBUGSR_PRINTLN(F("AR: Analog Microphone (left channel only)."));
           audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE);
           delay(100);
@@ -1235,6 +1234,13 @@ class AudioReactive : public Usermod {
           if (audioSource) audioSource->initialize(audioPin);
           break;
         #endif
+
+        case 255: // 255 = -1 = no audio source
+          // falls through to default
+        default:
+          if (audioSource) delete audioSource; audioSource = nullptr;
+          enabled = false;
+        break;
       }
       delay(250); // give microphone enough time to initialise
 
