@@ -794,7 +794,7 @@ input[type=range]::-moz-range-thumb {
 /* buttons */
 .btn {
 	padding: 8px;
-	/*margin: 10px 4px;*/
+	margin: 10px 4px;
 	width: 230px;
 	font-size: 19px;
 	color: var(--c-d);
