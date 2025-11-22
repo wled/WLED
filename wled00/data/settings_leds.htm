@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
@@ -26,6 +26,15 @@
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+
 		function S() {
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
@@ -813,9 +822,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			return opt;
 		}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#led-settings')">?</button></div>
