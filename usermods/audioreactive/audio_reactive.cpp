@@ -6,10 +6,6 @@
 #include <driver/i2s.h>
 #include <driver/adc.h>
 
-#ifdef WLED_ENABLE_DMX
-  #error This audio reactive usermod is not compatible with DMX Out.
-#endif
-
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
