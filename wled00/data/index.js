@@ -3442,7 +3442,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 		};
 		
 		// Add optional fields if available
-		if (infoData.psram !== undefined) upgradeData.psramSize = infoData.psram + 'B';
+		if (infoData.psram !== undefined) upgradeData.psramSize = infoData.psram;
 		// Note: partitionSizes not currently available in /json/info endpoint
 		
 		// Make AJAX call to postUpgradeEvent API
