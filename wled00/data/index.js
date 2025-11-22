@@ -3438,7 +3438,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 			bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
 			brand: infoData.brand,                           // Device brand (always present)
 			product: infoData.product,                       // Product name (always present)
-			flashSize: infoData.flash + 'MB'                 // Flash size (always present)
+			flashSize: infoData.flash                        // Flash size (always present)
 		};
 		
 		// Add optional fields if available
