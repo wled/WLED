@@ -161,7 +161,7 @@ uint16_t mode_copy_segment(void) {
     } else { // 1D source, source can be expanded into 2D
       for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
         if(SEGMENT.check2) {
-          sourcecolor = strip.getPixelColor(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+          sourcecolor = strip.getPixelColorNoMap(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
         }
         else {
           sourcesegment.setDrawDimensions(); // set to source segment dimensions
