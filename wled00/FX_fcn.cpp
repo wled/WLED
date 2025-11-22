@@ -1681,12 +1681,17 @@ void WS2812FX::setTransitionMode(bool t) {
   resume();
 }
 
-// wait until frame is over (service() has finished or time for 1 frame has passed; yield() crashes on 8266)
+// wait until frame is over (service() has finished or time for 2 frames have passed; yield() crashes on 8266)
+// the latter may, in rare circumstances, lead to incorrectly assuming strip is done servicing but will not block
+// other processing "indefinitely"
+// rare circumstances are: setting FPS to high number (i.e. 120) and have very slow effect that will need more
+// time than 2 * _frametime (1000/FPS) to draw content
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + getFrameTime() + 100; // TODO: this needs a proper fix for timeout!
-  while (isServicing() && maxWait > millis()) delay(1);
+  unsigned long waitStart = millis();
+  unsigned long maxWait = 2*getFrameTime() + 100; // TODO: this needs a proper fix for timeout! see #4779
+  while (isServicing() && (millis() - waitStart < maxWait)) delay(1); // safe even when millis() rolls over
   #ifdef WLED_DEBUG
-  if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
+  if (millis()-waitStart >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
   #endif
 };
 
@@ -1810,7 +1815,11 @@ Segment& WS2812FX::getSegment(unsigned id) {
   return _segments[id >= _segments.size() ? getMainSegmentId() : id]; // vectors
 }
 
+// WARNING: resetSegments(), makeAutoSegments() and fixInvalidSegments() must not be called while
+// strip is being serviced (strip.service()), you must call suspend prior if changing segments outside
+// loop() context
 void WS2812FX::resetSegments() {
+  if (isServicing()) return;
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
   _segments.shrink_to_fit();  // just in case ...
@@ -1818,6 +1827,7 @@ void WS2812FX::resetSegments() {
 }
 
 void WS2812FX::makeAutoSegments(bool forceReset) {
+  if (isServicing()) return;
   if (autoSegments) { //make one segment per bus
     unsigned segStarts[MAX_NUM_SEGMENTS] = {0};
     unsigned segStops [MAX_NUM_SEGMENTS] = {0};
@@ -1889,6 +1899,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
 }
 
 void WS2812FX::fixInvalidSegments() {
+  if (isServicing()) return;
   //make sure no segment is longer than total (sanity check)
   for (size_t i = getSegmentsNum()-1; i > 0; i--) {
     if (isMatrix) {
@@ -1951,6 +1962,7 @@ void WS2812FX::printSize() {
 
 // load custom mapping table from JSON file (called from finalizeInit() or deserializeState())
 // if this is a matrix set-up and default ledmap.json file does not exist, create mapping table using setUpMatrix() from panel information
+// WARNING: effect drawing has to be suspended (strip.suspend()) or must be called from loop() context
 bool WS2812FX::deserializeMap(unsigned n) {
   char fileName[32];
   strcpy_P(fileName, PSTR("/ledmap"));
@@ -1980,15 +1992,13 @@ bool WS2812FX::deserializeMap(unsigned n) {
   } else
     DEBUG_PRINTF_P(PSTR("Reading LED map from %s\n"), fileName);
 
-  suspend();
-  waitForIt();
-
   JsonObject root = pDoc->as<JsonObject>();
   // if we are loading default ledmap (at boot) set matrix width and height from the ledmap (compatible with WLED MM ledmaps)
   if (n == 0 && (!root[F("width")].isNull() || !root[F("height")].isNull())) {
     Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
     isMatrix = true;
+    DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
 
   d_free(customMappingTable);
@@ -2012,9 +2022,9 @@ bool WS2812FX::deserializeMap(unsigned n) {
         } while (i < 32);
         if (!foundDigit) break;
         int index = atoi(number);
-        if (index < 0 || index > 16384) index = 0xFFFF;
+        if (index < 0 || index > 65535) index = 0xFFFF; // prevent integer wrap around
         customMappingTable[customMappingSize++] = index;
-        if (customMappingSize > getLengthTotal()) break;
+        if (customMappingSize >= getLengthTotal()) break;
       } else break; // there was nothing to read, stop
     }
     currentLedmap = n;
@@ -2024,7 +2034,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     DEBUG_PRINT(F("Loaded ledmap:"));
     for (unsigned i=0; i<customMappingSize; i++) {
       if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
-      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i] < 0xFFFFU ? customMappingTable[i] : -1);
     }
     DEBUG_PRINTLN();
     #endif
@@ -2039,8 +2049,6 @@ bool WS2812FX::deserializeMap(unsigned n) {
   } else {
     DEBUG_PRINTLN(F("ERROR LED map allocation error."));
   }
-
-  resume();
 
   releaseJSONBufferLock();
   return (customMappingSize > 0);

@@ -1,11 +1,7 @@
 #include "wled.h"
 
 #ifndef WLED_DISABLE_OTA
-  #ifdef ESP8266
-    #include <Updater.h>
-  #else
-    #include <Update.h>
-  #endif
+  #include "ota_update.h"  
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -17,6 +13,8 @@
   #include "html_pxmagic.h"
 #endif
 #include "html_cpal.h"
+#include "html_edit.h"
+
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -26,7 +24,15 @@ static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN co
 static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
+static const char s_not_found[]      PROGMEM = "Not found";
+static const char s_wsec[]           PROGMEM = "wsec.json";
+static const char s_func[]           PROGMEM = "func";
+static const char s_path[]           PROGMEM = "path";
+static const char s_cache_control[]  PROGMEM = "Cache-Control";
+static const char s_no_store[]       PROGMEM = "no-store";
+static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
+
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -71,9 +77,9 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
   #ifndef WLED_DEBUG
   // this header name is misleading, "no-cache" will not disable cache,
   // it just revalidates on every load using the "If-None-Match" header with the last ETag value
-  response->addHeader(F("Cache-Control"), F("no-cache"));
+  response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
-  response->addHeader(F("Cache-Control"), F("no-store,max-age=0"));  // prevent caching if debug build
+  response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
   #endif
   char etag[32];
   generateEtag(etag, eTagSuffix);
@@ -176,6 +182,7 @@ static String msgProcessor(const String& var)
   return String();
 }
 
+
 static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
     if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
@@ -198,7 +205,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));
     } else {
       if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
@@ -207,25 +214,94 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
   }
 }
 
-void createEditHandler(bool enable) {
+static const char _edit_htm[] PROGMEM = "/edit.htm";
+
+void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
-  if (enable) {
-    #ifdef WLED_ENABLE_FS_EDITOR
-      #ifdef ARDUINO_ARCH_ESP32
-      editHandler = &server.addHandler(new SPIFFSEditor(WLED_FS));//http_username,http_password));
-      #else
-      editHandler = &server.addHandler(new SPIFFSEditor("","",WLED_FS));//http_username,http_password));
-      #endif
-    #else
-      editHandler = &server.on(F("/edit"), HTTP_GET, [](AsyncWebServerRequest *request){
-        serveMessage(request, 501, FPSTR(s_notimplemented), F("The FS editor is disabled in this build."), 254);
-      });
-    #endif
-  } else {
-    editHandler = &server.on(F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
+
+  editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
+    // PIN check for GET/DELETE, for POST it is done in handleUpload()
+    if (!correctPIN) {
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
-    });
-  }
+      return;
+    }
+    const String& func = request->arg(FPSTR(s_func));
+
+    if(func.length() == 0) {
+      // default: serve the editor page
+      handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+      return;
+    }
+
+    if (func == "list") {
+      bool first = true;
+      AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JSON));
+      response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+      response->addHeader(FPSTR(s_expires), F("0"));
+      response->write('[');
+
+      File rootdir = WLED_FS.open("/", "r");
+      File rootfile = rootdir.openNextFile();
+      while (rootfile) {
+          String name = rootfile.name();
+          if (name.indexOf(FPSTR(s_wsec)) >= 0) {
+            rootfile = rootdir.openNextFile(); // skip wsec.json
+            continue;
+          }
+          if (!first) response->write(',');
+          first = false;
+          response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
+          rootfile = rootdir.openNextFile();
+      }
+      rootfile.close();
+      rootdir.close();
+      response->write(']');
+      request->send(response);
+      return;
+    }
+
+    String path = request->arg(FPSTR(s_path)); // remaining functions expect a path
+
+    if (path.length() == 0) {
+      request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Missing path"));
+      return;
+    }
+
+    if (path.charAt(0) != '/') {
+      path = '/' + path; // prepend slash if missing
+    }
+
+    if (!WLED_FS.exists(path)) {
+      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
+      return;
+    }
+
+    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
+    }
+
+    if (func == "edit") {
+      request->send(WLED_FS, path);
+      return;
+    }
+
+    if (func == "download") {
+      request->send(WLED_FS, path, String(), true);
+      return;
+    }
+
+    if (func == "delete") {
+      if (!WLED_FS.remove(path))
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
+      else
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      return;
+    }
+
+    // unrecognized func
+    request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Invalid function"));
+  });
 }
 
 static bool captivePortal(AsyncWebServerRequest *request)
@@ -391,7 +467,7 @@ void initServer()
                       size_t len, bool isFinal) {handleUpload(request, filename, index, data, len, isFinal);}
   );
 
-  createEditHandler(correctPIN);
+  createEditHandler(); // initialize "/edit" handler, access is protected by "correctPIN"
 
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
@@ -404,59 +480,47 @@ void initServer()
   });
 
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!correctPIN) {
-      serveSettings(request, true); // handle PIN page POST request
-      return;
-    }
-    if (otaLock) {
-      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
-      return;
-    }
-    if (Update.hasError()) {
-      serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
+    if (request->_tempObject) {
+      auto ota_result = getOTAResult(request);
+      if (ota_result.first) {
+        if (ota_result.second.length() > 0) {
+          serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+        }
+      }
     } else {
-      serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
-      #ifndef ESP8266
-      bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
-      #endif
-      doReboot = true;
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
-    IPAddress client  = request->client()->remoteIP();
-    if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
-      DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
-      request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied));
-      return;
-    }
-    if (!correctPIN || otaLock) return;
-    if(!index){
-      DEBUG_PRINTLN(F("OTA Update Start"));
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().disableWatchdog();
-      #endif
-      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-      lastEditTime = millis(); // make sure PIN does not lock during update
-      strip.suspend();
-      backupConfig(); // backup current config in case the update ends badly
-      strip.resetSegments();  // free as much memory as you can
-      #ifdef ESP8266
-      Update.runAsync(true);
-      #endif
-      Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-    }
-    if(!Update.hasError()) Update.write(data, len);
-    if(isFinal){
-      if(Update.end(true)){
-        DEBUG_PRINTLN(F("Update Success"));
-      } else {
-        DEBUG_PRINTLN(F("Update Failed"));
-        strip.resume();
-        UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
+    if (index == 0) { 
+      // Allocate the context structure
+      if (!initOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
       }
+
+      // Privilege checks
+      IPAddress client  = request->client()->remoteIP();
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {        
+        DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
+        serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
+        setOTAReplied(request);
+        return;
+      }
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setOTAReplied(request);
+        return;
+      };
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setOTAReplied(request);
+        return;
+      }      
     }
+
+    handleOTAData(request, index, data, len, isFinal);
   });
 #else
   const auto notSupported = [](AsyncWebServerRequest *request){
@@ -464,6 +528,53 @@ void initServer()
   };
   server.on(_update, HTTP_GET, notSupported);
   server.on(_update, HTTP_POST, notSupported, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){});
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // ESP32 bootloader update endpoint
+  server.on(F("/updatebootloader"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (request->_tempObject) {
+      auto bootloader_result = getBootloaderOTAResult(request);
+      if (bootloader_result.first) {
+        if (bootloader_result.second.length() > 0) {
+          serveMessage(request, 500, F("Bootloader update failed!"), bootloader_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Bootloader updated successfully!"), FPSTR(s_rebooting), 131);
+        }
+      }
+    } else {
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Bootloader update failed!"), F("Internal server fault"), 254);
+    }
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    if (index == 0) {
+      // Privilege checks
+      IPAddress client = request->client()->remoteIP();
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
+        DEBUG_PRINTLN(F("Attempted bootloader update from different/non-local subnet!"));
+        serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+
+      // Allocate the context structure
+      if (!initBootloaderOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
+      }
+    }
+
+    handleBootloaderOTAData(request, index, data, len, isFinal);
+  });
 #endif
 
 #ifdef WLED_ENABLE_DMX
@@ -569,8 +680,8 @@ void serveSettingsJS(AsyncWebServerRequest* request)
   }
   
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
-  response->addHeader(F("Cache-Control"), F("no-store"));
-  response->addHeader(F("Expires"), F("0"));
+  response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+  response->addHeader(FPSTR(s_expires), F("0"));
 
   response->print(F("function GetV(){var d=document;"));
   getSettingsJS(subPage, *response);
@@ -694,7 +805,6 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #endif
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
-      createEditHandler(correctPIN);
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
       return;
     }
