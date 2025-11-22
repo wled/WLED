@@ -1396,7 +1396,7 @@ function makeWS() {
 	};
 	ws.onclose = (e)=>{
 		gId('connind').style.backgroundColor = "var(--c-r)";
-		if (wsRpt++ < 5) setTimeout(makeWS,1500); // retry WS connection
+		if (wsRpt++ < 10) setTimeout(makeWS,wsRpt * 200); // retry WS connection
 		ws = null;
 	}
 	ws.onopen = (e)=>{
@@ -1429,6 +1429,7 @@ function readState(s,command=false)
 
 	populateSegments(s);
 	hasRGB = hasWhite = hasCCT = has2D = false;
+	segLmax = 0; // reset max selected segment length
 	let i = {};
 	// determine light capabilities from selected segments
 	for (let seg of (s.seg||[])) {
@@ -1724,7 +1725,7 @@ async function requestJson(command=null, retry=0) {
 		})
 		.catch((e)=>{
 			if (retry<10) {
-				setTimeout(() => requestJson(command,retry+1).then(resolve).catch(reject), 100);
+				setTimeout(() => requestJson(command,retry+1).then(resolve).catch(reject), retry*50);
 			} else {
 				showToast(e, true);
 				resolve();
@@ -2779,6 +2780,7 @@ function loadPalettesData() {
 				var d = JSON.parse(lsPalData);
 				if (d && d.vid == lastinfo.vid) {
 					palettesData = d.p;
+					redrawPalPrev();
 					return resolve();
 				}
 			} catch (e) {}

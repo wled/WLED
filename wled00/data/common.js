@@ -161,8 +161,8 @@ function connectWs(onOpen) {
 		let url = loc ? getURL('/ws').replace("http", "ws")
 									: "ws://" + window.location.hostname + "/ws";
 		ws = new WebSocket(url);
-		if (onOpen) ws.onopen = () => onOpen(ws);
 		ws.binaryType = "arraybuffer";
+		if (onOpen) ws.onopen = () => onOpen(ws);
 	}
 	return ws;
 }
