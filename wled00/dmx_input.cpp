@@ -21,7 +21,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
 
   if (header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
     const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
-    DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
+    DMXMode = std::min(DMX_MODE_MULTIPLE_DRGBW, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
     configNeedsWrite = true;
     DEBUG_PRINTF("DMX personality changed to to: %d\n", DMXMode);
   }
@@ -79,8 +79,10 @@ static dmx_config_t createConfig()
   config.personalities[8].footprint = std::min(512, strip.getSegmentsNum() * 18);
   config.personalities[9].description = "PRESET";
   config.personalities[9].footprint = 1;
+  config.personalities[10].description = "MULTIPLE_DRGBW";
+  config.personalities[10].footprint = std::min(512, int(strip.getLengthTotal()) * 4 + 1);
 
-  config.personality_count = 10;
+  config.personality_count = 11;
   // rdm personalities are numbered from 1, thus we can just set the DMXMode directly.
   config.current_personality = DMXMode;
 
