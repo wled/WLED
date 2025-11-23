@@ -9677,11 +9677,11 @@ uint16_t mode_particleFireworks1D(void) {
 
       PartSys->sources[0].sourceFlags.custom1 = 0; //flag used for rocket state
       PartSys->sources[0].source.hue = hw_random16(); // different color for each launch
-      PartSys->sources[0].var = 10; // emit variation
-      PartSys->sources[0].v = -10; // emit speed
-      PartSys->sources[0].minLife = 30;
-      PartSys->sources[0].maxLife = SEGMENT.check2 ? 400 : 60;
-      PartSys->sources[0].source.x = 0; // start from bottom
+      PartSys->sources[0].var = 10 * SEGMENT.check2; // emit variation, 0 if trail mode is off
+      PartSys->sources[0].v = -10 * SEGMENT.check2; // emit speed, 0 if trail mode is off
+      PartSys->sources[0].minLife = 180;
+      PartSys->sources[0].maxLife = SEGMENT.check2 ? 700 : 240; // exhaust particle life
+      PartSys->sources[0].source.x = SEGENV.aux0 * PartSys->maxX; // start from bottom or top
       uint32_t speed = sqrt((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
@@ -9691,7 +9691,7 @@ uint16_t mode_particleFireworks1D(void) {
 
       if (SEGENV.aux0) { // inverted rockets launch from end
         PartSys->sources[0].sourceFlags.reversegrav = true;
-        PartSys->sources[0].source.x = PartSys->maxX; // start from top
+        //PartSys->sources[0].source.x = PartSys->maxX; // start from top
         PartSys->sources[0].source.vx = -PartSys->sources[0].source.vx; // revert direction
         PartSys->sources[0].v = -PartSys->sources[0].v; // invert exhaust emit speed
       }
@@ -9710,18 +9710,20 @@ uint16_t mode_particleFireworks1D(void) {
     uint32_t rocketheight = SEGENV.aux0 ? PartSys->maxX - PartSys->sources[0].source.x : PartSys->sources[0].source.x;
 
     if (currentspeed < 0 && PartSys->sources[0].source.ttl > 50) // reached apogee
-      PartSys->sources[0].source.ttl = min((uint32_t)50, rocketheight >> (PS_P_RADIUS_SHIFT_1D + 3)); // alive for a few more frames
+      PartSys->sources[0].source.ttl = 50 - gravity;// min((uint32_t)50, 15 + (rocketheight >> (PS_P_RADIUS_SHIFT_1D + 3))); // alive for a few more frames
 
     if (PartSys->sources[0].source.ttl < 2) { // explode
       PartSys->sources[0].sourceFlags.custom1 = 1; // set standby state
-      PartSys->sources[0].var = 5 + ((((PartSys->maxX >> 1) + rocketheight) * (200 + SEGMENT.intensity)) / (PartSys->maxX << 2)); // set explosion particle speed
-      PartSys->sources[0].minLife = 600;
-      PartSys->sources[0].maxLife = 1300;
+      PartSys->sources[0].var = 5 + ((((PartSys->maxX >> 1) + rocketheight) * (20 + (SEGMENT.intensity << 1))) / (PartSys->maxX << 2)); // set explosion particle speed
+      PartSys->sources[0].minLife = 1200;
+      PartSys->sources[0].maxLife = 2600;
       PartSys->sources[0].source.ttl = 100 + hw_random16(64 - (SEGMENT.speed >> 2)); // standby time til next launch
       PartSys->sources[0].sat = SEGMENT.custom3 < 16 ? 10 + (SEGMENT.custom3 << 4) : 255; //color saturation
       PartSys->sources[0].size = SEGMENT.check3 ? hw_random16(SEGMENT.intensity) : 0; // random particle size in explosion
       uint32_t explosionsize = 8 + (PartSys->maxXpixel >> 2) + (PartSys->sources[0].source.x >> (PS_P_RADIUS_SHIFT_1D - 1));
       explosionsize += hw_random16((explosionsize * SEGMENT.intensity) >> 8);
+      PartSys->setColorByAge(false); // disable
+      PartSys->setColorByPosition(false); // disable
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
         int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
         if(SEGMENT.custom3 > 23) {
@@ -9741,16 +9743,16 @@ uint16_t mode_particleFireworks1D(void) {
       }
     }
   }
-  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false && PartSys->sources[0].source.ttl > 50) // every second frame and not in standby and not about to explode
+  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false) // every second frame and not in standby
     PartSys->sprayEmit(PartSys->sources[0]); // emit exhaust particle
 
   if ((SEGMENT.call & 0x03) == 0) // every fourth frame
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-
+  
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
-    if (PartSys->particles[i].ttl > 10) PartSys->particles[i].ttl -= 10; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
+    if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
   }
   return FRAMETIME;
