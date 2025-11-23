@@ -3201,11 +3201,14 @@ static uint16_t mode_pacman(void) {
   if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) return mode_static();
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
   
-  // Calculate when blue ghosts start blinking
-  int startBlinkingGhostsLED = (SEGLEN < 64) 
-    ? (int)SEGLEN/3 
-    : map(SEGMENT.custom1, 0, 255, 20, character[PACMAN].topPos);
-  
+  // Calculate when blue ghosts start blinking.
+  // On first call (or after settings change), `topPos` is not known yet, so fall back to the full segment length in that case.
+  int maxBlinkPos = (SEGENV.call == 0) ? (int)SEGLEN - 1 : character[PACMAN].topPos;
+  if (maxBlinkPos < 20) maxBlinkPos = 20;
+  int startBlinkingGhostsLED = (SEGLEN < 64)
+    ? (int)SEGLEN / 3
+    : map(SEGMENT.custom1, 0, 255, 20, maxBlinkPos);
+
   // Initialize characters on first call
   if (SEGENV.call == 0) {
     // Initialize PacMan
