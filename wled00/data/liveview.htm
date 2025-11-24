@@ -38,7 +38,7 @@
         ctx.fillRect(Math.round((i - start) * w / skip), 0, Math.ceil(w), c.height);
       }
     }
-    function update() { // via HTTP (/json/live)
+    function update(retry=0) { // via HTTP (/json/live)
       if (d.hidden) {
         clearTimeout(tmout);
         tmout = setTimeout(update, 250);
@@ -60,7 +60,7 @@
       .catch((error)=>{
         //console.error("Peek HTTP error:",error);
         clearTimeout(tmout);
-        tmout = setTimeout(update, 2500);
+        if (retry<5) tmout = setTimeout(() => update(retry+1), 2500); // stop endlessly bugging the ESP if resource is not available
       })
     }
     function S() { // Startup function (onload)
