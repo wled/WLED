@@ -3160,192 +3160,193 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 
 
 /*
-/  Pac-Man by Bob Loeffler with help from @dedehai and @blazoncek
-*   speed slider is for speed.
-*   intensity slider is for selecting the number of power dots.
-*   custom1 slider is for selecting the LED where the ghosts will start blinking blue.
-*   custom3 slider is for selecting the # of ghosts (between 2 and 8).
-*   check1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
-*   check2 is for the Compact Dots mode of displaying white dots.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
-*   aux0 is used to keep track of the previous number of power dots in case the user selects a different number with the intensity slider.
-*   aux1 is the main counter for timing.
+/  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler - Jan-Feb 2025
+*   bouncing balls on a track track Effect modified from Aircoookie's bouncing balls
+*   Courtesy of pjhatch (https://github.com/pjhatch)
+*   https://github.com/Aircoookie/WLED/pull/1039
+* 
+*   First slider is for the ants' speed.
+*   Second slider is for the # of ants.
+*   Third slider is for the Ants' size.
+*   Checkbox1 is for Gathering food (enabled if you want the ants to gather food, disabled if they are just walking).
+*     We will switch directions when they get to the beginning or end of the segment.
+*     When they have food, we will enable the Pass By option so they can drop off their food easier (and look for more food).
+*   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
+*   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
-typedef struct PacManChars {
-  signed    pos;
-  signed    topPos;     // LED position of farthest PacMan has moved
-  uint32_t  color;
-  bool      direction;  // true = moving away from first LED
-  bool      blue;       // used for ghosts only
-  bool      eaten;      // used for power dots only
-} pacmancharacters_t;
+// Ant structure representing each ant's state
+struct Ant {
+    unsigned long lastBumpUpdate;  // the last time the ant bumped into another ant
+    bool hasFood;
+    float velocity;
+    float position;  // (0.0 to 1.0 range)
+};
 
-static uint16_t mode_pacman(void) {
-  constexpr unsigned ORANGEYELLOW = 0xFFCC00;
-  constexpr unsigned PURPLEISH    = 0xB000B0;
-  constexpr unsigned ORANGEISH    = 0xFF8800;
-  constexpr unsigned WHITEISH     = 0x999999;
-  constexpr unsigned PACMAN = 0;   // PacMan is character[0]
+constexpr unsigned MAX_ANTS = 32;
+constexpr unsigned DEFAULT_ANT_SIZE = 1;
+constexpr float MIN_COLLISION_TIME_MS = 2.0f;
+constexpr float VELOCITY_MIN = 2.0f;
+constexpr float VELOCITY_MAX = 10.0f;
 
-  const unsigned maxPowerDots = SEGLEN / 10;  // max is 1 every 10 pixels
-  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
-  unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
-
-  // Pack two values into one unsigned int (SEGENV.aux0)
-  unsigned short combined_value = (numPowerDots << 8) | numGhosts;
-  if (combined_value != SEGENV.aux0) SEGENV.call = 0;  // Reinitialize on setting change
-  SEGENV.aux0 = combined_value;
-
-  // Allocate segment data
-  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
-  if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) return mode_static();
-  pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
-
-  // Calculate when blue ghosts start blinking.
-  // On first call (or after settings change), `topPos` is not known yet, so fall back to the full segment length in that case.
-  int maxBlinkPos = (SEGENV.call == 0) ? (int)SEGLEN - 1 : character[PACMAN].topPos;
-  if (maxBlinkPos < 20) maxBlinkPos = 20;
-  int startBlinkingGhostsLED = (SEGLEN < 64)
-    ? (int)SEGLEN / 3
-    : map(SEGMENT.custom1, 0, 255, 20, maxBlinkPos);
-
-  // Initialize characters on first call
-  if (SEGENV.call == 0) {
-    // Initialize PacMan
-    character[PACMAN].color = YELLOW;
-    character[PACMAN].pos = 0;
-    character[PACMAN].topPos = 0;
-    character[PACMAN].direction = true;
-    character[PACMAN].blue = false;
-
-    // Initialize ghosts with alternating colors
-    const uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
-    for (int i = 1; i <= numGhosts; i++) {
-      character[i].color = ghostColors[(i-1) % 4];
-      character[i].pos = -2 * (i + 1);
-      character[i].direction = true;
-      character[i].blue = false;
-    }
-
-    // Initialize power dots
-    for (int i = 0; i < maxPowerDots; i++) {
-      character[i + numGhosts + 1].color = ORANGEYELLOW;
-      character[i + numGhosts + 1].eaten = false;
-    }
-    character[numGhosts + 1].pos = SEGLEN - 1;  // Last power dot at end
-  }
-
-  if (strip.now > SEGENV.step) {
-    SEGENV.step = strip.now;
-    SEGENV.aux1++;
-  }
-
-  SEGMENT.fill(BLACK);
-
-  // Draw white dots in front of PacMan if option selected
-  if (SEGMENT.check1) {
-    int step = SEGMENT.check2 ? 1 : 2;  // Compact or spaced dots
-    for (int i = SEGLEN - 1; i > character[PACMAN].topPos; i -= step) {
-      SEGMENT.setPixelColor(i, WHITEISH);
-    }
-  }
-
-  // Update power dot positions dynamically
-  unsigned everyXLeds = ((SEGLEN - 10) << 8) / numPowerDots;
-  for (int i = 1; i < maxPowerDots; i++) {
-    character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
-  }
-
-  // Blink power dots every 10 ticks
-  if (SEGENV.aux1 % 10 == 0) {
-    uint32_t dotColor = (character[numGhosts + 1].color == ORANGEYELLOW) ? BLACK : ORANGEYELLOW;
-    for (int i = 0; i < maxPowerDots; i++) {
-      character[i + numGhosts + 1].color = dotColor;
-    }
-  }
-
-  // Blink blue ghosts when nearing start
-  if (SEGENV.aux1 % 15 == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
-    uint32_t ghostColor = (character[1].color == BLUE) ? WHITEISH : BLUE;
-    for (int i = 1; i <= numGhosts; i++) {
-      character[i].color = ghostColor;
-    }
-  }
-
-  // Draw uneaten power dots
-  for (int i = 0; i < numPowerDots; i++) {
-    if (!character[i + numGhosts + 1].eaten && (unsigned)character[i + numGhosts + 1].pos < SEGLEN) {
-      SEGMENT.setPixelColor(character[i + numGhosts + 1].pos, character[i + numGhosts + 1].color);
-    }
-  }
-
-  // Check if PacMan ate a power dot
-  for (int j = 0; j < numPowerDots; j++) {
-    if (character[PACMAN].pos >= character[j + numGhosts + 1].pos && !character[j + numGhosts + 1].eaten) {
-      // Reverse all characters - PacMan now chases ghosts
-      for (int i = 0; i <= numGhosts; i++) {
-        character[i].direction = false;
-      }
-      // Turn ghosts blue
-      for (int i = 1; i <= numGhosts; i++) {
-        character[i].color = BLUE;
-        character[i].blue = true;
-      }
-      character[j + numGhosts + 1].eaten = true;
-    }
-  }
-
-  // Reset when PacMan reaches start with blue ghosts
-  if (character[1].blue && character[PACMAN].pos <= 0) {
-    // Reverse direction back
-    for (int i = 0; i <= numGhosts; i++) {
-      character[i].direction = true;
-    }
-    // Reset ghost colors
-    const uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
-    for (int i = 1; i <= numGhosts; i++) {
-      character[i].color = ghostColors[(i-1) % 4];
-      character[i].blue = false;
-    }
-    // Reset power dots if last one was eaten
-    if (character[numGhosts + 1].eaten) {
-      for (int i = 0; i < numPowerDots; i++) {
-        character[i + numGhosts + 1].eaten = false;
-      }
-      character[PACMAN].topPos = 0;    // set the top position of PacMan to LED 0 (beginning of the segment)
-    }
-  }
-
-  // Update and draw characters based on speed setting
-  bool updatePositions = (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0);
-
-  // update positions of characters if it's time to do so
-  if (updatePositions) {
-    character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;
-    for (int i = 1; i <= numGhosts; i++) {
-      character[i].pos += character[i].direction ? 1 : -1;
-    }
-  }
-
-  // Draw PacMan
-  if ((unsigned)character[PACMAN].pos < SEGLEN) {
-    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);
-  }
-
-  // Draw ghosts
-  for (int i = 1; i <= numGhosts; i++) {
-    if ((unsigned)character[i].pos < SEGLEN) {
-      SEGMENT.setPixelColor(character[i].pos, character[i].color);
-    }
-  }
-
-  // Track farthest position of PacMan
-  if (character[PACMAN].topPos < character[PACMAN].pos) {
-    character[PACMAN].topPos = character[PACMAN].pos;
-  }
-
-  return FRAMETIME;
+// Helper function to get food pixel color based on ant and background colors
+static uint32_t getFoodColor(uint32_t antColor, uint32_t backgroundColor) {
+    if (antColor == WHITE)
+      return (backgroundColor == YELLOW) ? GRAY : YELLOW;
+    return (backgroundColor == WHITE) ? YELLOW : WHITE;
 }
-static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of Power Dots,Start Blinking distance,,# of Ghosts,White Dots,Compact Dots,;;!;1;m12=0,sx=192,ix=64,c1=64,c3=12,o1=1";
+
+// Helper function to handle ant boundary wrapping or bouncing
+static void handleBoundary(Ant& ant, float& position, bool gatherFood, bool atStart, unsigned long currentTime) {
+    if (gatherFood) {
+        // Bounce mode: reverse direction and update food status
+        position = atStart ? 0.0f : 1.0f;
+        ant.velocity = -ant.velocity;
+        ant.lastBumpUpdate = currentTime;
+        ant.position = position;
+        ant.hasFood = atStart;  // Has food when leaving start, drops it at end
+    } else {
+        // Wrap mode: teleport to opposite end
+        position = atStart ? 1.0f : 0.0f;
+        ant.lastBumpUpdate = currentTime;
+        ant.position = position;
+    }
+}
+
+// Helper function to calculate ant color
+static uint32_t getAntColor(int antIndex, int numAnts, bool usePalette) {
+    if (usePalette)
+        return SEGMENT.color_from_palette(antIndex * 255 / numAnts, false, PALETTE_SOLID_WRAP, 255);
+    // Alternate between two colors for default palette
+    return (antIndex % 3 == 1) ? SEGCOLOR(0) : SEGCOLOR(2);
+}
+
+// Helper function to render a single ant pixel with food handling
+static void renderAntPixel(int pixelIndex, int pixelOffset, int antSize, const Ant& ant, uint32_t antColor, uint32_t backgroundColor, bool gatherFood) {
+    bool isMovingBackward = (ant.velocity < 0);
+    bool isFoodPixel = gatherFood && ant.hasFood && ((isMovingBackward && pixelOffset == 0) || (!isMovingBackward && pixelOffset == antSize - 1));
+    if (isFoodPixel) {
+        SEGMENT.setPixelColor(pixelIndex, getFoodColor(antColor, backgroundColor));
+    } else {
+        SEGMENT.setPixelColor(pixelIndex, antColor);
+    }
+}
+
+static uint16_t mode_ants(void) {
+    // Allocate memory for ant data
+    const uint32_t backgroundColor = SEGCOLOR(1);
+    const unsigned dataSize = sizeof(Ant) * MAX_ANTS;
+    if (!SEGENV.allocateData(dataSize)) return mode_static();  // Allocation failed
+
+    Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
+
+    // Extract configuration from segment settings
+    const unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
+    const bool gatherFood = SEGMENT.check1;
+    const bool overlayMode = SEGMENT.check2;
+    const bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
+    const unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
+
+    // Initialize ants on first call
+    if (SEGENV.call == 0) {
+        const int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
+
+        for (int i = 0; i < MAX_ANTS; i++) {
+            ants[i].lastBumpUpdate = strip.now;
+
+            // Random velocity between 2.0 and 10.0
+            float velocity = VELOCITY_MIN + (VELOCITY_MAX - VELOCITY_MIN) * hw_random16(1000, 5000) / 5000.0f;
+            // One random ant moves in opposite direction
+            ants[i].velocity = (i == confusedAntIndex) ? -velocity : velocity;
+            // Random starting position (0.0 to 1.0)
+            ants[i].position = hw_random16(0, 10000) / 10000.0f;
+            // Ants don't have food yet
+            ants[i].hasFood = false;
+        }
+    }
+
+    // Calculate time conversion factor based on speed slider
+    const float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
+
+    // Clear background if not in overlay mode
+    if (!overlayMode) SEGMENT.fill(backgroundColor);
+
+    // Update and render each ant
+    for (int i = 0; i < numAnts; i++) {
+        const float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+        float newPosition = ants[i].position + ants[i].velocity * timeSinceLastUpdate;
+
+        // Reset ants that wandered too far off-track (e.g., after intensity change)
+        if (newPosition < -0.5f || newPosition > 1.5f) {
+            newPosition = ants[i].position = hw_random16(0, 10000) / 10000.0f;
+            ants[i].lastBumpUpdate = strip.now;
+        }
+
+        // Handle boundary conditions (bounce or wrap)
+        if (newPosition <= 0.0f && ants[i].velocity < 0.0f) {
+            handleBoundary(ants[i], newPosition, gatherFood, true, strip.now);
+        } else if (newPosition >= 1.0f && ants[i].velocity > 0.0f) {
+            handleBoundary(ants[i], newPosition, gatherFood, false, strip.now);
+        }
+
+        // Handle collisions between ants (if not passing by)
+        if (!passBy) {
+            for (int j = i + 1; j < numAnts; j++) {
+                if (ants[j].velocity == ants[i].velocity) continue;  // Moving in same direction at same speed
+
+                // Calculate collision time using physics
+                const float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
+                const float collisionTime = 
+                    (timeConversionFactor * (ants[i].position - ants[j].position) + 
+                     ants[i].velocity * timeOffset) / 
+                    (ants[j].velocity - ants[i].velocity);
+
+                // Check if collision occurred in valid time window
+                const float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
+                if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
+                    // Update positions to collision point
+                    const float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
+                    ants[i].position += ants[i].velocity * adjustedTime;
+                    ants[j].position = ants[i].position;
+
+                    // Update collision time
+                    const unsigned long collisionMoment = static_cast<unsigned long>(collisionTime + 0.5f) + ants[j].lastBumpUpdate;
+                    ants[i].lastBumpUpdate = collisionMoment;
+                    ants[j].lastBumpUpdate = collisionMoment;
+
+                    // Reverse the faster ant's direction
+                    if (ants[i].velocity > ants[j].velocity) {
+                        ants[i].velocity = -ants[i].velocity;
+                    } else {
+                        ants[j].velocity = -ants[j].velocity;
+                    }
+
+                    // Recalculate position after collision
+                    newPosition = ants[i].position + ants[i].velocity * (strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+                }
+            }
+        }
+
+        // Clamp position to valid range
+        newPosition = constrain(newPosition, 0.0f, 1.0f);
+        const unsigned pixelPosition = round(newPosition * (SEGLEN - 1));
+
+        // Determine ant color
+        const uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
+
+        // Render ant pixels
+        for (int pixelOffset = 0; pixelOffset < antSize; pixelOffset++) {
+            const unsigned currentPixel = pixelPosition + pixelOffset;
+            renderAntPixel(currentPixel, pixelOffset, antSize, ants[i], antColor, backgroundColor, gatherFood);
+        }
+
+        // Update ant state
+        ants[i].lastBumpUpdate = strip.now;
+        ants[i].position = newPosition;
+    }
+
+    return FRAMETIME;
+}
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,o1=1,o3=1";
 
 
 /*
@@ -11097,7 +11098,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
-  addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
+  addEffect(FX_MODE_ANTS, &mode_ants, _data_FX_MODE_ANTS);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);

@@ -310,7 +310,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
 // #define FX_MODE_2DFIRE2012             151
-#define FX_MODE_PACMAN                 151 // gap fill (non-SR). Do NOT renumber; SR-ID range must remain stable.
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
@@ -379,7 +378,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
-#define MODE_COUNT                     218
+#define FX_MODE_ANTS                   218
+#define MODE_COUNT                     219
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
