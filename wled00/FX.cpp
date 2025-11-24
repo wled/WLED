@@ -3176,178 +3176,174 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 */
 // Ant structure representing each ant's state
 struct Ant {
-    unsigned long lastBumpUpdate;  // the last time the ant bumped into another ant
-    bool hasFood;
-    float velocity;
-    float position;  // (0.0 to 1.0 range)
+  unsigned long lastBumpUpdate;  // the last time the ant bumped into another ant
+  bool hasFood;
+  float velocity;
+  float position;  // (0.0 to 1.0 range)
 };
 
 constexpr unsigned MAX_ANTS = 32;
-constexpr unsigned DEFAULT_ANT_SIZE = 1;
 constexpr float MIN_COLLISION_TIME_MS = 2.0f;
 constexpr float VELOCITY_MIN = 2.0f;
 constexpr float VELOCITY_MAX = 10.0f;
 
 // Helper function to get food pixel color based on ant and background colors
 static uint32_t getFoodColor(uint32_t antColor, uint32_t backgroundColor) {
-    if (antColor == WHITE)
-      return (backgroundColor == YELLOW) ? GRAY : YELLOW;
-    return (backgroundColor == WHITE) ? YELLOW : WHITE;
+  if (antColor == WHITE)
+    return (backgroundColor == YELLOW) ? GRAY : YELLOW;
+  return (backgroundColor == WHITE) ? YELLOW : WHITE;
 }
 
 // Helper function to handle ant boundary wrapping or bouncing
 static void handleBoundary(Ant& ant, float& position, bool gatherFood, bool atStart, unsigned long currentTime) {
-    if (gatherFood) {
-        // Bounce mode: reverse direction and update food status
-        position = atStart ? 0.0f : 1.0f;
-        ant.velocity = -ant.velocity;
-        ant.lastBumpUpdate = currentTime;
-        ant.position = position;
-        ant.hasFood = atStart;  // Has food when leaving start, drops it at end
-    } else {
-        // Wrap mode: teleport to opposite end
-        position = atStart ? 1.0f : 0.0f;
-        ant.lastBumpUpdate = currentTime;
-        ant.position = position;
-    }
+  if (gatherFood) {
+    // Bounce mode: reverse direction and update food status
+    position = atStart ? 0.0f : 1.0f;
+    ant.velocity = -ant.velocity;
+    ant.lastBumpUpdate = currentTime;
+    ant.position = position;
+    ant.hasFood = atStart;  // Has food when leaving start, drops it at end
+  } else {
+    // Wrap mode: teleport to opposite end
+    position = atStart ? 1.0f : 0.0f;
+    ant.lastBumpUpdate = currentTime;
+    ant.position = position;
+  }
 }
 
 // Helper function to calculate ant color
 static uint32_t getAntColor(int antIndex, int numAnts, bool usePalette) {
-    if (usePalette)
-        return SEGMENT.color_from_palette(antIndex * 255 / numAnts, false, PALETTE_SOLID_WRAP, 255);
-    // Alternate between two colors for default palette
-    return (antIndex % 3 == 1) ? SEGCOLOR(0) : SEGCOLOR(2);
+  if (usePalette)
+    return SEGMENT.color_from_palette(antIndex * 255 / numAnts, false, PALETTE_SOLID_WRAP, 255);
+  // Alternate between two colors for default palette
+  return (antIndex % 3 == 1) ? SEGCOLOR(0) : SEGCOLOR(2);
 }
 
 // Helper function to render a single ant pixel with food handling
 static void renderAntPixel(int pixelIndex, int pixelOffset, int antSize, const Ant& ant, uint32_t antColor, uint32_t backgroundColor, bool gatherFood) {
-    bool isMovingBackward = (ant.velocity < 0);
-    bool isFoodPixel = gatherFood && ant.hasFood && ((isMovingBackward && pixelOffset == 0) || (!isMovingBackward && pixelOffset == antSize - 1));
-    if (isFoodPixel) {
-        SEGMENT.setPixelColor(pixelIndex, getFoodColor(antColor, backgroundColor));
-    } else {
-        SEGMENT.setPixelColor(pixelIndex, antColor);
-    }
+  bool isMovingBackward = (ant.velocity < 0);
+  bool isFoodPixel = gatherFood && ant.hasFood && ((isMovingBackward && pixelOffset == 0) || (!isMovingBackward && pixelOffset == antSize - 1));
+  if (isFoodPixel) {
+    SEGMENT.setPixelColor(pixelIndex, getFoodColor(antColor, backgroundColor));
+  } else {
+    SEGMENT.setPixelColor(pixelIndex, antColor);
+  }
 }
 
 static uint16_t mode_ants(void) {
-    if (SEGLEN <= 1) return mode_static();
+  if (SEGLEN <= 1) return mode_static();
 
-    // Allocate memory for ant data
-    const uint32_t backgroundColor = SEGCOLOR(1);
-    const unsigned dataSize = sizeof(Ant) * MAX_ANTS;
-    if (!SEGENV.allocateData(dataSize)) return mode_static();  // Allocation failed
+  // Allocate memory for ant data
+  const uint32_t backgroundColor = SEGCOLOR(1);
+  const unsigned dataSize = sizeof(Ant) * MAX_ANTS;
+  if (!SEGENV.allocateData(dataSize)) return mode_static();  // Allocation failed
 
-    Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
+  Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
 
-    // Extract configuration from segment settings
-    const unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
-    const bool gatherFood = SEGMENT.check1;
-    const bool overlayMode = SEGMENT.check2;
-    const bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
-    const unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
+  // Extract configuration from segment settings
+  const unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
+  const bool gatherFood = SEGMENT.check1;
+  const bool overlayMode = SEGMENT.check2;
+  const bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
+  const unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
 
-    // Initialize ants on first call
-    if (SEGENV.call == 0) {
-        const int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
+  // Initialize ants on first call
+  if (SEGENV.call == 0) {
+    const int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
 
-        for (int i = 0; i < MAX_ANTS; i++) {
-            ants[i].lastBumpUpdate = strip.now;
+    for (int i = 0; i < MAX_ANTS; i++) {
+      ants[i].lastBumpUpdate = strip.now;
 
-            // Random velocity between 2.0 and 10.0
-            float velocity = VELOCITY_MIN + (VELOCITY_MAX - VELOCITY_MIN) * hw_random16(1000, 5000) / 5000.0f;
-            // One random ant moves in opposite direction
-            ants[i].velocity = (i == confusedAntIndex) ? -velocity : velocity;
-            // Random starting position (0.0 to 1.0)
-            ants[i].position = hw_random16(0, 10000) / 10000.0f;
-            // Ants don't have food yet
-            ants[i].hasFood = false;
-        }
+      // Random velocity between 2.0 and 10.0
+      float velocity = VELOCITY_MIN + (VELOCITY_MAX - VELOCITY_MIN) * hw_random16(1000, 5000) / 5000.0f;
+      // One random ant moves in opposite direction
+      ants[i].velocity = (i == confusedAntIndex) ? -velocity : velocity;
+      // Random starting position (0.0 to 1.0)
+      ants[i].position = hw_random16(0, 10000) / 10000.0f;
+      // Ants don't have food yet
+      ants[i].hasFood = false;
+    }
+  }
+
+  // Calculate time conversion factor based on speed slider
+  const float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
+
+  // Clear background if not in overlay mode
+  if (!overlayMode) SEGMENT.fill(backgroundColor);
+
+  // Update and render each ant
+  for (int i = 0; i < numAnts; i++) {
+    const float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+    float newPosition = ants[i].position + ants[i].velocity * timeSinceLastUpdate;
+
+    // Reset ants that wandered too far off-track (e.g., after intensity change)
+    if (newPosition < -0.5f || newPosition > 1.5f) {
+      newPosition = ants[i].position = hw_random16(0, 10000) / 10000.0f;
+      ants[i].lastBumpUpdate = strip.now;
     }
 
-    // Calculate time conversion factor based on speed slider
-    const float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
-
-    // Clear background if not in overlay mode
-    if (!overlayMode) SEGMENT.fill(backgroundColor);
-
-    // Update and render each ant
-    for (int i = 0; i < numAnts; i++) {
-        const float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
-        float newPosition = ants[i].position + ants[i].velocity * timeSinceLastUpdate;
-
-        // Reset ants that wandered too far off-track (e.g., after intensity change)
-        if (newPosition < -0.5f || newPosition > 1.5f) {
-            newPosition = ants[i].position = hw_random16(0, 10000) / 10000.0f;
-            ants[i].lastBumpUpdate = strip.now;
-        }
-
-        // Handle boundary conditions (bounce or wrap)
-        if (newPosition <= 0.0f && ants[i].velocity < 0.0f) {
-            handleBoundary(ants[i], newPosition, gatherFood, true, strip.now);
-        } else if (newPosition >= 1.0f && ants[i].velocity > 0.0f) {
-            handleBoundary(ants[i], newPosition, gatherFood, false, strip.now);
-        }
-
-        // Handle collisions between ants (if not passing by)
-        if (!passBy) {
-            for (int j = i + 1; j < numAnts; j++) {
-                if (ants[j].velocity == ants[i].velocity) continue;  // Moving in same direction at same speed
-
-                // Calculate collision time using physics
-                const float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
-                const float collisionTime = 
-                    (timeConversionFactor * (ants[i].position - ants[j].position) + 
-                     ants[i].velocity * timeOffset) / 
-                    (ants[j].velocity - ants[i].velocity);
-
-                // Check if collision occurred in valid time window
-                const float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
-                if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
-                    // Update positions to collision point
-                    const float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
-                    ants[i].position += ants[i].velocity * adjustedTime;
-                    ants[j].position = ants[i].position;
-
-                    // Update collision time
-                    const unsigned long collisionMoment = static_cast<unsigned long>(collisionTime + 0.5f) + ants[j].lastBumpUpdate;
-                    ants[i].lastBumpUpdate = collisionMoment;
-                    ants[j].lastBumpUpdate = collisionMoment;
-
-                    // Reverse the faster ant's direction
-                    if (ants[i].velocity > ants[j].velocity) {
-                        ants[i].velocity = -ants[i].velocity;
-                    } else {
-                        ants[j].velocity = -ants[j].velocity;
-                    }
-
-                    // Recalculate position after collision
-                    newPosition = ants[i].position + ants[i].velocity * (strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
-                }
-            }
-        }
-
-        // Clamp position to valid range
-        newPosition = constrain(newPosition, 0.0f, 1.0f);
-        const unsigned pixelPosition = round(newPosition * (SEGLEN - 1));
-
-        // Determine ant color
-        const uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
-
-        // Render ant pixels
-        for (int pixelOffset = 0; pixelOffset < antSize; pixelOffset++) {
-            const unsigned currentPixel = pixelPosition + pixelOffset;
-            if (currentPixel >= SEGLEN) break;
-            renderAntPixel(currentPixel, pixelOffset, antSize, ants[i], antColor, backgroundColor, gatherFood);
-        }
-
-        // Update ant state
-        ants[i].lastBumpUpdate = strip.now;
-        ants[i].position = newPosition;
+    // Handle boundary conditions (bounce or wrap)
+    if (newPosition <= 0.0f && ants[i].velocity < 0.0f) {
+      handleBoundary(ants[i], newPosition, gatherFood, true, strip.now);
+    } else if (newPosition >= 1.0f && ants[i].velocity > 0.0f) {
+      handleBoundary(ants[i], newPosition, gatherFood, false, strip.now);
     }
 
-    return FRAMETIME;
+    // Handle collisions between ants (if not passing by)
+    if (!passBy) {
+      for (int j = i + 1; j < numAnts; j++) {
+        if (ants[j].velocity == ants[i].velocity) continue;  // Moving in same direction at same speed
+
+        // Calculate collision time using physics
+        const float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
+        const float collisionTime = (timeConversionFactor * (ants[i].position - ants[j].position) + ants[i].velocity * timeOffset) / (ants[j].velocity - ants[i].velocity);
+
+        // Check if collision occurred in valid time window
+        const float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
+        if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
+          // Update positions to collision point
+          const float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
+          ants[i].position += ants[i].velocity * adjustedTime;
+          ants[j].position = ants[i].position;
+
+          // Update collision time
+          const unsigned long collisionMoment = static_cast<unsigned long>(collisionTime + 0.5f) + ants[j].lastBumpUpdate;
+          ants[i].lastBumpUpdate = collisionMoment;
+          ants[j].lastBumpUpdate = collisionMoment;
+
+          // Reverse the faster ant's direction
+          if (ants[i].velocity > ants[j].velocity) {
+             ants[i].velocity = -ants[i].velocity;
+          } else {
+             ants[j].velocity = -ants[j].velocity;
+          }
+
+          // Recalculate position after collision
+          newPosition = ants[i].position + ants[i].velocity * (strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+        }
+      }
+    }
+
+    // Clamp position to valid range
+    newPosition = constrain(newPosition, 0.0f, 1.0f);
+    const unsigned pixelPosition = round(newPosition * (SEGLEN - 1));
+
+    // Determine ant color
+    const uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
+
+    // Render ant pixels
+    for (int pixelOffset = 0; pixelOffset < antSize; pixelOffset++) {
+      const unsigned currentPixel = pixelPosition + pixelOffset;
+      if (currentPixel >= SEGLEN) break;
+      renderAntPixel(currentPixel, pixelOffset, antSize, ants[i], antColor, backgroundColor, gatherFood);
+    }
+
+    // Update ant state
+    ants[i].lastBumpUpdate = strip.now;
+    ants[i].position = newPosition;
+  }
+
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,o1=1,o3=1";
 
