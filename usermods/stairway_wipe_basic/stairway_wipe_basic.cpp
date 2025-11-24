@@ -30,6 +30,19 @@ void setup() {
   //has to be set to 1 if movement is detected on the PIR that is the same side of the staircase as the ESP8266
   //has to be set to 2 if movement is detected on the PIR that is the opposite side
   //can be set to 0 if no movement is detected. Otherwise LEDs will turn off after a configurable timeout (userVar1 seconds)
+  //U0 = 3: Toggle mode for direction 1 (if off, turn on with U0=1; if on, turn off with U0=0)
+  //U0 = 4: Toggle mode for direction 2 (if off, turn on with U0=2; if on, turn off with U0=0)
+
+  // Handle toggle modes U0=3 and U0=4
+  if (userVar0 == 3 || userVar0 == 4) {
+    if (wipeState == 0 || wipeState == 3 || wipeState == 4) {
+      // Lights are off or turning off, so turn them on
+      userVar0 = (userVar0 == 3) ? 1 : 2;
+    } else {
+      // Lights are on or turning on, so turn them off
+      userVar0 = 0;
+    }
+  }
 
   if (userVar0 > 0)
   {
