@@ -3232,6 +3232,8 @@ static void renderAntPixel(int pixelIndex, int pixelOffset, int antSize, const A
 }
 
 static uint16_t mode_ants(void) {
+    if (SEGLEN <= 1) return mode_static();
+
     // Allocate memory for ant data
     const uint32_t backgroundColor = SEGCOLOR(1);
     const unsigned dataSize = sizeof(Ant) * MAX_ANTS;
@@ -3336,6 +3338,7 @@ static uint16_t mode_ants(void) {
         // Render ant pixels
         for (int pixelOffset = 0; pixelOffset < antSize; pixelOffset++) {
             const unsigned currentPixel = pixelPosition + pixelOffset;
+            if (currentPixel >= SEGLEN) break;
             renderAntPixel(currentPixel, pixelOffset, antSize, ants[i], antColor, backgroundColor, gatherFood);
         }
 
