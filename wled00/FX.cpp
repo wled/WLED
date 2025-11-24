@@ -3326,7 +3326,7 @@ static uint16_t mode_ants(void) {
 
     // Clamp position to valid range
     newPosition = constrain(newPosition, 0.0f, 1.0f);
-    const unsigned pixelPosition = round(newPosition * (SEGLEN - 1));
+    const unsigned pixelPosition = roundf(newPosition * (SEGLEN - 1));
 
     // Determine ant color
     const uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
