@@ -3,7 +3,6 @@
 #ifndef CONFIG_IDF_TARGET_ESP32C3
   #include "soc/touch_sensor_periph.h"
 #endif
-
 #ifdef ESP8266
 #error The "Deep Sleep" usermod does not support ESP8266
 #endif
@@ -71,38 +70,6 @@ class DeepSleepUsermod : public Usermod {
       return false;
     }
 
-#ifdef WLED_DEBUG
-    const char* phase_wakeup_reason() {
-      static char reson[20];
-      esp_sleep_wakeup_cause_t wakeup_reason;
-      wakeup_reason = esp_sleep_get_wakeup_cause();
-      switch (wakeup_reason) {
-        case ESP_SLEEP_WAKEUP_EXT0:
-          strcpy(reson, "RTC_IO");
-          break;
-        case ESP_SLEEP_WAKEUP_EXT1:
-          strcpy(reson, "RTC_CNTL");
-          break;
-        case ESP_SLEEP_WAKEUP_TIMER:
-          strcpy(reson, "timer");
-          break;
-        case ESP_SLEEP_WAKEUP_TOUCHPAD:
-          strcpy(reson, "touchpad");
-          break;
-        case ESP_SLEEP_WAKEUP_ULP:
-          strcpy(reson, "ULP");
-          break;
-        case ESP_SLEEP_WAKEUP_UNDEFINED:
-          strcpy(reson, "RESET");
-          break;
-        default:
-          snprintf(reson, sizeof(reson), "%d", wakeup_reason);
-          break;
-      }
-      return reson;
-    }
-#endif
-
     int calculateTimeDifference(int hour1, int minute1, int hour2,
                                 int minute2) {
       int totalMinutes1 = hour1 * 60 + minute1;
@@ -114,12 +81,13 @@ class DeepSleepUsermod : public Usermod {
     }
 
     int findNextTimerInterval() {
-      if (localTime < 100000) { 
-        DEBUG_PRINTLN("Invalid local time, skipping timer check.");
+      if (localTime < 1672502400) { // time invalid before NTP sync 2023-1-1
+        DEBUG_PRINTLN("Skipping timer check: local time not yet synchronized.");
         return -1;
       }
-      int currentHour = hour(localTime), currentMinute = minute(localTime),
-          currentWeekday = weekdayMondayFirst();
+      int currentHour = hour(localTime);
+      int currentMinute = minute(localTime);
+      int currentWeekday = weekdayMondayFirst();
       int minDifference = INT_MAX;
 
       for (uint8_t i = 0; i < 8; i++) {
@@ -134,18 +102,13 @@ class DeepSleepUsermod : public Usermod {
           }
 
           if ((timerWeekday[i] >> (checkWeekday)) & 0x01) {
-            if (dayOffset == 0 && (timerHours[i] < currentHour ||
-                                   (timerHours[i] == currentHour &&
-                                    timerMinutes[i] <= currentMinute))) {
+            if (dayOffset == 0 && (timerHours[i] < currentHour || (timerHours[i] == currentHour && timerMinutes[i] <= currentMinute))) {
               continue;
             }
 
             int targetHour = timerHours[i];
             int targetMinute = timerMinutes[i];
-            int timeDifference = calculateTimeDifference(
-                currentHour, currentMinute, targetHour + (dayOffset * 24),
-                targetMinute);
-
+            int timeDifference = calculateTimeDifference(currentHour, currentMinute, targetHour + (dayOffset * 24), targetMinute);
             if (timeDifference < minDifference) {
               minDifference = timeDifference;
             }
@@ -165,7 +128,7 @@ class DeepSleepUsermod : public Usermod {
       //TODO: if the de-init of RTC pins is required to do it could be done here
       //rtc_gpio_deinit(wakeupPin);
       #ifdef WLED_DEBUG
-        DEBUG_PRINTF("boot type: %s\n", phase_wakeup_reason());
+        DEBUG_PRINTF("sleep wakeup cause: %d\n", esp_sleep_get_wakeup_cause());
       #endif
       initDone = true;
     }
@@ -210,9 +173,7 @@ class DeepSleepUsermod : public Usermod {
         wakeupAfterSec = (findNextTimerInterval() - 1) * 60; // wakeup before next preset
       }
       if (wakeupAfter) {
-        wakeupAfterSec = wakeupAfterSec < wakeupAfter
-                            ? wakeupAfterSec
-                            : wakeupAfter;
+        wakeupAfterSec = wakeupAfterSec < wakeupAfter ? wakeupAfterSec : wakeupAfter;
       }
       if (wakeupAfterSec > 0) {
         esp_sleep_enable_timer_wakeup(wakeupAfterSec * (uint64_t)1e6);
@@ -246,11 +207,9 @@ class DeepSleepUsermod : public Usermod {
         rtc_gpio_pullup_en((gpio_num_t)wakeupPin);
     }
     if (wakeWhenHigh)
-      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin,
-                                              ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
+      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
     else
-      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin,
-                                                  ESP_EXT1_WAKEUP_ALL_LOW);
+      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
     if (enableTouchWakeup && touchPin) {
       touchSleepWakeUpEnable(touchPin, touchThreshold);
     }
@@ -295,10 +254,10 @@ void addToConfig(JsonObject& root) override
       }
       configComplete &= getJsonValue(top["wakeWhen"], wakeWhenHigh, DEEPSLEEP_WAKEWHENHIGH); // default to wake on low
       configComplete &= getJsonValue(top["pull"], noPull, DEEPSLEEP_DISABLEPULL); // default to no pullup/pulldown
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-        configComplete &= getJsonValue(top["enableTouchWakeup"], enableTouchWakeup);
-        configComplete &= getJsonValue(top["touchPin"], touchPin, DEEPSLEEP_WAKEUP_TOUCH_PIN);
-      #endif
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+      configComplete &= getJsonValue(top["enableTouchWakeup"], enableTouchWakeup);
+      configComplete &= getJsonValue(top["touchPin"], touchPin, DEEPSLEEP_WAKEUP_TOUCH_PIN);
+#endif
       configComplete &= getJsonValue(top["presetWake"], presetWake);
       configComplete &= getJsonValue(top["wakeAfter"], wakeupAfter, DEEPSLEEP_WAKEUPINTERVAL);
       configComplete &= getJsonValue(top["delaySleep"], sleepDelay, DEEPSLEEP_DELAY);
@@ -324,19 +283,19 @@ void addToConfig(JsonObject& root) override
           oappend(SET_F(");"));
         }
       }
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-        // dropdown for touch wakeupPin
-        touch_sensor_channel_io_map[SOC_TOUCH_SENSOR_NUM];
-        oappend(SET_F("dd=addDropdown('DeepSleep','touchPin');"));
-        oappend(SET_F("addOption(dd,'Unused',-1);"));
-        for (int pin = 0; pin < SOC_TOUCH_SENSOR_NUM; pin++) {
-          oappend(SET_F("addOption(dd,'"));
-          oappend(String(touch_sensor_channel_io_map[pin]).c_str());
-          oappend(SET_F("',"));
-          oappend(String(touch_sensor_channel_io_map[pin]).c_str());
-          oappend(SET_F(");"));
-        }
-      #endif
+#ifndef CONFIG_IDF_TARGET_ESP32C3
+      // dropdown for touch wakeupPin
+      touch_sensor_channel_io_map[SOC_TOUCH_SENSOR_NUM];
+      oappend(SET_F("dd=addDropdown('DeepSleep','touchPin');"));
+      oappend(SET_F("addOption(dd,'Unused',-1);"));
+      for (int pin = 0; pin < SOC_TOUCH_SENSOR_NUM; pin++) {
+        oappend(SET_F("addOption(dd,'"));
+        oappend(String(touch_sensor_channel_io_map[pin]).c_str());
+        oappend(SET_F("',"));
+        oappend(String(touch_sensor_channel_io_map[pin]).c_str());
+        oappend(SET_F(");"));
+      }
+#endif
 
       oappend(SET_F("dd=addDropdown('DeepSleep','wakeWhen');"));
       oappend(SET_F("addOption(dd,'Low',0);"));
