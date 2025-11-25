@@ -1160,7 +1160,7 @@ String computeSHA1(const String& input) {
 
 #ifdef ESP32
 #include "esp_adc_cal.h"
-uint32_t* generateDeviceFingerprint() {
+String generateDeviceFingerprint() {
   uint32_t fp[2]; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
