@@ -777,6 +777,10 @@ bool verifyConfig() {
   return validateJsonFile(s_cfg_json);
 }
 
+bool configBackupExists() {
+  return checkBackupExists(s_cfg_json);
+}
+
 // rename config file and reboot
 // if the cfg file doesn't exist, such as after a reset, do nothing
 void resetConfig() {

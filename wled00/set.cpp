@@ -613,7 +613,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       #ifndef WLED_DISABLE_OTA
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
-      //createEditHandler(correctPIN && !otaLock);
       otaSameSubnet = request->hasArg(F("SU"));
     }
   }
@@ -815,8 +814,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory
+    // we are changing matrix/ledmap geometry which *will* affect existing segments
+    // since we are not in loop() context we must make sure that effects are not running. credit @blazonchek for properly fixing #4911
+    strip.suspend();
+    strip.waitForIt();
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
     strip.makeAutoSegments(true); // force re-creation of segments
+    strip.resume();
   }
   #endif
 

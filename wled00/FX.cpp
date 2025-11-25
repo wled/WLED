@@ -4509,7 +4509,7 @@ uint16_t mode_image(void) {
   //   Serial.println(status);
   // }
 }
-static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,;;;12;sx=128";
+static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=0";
 
 /*
   Blends random colors across palette
@@ -4669,7 +4669,8 @@ static const char _data_FX_MODE_TV_SIMULATOR[] PROGMEM = "TV Simulator@!,!;;!;01
 
 
 /*
-  Aurora effect
+  Aurora effect by @Mazen
+  improved and converted to integer math by @dedehai
 */
 
 //CONFIG
@@ -4681,140 +4682,138 @@ static const char _data_FX_MODE_TV_SIMULATOR[] PROGMEM = "TV Simulator@!,!;;!;01
 #define W_MAX_SPEED 6             //Higher number, higher speed
 #define W_WIDTH_FACTOR 6          //Higher number, smaller waves
 
-//24 bytes
+// fixed-point math scaling
+#define AW_SHIFT 16
+#define AW_SCALE (1 << AW_SHIFT)  // 65536 representing 1.0
+
+// 32 bytes
 class AuroraWave {
   private:
+    int32_t center;               // scaled by AW_SCALE
+    uint32_t ageFactor_cached;    // cached age factor scaled by AW_SCALE
     uint16_t ttl;
-    CRGB basecolor;
-    float basealpha;
     uint16_t age;
     uint16_t width;
-    float center;
+    uint16_t basealpha;           // scaled by AW_SCALE
+    uint16_t speed_factor;        // scaled by AW_SCALE
+    int16_t  wave_start;          // wave start LED index
+    int16_t  wave_end;            // wave end LED index
     bool goingleft;
-    float speed_factor;
     bool alive = true;
+    CRGBW basecolor;
 
   public:
-    void init(uint32_t segment_length, CRGB color) {
+    void init(uint32_t segment_length, CRGBW color) {
       ttl = hw_random16(500, 1501);
       basecolor = color;
-      basealpha = hw_random8(60, 101) / (float)100;
+      basealpha = hw_random8(60, 100) * AW_SCALE / 100; // 0-99% note: if using 100% there is risk of integer overflow
       age = 0;
-      width = hw_random16(segment_length / 20, segment_length / W_WIDTH_FACTOR); //half of width to make math easier
-      if (!width) width = 1;
-      center = hw_random8(101) / (float)100 * segment_length;
-      goingleft = hw_random8(0, 2) == 0;
-      speed_factor = (hw_random8(10, 31) / (float)100 * W_MAX_SPEED / 255);
+      width = hw_random16(segment_length / 20, segment_length / W_WIDTH_FACTOR) + 1;
+      center = (((uint32_t)hw_random8(101) << AW_SHIFT) / 100) * segment_length; // 0-100%
+      goingleft = hw_random8() & 0x01; // 50/50 chance
+      speed_factor = (((uint32_t)hw_random8(10, 31) * W_MAX_SPEED) << AW_SHIFT) / (100 * 255);
       alive = true;
     }
 
-    CRGB getColorForLED(int ledIndex) {
-      if(ledIndex < center - width || ledIndex > center + width) return 0; //Position out of range of this wave
-
-      CRGB rgb;
-
-      //Offset of this led from center of wave
-      //The further away from the center, the dimmer the LED
-      float offset = ledIndex - center;
-      if (offset < 0) offset = -offset;
-      float offsetFactor = offset / width;
-
-      //The age of the wave determines it brightness.
-      //At half its maximum age it will be the brightest.
-      float ageFactor = 0.1;
-      if((float)age / ttl < 0.5) {
-        ageFactor = (float)age / (ttl / 2);
+    void updateCachedValues() {
+      uint32_t half_ttl = ttl >> 1;
+      if (age < half_ttl) {
+        ageFactor_cached = ((uint32_t)age << AW_SHIFT) / half_ttl;
       } else {
-        ageFactor = (float)(ttl - age) / ((float)ttl * 0.5);
+        ageFactor_cached = ((uint32_t)(ttl - age) << AW_SHIFT) / half_ttl;
       }
+      if (ageFactor_cached >= AW_SCALE) ageFactor_cached = AW_SCALE - 1; // prevent overflow
 
-      //Calculate color based on above factors and basealpha value
-      float factor = (1 - offsetFactor) * ageFactor * basealpha;
-      rgb.r = basecolor.r * factor;
-      rgb.g = basecolor.g * factor;
-      rgb.b = basecolor.b * factor;
+      uint32_t center_led = center >> AW_SHIFT;
+      wave_start = (int16_t)center_led - (int16_t)width;
+      wave_end = (int16_t)center_led + (int16_t)width;
+    }
+
+    CRGBW getColorForLED(int ledIndex) {
+      // linear brightness falloff from center to edge of wave
+      if (ledIndex < wave_start || ledIndex > wave_end) return 0;
+      int32_t ledIndex_scaled = (int32_t)ledIndex << AW_SHIFT;
+      int32_t offset = ledIndex_scaled - center;
+      if (offset < 0) offset = -offset;
+      uint32_t offsetFactor = offset / width;  // scaled by AW_SCALE
+      if (offsetFactor > AW_SCALE) return 0;   // outside of wave
+      uint32_t brightness_factor = (AW_SCALE - offsetFactor);
+      brightness_factor = (brightness_factor * ageFactor_cached) >> AW_SHIFT;
+      brightness_factor = (brightness_factor * basealpha) >> AW_SHIFT;
+
+      CRGBW rgb;
+      rgb.r = (basecolor.r * brightness_factor) >> AW_SHIFT;
+      rgb.g = (basecolor.g * brightness_factor) >> AW_SHIFT;
+      rgb.b = (basecolor.b * brightness_factor) >> AW_SHIFT;
+      rgb.w = (basecolor.w * brightness_factor) >> AW_SHIFT;
 
       return rgb;
     };
 
     //Change position and age of wave
-    //Determine if its sill "alive"
+    //Determine if its still "alive"
     void update(uint32_t segment_length, uint32_t speed) {
-      if(goingleft) {
-        center -= speed_factor * speed;
-      } else {
-        center += speed_factor * speed;
-      }
-
+      int32_t step = speed_factor * speed;
+      center += goingleft ? -step : step;
       age++;
 
-      if(age > ttl) {
+      if (age > ttl) {
         alive = false;
       } else {
-        if(goingleft) {
-          if(center + width < 0) {
-            alive = false;
-          }
-        } else {
-          if(center - width > segment_length) {
-            alive = false;
-          }
-        }
+        uint32_t width_scaled = (uint32_t)width << AW_SHIFT;
+        uint32_t segment_length_scaled = segment_length << AW_SHIFT;
+
+         if (goingleft) {
+           if (center < - (int32_t)width_scaled) {
+             alive = false;
+           }
+         } else {
+           if (center > (int32_t)segment_length_scaled + (int32_t)width_scaled) {
+             alive = false;
+           }
+         }
       }
     };
 
-    bool stillAlive() {
-      return alive;
-    };
+    bool stillAlive() { return alive; }
 };
 
 uint16_t mode_aurora(void) {
   AuroraWave* waves;
   SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
-  if(!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {  // 20 on ESP32, 9 on ESP8266
-    return mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {
+    return mode_static();
   }
   waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
-  if(SEGENV.call == 0) {
-    for (int i = 0; i < SEGENV.aux1; i++) {
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
-    }
-  }
-
+  // note: on first call, SEGENV.data is zero -> all waves are dead and will be initialized
   for (int i = 0; i < SEGENV.aux1; i++) {
-    //Update values of wave
     waves[i].update(SEGLEN, SEGMENT.speed);
-
-    if(!(waves[i].stillAlive())) {
-      //If a wave dies, reinitialize it starts over.
-      waves[i].init(SEGLEN, CRGB(SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3))));
+    if (!(waves[i].stillAlive())) {
+      waves[i].init(SEGLEN, SEGMENT.color_from_palette(hw_random8(), false, false, hw_random8(0, 3)));
     }
+    waves[i].updateCachedValues();
   }
 
-  uint8_t backlight = 1; //dimmer backlight if less active colors
+  uint8_t backlight = 0; // note: original code used 1, with inverse gamma applied background would never be black
   if (SEGCOLOR(0)) backlight++;
   if (SEGCOLOR(1)) backlight++;
   if (SEGCOLOR(2)) backlight++;
-  //Loop through LEDs to determine color
+  backlight = gamma8inv(backlight); // preserve backlight when using gamma correction
+
   for (unsigned i = 0; i < SEGLEN; i++) {
-    CRGB mixedRgb = CRGB(backlight, backlight, backlight);
+    CRGBW mixedRgb = CRGBW(backlight, backlight, backlight);
 
-    //For each LED we must check each wave if it is "active" at this position.
-    //If there are multiple waves active on a LED we multiply their values.
-    for (int  j = 0; j < SEGENV.aux1; j++) {
-      CRGB rgb = waves[j].getColorForLED(i);
-
-      if(rgb != CRGB(0)) {
-        mixedRgb += rgb;
-      }
+    for (int j = 0; j < SEGENV.aux1; j++) {
+      CRGBW rgb = waves[j].getColorForLED(i);
+      mixedRgb = color_add(mixedRgb, rgb); // sum all waves influencing this pixel
     }
 
-    SEGMENT.setPixelColor(i, mixedRgb[0], mixedRgb[1], mixedRgb[2]);
+    SEGMENT.setPixelColor(i, mixedRgb);
   }
-
   return FRAMETIME;
 }
+
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
 
 // WLED-SR effects
@@ -5196,112 +5195,162 @@ static const char _data_FX_MODE_2DFRIZZLES[] PROGMEM = "Frizzles@X frequency,Y f
 ///////////////////////////////////////////
 //   2D Cellular Automata Game of life   //
 ///////////////////////////////////////////
-typedef struct ColorCount {
-  CRGB color;
-  int8_t count;
-} colorCount;
+typedef struct Cell {
+    uint8_t alive : 1, faded : 1, toggleStatus : 1, edgeCell: 1, oscillatorCheck : 1, spaceshipCheck : 1, unused : 2;
+} Cell;
 
-uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ and https://github.com/DougHaber/nlife-color
+uint16_t mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ 
+                                   // and https://github.com/DougHaber/nlife-color , Modified By: Brandon Butler
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
+  const int cols = SEG_W, rows = SEG_H;
+  const unsigned maxIndex = cols * rows;
 
-  const int cols = SEG_W;
-  const int rows = SEG_H;
-  const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
-  const unsigned dataSize = sizeof(CRGB) * SEGMENT.length();  // using width*height prevents reallocation if mirroring is enabled
-  const int crcBufferLen = 2; //(SEGMENT.width() + SEGMENT.height())*71/100; // roughly sqrt(2)/2 for better repetition detection (Ewowi)
+  if (!SEGENV.allocateData(SEGMENT.length() * sizeof(Cell))) return mode_static(); // allocation failed
 
-  if (!SEGENV.allocateData(dataSize + sizeof(uint16_t)*crcBufferLen)) return mode_static(); //allocation failed
-  CRGB *prevLeds = reinterpret_cast<CRGB*>(SEGENV.data);
-  uint16_t *crcBuffer = reinterpret_cast<uint16_t*>(SEGENV.data + dataSize); 
+  Cell *cells = reinterpret_cast<Cell*> (SEGENV.data);
 
-  CRGB backgroundColor = SEGCOLOR(1);
+  uint16_t& generation = SEGENV.aux0, &gliderLength = SEGENV.aux1; // rename aux variables for clarity
+  bool mutate = SEGMENT.check3;
+  uint8_t blur = map(SEGMENT.custom1, 0, 255, 255, 4);
 
-  if (SEGENV.call == 0 || strip.now - SEGMENT.step > 3000) {
-    SEGENV.step = strip.now;
-    SEGENV.aux0 = 0;
+  uint32_t bgColor    = SEGCOLOR(1);
+  uint32_t birthColor = SEGMENT.color_from_palette(128, false, PALETTE_SOLID_WRAP, 255);
 
-    //give the leds random state and colors (based on intensity, colors from palette or all posible colors are chosen)
-    for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
-      unsigned state = hw_random8()%2;
-      if (state == 0)
-        SEGMENT.setPixelColorXY(x,y, backgroundColor);
-      else
-        SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+  bool setup = SEGENV.call == 0;
+  if (setup) {
+    // Calculate glider length LCM(rows,cols)*4 once
+    unsigned a = rows, b = cols;
+    while (b) { unsigned t = b; b = a % b; a = t; }
+    gliderLength = (cols * rows / a) << 2;
+  }
+
+  if (abs(long(strip.now) - long(SEGENV.step)) > 2000) SEGENV.step = 0; // Timebase jump fix
+  bool paused = SEGENV.step > strip.now;
+
+  // Setup New Game of Life
+  if ((!paused && generation == 0) || setup) {
+    SEGENV.step = strip.now + 1280; // show initial state for 1.28 seconds
+    generation = 1;
+    paused = true;
+    //Setup Grid
+    memset(cells, 0, maxIndex * sizeof(Cell));
+
+    for (unsigned i = 0; i < maxIndex; i++) {
+      bool isAlive = !hw_random8(3); // ~33%
+      cells[i].alive = isAlive;
+      cells[i].faded = !isAlive;
+      unsigned x = i % cols, y = i / cols;
+      cells[i].edgeCell = (x == 0 || x == cols-1 || y == 0 || y == rows-1);
+
+      SEGMENT.setPixelColor(i, isAlive ? SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 0) : bgColor);
     }
+  }
 
-    for (int y = 0; y < rows; y++) for (int x = 0; x < cols; x++) prevLeds[XY(x,y)] = CRGB::Black;
-    memset(crcBuffer, 0, sizeof(uint16_t)*crcBufferLen);
-  } else if (strip.now - SEGENV.step < FRAMETIME_FIXED * (uint32_t)map(SEGMENT.speed,0,255,64,4)) {
-    // update only when appropriate time passes (in 42 FPS slots)
+  if (paused || (strip.now - SEGENV.step < 1000 / map(SEGMENT.speed,0,255,1,42))) {
+    // Redraw if paused or between updates to remove blur
+    for (unsigned i = maxIndex; i--; ) {
+      if (!cells[i].alive) {
+        uint32_t cellColor = SEGMENT.getPixelColor(i);
+        if (cellColor != bgColor) {
+          uint32_t newColor;
+          bool needsColor = false;
+          if (cells[i].faded) { newColor = bgColor; needsColor = true; }
+          else {
+            uint32_t blended = color_blend(cellColor, bgColor, 2);
+            if (blended == cellColor) { blended = bgColor; cells[i].faded = 1; }
+            newColor = blended; needsColor = true;
+          }
+          if (needsColor) SEGMENT.setPixelColor(i, newColor);
+        }
+      }
+    }
     return FRAMETIME;
   }
 
-  //copy previous leds (save previous generation)
-  //NOTE: using lossy getPixelColor() is a benefit as endlessly repeating patterns will eventually fade out causing a reset
-  for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) prevLeds[XY(x,y)] = SEGMENT.getPixelColorXY(x,y);
+  // Repeat detection
+  bool updateOscillator = generation % 16 == 0;
+  bool updateSpaceship  = gliderLength && generation % gliderLength == 0;
+  bool repeatingOscillator = true, repeatingSpaceship = true, emptyGrid = true;
 
-  //calculate new leds
-  for (int x = 0; x < cols; x++) for (int y = 0; y < rows; y++) {
+  unsigned cIndex = maxIndex-1;
+  for (unsigned y = rows; y--; ) for (unsigned x = cols; x--; cIndex--) {
+    Cell& cell = cells[cIndex];
 
-    colorCount colorsCount[9]; // count the different colors in the 3*3 matrix
-    for (int i=0; i<9; i++) colorsCount[i] = {backgroundColor, 0}; // init colorsCount
+    if (cell.alive) emptyGrid = false;
+    if (cell.oscillatorCheck != cell.alive) repeatingOscillator = false;
+    if (cell.spaceshipCheck  != cell.alive) repeatingSpaceship  = false;
+    if (updateOscillator) cell.oscillatorCheck = cell.alive;
+    if (updateSpaceship)  cell.spaceshipCheck  = cell.alive;
 
-    // iterate through neighbors and count them and their different colors
-    int neighbors = 0;
-    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) { // iterate through 3*3 matrix
-      if (i==0 && j==0) continue; // ignore itself
-      // wrap around segment
-      int xx = x+i, yy = y+j;
-      if (x+i < 0) xx = cols-1; else if (x+i >= cols) xx = 0;
-      if (y+j < 0) yy = rows-1; else if (y+j >= rows) yy = 0;
-
-      unsigned xy = XY(xx, yy); // previous cell xy to check
-      // count different neighbours and colors
-      if (prevLeds[xy] != backgroundColor) {
-        neighbors++;
-        bool colorFound = false;
-        int k;
-        for (k=0; k<9 && colorsCount[k].count != 0; k++)
-          if (colorsCount[k].color == prevLeds[xy]) {
-            colorsCount[k].count++;
-            colorFound = true;
-          }
-        if (!colorFound) colorsCount[k] = {prevLeds[xy], 1}; //add new color found in the array
+    unsigned neighbors = 0, aliveParents = 0, parentIdx[3];
+    // Count alive neighbors
+    for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++) if (i || j) {
+      int nX = x + j, nY = y + i;
+      if (cell.edgeCell) {
+        nX = (nX + cols) % cols;
+        nY = (nY + rows) % rows;
       }
-    } // i,j
-
-    // Rules of Life
-    uint32_t col = uint32_t(prevLeds[XY(x,y)]) & 0x00FFFFFF;  // uint32_t operator returns RGBA, we want RGBW -> cut off "alpha" byte
-    uint32_t bgc = RGBW32(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0);
-    if      ((col != bgc) && (neighbors <  2)) SEGMENT.setPixelColorXY(x,y, bgc); // Loneliness
-    else if ((col != bgc) && (neighbors >  3)) SEGMENT.setPixelColorXY(x,y, bgc); // Overpopulation
-    else if ((col == bgc) && (neighbors == 3)) {                                  // Reproduction
-      // find dominant color and assign it to a cell
-      colorCount dominantColorCount = {backgroundColor, 0};
-      for (int i=0; i<9 && colorsCount[i].count != 0; i++)
-        if (colorsCount[i].count > dominantColorCount.count) dominantColorCount = colorsCount[i];
-      // assign the dominant color w/ a bit of randomness to avoid "gliders"
-      if (dominantColorCount.count > 0 && hw_random8(128)) SEGMENT.setPixelColorXY(x,y, dominantColorCount.color);
-    } else if ((col == bgc) && (neighbors == 2) && !hw_random8(128)) {               // Mutation
-      SEGMENT.setPixelColorXY(x,y, SEGMENT.color_from_palette(hw_random8(), false, PALETTE_SOLID_WRAP, 255));
+      unsigned nIndex = nX + nY * cols;
+      Cell& neighbor = cells[nIndex];
+      if (neighbor.alive) {
+        neighbors++;
+        if (!neighbor.toggleStatus && neighbors < 4) { // Alive and not dying
+          parentIdx[aliveParents++] = nIndex;
+        }
+      }
     }
-    // else do nothing!
-  } //x,y
 
-  // calculate CRC16 of leds
-  uint16_t crc = crc16((const unsigned char*)prevLeds, dataSize);
-  // check if we had same CRC and reset if needed
-  bool repetition = false;
-  for (int i=0; i<crcBufferLen && !repetition; i++) repetition = (crc == crcBuffer[i]); // (Ewowi)
-  // same CRC would mean image did not change or was repeating itself
-  if (!repetition) SEGENV.step = strip.now; //if no repetition avoid reset
-  // remember CRCs across frames
-  crcBuffer[SEGENV.aux0] = crc;
-  ++SEGENV.aux0 %= crcBufferLen;
+    uint32_t newColor;
+    bool needsColor = false;
 
+    if (cell.alive && (neighbors < 2 || neighbors > 3)) { // Loneliness or Overpopulation
+      cell.toggleStatus = 1;
+      if (blur == 255) cell.faded = 1;
+      newColor = cell.faded ? bgColor : color_blend(SEGMENT.getPixelColor(cIndex), bgColor, blur);
+      needsColor = true;
+    }
+    else if (!cell.alive) {
+      byte mutationRoll = mutate ? hw_random8(128) : 1; // if 0: 3 neighbor births fail and 2 neighbor births mutate
+      if ((neighbors == 3 && mutationRoll) || (mutate && neighbors == 2 && !mutationRoll)) { // Reproduction or Mutation
+        cell.toggleStatus = 1;
+        cell.faded = 0;
+
+        if (aliveParents) {
+          // Set color based on random neighbor
+          unsigned parentIndex = parentIdx[random8(aliveParents)];
+          birthColor = SEGMENT.getPixelColor(parentIndex);
+        }
+        newColor = birthColor;
+        needsColor = true;
+      }
+      else if (!cell.faded) {// No change, fade dead cells
+          uint32_t cellColor = SEGMENT.getPixelColor(cIndex);
+          uint32_t blended = color_blend(cellColor, bgColor, blur);
+          if (blended == cellColor) { blended = bgColor; cell.faded = 1; }
+          newColor = blended;
+          needsColor = true;
+      }
+    }
+
+    if (needsColor) SEGMENT.setPixelColor(cIndex, newColor);
+  }
+  // Loop through cells, if toggle, swap alive status
+  for (unsigned i = maxIndex; i--; ) {
+    cells[i].alive ^= cells[i].toggleStatus;
+    cells[i].toggleStatus = 0;
+  }
+
+  if (repeatingOscillator || repeatingSpaceship || emptyGrid) {
+    generation = 0; // reset on next call
+    SEGENV.step += 1024; // pause final generation for ~1 second
+  }
+  else {
+    ++generation;
+    SEGENV.step = strip.now;
+  }
   return FRAMETIME;
 } // mode_2Dgameoflife()
-static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!;!,!;!;2";
+static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!,,Blur,,,,,Mutation;!,!;!;2;pal=11,sx=128";
 
 
 /////////////////////////
@@ -9628,11 +9677,11 @@ uint16_t mode_particleFireworks1D(void) {
 
       PartSys->sources[0].sourceFlags.custom1 = 0; //flag used for rocket state
       PartSys->sources[0].source.hue = hw_random16(); // different color for each launch
-      PartSys->sources[0].var = 10; // emit variation
-      PartSys->sources[0].v = -10; // emit speed
-      PartSys->sources[0].minLife = 30;
-      PartSys->sources[0].maxLife = SEGMENT.check2 ? 400 : 60;
-      PartSys->sources[0].source.x = 0; // start from bottom
+      PartSys->sources[0].var = 10 * SEGMENT.check2; // emit variation, 0 if trail mode is off
+      PartSys->sources[0].v = -10 * SEGMENT.check2; // emit speed, 0 if trail mode is off
+      PartSys->sources[0].minLife = 180;
+      PartSys->sources[0].maxLife = SEGMENT.check2 ? 700 : 240; // exhaust particle life
+      PartSys->sources[0].source.x = SEGENV.aux0 * PartSys->maxX; // start from bottom or top
       uint32_t speed = sqrt((gravity * ((PartSys->maxX >> 2) + hw_random16(PartSys->maxX >> 1))) >> 4); // set speed such that rocket explods in frame
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
@@ -9642,7 +9691,7 @@ uint16_t mode_particleFireworks1D(void) {
 
       if (SEGENV.aux0) { // inverted rockets launch from end
         PartSys->sources[0].sourceFlags.reversegrav = true;
-        PartSys->sources[0].source.x = PartSys->maxX; // start from top
+        //PartSys->sources[0].source.x = PartSys->maxX; // start from top
         PartSys->sources[0].source.vx = -PartSys->sources[0].source.vx; // revert direction
         PartSys->sources[0].v = -PartSys->sources[0].v; // invert exhaust emit speed
       }
@@ -9661,18 +9710,20 @@ uint16_t mode_particleFireworks1D(void) {
     uint32_t rocketheight = SEGENV.aux0 ? PartSys->maxX - PartSys->sources[0].source.x : PartSys->sources[0].source.x;
 
     if (currentspeed < 0 && PartSys->sources[0].source.ttl > 50) // reached apogee
-      PartSys->sources[0].source.ttl = min((uint32_t)50, rocketheight >> (PS_P_RADIUS_SHIFT_1D + 3)); // alive for a few more frames
+      PartSys->sources[0].source.ttl = 50 - gravity;// min((uint32_t)50, 15 + (rocketheight >> (PS_P_RADIUS_SHIFT_1D + 3))); // alive for a few more frames
 
     if (PartSys->sources[0].source.ttl < 2) { // explode
       PartSys->sources[0].sourceFlags.custom1 = 1; // set standby state
-      PartSys->sources[0].var = 5 + ((((PartSys->maxX >> 1) + rocketheight) * (200 + SEGMENT.intensity)) / (PartSys->maxX << 2)); // set explosion particle speed
-      PartSys->sources[0].minLife = 600;
-      PartSys->sources[0].maxLife = 1300;
+      PartSys->sources[0].var = 5 + ((((PartSys->maxX >> 1) + rocketheight) * (20 + (SEGMENT.intensity << 1))) / (PartSys->maxX << 2)); // set explosion particle speed
+      PartSys->sources[0].minLife = 1200;
+      PartSys->sources[0].maxLife = 2600;
       PartSys->sources[0].source.ttl = 100 + hw_random16(64 - (SEGMENT.speed >> 2)); // standby time til next launch
       PartSys->sources[0].sat = SEGMENT.custom3 < 16 ? 10 + (SEGMENT.custom3 << 4) : 255; //color saturation
       PartSys->sources[0].size = SEGMENT.check3 ? hw_random16(SEGMENT.intensity) : 0; // random particle size in explosion
       uint32_t explosionsize = 8 + (PartSys->maxXpixel >> 2) + (PartSys->sources[0].source.x >> (PS_P_RADIUS_SHIFT_1D - 1));
       explosionsize += hw_random16((explosionsize * SEGMENT.intensity) >> 8);
+      PartSys->setColorByAge(false); // disable
+      PartSys->setColorByPosition(false); // disable
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
         int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
         if(SEGMENT.custom3 > 23) {
@@ -9692,16 +9743,16 @@ uint16_t mode_particleFireworks1D(void) {
       }
     }
   }
-  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false && PartSys->sources[0].source.ttl > 50) // every second frame and not in standby and not about to explode
+  if ((SEGMENT.call & 0x01) == 0 && PartSys->sources[0].sourceFlags.custom1 == false) // every second frame and not in standby
     PartSys->sprayEmit(PartSys->sources[0]); // emit exhaust particle
 
   if ((SEGMENT.call & 0x03) == 0) // every fourth frame
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-
+  
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
-    if (PartSys->particles[i].ttl > 10) PartSys->particles[i].ttl -= 10; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
+    if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
   }
   return FRAMETIME;
