@@ -1161,7 +1161,7 @@ String computeSHA1(const String& input) {
 #ifdef ESP32
 #include "esp_adc_cal.h"
 String generateDeviceFingerprint() {
-  uint32_t fp[2]; // create 64 bit fingerprint
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
@@ -1193,7 +1193,7 @@ String generateDeviceFingerprint() {
 }
 #else // ESP8266
 String generateDeviceFingerprint() {
-  static uint32_t fp[2]; // create 64 bit fingerprint
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   WiFi.macAddress((uint8_t*)&fp); // use MAC address as fingerprint base
   fp[0] ^= ESP.getFlashChipId();
   fp[1] ^= ESP.getFlashChipSize() | ESP.getFlashChipVendorId() << 16;
