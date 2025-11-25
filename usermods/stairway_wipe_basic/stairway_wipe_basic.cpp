@@ -37,6 +37,7 @@ void setup() {
   if (userVar0 == 3 || userVar0 == 4) {
     if (wipeState == 0 || wipeState == 3 || wipeState == 4) {
       // Lights are off or turning off, so turn them on
+      wipeState = 0; // Reset state so the state machine starts fresh
       userVar0 = (userVar0 == 3) ? 1 : 2;
     } else {
       // Lights are on or turning on, so turn them off
