@@ -45,14 +45,6 @@
   ],
   "name": "Adafruit MatrixPortal ESP32-S3",
   "upload": {
-    "arduino": {
-      "flash_extra_images": [
-        [
-          "0x410000",
-          "variants/adafruit_matrixportal_esp32s3/tinyuf2.bin"
-        ]
-      ]
-    },
     "flash_size": "8MB",
     "maximum_ram_size": 327680,
     "maximum_size": 8388608,
