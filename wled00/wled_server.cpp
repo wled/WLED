@@ -312,7 +312,7 @@ void initServer()
     bool isConfig = false;
 
     if (!requestJSONBufferLock(14)) {
-      request->deferResponse();
+      deferResponse(request);
       return;
     }
 

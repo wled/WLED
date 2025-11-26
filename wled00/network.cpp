@@ -296,14 +296,14 @@ int findWiFi(bool doScan) {
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
     DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\n"), status, millis()/1000);
     int rssi = -9999;
-    int selected = selectedWiFi;
+    int selected = (selectedWiFi < multiWiFi.size()) ? selectedWiFi : 0;  // ensure valid starting index
     for (int o = 0; o < status; o++) {
       DEBUG_PRINTF_P(PSTR(" SSID: %s (BSSID: %s) RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.BSSIDstr(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
           bool foundBSSID = memcmp(multiWiFi[n].bssid, WiFi.BSSID(o), 6) == 0;
           // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
-          if (foundBSSID || (n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
+          if (foundBSSID || (n < (unsigned)selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
             rssi = foundBSSID ? 0 : WiFi.RSSI(o); // RSSI is only ever negative
             selected = n;
           }
