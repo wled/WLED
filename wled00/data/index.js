@@ -693,6 +693,8 @@ function parseInfo(i) {
 //		gId("filterVol").classList.add("hide"); hideModes(" ♪"); // hide volume reactive effects
 //		gId("filterFreq").classList.add("hide"); hideModes(" ♫"); // hide frequency reactive effects
 //	}
+	// Check for version upgrades on page load
+	checkVersionUpgrade(i);
 }
 
 //https://stackoverflow.com/questions/2592092/executing-script-elements-inserted-with-innerhtml
@@ -3399,7 +3401,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
-		reportUpgradeEvent(info, oldVersion, newVersion);
+		reportUpgradeEvent(info, oldVersion);
 		d.body.removeChild(overlay);
 	});
 	
@@ -3415,7 +3417,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	});
 }
 
-function reportUpgradeEvent(info, oldVersion, newVersion) {
+function reportUpgradeEvent(info, oldVersion) {
 	showToast('Reporting upgrade...');
 	
 	// Fetch fresh data from /json/info endpoint as requested
@@ -3456,7 +3458,7 @@ function reportUpgradeEvent(info, oldVersion, newVersion) {
 	.then(res => {
 		if (res.ok) {
 			showToast('Thank you for reporting!');
-			updateVersionInfo(newVersion, false);
+			updateVersionInfo(info.ver, false);
 		} else {
 			showToast('Report failed. Please try again later.', true);
 			// Do NOT update version info on failure - user will be prompted again
