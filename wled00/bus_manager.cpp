@@ -1242,6 +1242,10 @@ void BusManager::removeAll() {
 // If enabled, RMT idle level is set to HIGH when off
 // to prevent leakage current when using an N-channel MOSFET to toggle LED power
 void BusManager::esp32RMTInvertIdle() {
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+  // ESP32-C6 uses BitBang method, not RMT - nothing to do here
+  return;
+#else
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
@@ -1272,6 +1276,7 @@ void BusManager::esp32RMTInvertIdle() {
     rmt_set_idle_level(ch, idle_out, lvl);
     u++;
   }
+#endif
 }
 #endif
 

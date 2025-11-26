@@ -553,6 +553,17 @@ void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t erro
 void serveSettings(AsyncWebServerRequest* request, bool post = false);
 void serveSettingsJS(AsyncWebServerRequest* request);
 
+// ESP32-C6 compatibility: deferResponse not available in patched ESPAsyncWebServer fork
+// Use this inline function which falls back to sending a 503 error
+inline void deferResponse(AsyncWebServerRequest* request) {
+#if defined(CONFIG_IDF_TARGET_ESP32C6)
+  // deferResponse not available, send 503 Service Unavailable instead
+  request->send(503, F("text/plain"), F("Server busy, try again"));
+#else
+  request->deferResponse();
+#endif
+}
+
 //ws.cpp
 void handleWs();
 void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
