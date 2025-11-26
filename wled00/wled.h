@@ -365,7 +365,7 @@ WLED_GLOBAL wifi_options_t wifiOpt _INIT_N(({0, 1, false, AP_BEHAVIOR_BOOT_NO_CO
 #define force802_3g  wifiOpt.force802_3g
 #else
 WLED_GLOBAL int8_t selectedWiFi  _INIT(0);
-WLED_GLOBAL byte apChannel       _INIT(7);                        // 2.4GHz WiFi AP channel (1-13)
+WLED_GLOBAL byte apChannel       _INIT(6);                        // 2.4GHz WiFi AP channel (1-13)
 WLED_GLOBAL byte apHide          _INIT(0);                        // hidden AP SSID
 WLED_GLOBAL byte apBehavior      _INIT(AP_BEHAVIOR_BOOT_NO_CONN); // access point opens when no connection after boot by default
   #ifdef ARDUINO_ARCH_ESP32
