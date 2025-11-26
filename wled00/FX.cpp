@@ -3240,7 +3240,7 @@ static uint16_t mode_ants(void) {
   unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
   bool gatherFood = SEGMENT.check1;
   bool overlayMode = SEGMENT.check2;
-  bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
+  bool passBy = SEGMENT.check3 || gatherFood;  // global no‑collision when gathering food is enabled
   unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
 
   // Initialize ants on first call
@@ -3288,7 +3288,7 @@ static uint16_t mode_ants(void) {
     // Handle collisions between ants (if not passing by)
     if (!passBy) {
       for (int j = i + 1; j < numAnts; j++) {
-        if (ants[j].velocity == ants[i].velocity) continue;  // Moving in same direction at same speed
+        if (fabsf(ants[j].velocity - ants[i].velocity) < 0.001f) continue;  // Moving in same direction at same speed; avoids tiny denominators
 
         // Calculate collision time using physics
         float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
@@ -3307,11 +3307,11 @@ static uint16_t mode_ants(void) {
           ants[i].lastBumpUpdate = collisionMoment;
           ants[j].lastBumpUpdate = collisionMoment;
 
-          // Reverse the faster ant's direction
-          if (ants[i].velocity > ants[j].velocity) {
-             ants[i].velocity = -ants[i].velocity;
+          // Reverse the ant with greater speed magnitude
+          if (fabsf(ants[i].velocity) > fabsf(ants[j].velocity)) {
+            ants[i].velocity = -ants[i].velocity;
           } else {
-             ants[j].velocity = -ants[j].velocity;
+            ants[j].velocity = -ants[j].velocity;
           }
 
           // Recalculate position after collision
