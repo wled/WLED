@@ -3245,7 +3245,7 @@ static uint16_t mode_ants(void) {
 
   // Initialize ants on first call
   if (SEGENV.call == 0) {
-    int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
+    int confusedAntIndex = hw_random(0, numAnts);   // the first random ant to go backwards
 
     for (int i = 0; i < MAX_ANTS; i++) {
       ants[i].lastBumpUpdate = strip.now;
