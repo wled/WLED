@@ -3234,22 +3234,22 @@ static uint16_t mode_ants(void) {
   if (SEGLEN <= 1) return mode_static();
 
   // Allocate memory for ant data
-  const uint32_t backgroundColor = SEGCOLOR(1);
-  const unsigned dataSize = sizeof(Ant) * MAX_ANTS;
+  uint32_t backgroundColor = SEGCOLOR(1);
+  unsigned dataSize = sizeof(Ant) * MAX_ANTS;
   if (!SEGENV.allocateData(dataSize)) return mode_static();  // Allocation failed
 
   Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
 
   // Extract configuration from segment settings
-  const unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
-  const bool gatherFood = SEGMENT.check1;
-  const bool overlayMode = SEGMENT.check2;
-  const bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
-  const unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
+  unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
+  bool gatherFood = SEGMENT.check1;
+  bool overlayMode = SEGMENT.check2;
+  bool passBy = SEGMENT.check3 || gatherFood;  // Always pass by when gathering food
+  unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
 
   // Initialize ants on first call
   if (SEGENV.call == 0) {
-    const int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
+    int confusedAntIndex = hw_random(0, numAnts - 1);   // the first random ant to go backwards
 
     for (int i = 0; i < MAX_ANTS; i++) {
       ants[i].lastBumpUpdate = strip.now;
@@ -3266,14 +3266,14 @@ static uint16_t mode_ants(void) {
   }
 
   // Calculate time conversion factor based on speed slider
-  const float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
+  float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
 
   // Clear background if not in overlay mode
   if (!overlayMode) SEGMENT.fill(backgroundColor);
 
   // Update and render each ant
   for (int i = 0; i < numAnts; i++) {
-    const float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+    float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
     float newPosition = ants[i].position + ants[i].velocity * timeSinceLastUpdate;
 
     // Reset ants that wandered too far off-track (e.g., after intensity change)
@@ -3295,19 +3295,19 @@ static uint16_t mode_ants(void) {
         if (ants[j].velocity == ants[i].velocity) continue;  // Moving in same direction at same speed
 
         // Calculate collision time using physics
-        const float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
-        const float collisionTime = (timeConversionFactor * (ants[i].position - ants[j].position) + ants[i].velocity * timeOffset) / (ants[j].velocity - ants[i].velocity);
+        float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
+        float collisionTime = (timeConversionFactor * (ants[i].position - ants[j].position) + ants[i].velocity * timeOffset) / (ants[j].velocity - ants[i].velocity);
 
         // Check if collision occurred in valid time window
-        const float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
+        float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
         if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
           // Update positions to collision point
-          const float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
+          float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
           ants[i].position += ants[i].velocity * adjustedTime;
           ants[j].position = ants[i].position;
 
           // Update collision time
-          const unsigned long collisionMoment = static_cast<unsigned long>(collisionTime + 0.5f) + ants[j].lastBumpUpdate;
+          unsigned long collisionMoment = static_cast<unsigned long>(collisionTime + 0.5f) + ants[j].lastBumpUpdate;
           ants[i].lastBumpUpdate = collisionMoment;
           ants[j].lastBumpUpdate = collisionMoment;
 
@@ -3326,14 +3326,14 @@ static uint16_t mode_ants(void) {
 
     // Clamp position to valid range
     newPosition = constrain(newPosition, 0.0f, 1.0f);
-    const unsigned pixelPosition = roundf(newPosition * (SEGLEN - 1));
+    unsigned pixelPosition = roundf(newPosition * (SEGLEN - 1));
 
     // Determine ant color
-    const uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
+    uint32_t antColor = getAntColor(i, numAnts, SEGMENT.palette != 0);
 
     // Render ant pixels
     for (int pixelOffset = 0; pixelOffset < antSize; pixelOffset++) {
-      const unsigned currentPixel = pixelPosition + pixelOffset;
+      unsigned currentPixel = pixelPosition + pixelOffset;
       if (currentPixel >= SEGLEN) break;
       renderAntPixel(currentPixel, pixelOffset, antSize, ants[i], antColor, backgroundColor, gatherFood);
     }
