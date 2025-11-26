@@ -3186,7 +3186,7 @@ static uint16_t mode_pacman(void) {
   constexpr unsigned WHITEISH     = 0x999999;
   constexpr unsigned PACMAN = 0;   // PacMan is character[0]
 
-  const unsigned maxPowerDots = SEGLEN / 10;  // max is 1 every 10 pixels
+  unsigned maxPowerDots = SEGLEN / 10;  // max is 1 every 10 pixels
   unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
   unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
 
@@ -3218,7 +3218,7 @@ static uint16_t mode_pacman(void) {
     character[PACMAN].blue = false;
 
     // Initialize ghosts with alternating colors
-    const uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
+    uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
     for (int i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].pos = -2 * (i + 1);
@@ -3280,7 +3280,8 @@ static uint16_t mode_pacman(void) {
 
   // Check if PacMan ate a power dot
   for (int j = 0; j < numPowerDots; j++) {
-    if (character[PACMAN].pos >= character[j + numGhosts + 1].pos && !character[j + numGhosts + 1].eaten) {
+    auto &dot = character[j + numGhosts + 1];
+    if (character[PACMAN].pos == dot.pos && !dot.eaten) {
       // Reverse all characters - PacMan now chases ghosts
       for (int i = 0; i <= numGhosts; i++) {
         character[i].direction = false;
@@ -3290,7 +3291,8 @@ static uint16_t mode_pacman(void) {
         character[i].color = BLUE;
         character[i].blue = true;
       }
-      character[j + numGhosts + 1].eaten = true;
+      dot.eaten = true;
+      break; // only one power dot per frame
     }
   }
 
@@ -3301,7 +3303,7 @@ static uint16_t mode_pacman(void) {
       character[i].direction = true;
     }
     // Reset ghost colors
-    const uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
+    uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
     for (int i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].blue = false;
