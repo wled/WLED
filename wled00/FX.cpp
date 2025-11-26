@@ -3165,8 +3165,8 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
 *   Checkbox1 is for Gathering food (enabled if you want the ants to gather food, disabled if they are just walking).
-*     We will switch directions when they get to the beginning or end of the segment.
-*     When they have food, we will enable the Pass By option so they can drop off their food easier (and look for more food).
+*     We will switch directions when they get to the beginning or end of the segment when gathering food.
+*     When gathering food, the Pass By option will automatically be enabled so they can drop off their food easier (and look for more food).
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
