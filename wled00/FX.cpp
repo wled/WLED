@@ -3160,11 +3160,7 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 
 
 /*
-/  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler - Jan-Feb 2025
-*   bouncing balls on a track track Effect modified from Aircoookie's bouncing balls
-*   Courtesy of pjhatch (https://github.com/pjhatch)
-*   https://github.com/Aircoookie/WLED/pull/1039
-* 
+/  Ants (created by making modifications to the Rolling Balls code) - Bob Loeffler 2025
 *   First slider is for the ants' speed.
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
