@@ -5,7 +5,7 @@ var hasWhite = false, hasRGB = false, hasCCT = false, has2D = false;
 var nlDur = 60, nlTar = 0;
 var nlMode = false;
 var segLmax = 0; // size (in pixels) of largest selected segment
-var selectedFx = 0;
+var selectedFx = "Solid";
 var selectedPal = 0;
 var csel = 0; // selected color slot (0-2)
 var currentPreset = -1;
@@ -18,7 +18,6 @@ var d = document;
 const ranges = RangeTouch.setup('input[type="range"]', {});
 var retry = false;
 var palettesData;
-var fxdata = [];
 var pJson = {}, eJson = {}, lJson = {};
 var plJson = {}; // array of playlists
 var pN = "", pI = 0, pNum = 0;
@@ -280,16 +279,13 @@ function onLoad()
 
 	// Load initial data
 	loadPalettes(()=>{
-		// fill effect extra data array
-		loadFXData(()=>{
-			// load and populate effects
-			setTimeout(()=>{loadFX(()=>{
-				loadPalettesData(()=>{
-					requestJson();// will load presets and create WS
-					if (cfg.comp.css) setTimeout(()=>{loadSkinCSS('skinCss')},50);
-				});
-			})},50);
-		});
+		// load and populate effects
+		setTimeout(()=>{loadFX(()=>{
+			loadPalettesData(()=>{
+				requestJson();// will load presets and create WS
+				if (cfg.comp.css) setTimeout(()=>{loadSkinCSS('skinCss')},50);
+			});
+		})},50);
 	});
 	resetUtil();
 
@@ -546,7 +542,7 @@ function loadPalettes(callback = null)
 
 function loadFX(callback = null)
 {
-	fetch(getURL('/json/effects'), {
+	fetch(getURL('/json/fxmap'), {
 		method: 'get'
 	})
 	.then((res)=>{
@@ -554,7 +550,7 @@ function loadFX(callback = null)
 		return res.json();
 	})
 	.then((json)=>{
-		eJson = Object.entries(json);
+		eJson = json;
 		populateEffects();
 		retry = false;
 	})
@@ -562,36 +558,6 @@ function loadFX(callback = null)
 		if (!retry) {
 			retry = true;
 			setTimeout(loadFX, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
-	});
-}
-
-function loadFXData(callback = null)
-{
-	fetch(getURL('/json/fxdata'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		fxdata = json||[];
-		// add default value for Solid
-		fxdata.shift()
-		fxdata.unshift(";!;");
-		retry = false;
-	})
-	.catch((e)=>{
-		fxdata = [];
-		if (!retry) {
-			retry = true;
-			setTimeout(()=>{loadFXData(loadFX);}, 500); // retry
 		}
 		showToast(e, true);
 	})
@@ -933,46 +899,34 @@ function populateSegments(s)
 
 function populateEffects()
 {
-	var effects = eJson;
+	var effects = {};
 	var html = "";
 
-	effects.shift(); // temporary remove solid
-	for (let i = 0; i < effects.length; i++) {
-		effects[i] = {
-			id: effects[i][0],
-			name:effects[i][1]
-		};
+	// Created sorted dictionary of effects
+	effects["Solid"] = eJson["Solid"]
+	for (effect of Object.keys(eJson).sort((a,b) => (a).localeCompare(b))) {
+		effects[effect] = eJson[effect]
+		
 	}
-	effects.sort((a,b) => (a.name).localeCompare(b.name));
-	effects.unshift({
-		"id": 0,
-		"name": "Solid"
-	});
 
-	for (let ef of effects) {
+	for (const [name, ef] of Object.entries(effects)) {
 		// add slider and color control to setFX (used by requestjson)
-		let id = ef.id;
-		let nm = ef.name+" ";
-		let fd = "";
-		if (ef.name.indexOf("RSVD") < 0) {
-			if (Array.isArray(fxdata) && fxdata.length>id) {
-				if (fxdata[id].length==0) fd = ";;!;1"
-				else fd = fxdata[id];
-				let eP = (fd == '')?[]:fd.split(";"); // effect parameters
-				let p = (eP.length<3 || eP[2]==='')?[]:eP[2].split(","); // palette data
-				if (p.length>0 && (p[0] !== "" && !isNumeric(p[0]))) nm += "&#x1F3A8;";	// effects using palette
-				let m = (eP.length<4 || eP[3]==='')?'1':eP[3]; // flags
-				if (id == 0) m = ''; // solid has no flags
-				if (m.length>0) {
-					if (m.includes('0')) nm += "&#8226;"; // 0D effects (PWM & On/Off)
-					if (m.includes('1')) nm += "&#8942;"; // 1D effects
-					if (m.includes('2')) nm += "&#9638;"; // 2D effects
-					if (m.includes('v')) nm += "&#9834;"; // volume effects
-					if (m.includes('f')) nm += "&#9835;"; // frequency effects
-				}
-			}
-			html += generateListItemHtml('fx',id,nm,'setFX','',fd);
+		let nm = name+" ";
+		let fd = ef["info"];
+		if (fd.length==0) fd = ";;!;1"
+		let eP = (fd == '')?[]:fd.split(";"); // effect parameters
+		let p = (eP.length<3 || eP[2]==='')?[]:eP[2].split(","); // palette data
+		if (p.length>0 && (p[0] !== "" && !isNumeric(p[0]))) nm += "&#x1F3A8;";	// effects using palette
+		let m = (eP.length<4 || eP[3]==='')?'1':eP[3]; // flags
+		if (ef["id"] == 0) m = ''; // solid has no flags
+		if (m.length>0) {
+			if (m.includes('0')) nm += "&#8226;"; // 0D effects (PWM & On/Off)
+			if (m.includes('1')) nm += "&#8942;"; // 1D effects
+			if (m.includes('2')) nm += "&#9638;"; // 2D effects
+			if (m.includes('v')) nm += "&#9834;"; // volume effects
+			if (m.includes('f')) nm += "&#9835;"; // frequency effects
 		}
+		html += generateListItemHtml('fx',name,nm,'setFX','',fd);
 	}
 
 	gId('fxlist').innerHTML=html;
@@ -1071,7 +1025,7 @@ function genPalPrevCss(id)
 
 function generateListItemHtml(listName, id, name, clickAction, extraHtml = '', effectPar = '')
 {
-	return `<div class="lstI${id==0?' sticky':''}" data-id="${id}" ${effectPar===''?'':'data-opt="'+effectPar+'" '}onClick="${clickAction}(${id})">`+
+	return `<div class="lstI${id==0?' sticky':''}" data-id="${id}" ${effectPar===''?'':'data-opt="'+effectPar+'" '}onClick="${clickAction}(this)">`+
 		`<label title="(${id})" class="radio schkl" onclick="event.preventDefault()">`+ // (#1984)
 			`<input type="radio" value="${id}" name="${listName}">`+
 			`<span class="radiomark"></span>`+
@@ -1554,7 +1508,7 @@ function readState(s,command=false)
 	}
 
 	selectedPal = i.pal;
-	selectedFx = i.fx;
+	selectedFx = i.ef;
 	redrawPalPrev(); // if any color changed (random palette did at least)
 	updateUI();
 	return true;
@@ -1581,11 +1535,10 @@ function readState(s,command=false)
 // Note: Effects can override default pattern behaviour
 //       - FadeToBlack can override the background setting
 //       - Defining SEGCOL(<i>) can override a specific palette using these values (e.g. Color Gradient)
-function setEffectParameters(idx)
+function setEffectParameters(effect)
 {
-	if (!(Array.isArray(fxdata) && fxdata.length>idx)) return;
-	var controlDefined = fxdata[idx].length;
-	var effectPar = fxdata[idx];
+	var effectPar = eJson[effect]["info"];
+	var controlDefined = effectPar.length;	
 	var effectPars = (effectPar == '')?[]:effectPar.split(";");
 	var slOnOff = (effectPars.length==0 || effectPars[0]=='')?[]:effectPars[0].split(",");
 	var coOnOff = (effectPars.length<2  || effectPars[1]=='')?[]:effectPars[1].split(",");
@@ -1594,7 +1547,7 @@ function setEffectParameters(idx)
 	// set html slider items on/off
 	d.querySelectorAll("#sliders .sliderwrap").forEach((slider, i)=>{
 		let text = slider.getAttribute("title");
-		if ((!controlDefined && i<((idx<128)?2:nSliders)) || (slOnOff.length>i && slOnOff[i]!="")) {
+		if ((!controlDefined && i<((eJson[effect]["id"]<128)?2:nSliders)) || (slOnOff.length>i && slOnOff[i]!="")) {
 			if (slOnOff.length>i && slOnOff[i]!="!") text = slOnOff[i];
 			// restore overwritten default tooltips
 			if (i<2 && slOnOff[i]==="!") text = i==0 ? "Effect speed" : "Effect intensity";
@@ -2121,7 +2074,7 @@ function makePUtil()
 	p.innerHTML = `<div class="presin expanded">${makeP(0)}</div>`;
 	let pTx = gId('p0txt');
 	pTx.focus();
-	pTx.value = eJson.find((o)=>{return o.id==selectedFx}).name;
+	pTx.value = selectedFx;
 	pTx.select();
 	p.scrollIntoView({
 		behavior: 'smooth',
@@ -2399,12 +2352,14 @@ function tglFreeze(s=null)
 	requestJson(obj);
 }
 
-function setFX(ind = null)
+function setFX(el = null)
 {
-	if (ind === null) {
-		ind = parseInt(d.querySelector('#fxlist input[name="fx"]:checked').value);
+	var ef;
+	if (el === null) {
+		ef = d.querySelector('#fxlist input[name="fx"]:checked').value;
 	} else {
-		d.querySelector(`#fxlist input[name="fx"][value="${ind}"]`).checked = true;
+		ef = el.getAttribute('data-id');
+		d.querySelector(`#fxlist input[name="fx"][value="${ef}"]`).checked = true;
 	}
 
 	// Close effect dialog in simplified UI
@@ -2412,15 +2367,17 @@ function setFX(ind = null)
 		gId("fx").lastElementChild.close();
 	}
 
-	var obj = {"seg": {"fx": parseInt(ind), "fxdef": cfg.comp.fxdef}}; // fxdef sets effect parameters to default values
+	var obj = {"seg": {"ef": ef, "fxdef": cfg.comp.fxdef}}; // fxdef sets effect parameters to default values
 	requestJson(obj);
 }
 
-function setPalette(paletteId = null)
+function setPalette(el = null)
 {
-	if (paletteId === null) {
+	var paletteId;
+	if (el === null) {
 		paletteId = parseInt(d.querySelector('#pallist input[name="palette"]:checked').value);
 	} else {
+		paletteId = el.getAttribute('data-id');
 		d.querySelector(`#pallist input[name="palette"][value="${paletteId}"]`).checked = true;
 	}
 

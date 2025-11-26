@@ -93,7 +93,7 @@ void handleOverlayDraw() {
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
       const Segment& segment = strip.getSegment(i);
       if (!segment.isActive()) continue;
-      if (segment.mode > 0 || segment.colors[0] > 0) {
+      if (Effects::getIdForEffect(segment.effect) > 0 || segment.colors[0] > 0) {
         return;
       }
     }

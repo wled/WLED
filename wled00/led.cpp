@@ -15,7 +15,7 @@ void setValuesFromSegment(uint8_t s) {
   colSec[1] = G(seg.colors[1]);
   colSec[2] = B(seg.colors[1]);
   colSec[3] = W(seg.colors[1]);
-  effectCurrent   = seg.mode;
+  effectCurrent   = Effects::getIdForEffect(seg.effect);
   effectSpeed     = seg.speed;
   effectIntensity = seg.intensity;
   effectPalette   = seg.palette;
@@ -30,7 +30,7 @@ void applyValuesToSelectedSegs() {
     if (effectSpeed     != seg.speed)     {seg.speed     = effectSpeed;     stateChanged = true;}
     if (effectIntensity != seg.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
     if (effectPalette   != seg.palette)   {seg.setPalette(effectPalette);}
-    if (effectCurrent   != seg.mode)      {seg.setMode(effectCurrent);}
+    if (effectCurrent   != Effects::getIdForEffect(seg.effect))      {seg.setMode(effectCurrent);}
     uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
     uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
     if (col0 != seg.colors[0])            {seg.setColor(0, col0);}

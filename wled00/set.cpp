@@ -875,7 +875,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   uint32_t col2    = selseg.colors[2];
   byte colIn[4]    = {R(col0), G(col0), B(col0), W(col0)};
   byte colInSec[4] = {R(col1), G(col1), B(col1), W(col1)};
-  byte effectIn    = selseg.mode;
+  byte effectIn    = 0;
   byte speedIn     = selseg.speed;
   byte intensityIn = selseg.intensity;
   byte paletteIn   = selseg.palette;
@@ -1060,9 +1060,11 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   bool fxModeChanged = false, speedChanged = false, intensityChanged = false, paletteChanged = false;
   bool custom1Changed = false, custom2Changed = false, custom3Changed = false, check1Changed = false, check2Changed = false, check3Changed = false;
   // set effect parameters
-  if (updateVal(req.c_str(), "FX=", effectIn, 0, strip.getModeCount()-1)) {
-    if (request != nullptr) unloadPlaylist(); // unload playlist if changing FX using web request
-    fxModeChanged = true;
+  if (updateVal(req.c_str(), "FX=", effectIn, 0, 255)) {
+    if (Effects::getEffectById(effectIn) != selseg.effect) {
+      if (request != nullptr) unloadPlaylist(); // unload playlist if changing FX using web request
+      fxModeChanged = true;
+    }
   }
   speedChanged     = updateVal(req.c_str(), "SX=", speedIn);
   intensityChanged = updateVal(req.c_str(), "IX=", intensityIn);

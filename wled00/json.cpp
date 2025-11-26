@@ -24,7 +24,7 @@ namespace {
     uint16_t startY;
     uint16_t stopY;
     uint16_t options;
-    uint8_t  mode;
+    const Effect* effect;
     uint8_t  palette;
     uint8_t  opacity;
     uint8_t  speed;
@@ -45,7 +45,7 @@ namespace {
     if (a.grouping != b.grouping)   d |= SEG_DIFFERS_GSO;
     if (a.spacing != b.spacing)     d |= SEG_DIFFERS_GSO;
     if (a.opacity != b.opacity)     d |= SEG_DIFFERS_BRI;
-    if (a.mode != b.mode)           d |= SEG_DIFFERS_FX;
+    if (a.effect != b.effect)       d |= SEG_DIFFERS_FX;
     if (a.speed != b.speed)         d |= SEG_DIFFERS_FX;
     if (a.intensity != b.intensity) d |= SEG_DIFFERS_FX;
     if (a.palette != b.palette)     d |= SEG_DIFFERS_FX;
@@ -98,7 +98,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     seg.startY,
     seg.stopY,
     seg.options,
-    seg.mode,
+    seg.effect,
     seg.palette,
     seg.opacity,
     seg.speed,
@@ -248,7 +248,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         if (!colValid) continue;
 
         seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3])); // use transition
-        if (seg.mode == FX_MODE_STATIC) strip.trigger(); //instant refresh
+        if (Effects::getIdForEffect(seg.effect) == FX_MODE_STATIC) strip.trigger(); //instant refresh
       }
     } else {
       // non RGB & non White segment (usually On/Off bus)
@@ -280,10 +280,21 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.transpose = transpose;
   #endif
 
-  byte fx = seg.mode;
-  if (getVal(elem["fx"], fx, 0, strip.getModeCount())) {
-    if (!presetId && currentPlaylist>=0) unloadPlaylist();
-    if (fx != seg.mode) seg.setMode(fx, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
+  {
+    const Effect* new_effect = nullptr;
+    JsonVariant ef = elem["ef"];
+    if (ef.is<String>()) {
+      new_effect = Effects::getEffectByName(ef.as<String>());
+    } else {
+      byte fx = Effects::getIdForEffect(seg.effect);
+      if (getVal(elem["fx"], fx, 0, 255) && (fx < 255)) {
+        new_effect = Effects::getEffectById(fx);
+      }
+    }
+    if (new_effect) {
+        if (!presetId && currentPlaylist>=0) unloadPlaylist();
+        if (new_effect != seg.effect) seg.setEffect(new_effect, elem[F("fxdef")]); // use transition (WARNING: may change map1D2D causing geometry change)
+    }
   }
 
   getVal(elem["sx"], seg.speed);
@@ -608,7 +619,8 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   strcat(colstr, "]");
   root["col"] = serialized(colstr);
 
-  root["fx"]  = seg.mode;
+  root["ef"] = seg.effect->getName();
+  root["fx"]  = Effects::getIdForEffect(seg.effect);
   root["sx"]  = seg.speed;
   root["ix"]  = seg.intensity;
   root["pal"] = seg.palette;
@@ -773,7 +785,7 @@ void serializeInfo(JsonObject root)
   root[F("ws")] = -1;
   #endif
 
-  root[F("fxcount")] = strip.getModeCount();
+  root[F("fxcount")] = Effects::getCount();
   root[F("palcount")] = getPaletteCount();
   root[F("cpalcount")] = customPalettes.size();   // number of custom palettes
   root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
@@ -1045,35 +1057,104 @@ void serializeNodes(JsonObject root)
   }
 }
 
-// deserializes mode data string into JsonArray
+// deserializes mode data string into JsonArray, omitting names
 void serializeModeData(JsonArray fxdata)
 {
-  char lineBuffer[256];
-  for (size_t i = 0; i < strip.getModeCount(); i++) {
-    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
+  for (auto& effect: Effects::all()) {
+    uint8_t id = Effects::getIdForEffect(effect);
+    if (id < 255) {
+      // Copy data to stack for analysis
+      char lineBuffer[256];
+      strncpy_P(lineBuffer, effect->data, sizeof(lineBuffer)/sizeof(char)-1);
+      lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
       char* dataPtr = strchr(lineBuffer,'@');
-      if (dataPtr) fxdata.add(dataPtr+1);
-      else         fxdata.add("");
+      if (dataPtr) {
+        fxdata[id] = (dataPtr+1);
+      }
     }
   }
-}
+  // Fill out empty elements
+  for(unsigned i = 0; i < fxdata.size(); ++i) {
+    if (fxdata[i].isNull()) fxdata[i] = "";
+  }  
+}    
 
 // deserializes mode names string into JsonArray
 // also removes effect data extensions (@...) from deserialised names
 void serializeModeNames(JsonArray arr)
 {
-  char lineBuffer[256];
-  for (size_t i = 0; i < strip.getModeCount(); i++) {
-    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
-      char* dataPtr = strchr(lineBuffer,'@');
-      if (dataPtr) *dataPtr = 0; // terminate mode data after name
-      arr.add(lineBuffer);
+  for (auto& effect: Effects::all()) {
+    uint8_t id = Effects::getIdForEffect(effect);
+    if (id < 255) {
+      arr[id] = effect->getName();
     }
   }
+  // Fill out empty elements
+  for(unsigned i = 0; i < arr.size(); ++i) {
+    if (arr[i].isNull()) arr[i] = FPSTR("RSVD");
+  }
+}
+
+void serveFxMap(AsyncWebServerRequest* request)
+{
+  // sendChunked allows us to stream the data out without needing to buffer it all up front.
+  // We use a mutable lambda as the function type to preserve state across calls.
+  // This isn't the most packet-efficient -- we'd need to preserve some partially serialized traffic
+  // for that -- but it's low memory, no matter how big the data gets.
+  auto effect = Effects::all().begin();
+  bool done = false;    
+  request->sendChunked(
+    FPSTR(CONTENT_TYPE_JSON),
+    [effect, done](uint8_t* buf, size_t len, size_t filledLength) mutable {
+      size_t buf_len = len;;
+      //DEBUG_PRINTF_P(PSTR("SFM: eff %08X, done %d, buf %08X, len %d, fL %d\n"), (intptr_t)*effect, done, (intptr_t)buf, len, filledLength);
+      if (done) return 0U;
+      
+      if (filledLength == 0) {
+        *buf = '{';
+        ++buf, --len;
+      }
+
+      while(1) {          
+        if (effect == Effects::all().end()) {
+          *buf = '}'; --len;
+          done = true;
+          //DEBUG_PRINTF_P(PSTR("SFM: done\n"));
+          return (buf_len - len);  // Done
+        }
+        if (len < (strlen_P((*effect)->data) + 24)) { // "":{"info":"","id":nnn},
+          //DEBUG_PRINTF_P(PSTR("SFM: exiting: wanted %d, have %d\n"), (strlen_P((*effect)->data) + 24), len);
+          return (buf_len - len);  // not enough space
+        }
+
+        // Copy data to stack for analysis
+        char lineBuffer[256];
+        strncpy_P(lineBuffer, (*effect)->data, sizeof(lineBuffer)/sizeof(char)-1);
+        lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
+        char* dataPtr = strchr(lineBuffer,'@');
+        if (dataPtr) {
+          *dataPtr = '\0';
+        } else {
+          // point to null terminator
+          dataPtr = lineBuffer + strlen(lineBuffer);
+        }
+        //DEBUG_PRINTF_P(PSTR("SFM: sending eff %08X, buf %08X, len %d\n"), (intptr_t)*effect, (intptr_t)buf, len);
+        auto l_used = snprintf_P((char*) buf, len, PSTR("\"%s\":{\"info\":\"%s\""), lineBuffer, dataPtr+1);
+        buf += l_used; len -= l_used;
+
+        uint8_t id = Effects::getIdForEffect(*effect);
+        if (id < 255) {
+          l_used = snprintf_P((char*) buf, len, PSTR(",\"id\":%d"), id);
+          buf += l_used; len -= l_used;
+        }
+        *buf = '}'; ++buf, --len;
+        ++effect;
+        if (effect != Effects::all().end()) {
+          *buf = ','; ++buf, --len;
+        }
+      }
+    }
+  );
 }
 
 // Global buffer locking response helper class (to make sure lock is released when AsyncJsonResponse is destroyed)
@@ -1117,6 +1198,10 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
+  else if (url.indexOf(F("fxmap")) > 0) {
+    serveFxMap(request);
+    return;
+  }
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);

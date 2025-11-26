@@ -420,6 +420,59 @@ typedef enum mapping1D2D {
 
 class WS2812FX;
 
+// Forward declarations
+struct Effect;
+namespace Effects { uint8_t getIdForEffect(const Effect*); };
+
+// Effect information structure
+typedef uint16_t (*effect_function)(); // pointer to mode function
+struct Effect {
+  const char *data; // mode (effect) name and its UI control data
+  effect_function    fcn;  // mode (effect) function
+  /* Future: per-effect constructor function pointer goes here */
+
+  // Parsed data accessors
+  String getName() const;
+  size_t getName(char* dest, size_t dest_size) const; // no-alloc retrieval
+
+  // ID being kept here right now is an implementation detail - use getIdForEffect() to retrieve
+  private:
+  friend uint8_t Effects::getIdForEffect(const Effect*);
+  uint8_t id;   // mode (effect) id for legacy table (this may later be moved elsewhere)    
+
+  public:
+  constexpr Effect(const char* data_, effect_function fcn_, uint8_t id_ = 255) : data(data_), fcn(fcn_), id(id_) {};
+};
+
+// Global effect list
+// FUTURE: the effect list could potentially be statically assembled at link time, like the usermod list; addEffect may become a macro
+namespace Effects {
+  void reserve(size_t);   // preallocate at least this much space for effect list
+  void addEffect(const Effect* effect);     // add an effect to the global list
+  uint8_t addEffect(const char *mode_name, effect_function mode_fn, uint8_t id);  // Add a non-static effect to the list; returns id
+  
+  const Effect* getEffectByName(const char* name, size_t name_len);
+  inline const Effect* getEffectByName(const char* name) { return getEffectByName(name, strlen(name)); }
+  inline const Effect* getEffectByName(const String& name) { return getEffectByName(name.c_str(), name.length()); }
+
+  const Effect* getEffectById(uint8_t id);    // Returns an effect pointer by id number; if not found, returns first effect
+  inline uint8_t getIdForEffect(const Effect* effect) { return effect->id; }   // Returns the ID number assigned to an effect, or 255 if none available
+  uint8_t getHighestId(); // Returns the highest assigned ID value; often used by older code to iterate through fx by id
+  
+  inline const char *getModeData(unsigned id = 0) { return getEffectById(id)->data; }
+
+  size_t getCount();
+  size_t getCapacity();
+  
+  // Range interface: for(auto& effect: Effects.all())
+  struct asRange {
+    std::vector<const Effect*>::iterator begin();
+    std::vector<const Effect*>::iterator end();
+  };
+  inline asRange all() { return asRange {}; }
+}
+
+
 // segment, 76 bytes
 class Segment {
   public:
@@ -449,7 +502,8 @@ class Segment {
     uint8_t  grouping, spacing;
     uint8_t  opacity,  cct;       // 0==1900K, 255==10091K
     // effect data
-    uint8_t  mode;
+    const Effect* effect;
+    [[deprecated("Use seg.effect for effect metadata, or Effects::getIdForEffect(Segment.effect) if you require a legacy numeric ID")]] uint8_t mode;
     uint8_t  palette;
     uint8_t  speed;
     uint8_t  intensity;
@@ -567,6 +621,8 @@ class Segment {
 
   public:
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
     : colors{DEFAULT_COLOR,BLACK,BLACK}
     , start(sStart)
@@ -579,7 +635,8 @@ class Segment {
     , spacing(0)
     , opacity(255)
     , cct(127)
-    , mode(DEFAULT_MODE)
+    , effect(Effects::getEffectById(0))
+    , mode(0)
     , palette(0)
     , speed(DEFAULT_SPEED)
     , intensity(DEFAULT_INTENSITY)
@@ -612,6 +669,7 @@ class Segment {
         stop = 0; // mark segment as inactive/invalid
       }
     }
+#pragma GCC diagnostic pop
 
     Segment(const Segment &orig); // copy constructor
     Segment(Segment &&orig) noexcept; // move constructor
@@ -669,7 +727,8 @@ class Segment {
     Segment &setCCT(uint16_t k);
     Segment &setOpacity(uint8_t o);
     Segment &setOption(uint8_t n, bool val);
-    Segment &setMode(uint8_t fx, bool loadDefaults = false);
+    Segment &setEffect(const Effect* effect, bool loadDefaults = false);
+    inline Segment &setMode(uint8_t fx, bool loadDefaults = false) { return setEffect(Effects::getEffectById(fx), loadDefaults); }
     Segment &setPalette(uint8_t pal);
     Segment &setName(const char* name);
     void    refreshLightCapabilities() const;
@@ -822,14 +881,7 @@ class Segment {
 
 // main "strip" class (108 bytes)
 class WS2812FX {
-  typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
-  typedef struct ModeData {
-    uint8_t     _id;   // mode (effect) id
-    mode_ptr    _fcn;  // mode (effect) function
-    const char *_data; // mode (effect) name and its UI control data
-    ModeData(uint8_t id, uint16_t (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
-  } mode_data_t;
 
   public:
 
@@ -861,29 +913,20 @@ class WS2812FX {
       _triggered(false),
       _segment_index(0),
       _mainSegment(0),
-      _modeCount(MODE_COUNT),
       _callback(nullptr),
       customMappingTable(nullptr),
       customMappingSize(0),
       _lastShow(0),
       _lastServiceShow(0)
     {
-      _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
-      _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size())
-      if (_mode.capacity() <= 1 || _modeData.capacity() <= 1) _modeCount = 1; // memory allocation failed only show Solid
-      else setupEffectData();
+      Effects::reserve(MODE_COUNT);     // allocate memory to prevent initial fragmentation (does not increase size())
+      setupEffectData();
     }
 
     ~WS2812FX() {
       p_free(_pixels);
       p_free(_pixelCCT); // just in case
       d_free(customMappingTable);
-      _mode.clear();
-      _modeData.clear();
-      _segments.clear();
-#ifndef WLED_DISABLE_2D
-      panel.clear();
-#endif
     }
 
     void
@@ -941,15 +984,13 @@ class WS2812FX {
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;
     uint8_t getActiveSegsLightCapabilities(bool selectedOnly = false) const;
-    uint8_t addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name);         // add effect to the list; defined in FX.cpp;
-
+    
     inline uint8_t getBrightness() const    { return _brightness; }       // returns current strip brightness
     inline static constexpr unsigned getMaxSegments() { return MAX_NUM_SEGMENTS; }  // returns maximum number of supported segments (fixed value)
     inline uint8_t getSegmentsNum() const   { return _segments.size(); }  // returns currently present segments
     inline uint8_t getCurrSegmentId() const { return _segment_index; }    // returns current segment index (only valid while strip.isServicing())
     inline uint8_t getMainSegmentId() const { return _mainSegment; }      // returns main segment index
     inline uint8_t getTargetFps() const     { return _targetFps; }        // returns rough FPS value for las 2s interval
-    inline uint8_t getModeCount() const     { return _modeCount; }        // returns number of registered modes/effects
 
     uint16_t getLengthPhysical() const;
     uint16_t getLengthTotal() const; // will include virtual/nonexistent pixels in matrix
@@ -968,8 +1009,10 @@ class WS2812FX {
     inline uint32_t getPixelColor(unsigned n) const { return (n < getLengthTotal()) ? _pixels[n] : 0; } // returns color of pixel n
     inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 
-    const char *getModeData(unsigned id = 0) const  { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }
-    inline const char **getModeDataSrc()            { return &(_modeData[0]); }           // vectors use arrays for underlying data
+    // Shim interface to library of Effects for compatibility    
+    inline uint8_t addEffect(uint8_t id, effect_function mode_fn, const char *mode_name) { return Effects::addEffect(mode_name, mode_fn, id); }
+    inline const char *getModeData(unsigned id = 0) const { return Effects::getEffectById(id)->data; }
+    inline uint8_t getModeCount() const     { return Effects::getHighestId() + 1; }  // For iterating through Effects by ID - may be larger or smaller than the actual valid Effect count
 
     Segment&        getSegment(unsigned id);
     inline Segment& getFirstSelectedSeg() { return _segments[getFirstSelectedSegId()]; }  // returns reference to first segment that is "selected"
@@ -1048,10 +1091,6 @@ class WS2812FX {
     uint8_t _segment_index;
     uint8_t _mainSegment;
 
-    uint8_t                  _modeCount;
-    std::vector<mode_ptr>    _mode;     // SRAM footprint: 4 bytes per element
-    std::vector<const char*> _modeData; // mode (effect) name and its slider control data array
-
     show_callback _callback;
 
     uint16_t* customMappingTable;
@@ -1063,7 +1102,7 @@ class WS2812FX {
     friend class Segment;
 };
 
-extern const char JSON_mode_names[];
+constexpr const char* JSON_mode_names = nullptr;
 extern const char JSON_palette_names[];
 
 #endif

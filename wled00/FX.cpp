@@ -902,7 +902,7 @@ static uint16_t chase(uint32_t color1, uint32_t color2, uint32_t color3, bool do
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t a = (counter * SEGLEN) >> 16;
 
-  bool chase_random = (SEGMENT.mode == FX_MODE_CHASE_RANDOM);
+  bool chase_random = (Effects::getIdForEffect(SEGMENT.effect) == FX_MODE_CHASE_RANDOM);
   if (chase_random) {
     if (a < SEGENV.step) //we hit the start again, choose new color for Chase random
     {
@@ -10752,276 +10752,248 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
-static const char _data_RESERVED[] PROGMEM = "RSVD";
-
-// add (or replace reserved) effect mode and data into vector
-// use id==255 to find unallocated gaps (with "Reserved" data string)
-// if vector size() is smaller than id (single) data is appended at the end (regardless of id)
-// return the actual id used for the effect or 255 if the add failed.
-uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name) {
-  if (id == 255) { // find empty slot
-    for (size_t i=1; i<_mode.size(); i++) if (_modeData[i] == _data_RESERVED) { id = i; break; }
-  }
-  if (id < _mode.size()) {
-    if (_modeData[id] != _data_RESERVED) return 255; // do not overwrite an already added effect
-    _mode[id]     = mode_fn;
-    _modeData[id] = mode_name;
-    return id;
-  } else if (_mode.size() < 255) { // 255 is reserved for indicating the effect wasn't added
-    _mode.push_back(mode_fn);
-    _modeData.push_back(mode_name);
-    if (_modeCount < _mode.size()) _modeCount++;
-    return _mode.size() - 1;
-  } else {
-    return 255; // The vector is full so return 255
-  }
-}
+#define ADD_EFFECT_STATIC(id, func, data) { const static Effect func ## _e PROGMEM {data, func, id}; Effects::addEffect(& func ## _e); }
 
 void WS2812FX::setupEffectData() {
-  // Solid must be first! (assuming vector is empty upon call to setup)
-  _mode.push_back(&mode_static);
-  _modeData.push_back(_data_FX_MODE_STATIC);
-  // fill reserved word in case there will be any gaps in the array
-  for (size_t i=1; i<_modeCount; i++) {
-    _mode.push_back(&mode_static);
-    _modeData.push_back(_data_RESERVED);
-  }
-  // now replace all pre-allocated effects
-  addEffect(FX_MODE_COPY, &mode_copy_segment, _data_FX_MODE_COPY);
+  // TODO: make this a static initializer for _effects
+  ADD_EFFECT_STATIC(FX_MODE_STATIC, mode_static, _data_FX_MODE_STATIC);
+
+  // now add all pre-allocated effects
+  ADD_EFFECT_STATIC(FX_MODE_COPY, mode_copy_segment, _data_FX_MODE_COPY);
   // --- 1D non-audio effects ---
-  addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
-  addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
-  addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
-  addEffect(FX_MODE_COLOR_WIPE_RANDOM, &mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
-  addEffect(FX_MODE_RANDOM_COLOR, &mode_random_color, _data_FX_MODE_RANDOM_COLOR);
-  addEffect(FX_MODE_COLOR_SWEEP, &mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
-  addEffect(FX_MODE_DYNAMIC, &mode_dynamic, _data_FX_MODE_DYNAMIC);
-  addEffect(FX_MODE_RAINBOW, &mode_rainbow, _data_FX_MODE_RAINBOW);
-  addEffect(FX_MODE_RAINBOW_CYCLE, &mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
-  addEffect(FX_MODE_SCAN, &mode_scan, _data_FX_MODE_SCAN);
-  addEffect(FX_MODE_DUAL_SCAN, &mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
-  addEffect(FX_MODE_FADE, &mode_fade, _data_FX_MODE_FADE);
-  addEffect(FX_MODE_THEATER_CHASE, &mode_theater_chase, _data_FX_MODE_THEATER_CHASE);
-  addEffect(FX_MODE_THEATER_CHASE_RAINBOW, &mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
-  addEffect(FX_MODE_RUNNING_LIGHTS, &mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
-  addEffect(FX_MODE_SAW, &mode_saw, _data_FX_MODE_SAW);
-  addEffect(FX_MODE_TWINKLE, &mode_twinkle, _data_FX_MODE_TWINKLE);
-  addEffect(FX_MODE_DISSOLVE, &mode_dissolve, _data_FX_MODE_DISSOLVE);
-  addEffect(FX_MODE_DISSOLVE_RANDOM, &mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
-  addEffect(FX_MODE_FLASH_SPARKLE, &mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
-  addEffect(FX_MODE_HYPER_SPARKLE, &mode_hyper_sparkle, _data_FX_MODE_HYPER_SPARKLE);
-  addEffect(FX_MODE_STROBE, &mode_strobe, _data_FX_MODE_STROBE);
-  addEffect(FX_MODE_STROBE_RAINBOW, &mode_strobe_rainbow, _data_FX_MODE_STROBE_RAINBOW);
-  addEffect(FX_MODE_MULTI_STROBE, &mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
-  addEffect(FX_MODE_BLINK_RAINBOW, &mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
-  addEffect(FX_MODE_ANDROID, &mode_android, _data_FX_MODE_ANDROID);
-  addEffect(FX_MODE_CHASE_COLOR, &mode_chase_color, _data_FX_MODE_CHASE_COLOR);
-  addEffect(FX_MODE_CHASE_RANDOM, &mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
-  addEffect(FX_MODE_CHASE_RAINBOW, &mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
-  addEffect(FX_MODE_CHASE_FLASH, &mode_chase_flash, _data_FX_MODE_CHASE_FLASH);
-  addEffect(FX_MODE_CHASE_FLASH_RANDOM, &mode_chase_flash_random, _data_FX_MODE_CHASE_FLASH_RANDOM);
-  addEffect(FX_MODE_CHASE_RAINBOW_WHITE, &mode_chase_rainbow_white, _data_FX_MODE_CHASE_RAINBOW_WHITE);
-  addEffect(FX_MODE_COLORFUL, &mode_colorful, _data_FX_MODE_COLORFUL);
-  addEffect(FX_MODE_TRAFFIC_LIGHT, &mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
-  addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
-  addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
-  addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
-  addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
-  addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
-  addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
-  addEffect(FX_MODE_PRIDE_2015, &mode_pride_2015, _data_FX_MODE_PRIDE_2015);
-  addEffect(FX_MODE_COLORWAVES, &mode_colorwaves, _data_FX_MODE_COLORWAVES);
-  addEffect(FX_MODE_FIREWORKS, &mode_fireworks, _data_FX_MODE_FIREWORKS);
-  addEffect(FX_MODE_TETRIX, &mode_tetrix, _data_FX_MODE_TETRIX);
-  addEffect(FX_MODE_FIRE_FLICKER, &mode_fire_flicker, _data_FX_MODE_FIRE_FLICKER);
-  addEffect(FX_MODE_GRADIENT, &mode_gradient, _data_FX_MODE_GRADIENT);
-  addEffect(FX_MODE_LOADING, &mode_loading, _data_FX_MODE_LOADING);
-  addEffect(FX_MODE_FAIRY, &mode_fairy, _data_FX_MODE_FAIRY);
-  addEffect(FX_MODE_TWO_DOTS, &mode_two_dots, _data_FX_MODE_TWO_DOTS);
-  addEffect(FX_MODE_FAIRYTWINKLE, &mode_fairytwinkle, _data_FX_MODE_FAIRYTWINKLE);
-  addEffect(FX_MODE_RUNNING_DUAL, &mode_running_dual, _data_FX_MODE_RUNNING_DUAL);
+  ADD_EFFECT_STATIC(FX_MODE_BLINK, mode_blink, _data_FX_MODE_BLINK);
+  ADD_EFFECT_STATIC(FX_MODE_BREATH, mode_breath, _data_FX_MODE_BREATH);
+  ADD_EFFECT_STATIC(FX_MODE_COLOR_WIPE, mode_color_wipe, _data_FX_MODE_COLOR_WIPE);
+  ADD_EFFECT_STATIC(FX_MODE_COLOR_WIPE_RANDOM, mode_color_wipe_random, _data_FX_MODE_COLOR_WIPE_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_RANDOM_COLOR, mode_random_color, _data_FX_MODE_RANDOM_COLOR);
+  ADD_EFFECT_STATIC(FX_MODE_COLOR_SWEEP, mode_color_sweep, _data_FX_MODE_COLOR_SWEEP);
+  ADD_EFFECT_STATIC(FX_MODE_DYNAMIC, mode_dynamic, _data_FX_MODE_DYNAMIC);
+  ADD_EFFECT_STATIC(FX_MODE_RAINBOW, mode_rainbow, _data_FX_MODE_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_RAINBOW_CYCLE, mode_rainbow_cycle, _data_FX_MODE_RAINBOW_CYCLE);
+  ADD_EFFECT_STATIC(FX_MODE_SCAN, mode_scan, _data_FX_MODE_SCAN);
+  ADD_EFFECT_STATIC(FX_MODE_DUAL_SCAN, mode_dual_scan, _data_FX_MODE_DUAL_SCAN);
+  ADD_EFFECT_STATIC(FX_MODE_FADE, mode_fade, _data_FX_MODE_FADE);
+  ADD_EFFECT_STATIC(FX_MODE_THEATER_CHASE, mode_theater_chase, _data_FX_MODE_THEATER_CHASE);
+  ADD_EFFECT_STATIC(FX_MODE_THEATER_CHASE_RAINBOW, mode_theater_chase_rainbow, _data_FX_MODE_THEATER_CHASE_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_RUNNING_LIGHTS, mode_running_lights, _data_FX_MODE_RUNNING_LIGHTS);
+  ADD_EFFECT_STATIC(FX_MODE_SAW, mode_saw, _data_FX_MODE_SAW);
+  ADD_EFFECT_STATIC(FX_MODE_TWINKLE, mode_twinkle, _data_FX_MODE_TWINKLE);
+  ADD_EFFECT_STATIC(FX_MODE_DISSOLVE, mode_dissolve, _data_FX_MODE_DISSOLVE);
+  ADD_EFFECT_STATIC(FX_MODE_DISSOLVE_RANDOM, mode_dissolve_random, _data_FX_MODE_DISSOLVE_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_FLASH_SPARKLE, mode_flash_sparkle, _data_FX_MODE_FLASH_SPARKLE);
+  ADD_EFFECT_STATIC(FX_MODE_HYPER_SPARKLE, mode_hyper_sparkle, _data_FX_MODE_HYPER_SPARKLE);
+  ADD_EFFECT_STATIC(FX_MODE_STROBE, mode_strobe, _data_FX_MODE_STROBE);
+  ADD_EFFECT_STATIC(FX_MODE_STROBE_RAINBOW, mode_strobe_rainbow, _data_FX_MODE_STROBE_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_MULTI_STROBE, mode_multi_strobe, _data_FX_MODE_MULTI_STROBE);
+  ADD_EFFECT_STATIC(FX_MODE_BLINK_RAINBOW, mode_blink_rainbow, _data_FX_MODE_BLINK_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_ANDROID, mode_android, _data_FX_MODE_ANDROID);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_COLOR, mode_chase_color, _data_FX_MODE_CHASE_COLOR);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_RANDOM, mode_chase_random, _data_FX_MODE_CHASE_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_RAINBOW, mode_chase_rainbow, _data_FX_MODE_CHASE_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_FLASH, mode_chase_flash, _data_FX_MODE_CHASE_FLASH);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_FLASH_RANDOM, mode_chase_flash_random, _data_FX_MODE_CHASE_FLASH_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_CHASE_RAINBOW_WHITE, mode_chase_rainbow_white, _data_FX_MODE_CHASE_RAINBOW_WHITE);
+  ADD_EFFECT_STATIC(FX_MODE_COLORFUL, mode_colorful, _data_FX_MODE_COLORFUL);
+  ADD_EFFECT_STATIC(FX_MODE_TRAFFIC_LIGHT, mode_traffic_light, _data_FX_MODE_TRAFFIC_LIGHT);
+  ADD_EFFECT_STATIC(FX_MODE_COLOR_SWEEP_RANDOM, mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_RUNNING_COLOR, mode_running_color, _data_FX_MODE_RUNNING_COLOR);
+  ADD_EFFECT_STATIC(FX_MODE_AURORA, mode_aurora, _data_FX_MODE_AURORA);
+  ADD_EFFECT_STATIC(FX_MODE_RUNNING_RANDOM, mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
+  ADD_EFFECT_STATIC(FX_MODE_LARSON_SCANNER, mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
+  ADD_EFFECT_STATIC(FX_MODE_RAIN, mode_rain, _data_FX_MODE_RAIN);
+  ADD_EFFECT_STATIC(FX_MODE_PRIDE_2015, mode_pride_2015, _data_FX_MODE_PRIDE_2015);
+  ADD_EFFECT_STATIC(FX_MODE_COLORWAVES, mode_colorwaves, _data_FX_MODE_COLORWAVES);
+  ADD_EFFECT_STATIC(FX_MODE_FIREWORKS, mode_fireworks, _data_FX_MODE_FIREWORKS);
+  ADD_EFFECT_STATIC(FX_MODE_TETRIX, mode_tetrix, _data_FX_MODE_TETRIX);
+  ADD_EFFECT_STATIC(FX_MODE_FIRE_FLICKER, mode_fire_flicker, _data_FX_MODE_FIRE_FLICKER);
+  ADD_EFFECT_STATIC(FX_MODE_GRADIENT, mode_gradient, _data_FX_MODE_GRADIENT);
+  ADD_EFFECT_STATIC(FX_MODE_LOADING, mode_loading, _data_FX_MODE_LOADING);
+  ADD_EFFECT_STATIC(FX_MODE_FAIRY, mode_fairy, _data_FX_MODE_FAIRY);
+  ADD_EFFECT_STATIC(FX_MODE_TWO_DOTS, mode_two_dots, _data_FX_MODE_TWO_DOTS);
+  ADD_EFFECT_STATIC(FX_MODE_FAIRYTWINKLE, mode_fairytwinkle, _data_FX_MODE_FAIRYTWINKLE);
+  ADD_EFFECT_STATIC(FX_MODE_RUNNING_DUAL, mode_running_dual, _data_FX_MODE_RUNNING_DUAL);
   #ifdef WLED_ENABLE_GIF
-  addEffect(FX_MODE_IMAGE, &mode_image, _data_FX_MODE_IMAGE);
+  ADD_EFFECT_STATIC(FX_MODE_IMAGE, mode_image, _data_FX_MODE_IMAGE);
   #endif
-  addEffect(FX_MODE_TRICOLOR_CHASE, &mode_tricolor_chase, _data_FX_MODE_TRICOLOR_CHASE);
-  addEffect(FX_MODE_TRICOLOR_WIPE, &mode_tricolor_wipe, _data_FX_MODE_TRICOLOR_WIPE);
-  addEffect(FX_MODE_TRICOLOR_FADE, &mode_tricolor_fade, _data_FX_MODE_TRICOLOR_FADE);
-  addEffect(FX_MODE_LIGHTNING, &mode_lightning, _data_FX_MODE_LIGHTNING);
-  addEffect(FX_MODE_ICU, &mode_icu, _data_FX_MODE_ICU);
-  addEffect(FX_MODE_DUAL_LARSON_SCANNER, &mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
-  addEffect(FX_MODE_RANDOM_CHASE, &mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
-  addEffect(FX_MODE_OSCILLATE, &mode_oscillate, _data_FX_MODE_OSCILLATE);
-  addEffect(FX_MODE_JUGGLE, &mode_juggle, _data_FX_MODE_JUGGLE);
-  addEffect(FX_MODE_PALETTE, &mode_palette, _data_FX_MODE_PALETTE);
-  addEffect(FX_MODE_BPM, &mode_bpm, _data_FX_MODE_BPM);
-  addEffect(FX_MODE_FILLNOISE8, &mode_fillnoise8, _data_FX_MODE_FILLNOISE8);
-  addEffect(FX_MODE_NOISE16_1, &mode_noise16_1, _data_FX_MODE_NOISE16_1);
-  addEffect(FX_MODE_NOISE16_2, &mode_noise16_2, _data_FX_MODE_NOISE16_2);
-  addEffect(FX_MODE_NOISE16_3, &mode_noise16_3, _data_FX_MODE_NOISE16_3);
-  addEffect(FX_MODE_NOISE16_4, &mode_noise16_4, _data_FX_MODE_NOISE16_4);
-  addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
-  addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
-  addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
-  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
-  addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
-  addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
-  addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
-  addEffect(FX_MODE_TWINKLECAT, &mode_twinklecat, _data_FX_MODE_TWINKLECAT);
-  addEffect(FX_MODE_HALLOWEEN_EYES, &mode_halloween_eyes, _data_FX_MODE_HALLOWEEN_EYES);
-  addEffect(FX_MODE_STATIC_PATTERN, &mode_static_pattern, _data_FX_MODE_STATIC_PATTERN);
-  addEffect(FX_MODE_TRI_STATIC_PATTERN, &mode_tri_static_pattern, _data_FX_MODE_TRI_STATIC_PATTERN);
-  addEffect(FX_MODE_SPOTS, &mode_spots, _data_FX_MODE_SPOTS);
-  addEffect(FX_MODE_SPOTS_FADE, &mode_spots_fade, _data_FX_MODE_SPOTS_FADE);
-  addEffect(FX_MODE_COMET, &mode_comet, _data_FX_MODE_COMET);
+  ADD_EFFECT_STATIC(FX_MODE_TRICOLOR_CHASE, mode_tricolor_chase, _data_FX_MODE_TRICOLOR_CHASE);
+  ADD_EFFECT_STATIC(FX_MODE_TRICOLOR_WIPE, mode_tricolor_wipe, _data_FX_MODE_TRICOLOR_WIPE);
+  ADD_EFFECT_STATIC(FX_MODE_TRICOLOR_FADE, mode_tricolor_fade, _data_FX_MODE_TRICOLOR_FADE);
+  ADD_EFFECT_STATIC(FX_MODE_LIGHTNING, mode_lightning, _data_FX_MODE_LIGHTNING);
+  ADD_EFFECT_STATIC(FX_MODE_ICU, mode_icu, _data_FX_MODE_ICU);
+  ADD_EFFECT_STATIC(FX_MODE_DUAL_LARSON_SCANNER, mode_dual_larson_scanner, _data_FX_MODE_DUAL_LARSON_SCANNER);
+  ADD_EFFECT_STATIC(FX_MODE_RANDOM_CHASE, mode_random_chase, _data_FX_MODE_RANDOM_CHASE);
+  ADD_EFFECT_STATIC(FX_MODE_OSCILLATE, mode_oscillate, _data_FX_MODE_OSCILLATE);
+  ADD_EFFECT_STATIC(FX_MODE_JUGGLE, mode_juggle, _data_FX_MODE_JUGGLE);
+  ADD_EFFECT_STATIC(FX_MODE_PALETTE, mode_palette, _data_FX_MODE_PALETTE);
+  ADD_EFFECT_STATIC(FX_MODE_BPM, mode_bpm, _data_FX_MODE_BPM);
+  ADD_EFFECT_STATIC(FX_MODE_FILLNOISE8, mode_fillnoise8, _data_FX_MODE_FILLNOISE8);
+  ADD_EFFECT_STATIC(FX_MODE_NOISE16_1, mode_noise16_1, _data_FX_MODE_NOISE16_1);
+  ADD_EFFECT_STATIC(FX_MODE_NOISE16_2, mode_noise16_2, _data_FX_MODE_NOISE16_2);
+  ADD_EFFECT_STATIC(FX_MODE_NOISE16_3, mode_noise16_3, _data_FX_MODE_NOISE16_3);
+  ADD_EFFECT_STATIC(FX_MODE_NOISE16_4, mode_noise16_4, _data_FX_MODE_NOISE16_4);
+  ADD_EFFECT_STATIC(FX_MODE_COLORTWINKLE, mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
+  ADD_EFFECT_STATIC(FX_MODE_LAKE, mode_lake, _data_FX_MODE_LAKE);
+  ADD_EFFECT_STATIC(FX_MODE_METEOR, mode_meteor, _data_FX_MODE_METEOR);
+  //ADD_EFFECT_STATIC(FX_MODE_METEOR_SMOOTH, mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
+  ADD_EFFECT_STATIC(FX_MODE_RAILWAY, mode_railway, _data_FX_MODE_RAILWAY);
+  ADD_EFFECT_STATIC(FX_MODE_RIPPLE, mode_ripple, _data_FX_MODE_RIPPLE);
+  ADD_EFFECT_STATIC(FX_MODE_TWINKLEFOX, mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
+  ADD_EFFECT_STATIC(FX_MODE_TWINKLECAT, mode_twinklecat, _data_FX_MODE_TWINKLECAT);
+  ADD_EFFECT_STATIC(FX_MODE_HALLOWEEN_EYES, mode_halloween_eyes, _data_FX_MODE_HALLOWEEN_EYES);
+  ADD_EFFECT_STATIC(FX_MODE_STATIC_PATTERN, mode_static_pattern, _data_FX_MODE_STATIC_PATTERN);
+  ADD_EFFECT_STATIC(FX_MODE_TRI_STATIC_PATTERN, mode_tri_static_pattern, _data_FX_MODE_TRI_STATIC_PATTERN);
+  ADD_EFFECT_STATIC(FX_MODE_SPOTS, mode_spots, _data_FX_MODE_SPOTS);
+  ADD_EFFECT_STATIC(FX_MODE_SPOTS_FADE, mode_spots_fade, _data_FX_MODE_SPOTS_FADE);
+  ADD_EFFECT_STATIC(FX_MODE_COMET, mode_comet, _data_FX_MODE_COMET);
   #ifdef WLED_PS_DONT_REPLACE_FX
-  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
+  ADD_EFFECT_STATIC(FX_MODE_MULTI_COMET, mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
   addEffect(FX_MODE_ROLLINGBALLS, &rolling_balls, _data_FX_MODE_ROLLINGBALLS);
-  addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
-  addEffect(FX_MODE_GLITTER, &mode_glitter, _data_FX_MODE_GLITTER);
-  addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
-  addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
-  addEffect(FX_MODE_DANCING_SHADOWS, &mode_dancing_shadows, _data_FX_MODE_DANCING_SHADOWS);
-  addEffect(FX_MODE_FIRE_2012, &mode_fire_2012, _data_FX_MODE_FIRE_2012);
-  addEffect(FX_MODE_EXPLODING_FIREWORKS, &mode_exploding_fireworks, _data_FX_MODE_EXPLODING_FIREWORKS);
+  ADD_EFFECT_STATIC(FX_MODE_SPARKLE, mode_sparkle, _data_FX_MODE_SPARKLE);
+  ADD_EFFECT_STATIC(FX_MODE_GLITTER, mode_glitter, _data_FX_MODE_GLITTER);
+  ADD_EFFECT_STATIC(FX_MODE_SOLID_GLITTER, mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
+  ADD_EFFECT_STATIC(FX_MODE_STARBURST, mode_starburst, _data_FX_MODE_STARBURST);
+  ADD_EFFECT_STATIC(FX_MODE_DANCING_SHADOWS, mode_dancing_shadows, _data_FX_MODE_DANCING_SHADOWS);
+  ADD_EFFECT_STATIC(FX_MODE_FIRE_2012, mode_fire_2012, _data_FX_MODE_FIRE_2012);
+  ADD_EFFECT_STATIC(FX_MODE_EXPLODING_FIREWORKS, mode_exploding_fireworks, _data_FX_MODE_EXPLODING_FIREWORKS);
   #endif
-  addEffect(FX_MODE_CANDLE, &mode_candle, _data_FX_MODE_CANDLE);
-  addEffect(FX_MODE_BOUNCINGBALLS, &mode_bouncing_balls, _data_FX_MODE_BOUNCINGBALLS);
-  addEffect(FX_MODE_POPCORN, &mode_popcorn, _data_FX_MODE_POPCORN);
-  addEffect(FX_MODE_DRIP, &mode_drip, _data_FX_MODE_DRIP);
-  addEffect(FX_MODE_SINELON, &mode_sinelon, _data_FX_MODE_SINELON);
-  addEffect(FX_MODE_SINELON_DUAL, &mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
-  addEffect(FX_MODE_SINELON_RAINBOW, &mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
-  addEffect(FX_MODE_PLASMA, &mode_plasma, _data_FX_MODE_PLASMA);
-  addEffect(FX_MODE_PERCENT, &mode_percent, _data_FX_MODE_PERCENT);
-  addEffect(FX_MODE_RIPPLE_RAINBOW, &mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
-  addEffect(FX_MODE_HEARTBEAT, &mode_heartbeat, _data_FX_MODE_HEARTBEAT);
-  addEffect(FX_MODE_PACIFICA, &mode_pacifica, _data_FX_MODE_PACIFICA);
-  addEffect(FX_MODE_CANDLE_MULTI, &mode_candle_multi, _data_FX_MODE_CANDLE_MULTI);
-  addEffect(FX_MODE_SUNRISE, &mode_sunrise, _data_FX_MODE_SUNRISE);
-  addEffect(FX_MODE_PHASED, &mode_phased, _data_FX_MODE_PHASED);
-  addEffect(FX_MODE_TWINKLEUP, &mode_twinkleup, _data_FX_MODE_TWINKLEUP);
-  addEffect(FX_MODE_NOISEPAL, &mode_noisepal, _data_FX_MODE_NOISEPAL);
-  addEffect(FX_MODE_SINEWAVE, &mode_sinewave, _data_FX_MODE_SINEWAVE);
-  addEffect(FX_MODE_PHASEDNOISE, &mode_phased_noise, _data_FX_MODE_PHASEDNOISE);
-  addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
-  addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
-  addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
-  addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
-  addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
-  addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
+  ADD_EFFECT_STATIC(FX_MODE_CANDLE, mode_candle, _data_FX_MODE_CANDLE);
+  ADD_EFFECT_STATIC(FX_MODE_BOUNCINGBALLS, mode_bouncing_balls, _data_FX_MODE_BOUNCINGBALLS);
+  ADD_EFFECT_STATIC(FX_MODE_POPCORN, mode_popcorn, _data_FX_MODE_POPCORN);
+  ADD_EFFECT_STATIC(FX_MODE_DRIP, mode_drip, _data_FX_MODE_DRIP);
+  ADD_EFFECT_STATIC(FX_MODE_SINELON, mode_sinelon, _data_FX_MODE_SINELON);
+  ADD_EFFECT_STATIC(FX_MODE_SINELON_DUAL, mode_sinelon_dual, _data_FX_MODE_SINELON_DUAL);
+  ADD_EFFECT_STATIC(FX_MODE_SINELON_RAINBOW, mode_sinelon_rainbow, _data_FX_MODE_SINELON_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_PLASMA, mode_plasma, _data_FX_MODE_PLASMA);
+  ADD_EFFECT_STATIC(FX_MODE_PERCENT, mode_percent, _data_FX_MODE_PERCENT);
+  ADD_EFFECT_STATIC(FX_MODE_RIPPLE_RAINBOW, mode_ripple_rainbow, _data_FX_MODE_RIPPLE_RAINBOW);
+  ADD_EFFECT_STATIC(FX_MODE_HEARTBEAT, mode_heartbeat, _data_FX_MODE_HEARTBEAT);
+  ADD_EFFECT_STATIC(FX_MODE_PACIFICA, mode_pacifica, _data_FX_MODE_PACIFICA);
+  ADD_EFFECT_STATIC(FX_MODE_CANDLE_MULTI, mode_candle_multi, _data_FX_MODE_CANDLE_MULTI);
+  ADD_EFFECT_STATIC(FX_MODE_SUNRISE, mode_sunrise, _data_FX_MODE_SUNRISE);
+  ADD_EFFECT_STATIC(FX_MODE_PHASED, mode_phased, _data_FX_MODE_PHASED);
+  ADD_EFFECT_STATIC(FX_MODE_TWINKLEUP, mode_twinkleup, _data_FX_MODE_TWINKLEUP);
+  ADD_EFFECT_STATIC(FX_MODE_NOISEPAL, mode_noisepal, _data_FX_MODE_NOISEPAL);
+  ADD_EFFECT_STATIC(FX_MODE_SINEWAVE, mode_sinewave, _data_FX_MODE_SINEWAVE);
+  ADD_EFFECT_STATIC(FX_MODE_PHASEDNOISE, mode_phased_noise, _data_FX_MODE_PHASEDNOISE);
+  ADD_EFFECT_STATIC(FX_MODE_FLOW, mode_flow, _data_FX_MODE_FLOW);
+  ADD_EFFECT_STATIC(FX_MODE_CHUNCHUN, mode_chunchun, _data_FX_MODE_CHUNCHUN);  
+  ADD_EFFECT_STATIC(FX_MODE_WASHING_MACHINE, mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
+  ADD_EFFECT_STATIC(FX_MODE_BLENDS, mode_blends, _data_FX_MODE_BLENDS);
+  ADD_EFFECT_STATIC(FX_MODE_TV_SIMULATOR, mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
+  ADD_EFFECT_STATIC(FX_MODE_DYNAMIC_SMOOTH, mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
 
   // --- 1D audio effects ---
-  addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
-  addEffect(FX_MODE_PIXELWAVE, &mode_pixelwave, _data_FX_MODE_PIXELWAVE);
-  addEffect(FX_MODE_JUGGLES, &mode_juggles, _data_FX_MODE_JUGGLES);
-  addEffect(FX_MODE_MATRIPIX, &mode_matripix, _data_FX_MODE_MATRIPIX);
-  addEffect(FX_MODE_GRAVIMETER, &mode_gravimeter, _data_FX_MODE_GRAVIMETER);
-  addEffect(FX_MODE_PLASMOID, &mode_plasmoid, _data_FX_MODE_PLASMOID);
-  addEffect(FX_MODE_PUDDLES, &mode_puddles, _data_FX_MODE_PUDDLES);
-  addEffect(FX_MODE_MIDNOISE, &mode_midnoise, _data_FX_MODE_MIDNOISE);
-  addEffect(FX_MODE_NOISEMETER, &mode_noisemeter, _data_FX_MODE_NOISEMETER);
-  addEffect(FX_MODE_FREQWAVE, &mode_freqwave, _data_FX_MODE_FREQWAVE);
-  addEffect(FX_MODE_FREQMATRIX, &mode_freqmatrix, _data_FX_MODE_FREQMATRIX);
-  addEffect(FX_MODE_WATERFALL, &mode_waterfall, _data_FX_MODE_WATERFALL);
-  addEffect(FX_MODE_FREQPIXELS, &mode_freqpixels, _data_FX_MODE_FREQPIXELS);
-  addEffect(FX_MODE_NOISEFIRE, &mode_noisefire, _data_FX_MODE_NOISEFIRE);
-  addEffect(FX_MODE_PUDDLEPEAK, &mode_puddlepeak, _data_FX_MODE_PUDDLEPEAK);
-  addEffect(FX_MODE_NOISEMOVE, &mode_noisemove, _data_FX_MODE_NOISEMOVE);
-  addEffect(FX_MODE_PERLINMOVE, &mode_perlinmove, _data_FX_MODE_PERLINMOVE);
-  addEffect(FX_MODE_RIPPLEPEAK, &mode_ripplepeak, _data_FX_MODE_RIPPLEPEAK);
-  addEffect(FX_MODE_FREQMAP, &mode_freqmap, _data_FX_MODE_FREQMAP);
-  addEffect(FX_MODE_GRAVCENTER, &mode_gravcenter, _data_FX_MODE_GRAVCENTER);
-  addEffect(FX_MODE_GRAVCENTRIC, &mode_gravcentric, _data_FX_MODE_GRAVCENTRIC);
-  addEffect(FX_MODE_GRAVFREQ, &mode_gravfreq, _data_FX_MODE_GRAVFREQ);
-  addEffect(FX_MODE_DJLIGHT, &mode_DJLight, _data_FX_MODE_DJLIGHT);
-  addEffect(FX_MODE_BLURZ, &mode_blurz, _data_FX_MODE_BLURZ);
-  addEffect(FX_MODE_FLOWSTRIPE, &mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
-  addEffect(FX_MODE_WAVESINS, &mode_wavesins, _data_FX_MODE_WAVESINS);
-  addEffect(FX_MODE_ROCKTAVES, &mode_rocktaves, _data_FX_MODE_ROCKTAVES);
-  addEffect(FX_MODE_SHIMMER, &mode_shimmer, _data_FX_MODE_SHIMMER);
+  ADD_EFFECT_STATIC(FX_MODE_PIXELS, mode_pixels, _data_FX_MODE_PIXELS);
+  ADD_EFFECT_STATIC(FX_MODE_PIXELWAVE, mode_pixelwave, _data_FX_MODE_PIXELWAVE);
+  ADD_EFFECT_STATIC(FX_MODE_JUGGLES, mode_juggles, _data_FX_MODE_JUGGLES);
+  ADD_EFFECT_STATIC(FX_MODE_MATRIPIX, mode_matripix, _data_FX_MODE_MATRIPIX);
+  ADD_EFFECT_STATIC(FX_MODE_GRAVIMETER, mode_gravimeter, _data_FX_MODE_GRAVIMETER);
+  ADD_EFFECT_STATIC(FX_MODE_PLASMOID, mode_plasmoid, _data_FX_MODE_PLASMOID);
+  ADD_EFFECT_STATIC(FX_MODE_PUDDLES, mode_puddles, _data_FX_MODE_PUDDLES);
+  ADD_EFFECT_STATIC(FX_MODE_MIDNOISE, mode_midnoise, _data_FX_MODE_MIDNOISE);
+  ADD_EFFECT_STATIC(FX_MODE_NOISEMETER, mode_noisemeter, _data_FX_MODE_NOISEMETER);
+  ADD_EFFECT_STATIC(FX_MODE_FREQWAVE, mode_freqwave, _data_FX_MODE_FREQWAVE);
+  ADD_EFFECT_STATIC(FX_MODE_FREQMATRIX, mode_freqmatrix, _data_FX_MODE_FREQMATRIX);
+  ADD_EFFECT_STATIC(FX_MODE_WATERFALL, mode_waterfall, _data_FX_MODE_WATERFALL);
+  ADD_EFFECT_STATIC(FX_MODE_FREQPIXELS, mode_freqpixels, _data_FX_MODE_FREQPIXELS);
+  ADD_EFFECT_STATIC(FX_MODE_NOISEFIRE, mode_noisefire, _data_FX_MODE_NOISEFIRE);
+  ADD_EFFECT_STATIC(FX_MODE_PUDDLEPEAK, mode_puddlepeak, _data_FX_MODE_PUDDLEPEAK);
+  ADD_EFFECT_STATIC(FX_MODE_NOISEMOVE, mode_noisemove, _data_FX_MODE_NOISEMOVE);
+  ADD_EFFECT_STATIC(FX_MODE_PERLINMOVE, mode_perlinmove, _data_FX_MODE_PERLINMOVE);
+  ADD_EFFECT_STATIC(FX_MODE_RIPPLEPEAK, mode_ripplepeak, _data_FX_MODE_RIPPLEPEAK);
+  ADD_EFFECT_STATIC(FX_MODE_FREQMAP, mode_freqmap, _data_FX_MODE_FREQMAP);
+  ADD_EFFECT_STATIC(FX_MODE_GRAVCENTER, mode_gravcenter, _data_FX_MODE_GRAVCENTER);
+  ADD_EFFECT_STATIC(FX_MODE_GRAVCENTRIC, mode_gravcentric, _data_FX_MODE_GRAVCENTRIC);
+  ADD_EFFECT_STATIC(FX_MODE_GRAVFREQ, mode_gravfreq, _data_FX_MODE_GRAVFREQ);
+  ADD_EFFECT_STATIC(FX_MODE_DJLIGHT, mode_DJLight, _data_FX_MODE_DJLIGHT);
+  ADD_EFFECT_STATIC(FX_MODE_BLURZ, mode_blurz, _data_FX_MODE_BLURZ);
+  ADD_EFFECT_STATIC(FX_MODE_FLOWSTRIPE, mode_FlowStripe, _data_FX_MODE_FLOWSTRIPE);
+  ADD_EFFECT_STATIC(FX_MODE_WAVESINS, mode_wavesins, _data_FX_MODE_WAVESINS);
+  ADD_EFFECT_STATIC(FX_MODE_ROCKTAVES, mode_rocktaves, _data_FX_MODE_ROCKTAVES);
+  ADD_EFFECT_STATIC(FX_MODE_SHIMMER, mode_shimmer, _data_FX_MODE_SHIMMER);
 
   // --- 2D  effects ---
 #ifndef WLED_DISABLE_2D
-  addEffect(FX_MODE_2DPLASMAROTOZOOM, &mode_2Dplasmarotozoom, _data_FX_MODE_2DPLASMAROTOZOOM);
-  addEffect(FX_MODE_2DSPACESHIPS, &mode_2Dspaceships, _data_FX_MODE_2DSPACESHIPS);
-  addEffect(FX_MODE_2DCRAZYBEES, &mode_2Dcrazybees, _data_FX_MODE_2DCRAZYBEES);
+  ADD_EFFECT_STATIC(FX_MODE_2DPLASMAROTOZOOM, mode_2Dplasmarotozoom, _data_FX_MODE_2DPLASMAROTOZOOM);
+  ADD_EFFECT_STATIC(FX_MODE_2DSPACESHIPS, mode_2Dspaceships, _data_FX_MODE_2DSPACESHIPS);
+  ADD_EFFECT_STATIC(FX_MODE_2DCRAZYBEES, mode_2Dcrazybees, _data_FX_MODE_2DCRAZYBEES);
 
   #ifdef WLED_PS_DONT_REPLACE_FX
-  addEffect(FX_MODE_2DGHOSTRIDER, &mode_2Dghostrider, _data_FX_MODE_2DGHOSTRIDER);
-  addEffect(FX_MODE_2DBLOBS, &mode_2Dfloatingblobs, _data_FX_MODE_2DBLOBS);
+  ADD_EFFECT_STATIC(FX_MODE_2DGHOSTRIDER, mode_2Dghostrider, _data_FX_MODE_2DGHOSTRIDER);
+  ADD_EFFECT_STATIC(FX_MODE_2DBLOBS, mode_2Dfloatingblobs, _data_FX_MODE_2DBLOBS);
   #endif
 
-  addEffect(FX_MODE_2DSCROLLTEXT, &mode_2Dscrollingtext, _data_FX_MODE_2DSCROLLTEXT);
-  addEffect(FX_MODE_2DDRIFTROSE, &mode_2Ddriftrose, _data_FX_MODE_2DDRIFTROSE);
-  addEffect(FX_MODE_2DDISTORTIONWAVES, &mode_2Ddistortionwaves, _data_FX_MODE_2DDISTORTIONWAVES);
-  addEffect(FX_MODE_2DGEQ, &mode_2DGEQ, _data_FX_MODE_2DGEQ); // audio
-  addEffect(FX_MODE_2DNOISE, &mode_2Dnoise, _data_FX_MODE_2DNOISE);
-  addEffect(FX_MODE_2DFIRENOISE, &mode_2Dfirenoise, _data_FX_MODE_2DFIRENOISE);
-  addEffect(FX_MODE_2DSQUAREDSWIRL, &mode_2Dsquaredswirl, _data_FX_MODE_2DSQUAREDSWIRL);
+  ADD_EFFECT_STATIC(FX_MODE_2DSCROLLTEXT, mode_2Dscrollingtext, _data_FX_MODE_2DSCROLLTEXT);
+  ADD_EFFECT_STATIC(FX_MODE_2DDRIFTROSE, mode_2Ddriftrose, _data_FX_MODE_2DDRIFTROSE);
+  ADD_EFFECT_STATIC(FX_MODE_2DDISTORTIONWAVES, mode_2Ddistortionwaves, _data_FX_MODE_2DDISTORTIONWAVES);
+  ADD_EFFECT_STATIC(FX_MODE_2DGEQ, mode_2DGEQ, _data_FX_MODE_2DGEQ); // audio
+  ADD_EFFECT_STATIC(FX_MODE_2DNOISE, mode_2Dnoise, _data_FX_MODE_2DNOISE);
+  ADD_EFFECT_STATIC(FX_MODE_2DFIRENOISE, mode_2Dfirenoise, _data_FX_MODE_2DFIRENOISE);
+  ADD_EFFECT_STATIC(FX_MODE_2DSQUAREDSWIRL, mode_2Dsquaredswirl, _data_FX_MODE_2DSQUAREDSWIRL);
 
   //non audio
-  addEffect(FX_MODE_2DDNA, &mode_2Ddna, _data_FX_MODE_2DDNA);
-  addEffect(FX_MODE_2DMATRIX, &mode_2Dmatrix, _data_FX_MODE_2DMATRIX);
-  addEffect(FX_MODE_2DMETABALLS, &mode_2Dmetaballs, _data_FX_MODE_2DMETABALLS);
-  addEffect(FX_MODE_2DFUNKYPLANK, &mode_2DFunkyPlank, _data_FX_MODE_2DFUNKYPLANK); // audio
-  addEffect(FX_MODE_2DPULSER, &mode_2DPulser, _data_FX_MODE_2DPULSER);
-  addEffect(FX_MODE_2DDRIFT, &mode_2DDrift, _data_FX_MODE_2DDRIFT);
-  addEffect(FX_MODE_2DWAVERLY, &mode_2DWaverly, _data_FX_MODE_2DWAVERLY); // audio
-  addEffect(FX_MODE_2DSUNRADIATION, &mode_2DSunradiation, _data_FX_MODE_2DSUNRADIATION);
-  addEffect(FX_MODE_2DCOLOREDBURSTS, &mode_2DColoredBursts, _data_FX_MODE_2DCOLOREDBURSTS);
-  addEffect(FX_MODE_2DJULIA, &mode_2DJulia, _data_FX_MODE_2DJULIA);
-  addEffect(FX_MODE_2DGAMEOFLIFE, &mode_2Dgameoflife, _data_FX_MODE_2DGAMEOFLIFE);
-  addEffect(FX_MODE_2DTARTAN, &mode_2Dtartan, _data_FX_MODE_2DTARTAN);
-  addEffect(FX_MODE_2DPOLARLIGHTS, &mode_2DPolarLights, _data_FX_MODE_2DPOLARLIGHTS);
-  addEffect(FX_MODE_2DSWIRL, &mode_2DSwirl, _data_FX_MODE_2DSWIRL); // audio
-  addEffect(FX_MODE_2DLISSAJOUS, &mode_2DLissajous, _data_FX_MODE_2DLISSAJOUS);
-  addEffect(FX_MODE_2DFRIZZLES, &mode_2DFrizzles, _data_FX_MODE_2DFRIZZLES);
-  addEffect(FX_MODE_2DPLASMABALL, &mode_2DPlasmaball, _data_FX_MODE_2DPLASMABALL);
-  addEffect(FX_MODE_2DHIPHOTIC, &mode_2DHiphotic, _data_FX_MODE_2DHIPHOTIC);
-  addEffect(FX_MODE_2DSINDOTS, &mode_2DSindots, _data_FX_MODE_2DSINDOTS);
-  addEffect(FX_MODE_2DDNASPIRAL, &mode_2DDNASpiral, _data_FX_MODE_2DDNASPIRAL);
-  addEffect(FX_MODE_2DBLACKHOLE, &mode_2DBlackHole, _data_FX_MODE_2DBLACKHOLE);
-  addEffect(FX_MODE_2DSOAP, &mode_2Dsoap, _data_FX_MODE_2DSOAP);
-  addEffect(FX_MODE_2DOCTOPUS, &mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
-  addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
-  addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+  ADD_EFFECT_STATIC(FX_MODE_2DDNA, mode_2Ddna, _data_FX_MODE_2DDNA);
+  ADD_EFFECT_STATIC(FX_MODE_2DMATRIX, mode_2Dmatrix, _data_FX_MODE_2DMATRIX);
+  ADD_EFFECT_STATIC(FX_MODE_2DMETABALLS, mode_2Dmetaballs, _data_FX_MODE_2DMETABALLS);
+  ADD_EFFECT_STATIC(FX_MODE_2DFUNKYPLANK, mode_2DFunkyPlank, _data_FX_MODE_2DFUNKYPLANK); // audio
+  ADD_EFFECT_STATIC(FX_MODE_2DPULSER, mode_2DPulser, _data_FX_MODE_2DPULSER);
+  ADD_EFFECT_STATIC(FX_MODE_2DDRIFT, mode_2DDrift, _data_FX_MODE_2DDRIFT);
+  ADD_EFFECT_STATIC(FX_MODE_2DWAVERLY, mode_2DWaverly, _data_FX_MODE_2DWAVERLY); // audio
+  ADD_EFFECT_STATIC(FX_MODE_2DSUNRADIATION, mode_2DSunradiation, _data_FX_MODE_2DSUNRADIATION);
+  ADD_EFFECT_STATIC(FX_MODE_2DCOLOREDBURSTS, mode_2DColoredBursts, _data_FX_MODE_2DCOLOREDBURSTS);
+  ADD_EFFECT_STATIC(FX_MODE_2DJULIA, mode_2DJulia, _data_FX_MODE_2DJULIA);
+  ADD_EFFECT_STATIC(FX_MODE_2DGAMEOFLIFE, mode_2Dgameoflife, _data_FX_MODE_2DGAMEOFLIFE);
+  ADD_EFFECT_STATIC(FX_MODE_2DTARTAN, mode_2Dtartan, _data_FX_MODE_2DTARTAN);
+  ADD_EFFECT_STATIC(FX_MODE_2DPOLARLIGHTS, mode_2DPolarLights, _data_FX_MODE_2DPOLARLIGHTS);
+  ADD_EFFECT_STATIC(FX_MODE_2DSWIRL, mode_2DSwirl, _data_FX_MODE_2DSWIRL); // audio
+  ADD_EFFECT_STATIC(FX_MODE_2DLISSAJOUS, mode_2DLissajous, _data_FX_MODE_2DLISSAJOUS);
+  ADD_EFFECT_STATIC(FX_MODE_2DFRIZZLES, mode_2DFrizzles, _data_FX_MODE_2DFRIZZLES);
+  ADD_EFFECT_STATIC(FX_MODE_2DPLASMABALL, mode_2DPlasmaball, _data_FX_MODE_2DPLASMABALL);
+  ADD_EFFECT_STATIC(FX_MODE_2DHIPHOTIC, mode_2DHiphotic, _data_FX_MODE_2DHIPHOTIC);
+  ADD_EFFECT_STATIC(FX_MODE_2DSINDOTS, mode_2DSindots, _data_FX_MODE_2DSINDOTS);
+  ADD_EFFECT_STATIC(FX_MODE_2DDNASPIRAL, mode_2DDNASpiral, _data_FX_MODE_2DDNASPIRAL);
+  ADD_EFFECT_STATIC(FX_MODE_2DBLACKHOLE, mode_2DBlackHole, _data_FX_MODE_2DBLACKHOLE);
+  ADD_EFFECT_STATIC(FX_MODE_2DSOAP, mode_2Dsoap, _data_FX_MODE_2DSOAP);
+  ADD_EFFECT_STATIC(FX_MODE_2DOCTOPUS, mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
+  ADD_EFFECT_STATIC(FX_MODE_2DWAVINGCELL, mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
+  ADD_EFFECT_STATIC(FX_MODE_2DAKEMI, mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
-  addEffect(FX_MODE_PARTICLEVOLCANO, &mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
-  addEffect(FX_MODE_PARTICLEFIRE, &mode_particlefire, _data_FX_MODE_PARTICLEFIRE);
-  addEffect(FX_MODE_PARTICLEFIREWORKS, &mode_particlefireworks, _data_FX_MODE_PARTICLEFIREWORKS);
-  addEffect(FX_MODE_PARTICLEVORTEX, &mode_particlevortex, _data_FX_MODE_PARTICLEVORTEX);
-  addEffect(FX_MODE_PARTICLEPERLIN, &mode_particleperlin, _data_FX_MODE_PARTICLEPERLIN);
-  addEffect(FX_MODE_PARTICLEPIT, &mode_particlepit, _data_FX_MODE_PARTICLEPIT);
-  addEffect(FX_MODE_PARTICLEBOX, &mode_particlebox, _data_FX_MODE_PARTICLEBOX);
-  addEffect(FX_MODE_PARTICLEATTRACTOR, &mode_particleattractor, _data_FX_MODE_PARTICLEATTRACTOR); // 872 bytes
-  addEffect(FX_MODE_PARTICLEIMPACT, &mode_particleimpact, _data_FX_MODE_PARTICLEIMPACT);
-  addEffect(FX_MODE_PARTICLEWATERFALL, &mode_particlewaterfall, _data_FX_MODE_PARTICLEWATERFALL);
-  addEffect(FX_MODE_PARTICLESPRAY, &mode_particlespray, _data_FX_MODE_PARTICLESPRAY);
-  addEffect(FX_MODE_PARTICLESGEQ, &mode_particleGEQ, _data_FX_MODE_PARTICLEGEQ);
-  addEffect(FX_MODE_PARTICLECENTERGEQ, &mode_particlecenterGEQ, _data_FX_MODE_PARTICLECIRCULARGEQ);
-  addEffect(FX_MODE_PARTICLEGHOSTRIDER, &mode_particleghostrider, _data_FX_MODE_PARTICLEGHOSTRIDER);
-  addEffect(FX_MODE_PARTICLEBLOBS, &mode_particleblobs, _data_FX_MODE_PARTICLEBLOBS);
-  addEffect(FX_MODE_PARTICLEGALAXY, &mode_particlegalaxy, _data_FX_MODE_PARTICLEGALAXY);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEVOLCANO, mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEFIRE, mode_particlefire, _data_FX_MODE_PARTICLEFIRE);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEFIREWORKS, mode_particlefireworks, _data_FX_MODE_PARTICLEFIREWORKS);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEVORTEX, mode_particlevortex, _data_FX_MODE_PARTICLEVORTEX);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEPERLIN, mode_particleperlin, _data_FX_MODE_PARTICLEPERLIN);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEPIT, mode_particlepit, _data_FX_MODE_PARTICLEPIT);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEBOX, mode_particlebox, _data_FX_MODE_PARTICLEBOX);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEATTRACTOR, mode_particleattractor, _data_FX_MODE_PARTICLEATTRACTOR); // 872 bytes
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEIMPACT, mode_particleimpact, _data_FX_MODE_PARTICLEIMPACT);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEWATERFALL, mode_particlewaterfall, _data_FX_MODE_PARTICLEWATERFALL);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLESPRAY, mode_particlespray, _data_FX_MODE_PARTICLESPRAY);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLESGEQ, mode_particleGEQ, _data_FX_MODE_PARTICLEGEQ);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLECENTERGEQ, mode_particlecenterGEQ, _data_FX_MODE_PARTICLECIRCULARGEQ);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEGHOSTRIDER, mode_particleghostrider, _data_FX_MODE_PARTICLEGHOSTRIDER);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEBLOBS, mode_particleblobs, _data_FX_MODE_PARTICLEBLOBS);
+  ADD_EFFECT_STATIC(FX_MODE_PARTICLEGALAXY, mode_particlegalaxy, _data_FX_MODE_PARTICLEGALAXY);
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
-addEffect(FX_MODE_PSDRIP, &mode_particleDrip, _data_FX_MODE_PARTICLEDRIP);
-addEffect(FX_MODE_PSPINBALL, &mode_particlePinball, _data_FX_MODE_PSPINBALL); //potential replacement for: bouncing balls, rollingballs, popcorn
-addEffect(FX_MODE_PSDANCINGSHADOWS, &mode_particleDancingShadows, _data_FX_MODE_PARTICLEDANCINGSHADOWS);
-addEffect(FX_MODE_PSFIREWORKS1D, &mode_particleFireworks1D, _data_FX_MODE_PS_FIREWORKS1D);
-addEffect(FX_MODE_PSSPARKLER, &mode_particleSparkler, _data_FX_MODE_PS_SPARKLER);
-addEffect(FX_MODE_PSHOURGLASS, &mode_particleHourglass, _data_FX_MODE_PS_HOURGLASS);
-addEffect(FX_MODE_PS1DSPRAY, &mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
-addEffect(FX_MODE_PSBALANCE, &mode_particleBalance, _data_FX_MODE_PS_BALANCE);
-addEffect(FX_MODE_PSCHASE, &mode_particleChase, _data_FX_MODE_PS_CHASE);
-addEffect(FX_MODE_PSSTARBURST, &mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
-addEffect(FX_MODE_PS1DGEQ, &mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
-addEffect(FX_MODE_PSFIRE1D, &mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
-addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
-addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
-addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
+ADD_EFFECT_STATIC(FX_MODE_PSDRIP, mode_particleDrip, _data_FX_MODE_PARTICLEDRIP);
+ADD_EFFECT_STATIC(FX_MODE_PSPINBALL, mode_particlePinball, _data_FX_MODE_PSPINBALL); //potential replacement for: bouncing balls, rollingballs, popcorn
+ADD_EFFECT_STATIC(FX_MODE_PSDANCINGSHADOWS, mode_particleDancingShadows, _data_FX_MODE_PARTICLEDANCINGSHADOWS);
+ADD_EFFECT_STATIC(FX_MODE_PSFIREWORKS1D, mode_particleFireworks1D, _data_FX_MODE_PS_FIREWORKS1D);
+ADD_EFFECT_STATIC(FX_MODE_PSSPARKLER, mode_particleSparkler, _data_FX_MODE_PS_SPARKLER);
+ADD_EFFECT_STATIC(FX_MODE_PSHOURGLASS, mode_particleHourglass, _data_FX_MODE_PS_HOURGLASS);
+ADD_EFFECT_STATIC(FX_MODE_PS1DSPRAY, mode_particle1Dspray, _data_FX_MODE_PS_1DSPRAY);
+ADD_EFFECT_STATIC(FX_MODE_PSBALANCE, mode_particleBalance, _data_FX_MODE_PS_BALANCE);
+ADD_EFFECT_STATIC(FX_MODE_PSCHASE, mode_particleChase, _data_FX_MODE_PS_CHASE);
+ADD_EFFECT_STATIC(FX_MODE_PSSTARBURST, mode_particleStarburst, _data_FX_MODE_PS_STARBURST);
+ADD_EFFECT_STATIC(FX_MODE_PS1DGEQ, mode_particle1DGEQ, _data_FX_MODE_PS_1D_GEQ);
+ADD_EFFECT_STATIC(FX_MODE_PSFIRE1D, mode_particleFire1D, _data_FX_MODE_PS_FIRE1D);
+ADD_EFFECT_STATIC(FX_MODE_PS1DSONICSTREAM, mode_particle1DsonicStream, _data_FX_MODE_PS_SONICSTREAM);
+ADD_EFFECT_STATIC(FX_MODE_PS1DSONICBOOM, mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
+ADD_EFFECT_STATIC(FX_MODE_PS1DSPRINGY, mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
 }
