@@ -1064,16 +1064,18 @@ void serializePins(JsonObject root)
   JsonArray pins = root.createNestedArray(F("pins"));
 
   for (int gpio = 0; gpio < WLED_NUM_PINS; gpio++) {
-    // Skip pins that are not allocated - only show pins that are in use
-    if (!PinManager::isPinAllocated(gpio)) continue;
+    bool canInput = PinManager::isPinOk(gpio, false);
+    bool canOutput = PinManager::isPinOk(gpio, true);
+    bool isAllocated = PinManager::isPinAllocated(gpio);
+    
+    // Skip pins that are neither usable nor allocated (truly unusable pins)
+    if (!canInput && !canOutput && !isAllocated) continue;
 
     JsonObject pinObj = pins.createNestedObject();
     pinObj["p"] = gpio;  // pin number
 
     // Calculate capabilities
     uint8_t caps = 0;
-    bool canInput = PinManager::isPinOk(gpio, false);
-    bool canOutput = PinManager::isPinOk(gpio, true);
     
     if (canInput) caps |= PIN_CAP_INPUT;
     if (canOutput) caps |= PIN_CAP_OUTPUT;
@@ -1111,19 +1113,12 @@ void serializePins(JsonObject root)
 
     pinObj["c"] = caps;  // capabilities
 
-    // Check if pin is allocated
+    // Add allocated status and owner
     PinOwner owner = PinManager::getPinOwner(gpio);
+    pinObj["a"] = isAllocated;  // allocated status
     
-    pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID
-    
-    // Add owner name for usermods (low bit owners)
-    if (!(static_cast<uint8_t>(owner) & 0x80)) {
-      // This is a usermod - try to get its name
-      Usermod* um = UsermodManager::lookup(static_cast<uint8_t>(owner));
-      if (um) {
-        // Get usermod name from addToConfig by creating a temporary JSON object
-        // Unfortunately there's no getName() method, so we'll leave this for the UI
-      }
+    if (isAllocated) {
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID
     }
 
     // For button pins, check if internal pullup/pulldown would be used and get state
@@ -1138,7 +1133,7 @@ void serializePins(JsonObject root)
     }
 
     // For relay pin, get state
-    if (gpio == rlyPin) {
+    if (isAllocated && gpio == rlyPin) {
       pinObj["m"] = 1;  // mode: output/relay
       // Relay state: when LEDs are on (bri > 0), relay is in active mode
       // rlyMde: true = active high, false = active low
@@ -1147,7 +1142,7 @@ void serializePins(JsonObject root)
       pinObj["s"] = relayState ? 1 : 0;
     }
     // For button pins, get state and type
-    else if (isButton && buttonIndex >= 0) {
+    else if (isAllocated && isButton && buttonIndex >= 0) {
       pinObj["m"] = 0;  // mode: input/button
       pinObj["t"] = buttonType[buttonIndex];  // button type
       // Read current digital state
@@ -1164,11 +1159,15 @@ void serializePins(JsonObject root)
         case BTN_TYPE_TOUCH:
         case BTN_TYPE_TOUCH_SWITCH:
           #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-            #ifdef SOC_TOUCH_VERSION_2
-            state = touchInterruptGetLastStatus(gpio);
-            #else
-            if (digitalPinToTouchChannel(gpio) >= 0) state = touchRead(gpio) <= touchThreshold;
-            #endif
+            if (digitalPinToTouchChannel(gpio) >= 0) {
+              #ifdef SOC_TOUCH_VERSION_2
+              // ESP32-S2/S3: use touchRead which returns touch value
+              state = touchRead(gpio) <= touchThreshold;
+              #else
+              // ESP32 classic: use touchRead
+              state = touchRead(gpio) <= touchThreshold;
+              #endif
+            }
           #endif
           break;
         default:
@@ -1185,8 +1184,8 @@ void serializePins(JsonObject root)
         pinObj["u"] = disablePullUp ? 0 : 1;  // pullup enabled
       }
     }
-    // For other allocated output pins that are simple GPIO (not LED/PWM), try to read state
-    else if (owner == PinOwner::BusOnOff) {
+    // For other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.)
+    else if (isAllocated && (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay)) {
       pinObj["m"] = 1;  // mode: output
       pinObj["s"] = digitalRead(gpio);  // state
     }
