@@ -1207,6 +1207,7 @@ String generateDeviceFingerprint() {
 // Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
 String getDeviceId() {
   static String cachedDeviceId = "";
+  if (cachedDeviceId.length() > 0) return cachedDeviceId;
   // The device string is deterministic as it needs to be consistent for the same device, even after a full flash erase
   // MAC is salted with other consistent device info to avoid rainbow table attacks.
   // If the MAC address is known by malicious actors, they could precompute SHA1 hashes to impersonate devices,
