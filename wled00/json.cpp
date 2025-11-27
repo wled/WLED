@@ -1045,6 +1045,141 @@ void serializeNodes(JsonObject root)
   }
 }
 
+// Pin capability flags (active capabilities that WLED uses)
+#define PIN_CAP_INPUT        0x01   // can be used as input
+#define PIN_CAP_OUTPUT       0x02   // can be used as output
+#define PIN_CAP_ADC          0x04   // has ADC capability (analog input)
+#define PIN_CAP_TOUCH        0x08   // has touch capability
+#define PIN_CAP_DAC          0x10   // has DAC capability (analog output)
+#define PIN_CAP_IR           0x20   // can be used for IR (RMT on ESP32)
+#define PIN_CAP_I2S          0x40   // can be used for I2S (LED data)
+#define PIN_CAP_PWM          0x80   // can be used for PWM (analog LED output)
+
+void serializePins(JsonObject root)
+{
+  JsonArray pins = root.createNestedArray(F("pins"));
+
+  for (int gpio = 0; gpio < WLED_NUM_PINS; gpio++) {
+    // Skip pins that are not usable at all (flash, etc.)
+    if (!PinManager::isPinOk(gpio, false) && !PinManager::isPinOk(gpio, true)) {
+      // Check if pin is allocated anyway (e.g. Ethernet)
+      if (!PinManager::isPinAllocated(gpio)) continue;
+    }
+
+    JsonObject pinObj = pins.createNestedObject();
+    pinObj["p"] = gpio;  // pin number
+
+    // Calculate capabilities
+    uint8_t caps = 0;
+    bool canInput = PinManager::isPinOk(gpio, false);
+    bool canOutput = PinManager::isPinOk(gpio, true);
+    
+    if (canInput) caps |= PIN_CAP_INPUT;
+    if (canOutput) caps |= PIN_CAP_OUTPUT;
+    
+    #ifdef ARDUINO_ARCH_ESP32
+    // Check ADC capability
+    if (digitalPinToAnalogChannel(gpio) >= 0) caps |= PIN_CAP_ADC;
+    
+    // Check touch capability (not available on C3)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (digitalPinToTouchChannel(gpio) >= 0) caps |= PIN_CAP_TOUCH;
+    #endif
+
+    // DAC pins (ESP32 classic only: GPIO 25, 26)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+    if (gpio == 25 || gpio == 26) caps |= PIN_CAP_DAC;
+    #endif
+
+    // PWM - all output-capable GPIO can do PWM on ESP32
+    if (canOutput) caps |= PIN_CAP_PWM;
+    
+    // I2S - most GPIO can be used for I2S/LED data on ESP32
+    if (canOutput) caps |= PIN_CAP_I2S;
+    
+    // IR - RMT channels can be used on most GPIO
+    if (canInput) caps |= PIN_CAP_IR;
+    #else
+    // ESP8266 - simpler capabilities
+    if (gpio < 16) {
+      caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
+    }
+    if (gpio == A0 || gpio == 17) caps |= PIN_CAP_ADC;  // Only A0 has ADC
+    #endif
+
+    pinObj["c"] = caps;  // capabilities
+
+    // Check if pin is allocated
+    PinOwner owner = PinManager::getPinOwner(gpio);
+    bool allocated = PinManager::isPinAllocated(gpio);
+    
+    pinObj["a"] = allocated;  // allocated
+    if (allocated) {
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner
+    }
+
+    // For button pins, check if internal pullup/pulldown would be used and get state
+    bool isButton = false;
+    int buttonIndex = -1;
+    for (int b = 0; b < WLED_MAX_BUTTONS; b++) {
+      if (btnPin[b] == gpio && buttonType[b] != BTN_TYPE_NONE) {
+        isButton = true;
+        buttonIndex = b;
+        break;
+      }
+    }
+
+    // For relay pin, get state
+    if (gpio == rlyPin && allocated) {
+      pinObj["m"] = 1;  // mode: output/relay
+      pinObj["s"] = bri > 0 ? (rlyMde ? 1 : 0) : (rlyMde ? 0 : 1);  // state based on relay mode and bri
+    }
+    // For button pins, get state
+    else if (isButton && buttonIndex >= 0) {
+      pinObj["m"] = 0;  // mode: input/button
+      // Read current digital state
+      bool state = false;
+      switch (buttonType[buttonIndex]) {
+        case BTN_TYPE_PUSH:
+        case BTN_TYPE_SWITCH:
+          state = digitalRead(gpio) == LOW;
+          break;
+        case BTN_TYPE_PUSH_ACT_HIGH:
+        case BTN_TYPE_PIR_SENSOR:
+          state = digitalRead(gpio) == HIGH;
+          break;
+        case BTN_TYPE_TOUCH:
+        case BTN_TYPE_TOUCH_SWITCH:
+          #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+            #ifdef SOC_TOUCH_VERSION_2
+            state = touchInterruptGetLastStatus(gpio);
+            #else
+            if (digitalPinToTouchChannel(gpio) >= 0) state = touchRead(gpio) <= touchThreshold;
+            #endif
+          #endif
+          break;
+        default:
+          state = digitalRead(gpio);
+          break;
+      }
+      pinObj["s"] = state ? 1 : 0;  // state
+      
+      // Pullup status (when not using touch or analog)
+      if (buttonType[buttonIndex] != BTN_TYPE_TOUCH && 
+          buttonType[buttonIndex] != BTN_TYPE_TOUCH_SWITCH &&
+          buttonType[buttonIndex] != BTN_TYPE_ANALOG &&
+          buttonType[buttonIndex] != BTN_TYPE_ANALOG_INVERTED) {
+        pinObj["u"] = disablePullUp ? 0 : 1;  // pullup enabled
+      }
+    }
+    // For other allocated output pins that are simple GPIO (not LED/PWM), try to read state
+    else if (allocated && owner == PinOwner::BusOnOff) {
+      pinObj["m"] = 1;  // mode: output
+      pinObj["s"] = digitalRead(gpio);  // state
+    }
+  }
+}
+
 // deserializes mode data string into JsonArray
 void serializeModeData(JsonArray fxdata)
 {
@@ -1103,7 +1238,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
 void serveJson(AsyncWebServerRequest* request)
 {
   enum class json_target {
-    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config
+    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config, pins
   };
   json_target subJson = json_target::all;
 
@@ -1117,6 +1252,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
+  else if (url.indexOf(F("pins"))  > 0) subJson = json_target::pins;
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
@@ -1160,6 +1296,8 @@ void serveJson(AsyncWebServerRequest* request)
       serializeNetworks(lDoc); break;
     case json_target::config:
       serializeConfig(lDoc); break;
+    case json_target::pins:
+      serializePins(lDoc); break;
     case json_target::state_info:
     case json_target::all:
       JsonObject state = lDoc.createNestedObject("state");
