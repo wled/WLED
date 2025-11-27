@@ -1156,14 +1156,15 @@ void serializePins(JsonObject root)
         case BTN_TYPE_TOUCH_SWITCH:
           #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
             if (digitalPinToTouchChannel(gpio) >= 0) {
-              #ifdef SOC_TOUCH_VERSION_2
-              // ESP32-S2/S3: use touchRead which returns touch value
+              // ESP32: use touchRead to detect touch state
               state = touchRead(gpio) <= touchThreshold;
-              #else
-              // ESP32 classic: use touchRead
-              state = touchRead(gpio) <= touchThreshold;
-              #endif
+            } else {
+              // Fallback to digital read if not a touch-capable pin
+              state = digitalRead(gpio) == LOW;
             }
+          #else
+            // Non-ESP32 or ESP32-C3: fallback to digital read
+            state = digitalRead(gpio) == LOW;
           #endif
           break;
         default:
