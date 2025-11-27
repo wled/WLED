@@ -1544,7 +1544,7 @@ class AudioReactive : public Usermod {
       // better would be for AudioSource to implement getType()
       if (enabled
           && dmType == 0 && audioPin>=0
-          && (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED)
+          && (buttons[b].type == BTN_TYPE_ANALOG || buttons[b].type == BTN_TYPE_ANALOG_INVERTED)
          ) {
         return true;
       }
