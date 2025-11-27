@@ -3321,65 +3321,65 @@ function checkVersionUpgrade(info) {
 	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
 		method: 'get'
 	})
-	.then(res => {
-		if (res.status === 404) {
-			// File doesn't exist - first install, show install prompt
-			showVersionUpgradePrompt(info, null, info.ver);
-			return null;
-		}
-		if (!res.ok) {
-			throw new Error('Failed to fetch version-info.json');
-		}
-		return res.json();
-	})
-	.then(versionInfo => {
-		if (!versionInfo) return; // 404 case already handled
-		
-		// Check if user opted out
-		if (versionInfo.neverAsk) return;
-		
-		// Check if version has changed
-		const currentVersion = info.ver;
-		const storedVersion = versionInfo.version || '';
-		
-		if (storedVersion && storedVersion !== currentVersion) {
-			// Version has changed, show upgrade prompt
-			showVersionUpgradePrompt(info, storedVersion, currentVersion);
-		} else if (!storedVersion) {
-			// Empty version in file, show install prompt
-			showVersionUpgradePrompt(info, null, currentVersion);
-		}
-	})
-	.catch(e => {
-		console.log('Failed to load version-info.json', e);
-		// On error, save current version for next time
-		if (info && info.ver) {
-			updateVersionInfo(info.ver, false);
-		}
-	});
+		.then(res => {
+			if (res.status === 404) {
+				// File doesn't exist - first install, show install prompt
+				showVersionUpgradePrompt(info, null, info.ver);
+				return null;
+			}
+			if (!res.ok) {
+				throw new Error('Failed to fetch version-info.json');
+			}
+			return res.json();
+		})
+		.then(versionInfo => {
+			if (!versionInfo) return; // 404 case already handled
+
+			// Check if user opted out
+			if (versionInfo.neverAsk) return;
+
+			// Check if version has changed
+			const currentVersion = info.ver;
+			const storedVersion = versionInfo.version || '';
+
+			if (storedVersion && storedVersion !== currentVersion) {
+				// Version has changed, show upgrade prompt
+				showVersionUpgradePrompt(info, storedVersion, currentVersion);
+			} else if (!storedVersion) {
+				// Empty version in file, show install prompt
+				showVersionUpgradePrompt(info, null, currentVersion);
+			}
+		})
+		.catch(e => {
+			console.log('Failed to load version-info.json', e);
+			// On error, save current version for next time
+			if (info && info.ver) {
+				updateVersionInfo(info.ver, false);
+			}
+		});
 }
 
 function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	// Determine if this is an install or upgrade
 	const isInstall = !oldVersion;
-	
+
 	// Create overlay and dialog
 	const overlay = d.createElement('div');
 	overlay.id = 'versionUpgradeOverlay';
 	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
-	
+
 	const dialog = d.createElement('div');
 	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
-	
+
 	// Build contextual message based on install vs upgrade
-	const title = isInstall 
-		? '🎉 Thank you for installing WLED!' 
+	const title = isInstall
+		? '🎉 Thank you for installing WLED!'
 		: '🎉 WLED Upgrade Detected!';
-	
+
 	const description = isInstall
 		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
 		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
-	
+
 	const question = 'Help make WLED better with a one-time hardware report? It includes only device details like chip type, LED count, etc. — never personal data or your activities.'
 
 	dialog.innerHTML = `
@@ -3395,21 +3395,21 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 			<button id="versionReportNever" class="btn">Never Ask</button>
 		</div>
 	`;
-	
+
 	overlay.appendChild(dialog);
 	d.body.appendChild(overlay);
-	
+
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
 		reportUpgradeEvent(info, oldVersion);
 		d.body.removeChild(overlay);
 	});
-	
+
 	gId('versionReportNo').addEventListener('click', () => {
 		// Don't update version, will ask again on next load
 		d.body.removeChild(overlay);
 	});
-	
+
 	gId('versionReportNever').addEventListener('click', () => {
 		updateVersionInfo(newVersion, true);
 		d.body.removeChild(overlay);
@@ -3419,56 +3419,56 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 function reportUpgradeEvent(info, oldVersion) {
 	showToast('Reporting upgrade...');
-	
+
 	// Fetch fresh data from /json/info endpoint as requested
 	fetch(getURL('/json/info'), {
 		method: 'get'
 	})
-	.then(res => res.json())
-	.then(infoData => {
-		// Map to UpgradeEventRequest structure per OpenAPI spec
-		// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
-		const upgradeData = {
-			deviceId: infoData.deviceId,                     // Use anonymous unique device ID
-			version: infoData.ver || '',                     // Current version string
-			previousVersion: oldVersion || '',               // Previous version from version-info.json
-			releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
-			chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
-			ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
-			isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
-			bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
-			brand: infoData.brand,                           // Device brand (always present)
-			product: infoData.product,                       // Product name (always present)
-			flashSize: infoData.flash                        // Flash size (always present)
-		};
-		
-		// Add optional fields if available
-		if (infoData.psram !== undefined) upgradeData.psramSize = infoData.psram;
-		// Note: partitionSizes not currently available in /json/info endpoint
-		
-		// Make AJAX call to postUpgradeEvent API
-		return fetch('https://usage.wled.me/api/usage/upgrade', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify(upgradeData)
-		});
-	})
-	.then(res => {
-		if (res.ok) {
-			showToast('Thank you for reporting!');
-			updateVersionInfo(info.ver, false);
-		} else {
+		.then(res => res.json())
+		.then(infoData => {
+			// Map to UpgradeEventRequest structure per OpenAPI spec
+			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
+			const upgradeData = {
+				deviceId: infoData.deviceId,                     // Use anonymous unique device ID
+				version: infoData.ver || '',                     // Current version string
+				previousVersion: oldVersion || '',               // Previous version from version-info.json
+				releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
+				chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
+				ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
+				isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
+				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
+				brand: infoData.brand,                           // Device brand (always present)
+				product: infoData.product,                       // Product name (always present)
+				flashSize: infoData.flash                        // Flash size (always present)
+			};
+
+			// Add optional fields if available
+			if (infoData.psram !== undefined) upgradeData.psramSize = infoData.psram;
+			// Note: partitionSizes not currently available in /json/info endpoint
+
+			// Make AJAX call to postUpgradeEvent API
+			return fetch('https://usage.wled.me/api/usage/upgrade', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(upgradeData)
+			});
+		})
+		.then(res => {
+			if (res.ok) {
+				showToast('Thank you for reporting!');
+				updateVersionInfo(info.ver, false);
+			} else {
+				showToast('Report failed. Please try again later.', true);
+				// Do NOT update version info on failure - user will be prompted again
+			}
+		})
+		.catch(e => {
+			console.log('Failed to report upgrade', e);
 			showToast('Report failed. Please try again later.', true);
-			// Do NOT update version info on failure - user will be prompted again
-		}
-	})
-	.catch(e => {
-		console.log('Failed to report upgrade', e);
-		showToast('Report failed. Please try again later.', true);
-		// Do NOT update version info on error - user will be prompted again
-	});
+			// Do NOT update version info on error - user will be prompted again
+		});
 }
 
 function updateVersionInfo(version, neverAsk) {
@@ -3476,23 +3476,23 @@ function updateVersionInfo(version, neverAsk) {
 		version: version,
 		neverAsk: neverAsk
 	};
-	
+
 	// Create a Blob with JSON content and use /upload endpoint
-	const blob = new Blob([JSON.stringify(versionInfo)], { type: 'application/json' });
+	const blob = new Blob([JSON.stringify(versionInfo)], {type: 'application/json'});
 	const formData = new FormData();
 	formData.append('data', blob, 'version-info.json');
-	
+
 	fetch(getURL('/upload'), {
 		method: 'POST',
 		body: formData
 	})
-	.then(res => res.text())
-	.then(data => {
-		console.log('Version info updated', data);
-	})
-	.catch(e => {
-		console.log('Failed to update version-info.json', e);
-	});
+		.then(res => res.text())
+		.then(data => {
+			console.log('Version info updated', data);
+		})
+		.catch(e => {
+			console.log('Failed to update version-info.json', e);
+		});
 }
 
 size();
