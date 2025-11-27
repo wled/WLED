@@ -38,6 +38,17 @@ const wledBanner = `
 \t\t\x1b[36m build script for web UI
 \x1b[0m`;
 
+// Generate build timestamp in format compatible with VERSION (yymmddb)
+function generateBuildTime() {
+  const now = new Date();
+  const yy = String(now.getFullYear() % 100).padStart(2, '0');
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  // Build number 0-5 based on 4-hour time slots (6 slots per day)
+  const b = Math.floor(now.getHours() / 4);
+  return Number(`${yy}${mm}${dd}${b}`);
+}
+
 const singleHeader = `/*
  * Binary array for the Web UI.
  * gzip is used for smaller size and improved speeds.
@@ -45,6 +56,9 @@ const singleHeader = `/*
  * Please see https://kno.wled.ge/advanced/custom-features/#changing-web-ui
  * to find out how to easily modify the web UI source!
  */
+
+// Automatically generated build time for cache busting
+#define WEB_BUILD_TIME ${generateBuildTime()}
  
 `;
 
