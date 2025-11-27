@@ -1987,12 +1987,13 @@ function populatePins(json)
 	var cn="";
 	var pins = json.pins || [];
 	if (pins.length === 0) {
-		cn = "No pins in use.";
+		cn = "No pins available.";
 	} else {
 		cn = '<table class="infot"><tr><th>Pin</th><th>Owner</th><th>Functions</th><th>State</th></tr>';
 		for (var pin of pins) {
 			var gpio = pin.p;
 			var caps = pin.c || 0;
+			var allocated = pin.a || false;
 			var owner = pin.o || 0;
 			var btnType = pin.t;  // button type (if button)
 			var mode = pin.m;  // 0=input, 1=output, undefined=not simple GPIO
@@ -2006,7 +2007,7 @@ function populatePins(json)
 				stateStr = '<span class="pstate" style="background:' + color + ';"></span>';
 			}
 
-			var statusStr = getPinOwnerName(owner, btnType);
+			var statusStr = allocated ? getPinOwnerName(owner, btnType) : '<span style="color:var(--c-g)">Available</span>';
 			var capsStr = getPinCapabilities(caps);
 
 			// Add pullup indicator if present
