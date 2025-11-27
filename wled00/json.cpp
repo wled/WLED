@@ -1108,7 +1108,8 @@ void serializePins(JsonObject root)
     if (gpio < 16) {
       caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
     }
-    if (gpio == A0 || gpio == 17) caps |= PIN_CAP_ADC;  // Only A0 has ADC
+    // A0 is typically GPIO 17 on ESP8266, but use numeric value for clarity
+    if (gpio == 17) caps |= PIN_CAP_ADC;  // Only A0 (GPIO17) has ADC on ESP8266
     #endif
 
     pinObj["c"] = caps;  // capabilities
@@ -1136,7 +1137,11 @@ void serializePins(JsonObject root)
     // For relay pin, get state
     if (gpio == rlyPin && allocated) {
       pinObj["m"] = 1;  // mode: output/relay
-      pinObj["s"] = bri > 0 ? (rlyMde ? 1 : 0) : (rlyMde ? 0 : 1);  // state based on relay mode and bri
+      // Relay state: when LEDs are on (bri > 0), relay is in active mode
+      // rlyMde: true = active high, false = active low
+      bool relayActive = bri > 0;
+      bool relayState = relayActive ? rlyMde : !rlyMde;
+      pinObj["s"] = relayState ? 1 : 0;
     }
     // For button pins, get state
     else if (isButton && buttonIndex >= 0) {

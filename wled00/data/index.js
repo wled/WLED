@@ -1830,8 +1830,8 @@ function togglePins()
 	isPins = !isPins;
 	if (isPins) {
 		loadPins();
-		// Start 100ms polling for real-time button state updates
-		pinsTimer = setInterval(loadPins, 100);
+		// Start 250ms polling for real-time button state updates
+		pinsTimer = setInterval(loadPins, 250);
 	} else {
 		// Stop polling when panel is closed
 		if (pinsTimer) {
@@ -1845,7 +1845,8 @@ function togglePins()
 function getPinOwnerName(owner)
 {
 	if (!owner) return "Unused";
-	// High bit set means built-in owner
+	// Owner values must match PinOwner enum in pin_manager.h
+	// High bit set (0x80) means built-in WLED owner
 	if (owner & 0x80) {
 		switch (owner) {
 			case 0x81: return "Ethernet";
@@ -1864,7 +1865,7 @@ function getPinOwnerName(owner)
 			case 0x8E: return "HUB75";
 		}
 	}
-	// Usermod owners (no high bit)
+	// Usermod owners (values from USERMOD_ID_* in const.h)
 	switch (owner) {
 		case 0x01: return "Usermod";
 		case 0x02: return "UM Example";
