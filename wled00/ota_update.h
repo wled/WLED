@@ -50,3 +50,23 @@ std::pair<bool, String> getOTAResult(AsyncWebServerRequest *request);
  * @return bool indicating if a reply is necessary; string with error message if the update failed.
  */
 void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool isFinal);
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+/**
+ * Calculate and cache the bootloader SHA256 digest
+ * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
+ */
+void calculateBootloaderSHA256();
+
+/**
+ * Get bootloader SHA256 as hex string
+ * @return String containing 64-character hex representation of SHA256 hash
+ */
+String getBootloaderSHA256Hex();
+
+/**
+ * Invalidate cached bootloader SHA256 (call after bootloader update)
+ * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
+ */
+void invalidateBootloaderSHA256Cache();
+#endif
