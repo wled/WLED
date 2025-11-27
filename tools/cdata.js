@@ -38,15 +38,16 @@ const wledBanner = `
 \t\t\x1b[36m build script for web UI
 \x1b[0m`;
 
-// Generate build timestamp in format compatible with VERSION (yymmddb)
+// Generate build timestamp in YYMMDD_hhmmss format (UTC)
 function generateBuildTime() {
   const now = new Date();
-  const yy = String(now.getFullYear() % 100).padStart(2, '0');
-  const mm = String(now.getMonth() + 1).padStart(2, '0');
-  const dd = String(now.getDate()).padStart(2, '0');
-  // Build number 0-5 based on 4-hour time slots (6 slots per day)
-  const b = Math.floor(now.getHours() / 4);
-  return Number(`${yy}${mm}${dd}${b}`);
+  const yy = String(now.getUTCFullYear() % 100).padStart(2, '0');
+  const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(now.getUTCDate()).padStart(2, '0');
+  const hh = String(now.getUTCHours()).padStart(2, '0');
+  const min = String(now.getUTCMinutes()).padStart(2, '0');
+  const ss = String(now.getUTCSeconds()).padStart(2, '0');
+  return `${yy}${mm}${dd}_${hh}${min}${ss}`;
 }
 
 const singleHeader = `/*
@@ -57,8 +58,8 @@ const singleHeader = `/*
  * to find out how to easily modify the web UI source!
  */
 
-// Automatically generated build time for cache busting
-#define WEB_BUILD_TIME ${generateBuildTime()}
+// Automatically generated build time for cache busting (YYMMDD_hhmmss UTC)
+#define WEB_BUILD_TIME "${generateBuildTime()}"
  
 `;
 
