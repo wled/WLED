@@ -174,6 +174,7 @@ void serializeState(JsonObject root, bool forPreset = false, bool includeBri = t
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
 void serializeModeData(JsonArray fxdata);
+void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
