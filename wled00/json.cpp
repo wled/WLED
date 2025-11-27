@@ -1118,7 +1118,24 @@ void serializePins(JsonObject root)
     pinObj["a"] = isAllocated;  // allocated status
     
     if (isAllocated) {
-      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID
+      uint8_t ownerVal = static_cast<uint8_t>(owner);
+      pinObj["o"] = ownerVal;  // owner ID
+      
+      // For usermod owners (low bit not set), try to get the usermod name
+      if (!(ownerVal & 0x80) && ownerVal > 0) {
+        Usermod* um = UsermodManager::lookup(ownerVal);
+        if (um) {
+          // Get usermod name by calling addToConfig and extracting the key
+          StaticJsonDocument<256> tmpDoc;
+          JsonObject tmpObj = tmpDoc.to<JsonObject>();
+          um->addToConfig(tmpObj);
+          // The first key in the object is the usermod name
+          JsonObject::iterator it = tmpObj.begin();
+          if (it != tmpObj.end()) {
+            pinObj["n"] = it->key().c_str();  // usermod name
+          }
+        }
+      }
     }
 
     // For button pins, check if internal pullup/pulldown would be used and get state

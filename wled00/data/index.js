@@ -1842,10 +1842,9 @@ function togglePins()
 	gId('pins').style.transform = (isPins) ? "translateY(0px)":"translateY(100%)";
 }
 
-function getPinOwnerName(owner, btnType)
+function getPinOwnerName(owner, btnType, umName)
 {
 	if (!owner) return "Unknown";
-	// Owner values must match PinOwner enum in pin_manager.h
 	// High bit set (0x80) means built-in WLED owner
 	if (owner & 0x80) {
 		switch (owner) {
@@ -1853,7 +1852,7 @@ function getPinOwnerName(owner, btnType)
 			case 0x82: return "LED Digital";
 			case 0x83: return "LED On/Off";
 			case 0x84: return "LED PWM";
-			case 0x85: return getButtonTypeName(btnType);  // Button with type
+			case 0x85: return getButtonTypeName(btnType);
 			case 0x86: return "IR Receiver";
 			case 0x87: return "Relay";
 			case 0x88: return "SPI RAM";
@@ -1865,63 +1864,21 @@ function getPinOwnerName(owner, btnType)
 			case 0x8E: return "HUB75";
 		}
 	}
-	// Usermod owners (values from USERMOD_ID_* in const.h)
-	switch (owner) {
-		case 0x01: return "Usermod";
-		case 0x02: return "UM Example";
-		case 0x03: return "UM Temperature";
-		case 0x05: return "UM PIR";
-		case 0x06: return "UM IMU";
-		case 0x07: return "UM 4Line Display";
-		case 0x08: return "UM Rotary Encoder";
-		case 0x0D: return "UM Multi Relay";
-		case 0x0E: return "UM Staircase";
-		case 0x12: return "UM Battery";
-		case 0x14: return "UM BH1750";
-		case 0x16: return "UM RGB Encoder";
-		case 0x17: return "UM QuinLED Penta";
-		case 0x1E: return "UM BME280";
-		case 0x20: return "UM Audio Reactive";
-		case 0x25: return "UM SD Card";
-		case 0x26: return "UM PWM Outputs";
-		case 0x2B: return "UM LDR Dusk Dawn";
-		case 0x2F: return "UM MAX17048";
-		case 0x31: return "UM BME68X";
-		case 0x35: return "UM Pixels Dice";
-	}
-	return "Owner " + owner;
+	// Usermod owners - use name from JSON if available
+	return umName || ("UM #" + owner);
 }
 
-function getButtonTypeName(btnType)
+function getButtonTypeName(t)
 {
-	if (typeof btnType === 'undefined') return "Button";
-	switch (btnType) {
-		case 0: return "Button (None)";
-		case 1: return "Button (Reserved)";
-		case 2: return "Button (Push)";
-		case 3: return "Button (Push High)";
-		case 4: return "Button (Switch)";
-		case 5: return "Button (PIR)";
-		case 6: return "Button (Touch)";
-		case 7: return "Button (Analog)";
-		case 8: return "Button (Analog Inv)";
-		case 9: return "Button (Touch Switch)";
-	}
-	return "Button";
+	var n = ["None","Reserved","Push","Push High","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
+	return "Button (" + (n[t] || "?") + ")";
 }
 
-function getPinCapabilities(caps)
+function getPinCapabilities(c)
 {
-	var c = [];
-	if (caps & 0x01) c.push("In");
-	if (caps & 0x02) c.push("Out");
-	if (caps & 0x04) c.push("ADC");
-	if (caps & 0x08) c.push("Touch");
-	if (caps & 0x10) c.push("DAC");
-	if (caps & 0x20) c.push("IR");
-	if (caps & 0x40) c.push("I2S");
-	if (caps & 0x80) c.push("PWM");
-	return c.join(", ");
+	var r = [], f = ["In","Out","ADC","Touch","DAC","IR","I2S","PWM"];
+	for (var i=0; i<8; i++) if (c & (1<<i)) r.push(f[i]);
+	return r.join(", ");
 }
 
 function loadPins()
@@ -1943,38 +1900,19 @@ function loadPins()
 
 function populatePins(json)
 {
-	var cn="";
-	var pins = json.pins || [];
-	if (pins.length === 0) {
+	var cn="", pins = json.pins || [];
+	if (!pins.length) {
 		cn = "No pins available.";
 	} else {
 		cn = '<table class="infot"><tr><th>Pin</th><th>Owner</th><th>Functions</th><th>State</th></tr>';
-		for (var pin of pins) {
-			var gpio = pin.p;
-			var caps = pin.c || 0;
-			var allocated = pin.a || false;
-			var owner = pin.o || 0;
-			var btnType = pin.t;  // button type (if button)
-			var mode = pin.m;  // 0=input, 1=output, undefined=not simple GPIO
-			var state = pin.s; // 0 or 1, undefined if not readable
-			var pullup = pin.u; // pullup status
-
-			var stateStr = "";
-			if (typeof state !== 'undefined') {
-				// Show colored circle for state (no text)
-				var color = state ? "var(--c-g)" : "var(--c-r)";
-				stateStr = '<span class="pstate" style="background:' + color + ';"></span>';
+		for (var p of pins) {
+			var st = "";
+			if (typeof p.s !== 'undefined') {
+				st = '<span class="pstate" style="background:var(--c-' + (p.s ? 'g' : 'r') + ');"></span>';
 			}
-
-			var statusStr = allocated ? getPinOwnerName(owner, btnType) : '<span style="color:var(--c-g)">Available</span>';
-			var capsStr = getPinCapabilities(caps);
-
-			// Add pullup indicator if present
-			if (typeof pullup !== 'undefined') {
-				statusStr += pullup ? ' (PU)' : ' (No PU)';
-			}
-
-			cn += '<tr><td>GPIO ' + gpio + '</td><td>' + statusStr + '</td><td>' + capsStr + '</td><td>' + stateStr + '</td></tr>';
+			var ow = p.a ? getPinOwnerName(p.o, p.t, p.n) : '<span style="color:var(--c-g)">Available</span>';
+			if (typeof p.u !== 'undefined') ow += p.u ? ' (PU)' : ' (No PU)';
+			cn += '<tr><td>GPIO ' + p.p + '</td><td>' + ow + '</td><td>' + getPinCapabilities(p.c||0) + '</td><td>' + st + '</td></tr>';
 		}
 		cn += '</table>';
 	}
