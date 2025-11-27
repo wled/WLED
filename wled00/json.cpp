@@ -1121,7 +1121,7 @@ void serializePins(JsonObject root)
     bool isButton = false;
     int buttonIndex = -1;
     for (int b = 0; b < WLED_MAX_BUTTONS; b++) {
-      if (btnPin[b] == gpio && buttonType[b] != BTN_TYPE_NONE) {
+      if (btnPin[b] >= 0 && btnPin[b] == gpio && buttonType[b] != BTN_TYPE_NONE) {
         isButton = true;
         buttonIndex = b;
         break;
@@ -1185,6 +1185,11 @@ void serializePins(JsonObject root)
     else if (isAllocated && (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay)) {
       pinObj["m"] = 1;  // mode: output
       pinObj["s"] = digitalRead(gpio);  // state
+    }
+    // Fallback for button-owned pins not found in btnPin array (show digitalRead state)
+    else if (isAllocated && owner == PinOwner::Button) {
+      pinObj["m"] = 0;  // mode: input
+      pinObj["s"] = digitalRead(gpio) == LOW ? 1 : 0;  // state (assume active low)
     }
   }
 }
