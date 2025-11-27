@@ -3250,7 +3250,7 @@ static uint16_t mode_ants(void) {
     for (int i = 0; i < MAX_ANTS; i++) {
       ants[i].lastBumpUpdate = strip.now;
 
-      // Random velocity between 2.0 and 10.0
+      // Random velocity
       float velocity = VELOCITY_MIN + (VELOCITY_MAX - VELOCITY_MIN) * hw_random16(1000, 5000) / 5000.0f;
       // One random ant moves in opposite direction
       ants[i].velocity = (i == confusedAntIndex) ? -velocity : velocity;
