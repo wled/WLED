@@ -1060,11 +1060,8 @@ void serializePins(JsonObject root)
   JsonArray pins = root.createNestedArray(F("pins"));
 
   for (int gpio = 0; gpio < WLED_NUM_PINS; gpio++) {
-    // Skip pins that are not usable at all (flash, etc.)
-    if (!PinManager::isPinOk(gpio, false) && !PinManager::isPinOk(gpio, true)) {
-      // Check if pin is allocated anyway (e.g. Ethernet)
-      if (!PinManager::isPinAllocated(gpio)) continue;
-    }
+    // Skip pins that are not allocated - only show pins that are in use
+    if (!PinManager::isPinAllocated(gpio)) continue;
 
     JsonObject pinObj = pins.createNestedObject();
     pinObj["p"] = gpio;  // pin number
@@ -1112,11 +1109,17 @@ void serializePins(JsonObject root)
 
     // Check if pin is allocated
     PinOwner owner = PinManager::getPinOwner(gpio);
-    bool allocated = PinManager::isPinAllocated(gpio);
     
-    pinObj["a"] = allocated;  // allocated
-    if (allocated) {
-      pinObj["o"] = static_cast<uint8_t>(owner);  // owner
+    pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID
+    
+    // Add owner name for usermods (low bit owners)
+    if (!(static_cast<uint8_t>(owner) & 0x80)) {
+      // This is a usermod - try to get its name
+      Usermod* um = UsermodManager::lookup(static_cast<uint8_t>(owner));
+      if (um) {
+        // Get usermod name from addToConfig by creating a temporary JSON object
+        // Unfortunately there's no getName() method, so we'll leave this for the UI
+      }
     }
 
     // For button pins, check if internal pullup/pulldown would be used and get state
@@ -1131,7 +1134,7 @@ void serializePins(JsonObject root)
     }
 
     // For relay pin, get state
-    if (gpio == rlyPin && allocated) {
+    if (gpio == rlyPin) {
       pinObj["m"] = 1;  // mode: output/relay
       // Relay state: when LEDs are on (bri > 0), relay is in active mode
       // rlyMde: true = active high, false = active low
@@ -1139,9 +1142,10 @@ void serializePins(JsonObject root)
       bool relayState = relayActive ? rlyMde : !rlyMde;
       pinObj["s"] = relayState ? 1 : 0;
     }
-    // For button pins, get state
+    // For button pins, get state and type
     else if (isButton && buttonIndex >= 0) {
       pinObj["m"] = 0;  // mode: input/button
+      pinObj["t"] = buttonType[buttonIndex];  // button type
       // Read current digital state
       bool state = false;
       switch (buttonType[buttonIndex]) {
@@ -1178,7 +1182,7 @@ void serializePins(JsonObject root)
       }
     }
     // For other allocated output pins that are simple GPIO (not LED/PWM), try to read state
-    else if (allocated && owner == PinOwner::BusOnOff) {
+    else if (owner == PinOwner::BusOnOff) {
       pinObj["m"] = 1;  // mode: output
       pinObj["s"] = digitalRead(gpio);  // state
     }

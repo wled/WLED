@@ -1883,9 +1883,9 @@ function togglePins()
 	gId('pins').style.transform = (isPins) ? "translateY(0px)":"translateY(100%)";
 }
 
-function getPinOwnerName(owner)
+function getPinOwnerName(owner, btnType)
 {
-	if (!owner) return "Unused";
+	if (!owner) return "Unknown";
 	// Owner values must match PinOwner enum in pin_manager.h
 	// High bit set (0x80) means built-in WLED owner
 	if (owner & 0x80) {
@@ -1894,7 +1894,7 @@ function getPinOwnerName(owner)
 			case 0x82: return "LED Digital";
 			case 0x83: return "LED On/Off";
 			case 0x84: return "LED PWM";
-			case 0x85: return "Button";
+			case 0x85: return getButtonTypeName(btnType);  // Button with type
 			case 0x86: return "IR Receiver";
 			case 0x87: return "Relay";
 			case 0x88: return "SPI RAM";
@@ -1933,6 +1933,24 @@ function getPinOwnerName(owner)
 	return "Owner " + owner;
 }
 
+function getButtonTypeName(btnType)
+{
+	if (typeof btnType === 'undefined') return "Button";
+	switch (btnType) {
+		case 0: return "Button (None)";
+		case 1: return "Button (Reserved)";
+		case 2: return "Button (Push)";
+		case 3: return "Button (Push High)";
+		case 4: return "Button (Switch)";
+		case 5: return "Button (PIR)";
+		case 6: return "Button (Touch)";
+		case 7: return "Button (Analog)";
+		case 8: return "Button (Analog Inv)";
+		case 9: return "Button (Touch Switch)";
+	}
+	return "Button";
+}
+
 function getPinCapabilities(caps)
 {
 	var c = [];
@@ -1969,26 +1987,26 @@ function populatePins(json)
 	var cn="";
 	var pins = json.pins || [];
 	if (pins.length === 0) {
-		cn = "No pin information available.";
+		cn = "No pins in use.";
 	} else {
-		cn = '<table class="infot"><tr><th>Pin</th><th>Status</th><th>Caps</th><th>State</th></tr>';
+		cn = '<table class="infot"><tr><th>Pin</th><th>Owner</th><th>Functions</th><th>State</th></tr>';
 		for (var pin of pins) {
 			var gpio = pin.p;
 			var caps = pin.c || 0;
-			var allocated = pin.a || false;
 			var owner = pin.o || 0;
+			var btnType = pin.t;  // button type (if button)
 			var mode = pin.m;  // 0=input, 1=output, undefined=not simple GPIO
 			var state = pin.s; // 0 or 1, undefined if not readable
 			var pullup = pin.u; // pullup status
 
 			var stateStr = "";
 			if (typeof state !== 'undefined') {
-				// Show colored circle for state
+				// Show colored circle for state (no text)
 				var color = state ? "var(--c-g)" : "var(--c-r)";
-				stateStr = '<span class="pstate" style="background:' + color + ';"></span> ' + (state ? "HIGH" : "LOW");
+				stateStr = '<span class="pstate" style="background:' + color + ';"></span>';
 			}
 
-			var statusStr = allocated ? getPinOwnerName(owner) : '<span style="color:var(--c-g)">Available</span>';
+			var statusStr = getPinOwnerName(owner, btnType);
 			var capsStr = getPinCapabilities(caps);
 
 			// Add pullup indicator if present
