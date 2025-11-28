@@ -38,6 +38,11 @@ const wledBanner = `
 \t\t\x1b[36m build script for web UI
 \x1b[0m`;
 
+// Generate build timestamp as UNIX timestamp (seconds since epoch)
+function generateBuildTime() {
+  return Math.floor(Date.now() / 1000);
+}
+
 const singleHeader = `/*
  * Binary array for the Web UI.
  * gzip is used for smaller size and improved speeds.
@@ -45,6 +50,9 @@ const singleHeader = `/*
  * Please see https://kno.wled.ge/advanced/custom-features/#changing-web-ui
  * to find out how to easily modify the web UI source!
  */
+
+// Automatically generated build time for cache busting (UNIX timestamp)
+#define WEB_BUILD_TIME ${generateBuildTime()}
  
 `;
 
