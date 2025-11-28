@@ -273,18 +273,18 @@ void markOTAvalid() {
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-// Cache for bootloader SHA256 digest as hex string
-static String bootloaderSHA256HexCache = "";
+static bool bootloaderSHA256CacheValid = false;
+static uint8_t bootloaderSHA256Cache[32];
 
-// Calculate and cache the bootloader SHA256 digest as hex string
-void calculateBootloaderSHA256() {
-  if (!bootloaderSHA256HexCache.isEmpty()) return;
-
+/**
+ * Calculate and cache the bootloader SHA256 digest
+ * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
+ */
+static void calculateBootloaderSHA256() {
   // Bootloader is at fixed offset 0x1000 (4KB) and is typically 32KB
   const uint32_t bootloaderSize = 0x8000; // 32KB, typical bootloader size
 
   // Calculate SHA256
-  uint8_t sha256[32];
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
   mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
@@ -299,33 +299,50 @@ void calculateBootloaderSHA256() {
     }
   }
 
-  mbedtls_sha256_finish(&ctx, sha256);
+  mbedtls_sha256_finish(&ctx, bootloaderSHA256Cache);
   mbedtls_sha256_free(&ctx);
-
-  // Convert to hex string and cache it
-  char hex[65];
-  for (int i = 0; i < 32; i++) {
-    sprintf(hex + (i * 2), "%02x", sha256[i]);
-  }
-  hex[64] = '\0';
-  bootloaderSHA256HexCache = String(hex);
+  bootloaderSHA256CacheValid = true;
 }
 
 // Get bootloader SHA256 as hex string
 String getBootloaderSHA256Hex() {
-  calculateBootloaderSHA256();
-  return bootloaderSHA256HexCache;
+  if (!bootloaderSHA256CacheValid) {
+    calculateBootloaderSHA256();
+  }
+
+  // Convert to hex string
+  String result;
+  result.reserve(65);
+  for (int i = 0; i < 32; i++) {
+    char b1 = bootloaderSHA256Cache[i];
+    char b2 = b1 >> 4;
+    b1 &= 0x0F;
+    b1 += '0'; b2 += '0';
+    if (b1 > '9') b1 += 7;
+    if (b2 > '9') b2 += 7;
+    result.concat(b1);
+    result.concat(b2);
+  }
+  return std::move(result);
 }
 
-// Invalidate cached bootloader SHA256 (call after bootloader update)
-void invalidateBootloaderSHA256Cache() {
-  bootloaderSHA256HexCache = "";
+/**
+ * Invalidate cached bootloader SHA256 (call after bootloader update)
+ * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
+ */
+static void invalidateBootloaderSHA256Cache() {
+  bootloaderSHA256CacheValid = false;
 }
 
-// Verify complete buffered bootloader using ESP-IDF validation approach
-// This matches the key validation steps from esp_image_verify() in ESP-IDF
-// Returns the actual bootloader data pointer and length via the buffer and len parameters
-bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootloaderErrorMsg) {
+/**
+ * Verify complete buffered bootloader using ESP-IDF validation approach
+ * This matches the key validation steps from esp_image_verify() in ESP-IDF
+ * @param buffer Reference to pointer to bootloader binary data (will be adjusted if offset detected)
+ * @param len Reference to length of bootloader data (will be adjusted to actual size)
+ * @param bootloaderErrorMsg Pointer to String to store error message (must not be null)
+ * @return true if validation passed, false otherwise
+ */
+static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootloaderErrorMsg) {
   size_t availableLen = len;
   if (!bootloaderErrorMsg) {
     DEBUG_PRINTLN(F("bootloaderErrorMsg is null"));
