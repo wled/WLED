@@ -42,9 +42,9 @@
 			return "Button ("+(n[t]||"?")+")";
 		}
 		function getCaps(c){
-			var r=[],f=["In","Out","ADC","Touch","DAC","IR","I2S","PWM"];
-			for(var i=0;i<8;i++)if(c&(1<<i))r.push(f[i]);
-			return r.join(", ");
+			var r=[],f=["Touch","Analog","PWM","Boot","In Only"];
+			for(var i=0;i<5;i++)if(c&(1<<i))r.push(f[i]);
+			return r.length?r.join(", "):"-";
 		}
 		function loadPins(){
 			fetch(getURL('/json/pins'),{method:'get'})
