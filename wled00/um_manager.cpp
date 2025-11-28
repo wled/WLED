@@ -10,8 +10,8 @@
 // We stick them in the '.dtors' segment because it's always included by the linker scripts
 // even though it never gets called.  Who calls exit() in an embedded program anyways?
 // If someone ever does, though, it'll explode as these aren't function pointers.
-static Usermod * const _usermod_table_begin[0] __attribute__((__section__(".dtors.tbl.usermods.0"), unused)) = {};
-static Usermod * const _usermod_table_end[0] __attribute__((__section__(".dtors.tbl.usermods.99"), unused)) = {};
+static Usermod * const _usermod_table_begin[0] __attribute__((__section__(".dynarray.usermods.0"), unused)) = {};
+static Usermod * const _usermod_table_end[0] __attribute__((__section__(".dynarray.usermods.99"), unused)) = {};
 
 static size_t getCount() {  
   return &_usermod_table_end[0] - &_usermod_table_begin[0];
