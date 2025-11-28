@@ -326,7 +326,7 @@ String getBootloaderSHA256Hex() {
     result.concat(b2);
     result.concat(b1);
   }
-  return std::move(result);
+  return result;
 }
 
 /**
