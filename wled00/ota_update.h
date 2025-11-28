@@ -52,11 +52,6 @@ std::pair<bool, String> getOTAResult(AsyncWebServerRequest *request);
 void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool isFinal);
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-/**
- * Calculate and cache the bootloader SHA256 digest
- * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
- */
-void calculateBootloaderSHA256();
 
 /**
  * Get bootloader SHA256 as hex string
@@ -65,8 +60,33 @@ void calculateBootloaderSHA256();
 String getBootloaderSHA256Hex();
 
 /**
- * Invalidate cached bootloader SHA256 (call after bootloader update)
- * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
+ * Create a bootloader OTA context object on an AsyncWebServerRequest
+ * @param request Pointer to web request object
+ * @return true if allocation was successful, false if not
  */
-void invalidateBootloaderSHA256Cache();
+bool initBootloaderOTA(AsyncWebServerRequest *request);
+
+/**
+ * Indicate to the bootloader OTA subsystem that a reply has already been generated
+ * @param request Pointer to web request object
+ */
+void setBootloaderOTAReplied(AsyncWebServerRequest *request);
+
+/**
+ * Retrieve the bootloader OTA result.
+ * @param request Pointer to web request object
+ * @return bool indicating if a reply is necessary; string with error message if the update failed.
+ */
+std::pair<bool, String> getBootloaderOTAResult(AsyncWebServerRequest *request);
+
+/**
+ * Process a block of bootloader OTA data. This is a passthrough of an ArUploadHandlerFunction.
+ * Requires that initBootloaderOTA be called on the handler object before any work will be done.
+ * @param request Pointer to web request object
+ * @param index Offset in to uploaded file
+ * @param data New data bytes
+ * @param len Length of new data bytes
+ * @param isFinal Indicates that this is the last block
+ */
+void handleBootloaderOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool isFinal);
 #endif
