@@ -485,6 +485,19 @@ void MultiRelay::publishHomeAssistantAutodiscovery() {
       json[F("avty_t")]       = buf;
       json[F("pl_avail")]     = F("online");
       json[F("pl_not_avail")] = F("offline");
+      // add device properties, connection MAC and IP address ( for hass discivery rules to work )
+      JsonObject device = json.createNestedObject(F("device"));
+      device[F("name")] = serverDescription;
+      device[F("ids")]  = String(F("wled-")) + mqttClientID;
+      device[F("mf")]   = F(WLED_BRAND);
+      device[F("mdl")]  = F(WLED_PRODUCT_NAME);
+      device[F("sw")]   = versionString;
+      JsonArray connections = device[F("connections")].createNestedArray(); // array of connections defined by hass discovery rule 
+      connections.add(F("mac"));
+      connections.add(WiFi.macAddress()); // MAC address of the device to match WLED hass integration MAC : this is reponsible for the device ID in Home Assistant to merge with the WLED device ID
+      connections.add(F("ip"));
+      connections.add(WiFi.localIP().toString()); // IP address of the device to match WLED hass integration
+ 
       //TODO: dev
       payload_size = serializeJson(json, json_str);
     } else {
