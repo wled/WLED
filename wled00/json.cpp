@@ -1045,15 +1045,12 @@ void serializeNodes(JsonObject root)
   }
 }
 
-// Pin capability flags (active capabilities that WLED uses)
-#define PIN_CAP_INPUT        0x01   // can be used as input
-#define PIN_CAP_OUTPUT       0x02   // can be used as output
-#define PIN_CAP_ADC          0x04   // has ADC capability (analog input)
-#define PIN_CAP_TOUCH        0x08   // has touch capability
-#define PIN_CAP_DAC          0x10   // has DAC capability (analog output)
-#define PIN_CAP_IR           0x20   // can be used for IR (RMT on ESP32)
-#define PIN_CAP_I2S          0x40   // can be used for I2S (LED data)
-#define PIN_CAP_PWM          0x80   // can be used for PWM (analog LED output)
+// Pin capability flags - only "special" capabilities useful for debugging
+#define PIN_CAP_TOUCH        0x01   // has touch capability
+#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output)
+#define PIN_CAP_BOOT         0x08   // bootloader/strapping pin (affects boot mode)
+#define PIN_CAP_INPUT_ONLY   0x10   // input only pin (cannot be used as output)
 
 void serializePins(JsonObject root)
 {
@@ -1070,11 +1067,8 @@ void serializePins(JsonObject root)
     JsonObject pinObj = pins.createNestedObject();
     pinObj["p"] = gpio;  // pin number
 
-    // Calculate capabilities
+    // Calculate capabilities - only "special" ones for debugging
     uint8_t caps = 0;
-    
-    if (canInput) caps |= PIN_CAP_INPUT;
-    if (canOutput) caps |= PIN_CAP_OUTPUT;
     
     #ifdef ARDUINO_ARCH_ESP32
     // Check ADC capability
@@ -1085,26 +1079,30 @@ void serializePins(JsonObject root)
     if (digitalPinToTouchChannel(gpio) >= 0) caps |= PIN_CAP_TOUCH;
     #endif
 
-    // DAC pins (ESP32 classic only: GPIO 25, 26)
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (gpio == 25 || gpio == 26) caps |= PIN_CAP_DAC;
-    #endif
-
     // PWM - all output-capable GPIO can do PWM on ESP32
     if (canOutput) caps |= PIN_CAP_PWM;
     
-    // I2S - most GPIO can be used for I2S/LED data on ESP32
-    if (canOutput) caps |= PIN_CAP_I2S;
+    // Input-only pins (ESP32 classic: GPIO34-39)
+    if (canInput && !canOutput) caps |= PIN_CAP_INPUT_ONLY;
     
-    // IR - RMT channels can be used on most GPIO
-    if (canInput) caps |= PIN_CAP_IR;
+    // Bootloader/strapping pins
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    if (gpio == 0 || gpio == 3 || gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOT;
+    #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    if (gpio == 0 || gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOT;
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (gpio == 2 || gpio == 8 || gpio == 9) caps |= PIN_CAP_BOOT;
+    #else // ESP32 classic
+    if (gpio == 0 || gpio == 2 || gpio == 12 || gpio == 15) caps |= PIN_CAP_BOOT;
+    #endif
     #else
-    // ESP8266 - simpler capabilities
-    if (gpio < 16) {
-      caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
-    }
-    // A0 is typically GPIO 17 on ESP8266, but use numeric value for clarity
+    // ESP8266
+    if (gpio < 16) caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
     if (gpio == 17) caps |= PIN_CAP_ADC;  // Only A0 (GPIO17) has ADC on ESP8266
+    // ESP8266 strapping pins
+    if (gpio == 0 || gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOT;
+    // GPIO16 is input-only on ESP8266
+    if (gpio == 16) caps |= PIN_CAP_INPUT_ONLY;
     #endif
 
     pinObj["c"] = caps;  // capabilities
@@ -1154,40 +1152,12 @@ void serializePins(JsonObject root)
       bool relayState = relayActive ? rlyMde : !rlyMde;
       pinObj["s"] = relayState ? 1 : 0;
     }
-    // For button pins, get state and type
+    // For button pins, get state and type using isButtonPressed() from button.cpp
     else if (isAllocated && isButton && buttonIndex >= 0) {
       pinObj["m"] = 0;  // mode: input/button
       pinObj["t"] = buttonType[buttonIndex];  // button type
-      // Read current digital state
-      bool state = false;
-      switch (buttonType[buttonIndex]) {
-        case BTN_TYPE_PUSH:
-        case BTN_TYPE_SWITCH:
-          state = digitalRead(gpio) == LOW;
-          break;
-        case BTN_TYPE_PUSH_ACT_HIGH:
-        case BTN_TYPE_PIR_SENSOR:
-          state = digitalRead(gpio) == HIGH;
-          break;
-        case BTN_TYPE_TOUCH:
-        case BTN_TYPE_TOUCH_SWITCH:
-          #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-            if (digitalPinToTouchChannel(gpio) >= 0) {
-              // ESP32: use touchRead to detect touch state
-              state = touchRead(gpio) <= touchThreshold;
-            } else {
-              // Fallback to digital read if not a touch-capable pin
-              state = digitalRead(gpio) == LOW;
-            }
-          #else
-            // Non-ESP32 or ESP32-C3: fallback to digital read
-            state = digitalRead(gpio) == LOW;
-          #endif
-          break;
-        default:
-          state = digitalRead(gpio);
-          break;
-      }
+      // Use isButtonPressed() which handles all button types correctly
+      bool state = isButtonPressed(buttonIndex);
       pinObj["s"] = state ? 1 : 0;  // state
       
       // Pullup status (when not using touch or analog)
