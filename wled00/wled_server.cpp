@@ -78,8 +78,7 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
   #ifndef WLED_DEBUG
   // this header name is misleading, "no-cache" will not disable cache,
   // it just revalidates on every load using the "If-None-Match" header with the last ETag value
-  // must-revalidate ensures the browser MUST check with the server before using cached content
-  response->addHeader(FPSTR(s_cache_control), F("no-cache, must-revalidate"));
+  response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
   response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
   #endif
