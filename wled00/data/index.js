@@ -1,7 +1,6 @@
 //page js
 var loc = false, locip, locproto = "http:";
-var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, isPins = false, syncSend = false/*, syncTglRecv = true*/;
-var pinsTimer = null; // timer for 100ms polling of pin states
+var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, syncSend = false/*, syncTglRecv = true*/;
 var hasWhite = false, hasRGB = false, hasCCT = false, has2D = false;
 var nlDur = 60, nlTar = 0;
 var nlMode = false;
@@ -1844,7 +1843,6 @@ function toggleLiveview()
 function toggleInfo()
 {
 	if (isNodes) toggleNodes();
-	if (isPins) togglePins();
 	if (isLv && isM) toggleLiveview();
 	isInfo = !isInfo;
 	if (isInfo) requestJson();
@@ -1856,108 +1854,10 @@ function toggleNodes()
 {
 	if (isInfo) toggleInfo();
 	if (isLv && isM) toggleLiveview();
-	if (isPins) togglePins();
 	isNodes = !isNodes;
 	if (isNodes) loadNodes();
 	gId('nodes').style.transform = (isNodes) ? "translateY(0px)":"translateY(100%)";
 	gId('buttonNodes').className = (isNodes) ? "active":"";
-}
-
-function togglePins()
-{
-	if (isInfo) toggleInfo();
-	if (isLv && isM) toggleLiveview();
-	if (isNodes) toggleNodes();
-	isPins = !isPins;
-	if (isPins) {
-		loadPins();
-		// Start 250ms polling for real-time button state updates
-		pinsTimer = setInterval(loadPins, 250);
-	} else {
-		// Stop polling when panel is closed
-		if (pinsTimer) {
-			clearInterval(pinsTimer);
-			pinsTimer = null;
-		}
-	}
-	gId('pins').style.transform = (isPins) ? "translateY(0px)":"translateY(100%)";
-}
-
-function getPinOwnerName(owner, btnType, umName)
-{
-	if (!owner) return "Unknown";
-	// High bit set (0x80) means built-in WLED owner
-	if (owner & 0x80) {
-		switch (owner) {
-			case 0x81: return "Ethernet";
-			case 0x82: return "LED Digital";
-			case 0x83: return "LED On/Off";
-			case 0x84: return "LED PWM";
-			case 0x85: return getButtonTypeName(btnType);
-			case 0x86: return "IR Receiver";
-			case 0x87: return "Relay";
-			case 0x88: return "SPI RAM";
-			case 0x89: return "Debug";
-			case 0x8A: return "DMX Output";
-			case 0x8B: return "I2C";
-			case 0x8C: return "SPI";
-			case 0x8D: return "DMX Input";
-			case 0x8E: return "HUB75";
-		}
-	}
-	// Usermod owners - use name from JSON if available
-	return umName || ("UM #" + owner);
-}
-
-function getButtonTypeName(t)
-{
-	var n = ["None","Reserved","Push","Push High","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
-	return "Button (" + (n[t] || "?") + ")";
-}
-
-function getPinCapabilities(c)
-{
-	var r = [], f = ["In","Out","ADC","Touch","DAC","IR","I2S","PWM"];
-	for (var i=0; i<8; i++) if (c & (1<<i)) r.push(f[i]);
-	return r.join(", ");
-}
-
-function loadPins()
-{
-	fetch(getURL('/json/pins'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showToast('Could not load pin info!', true);
-		return res.json();
-	})
-	.then((json)=>{
-		populatePins(json);
-	})
-	.catch((e)=>{
-		showToast(e, true);
-	});
-}
-
-function populatePins(json)
-{
-	var cn="", pins = json.pins || [];
-	if (!pins.length) {
-		cn = "No pins available.";
-	} else {
-		cn = '<table class="infot"><tr><th>Pin</th><th>Owner</th><th>Functions</th><th>State</th></tr>';
-		for (var p of pins) {
-			var st = "";
-			if (typeof p.s !== 'undefined') {
-				st = '<span class="pstate" style="background:var(--c-' + (p.s ? 'g' : 'r') + ');"></span>';
-			}
-			var ow = p.a ? getPinOwnerName(p.o, p.t, p.n) : '<span style="color:var(--c-g)">Available</span>';
-			if (typeof p.u !== 'undefined') ow += p.u ? ' (PU)' : ' (No PU)';
-			cn += '<tr><td>GPIO ' + p.p + '</td><td>' + ow + '</td><td>' + getPinCapabilities(p.c||0) + '</td><td>' + st + '</td></tr>';
-		}
-		cn += '</table>';
-	}
-	gId('kp').innerHTML = cn;
 }
 
 function makeSeg()
