@@ -41,7 +41,7 @@ def check_map_file_objects(map_file: list[str], dirs: Iterable[str]) -> set[str]
 def count_usermod_objects(map_file: list[str]) -> int:
     """ Returns the number of usermod objects in the usermod list """
     # Count the number of entries in the usermods table section
-    return len([x for x in map_file if ".dtors.tbl.usermods.1" in x])
+    return len([x for x in map_file if ".dynarray.usermods.1" in x])
 
 
 def validate_map_file(source, target, env):
