@@ -318,10 +318,10 @@ String getBootloaderSHA256Hex() {
     char b2 = b1 >> 4;
     b1 &= 0x0F;
     b1 += '0'; b2 += '0';
-    if (b1 > '9') b1 += 7;
-    if (b2 > '9') b2 += 7;
-    result.concat(b1);
+    if (b1 > '9') b1 += 39;
+    if (b2 > '9') b2 += 39;
     result.concat(b2);
+    result.concat(b1);
   }
   return std::move(result);
 }
