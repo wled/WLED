@@ -577,7 +577,7 @@ button {
 	float: right;
 }
 
-#info, #nodes, #pins {
+#info, #nodes {
 	z-index: 4;
 }
 
@@ -589,7 +589,7 @@ button {
 	margin: 5px;
 }
 
-#ndlt, #pnlt {
+#ndlt {
 	margin: 12px 0;
 }
 
@@ -620,12 +620,12 @@ button {
 	width: 200px;
 }
 
-#info table, #nodes table, #pins table {
+#info table, #nodes table {
 	table-layout: fixed;
 	width: 100%;
 }
 
-#info td, #nodes td, #pins td {
+#info td, #nodes td {
   padding-bottom: 8px;
 }
 
@@ -633,31 +633,13 @@ button {
 	margin: 5px;
 }
 
-#info div, #nodes div, #pins div {
+#info div, #nodes div {
 	max-width: 490px;
 	margin: 0 auto;
 }
 
 #info #imgw {
 	margin: 8px auto;
-}
-
-.pstate {
-	display: inline-block;
-	width: 10px;
-	height: 10px;
-	border-radius: 50%;
-	margin-right: 4px;
-}
-
-#pins th {
-	text-align: left;
-	padding-bottom: 8px;
-	border-bottom: 1px solid var(--c-5);
-}
-
-#pins .ibtn {
-	margin: 5px;
 }
 
 #lv {
@@ -1562,13 +1544,13 @@ dialog {
 }
 
 @media all and (max-width: 550px) and (min-width: 374px) {
-	#info table .btn, #nodes table .btn, #pins table .btn {
+	#info table .btn, #nodes table .btn {
 		width: 200px;
 	}
-	#info .ibtn, #nodes .ibtn, #pins .ibtn {
+	#info .ibtn, #nodes .ibtn {
 		width: 145px;
 	}
-	#info div, #nodes div, #nodes a.btn, #pins div {
+	#info div, #nodes div, #nodes a.btn {
 		max-width: 320px;
 	}
 }

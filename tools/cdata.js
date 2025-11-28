@@ -380,6 +380,12 @@ writeChunks(
       name: "PAGE_settings_pin",
       method: "gzip",
       filter: "html-minify"
+    },
+    {
+      file: "settings_pins.htm",
+      name: "PAGE_settings_pins",
+      method: "gzip",
+      filter: "html-minify"
     }
   ],
   "wled00/html_settings.h"

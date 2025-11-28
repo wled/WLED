@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>Pin Manager</title>
+	<script src="common.js" type="text/javascript"></script>
+	<script>
+		var d=document, loc=false, pinsTimer=null;
+		function gId(s){return d.getElementById(s);}
+		function gN(s){return d.getElementsByName(s)[0];}
+		function S(){
+			getLoc();
+			loadPins();
+			pinsTimer = setInterval(loadPins, 250);
+		}
+		function B(){window.open(getURL('/settings'),'_self');}
+		function getOwnerName(o,t,n){
+			if(!o) return "Unknown";
+			if(o&0x80){
+				switch(o){
+					case 0x81: return "Ethernet";
+					case 0x82: return "LED Digital";
+					case 0x83: return "LED On/Off";
+					case 0x84: return "LED PWM";
+					case 0x85: return getBtnTypeName(t);
+					case 0x86: return "IR Receiver";
+					case 0x87: return "Relay";
+					case 0x88: return "SPI RAM";
+					case 0x89: return "Debug";
+					case 0x8A: return "DMX Output";
+					case 0x8B: return "I2C";
+					case 0x8C: return "SPI";
+					case 0x8D: return "DMX Input";
+					case 0x8E: return "HUB75";
+				}
+			}
+			return n || ("UM #"+o);
+		}
+		function getBtnTypeName(t){
+			var n=["None","Reserved","Push","Push High","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
+			return "Button ("+(n[t]||"?")+")";
+		}
+		function getCaps(c){
+			var r=[],f=["In","Out","ADC","Touch","DAC","IR","I2S","PWM"];
+			for(var i=0;i<8;i++)if(c&(1<<i))r.push(f[i]);
+			return r.join(", ");
+		}
+		function loadPins(){
+			fetch(getURL('/json/pins'),{method:'get'})
+			.then(r=>r.json())
+			.then(j=>{
+				var cn="",pins=j.pins||[];
+				if(!pins.length){
+					cn="No pins available.";
+				}else{
+					cn='<table><tr><th>Pin</th><th>Owner</th><th>Functions</th><th>State</th></tr>';
+					for(var p of pins){
+						var st="";
+						if(typeof p.s!=='undefined'){
+							st='<span class="ps" style="background:'+(p.s?'#0b0':'#b00')+'"></span>';
+						}
+						var ow=p.a?getOwnerName(p.o,p.t,p.n):'<span style="color:#0b0">Available</span>';
+						if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
+						cn+='<tr><td>GPIO '+p.p+'</td><td>'+ow+'</td><td>'+getCaps(p.c||0)+'</td><td>'+st+'</td></tr>';
+					}
+					cn+='</table>';
+				}
+				gId('pins').innerHTML=cn;
+			})
+			.catch(e=>{gId('pins').innerHTML='Error loading pin info';});
+		}
+	</script>
+	<style>
+		@import url("style.css");
+		body{text-align:center;background:#222;margin:0;padding:10px}
+		h2{margin:10px 0;color:#fff;font-family:Verdana,sans-serif}
+		table{width:100%;border-collapse:collapse;margin:10px 0;font-family:Verdana,sans-serif;font-size:14px}
+		th,td{padding:8px;border:1px solid #444;color:#fff}
+		th{background:#333}
+		tr:nth-child(even){background:#2a2a2a}
+		tr:nth-child(odd){background:#252525}
+		.ps{display:inline-block;width:12px;height:12px;border-radius:50%}
+		button{background:#333;color:#fff;font-family:Verdana,sans-serif;border:1px solid #444;border-radius:20px;padding:8px 16px;margin:5px;cursor:pointer}
+		button:hover{background:#444}
+		#pins{min-height:200px}
+	</style>
+</head>
+<body onload="S()">
+	<h2>Pin Manager</h2>
+	<div id="pins">Loading...</div>
+	<hr>
+	<button type="button" onclick="loadPins()">Refresh</button>
+	<button type="button" onclick="B()">Back</button>
+</body>
+</html>
