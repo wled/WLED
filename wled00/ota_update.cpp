@@ -11,7 +11,16 @@
 #ifdef ESP32
 constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
-const size_t BOOTLOADER_OFFSET = 0x1000;
+
+// Bootloader offsets for different MCUs => see https://github.com/wled/WLED/issues/5064
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
+#elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
+constexpr size_t BOOTLOADER_OFFSET = 0x2000; // (future support) esp32-P4 and esp32-C5
+#else
+constexpr size_t BOOTLOADER_OFFSET = 0x1000; // esp32 and esp32-s2
+#endif
+
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
