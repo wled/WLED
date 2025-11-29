@@ -1135,8 +1135,8 @@ void serializePins(JsonObject root)
     // For button pins, check if internal pullup/pulldown would be used and get state
     bool isButton = false;
     int buttonIndex = -1;
-    for (int b = 0; b < WLED_MAX_BUTTONS; b++) {
-      if (btnPin[b] >= 0 && btnPin[b] == gpio && buttonType[b] != BTN_TYPE_NONE) {
+    for (size_t b = 0; b < buttons.size(); b++) {
+      if (buttons[b].pin >= 0 && buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
         isButton = true;
         buttonIndex = b;
         break;
@@ -1155,16 +1155,17 @@ void serializePins(JsonObject root)
     // For button pins, get state and type using isButtonPressed() from button.cpp
     else if (isAllocated && isButton && buttonIndex >= 0) {
       pinObj["m"] = 0;  // mode: input/button
-      pinObj["t"] = buttonType[buttonIndex];  // button type
+      pinObj["t"] = buttons[buttonIndex].type;  // button type
       // Use isButtonPressed() which handles all button types correctly
       bool state = isButtonPressed(buttonIndex);
       pinObj["s"] = state ? 1 : 0;  // state
       
       // Pullup status (when not using touch or analog)
-      if (buttonType[buttonIndex] != BTN_TYPE_TOUCH && 
-          buttonType[buttonIndex] != BTN_TYPE_TOUCH_SWITCH &&
-          buttonType[buttonIndex] != BTN_TYPE_ANALOG &&
-          buttonType[buttonIndex] != BTN_TYPE_ANALOG_INVERTED) {
+      uint8_t btnType = buttons[buttonIndex].type;
+      if (btnType != BTN_TYPE_TOUCH && 
+          btnType != BTN_TYPE_TOUCH_SWITCH &&
+          btnType != BTN_TYPE_ANALOG &&
+          btnType != BTN_TYPE_ANALOG_INVERTED) {
         pinObj["u"] = disablePullUp ? 0 : 1;  // pullup enabled
       }
     }
@@ -1173,7 +1174,7 @@ void serializePins(JsonObject root)
       pinObj["m"] = 1;  // mode: output
       pinObj["s"] = digitalRead(gpio);  // state
     }
-    // Fallback for button-owned pins not found in btnPin array (show digitalRead state)
+    // Fallback for button-owned pins not found in buttons vector (show digitalRead state)
     else if (isAllocated && owner == PinOwner::Button) {
       pinObj["m"] = 0;  // mode: input
       pinObj["s"] = digitalRead(gpio) == LOW ? 1 : 0;  // state (assume active low)
