@@ -652,7 +652,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UM)
   {
     if (!requestJSONBufferLock(5)) {
-      deferResponse(request);
+      request->deferResponse();
       return;
     }
 
