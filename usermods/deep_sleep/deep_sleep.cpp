@@ -25,13 +25,13 @@
 
 #ifndef DEEPSLEEP_WAKEUP_TOUCH_PIN
 #define DEEPSLEEP_WAKEUP_TOUCH_PIN -1
-#endif // DEEPSLEEP_WAKEUP_TOUCH_PIN
-RTC_DATA_ATTR bool powerup = true; // variable in RTC data persists on a reboot
+#endif
+RTC_DATA_ATTR bool powerup = true; // this is first boot after power cycle. note: variable in RTC data persists on a reboot
+RTC_DATA_ATTR uint8_t wakeupPreset = 0; // preset to apply after deep sleep wakeup (0 = none), set to timer macro preset
 
 class DeepSleepUsermod : public Usermod {
 
   private:
-
     bool enabled = true;
     bool initDone = false;
     uint8_t wakeupPin = DEEPSLEEP_WAKEUPPIN;
@@ -42,7 +42,7 @@ class DeepSleepUsermod : public Usermod {
     int wakeupAfter = DEEPSLEEP_WAKEUPINTERVAL; // in seconds, <=0: button only
     bool presetWake = true; // wakeup timer for preset
     int sleepDelay = DEEPSLEEP_DELAY; // in seconds, 0 = immediate
-    int delaycounter = 5; // delay deep sleep at bootup until preset settings are applied
+    int delaycounter = 10; // delay deep sleep at bootup until preset settings are applied, force wake up if offmode persists after bootup
     uint32_t lastLoopTime = 0;
     bool sleepNextLoop = false; // tag for next starting deep sleep
 
@@ -70,8 +70,8 @@ class DeepSleepUsermod : public Usermod {
       return false;
     }
 
-    int calculateTimeDifference(int hour1, int minute1, int hour2,
-                                int minute2) {
+    // functions to calculate time difference between now and next scheduled timer event
+    int calculateTimeDifference(int hour1, int minute1, int hour2, int minute2) {
       int totalMinutes1 = hour1 * 60 + minute1;
       int totalMinutes2 = hour2 * 60 + minute2;
       if (totalMinutes2 < totalMinutes1) {
@@ -87,30 +87,31 @@ class DeepSleepUsermod : public Usermod {
       }
       int currentHour = hour(localTime);
       int currentMinute = minute(localTime);
-      int currentWeekday = weekdayMondayFirst();
+      int currentWeekday = weekdayMondayFirst(); // 1=Monday ... 7=Sunday
       int minDifference = INT_MAX;
 
       for (uint8_t i = 0; i < 8; i++) {
-        if (!(timerMacro[i] != 0 && (timerWeekday[i] & 0x01))) {
-          continue;
-        }
+        // check if timer is enabled and date is in range, also wakes up if no macro is used
+        if ((timerWeekday[i] & 0x01) && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])) {
 
-        for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
-          int checkWeekday = ((currentWeekday + dayOffset) % 7); // 1-7
-          if (checkWeekday == 0) {
-            checkWeekday = 7;
-          }
-
-          if ((timerWeekday[i] >> (checkWeekday)) & 0x01) {
-            if (dayOffset == 0 && (timerHours[i] < currentHour || (timerHours[i] == currentHour && timerMinutes[i] <= currentMinute))) {
-              continue;
+          // if timer is enabled (bit0 of timerWeekday) and date is in range, check all weekdays it is set for
+          for (int dayOffset = 0; dayOffset < 7; dayOffset++) {
+            int checkWeekday = ((currentWeekday + dayOffset) % 7); // 1-7, check all weekdays starting from today
+            if (checkWeekday == 0) {
+              checkWeekday = 7; // sunday is 7 not 0
             }
 
             int targetHour = timerHours[i];
             int targetMinute = timerMinutes[i];
-            int timeDifference = calculateTimeDifference(currentHour, currentMinute, targetHour + (dayOffset * 24), targetMinute);
-            if (timeDifference < minDifference) {
-              minDifference = timeDifference;
+            if ((timerWeekday[i] >> (checkWeekday)) & 0x01) {
+              if (dayOffset == 0 && (targetHour < currentHour || (targetHour == currentHour && targetMinute <= currentMinute)))
+                continue; // skip if time has already passed today
+
+              int timeDifference = calculateTimeDifference(currentHour, currentMinute, targetHour + (dayOffset * 24), targetMinute);
+              if (timeDifference < minDifference) {
+                minDifference = timeDifference;
+                wakeupPreset = timerMacro[i];
+              }
             }
           }
         }
@@ -119,7 +120,6 @@ class DeepSleepUsermod : public Usermod {
     }
 
   public:
-
     inline void enable(bool enable) { enabled = enable; } // Enable/Disable the usermod
     inline bool isEnabled() { return enabled; } //Get usermod enabled/disabled state
 
@@ -130,26 +130,35 @@ class DeepSleepUsermod : public Usermod {
       #ifdef WLED_DEBUG
         DEBUG_PRINTF("sleep wakeup cause: %d\n", esp_sleep_get_wakeup_cause());
       #endif
+      if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+        wakeupPreset = 0; // not a timed wakeup, don't apply preset
+      }
       initDone = true;
     }
 
     void loop() {
       if (!enabled || !offMode) { // disabled or LEDs are on
         lastLoopTime = 0; // reset timer
+        if (delaycounter) delaycounter--; // decrease delay counter if LEDs are on (they are always turned on after a wake-up, see below)
+        else if (wakeupPreset) applyPreset(wakeupPreset); // apply preset if set, this ensures macro is applied even if we missed the wake-up time
         return;
       }
 
       if (sleepDelay > 0) {
-        if(lastLoopTime == 0) lastLoopTime = millis(); // initialize
+        powerup = false; // disable powerup sleep if delay is set
+        if (lastLoopTime == 0) lastLoopTime = millis(); // initialize
         if (millis() - lastLoopTime < sleepDelay * 1000) {
-            return; // wait until delay is over
+          return; // wait until delay is over
         }
+      } else if (powerup && delaycounter) {
+        delaycounter--; // on first boot without sleepDelay set, do not force-turn on
+        delay(1000); // just in case: give user a short ~10s window to turn LEDs on in UI
+        return;
       }
-
-      if(powerup == false && delaycounter) { // delay sleep in case a preset is being loaded and turnOnAtBoot is disabled (handleIO() does enable offMode temporarily in this case)
+      if (powerup == false && delaycounter) { // delay sleep in case a preset is being loaded and turnOnAtBoot is disabled (handleIO() does enable offMode temporarily in this case)
         delaycounter--;
-        if(delaycounter == 2 && offMode) { // force turn on, no matter the settings (device is bricked if user set sleepDelay=0, no bootup preset and turnOnAtBoot=false)
-          if (briS == 0) bri = 10; // turn on at low brightness
+        if (delaycounter == 1 && offMode) { // force turn on, no matter the settings (device is bricked if user set sleepDelay=0, no bootup preset and turnOnAtBoot=false)
+          if (briS == 0) bri = 10; // turn on and set low brightness to avoid automatic turn off
           else bri = briS;
           strip.setBrightness(bri); // needed to make handleIO() not turn off LEDs (really? does not help in bootup preset)
           offMode = false;
@@ -160,10 +169,9 @@ class DeepSleepUsermod : public Usermod {
         }
         return;
       }
-
       DEBUG_PRINTLN(F("DeepSleep UM: entering deep sleep..."));
       powerup = false; // turn leds on in all subsequent bootups (overrides Turn LEDs on after power up/reset' at reboot)
-      if(!pin_is_valid(wakeupPin)) return;
+      if (!pin_is_valid(wakeupPin)) return;
       esp_err_t halerror = ESP_OK;
       pinMode(wakeupPin, INPUT); // make sure GPIO is input with pullup/pulldown disabled
       esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL); //disable all wake-up sources (just in case)
@@ -181,27 +189,27 @@ class DeepSleepUsermod : public Usermod {
       }
 
     #if defined(CONFIG_IDF_TARGET_ESP32C3) // ESP32 C3
-    if(noPull)
+    if (noPull)
       gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_FLOATING);
     else { // enable pullup/pulldown resistor
-      if(wakeWhenHigh)
+      if (wakeWhenHigh)
         gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_PULLDOWN_ONLY);
       else
         gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_PULLUP_ONLY);
     }
-    if(wakeWhenHigh)
+    if (wakeWhenHigh)
       halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_HIGH);
     else
       halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_LOW);
     #else // ESP32, S2, S3
     gpio_pulldown_dis((gpio_num_t)wakeupPin); // disable internal pull resistors for GPIO use
     gpio_pullup_dis((gpio_num_t)wakeupPin);
-    if(noPull) {
+    if (noPull) {
       rtc_gpio_pullup_dis((gpio_num_t)wakeupPin);
       rtc_gpio_pulldown_dis((gpio_num_t)wakeupPin);
     }
     else { // enable pullup/pulldown resistor for RTC use
-      if(wakeWhenHigh)
+      if (wakeWhenHigh)
         rtc_gpio_pulldown_en((gpio_num_t)wakeupPin);
       else
         rtc_gpio_pullup_en((gpio_num_t)wakeupPin);
@@ -211,12 +219,16 @@ class DeepSleepUsermod : public Usermod {
     else
       halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
     if (enableTouchWakeup && touchPin) {
-      touchSleepWakeUpEnable(touchPin, touchThreshold);
+      #ifdef SOC_TOUCH_VERSION_2    // S2 and S3 use much higher thresholds
+      touchSleepWakeUpEnable(touchPin, touchThreshold  << 4); // ESP32 S2 & S3: lower threshold = more sensitive
+      #else 
+      touchSleepWakeUpEnable(touchPin, touchThreshold); // ESP32: higher threshold = more sensitive
+      #endif
     }
   #endif
       WiFi.mode(WIFI_OFF);  // Completely shut down the Wi-Fi module
       delay(1); // wait for pin to be ready
-      if(halerror == ESP_OK) esp_deep_sleep_start(); // go into deep sleep
+      if (halerror == ESP_OK) esp_deep_sleep_start(); // go into deep sleep
       else DEBUG_PRINTLN(F("sleep failed"));
     }
 
@@ -287,13 +299,14 @@ void addToConfig(JsonObject& root) override
       // dropdown for touch wakeupPin
       touch_sensor_channel_io_map[SOC_TOUCH_SENSOR_NUM];
       oappend(SET_F("dd=addDropdown('DeepSleep','touchPin');"));
-      oappend(SET_F("addOption(dd,'Unused',-1);"));
-      for (int pin = 0; pin < SOC_TOUCH_SENSOR_NUM; pin++) {
-        oappend(SET_F("addOption(dd,'"));
-        oappend(String(touch_sensor_channel_io_map[pin]).c_str());
-        oappend(SET_F("',"));
-        oappend(String(touch_sensor_channel_io_map[pin]).c_str());
-        oappend(SET_F(");"));
+      for (int touchchannel = 0; touchchannel < SOC_TOUCH_SENSOR_NUM; touchchannel++) {
+        if (touch_sensor_channel_io_map[touchchannel] >= 0) {
+          oappend(SET_F("addOption(dd,'"));
+          oappend(String(touch_sensor_channel_io_map[touchchannel]).c_str());
+          oappend(SET_F("',"));
+          oappend(String(touch_sensor_channel_io_map[touchchannel]).c_str());
+          oappend(SET_F(");"));
+        }
       }
 #endif
 
@@ -304,7 +317,6 @@ void addToConfig(JsonObject& root) override
       oappend(SET_F("addInfo('DeepSleep:pull',1,'','-up/down disable: ');")); // first string is suffix, second string is prefix
       oappend(SET_F("addInfo('DeepSleep:wakeAfter',1,'seconds <i>(0 = never)<i>');"));
       oappend(SET_F("addInfo('DeepSleep:presetWake',1,'<i>(wake up before next preset timer)<i>');"));
-      oappend(SET_F("addInfo('DeepSleep:voltageCheckInterval',1,'seconds');"));
       oappend(SET_F("addInfo('DeepSleep:delaySleep',1,'seconds <i>(0 = sleep at powerup)<i>');")); // first string is suffix, second string is prefix
     }
 
