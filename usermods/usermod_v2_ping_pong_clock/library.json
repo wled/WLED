@@ -1,3 +1,4 @@
 {
-  "name:": "usermod_v2_ping_pong_clock"
+  "name": "usermod_v2_ping_pong_clock",
+  "build": { "libArchive": false }
 }

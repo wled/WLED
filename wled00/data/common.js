@@ -13,7 +13,7 @@ function isN(n)     { return !isNaN(parseFloat(n)) && isFinite(n); } // isNumber
 // https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
 function isF(n)     { return n === +n && n !== (n|0); } // isFloat
 function isI(n)     { return n === +n && n === (n|0); } // isInteger
-function toggle(el) { gId(el).classList.toggle("hide"); gId('No'+el).classList.toggle("hide"); }
+function toggle(el) { gId(el).classList.toggle("hide"); let n = gId('No'+el); if (n) n.classList.toggle("hide"); }
 function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
@@ -115,4 +115,63 @@ function uploadFile(fileObj, name) {
 	req.send(formData);
 	fileObj.value = '';
 	return false;
+}
+// connect to WebSocket, use parent WS or open new
+function connectWs(onOpen) {
+	try {
+		if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
+			if (onOpen) onOpen();
+			return top.window.ws;
+		}
+	} catch (e) {}
+
+	getLoc(); // ensure globals (loc, locip, locproto) are up to date
+	let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
+	let ws = new WebSocket(url);
+	ws.binaryType = "arraybuffer";
+	if (onOpen) { ws.onopen = onOpen; }
+	try { top.window.ws = ws; } catch (e) {} // store in parent for reuse
+	return ws;
+}
+
+// send LED colors to ESP using WebSocket and DDP protocol (RGB)
+// ws: WebSocket object
+// start: start pixel index
+// len: number of pixels to send
+// colors: Uint8Array with RGB values (3*len bytes)
+function sendDDP(ws, start, len, colors) {
+	if (!colors || colors.length < len * 3) return false; // not enough color data
+	let maxDDPpx = 472; // must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels
+	//let maxDDPpx = 172; // ESP8266: must fit into one WebSocket frame of 528 bytes -> 172 RGB pixels TODO: add support for ESP8266?
+	if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+	// send in chunks of maxDDPpx
+	for (let i = 0; i < len; i += maxDDPpx) {
+		let cnt = Math.min(maxDDPpx, len - i);
+		let off = (start + i) * 3; // DDP pixel offset in bytes
+		let dLen = cnt * 3;
+		let cOff = i * 3; // offset in color buffer
+		let pkt = new Uint8Array(11 + dLen); // DDP header is 10 bytes, plus 1 byte for WLED websocket protocol indicator
+		pkt[0] = 0x02; // DDP protocol indicator for WLED websocket. Note: below DDP protocol bytes are offset by 1
+		pkt[1] = 0x40; // flags: 0x40 = no push, 0x41 = push (i.e. render), note: this is DDP protocol byte 0
+		pkt[2] = 0x00; // reserved
+		pkt[3] = 0x01; // 1 = RGB (currently only supported mode)
+		pkt[4] = 0x01; // destination id (not used but 0x01 is default output)
+		pkt[5] = (off >> 24) & 255; // DDP protocol 4-7 is offset
+		pkt[6] = (off >> 16) & 255;
+		pkt[7] = (off >> 8) & 255;
+		pkt[8] = off & 255;
+		pkt[9] = (dLen >> 8) & 255; // DDP protocol 8-9 is data length
+		pkt[10] = dLen & 255;
+		pkt.set(colors.subarray(cOff, cOff + dLen), 11);
+		if(i + cnt >= len) {
+			pkt[1] = 0x41;  //if this is last packet, set the "push" flag to render the frame
+		}
+		try {
+			ws.send(pkt.buffer);
+		} catch (e) {
+			console.error(e);
+			return false;
+		}
+	}
+	return true;
 }

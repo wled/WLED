@@ -181,15 +181,9 @@ static bool remoteJson(int button)
   return parsed;
 }
 
-// Callback function that will be executed when data is received
+// Callback function that will be executed when data is received from a linked remote
 void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
-
-  if (strcmp(last_signal_src, linked_remote) != 0) {
-    DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
-    DEBUG_PRINTLN(last_signal_src);
-    return;
-  }
 
   if (len != sizeof(message_structure_t)) {
     DEBUG_PRINTF_P(PSTR("Unknown incoming ESP Now message received of length %u\n"), len);

@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -38,6 +38,11 @@ const wledBanner = `
 \t\t\x1b[36m build script for web UI
 \x1b[0m`;
 
+// Generate build timestamp as UNIX timestamp (seconds since epoch)
+function generateBuildTime() {
+  return Math.floor(Date.now() / 1000);
+}
+
 const singleHeader = `/*
  * Binary array for the Web UI.
  * gzip is used for smaller size and improved speeds.
@@ -45,6 +50,9 @@ const singleHeader = `/*
  * Please see https://kno.wled.ge/advanced/custom-features/#changing-web-ui
  * to find out how to easily modify the web UI source!
  */
+
+// Automatically generated build time for cache busting (UNIX timestamp)
+#define WEB_BUILD_TIME ${generateBuildTime()}
  
 `;
 
@@ -143,7 +151,7 @@ async function writeHtmlGzipped(sourceFile, resultFile, page) {
       console.info("Minified and compressed " + sourceFile + " from " + originalLength + " to " + result.length + " bytes");
       const array = hexdump(result);
       let src = singleHeader;
-      src += `const uint16_t PAGE_${page}_L = ${result.length};\n`;
+      src += `const uint16_t PAGE_${page}_length = ${result.length};\n`;
       src += `const uint8_t PAGE_${page}[] PROGMEM = {\n${array}\n};\n\n`;
       console.info("Writing " + resultFile);
       fs.writeFileSync(resultFile, src);
@@ -244,8 +252,36 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
-writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
+//writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+//writeHtmlGzipped("wled00/data/edit.htm", "wled00/html_edit.h", 'edit');
+
+
+writeChunks(
+  "wled00/data",
+  [
+    {
+      file: "edit.htm",
+      name: "PAGE_edit",
+      method: "gzip",
+      filter: "html-minify"
+    }
+  ],
+  "wled00/html_edit.h"
+);
+
+writeChunks(
+  "wled00/data/cpal",
+  [
+    {
+      file: "cpal.htm",
+      name: "PAGE_cpal",
+      method: "gzip",
+      filter: "html-minify"
+    }
+  ],
+  "wled00/html_cpal.h"
+);
 
 writeChunks(
   "wled00/data",
@@ -375,12 +411,6 @@ const char PAGE_dmxmap[] PROGMEM = R"=====()=====";
       name: "PAGE_update",
       method: "gzip",
       filter: "html-minify",
-      mangle: (str) =>
-        str
-          .replace(
-            /function GetV().*\<\/script\>/gms,
-            "</script><script src=\"/settings/s.js?p=9\"></script>"
-          )
     },
     {
       file: "welcome.htm",

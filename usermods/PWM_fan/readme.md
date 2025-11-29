@@ -40,6 +40,9 @@ If the fan speed is unlocked, it will revert to temperature controlled speed on 
 ## Change Log
 
 2021-10
+
 * First public release
+
 2022-05
+
 * Added JSON API call to allow changing of speed

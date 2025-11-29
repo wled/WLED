@@ -27,6 +27,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           sinceTag: v0.15.0
+          # Exclude issues that were closed without resolution from changelog
+          exclude-labels: 'stale,wontfix,duplicate,invalid'
       - name: Update Nightly Release
         uses: andelf/nightly-release@main
         env:

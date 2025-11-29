@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>2D Set-up</title>
-	<script src="common.js" async type="text/javascript"></script>
+	<script src="common.js" type="text/javascript"></script>
 	<script>
 	var maxPanels=64;
 	var ctx = null;
@@ -107,6 +107,7 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 				Sf[`P${p}H`].value = ph;
 			}
 		}
+		UI(); // Update the preview after generating panels
 	}
 
 	function expand(o,i)

@@ -35,9 +35,10 @@ var cfg = {
 // [year, month (0 -> January, 11 -> December), day, duration in days, image url]
 var hol = [
 	[0, 11, 24, 4, "https://aircoookie.github.io/xmas.png"],		// christmas
-	[0, 2, 17, 1, "https://images.alphacoders.com/491/491123.jpg"], // st. Patrick's day
-	[2025, 3, 20, 2, "https://aircoookie.github.io/easter.png"],	// easter 2025
-	[2024, 2, 31, 2, "https://aircoookie.github.io/easter.png"],	// easter 2024
+	[0, 2, 17, 1, "https://images.alphacoders.com/491/491123.jpg"],	// st. Patrick's day
+	[2026, 3, 5, 2, "https://aircoookie.github.io/easter.png"],		// easter 2026
+	[2027, 2, 28, 2, "https://aircoookie.github.io/easter.png"],	// easter 2027
+	//[2028, 3, 16, 2, "https://aircoookie.github.io/easter.png"],	// easter 2028
 	[0, 6, 4, 1, "https://images.alphacoders.com/516/516792.jpg"],	// 4th of July
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
@@ -57,7 +58,7 @@ function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
 function gId(c) {return d.getElementById(c);}
 function gEBCN(c) {return d.getElementsByClassName(c);}
-function isEmpty(o) {return Object.keys(o).length === 0;}
+function isEmpty(o) {for (const i in o) return false; return true;}
 function isObj(i) {return (i && typeof i === 'object' && !Array.isArray(i));}
 function isNumeric(n) {return !isNaN(parseFloat(n)) && isFinite(n);}
 
@@ -671,7 +672,6 @@ function parseInfo(i) {
 	//syncTglRecv   = i.str;
 	maxSeg       = i.leds.maxseg;
 	pmt          = i.fs.pmt;
-	if (pcMode && !i.wifi.ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('buttonNodes').style.display = lastinfo.ndc > 0 ? null:"none";
 	// do we have a matrix set-up
 	mw = i.leds.matrix ? i.leds.matrix.w : 0;
@@ -684,6 +684,7 @@ function parseInfo(i) {
 		gId("filter2D").classList.remove('hide');
 		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
+	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
 //		gId("filterVol").classList.add("hide");
 //		gId("filterFreq").classList.add("hide");
@@ -692,6 +693,8 @@ function parseInfo(i) {
 //		gId("filterVol").classList.add("hide"); hideModes(" ♪"); // hide volume reactive effects
 //		gId("filterFreq").classList.add("hide"); hideModes(" ♫"); // hide frequency reactive effects
 //	}
+	// Check for version upgrades on page load
+	checkVersionUpgrade(i);
 }
 
 //https://stackoverflow.com/questions/2592092/executing-script-elements-inserted-with-innerhtml
@@ -805,6 +808,26 @@ function populateSegments(s)
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
 						`</select></div>`+
 					`</div>`;
+		let blend = `<div class="lbl-l">Blend mode<br>`+
+						`<div class="sel-p"><select class="sel-ple" id="seg${i}bm" onchange="setBm(${i})">`+
+							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
+							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
+							`<option value="2" ${inst.bm==2?' selected':''}>Add</option>`+
+							`<option value="3" ${inst.bm==3?' selected':''}>Subtract</option>`+
+							`<option value="4" ${inst.bm==4?' selected':''}>Difference</option>`+
+							`<option value="5" ${inst.bm==5?' selected':''}>Average</option>`+
+							`<option value="6" ${inst.bm==6?' selected':''}>Multiply</option>`+
+							`<option value="7" ${inst.bm==7?' selected':''}>Divide</option>`+
+							`<option value="8" ${inst.bm==8?' selected':''}>Lighten</option>`+
+							`<option value="9" ${inst.bm==9?' selected':''}>Darken</option>`+
+							`<option value="10" ${inst.bm==10?' selected':''}>Screen</option>`+
+							`<option value="11" ${inst.bm==11?' selected':''}>Overlay</option>`+
+							`<option value="12" ${inst.bm==12?' selected':''}>Hard Light</option>`+
+							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
+							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
+							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+						`</select></div>`+
+					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
 						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
 							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
@@ -860,6 +883,7 @@ function populateSegments(s)
 					`</tr>`+
 					`</table>`+
 					`<div class="h bp" id="seg${i}len"></div>`+
+					blend +
 					(!isMSeg ? rvXck : '') +
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
 					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
@@ -1019,8 +1043,7 @@ function genPalPrevCss(id)
 	}
 
 	var gradient = [];
-	for (let j = 0; j < paletteData.length; j++) {
-		const e = paletteData[j];
+	paletteData.forEach((e,j) => {
 		let r, g, b;
 		let index = false;
 		if (Array.isArray(e)) {
@@ -1042,9 +1065,8 @@ function genPalPrevCss(id)
 		if (index === false) {
 			index = Math.round(j / paletteData.length * 100);
 		}
-
 		gradient.push(`rgb(${r},${g},${b}) ${index}%`);
-	}
+	});
 
 	return `background: linear-gradient(to right,${gradient.join()});`;
 }
@@ -1420,7 +1442,7 @@ function makeWS() {
 		ws = null;
 	}
 	ws.onopen = (e)=>{
-		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled-dev/WLED/blob/main/wled00/ws.cpp#L18)
+		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled/WLED/blob/master/wled00/ws.cpp#L18)
 		wsRpt = 0;
 		reqsLegal = true;
 	}
@@ -1448,41 +1470,32 @@ function readState(s,command=false)
 	else gId('bsp').classList.remove('hide')
 
 	populateSegments(s);
-	var selc=0;
-	var sellvl=0; // 0: selc is invalid, 1: selc is mainseg, 2: selc is first selected
 	hasRGB = hasWhite = hasCCT = has2D = false;
-	segLmax = 0;
-	for (let i = 0; i < (s.seg||[]).length; i++)
-	{
-		if (sellvl == 0 && s.seg[i].id == s.mainseg) {
-			selc = i;
-			sellvl = 1;
-		}
-		if (s.seg[i].sel) {
-			if (sellvl < 2) selc = i; // get first selected segment
-			sellvl = 2;
-			let w  = (s.seg[i].stop - s.seg[i].start);
-			let h  = s.seg[i].stopY ? (s.seg[i].stopY - s.seg[i].startY) : 1;
-			let lc = lastinfo.leds.seglc[i];
+	let i = {};
+	// determine light capabilities from selected segments
+	for (let seg of (s.seg||[])) {
+		let w  = (seg.stop - seg.start);
+		let h  = seg.stopY ? (seg.stopY - seg.startY) : 1;
+		let lc = seg.lc;
+		if (w*h > segLmax) segLmax = w*h;
+		if (seg.sel) {
+			if (isEmpty(i) || (i.id == s.mainseg && !i.sel)) i = seg; // get first selected segment (and replace mainseg if it is not selected)
 			hasRGB   |= !!(lc & 0x01);
 			hasWhite |= !!(lc & 0x02);
 			hasCCT   |= !!(lc & 0x04);
 			has2D    |= w > 1 && h > 1;
-			if (w*h > segLmax) segLmax = w*h;
-		}
+		} else if (isEmpty(i) && seg.id == s.mainseg) i = seg; // assign mainseg if no segments are selected
 	}
-	var i=s.seg[selc];
-	if (sellvl == 1) {
-		let lc = lastinfo.leds.seglc[selc];
-		hasRGB   = !!(lc & 0x01);
-		hasWhite = !!(lc & 0x02);
-		hasCCT   = !!(lc & 0x04);
-		has2D    = (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
-	}
-	if (!i) {
-		showToast('No Segments!', true);
+	if (isEmpty(i)) {
+		showToast('No segments!', true);
 		updateUI();
 		return true;
+	} else if (i.id == s.mainseg) {
+		// fallback if no segments are selected but we have mainseg
+		hasRGB   |= !!(i.lc & 0x01);
+		hasWhite |= !!(i.lc & 0x02);
+		hasCCT   |= !!(i.lc & 0x04);
+		has2D    |= (i.stop - i.start) > 1 && (i.stopY ? (i.stopY - i.startY) : 1) > 1;
 	}
 
 	var cd = gId('csl').querySelectorAll("button");
@@ -1513,6 +1526,9 @@ function readState(s,command=false)
 				break;
 			case  3:
 				errstr = "Buffer locked!";
+				break;
+			case  7:
+				errstr = "No RAM for buffer!";
 				break;
 			case  8:
 				errstr = "Effect RAM depleted!";
@@ -2339,6 +2355,13 @@ function setSi(s)
 	requestJson(obj);
 }
 
+function setBm(s)
+{
+	var value = gId(`seg${s}bm`).selectedIndex;
+	var obj = {"seg": {"id": s, "bm": value}};
+	requestJson(obj);
+}
+
 function setTp(s)
 {
 	var tp = gId(`seg${s}tp`).checked;
@@ -2762,7 +2785,7 @@ setInterval(()=>{
 	gId('heart').style.color = `hsl(${hc}, 100%, 50%)`;
 }, 910);
 
-function openGH() { window.open("https://github.com/wled-dev/WLED/wiki"); }
+function openGH() { window.open("https://github.com/wled/WLED/wiki"); }
 
 var cnfr = false;
 function cnfReset()
@@ -3064,11 +3087,9 @@ function unify(e) {	return e.changedTouches ? e.changedTouches[0] : e; }
 
 function hasIroClass(classList)
 {
-	for (var i = 0; i < classList.length; i++) {
-		var element = classList[i];
-		if (element.startsWith('Iro')) return true;
-	}
-	return false;
+	let found = false;
+	classList.forEach((e)=>{ if (e.startsWith('Iro')) found = true; });
+	return found;
 }
 //required by rangetouch.js
 function lock(e)
@@ -3131,7 +3152,6 @@ function togglePcMode(fromB = false)
 	if (!fromB && ((wW < 1024 && lastw < 1024) || (wW >= 1024 && lastw >= 1024))) return; // no change in size and called from size()
 	if (pcMode) openTab(0, true);
 	gId('buttonPcm').className = (pcMode) ? "active":"";
-	if (pcMode && !ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('bot').style.height = (pcMode && !cfg.comp.pcmbot) ? "0":"auto";
 	sCol('--bh', gId('bot').clientHeight + "px");
 	_C.style.width = (pcMode || simplifiedUI)?'100%':'400%';
@@ -3155,7 +3175,8 @@ function mergeDeep(target, ...sources)
 	return mergeDeep(target, ...sources);
 }
 
-function tooltip(cont=null) {
+function tooltip(cont=null)
+{
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
 			// save title
@@ -3283,6 +3304,195 @@ function simplifyUI() {
 
 	// Hide buttons for pixel art and custom palettes (add / delete)
 	gId("btns").style.display = "none";
+}
+
+// Version reporting feature
+var versionCheckDone = false;
+
+function checkVersionUpgrade(info) {
+	// Only check once per page load
+	if (versionCheckDone) return;
+	versionCheckDone = true;
+
+	// Suppress feature if in AP mode (no internet connection available)
+	if (info.wifi && info.wifi.ap) return;
+
+	// Fetch version-info.json using existing /edit endpoint
+	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
+		method: 'get'
+	})
+		.then(res => {
+			if (res.status === 404) {
+				// File doesn't exist - first install, show install prompt
+				showVersionUpgradePrompt(info, null, info.ver);
+				return null;
+			}
+			if (!res.ok) {
+				throw new Error('Failed to fetch version-info.json');
+			}
+			return res.json();
+		})
+		.then(versionInfo => {
+			if (!versionInfo) return; // 404 case already handled
+
+			// Check if user opted out
+			if (versionInfo.neverAsk) return;
+
+			// Check if version has changed
+			const currentVersion = info.ver;
+			const storedVersion = versionInfo.version || '';
+
+			if (storedVersion && storedVersion !== currentVersion) {
+				// Version has changed, show upgrade prompt
+				showVersionUpgradePrompt(info, storedVersion, currentVersion);
+			} else if (!storedVersion) {
+				// Empty version in file, show install prompt
+				showVersionUpgradePrompt(info, null, currentVersion);
+			}
+		})
+		.catch(e => {
+			console.log('Failed to load version-info.json', e);
+			// On error, save current version for next time
+			if (info && info.ver) {
+				updateVersionInfo(info.ver, false);
+			}
+		});
+}
+
+function showVersionUpgradePrompt(info, oldVersion, newVersion) {
+	// Determine if this is an install or upgrade
+	const isInstall = !oldVersion;
+
+	// Create overlay and dialog
+	const overlay = d.createElement('div');
+	overlay.id = 'versionUpgradeOverlay';
+	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+	const dialog = d.createElement('div');
+	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
+
+	// Build contextual message based on install vs upgrade
+	const title = isInstall
+		? '🎉 Thank you for installing WLED!'
+		: '🎉 WLED Upgrade Detected!';
+
+	const description = isInstall
+		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
+		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
+
+	const question = 'Help make WLED better with a one-time hardware report? It includes only device details like chip type, LED count, etc. — never personal data or your activities.'
+
+	dialog.innerHTML = `
+		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
+		<p style="color:var(--c-f);">${description}</p>
+		<p style="color:var(--c-f);">${question}</p>
+		<p style="color:var(--c-f);font-size:0.9em;">
+			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
+		</p>
+		<div style="margin-top:20px;">
+			<button id="versionReportYes" class="btn">Yes</button>
+			<button id="versionReportNo" class="btn">Not Now</button>
+			<button id="versionReportNever" class="btn">Never Ask</button>
+		</div>
+	`;
+
+	overlay.appendChild(dialog);
+	d.body.appendChild(overlay);
+
+	// Add event listeners
+	gId('versionReportYes').addEventListener('click', () => {
+		reportUpgradeEvent(info, oldVersion);
+		d.body.removeChild(overlay);
+	});
+
+	gId('versionReportNo').addEventListener('click', () => {
+		// Don't update version, will ask again on next load
+		d.body.removeChild(overlay);
+	});
+
+	gId('versionReportNever').addEventListener('click', () => {
+		updateVersionInfo(newVersion, true);
+		d.body.removeChild(overlay);
+		showToast('You will not be asked again.');
+	});
+}
+
+function reportUpgradeEvent(info, oldVersion) {
+	showToast('Reporting upgrade...');
+
+	// Fetch fresh data from /json/info endpoint as requested
+	fetch(getURL('/json/info'), {
+		method: 'get'
+	})
+		.then(res => res.json())
+		.then(infoData => {
+			// Map to UpgradeEventRequest structure per OpenAPI spec
+			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
+			const upgradeData = {
+				deviceId: infoData.deviceId,                     // Use anonymous unique device ID
+				version: infoData.ver || '',                     // Current version string
+				previousVersion: oldVersion || '',               // Previous version from version-info.json
+				releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
+				chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
+				ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
+				isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
+				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
+				brand: infoData.brand,                           // Device brand (always present)
+				product: infoData.product,                       // Product name (always present)
+				flashSize: infoData.flash                        // Flash size (always present)
+			};
+
+			// Add optional fields if available
+			if (infoData.psram !== undefined) upgradeData.psramSize = Math.round(infoData.psram / (1024 * 1024));  // convert bytes to MB
+			// Note: partitionSizes not currently available in /json/info endpoint
+
+			// Make AJAX call to postUpgradeEvent API
+			return fetch('https://usage.wled.me/api/usage/upgrade', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(upgradeData)
+			});
+		})
+		.then(res => {
+			if (res.ok) {
+				showToast('Thank you for reporting!');
+				updateVersionInfo(info.ver, false);
+			} else {
+				showToast('Report failed. Please try again later.', true);
+				// Do NOT update version info on failure - user will be prompted again
+			}
+		})
+		.catch(e => {
+			console.log('Failed to report upgrade', e);
+			showToast('Report failed. Please try again later.', true);
+			// Do NOT update version info on error - user will be prompted again
+		});
+}
+
+function updateVersionInfo(version, neverAsk) {
+	const versionInfo = {
+		version: version,
+		neverAsk: neverAsk
+	};
+
+	// Create a Blob with JSON content and use /upload endpoint
+	const blob = new Blob([JSON.stringify(versionInfo)], {type: 'application/json'});
+	const formData = new FormData();
+	formData.append('data', blob, 'version-info.json');
+
+	fetch(getURL('/upload'), {
+		method: 'POST',
+		body: formData
+	})
+		.then(res => res.text())
+		.then(data => {
+			console.log('Version info updated', data);
+		})
+		.catch(e => {
+			console.log('Failed to update version-info.json', e);
+		});
 }
 
 size();

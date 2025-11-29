@@ -1,3 +1,4 @@
 {
-  "name:": "buzzer"
+  "name": "buzzer",
+  "build": { "libArchive": false }
 }

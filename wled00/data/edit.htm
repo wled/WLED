@@ -1,586 +1,591 @@
-<!-- This file has been written by Me-No-Dev
-see https://github.com/me-no-dev/ and is part
-of the sample code of ESPAsyncWebServer
-see https://github.com/me-no-dev/ESPAsyncWebServer -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<title>ESP8266 SPIFFS File Editor</title>
-<meta name="author" content="Me-No-Dev" />
-<meta name="Description" content="ESP8266 SPIFFS File Web Editor"/>
-<link rel="shortcut icon" href="favicon.ico"/>
-<style type="text/css" media="screen">
-.cm {
-  z-index: 300;
-  position: absolute;
-  left: 5px;
-  border: 1px solid #444;
-  background-color: #F5F5F5;
-  display: none;
-  box-shadow: 0 0 10px rgba( 0, 0, 0, .4 );
-  font-size: 12px;
-  font-family: sans-serif;
-  font-weight:bold;
+<title>WLED File Editor</title>
+<meta name="author" content="DedeHai, based on editor by Me-No-Dev">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"><!-- prevent too much scaling on mobile -->
+<link rel="shortcut icon" href="favicon.ico">
+<link href="style.css" rel="stylesheet">
+<!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
+<script src="common.js"></script>
+<style>
+/* Editor-specific styles */
+body {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	margin: 0;
+	min-width: 850px; /* prevent layout breakdown on small screens */
 }
-.cm ul {
-  list-style: none;
-  top: 0;
-  left: 0;
-  margin: 0;
-  padding: 0;
+#top {
+	font-size: 20px;
+	font-weight: bold;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #222;
+	padding: 10px 10px;
 }
-.cm li {
-  position: relative;
-  min-width: 60px;
-  cursor: pointer;
+#top .center {
+	flex: 1;
+	text-align: center;
 }
-.cm span {
-  color: #444;
-  display: inline-block;
-  padding: 6px;
+#top .right {
+	margin-left: auto;
 }
-.cm li:hover { background: #444; }
-.cm li:hover span { color: #EEE; }
-.tvu ul, .tvu li {
-  padding: 0;
-  margin: 0;
-  list-style: none;
+#top input[type="text"] {
+	background: #555;
+	border: 2px solid #555;
+	border-radius: 8px;
+	padding: 6px 8px;
+	min-width: 200px;
 }
-.tvu input {
-  position: absolute;
-  opacity: 0;
+#tree {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	width: 300px;
+	background: #222;
+	overflow-y: auto;
+	padding: 8px 8px 100px;  /* extra space on bottom so context menu always fits */
+	text-align: left;
 }
-.tvu {
-  font: normal 12px Verdana, Arial, Sans-serif;
-  -moz-user-select: none;
-  -webkit-user-select: none;
-  user-select: none;
-  color: #444;
-  line-height: 16px;
+#editor, #preview {
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 300px;
+	right: 0;
+	background: #333;
 }
-.tvu span {
-  margin-bottom:5px;
-  padding: 0 0 0 18px;
-  cursor: pointer;
-  display: inline-block;
-  height: 16px;
-  vertical-align: middle;
-  background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAADoSURBVBgZBcExblNBGAbA2ceegTRBuIKOgiihSZNTcC5LUHAihNJR0kGKCDcYJY6D3/77MdOinTvzAgCw8ysThIvn/VojIyMjIyPP+bS1sUQIV2s95pBDDvmbP/mdkft83tpYguZq5Jh/OeaYh+yzy8hTHvNlaxNNczm+la9OTlar1UdA/+C2A4trRCnD3jS8BB1obq2Gk6GU6QbQAS4BUaYSQAf4bhhKKTFdAzrAOwAxEUAH+KEM01SY3gM6wBsEAQB0gJ+maZoC3gI6iPYaAIBJsiRmHU0AALOeFC3aK2cWAACUXe7+AwO0lc9eTHYTAAAAAElFTkSuQmCC') no-repeat;
-  background-position: 0px 0px;
+#editor {
+	display: flex;
+	flex-direction: column;
 }
-.tvu span:hover {
-  text-decoration: underline;
+#editor textarea {
+	flex: 1;
+	background: #333;
+	color: #fff;
+	border: 2px solid #333;
+	padding: 8px;
+	font: 13px monospace;
+	resize: none;
+	outline: none;
 }
-@media screen and (-webkit-min-device-pixel-ratio:0){
-  .tvu{
-    -webkit-animation: webkit-adjacent-element-selector-bugfix infinite 1s;
-  }
-
-  @-webkit-keyframes webkit-adjacent-element-selector-bugfix {
-    from { 
-      padding: 0;
-    } 
-    to { 
-      padding: 0;
-    }
-  }
-}
-#uploader { 
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height:28px;
-  line-height: 24px;
-  padding-left: 10px;
-  background-color: #444;
-  color:#EEE;
-}
-#tree { 
-  position: absolute;
-  top: 28px;
-  bottom: 0;
-  left: 0;
-  width:160px;
-  padding: 8px;
-  background-color: #222;
-}
-#editor, #preview { 
-  position: absolute;
-  top: 28px;
-  right: 0;
-  bottom: 0;
-  left: 160px;
-  border-left:1px solid #EEE;
+#ace-editor {
+	flex: 1;
 }
 #preview {
-  background-color: #EEE;
-  padding:5px;
+	display: none;
+	padding: 10px;
+	text-align: center;
 }
-#loader { 
-  position: absolute;
-  top: 36%;
-  right: 40%;
+#preview img {
+	image-rendering: pixelated;
+	width: 40%;
+	height: auto;
+}
+#loader {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	display: none;
 }
 .loader {
-    z-index: 10000;
-    border: 8px solid #b5b5b5; /* Grey */
-    border-top: 8px solid #3498db; /* Blue */
-    border-bottom: 8px solid #3498db; /* Blue */
-    border-radius: 50%;
-    width: 240px;
-    height: 240px;
-    animation: spin 2s linear infinite;
-    display:none;
+	width: 60px;
+	height: 60px;
+	border: 6px solid #444;
+	border-top-color: #28f;
+	border-radius: 50%;
+	animation: spin 1s linear infinite;
 }
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
+/* Ace editor colors to match WLED style*/
+.ace-monokai .ace_string { color: #4c4 !important; }
+.ace-monokai .ace_constant.ace_numeric { color: #fa0 !important; }
+.ace-monokai .ace_constant.ace_language { color: #f84 !important; }
+.ace-monokai .ace_variable { color: #28f !important; }
+.ace_editor { font: 13px monospace !important; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <script>
-function ge(a){
-  return document.getElementById(a);
-}
-function ce(a){
-  return document.createElement(a);
-}
-
-var QueuedRequester = function () {
-  this.queue = [];
-  this.running = false;
-  this.xmlhttp = null;
-}
+var QueuedRequester = function(){ this.q=[]; this.r=false; this.x=null; }
 QueuedRequester.prototype = {
-  _request: function(req){
-    this.running = true;
-    if(!req instanceof Object) return;
-    var that = this;
-    
-    function ajaxCb(x,d){ return function(){
-      if (x.readyState == 4){
-        ge("loader").style.display = "none";
-        d.callback(x.status, x.responseText);
-        if(that.queue.length === 0) that.running = false;
-        if(that.running) that._request(that.queue.shift());
-      }
-    }}
-    
-    ge("loader").style.display = "block";
-    
-    var p = "";
-    if(req.params instanceof FormData){
-      p = req.params;
-    } else if(req.params instanceof Object){
-      for (var key in req.params) {
-        if(p === "")
-          p += (req.method === "GET")?"?":"";
-        else
-          p += "&";
-        p += encodeURIComponent(key+"="+req.params[key]);
-      };
-    }
-    
-    this.xmlhttp = new XMLHttpRequest();
-    this.xmlhttp.onreadystatechange = ajaxCb(this.xmlhttp, req);
-    if(req.method === "GET"){
-      this.xmlhttp.open(req.method, req.url+p, true);
-      this.xmlhttp.send();
-    } else {
-      this.xmlhttp.open(req.method, req.url, true);
-      if(p instanceof String)
-        this.xmlhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-      this.xmlhttp.send(p);
-    }
-  },
-  stop: function(){
-    if(this.running) this.running = false;
-    if(this.xmlhttp && this.xmlhttp.readyState < 4){
-      this.xmlhttp.abort();
-    }
-  },
-  add: function(method, url, params, callback){
-    this.queue.push({url:url,method:method,params:params,callback:callback});
-    if(!this.running){
-      this._request(this.queue.shift());
-    }
-  }
+	_request: function(req){
+		this.r = true;
+		var that = this;
+		function cb(x,d){ return function(){
+			if (x.readyState==4){
+				gId("loader").style.display="none";
+				d.callback(x.status,x.responseText);
+				if (that.q.length===0) that.r=false;
+				if (that.r) that._request(that.q.shift());
+			}
+		}}
+		gId("loader").style.display="block";
+		var p="";
+		if (req.params instanceof FormData) p=req.params;
+		else if (req.params instanceof Object){
+			for(var key in req.params){
+				p+=(p===""?(req.method==="GET"?"?":""):"&")+encodeURIComponent(key)+"="+encodeURIComponent(req.params[key]);
+			}
+		}
+		this.x=new XMLHttpRequest();
+		this.x.onreadystatechange=cb(this.x,req);
+		if (req.method==="GET"){ 
+			this.x.open(req.method, req.url+p, true);
+			this.x.send();
+		}
+		else{ 
+			this.x.open(req.method, req.url, true);
+			if (typeof p === "string") this.x.setRequestHeader("Content-type","application/x-www-form-urlencoded");
+			this.x.send(p);
+		}
+	},
+	add: function(method,url,params,cb){
+		this.q.push({url:url,method:method,params:params,callback:cb});
+		if (!this.r) this._request(this.q.shift());
+	}
+};
+var req=new QueuedRequester();
+var globalTree; // Single global reference for tree refresh
+
+function loadPreview(filename, editor) {
+	var pathField = gId("filepath");
+	pathField.value = filename;
+	if (/\.(png|jpg|jpeg|gif|bmp|webp)$/i.test(filename)) {
+		gId("editor").style.display="none";
+		gId("preview").style.display="block";
+		gId("preview").innerHTML = '<img src="/edit?func=edit&path=' + encodeURIComponent(filename) + '&_cb=' + Date.now() + '">';
+	} else {
+		editor.loadText(filename);
+	}
 }
 
-var requests = new QueuedRequester();
+function refreshTree() {
+	if (globalTree) globalTree.refreshPath("/");
+}
 
-function createFileUploader(element, tree, editor){
-  var xmlHttp;
-  var input = ce("input");
-  input.type = "file";
-  input.multiple = false;
-  input.name = "data";
-  ge(element).appendChild(input);
-  var path = ce("input");
-  path.id = "upload-path";
-  path.type = "text";
-  path.name = "path";
-  path.defaultValue = "/";
-  ge(element).appendChild(path);
-  var button = ce("button");
-  button.innerHTML = 'Upload';
-  ge(element).appendChild(button);
-  var mkfile = ce("button");
-  mkfile.innerHTML = 'Create';
-  ge(element).appendChild(mkfile);
+function createTop(element, editor){
+	var input = cE("input");
+	input.type = "file";
+	input.style.display = "none"; // Hide the default file input
 
-  var savefile = ce("button");
-  savefile.innerHTML = ' Save ' ;
-  ge(element).appendChild(savefile);
+	// Create container structure
+	var leftDiv = cE("div");
+	leftDiv.className = "left";
+	var centerDiv = cE("div");
+	centerDiv.className = "center";
+	var rightDiv = cE("div");
+	rightDiv.className = "right";
 
-  function httpPostProcessRequest(status, responseText){
-    if(status != 200)
-      alert("ERROR "+status+": "+responseText);
-    else
-      tree.refreshPath(path.value);
-  }
-  function createPath(p){
-    var formData = new FormData();
-    formData.append("path", p);
-    requests.add("PUT", "/edit", formData, httpPostProcessRequest);
-  }
-  
-  mkfile.onclick = function(e){
-    if(path.value.indexOf(".") === -1) return;
-    createPath(path.value);
-    editor.loadUrl(path.value);
-  };
+	// Single text field for filename
+	var path = cE("input");
+	path.id = "filepath";
+	path.type = "text";
+	path.maxLength = "31"; // limit filename length
 
-  savefile.onclick = function(e){
-    editor.execCommand('saveCommand');
-  };
-  
-  button.onclick = function(e){
-    if(input.files.length === 0){
-      return;
-    }
-    var formData = new FormData();
-    formData.append("data", input.files[0], path.value);
-    requests.add("POST", "/edit", formData, httpPostProcessRequest);
-  };
-  input.onchange = function(e){
-    if(input.files.length === 0) return;
-    var filename = input.files[0].name;
-    var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
-    var name = /(.*)\.[^.]+$/.exec(filename)[1];
-    if(typeof name !== undefined){
-      filename = name;
-    }
-    if(typeof ext !== undefined){
-      if(ext === "html") ext = "htm";
-      else if(ext === "jpeg") ext = "jpg";
-      filename = filename + "." + ext;
-    }
-    if(path.value === "/" || path.value.lastIndexOf("/") === 0){
-      path.value = "/"+filename;
-    } else {
-      path.value = path.value.substring(0, path.value.lastIndexOf("/")+1)+filename;
-    }
-  };
+	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "Upload File";
+	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "Clear";
+	var saveBtn = cE("button"); saveBtn.className = "sml"; saveBtn.innerHTML = "Save";
+	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "Back to the controls"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
+
+	// Add elements to Top
+	leftDiv.appendChild(path);
+	leftDiv.appendChild(clearBtn);
+	leftDiv.appendChild(saveBtn);
+	leftDiv.appendChild(uploadBtn);
+	centerDiv.innerHTML = "WLED File Editor";
+	rightDiv.appendChild(backBtn);
+	gId(element).appendChild(input);
+	gId(element).appendChild(leftDiv);
+	gId(element).appendChild(centerDiv);
+	gId(element).appendChild(rightDiv);
+
+	editor.clearEditor();
+
+	uploadBtn.onclick = function() { input.click(); }; // invokes file selector
+
+	function httpPostCb(st,resp){
+		if (st!=200) alert("ERROR "+st+": "+resp);
+		else {
+			showToast("Upload successful!");
+			refreshTree();
+		}
+	}
+
+	// Clear button - clears the editor
+	clearBtn.onclick = function(){
+		editor.clearEditor(); // Clear editor, file will be created on save
+		input.value = ""; // Clear the file selection
+	};
+
+	saveBtn.onclick = function(){ editor.save(); };
+
+	// Handle file selection and upload
+	input.onchange = function(){
+		if (input.files.length == 0) return;
+		var file = input.files[0];
+		var fd = new FormData();
+		fd.append("file", file, file.name);
+		console.log("Uploading:", file.name);
+		req.add("POST", "/upload", fd, function(st, resp) {
+			httpPostCb(st, resp);
+			if(st == 200) { loadPreview(file.name, editor); }
+		});
+		input.value = ""; // Clear the file selection
+	};
 }
 
 function createTree(element, editor){
-  var preview = ge("preview");
-  var treeRoot = ce("div");
-  treeRoot.className = "tvu";
-  ge(element).appendChild(treeRoot);
+	var treeRoot=cE("div");
+	gId(element).appendChild(treeRoot);
+	var menuCleanup = null; // Track menu cleanup function
 
-  function loadDownload(path){
-    ge('download-frame').src = "/edit?download="+path;
-  }
+	function downloadFile(p){
+		window.open(getURL("/edit") + "?func=download&path=" + encodeURIComponent(p), "_blank");
+	}
 
-  function loadPreview(path){
-    ge("editor").style.display = "none";
-    preview.style.display = "block";
-    preview.innerHTML = '<img src="/edit?edit='+path+'&_cb='+Date.now()+'" style="max-width:100%; max-height:100%; margin:auto; display:block;" />';
-  }
+	function deleteFile(p) {
+		if (!confirm("Delete " + p + "?")) return;
+		req.add("GET", getURL("/edit"), { func:"delete", path:p }, function(st, resp) {
+			if (st != 200) alert("ERROR " + st + ": " + resp);
+			else refreshTree();
+		});
+	}
 
-  function fillFileMenu(el, path){
-    var list = ce("ul");
-    el.appendChild(list);
-    var action = ce("li");
-    list.appendChild(action);
-    if(isImageFile(path)){
-      action.innerHTML = "<span>Preview</span>";
-      action.onclick = function(e){
-        loadPreview(path);
-        if(document.body.getElementsByClassName('cm').length > 0) document.body.removeChild(el);
-      };
-    } else if(isTextFile(path)){
-      action.innerHTML = "<span>Edit</span>";
-      action.onclick = function(e){
-        editor.loadUrl(path);
-        if(document.body.getElementsByClassName('cm').length > 0) document.body.removeChild(el);
-      };
-    }
-    var download = ce("li");
-    list.appendChild(download);
-    download.innerHTML = "<span>Download</span>";
-    download.onclick = function(e){
-      loadDownload(path);
-      if(document.body.getElementsByClassName('cm').length > 0) document.body.removeChild(el);
-    };
-    var delFile = ce("li");
-    list.appendChild(delFile);
-    delFile.innerHTML = "<span>Delete</span>";
-    delFile.onclick = function(e){
-      httpDelete(path);
-      if(document.body.getElementsByClassName('cm').length > 0) document.body.removeChild(el);
-    };
-  }
+	function createLeaf(path,name,size){
+		var leaf=cE("div");
+		leaf.style.cssText="cursor:pointer;padding:2px 4px;border-radius:2px;position:relative";
+		leaf.textContent=name;
+		var span = cE("span");
+		span.style.cssText = "font-size: 14px; color: #aaa; margin-left: 8px;";
+		span.textContent =  (size > 0 ? Math.max(0.1, (size / 1024)).toFixed(1) : 0) + "KB"; // show size in KB, minimum 0.1 to not show 0KB for small files
+		leaf.appendChild(span);
+		leaf.onmouseover=function(){ leaf.style.background="#333"; };
+		leaf.onmouseout=function(){ leaf.style.background=""; };
+		leaf.onclick=function(){ loadPreview(name, editor); };
 
-  function showContextMenu(event, path, isfile){
-    var divContext = ce("div");
-    var scrollTop = document.body.scrollTop ? document.body.scrollTop : document.documentElement.scrollTop;
-    var scrollLeft = document.body.scrollLeft ? document.body.scrollLeft : document.documentElement.scrollLeft;
-    var left = event.clientX + scrollLeft;
-    var top = event.clientY + scrollTop;
-    divContext.className = 'cm';
-    divContext.style.display = 'block';
-    divContext.style.left = left + 'px';
-    divContext.style.top = top + 'px';
-    fillFileMenu(divContext, path);
-    document.body.appendChild(divContext);
-    var width = divContext.offsetWidth;
-    var height = divContext.offsetHeight;
-    divContext.onmouseout = function(e){
-      if(e.clientX < left || e.clientX > (left + width) || e.clientY < top || e.clientY > (top + height)){
-        if(document.body.getElementsByClassName('cm').length > 0) document.body.removeChild(divContext);
-      }
-    };
-  }
+		// Right-click context menu
+		leaf.oncontextmenu = function(e) {
+			e.preventDefault();
+			// Clean up previous menu
+			if (menuCleanup) menuCleanup();
+			var menu = cE("div");
+			menu.id = "context-menu";
+			menu.style.cssText = "position:fixed;left:"+e.clientX+"px;top:"+e.clientY+"px;background:#333;border:1px solid #666;border-radius:4px;z-index:1000;box-shadow:2px 2px 8px rgba(0,0,0,0.5)";
 
-  function createTreeLeaf(path, name, size){
-    var leaf = ce("li");
-    leaf.id = (((path == "/")?"":path)+"/"+name);
-    var label = ce("span");
-    label.innerHTML = name;
-    leaf.appendChild(label);
-    leaf.onclick = function(e){
-      if(isTextFile(leaf.id.toLowerCase())){
-        editor.loadUrl(leaf.id);
-      } else if(isImageFile(leaf.id.toLowerCase())){
-        loadPreview(leaf.id);
-      }
-    };
-    leaf.oncontextmenu = function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      showContextMenu(e, leaf.id, true);
-    };
-    return leaf;
-  }
+			function createOption(text, color, handler) {
+				var opt = cE("div");
+				opt.textContent = text;
+				opt.style.cssText = "padding:8px 12px;cursor:pointer;color:" + color;
+				opt.onmouseover = function() { this.style.background = "#555"; };
+				opt.onmouseout = function() { this.style.background = ""; };
+				opt.onclick = function() { handler(); cleanup(); };
+				return opt;
+			}
 
-  function addList(parent, path, items){
-    var list = ce("ul");
-    parent.appendChild(list);
-    var ll = items.length;
-    for(var i = 0; i < ll; i++){
-      if(items[i].type === "file")
-        list.appendChild(createTreeLeaf(path, items[i].name, items[i].size));
-    }
+			menu.appendChild(createOption("Download", "#fff", function(){ downloadFile(path); }));
+			menu.appendChild(createOption("Delete", "#f66", function(){ deleteFile(path); }));
+			d.body.appendChild(menu);
 
-  }
+			function cleanup() {
+				if (menu.parentNode) menu.remove();
+				d.onclick = null;
+				menuCleanup = null;
+			}
 
-  function isTextFile(path){
-    var ext = /(?:\.([^.]+))?$/.exec(path)[1];
-    if(typeof ext !== undefined){
-      switch(ext){
-        case "txt":
-        case "htm":
-        case "html":
-        case "js":
-        case "css":
-        case "xml":
-        case "json":
-        case "conf":
-        case "ini":
-        case "h":
-        case "c":
-        case "cpp":
-        case "php":
-        case "hex":
-          return true;
-      }
-    }
-    return false;
-  }
+			menuCleanup = cleanup;
+			setTimeout(function() { d.onclick = cleanup; }, 100);
+		};
 
-  function isImageFile(path){
-    var ext = /(?:\.([^.]+))?$/.exec(path)[1];
-    if(typeof ext !== undefined){
-      switch(ext){
-        case "png":
-        case "jpg":
-        case "gif":
-          return true;
-      }
-    }
-    return false;
-  }
+		treeRoot.appendChild(leaf);
+	}
 
-  this.refreshPath = function(path){
-    treeRoot.removeChild(treeRoot.childNodes[0]);
-    httpGet(treeRoot, "/");
-  };
+	function addList(path,items){
+		for(var i=0;i<items.length;i++){
+			if (items[i].type==="file" && items[i].name !== "wsec.json") { // hide wsec.json, this is redundant on purpose (done in C code too), just in case...
+				var fullPath = path === "/" ? "/" + items[i].name : path + "/" + items[i].name;
+				createLeaf(fullPath, items[i].name, items[i].size);
+			}
+		}
+		fsMem();
+	}
 
-  function delCb(path){
-    return function(status, responseText){
-      if(status != 200){
-        alert("ERROR "+status+": "+responseText);
-      } else {
-        treeRoot.removeChild(treeRoot.childNodes[0]);
-        httpGet(treeRoot, "/");
-      }
-    }
-  }
+	// add file system memory info and credits at the bottom of the tree
+	async function fsMem(){
+		try{
+			const r=await fetch(getURL("/json/info"));
+			const info=await r.json();
+			var c=cE("div");
+		  c.style.cssText="font-size:12px;color:#aaa;margin-top:40px";
+			c.textContent="by @dedehai";
+			if(info&&info.fs){
+				c.textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+			}
+			treeRoot.appendChild(c);
+		}catch(e){console.error(e);}
+	}
 
-  function httpDelete(filename){
-    var formData = new FormData();
-    formData.append("path", filename);
-    requests.add("DELETE", "/edit", formData, delCb(filename));
-  }
+	function getCb(p){
+		return function(st,resp){
+			if (st==200) {
+				try {
+					addList(p, JSON.parse(resp));
+				} catch(e) {
+					console.error("Error parsing file list:", e);
+				}
+			} else {
+				console.error("Error loading file list:", st, resp);
+			}
+		};
+	}
 
-  function getCb(parent, path){
-    return function(status, responseText){
-      if(status == 200)
-        addList(parent, path, JSON.parse(responseText));
-    }
-  }
+	function httpGet(p){
+		req.add("GET", "/edit", { func:"list", path:p }, getCb(p));
+	}
 
-  function httpGet(parent, path){
-    requests.add("GET", "/edit", { list: path }, getCb(parent, path));
-  }
+	this.refreshPath=function(p){
+		treeRoot.innerHTML="";
+		httpGet("/");
+	};
 
-  httpGet(treeRoot, "/");
-  return this;
+	httpGet("/");
+	return this;
 }
 
-function createEditor(element, file, lang, theme, type){
-  function getLangFromFilename(filename){
-    var lang = "plain";
-    var ext = /(?:\.([^.]+))?$/.exec(filename)[1];
-    if(typeof ext !== undefined){
-      switch(ext){
-        case "txt": lang = "plain"; break;
-        case "hex": lang = "plain"; break;
-        case "conf": lang = "plain"; break;
-        case "htm": lang = "html"; break;
-        case "js": lang = "javascript"; break;
-        case "h": lang = "c_cpp"; break;
-        case "c": lang = "c_cpp"; break;
-        case "cpp": lang = "c_cpp"; break;
-        case "css":
-        case "scss":
-        case "php":
-        case "html":
-        case "json":
-        case "xml":
-        case "ini":
-          lang = ext;
-      }
-    }
-    return lang;
-  }
+// Pretty-print ledmapX.json: print 2D maps in aligned columns, print 1D maps as single line
+function prettyLedmap(json){
+	try {
+		let obj = JSON.parse(json);
+		if (!obj.map || !Array.isArray(obj.map)) return JSON.stringify(obj, null, 2);
+		let width = obj.width || obj.map.length;
+		let maxLen = Math.max(...obj.map.map(n => String(n).length)); // max length of numbers for padding
 
-  if(typeof file === "undefined") file = "/index.htm";
+		function pad(num) {
+			let s = String(num);
+			while (s.length < maxLen) s = " " + s;
+			return s;
+		}
 
-  if(typeof lang === "undefined"){
-    lang = getLangFromFilename(file);
-  }
+		let rows = [];
+		for (let i = 0; i < obj.map.length; i += width) {
+			rows.push("    " + obj.map.slice(i, i + width).map(pad).join(", "));
+		}
 
-  if(typeof theme === "undefined") theme = "monokai";
-
-  if(typeof type === "undefined"){
-    type = "text/"+lang;
-    if(lang === "c_cpp") type = "text/plain";
-  }
-
-  var editor = ace.edit(element);
-  function httpPostProcessRequest(status, responseText){
-    if(status != 200) alert("ERROR "+status+": "+responseText);
-  }
-  function httpPost(filename, data, type){
-    var formData = new FormData();
-    formData.append("data", new Blob([data], { type: type }), filename);
-    requests.add("POST", "/edit", formData, httpPostProcessRequest);
-  }
-  function httpGetProcessRequest(status, responseText){
-      ge("preview").style.display = "none";
-      ge("editor").style.display = "block";
-      if(status == 200)
-        editor.setValue(responseText);
-      else
-        editor.setValue("");
-      editor.clearSelection();
-  }
-  function httpGet(theUrl){
-      requests.add("GET", "/edit", { edit: theUrl }, httpGetProcessRequest);
-  }
-
-  if(lang !== "plain") editor.getSession().setMode("ace/mode/"+lang);
-  editor.setTheme("ace/theme/"+theme);
-  editor.$blockScrolling = Infinity;
-  editor.getSession().setUseSoftTabs(true);
-  editor.getSession().setTabSize(2);
-  editor.setHighlightActiveLine(true);
-  editor.setShowPrintMargin(false);
-  editor.commands.addCommand({
-      name: 'saveCommand',
-      bindKey: {win: 'Ctrl-S',  mac: 'Command-S'},
-      exec: function(editor) {
-        httpPost(file, editor.getValue()+"", type);
-      },
-      readOnly: false
-  });
-  editor.commands.addCommand({
-      name: 'undoCommand',
-      bindKey: {win: 'Ctrl-Z',  mac: 'Command-Z'},
-      exec: function(editor) {
-        editor.getSession().getUndoManager().undo(false);
-      },
-      readOnly: false
-  });
-  editor.commands.addCommand({
-      name: 'redoCommand',
-      bindKey: {win: 'Ctrl-Shift-Z',  mac: 'Command-Shift-Z'},
-      exec: function(editor) {
-        editor.getSession().getUndoManager().redo(false);
-      },
-      readOnly: false
-  });
-  httpGet(file);
-  editor.loadUrl = function(filename){
-    file = filename;
-    lang = getLangFromFilename(file);
-    type = "text/"+lang;
-    if(lang !== "plain") editor.getSession().setMode("ace/mode/"+lang);
-    httpGet(file);
-  };
-  return editor;
+		let pretty = "{\n";
+		for (let k of Object.keys(obj)) {
+			if (k !== "map") {
+				pretty += " \"" + k + "\": " + JSON.stringify(obj[k]) + ",\n"; // print all keys first (speeds up loading)
+			}
+		}
+		pretty += " \"map\": [\n" + rows.join(",\n") + "\n  ]\n}";
+		return pretty;
+	} catch (e) {
+		return json;
+	}
 }
+
+function createEditor(element,file){
+	if (!file) file="";
+
+	var ta = cE("textarea");
+	var editorDiv = cE("div");
+	editorDiv.id = "ace-editor";
+	editorDiv.style.display = "none";
+
+	gId(element).appendChild(ta);
+	gId(element).appendChild(editorDiv);
+
+	var currentFile = file;
+	var aceEditor = null;
+	var useAce = false;
+
+	function updateEditorMode() {
+		if (!useAce || !aceEditor) return;
+
+		// Check filename from text field or current file
+		var pathField = gId("filepath");
+		var filename = (pathField && pathField.value) ? pathField.value : currentFile;
+		aceEditor.session.setMode(filename && filename.toLowerCase().endsWith('.json') ? "ace/mode/json" : "ace/mode/text");
+	}
+
+	// Try to initialize Ace editor if available
+	function initAce(){
+		if (useAce || typeof ace === 'undefined') return;
+		try {
+			aceEditor = ace.edit(editorDiv);
+			aceEditor.setTheme("ace/theme/monokai");
+			aceEditor.session.setMode("ace/mode/text");
+			aceEditor.setOptions({ fontSize:"13px", fontFamily:"monospace", showPrintMargin:false, wrap:true });
+			useAce = true;
+			//console.log("Use Ace editor");
+			switchToAce();
+			updateEditorMode();
+
+			// Monitor filename input for JSON highlighting (prevent duplicate listeners)
+			var pathField = gId("filepath");
+			if (pathField && !pathField.jsonListener) {
+				pathField.oninput = updateEditorMode;
+				pathField.jsonListener = true;
+			}
+		} catch(e) {
+			//console.log("Ace load failed:", e);
+			useAce = false;
+		}
+	}
+	// Try now and on window load as a fallback
+	setTimeout(initAce, 100);
+	window.addEventListener('load', initAce);
+
+	function switchToAce() {
+		if (useAce && aceEditor) {
+			ta.style.display = "none";
+			editorDiv.style.display = "block";
+			editorDiv.style.flex = "1";
+			aceEditor.setValue(ta.value, -1);
+			aceEditor.resize();
+		}
+	}
+
+	function getContent() {
+		return (useAce && aceEditor && editorDiv.style.display !== "none") ? aceEditor.getValue() : ta.value;
+	}
+
+	function setContent(content) {
+		ta.value = content;
+		if (useAce && aceEditor) aceEditor.setValue(content, -1);
+	}
+
+	// Live JSON validation for textarea
+	ta.oninput = function() {
+		var pathField = gId("filepath");
+		var filename = pathField ? pathField.value : currentFile;
+		var border = "2px solid #333";
+
+		if (filename && filename.toLowerCase().endsWith('.json')) {
+			try {
+				JSON.parse(ta.value);
+			} catch(e) {
+				border = "2px solid #f00";
+			}
+		}
+		ta.style.border = border;
+	};
+
+	function saveFile(filename,data){
+		var finalData = data;
+		// Minify JSON files before upload
+		if (filename.toLowerCase().endsWith('.json')) {
+			try {
+				finalData = JSON.stringify(JSON.parse(data));
+			} catch(e) {
+				alert("Invalid JSON! Please fix syntax.");
+				return;
+			}
+		}
+		var fd=new FormData();
+		fd.append("file",new Blob([finalData],{type:"text/plain"}),filename);
+		req.add("POST","/upload",fd,function(st,resp){
+			if (st!=200) alert("ERROR "+st+": "+resp);
+			else {
+				showToast("File saved");
+				refreshTree();
+			}
+		});
+	}
+
+	function loadFile(filename){
+		if (!filename) return;
+		req.add("GET", "/edit", { func:"edit", path:filename }, function(st, resp) {
+			gId("preview").style.display="none";
+			gId("editor").style.display="flex";
+			if (st==200) {
+				if (filename.toLowerCase().endsWith('.json')) {
+					try {
+						setContent(filename.toLowerCase().includes('ledmap') ? prettyLedmap(resp) : JSON.stringify(JSON.parse(resp), null, 2));
+					} catch(e) {
+						setContent(resp);
+					}
+				} else {
+					setContent(resp);
+				}
+			} else {
+				setContent("");
+			}
+			currentFile = filename;
+			updateEditorMode();
+		});
+	}
+
+	if (file) loadFile(file);
+
+	return {
+		save:function(){
+			var pathField = gId("filepath");
+			var fn = pathField ? pathField.value : "";
+			if (!fn) {
+				alert("Please enter a filename!");
+				return;
+			}
+			if (!fn.startsWith("/")) fn = "/" + fn;
+			currentFile = fn; // Update current file
+			saveFile(fn, getContent());
+			loadFile(fn);
+		},
+		loadText:function(fn){
+			currentFile=fn;
+			var pathField = gId("filepath");
+			if (pathField && fn) {
+				pathField.value = fn.startsWith("/") ? fn.substring(1) : fn;
+			}
+			loadFile(fn);
+		},
+		clearEditor:function(){
+			gId("preview").style.display="none";
+			gId("editor").style.display="flex";
+			// Update filename in text field
+			setContent("");
+			var pathField = gId("filepath");
+			pathField.value = "";
+			pathField.placeholder = "Filename to save";
+			updateEditorMode();
+		}
+	};
+}
+
 function onBodyLoad(){
-  var vars = {};
-  var parts = window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi, function(m,key,value) { vars[key] = value; });
-  var editor = createEditor("editor", vars.file, vars.lang, vars.theme);
-  var tree = createTree("tree", editor);
-  createFileUploader("uploader", tree, editor);
-};
+	var vars={};
+	window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi,function(m,k,v){
+		vars[decodeURIComponent(k)]=decodeURIComponent(v);
+	});
+
+	var editor=createEditor("editor",vars.file);
+	globalTree=createTree("tree",editor);
+	createTop("top",editor);
+	// Add Ctrl+S / Cmd+S override to save the file
+	document.addEventListener('keydown', function(e) {
+		if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+			e.preventDefault();
+			editor.save();
+		}
+	});
+}
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.2.3/ace.js" type="text/javascript" charset="utf-8"></script>
 </head>
-<body onload="onBodyLoad();">
-  <div id="loader" class="loader"></div>
-  <div id="uploader"></div>
-  <div id="tree"></div>
-  <div id="editor"></div>
-  <div id="preview" style="display:none;"></div>
-  <iframe id=download-frame style='display:none;'></iframe>
+<body onload="onBodyLoad()">
+	<div id="toast"></div>
+	<div id="loader"><div class="loader"></div></div>
+	<div id="top"></div>
+	<div style="flex:1;position:relative">
+		<div id="tree">
+		</div>
+		<div id="editor"></div>
+		<div id="preview"></div>
+	</div>
 </body>
 </html>
