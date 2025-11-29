@@ -1135,7 +1135,7 @@ void serveJson(AsyncWebServerRequest* request)
   }
 
   if (!requestJSONBufferLock(17)) {
-    deferResponse(request);
+    request->deferResponse();    
     return;
   }
   // releaseJSONBufferLock() will be called when "response" is destroyed (from AsyncWebServer)
