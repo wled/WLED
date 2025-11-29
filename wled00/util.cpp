@@ -782,7 +782,7 @@ String generateDeviceFingerprint() {
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 3)
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
   #else
   fp[0] ^= chip_info.revision | (chip_info.model << 16);
