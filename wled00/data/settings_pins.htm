@@ -6,15 +6,30 @@
 	<title>Pin Manager</title>
 	<script src="common.js" type="text/javascript"></script>
 	<script>
-		var d=document, loc=false, pinsTimer=null;
+		var d=document, loc=false, pinsTimer=null, gpioInfo={};
 		function gId(s){return d.getElementById(s);}
-		function gN(s){return d.getElementsByName(s)[0];}
 		function S(){
 			getLoc();
-			loadPins();
-			pinsTimer = setInterval(loadPins, 250);
+			loadGPIOInfo();
 		}
 		function B(){window.open(getURL('/settings'),'_self');}
+		function loadGPIOInfo(){
+			// Load GPIO info from existing settings endpoint
+			var script = document.createElement('script');
+			script.onload = function(){
+				// Store GPIO info and start pin polling
+				gpioInfo.touch = d.touch_gpio || [];
+				gpioInfo.rsvd = d.rsvd || [];
+				gpioInfo.ro = d.ro_gpio || [];
+				loadPins();
+				pinsTimer = setInterval(loadPins, 250);
+			};
+			script.onerror = function(){
+				gId('pins').innerHTML='Error loading GPIO info';
+			};
+			script.src = getURL('/settings/s.js?p=2');
+			document.head.appendChild(script);
+		}
 		function getOwnerName(o,t,n){
 			if(!o) return "Unknown";
 			if(o&0x80){
@@ -41,9 +56,15 @@
 			var n=["None","Reserved","Push","Push High","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
 			return "Button ("+(n[t]||"?")+")";
 		}
-		function getCaps(c){
-			var r=[],f=["Touch","Analog","PWM","Boot","In Only"];
-			for(var i=0;i<5;i++)if(c&(1<<i))r.push(f[i]);
+		function getCaps(p,c){
+			var r=[];
+			// Use touch info from settings endpoint
+			if(gpioInfo.touch && gpioInfo.touch.includes(p)) r.push("Touch");
+			// Use other caps from JSON (Analog, PWM, Boot, Input Only)
+			if(c&0x02) r.push("Analog");
+			if(c&0x04) r.push("PWM");
+			if(c&0x08) r.push("Boot");
+			if(c&0x10) r.push("In Only");
 			return r.length?r.join(", "):"-";
 		}
 		function loadPins(){
@@ -62,7 +83,7 @@
 						}
 						var ow=p.a?getOwnerName(p.o,p.t,p.n):'<span style="color:#0b0">Available</span>';
 						if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
-						cn+='<tr><td>GPIO '+p.p+'</td><td>'+ow+'</td><td>'+getCaps(p.c||0)+'</td><td>'+st+'</td></tr>';
+						cn+='<tr><td>GPIO '+p.p+'</td><td>'+ow+'</td><td>'+getCaps(p.p,p.c||0)+'</td><td>'+st+'</td></tr>';
 					}
 					cn+='</table>';
 				}
