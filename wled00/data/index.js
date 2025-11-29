@@ -43,16 +43,7 @@ var hol = [
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
 
-var cpick = new iro.ColorPicker("#picker", {
-	width: 260,
-	wheelLightness: false,
-	wheelAngle: 270,
-	wheelDirection: "clockwise",
-	layout: [{
-		component: iro.ui.Wheel,
-		options: {}
-	}]
-});
+var cpick;
 
 function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3000) requestJson();}
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
@@ -220,6 +211,22 @@ function getURL(path) {
 }
 function onLoad()
 {
+	try {
+		cpick = new iro.ColorPicker("#picker", {
+			width: 260,
+			wheelLightness: false,
+			wheelAngle: 270,
+			wheelDirection: "clockwise",
+			layout: [{
+				component: iro.ui.Wheel,
+				options: {}
+			}]
+		});
+	} catch (e) {
+		console.error("iro load error", e);
+		if (typeof showToast === "function") showToast("Color Picker Error: " + e, true);
+	}
+
 	let l = window.location;
 	if (l.protocol == "file:") {
 		loc = true;
@@ -274,8 +281,10 @@ function onLoad()
 	selectSlot(0);
 	updateTablinks(0);
 	handleLocationHash();
-	cpick.on("input:end", () => {setColor(1);});
-	cpick.on("color:change", () => {updatePSliders()});
+	if (cpick) {
+		cpick.on("input:end", () => {setColor(1);});
+		cpick.on("color:change", () => {updatePSliders()});
+	}
 	pmtLS = localStorage.getItem('wledPmt');
 
 	// Load initial data
@@ -755,14 +764,20 @@ ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 
 function populateSegments(s)
 {
-	var cn = "";
-	let li = lastinfo;
-	segCount = 0; lowestUnused = 0; lSeg = 0;
+	try {
+		var cn = "";
+		let li = lastinfo;
+		segCount = 0; lowestUnused = 0; lSeg = 0;
 
-	for (var inst of (s.seg||[])) {
-		segCount++;
+		let segs = s.seg;
+		if (!Array.isArray(segs)) segs = [];
 
-		let i = parseInt(inst.id);
+		for (var inst of segs) {
+			if (!inst) continue;
+			segCount++;
+
+			let i = parseInt(inst.id);
+			if (isNaN(i)) continue;
 		if (i == lowestUnused) lowestUnused = i+1;
 		if (i > lSeg) lSeg = i;
 
@@ -859,8 +874,8 @@ function populateSegments(s)
 						`<td>${isMSeg?'':'Offset'}</td>`+
 					`</tr>`+
 					`<tr>`+
-						`<td><input class="segn" id="seg${i}s" type="number" min="0" max="${(isMSeg?mw:ledCount)-1}" value="${staX}" oninput="updateLen(${i})" onkeydown="segEnter(${i})"></td>`+
-						`<td><input class="segn" id="seg${i}e" type="number" min="0" max="${(isMSeg?mw:ledCount)}" value="${stoX-(cfg.comp.seglen?staX:0)}" oninput="updateLen(${i})" onkeydown="segEnter(${i})"></td>`+
+						`<td><input class="segn" id="seg${i}s" type="number" min="0" max="${(isMSeg?mw:(ledCount > 0 ? ledCount : 30))-1}" value="${staX}" oninput="updateLen(${i})" onkeydown="segEnter(${i})"></td>`+
+						`<td><input class="segn" id="seg${i}e" type="number" min="0" max="${(isMSeg?mw:(ledCount > 0 ? ledCount : 30))}" value="${stoX-(cfg.comp.seglen?staX:0)}" oninput="updateLen(${i})" onkeydown="segEnter(${i})"></td>`+
 						`<td ${isMSeg?'style="text-align:revert;"':''}>${isMSeg?miXck+'<br>'+rvXck:''}<input class="segn ${isMSeg?'hide':''}" id="seg${i}of" type="number" value="${inst.of}" oninput="updateLen(${i})"></td>`+
 					`</tr>`+
 					(isMSeg ? '<tr><td>Start Y</td><td>'+(cfg.comp.seglen?'Height':'Stop Y')+'</td><td></td></tr>'+
@@ -902,6 +917,9 @@ function populateSegments(s)
 
 	gId('segcont').innerHTML = cn;
 	gId("segcont").classList.remove("hide");
+	if (lowestUnused >= maxSeg) {
+		if (maxSeg == 0) maxSeg = 32; // fallback if maxSeg is 0
+	}
 	let noNewSegs = (lowestUnused >= maxSeg);
 	resetUtil(noNewSegs);
 	for (var i = 0; i <= lSeg; i++) {
@@ -911,12 +929,12 @@ function populateSegments(s)
 		gId(`segr${i}`).classList.add("hide");
 	}
 	if (segCount < 2) {
-		gId(`segd${lSeg}`).classList.add("hide"); // hide delete if only one segment
-		if (parseInt(gId("seg0bri").value)==255) gId(`segp0`).classList.add("hide");
+		if (gId(`segd${lSeg}`)) gId(`segd${lSeg}`).classList.add("hide"); // hide delete if only one segment
+		if (gId("seg0bri") && parseInt(gId("seg0bri").value)==255 && gId(`segp0`)) gId(`segp0`).classList.add("hide");
 		// hide segment controls if there is only one segment in simplified UI
 		if (simplifiedUI) gId("segcont").classList.add("hide");
 	}
-	if (!isM && !noNewSegs && (cfg.comp.seglen?parseInt(gId(`seg${lSeg}s`).value):0)+parseInt(gId(`seg${lSeg}e`).value)<ledCount) gId(`segr${lSeg}`).classList.remove("hide");
+	if (!isM && !noNewSegs && gId(`seg${lSeg}s`) && gId(`seg${lSeg}e`) && gId(`segr${lSeg}`) && (cfg.comp.seglen?parseInt(gId(`seg${lSeg}s`).value):0)+parseInt(gId(`seg${lSeg}e`).value)<ledCount) gId(`segr${lSeg}`).classList.remove("hide");
 	gId('segutil2').style.display = (segCount > 1) ? "block":"none"; // rsbtn parent
 
 	if (Array.isArray(li.maps) && li.maps.length>1) {
@@ -929,6 +947,10 @@ function populateSegments(s)
 		gId("ledmap").classList.add('hide');
 	}
 	tooltip("#Segments");
+	} catch (e) {
+		console.error("Populate Segments Error", e);
+		showToast("Seg Error: " + e, true);
+	}
 }
 
 function populateEffects()
@@ -1448,20 +1470,23 @@ function makeWS() {
 
 function readState(s,command=false)
 {
-	if (!s) return false;
+	try {
+		if (!s) return false;
 	if (s.success) return true; // no data to process
 
 	isOn = s.on;
 	gId('sliderBri').value = s.bri;
-	nlA = s.nl.on;
-	nlDur = s.nl.dur;
-	nlTar = s.nl.tbri;
-	nlFade = s.nl.fade;
-	syncSend = s.udpn.send;
+	if (s.nl) {
+		nlA = s.nl.on;
+		nlDur = s.nl.dur;
+		nlTar = s.nl.tbri;
+		nlFade = s.nl.fade;
+	}
+	if (s.udpn) syncSend = s.udpn.send;
 	if (s.pl<0)	currentPreset = s.ps;
 	else currentPreset = s.pl;
 
-	tr = s.transition;
+	tr = s.transition !== undefined ? s.transition : 7;
 	gId('tt').value = tr/10;
 	gId('bs').value = s.bs || 0;
 	if (tr===0) gId('bsp').classList.add('hide')
@@ -1471,7 +1496,10 @@ function readState(s,command=false)
 	hasRGB = hasWhite = hasCCT = has2D = false;
 	let i = {};
 	// determine light capabilities from selected segments
-	for (let seg of (s.seg||[])) {
+	let segs = s.seg;
+	if (!Array.isArray(segs)) segs = [];
+	for (let seg of segs) {
+		if (!seg) continue;
 		let w  = (seg.stop - seg.start);
 		let h  = seg.stopY ? (seg.stopY - seg.startY) : 1;
 		let lc = seg.lc;
@@ -1485,7 +1513,7 @@ function readState(s,command=false)
 		} else if (isEmpty(i) && seg.id == s.mainseg) i = seg; // assign mainseg if no segments are selected
 	}
 	if (isEmpty(i)) {
-		showToast('No segments!', true);
+		showToast('No segments! Check LED Config.', true);
 		updateUI();
 		return true;
 	} else if (i.id == s.mainseg) {
@@ -1558,6 +1586,10 @@ function readState(s,command=false)
 	redrawPalPrev(); // if any color changed (random palette did at least)
 	updateUI();
 	return true;
+	} catch (e) {
+		console.error("readState error:", e, s);
+		return false;
+	}
 }
 
 // control HTML elements for Slider and Color Control (original ported form WLED-SR)
@@ -1870,7 +1902,7 @@ function makeSeg()
 		if (isM) {
 			ns = 0;
 		} else {
-			if (xend < ledCount) ns = xend;
+			if (xend < ct) ns = xend;
 			ct -= cfg.comp.seglen?ns:0;
 		}
 	}
@@ -2272,8 +2304,8 @@ function setSeg(s)
 	let eX = gId(`seg${s}e`);
 	var start = parseInt(sX.value);
 	var stop = parseInt(eX.value) + (cfg.comp.seglen?start:0);
-	if (start<sX.min || start>sX.max) {sX.value=sX.min; return;} // prevent out of bounds
-	if (stop<eX.min || stop-(cfg.comp.seglen?start:0)>eX.max) {eX.value=eX.max; return;} // prevent out of bounds
+	if (start<sX.min || start>sX.max) {sX.value=sX.min; return;}
+	if (stop<eX.min || stop-(cfg.comp.seglen?start:0)>eX.max) {eX.value=eX.max; return;}
 	if ((cfg.comp.seglen && stop == 0) || (!cfg.comp.seglen && stop <= start)) {delSeg(s); return;}
 	var obj = {"seg": {"id": s, "n": name, "start": start, "stop": stop}};
 	if (isM && start<mw*mh) {

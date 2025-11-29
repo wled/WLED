@@ -1,42 +1,57 @@
 {
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Build: HTML and binary",
-      "dependsOn": [
-        "Build: HTML only",
-        "Build: binary only"
-      ],
-      "dependsOrder": "sequence",
-      "problemMatcher": [
-        "$platformio"
-      ]
-    },
-    {
-      "type": "PlatformIO",
-      "label": "Build: binary only",
-      "task": "Build",
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      },
-      "problemMatcher": [
-        "$platformio"
-      ],
-      "presentation": {
-        "panel": "shared"
-      }
-    },
-    {
-      "type": "npm",
-      "script": "build",
-      "group": "build",
-      "problemMatcher": [],
-      "label": "Build: HTML only",
-      "detail": "npm run build",
-      "presentation": {
-        "panel": "shared"
-      }
-    }
-  ]
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build: HTML and binary",
+			"dependsOn": [
+				"Build: HTML only",
+				"Build: binary only"
+			],
+			"dependsOrder": "sequence",
+			"problemMatcher": [
+				"$platformio"
+			]
+		},
+		{
+			"type": "PlatformIO",
+			"label": "Build: binary only",
+			"task": "Build",
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": [
+				"$platformio"
+			],
+			"presentation": {
+				"panel": "shared"
+			}
+		},
+		{
+			"type": "npm",
+			"script": "build",
+			"group": "build",
+			"problemMatcher": [],
+			"label": "Build: HTML only",
+			"detail": "npm run build",
+			"presentation": {
+				"panel": "shared"
+			}
+		},
+		{
+			"label": "Build: ESP32-S3 Custom",
+			"type": "shell",
+			"command": "pio",
+			"args": [
+				"run",
+				"--environment",
+				"esp32-s3-devkitc-1-n16r8v"
+			],
+			"isBackground": false,
+			"problemMatcher": [
+				"$platformio"
+			],
+			"group": "build"
+		}
+	]
 }

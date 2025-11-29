@@ -105,7 +105,7 @@ async function minify(str, type = "plain") {
     collapseBooleanAttributes: true,
     collapseInlineTagWhitespace: true,
     minifyCSS: true,
-    minifyJS: true,
+    minifyJS: false,
     removeAttributeQuotes: true,
     removeComments: true,
     sortAttributes: true,
