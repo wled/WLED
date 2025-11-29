@@ -3164,6 +3164,7 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   First slider is for the ants' speed.
 *   Second slider is for the # of ants.
 *   Third slider is for the Ants' size.
+*   Fourth slider (custom2) is for blurring the LEDs in the segment.
 *   Checkbox1 is for Gathering food (enabled if you want the ants to gather food, disabled if they are just walking).
 *     We will switch directions when they get to the beginning or end of the segment when gathering food.
 *     When gathering food, the Pass By option will automatically be enabled so they can drop off their food easier (and look for more food).
@@ -3339,9 +3340,10 @@ static uint16_t mode_ants(void) {
     ants[i].position = newPosition;
   }
 
+  SEGMENT.blur(SEGMENT.custom2>>1);
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,o1=1,o3=1";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
 
 
 /*
