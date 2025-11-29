@@ -3262,7 +3262,7 @@ function checkVersionUpgrade(info) {
 	if (info.wifi && info.wifi.ap) return;
 
 	// Fetch version-info.json using existing /edit endpoint
-	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
+	fetch(getURL('/edit?edit=/version-info.json'), {
 		method: 'get'
 	})
 		.then(res => {
@@ -3296,10 +3296,6 @@ function checkVersionUpgrade(info) {
 		})
 		.catch(e => {
 			console.log('Failed to load version-info.json', e);
-			// On error, save current version for next time
-			if (info && info.ver) {
-				updateVersionInfo(info.ver, false);
-			}
 		});
 }
 
