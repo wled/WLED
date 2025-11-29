@@ -67,7 +67,7 @@ static bool inLocalSubnet(const IPAddress &client) {
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
-  sprintf_P(etag, PSTR("%7d-%02x-%04x"), VERSION, cacheInvalidate, eTagSuffix);
+  sprintf_P(etag, PSTR("%u-%02x-%04x"), WEB_BUILD_TIME, cacheInvalidate, eTagSuffix);
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
