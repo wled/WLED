@@ -166,6 +166,22 @@ void appendGPIOinfo(Print& settingsScript)
 
   // add info about max. # of pins
   settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
+
+  // add info about touch-capable GPIO (ESP32 only, not on C3)
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  settingsScript.print(F("d.touch_gpio=["));
+  firstPin = true;
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (digitalPinToTouchChannel(i) >= 0) {
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
+  settingsScript.print(F("];"));
+  #else
+  settingsScript.print(F("d.touch_gpio=[];"));
+  #endif
 }
 
 //get values for settings form in javascript

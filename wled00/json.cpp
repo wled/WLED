@@ -1046,7 +1046,7 @@ void serializeNodes(JsonObject root)
 }
 
 // Pin capability flags - only "special" capabilities useful for debugging
-#define PIN_CAP_TOUCH        0x01   // has touch capability
+// Touch capability is now in appendGPIOinfo() (d.touch_gpio)
 #define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
 #define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output)
 #define PIN_CAP_BOOT         0x08   // bootloader/strapping pin (affects boot mode)
@@ -1068,16 +1068,12 @@ void serializePins(JsonObject root)
     pinObj["p"] = gpio;  // pin number
 
     // Calculate capabilities - only "special" ones for debugging
+    // Touch capability is provided by appendGPIOinfo() via d.touch_gpio array
     uint8_t caps = 0;
     
     #ifdef ARDUINO_ARCH_ESP32
     // Check ADC capability
     if (digitalPinToAnalogChannel(gpio) >= 0) caps |= PIN_CAP_ADC;
-    
-    // Check touch capability (not available on C3)
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (digitalPinToTouchChannel(gpio) >= 0) caps |= PIN_CAP_TOUCH;
-    #endif
 
     // PWM - all output-capable GPIO can do PWM on ESP32
     if (canOutput) caps |= PIN_CAP_PWM;
