@@ -288,7 +288,11 @@ void calculateBootloaderSHA256() {
 
   for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
     size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
-    if (spi_flash_read(BOOTLOADER_OFFSET + offset, buffer, readSize) == ESP_OK) {
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {    // use esp_flash_read for V4 framework (-S2, -S3, -C3)
+#else
+    if (spi_flash_read(BOOTLOADER_OFFSET + offset, buffer, readSize) == ESP_OK) {          // use spi_flash_read for old V3 framework (legacy esp32)
+#endif
       mbedtls_sha256_update(&ctx, buffer, readSize);
     }
   }
