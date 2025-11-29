@@ -658,7 +658,10 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
-  if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
+  // Ensure selectedWiFi is a valid index (findWiFi() can return negative values during scan)
+  if (selectedWiFi >= multiWiFi.size()) selectedWiFi = 0;
+
+  if (multiWiFi[selectedWiFi].staticIP != IPAddress((uint32_t)0) && multiWiFi[selectedWiFi].staticGW != IPAddress((uint32_t)0)) {
     WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
   } else {
     WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
@@ -792,7 +795,8 @@ void WLED::handleConnection()
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
-    selectedWiFi = findWiFi(); // find strongest WiFi
+    int wifi = findWiFi(); // find strongest WiFi (can return negative if scan in progress)
+    if (wifi >= 0) selectedWiFi = wifi;
     initConnection();
     interfacesInited = false;
     forceReconnect = false;
@@ -830,7 +834,8 @@ void WLED::handleConnection()
         return;         // try to connect in next iteration
       }
       DEBUG_PRINTLN(F("Disconnected!"));
-      selectedWiFi = findWiFi();
+      int wifi = findWiFi();
+      if (wifi >= 0) selectedWiFi = wifi;
       initConnection();
       interfacesInited = false;
       scanDone = true;
