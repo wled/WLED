@@ -3,12 +3,28 @@
 
 #ifdef ESP32
 #include <esp_ota_ops.h>
+#include <esp_spi_flash.h>
+#include <mbedtls/sha256.h>
 #endif
 
 // Platform-specific metadata locations
 #ifdef ESP32
 constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
+
+// Bootloader is at fixed offset 0x1000 (4KB), 0x0000 (0KB), or 0x2000 (8KB), and is typically 32KB
+// Bootloader offsets for different MCUs => see https://github.com/wled/WLED/issues/5064
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
+constexpr size_t BOOTLOADER_OFFSET = 0x2000; // (future support) esp32-P4 and esp32-C5
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#else
+constexpr size_t BOOTLOADER_OFFSET = 0x1000; // esp32 and esp32-s2
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#endif
+
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
@@ -254,3 +270,54 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
     context->uploadComplete = true;
   }
 }
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+static String bootloaderSHA256HexCache = "";
+
+// Calculate and cache the bootloader SHA256 digest as hex string
+void calculateBootloaderSHA256() {
+  if (!bootloaderSHA256HexCache.isEmpty()) return;
+
+  // Calculate SHA256
+  uint8_t sha256[32];
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
+
+  const size_t chunkSize = 256;
+  uint8_t buffer[chunkSize];
+
+  for (uint32_t offset = 0; offset < BOOTLOADER_SIZE; offset += chunkSize) {
+    size_t readSize = min((size_t)(BOOTLOADER_SIZE - offset), chunkSize);
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+    if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {    // use esp_flash_read for V4 framework (-S2, -S3, -C3)
+#else
+    if (spi_flash_read(BOOTLOADER_OFFSET + offset, buffer, readSize) == ESP_OK) {          // use spi_flash_read for old V3 framework (legacy esp32)
+#endif
+      mbedtls_sha256_update(&ctx, buffer, readSize);
+    }
+  }
+
+  mbedtls_sha256_finish(&ctx, sha256);
+  mbedtls_sha256_free(&ctx);
+
+  // Convert to hex string and cache it
+  char hex[65];
+  for (int i = 0; i < 32; i++) {
+    sprintf(hex + (i * 2), "%02x", sha256[i]);
+  }
+  hex[64] = '\0';
+  bootloaderSHA256HexCache = hex;
+}
+
+// Get bootloader SHA256 as hex string
+String getBootloaderSHA256Hex() {
+  calculateBootloaderSHA256();
+  return bootloaderSHA256HexCache;
+}
+
+// Invalidate cached bootloader SHA256 (call after bootloader update)
+void invalidateBootloaderSHA256Cache() {
+  bootloaderSHA256HexCache = "";
+}
+#endif

@@ -3,6 +3,7 @@
 #include "const.h"
 #ifdef ESP8266
 #include "user_interface.h" // for bootloop detection
+#include <Hash.h>            // for SHA1 on ESP8266
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
@@ -10,6 +11,8 @@
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
+#include "mbedtls/sha1.h"   // for SHA1 on ESP32
+#include "esp_adc_cal.h"
 #endif
 
 
@@ -744,4 +747,100 @@ void handleBootLoop() {
   }
 
   ESP.restart(); // restart cleanly and don't wait for another crash
+}
+
+// Platform-agnostic SHA1 computation from String input
+String computeSHA1(const String& input) {
+  #ifdef ESP8266
+    return sha1(input); // ESP8266 has built-in sha1() function
+  #else
+    // ESP32: Compute SHA1 hash using mbedtls
+    unsigned char shaResult[20]; // SHA1 produces 20 bytes
+    mbedtls_sha1_context ctx;
+
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish_ret(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+
+    // Convert to hexadecimal string
+    char hexString[41];
+    for (int i = 0; i < 20; i++) {
+      sprintf(&hexString[i*2], "%02x", shaResult[i]);
+    }
+    hexString[40] = '\0';
+
+    return String(hexString);
+  #endif
+}
+
+#ifdef ESP32
+String generateDeviceFingerprint() {
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
+  esp_chip_info_t chip_info;
+  esp_chip_info(&chip_info);
+  esp_efuse_mac_get_default((uint8_t*)fp);
+  fp[1] ^= ESP.getFlashChipSize();
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 4)
+  fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
+  #else
+  fp[0] ^= chip_info.revision | (chip_info.model << 16);
+  #endif
+  // mix in ADC calibration data:
+  esp_adc_cal_characteristics_t ch;
+  #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
+  #else
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
+  #endif
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, myBIT_WIDTH, 1100, &ch);
+  fp[0] ^= ch.coeff_a;
+  fp[1] ^= ch.coeff_b;
+  if (ch.low_curve) {
+    for (int i = 0; i < 8; i++) {
+      fp[0] ^= ch.low_curve[i];
+    }
+  }
+  if (ch.high_curve) {
+    for (int i = 0; i < 8; i++) {
+      fp[1] ^= ch.high_curve[i];
+    }
+  }
+  char fp_string[17];  // 16 hex chars + null terminator
+  sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
+  return String(fp_string);
+}
+#else // ESP8266
+String generateDeviceFingerprint() {
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
+  WiFi.macAddress((uint8_t*)&fp); // use MAC address as fingerprint base
+  fp[0] ^= ESP.getFlashChipId();
+  fp[1] ^= ESP.getFlashChipSize() | ESP.getFlashChipVendorId() << 16;
+  char fp_string[17];  // 16 hex chars + null terminator
+  sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
+  return String(fp_string);
+}
+#endif
+
+// Generate a device ID based on SHA1 hash of MAC address salted with other unique device info
+// Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
+String getDeviceId() {
+  static String cachedDeviceId = "";
+  if (cachedDeviceId.length() > 0) return cachedDeviceId;
+  // The device string is deterministic as it needs to be consistent for the same device, even after a full flash erase
+  // MAC is salted with other consistent device info to avoid rainbow table attacks.
+  // If the MAC address is known by malicious actors, they could precompute SHA1 hashes to impersonate devices,
+  // but as WLED developers are just looking at statistics and not authenticating devices, this is acceptable.
+  // If the usage data was exfiltrated, you could not easily determine the MAC from the device ID without brute forcing SHA1
+
+  String firstHash = computeSHA1(generateDeviceFingerprint());
+
+  // Second hash: SHA1 of the first hash
+  String secondHash = computeSHA1(firstHash);
+
+  // Concatenate first hash + last 2 chars of second hash
+  cachedDeviceId = firstHash + secondHash.substring(38);
+
+  return cachedDeviceId;
 }
