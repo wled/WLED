@@ -75,6 +75,18 @@
 
 // Library inclusions.
 #include <Arduino.h>
+
+// buildenv sanity check
+#if !defined(ESP32) && !defined(ESP8266)
+#error neither ESP32 nor ESP8266 defined. Please fix your build environment.
+#endif
+#if defined(ESP8266) && (defined(ARDUINO_ARCH_ESP32) || defined(ESP32))
+#error both ESP8266 and ESP32/ARDUINO_ARCH_ESP32 defined. Please fix your build environment.
+#endif
+#if (defined(ARDUINO_ARCH_ESP32) && !defined(ESP32)) || (defined(ESP32) && !defined(ARDUINO_ARCH_ESP32))
+#error either ESP32 or ARDUINO_ARCH_ESP32 not defined. Please fix your build environment.
+#endif
+
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
   #include <ESP8266mDNS.h>
