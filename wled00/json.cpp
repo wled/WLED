@@ -1096,9 +1096,9 @@ void serializePins(JsonObject root)
     if (gpio == 0 || gpio == 2 || gpio == 12 || gpio == 15) caps |= PIN_CAP_BOOT;
     #endif
     #else
-    // ESP8266
+    // ESP8266: GPIO 0-16 only (17 pins total, but 17 is not a regular GPIO)
+    // A0 is the only analog input and is separate from GPIO numbering
     if (gpio < 16) caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
-    if (gpio == 17) caps |= PIN_CAP_ADC;  // Only A0 (GPIO17) has ADC on ESP8266
     // ESP8266 strapping pins
     if (gpio == 0 || gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOT;
     // GPIO16 is input-only on ESP8266
@@ -1168,6 +1168,20 @@ void serializePins(JsonObject root)
           btnType != BTN_TYPE_ANALOG_INVERTED) {
         pinObj["u"] = disablePullUp ? 0 : 1;  // pullup enabled
       }
+      
+      // For touch buttons, get raw reading value (useful for debugging threshold)
+      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+      if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
+        if (digitalPinToTouchChannel(gpio) >= 0) {
+          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
+          // Touch V2 returns larger values, right shift by 4 to match 0-255 threshold range
+          pinObj["r"] = touchRead(gpio) >> 4;
+          #else
+          pinObj["r"] = touchRead(gpio);
+          #endif
+        }
+      }
+      #endif
     }
     // For other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.)
     else if (isAllocated && (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay)) {
