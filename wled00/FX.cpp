@@ -3187,6 +3187,7 @@ static uint16_t mode_pacman(void) {
   constexpr unsigned ORANGEISH    = 0xFF8800;
   constexpr unsigned WHITEISH     = 0x999999;
   constexpr unsigned PACMAN = 0;   // PacMan is character[0]
+  constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
 
   unsigned maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
   unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
@@ -3221,7 +3222,6 @@ static uint16_t mode_pacman(void) {
     character[PACMAN].blue = false;
 
     // Initialize ghosts with alternating colors
-    uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
     for (int i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].pos = -2 * (i + 1);
@@ -3307,7 +3307,6 @@ static uint16_t mode_pacman(void) {
       character[i].direction = true;
     }
     // Reset ghost colors
-    uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
     for (int i = 1; i <= numGhosts; i++) {
       character[i].color = ghostColors[(i-1) % 4];
       character[i].blue = false;
