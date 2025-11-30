@@ -237,6 +237,13 @@ void loadSettingsFromEEPROM()
       if (timerWeekday[i] == 0) timerWeekday[i] = 255;
       if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110;
     }
+    
+    // Timers 8-17 are stored in cfg.json, not EEPROM, but still need default initialization
+    // Clear enabled bit for timers with no macro set
+    for (int i = 8; i < 18; ++i)
+    {
+      if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110;
+    }
   }
 
   if (lastEEPROMversion > 8)

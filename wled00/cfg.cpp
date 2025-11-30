@@ -682,8 +682,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray timers = tm["ins"];
   uint8_t it = 0;
   for (JsonObject timer : timers) {
-    if (it > 9) break;
-    if (it<8 && timer[F("hour")]==255) it=8;  // hour==255 -> sunrise/sunset
+    if (it > 17) break;
+    if (it<16 && timer[F("hour")]==255) it=16;  // hour==255 -> sunrise/sunset
     CJSON(timerHours[it], timer[F("hour")]);
     CJSON(timerMinutes[it], timer["min"]);
     CJSON(timerMacro[it], timer["macro"]);
@@ -698,7 +698,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       int act = timer["en"] | actPrev;
       if (act) timerWeekday[it]++;
     }
-    if (it<8) {
+    if (it<16) {
       JsonObject start = timer["start"];
       byte startm = start["mon"];
       if (startm) timerMonth[it] = (startm << 4);
@@ -710,6 +710,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       if (!(timerMonth[it] & 0x0F)) timerMonth[it] += 12; //default end month to 12
     }
     it++;
+  }
+  
+  // Clear enabled bit for any timers that have no macro set
+  for (unsigned i = 0; i < 18; i++) {
+    if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110;
   }
 
   JsonObject ota = doc["ota"];
@@ -1207,7 +1212,7 @@ void serializeConfig(JsonObject root) {
 
   JsonArray timers_ins = timers.createNestedArray("ins");
 
-  for (unsigned i = 0; i < 10; i++) {
+  for (unsigned i = 0; i < 18; i++) {
     if (timerMacro[i] == 0 && timerHours[i] == 0 && timerMinutes[i] == 0) continue; // sunrise/sunset get saved always (timerHours=255)
     JsonObject timers_ins0 = timers_ins.createNestedObject();
     timers_ins0["en"] = (timerWeekday[i] & 0x01);
@@ -1215,7 +1220,7 @@ void serializeConfig(JsonObject root) {
     timers_ins0["min"] = timerMinutes[i];
     timers_ins0["macro"] = timerMacro[i];
     timers_ins0[F("dow")] = timerWeekday[i] >> 1;
-    if (i<8) {
+    if (i<16) {
       JsonObject start = timers_ins0.createNestedObject("start");
       start["mon"] = (timerMonth[i] >> 4) & 0xF;
       start["day"] = timerDay[i];

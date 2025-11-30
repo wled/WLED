@@ -381,7 +381,7 @@ void checkTimers()
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
 
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
-    for (unsigned i = 0; i < 8; i++)
+    for (unsigned i = 0; i < 16; i++)
     {
       if (timerMacro[i] != 0
           && (timerWeekday[i] & 0x01) //timer is enabled
@@ -396,30 +396,30 @@ void checkTimers()
     }
     // sunrise macro
     if (sunrise) {
-      time_t tmp = sunrise + timerMinutes[8]*60;  // NOTE: may not be ok
+      time_t tmp = sunrise + timerMinutes[16]*60;  // NOTE: may not be ok
       DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[8] != 0
+      if (timerMacro[16] != 0
           && hour(tmp) == hour(localTime)
           && minute(tmp) == minute(localTime)
-          && (timerWeekday[8] & 0x01) //timer is enabled
-          && ((timerWeekday[8] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
+          && (timerWeekday[16] & 0x01) //timer is enabled
+          && ((timerWeekday[16] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
       {
-        applyPreset(timerMacro[8]);
-        DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."),timerMacro[8]);
+        applyPreset(timerMacro[16]);
+        DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."),timerMacro[16]);
       }
     }
     // sunset macro
     if (sunset) {
-      time_t tmp = sunset + timerMinutes[9]*60;  // NOTE: may not be ok
+      time_t tmp = sunset + timerMinutes[17]*60;  // NOTE: may not be ok
       DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[9] != 0
+      if (timerMacro[17] != 0
           && hour(tmp) == hour(localTime)
           && minute(tmp) == minute(localTime)
-          && (timerWeekday[9] & 0x01) //timer is enabled
-          && ((timerWeekday[9] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
+          && (timerWeekday[17] & 0x01) //timer is enabled
+          && ((timerWeekday[17] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
       {
-        applyPreset(timerMacro[9]);
-        DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."),timerMacro[9]);
+        applyPreset(timerMacro[17]);
+        DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."),timerMacro[17]);
       }
     }
   }
