@@ -3230,7 +3230,7 @@ static uint16_t mode_pacman(void) {
     }
 
     // Initialize power dots
-    for (int i = 0; i < maxPowerDots; i++) {
+    for (int i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = ORANGEYELLOW;
       character[i + numGhosts + 1].eaten = false;
     }
@@ -3255,14 +3255,14 @@ static uint16_t mode_pacman(void) {
 
   // Update power dot positions dynamically
   unsigned everyXLeds = ((SEGLEN - 10) << 8) / numPowerDots;
-  for (int i = 1; i < maxPowerDots; i++) {
+  for (int i = 1; i < numPowerDots; i++) {
     character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
   }
 
   // Blink power dots every 10 ticks
   if (SEGENV.aux1 % 10 == 0) {
     uint32_t dotColor = (character[numGhosts + 1].color == ORANGEYELLOW) ? BLACK : ORANGEYELLOW;
-    for (int i = 0; i < maxPowerDots; i++) {
+    for (int i = 0; i < numPowerDots; i++) {
       character[i + numGhosts + 1].color = dotColor;
     }
   }
