@@ -80,6 +80,8 @@
 						var st="";
 						if(typeof p.s!=='undefined'){
 							st='<span class="ps" style="background:'+(p.s?'#0b0':'#b00')+'"></span>';
+							// Add raw touch reading if available
+							if(typeof p.r!=='undefined')st+=' ('+p.r+')';
 						}
 						var ow=p.a?getOwnerName(p.o,p.t,p.n):'<span style="color:#0b0">Available</span>';
 						if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
