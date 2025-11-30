@@ -168,8 +168,8 @@ void appendGPIOinfo(Print& settingsScript)
   settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
 
   // add info about touch-capable GPIO (ESP32 only, not on C3)
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  settingsScript.print(F("d.touch_gpio=["));
+  #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  settingsScript.print(F("d.touch=["));
   firstPin = true;
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
     if (digitalPinToTouchChannel(i) >= 0) {
@@ -180,7 +180,7 @@ void appendGPIOinfo(Print& settingsScript)
   }
   settingsScript.print(F("];"));
   #else
-  settingsScript.print(F("d.touch_gpio=[];"));
+  settingsScript.print(F("d.touch=[];"));
   #endif
 }
 
@@ -190,7 +190,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
-  if (subPage <0 || subPage >10) return;
+  if (subPage <0 || subPage >SUBPAGE_LAST) return;
   char nS[32];
 
   if (subPage == SUBPAGE_MENU)
@@ -733,5 +733,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #else
     settingsScript.print(F("gId(\"somp\").remove(1);")); // remove 2D option from dropdown
     #endif
+  }
+
+  if (subPage == SUBPAGE_PINS) // pins info
+  {
+    appendGPIOinfo(settingsScript);
   }
 }

@@ -1052,9 +1052,10 @@ void serializeNodes(JsonObject root)
 // Pin capability flags - only "special" capabilities useful for debugging
 // Touch capability is now in appendGPIOinfo() (d.touch_gpio)
 #define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
-#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output)
-#define PIN_CAP_BOOT         0x08   // bootloader/strapping pin (affects boot mode)
-#define PIN_CAP_INPUT_ONLY   0x10   // input only pin (cannot be used as output)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
+#define PIN_CAP_BOOT         0x08   // bootloader pin
+#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
+#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
 
 void serializePins(JsonObject root)
 {
@@ -1064,7 +1065,6 @@ void serializePins(JsonObject root)
     bool canInput = PinManager::isPinOk(gpio, false);
     bool canOutput = PinManager::isPinOk(gpio, true);
     bool isAllocated = PinManager::isPinAllocated(gpio);
-    
     // Skip pins that are neither usable nor allocated (truly unusable pins)
     if (!canInput && !canOutput && !isAllocated) continue;
 
@@ -1074,26 +1074,30 @@ void serializePins(JsonObject root)
     // Calculate capabilities - only "special" ones for debugging
     // Touch capability is provided by appendGPIOinfo() via d.touch_gpio array
     uint8_t caps = 0;
-    
+
     #ifdef ARDUINO_ARCH_ESP32
     // Check ADC capability
     if (digitalPinToAnalogChannel(gpio) >= 0) caps |= PIN_CAP_ADC;
 
     // PWM - all output-capable GPIO can do PWM on ESP32
     if (canOutput) caps |= PIN_CAP_PWM;
-    
+
     // Input-only pins (ESP32 classic: GPIO34-39)
     if (canInput && !canOutput) caps |= PIN_CAP_INPUT_ONLY;
-    
+
     // Bootloader/strapping pins
     #if defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (gpio == 0 || gpio == 3 || gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOT;
+    if (gpio == 0) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
     #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    if (gpio == 0 || gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOT;
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
     #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (gpio == 2 || gpio == 8 || gpio == 9) caps |= PIN_CAP_BOOT;
+    if (gpio == 9) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // both GPIO2 and GPIO8 must be high to enter bootloader mode
     #else // ESP32 classic
-    if (gpio == 0 || gpio == 2 || gpio == 12 || gpio == 15) caps |= PIN_CAP_BOOT;
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
     #endif
     #else
     // ESP8266: GPIO 0-16 only (17 pins total, but 17 is not a regular GPIO)
@@ -1110,29 +1114,29 @@ void serializePins(JsonObject root)
     // Add allocated status and owner
     PinOwner owner = PinManager::getPinOwner(gpio);
     pinObj["a"] = isAllocated;  // allocated status
-    
     if (isAllocated) {
       uint8_t ownerVal = static_cast<uint8_t>(owner);
       pinObj["o"] = ownerVal;  // owner ID
-      
       // For usermod owners (low bit not set), try to get the usermod name
       if (!(ownerVal & 0x80) && ownerVal > 0) {
         Usermod* um = UsermodManager::lookup(ownerVal);
         if (um) {
           // Get usermod name by calling addToConfig and extracting the key
-          StaticJsonDocument<256> tmpDoc;
+          /*
+          StaticJsonDocument<64> tmpDoc; // enough for name plus "enabled" key
           JsonObject tmpObj = tmpDoc.to<JsonObject>();
           um->addToConfig(tmpObj);
-          // The first key in the object is the usermod name
-          JsonObject::iterator it = tmpObj.begin();
-          if (it != tmpObj.end()) {
-            pinObj["n"] = it->key().c_str();  // usermod name
+          for (JsonPair kv : tmpObj) {
+            const char* name = kv.key().c_str();
+            pinObj["n"] = name ? name : "UM"; // usermod name  -> TODO: this does not work, could use json buffer lock but it would be overkill to just geht the UM name
           }
+          */
+          pinObj["n"] = "Usermod"; // usermod name TODO: see above
         }
       }
     }
 
-    // For button pins, check if internal pullup/pulldown would be used and get state
+    // check if this pin is used as a button
     bool isButton = false;
     int buttonIndex = -1;
     for (size_t b = 0; b < buttons.size(); b++) {
@@ -1143,39 +1147,24 @@ void serializePins(JsonObject root)
       }
     }
 
-    // For relay pin, get state
+    // Relay pin
     if (isAllocated && gpio == rlyPin) {
-      pinObj["m"] = 1;  // mode: output/relay
-      // Relay state: when LEDs are on (bri > 0), relay is in active mode
-      // rlyMde: true = active high, false = active low
-      bool relayActive = bri > 0;
-      bool relayState = relayActive ? rlyMde : !rlyMde;
-      pinObj["s"] = relayState ? 1 : 0;
+      pinObj["m"] = 1;  // mode: output
+      pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
     }
-    // For button pins, get state and type using isButtonPressed() from button.cpp
+    // Button pins, get type and state using isButtonPressed()
     else if (isAllocated && isButton && buttonIndex >= 0) {
-      pinObj["m"] = 0;  // mode: input/button
-      pinObj["t"] = buttons[buttonIndex].type;  // button type
-      // Use isButtonPressed() which handles all button types correctly
-      bool state = isButtonPressed(buttonIndex);
-      pinObj["s"] = state ? 1 : 0;  // state
-      
-      // Pullup status (when not using touch or analog)
       uint8_t btnType = buttons[buttonIndex].type;
-      if (btnType != BTN_TYPE_TOUCH && 
-          btnType != BTN_TYPE_TOUCH_SWITCH &&
-          btnType != BTN_TYPE_ANALOG &&
-          btnType != BTN_TYPE_ANALOG_INVERTED) {
-        pinObj["u"] = disablePullUp ? 0 : 1;  // pullup enabled
-      }
-      
+      pinObj["m"] = 0;  // mode: input
+      pinObj["t"] = btnType; // button type
+      pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
+
       // For touch buttons, get raw reading value (useful for debugging threshold)
-      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
       if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
         if (digitalPinToTouchChannel(gpio) >= 0) {
           #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
-          // Touch V2 returns larger values, right shift by 4 to match 0-255 threshold range
-          pinObj["r"] = touchRead(gpio) >> 4;
+          pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
           #else
           pinObj["r"] = touchRead(gpio);
           #endif
@@ -1183,15 +1172,10 @@ void serializePins(JsonObject root)
       }
       #endif
     }
-    // For other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.)
+    // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.)
     else if (isAllocated && (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay)) {
       pinObj["m"] = 1;  // mode: output
       pinObj["s"] = digitalRead(gpio);  // state
-    }
-    // Fallback for button-owned pins not found in buttons vector (show digitalRead state)
-    else if (isAllocated && owner == PinOwner::Button) {
-      pinObj["m"] = 0;  // mode: input
-      pinObj["s"] = digitalRead(gpio) == LOW ? 1 : 0;  // state (assume active low)
     }
   }
 }

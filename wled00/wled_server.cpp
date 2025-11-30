@@ -691,7 +691,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     return;
   }
   byte subPage = request->arg(F("p")).toInt();
-  if (subPage > 10) {
+  if (subPage > SUBPAGE_LAST) {
     request->send_P(501, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('Settings for this request are not implemented.');"));
     return;
   }
