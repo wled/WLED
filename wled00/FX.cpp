@@ -3188,13 +3188,13 @@ static uint16_t mode_pacman(void) {
   constexpr unsigned WHITEISH     = 0x999999;
   constexpr unsigned PACMAN = 0;   // PacMan is character[0]
 
-  unsigned maxPowerDots = SEGLEN / 10;  // max is 1 every 10 pixels
+  unsigned maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
   unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
   unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
   bool overlayMode = SEGMENT.check2;
 
-  // Pack two values into one unsigned int (SEGENV.aux0)
-  unsigned short combined_value = (numPowerDots << 8) | numGhosts;
+  // Pack two 8-bit values into one 16-bit field (stored in SEGENV.aux0)
+  uint16_t combined_value = uint16_t(((numPowerDots & 0xFF) << 8) | (numGhosts & 0xFF));
   if (combined_value != SEGENV.aux0) SEGENV.call = 0;  // Reinitialize on setting change
   SEGENV.aux0 = combined_value;
 
