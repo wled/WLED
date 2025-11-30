@@ -3254,7 +3254,7 @@ static uint16_t mode_pacman(void) {
   }
 
   // Update power dot positions dynamically
-  unsigned everyXLeds = ((SEGLEN - 10) << 8) / numPowerDots;
+  uint32_t everyXLeds = (((uint32_t)SEGLEN - 10U) << 8) / numPowerDots;    // Fixed-point spacing for power dots: use 32-bit math to avoid overflow on long segments.
   for (int i = 1; i < numPowerDots; i++) {
     character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
   }
