@@ -24,7 +24,7 @@
 #endif
 
 #ifndef DEEPSLEEP_WAKEUP_TOUCH_PIN
-#define DEEPSLEEP_WAKEUP_TOUCH_PIN -1
+#define DEEPSLEEP_WAKEUP_TOUCH_PIN 1
 #endif
 RTC_DATA_ATTR bool powerup = true; // this is first boot after power cycle. note: variable in RTC data persists on a reboot
 RTC_DATA_ATTR uint8_t wakeupPreset = 0; // preset to apply after deep sleep wakeup (0 = none), set to timer macro preset
@@ -44,7 +44,6 @@ class DeepSleepUsermod : public Usermod {
     int sleepDelay = DEEPSLEEP_DELAY; // in seconds, 0 = immediate
     int delaycounter = 10; // delay deep sleep at bootup until preset settings are applied, force wake up if offmode persists after bootup
     uint32_t lastLoopTime = 0;
-    bool sleepNextLoop = false; // tag for next starting deep sleep
 
     // string that are used multiple time (this will save some flash memory)
     static const char _name[];
@@ -178,10 +177,14 @@ class DeepSleepUsermod : public Usermod {
 
       uint32_t wakeupAfterSec = 0;
       if (presetWake) {
-        wakeupAfterSec = (findNextTimerInterval() - 1) * 60; // wakeup before next preset
+        int nextInterval = findNextTimerInterval();
+        if (nextInterval > 1 && nextInterval < INT_MAX)
+          wakeupAfterSec = (nextInterval - 1) * 60; // wakeup before next preset
       }
-      if (wakeupAfter) {
-        wakeupAfterSec = wakeupAfterSec < wakeupAfter ? wakeupAfterSec : wakeupAfter;
+      if (wakeupAfter > 0) { // user-defined interval
+        if (wakeupAfterSec == 0 || (uint32_t)wakeupAfter < wakeupAfterSec) {
+          wakeupAfterSec = wakeupAfter;
+        }
       }
       if (wakeupAfterSec > 0) {
         esp_sleep_enable_timer_wakeup(wakeupAfterSec * (uint64_t)1e6);
@@ -218,7 +221,7 @@ class DeepSleepUsermod : public Usermod {
       halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
     else
       halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
-    if (enableTouchWakeup && touchPin) {
+    if (enableTouchWakeup) {
       #ifdef SOC_TOUCH_VERSION_2    // S2 and S3 use much higher thresholds
       touchSleepWakeUpEnable(touchPin, touchThreshold  << 4); // ESP32 S2 & S3: lower threshold = more sensitive
       #else 
