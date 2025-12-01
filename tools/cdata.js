@@ -382,8 +382,8 @@ writeChunks(
       filter: "html-minify"
     },
     {
-      file: "settings_pins.htm",
-      name: "PAGE_settings_pins",
+      file: "settings_pininfo.htm",
+      name: "PAGE_settings_pininfo",
       method: "gzip",
       filter: "html-minify"
     }
