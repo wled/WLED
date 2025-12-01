@@ -633,7 +633,7 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // PSRAM compile time checks to provide info for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
-  #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
+  #if defined(IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(ESP8266)
     #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
@@ -694,7 +694,7 @@ static void *validateFreeHeap(void *buffer) {
 
 void *d_malloc(size_t size) {
   void *buffer;
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
   // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
