@@ -1,5 +1,6 @@
 #include "wled.h"
 
+
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -51,6 +52,9 @@ namespace {
     if (a.custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
     if (a.custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
     if (a.custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
+    if (a.check1 != b.check1)       d |= SEG_DIFFERS_FX;
+    if (a.check2 != b.check2)       d |= SEG_DIFFERS_FX;
+    if (a.check3 != b.check3)       d |= SEG_DIFFERS_FX;
     if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
     if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
 
@@ -687,6 +691,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
+
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -694,6 +699,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+  root[F("deviceId")] = getDeviceId();
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -817,6 +823,9 @@ void serializeInfo(JsonObject root)
   root[F("resetReason1")] = (int)rtc_get_reset_reason(1);
   #endif
   root[F("lwip")] = 0; //deprecated
+  #ifndef WLED_DISABLE_OTA
+  root[F("bootloaderSHA256")] = getBootloaderSHA256Hex();
+  #endif
 #else
   root[F("arch")] = "esp8266";
   root[F("core")] = ESP.getCoreVersion();

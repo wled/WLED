@@ -53,8 +53,34 @@ static dmx_config_t createConfig()
   config.product_category = RDM_PRODUCT_CATEGORY_FIXTURE;
   config.software_version_id = VERSION;
 
-  const std::string versionString = "WLED_V" + std::to_string(VERSION);
-  config.software_version_label = versionString.c_str();
+  const std::string dmxWledVersionString = "WLED_V" + std::to_string(VERSION);
+  strncpy(config.software_version_label, dmxWledVersionString.c_str(), 32);
+  config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
+
+  config.personalities[0].description = "SINGLE_RGB";
+  config.personalities[0].footprint = 3;
+  config.personalities[1].description = "SINGLE_DRGB";
+  config.personalities[1].footprint = 4;
+  config.personalities[2].description = "EFFECT";
+  config.personalities[2].footprint = 15;
+  config.personalities[3].description = "MULTIPLE_RGB";
+  config.personalities[3].footprint = std::min(512, int(strip.getLengthTotal()) * 3);
+  config.personalities[4].description = "MULTIPLE_DRGB";
+  config.personalities[4].footprint = std::min(512, int(strip.getLengthTotal()) * 3 + 1);
+  config.personalities[5].description = "MULTIPLE_RGBW";
+  config.personalities[5].footprint = std::min(512, int(strip.getLengthTotal()) * 4);
+  config.personalities[6].description = "EFFECT_W";
+  config.personalities[6].footprint = 18;
+  config.personalities[7].description = "EFFECT_SEGMENT";
+  config.personalities[7].footprint = std::min(512, strip.getSegmentsNum() * 15);
+  config.personalities[8].description = "EFFECT_SEGMENT_W";
+  config.personalities[8].footprint = std::min(512, strip.getSegmentsNum() * 18);
+  config.personalities[9].description = "PRESET";
+  config.personalities[9].footprint = 1;
+
+  config.personality_count = 10;
+  // rdm personalities are numbered from 1, thus we can just set the DMXMode directly.
+  config.current_personality = DMXMode;
 
   return config;
 }
