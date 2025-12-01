@@ -12,7 +12,20 @@
 #ifdef ESP32
 constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
-const size_t BOOTLOADER_OFFSET = 0x1000;
+
+// Bootloader is at fixed offset 0x1000 (4KB), 0x0000 (0KB), or 0x2000 (8KB), and is typically 32KB
+// Bootloader offsets for different MCUs => see https://github.com/wled/WLED/issues/5064
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
+constexpr size_t BOOTLOADER_OFFSET = 0x2000; // (future support) esp32-P4 and esp32-C5
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#else
+constexpr size_t BOOTLOADER_OFFSET = 0x1000; // esp32 and esp32-s2
+constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#endif
+
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
@@ -280,9 +293,6 @@ static String bootloaderSHA256HexCache = "";
 void calculateBootloaderSHA256() {
   if (!bootloaderSHA256HexCache.isEmpty()) return;
 
-  // Bootloader is at fixed offset 0x1000 (4KB) and is typically 32KB
-  const uint32_t bootloaderSize = 0x8000; // 32KB, typical bootloader size
-
   // Calculate SHA256
   uint8_t sha256[32];
   mbedtls_sha256_context ctx;
@@ -292,8 +302,8 @@ void calculateBootloaderSHA256() {
   const size_t chunkSize = 256;
   uint8_t buffer[chunkSize];
 
-  for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
-    size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
+  for (uint32_t offset = 0; offset < BOOTLOADER_SIZE; offset += chunkSize) {
+    size_t readSize = min((size_t)(BOOTLOADER_SIZE - offset), chunkSize);
     if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
       mbedtls_sha256_update(&ctx, buffer, readSize);
     }
