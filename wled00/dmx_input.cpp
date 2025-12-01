@@ -85,8 +85,8 @@ static dmx_config_t createConfig()
   config.current_personality = DMXMode;
   #else
     // fallback code
-    const std::string versionString = "WLED_V" + std::to_string(VERSION);
-    config.software_version_label = versionString.c_str();
+    const std::string DmxVersionString = "WLED_V" + std::to_string(VERSION);
+    config.software_version_label = DmxVersionString.c_str();
   #endif
 
   return config;
