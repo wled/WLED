@@ -1056,8 +1056,12 @@ void serializeNodes(JsonObject root)
 void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
-
-  for (int gpio = 0; gpio < WLED_NUM_PINS; gpio++) {
+  #ifdef ESP8266
+  constexpr int ENUM_PINS = 17; // GPIO0-16 + A0 (17)
+  #else
+  constexpr int ENUM_PINS = WLED_NUM_PINS;
+  #endif
+  for (int gpio = 0; gpio < ENUM_PINS; gpio++) {
     bool canInput = PinManager::isPinOk(gpio, false);
     bool canOutput = PinManager::isPinOk(gpio, true);
     bool isAllocated = PinManager::isPinAllocated(gpio);
@@ -1067,16 +1071,32 @@ void serializePins(JsonObject root)
     JsonObject pinObj = pins.createNestedObject();
     pinObj["p"] = gpio;  // pin number
 
-    // Calculate capabilities - only "special" ones for debugging
-    // Touch capability is provided by appendGPIOinfo() via d.touch_gpio array
+    // Pin capabilities
+    // Touch capability is provided by appendGPIOinfo() via d.touch
     uint8_t caps = 0;
 
     #ifdef ARDUINO_ARCH_ESP32
-    // Check ADC capability
-    if (digitalPinToAnalogChannel(gpio) >= 0) caps |= PIN_CAP_ADC;
+    // Check ADC capability: only ADC1 channels can be used (ADC2 channels are not usable when WiFi is active)
+    #if CONFIG_IDF_TARGET_ESP32
+    // ESP32: ADC1 channels 0-7 (GPIO 36, 37, 38, 39, 32, 33, 34, 35)
+    int adc_channel = digitalPinToAnalogChannel(gpio);
+    if (adc_channel >= 0 && adc_channel <= 7) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32S2
+        // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32S3
+        // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32C3
+        // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 4) caps |= PIN_CAP_ADC;
+    #endif
 
-    // PWM - all output-capable GPIO can do PWM on ESP32
-    if (canOutput) caps |= PIN_CAP_PWM;
+    // PWM on all ESP32 variants: all output pins can use ledc PWM so this is redundant
+    //if (canOutput) caps |= PIN_CAP_PWM;
 
     // Input-only pins (ESP32 classic: GPIO34-39)
     if (canInput && !canOutput) caps |= PIN_CAP_INPUT_ONLY;
@@ -1096,13 +1116,12 @@ void serializePins(JsonObject root)
     if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
     #endif
     #else
-    // ESP8266: GPIO 0-16 only (17 pins total, but 17 is not a regular GPIO)
-    // A0 is the only analog input and is separate from GPIO numbering
-    if (gpio < 16) caps |= PIN_CAP_PWM;  // all GPIO 0-15 support PWM
+    // ESP8266: GPIO 0-16 + GPIO17=A0
+    // if (gpio < 16) caps |= PIN_CAP_PWM;  // software PWM available on all GPIO except GPIO16
     // ESP8266 strapping pins
-    if (gpio == 0 || gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOT;
-    // GPIO16 is input-only on ESP8266
-    if (gpio == 16) caps |= PIN_CAP_INPUT_ONLY;
+    if (gpio == 0) caps |= PIN_CAP_BOOT;
+    if (gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // GPIO2 must be high, GPIO15 low to boot normally
+    if (gpio == 17) caps = PIN_CAP_INPUT_ONLY | PIN_CAP_ADC; // TODO: display as A0 pin
     #endif
 
     pinObj["c"] = caps;  // capabilities
