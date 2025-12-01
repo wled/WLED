@@ -12,6 +12,8 @@ on:
 jobs:
 
   get_usermod_envs:
+    # Run on push events, or on pull_request events only from forks (not from branches within wled/WLED)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Gather Usermods
     runs-on: ubuntu-latest
     steps:
@@ -31,6 +33,8 @@ jobs:
 
 
   build:
+    # Run on push events, or on pull_request events only from forks (not from branches within wled/WLED)
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     name: Build Enviornments
     runs-on: ubuntu-latest
     needs: get_usermod_envs
