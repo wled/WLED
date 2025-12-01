@@ -57,6 +57,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_DIGITAL_CHANNELS 3
   #define WLED_MAX_ANALOG_CHANNELS 5
   #define WLED_MIN_VIRTUAL_BUSSES 3         // no longer used for bus creation but used to distinguish S2/S3 in UI
+  #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
 #else
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
     #include "driver/ledc.h" // needed for analog/LEDC channel counts
@@ -81,6 +82,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 16
     #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #endif
+  #define WLED_MAX_TIMERS 64                // maximum number of timers
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time

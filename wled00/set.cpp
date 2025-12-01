@@ -303,7 +303,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), buttons[i].pin, i);
             PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
             buttons[i].type = BTN_TYPE_NONE;
-          }          
+          }
           #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
           else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
@@ -545,36 +545,71 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       i++;
     }
 
+    // Process dynamic timers from form
+    // Clear existing timers and rebuild from form data
+    clearTimers();
+
     char k[5]; k[4] = 0; //null terminate buffer
-    for (int i = 0; i<18; i++) {
-      if (i<10) {
-        k[1] = i+48;//ascii 0-9
+
+    // Process timers - loop through potential timer indices
+    // Limited to WLED_MAX_TIMERS to prevent memory issues
+    for (int ti = 0; ti < (int)WLED_MAX_TIMERS; ti++) {
+      // Build field name for this timer index
+      if (ti < 10) {
+        k[1] = ti + 48; // ascii 0-9
         k[2] = 0;
       } else {
-        k[1] = '1'; //tens digit
-        k[2] = 48+(i-10); //ones digit for 10-17
+        k[1] = '0' + (ti / 10); // tens digit
+        k[2] = '0' + (ti % 10); // ones digit
         k[3] = 0;
       }
-      k[0] = 'H'; //timer hours
-      timerHours[i] = request->arg(k).toInt();
-      k[0] = 'N'; //minutes
-      timerMinutes[i] = request->arg(k).toInt();
-      k[0] = 'T'; //macros
-      timerMacro[i] = request->arg(k).toInt();
-      k[0] = 'W'; //weekdays
-      timerWeekday[i] = request->arg(k).toInt();
-      if (i<16) {
-        k[0] = 'M'; //start month
-        timerMonth[i] = request->arg(k).toInt() & 0x0F;
-        timerMonth[i] <<= 4;
-        k[0] = 'P'; //end month
-        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-        k[0] = 'D'; //start day
-        timerDay[i] = request->arg(k).toInt();
-        k[0] = 'E'; //end day
-        timerDayEnd[i] = request->arg(k).toInt();
+
+      // Check if this timer exists in the form by checking for the preset field
+      k[0] = 'T'; // preset/macro field
+      if (!request->hasArg(k)) {
+        // This index is not used (e.g. row deleted in UI) - skip to next
+        continue;
       }
+
+      // Read all timer fields
+      uint8_t preset = request->arg(k).toInt();
+
+      k[0] = 'H'; // hour
+      uint8_t hour = request->arg(k).toInt();
+
+      k[0] = 'N'; // minute
+      int8_t minute = request->arg(k).toInt();
+
+      k[0] = 'W'; // weekdays
+      uint8_t weekdays = request->arg(k).toInt();
+
+      // Date range (only for regular timers)
+      uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
+      if (hour < TIMER_HOUR_SUNSET) {
+        k[0] = 'M'; // start month
+        monthStart = request->arg(k).toInt();
+        if (monthStart == 0) monthStart = 1;
+
+        k[0] = 'P'; // end month
+        monthEnd = request->arg(k).toInt();
+        if (monthEnd == 0) monthEnd = 12;
+
+        k[0] = 'D'; // start day
+        dayStart = request->arg(k).toInt();
+        if (dayStart == 0) dayStart = 1;
+
+        k[0] = 'E'; // end day
+        dayEnd = request->arg(k).toInt();
+        if (dayEnd == 0) dayEnd = 31;
+      }
+
+      // Add timer (validation and preset 0 filtering happens in addTimer)
+      addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
+
+    // Remove any completely empty timers so indices stay compact for saving
+    compactTimers();
+
   }
 
   //SECURITY
@@ -962,7 +997,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
-  
+
   //set brightness
   updateVal(req.c_str(), "&A=", bri);
 

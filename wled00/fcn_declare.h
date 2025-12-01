@@ -204,6 +204,47 @@ void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
+// Timer constants
+const uint8_t TIMER_HOUR_SUNRISE = 255; // Special value for sunrise timer
+const uint8_t TIMER_HOUR_SUNSET = 254;  // Special value for sunset timer
+
+// Compact timer structure - 8 bytes total
+struct Timer {
+  uint8_t preset;      // Preset ID to trigger (0 = disabled)
+  uint8_t hour;        // 0-23 for regular, 24 for every hour, 254 for sunset, 255 for sunrise
+  int8_t minute;       // 0-59 for regular timers, offset in minutes for sunrise/sunset (-120 to 120)
+  uint8_t weekdays;    // Bit 0: enabled, Bits 1-7: weekdays (Mon-Sun)
+  uint8_t monthStart;  // Start month (1-12)
+  uint8_t monthEnd;    // End month (1-12)
+  uint8_t dayStart;    // Start day (1-31)
+  uint8_t dayEnd;      // End day (1-31)
+
+  // Helper methods
+  inline bool isEnabled() const { return (weekdays & 0x01) && (preset != 0); }
+  inline bool isSunrise() const { return hour == TIMER_HOUR_SUNRISE; }
+  inline bool isSunset() const { return hour == TIMER_HOUR_SUNSET; }
+  inline bool isRegular() const { return hour < TIMER_HOUR_SUNSET; }
+
+  // Constructor with defaults
+  Timer() : preset(0), hour(0), minute(0), weekdays(255),
+            monthStart(1), monthEnd(12), dayStart(1), dayEnd(31) {}
+
+  Timer(uint8_t p, uint8_t h, int8_t m, uint8_t wd,
+        uint8_t ms = 1, uint8_t me = 12, uint8_t ds = 1, uint8_t de = 31)
+    : preset(p), hour(h), minute(m), weekdays(wd),
+      monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
+};
+
+// Timer management functions
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart = 1, uint8_t monthEnd = 12,
+              uint8_t dayStart = 1, uint8_t dayEnd = 31);
+void removeTimer(size_t index);
+void clearTimers();
+size_t getTimerCount();
+void compactTimers();
+void migrateTimersFromArrays();
+
 //overlay.cpp
 void handleOverlayDraw();
 void _overlayAnalogCountdown();

@@ -231,7 +231,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
   if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
   if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
-  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
+  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 &&
       ntpPacket[18] == 0 && ntpPacket[19] == 0 &&
       ntpPacket[20] == 0 && ntpPacket[21] == 0 &&
       ntpPacket[22] == 0 && ntpPacket[23] == 0)               //reject ReferenceTimestamp == 0
@@ -381,45 +381,64 @@ void checkTimers()
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
 
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
-    for (unsigned i = 0; i < 16; i++)
+
+    // Iterate through all timers in the vector
+    for (size_t i = 0; i < timers.size(); i++)
     {
-      if (timerMacro[i] != 0
-          && (timerWeekday[i] & 0x01) //timer is enabled
-          && (timerHours[i] == hour(localTime) || timerHours[i] == 24) //if hour is set to 24, activate every hour
-          && timerMinutes[i] == minute(localTime)
-          && ((timerWeekday[i] >> weekdayMondayFirst()) & 0x01) //timer should activate at current day of week
-          && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])
-         )
-      {
-        applyPreset(timerMacro[i]);
+      const Timer& timer = timers[i];
+
+      // Skip if timer is not enabled or has no preset
+      if (!timer.isEnabled()) continue;
+
+      bool shouldTrigger = false;
+
+      // Check if timer should trigger based on type
+      if (timer.isSunrise()) {
+        // Sunrise timer
+        if (sunrise) {
+          time_t triggerTime = sunrise + timer.minute * 60;
+          shouldTrigger = (hour(triggerTime) == hour(localTime) &&
+                          minute(triggerTime) == minute(localTime));
+          if (shouldTrigger) {
+            DEBUG_PRINTF_P(PSTR("Sunrise timer %d triggered at offset %d min\n"),
+                          timer.preset, timer.minute);
+          }
+        }
+      } else if (timer.isSunset()) {
+        // Sunset timer
+        if (sunset) {
+          time_t triggerTime = sunset + timer.minute * 60;
+          shouldTrigger = (hour(triggerTime) == hour(localTime) &&
+                          minute(triggerTime) == minute(localTime));
+          if (shouldTrigger) {
+            DEBUG_PRINTF_P(PSTR("Sunset timer %d triggered at offset %d min\n"),
+                          timer.preset, timer.minute);
+          }
+        }
+      } else {
+        // Regular timer
+        shouldTrigger = ((timer.hour == hour(localTime) || timer.hour == 24) &&
+                        timer.minute == minute(localTime));
       }
-    }
-    // sunrise macro
-    if (sunrise) {
-      time_t tmp = sunrise + timerMinutes[16]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[16] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[16] & 0x01) //timer is enabled
-          && ((timerWeekday[16] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[16]);
-        DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."),timerMacro[16]);
-      }
-    }
-    // sunset macro
-    if (sunset) {
-      time_t tmp = sunset + timerMinutes[17]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[17] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[17] & 0x01) //timer is enabled
-          && ((timerWeekday[17] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[17]);
-        DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."),timerMacro[17]);
+
+      // Check weekday and date range for all timer types
+      if (shouldTrigger) {
+        // Check if timer should activate on current day of week
+        if (!((timer.weekdays >> weekdayMondayFirst()) & 0x01)) {
+          continue;
+        }
+
+        // Check date range (only for regular timers, not sunrise/sunset)
+        if (timer.isRegular()) {
+          if (!isTodayInDateRange(timer.monthStart, timer.dayStart,
+                                  timer.monthEnd, timer.dayEnd)) {
+            continue;
+          }
+        }
+
+        // Trigger the preset
+        applyPreset(timer.preset);
+        DEBUG_PRINTF_P(PSTR("Timer %d triggered: preset %d\n"), i, timer.preset);
       }
     }
   }
@@ -478,7 +497,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
 	return UT*60;
 }
 
-#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes 
+#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes
 // calculate sunrise and sunset (if longitude and latitude are set)
 void calculateSunriseAndSunset() {
   if ((int)(longitude*10.) || (int)(latitude*10.)) {
@@ -547,4 +566,158 @@ void setTimeFromAPI(uint32_t timein) {
     calculateSunriseAndSunset();
   }
   if (presetsModifiedTime == 0) presetsModifiedTime = timein;
+}
+
+
+/*
+ * Timer management functions
+ */
+
+// Add a timer to the vector with validation
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart, uint8_t monthEnd,
+              uint8_t dayStart, uint8_t dayEnd) {
+  // Validate preset (0 means disabled, so skip if preset is 0 and timer is marked enabled)
+  if (preset == 0 && (weekdays & 0x01)) {
+    DEBUG_PRINTLN(F("Timer: Skipping timer with preset 0 and enabled flag"));
+    return;
+  }
+
+  // Validate hour (0-24 for regular, 254 for sunset, 255 for sunrise)
+  if (hour > 24 && hour != TIMER_HOUR_SUNSET && hour != TIMER_HOUR_SUNRISE) {
+    DEBUG_PRINTLN(F("Timer: Invalid hour value"));
+    return;
+  }
+
+  // Validate minute range
+  if (hour == TIMER_HOUR_SUNRISE || hour == TIMER_HOUR_SUNSET) {
+    // Sunrise/sunset can have offset from -120 to 120 (±2 hours)
+    if (minute < -120 || minute > 120) {
+      DEBUG_PRINTLN(F("Timer: Clamping sunrise/sunset offset to [-120,120]"));
+      if (minute < -120) minute = -120;
+      else if (minute > 120) minute = 120;
+    }
+  } else {
+    // Regular timers: 0-59
+    if (minute < 0 || minute > 59) {
+      DEBUG_PRINTLN(F("Timer: Invalid minute value"));
+      return;
+    }
+  }
+
+  // Validate months (1-12)
+  if (monthStart < 1 || monthStart > 12 || monthEnd < 1 || monthEnd > 12) {
+    DEBUG_PRINTLN(F("Timer: Invalid month range"));
+    return;
+  }
+
+  // Validate days (1-31)
+  if (dayStart < 1 || dayStart > 31 || dayEnd < 1 || dayEnd > 31) {
+    DEBUG_PRINTLN(F("Timer: Invalid day range"));
+    return;
+  }
+
+  // Check if we've reached the maximum number of timers
+  if (timers.size() >= WLED_MAX_TIMERS) {
+    DEBUG_PRINTLN(F("Timer: Maximum number of timers reached"));
+    return;
+  }
+
+  // Create and add the timer
+  Timer t(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+  timers.push_back(t);
+
+  DEBUG_PRINTF("Timer added: preset=%d, hour=%d, minute=%d, count=%d\n",
+               preset, hour, minute, timers.size());
+}
+
+// Remove a timer by index
+void removeTimer(size_t index) {
+  if (index < timers.size()) {
+    timers.erase(timers.begin() + index);
+    DEBUG_PRINTF("Timer removed at index %d, count=%d\n", index, timers.size());
+  }
+}
+
+// Clear all timers
+void clearTimers() {
+  timers.clear();
+  DEBUG_PRINTLN(F("All timers cleared"));
+}
+
+// Get timer count
+size_t getTimerCount() {
+  return timers.size();
+}
+
+// Remove any fully empty timers to keep the vector compact
+void compactTimers() {
+  for (size_t i = 0; i < timers.size();) {
+    const Timer& t = timers[i];
+    if (t.preset == 0 && t.hour == 0 && t.minute == 0) {
+      timers.erase(timers.begin() + i);
+    } else {
+      ++i;
+    }
+  }
+
+  // Release unused capacity to reduce memory footprint
+  timers.shrink_to_fit();
+}
+
+
+// Migrate timers from legacy arrays to vector
+// This is called when loading old configs
+// Original layout: 0-7 regular timers, 8 sunrise, 9 sunset (10 total)
+void migrateTimersFromArrays() {
+  clearTimers();
+
+  DEBUG_PRINTLN(F("Migrating timers from legacy arrays..."));
+
+  // Migrate regular timers (0-7)
+  for (unsigned i = 0; i < 8; i++) {
+    // Skip if no preset set and hour/minute are both 0
+    if (timerMacro[i] == 0 && timerHours[i] == 0 && timerMinutes[i] == 0) {
+      continue;
+    }
+
+    // Extract month start/end from packed byte
+    uint8_t monthStart = (timerMonth[i] >> 4) & 0x0F;
+    uint8_t monthEnd = timerMonth[i] & 0x0F;
+
+    // Default values if not set
+    if (monthStart == 0) monthStart = 1;
+    if (monthEnd == 0) monthEnd = 12;
+
+    addTimer(timerMacro[i], timerHours[i], timerMinutes[i], timerWeekday[i],
+             monthStart, monthEnd, timerDay[i], timerDayEnd[i]);
+  }
+
+  // Migrate sunrise timer (index 8)
+  if (timerMacro[8] != 0 || timerMinutes[8] != 0) {
+    addTimer(timerMacro[8], TIMER_HOUR_SUNRISE, timerMinutes[8], timerWeekday[8]);
+  }
+
+  // Migrate sunset timer (index 9)
+  if (timerMacro[9] != 0 || timerMinutes[9] != 0) {
+    addTimer(timerMacro[9], TIMER_HOUR_SUNSET, timerMinutes[9], timerWeekday[9]);
+  }
+
+  DEBUG_PRINTF("Migration complete: %d timers loaded\n", timers.size());
+
+  // Clear legacy arrays to prevent re-migration on next boot
+  // This also saves 64 bytes of RAM after migration is complete
+  for (unsigned i = 0; i < 10; i++) {
+    timerHours[i] = 0;
+    timerMinutes[i] = 0;
+    timerMacro[i] = 0;
+    timerWeekday[i] = 0;
+  }
+  for (unsigned i = 0; i < 8; i++) {
+    timerMonth[i] = 0;
+    timerDay[i] = 0;
+    timerDayEnd[i] = 0;
+  }
+
+  DEBUG_PRINTLN(F("Legacy timer arrays cleared"));
 }
