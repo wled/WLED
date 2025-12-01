@@ -1,0 +1,12 @@
+{
+  "name": "NeoESP8266DMAFix",
+  "build": { "libArchive": false },
+  "platforms": ["espressif8266"],
+  "dependencies": [
+    {
+      "owner": "makuna",      
+      "name": "NeoPixelBus",
+      "version": "2.8.3"
+    }
+  ]
+}  
