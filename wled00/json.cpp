@@ -699,7 +699,9 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)// ToDO: find a solution to make this work in V5
   root[F("deviceId")] = getDeviceId();
+#endif
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -885,9 +887,9 @@ void serializeInfo(JsonObject root)
   root[F("product")] = F(WLED_PRODUCT_NAME);
   root["mac"] = escapedMac;
   char s[16] = "";
-  if (Network.isConnected())
+  if (WLEDNetwork.isConnected())
   {
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
   }
   root["ip"] = s;
