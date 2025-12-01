@@ -1132,6 +1132,8 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)    // ToDO: find a solution to make this work in V5
+
 // Platform-agnostic SHA1 computation from String input
 String computeSHA1(const String& input) {
   #ifdef ESP8266
@@ -1224,4 +1226,5 @@ String getDeviceId() {
 
   return cachedDeviceId;
 }
+#endif // V5 workaround
 
