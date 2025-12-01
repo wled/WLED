@@ -4,6 +4,9 @@
 
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
+#ifdef ARDUINO_ARCH_ESP8266
+#include <NeoEsp8266DmaMethodFix.h>
+#endif
 
 // --- temporary shim for NeoPixelBus CORE3 / RMT driver_v2 ------------------
 #if __has_include(<NeoPixelBus.h>)
