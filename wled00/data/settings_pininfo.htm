@@ -58,7 +58,7 @@
 			if(d.touch && d.touch.includes(p)) r.push("Touch");
 			// Use other caps from JSON (Analog, Boot, Input Only)
 			if(c&0x02) r.push("Analog");
-			if(c&0x08) r.push("Bootloader");
+			if(c&0x08) r.push("Flash Boot");
 			if(c&0x10) r.push("Bootstrap");
 			if(c&0x20) r.push("Input Only");
 			return r.length?r.join(", "):"-";
