@@ -1034,28 +1034,40 @@ static const char _data_FX_MODE_CHASE_RAINBOW_WHITE[] PROGMEM = "Rainbow Runner@
 
 
 /*
- * Red - Amber - Green - Blue lights running
+ * Running discrete colored lights (default Red - Amber - Green - Blue)
  */
 uint16_t mode_colorful(void) {
-  unsigned numColors = 4; //3, 4, or 5
-  uint32_t cols[9]{0x00FF0000,0x00EEBB00,0x0000EE00,0x000077CC};
+  unsigned numColors = (SEGMENT.custom3 > 16) ? 16 : SEGMENT.custom3; //defaults to 4, max of 16
+  uint32_t cols[31]{0x00FF0000,0x00EEBB00,0x0000EE00,0x000077CC};
   if (SEGMENT.intensity > 160 || SEGMENT.palette) { //palette or color
-    if (!SEGMENT.palette) {
-      numColors = 3;
-      for (size_t i = 0; i < 3; i++) cols[i] = SEGCOLOR(i);
-    } else {
-      unsigned fac = 80;
-      if (SEGMENT.palette == 52) {numColors = 5; fac = 61;} //C9 2 has 5 colors
+    if (!SEGMENT.palette) { //use color slots 1, 2, and/or 3
+      numColors = (numColors > 0 && numColors < 3) ? numColors : 3; //1 to 3, default 3
+      for (size_t i = 0; i < numColors; i++) cols[i] = SEGCOLOR(i);
+    } else if (numColors > 0) { //get numColors of colors from palette
+      unsigned fac = numColors > 1 ? (int)(255/(numColors - 1)) : 0;
       for (size_t i = 0; i < numColors; i++) {
-        cols[i] = SEGMENT.color_from_palette(i*fac, false, true, 255);
+        cols[i] = SEGMENT.color_from_palette(i*fac, false, false, 255);
+      }
+    } else { //get all non-repeating colors from palette (up to 16)
+      for (uint8_t i = 0; i < 16; ++i) {
+        CRGB c = SEGPALETTE[i];
+        uint32_t iCol = RGBW32(c.r, c.g, c.b, 0);
+        if (numColors == 0 || (iCol && iCol != cols[numColors-1])) cols[numColors++] = iCol;
+      }
+      if (numColors == 0) {
+        numColors++;
+        cols[0] = RGBW32(0, 0, 0, 0);
       }
     }
-  } else if (SEGMENT.intensity < 80) //pastel (easter) colors
-  {
-    cols[0] = 0x00FF8040;
-    cols[1] = 0x00E5D241;
-    cols[2] = 0x0077FF77;
-    cols[3] = 0x0077F0F0;
+  } else { //default Red - Amber - Green - Blue
+    numColors = (numColors > 0 && numColors < 4) ? numColors : 4; //1 to 4, default 4
+    if (SEGMENT.intensity < 80) //pastel (easter) colors
+    {
+      cols[0] = 0x00FF8040;
+      cols[1] = 0x00E5D241;
+      cols[2] = 0x0077FF77;
+      cols[3] = 0x0077F0F0;
+    }
   }
   for (size_t i = numColors; i < numColors*2 -1U; i++) cols[i] = cols[i-numColors];
 
@@ -1070,12 +1082,14 @@ uint16_t mode_colorful(void) {
 
   for (unsigned i = 0; i < SEGLEN; i+= numColors)
   {
-    for (unsigned j = 0; j < numColors; j++) SEGMENT.setPixelColor(i + j, cols[SEGENV.aux0 + j]);
+    for (unsigned j = 0; j < numColors  && (i + j) < SEGLEN; j++){
+      SEGMENT.setPixelColor(i + j, cols[SEGENV.aux0 + j]);
+    }
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Saturation;1,2,3;!";
+static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Color scheme,,,# of colors;1,2,3;!;;c3=4";
 
 
 /*
