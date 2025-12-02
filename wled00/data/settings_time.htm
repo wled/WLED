@@ -8,14 +8,65 @@
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+	var pJson = {}; // Store presets
+	var presetsLoaded = false;
+
 	function S() {
 		getLoc();
+		loadPresets(); // Load presets first
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
 			updLatLon();
 			Cs();
 			FC();
 		});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/time');
+	}
+
+	function loadPresets() {
+		fetch(getURL('/presets.json'), {
+			method: 'get'
+		})
+		.then(res => {
+			if (res.status == "404") return {"0":{}};
+			return res.json();
+		})
+		.then(json => {
+			pJson = json;
+			delete pJson["0"]; // Remove filler preset
+			presetsLoaded = true;
+			populatePresetSelects();
+		})
+		.catch((e) => {
+			console.log("Error loading presets:", e);
+			presetsLoaded = true; // Continue even if presets fail to load
+		});
+	}
+
+	function populatePresetSelects() {
+		// Update any existing preset select elements
+		var selects = d.querySelectorAll('select.preset-select');
+		selects.forEach(sel => {
+			updatePresetSelect(sel, sel.dataset.value || sel.value || 0);
+		});
+	}
+
+	function updatePresetSelect(selectElement, currentValue) {
+		currentValue = parseInt(currentValue) || 0;
+		selectElement.innerHTML = '<option value="0">Disabled</option>';
+
+		// Sort presets by ID
+		var presetIds = Object.keys(pJson).map(Number).sort((a,b) => a-b);
+
+		for (var id of presetIds) {
+			if (id > 0 && id <= 250) {
+				var name = pJson[id].n || ("Preset " + id);
+				var option = document.createElement('option');
+				option.value = id;
+				option.textContent = id + ": " + name;
+				if (id == currentValue) option.selected = true;
+				selectElement.appendChild(option);
+			}
+		}
 	}
 	function expand(o,i)
 	{
@@ -35,14 +86,14 @@
 
 	function BTa()
 	{
-		var ih = '<thead><tr><th>En.</th><th>Hour/Type</th><th>Minute</th><th>Preset</th><th></th><th title="Timers are processed in order from top to bottom. If multiple timers trigger at the same time, the last one wins.">Order</th><th></th></tr></thead><tbody id="timerRows"></tbody>';
+		var ih = '<thead><tr><th><abbr title="Enabled">En.</abbr></th><th title="Type can be Sunrise, Sunset, or Regular">Type/Hour</th><th>Minute</th><th>Preset</th><th></th><th title="Timers are processed in order from top to bottom. If multiple timers trigger at the same time, the last one wins.">Order</th><th>Delete</th></tr></thead><tbody id="timerRows"></tbody>';
 		gId("TMT").innerHTML = ih;
 	}
 
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
 		// Check if we've reached the maximum number of timers
 		if (timerCount >= maxTimers) {
-			alert("Maximum number of timers (" + maxTimers + ") reached!\n\nPlease save your changes first to remove any deleted timers, then you can add more.");
+			alert("Maximum number of timers (" + maxTimers + ") reached!\n\nPlease save your changes first to remove any deleted timers, then you may be able to add more.");
 			return;
 		}
 
@@ -95,8 +146,14 @@
 
 		// Preset
 		td = document.createElement('td');
-		td.innerHTML = `<input name="T${i}" id="T${i}" class="s" type="number" min="0" max="250" value="${preset}" title="Preset ID (0=disabled)">`;
+		td.innerHTML = `<select name="T${i}" id="T${i}" class="s preset-select" data-value="${preset}" title="Preset"></select>`;
 		tr.appendChild(td);
+
+		// Populate preset select if presets are loaded
+		if (presetsLoaded) {
+			var sel = gId(`T${i}`);
+			if (sel) updatePresetSelect(sel, preset);
+		}
 
 		// Expand button
 		td = document.createElement('td');
@@ -377,11 +434,21 @@
 		td = tr.insertCell(0);
 		td.innerHTML = `Button ${i}:`;
 		td = tr.insertCell(1);
-		td.innerHTML = `<input name="MP${b}" type="number" class="s" min="0" max="250" value="${p}" required>`;
+		td.innerHTML = `<select name="MP${b}" id="MP${b}" class="s preset-select" data-value="${p}" required></select>`;
 		td = tr.insertCell(2);
-		td.innerHTML = `<input name="ML${b}" type="number" class="s" min="0" max="250" value="${l}" required>`;
+		td.innerHTML = `<select name="ML${b}" id="ML${b}" class="s preset-select" data-value="${l}" required></select>`;
 		td = tr.insertCell(3);
-		td.innerHTML = `<input name="MD${b}" type="number" class="s" min="0" max="250" value="${d}" required>`;
+		td.innerHTML = `<select name="MD${b}" id="MD${b}" class="s preset-select" data-value="${d}" required></select>`;
+
+		// Populate preset selects if presets are loaded
+		if (presetsLoaded) {
+			var selP = gId(`MP${b}`);
+			var selL = gId(`ML${b}`);
+			var selD = gId(`MD${b}`);
+			if (selP) updatePresetSelect(selP, p);
+			if (selL) updatePresetSelect(selL, l);
+			if (selD) updatePresetSelect(selD, d);
+		}
 	}
 	function getLatLon() {
 		if (!el) {
@@ -432,6 +499,13 @@
 		}
 		.timer-add-btn {
 			margin-top: 10px;
+		}
+		/* Add question mark indicator to table headers with titles */
+		#TMT thead th[title]::after {
+			content: " ?";
+			font-size: 0.8em;
+			opacity: 0.6;
+			cursor: help;
 		}
 	</style>
 </head>
@@ -495,11 +569,12 @@
 		<h3>Macro presets</h3>
 		<b>Macros have moved!</b><br>
 		<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
-		Just enter the preset ID below!</i>
-		<i>Use 0 for the default action instead of a preset</i><br>
-		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
-		Countdown-Over Preset: <input name="MC" class="m" type="number" min="0" max="250" required><br>
-		Timed-Light-Over Presets: <input name="MN" class="m" type="number" min="0" max="250" required><br>
+		Just select the preset below!</i>
+		<i>Use "Disabled" for the default action instead of a preset</i><br>
+		Alexa On Preset: <select name="A0" class="m preset-select" data-value="0" required></select><br>
+		Alexa Off Preset: <select name="A1" class="m preset-select" data-value="0" required></select><br>
+		Countdown-Over Preset: <select name="MC" class="m preset-select" data-value="0" required></select><br>
+		Timed-Light-Over Preset: <select name="MN" class="m preset-select" data-value="0" required></select><br>
 		<h3>Button actions</h3>
 		<table style="margin: 0 auto;" id="macros">
 			<thead>
@@ -519,9 +594,8 @@
 		<table id="TMT" style="min-width:330px;"></table>
 		<button type="button" class="timer-add-btn" onclick="addTimerRow()">+ Add Timer</button>
 		</div>
-		<i>Hour/Type: Select "Regular" and enter hour (0-24), or select "Sunrise"/"Sunset" for sun-based timers.<br>
-		Minute: For regular timers (0-59), for sunrise/sunset use offset in minutes (-120 to 120).<br>
-		Preset: Enter preset ID (1-250). Use 0 to disable timer.</i>
+		<p><b>Type/Hour</b>: Select "Regular" and enter hour (0-24), or select "Sunrise"/"Sunset" for sun-based timers.<br>
+		<b>Minute</b>: For regular timers (0-59), for sunrise/sunset use offset in minutes (-120 to 120). e.g.- 60 is 1 hour <i>after</i> Sunset<br></p>
 		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
