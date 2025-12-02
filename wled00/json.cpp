@@ -454,6 +454,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       exitRealtime();
     }
   }
+  if (root.containsKey("awm")) {
+    uint8_t awm = root["awm"] | AW_GLOBAL_DISABLED;
+    Bus::setTempAWMode(awm);
+    strip.getMainSegment().refreshLightCapabilities(); // update sliders
+  }
 
   int it = 0;
   JsonVariant segVar = root["seg"];
