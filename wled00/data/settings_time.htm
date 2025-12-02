@@ -254,43 +254,78 @@
 	function FC()
 	{
 		// This is called after settings are loaded to populate the UI
-		// The timer data comes from the server via settings script
-		// We need to wait for the data to be available
+		// Check for modern timerData array format (future compatibility)
+		if (typeof timerData !== 'undefined' && Array.isArray(timerData)) {
+			// Modern format: array of timer objects
+			for (var i = 0; i < timerData.length; i++) {
+				var timer = timerData[i];
+				// Validate and convert types
+				var hour = parseInt(timer.hour) || 0;
+				var minute = parseInt(timer.minute) || 0;
+				var preset = parseInt(timer.preset) || 0;
+				var weekdays = parseInt(timer.weekdays);
+				if (isNaN(weekdays)) weekdays = 255; // default: all days enabled
+				var monthStart = parseInt(timer.monthStart) || 1;
+				var dayStart = parseInt(timer.dayStart) || 1;
+				var monthEnd = parseInt(timer.monthEnd) || 12;
+				var dayEnd = parseInt(timer.dayEnd) || 31;
+
+				addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd);
+			}
+			return;
+		}
+
+		// Legacy fallback: check for separate arrays (timerHours, timerMinutes, etc.)
+		if (typeof timerHours !== 'undefined' && Array.isArray(timerHours)) {
+			// Legacy format: separate arrays for each field
+			var count = timerHours.length;
+			for (var i = 0; i < count; i++) {
+				var hour = parseInt(timerHours[i]) || 0;
+				var minute = (typeof timerMinutes !== 'undefined') ? (parseInt(timerMinutes[i]) || 0) : 0;
+				var preset = (typeof timerMacro !== 'undefined') ? (parseInt(timerMacro[i]) || 0) : 0;
+				var weekdays = (typeof timerWeekday !== 'undefined') ? (parseInt(timerWeekday[i]) || 255) : 255;
+
+				// Skip empty timers
+				if (preset === 0 && hour === 0 && minute === 0) continue;
+
+				// Legacy arrays don't have date range info, use defaults
+				var monthStart = 1;
+				var dayStart = 1;
+				var monthEnd = 12;
+				var dayEnd = 31;
+
+				addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd);
+			}
+			return;
+		}
+
+		// No timer data available - server will call addTimerRow() directly via GetV()
+		// This is the current implementation (see xml.cpp)
 	}
 
 	function Wd()
 	{
 		// Update weekday hidden fields from checkboxes before form submit
-		// Iterate through DOM rows in order to respect visual reordering
 		var tbody = gId("timerRows");
-		if (!tbody) return;
-
-		var rows = tbody.children;
+		var rows = tbody.querySelectorAll('tr[id^="timer"]');
 		var newIndex = 0;
 
-		// Process each timer (2 rows per timer: main + details)
-		for (var rowIdx = 0; rowIdx < rows.length; rowIdx += 2) {
-			var mainRow = rows[rowIdx];
-			if (!mainRow || !mainRow.id || !mainRow.id.startsWith('timer')) continue;
-
-			// Extract original timer index from row id (e.g., "timer5" -> 5)
-			var originalIndex = parseInt(mainRow.id.replace('timer', ''));
-			if (isNaN(originalIndex)) continue;
+		for (i=0; i<rows.length; i++) {
+			var timerId = rows[i].id.replace('timer', '');
 
 			// Skip deleted timers
-			if (mainRow.classList.contains('timer-deleted')) continue;
+			if (rows[i].classList.contains('timer-deleted')) continue;
 
-			// Get the fields using the original index
-			var wField = gId("W" + originalIndex);
-			var hourSelect = gId("H" + originalIndex + "_sel");
-			var hourInput = gId("H" + originalIndex);
+			var wField = gId("W"+timerId);
+			var hourSelect = gId("H"+timerId+"_sel");
+			var hourInput = gId("H"+timerId);
 
 			// Update weekday hidden field from checkboxes
 			if (wField) {
 				var m = 1;
 				var val = 0;
 				for (var j = 0; j < 8; j++) {
-					var cb = gId("W" + originalIndex + j);
+					var cb = gId("W"+timerId+j);
 					if (cb) val += cb.checked * m;
 					m *= 2;
 				}
@@ -300,8 +335,7 @@
 			// Update hour field based on timer type
 			if (hourSelect && hourInput) {
 				if (hourSelect.value == 0) {
-					// Regular timer - use the hour input value (already has name="H${i}")
-					// Nothing to change
+					// Regular timer - use the hour input value
 				} else {
 					// Sunrise/sunset - use select value
 					hourInput.value = hourSelect.value;
@@ -311,19 +345,19 @@
 			// Rename all form fields to use the new sequential index
 			// This ensures backend receives timers in DOM order
 			var fieldsToRename = [
-				{old: "W" + originalIndex, new: "W" + newIndex},
-				{old: "H" + originalIndex, new: "H" + newIndex},
-				{old: "N" + originalIndex, new: "N" + newIndex},
-				{old: "T" + originalIndex, new: "T" + newIndex},
-				{old: "M" + originalIndex, new: "M" + newIndex},
-				{old: "D" + originalIndex, new: "D" + newIndex},
-				{old: "P" + originalIndex, new: "P" + newIndex},
-				{old: "E" + originalIndex, new: "E" + newIndex}
+				{old: "W" + timerId, new: "W" + newIndex},
+				{old: "H" + timerId, new: "H" + newIndex},
+				{old: "N" + timerId, new: "N" + newIndex},
+				{old: "T" + timerId, new: "T" + newIndex},
+				{old: "M" + timerId, new: "M" + newIndex},
+				{old: "D" + timerId, new: "D" + newIndex},
+				{old: "P" + timerId, new: "P" + newIndex},
+				{old: "E" + timerId, new: "E" + newIndex}
 			];
 
 			for (var k = 0; k < fieldsToRename.length; k++) {
 				var field = gId(fieldsToRename[k].old);
-				if (field && field.name === fieldsToRename[k].old) {
+				if (field) {
 					field.name = fieldsToRename[k].new;
 				}
 			}

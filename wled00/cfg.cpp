@@ -741,7 +741,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         uint8_t hour = timerHoursJson[i] | 0;
         int8_t minute = timerMinutesJson.isNull() ? 0 : (timerMinutesJson[i] | 0);
         uint8_t preset = timerMacroJson[i] | 0;
-        uint8_t weekdays = timerWeekdayJson.isNull() ? 255 : (timerWeekdayJson[i] | 255);
+        // Legacy format: dow in bits 1-7, enabled bit needs to be set explicitly
+        // Default to all days (0xFE) without enabled flag, then set enabled based on having a preset
+        uint8_t dow = timerWeekdayJson.isNull() ? 127 : (timerWeekdayJson[i] | 127);
+        uint8_t weekdays = (dow << 1) | ((preset != 0) ? 1 : 0);
 
         // Skip empty timers
         if (preset == 0 && hour == 0 && minute == 0) continue;
