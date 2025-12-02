@@ -749,9 +749,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         // Skip empty timers
         if (preset == 0 && hour == 0 && minute == 0) continue;
 
+        // Handle sunrise (index 8) and sunset (index 9) timers specially
+        if (i == 8) hour = TIMER_HOUR_SUNRISE;
+        else if (i == 9) hour = TIMER_HOUR_SUNSET;
+
         // Extract date range for regular timers (indices 0-7)
         uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
-        if (i < 8 && !timerMonthJson.isNull()) {
+        if (hour <= 24 && !timerMonthJson.isNull()) {
           uint8_t monthPacked = timerMonthJson[i] | 28; // default 0x1C (month 1-12)
           monthStart = (monthPacked >> 4) & 0x0F;
           monthEnd = monthPacked & 0x0F;
