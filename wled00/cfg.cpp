@@ -715,18 +715,70 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
   } else {
-    // No timers in JSON, might be first boot or old config
-    // Check if legacy arrays have data and migrate if needed
-    // Original layout: 0-7 regular timers, 8 sunrise, 9 sunset (10 total)
-    bool hasLegacyData = false;
-    for (unsigned i = 0; i < 10; i++) {
-      if (timerMacro[i] != 0 || timerHours[i] != 0 || timerMinutes[i] != 0) {
-        hasLegacyData = true;
-        break;
+    // No timers.ins array - check for old JSON format or legacy arrays
+    // Try to read old JSON format first (if timers were stored as individual fields)
+    bool foundOldJsonTimers = false;
+
+    // Check for old JSON format: timers stored as arrays or individual fields
+    // Format could be: "timers": {"0": {...}, "1": {...}, ...} or arrays
+    JsonArray timerHoursJson = tm["hour"];
+    JsonArray timerMinutesJson = tm["min"];
+    JsonArray timerMacroJson = tm["macro"];
+    JsonArray timerWeekdayJson = tm["dow"];
+    JsonArray timerMonthJson = tm["month"];
+    JsonArray timerDayJson = tm["day"];
+    JsonArray timerDayEndJson = tm["dayend"];
+
+    // If we have arrays in the old format, migrate from them
+    if (!timerHoursJson.isNull() && !timerMacroJson.isNull()) {
+      clearTimers();
+      foundOldJsonTimers = true;
+
+      DEBUG_PRINTLN(F("Migrating timers from old JSON array format..."));
+
+      // Migrate up to 10 timers (8 regular + sunrise + sunset)
+      for (unsigned i = 0; i < 10 && i < timerHoursJson.size(); i++) {
+        uint8_t hour = timerHoursJson[i] | 0;
+        int8_t minute = timerMinutesJson.isNull() ? 0 : (timerMinutesJson[i] | 0);
+        uint8_t preset = timerMacroJson[i] | 0;
+        uint8_t weekdays = timerWeekdayJson.isNull() ? 255 : (timerWeekdayJson[i] | 255);
+
+        // Skip empty timers
+        if (preset == 0 && hour == 0 && minute == 0) continue;
+
+        // Extract date range for regular timers (indices 0-7)
+        uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
+        if (i < 8 && !timerMonthJson.isNull()) {
+          uint8_t monthPacked = timerMonthJson[i] | 28; // default 0x1C (month 1-12)
+          monthStart = (monthPacked >> 4) & 0x0F;
+          monthEnd = monthPacked & 0x0F;
+          if (monthStart == 0) monthStart = 1;
+          if (monthEnd == 0) monthEnd = 12;
+
+          if (!timerDayJson.isNull()) dayStart = timerDayJson[i] | 1;
+          if (!timerDayEndJson.isNull()) dayEnd = timerDayEndJson[i] | 31;
+        }
+
+        addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
       }
+
+      DEBUG_PRINTF("Old JSON migration complete: %d timers loaded\n", timers.size());
     }
-    if (hasLegacyData) {
-      migrateTimersFromArrays();
+
+    // If no old JSON format found, check legacy arrays in memory
+    if (!foundOldJsonTimers) {
+      // Check if legacy arrays have data and migrate if needed
+      // Original layout: 0-7 regular timers, 8 sunrise, 9 sunset (10 total)
+      bool hasLegacyData = false;
+      for (unsigned i = 0; i < 10; i++) {
+        if (timerMacro[i] != 0 || timerHours[i] != 0 || timerMinutes[i] != 0) {
+          hasLegacyData = true;
+          break;
+        }
+      }
+      if (hasLegacyData) {
+        migrateTimersFromArrays();
+      }
     }
   }
 

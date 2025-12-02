@@ -208,6 +208,11 @@
 		if (row2) {
 			row2.classList.add('timer-deleted');
 		}
+
+		// Decrement timerCount to allow adding new timers (ensure it doesn't go below zero)
+		if (timerCount > 0) {
+			timerCount--;
+		}
 	}
 
 	function moveTimerUp(i) {
@@ -256,22 +261,43 @@
 	function Wd()
 	{
 		// Update weekday hidden fields from checkboxes before form submit
-		for (i=0; i<timerCount; i++) {
-			var wField = gId("W"+i);
-			if (!wField) continue;
+		// Iterate through DOM rows in order to respect visual reordering
+		var tbody = gId("timerRows");
+		if (!tbody) return;
 
-			var m=1;
-			var val=0;
-			for(j=0;j<8;j++) {
-				var cb = gId("W"+i+j);
-				if (cb) val += cb.checked * m;
-				m*=2;
+		var rows = tbody.children;
+		var newIndex = 0;
+
+		// Process each timer (2 rows per timer: main + details)
+		for (var rowIdx = 0; rowIdx < rows.length; rowIdx += 2) {
+			var mainRow = rows[rowIdx];
+			if (!mainRow || !mainRow.id || !mainRow.id.startsWith('timer')) continue;
+
+			// Extract original timer index from row id (e.g., "timer5" -> 5)
+			var originalIndex = parseInt(mainRow.id.replace('timer', ''));
+			if (isNaN(originalIndex)) continue;
+
+			// Skip deleted timers
+			if (mainRow.classList.contains('timer-deleted')) continue;
+
+			// Get the fields using the original index
+			var wField = gId("W" + originalIndex);
+			var hourSelect = gId("H" + originalIndex + "_sel");
+			var hourInput = gId("H" + originalIndex);
+
+			// Update weekday hidden field from checkboxes
+			if (wField) {
+				var m = 1;
+				var val = 0;
+				for (var j = 0; j < 8; j++) {
+					var cb = gId("W" + originalIndex + j);
+					if (cb) val += cb.checked * m;
+					m *= 2;
+				}
+				wField.value = val;
 			}
-			wField.value = val;
 
 			// Update hour field based on timer type
-			var hourSelect = gId("H"+i+"_sel");
-			var hourInput = gId("H"+i);
 			if (hourSelect && hourInput) {
 				if (hourSelect.value == 0) {
 					// Regular timer - use the hour input value (already has name="H${i}")
@@ -281,7 +307,30 @@
 					hourInput.value = hourSelect.value;
 				}
 			}
+
+			// Rename all form fields to use the new sequential index
+			// This ensures backend receives timers in DOM order
+			var fieldsToRename = [
+				{old: "W" + originalIndex, new: "W" + newIndex},
+				{old: "H" + originalIndex, new: "H" + newIndex},
+				{old: "N" + originalIndex, new: "N" + newIndex},
+				{old: "T" + originalIndex, new: "T" + newIndex},
+				{old: "M" + originalIndex, new: "M" + newIndex},
+				{old: "D" + originalIndex, new: "D" + newIndex},
+				{old: "P" + originalIndex, new: "P" + newIndex},
+				{old: "E" + originalIndex, new: "E" + newIndex}
+			];
+
+			for (var k = 0; k < fieldsToRename.length; k++) {
+				var field = gId(fieldsToRename[k].old);
+				if (field && field.name === fieldsToRename[k].old) {
+					field.name = fieldsToRename[k].new;
+				}
+			}
+
+			newIndex++;
 		}
+
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}

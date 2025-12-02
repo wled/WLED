@@ -577,11 +577,8 @@ void setTimeFromAPI(uint32_t timein) {
 void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
               uint8_t monthStart, uint8_t monthEnd,
               uint8_t dayStart, uint8_t dayEnd) {
-  // Validate preset (0 means disabled, so skip if preset is 0 and timer is marked enabled)
-  if (preset == 0 && (weekdays & 0x01)) {
-    DEBUG_PRINTLN(F("Timer: Skipping timer with preset 0 and enabled flag"));
-    return;
-  }
+  // Note: preset 0 timers are harmless (no effect) and can be stored
+  // They may represent disabled timers that user wants to keep configured
 
   // Validate hour (0-24 for regular, 254 for sunset, 255 for sunrise)
   if (hour > 24 && hour != TIMER_HOUR_SUNSET && hour != TIMER_HOUR_SUNRISE) {
@@ -605,14 +602,16 @@ void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
     }
   }
 
-  // Validate months (1-12)
-  if (monthStart < 1 || monthStart > 12 || monthEnd < 1 || monthEnd > 12) {
+  // Validate months (0 or 1-12, where 0 is a valid legacy/default value)
+  if ((monthStart != 0 && (monthStart < 1 || monthStart > 12)) ||
+      (monthEnd != 0 && (monthEnd < 1 || monthEnd > 12))) {
     DEBUG_PRINTLN(F("Timer: Invalid month range"));
     return;
   }
 
-  // Validate days (1-31)
-  if (dayStart < 1 || dayStart > 31 || dayEnd < 1 || dayEnd > 31) {
+  // Validate days (0 or 1-31, where 0 is a valid legacy/default value)
+  if ((dayStart != 0 && (dayStart < 1 || dayStart > 31)) ||
+      (dayEnd != 0 && (dayEnd < 1 || dayEnd > 31))) {
     DEBUG_PRINTLN(F("Timer: Invalid day range"));
     return;
   }
@@ -654,7 +653,11 @@ size_t getTimerCount() {
 void compactTimers() {
   for (size_t i = 0; i < timers.size();) {
     const Timer& t = timers[i];
-    if (t.preset == 0 && t.hour == 0 && t.minute == 0) {
+    // Remove timer if it has no preset, no time, and no weekday configuration
+    // A timer with weekdays=0 is explicitly deleted (removeTimerRow sets it to 0)
+    // A timer with weekdays=255 but no preset/time is also meaningless
+    if (t.preset == 0 && t.hour == 0 && t.minute == 0 &&
+        (t.weekdays == 0 || t.weekdays == 255)) {
       timers.erase(timers.begin() + i);
     } else {
       ++i;
@@ -694,12 +697,14 @@ void migrateTimersFromArrays() {
   }
 
   // Migrate sunrise timer (index 8)
-  if (timerMacro[8] != 0 || timerMinutes[8] != 0) {
+  // Include weekdays check to catch timers with only weekday configuration
+  if (timerMacro[8] != 0 || timerMinutes[8] != 0 || timerWeekday[8] != 0) {
     addTimer(timerMacro[8], TIMER_HOUR_SUNRISE, timerMinutes[8], timerWeekday[8]);
   }
 
   // Migrate sunset timer (index 9)
-  if (timerMacro[9] != 0 || timerMinutes[9] != 0) {
+  // Include weekdays check to catch timers with only weekday configuration
+  if (timerMacro[9] != 0 || timerMinutes[9] != 0 || timerWeekday[9] != 0) {
     addTimer(timerMacro[9], TIMER_HOUR_SUNSET, timerMinutes[9], timerWeekday[9]);
   }
 
