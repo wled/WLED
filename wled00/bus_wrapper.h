@@ -4,9 +4,6 @@
 
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
-#ifdef ARDUINO_ARCH_ESP8266
-#include <NeoEsp8266DmaMethodFix.h>
-#endif
 
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
