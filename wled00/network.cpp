@@ -144,6 +144,16 @@ const ethernet_settings ethernetBoards[] = {
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
+  },
+
+  // GLEDOPTO GL-C-618WL
+  {
+    1,                    // eth_address, 
+    5,                    // eth_power, 
+    23,                   // eth_mdc, 
+    33,                   // eth_mdio, 
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO0_IN	  // eth_clk_mode
   }
 };
 
