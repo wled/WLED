@@ -145,6 +145,8 @@ const ethernet_settings ethernetBoards[] = {
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
   },
+
+ // Gledopto Series With Ethernet
  {
     1,                    // eth_address, 
     5,                    // eth_power, 
