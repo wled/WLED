@@ -34,7 +34,6 @@ You can find a collection of very useful tips and tricks here: https://github.co
 > Its OK if you took help from an AI for writing your source code. 
 >
 > However, we expect a few things from you as the person making a contribution to WLED:
-
 * Make sure you really understand the code suggested by the AI, and don't just accept it because it "seems to work".
 * Don't let the AI change already exists without double-checking by you as the contributor. Often, the result will not be complete. For example, comments about the source code may be lost.
 * Remember that AI are still "Often-Wrong" ;-)
