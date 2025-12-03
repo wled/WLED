@@ -60,7 +60,7 @@
 		var ih = `<div id="WD${i}" style="display:none;background-color:#444;"><hr>Run on weekdays<table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
 		for (j=1;j<8;j++) ih += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
 		ih += `</tr></table>`;
-		ih += `<div id="DR${i}" style="display:${isSpecial?'none':'block'}">from <select name="M${i}">`;
+		ih += `<div id="DR${i}">from <select name="M${i}">`;
 		for (j=0;j<12;j++) ih += `<option value="${j+1}" ${monthStart==j+1?'selected':''}>${ms[j]}</option>`;
 		ih += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="${dayStart}"> to <select name="P${i}">`;
 		for (j=0;j<12;j++) ih += `<option value="${j+1}" ${monthEnd==j+1?'selected':''}>${ms[j]}</option>`;
@@ -72,7 +72,6 @@
 		var sel = gId("TS"+i);
 		var hour = gId("H"+i);
 		var min = gId("N"+i);
-		var dr = gId("DR"+i);
 		var isSpecial = sel.value != 0;
 		hour.style.display = isSpecial ? "none" : "inline";
 		if (isSpecial) {
@@ -85,7 +84,6 @@
 			min.max = 59;
 			if (min.value < 0 || min.value > 59) min.value = 0;
 		}
-		if (dr) dr.style.display = isSpecial ? "none" : "block";
 	}
 	function FC() {}
 	function Wd()

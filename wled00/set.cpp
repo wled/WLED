@@ -558,29 +558,27 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       k[0] = 'T';
       if (!request->hasArg(k)) continue;
-      uint8_t preset = request->arg(k).toInt();
+      uint8_t p = request->arg(k).toInt();
       k[0] = 'H';
-      uint8_t hour = request->arg(k).toInt();
+      uint8_t h = request->arg(k).toInt();
       k[0] = 'N';
-      int8_t minute = request->arg(k).toInt();
+      int8_t m = request->arg(k).toInt();
       k[0] = 'W';
-      uint8_t weekdays = request->arg(k).toInt();
-      uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
-      if (hour < TIMER_HOUR_SUNSET) {
-        k[0] = 'M';
-        monthStart = request->arg(k).toInt();
-        if (monthStart == 0) monthStart = 1;
-        k[0] = 'P';
-        monthEnd = request->arg(k).toInt();
-        if (monthEnd == 0) monthEnd = 12;
-        k[0] = 'D';
-        dayStart = request->arg(k).toInt();
-        if (dayStart == 0) dayStart = 1;
-        k[0] = 'E';
-        dayEnd = request->arg(k).toInt();
-        if (dayEnd == 0) dayEnd = 31;
-      }
-      addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+      uint8_t wd = request->arg(k).toInt();
+      uint8_t ms = 1, me = 12, ds = 1, de = 31;
+      k[0] = 'M';
+      ms = request->arg(k).toInt();
+      if (ms == 0) ms = 1;
+      k[0] = 'P';
+      me = request->arg(k).toInt();
+      if (me == 0) me = 12;
+      k[0] = 'D';
+      ds = request->arg(k).toInt();
+      if (ds == 0) ds = 1;
+      k[0] = 'E';
+      de = request->arg(k).toInt();
+      if (de == 0) de = 31;
+      addTimer(p, h, m, wd, ms, me, ds, de);
     }
     compactTimers();
 

@@ -683,26 +683,23 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (!timersArray.isNull()) {
     clearTimers();
     for (JsonObject timer : timersArray) {
-      uint8_t hour = timer[F("hour")] | 0;
-      int8_t minute = timer[F("min")] | 0;
-      uint8_t preset = timer[F("macro")] | 0;
+      uint8_t h = timer[F("hour")] | 0;
+      int8_t m = timer[F("min")] | 0;
+      uint8_t p = timer[F("macro")] | 0;
       uint8_t dow = timer[F("dow")] | 127;
-      int enabled = timer[F("en")] | 0;
-      uint8_t weekdays = (dow << 1) | (enabled ? 1 : 0);
-      uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
-      if (hour < TIMER_HOUR_SUNSET) {
-        JsonObject start = timer[F("start")];
-        JsonObject end = timer[F("end")];
-        if (!start.isNull()) {
-          monthStart = start[F("mon")] | 1;
-          dayStart = start[F("day")] | 1;
-        }
-        if (!end.isNull()) {
-          monthEnd = end[F("mon")] | 12;
-          dayEnd = end[F("day")] | 31;
-        }
+      uint8_t wd = (dow << 1) | ((timer[F("en")] | 0) ? 1 : 0);
+      uint8_t ms = 1, me = 12, ds = 1, de = 31;
+      JsonObject start = timer[F("start")];
+      if (!start.isNull()) {
+        ms = start[F("mon")] | 1;
+        ds = start[F("day")] | 1;
       }
-      addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+      JsonObject end = timer[F("end")];
+      if (!end.isNull()) {
+        me = end[F("mon")] | 12;
+        de = end[F("day")] | 31;
+      }
+      addTimer(p, h, m, wd, ms, me, ds, de);
     }
   }
 
@@ -1201,22 +1198,20 @@ void serializeConfig(JsonObject root) {
 
   JsonArray timers_ins = timers.createNestedArray("ins");
   for (size_t i = 0; i < ::timers.size(); i++) {
-    const Timer& timer = ::timers[i];
-    if (timer.preset == 0 && timer.hour == 0 && timer.minute == 0) continue;
-    JsonObject timers_ins0 = timers_ins.createNestedObject();
-    timers_ins0[F("en")] = timer.isEnabled() ? 1 : 0;
-    timers_ins0[F("hour")] = timer.hour;
-    timers_ins0[F("min")] = timer.minute;
-    timers_ins0[F("macro")] = timer.preset;
-    timers_ins0[F("dow")] = timer.weekdays >> 1;
-    if (timer.isRegular()) {
-      JsonObject start = timers_ins0.createNestedObject(F("start"));
-      start[F("mon")] = timer.monthStart;
-      start[F("day")] = timer.dayStart;
-      JsonObject end = timers_ins0.createNestedObject(F("end"));
-      end[F("mon")] = timer.monthEnd;
-      end[F("day")] = timer.dayEnd;
-    }
+    const Timer& t = ::timers[i];
+    if (t.preset == 0 && t.hour == 0 && t.minute == 0) continue;
+    JsonObject ti = timers_ins.createNestedObject();
+    ti[F("en")] = t.isEnabled() ? 1 : 0;
+    ti[F("hour")] = t.hour;
+    ti[F("min")] = t.minute;
+    ti[F("macro")] = t.preset;
+    ti[F("dow")] = t.weekdays >> 1;
+    JsonObject start = ti.createNestedObject(F("start"));
+    start[F("mon")] = t.monthStart;
+    start[F("day")] = t.dayStart;
+    JsonObject end = ti.createNestedObject(F("end"));
+    end[F("mon")] = t.monthEnd;
+    end[F("day")] = t.dayEnd;
   }
 
   JsonObject ota = root.createNestedObject("ota");

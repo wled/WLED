@@ -373,40 +373,40 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 
 void checkTimers()
 {
-  if (lastTimerMinute != minute(localTime)) //only check once a new minute begins
-  {
+  if (lastTimerMinute != minute(localTime)) {
     lastTimerMinute = minute(localTime);
-
-    // re-calculate sunrise and sunset just after midnight
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
-
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
     for (size_t i = 0; i < timers.size(); i++) {
-      const Timer& timer = timers[i];
-      if (!timer.isEnabled()) continue;
-      bool shouldTrigger = false;
-      if (timer.isSunrise()) {
-        if (sunrise) {
-          time_t triggerTime = sunrise + timer.minute * 60;
-          shouldTrigger = (hour(triggerTime) == hour(localTime) && minute(triggerTime) == minute(localTime));
-          if (shouldTrigger) DEBUG_PRINTF_P(PSTR("Sunrise timer %d triggered at offset %d min\n"), timer.preset, timer.minute);
-        }
-      } else if (timer.isSunset()) {
-        if (sunset) {
-          time_t triggerTime = sunset + timer.minute * 60;
-          shouldTrigger = (hour(triggerTime) == hour(localTime) && minute(triggerTime) == minute(localTime));
-          if (shouldTrigger) DEBUG_PRINTF_P(PSTR("Sunset timer %d triggered at offset %d min\n"), timer.preset, timer.minute);
-        }
+      const Timer& t = timers[i];
+      if (!t.isEnabled()) continue;
+      time_t tt = 0;
+      if (t.isSunrise()) {
+        if (!sunrise) continue;
+        tt = sunrise + t.minute * 60;
+      } else if (t.isSunset()) {
+        if (!sunset) continue;
+        tt = sunset + t.minute * 60;
       } else {
-        shouldTrigger = ((timer.hour == hour(localTime) || timer.hour == 24) && timer.minute == minute(localTime));
+        struct tm tim;
+        tim.tm_year = year(localTime) - 1900;
+        tim.tm_mon = month(localTime) - 1;
+        tim.tm_mday = day(localTime);
+        tim.tm_hour = t.hour;
+        tim.tm_min = t.minute;
+        tim.tm_sec = 0;
+        tim.tm_isdst = -1;
+        tt = mktime(&tim);
       }
-      if (shouldTrigger) {
-        if (!((timer.weekdays >> weekdayMondayFirst()) & 0x01)) continue;
-        if (timer.isRegular()) {
-          if (!isTodayInDateRange(timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd)) continue;
-        }
-        applyPreset(timer.preset);
-        DEBUG_PRINTF_P(PSTR("Timer %d triggered: preset %d\n"), i, timer.preset);
+      if ((hour(tt) == hour(localTime) && minute(tt) == minute(localTime)) || (t.hour == 24 && t.minute == minute(localTime))) {
+        if (!((t.weekdays >> weekdayMondayFirst()) & 0x01)) continue;
+        if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) continue;
+        applyPreset(t.preset);
+        #ifdef WLED_DEBUG
+        if (t.isSunrise()) DEBUG_PRINTF_P(PSTR("Sunrise timer %d offset %d\n"), t.preset, t.minute);
+        else if (t.isSunset()) DEBUG_PRINTF_P(PSTR("Sunset timer %d offset %d\n"), t.preset, t.minute);
+        else DEBUG_PRINTF_P(PSTR("Timer %d: preset %d\n"), i, t.preset);
+        #endif
       }
     }
   }
@@ -538,11 +538,11 @@ void setTimeFromAPI(uint32_t timein) {
 
 void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
               uint8_t monthStart, uint8_t monthEnd, uint8_t dayStart, uint8_t dayEnd) {
-  if (hour > 24 && hour != TIMER_HOUR_SUNSET && hour != TIMER_HOUR_SUNRISE) {
+  if (hour > 24 && hour != TH_SUNSET && hour != TH_SUNRISE) {
     DEBUG_PRINTLN(F("Timer: Invalid hour value"));
     return;
   }
-  if (hour == TIMER_HOUR_SUNRISE || hour == TIMER_HOUR_SUNSET) {
+  if (hour == TH_SUNRISE || hour == TH_SUNSET) {
     if (minute < -120 || minute > 120) {
       DEBUG_PRINTLN(F("Timer: Clamping sunrise/sunset offset to [-120,120]"));
       if (minute < -120) minute = -120;
