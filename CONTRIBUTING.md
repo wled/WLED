@@ -26,6 +26,8 @@ Github will pick up the changes so your PR stays up-to-date.
 > It has many subtle and unexpected consequences on our github reposistory.
 > For example, we regularly lost review comments when the PR author force-pushes code changes. So, pretty please, do not force-push.
 
+> [!TIP]
+> use [cherry-picking](https://docs.github.com/en/desktop/managing-commits/cherry-picking-a-commit-in-github-desktop) to copy commits from one branch to another.
 
 You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
 
