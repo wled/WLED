@@ -3,12 +3,14 @@
 #include "util.h"
 #include "wled.h"
 #include <algorithm>
+#include <cstdio>
 #include <cmath>
 #include <limits>
 
 static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
 const char CFG_SEG_ID[] PROGMEM = "SegmentId";
 const char CFG_RAIN_MAX[] PROGMEM = "RainMaxInHr";
+const char CFG_WAVE_HALF_PX[] PROGMEM = "CloudWaveHalfPx";
 
 static bool isDay(const SkyModel &m, time_t t) {
   const time_t MAXTT = std::numeric_limits<time_t>::max();
@@ -30,7 +32,10 @@ static bool isDay(const SkyModel &m, time_t t) {
   return t >= sr && t < ss;
 }
 
-CloudView::CloudView() : segId_(DEFAULT_SEG_ID), precipMaxInHr_(CloudView::DEFAULT_RAIN_MAX_INPH) {
+CloudView::CloudView()
+    : segId_(DEFAULT_SEG_ID),
+      precipMaxInHr_(CloudView::DEFAULT_RAIN_MAX_INPH),
+      waveHalfCyclePx_(CloudView::DEFAULT_WAVE_HALF_PX) {
   DEBUG_PRINTLN("SkyStrip: CV::CTOR");
   snprintf(debugPixelString, sizeof(debugPixelString), "%s:\\n",
            name().c_str());
@@ -120,6 +125,15 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
   constexpr float kMarkerSat= 0.60f;
   constexpr float kMarkerVal= 0.50f;
 
+  float halfWavePx = waveHalfCyclePx_;
+  constexpr float kMinHalfWavePx = 0.25f;
+  if (halfWavePx < kMinHalfWavePx)
+    halfWavePx = kMinHalfWavePx;
+  const double wavePeriodSec = step * 2.0 * double(halfWavePx);
+  const bool haveWave = wavePeriodSec > 0.0;
+  constexpr float kSolidCloudCutoff = 0.995f;
+  constexpr float kEdgeFeather = 0.05f; // soften edges to reduce shimmer
+
   for (int i = 0; i < len; ++i) {
     const time_t t = now + time_t(std::llround(step * i));
     double clouds, precipTypeVal, precipProb, precipRate;
@@ -196,9 +210,32 @@ void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
         float vmax = daytime ? kDayVMax : kNightVMax;
         float vmin = (daytime ? kDayVMinFrac : kNightVMinFrac) * vmax;
         // Use sqrt curve to boost brightness at lower cloud coverage
-        val  = vmin + (vmax - vmin) * sqrtf(clouds01);
+        float cloudVal  = vmin + (vmax - vmin) * sqrtf(clouds01);
         hue = daytime ? kDayHue : kNightHue;
         sat = daytime ? kDaySat : kNightSat;
+
+        float mask = 1.f;
+        if (clouds01 < kSolidCloudCutoff && haveWave) {
+          double phase = fmod(double(t), wavePeriodSec);
+          float phase01 =
+              wavePeriodSec > 0.0 ? float(phase / wavePeriodSec) : 0.f;
+          float tri = 1.f - fabsf(1.f - 2.f * phase01); // 0->1->0 shape
+          float thresh = 1.f - clouds01;                // center band width = clouds01
+          if (thresh < 0.f)
+            thresh = 0.f;
+
+          float feather = kEdgeFeather * clouds01; // scale feather with duty
+
+          if (tri < thresh - feather) {
+            mask = 0.f;
+          } else if (tri < thresh + feather) {
+            float span = (feather > 0.f) ? (2.f * feather) : 1.f;
+            mask = skystrip::util::clamp01(
+                (tri - (thresh - feather)) / span);
+          }
+        }
+
+        val = cloudVal * mask;
       }
     }
 
@@ -229,6 +266,7 @@ void CloudView::deactivate() {
 void CloudView::addToConfig(JsonObject &subtree) {
   subtree[FPSTR(CFG_SEG_ID)] = segId_;
   subtree[FPSTR(CFG_RAIN_MAX)] = precipMaxInHr_;
+  subtree[FPSTR(CFG_WAVE_HALF_PX)] = waveHalfCyclePx_;
 }
 
 void CloudView::appendConfigData(Print &s) {
@@ -236,6 +274,14 @@ void CloudView::appendConfigData(Print &s) {
   s.print(F("addInfo('SkyStrip:CloudView:SegmentId',1,'',"
             "'&nbsp;<small style=\\'opacity:.8\\'>(-1 disables)</small>'"
             ");"));
+  s.print(F("addInfo('SkyStrip:CloudView:CloudWaveHalfPx',1,'',"));
+  char waveHint[80];
+  snprintf(
+      waveHint, sizeof(waveHint),
+      "'&nbsp;<small style=\\'opacity:.8\\'>(half-cycle px; default %.1f)</small>'",
+      double(CloudView::DEFAULT_WAVE_HALF_PX));
+  s.print(waveHint);
+  s.print(F(");"));
 }
 
 bool CloudView::readFromConfig(JsonObject &subtree, bool startup_complete,
@@ -245,5 +291,7 @@ bool CloudView::readFromConfig(JsonObject &subtree, bool startup_complete,
       getJsonValue(subtree[FPSTR(CFG_SEG_ID)], segId_, DEFAULT_SEG_ID);
   configComplete &=
       getJsonValue(subtree[FPSTR(CFG_RAIN_MAX)], precipMaxInHr_, CloudView::DEFAULT_RAIN_MAX_INPH);
+  configComplete &=
+      getJsonValue(subtree[FPSTR(CFG_WAVE_HALF_PX)], waveHalfCyclePx_, CloudView::DEFAULT_WAVE_HALF_PX);
   return configComplete;
 }

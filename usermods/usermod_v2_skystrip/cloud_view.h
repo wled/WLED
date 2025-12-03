@@ -25,9 +25,11 @@ public:
 
 private:
   static constexpr float DEFAULT_RAIN_MAX_INPH = 1.0f;
+  static constexpr float DEFAULT_WAVE_HALF_PX = 2.2f;
 
   int16_t segId_;
   float precipMaxInHr_;
+  float waveHalfCyclePx_;
   char debugPixelString[128];
   skystrip::util::SegmentFreezeHandle freezeHandle_;
 };

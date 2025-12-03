@@ -3,6 +3,7 @@
 #include "interfaces.h"
 #include "skymodel.h"
 #include "util.h"
+#include <vector>
 
 class SkyModel;
 
@@ -10,6 +11,11 @@ class TemperatureView : public IDataViewT<SkyModel> {
 public:
   TemperatureView();
   ~TemperatureView() override = default;
+
+  struct ColorStop {
+    int16_t centerF;
+    float hue;
+  };
 
   // IDataViewT<SkyModel>
   void view(time_t now, SkyModel const & model, int16_t dbgPixelIndex) override;
@@ -26,6 +32,13 @@ public:
   const char* configKey() const override { return "TemperatureView"; }
 
 private:
+  void resetColorMapToDefault();
+  bool applyColorMapConfig(const char *cfg);
+  float hueForTempF(double f) const;
+  void applyOffsetToStops(int16_t deltaF);
+
+  std::vector<ColorStop> stops_;
+  String colorMapStr_;
   int16_t segId_; // -1 means disabled
   char debugPixelString[128];
   skystrip::util::SegmentFreezeHandle freezeHandle_;

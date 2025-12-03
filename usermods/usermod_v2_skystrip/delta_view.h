@@ -24,7 +24,12 @@ public:
   const char* configKey() const override { return "DeltaView"; }
 
 private:
+  void resetThresholdsToDefault();
+  bool applyThresholdConfig(const char* cfg);
+
   int16_t segId_;
   char debugPixelString[256];
   skystrip::util::SegmentFreezeHandle freezeHandle_;
+  float thresholdsF_[3];
+  String thresholdsStr_;
 };
