@@ -1476,7 +1476,7 @@ dialog {
 .expanded {
 	display: inline-block !important;
 }
-.hide, .expanded .segin.hide, .expanded .presin.hide, .expanded .sbs.hide, .expanded .frz, .expanded .g-icon {
+.hide, .expanded .segin.hide, .expanded .presin.hide, .expanded .sbs.hide, .expanded .g-icon {
 	display: none !important;
 }
 
