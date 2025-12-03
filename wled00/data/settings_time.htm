@@ -311,53 +311,7 @@
 	function FC()
 	{
 		// This is called after settings are loaded to populate the UI
-		// Check for modern timerData array format (future compatibility)
-		if (typeof timerData !== 'undefined' && Array.isArray(timerData)) {
-			// Modern format: array of timer objects
-			for (var i = 0; i < timerData.length; i++) {
-				var timer = timerData[i];
-				// Validate and convert types
-				var hour = parseInt(timer.hour) || 0;
-				var minute = parseInt(timer.minute) || 0;
-				var preset = parseInt(timer.preset) || 0;
-				var weekdays = parseInt(timer.weekdays);
-				if (isNaN(weekdays)) weekdays = 255; // default: all days enabled
-				var monthStart = parseInt(timer.monthStart) || 1;
-				var dayStart = parseInt(timer.dayStart) || 1;
-				var monthEnd = parseInt(timer.monthEnd) || 12;
-				var dayEnd = parseInt(timer.dayEnd) || 31;
-
-				addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd);
-			}
-			return;
-		}
-
-		// Legacy fallback: check for separate arrays (timerHours, timerMinutes, etc.)
-		if (typeof timerHours !== 'undefined' && Array.isArray(timerHours)) {
-			// Legacy format: separate arrays for each field
-			var count = timerHours.length;
-			for (var i = 0; i < count; i++) {
-				var hour = parseInt(timerHours[i]) || 0;
-				var minute = (typeof timerMinutes !== 'undefined') ? (parseInt(timerMinutes[i]) || 0) : 0;
-				var preset = (typeof timerMacro !== 'undefined') ? (parseInt(timerMacro[i]) || 0) : 0;
-				var weekdays = (typeof timerWeekday !== 'undefined') ? (parseInt(timerWeekday[i]) || 255) : 255;
-
-				// Skip empty timers
-				if (preset === 0 && hour === 0 && minute === 0) continue;
-
-				// Legacy arrays don't have date range info, use defaults
-				var monthStart = 1;
-				var dayStart = 1;
-				var monthEnd = 12;
-				var dayEnd = 31;
-
-				addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd);
-			}
-			return;
-		}
-
-		// No timer data available - server will call addTimerRow() directly via GetV()
-		// This is the current implementation (see xml.cpp)
+		// Server will call addTimerRow() directly via GetV() (see xml.cpp)
 	}
 
 	function Wd()

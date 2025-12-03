@@ -243,7 +243,6 @@ void removeTimer(size_t index);
 void clearTimers();
 size_t getTimerCount();
 void compactTimers();
-void migrateTimersFromArrays();
 
 //overlay.cpp
 void handleOverlayDraw();
