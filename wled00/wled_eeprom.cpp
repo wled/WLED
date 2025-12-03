@@ -237,8 +237,6 @@ void loadSettingsFromEEPROM()
       if (timerWeekday[i] == 0) timerWeekday[i] = 255;
       if (timerMacro[i] == 0) timerWeekday[i] = timerWeekday[i] & 0b11111110;
     }
-    // Timers 8 (sunrise) and 9 (sunset) are stored in cfg.json, not EEPROM
-    // Their arrays are already initialized with defaults in wled.h
   }
 
   if (lastEEPROMversion > 8)

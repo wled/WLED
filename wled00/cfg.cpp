@@ -680,24 +680,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   setCountdown();
 
   JsonArray timersArray = tm["ins"];
-
-  // Load timers from JSON array
   if (!timersArray.isNull()) {
     clearTimers();
-
     for (JsonObject timer : timersArray) {
       uint8_t hour = timer[F("hour")] | 0;
       int8_t minute = timer[F("min")] | 0;
       uint8_t preset = timer[F("macro")] | 0;
-
-      // Build weekdays byte: bit 0 is enabled, bits 1-7 are weekdays
-      uint8_t dow = timer[F("dow")] | 127; // default all days enabled
+      uint8_t dow = timer[F("dow")] | 127;
       int enabled = timer[F("en")] | 0;
       uint8_t weekdays = (dow << 1) | (enabled ? 1 : 0);
-
-      // Get date range (only for regular timers)
       uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
-      if (hour < TIMER_HOUR_SUNSET) { // Regular timer
+      if (hour < TIMER_HOUR_SUNSET) {
         JsonObject start = timer[F("start")];
         JsonObject end = timer[F("end")];
         if (!start.isNull()) {
@@ -709,8 +702,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
           dayEnd = end[F("day")] | 31;
         }
       }
-
-      // Add timer (validation happens in addTimer)
       addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
   }
@@ -1209,22 +1200,15 @@ void serializeConfig(JsonObject root) {
   cntdwn["macro"] = macroCountdown;
 
   JsonArray timers_ins = timers.createNestedArray("ins");
-
-  // Save timers from vector
   for (size_t i = 0; i < ::timers.size(); i++) {
     const Timer& timer = ::timers[i];
-
-    // Skip timers with preset 0 (disabled) unless they have other meaningful data
     if (timer.preset == 0 && timer.hour == 0 && timer.minute == 0) continue;
-
     JsonObject timers_ins0 = timers_ins.createNestedObject();
     timers_ins0[F("en")] = timer.isEnabled() ? 1 : 0;
     timers_ins0[F("hour")] = timer.hour;
     timers_ins0[F("min")] = timer.minute;
     timers_ins0[F("macro")] = timer.preset;
     timers_ins0[F("dow")] = timer.weekdays >> 1;
-
-    // Only save date range for regular timers (not sunrise/sunset)
     if (timer.isRegular()) {
       JsonObject start = timers_ins0.createNestedObject(F("start"));
       start[F("mon")] = timer.monthStart;

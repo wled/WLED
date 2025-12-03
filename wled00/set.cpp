@@ -545,69 +545,43 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       i++;
     }
 
-    // Process dynamic timers from form
-    // Clear existing timers and rebuild from form data
     clearTimers();
-
-    char k[5]; k[4] = 0; //null terminate buffer
-
-    // Process timers - loop through potential timer indices
-    // Limited to WLED_MAX_TIMERS to prevent memory issues
+    char k[5]; k[4] = 0;
     for (int ti = 0; ti < (int)WLED_MAX_TIMERS; ti++) {
-      // Build field name for this timer index
       if (ti < 10) {
-        k[1] = ti + 48; // ascii 0-9
+        k[1] = ti + 48;
         k[2] = 0;
       } else {
-        k[1] = '0' + (ti / 10); // tens digit
-        k[2] = '0' + (ti % 10); // ones digit
+        k[1] = '0' + (ti / 10);
+        k[2] = '0' + (ti % 10);
         k[3] = 0;
       }
-
-      // Check if this timer exists in the form by checking for the preset field
-      k[0] = 'T'; // preset/macro field
-      if (!request->hasArg(k)) {
-        // This index is not used (e.g. row deleted in UI) - skip to next
-        continue;
-      }
-
-      // Read all timer fields
+      k[0] = 'T';
+      if (!request->hasArg(k)) continue;
       uint8_t preset = request->arg(k).toInt();
-
-      k[0] = 'H'; // hour
+      k[0] = 'H';
       uint8_t hour = request->arg(k).toInt();
-
-      k[0] = 'N'; // minute
+      k[0] = 'N';
       int8_t minute = request->arg(k).toInt();
-
-      k[0] = 'W'; // weekdays
+      k[0] = 'W';
       uint8_t weekdays = request->arg(k).toInt();
-
-      // Date range (only for regular timers)
       uint8_t monthStart = 1, monthEnd = 12, dayStart = 1, dayEnd = 31;
       if (hour < TIMER_HOUR_SUNSET) {
-        k[0] = 'M'; // start month
+        k[0] = 'M';
         monthStart = request->arg(k).toInt();
         if (monthStart == 0) monthStart = 1;
-
-        k[0] = 'P'; // end month
+        k[0] = 'P';
         monthEnd = request->arg(k).toInt();
         if (monthEnd == 0) monthEnd = 12;
-
-        k[0] = 'D'; // start day
+        k[0] = 'D';
         dayStart = request->arg(k).toInt();
         if (dayStart == 0) dayStart = 1;
-
-        k[0] = 'E'; // end day
+        k[0] = 'E';
         dayEnd = request->arg(k).toInt();
         if (dayEnd == 0) dayEnd = 31;
       }
-
-      // Add timer (validation and preset 0 filtering happens in addTimer)
       addTimer(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
     }
-
-    // Remove any completely empty timers so indices stay compact for saving
     compactTimers();
 
   }

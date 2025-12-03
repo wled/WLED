@@ -585,19 +585,12 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), i++, button.macroButton, button.macroLongPress, button.macroDoublePress);
     }
 
-    // Pass max timers constant to JavaScript
     settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);
-
-    // Output timers from vector
     if (timers.empty()) {
-      // No timers configured - add a single blank row
       settingsScript.print(F("addTimerRow();"));
     } else {
-      for (size_t ti = 0; ti < timers.size(); ti++)
-      {
+      for (size_t ti = 0; ti < timers.size(); ti++) {
         const Timer& timer = timers[ti];
-
-        // Call addTimerRow with all timer parameters
         settingsScript.printf_P(PSTR("addTimerRow(%d,%d,%d,%d,%d,%d,%d,%d);"),
                                timer.hour, timer.minute, timer.preset, timer.weekdays,
                                timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd);

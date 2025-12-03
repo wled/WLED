@@ -816,10 +816,8 @@ WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
 WLED_GLOBAL unsigned long countdownTime _INIT(1514764800L);
 WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
-//timer - new dynamic vector-based system
 WLED_GLOBAL byte lastTimerMinute  _INIT(0);
 WLED_GLOBAL std::vector<Timer> timers;
-
 WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv
