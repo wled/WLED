@@ -1,12 +1,19 @@
 # Add a section to the linker script to store our dynamic arrays
-# This is implemented as a pio post-script to ensure that our extra linker 
-# script fragments are processed last, after the base platform scripts have 
-# been loaded and all sections defined.
+# This is implemented as a pio post-script to ensure that we can
+# place our linker script at the correct point in the command arguments.
 Import("env")
+from pathlib import Path
 
-if env.get("PIOPLATFORM") == "espressif8266":
-    # Use a shim on this platform so we can share the same output blocks
-    # names as used by later platforms (ESP32)
-    env.Append(LINKFLAGS=["-Ttools/esp8266_rodata.ld"])
-
-env.Append(LINKFLAGS=["-Ttools/dynarray.ld"])
+platform = env.get("PIOPLATFORM")
+script_file = Path(f"tools/dynarray_{platform}.ld")
+if script_file.is_file():
+    linker_script = f"-T{script_file}"
+    if platform == "espressif32":
+        # For ESP32, the script must be added at the right point in the list
+        linkflags = env.get("LINKFLAGS", [])
+        idx = linkflags.index("memory.ld")    
+        linkflags.insert(idx+1, linker_script)    
+        env.Replace(LINKFLAGS=linkflags)
+    else:
+        # For other platforms, put it in last
+        env.Append(LINKFLAGS=[linker_script])

@@ -4,7 +4,7 @@ from typing import Iterable
 from click import secho
 from SCons.Script import Action, Exit
 from platformio.builder.tools.piolib import LibBuilderBase
-
+Import("env")
 
 def is_wled_module(env, dep: LibBuilderBase) -> bool:
   """Returns true if the specified library is a wled module
@@ -37,11 +37,13 @@ def check_map_file_objects(map_file: list[str], dirs: Iterable[str]) -> set[str]
             found.add(m)
     return found
 
+DYNARRAY_SECTION = ".dtors" if env.get("PIOPLATFORM") == "espressif8266" else ".dynarray"
+USERMODS_SECTION = f"{DYNARRAY_SECTION}.usermods.1"
 
 def count_usermod_objects(map_file: list[str]) -> int:
     """ Returns the number of usermod objects in the usermod list """
     # Count the number of entries in the usermods table section
-    return len([x for x in map_file if ".dynarray.usermods.1" in x])
+    return len([x for x in map_file if USERMODS_SECTION in x])
 
 
 def validate_map_file(source, target, env):
@@ -75,6 +77,5 @@ def validate_map_file(source, target, env):
         Exit(1)
     return None
 
-Import("env")
 env.Append(LINKFLAGS=[env.subst("-Wl,--Map=${BUILD_DIR}/${PROGNAME}.map")])
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", Action(validate_map_file, cmdstr='Checking linked optional modules (usermods) in map file'))
