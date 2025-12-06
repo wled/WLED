@@ -32,6 +32,7 @@ var cfg = {
 		  labels:true, pcmbot:false, pid:true, seglen:false, segpwr:false, segexp:false,
 		  css:true, hdays:false, fxdef:true, on:0, off:0, idsort: false}
 };
+var sra_lat_start = 0;
 // [year, month (0 -> January, 11 -> December), day, duration in days, image url]
 var hol = [
 	[0, 11, 24, 4, "https://aircoookie.github.io/xmas.png"],		// christmas
@@ -1428,6 +1429,9 @@ function makeWS() {
 	ws = new WebSocket(url);
 	ws.binaryType = "arraybuffer";
 	ws.onmessage = (e)=>{
+		sra_lat_stop = performance.now(); // end roundtrip latency measurement
+		sra_lat = sra_lat_stop - sra_lat_start;
+		console.log("SRA latency: "+sra_lat+" ms");
 		if (e.data instanceof ArrayBuffer) return; // liveview packet
 		var json = JSON.parse(e.data);
 		if (json.leds) return; // JSON liveview packet
@@ -1761,6 +1765,7 @@ function requestJson(command=null)
 
 	if (command && useSRA && !command['mac']) { // secure remote access integration, need to get HMAC from rc.wled.me
 		// if we already have a command including a MAC, we are good to go
+		sra_lat_start = performance.now(); // start roundtrip latency measurement
 		sraWindow.postMessage(JSON.stringify({"wled-ui":"hmac-req", "msg":command}), sraOrigin);
 		return; // TODO need a sort of pending indicator
 	}
