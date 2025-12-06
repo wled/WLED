@@ -201,7 +201,7 @@ private:
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const uint32_t collDistSq);
+  void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const uint32_t collDistSq, uint32_t massratio1, uint32_t massratio2);
   void fireParticleupdate();
   //utility functions
   void updatePSpointers(const bool isadvanced, const bool sizecontrol); // update the data pointers to current segment data space

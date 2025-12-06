@@ -849,6 +849,8 @@ void ParticleSystem2D::handleCollisions() {
       if (pidx >= usedParticles) pidx = 0; // wrap around
     }
 
+    uint32_t massratio1 = 0; // 0 means dont use mass ratio (equal mass)
+    uint32_t massratio2 = 0;
     for (uint32_t i = 0; i < binParticleCount; i++) { // go though all 'higher number' particles in this bin and see if any of those are in close proximity and if they are, make them collide
       uint32_t idx_i = binIndices[i];
       for (uint32_t j = i + 1; j < binParticleCount; j++) { // check against higher number particles
@@ -856,12 +858,18 @@ void ParticleSystem2D::handleCollisions() {
         if (perParticleSize && advPartProps != nullptr) { // using individual particle size
           collDistSq = (PS_P_MINHARDRADIUS << 1) + ((((uint32_t)advPartProps[idx_i].size + (uint32_t)advPartProps[idx_j].size) * 52) >> 6); // collision distance, use 80% of size for tighter stacking (slight overlap)
           collDistSq = collDistSq * collDistSq; // square it for faster comparison
+          // calculate mass ratio for collision response
+          uint32_t mass1 = 1 + ((uint32_t)advPartProps[idx_i].size * advPartProps[idx_i].size); // +1 to avoid division by zero
+          uint32_t mass2 = ((uint32_t)advPartProps[idx_j].size * advPartProps[idx_j].size);
+          uint32_t totalmass = mass1 + mass2;
+          massratio1 = (mass2 << 8) / totalmass; // massratio 1 depends on mass of particle 2, i.e. if 2 is heavier -> higher velocity impact on 1
+          massratio2 = (mass1 << 8) / totalmass;
         }
         int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance with lookahead
         if (dx * dx < collDistSq) { // check x direction, if close, check y direction (squaring is faster than abs() or dual compare)
           int32_t dy = (particles[idx_j].y + particles[idx_j].vy)  - (particles[idx_i].y + particles[idx_i].vy); // distance with lookahead
           if (dy * dy < collDistSq) // particles are close
-            collideParticles(particles[idx_i], particles[idx_j], dx, dy, collDistSq);
+            collideParticles(particles[idx_i], particles[idx_j], dx, dy, collDistSq, massratio1, massratio2);
         }
       }
     }
@@ -871,7 +879,7 @@ void ParticleSystem2D::handleCollisions() {
 
 // handle a collision if close proximity is detected, i.e. dx and/or dy smaller than 2*PS_P_RADIUS
 // takes two pointers to the particles to collide and the particle hardness (softer means more energy lost in collision, 255 means full hard)
-void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq) {
+void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq, uint32_t massratio1, uint32_t massratio2) {
   int32_t distanceSquared = dx * dx + dy * dy;
   // Calculate relative velocity note: could zero check but that does not improve overall speed but deminish it as that is rarely the case and pushing is still required
   int32_t relativeVx = (int32_t)particle2.vx - (int32_t)particle1.vx;
@@ -899,11 +907,11 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
   int32_t dotProduct = (dx * relativeVx + dy * relativeVy); // is always negative if moving towards each other
 
   if (dotProduct < 0) {// particles are moving towards each other
-    // integer math used to avoid floats.
+    // integer math is much faster than using floats (float divisions are slow on all ESPs)
     // overflow check: dx/dy are 7bit, relativV are 8bit -> dotproduct is 15bit, dotproduct/distsquared ist 8b, multiplied by collisionhardness of 8bit. so a 16bit shift is ok, make it 15 to be sure no overflows happen
     // note: cannot use right shifts as bit shifting in right direction is asymmetrical for positive and negative numbers and this needs to be accurate! the trick is: only shift positive numers
     // Calculate new velocities after collision
-    int32_t surfacehardness = 1 + max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
+    int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS >> 1); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
     int32_t impulse = (((((-dotProduct) << 15) / distanceSquared) * surfacehardness) >> 8); // note: inverting before bitshift corrects for asymmetry in right-shifts (is slightly faster)
 
     #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
@@ -913,11 +921,19 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
     int32_t ximpulse = (impulse * dx) / 32767;
     int32_t yimpulse = (impulse * dy) / 32767;
     #endif
-    particle1.vx -= ximpulse; // note: impulse is inverted, so subtracting it
-    particle1.vy -= yimpulse;
-    particle2.vx += ximpulse;
-    particle2.vy += yimpulse;
-
+    // if particles are not the same size, use a mass ratio. mass ratio is set to 0 if particles are the same size
+    if (massratio1) {
+      particle1.vx -= (ximpulse * massratio1) >> 7; // mass ratio is in fixed point 8bit, multiply by two to account for the fact that we distribute the impulse to both particles
+      particle1.vy -= (yimpulse * massratio1) >> 7;
+      particle2.vx += (ximpulse * massratio2) >> 7;
+      particle2.vy += (yimpulse * massratio2) >> 7;
+    }
+    else {
+      particle1.vx -= ximpulse; // note: impulse is inverted, so subtracting it
+      particle1.vy -= yimpulse;
+      particle2.vx += ximpulse;
+      particle2.vy += yimpulse;
+    }
     if (collisionHardness < PS_P_MINSURFACEHARDNESS && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction (they do pile more nicely and stop sloshing around)
       const uint32_t coeff = collisionHardness + (255 - PS_P_MINSURFACEHARDNESS);
       // Note: could call applyFriction, but this is faster and speed is key here
