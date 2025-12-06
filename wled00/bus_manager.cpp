@@ -906,7 +906,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   #define WLED_HUB75_MAX_BRIGHTNESS 255
   #endif
   // let's adjust default brightness (128), brightness scaling is handled by WLED
-  display->setBrightness8(WLED_HUB75_MAX_BRIGHTNESS); // range is 0-255, 0 - 0%, 255 - 100%
+  //display->setBrightness8(WLED_HUB75_MAX_BRIGHTNESS); // range is 0-255, 0 - 0%, 255 - 100%
 
   delay(24); // experimental
   DEBUGBUS_PRINT(F("heap usage: ")); DEBUGBUS_PRINTLN(lastHeap - ESP.getFreeHeap());
@@ -1036,6 +1036,7 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
 
 void BusHub75Matrix::setBrightness(uint8_t b) {
   _bri = b;
+  display->setBrightness8(_bri); 
 }
 
 void BusHub75Matrix::show(void) {
@@ -1050,7 +1051,7 @@ void BusHub75Matrix::show(void) {
     for (int y=0; y<height; y++) for (int x=0; x<width; x++) {
       if (getBitFromArray(_ledsDirty, pix) == true) {        // only repaint the "dirty"  pixels
         CRGB c = _ledBuffer[pix];
-        c.nscale8_video(_bri); // apply brightness
+        //c.nscale8_video(_bri); // apply brightness
         if (_isVirtual) virtualDisp->drawPixelRGB888(int16_t(x), int16_t(y), c.r, c.g, c.b);
         else                display->drawPixelRGB888(int16_t(x), int16_t(y), c.r, c.g, c.b);
       }
