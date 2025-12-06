@@ -103,7 +103,7 @@ typedef union {
 
 // struct for additional particle settings (option)
 typedef struct { // 2 bytes
-  uint8_t size; // particle size, 255 means 10 pixels in diameter, 0  means use global size (including single pixel rendering)
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, set perParticleSize = true to enable
   uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle;
 
@@ -190,11 +190,13 @@ public:
   int32_t maxXpixel, maxYpixel; // last physical pixel that can be drawn to (FX can read this to read segment size if required), equal to width-1 / height-1
   uint32_t numSources; // number of sources
   uint32_t usedParticles; // number of particles used in animation, is relative to 'numParticles'
+  bool perParticleSize; // if true, uses individual particle sizes from advPartProps if available (disabled when calling setParticleSize())
   //note: some variables are 32bit for speed and code size at the cost of ram
 
 private:
   //rendering functions
   void render();
+  void renderParticleEllipse(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
   [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
@@ -232,6 +234,21 @@ bool initParticleSystem2D(ParticleSystem2D *&PartSys, const uint32_t requestedso
 uint32_t calculateNumberOfParticles2D(const uint32_t pixels, const bool advanced, const bool sizecontrol);
 uint32_t calculateNumberOfSources2D(const uint32_t pixels, const uint32_t requestedsources);
 bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t numsources, const bool advanced, const bool sizecontrol, const uint32_t additionalbytes);
+
+// distance-based brightness for ellipse rendering, returns brightness (0-255) based on distance from ellipse center
+inline uint8_t calculateEllipseBrightness(int32_t dx, int32_t dy, int32_t rxsq, int32_t rysq, uint8_t maxBrightness) {
+  // square the distances
+  uint32_t dx_sq = dx * dx;
+  uint32_t dy_sq = dy * dy;
+
+  uint32_t dist_sq = ((dx_sq << 8) / rxsq) + ((dy_sq << 8) / rysq); // normalized squared distance in fixed point: (dx²/rx²) * 256 + (dy²/ry²) * 256
+
+  if (dist_sq >= 256) return 0;  // pixel is outside the ellipse, unit radius in fixed point: 256 = 1.0
+  //if (dist_sq <= 96) return maxBrightness; // core at full brightness
+  int32_t falloff = 256 - dist_sq;
+  return (maxBrightness * falloff) >> 8; // linear falloff
+  //return (maxBrightness * falloff * falloff) >> 16; // squared falloff for even softer edges
+}
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 
 ////////////////////////
@@ -346,7 +363,7 @@ public:
   void setColorByPosition(const bool enable);
   void setMotionBlur(const uint8_t bluramount); // note: motion blur can only be used if 'particlesize' is set to zero
   void setSmearBlur(const uint8_t bluramount); // enable 1D smeared blurring of full frame
-  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled if advanced particle is used
+  void setParticleSize(const uint8_t size); // particle diameter: size 0 = 1 pixel, size 1 = 2 pixels, size = 255 = 10 pixels, disables per particle size control if called
   void setGravity(int8_t force = 8);
   void enableParticleCollisions(bool enable, const uint8_t hardness = 255);
 

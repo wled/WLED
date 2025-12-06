@@ -8386,11 +8386,12 @@ uint16_t mode_particlepit(void) {
         PartSys->particles[i].sat = ((SEGMENT.custom3) << 3) + 7;
         // set particle size
         if (SEGMENT.custom1 == 255) {
-          PartSys->setParticleSize(1); // set global size to 1 for advanced rendering (no single pixel particles)
+          PartSys->perParticleSize = true;
           PartSys->advPartProps[i].size = hw_random16(SEGMENT.custom1); // set each particle to random size
         } else {
+          PartSys->perParticleSize = false;
           PartSys->setParticleSize(SEGMENT.custom1); // set global size
-          PartSys->advPartProps[i].size = 0; // use global size
+          PartSys->advPartProps[i].size = SEGMENT.custom1; // also set individual size for consistency
         }
         break; // emit only one particle per round
       }
@@ -8408,7 +8409,7 @@ uint16_t mode_particlepit(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PARTICLEPIT[] PROGMEM = "PS Ballpit@Speed,Intensity,Size,Hardness,Saturation,Cylinder,Walls,Ground;;!;2;pal=11,sx=100,ix=220,c1=120,c2=130,c3=31,o3=1";
+static const char _data_FX_MODE_PARTICLEPIT[] PROGMEM = "PS Ballpit@Speed,Intensity,Size,Hardness,Saturation,Cylinder,Walls,Ground;;!;2;pal=11,sx=100,ix=220,c1=70,c2=180,c3=31,o3=1";
 
 /*
   Particle Waterfall
@@ -8492,7 +8493,7 @@ uint16_t mode_particlebox(void) {
   uint32_t i;
 
   if (SEGMENT.call == 0) { // initialization
-    if (!initParticleSystem2D(PartSys, 1)) // init
+    if (!initParticleSystem2D(PartSys, 1, 0, true)) // init
       return mode_static(); // allocation failed or not 2D
     PartSys->setBounceX(true);
     PartSys->setBounceY(true);
@@ -8505,19 +8506,24 @@ uint16_t mode_particlebox(void) {
     return mode_static(); // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  PartSys->setParticleSize(SEGMENT.custom3<<3);
   PartSys->setWallHardness(min(SEGMENT.custom2, (uint8_t)200)); // wall hardness is 200 or more
   PartSys->enableParticleCollisions(true, max(2, (int)SEGMENT.custom2)); // enable collisions and set particle collision hardness
   PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 2, 153)); // 1% - 60%
+  if (SEGMENT.custom3 < 31)
+    PartSys->setParticleSize(SEGMENT.custom3<<3); // set global size if not max (resets perParticleSize)
+  else
+    PartSys->perParticleSize = true; // per particle size, uses advPartProps.size (randomized below)
+
   // add in new particles if amount has changed
   for (i = 0; i < PartSys->usedParticles; i++) {
-    if (PartSys->particles[i].ttl < 260) { // initialize handed over particles and dead particles
+    if (PartSys->particles[i].ttl < 260) { // initialize dead particles
       PartSys->particles[i].ttl = 260; // full brigthness
       PartSys->particles[i].x = hw_random16(PartSys->maxX);
       PartSys->particles[i].y = hw_random16(PartSys->maxY);
       PartSys->particles[i].hue = hw_random8(); // make it colorful
       PartSys->particleFlags[i].perpetual = true; // never die
       PartSys->particleFlags[i].collide = true; // all particles colllide
+      PartSys->advPartProps[i].size = hw_random8(); // random size, used only if size is set to max (SEGMENT.custom3=31)
       break; // only spawn one particle per frame for less chaotic transitions
     }
   }
@@ -8773,22 +8779,10 @@ uint16_t mode_particleattractor(void) {
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
-  attractor = reinterpret_cast<PSparticle *>(PartSys->PSdataEnd);
-
   PartSys->setColorByAge(SEGMENT.check1);
   PartSys->setParticleSize(SEGMENT.custom1 >> 1); //set size globally
   PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 25, 190));
-
-  if (SEGMENT.custom2 > 0) // collisions enabled
-    PartSys->enableParticleCollisions(true, map(SEGMENT.custom2, 1, 255, 120, 255)); // enable collisions and set particle collision hardness
-  else
-    PartSys->enableParticleCollisions(false);
-
-  if (SEGMENT.call == 0) {
-    attractor->vx = PartSys->sources[0].source.vy; // set to spray movemement but reverse x and y
-    attractor->vy = PartSys->sources[0].source.vx;
-  }
-
+  attractor = reinterpret_cast<PSparticle *>(PartSys->PSdataEnd);
   // set attractor properties
   attractor->ttl = 100; // never dies
   if (SEGMENT.check2) {
@@ -8799,6 +8793,15 @@ uint16_t mode_particleattractor(void) {
     attractor->x = PartSys->maxX >> 1; // set to center
     attractor->y = PartSys->maxY >> 1;
   }
+  if (SEGMENT.call == 0) {
+    attractor->vx = PartSys->sources[0].source.vy; // set to spray movemement but reverse x and y
+    attractor->vy = PartSys->sources[0].source.vx;
+  }
+
+  if (SEGMENT.custom2 > 0) // collisions enabled
+    PartSys->enableParticleCollisions(true, map(SEGMENT.custom2, 1, 255, 120, 255)); // enable collisions and set particle collision hardness
+  else
+    PartSys->enableParticleCollisions(false);
 
   if (SEGMENT.call % 5 == 0)
     PartSys->sources[0].source.hue++;
@@ -8828,6 +8831,7 @@ uint16_t mode_particleattractor(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
+//static const char _data_FX_MODE_PARTICLEATTRACTOR[] PROGMEM = "PS Attractor@Mass,Particles,Size,Collide,Friction,AgeColor,Move,Swallow;;!;2;pal=9,sx=100,ix=82,c1=1,c2=0";
 static const char _data_FX_MODE_PARTICLEATTRACTOR[] PROGMEM = "PS Attractor@Mass,Particles,Size,Collide,Friction,AgeColor,Move,Swallow;;!;2;pal=9,sx=100,ix=82,c1=2,c2=0";
 
 /*
@@ -9157,6 +9161,7 @@ uint16_t mode_particleblobs(void) {
     PartSys->setWallHardness(255);
     PartSys->setWallRoughness(255);
     PartSys->setCollisionHardness(255);
+    PartSys->perParticleSize = true; // enable per particle size control
   }
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
@@ -9247,8 +9252,6 @@ uint16_t mode_particlegalaxy(void) {
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   uint8_t particlesize = SEGMENT.custom1;
-  if(SEGMENT.check3)
-    particlesize =  SEGMENT.custom1 ? 1 : 0; // set size to 0 (single pixel) or 1 (quad pixel) so motion blur works and adds streaks
   PartSys->setParticleSize(particlesize); // set size globally
   PartSys->setMotionBlur(250 * SEGMENT.check3); // adds trails to single/quad pixel particles, no effect if size > 1
 
@@ -9316,7 +9319,7 @@ uint16_t mode_particlegalaxy(void) {
   PartSys->update(); // update and render
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PARTICLEGALAXY[] PROGMEM = "PS Galaxy@!,!,Size,,Color,,Starfield,Trace;;!;2;pal=59,sx=80,c1=2,c3=4";
+static const char _data_FX_MODE_PARTICLEGALAXY[] PROGMEM = "PS Galaxy@!,!,Size,,Color,,Starfield,Trace;;!;2;pal=59,sx=80,c1=1,c3=4";
 
 #endif //WLED_DISABLE_PARTICLESYSTEM2D
 #endif // WLED_DISABLE_2D
@@ -9463,6 +9466,13 @@ uint16_t mode_particlePinball(void) {
   PartSys->enableParticleCollisions(SEGMENT.check1, 255); // enable collisions and set particle collision to high hardness
   PartSys->setUsedParticles(SEGMENT.intensity);
   PartSys->setColorByPosition(SEGMENT.check3);
+  /*
+  // TODO: update 1D system to use the same logic for per particle size as 2D system
+  if (SEGMENT.custom1 < 255)
+    PartSys->setParticleSize(SEGMENT.custom1); // set size globally
+  else
+    PartSys->perParticleSize = true;
+  */ 
 
   bool updateballs = false;
   if (SEGENV.aux1 != SEGMENT.speed + SEGMENT.intensity + SEGMENT.check2 + SEGMENT.custom1 + PartSys->usedParticles) { // user settings change or more particles are available
@@ -9486,7 +9496,7 @@ uint16_t mode_particlePinball(void) {
         }
         PartSys->particles[i].hue = hw_random8(); //set ball colors to random
         PartSys->advPartProps[i].sat = 255;
-        PartSys->advPartProps[i].size = SEGMENT.custom1;
+        PartSys->advPartProps[i].size = SEGMENT.custom1 < 255 ? SEGMENT.custom1 : hw_random8(); //set ball size
       }
       speedsum += abs(PartSys->particles[i].vx);
     }
@@ -9523,7 +9533,7 @@ uint16_t mode_particlePinball(void) {
       SEGENV.step += interval + hw_random16(interval);
       PartSys->sources[0].source.hue = hw_random16(); //set ball color
       PartSys->sources[0].sat = 255;
-      PartSys->sources[0].size = SEGMENT.custom1;
+      PartSys->sources[0].size = SEGMENT.custom1 < 255 ? SEGMENT.custom1 : hw_random8(); //set ball size
       PartSys->sprayEmit(PartSys->sources[0]);
     }
   }
