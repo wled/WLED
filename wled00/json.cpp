@@ -847,7 +847,7 @@ void serializeInfo(JsonObject root)
     #if defined(BOARD_HAS_PSRAM)
     root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
     #endif
-    root[F("psramSize")] = ESP.getPsramSize() / (1024 * 1024); // Total PSRAM size in MB
+    root[F("psramSize")] = ESP.getPsramSize() / (1024UL * 1024UL); // Total PSRAM size in MB
   }
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
