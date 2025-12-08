@@ -225,24 +225,34 @@ bool OpenWeatherMapSource::readFromConfig(JsonObject &subtree,
   configComplete &= getJsonValue(subtree[FPSTR(CFG_LONGITUDE)], longitude_, DEFAULT_LONGITUDE);
   configComplete &= getJsonValue(subtree[FPSTR(CFG_INTERVAL_SEC)], intervalSec_, DEFAULT_INTERVAL_SEC);
 
-  // If the location changed update lat/long via parsing or lookup
-  if (location_ == lastLocation_) {
-    // if the user changed the lat and long directly clear the location
-    if (!nearlyEqualCoord(latitude_, oldLatitude) || !nearlyEqualCoord(longitude_, oldLongitude))
-      location_ = "";
+  const bool locationFieldChanged = location_ != lastLocation_;
+  const bool coordsChangedDirect =
+      !nearlyEqualCoord(latitude_, oldLatitude) || !nearlyEqualCoord(longitude_, oldLongitude);
+
+  // If the location string did not change but lat/lon did, treat it as manual lat/lon edit.
+  if (!locationFieldChanged && coordsChangedDirect) {
+    location_.clear();
+    lastLocation_.clear();
   } else {
-    lastLocation_ = location_;
-    if (location_.length() > 0) {
+    // Otherwise, try to derive coordinates from the location string.
+    if (!location_.empty()) {
       double lat = 0, lon = 0;
       if (parseLatLon(location_.c_str(), lat, lon)) {
         latitude_ = lat;
         longitude_ = lon;
+        lastLocation_ = location_;
       } else if (running) {
         int matches = 0;
         bool ok = geocodeOWM(location_, lat, lon, &matches);
-        latitude_ = ok ? lat : 0.0;
-        longitude_ = ok ? lon : 0.0;
+        if (ok) {
+          latitude_ = lat;
+          longitude_ = lon;
+          lastLocation_ = location_;
+        }
       }
+    } else if (locationFieldChanged) {
+      // User cleared the location field; ensure we treat future entries as new.
+      lastLocation_.clear();
     }
   }
 
@@ -251,6 +261,7 @@ bool OpenWeatherMapSource::readFromConfig(JsonObject &subtree,
     DEBUG_PRINTF("SkyStrip::OWM::readFromConfig lat/long changed"
                  " oldLat=%f, newLat=%f, oldLng=%f, newLng=%f\n",
                  oldLatitude, latitude_, oldLongitude, longitude_);
+    resetRateLimit(); // allow immediate fetch after a location change (even if history just ran)
     invalidate_history = true;
   }
 
@@ -269,11 +280,6 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
   // Wait for scheduled time
   if ((now - lastFetch_) < static_cast<std::time_t>(intervalSec_))
     return nullptr;
-
-  // Update lastFetch_ and lastHistFetch_ upfront to reduce API
-  // thrash if things don't work out
-  lastFetch_ = now;
-  lastHistFetch_ = now; // history fetches should wait
 
   // Fetch JSON
   char url[256];
@@ -295,6 +301,10 @@ std::unique_ptr<SkyModel> OpenWeatherMapSource::fetch(std::time_t now) {
     DEBUG_PRINTF("SkyStrip: %s::fetch failed: no \"hourly\" field\n", name().c_str());
     return nullptr;
   }
+
+  // Stamp fetch times only once we have usable data
+  lastFetch_ = now;
+  lastHistFetch_ = now; // history fetches should wait
 
   time_t sunrise = 0;
   time_t sunset = 0;
