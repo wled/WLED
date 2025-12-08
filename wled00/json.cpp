@@ -842,7 +842,7 @@ void serializeInfo(JsonObject root)
   #ifdef ARDUINO_ARCH_ESP32
   // Report PSRAM information
   bool hasPsram = psramFound();
-  root[F("hasPSRAM")] = hasPsram;
+  root[F("psramPresent")] = hasPsram;
   if (hasPsram) {
     #if defined(BOARD_HAS_PSRAM)
     root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
