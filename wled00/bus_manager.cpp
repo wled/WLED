@@ -186,6 +186,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
+  if (bc.type == TYPE_SM16703_DUAL) lenToCreate = bc.count * 2; // two SM16703 chips per logical pixel
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
   _valid = (_busPtr != nullptr) && bc.count > 0;
@@ -293,6 +294,45 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   c = color_fade(c, _bri, true); // apply brightness
 
+  if (_type == TYPE_SM16703_DUAL) {
+    // logical pixel uses two SM16703 chips: first RGB, second WW/CW (B unused)
+    uint8_t r = R(c), g = G(c), b = B(c);
+    uint8_t ww = 0, cw = 0;
+    if (hasCCT()) Bus::calculateCCT(c, ww, cw);
+
+    if (BusManager::_useABL) {
+      if (_milliAmpsPerLed < 255) {
+        _colorSum += r + g + b + ww + cw; // include both chips' channels for ABL
+      } else {
+        // wacky model not expected; fall back to max RGB
+        uint8_t maxRgb = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+        _colorSum += maxRgb;
+      }
+    }
+
+    unsigned logicalPix = pix;
+    if (_reversed) logicalPix = _len - pix - 1;
+    logicalPix += _skip;
+    unsigned firstIdx = logicalPix * 2;
+    unsigned secondIdx = firstIdx + 1;
+
+    // bounds safeguard (should not trigger if lenToCreate set correctly)
+    unsigned hwLen = _len * 2 + _skip;
+    if (secondIdx >= hwLen) return;
+
+    const uint8_t coFirst = _colorOrderMap.getPixelColorOrder(logicalPix + _start, _colorOrder);
+    PolyBus::setPixelColor(_busPtr, _iType, firstIdx, c, coFirst, 0);
+
+    // Second chip: R=WW, G=CW by default; respect WW/CW swap flag (upper nibble of color order)
+    const uint8_t coSecond = _colorOrderMap.getPixelColorOrder(logicalPix + _start, _colorOrder);
+    bool swapWhites = true; // hardware wiring has WW/CW reversed relative to CCT
+    if ((coSecond >> 4) & 0x01) swapWhites = !swapWhites; // UI swap toggles
+    if (swapWhites) { uint8_t tmp = ww; ww = cw; cw = tmp; }
+    uint32_t wwCwColor = RGBW32(ww, cw, 0, 0);
+    PolyBus::setPixelColor(_busPtr, _iType, secondIdx, wwCwColor, COL_ORDER_GRB, 0);
+    return;
+  }
+
   if (BusManager::_useABL) {
     // if using ABL, sum all color channels to estimate current and limit brightness in show()
     uint8_t r = R(c), g = G(c), b = B(c);
@@ -370,6 +410,7 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
+    {TYPE_SM16703_DUAL,  "D",  PSTR("SM16703 RGB+CCT (2x)")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814")},
     {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz")},
