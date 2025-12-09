@@ -186,12 +186,17 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
-  if (bc.type == TYPE_SM16703_DUAL) lenToCreate = bc.count * 2; // two SM16703 chips per logical pixel
+  if (bc.type == TYPE_SM16703_DUAL) lenToCreate = (bc.count + _skip) * 2; // two SM16703 chips per logical pixel (including skip)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
-  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
+  if (bc.type == TYPE_SM16703_DUAL) {
+    _busPtr = PolyBus::create(_iType, _pins, lenToCreate, nr); // lenToCreate already includes skip * 2
+  } else {
+    _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
+  }
   _valid = (_busPtr != nullptr) && bc.count > 0;
   // fix for wled#4759
-  if (_valid) for (unsigned i = 0; i < _skip; i++) {
+  unsigned skipHW = (bc.type == TYPE_SM16703_DUAL) ? _skip * 2 : _skip;
+  if (_valid) for (unsigned i = 0; i < skipHW; i++) {
     PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
   }
   DEBUGBUS_PRINTF_P(PSTR("Bus: %successfully inited #%u (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
@@ -317,7 +322,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     unsigned secondIdx = firstIdx + 1;
 
     // bounds safeguard (should not trigger if lenToCreate set correctly)
-    unsigned hwLen = _len * 2 + _skip;
+    unsigned hwLen = (_len + _skip) * 2;
     if (secondIdx >= hwLen) return;
 
     const uint8_t coFirst = _colorOrderMap.getPixelColorOrder(logicalPix + _start, _colorOrder);
