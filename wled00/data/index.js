@@ -3471,7 +3471,7 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 		.then(res => {
 			if (res.ok) {
 				showToast('Thank you for reporting!');
-				updateVersionInfo(info.ver, false, alwaysReport || false);
+				updateVersionInfo(info.ver, false, !!alwaysReport);
 			} else {
 				showToast('Report failed. Please try again later.', true);
 				// Do NOT update version info on failure - user will be prompted again
@@ -3488,7 +3488,7 @@ function updateVersionInfo(version, neverAsk, alwaysReport) {
 	const versionInfo = {
 		version: version,
 		neverAsk: neverAsk,
-		alwaysReport: alwaysReport || false
+		alwaysReport: !!alwaysReport
 	};
 
 	// Create a Blob with JSON content and use /upload endpoint
