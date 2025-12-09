@@ -12,6 +12,9 @@
 #define SKYSTRIP_GIT_DESCRIBE SKYSTRIP_VERSION_FALLBACK
 #endif
 
+// Uncomment to restore the 10s startup safety delay that defers network calls.
+// #define SKYSTRIP_ENABLE_SAFETY_DELAY
+
 #define SKYSTRIP_VERSION SKYSTRIP_GIT_DESCRIBE
 
 class SkyModel;
@@ -27,7 +30,9 @@ private:
   bool enabled_ = false;
   int16_t dbgPixelIndex_ = -1; // if >=0 show periodic debugging for that pixel
   SkyStripState state_ = SkyStripState::Initial;
+#ifdef SKYSTRIP_ENABLE_SAFETY_DELAY
   uint32_t safeToStart_ = 0;
+#endif
   uint32_t lastLoop_ = 0;
   bool edgeInit_ = false;
   bool lastOff_ = false;

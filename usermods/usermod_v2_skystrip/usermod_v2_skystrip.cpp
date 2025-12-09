@@ -26,7 +26,9 @@ REGISTER_USERMOD(skystrip_usermod);
 // coded a deadlock or crash in the loop handler this will give us a
 // chance to offMode the device so we can use the OTA update to fix
 // the problem.
+#ifdef SKYSTRIP_ENABLE_SAFETY_DELAY
 const uint32_t SAFETY_DELAY_MS = 10u * 1000u;
+#endif
 
 // runs before readFromConfig() and setup()
 SkyStrip::SkyStrip() {
@@ -51,8 +53,10 @@ void SkyStrip::setup() {
 
   DEBUG_PRINTLN(F("SkyStrip::setup starting"));
 
+#ifdef SKYSTRIP_ENABLE_SAFETY_DELAY
   uint32_t now_ms = millis();
   safeToStart_ = now_ms + SAFETY_DELAY_MS;
+#endif
 
   // Serial.begin(115200);
 
@@ -81,6 +85,7 @@ void SkyStrip::loop() {
 
   // defer a short bit after reboot
   if (state_ == SkyStripState::Setup) {
+#ifdef SKYSTRIP_ENABLE_SAFETY_DELAY
     if (now_ms < safeToStart_) {
       return;
     } else {
@@ -89,6 +94,12 @@ void SkyStrip::loop() {
       doneBooting();
       reloadSources(now); // load right away
     }
+#else
+    DEBUG_PRINTLN(F("SkyStrip::loop SkyStripState is Running"));
+    state_ = SkyStripState::Running;
+    doneBooting();
+    reloadSources(now); // load right away
+#endif
   }
 
   // detect OFF->ON and disabled->enabled edges
