@@ -77,6 +77,17 @@ También puede enviarme correos a [dev.aircoookie@gmail.com](mailto:dev.aircoook
 
 Si WLED realmente ilumina tu día, puedes [![](https://img.shields.io/badge/send%20me%20a%20small%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
 
+## 🌐 Documentación en Español
+
+¡Bienvenidos usuarios hispanohablantes! Hemos preparado documentación completa en español:
+
+- 📖 **[Documentación Completa](DOCUMENTACION_ES.md)** - Funcionamiento, compilación, configuración y personalización
+- ⚡ **[Guía Rápida](GUIA_RAPIDA_ES.md)** - Setup en 5 minutos y troubleshooting
+- 🔌 **[Referencia de API](API_REFERENCIA_ES.md)** - Control programático con ejemplos
+- 🛠️ **[Compilación Avanzada](COMPILACION_AVANZADA_ES.md)** - Para desarrolladores y usermods
+- 📚 **[Índice General](INDICE_DOCUMENTACION_ES.md)** - Navegación por temas
+
+¿Nuevo en WLED? Comienza con la [Guía Rápida](GUIA_RAPIDA_ES.md) 🚀
 
 *Descargo de responsabilidad:*   
 
