@@ -14,8 +14,15 @@ Este archivo te guiará según tu experiencia y necesidades.
 
 | Documento | Descripción | Para Quién |
 |-----------|-------------|-----------|
-| **[GUIA_RAPIDA_ES.md](GUIA_RAPIDA_ES.md)** | Setup en 5 minutos | Usuarios nuevos |
+| **[INSTALACION_ESP8266_ES.md](INSTALACION_ESP8266_ES.md)** | Instalar WLED paso a paso | Quienes necesitan compilar desde cero |
+| **[GUIA_RAPIDA_ES.md](GUIA_RAPIDA_ES.md)** | Setup en 5 minutos | Usuarios con binario pre-compilado |
 | **[REFERENCIA_RAPIDA_ES.md](REFERENCIA_RAPIDA_ES.md)** | Cheatsheet de comandos | Todos (referencia rápida) |
+
+### 🔄 Mantenimiento
+
+| Documento | Descripción | Para Quién |
+|-----------|-------------|-----------|
+| **[ACTUALIZACIONES_COMPONENTES_ES.md](ACTUALIZACIONES_COMPONENTES_ES.md)** | Mantener componentes actualizados | Usuarios que necesitan actualizar |
 
 ### 📖 Conocimiento Completo
 
@@ -42,8 +49,9 @@ Este archivo te guiará según tu experiencia y necesidades.
 ## 🎯 Acceso Rápido por Necesidad
 
 ### "Acabo de comprar un WLED"
-1. Leer: [GUIA_RAPIDA_ES.md](GUIA_RAPIDA_ES.md) (5 min)
-2. Consultar: [REFERENCIA_RAPIDA_ES.md](REFERENCIA_RAPIDA_ES.md) (según necesites)
+1. Leer: [INSTALACION_ESP8266_ES.md](INSTALACION_ESP8266_ES.md) (si necesitas compilar)
+2. O Leer: [GUIA_RAPIDA_ES.md](GUIA_RAPIDA_ES.md) (si tienes binario pre-compilado)
+3. Consultar: [REFERENCIA_RAPIDA_ES.md](REFERENCIA_RAPIDA_ES.md) (según necesites)
 
 ### "Quiero controlar WLED desde mi app/home"
 1. Ir a: [API_REFERENCIA_ES.md](API_REFERENCIA_ES.md)

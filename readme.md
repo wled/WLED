@@ -82,12 +82,14 @@ Si WLED realmente ilumina tu día, puedes [![](https://img.shields.io/badge/send
 ¡Bienvenidos usuarios hispanohablantes! Hemos preparado documentación completa en español:
 
 - 📖 **[Documentación Completa](DOCUMENTACION_ES.md)** - Funcionamiento, compilación, configuración y personalización
+- 📋 **[Instalación ESP8266 Paso a Paso](INSTALACION_ESP8266_ES.md)** - Guía completa desde cero hasta funcionamiento
+- 🔄 **[Actualizar Componentes](ACTUALIZACIONES_COMPONENTES_ES.md)** - Mantener WLED y dependencias actualizadas
 - ⚡ **[Guía Rápida](GUIA_RAPIDA_ES.md)** - Setup en 5 minutos y troubleshooting
 - 🔌 **[Referencia de API](API_REFERENCIA_ES.md)** - Control programático con ejemplos
 - 🛠️ **[Compilación Avanzada](COMPILACION_AVANZADA_ES.md)** - Para desarrolladores y usermods
 - 📚 **[Índice General](INDICE_DOCUMENTACION_ES.md)** - Navegación por temas
 
-¿Nuevo en WLED? Comienza con la [Guía Rápida](GUIA_RAPIDA_ES.md) 🚀
+¿Nuevo en WLED? Comienza con la [Guía Rápida](GUIA_RAPIDA_ES.md) o [Instalación Paso a Paso](INSTALACION_ESP8266_ES.md) 🚀
 
 *Descargo de responsabilidad:*   
 

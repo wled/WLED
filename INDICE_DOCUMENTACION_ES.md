@@ -11,6 +11,21 @@ Bienvenido a la documentación de WLED en español. Este conjunto de documentos 
   - Troubleshooting rápido
   - Control desde celular
 
+### 📋 Instalación Paso a Paso
+- **[INSTALACION_ESP8266_ES.md](INSTALACION_ESP8266_ES.md)** - Guía completa para ESP8266
+  - Requisitos de hardware y software
+  - Preparación del entorno
+  - Compilación del firmware
+  - Flasheo y primeros pasos
+  - Troubleshooting detallado
+
+### 🔄 Mantenimiento y Actualizaciones
+- **[ACTUALIZACIONES_COMPONENTES_ES.md](ACTUALIZACIONES_COMPONENTES_ES.md)** - Mantener todo actualizado
+  - Actualizar firmware WLED (OTA y desde código fuente)
+  - Actualizar dependencias (Node.js, Python)
+  - Actualizar PlatformIO y Arduino Core
+  - Solución de problemas post-actualización
+
 ### 📘 Documentación Completa
 - **[DOCUMENTACION_ES.md](DOCUMENTACION_ES.md)** - Referencia exhaustiva (necesario leer)
   - Funcionamiento general de WLED
@@ -39,9 +54,16 @@ Bienvenido a la documentación de WLED en español. Este conjunto de documentos 
 ## 🎯 Guía de Lectura por Caso de Uso
 
 ### 👤 "Acabo de recibir un WLED"
-1. Lee: **GUIA_RAPIDA_ES.md**
-2. Sigue los 5 minutos de setup
-3. Disfruta controlando tus LEDs
+1. Lee: **INSTALACION_ESP8266_ES.md** (si necesitas compilar desde cero)
+2. O lee: **GUIA_RAPIDA_ES.md** (si tienes un binario pre-compilado)
+3. Sigue los pasos de setup
+4. Disfruta controlando tus LEDs
+
+### 🔧 "Necesito compilar y instalar WLED en mi ESP8266"
+1. Lee: **INSTALACION_ESP8266_ES.md** completamente
+2. Sigue cada paso en orden
+3. Consulta la sección Troubleshooting si hay problemas
+4. Continúa con **DOCUMENTACION_ES.md** para configuración avanzada
 
 ### 🏠 "Quiero integrar WLED en Home Assistant"
 1. Lee: **DOCUMENTACION_ES.md** - Sección Configuración
