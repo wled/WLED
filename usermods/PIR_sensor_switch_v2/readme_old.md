@@ -107,3 +107,4 @@ Have fun - @gegu & @blazoncek
 2024-02
 
 * Added compile time option to expand number of PIR sensors (they are logically ORed) `-D PIR_SENSOR_MAX_SENSORS=3`
+
