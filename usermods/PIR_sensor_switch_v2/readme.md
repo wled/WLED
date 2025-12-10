@@ -1,6 +1,6 @@
 # PIR Sensor Switch v2
 
-**By rawframe**
+**Rawframe**
 
 ## Background
 
@@ -39,13 +39,12 @@ However, I needed something more flexible for my setup - multiple PIRs triggerin
 ### Web UI
 - Toggle PIRs and Actions on/off directly from the Info page
 - See motion status in real-time (● motion / ○ idle)
-- View countdown timers for off delays
+- View per Action countdown timers for off delays
 - Config page for full setup (pins, presets, delays, linking)
 
 ### API Control
 - Enable/disable PIRs via JSON API: `{"MotionDetection":{"pir0":true}}`
 - Enable/disable Actions via JSON API: `{"MotionDetection":{"action0":true}}`
-- Integrates with Home Assistant, Node-RED, etc.
 
 ## Use Cases
 
@@ -54,15 +53,13 @@ This helps if you need:
 - Different lighting presets for different sensors
 - Combined motion detection (e.g., "turn off only when ALL sensors are idle")
 - Independent motion zones that don't interfere with each other
-- Complex automation without macro spaghetti
+- Complex automation without macro chains
 
 ## Technical Bits
 
-- Uses a preset FIFO queue to prevent flooding
-- Optimized RAM usage with bitmasks instead of 2D arrays, but you could change this if you need more than 8 pirs or actions.
-- Contributor tracking system ensures Actions behave correctly with multiple PIRs
-- Persistent configuration saved to `cfg.json`
-- Fully compatible with WLED's preset system
+- Uses a preset FIFO queue to prevent flooding (on testing I noticed if presets were called at the same time one would usually be skipped).
+- Optimized RAM usage with bitmasks instead of 2D arrays, but you could change this if you need more than 8 PIRs or Actions.
+- PIR to Acion contributor tracking ensures Actions behave correctly with multiple PIRs
 
 ## Notes
 
@@ -70,5 +67,6 @@ This helps if you need:
   - PIR_SENSOR_MAX
   - ACTION_MAX
 
-- Add if anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so.
+- If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so bit remember to adjust the custom webapge formatting also.
 
+Hope its useful :)
