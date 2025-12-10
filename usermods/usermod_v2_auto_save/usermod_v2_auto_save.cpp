@@ -18,7 +18,7 @@
 //
 // By default it will not save the state if an unmodified preset
 // is selected (to not duplicate it). You can change this behaviour
-// by setting AUTOSAVE_IGNORE_PRESETS=false
+// by setting autoSaveIgnorePresets=false
 //
 // AutoSaveUsermod is standalone, but if FourLineDisplayUsermod 
 // is installed, it will notify the user of the saved changes.
