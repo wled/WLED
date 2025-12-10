@@ -134,6 +134,7 @@ class AutoSaveUsermod : public Usermod {
       static unsigned long lastRun = 0;
       unsigned long now = millis();
       if (!autoSaveAfterSec || !enabled || (autoSaveIgnorePresets && currentPreset>0) || (strip.isUpdating() && now - lastRun < 240)) return;  // setting 0 as autosave seconds disables autosave
+      lastRun = now;
       uint8_t currentMode = strip.getMainSegment().mode;
       uint8_t currentPalette = strip.getMainSegment().palette;
 
