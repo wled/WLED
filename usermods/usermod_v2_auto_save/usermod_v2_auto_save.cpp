@@ -53,11 +53,7 @@ class AutoSaveUsermod : public Usermod {
     bool applyAutoSaveOnBoot = false;     // do we load auto-saved preset on boot?
     #endif
 
-    #ifdef AUTOSAVE_IGNORE_PRESETS
-    bool autoSaveIgnorePresets = AUTOSAVE_IGNORE_PRESETS;
-    #else
     bool autoSaveIgnorePresets = true;     // ignore by default to not duplicate presets
-    #endif
 
     // If we've detected the need to auto save, this will be non zero.
     unsigned long autoSaveAfter = 0;
