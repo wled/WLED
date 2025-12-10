@@ -66,8 +66,9 @@ This helps if you need:
 
 ## Notes
 
-- To add more pirs or actions, just change the defines in the usermod.h
+- To add more pirs or actions, just change the defines in the the cpp file (defaults) or the platformio.ini / override
   - PIR_SENSOR_MAX
   - ACTION_MAX
 
 - Add if anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so.
+
