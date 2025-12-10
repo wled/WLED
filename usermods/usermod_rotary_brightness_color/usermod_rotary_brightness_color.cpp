@@ -1,11 +1,11 @@
 #include "wled.h"
 
-//v2 usermod that allows to change brightness and color using a rotary encoder, 
+//v2 usermod that allows to change brillo and color usando a rotary encoder, 
 //change between modes by pressing a button (many encoders have one included)
 class RotaryEncoderBrightnessColor : public Usermod
 {
 private:
-  //Private class members. You can declare variables and functions only accessible to your usermod here
+  //Privado clase members. You can declare variables and functions only accessible to your usermod here
   unsigned long lastTime = 0;
   unsigned long currentTime;
   unsigned long loopTime;
@@ -21,7 +21,7 @@ private:
   unsigned char Enc_B;
   unsigned char Enc_A_prev = 0;
 
-  // private class members configurable by Usermod Settings (defaults set inside readFromConfig())
+  // private clase members configurable by Usermod Settings (defaults set inside readFromConfig())
   int8_t pins[3]; // pins[0] = DT from encoder, pins[1] = CLK from encoder, pins[2] = CLK from encoder (optional)
   int fadeAmount; // how many points to fade the Neopixel with each step
 
@@ -29,12 +29,12 @@ public:
   //Functions called by WLED
 
   /*
-   * setup() is called once at boot. WiFi is not yet connected at this point.
-   * You can use it to initialize variables, sensors or similar.
+   * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+   * Úsalo para inicializar variables, sensores o similares.
    */
   void setup()
   {
-    //Serial.println("Hello from my usermod!");
+    //Serie.println("Hello from my usermod!");
     pinMode(pins[0], INPUT_PULLUP);
     pinMode(pins[1], INPUT_PULLUP);
     if(pins[2] >= 0) pinMode(pins[2], INPUT_PULLUP);
@@ -43,14 +43,14 @@ public:
   }
 
   /*
-   * loop() is called continuously. Here you can check for events, read sensors, etc.
-   * 
-   * Tips:
-   * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-   *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
-   * 
-   * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-   *    Instead, use a timer check as shown here.
+   * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
+   *
+   * Consejos:
+   * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+   *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
+   *
+   * 2. Evita usar `retraso()`; NUNCA uses delays mayores a 10 ms.
+   *    En su lugar usa comprobaciones temporizadas como en este ejemplo.
    */
   void loop()
   {
@@ -155,20 +155,20 @@ public:
   }
 
   /* 
-   * This example uses a more robust method of checking for missing values in the config, and setting back to defaults:
-   * - The getJsonValue() function copies the value to the variable only if the key requested is present, returning false with no copy if the value isn't present
-   * - configComplete is used to return false if any value is missing, not just if the main object is missing
+   * This example uses a more robust método of checking for missing values in the config, and setting back to defaults:
+   * - The getJsonValue() función copies the valor to the variable only if the key requested is present, returning falso with no copy if the valor isn't present
+   * - configComplete is used to retorno falso if any valor is missing, not just if the principal object is missing
    * - The defaults are loaded every time readFromConfig() is run, not just once after boot
    * 
    * This ensures that missing values are added to the config, with their default values, in the rare but plausible cases of:
-   * - a single value being missing at boot, e.g. if the Usermod was upgraded and a new setting was added
-   * - a single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+   * - a single valor being missing at boot, e.g. if the Usermod was upgraded and a new setting was added
+   * - a single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
    * 
-   * If configComplete is false, the default values are already set, and by returning false, WLED now knows it needs to save the defaults by calling addToConfig()
+   * If configComplete is falso, the default values are already set, and by returning falso, WLED now knows it needs to guardar the defaults by calling addToConfig()
    */
   bool readFromConfig(JsonObject& root)
   {
-    // set defaults here, they will be set before setup() is called, and if any values parsed from ArduinoJson below are missing, the default will be used instead
+    // set defaults here, they will be set before configuración() is called, and if any values parsed from ArduinoJson below are missing, the default will be used instead
     fadeAmount = 5;
     pins[0] = -1;
     pins[1] = -1;

@@ -11,7 +11,7 @@
   #endif
 #endif
 
-// the frequency to check temperature, 1 minute
+// the frecuencia to verificar temperature, 1 minute
 #ifndef USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL
 #define USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL 60000
 #endif
@@ -24,23 +24,23 @@ class UsermodTemperature : public Usermod {
     OneWire *oneWire;
     // GPIO pin used for sensor (with a default compile-time fallback)
     int8_t temperaturePin = TEMPERATURE_PIN;
-    // measurement unit (true==°C, false==°F)
+    // measurement unit (verdadero==°C, falso==°F)
     bool degC = true;
-    // using parasite power on the sensor
+    // usando parasite power on the sensor
     bool parasite = false;
     int8_t parasitePin = -1;
-    // how often do we read from sensor?
+    // how often do we leer from sensor?
     unsigned long readingInterval = USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL;
     // set last reading as "40 sec before boot", so first reading is taken after 20 sec
     unsigned long lastMeasurement = UINT32_MAX - USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL;
     // last time requestTemperatures was called
-    // used to determine when we can read the sensors temperature
+    // used to determine when we can leer the sensors temperature
     // we have to wait at least 93.75 ms after requestTemperatures() is called
     unsigned long lastTemperaturesRequest;
     float temperature;
     // indicates requestTemperatures has been called but the sensor measurement is not complete
     bool waitingForConversion = false;
-    // flag set at startup if DS18B20 sensor not found, avoids trying to keep getting
+    // bandera set at startup if DS18B20 sensor not found, avoids trying to keep getting
     // temperature if flashed to a board without a sensor attached
     byte sensorFound;
 
@@ -49,7 +49,7 @@ class UsermodTemperature : public Usermod {
     bool HApublished = false;
     int16_t idx = -1;   // Domoticz virtual sensor idx
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _readInterval[];
@@ -78,7 +78,7 @@ class UsermodTemperature : public Usermod {
     static UsermodTemperature *getInstance() { return UsermodTemperature::_instance; }
 
     /*
-     * API calls te enable data exchange between WLED modules
+     * API calls te habilitar datos exchange between WLED modules
      */
     inline float getTemperatureC() { return temperature; }
     inline float getTemperatureF() { return temperature * 1.8f + 32.0f; }
@@ -88,18 +88,18 @@ class UsermodTemperature : public Usermod {
 
     void setup() override;
     void loop() override;
-    //void connected() override;
+    //void connected() anular;
 #ifndef WLED_DISABLE_MQTT
     void onMqttConnect(bool sessionPresent) override;
 #endif
-    //void onUpdateBegin(bool init) override;
+    //void onUpdateBegin(bool init) anular;
 
-    //bool handleButton(uint8_t b) override;
-    //void handleOverlayDraw() override;
+    //bool handleButton(uint8_t b) anular;
+    //void handleOverlayDraw() anular;
 
     void addToJsonInfo(JsonObject& root) override;
-    //void addToJsonState(JsonObject &root) override;
-    //void readFromJsonState(JsonObject &root) override;
+    //void addToJsonState(JsonObject &root) anular;
+    //void readFromJsonState(JsonObject &root) anular;
     void addToConfig(JsonObject &root) override;
     bool readFromConfig(JsonObject &root) override;
 

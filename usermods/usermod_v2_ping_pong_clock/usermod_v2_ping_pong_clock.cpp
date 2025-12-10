@@ -3,12 +3,12 @@
 class PingPongClockUsermod : public Usermod
 {
 private:
-  // Private class members. You can declare variables and functions only accessible to your usermod here
+  // Privado clase members. You can declare variables and functions only accessible to your usermod here
   unsigned long lastTime = 0;
   bool colonOn = true;
 
   // ---- Variables modified by settings below -----
-  // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
+  // set your config variables to their boot default valor (this can also be done in readFromConfig() or a constructor if you prefer)
   bool pingPongClockEnabled = true;
   int colorR = 0xFF;
   int colorG = 0xFF;
@@ -24,7 +24,7 @@ private:
   int colon2 = 80; // Address for the second colon led
 
   // Matrix for the illumination of the numbers
-  // Note: These only define the increments of the base address. e.g. to define the second Minute you have to add the baseMM to every led position
+  // Note: These only definir the increments of the base address. e.g. to definir the second Minute you have to add the baseMM to every LED posición
   const int numbers[10][10] = 
     {
       {  0,  1,  4,  6, 13, 15, 18, 19, -1, -1 }, // 0: null

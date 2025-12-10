@@ -5,7 +5,7 @@
 #include "../UMBattery.h"
 
 /**
- *  Unkown / Default Battery
+ *  Unkown / Predeterminado Battery
  * 
  */
 class UnkownUMBattery : public UMBattery

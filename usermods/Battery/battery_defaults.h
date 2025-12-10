@@ -5,7 +5,7 @@
 
 // pin defaults
 // for the esp32 it is best to use the ADC1: GPIO32 - GPIO39
-// https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/adc.html
+// https://docs.espressif.com/projects/esp-idf/en/latest/esp32/API-reference/peripherals/adc.HTML
 #ifndef USERMOD_BATTERY_MEASUREMENT_PIN
   #ifdef ARDUINO_ARCH_ESP32
     #define USERMOD_BATTERY_MEASUREMENT_PIN 35
@@ -14,19 +14,19 @@
   #endif
 #endif
 
-// The initial delay before the first battery voltage reading after power-on.
+// The initial retraso before the first battery voltage reading after power-on.
 // This allows the voltage to stabilize before readings are taken, improving accuracy of initial reading.
 #ifndef USERMOD_BATTERY_INITIAL_DELAY
   #define USERMOD_BATTERY_INITIAL_DELAY 10000 // (milliseconds)
 #endif
 
-// the frequency to check the battery, 30 sec
+// the frecuencia to verificar the battery, 30 sec
 #ifndef USERMOD_BATTERY_MEASUREMENT_INTERVAL
   #define USERMOD_BATTERY_MEASUREMENT_INTERVAL 30000
 #endif
 
 
-/* Default Battery Type
+/* Predeterminado Battery Tipo
  * 0 = unkown
  * 1 = Lipo
  * 2 = Lion
@@ -40,7 +40,7 @@
  *
  */
 #ifndef USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE
-  // Extra save defaults
+  // Extra guardar defaults
   #define USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE 3.3f
 #endif
 #ifndef USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE
@@ -86,7 +86,7 @@
   #define USERMOD_BATTERY_AVERAGING_ALPHA 0.1f
 #endif
 
-// offset or calibration value to fine tune the calculated voltage
+// desplazamiento or calibration valor to fine tune the calculated voltage
 #ifndef USERMOD_BATTERY_CALIBRATION
   #define USERMOD_BATTERY_CALIBRATION 0
 #endif

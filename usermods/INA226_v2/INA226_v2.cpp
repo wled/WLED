@@ -9,7 +9,7 @@
 #define DEFAULT_INACONVERSIONTIME 1100
 #define DEFAULT_INACONVERSIONTIMEENUM CONV_TIME_1100
 
-// A packed version of all INA settings enums and their human friendly counterparts packed into a 32 bit structure
+// A packed versión of all INA settings enums and their human friendly counterparts packed into a 32 bit structure
 // Some values are shifted and need to be preprocessed before usage
 struct InaSettingLookup
 {
@@ -29,19 +29,19 @@ const InaSettingLookup _inaSettingsLookup[] = {
     {4, AVERAGE_4 >> 8, 204, CONV_TIME_204},
     {1, AVERAGE_1 >> 8, 140, CONV_TIME_140}};
 
-// Note: Will update the provided arg to be the correct value
+// Note: Will actualizar the provided arg to be the correct valor
 INA226_AVERAGES getAverageEnum(uint16_t &samples)
 {
     for (const auto &setting : _inaSettingsLookup)
     {
-        // If a user supplies 2000 samples, we serve up the highest possible value
+        // If a usuario supplies 2000 samples, we serve up the highest possible valor
         if (samples >= setting.avgSamples)
         {
             samples = setting.avgSamples;
             return static_cast<INA226_AVERAGES>(setting.avgEnum << 8);
         }
     }
-    // Default value if not found
+    // Predeterminado valor if not found
     samples = DEFAULT_INASAMPLES;
     return DEFAULT_INASAMPLESENUM;
 }
@@ -50,14 +50,14 @@ INA226_CONV_TIME getConversionTimeEnum(uint16_t &timeUs)
 {
     for (const auto &setting : _inaSettingsLookup)
     {
-        // If a user supplies 9000 μs, we serve up the highest possible value
+        // If a usuario supplies 9000 μs, we serve up the highest possible valor
         if (timeUs >= setting.convTimeUs)
         {
             timeUs = setting.convTimeUs;
             return setting.convTimeEnum;
         }
     }
-    // Default value if not found
+    // Predeterminado valor if not found
     timeUs = DEFAULT_INACONVERSIONTIME;
     return DEFAULT_INACONVERSIONTIMEENUM;
 }
@@ -175,7 +175,7 @@ private:
     {
         if (_measurementTriggered)
         {
-            // Test if we have a measurement every 400ms
+            // Prueba if we have a measurement every 400ms
             if (currentTime - _lastTriggerTime >= 400)
             {
                 _lastTriggerTime = currentTime;
@@ -190,7 +190,7 @@ private:
         {
             if (currentTime - _lastLoopCheck >= _checkInterval)
             {
-                // Start a measurement and use isBusy() later to determine when it is done
+                // Iniciar a measurement and use isBusy() later to determine when it is done
                 _ina226->startSingleMeasurementNoWait();
                 _lastLoopCheck = currentTime;
                 _lastTriggerTime = currentTime;
@@ -314,7 +314,7 @@ private:
 public:
     UsermodINA226()
     {
-        // Default values
+        // Predeterminado values
         _settingInaSamples = DEFAULT_INASAMPLES;
         _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME;
 
@@ -485,7 +485,7 @@ public:
         uint16_t tmpShort;
         if (getJsonValue(top[F("INASamples")], tmpShort))
         {
-            // The method below will fix the provided value to a valid one
+            // The método below will fix the provided valor to a valid one
             getAverageEnum(tmpShort);
             _settingInaSamples = tmpShort;
         }
@@ -494,7 +494,7 @@ public:
 
         if (getJsonValue(top[F("INAConversionTime")], tmpShort))
         {
-            // The method below will fix the provided value to a valid one
+            // The método below will fix the provided valor to a valid one
             getConversionTimeEnum(tmpShort);
             _settingInaConversionTimeUs = tmpShort >> 2;
         }

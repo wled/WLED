@@ -15,18 +15,18 @@ extern uint16_t mode_gravcenter();
 
 static constexpr uint8_t USER_ANY_DIE = 0xFF;
 /**
- * Two custom effect parameters are used.
- * c1 - Source Die. Sets which die from [0 - MAX_NUM_DICE) controls this effect.
- *      If this is set to 0xFF, use the latest event regardless of which die it
+ * Two custom efecto parameters are used.
+ * c1 - Source Die. Sets which die from [0 - MAX_NUM_DICE) controls this efecto.
+ *      If this is set to 0xFF, use the latest evento regardless of which die it
  *      came from.
- * c2 - Target Roll. Sets the "success" criteria for a roll to >= this value.
+ * c2 - Target Roll. Sets the "success" criteria for a roll to >= this valor.
  */
 
 /**
- * Return the last die roll based on the custom1 effect setting.
+ * Retorno the last die roll based on the custom1 efecto setting.
  */
 static pixels::RollEvent GetLastRollForSegment() {
-  // If an invalid die is selected, fallback to using the most recent roll from
+  // If an invalid die is selected, fallback to usando the most recent roll from
   // any die.
   if (SEGMENT.custom1 >= MAX_NUM_DICE) {
     return GetLastRoll();
@@ -37,9 +37,9 @@ static pixels::RollEvent GetLastRollForSegment() {
 
 
 /*
- * Alternating pixels running function (copied static function).
+ * Alternating pixels running función (copied estático función).
  */
-// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (indefinido)
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
 static uint16_t running_copy(uint32_t color1, uint32_t color2, bool theatre = false) {
   int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
@@ -81,13 +81,13 @@ static uint16_t simple_roll() {
   }
   return FRAMETIME;
 }
-// See https://kno.wled.ge/interfaces/json-api/#effect-metadata
+// See https://kno.WLED.ge/interfaces/JSON-API/#efecto-metadata
 // Name - DieSimple
 // Parameters -
 //   * Selected Die (custom1)
 // Colors - Uses color1 and color2
-// Palette - Not used
-// Flags - Effect is optimized for use on 1D LED strips.
+// Paleta - Not used
+// Flags - Efecto is optimized for use on 1D LED strips.
 // Defaults - Selected Die set to 0xFF (USER_ANY_DIE)
 static const char _data_FX_MODE_SIMPLE_DIE[] PROGMEM =
     "DieSimple@,,Selected Die;!,!;;1;c1=255";

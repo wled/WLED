@@ -1,23 +1,23 @@
 /*
 
-MY92XX LED Driver for Arduino
-Based on the C driver by MaiKe Labs
+MY92XX LED Controlador for Arduino
+Based on the C controlador by MaiKe Labs
 
 Copyright (c) 2016 - 2026 MaiKe Labs
-Copyright (C) 2017 - 2018 Xose Pérez for the Arduino compatible library
+Copyright (C) 2017 - 2018 Xose Pérez for the Arduino compatible biblioteca
 
 This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+it under the terms of the GNU General Público License as published by
+the Free Software Foundation, either versión 3 of the License, or
+(at your option) any later versión.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU General Público License for more details.
 
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+You should have received a copy of the GNU General Público License
+along with this program.  If not, see <HTTP://www.gnu.org/licenses/>.
 
 */
 
@@ -171,24 +171,24 @@ void my92xx::_set_cmd(my92xx_cmd_t command) {
     // TStop > 12us.
     os_delay_us(12);
 
-    // Send 12 DI pulse, after 6 pulse's falling edge store duty data, and 12
-    // pulse's rising edge convert to command mode.
+    // Enviar 12 DI pulse, after 6 pulse's falling edge store duty datos, and 12
+    // pulse's rising edge convertir to command mode.
     _di_pulse(12);
 
-    // Delay >12us, begin send CMD data
+    // Retraso >12us, begin enviar CMD datos
     os_delay_us(12);
 
-    // Send CMD data
+    // Enviar CMD datos
     unsigned char command_data = *(unsigned char*)(&command);
     for (unsigned char i = 0; i < _chips; i++) {
         _write(command_data, 8);
     }
 
-    // TStart > 12us. Delay 12 us.
+    // TStart > 12us. Retraso 12 us.
     os_delay_us(12);
 
-    // Send 16 DI pulse，at 14 pulse's falling edge store CMD data, and
-    // at 16 pulse's falling edge convert to duty mode.
+    // Enviar 16 DI pulse，at 14 pulse's falling edge store CMD datos, and
+    // at 16 pulse's falling edge convertir to duty mode.
     _di_pulse(16);
 
     // TStop > 12us.
@@ -232,15 +232,15 @@ void my92xx::_send() {
     // TStop > 12us.
     os_delay_us(12);
 
-    // Send color data
+    // Enviar color datos
     for (unsigned char channel = 0; channel < _channels; channel++) {
         _write(_state ? _value[channel] : 0, bit_length);
     }
 
-    // TStart > 12us. Ready for send DI pulse.
+    // TStart > 12us. Ready for enviar DI pulse.
     os_delay_us(12);
 
-    // Send 8 DI pulse. After 8 pulse falling edge, store old data.
+    // Enviar 8 DI pulse. After 8 pulse falling edge, store old datos.
     _di_pulse(8);
 
     // TStop > 12us.
@@ -308,10 +308,10 @@ my92xx::my92xx(my92xx_model_t model, unsigned char chips, unsigned char di, unsi
     digitalWrite(_pin_di, LOW);
     digitalWrite(_pin_dcki, LOW);
 
-    // Clear all duty register
+    // Limpiar all duty register
     _dcki_pulse(32 * _chips);
 
-    // Send init command
+    // Enviar init command
     _set_cmd(command);
 
     DEBUG_MSG_MY92XX("[MY92XX] Initialized\n");

@@ -18,28 +18,28 @@ long temptimer = millis();
 long lastMeasure = 0;
 #define Celsius // Show temperature measurement in Celsius otherwise is in Fahrenheit 
 
-// If display does not work or looks corrupted check the
+// If display does not work or looks corrupted verificar the
 // constructor reference:
 // https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-// or check the gallery:
+// or verificar the gallery:
 // https://github.com/olikraus/u8g2/wiki/gallery
 // --> First choice of cheap I2C OLED 128X32 0.91"
 U8X8_SSD1306_128X32_UNIVISION_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
 // --> Second choice of cheap I2C OLED 128X64 0.96" or 1.3"
-//U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
+//U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Restablecer, SCL, SDA
 // gets called once at boot. Do all initialization that doesn't depend on
-// network here
+// red here
 void userSetup() {
   sensor.begin(); //Start Dallas temperature sensor
   u8x8.begin();
-  //u8x8.setFlipMode(1); //Un-comment if using WLED Wemos shield 
+  //u8x8.setFlipMode(1); //Un-comment if usando WLED Wemos shield 
   u8x8.setPowerSave(0);
   u8x8.setContrast(10); //Contrast setup will help to preserve OLED lifetime. In case OLED need to be brighter increase number up to 255
   u8x8.setFont(u8x8_font_chroma48medium8_r);
   u8x8.drawString(0, 0, "Loading...");
 }
 
-// gets called every time WiFi is (re-)connected. Initialize own network
+// gets called every time WiFi is (re-)connected. Inicializar own red
 // interfaces here
 void userConnected() {}
 
@@ -64,21 +64,21 @@ void userLoop() {
 
 //----> Dallas temperature sensor MQTT publishing
   temptimer = millis();  
-// Timer to publishe new temperature every 60 seconds
+// Temporizador to publishe new temperature every 60 seconds
   if (temptimer - lastMeasure > 60000) 
   {
     lastMeasure = temptimer;    
-//Check if MQTT Connected, otherwise it will crash the 8266
+//Verificar if MQTT Connected, otherwise it will bloqueo the 8266
     if (mqtt != nullptr)
     {
       sensor.requestTemperatures();
-//Gets preferred temperature scale based on selection in definitions section
+//Gets preferred temperature escala based on selection in definitions section
       #ifdef Celsius
       float board_temperature = sensor.getTempCByIndex(0);
       #else
       float board_temperature = sensor.getTempFByIndex(0);
       #endif
-//Create character string populated with user defined device topic from the UI, and the read temperature. Then publish to MQTT server.
+//Crear carácter cadena populated with usuario defined dispositivo topic from the UI, and the leer temperature. Then publish to MQTT servidor.
       char subuf[38];
       strcpy(subuf, mqttDeviceTopic);
       strcat(subuf, "/temperature");
@@ -86,7 +86,7 @@ void userLoop() {
     }
   }
 
-  // Check if we time interval for redrawing passes.
+  // Verificar if we time intervalo for redrawing passes.
   if (millis() - lastUpdate < USER_LOOP_REFRESH_RATE_MS) {
     return;
   }
@@ -98,7 +98,7 @@ void userLoop() {
     displayTurnedOff = true;
   }
 
-  // Check if values which are shown on display changed from the last time.
+  // Verificar if values which are shown on display changed from the last time.
   if (((apActive) ? String(apSSID) : WiFi.SSID()) != knownSsid) {
     needRedraw = true;
   } else if (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP())) {
@@ -123,7 +123,7 @@ void userLoop() {
   }
   lastRedraw = millis();
 
-  // Update last known values.
+  // Actualizar last known values.
   #if defined(ESP8266)
   knownSsid = apActive ? WiFi.softAPSSID() : WiFi.SSID();
   #else
@@ -136,16 +136,16 @@ void userLoop() {
   u8x8.clear();
   u8x8.setFont(u8x8_font_chroma48medium8_r);
 
-  // First row with Wifi name
+  // First row with WiFi name
   u8x8.setCursor(1, 0);
   u8x8.print(knownSsid.substring(0, u8x8.getCols() > 1 ? u8x8.getCols() - 2 : 0));
-  // Print `~` char to indicate that SSID is longer than our display
+  // Imprimir `~` char to indicate that SSID is longer than our display
   if (knownSsid.length() > u8x8.getCols())
     u8x8.print("~");
 
   // Second row with IP or Password
   u8x8.setCursor(1, 1);
-  // Print password in AP mode and if led is OFF.
+  // Imprimir password in AP mode and if LED is OFF.
   if (apActive && bri == 0)
     u8x8.print(apPass);
   else

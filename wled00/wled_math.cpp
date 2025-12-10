@@ -1,67 +1,67 @@
 /*
  * Contains some trigonometric functions.
- * The ANSI C equivalents are likely faster, but using any sin/cos/tan function incurs a memory penalty of 460 bytes on ESP8266, likely for lookup tables.
- * This implementation has no extra static memory usage.
+ * The ANSI C equivalents are likely faster, but usando any sin/cos/tan función incurs a memoria penalty of 460 bytes on ESP8266, likely for lookup tables.
+ * This implementación has no extra estático memoria usage.
  *
- * Source of the cos_t() function: https://web.eecs.utk.edu/~azh/blog/cosine.html (cos_taylor_literal_6terms)
+ * Source of the cos_t() función: https://web.eecs.utk.edu/~azh/blog/cosine.HTML (cos_taylor_literal_6terms)
  */
 
 #include <Arduino.h> //PI constant
 
-//#define WLED_DEBUG_MATH
+//#definir WLED_DEBUG_MATH
 
 // Note: cos_t, sin_t and tan_t are very accurate but slow
 // the math.h functions use several kB of flash and are to be avoided if possible
 // sin16_t / cos16_t are faster and much more accurate than the fastled variants
-// sin_approx and cos_approx are float wrappers for sin16_t/cos16_t and have an accuracy better than +/-0.0015 compared to sinf()
-// sin8_t / cos8_t are fastled replacements and use sin16_t / cos16_t. Slightly slower than fastled version but very accurate
+// sin_approx and cos_approx are flotante wrappers for sin16_t/cos16_t and have an accuracy better than +/-0.0015 compared to sinf()
+// sin8_t / cos8_t are fastled replacements and use sin16_t / cos16_t. Slightly slower than fastled versión but very accurate
 
 
 // Taylor series approximations, replaced with Bhaskara I's approximation
 /*
-#define modd(x, y) ((x) - (int)((x) / (y)) * (y))
+#definir modd(x, y) ((x) - (int)((x) / (y)) * (y))
 
-float cos_t(float phi)
+flotante cos_t(flotante phi)
 {
-  float x = modd(phi, M_TWOPI);
+  flotante x = modd(phi, M_TWOPI);
   if (x < 0) x = -1 * x;
-  int8_t sign = 1;
+  int8_t signo = 1;
   if (x > M_PI)
   {
       x -= M_PI;
-      sign = -1;
+      signo = -1;
   }
-  float xx = x * x;
+  flotante xx = x * x;
 
-  float res = sign * (1 - ((xx) / (2)) + ((xx * xx) / (24)) - ((xx * xx * xx) / (720)) + ((xx * xx * xx * xx) / (40320)) - ((xx * xx * xx * xx * xx) / (3628800)) + ((xx * xx * xx * xx * xx * xx) / (479001600)));
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("cos: %f,%f,%f,(%f)\n",phi,res,cos(x),res-cos(x));
-  #endif
-  return res;
+  flotante res = signo * (1 - ((xx) / (2)) + ((xx * xx) / (24)) - ((xx * xx * xx) / (720)) + ((xx * xx * xx * xx) / (40320)) - ((xx * xx * xx * xx * xx) / (3628800)) + ((xx * xx * xx * xx * xx * xx) / (479001600)));
+  #si está definido WLED_DEBUG_MATH
+  Serie.printf("cos: %f,%f,%f,(%f)\n",phi,res,cos(x),res-cos(x));
+  #fin si
+  retorno res;
 }
 
-float sin_t(float phi) {
-  float res =  cos_t(M_PI_2 - phi);
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("sin: %f,%f,%f,(%f)\n",x,res,sin(x),res-sin(x));
-  #endif
-  return res;
+flotante sin_t(flotante phi) {
+  flotante res =  cos_t(M_PI_2 - phi);
+  #si está definido WLED_DEBUG_MATH
+  Serie.printf("sin: %f,%f,%f,(%f)\n",x,res,sin(x),res-sin(x));
+  #fin si
+  retorno res;
 }
 
-float tan_t(float x) {
-  float c = cos_t(x);
-  if (c==0.0f) return 0;
-  float res = sin_t(x) / c;
-  #ifdef WLED_DEBUG_MATH
-  Serial.printf("tan: %f,%f,%f,(%f)\n",x,res,tan(x),res-tan(x));
-  #endif
-  return res;
+flotante tan_t(flotante x) {
+  flotante c = cos_t(x);
+  if (c==0.0f) retorno 0;
+  flotante res = sin_t(x) / c;
+  #si está definido WLED_DEBUG_MATH
+  Serie.printf("tan: %f,%f,%f,(%f)\n",x,res,tan(x),res-tan(x));
+  #fin si
+  retorno res;
 }
 */
 
-// 16-bit, integer based Bhaskara I's sine approximation: 16*x*(pi - x) / (5*pi^2 - 4*x*(pi - x))
-// input is 16bit unsigned (0-65535), output is 16bit signed (-32767 to +32767)
-// optimized integer implementation by @dedehai
+// 16-bit, entero based Bhaskara I's sine approximation: 16*x*(pi - x) / (5*pi^2 - 4*x*(pi - x))
+// entrada is 16bit unsigned (0-65535), salida is 16bit signed (-32767 to +32767)
+// optimized entero implementación by @dedehai
 int16_t sin16_t(uint16_t theta) {
   int scale = 1;
   if (theta > 0x7FFF) {
@@ -133,7 +133,7 @@ float atan2_t(float y, float x) {
 }
 
 //https://stackoverflow.com/questions/3380628
-// Absolute error <= 6.7e-5
+// Absoluto error <= 6.7e-5
 float acos_t(float x) {
   float negate = float(x < 0);
   float xabs = std::abs(x);
@@ -161,9 +161,9 @@ float asin_t(float x) {
   return res;
 }
 
-// declare a template with no implementation, and only one specialization
+// declare a plantilla with no implementación, and only one especialización
 // this allows hiding the constants, while ensuring ODR causes optimizations
-// to still apply.  (Fixes issues with conflicting 3rd party #define's)
+// to still apply.  (Fixes issues with conflicting 3rd party #definir's)
 template <typename T> T atan_t(T x);
 template<>
 float atan_t(float x) {
@@ -221,7 +221,7 @@ float fmod_t(float num, float denom) {
   return res;
 }
 
-// bit-wise integer square root calculation (exact)
+// bit-wise entero square root cálculo (exact)
 uint32_t sqrt32_bw(uint32_t x) {
   uint32_t res = 0;
   uint32_t bit;

@@ -1,18 +1,18 @@
 /**
- * Writes compressed C arrays of data files (web interface)
+ * Writes compressed C arrays of datos files (web interfaz)
  * How to use it?
  *
- * 1) Install Node 20+ and npm
+ * 1) Install Nodo 20+ and npm
  * 2) npm install
- * 3) npm run build
+ * 3) npm run compilación
  *
- * If you change data folder often, you can run it in monitoring mode (it will recompile and update *.h on every file change)
+ * If you change datos carpeta often, you can run it in monitoring mode (it will recompile and actualizar *.h on every archivo change)
  *
  * > npm run dev
  *
  * How it works?
  *
- * It uses NodeJS packages to inline, minify and GZIP files. See writeHtmlGzipped and writeChunks invocations at the bottom of the page.
+ * It uses NodeJS packages to en línea, minify and GZIP files. See writeHtmlGzipped and writeChunks invocations at the bottom of the page.
  */
 
 const fs = require("node:fs");
@@ -23,12 +23,12 @@ const CleanCSS = require("clean-css");
 const minifyHtml = require("html-minifier-terser").minify;
 const packageJson = require("../package.json");
 
-// Export functions for testing
+// Exportar functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
 const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
 
-// \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
+// \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is restablecer
 const wledBanner = `
 \t\x1b[34m  ##  ##      ##        ######    ######
 \t\x1b[34m##      ##    ##      ##        ##  ##  ##
@@ -38,30 +38,30 @@ const wledBanner = `
 \t\t\x1b[36m build script for web UI
 \x1b[0m`;
 
-// Generate build timestamp as UNIX timestamp (seconds since epoch)
+// Generate compilación timestamp as UNIX timestamp (seconds since epoch)
 function generateBuildTime() {
   return Math.floor(Date.now() / 1000);
 }
 
 const singleHeader = `/*
- * Binary array for the Web UI.
- * gzip is used for smaller size and improved speeds.
+ * Binary matriz for the Web UI.
+ * gzip is used for smaller tamaño and improved speeds.
  * 
- * Please see https://kno.wled.ge/advanced/custom-features/#changing-web-ui
- * to find out how to easily modify the web UI source!
+ * Please see https://kno.WLED.ge/advanced/custom-features/#changing-web-ui
+ * to encontrar out how to easily modify the web UI source!
  */
 
-// Automatically generated build time for cache busting (UNIX timestamp)
+// Automatically generated compilación time for caché busting (UNIX timestamp)
 #define WEB_BUILD_TIME ${generateBuildTime()}
  
 `;
 
 const multiHeader = `/*
  * More web UI HTML source arrays.
- * This file is auto generated, please don't make any changes manually.
+ * This archivo is auto generated, please don't make any changes manually.
  *
- * Instead, see https://kno.wled.ge/advanced/custom-features/#changing-web-ui
- * to find out how to easily modify the web UI source!
+ * Instead, see https://kno.WLED.ge/advanced/custom-features/#changing-web-ui
+ * to encontrar out how to easily modify the web UI source!
  */
 `;
 
@@ -200,13 +200,13 @@ async function writeChunks(srcDir, specs, resultFile) {
   fs.writeFileSync(resultFile, src);
 }
 
-// Check if a file is newer than a given time
+// Verificar if a archivo is newer than a given time
 function isFileNewerThan(filePath, time) {
   const stats = fs.statSync(filePath);
   return stats.mtimeMs > time;
 }
 
-// Check if any file in a folder (or its subfolders) is newer than a given time
+// Verificar if any archivo in a carpeta (or its subfolders) is newer than a given time
 function isAnyFileInFolderNewerThan(folderPath, time) {
   const files = fs.readdirSync(folderPath, { withFileTypes: true });
   for (const file of files) {
@@ -221,7 +221,7 @@ function isAnyFileInFolderNewerThan(folderPath, time) {
   return false;
 }
 
-// Check if the web UI is already built
+// Verificar if the web UI is already built
 function isAlreadyBuilt(webUIPath, packageJsonPath = "package.json") {
   let lastBuildTime = Infinity;
 
@@ -252,9 +252,9 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
-//writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
+//writeHtmlGzipped("wled00/datos/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
-//writeHtmlGzipped("wled00/data/edit.htm", "wled00/html_edit.h", 'edit');
+//writeHtmlGzipped("wled00/datos/edit.htm", "wled00/html_edit.h", 'edit');
 
 
 writeChunks(

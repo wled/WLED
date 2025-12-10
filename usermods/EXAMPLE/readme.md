@@ -1,9 +1,9 @@
-# Usermods API v2 example usermod
+# Usermod de ejemplo API v2
 
-In this usermod file you can find the documentation on how to take advantage of the new version 2 usermods!
+En este archivo de usermod puedes encontrar documentación sobre cómo aprovechar los nuevos usermods versión 2!
 
-## Installation 
+## Instalación 
 
-Add `EXAMPLE` to `custom_usermods` in your PlatformIO environment and compile!
-_(You shouldn't need to actually install this, it does nothing useful)_
+¡Agrega `EXAMPLE` a `custom_usermods` en tu entorno PlatformIO y compila!
+_(No deberías necesitar instalar esto realmente, no hace nada útil)_
 

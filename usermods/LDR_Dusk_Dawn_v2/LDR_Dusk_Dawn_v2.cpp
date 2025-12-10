@@ -1,7 +1,7 @@
 #include "wled.h"
 
 #ifndef ARDUINO_ARCH_ESP32
-  // 8266 does not support analogRead on user selectable pins 
+  // 8266 does not support analogRead on usuario selectable pins 
   #error only ESP32 is supported by usermod LDR_DUSK_DAWN
 #endif
 
@@ -36,18 +36,18 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
     }
 
     void loop() {
-      // Only update every 10 seconds
+      // Only actualizar every 10 seconds
       if (millis() - lastMillis > 10000) {      
         if (  (ldrEnabled == true)
            && (ldrPin >= 0) && (digitalPinToAnalogChannel(ldrPin) >= 0) ) { // make sure that pin is valid for analogread()
-          // Default state is off
+          // Predeterminado estado is off
           if (ldrEnabledPreviously == false) {
               applyPreset(ldrOffPreset);
               ldrEnabledPreviously = true;
               ldrLEDState = 0;
           }
 
-          // Get LDR reading and increment counter by number of seconds since last read
+          // Get LDR reading and increment counter by number of seconds since last leer
           ldrReading = analogRead(ldrPin);
           if (ldrReading <= ldrThreshold) {
             ldrOnCount = ldrOnCount + 10;
@@ -75,7 +75,7 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
             }
           }
         } else {
-          // LDR is disabled, reset variables to default
+          // LDR is disabled, restablecer variables to default
           ldrReading = 0;
           ldrOnCount = 0;
           ldrOffCount = 0;
@@ -116,7 +116,7 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
   }
 
   void addToJsonInfo(JsonObject& root) {
-      // If "u" object does not exist yet we need to create it
+      // If "u" object does not exist yet we need to crear it
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
@@ -130,16 +130,16 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
       JsonArray LDR_State = user.createNestedArray("LDR turned LEDs on");
       LDR_State.add(bool(ldrLEDState));
 
-      // Optional debug information:
-      //JsonArray LDR_On_Count = user.createNestedArray("LDR on count");
+      // Optional depuración information:
+      //JsonArray LDR_On_Count = usuario.createNestedArray("LDR on conteo");
       //LDR_On_Count.add(ldrOnCount);
 
-      //JsonArray LDR_Off_Count = user.createNestedArray("LDR off count");
+      //JsonArray LDR_Off_Count = usuario.createNestedArray("LDR off conteo");
       //LDR_Off_Count.add(ldrOffCount);
 
       //bool pinValid = ((ldrPin >= 0) && (digitalPinToAnalogChannel(ldrPin) >= 0));
-      //if (PinManager::getPinOwner(ldrPin) != PinOwner::UM_LDR_DUSK_DAWN) pinValid = false;
-      //JsonArray LDR_valid = user.createNestedArray(F("LDR pin"));
+      //if (PinManager::getPinOwner(ldrPin) != PinOwner::UM_LDR_DUSK_DAWN) pinValid = falso;
+      //JsonArray LDR_valid = usuario.createNestedArray(F("LDR pin"));
       //LDR_valid.add(ldrPin);
       //LDR_valid.add(pinValid ? F(" OK"): F(" invalid"));
   }

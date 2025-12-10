@@ -37,7 +37,7 @@ enum ImprovPacketByte {
 static bool improvWifiScanRunning = false;
 #endif
 
-//blocking function to parse an Improv Serial packet
+//bloqueante función to analizar an Improv Serie packet
 void handleImprovPacket() {
   uint8_t header[6] = {'I','M','P','R','O','V'};
 
@@ -151,9 +151,9 @@ void sendImprovRPCResult(ImprovRPCType type, uint8_t n_strings, const char **str
   char out[256] = {'I','M','P','R','O','V'};
   out[6] = IMPROV_VERSION;
   out[7] = ImprovPacketType::RPC_Response;
-  //out[8] = 2; //Length (set below)
+  //out[8] = 2; //Longitud (set below)
   out[9] = type;
-  //out[10] = 0; //Data len (set below)
+  //out[10] = 0; //Datos len (set below)
   unsigned pos = 11;
 
   for (unsigned s = 0; s < n_strings; s++) {

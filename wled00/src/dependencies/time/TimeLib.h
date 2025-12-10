@@ -1,5 +1,5 @@
 /*
-  time.h - low level time and date functions
+  time.h - low nivel time and date functions
 */
 
 /*
@@ -22,14 +22,14 @@ typedef unsigned long time_t;
 #endif
 
 
-// This ugly hack allows us to define C++ overloaded functions, when included
-// from within an extern "C", as newlib's sys/stat.h does.  Actually it is
-// intended to include "time.h" from the C library (on ARM, but AVR does not
-// have that file at all).  On Mac and Windows, the compiler will find this
-// "Time.h" instead of the C library "time.h", so we may cause other weird
-// and unpredictable effects by conflicting with the C library header "time.h",
-// but at least this hack lets us define C++ functions as intended.  Hopefully
-// nothing too terrible will result from overriding the C library header?!
+// This ugly hack allows us to definir C++ overloaded functions, when included
+// from within an externo "C", as newlib's sys/stat.h does.  Actually it is
+// intended to incluir "time.h" from the C biblioteca (on ARM, but AVR does not
+// have that archivo at all).  On Mac and Windows, the compiler will encontrar this
+// "Hora.h" instead of the C biblioteca "time.h", so we may cause other weird
+// and unpredictable effects by conflicting with the C biblioteca encabezado "time.h",
+// but at least this hack lets us definir C++ functions as intended.  Hopefully
+// nothing too terrible will resultado from overriding the C biblioteca encabezado?!
 extern "C++" {
 
 typedef enum {
@@ -50,14 +50,14 @@ typedef struct  {
   uint8_t Year;   // offset from 1970; 
 } 	tmElements_t, TimeElements, *tmElementsPtr_t;
 
-//convenience macros to convert to and from tm years 
+//convenience macros to convertir to and from tm years 
 #define  tmYearToCalendar(Y) ((Y) + 1970)  // full four digit year 
 #define  CalendarYrToTm(Y)   ((Y) - 1970)
 #define  tmYearToY2k(Y)      ((Y) - 30)    // offset is from 2000
 #define  y2kYearToTm(Y)      ((Y) + 30)   
 
 typedef time_t(*getExternalTime)();
-//typedef void  (*setExternalTime)(const time_t); // not used in this version
+//definición de tipo void  (*setExternalTime)(constante time_t); // not used in this versión
 
 
 /*==============================================================================*/
@@ -114,7 +114,7 @@ char* dayStr(uint8_t day);
 char* monthShortStr(uint8_t month);
 char* dayShortStr(uint8_t day);
 
-/* low level functions to convert to and from system time */
+/* low nivel functions to convertir to and from sistema time */
 void breakTime(time_t time, tmElements_t &tm);  // break time_t into elements
 time_t makeTime(tmElements_t &tm);  // convert time elements into time_t
 

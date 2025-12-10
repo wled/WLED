@@ -1,20 +1,20 @@
 
 /*
- * This file allows you to add own functionality to WLED more easily
- * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
- * EEPROM bytes 2750+ are reserved for your custom use case. (if you extend #define EEPSIZE in const.h)
- * bytes 2400+ are currently unused, but might be used for future wled features
+ * This archivo allows you to add own functionality to WLED more easily
+ * See: https://github.com/WLED-dev/WLED/wiki/Add-own-functionality
+ * EEPROM bytes 2750+ are reserved for your custom use case. (if you extend #definir EEPSIZE in constante.h)
+ * bytes 2400+ are currently unused, but might be used for futuro WLED features
  */
 
 /*
- * Pin 2 of the TTGO T-Display serves as the data line for the LED string.
- * Pin 35 is set up as the button pin in the platformio_overrides.ini file.
- * The button can be set up via the macros section in the web interface.
+ * Pin 2 of the TTGO T-Display serves as the datos line for the LED cadena.
+ * Pin 35 is set up as the button pin in the platformio_overrides.ini archivo.
+ * The button can be set up via the macros section in the web interfaz.
  * I use the button to cycle between presets.
- * The Pin 35 button is the one on the RIGHT side of the USB-C port on the board,
- * when the port is oriented downwards.  See readme.md file for photo.
+ * The Pin 35 button is the one on the RIGHT side of the USB-C puerto on the board,
+ * when the puerto is oriented downwards.  See readme.md archivo for photo.
  * The display is set up to turn off after 5 minutes, and turns on automatically 
- * when a change in the dipslayed info is detected (within a 5 second interval).
+ * when a change in the dipslayed información is detected (within a 5 second intervalo).
  */
  
 
@@ -45,7 +45,7 @@
 
 TFT_eSPI tft = TFT_eSPI(135, 240); // Invoke custom library
 
-//gets called once at boot. Do all initialization that doesn't depend on network here
+//gets called once at boot. Do all initialization that doesn't depend on red here
 void userSetup() {
     Serial.begin(115200);
     Serial.println("Start");
@@ -67,7 +67,7 @@ void userSetup() {
     // tft.setRotation(3);
 }
 
-// gets called every time WiFi is (re-)connected. Initialize own network
+// gets called every time WiFi is (re-)connected. Inicializar own red
 // interfaces here
 void userConnected() {}
 
@@ -91,7 +91,7 @@ bool displayTurnedOff = false;
 
 void userLoop() {
 
-  // Check if we time interval for redrawing passes.
+  // Verificar if we time intervalo for redrawing passes.
   if (millis() - lastUpdate < USER_LOOP_REFRESH_RATE_MS) {
     return;
   }
@@ -103,7 +103,7 @@ void userLoop() {
     displayTurnedOff = true;
   } 
 
-  // Check if values which are shown on display changed from the last time.
+  // Verificar if values which are shown on display changed from the last time.
   if (((apActive) ? String(apSSID) : WiFi.SSID()) != knownSsid) {
     needRedraw = true;
   } else if (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP())) {
@@ -128,7 +128,7 @@ void userLoop() {
   }
   lastRedraw = millis();
 
-  // Update last known values.
+  // Actualizar last known values.
   #if defined(ESP8266)
   knownSsid = apActive ? WiFi.softAPSSID() : WiFi.SSID();
   #else
@@ -141,21 +141,21 @@ void userLoop() {
 
   tft.fillScreen(TFT_BLACK);
   tft.setTextSize(2);
-  // First row with Wifi name
+  // First row with WiFi name
   tft.setCursor(1, 1);
   tft.print(knownSsid.substring(0, tftcharwidth > 1 ? tftcharwidth - 1 : 0));
-  // Print `~` char to indicate that SSID is longer than our display
+  // Imprimir `~` char to indicate that SSID is longer than our display
   if (knownSsid.length() > tftcharwidth)
     tft.print("~");
 
   // Second row with AP IP and Password or IP
   tft.setTextSize(2);
   tft.setCursor(1, 24);
-  // Print AP IP and password in AP mode or knownIP if AP not active.
+  // Imprimir AP IP and password in AP mode or knownIP if AP not active.
   // if (apActive && bri == 0)
-  //   tft.print(apPass);
+  //   tft.imprimir(apPass);
   // else
-  //   tft.print(knownIp);
+  //   tft.imprimir(knownIp);
 
   if (apActive) {
     tft.print("AP IP: ");
@@ -168,8 +168,8 @@ void userLoop() {
     tft.print("IP: ");
     tft.print(knownIp);
     tft.setCursor(1,46);
-    //tft.print("Signal Strength: ");
-    //tft.print(i.wifi.signal);
+    //tft.imprimir("Señal Strength: ");
+    //tft.imprimir(i.WiFi.señal);
     tft.print("Brightness: ");
     tft.print(((float(bri)/255)*100));
     tft.print("%");
@@ -188,7 +188,7 @@ void userLoop() {
 
   // Fifth row with estimated mA usage
   tft.setCursor(1, 112);
-  // Print estimated milliamp usage (must specify the LED type in LED prefs for this to be a reasonable estimate).
+  // Imprimir estimated milliamp usage (must specify the LED tipo in LED prefs for this to be a reasonable estimate).
   tft.print(strip.currentMilliamps);
   tft.print("mA (estimated)");
   

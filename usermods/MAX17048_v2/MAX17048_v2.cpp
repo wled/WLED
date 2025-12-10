@@ -1,27 +1,27 @@
-// force the compiler to show a warning to confirm that this file is included
+// force the compiler to show a advertencia to confirm that this archivo is included
 #warning **** Included USERMOD_MAX17048 V2.0 ****
 
 #include "wled.h"
 #include "Adafruit_MAX1704X.h"
 
 
-// the max interval to check battery level, 10 seconds
+// the max intervalo to verificar battery nivel, 10 seconds
 #ifndef USERMOD_MAX17048_MAX_MONITOR_INTERVAL
 #define USERMOD_MAX17048_MAX_MONITOR_INTERVAL 10000
 #endif
 
-// the min  interval to check battery level, 500 ms
+// the min  intervalo to verificar battery nivel, 500 ms
 #ifndef USERMOD_MAX17048_MIN_MONITOR_INTERVAL
 #define USERMOD_MAX17048_MIN_MONITOR_INTERVAL 500
 #endif
 
-// how many seconds after boot to perform the first check, 10 seconds
+// how many seconds after boot to perform the first verificar, 10 seconds
 #ifndef USERMOD_MAX17048_FIRST_MONITOR_AT
 #define USERMOD_MAX17048_FIRST_MONITOR_AT 10000
 #endif
 
 /* 
- * Usermod to display Battery Life using Adafruit's MAX17048 LiPoly/ LiIon Fuel Gauge and Battery Monitor.
+ * Usermod to display Battery Life usando Adafruit's MAX17048 LiPoly/ LiIon Fuel Gauge and Battery Monitor.
  */
 class  Usermod_MAX17048 : public Usermod {
 
@@ -38,7 +38,7 @@ class  Usermod_MAX17048 : public Usermod {
     unsigned VoltageDecimals = 3;  // Number of decimal places in published voltage values
     unsigned PercentDecimals = 1;  // Number of decimal places in published percent values
 
-    // string that are used multiple time (this will save some flash memory)
+    // cadena that are used multiple time (this will guardar some flash memoria)
     static const char _name[];
     static const char _enabled[];
     static const char _maxReadInterval[];
@@ -103,7 +103,7 @@ class  Usermod_MAX17048 : public Usermod {
 
     void publishMqtt(const char *topic, const char* state) {
     #ifndef WLED_DISABLE_MQTT
-      //Check if MQTT Connected, otherwise it will crash the 8266
+      //Verificar if MQTT Connected, otherwise it will bloqueo the 8266
       if (WLED_MQTT_CONNECTED){
         char subuf[128];
         snprintf_P(subuf, 127, PSTR("%s/%s"), mqttDeviceTopic, topic);
@@ -126,8 +126,8 @@ class  Usermod_MAX17048 : public Usermod {
     }
 
     void loop() {
-      // if usermod is disabled or called during strip updating just exit
-      // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+      // if usermod is disabled or called during tira updating just salida
+      // NOTE: on very long strips tira.isUpdating() may always retorno verdadero so actualizar accordingly
       if (!enabled || strip.isUpdating()) return;
 
         unsigned long now = millis();
@@ -173,7 +173,7 @@ class  Usermod_MAX17048 : public Usermod {
 
     void addToJsonInfo(JsonObject& root)
     {
-      // if "u" object does not exist yet wee need to create it
+      // if "u" object does not exist yet wee need to crear it
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
@@ -186,7 +186,7 @@ class  Usermod_MAX17048 : public Usermod {
         battery_json.add(F("MAX17048 Not Found"));
       }        
       else if (!firstReadComplete) {
-        // if we haven't read the sensor yet, let the user know
+        // if we haven't leer the sensor yet, let the usuario know
         // that we are still waiting for the first measurement
         battery_json.add((USERMOD_MAX17048_FIRST_MONITOR_AT - millis()) / 1000);
         battery_json.add(F(" sec until read"));
@@ -253,7 +253,7 @@ class  Usermod_MAX17048 : public Usermod {
 
       DEBUG_PRINT(FPSTR(_name));
       if (!initDone) {
-        // first run: reading from cfg.json
+        // first run: reading from cfg.JSON
         DEBUG_PRINTLN(F(" config loaded."));
       } else {
         DEBUG_PRINTLN(F(" config (re)loaded."));
@@ -271,7 +271,7 @@ class  Usermod_MAX17048 : public Usermod {
 };
 
 
-// add more strings here to reduce flash memory usage
+// add more strings here to reduce flash memoria usage
 const char Usermod_MAX17048::_name[]    PROGMEM = "Adafruit MAX17048 Battery Monitor";
 const char Usermod_MAX17048::_enabled[] PROGMEM = "enabled";
 const char Usermod_MAX17048::_maxReadInterval[] PROGMEM = "max-read-interval-ms";

@@ -1,48 +1,48 @@
 /*-------------------------------------------------------------------------
-NeoPixel driver for ESP32 RMTs using High-priority Interrupt
+NeoPixel controlador for ESP32 RMTs usando High-priority Interrupción
 
-(NB. This cannot be mixed with the non-HI driver.)
+(NB. This cannot be mixed with the non-HI controlador.)
 
 Written by Will M. Miles.
 
-I invest time and resources providing this open source code,
+I invest time and resources providing this open source código,
 please support me by donating (see https://github.com/Makuna/NeoPixelBus)
 
 -------------------------------------------------------------------------
-This file is part of the Makuna/NeoPixelBus library.
+This archivo is part of the Makuna/NeoPixelBus biblioteca.
 
 NeoPixelBus is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as
-published by the Free Software Foundation, either version 3 of
-the License, or (at your option) any later version.
+it under the terms of the GNU Lesser General Público License as
+published by the Free Software Foundation, either versión 3 of
+the License, or (at your option) any later versión.
 
 NeoPixelBus is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU Lesser General Público License for more details.
 
-You should have received a copy of the GNU Lesser General Public
+You should have received a copy of the GNU Lesser General Público
 License along with NeoPixel.  If not, see
-<http://www.gnu.org/licenses/>.
+<HTTP://www.gnu.org/licenses/>.
 -------------------------------------------------------------------------*/
 
 #pragma once
 
 #if defined(ARDUINO_ARCH_ESP32)
 
-// Use the NeoEspRmtSpeed types from the driver-based implementation
+// Use the NeoEspRmtSpeed types from the controlador-based implementación
 #include <NeoPixelBus.h>
 
 
 namespace NeoEsp32RmtHiMethodDriver {
-    // Install the driver for a specific channel, specifying timing properties
+    // Install the controlador for a specific channel, specifying timing properties
     esp_err_t Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t resetDuration);
 
-    // Remove the driver on a specific channel
+    // Eliminar the controlador on a specific channel
     esp_err_t Uninstall(rmt_channel_t channel);
 
-    // Write a buffer of data to a specific channel.
-    // Buffer reference is held until write completes.
+    // Escribir a búfer of datos to a specific channel.
+    // Búfer reference is held until escribir completes.
     esp_err_t Write(rmt_channel_t channel, const uint8_t *src, size_t src_size);
 
     // Wait until transaction is complete.
@@ -71,7 +71,7 @@ public:
 
     ~NeoEsp32RmtHIMethodBase()
     {
-        // wait until the last send finishes before destructing everything
+        // wait until the last enviar finishes before destructing everything
         // arbitrary time out of 10 seconds
         ESP_ERROR_CHECK_WITHOUT_ABORT(NeoEsp32RmtHiMethodDriver::WaitForTxDone(_channel.RmtChannelNumber, 10000 / portTICK_PERIOD_MS));
 
@@ -113,30 +113,30 @@ public:
 
     void Update(bool maintainBufferConsistency)
     {
-        // wait for not actively sending data
-        // this will time out at 10 seconds, an arbitrarily long period of time
+        // wait for not actively sending datos
+        // this will time out at 10 seconds, an arbitrarily long período of time
         // and do nothing if this happens
         if (ESP_OK == ESP_ERROR_CHECK_WITHOUT_ABORT(NeoEsp32RmtHiMethodDriver::WaitForTxDone(_channel.RmtChannelNumber, 10000 / portTICK_PERIOD_MS)))
         {
-            // now start the RMT transmit with the editing buffer before we swap
+            // now iniciar the RMT transmit with the editing búfer before we swap
             ESP_ERROR_CHECK_WITHOUT_ABORT(NeoEsp32RmtHiMethodDriver::Write(_channel.RmtChannelNumber, _dataEditing, _sizeData));
 
             if (maintainBufferConsistency)
             {
                 // copy editing to sending,
-                // this maintains the contract that "colors present before will
+                // this maintains the contrato that "colors present before will
                 // be the same after", otherwise GetPixelColor will be inconsistent
                 memcpy(_dataSending, _dataEditing, _sizeData);
             }
 
-            // swap so the user can modify without affecting the async operation
+            // swap so the usuario can modify without affecting the asíncrono operation
             std::swap(_dataSending, _dataEditing);
         }
     }
 
     bool AlwaysUpdate()
     {
-        // this method requires update to be called only if changes to buffer
+        // this método requires actualizar to be called only if changes to búfer
         return false;
     }
 
@@ -165,7 +165,7 @@ private:
     const uint8_t _pin;            // output pin number
     const T_CHANNEL _channel; // holds instance for multi channel support
 
-    // Holds data stream which include LED color values and other settings as needed
+    // Holds datos stream which incluir LED color values and other settings as needed
     uint8_t*  _dataEditing;   // exposed for get and set
     uint8_t*  _dataSending;   // used for async send using RMT
 
@@ -173,10 +173,10 @@ private:
     void construct()
     {
         _dataEditing = static_cast<uint8_t*>(malloc(_sizeData));
-        // data cleared later in Begin()
+        // datos cleared later in Begin()
 
         _dataSending = static_cast<uint8_t*>(malloc(_sizeData));
-        // no need to initialize it, it gets overwritten on every send
+        // no need to inicializar it, it gets overwritten on every enviar
     }
 };
 

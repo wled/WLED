@@ -2,7 +2,7 @@
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
-//#define NPB_CONF_4STEP_CADENCE
+//#definir NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
 
 //Hardware SPI Pins
@@ -13,7 +13,7 @@
 #define P_32_VS_MOSI   23
 #define P_32_VS_CLK    18
 
-//The dirty list of possible bus types. Quite a lot...
+//The dirty lista of possible bus types. Quite a lot...
 #define I_NONE 0
 //ESP8266 RGB
 #define I_8266_U0_NEO_3 1
@@ -76,7 +76,7 @@
 #define I_8266_DM_SM16825_5 47
 #define I_8266_BB_SM16825_5 48
 
-/*** ESP32 Neopixel methods ***/
+/*** ESP32 NeoPixel methods ***/
 //RGB
 #define I_32_RN_NEO_3 1
 #define I_32_I2_NEO_3 2
@@ -138,7 +138,7 @@
 // In the following NeoGammaNullMethod can be replaced with NeoGammaWLEDMethod to perform Gamma correction implicitly
 // unfortunately that may apply Gamma correction to pre-calculated palettes which is undesired
 
-/*** ESP8266 Neopixel methods ***/
+/*** ESP8266 NeoPixel methods ***/
 #ifdef ESP8266
 //RGB
 #define B_8266_U0_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart0Ws2813Method> //3 chan, esp8266, gpio1
@@ -202,7 +202,7 @@
 #define B_8266_BB_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266BitBangWs2813Method>
 #endif
 
-/*** ESP32 Neopixel methods ***/
+/*** ESP32 NeoPixel methods ***/
 #ifdef ARDUINO_ARCH_ESP32
 // C3: I2S0 and I2S1 methods not supported (has one I2S bus)
 // S2: I2S0 methods supported (single & parallel), I2S1 methods not supported (has one I2S bus)
@@ -210,7 +210,7 @@
 // https://github.com/Makuna/NeoPixelBus/blob/b32f719e95ef3c35c46da5c99538017ef925c026/src/internal/Esp32_i2s.h#L4
 // https://github.com/Makuna/NeoPixelBus/blob/b32f719e95ef3c35c46da5c99538017ef925c026/src/internal/NeoEsp32RmtMethod.h#L857
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // S3 will always use LCD parallel output
+  // S3 will always use LCD parallel salida
   typedef X8Ws2812xMethod X1Ws2812xMethod;
   typedef X8Sk6812Method X1Sk6812Method;
   typedef X8400KbpsMethod X1400KbpsMethod;
@@ -244,7 +244,7 @@
   typedef NeoEsp32I2s1Tm1914Method X1Tm1914Method;
 #endif
 
-// RMT driver selection
+// RMT controlador selection
 #if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
 #include <NeoEsp32RmtHIMethod.h>
 #define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
@@ -254,7 +254,7 @@
 
 //RGB
 #define B_32_RN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtMethod(Ws2812x)> // ESP32, S2, S3, C3
-//#define B_32_IN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32I2sNWs2812xMethod> // ESP32 (dynamic I2S selection)
+//#definir B_32_IN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32I2sNWs2812xMethod> // ESP32 (dynamic I2S selection)
 #define B_32_I2_NEO_3 NeoPixelBus<NeoGrbFeature, X1Ws2812xMethod> // ESP32, S2, S3 (automatic I2S selection, see typedef above)
 #define B_32_IP_NEO_3 NeoPixelBus<NeoGrbFeature, X8Ws2812xMethod> // parallel I2S (ESP32, S2, S3)
 //RGBW
@@ -336,7 +336,7 @@
 #define toRGBW32(c) (RGBW32((c>>40)&0xFF, (c>>24)&0xFF, (c>>8)&0xFF, (c>>56)&0xFF))
 #define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 
-//handles pointer type conversion for all possible bus types
+//handles pointer tipo conversion for all possible bus types
 class PolyBus {
   private:
     static bool _useParallelI2S;
@@ -345,7 +345,7 @@ class PolyBus {
     static inline void setParallelI2S1Output(bool b = true) { _useParallelI2S = b; }
     static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
 
-  // initialize SPI bus speed for DotStar methods
+  // inicializar SPI bus velocidad for DotStar methods
   template <class T>
   static void beginDotStar(void* busPtr, int8_t sck, int8_t miso, int8_t mosi, int8_t ss, uint16_t clock_kHz /* 0 == use default */) {
     T dotStar_strip = static_cast<T>(busPtr);
@@ -358,7 +358,7 @@ class PolyBus {
     if (clock_kHz) dotStar_strip->SetMethodSettings(NeoSpiSettings((uint32_t)clock_kHz*1000));
   }
 
-  // Begin & initialize the PixelSettings for TM1814 strips.
+  // Begin & inicializar the PixelSettings for TM1814 strips.
   template <class T>
   static void beginTM1814(void* busPtr) {
     T tm1814_strip = static_cast<T>(busPtr);
@@ -461,7 +461,7 @@ class PolyBus {
       case I_32_I2_TM1914_3: if (_useParallelI2S) beginTM1914<B_32_IP_TM1914_3*>(busPtr); else beginTM1914<B_32_I2_TM1914_3*>(busPtr); break;
       case I_32_I2_SM16825_5: if (_useParallelI2S) (static_cast<B_32_IP_SM16825_5*>(busPtr))->Begin(); else (static_cast<B_32_I2_SM16825_5*>(busPtr))->Begin(); break;
       #endif
-      // ESP32 can (and should, to avoid inadvertantly driving the chip select signal) specify the pins used for SPI, but only in begin()
+      // ESP32 can (and should, to avoid inadvertantly driving the chip select señal) specify the pins used for SPI, but only in begin()
       case I_HS_DOT_3: beginDotStar<B_HS_DOT_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
       case I_HS_LPD_3: beginDotStar<B_HS_LPD_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
       case I_HS_LPO_3: beginDotStar<B_HS_LPO_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
@@ -487,7 +487,7 @@ class PolyBus {
     #endif
 
     #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
+    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to posición 0 (channel 0) so we need to subtract 1 for correct RMT allocation
     if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
     #endif
 
@@ -1171,7 +1171,7 @@ class PolyBus {
       case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize(); break;
     #endif
     #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses (front + back + small system managed RMT)
+      // RMT buses (front + back + small sistema managed RMT)
       case I_32_RN_NEO_3: size = (static_cast<B_32_RN_NEO_3*>(busPtr))->PixelsSize()*2; break;
       case I_32_RN_NEO_4: size = (static_cast<B_32_RN_NEO_4*>(busPtr))->PixelsSize()*2; break;
       case I_32_RN_400_3: size = (static_cast<B_32_RN_400_3*>(busPtr))->PixelsSize()*2; break;
@@ -1241,7 +1241,7 @@ class PolyBus {
       case I_8266_U0_SM16825_5: // fallthrough
       case I_8266_U1_SM16825_5: // fallthrough
       case I_8266_BB_SM16825_5: size = (size + 2*count)*2;   break; // 16 bit 5 channels
-      // DMA methods have front + DMA buffer = ((1+(3+1)) * channels; exact value is a bit of mistery - needs a dig into NPB)
+      // DMA methods have front + DMA búfer = ((1+(3+1)) * channels; exact valor is a bit of mistery - needs a dig into NPB)
       case I_8266_DM_NEO_3    : // fallthrough
       case I_8266_DM_400_3    : // fallthrough
       case I_8266_DM_TM2_3    : // fallthrough
@@ -1255,7 +1255,7 @@ class PolyBus {
       case I_8266_DM_2805_5   : size = (size + 2*count)*5;   break;
       case I_8266_DM_SM16825_5: size = (size + 2*count)*2*5; break;
     #else
-      // RMT buses (1x front and 1x back buffer, does not include small RMT buffer)
+      // RMT buses (1x front and 1x back búfer, does not incluir small RMT búfer)
       case I_32_RN_NEO_4    : // fallthrough
       case I_32_RN_TM1_4    : size = (size + count)*2;     break; // 4 channels
       case I_32_RN_UCS_3    : size *= 2*2;                 break; // 16bit
@@ -1263,7 +1263,7 @@ class PolyBus {
       case I_32_RN_FW6_5    : // fallthrough
       case I_32_RN_2805_5   : size = (size + 2*count)*2;   break; // 5 channels
       case I_32_RN_SM16825_5: size = (size + 2*count)*2*2; break; // 16bit, 5 channels
-      // I2S1 bus or paralell I2S1 buses (1x front, does not include DMA buffer which is front*cadence, a bit(?) more for LCD)
+      // I2S1 bus or paralell I2S1 buses (1x front, does not incluir DMA búfer which is front*cadence, a bit(?) more for LCD)
       #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I2_NEO_3    : // fallthrough
       case I_32_I2_400_3    : // fallthrough
@@ -1283,7 +1283,7 @@ class PolyBus {
     return size;
   }
 
-  //gives back the internal type index (I_XX_XXX_X above) for the input
+  //gives back the internal tipo índice (I_XX_XXX_X above) for the entrada
   static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
@@ -1291,7 +1291,7 @@ class PolyBus {
       #ifdef ESP8266
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
-      // temporary hack to limit use of hardware SPI to a single SPI peripheral (HSPI): only allow ESP32 hardware serial on segment 0
+      // temporary hack to límite use of hardware SPI to a single SPI peripheral (HSPI): only allow ESP32 hardware serial on segmento 0
       // SPI global variable is normally linked to VSPI on ESP32 (or FSPI C3, S3)
       if (!num) isHSPI = true;
       #endif
@@ -1354,7 +1354,7 @@ class PolyBus {
       #elif defined(CONFIG_IDF_TARGET_ESP32C3)
       // On ESP32-C3 only the first 2 RMT channels are usable for transmitting
       if (num > 1) return I_NONE;
-      //if (num > 1) offset = 1; // I2S not supported yet (only 1 I2S)
+      //if (num > 1) desplazamiento = 1; // I2S not supported yet (only 1 I2S)
       #elif defined(CONFIG_IDF_TARGET_ESP32S3)
       // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
       if (_useParallelI2S) {
@@ -1364,7 +1364,7 @@ class PolyBus {
         if (num > 3) return I_NONE; // do not use single I2S (as it is not supported)
       }
       #else
-      // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
+      // estándar ESP32 has 8 RMT and x1/x8 I2S1 channels
       if (_useParallelI2S) {
         if (num > 15) return I_NONE;
         if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT

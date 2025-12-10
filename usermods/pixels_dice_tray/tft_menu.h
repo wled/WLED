@@ -1,5 +1,5 @@
 /**
- * Code for using the 128x128 LCD and two buttons on the T-QT Pro as a GUI.
+ * Código for usando the 128x128 LCD and two buttons on the T-QT Pro as a GUI.
  */
 #pragma once
 
@@ -28,9 +28,9 @@ const uint8_t LIGHTNING_ICON_8X8[] PROGMEM = {
 TFT_eSPI tft = TFT_eSPI(TFT_WIDTH, TFT_HEIGHT);
 
 /**
- * Print text with box surrounding it.
+ * Imprimir texto with box surrounding it.
  * 
- * @param txt Text to draw
+ * @param txt Texto to dibujar
  * @param color Color for box lines
  */
 static void PrintLnInBox(const char* txt, uint32_t color) {
@@ -45,8 +45,8 @@ static void PrintLnInBox(const char* txt, uint32_t color) {
 }
 
 /**
- * Override the current colors for the selected segment to the defaults for the
- * selected die effect.
+ * Anular the current colors for the selected segmento to the defaults for the
+ * selected die efecto.
  */
 void SetDefaultColors(uint8_t mode) {
   Segment& seg = strip.getFirstSelectedSeg();
@@ -64,7 +64,7 @@ void SetDefaultColors(uint8_t mode) {
 }
 
 /**
- * Get the pointer to the custom2 value for the current LED segment. This is
+ * Get the pointer to the custom2 valor for the current LED segmento. This is
  * used to set the target roll for relevant effects.
  */
 static uint8_t* GetCurrentRollTarget() {
@@ -72,7 +72,7 @@ static uint8_t* GetCurrentRollTarget() {
 }
 
 /**
- * Class for drawing a histogram of roll results.
+ * Clase for drawing a histogram of roll results.
  */
 class RollCountWidget {
  private:
@@ -120,12 +120,12 @@ class RollCountWidget {
     tft.drawRect(xs, ys, bar_width * 20 + 2, max_bar_height + 2, border_color);
     for (size_t i = 0; i < 20; i++) {
       if (roll_counts[i] > 0) {
-        // Scale bar by highest count.
+        // Escala bar by highest conteo.
         uint16_t bar_height = round(float(roll_counts[i]) / float(max_count) *
                                     float(max_bar_height));
         // Add space between bars
         uint16_t padding = (bar_width > 1) ? 1 : 0;
-        // Need to start from top of bar and draw down
+        // Need to iniciar from top of bar and dibujar down
         tft.fillRect(xs + 1 + bar_width * i,
                      ys + 1 + max_bar_height - bar_height, bar_width - padding,
                      bar_height, bar_color);
@@ -136,7 +136,7 @@ class RollCountWidget {
 
 enum class ButtonType { SINGLE, DOUBLE, LONG };
 
-// Base class for different menu pages.
+// Base clase for different menu pages.
 class MenuBase {
  public:
   /**
@@ -145,7 +145,7 @@ class MenuBase {
   virtual void Update(const DiceUpdate& dice_update) = 0;
 
   /**
-   * Draw menu to the screen.
+   * Dibujar menu to the screen.
    */
   virtual void Draw(const DiceUpdate& dice_update, bool force_redraw) = 0;
 
@@ -161,7 +161,7 @@ class MenuBase {
 DiceSettings* MenuBase::settings = nullptr;
 
 /**
- * Menu to show connection status and roll histograms.
+ * Menu to show conexión estado and roll histograms.
  */
 class DiceStatusMenu : public MenuBase {
  public:
@@ -174,7 +174,7 @@ class DiceStatusMenu : public MenuBase {
     for (size_t i = 0; i < MAX_NUM_DICE; i++) {
       const auto die_id = dice_update.connected_die_ids[i];
       const auto connected = die_id != 0;
-      // Redraw if connection status changed.
+      // Redraw if conexión estado changed.
       die_updated[i] |= die_id != last_die_ids[i];
       last_die_ids[i] = die_id;
 
@@ -207,7 +207,7 @@ class DiceStatusMenu : public MenuBase {
       const int16_t ys = SECTION_HEIGHT * i;
       const auto die_id = dice_update.connected_die_ids[i];
       const auto connected = die_id != 0;
-      // Screen updates might be slow, yield in case network task needs to do
+      // Screen updates might be slow, yield in case red tarea needs to do
       // work.
       yield();
       bool battery_update =
@@ -277,7 +277,7 @@ class DiceStatusMenu : public MenuBase {
 
 /**
  * Some limited controls for setting the die effects on the current LED
- * segment.
+ * segmento.
  */
 class EffectMenu : public MenuBase {
  public:
@@ -286,7 +286,7 @@ class EffectMenu : public MenuBase {
   void Update(const DiceUpdate& dice_update) override {}
 
   void Draw(const DiceUpdate& dice_update, bool force_redraw) override {
-    // NOTE: This doesn't update automatically if the effect is updated on the
+    // NOTE: This doesn't actualizar automatically if the efecto is updated on the
     // web UI and vice-versa.
     if (force_redraw) {
       tft.fillScreen(TFT_BLACK);
@@ -315,10 +315,10 @@ class EffectMenu : public MenuBase {
   }
 
   /**
-   * Button 0 navigates up and down the settings for the effect.
-   * Button 1 changes the value for the selected settings.
-   * Long pressing a button resets the effect parameters to their defaults for
-   * the current die effect.
+   * Button 0 navigates up and down the settings for the efecto.
+   * Button 1 changes the valor for the selected settings.
+   * Long pressing a button resets the efecto parameters to their defaults for
+   * the current die efecto.
    */
   void HandleButton(ButtonType type, uint8_t b) override {
     Segment& seg = strip.getFirstSelectedSeg();
@@ -332,7 +332,7 @@ class EffectMenu : public MenuBase {
       seg.setMode(DIE_LED_MODES[mode_idx]);
     } else {
       if (type == ButtonType::LONG) {
-        // Need to set mode to different value so defaults are actually loaded.
+        // Need to set mode to different valor so defaults are actually loaded.
         seg.setMode(0);
         seg.setMode(DIE_LED_MODES[mode_idx], true);
         SetDefaultColors(DIE_LED_MODES[mode_idx]);
@@ -361,7 +361,7 @@ class EffectMenu : public MenuBase {
 constexpr std::array<uint8_t, 3> EffectMenu::DIE_LED_MODE_NUM_FIELDS;
 
 /**
- * Menu for setting the roll label and some info for that roll type.
+ * Menu for setting the roll label and some información for that roll tipo.
  */
 class InfoMenu : public MenuBase {
  public:
@@ -408,7 +408,7 @@ class InfoMenu : public MenuBase {
 };
 
 /**
- * Interface for the rest of the app to update the menus.
+ * Interfaz for the rest of the app to actualizar the menus.
  */
 class MenuController {
  public:
@@ -438,12 +438,12 @@ class MenuController {
   }
 
   /**
-   * Double clicking navigates between menus. Button 0 goes down, and button 1
+   * Doble clicking navigates between menus. Button 0 goes down, and button 1
    * goes up with wrapping.
    */
   void HandleButton(ButtonType type, uint8_t b) {
     force_redraw = true;
-    // Switch menus with double click
+    // Conmutador menus with doble click
     if (ButtonType::DOUBLE == type) {
       if (b == 0) {
         current_index =

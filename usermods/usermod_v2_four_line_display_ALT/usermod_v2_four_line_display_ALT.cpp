@@ -4,7 +4,7 @@
 //
 // Inspired by the usermod_v2_four_line_display
 //
-// v2 usermod for using 128x32 or 128x64 i2c
+// v2 usermod for usando 128x32 or 128x64 I2C
 // OLED displays to provide a four line display
 // for WLED.
 //
@@ -12,12 +12,12 @@
 // * This Usermod works best, by far, when coupled
 //   with RotaryEncoderUI ALT Usermod.
 //
-// Make sure to enable NTP and set your time zone in WLED Config | Time.
+// Make sure to habilitar NTP and set your time zona in WLED Configuración | Hora.
 //
-// If display does not work or looks corrupted check the
+// If display does not work or looks corrupted verificar the
 // constructor reference:
 // https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-// or check the gallery:
+// or verificar the gallery:
 // https://github.com/olikraus/u8g2/wiki/gallery
 
 
@@ -26,7 +26,7 @@ static TaskHandle_t Display_Task = nullptr;
 void DisplayTaskCode(void * parameter);
 #endif
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char FourLineDisplayUsermod::_name[]            PROGMEM = "4LineDisplay";
 const char FourLineDisplayUsermod::_enabled[]         PROGMEM = "enabled";
 const char FourLineDisplayUsermod::_contrast[]        PROGMEM = "contrast";
@@ -174,7 +174,7 @@ void FourLineDisplayUsermod::showTime() {
       if (AmPmHour == 0) { AmPmHour  = 12; }
     }
     if (knownHour != hourCurrent) {
-      // only update date when hour changes
+      // only actualizar date when hour changes
       sprintf_P(lineBuffer, PSTR("%s %2d "), monthShortStr(month(localTime)), day(localTime));
       draw2x2String(2, lineHeight==1 ? 0 : lineHeight, lineBuffer); // adjust for 8 line displays, draw month and day
     }
@@ -196,7 +196,7 @@ void FourLineDisplayUsermod::showTime() {
 }
 
 /**
- * Enable sleep (turn the display off) or clock mode.
+ * Habilitar sleep (turn the display off) or clock mode.
  */
 void FourLineDisplayUsermod::sleepOrClock(bool enabled) {
   if (enabled) {
@@ -213,11 +213,11 @@ void FourLineDisplayUsermod::sleepOrClock(bool enabled) {
 }
 
 // gets called once at boot. Do all initialization that doesn't depend on
-// network here
+// red here
 void FourLineDisplayUsermod::setup() {
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
-  // check if pins are -1 and disable usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
+  // verificar if pins are -1 and deshabilitar usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
   if (isSPI) {
     if (spi_sclk<0 || spi_mosi<0 || ioPin[0]<0 || ioPin[1]<0 || ioPin[1]<0) {
       type = NONE;
@@ -260,7 +260,7 @@ void FourLineDisplayUsermod::setup() {
   initDone = true;
 }
 
-// gets called every time WiFi is (re-)connected. Initialize own network
+// gets called every time WiFi is (re-)connected. Inicializar own red
 // interfaces here
 void FourLineDisplayUsermod::connected() {
   knownSsid = WiFi.SSID();       //apActive ? apSSID : WiFi.SSID(); //apActive ? WiFi.softAPSSID() :
@@ -269,7 +269,7 @@ void FourLineDisplayUsermod::connected() {
 }
 
 /**
- * Da loop.
+ * Da bucle.
  */
 void FourLineDisplayUsermod::loop() {
 #if !(defined(ARDUINO_ARCH_ESP32) && defined(FLD_ESP32_USE_THREADS))
@@ -292,7 +292,7 @@ void FourLineDisplayUsermod::redraw(bool forceRedraw) {
   if (type == NONE || !enabled) return;
   if (overlayUntil > 0) {
     if (now >= overlayUntil) {
-      // Time to display the overlay has elapsed.
+      // Hora to display the overlay has elapsed.
       overlayUntil = 0;
       forceRedraw = true;
     } else {
@@ -311,7 +311,7 @@ void FourLineDisplayUsermod::redraw(bool forceRedraw) {
     return;
   }
 
-  // Check if values which are shown on display changed from the last time.
+  // Verificar if values which are shown on display changed from the last time.
   if (forceRedraw) {
     needRedraw = true;
     clear();
@@ -355,7 +355,7 @@ void FourLineDisplayUsermod::redraw(bool forceRedraw) {
     // Nothing to change.
     // Turn off display after 1 minutes with no change.
     if (sleepMode && !displayTurnedOff && (millis() - lastRedraw > screenTimeout)) {
-      // We will still check if there is a change in redraw()
+      // We will still verificar if there is a change in redraw()
       // and turn it back on if it changed.
       clear();
       sleepOrClock(true);
@@ -370,7 +370,7 @@ void FourLineDisplayUsermod::redraw(bool forceRedraw) {
   // Turn the display back on
   wakeDisplay();
 
-  // Update last known values.
+  // Actualizar last known values.
   knownBrightness      = bri;
   knownMode            = effectCurrent;
   knownPalette         = effectPalette;
@@ -466,16 +466,16 @@ void FourLineDisplayUsermod::drawStatusIcons() {
 }
 
 /**
- * marks the position of the arrow showing
+ * marks the posición of the arrow showing
  * the current setting being changed
- * pass line and colum info
+ * pass line and colum información
  */
 void FourLineDisplayUsermod::setMarkLine(byte newMarkLineNum, byte newMarkColNum) {
   markLineNum = newMarkLineNum;
   markColNum = newMarkColNum;
 }
 
-//Draw the arrow for the current setting being changed
+//Dibujar the arrow for the current setting being changed
 void FourLineDisplayUsermod::drawArrow() {
 #if defined(ARDUINO_ARCH_ESP32) && defined(FLD_ESP32_USE_THREADS)
   unsigned long now = millis();
@@ -487,7 +487,7 @@ void FourLineDisplayUsermod::drawArrow() {
   lockRedraw = false;
 }
 
-//Display the current effect or palette (desiredEntry)
+//Display the current efecto or palette (desiredEntry)
 // on the appropriate line (row).
 void FourLineDisplayUsermod::showCurrentEffectOrPalette(int inputEffPal, const char *qstring, uint8_t row) {
 #if defined(ARDUINO_ARCH_ESP32) && defined(FLD_ESP32_USE_THREADS)
@@ -498,14 +498,14 @@ void FourLineDisplayUsermod::showCurrentEffectOrPalette(int inputEffPal, const c
   char lineBuffer[MAX_JSON_CHARS];
   if (overlayUntil == 0) {
     lockRedraw = true;
-    // Find the mode name in JSON
+    // Encontrar the mode name in JSON
     unsigned printedChars = extractModeName(inputEffPal, qstring, lineBuffer, MAX_JSON_CHARS-1);
     if (lineBuffer[0]=='*' && lineBuffer[1]==' ') {
-      // remove "* " from dynamic palettes
+      // eliminar "* " from dynamic palettes
       for (unsigned i=2; i<=printedChars; i++) lineBuffer[i-2] = lineBuffer[i]; //include '\0'
       printedChars -= 2;
     } else if ((lineBuffer[0]==' ' && lineBuffer[1]>127)) {
-      // remove note symbol from effect names
+      // eliminar note symbol from efecto names
       for (unsigned i=5; i<=printedChars; i++) lineBuffer[i-5] = lineBuffer[i]; //include '\0'
       printedChars -= 5;
     }
@@ -556,8 +556,8 @@ void FourLineDisplayUsermod::showCurrentEffectOrPalette(int inputEffPal, const c
 
 /**
  * If there screen is off or in clock is displayed,
- * this will return true. This allows us to throw away
- * the first input from the rotary encoder but
+ * this will retorno verdadero. This allows us to throw away
+ * the first entrada from the rotary encoder but
  * to wake up the screen.
  */
 bool FourLineDisplayUsermod::wakeDisplay() {
@@ -579,7 +579,7 @@ bool FourLineDisplayUsermod::wakeDisplay() {
 }
 
 /**
- * Allows you to show one line and a glyph as overlay for a period of time.
+ * Allows you to show one line and a glyph as overlay for a período of time.
  * Clears the screen and prints.
  * Used in Rotary Encoder usermod.
  */
@@ -592,7 +592,7 @@ void FourLineDisplayUsermod::overlay(const char* line1, long showHowLong, byte g
   lockRedraw = true;
   // Turn the display back on
   if (!wakeDisplay()) clear();
-  // Print the overlay
+  // Imprimir the overlay
   if (glyphType>0 && glyphType<255) {
     if (lineHeight == 2) drawGlyph(5, 0, glyphType, u8x8_4LineDisplay_WLED_icons_6x6, true); // use 3x3 font with draw2x2Glyph() if flash runs short and comment out 6x6 font
     else                 drawGlyph(6, 0, glyphType, u8x8_4LineDisplay_WLED_icons_3x3, true);
@@ -607,7 +607,7 @@ void FourLineDisplayUsermod::overlay(const char* line1, long showHowLong, byte g
 }
 
 /**
- * Allows you to show Akemi WLED logo overlay for a period of time.
+ * Allows you to show Akemi WLED logo overlay for a período of time.
  * Clears the screen and prints.
  */
 void FourLineDisplayUsermod::overlayLogo(long showHowLong) {
@@ -619,7 +619,7 @@ void FourLineDisplayUsermod::overlayLogo(long showHowLong) {
   lockRedraw = true;
   // Turn the display back on
   if (!wakeDisplay()) clear();
-  // Print the overlay
+  // Imprimir the overlay
   if (lineHeight == 2) {
     //add a bit of randomness
     switch (millis()%3) {
@@ -670,9 +670,9 @@ void FourLineDisplayUsermod::overlayLogo(long showHowLong) {
 }
 
 /**
- * Allows you to show two lines as overlay for a period of time.
+ * Allows you to show two lines as overlay for a período of time.
  * Clears the screen and prints.
- * Used in Auto Save usermod
+ * Used in Auto Guardar usermod
  */
 void FourLineDisplayUsermod::overlay(const char* line1, const char* line2, long showHowLong) {
 #if defined(ARDUINO_ARCH_ESP32) && defined(FLD_ESP32_USE_THREADS)
@@ -683,7 +683,7 @@ void FourLineDisplayUsermod::overlay(const char* line1, const char* line2, long 
   lockRedraw = true;
   // Turn the display back on
   if (!wakeDisplay()) clear();
-  // Print the overlay
+  // Imprimir the overlay
   if (line1) {
     String buf = line1;
     center(buf, getCols());
@@ -709,17 +709,17 @@ void FourLineDisplayUsermod::networkOverlay(const char* line1, long showHowLong)
   String line;
   // Turn the display back on
   if (!wakeDisplay()) clear();
-  // Print the overlay
+  // Imprimir the overlay
   if (line1) {
     line = line1;
     center(line, getCols());
     drawString(0, 0, line.c_str());
   }
-  // Second row with Wifi name
+  // Second row with WiFi name
   line = knownSsid.substring(0, getCols() > 1 ? getCols() - 2 : 0);
   if (line.length() < getCols()) center(line, getCols());
   drawString(0, lineHeight, line.c_str());
-  // Print `~` char to indicate that SSID is longer, than our display
+  // Imprimir `~` char to indicate that SSID is longer, than our display
   if (knownSsid.length() > getCols()) {
     drawString(getCols() - 1, 0, "~");
   }
@@ -741,8 +741,8 @@ void FourLineDisplayUsermod::networkOverlay(const char* line1, long showHowLong)
 
 
 /**
- * handleButton() can be used to override default button behaviour. Returning true
- * will prevent button working in a default way.
+ * handleButton() can be used to anular default button behaviour. Returning verdadero
+ * will prevent button funcionamiento in a default way.
  * Replicating button.cpp
  */
 bool FourLineDisplayUsermod::handleButton(uint8_t b) {
@@ -772,9 +772,9 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     buttonPressedBefore = true;
 
     if (now - buttonPressedTime > 600) { //long press
-      //TODO: handleButton() handles button 0 without preset in a different way for double click
-      //so we need to override with same behaviour
-      //DEBUG_PRINTLN(F("4LD action."));
+      //TODO: handleButton() handles button 0 without preset in a different way for doble click
+      //so we need to anular with same behaviour
+      //DEBUG_PRINTLN(F("4LD acción."));
       //if (!buttonLongPressed) longPressAction(0);
       buttonLongPressed = true;
       return false;
@@ -792,8 +792,8 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     buttonWaitTime = 0;
 
     if (!buttonLongPressed) { //short press
-      // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
-      //TODO: handleButton() handles button 0 without preset in a different way for double click
+      // if this is second lanzamiento within 350ms it is a doble press (buttonWaitTime!=0)
+      //TODO: handleButton() handles button 0 without preset in a different way for doble click
       if (doublePress) {
         networkOverlay(PSTR("NETWORK INFO"),7000);
         handled = true;
@@ -804,13 +804,13 @@ bool FourLineDisplayUsermod::handleButton(uint8_t b) {
     buttonPressedBefore = false;
     buttonLongPressed = false;
   }
-  // if 350ms elapsed since last press/release it is a short press
+  // if 350ms elapsed since last press/lanzamiento it is a short press
   if (buttonWaitTime && now - buttonWaitTime > 350 && !buttonPressedBefore) {
     buttonWaitTime = 0;
-    //TODO: handleButton() handles button 0 without preset in a different way for double click
-    //so we need to override with same behaviour
+    //TODO: handleButton() handles button 0 without preset in a different way for doble click
+    //so we need to anular with same behaviour
     //shortPressAction(0);
-    //handled = false;
+    //handled = falso;
   }
   return handled;
 }
@@ -827,13 +827,13 @@ void FourLineDisplayUsermod::onUpdateBegin(bool init) {
   if (init && Display_Task) {
     vTaskSuspend(Display_Task);   // update is about to begin, disable task to prevent crash
   } else {
-    // update has failed or create task requested
+    // actualizar has failed or crear tarea requested
     if (Display_Task)
       vTaskResume(Display_Task);
     else
       xTaskCreatePinnedToCore(
         [](void * par) {                  // Function to implement the task
-          // see https://www.freertos.org/vtaskdelayuntil.html
+          // see https://www.freertos.org/vtaskdelayuntil.HTML
           const TickType_t xFrequency = REFRESH_RATE_MS * portTICK_PERIOD_MS / 2;
           TickType_t xLastWakeTime = xTaskGetTickCount();
           for(;;) {
@@ -855,30 +855,30 @@ void FourLineDisplayUsermod::onUpdateBegin(bool init) {
 }
 
 /*
-  * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-  * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+  * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+  * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
   * Below it is shown how this could be used for e.g. a light sensor
   */
 //void FourLineDisplayUsermod::addToJsonInfo(JsonObject& root) {
-  //JsonObject user = root["u"];
-  //if (user.isNull()) user = root.createNestedObject("u");
-  //JsonArray data = user.createNestedArray(F("4LineDisplay"));
-  //data.add(F("Loaded."));
+  //JsonObject usuario = root["u"];
+  //if (usuario.isNull()) usuario = root.createNestedObject("u");
+  //JsonArray datos = usuario.createNestedArray(F("4LineDisplay"));
+  //datos.add(F("Loaded."));
 //}
 
 /*
-  * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
 //void FourLineDisplayUsermod::addToJsonState(JsonObject& root) {
 //}
 
 /*
-  * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
 //void FourLineDisplayUsermod::readFromJsonState(JsonObject& root) {
-//  if (!initDone) return;  // prevent crash on boot applyPreset()
+//  if (!initDone) retorno;  // prevent bloqueo on boot applyPreset()
 //}
 
 void FourLineDisplayUsermod::appendConfigData() {
@@ -900,16 +900,16 @@ void FourLineDisplayUsermod::appendConfigData() {
 }
 
 /*
-  * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+  * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
   * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-  * If you want to force saving the current state, use serializeConfig() in your loop().
+  * If you want to force saving the current estado, use serializeConfig() in your bucle().
   *
-  * CAUTION: serializeConfig() will initiate a filesystem write operation.
+  * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
   * It might cause the LEDs to stutter and will cause flash wear if called too often.
-  * Use it sparingly and always in the loop, never in network callbacks!
+  * Use it sparingly and always in the bucle, never in red callbacks!
   *
   * addToConfig() will also not yet add your setting to one of the settings pages automatically.
-  * To make that work you still have to add the setting to the HTML, xml.cpp and set.cpp manually.
+  * To make that work you still have to add the setting to the HTML, XML.cpp and set.cpp manually.
   *
   * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
   */
@@ -935,11 +935,11 @@ void FourLineDisplayUsermod::addToConfig(JsonObject& root) {
 }
 
 /*
-  * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+  * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
   * This is called by WLED when settings are loaded (currently this only happens once immediately after boot)
   *
-  * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-  * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+  * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+  * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
   * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
   */
 bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
@@ -975,7 +975,7 @@ bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
 
   DEBUG_PRINT(FPSTR(_name));
   if (!initDone) {
-    // first run: reading from cfg.json
+    // first run: reading from cfg.JSON
     type = newType;
     DEBUG_PRINTLN(F(" config loaded."));
   } else {
@@ -1007,7 +1007,7 @@ bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
           else if (!PinManager::allocateMultiplePins(pins, 3, PinOwner::UM_FourLineDisplay)) { newType=NONE; }
         }
       } else {
-        // just I2C type changed
+        // just I2C tipo changed
       }
       type = newType;
       switch (type) {
@@ -1063,7 +1063,7 @@ bool FourLineDisplayUsermod::readFromConfig(JsonObject& root) {
     if (needsRedraw && !wakeDisplay()) redraw(true);
     else overlayLogo(3500);
   }
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return !top[FPSTR(_contrastFix)].isNull();
 }
 

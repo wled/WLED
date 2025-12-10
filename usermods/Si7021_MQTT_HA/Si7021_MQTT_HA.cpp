@@ -31,7 +31,7 @@ class Si7021_MQTT_HA : public Usermod
     bool haAutoDiscovery = true;
     bool sendAdditionalSensors = true;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _sendAdditionalSensors[];
@@ -51,7 +51,7 @@ class Si7021_MQTT_HA : public Usermod
       mqttDewPointTopic = String(mqttDeviceTopic) + "/si7021_dew_point";
       mqttAbsoluteHumidityTopic = String(mqttDeviceTopic) + "/si7021_absolute_humidity";
 
-      // Update and publish sensor data
+      // Actualizar and publish sensor datos
       _updateSensorData();
       _publishSensorData();
 
@@ -108,10 +108,10 @@ class Si7021_MQTT_HA : public Usermod
       sensorTemperature = si7021.readTemperature();
       sensorHumidity = si7021.readHumidity();
 
-      // Serial.print("Si7021_MQTT_HA: Temperature: ");
-      // Serial.print(sensorTemperature, 2);
-      // Serial.print("\tHumidity: ");
-      // Serial.print(sensorHumidity, 2);
+      // Serie.imprimir("Si7021_MQTT_HA: Temperature: ");
+      // Serie.imprimir(sensorTemperature, 2);
+      // Serie.imprimir("\tHumidity: ");
+      // Serie.imprimir(sensorHumidity, 2);
 
       if (sendAdditionalSensors) {
         EnvironmentCalculations::TempUnit envTempUnit(EnvironmentCalculations::TempUnit_Celsius);
@@ -119,15 +119,15 @@ class Si7021_MQTT_HA : public Usermod
         sensorDewPoint = EnvironmentCalculations::DewPoint(sensorTemperature, sensorHumidity, envTempUnit);
         sensorAbsoluteHumidity = EnvironmentCalculations::AbsoluteHumidity(sensorTemperature, sensorHumidity, envTempUnit);
 
-        // Serial.print("\tHeat Index: ");
-        // Serial.print(sensorHeatIndex, 2);
-        // Serial.print("\tDew Point: ");
-        // Serial.print(sensorDewPoint, 2);
-        // Serial.print("\tAbsolute Humidity: ");
-        // Serial.println(sensorAbsoluteHumidity, 2);
+        // Serie.imprimir("\tHeat Índice: ");
+        // Serie.imprimir(sensorHeatIndex, 2);
+        // Serie.imprimir("\tDew Point: ");
+        // Serie.imprimir(sensorDewPoint, 2);
+        // Serie.imprimir("\tAbsolute Humidity: ");
+        // Serie.println(sensorAbsoluteHumidity, 2);
       }
       // else
-      //   Serial.println("");
+      //   Serie.println("");
     }
 
     void _publishSensorData()
@@ -205,7 +205,7 @@ class Si7021_MQTT_HA : public Usermod
           if (!mqttInitialized)
             _initializeMqtt();
 
-          // Update and publish sensor data
+          // Actualizar and publish sensor datos
           _updateSensorData();
           _publishSensorData();
         }
@@ -222,7 +222,7 @@ class Si7021_MQTT_HA : public Usermod
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char Si7021_MQTT_HA::_name[]                   PROGMEM = "Si7021 MQTT (Home Assistant)";
 const char Si7021_MQTT_HA::_enabled[]                PROGMEM = "enabled";
 const char Si7021_MQTT_HA::_sendAdditionalSensors[]  PROGMEM = "Send Dew Point, Abs. Humidity and Heat Index";

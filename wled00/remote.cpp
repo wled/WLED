@@ -42,7 +42,7 @@ static uint32_t last_seq = UINT32_MAX;
 static int brightnessBeforeNightMode = NIGHT_MODE_DEACTIVATED;
 static int16_t ESPNowButton = -1; // set in callback if new button value is received
 
-// Pulled from the IR Remote logic but reduced to 10 steps with a constant of 3
+// Pulled from the IR Remote logic but reduced to 10 steps with a constante of 3
 static const byte brightnessSteps[] = {
   6, 9, 14, 22, 33, 50, 75, 113, 170, 255
 };
@@ -67,10 +67,10 @@ static bool resetNightMode() {
   return true;
 }
 
-// increment `bri` to the next `brightnessSteps` value
+// increment `bri` to the next `brightnessSteps` valor
 static void brightnessUp() {
   if (nightModeActive()) return;
-  // dumb incremental search is efficient enough for so few items
+  // dumb incremental buscar is efficient enough for so few items
   for (unsigned index = 0; index < numBrightnessSteps; ++index) {
     if (brightnessSteps[index] > bri) {
       bri = brightnessSteps[index];
@@ -80,10 +80,10 @@ static void brightnessUp() {
   stateUpdated(CALL_MODE_BUTTON);
 }
 
-// decrement `bri` to the next `brightnessSteps` value
+// decrement `bri` to the next `brightnessSteps` valor
 static void brightnessDown() {
   if (nightModeActive()) return;
-  // dumb incremental search is efficient enough for so few items
+  // dumb incremental buscar is efficient enough for so few items
   for (int index = numBrightnessSteps - 1; index >= 0; --index) {
     if (brightnessSteps[index] < bri) {
       bri = brightnessSteps[index];
@@ -114,7 +114,7 @@ void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
 
-// this function follows the same principle as decodeIRJson()
+// this función follows the same principle as decodeIRJson()
 static bool remoteJson(int button)
 {
   char objKey[10];
@@ -127,12 +127,12 @@ static bool remoteJson(int button)
   unsigned long start = millis();
   while (strip.isUpdating() && millis()-start < ESPNOW_BUSWAIT_TIMEOUT) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
 
-  // attempt to read command from remote.json
+  // attempt to leer command from remote.JSON
   readObjectFromFile(PSTR("/remote.json"), objKey, pDoc);
   JsonObject fdo = pDoc->as<JsonObject>();
   if (fdo.isNull()) {
     // the received button does not exist
-    //if (!WLED_FS.exists(F("/remote.json"))) errorFlag = ERR_FS_RMLOAD; //warn if file itself doesn't exist
+    //if (!WLED_FS.exists(F("/remote.JSON"))) errorFlag = ERR_FS_RMLOAD; //warn if archivo itself doesn't exist
     releaseJSONBufferLock();
     return parsed;
   }
@@ -160,7 +160,7 @@ static bool remoteJson(int button)
     } else {
       // HTTP API command
       String apireq = "win"; apireq += '&';                        // reduce flash string usage
-      //if (cmdStr.indexOf("~") || fdo["rpt"]) lastValidCode = code; // repeatable action
+      //if (cmdStr.indexOf("~") || fdo["rpt"]) lastValidCode = código; // repeatable acción
       if (!cmdStr.startsWith(apireq)) cmdStr = apireq + cmdStr;    // if no "win&" prefix
       if (!irApplyToAllSelected && cmdStr.indexOf(F("SS="))<0) {
         char tmp[10];
@@ -181,7 +181,7 @@ static bool remoteJson(int button)
   return parsed;
 }
 
-// Callback function that will be executed when data is received from a linked remote
+// Devolución de llamada función that will be executed when datos is received from a linked remote
 void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
 
@@ -206,7 +206,7 @@ void handleWiZdata(uint8_t *incomingData, size_t len) {
   last_seq = cur_seq;
 }
 
-// process ESPNow button data (acesses FS, should not be called while update to avoid glitches)
+// proceso ESPNow button datos (acesses FS, should not be called while actualizar to avoid glitches)
 void handleRemote() {
   if(ESPNowButton >= 0) {
   if (!remoteJson(ESPNowButton))

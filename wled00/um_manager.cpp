@@ -3,13 +3,13 @@
  * Registration and management utility for v2 usermods
  */
 
-// Global usermod instance list
+// Global usermod instancia lista
 // Table begin and end references
-// Zero-length arrays -- so they'll get assigned addresses, but consume no flash
+// Zero-longitud arrays -- so they'll get assigned addresses, but consume no flash
 // The numeric suffix ensures they're put in the right place; the linker script will sort them
-// We stick them in the '.dtors' segment because it's always included by the linker scripts
-// even though it never gets called.  Who calls exit() in an embedded program anyways?
-// If someone ever does, though, it'll explode as these aren't function pointers.
+// We stick them in the '.dtors' segmento because it's always included by the linker scripts
+// even though it never gets called.  Who calls salida() in an embedded program anyways?
+// If someone ever does, though, it'll explode as these aren't función pointers.
 static Usermod * const _usermod_table_begin[0] __attribute__((__section__(".dtors.tbl.usermods.0"), unused)) = {};
 static Usermod * const _usermod_table_end[0] __attribute__((__section__(".dtors.tbl.usermods.99"), unused)) = {};
 
@@ -89,7 +89,7 @@ Usermod* UsermodManager::lookup(uint16_t mod_id) {
 
 size_t UsermodManager::getModCount() { return getCount(); };
 
-/* Usermod v2 interface shim for oappend */
+/* Usermod v2 interfaz shim for oappend */
 Print* Usermod::oappend_shim = nullptr;
 
 void Usermod::appendConfigData(Print& settingsScript) {

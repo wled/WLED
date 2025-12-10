@@ -9,23 +9,23 @@
 #include <driver/adc_deprecated.h>
 #include <driver/adc_types_deprecated.h>
 #endif
-// type of i2s_config_t.SampleRate was changed from "int" to "unsigned" in IDF 4.4.x
+// tipo of i2s_config_t.SampleRate was changed from "int" to "unsigned" in IDF 4.4.x
 #define SRate_t uint32_t
 #else
 #define SRate_t int
 #endif
 
-//#include <driver/i2s_std.h>
-//#include <driver/i2s_pdm.h>
-//#include <driver/i2s_tdm.h>
-//#include <driver/gpio.h>
+//#incluir <controlador/i2s_std.h>
+//#incluir <controlador/i2s_pdm.h>
+//#incluir <controlador/i2s_tdm.h>
+//#incluir <controlador/GPIO.h>
 
-// see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/chip-series-comparison.html#related-documents
-// and https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#overview-of-all-modes
+// see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/chip-series-comparison.HTML#related-documents
+// and https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/API-reference/peripherals/i2s.HTML#overview-of-all-modes
 #if defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(ESP8266) || defined(ESP8265)
   // there are two things in these MCUs that could lead to problems with audio processing:
-  // * no floating point hardware (FPU) support - FFT uses float calculations. If done in software, a strong slow-down can be expected (between 8x and 20x)
-  // * single core, so FFT task might slow down other things like LED updates
+  // * no floating point hardware (FPU) support - FFT uses flotante calculations. If done in software, a strong slow-down can be expected (between 8x and 20x)
+  // * single core, so FFT tarea might slow down other things like LED updates
   #if !defined(SOC_I2S_NUM) || (SOC_I2S_NUM < 1)
   #error This audio reactive usermod does not support ESP32-C2 or ESP32-C3.
   #else
@@ -33,21 +33,21 @@
   #endif
 #endif
 
-/* ToDo: remove. ES7243 is controlled via compiler defines
+/* ToDo: eliminar. ES7243 is controlled via compiler defines
    Until this configuration is moved to the webinterface
 */
 
 // if you have problems to get your microphone work on the left channel, uncomment the following line
-//#define I2S_USE_RIGHT_CHANNEL    // (experimental) define this to use right channel (digital mics only)
+//#definir I2S_USE_RIGHT_CHANNEL    // (experimental) definir this to use right channel (digital mics only)
 
-// Uncomment the line below to utilize ADC1 _exclusively_ for I2S sound input.
-// benefit: analog mic inputs will be sampled contiously -> better response times and less "glitches"
-// WARNING: this option WILL lock-up your device in case that any other analogRead() operation is performed; 
-//          for example if you want to read "analog buttons"
-//#define I2S_GRAB_ADC1_COMPLETELY // (experimental) continuously sample analog ADC microphone. WARNING will cause analogRead() lock-up
+// Uncomment the line below to utilize ADC1 _exclusively_ for I2S sound entrada.
+// benefit: analog mic inputs will be sampled contiously -> better respuesta times and less "glitches"
+// ADVERTENCIA: this option WILL bloqueo-up your dispositivo in case that any other analogRead() operation is performed; 
+//          for example if you want to leer "analog buttons"
+//#definir I2S_GRAB_ADC1_COMPLETELY // (experimental) continuously sample analog ADC microphone. ADVERTENCIA will cause analogRead() bloqueo-up
 
-// data type requested from the I2S driver - currently we always use 32bit
-//#define I2S_USE_16BIT_SAMPLES   // (experimental) define this to request 16bit - more efficient but possibly less compatible
+// datos tipo requested from the I2S controlador - currently we always use 32bit
+//#definir I2S_USE_16BIT_SAMPLES   // (experimental) definir this to solicitud 16bit - more efficient but possibly less compatible
 
 #ifdef I2S_USE_16BIT_SAMPLES
 #define I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_16BIT
@@ -57,7 +57,7 @@
 #undef  I2S_SAMPLE_DOWNSCALE_TO_16BIT
 #else
 #define I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_32BIT
-//#define I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_24BIT 
+//#definir I2S_SAMPLE_RESOLUTION I2S_BITS_PER_SAMPLE_24BIT 
 #define I2S_datatype int32_t
 #define I2S_unsigned_datatype uint32_t
 #define I2S_data_size I2S_BITS_PER_CHAN_32BIT
@@ -65,25 +65,25 @@
 #endif
 
 /* There are several (confusing) options  in IDF 4.4.x:
- * I2S_CHANNEL_FMT_RIGHT_LEFT, I2S_CHANNEL_FMT_ALL_RIGHT and I2S_CHANNEL_FMT_ALL_LEFT stands for stereo mode, which means two channels will transport different data.
- * I2S_CHANNEL_FMT_ONLY_RIGHT and I2S_CHANNEL_FMT_ONLY_LEFT they are mono mode, both channels will only transport same data.
+ * I2S_CHANNEL_FMT_RIGHT_LEFT, I2S_CHANNEL_FMT_ALL_RIGHT and I2S_CHANNEL_FMT_ALL_LEFT stands for stereo mode, which means two channels will transport different datos.
+ * I2S_CHANNEL_FMT_ONLY_RIGHT and I2S_CHANNEL_FMT_ONLY_LEFT they are mono mode, both channels will only transport same datos.
  * I2S_CHANNEL_FMT_MULTIPLE means TDM channels, up to 16 channel will available, and they are stereo as default.
- * if you want to receive two channels, one is the actual data from microphone and another channel is suppose to receive 0, it's different data in two channels, you need to choose I2S_CHANNEL_FMT_RIGHT_LEFT in this case.
+ * if you want to recibir two channels, one is the actual datos from microphone and another channel is suppose to recibir 0, it's different datos in two channels, you need to choose I2S_CHANNEL_FMT_RIGHT_LEFT in this case.
 */
 
 #if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 4, 6))
 // espressif bug: only_left has no sound, left and right are swapped 
-// https://github.com/espressif/esp-idf/issues/9635  I2S mic not working since 4.4 (IDFGH-8138)
+// https://github.com/espressif/esp-idf/issues/9635  I2S mic not funcionamiento since 4.4 (IDFGH-8138)
 // https://github.com/espressif/esp-idf/issues/8538  I2S channel selection issue? (IDFGH-6918)
-// https://github.com/espressif/esp-idf/issues/6625  I2S: left/right channels are swapped for read (IDFGH-4826)
+// https://github.com/espressif/esp-idf/issues/6625  I2S: left/right channels are swapped for leer (IDFGH-4826)
 #ifdef I2S_USE_RIGHT_CHANNEL
 #define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
 #define I2S_MIC_CHANNEL_TEXT "right channel only (work-around swapped channel bug in IDF 4.4)."
 #define I2S_PDM_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_RIGHT
 #define I2S_PDM_MIC_CHANNEL_TEXT "right channel only"
 #else
-//#define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ALL_LEFT
-//#define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_RIGHT_LEFT
+//#definir I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ALL_LEFT
+//#definir I2S_MIC_CHANNEL I2S_CHANNEL_FMT_RIGHT_LEFT
 #define I2S_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_RIGHT
 #define I2S_MIC_CHANNEL_TEXT "left channel only (work-around swapped channel bug in IDF 4.4)."
 #define I2S_PDM_MIC_CHANNEL I2S_CHANNEL_FMT_ONLY_LEFT
@@ -105,49 +105,49 @@
 #endif
 
 
-/* Interface class
-   AudioSource serves as base class for all microphone types
-   This enables accessing all microphones with one single interface
-   which simplifies the caller code
+/* Interfaz clase
+   AudioSource serves as base clase for all microphone types
+   This enables accessing all microphones with one single interfaz
+   which simplifies the caller código
 */
 class AudioSource {
   public:
     /* All public methods are virtual, so they can be overridden
        Everything but the destructor is also removed, to make sure each mic
-       Implementation provides its version of this function
+       Implementación provides its versión of this función
     */
     virtual ~AudioSource() {};
 
-    /* Initialize
-       This function needs to take care of anything that needs to be done
+    /* Inicializar
+       This función needs to take care of anything that needs to be done
        before samples can be obtained from the microphone.
     */
     virtual void initialize(int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) = 0;
 
     /* Deinitialize
-       Release all resources and deactivate any functionality that is used
+       Lanzamiento all resources and deactivate any functionality that is used
        by this microphone
     */
     virtual void deinitialize() = 0;
 
     /* getSamples
-       Read num_samples from the microphone, and store them in the provided
-       buffer
+       Leer num_samples from the microphone, and store them in the provided
+       búfer
     */
     virtual void getSamples(float *buffer, uint16_t num_samples) = 0;
 
-    /* check if the audio source driver was initialized successfully */
+    /* verificar if the audio source controlador was initialized successfully */
     virtual bool isInitialized(void) {return(_initialized);}
 
-    /* identify Audiosource type - I2S-ADC or I2S-digital */
+    /* identify Audiosource tipo - I2S-ADC or I2S-digital */
     typedef enum{Type_unknown=0, Type_I2SAdc=1, Type_I2SDigital=2} AudioSourceType;
     virtual AudioSourceType getType(void) {return(Type_I2SDigital);}               // default is "I2S digital source" - ADC type overrides this method
  
   protected:
-    /* Post-process audio sample - currently on needed for I2SAdcSource*/
+    /* Post-proceso audio sample - currently on needed for I2SAdcSource*/
     virtual I2S_datatype postProcessSample(I2S_datatype sample_in) {return(sample_in);}   // default method can be overriden by instances (ADC) that need sample postprocessing
 
-    // Private constructor, to make sure it is not callable except from derived classes
+    // Privado constructor, to make sure it is not callable except from derived classes
     AudioSource(SRate_t sampleRate, int blockSize, float sampleScale) :
       _sampleRate(sampleRate),
       _blockSize(blockSize),
@@ -162,7 +162,7 @@ class AudioSource {
 };
 
 /* Basic I2S microphone source
-   All functions are marked virtual, so derived classes can replace them
+   All functions are marked virtual, so derived classes can reemplazar them
 */
 class I2SSource : public AudioSource {
   public:
@@ -215,13 +215,13 @@ class I2SSource : public AudioSource {
         #endif
         #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         // This is an I2S PDM microphone, these microphones only use a clock and
-        // data line, to make it simpler to debug, use the WS pin as CLK and SD pin as DATA
-        // example from espressif: https://github.com/espressif/esp-idf/blob/release/v4.4/examples/peripherals/i2s/i2s_audio_recorder_sdcard/main/i2s_recorder_main.c
+        // datos line, to make it simpler to depuración, use the WS pin as CLK and SD pin as DATOS
+        // example from espressif: https://github.com/espressif/esp-idf/blob/lanzamiento/v4.4/examples/peripherals/i2s/i2s_audio_recorder_sdcard/principal/i2s_recorder_main.c
 
         // note to self: PDM has known bugs on S3, and does not work on C3 
         //  * S3: PDM sample rate only at 50% of expected rate: https://github.com/espressif/esp-idf/issues/9893
         //  * S3: I2S PDM has very low amplitude: https://github.com/espressif/esp-idf/issues/8660
-        //  * C3: does not support PDM to PCM input. SoC would allow PDM RX, but there is no hardware to directly convert to PCM so it will not work. https://github.com/espressif/esp-idf/issues/8796
+        //  * C3: does not support PDM to PCM entrada. SoC would allow PDM RX, but there is no hardware to directly convertir to PCM so it will not work. https://github.com/espressif/esp-idf/issues/8796
 
         _config.mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM); // Change mode to pdm if clock pin not provided. PDM is not supported on ESP32-S2. PDM RX not supported on ESP32-C3
         _config.channel_format =I2S_PDM_MIC_CHANNEL;                             // seems that PDM mono mode always uses left channel.
@@ -310,15 +310,15 @@ class I2SSource : public AudioSource {
       if (_pinConfig.ws_io_num   != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.ws_io_num,   PinOwner::UM_Audioreactive);
       if (_pinConfig.data_in_num != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.data_in_num, PinOwner::UM_Audioreactive);
       if (_pinConfig.bck_io_num  != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.bck_io_num,  PinOwner::UM_Audioreactive);
-      // Release the master clock pin
+      // Lanzamiento the master clock pin
       if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
     }
 
     virtual void getSamples(float *buffer, uint16_t num_samples) {
       if (_initialized) {
         esp_err_t err;
-        size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
-        I2S_datatype newSamples[num_samples]; /* Intermediary sample storage */
+        size_t bytes_read = 0;        /* Contador variable to verificar if we actually got enough datos */
+        I2S_datatype newSamples[num_samples]; /* Intermediary sample almacenamiento */
 
         err = i2s_read(I2S_NUM_0, (void *)newSamples, sizeof(newSamples), &bytes_read, portMAX_DELAY);
         if (err != ESP_OK) {
@@ -326,13 +326,13 @@ class I2SSource : public AudioSource {
           return;
         }
 
-        // For correct operation, we need to read exactly sizeof(samples) bytes from i2s
+        // For correct operation, we need to leer exactly sizeof(samples) bytes from i2s
         if (bytes_read != sizeof(newSamples)) {
           DEBUGSR_PRINTF("Failed to get enough samples: wanted: %d read: %d\n", sizeof(newSamples), bytes_read);
           return;
         }
 
-        // Store samples in sample buffer and update DC offset
+        // Store samples in sample búfer and actualizar DC desplazamiento
         for (int i = 0; i < num_samples; i++) {
 
           newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
@@ -355,7 +355,7 @@ class I2SSource : public AudioSource {
   // MCLK routing by writing registers is not needed any more with IDF > 4.4.0
   #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
     // this way of MCLK routing only works on "classic" ESP32
-      /* Enable the mclk routing depending on the selected mclk pin (ESP32: only 0,1,3)
+      /* Habilitar the mclk routing depending on the selected mclk pin (ESP32: only 0,1,3)
           Only I2S_NUM_0 is supported
       */
       if (mclkPin == GPIO_NUM_0) {
@@ -379,7 +379,7 @@ class I2SSource : public AudioSource {
 
 /* ES7243 Microphone
    This is an I2S microphone that requires initialization over
-   I2C before I2S data can be received
+   I2C before I2S datos can be received
 */
 class ES7243 : public I2SSource {
   private:
@@ -419,7 +419,7 @@ public:
         return;
       }
 
-      // First route mclk, then configure ADC over I2C, then configure I2S
+      // First route mclk, then configurar ADC over I2C, then configurar I2S
       _es7243InitAdc();
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
     }
@@ -429,9 +429,9 @@ public:
     }
 };
 
-/* ES8388 Sound Module
+/* ES8388 Sound Módulo
    This is an I2S sound processing unit that requires initialization over
-   I2C before I2S data can be received. 
+   I2C before I2S datos can be received. 
 */
 class ES8388Source : public I2SSource {
   private:
@@ -452,8 +452,8 @@ class ES8388Source : public I2SSource {
     }
 
     void _es8388InitAdc() {
-      // https://dl.radxa.com/rock2/docs/hw/ds/ES8388%20user%20Guide.pdf Section 10.1
-      // http://www.everest-semi.com/pdf/ES8388%20DS.pdf Better spec sheet, more clear. 
+      // https://dl.radxa.com/rock2/docs/hw/ds/ES8388%20user%20Guide.pdf Sección 10.1
+      // HTTP://www.everest-semi.com/pdf/ES8388%20DS.pdf Better spec sheet, more limpiar. 
       // https://docs.google.com/spreadsheets/d/1CN3MvhkcPVESuxKyx1xRYqfUit5hOdsG45St9BCUm-g/edit#gid=0 generally
       // Sets ADC to around what AudioReactive expects, and loops line-in to line-out/headphone for monitoring.
       // Registries are decimal, settings are binary as that's how everything is listed in the docs
@@ -469,7 +469,7 @@ class ES8388Source : public I2SSource {
       _es8388I2cWrite( 4,0b11111100); // Power down DAC, Turn on LOUT1 and ROUT1 and LOUT2 and ROUT2 power
       _es8388I2cWrite( 2,0b01000000); // Power up DEM and STM and undocumented bit for "turn on line-out amp"
 
-      // #define use_es8388_mic
+      // #definir use_es8388_mic
 
     #ifdef use_es8388_mic
       // The mics *and* line-in are BOTH connected to LIN2/RIN2 on the AudioKit
@@ -479,11 +479,11 @@ class ES8388Source : public I2SSource {
       // the mics on the AudioKit WILL pick up sound even in line-in mode. 
       // TL;DR: Don't use the AudioKit for anything, use the LyraT. 
       //
-      // The LyraT does a reasonable job with mic input as configured below.
+      // The LyraT does a reasonable trabajo with mic entrada as configured below.
 
       // Pick one of these. If you have to use the mics, use a LyraT over an AudioKit if you can:
       _es8388I2cWrite(10,0b00000000); // Use Lin1/Rin1 for ADC input (mic on LyraT)
-      //_es8388I2cWrite(10,0b01010000); // Use Lin2/Rin2 for ADC input (mic *and* line-in on AudioKit)
+      //_es8388I2cWrite(10,0b01010000); // Use Lin2/Rin2 for ADC entrada (mic *and* line-in on AudioKit)
       
       _es8388I2cWrite( 9,0b10001000); // Select Analog Input PGA Gain for ADC to +24dB (L+R)
       _es8388I2cWrite(16,0b00000000); // Set ADC digital volume attenuation to 0dB (left)
@@ -497,7 +497,7 @@ class ES8388Source : public I2SSource {
       _es8388I2cWrite(48,0b00100001); // LOUT2VOL - 0b00100001 = +4.5dB
       _es8388I2cWrite(49,0b00100001); // ROUT2VOL - 0b00100001 = +4.5dB
 
-      // Music ALC - the mics like Auto Level Control
+      // Music ALC - the mics like Auto Nivel Control
       // You can also use this for line-in, but it's not really needed.
       //
       _es8388I2cWrite(18,0b11111000); // ALC: stereo, max gain +35.5dB, min gain -12dB 
@@ -535,7 +535,7 @@ class ES8388Source : public I2SSource {
         return;
       }
 
-      // First route mclk, then configure ADC over I2C, then configure I2S
+      // First route mclk, then configurar ADC over I2C, then configurar I2S
       _es8388InitAdc();
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
     }
@@ -556,7 +556,7 @@ class ES8388Source : public I2SSource {
 // ADC over I2S is only availeable in "classic" ESP32
 
 /* ADC over I2S Microphone
-   This microphone is an ADC pin sampled via the I2S interval
+   This microphone is an ADC pin sampled via the I2S intervalo
    This allows to use the I2S API to obtain ADC samples with high sample rates
    without the need of manual timing of the samples
 */
@@ -583,7 +583,7 @@ class I2SAdcSource : public I2SSource {
       };
     }
 
-    /* identify Audiosource type - I2S-ADC*/
+    /* identify Audiosource tipo - I2S-ADC*/
     AudioSourceType getType(void) {return(Type_I2SAdc);}
 
     void initialize(int8_t audioPin, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) {
@@ -605,7 +605,7 @@ class I2SAdcSource : public I2SSource {
         _myADCchannel = channel;
       }
 
-      // Install Driver
+      // Install Controlador
       esp_err_t err = i2s_driver_install(I2S_NUM_0, &_config, 0, nullptr);
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("Failed to install i2s driver: %d\n", err);
@@ -614,7 +614,7 @@ class I2SAdcSource : public I2SSource {
 
       adc1_config_width(ADC_WIDTH_BIT_12);   // ensure that ADC runs with 12bit resolution
 
-      // Enable I2S mode of ADC
+      // Habilitar I2S mode of ADC
       err = i2s_set_adc_mode(ADC_UNIT_1, adc1_channel_t(channel));
       if (err != ESP_OK) {
         DEBUGSR_PRINTF("Failed to set i2s adc mode: %d\n", err);
@@ -630,14 +630,14 @@ class I2SAdcSource : public I2SSource {
         err = i2s_adc_enable(I2S_NUM_0);
         if (err != ESP_OK) {
             DEBUGSR_PRINTF("Failed to enable i2s adc: %d\n", err);
-            //return;
+            //retorno;
         }
       #else
-        // bugfix: do not disable ADC initially - its already disabled after driver install.
+        // bugfix: do not deshabilitar ADC initially - its already disabled after controlador install.
         //err = i2s_adc_disable(I2S_NUM_0);
 		    // //err = i2s_stop(I2S_NUM_0);
         //if (err != ESP_OK) {
-        //    DEBUGSR_PRINTF("Failed to initially disable i2s adc: %d\n", err);
+        //    DEBUGSR_PRINTF("Failed to initially deshabilitar i2s adc: %d\n", err);
         //}
       #endif
 
@@ -660,7 +660,7 @@ class I2SAdcSource : public I2SSource {
         I2S_datatype lastGoodSample = lastADCsample * 4;          // prepare "last good sample" accordingly (10bit-> 12bit)
       #endif
 
-      // decode ADC sample data fields
+      // decode ADC sample datos fields
       uint16_t the_channel = (rawData >> 12) & 0x000F;           // upper 4 bit = ADC channel
       uint16_t the_sample  =  rawData & 0x0FFF;                  // lower 12bit -> ADC sample (unsigned)
       I2S_datatype finalSample = (int(the_sample) - 2048);       // convert unsigned sample to signed (centered at 0);
@@ -670,17 +670,17 @@ class I2SAdcSource : public I2SSource {
         finalSample = lastGoodSample;                             // replace with last good ADC sample
         broken_samples_counter ++;
         if (broken_samples_counter > 256) _myADCchannel = 0x0F;   // too  many bad samples in a row -> disable sample corrections
-        //Serial.print("\n!ADC rogue sample 0x"); Serial.print(rawData, HEX); Serial.print("\tchannel:");Serial.println(the_channel);
+        //Serie.imprimir("\n!ADC rogue sample 0x"); Serie.imprimir(rawData, HEX); Serie.imprimir("\tchannel:");Serie.println(the_channel);
       } else broken_samples_counter = 0;                          // good sample - reset counter
 
-      // back to original resolution
+      // back to original resolución
       #ifndef I2S_USE_16BIT_SAMPLES
         finalSample = finalSample << 16;                          // scale up from 16bit -> 32bit;
       #endif
 
       finalSample = finalSample / 4;                              // mimic old analog driver behaviour (12bit -> 10bit)
       sample_out = (3 * finalSample + lastADCsample) / 4;         // apply low-pass filter (2-tap FIR)
-      //sample_out = (finalSample + lastADCsample) / 2;             // apply stronger low-pass filter (2-tap FIR)
+      //sample_out = (finalSample + lastADCsample) / 2;             // apply stronger low-pass filtro (2-tap FIR)
 
       lastADCsample = sample_out;                                 // update ADC last sample
       return(sample_out);
@@ -688,12 +688,12 @@ class I2SAdcSource : public I2SSource {
 
 
     void getSamples(float *buffer, uint16_t num_samples) {
-      /* Enable ADC. This has to be enabled and disabled directly before and
-       * after sampling, otherwise Wifi dies
+      /* Habilitar ADC. This has to be enabled and disabled directly before and
+       * after sampling, otherwise WiFi dies
        */
       if (_initialized) {
         #if !defined(I2S_GRAB_ADC1_COMPLETELY)
-          // old code - works for me without enable/disable, at least on ESP32.
+          // old código - works for me without habilitar/deshabilitar, at least on ESP32.
           //esp_err_t err = i2s_start(I2S_NUM_0);
           esp_err_t err = i2s_adc_enable(I2S_NUM_0);
           if (err != ESP_OK) {
@@ -705,7 +705,7 @@ class I2SAdcSource : public I2SSource {
         I2SSource::getSamples(buffer, num_samples);
 
         #if !defined(I2S_GRAB_ADC1_COMPLETELY)
-          // old code - works for me without enable/disable, at least on ESP32.
+          // old código - works for me without habilitar/deshabilitar, at least on ESP32.
           err = i2s_adc_disable(I2S_NUM_0);  //i2s_adc_disable() may cause crash with IDF 4.4 (https://github.com/espressif/arduino-esp32/issues/6832)
           //err = i2s_stop(I2S_NUM_0);
           if (err != ESP_OK) {
@@ -750,8 +750,8 @@ class I2SAdcSource : public I2SSource {
    special consideration.
 */
 
-// https://github.com/espressif/esp-idf/issues/7192  SPH0645 i2s microphone issue when migrate from legacy esp-idf version (IDFGH-5453)
-// a user recommended this: Try to set .communication_format to I2S_COMM_FORMAT_STAND_I2S and call i2s_set_clk() after i2s_set_pin().
+// https://github.com/espressif/esp-idf/issues/7192  SPH0645 i2s microphone issue when migrate from legacy esp-idf versión (IDFGH-5453)
+// a usuario recommended this: Intentar to set .communication_format to I2S_COMM_FORMAT_STAND_I2S and call i2s_set_clk() after i2s_set_pin().
 class SPH0654 : public I2SSource {
   public:
     SPH0654(SRate_t sampleRate, int blockSize, float sampleScale = 1.0f) :

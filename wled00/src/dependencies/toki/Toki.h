@@ -4,20 +4,20 @@
   LICENSE
   The MIT License (MIT)
   Copyright (c) 2021 Christian Schwinne
-  Permission is hereby granted, free of charge, to any person obtaining a copy
+  Permiso is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
   in the Software without restriction, including without limitation the rights
-  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  to use, copy, modify, fusión, publish, distribuir, sublicense, and/or sell
   copies of the Software, and to permit persons to whom the Software is
   furnished to do so, subject to the following conditions:
-  The above copyright notice and this permission notice shall be included in
+  The above copyright notice and this permiso notice shall be included in
   all copies or substantial portions of the Software.
   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENTO SHALL THE
   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  LIABILITY, WHETHER IN AN ACCIÓN OF CONTRATO, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONEXIÓN WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
   THE SOFTWARE.
 */
 
@@ -27,7 +27,7 @@
 
 #define TOKI_NO_MS_ACCURACY 1000
 
-//Time source. Sub-100 is second accuracy, higher ms accuracy. Higher value generally means more accurate
+//Hora source. Sub-100 is second accuracy, higher ms accuracy. Higher valor generally means more accurate
 #define TOKI_TS_NONE      0 //unsynced (e.g. just after boot)
 #define TOKI_TS_UDP       5 //synced via UDP from an instance whose time source is unsynced
 #define TOKI_TS_BAD      10 //synced from a time source less than about +- 2s accurate
@@ -103,7 +103,7 @@ class Toki {
       return unix;
     }
 
-    //gets the absolute difference between two timestamps in milliseconds
+    //gets the absoluto difference between two timestamps in milliseconds
     uint32_t msDifference(const Time &t0, const Time &t1) {
       bool t1BiggerSec = (t1.sec > t0.sec);
       uint32_t secDiff = (t1BiggerSec) ? t1.sec - t0.sec : t0.sec - t1.sec;
@@ -114,7 +114,7 @@ class Toki {
       return msDiff;
     }
 
-    //return true if t1 is later than t0
+    //retorno verdadero if t1 is later than t0
     bool isLater(const Time &t0, const Time &t1) {
       if (t1.sec > t0.sec) return true;
       if (t1.sec < t0.sec) return false;

@@ -7,7 +7,7 @@ class UsermodCronixie : public Usermod {
     byte _digitOut[6] = {10,10,10,10,10,10};
     byte dP[6] = {255, 255, 255, 255, 255, 255};
 
-    // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
+    // set your config variables to their boot default valor (this can also be done in readFromConfig() or a constructor if you prefer)
     bool backlight = true;
 
   public:
@@ -50,7 +50,7 @@ class UsermodCronixie : public Usermod {
     void setCronixie()
     {
       /*
-      * digit purpose index
+      * digit purpose índice
       * 0-9 | 0-9 (incl. random)
       * 10 | blank
       * 11 | blank, bg off
@@ -124,8 +124,8 @@ class UsermodCronixie : public Usermod {
           case '-': dP[i] = 11; break; 
           case 'r': dP[i] = random(1,7); break; //random btw. 1-6
           case 'R': dP[i] = random(0,10); break; //random btw. 0-9
-          //case 't': break; //Test upw.
-          //case 'T': break; //Test dnw.
+          //case 't': ruptura; //Prueba upw.
+          //case 'T': ruptura; //Prueba dnw.
           case 'b': dP[i] = 14 + getSameCodeLength('b',i,cronixieDisplay); i = i+dP[i]-14; break; 
           case 'B': dP[i] = 14 + getSameCodeLength('B',i,cronixieDisplay); i = i+dP[i]-14; break;
           case 'h': dP[i] = 70 + getSameCodeLength('h',i,cronixieDisplay); i = i+dP[i]-70; break;
@@ -140,8 +140,8 @@ class UsermodCronixie : public Usermod {
           case 'y': dP[i] = 86 + getSameCodeLength('y',i,cronixieDisplay); i = i+dP[i]-86; break; 
           case 'I': dP[i] = 39 + getSameCodeLength('I',i,cronixieDisplay); i = i+dP[i]-39; break;  //Month. Don't ask me why month and minute both start with M.
           case 'i': dP[i] = 89 + getSameCodeLength('i',i,cronixieDisplay); i = i+dP[i]-89; break; 
-          //case 'W': break;
-          //case 'w': break;
+          //case 'W': ruptura;
+          //case 'w': ruptura;
           case 'D': dP[i] = 43 + getSameCodeLength('D',i,cronixieDisplay); i = i+dP[i]-43; break;
           case 'd': dP[i] = 93 + getSameCodeLength('d',i,cronixieDisplay); i = i+dP[i]-93; break;
           case '0': dP[i] = 0; break;
@@ -154,8 +154,8 @@ class UsermodCronixie : public Usermod {
           case '7': dP[i] = 7; break;
           case '8': dP[i] = 8; break;
           case '9': dP[i] = 9; break;
-          //case 'V': break; //user var0
-          //case 'v': break; //user var1
+          //case 'V': ruptura; //usuario var0
+          //case 'v': ruptura; //usuario var1
         }
       }
       DEBUG_PRINT(F("result "));
@@ -281,8 +281,8 @@ class UsermodCronixie : public Usermod {
 
     bool readFromConfig(JsonObject& root)
     {
-      // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+      // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
       JsonObject top = root[F("Cronixie")];
 

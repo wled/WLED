@@ -1,7 +1,7 @@
 #include "ShtUsermod.h"
 #include "SHT85.h"
 
-// Strings to reduce flash memory usage (used more than twice)
+// Strings to reduce flash memoria usage (used more than twice)
 const char ShtUsermod::_name[]            PROGMEM = "SHT-Sensor";
 const char ShtUsermod::_enabled[]         PROGMEM = "Enabled";
 const char ShtUsermod::_shtType[]         PROGMEM = "SHT-Type";
@@ -11,10 +11,10 @@ const char ShtUsermod::_haMqttDiscovery[] PROGMEM = "Add-To-HA-MQTT-Discovery";
 /**
  * Initialise SHT sensor.
  *
- * Using the correct constructor according to config and initialises it using the
- * global i2c pins.
+ * Usando the correct constructor according to config and initialises it usando the
+ * global I2C pins.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::initShtTempHumiditySensor()
 {
@@ -38,9 +38,9 @@ void ShtUsermod::initShtTempHumiditySensor()
 /**
  * Cleanup the SHT sensor.
  *
- * Properly calls "reset" for the sensor then releases it from memory.
+ * Properly calls "restablecer" for the sensor then releases it from memoria.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::cleanupShtTempHumiditySensor()
 {
@@ -58,7 +58,7 @@ void ShtUsermod::cleanupShtTempHumiditySensor()
  * Calls ::cleanupShtTempHumiditySensor() to cleanup the SHT sensor and
  * deallocates pins.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::cleanup()
 {
@@ -67,12 +67,12 @@ void ShtUsermod::cleanup()
 }
 
 /**
- * Publish temperature and humidity to WLED device topic.
+ * Publish temperature and humidity to WLED dispositivo topic.
  *
- * Will add a "/temperature" and "/humidity" topic to the WLED device topic.
+ * Will add a "/temperature" and "/humidity" topic to the WLED dispositivo topic.
  * Temperature will be written in configured unit.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::publishTemperatureAndHumidityViaMqtt() {
   if (!WLED_MQTT_CONNECTED) return;
@@ -85,13 +85,13 @@ void ShtUsermod::publishTemperatureAndHumidityViaMqtt() {
 }
 
 /**
- * If enabled, publishes HA MQTT device discovery topics.
+ * If enabled, publishes HA MQTT dispositivo discovery topics.
  *
  * Will make Home Assistant add temperature and humidity as entities automatically.
  *
  * Note: Whenever usermods are part of the WLED integration in HA, this can be dropped.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::publishHomeAssistantAutodiscovery() {
   if (!WLED_MQTT_CONNECTED) return;
@@ -134,9 +134,9 @@ void ShtUsermod::publishHomeAssistantAutodiscovery() {
 }
 
 /**
- * Helper to add device information to MQTT discovery topic.
+ * Helper to add dispositivo information to MQTT discovery topic.
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::appendDeviceToMqttDiscoveryMessage(JsonDocument& root) {
   JsonObject device = root.createNestedObject(F("dev"));
@@ -148,20 +148,20 @@ void ShtUsermod::appendDeviceToMqttDiscoveryMessage(JsonDocument& root) {
 }
 
 /**
- * Setup the mod.
+ * Configuración the mod.
  *
- * Allocates i2c pins as PinOwner::HW_I2C, so they can be allocated multiple times.
+ * Allocates I2C pins as PinOwner::HW_I2C, so they can be allocated multiple times.
  * And calls ::initShtTempHumiditySensor() to initialise the sensor.
  *
- * @see Usermod::setup()
- * @see UsermodManager::setup()
+ * @see Usermod::configuración()
+ * @see UsermodManager::configuración()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::setup()
 {
   if (enabled) {
-    // GPIOs can be set to -1 , so check they're gt zero
+    // GPIOs can be set to -1 , so verificar they're gt zero
     if (i2c_sda < 0 || i2c_scl < 0) {
       DEBUG_PRINTF("[%s] I2C bus not initialised!\n", _name);
       cleanup();
@@ -177,17 +177,17 @@ void ShtUsermod::setup()
 }
 
 /**
- * Actually reading data (async) from the sensor every 30 seconds.
+ * Actually reading datos (asíncrono) from the sensor every 30 seconds.
  *
- * If last reading is at least 30 seconds, it will trigger a reading using
- * SHT::requestData(). We will then continiously check SHT::dataReady() if
- * data is ready to be read. If so, it's read, stored locally and published
+ * If last reading is at least 30 seconds, it will disparador a reading usando
+ * SHT::requestData(). We will then continiously verificar SHT::dataReady() if
+ * datos is ready to be leer. If so, it's leer, stored locally and published
  * via MQTT.
  *
- * @see Usermod::loop()
- * @see UsermodManager::loop()
+ * @see Usermod::bucle()
+ * @see UsermodManager::bucle()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::loop()
 {
@@ -227,19 +227,19 @@ void ShtUsermod::loop()
  * @see Usermod::onMqttConnect()
  * @see UsermodManager::onMqttConnect()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::onMqttConnect(bool sessionPresent) {
   if (haMqttDiscovery && !haMqttDiscoveryDone) publishHomeAssistantAutodiscovery();
 }
 
 /**
- * Add dropdown for sensor type and unit to UM config page.
+ * Add dropdown for sensor tipo and unit to UM config page.
  *
  * @see Usermod::appendConfigData()
  * @see UsermodManager::appendConfigData()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::appendConfigData() {
   oappend(F("dd=addDropdown('"));
@@ -261,12 +261,12 @@ void ShtUsermod::appendConfigData() {
 }
 
 /**
- * Add config data to be stored in cfg.json.
+ * Add config datos to be stored in cfg.JSON.
  *
  * @see Usermod::addToConfig()
  * @see UsermodManager::addToConfig()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::addToConfig(JsonObject &root)
 {
@@ -279,16 +279,16 @@ void ShtUsermod::addToConfig(JsonObject &root)
 }
 
 /**
- * Apply config on boot or save of UM config page.
+ * Apply config on boot or guardar of UM config page.
  *
- * This is called whenever WLED boots and loads cfg.json, or when the UM config
- * page is saved. Will properly re-instantiate the SHT class upon type change and
+ * This is called whenever WLED boots and loads cfg.JSON, or when the UM config
+ * page is saved. Will properly re-instantiate the SHT clase upon tipo change and
  * publish HA discovery after enabling.
  *
  * @see Usermod::readFromConfig()
  * @see UsermodManager::readFromConfig()
  *
- * @return bool
+ * @retorno bool
  */
 bool ShtUsermod::readFromConfig(JsonObject &root)
 {
@@ -308,16 +308,16 @@ bool ShtUsermod::readFromConfig(JsonObject &root)
   getJsonValue(top[FPSTR(_unitOfTemp)], unitOfTemp);
   getJsonValue(top[FPSTR(_haMqttDiscovery)], haMqttDiscovery);
 
-  // First run: reading from cfg.json, nothing to do here, will be all done in setup()
+  // First run: reading from cfg.JSON, nothing to do here, will be all done in configuración()
   if (!firstRunDone) {
     DEBUG_PRINTF("[%s] First run, nothing to do\n", _name);
   }
-  // Check if mod has been en-/disabled
+  // Verificar if mod has been en-/disabled
   else if (enabled != oldEnabled) {
     enabled ? setup() : cleanup();
     DEBUG_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
   }
-  // Config has been changed, so adopt to changes
+  // Configuración has been changed, so adopt to changes
   else if (enabled) {
     if (oldShtType != shtType) {
       cleanupShtTempHumiditySensor();
@@ -340,14 +340,14 @@ bool ShtUsermod::readFromConfig(JsonObject &root)
 }
 
 /**
- * Adds the temperature and humidity actually to the info section and /json info.
+ * Adds the temperature and humidity actually to the información section and /JSON información.
  *
- * This is called every time the info section is opened ot /json is called.
+ * This is called every time the información section is opened ot /JSON is called.
  *
  * @see Usermod::addToJsonInfo()
  * @see UsermodManager::addToJsonInfo()
  *
- * @return void
+ * @retorno void
  */
 void ShtUsermod::addToJsonInfo(JsonObject& root)
 {
@@ -394,18 +394,18 @@ void ShtUsermod::addToJsonInfo(JsonObject& root)
 }
 
 /**
- * Getter for last read temperature for configured unit.
+ * Getter for last leer temperature for configured unit.
  *
- * @return float
+ * @retorno flotante
  */
 float ShtUsermod::getTemperature() {
   return unitOfTemp ? getTemperatureF() : getTemperatureC();
 }
 
 /**
- * Returns the current configured unit as human readable string.
+ * Returns the current configured unit as human readable cadena.
  *
- * @return const char*
+ * @retorno constante char*
  */
 const char* ShtUsermod::getUnitString() {
   return unitOfTemp ? "°F" : "°C";

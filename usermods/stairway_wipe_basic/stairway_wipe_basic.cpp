@@ -2,26 +2,26 @@
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
+ * See: https://github.com/WLED-dev/WLED/wiki/Add-own-functionality
  * 
  * This is Stairway-Wipe as a v2 usermod.
  * 
- * Using this usermod:
- * 1. Copy the usermod into the sketch folder (same folder as wled00.ino)
- * 2. Register the usermod by adding #include "stairway-wipe-usermod-v2.h" in the top and registerUsermod(new StairwayWipeUsermod()) in the bottom of usermods_list.cpp
+ * Usando this usermod:
+ * 1. Copy the usermod into the sketch carpeta (same carpeta as wled00.ino)
+ * 2. Register the usermod by adding #incluir "stairway-wipe-usermod-v2.h" in the top and registerUsermod(new StairwayWipeUsermod()) in the bottom of usermods_list.cpp
  */
 
 class StairwayWipeUsermod : public Usermod {
   private:
-    //Private class members. You can declare variables and functions only accessible to your usermod here
+    //Privado clase members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     byte wipeState = 0; //0: inactive 1: wiping 2: solid
     unsigned long timeStaticStart = 0;
     uint16_t previousUserVar0 = 0;
 
 //moved to buildflag
-//comment this out if you want the turn off effect to be just fading out instead of reverse wipe
-//#define STAIRCASE_WIPE_OFF
+//comment this out if you want the turn off efecto to be just fading out instead of reverse wipe
+//#definir STAIRCASE_WIPE_OFF
   public:
 void setup() {
     }
@@ -29,7 +29,7 @@ void setup() {
   //userVar0 (U0 in HTTP API):
   //has to be set to 1 if movement is detected on the PIR that is the same side of the staircase as the ESP8266
   //has to be set to 2 if movement is detected on the PIR that is the opposite side
-  //can be set to 0 if no movement is detected. Otherwise LEDs will turn off after a configurable timeout (userVar1 seconds)
+  //can be set to 0 if no movement is detected. Otherwise LEDs will turn off after a configurable tiempo de espera (userVar1 seconds)
 
   if (userVar0 > 0)
   {
@@ -81,7 +81,7 @@ void setup() {
     void readFromJsonState(JsonObject& root)
     {
       userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
-      //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
+      //if (root["bri"] == 255) Serie.println(F("Don't burn down your garage!"));
     }
 
     uint16_t getId()
@@ -123,8 +123,8 @@ void setup() {
 
 
 
-   //More methods can be added in the future, this example will then be extended.
-   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
+   //More methods can be added in the futuro, this example will then be extended.
+   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base clase!
 };
 
 

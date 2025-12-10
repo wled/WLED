@@ -21,7 +21,7 @@ private:
   int ssVirtualDisplayMessageIdxEnd = 0;
   unsigned long resfreshTime = 497;
 
-  // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
+  // set your config variables to their boot default valor (this can also be done in readFromConfig() or a constructor if you prefer)
   int ssLEDPerSegment = 1; //The number of LEDs in each segment of the 7 seg (total per digit is 7 * ssLedPerSegment)
   int ssLEDPerPeriod = 1;  //A Period will have 1x and a Colon will have 2x
   int ssStartLED = 0;      //The pixel that the display starts at.
@@ -49,7 +49,7 @@ private:
   bool ssTimeEnabled = true;         //If not, display message.
   unsigned int ssScrollSpeed = 1000; //Time between advancement of extended message scrolling, in milliseconds.
 
-  //String to reduce flash memory usage
+  //Cadena to reduce flash memoria usage
   static const char _str_perSegment[];
   static const char _str_perPeriod[];
   static const char _str_startIdx[];
@@ -67,11 +67,11 @@ private:
     //Do time for now.
     if (ssDoDisplayTime)
     {
-      //Format the ssDisplayBuffer based on ssDisplayMask
+      //Formato the ssDisplayBuffer based on ssDisplayMask
       int displayMaskLen = static_cast<int>(ssDisplayMask.length());
       for (int index = 0; index < displayMaskLen; index++)
       {
-        //Only look for time formatting if there are at least 2 characters left in the buffer.
+        //Only look for time formatting if there are at least 2 characters left in the búfer.
         if ((index < displayMaskLen - 1) && (ssDisplayMask[index] == ssDisplayMask[index + 1]))
         {
           int timeVar = 0;
@@ -103,7 +103,7 @@ private:
             ssDisplayBuffer[index] = 0x30 + (timeVar / 10);
           ssDisplayBuffer[index + 1] = 0x30 + (timeVar % 10);
 
-          //Need to increment the index because of the second digit.
+          //Need to increment the índice because of the second digit.
           index++;
         }
         else
@@ -115,17 +115,17 @@ private:
     }
     else
     {
-      /* This will handle displaying a message and the scrolling of the message if its longer than the buffer length */
+      /* This will handle displaying a mensaje and the scrolling of the mensaje if its longer than the búfer longitud */
 
-      //Check to see if the message has scrolled completely
+      //Verificar to see if the mensaje has scrolled completely
       int len = static_cast<int>(ssDisplayMessage.length());
       if (ssDisplayMessageIdx > len)
       {
-        //If it has scrolled the whole message, reset it.
+        //If it has scrolled the whole mensaje, restablecer it.
         setSevenSegmentMessage(ssDisplayMessage);
         return REFRESHTIME;
       }
-      //Display message
+      //Display mensaje
       int displayMaskLen = static_cast<int>(ssDisplayMask.length());
       for (int index = 0; index < displayMaskLen; index++)
       {
@@ -135,7 +135,7 @@ private:
           ssDisplayBuffer[index] = ' ';
       }
 
-      //Increase the displayed message index to progress it one character if the length exceeds the display length.
+      //Increase the displayed mensaje índice to progress it one carácter if the longitud exceeds the display longitud.
       if (len > displayMaskLen)
         ssDisplayMessageIdx++;
 
@@ -146,7 +146,7 @@ private:
   void _overlaySevenSegmentDraw()
   {
 
-    //Start pixels at ssStartLED, Use ssLEDPerSegment, ssLEDPerPeriod, ssDisplayBuffer
+    //Iniciar pixels at ssStartLED, Use ssLEDPerSegment, ssLEDPerPeriod, ssDisplayBuffer
     int indexLED = ssStartLED;
     int displayMaskLen = static_cast<int>(ssDisplayMask.length());
     for (int indexBuffer = 0; indexBuffer < displayMaskLen; indexBuffer++)
@@ -155,7 +155,7 @@ private:
         break;
       else if (ssDisplayBuffer[indexBuffer] == '.')
       {
-        //Won't ever turn off LED lights for a period. (or will we?)
+        //Won't ever turn off LED lights for a período. (or will we?)
         indexLED += ssLEDPerPeriod;
         continue;
       }
@@ -197,19 +197,19 @@ private:
   char _overlaySevenSegmentGetCharMask(char var)
   {
     if (var >= 0x30 && var <= 0x39)
-    { /*If its a number, shift to index 0.*/
+    { /*If its a number, shift to índice 0.*/
       var -= 0x30;
     }
     else if (var >= 0x41 && var <= 0x5a)
-    { /*If its an Upper case, shift to index 0xA.*/
+    { /*If its an Upper case, shift to índice 0xA.*/
       var -= 0x37;
     }
     else if (var >= 0x61 && var <= 0x7A)
-    { /*If its a lower case, shift to index 0xA.*/
+    { /*If its a lower case, shift to índice 0xA.*/
       var -= 0x57;
     }
     else
-    { /* Else unsupported, return 0; */
+    { /* Else unsupported, retorno 0; */
       return 0;
     }
     char mask = ssCharacterMask[static_cast<int>(var)];
@@ -344,19 +344,19 @@ private:
 public:
   void setSevenSegmentMessage(String message)
   {
-    //If the message isn't blank display it otherwise show time, if enabled.
+    //If the mensaje isn't blank display it otherwise show time, if enabled.
     if (message.length() < 1 || message == "~")
       ssDoDisplayTime = ssTimeEnabled;
     else
       ssDoDisplayTime = false;
 
-    //Determine is the message is longer than the display, if it is configure it to scroll the message.
+    //Determine is the mensaje is longer than the display, if it is configurar it to scroll the mensaje.
     if (message.length() > ssDisplayMask.length())
       ssDisplayMessageIdx = -ssDisplayMask.length();
     else
       ssDisplayMessageIdx = 0;
 
-    //If the message isn't the same, update runtime/mqtt (most calls will be resetting message scroll)
+    //If the mensaje isn't the same, actualizar runtime/MQTT (most calls will be resetting mensaje scroll)
     if (!ssDisplayMessage.equals(message))
     {
       _publishMQTTstr_P(_str_displayMsg, message);
@@ -365,24 +365,24 @@ public:
   }
   //Functions called by WLED
 
-  /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
-     */
+    /*
+      * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+      * Úsalo para inicializar variables, sensores o similares.
+      */
   void setup()
   {
     ssDisplayBuffer = ssDisplayMask;
   }
 
-  /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
-     */
+    /*
+      * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
+      */
   void loop()
   {
     if (millis() - lastRefresh > resfreshTime)
     {
-      //In theory overlaySevenSegmentProcess should return the amount of time until it changes next.
-      //So we should be okay to trigger the stripi on every process loop.
+      //In theory overlaySevenSegmentProcess should retorno the amount of time until it changes next.
+      //So we should be okay to disparador the stripi on every proceso bucle.
       resfreshTime = _overlaySevenSegmentProcess();
       lastRefresh = millis();
       strip.trigger();
@@ -400,14 +400,14 @@ public:
     if (mqttDeviceTopic[0] != 0)
     {
       _updateMQTT();
-      //subscribe for sevenseg messages on the device topic
+      //subscribe for sevenseg messages on the dispositivo topic
       sprintf_P(subBuffer, PSTR("%s/%S/+/set"), mqttDeviceTopic, _str_sevenSeg);
       mqtt->subscribe(subBuffer, 2);
     }
 
     if (mqttGroupTopic[0] != 0)
     {
-      //subscribe for sevenseg messages on the group topic
+      //subscribe for sevenseg messages on the grupo topic
       sprintf_P(subBuffer, PSTR("%s/%S/+/set"), mqttGroupTopic, _str_sevenSeg);
       mqtt->subscribe(subBuffer, 2);
     }
@@ -415,7 +415,7 @@ public:
 
   bool onMqttMessage(char *topic, char *payload)
   {
-    //If topic beings with sevenSeg cut it off, otherwise not our message.
+    //If topic beings with sevenSeg cut it off, otherwise not our mensaje.
     size_t topicPrefixLen = strlen_P(PSTR("/sevenSeg/"));
     if (strncmp_P(topic, PSTR("/sevenSeg/"), topicPrefixLen) == 0)
       topic += topicPrefixLen;
@@ -459,7 +459,7 @@ public:
 
     bool configComplete = !top.isNull();
 
-    //if sevenseg section doesn't exist return
+    //if sevenseg section doesn't exist retorno
     if (!configComplete)
       return configComplete;
 
@@ -479,8 +479,8 @@ public:
   }
 
   /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
   uint16_t getId()
   {

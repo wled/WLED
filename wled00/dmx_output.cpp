@@ -1,12 +1,12 @@
 #include "wled.h"
 
 /*
- * Support for DMX  output via serial (e.g. MAX485).
- * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
- * ESP8266 Library from:
+ * Support for DMX  salida via serial (e.g. MAX485).
+ * Change the salida pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
+ * Change the salida pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
+ * ESP8266 Biblioteca from:
  * https://github.com/Rickgg/ESP-Dmx
- * ESP32 Library from:
+ * ESP32 Biblioteca from:
  * https://github.com/sparkfun/SparkFunDMX
  */
 
@@ -21,7 +21,7 @@ void handleDMXOutput()
 
   bool calc_brightness = true;
 
-   // check if no shutter channel is set
+   // verificar if no shutter channel is set
    for (unsigned i = 0; i < DMXChannels; i++)
    {
      if (DMXFixtureMap[i] == 5) calc_brightness = false;

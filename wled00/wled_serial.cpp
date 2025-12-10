@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * Adalight and TPM2 handler
+ * Adalight and TPM2 manejador
  */
 
 enum class AdaState {
@@ -36,7 +36,7 @@ void updateBaudRate(uint32_t rate){
   Serial.begin(rate);
 }
 
-// RGB LED data return as JSON array. Slow, but easy to use on the other end.
+// RGB LED datos retorno as JSON matriz. Slow, but easy to use on the other end.
 void sendJSON(){
   if (serialCanTX) {
     unsigned used = strip.getLengthTotal();
@@ -49,7 +49,7 @@ void sendJSON(){
   }
 }
 
-// RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
+// RGB LED datos returned as bytes in TPM2 formato. Faster, and slightly less easy to use on the other end.
 void sendBytes(){
   if (serialCanTX) {
     Serial.write(0xC9); Serial.write(0xDA);
@@ -110,7 +110,7 @@ void handleSerial()
           DeserializationError error = deserializeJson(*pDoc, Serial);
           if (!error) {
             verboseResponse = deserializeState(pDoc->as<JsonObject>());
-            //only send response if TX pin is unused for other purposes
+            //only enviar respuesta if TX pin is unused for other purposes
             if (verboseResponse && serialCanTX) {
               pDoc->clear();
               JsonObject stateDoc = pDoc->createNestedObject("state");
@@ -183,7 +183,7 @@ void handleSerial()
         break;
     }
 
-    // All other received bytes will disable Continuous Serial Streaming
+    // All other received bytes will deshabilitar Continuous Serie Streaming
     if (continuousSendLED && next != 'O'){
       continuousSendLED = false;
     }
@@ -191,7 +191,7 @@ void handleSerial()
     Serial.read(); //discard the byte
   }
 
-  // If Continuous Serial Streaming is enabled, send new LED data as bytes
+  // If Continuous Serie Streaming is enabled, enviar new LED datos as bytes
   if (continuousSendLED && (lastUpdate != strip.getLastShow())){
     sendBytes();
     lastUpdate = strip.getLastShow();

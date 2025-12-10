@@ -44,7 +44,7 @@ class ShtUsermod : public Usermod
     void appendDeviceToMqttDiscoveryMessage(JsonDocument& root);
 
   public:
-    // Strings to reduce flash memory usage (used more than twice)
+    // Strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _shtType[];

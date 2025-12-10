@@ -1,11 +1,11 @@
 
-This directory is intended for project specific (private) libraries.
-PlatformIO will compile them to static libraries and link into executable file.
+Este directorio está destinado a librerías específicas del proyecto (privadas).
+PlatformIO las compilará en librerías estáticas y las vinculará al archivo ejecutable.
 
-The source code of each library should be placed in a an own separate directory
-("lib/your_library_name/[here are source files]").
+El código fuente de cada librería debe colocarse en su propio directorio separado
+("lib/nombre_de_su_libreria/[aquí están los archivos fuente]").
 
-For example, see a structure of the following two libraries `Foo` and `Bar`:
+Por ejemplo, vea una estructura de las siguientes dos librerías `Foo` y `Bar`:
 
 |--lib
 |  |
@@ -15,19 +15,19 @@ For example, see a structure of the following two libraries `Foo` and `Bar`:
 |  |  |--src
 |  |     |- Bar.c
 |  |     |- Bar.h
-|  |  |- library.json (optional, custom build options, etc) https://docs.platformio.org/page/librarymanager/config.html
+|  |  |- library.json (opcional, opciones de compilación personalizadas, etc) https://docs.platformio.org/page/librarymanager/config.html
 |  |
 |  |--Foo
 |  |  |- Foo.c
 |  |  |- Foo.h
 |  |
-|  |- README --> THIS FILE
+|  |- README --> ESTE ARCHIVO
 |
 |- platformio.ini
 |--src
    |- main.c
 
-and a contents of `src/main.c`:
+y un contenido de `src/main.c`:
 ```
 #include <Foo.h>
 #include <Bar.h>
@@ -39,8 +39,8 @@ int main (void)
 
 ```
 
-PlatformIO Library Dependency Finder will find automatically dependent
-libraries scanning project source files.
+El Buscador de Dependencias de Librerías de PlatformIO encontrará automáticamente librerías dependientes
+escaneando archivos fuente del proyecto.
 
-More information about PlatformIO Library Dependency Finder
+Más información sobre el Buscador de Dependencias de Librerías de PlatformIO
 - https://docs.platformio.org/page/librarymanager/ldf.html

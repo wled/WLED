@@ -1,6 +1,6 @@
 /******************************************************************************
-  * @file           : tetrisbag.h
-  * @brief          : the tetris implementation of a random piece generator
+  * @archivo           : tetrisbag.h
+  * @brief          : the tetris implementación of a random piece generador
   ******************************************************************************
   * @attention
   *
@@ -50,7 +50,7 @@ public:
             bag[bagIndex] = bagIndex % nPieces;
         }
 
-        //will init the queue
+        //will init the cola
         for (uint8_t index = 0; index < piecesQueue.size(); index++)
         {
             queuePiece();

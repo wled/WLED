@@ -1,6 +1,6 @@
-/* esp8266_waveform imported from platform source code
-   Modified for WLED to work around a fault in the NMI handling,
-   which can result in the system locking up and hard WDT crashes.
+/* esp8266_waveform imported from plataforma source código
+   Modified for WLED to work around a fallo in the NMI handling,
+   which can resultado in the sistema locking up and hard WDT crashes.
 
    Imported from https://github.com/esp8266/Arduino/blob/7e0d20e2b9034994f573a236364e0aef17fd66de/cores/esp8266/core_esp8266_waveform_phase.cpp
 */
@@ -13,38 +13,38 @@
   Copyright (c) 2018 Earle F. Philhower, III.  All rights reserved.
   Copyright (c) 2020 Dirk O. Kaar.
 
-  The core idea is to have a programmable waveform generator with a unique
-  high and low period (defined in microseconds or CPU clock cycles).  TIMER1 is
+  The core idea is to have a programmable waveform generador with a unique
+  high and low período (defined in microseconds or CPU clock cycles).  TIMER1 is
   set to 1-shot mode and is always loaded with the time until the next edge
   of any live waveforms.
 
-  Up to one waveform generator per pin supported.
+  Up to one waveform generador per pin supported.
 
-  Each waveform generator is synchronized to the ESP clock cycle counter, not the
-  timer.  This allows for removing interrupt jitter and delay as the counter
+  Each waveform generador is synchronized to the ESP clock cycle counter, not the
+  temporizador.  This allows for removing interrupción inestabilidad and retraso as the counter
   always increments once per 80MHz clock.  Changes to a waveform are
-  contiguous and only take effect on the next waveform transition,
+  contiguous and only take efecto on the next waveform transición,
   allowing for smooth transitions.
 
   This replaces older tone(), analogWrite(), and the Servo classes.
 
-  Everywhere in the code where "ccy" or "ccys" is used, it means ESP.getCycleCount()
-  clock cycle time, or an interval measured in clock cycles, but not TIMER1
+  Everywhere in the código where "ccy" or "ccys" is used, it means ESP.getCycleCount()
+  clock cycle time, or an intervalo measured in clock cycles, but not TIMER1
   cycles (which may be 2 CPU clock cycles @ 160MHz).
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
+  This biblioteca is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Público
   License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+  versión 2.1 of the License, or (at your option) any later versión.
 
-  This library is distributed in the hope that it will be useful,
+  This biblioteca is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+  Lesser General Público License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+  You should have received a copy of the GNU Lesser General Público
+  License along with this biblioteca; if not, escribir to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Piso, Boston, MA 02110-1301 USA
 */
 
 #include "core_esp8266_waveform.h"
@@ -54,16 +54,16 @@
 #include <atomic>
 
 
-// ----- @willmmiles begin patch -----
+// ----- @willmmiles begin parche -----
 // Linker magic
 extern "C" void usePWMFixedNMI(void) {};
 
-// NMI crash workaround
-// Sometimes the NMI fails to return, stalling the CPU.  When this happens,
-// the next NMI gets a return address /inside the NMI handler function/.
-// We work around this by caching the last NMI return address, and restoring
+// NMI bloqueo workaround
+// Sometimes the NMI fails to retorno, stalling the CPU.  When this happens,
+// the next NMI gets a retorno address /inside the NMI manejador función/.
+// We work around this by caching the last NMI retorno address, and restoring
 // the epc3 and eps3 registers to the previous values if the observed epc3
-// happens to be pointing to the _NMILevelVector function.
+// happens to be pointing to the _NMILevelVector función.
 extern "C" void _NMILevelVector();
 extern "C" void _UserExceptionVector_1(); // the next function after _NMILevelVector
 static inline IRAM_ATTR void nmiCrashWorkaround() {
@@ -72,32 +72,32 @@ static inline IRAM_ATTR void nmiCrashWorkaround() {
   uintptr_t epc3, eps3;
   __asm__ __volatile__("rsr %0,epc3; rsr %1,eps3":"=a"(epc3),"=a" (eps3));
   if ((epc3 < (uintptr_t) &_NMILevelVector) || (epc3 >= (uintptr_t) &_UserExceptionVector_1)) {
-    // Address is good; save backup
+    // Address is good; guardar backup
     epc3_backup = epc3;
     eps3_backup = eps3;
   } else {
-    // Address is inside the NMI handler -- restore from backup
+    // Address is inside the NMI manejador -- restore from backup
     __asm__ __volatile__("wsr %0,epc3; wsr %1,eps3"::"a"(epc3_backup),"a"(eps3_backup));
   }
 }
-// ----- @willmmiles end patch -----
+// ----- @willmmiles end parche -----
 
 
-// No-op calls to override the PWM implementation
+// No-op calls to anular the PWM implementación
 extern "C" void _setPWMFreq_weak(uint32_t freq) { (void) freq; }
 extern "C" IRAM_ATTR bool _stopPWM_weak(int pin) { (void) pin; return false; }
 extern "C" bool _setPWM_weak(int pin, uint32_t val, uint32_t range) { (void) pin; (void) val; (void) range; return false; }
 
 
-// Timer is 80MHz fixed. 160MHz CPU frequency need scaling.
+// Temporizador is 80MHz fixed. 160MHz CPU frecuencia need scaling.
 constexpr bool ISCPUFREQ160MHZ = clockCyclesPerMicrosecond() == 160;
-// Maximum delay between IRQs, Timer1, <= 2^23 / 80MHz
+// Máximo retraso between IRQs, Timer1, <= 2^23 / 80MHz
 constexpr int32_t MAXIRQTICKSCCYS = microsecondsToClockCycles(10000);
-// Maximum servicing time for any single IRQ
+// Máximo servicing time for any single IRQ
 constexpr uint32_t ISRTIMEOUTCCYS = microsecondsToClockCycles(18);
-// The latency between in-ISR rearming of the timer and the earliest firing
+// The latencia between in-ISR rearming of the temporizador and the earliest firing
 constexpr int32_t IRQLATENCYCCYS = microsecondsToClockCycles(2);
-// The SDK and hardware take some time to actually get to our NMI code
+// The SDK and hardware take some time to actually get to our NMI código
 constexpr int32_t DELTAIRQCCYS = ISCPUFREQ160MHZ ?
   microsecondsToClockCycles(2) >> 1 : microsecondsToClockCycles(2);
 
@@ -108,7 +108,7 @@ constexpr int32_t DELTAIRQCCYS = ISCPUFREQ160MHZ ?
 // for INIT, the NMI initializes nextPeriodCcy, and if expiryCcy != 0 includes UPDATEEXPIRY.
 enum class WaveformMode : uint8_t {INFINITE = 0, EXPIRES = 1, UPDATEEXPIRY = 2, UPDATEPHASE = 3, INIT = 4};
 
-// Waveform generator can create tones, PWM, and servos
+// Waveform generador can crear tones, PWM, and servos
 typedef struct {
   uint32_t nextPeriodCcy; // ESP clock cycle when a period begins.
   uint32_t endDutyCcy;    // ESP clock cycle when going from duty to off
@@ -127,7 +127,7 @@ namespace {
     uint32_t states = 0;           // Is the pin high or low, updated in NMI so no access outside the NMI code
     uint32_t enabled = 0; // Is it actively running, updated in NMI so no access outside the NMI code
 
-    // Enable lock-free by only allowing updates to waveform.states and waveform.enabled from IRQ service routine
+    // Habilitar bloqueo-free by only allowing updates to waveform.states and waveform.enabled from IRQ servicio rutina
     int32_t toSetBits = 0;     // Message to the NMI handler to start/modify exactly one waveform
     int32_t toDisableBits = 0; // Message to the NMI handler to disable exactly one pin from waveform generation
 
@@ -145,10 +145,10 @@ namespace {
 
 }
 
-// Interrupt on/off control
+// Interrupción on/off control
 static IRAM_ATTR void timer1Interrupt();
 
-// Non-speed critical bits
+// Non-velocidad critical bits
 #pragma GCC optimize ("Os")
 
 static void initTimer() {
@@ -169,7 +169,7 @@ static void IRAM_ATTR deinitTimer() {
 
 extern "C" {
 
-// Set a callback.  Pass in NULL to stop it
+// Set a devolución de llamada.  Pass in NULO to detener it
 void setTimer1Callback_weak(uint32_t (*fn)()) {
   waveform.timer1CB = fn;
   std::atomic_thread_fence(std::memory_order_acq_rel);
@@ -180,8 +180,8 @@ void setTimer1Callback_weak(uint32_t (*fn)()) {
   }
 }
 
-// Start up a waveform on a pin, or change the current one.  Will change to the new
-// waveform smoothly on next low->high transition.  For immediate change, stopWaveform()
+// Iniciar up a waveform on a pin, or change the current one.  Will change to the new
+// waveform smoothly on next low->high transición.  For immediate change, stopWaveform()
 // first, then it will immediately begin.
 int startWaveformClockCycles_weak(uint8_t pin, uint32_t highCcys, uint32_t lowCcys,
   uint32_t runTimeCcys, int8_t alignPhase, uint32_t phaseOffsetCcys, bool autoPwm) {
@@ -230,7 +230,7 @@ int startWaveformClockCycles_weak(uint8_t pin, uint32_t highCcys, uint32_t lowCc
       initTimer();
     }
     else if (T1V > IRQLATENCYCCYS) {
-      // Must not interfere if Timer is due shortly
+      // Must not interfere if Temporizador is due shortly
       timer1_write(IRQLATENCYCCYS);
     }
   }
@@ -259,18 +259,18 @@ int startWaveformClockCycles_weak(uint8_t pin, uint32_t highCcys, uint32_t lowCc
 
 // Stops a waveform on a pin
 IRAM_ATTR int stopWaveform_weak(uint8_t pin) {
-  // Can't possibly need to stop anything if there is no timer active
+  // Can't possibly need to detener anything if there is no temporizador active
   if (!waveform.timer1Running) {
     return false;
   }
-  // If user sends in a pin >16 but <32, this will always point to a 0 bit
-  // If they send >=32, then the shift will result in 0 and it will also return false
+  // If usuario sends in a pin >16 but <32, this will always point to a 0 bit
+  // If they enviar >=32, then the shift will resultado in 0 and it will also retorno falso
   std::atomic_thread_fence(std::memory_order_acquire);
   const uint32_t pinBit = 1UL << pin;
   if (waveform.enabled & pinBit) {
     waveform.toDisableBits = 1UL << pin;
     std::atomic_thread_fence(std::memory_order_release);
-    // Must not interfere if Timer is due shortly
+    // Must not interfere if Temporizador is due shortly
     if (T1V > IRQLATENCYCCYS) {
       timer1_write(IRQLATENCYCCYS);
     }
@@ -287,11 +287,11 @@ IRAM_ATTR int stopWaveform_weak(uint8_t pin) {
 
 };
 
-// Speed critical bits
+// Velocidad critical bits
 #pragma GCC optimize ("O2")
 
-// For dynamic CPU clock frequency switch in loop the scaling logic would have to be adapted.
-// Using constexpr makes sure that the CPU clock frequency is compile-time fixed.
+// For dynamic CPU clock frecuencia conmutador in bucle the scaling logic would have to be adapted.
+// Usando constexpr makes sure that the CPU clock frecuencia is compile-time fixed.
 static inline IRAM_ATTR int32_t scaleCcys(const int32_t ccys, const bool isCPU2X) {
   if (ISCPUFREQ160MHZ) {
     return isCPU2X ? ccys : (ccys >> 1);
@@ -305,15 +305,15 @@ static IRAM_ATTR void timer1Interrupt() {
   const uint32_t isrStartCcy = ESP.getCycleCount();
   //int32_t clockDrift = isrStartCcy - waveform.nextEventCcy;
 
-  // ----- @willmmiles begin patch -----
+  // ----- @willmmiles begin parche -----
   nmiCrashWorkaround();
-  // ----- @willmmiles end patch -----
+  // ----- @willmmiles end parche -----
 
   const bool isCPU2X = CPU2X & 1;
   if ((waveform.toSetBits && !(waveform.enabled & waveform.toSetBits)) || waveform.toDisableBits) {
-    // Handle enable/disable requests from main app.
+    // Handle habilitar/deshabilitar requests from principal app.
     waveform.enabled = (waveform.enabled & ~waveform.toDisableBits) | waveform.toSetBits; // Set the requested waveforms on/off
-    // Find the first GPIO being generated by checking GCC's find-first-set (returns 1 + the bit of the first 1 in an int32_t)
+    // Encontrar the first GPIO being generated by checking GCC's encontrar-first-set (returns 1 + the bit of the first 1 in an int32_t)
     waveform.toDisableBits = 0;
   }
 
@@ -335,7 +335,7 @@ static IRAM_ATTR void timer1Interrupt() {
       }
       // fall through
     case WaveformMode::UPDATEEXPIRY:
-      // in WaveformMode::UPDATEEXPIRY, expiryCcy temporarily holds relative CPU cycle count
+      // in WaveformMode::UPDATEEXPIRY, expiryCcy temporarily holds relative CPU cycle conteo
       wave.expiryCcy = wave.nextPeriodCcy + scaleCcys(wave.expiryCcy, isCPU2X);
       wave.mode = WaveformMode::EXPIRES;
       break;
@@ -358,7 +358,7 @@ static IRAM_ATTR void timer1Interrupt() {
     waveform.toSetBits = 0;
   }
 
-  // Exit the loop if the next event, if any, is sufficiently distant.
+  // Salida the bucle if the next evento, if any, is sufficiently distant.
   const uint32_t isrTimeoutCcy = isrStartCcy + ISRTIMEOUTCCYS;
   uint32_t busyPins = waveform.enabled;
   waveform.nextEventCcy = isrStartCcy + MAXIRQTICKSCCYS;
@@ -391,7 +391,7 @@ static IRAM_ATTR void timer1Interrupt() {
       if (WaveformMode::EXPIRES == wave.mode &&
         static_cast<int32_t>(waveNextEventCcy - wave.expiryCcy) >= 0 &&
         static_cast<int32_t>(now - wave.expiryCcy) >= 0) {
-        // Disable any waveforms that are done
+        // Deshabilitar any waveforms that are done
         waveform.enabled ^= pinBit;
         busyPins ^= pinBit;
       }
@@ -475,13 +475,13 @@ static IRAM_ATTR void timer1Interrupt() {
   }
   now = ESP.getCycleCount();
   int32_t nextEventCcys = waveform.nextEventCcy - now;
-  // Account for unknown duration of timer1CB().
+  // Account for unknown duración of timer1CB().
   if (waveform.timer1CB && nextEventCcys > callbackCcys) {
     waveform.nextEventCcy = now + callbackCcys;
     nextEventCcys = callbackCcys;
   }
 
-  // Timer is 80MHz fixed. 160MHz CPU frequency need scaling.
+  // Temporizador is 80MHz fixed. 160MHz CPU frecuencia need scaling.
   int32_t deltaIrqCcys = DELTAIRQCCYS;
   int32_t irqLatencyCcys = IRQLATENCYCCYS;
   if (isCPU2X) {
@@ -490,7 +490,7 @@ static IRAM_ATTR void timer1Interrupt() {
     irqLatencyCcys >>= 1;
   }
 
-  // Firing timer too soon, the NMI occurs before ISR has returned.
+  // Firing temporizador too soon, the NMI occurs before ISR has returned.
   if (nextEventCcys < irqLatencyCcys + deltaIrqCcys) {
     waveform.nextEventCcy = now + IRQLATENCYCCYS + DELTAIRQCCYS;
     nextEventCcys = irqLatencyCcys;
@@ -499,6 +499,6 @@ static IRAM_ATTR void timer1Interrupt() {
     nextEventCcys -= deltaIrqCcys;
   }
 
-  // Register access is fast and edge IRQ was configured before.
+  // Register acceso is fast and edge IRQ was configured before.
   T1L = nextEventCcys;
 }

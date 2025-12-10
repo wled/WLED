@@ -1,11 +1,10 @@
 
-This directory is intended for PIO Unit Testing and project tests.
+Este directorio está destinado para las Pruebas Unitarias de PIO y pruebas del proyecto.
 
-Unit Testing is a software testing method by which individual units of
-source code, sets of one or more MCU program modules together with associated
-control data, usage procedures, and operating procedures, are tested to
-determine whether they are fit for use. Unit testing finds problems early
-in the development cycle.
+Las Pruebas Unitarias es un método de prueba de software mediante el cual unidades individuales de
+código fuente, conjuntos de uno o más módulos de programa de MCU junto con datos de control asociados,
+procedimientos de uso y procedimientos operativos, se prueban para determinar si son aptos para su uso.
+Las pruebas unitarias encuentran problemas al inicio del ciclo de desarrollo.
 
-More information about PIO Unit Testing:
+Más información sobre las Pruebas Unitarias de PIO:
 - https://docs.platformio.org/page/plus/unit-testing.html

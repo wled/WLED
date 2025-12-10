@@ -17,9 +17,9 @@ public:
   
   void update() {
     // Documented in README.md.  Q7 and Q6 are unused. Q5 is Seconds Ones, Q0 is Hours Tens.
-    // Q7 is the first bit written, Q0 is the last.  So we push two dummy bits, then start with
+    // Q7 is the first bit written, Q0 is the last.  So we enviar two dummy bits, then iniciar with
     // Seconds Ones and end with Hours Tens.
-    // CS is Active Low, but digits_map is 1 for enable, 0 for disable.  So we bit-wise NOT first.
+    // CS is Active Low, but digits_map is 1 for habilitar, 0 for deshabilitar.  So we bit-wise NOT first.
 
     uint8_t to_shift = (~digits_map) << 2;
 
@@ -42,8 +42,8 @@ public:
 
   // These speak the indexes defined in Hardware.h.
   // So 0 is disabled, 1 is enabled (even though CS is active low, this gets mapped.)
-  // So bit 0 (LSB), is index 0, is SECONDS_ONES
-  // Translation to what the 74HC595 uses is done in update()
+  // So bit 0 (LSB), is índice 0, is SECONDS_ONES
+  // Translation to what the 74HC595 uses is done in actualizar()
   void setDigitMap(uint8_t map, bool update_=true)   { digits_map = map; if (update_) update(); }
   uint8_t getDigitMap()                        { return digits_map; }
 

@@ -1,4 +1,4 @@
-// force the compiler to show a warning to confirm that this file is included
+// force the compiler to show a advertencia to confirm that this archivo is included
 #warning **** Included USERMOD_BH1750 ****
 
 #include "wled.h"
@@ -20,7 +20,7 @@ void Usermod_BH1750::_mqttInitialize()
   if (HomeAssistantDiscovery) _createMqttSensor(F("Brightness"), mqttLuminanceTopic, F("Illuminance"), F(" lx"));
 }
 
-// Create an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+// Crear an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Bucle.
 void Usermod_BH1750::_createMqttSensor(const String &name, const String &topic, const String &deviceClass, const String &unitOfMeasurement)
 {
   String t = String(F("homeassistant/sensor/")) + mqttClientID + F("/") + name + F("/config");
@@ -65,7 +65,7 @@ void Usermod_BH1750::loop()
 
   unsigned long now = millis();
 
-  // check to see if we are due for taking a measurement
+  // verificar to see if we are due for taking a measurement
   // lastMeasurement will not be updated until the conversion
   // is complete the the reading is finished
   if (now - lastMeasurement < minReadingInterval)
@@ -116,7 +116,7 @@ void Usermod_BH1750::addToJsonInfo(JsonObject &root)
       lux_json.add(F("BH1750 "));
       lux_json.add(F("Not Found"));
   } else if (!getLuminanceComplete) {
-    // if we haven't read the sensor yet, let the user know
+    // if we haven't leer the sensor yet, let the usuario know
       // that we are still waiting for the first measurement
       lux_json.add((USERMOD_BH1750_FIRST_MEASUREMENT_AT - millis()) / 1000);
       lux_json.add(F(" sec until read"));
@@ -127,7 +127,7 @@ void Usermod_BH1750::addToJsonInfo(JsonObject &root)
   }
 }
 
-// (called from set.cpp) stores persistent properties to cfg.json
+// (called from set.cpp) stores persistent properties to cfg.JSON
 void Usermod_BH1750::addToConfig(JsonObject &root)
 {
   // we add JSON object.
@@ -141,7 +141,7 @@ void Usermod_BH1750::addToConfig(JsonObject &root)
   DEBUG_PRINTLN(F("BH1750 config saved."));
 }
 
-// called before setup() to populate properties from values stored in cfg.json
+// called before configuración() to populate properties from values stored in cfg.JSON
 bool Usermod_BH1750::readFromConfig(JsonObject &root)
 {
   // we look for JSON object.
@@ -173,7 +173,7 @@ bool Usermod_BH1750::readFromConfig(JsonObject &root)
 }
 
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char Usermod_BH1750::_name[] PROGMEM = "BH1750";
 const char Usermod_BH1750::_enabled[] PROGMEM = "enabled";
 const char Usermod_BH1750::_maxReadInterval[] PROGMEM = "max-read-interval-ms";

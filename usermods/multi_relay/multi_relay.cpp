@@ -53,11 +53,11 @@
 #endif
 
 /*
- * This usermod handles multiple relay outputs.
- * These outputs complement built-in relay output in a way that the activation can be delayed.
- * They can also activate/deactivate in reverse logic independently.
- * 
- * Written and maintained by @blazoncek
+ * Este usermod gestiona múltiples salidas de relé.
+ * Estas salidas complementan la salida de relé integrada permitiendo retrasar la activación.
+ * También pueden activarse/desactivarse con lógica invertida de forma independiente.
+ *
+ * Escrito y mantenido por @blazoncek
  */
 
 
@@ -77,7 +77,7 @@ typedef struct relay_t {
 class MultiRelay : public Usermod {
 
   private:
-    // array of relays
+    // matriz of relays
     Relay    _relay[MULTI_RELAY_MAX_RELAYS];
 
     uint32_t _switchTimerStart; // switch timer start time
@@ -90,7 +90,7 @@ class MultiRelay : public Usermod {
     uint16_t periodicBroadcastSec;
     unsigned long lastBroadcast;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _relay_str[];
@@ -121,57 +121,57 @@ class MultiRelay : public Usermod {
 
   public:
     /**
-     * constructor
+     * Constructor
      */
     MultiRelay();
 
     /**
-     * desctructor
+     * Destructor
      */
     //~MultiRelay() {}
 
     /**
-     * Enable/Disable the usermod
+     * Habilitar/Deshabilitar el usermod
      */
     inline void enable(bool enable) { enabled = enable; }
 
     /**
-     * Get usermod enabled/disabled state
+     * Obtener estado habilitado/deshabilitado del usermod
      */
     inline bool isEnabled() { return enabled; }
 
     /**
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() permite dar opcionalmente a tu usermod V2 un ID único (defínelo en `constante.h`).
+     * Esto puede usarse en el futuro para que el sistema determine si el usermod está instalado.
      */
     inline uint16_t getId() override { return USERMOD_ID_MULTI_RELAY; }
 
     /**
-     * switch relay on/off
+     * Encender/apagar un relé
      */
     void switchRelay(uint8_t relay, bool mode);
 
     /**
-     * toggle relay
+     * Alternar el estado de un relé
      */
     inline void toggleRelay(uint8_t relay) {
       switchRelay(relay, !_relay[relay].state);
     }
 
     /**
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() override;
 
     /**
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     inline void connected() override { InitHtmlAPIHandle(); }
 
     /**
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
      */
     void loop() override;
 
@@ -181,51 +181,51 @@ class MultiRelay : public Usermod {
 #endif
 
     /**
-     * handleButton() can be used to override default button behaviour. Returning true
-     * will prevent button working in a default way.
-     * Replicating button.cpp
+     * `handleButton()` puede usarse para sobrescribir el comportamiento por defecto del botón.
+     * Devolver `verdadero` evitará que el botón actúe de la forma predeterminada.
+     * Implementación similar a `button.cpp`.
      */
     bool handleButton(uint8_t b) override;
 
     /**
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a la sección /JSON/información de la API JSON.
      */
     void addToJsonInfo(JsonObject &root) override;
 
     /**
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * `addToJsonState()` puede usarse para añadir entradas personalizadas a la sección /JSON/estado de la API JSON (objeto estado).
+     * Los valores en el objeto estado pueden ser modificados por clientes conectados.
      */
     void addToJsonState(JsonObject &root) override;
 
     /**
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * `readFromJsonState()` puede recibir datos enviados por clientes a la sección /JSON/estado de la API JSON (objeto estado).
+     * Los valores en el objeto estado pueden ser modificados por clientes conectados.
      */
     void readFromJsonState(JsonObject &root) override;
 
     /**
-     * provide the changeable values
+     * Proporciona los valores configurables (cambiables)
      */
     void addToConfig(JsonObject &root) override;
 
     void appendConfigData() override;
 
     /**
-     * restore the changeable values
-     * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
-     * 
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * Restaurar los valores configurables
+     * `readFromConfig()` se llama antes de `configuración()` para rellenar propiedades desde los valores guardados en `cfg.JSON`.
+     *
+     * La función debe devolver `verdadero` si la configuración se cargó correctamente o `falso` si no había configuración.
      */
     bool readFromConfig(JsonObject &root) override;
 };
 
 
-// class implementation
+// clase implementación
 
 void MultiRelay::publishMqtt(int relay) {
 #ifndef WLED_DISABLE_MQTT
-  //Check if MQTT Connected, otherwise it will crash the 8266
+  //Verificar if MQTT Connected, otherwise it will bloqueo the 8266
   if (WLED_MQTT_CONNECTED){
     char subuf[64];
     sprintf_P(subuf, PSTR("%s/relay/%d"), mqttDeviceTopic, relay);
@@ -235,7 +235,7 @@ void MultiRelay::publishMqtt(int relay) {
 }
 
 /**
- * switch off the strip if the delay has elapsed 
+ * conmutador off the tira if the retraso has elapsed 
  */
 void MultiRelay::handleOffTimer() {
   unsigned long now = millis();
@@ -254,7 +254,7 @@ void MultiRelay::handleOffTimer() {
 }
 
 /**
- * HTTP API handler
+ * HTTP API manejador
  * borrowed from:
  * https://github.com/gsieben/WLED/blob/master/usermods/GeoGab-Relays/usermod_GeoGab.h
  */
@@ -266,14 +266,14 @@ void MultiRelay::InitHtmlAPIHandle() {  // https://github.com/me-no-dev/ESPAsync
     DEBUG_PRINTLN(F("Relays: HTML API"));
     String janswer;
     String error = "";
-    //int params = request->params();
+    //int params = solicitud->params();
     janswer = F("{\"NoOfRelays\":");
     janswer += String(MULTI_RELAY_MAX_RELAYS) + ",";
 
     if (getActiveRelayCount()) {
       // Commands
       if (request->hasParam(FPSTR(_switch))) {
-        /**** Switch ****/
+        /**** Conmutador ****/
         AsyncWebParameter* p = request->getParam(FPSTR(_switch));
         // Get Values
         for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
@@ -281,7 +281,7 @@ void MultiRelay::InitHtmlAPIHandle() {  // https://github.com/me-no-dev/ESPAsync
           if (value==-1) {
             error = F("There must be as many arguments as relays");
           } else {
-            // Switch
+            // Conmutador
             if (_relay[i].external) switchRelay(i, (bool)value);
           }
         }
@@ -305,7 +305,7 @@ void MultiRelay::InitHtmlAPIHandle() {  // https://github.com/me-no-dev/ESPAsync
       error = F("No active relays");
     }
 
-    // Status response
+    // Estado respuesta
     char sbuf[16];
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
       sprintf_P(sbuf, PSTR("\"%d\":%d,"), i, (_relay[i].pin<0 ? -1 : (int)_relay[i].state));
@@ -336,14 +336,14 @@ int MultiRelay::getValue(String data, char separator, int index) {
   return found>index ? data.substring(strIndex[0], strIndex[1]).toInt() : -1;
 }
 
-//Write a byte to the IO expander
+//Escribir a byte to the IO expander
 byte MultiRelay::IOexpanderWrite(byte address, byte _data ) {
   Wire.beginTransmission(address);
   Wire.write(_data);
   return Wire.endTransmission(); 
 }
 
-//Read a byte from the IO expander
+//Leer a byte from the IO expander
 byte MultiRelay::IOexpanderRead(int address) {
   byte _data = 0;
   Wire.requestFrom(address, 1);
@@ -383,13 +383,13 @@ MultiRelay::MultiRelay()
 }
 
 /**
- * switch relay on/off
+ * conmutador relay on/off
  */
 void MultiRelay::switchRelay(uint8_t relay, bool mode) {
   if (relay>=MULTI_RELAY_MAX_RELAYS || _relay[relay].pin<0) return;
   _relay[relay].state = mode;
   if (usePcf8574 && _relay[relay].pin >= 100) {
-    // we need to send all outputs at the same time
+    // we need to enviar all outputs at the same time
     uint8_t state = 0;
     for (int i=0; i<MULTI_RELAY_MAX_RELAYS; i++) {
       if (_relay[i].pin < 100) continue;
@@ -416,8 +416,8 @@ uint8_t MultiRelay::getActiveRelayCount() {
 
 #ifndef WLED_DISABLE_MQTT
 /**
- * handling of MQTT message
- * topic only contains stripped topic (part after /wled/MAC)
+ * handling of MQTT mensaje
+ * topic only contains stripped topic (part after /WLED/MAC)
  * topic should look like: /relay/X/command; where X is relay number, 0 based
  */
 bool MultiRelay::onMqttMessage(char* topic, char* payload) {
@@ -499,11 +499,11 @@ void MultiRelay::publishHomeAssistantAutodiscovery() {
 #endif
 
 /**
- * setup() is called once at boot. WiFi is not yet connected at this point.
- * You can use it to initialize variables, sensors or similar.
+ * configuración() is called once at boot. WiFi is not yet connected at this point.
+ * You can use it to inicializar variables, sensors or similar.
  */
 void MultiRelay::setup() {
-  // pins retrieved from cfg.json (readFromConfig()) prior to running setup()
+  // pins retrieved from cfg.JSON (readFromConfig()) prior to running configuración()
   // if we want PCF8574 expander I2C pins need to be valid
   if (i2c_sda<0 || i2c_scl<0) usePcf8574 = false;
 
@@ -532,7 +532,7 @@ void MultiRelay::setup() {
 }
 
 /**
- * loop() is called continuously. Here you can check for events, read sensors, etc.
+ * bucle() is called continuously. Here you can verificar for events, leer sensors, etc.
  */
 void MultiRelay::loop() {
   static unsigned long lastUpdate = 0;
@@ -555,8 +555,8 @@ void MultiRelay::loop() {
 }
 
 /**
- * handleButton() can be used to override default button behaviour. Returning true
- * will prevent button working in a default way.
+ * handleButton() can be used to anular default button behaviour. Returning verdadero
+ * will prevent button funcionamiento in a default way.
  * Replicating button.cpp
  */
 bool MultiRelay::handleButton(uint8_t b) {
@@ -580,7 +580,7 @@ bool MultiRelay::handleButton(uint8_t b) {
 
   unsigned long now = millis();
 
-  //button is not momentary, but switch. This is only suitable on pins whose on-boot state does not matter (NOT gpio0)
+  //button is not momentary, but conmutador. This is only suitable on pins whose on-boot estado does not matter (NOT gpio0)
   if (buttons[b].type == BTN_TYPE_SWITCH) {
     //handleSwitch(b);
     if (buttons[b].pressedBefore != isButtonPressed(b)) {
@@ -609,7 +609,7 @@ bool MultiRelay::handleButton(uint8_t b) {
 
     if (now - buttons[b].pressedTime > 600) { //long press
       //longPressAction(b); //not exposed
-      //handled = false; //use if you want to pass to default behaviour
+      //handled = falso; //use if you want to pass to default behaviour
       buttons[b].longPressed = true;
     }
 
@@ -624,10 +624,10 @@ bool MultiRelay::handleButton(uint8_t b) {
     buttons[b].waitTime = 0;
 
     if (!buttons[b].longPressed) { //short press
-      // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
+      // if this is second lanzamiento within 350ms it is a doble press (buttonWaitTime!=0)
       if (doublePress) {
         //doublePressAction(b); //not exposed
-        //handled = false; //use if you want to pass to default behaviour
+        //handled = falso; //use if you want to pass to default behaviour
       } else  {
         buttons[b].waitTime = now;
       }
@@ -635,7 +635,7 @@ bool MultiRelay::handleButton(uint8_t b) {
     buttons[b].pressedBefore = false;
     buttons[b].longPressed = false;
   }
-  // if 350ms elapsed since last press/release it is a short press
+  // if 350ms elapsed since last press/lanzamiento it is a short press
   if (buttons[b].waitTime && now - buttons[b].waitTime > 350 && !buttons[b].pressedBefore) {
     buttons[b].waitTime = 0;
     //shortPressAction(b); //not exposed
@@ -649,7 +649,7 @@ bool MultiRelay::handleButton(uint8_t b) {
 }
 
 /**
- * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
+ * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
  */
 void MultiRelay::addToJsonInfo(JsonObject &root) {
   if (enabled) {
@@ -685,8 +685,8 @@ void MultiRelay::addToJsonInfo(JsonObject &root) {
 }
 
 /**
- * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
- * Values in the state object may be modified by connected clients
+ * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+ * Values in the estado object may be modified by connected clients
  */
 void MultiRelay::addToJsonState(JsonObject &root) {
   if (!initDone || !enabled) return;  // prevent crash on boot applyPreset()
@@ -709,8 +709,8 @@ void MultiRelay::addToJsonState(JsonObject &root) {
 }
 
 /**
- * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
- * Values in the state object may be modified by connected clients
+ * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+ * Values in the estado object may be modified by connected clients
  */
 void MultiRelay::readFromJsonState(JsonObject &root) {
   if (!initDone || !enabled) return;  // prevent crash on boot applyPreset()
@@ -771,9 +771,9 @@ void MultiRelay::appendConfigData() {
 
 /**
  * restore the changeable values
- * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+ * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
  * 
- * The function should return true if configuration was successfully loaded or false if there was no configuration.
+ * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
  */
 bool MultiRelay::readFromConfig(JsonObject &root) {
   int8_t oldPin[MULTI_RELAY_MAX_RELAYS];
@@ -790,7 +790,7 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
   enabled = top[FPSTR(_enabled)] | enabled;
   usePcf8574 = top[FPSTR(_pcf8574)] | usePcf8574;
   addrPcf8574 = top[FPSTR(_pcfAddress)] | addrPcf8574;
-  // if I2C is not globally initialised just ignore
+  // if I2C is not globally initialised just ignorar
   if (i2c_sda<0 || i2c_scl<0) usePcf8574 = false;
   periodicBroadcastSec = top[FPSTR(_broadcast)] | periodicBroadcastSec;
   periodicBroadcastSec = min(900,max(0,(int)periodicBroadcastSec));
@@ -809,7 +809,7 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
 
   DEBUG_PRINT(FPSTR(_name));
   if (!initDone) {
-    // reading config prior to setup()
+    // reading config prior to configuración()
     DEBUG_PRINTLN(F(" config loaded."));
   } else {
     // deallocate all pins 1st
@@ -821,11 +821,11 @@ bool MultiRelay::readFromConfig(JsonObject &root) {
     setup();
     DEBUG_PRINTLN(F(" config (re)loaded."));
   }
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return !top[FPSTR(_pcf8574)].isNull();
 }
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char MultiRelay::_name[]            PROGMEM = "MultiRelay";
 const char MultiRelay::_enabled[]         PROGMEM = "enabled";
 const char MultiRelay::_relay_str[]       PROGMEM = "relay";

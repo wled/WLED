@@ -1,5 +1,5 @@
 /*
- * Define the hardware for the EleksTube IPS clock.  Mostly pin definitions
+ * Definir the hardware for the EleksTube IPS clock.  Mostly pin definitions
  */
 #ifndef ELEKSTUBEHAX_HARDWARE_H
 #define ELEKSTUBEHAX_HARDWARE_H

@@ -4,7 +4,7 @@
 #include "battery_defaults.h"
 
 /**
- *  Battery base class
+ *  Battery base clase
  *  all other battery classes should inherit from this
  */
 class UMBattery
@@ -42,12 +42,12 @@ class UMBattery
 
         /**
          * Corresponding battery curves
-         * calculates the level in % (0-100) with given voltage and possible voltage range
+         * calculates the nivel in % (0-100) with given voltage and possible voltage rango
          */
         virtual float mapVoltage(float v, float min, float max) = 0;
         // { 
-        //     example implementation, linear mapping
-        //     return (v-min) * 100 / (max-min);
+        //     example implementación, linear mapping
+        //     retorno (v-min) * 100 / (max-min);
         // };
 
         virtual void calculateAndSetLevel(float voltage) = 0;
@@ -100,7 +100,7 @@ class UMBattery
         }
 
         /**
-         * check if voltage is within specified voltage range, allow 10% over/under voltage
+         * verificar if voltage is within specified voltage rango, allow 10% over/under voltage
          */
         void setVoltage(float voltage)
         {
@@ -121,8 +121,8 @@ class UMBattery
         }
 
         /*
-         * Get the configured calibration value
-         * a offset value to fine-tune the calculated voltage.
+         * Get the configured calibration valor
+         * a desplazamiento valor to fine-tune the calculated voltage.
          */
         virtual float getCalibration()
         {
@@ -130,8 +130,8 @@ class UMBattery
         }
 
         /*
-         * Set the voltage calibration offset value
-         * a offset value to fine-tune the calculated voltage.
+         * Set the voltage calibration desplazamiento valor
+         * a desplazamiento valor to fine-tune the calculated voltage.
          */
         virtual void setCalibration(float offset)
         {
@@ -139,8 +139,8 @@ class UMBattery
         }
 
         /*
-         * Get the configured calibration value
-         * a value to set the voltage divider ratio
+         * Get the configured calibration valor
+         * a valor to set the voltage divider ratio
          */
         virtual float getVoltageMultiplier()
         {
@@ -148,8 +148,8 @@ class UMBattery
         }
 
         /*
-         * Set the voltage multiplier value
-         * a value to set the voltage divider ratio.
+         * Set the voltage multiplier valor
+         * a valor to set the voltage divider ratio.
          */
         virtual void setVoltageMultiplier(float multiplier)
         {

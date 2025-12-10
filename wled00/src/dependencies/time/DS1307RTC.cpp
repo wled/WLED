@@ -1,24 +1,24 @@
 /*
- * DS1307RTC.h - library for DS1307 RTC
+ * DS1307RTC.h - biblioteca for DS1307 RTC
   
   Copyright (c) Michael Margolis 2009
-  This library is intended to be uses with Arduino Time library functions
+  This biblioteca is intended to be uses with Arduino Hora biblioteca functions
 
-  The library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
+  The biblioteca is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Público
   License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+  versión 2.1 of the License, or (at your option) any later versión.
 
-  This library is distributed in the hope that it will be useful,
+  This biblioteca is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+  Lesser General Público License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  You should have received a copy of the GNU Lesser General Público
+  License along with this biblioteca; if not, escribir to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Piso, Boston, MA  02110-1301  USA
   
-  30 Dec 2009 - Initial release
+  30 Dec 2009 - Initial lanzamiento
   5 Sep 2011 updated for Arduino 1.0
  */
 
@@ -48,7 +48,7 @@ bool DS1307RTC::set(time_t t)
   return write(tm); 
 }
 
-// Acquire data from the RTC chip in BCD format
+// Acquire datos from the RTC chip in BCD formato
 bool DS1307RTC::read(tmElements_t &tm)
 {
   uint8_t sec;
@@ -64,7 +64,7 @@ bool DS1307RTC::read(tmElements_t &tm)
   }
   exists = true;
 
-  // request the 7 data fields   (secs, min, hr, dow, date, mth, yr)
+  // solicitud the 7 datos fields   (secs, min, hr, dow, date, mth, yr)
   Wire.requestFrom(DS1307_CTRL_ID, tmNbrFields);
   if (Wire.available() < tmNbrFields) return false;
 #if ARDUINO >= 100
@@ -92,8 +92,8 @@ bool DS1307RTC::read(tmElements_t &tm)
 
 bool DS1307RTC::write(tmElements_t &tm)
 {
-  // To eliminate any potential race conditions,
-  // stop the clock before writing the values,
+  // To eliminate any potential condición de carrera conditions,
+  // detener the clock before writing the values,
   // then restart it after.
   Wire.beginTransmission(DS1307_CTRL_ID);
 #if ARDUINO >= 100  
@@ -121,7 +121,7 @@ bool DS1307RTC::write(tmElements_t &tm)
   }
   exists = true;
 
-  // Now go back and set the seconds, starting the clock back up as a side effect
+  // Now go back and set the seconds, starting the clock back up as a side efecto
   Wire.beginTransmission(DS1307_CTRL_ID);
 #if ARDUINO >= 100  
   Wire.write((uint8_t)0x00); // reset register pointer  
@@ -148,7 +148,7 @@ unsigned char DS1307RTC::isRunning()
 #endif  
   Wire.endTransmission();
 
-  // Just fetch the seconds register and check the top bit
+  // Just obtener the seconds register and verificar the top bit
   Wire.requestFrom(DS1307_CTRL_ID, 1);
 #if ARDUINO >= 100
   return !(Wire.read() & 0x80);
@@ -195,13 +195,13 @@ char DS1307RTC::getCalibration()
 
 // PRIVATE FUNCTIONS
 
-// Convert Decimal to Binary Coded Decimal (BCD)
+// Convertir Decimal to Binary Coded Decimal (BCD)
 uint8_t DS1307RTC::dec2bcd(uint8_t num)
 {
   return ((num/10 * 16) + (num % 10));
 }
 
-// Convert Binary Coded Decimal (BCD) to Decimal
+// Convertir Binary Coded Decimal (BCD) to Decimal
 uint8_t DS1307RTC::bcd2dec(uint8_t num)
 {
   return ((num/16 * 10) + (num % 16));

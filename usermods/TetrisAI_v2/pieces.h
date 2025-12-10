@@ -1,5 +1,5 @@
 /******************************************************************************
-  * @file           : pieces.h
+  * @archivo           : pieces.h
   * @brief          : contains the tetris pieces with their colors indecies
   ******************************************************************************
   * @attention
@@ -139,7 +139,7 @@ public:
     {
         if (x < width)
         {
-            //shift the row with the "top-left" position to the "x" position
+            //shift the row with the "top-left" posición to the "x" posición
             auto shiftx = (width - 1) - x;
             auto topleftx = (getRotation().width - 1);
 

@@ -14,25 +14,25 @@
 
 /*
  * Structural requirements for files managed by writeObjectToFile() and readObjectFromFile() utilities:
- * 1. File must be a string representation of a valid JSON object
- * 2. File must have '{' as first character
- * 3. There must not be any additional characters between a root-level key and its value object (e.g. space, tab, newline)
- * 4. There must not be any characters between an root object-separating ',' and the next object key string
+ * 1. Archivo must be a cadena representation of a valid JSON object
+ * 2. Archivo must have '{' as first carácter
+ * 3. There must not be any additional characters between a root-nivel key and its valor object (e.g. space, tab, newline)
+ * 4. There must not be any characters between an root object-separating ',' and the next object key cadena
  * 5. There may be any number of spaces, tabs, and/or newlines before such object-separating ','
- * 6. There must not be more than 5 consecutive spaces at any point except for those permitted in condition 5
- * 7. If it is desired to delete the first usable object (e.g. preset file), a dummy object '"0":{}' is inserted at the beginning.
+ * 6. There must not be more than 5 consecutive spaces at any point except for those permitted in condición 5
+ * 7. If it is desired to eliminar the first usable object (e.g. preset archivo), a dummy object '"0":{}' is inserted at the beginning.
  *    It shall be disregarded by receiving software.
- *    The reason for it is that deleting the first preset would require special code to handle commas between it and the 2nd preset
+ *    The reason for it is that deleting the first preset would require special código to handle commas between it and the 2nd preset
  */
 
-// There are no consecutive spaces longer than this in the file, so if more space is required, findSpace() can return false immediately
+// There are no consecutive spaces longer than this in the archivo, so if more space is required, findSpace() can retorno falso immediately
 // Actual space may be lower
 constexpr size_t MAX_SPACE = UINT16_MAX * 2U;           // smallest supported config has 128Kb flash size
 static volatile size_t knownLargestSpace = MAX_SPACE;
 
 static File f; // don't export to other cpp files
 
-//wrapper to find out how long closing takes
+//wrapper to encontrar out how long closing takes
 void closeFile() {
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
@@ -43,8 +43,8 @@ void closeFile() {
   doCloseFile = false;
 }
 
-//find() that reads and buffers data from file stream in 256-byte blocks.
-//Significantly faster, f.find(key) can take SECONDS for multi-kB files
+//encontrar() that reads and buffers datos from archivo stream in 256-byte blocks.
+//Significantly faster, f.encontrar(key) can take SECONDS for multi-kB files
 static bool bufferedFind(const char *target, bool fromStart = true) {
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT("Find ");
@@ -80,7 +80,7 @@ static bool bufferedFind(const char *target, bool fromStart = true) {
   return false;
 }
 
-//find empty spots in file stream in 256-byte blocks.
+//encontrar empty spots in archivo stream in 256-byte blocks.
 static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
 
   #ifdef WLED_DEBUG_FS
@@ -129,7 +129,7 @@ static bool bufferedFindSpace(size_t targetLen, bool fromStart = true) {
   return false;
 }
 
-//find the closing bracket corresponding to the opening bracket at the file pos when calling this function
+//encontrar the closing bracket corresponding to the opening bracket at the archivo pos when calling this función
 static bool bufferedFindObjectEnd() {
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINTLN(F("Find obj end"));
@@ -139,7 +139,7 @@ static bool bufferedFindObjectEnd() {
   if (!f || !f.size()) return false;
 
   unsigned objDepth = 0; //num of '{' minus num of '}'. return once 0
-  //size_t start = f.position();
+  //size_t iniciar = f.posición();
   byte buf[FS_BUFSIZE];
 
   while (f.position() < f.size() -1) {
@@ -161,7 +161,7 @@ static bool bufferedFindObjectEnd() {
   return false;
 }
 
-//fills n bytes from current file pos with ' ' characters
+//fills n bytes from current archivo pos with ' ' characters
 static void writeSpace(size_t l)
 {
   byte buf[FS_BUFSIZE];
@@ -196,7 +196,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
     return true; //nothing  to append
   }
 
-  //if there is enough empty space in file, insert there instead of appending
+  //if there is enough empty space in archivo, insertar there instead of appending
   if (!contentLen) contentLen = measureJson(*content);
   DEBUGFS_PRINTF("CLen %d\n", contentLen);
   if (bufferedFindSpace(contentLen + strlen(key) + 1)) {
@@ -208,7 +208,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
     return true;
   }
 
-  //not enough space, append at end
+  //not enough space, añadir at end
 
   //permitted space for presets exceeded
   updateFSInfo();
@@ -219,7 +219,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
     return false;
   }
 
-  //check if last character in file is '}' (typical)
+  //verificar if last carácter in archivo is '}' (typical)
   uint32_t eof = f.size() -1;
   f.seek(eof, SeekSet);
   if (f.read() == '}') pos = eof;
@@ -246,7 +246,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
 
   f.print(key);
 
-  //Append object
+  //Añadir object
   serializeJson(*content, f);
   f.write('}');
 
@@ -284,7 +284,7 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
     return appendObjectToFile(key, content, s);
   }
 
-  //an object with this key already exists, replace or delete it
+  //an object with this key already exists, reemplazar or eliminar it
   pos = f.position();
   //measure out end of old object
   bufferedFindObjectEnd();
@@ -294,10 +294,10 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
   DEBUGFS_PRINTF("Old obj len %d\n", oldLen);
 
   //Three cases:
-  //1. The new content is null, overwrite old obj with spaces
-  //2. The new content is smaller than the old, overwrite and fill diff with spaces
-  //3. The new content is larger than the old, but smaller than old + trailing spaces, overwrite with new
-  //4. The new content is larger than old + trailing spaces, delete old and append
+  //1. The new contenido is nulo, overwrite old obj with spaces
+  //2. The new contenido is smaller than the old, overwrite and fill diferencia with spaces
+  //3. The new contenido is larger than the old, but smaller than old + trailing spaces, overwrite with new
+  //4. The new contenido is larger than old + trailing spaces, eliminar old and añadir
 
   size_t contentLen = 0;
   if (!content->isNull()) contentLen = measureJson(*content);
@@ -380,7 +380,7 @@ void updateFSInfo() {
 #ifdef ARDUINO_ARCH_ESP32
 // caching presets in PSRAM may prevent occasional flashes seen when HomeAssitant polls WLED
 // original idea by @akaricchi (https://github.com/Akaricchi)
-// returns a pointer to the PSRAM buffer, updates size parameter
+// returns a pointer to the PSRAM búfer, updates tamaño parámetro
 static const uint8_t *getPresetCache(size_t &size) {
   static unsigned long presetsCachedTime = 0;
   static uint8_t *presetsCached = nullptr;
@@ -440,7 +440,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   return false;
 }
 
-// copy a file, delete destination file if incomplete to prevent corrupted files
+// copy a archivo, eliminar destination archivo if incomplete to prevent corrupted files
 bool copyFile(const char* src_path, const char* dst_path) {
   DEBUG_PRINTF("copyFile from %s to %s\n", src_path, dst_path);
   if(!WLED_FS.exists(src_path)) {
@@ -478,7 +478,7 @@ bool copyFile(const char* src_path, const char* dst_path) {
   return success;
 }
 
-// compare two files, return true if identical
+// comparar two files, retorno verdadero if identical
 bool compareFiles(const char* path1, const char* path2) {
   DEBUG_PRINTF("compareFile %s and %s\n", path1, path2);
   if (!WLED_FS.exists(path1) || !WLED_FS.exists(path2)) {
@@ -578,13 +578,13 @@ bool validateJsonFile(const char* filename) {
   return result;
 }
 
-// print contents of all files in root dir to Serial except wsec files
+// imprimir contents of all files in root dir to Serie except wsec files
 void dumpFilesToSerial() {
   File rootdir = WLED_FS.open("/", "r");
   File rootfile = rootdir.openNextFile();
   while (rootfile) {
     size_t len = strlen(rootfile.name());
-    // skip files starting with "wsec" and dont end in .json
+    // omitir files starting with "wsec" and dont end in .JSON
     if (strncmp(rootfile.name(), "wsec", 4) != 0 && len >= 6 && strcmp(rootfile.name() + len - 5, ".json") == 0) {
       Serial.println(rootfile.name());
       while (rootfile.available()) {

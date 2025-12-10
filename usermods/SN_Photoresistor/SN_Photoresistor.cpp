@@ -13,8 +13,8 @@ static bool checkBoundSensor(float newValue, float prevValue, float maxDiff)
 
 uint16_t Usermod_SN_Photoresistor::getLuminance()
 {
-  // http://forum.arduino.cc/index.php?topic=37555.0
-  // https://forum.arduino.cc/index.php?topic=185158.0
+  // HTTP://forum.arduino.cc/índice.php?topic=37555.0
+  // https://forum.arduino.cc/índice.php?topic=185158.0
   float volts = analogRead(PHOTORESISTOR_PIN) * (referenceVoltage / adcPrecision);
   float amps = volts / resistorValue;
   float lux = amps * 1000000 * 2.0;
@@ -37,7 +37,7 @@ void Usermod_SN_Photoresistor::loop()
 
   unsigned long now = millis();
 
-  // check to see if we are due for taking a measurement
+  // verificar to see if we are due for taking a measurement
   // lastMeasurement will not be updated until the conversion
   // is complete the the reading is finished
   if (now - lastMeasurement < readingInterval)
@@ -77,7 +77,7 @@ void Usermod_SN_Photoresistor::addToJsonInfo(JsonObject &root)
 
   if (!getLuminanceComplete)
   {
-    // if we haven't read the sensor yet, let the user know
+    // if we haven't leer the sensor yet, let the usuario know
     // that we are still waiting for the first measurement
     lux.add((USERMOD_SN_PHOTORESISTOR_FIRST_MEASUREMENT_AT - millis()) / 1000);
     lux.add(F(" sec until read"));
@@ -90,7 +90,7 @@ void Usermod_SN_Photoresistor::addToJsonInfo(JsonObject &root)
 
 
 /**
-   * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
+   * addToConfig() (called from set.cpp) stores persistent properties to cfg.JSON
    */
 void Usermod_SN_Photoresistor::addToConfig(JsonObject &root)
 {
@@ -107,7 +107,7 @@ void Usermod_SN_Photoresistor::addToConfig(JsonObject &root)
 }
 
 /**
-* readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+* readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
 */
 bool Usermod_SN_Photoresistor::readFromConfig(JsonObject &root)
 {
@@ -128,12 +128,12 @@ bool Usermod_SN_Photoresistor::readFromConfig(JsonObject &root)
   DEBUG_PRINT(FPSTR(_name));
   DEBUG_PRINTLN(F(" config (re)loaded."));
 
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return true;
 }
 
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char Usermod_SN_Photoresistor::_name[] PROGMEM = "Photoresistor";
 const char Usermod_SN_Photoresistor::_enabled[] PROGMEM = "enabled";
 const char Usermod_SN_Photoresistor::_readInterval[] PROGMEM = "read-interval-s";

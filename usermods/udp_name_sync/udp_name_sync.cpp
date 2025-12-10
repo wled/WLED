@@ -12,17 +12,17 @@ class UdpNameSync : public Usermod {
 
   public:
     /**
-     * Enable/Disable the usermod
+     * Habilitar/Deshabilitar the usermod
      */
     inline void enable(bool value) { enabled = value; }
 
     /**
-     * Get usermod enabled/disabled state
+     * Get usermod enabled/disabled estado
      */
     inline bool isEnabled() const { return enabled; }
 
     void setup() override {
-      // Enabled when this usermod is compiled, set to false if you prefer runtime opt-in
+      // Enabled when this usermod is compiled, set to falso if you prefer runtime opt-in
       enable(true);
     }
 

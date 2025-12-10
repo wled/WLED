@@ -1,21 +1,21 @@
 # Usermods
 
-This folder serves as a repository for usermods (custom `usermod.cpp` files)!
+¡Esta carpeta sirve como repositorio para usermods (archivos personalizados `usermod.cpp`)!
 
-If you have created a usermod you believe is useful (for example to support a particular sensor, display, feature...), feel free to contribute by opening a pull request!
+Si ha creado un usermod que cree que es útil (por ejemplo, para soportar un sensor particular, pantalla, característica...), ¡siéntase libre de contribuir abriendo una solicitud de extracción!
 
-In order for other people to be able to have fun with your usermod, please keep these points in mind:
+Para que otras personas puedan disfrutar de su usermod, tenga en cuenta estos puntos:
 
-* Create a folder in this folder with a descriptive name (for example `usermod_ds18b20_temp_sensor_mqtt`)  
-* Include your custom files 
-* If your usermod requires changes to other WLED files, please write a `readme.md` outlining the steps one needs to take  
-* Create a pull request!  
-* If your feature is useful for the majority of WLED users, I will consider adding it to the base code!  
+* Cree una carpeta en esta carpeta con un nombre descriptivo (por ejemplo `usermod_ds18b20_temp_sensor_mqtt`)  
+* Incluya sus archivos personalizados 
+* Si su usermod requiere cambios en otros archivos de WLED, escriba un `readme.md` describiendo los pasos que debe seguir  
+* ¡Cree una solicitud de extracción!  
+* Si su característica es útil para la mayoría de usuarios de WLED, consideraré agregarla al código base!  
 
-While I do my best to not break too much, keep in mind that as WLED is updated, usermods might break.  
-I am not actively maintaining any usermod in this directory, that is your responsibility as the creator of the usermod.
+Aunque hago mi mejor esfuerzo para no romper demasiado, tenga en cuenta que a medida que se actualiza WLED, los usermods pueden romperse.  
+No estoy manteniendo activamente ningún usermod en este directorio, esa es su responsabilidad como creador del usermod.
 
-For new usermods, I would recommend trying out the new v2 usermod API, which allows installing multiple usermods at once and new functions!
-You can take a look at `EXAMPLE_v2` for some documentation and at `Temperature` for a completed v2 usermod!
+Para nuevos usermods, recomiendo probar la nueva API de usermod v2, ¡que permite instalar múltiples usermods a la vez y nuevas funciones!
+Puede echar un vistazo a `EXAMPLE_v2` para algunas documentaciones y a `Temperature` para un usermod v2 completado.
 
-Thank you for your help :)
+¡Gracias por tu ayuda :)

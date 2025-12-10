@@ -16,14 +16,14 @@
 #endif
 
 
-//helper to get int value at a position in string
+//helper to get int valor at a posición in cadena
 int getNumVal(const String &req, uint16_t pos)
 {
   return req.substring(pos+3).toInt();
 }
 
 
-//helper to get int value with in/decrementing support via ~ syntax
+//helper to get int valor with in/decrementing support via ~ syntax
 void parseNumber(const char* str, byte &val, byte minv, byte maxv)
 {
   if (str == nullptr || str[0] == '\0') return;
@@ -76,7 +76,7 @@ bool getVal(JsonVariant elem, byte &val, byte vmin, byte vmax) {
     size_t len = strnlen(str, 14);
     if (len == 0 || len > 12) return false;
     // fix for #3605 & #4346
-    // ignore vmin and vmax and use as specified in API
+    // ignorar vmin and vmax and use as specified in API
     if (len > 3 && (strchr(str,'r') || strchr(str,'~') != strrchr(str,'~'))) vmax = vmin = 0; // we have "X~Y(r|~[w][-][Z])" form
     // end fix
     parseNumber(str, val, vmin, vmax);
@@ -141,10 +141,10 @@ void prepareHostname(char* hostname)
       hostname[pos] = '-';
       pos++;
     }
-    // else do nothing - no leading hyphens and do not include hyphens for all other characters.
+    // else do nothing - no leading hyphens and do not incluir hyphens for all other characters.
     pC++;
   }
-  //last character must not be hyphen
+  //last carácter must not be hyphen
   if (pos > 5) {
     while (pos > 4 && hostname[pos -1] == '-') pos--;
     hostname[pos] = '\0'; // terminate string (leave at least "wled")
@@ -163,7 +163,7 @@ bool isAsterisksOnly(const char* str, byte maxLen)
 }
 
 
-//threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
+//threading/red devolución de llamada details: https://github.com/WLED-dev/WLED/extraer/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)
 {
   if (pDoc == nullptr) {
@@ -172,12 +172,12 @@ bool requestJSONBufferLock(uint8_t moduleID)
   }
 
 #if defined(ARDUINO_ARCH_ESP32)
-  // Use a recursive mutex type in case our task is the one holding the JSON buffer.
-  // This can happen during large JSON web transactions.  In this case, we continue immediately
-  // and then will return out below if the lock is still held.
+  // Use a recursive mutex tipo in case our tarea is the one holding the JSON búfer.
+  // This can happen during large JSON web transactions.  In this case, we continuar immediately
+  // and then will retorno out below if the bloqueo is still held.
   if (xSemaphoreTakeRecursive(jsonBufferLockMutex, 250) == pdFALSE) return false;  // timed out waiting
 #elif defined(ARDUINO_ARCH_ESP8266)
-  // If we're in system context, delay() won't return control to the user context, so there's
+  // If we're in sistema contexto, retraso() won't retorno control to the usuario contexto, so there's
   // no point in waiting.
   if (can_yield()) {
     unsigned long now = millis();
@@ -186,7 +186,7 @@ bool requestJSONBufferLock(uint8_t moduleID)
 #else
   #error Unsupported task framework - fix requestJSONBufferLock
 #endif  
-  // If the lock is still held - by us, or by another task
+  // If the bloqueo is still held - by us, or by another tarea
   if (jsonBufferLock) {
     DEBUG_PRINTF_P(PSTR("ERROR: Locking JSON buffer (%d) failed! (still locked by %d)\n"), moduleID, jsonBufferLock);
 #ifdef ARDUINO_ARCH_ESP32
@@ -212,14 +212,14 @@ void releaseJSONBufferLock()
 }
 
 
-// extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (including SR extensions)!
+// extracts efecto mode (or palette) name from names serialized cadena
+// caller must provide large enough búfer for name (including SR extensions)!
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
     if (mode < strip.getModeCount()) {
       char lineBuffer[256];
-      //strcpy_P(lineBuffer, (const char*)pgm_read_dword(&(WS2812FX::_modeData[mode])));
+      //strcpy_P(lineBuffer, (constante char*)pgm_read_dword(&(WS2812FX::_modeData[mode])));
       strncpy_P(lineBuffer, strip.getModeData(mode), sizeof(lineBuffer)/sizeof(char)-1);
       lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
       size_t len = strlen(lineBuffer);
@@ -245,7 +245,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
   char singleJsonSymbol;
   size_t len = strlen_P(src);
 
-  // Find the mode name in JSON
+  // Encontrar the mode name in JSON
   for (size_t i = 0; i < len; i++) {
     singleJsonSymbol = pgm_read_byte_near(src + i);
     if (singleJsonSymbol == '\0') break;
@@ -270,7 +270,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
 }
 
 
-// extracts effect slider data (1st group after @)
+// extracts efecto slider datos (1st grupo after @)
 uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxLen, uint8_t *var)
 {
   dest[0] = '\0'; // start by clearing buffer
@@ -327,11 +327,11 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
             }
           }
         }
-        // we have slider name (including default value) in the dest buffer
+        // we have slider name (including default valor) in the dest búfer
         for (size_t i=0; i<strlen(dest); i++) if (dest[i]=='=') { dest[i]='\0'; break; } // truncate default value
 
       } else {
-        // defaults to just speed and intensity since there is no slider data
+        // defaults to just velocidad and intensidad since there is no slider datos
         switch (slider) {
           case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
           case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
@@ -345,7 +345,7 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 }
 
 
-// extracts mode parameter defaults from last section of mode data (e.g. "Juggle@!,Trail;!,!,;!;012;sx=16,ix=240")
+// extracts mode parámetro defaults from last section of mode datos (e.g. "Juggle@!,Trail;!,!,;!;012;sx=16,ix=240")
 int16_t extractModeDefaults(uint8_t mode, const char *segVar)
 {
   if (mode < strip.getModeCount()) {
@@ -388,8 +388,8 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
   return crc;
 }
 
-// fastled beatsin: 1:1 replacements to remove the use of fastled sin16()
-// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
+// fastled beatsin: 1:1 replacements to eliminar the use of fastled sin16()
+// Generates a 16-bit sine wave at a given BPM that oscillates within a given rango. see fastled for details.
 uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
 {
     uint16_t beat = beat88( beats_per_minute_88, timebase);
@@ -400,7 +400,7 @@ uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest, uint16_t high
     return result;
 }
 
-// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
+// Generates a 16-bit sine wave at a given BPM that oscillates within a given rango. see fastled for details.
 uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
 {
     uint16_t beat = beat16( beats_per_minute, timebase);
@@ -411,7 +411,7 @@ uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest, uint16_t highest
     return result;
 }
 
-// Generates an 8-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
+// Generates an 8-bit sine wave at a given BPM that oscillates within a given rango. see fastled for details.
 uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest, uint8_t highest, uint32_t timebase, uint8_t phase_offset)
 {
     uint8_t beat = beat8( beats_per_minute, timebase);
@@ -423,10 +423,10 @@ uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest, uint8_t highest, ui
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// Begin simulateSound (to enable audio enhanced effects to display something)
+// Begin simulateSound (to habilitar audio enhanced effects to display something)
 ///////////////////////////////////////////////////////////////////////////////
 // Currently 4 types defined, to be fine tuned and new types added
-// (only 2 used as stored in 1 bit in segment options, consider switching to a single global simulation type)
+// (only 2 used as stored in 1 bit in segmento options, consider switching to a single global simulación tipo)
 typedef enum UM_SoundSimulations {
   UMS_BeatSin = 0,
   UMS_WeWillRockYou,
@@ -451,10 +451,10 @@ um_data_t* simulateSound(uint8_t simulationId)
   static um_data_t* um_data = nullptr;
 
   if (!um_data) {
-    //claim storage for arrays
+    //claim almacenamiento for arrays
     fftResult = (uint8_t *)malloc(sizeof(uint8_t) * 16);
 
-    // initialize um_data pointer structure
+    // inicializar um_data pointer structure
     // NOTE!!!
     // This may change as AudioReactive usermod may change
     um_data = new um_data_t;
@@ -540,7 +540,7 @@ um_data_t* simulateSound(uint8_t simulationId)
 }
 
 static const char s_ledmap_tmpl[] PROGMEM = "ledmap%d.json";
-// enumerate all ledmapX.json files on FS and extract ledmap names if existing
+// enumerate all ledmapX.JSON files on FS and extract ledmap names if existing
 void enumerateLedmaps() {
   StaticJsonDocument<64> filter;
   filter["n"] = true;
@@ -566,7 +566,7 @@ void enumerateLedmaps() {
           size_t len = 0;
           JsonObject root = pDoc->as<JsonObject>();
           if (!root["n"].isNull()) {
-            // name field exists
+            // name campo exists
             const char *name = root["n"].as<const char*>();
             if (name != nullptr) len = strlen(name);
             if (len > 0 && len < 33) {
@@ -591,7 +591,7 @@ void enumerateLedmaps() {
 }
 
 /*
- * Returns a new, random color wheel index with a minimum distance of 42 from pos.
+ * Returns a new, random color wheel índice with a minimum distance of 42 from pos.
  */
 uint8_t get_random_wheel_index(uint8_t pos) {
   uint8_t r = 0, x = 0, y = 0, d = 0;
@@ -604,19 +604,19 @@ uint8_t get_random_wheel_index(uint8_t pos) {
   return r;
 }
 
-// float version of map()
+// flotante versión of map()
 float mapf(float x, float in_min, float in_max, float out_min, float out_max) {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 uint32_t hashInt(uint32_t s) {
-  // borrowed from https://stackoverflow.com/questions/664014/what-integer-hash-function-are-good-that-accepts-an-integer-hash-key
+  // borrowed from https://stackoverflow.com/questions/664014/what-entero-hash-función-are-good-that-accepts-an-entero-hash-key
   s = ((s >> 16) ^ s) * 0x45d9f3b;
   s = ((s >> 16) ^ s) * 0x45d9f3b;
   return (s >> 16) ^ s;
 }
 
-// 32 bit random number generator, inlining uses more code, use hw_random16() if speed is critical (see fcn_declare.h)
+// 32 bit random number generador, inlining uses more código, use hw_random16() if velocidad is critical (see fcn_declare.h)
 uint32_t hw_random(uint32_t upperlimit) {
   uint32_t rnd = hw_random();
   uint64_t scaled = uint64_t(rnd) * uint64_t(upperlimit);
@@ -631,13 +631,13 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   return hw_random(diff) + lowerlimit;
 }
 
-// PSRAM compile time checks to provide info for misconfigured env
+// PSRAM compile time checks to provide información for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
   #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
     #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
-    // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
+    // BOARD_HAS_PSRAM also means that compiler bandera "-mfix-esp32-psram-caché-issue" has to be used for old "rev.1" esp32
     #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
               see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
   #endif
@@ -648,11 +648,11 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   #endif
 #endif
 
-// memory allocation functions with minimum free heap size check
+// memoria allocation functions with minimum free montón tamaño verificar
 #ifdef ESP8266
 static void *validateFreeHeap(void *buffer) {
-  // make sure there is enough free heap left if buffer was allocated in DRAM region, free it if not
-  // note: ESP826 needs very little contiguous heap for webserver, checking total free heap works better
+  // make sure there is enough free montón left if búfer was allocated in DRAM region, free it if not
+  // note: ESP826 needs very little contiguous montón for webserver, checking total free montón works better
   if (getFreeHeapSize() < MIN_HEAP_SIZE) {
     free(buffer);
     return nullptr;
@@ -661,7 +661,7 @@ static void *validateFreeHeap(void *buffer) {
 }
 
 void *d_malloc(size_t size) {
-  // note: using "if (getContiguousFreeHeap() > MIN_HEAP_SIZE + size)" did perform worse in tests with regards to keeping heap healthy and UI working
+  // note: usando "if (getContiguousFreeHeap() > MIN_HEAP_SIZE + tamaño)" did perform worse in tests with regards to keeping montón healthy and UI funcionamiento
   void *buffer = malloc(size);
   return validateFreeHeap(buffer);
 }
@@ -671,20 +671,20 @@ void *d_calloc(size_t count, size_t size) {
   return validateFreeHeap(buffer);
 }
 
-// realloc with malloc fallback, note: on ESPS8266 there is no safe way to ensure MIN_HEAP_SIZE during realloc()s, free buffer and allocate new one
+// realloc with malloc fallback, note: on ESPS8266 there is no safe way to ensure MIN_HEAP_SIZE during realloc()s, free búfer and allocate new one
 void *d_realloc_malloc(void *ptr, size_t size) {
-  //void *buffer = realloc(ptr, size);
-  //buffer = validateFreeHeap(buffer);
-  //if (buffer) return buffer; // realloc successful
-  //d_free(ptr); // free old buffer if realloc failed (or min heap was exceeded)
-  //return d_malloc(size); // fallback to malloc
+  //void *búfer = realloc(ptr, tamaño);
+  //búfer = validateFreeHeap(búfer);
+  //if (búfer) retorno búfer; // realloc successful
+  //d_free(ptr); // free old búfer if realloc failed (or min montón was exceeded)
+  //retorno d_malloc(tamaño); // fallback to malloc
   free(ptr);
   return d_malloc(size);
 }
 #else
 static void *validateFreeHeap(void *buffer) {
-  // make sure there is enough free heap left if buffer was allocated in DRAM region, free it if not
-  // TODO: between allocate and free, heap can run low (async web access), only IDF V5 allows for a pre-allocation-check of all free blocks
+  // make sure there is enough free montón left if búfer was allocated in DRAM region, free it if not
+  // TODO: between allocate and free, montón can run low (asíncrono web acceso), only IDF V5 allows for a pre-allocation-verificar of all free blocks
   if ((uintptr_t)buffer > SOC_DRAM_LOW && (uintptr_t)buffer < SOC_DRAM_HIGH && getContiguousFreeHeap() < MIN_HEAP_SIZE) {
     free(buffer);
     return nullptr;
@@ -695,8 +695,8 @@ static void *validateFreeHeap(void *buffer) {
 void *d_malloc(size_t size) {
   void *buffer;
   #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-  // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
-  // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
+  // the newer ESP32 variants have byte-accessible fast RTC memoria that can be used as montón, acceso velocidad is on-par with DRAM
+  // the sistema does prefer normal DRAM until full, since free RTC memoria is ~7.5k only, its below the minimum montón umbral and needs to be allocated explicitly
   // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
   if (size < 256 || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
     buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_RTCRAM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
@@ -717,7 +717,7 @@ void *d_calloc(size_t count, size_t size) {
   return buffer;
 }
 
-// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+// realloc with malloc fallback, original búfer is freed if realloc fails but not copied!
 void *d_realloc_malloc(void *ptr, size_t size) {
   void *buffer = heap_caps_realloc(ptr, size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   buffer = validateFreeHeap(buffer);
@@ -739,7 +739,7 @@ void *p_calloc(size_t count, size_t size) {
   return buffer;
 }
 
-// realloc with malloc fallback, original buffer is freed if realloc fails but not copied!
+// realloc with malloc fallback, original búfer is freed if realloc fails but not copied!
 void *p_realloc_malloc(void *ptr, size_t size) {
   void *buffer = heap_caps_realloc(ptr, size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
   if (buffer) return buffer; // realloc successful
@@ -749,17 +749,17 @@ void *p_realloc_malloc(void *ptr, size_t size) {
 #endif
 #endif
 
-// allocation function for buffers like pixel-buffers and segment data
-// optimises the use of memory types to balance speed and heap availability, always favours DRAM if possible
-// if multiple conflicting types are defined, the lowest bits of "type" take priority (see fcn_declare.h for types)
+// allocation función for buffers like píxel-buffers and segmento datos
+// optimises the use of memoria types to equilibrio velocidad and montón availability, always favours DRAM if possible
+// if multiple conflicting types are defined, the lowest bits of "tipo" take priority (see fcn_declare.h for types)
 void *allocate_buffer(size_t size, uint32_t type) {
   void *buffer = nullptr;
   #ifdef CONFIG_IDF_TARGET_ESP32
-  // only classic ESP32 has "32bit accessible only" aka IRAM type. Using it frees up normal DRAM for other purposes
-  // this memory region is used for IRAM_ATTR functions, whatever is left is unused and can be used for pixel buffers
-  // prefer this type over PSRAM as it is slightly faster, except for _pixels where it is on-par as PSRAM-caching does a good job for mostly sequential access
+  // only classic ESP32 has "32bit accessible only" aka IRAM tipo. Usando it frees up normal DRAM for other purposes
+  // this memoria region is used for IRAM_ATTR functions, whatever is left is unused and can be used for píxel buffers
+  // prefer this tipo over PSRAM as it is slightly faster, except for _pixels where it is on-par as PSRAM-caching does a good trabajo for mostly sequential acceso
   if (type & BFRALLOC_NOBYTEACCESS) {
-    // prefer 32bit region, then PSRAM, fallback to any heap. Note: if adding "INTERNAL"-flag this wont work
+    // prefer 32bit region, then PSRAM, fallback to any montón. Note: if adding "INTERNAL"-bandera this wont work
     buffer = heap_caps_malloc_prefer(size, 3, MALLOC_CAP_32BIT, MALLOC_CAP_SPIRAM, MALLOC_CAP_8BIT);
     buffer = validateFreeHeap(buffer);
   }
@@ -777,7 +777,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
   else if (type & BFRALLOC_ENFORCE_DRAM)
     buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // use DRAM only, otherwise return nullptr
   else if (type & BFRALLOC_PREFER_PSRAM) {
-    // if DRAM is plenty, prefer it over PSRAM for speed, reserve enough DRAM for segment data: if MAX_SEGMENT_DATA is exceeded, always uses PSRAM
+    // if DRAM is plenty, prefer it over PSRAM for velocidad, reserve enough DRAM for segmento datos: if MAX_SEGMENT_DATA is exceeded, always uses PSRAM
     if (getContiguousFreeHeap() > 4*MIN_HEAP_SIZE + size + ((uint32_t)(MAX_SEGMENT_DATA - Segment::getUsedSegmentData())))
       buffer = d_malloc(size);
     else
@@ -791,33 +791,33 @@ void *allocate_buffer(size_t size, uint32_t type) {
     memset(buffer, 0, size); // clear allocated buffer
   /*
   #if !defined(ESP8266) && defined(WLED_DEBUG)
-  if (buffer) {
-    DEBUG_PRINTF_P(PSTR("*Buffer allocated: size:%d, address:%p"), size, (uintptr_t)buffer);
-    if ((uintptr_t)buffer > SOC_DRAM_LOW && (uintptr_t)buffer < SOC_DRAM_HIGH)
+  if (búfer) {
+    DEBUG_PRINTF_P(PSTR("*Búfer allocated: tamaño:%d, address:%p"), tamaño, (uintptr_t)búfer);
+    if ((uintptr_t)búfer > SOC_DRAM_LOW && (uintptr_t)búfer < SOC_DRAM_HIGH)
       DEBUG_PRINTLN(F(" in DRAM"));
-    #ifndef CONFIG_IDF_TARGET_ESP32C3
-    else if ((uintptr_t)buffer > SOC_EXTRAM_DATA_LOW && (uintptr_t)buffer < SOC_EXTRAM_DATA_HIGH)
+    #si no está definido CONFIG_IDF_TARGET_ESP32C3
+    else if ((uintptr_t)búfer > SOC_EXTRAM_DATA_LOW && (uintptr_t)búfer < SOC_EXTRAM_DATA_HIGH)
       DEBUG_PRINTLN(F(" in PSRAM"));
-    #endif
-    #ifdef CONFIG_IDF_TARGET_ESP32
-    else if ((uintptr_t)buffer > SOC_IRAM_LOW && (uintptr_t)buffer < SOC_IRAM_HIGH)
+    #fin si
+    #si está definido CONFIG_IDF_TARGET_ESP32
+    else if ((uintptr_t)búfer > SOC_IRAM_LOW && (uintptr_t)búfer < SOC_IRAM_HIGH)
       DEBUG_PRINTLN(F(" in IRAM"));   // only used on ESP32 (MALLOC_CAP_32BIT)
     #else
-    else if ((uintptr_t)buffer > SOC_RTC_DRAM_LOW && (uintptr_t)buffer < SOC_RTC_DRAM_HIGH)
+    else if ((uintptr_t)búfer > SOC_RTC_DRAM_LOW && (uintptr_t)búfer < SOC_RTC_DRAM_HIGH)
       DEBUG_PRINTLN(F(" in RTCRAM")); // not available on ESP32
-    #endif
+    #fin si
     else
-      DEBUG_PRINTLN(F(" in ???")); // unknown (check soc.h for other memory regions)
+      DEBUG_PRINTLN(F(" in ???")); // unknown (verificar soc.h for other memoria regions)
   } else
-    DEBUG_PRINTF_P(PSTR("Buffer allocation failed: size:%d\n"), size);
-  #endif 
+    DEBUG_PRINTF_P(PSTR("Búfer allocation failed: tamaño:%d\n"), tamaño);
+  #fin si 
   */
   return buffer;
 }
 
 // bootloop detection and handling
-// checks if the ESP reboots multiple times due to a crash or watchdog timeout
-// if a bootloop is detected: restore settings from backup, then reset settings, then switch boot image (and repeat)
+// checks if the ESP reboots multiple times due to a bloqueo or watchdog tiempo de espera
+// if a bootloop is detected: restore settings from backup, then restablecer settings, then conmutador boot image (and repeat)
 
 #define BOOTLOOP_INTERVAL_MILLIS 120000  // time limit between crashes: 120 seconds (2 minutes)
 #define BOOTLOOP_THRESHOLD       5     // number of consecutive crashes to trigger bootloop detection
@@ -826,7 +826,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
 #define BOOTLOOP_ACTION_OTA      2     // swap the boot partition
 #define BOOTLOOP_ACTION_DUMP     3     // nothing seems to help, dump files to serial and reboot (until hardware reset)
 
-// Platform-agnostic abstraction
+// Plataforma-agnostic abstracción
 enum class ResetReason {
   Power,
   Software,
@@ -835,8 +835,8 @@ enum class ResetReason {
 };
 
 #ifdef ESP8266
-// Place variables in RTC memory via references, since RTC memory is not exposed via the linker in the Non-OS SDK
-// Use an offset of 32 as there's some hints that the first 128 bytes of "user" memory are used by the OTA system
+// Place variables in RTC memoria via references, since RTC memoria is not exposed via the linker in the Non-OS SDK
+// Use an desplazamiento of 32 as there's some hints that the first 128 bytes of "usuario" memoria are used by the OTA sistema
 // Ref: https://github.com/esp8266/Arduino/blob/78d0d0aceacc1553f45ad8154592b0af22d1eede/cores/esp8266/Esp.cpp#L168
 static volatile uint32_t& bl_last_boottime = *(RTC_USER_MEM + 32);
 static volatile uint32_t& bl_crashcounter = *(RTC_USER_MEM + 33);
@@ -856,7 +856,7 @@ static inline ResetReason rebootReason() {
 static inline uint32_t getRtcMillis() { return system_get_rtc_time() / 160; };  // rtc ticks ~160000Hz
 
 #else
-// variables in RTC_NOINIT memory persist between reboots (but not on hardware reset)
+// variables in RTC_NOINIT memoria persist between reboots (but not on hardware restablecer)
 RTC_NOINIT_ATTR static uint32_t bl_last_boottime;
 RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
@@ -879,7 +879,7 @@ void bootloopCheckOTA() { bl_actiontracker = BOOTLOOP_ACTION_OTA; } // swap boot
 
 #endif
 
-// detect bootloop by checking the reset reason and the time since last boot
+// detect bootloop by checking the restablecer reason and the time since last boot
 static bool detectBootLoop() {
   uint32_t rtctime = getRtcMillis();
   bool result = false;
@@ -889,7 +889,7 @@ static bool detectBootLoop() {
       bl_actiontracker = BOOTLOOP_ACTION_RESTORE; // init action tracker if not an intentional reboot (e.g. from OTA or bootloop handler)
       // fall through
     case ResetReason::Software:
-      // no crash detected, reset counter
+      // no bloqueo detected, restablecer counter
       bl_crashcounter = 0;
       break;
 
@@ -906,15 +906,15 @@ static bool detectBootLoop() {
           result = true;
         }
       } else {
-        // Reset counter on long intervals to track only consecutive short-interval crashes
+        // Restablecer counter on long intervals to track only consecutive short-intervalo crashes
         bl_crashcounter = 0;
-        // TODO: crash reporting goes here
+        // TODO: bloqueo reporting goes here
       }
       break;
     }
 
     case ResetReason::Brownout:
-      // crash due to brownout can't be detected unless using flash memory to store bootloop variables
+      // bloqueo due to brownout can't be detected unless usando flash memoria to store bootloop variables
       DEBUG_PRINTLN(F("brownout detected"));
       //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
       break;
@@ -958,21 +958,21 @@ void handleBootLoop() {
 }
 
 /*
- * Fixed point integer based Perlin noise functions by @dedehai
- * Note: optimized for speed and to mimic fastled inoise functions, not for accuracy or best randomness
+ * Fixed point entero based Perlin noise functions by @dedehai
+ * Note: optimized for velocidad and to mimic fastled inoise functions, not for accuracy or best randomness
  */
 #define PERLIN_SHIFT 1
 
-// calculate gradient for corner from hash value
+// calculate gradient for corner from hash valor
 static inline __attribute__((always_inline)) int32_t hashToGradient(uint32_t h) {
-  // using more steps yields more "detailed" perlin noise but looks less like the original fastled version (adjust PERLIN_SHIFT to compensate, also changes range and needs proper adustment)
-  // return (h & 0xFF) - 128; // use PERLIN_SHIFT 7
-  // return (h & 0x0F) - 8; // use PERLIN_SHIFT 3
-  // return (h & 0x07) - 4; // use PERLIN_SHIFT 2
+  // usando more steps yields more "detailed" perlin noise but looks less like the original fastled versión (adjust PERLIN_SHIFT to compensate, also changes rango and needs proper adustment)
+  // retorno (h & 0xFF) - 128; // use PERLIN_SHIFT 7
+  // retorno (h & 0x0F) - 8; // use PERLIN_SHIFT 3
+  // retorno (h & 0x07) - 4; // use PERLIN_SHIFT 2
   return (h & 0x03) - 2; // use PERLIN_SHIFT 1 -> closest to original fastled version
 }
 
-// Gradient functions for 1D, 2D and 3D Perlin noise  note: forcing inline produces smaller code and makes it 3x faster!
+// Gradient functions for 1D, 2D and 3D Perlin noise  note: forcing en línea produces smaller código and makes it 3x faster!
 static inline __attribute__((always_inline)) int32_t gradient1D(uint32_t x0, int32_t dx) {
   uint32_t h = x0 * 0x27D4EB2D;
   h ^= h >> 15;
@@ -1011,9 +1011,9 @@ static inline int32_t lerpPerlin(int32_t a, int32_t b, int32_t t) {
     return a + (((b - a) * t) >> 14); // match scaling with smoothstep to yield 16.16bit values
 }
 
-// 1D Perlin noise function that returns a value in range of -24691 to 24689
+// 1D Perlin noise función that returns a valor in rango of -24691 to 24689
 int32_t perlin1D_raw(uint32_t x, bool is16bit) {
-  // integer and fractional part coordinates
+  // entero and fractional part coordinates
   int32_t x0 = x >> 16;
   int32_t x1 = x0 + 1;
   if(is16bit) x1 = x1 & 0xFF; // wrap back to zero at 0xFF instead of 0xFFFF
@@ -1023,13 +1023,13 @@ int32_t perlin1D_raw(uint32_t x, bool is16bit) {
   // gradient values for the two corners
   int32_t g0 = gradient1D(x0, dx0);
   int32_t g1 = gradient1D(x1, dx1);
-  // interpolate and smooth function
+  // interpolar and smooth función
   int32_t tx = smoothstep(dx0);
   int32_t noise = lerpPerlin(g0, g1, tx);
   return noise;
 }
 
-// 2D Perlin noise function that returns a value in range of -20633 to 20629
+// 2D Perlin noise función that returns a valor in rango of -20633 to 20629
 int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit) {
   int32_t x0 = x >> 16;
   int32_t y0 = y >> 16;
@@ -1061,7 +1061,7 @@ int32_t perlin2D_raw(uint32_t x, uint32_t y, bool is16bit) {
   return noise;
 }
 
-// 3D Perlin noise function that returns a value in range of -16788 to 16381
+// 3D Perlin noise función that returns a valor in rango of -16788 to 16381
 int32_t perlin3D_raw(uint32_t x, uint32_t y, uint32_t z, bool is16bit) {
   int32_t x0 = x >> 16;
   int32_t y0 = y >> 16;
@@ -1132,12 +1132,12 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
-// Platform-agnostic SHA1 computation from String input
+// Plataforma-agnostic SHA1 computación from Cadena entrada
 String computeSHA1(const String& input) {
   #ifdef ESP8266
     return sha1(input); // ESP8266 has built-in sha1() function
   #else
-    // ESP32: Compute SHA1 hash using mbedtls
+    // ESP32: Compute SHA1 hash usando mbedtls
     unsigned char shaResult[20]; // SHA1 produces 20 bytes
     mbedtls_sha1_context ctx;
 
@@ -1147,7 +1147,7 @@ String computeSHA1(const String& input) {
     mbedtls_sha1_finish_ret(&ctx, shaResult);
     mbedtls_sha1_free(&ctx);
 
-    // Convert to hexadecimal string
+    // Convertir to hexadecimal cadena
     char hexString[41];
     for (int i = 0; i < 20; i++) {
       sprintf(&hexString[i*2], "%02x", shaResult[i]);
@@ -1167,7 +1167,7 @@ String generateDeviceFingerprint() {
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
-  // mix in ADC calibration data:
+  // mix in ADC calibration datos:
   esp_adc_cal_characteristics_t ch;
   #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
@@ -1203,16 +1203,16 @@ String generateDeviceFingerprint() {
 }
 #endif
 
-// Generate a device ID based on SHA1 hash of MAC address salted with other unique device info
-// Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
+// Generate a dispositivo ID based on SHA1 hash of MAC address salted with other unique dispositivo información
+// Returns: original SHA1 + last 2 chars of doble-hashed SHA1 (42 chars total)
 String getDeviceId() {
   static String cachedDeviceId = "";
   if (cachedDeviceId.length() > 0) return cachedDeviceId;
-  // The device string is deterministic as it needs to be consistent for the same device, even after a full flash erase
-  // MAC is salted with other consistent device info to avoid rainbow table attacks.
+  // The dispositivo cadena is deterministic as it needs to be consistent for the same dispositivo, even after a full flash erase
+  // MAC is salted with other consistent dispositivo información to avoid rainbow table attacks.
   // If the MAC address is known by malicious actors, they could precompute SHA1 hashes to impersonate devices,
   // but as WLED developers are just looking at statistics and not authenticating devices, this is acceptable.
-  // If the usage data was exfiltrated, you could not easily determine the MAC from the device ID without brute forcing SHA1
+  // If the usage datos was exfiltrated, you could not easily determine the MAC from the dispositivo ID without brute forcing SHA1
 
   String firstHash = computeSHA1(generateDeviceFingerprint());
 

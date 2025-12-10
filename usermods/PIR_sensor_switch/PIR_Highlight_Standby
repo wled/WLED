@@ -202,8 +202,8 @@ class PIRsensorSwitch : public Usermod {
     //Functions called by WLED
 
     /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `setup()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() {
       // PIR Sensor mode INPUT_PULLUP
@@ -220,8 +220,8 @@ class PIRsensorSwitch : public Usermod {
 
 
     /*
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     void connected() {
 
@@ -229,7 +229,7 @@ class PIRsensorSwitch : public Usermod {
 
 
     /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * `loop()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
      */
     void loop() {
       if (!updatePIRsensorState()) {

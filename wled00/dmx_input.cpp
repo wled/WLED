@@ -126,11 +126,11 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
 {
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
-  //TODO add again once dmx output has been merged
+  //TODO add again once dmx salida has been merged
   // if(inputPortNum == dmxOutputPort)
   // {
-  //   DEBUG_PRINTF("DMXInput: Error: Input port == output port");
-  //   return;
+  //   DEBUG_PRINTF("DMXInput: Error: Entrada puerto == salida puerto");
+  //   retorno;
   // }
 #endif
 
@@ -161,8 +161,8 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     this->txPin = txPin;
     this->enPin = enPin;
 
-    // put dmx receiver into seperate task because it should not be blocked
-    // pin to core 0 because wled is running on core 1
+    // put dmx receiver into seperate tarea because it should not be blocked
+    // pin to core 0 because WLED is running on core 1
     xTaskCreatePinnedToCore(dmxReceiverTask, "DMX_RCV_TASK", 10240, this, 2, &task, 0);
     if (!task) {
       DEBUG_PRINTF("Error: Failed to create dmx rcv task");
@@ -250,8 +250,8 @@ bool DMXInput::isIdentifyOn() const
 
   uint8_t identify = 0;
   const bool gotIdentify = rdm_get_identify_device(inputPortNum, &identify);
-  // gotIdentify should never be false because it is a default parameter in rdm
-  // but just in case we check for it anyway
+  // gotIdentify should never be falso because it is a default parámetro in rdm
+  // but just in case we verificar for it anyway
   return bool(identify) && gotIdentify;
 }
 
@@ -259,8 +259,8 @@ void DMXInput::checkAndUpdateConfig()
 {
 
   /**
-   * The global configuration variables are modified by the web interface.
-   * If they differ from the driver configuration, we have to update the driver
+   * The global configuration variables are modified by the web interfaz.
+   * If they differ from the controlador configuration, we have to actualizar the controlador
    * configuration.
    */
 

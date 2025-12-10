@@ -1,25 +1,25 @@
 #include "wled.h"
 
-// v2 Usermod to automatically save settings 
+// v2 Usermod to automatically guardar settings 
 // to configurable preset after a change to any of
 //
-// * brightness
-// * effect speed
-// * effect intensity
-// * mode (effect)
+// * brillo
+// * efecto velocidad
+// * efecto intensidad
+// * mode (efecto)
 // * palette
 //
 // but it will wait for configurable number of seconds, a "settle" 
-// period in case there are other changes (any change will 
+// período in case there are other changes (any change will 
 // extend the "settle" window).
 //
-// It can be configured to load auto saved preset at startup,
-// during the first `loop()`.
+// It can be configured to carga auto saved preset at startup,
+// during the first `bucle()`.
 //
 // AutoSaveUsermod is standalone, but if FourLineDisplayUsermod 
-// is installed, it will notify the user of the saved changes.
+// is installed, it will notify the usuario of the saved changes.
 
-// format: "~ MM-DD HH:MM:SS ~"
+// formato: "~ MM-DD HH:MM:SS ~"
 #define PRESET_NAME_BUFFER_SIZE 25
 
 class AutoSaveUsermod : public Usermod {
@@ -49,7 +49,7 @@ class AutoSaveUsermod : public Usermod {
     bool applyAutoSaveOnBoot = false;     // do we load auto-saved preset on boot?
     #endif
 
-    // If we've detected the need to auto save, this will be non zero.
+    // If we've detected the need to auto guardar, this will be non zero.
     unsigned long autoSaveAfter = 0;
 
     uint8_t knownBrightness = 0;
@@ -62,7 +62,7 @@ class AutoSaveUsermod : public Usermod {
     FourLineDisplayUsermod* display;
     #endif
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _autoSaveEnabled[];
     static const char _autoSaveAfterSec[];
@@ -96,7 +96,7 @@ class AutoSaveUsermod : public Usermod {
   public:
 
     // gets called once at boot. Do all initialization that doesn't depend on
-    // network here
+    // red here
     void setup() {
       #ifdef USERMOD_FOUR_LINE_DISPLAY    
       // This Usermod has enhanced functionality if
@@ -112,12 +112,12 @@ class AutoSaveUsermod : public Usermod {
       knownPalette = strip.getMainSegment().palette;
     }
 
-    // gets called every time WiFi is (re-)connected. Initialize own network
+    // gets called every time WiFi is (re-)connected. Inicializar own red
     // interfaces here
     void connected() {}
 
     /*
-     * Da loop.
+     * Da bucle.
      */
     void loop() {
       static unsigned long lastRun = 0;
@@ -146,16 +146,16 @@ class AutoSaveUsermod : public Usermod {
 
       if (autoSaveAfter && now > autoSaveAfter) {
         autoSaveAfter = 0;
-        // Time to auto save. You may have some flickery?
+        // Hora to auto guardar. You may have some flickery?
         saveSettings();
         displayOverlay();
       }
     }
 
     /*
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-     * Below it is shown how this could be used for e.g. a light sensor
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+     * Crear un objeto "u" permite añadir pares clave/valor a la sección Información de la UI web de WLED.
+     * A continuación se muestra un ejemplo.
      */
     void addToJsonInfo(JsonObject& root) {
       JsonObject user = root["u"];
@@ -177,15 +177,15 @@ class AutoSaveUsermod : public Usermod {
     }
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     //void addToJsonState(JsonObject& root) {
     //}
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root) {
       if (!initDone) return;  // prevent crash on boot applyPreset()
@@ -203,16 +203,16 @@ class AutoSaveUsermod : public Usermod {
     }
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
+     * If you want to force saving the current estado, use serializeConfig() in your bucle().
      * 
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
+     * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
      * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
+     * Use it sparingly and always in the bucle, never in red callbacks!
      * 
      * addToConfig() will also not yet add your setting to one of the settings pages automatically.
-     * To make that work you still have to add the setting to the HTML, xml.cpp and set.cpp manually.
+     * To make that work you still have to add the setting to the HTML, XML.cpp and set.cpp manually.
      * 
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -227,17 +227,17 @@ class AutoSaveUsermod : public Usermod {
     }
 
     /*
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+     * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
      * This is called by WLED when settings are loaded (currently this only happens once immediately after boot)
      * 
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+     * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+     * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
      * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
      * 
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject& root) {
-      // we look for JSON object: {"Autosave": {"enabled": true, "autoSaveAfterSec": 10, "autoSavePreset": 250, ...}}
+      // we look for JSON object: {"Autosave": {"enabled": verdadero, "autoSaveAfterSec": 10, "autoSavePreset": 250, ...}}
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) {
         DEBUG_PRINT(FPSTR(_name));
@@ -254,20 +254,20 @@ class AutoSaveUsermod : public Usermod {
       DEBUG_PRINT(FPSTR(_name));
       DEBUG_PRINTLN(F(" config (re)loaded."));
 
-      // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+      // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
       return true;
   }
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId() {
       return USERMOD_ID_AUTO_SAVE;
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char AutoSaveUsermod::_name[]                PROGMEM = "Autosave";
 const char AutoSaveUsermod::_autoSaveEnabled[]     PROGMEM = "enabled";
 const char AutoSaveUsermod::_autoSaveAfterSec[]    PROGMEM = "autoSaveAfterSec";

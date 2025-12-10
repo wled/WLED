@@ -2,7 +2,7 @@ function getPixelRGBValues(base64Image) {
   httpArray = [];
   fileJSON = `{"on":true,"bri":${brgh.value},"seg":{"id":${tSg.value},"i":[`;
 
-  //Which object holds the secret to the segment ID
+  //Which object holds the secret to the segmento ID
 
   let segID = 0;
   if(tSg.style.display == "flex"){
@@ -12,7 +12,7 @@ function getPixelRGBValues(base64Image) {
   }
   
 
-  //const copyJSONledbutton = gId('copyJSONledbutton');
+  //constante copyJSONledbutton = gId('copyJSONledbutton');
   const maxNoOfColorsInCommandSting = parseInt(cLN.value);
   
   let hybridAddressing = false;
@@ -52,15 +52,15 @@ function getPixelRGBValues(base64Image) {
   let hasTransparency = false; //If alpha < 255 is detected on any pixel, this is set to true in code below
   let imageInfo = '';
   
-  // Create an off-screen canvas
+  // Crear an off-screen canvas
   var canvas = cE('canvas');
   var context = canvas.getContext('2d', { willReadFrequently: true });
 
-  // Create an image element and set its src to the base64 image
+  // Crear an image element and set its src to the base64 image
   var image = new Image();
   image.src = base64Image;
 
-  // Wait for the image to load before drawing it onto the canvas
+  // Wait for the image to carga before drawing it onto the canvas
   image.onload = function() {
     
     let scalePath = scDiv.children[0].children[0];
@@ -69,7 +69,7 @@ function getPixelRGBValues(base64Image) {
     let sizeY = szY.value;
 
     if (color != accentColor || sizeX < 1 || sizeY < 1){
-      //image will not be resized Set desired size to original size
+      //image will not be resized Set desired tamaño to original tamaño
       sizeX = image.width;
       sizeY = image.height;
       //failsafe for not generating huge images automatically
@@ -80,29 +80,29 @@ function getPixelRGBValues(base64Image) {
       }
     }
 
-    // Set the canvas size to the same as the desired image size
+    // Set the canvas tamaño to the same as the desired image tamaño
     canvas.width = sizeX;
     canvas.height = sizeY;
 
     imageInfo = '<p>Width: ' + sizeX + ', Height: ' + sizeY + ' (make sure this matches your led matrix setup)</p>'
 
-    // Draw the image onto the canvas
+    // Dibujar the image onto the canvas
     context.drawImage(image, 0, 0, sizeX, sizeY);
 
-    // Get the pixel data from the canvas
+    // Get the píxel datos from the canvas
     var pixelData = context.getImageData(0, 0, sizeX, sizeY).data;
   
-    // Create an array to hold the RGB values of each pixel
+    // Crear an matriz to hold the RGB values of each píxel
     var pixelRGBValues = [];
 
-    // If the first row of the led matrix is right -> left
+    // If the first row of the LED matrix is right -> left
     let right2leftAdjust = 1;
           
     if (ledSetupSelection == 'l2r'){
       right2leftAdjust = 0;
     }
 
-    // Loop through the pixel data and get the RGB values of each pixel
+    // Bucle through the píxel datos and get the RGB values of each píxel
     for (var i = 0; i < pixelData.length; i += 4) {
       var r = pixelData[i];
       var g = pixelData[i + 1];
@@ -113,47 +113,47 @@ function getPixelRGBValues(base64Image) {
       let row = Math.floor(pixel/sizeX);
       let led = pixel;
       if (ledSetupSelection == 'matrix'){
-          //Do nothing, the matrix is set upp like the index in the image
+          //Do nothing, the matrix is set upp like the índice in the image
           //Every row starts from the left, i.e. no zigzagging
       }
       else if ((row + right2leftAdjust) % 2 === 0) {
-          //Setup is traditional zigzag
+          //Configuración is traditional zigzag
           //right2leftAdjust basically flips the row order if = 1
           //Row is left to right
-          //Leave led index as pixel index
+          //Leave LED índice as píxel índice
         
       } else {
-          //Setup is traditional zigzag
+          //Configuración is traditional zigzag
           //Row is right to left
-          //Invert index of row for led
+          //Invert índice of row for LED
           let indexOnRow = led - (row * sizeX);
           let maxIndexOnRow = sizeX - 1;
           let reversedIndexOnRow = maxIndexOnRow - indexOnRow;
           led = (row * sizeX) + reversedIndexOnRow;
       }
 
-      // Add the RGB values to the pixel RGB values array
+      // Add the RGB values to the píxel RGB values matriz
       pixelRGBValues.push([r, g, b, a, led, pixel, row]);
     }
     
     pixelRGBValues.sort((a, b) => a[5] - b[5]);
 
-    //Copy the values to a new array for resorting
+    //Copy the values to a new matriz for resorting
     let ledRGBValues = [... pixelRGBValues];
     
-    //Sort the array based on led index
+    //Sort the matriz based on LED índice
     ledRGBValues.sort((a, b) => a[4] - b[4]);
     
-    //Generate JSON in WLED format
+    //Generate JSON in WLED formato
     let JSONledString = '';
 
-    //Set starting values for the segment check to something that is no color
+    //Set starting values for the segmento verificar to something that is no color
     let segmentStart = -1;
     let maxi = ledRGBValues.length;
     let curentColorIndex = 0
     let commandArray = [];
 
-    //For every pixel in the LED array
+    //For every píxel in the LED matriz
     for (let i = 0; i < maxi; i++) {
       let pixel = ledRGBValues[i];
       let r = pixel[0];
@@ -165,7 +165,7 @@ function getPixelRGBValues(base64Image) {
 
       if(segmentValueCheck){
         if (segmentStart < 0){
-          //This is the first led of a new segment
+          //This is the first LED of a new segmento
           segmentStart = i;
         } //Else we allready have a start index
         
@@ -175,13 +175,13 @@ function getPixelRGBValues(base64Image) {
           let nextPixel = ledRGBValues[iNext];
 
           if (nextPixel[0] != r || nextPixel[1] != g || nextPixel[2] != b ){
-            //Next pixel has new color
-            //The current segment ends with this pixel
+            //Next píxel has new color
+            //The current segmento ends with this píxel
             segmentEnd = i + 1 //WLED wants the NEXT LED as the stop led...
             if (segmentStart == i && hybridAddressing){
-              //If only one led/pixel, no segment info needed
+              //If only one LED/píxel, no segmento información needed
               if (JSONledString == ''){
-                //If addressing is single, we need to start every command with a starting possition
+                //If addressing is single, we need to iniciar every command with a starting possition
                 segmentString = '' + i + ',';
                 //Fixed to b2
               } else{
@@ -194,13 +194,13 @@ function getPixelRGBValues(base64Image) {
           }
 
         } else {
-          //This is the last pixel, so the segment must end
+          //This is the last píxel, so the segmento must end
           segmentEnd = i + 1;
 
           if (segmentStart + 1 == segmentEnd && hybridAddressing){
-            //If only one led/pixel, no segment info needed
+            //If only one LED/píxel, no segmento información needed
             if (JSONledString == ''){
-              //If addressing is single, we need to start every command with a starting possition
+              //If addressing is single, we need to iniciar every command with a starting possition
               segmentString = '' + i + ',';
               //Fixed to b2
             } else{
@@ -212,16 +212,16 @@ function getPixelRGBValues(base64Image) {
           }
         }
       } else{
-        //Write every pixel
+        //Escribir every píxel
         if (JSONledString == ''){
-          //If addressing is single, we need to start every command with a starting possition
+          //If addressing is single, we need to iniciar every command with a starting possition
           JSONledString = i
           //Fixed to b2
         }
 
         segmentStart = i
         segmentEnd = i   
-        //Segment string should be empty for when addressing single. So no need to set it again.       
+        //Segmento cadena should be empty for when addressing single. So no need to set it again.       
       }
 
       if (a < 255){
@@ -229,8 +229,8 @@ function getPixelRGBValues(base64Image) {
       }
 
       if (segmentEnd > -1){
-        //This is the last pixel in the segment, write to the JSONledString
-        //Return color value in selected format
+        //This is the last píxel in the segmento, escribir to the JSONledString
+        //Retorno color valor in selected formato
         let colorValueString = r + ',' + g + ',' + b ;
 
         if (hexValueCheck){
@@ -240,7 +240,7 @@ function getPixelRGBValues(base64Image) {
           //do nothing, allready set
         }
 
-        // Check if start and end is the same, in which case remove
+        // Verificar if iniciar and end is the same, in which case eliminar
 
         JSONledString += segmentString + colorSeparatorStart + colorValueString + colorSeparatorEnd;
         fileJSON = JSONledString + segmentString + colorSeparatorStart + colorValueString + colorSeparatorEnd;
@@ -249,29 +249,29 @@ function getPixelRGBValues(base64Image) {
 
         if (curentColorIndex % maxNoOfColorsInCommandSting === 0 || i == maxi - 1) { 
 
-          //If we have accumulated the max number of colors to send in a single command or if this is the last pixel, we should write the current colorstring to the array
+          //If we have accumulated the max number of colors to enviar in a single command or if this is the last píxel, we should escribir the current colorstring to the matriz
           commandArray.push(JSONledString);
           JSONledString = ''; //Start on an new command string
         } else
         {
-          //Add a comma to continue the command string
+          //Add a comma to continuar the command cadena
           JSONledString = JSONledString + ','
         }
-        //Reset segment values
+        //Restablecer segmento values
         segmentStart = - 1;
       }
     }
     
     JSONledString = ''
 
-    //For every commandString in the array
+    //For every commandString in the matriz
     for (let i = 0; i < commandArray.length; i++) {
       let thisJSONledString = `{"on":true,"bri":${brgh.value},"seg":{"id":${segID},"i":[${commandArray[i]}]}}`;
       httpArray.push(thisJSONledString);
 
       let thiscurlString = `curl -X POST "http://${gurl.value}/json/state" -d \'${thisJSONledString}\' -H "Content-Type: application/json"`;
       
-      //Aggregated Strings That should be returned to the user
+      //Aggregated Strings That should be returned to the usuario
       if (i > 0){
         JSONledString = JSONledString + '\n<NEXT COMMAND (multiple commands not supported in API/preset setup)>\n';
         curlString = curlString + ' && ';

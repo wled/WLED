@@ -5,8 +5,8 @@
 #include <mutex>
 
 /*
- * Support for DMX/RDM input via serial (e.g. max485) on ESP32
- * ESP32 Library from:
+ * Support for DMX/RDM entrada via serial (e.g. max485) on ESP32
+ * ESP32 Biblioteca from:
  * https://github.com/someweisguy/esp_dmx
  */
 class DMXInput
@@ -15,15 +15,15 @@ public:
   void init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum);
   void update();
 
-  /**disable dmx receiver (do this before disabling the cache)*/
+  /**deshabilitar dmx receiver (do this before disabling the caché)*/
   void disable();
   void enable();
 
-  /// True if dmx is currently connected
+  /// Verdadero if dmx is currently connected
   bool isConnected() const { return connected; }
 
 private:
-  /// @return true if rdm identify is active
+  /// @retorno verdadero if rdm identify is active
   bool isIdentifyOn() const;
 
   /**
@@ -34,14 +34,14 @@ private:
   /// overrides everything and turns on all leds
   void turnOnAllLeds();
 
-  /// installs the dmx driver
-  /// @return false on fail
+  /// installs the dmx controlador
+  /// @retorno falso on fail
   bool installDriver();
 
-  /// is called by the dmx receive task regularly to receive new dmx data
+  /// is called by the dmx recibir tarea regularly to recibir new dmx datos
   void updateInternal();
 
-  // is invoked whenver the dmx start address is changed via rdm
+  // is invoked whenver the dmx iniciar address is changed via rdm
   friend void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                                   void *context);
 
@@ -49,8 +49,8 @@ private:
   friend void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
                                       void *context);
 
-  /// The internal dmx task.
-  /// This is the main loop of the dmx receiver. It never returns.
+  /// The internal dmx tarea.
+  /// This is the principal bucle of the dmx receiver. It never returns.
   friend void dmxReceiverTask(void * context);
 
   uint8_t inputPortNum = 255; 
@@ -58,19 +58,19 @@ private:
   uint8_t txPin = 255;
   uint8_t enPin = 255;
 
-  /// is written to by the dmx receive task.
+  /// is written to by the dmx recibir tarea.
   byte dmxdata[DMX_PACKET_SIZE]; 
-  /// True once the dmx input has been initialized successfully
+  /// Verdadero once the dmx entrada has been initialized successfully
   bool initialized = false; // true once init finished successfully
-  /// True if dmx is currently connected
+  /// Verdadero if dmx is currently connected
   std::atomic<bool> connected{false};
   std::atomic<bool> identify{false};
-  /// Timestamp of the last time a dmx frame was received
+  /// Marca de tiempo of the last time a dmx frame was received
   unsigned long lastUpdate = 0;
 
-  /// Taskhandle of the dmx task that is running in the background 
+  /// Taskhandle of the dmx tarea that is running in the background 
   TaskHandle_t task;
-  /// Guards access to dmxData
+  /// Guards acceso to dmxData
   std::mutex dmxDataLock;
   
 };

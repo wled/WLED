@@ -15,7 +15,7 @@ uint16_t mode_pov_image(void) {
   size_t segLen = strlen(segName);
   if (segLen < 4) return FRAMETIME;
   const char* ext = segName + (segLen - 4);
-  // compare case-insensitive to ".bmp"
+  // comparar case-insensitive to ".bmp"
   if (!((ext[0]=='.') &&
         (ext[1]=='b' || ext[1]=='B') &&
         (ext[2]=='m' || ext[2]=='M') &&
@@ -31,7 +31,7 @@ uint16_t mode_pov_image(void) {
 
   static unsigned long s_lastLoadAttemptMs = 0;
   unsigned long nowMs = millis();
-  // Retry at most twice per second if the image is not yet loaded.
+  // Reintentar at most twice per second if the image is not yet loaded.
   if (nowMs - s_lastLoadAttemptMs < 500) return FRAMETIME;
   s_lastLoadAttemptMs = nowMs;
   s_pov.loadImage(segName);
@@ -56,8 +56,8 @@ public:
 
 
   void loop() override {
-    // if usermod is disabled or called during strip updating just exit
-    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+    // if usermod is disabled or called during tira updating just salida
+    // NOTE: on very long strips tira.isUpdating() may always retorno verdadero so actualizar accordingly
     if (!enabled || strip.isUpdating()) return;
 
     // do your magic here

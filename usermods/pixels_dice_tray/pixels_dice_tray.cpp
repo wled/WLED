@@ -5,7 +5,7 @@
 #include "led_effects.h"
 #include "tft_menu.h"
 
-// Set this parameter to rotate the display. 1-3 rotate by 90,180,270 degrees.
+// Set this parámetro to rotate the display. 1-3 rotate by 90,180,270 degrees.
 #ifndef USERMOD_PIXELS_DICE_TRAY_ROTATION
   #define USERMOD_PIXELS_DICE_TRAY_ROTATION 0
 #endif
@@ -15,17 +15,17 @@
   #define USERMOD_PIXELS_DICE_TRAY_REFRESH_RATE_MS 200
 #endif
 
-// Time with no updates before screen turns off (-1 to disable)
+// Hora with no updates before screen turns off (-1 to deshabilitar)
 #ifndef USERMOD_PIXELS_DICE_TRAY_TIMEOUT_MS
   #define USERMOD_PIXELS_DICE_TRAY_TIMEOUT_MS 5 * 60 * 1000
 #endif
 
-// Duration of each search for BLE devices.
+// Duración of each buscar for BLE devices.
 #ifndef BLE_SCAN_DURATION_SEC
   #define BLE_SCAN_DURATION_SEC 4
 #endif
 
-// Time between searches for BLE devices.
+// Hora between searches for BLE devices.
 #ifndef BLE_TIME_BETWEEN_SCANS_SEC
   #define BLE_TIME_BETWEEN_SCANS_SEC 5
 #endif
@@ -62,11 +62,11 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   // NOTE: THIS MOD DOES NOT SUPPORT CHANGING THE SPI PINS FROM THE UI! The
-  // TFT_eSPI library requires that they are compiled in.
+  // TFT_eSPI biblioteca requires that they are compiled in.
   static void SetSPIPinsFromMacros() {
 #if USING_TFT_DISPLAY
     spi_mosi = TFT_MOSI;
-    // Done in TFT library.
+    // Done in TFT biblioteca.
     if (TFT_MISO == TFT_MOSI) {
       spi_miso = -1;
     }
@@ -77,8 +77,8 @@ class PixelsDiceTrayUsermod : public Usermod {
   void UpdateDieNames(
       const std::array<const std::string, MAX_NUM_DICE>& new_die_names) {
     for (size_t i = 0; i < MAX_NUM_DICE; i++) {
-      // If the saved setting was a wildcard, and that connected to a die, use
-      // the new name instead of the wildcard. Saving this "locks" the name in.
+      // If the saved setting was a comodín, and that connected to a die, use
+      // the new name instead of the comodín. Saving this "locks" the name in.
       bool overriden_wildcard =
           new_die_names[i] == "*" && dice_update.connected_die_ids[i] != 0;
       if (!overriden_wildcard &&
@@ -101,8 +101,8 @@ class PixelsDiceTrayUsermod : public Usermod {
   // Functions called by WLED
 
   /*
-   * setup() is called once at boot. WiFi is not yet connected at this point.
-   * You can use it to initialize variables, sensors or similar.
+   * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+   * Úsalo para inicializar variables, sensores o similares.
    */
   void setup() override {
     DEBUG_PRINTLN(F("DiceTray: init"));
@@ -129,8 +129,8 @@ class PixelsDiceTrayUsermod : public Usermod {
     }
 #endif
 
-    // Need to enable WiFi sleep:
-    // "E (1513) wifi:Error! Should enable WiFi modem sleep when both WiFi and Bluetooth are enabled!!!!!!"
+    // Need to habilitar WiFi sleep:
+    // "E (1513) WiFi:Error! Should habilitar WiFi modem sleep when both WiFi and Bluetooth are enabled!!!!!!"
     noWifiSleep = false;
 
     // Get the mode indexes that the effects are registered to.
@@ -139,7 +139,7 @@ class PixelsDiceTrayUsermod : public Usermod {
     FX_MODE_CHECK_D20 = strip.addEffect(255, &check_roll, _data_FX_MODE_CHECK_DIE);
     DIE_LED_MODES = {FX_MODE_SIMPLE_D20, FX_MODE_PULSE_D20, FX_MODE_CHECK_D20};
 
-    // Start a background task scanning for dice.
+    // Iniciar a background tarea scanning for dice.
     // On completion the discovered dice are connected to.
     pixels::ScanForDice(ble_scan_duration_sec, BLE_TIME_BETWEEN_SCANS_SEC);
 
@@ -149,24 +149,22 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   /*
-   * connected() is called every time the WiFi is (re)connected
-   * Use it to initialize network interfaces
+   * `connected()` se llama cada vez que el WiFi se (re)conecta.
+   * Úsalo para inicializar interfaces de red.
    */
   void connected() override {
-    // Serial.println("Connected to WiFi!");
+    // Serie.println("Connected to WiFi!");
   }
 
   /*
-   * loop() is called continuously. Here you can check for events, read sensors,
-   * etc.
+   * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
    *
-   * Tips:
-   * 1. You can use "if (WLED_CONNECTED)" to check for a successful network
-   * connection. Additionally, "if (WLED_MQTT_CONNECTED)" is available to check
-   * for a connection to an MQTT broker.
+   * Consejos:
+   * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+   *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
    *
-   * 2. Try to avoid using the delay() function. NEVER use delays longer than 10
-   * milliseconds. Instead, use a timer check as shown here.
+   * 2. Evita usar `retraso()`; NUNCA uses delays mayores a 10 ms.
+   *    En su lugar usa comprobaciones temporizadas como en este ejemplo.
    */
   void loop() override {
     static long last_loop_time = 0;
@@ -175,25 +173,25 @@ class PixelsDiceTrayUsermod : public Usermod {
     char mqtt_topic_buffer[MQTT_MAX_TOPIC_LEN + 16];
     char mqtt_data_buffer[128];
 
-    // Check if we time interval for redrawing passes.
+    // Verificar if we time intervalo for redrawing passes.
     if (millis() - last_loop_time < USERMOD_PIXELS_DICE_TRAY_REFRESH_RATE_MS) {
       return;
     }
     last_loop_time = millis();
 
-    // Update dice_list with the connected dice
+    // Actualizar dice_list with the connected dice
     pixels::ListDice(dice_update.dice_list);
-    // Get all the roll/battery updates since the last loop
+    // Get all the roll/battery updates since the last bucle
     pixels::GetDieRollUpdates(dice_update.roll_updates);
     pixels::GetDieBatteryUpdates(dice_update.battery_updates);
 
-    // Go through list of connected die.
-    // TODO: Blacklist die that are connected to, but don't match the configured
+    // Go through lista of connected die.
+    // TODO: Blacklist die that are connected to, but don't coincidir the configured
     //       names.
     std::array<bool, MAX_NUM_DICE> die_connected = {false, false};
     for (auto die_id : dice_update.dice_list) {
       bool matched = false;
-      // First check if we've already matched this ID to a connected die.
+      // First verificar if we've already matched this ID to a connected die.
       for (size_t i = 0; i < MAX_NUM_DICE; i++) {
         if (die_id == dice_update.connected_die_ids[i]) {
           die_connected[i] = true;
@@ -202,7 +200,7 @@ class PixelsDiceTrayUsermod : public Usermod {
         }
       }
 
-      // If this isn't already matched, check if its name matches an expected name.
+      // If this isn't already matched, verificar if its name matches an expected name.
       if (!matched) {
         auto die_name = pixels::GetDieDescription(die_id).name;
         for (size_t i = 0; i < MAX_NUM_DICE; i++) {
@@ -217,7 +215,7 @@ class PixelsDiceTrayUsermod : public Usermod {
           }
         }
 
-        // If it doesn't match any expected names, check if there's any wildcards to match.
+        // If it doesn't coincidir any expected names, verificar if there's any wildcards to coincidir.
         if (!matched) {
           auto description = pixels::GetDieDescription(die_id);
           for (size_t i = 0; i < MAX_NUM_DICE; i++) {
@@ -234,7 +232,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       }
     }
 
-    // Clear connected die that aren't still present.
+    // Limpiar connected die that aren't still present.
     bool all_found = true;
     bool none_found = true;
     for (size_t i = 0; i < MAX_NUM_DICE; i++) {
@@ -253,7 +251,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       }
     }
 
-    // Update last_die_events
+    // Actualizar last_die_events
     for (const auto& roll : dice_update.roll_updates) {
       for (size_t i = 0; i < MAX_NUM_DICE; i++) {
         if (dice_update.connected_die_ids[i] == roll.first) {
@@ -279,7 +277,7 @@ class PixelsDiceTrayUsermod : public Usermod {
           USERMOD_PIXELS_DICE_TRAY_TIMEOUT_MS) {
         // Turn off LEDs and backlight and go to sleep.
         // Since none of the wake up pins are wired up, expect to sleep
-        // until power cycle or reset, so don't need to handle normal
+        // until power cycle or restablecer, so don't need to handle normal
         // wakeup.
         bri = 0;
         applyFinalBri();
@@ -306,9 +304,9 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   /*
-   * addToJsonInfo() can be used to add custom entries to the /json/info part of
-   * the JSON API. Creating an "u" object allows you to add custom key/value
-   * pairs to the Info section of the WLED web UI. Below it is shown how this
+   * addToJsonInfo() can be used to add custom entries to the /JSON/información part of
+   * the JSON API. Creating an "u" object allows you to add custom key/valor
+   * pairs to the Información section of the WLED web UI. Below it is shown how this
    * could be used for e.g. a light sensor
    */
   void addToJsonInfo(JsonObject& root) override {
@@ -321,8 +319,8 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   /*
-   * addToJsonState() can be used to add custom entries to the /json/state part
-   * of the JSON API (state object). Values in the state object may be modified
+   * addToJsonState() can be used to add custom entries to the /JSON/estado part
+   * of the JSON API (estado object). Values in the estado object may be modified
    * by connected clients
    */
   void addToJsonState(JsonObject& root) override {
@@ -330,29 +328,29 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   /*
-   * readFromJsonState() can be used to receive data clients send to the
-   * /json/state part of the JSON API (state object). Values in the state object
+   * readFromJsonState() can be used to recibir datos clients enviar to the
+   * /JSON/estado part of the JSON API (estado object). Values in the estado object
    * may be modified by connected clients
    */
   void readFromJsonState(JsonObject& root) override {
     // userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON,
-    // update, else keep old value if (root["bri"] == 255)
-    // Serial.println(F("Don't burn down your garage!"));
+    // actualizar, else keep old valor if (root["bri"] == 255)
+    // Serie.println(F("Don't burn down your garage!"));
   }
 
   /*
-   * addToConfig() can be used to add custom persistent settings to the cfg.json
-   * file in the "um" (usermod) object. It will be called by WLED when settings
+   * addToConfig() can be used to add custom persistent settings to the cfg.JSON
+   * archivo in the "um" (usermod) object. It will be called by WLED when settings
    * are actually saved (for example, LED settings are saved) If you want to
-   * force saving the current state, use serializeConfig() in your loop().
+   * force saving the current estado, use serializeConfig() in your bucle().
    *
-   * CAUTION: serializeConfig() will initiate a filesystem write operation.
+   * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
    * It might cause the LEDs to stutter and will cause flash wear if called too
-   * often. Use it sparingly and always in the loop, never in network callbacks!
+   * often. Use it sparingly and always in the bucle, never in red callbacks!
    *
    * addToConfig() will also not yet add your setting to one of the settings
    * pages automatically. To make that work you still have to add the setting to
-   * the HTML, xml.cpp and set.cpp manually.
+   * the HTML, XML.cpp and set.cpp manually.
    *
    * I highly recommend checking out the basics of ArduinoJson serialization and
    * deserialization in order to use custom settings!
@@ -373,18 +371,18 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   void appendConfigData() override {
-    // Slightly annoying that you can't put text before an element.
+    // Slightly annoying that you can't put texto before an element.
     // The an item on the usermod config page has the following HTML:
-    // ```html
+    // ```HTML
     // Die 0
-    // <input type="hidden" name="DiceTray:die_0" value="text">
-    // <input type="text" name="DiceTray:die_0" value="*" style="width:250px;" oninput="check(this,'DiceTray')">
+    // <entrada tipo="hidden" name="DiceTray:die_0" valor="texto">
+    // <entrada tipo="texto" name="DiceTray:die_0" valor="*" style="width:250px;" oninput="verificar(this,'DiceTray')">
     // ```
-    // addInfo let's you add data before or after the two input fields.
+    // addInfo let's you add datos before or after the two entrada fields.
     //
-    // To work around this, add info text to the end of the preceding item.
+    // To work around this, add información texto to the end of the preceding item.
     //
-    // See addInfo in wled00/data/settings_um.htm for details on what this function does.
+    // See addInfo in wled00/datos/settings_um.htm for details on what this función does.
     oappend(F(
         "addInfo('DiceTray:ble_scan_duration',1,'<br><br><i>Set to \"*\" to "
         "connect to any die.<br>Leave Blank to disable.</i><br><i "
@@ -406,14 +404,14 @@ class PixelsDiceTrayUsermod : public Usermod {
   }
 
   /*
-   * readFromConfig() can be used to read back the custom settings you added
+   * readFromConfig() can be used to leer back the custom settings you added
    * with addToConfig(). This is called by WLED when settings are loaded
    * (currently this only happens once immediately after boot)
    *
-   * readFromConfig() is called BEFORE setup(). This means you can use your
-   * persistent values in setup() (e.g. pin assignments, buffer sizes), but also
-   * that if you want to write persistent values to a dynamic buffer, you'd need
-   * to allocate it here instead of in setup. If you don't know what that is,
+   * readFromConfig() is called BEFORE configuración(). This means you can use your
+   * persistent values in configuración() (e.g. pin assignments, búfer sizes), but also
+   * that if you want to escribir persistent values to a dynamic búfer, you'd need
+   * to allocate it here instead of in configuración. If you don't know what that is,
    * don't fret. It most likely doesn't affect your use case :)
    */
   bool readFromConfig(JsonObject& root) override {
@@ -444,18 +442,18 @@ class PixelsDiceTrayUsermod : public Usermod {
       menu_ctrl.Init(rotation);
     }
 
-    // Update with any modified settings.
+    // Actualizar with any modified settings.
     menu_ctrl.Redraw();
 #endif
 
-    // use "return !top["newestParameter"].isNull();" when updating Usermod with
+    // use "retorno !top["newestParameter"].isNull();" when updating Usermod with
     // new features
     return !top["DiceTray"].isNull();
   }
 
   /**
-   * handleButton() can be used to override default button behaviour. Returning true
-   * will prevent button working in a default way.
+   * handleButton() can be used to anular default button behaviour. Returning verdadero
+   * will prevent button funcionamiento in a default way.
    * Replicating button.cpp
    */
 #if USING_TFT_DISPLAY
@@ -499,7 +497,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       buttons[b].waitTime = 0;
 
       if (!buttons[b].longPressed) {  //short press
-        // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
+        // if this is second lanzamiento within 350ms it is a doble press (buttonWaitTime!=0)
         if (doublePress) {
           menu_ctrl.HandleButton(ButtonType::DOUBLE, b);
         } else {
@@ -509,7 +507,7 @@ class PixelsDiceTrayUsermod : public Usermod {
       buttons[b].pressedBefore = false;
       buttons[b].longPressed = false;
     }
-    // if 350ms elapsed since last press/release it is a short press
+    // if 350ms elapsed since last press/lanzamiento it is a short press
     if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS &&
         !buttons[b].pressedBefore) {
       buttons[b].waitTime = 0;
@@ -522,14 +520,14 @@ class PixelsDiceTrayUsermod : public Usermod {
 
   /*
    * getId() allows you to optionally give your V2 usermod an unique ID (please
-   * define it in const.h!). This could be used in the future for the system to
+   * definir it in constante.h!). This could be used in the futuro for the sistema to
    * determine whether your usermod is installed.
    */
   uint16_t getId() { return USERMOD_ID_PIXELS_DICE_TRAY; }
 
-  // More methods can be added in the future, this example will then be
+  // More methods can be added in the futuro, this example will then be
   // extended. Your usermod will remain compatible as it does not need to
-  // implement all methods from the Usermod base class!
+  // implement all methods from the Usermod base clase!
 };
 
 

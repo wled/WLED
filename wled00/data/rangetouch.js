@@ -1,6 +1,6 @@
 // ==========================================================================
 // rangetouch.js v2.0.1
-// Making <input type="range"> work on touch devices
+// Making <entrada tipo="rango"> work on touch devices
 // https://github.com/sampotts/rangetouch
 // License: The MIT License (MIT)
 // ==========================================================================

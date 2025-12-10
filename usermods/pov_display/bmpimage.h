@@ -4,19 +4,19 @@
 #include "wled.h"
 
 /*
- * This class describes a bitmap image. Each object refers to a bmp file on
+ * This clase describes a bitmap image. Each object refers to a bmp archivo on
  * filesystem fatfs.
- * To initialize, call init(), passign to it name of a bitmap file
+ * To inicializar, call init(), passign to it name of a bitmap archivo
  * at the root of fatfs filesystem:
  *
  * BMPimage myImage;
  * myImage.init("logo.bmp");
  *
- * For performance reasons, before actually usign the image, you need to load
+ * For rendimiento reasons, before actually usign the image, you need to carga
  * it from filesystem to RAM:
- * myImage.load();
- * All load() operations use the same reserved buffer in RAM, so you can only
- * have one file loaded at a time. Before loading a new file, always unload the
+ * myImage.carga();
+ * All carga() operations use the same reserved búfer in RAM, so you can only
+ * have one archivo loaded at a time. Before loading a new archivo, always unload the
  * previous one:
  * myImage.unload();
  */

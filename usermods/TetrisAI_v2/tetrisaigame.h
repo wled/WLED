@@ -1,6 +1,6 @@
 /******************************************************************************
-  * @file           : tetrisaigame.h
-  * @brief          : main tetris functions
+  * @archivo           : tetrisaigame.h
+  * @brief          : principal tetris functions
   ******************************************************************************
   * @attention
   *
@@ -43,7 +43,7 @@ private:
             //move piece down
             piece->y++;
 
-            // draw piece
+            // dibujar piece
             grid.placePiece(piece, piece->x, piece->y);
 
             return true;

@@ -22,14 +22,14 @@
 #define DHTTYPE DHT_TYPE_22
 #endif
 
-// Connect pin 1 (on the left) of the sensor to +5V
-//   NOTE: If using a board with 3.3V logic like an Arduino Due connect pin 1
+// Conectar pin 1 (on the left) of the sensor to +5V
+//   NOTE: If usando a board with 3.3V logic like an Arduino Due conectar pin 1
 //   to 3.3V instead of 5V!
-// Connect pin 2 of the sensor to whatever your DHTPIN is
+// Conectar pin 2 of the sensor to whatever your DHTPIN is
 //   NOTE: Pin defaults below are for QuinLed Dig-Uno's Q2 on the board
-// Connect pin 4 (on the right) of the sensor to GROUND
-//   NOTE: If using a bare sensor (AM*), Connect a 10K resistor from pin 2
-//   (data) to pin 1 (power) of the sensor. DHT* boards have the pullup already
+// Conectar pin 4 (on the right) of the sensor to GROUND
+//   NOTE: If usando a bare sensor (AM*), Conectar a 10K resistor from pin 2
+//   (datos) to pin 1 (power) of the sensor. DHT* boards have the pullup already
 
 #ifdef USERMOD_DHT_PIN
 #define DHTPIN USERMOD_DHT_PIN
@@ -41,13 +41,13 @@
 #endif
 #endif
 
-// the frequency to check sensor, 1 minute
+// the frecuencia to verificar sensor, 1 minute
 #ifndef USERMOD_DHT_MEASUREMENT_INTERVAL
 #define USERMOD_DHT_MEASUREMENT_INTERVAL 60000
 #endif
 
 // how many seconds after boot to take first measurement, 90 seconds
-// 90 gives enough time to OTA update firmware if this crashes
+// 90 gives enough time to OTA actualizar firmware if this crashes
 #ifndef USERMOD_DHT_FIRST_MEASUREMENT_AT
 #define USERMOD_DHT_FIRST_MEASUREMENT_AT 90000
 #endif
@@ -121,7 +121,7 @@ class UsermodDHT : public Usermod {
         #endif
 
         #ifdef USERMOD_DHT_MQTT
-        // 10^n where n is number of decimal places to display in mqtt message. Please adjust buff size together with this constant
+        // 10^n where n is number of decimal places to display in MQTT mensaje. Please adjust buff tamaño together with this constante
         #define FLOAT_PREC 100
         if (WLED_MQTT_CONNECTED) {
           char buff[10];
@@ -217,7 +217,7 @@ class UsermodDHT : public Usermod {
       #endif
 
       if (initializing) {
-        // if we haven't read the sensor yet, let the user know
+        // if we haven't leer the sensor yet, let the usuario know
         // that we are still waiting for the first measurement
         temp.add((nextReadTime - millis()) / 1000);
         temp.add(" sec until read");

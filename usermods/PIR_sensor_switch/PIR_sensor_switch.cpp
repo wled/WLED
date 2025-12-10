@@ -18,16 +18,16 @@
 #endif
 
 /*
- * This usermod handles PIR sensor states.
- * The strip will be switched on and the off timer will be resetted when the sensor goes HIGH. 
- * When the sensor state goes LOW, the off timer is started and when it expires, the strip is switched off. 
- * Maintained by: @blazoncek
- * 
- * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
- * 
- * v2 usermods are class inheritance based and can (but don't have to) implement more functions, each of them is shown in this example.
- * Multiple v2 usermods can be added to one compilation easily.
+ * Este usermod gestiona el estado de sensores PIR.
+ * La tira se encenderá y el temporizador de apagado se reiniciará cuando el sensor pase a HIGH.
+ * Cuando el sensor pasa a LOW, se inicia el temporizador de apagado y al expirar la tira se apagará.
+ * Mantenido por: @blazoncek
+ *
+ * Los usermods permiten añadir funcionalidad propia a WLED de forma sencilla.
+ * Ver: https://github.com/WLED-dev/WLED/wiki/Add-own-functionality
+ *
+ * Los usermods v2 se basan en herencia de clases y pueden (pero no deben) implementar más funciones; este ejemplo muestra varias.
+ * Se pueden añadir múltiples usermods v2 en una misma compilación.
  */
 
 class PIRsensorSwitch : public Usermod
@@ -38,10 +38,10 @@ public:
   // destructor
   ~PIRsensorSwitch() {}
 
-  //Enable/Disable the PIR sensor
+  //Habilitar/Deshabilitar the PIR sensor
   inline void EnablePIRsensor(bool en) { enabled = en; }
   
-  // Get PIR sensor enabled/disabled state
+  // Get PIR sensor enabled/disabled estado
   inline bool PIRsensorEnabled() { return enabled; }
 
 private:
@@ -67,7 +67,7 @@ private:
   uint8_t m_offPreset       = 0;              // off preset
   bool m_nightTimeOnly      = false;          // flag to indicate that PIR sensor should activate WLED during nighttime only
   bool m_mqttOnly           = false;          // flag to send MQTT message only (assuming it is enabled)
-  // flag to enable triggering only if WLED is initially off (LEDs are not on, preventing running effect being overwritten by PIR)
+  // bandera to habilitar triggering only if WLED is initially off (LEDs are not on, preventing running efecto being overwritten by PIR)
   bool m_offOnly            = false;
   bool m_offMode            = offMode;
   bool m_override           = false;
@@ -76,7 +76,7 @@ private:
   bool HomeAssistantDiscovery = false;        // is HA discovery turned on
   int16_t idx = -1; // Domoticz virtual switch idx
 
-  // strings to reduce flash memory usage (used more than twice)
+  // strings to reduce flash memoria usage (used more than twice)
   static const char _name[];
   static const char _switchOffDelay[];
   static const char _enabled[];
@@ -90,28 +90,28 @@ private:
   static const char _domoticzIDX[];
 
   /**
-   * check if it is daytime
-   * if sunrise/sunset is not defined (no NTP or lat/lon) default to nighttime
+   * Comprobar si es de día
+   * Si sunrise/sunset no está definido (sin NTP o lat/lon) devuelve por defecto que es de noche
    */
   static bool isDayTime();
 
   /**
-   * switch strip on/off
+   * Encender/Apagar la tira
    */
   void switchStrip(bool switchOn);
   void publishMqtt(bool switchOn);
 
-  // Create an MQTT Binary Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+  // Crear an MQTT Binary Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Bucle.
   void publishHomeAssistantAutodiscovery();
 
   /**
-   * Read and update PIR sensor state.
-   * Initialize/reset switch off timer
+   * Leer y actualizar el estado del sensor PIR.
+   * Inicializar/reiniciar el temporizador de apagado
    */
   bool updatePIRsensorState();
 
   /**
-   * switch off the strip if the delay has elapsed 
+   * Apagar la tira si ha transcurrido el retraso configurado
    */
   bool handleOffTimer();
 
@@ -119,77 +119,77 @@ public:
   //Functions called by WLED
 
   /**
-   * setup() is called once at boot. WiFi is not yet connected at this point.
-   * You can use it to initialize variables, sensors or similar.
+   * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+   * Úsalo para inicializar variables, sensores o similares.
    */
   void setup() override;
 
   /**
-   * connected() is called every time the WiFi is (re)connected
-   * Use it to initialize network interfaces
+   * `connected()` se llama cada vez que el WiFi se (re)conecta.
+   * Úsalo para inicializar interfaces de red
    */
   //void connected();
 
   /**
-   * onMqttConnect() is called when MQTT connection is established
+   * `onMqttConnect()` se llama cuando la conexión MQTT se establece
    */
   void onMqttConnect(bool sessionPresent) override;
 
   /**
-   * loop() is called continuously. Here you can check for events, read sensors, etc.
+   * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
    */
   void loop() override;
 
   /**
-   * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-   * 
-   * Add PIR sensor state and switch off timer duration to jsoninfo
+   * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+   *
+   * Añade el estado del sensor PIR y la duración del temporizador de apagado a jsoninfo
    */
   void addToJsonInfo(JsonObject &root) override;
 
   /**
-   * onStateChanged() is used to detect WLED state change
+   * `onStateChanged()` se usa para detectar cambios de estado de WLED
    */
   void onStateChange(uint8_t mode) override;
 
   /**
-   * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-   * Values in the state object may be modified by connected clients
+   * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+   * Values in the estado object may be modified by connected clients
    */
   //void addToJsonState(JsonObject &root);
 
   /**
-   * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-   * Values in the state object may be modified by connected clients
+   * `readFromJsonState()` puede recibir datos que los clientes envían a /JSON/estado de la API JSON (objeto estado).
+   * Los valores en el objeto estado pueden ser modificados por clientes conectados
    */
   void readFromJsonState(JsonObject &root) override;
 
   /**
-   * provide the changeable values
+   * Proporciona los valores configurables
    */
   void addToConfig(JsonObject &root) override;
 
   /**
-   * provide UI information and allow extending UI options
+   * Proporciona información para la UI y permite ampliar opciones de UI
    */
   void appendConfigData() override;
 
   /**
-   * restore the changeable values
-   * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+   * Restaurar los valores configurables
+   * `readFromConfig()` se llama antes de `configuración()` para rellenar propiedades desde `cfg.JSON`.
    *
-   * The function should return true if configuration was successfully loaded or false if there was no configuration.
+   * La función debe devolver `verdadero` si la configuración se cargó correctamente o `falso` si no había configuración.
    */
   bool readFromConfig(JsonObject &root) override;
 
   /**
-   * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-   * This could be used in the future for the system to determine whether your usermod is installed.
+   * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+   * This could be used in the futuro for the sistema to determine whether your usermod is installed.
    */
   uint16_t getId() override { return USERMOD_ID_PIRSWITCH; }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char PIRsensorSwitch::_name[]           PROGMEM = "PIRsensorSwitch";
 const char PIRsensorSwitch::_enabled[]        PROGMEM = "PIRenabled";
 const char PIRsensorSwitch::_switchOffDelay[] PROGMEM = "PIRoffSec";
@@ -274,12 +274,12 @@ void PIRsensorSwitch::switchStrip(bool switchOn)
 void PIRsensorSwitch::publishMqtt(bool switchOn)
 {
 #ifndef WLED_DISABLE_MQTT
-  //Check if MQTT Connected, otherwise it will crash the 8266
+  //Verificar if MQTT Connected, otherwise it will bloqueo the 8266
   if (WLED_MQTT_CONNECTED) {
     char buf[128];
     sprintf_P(buf, PSTR("%s/motion"), mqttDeviceTopic);   //max length: 33 + 7 = 40
     mqtt->publish(buf, 0, false, switchOn?"on":"off");
-    // Domoticz formatted message
+    // Domoticz formatted mensaje
     if (idx > 0) {
       StaticJsonDocument <128> msg;
       msg[F("idx")]       = idx;
@@ -349,7 +349,7 @@ bool PIRsensorSwitch::updatePIRsensorState()
   }
   if (stateChanged) {
     publishMqtt(!allOff);
-    // start switch off timer
+    // iniciar conmutador off temporizador
     if (allOff) offTimerStart = millis();
   }
   return stateChanged;
@@ -372,7 +372,7 @@ void PIRsensorSwitch::setup()
   for (int i = 0; i < PIR_SENSOR_MAX_SENSORS; i++) {
     sensorPinState[i] = LOW;
     if (PIRsensorPin[i] < 0) continue;
-    // pin retrieved from cfg.json (readFromConfig()) prior to running setup()
+    // pin retrieved from cfg.JSON (readFromConfig()) prior to running configuración()
     if (PinManager::allocatePin(PIRsensorPin[i], false, PinOwner::UM_PIR)) {
       // PIR Sensor mode INPUT_PULLDOWN
       #ifdef ESP8266
@@ -398,7 +398,7 @@ void PIRsensorSwitch::onMqttConnect(bool sessionPresent)
 
 void PIRsensorSwitch::loop()
 {
-  // only check sensors 5x/s
+  // only verificar sensors 5x/s
   if (!enabled || millis() - lastLoop < 200) return;
   lastLoop = millis();
 
@@ -471,7 +471,7 @@ void PIRsensorSwitch::onStateChange(uint8_t mode) {
   if (!initDone) return;
   DEBUG_PRINT(F("PIR: offTimerStart=")); DEBUG_PRINTLN(offTimerStart);
   if (m_override && PIRtriggered && offTimerStart) { // debounce
-    // checking PIRtriggered and offTimerStart will prevent cancellation upon On trigger
+    // checking PIRtriggered and offTimerStart will prevent cancellation upon On disparador
     DEBUG_PRINTLN(F("PIR: Canceled."));
     offTimerStart = 0;
     PIRtriggered = false;
@@ -558,7 +558,7 @@ bool PIRsensorSwitch::readFromConfig(JsonObject &root)
   idx             = top[FPSTR(_domoticzIDX)] | idx;
 
   if (!initDone) {
-    // reading config prior to setup()
+    // reading config prior to configuración()
     DEBUG_PRINTLN(F(" config loaded."));
   } else {
     for (int i = 0; i < PIR_SENSOR_MAX_SENSORS; i++)
@@ -566,7 +566,7 @@ bool PIRsensorSwitch::readFromConfig(JsonObject &root)
     setup();
     DEBUG_PRINTLN(F(" config (re)loaded."));
   }
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return !(pins.isNull() || pins.size() != PIR_SENSOR_MAX_SENSORS);
 }
 

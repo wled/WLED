@@ -22,7 +22,7 @@ private:
   static const char _activationThreshold[];
   static const char _presetToActivate[];
 
-  // any private methods should go here (non-inline method should be defined out of class)
+  // any private methods should go here (non-en línea método should be defined out of clase)
   void publishMqtt(const char *state, bool retain = false); // example for publishing MQTT message
 
 public:
@@ -32,8 +32,8 @@ public:
 
   void loop()
   {
-    // if usermod is disabled or called during strip updating just exit
-    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+    // if usermod is disabled or called during tira updating just salida
+    // NOTE: on very long strips tira.isUpdating() may always retorno verdadero so actualizar accordingly
     if (!isEnabled || strip.isUpdating() || millis() - lastTime <= loopInterval)
       return;
 
@@ -49,13 +49,13 @@ public:
     temperature = roundf(temperatureRead() * 10) / 10;
 #endif
  if(presetToActivate != 0){
-    // Check if temperature has exceeded the activation threshold
+    // Verificar if temperature has exceeded the activation umbral
     if (temperature >= activationThreshold) {
-      // Update the state flag if not already set
+      // Actualizar the estado bandera if not already set
       if (!isAboveThreshold) {
         isAboveThreshold = true;
         }
-      // Check if a 'high temperature' preset is configured and it's not already active
+      // Verificar if a 'high temperature' preset is configured and it's not already active
       if (currentPreset != presetToActivate) {
         // If a playlist is active, store it for reactivation later
         if (currentPlaylist > 0) {
@@ -64,7 +64,7 @@ public:
         // If a preset is active, store it for reactivation later
         else if (currentPreset > 0) {
           previousPreset = currentPreset;
-        // If no playlist or preset is active, save current state for reactivation later
+        // If no playlist or preset is active, guardar current estado for reactivation later
         } else {
           saveTemporaryPreset();
         }
@@ -72,28 +72,28 @@ public:
         applyPreset(presetToActivate);
         }
       }
-    // Check if temperature is back below the threshold
+    // Verificar if temperature is back below the umbral
     else if (temperature <= (activationThreshold - resetMargin)) {
-      // Update the state flag if not already set
+      // Actualizar the estado bandera if not already set
       if (isAboveThreshold){
         isAboveThreshold = false;
         }
-      // Check if the 'high temperature' preset is active
+      // Verificar if the 'high temperature' preset is active
       if (currentPreset == presetToActivate) {
-        // Check if a previous playlist was stored
+        // Verificar if a previous playlist was stored
         if (previousPlaylist > 0) {
           // Reactivate the stored playlist
           applyPreset(previousPlaylist);
-          // Clear the stored playlist
+          // Limpiar the stored playlist
           previousPlaylist = 0;
           }
-        // Check if a previous preset was stored
+        // Verificar if a previous preset was stored
         else if (previousPreset > 0) {
           // Reactivate the stored preset
           applyPreset(previousPreset);
-          // Clear the stored preset
+          // Limpiar the stored preset
           previousPreset = 0;
-          // If no previous playlist or preset was stored, revert to the stored state
+          // If no previous playlist or preset was stored, revertir to the stored estado
         } else {
           applyTemporaryPreset();
           }
@@ -116,7 +116,7 @@ public:
     if (!isEnabled)
       return;
 
-    // if "u" object does not exist yet wee need to create it
+    // if "u" object does not exist yet wee need to crear it
     JsonObject user = root["u"];
     if (user.isNull())
       user = root.createNestedObject("u");
@@ -125,7 +125,7 @@ public:
     userTempArr.add(temperature);
     userTempArr.add(F(" °C"));
 
-    // if "sensor" object does not exist yet wee need to create it
+    // if "sensor" object does not exist yet wee need to crear it
     JsonObject sensor = root[F("sensor")];
     if (sensor.isNull())
       sensor = root.createNestedObject(F("sensor"));
@@ -144,12 +144,12 @@ public:
     top[FPSTR(_presetToActivate)] = presetToActivate;
   }
 
-    // Append useful info to the usermod settings gui
+    // Añadir useful información to the usermod settings gui
     void appendConfigData()
     {
-    // Display 'ms' next to the 'Loop Interval' setting
+    // Display 'ms' next to the 'Bucle Intervalo' setting
     oappend(F("addInfo('Internal Temperature:Loop Interval', 1, 'ms');"));
-    // Display '°C' next to the 'Activation Threshold' setting
+    // Display '°C' next to the 'Activation Umbral' setting
     oappend(F("addInfo('Internal Temperature:Activation Threshold', 1, '°C');"));
     // Display '0 = Disabled' next to the 'Preset To Activate' setting
     oappend(F("addInfo('Internal Temperature:Preset To Activate', 1, '0 = unused');"));
@@ -182,7 +182,7 @@ const char InternalTemperatureUsermod::_presetToActivate[] PROGMEM = "Preset To 
 void InternalTemperatureUsermod::publishMqtt(const char *state, bool retain)
 {
 #ifndef WLED_DISABLE_MQTT
-  // Check if MQTT Connected, otherwise it will crash the 8266
+  // Verificar if MQTT Connected, otherwise it will bloqueo the 8266
   if (WLED_MQTT_CONNECTED)
   {
     char subuf[64];

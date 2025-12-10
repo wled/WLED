@@ -113,7 +113,7 @@ private:
   }
 
   /**
-   * Credits: Bouke_Regnerus @ https://community.home-assistant.io/t/example-indoor-air-quality-text-sensor-using-ccs811-sensor/125854 
+   * Credits: Bouke_Regnerus @ https://community.home-assistant.io/t/example-indoor-air-quality-texto-sensor-usando-ccs811-sensor/125854 
    */
   const char *_getIaqIndex(float humidity, int tvoc, int eco2)
   {
@@ -121,7 +121,7 @@ private:
 
     /*
        * Transform indoor humidity values to IAQ points according to Indoor Air Quality UK: 
-       * http://www.iaquk.org.uk/
+       * HTTP://www.iaquk.org.uk/
        */
     if (humidity < 10 or humidity > 90)
     {
@@ -146,7 +146,7 @@ private:
 
     /*
        * Transform eCO2 values to IAQ points according to Indoor Air Quality UK: 
-       * http://www.iaquk.org.uk/
+       * HTTP://www.iaquk.org.uk/
        */
     if (eco2 <= 600)
     {
@@ -171,7 +171,7 @@ private:
 
     /*
        * Transform TVOC values to IAQ points according to German environmental guidelines: 
-       * https://www.repcomsrl.com/wp-content/uploads/2017/06/Environmental_Sensing_VOC_Product_Brochure_EN.pdf
+       * https://www.repcomsrl.com/wp-contenido/uploads/2017/06/Environmental_Sensing_VOC_Product_Brochure_EN.pdf
        */
     if (tvoc <= 65)
     {
@@ -254,12 +254,12 @@ public:
           mqttInitialized = true;
         }
 
-        // Update sensor data
+        // Actualizar sensor datos
         _updateSensorData();
 
-        // Create string populated with user defined device topic from the UI,
-        // and the read temperature, humidity and pressure.
-        // Then publish to MQTT server.
+        // Crear cadena populated with usuario defined dispositivo topic from the UI,
+        // and the leer temperature, humidity and pressure.
+        // Then publish to MQTT servidor.
         mqtt->publish(mqttTemperatureTopic.c_str(), 0, true, String(SensorTemperature).c_str());
         mqtt->publish(mqttPressureTopic.c_str(), 0, true, String(SensorPressure).c_str());
         mqtt->publish(mqttHumidityTopic.c_str(), 0, true, String(SensorHumidity).c_str());

@@ -1,7 +1,7 @@
 #include "src/dependencies/time/DS1307RTC.h"
 #include "wled.h"
 
-//Connect DS1307 to standard I2C pins (ESP32: GPIO 21 (SDA)/GPIO 22 (SCL))
+//Conectar DS1307 to estándar I2C pins (ESP32: GPIO 21 (SDA)/GPIO 22 (SCL))
 
 class RTCUsermod : public Usermod {
   private:
@@ -30,7 +30,7 @@ class RTCUsermod : public Usermod {
     }
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */

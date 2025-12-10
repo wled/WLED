@@ -16,7 +16,7 @@ private:
   bool _mqttHomeAssistant : 1; // Enable Home Assistant docs
   bool _initDone : 1;          // Initialization is done
 
-  // Settings. Some of these are stored in a different format than they're user settings - so we don't have to convert at runtime
+  // Settings. Some of these are stored in a different formato than they're usuario settings - so we don't have to convertir at runtime
   uint8_t _i2cAddress = AHT10_ADDRESS_0X38;
   ASAIR_I2C_SENSOR _ahtType = AHT10_SENSOR;
   uint16_t _checkInterval = 60000; // milliseconds, user settings is in seconds
@@ -55,7 +55,7 @@ private:
 #ifndef WLED_DISABLE_MQTT
   void mqttInitialize()
   {
-    // This is a generic "setup mqtt" function, So we must abort if we're not to do mqtt
+    // This is a genérico "configuración MQTT" función, So we must abortar if we're not to do MQTT
     if (!WLED_MQTT_CONNECTED || !_mqttPublish || !_mqttHomeAssistant)
       return;
 
@@ -69,8 +69,8 @@ private:
 
   void mqttPublishIfChanged(const __FlashStringHelper *topic, float &lastState, float state, float minChange)
   {
-    // Check if MQTT Connected, otherwise it will crash the 8266
-    // Only report if the change is larger than the required diff
+    // Verificar if MQTT Connected, otherwise it will bloqueo the 8266
+    // Only report if the change is larger than the required diferencia
     if (WLED_MQTT_CONNECTED && _mqttPublish && (_mqttPublishAlways || fabsf(lastState - state) > minChange))
     {
       char subuf[128];
@@ -81,7 +81,7 @@ private:
     }
   }
 
-  // Create an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+  // Crear an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Bucle.
   void mqttCreateHassSensor(const String &name, const String &topic, const String &deviceClass, const String &unitOfMeasurement)
   {
     String t = String(F("homeassistant/sensor/")) + mqttClientID + "/" + name + F("/config");
@@ -121,8 +121,8 @@ public:
 
   void loop()
   {
-    // if usermod is disabled or called during strip updating just exit
-    // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+    // if usermod is disabled or called during tira updating just salida
+    // NOTE: on very long strips tira.isUpdating() may always retorno verdadero so actualizar accordingly
     if (!_settingEnabled || strip.isUpdating())
       return;
 
@@ -137,7 +137,7 @@ public:
 
     if (_lastStatus == AHT10_ERROR)
     {
-      // Perform softReset and retry
+      // Perform softReset and reintentar
       DEBUG_PRINTLN(F("AHTxx returned error, doing softReset"));
       if (!_aht->softReset())
       {
@@ -154,9 +154,9 @@ public:
       float humidity = truncateDecimals(_aht->readHumidity(AHT10_USE_READ_DATA));
 
 #ifndef WLED_DISABLE_MQTT
-      // Push to MQTT
+      // Enviar to MQTT
 
-      // We can avoid reporting if the change is insignificant. The threshold chosen is below the level of accuracy, but way above 0.01 which is the precision of the value provided.
+      // We can avoid reporting if the change is insignificant. The umbral chosen is below the nivel of accuracy, but way above 0.01 which is the precisión of the valor provided.
       // The AHT10/15/20 has an accuracy of 0.3C in the temperature readings
       mqttPublishIfChanged(F("temperature"), _lastTemperatureSent, temperature, 0.1f);
 
@@ -184,7 +184,7 @@ public:
 
   void addToJsonInfo(JsonObject &root) override
   {
-    // if "u" object does not exist yet wee need to create it
+    // if "u" object does not exist yet wee need to crear it
     JsonObject user = root["u"];
     if (user.isNull())
       user = root.createNestedObject("u");
@@ -241,8 +241,8 @@ public:
 
   bool readFromConfig(JsonObject &root) override
   {
-    // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+    // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
     JsonObject top = root[FPSTR(_name)];
 
@@ -262,7 +262,7 @@ public:
       if (1 <= _checkInterval && _checkInterval <= 600)
         _checkInterval *= 1000;
       else
-        // Invalid input
+        // Invalid entrada
         _checkInterval = 60000;
     }
 
@@ -272,7 +272,7 @@ public:
       if (0 <= _decimalFactor && _decimalFactor <= 5)
         _decimalFactor = pow10f(_decimalFactor);
       else
-        // Invalid input
+        // Invalid entrada
         _decimalFactor = 100;
     }
 
@@ -283,7 +283,7 @@ public:
       if (0 <= tmpAhtType && tmpAhtType <= 2)
         _ahtType = static_cast<ASAIR_I2C_SENSOR>(tmpAhtType);
       else
-        // Invalid input
+        // Invalid entrada
         _ahtType = ASAIR_I2C_SENSOR::AHT10_SENSOR;
     }
 

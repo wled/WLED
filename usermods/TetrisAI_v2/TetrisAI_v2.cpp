@@ -39,7 +39,7 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
         //BG color
         color = SEGCOLOR(1);
       }
-      //game over animation
+      //game over animación
       else if(*tetris->grid.getPixel(index_x, index_y) == 254)
       {
         //use fg
@@ -64,7 +64,7 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
     //BORDER
     if (tetrisai_data->showBorder)
     {
-      //draw a line 6 pixels from right with the border color
+      //dibujar a line 6 pixels from right with the border color
       for (auto index_y = 0; index_y < tetrisai_data->effectHeight; index_y++)
       {
         SEGMENT.setPixelColorXY(tetrisai_data->segOffsetX + tetrisai_data->effectWidth - 6, tetrisai_data->segOffsetY + index_y, SEGCOLOR(2));
@@ -111,13 +111,13 @@ uint16_t mode_2DTetrisAI()
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
 
-  //range 0 - 1024ms => 1024/255 ~ 4
+  //rango 0 - 1024ms => 1024/255 ~ 4
   uint16_t msDelayMove = 1024 - (4 * SEGMENT.speed);
   int16_t msDelayGameOver = msDelayMove / 4;
 
-  //range 0 - 2 (not including current)
+  //rango 0 - 2 (not including current)
   uint8_t nLookAhead = SEGMENT.intensity ? (SEGMENT.intensity >> 7) + 2 : 1;
-  //range 0 - 16
+  //rango 0 - 16
   tetrisai_data->colorInc = SEGMENT.custom2 >> 4;
 
   if (tetrisai_data->tetris.nLookAhead != nLookAhead
@@ -132,7 +132,7 @@ uint16_t mode_2DTetrisAI()
     tetrisai_data->showNext = SEGMENT.check1;
     tetrisai_data->showBorder = SEGMENT.check2;
 
-    //not more than 32 columns and 255 rows as this is the limit of this implementation
+    //not more than 32 columns and 255 rows as this is the límite of this implementación
     uint8_t gridWidth = cols > 32 ? 32 : cols;
     uint8_t gridHeight = rows > 255 ? 255 : rows;
 
@@ -146,7 +146,7 @@ uint16_t mode_2DTetrisAI()
       if (gridWidth + 5 > cols)
       {
         // yes, so make the grid smaller
-        // make space for the piece and one pixel of space
+        // make space for the piece and one píxel of space
         gridWidth = (gridWidth - ((gridWidth + 5) - cols));
       }
       tetrisai_data->effectWidth += 5;

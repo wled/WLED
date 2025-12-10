@@ -30,7 +30,7 @@ class UsermodSdCard : public Usermod {
       int8_t configPinPoci = 36; // confusing names? Then have a look :)
       int8_t configPinPico = 15; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
 
-      //acquired and initialize the SPI port
+      //acquired and inicializar the SPI puerto
       void init_SD_SPI()
       {
         if(!configSdEnabled) return;
@@ -65,7 +65,7 @@ class UsermodSdCard : public Usermod {
         sdInitDone = true;
       }
 
-      //deinitialize the acquired SPI port
+      //deinitialize the acquired SPI puerto
       void deinit_SD_SPI()
       {
         if(!sdInitDone) return;
@@ -81,7 +81,7 @@ class UsermodSdCard : public Usermod {
         sdInitDone = false;
       }
 
-      // some SPI pin was changed, while SPI was initialized, reinit to new port
+      // some SPI pin was changed, while SPI was initialized, reinit to new puerto
       void reinit_SD_SPI()
       {
           deinit_SD_SPI();
@@ -191,7 +191,7 @@ const char UsermodSdCard::_name[] PROGMEM = "SD Card";
 bool UsermodSdCard::configSdEnabled = true;
 
 #ifdef SD_ADAPTER
-//checks if the file is available on SD card
+//checks if the archivo is available on SD card
 bool file_onSD(const char *filepath)
 {
   #ifdef WLED_USE_SD_SPI

@@ -49,11 +49,11 @@ static void doSaveState() {
   if (quickLoad && quickLoad[0]) sObj[F("ql")] = quickLoad;
   if (saveLedmap >= 0) sObj[F("ledmap")] = saveLedmap;
 /*
-  #ifdef WLED_DEBUG
+  #si está definido WLED_DEBUG
     DEBUG_PRINTLN(F("Serialized preset"));
-    serializeJson(*pDoc,Serial);
+    serializeJson(*pDoc,Serie);
     DEBUG_PRINTLN();
-  #endif
+  #fin si
 */
   #if defined(ARDUINO_ARCH_ESP32)
   if (!persist) {
@@ -133,7 +133,7 @@ bool applyPreset(byte index, byte callMode)
   return true;
 }
 
-// apply preset or fallback to a effect and palette if it doesn't exist
+// apply preset or fallback to a efecto and palette if it doesn't exist
 void applyPresetWithFallback(uint8_t index, uint8_t callMode, uint8_t effectID, uint8_t paletteID)
 {
   applyPreset(index, callMode);
@@ -180,7 +180,7 @@ void handlePresets()
   }
   fdo = pDoc->as<JsonObject>();
 
-  // only reset errorflag if previous error was preset-related
+  // only restablecer errorflag if previous error was preset-related
   if ((errorFlag == ERR_NONE) || (errorFlag == ERR_FS_PLOAD)) errorFlag = presetErrFlag;
 
   //HTTP API commands
@@ -201,7 +201,7 @@ void handlePresets()
   if (!errorFlag && tmpPreset < 255 && changePreset) currentPreset = tmpPreset;
 
   #if defined(ARDUINO_ARCH_ESP32)
-  //Aircoookie recommended not to delete buffer
+  //Aircoookie recommended not to eliminar búfer
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
     p_free(tmpRAMbuffer);
     tmpRAMbuffer = nullptr;
@@ -214,7 +214,7 @@ void handlePresets()
   updateInterfaces(tmpMode);
 }
 
-//called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
+//called from handleSet(PS=) [red devolución de llamada (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [red devolución de llamada (filedoc!=nullptr)]
 void savePreset(byte index, const char* pname, JsonObject sObj)
 {
   if (!saveName) saveName = static_cast<char*>(p_malloc(33));
@@ -250,7 +250,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
   } else {
     // this is a playlist or API call
     if (sObj[F("playlist")].isNull()) {
-      // we will save API call immediately (often causes presets.json corruption)
+      // we will guardar API call immediately (often causes presets.JSON corruption)
       presetToSave = 0;
       if (index <= 250) { // cannot save API calls to temporary preset (255)
         sObj.remove("o");
@@ -270,7 +270,7 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
       quickLoad = nullptr;
     } else {
       // store playlist
-      // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected
+      // ADVERTENCIA: playlist will be loaded in JSON.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected
       includeBri   = true; // !sObj["on"].isNull();
       playlistSave = true;
     }

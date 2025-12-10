@@ -36,7 +36,7 @@ class DeepSleepUsermod : public Usermod {
     int sleepDelay = DEEPSLEEP_DELAY; // in seconds, 0 = immediate
     int delaycounter = 5; // delay deep sleep at bootup until preset settings are applied
     uint32_t lastLoopTime = 0;
-    // string that are used multiple time (this will save some flash memory)
+    // cadena that are used multiple time (this will guardar some flash memoria)
     static const char _name[];
     static const char _enabled[];
 
@@ -65,7 +65,7 @@ class DeepSleepUsermod : public Usermod {
     inline void enable(bool enable) { enabled = enable; } // Enable/Disable the usermod
     inline bool isEnabled() { return enabled; } //Get usermod enabled/disabled state
 
-    // setup is called at boot (or in this case after every exit of sleep mode)
+    // configuración is called at boot (or in this case after every salida of sleep mode)
     void setup() {
       //TODO: if the de-init of RTC pins is required to do it could be done here
       //rtc_gpio_deinit(wakeupPin);
@@ -153,7 +153,7 @@ void addToConfig(JsonObject& root) override
     {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
-      //save these vars persistently whenever settings are saved
+      //guardar these vars persistently whenever settings are saved
       top["gpio"] = wakeupPin;
       top["wakeWhen"] = wakeWhenHigh;
       top["pull"] = noPull;
@@ -163,8 +163,8 @@ void addToConfig(JsonObject& root) override
 
     bool readFromConfig(JsonObject& root) override
     {
-      // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+      // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
@@ -183,9 +183,9 @@ void addToConfig(JsonObject& root) override
     }
 
     /*
-     * appendConfigData() is called when user enters usermod settings page
+     * appendConfigData() is called when usuario enters usermod settings page
      * it may add additional metadata for certain entry fields (adding drop down is possible)
-     * be careful not to add too much as oappend() buffer is limited to 3k
+     * be careful not to add too much as oappend() búfer is limited to 3k
      */
     void appendConfigData() override
     {
@@ -211,8 +211,8 @@ void addToConfig(JsonObject& root) override
     }
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId() {
         return USERMOD_ID_DEEP_SLEEP;
@@ -220,7 +220,7 @@ void addToConfig(JsonObject& root) override
 
 };
 
-// add more strings here to reduce flash memory usage
+// add more strings here to reduce flash memoria usage
 const char DeepSleepUsermod::_name[]    PROGMEM = "DeepSleep";
 const char DeepSleepUsermod::_enabled[] PROGMEM = "enabled";
 

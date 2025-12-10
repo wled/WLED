@@ -1,11 +1,11 @@
 #include "TFTs.h"
 #include "wled.h"
 
-//Large parts of the code are from https://github.com/SmittyHalibut/EleksTubeHAX
+//Large parts of the código are from https://github.com/SmittyHalibut/EleksTubeHAX
 
 class ElekstubeIPSUsermod : public Usermod {
   private:
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _tubeSeg[];
     static const char _digitOffset[];
@@ -83,7 +83,7 @@ class ElekstubeIPSUsermod : public Usermod {
     }
 
     /**
-     * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
+     * addToConfig() (called from set.cpp) stores persistent properties to cfg.JSON
      */
     void addToConfig(JsonObject &root) {
       // we add JSON object: {"EleksTubeIPS": {"tubeSegment": 1, "digitOffset": 0}}
@@ -94,9 +94,9 @@ class ElekstubeIPSUsermod : public Usermod {
     }
 
     /**
-     * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+     * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
      *
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject &root) {
       // we look for JSON object: {"EleksTubeIPS": {"tubeSegment": 1, "digitOffset": 0}}
@@ -114,13 +114,13 @@ class ElekstubeIPSUsermod : public Usermod {
       if (tfts.digitOffset > 240) tfts.digitOffset = 240;
       if (tfts.digitOffset != digitOffsetPrev) fshow=TFTs::force;
 
-      // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+      // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
       return !top[FPSTR(_digitOffset)].isNull();
     }
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void addToJsonState(JsonObject& root)
     {
@@ -130,8 +130,8 @@ class ElekstubeIPSUsermod : public Usermod {
 
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root)
     {
@@ -151,7 +151,7 @@ class ElekstubeIPSUsermod : public Usermod {
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char ElekstubeIPSUsermod::_name[]         PROGMEM = "EleksTubeIPS";
 const char ElekstubeIPSUsermod::_tubeSeg[]      PROGMEM = "tubeSegment";
 const char ElekstubeIPSUsermod::_digitOffset[]  PROGMEM = "digitOffset";

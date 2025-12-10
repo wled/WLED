@@ -1,18 +1,18 @@
 #include "wled.h"
 
-// for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
+// for information how FX metadata strings work see https://kno.WLED.ge/interfaces/JSON-API/#efecto-metadata
 
-// static effect, used if an effect fails to initialize
+// estático efecto, used if an efecto fails to inicializar
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 
 /////////////////////////
-//  User FX functions  //
+//  Usuario FX functions  //
 /////////////////////////
 
-// Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
+// Diffusion Fire: fire efecto intended for 2D setups smaller than 16x16
 static uint16_t mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
     return mode_static();  // not a 2D set-up
@@ -37,7 +37,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
   }
 
   if ((strip.now - SEGENV.step) >= refresh_ms) {
-    // Keep for ≤~1 KiB; otherwise consider heap or reuse SEGENV.data as scratch.
+    // Keep for ≤~1 KiB; otherwise consider montón or reuse SEGENV.datos as scratch.
     uint8_t tmp_row[cols];
     SEGENV.step = strip.now;
     // scroll up
@@ -49,7 +49,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
 
     if (hw_random8() > turbulence) {
-      // create new sparks at bottom row
+      // crear new sparks at bottom row
       for (unsigned x = 0; x < cols; x++) {
         uint8_t p = hw_random8();
         if (p < spark_rate) {
@@ -90,7 +90,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 
 /////////////////////
-//  UserMod Class  //
+//  Usermod Clase  //
 /////////////////////
 
 class UserFxUsermod : public Usermod {
@@ -100,14 +100,14 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
 
     ////////////////////////////////////////
-    //  add your effect function(s) here  //
+    //  add your efecto función(s) here  //
     ////////////////////////////////////////
 
-    // use id=255 for all custom user FX (the final id is assigned when adding the effect)
+    // use id=255 for all custom usuario FX (the final id is assigned when adding the efecto)
 
-    // strip.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
-    // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
-    // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
+    // tira.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
+    // tira.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
+    // tira.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
   void loop() override {} // nothing to do in the loop
   uint16_t getId() override { return USERMOD_ID_USER_FX; }

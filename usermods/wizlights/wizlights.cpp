@@ -1,7 +1,7 @@
 #include "wled.h"
 #include <WiFiUdp.h>
 
-// Maximum number of lights supported
+// Máximo number of lights supported
 #define MAX_WIZ_LIGHTS 15
 
 WiFiUDP UDP;
@@ -33,7 +33,7 @@ class WizLightsUsermod : public Usermod {
 
 
 
-    // Send JSON blob to WiZ Light over UDP
+    // Enviar JSON blob to WiZ Light over UDP
     // RGB or C/W white
     // TODO:
     //   Better utilize WLED existing white mixing logic
@@ -59,7 +59,7 @@ class WizLightsUsermod : public Usermod {
         if (coldWhite > 0 && warmWhite > 0){
           UDP.print("{\"method\":\"setPilot\",\"params\":{\"c\":"); UDP.print(coldWhite) ;UDP.print(",\"w\":"); UDP.print(warmWhite); UDP.print("}}");}
 
-      // Send color as RGB  
+      // Enviar color as RGB  
       } else {
         UDP.print("{\"method\":\"setPilot\",\"params\":{\"r\":");
         UDP.print(R(color));
@@ -73,13 +73,13 @@ class WizLightsUsermod : public Usermod {
       UDP.endPacket();
     }
 
-    // Override definition so it compiles
+    // Anular definition so it compiles
     void setup() {
       
     }
 
 
-    // TODO: Check millis() rollover
+    // TODO: Verificar millis() rollover
     void loop() {
       
       // Make sure we are connected first
@@ -135,13 +135,13 @@ class WizLightsUsermod : public Usermod {
       configComplete &= getJsonValue(top["Always Force Update"],          forceUpdate,        false); // Update wiz light every loop, even if color value has not changed
       configComplete &= getJsonValue(top["Force Update Every x Minutes"], forceUpdateMinutes, 5);     // Update wiz light if color value has not changed, every x minutes
       
-      // Read list of IPs
+      // Leer lista of IPs
       String tempIp;
       for (uint8_t i = 0; i < MAX_WIZ_LIGHTS; i++) {
         configComplete &= getJsonValue(top[getJsonLabel(i)], tempIp, "0.0.0.0");
         lightsValid[i] = lightsIP[i].fromString(tempIp);
         
-        // If the IP is not valid, force the value to be empty
+        // If the IP is not valid, force the valor to be empty
         if (!lightsValid[i]){lightsIP[i].fromString("0.0.0.0");}
         }
 
@@ -149,7 +149,7 @@ class WizLightsUsermod : public Usermod {
     }
 
 
-   // Create label for the usermod page (I cannot make it work with JSON arrays...)
+   // Crear label for the usermod page (I cannot make it work with JSON arrays...)
     String getJsonLabel(uint8_t i) {return "WiZ Light IP #" + String(i+1);}
         
     uint16_t getId(){return USERMOD_ID_WIZLIGHTS;}

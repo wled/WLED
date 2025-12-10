@@ -1,6 +1,6 @@
 /******************************************************************************
-  * @file           : gridbw.h
-  * @brief          : contains the tetris grid as binary so black and white version
+  * @archivo           : gridbw.h
+  * @brief          : contains the tetris grid as binary so black and white versión
   ******************************************************************************
   * @attention
   *
@@ -80,8 +80,8 @@ public:
             piece->landingY++;
         }
 
-        //at this point the positon is 'in the wall' or 'over some occupied pixel'
-        //so the previous position was the last correct one (clamped to 0 as minimum).
+        //at this point the positon is 'in the wall' or 'over some occupied píxel'
+        //so the previous posición was the last correct one (clamped to 0 as minimum).
         piece->landingY = piece->landingY > 0 ? piece->landingY - 1 : 0;
     }
 

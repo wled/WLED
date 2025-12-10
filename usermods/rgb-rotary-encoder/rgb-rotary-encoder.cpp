@@ -25,7 +25,7 @@ class RgbRotaryEncoderUsermod : public Usermod
     byte ledMode = 3;
     byte ledBrightness = 64;
 
-    // This is all needed to calculate the brightness, rotary position, etc.
+    // This is all needed to calculate the brillo, rotary posición, etc.
     const byte minPos = 5; // minPos is not zero, because if we want to turn the LEDs off, we use the built-in button ;)
     const byte maxPos = 100; // maxPos=100, like 100%
     const byte numLeds = 20;
@@ -54,7 +54,7 @@ class RgbRotaryEncoderUsermod : public Usermod
 
     void initLedBus()
     {
-      // Initialize all pins to the sentinel value first…
+      // Inicializar all pins to the sentinel valor first…
       byte _pins[OUTPUT_MAX_PINS];
       std::fill(std::begin(_pins), std::end(_pins), 255);
       // …then set only the LED pin
@@ -142,7 +142,7 @@ class RgbRotaryEncoderUsermod : public Usermod
   public:
     static byte currentPos;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _ledIo[];
@@ -159,17 +159,17 @@ class RgbRotaryEncoderUsermod : public Usermod
     }
 
     /**
-     * Enable/Disable the usermod
+     * Habilitar/Deshabilitar the usermod
      */
-    // inline void enable(bool enable) { enabled = enable; }
+    // en línea void habilitar(bool habilitar) { enabled = habilitar; }
     /**
-     * Get usermod enabled/disabled state
+     * Get usermod enabled/disabled estado
      */
-    // inline bool isEnabled() { return enabled; }
+    // en línea bool isEnabled() { retorno enabled; }
 
     /*
-      * setup() is called once at boot. WiFi is not yet connected at this point.
-      * You can use it to initialize variables, sensors or similar.
+      * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+      * Úsalo para inicializar variables, sensores o similares.
       */
     void setup()
     {
@@ -180,21 +180,21 @@ class RgbRotaryEncoderUsermod : public Usermod
         initRotaryEncoder();
         initLedBus();
 
-        // No updating of LEDs here, as that's sometimes not working; loop() will take care of that
+        // No updating of LEDs here, as that's sometimes not funcionamiento; bucle() will take care of that
 
         initDone = true;
       }
     }
 
     /*
-      * loop() is called continuously. Here you can check for events, read sensors, etc.
-      * 
-      * Tips:
-      * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-      *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
-      * 
-      * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-      *    Instead, use a timer check as shown here.
+      * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
+      *
+      * Consejos:
+      * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+      *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
+      *
+      * 2. Evita usar `retraso()`; NUNCA uses delays mayores a 10 ms.
+      *    En su lugar usa comprobaciones temporizadas como en este ejemplo.
       */
     void loop()
     {
@@ -213,7 +213,7 @@ class RgbRotaryEncoderUsermod : public Usermod
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
       }
 
-      // If the brightness is changed not with the rotary, update the rotary
+      // If the brillo is changed not with the rotary, actualizar the rotary
       if (bri != lastKnownBri) {
         currentPos = lastKnownPos = getPositionForBrightness();
         lastKnownBri = bri;
@@ -221,7 +221,7 @@ class RgbRotaryEncoderUsermod : public Usermod
         updateLeds();
       }
 
-      // Update LEDs here in loop to also validate that we can update/show
+      // Actualizar LEDs here in bucle to also validar that we can actualizar/show
       if (isDirty && ledBus->canShow()) {
         isDirty = false;
         ledBus->show();
@@ -243,9 +243,9 @@ class RgbRotaryEncoderUsermod : public Usermod
     }
 
     /**
-     * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+     * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
      *
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject &root)
     {
@@ -274,15 +274,15 @@ class RgbRotaryEncoderUsermod : public Usermod
       ledBrightness = top[FPSTR(_ledBrightness)] > 0 && top[FPSTR(_ledBrightness)] <= 255 ? top[FPSTR(_ledBrightness)] : ledBrightness;
 
       if (!initDone) {
-        // First run: reading from cfg.json
-        // Nothing to do here, will be all done in setup() 
+        // First run: reading from cfg.JSON
+        // Nothing to do here, will be all done in configuración() 
       }
-      // Mod was disabled, so run setup()
+      // Mod was disabled, so run configuración()
       else if (enabled && enabled != oldEnabled) {
         DEBUG_PRINTF("[%s] Usermod has been re-enabled\n", _name);
         setup();
       }
-      // Config has been changed, so adopt to changes
+      // Configuración has been changed, so adopt to changes
       else {
         if (!enabled) {
           DEBUG_PRINTF("[%s] Usermod has been disabled\n", _name);
@@ -320,20 +320,20 @@ class RgbRotaryEncoderUsermod : public Usermod
     }
 
     /*
-      * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-      * This could be used in the future for the system to determine whether your usermod is installed.
+      * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+      * This could be used in the futuro for the sistema to determine whether your usermod is installed.
       */
     uint16_t getId()
     {
       return USERMOD_RGB_ROTARY_ENCODER;
     }
 
-    //More methods can be added in the future, this example will then be extended.
-    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
+    //More methods can be added in the futuro, this example will then be extended.
+    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base clase!
 };
 
 byte RgbRotaryEncoderUsermod::currentPos = 5;
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char RgbRotaryEncoderUsermod::_name[]              PROGMEM = "RGB-Rotary-Encoder";
 const char RgbRotaryEncoderUsermod::_enabled[]           PROGMEM = "Enabled";
 const char RgbRotaryEncoderUsermod::_ledIo[]             PROGMEM = "LED-pin";

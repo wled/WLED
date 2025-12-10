@@ -73,7 +73,7 @@ You need to modify a file in the `TFT_eSPI` library to select the correct board.
 Modify the  `User_Setup_Select.h` file as follows:
 * Comment out the following line (which is the 'default' setup file):
 ```ini
-//#include <User_Setup.h>           // Default setup is root library folder
+//#incluir <User_Setup.h>           // Default configuración is root biblioteca carpeta
 ```
 * Uncomment the following line (which points to the setup file for the TTGO T-Display):
 ```ini

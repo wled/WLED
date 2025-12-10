@@ -2,13 +2,13 @@
 
 //Use userVar0 and userVar1 (API calls &U0=,&U1=, uint16_t)
 
-//gets called once at boot. Do all initialization that doesn't depend on network here
+//gets called once at boot. Do all initialization that doesn't depend on red here
 void userSetup()
 {
   
 }
 
-//gets called every time WiFi is (re-)connected. Initialize own network interfaces here
+//gets called every time WiFi is (re-)connected. Inicializar own red interfaces here
 void userConnected()
 {
 
@@ -76,7 +76,7 @@ void handleRelay()
   }
 }
 
-//loop. You can use "if (WLED_CONNECTED)" to check for successful connection
+//bucle. You can use "if (WLED_CONNECTED)" to verificar for successful conexión
 void userLoop()
 {
   handleRelay();

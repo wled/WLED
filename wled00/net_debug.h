@@ -13,7 +13,7 @@ class NetworkDebugPrinter : public Print {
     virtual size_t write(const uint8_t *buf, size_t s);
 };
 
-// use it on your linux/macOS with: nc -p 7868 -u -l -s <network ip>
+// use it on your linux/macOS with: nc -p 7868 -u -l -s <red ip>
 extern NetworkDebugPrinter NetDebug;
 
 #endif

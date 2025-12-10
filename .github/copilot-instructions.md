@@ -4,6 +4,26 @@ WLED is a fast and feature-rich implementation of an ESP32 and ESP8266 webserver
 
 Always reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
+## Architecture Overview
+
+**Two-layer system**: Web UI (JavaScript/HTML/CSS) + Embedded firmware (C++).
+
+1. **Web UI layer** (`wled00/data/`): Frontend served by ESP device or HTTP server
+   - Single-page app using vanilla JavaScript (no frameworks) 
+   - State management in global variables (e.g., `isOn`, `selectedFx`, `segCount`)
+   - Color picker (iro.js library) and effects driven by JSON API
+   - Pages generated via template pattern: `index.htm` (main), `settings*.htm` (config), `*.htm` (utilities)
+
+2. **Firmware layer** (`wled00/*.cpp/.h`): C++ on microcontroller
+   - Effect system: `FX.cpp` (100+ effects), `palettes.cpp` (50+ color palettes)
+   - LED management: `bus_manager.h` (multi-strip support), `pin_manager.h` (GPIO allocation)
+   - Protocol handlers: `json.cpp` (REST API), `ws.cpp` (WebSocket), `mqtt.cpp`, `udp.cpp`, `e131.cpp`
+   - Usermod system: Plugin architecture for extensions (v1 simple, v2 class-based)
+
+3. **Build bridge**: `tools/cdata.js` embeds minified web UI into C++ headers (`html_*.h`)
+   - Inlines CSS/JS, gzips for size, generates C arrays for firmware
+   - These headers are included in firmware binary—cannot edit directly
+
 ## Working Effectively
 
 ### Initial Setup
@@ -74,6 +94,31 @@ After making changes to web UI, always test:
 - **Color controls**: Verify color picker and brightness controls work
 - **Effects**: Test effect selection and parameter changes
 - **Settings**: Test form submission and validation
+
+## Code Patterns and Conventions
+
+### Web UI Patterns
+- **Global state variables**: `isOn`, `nlA` (nightlight active), `selectedFx`, `selectedPal`, `csel` (color slot), `segCount`
+- **Utility functions** (`common.js`): `gId()` (getElementById), `cE()` (createElement), `isN()` (isNumeric), `isO()` (isObject)
+- **JSON API communication**: `requestJson()` to GET `/json/state`, `SetV()` to update UI from response
+- **Form submission**: Settings pages POST to `/settings/` endpoints; web UI listens for config with `preGetV()` hook before `GetV()`
+- **Tabs system**: `toggle()` function hides/shows divs with `.hide` class
+- **Color management**: Color slots use HTML dataset attributes (`data-r`, `data-g`, `data-b`, `data-w`)
+
+### Firmware Patterns (C++)
+- **Version format**: `#define VERSION 2506160` (yymmddb format)
+- **Feature flags**: Conditional compilation via `#define WLED_ENABLE_*` / `#define WLED_DISABLE_*` in `wled.h`
+- **Usermod v2 API**: Inherit from `Usermod` class, override `setup()`, `connected()`, `loop()`, `addToConfig()`, `readFromConfig()`
+- **Usermod v1 API**: Simple callbacks `userSetup()`, `userConnected()`, `userLoop()` — limited but useful for small mods
+- **Segment system**: LEDs grouped into "segments" with individual colors/effects—core WLED feature
+- **EEPROM storage**: Config persisted in EEPROM; usermod v1 uses bytes 2551-2559 (8 bytes) or 2750+ (custom size)
+
+### Build System Conventions
+- **Tabs in web files** (`.html`, `.css`, `.js`), **2-space indentation in C++** (`.cpp`, `.h`)
+- **Header files auto-generated**: Never edit `html_*.h` — always edit source in `wled00/data/` instead
+- **Environment selection**: Use `platformio_override.ini` for custom boards/usermods, don't modify main `platformio.ini`
+- **Usermod registration**: Add `#include "usermod_*.h"` + `registerUsermod(new ClassName())` in `usermods_list.cpp`
+- **Custom usermods**: Specify in `platformio.ini` with `custom_usermods = mod1,mod2` or in `platformio_override.ini`
 
 ## Common Tasks
 

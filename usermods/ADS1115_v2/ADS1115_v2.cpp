@@ -31,7 +31,7 @@ class ADS1115Usermod : public Usermod {
       if (isEnabled && millis() - lastTime > loopInterval) {
         lastTime = millis();
 
-        // If we don't have new data, skip this iteration.
+        // If we don't have new datos, omitir this iteration.
         if (!ads.conversionComplete()) {
           return;
         }

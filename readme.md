@@ -10,78 +10,78 @@
 
   </p>
 
-# Welcome to WLED! ✨
+# ¡Bienvenido a WLED! ✨
 
-A fast and feature-rich implementation of an ESP32 and ESP8266 webserver to control NeoPixel (WS2812B, WS2811, SK6812) LEDs or also SPI based chipsets like the WS2801 and APA102!
+Una implementación rápida y rica en características de un servidor web ESP32 y ESP8266 para controlar LEDs NeoPixel (WS2812B, WS2811, SK6812) o también chipsets basados en SPI como el WS2801 y APA102.
 
-Originally created by [Aircoookie](https://github.com/Aircoookie)
+Creado originalmente por [Aircoookie](https://github.com/Aircoookie)
 
-## ⚙️ Features
-- WS2812FX library with more than 100 special effects  
-- FastLED noise effects and 50 palettes  
-- Modern UI with color, effect and segment controls  
-- Segments to set different effects and colors to user defined parts of the LED string  
-- Settings page - configuration via the network  
-- Access Point and station mode - automatic failsafe AP  
-- [Up to 10 LED outputs](https://kno.wled.ge/features/multi-strip/#esp32) per instance
-- Support for RGBW strips  
-- Up to 250 user presets to save and load colors/effects easily, supports cycling through them.  
-- Presets can be used to automatically execute API calls  
-- Nightlight function (gradually dims down)  
-- Full OTA software updateability (HTTP + ArduinoOTA), password protectable  
-- Configurable analog clock (Cronixie, 7-segment and EleksTube IPS clock support via usermods) 
-- Configurable Auto Brightness limit for safe operation  
-- Filesystem-based config for easier backup of presets and settings  
+## ⚙️ Características
+- Librería WS2812FX con más de 100 efectos especiales  
+- Efectos de ruido de FastLED y 50 paletas  
+- Interfaz moderna con controles de color, efecto y segmento  
+- Segmentos para establecer diferentes efectos y colores en partes definidas por el usuario de la tira de LEDs  
+- Página de configuración - configuración a través de la red  
+- Modo Punto de Acceso y estación - AP de conmutación por error automática  
+- [Hasta 10 salidas de LED](https://kno.wled.ge/features/multi-strip/#esp32) por instancia
+- Soporte para tiras RGBW  
+- Hasta 250 presets de usuario para guardar y cargar colores/efectos fácilmente, admite ciclar a través de ellos.  
+- Los presets se pueden usar para ejecutar automáticamente llamadas de API  
+- Función de luz nocturna (se atenúa gradualmente)  
+- Actualizabilidad completa del software OTA (HTTP + ArduinoOTA), protegible por contraseña  
+- Reloj analógico configurable (soporte de reloj Cronixie, pantalla de 7 segmentos y EleksTube IPS a través de usermods) 
+- Límite de brillo automático configurable para operación segura  
+- Configuración basada en sistema de archivos para copia de seguridad más fácil de presets y configuración  
 
-## 💡 Supported light control interfaces
-- WLED app for [Android](https://play.google.com/store/apps/details?id=ca.cgagnier.wlednativeandroid) and [iOS](https://apps.apple.com/gb/app/wled-native/id6446207239)
-- JSON and HTTP request APIs  
+## 💡 Interfaces de control de luz soportadas
+- Aplicación WLED para [Android](https://play.google.com/store/apps/details?id=ca.cgagnier.wlednativeandroid) e [iOS](https://apps.apple.com/gb/app/wled-native/id6446207239)
+- APIs JSON y solicitudes HTTP  
 - MQTT   
-- E1.31, Art-Net, DDP and TPM2.net
-- [diyHue](https://github.com/diyhue/diyHue) (Wled is supported by diyHue, including Hue Sync Entertainment under udp. Thanks to [Gregory Mallios](https://github.com/gmallios))
+- E1.31, Art-Net, DDP y TPM2.net
+- [diyHue](https://github.com/diyhue/diyHue) (Wled es soportado por diyHue, incluido Hue Sync Entertainment bajo udp. Gracias a [Gregory Mallios](https://github.com/gmallios))
 - [Hyperion](https://github.com/hyperion-project/hyperion.ng)
-- UDP realtime  
-- Alexa voice control (including dimming and color)  
-- Sync to Philips hue lights  
-- Adalight (PC ambilight via serial) and TPM2  
-- Sync color of multiple WLED devices (UDP notifier)  
-- Infrared remotes (24-key RGB, receiver required)  
-- Simple timers/schedules (time from NTP, timezones/DST supported)  
+- UDP en tiempo real  
+- Control de voz de Alexa (incluyendo atenuación y color)  
+- Sincronizar con luces Philips hue  
+- Adalight (ambilight de PC a través de puerto serie) y TPM2  
+- Sincronizar color de múltiples dispositivos WLED (notificador UDP)  
+- Controles remotos por infrarrojos (RGB de 24 teclas, receptor requerido)  
+- Temporizadores/horarios simples (tiempo de NTP, zonas horarias/DST soportadas)  
 
-## 📲 Quick start guide and documentation
+## 📲 Guía de inicio rápido y documentación
 
-See the [documentation on our official site](https://kno.wled.ge)!
+¡Consulte la [documentación en nuestro sitio oficial](https://kno.wled.ge)!
 
-[On this page](https://kno.wled.ge/basics/tutorials/) you can find excellent tutorials and tools to help you get your new project up and running!
+[En esta página](https://kno.wled.ge/basics/tutorials/) puede encontrar excelentes tutoriales y herramientas para ayudarle a poner su nuevo proyecto en funcionamiento.
 
-## 🖼️ User interface
+## 🖼️ Interfaz de usuario
 <img src="/images/macbook-pro-space-gray-on-the-wooden-table.jpg" width="50%"><img src="/images/walking-with-iphone-x.jpg" width="50%">
 
-## 💾 Compatible hardware
+## 💾 Hardware compatible
 
-See [here](https://kno.wled.ge/basics/compatible-hardware)!
+¡Vea [aquí](https://kno.wled.ge/basics/compatible-hardware)!
 
-## ✌️ Other
+## ✌️ Otros
 
-Licensed under the EUPL v1.2 license  
-Credits [here](https://kno.wled.ge/about/contributors/)!
-CORS proxy by [Corsfix](https://corsfix.com/)
+Licenciado bajo la licencia EUPL v1.2  
+Créditos [aquí](https://kno.wled.ge/about/contributors/)!
+Proxy CORS por [Corsfix](https://corsfix.com/)
 
-Join the Discord server to discuss everything about WLED!
+¡Únase al servidor de Discord para discutir todo sobre WLED!
 
 <a href="https://discord.gg/QAh7wJHrRM"><img src="https://discordapp.com/api/guilds/473448917040758787/widget.png?style=banner2" width="25%"></a>
 
-Check out the WLED [Discourse forum](https://wled.discourse.group)!  
+¡Consulte el [foro de Discourse de WLED](https://wled.discourse.group)!  
 
-You can also send me mails to [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com), but please, only do so if you want to talk to me privately.  
+También puede enviarme correos a [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com), pero por favor, solo hágalo si desea hablar conmigo en privado.  
 
-If WLED really brightens up your day, you can [![](https://img.shields.io/badge/send%20me%20a%20small%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
+Si WLED realmente ilumina tu día, puedes [![](https://img.shields.io/badge/send%20me%20a%20small%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
 
 
-*Disclaimer:*   
+*Descargo de responsabilidad:*   
 
-If you are prone to photosensitive epilepsy, we recommended you do **not** use this software.  
-If you still want to try, don't use strobe, lighting or noise modes or high effect speed settings.
+Si sufre de epilepsia fotosensible, le recomendamos que **no** use este software.  
+Si aún desea intentarlo, no use modos de estrobo, iluminación o ruido o configuraciones de velocidad de efecto alto.
 
-As per the EUPL license, I assume no liability for any damage to you or any other person or equipment.  
+De conformidad con la licencia EUPL, no asumo responsabilidad alguna por daños a usted o cualquier otra persona o equipo.  
 

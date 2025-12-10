@@ -34,7 +34,7 @@ public:
 
   /*
    * connected() is called every time the WiFi is (re)connected
-   * Use it to initialize network interfaces
+   * Use it to inicializar red interfaces
    */
   void connected()
   {
@@ -50,7 +50,7 @@ public:
       unsigned long receivedCommand = mySwitch.getReceivedValue();
       mySwitch.resetAvailable();
 
-      // Discard duplicates, limit long press repeat
+      // Discard duplicates, límite long press repeat
       if (lastCommand == receivedCommand && millis() - lastTime < 800)
         return;
 
@@ -65,7 +65,7 @@ public:
     }
   }
 
-  // Add last received button to info pane
+  // Add last received button to información pane
   void addToJsonInfo(JsonObject &root)
   {
     if (!initDone)
@@ -102,7 +102,7 @@ public:
 
     DEBUG_PRINTLN(F("config (re)loaded."));
 
-    // Redo init on update
+    // Redo init on actualizar
     if(initDone)
       setup();
 
@@ -110,15 +110,15 @@ public:
   }
 
   /*
-   * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-   * This could be used in the future for the system to determine whether your usermod is installed.
+   * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+   * This could be used in the futuro for the sistema to determine whether your usermod is installed.
    */
   uint16_t getId()
   {
     return USERMOD_ID_RF433;
   }
 
-  // this function follows the same principle as decodeIRJson() / remoteJson()
+  // this función follows the same principle as decodeIRJson() / remoteJson()
   bool remoteJson433(int button)
   {
     char objKey[14];
@@ -131,7 +131,7 @@ public:
     unsigned long start = millis();
     while (strip.isUpdating() && millis()-start < RF433_BUSWAIT_TIMEOUT) yield(); // wait for strip to finish updating, accessing FS during sendout causes glitches
 
-    // attempt to read command from remote.json
+    // attempt to leer command from remote.JSON
     readObjectFromFile(PSTR("/remote433.json"), objKey, pDoc);
     JsonObject fdo = pDoc->as<JsonObject>();
     if (fdo.isNull()) {

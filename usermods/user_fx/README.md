@@ -174,7 +174,7 @@ if ((strip.now - SEGENV.step) >= refresh_ms) {
 Now we get to the spark generation portion, where new bursts of heat appear at the bottom of the matrix:
 ```cpp
 if (hw_random8() > turbulence) {
-  // create new sparks at bottom row
+  // crear new sparks at bottom row
   for (unsigned x = 0; x < cols; x++) {
     uint8_t p = hw_random8();
     if (p < spark_rate) {
@@ -409,17 +409,17 @@ Notice that there are three different modes that we can define from the single e
 uint16_t mode_sinelon(void) {
   return sinelon_base(false);
 }
-// Calls sinelon_base with dual = false and rainbow = false 
+// Calls sinelon_base with dual = falso and rainbow = falso 
 
 uint16_t mode_sinelon_dual(void) {
   return sinelon_base(true);
 }
-// Calls sinelon_base with dual = true and rainbow = false 
+// Calls sinelon_base with dual = verdadero and rainbow = falso 
 
 uint16_t mode_sinelon_rainbow(void) {
   return sinelon_base(false, true);
 }
-// Calls sinelon_base with dual = false and rainbow = true 
+// Calls sinelon_base with dual = falso and rainbow = verdadero 
 ```
 
 And then the last part defines the metadata strings for each effect to specify how it will be portrayed in the UI:
@@ -442,14 +442,14 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
 
     ////////////////////////////////////////
-    //  add your effect function(s) here  //
+    //  add your efecto función(s) here  //
     ////////////////////////////////////////
 
-    // use id=255 for all custom user FX (the final id is assigned when adding the effect)
+    // use id=255 for all custom usuario FX (the final id is assigned when adding the efecto)
 
-    // strip.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
-    // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
-    // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
+    // tira.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
+    // tira.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
+    // tira.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
   void loop() override {} // nothing to do in the loop
   uint16_t getId() override { return USERMOD_ID_USER_FX; }

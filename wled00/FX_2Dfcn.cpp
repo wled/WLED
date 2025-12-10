@@ -3,21 +3,21 @@
 
   Copyright (c) 2022  Blaz Kristan (https://blaz.at/home)
   Licensed under the EUPL v. 1.2 or later
-  Adapted from code originally licensed under the MIT license
+  Adapted from código originally licensed under the MIT license
 
-  Parts of the code adapted from WLED Sound Reactive
+  Parts of the código adapted from WLED Sound Reactive
 */
 #include "wled.h"
 
-// setUpMatrix() - constructs ledmap array from matrix of panels with WxH pixels
+// setUpMatrix() - constructs ledmap matriz from matrix of panels with WxH pixels
 // this converts physical (possibly irregular) LED arrangement into well defined
-// array of logical pixels: fist entry corresponds to left-topmost logical pixel
-// followed by horizontal pixels, when Segment::maxWidth logical pixels are added they
-// are followed by next row (down) of Segment::maxWidth pixels (and so forth)
+// matriz of logical pixels: fist entry corresponds to left-topmost logical píxel
+// followed by horizontal pixels, when Segmento::maxWidth logical pixels are added they
+// are followed by next row (down) of Segmento::maxWidth pixels (and so forth)
 // note: matrix may be comprised of multiple panels each with different orientation
 // but ledmap takes care of that. ledmap is constructed upon initialization
-// so matrix should disable regular ledmap processing
-// WARNING: effect drawing has to be suspended (strip.suspend()) or must be called from loop() context
+// so matrix should deshabilitar regular ledmap processing
+// ADVERTENCIA: efecto drawing has to be suspended (tira.suspend()) or must be called from bucle() contexto
 void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
   // isMatrix is set in cfg.cpp or set.cpp
@@ -34,7 +34,7 @@ void WS2812FX::setUpMatrix() {
       }
     }
 
-    // safety check
+    // safety verificar
     if (Segment::maxWidth * Segment::maxHeight > MAX_LEDS || Segment::maxWidth > 255 || Segment::maxHeight > 255 || Segment::maxWidth <= 1 || Segment::maxHeight <= 1) {
       DEBUG_PRINTLN(F("2D Bounds error."));
       isMatrix = false;
@@ -49,9 +49,9 @@ void WS2812FX::setUpMatrix() {
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     d_free(customMappingTable);
-    // Segment::maxWidth and Segment::maxHeight are set according to panel layout
-    // and the product will include at least all leds in matrix
-    // if actual LEDs are more, getLengthTotal() will return correct number of LEDs
+    // Segmento::maxWidth and Segmento::maxHeight are set according to panel layout
+    // and the product will incluir at least all leds in matrix
+    // if actual LEDs are more, getLengthTotal() will retorno correct number of LEDs
     customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer to not use SPI RAM
 
     if (customMappingTable) {
@@ -62,13 +62,13 @@ void WS2812FX::setUpMatrix() {
       for (unsigned i = 0; i<matrixSize; i++) customMappingTable[i] = 0xFFFFU;
       for (unsigned i = matrixSize; i<getLengthTotal(); i++) customMappingTable[i] = i; // trailing LEDs for ledmap (after matrix) if it exist
 
-      // we will try to load a "gap" array (a JSON file)
-      // the array has to have the same amount of values as mapping array (or larger)
-      // "gap" array is used while building ledmap (mapping array)
-      // and discarded afterwards as it has no meaning after the process
-      // content of the file is just raw JSON array in the form of [val1,val2,val3,...]
-      // there are no other "key":"value" pairs in it
-      // allowed values are: -1 (missing pixel/no LED attached), 0 (inactive/unused pixel), 1 (active/used pixel)
+      // we will try to carga a "gap" matriz (a JSON archivo)
+      // the matriz has to have the same amount of values as mapping matriz (or larger)
+      // "gap" matriz is used while building ledmap (mapping matriz)
+      // and discarded afterwards as it has no meaning after the proceso
+      // contenido of the archivo is just raw JSON matriz in the form of [val1,val2,val3,...]
+      // there are no other "key":"valor" pairs in it
+      // allowed values are: -1 (missing píxel/no LED attached), 0 (inactive/unused píxel), 1 (active/used píxel)
       char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json"));
       bool    isFile = WLED_FS.exists(fileName);
       size_t  gapSize = 0;
@@ -77,12 +77,12 @@ void WS2812FX::setUpMatrix() {
       if (isFile && requestJSONBufferLock(20)) {
         DEBUG_PRINT(F("Reading LED gap from "));
         DEBUG_PRINTLN(fileName);
-        // read the array into global JSON buffer
+        // leer the matriz into global JSON búfer
         if (readObjectFromFile(fileName, nullptr, pDoc)) {
-          // the array is similar to ledmap, except it has only 3 values:
-          // -1 ... missing pixel (do not increase pixel count)
-          //  0 ... inactive pixel (it does count, but should be mapped out (-1))
-          //  1 ... active pixel (it will count and will be mapped)
+          // the matriz is similar to ledmap, except it has only 3 values:
+          // -1 ... missing píxel (do not increase píxel conteo)
+          //  0 ... inactive píxel (it does conteo, but should be mapped out (-1))
+          //  1 ... active píxel (it will conteo and will be mapped)
           JsonArray map = pDoc->as<JsonArray>();
           gapSize = map.size();
           if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
@@ -112,7 +112,7 @@ void WS2812FX::setUpMatrix() {
         }
       }
 
-      // delete gap array as we no longer need it
+      // eliminar gap matriz as we no longer need it
       p_free(gapTable);
 
       #ifdef WLED_DEBUG
@@ -139,12 +139,12 @@ void WS2812FX::setUpMatrix() {
 
 
 ///////////////////////////////////////////////////////////
-// Segment:: routines
+// Segmento:: routines
 ///////////////////////////////////////////////////////////
 
 #ifndef WLED_DISABLE_2D
-// pixel is clipped if it falls outside clipping range
-// if clipping start > stop the clipping range is inverted
+// píxel is clipped if it falls outside clipping rango
+// if clipping iniciar > detener the clipping rango is inverted
 bool Segment::isPixelXYClipped(int x, int y) const {
   if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
@@ -190,7 +190,7 @@ void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) const
 }
 
 #ifdef WLED_USE_AA_PIXELS
-// anti-aliased version of setPixelColorXY()
+// anti-aliased versión of setPixelColorXY()
 void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 {
   if (!isActive()) return; // not active
@@ -232,7 +232,7 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 }
 #endif
 
-// returns RGBW values of pixel
+// returns RGBW values of píxel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (!isActive()) return 0; // not active
   if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return 0;  // if pixel would fall out of virtual segment just exit
@@ -249,7 +249,7 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
     const uint8_t keepx = smear ? 255 : 255 - blur_x;
     const uint8_t seepx = blur_x >> 1;
     for (unsigned row = 0; row < rows; row++) { // blur rows (x direction)
-      // handle first pixel in row to avoid conditional in loop (faster)
+      // handle first píxel in row to avoid conditional in bucle (faster)
       uint32_t cur = getPixelColorRaw(XY(0, row));
       uint32_t carryover = fast_color_scale(cur, seepx);
       setPixelColorRaw(XY(0, row), fast_color_scale(cur, keepx));
@@ -268,7 +268,7 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
     const uint8_t keepy = smear ? 255 : 255 - blur_y;
     const uint8_t seepy = blur_y >> 1;
     for (unsigned col = 0; col < cols; col++) {
-      // handle first pixel in column
+      // handle first píxel in column
       uint32_t cur = getPixelColorRaw(XY(col, 0));
       uint32_t carryover = fast_color_scale(cur, seepy);
       setPixelColorRaw(XY(col, 0), fast_color_scale(cur, keepy));
@@ -287,12 +287,12 @@ void Segment::blur2D(uint8_t blur_x, uint8_t blur_y, bool smear) const {
 
 /*
 // 2D Box blur
-void Segment::box_blur(unsigned radius, bool smear) {
-  if (!isActive() || radius == 0) return; // not active
+void Segmento::box_blur(unsigned radius, bool smear) {
+  if (!isActive() || radius == 0) retorno; // not active
   if (radius > 3) radius = 3;
-  const unsigned d = (1 + 2*radius) * (1 + 2*radius); // averaging divisor
-  const unsigned cols = vWidth();
-  const unsigned rows = vHeight();
+  constante unsigned d = (1 + 2*radius) * (1 + 2*radius); // averaging divisor
+  constante unsigned cols = vWidth();
+  constante unsigned rows = vHeight();
   uint16_t *tmpRSum = new uint16_t[cols*rows];
   uint16_t *tmpGSum = new uint16_t[cols*rows];
   uint16_t *tmpBSum = new uint16_t[cols*rows];
@@ -300,34 +300,34 @@ void Segment::box_blur(unsigned radius, bool smear) {
   // fill summed-area table (https://en.wikipedia.org/wiki/Summed-area_table)
   for (unsigned x = 0; x < cols; x++) {
     unsigned rS, gS, bS, wS;
-    unsigned index;
+    unsigned índice;
     rS = gS = bS = wS = 0;
     for (unsigned y = 0; y < rows; y++) {
-      index = x * cols + y;
+      índice = x * cols + y;
       if (x > 0) {
         unsigned index2 = (x - 1) * cols + y;
-        tmpRSum[index] = tmpRSum[index2];
-        tmpGSum[index] = tmpGSum[index2];
-        tmpBSum[index] = tmpBSum[index2];
-        tmpWSum[index] = tmpWSum[index2];
+        tmpRSum[índice] = tmpRSum[index2];
+        tmpGSum[índice] = tmpGSum[index2];
+        tmpBSum[índice] = tmpBSum[index2];
+        tmpWSum[índice] = tmpWSum[index2];
       } else {
-        tmpRSum[index] = 0;
-        tmpGSum[index] = 0;
-        tmpBSum[index] = 0;
-        tmpWSum[index] = 0;
+        tmpRSum[índice] = 0;
+        tmpGSum[índice] = 0;
+        tmpBSum[índice] = 0;
+        tmpWSum[índice] = 0;
       }
       uint32_t c = getPixelColorXY(x, y);
       rS += R(c);
       gS += G(c);
       bS += B(c);
       wS += W(c);
-      tmpRSum[index] += rS;
-      tmpGSum[index] += gS;
-      tmpBSum[index] += bS;
-      tmpWSum[index] += wS;
+      tmpRSum[índice] += rS;
+      tmpGSum[índice] += gS;
+      tmpBSum[índice] += bS;
+      tmpWSum[índice] += wS;
     }
   }
-  // do a box blur using pre-calculated sums
+  // do a box blur usando pre-calculated sums
   for (unsigned x = 0; x < cols; x++) {
     for (unsigned y = 0; y < rows; y++) {
       // sum = D + A - B - C where k = (x,y)
@@ -353,10 +353,10 @@ void Segment::box_blur(unsigned radius, bool smear) {
       setPixelColorXY(x, y, RGBW32(r/d, g/d, b/d, w/d));
     }
   }
-  delete[] tmpRSum;
-  delete[] tmpGSum;
-  delete[] tmpBSum;
-  delete[] tmpWSum;
+  eliminar[] tmpRSum;
+  eliminar[] tmpGSum;
+  eliminar[] tmpBSum;
+  eliminar[] tmpWSum;
 }
 */
 void Segment::moveX(int delta, bool wrap) const {
@@ -434,7 +434,7 @@ void Segment::move(unsigned dir, unsigned delta, bool wrap) const {
 void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col, bool soft) const {
   if (!isActive() || radius == 0) return; // not active
   if (soft) {
-    // Xiaolin Wu’s algorithm
+    // Xiaolin Wu’s algoritmo
     const int rsq = radius*radius;
     int x = 0;
     int y = radius;
@@ -465,7 +465,7 @@ void Segment::drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
       x++;
     }
   } else {
-    // Bresenham’s Algorithm
+    // Bresenham’s Algoritmo
     int d = 3 - (2*radius);
     int y = radius, x = 0;
     while (y >= x) {
@@ -491,7 +491,7 @@ void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
   if (!isActive() || radius == 0) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
   const int vH = vHeight();  // segment height in logical pixels (is always >= 1)
-  // draw soft bounding circle
+  // dibujar soft bounding circle
   if (soft) drawCircle(cx, cy, radius, col, soft);
   // fill it
   for (int y = -radius; y <= radius; y++) {
@@ -504,7 +504,7 @@ void Segment::fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t col,
   }
 }
 
-//line function
+//line función
 void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft) const {
   if (!isActive()) return; // not active
   const int vW = vWidth();   // segment width in logical pixels (can be 0 if segment is inactive)
@@ -514,14 +514,14 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   const int dx = abs(x1-x0), sx = x0<x1 ? 1 : -1; // x distance & step
   const int dy = abs(y1-y0), sy = y0<y1 ? 1 : -1; // y distance & step
 
-  // single pixel (line length == 0)
+  // single píxel (line longitud == 0)
   if (dx+dy == 0) {
     setPixelColorXY(x0, y0, c);
     return;
   }
 
   if (soft) {
-    // Xiaolin Wu’s algorithm
+    // Xiaolin Wu’s algoritmo
     const bool steep = dy > dx;
     if (steep) {
       // we need to go along longest dimension
@@ -540,14 +540,14 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
       uint8_t seep = 0xFF - keep; // how much background to keep
       int y = int(intersectY);
       if (steep) std::swap(x,y);  // temporaryly swap if steep
-      // pixel coverage is determined by fractional part of y co-ordinate
+      // píxel coverage is determined by fractional part of y co-ordinate
       blendPixelColorXY(x, y, c, seep);
       blendPixelColorXY(x+int(steep), y+int(!steep), c, keep);
       intersectY += gradient;
       if (steep) std::swap(x,y);  // restore if steep
     }
   } else {
-    // Bresenham's algorithm
+    // Bresenham's algoritmo
     int err = (dx>dy ? dx : -dy)/2;   // error direction
     for (;;) {
       setPixelColorXY(x0, y0, c);
@@ -565,7 +565,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
 #include "src/font/console_font_6x8.h"
 #include "src/font/console_font_7x9.h"
 
-// draws a raster font character on canvas
+// draws a raster font carácter on canvas
 // only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
 void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
   if (!isActive()) return; // not active
@@ -573,7 +573,7 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
   chr -= 32; // align with font table entries
   const int font = w*h;
 
-  // if col2 == BLACK then use currently selected palette for gradient otherwise create gradient from color and col2
+  // if col2 == BLACK then use currently selected palette for gradient otherwise crear gradient from color and col2
   CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
 
   for (int i = 0; i<h; i++) { // character height
@@ -609,7 +609,7 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
   if (!isActive()) return; // not active
   // extract the fractional parts and derive their inverses
   unsigned xx = x & 0xff, yy = y & 0xff, ix = 255 - xx, iy = 255 - yy;
-  // calculate the intensities for each affected pixel
+  // calculate the intensities for each affected píxel
   uint8_t wu[4] = {WU_WEIGHT(ix, iy), WU_WEIGHT(xx, iy),
                    WU_WEIGHT(ix, yy), WU_WEIGHT(xx, yy)};
   // multiply the intensities by the colour, and saturating-add them to the pixels

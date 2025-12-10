@@ -12,7 +12,7 @@
 
 class UsermodSSDR : public Usermod {
 
-//#define REFRESHTIME 497
+//#definir REFRESHTIME 497
 
 private:
   //Runtime variables.
@@ -49,7 +49,7 @@ private:
     */
   String umSSDRDisplayMask = "H:m"; //This should reflect physical equipment.
 
-  /* Segment order, seen from the front:
+  /* Segmento order, seen from the front:
 
       <  A  >
     /\       /\
@@ -78,7 +78,7 @@ private:
     {   0,   0,   0,   0,   0,   0,   0 }   // blank
   };
 
-  //String to reduce flash memory usage
+  //Cadena to reduce flash memoria usage
   static const char _str_name[];
   static const char _str_ldrEnabled[];
   static const char _str_timeEnabled[];
@@ -380,10 +380,10 @@ private:
 public:
   //Functions called by WLED
 
-  /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
-     */
+    /*
+      * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+      * Úsalo para inicializar variables, sensores o similares.
+      */
   void setup() {
     umSSDRLength = strip.getLengthTotal();
     if (umSSDRMask != 0) {
@@ -402,9 +402,9 @@ public:
     DEBUG_PRINTLN(F("Setup done"));
   }
 
-  /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
-     */
+    /*
+      * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
+      */
   void loop() {
     if (!umSSDRDisplayTime || strip.isUpdating()) {
       return;
@@ -445,8 +445,8 @@ public:
   }
 
 /*
-  * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-  * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+  * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+  * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
   * Below it is shown how this could be used for e.g. a light sensor
   */
   void addToJsonInfo(JsonObject& root) {
@@ -468,8 +468,8 @@ public:
   }
 
  /*
-  * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
   void addToJsonState(JsonObject& root) {
     JsonObject user = root[F("u")];
@@ -480,8 +480,8 @@ public:
   }
   
  /*
-  * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
   void readFromJsonState(JsonObject& root) {
     JsonObject user = root[F("u")];
@@ -501,21 +501,21 @@ public:
     if (mqttDeviceTopic[0] != 0)
     {
       _updateMQTT();
-      //subscribe for sevenseg messages on the device topic
+      //subscribe for sevenseg messages on the dispositivo topic
       sprintf_P(subBuffer, PSTR("%s/%S/+/set"), mqttDeviceTopic, _str_name);
       mqtt->subscribe(subBuffer, 2);
     }
 
     if (mqttGroupTopic[0] != 0)
     {
-      //subscribe for sevenseg messages on the group topic
+      //subscribe for sevenseg messages on the grupo topic
       sprintf_P(subBuffer, PSTR("%s/%S/+/set"), mqttGroupTopic, _str_name);
       mqtt->subscribe(subBuffer, 2);
     }
   }
 
   bool onMqttMessage(char *topic, char *payload) {
-    //If topic begins with sevenSeg cut it off, otherwise not our message.
+    //If topic begins with sevenSeg cut it off, otherwise not our mensaje.
     size_t topicPrefixLen = strlen_P(PSTR("/wledSS/"));
     if (strncmp_P(topic, PSTR("/wledSS/"), topicPrefixLen) == 0) {
       topic += topicPrefixLen;
@@ -573,8 +573,8 @@ public:
     return true;
   }
   /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
   uint16_t getId() {
     return USERMOD_ID_SSDR;

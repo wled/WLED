@@ -1,8 +1,8 @@
 /**
- * @file usermod_BMW68X.cpp
+ * @archivo usermod_BMW68X.cpp
  * @author Gabriel A. Sieben  (GeoGab)
  * @brief Usermod for WLED to implement the BME680/BME688 sensor
- * @version 1.0.2
+ * @versión 1.0.2
  * @date 28 March 2025
  */
 
@@ -28,7 +28,7 @@
  #define ESC_FGCOLOR_WHITE ESC_CSI "37m"
  #define ESC_FGCOLOR_DEFAULT ESC_CSI "39m"
  
- /* Debug Print Special Text */
+ /* Depuración Imprimir Special Texto */
  #define INFO_COLUMN ESC_CURSOR_COLUMN(60)
  #define GOGAB_OK INFO_COLUMN "[" ESC_FGCOLOR_GREEN "OK" ESC_STYLE_RESET "]"
  #define GOGAB_FAIL INFO_COLUMN "[" ESC_FGCOLOR_RED "FAIL" ESC_STYLE_RESET "]"
@@ -39,11 +39,11 @@
  #include "wled.h"
  #include <Arduino.h>
  
- /* UsermodBME68X class definition */
+ /* UsermodBME68X clase definition */
  class UsermodBME68X : public Usermod {
  
 	 public:
-	 /* Public: Functions */
+	 /* Público: Functions */
 	 uint16_t getId();
 	 void loop();								// Loop of the user module called by wled main in loop
 	 void setup();								// Setup of the user module called by wled main
@@ -52,7 +52,7 @@
 	 bool readFromConfig(JsonObject& root);		// Reads config values
 	 void addToJsonInfo(JsonObject& root);		// Adds user module info to the weld info page
  
-	 /* Wled internal functions which can be used by the core or other user mods */
+	 /* WLED internal functions which can be used by the core or other usuario mods */
 	 inline float getTemperature();				// Get Temperature in the selected scale of °C or °F
 	 inline float getHumidity();					// ...
 	 inline float getPressure();
@@ -73,7 +73,7 @@
 	 inline bool getRunInStatus();
  
 	 private:
-	 /* Private: Functions */
+	 /* Privado: Functions */
 	 void HomeAssistantDiscovery();
 	 void MQTT_PublishHASensor(const String& name, const String& deviceClass, const String& unitOfMeasurement, const int8_t& digs, const uint8_t& option = 0);
 	 void MQTT_publish(const char* topic, const float& value, const int8_t& dig);
@@ -86,7 +86,7 @@
 	 void getValues();
  
 	 /*** V A R I A B L E s  &  C O N S T A N T s ***/
-	 /* Private: Settings of Usermod BME68X */
+	 /* Privado: Settings of Usermod BME68X */
 	 struct settings_t {
 		 bool enabled;               					// true if user module is active
 		 byte I2cadress; 	            				// Depending on the manufacturer, the BME680 has the address 0x76 or 0x77
@@ -119,7 +119,7 @@
 		 } decimals;
 	 } settings;
  
-	 /* Private: Flags */
+	 /* Privado: Flags */
 	 struct flags_t {
 		 bool InitSuccessful = false;  					// Initialation was un-/successful
 		 bool MqttInitialized = false; 					// MQTT Initialation done flag (first MQTT Connect)
@@ -127,13 +127,13 @@
 		 bool DeleteCaibration = false;					// If set the calib file will be deleted on the next round
 	 } flags;
  
-	 /* Private: Measurement timers */
+	 /* Privado: Measurement timers */
 	 struct timer_t {
 		 long actual;  									// Actual time stamp
 		 long lastRun; 									// Last measurement time stamp
 	 } timer;
  
-	 /* Private: Various variables */
+	 /* Privado: Various variables */
 	 String stringbuff;                           		// General string stringbuff buffer
 	 char charbuffer[128];                        		// General char stringbuff buffer
 	 String InfoPageStatusLine;                   		// Shown on the info page of WLED
@@ -143,7 +143,7 @@
 	 static const uint8_t bsec_config_iaq[];				// Calibration Buffer
 	 Bsec iaqSensor;										// Sensor variable
  
-	 /* Private: Sensor values */
+	 /* Privado: Sensor values */
 	 struct values_t {
 		 float temperature;   							// Temp [°C] (Sensor-compensated)
 		 float humidity;     							// Relative humidity [%] (Sensor-compensated)
@@ -171,7 +171,7 @@
  
 	 } cvalues;
 	 
-	 /* Private: Sensor settings */
+	 /* Privado: Sensor settings */
 	 bsec_virtual_sensor_t sensorList[13] = {
 		 BSEC_OUTPUT_IAQ,                                 // Index for Air Quality estimate [0-500] Index for Air Quality (IAQ) gives an indication of the relative change in ambient TVOCs detected by BME680.
 		 BSEC_OUTPUT_STATIC_IAQ,                          // Unscaled Index for Air Quality estimate
@@ -189,11 +189,11 @@
 	 };
  
 	 /*** V A R I A B L E s  &  C O N S T A N T s ***/
-	 /* Public: strings to reduce flash memory usage (used more than twice) */
+	 /* Público: strings to reduce flash memoria usage (used more than twice) */
 	 static const char _enabled[];
 	 static const char _hadtopic[];
  
-	 /* Public: Settings Strings*/
+	 /* Público: Settings Strings*/
 	 static const char _nameI2CAdr[];
 	 static const char _nameInterval[];
 	 static const char _nameMaxAge[];
@@ -206,7 +206,7 @@
 	 static const char _nameHADisc[];
 	 static const char _nameDelCalib[];
  
-	 /* Public: Sensor names / Sensor short names */
+	 /* Público: Sensor names / Sensor short names */
 	 static const char _nameTemp[];
 	 static const char _nameHum[];
 	 static const char _namePress[];
@@ -231,7 +231,7 @@
 	 static const char _nameStabStatus[];
 	 static const char _nameRunInStatus[];
  
-	 /* Public: Sensor Units */
+	 /* Público: Sensor Units */
 	 static const char _unitTemp[];
 	 static const char _unitHum[];
 	 static const char _unitPress[];
@@ -250,7 +250,7 @@
  }; // UsermodBME68X class definition End
  
  /*** Setting C O N S T A N T S ***/
- /* Private: Settings Strings*/
+ /* Privado: Settings Strings*/
  const char UsermodBME68X::_enabled[] 			PROGMEM = "Enabled";
  const char UsermodBME68X::_hadtopic[] 			PROGMEM = "homeassistant/sensor/";
  
@@ -267,7 +267,7 @@
  const char UsermodBME68X::_nameDelCalib[] 		PROGMEM = "Del Calibration Hist";
  const char UsermodBME68X::_namePauseOnActWL[] 	PROGMEM = "Pause while WLED active";
  
- /* Private: Sensor names / Sensor short name */
+ /* Privado: Sensor names / Sensor short name */
  const char UsermodBME68X::_nameTemp[] 			PROGMEM = "Temperature";
  const char UsermodBME68X::_nameHum[] 			PROGMEM = "Humidity";
  const char UsermodBME68X::_namePress[] 			PROGMEM = "Pressure";
@@ -289,7 +289,7 @@
  const char UsermodBME68X::_nameStabStatus[] 	PROGMEM = "Stab-Status";
  const char UsermodBME68X::_nameRunInStatus[] 	PROGMEM = "Run-In-Status";
  
- /* Private Units */
+ /* Privado Units */
  const char UsermodBME68X::_unitTemp[] 			PROGMEM = " "; 				// NOTE - Is set with the selectable temperature unit
  const char UsermodBME68X::_unitHum[] 			PROGMEM = "%";
  const char UsermodBME68X::_unitPress[] 			PROGMEM = "hPa";
@@ -306,7 +306,7 @@
  const char UsermodBME68X::_unitCelsius[] 		PROGMEM = "°C";				// Symbol for Celsius
  const char UsermodBME68X::_unitFahrenheit[] 	PROGMEM = "°F";				// Symbol for Fahrenheit
  
- /* Load Sensor Settings */
+ /* Cargar Sensor Settings */
  const uint8_t UsermodBME68X::bsec_config_iaq[] = { 
 	 #include "config/generic_33v_3s_28d/bsec_iaq.txt"		// Allow 28 days for calibration because the WLED module normally stays in the same place anyway
  }; 	
@@ -317,12 +317,12 @@
  /************************************************************************************************************/
  
  /**
-  * @brief Called by WLED: Setup of the usermod
+  * @brief Called by WLED: Configuración of the usermod
   */
  void UsermodBME68X::setup() {
 	 DEBUG_PRINTLN(F(UMOD_DEBUG_NAME ESC_FGCOLOR_CYAN "Initialize" ESC_STYLE_RESET));
  
-	 /* Check, if i2c is activated */
+	 /* Verificar, if I2C is activated */
 	 if (i2c_scl < 0 || i2c_sda < 0) {
 		 settings.enabled = false;												// Disable usermod once i2c is not running
 		 DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "I2C is not activated. Please activate I2C first." GOGAB_FAIL));
@@ -331,11 +331,11 @@
  
 	 flags.InitSuccessful = true; 												// Will be set to false on need
  
-	 /* Set data structure pointers */
+	 /* Set datos structure pointers */
 	 ValuesPtr = &valuesA;   
 	 PrevValuesPtr = &valuesB;
  
-	 /* Init Library*/
+	 /* Init Biblioteca*/
 	 iaqSensor.begin(settings.I2cadress, Wire); 									// BME68X_I2C_ADDR_LOW
 	 stringbuff = "BSEC library version " + String(iaqSensor.version.major) + "." + String(iaqSensor.version.minor) + "." + String(iaqSensor.version.major_bugfix) + "." + String(iaqSensor.version.minor_bugfix);
 	 DEBUG_PRINT(F(UMOD_NAME));
@@ -353,7 +353,7 @@
  }
  
  /**
-  * @brief Called by WLED: Main loop called by WLED
+  * @brief Called by WLED: Principal bucle called by WLED
   *
   */
  void UsermodBME68X::loop() {
@@ -435,11 +435,11 @@
 				 if (settings.pubAcc) MQTT_publish(_nameGasPerAc, 	ValuesPtr->gasPercAccuracy, 		0);
 			 }
  
-			 /**** Publish Sensor State Entrys *****/
+			 /**** Publish Sensor Estado Entrys *****/
 			 if ((ValuesPtr->stabStatus != PrevValuesPtr->stabStatus || !settings.PublischChange) && settings.publishSensorState) 			MQTT_publish(_nameStabStatus, 	ValuesPtr->stabStatus, 0);
 			 if ((ValuesPtr->runInStatus != PrevValuesPtr->runInStatus || !settings.PublischChange) && settings.publishSensorState) 			MQTT_publish(_nameRunInStatus, 	ValuesPtr->runInStatus, 0);
  
-			 /* Check accuracies - if accurasy level 3 is reached -> save calibration data */
+			 /* Verificar accuracies - if accurasy nivel 3 is reached -> guardar calibration datos */
 			 if ((ValuesPtr->iaqAccuracy != PrevValuesPtr->iaqAccuracy) 				&& ValuesPtr->iaqAccuracy == 3) 		flags.SaveState = true; 						// Save after calibration / recalibration
 			 if ((ValuesPtr->staticIaqAccuracy != PrevValuesPtr->staticIaqAccuracy) 	&& ValuesPtr->staticIaqAccuracy == 3) 	flags.SaveState = true;
 			 if ((ValuesPtr->co2Accuracy != PrevValuesPtr->co2Accuracy) 				&& ValuesPtr->co2Accuracy == 3) 		flags.SaveState = true;
@@ -452,16 +452,16 @@
  }
  
  /**
-  * @brief Retrieves the sensor data and truncates it to the requested decimal places
+  * @brief Retrieves the sensor datos and truncates it to the requested decimal places
   * 
   */
  void UsermodBME68X::getValues() {
-	 /* Swap the point to the data structures */
+	 /* Swap the point to the datos structures */
 	 swap = PrevValuesPtr;
 	 PrevValuesPtr = ValuesPtr;
 	 ValuesPtr = swap;
  
-	 /* Float Values */
+	 /* Flotante Values */
 	 ValuesPtr->temperature = 	roundf(iaqSensor.temperature * 			powf(10, settings.decimals.temperature)) /	powf(10, settings.decimals.temperature);	
 	 ValuesPtr->humidity = 		roundf(iaqSensor.humidity * 			powf(10, settings.decimals.humidity)) / 	powf(10, settings.decimals.humidity);
 	 ValuesPtr->pressure = 		roundf(iaqSensor.pressure * 			powf(10, settings.decimals.pressure)) / 	powf(10, settings.decimals.pressure)		/100;      	// Pa 2 hPa
@@ -472,7 +472,7 @@
 	 ValuesPtr->Voc = 			roundf(iaqSensor.breathVocEquivalent * 	powf(10, settings.decimals.Voc)) / 			powf(10, settings.decimals.Voc);
 	 ValuesPtr->gasPerc = 		roundf(iaqSensor.gasPercentage * 		powf(10, settings.decimals.gasPerc)) /		powf(10, settings.decimals.gasPerc);
  
-	 /* Calculate Absolute Humidity [g/m³] */
+	 /* Calculate Absoluto Humidity [g/m³] */
 	 if (settings.decimals.absHumidity>-1) {
 		 const float mw = 18.01534;                                                                                                                                                                   				// molar mass of water g/mol
 		 const float r = 8.31447215;                                                                                                                                                                  				// Universal gas constant J/mol/K
@@ -483,13 +483,13 @@
 		 ValuesPtr->drewPoint = (243.5 * (log( ValuesPtr->humidity / 100) + ((17.67 *  ValuesPtr->temperature) / (243.5 + ValuesPtr->temperature))) / (17.67 - log(ValuesPtr->humidity / 100) - ((17.67 * ValuesPtr->temperature) / (243.5 + ValuesPtr->temperature))));
 	 }
  
-	 /* Convert to Fahrenheit when selected */
+	 /* Convertir to Fahrenheit when selected */
 	 if (settings.tempScale) {												// settings.tempScale = 0 => Celsius, = 1 => Fahrenheit
 		 ValuesPtr->temperature =  ValuesPtr->temperature * 1.8 + 32;		// Value stored in Fahrenheit
 		 ValuesPtr->drewPoint = ValuesPtr->drewPoint * 1.8 + 32;	
 	 } 
  
-	 /* Integer Values */
+	 /* Entero Values */
 	 ValuesPtr->iaqAccuracy = 		iaqSensor.iaqAccuracy; 	
 	 ValuesPtr->staticIaqAccuracy = 	iaqSensor.staticIaqAccuracy;
 	 ValuesPtr->co2Accuracy = 		iaqSensor.co2Accuracy;
@@ -501,9 +501,9 @@
  
  
  /**
-  * @brief Sends the current sensor data via MQTT
-  * @param topic Suptopic of the sensor as const char
-  * @param value Current sensor value as float
+  * @brief Sends the current sensor datos via MQTT
+  * @param topic Suptopic of the sensor as constante char
+  * @param valor Current sensor valor as flotante
   */
  void UsermodBME68X::MQTT_publish(const char* topic, const float& value, const int8_t& dig) {
 	 if (dig<0) return;
@@ -514,7 +514,7 @@
  }
  
  /**
-  * @brief Called by WLED: Initialize the MQTT parts when the connection to the MQTT server is established.
+  * @brief Called by WLED: Inicializar the MQTT parts when the conexión to the MQTT servidor is established.
   * @param bool Session Present
   */
  void UsermodBME68X::onMqttConnect(bool sessionPresent) {
@@ -529,7 +529,7 @@
  
  
  /**
-  * @brief MQTT initialization to generate the mqtt topic strings. This initialization also creates the HomeAssistat device configuration (HA Discovery), which home assinstant automatically evaluates to create a device.
+  * @brief MQTT initialization to generate the MQTT topic strings. This initialization also creates the HomeAssistat dispositivo configuration (HA Discovery), which home assinstant automatically evaluates to crear a dispositivo.
   */
  void UsermodBME68X::HomeAssistantDiscovery() {
 	 if (!settings.HomeAssistantDiscovery || !flags.InitSuccessful || !settings.enabled) return; 									// Leave once HomeAssistant Discovery is inactive
@@ -551,7 +551,7 @@
 	 MQTT_PublishHASensor(_nameVoc,			"VOLATILE_ORGANIC_COMPOUNDS", _unitVoc, 		settings.decimals.Voc				); 		// VOC
 	 MQTT_PublishHASensor(_nameGasPer,		"AQI", 						_unitGasPer, 		settings.decimals.gasPerc			); 		// Gas %
  
-	 /* Accuracys - switched off once publishAccuracy=0 or the main value is switched of by digs set to a negative number */
+	 /* Accuracys - switched off once publishAccuracy=0 or the principal valor is switched of by digs set to a negative number */
 	 MQTT_PublishHASensor(_nameIaqAc,		"AQI", 						_unitNone, 			settings.pubAcc - 1 + settings.decimals.iaq * settings.pubAcc, 			1); 	// Option 1: Diagnostics Sektion
 	 MQTT_PublishHASensor(_nameStaticIaqAc,	"", 						_unitNone, 			settings.pubAcc - 1 + settings.decimals.staticIaq * settings.pubAcc, 	1);
 	 MQTT_PublishHASensor(_nameCo2Ac,		"", 						_unitNone, 			settings.pubAcc - 1 + settings.decimals.co2 * settings.pubAcc, 			1);
@@ -565,15 +565,15 @@
  }
  
  /**
-  * @brief These MQTT entries are responsible for the Home Assistant Discovery of the sensors. HA is shown here where to look for the sensor data. This entry therefore only needs to be sent once.
-  *        Important note: In order to find everything that is sent from this device to Home Assistant via MQTT under the same device name, the "device/identifiers" entry must be the same.
-  *        I use the MQTT device name here. If other user mods also use the HA Discovery, it is recommended to set the identifier the same. Otherwise you would have several devices,
-  *        even though it is one device. I therefore only use the MQTT client name set in WLED here.
+  * @brief These MQTT entries are responsible for the Home Assistant Discovery of the sensors. HA is shown here where to look for the sensor datos. This entry therefore only needs to be sent once.
+  *        Important note: In order to encontrar everything that is sent from this dispositivo to Home Assistant via MQTT under the same dispositivo name, the "dispositivo/identifiers" entry must be the same.
+  *        I use the MQTT dispositivo name here. If other usuario mods also use the HA Discovery, it is recommended to set the identifier the same. Otherwise you would have several devices,
+  *        even though it is one dispositivo. I therefore only use the MQTT cliente name set in WLED here.
   * @param name Name of the sensor
-  * @param topic Topic of the live sensor data
-  * @param unitOfMeasurement Unit of the measurment
+  * @param topic Topic of the live sensor datos
+  * @param unitOfMeasurement Unidad of the measurment
   * @param digs Number of decimal places
-  * @param option Set to true if the sensor is part of diagnostics (dafault 0)
+  * @param option Set to verdadero if the sensor is part of diagnostics (dafault 0)
   */
  void UsermodBME68X::MQTT_PublishHASensor(const String& name, const String& deviceClass, const String& unitOfMeasurement, const int8_t& digs, const uint8_t& option) {
 	 DEBUG_PRINT(UMOD_DEBUG_NAME "\t" + name);
@@ -582,15 +582,15 @@
 	 String basetopic = String(_hadtopic) + mqttClientID + F("/") + name + F("/config");   	// This is the place where Home Assinstant Discovery will check for new devices
  
 	 if (digs < 0) { // if digs are set to -1 -> entry deactivated
-		 /* Delete MQTT Entry */
+		 /* Eliminar MQTT Entry */
 		 if (WLED_MQTT_CONNECTED) {
 			 mqtt->publish(basetopic.c_str(), 0, true, "");							// Send emty entry to delete
 			 DEBUG_PRINTLN(INFO_COLUMN "deleted");
 		 }
 	 } else {
-		 /* Create all the necessary HAD MQTT entrys - see: https://www.home-assistant.io/integrations/sensor.mqtt/#configuration-variables */
+		 /* Crear all the necessary HAD MQTT entrys - see: https://www.home-assistant.io/integrations/sensor.MQTT/#configuration-variables */
 		 DynamicJsonDocument jdoc(700); // json document
-																					 // See: https://www.home-assistant.io/integrations/mqtt/
+																					 // See: https://www.home-assistant.io/integrations/MQTT/
 		 JsonObject avail = jdoc.createNestedObject(F("avty"));						// 'avty': 'availability'
 		 avail[F("topic")] = mqttDeviceTopic + String("/status"); // An MQTT topic subscribed to receive availability (online/offline) updates.
 		 avail[F("payload_available")] = "online";
@@ -626,18 +626,18 @@
  }
  
  /**
-  * @brief Called by WLED: Publish Sensor Information to Info Page
-  * @param JsonObject Pointer
+  * @brief Called by WLED: Publish Sensor Information to Información Page
+  * @param JsonObject Puntero
   */
  void UsermodBME68X::addToJsonInfo(JsonObject& root) {
-	 //DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "Add to info event"));
+	 //DEBUG_PRINTLN(F(UMOD_DEBUG_NAME "Add to información evento"));
 	 JsonObject user = root[F("u")];
  
 	 if (user.isNull())
 		 user = root.createNestedObject(F("u"));
  
 	 if (!flags.InitSuccessful) {
-		 // Init was not seccessful - let the user know
+		 // Init was not seccessful - let the usuario know
 		 JsonArray temperature_json = user.createNestedArray(F("BME68X Sensor"));
 		 temperature_json.add(F("not found"));
 		 JsonArray humidity_json = user.createNestedArray(F("BMW68x Reason"));
@@ -678,12 +678,12 @@
  }
  
  /**
-  * @brief Info Page helper function
+  * @brief Información Page helper función
   * @param root JSON object
   * @param name Name of the sensor as char
-  * @param sensorvalue Value of the sensor as float
-  * @param decimals Decimal places of the value
-  * @param unit Unit of the sensor
+  * @param sensorvalue Valor of the sensor as flotante
+  * @param decimals Decimal places of the valor
+  * @param unit Unidad of the sensor
   */
  void UsermodBME68X::InfoHelper(JsonObject& root, const char* name, const float& sensorvalue, const int8_t& decimals, const char* unit) {
 	 if (decimals > -1) {
@@ -694,11 +694,11 @@
  }
  
  /**
-  * @brief Info Page helper function (overload)
+  * @brief Información Page helper función (sobrecarga)
   * @param root JSON object
   * @param name Name of the sensor
-  * @param sensorvalue Value of the sensor as string
-  * @param status Status of the value (active/inactive)
+  * @param sensorvalue Valor of the sensor as cadena
+  * @param estado Estado of the valor (active/inactive)
   */
  void UsermodBME68X::InfoHelper(JsonObject& root, const char* name, const String& sensorvalue, const bool& status) {
 	 if (status) {
@@ -708,8 +708,8 @@
  }
  
  /**
-  * @brief Called by WLED: Adds the usermodul neends on the config page for user modules
-  * @param JsonObject Pointer
+  * @brief Called by WLED: Adds the usermodul neends on the config page for usuario modules
+  * @param JsonObject Puntero
   *
   * @see Usermod::addToConfig()
   * @see UsermodManager::addToConfig()
@@ -756,9 +756,9 @@
   * @see UsermodManager::appendConfigData()
   */
  void UsermodBME68X::appendConfigData() {
-	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'read interval [seconds]');"), UMOD_NAME, _nameInterval); oappend(charbuffer);
-	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'only if value changes');"), UMOD_NAME, _namePublishChange); oappend(charbuffer);
-	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'maximum age of a message in seconds');"), UMOD_NAME, _nameMaxAge); oappend(charbuffer);
+	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'leer intervalo [seconds]');"), UMOD_NAME, _nameInterval); oappend(charbuffer);
+	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'only if valor changes');"), UMOD_NAME, _namePublishChange); oappend(charbuffer);
+	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'maximum age of a mensaje in seconds');"), UMOD_NAME, _nameMaxAge); oappend(charbuffer);
 	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'Gas related values are only published after the gas sensor has been calibrated');"), UMOD_NAME, _namePubAfterCalib); oappend(charbuffer);
 	 // snprintf_P(charbuffer, 127, PSTR("addInfo('%s:%s',1,'*) Set to minus to deactivate (all sensors)');"), UMOD_NAME, _nameTemp); oappend(charbuffer);
  
@@ -782,15 +782,15 @@
  }
  
  /**
-  * @brief Called by WLED: Read Usermod Config Settings default settings values could be set here (or below using the 3-argument getJsonValue()) 
-  * 		  instead of in the class definition or constructor setting them inside readFromConfig() is slightly more robust, handling the rare but 
-  * 		  plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
-  *        This is called whenever WLED boots and loads cfg.json, or when the UM config
-  *        page is saved. Will properly re-instantiate the SHT class upon type change and
+  * @brief Called by WLED: Leer Usermod Configuración Settings default settings values could be set here (or below usando the 3-argumento getJsonValue()) 
+  * 		  instead of in the clase definition or constructor setting them inside readFromConfig() is slightly more robust, handling the rare but 
+  * 		  plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
+  *        This is called whenever WLED boots and loads cfg.JSON, or when the UM config
+  *        page is saved. Will properly re-instantiate the SHT clase upon tipo change and
   *        publish HA discovery after enabling.
-  * 		  NOTE: Here are the default settings of the user module 
-  * @param JsonObject Pointer
-  * @return bool
+  * 		  NOTE: Here are the default settings of the usuario módulo 
+  * @param JsonObject Puntero
+  * @retorno bool
   * @see Usermod::readFromConfig()
   * @see UsermodManager::readFromConfig()
   */
@@ -856,9 +856,9 @@
  }
  
  /**
-  * @brief Called by WLED: Retunrs the user modul id number
+  * @brief Called by WLED: Retunrs the usuario modul id number
   * 
-  * @return uint16_t User module number
+  * @retorno uint16_t Usuario módulo number
   */
  uint16_t UsermodBME68X::getId() {
 	 return USERMOD_ID_BME68X;
@@ -866,8 +866,8 @@
  
  
  /**
-  * @brief Returns the current temperature in the scale which is choosen in settings
-  * @return Temperature value (°C or °F as choosen in settings)
+  * @brief Returns the current temperature in the escala which is choosen in settings
+  * @retorno Temperature valor (°C or °F as choosen in settings)
  */
  inline float UsermodBME68X::getTemperature() {
 	 return ValuesPtr->temperature;
@@ -875,7 +875,7 @@
  
  /**
   * @brief Returns the current humidity
-  * @return Humididty value (%)
+  * @retorno Humididty valor (%)
  */
  inline float UsermodBME68X::getHumidity() {
    return ValuesPtr->humidity;
@@ -883,7 +883,7 @@
  
  /**
   * @brief Returns the current pressure
-  * @return Pressure value (hPa)
+  * @retorno Pressure valor (hPa)
  */
  inline float UsermodBME68X::getPressure() {
    return ValuesPtr->pressure;
@@ -891,15 +891,15 @@
  
  /**
   * @brief Returns the current gas resistance
-  * @return Gas resistance value (kΩ)
+  * @retorno Gas resistance valor (kΩ)
  */
  inline float UsermodBME68X::getGasResistance() {
    return ValuesPtr->gasResistance;
  }
  
  /**
-  * @brief Returns the current absolute humidity
-  * @return Absolute humidity value (g/m³)
+  * @brief Returns the current absoluto humidity
+  * @retorno Absoluto humidity valor (g/m³)
  */
  inline float UsermodBME68X::getAbsoluteHumidity() {
    return ValuesPtr->absHumidity;
@@ -907,7 +907,7 @@
  
  /**
   * @brief Returns the current dew point
-  * @return Dew point (°C or °F as choosen in settings)
+  * @retorno Dew point (°C or °F as choosen in settings)
  */
  inline float UsermodBME68X::getDewPoint() {
    return ValuesPtr->drewPoint;
@@ -915,15 +915,15 @@
  
  /**
   * @brief Returns the current iaq (Indoor Air Quallity)
-  * @return Iaq value (0-500)
+  * @retorno Iaq valor (0-500)
  */
  inline float UsermodBME68X::getIaq() {
    return ValuesPtr->iaq;
  }
  
  /**
-  * @brief Returns the current static iaq (Indoor Air Quallity) (NOTE: Static iaq is the better choice than iaq for fixed devices such as the wled module)
-  * @return Static iaq value (float)
+  * @brief Returns the current estático iaq (Indoor Air Quallity) (NOTE: Estático iaq is the better choice than iaq for fixed devices such as the WLED módulo)
+  * @retorno Estático iaq valor (flotante)
  */
  inline float UsermodBME68X::getStaticIaq() {
    return ValuesPtr->staticIaq;
@@ -931,7 +931,7 @@
  
  /**
   * @brief Returns the current co2
-  * @return Co2 value (ppm)
+  * @retorno Co2 valor (ppm)
  */
  inline float UsermodBME68X::getCo2() {
    return ValuesPtr->co2;
@@ -939,7 +939,7 @@
  
  /**
   * @brief Returns the current voc (Breath VOC concentration estimate [ppm])
-  * @return Voc value (ppm)
+  * @retorno Voc valor (ppm)
  */
  inline float UsermodBME68X::getVoc() {
    return ValuesPtr->Voc;
@@ -947,7 +947,7 @@
  
  /**
   * @brief Returns the current gas percentage
-  * @return Gas percentage value (%)
+  * @retorno Gas percentage valor (%)
  */
  inline float UsermodBME68X::getGasPerc() {
    return ValuesPtr->gasPerc;
@@ -955,15 +955,15 @@
  
  /**
   * @brief Returns the current iaq accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
-  * @return Iaq accuracy value (0-3)
+  * @retorno Iaq accuracy valor (0-3)
  */
  inline uint8_t UsermodBME68X::getIaqAccuracy() {
    return ValuesPtr->iaqAccuracy ;
  }
  
  /**
-  * @brief Returns the current static iaq accuracy accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
-  * @return Static iaq accuracy value (0-3)
+  * @brief Returns the current estático iaq accuracy accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
+  * @retorno Estático iaq accuracy valor (0-3)
  */
  inline uint8_t UsermodBME68X::getStaticIaqAccuracy() {
    return ValuesPtr->staticIaqAccuracy;
@@ -971,7 +971,7 @@
  
  /**
   * @brief Returns the current co2 accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
-  * @return Co2 accuracy  value (0-3)
+  * @retorno Co2 accuracy  valor (0-3)
  */
  inline uint8_t UsermodBME68X::getCo2Accuracy() {
    return ValuesPtr->co2Accuracy;
@@ -979,7 +979,7 @@
  
  /**
   * @brief Returns the current voc accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
-  * @return Voc accuracy  value (0-3)
+  * @retorno Voc accuracy  valor (0-3)
  */
  inline uint8_t UsermodBME68X::getVocAccuracy() {
    return ValuesPtr->VocAccuracy;
@@ -987,25 +987,25 @@
  
  /**
   * @brief Returns the current gas percentage accuracy (0 = not calibrated, 2 = being calibrated, 3 = calibrated)
-  * @return Gas percentage accuracy value (0-3)
+  * @retorno Gas percentage accuracy valor (0-3)
  */
  inline uint8_t UsermodBME68X::getGasPercAccuracy() {
    return ValuesPtr->gasPercAccuracy;
  }
  
  /**
-  * @brief Returns the current stab status.
-  * 		  Indicates when the sensor is ready after after switch-on
-  * @return stab status value (0 = switched on / 1 = stabilized)
+  * @brief Returns the current stab estado.
+  * 		  Indicates when the sensor is ready after after conmutador-on
+  * @retorno stab estado valor (0 = switched on / 1 = stabilized)
  */
  inline bool  UsermodBME68X::getStabStatus() {
    return ValuesPtr->stabStatus;
  }
  
  /**
-  * @brief Returns the current run in status. 
+  * @brief Returns the current run in estado. 
   * 		  Indicates if the sensor is undergoing initial stabilization during its first use after production
-  * @return Tun status accuracy value (0 = switched on first time / 1 = stabilized)
+  * @retorno Tun estado accuracy valor (0 = switched on first time / 1 = stabilized)
  */
  inline bool UsermodBME68X::getRunInStatus() {
    return ValuesPtr->runInStatus;
@@ -1013,7 +1013,7 @@
  
  
  /**
-  * @brief Checks whether the library and the sensor are running.
+  * @brief Checks whether the biblioteca and the sensor are running.
   */
  void UsermodBME68X::checkIaqSensorStatus() {
  
@@ -1053,7 +1053,7 @@
  }
  
  /**
-  * @brief Loads the calibration data from the file system of the device
+  * @brief Loads the calibration datos from the archivo sistema of the dispositivo
   */
  void UsermodBME68X::loadState() {
 	 if (WLED_FS.exists(CALIB_FILE_NAME)) {
@@ -1075,7 +1075,7 @@
  }
  
  /**
-  * @brief Saves the calibration data from the file system of the device
+  * @brief Saves the calibration datos from the archivo sistema of the dispositivo
   */
  void UsermodBME68X::saveState() {
 	 DEBUG_PRINT(F(UMOD_DEBUG_NAME "Write the calibration file  "));
@@ -1093,7 +1093,7 @@
  
 		 char contbuffer[30];
  
-		 /* Timestamp */
+		 /* Marca de tiempo */
 		 time_t curr_time;
 		 tm* curr_tm;
 		 time(&curr_time);

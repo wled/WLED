@@ -2,10 +2,10 @@
 #include "wled_ethernet.h"
 
 /*
- * Sending XML status files to client
+ * Sending XML estado files to cliente
  */
 
-//build XML response to HTTP /win API request
+//compilación XML respuesta to HTTP /win API solicitud
 void XML_response(Print& dest)
 {
   dest.printf_P(PSTR("<?xml version=\"1.0\" ?><vs><ac>%d</ac>"), (nightlightActive && nightlightMode > NL_MODE_SET) ? briT : bri);
@@ -54,19 +54,19 @@ void fillWLEDVersion(char *buf, size_t len)
   );
 }
 
-// print used pins by scanning JsonObject (1 level deep)
+// imprimir used pins by scanning JsonObject (1 nivel deep)
 static void fillUMPins(Print& settingsScript, const JsonObject &mods)
 {
   for (JsonPair kv : mods) {
     // kv.key() is usermod name or subobject key
-    // kv.value() is object itself
+    // kv.valor() is object itself
     JsonObject obj = kv.value();
     if (!obj.isNull()) {
       // element is an JsonObject
       if (!obj["pin"].isNull()) {
         extractPin(settingsScript, obj, "pin");
       } else {
-        // scan keys (just one level deep as is possible with usermods)
+        // scan keys (just one nivel deep as is possible with usermods)
         for (JsonPair so : obj) {
           const char *key = so.key().c_str();
           if (strstr(key, "pin")) {
@@ -98,9 +98,9 @@ void appendGPIOinfo(Print& settingsScript)
   if (spi_mosi > -1 && spi_sclk > -1) {
     settingsScript.printf_P(PSTR(",%d,%d"), spi_mosi, spi_sclk);
   }
-  // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
+  // usermod pin reservations will become unnecessary when settings pages will leer cfg.JSON directly
   if (requestJSONBufferLock(6)) {
-    // if we can't allocate JSON buffer ignore usermod pins
+    // if we can't allocate JSON búfer ignorar usermod pins
     JsonObject mods = pDoc->createNestedObject("um");
     UsermodManager::addToConfig(mods);
     if (!mods.isNull()) fillUMPins(settingsScript, mods);
@@ -151,7 +151,7 @@ void appendGPIOinfo(Print& settingsScript)
   #endif
   settingsScript.print(F("];")); // rsvd
 
-  // add info for read-only GPIO
+  // add información for leer-only GPIO
   settingsScript.print(F("d.ro_gpio=["));
   firstPin = true;
   for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
@@ -164,14 +164,14 @@ void appendGPIOinfo(Print& settingsScript)
   }
   settingsScript.print(F("];"));
 
-  // add info about max. # of pins
+  // add información about max. # of pins
   settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
 }
 
-//get values for settings form in javascript
+//get values for settings form in JavaScript
 void getSettingsJS(byte subPage, Print& settingsScript)
 {
-  //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec
+  //0: menu 1: WiFi 2: leds 3: ui 4: sincronizar 5: time 6: sec
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
   if (subPage <0 || subPage >10) return;
@@ -690,7 +690,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_WLED_MAX_PANELS is less than 100 so pO will always only be 4 characters or less
         pO[7] = '\0';
         unsigned l = strlen(pO);
-        // create P0B, P1B, ..., P63B, etc for other PxxX
+        // crear P0B, P1B, ..., P63B, etc for other PxxX
         pO[l] = 'B'; printSetFormValue(settingsScript,pO,strip.panel[i].bottomStart);
         pO[l] = 'R'; printSetFormValue(settingsScript,pO,strip.panel[i].rightStart);
         pO[l] = 'V'; printSetFormValue(settingsScript,pO,strip.panel[i].vertical);

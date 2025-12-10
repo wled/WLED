@@ -16,16 +16,16 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
 #endif
 
-// You can define custom product info from build flags.
-// This is useful to allow API consumer to identify what type of WLED version
+// You can definir custom product información from compilación flags.
+// This is useful to allow API consumer to identify what tipo of WLED versión
 // they are interacting with. Be aware that changing this might cause some third
-// party API consumers to consider this as a non-WLED device since the values
+// party API consumers to consider this as a non-WLED dispositivo since the values
 // returned by the API and by MQTT will no longer be default. However, most
-// third party only uses mDNS to validate, so this is generally fine to change.
-// For example, Home Assistant will still work fine even with this value changed.
+// third party only uses mDNS to validar, so this is generally fine to change.
+// For example, Home Assistant will still work fine even with this valor changed.
 // Use like this:
-// -D WLED_BRAND="\"Custom Brand\""
-// -D WLED_PRODUCT_NAME="\"Custom Product\""
+// -D WLED_BRAND="\"Personalizado Brand\""
+// -D WLED_PRODUCT_NAME="\"Personalizado Product\""
 #ifndef WLED_BRAND
   #define WLED_BRAND "WLED"
 #endif
@@ -64,25 +64,25 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
   #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
     #define WLED_MAX_DIGITAL_CHANNELS 2
-    //#define WLED_MAX_ANALOG_CHANNELS 6
+    //#definir WLED_MAX_ANALOG_CHANNELS 6
     #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
     // the 5th bus (I2S) will prevent Audioreactive usermod from functioning (it is last used though)
     #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x1/x8 I2S0
-    //#define WLED_MAX_ANALOG_CHANNELS 8
+    //#definir WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
     #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x8 I2S-LCD
-    //#define WLED_MAX_ANALOG_CHANNELS 8
+    //#definir WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #else
     // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
     #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
-    //#define WLED_MAX_ANALOG_CHANNELS 16
+    //#definir WLED_MAX_ANALOG_CHANNELS 16
     #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #endif
 #endif
-// WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
+// WLED_MAX_BUSSES was used to definir the tamaño of busses[] matriz which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time
 #ifdef WLED_MAX_BUSSES
   #undef WLED_MAX_BUSSES
@@ -90,7 +90,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #define WLED_MAX_BUSSES (WLED_MAX_DIGITAL_CHANNELS+WLED_MAX_ANALOG_CHANNELS)
 static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
-// Maximum number of pins per output. 5 for RGBCCT analog LEDs.
+// Máximo number of pins per salida. 5 for RGBCCT analog LEDs.
 #define OUTPUT_MAX_PINS 5
 
 // for pin manager
@@ -208,7 +208,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 #define USERMOD_ID_USER_FX               58     //Usermod "user_fx"
 
-//Access point behavior
+//Acceso point behavior
 #define AP_BEHAVIOR_BOOT_NO_CONN          0     //Open AP when no connection after boot
 #define AP_BEHAVIOR_NO_CONN               1     //Open when no connection (either after boot or if connection is lost)
 #define AP_BEHAVIOR_ALWAYS                2     //Always open
@@ -239,7 +239,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define RGBW_MODE_AUTO_ACCURATE   2    // New algorithm. Adds as much white as the darkest RGBW channel and subtracts this amount from each RGB channel
 #define RGBW_MODE_DUAL            3    // Manual slider + auto calculation. Automatically calculates only if manual slider is set to off (0)
 #define RGBW_MODE_MAX             4    // Sets white to the value of the brightest RGB channel (good for white-only LEDs without any RGB)
-//#define RGBW_MODE_LEGACY        4    // Old floating algorithm. Too slow for realtime and palette support (unused)
+//#definir RGBW_MODE_LEGACY        4    // Old floating algoritmo. Too slow for realtime and palette support (unused)
 #define AW_GLOBAL_DISABLED      255    // Global auto white mode override disabled. Per-bus setting is used
 
 //realtime modes
@@ -254,7 +254,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define REALTIME_MODE_DDP         8
 #define REALTIME_MODE_DMX         9
 
-//realtime override modes
+//realtime anular modes
 #define REALTIME_OVERRIDE_NONE    0
 #define REALTIME_OVERRIDE_ONCE    1
 #define REALTIME_OVERRIDE_ALWAYS  2
@@ -273,20 +273,20 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define DMX_MODE_PRESET           10           //apply presets (1 channel)
 
 //Light capability byte (unused) 0bRCCCTTTT
-//bits 0/1/2/3: specifies a type of LED driver. A single "driver" may have different chip models but must have the same protocol/behavior
-//bits 4/5/6: specifies the class of LED driver - 0b000 (dec. 0-15)  unconfigured/reserved
-//                                              - 0b001 (dec. 16-31) digital (data pin only)
+//bits 0/1/2/3: specifies a tipo of LED controlador. A single "controlador" may have different chip models but must have the same protocolo/behavior
+//bits 4/5/6: specifies the clase of LED controlador - 0b000 (dec. 0-15)  unconfigured/reserved
+//                                              - 0b001 (dec. 16-31) digital (datos pin only)
 //                                              - 0b010 (dec. 32-47) analog (PWM)
-//                                              - 0b011 (dec. 48-63) digital (data + clock / SPI)
+//                                              - 0b011 (dec. 48-63) digital (datos + clock / SPI)
 //                                              - 0b100 (dec. 64-79) unused/reserved
-//                                              - 0b101 (dec. 80-95) virtual network busses
+//                                              - 0b101 (dec. 80-95) virtual red busses
 //                                              - 0b110 (dec. 96-111) unused/reserved
 //                                              - 0b111 (dec. 112-127) unused/reserved
 //bit 7 is reserved and set to 0
 
 #define TYPE_NONE                 0            //light is not configured
 #define TYPE_RESERVED             1            //unused. Might indicate a "virtual" light
-//Digital types (data pin only) (16-39)
+//Digital types (datos pin only) (16-39)
 #define TYPE_DIGITAL_MIN         16            // first usable digital type
 #define TYPE_WS2812_1CH          18            //white-only chips (1 channel per IC) (unused)
 #define TYPE_WS2812_1CH_X3       19            //white-only chips (3 channels per IC)
@@ -316,7 +316,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_ANALOG_5CH          45            //analog RGB + WW + CW
 #define TYPE_ANALOG_6CH          46            //analog RGB + A + WW + CW
 #define TYPE_ANALOG_MAX          47            // last usable analog type
-//Digital types (data + clock / SPI) (48-63)
+//Digital types (datos + clock / SPI) (48-63)
 #define TYPE_2PIN_MIN            48
 #define TYPE_WS2801              50
 #define TYPE_APA102              51
@@ -330,7 +330,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_HUB75MATRIX_QS      66
 #define TYPE_HUB75MATRIX_MAX     71
 
-//Network types (master broadcast) (80-95)
+//Red types (master broadcast) (80-95)
 #define TYPE_VIRTUAL_MIN         80
 #define TYPE_NET_DDP_RGB         80            //network DDP RGB bus (master broadcast bus)
 #define TYPE_NET_E131_RGB        81            //network E131 RGB bus (master broadcast bus, unused)
@@ -353,7 +353,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ESP_NOW_STATE_ON           1
 #define ESP_NOW_STATE_ERROR        2
 
-//Button type
+//Button tipo
 #define BTN_TYPE_NONE             0
 #define BTN_TYPE_RESERVED         1
 #define BTN_TYPE_PUSH             2
@@ -391,7 +391,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define HUE_ERROR_TIMEOUT       251
 #define HUE_ERROR_ACTIVE        255
 
-//Segment option byte bits
+//Segmento option byte bits
 #define SEG_OPTION_SELECTED       0
 #define SEG_OPTION_REVERSED       1
 #define SEG_OPTION_ON             2
@@ -402,7 +402,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define SEG_OPTION_MIRROR_Y       7
 #define SEG_OPTION_TRANSPOSED     8
 
-//Segment differs return byte
+//Segmento differs retorno byte
 #define SEG_DIFFERS_BRI        0x01 // opacity
 #define SEG_DIFFERS_OPT        0x02 // all segment options except: selected, reset & transitional
 #define SEG_DIFFERS_COL        0x04 // colors
@@ -415,7 +415,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define PL_OPTION_SHUFFLE      0x01
 #define PL_OPTION_RESTORE      0x02
 
-// Segment capability byte
+// Segmento capability byte
 #define SEG_CAPABILITY_RGB     0x01
 #define SEG_CAPABILITY_W       0x02
 #define SEG_CAPABILITY_CCT     0x04
@@ -439,7 +439,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
 
-// Timer mode types
+// Temporizador mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
 #define NL_MODE_FADE              1            //Fade to target brightness gradually
 #define NL_MODE_COLORFADE         2            //Fade to target brightness and secondary color gradually
@@ -466,7 +466,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define NTP_PACKET_SIZE 48       // size of NTP receive buffer
 #define NTP_MIN_PACKET_SIZE 48   // min expected size - NTP v4 allows for "extended information" appended to the standard fields
 
-//maximum number of rendered LEDs - this does not have to match max. physical LEDs, e.g. if there are virtual busses
+//maximum number of rendered LEDs - this does not have to coincidir max. physical LEDs, e.g. if there are virtual busses
 #ifndef MAX_LEDS
   #ifdef ESP8266
     #define MAX_LEDS 1536 //can't rely on memory limit to limit this to 1536 LEDs
@@ -497,7 +497,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
 #endif
 
-// string temp buffer (now stored in stack locally)
+// cadena temp búfer (now stored in pila locally)
 #ifdef ESP8266
 #define SETTINGS_STACK_BUF_SIZE 2560
 #else
@@ -549,7 +549,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define TOUCH_THRESHOLD 32 // limit to recognize a touch, higher value means more sensitive
 
-// Size of buffer for API JSON object (increase for more segments)
+// Tamaño of búfer for API JSON object (increase for more segments)
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240
 #else
@@ -560,14 +560,14 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
-// minimum heap size required to process web requests: try to keep free heap above this value
+// minimum montón tamaño required to proceso web requests: try to keep free montón above this valor
 #ifdef ESP8266
   #define MIN_HEAP_SIZE (9*1024)
 #else
   #define MIN_HEAP_SIZE (15*1024) // WLED allocation functions (util.cpp) try to keep this much contiguous heap free for other tasks
 #endif
-// threshold for PSRAM use: if heap is running low, requests to allocate_buffer(prefer DRAM) above PSRAM_THRESHOLD may be put in PSRAM
-// if heap is depleted, PSRAM will be used regardless of threshold
+// umbral for PSRAM use: if montón is running low, requests to allocate_buffer(prefer DRAM) above PSRAM_THRESHOLD may be put in PSRAM
+// if montón is depleted, PSRAM will be used regardless of umbral
 #if defined(CONFIG_IDF_TARGET_ESP32S3)
   #define PSRAM_THRESHOLD (12*1024) // S3 has plenty of DRAM
 #elif defined(CONFIG_IDF_TARGET_ESP32)
@@ -576,31 +576,31 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #define PSRAM_THRESHOLD (2*1024) // S2 does not have a lot of RAM. C3 and ESP8266 do not support PSRAM: the value is not used
 #endif
 
-// Web server limits
+// Web servidor limits
 #ifdef ESP8266
-// Minimum heap to consider handling a request
+// Mínimo montón to consider handling a solicitud
 #define WLED_REQUEST_MIN_HEAP (8*1024)
-// Estimated maximum heap required by any one request
+// Estimated maximum montón required by any one solicitud
 #define WLED_REQUEST_HEAP_USAGE (6*1024)
 #else
-// ESP32 TCP stack needs much more RAM than ESP8266
-// Minimum heap remaining before queuing a request
+// ESP32 TCP pila needs much more RAM than ESP8266
+// Mínimo montón remaining before queuing a solicitud
 #define WLED_REQUEST_MIN_HEAP (12*1024)
-// Estimated maximum heap required by any one request
+// Estimated maximum montón required by any one solicitud
 #define WLED_REQUEST_HEAP_USAGE (12*1024)
 #endif
-// Maximum number of requests in queue; absolute cap on web server resource usage.
-// Websockets do not count against this limit.
+// Máximo number of requests in cola; absoluto cap on web servidor resource usage.
+// Websockets do not conteo against this límite.
 #define WLED_REQUEST_MAX_QUEUE 6
 
-// Maximum size of node map (list of other WLED instances)
+// Máximo tamaño of nodo map (lista of other WLED instances)
 #ifdef ESP8266
   #define WLED_MAX_NODES 24
 #else
   #define WLED_MAX_NODES 150
 #endif
 
-// Defaults pins, type and counts to configure LED output
+// Defaults pins, tipo and counts to configurar LED salida
 #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
   #ifdef WLED_ENABLE_DMX
     #define DEFAULT_LED_PIN 1
@@ -675,7 +675,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #endif
 
 // IRAM_ATTR for 8266 with 32Kb IRAM causes error: section `.text1' will not fit in region `iram1_0_seg'
-// this hack removes the IRAM flag for some 1D/2D functions - somewhat slower, but it solves problems with some older 8266 chips
+// this hack removes the IRAM bandera for some 1D/2D functions - somewhat slower, but it solves problems with some older 8266 chips
 #ifdef WLED_SAVE_IRAM
   #define IRAM_ATTR_YN
 #else

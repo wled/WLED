@@ -48,7 +48,7 @@ You can override the default maximum number of relays (which is 4) by defining M
 Some settings can be defined (defaults) at compile time by setting the following defines:
 
 ```cpp
-// enable or disable HA discovery for externally controlled relays
+// habilitar or deshabilitar HA discovery for externally controlled relays
 #define MULTI_RELAY_HA_DISCOVERY true
 ```
 

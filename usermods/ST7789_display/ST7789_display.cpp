@@ -36,7 +36,7 @@
 
 TFT_eSPI tft = TFT_eSPI(TFT_WIDTH, TFT_HEIGHT); // Invoke custom library
 
-// Extra char (+1) for null
+// Extra char (+1) for nulo
 #define LINE_BUFFER_SIZE          20
 
 // How often we are redrawing screen
@@ -45,10 +45,10 @@ TFT_eSPI tft = TFT_eSPI(TFT_WIDTH, TFT_HEIGHT); // Invoke custom library
 extern int getSignalQuality(int rssi);
 
 
-//class name. Use something descriptive and leave the ": public Usermod" part :)
+//clase name. Use something descriptive and leave the ": public Usermod" part :)
 class St7789DisplayUsermod : public Usermod {
   private:
-    //Private class members. You can declare variables and functions only accessible to your usermod here
+    //Privado clase members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     bool enabled = true;
 
@@ -123,15 +123,15 @@ class St7789DisplayUsermod : public Usermod {
         tft.setCursor(186, 24);
         //sprintf_P(lineBuffer, PSTR("%02d"), secondCurrent);
         if (useAMPM) tft.print(isAM ? "AM" : "PM");
-        //else         tft.print(lineBuffer);
+        //else         tft.imprimir(lineBuffer);
     }
 
   public:
     //Functions called by WLED
 
     /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() override
     {
@@ -160,27 +160,27 @@ class St7789DisplayUsermod : public Usermod {
     }
 
     /*
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     void connected() override {
-      //Serial.println("Connected to WiFi!");
+      //Serie.println("Connected to WiFi!");
     }
 
     /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
      *
-     * Tips:
-     * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-     *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
+     * Consejos:
+     * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+     *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
      *
-     * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-     *    Instead, use a timer check as shown here.
+     * 2. Evita usar `retraso()`; NUNCA uses delays mayores a 10 ms.
+     *    En su lugar usa comprobaciones temporizadas como en este ejemplo.
      */
     void loop() override {
         char buff[LINE_BUFFER_SIZE];
 
-        // Check if we time interval for redrawing passes.
+        // Verificar if we time intervalo for redrawing passes.
         if (millis() - lastUpdate < USER_LOOP_REFRESH_RATE_MS)
         {
             return;
@@ -194,7 +194,7 @@ class St7789DisplayUsermod : public Usermod {
             displayTurnedOff = true;
         } 
 
-        // Check if values which are shown on display changed from the last time.
+        // Verificar if values which are shown on display changed from the last time.
         if ((((apActive) ? String(apSSID) : WiFi.SSID()) != knownSsid) ||
             (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : Network.localIP())) ||
             (knownBrightness != bri) ||
@@ -219,7 +219,7 @@ class St7789DisplayUsermod : public Usermod {
         }
         lastRedraw = millis();
 
-        // Update last known values.
+        // Actualizar last known values.
         #if defined(ESP8266)
             knownSsid = apActive ? WiFi.softAPSSID() : WiFi.SSID();
         #else
@@ -238,16 +238,16 @@ class St7789DisplayUsermod : public Usermod {
 
         tft.setTextSize(2);
 
-        // Wifi name
+        // WiFi name
         tft.setTextColor(TFT_GREEN);
         tft.setCursor(0, 60);
         String line = knownSsid.substring(0, tftcharwidth-1);
-        // Print `~` char to indicate that SSID is longer, than our display
+        // Imprimir `~` char to indicate that SSID is longer, than our display
         if (knownSsid.length() > tftcharwidth) line = line.substring(0, tftcharwidth-1) + '~';
         center(line, tftcharwidth);
         tft.print(line.c_str());
 
-        // Print AP IP and password in AP mode or knownIP if AP not active.
+        // Imprimir AP IP and password in AP mode or knownIP if AP not active.
         if (apActive)
         {
             tft.setCursor(0, 84);
@@ -263,13 +263,13 @@ class St7789DisplayUsermod : public Usermod {
             line = knownIp.toString();
             center(line, tftcharwidth);
             tft.print(line.c_str());
-            // percent brightness
+            // percent brillo
             tft.setCursor(0, 120);
             tft.setTextColor(TFT_WHITE);
             tft.print("Bri: ");
             tft.print((((int)bri*100)/255));
             tft.print("%");
-            // signal quality
+            // señal quality
             tft.setCursor(124,120);
             tft.print("Sig: ");
             if (getSignalQuality(WiFi.RSSI()) < 10) {
@@ -305,7 +305,7 @@ class St7789DisplayUsermod : public Usermod {
         // Fifth row with estimated mA usage
         tft.setTextColor(TFT_SILVER);
         tft.setCursor(0, 216);
-        // Print estimated milliamp usage (must specify the LED type in LED prefs for this to be a reasonable estimate).
+        // Imprimir estimated milliamp usage (must specify the LED tipo in LED prefs for this to be a reasonable estimate).
         tft.print("Current: ");
         tft.setTextColor(TFT_ORANGE);
         tft.print(BusManager::currentMilliamps());
@@ -313,8 +313,8 @@ class St7789DisplayUsermod : public Usermod {
     }
 
     /*
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+     * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+     * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
      * Below it is shown how this could be used for e.g. a light sensor
      */
     void addToJsonInfo(JsonObject& root) override
@@ -328,8 +328,8 @@ class St7789DisplayUsermod : public Usermod {
 
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void addToJsonState(JsonObject& root) override
     {
@@ -338,27 +338,27 @@ class St7789DisplayUsermod : public Usermod {
 
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root) override
     {
-      //userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
-      //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
+      //userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, actualizar, else keep old valor
+      //if (root["bri"] == 255) Serie.println(F("Don't burn down your garage!"));
     }
 
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
+     * If you want to force saving the current estado, use serializeConfig() in your bucle().
      *
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
+     * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
      * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
+     * Use it sparingly and always in the bucle, never in red callbacks!
      *
      * addToConfig() will also not yet add your setting to one of the settings pages automatically.
-     * To make that work you still have to add the setting to the HTML, xml.cpp and set.cpp manually.
+     * To make that work you still have to add the setting to the HTML, XML.cpp and set.cpp manually.
      *
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -370,7 +370,7 @@ class St7789DisplayUsermod : public Usermod {
       pins.add(TFT_DC);
       pins.add(TFT_RST);
       pins.add(TFT_BL);
-      //top["great"] = userVar0; //save this var persistently whenever settings are saved
+      //top["great"] = userVar0; //guardar this var persistently whenever settings are saved
     }
 
 
@@ -382,32 +382,32 @@ class St7789DisplayUsermod : public Usermod {
     }
 
     /*
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+     * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
      * This is called by WLED when settings are loaded (currently this only happens once immediately after boot)
      *
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+     * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+     * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
      * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
      */
     bool readFromConfig(JsonObject& root) override
     {
       //JsonObject top = root["top"];
-      //userVar0 = top["great"] | 42; //The value right of the pipe "|" is the default value in case your setting was not present in cfg.json (e.g. first boot)
+      //userVar0 = top["great"] | 42; //The valor right of the pipe "|" is the default valor in case your setting was not present in cfg.JSON (e.g. first boot)
       return true;
     }
 
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId() override
     {
       return USERMOD_ID_ST7789_DISPLAY;
     }
 
-   //More methods can be added in the future, this example will then be extended.
-   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
+   //More methods can be added in the futuro, this example will then be extended.
+   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base clase!
 };
 
 static name. st7789_display;

@@ -1,11 +1,11 @@
 // font courtesy of https://github.com/idispatch/raster-fonts
 static const unsigned char console_font_5x8[] PROGMEM = {
 
-// code points 0-31 and 127-255 are commented out to save memory, they contain extra characters (CP437),
+// código points 0-31 and 127-255 are commented out to guardar memoria, they contain extra characters (CP437),
 // which could be used with an UTF-8 to CP437 conversion
 
     // /*
-    //  * code=0, hex=0x00, ascii="^@"
+    //  * código=0, hex=0x00, ascii="^@"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -17,7 +17,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=1, hex=0x01, ascii="^A"
+    //  * código=1, hex=0x01, ascii="^A"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -29,7 +29,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=2, hex=0x02, ascii="^B"
+    //  * código=2, hex=0x02, ascii="^B"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -41,7 +41,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=3, hex=0x03, ascii="^C"
+    //  * código=3, hex=0x03, ascii="^C"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -53,7 +53,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=4, hex=0x04, ascii="^D"
+    //  * código=4, hex=0x04, ascii="^D"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -65,7 +65,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=5, hex=0x05, ascii="^E"
+    //  * código=5, hex=0x05, ascii="^E"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -77,7 +77,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=6, hex=0x06, ascii="^F"
+    //  * código=6, hex=0x06, ascii="^F"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -89,7 +89,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=7, hex=0x07, ascii="^G"
+    //  * código=7, hex=0x07, ascii="^G"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -101,7 +101,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=8, hex=0x08, ascii="^H"
+    //  * código=8, hex=0x08, ascii="^H"
     //  */
     // 0x00,  /* 00000 */
     // 0xF8,  /* 11111 */
@@ -113,7 +113,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xF8,  /* 11111 */
 
     // /*
-    //  * code=9, hex=0x09, ascii="^I"
+    //  * código=9, hex=0x09, ascii="^I"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -125,7 +125,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=10, hex=0x0A, ascii="^J"
+    //  * código=10, hex=0x0A, ascii="^J"
     //  */
     // 0x00,  /* 00000 */
     // 0xF8,  /* 11111 */
@@ -137,7 +137,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xF8,  /* 11111 */
 
     // /*
-    //  * code=11, hex=0x0B, ascii="^K"
+    //  * código=11, hex=0x0B, ascii="^K"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -149,7 +149,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=12, hex=0x0C, ascii="^L"
+    //  * código=12, hex=0x0C, ascii="^L"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -161,7 +161,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=13, hex=0x0D, ascii="^M"
+    //  * código=13, hex=0x0D, ascii="^M"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -173,7 +173,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=14, hex=0x0E, ascii="^N"
+    //  * código=14, hex=0x0E, ascii="^N"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -185,7 +185,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=15, hex=0x0F, ascii="^O"
+    //  * código=15, hex=0x0F, ascii="^O"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -197,7 +197,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=16, hex=0x10, ascii="^P"
+    //  * código=16, hex=0x10, ascii="^P"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -209,7 +209,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=17, hex=0x11, ascii="^Q"
+    //  * código=17, hex=0x11, ascii="^Q"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -221,7 +221,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=18, hex=0x12, ascii="^R"
+    //  * código=18, hex=0x12, ascii="^R"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -233,7 +233,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=19, hex=0x13, ascii="^S"
+    //  * código=19, hex=0x13, ascii="^S"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -245,7 +245,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=20, hex=0x14, ascii="^T"
+    //  * código=20, hex=0x14, ascii="^T"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -257,7 +257,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=21, hex=0x15, ascii="^U"
+    //  * código=21, hex=0x15, ascii="^U"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -269,7 +269,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xC0,  /* 11000 */
 
     // /*
-    //  * code=22, hex=0x16, ascii="^V"
+    //  * código=22, hex=0x16, ascii="^V"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -281,7 +281,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=23, hex=0x17, ascii="^W"
+    //  * código=23, hex=0x17, ascii="^W"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -293,7 +293,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x70,  /* 01110 */
 
     // /*
-    //  * code=24, hex=0x18, ascii="^X"
+    //  * código=24, hex=0x18, ascii="^X"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -305,7 +305,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=25, hex=0x19, ascii="^Y"
+    //  * código=25, hex=0x19, ascii="^Y"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -317,7 +317,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=26, hex=0x1A, ascii="^Z"
+    //  * código=26, hex=0x1A, ascii="^Z"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -329,7 +329,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=27, hex=0x1B, ascii="^["
+    //  * código=27, hex=0x1B, ascii="^["
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -341,7 +341,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=28, hex=0x1C, ascii="^\"
+    //  * código=28, hex=0x1C, ascii="^\"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -353,7 +353,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=29, hex=0x1D, ascii="^]"
+    //  * código=29, hex=0x1D, ascii="^]"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -365,7 +365,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=30, hex=0x1E, ascii="^^"
+    //  * código=30, hex=0x1E, ascii="^^"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -377,7 +377,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=31, hex=0x1F, ascii="^_"
+    //  * código=31, hex=0x1F, ascii="^_"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -389,7 +389,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     /*
-     * code=32, hex=0x20, ascii=" "
+     * código=32, hex=0x20, ascii=" "
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -401,7 +401,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=33, hex=0x21, ascii="!"
+     * código=33, hex=0x21, ascii="!"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -413,7 +413,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=34, hex=0x22, ascii="""
+     * código=34, hex=0x22, ascii="""
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -425,7 +425,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=35, hex=0x23, ascii="#"
+     * código=35, hex=0x23, ascii="#"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -437,7 +437,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=36, hex=0x24, ascii="$"
+     * código=36, hex=0x24, ascii="$"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -449,7 +449,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x20,  /* 00100 */
 
     /*
-     * code=37, hex=0x25, ascii="%"
+     * código=37, hex=0x25, ascii="%"
      */
     0x00,  /* 00000 */
     0x40,  /* 01000 */
@@ -461,7 +461,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=38, hex=0x26, ascii="&"
+     * código=38, hex=0x26, ascii="&"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -473,7 +473,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=39, hex=0x27, ascii="'"
+     * código=39, hex=0x27, ascii="'"
      */
     0x00,  /* 00000 */
     0x20,  /* 00100 */
@@ -485,7 +485,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=40, hex=0x28, ascii="("
+     * código=40, hex=0x28, ascii="("
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -497,7 +497,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=41, hex=0x29, ascii=")"
+     * código=41, hex=0x29, ascii=")"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -509,7 +509,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=42, hex=0x2A, ascii="*"
+     * código=42, hex=0x2A, ascii="*"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -521,7 +521,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=43, hex=0x2B, ascii="+"
+     * código=43, hex=0x2B, ascii="+"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -533,7 +533,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=44, hex=0x2C, ascii=","
+     * código=44, hex=0x2C, ascii=","
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -545,7 +545,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x40,  /* 01000 */
 
     /*
-     * code=45, hex=0x2D, ascii="-"
+     * código=45, hex=0x2D, ascii="-"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -557,7 +557,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=46, hex=0x2E, ascii="."
+     * código=46, hex=0x2E, ascii="."
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -569,7 +569,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=47, hex=0x2F, ascii="/"
+     * código=47, hex=0x2F, ascii="/"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -581,7 +581,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=48, hex=0x30, ascii="0"
+     * código=48, hex=0x30, ascii="0"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -593,7 +593,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=49, hex=0x31, ascii="1"
+     * código=49, hex=0x31, ascii="1"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -605,7 +605,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=50, hex=0x32, ascii="2"
+     * código=50, hex=0x32, ascii="2"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -617,7 +617,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=51, hex=0x33, ascii="3"
+     * código=51, hex=0x33, ascii="3"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -629,7 +629,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=52, hex=0x34, ascii="4"
+     * código=52, hex=0x34, ascii="4"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -641,7 +641,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=53, hex=0x35, ascii="5"
+     * código=53, hex=0x35, ascii="5"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -653,7 +653,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=54, hex=0x36, ascii="6"
+     * código=54, hex=0x36, ascii="6"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -665,7 +665,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=55, hex=0x37, ascii="7"
+     * código=55, hex=0x37, ascii="7"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -677,7 +677,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=56, hex=0x38, ascii="8"
+     * código=56, hex=0x38, ascii="8"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -689,7 +689,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=57, hex=0x39, ascii="9"
+     * código=57, hex=0x39, ascii="9"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -701,7 +701,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=58, hex=0x3A, ascii=":"
+     * código=58, hex=0x3A, ascii=":"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -713,7 +713,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=59, hex=0x3B, ascii=";"
+     * código=59, hex=0x3B, ascii=";"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -725,7 +725,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x40,  /* 01000 */
 
     /*
-     * code=60, hex=0x3C, ascii="<"
+     * código=60, hex=0x3C, ascii="<"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -737,7 +737,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=61, hex=0x3D, ascii="="
+     * código=61, hex=0x3D, ascii="="
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -749,7 +749,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=62, hex=0x3E, ascii=">"
+     * código=62, hex=0x3E, ascii=">"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -761,7 +761,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=63, hex=0x3F, ascii="?"
+     * código=63, hex=0x3F, ascii="?"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -773,7 +773,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=64, hex=0x40, ascii="@"
+     * código=64, hex=0x40, ascii="@"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -785,7 +785,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=65, hex=0x41, ascii="A"
+     * código=65, hex=0x41, ascii="A"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -797,7 +797,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=66, hex=0x42, ascii="B"
+     * código=66, hex=0x42, ascii="B"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -809,7 +809,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=67, hex=0x43, ascii="C"
+     * código=67, hex=0x43, ascii="C"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -821,7 +821,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=68, hex=0x44, ascii="D"
+     * código=68, hex=0x44, ascii="D"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -833,7 +833,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=69, hex=0x45, ascii="E"
+     * código=69, hex=0x45, ascii="E"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -845,7 +845,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=70, hex=0x46, ascii="F"
+     * código=70, hex=0x46, ascii="F"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -857,7 +857,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=71, hex=0x47, ascii="G"
+     * código=71, hex=0x47, ascii="G"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -869,7 +869,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=72, hex=0x48, ascii="H"
+     * código=72, hex=0x48, ascii="H"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -881,7 +881,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=73, hex=0x49, ascii="I"
+     * código=73, hex=0x49, ascii="I"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -893,7 +893,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=74, hex=0x4A, ascii="J"
+     * código=74, hex=0x4A, ascii="J"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -905,7 +905,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=75, hex=0x4B, ascii="K"
+     * código=75, hex=0x4B, ascii="K"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -917,7 +917,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=76, hex=0x4C, ascii="L"
+     * código=76, hex=0x4C, ascii="L"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -929,7 +929,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=77, hex=0x4D, ascii="M"
+     * código=77, hex=0x4D, ascii="M"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -941,7 +941,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=78, hex=0x4E, ascii="N"
+     * código=78, hex=0x4E, ascii="N"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -953,7 +953,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=79, hex=0x4F, ascii="O"
+     * código=79, hex=0x4F, ascii="O"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -965,7 +965,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=80, hex=0x50, ascii="P"
+     * código=80, hex=0x50, ascii="P"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -977,7 +977,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=81, hex=0x51, ascii="Q"
+     * código=81, hex=0x51, ascii="Q"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -989,7 +989,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x10,  /* 00010 */
 
     /*
-     * code=82, hex=0x52, ascii="R"
+     * código=82, hex=0x52, ascii="R"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1001,7 +1001,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=83, hex=0x53, ascii="S"
+     * código=83, hex=0x53, ascii="S"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1013,7 +1013,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=84, hex=0x54, ascii="T"
+     * código=84, hex=0x54, ascii="T"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1025,7 +1025,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=85, hex=0x55, ascii="U"
+     * código=85, hex=0x55, ascii="U"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1037,7 +1037,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=86, hex=0x56, ascii="V"
+     * código=86, hex=0x56, ascii="V"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1049,7 +1049,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=87, hex=0x57, ascii="W"
+     * código=87, hex=0x57, ascii="W"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1061,7 +1061,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=88, hex=0x58, ascii="X"
+     * código=88, hex=0x58, ascii="X"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1073,7 +1073,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=89, hex=0x59, ascii="Y"
+     * código=89, hex=0x59, ascii="Y"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1085,7 +1085,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=90, hex=0x5A, ascii="Z"
+     * código=90, hex=0x5A, ascii="Z"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1097,7 +1097,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=91, hex=0x5B, ascii="["
+     * código=91, hex=0x5B, ascii="["
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1109,7 +1109,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=92, hex=0x5C, ascii="\"
+     * código=92, hex=0x5C, ascii="\"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1121,7 +1121,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=93, hex=0x5D, ascii="]"
+     * código=93, hex=0x5D, ascii="]"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1133,7 +1133,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=94, hex=0x5E, ascii="^"
+     * código=94, hex=0x5E, ascii="^"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1145,7 +1145,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=95, hex=0x5F, ascii="_"
+     * código=95, hex=0x5F, ascii="_"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1157,7 +1157,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0xF8,  /* 11111 */
 
     /*
-     * code=96, hex=0x60, ascii="`"
+     * código=96, hex=0x60, ascii="`"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1169,7 +1169,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=97, hex=0x61, ascii="a"
+     * código=97, hex=0x61, ascii="a"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1181,7 +1181,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=98, hex=0x62, ascii="b"
+     * código=98, hex=0x62, ascii="b"
      */
     0x00,  /* 00000 */
     0x80,  /* 10000 */
@@ -1193,7 +1193,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=99, hex=0x63, ascii="c"
+     * código=99, hex=0x63, ascii="c"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1205,7 +1205,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=100, hex=0x64, ascii="d"
+     * código=100, hex=0x64, ascii="d"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1217,7 +1217,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=101, hex=0x65, ascii="e"
+     * código=101, hex=0x65, ascii="e"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1229,7 +1229,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=102, hex=0x66, ascii="f"
+     * código=102, hex=0x66, ascii="f"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1241,7 +1241,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=103, hex=0x67, ascii="g"
+     * código=103, hex=0x67, ascii="g"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1253,7 +1253,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x60,  /* 01100 */
 
     /*
-     * code=104, hex=0x68, ascii="h"
+     * código=104, hex=0x68, ascii="h"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1265,7 +1265,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=105, hex=0x69, ascii="i"
+     * código=105, hex=0x69, ascii="i"
      */
     0x00,  /* 00000 */
     0x20,  /* 00100 */
@@ -1277,7 +1277,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=106, hex=0x6A, ascii="j"
+     * código=106, hex=0x6A, ascii="j"
      */
     0x00,  /* 00000 */
     0x10,  /* 00010 */
@@ -1289,7 +1289,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x60,  /* 01100 */
 
     /*
-     * code=107, hex=0x6B, ascii="k"
+     * código=107, hex=0x6B, ascii="k"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1301,7 +1301,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=108, hex=0x6C, ascii="l"
+     * código=108, hex=0x6C, ascii="l"
      */
     0x00,  /* 00000 */
     0x60,  /* 01100 */
@@ -1313,7 +1313,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=109, hex=0x6D, ascii="m"
+     * código=109, hex=0x6D, ascii="m"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1325,7 +1325,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=110, hex=0x6E, ascii="n"
+     * código=110, hex=0x6E, ascii="n"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1337,7 +1337,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=111, hex=0x6F, ascii="o"
+     * código=111, hex=0x6F, ascii="o"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1349,7 +1349,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=112, hex=0x70, ascii="p"
+     * código=112, hex=0x70, ascii="p"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1361,7 +1361,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x80,  /* 10000 */
 
     /*
-     * code=113, hex=0x71, ascii="q"
+     * código=113, hex=0x71, ascii="q"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1373,7 +1373,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x10,  /* 00010 */
 
     /*
-     * code=114, hex=0x72, ascii="r"
+     * código=114, hex=0x72, ascii="r"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1385,7 +1385,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=115, hex=0x73, ascii="s"
+     * código=115, hex=0x73, ascii="s"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1397,7 +1397,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=116, hex=0x74, ascii="t"
+     * código=116, hex=0x74, ascii="t"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1409,7 +1409,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=117, hex=0x75, ascii="u"
+     * código=117, hex=0x75, ascii="u"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1421,7 +1421,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=118, hex=0x76, ascii="v"
+     * código=118, hex=0x76, ascii="v"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1433,7 +1433,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=119, hex=0x77, ascii="w"
+     * código=119, hex=0x77, ascii="w"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1445,7 +1445,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=120, hex=0x78, ascii="x"
+     * código=120, hex=0x78, ascii="x"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1457,7 +1457,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=121, hex=0x79, ascii="y"
+     * código=121, hex=0x79, ascii="y"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1469,7 +1469,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x60,  /* 01100 */
 
     /*
-     * code=122, hex=0x7A, ascii="z"
+     * código=122, hex=0x7A, ascii="z"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1481,7 +1481,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=123, hex=0x7B, ascii="{"
+     * código=123, hex=0x7B, ascii="{"
      */
     0x00,  /* 00000 */
     0x10,  /* 00010 */
@@ -1493,7 +1493,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=124, hex=0x7C, ascii="|"
+     * código=124, hex=0x7C, ascii="|"
      */
     0x00,  /* 00000 */
     0x20,  /* 00100 */
@@ -1505,7 +1505,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=125, hex=0x7D, ascii="}"
+     * código=125, hex=0x7D, ascii="}"
      */
     0x00,  /* 00000 */
     0x40,  /* 01000 */
@@ -1517,7 +1517,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     /*
-     * code=126, hex=0x7E, ascii="~"
+     * código=126, hex=0x7E, ascii="~"
      */
     0x00,  /* 00000 */
     0x00,  /* 00000 */
@@ -1529,7 +1529,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     0x00,  /* 00000 */
 
     // /*
-    //  * code=127, hex=0x7F, ascii="^?"
+    //  * código=127, hex=0x7F, ascii="^?"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1541,7 +1541,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=128, hex=0x80, ascii="!^@"
+    //  * código=128, hex=0x80, ascii="!^@"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1553,7 +1553,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=129, hex=0x81, ascii="!^A"
+    //  * código=129, hex=0x81, ascii="!^A"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1565,7 +1565,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=130, hex=0x82, ascii="!^B"
+    //  * código=130, hex=0x82, ascii="!^B"
     //  */
     // 0x10,  /* 00010 */
     // 0x20,  /* 00100 */
@@ -1577,7 +1577,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=131, hex=0x83, ascii="!^C"
+    //  * código=131, hex=0x83, ascii="!^C"
     //  */
     // 0x20,  /* 00100 */
     // 0x50,  /* 01010 */
@@ -1589,7 +1589,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=132, hex=0x84, ascii="!^D"
+    //  * código=132, hex=0x84, ascii="!^D"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1601,7 +1601,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=133, hex=0x85, ascii="!^E"
+    //  * código=133, hex=0x85, ascii="!^E"
     //  */
     // 0x40,  /* 01000 */
     // 0x20,  /* 00100 */
@@ -1613,7 +1613,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=134, hex=0x86, ascii="!^F"
+    //  * código=134, hex=0x86, ascii="!^F"
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -1625,7 +1625,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=135, hex=0x87, ascii="!^G"
+    //  * código=135, hex=0x87, ascii="!^G"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1637,7 +1637,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=136, hex=0x88, ascii="!^H"
+    //  * código=136, hex=0x88, ascii="!^H"
     //  */
     // 0x20,  /* 00100 */
     // 0x50,  /* 01010 */
@@ -1649,7 +1649,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=137, hex=0x89, ascii="!^I"
+    //  * código=137, hex=0x89, ascii="!^I"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1661,7 +1661,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=138, hex=0x8A, ascii="!^J"
+    //  * código=138, hex=0x8A, ascii="!^J"
     //  */
     // 0x40,  /* 01000 */
     // 0x20,  /* 00100 */
@@ -1673,7 +1673,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=139, hex=0x8B, ascii="!^K"
+    //  * código=139, hex=0x8B, ascii="!^K"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1685,7 +1685,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=140, hex=0x8C, ascii="!^L"
+    //  * código=140, hex=0x8C, ascii="!^L"
     //  */
     // 0x20,  /* 00100 */
     // 0x50,  /* 01010 */
@@ -1697,7 +1697,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=141, hex=0x8D, ascii="!^M"
+    //  * código=141, hex=0x8D, ascii="!^M"
     //  */
     // 0x40,  /* 01000 */
     // 0x20,  /* 00100 */
@@ -1709,7 +1709,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=142, hex=0x8E, ascii="!^N"
+    //  * código=142, hex=0x8E, ascii="!^N"
     //  */
     // 0xA0,  /* 10100 */
     // 0x00,  /* 00000 */
@@ -1721,7 +1721,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=143, hex=0x8F, ascii="!^O"
+    //  * código=143, hex=0x8F, ascii="!^O"
     //  */
     // 0x20,  /* 00100 */
     // 0x00,  /* 00000 */
@@ -1733,7 +1733,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=144, hex=0x90, ascii="!^P"
+    //  * código=144, hex=0x90, ascii="!^P"
     //  */
     // 0x10,  /* 00010 */
     // 0x20,  /* 00100 */
@@ -1745,7 +1745,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=145, hex=0x91, ascii="!^Q"
+    //  * código=145, hex=0x91, ascii="!^Q"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1757,7 +1757,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=146, hex=0x92, ascii="!^R"
+    //  * código=146, hex=0x92, ascii="!^R"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1769,7 +1769,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=147, hex=0x93, ascii="!^S"
+    //  * código=147, hex=0x93, ascii="!^S"
     //  */
     // 0x20,  /* 00100 */
     // 0x50,  /* 01010 */
@@ -1781,7 +1781,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=148, hex=0x94, ascii="!^T"
+    //  * código=148, hex=0x94, ascii="!^T"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1793,7 +1793,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=149, hex=0x95, ascii="!^U"
+    //  * código=149, hex=0x95, ascii="!^U"
     //  */
     // 0x40,  /* 01000 */
     // 0x20,  /* 00100 */
@@ -1805,7 +1805,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=150, hex=0x96, ascii="!^V"
+    //  * código=150, hex=0x96, ascii="!^V"
     //  */
     // 0x20,  /* 00100 */
     // 0x50,  /* 01010 */
@@ -1817,7 +1817,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=151, hex=0x97, ascii="!^W"
+    //  * código=151, hex=0x97, ascii="!^W"
     //  */
     // 0x40,  /* 01000 */
     // 0x20,  /* 00100 */
@@ -1829,7 +1829,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=152, hex=0x98, ascii="!^X"
+    //  * código=152, hex=0x98, ascii="!^X"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1841,7 +1841,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x60,  /* 01100 */
 
     // /*
-    //  * code=153, hex=0x99, ascii="!^Y"
+    //  * código=153, hex=0x99, ascii="!^Y"
     //  */
     // 0x00,  /* 00000 */
     // 0x50,  /* 01010 */
@@ -1853,7 +1853,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=154, hex=0x9A, ascii="!^Z"
+    //  * código=154, hex=0x9A, ascii="!^Z"
     //  */
     // 0x50,  /* 01010 */
     // 0x00,  /* 00000 */
@@ -1865,7 +1865,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=155, hex=0x9B, ascii="!^["
+    //  * código=155, hex=0x9B, ascii="!^["
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -1877,7 +1877,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=156, hex=0x9C, ascii="!^\"
+    //  * código=156, hex=0x9C, ascii="!^\"
     //  */
     // 0x00,  /* 00000 */
     // 0x30,  /* 00110 */
@@ -1889,7 +1889,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=157, hex=0x9D, ascii="!^]"
+    //  * código=157, hex=0x9D, ascii="!^]"
     //  */
     // 0x00,  /* 00000 */
     // 0xD8,  /* 11011 */
@@ -1901,7 +1901,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=158, hex=0x9E, ascii="!^^"
+    //  * código=158, hex=0x9E, ascii="!^^"
     //  */
     // 0x00,  /* 00000 */
     // 0xC0,  /* 11000 */
@@ -1913,7 +1913,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=159, hex=0x9F, ascii="!^_"
+    //  * código=159, hex=0x9F, ascii="!^_"
     //  */
     // 0x00,  /* 00000 */
     // 0x30,  /* 00110 */
@@ -1925,7 +1925,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x80,  /* 10000 */
 
     // /*
-    //  * code=160, hex=0xA0, ascii="! "
+    //  * código=160, hex=0xA0, ascii="! "
     //  */
     // 0x20,  /* 00100 */
     // 0x40,  /* 01000 */
@@ -1937,7 +1937,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=161, hex=0xA1, ascii="!!"
+    //  * código=161, hex=0xA1, ascii="!!"
     //  */
     // 0x10,  /* 00010 */
     // 0x20,  /* 00100 */
@@ -1949,7 +1949,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=162, hex=0xA2, ascii="!""
+    //  * código=162, hex=0xA2, ascii="!""
     //  */
     // 0x10,  /* 00010 */
     // 0x20,  /* 00100 */
@@ -1961,7 +1961,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=163, hex=0xA3, ascii="!#"
+    //  * código=163, hex=0xA3, ascii="!#"
     //  */
     // 0x10,  /* 00010 */
     // 0x20,  /* 00100 */
@@ -1973,7 +1973,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=164, hex=0xA4, ascii="!$"
+    //  * código=164, hex=0xA4, ascii="!$"
     //  */
     // 0x50,  /* 01010 */
     // 0xA0,  /* 10100 */
@@ -1985,7 +1985,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=165, hex=0xA5, ascii="!%"
+    //  * código=165, hex=0xA5, ascii="!%"
     //  */
     // 0x50,  /* 01010 */
     // 0xA0,  /* 10100 */
@@ -1997,7 +1997,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=166, hex=0xA6, ascii="!&"
+    //  * código=166, hex=0xA6, ascii="!&"
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -2009,7 +2009,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=167, hex=0xA7, ascii="!'"
+    //  * código=167, hex=0xA7, ascii="!'"
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -2021,7 +2021,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=168, hex=0xA8, ascii="!("
+    //  * código=168, hex=0xA8, ascii="!("
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -2033,7 +2033,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=169, hex=0xA9, ascii="!)"
+    //  * código=169, hex=0xA9, ascii="!)"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2045,7 +2045,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=170, hex=0xAA, ascii="!*"
+    //  * código=170, hex=0xAA, ascii="!*"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2057,7 +2057,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=171, hex=0xAB, ascii="!+"
+    //  * código=171, hex=0xAB, ascii="!+"
     //  */
     // 0x00,  /* 00000 */
     // 0x80,  /* 10000 */
@@ -2069,7 +2069,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=172, hex=0xAC, ascii="!,"
+    //  * código=172, hex=0xAC, ascii="!,"
     //  */
     // 0x00,  /* 00000 */
     // 0x88,  /* 10001 */
@@ -2081,7 +2081,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x08,  /* 00001 */
 
     // /*
-    //  * code=173, hex=0xAD, ascii="!-"
+    //  * código=173, hex=0xAD, ascii="!-"
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -2093,7 +2093,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=174, hex=0xAE, ascii="!."
+    //  * código=174, hex=0xAE, ascii="!."
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2105,7 +2105,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=175, hex=0xAF, ascii="!/"
+    //  * código=175, hex=0xAF, ascii="!/"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2117,7 +2117,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=176, hex=0xB0, ascii="!0"
+    //  * código=176, hex=0xB0, ascii="!0"
     //  */
     // 0xA8,  /* 10101 */
     // 0x50,  /* 01010 */
@@ -2129,7 +2129,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=177, hex=0xB1, ascii="!1"
+    //  * código=177, hex=0xB1, ascii="!1"
     //  */
     // 0xE8,  /* 11101 */
     // 0x50,  /* 01010 */
@@ -2141,7 +2141,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=178, hex=0xB2, ascii="!2"
+    //  * código=178, hex=0xB2, ascii="!2"
     //  */
     // 0xD8,  /* 11011 */
     // 0x70,  /* 01110 */
@@ -2153,7 +2153,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x70,  /* 01110 */
 
     // /*
-    //  * code=179, hex=0xB3, ascii="!3"
+    //  * código=179, hex=0xB3, ascii="!3"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2165,7 +2165,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=180, hex=0xB4, ascii="!4"
+    //  * código=180, hex=0xB4, ascii="!4"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2177,7 +2177,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=181, hex=0xB5, ascii="!5"
+    //  * código=181, hex=0xB5, ascii="!5"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2189,7 +2189,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=182, hex=0xB6, ascii="!6"
+    //  * código=182, hex=0xB6, ascii="!6"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2201,7 +2201,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=183, hex=0xB7, ascii="!7"
+    //  * código=183, hex=0xB7, ascii="!7"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2213,7 +2213,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=184, hex=0xB8, ascii="!8"
+    //  * código=184, hex=0xB8, ascii="!8"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2225,7 +2225,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=185, hex=0xB9, ascii="!9"
+    //  * código=185, hex=0xB9, ascii="!9"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2237,7 +2237,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=186, hex=0xBA, ascii="!:"
+    //  * código=186, hex=0xBA, ascii="!:"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2249,7 +2249,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=187, hex=0xBB, ascii="!;"
+    //  * código=187, hex=0xBB, ascii="!;"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2261,7 +2261,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=188, hex=0xBC, ascii="!<"
+    //  * código=188, hex=0xBC, ascii="!<"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2273,7 +2273,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=189, hex=0xBD, ascii="!="
+    //  * código=189, hex=0xBD, ascii="!="
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2285,7 +2285,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=190, hex=0xBE, ascii="!>"
+    //  * código=190, hex=0xBE, ascii="!>"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2297,7 +2297,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=191, hex=0xBF, ascii="!?"
+    //  * código=191, hex=0xBF, ascii="!?"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2309,7 +2309,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=192, hex=0xC0, ascii="!@"
+    //  * código=192, hex=0xC0, ascii="!@"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2321,7 +2321,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=193, hex=0xC1, ascii="!A"
+    //  * código=193, hex=0xC1, ascii="!A"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2333,7 +2333,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=194, hex=0xC2, ascii="!B"
+    //  * código=194, hex=0xC2, ascii="!B"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2345,7 +2345,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=195, hex=0xC3, ascii="!C"
+    //  * código=195, hex=0xC3, ascii="!C"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2357,7 +2357,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=196, hex=0xC4, ascii="!D"
+    //  * código=196, hex=0xC4, ascii="!D"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2369,7 +2369,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=197, hex=0xC5, ascii="!E"
+    //  * código=197, hex=0xC5, ascii="!E"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2381,7 +2381,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=198, hex=0xC6, ascii="!F"
+    //  * código=198, hex=0xC6, ascii="!F"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2393,7 +2393,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=199, hex=0xC7, ascii="!G"
+    //  * código=199, hex=0xC7, ascii="!G"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2405,7 +2405,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=200, hex=0xC8, ascii="!H"
+    //  * código=200, hex=0xC8, ascii="!H"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2417,47 +2417,11 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=201, hex=0xC9, ascii="!I"
+    //  * código=201, hex=0xC9, ascii="!I"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
     // 0x78,  /* 01111 */
-    // 0x40,  /* 01000 */
-    // 0x58,  /* 01011 */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-
-    // /*
-    //  * code=202, hex=0xCA, ascii="!J"
-    //  */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-    // 0xD8,  /* 11011 */
-    // 0x00,  /* 00000 */
-    // 0xF8,  /* 11111 */
-    // 0x00,  /* 00000 */
-    // 0x00,  /* 00000 */
-    // 0x00,  /* 00000 */
-
-    // /*
-    //  * code=203, hex=0xCB, ascii="!K"
-    //  */
-    // 0x00,  /* 00000 */
-    // 0x00,  /* 00000 */
-    // 0xF8,  /* 11111 */
-    // 0x00,  /* 00000 */
-    // 0xD8,  /* 11011 */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-
-    // /*
-    //  * code=204, hex=0xCC, ascii="!L"
-    //  */
-    // 0x50,  /* 01010 */
-    // 0x50,  /* 01010 */
-    // 0x58,  /* 01011 */
     // 0x40,  /* 01000 */
     // 0x58,  /* 01011 */
     // 0x50,  /* 01010 */
@@ -2465,7 +2429,43 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=205, hex=0xCD, ascii="!M"
+    //  * código=202, hex=0xCA, ascii="!J"
+    //  */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+    // 0xD8,  /* 11011 */
+    // 0x00,  /* 00000 */
+    // 0xF8,  /* 11111 */
+    // 0x00,  /* 00000 */
+    // 0x00,  /* 00000 */
+    // 0x00,  /* 00000 */
+
+    // /*
+    //  * código=203, hex=0xCB, ascii="!K"
+    //  */
+    // 0x00,  /* 00000 */
+    // 0x00,  /* 00000 */
+    // 0xF8,  /* 11111 */
+    // 0x00,  /* 00000 */
+    // 0xD8,  /* 11011 */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+
+    // /*
+    //  * código=204, hex=0xCC, ascii="!L"
+    //  */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+    // 0x58,  /* 01011 */
+    // 0x40,  /* 01000 */
+    // 0x58,  /* 01011 */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+    // 0x50,  /* 01010 */
+
+    // /*
+    //  * código=205, hex=0xCD, ascii="!M"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2477,7 +2477,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=206, hex=0xCE, ascii="!N"
+    //  * código=206, hex=0xCE, ascii="!N"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2489,7 +2489,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=207, hex=0xCF, ascii="!O"
+    //  * código=207, hex=0xCF, ascii="!O"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2501,7 +2501,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=208, hex=0xD0, ascii="!P"
+    //  * código=208, hex=0xD0, ascii="!P"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2513,7 +2513,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=209, hex=0xD1, ascii="!Q"
+    //  * código=209, hex=0xD1, ascii="!Q"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2525,7 +2525,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=210, hex=0xD2, ascii="!R"
+    //  * código=210, hex=0xD2, ascii="!R"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2537,7 +2537,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=211, hex=0xD3, ascii="!S"
+    //  * código=211, hex=0xD3, ascii="!S"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2549,7 +2549,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=212, hex=0xD4, ascii="!T"
+    //  * código=212, hex=0xD4, ascii="!T"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2561,7 +2561,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=213, hex=0xD5, ascii="!U"
+    //  * código=213, hex=0xD5, ascii="!U"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2573,7 +2573,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=214, hex=0xD6, ascii="!V"
+    //  * código=214, hex=0xD6, ascii="!V"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2585,7 +2585,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=215, hex=0xD7, ascii="!W"
+    //  * código=215, hex=0xD7, ascii="!W"
     //  */
     // 0x50,  /* 01010 */
     // 0x50,  /* 01010 */
@@ -2597,7 +2597,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x50,  /* 01010 */
 
     // /*
-    //  * code=216, hex=0xD8, ascii="!X"
+    //  * código=216, hex=0xD8, ascii="!X"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2609,7 +2609,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=217, hex=0xD9, ascii="!Y"
+    //  * código=217, hex=0xD9, ascii="!Y"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2621,7 +2621,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=218, hex=0xDA, ascii="!Z"
+    //  * código=218, hex=0xDA, ascii="!Z"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2633,7 +2633,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=219, hex=0xDB, ascii="!["
+    //  * código=219, hex=0xDB, ascii="!["
     //  */
     // 0xF8,  /* 11111 */
     // 0xF8,  /* 11111 */
@@ -2645,7 +2645,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xF8,  /* 11111 */
 
     // /*
-    //  * code=220, hex=0xDC, ascii="!\"
+    //  * código=220, hex=0xDC, ascii="!\"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2657,7 +2657,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xF8,  /* 11111 */
 
     // /*
-    //  * code=221, hex=0xDD, ascii="!]"
+    //  * código=221, hex=0xDD, ascii="!]"
     //  */
     // 0xE0,  /* 11100 */
     // 0xE0,  /* 11100 */
@@ -2669,7 +2669,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0xE0,  /* 11100 */
 
     // /*
-    //  * code=222, hex=0xDE, ascii="!^"
+    //  * código=222, hex=0xDE, ascii="!^"
     //  */
     // 0x18,  /* 00011 */
     // 0x18,  /* 00011 */
@@ -2681,7 +2681,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x18,  /* 00011 */
 
     // /*
-    //  * code=223, hex=0xDF, ascii="!_"
+    //  * código=223, hex=0xDF, ascii="!_"
     //  */
     // 0xF8,  /* 11111 */
     // 0xF8,  /* 11111 */
@@ -2693,7 +2693,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=224, hex=0xE0, ascii="!`"
+    //  * código=224, hex=0xE0, ascii="!`"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2705,7 +2705,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=225, hex=0xE1, ascii="!a"
+    //  * código=225, hex=0xE1, ascii="!a"
     //  */
     // 0x00,  /* 00000 */
     // 0x60,  /* 01100 */
@@ -2717,7 +2717,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x80,  /* 10000 */
 
     // /*
-    //  * code=226, hex=0xE2, ascii="!b"
+    //  * código=226, hex=0xE2, ascii="!b"
     //  */
     // 0x00,  /* 00000 */
     // 0x70,  /* 01110 */
@@ -2729,7 +2729,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=227, hex=0xE3, ascii="!c"
+    //  * código=227, hex=0xE3, ascii="!c"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2741,7 +2741,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=228, hex=0xE4, ascii="!d"
+    //  * código=228, hex=0xE4, ascii="!d"
     //  */
     // 0x00,  /* 00000 */
     // 0xF8,  /* 11111 */
@@ -2753,7 +2753,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=229, hex=0xE5, ascii="!e"
+    //  * código=229, hex=0xE5, ascii="!e"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2765,7 +2765,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=230, hex=0xE6, ascii="!f"
+    //  * código=230, hex=0xE6, ascii="!f"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2777,7 +2777,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x80,  /* 10000 */
 
     // /*
-    //  * code=231, hex=0xE7, ascii="!g"
+    //  * código=231, hex=0xE7, ascii="!g"
     //  */
     // 0x00,  /* 00000 */
     // 0x98,  /* 10011 */
@@ -2789,7 +2789,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=232, hex=0xE8, ascii="!h"
+    //  * código=232, hex=0xE8, ascii="!h"
     //  */
     // 0x00,  /* 00000 */
     // 0x20,  /* 00100 */
@@ -2801,7 +2801,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=233, hex=0xE9, ascii="!i"
+    //  * código=233, hex=0xE9, ascii="!i"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2813,7 +2813,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=234, hex=0xEA, ascii="!j"
+    //  * código=234, hex=0xEA, ascii="!j"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2825,7 +2825,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=235, hex=0xEB, ascii="!k"
+    //  * código=235, hex=0xEB, ascii="!k"
     //  */
     // 0x60,  /* 01100 */
     // 0x80,  /* 10000 */
@@ -2837,7 +2837,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=236, hex=0xEC, ascii="!l"
+    //  * código=236, hex=0xEC, ascii="!l"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2849,7 +2849,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=237, hex=0xED, ascii="!m"
+    //  * código=237, hex=0xED, ascii="!m"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2861,7 +2861,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=238, hex=0xEE, ascii="!n"
+    //  * código=238, hex=0xEE, ascii="!n"
     //  */
     // 0x00,  /* 00000 */
     // 0x30,  /* 00110 */
@@ -2873,7 +2873,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=239, hex=0xEF, ascii="!o"
+    //  * código=239, hex=0xEF, ascii="!o"
     //  */
     // 0x00,  /* 00000 */
     // 0x60,  /* 01100 */
@@ -2885,7 +2885,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=240, hex=0xF0, ascii="!p"
+    //  * código=240, hex=0xF0, ascii="!p"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2897,7 +2897,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=241, hex=0xF1, ascii="!q"
+    //  * código=241, hex=0xF1, ascii="!q"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2909,7 +2909,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=242, hex=0xF2, ascii="!r"
+    //  * código=242, hex=0xF2, ascii="!r"
     //  */
     // 0x00,  /* 00000 */
     // 0x40,  /* 01000 */
@@ -2921,7 +2921,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=243, hex=0xF3, ascii="!s"
+    //  * código=243, hex=0xF3, ascii="!s"
     //  */
     // 0x00,  /* 00000 */
     // 0x10,  /* 00010 */
@@ -2933,7 +2933,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=244, hex=0xF4, ascii="!t"
+    //  * código=244, hex=0xF4, ascii="!t"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2945,7 +2945,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x20,  /* 00100 */
 
     // /*
-    //  * code=245, hex=0xF5, ascii="!u"
+    //  * código=245, hex=0xF5, ascii="!u"
     //  */
     // 0x20,  /* 00100 */
     // 0x20,  /* 00100 */
@@ -2957,7 +2957,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=246, hex=0xF6, ascii="!v"
+    //  * código=246, hex=0xF6, ascii="!v"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2969,7 +2969,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=247, hex=0xF7, ascii="!w"
+    //  * código=247, hex=0xF7, ascii="!w"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2981,7 +2981,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=248, hex=0xF8, ascii="!x"
+    //  * código=248, hex=0xF8, ascii="!x"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -2993,7 +2993,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=249, hex=0xF9, ascii="!y"
+    //  * código=249, hex=0xF9, ascii="!y"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -3005,7 +3005,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=250, hex=0xFA, ascii="!z"
+    //  * código=250, hex=0xFA, ascii="!z"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -3017,7 +3017,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=251, hex=0xFB, ascii="!{"
+    //  * código=251, hex=0xFB, ascii="!{"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -3029,7 +3029,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=252, hex=0xFC, ascii="!|"
+    //  * código=252, hex=0xFC, ascii="!|"
     //  */
     // 0x00,  /* 00000 */
     // 0x60,  /* 01100 */
@@ -3041,7 +3041,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=253, hex=0xFD, ascii="!}"
+    //  * código=253, hex=0xFD, ascii="!}"
     //  */
     // 0x00,  /* 00000 */
     // 0x60,  /* 01100 */
@@ -3053,7 +3053,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=254, hex=0xFE, ascii="!~"
+    //  * código=254, hex=0xFE, ascii="!~"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */
@@ -3065,7 +3065,7 @@ static const unsigned char console_font_5x8[] PROGMEM = {
     // 0x00,  /* 00000 */
 
     // /*
-    //  * code=255, hex=0xFF, ascii="!^"
+    //  * código=255, hex=0xFF, ascii="!^"
     //  */
     // 0x00,  /* 00000 */
     // 0x00,  /* 00000 */

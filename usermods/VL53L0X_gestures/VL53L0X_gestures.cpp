@@ -1,15 +1,15 @@
 /*
- * That usermod implements support of simple hand gestures with VL53L0X sensor: on/off and brightness correction.
+ * That usermod implements support of simple hand gestures with VL53L0X sensor: on/off and brillo correction.
  * It can be useful for kitchen strips to avoid any touches.
  * - on/off - just swipe a hand below your sensor ("shortPressAction" is called and can be customized through WLED macros)
- * - brightness correction - keep your hand below sensor for 1 second to switch to "brightness" mode.
-        Configure brightness by changing distance to the sensor (see parameters below for customization).
+ * - brillo correction - keep your hand below sensor for 1 second to conmutador to "brillo" mode.
+        Configurar brillo by changing distance to the sensor (see parameters below for personalización).
  *
  * Enabling this usermod:
- * 1. Attach VL53L0X sensor to i2c pins according to default pins for your board.
- * 2. Add `-D USERMOD_VL53L0X_GESTURES` to your build flags at platformio.ini (plaformio_override.ini) for needed environment.
+ * 1. Attach VL53L0X sensor to I2C pins according to default pins for your board.
+ * 2. Add `-D USERMOD_VL53L0X_GESTURES` to your compilación flags at platformio.ini (plaformio_override.ini) for needed environment.
  * In my case, for example: `build_flags = ${env.build_flags} -D USERMOD_VL53L0X_GESTURES`
- * 3. Add "pololu/VL53L0X" dependency below to `lib_deps` like this:
+ * 3. Add "pololu/VL53L0X" dependencia below to `lib_deps` like this:
  * lib_deps = ${env.lib_deps}
  *     pololu/VL53L0X @ ^1.3.0
  */
@@ -36,7 +36,7 @@
 
 class UsermodVL53L0XGestures : public Usermod {
   private:
-    //Private class members. You can declare variables and functions only accessible to your usermod here
+    //Privado clase members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     VL53L0X sensor;
     bool enabled = true;
@@ -86,7 +86,7 @@ class UsermodVL53L0XGestures : public Usermod {
               isLongMotion = true;
             }
 
-            // set brightness according to range
+            // set brillo according to rango
             bri = (VL53L0X_MAX_RANGE_MM - max(range, VL53L0X_MIN_RANGE_OFFSET)) * 255 / (VL53L0X_MAX_RANGE_MM - VL53L0X_MIN_RANGE_OFFSET);
             DEBUG_PRINTF("new brightness: %d", bri);
             stateUpdated(1);
@@ -104,7 +104,7 @@ class UsermodVL53L0XGestures : public Usermod {
     }
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -117,8 +117,8 @@ class UsermodVL53L0XGestures : public Usermod {
 //    }
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId()
     {

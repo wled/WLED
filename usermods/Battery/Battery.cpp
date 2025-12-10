@@ -20,15 +20,15 @@ class UsermodBattery : public Usermod
     UMBattery* bat = new UnkownUMBattery();
     batteryConfig cfg;
 
-    // Initial delay before first reading to allow voltage stabilization
+    // Initial retraso before first reading to allow voltage stabilization
     unsigned long initialDelay = USERMOD_BATTERY_INITIAL_DELAY;
     bool initialDelayComplete = false;
     bool isFirstVoltageReading = true;
-    // how often to read the battery voltage
+    // how often to leer the battery voltage
     unsigned long readingInterval = USERMOD_BATTERY_MEASUREMENT_INTERVAL;
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    // between 0 and 1, to control strength of voltage smoothing filter
+    // between 0 and 1, to control strength of voltage smoothing filtro
     float alpha = USERMOD_BATTERY_AVERAGING_ALPHA;
 
     // auto shutdown/shutoff/master off feature
@@ -50,7 +50,7 @@ class UsermodBattery : public Usermod
     bool initializing = true;
     bool HomeAssistantDiscovery = false;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _readInterval[];
     static const char _enabled[];
@@ -70,7 +70,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Helper for converting a string to lowercase
+     * Helper for converting a cadena to lowercase
      */
     String stringToLower(String str)
     {
@@ -113,15 +113,15 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * read the battery voltage in different ways depending on the architecture 
+     * leer the battery voltage in different ways depending on the arquitectura 
      */
     float readVoltage()
     {
       #ifdef ARDUINO_ARCH_ESP32
-        // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV default attentuation) and divide by 1000 to get from milivolts to volts and multiply by voltage multiplier and apply calibration value
+        // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV default attentuation) and divide by 1000 to get from milivolts to volts and multiply by voltage multiplier and apply calibration valor
         return (analogReadMilliVolts(batteryPin) / 1000.0f) * bat->getVoltageMultiplier()  + bat->getCalibration();
       #else
-        // use analog read on esp8266 ( 0V ~ 1V no attenuation options) and divide by ADC precision 1023 and multiply by voltage multiplier and apply calibration value
+        // use analog leer on esp8266 ( 0V ~ 1V no attenuation options) and divide by ADC precisión 1023 and multiply by voltage multiplier and apply calibration valor
         return (analogRead(batteryPin) / 1023.0f) * bat->getVoltageMultiplier() + bat->getCalibration();
       #endif
     }
@@ -179,19 +179,19 @@ class UsermodBattery : public Usermod
     //Functions called by WLED
 
     /**
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() 
     {
-      // plug in the right battery type
+      // plug in the right battery tipo
       if(cfg.type == (batteryType)lipo) {
         bat = new LipoUMBattery();
       } else if(cfg.type == (batteryType)lion) {
         bat = new LionUMBattery();
       }
 
-      // update the choosen battery type with configured values
+      // actualizar the choosen battery tipo with configured values
       bat->update(cfg);
 
       #ifdef ARDUINO_ARCH_ESP32
@@ -223,16 +223,16 @@ class UsermodBattery : public Usermod
 
     /**
      * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * Use it to inicializar red interfaces
      */
     void connected() 
     {
-      //Serial.println("Connected to WiFi!");
+      //Serie.println("Connected to WiFi!");
     }
 
 
     /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * bucle() is called continuously. Here you can verificar for events, leer sensors, etc.
      * 
      */
     void loop() 
@@ -241,26 +241,26 @@ class UsermodBattery : public Usermod
 
       lowPowerIndicator();
 
-      // Handling the initial delay
+      // Handling the initial retraso
       if (!initialDelayComplete && millis() < nextReadTime)
         return; // Continue to return until the initial delay is over
 
-      // Once the initial delay is over, set it as complete
+      // Once the initial retraso is over, set it as complete
       if (!initialDelayComplete)
         {
           initialDelayComplete = true;
-          // Set the regular interval after initial delay
+          // Set the regular intervalo after initial retraso
           nextReadTime = millis() + readingInterval;
         }
 
-      // Make the first voltage reading after the initial delay has elapsed
+      // Make the first voltage reading after the initial retraso has elapsed
       if (isFirstVoltageReading)
         {
           bat->setVoltage(readVoltage());
           isFirstVoltageReading = false;
         }
 
-      // check the battery level every USERMOD_BATTERY_MEASUREMENT_INTERVAL (ms)
+      // verificar the battery nivel every USERMOD_BATTERY_MEASUREMENT_INTERVAL (ms)
       if (millis() < nextReadTime) return;
 
       nextReadTime = millis() + readingInterval;
@@ -271,7 +271,7 @@ class UsermodBattery : public Usermod
       initializing = false;
       float rawValue = readVoltage();
 
-      // filter with exponential smoothing because ADC in esp32 is fluctuating too much for a good single readout
+      // filtro with exponential smoothing because ADC in esp32 is fluctuating too much for a good single readout
       float filteredVoltage = bat->getVoltage() + alpha * (rawValue - bat->getVoltage());
 
       bat->setVoltage(filteredVoltage);
@@ -290,9 +290,9 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-     * Below it is shown how this could be used for e.g. a light sensor
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+     * Crear un objeto "u" permite añadir pares clave/valor a la sección Información de la UI web de WLED.
+     * A continuación se muestra un ejemplo.
      */
     void addToJsonInfo(JsonObject& root)
     {
@@ -306,7 +306,7 @@ class UsermodBattery : public Usermod
         return;  // no GPIO - nothing to report
       }
 
-      // info modal display names
+      // información modal display names
       JsonArray infoPercentage = user.createNestedArray(F("Battery level"));
       JsonArray infoVoltage = user.createNestedArray(F("Battery voltage"));
       JsonArray infoNextUpdate = user.createNestedArray(F("Next update"));
@@ -382,8 +382,8 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void addToJsonState(JsonObject& root)
     {
@@ -399,57 +399,57 @@ class UsermodBattery : public Usermod
 
 
     /**
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     /*
     void readFromJsonState(JsonObject& root)
     {
-      if (!initDone) return;  // prevent crash on boot applyPreset()
+      if (!initDone) retorno;  // prevent bloqueo on boot applyPreset()
 
       JsonObject battery = root[FPSTR(_name)];
 
       if (!battery.isNull()) {
         getUsermodConfigFromJsonObject(battery);
       
-        DEBUG_PRINTLN(F("Battery state read from JSON API."));
+        DEBUG_PRINTLN(F("Battery estado leer from JSON API."));
       }
     }
     */
 
 
     /**
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
+     * If you want to force saving the current estado, use serializeConfig() in your bucle().
      * 
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
+     * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
      * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
+     * Use it sparingly and always in the bucle, never in red callbacks!
      * 
      * addToConfig() will make your settings editable through the Usermod Settings page automatically.
      *
      * Usermod Settings Overview:
      * - Numeric values are treated as floats in the browser.
-     *   - If the numeric value entered into the browser contains a decimal point, it will be parsed as a C float
-     *     before being returned to the Usermod.  The float data type has only 6-7 decimal digits of precision, and
-     *     doubles are not supported, numbers will be rounded to the nearest float value when being parsed.
-     *     The range accepted by the input field is +/- 1.175494351e-38 to +/- 3.402823466e+38.
-     *   - If the numeric value entered into the browser doesn't contain a decimal point, it will be parsed as a
-     *     C int32_t (range: -2147483648 to 2147483647) before being returned to the usermod.
-     *     Overflows or underflows are truncated to the max/min value for an int32_t, and again truncated to the type
-     *     used in the Usermod when reading the value from ArduinoJson.
-     * - Pin values can be treated differently from an integer value by using the key name "pin"
-     *   - "pin" can contain a single or array of integer values
+     *   - If the numeric valor entered into the browser contains a decimal point, it will be parsed as a C flotante
+     *     before being returned to the Usermod.  The flotante datos tipo has only 6-7 decimal digits of precisión, and
+     *     doubles are not supported, numbers will be rounded to the nearest flotante valor when being parsed.
+     *     The rango accepted by the entrada campo is +/- 1.175494351e-38 to +/- 3.402823466e+38.
+     *   - If the numeric valor entered into the browser doesn't contain a decimal point, it will be parsed as a
+     *     C int32_t (rango: -2147483648 to 2147483647) before being returned to the usermod.
+     *     Overflows or underflows are truncated to the max/min valor for an int32_t, and again truncated to the tipo
+     *     used in the Usermod when reading the valor from ArduinoJson.
+     * - Pin values can be treated differently from an entero valor by usando the key name "pin"
+     *   - "pin" can contain a single or matriz of entero values
      *   - On the Usermod Settings page there is simple checking for pin conflicts and warnings for special pins
-     *     - Red color indicates a conflict.  Yellow color indicates a pin with a warning (e.g. an input-only pin)
-     *   - Tip: use int8_t to store the pin value in the Usermod, so a -1 value (pin not set) can be used
+     *     - Red color indicates a conflicto.  Yellow color indicates a pin with a advertencia (e.g. an entrada-only pin)
+     *   - Tip: use int8_t to store the pin valor in the Usermod, so a -1 valor (pin not set) can be used
      *
      * See usermod_v2_auto_save.h for an example that saves Flash space by reusing ArduinoJson key name strings
      * 
      * If you need a dedicated settings page with custom layout for your Usermod, that takes a lot more work.  
-     * You will have to add the setting to the HTML, xml.cpp and set.cpp manually.
-     * See the WLED Soundreactive fork (code and wiki) for reference.  https://github.com/atuline/WLED
+     * You will have to add the setting to the HTML, XML.cpp and set.cpp manually.
+     * See the WLED Soundreactive bifurcación (código and wiki) for reference.  https://github.com/atuline/WLED
      * 
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -467,7 +467,7 @@ class UsermodBattery : public Usermod
       
       addBatteryToJsonObject(battery, false);
 
-      // read voltage in case calibration or voltage multiplier changed to see immediate effect
+      // leer voltage in case calibration or voltage multiplier changed to see immediate efecto
       bat->setVoltage(readVoltage());
 
       DEBUG_PRINTLN(F("Battery config saved."));
@@ -489,10 +489,10 @@ class UsermodBattery : public Usermod
       oappend(F("addInfo('Battery:indicator:threshold',1,'%');"));  // 46 Bytes
       oappend(F("addInfo('Battery:indicator:duration',1,'s');"));   // 45 Bytes
       
-      // this option list would exeed the oappend() buffer
-      // a list of all presets to select one from
+      // this option lista would exeed the oappend() búfer
+      // a lista of all presets to select one from
       // oappend(F("bd=addDropdown('Battery:low-power-indicator', 'preset');"));
-      // the loop generates: oappend(F("addOption(bd, 'preset name', preset id);"));
+      // the bucle generates: oappend(F("addOption(bd, 'preset name', preset id);"));
       // for(int8_t i=1; i < 42; i++) {
       //   oappend(F("addOption(bd, 'Preset#"));
       //   oappendi(i);
@@ -504,19 +504,19 @@ class UsermodBattery : public Usermod
 
 
     /**
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+     * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
      * This is called by WLED when settings are loaded (currently this only happens immediately after boot, or after saving on the Usermod Settings page)
      * 
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+     * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+     * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
      * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
      * 
-     * Return true in case the config values returned from Usermod Settings were complete, or false if you'd like WLED to save your defaults to disk (so any missing values are editable in Usermod Settings)
+     * Retorno verdadero in case the config values returned from Usermod Settings were complete, or falso if you'd like WLED to guardar your defaults to disk (so any missing values are editable in Usermod Settings)
      * 
-     * getJsonValue() returns false if the value is missing, or copies the value into the variable provided and returns true if the value is present
-     * The configComplete variable is true only if the "exampleUsermod" object and all values are present.  If any values are missing, WLED will know to call addToConfig() to save them
+     * getJsonValue() returns falso if the valor is missing, or copies the valor into the variable provided and returns verdadero if the valor is present
+     * The configComplete variable is verdadero only if the "exampleUsermod" object and all values are present.  If any values are missing, WLED will know to call addToConfig() to guardar them
      * 
-     * This function is guaranteed to be called on boot, but could also be called every time settings are updated
+     * This función is guaranteed to be called on boot, but could also be called every time settings are updated
      */
     bool readFromConfig(JsonObject& root)
     {
@@ -547,7 +547,7 @@ class UsermodBattery : public Usermod
       #ifdef ARDUINO_ARCH_ESP32
         if (!initDone) 
         {
-          // first run: reading from cfg.json
+          // first run: reading from cfg.JSON
           batteryPin = newBatteryPin;
           DEBUG_PRINTLN(F(" config loaded."));
         } 
@@ -591,13 +591,13 @@ class UsermodBattery : public Usermod
 
     /*
      *
-     * Getter and Setter. Just in case some other usermod wants to interact with this in the future
+     * Getter and Setter. Just in case some other usermod wants to interact with this in the futuro
      *
      */
 
     /**
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId()
     {
@@ -605,7 +605,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * get currently active battery type
+     * get currently active battery tipo
      */
     batteryType getBatteryType()
     {
@@ -665,7 +665,7 @@ class UsermodBattery : public Usermod
 
     /**
      * Get the calculated voltage
-     * formula: (adc pin value / adc precision * max voltage) + calibration
+     * formula: (adc pin valor / adc precisión * max voltage) + calibration
      */
     float getVoltage()
     {
@@ -673,8 +673,8 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Get the mapped battery level (0 - 100) based on voltage
-     * important: voltage can drop when a load is applied, so its only an estimate
+     * Get the mapped battery nivel (0 - 100) based on voltage
+     * important: voltage can drop when a carga is applied, so its only an estimate
      */
     int8_t getBatteryLevel()
     {
@@ -682,8 +682,8 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Get the configured calibration value
-     * a offset value to fine-tune the calculated voltage.
+     * Get the configured calibration valor
+     * a desplazamiento valor to fine-tune the calculated voltage.
      */
     float getCalibration()
     {
@@ -691,8 +691,8 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set the voltage calibration offset value
-     * a offset value to fine-tune the calculated voltage.
+     * Set the voltage calibration desplazamiento valor
+     * a desplazamiento valor to fine-tune the calculated voltage.
      */
     void setCalibration(float offset)
     {
@@ -700,7 +700,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set the voltage multiplier value
+     * Set the voltage multiplier valor
      * A multiplier that may need adjusting for different voltage divider setups
      */
     void setVoltageMultiplier(float multiplier)
@@ -709,7 +709,7 @@ class UsermodBattery : public Usermod
     }
 
     /*
-     * Get the voltage multiplier value
+     * Get the voltage multiplier valor
      * A multiplier that may need adjusting for different voltage divider setups
      */
     float getVoltageMultiplier()
@@ -718,8 +718,8 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Get auto-off feature enabled status
-     * is auto-off enabled, true/false
+     * Get auto-off feature enabled estado
+     * is auto-off enabled, verdadero/falso
      */
     bool getAutoOffEnabled()
     {
@@ -727,7 +727,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set auto-off feature status 
+     * Set auto-off feature estado 
      */
     void setAutoOffEnabled(bool enabled)
     {
@@ -735,7 +735,7 @@ class UsermodBattery : public Usermod
     }
     
     /**
-     * Get auto-off threshold in percent (0-100)
+     * Get auto-off umbral in percent (0-100)
      */
     int8_t getAutoOffThreshold()
     {
@@ -743,18 +743,18 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set auto-off threshold in percent (0-100) 
+     * Set auto-off umbral in percent (0-100) 
      */
     void setAutoOffThreshold(int8_t threshold)
     {
       autoOffThreshold = min((int8_t)100, max((int8_t)0, threshold));
-      // when low power indicator is enabled the auto-off threshold cannot be above indicator threshold
+      // when low power indicator is enabled the auto-off umbral cannot be above indicator umbral
       autoOffThreshold  = lowPowerIndicatorEnabled /*&& autoOffEnabled*/ ? min(lowPowerIndicatorThreshold-1, (int)autoOffThreshold) : autoOffThreshold;
     }
 
     /**
-     * Get low-power-indicator feature enabled status
-     * is the low-power-indicator enabled, true/false
+     * Get low-power-indicator feature enabled estado
+     * is the low-power-indicator enabled, verdadero/falso
      */
     bool getLowPowerIndicatorEnabled()
     {
@@ -762,7 +762,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set low-power-indicator feature status 
+     * Set low-power-indicator feature estado 
      */
     void setLowPowerIndicatorEnabled(bool enabled)
     {
@@ -782,13 +782,13 @@ class UsermodBattery : public Usermod
      */
     void setLowPowerIndicatorPreset(int8_t presetId)
     {
-      // String tmp = ""; For what ever reason this doesn't work :(
+      // Cadena tmp = ""; For what ever reason this doesn't work :(
       // lowPowerIndicatorPreset = getPresetName(presetId, tmp) ? presetId : lowPowerIndicatorPreset;
       lowPowerIndicatorPreset = presetId;
     }
 
     /*
-     * Get low-power-indicator threshold in percent (0-100)
+     * Get low-power-indicator umbral in percent (0-100)
      */
     int8_t getLowPowerIndicatorThreshold()
     {
@@ -796,17 +796,17 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set low-power-indicator threshold in percent (0-100)
+     * Set low-power-indicator umbral in percent (0-100)
      */
     void setLowPowerIndicatorThreshold(int8_t threshold)
     {
       lowPowerIndicatorThreshold = threshold;
-      // when auto-off is enabled the indicator threshold cannot be below auto-off threshold
+      // when auto-off is enabled the indicator umbral cannot be below auto-off umbral
       lowPowerIndicatorThreshold  = autoOffEnabled /*&& lowPowerIndicatorEnabled*/ ? max(autoOffThreshold+1, (int)lowPowerIndicatorThreshold) : max(5, (int)lowPowerIndicatorThreshold);
     }
 
     /**
-     * Get low-power-indicator duration in seconds
+     * Get low-power-indicator duración in seconds
      */
     int8_t getLowPowerIndicatorDuration()
     {
@@ -814,7 +814,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Set low-power-indicator duration in seconds
+     * Set low-power-indicator duración in seconds
      */
     void setLowPowerIndicatorDuration(int8_t duration)
     {
@@ -822,7 +822,7 @@ class UsermodBattery : public Usermod
     }
 
     /**
-     * Get low-power-indicator status when the indication is done this returns true
+     * Get low-power-indicator estado when the indication is done this returns verdadero
      */
     bool getLowPowerIndicatorDone()
     {
@@ -846,7 +846,7 @@ class UsermodBattery : public Usermod
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char UsermodBattery::_name[]          PROGMEM = "Battery";
 const char UsermodBattery::_readInterval[]  PROGMEM = "interval";
 const char UsermodBattery::_enabled[]       PROGMEM = "enabled";

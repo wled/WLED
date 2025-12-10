@@ -1,4 +1,4 @@
-// force the compiler to show a warning to confirm that this file is included
+// force the compiler to show a advertencia to confirm that this archivo is included
 #warning **** Included USERMOD_BME280 version 2.0 ****
 
 #include "wled.h"
@@ -14,8 +14,8 @@ class UsermodBME280 : public Usermod
 {
 private:
   
-  // NOTE: Do not implement any compile-time variables, anything the user needs to configure
-  // should be configurable from the Usermod menu using the methods below
+  // NOTE: Do not implement any compile-time variables, anything the usuario needs to configurar
+  // should be configurable from the Usermod menu usando the methods below
   // key settings set via usermod menu
   uint8_t  TemperatureDecimals = 0;  // Number of decimal places in published temperaure values
   uint8_t  HumidityDecimals = 0;    // Number of decimal places in published humidity values
@@ -28,7 +28,7 @@ private:
   bool HomeAssistantDiscovery = false;    // Publish Home Assistant Device Information
   bool enabled = true;
 
-  // set the default pins based on the architecture, these get overridden by Usermod menu settings
+  // set the default pins based on the arquitectura, these get overridden by Usermod menu settings
   #ifdef ESP8266
     //uint8_t RST_PIN = 16; // Un-comment for Heltec WiFi-Kit-8
   #endif
@@ -60,11 +60,11 @@ private:
   // MQTT topic strings for publishing Home Assistant discovery topics
   bool mqttInitialized = false;
 
-  // strings to reduce flash memory usage (used more than twice)
+  // strings to reduce flash memoria usage (used more than twice)
   static const char _name[];
   static const char _enabled[];
 
-  // Read the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Fahrenheit being set in Usermod Menu)
+  // Leer the BME280/BMP280 Sensor (which one runs depends on whether Celsius or Fahrenheit being set in Usermod Menu)
   void UpdateBME280Data(int SensorType)
   {
     float _temperature, _humidity, _pressure;
@@ -104,7 +104,7 @@ private:
     }
   }
 
-  // Procedure to define all MQTT discovery Topics 
+  // Procedimiento to definir all MQTT discovery Topics 
   void _mqttInitialize()
   {
     char mqttTemperatureTopic[128];
@@ -127,7 +127,7 @@ private:
     }
   }
 
-  // Create an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+  // Crear an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Bucle.
   void _createMqttSensor(const String &name, const String &topic, const String &deviceClass, const String &unitOfMeasurement)
   {
     String t = String(F("homeassistant/sensor/")) + mqttClientID + F("/") + name + F("/config");
@@ -159,7 +159,7 @@ private:
   }
 
     void publishMqtt(const char *topic, const char* state) {
-      //Check if MQTT Connected, otherwise it will crash the 8266
+      //Verificar if MQTT Connected, otherwise it will bloqueo the 8266
       if (WLED_MQTT_CONNECTED){
         char subuf[128];
         snprintf_P(subuf, 127, PSTR("%s/%s"), mqttDeviceTopic, topic);
@@ -220,10 +220,10 @@ public:
     if (!enabled || strip.isUpdating()) return;
 
     // BME280 sensor MQTT publishing
-    // Check if sensor present and Connected, otherwise it will crash the MCU
+    // Verificar if sensor present and Connected, otherwise it will bloqueo the MCU
     if (sensorType != 0)
     {
-      // Timer to fetch new temperature, humidity and pressure data at intervals
+      // Temporizador to obtener new temperature, humidity and pressure datos at intervals
       timer = millis();
 
       if (timer - lastTemperatureMeasure >= TemperatureInterval * 1000)
@@ -235,8 +235,8 @@ public:
         float temperature = roundf(sensorTemperature * powf(10, TemperatureDecimals)) / powf(10, TemperatureDecimals);
         float humidity, heatIndex, dewPoint;
 
-        // If temperature has changed since last measure, create string populated with device topic
-        // from the UI and values read from sensor, then publish to broker
+        // If temperature has changed since last measure, crear cadena populated with dispositivo topic
+        // from the UI and values leer from sensor, then publish to broker
         if (temperature != lastTemperature || PublishAlways)
         {
           publishMqtt("temperature", String(temperature, (unsigned) TemperatureDecimals).c_str());
@@ -297,7 +297,7 @@ public:
   }
 
     /*
-     * API calls te enable data exchange between WLED modules
+     * API calls te habilitar datos exchange between WLED modules
      */
     inline float getTemperatureC() {
       if (UseCelsius) {
@@ -355,7 +355,7 @@ public:
       }
     }
 
-  // Publish Sensor Information to Info Page
+  // Publish Sensor Information to Información Page
   void addToJsonInfo(JsonObject &root)
   {
     JsonObject user = root[F("u")];
@@ -363,7 +363,7 @@ public:
     
     if (sensorType==0) //No Sensor
     {
-      // if we sensor not detected, let the user know
+      // if we sensor not detected, let the usuario know
       JsonArray temperature_json = user.createNestedArray(F("BME/BMP280 Sensor"));
       temperature_json.add(F("Not Found"));
     }
@@ -397,7 +397,7 @@ public:
       return;
   }
 
-  // Save Usermod Config Settings
+  // Guardar Usermod Configuración Settings
   void addToConfig(JsonObject& root)
   {
     JsonObject top = root.createNestedObject(FPSTR(_name));
@@ -414,11 +414,11 @@ public:
     DEBUG_PRINTLN(F("BME280 config saved."));
   }
 
-  // Read Usermod Config Settings
+  // Leer Usermod Configuración Settings
   bool readFromConfig(JsonObject& root)
   {
-    // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+    // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
     JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) {
@@ -429,7 +429,7 @@ public:
     bool configComplete = !top.isNull();
 
     configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
-    // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
+    // A 3-argumento getJsonValue() assigns the 3rd argumento as a default valor if the JSON valor is missing
     uint8_t tmpI2cAddress;
     configComplete &= getJsonValue(top[F("I2CAddress")], tmpI2cAddress, 0x76);
     I2CAddress = static_cast<BME280I2C::I2CAddr>(tmpI2cAddress);
@@ -445,13 +445,13 @@ public:
 
     DEBUG_PRINT(FPSTR(_name));
     if (!initDone) {
-      // first run: reading from cfg.json
+      // first run: reading from cfg.JSON
       DEBUG_PRINTLN(F(" config loaded."));
     } else {
       // changing parameters from settings page
       DEBUG_PRINTLN(F(" config (re)loaded."));
 
-      // Reset all known values
+      // Restablecer all known values
       sensorType = 0;
       sensorTemperature = 0;
       sensorHumidity = 0;

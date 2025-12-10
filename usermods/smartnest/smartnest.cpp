@@ -62,7 +62,7 @@ private:
     char *token = NULL;
     int position = 0;
 
-    // We need to copy the string in order to keep it read only as strtok_r function requires mutable string
+    // We need to copy the cadena in order to keep it leer only as strtok_r función requires mutable cadena
     color_ = (char *)malloc(strlen(color) + 1);
     if (NULL == color_) {
       return -1;
@@ -85,8 +85,8 @@ public:
   // Functions called by WLED
 
   /**
-   * handling of MQTT message
-   * topic should look like: /<mqttClientID>/<Command>/<Message>
+   * Manejo de mensajes MQTT
+   * El topic debería tener la forma: /<mqttClientID>/<Command>/<Mensaje>
    */
   bool onMqttMessage(char *topic, char *message)
   {
@@ -126,7 +126,7 @@ public:
 
     if (subtopic == "color")
     {
-      // Parse the message which is in the format "rgb(<0-255>,<0-255>,<0-255>)"
+      // Analizar the mensaje which is in the formato "rgb(<0-255>,<0-255>,<0-255>)"
       int rgb[3] = {};
       String colors = message_.substring(String("rgb(").length(), message_.lastIndexOf(')'));
       if (3 != splitColor(colors.c_str(), rgb))
@@ -141,7 +141,7 @@ public:
   }
 
   /**
-   * subscribe to MQTT topic and send publish current status.
+   * Suscribirse a topics MQTT y publicar el estado actual.
    */
   void onMqttConnect(bool sessionPresent)
   {
@@ -163,8 +163,8 @@ public:
   }
 
   /**
-   * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-   * This could be used in the future for the system to determine whether your usermod is installed.
+   * `getId()` permite asignar opcionalmente un ID único a este usermod V2 (defínelo en `constante.h`).
+   * Esto puede usarse para que el sistema determine si el usermod está instalado.
    */
   uint16_t getId()
   {
@@ -172,30 +172,30 @@ public:
   }
 
   /**
-   * setup() is called once at startup to initialize the usermod.
+   * `configuración()` se llama una vez en el arranque para inicializar el usermod.
    */
   void setup() {
       DEBUG_PRINTF("Smartnest usermod setup initializing...");
       
-      // Publish initial status
+      // Publish initial estado
       sendToBroker("report/status", "Smartnest usermod initialized");
   }
 
   /**
-   * loop() is called continuously to keep the usermod running.
+   * `bucle()` se llama de forma continua para mantener el usermod en ejecución.
    */
   void loop() {
-    // Periodically report status to MQTT broker
+    // Periodically report estado to MQTT broker
     unsigned long currentMillis = millis();
     if (currentMillis - lastMqttReport >= mqttReportInterval) {
       lastMqttReport = currentMillis;
       
-      // Report current brightness
+      // Report current brillo
       char brightnessMsg[11];
       sprintf(brightnessMsg, "%u", bri);
       sendToBroker("report/brightness", brightnessMsg);
       
-      // Report current signal strength
+      // Report current señal strength
       String signal(WiFi.RSSI(), 10);
       sendToBroker("report/signal", signal.c_str());
     }

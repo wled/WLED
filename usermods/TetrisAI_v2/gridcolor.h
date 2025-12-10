@@ -1,6 +1,6 @@
 /******************************************************************************
-  * @file           : gridcolor.h
-  * @brief          : contains the tetris grid as 8bit indexed color version
+  * @archivo           : gridcolor.h
+  * @brief          : contains the tetris grid as 8bit indexed color versión
   ******************************************************************************
   * @attention
   *

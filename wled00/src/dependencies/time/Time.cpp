@@ -1,31 +1,31 @@
 /*
-  time.c - low level time and date functions
+  time.c - low nivel time and date functions
   Copyright (c) Michael Margolis 2009-2014
 
-  This library is free software; you can redistribute it and/or
-  modify it under the terms of the GNU Lesser General Public
+  This biblioteca is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Lesser General Público
   License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
+  versión 2.1 of the License, or (at your option) any later versión.
 
-  This library is distributed in the hope that it will be useful,
+  This biblioteca is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  Lesser General Public License for more details.
+  Lesser General Público License for more details.
 
-  You should have received a copy of the GNU Lesser General Public
-  License along with this library; if not, write to the Free Software
-  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+  You should have received a copy of the GNU Lesser General Público
+  License along with this biblioteca; if not, escribir to the Free Software
+  Foundation, Inc., 51 Franklin St, Fifth Piso, Boston, MA  02110-1301  USA
   
-  1.0  6  Jan 2010 - initial release
-  1.1  12 Feb 2010 - fixed leap year calculation error
+  1.0  6  Jan 2010 - initial lanzamiento
+  1.1  12 Feb 2010 - fixed leap year cálculo error
   1.2  1  Nov 2010 - fixed setTime bug (thanks to Korman for this)
-  1.3  24 Mar 2012 - many edits by Paul Stoffregen: fixed timeStatus() to update
-                     status, updated examples for Arduino 1.0, fixed ARM
+  1.3  24 Mar 2012 - many edits by Paul Stoffregen: fixed timeStatus() to actualizar
+                     estado, updated examples for Arduino 1.0, fixed ARM
                      compatibility issues, added TimeArduinoDue and TimeTeensy3
                      examples, add error checking and messages to RTC examples,
-                     add examples to DS1307RTC library.
+                     add examples to DS1307RTC biblioteca.
   1.4  5  Sep 2014 - compatibility with Arduino 1.5.7
-  2.0  25 May 2021 - removed timing code, only used for conversion between unix and time
+  2.0  25 May 2021 - removed timing código, only used for conversion between unix and time
 */
 
 #if ARDUINO >= 100
@@ -100,18 +100,18 @@ int year(time_t t) { // the year for the given time
 }
 
 /*============================================================================*/	
-/* functions to convert to and from system time */
+/* functions to convertir to and from sistema time */
 /* These are for interfacing with time services and are not normally needed in a sketch */
 
-// leap year calculator expects year argument as years offset from 1970
+// leap year calculator expects year argumento as years desplazamiento from 1970
 #define LEAP_YEAR(Y)     ( ((1970+Y)>0) && !((1970+Y)%4) && ( ((1970+Y)%100) || !((1970+Y)%400) ) )
 
 static  const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31}; // API starts months from 1, this array starts from 0
  
 void breakTime(time_t timeInput, tmElements_t &tm){
-// break the given time_t into time components
-// this is a more compact version of the C library localtime function
-// note that year is offset from 1970 !!!
+// ruptura the given time_t into time components
+// this is a more compact versión of the C biblioteca localtime función
+// note that year is desplazamiento from 1970 !!!
 
   uint8_t year;
   uint8_t month, monthLength;
@@ -163,8 +163,8 @@ void breakTime(time_t timeInput, tmElements_t &tm){
 
 time_t makeTime(tmElements_t &tm){   
 // assemble time elements into time_t 
-// note year argument is offset from 1970 (see macros in time.h to convert to other formats)
-// previous version used full four digit year (or digits since 2000),i.e. 2009 was 2009 or 9
+// note year argumento is desplazamiento from 1970 (see macros in time.h to convertir to other formats)
+// previous versión used full four digit year (or digits since 2000),i.e. 2009 was 2009 or 9
   
   int i;
   uint32_t seconds;
@@ -177,7 +177,7 @@ time_t makeTime(tmElements_t &tm){
     }
   }
   
-  // add days for this year, months start from 1
+  // add days for this year, months iniciar from 1
   for (i = 1; i < tm.Month; i++) {
     if ( (i == 2) && LEAP_YEAR(tm.Year)) { 
       seconds += SECS_PER_DAY * 29;

@@ -16,25 +16,25 @@ describe('Function', () => {
   const oldFilePath = path.join(testFolderPath, 'oldFile.txt');
   const newFilePath = path.join(testFolderPath, 'newFile.txt');
 
-  // Create a temporary file before the test
+  // Crear a temporary archivo before the test
   before(() => {
-    // Create test folder
+    // Crear test carpeta
     if (!fs.existsSync(testFolderPath)) {
       fs.mkdirSync(testFolderPath);
     }
 
-    // Create an old file
+    // Crear an old archivo
     fs.writeFileSync(oldFilePath, 'This is an old file.');
-    // Modify the 'mtime' to simulate an old file
+    // Modify the 'mtime' to simulate an old archivo
     const oldTime = new Date();
     oldTime.setFullYear(oldTime.getFullYear() - 1);
     fs.utimesSync(oldFilePath, oldTime, oldTime);
 
-    // Create a new file
+    // Crear a new archivo
     fs.writeFileSync(newFilePath, 'This is a new file.');
   });
 
-  // delete the temporary files after the test
+  // eliminar the temporary files after the test
   after(() => {
     fs.rmSync(testFolderPath, { recursive: true });
   });
@@ -95,7 +95,7 @@ describe('Script', () => {
     fs.renameSync("package.bak.json", "package.json");
   });
 
-  // delete all html_*.h files
+  // eliminar all html_*.h files
   async function deleteBuiltFiles() {
     const files = await fs.promises.readdir(folderPath);
     await Promise.all(files.map(file => {
@@ -105,7 +105,7 @@ describe('Script', () => {
     }));
   }
 
-  // check if html_*.h files were created
+  // verificar if html_*.h files were created
   async function checkIfBuiltFilesExist() {
     const files = await fs.promises.readdir(folderPath);
     const htmlFiles = files.filter(file => file.startsWith('html_') && path.extname(file) === '.h');
@@ -126,9 +126,9 @@ describe('Script', () => {
     // run cdata.js to ensure html_*.h files are created
     await execPromise('node tools/cdata.js');
 
-    // modify file
+    // modify archivo
     fs.appendFileSync(sourceFilePath, ' ');
-    // delay for 1 second to ensure the modified time is different
+    // retraso for 1 second to ensure the modified time is different
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     // run script cdata.js again and wait for it to finish
@@ -147,7 +147,7 @@ describe('Script', () => {
       // run script cdata.js and wait for it to finish
       await execPromise('node tools/cdata.js');
 
-      // delete a random html_*.h file
+      // eliminar a random html_*.h archivo
       let files = await fs.promises.readdir(folderPath);
       let htmlFiles = files.filter(file => file.startsWith('html_') && path.extname(file) === '.h');
       const randomFile = htmlFiles[Math.floor(Math.random() * htmlFiles.length)];
@@ -205,7 +205,7 @@ describe('Script', () => {
       await execPromise('node tools/cdata.js');
       const secondRunTime = Date.now() - startTime;
 
-      // check if second run was faster than the first (must be at least 2x faster)
+      // verificar if second run was faster than the first (must be at least 2x faster)
       assert(secondRunTime < firstRunTime / 2, 'html_*.h files were rebuilt');
     });
   });

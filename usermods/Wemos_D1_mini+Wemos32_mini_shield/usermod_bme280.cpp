@@ -8,7 +8,7 @@ void UpdateBME280Data();
 
 #define Celsius // Show temperature measurement in Celsius otherwise is in Fahrenheit 
 BME280I2C bme;    // Default : forced mode, standby time = 1000 ms
-                  // Oversampling = pressure ×1, temperature ×1, humidity ×1, filter off,
+                  // Oversampling = pressure ×1, temperature ×1, humidity ×1, filtro off,
 
 #ifdef ARDUINO_ARCH_ESP32 //ESP32 boards
 uint8_t SCL_PIN = 22;
@@ -23,22 +23,22 @@ uint8_t SDA_PIN = 4;
 //ESP8266 Wemos D1 mini board use SCL=5 SDA=4 while ESP32 Wemos32 mini board use SCL=22 SDA=21
 #define U8X8_PIN_SCL SCL_PIN
 #define U8X8_PIN_SDA SDA_PIN
-//#define U8X8_PIN_RESET RST_PIN // Un-comment for Heltec WiFi-Kit-8
+//#definir U8X8_PIN_RESET RST_PIN // Un-comment for Heltec WiFi-Kit-8
 
-// If display does not work or looks corrupted check the
+// If display does not work or looks corrupted verificar the
 // constructor reference:
 // https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-// or check the gallery:
+// or verificar the gallery:
 // https://github.com/olikraus/u8g2/wiki/gallery
 // --> First choice of cheap I2C OLED 128X32 0.91"
 U8X8_SSD1306_128X32_UNIVISION_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
 // --> Second choice of cheap I2C OLED 128X64 0.96" or 1.3"
-//U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Reset, SCL, SDA
+//U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(U8X8_PIN_NONE, U8X8_PIN_SCL, U8X8_PIN_SDA); // Pins are Restablecer, SCL, SDA
 // --> Third choice of Heltec WiFi-Kit-8 OLED 128X32 0.91"
 //U8X8_SSD1306_128X32_UNIVISION_HW_I2C u8x8(U8X8_PIN_RESET, U8X8_PIN_SCL, U8X8_PIN_SDA); // Constructor for Heltec WiFi-Kit-8
-// gets called once at boot. Do all initialization that doesn't depend on network here
+// gets called once at boot. Do all initialization that doesn't depend on red here
 
-// BME280 sensor timer
+// BME280 sensor temporizador
 long tempTimer = millis();
 long lastMeasure = 0;
 
@@ -73,7 +73,7 @@ switch(bme.chipModel())
   }
 }
 
-// gets called every time WiFi is (re-)connected. Initialize own network
+// gets called every time WiFi is (re-)connected. Inicializar own red
 // interfaces here
 void userConnected() {}
 
@@ -98,13 +98,13 @@ void userLoop() {
 
 // BME280 sensor MQTT publishing
   tempTimer = millis();  
-// Timer to publish new sensor data every 60 seconds
+// Temporizador to publish new sensor datos every 60 seconds
   if (tempTimer - lastMeasure > 60000) 
   {
     lastMeasure = tempTimer;    
 
 #ifndef WLED_DISABLE_MQTT
-// Check if MQTT Connected, otherwise it will crash the 8266
+// Verificar if MQTT Connected, otherwise it will bloqueo the 8266
     if (mqtt != nullptr)
     {
       UpdateBME280Data();
@@ -112,7 +112,7 @@ void userLoop() {
       float board_pressure = SensorPressure;
       float board_humidity = SensorHumidity;
 
-// Create string populated with user defined device topic from the UI, and the read temperature, humidity and pressure. Then publish to MQTT server.
+// Crear cadena populated with usuario defined dispositivo topic from the UI, and the leer temperature, humidity and pressure. Then publish to MQTT servidor.
       String t = String(mqttDeviceTopic);
       t += "/temperature";
       mqtt->publish(t.c_str(), 0, true, String(board_temperature).c_str());
@@ -126,7 +126,7 @@ void userLoop() {
   #endif
   }
 
-  // Check if we time interval for redrawing passes.
+  // Verificar if we time intervalo for redrawing passes.
   if (millis() - lastUpdate < USER_LOOP_REFRESH_RATE_MS) {
     return;
   }
@@ -138,7 +138,7 @@ void userLoop() {
     displayTurnedOff = true;
   }
 
-  // Check if values which are shown on display changed from the last time.
+  // Verificar if values which are shown on display changed from the last time.
   if (((apActive) ? String(apSSID) : WiFi.SSID()) != knownSsid) {
     needRedraw = true;
   } else if (knownIp != (apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP())) {
@@ -163,7 +163,7 @@ void userLoop() {
   }
   lastRedraw = millis();
 
-  // Update last known values.
+  // Actualizar last known values.
   #if defined(ESP8266)
   knownSsid = apActive ? WiFi.softAPSSID() : WiFi.SSID();
   #else
@@ -176,16 +176,16 @@ void userLoop() {
   u8x8.clear();
   u8x8.setFont(u8x8_font_chroma48medium8_r);
 
-  // First row with Wifi name
+  // First row with WiFi name
   u8x8.setCursor(1, 0);
   u8x8.print(knownSsid.substring(0, u8x8.getCols() > 1 ? u8x8.getCols() - 2 : 0));
-  // Print `~` char to indicate that SSID is longer, than our display
+  // Imprimir `~` char to indicate that SSID is longer, than our display
   if (knownSsid.length() > u8x8.getCols())
     u8x8.print("~");
 
   // Second row with IP or Password
   u8x8.setCursor(1, 1);
-  // Print password in AP mode and if led is OFF.
+  // Imprimir password in AP mode and if LED is OFF.
   if (apActive && bri == 0)
     u8x8.print(apPass);
   else

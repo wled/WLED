@@ -2,7 +2,7 @@ function drawBoxes(inputPixelArray, widthPixels, heightPixels) {
  
     var w = window;
 
-    // Get the canvas context
+    // Get the canvas contexto
     var ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     // Set the width and height of the canvas
@@ -25,28 +25,28 @@ function drawBoxes(inputPixelArray, widthPixels, heightPixels) {
     for (let y = 0; y < heightPixels; y++) {
         for (let x = 0; x < widthPixels; x++) {
 
-            // Calculate the index of the current pixel
+            // Calculate the índice of the current píxel
             let i = (y*widthPixels) + x;
             
-            //Gets the RGB of the current pixel
+            //Gets the RGB of the current píxel
             let pixel = inputPixelArray[i];
 
             let pixelColor = 'rgb(' + pixel[0] + ', ' + pixel[1] + ', ' + pixel[2] + ')';
 
             let textColor = 'rgb(128,128,128)';
 
-            // Set the fill style to the pixel color
+            // Set the fill style to the píxel color
             ctx.fillStyle = pixelColor;
 
-            //Draw the rectangle
+            //Dibujar the rectangle
             ctx.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
 
-            // Draw a border on the box
+            // Dibujar a border on the box
             ctx.strokeStyle = '#888888';
             ctx.lineWidth = 1;
             ctx.strokeRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
 
-            //Write text to box
+            //Escribir texto to box
             ctx.font = "10px Arial";
             ctx.fillStyle = textColor;
             ctx.textAlign = "center";

@@ -2,14 +2,14 @@
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
+ * See: https://github.com/WLED-dev/WLED/wiki/Add-own-functionality
  * 
- * This usermod can be used to drive a wordclock with a 11x10 pixel matrix with WLED. There are also 4 additional dots for the minutes. 
+ * This usermod can be used to drive a wordclock with a 11x10 píxel matrix with WLED. There are also 4 additional dots for the minutes. 
  * The visualisation is described in 4 mask with LED numbers (single dots for minutes, minutes, hours and "clock/Uhr").
  * There are 2 parameters to change the behaviour:
  * 
- * active: enable/disable usermod
- * diplayItIs: enable/disable display of "Es ist" on the clock.
+ * active: habilitar/deshabilitar usermod
+ * diplayItIs: habilitar/deshabilitar display of "Es ist" on the clock.
  */
 
 class WordClockUsermod : public Usermod 
@@ -18,7 +18,7 @@ class WordClockUsermod : public Usermod
     unsigned long lastTime = 0;
     int lastTimeMinutes = -1;
 
-    // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)
+    // set your config variables to their boot default valor (this can also be done in readFromConfig() or a constructor if you prefer)
     bool usermodActive = false;
     bool displayItIs = false;
     int ledOffset = 100;
@@ -116,7 +116,7 @@ class WordClockUsermod : public Usermod
     // mask minute dots
     const int maskMinuteDots[maskSizeMinuteDots] = {110, 111, 112, 113};
 
-    // overall mask to define which LEDs are on
+    // overall mask to definir which LEDs are on
     int maskLedsOn[maskSizeLeds] = 
     {
       0,0,0,0,0,0,0,0,0,0,0,
@@ -132,13 +132,13 @@ class WordClockUsermod : public Usermod
       0,0,0,0
     };
 
-    // update led mask
+    // actualizar LED mask
     void updateLedMask(const int wordMask[], int arraySize)
     {
-      // loop over array
+      // bucle over matriz
       for (int x=0; x < arraySize; x++) 
       {
-        // check if mask has a valid LED number
+        // verificar if mask has a valid LED number
         if (wordMask[x] >= 0 && wordMask[x] < maskSizeLeds)
         {
           // turn LED on
@@ -158,7 +158,7 @@ class WordClockUsermod : public Usermod
         index = 12;
       }
 
-      // check if we get an overrun of 12 o´clock
+      // verificar if we get an overrun of 12 o´clock
       if (hours == 13)
       {
         index = 1;
@@ -170,7 +170,7 @@ class WordClockUsermod : public Usermod
         index = 0;
       }
 
-      // update led mask
+      // actualizar LED mask
       if (meander)
       {
         updateLedMask(maskHoursMea[index], maskSizeHoursMea);
@@ -182,7 +182,7 @@ class WordClockUsermod : public Usermod
     // set minutes
     void setMinutes(int index)
     {
-      // update led mask
+      // actualizar LED mask
       if (meander)
       {
         updateLedMask(maskMinutesMea[index], maskSizeMinutesMea);
@@ -197,7 +197,7 @@ class WordClockUsermod : public Usermod
       // modulo to get minute dots
       int minutesDotCount = minutes % 5;
 
-      // check if minute dots are active
+      // verificar if minute dots are active
       if (minutesDotCount > 0)
       {
         // activate all minute dots until number is reached
@@ -209,10 +209,10 @@ class WordClockUsermod : public Usermod
       }
     }
 
-    // update the display
+    // actualizar the display
     void updateDisplay(uint8_t hours, uint8_t minutes) 
     {
-      // disable complete matrix at the bigging
+      // deshabilitar complete matrix at the bigging
       for (int x = 0; x < maskSizeLeds; x++)
       {
         maskLedsOn[x] = 0;
@@ -227,7 +227,7 @@ class WordClockUsermod : public Usermod
       // set single minute dots
       setSingleMinuteDots(minutes);
 
-      // switch minutes
+      // conmutador minutes
       switch (minutes / 5) 
       {
         case 0:
@@ -309,27 +309,27 @@ class WordClockUsermod : public Usermod
     //Functions called by WLED
 
     /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() 
     {
     }
 
     /*
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     void connected() 
     {
     }
-
-    /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
-     * 
-     * Tips:
-     * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-     *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
+  /*
+   * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
+   *
+   * Consejos:
+   * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+   *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
+   */
      * 
      * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
      *    Instead, use a timer check as shown here.
@@ -339,27 +339,27 @@ class WordClockUsermod : public Usermod
       // do it every 5 seconds
       if (millis() - lastTime > 5000) 
       {
-        // check the time
+        // verificar the time
         int minutes = minute(localTime);
 
-        // check if we already updated this minute
+        // verificar if we already updated this minute
         if (lastTimeMinutes != minutes)
         {
-          // update the display with new time
+          // actualizar the display with new time
           updateDisplay(hourFormat12(localTime), minute(localTime));
 
-          // remember last update time
+          // remember last actualizar time
           lastTimeMinutes = minutes;
         }
 
-        // remember last update
+        // remember last actualizar
         lastTime = millis();
       }
     }
 
     /*
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+     * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+     * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
      * Below it is shown how this could be used for e.g. a light sensor
      */
     /*
@@ -369,53 +369,53 @@ class WordClockUsermod : public Usermod
     */
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void addToJsonState(JsonObject& root)
     {
     }
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root)
     {
     }
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
+     * If you want to force saving the current estado, use serializeConfig() in your bucle().
      * 
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
+     * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
      * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
+     * Use it sparingly and always in the bucle, never in red callbacks!
      * 
      * addToConfig() will make your settings editable through the Usermod Settings page automatically.
      *
      * Usermod Settings Overview:
      * - Numeric values are treated as floats in the browser.
-     *   - If the numeric value entered into the browser contains a decimal point, it will be parsed as a C float
-     *     before being returned to the Usermod.  The float data type has only 6-7 decimal digits of precision, and
-     *     doubles are not supported, numbers will be rounded to the nearest float value when being parsed.
-     *     The range accepted by the input field is +/- 1.175494351e-38 to +/- 3.402823466e+38.
-     *   - If the numeric value entered into the browser doesn't contain a decimal point, it will be parsed as a
-     *     C int32_t (range: -2147483648 to 2147483647) before being returned to the usermod.
-     *     Overflows or underflows are truncated to the max/min value for an int32_t, and again truncated to the type
-     *     used in the Usermod when reading the value from ArduinoJson.
-     * - Pin values can be treated differently from an integer value by using the key name "pin"
-     *   - "pin" can contain a single or array of integer values
+     *   - If the numeric valor entered into the browser contains a decimal point, it will be parsed as a C flotante
+     *     before being returned to the Usermod.  The flotante datos tipo has only 6-7 decimal digits of precisión, and
+     *     doubles are not supported, numbers will be rounded to the nearest flotante valor when being parsed.
+     *     The rango accepted by the entrada campo is +/- 1.175494351e-38 to +/- 3.402823466e+38.
+     *   - If the numeric valor entered into the browser doesn't contain a decimal point, it will be parsed as a
+     *     C int32_t (rango: -2147483648 to 2147483647) before being returned to the usermod.
+     *     Overflows or underflows are truncated to the max/min valor for an int32_t, and again truncated to the tipo
+     *     used in the Usermod when reading the valor from ArduinoJson.
+     * - Pin values can be treated differently from an entero valor by usando the key name "pin"
+     *   - "pin" can contain a single or matriz of entero values
      *   - On the Usermod Settings page there is simple checking for pin conflicts and warnings for special pins
-     *     - Red color indicates a conflict.  Yellow color indicates a pin with a warning (e.g. an input-only pin)
-     *   - Tip: use int8_t to store the pin value in the Usermod, so a -1 value (pin not set) can be used
+     *     - Red color indicates a conflicto.  Yellow color indicates a pin with a advertencia (e.g. an entrada-only pin)
+     *   - Tip: use int8_t to store the pin valor in the Usermod, so a -1 valor (pin not set) can be used
      *
      * See usermod_v2_auto_save.h for an example that saves Flash space by reusing ArduinoJson key name strings
      * 
      * If you need a dedicated settings page with custom layout for your Usermod, that takes a lot more work.  
-     * You will have to add the setting to the HTML, xml.cpp and set.cpp manually.
-     * See the WLED Soundreactive fork (code and wiki) for reference.  https://github.com/atuline/WLED
+     * You will have to add the setting to the HTML, XML.cpp and set.cpp manually.
+     * See the WLED Soundreactive bifurcación (código and wiki) for reference.  https://github.com/atuline/WLED
      * 
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -436,24 +436,24 @@ class WordClockUsermod : public Usermod
     }
 
     /*
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+     * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
      * This is called by WLED when settings are loaded (currently this only happens immediately after boot, or after saving on the Usermod Settings page)
      * 
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+     * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+     * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
      * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
      * 
-     * Return true in case the config values returned from Usermod Settings were complete, or false if you'd like WLED to save your defaults to disk (so any missing values are editable in Usermod Settings)
+     * Retorno verdadero in case the config values returned from Usermod Settings were complete, or falso if you'd like WLED to guardar your defaults to disk (so any missing values are editable in Usermod Settings)
      * 
-     * getJsonValue() returns false if the value is missing, or copies the value into the variable provided and returns true if the value is present
-     * The configComplete variable is true only if the "exampleUsermod" object and all values are present.  If any values are missing, WLED will know to call addToConfig() to save them
+     * getJsonValue() returns falso if the valor is missing, or copies the valor into the variable provided and returns verdadero if the valor is present
+     * The configComplete variable is verdadero only if the "exampleUsermod" object and all values are present.  If any values are missing, WLED will know to call addToConfig() to guardar them
      * 
-     * This function is guaranteed to be called on boot, but could also be called every time settings are updated
+     * This función is guaranteed to be called on boot, but could also be called every time settings are updated
      */
     bool readFromConfig(JsonObject& root)
     {
-      // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+      // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
       JsonObject top = root[F("WordClockUsermod")];
 
@@ -469,22 +469,22 @@ class WordClockUsermod : public Usermod
     }
 
     /*
-     * handleOverlayDraw() is called just before every show() (LED strip update frame) after effects have set the colors.
-     * Use this to blank out some LEDs or set them to a different color regardless of the set effect mode.
-     * Commonly used for custom clocks (Cronixie, 7 segment)
+     * handleOverlayDraw() is called just before every show() (LED tira actualizar frame) after effects have set the colors.
+     * Use this to blank out some LEDs or set them to a different color regardless of the set efecto mode.
+     * Commonly used for custom clocks (Cronixie, 7 segmento)
      */
     void handleOverlayDraw()
     {
-      // check if usermod is active
+      // verificar if usermod is active
       if (usermodActive == true)
       {
-        // loop over all leds
+        // bucle over all leds
         for (int x = 0; x < maskSizeLeds; x++)
         {
-          // check mask
+          // verificar mask
           if (maskLedsOn[x] == 0)
           {
-            // set pixel off
+            // set píxel off
             strip.setPixelColor(x + ledOffset, RGBW32(0,0,0,0));
           }
         }
@@ -492,16 +492,16 @@ class WordClockUsermod : public Usermod
     }
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId()
     {
       return USERMOD_ID_WORDCLOCK;
     }
 
-   //More methods can be added in the future, this example will then be extended.
-   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
+   //More methods can be added in the futuro, this example will then be extended.
+   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base clase!
 };
 
 static WordClockUsermod usermod_v2_word_clock;

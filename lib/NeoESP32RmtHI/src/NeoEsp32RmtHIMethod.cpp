@@ -1,30 +1,30 @@
 /*-------------------------------------------------------------------------
-NeoPixel library helper functions for Esp32.
+NeoPixel biblioteca helper functions for Esp32.
 
-A BIG thanks to Andreas Merkle for the investigation and implementation of
-a workaround to the GCC bug that drops method attributes from template methods
+A BIG thanks to Andreas Merkle for the investigation and implementación of
+a workaround to the GCC bug that drops método attributes from plantilla methods
 
 Written by Michael C. Miller.
 
-I invest time and resources providing this open source code,
+I invest time and resources providing this open source código,
 please support me by donating (see https://github.com/Makuna/NeoPixelBus)
 
 -------------------------------------------------------------------------
-This file is part of the Makuna/NeoPixelBus library.
+This archivo is part of the Makuna/NeoPixelBus biblioteca.
 
 NeoPixelBus is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as
-published by the Free Software Foundation, either version 3 of
-the License, or (at your option) any later version.
+it under the terms of the GNU Lesser General Público License as
+published by the Free Software Foundation, either versión 3 of
+the License, or (at your option) any later versión.
 
 NeoPixelBus is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
+GNU Lesser General Público License for more details.
 
-You should have received a copy of the GNU Lesser General Public
+You should have received a copy of the GNU Lesser General Público
 License along with NeoPixel.  If not, see
-<http://www.gnu.org/licenses/>.
+<HTTP://www.gnu.org/licenses/>.
 -------------------------------------------------------------------------*/
 
 #include <Arduino.h>
@@ -49,14 +49,14 @@ License along with NeoPixel.  If not, see
 #include "soc/rmt_struct.h"
 
 // Selected RMT API functions borrowed from ESP-IDF v4.4.8
-// components/hal/esp32/include/hal/rmt_ll.h
+// components/hal/esp32/incluir/hal/rmt_ll.h
 // Copyright 2019 Espressif Systems (Shanghai) PTE LTD
 //
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
+// Licensed under the Apache License, Versión 2.0 (the "License");
+// you may not use this archivo except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//     HTTP://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -170,28 +170,28 @@ static inline uint32_t rmt_ll_get_tx_thres_interrupt_status(rmt_dev_t *dev)
 
 
 // *********************************
-// Select method for binding interrupt
+// Select método for binding interrupción
 //
-// - If the Bluetooth driver has registered a high-level interrupt, piggyback on that API
-// - If we're on a modern core, allocate the interrupt with the API (old cores are bugged)
-// - Otherwise use the low-level hardware API to manually bind the interrupt
+// - If the Bluetooth controlador has registered a high-nivel interrupción, piggyback on that API
+// - If we're on a modern core, allocate the interrupción with the API (old cores are bugged)
+// - Otherwise use the low-nivel hardware API to manually bind the interrupción
 
 
 #if defined(CONFIG_BTDM_CTRL_HLI)
-// Espressif's bluetooth driver offers a helpful sharing layer; bring in the interrupt management calls
+// Espressif's bluetooth controlador offers a helpful sharing capa; bring in the interrupción management calls
 #include "hal/interrupt_controller_hal.h"
 extern "C" esp_err_t hli_intr_register(intr_handler_t handler, void* arg, uint32_t intr_reg, uint32_t intr_mask);
 
 #else /* !CONFIG_BTDM_CTRL_HLI*/
 
-// Declare the our high-priority ISR handler
+// Declare the our high-priority ISR manejador
 extern "C" void ld_include_hli_vectors_rmt();   // an object with an address, but no space
 
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "soc/periph_defs.h"
 #endif
 
-// Select level flag
+// Select nivel bandera
 #if defined(__riscv)
 // RISCV chips don't block interrupts while scheduling; all we need to do is be higher than the WiFi ISR
 #define INT_LEVEL_FLAG ESP_INTR_FLAG_LEVEL3
@@ -201,8 +201,8 @@ extern "C" void ld_include_hli_vectors_rmt();   // an object with an address, bu
 #define INT_LEVEL_FLAG ESP_INTR_FLAG_LEVEL5
 #endif
 
-// ESP-IDF v3 cannot enable high priority interrupts through the API at all;
-// and ESP-IDF v4 on XTensa cannot enable Level 5 due to incorrect interrupt descriptor tables
+// ESP-IDF v3 cannot habilitar high priority interrupts through the API at all;
+// and ESP-IDF v4 on XTensa cannot habilitar Nivel 5 due to incorrect interrupción descriptor tables
 #if !defined(__XTENSA__) || (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)) || ((ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0) && CONFIG_ESP_SYSTEM_CHECK_INT_LEVEL_5))
 #define NEOESP32_RMT_CAN_USE_INTR_ALLOC
 
@@ -217,14 +217,14 @@ extern "C" void ld_include_hli_vectors_rmt();   // an object with an address, bu
 
 #else
 /* !CONFIG_BTDM_CTRL_HLI && !NEOESP32_RMT_CAN_USE_INTR_ALLOC */
-// This is the index of the LV5 interrupt vector - see interrupt descriptor table in idf components/hal/esp32/interrupt_descriptor_table.c
+// This is the índice of the LV5 interrupción vector - see interrupción descriptor table in idf components/hal/esp32/interrupt_descriptor_table.c
 #define ESP32_LV5_IRQ_INDEX 26
 
 #endif  /* NEOESP32_RMT_CAN_USE_INTR_ALLOC */
 #endif  /* CONFIG_BTDM_CTRL_HLI */
 
 
-// RMT driver implementation
+// RMT controlador implementación
 struct NeoEsp32RmtHIChannelState {
     uint32_t rmtBit0, rmtBit1;
     uint32_t resetDuration;
@@ -243,8 +243,8 @@ static intr_handle_t isrHandle = nullptr;
 static NeoEsp32RmtHIChannelState** driverState = nullptr;
 constexpr size_t rmtBatchSize =  RMT_MEM_ITEM_NUM / 2;
 
-// Fill the RMT buffer memory
-// This is implemented using many arguments instead of passing the structure object to ensure we do only one lookup
+// Fill the RMT búfer memoria
+// This is implemented usando many arguments instead of passing the structure object to ensure we do only one lookup
 // All the arguments are passed in registers, so they don't need to be looked up again
 static void IRAM_ATTR RmtFillBuffer(uint8_t channel, const byte** src_ptr, const byte* end, uint32_t bit0, uint32_t bit1, size_t* offset_ptr, size_t reserve) {
     // We assume that (rmtToWrite % 8) == 0
@@ -275,19 +275,19 @@ static void IRAM_ATTR RmtFillBuffer(uint8_t channel, const byte** src_ptr, const
     }
 
     if (rmtToWrite > 0) {
-        // Add end event
+        // Add end evento
         rmt_item32_t bit0_val = {{.val = bit0 }};
         *dest = rmt_item32_t {{{ .duration0 = 0, .level0 = bit0_val.level1, .duration1 = 0, .level1 = bit0_val.level1 }}};
     }
 }
 
 static void IRAM_ATTR RmtStartWrite(uint8_t channel, NeoEsp32RmtHIChannelState& state) {
-    // Reset context state
+    // Restablecer contexto estado
     state.rmtOffset = 0;
 
-    // Fill the first part of the buffer with a reset event
-    // FUTURE: we could do timing analysis with the last interrupt on this channel
-    // Use 8 words to stay aligned with the buffer fill logic
+    // Fill the first part of the búfer with a restablecer evento
+    // FUTURO: we could do timing análisis with the last interrupción on this channel
+    // Use 8 words to stay aligned with the búfer fill logic
     rmt_item32_t bit0_val = {{.val = state.rmtBit0 }};
     rmt_item32_t fill = {{{ .duration0 = 100, .level0 = bit0_val.level1, .duration1 = 100, .level1 = bit0_val.level1 }}};
     rmt_item32_t* dest = (rmt_item32_t*) &RMTMEM.chan[channel].data32[0];
@@ -295,18 +295,18 @@ static void IRAM_ATTR RmtStartWrite(uint8_t channel, NeoEsp32RmtHIChannelState& 
     fill.duration1 = state.resetDuration > 1400 ? (state.resetDuration - 1400) : 100;
     dest[7] = fill;
 
-    // Fill the remaining buffer with real data
+    // Fill the remaining búfer with real datos
     RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 8);
     RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0);
 
-    // Start operation
+    // Iniciar operation
     rmt_ll_clear_tx_thres_interrupt(&RMT, channel);
     rmt_ll_tx_reset_pointer(&RMT, channel);
     rmt_ll_tx_start(&RMT, channel);
 }
 
 extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
-    // Tx threshold interrupt
+    // Tx umbral interrupción
     uint32_t status = rmt_ll_get_tx_thres_interrupt_status(&RMT);
     while (status) {
         uint8_t channel = __builtin_ffs(status) - 1;                
@@ -315,7 +315,7 @@ extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
             NeoEsp32RmtHIChannelState& state = *driverState[channel];
             RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0);
         } else {
-            // Danger - another driver got invoked?
+            // Danger - another controlador got invoked?
             rmt_ll_tx_stop(&RMT, channel);
         }
         rmt_ll_clear_tx_thres_interrupt(&RMT, channel);
@@ -323,8 +323,8 @@ extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
     }
 };
 
-// Wrapper around the register analysis defines
-// For all currently supported chips, this is constant for all channels; but this is not true of *all* ESP32
+// Wrapper around the register análisis defines
+// For all currently supported chips, this is constante for all channels; but this is not verdadero of *all* ESP32
 static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t status) {
     uint32_t v;
     switch(channel) {
@@ -360,7 +360,7 @@ static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t stat
 
 
 esp_err_t NeoEsp32RmtHiMethodDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t reset) {
-    // Validate channel number
+    // Validar channel number
     if (channel >= RMT_CHANNEL_MAX) {
         return ESP_ERR_INVALID_ARG;
     }
@@ -375,21 +375,21 @@ esp_err_t NeoEsp32RmtHiMethodDriver::Install(rmt_channel_t channel, uint32_t rmt
         RMT.int_ena.val = 0;
         RMT.int_clr.val = 0xFFFFFFFF;
 
-        // Bind interrupt handler
+        // Bind interrupción manejador
 #if defined(CONFIG_BTDM_CTRL_HLI)
-        // Bluetooth driver has taken the empty high-priority interrupt.  Fortunately, it allows us to
-        // hook up another handler.
+        // Bluetooth controlador has taken the empty high-priority interrupción.  Fortunately, it allows us to
+        // hook up another manejador.
         err = hli_intr_register(NeoEsp32RmtMethodIsr, nullptr, (uintptr_t) &RMT.int_st, 0xFF000000);
         // 25 is the magic number of the bluetooth ISR on ESP32 - see soc/soc.h.
         intr_matrix_set(cpu_hal_get_core_id(), ETS_RMT_INTR_SOURCE, 25);
         intr_cntrl_ll_enable_interrupts(1<<25);
 #elif defined(NEOESP32_RMT_CAN_USE_INTR_ALLOC)
-        // Use the platform code to allocate the interrupt
+        // Use the plataforma código to allocate the interrupción
         // If we need the additional assembly bridge, we pass it as the "arg" to the IDF so it gets linked in       
         err = esp_intr_alloc(ETS_RMT_INTR_SOURCE, INT_LEVEL_FLAG | ESP_INTR_FLAG_IRAM, HI_IRQ_HANDLER, (void*) HI_IRQ_HANDLER_ARG, &isrHandle);
         //err = ESP_ERR_NOT_FINISHED;
 #else
-        // Broken IDF API does not allow us to reserve the interrupt; do it manually
+        // Broken IDF API does not allow us to reserve the interrupción; do it manually
         static volatile const void*  __attribute__((used)) pleaseLinkAssembly = (void*) ld_include_hli_vectors_rmt;
         intr_matrix_set(xPortGetCoreID(), ETS_RMT_INTR_SOURCE, ESP32_LV5_IRQ_INDEX);
         ESP_INTR_ENABLE(ESP32_LV5_IRQ_INDEX);
@@ -416,7 +416,7 @@ esp_err_t NeoEsp32RmtHiMethodDriver::Install(rmt_channel_t channel, uint32_t rmt
     state->rmtBit1 = rmtBit1;
     state->resetDuration = reset;
 
-    // Initialize hardware
+    // Inicializar hardware
     rmt_ll_tx_stop(&RMT, channel);
     rmt_ll_tx_reset_pointer(&RMT, channel);
     rmt_ll_enable_tx_err_interrupt(&RMT, channel, false);
@@ -451,7 +451,7 @@ esp_err_t  NeoEsp32RmtHiMethodDriver::Uninstall(rmt_channel_t channel) {
     heap_caps_free(state);
 
 #if !defined(CONFIG_BTDM_CTRL_HLI)  /* Cannot unbind from bluetooth ISR */
-    // Turn off the driver ISR and release global state if none are left
+    // Turn off the controlador ISR and lanzamiento global estado if none are left
     for (uint8_t channelIndex = 0; channelIndex < RMT_CHANNEL_MAX; ++channelIndex) {
         if (driverState[channelIndex]) return ESP_OK; // done
     }

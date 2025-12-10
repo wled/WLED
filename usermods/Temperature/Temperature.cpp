@@ -53,7 +53,7 @@ void UsermodTemperature::readTemperature() {
   temperature = readDallas();
   lastMeasurement = millis();
   waitingForConversion = false;
-  //DEBUG_PRINTF_P(PSTR("Read temperature %2.1f.\n"), temperature); // does not work properly on 8266
+  //DEBUG_PRINTF_P(PSTR("Leer temperature %2.1f.\n"), temperature); // does not work properly on 8266
   DEBUG_PRINT(F("Read temperature "));
   DEBUG_PRINTLN(temperature);
 }
@@ -61,7 +61,7 @@ void UsermodTemperature::readTemperature() {
 bool UsermodTemperature::findSensor() {
   DEBUG_PRINTLN(F("Searching for sensor..."));
   uint8_t deviceAddress[8] = {0,0,0,0,0,0,0,0};
-  // find out if we have DS18xxx sensor attached
+  // encontrar out if we have DS18xxx sensor attached
   oneWire->reset_search();
   delay(10);
   while (oneWire->search(deviceAddress)) {
@@ -115,7 +115,7 @@ void UsermodTemperature::setup() {
   if (enabled) {
     // config says we are enabled
     DEBUG_PRINTLN(F("Allocating temperature pin..."));
-    // pin retrieved from cfg.json (readFromConfig()) prior to running setup()
+    // pin retrieved from cfg.JSON (readFromConfig()) prior to running configuración()
     if (temperaturePin >= 0 && PinManager::allocatePin(temperaturePin, true, PinOwner::UM_Temperature)) {
       oneWire = new OneWire(temperaturePin);
       if (oneWire->reset()) {
@@ -147,19 +147,19 @@ void UsermodTemperature::loop() {
   static uint8_t errorCount = 0;
   unsigned long now = millis();
 
-  // check to see if we are due for taking a measurement
+  // verificar to see if we are due for taking a measurement
   // lastMeasurement will not be updated until the conversion
   // is complete the the reading is finished
   if (now - lastMeasurement < readingInterval) return;
 
   // we are due for a measurement, if we are not already waiting
-  // for a conversion to complete, then make a new request for temps
+  // for a conversion to complete, then make a new solicitud for temps
   if (!waitingForConversion) {
     requestTemperatures();
     return;
   }
 
-  // we were waiting for a conversion to complete, have we waited log enough?
+  // we were waiting for a conversion to complete, have we waited registro enough?
   if (now - lastTemperaturesRequest >= 750 /* 93.75ms per the datasheet but can be up to 750ms */) {
     readTemperature();
     if (getTemperatureC() < -100.0f) {
@@ -175,7 +175,7 @@ void UsermodTemperature::loop() {
       strcpy(subuf, mqttDeviceTopic);
       if (temperature > -100.0f) {
         // dont publish super low temperature as the graph will get messed up
-        // the DallasTemperature library returns -127C or -196.6F when problem
+        // the DallasTemperature biblioteca returns -127C or -196.6F when problem
         // reading the sensor
         strcat_P(subuf, _Temperature);
         mqtt->publish(subuf, 0, false, String(getTemperatureC()).c_str());
@@ -191,7 +191,7 @@ void UsermodTemperature::loop() {
           mqtt->publish("domoticz/in", 0, false, subuf);
         }
       } else {
-        // publish something else to indicate status?
+        // publish something else to indicate estado?
       }
     }
 #endif
@@ -200,7 +200,7 @@ void UsermodTemperature::loop() {
 
 /**
  * connected() is called every time the WiFi is (re)connected
- * Use it to initialize network interfaces
+ * Use it to inicializar red interfaces
  */
 //void UsermodTemperature::connected() {}
 
@@ -218,12 +218,12 @@ void UsermodTemperature::onMqttConnect(bool sessionPresent) {
 #endif
 
 /*
-  * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-  * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-  * Below it is shown how this could be used for e.g. a light sensor
+  * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+  * Crear un objeto "u" permite añadir pares clave/valor a la sección Información de la UI web de WLED.
+  * A continuación se muestra un ejemplo (p. ej. para un sensor de temperatura).
   */
 void UsermodTemperature::addToJsonInfo(JsonObject& root) {
-  // dont add temperature to info if we are disabled
+  // dont add temperature to información if we are disabled
   if (!enabled) return;
 
   JsonObject user = root["u"];
@@ -248,27 +248,27 @@ void UsermodTemperature::addToJsonInfo(JsonObject& root) {
 }
 
 /**
- * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
- * Values in the state object may be modified by connected clients
+ * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+ * Values in the estado object may be modified by connected clients
  */
 //void UsermodTemperature::addToJsonState(JsonObject &root)
 //{
 //}
 
 /**
- * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
- * Values in the state object may be modified by connected clients
- * Read "<usermodname>_<usermodparam>" from json state and and change settings (i.e. GPIO pin) used.
+ * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+ * Values in the estado object may be modified by connected clients
+ * Leer "<usermodname>_<usermodparam>" from JSON estado and and change settings (i.e. GPIO pin) used.
  */
 //void UsermodTemperature::readFromJsonState(JsonObject &root) {
-//  if (!initDone) return;  // prevent crash on boot applyPreset()
+//  if (!initDone) retorno;  // prevent bloqueo on boot applyPreset()
 //}
 
 /**
- * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
+ * addToConfig() (called from set.cpp) stores persistent properties to cfg.JSON
  */
 void UsermodTemperature::addToConfig(JsonObject &root) {
-  // we add JSON object: {"Temperature": {"pin": 0, "degC": true}}
+  // we add JSON object: {"Temperature": {"pin": 0, "degC": verdadero}}
   JsonObject top = root.createNestedObject(FPSTR(_name)); // usermodname
   top[FPSTR(_enabled)] = enabled;
   top["pin"]  = temperaturePin;     // usermodparam
@@ -281,12 +281,12 @@ void UsermodTemperature::addToConfig(JsonObject &root) {
 }
 
 /**
- * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+ * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
  *
- * The function should return true if configuration was successfully loaded or false if there was no configuration.
+ * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
  */
 bool UsermodTemperature::readFromConfig(JsonObject &root) {
-  // we look for JSON object: {"Temperature": {"pin": 0, "degC": true}}
+  // we look for JSON object: {"Temperature": {"pin": 0, "degC": verdadero}}
   int8_t newTemperaturePin = temperaturePin;
   DEBUG_PRINT(FPSTR(_name));
 
@@ -306,7 +306,7 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
   idx               = top[FPSTR(_domoticzIDX)] | idx;
 
   if (!initDone) {
-    // first run: reading from cfg.json
+    // first run: reading from cfg.JSON
     temperaturePin = newTemperaturePin;
     DEBUG_PRINTLN(F(" config loaded."));
   } else {
@@ -314,7 +314,7 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
     // changing paramters from settings page
     if (newTemperaturePin != temperaturePin) {
       DEBUG_PRINTLN(F("Re-init temperature."));
-      // deallocate pin and release memory
+      // deallocate pin and lanzamiento memoria
       delete oneWire;
       PinManager::deallocatePin(temperaturePin, PinOwner::UM_Temperature);
       temperaturePin = newTemperaturePin;
@@ -323,7 +323,7 @@ bool UsermodTemperature::readFromConfig(JsonObject &root) {
       setup();
     }
   }
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return !top[FPSTR(_domoticzIDX)].isNull();
 }
 
@@ -344,7 +344,7 @@ const char *UsermodTemperature::getTemperatureUnit() {
 
 UsermodTemperature* UsermodTemperature::_instance = nullptr;
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char UsermodTemperature::_name[]         PROGMEM = "Temperature";
 const char UsermodTemperature::_enabled[]      PROGMEM = "enabled";
 const char UsermodTemperature::_readInterval[] PROGMEM = "read-interval-s";

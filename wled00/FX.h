@@ -1,16 +1,16 @@
 #pragma once
 /*
-  WS2812FX.h - Library for WS2812 LED effects.
+  WS2812FX.h - Biblioteca for WS2812 LED effects.
   Harm Aldick - 2016
   www.aldick.org
 
   Copyright (c) 2016  Harm Aldick
   Licensed under the EUPL v. 1.2 or later
-  Adapted from code originally licensed under the MIT license
+  Adapted from código originally licensed under the MIT license
 
   Modified for WLED
 
-  Segment class/struct (c) 2022 Blaz Kristan (@blazoncek)
+  Segmento clase/estructura (c) 2022 Blaz Kristan (@blazoncek)
 */
 
 #ifndef WS2812FX_h
@@ -20,7 +20,7 @@
 #include "wled.h"
 
 #ifdef WLED_DEBUG
-  // enable additional debug output
+  // habilitar additional depuración salida
   #if defined(WLED_DEBUG_HOST)
     #include "net_debug.h"
     #define DEBUGOUT NetDebug
@@ -79,7 +79,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #endif
 #define FPS_UNLIMITED    0
 
-// FPS calculation (can be defined as compile flag for debugging)
+// FPS cálculo (can be defined as compile bandera for debugging)
 #ifndef FPS_CALC_AVG
 #define FPS_CALC_AVG 7 // average FPS calculation over this many frames (moving average)
 #endif
@@ -88,10 +88,10 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #endif
 #define FPS_CALC_SHIFT 7 // bit shift for fixed point math
 
-// heap memory limit for effects data, pixel buffers try to reserve it if PSRAM is available
+// montón memoria límite for effects datos, píxel buffers try to reserve it if PSRAM is available
 #ifdef ESP8266
   #define MAX_NUM_SEGMENTS  16
-  /* How much data bytes all segments combined may allocate */
+  /* How much datos bytes all segments combined may allocate */
   #define MAX_SEGMENT_DATA  (6*1024) // 6k by default
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   #define MAX_NUM_SEGMENTS  32
@@ -105,13 +105,13 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
   #define MAX_SEGMENT_DATA  (64*1024) // 64k by default, limit does not apply if PSRAM is available
 #endif
 
-/* How much data bytes each segment should max allocate to leave enough space for other segments,
-  assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
+/* How much datos bytes each segmento should max allocate to leave enough space for other segments,
+  assuming each segmento uses the same amount of datos. 256 for ESP8266, 640 for ESP32. */
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
 #define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
 
-#define NUM_COLORS       3 /* number of colors per segment */
+#define NUM_COLORS       3 /* number of colors per segmento */
 #define SEGMENT          (*strip._currentSegment)
 #define SEGENV           (*strip._currentSegment)
 #define SEGCOLOR(x)      Segment::getCurrentColor(x)
@@ -141,7 +141,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define DARKSLATEGRAY (uint32_t)0x2F4F4F
 #define DARKSLATEGREY DARKSLATEGRAY
 
-// segment options
+// segmento options
 #define NO_OPTIONS   (uint16_t)0x0000
 #define TRANSPOSED   (uint16_t)0x0100 // rotated 90deg & reversed
 #define MIRROR_Y_2D  (uint16_t)0x0080
@@ -230,7 +230,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_COLORTWINKLE            74
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
-//#define FX_MODE_METEOR_SMOOTH           77  // replaced by Meteor
+//#definir FX_MODE_METEOR_SMOOTH           77  // replaced by Meteor
 #define FX_MODE_COPY                    77
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
@@ -309,7 +309,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_RIPPLEPEAK             148
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
-// #define FX_MODE_2DFIRE2012             151
+// #definir FX_MODE_2DFIRE2012             151
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
@@ -319,7 +319,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_GRAVFREQ               158
 #define FX_MODE_DJLIGHT                159
 #define FX_MODE_2DFUNKYPLANK           160
-//#define FX_MODE_2DCENTERBARS           161
+//#definir FX_MODE_2DCENTERBARS           161
 #define FX_MODE_SHIMMER                161  // gap fill, non SR 1D effect
 #define FX_MODE_2DPULSER               162
 #define FX_MODE_BLURZ                  163
@@ -328,9 +328,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DSUNRADIATION         166
 #define FX_MODE_2DCOLOREDBURSTS        167
 #define FX_MODE_2DJULIA                168
-// #define FX_MODE_2DPOOLNOISE            169 //have been removed in WLED SR in the past because of low mem but should be added back
-// #define FX_MODE_2DTWISTER              170 //have been removed in WLED SR in the past because of low mem but should be added back
-// #define FX_MODE_2DCAELEMENTATY         171 //have been removed in WLED SR in the past because of low mem but should be added back
+// #definir FX_MODE_2DPOOLNOISE            169 //have been removed in WLED SR in the past because of low mem but should be added back
+// #definir FX_MODE_2DTWISTER              170 //have been removed in WLED SR in the past because of low mem but should be added back
+// #definir FX_MODE_2DCAELEMENTATY         171 //have been removed in WLED SR in the past because of low mem but should be added back
 #define FX_MODE_2DGAMEOFLIFE           172
 #define FX_MODE_2DTARTAN               173
 #define FX_MODE_2DPOLARLIGHTS          174
@@ -397,7 +397,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define BLEND_STYLE_SWIPE_BL        0x0D  // 2D
 #define BLEND_STYLE_CIRCULAR_OUT    0x0E  // 2D
 #define BLEND_STYLE_CIRCULAR_IN     0x0F  // 2D
-// as there are many push variants to optimise if statements they are groupped together
+// as there are many enviar variants to optimise if statements they are groupped together
 #define BLEND_STYLE_PUSH_RIGHT      0x10  // 1D or 2D (& 0b00010000)
 #define BLEND_STYLE_PUSH_LEFT       0x11  // 1D or 2D (& 0b00010000)
 #define BLEND_STYLE_PUSH_UP         0x12  // 2D (& 0b00010000)
@@ -420,7 +420,7 @@ typedef enum mapping1D2D {
 
 class WS2812FX;
 
-// segment, 76 bytes
+// segmento, 76 bytes
 class Segment {
   public:
     uint32_t colors[NUM_COLORS];
@@ -448,7 +448,7 @@ class Segment {
     };
     uint8_t  grouping, spacing;
     uint8_t  opacity,  cct;       // 0==1900K, 255==10091K
-    // effect data
+    // efecto datos
     uint8_t  mode;
     uint8_t  palette;
     uint8_t  speed;
@@ -459,12 +459,12 @@ class Segment {
       bool    check1  : 1;        // checkmark 1
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
-      //uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
+      //uint8_t blendMode : 4;      // segmento blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
     };
     uint8_t   blendMode;          // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
     char     *name;               // segment name
 
-    // runtime data
+    // runtime datos
     mutable unsigned long next_time;  // millis() of next update
     mutable uint32_t step;  // custom "step" var
     mutable uint32_t call;  // call counter
@@ -488,7 +488,7 @@ class Segment {
       };
     };
 
-    // static variables are use to speed up effect calculations by stashing common pre-calculated values
+    // estático variables are use to velocidad up efecto calculations by stashing common pre-calculated values
     static unsigned      _usedSegmentData;    // amount of data used by all segments
     static unsigned      _vLength;            // 1D dimension used for current effect
     static unsigned      _vWidth, _vHeight;   // 2D dimensions used for current effect
@@ -503,7 +503,7 @@ class Segment {
     static uint16_t      _clipStart, _clipStop;
     static uint8_t       _clipStartY, _clipStopY;
 
-    // transition data, holds values during transition (76 bytes/28 bytes)
+    // transición datos, holds values during transición (76 bytes/28 bytes)
     struct Transition {
       Segment      *_oldSegment;          // previous segment environment (may be nullptr if effect did not change)
       unsigned long _start;               // must accommodate millis()
@@ -530,7 +530,7 @@ class Segment {
       , _cct(0)
       {}
       ~Transition() {
-        //DEBUGFX_PRINTF_P(PSTR("-- Destroying transition: %p\n"), this);
+        //DEBUGFX_PRINTF_P(PSTR("-- Destroying transición: %p\n"), this);
         if (_oldSegment) delete _oldSegment;
       }
     } *_t;
@@ -549,7 +549,7 @@ class Segment {
     void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
     CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
-    // transition functions
+    // transición functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
     void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
     inline void handleTransition() {
@@ -603,7 +603,7 @@ class Segment {
     , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
-      // allocate render buffer (always entire segment), prefer PSRAM if DRAM is running low. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM)
+      // allocate renderizar búfer (always entire segmento), prefer PSRAM if DRAM is running low. Note: impact on FPS with PSRAM búfer is low (<2% with QSPI PSRAM)
       pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
       if (!pixels) {
         DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
@@ -674,16 +674,16 @@ class Segment {
     Segment &setName(const char* name);
     void    refreshLightCapabilities() const;
 
-    // runtime data functions
+    // runtime datos functions
     inline uint16_t dataSize() const { return _dataLen; }
     bool allocateData(size_t len);  // allocates effect data buffer in heap and clears it
     void deallocateData();          // deallocates (frees) effect data buffer from heap
     inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     /**
-      * Flags that before the next effect is calculated,
-      * the internal segment state should be reset.
-      * Call resetIfRequired before calling the next effect function.
-      * Safe to call from interrupts and network requests.
+      * Flags that before the next efecto is calculated,
+      * the internal segmento estado should be restablecer.
+      * Call resetIfRequired before calling the next efecto función.
+      * Safe to call from interrupts and red requests.
       */
     inline Segment &markForReset() { reset = true; return *this; }  // setOption(SEG_OPTION_RESET, true)
 
@@ -691,7 +691,7 @@ class Segment {
     uint8_t  currentCCT() const; // current segment's CCT (blended while in transition)
     uint8_t  currentBri() const; // current segment's opacity/brightness (blended while in transition)
 
-    // 1D strip
+    // 1D tira
     uint16_t virtualLength() const;
     uint16_t maxMappingLength() const;
     [[gnu::hot]] void setPixelColor(int n, uint32_t c) const; // set relative pixel within segment with color
@@ -763,7 +763,7 @@ class Segment {
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) const                   { setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), fade, true)); }
     inline void blurCols(fract8 blur_amount, bool smear = false) const                         { blur2D(0, blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
     inline void blurRows(fract8 blur_amount, bool smear = false) const                         { blur2D(blur_amount, 0, smear); } // blur all rows (50% faster than full 2D blur)
-    //void box_blur(unsigned r = 1U, bool smear = false); // 2D box blur
+    //void box_blur(unsigned r = 1U, bool smear = falso); // 2D box blur
     void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) const;
     void moveX(int delta, bool wrap = false) const;
     void moveY(int delta, bool wrap = false) const;
@@ -798,7 +798,7 @@ class Segment {
     inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool saturate = false) const { addPixelColor(x, RGBW32(r,g,b,w), saturate); }
     inline void addPixelColorXY(int x, int y, CRGB c, bool saturate = false) const         { addPixelColor(x, RGBW32(c.r,c.g,c.b,0), saturate); }
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) const               { fadePixelColor(x, fade); }
-    //inline void box_blur(unsigned i, bool vertical, fract8 blur_amount) {}
+    //en línea void box_blur(unsigned i, bool vertical, fract8 blur_amount) {}
     inline void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) {}
     inline void blurCols(fract8 blur_amount, bool smear = false) { blur(blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
     inline void blurRows(fract8 blur_amount, bool smear = false) {}
@@ -820,7 +820,7 @@ class Segment {
   friend class ParticleSystem1D;
 };
 
-// main "strip" class (108 bytes)
+// principal "tira" clase (108 bytes)
 class WS2812FX {
   typedef uint16_t (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
@@ -845,7 +845,7 @@ class WS2812FX {
 #endif
       correctWB(false),
       cctFromRgb(false),
-      // true private variables
+      // verdadero private variables
       _pixels(nullptr),
       _pixelCCT(nullptr),
       _suspend(false),

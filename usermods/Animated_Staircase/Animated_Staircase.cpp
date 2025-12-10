@@ -2,10 +2,10 @@
  * Usermod for detecting people entering/leaving a staircase and switching the
  * staircase on/off.
  *
- * Edit the Animated_Staircase_config.h file to compile this usermod for your
+ * Edit the Animated_Staircase_config.h archivo to compile this usermod for your
  * specific configuration.
  * 
- * See the accompanying README.md file for more info.
+ * See the accompanying README.md archivo for more información.
  */
 #include "wled.h"
 
@@ -29,14 +29,14 @@ class Animated_Staircase : public Usermod {
     /* runtime variables */
     bool initDone = false;
 
-    // Time between checking of the sensors
+    // Hora between checking of the sensors
     const unsigned int scanDelay = 100;
 
     // Lights on or off.
-    // Flipping this will start a transition.
+    // Flipping this will iniciar a transición.
     bool on = false;
 
-    // Swipe direction for current transition
+    // Swipe direction for current transición
   #define SWIPE_UP true
   #define SWIPE_DOWN false
     bool swipe = SWIPE_UP;
@@ -47,28 +47,28 @@ class Animated_Staircase : public Usermod {
   #define UPPER true
     bool lastSensor = LOWER;
 
-    // Time of the last transition action
+    // Hora of the last transición acción
     unsigned long lastTime = 0;
 
-    // Time of the last sensor check
+    // Hora of the last sensor verificar
     unsigned long lastScanTime = 0;
 
     // Last time the lights were switched on or off
     unsigned long lastSwitchTime = 0;
 
-    // segment id between onIndex and offIndex are on.
+    // segmento id between onIndex and offIndex are on.
     // controll the swipe by setting/moving these indices around.
     // onIndex must be less than or equal to offIndex
     byte onIndex = 0;
     byte offIndex = 0;
 
     // The maximum number of configured segments.
-    // Dynamically updated based on user configuration.
+    // Dynamically updated based on usuario configuration.
     byte maxSegmentId = 1;
     byte minSegmentId = 0;
 
-    // These values are used by the API to read the
-    // last sensor state, or trigger a sensor
+    // These values are used by the API to leer the
+    // last sensor estado, or disparador a sensor
     // through the API
     bool topSensorRead     = false;
     bool topSensorWrite    = false;
@@ -77,7 +77,7 @@ class Animated_Staircase : public Usermod {
     bool topSensorState    = false;
     bool bottomSensorState = false;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _segmentDelay[];
@@ -94,7 +94,7 @@ class Animated_Staircase : public Usermod {
 
     void publishMqtt(bool bottom, const char* state) {
 #ifndef WLED_DISABLE_MQTT
-      //Check if MQTT Connected, otherwise it will crash the 8266
+      //Verificar if MQTT Connected, otherwise it will bloqueo the 8266
       if (WLED_MQTT_CONNECTED){
         char subuf[64];
         sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)bottom);
@@ -109,7 +109,7 @@ class Animated_Staircase : public Usermod {
         if (!seg.isActive()) continue; // skip gaps
         if (i >= onIndex && i < offIndex) {
           seg.setOption(SEG_OPTION_ON, true);
-          // We may need to copy mode and colors from segment 0 to make sure
+          // We may need to copy mode and colors from segmento 0 to make sure
           // changes are propagated even when the config is changed during a wipe
           // seg.setMode(mainsegment.mode);
           // seg.setColor(0, mainsegment.colors[0]);
@@ -117,7 +117,7 @@ class Animated_Staircase : public Usermod {
           seg.setOption(SEG_OPTION_ON, false);
         }
         // Always mark segments as "transitional", we are animating the staircase
-        //seg.setOption(SEG_OPTION_TRANSITIONAL, true); // not needed anymore as setOption() does it
+        //seg.setOption(SEG_OPTION_TRANSITIONAL, verdadero); // not needed anymore as setOption() does it
       }
       strip.trigger();  // force strip refresh
       stateChanged = true;  // inform external devices/UI of change
@@ -125,14 +125,14 @@ class Animated_Staircase : public Usermod {
     }
 
     /*
-    * Detects if an object is within ultrasound range.
+    * Detects if an object is within ultrasound rango.
     * signalPin: The pin where the pulse is sent
     * echoPin:   The pin where the echo is received
-    * maxTimeUs: Detection timeout in microseconds. If an echo is
+    * maxTimeUs: Detection tiempo de espera in microseconds. If an echo is
     *            received within this time, an object is detected
-    *            and the function will return true.
+    *            and the función will retorno verdadero.
     *
-    * The speed of sound is 343 meters per second at 20 degrees Celsius.
+    * The velocidad of sound is 343 meters per second at 20 degrees Celsius.
     * Since the sound has to travel back and forth, the detection
     * distance for the sensor in cm is (0.0343 * maxTimeUs) / 2.
     *
@@ -187,7 +187,7 @@ class Animated_Staircase : public Usermod {
           DEBUG_PRINTLN(F("Top sensor changed."));
         }
 
-        // Values read, reset the flags for next API call
+        // Values leer, restablecer the flags for next API call
         topSensorWrite = false;
         bottomSensorWrite = false;
 
@@ -205,7 +205,7 @@ class Animated_Staircase : public Usermod {
             DEBUG_PRINTLN(swipe ? F("up.") : F("down."));
 
             if (onIndex == offIndex) {
-              // Position the indices for a correct on-swipe
+              // Posición the indices for a correct on-swipe
               if (swipe == SWIPE_UP) {
                 onIndex = minSegmentId;
               } else {
@@ -258,7 +258,7 @@ class Animated_Staircase : public Usermod {
       }
     }
 
-    // send sensor values to JSON API
+    // enviar sensor values to JSON API
     void writeSensorsToJson(JsonObject& staircase) {
       staircase[F("top-sensor")]    = topSensorRead;
       staircase[F("bottom-sensor")] = bottomSensorRead;
@@ -295,13 +295,13 @@ class Animated_Staircase : public Usermod {
         onIndex  = minSegmentId = strip.getMainSegmentId(); // it may not be the best idea to start with main segment as it may not be the first one
         offIndex = maxSegmentId = strip.getLastActiveSegmentId() + 1;
 
-        // shorten the strip transition time to be equal or shorter than segment delay
+        // shorten the tira transición time to be equal or shorter than segmento retraso
         transitionDelay = segment_delay_ms;
         strip.setTransition(segment_delay_ms);
         strip.trigger();
       } else {
         if (togglePower && !on && offMode) toggleOnOff(); // toggle power on if off
-        // Restore segment options
+        // Restore segmento options
         for (int i = 0; i <= strip.getLastActiveSegmentId(); i++) {
           Segment &seg = strip.getSegment(i);
           if (!seg.isActive()) continue; // skip vector gaps
@@ -329,8 +329,8 @@ class Animated_Staircase : public Usermod {
         { bottomPIRorTriggerPin, useUSSensorBottom },
         { bottomEchoPin, false },
       };
-      // NOTE: this *WILL* return TRUE if all the pins are set to -1.
-      //       this is *BY DESIGN*.
+      // NOTE: this *WILL* retorno VERDADERO if all the pins are set to -1.
+      //       this is *BY DISEÑO*.
       if (!PinManager::allocateMultiplePins(pins, 4, PinOwner::UM_AnimatedStaircase)) {
         topPIRorTriggerPin = -1;
         topEchoPin = -1;
@@ -355,8 +355,8 @@ class Animated_Staircase : public Usermod {
 
 #ifndef WLED_DISABLE_MQTT
     /**
-     * handling of MQTT message
-     * topic only contains stripped topic (part after /wled/MAC)
+     * handling of MQTT mensaje
+     * topic only contains stripped topic (part after /WLED/MAC)
      * topic should look like: /swipe with amessage of [up|down]
      */
     bool onMqttMessage(char* topic, char* payload) {
@@ -403,7 +403,7 @@ class Animated_Staircase : public Usermod {
     }
 
     /*
-    * Reads configuration settings from the json API.
+    * Reads configuration settings from the JSON API.
     * See void addToJsonState(JsonObject& root)
     */
     void readFromJsonState(JsonObject& root) {
@@ -425,14 +425,14 @@ class Animated_Staircase : public Usermod {
 
     void appendConfigData() {
       //oappend(F("dd=addDropdown('staircase','selectfield');"));
-      //oappend(F("addOption(dd,'1st value',0);"));
-      //oappend(F("addOption(dd,'2nd value',1);"));
-      //oappend(F("addInfo('staircase:selectfield',1,'additional info');"));  // 0 is field type, 1 is actual field
+      //oappend(F("addOption(dd,'1st valor',0);"));
+      //oappend(F("addOption(dd,'2nd valor',1);"));
+      //oappend(F("addInfo('staircase:selectfield',1,'additional información');"));  // 0 is campo tipo, 1 is actual campo
     }
 
 
     /*
-    * Writes the configuration to internal flash memory.
+    * Writes the configuration to internal flash memoria.
     */
     void addToConfig(JsonObject& root) {
       JsonObject staircase = root[FPSTR(_name)];
@@ -455,9 +455,9 @@ class Animated_Staircase : public Usermod {
     }
 
     /*
-    * Reads the configuration to internal flash memory before setup() is called.
+    * Reads the configuration to internal flash memoria before configuración() is called.
     * 
-    * The function should return true if configuration was successfully loaded or false if there was no configuration.
+    * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
     */
     bool readFromConfig(JsonObject& root) {
       bool oldUseUSSensorTop = useUSSensorTop;
@@ -499,7 +499,7 @@ class Animated_Staircase : public Usermod {
 
       DEBUG_PRINT(FPSTR(_name));
       if (!initDone) {
-        // first run: reading from cfg.json
+        // first run: reading from cfg.JSON
         DEBUG_PRINTLN(F(" config loaded."));
       } else {
         // changing parameters from settings page
@@ -519,12 +519,12 @@ class Animated_Staircase : public Usermod {
         }
         if (changed) setup();
       }
-      // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+      // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
       return !top[FPSTR(_togglePower)].isNull();
     }
 
     /*
-    * Shows the delay between steps and power-off time in the "info"
+    * Shows the retraso between steps and power-off time in the "información"
     * tab of the web-UI.
     */
     void addToJsonInfo(JsonObject& root) {
@@ -547,7 +547,7 @@ class Animated_Staircase : public Usermod {
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char Animated_Staircase::_name[]                      PROGMEM = "staircase";
 const char Animated_Staircase::_enabled[]                   PROGMEM = "enabled";
 const char Animated_Staircase::_segmentDelay[]              PROGMEM = "segment-delay-ms";

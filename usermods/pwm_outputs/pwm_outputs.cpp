@@ -9,6 +9,10 @@
 #endif
 
 
+/*
+ * Clase que representa una salida PWM controlable.
+ * Permite abrir/cerrar la salida, ajustar duty y serializar su estado a JSON.
+ */
 class PwmOutput {
   public:
 
@@ -127,6 +131,9 @@ class PwmOutput {
 };
 
 
+/*
+ * Usermod que agrupa varias salidas PWM y las expone a la API JSON y a la configuración.
+ */
 class PwmOutputsUsermod : public Usermod {
   public:
 
@@ -134,7 +141,7 @@ class PwmOutputsUsermod : public Usermod {
     static const char PWM_STATE_NAME[];
 
     void setup() {
-      // By default all PWM outputs are disabled, no setup do be done
+      // By default all PWM outputs are disabled, no configuración do be done
     }
 
     void loop() {

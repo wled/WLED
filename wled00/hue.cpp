@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * Sync to Philips hue lights
+ * Sincronizar to Philips hue lights
  */
 
 #ifndef WLED_DISABLE_HUESYNC
@@ -87,7 +87,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
   char* str = (char*)data;
   DEBUG_PRINTLN(hueApiKey);
   DEBUG_PRINTLN(str);
-  //only get response body
+  //only get respuesta cuerpo
   str = strstr(str,"\r\n\r\n");
   if (str == nullptr) return;
   str += 4;
@@ -127,7 +127,7 @@ void onHueData(void* arg, AsyncClient* client, void *data, size_t len)
     return;
   }
 
-  //else, assume it is JSON object, look for state and only parse that
+  //else, assume it is JSON object, look for estado and only analizar that
   str = strstr(str,"state");
   if (str == nullptr) return;
   str = strstr(str,"{");

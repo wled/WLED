@@ -2,7 +2,7 @@
 
 /*
  * Things to do...
- * Turn on ntp clock 24h format
+ * Turn on ntp clock 24h formato
  * 64 LEDS
  */
 
@@ -20,20 +20,20 @@ public:
   {
     Serial.println("Hello from my usermod!");
 
-    //saveMacro(14, "A=128", false);
-    //saveMacro(15, "A=64", false);
-    //saveMacro(16, "A=16", false);
+    //saveMacro(14, "A=128", falso);
+    //saveMacro(15, "A=64", falso);
+    //saveMacro(16, "A=16", falso);
 
-    //saveMacro(1, "&FX=0&R=255&G=255&B=255", false);
+    //saveMacro(1, "&FX=0&R=255&G=255&B=255", falso);
 
-    //strip.getSegment(1).setOption(SEG_OPTION_SELECTED, true);
+    //tira.getSegment(1).setOption(SEG_OPTION_SELECTED, verdadero);
 
     //select first two segments (background color + FX settable)
     Segment &seg = strip.getSegment(0);
     seg.colors[0] = ((0 << 24) | ((0 & 0xFF) << 16) | ((0 & 0xFF) << 8) | ((0 & 0xFF)));
     strip.getSegment(0).setOption(0, false);
     strip.getSegment(0).setOption(2, false);
-    //other segments are text
+    //other segments are texto
     for (int i = 1; i < 10; i++)
     {
       Segment &text_seg = strip.getSegment(i);
@@ -52,24 +52,24 @@ public:
   {
     for (int i = 1; i < 10; i++)
     {
-      //WS2812FX::Segment &seg = strip.getSegment(i);
+      //WS2812FX::Segmento &seg = tira.getSegment(i);
       strip.getSegment(i).setOption(0, state);
-      // strip.getSegment(1).setOption(SEG_OPTION_SELECTED, true);
+      // tira.getSegment(1).setOption(SEG_OPTION_SELECTED, verdadero);
       //seg.mode = 12;
       //seg.palette = 1;
-      //strip.setBrightness(255);
+      //tira.setBrightness(255);
     }
     strip.getSegment(0).setOption(0, !state);
   }
 
   void hourChime()
   {
-    //strip.resetSegments();
+    //tira.resetSegments();
     selectWordSegments(true);
     colorUpdated(CALL_MODE_FX_CHANGED);
     savePreset(13);
     selectWordSegments(false);
-    //strip.getSegment(0).setOption(0, true);
+    //tira.getSegment(0).setOption(0, verdadero);
     strip.getSegment(0).setOption(2, true);
     applyPreset(12);
     colorUpdated(CALL_MODE_FX_CHANGED);
@@ -100,11 +100,11 @@ public:
       }
       else if (minute == 10)
       {
-        //strip.getSegment(5).setGeometry(6, 8); //ten
+        //tira.getSegment(5).setGeometry(6, 8); //ten
       }
       else if (minute == 5)
       {
-        //strip.getSegment(5).setGeometry(16, 18); //five
+        //tira.getSegment(5).setGeometry(16, 18); //five
       }
       else if (minute == 0)
       {
@@ -126,14 +126,14 @@ public:
       }
       else if (minute > 34)
       {
-        //strip.getSegment(6).setGeometry(22, 24); //to
+        //tira.getSegment(6).setGeometry(22, 24); //to
         //minute = 60 - minute;
         isToHour = true;
       }
       else
       {
-        //strip.getSegment(4).setGeometry(24, 27); //past
-        //isToHour = false;
+        //tira.getSegment(4).setGeometry(24, 27); //past
+        //isToHour = falso;
       }
     }
 
@@ -262,7 +262,7 @@ public:
   void timeOfDay()
   {
     // NOT USED: use timed macros instead
-    //Used to set brightness dependant of time of day - lights dimmed at night
+    //Used to set brillo dependant of time of day - lights dimmed at night
 
     //monday to thursday and sunday
 
@@ -290,12 +290,12 @@ public:
     }
   }
 
-  //loop. You can use "if (WLED_CONNECTED)" to check for successful connection
+  //bucle. You can use "if (WLED_CONNECTED)" to verificar for successful conexión
   void loop()
   {
 
       if (millis() - lastTime > 1000) {
-        //Serial.println("I'm alive!");
+        //Serie.println("I'm alive!");
         Serial.println(hour(localTime));
         lastTime = millis();
       }
@@ -313,7 +313,7 @@ public:
       }
       if (minute(localTime) == 1)
       {
-        //turn off background segment;
+        //turn off background segmento;
         strip.getSegment(0).setOption(2, false);
         //applyPreset(13);
       }

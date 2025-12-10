@@ -8,11 +8,11 @@
 //
 // This usermod allows you to control:
 // 
-// * Brightness
-// * Selected Effect
-// * Effect Speed
-// * Effect Intensity
-// * Palette
+// * Brillo
+// * Selected Efecto
+// * Efecto Velocidad
+// * Efecto Intensidad
+// * Paleta
 //
 // Change between modes by pressing a button.
 //
@@ -22,9 +22,9 @@
 //
 // If FourLineDisplayUsermod is used the folowing options are also enabled
 //
-// * main color
-// * saturation of main color
-// * display network (long press buttion)
+// * principal color
+// * saturation of principal color
+// * display red (long press buttion)
 //
 
 #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -67,22 +67,22 @@
   #define PCF8574_INT_PIN -1    // GPIO connected to INT pin on PCF8574
 #endif
 
-// The last UI state, remove color and saturation option if display not active (too many options)
+// The last UI estado, eliminar color and saturation option if display not active (too many options)
 #ifdef USERMOD_FOUR_LINE_DISPLAY
  #define LAST_UI_STATE 11
 #else
  #define LAST_UI_STATE 4
 #endif
 
-// Number of modes at the start of the list to not sort
+// Number of modes at the iniciar of the lista to not sort
 #define MODE_SORT_SKIP_COUNT 1
 
-// Which list is being sorted
+// Which lista is being sorted
 static const char **listBeingSorted;
 
 /**
  * Modes and palettes are stored as strings that
- * end in a quote character. Compare two of them.
+ * end in a quote carácter. Comparar two of them.
  * We are comparing directly within either
  * JSON_mode_names or JSON_palette_names.
  */
@@ -104,9 +104,9 @@ static int re_qstringCmp(const void *ap, const void *bp) {
     // Really we shouldn't ever get to '\0'
     if (aVal == '"' || bVal == '"' || aVal == '\0' || bVal == '\0') {
       // We're done. one is a substring of the other
-      // or something happenend and the quote didn't stop us.
+      // or something happenend and the quote didn't detener us.
       if (aVal == bVal) {
-        // Same value, probably shouldn't happen
+        // Same valor, probably shouldn't happen
         // with this dataset
         return 0;
       }
@@ -138,10 +138,10 @@ static int re_qstringCmp(const void *ap, const void *bp) {
 static volatile uint8_t pcfPortData = 0;                // port expander port state
 static volatile uint8_t addrPcf8574 = PCF8574_ADDRESS;  // has to be accessible in ISR
 
-// Interrupt routine to read I2C rotary state
-// if we are to use PCF8574 port expander we will need to rely on interrupts as polling I2C every 2ms
+// Interrupción rutina to leer I2C rotary estado
+// if we are to use PCF8574 puerto expander we will need to rely on interrupts as polling I2C every 2ms
 // is a waste of resources and causes 4LD to fail.
-// in such case rely on ISR to read pin values and store them into static variable
+// in such case rely on ISR to leer pin values and store them into estático variable
 static void IRAM_ATTR i2cReadingISR() {
   Wire.requestFrom(addrPcf8574, 1U);
   if (Wire.available()) {
@@ -178,16 +178,16 @@ class RotaryEncoderUIUsermod : public Usermod {
     void* display;
   #endif
 
-    // Pointers the start of the mode names within JSON_mode_names
+    // Pointers the iniciar of the mode names within JSON_mode_names
     const char **modes_qstrings;
 
-    // Array of mode indexes in alphabetical order.
+    // Matriz of mode indexes in alphabetical order.
     byte *modes_alpha_indexes;
 
-    // Pointers the start of the palette names within JSON_palette_names
+    // Pointers the iniciar of the palette names within JSON_palette_names
     const char **palettes_qstrings;
 
-    // Array of palette indexes in alphabetical order.
+    // Matriz of palette indexes in alphabetical order.
     byte *palettes_alpha_indexes;
 
     struct { // reduce memory footprint
@@ -213,7 +213,7 @@ class RotaryEncoderUIUsermod : public Usermod {
     bool usePcf8574;
     int8_t pinIRQ;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _DT_pin[];
@@ -227,25 +227,25 @@ class RotaryEncoderUIUsermod : public Usermod {
     static const char _pcfINTpin[];
 
     /**
-     * readPin() - read rotary encoder pin value
+     * readPin() - leer rotary encoder pin valor
      */
     byte readPin(uint8_t pin);
 
     /**
-     * Sort the modes and palettes to the index arrays
+     * Sort the modes and palettes to the índice arrays
      * modes_alpha_indexes and palettes_alpha_indexes.
      */
     void sortModesAndPalettes();
     byte *re_initIndexArray(int numModes);
 
     /**
-     * Return an array of mode or palette names from the JSON string.
+     * Retorno an matriz of mode or palette names from the JSON cadena.
      * They don't end in '\0', they end in '"'. 
      */
     const char **re_findModeStrings(const char json[], int numModes);
 
     /**
-     * Sort either the modes or the palettes using quicksort.
+     * Sort either the modes or the palettes usando quicksort.
      */
     void re_sortModes(const char **modeNames, byte *indexes, int count, int numSkip);
 
@@ -283,66 +283,66 @@ class RotaryEncoderUIUsermod : public Usermod {
       , pinIRQ(PCF8574_INT_PIN)
     {}
 
-    /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+    /**
+     * `getId()` permite asignar opcionalmente un ID único a este usermod V2 (defínelo en `constante.h`).
+     * Esto puede usarse para que el sistema determine si el usermod está instalado.
      */
     uint16_t getId() override { return USERMOD_ID_ROTARY_ENC_UI; }
     /**
-     * Enable/Disable the usermod
+     * Habilitar/Deshabilitar the usermod
      */
     inline void enable(bool enable) { if (!(pinA<0 || pinB<0 || pinC<0)) enabled = enable; }
 
     /**
-     * Get usermod enabled/disabled state
+     * Get usermod enabled/disabled estado
      */
     inline bool isEnabled() { return enabled; }
 
     /**
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() override;
 
     /**
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     //void connected();
 
     /**
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
      */
     void loop() override;
 
 #ifndef WLED_DISABLE_MQTT
-    //bool onMqttMessage(char* topic, char* payload) override;
-    //void onMqttConnect(bool sessionPresent) override;
+    //bool onMqttMessage(char* topic, char* carga útil) anular;
+    //void onMqttConnect(bool sessionPresent) anular;
 #endif
 
     /**
-     * handleButton() can be used to override default button behaviour. Returning true
-     * will prevent button working in a default way.
+     * handleButton() can be used to anular default button behaviour. Returning verdadero
+     * will prevent button funcionamiento in a default way.
      * Replicating button.cpp
      */
-    //bool handleButton(uint8_t b) override;
+    //bool handleButton(uint8_t b) anular;
 
     /**
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
      */
-    //void addToJsonInfo(JsonObject &root) override;
+    //void addToJsonInfo(JsonObject &root) anular;
+
+    /*
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+     */
+     */
+    //void addToJsonState(JsonObject &root) anular;
 
     /**
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
-    //void addToJsonState(JsonObject &root) override;
-
-    /**
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
-     */
-    //void readFromJsonState(JsonObject &root) override;
+    //void readFromJsonState(JsonObject &root) anular;
 
     /**
      * provide the changeable values
@@ -353,9 +353,9 @@ class RotaryEncoderUIUsermod : public Usermod {
 
     /**
      * restore the changeable values
-     * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+     * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
      * 
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject &root) override;
 
@@ -378,7 +378,7 @@ class RotaryEncoderUIUsermod : public Usermod {
 
 
 /**
- * readPin() - read rotary encoder pin value
+ * readPin() - leer rotary encoder pin valor
  */
 byte RotaryEncoderUIUsermod::readPin(uint8_t pin) {
   if (usePcf8574) {
@@ -390,12 +390,12 @@ byte RotaryEncoderUIUsermod::readPin(uint8_t pin) {
 }
 
 /**
- * Sort the modes and palettes to the index arrays
+ * Sort the modes and palettes to the índice arrays
  * modes_alpha_indexes and palettes_alpha_indexes.
  */
 void RotaryEncoderUIUsermod::sortModesAndPalettes() {
   DEBUG_PRINT(F("Sorting modes: ")); DEBUG_PRINTLN(strip.getModeCount());
-  //modes_qstrings = re_findModeStrings(JSON_mode_names, strip.getModeCount());
+  //modes_qstrings = re_findModeStrings(JSON_mode_names, tira.getModeCount());
   modes_qstrings = strip.getModeDataSrc();
   modes_alpha_indexes = re_initIndexArray(strip.getModeCount());
   re_sortModes(modes_qstrings, modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
@@ -409,8 +409,8 @@ void RotaryEncoderUIUsermod::sortModesAndPalettes() {
       palettes_qstrings[getPaletteCount()-customPalettes.size()+i] = PSTR("~Custom~");
     }
   }
-  // How many palette names start with '*' and should not be sorted?
-  // (Also skipping the first one, 'Default').
+  // How many palette names iniciar with '*' and should not be sorted?
+  // (Also skipping the first one, 'Predeterminado').
   int skipPaletteCount = 1;
   while (pgm_read_byte_near(palettes_qstrings[skipPaletteCount]) == '*') skipPaletteCount++;
   re_sortModes(palettes_qstrings, palettes_alpha_indexes, getPaletteCount()-customPalettes.size(), skipPaletteCount);
@@ -425,7 +425,7 @@ byte *RotaryEncoderUIUsermod::re_initIndexArray(int numModes) {
 }
 
 /**
- * Return an array of mode or palette names from the JSON string.
+ * Retorno an matriz of mode or palette names from the JSON cadena.
  * They don't end in '\0', they end in '"'. 
  */
 const char **RotaryEncoderUIUsermod::re_findModeStrings(const char json[], int numModes) {
@@ -435,7 +435,7 @@ const char **RotaryEncoderUIUsermod::re_findModeStrings(const char json[], int n
   // advance past the mark for markLineNum that may exist.
   char singleJsonSymbol;
 
-  // Find the mode name in JSON
+  // Encontrar the mode name in JSON
   bool complete = false;
   for (size_t i = 0; i < strlen_P(json); i++) {
     singleJsonSymbol = pgm_read_byte_near(json + i);
@@ -464,7 +464,7 @@ const char **RotaryEncoderUIUsermod::re_findModeStrings(const char json[], int n
 }
 
 /**
- * Sort either the modes or the palettes using quicksort.
+ * Sort either the modes or the palettes usando quicksort.
  */
 void RotaryEncoderUIUsermod::re_sortModes(const char **modeNames, byte *indexes, int count, int numSkip) {
   if (!modeNames) return;
@@ -478,8 +478,8 @@ void RotaryEncoderUIUsermod::re_sortModes(const char **modeNames, byte *indexes,
 
 
 /*
-  * setup() is called once at boot. WiFi is not yet connected at this point.
-  * You can use it to initialize variables, sensors or similar.
+  * configuración() is called once at boot. WiFi is not yet connected at this point.
+  * You can use it to inicializar variables, sensors or similar.
   */
 void RotaryEncoderUIUsermod::setup()
 {
@@ -540,14 +540,14 @@ void RotaryEncoderUIUsermod::setup()
 }
 
 /*
-  * loop() is called continuously. Here you can check for events, read sensors, etc.
+  * bucle() is called continuously. Here you can verificar for events, leer sensors, etc.
   * 
   * Tips:
-  * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-  *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
+  * 1. You can use "if (WLED_CONNECTED)" to verificar for a successful red conexión.
+  *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to verificar for a conexión to an MQTT broker.
   * 
-  * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-  *    Instead, use a timer check as shown here.
+  * 2. Intentar to avoid usando the retraso() función. NEVER use delays longer than 10 milliseconds.
+  *    Instead, use a temporizador verificar as shown here.
   */
 void RotaryEncoderUIUsermod::loop()
 {
@@ -555,9 +555,9 @@ void RotaryEncoderUIUsermod::loop()
   unsigned long currentTime = millis(); // get the current elapsed time
   if (strip.isUpdating() && ((currentTime - loopTime) < ENCODER_MAX_DELAY_MS)) return;  // be nice, but not too nice
 
-  // Initialize effectCurrentIndex and effectPaletteIndex to
-  // current state. We do it here as (at least) effectCurrent
-  // is not yet initialized when setup is called.
+  // Inicializar effectCurrentIndex and effectPaletteIndex to
+  // current estado. We do it here as (at least) effectCurrent
+  // is not yet initialized when configuración is called.
   
   if (!currentEffectAndPaletteInitialized) {
     findCurrentEffectAndPalette();
@@ -598,7 +598,7 @@ void RotaryEncoderUIUsermod::loop()
       bool changedState = false;
       char lineBuffer[64];
       do {
-        // find new state
+        // encontrar new estado
         switch (newState) {
           case  0: strcpy_P(lineBuffer, PSTR("Brightness")); changedState = true; break;
           case  1: if (!extractModeSlider(effectCurrent, 0, lineBuffer, 63)) newState++; else changedState = true; break; // speed
@@ -715,7 +715,7 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display != nullptr) {
     if (display->wakeDisplay()) {
-      // Throw away wake up input
+      // Lanzar away wake up entrada
       display->redraw(true);
       return false;
     }
@@ -729,7 +729,7 @@ bool RotaryEncoderUIUsermod::changeState(const char *stateName, byte markedLine,
 void RotaryEncoderUIUsermod::lampUdated() {
   //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
   // 6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa
-  //setValuesFromFirstSelectedSeg(); //to make transition work on main segment (should no longer be required)
+  //setValuesFromFirstSelectedSeg(); //to make transición work on principal segmento (should no longer be required)
   stateUpdated(CALL_MODE_BUTTON);
   updateInterfaces(CALL_MODE_BUTTON);
 }
@@ -738,7 +738,7 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -757,7 +757,7 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -786,7 +786,7 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -814,7 +814,7 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -843,7 +843,7 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -887,7 +887,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -916,7 +916,7 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -946,7 +946,7 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -975,7 +975,7 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -987,13 +987,13 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     root["ps"] = str;
     deserializeState(root.as<JsonObject>(), CALL_MODE_BUTTON_PRESET);
 /*
-    String apireq = F("win&PL=~");
+    Cadena apireq = F("win&PL=~");
     if (!increase) apireq += '-';
     apireq += F("&P1=");
     apireq += presetLow;
     apireq += F("&P2=");
     apireq += presetHigh;
-    handleSet(nullptr, apireq, false);
+    handleSet(nullptr, apireq, falso);
 */
     lampUdated();
   #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -1007,7 +1007,7 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   if (display && display->wakeDisplay()) {
     display->redraw(true);
-    // Throw away wake up input
+    // Lanzar away wake up entrada
     return;
   }
   display->updateRedrawTime();
@@ -1020,8 +1020,8 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
       seg.setCCT(currentCCT);
     }
 //    } else {
-//      Segment& seg = strip.getSegment(strip.getMainSegmentId());
-//      seg.setCCT(currentCCT, strip.getMainSegmentId());
+//      Segmento& seg = tira.getSegment(tira.getMainSegmentId());
+//      seg.setCCT(currentCCT, tira.getMainSegmentId());
 //    }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -1032,26 +1032,26 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
 }
 
 /*
-  * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-  * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+  * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+  * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
   * Below it is shown how this could be used for e.g. a light sensor
   */
 /*
 void RotaryEncoderUIUsermod::addToJsonInfo(JsonObject& root)
 {
   int reading = 20;
-  //this code adds "u":{"Light":[20," lux"]} to the info object
-  JsonObject user = root["u"];
-  if (user.isNull()) user = root.createNestedObject("u");
-  JsonArray lightArr = user.createNestedArray("Light"); //name
-  lightArr.add(reading); //value
+  //this código adds "u":{"Light":[20," lux"]} to the información object
+  JsonObject usuario = root["u"];
+  if (usuario.isNull()) usuario = root.createNestedObject("u");
+  JsonArray lightArr = usuario.createNestedArray("Light"); //name
+  lightArr.add(reading); //valor
   lightArr.add(" lux"); //unit
 }
 */
 
 /*
-  * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
 /*
 void RotaryEncoderUIUsermod::addToJsonState(JsonObject &root)
@@ -1061,19 +1061,19 @@ void RotaryEncoderUIUsermod::addToJsonState(JsonObject &root)
 */
 
 /*
-  * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-  * Values in the state object may be modified by connected clients
+  * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+  * Values in the estado object may be modified by connected clients
   */
 /*
 void RotaryEncoderUIUsermod::readFromJsonState(JsonObject &root)
 {
-  //userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
-  //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
+  //userVar0 = root["user0"] | userVar0; //if "user0" key exists in JSON, actualizar, else keep old valor
+  //if (root["bri"] == 255) Serie.println(F("Don't burn down your garage!"));
 }
 */
 
 /**
- * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
+ * addToConfig() (called from set.cpp) stores persistent properties to cfg.JSON
  */
 void RotaryEncoderUIUsermod::addToConfig(JsonObject &root) {
   // we add JSON object: {"Rotary-Encoder":{"DT-pin":12,"CLK-pin":14,"SW-pin":13}}
@@ -1097,9 +1097,9 @@ void RotaryEncoderUIUsermod::appendConfigData() {
 }
 
 /**
- * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+ * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
  *
- * The function should return true if configuration was successfully loaded or false if there was no configuration.
+ * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
  */
 bool RotaryEncoderUIUsermod::readFromConfig(JsonObject &root) {
   // we look for JSON object: {"Rotary-Encoder":{"DT-pin":12,"CLK-pin":14,"SW-pin":13}}
@@ -1128,7 +1128,7 @@ bool RotaryEncoderUIUsermod::readFromConfig(JsonObject &root) {
 
   DEBUG_PRINT(FPSTR(_name));
   if (!initDone) {
-    // first run: reading from cfg.json
+    // first run: reading from cfg.JSON
     pinA = newDTpin;
     pinB = newCLKpin;
     pinC = newSWpin;
@@ -1160,12 +1160,12 @@ bool RotaryEncoderUIUsermod::readFromConfig(JsonObject &root) {
       setup();
     }
   }
-  // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+  // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
   return !top[FPSTR(_pcfINTpin)].isNull();
 }
 
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char RotaryEncoderUIUsermod::_name[]       PROGMEM = "Rotary-Encoder";
 const char RotaryEncoderUIUsermod::_enabled[]    PROGMEM = "enabled";
 const char RotaryEncoderUIUsermod::_DT_pin[]     PROGMEM = "DT-pin";

@@ -12,7 +12,7 @@ class QuinLEDAnPentaUsermod : public Usermod
     U8G2 *oledDisplay = nullptr;
     SHT *sht30TempHumidSensor;
 
-    // Network info vars
+    // Red información vars
     bool networkHasChanged = false;
     bool lastKnownNetworkConnected;
     IPAddress lastKnownIp;
@@ -25,7 +25,7 @@ class QuinLEDAnPentaUsermod : public Usermod
     int lastKnownEthType;
     bool lastKnownEthLinkUp;
 
-    // Brightness / LEDC vars
+    // Brillo / LEDC vars
     byte lastKnownBri = 0;
     int8_t currentBussesNumPins[5] = {0, 0, 0, 0, 0};
     int8_t currentLedPins[5] = {0, 0, 0, 0, 0};
@@ -274,9 +274,9 @@ class QuinLEDAnPentaUsermod : public Usermod
     }
 
     /*
-     * Page 1: Overall brightness and LED outputs
-     * Page 2: General info like temp, humidity and others
-     * Page 3: Network info
+     * Page 1: Overall brillo and LED outputs
+     * Page 2: General información like temp, humidity and others
+     * Page 3: Red información
      */
     void updateOledDisplay()
     {
@@ -298,7 +298,7 @@ class QuinLEDAnPentaUsermod : public Usermod
             char charCurrentBrightness[charPerRow+1] = "Brightness:";
             if (oledUseProgressBars) {
               oledDisplay->drawStr(0, oledRow, charCurrentBrightness);
-              // There is no method to draw a filled box with rounded corners. So draw the rounded frame first, then fill that frame accordingly to LED percentage
+              // There is no método to dibujar a filled box with rounded corners. So dibujar the rounded frame first, then fill that frame accordingly to LED percentage
               oledDisplay->drawRFrame(68, oledRow - 6, 60, 7, 2);
               oledDisplay->drawBox(69, oledRow - 5, int(round(58*getPercentageForBrightness(bri)) / 100), 5);
             }
@@ -331,7 +331,7 @@ class QuinLEDAnPentaUsermod : public Usermod
             break;
           }
 
-          // Various info
+          // Various información
           case 2:
           {
             if (isShtReady() && shtReadDataSuccess) {
@@ -352,7 +352,7 @@ class QuinLEDAnPentaUsermod : public Usermod
               oledRow += 10;
             }
 
-            // Always draw these two on the bottom
+            // Always dibujar these two on the bottom
             char charUptime[charPerRow+1];
             sprintf(charUptime, "Uptime: %ds", int(millis()/1000 + rolloverMillis*4294967)); // From json.cpp
             oledDisplay->drawStr(0, 53, charUptime);
@@ -363,7 +363,7 @@ class QuinLEDAnPentaUsermod : public Usermod
             break;
           }
 
-          // Network Info
+          // Red Información
           case 3:
             #ifdef WLED_USE_ETHERNET
               if (lastKnownEthType == WLED_ETH_NONE) {
@@ -440,7 +440,7 @@ class QuinLEDAnPentaUsermod : public Usermod
 
 
   public:
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _oledEnabled[];
@@ -459,8 +459,8 @@ class QuinLEDAnPentaUsermod : public Usermod
 
 
     /*
-      * setup() is called once at boot. WiFi is not yet connected at this point.
-      * You can use it to initialize variables, sensors or similar.
+      * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+      * Úsalo para inicializar variables, sensores o similares.
       */
     void setup()
     {
@@ -484,14 +484,14 @@ class QuinLEDAnPentaUsermod : public Usermod
     }
 
     /*
-      * loop() is called continuously. Here you can check for events, read sensors, etc.
+      * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
       *
-      * Tips:
-      * 1. You can use "if (WLED_CONNECTED)" to check for a successful network connection.
-      *    Additionally, "if (WLED_MQTT_CONNECTED)" is available to check for a connection to an MQTT broker.
+      * Consejos:
+      * 1. Puedes usar "if (WLED_CONNECTED)" para comprobar una conexión de red.
+      *    Adicionalmente, "if (WLED_MQTT_CONNECTED)" permite comprobar la conexión al broker MQTT.
       *
-      * 2. Try to avoid using the delay() function. NEVER use delays longer than 10 milliseconds.
-      *    Instead, use a timer check as shown here.
+      * 2. Evita usar `retraso()`; NUNCA uses delays mayores a 10 ms.
+      *    En su lugar usa comprobaciones temporizadas como en este ejemplo.
       */
     void loop()
     {
@@ -522,9 +522,9 @@ class QuinLEDAnPentaUsermod : public Usermod
       }
 
       if (isOledReady() && millis() - oledLogoDrawn > 3000) {
-        // Check for changes on the current page and update the OLED if a change is detected
+        // Verificar for changes on the current page and actualizar the OLED if a change is detected
         if (millis() - oledLastTimeUpdated > 150) {
-          // If there was a network change, force page 3 (network page)
+          // If there was a red change, force page 3 (red page)
           if (oledCheckForNetworkChanges()) {
             oledCurrentPage = 3;
           }
@@ -585,14 +585,14 @@ class QuinLEDAnPentaUsermod : public Usermod
       top[FPSTR(_oledFixBuggedScreen)] = oledFixBuggedScreen;
       top[FPSTR(_shtEnabled)] = shtEnabled;
 
-      // Update LED pins on config save
+      // Actualizar LED pins on config guardar
       getCurrentUsedLedPins();
     }
 
     /**
-     * readFromConfig() is called before setup() to populate properties from values stored in cfg.json
+     * readFromConfig() is called before configuración() to populate properties from values stored in cfg.JSON
      *
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject &root)
     {
@@ -615,16 +615,16 @@ class QuinLEDAnPentaUsermod : public Usermod
       getJsonValue(top[FPSTR(_oledFixBuggedScreen)], oledFixBuggedScreen);
       getJsonValue(top[FPSTR(_shtEnabled)], shtEnabled);
 
-      // First run: reading from cfg.json, nothing to do here, will be all done in setup()
+      // First run: reading from cfg.JSON, nothing to do here, will be all done in configuración()
       if (!firstRunDone) {
         DEBUG_PRINTF("[%s] First run, nothing to do\n", _name);
       }
-      // Check if mod has been en-/disabled
+      // Verificar if mod has been en-/disabled
       else if (enabled != oldEnabled) {
         enabled ? setup() : cleanup();
         DEBUG_PRINTF("[%s] Usermod has been en-/disabled\n", _name);
       }
-      // Config has been changed, so adopt to changes
+      // Configuración has been changed, so adopt to changes
       else if (enabled) {
         if (oldOledEnabled != oledEnabled) {
           oledEnabled ? initOledDisplay() : cleanupOledDisplay();
@@ -680,8 +680,8 @@ class QuinLEDAnPentaUsermod : public Usermod
     }
 
     /*
-      * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-      * This could be used in the future for the system to determine whether your usermod is installed.
+      * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+      * This could be used in the futuro for the sistema to determine whether your usermod is installed.
       */
     uint16_t getId()
     {
@@ -689,8 +689,8 @@ class QuinLEDAnPentaUsermod : public Usermod
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
-// Config settings
+// strings to reduce flash memoria usage (used more than twice)
+// Configuración settings
 const char QuinLEDAnPentaUsermod::_name[]                PROGMEM = "QuinLED-An-Penta";
 const char QuinLEDAnPentaUsermod::_enabled[]             PROGMEM = "Enabled";
 const char QuinLEDAnPentaUsermod::_oledEnabled[]         PROGMEM = "Enable-OLED";

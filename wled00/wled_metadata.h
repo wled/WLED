@@ -1,7 +1,7 @@
 /*
-  WLED build metadata
+  WLED compilación metadata
 
-  Manages and exports information about the current WLED build.
+  Manages and exports information about the current WLED compilación.
 */
 
 
@@ -15,10 +15,10 @@
 #define WLED_RELEASE_NAME_MAX_LEN 48
 
 /**
- * WLED Custom Description Structure
- * This structure is embedded in platform-specific sections at an approximately
- * fixed offset in ESP32/ESP8266 binaries, where it can be found and validated 
- * by the OTA process.
+ * WLED Personalizado Description Structure
+ * This structure is embedded in plataforma-specific sections at an approximately
+ * fixed desplazamiento in ESP32/ESP8266 binaries, where it can be found and validated 
+ * by the OTA proceso.
  */
 typedef struct {
     uint32_t magic;               // Magic number to identify WLED custom description
@@ -29,7 +29,7 @@ typedef struct {
 } __attribute__((packed)) wled_metadata_t;
 
 
-// Global build description
+// Global compilación description
 extern const wled_metadata_t WLED_BUILD_DESCRIPTION;
 
 // Convenient metdata pointers
@@ -40,22 +40,22 @@ extern const __FlashStringHelper* productString;                    // Product, 
 extern const __FlashStringHelper* brandString ;                     // Brand
 
 
-// Metadata analysis functions
+// Metadata análisis functions
 
 /**
- * Extract WLED custom description structure from binary data
- * @param binaryData Pointer to binary file data
- * @param dataSize Size of binary data in bytes
- * @param extractedDesc Buffer to store extracted custom description structure
- * @return true if structure was found and extracted, false otherwise
+ * Extract WLED custom description structure from binary datos
+ * @param binaryData Puntero to binary archivo datos
+ * @param dataSize Tamaño of binary datos in bytes
+ * @param extractedDesc Búfer to store extracted custom description structure
+ * @retorno verdadero if structure was found and extracted, falso otherwise
  */
 bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc);
 
 /**
- * Check if OTA should be allowed based on release compatibility
- * @param firmwareDescription Pointer to firmware description
- * @param errorMessage Buffer to store error message if validation fails 
- * @param errorMessageLen Maximum length of error message buffer
- * @return true if OTA should proceed, false if it should be blocked
+ * Verificar if OTA should be allowed based on lanzamiento compatibility
+ * @param firmwareDescription Puntero to firmware description
+ * @param errorMessage Búfer to store error mensaje if validation fails 
+ * @param errorMessageLen Máximo longitud of error mensaje búfer
+ * @retorno verdadero if OTA should proceed, falso if it should be blocked
  */
 bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen);

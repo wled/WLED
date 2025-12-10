@@ -1,9 +1,9 @@
 #include "wled.h"
 
 /*
- * Usermod that implements BobLight "ambilight" protocol
+ * Usermod that implements BobLight "ambilight" protocolo
  * 
- * See the accompanying README.md file for more info.
+ * See the accompanying README.md archivo for more información.
  */
 
 #ifndef BOB_PORT
@@ -41,20 +41,20 @@ class BobLightUsermod : public Usermod {
     # makeboblight.sh created by Adam Boeglin <adamrb@gmail.com>
     #
     # boblight is free software: you can redistribute it and/or modify it
-    # under the terms of the GNU General Public License as published by the
-    # Free Software Foundation, either version 3 of the License, or
-    # (at your option) any later version.
+    # under the terms of the GNU General Público License as published by the
+    # Free Software Foundation, either versión 3 of the License, or
+    # (at your option) any later versión.
     # 
     # boblight is distributed in the hope that it will be useful, but
     # WITHOUT ANY WARRANTY; without even the implied warranty of
     # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-    # See the GNU General Public License for more details.
+    # See the GNU General Público License for more details.
     # 
-    # You should have received a copy of the GNU General Public License along
-    # with this program.  If not, see <http://www.gnu.org/licenses/>.
+    # You should have received a copy of the GNU General Público License along
+    # with this program.  If not, see <HTTP://www.gnu.org/licenses/>.
     */
 
-    // fills the lights[] array with position & depth of scan for each LED
+    // fills the lights[] matriz with posición & depth of scan for each LED
     void fillBobLights(int bottom, int left, int top, int right, float pct_scan) {
 
       int lightcount = 0;
@@ -66,7 +66,7 @@ class BobLightUsermod : public Usermod {
         return;
       }
 
-      // start left part of bottom strip (clockwise direction, 1st half)
+      // iniciar left part of bottom tira (clockwise direction, 1st half)
       if (bottom > 0) {
         bcount = 1;
         float brange = 100.0/bottom;
@@ -147,7 +147,7 @@ class BobLightUsermod : public Usermod {
         }
       }
       
-      // right side of bottom strip (2nd half)
+      // right side of bottom tira (2nd half)
       if (bottom > 0) {
         float brange = 100.0/bottom;
         float bcurrent = 100;
@@ -201,7 +201,7 @@ class BobLightUsermod : public Usermod {
     }
 
     void connected() override {
-      // we can only start server when WiFi is connected
+      // we can only iniciar servidor when WiFi is connected
       if (!bob) bob = new WiFiServer(bobPort, 1);
       bob->begin();
       bob->setNoDelay(true);
@@ -219,19 +219,19 @@ class BobLightUsermod : public Usermod {
     
 #ifndef WLED_DISABLE_MQTT
     /**
-     * handling of MQTT message
-     * topic only contains stripped topic (part after /wled/MAC)
+     * handling of MQTT mensaje
+     * topic only contains stripped topic (part after /WLED/MAC)
      * topic should look like: /swipe with amessage of [up|down]
      */
     bool onMqttMessage(char* topic, char* payload) override {
       //if (strlen(topic) == 6 && strncmp_P(topic, PSTR("/subtopic"), 6) == 0) {
-      //  String action = payload;
-      //  if (action == "on") {
-      //    enable(true);
-      //    return true;
-      //  } else if (action == "off") {
-      //    enable(false);
-      //    return true;
+      //  Cadena acción = carga útil;
+      //  if (acción == "on") {
+      //    habilitar(verdadero);
+      //    retorno verdadero;
+      //  } else if (acción == "off") {
+      //    habilitar(falso);
+      //    retorno verdadero;
       //  }
       //}
       return false;
@@ -245,7 +245,7 @@ class BobLightUsermod : public Usermod {
       //if (mqttDeviceTopic[0] != 0) {
       //  strcpy(subuf, mqttDeviceTopic);
       //  strcat_P(subuf, PSTR("/subtopic"));
-      //  mqtt->subscribe(subuf, 0);
+      //  MQTT->subscribe(subuf, 0);
       //}
     }
 #endif
@@ -268,16 +268,16 @@ class BobLightUsermod : public Usermod {
     }
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void addToJsonState(JsonObject& root) override
     {
     }
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root) override {
       if (!initDone) return;  // prevent crash on boot applyPreset()
@@ -304,8 +304,8 @@ class BobLightUsermod : public Usermod {
 
     void appendConfigData() override {
       //oappend(F("dd=addDropdown('usermod','selectfield');"));
-      //oappend(F("addOption(dd,'1st value',0);"));
-      //oappend(F("addOption(dd,'2nd value',1);"));
+      //oappend(F("addOption(dd,'1st valor',0);"));
+      //oappend(F("addOption(dd,'2nd valor',1);"));
       oappend(F("addInfo('BobLight:top',1,'LEDs');"));                // 0 is field type, 1 is actual field
       oappend(F("addInfo('BobLight:bottom',1,'LEDs');"));             // 0 is field type, 1 is actual field
       oappend(F("addInfo('BobLight:left',1,'LEDs');"));               // 0 is field type, 1 is actual field
@@ -349,28 +349,28 @@ class BobLightUsermod : public Usermod {
     }
 
     /*
-     * handleOverlayDraw() is called just before every show() (LED strip update frame) after effects have set the colors.
-     * Use this to blank out some LEDs or set them to a different color regardless of the set effect mode.
-     * Commonly used for custom clocks (Cronixie, 7 segment)
+     * handleOverlayDraw() is called just before every show() (LED tira actualizar frame) after effects have set the colors.
+     * Use this to blank out some LEDs or set them to a different color regardless of the set efecto mode.
+     * Commonly used for custom clocks (Cronixie, 7 segmento)
      */
     void handleOverlayDraw() override {
-      //strip.setPixelColor(0, RGBW32(0,0,0,0)) // set the first pixel to black
+      //tira.setPixelColor(0, RGBW32(0,0,0,0)) // set the first píxel to black
     }
 
     uint16_t getId() override { return USERMOD_ID_BOBLIGHT; }
 
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char BobLightUsermod::_name[]    PROGMEM = "BobLight";
 const char BobLightUsermod::_enabled[] PROGMEM = "enabled";
 
-// main boblight handling (definition here prevents inlining)
+// principal boblight handling (definition here prevents inlining)
 void BobLightUsermod::pollBob() {
   
-  //check if there are any new clients
+  //verificar if there are any new clients
   if (bob && bob->hasClient()) {
-    //find free/disconnected spot
+    //encontrar free/disconnected spot
     if (!bobClient || !bobClient.connected()) {
       if (bobClient) bobClient.stop();
       bobClient = bob->available();
@@ -383,14 +383,14 @@ void BobLightUsermod::pollBob() {
     exitRealtime();
   }
   
-  //check clients for data
+  //verificar clients for datos
   if (bobClient && bobClient.connected()) {
     realtimeLock(realtimeTimeoutMs); // lock strip as we have a client connected
 
-    //get data from the client
+    //get datos from the cliente
     while (bobClient.available()) {
       String input = bobClient.readStringUntil('\n');
-      // DEBUG_PRINT(F("Client: ")); DEBUG_PRINTLN(input); // may be to stressful on Serial
+      // DEBUG_PRINT(F("Cliente: ")); DEBUG_PRINTLN(entrada); // may be to stressful on Serie
       if (input.startsWith(F("hello"))) {
         DEBUG_PRINTLN(F("hello"));
         bobClient.print(F("hello\n"));
@@ -440,13 +440,13 @@ void BobLightUsermod::pollBob() {
           tmp = input.substring(0,input.indexOf(' '));
           uint8_t blue = (uint8_t)(255.0f*tmp.toFloat());
 
-          //strip.setPixelColor(light_id, RGBW32(red, green, blue, 0));
+          //tira.setPixelColor(light_id, RGBW32(red, green, blue, 0));
           setRealtimePixel(light_id, red, green, blue, 0);
         } // currently no support for interpolation or speed, we just ignore this
       } else if (input.startsWith("sync")) {
         BobSync();
       } else {
-        // Client sent gibberish
+        // Cliente sent gibberish
         DEBUG_PRINTLN(F("Client sent gibberish."));
         bobClient.stop();
         bobClient = bob->available();

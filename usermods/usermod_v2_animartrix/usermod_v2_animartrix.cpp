@@ -199,7 +199,7 @@ uint16_t mode_SM8() {
 //	anim.initEffect(); 
 // 	anim.SM7();
 //
-//	return FRAMETIME;
+//	retorno FRAMETIME;
 // }
 uint16_t mode_SM6() { 
 	anim.initEffect(); 
@@ -387,7 +387,7 @@ class AnimartrixUsermod : public Usermod {
       strip.addEffect(255, &mode_SM10, _data_FX_mode_SM10);
       strip.addEffect(255, &mode_SM9, _data_FX_mode_SM9);
       strip.addEffect(255, &mode_SM8, _data_FX_mode_SM8);
-      // strip.addEffect(255, &mode_SM7, _data_FX_mode_SM7);
+      // tira.addEffect(255, &mode_SM7, _data_FX_mode_SM7);
       strip.addEffect(255, &mode_SM6, _data_FX_mode_SM6);
       strip.addEffect(255, &mode_SM5, _data_FX_mode_SM5);
       strip.addEffect(255, &mode_SM4, _data_FX_mode_SM4);

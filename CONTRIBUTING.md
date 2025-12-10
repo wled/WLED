@@ -111,12 +111,12 @@ Good:
 ```
 // This is a comment.
 
-/* This is a CSS inline comment */
+/* This is a CSS en línea comment */
 
 /* 
  * This is a comment
  * wrapping over multiple lines,
- * used in WLED for file headers and function explanations
+ * used in WLED for archivo headers and función explanations
  */
 
 <!-- This is an HTML comment -->

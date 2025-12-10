@@ -16,9 +16,9 @@ private:
 
   void httpGet(WiFiClient &client, char *errorMessage)
   {
-    // https://arduinojson.org/v6/example/http-client/
-    // is this the most compact way to do http get and put it in arduinojson object???
-    // would like async response ... ???
+    // https://arduinojson.org/v6/example/HTTP-cliente/
+    // is this the most compact way to do HTTP get and put it in arduinojson object???
+    // would like asíncrono respuesta ... ???
     client.setTimeout(10000);
     if (!client.connect(ip.c_str(), 80))
     {
@@ -26,7 +26,7 @@ private:
     }
     else
     {
-      // Send HTTP request
+      // Enviar HTTP solicitud
       client.println(F("GET /printer/objects/query?virtual_sdcard=progress HTTP/1.0"));
       client.print(F("Host: ")); client.println(ip);
       client.println(F("Connection: close"));
@@ -36,7 +36,7 @@ private:
       }
       else
       {
-        // Check HTTP status
+        // Verificar HTTP estado
         char status[32] = {0};
         client.readBytesUntil('\r', status, sizeof(status));
         if (strcmp_P(status, PSTR("HTTP/1.1 200 OK")) != 0)
@@ -46,7 +46,7 @@ private:
         }
         else
         {
-          // Skip HTTP headers
+          // Omitir HTTP headers
           char endOfHeaders[] = "\r\n\r\n";
           if (!client.find(endOfHeaders))
           {
@@ -112,8 +112,8 @@ public:
 
   bool readFromConfig(JsonObject &root)
   {
-    // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+    // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+    // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
     JsonObject top = root[F("Klipper Printing Percentage")];
 
@@ -125,9 +125,9 @@ public:
   }
 
   /*
-   * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-   * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-   * Below it is shown how this could be used for e.g. a light sensor
+   * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+   * Crear un objeto "u" permite añadir pares clave/valor a la sección Información de la UI web de WLED.
+   * A continuación se muestra un ejemplo.
    */
   void addToJsonInfo(JsonObject &root)
   {
@@ -170,9 +170,9 @@ public:
   }
 
   /*
-   * handleOverlayDraw() is called just before every show() (LED strip update frame) after effects have set the colors.
-   * Use this to blank out some LEDs or set them to a different color regardless of the set effect mode.
-   * Commonly used for custom clocks (Cronixie, 7 segment)
+   * handleOverlayDraw() is called just before every show() (LED tira actualizar frame) after effects have set the colors.
+   * Use this to blank out some LEDs or set them to a different color regardless of the set efecto mode.
+   * Commonly used for custom clocks (Cronixie, 7 segmento)
    */
   void handleOverlayDraw()
   {
@@ -208,8 +208,8 @@ public:
   }
 
   /*
-   * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-   * This could be used in the future for the system to determine whether your usermod is installed.
+   * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+   * This could be used in the futuro for the sistema to determine whether your usermod is installed.
    */
   uint16_t getId()
   {

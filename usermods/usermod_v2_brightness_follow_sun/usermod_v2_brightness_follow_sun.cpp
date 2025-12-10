@@ -1,6 +1,6 @@
 #include "wled.h"
 
-//v2 usermod that allows to change brightness and color using a rotary encoder, 
+//v2 usermod that allows to change brillo and color usando a rotary encoder, 
 //change between modes by pressing a button (many encoders have one included)
 class UsermodBrightnessFollowSun : public Usermod
 {

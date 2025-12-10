@@ -18,7 +18,7 @@ uint32_t read32(File &f) {
 bool BMPimage::init(const char * fn) {
     File bmpFile;
     int bmpDepth;
-    //first, check if filename exists
+    //first, verificar if filename exists
     if (!WLED_FS.exists(fn)) {
       return false;
     }
@@ -29,8 +29,8 @@ bool BMPimage::init(const char * fn) {
       return false;
     }
 
-    //so, the file exists and is opened
-    // Parse BMP header
+    //so, the archivo exists and is opened
+    // Analizar BMP encabezado
     uint16_t header = read16(bmpFile);
     if(header != 0x4D42) { // BMP signature
       _valid=false;
@@ -38,11 +38,11 @@ bool BMPimage::init(const char * fn) {
       return false;
     }
 
-    //read and ingnore file size
+    //leer and ingnore archivo tamaño
     read32(bmpFile);
     (void)read32(bmpFile); // Read & ignore creator bytes
     _imageOffset = read32(bmpFile); // Start of image data
-    // Read DIB header
+    // Leer DIB encabezado
     read32(bmpFile);
     _width  = read32(bmpFile);
     _height = read32(bmpFile);
@@ -66,7 +66,7 @@ bool BMPimage::init(const char * fn) {
     //now, we have successfully got all the basics
     // BMP rows are padded (if needed) to 4-byte boundary
     _rowSize = (_width * 3 + 3) & ~3;
-    //check image size - if it is too large, it will be unusable
+    //verificar image tamaño - if it is too large, it will be unusable
     if (_rowSize*_height>BUF_SIZE) {
       _valid=false;
       bmpFile.close();
@@ -74,7 +74,7 @@ bool BMPimage::init(const char * fn) {
     }
 
     bmpFile.close();
-    // Ensure filename fits our buffer (segment name length constraint).
+    // Ensure filename fits our búfer (segmento name longitud restricción).
     size_t len = strlen(fn);
     if (len > WLED_MAX_SEGNAME_LEN) {
       return false;

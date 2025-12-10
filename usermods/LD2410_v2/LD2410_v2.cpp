@@ -35,7 +35,7 @@ class LD2410Usermod : public Usermod {
     int8_t uart_rx_pin;
     int8_t uart_tx_pin;
 
-    // string that are used multiple time (this will save some flash memory)
+    // cadena that are used multiple time (this will guardar some flash memoria)
     static const char _name[];
     static const char _enabled[];
 
@@ -51,7 +51,7 @@ class LD2410Usermod : public Usermod {
       } 
     }
 
-    // Create an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Loop.
+    // Crear an MQTT Sensor for Home Assistant Discovery purposes, this includes a pointer to the topic that is published to in the Bucle.
     void _createMqttSensor(const String &name, const String &topic, const String &deviceClass, const String &unitOfMeasurement)
     {
       String t = String(F("homeassistant/binary_sensor/")) + mqttClientID + F("/") + name + F("/config");
@@ -101,7 +101,7 @@ class LD2410Usermod : public Usermod {
 
 
     void loop() {
-      // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
+      // NOTE: on very long strips tira.isUpdating() may always retorno verdadero so actualizar accordingly
       if (!enabled || strip.isUpdating()) return;
       radar.read();
       unsigned long curr_time = millis();
@@ -124,7 +124,7 @@ class LD2410Usermod : public Usermod {
             last_movement_state = movement_detected;
           }
         }
-        // If there hasn't been any activity, send current state to confirm sensor is alive
+        // If there hasn't been any activity, enviar current estado to confirm sensor is alive
         if(curr_time - last_mqtt_sent > 1000*60*5 && WLED_MQTT_CONNECTED){
           publishMqtt("/ld2410/stationary", stationary_detected ? "ON":"OFF", false);
           publishMqtt("/ld2410/movement", movement_detected ? "ON":"OFF", false);
@@ -135,7 +135,7 @@ class LD2410Usermod : public Usermod {
 
     void addToJsonInfo(JsonObject& root)
     {
-      // if "u" object does not exist yet wee need to create it
+      // if "u" object does not exist yet wee need to crear it
       JsonObject user = root[F("u")];
       if (user.isNull()) user = root.createNestedObject(F("u"));
 
@@ -159,7 +159,7 @@ class LD2410Usermod : public Usermod {
     {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
-      //save these vars persistently whenever settings are saved
+      //guardar these vars persistently whenever settings are saved
       top["uart_rx_pin"] = default_uart_rx;
       top["uart_tx_pin"] = default_uart_tx;
     }
@@ -167,8 +167,8 @@ class LD2410Usermod : public Usermod {
 
     bool readFromConfig(JsonObject& root)
     {
-      // default settings values could be set here (or below using the 3-argument getJsonValue()) instead of in the class definition or constructor
-      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single value being missing after boot (e.g. if the cfg.json was manually edited and a value was removed)
+      // default settings values could be set here (or below usando the 3-argumento getJsonValue()) instead of in the clase definition or constructor
+      // setting them inside readFromConfig() is slightly more robust, handling the rare but plausible use case of single valor being missing after boot (e.g. if the cfg.JSON was manually edited and a valor was removed)
 
       JsonObject top = root[FPSTR(_name)];
 
@@ -190,7 +190,7 @@ class LD2410Usermod : public Usermod {
 
 #ifndef WLED_DISABLE_MQTT
     /**
-     * onMqttConnect() is called when MQTT connection is established
+     * onMqttConnect() is called when MQTT conexión is established
      */
     void onMqttConnect(bool sessionPresent) {
       // do any MQTT related initialisation here
@@ -211,17 +211,17 @@ class LD2410Usermod : public Usermod {
 };
 
 
-// add more strings here to reduce flash memory usage
+// add more strings here to reduce flash memoria usage
 const char LD2410Usermod::_name[]    PROGMEM = "LD2410Usermod";
 const char LD2410Usermod::_enabled[] PROGMEM = "enabled";
 
 
-// implementation of non-inline member methods
+// implementación of non-en línea miembro methods
 
 void LD2410Usermod::publishMqtt(const char* topic, const char* state, bool retain)
 {
 #ifndef WLED_DISABLE_MQTT
-  //Check if MQTT Connected, otherwise it will crash
+  //Verificar if MQTT Connected, otherwise it will bloqueo
   if (WLED_MQTT_CONNECTED) {
     last_mqtt_sent = millis();
     char subuf[64];

@@ -5,16 +5,16 @@
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
 /*
- * E1.31 handler
+ * E1.31 manejador
  */
 
-//DDP protocol support, called by handleE131Packet
-//handles RGB data only
+//DDP protocolo support, called by handleE131Packet
+//handles RGB datos only
 void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
-  //reject late packets belonging to previous frame (assuming 4 packets max. before push)
+  //reject late packets belonging to previous frame (assuming 4 packets max. before enviar)
   if (e131SkipOutOfSequence && lastPushSeq) {
     int sn = p->sequenceNum & 0xF;
     if (sn) {
@@ -61,7 +61,7 @@ void handleDDPPacket(e131_packet_t* p) {
   }
 }
 
-//E1.31 and Art-Net protocol support
+//E1.31 and Art-Net protocolo support
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
 
   int uni = 0, dmxChannels = 0;
@@ -80,17 +80,17 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     seq = p->art_sequence_number;
     mde = REALTIME_MODE_ARTNET;
   } else if (protocol == P_E131) {
-    // Ignore PREVIEW data (E1.31: 6.2.6)
+    // Ignorar PREVIEW datos (E1.31: 6.2.6)
     if ((p->options & 0x80) != 0) return;
     dmxChannels = htons(p->property_value_count) - 1;
-    // DMX level data is zero start code. Ignore everything else. (E1.11: 8.5)
+    // DMX nivel datos is zero iniciar código. Ignorar everything else. (E1.11: 8.5)
     if (dmxChannels == 0 || p->property_values[0] != 0) return;
     uni = htons(p->universe);
     e131_data = p->property_values;
     seq = p->sequence_number;
     if (e131Priority != 0) {
       if (p->priority < e131Priority ) return;
-      // track highest priority & skip all lower priorities
+      // track highest priority & omitir all lower priorities
       if (p->priority >= highPriority.get()) highPriority.set(p->priority);
       if (p->priority < highPriority.get()) return;
     }
@@ -109,7 +109,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   }
   #endif
 
-  // only listen for universes we're handling & allocated memory
+  // only listen for universes we're handling & allocated memoria
   if (uni < e131Universe || uni >= (e131Universe + E131_MAX_UNIVERSE_COUNT)) return;
 
   unsigned previousUniverses = uni - e131Universe;
@@ -121,7 +121,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     }
   e131LastSequenceNumber[previousUniverses] = seq;
 
-  // update status info
+  // actualizar estado información
   realtimeIP = clientIP;
 
   handleDMXData(uni, dmxChannels, e131_data, mde, previousUniverses);
@@ -133,15 +133,15 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
   unsigned availDMXLen = 0;
   unsigned dataOffset = DMXAddress;
 
-  // For legacy DMX start address 0 the available DMX length offset is 0
+  // For legacy DMX iniciar address 0 the available DMX longitud desplazamiento is 0
   const unsigned dmxLenOffset = (DMXAddress == 0) ? 0 : 1;
 
-  // Check if DMX start address fits in available channels
+  // Verificar if DMX iniciar address fits in available channels
   if (dmxChannels >= DMXAddress) {
     availDMXLen = (dmxChannels - DMXAddress) + dmxLenOffset;
   }
 
-  // DMX data in Art-Net packet starts at index 0, for E1.31 at index 1
+  // DMX datos in Art-Net packet starts at índice 0, for E1.31 at índice 1
   if (mde == REALTIME_MODE_ARTNET && dataOffset > 0) {
     dataOffset--;
   }
@@ -185,10 +185,10 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
       {
         if (uni != e131Universe || availDMXLen < 2) return;
 
-        // limit max. selectable preset to 250, even though DMX max. val is 255
+        // límite max. selectable preset to 250, even though DMX max. val is 255
         int dmxValPreset = (e131_data[dataOffset+1] > 250 ? 250 : e131_data[dataOffset+1]);
         
-        // only apply preset if value changed 
+        // only apply preset if valor changed 
         if (dmxValPreset != 0 && dmxValPreset != currentPreset &&  
             // only apply preset if not in playlist, or playlist changed
             (currentPlaylist < 0 || dmxValPreset != currentPlaylist)) { 
@@ -196,7 +196,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           applyPreset(dmxValPreset, CALL_MODE_NOTIFICATION);
         }
 
-        // only change brightness if value changed
+        // only change brillo if valor changed
         if (bri != e131_data[dataOffset]) {                                        
           bri = e131_data[dataOffset];
           strip.setBrightness(bri, false);
@@ -220,10 +220,10 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
             dataOffset = DMXAddress + id * (dmxEffectChannels + DMXSegmentSpacing);
           else
             dataOffset = DMXAddress;
-          // Modify address for Art-Net data
+          // Modify address for Art-Net datos
           if (mde == REALTIME_MODE_ARTNET && dataOffset > 0)
             dataOffset--;
-          // Skip out of universe addresses
+          // Omitir out of universe addresses
           if (dataOffset > dmxChannels - dmxEffectChannels + 1)
             return;
 
@@ -239,9 +239,9 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if ((e131_data[dataOffset+5] & 0b00110000) >> 4 != seg.map1D2D) {
             seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) >> 4;
           }
-          // To maintain backwards compatibility with prior e1.31 values, reverse is fixed to mask 0x01000000
+          // To maintain backwards compatibility with prior E1.31 values, reverse is fixed to mask 0x01000000
           if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.reverse = bool(e131_data[dataOffset+5] & 0b01000000); }
-          // To maintain backwards compatibility with prior e1.31 values, mirror is fixed to mask 0x10000000
+          // To maintain backwards compatibility with prior E1.31 values, mirror is fixed to mask 0x10000000
           if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.mirror = bool(e131_data[dataOffset+5] & 0b10000000); }
 
           uint32_t colors[3];
@@ -258,7 +258,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if (colors[1] != seg.colors[1]) seg.setColor(1, colors[1]);
           if (colors[2] != seg.colors[2]) seg.setColor(2, colors[2]);
 
-          // Set segment opacity or global brightness
+          // Set segmento opacity or global brillo
           if (isSegmentMode) {
             if (e131_data[dataOffset] != seg.opacity) seg.setOpacity(e131_data[dataOffset]);
           } else if ( id == strip.getSegmentsNum()-1U ) {
@@ -294,7 +294,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
             ledsTotal = availDMXLen / dmxChannelsPerLed;
           }
         } else {
-          // All subsequent universes start at the first channel.
+          // All subsequent universes iniciar at the first channel.
           dmxOffset = (mde == REALTIME_MODE_ARTNET) ? 0 : 1;
           const unsigned dimmerOffset = (DMXMode == DMX_MODE_MULTIPLE_DRGB) ? 1 : 0;
           unsigned ledsInFirstUniverse = (((MAX_CHANNELS_PER_UNIVERSE - DMXAddress) + dmxLenOffset) - dimmerOffset) / dmxChannelsPerLed;
@@ -427,7 +427,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
 
-  // Switch values depend on universe, set before sending
+  // Conmutador values depend on universe, set before sending
   reply->reply_net_sw = 0x00;
   reply->reply_sub_sw = 0x00;
 
@@ -437,7 +437,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   reply->reply_ubea_ver = 0x00;
 
   // Indicators in Normal Mode
-  // All or part of Port-Address programmed by network or Web browser
+  // All or part of Puerto-Address programmed by red or Web browser
   reply->reply_status_1 = 0xE0;
 
   reply->reply_esta_man = 0x0000;
@@ -461,7 +461,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   reply->reply_good_input[2] = 0x00;
   reply->reply_good_input[3] = 0x00;
 
-  // One output
+  // One salida
   reply->reply_good_output_a[0] = 0x80; // Data is being transmitted
   reply->reply_good_output_a[1] = 0x00;
   reply->reply_good_output_a[2] = 0x00;
@@ -487,7 +487,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   reply->reply_spare[1] = 0x00;
   reply->reply_spare[2] = 0x00;
 
-  // A DMX to / from Art-Net device
+  // A DMX to / from Art-Net dispositivo
   reply->reply_style = 0x00;
 
   Network.localMAC(reply->reply_mac);
@@ -499,21 +499,21 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   reply->reply_bind_index = 1;
 
   // Product supports web browser configuration
-  // Node’s IP is DHCP or manually configured
-  // Node is DHCP capable
-  // Node supports 15 bit Port-Address (Art-Net 3 or 4)
-  // Node is able to switch between ArtNet and sACN
+  // Nodo’s IP is DHCP or manually configured
+  // Nodo is DHCP capable
+  // Nodo supports 15 bit Puerto-Address (Art-Net 3 or 4)
+  // Nodo is able to conmutador between ArtNet and sACN
   reply->reply_status_2 = (multiWiFi[0].staticIP[0] == 0) ? 0x1F : 0x1D;
 
   // RDM is disabled
-  // Output style is continuous
+  // Salida style is continuous
   reply->reply_good_output_b[0] = 0xC0;
   reply->reply_good_output_b[1] = 0xC0;
   reply->reply_good_output_b[2] = 0xC0;
   reply->reply_good_output_b[3] = 0xC0;
 
-  // Fail-over state: Hold last state
-  // Node does not support fail-over
+  // Fail-over estado: Hold last estado
+  // Nodo does not support fail-over
   reply->reply_status_3 = 0x00;
 
   for (unsigned i = 0; i < 21; i++) {

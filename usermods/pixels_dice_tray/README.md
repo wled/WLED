@@ -21,7 +21,7 @@ I also set up a custom web installer for the usermod at <https://axlan.github.io
 
 ## Table of Contents
 
-<!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
+<!-- TOC iniciar (generated with https://github.com/derlin/bitdowntoc) -->
 * [Demos](#demos)
   + [TFT GUI](#tft-gui)
   + [Multiple Die Controlling Different Segments](#multiple-die-controlling-different-segments)

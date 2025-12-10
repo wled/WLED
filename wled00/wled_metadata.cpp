@@ -11,27 +11,27 @@
   #define WLED_RELEASE_NAME "Custom"
 #endif
 #ifndef WLED_REPO
-  // No warning for this one: integrators are not always on GitHub
+  // No advertencia for this one: integrators are not always on GitHub
   #define WLED_REPO "unknown"
 #endif
 
 constexpr uint32_t WLED_CUSTOM_DESC_MAGIC = 0x57535453;  // "WSTS" (WLED System Tag Structure)
 constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 1;
 
-// Compile-time validation that release name doesn't exceed maximum length
+// Compile-time validation that lanzamiento name doesn't exceed maximum longitud
 static_assert(sizeof(WLED_RELEASE_NAME) <= WLED_RELEASE_NAME_MAX_LEN, 
               "WLED_RELEASE_NAME exceeds maximum length of WLED_RELEASE_NAME_MAX_LEN characters");
 
 
 /**
- * DJB2 hash function (C++11 compatible constexpr)
- * Used for compile-time hash computation to validate structure contents
- * Recursive for compile time: not usable at runtime due to stack depth
+ * DJB2 hash función (C++11 compatible constexpr)
+ * Used for compile-time hash computación to validar structure contents
+ * Recursive for compile time: not usable at runtime due to pila depth
  * 
  * Note that this only works on strings; there is no way to produce a compile-time
- * hash of a struct in C++11 without explicitly listing all the struct members.
- * So for now, we hash only the release name.  This suffices for a "did you find 
- * valid structure" check.
+ * hash of a estructura in C++11 without explicitly listing all the estructura members.
+ * So for now, we hash only the lanzamiento name.  This suffices for a "did you encontrar 
+ * valid structure" verificar.
  * 
  */
 constexpr uint32_t djb2_hash_constexpr(const char* str, uint32_t hash = 5381) {
@@ -39,7 +39,7 @@ constexpr uint32_t djb2_hash_constexpr(const char* str, uint32_t hash = 5381) {
 }
 
 /**
- * Runtime DJB2 hash function for validation
+ * Runtime DJB2 hash función for validation
  */
 inline uint32_t djb2_hash_runtime(const char* str) {
     uint32_t hash = 5381;
@@ -52,7 +52,7 @@ inline uint32_t djb2_hash_runtime(const char* str) {
 // ------------------------------------
 // GLOBAL VARIABLES
 // ------------------------------------
-// Structure instantiation for this build 
+// Structure instanciación for this compilación 
 const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUILD_DESCRIPTION = {
     WLED_CUSTOM_DESC_MAGIC,                   // magic
     WLED_CUSTOM_DESC_VERSION,                 // version 
@@ -74,10 +74,10 @@ const __FlashStringHelper* brandString = FPSTR(brandString_s);
 
 /**
  * Extract WLED custom description structure from binary
- * @param binaryData Pointer to binary file data
- * @param dataSize Size of binary data in bytes
- * @param extractedDesc Buffer to store extracted custom description structure
- * @return true if structure was found and extracted, false otherwise
+ * @param binaryData Puntero to binary archivo datos
+ * @param dataSize Tamaño of binary datos in bytes
+ * @param extractedDesc Búfer to store extracted custom description structure
+ * @retorno verdadero if structure was found and extracted, falso otherwise
  */
 bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_t* extractedDesc) {
   if (!binaryData || !extractedDesc || dataSize < sizeof(wled_metadata_t)) {
@@ -86,23 +86,23 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
 
   for (size_t offset = 0; offset <= dataSize - sizeof(wled_metadata_t); offset++) {
     if ((binaryData[offset]) == static_cast<char>(WLED_CUSTOM_DESC_MAGIC)) {
-      // First byte matched; check next in an alignment-safe way
+      // First byte matched; verificar next in an alignment-safe way
       uint32_t data_magic;
       memcpy(&data_magic, binaryData + offset, sizeof(data_magic));
       
-      // Check for magic number
+      // Verificar for magic number
       if (data_magic == WLED_CUSTOM_DESC_MAGIC) {            
         wled_metadata_t candidate;
         memcpy(&candidate, binaryData + offset, sizeof(candidate));
 
-        // Found potential match, validate version
+        // Found potential coincidir, validar versión
         if (candidate.desc_version != WLED_CUSTOM_DESC_VERSION) {
           DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
                         offset, candidate.desc_version);
           continue;
         }
         
-        // Validate hash using runtime function
+        // Validar hash usando runtime función
         uint32_t expected_hash = djb2_hash_runtime(candidate.release_name);
         if (candidate.hash != expected_hash) {
           DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but hash mismatch\n"), offset);
@@ -125,22 +125,22 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
 
 
 /**
- * Check if OTA should be allowed based on release compatibility using custom description
- * @param binaryData Pointer to binary file data (not modified)
- * @param dataSize Size of binary data in bytes
- * @param errorMessage Buffer to store error message if validation fails 
- * @param errorMessageLen Maximum length of error message buffer
- * @return true if OTA should proceed, false if it should be blocked
+ * Verificar if OTA should be allowed based on lanzamiento compatibility usando custom description
+ * @param binaryData Puntero to binary archivo datos (not modified)
+ * @param dataSize Tamaño of binary datos in bytes
+ * @param errorMessage Búfer to store error mensaje if validation fails 
+ * @param errorMessageLen Máximo longitud of error mensaje búfer
+ * @retorno verdadero if OTA should proceed, falso if it should be blocked
  */
 
 bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
-  // Clear error message
+  // Limpiar error mensaje
   if (errorMessage && errorMessageLen > 0) {
     errorMessage[0] = '\0';
   }
 
-  // Validate compatibility using extracted release name
-  // We make a stack copy so we can print it safely
+  // Validar compatibility usando extracted lanzamiento name
+  // We make a pila copy so we can imprimir it safely
   char safeFirmwareRelease[WLED_RELEASE_NAME_MAX_LEN];
   strncpy(safeFirmwareRelease, firmwareDescription.release_name, WLED_RELEASE_NAME_MAX_LEN - 1);
   safeFirmwareRelease[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';

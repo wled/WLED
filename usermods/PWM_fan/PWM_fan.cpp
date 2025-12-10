@@ -10,8 +10,8 @@
 
 
 
-// PWM & tacho code curtesy of @KlausMu
-// https://github.com/KlausMu/esp32-fan-controller/tree/main/src
+// PWM & tacho código curtesy of @KlausMu
+// https://github.com/KlausMu/esp32-fan-controller/árbol/principal/src
 // adapted for WLED usermod by @blazoncek
 
 #ifndef TACHO_PIN
@@ -24,8 +24,8 @@
 
 // tacho counter
 static volatile unsigned long counter_rpm = 0;
-// Interrupt counting every rotation of the fan
-// https://desire.giesecke.tk/index.php/2018/01/30/change-global-variables-from-isr/
+// Interrupción counting every rotation of the fan
+// https://desire.giesecke.tk/índice.php/2018/01/30/change-global-variables-from-isr/
 static void IRAM_ATTR rpm_fan() {
   counter_rpm++;
 }
@@ -60,12 +60,12 @@ class PWMFanUsermod : public Usermod {
     uint8_t numberOfInterrupsInOneSingleRotation = 2;     // Number of interrupts ESP32 sees on tacho signal on a single fan rotation. All the fans I've seen trigger two interrups.
     uint8_t pwmValuePct       = 0;
 
-    // constant values
+    // constante values
     static const uint8_t _pwmMaxValue     = 255;
     static const uint8_t _pwmMaxStepCount = 7;
     float _pwmTempStepSize = 0.5f;
 
-    // strings to reduce flash memory usage (used more than twice)
+    // strings to reduce flash memoria usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
     static const char _tachoPin[];
@@ -101,15 +101,15 @@ class PWMFanUsermod : public Usermod {
       msLastTachoMeasurement = millis();
       if (tachoPin < 0) return;
 
-      // start of tacho measurement
-      // detach interrupt while calculating rpm
+      // iniciar of tacho measurement
+      // detach interrupción while calculating rpm
       detachInterrupt(digitalPinToInterrupt(tachoPin)); 
       // calculate rpm
       last_rpm = (counter_rpm * 60) / numberOfInterrupsInOneSingleRotation;
       last_rpm /= tachoUpdateSec;
-      // reset counter
+      // restablecer counter
       counter_rpm = 0; 
-      // attach interrupt again
+      // attach interrupción again
       attachInterrupt(digitalPinToInterrupt(tachoPin), rpm_fan, FALLING);
     }
 
@@ -129,7 +129,7 @@ class PWMFanUsermod : public Usermod {
       if (pwmChannel == 255) { //no more free LEDC channels
         deinitPWMfan(); return;
       }
-      // configure LED PWM functionalitites
+      // configurar LED PWM functionalitites
       ledcSetup(pwmChannel, 25000, 8);
       // attach the channel to the GPIO to be controlled
       ledcAttachPin(pwmPin, pwmChannel);
@@ -170,7 +170,7 @@ class PWMFanUsermod : public Usermod {
       // dividing minPercent and maxPercent into equal pwmvalue sizes
       int pwmStepSize = ((maxPWMValuePct - minPWMValuePct) * _pwmMaxValue) / (_pwmMaxStepCount*100);
       int pwmStep = calculatePwmStep(temp - targetTemperature);
-      // minimum based on full speed - not entered MaxPercent 
+      // minimum based on full velocidad - not entered MaxPercent 
       int pwmMinimumValue = (minPWMValuePct * _pwmMaxValue) / 100;
       updateFanSpeed(pwmMinimumValue + pwmStep*pwmStepSize);
     }
@@ -191,7 +191,7 @@ class PWMFanUsermod : public Usermod {
   public:
 
     // gets called once at boot. Do all initialization that doesn't depend on
-    // network here
+    // red here
     void setup() override {
       #ifdef USERMOD_DALLASTEMPERATURE   
       // This Usermod requires Temperature usermod
@@ -205,12 +205,12 @@ class PWMFanUsermod : public Usermod {
       initDone = true;
     }
 
-    // gets called every time WiFi is (re-)connected. Initialize own network
+    // gets called every time WiFi is (re-)connected. Inicializar own red
     // interfaces here
     void connected() override {}
 
     /*
-     * Da loop.
+     * Da bucle.
      */
     void loop() override {
       if (!enabled || strip.isUpdating()) return;
@@ -223,9 +223,9 @@ class PWMFanUsermod : public Usermod {
     }
 
     /*
-     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-     * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
-     * Below it is shown how this could be used for e.g. a light sensor
+     * `addToJsonInfo()` puede usarse para añadir entradas personalizadas a /JSON/información de la API JSON.
+     * Crear un objeto "u" permite añadir pares clave/valor a la sección Información de la UI web de WLED.
+     * A continuación se muestra un ejemplo.
      */
     void addToJsonInfo(JsonObject& root) override {
       JsonObject user = root["u"];
@@ -266,15 +266,15 @@ class PWMFanUsermod : public Usermod {
     }
 
     /*
-     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     //void addToJsonState(JsonObject& root) {
     //}
 
     /*
-     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-     * Values in the state object may be modified by connected clients
+     * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+     * Values in the estado object may be modified by connected clients
      */
     void readFromJsonState(JsonObject& root) override {
       if (!initDone) return;  // prevent crash on boot applyPreset()
@@ -296,16 +296,16 @@ class PWMFanUsermod : public Usermod {
     }
 
     /*
-     * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+     * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
      * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-     * If you want to force saving the current state, use serializeConfig() in your loop().
+     * If you want to force saving the current estado, use serializeConfig() in your bucle().
      * 
-     * CAUTION: serializeConfig() will initiate a filesystem write operation.
+     * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
      * It might cause the LEDs to stutter and will cause flash wear if called too often.
-     * Use it sparingly and always in the loop, never in network callbacks!
+     * Use it sparingly and always in the bucle, never in red callbacks!
      * 
      * addToConfig() will also not yet add your setting to one of the settings pages automatically.
-     * To make that work you still have to add the setting to the HTML, xml.cpp and set.cpp manually.
+     * To make that work you still have to add the setting to the HTML, XML.cpp and set.cpp manually.
      * 
      * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
      */
@@ -323,14 +323,14 @@ class PWMFanUsermod : public Usermod {
     }
 
     /*
-     * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+     * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
      * This is called by WLED when settings are loaded (currently this only happens once immediately after boot)
      * 
-     * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-     * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+     * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+     * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
      * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
      * 
-     * The function should return true if configuration was successfully loaded or false if there was no configuration.
+     * The función should retorno verdadero if configuration was successfully loaded or falso if there was no configuration.
      */
     bool readFromConfig(JsonObject& root) override {
       int8_t newTachoPin = tachoPin;
@@ -357,7 +357,7 @@ class PWMFanUsermod : public Usermod {
       numberOfInterrupsInOneSingleRotation = (uint8_t) max(1,(int)numberOfInterrupsInOneSingleRotation); // bounds checking
 
       if (!initDone) {
-        // first run: reading from cfg.json
+        // first run: reading from cfg.JSON
         tachoPin = newTachoPin;
         pwmPin   = newPwmPin;
         DEBUG_PRINTLN(F(" config loaded."));
@@ -366,7 +366,7 @@ class PWMFanUsermod : public Usermod {
         // changing paramters from settings page
         if (tachoPin != newTachoPin || pwmPin != newPwmPin) {
           DEBUG_PRINTLN(F("Re-init pins."));
-          // deallocate pin and release interrupts
+          // deallocate pin and lanzamiento interrupts
           deinitTacho();
           deinitPWMfan();
           tachoPin = newTachoPin;
@@ -376,20 +376,20 @@ class PWMFanUsermod : public Usermod {
         }
       }
 
-      // use "return !top["newestParameter"].isNull();" when updating Usermod with new features
+      // use "retorno !top["newestParameter"].isNull();" when updating Usermod with new features
       return !top[FPSTR(_IRQperRotation)].isNull();
   }
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId() override {
         return USERMOD_ID_PWM_FAN;
     }
 };
 
-// strings to reduce flash memory usage (used more than twice)
+// strings to reduce flash memoria usage (used more than twice)
 const char PWMFanUsermod::_name[]           PROGMEM = "PWM-fan";
 const char PWMFanUsermod::_enabled[]        PROGMEM = "enabled";
 const char PWMFanUsermod::_tachoPin[]       PROGMEM = "tacho-pin";

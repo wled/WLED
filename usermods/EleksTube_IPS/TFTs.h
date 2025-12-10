@@ -13,8 +13,8 @@ private:
   uint8_t digits[NUM_DIGITS];
 
 
-  // These read 16- and 32-bit types from the SD card file.
-  // BMP data is stored little-endian, Arduino is little-endian too.
+  // These leer 16- and 32-bit types from the SD card archivo.
+  // BMP datos is stored little-endian, Arduino is little-endian too.
   // May need to reverse subscript order if porting elsewhere.
 
   uint16_t read16(fs::File &f) {
@@ -45,17 +45,17 @@ private:
     setSwapBytes(oldSwapBytes);
   }
 
-  // These BMP functions are stolen directly from the TFT_SPIFFS_BMP example in the TFT_eSPI library.
-  // Unfortunately, they aren't part of the library itself, so I had to copy them.
-  // I've modified drawBmp to buffer the whole image at once instead of doing it line-by-line.
+  // These BMP functions are stolen directly from the TFT_SPIFFS_BMP example in the TFT_eSPI biblioteca.
+  // Unfortunately, they aren't part of the biblioteca itself, so I had to copy them.
+  // I've modified drawBmp to búfer the whole image at once instead of doing it line-by-line.
 
-  //// BEGIN STOLEN CODE
+  //// BEGIN STOLEN CÓDIGO
 
-  // Draw directly from file stored in RGB565 format. Fastest
+  // Dibujar directly from archivo stored in RGB565 formato. Fastest
   bool drawBin(const char *filename) {
     fs::File bmpFS;
 
-    // Open requested file on SD card
+    // Open requested archivo on SD card
     bmpFS = WLED_FS.open(filename, "r");
 
     size_t sz = bmpFS.size();
@@ -67,7 +67,7 @@ private:
     uint16_t r, g, b, dimming = 255;
     int16_t row, col;
 
-    //draw img that is shorter than 240pix into the center
+    //dibujar img that is shorter than 240pix into the center
     w = 135;
     h = sz / (w * 2);
     x = 0;
@@ -83,16 +83,16 @@ private:
       bmpFS.read(lineBuffer, sizeof(lineBuffer));
       uint8_t PixM, PixL;
       
-      // Colors are already in 16-bit R5, G6, B5 format
+      // Colors are already in 16-bit R5, G6, B5 formato
       for (col = 0; col < w; col++)
       {
         if (dimming == 255 && !digitColor) { // not needed, copy directly
           output_buffer[row][col] = (lineBuffer[col*2+1] << 8) | (lineBuffer[col*2]);
         } else {
-          // 16 BPP pixel format: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
+          // 16 BPP píxel formato: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
           PixM = lineBuffer[col*2+1];
           PixL = lineBuffer[col*2];
-          // align to 8-bit value (MSB left aligned)
+          // align to 8-bit valor (MSB left aligned)
           r = (PixM) & 0xF8;
           g = ((PixM << 5) | (PixL >> 3)) & 0xFC;
           b = (PixL << 3) & 0xF8;
@@ -119,7 +119,7 @@ private:
   bool drawBmp(const char *filename) {
     fs::File bmpFS;
 
-    // Open requested file on SD card
+    // Open requested archivo on SD card
     bmpFS = WLED_FS.open(filename, "r");
 
     uint32_t seekOffset, headerSize, paletteSize = 0;
@@ -160,7 +160,7 @@ private:
       }
     }
 
-    // draw img that is shorter than 240pix into the center
+    // dibujar img that is shorter than 240pix into the center
     x = (width() - w) /2;
     y = (height() - h) /2;
 
@@ -176,7 +176,7 @@ private:
       bmpFS.read(lineBuffer, sizeof(lineBuffer));
       uint8_t*  bptr = lineBuffer;
       
-      // Convert 24 to 16 bit colors while copying to output buffer.
+      // Convertir 24 to 16 bit colors while copying to salida búfer.
       for (uint16_t col = 0; col < w; col++)
       {
         if (bitDepth == 24) {
@@ -222,7 +222,7 @@ private:
   bool drawClk(const char *filename) {
     fs::File bmpFS;
 
-    // Open requested file on SD card
+    // Open requested archivo on SD card
     bmpFS = WLED_FS.open(filename, "r");
 
     if (!bmpFS)
@@ -258,16 +258,16 @@ private:
       bmpFS.read(lineBuffer, sizeof(lineBuffer));
       uint8_t PixM, PixL;
       
-      // Colors are already in 16-bit R5, G6, B5 format
+      // Colors are already in 16-bit R5, G6, B5 formato
       for (col = 0; col < w; col++)
       {
         if (dimming == 255 && !digitColor) { // not needed, copy directly
           output_buffer[row][col+x] = (lineBuffer[col*2+1] << 8) | (lineBuffer[col*2]);
         } else {
-          // 16 BPP pixel format: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
+          // 16 BPP píxel formato: R5, G6, B5 ; bin: RRRR RGGG GGGB BBBB
           PixM = lineBuffer[col*2+1];
           PixL = lineBuffer[col*2];
-          // align to 8-bit value (MSB left aligned)
+          // align to 8-bit valor (MSB left aligned)
           r = (PixM) & 0xF8;
           g = ((PixM << 5) | (PixL >> 3)) & 0xFC;
           b = (PixL << 3) & 0xF8;
@@ -295,7 +295,7 @@ public:
   TFTs() : TFT_eSPI(), chip_select()
     { for (uint8_t digit=0; digit < NUM_DIGITS; digit++) digits[digit] = 0; }
 
-  // no == Do not send to TFT. yes == Send to TFT if changed. force == Send to TFT.
+  // no == Do not enviar to TFT. yes == Enviar to TFT if changed. force == Enviar to TFT.
   enum show_t { no, yes, force };
   // A digit of 0xFF means blank the screen.
   const static uint8_t blanked = 255;
@@ -307,11 +307,11 @@ public:
     pinMode(TFT_ENABLE_PIN, OUTPUT);
     digitalWrite(TFT_ENABLE_PIN, HIGH); //enable displays on boot
 
-    // Start with all displays selected.
+    // Iniciar with all displays selected.
     chip_select.begin();
     chip_select.setAll();
 
-    // Initialize the super class.
+    // Inicializar the super clase.
     init();
   }
 
@@ -324,7 +324,7 @@ public:
       fillScreen(TFT_BLACK); return;
     }
 
-    // if last digit was the same, skip loading from FS to buffer
+    // if last digit was the same, omitir loading from FS to búfer
     if (!digitColor && digitToDraw == bufferedDigit) drawBuffer();
     digitR = R(digitColor); digitG = G(digitColor); digitB = B(digitColor);
 
@@ -336,7 +336,7 @@ public:
       if (drawBin(file_name)) bufferedDigit = digitToDraw;
       return;
     }
-    // Fast, raw RGB565, see https://github.com/aly-fly/EleksTubeHAX on how to create this clk format
+    // Fast, raw RGB565, see https://github.com/aly-fly/EleksTubeHAX on how to crear this clk formato
     sprintf(file_name, "/%d.clk", digitToDraw);
     if (WLED_FS.exists(file_name)) {
       if (drawClk(file_name)) bufferedDigit = digitToDraw;
@@ -352,7 +352,7 @@ public:
     uint8_t old_value = digits[digit];
     digits[digit] = value;
 
-    // Color in grayscale bitmaps if Segment 1 exists
+    // Color in grayscale bitmaps if Segmento 1 exists
     // TODO If secondary and tertiary are black, color all in primary,
     // else color first three from Seg 1 color slots and last three from Seg 2 color slots
     Segment& seg1 = strip.getSegment(tubeSegment);

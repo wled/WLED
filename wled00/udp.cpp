@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * UDP sync notifier / Realtime / Hyperion / TPM2.NET
+ * UDP sincronizar notifier / Realtime / Hyperion / TPM2.NET
  */
 
 #define UDP_SEG_SIZE 36
@@ -53,10 +53,10 @@ void notify(byte callMode, bool followUp)
   udpOut[10] = W(col);
   //compatibilityVersionByte:
   //0: old 1: supports white 2: supports secondary color
-  //3: supports FX intensity, 24 byte packet 4: supports transitionDelay 5: sup palette
-  //6: supports timebase syncing, 29 byte packet 7: supports tertiary color 8: supports sys time sync, 36 byte packet
-  //9: supports sync groups, 37 byte packet 10: supports CCT, 39 byte packet 11: per segment options, variable packet length (40+WS2812FX::getMaxSegments()*3)
-  //12: enhanced effect sliders, 2D & mapping options
+  //3: supports FX intensidad, 24 byte packet 4: supports transitionDelay 5: sup palette
+  //6: supports timebase syncing, 29 byte packet 7: supports tertiary color 8: supports sys time sincronizar, 36 byte packet
+  //9: supports sincronizar groups, 37 byte packet 10: supports CCT, 39 byte packet 11: per segmento options, variable packet longitud (40+WS2812FX::getMaxSegments()*3)
+  //12: enhanced efecto sliders, 2D & mapping options
   udpOut[11] = 12;
   col = mainseg.colors[1];
   udpOut[12] = R(col);
@@ -80,7 +80,7 @@ void notify(byte callMode, bool followUp)
   udpOut[27] = (t >>  8) & 0xFF;
   udpOut[28] = (t >>  0) & 0xFF;
 
-  //sync system time
+  //sincronizar sistema time
   udpOut[29] = toki.getTimeSource();
   Toki::Time tm = toki.getTime();
   uint32_t unix = tm.sec;
@@ -92,11 +92,11 @@ void notify(byte callMode, bool followUp)
   udpOut[34] = (ms >> 8) & 0xFF;
   udpOut[35] = (ms >> 0) & 0xFF;
 
-  //sync groups
+  //sincronizar groups
   udpOut[36] = syncGroups;
 
-  //Might be changed to Kelvin in the future, receiver code should handle that case
-  //0: byte 38 contains 0-255 value, 255: no valid CCT, 1-254: Kelvin value MSB
+  //Might be changed to Kelvin in the futuro, receiver código should handle that case
+  //0: byte 38 contains 0-255 valor, 255: no valid CCT, 1-254: Kelvin valor MSB
   udpOut[37] = strip.hasCCTBus() ? 0 : 255; //check this is 0 for the next value to be significant
   udpOut[38] = mainseg.cct;
 
@@ -147,12 +147,12 @@ void notify(byte callMode, bool followUp)
   }
 
   //uint16_t offs = SEG_OFFSET;
-  //next value to be added has index: udpOut[offs + 0]
+  //next valor to be added has índice: udpOut[offs + 0]
 
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow && useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
     partial_packet_t buffer = {'W', 0, 1, {0}};
-    // send global data
+    // enviar global datos
     DEBUG_PRINTLN(F("ESP-NOW sending first packet."));
     const size_t bufferSize = sizeof(buffer.data)/sizeof(uint8_t);
     size_t packetSize = 41;
@@ -167,12 +167,12 @@ void notify(byte callMode, bool followUp)
     if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
     auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
     if (!err && s0 < s) {
-      // send rest of the segments
+      // enviar rest of the segments
       buffer.packet++;
       packetSize = 0;
-      // WARNING: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring buffer capable of holding 3 queued messages
-      // to work around that limitation it is mandatory to utilize onDataSent() callback which should reduce number queued messages
-      // and wait until at least one space is available in the buffer
+      // ADVERTENCIA: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring búfer capable of holding 3 queued messages
+      // to work around that limitation it is mandatory to utilize onDataSent() devolución de llamada which should reduce number queued messages
+      // and wait until at least one space is available in the búfer
       for (size_t i = s0; i < s; i++) {
         memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
@@ -207,7 +207,7 @@ void notify(byte callMode, bool followUp)
 }
 
 static void parseNotifyPacket(const uint8_t *udpIn) {
-  //ignore notification if received within a second after sending a notification ourselves
+  //ignorar notification if received within a second after sending a notification ourselves
   if (millis() - notificationSentTime < 1000) return;
   if (udpIn[1] > 199) return; //do not receive custom versions
 
@@ -215,23 +215,23 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
   byte version = udpIn[11];
   DEBUG_PRINTF_P(PSTR("UDP packet version: %d\n"), (int)version);
 
-  // if we are not part of any sync group ignore message
+  // if we are not part of any sincronizar grupo ignorar mensaje
   if (version < 9) {
-    // legacy senders are treated as if sending in sync group 1 only
+    // legacy senders are treated as if sending in sincronizar grupo 1 only
     if (!(receiveGroups & 0x01)) return;
   } else if (!(receiveGroups & udpIn[36])) return;
 
   bool someSel = (receiveNotificationBrightness || receiveNotificationColor || receiveNotificationEffects || receiveNotificationPalette);
 
-  // set transition time before making any segment changes
+  // set transición time before making any segmento changes
   if (version > 3) {
     jsonTransitionOnce = true;
     strip.setTransition(((udpIn[17] << 0) & 0xFF) + ((udpIn[18] << 8) & 0xFF00));
   }
 
-  //apply colors from notification to main segment, only if not syncing full segments
+  //apply colors from notification to principal segmento, only if not syncing full segments
   if ((receiveNotificationColor || !someSel) && (version < 11 || !receiveSegmentOptions)) {
-    // primary color, only apply white if intented (version > 0)
+    // primary color, only apply white if intented (versión > 0)
     strip.getMainSegment().setColor(0, RGBW32(udpIn[3], udpIn[4], udpIn[5], (version > 0) ? udpIn[10] : 0));
     if (version > 1) {
       strip.getMainSegment().setColor(1, RGBW32(udpIn[12], udpIn[13], udpIn[14], udpIn[15])); // secondary color
@@ -277,9 +277,9 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
       }
       DEBUG_PRINTF_P(PSTR("UDP segment check: %u\n"), id);
       Segment& selseg = strip.getSegment(id);
-      // if we are not syncing bounds skip unselected segments
+      // if we are not syncing bounds omitir unselected segments
       if (selseg.isActive() && !(selseg.isSelected() || receiveSegmentBounds)) continue;
-      // ignore segment if it is inactive and we are not syncing bounds
+      // ignorar segmento if it is inactive and we are not syncing bounds
       if (!receiveSegmentBounds) {
         if (!selseg.isActive()) {
           inactiveSegs++;
@@ -323,9 +323,9 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
         selseg.setCCT(udpIn[27+ofs]);
       }
       if (version > 11) {
-        // when applying synced options ignore selected as it may be used as indicator of which segments to sync
-        // freeze, reset should never be synced
-        // LSB to MSB: select, reverse, on, mirror, freeze, reset, reverse_y, mirror_y, transpose, map1d2d (3), ssim (2), set (2)
+        // when applying synced options ignorar selected as it may be used as indicator of which segments to sincronizar
+        // freeze, restablecer should never be synced
+        // LSB to MSB: select, reverse, on, mirror, freeze, restablecer, reverse_y, mirror_y, transpose, map1d2d (3), ssim (2), set (2)
         DEBUG_PRINTF_P(PSTR("Apply options: %u\n"), id);
         selseg.options = (selseg.options & 0b0000000000110001U) | ((uint16_t)udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
         if (applyEffects) {
@@ -353,7 +353,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     stateChanged = true;
   }
 
-  // simple effect sync, applies to all selected segments
+  // simple efecto sincronizar, applies to all selected segments
   if ((applyEffects || receiveNotificationPalette) && (version < 11 || !receiveSegmentOptions)) {
     for (size_t i = 0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
@@ -376,7 +376,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     timebaseUpdated = true;
   }
 
-  //adjust system time, but only if sender is more accurate than self
+  //adjust sistema time, but only if sender is more accurate than self
   if (version > 7) {
     Toki::Time tm;
     tm.sec = (udpIn[30] << 24) | (udpIn[31] << 16) | (udpIn[32] << 8) | (udpIn[33]);
@@ -414,15 +414,15 @@ void realtimeLock(uint32_t timeoutMs, byte md)
       Segment& mainseg = strip.getMainSegment();
       mainseg.clear(); // clear entire segment (in case sender transmits less pixels)
       mainseg.freeze = true;
-      // if WLED was off and using main segment only, freeze non-main segments so they stay off
+      // if WLED was off and usando principal segmento only, freeze non-principal segments so they stay off
       if (bri == 0) {
         for (size_t s = 0; s < strip.getSegmentsNum(); s++) strip.getSegment(s).freeze = true;
       }
     } else {
-      // clear entire strip
+      // limpiar entire tira
       strip.fill(BLACK);
     }
-    // if strip is off (bri==0) and not already in RTM
+    // if tira is off (bri==0) and not already in RTM
     if (briT == 0) {
       strip.setBrightness(briLast, true);
     }
@@ -469,7 +469,7 @@ void handleNotifications()
 {
   IPAddress localIP;
 
-  //send second notification if enabled
+  //enviar second notification if enabled
   if(udpConnected && (notificationCount < udpNumRetries) && ((millis()-notificationSentTime) > 250)){
     notify(notificationSentCallMode,true);
   }
@@ -481,10 +481,10 @@ void handleNotifications()
     else                    strip.show();
   }
 
-  //unlock strip when realtime UDP times out
+  //desbloqueo tira when realtime UDP times out
   if (realtimeMode && millis() > realtimeTimeout) exitRealtime();
 
-  //receive UDP notifications
+  //recibir UDP notifications
   if (!udpConnected) return;
 
   bool isSupp = false;
@@ -526,7 +526,7 @@ void handleNotifications()
   if (isSupp) len = notifier2Udp.read(udpIn, packetSize);
   else        len =  notifierUdp.read(udpIn, packetSize);
 
-  // WLED nodes info notifications
+  // WLED nodes información notifications
   if (isSupp && udpIn[0] == 255 && udpIn[1] == 1 && len >= 40) {
     if (!nodeListEnabled || notifier2Udp.remoteIP() == localIP) return;
 
@@ -557,7 +557,7 @@ void handleNotifications()
     return;
   }
 
-  //wled notifier, ignore if realtime packets active
+  //WLED notifier, ignorar if realtime packets active
   if (udpIn[0] == 0 && !realtimeMode && receiveGroups)
   {
     DEBUG_PRINTF_P(PSTR("UDP notification from: %d.%d.%d.%d\n"), notifierUdp.remoteIP()[0], notifierUdp.remoteIP()[1], notifierUdp.remoteIP()[2], notifierUdp.remoteIP()[3]);
@@ -568,8 +568,8 @@ void handleNotifications()
   if (receiveDirect) {
     //TPM2.NET
     if (udpIn[0] == 0x9c) {
-      //WARNING: this code assumes that the final TMP2.NET payload is evenly distributed if using multiple packets (ie. frame size is constant)
-      //if the number of LEDs in your installation doesn't allow that, please include padding bytes at the end of the last packet
+      //ADVERTENCIA: this código assumes that the final TMP2.NET carga útil is evenly distributed if usando multiple packets (ie. frame tamaño is constante)
+      //if the number of LEDs in your instalación doesn't allow that, please incluir padding bytes at the end of the last packet
       byte tpmType = udpIn[1];
       if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
         sendTPM2Ack(); return;
@@ -692,7 +692,7 @@ void refreshNodeList()
 }
 
 /*********************************************************************************************\
-   Broadcast system info to other nodes. (to update node lists)
+   Broadcast sistema información to other nodes. (to actualizar nodo lists)
 \*********************************************************************************************/
 void sendSysInfoUDP()
 {
@@ -701,17 +701,17 @@ void sendSysInfoUDP()
   IPAddress ip = Network.localIP();
   if (!ip || ip == IPAddress(255,255,255,255)) ip = IPAddress(4,3,2,1);
 
-  // TODO: make a nice struct of it and clean up
+  // TODO: make a nice estructura of it and clean up
   //  0: 1 byte 'binary token 255'
   //  1: 1 byte id '1'
   //  2: 4 byte ip
   //  6: 32 char name
-  // 38: 1 byte node type id
-  // 39: 1 byte node id
-  // 40: 4 byte version ID
+  // 38: 1 byte nodo tipo id
+  // 39: 1 byte nodo id
+  // 40: 4 byte versión ID
   // 44 bytes total
 
-  // send my info to the world...
+  // enviar my información to the world...
   uint8_t data[44] = {0};
   data[0] = 255;
   data[1] = 1;
@@ -748,7 +748,7 @@ void sendSysInfoUDP()
 
 
 /*********************************************************************************************\
- * Art-Net, DDP, E131 output - work in progress
+ * Art-Net, DDP, E131 salida - work in progress
 \*********************************************************************************************/
 
 #define DDP_HEADER_LEN 10
@@ -770,13 +770,13 @@ void sendSysInfoUDP()
 #define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
 
 //
-// Send real time UDP updates to the specified client
+// Enviar real time UDP updates to the specified cliente
 //
-// type   - protocol type (0=DDP, 1=E1.31, 2=ArtNet)
-// client - the IP address to send to
-// length - the number of pixels
-// buffer - a buffer of at least length*4 bytes long
-// isRGBW - true if the buffer contains 4 components per pixel
+// tipo   - protocolo tipo (0=DDP, 1=E1.31, 2=ArtNet)
+// cliente - the IP address to enviar to
+// longitud - the number of pixels
+// búfer - a búfer of at least longitud*4 bytes long
+// isRGBW - verdadero if the búfer contains 4 components per píxel
 
 static       size_t sequenceNumber = 0; // this needs to be shared across all outputs
 static const size_t ART_NET_HEADER_SIZE = 12;
@@ -790,13 +790,13 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
   switch (type) {
     case 0: // DDP
     {
-      // calculate the number of UDP packets we need to send
+      // calculate the number of UDP packets we need to enviar
       size_t channelCount = length * (isRGBW? 4:3); // 1 channel for every R,G,B value
       size_t packetCount = ((channelCount-1) / DDP_CHANNELS_PER_PACKET) +1;
 
-      // there are 3 channels per RGB pixel
+      // there are 3 channels per RGB píxel
       uint32_t channel = 0; // TODO: allow specifying the start channel
-      // the current position in the buffer
+      // the current posición in the búfer
       size_t bufferOffset = 0;
 
       for (size_t currentPacket = 0; currentPacket < packetCount; currentPacket++) {
@@ -807,35 +807,35 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
           return 1; // problem
         }
 
-        // the amount of data is AFTER the header in the current packet
+        // the amount of datos is AFTER the encabezado in the current packet
         size_t packetSize = DDP_CHANNELS_PER_PACKET;
 
         uint8_t flags = DDP_FLAGS1_VER1;
         if (currentPacket == (packetCount - 1U)) {
-          // last packet, set the push flag
-          // TODO: determine if we want to send an empty push packet to each destination after sending the pixel data
+          // last packet, set the enviar bandera
+          // TODO: determine if we want to enviar an empty enviar packet to each destination after sending the píxel datos
           flags = DDP_FLAGS1_VER1 | DDP_FLAGS1_PUSH;
           if (channelCount % DDP_CHANNELS_PER_PACKET) {
             packetSize = channelCount % DDP_CHANNELS_PER_PACKET;
           }
         }
 
-        // write the header
+        // escribir the encabezado
         /*0*/ddpUdp.write(flags);
         /*1*/ddpUdp.write(sequenceNumber++ & 0x0F); // sequence may be unnecessary unless we are sending twice (as requested in Sync settings)
         /*2*/ddpUdp.write(isRGBW ?  DDP_TYPE_RGBW32 : DDP_TYPE_RGB24);
         /*3*/ddpUdp.write(DDP_ID_DISPLAY);
-        // data offset in bytes, 32-bit number, MSB first
+        // datos desplazamiento in bytes, 32-bit number, MSB first
         /*4*/ddpUdp.write(0xFF & (channel >> 24));
         /*5*/ddpUdp.write(0xFF & (channel >> 16));
         /*6*/ddpUdp.write(0xFF & (channel >>  8));
         /*7*/ddpUdp.write(0xFF & (channel      ));
-        // data length in bytes, 16-bit number, MSB first
+        // datos longitud in bytes, 16-bit number, MSB first
         /*8*/ddpUdp.write(0xFF & (packetSize >> 8));
         /*9*/ddpUdp.write(0xFF & (packetSize     ));
 
-        // write the colors, the write write(const uint8_t *buffer, size_t size)
-        // function is just a loop internally too
+        // escribir the colors, the escribir escribir(constante uint8_t *búfer, size_t tamaño)
+        // función is just a bucle internally too
         for (size_t i = 0; i < packetSize; i += (isRGBW?4:3)) {
           ddpUdp.write(scale8(buffer[bufferOffset++], bri)); // R
           ddpUdp.write(scale8(buffer[bufferOffset++], bri)); // G
@@ -858,7 +858,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
     case 2: //ArtNet
     {
-      // calculate the number of UDP packets we need to send
+      // calculate the number of UDP packets we need to enviar
       const size_t channelCount = length * (isRGBW?4:3); // 1 channel for every R,G,B,(W?) value
       const size_t ARTNET_CHANNELS_PER_PACKET = isRGBW?512:510; // 512/4=128 RGBW LEDs, 510/3=170 RGB LEDs
       const size_t packetCount = ((channelCount-1)/ARTNET_CHANNELS_PER_PACKET)+1;
@@ -915,12 +915,12 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 }
 
 #ifndef WLED_DISABLE_ESPNOW
-// ESP-NOW message sent callback function
+// ESP-NOW mensaje sent devolución de llamada función
 void espNowSentCB(uint8_t* address, uint8_t status) {
     DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
 }
 
-// ESP-NOW message receive callback function
+// ESP-NOW mensaje recibir devolución de llamada función
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
   sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
 
@@ -930,7 +930,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     DEBUG_PRINTLN();
   #endif
 
-  // usermods hook can override processing
+  // usermods hook can anular processing
   if (UsermodManager::onEspNowMessage(address, data, len)) return;
 
   bool knownRemote = false;
@@ -946,7 +946,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
-  // handle WiZ Mote data
+  // handle WiZ Mote datos
   if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
     handleWiZdata(data, len);
     return;
@@ -975,7 +975,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   } else if (buffer->packet == packetsReceived && udpIn && ((len - 3) / UDP_SEG_SIZE) * UDP_SEG_SIZE == (len-3)) {
     // we received a packet full of segments
     if (segsReceived >= MAX_NUM_SEGMENTS) {
-      // we are already past max segments, just ignore
+      // we are already past max segments, just ignorar
       DEBUG_PRINTLN(F("ESP-NOW received segments past maximum."));
       len = 3;
     } else if ((segsReceived + ((len - 3) / UDP_SEG_SIZE)) >= MAX_NUM_SEGMENTS) {
@@ -986,7 +986,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
       segsReceived += (len - 3) / UDP_SEG_SIZE;
     }
   } else {
-    // any out of order packet or incorrectly sized packet or if we have no UDP buffer will abort
+    // any out of order packet or incorrectly sized packet or if we have no UDP búfer will abortar
     DEBUG_PRINTF_P(PSTR("ESP-NOW incorrect packet: %d (%d) [%d]\n"), (int)buffer->packet, (int)len-3, (int)UDP_SEG_SIZE);
     if (udpIn) free(udpIn);
     udpIn = nullptr;

@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * MQTT communication protocol for home automation
+ * MQTT communication protocolo for home automation
  */
 
 #ifndef WLED_DISABLE_MQTT
@@ -13,9 +13,9 @@
 
 static const char* sTopicFormat PROGMEM = "%.*s/%s";
 
-// parse payload for brightness, ON/OFF or toggle
-// briLast is used to remember last brightness value in case of ON/OFF or toggle
-// bri is set to 0 if payload is "0" or "OFF" or "false"
+// analizar carga útil for brillo, ON/OFF or toggle
+// briLast is used to remember last brillo valor in case of ON/OFF or toggle
+// bri is set to 0 if carga útil is "0" or "OFF" or "falso"
 static void parseMQTTBriPayload(char* payload)
 {
   if      (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {bri = briLast; stateUpdated(CALL_MODE_DIRECT_CHANGE);}
@@ -68,7 +68,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
 
   DEBUG_PRINTF_P(PSTR("MQTT msg: %s\n"), topic);
 
-  // paranoia check to avoid npe if no payload
+  // paranoia verificar to avoid npe if no carga útil
   if (payload==nullptr) {
     DEBUG_PRINTLN(F("no payload -> leave"));
     return;
@@ -80,7 +80,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
   }
   if (payloadStr == nullptr) return;      // buffer not allocated
 
-  // copy (partial) packet to buffer and 0-terminate it if it is last packet
+  // copy (partial) packet to búfer and 0-terminate it if it is last packet
   char* buff = payloadStr + index;
   memcpy(buff, payload, len);
   if (index + len >= total) { // at end
@@ -99,7 +99,7 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     if (strncmp(topic, mqttGroupTopic, topicPrefixLen) == 0) {
       topic += topicPrefixLen;
     } else {
-      // Non-Wled Topic used here. Probably a usermod subscribed to this topic.
+      // Non-WLED Topic used here. Probably a usermod subscribed to this topic.
       UsermodManager::onMqttMessage(topic, payloadStr);
       p_free(payloadStr);
       payloadStr = nullptr;
@@ -125,17 +125,17 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
       releaseJSONBufferLock();
     }
   } else if (strlen(topic) != 0) {
-    // non standard topic, check with usermods
+    // non estándar topic, verificar with usermods
     UsermodManager::onMqttMessage(topic, payloadStr);
   } else {
-    // topmost topic (just wled/MAC)
+    // topmost topic (just WLED/MAC)
     parseMQTTBriPayload(payloadStr);
   }
   p_free(payloadStr);
   payloadStr = nullptr;
 }
 
-// Print adapter for flat buffers
+// Imprimir adapter for flat buffers
 namespace {
 class bufferPrint : public Print {
   char* _buf;
@@ -182,7 +182,7 @@ void publishMqtt()
   snprintf_P(subuf, sizeof(subuf)-1, sTopicFormat, MQTT_MAX_TOPIC_LEN, mqttDeviceTopic, "status");
   mqtt->publish(subuf, 0, true, "online");  // retain message for a LWT
 
-  // TODO: use a DynamicBufferList.  Requires a list-read-capable MQTT client API.
+  // TODO: use a DynamicBufferList.  Requires a lista-leer-capable MQTT cliente API.
   DynamicBuffer buf(1024);
   bufferPrint pbuf(buf.data(), buf.size());
   XML_response(pbuf);

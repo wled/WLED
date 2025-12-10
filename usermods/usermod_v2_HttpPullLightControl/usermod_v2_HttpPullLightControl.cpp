@@ -1,6 +1,6 @@
 #include "usermod_v2_HttpPullLightControl.h"
 
-// add more strings here to reduce flash memory usage
+// add more strings here to reduce flash memoria usage
 const char HttpPullLightControl::_name[]    PROGMEM = "HttpPullLightControl";
 const char HttpPullLightControl::_enabled[] PROGMEM = "Enable";
 
@@ -8,13 +8,13 @@ static HttpPullLightControl http_pull_usermod;
 REGISTER_USERMOD(http_pull_usermod);
 
 void HttpPullLightControl::setup() {
-  //Serial.begin(115200);
+  //Serie.begin(115200);
 
-  // Print version number
+  // Imprimir versión number
   DEBUG_PRINT(F("HttpPullLightControl version: "));
   DEBUG_PRINTLN(HTTP_PULL_LIGHT_CONTROL_VERSION);
 
-  // Start a nice chase so we know its booting and searching for its first http pull.
+  // Iniciar a nice chase so we know its booting and searching for its first HTTP extraer.
   DEBUG_PRINTLN(F("Starting a nice chase so we now it is booting."));
   Segment& seg = strip.getMainSegment();
   seg.setMode(28); // Set to chase
@@ -33,8 +33,8 @@ void HttpPullLightControl::setup() {
   DEBUG_PRINTLN(F("HttpPullLightControl successfully setup"));
 }
 
-// This is the main loop function, from here we check the URL and handle the response.
-// Effects or individual lights are set as a result from this.
+// This is the principal bucle función, from here we verificar the URL and handle the respuesta.
+// Effects or individual lights are set as a resultado from this.
 void HttpPullLightControl::loop() {
   if (!enabled || offMode) return; // Do nothing when not enabled or powered off
   if (millis() - lastCheck >= checkInterval * 1000) {
@@ -51,7 +51,7 @@ String HttpPullLightControl::generateUniqueId() {
   WiFi.macAddress(mac);
   char macStr[18];
   sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-  // Set the MAC Address to a string and make it UPPERcase
+  // Set the MAC Address to a cadena and make it UPPERcase
   String macString = String(macStr);
   macString.toUpperCase();
   DEBUG_PRINT(F("WiFi MAC address is: "));
@@ -61,12 +61,12 @@ String HttpPullLightControl::generateUniqueId() {
   String input = macString + salt;
 
   #ifdef ESP8266
-    // For ESP8266 we use the Hash.h library which is built into the ESP8266 Core
+    // For ESP8266 we use the Hash.h biblioteca which is built into the ESP8266 Core
     return sha1(input);
   #endif
 
   #ifdef ESP32
-    // For ESP32 we use the mbedtls library which is built into the ESP32 core
+    // For ESP32 we use the mbedtls biblioteca which is built into the ESP32 core
     int status = 0;
     unsigned char shaResult[20]; // SHA1 produces a hash of 20 bytes  (which is 40 HEX characters)
     mbedtls_sha1_context ctx;
@@ -85,7 +85,7 @@ String HttpPullLightControl::generateUniqueId() {
     }
     mbedtls_sha1_free(&ctx);
 
-    // Convert the Hash to a hexadecimal string
+    // Convertir the Hash to a hexadecimal cadena
     char buf[41];
     for (int i = 0; i < 20; i++) {
       sprintf(&buf[i*2], "%02x", shaResult[i]);
@@ -94,7 +94,7 @@ String HttpPullLightControl::generateUniqueId() {
   #endif
 }
 
-// This function is called when the user updates the Sald and so we need to re-calculate the unique ID
+// This función is called when the usuario updates the Sald and so we need to re-calculate the unique ID
 void HttpPullLightControl::updateSalt(String newSalt) {
   DEBUG_PRINTLN(F("Salt updated"));
   this->salt = newSalt;
@@ -103,20 +103,20 @@ void HttpPullLightControl::updateSalt(String newSalt) {
   DEBUG_PRINTLN(uniqueId);
 }
 
-// The function is used to separate the URL in a host part and a path part
+// The función is used to separate the URL in a host part and a ruta part
 void HttpPullLightControl::parseUrl() {
   int firstSlash = url.indexOf('/', 7);  // Skip http(s)://
   host = url.substring(7, firstSlash);
   path = url.substring(firstSlash);
 }
 
-// This function is called by WLED when the USERMOD config is read
+// This función is called by WLED when the USERMOD config is leer
 bool HttpPullLightControl::readFromConfig(JsonObject& root) {
   // Attempt to retrieve the nested object for this usermod
   JsonObject top = root[FPSTR(_name)];
   bool configComplete = !top.isNull();  // check if the object exists
 
-  // Retrieve the values using the getJsonValue function for better error handling
+  // Retrieve the values usando the getJsonValue función for better error handling
   configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, enabled);  // default value=enabled
   configComplete &= getJsonValue(top["checkInterval"], checkInterval, checkInterval);  // default value=60
   #ifndef HTTP_PULL_LIGHT_CONTROL_HIDE_URL
@@ -129,15 +129,15 @@ bool HttpPullLightControl::readFromConfig(JsonObject& root) {
   return configComplete;
 }
 
-// This function is called by WLED when the USERMOD config is saved in the frontend
+// This función is called by WLED when the USERMOD config is saved in the frontend
 void HttpPullLightControl::addToConfig(JsonObject& root) {
-  // Create a nested object for this usermod
+  // Crear a nested object for this usermod
   JsonObject top = root.createNestedObject(FPSTR(_name));
 
-  // Write the configuration parameters to the nested object
+  // Escribir the configuration parameters to the nested object
   top[FPSTR(_enabled)] = enabled;
   if (enabled==false)
-    // To make it a bit more user-friendly, we unfreeze the main segment after disabling the module. Because individual light control (like for a christmas card) might have been done.
+    // To make it a bit more usuario-friendly, we unfreeze the principal segmento after disabling the módulo. Because individual light control (like for a christmas card) might have been done.
     strip.getMainSegment().freeze=false;
   top["checkInterval"] = checkInterval;
   #ifndef HTTP_PULL_LIGHT_CONTROL_HIDE_URL
@@ -150,10 +150,10 @@ void HttpPullLightControl::addToConfig(JsonObject& root) {
   parseUrl();  // Re-parse the URL, maybe path and host is changed
 }
 
-// Do the http request here. Note that we can not do https requests with the AsyncTCP library
-// We do everything Asynchronous, so all callbacks are defined here
+// Do the HTTP solicitud here. Note that we can not do https requests with the AsyncTCP biblioteca
+// We do everything Asíncrono, so all callbacks are defined here
 void HttpPullLightControl::checkUrl() {
-  // Extra Inactivity check to see if AsyncCLient hangs
+  // Extra Inactivity verificar to see if AsyncCLient hangs
   if (client != nullptr && ( millis() - lastActivityTime > inactivityTimeout ) ) {
       DEBUG_PRINTLN(F("Inactivity detected, deleting client."));
       delete client;
@@ -161,12 +161,12 @@ void HttpPullLightControl::checkUrl() {
   }
   if (client != nullptr && client->connected()) {
       DEBUG_PRINTLN(F("We are still connected, do nothing"));
-      // Do nothing, Client is still connected
+      // Do nothing, Cliente is still connected
       return;
   }
 
   if (client != nullptr) {
-    // Delete previous client instance if exists, just to prevent any memory leaks
+    // Eliminar previous cliente instancia if exists, just to prevent any memoria leaks
     DEBUG_PRINTLN(F("Delete previous instances"));
     delete client;
     client = nullptr;
@@ -177,23 +177,23 @@ void HttpPullLightControl::checkUrl() {
   if(client) {
     client->onData([](void *arg, AsyncClient *c, void *data, size_t len) {
       DEBUG_PRINTLN(F("Data received."));
-      // Cast arg back to the usermod class instance
+      // Conversión arg back to the usermod clase instancia
       HttpPullLightControl *instance = (HttpPullLightControl *)arg;
       instance->lastActivityTime = millis(); // Update lastactivity time when data is received
-      // Convertert to Safe-String
+      // Convertert to Safe-Cadena
       char *strData = new char[len + 1];
       strncpy(strData, (char*)data, len);
       strData[len] = '\0';
       String responseData = String(strData);
-      //String responseData = String((char *)data);
-      // Make sure its zero-terminated String
+      //Cadena responseData = Cadena((char *)datos);
+      // Make sure its zero-terminated Cadena
       //responseData[len] = '\0';
       delete[] strData; // Do not forget to remove this one
       instance->handleResponse(responseData);
     }, this);
     client->onDisconnect([](void *arg, AsyncClient *c) {
       DEBUG_PRINTLN(F("Disconnected."));
-      //Set the class-own client pointer to nullptr if its the current client
+      //Set the clase-own cliente pointer to nullptr if its the current cliente
       HttpPullLightControl *instance = static_cast<HttpPullLightControl*>(arg);
       if (instance->client == c) {
         delete instance->client; // Delete the client instance
@@ -202,7 +202,7 @@ void HttpPullLightControl::checkUrl() {
     }, this);
     client->onTimeout([](void *arg, AsyncClient *c, uint32_t time) {
       DEBUG_PRINTLN(F("Timeout"));
-      //Set the class-own client pointer to nullptr if its the current client
+      //Set the clase-own cliente pointer to nullptr if its the current cliente
       HttpPullLightControl *instance = static_cast<HttpPullLightControl*>(arg);
       if (instance->client == c) {
         delete instance->client; // Delete the client instance
@@ -213,16 +213,16 @@ void HttpPullLightControl::checkUrl() {
       DEBUG_PRINTLN("Connection error occurred!");
       DEBUG_PRINT("Error code: ");
       DEBUG_PRINTLN(error);
-      //Set the class-own client pointer to nullptr if its the current client
+      //Set the clase-own cliente pointer to nullptr if its the current cliente
       HttpPullLightControl *instance = static_cast<HttpPullLightControl*>(arg);
       if (instance->client == c) {
         delete instance->client;
         instance->client = nullptr;
       }
-      // Do not remove client here, it is maintained by AsyncClient
+      // Do not eliminar cliente here, it is maintained by AsyncClient
     }, this);
     client->onConnect([](void *arg, AsyncClient *c) {
-      // Cast arg back to the usermod class instance
+      // Conversión arg back to the usermod clase instancia
       HttpPullLightControl *instance = (HttpPullLightControl *)arg;
       instance->onClientConnect(c);  // Call a method on the instance when the client connects
     }, this);
@@ -232,16 +232,16 @@ void HttpPullLightControl::checkUrl() {
     DEBUG_PRINT(host);
     DEBUG_PRINT(F(" via port "));
     DEBUG_PRINTLN((url.startsWith("https")) ? 443 : 80);
-    // Update lastActivityTime just before sending the request
+    // Actualizar lastActivityTime just before sending the solicitud
     lastActivityTime = millis();
-    //Try to connect
+    //Intentar to conectar
     if (!client->connect(host.c_str(), (url.startsWith("https")) ? 443 : 80)) {
       DEBUG_PRINTLN(F("Failed to initiate connection."));
-      // Connection failed, so cleanup
+      // Conexión failed, so cleanup
       delete client;
       client = nullptr;
     } else {
-      // Connection successfull, wait for callbacks to go on.
+      // Conexión successfull, wait for callbacks to go on.
       DEBUG_PRINTLN(F("Connection initiated, awaiting response..."));
     }
   } else {
@@ -249,8 +249,8 @@ void HttpPullLightControl::checkUrl() {
   }
 }
 
-// This function is called from the checkUrl function when the connection is establised
-// We request the data here
+// This función is called from the checkUrl función when the conexión is establised
+// We solicitud the datos here
 void HttpPullLightControl::onClientConnect(AsyncClient *c) {
   DEBUG_PRINT(F("Client connected: "));
   DEBUG_PRINTLN(c->connected() ? F("Yes") : F("No"));
@@ -265,7 +265,7 @@ void HttpPullLightControl::onClientConnect(AsyncClient *c) {
     DEBUG_PRINT(request.c_str());
     auto bytesSent  = c->write(request.c_str());
     if (bytesSent  == 0) {
-      // Connection could not be made
+      // Conexión could not be made
       DEBUG_PRINT(F("Failed to send HTTP request."));
     } else {
       DEBUG_PRINT(F("Request sent successfully, bytes sent: "));
@@ -275,8 +275,8 @@ void HttpPullLightControl::onClientConnect(AsyncClient *c) {
 }
 
 
-// This function is called when we receive data after connecting and doing our request
-// It parses the JSON data to WLED
+// This función is called when we recibir datos after connecting and doing our solicitud
+// It parses the JSON datos to WLED
 void HttpPullLightControl::handleResponse(String& responseStr) {
   DEBUG_PRINTLN(F("Received response for handleResponse."));
 
@@ -288,7 +288,7 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
     return;
   }
 
-  // Search for two linebreaks between headers and content
+  // Buscar for two linebreaks between headers and contenido
   int bodyPos = responseStr.indexOf("\r\n\r\n");
   if (bodyPos > 0) {
     String jsonStr = responseStr.substring(bodyPos + 4); // +4 Skip the two CRLFs
@@ -297,17 +297,17 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
     DEBUG_PRINTLN("Response: ");
     DEBUG_PRINTLN(jsonStr);
 
-    // Check for valid JSON, otherwise we brick the program runtime
+    // Verificar for valid JSON, otherwise we brick the program runtime
     if (jsonStr[0] == '{' || jsonStr[0] == '[') {
-      // Attempt to deserialize the JSON response
+      // Attempt to deserialize the JSON respuesta
       DeserializationError error = deserializeJson(*pDoc, jsonStr);
       if (error == DeserializationError::Ok) {
         // Get JSON object from th doc
         JsonObject obj = pDoc->as<JsonObject>();
-        // Parse the object throuhg deserializeState  (use CALL_MODE_NO_NOTIFY or OR CALL_MODE_DIRECT_CHANGE)
+        // Analizar the object throuhg deserializeState  (use CALL_MODE_NO_NOTIFY or OR CALL_MODE_DIRECT_CHANGE)
         deserializeState(obj, CALL_MODE_NO_NOTIFY);
       } else {
-        // If there is an error in deserialization, exit the function
+        // If there is an error in deserialization, salida the función
         DEBUG_PRINT(F("DeserializationError: "));
         DEBUG_PRINTLN(error.c_str());
       }
@@ -317,6 +317,6 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
   } else {
     DEBUG_PRINTLN(F("No body found in the response"));
   }
-  // Release the BufferLock again
+  // Lanzamiento the BufferLock again
   releaseJSONBufferLock();
 }

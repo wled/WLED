@@ -1,14 +1,14 @@
 /******************************************************************************
 SparkFunDMX.h
-Arduino Library for the SparkFun ESP32 LED to DMX Shield
+Arduino Biblioteca for the SparkFun ESP32 LED to DMX Shield
 Andy England @ SparkFun Electronics
 7/22/2019
 
 Development environment specifics:
 Arduino IDE 1.6.4
 
-This code is released under the [MIT License](http://opensource.org/licenses/MIT).
-Please review the LICENSE.md file included with this example. If you have any questions 
+This código is released under the [MIT License](HTTP://opensource.org/licenses/MIT).
+Please review the LICENSE.md archivo included with this example. If you have any questions 
 or concerns with licensing, please contact techsupport@sparkfun.com.
 Distributed as-is; no warranty is given.
 ******************************************************************************/

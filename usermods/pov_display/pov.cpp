@@ -6,7 +6,7 @@ void POV::showLine(const byte * line, uint16_t size){
     uint16_t i, pos;
     uint8_t r, g, b;
     if (!line) {
-        // All-black frame on null input
+        // All-black frame on nulo entrada
         for (i = 0; i < SEGLEN; i++) {
             SEGMENT.setPixelColor(i, CRGB::Black);
         }
@@ -17,7 +17,7 @@ void POV::showLine(const byte * line, uint16_t size){
     for (i = 0; i < SEGLEN; i++) {
         if (i < size) {
             pos = 3 * i;
-            // using bgr order
+            // usando bgr order
             b = line[pos++];
             g = line[pos++];
             r = line[pos];

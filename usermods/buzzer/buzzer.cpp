@@ -14,7 +14,7 @@
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
- * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
+ * See: https://github.com/WLED-dev/WLED/wiki/Add-own-functionality
  * 
  */
 
@@ -25,11 +25,11 @@ class BuzzerUsermod : public Usermod {
     std::deque<std::pair<uint8_t, unsigned long>> sequence_ {};
   public:
     /*
-     * setup() is called once at boot. WiFi is not yet connected at this point.
-     * You can use it to initialize variables, sensors or similar.
+     * `configuración()` se llama una vez al arrancar. En este punto WiFi aún no está conectado.
+     * Úsalo para inicializar variables, sensores o similares.
      */
     void setup() {
-      // Setup the pin, and default to LOW
+      // Configuración the pin, and default to LOW
       pinMode(USERMOD_BUZZER_PIN, OUTPUT);
       digitalWrite(USERMOD_BUZZER_PIN, LOW);
 
@@ -40,11 +40,11 @@ class BuzzerUsermod : public Usermod {
 
 
     /*
-     * connected() is called every time the WiFi is (re)connected
-     * Use it to initialize network interfaces
+     * `connected()` se llama cada vez que el WiFi se (re)conecta.
+     * Úsalo para inicializar interfaces de red.
      */
     void connected() {
-      // Double beep on WiFi
+      // Doble beep on WiFi
       sequence_.push_back({ LOW, 100 });
       sequence_.push_back({ HIGH, 50 });
       sequence_.push_back({ LOW, 30 });
@@ -53,7 +53,7 @@ class BuzzerUsermod : public Usermod {
     }
 
     /*
-     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     * `bucle()` se llama de forma continua. Aquí puedes comprobar eventos, leer sensores, etc.
      */
     void loop() {
       if (sequence_.size() < 1) return; // Wait until there is a sequence
@@ -70,8 +70,8 @@ class BuzzerUsermod : public Usermod {
 
 
     /*
-     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-     * This could be used in the future for the system to determine whether your usermod is installed.
+     * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+     * This could be used in the futuro for the sistema to determine whether your usermod is installed.
      */
     uint16_t getId()
     {

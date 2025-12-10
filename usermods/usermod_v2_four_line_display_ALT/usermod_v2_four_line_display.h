@@ -40,10 +40,10 @@
 // if SLEEP_MODE_ENABLED.
 #define SCREEN_TIMEOUT_MS  60*1000    // 1 min
 
-// Minimum time between redrawing screen in ms
+// Mínimo time between redrawing screen in ms
 #define REFRESH_RATE_MS 1000
 
-// Extra char (+1) for null
+// Extra char (+1) for nulo
 #define LINE_BUFFER_SIZE            16+1
 #define MAX_JSON_CHARS              19+1
 #define MAX_MODE_LINE_SPACE         13+1
@@ -75,7 +75,7 @@ class FourLineDisplayUsermod : public Usermod {
       volatile bool drawing = false;
       volatile bool lockRedraw = false;
   
-      // HW interface & configuration
+      // HW interfaz & configuration
       U8X8 *u8x8 = nullptr;           // pointer to U8X8 display object
   
       #ifndef FLD_SPI_DEFAULT
@@ -125,7 +125,7 @@ class FourLineDisplayUsermod : public Usermod {
       byte markLineNum = 255;
       byte markColNum = 255;
   
-      // strings to reduce flash memory usage (used more than twice)
+      // strings to reduce flash memoria usage (used more than twice)
       static const char _name[];
       static const char _enabled[];
       static const char _contrast[];
@@ -138,10 +138,10 @@ class FourLineDisplayUsermod : public Usermod {
       static const char _busClkFrequency[];
       static const char _contrastFix[];
   
-      // If display does not work or looks corrupted check the
+      // If display does not work or looks corrupted verificar the
       // constructor reference:
       // https://github.com/olikraus/u8g2/wiki/u8x8setupcpp
-      // or check the gallery:
+      // or verificar the gallery:
       // https://github.com/olikraus/u8g2/wiki/gallery
   
       // some displays need this to properly apply contrast
@@ -171,26 +171,26 @@ class FourLineDisplayUsermod : public Usermod {
       void showTime();
   
       /**
-       * Enable sleep (turn the display off) or clock mode.
+       * Habilitar sleep (turn the display off) or clock mode.
        */
       void sleepOrClock(bool enabled);
   
     public:
   
       // gets called once at boot. Do all initialization that doesn't depend on
-      // network here
+      // red here
       void setup() override;
   
-      // gets called every time WiFi is (re-)connected. Initialize own network
+      // gets called every time WiFi is (re-)connected. Inicializar own red
       // interfaces here
       void connected() override;
   
       /**
-       * Da loop.
+       * Da bucle.
        */
       void loop() override;
   
-      //function to update lastredraw
+      //función to actualizar lastredraw
       inline void updateRedrawTime() { lastRedraw = millis(); }
   
       /**
@@ -205,52 +205,52 @@ class FourLineDisplayUsermod : public Usermod {
       void drawStatusIcons();
   
       /**
-       * marks the position of the arrow showing
+       * marks the posición of the arrow showing
        * the current setting being changed
-       * pass line and colum info
+       * pass line and colum información
        */
       void setMarkLine(byte newMarkLineNum, byte newMarkColNum);
   
-      //Draw the arrow for the current setting being changed
+      //Dibujar the arrow for the current setting being changed
       void drawArrow();
   
-      //Display the current effect or palette (desiredEntry)
+      //Display the current efecto or palette (desiredEntry)
       // on the appropriate line (row).
       void showCurrentEffectOrPalette(int inputEffPal, const char *qstring, uint8_t row);
   
       /**
        * If there screen is off or in clock is displayed,
-       * this will return true. This allows us to throw away
-       * the first input from the rotary encoder but
+       * this will retorno verdadero. This allows us to throw away
+       * the first entrada from the rotary encoder but
        * to wake up the screen.
        */
       bool wakeDisplay();
   
       /**
-       * Allows you to show one line and a glyph as overlay for a period of time.
+       * Allows you to show one line and a glyph as overlay for a período of time.
        * Clears the screen and prints.
        * Used in Rotary Encoder usermod.
        */
       void overlay(const char* line1, long showHowLong, byte glyphType);
   
       /**
-       * Allows you to show Akemi WLED logo overlay for a period of time.
+       * Allows you to show Akemi WLED logo overlay for a período of time.
        * Clears the screen and prints.
        */
       void overlayLogo(long showHowLong);
   
       /**
-       * Allows you to show two lines as overlay for a period of time.
+       * Allows you to show two lines as overlay for a período of time.
        * Clears the screen and prints.
-       * Used in Auto Save usermod
+       * Used in Auto Guardar usermod
        */
       void overlay(const char* line1, const char* line2, long showHowLong);
   
       void networkOverlay(const char* line1, long showHowLong);
   
       /**
-       * handleButton() can be used to override default button behaviour. Returning true
-       * will prevent button working in a default way.
+       * handleButton() can be used to anular default button behaviour. Returning verdadero
+       * will prevent button funcionamiento in a default way.
        * Replicating button.cpp
        */
       bool handleButton(uint8_t b);
@@ -258,55 +258,55 @@ class FourLineDisplayUsermod : public Usermod {
       void onUpdateBegin(bool init) override;
   
       /*
-       * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
-       * Creating an "u" object allows you to add custom key/value pairs to the Info section of the WLED web UI.
+       * addToJsonInfo() can be used to add custom entries to the /JSON/información part of the JSON API.
+       * Creating an "u" object allows you to add custom key/valor pairs to the Información section of the WLED web UI.
        * Below it is shown how this could be used for e.g. a light sensor
        */
-      //void addToJsonInfo(JsonObject& root) override;
+      //void addToJsonInfo(JsonObject& root) anular;
   
       /*
-       * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
-       * Values in the state object may be modified by connected clients
+       * addToJsonState() can be used to add custom entries to the /JSON/estado part of the JSON API (estado object).
+       * Values in the estado object may be modified by connected clients
        */
-      //void addToJsonState(JsonObject& root) override;
+      //void addToJsonState(JsonObject& root) anular;
   
       /*
-       * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
-       * Values in the state object may be modified by connected clients
+       * readFromJsonState() can be used to recibir datos clients enviar to the /JSON/estado part of the JSON API (estado object).
+       * Values in the estado object may be modified by connected clients
        */
-      //void readFromJsonState(JsonObject& root) override;
+      //void readFromJsonState(JsonObject& root) anular;
   
       void appendConfigData() override;
   
       /*
-       * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
+       * addToConfig() can be used to add custom persistent settings to the cfg.JSON archivo in the "um" (usermod) object.
        * It will be called by WLED when settings are actually saved (for example, LED settings are saved)
-       * If you want to force saving the current state, use serializeConfig() in your loop().
+       * If you want to force saving the current estado, use serializeConfig() in your bucle().
        *
-       * CAUTION: serializeConfig() will initiate a filesystem write operation.
+       * CAUTION: serializeConfig() will initiate a filesystem escribir operation.
        * It might cause the LEDs to stutter and will cause flash wear if called too often.
-       * Use it sparingly and always in the loop, never in network callbacks!
+       * Use it sparingly and always in the bucle, never in red callbacks!
        *
        * addToConfig() will also not yet add your setting to one of the settings pages automatically.
-       * To make that work you still have to add the setting to the HTML, xml.cpp and set.cpp manually.
+       * To make that work you still have to add the setting to the HTML, XML.cpp and set.cpp manually.
        *
        * I highly recommend checking out the basics of ArduinoJson serialization and deserialization in order to use custom settings!
        */
       void addToConfig(JsonObject& root) override;
   
       /*
-       * readFromConfig() can be used to read back the custom settings you added with addToConfig().
+       * readFromConfig() can be used to leer back the custom settings you added with addToConfig().
        * This is called by WLED when settings are loaded (currently this only happens once immediately after boot)
        *
-       * readFromConfig() is called BEFORE setup(). This means you can use your persistent values in setup() (e.g. pin assignments, buffer sizes),
-       * but also that if you want to write persistent values to a dynamic buffer, you'd need to allocate it here instead of in setup.
+       * readFromConfig() is called BEFORE configuración(). This means you can use your persistent values in configuración() (e.g. pin assignments, búfer sizes),
+       * but also that if you want to escribir persistent values to a dynamic búfer, you'd need to allocate it here instead of in configuración.
        * If you don't know what that is, don't fret. It most likely doesn't affect your use case :)
        */
       bool readFromConfig(JsonObject& root) override;
   
       /*
-       * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
-       * This could be used in the future for the system to determine whether your usermod is installed.
+       * getId() allows you to optionally give your V2 usermod an unique ID (please definir it in constante.h!).
+       * This could be used in the futuro for the sistema to determine whether your usermod is installed.
        */
       uint16_t getId() override {
         return USERMOD_ID_FOUR_LINE_DISP;

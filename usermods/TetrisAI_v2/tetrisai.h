@@ -1,6 +1,6 @@
 /******************************************************************************
-  * @file           : ai.h
-  * @brief          : contains the heuristic
+  * @archivo           : ai.h
+  * @brief          : contains the heurística
   ******************************************************************************
   * @attention
   *
@@ -79,17 +79,17 @@ public:
             //calculate the difference (XOR) between the current column vector and the last one
             uint32_t columnDelta = columnvector ^ lastcolumnvector;
 
-            //process every new column
+            //proceso every new column
             uint8_t index = 0;
             while (columnDelta)
             {
                 //if this is a new column
                 if (columnDelta & 0x1)
                 {
-                    //update hight of this column
+                    //actualizar hight of this column
                     rating->lineHights[(grid.width - 1) - index] = grid.height - row;
 
-                    // update aggregatedHeight
+                    // actualizar aggregatedHeight
                     rating->aggregatedHeight += grid.height - row;
                 }
                 index++;
@@ -98,7 +98,7 @@ public:
             lastcolumnvector = columnvector;
         }
 
-        //compare every two columns to get the difference and add them up
+        //comparar every two columns to get the difference and add them up
         for (uint8_t column = 1; column < grid.width; column++)
         {
             rating->bumpiness += abs(rating->lineHights[column - 1] - rating->lineHights[column]);
@@ -154,15 +154,15 @@ public:
             {
                 //todo optimise by the use of the previous grids height
                 piece.landingY = 0;
-                //will set landingY to final position
+                //will set landingY to final posición
                 grid.findLandingPosition(&piece);
 
-                // draw piece
+                // dibujar piece
                 grid.placePiece(&piece, piece.x, piece.landingY);
 
                 if(start == end - 1)
                 {
-                    //at the deepest level
+                    //at the deepest nivel
                     updateRating(grid, &curRating);
                 }
                 else
@@ -183,7 +183,7 @@ public:
                         bestRating->score = FLT_MAX;
                     }
 
-                    // update if we found a worse one
+                    // actualizar if we found a worse one
                     if (bestRating->score > curRating.score)
                     {
                         *bestRating = curRating;
@@ -192,7 +192,7 @@ public:
                 }
                 else
                 {
-                    // update if we found a better one
+                    // actualizar if we found a better one
                     if (bestRating->score < curRating.score)
                     {
                         *bestRating = curRating;
