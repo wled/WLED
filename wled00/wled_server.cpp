@@ -16,7 +16,7 @@
 #include "html_edit.h"
 
 
-// definir flash strings once (saves flash memoria)
+// define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
 static const char s_content_enc[] PROGMEM = "Content-Encoding";
 static const char s_unlock_ota [] PROGMEM = "Please unlock OTA in security settings!";
@@ -63,7 +63,7 @@ static bool inLocalSubnet(const IPAddress &client) {
 }
 
 /*
- * Integrated HTTP web servidor page declarations
+ * Integrated HTTP web server page declarations
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
@@ -71,13 +71,13 @@ static void generateEtag(char *etag, uint16_t eTagSuffix) {
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
-  // Only enviar ETag for 200 (OK) responses
+  // Only send ETag for 200 (OK) responses
   if (code != 200) return;
 
   // https://medium.com/@codebyamir/a-web-developers-guide-to-browser-caching-cc41f3b73e7c
   #ifndef WLED_DEBUG
-  // this encabezado name is misleading, "no-caché" will not deshabilitar caché,
-  // it just revalidates on every carga usando the "If-None-Coincidir" encabezado with the last ETag valor
+  // this header name is misleading, "no-cache" will not disable cache,
+  // it just revalidates on every load using the "If-None-Match" header with the last ETag value
   response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
   response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
@@ -88,7 +88,7 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
 }
 
 static bool handleIfNoneMatchCacheHeader(AsyncWebServerRequest *request, int code, uint16_t eTagSuffix = 0) {
-  // Only enviar 304 (Not Modified) if respuesta código is 200 (OK)
+  // Only send 304 (Not Modified) if response code is 200 (OK)
   if (code != 200) return false;
 
   AsyncWebHeader *header = request->getHeader(F("If-None-Match"));
@@ -104,19 +104,19 @@ static bool handleIfNoneMatchCacheHeader(AsyncWebServerRequest *request, int cod
 }
 
 /**
- * Handles the solicitud for a estático archivo.
- * If the archivo was found in the filesystem, it will be sent to the cliente.
- * Otherwise it will be checked if the browser cached the archivo and if so, a 304 respuesta will be sent.
- * If the archivo was not found in the filesystem and not in the browser caché, the solicitud will be handled as a 200 respuesta with the contenido of the page.
+ * Handles the request for a static file.
+ * If the file was found in the filesystem, it will be sent to the client.
+ * Otherwise it will be checked if the browser cached the file and if so, a 304 response will be sent.
+ * If the file was not found in the filesystem and not in the browser cache, the request will be handled as a 200 response with the content of the page.
  *
- * @param solicitud The solicitud object
- * @param ruta If a archivo with this ruta exists in the filesystem, it will be sent to the cliente. Set to "" to omitir this verificar.
- * @param código The HTTP estado código
- * @param contentType The contenido tipo of the web page
- * @param contenido Contenido of the web page
- * @param len Longitud of the contenido
- * @param gzip Optional. Defaults to verdadero. If falso, the gzip encabezado will not be added.
- * @param eTagSuffix Optional. Defaults to 0. A suffix that will be added to the ETag encabezado. This can be used to invalidate the caché for a specific page.
+ * @param request The request object
+ * @param path If a file with this path exists in the filesystem, it will be sent to the client. Set to "" to skip this check.
+ * @param code The HTTP status code
+ * @param contentType The content type of the web page
+ * @param content Content of the web page
+ * @param len Length of the content
+ * @param gzip Optional. Defaults to true. If false, the gzip header will not be added.
+ * @param eTagSuffix Optional. Defaults to 0. A suffix that will be added to the ETag header. This can be used to invalidate the cache for a specific page.
  */
 static void handleStaticContent(AsyncWebServerRequest *request, const String &path, int code, const String &contentType, const uint8_t *content, size_t len, bool gzip = true, uint16_t eTagSuffix = 0) {
   if (path != "" && handleFileRead(request, path)) return;
@@ -165,7 +165,7 @@ static String msgProcessor(const String& var)
       messageBody += F(")</script>");
     } else if (optt < 120) //redirect back after optionType-60 seconds, unused
     {
-      //messageBody += "<script>setTimeout(B," + Cadena((optt-60)*1000) + ")</script>";
+      //messageBody += "<script>setTimeout(B," + String((optt-60)*1000) + ")</script>";
     } else if (optt < 180) //reload parent after optionType-120 seconds
     {
       messageBody += F("<script>setTimeout(RP,");
@@ -221,7 +221,7 @@ void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
 
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
-    // PIN verificar for GET/ELIMINAR, for POST it is done in handleUpload()
+    // PIN check for GET/DELETE, for POST it is done in handleUpload()
     if (!correctPIN) {
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
       return;
@@ -352,7 +352,7 @@ void initServer()
     serveSettings(request);
   });
 
-  // "/settings/settings.js&p=x" solicitud also handled by serveSettings()
+  // "/settings/settings.js&p=x" request also handled by serveSettings()
   static const char _style_css[] PROGMEM = "/style.css";
   server.on(_style_css, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_style_css), 200, FPSTR(CONTENT_TYPE_CSS), PAGE_settingsCss, PAGE_settingsCss_length);
@@ -410,11 +410,11 @@ void initServer()
     isConfig = url.indexOf(F("cfg")) > -1;
     if (!isConfig) {
       /*
-      #si está definido WLED_DEBUG
+      #ifdef WLED_DEBUG
         DEBUG_PRINTLN(F("Serialized HTTP"));
-        serializeJson(root,Serie);
+        serializeJson(root,Serial);
         DEBUG_PRINTLN();
-      #fin si
+      #endif
       */
       verboseResponse = deserializeState(root);
     } else {
@@ -432,7 +432,7 @@ void initServer()
         lastInterfaceUpdate = millis(); // prevent WS update until cooldown
         interfaceUpdateCallMode = CALL_MODE_WS_SEND; // override call mode & schedule WS update
         #ifndef WLED_DISABLE_MQTT
-        // publish estado to MQTT as requested in WLED#4643 even if only WS respuesta selected
+        // publish state to MQTT as requested in wled#4643 even if only WS response selected
         publishMqtt();
         #endif
         serveJson(request);
@@ -495,17 +495,17 @@ void initServer()
         }
       }
     } else {
-      // No contexto structure - something's gone horribly wrong
+      // No context structure - something's gone horribly wrong
       serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (index == 0) { 
-      // Allocate the contexto structure
+      // Allocate the context structure
       if (!initOTA(request)) {
         return; // Error will be dealt with after upload in response handler, above
       }
 
-      // Privilegio checks
+      // Privilege checks
       IPAddress client  = request->client()->remoteIP();
       if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {        
         DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
@@ -536,7 +536,7 @@ void initServer()
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-  // ESP32 bootloader actualizar extremo
+  // ESP32 bootloader update endpoint
   server.on(F("/updatebootloader"), HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->_tempObject) {
       auto bootloader_result = getBootloaderOTAResult(request);
@@ -548,12 +548,12 @@ void initServer()
         }
       }
     } else {
-      // No contexto structure - something's gone horribly wrong
+      // No context structure - something's gone horribly wrong
       serveMessage(request, 500, F("Bootloader update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (index == 0) {
-      // Privilegio checks
+      // Privilege checks
       IPAddress client = request->client()->remoteIP();
       if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
         DEBUG_PRINTLN(F("Attempted bootloader update from different/non-local subnet!"));
@@ -572,7 +572,7 @@ void initServer()
         return;
       }
 
-      // Allocate the contexto structure
+      // Allocate the context structure
       if (!initBootloaderOTA(request)) {
         return; // Error will be dealt with after upload in response handler, above
       }

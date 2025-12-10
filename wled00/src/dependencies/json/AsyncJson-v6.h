@@ -1,13 +1,13 @@
 // AsyncJson-v6.h
 /*
-  Original archivo at: https://github.com/baggior/ESPAsyncWebServer/blob/master/src/AsyncJson.h
-  Only changes are ArduinoJson lib ruta and removed contenido-tipo verificar
+  Original file at: https://github.com/baggior/ESPAsyncWebServer/blob/master/src/AsyncJson.h
+  Only changes are ArduinoJson lib path and removed content-type check
   
-  Asíncrono Respuesta to use with ArduinoJson and AsyncWebServer
+  Async Response to use with ArduinoJson and AsyncWebServer
   Written by Andrew Melvin (SticilFace) with help from me-no-dev and BBlanchon.
 
   --------------------
-  Asíncrono Solicitud to use with ArduinoJson and AsyncWebServer
+  Async Request to use with ArduinoJson and AsyncWebServer
   Written by Arsène von Wyss (avonwyss)
 */
 #ifndef ASYNC_JSON_H_
@@ -22,7 +22,7 @@
 #endif
 
 /*
- * JSON Respuesta
+ * Json Response
  * */
 
 class ChunkPrint : public Print {

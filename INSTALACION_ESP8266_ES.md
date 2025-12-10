@@ -52,6 +52,12 @@ sudo apt update
 sudo apt install python3.7
 sudo apt install python3
 
+# powershell
+winget search Python
+winget install Python.Python.3.9
+
+
+
 
 ```
 
@@ -93,6 +99,7 @@ Abre una terminal y ejecuta:
 
 ```bash
 git clone https://github.com/Aircoookie/WLED.git
+git clone https://github.com/erpepe2004/WLED.git
 cd WLED
 ```
 

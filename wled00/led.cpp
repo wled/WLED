@@ -22,7 +22,7 @@ void setValuesFromSegment(uint8_t s) {
 }
 
 
-// applies global legacy values (colPri, colSec, effectCurrent...) to each selected segmento
+// applies global legacy values (colPri, colSec, effectCurrent...) to each selected segment
 void applyValuesToSelectedSegs() {
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
@@ -54,7 +54,7 @@ void toggleOnOff()
 }
 
 
-//scales the brillo with the briMultiplier factor
+//scales the brightness with the briMultiplier factor
 byte scaledBri(byte in)
 {
   unsigned val = ((unsigned)in*briMultiplier)/100;
@@ -63,17 +63,17 @@ byte scaledBri(byte in)
 }
 
 
-//applies global temporary brillo (briT) to tira
+//applies global temporary brightness (briT) to strip
 void applyBri() {
   if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
   {
-    //DEBUG_PRINTF_P(PSTR("Applying tira brillo: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
+    //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
     strip.setBrightness(briT);
   }
 }
 
 
-//applies global brillo and sets it as the "current" brillo (no transición)
+//applies global brightness and sets it as the "current" brightness (no transition)
 void applyFinalBri() {
   briOld = bri;
   briT = bri;
@@ -82,11 +82,11 @@ void applyFinalBri() {
 }
 
 
-//called after every estado changes, schedules interfaz updates, handles brillo transición and nightlight activation
+//called after every state changes, schedules interface updates, handles brightness transition and nightlight activation
 //unlike colorUpdated(), does NOT apply any colors or FX to segments
 void stateUpdated(byte callMode) {
   //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
-  //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws enviar only 12: button preset
+  //                     6: fx changed 7: hue 8: preset cycle 9: blynk 10: alexa 11: ws send only 12: button preset
   setValuesFromFirstSelectedSeg();  // a much better approach would be to use main segment: setValuesFromMainSeg()
 
   if (bri != briOld || stateChanged) {
@@ -95,7 +95,7 @@ void stateUpdated(byte callMode) {
     if (callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) notify(callMode);
     if (bri != briOld && nodeBroadcastEnabled) sendSysInfoUDP(); // update on state
 
-    //set bandera to actualizar ws and MQTT
+    //set flag to update ws and mqtt
     interfaceUpdateCallMode = callMode;
   } else {
     if (nightlightActive && !nightlightActiveOld && callMode != CALL_MODE_NOTIFICATION && callMode != CALL_MODE_NO_NOTIFY) {
@@ -116,10 +116,10 @@ void stateUpdated(byte callMode) {
 
   if (bri > 0) briLast = bri;
 
-  //deactivate nightlight if target brillo is reached
+  //deactivate nightlight if target brightness is reached
   if (bri == nightlightTargetBri && callMode != CALL_MODE_NO_NOTIFY && nightlightMode != NL_MODE_SUN) nightlightActive = false;
 
-  // notify usermods of estado change
+  // notify usermods of state change
   UsermodManager::onStateChange(callMode);
 
   if (strip.getTransition() == 0) {
@@ -161,7 +161,7 @@ void updateInterfaces(uint8_t callMode) {
 
 
 void handleTransitions() {
-  //handle still pending interfaz actualizar
+  //handle still pending interface update
   updateInterfaces(interfaceUpdateCallMode);
 
   if (transitionActive && strip.getTransition() > 0) {
@@ -169,7 +169,7 @@ void handleTransitions() {
     int tr = strip.getTransition();
     if (ti/tr) {
       strip.setTransitionMode(false); // stop all transitions
-      // restore (global) transición time if not called from UDP notifier or single/temporary transición from JSON (also playlist)
+      // restore (global) transition time if not called from UDP notifier or single/temporary transition from JSON (also playlist)
       if (jsonTransitionOnce) strip.setTransition(transitionDelay);
       transitionActive = false;
       jsonTransitionOnce = false;
@@ -184,7 +184,7 @@ void handleTransitions() {
 }
 
 
-// legacy método, applies values from col, effectCurrent, ... to selected segments
+// legacy method, applies values from col, effectCurrent, ... to selected segments
 void colorUpdated(byte callMode) {
   applyValuesToSelectedSegs();
   stateUpdated(callMode);
@@ -208,7 +208,7 @@ void handleNightlight() {
       for (unsigned i=0; i<4; i++) colNlT[i] = colPri[i]; // remember starting color
       if (nightlightMode == NL_MODE_SUN)
       {
-        //guardar current
+        //save current
         colNlT[0] = effectCurrent;
         colNlT[1] = effectSpeed;
         colNlT[2] = effectPalette;
@@ -270,7 +270,7 @@ void handleNightlight() {
   }
 }
 
-//utility for FastLED to use our custom temporizador
+//utility for FastLED to use our custom timer
 uint32_t get_millisecond_timer() {
   return strip.now;
 }

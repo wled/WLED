@@ -1,10 +1,10 @@
 /*----------------------------------------------------------------------*
- * Arduino Timezone Biblioteca v1.0                                        *
+ * Arduino Timezone Library v1.0                                        *
  * Jack Christensen Mar 2012                                            *
  *                                                                      *
  * This work is licensed under the Creative Commons Attribution-        *
  * ShareAlike 3.0 Unported License. To view a copy of this license,     *
- * visit HTTP://creativecommons.org/licenses/by-sa/3.0/ or enviar a       *
+ * visit http://creativecommons.org/licenses/by-sa/3.0/ or send a       *
  * letter to Creative Commons, 171 Second Street, Suite 300,            *
  * San Francisco, California, 94105, USA.                               *
  *----------------------------------------------------------------------*/ 
@@ -25,7 +25,7 @@ enum dow_t {Sun=1, Mon, Tue, Wed, Thu, Fri, Sat};
 enum month_t {Jan=1, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep, Oct, Nov, Dec};
 
 //structure to describe rules for when daylight/summer time begins,
-//or when estándar time begins.
+//or when standard time begins.
 struct TimeChangeRule
 {
     uint8_t week;      //First, Second, Third, Fourth, or Last week of the month

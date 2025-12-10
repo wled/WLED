@@ -89,7 +89,7 @@ void handleArtnetPollReply(IPAddress ipAddress);
 void prepareArtnetPollReply(ArtPollReply* reply);
 void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t portAddress);
 
-//archivo.cpp
+//file.cpp
 bool handleFileRead(AsyncWebServerRequest*, String path);
 bool writeObjectToFileUsingId(const char* file, uint16_t id, const JsonDocument* content);
 bool writeObjectToFile(const char* file, const char* key, const JsonDocument* content);
@@ -149,7 +149,7 @@ void initIR();
 void deInitIR();
 void handleIR();
 
-//JSON.cpp
+//json.cpp
 #include "ESPAsyncWebServer.h"
 #include "src/dependencies/json/ArduinoJson-v6.h"
 #include "src/dependencies/json/AsyncJson-v6.h"
@@ -165,7 +165,7 @@ void serveJson(AsyncWebServerRequest* request);
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
 
-//LED.cpp
+//led.cpp
 void setValuesFromSegment(uint8_t s);
 #define setValuesFromMainSeg()          setValuesFromSegment(strip.getMainSegmentId())
 #define setValuesFromFirstSelectedSeg() setValuesFromSegment(strip.getFirstSelectedSegId())
@@ -186,7 +186,7 @@ bool parseLx(int lxValue, byte* rgbw);
 void parseLxJson(int lxValue, byte segId, bool secondary);
 #endif
 
-//MQTT.cpp
+//mqtt.cpp
 bool initMqtt();
 void publishMqtt();
 
@@ -239,7 +239,7 @@ bool isAsterisksOnly(const char* str, byte maxLen);
 void handleSettingsSet(AsyncWebServerRequest *request, byte subPage);
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply=true);
 
-//UDP.cpp
+//udp.cpp
 void notify(byte callMode, bool followUp=false);
 uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t* buffer, uint8_t bri=255, bool isRGBW=false);
 void realtimeLock(uint32_t timeoutMs, byte md = REALTIME_MODE_GENERIC);
@@ -253,7 +253,7 @@ void espNowSentCB(uint8_t* address, uint8_t status);
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
 #endif
 
-//red.cpp
+//network.cpp
 bool initEthernet(); // result is informational
 int  getSignalQuality(int rssi);
 void fillMAC2Str(char *str, const uint8_t *mac);
@@ -325,14 +325,14 @@ class Usermod {
   // API shims
   private:
     static Print* oappend_shim;
-    // old form of appendConfigData; called by default appendConfigData(Imprimir&) with oappend_shim set up
-    // private so it is not accidentally invoked except via Usermod::appendConfigData(Imprimir&)
+    // old form of appendConfigData; called by default appendConfigData(Print&) with oappend_shim set up
+    // private so it is not accidentally invoked except via Usermod::appendConfigData(Print&)
     virtual void appendConfigData() {}    
   protected:
     // Shim for oappend(), which used to exist in utils.cpp
     template<typename T> static inline void oappend(const T& t) { oappend_shim->print(t); };
 #ifdef ESP8266
-    // Handle imprimir(PSTR()) without crashing by detecting PROGMEM strings
+    // Handle print(PSTR()) without crashing by detecting PROGMEM strings
     static void oappend(const char* c) { if ((intptr_t) c >= 0x40000000) oappend_shim->print(FPSTR(c)); else oappend_shim->print(c); };
 #endif
 };
@@ -364,7 +364,7 @@ namespace UsermodManager {
   size_t getModCount();
 };
 
-// Register usermods by building a estático lista via a linker section
+// Register usermods by building a static list via a linker section
 #define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
 
 //usermod.cpp
@@ -421,12 +421,12 @@ uint8_t perlin8(uint16_t x);
 uint8_t perlin8(uint16_t x, uint16_t y);
 uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z);
 
-// fast (verdadero) random numbers usando hardware RNG, all functions retorno values in the rango lowerlimit to upperlimit-1
-// note: for verdadero random numbers with high entropy, do not call faster than every 200ns (5MHz)
-// tests show it is still highly random reading it quickly in a bucle (better than fastled PRNG)
-// for 8bit and 16bit random functions: no límite verificar is done for best velocidad
-// 32bit inputs are used for velocidad and código tamaño, limits don't work if inverted or out of rango
-// inlining does guardar código tamaño except for random(a,b) and 32bit random with limits
+// fast (true) random numbers using hardware RNG, all functions return values in the range lowerlimit to upperlimit-1
+// note: for true random numbers with high entropy, do not call faster than every 200ns (5MHz)
+// tests show it is still highly random reading it quickly in a loop (better than fastled PRNG)
+// for 8bit and 16bit random functions: no limit check is done for best speed
+// 32bit inputs are used for speed and code size, limits don't work if inverted or out of range
+// inlining does save code size except for random(a,b) and 32bit random with limits
 #define random hw_random // replace arduino random()
 inline uint32_t hw_random() { return HW_RND_REGISTER; };
 uint32_t hw_random(uint32_t upperlimit); // not inlined for code size
@@ -438,7 +438,7 @@ inline uint8_t hw_random8() { return HW_RND_REGISTER; };
 inline uint8_t hw_random8(uint32_t upperlimit) { return (hw_random8() * upperlimit) >> 8; }; // input range 0-255
 inline uint8_t hw_random8(uint32_t lowerlimit, uint32_t upperlimit) { uint32_t range = upperlimit - lowerlimit; return lowerlimit + hw_random8(range); }; // input range 0-255
 
-// memoria allocation wrappers (util.cpp)
+// memory allocation wrappers (util.cpp)
 extern "C" {
   // prefer DRAM in d_xalloc functions, PSRAM as fallback
   void *d_malloc(size_t);
@@ -481,7 +481,7 @@ void handleBootLoop();   // detect and handle bootloops
 #ifndef ESP8266
 void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of restoring config
 #endif
-// RAII guard clase for the JSON Búfer bloqueo
+// RAII guard class for the JSON Buffer lock
 // Modeled after std::lock_guard
 class JSONBufferGuard {
   bool holding_lock;
@@ -506,9 +506,9 @@ void clearEEPROM();
 #endif
 
 //wled_math.cpp
-//flotante cos_t(flotante phi); // use flotante math
-//flotante sin_t(flotante phi);
-//flotante tan_t(flotante x);
+//float cos_t(float phi); // use float math
+//float sin_t(float phi);
+//float tan_t(float x);
 int16_t sin16_t(uint16_t theta);
 int16_t cos16_t(uint16_t theta);
 uint8_t sin8_t(uint8_t theta);
@@ -528,15 +528,15 @@ uint32_t sqrt32_bw(uint32_t x);
 #define tan_t tan_approx
 
 /*
-#incluir <math.h>  // estándar math functions. use a lot of flash
-#definir sin_t sinf
-#definir cos_t cosf
-#definir tan_t tanf
-#definir asin_t asinf
-#definir acos_t acosf
-#definir atan_t atanf
-#definir fmod_t fmodf
-#definir floor_t floorf
+#include <math.h>  // standard math functions. use a lot of flash
+#define sin_t sinf
+#define cos_t cosf
+#define tan_t tanf
+#define asin_t asinf
+#define acos_t acosf
+#define atan_t atanf
+#define fmod_t fmodf
+#define floor_t floorf
 */
 //wled_serial.cpp
 void handleSerial();
@@ -554,7 +554,7 @@ void handleWs();
 void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len);
 void sendDataWs(AsyncWebSocketClient * client = nullptr);
 
-//XML.cpp
+//xml.cpp
 void XML_response(Print& dest);
 void getSettingsJS(byte subPage, Print& dest);
 

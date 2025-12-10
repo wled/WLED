@@ -1,18 +1,18 @@
 /*
 * ESPAsyncE131.cpp
 *
-* Project: ESPAsyncE131 - Asíncrono E.131 (sACN) biblioteca for Arduino ESP8266 and ESP32
+* Project: ESPAsyncE131 - Asynchronous E.131 (sACN) library for Arduino ESP8266 and ESP32
 * Copyright (c) 2019 Shelby Merrick
-* HTTP://www.forkineye.com
+* http://www.forkineye.com
 *
 *  This program is provided free for you to use in any way that you wish,
-*  subject to the laws and regulations where you are usando it.  Due diligence
-*  is strongly suggested before usando this código.  Please give credit where due.
+*  subject to the laws and regulations where you are using it.  Due diligence
+*  is strongly suggested before using this code.  Please give credit where due.
 *
 *  The Author makes no warranty of any kind, express or implied, with regard
 *  to this program or the documentation contained in this document.  The
-*  Author shall not be liable in any evento for incidental or consequential
-*  damages in conexión with, or arising out of, the furnishing, rendimiento
+*  Author shall not be liable in any event for incidental or consequential
+*  damages in connection with, or arising out of, the furnishing, performance
 *  or use of these programs.
 *
 */
@@ -34,7 +34,7 @@ ESPAsyncE131::ESPAsyncE131(e131_packet_callback_function callback) {
 
 /////////////////////////////////////////////////////////
 //
-// Público begin() members
+// Public begin() members
 //
 /////////////////////////////////////////////////////////
 
@@ -52,7 +52,7 @@ bool ESPAsyncE131::begin(bool multicast, uint16_t port, uint16_t universe, uint8
 
 /////////////////////////////////////////////////////////
 //
-// Privado init() members
+// Private init() members
 //
 /////////////////////////////////////////////////////////
 
@@ -93,7 +93,7 @@ bool ESPAsyncE131::initMulticast(uint16_t port, uint16_t universe, uint8_t n) {
 
 /////////////////////////////////////////////////////////
 //
-// Packet parsing - Privado
+// Packet parsing - Private
 //
 /////////////////////////////////////////////////////////
 

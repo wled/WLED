@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * Receives cliente entrada
+ * Receives client input
  */
 
 //called upon POST settings form submit
@@ -13,7 +13,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     return;
   }
 
-  //0: menu 1: WiFi 2: leds 3: ui 4: sincronizar 5: time 6: sec 7: DMX 8: usermods 9: N/A 10: 2D
+  //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec 7: DMX 8: usermods 9: N/A 10: 2D
   if (subPage < 1 || subPage > 10 || !correctPIN) return;
 
   //WIFI SETTINGS
@@ -52,7 +52,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         cnt++;
       }
     }
-    // eliminar unused
+    // remove unused
     if (cnt < multiWiFi.size()) {
       cnt = multiWiFi.size() - cnt;
       while (cnt--) multiWiFi.pop_back();
@@ -143,7 +143,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
 
-    // this will set global ABL max current used when per-puerto ABL is not used
+    // this will set global ABL max current used when per-port ABL is not used
     unsigned ablMilliampsMax = request->arg(F("MA")).toInt();
     BusManager::setMilliampsMax(ablMilliampsMax);
 
@@ -227,12 +227,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       type |= request->hasArg(rf) << 7; // off refresh override
       text = request->arg(hs).substring(0,31);
-      // actual finalization is done in WLED::bucle() (removing old busses and adding new)
-      // this may happen even before this bucle is finished so we do "doInitBusses" after the bucle
+      // actual finalization is done in WLED::loop() (removing old busses and adding new)
+      // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, text);
       busesChanged = true;
     }
-    //doInitBusses = busesChanged; // we will do that below to ensure all entrada datos is processed
+    //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
 
     // we will not bother with pre-allocating ColorOrderMappings vector
     BusManager::getColorOrderMap().reset();
@@ -251,7 +251,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    // actualizar other pins
+    // update other pins
     #ifndef WLED_DISABLE_INFRARED
     int hw_ir_pin = request->arg(F("IR")).toInt();
     if (PinManager::allocatePin(hw_ir_pin,false, PinOwner::IR)) {
@@ -287,7 +287,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       if (buttons[i].pin >= 0 && PinManager::allocatePin(buttons[i].pin, false, PinOwner::Button)) {
         #ifdef ARDUINO_ARCH_ESP32
-        // ESP32 only: verificar that button pin is a valid GPIO
+        // ESP32 only: check that button pin is a valid gpio
         if ((buttons[i].type == BTN_TYPE_ANALOG) || (buttons[i].type == BTN_TYPE_ANALOG_INVERTED)) {
           if (digitalPinToAnalogChannel(buttons[i].pin) < 0) {
             // not an ADC analog pin
@@ -326,7 +326,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         buttons[i].type = BTN_TYPE_NONE;
       }
     }
-    // we should eliminar all unused buttons from the vector
+    // we should remove all unused buttons from the vector
     for (int i = buttons.size()-1; i > 0; i--) {
       if (buttons[i].pin < 0 && buttons[i].type == BTN_TYPE_NONE) {
         buttons.erase(buttons.begin() + i); // remove button from vector
@@ -372,7 +372,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
-    //syncToggleReceive = solicitud->hasArg(F("ST"));
+    //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();
@@ -380,7 +380,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     loadCustomPalettes(); // (re)load all custom palettes
   }
 
-  //SINCRONIZAR
+  //SYNC
   if (subPage == SUBPAGE_SYNC)
   {
     int t = request->arg(F("UP")).toInt();
@@ -502,13 +502,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     currentTimezone = request->arg(F("TZ")).toInt();
     utcOffsetSecs = request->arg(F("UO")).toInt();
 
-    //iniciar ntp if not already connected
+    //start ntp if not already connected
     if (ntpEnabled && WLED_CONNECTED && !ntpConnected) ntpConnected = ntpUdp.begin(ntpLocalPort);
     ntpLastSyncTime = NTP_NEVER; // force new NTP query
 
     longitude = request->arg(F("LN")).toFloat();
     latitude = request->arg(F("LT")).toFloat();
-    // force a sunrise/sunset re-cálculo
+    // force a sunrise/sunset re-calculation
     calculateSunriseAndSunset();
 
     overlayCurrent = request->hasArg(F("OL")) ? 1 : 0;
@@ -538,7 +538,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char mp[4] = "MP"; mp[2] = (i<10?'0':'A'-10)+i; mp[3] = 0; // short
       char ml[4] = "ML"; ml[2] = (i<10?'0':'A'-10)+i; ml[3] = 0; // long
       char md[4] = "MD"; md[2] = (i<10?'0':'A'-10)+i; md[3] = 0; // double
-      //if (!solicitud->hasArg(mp)) ruptura;
+      //if (!request->hasArg(mp)) break;
       button.macroButton = request->arg(mp).toInt();      // these will default to 0 if not present
       button.macroLongPress = request->arg(ml).toInt();
       button.macroDoublePress = request->arg(md).toInt();
@@ -601,7 +601,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     {
       if (otaLock && strcmp(otaPass,request->arg(F("OP")).c_str()) == 0)
       {
-        // brute force protection: do not desbloqueo even if correct if last guardar was less than 3 seconds ago
+        // brute force protection: do not unlock even if correct if last save was less than 3 seconds ago
         if (millis() - lastEditTime > PIN_RETRY_COOLDOWN) pwdCorrect = true;
       }
       if (!otaLock && request->arg(F("OP")).length() > 0)
@@ -722,7 +722,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       String name = request->argName(i);
       String value = request->arg(i);
 
-      // POST solicitud parameters are combined as <usermodname>_<usermodparameter>
+      // POST request parameters are combined as <usermodname>_<usermodparameter>
       int umNameEnd = name.indexOf(":");
       if (umNameEnd<1) continue;  // parameter does not contain ":" or on 1st place -> wrong
 
@@ -748,7 +748,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       DEBUG_PRINT(name);
 
-      // verificar if parameters represent matriz
+      // check if parameters represent array
       if (name.endsWith("[]")) {
         name.replace("[]","");
         value.replace(",",".");      // just in case conversion
@@ -764,11 +764,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         }
         DEBUG_PRINTF_P(PSTR("[%d] = %s\n"), j, value.c_str());
       } else {
-        // we are usando a hidden campo with the same name as our parámetro (!before the actual parámetro!)
-        // to describe the tipo of parámetro (texto,flotante,int), for booleano parameters the first campo contains "off"
-        // so checkboxes have one or two fields (first is always "falso", existence of second depends on checkmark and may be "verdadero")
+        // we are using a hidden field with the same name as our parameter (!before the actual parameter!)
+        // to describe the type of parameter (text,float,int), for boolean parameters the first field contains "off"
+        // so checkboxes have one or two fields (first is always "false", existence of second depends on checkmark and may be "true")
         if (subObj[name].isNull()) {
-          // the first occurrence of the campo describes the parámetro tipo (used in next bucle)
+          // the first occurrence of the field describes the parameter type (used in next loop)
           if (value == "false") subObj[name] = false; // checkboxes may have only one field
           else                  subObj[name] = value;
         } else {
@@ -804,7 +804,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         snprintf_P(pO, 7, PSTR("P%d"), i);       // WLED_MAX_PANELS is less than 100 so pO will always only be 4 characters or less
         pO[7] = '\0';
         unsigned l = strlen(pO);
-        // crear P0B, P1B, ..., P63B, etc for other PxxX
+        // create P0B, P1B, ..., P63B, etc for other PxxX
         pO[l] = 'B'; if (!request->hasArg(pO)) break;
         pO[l] = 'B'; p.bottomStart = request->arg(pO).toInt();
         pO[l] = 'R'; p.rightStart  = request->arg(pO).toInt();
@@ -819,7 +819,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
     strip.panel.shrink_to_fit();  // release unused memory
     // we are changing matrix/ledmap geometry which *will* affect existing segments
-    // since we are not in bucle() contexto we must make sure that effects are not running. credit @blazonchek for properly fixing #4911
+    // since we are not in loop() context we must make sure that effects are not running. credit @blazonchek for properly fixing #4911
     strip.suspend();
     strip.waitForIt();
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
@@ -829,7 +829,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   #endif
 
   lastEditTime = millis();
-  // do not guardar if factory restablecer or LED settings (which are saved after LED re-init)
+  // do not save if factory reset or LED settings (which are saved after LED re-init)
   configNeedsWrite = subPage != SUBPAGE_LEDS && !(subPage == SUBPAGE_SEC && doReboot);
   if (subPage == SUBPAGE_UM) doReboot = request->hasArg(F("RBT")); // prevent race condition on dual core system (set reboot here, after configNeedsWrite has been set)
   #ifndef WLED_DISABLE_ALEXA
@@ -838,7 +838,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 }
 
 
-//HTTP API solicitud parser
+//HTTP API request parser
 bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 {
   if (!(req.indexOf("win") >= 0)) return false;
@@ -846,7 +846,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   int pos = 0;
   DEBUG_PRINTF_P(PSTR("API req: %s\n"), req.c_str());
 
-  //segmento select (sets principal segmento)
+  //segment select (sets main segment)
   pos = req.indexOf(F("SM="));
   if (pos > 0 && !realtimeMode) {
     strip.setMainSegmentId(getNumVal(req, pos));
@@ -873,7 +873,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     selseg.selected = t;
   }
 
-  // temporary values, escribir directly to segments, globals are updated by setValuesFromFirstSelectedSeg()
+  // temporary values, write directly to segments, globals are updated by setValuesFromFirstSelectedSeg()
   uint32_t col0    = selseg.colors[0];
   uint32_t col1    = selseg.colors[1];
   uint32_t col2    = selseg.colors[2];
@@ -956,7 +956,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
   
-  //set brillo
+  //set brightness
   updateVal(req.c_str(), "&A=", bri);
 
   bool col0Changed = false, col1Changed = false, col2Changed = false;
@@ -1043,7 +1043,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     col0Changed |= (!sec); col1Changed |= sec;
   }
 
-  // apply colors to selected segmento, and all selected segments if applicable
+  // apply colors to selected segment, and all selected segments if applicable
   if (col0Changed) {
     col0 = RGBW32(colIn[0], colIn[1], colIn[2], colIn[3]);
     selseg.setColor(0, col0);
@@ -1063,7 +1063,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   bool fxModeChanged = false, speedChanged = false, intensityChanged = false, paletteChanged = false;
   bool custom1Changed = false, custom2Changed = false, custom3Changed = false, check1Changed = false, check2Changed = false, check3Changed = false;
-  // set efecto parameters
+  // set effect parameters
   if (updateVal(req.c_str(), "FX=", effectIn, 0, strip.getModeCount()-1)) {
     if (request != nullptr) unloadPlaylist(); // unload playlist if changing FX using web request
     fxModeChanged = true;
@@ -1080,7 +1080,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   stateChanged |= (fxModeChanged || speedChanged || intensityChanged || paletteChanged || custom1Changed || custom2Changed || custom3Changed || check1Changed || check2Changed || check3Changed);
 
-  // apply to principal and all selected segments to prevent #1618.
+  // apply to main and all selected segments to prevent #1618.
   for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
     Segment& seg = strip.getSegment(i);
     if (i != selectedSeg && (singleSegment || !seg.isActive() || !seg.isSelected())) continue; // skip non main segments if not applying to all
@@ -1111,19 +1111,19 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     applyPreset(getNumVal(req, pos) + 16);
   }
 
-  //toggle enviar UDP direct notifications
+  //toggle send UDP direct notifications
   pos = req.indexOf(F("SN="));
   if (pos > 0) notifyDirect = (req.charAt(pos+3) != '0');
 
-  //toggle recibir UDP direct notifications
+  //toggle receive UDP direct notifications
   pos = req.indexOf(F("RN="));
   if (pos > 0) receiveGroups = (req.charAt(pos+3) != '0') ? receiveGroups | 1 : receiveGroups & 0xFE;
 
-  //recibir live datos via UDP/Hyperion
+  //receive live data via UDP/Hyperion
   pos = req.indexOf(F("RD="));
   if (pos > 0) receiveDirect = (req.charAt(pos+3) != '0');
 
-  //principal toggle on/off (analizar before nightlight, #1214)
+  //main toggle on/off (parse before nightlight, #1214)
   pos = req.indexOf(F("&T="));
   if (pos > 0) {
     nightlightActive = false; //always disable nightlight when toggling
@@ -1157,7 +1157,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
     nightlightStartTime = millis();
   }
 
-  //set nightlight target brillo
+  //set nightlight target brightness
   pos = req.indexOf(F("NT="));
   if (pos > 0) {
     nightlightTargetBri = getNumVal(req, pos);
@@ -1225,7 +1225,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("&NN")); //do not send UDP notifications this time
   stateUpdated((pos > 0) ? CALL_MODE_NO_NOTIFY : CALL_MODE_DIRECT_CHANGE);
 
-  // internal call, does not enviar XML respuesta
+  // internal call, does not send XML response
   pos = req.indexOf(F("IN"));
   if ((request != nullptr) && (pos < 1)) {
     auto response = request->beginResponseStream("text/xml");

@@ -4,7 +4,7 @@
 #include "ir_codes.h"
 
 /*
- * Infrared sensor support for several genérico RGB remotes and custom JSON remote
+ * Infrared sensor support for several generic RGB remotes and custom JSON remote
  */
 
 IRrecv* irrecv;
@@ -17,16 +17,16 @@ uint16_t irTimesRepeated = 0;
 uint8_t lastIR6ColourIdx = 0;
 
 
-// brightnessSteps: a estático matriz of brillo levels following a geometric
+// brightnessSteps: a static array of brightness levels following a geometric
 // progression.  Can be generated from the following Python, adjusting the
-// arbitrary 4.5 valor to taste:
+// arbitrary 4.5 value to taste:
 //
-// def values(nivel):
-//     while nivel >= 5:
-//         yield int(nivel)
-//         nivel -= nivel / 4.5
-// resultado = [v for v in reversed(lista(values(255)))]
-// imprimir("%d values: %s" % (len(resultado), resultado))
+// def values(level):
+//     while level >= 5:
+//         yield int(level)
+//         level -= level / 4.5
+// result = [v for v in reversed(list(values(255)))]
+// print("%d values: %s" % (len(result), result))
 //
 // It would be hard to maintain repeatable steps if calculating this on the fly.
 const uint8_t brightnessSteps[] = {
@@ -34,10 +34,10 @@ const uint8_t brightnessSteps[] = {
 };
 const size_t numBrightnessSteps = sizeof(brightnessSteps) / sizeof(uint8_t);
 
-// increment `bri` to the next `brightnessSteps` valor
+// increment `bri` to the next `brightnessSteps` value
 static void incBrightness()
 {
-  // dumb incremental buscar is efficient enough for so few items
+  // dumb incremental search is efficient enough for so few items
   for (unsigned index = 0; index < numBrightnessSteps; ++index)
   {
     if (brightnessSteps[index] > bri)
@@ -49,10 +49,10 @@ static void incBrightness()
   }
 }
 
-// decrement `bri` to the next `brightnessSteps` valor
+// decrement `bri` to the next `brightnessSteps` value
 static void decBrightness()
 {
-  // dumb incremental buscar is efficient enough for so few items
+  // dumb incremental search is efficient enough for so few items
   for (int index = numBrightnessSteps - 1; index >= 0; --index)
   {
     if (brightnessSteps[index] < bri)
@@ -199,7 +199,7 @@ static void changeEffectIntensity(int8_t amount)
 static void changeColor(uint32_t c, int16_t cct=-1)
 {
   if (irApplyToAllSelected) {
-    // principal segmento may not be selected!
+    // main segment may not be selected!
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive() || !seg.isSelected()) continue;
@@ -529,25 +529,25 @@ static void decodeIR9(uint32_t code)
 
 
 /*
-This allows users to customize IR actions without the need to edit C código and compile.
-From the https://github.com/WLED/WLED/wiki/Infrared-Control page, download the starter
-ir.JSON archivo that corresponds to the number of buttons on your remote.
+This allows users to customize IR actions without the need to edit C code and compile.
+From the https://github.com/wled/WLED/wiki/Infrared-Control page, download the starter
+ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
-different labels or colors. Once you edit the ir.JSON archivo, upload it to your controller
-usando the /edit page.
+different labels or colors. Once you edit the ir.json file, upload it to your controller
+using the /edit page.
 
-Each key should be the hex encoded IR código. The "cmd" propiedad should be the HTTP API
+Each key should be the hex encoded IR code. The "cmd" property should be the HTTP API
 or JSON API command to execute on button press. If the command contains a relative change (SI=~16),
-it will register as a repeatable command. If the command doesn't contain a "~" but is repeatable, add "rpt" propiedad
-set to verdadero. Other properties are ignored but having labels and positions can assist with editing
-the JSON archivo.
+it will register as a repeatable command. If the command doesn't contain a "~" but is repeatable, add "rpt" property
+set to true. Other properties are ignored but having labels and positions can assist with editing
+the json file.
 
 Sample:
 {
-  "0xFF629D": {"cmd": "T=2", "rpt": verdadero, "label": "Toggle on/off"},  // HTTP command
-  "0xFF9867": {"cmd": "A=~16", "label": "Inc brillo"},            // HTTP command with incrementing
+  "0xFF629D": {"cmd": "T=2", "rpt": true, "label": "Toggle on/off"},  // HTTP command
+  "0xFF9867": {"cmd": "A=~16", "label": "Inc brightness"},            // HTTP command with incrementing
   "0xFF38C7": {"cmd": {"bri": 10}, "label": "Dim to 10"},             // JSON command
-  "0xFF22DD": {"cmd": "!presetFallback", "PL": 1, "FX": 16, "FP": 6,  // Personalizado command
+  "0xFF22DD": {"cmd": "!presetFallback", "PL": 1, "FX": 16, "FP": 6,  // Custom command
                "label": "Preset 1, fallback to Saw - Party if not found"},
 }
 */
@@ -564,15 +564,15 @@ static void decodeIRJson(uint32_t code)
   sprintf_P(objKey, PSTR("\"0x%lX\":"), (unsigned long)code);
   strcpy_P(fileName, PSTR("/ir.json")); // for FS.exists()
 
-  // attempt to leer command from ir.JSON
-  // this may fail for two reasons: ir.JSON does not exist or IR código not found
-  // if the IR código is not found readObjectFromFile() will clean() doc JSON document
+  // attempt to read command from ir.json
+  // this may fail for two reasons: ir.json does not exist or IR code not found
+  // if the IR code is not found readObjectFromFile() will clean() doc JSON document
   // so we can differentiate between the two
   readObjectFromFile(fileName, objKey, pDoc);
   fdo = pDoc->as<JsonObject>();
   lastValidCode = 0;
   if (fdo.isNull()) {
-    //the received código does not exist
+    //the received code does not exist
     if (!WLED_FS.exists(fileName)) errorFlag = ERR_FS_IRLOAD; //warn if IR file itself doesn't exist
     releaseJSONBufferLock();
     return;
@@ -661,7 +661,7 @@ static void applyRepeatActions()
 static void decodeIR(uint32_t code)
 {
   if (code == 0xFFFFFFFF) {
-    //repeated código, continuar brillo up/down
+    //repeated code, continue brightness up/down
     irTimesRepeated++;
     applyRepeatActions();
     return;
@@ -686,10 +686,10 @@ static void decodeIR(uint32_t code)
     case 4: decodeIR44(code);   break; // white 44-key remote with color-up/down keys and DIY1 to 6 keys
     case 5: decodeIR21(code);   break; // white 21-key remote
     case 6: decodeIR6(code);    break; // black 6-key learning remote defaults: "CH" controls brightness,
-                                       // "VOL +" controls efecto, "VOL -" controls colour/palette, "MUTE"
+                                       // "VOL +" controls effect, "VOL -" controls colour/palette, "MUTE"
                                        // sets bright plain white
     case 7: decodeIR9(code);    break;
-    //case 8: retorno; // ir.JSON archivo, handled above conmutador statement
+    //case 8: return; // ir.json file, handled above switch statement
   }
 
   if (nightlightActive && bri == 0) nightlightActive = false;

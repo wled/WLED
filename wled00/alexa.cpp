@@ -1,10 +1,10 @@
 #include "wled.h"
 
 /*
- * Alexa Voice On/Off/Brillo/Color Control. Emulates a Philips Hue bridge to Alexa.
+ * Alexa Voice On/Off/Brightness/Color Control. Emulates a Philips Hue bridge to Alexa.
  *
  * This was put together from these two excellent projects:
- * https://github.com/kakopappa/arduino-esp8266-alexa-wemo-conmutador
+ * https://github.com/kakopappa/arduino-esp8266-alexa-wemo-switch
  * https://github.com/probonopd/ESP8266HueEmulator
  */
 #include "src/dependencies/espalexa/EspalexaDevice.h"
@@ -17,11 +17,11 @@ void alexaInit()
   if (!alexaEnabled || !WLED_CONNECTED) return;
 
   espalexa.removeAllDevices();
-  // the original configured dispositivo for on/off or macros (added first, i.e. índice 0)
+  // the original configured device for on/off or macros (added first, i.e. index 0)
   espalexaDevice = new EspalexaDevice(alexaInvocationName, onAlexaChange, EspalexaDeviceType::extendedcolor);
   espalexa.addDevice(espalexaDevice);
 
-  // up to 9 devices (added second, third, ... i.e. índice 1 to 9) serve for switching on up to nine presets (preset IDs 1 to 9 in WLED),
+  // up to 9 devices (added second, third, ... i.e. index 1 to 9) serve for switching on up to nine presets (preset IDs 1 to 9 in WLED),
   // names are identical as the preset names, switching off can be done by switching off any of them
   if (alexaNumPresets) {
     String name = "";
@@ -85,7 +85,7 @@ void onAlexaChange(EspalexaDevice* dev)
     } else
     {
       applyPreset(macroAlexaOff, CALL_MODE_ALEXA);
-      // below for bucle stops Alexa from complaining if macroAlexaOff does not actually turn off
+      // below for loop stops Alexa from complaining if macroAlexaOff does not actually turn off
     }
     for (unsigned i = 0; i < espalexa.getDeviceCount(); i++)
     {

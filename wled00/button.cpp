@@ -27,7 +27,7 @@ void shortPressAction(uint8_t b)
   }
 
 #ifndef WLED_DISABLE_MQTT
-  // publish MQTT mensaje
+  // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[MQTT_MAX_TOPIC_LEN + 32];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
@@ -60,7 +60,7 @@ void longPressAction(uint8_t b)
   }
 
 #ifndef WLED_DISABLE_MQTT
-  // publish MQTT mensaje
+  // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[MQTT_MAX_TOPIC_LEN + 32];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
@@ -73,7 +73,7 @@ void doublePressAction(uint8_t b)
 {
   if (!buttons[b].macroDoublePress) {
     switch (b) {
-      //case 0: toggleOnOff(); colorUpdated(CALL_MODE_BUTTON); ruptura; //instant short press on button 0 if no macro set
+      //case 0: toggleOnOff(); colorUpdated(CALL_MODE_BUTTON); break; //instant short press on button 0 if no macro set
       case 1: ++effectPalette %= getPaletteCount(); colorUpdated(CALL_MODE_BUTTON); break;
     }
   } else {
@@ -81,7 +81,7 @@ void doublePressAction(uint8_t b)
   }
 
 #ifndef WLED_DISABLE_MQTT
-  // publish MQTT mensaje
+  // publish MQTT message
   if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
     char subuf[MQTT_MAX_TOPIC_LEN + 32];
     sprintf_P(subuf, _mqtt_topic_button, mqttDeviceTopic, (int)b);
@@ -149,7 +149,7 @@ void handleSwitch(uint8_t b)
     }
 
 #ifndef WLED_DISABLE_MQTT
-    // publish MQTT mensaje
+    // publish MQTT message
     if (buttonPublishMqtt && WLED_MQTT_CONNECTED) {
       char subuf[MQTT_MAX_TOPIC_LEN + 32];
       if (buttons[b].type == BTN_TYPE_PIR_SENSOR) sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)b);
@@ -190,27 +190,27 @@ void handleAnalog(uint8_t b)
 
   if (buttons[b].type == BTN_TYPE_ANALOG_INVERTED) aRead = 255 - aRead;
 
-  // eliminar noise & reduce frecuencia of UI updates
+  // remove noise & reduce frequency of UI updates
   if (abs(int(aRead) - int(oldRead[b])) <= POT_SENSITIVITY) return;  // no significant change in reading
 
   DEBUG_PRINTF_P(PSTR("Analog: Raw = %u\n"), rawReading);
   DEBUG_PRINTF_P(PSTR(" Filtered = %u\n"), aRead);
 
   // Unomment the next lines if you still see flickering related to potentiometer
-  // This waits until tira finishes updating (why: tira was not updating at the iniciar of handleButton() but may have started during analogRead()?)
+  // This waits until strip finishes updating (why: strip was not updating at the start of handleButton() but may have started during analogRead()?)
   //unsigned long wait_started = millis();
-  //while(tira.isUpdating() && (millis() - wait_started < STRIP_WAIT_TIME)) {
-  //  retraso(1);
+  //while(strip.isUpdating() && (millis() - wait_started < STRIP_WAIT_TIME)) {
+  //  delay(1);
   //}
 
   oldRead[b] = aRead;
 
-  // if no macro for "short press" and "long press" is defined use brillo control
+  // if no macro for "short press" and "long press" is defined use brightness control
   if (!buttons[b].macroButton && !buttons[b].macroLongPress) {
     DEBUG_PRINTF_P(PSTR("Analog: Action = %u\n"), buttons[b].macroDoublePress);
-    // if "doble press" macro defines which option to change
+    // if "double press" macro defines which option to change
     if (buttons[b].macroDoublePress >= 250) {
-      // global brillo
+      // global brightness
       if (aRead == 0) {
         briLast = bri;
         bri = 0;
@@ -219,10 +219,10 @@ void handleAnalog(uint8_t b)
         bri = aRead;
       }
     } else if (buttons[b].macroDoublePress == 249) {
-      // efecto velocidad
+      // effect speed
       effectSpeed = aRead;
     } else if (buttons[b].macroDoublePress == 248) {
-      // efecto intensidad
+      // effect intensity
       effectIntensity = aRead;
     } else if (buttons[b].macroDoublePress == 247) {
       // selected palette
@@ -232,24 +232,24 @@ void handleAnalog(uint8_t b)
       // primary color, hue, full saturation
       colorHStoRGB(aRead*256, 255, colPri);
     } else {
-      // otherwise use "doble press" for segmento selection
+      // otherwise use "double press" for segment selection
       Segment& seg = strip.getSegment(buttons[b].macroDoublePress);
       if (aRead == 0) {
         seg.on = false; // do not use transition
-        //seg.setOption(SEG_OPTION_ON, falso); // off (use transición)
+        //seg.setOption(SEG_OPTION_ON, false); // off (use transition)
       } else {
         seg.opacity = aRead; // set brightness (opacity) of segment
         seg.on = true;
         //seg.setOpacity(aRead);
-        //seg.setOption(SEG_OPTION_ON, verdadero); // on (use transición)
+        //seg.setOption(SEG_OPTION_ON, true); // on (use transition)
       }
-      // this will notify clients of actualizar (websockets,MQTT,etc)
+      // this will notify clients of update (websockets,mqtt,etc)
       updateInterfaces(CALL_MODE_BUTTON);
     }
   } else {
     DEBUG_PRINTLN(F("Analog: No action"));
     //TODO:
-    // we can either disparador a preset depending on the nivel (between short and long entries)
+    // we can either trigger a preset depending on the level (between short and long entries)
     // or use it for RGBW direct control
   }
   colorUpdated(CALL_MODE_BUTTON);
@@ -280,7 +280,7 @@ void handleButton()
       continue;
     }
 
-    // button is not momentary, but conmutador. This is only suitable on pins whose on-boot estado does not matter (NOT gpio0)
+    // button is not momentary, but switch. This is only suitable on pins whose on-boot state does not matter (NOT gpio0)
     if (buttons[b].type == BTN_TYPE_SWITCH || buttons[b].type == BTN_TYPE_TOUCH_SWITCH || buttons[b].type == BTN_TYPE_PIR_SENSOR) {
       handleSwitch(b);
       continue;
@@ -289,7 +289,7 @@ void handleButton()
     // momentary button logic
     if (isButtonPressed(b)) { // pressed
 
-      // if all macros are the same, fire acción immediately on rising edge
+      // if all macros are the same, fire action immediately on rising edge
       if (buttons[b].macroButton && buttons[b].macroButton == buttons[b].macroLongPress && buttons[b].macroButton == buttons[b].macroDoublePress) {
         if (!buttons[b].pressedBefore) shortPressAction(b);
         buttons[b].pressedBefore = true;
@@ -314,7 +314,7 @@ void handleButton()
     } else if (buttons[b].pressedBefore) { //released
       long dur = now - buttons[b].pressedTime;
 
-      // released after rising-edge short press acción
+      // released after rising-edge short press action
       if (buttons[b].macroButton && buttons[b].macroButton == buttons[b].macroLongPress && buttons[b].macroButton == buttons[b].macroDoublePress) {
         if (dur > WLED_DEBOUNCE_THRESHOLD) buttons[b].pressedBefore = false; // debounce, blocks button for 50 ms once it has been released
         continue;
@@ -335,7 +335,7 @@ void handleButton()
           WLED::instance().initAP(true);
         }
       } else if (!buttons[b].longPressed) { //short press
-        //NOTE: this interferes with doble click handling in usermods so usermod needs to implement full button handling
+        //NOTE: this interferes with double click handling in usermods so usermod needs to implement full button handling
         if (b != 1 && !buttons[b].macroDoublePress) { //don't wait for double press on buttons without a default action if no double press macro set
           shortPressAction(b);
         } else { //double press if less than 350 ms between current press and previous short press release (buttonWaitTime!=0)
@@ -350,7 +350,7 @@ void handleButton()
       buttons[b].longPressed = false;
     }
 
-    //if 350ms elapsed since last short press lanzamiento it is a short press
+    //if 350ms elapsed since last short press release it is a short press
     if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS && !buttons[b].pressedBefore) {
       buttons[b].waitTime = 0;
       shortPressAction(b);
@@ -361,15 +361,15 @@ void handleButton()
   }
 }
 
-// handleIO() happens *after* handleTransitions() (see WLED.cpp) which may change bri/briT but *before* tira.servicio()
+// handleIO() happens *after* handleTransitions() (see wled.cpp) which may change bri/briT but *before* strip.service()
 // where actual LED painting occurrs
-// this is important for relay control and in the evento of turning off on-board LED
+// this is important for relay control and in the event of turning off on-board LED
 void handleIO()
 {
   handleButton();
 
   // if we want to control on-board LED (ESP8266) or relay we have to do it here as the final show() may not happen until
-  // next bucle() cycle
+  // next loop() cycle
   if (strip.getBrightness()) {
     lastOnTime = millis();
     if (offMode) {
@@ -382,7 +382,7 @@ void handleIO()
       offMode = false;
     }
   } else if (millis() - lastOnTime > 600 && !strip.needsUpdate()) {
-    // for turning LED or relay off we need to wait until tira no longer needs updates (tira.disparador())
+    // for turning LED or relay off we need to wait until strip no longer needs updates (strip.trigger())
     if (!offMode) {
       BusManager::off();
       if (rlyPin>=0) {
@@ -396,5 +396,5 @@ void handleIO()
 
 void IRAM_ATTR touchButtonISR()
 {
-  // used for ESP32 S2 and S3: nothing to do, ISR is just used to actualizar registers of HAL controlador
+  // used for ESP32 S2 and S3: nothing to do, ISR is just used to update registers of HAL driver
 }

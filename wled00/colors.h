@@ -11,7 +11,7 @@
 #define ColorFromPalette ColorFromPaletteWLED // override fastled version
 
 // CRGBW can be used to manipulate 32bit colors faster. However: if it is passed to functions, it adds overhead compared to a uint32_t color
-// use with caution and pay attention to flash tamaño. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than usando bitshifts
+// use with caution and pay attention to flash size. Usually converting a uint32_t to CRGBW to extract r, g, b, w values is slower than using bitshifts
 // it can be useful to avoid back and forth conversions between uint32_t and fastled CRGB
 struct CRGBW {
     union {
@@ -25,7 +25,7 @@ struct CRGBW {
         uint8_t raw[4];   // Access as an array in the order B, G, R, W
     };
 
-    // Predeterminado constructor
+    // Default constructor
     inline CRGBW() __attribute__((always_inline)) = default;
 
     // Constructor from a 32-bit color (0xWWRRGGBB)
@@ -37,7 +37,7 @@ struct CRGBW {
     // Constructor from CRGB
     constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
 
-    // Acceso as an matriz
+    // Access as an array
     inline const uint8_t& operator[] (uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
 
     // Assignment from 32-bit color
@@ -46,24 +46,24 @@ struct CRGBW {
     // Assignment from r, g, b, w
     inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
 
-    // Conversion operador to uint32_t
+    // Conversion operator to uint32_t
     inline operator uint32_t() const __attribute__((always_inline)) {
       return color32;
     }
     /*
-    // Conversion operador to CRGB
-    en línea operador CRGB() constante __attribute__((always_inline)) {
-      retorno CRGB(r, g, b);
+    // Conversion operator to CRGB
+    inline operator CRGB() const __attribute__((always_inline)) {
+      return CRGB(r, g, b);
     }
 
     CRGBW& scale32 (uint8_t scaledown) // 32bit math
     {
-      if (color32 == 0) retorno *this; // 2 extra instructions, worth it if called a lot on black (which probably is verdadero) adding verificar if scaledown is zero adds much more overhead as its 8bit
-      uint32_t escala = scaledown + 1;
-      uint32_t rb = (((color32 & 0x00FF00FF) * escala) >> 8) & 0x00FF00FF; // escala red and blue
-      uint32_t wg = (((color32 & 0xFF00FF00) >> 8) * escala) & 0xFF00FF00; // escala white and green
+      if (color32 == 0) return *this; // 2 extra instructions, worth it if called a lot on black (which probably is true) adding check if scaledown is zero adds much more overhead as its 8bit
+      uint32_t scale = scaledown + 1;
+      uint32_t rb = (((color32 & 0x00FF00FF) * scale) >> 8) & 0x00FF00FF; // scale red and blue
+      uint32_t wg = (((color32 & 0xFF00FF00) >> 8) * scale) & 0xFF00FF00; // scale white and green
           color32 =  rb | wg;
-      retorno *this;
+      return *this;
     }*/
 
 };
@@ -79,10 +79,10 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   };
   inline CHSV32() __attribute__((always_inline)) = default; // default constructor
 
-    /// Allow construction from hue, saturation, and valor
-    /// @param ih entrada hue
-    /// @param is entrada saturation
-    /// @param iv entrada valor
+    /// Allow construction from hue, saturation, and value
+    /// @param ih input hue
+    /// @param is input saturation
+    /// @param iv input value
   inline CHSV32(uint16_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 16bit h, s, v
         : h(ih), s(is), v(iv) {}
   inline CHSV32(uint8_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 8bit h, s, v
@@ -140,8 +140,8 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
 void setRandomColor(byte* rgb);
 
-// fast scaling función for colors, performs color*escala/256 for all four channels, velocidad over accuracy
-// note: inlining uses less código than actual función calls
+// fast scaling function for colors, performs color*scale/256 for all four channels, speed over accuracy
+// note: inlining uses less code than actual function calls
 static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
   uint32_t rb = (((c     & 0x00FF00FF) * scale) >> 8) &  0x00FF00FF;
   uint32_t wg = (((c>>8) & 0x00FF00FF) * scale)       & ~0x00FF00FF;

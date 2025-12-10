@@ -2,15 +2,15 @@
 #define Espalexa_h
 
 /*
- * Alexa Voice On/Off/Brillo/Color Control. Emulates a Philips Hue bridge to Alexa.
+ * Alexa Voice On/Off/Brightness/Color Control. Emulates a Philips Hue bridge to Alexa.
  * 
  * This was put together from these two excellent projects:
- * https://github.com/kakopappa/arduino-esp8266-alexa-wemo-conmutador
+ * https://github.com/kakopappa/arduino-esp8266-alexa-wemo-switch
  * https://github.com/probonopd/ESP8266HueEmulator
  */
 /*
- * @title Espalexa biblioteca
- * @versión 2.7.1
+ * @title Espalexa library
+ * @version 2.7.1
  * @author Christian Schwinne
  * @license MIT
  * @contributors d-999
@@ -18,17 +18,17 @@
 
 #include "Arduino.h"
 
-//you can use these defines for biblioteca config in your sketch. Just use them before #incluir <Espalexa.h>
-//#definir ESPALEXA_ASYNC
+//you can use these defines for library config in your sketch. Just use them before #include <Espalexa.h>
+//#define ESPALEXA_ASYNC
 
-//in case this is unwanted in your aplicación (will deshabilitar the /espalexa valor page)
-//#definir ESPALEXA_NO_SUBPAGE
+//in case this is unwanted in your application (will disable the /espalexa value page)
+//#define ESPALEXA_NO_SUBPAGE
 
 #ifndef ESPALEXA_MAXDEVICES
  #define ESPALEXA_MAXDEVICES 10 //this limit only has memory reasons, set it higher should you need to, max 128
 #endif
 
-//#definir ESPALEXA_DEBUG
+//#define ESPALEXA_DEBUG
 
 #ifdef ESPALEXA_ASYNC
  #ifdef ARDUINO_ARCH_ESP32
@@ -64,7 +64,7 @@
 
 class Espalexa {
 private:
-  //private miembro vars
+  //private member vars
   #ifdef ESPALEXA_ASYNC
   AsyncWebServer* serverAsync;
   AsyncWebServerRequest* server; //this saves many #defines
@@ -79,14 +79,14 @@ private:
   bool udpConnected = false;
 
   EspalexaDevice* devices[ESPALEXA_MAXDEVICES] = {};
-  //Keep in mind that Dispositivo IDs go from 1 to DEVICES, cpp arrays from 0 to DEVICES-1!!
+  //Keep in mind that Device IDs go from 1 to DEVICES, cpp arrays from 0 to DEVICES-1!!
   
   WiFiUDP espalexaUdp;
   IPAddress ipMulti;
   uint32_t mac24; //bottom 24 bits of mac
   String escapedMac=""; //lowercase mac address
   
-  //private miembro functions
+  //private member functions
   const char* modeString(EspalexaColorMode m)
   {
     if (m == EspalexaColorMode::xy) return "xy";
@@ -124,22 +124,22 @@ private:
 	sprintf_P(out, PSTR("%02X:%s:AB-%02X"), idx, mymac.c_str(), idx);
   }
 
-  // construct 'globally unique' JSON dict key fitting into signed int
+  // construct 'globally unique' Json dict key fitting into signed int
   inline int encodeLightKey(uint8_t idx)
   {
-    //retorno idx +1;
+    //return idx +1;
     static_assert(ESPALEXA_MAXDEVICES <= 128, "");
     return (mac24<<7) | idx;
   }
 
-  // get dispositivo índice from JSON key
+  // get device index from Json key
   uint8_t decodeLightKey(int key)
   {
-    //retorno key -1;
+    //return key -1;
     return (((uint32_t)key>>7) == mac24) ? (key & 127U) : 255U;
   }
 
-  //dispositivo JSON cadena: color+temperature dispositivo emulates LCT015, dimmable dispositivo LWB010, (TODO: on/off Plug 01, color temperature dispositivo LWT010, color dispositivo LST001)
+  //device JSON string: color+temperature device emulates LCT015, dimmable device LWB010, (TODO: on/off Plug 01, color temperature device LWT010, color device LST001)
   void deviceJsonString(EspalexaDevice* dev, char* buf, size_t maxBuf) // softhack007 "size" parameter added, to avoid buffer overrun
   {
     char buf_lightid[27];
@@ -148,8 +148,8 @@ private:
     char buf_col[80] = "";
     //color support
     if (static_cast<uint8_t>(dev->getType()) > 2)
-      //TODO: %f is not funcionamiento for some reason on ESP8266 in v0.11.0 (was fine in 0.10.2). Need to investigate
-      //sprintf_P(buf_col,PSTR(",\"hue\":%u,\"sat\":%u,\"efecto\":\"none\",\"xy\":[%f,%f]")
+      //TODO: %f is not working for some reason on ESP8266 in v0.11.0 (was fine in 0.10.2). Need to investigate
+      //sprintf_P(buf_col,PSTR(",\"hue\":%u,\"sat\":%u,\"effect\":\"none\",\"xy\":[%f,%f]")
       //  ,dev->getHue(), dev->getSat(), dev->getX(), dev->getY());
       snprintf_P(buf_col, sizeof(buf_col), PSTR(",\"hue\":%u,\"sat\":%u,\"effect\":\"none\",\"xy\":[%s,%s]"),dev->getHue(), dev->getSat(),
         ((String)dev->getX()).c_str(), ((String)dev->getY()).c_str());
@@ -171,7 +171,7 @@ private:
     dev->getName().c_str(), modelidString(dev->getType()), static_cast<uint8_t>(dev->getType()), buf_lightid);
   }
   
-  //Espalexa estado page /espalexa
+  //Espalexa status page /espalexa
   #ifndef ESPALEXA_NO_SUBPAGE
   void servePage()
   {
@@ -211,7 +211,7 @@ private:
       server->send(404, "text/plain", "Not Found (espalexa)");
   }
 
-  //enviar description.XML dispositivo propiedad page
+  //send description.xml device property page
   void serveDescription()
   {
     EA_DEBUGLN("# Responding to description.xml ... #\n");
@@ -245,7 +245,7 @@ private:
     EA_DEBUGLN(buf);
   }
   
-  //init the servidor
+  //init the server
   void startHttpServer()
   {
     #ifdef ESPALEXA_ASYNC
@@ -286,7 +286,7 @@ private:
     #endif
   }
 
-  //respond to UDP SSDP M-BUSCAR
+  //respond to UDP SSDP M-SEARCH
   void respondToSearch()
   {
     IPAddress localIP = Network.localIP();
@@ -317,7 +317,7 @@ private:
 public:
   Espalexa(){}
 
-  //inicializar interfaces
+  //initialize interfaces
   #ifdef ESPALEXA_ASYNC
   bool begin(AsyncWebServer* externalServer = nullptr)
   #elif defined ARDUINO_ARCH_ESP32
@@ -357,12 +357,12 @@ public:
     return false;
   }
 
-  // get dispositivo conteo, función only in WLED versión of Espalexa
+  // get device count, function only in WLED version of Espalexa
   uint8_t getDeviceCount() {
     return currentDeviceCount;
   }
 
-  //servicio bucle
+  //service loop
   void loop() {
     #ifndef ESPALEXA_ASYNC
     if (server == nullptr) return; //only if begin() was not called
@@ -396,14 +396,14 @@ public:
     }
   }
 
-  // Función only in WLED versión of Espalexa, does not actually lanzamiento memoria for names
+  // Function only in WLED version of Espalexa, does not actually release memory for names
   void removeAllDevices()
   {
     currentDeviceCount=0;
     return;
   }
 
-  // returns dispositivo índice or 0 on failure
+  // returns device index or 0 on failure
   uint8_t addDevice(EspalexaDevice* d)
   {
     EA_DEBUG("Adding device ");
@@ -415,7 +415,7 @@ public:
     return ++currentDeviceCount;
   }
   
-  //brillo-only devolución de llamada
+  //brightness-only callback
   uint8_t addDevice(String deviceName, BrightnessCallbackFunction callback, uint8_t initialValue = 0)
   {
     EA_DEBUG("Constructing device ");
@@ -425,7 +425,7 @@ public:
     return addDevice(d);
   }
   
-  //brillo-only devolución de llamada
+  //brightness-only callback
   uint8_t addDevice(String deviceName, ColorCallbackFunction callback, uint8_t initialValue = 0)
   {
     EA_DEBUG("Constructing device ");
@@ -452,7 +452,7 @@ public:
       devices[index]->setName(deviceName);
   }
 
-  //basic implementación of Philips hue API functions needed for basic Alexa control
+  //basic implementation of Philips hue api functions needed for basic Alexa control
   #ifdef ESPALEXA_ASYNC
   bool handleAlexaApiCall(AsyncWebServerRequest* request)
   {
@@ -593,7 +593,7 @@ public:
       return true;
     }
 
-    //we don't care about other API commands at this time and enviar empty JSON
+    //we don't care about other api commands at this time and send empty JSON
     server->send(200, "application/json", "{}");
     return true;
   }
@@ -604,20 +604,20 @@ public:
     discoverable = d;
   }
   
-  //get EspalexaDevice at specific índice
+  //get EspalexaDevice at specific index
   EspalexaDevice* getDevice(uint8_t index)
   {
     if (index >= currentDeviceCount) return nullptr;
     return devices[index];
   }
   
-  //is an unique dispositivo ID
+  //is an unique device ID
   String getEscapedMac()
   {
     return escapedMac;
   }
   
-  //convertir brillo (0-255) to percentage
+  //convert brightness (0-255) to percentage
   uint8_t toPercent(uint8_t bri)
   {
     uint16_t perc = bri * 100;

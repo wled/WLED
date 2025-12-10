@@ -2,7 +2,7 @@
 #include "wled_ethernet.h"
 
 /*
- * Serializes and parses the cfg.JSON and wsec.JSON settings files, stored in internal FS.
+ * Serializes and parses the cfg.json and wsec.json settings files, stored in internal FS.
  * The structure of the JSON is not to be considered an official API and may change without notice.
  */
 
@@ -29,7 +29,7 @@ static constexpr unsigned sumPinsRequired(const unsigned* current, size_t count)
 static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTypes, unsigned numPins ) {
   // Pins provided < pins required -> always invalid
   // Pins provided = pins required -> always valid
-  // Pins provided > pins required -> valid if excess pins are a product of last tipo pins since it will be repeated
+  // Pins provided > pins required -> valid if excess pins are a product of last type pins since it will be repeated
   return (sumPinsRequired(types, numTypes) > numPins) ? false :
           (numPins - sumPinsRequired(types, numTypes)) % Bus::getNumberOfPins(types[numTypes-1]) == 0;
 }
@@ -90,7 +90,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   size_t n = 0;
   JsonArray nw_ins = nw["ins"];
   if (!nw_ins.isNull()) {
-    // as password are stored separately in wsec.JSON when reading configuration vector resize happens there, but for dynamic config we need to resize if necessary
+    // as password are stored separately in wsec.json when reading configuration vector resize happens there, but for dynamic config we need to resize if necessary
     if (nw_ins.size() > 1 && nw_ins.size() > multiWiFi.size()) multiWiFi.resize(nw_ins.size()); // resize constructs objects while resizing
     for (JsonObject wifi : nw_ins) {
       JsonArray ip = wifi["ip"];
@@ -152,7 +152,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject hw = doc[F("hw")];
 
-  // inicializar LED pins and lengths prior to other HW (except for ethernet)
+  // initialize LED pins and lengths prior to other HW (except for ethernet)
   JsonObject hw_led = hw["led"];
 
   uint16_t total = hw_led[F("total")] | strip.getLengthTotal();
@@ -196,8 +196,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory (just in case)
-    // cannot call tira.deserializeLedmap()/tira.setUpMatrix() here due to already locked JSON búfer
-    //if (!fromFS) doInit2D = verdadero; // if called at boot (fromFS==verdadero), WLED::beginStrip() will take care of setting up matrix
+    // cannot call strip.deserializeLedmap()/strip.setUpMatrix() here due to already locked JSON buffer
+    //if (!fromFS) doInit2D = true; // if called at boot (fromFS==true), WLED::beginStrip() will take care of setting up matrix
   }
   #endif
 
@@ -228,7 +228,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
       uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
-      // To deshabilitar brillo limiter we either set salida max current to 0 or single LED current to 0 (we choose salida max current)
+      // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
       if (Bus::isPWM(ledType) || Bus::isOnOff(ledType) || Bus::isVirtual(ledType)) { // analog and virtual
         maPerLed = 0;
         maMax = 0;
@@ -241,7 +241,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
   } else if (fromFS) {
-    //if busses failed to carga, add default (fresh install, FS issue, ...)
+    //if busses failed to load, add default (fresh install, FS issue, ...)
     BusManager::removeAll();
     busConfigs.clear();
 
@@ -259,21 +259,21 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     unsigned pinsIndex = 0;
     for (unsigned i = 0; i < WLED_MAX_BUSSES; i++) {
       uint8_t defPin[OUTPUT_MAX_PINS];
-      // if we have less types than requested outputs and they do not align, use last known tipo to set current tipo
+      // if we have less types than requested outputs and they do not align, use last known type to set current type
       unsigned dataType = defDataTypes[(i < defNumTypes) ? i : defNumTypes -1];
       unsigned busPins = Bus::getNumberOfPins(dataType);
 
       // if we need more pins than available all outputs have been configured
       if (pinsIndex + busPins > defNumPins) break;
 
-      // Assign all pins first so we can verificar for conflicts on this bus
+      // Assign all pins first so we can check for conflicts on this bus
       for (unsigned j = 0; j < busPins && j < OUTPUT_MAX_PINS; j++) defPin[j] = defDataPins[pinsIndex + j];
 
       for (unsigned j = 0; j < busPins && j < OUTPUT_MAX_PINS; j++) {
         bool validPin = true;
-        // When booting without config (1st boot) we need to make sure GPIOs defined for LED salida don't clash with hardware
-        // i.e. DEPURACIÓN (GPIO1), DMX (2), SPI RAM/FLASH (16&17 on ESP32-WROVER/PICO), leer/only pins, etc.
-        // Pin should not be already allocated, leer/only or defined for current bus
+        // When booting without config (1st boot) we need to make sure GPIOs defined for LED output don't clash with hardware
+        // i.e. DEBUG (GPIO1), DMX (2), SPI RAM/FLASH (16&17 on ESP32-WROVER/PICO), read/only pins, etc.
+        // Pin should not be already allocated, read/only or defined for current bus
         while (PinManager::isPinAllocated(defPin[j]) || !PinManager::isPinOk(defPin[j],true)) {
           if (validPin) {
             DEBUG_PRINTLN(F("Some of the provided pins cannot be used to configure this LED output."));
@@ -290,7 +290,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
           bool clash;
           do {
             clash = false;
-            // verificar for conflicts on current bus
+            // check for conflicts on current bus
             for (const auto &pin : defPin) {
               if (&pin != &defPin[j] && pin == defPin[j]) {
                 clash = true;
@@ -299,7 +299,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
             }
             // We already have a clash on current bus, no point checking next buses
             if (!clash) {
-              // verificar for conflicts in defined pins
+              // check for conflicts in defined pins
               for (const auto &pin : defDataPins) {
                 if (pin == defPin[j]) {
                   clash = true;
@@ -314,10 +314,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       }
       pinsIndex += busPins;
 
-      // if we have less counts than pins and they do not align, use last known conteo to set current conteo
+      // if we have less counts than pins and they do not align, use last known count to set current count
       unsigned count = defCounts[(i < defNumCounts) ? i : defNumCounts -1];
       unsigned start = 0;
-      // analog always has longitud 1
+      // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
       busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
       doInitBusses = true;  // finalization done in beginStrip()
@@ -325,7 +325,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
   if (hw_led["rev"] && BusManager::getNumBusses()) BusManager::getBus(0)->setReversed(true); //set 0.11 global reversed setting for first bus
 
-  // leer color order map configuration
+  // read color order map configuration
   JsonArray hw_com = hw[F("com")];
   if (!hw_com.isNull()) {
     BusManager::getColorOrderMap().reserve(std::min(hw_com.size(), (size_t)WLED_MAX_COLOR_ORDER_MAPPINGS));
@@ -337,7 +337,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     }
   }
 
-  // leer multiple button configuration
+  // read multiple button configuration
   JsonObject btn_obj = hw["btn"];
   CJSON(touchThreshold, btn_obj[F("tt")]);
   bool pull = btn_obj[F("pull")] | (!disablePullUp); // if true, pullup is enabled
@@ -353,7 +353,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       int8_t  pin  = btn["pin"][0] | -1;
       if (pin > -1 && PinManager::allocatePin(pin, false, PinOwner::Button)) {
         #ifdef ARDUINO_ARCH_ESP32
-        // ESP32 only: verificar that analog button pin is a valid ADC GPIO
+        // ESP32 only: check that analog button pin is a valid ADC gpio
         if ((type == BTN_TYPE_ANALOG) || (type == BTN_TYPE_ANALOG_INVERTED)) {
           if (digitalPinToAnalogChannel(pin) < 0) {
             // not an ADC analog pin
@@ -372,7 +372,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
             pin = -1;
             continue;
           }          
-          //if touch pin, habilitar the touch interrupción on ESP32 S2 & S3
+          //if touch pin, enable the touch interrupt on ESP32 S2 & S3
           #ifdef SOC_TOUCH_VERSION_2    // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
           else touchAttachInterrupt(pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
@@ -400,12 +400,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     }
   } else if (fromFS) {
     // new install/missing configuration (button 0 has defaults)
-    // relies upon only being called once with fromFS == verdadero, which is currently verdadero.
+    // relies upon only being called once with fromFS == true, which is currently true.
     constexpr uint8_t  defTypes[] = {BTNTYPE};
     constexpr int8_t   defPins[]  = {BTNPIN};
     constexpr unsigned numTypes   = (sizeof(defTypes) / sizeof(defTypes[0]));
     constexpr unsigned numPins    = (sizeof(defPins) / sizeof(defPins[0]));
-    // verificar if the number of pins and types are valid; conteo of pins must be greater than or equal to types
+    // check if the number of pins and types are valid; count of pins must be greater than or equal to types
     static_assert(numTypes <= numPins, "The default button pins defined in BTNPIN do not match the button types defined in BTNTYPE");
 
     uint8_t type = BTN_TYPE_NONE;
@@ -498,7 +498,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     spi_sclk = -1;
   }
 
-  //int hw_status_pin = hw[F("estado")]["pin"]; // -1
+  //int hw_status_pin = hw[F("status")]["pin"]; // -1
 
   JsonObject light = doc[F("light")];
   CJSON(briMultiplier, light[F("scale-bri")]);
@@ -690,7 +690,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
     byte dowPrev = timerWeekday[it];
     //note: act is currently only 0 or 1.
-    //the reason we are not usando bool is that the on-disk tipo in 0.11.0 was already int
+    //the reason we are not using bool is that the on-disk type in 0.11.0 was already int
     int actPrev = timerWeekday[it] & 0x01;
     CJSON(timerWeekday[it], timer[F("dow")]);
     if (timerWeekday[it] != dowPrev) { //present in JSON
@@ -751,7 +751,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   }
 
   if (fromFS) return needsSave;
-  // if from /JSON/cfg
+  // if from /json/cfg
   doReboot = doc[F("rb")] | doReboot;
   if (doInitBusses) return false; // no save needed, will do after bus init in wled.cpp loop
   return (doc["sv"] | true);
@@ -775,8 +775,8 @@ bool configBackupExists() {
   return checkBackupExists(s_cfg_json);
 }
 
-// rename config archivo and reboot
-// if the cfg archivo doesn't exist, such as after a restablecer, do nothing
+// rename config file and reboot
+// if the cfg file doesn't exist, such as after a reset, do nothing
 void resetConfig() {
   if (WLED_FS.exists(s_cfg_json)) {
     DEBUG_PRINTLN(F("Reset config"));
@@ -801,8 +801,8 @@ bool deserializeConfigFromFS() {
 
   success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
 
-  // NOTE: This rutina deserializes *and* applies the configuration
-  //       Therefore, must also inicializar ethernet from this función
+  // NOTE: This routine deserializes *and* applies the configuration
+  //       Therefore, must also initialize ethernet from this function
   JsonObject root = pDoc->as<JsonObject>();
   bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
@@ -1047,7 +1047,7 @@ void serializeConfig(JsonObject root) {
   hw_if_spi.add(spi_sclk);
   hw_if_spi.add(spi_miso);
 
-  //JsonObject hw_status = hw.createNestedObject("estado");
+  //JsonObject hw_status = hw.createNestedObject("status");
   //hw_status["pin"] = -1;
 
   JsonObject light = root.createNestedObject(F("light"));
@@ -1256,7 +1256,7 @@ void serializeConfig(JsonObject root) {
 
 static const char s_wsec_json[] PROGMEM = "/wsec.json";
 
-//settings in /wsec.JSON, not accessible via webserver, for passwords and tokens
+//settings in /wsec.json, not accessible via webserver, for passwords and tokens
 bool deserializeConfigSec() {
   DEBUG_PRINTLN(F("Reading settings from /wsec.json..."));
 

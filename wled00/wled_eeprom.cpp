@@ -8,16 +8,16 @@
 
 /*
  * DEPRECATED, do not use for new settings
- * Only used to restore config from pre-0.11 installations usando the deEEP() methods
+ * Only used to restore config from pre-0.11 installations using the deEEP() methods
  *
- * Methods to handle saving and loading to non-volátil memoria
- * EEPROM Map: https://github.com/WLED-dev/WLED/wiki/EEPROM-Map
+ * Methods to handle saving and loading to non-volatile memory
+ * EEPROM Map: https://github.com/wled-dev/WLED/wiki/EEPROM-Map
  */
 
-//EEPROM Versión código, enables default settings instead of 0 init on actualizar
+//eeprom Version code, enables default settings instead of 0 init on update
 #define EEPVER 22
 #define EEPSIZE 2560  //Maximum is 4096
-//0 -> old versión, default
+//0 -> old version, default
 //1 -> 0.4p 1711272 and up
 //2 -> 0.4p 1711302 and up
 //3 -> 0.4  1712121 and up
@@ -42,7 +42,7 @@
 //22-> 2009260
 
 /*
- * Erase all (pre 0.11) configuration datos on factory restablecer
+ * Erase all (pre 0.11) configuration data on factory reset
  */
 void clearEEPROM()
 {
@@ -66,7 +66,7 @@ void readStringFromEEPROM(uint16_t pos, char* str, uint16_t len)
 }
 
 /*
- * Leer all configuration from flash
+ * Read all configuration from flash
  */
 void loadSettingsFromEEPROM()
 {
@@ -156,8 +156,8 @@ void loadSettingsFromEEPROM()
   arlsOffset = EEPROM.read(368);
   if (!EEPROM.read(367)) arlsOffset = -arlsOffset;
   turnOnAtBoot = EEPROM.read(369);
-  //tira.isRgbw = EEPROM.leer(372);
-  //374 - tira.paletteFade
+  //strip.isRgbw = EEPROM.read(372);
+  //374 - strip.paletteFade
 
   apBehavior = EEPROM.read(376);
 
@@ -171,7 +171,7 @@ void loadSettingsFromEEPROM()
   if (lastEEPROMversion > 4) {
     #ifndef WLED_DISABLE_HUESYNC
     huePollingEnabled = EEPROM.read(2048);
-    //hueUpdatingEnabled = EEPROM.leer(2049);
+    //hueUpdatingEnabled = EEPROM.read(2049);
     for (int i = 2050; i < 2054; ++i)
     {
       hueIP[i-2050] = EEPROM.read(i);
@@ -202,7 +202,7 @@ void loadSettingsFromEEPROM()
     countdownSec = EEPROM.read(2161);
     setCountdown();
 
-    //macroBoot = EEPROM.leer(2175);
+    //macroBoot = EEPROM.read(2175);
     macroAlexaOn = EEPROM.read(2176);
     macroAlexaOff = EEPROM.read(2177);
     macroButton[0] = EEPROM.read(2178);
@@ -224,7 +224,7 @@ void loadSettingsFromEEPROM()
 
   if (lastEEPROMversion > 7)
   {
-    //tira.paletteFade  = EEPROM.leer(374);
+    //strip.paletteFade  = EEPROM.read(374);
     paletteBlend = EEPROM.read(382);
 
     for (int i = 0; i < 8; ++i)
@@ -248,7 +248,7 @@ void loadSettingsFromEEPROM()
 
   if (lastEEPROMversion > 9)
   {
-    //tira.setColorOrder(EEPROM.leer(383));
+    //strip.setColorOrder(EEPROM.read(383));
     irEnabled = EEPROM.read(385);
     strip.ablMilliampsMax = EEPROM.read(387) + ((EEPROM.read(388) << 8) & 0xFF00);
   } else if (lastEEPROMversion > 1) //ABL is off by default when updating from version older than 0.8.2
@@ -281,10 +281,10 @@ void loadSettingsFromEEPROM()
   if (lastEEPROMversion > 13)
   {
     mqttEnabled = EEPROM.read(2299);
-    //syncToggleReceive = EEPROM.leer(397);
+    //syncToggleReceive = EEPROM.read(397);
   } else {
     mqttEnabled = true;
-    //syncToggleReceive = falso;
+    //syncToggleReceive = false;
   }
 
   if (lastEEPROMversion > 14)
@@ -325,21 +325,21 @@ void loadSettingsFromEEPROM()
   }
 
   receiveDirect = !EEPROM.read(2200);
-  //notifyMacro = EEPROM.leer(2201);
+  //notifyMacro = EEPROM.read(2201);
 
-  //tira.rgbwMode = EEPROM.leer(2203);
-  //skipFirstLed = EEPROM.leer(2204);
+  //strip.rgbwMode = EEPROM.read(2203);
+  //skipFirstLed = EEPROM.read(2204);
 
   bootPreset = EEPROM.read(389);
   wifiLock = EEPROM.read(393);
   utcOffsetSecs = EEPROM.read(394) + ((EEPROM.read(395) << 8) & 0xFF00);
   if (EEPROM.read(396)) utcOffsetSecs = -utcOffsetSecs; //negative
-  //!EEPROM.leer(399); was enableSecTransition
+  //!EEPROM.read(399); was enableSecTransition
 
-  //favorite setting (preset) memoria (25 slots/ each 20byte)
+  //favorite setting (preset) memory (25 slots/ each 20byte)
   //400 - 899 reserved
 
-  //custom macro memoria (16 slots/ each 64byte)
+  //custom macro memory (16 slots/ each 64byte)
   //1024-2047 reserved
 
   #ifdef WLED_ENABLE_DMX
@@ -354,10 +354,10 @@ void loadSettingsFromEEPROM()
   DMXStartLED = EEPROM.read(2550);
   #endif
 
-  //Usermod memoria
+  //Usermod memory
   //2551 - 2559 reserved for Usermods, usable by default
-  //2560 - 2943 usable, NOT reserved (need to increase EEPSIZE accordingly, new WLED core features may anular this section)
-  //2944 - 3071 reserved for Usermods (need to increase EEPSIZE to 3072 in constante.h)
+  //2560 - 2943 usable, NOT reserved (need to increase EEPSIZE accordingly, new WLED core features may override this section)
+  //2944 - 3071 reserved for Usermods (need to increase EEPSIZE to 3072 in const.h)
 }
 
 
@@ -367,7 +367,7 @@ void applyMacro(byte index) {
 }
 
 
-// De-EEPROM rutina, mejora from previous versions to v0.11
+// De-EEPROM routine, upgrade from previous versions to v0.11
 void deEEP() {
   if (WLED_FS.exists(FPSTR(getPresetsFileName()))) return;
 

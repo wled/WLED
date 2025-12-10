@@ -15,7 +15,7 @@
 extern "C" void usePWMFixedNMI();
 
 /*
- * Principal WLED clase implementación. Mostly initialization and conexión logic
+ * Main WLED class implementation. Mostly initialization and connection logic
  */
 
 WLED::WLED()
@@ -158,7 +158,7 @@ void WLED::loop()
     initMqtt();
     #endif
     yield();
-    // refresh WLED nodes lista
+    // refresh WLED nodes list
     refreshNodeList();
     if (nodeBroadcastEnabled) sendSysInfoUDP();
     yield();
@@ -169,7 +169,7 @@ void WLED::loop()
     correctPIN = false;
   }
 
-  // reconnect WiFi to limpiar stale allocations if montón gets too low
+  // reconnect WiFi to clear stale allocations if heap gets too low
   if (millis() - heapTime > 15000) {
     uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
@@ -185,7 +185,7 @@ void WLED::loop()
   }
 
   //LED settings have been saved, re-init busses
-  //This código block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
+  //This code block causes severe FPS drop on ESP32 with the original "if (busConfigs[0] != nullptr)" conditional. Investigate!
   if (doInitBusses) {
     doInitBusses = false;
     DEBUG_PRINTLN(F("Re-init busses."));
@@ -212,7 +212,7 @@ void WLED::loop()
   toki.resetTick();
 
 #if WLED_WATCHDOG_TIMEOUT > 0
-  // we finished our mainloop, restablecer the watchdog temporizador
+  // we finished our mainloop, reset the watchdog timer
   static unsigned long lastWDTFeed = 0;
   if (!strip.isUpdating() || millis() - lastWDTFeed > (WLED_WATCHDOG_TIMEOUT*500)) {
   #ifdef ARDUINO_ARCH_ESP32
@@ -227,7 +227,7 @@ void WLED::loop()
   if (doReboot && (!doInitBusses || !configNeedsWrite)) // if busses have to be inited & saved, wait until next iteration
     reset();
 
-// DEPURACIÓN serial logging (every 30s)
+// DEBUG serial logging (every 30s)
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
   if (loopMillis > 30) {
@@ -243,7 +243,7 @@ void WLED::loop()
     DEBUG_PRINTF_P(PSTR("Unix time: %u,%03u\n"), toki.getTime().sec, toki.getTime().ms);
     #if defined(ARDUINO_ARCH_ESP32)
     DEBUG_PRINTLN(F("=== Memory Info ==="));
-    // Internal DRAM (estándar 8-bit accessible montón)
+    // Internal DRAM (standard 8-bit accessible heap)
     size_t dram_free = heap_caps_get_free_size(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
     size_t dram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
     DEBUG_PRINTF_P(PSTR("DRAM 8-bit:   Free: %7u bytes | Largest block: %7u bytes\n"), dram_free, dram_largest);
@@ -258,7 +258,7 @@ void WLED::loop()
     //size_t dram32_largest = heap_caps_get_largest_free_block(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL); // returns largest DRAM block -> not useful
     DEBUG_PRINTF_P(PSTR("DRAM 32-bit:  Free: %7u bytes | Largest block: N/A\n"), dram32_free);
     #else
-    // Fast RTC Memoria (not available on ESP32)
+    // Fast RTC Memory (not available on ESP32)
     size_t rtcram_free = heap_caps_get_free_size(MALLOC_CAP_RTCRAM);
     size_t rtcram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_RTCRAM);
     DEBUG_PRINTF_P(PSTR("RTC RAM:      Free: %7u bytes | Largest block: %7u bytes\n"), rtcram_free, rtcram_largest);
@@ -394,7 +394,7 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
 #if defined(BOARD_HAS_PSRAM)
-  // if JSON búfer allocation fails requestJsonBufferLock() will always retorno falso preventing crashes
+  // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
   pDoc = new PSRAMDynamicJsonDocument(2 * JSON_BUFFER_SIZE);
   DEBUG_PRINTF_P(PSTR("JSON buffer size: %ubytes\n"), (2 * JSON_BUFFER_SIZE));
   DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
@@ -438,7 +438,7 @@ void WLED::setup()
 #endif
   updateFSInfo();
 
-  // generate módulo IDs must be done before AP configuración
+  // generate module IDs must be done before AP setup
   escapedMac = WiFi.macAddress();
   escapedMac.replace(":", "");
   escapedMac.toLowerCase();
@@ -457,7 +457,7 @@ void WLED::setup()
 
 #if defined(STATUSLED) && STATUSLED>=0
   if (!PinManager::isPinAllocated(STATUSLED)) {
-    // NOTE: Special case: The estado LED should *NOT* be allocated.
+    // NOTE: Special case: The status LED should *NOT* be allocated.
     //       See comments in handleStatusLed().
     pinMode(STATUSLED, OUTPUT);
   }
@@ -486,8 +486,8 @@ void WLED::setup()
   serialCanTX = !PinManager::isPinAllocated(hardwareTX) || PinManager::getPinOwner(hardwareTX) == PinOwner::DebugOut; // Serial TX pin (GPIO 1 on ESP32 and ESP8266)
 
   #ifdef WLED_ENABLE_ADALIGHT
-  //Serie RX (Adalight, Improv, Serie JSON) only possible if GPIO3 unused
-  //Serie TX (Depuración, Improv, Serie JSON) only possible if GPIO1 unused
+  //Serial RX (Adalight, Improv, Serial JSON) only possible if GPIO3 unused
+  //Serial TX (Debug, Improv, Serial JSON) only possible if GPIO1 unused
   if (serialCanRX && serialCanTX) {
     Serial.println(F("Ada"));
   }
@@ -513,7 +513,7 @@ void WLED::setup()
     });
     ArduinoOTA.onError([](ota_error_t error) {
       #if WLED_WATCHDOG_TIMEOUT > 0
-      // reenable watchdog on failed actualizar
+      // reenable watchdog on failed update
       WLED::instance().enableWatchdog();
       #endif
     });
@@ -532,7 +532,7 @@ void WLED::setup()
   if (serialCanRX && Serial.available() > 0 && Serial.peek() == 'I') handleImprovPacket();
 #endif
 
-  // HTTP servidor page init
+  // HTTP server page init
   DEBUG_PRINTLN(F("initServer"));
   initServer();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
@@ -544,7 +544,7 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 #endif
 
-  // Seed FastLED random functions with an esp random valor, which already works properly at this point.
+  // Seed FastLED random functions with an esp random value, which already works properly at this point.
   const uint32_t seed32 = hw_random();
   random16_set_seed((uint16_t)seed32);
 
@@ -560,7 +560,7 @@ void WLED::setup()
 
 void WLED::beginStrip()
 {
-  // Inicializar NeoPixel Tira and button
+  // Initialize NeoPixel Strip and button
   strip.setTransition(0); // temporarily prevent transitions to reduce segment copies
   strip.finalizeInit(); // busses created during deserializeConfig() if config existed
   strip.makeAutoSegments();
@@ -574,7 +574,7 @@ void WLED::beginStrip()
   } else {
     // fix for #3196
     if (bootPreset > 0) {
-      // set all segments black (no transición)
+      // set all segments black (no transition)
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment &seg = strip.getSegment(i);
         if (seg.isActive()) seg.colors[0] = BLACK;
@@ -687,7 +687,7 @@ void WLED::initConnection()
     
     DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
-    // convertir the "serverDescription" into a valid DNS hostname (alphanumeric)
+    // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
@@ -736,7 +736,7 @@ void WLED::initInterfaces()
 #endif
 
 #ifndef WLED_DISABLE_ALEXA
-  // init Alexa hue emulación
+  // init Alexa hue emulation
   if (alexaEnabled)
     alexaInit();
 #endif
@@ -786,7 +786,7 @@ void WLED::handleConnection()
   #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
-  // ignorar conexión handling if WiFi is configured and scan still running
+  // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
   if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
@@ -837,7 +837,7 @@ void WLED::handleConnection()
       scanDone = true;
       return;
     }
-    //enviar improv failed 6 seconds after second init attempt (24 sec. after provisioning)
+    //send improv failed 6 seconds after second init attempt (24 sec. after provisioning)
     if (improvActive > 2 && now - lastReconnectAttempt > 6000) {
       sendImprovStateResponse(0x03, true);
       improvActive = 2;
@@ -855,7 +855,7 @@ void WLED::handleConnection()
       }
     }
     if (apActive && apBehavior == AP_BEHAVIOR_TEMPORARY && now > WLED_AP_TIMEOUT && stac == 0) { // disconnect AP after 5min if no clients connected
-      // if AP was enabled more than 10min after boot or if cliente was connected more than 10min after boot do not desconectar AP mode
+      // if AP was enabled more than 10min after boot or if client was connected more than 10min after boot do not disconnect AP mode
       if (now < 2*WLED_AP_TIMEOUT) {
         dnsServer.stop();
         WiFi.softAPdisconnect(true);
@@ -887,10 +887,10 @@ void WLED::handleConnection()
   }
 }
 
-// If estado LED pin is allocated for other uses, does nothing
-// else blink at 1Hz when Red.isConnected() is falso (no WiFi, ?? no Ethernet ??)
+// If status LED pin is allocated for other uses, does nothing
+// else blink at 1Hz when Network.isConnected() is false (no WiFi, ?? no Ethernet ??)
 // else blink at 2Hz when MQTT is enabled but not connected
-// else turn the estado LED off
+// else turn the status LED off
 #if defined(STATUSLED)
 void WLED::handleStatusLED()
 {

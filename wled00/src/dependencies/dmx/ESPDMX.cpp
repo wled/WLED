@@ -1,13 +1,13 @@
 // - - - - -
-// ESPDMX - A Arduino biblioteca for sending and receiving DMX usando the builtin serial hardware puerto.
-// ESPDMX.cpp: Biblioteca implementación archivo
+// ESPDMX - A Arduino library for sending and receiving DMX using the builtin serial hardware port.
+// ESPDMX.cpp: Library implementation file
 //
 // Copyright (C) 2015  Rick <ricardogg95@gmail.com>
 // This work is licensed under a GNU style license.
 //
 // Last change: Marcel Seerig <https://github.com/mseerig>
 //
-// Documentación and samples are available at https://github.com/Rickgg/ESP-Dmx
+// Documentation and samples are available at https://github.com/Rickgg/ESP-Dmx
 // - - - - -
 
 /* ----- LIBRARIES ----- */
@@ -30,7 +30,7 @@
 bool dmxStarted = false;
 int sendPin = 2;		//default on ESP8266
 
-//DMX valor matriz and tamaño. Entry 0 will hold startbyte, so we need 512+1 elements
+//DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
 uint8_t dmxDataStore[dmxMaxChannel+1] = {};
 int channelSize;
 
@@ -43,7 +43,7 @@ void DMXESPSerial::init() {
   dmxStarted = true;
 }
 
-// Set up the DMX-Protocolo
+// Set up the DMX-Protocol
 void DMXESPSerial::init(int chanQuant) {
 
   if (chanQuant > dmxMaxChannel || chanQuant <= 0) {
@@ -57,7 +57,7 @@ void DMXESPSerial::init(int chanQuant) {
   dmxStarted = true;
 }
 
-// Función to leer DMX datos
+// Function to read DMX data
 uint8_t DMXESPSerial::read(int Channel) {
   if (dmxStarted == false) init();
 
@@ -66,7 +66,7 @@ uint8_t DMXESPSerial::read(int Channel) {
   return(dmxDataStore[Channel]);
 }
 
-// Función to enviar DMX datos
+// Function to send DMX data
 void DMXESPSerial::write(int Channel, uint8_t value) {
   if (dmxStarted == false) init();
 
@@ -87,7 +87,7 @@ void DMXESPSerial::end() {
 void DMXESPSerial::update() {
   if (dmxStarted == false) init();
 
-  //Enviar ruptura
+  //Send break
   digitalWrite(sendPin, HIGH);
   Serial1.begin(BREAKSPEED, BREAKFORMAT);
   Serial1.write(0);
@@ -95,7 +95,7 @@ void DMXESPSerial::update() {
   delay(1);
   Serial1.end();
 
-  //enviar datos
+  //send data
   Serial1.begin(DMXSPEED, DMXFORMAT);
   digitalWrite(sendPin, LOW);
   Serial1.write(dmxDataStore, channelSize);
@@ -104,6 +104,6 @@ void DMXESPSerial::update() {
   Serial1.end();
 }
 
-// Función to actualizar the DMX bus
+// Function to update the DMX bus
 
 #endif

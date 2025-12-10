@@ -2,13 +2,13 @@
 #include "wled.h"
 #include "fcn_declare.h"
 
-// ADVERTENCIA: may cause errors in sunset calculations on ESP8266, see #3400
+// WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
 
 /*
- * Acquires time from NTP servidor
+ * Acquires time from NTP server
  */
-//#definir WLED_DEBUG_NTP
+//#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
 Timezone* tz;
@@ -43,7 +43,7 @@ Timezone* tz;
 
 byte tzCurrent = TZ_INIT; //uninitialized
 
-/* C++11 form -- estático std::matriz<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
+/* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
     /* TZ_UTC */ {
       {Last, Sun, Mar, 1, 0}, // UTC
@@ -213,7 +213,7 @@ void sendNTPPacket()
   pbuf[1] = 0;     // Stratum, or type of clock
   pbuf[2] = 6;     // Polling Interval
   pbuf[3] = 0xEC;  // Peer Clock Precision
-  // 8 bytes of zero for Root Retraso & Root Dispersion
+  // 8 bytes of zero for Root Delay & Root Dispersion
   pbuf[12]  = 49;
   pbuf[13]  = 0x4E;
   pbuf[14]  = 49;
@@ -228,7 +228,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   // Perform a few validity checks on the packet
   //   based on https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
   if((ntpPacket[0] & 0b11000000) == 0b11000000) return false; //reject LI=UNSYNC
-  // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) retorno falso; //reject Versión < 4
+  // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
   if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
   if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
   if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
@@ -259,11 +259,11 @@ bool checkNTPResponse()
   Toki::Time arrived  = toki.fromNTP(pbuf + 32);
   Toki::Time departed = toki.fromNTP(pbuf + 40);
   if (departed.sec == 0) return false;
-  //basic half roundtrip estimación
+  //basic half roundtrip estimation
   uint32_t serverDelay = toki.msDifference(arrived, departed);
   uint32_t offset = (ntpPacketReceivedTime - ntpPacketSentTime - serverDelay) >> 1;
   #ifdef WLED_DEBUG_NTP
-  //the time the packet departed the NTP servidor
+  //the time the packet departed the NTP server
   toki.printTime(departed);
   #endif
 
@@ -321,7 +321,7 @@ void setCountdown()
   if (countdownTime - toki.second() > 0) countdownOverTriggered = false;
 }
 
-//returns verdadero if countdown just over
+//returns true if countdown just over
 bool checkCountdown()
 {
   unsigned long n = toki.second();
@@ -366,7 +366,7 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 		return false;
 	}
 
-	//iniciar month and end month are the same
+	//start month and end month are the same
 	if (dayEnd < dayStart) return (m != monthStart || (d <= dayEnd || d >= dayStart)); //all year, except the designated days in this month
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
 }
@@ -434,25 +434,25 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
   float N3 = (1.0f + floor_t((year - 4 * floor_t(year / 4) + 2.0f) / 3.0f));
   float N = N1 - (N2 * N3) + day - 30.0f;
 
-  //2. convertir the longitude to hour valor and calculate an approximate time
+  //2. convert the longitude to hour value and calculate an approximate time
   float lngHour = lon / 15.0f;
   float t = N + (((sunset ? 18 : 6) - lngHour) / 24);
 
   //3. calculate the Sun's mean anomaly
   float M = (0.9856f * t) - 3.289f;
 
-  //4. calculate the Sun's verdadero longitude
+  //4. calculate the Sun's true longitude
   float L = fmod_t(M + (1.916f * sin_t(DEG_TO_RAD*M)) + (0.02f * sin_t(2*DEG_TO_RAD*M)) + 282.634f, 360.0f);
 
   //5a. calculate the Sun's right ascension
   float RA = fmod_t(RAD_TO_DEG*atan_t(0.91764f * tan_t(DEG_TO_RAD*L)), 360.0f);
 
-  //5b. right ascension valor needs to be in the same quadrant as L
+  //5b. right ascension value needs to be in the same quadrant as L
   float Lquadrant  = floor_t( L/90) * 90;
   float RAquadrant = floor_t(RA/90) * 90;
   RA = RA + (Lquadrant - RAquadrant);
 
-  //5c. right ascension valor needs to be converted into hours
+  //5c. right ascension value needs to be converted into hours
   RA /= 15.0f;
 
   //6. calculate the Sun's declination
@@ -464,7 +464,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
   if ((cosH > 1.0f) && !sunset) return INT16_MAX;  // the sun never rises on this location (on the specified date)
   if ((cosH < -1.0f) && sunset) return INT16_MAX;  // the sun never sets on this location (on the specified date)
 
-  //7b. finish calculating H and convertir into hours
+  //7b. finish calculating H and convert into hours
   float H = sunset ? RAD_TO_DEG*acos_t(cosH) : 360 - RAD_TO_DEG*acos_t(cosH);
   H /= 15.0f;
 
@@ -474,7 +474,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
   //9. adjust back to UTC
   float UT = fmod_t(T - lngHour, 24.0f);
 
-  // retorno in minutes from midnight
+  // return in minutes from midnight
 	return UT*60;
 }
 
@@ -490,8 +490,8 @@ void calculateSunriseAndSunset() {
     tim_0.tm_isdst = 0;
 
     // Due to limited accuracy, its possible to get a bad sunrise/sunset displayed as "00:00" (see issue #3601)
-    // So in case of invalid resultado, we try to use the sunset/sunrise of previous day. Max 3 days back, this worked well in all cases I tried.
-    // When latitude = 66,6 (N or S), the functions sometimes returns 2147483647, so this "unexpected large" is another condición for reintentar
+    // So in case of invalid result, we try to use the sunset/sunrise of previous day. Max 3 days back, this worked well in all cases I tried.
+    // When latitude = 66,6 (N or S), the functions sometimes returns 2147483647, so this "unexpected large" is another condition for retry
     int minUTC = 0;
     int retryCount = 0;
     do {

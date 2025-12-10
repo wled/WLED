@@ -3,14 +3,14 @@
 /*
  * WLED Color palettes
  *
- * Note: palettes imported from HTTP://seaviewsensing.com/pub/cpt-city are gamma corrected usando gammas (1.182, 1.0, 1.136)
- *       this is done to coincidir colors of the palettes after applying the (default) global gamma of 2.2 to versions
+ * Note: palettes imported from http://seaviewsensing.com/pub/cpt-city are gamma corrected using gammas (1.182, 1.0, 1.136)
+ *       this is done to match colors of the palettes after applying the (default) global gamma of 2.2 to versions
  *       prior to WLED 0.16 which used pre-applied gammas of (2.6,2.2,2.5) for these palettes.
  *       Palettes from FastLED are intended to be used without gamma correction, an inverse gamma of 2.2 is applied to original colors
  */
 
 // Gradient palette "ib_jul01_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/ing/xmas/ib_jul01.c3g
+// http://seaviewsensing.com/pub/cpt-city/ing/xmas/ib_jul01.c3g
 const uint8_t ib_jul01_gp[] PROGMEM = {
     0, 226,   6,  12,
    94,  26,  96,  78,
@@ -18,7 +18,7 @@ const uint8_t ib_jul01_gp[] PROGMEM = {
   255, 177,   3,   9};
 
 // Gradient palette "es_vintage_57_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/vintage/es_vintage_57.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/vintage/es_vintage_57.c3g
 const uint8_t es_vintage_57_gp[] PROGMEM = {
     0,  29,   8,   3,
    53,  76,   1,   0,
@@ -27,7 +27,7 @@ const uint8_t es_vintage_57_gp[] PROGMEM = {
   255, 117, 129,  42};
 
 // Gradient palette "es_vintage_01_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/vintage/es_vintage_01.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/vintage/es_vintage_01.c3g
 const uint8_t es_vintage_01_gp[] PROGMEM = {
     0,  41,  18,  24,
    51,  73,   0,  22,
@@ -39,7 +39,7 @@ const uint8_t es_vintage_01_gp[] PROGMEM = {
   255,  41,  18,  24};
 
 // Gradient palette "es_rivendell_15_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/rivendell/es_rivendell_15.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/rivendell/es_rivendell_15.c3g
 const uint8_t es_rivendell_15_gp[] PROGMEM = {
     0,  24,  69,  44,
   101,  73, 105,  70,
@@ -48,7 +48,7 @@ const uint8_t es_rivendell_15_gp[] PROGMEM = {
   255, 200, 204, 166};
 
 // Gradient palette "rgi_15_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/ds/rgi/rgi_15.c3g
+// http://seaviewsensing.com/pub/cpt-city/ds/rgi/rgi_15.c3g
 const uint8_t rgi_15_gp[] PROGMEM = {
     0,  41,  14,  99,
    31, 128,  24,  74,
@@ -61,13 +61,13 @@ const uint8_t rgi_15_gp[] PROGMEM = {
   255,  84,  48, 108};
 
 // Gradient palette "retro2_16_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/ma/retro2/retro2_16.c3g
+// http://seaviewsensing.com/pub/cpt-city/ma/retro2/retro2_16.c3g
 const uint8_t retro2_16_gp[] PROGMEM = {
     0, 222, 191,   8,
   255, 117,  52,   1};
 
 // Gradient palette "Analogous_1_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/red/Analogous_1.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/red/Analogous_1.c3g
 const uint8_t Analogous_1_gp[] PROGMEM = {
     0,  38,   0, 255,
    63,  86,   0, 255,
@@ -76,7 +76,7 @@ const uint8_t Analogous_1_gp[] PROGMEM = {
   255, 255,   0,   0};
 
 // Gradient palette "es_pinksplash_08_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/pink_splash/es_pinksplash_08.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/pink_splash/es_pinksplash_08.c3g
 const uint8_t es_pinksplash_08_gp[] PROGMEM = {
     0, 186,  63, 255,
   127, 227,   9,  85,
@@ -86,7 +86,7 @@ const uint8_t es_pinksplash_08_gp[] PROGMEM = {
 };
 
 // Gradient palette "es_ocean_breeze_036_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/ocean_breeze/es_ocean_breeze_036.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/ocean_breeze/es_ocean_breeze_036.c3g
 const uint8_t es_ocean_breeze_036_gp[] PROGMEM = {
     0,  16,  48,  51,
    89,  27, 166, 175,
@@ -94,7 +94,7 @@ const uint8_t es_ocean_breeze_036_gp[] PROGMEM = {
   255,   0, 145, 152};
 
 // Gradient palette "departure_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/mjf/departure.c3g
+// http://seaviewsensing.com/pub/cpt-city/mjf/departure.c3g
 const uint8_t departure_gp[] PROGMEM = {
     0,  53,  34,   0,
    42,  86,  51,   0,
@@ -110,7 +110,7 @@ const uint8_t departure_gp[] PROGMEM = {
   255,   0, 128,   0};
 
 // Gradient palette "es_landscape_64_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/landscape/es_landscape_64.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/landscape/es_landscape_64.c3g
 const uint8_t es_landscape_64_gp[] PROGMEM = {
     0,   0,   0,   0,
    37,  31,  89,  19,
@@ -123,7 +123,7 @@ const uint8_t es_landscape_64_gp[] PROGMEM = {
   255,  28, 107, 225};
 
 // Gradient palette "es_landscape_33_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/landscape/es_landscape_33.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/landscape/es_landscape_33.c3g
 const uint8_t es_landscape_33_gp[] PROGMEM = {
     0,  12,  45,   0,
    19, 101,  86,   2,
@@ -133,7 +133,7 @@ const uint8_t es_landscape_33_gp[] PROGMEM = {
   255,   5,  39,   7};
 
 // Gradient palette "rainbowsherbet_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/ma/icecream/rainbowsherbet.c3g
+// http://seaviewsensing.com/pub/cpt-city/ma/icecream/rainbowsherbet.c3g
 const uint8_t rainbowsherbet_gp[] PROGMEM = {
     0, 255, 102,  41,
    43, 255, 140,  90,
@@ -144,7 +144,7 @@ const uint8_t rainbowsherbet_gp[] PROGMEM = {
   255, 157, 255, 137};
 
 // Gradient palette "gr65_hult_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/hult/gr65_hult.c3g
+// http://seaviewsensing.com/pub/cpt-city/hult/gr65_hult.c3g
 const uint8_t gr65_hult_gp[] PROGMEM = {
     0, 251, 216, 252,
    48, 255, 192, 255,
@@ -154,7 +154,7 @@ const uint8_t gr65_hult_gp[] PROGMEM = {
   255,  24, 184, 174};
 
 // Gradient palette "gr64_hult_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/hult/gr64_hult.c3g
+// http://seaviewsensing.com/pub/cpt-city/hult/gr64_hult.c3g
 const uint8_t gr64_hult_gp[] PROGMEM = {
     0,  24, 184, 174,
    66,   8, 162, 150,
@@ -166,7 +166,7 @@ const uint8_t gr64_hult_gp[] PROGMEM = {
   255,   0, 128, 117};
 
 // Gradient palette "GMT_drywet_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/gmt/GMT_drywet.c3g
+// http://seaviewsensing.com/pub/cpt-city/gmt/GMT_drywet.c3g
 const uint8_t GMT_drywet_gp[] PROGMEM = {
     0, 119,  97,  33,
    42, 235, 199,  88,
@@ -177,7 +177,7 @@ const uint8_t GMT_drywet_gp[] PROGMEM = {
   255,   4,  51, 101};
 
 // Gradient palette "ib15_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/ing/general/ib15.c3g
+// http://seaviewsensing.com/pub/cpt-city/ing/general/ib15.c3g
 const uint8_t ib15_gp[] PROGMEM = {
     0, 177, 160, 199,
    72, 205, 158, 149,
@@ -187,7 +187,7 @@ const uint8_t ib15_gp[] PROGMEM = {
   255, 132, 101, 159};
 
 // Gradient palette "Tertiary_01_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/vermillion/Tertiary_01.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/vermillion/Tertiary_01.c3g
 const uint8_t Tertiary_01_gp[] PROGMEM = {
     0,   0,  25, 255,
    63,  38, 140, 117,
@@ -196,7 +196,7 @@ const uint8_t Tertiary_01_gp[] PROGMEM = {
   255, 255,  25,  41};
 
 // Gradient palette "lava_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/neota/elem/lava.c3g
+// http://seaviewsensing.com/pub/cpt-city/neota/elem/lava.c3g
 const uint8_t lava_gp[] PROGMEM = {
     0,   0,   0,   0,
    46,  77,   0,   0,
@@ -213,7 +213,7 @@ const uint8_t lava_gp[] PROGMEM = {
   255, 255, 255, 255};
 
 // Gradient palette "fierce-ice_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/neota/elem/fierce-ice.c3g
+// http://seaviewsensing.com/pub/cpt-city/neota/elem/fierce-ice.c3g
 const uint8_t fierce_ice_gp[] PROGMEM = {
     0,   0,   0,   0,
    59,   0,  51, 117,
@@ -224,7 +224,7 @@ const uint8_t fierce_ice_gp[] PROGMEM = {
   255, 255, 255, 255};
 
 // Gradient palette "Colorfull_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Colorfull.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Colorfull.c3g
 const uint8_t Colorfull_gp[] PROGMEM = {
     0,  61, 155,  44,
    25,  95, 174,  77,
@@ -239,7 +239,7 @@ const uint8_t Colorfull_gp[] PROGMEM = {
   255,  84, 182, 215};
 
 // Gradient palette "Pink_Purple_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Pink_Purple.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Pink_Purple.c3g
 const uint8_t Pink_Purple_gp[] PROGMEM = {
     0,  79,  32, 109,
    25,  90,  40, 117,
@@ -254,7 +254,7 @@ const uint8_t Pink_Purple_gp[] PROGMEM = {
   255, 198, 111, 184};
 
 // Gradient palette "Sunset_Real_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Sunset_Real.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Sunset_Real.c3g
 const uint8_t Sunset_Real_gp[] PROGMEM = {
     0, 181,   0,   0,
    22, 218,  85,   0,
@@ -265,7 +265,7 @@ const uint8_t Sunset_Real_gp[] PROGMEM = {
   255,   0,   0, 207};
 
 // Gradient palette "Sunset_Yellow_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Sunset_Yellow.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Sunset_Yellow.c3g
 const uint8_t Sunset_Yellow_gp[] PROGMEM = {
     0,  61, 135, 184,
    36, 129, 188, 169,
@@ -280,7 +280,7 @@ const uint8_t Sunset_Yellow_gp[] PROGMEM = {
   255, 255, 252, 113};
 
 // Gradient palette "Beech_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Beech.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Beech.c3g
 const uint8_t Beech_gp[] PROGMEM = {
     0, 255, 254, 236,
    12, 255, 254, 236,
@@ -299,7 +299,7 @@ const uint8_t Beech_gp[] PROGMEM = {
   255,   0, 129, 190};
 
 // Gradient palette "Another_Sunset_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Another_Sunset.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/atmospheric/Another_Sunset.c3g
 const uint8_t Another_Sunset_gp[] PROGMEM = {
     0, 175, 121,  62,
    29, 128, 103,  60,
@@ -311,7 +311,7 @@ const uint8_t Another_Sunset_gp[] PROGMEM = {
   255,   0,  26, 125};
 
 // Gradient palette "es_autumn_19_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/es/autumn/es_autumn_19.c3g
+// http://seaviewsensing.com/pub/cpt-city/es/autumn/es_autumn_19.c3g
 const uint8_t es_autumn_19_gp[] PROGMEM = {
     0,  90,  14,   5,
    51, 139,  41,  13,
@@ -328,7 +328,7 @@ const uint8_t es_autumn_19_gp[] PROGMEM = {
   255,  74,   5,   2};
 
 // Gradient palette "BlacK_Blue_Magenta_White_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Blue_Magenta_White.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Blue_Magenta_White.c3g
 const uint8_t BlacK_Blue_Magenta_White_gp[] PROGMEM = {
     0,   0,   0,   0,
    42,   0,   0, 117,
@@ -339,7 +339,7 @@ const uint8_t BlacK_Blue_Magenta_White_gp[] PROGMEM = {
   255, 255, 255, 255};
 
 // Gradient palette "BlacK_Magenta_Red_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Magenta_Red.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Magenta_Red.c3g
 const uint8_t BlacK_Magenta_Red_gp[] PROGMEM = {
     0,   0,   0,   0,
    63, 113,   0, 117,
@@ -348,7 +348,7 @@ const uint8_t BlacK_Magenta_Red_gp[] PROGMEM = {
   255, 255,   0,   0};
 
 // Gradient palette "BlacK_Red_Magenta_Yellow_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Red_Magenta_Yellow.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/basic/BlacK_Red_Magenta_Yellow.c3g
 const uint8_t BlacK_Red_Magenta_Yellow_gp[] PROGMEM = {
     0,   0,   0,   0,
    42, 113,   0,   0,
@@ -359,7 +359,7 @@ const uint8_t BlacK_Red_Magenta_Yellow_gp[] PROGMEM = {
   255, 255, 255,   0};
 
 // Gradient palette "Blue_Cyan_Yellow_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/nd/basic/Blue_Cyan_Yellow.c3g
+// http://seaviewsensing.com/pub/cpt-city/nd/basic/Blue_Cyan_Yellow.c3g
 const uint8_t Blue_Cyan_Yellow_gp[] PROGMEM = {
     0,   0,   0, 255,
    63,   0, 128, 255,
@@ -367,14 +367,14 @@ const uint8_t Blue_Cyan_Yellow_gp[] PROGMEM = {
   191, 113, 255, 117,
   255, 255, 255,   0};
 
-//Personalizado palette by Aircoookie
+//Custom palette by Aircoookie
 const byte Orange_Teal_gp[] PROGMEM = {
     0,   0,150, 92,
    55,   0,150, 92,
   200, 255, 72,  0,
   255, 255, 72,  0};
 
-//Personalizado palette by Aircoookie
+//Custom palette by Aircoookie
 const byte Tiamat_gp[] PROGMEM = {
     0,   1,  2, 14, //gc
    33,   2,  5, 35, //gc from 47, 61,126
@@ -388,7 +388,7 @@ const byte Tiamat_gp[] PROGMEM = {
   240, 193,213,253, //gc from 203,239,253
   255, 255,249,255};
 
-//Personalizado palette by Aircoookie
+//Custom palette by Aircoookie
 const byte April_Night_gp[] PROGMEM = {
     0,   1,  5, 45, //deep blue
    10,   1,  5, 45,
@@ -477,7 +477,7 @@ const byte Atlantica_gp[] PROGMEM = {
   255,   4,  30, 114};
 
 // Gradient palette "temperature_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/arendal/temperature.c3g
+// http://seaviewsensing.com/pub/cpt-city/arendal/temperature.c3g
 const uint8_t temperature_gp[] PROGMEM = {
     0,  20,  92, 171,
    14,  15, 111, 186,
@@ -499,7 +499,7 @@ const uint8_t temperature_gp[] PROGMEM = {
   255, 151,  38,  35};
 
 // Gradient palette "bhw1_01_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_01.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_01.c3g
 const uint8_t retro_clown_gp[] PROGMEM = {
     0, 242, 168,  38,
   117, 226,  78,  80,
@@ -507,7 +507,7 @@ const uint8_t retro_clown_gp[] PROGMEM = {
 };
 
 // Gradient palette "bhw1_04_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_04.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_04.c3g
 const uint8_t candy_gp[] PROGMEM = {
     0, 243, 242,  23,
    15, 242, 168,  38,
@@ -516,13 +516,13 @@ const uint8_t candy_gp[] PROGMEM = {
   255,   0,   0, 117};
 
 // Gradient palette "bhw1_05_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_05.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_05.c3g
 const uint8_t toxy_reaf_gp[] PROGMEM = {
     0,   2, 239, 126,
   255, 145,  35, 217};
 
 // Gradient palette "bhw1_06_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_06.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_06.c3g
 const uint8_t fairy_reaf_gp[] PROGMEM = {
     0, 220,  19, 187,
   160,  12, 225, 219,
@@ -530,7 +530,7 @@ const uint8_t fairy_reaf_gp[] PROGMEM = {
   255, 255, 255, 255};
 
 // Gradient palette "bhw1_14_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_14.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_14.c3g
 const uint8_t semi_blue_gp[] PROGMEM = {
     0,   0,   0,   0,
    12,  24,   4,  38,
@@ -543,7 +543,7 @@ const uint8_t semi_blue_gp[] PROGMEM = {
   255,   0,   0,   0};
 
 // Gradient palette "bhw1_three_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_three.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_three.c3g
 const uint8_t pink_candy_gp[] PROGMEM = {
     0, 255, 255, 255,
    45,  50,  64, 255,
@@ -554,7 +554,7 @@ const uint8_t pink_candy_gp[] PROGMEM = {
   255, 255, 255, 255};
 
 // Gradient palette "bhw1_w00t_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_w00t.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw1/bhw1_w00t.c3g
 const uint8_t red_reaf_gp[] PROGMEM = {
     0,  36,  68, 114,
   104, 149, 195, 248,
@@ -562,7 +562,7 @@ const uint8_t red_reaf_gp[] PROGMEM = {
   255,  94,  14,   9};
 
 // Gradient palette "bhw2_23_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_23.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_23.c3g
 const uint8_t aqua_flash_gp[] PROGMEM = {
     0,   0,   0,   0,
    66, 130, 242, 245,
@@ -573,7 +573,7 @@ const uint8_t aqua_flash_gp[] PROGMEM = {
   255,   0,   0,   0};
 
 // Gradient palette "bhw2_xc_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_xc.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_xc.c3g
 const uint8_t yelblu_hot_gp[] PROGMEM = {
     0,  43,  30,  57,
    58,  73,   0, 119,
@@ -585,7 +585,7 @@ const uint8_t yelblu_hot_gp[] PROGMEM = {
 };
 
 // Gradient palette "bhw2_45_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_45.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_45.c3g
 const uint8_t lite_light_gp[] PROGMEM = {
     0,   0,   0,   0,
     9,  20,  21,  22,
@@ -595,7 +595,7 @@ const uint8_t lite_light_gp[] PROGMEM = {
   255,   0,   0,   0};
 
 // Gradient palette "bhw2_22_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_22.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw2/bhw2_22.c3g
 const uint8_t red_flash_gp[] PROGMEM = {
     0,   0,   0,   0,
    99, 242,  12,   8,
@@ -604,7 +604,7 @@ const uint8_t red_flash_gp[] PROGMEM = {
   255,   0,   0,   0};
 
 // Gradient palette "bhw3_40_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw3/bhw3_40.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw3/bhw3_40.c3g
 const uint8_t blink_red_gp[] PROGMEM = {
     0,   4,   7,   4,
    43,  40,  25,  62,
@@ -616,7 +616,7 @@ const uint8_t blink_red_gp[] PROGMEM = {
   255,  77,  29,  78};
 
 // Gradient palette "bhw3_52_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw3/bhw3_52.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw3/bhw3_52.c3g
 const uint8_t red_shift_gp[] PROGMEM = {
     0,  98,  22,  93,
    45, 103,  22,  73,
@@ -627,7 +627,7 @@ const uint8_t red_shift_gp[] PROGMEM = {
   255,   2,   0,   2};
 
 // Gradient palette "bhw4_097_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw4/bhw4_097.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw4/bhw4_097.c3g
 const uint8_t red_tide_gp[] PROGMEM = {
     0, 251,  46,   0,
    28, 255, 139,  25,
@@ -642,7 +642,7 @@ const uint8_t red_tide_gp[] PROGMEM = {
   255, 126,   8,   4};
 
 // Gradient palette "bhw4_017_gp", originally from
-// HTTP://seaviewsensing.com/pub/cpt-city/bhw/bhw4/bhw4_017.c3g
+// http://seaviewsensing.com/pub/cpt-city/bhw/bhw4/bhw4_017.c3g
 const uint8_t candy2_gp[] PROGMEM = {
     0, 109, 102, 102,
    25,  42,  49,  71,
@@ -668,7 +668,7 @@ const byte Aurora2_gp[] PROGMEM = {
   192, 250,  77, 127,    //Pink
   255, 171, 101, 221};   //Purple
 
-// FastLed palettes, corrected with inverse gamma of 2.2 to coincidir original looks
+// FastLed palettes, corrected with inverse gamma of 2.2 to match original looks
 
 // Party colors
 const TProgmemRGBPalette16 PartyColors_gc22 FL_PROGMEM = {
@@ -691,7 +691,7 @@ const TProgmemRGBPalette16 RainbowStripeColors_gc22 FL_PROGMEM = {
   0x00D59B, 0x000000, 0x0000FF, 0x000000,
   0x9B00D5, 0x000000, 0xD5009B, 0x000000};
 
-// matriz of fastled palettes (palette 6 - 12)
+// array of fastled palettes (palette 6 - 12)
 const TProgmemRGBPalette16 *const fastledPalettes[] PROGMEM = {
   &PartyColors_gc22,            //06-00 Party
   &CloudColors_p,               //07-01 Cloud
@@ -702,7 +702,7 @@ const TProgmemRGBPalette16 *const fastledPalettes[] PROGMEM = {
   &RainbowStripeColors_gc22     //12-06 Rainbow Bands
 };
 
-// Single matriz of defined cpt-city color palettes.
+// Single array of defined cpt-city color palettes.
 // This will let us programmatically choose one based on
 // a number, rather than having to activate each explicitly
 // by name every time.

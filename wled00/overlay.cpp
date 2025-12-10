@@ -1,7 +1,7 @@
 #include "wled.h"
 
 /*
- * Used to dibujar clock overlays over the tira
+ * Used to draw clock overlays over the strip
  */
 
 void _overlayAnalogClock()
@@ -102,5 +102,5 @@ void handleOverlayDraw() {
 }
 
 /*
- * Support for the Cronixie clock has moved to a usermod, compile with "-D USERMOD_CRONIXIE" to habilitar
+ * Support for the Cronixie clock has moved to a usermod, compile with "-D USERMOD_CRONIXIE" to enable
  */

@@ -104,7 +104,7 @@ button {
 	position: fixed;
 	bottom: calc(var(--bh) + 6px);
 	right: 6px;
-	color: var(--c-8); /* set bright (--c-d) with dark texto shadow (see below) to be legible on gray background (in image) */
+	color: var(--c-8); /* set bright (--c-d) with dark text shadow (see below) to be legible on gray background (in image) */
 	cursor: pointer;
 	writing-mode: vertical-rl;
 	/* transform: rotate(180deg); */
@@ -156,7 +156,7 @@ button {
 .segt TD {
 	padding: 2px 0 !important;
 	text-align: center;
-	/*texto-transform: uppercase;*/
+	/*text-transform: uppercase;*/
 }
 .segt TD, .plentry TD {
 	font-size: 13px;
@@ -206,7 +206,7 @@ button {
 	right: 0;
 }
 
-/* pop-up contenido (segmento sets) */
+/* pop-up content (segment sets) */
 .pop-c {
 	position: absolute;
 	background-color: var(--c-2);
@@ -376,7 +376,7 @@ button {
 	padding: 5px 0 0;
 }
 
-/* Quick carga magin for simplified UI */
+/* Quick load magin for simplified UI */
 .simplified #pql, .simplified #palw, .simplified #fx {
 	margin-bottom: 8px;
 }
@@ -450,7 +450,7 @@ button {
 }
 
 #sliders .slider {
-	padding-right: 64px; /* desplazamiento for bubble */
+	padding-right: 64px; /* offset for bubble */
 }
 
 #sliders .slider, #info .slider {
@@ -458,7 +458,7 @@ button {
 }
 
 #sliders .sliderwrap, .sbs .sliderwrap {
-	left: 32px; /* desplazamiento for icon */
+	left: 32px; /* offset for icon */
 }
 
 .filter, .option {
@@ -475,7 +475,7 @@ button {
 
 .filter {
 	z-index: 1;
-	/*desbordamiento: visible;*/
+	/*overflow: visible;*/
 	border-radius: 0 0 16px 16px;
 	max-width: 220px;
 	height: 54px;
@@ -518,9 +518,9 @@ button {
 .fade {
 	visibility: hidden; /* hide it */
 	opacity: 0; /* make it transparent */
-	transform: scaleY(0); /* shrink contenido */
+	transform: scaleY(0); /* shrink content */
 	height: 0; /* force other elements to move */
-	padding: 0; /* eliminar empty space */
+	padding: 0; /* remove empty space */
 }
 
 .first {
@@ -775,7 +775,7 @@ input[type=range]::-moz-range-thumb {
 .hd {
 	display: var(--bhd);
 }
-/* Do not hide quick carga label in simplified mode on small screen widths */
+/* Do not hide quick load label in simplified mode on small screen widths */
 .simplified #pql .hd {
 	display: var(--bhd) !important;
 }
@@ -899,7 +899,7 @@ a.btn {
 	border: 1px solid var(--c-f);
 }
 
-/* Hex color entrada wrapper div */
+/* Hex color input wrapper div */
 #hexw {
 	margin-top: 5px;
 }
@@ -1044,7 +1044,7 @@ textarea {
 	/*right: -6px;*/
 }
 
-/* segmento power wrapper */
+/* segment power wrapper */
 .sbs {
 	/*padding: 1px 0 1px 20px;*/
 	display: var(--sgp);
@@ -1093,7 +1093,7 @@ textarea {
 	border-width: 5px !important;
 }
 
-.qcs, #namelabel { /* texto shadow for name to be legible on grey backround */
+.qcs, #namelabel { /* text shadow for name to be legible on grey backround */
 	text-shadow: -1px -1px 0 var(--c-1), 1px -1px 0 var(--c-1), -1px 1px 0 var(--c-1), 1px 1px 0 var(--c-1);
 }
 
@@ -1226,10 +1226,10 @@ TD .checkmark, TD .radiomark {
 	margin-bottom: 8px;
 }
 
-/* segmento & preset wrapper */
+/* segment & preset wrapper */
 .seg, .pres {
 	background-color: var(--c-2);
-	/*color: var(--c-f);*/ /* seems to affect only the Add segmento button, which should be same color as restablecer segments */
+	/*color: var(--c-f);*/ /* seems to affect only the Add segment button, which should be same color as reset segments */
 	border: 0 solid var(--c-f);
 	text-align: left;
 	transition: background-color .5s;
@@ -1277,7 +1277,7 @@ TD .checkmark, TD .radiomark {
 	text-align: center;
 }
 
-/* lista wrapper */
+/* list wrapper */
 .list {
 	position: relative;
 	transition: background-color .5s;
@@ -1285,7 +1285,7 @@ TD .checkmark, TD .radiomark {
 	line-height: 24px;
 }
 
-/* lista item */
+/* list item */
 .lstI {
 	align-items: center;
 	cursor: pointer;
@@ -1331,7 +1331,7 @@ TD .checkmark, TD .radiomark {
 	background-color: var(--c-3);
 }
 
-/* selected lista item */
+/* selected list item */
 .lstI.selected {
 	top: 0;
 	bottom: 0;
@@ -1381,13 +1381,13 @@ dialog {
 	top: var(--stp);
 }
 
-/* lista item contenido */
+/* list item content */
 .lstIcontent {
 	padding: 9px 0 7px;
 	position: relative;
 }
 
-/* lista item name (for sorting) */
+/* list item name (for sorting) */
 .lstIname {
 	white-space: nowrap;
 	text-overflow: ellipsis;
@@ -1395,7 +1395,7 @@ dialog {
 	filter: grayscale(100%);
 }
 
-/* lista item palette preview */
+/* list item palette preview */
 .lstIprev {
 	width: 100%;
 	height: 6px;
@@ -1405,7 +1405,7 @@ dialog {
 	z-index: -1;
 }
 
-/* encontrar/buscar element */
+/* find/search element */
 .fnd {
 	position: relative;
 }
@@ -1440,7 +1440,7 @@ dialog {
 	margin-bottom: 12px;
 }
 
-/* segmento & preset inner/expanded contenido */
+/* segment & preset inner/expanded content */
 .segin,
 .presin {
 	padding: 8px;
@@ -1463,7 +1463,7 @@ dialog {
 	background-color: var(--c-5) /*!important*/;
 }
 
-/* hidden lista items, must be after .expanded */
+/* hidden list items, must be after .expanded */
 .pres .lstIcontent, .segin {
 	display: none;
 }

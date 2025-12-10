@@ -1,17 +1,17 @@
 /*----------------------------------------------------------------------*
- * Arduino Timezone Biblioteca v1.0                                        *
+ * Arduino Timezone Library v1.0                                        *
  * Jack Christensen Mar 2012                                            *
  *                                                                      *
  * This work is licensed under the Creative Commons Attribution-        *
  * ShareAlike 3.0 Unported License. To view a copy of this license,     *
- * visit HTTP://creativecommons.org/licenses/by-sa/3.0/ or enviar a       *
+ * visit http://creativecommons.org/licenses/by-sa/3.0/ or send a       *
  * letter to Creative Commons, 171 Second Street, Suite 300,            *
  * San Francisco, California, 94105, USA.                               *
  *----------------------------------------------------------------------*/
 
 #include "Timezone.h"
 
-//THIS LINE WAS ADDED FOR COMPATIBILITY WITH THE WLED DEPENDENCIA STRUCTURE. ELIMINAR IF YOU USE IT OUTSIDE OF WLED!
+//THIS LINE WAS ADDED FOR COMPATIBILITY WITH THE WLED DEPENDENCY STRUCTURE. REMOVE IF YOU USE IT OUTSIDE OF WLED!
 #include "../time/TimeLib.h"
 
 #ifdef __AVR__
@@ -20,7 +20,7 @@
 
 
 /*----------------------------------------------------------------------*
- * Crear a Timezone object from the given time change rules.           *
+ * Create a Timezone object from the given time change rules.           *
  *----------------------------------------------------------------------*/
 Timezone::Timezone(TimeChangeRule dstStart, TimeChangeRule stdStart)
 {
@@ -30,7 +30,7 @@ Timezone::Timezone(TimeChangeRule dstStart, TimeChangeRule stdStart)
 
 #ifdef __AVR__
 /*----------------------------------------------------------------------*
- * Crear a Timezone object from time change rules stored in EEPROM     *
+ * Create a Timezone object from time change rules stored in EEPROM     *
  * at the given address.                                                *
  *----------------------------------------------------------------------*/
 Timezone::Timezone(int address)
@@ -40,7 +40,7 @@ Timezone::Timezone(int address)
 #endif
 
 /*----------------------------------------------------------------------*
- * Convertir the given UTC time to local time, estándar or                *
+ * Convert the given UTC time to local time, standard or                *
  * daylight time, as appropriate.                                       *
  *----------------------------------------------------------------------*/
 time_t Timezone::toLocal(time_t utc)
@@ -55,8 +55,8 @@ time_t Timezone::toLocal(time_t utc)
 }
 
 /*----------------------------------------------------------------------*
- * Convertir the given UTC time to local time, estándar or                *
- * daylight time, as appropriate, and retorno a pointer to the time      *
+ * Convert the given UTC time to local time, standard or                *
+ * daylight time, as appropriate, and return a pointer to the time      *
  * change rule used to do the conversion. The caller must take care     *
  * not to alter this rule.                                              *
  *----------------------------------------------------------------------*/
@@ -76,28 +76,28 @@ time_t Timezone::toLocal(time_t utc, TimeChangeRule **tcr)
 }
 
 /*----------------------------------------------------------------------*
- * Convertir the given local time to UTC time.                            *
+ * Convert the given local time to UTC time.                            *
  *                                                                      *
- * ADVERTENCIA:                                                             *
- * This función is provided for completeness, but should seldom be     *
+ * WARNING:                                                             *
+ * This function is provided for completeness, but should seldom be     *
  * needed and should be used sparingly and carefully.                   *
  *                                                                      *
- * Ambiguous situations occur after the Estándar-to-DST and the         *
- * DST-to-Estándar time transitions. When changing to DST, there is     *
+ * Ambiguous situations occur after the Standard-to-DST and the         *
+ * DST-to-Standard time transitions. When changing to DST, there is     *
  * one hour of local time that does not exist, since the clock moves    *
- * forward one hour. Similarly, when changing to estándar time, there   *
+ * forward one hour. Similarly, when changing to standard time, there   *
  * is one hour of local times that occur twice since the clock moves    *
  * back one hour.                                                       *
  *                                                                      *
- * This función does not test whether it is passed an erroneous time   *
- * valor during the Local -> DST transición that does not exist.        *
- * If passed such a time, an incorrect UTC time valor will be returned. *
+ * This function does not test whether it is passed an erroneous time   *
+ * value during the Local -> DST transition that does not exist.        *
+ * If passed such a time, an incorrect UTC time value will be returned. *
  *                                                                      *
- * If passed a local time valor during the DST -> Local transición      *
+ * If passed a local time value during the DST -> Local transition      *
  * that occurs twice, it will be treated as the earlier time, i.e.      *
  * the time that occurs before the transistion.                         *
  *                                                                      *
- * Calling this función with local times during a transición intervalo  *
+ * Calling this function with local times during a transition interval  *
  * should be avoided!                                                   *
  *----------------------------------------------------------------------*/
 time_t Timezone::toUTC(time_t local)
@@ -112,8 +112,8 @@ time_t Timezone::toUTC(time_t local)
 }
 
 /*----------------------------------------------------------------------*
- * Determine whether the given UTC time_t is within the DST intervalo    *
- * or the Estándar time intervalo.                                       *
+ * Determine whether the given UTC time_t is within the DST interval    *
+ * or the Standard time interval.                                       *
  *----------------------------------------------------------------------*/
 boolean Timezone::utcIsDST(time_t utc)
 {
@@ -127,8 +127,8 @@ boolean Timezone::utcIsDST(time_t utc)
 }
 
 /*----------------------------------------------------------------------*
- * Determine whether the given Local time_t is within the DST intervalo  *
- * or the Estándar time intervalo.                                       *
+ * Determine whether the given Local time_t is within the DST interval  *
+ * or the Standard time interval.                                       *
  *----------------------------------------------------------------------*/
 boolean Timezone::locIsDST(time_t local)
 {
@@ -142,7 +142,7 @@ boolean Timezone::locIsDST(time_t local)
 }
 
 /*----------------------------------------------------------------------*
- * Calculate the DST and estándar time change points for the given      *
+ * Calculate the DST and standard time change points for the given      *
  * given year as local and UTC time_t values.                           *
  *----------------------------------------------------------------------*/
 void Timezone::calcTimeChanges(int yr)
@@ -154,7 +154,7 @@ void Timezone::calcTimeChanges(int yr)
 }
 
 /*----------------------------------------------------------------------*
- * Convertir the given DST change rule to a time_t valor                  *
+ * Convert the given DST change rule to a time_t value                  *
  * for the given year.                                                  *
  *----------------------------------------------------------------------*/
 time_t Timezone::toTime_t(TimeChangeRule r, int yr)
@@ -187,7 +187,7 @@ time_t Timezone::toTime_t(TimeChangeRule r, int yr)
 
 #ifdef __AVR__
 /*----------------------------------------------------------------------*
- * Leer the daylight and estándar time rules from EEPROM at				*
+ * Read the daylight and standard time rules from EEPROM at				*
  * the given address.                                                   *
  *----------------------------------------------------------------------*/
 void Timezone::readRules(int address)
@@ -198,7 +198,7 @@ void Timezone::readRules(int address)
 }
 
 /*----------------------------------------------------------------------*
- * Escribir the daylight and estándar time rules to EEPROM at				*
+ * Write the daylight and standard time rules to EEPROM at				*
  * the given address.                                                   *
  *----------------------------------------------------------------------*/
 void Timezone::writeRules(int address)

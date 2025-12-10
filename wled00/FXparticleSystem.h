@@ -1,7 +1,7 @@
 /*
   FXparticleSystem.cpp
 
-  Particle sistema with functions for particle generation, particle movement and particle rendering to RGB matrix.
+  Particle system with functions for particle generation, particle movement and particle rendering to RGB matrix.
   by DedeHai (Damian Schneider) 2013-2024
 
   Copyright (c) 2024  Damian Schneider
@@ -20,7 +20,7 @@
 #define PS_P_MAXSPEED 120 // maximum speed a particle can have (vx/vy is int8)
 #define MAX_MEMIDLE 10 // max idle time (in frames) before memory is deallocated (if deallocated during an effect, it will crash!)
 
-//#definir WLED_DEBUG_PS // note: enabling depuración uses ~3k of flash
+//#define WLED_DEBUG_PS // note: enabling debug uses ~3k of flash
 
 #ifdef WLED_DEBUG_PS
   #define PSPRINT(x) Serial.print(x)
@@ -30,14 +30,14 @@
   #define PSPRINTLN(x)
 #endif
 
-// límite velocidad of particles (used in 1D and 2D)
+// limit speed of particles (used in 1D and 2D)
 static inline int32_t limitSpeed(const int32_t speed) {
   return speed > PS_P_MAXSPEED ? PS_P_MAXSPEED : (speed < -PS_P_MAXSPEED ? -PS_P_MAXSPEED : speed); // note: this is slightly faster than using min/max at the cost of 50bytes of flash
 }
 #endif
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
-// memoria allocation (based on reasonable segmento tamaño and available FX memoria)
+// memory allocation (based on reasonable segment size and available FX memory)
 #ifdef ESP8266
   #define MAXPARTICLES_2D 256
   #define MAXSOURCES_2D 24
@@ -60,7 +60,7 @@ static inline int32_t limitSpeed(const int32_t speed) {
 #define PS_P_MINHARDRADIUS 64 // minimum hard surface radius for collisions
 #define PS_P_MINSURFACEHARDNESS 128 // minimum hardness used in collision impulse calculation, below this hardness, particles become sticky
 
-// estructura for PS settings (shared for 1D and 2D clase)
+// struct for PS settings (shared for 1D and 2D class)
 typedef union {
   struct{ // one byte bit field for 2D settings
     bool wrapX : 1;
@@ -75,7 +75,7 @@ typedef union {
   byte asByte; // access as a byte, order is: LSB is first entry in the list above
 } PSsettings2D;
 
-//estructura for a single particle
+//struct for a single particle
 typedef struct { // 10 bytes
   int16_t x;  // x position in particle system
   int16_t y;  // y position in particle system
@@ -86,7 +86,7 @@ typedef struct { // 10 bytes
   uint8_t sat; // particle color saturation
 } PSparticle;
 
-//estructura for particle flags note: this is separate from the particle estructura to guardar memoria (RAM alignment)
+//struct for particle flags note: this is separate from the particle struct to save memory (ram alignment)
 typedef union {
   struct { // 1 byte
     bool outofbounds : 1; // out of bounds flag, set to true if particle is outside of display area
@@ -101,13 +101,13 @@ typedef union {
   byte asByte; // access as a byte, order is: LSB is first entry in the list above
 } PSparticleFlags;
 
-// estructura for additional particle settings (option)
+// struct for additional particle settings (option)
 typedef struct { // 2 bytes
   uint8_t size; // particle size, 255 means 10 pixels in diameter, 0  means use global size (including single pixel rendering)
   uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle;
 
-// estructura for advanced particle tamaño control (option)
+// struct for advanced particle size control (option)
 typedef struct { // 8 bytes
   uint8_t asymmetry; // asymmetrical size (0=symmetrical, 255 fully asymmetric)
   uint8_t asymdir; // direction of asymmetry, 64 is x, 192 is y (0 and 128 is symmetrical)
@@ -125,7 +125,7 @@ typedef struct { // 8 bytes
 } PSsizeControl;
 
 
-//estructura for a particle source (20 bytes)
+//struct for a particle source (20 bytes)
 typedef struct {
   uint16_t minLife; // minimum ttl of emittet particles
   uint16_t maxLife; // maximum ttl of emitted particles
@@ -137,11 +137,11 @@ typedef struct {
   uint8_t size; // particle size (advanced property), global size is added on top to this size
 } PSsource;
 
-// clase uses approximately 60 bytes
+// class uses approximately 60 bytes
 class ParticleSystem2D {
 public:
   ParticleSystem2D(const uint32_t width, const uint32_t height, const uint32_t numberofparticles, const uint32_t numberofsources, const bool isadvanced = false,  const bool sizecontrol = false); // constructor
-  // note: memoria is allcated in the FX función, no deconstructor needed
+  // note: memory is allcated in the FX function, no deconstructor needed
   void update(void); //update the particles according to set options and render to the matrix
   void updateFire(const uint8_t intensity, const bool renderonly); // update function for fire, if renderonly is set, particles are not updated (required to fix transitions with frameskips)
   void updateSystem(void); // call at the beginning of every FX, updates pointers and dimensions
@@ -161,7 +161,7 @@ public:
   void applyFriction(PSparticle &part, const int32_t coefficient); // apply friction to specific particle
   void applyFriction(const int32_t coefficient); // apply friction to all used particles
   void pointAttractor(const uint32_t particleindex, PSparticle &attractor, const uint8_t strength, const bool swallow);
-  // set options  note: inlining the set función uses more flash so dont optimize
+  // set options  note: inlining the set function uses more flash so dont optimize
   void setUsedParticles(const uint8_t percentage);  // set the percentage of particles used in the system, 255=100%
   void setCollisionHardness(const uint8_t hardness); // hardness for particle collisions (255 means full hard)
   void setWallHardness(const uint8_t hardness); // hardness for bouncing on the wall if bounceXY is set
@@ -190,13 +190,13 @@ public:
   int32_t maxXpixel, maxYpixel; // last physical pixel that can be drawn to (FX can read this to read segment size if required), equal to width-1 / height-1
   uint32_t numSources; // number of sources
   uint32_t usedParticles; // number of particles used in animation, is relative to 'numParticles'
-  //note: some variables are 32bit for velocidad and código tamaño at the cost of RAM
+  //note: some variables are 32bit for speed and code size at the cost of ram
 
 private:
   //rendering functions
   void render();
   [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
-  //paricle physics applied by sistema if flags are set
+  //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
   [[gnu::hot]] void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const uint32_t collDistSq);
@@ -206,7 +206,7 @@ private:
   bool updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   void getParticleXYsize(PSadvancedParticle *advprops, PSsizeControl *advsize, uint32_t &xsize, uint32_t &ysize);
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
-  // note: variables that are accessed often are 32bit for velocidad
+  // note: variables that are accessed often are 32bit for speed
   uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings2D particlesettings; // settings used when updating particles (can also used by FX to move sources), do not edit properties directly, use functions above
   uint32_t numParticles;  // total number of particles allocated by this system
@@ -227,7 +227,7 @@ private:
 };
 
 void blur2D(uint32_t *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
-// initialization functions (not part of clase)
+// initialization functions (not part of class)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, const uint32_t requestedsources, const uint32_t additionalbytes = 0, const bool advanced = false, const bool sizecontrol = false);
 uint32_t calculateNumberOfParticles2D(const uint32_t pixels, const bool advanced, const bool sizecontrol);
 uint32_t calculateNumberOfSources2D(const uint32_t pixels, const uint32_t requestedsources);
@@ -235,10 +235,10 @@ bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t 
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 
 ////////////////////////
-// 1D Particle Sistema //
+// 1D Particle System //
 ////////////////////////
 #ifndef WLED_DISABLE_PARTICLESYSTEM1D
-// memoria allocation
+// memory allocation
 #ifdef ESP8266
   #define MAXPARTICLES_1D 320
   #define MAXSOURCES_1D 16
@@ -260,10 +260,10 @@ bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t 
 #define PS_P_MINHARDRADIUS_1D 32 // minimum hard surface radius note: do not change or hourglass effect will be broken
 #define PS_P_MINSURFACEHARDNESS_1D 120 // minimum hardness used in collision impulse calculation
 
-// estructura for PS settings (shared for 1D and 2D clase)
+// struct for PS settings (shared for 1D and 2D class)
 typedef union {
   struct{
-  // one byte bit campo for 1D settings
+  // one byte bit field for 1D settings
   bool wrap : 1;
   bool bounce : 1;
   bool killoutofbounds : 1; // if set, out of bound particles are killed immediately
@@ -276,7 +276,7 @@ typedef union {
   byte asByte; // access as a byte, order is: LSB is first entry in the list above
 } PSsettings1D;
 
-//estructura for a single particle (8 bytes)
+//struct for a single particle (8 bytes)
 typedef struct {
   int32_t x;  // x position in particle system
   uint16_t ttl; // time to live in frames
@@ -284,7 +284,7 @@ typedef struct {
   uint8_t hue;  // color hue
 } PSparticle1D;
 
-//estructura for particle flags
+//struct for particle flags
 typedef union {
   struct { // 1 byte
     bool outofbounds : 1; // out of bounds flag, set to true if particle is outside of display area
@@ -299,14 +299,14 @@ typedef union {
   byte asByte; // access as a byte, order is: LSB is first entry in the list above
 } PSparticleFlags1D;
 
-// estructura for additional particle settings (optional)
+// struct for additional particle settings (optional)
 typedef struct {
   uint8_t sat; //color saturation
   uint8_t size; // particle size, 255 means 10 pixels in diameter, this overrides global size setting
   uint8_t forcecounter;
 } PSadvancedParticle1D;
 
-//estructura for a particle source (20 bytes)
+//struct for a particle source (20 bytes)
 typedef struct {
   uint16_t minLife; // minimum ttl of emittet particles
   uint16_t maxLife; // maximum ttl of emitted particles
@@ -323,7 +323,7 @@ class ParticleSystem1D
 {
 public:
   ParticleSystem1D(const uint32_t length, const uint32_t numberofparticles, const uint32_t numberofsources, const bool isadvanced = false); // constructor
-  // note: memoria is allcated in the FX función, no deconstructor needed
+  // note: memory is allcated in the FX function, no deconstructor needed
   void update(void); //update the particles according to set options and render to the matrix
   void updateSystem(void); // call at the beginning of every FX, updates pointers and dimensions
   // particle emitters
@@ -354,7 +354,7 @@ public:
   PSparticleFlags1D *particleFlags; // pointer to particle flags array
   PSsource1D *sources; // pointer to sources
   PSadvancedParticle1D *advPartProps; // pointer to advanced particle properties (can be NULL)
-  //PSsizeControl *advPartSize; // pointer to advanced particle tamaño control (can be NULO)
+  //PSsizeControl *advPartSize; // pointer to advanced particle size control (can be NULL)
   uint8_t* PSdataEnd; // points to first available byte after the PSmemory, is set in setPointers(). use this for FX custom data
   int32_t maxX; // particle system size i.e. width-1, Note: all "max" variables must be signed to compare to coordinates (which are signed)
   int32_t maxXpixel; // last physical pixel that can be drawn to (FX can read this to read segment size if required), equal to width-1
@@ -366,16 +366,16 @@ private:
   void render(void);
   [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap);
 
-  //paricle physics applied by sistema if flags are set
+  //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
   [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance);
 
   //utility functions
   void updatePSpointers(const bool isadvanced); // update the data pointers to current segment data space
-  //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced tamaño control
+  //void updateSize(PSadvancedParticle *advprops, PSsizeControl *advsize); // advanced size control
   [[gnu::hot]] void bounce(int8_t &incomingspeed, int8_t &parallelspeed, int32_t &position, const uint32_t maxposition); // bounce on a wall
-  // note: variables that are accessed often are 32bit for velocidad
+  // note: variables that are accessed often are 32bit for speed
   uint32_t *framebuffer; // frame buffer for rendering. note: using CRGBW as the buffer is slower, ESP compiler seems to optimize this better giving more consistent FPS
   PSsettings1D particlesettings; // settings used when updating particles
   uint32_t numParticles;  // total number of particles allocated by this system

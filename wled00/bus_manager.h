@@ -10,7 +10,7 @@
 
 #endif
 /*
- * Clase for addressing various light types
+ * Class for addressing various light types
  */
 
 #include "const.h"
@@ -21,7 +21,7 @@
 #if __cplusplus >= 201402L
 using std::make_unique;
 #else
-// Really simple C++11 shim for non-matriz case; implementación from cppreference.com
+// Really simple C++11 shim for non-array case; implementation from cppreference.com
 template<class T, class... Args>
 std::unique_ptr<T>
 make_unique(Args&&... args)
@@ -30,7 +30,7 @@ make_unique(Args&&... args)
 }
 #endif
 
-// habilitar additional depuración salida
+// enable additional debug output
 #if defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
   #define DEBUGOUT NetDebug
@@ -69,7 +69,7 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb);
 
 struct BusConfig; // forward declaration
 
-// Defines an LED Tira and its color ordering.
+// Defines an LED Strip and its color ordering.
 typedef struct {
   uint16_t start;
   uint16_t len;
@@ -106,7 +106,7 @@ typedef struct {
 } LEDType;
 
 
-//parent clase of BusDigital, BusPwm, and BusNetwork
+//parent class of BusDigital, BusPwm, and BusNetwork
 class Bus {
   public:
     Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
@@ -216,7 +216,7 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
-    //estructura { //usando bitfield estructura adds abour 250 bytes to binary tamaño
+    //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;
       bool _needsRefresh;// : 1;
@@ -226,8 +226,8 @@ class Bus {
     //} __attribute__ ((packed));
     static uint8_t _gAWM;
     // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
-    //    -1 means to extract approximate CCT valor in K from RGB (in calcualteCCT())
-    //    [0,255] is the exact CCT valor where 0 means warm and 255 cold
+    //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
+    //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
     static int16_t _cct;
     // _cctBlend determines WW/CW blending:
@@ -397,14 +397,14 @@ class BusHub75Matrix : public Bus {
     unsigned _panelWidth = 0;
     CRGB *_ledBuffer = nullptr;
     byte *_ledsDirty = nullptr;
-    // workaround for missing constants on incluir ruta for non-MM
+    // workaround for missing constants on include path for non-MM
     uint32_t IS_BLACK = 0x000000;
     uint32_t IS_DARKGREY = 0x333333;
     const int PIN_COUNT = 14;
 };
 #endif
 
-//temporary estructura for passing bus configuration to bus
+//temporary struct for passing bus configuration to bus
 struct BusConfig {
   uint8_t type;
   uint16_t count;
@@ -448,14 +448,14 @@ struct BusConfig {
     );
   }
 
-  //validates iniciar and longitud and extends total if needed
+  //validates start and length and extends total if needed
   bool adjustBounds(uint16_t& total) {
     if (!count) count = 1;
     if (count > MAX_LEDS_PER_BUS) count = MAX_LEDS_PER_BUS;
     if (start >= MAX_LEDS) return false;
-    //límite longitud of tira if it would exceed total permissible LEDs
+    //limit length of strip if it would exceed total permissible LEDs
     if (start + count > MAX_LEDS) count = MAX_LEDS - start;
-    //extend total conteo accordingly
+    //extend total count accordingly
     if (start + count > total) total = start + count;
     return true;
   }
@@ -464,7 +464,7 @@ struct BusConfig {
 };
 
 
-// milliamps used by ESP (for power estimación)
+// milliamps used by ESP (for power estimation)
 // you can set it to 0 if the ESP is powered by USB and the LEDs by external
 #ifndef MA_FOR_ESP
   #ifdef ESP8266
@@ -477,7 +477,7 @@ struct BusConfig {
 namespace BusManager {
 
   extern std::vector<std::unique_ptr<Bus>> busses;
-  //externo std::vector<Bus*> busses;
+  //extern std::vector<Bus*> busses;
   extern uint16_t _gMilliAmpsUsed;
   extern uint16_t _gMilliAmpsMax;
   extern bool     _useABL;
@@ -493,7 +493,7 @@ namespace BusManager {
 
   size_t          memUsage();
   inline uint16_t currentMilliamps()            { return _gMilliAmpsUsed + MA_FOR_ESP; }
-  //en línea uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); retorno sum; }
+  //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
@@ -502,7 +502,7 @@ namespace BusManager {
   void useParallelOutput(); // workaround for inaccessible PolyBus
   bool hasParallelOutput(); // workaround for inaccessible PolyBus
 
-  //do not call this método from sistema contexto (red devolución de llamada)
+  //do not call this method from system context (network callback)
   void removeAll();
   int  add(const BusConfig &bc);
 
@@ -515,14 +515,14 @@ namespace BusManager {
   bool        canAllShow();
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}
   inline void setBrightness(uint8_t b)   { for (auto &bus : busses) bus->setBrightness(b); }
-  // for setSegmentCCT(), cct can only be in [-1,255] rango; allowWBCorrection will convertir it to K
-  // ADVERTENCIA: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
+  // for setSegmentCCT(), cct can only be in [-1,255] range; allowWBCorrection will convert it to K
+  // WARNING: setSegmentCCT() is a misleading name!!! much better would be setGlobalCCT() or just setCCT()
   void           setSegmentCCT(int16_t cct, bool allowWBCorrection = false);
   inline int16_t getSegmentCCT()         { return Bus::getCCT(); }
   inline Bus*    getBus(size_t busNr)    { return busNr < busses.size() ? busses[busNr].get() : nullptr; }
   inline size_t  getNumBusses()          { return busses.size(); }
 
-  //semi-duplicate of tira.getLengthTotal() (though that just returns tira._length, calculated in finalizeInit())
+  //semi-duplicate of strip.getLengthTotal() (though that just returns strip._length, calculated in finalizeInit())
   inline uint16_t getTotalLength(bool onlyPhysical = false) {
     unsigned len = 0;
     for (const auto &bus : busses) if (!(bus->isVirtual() && onlyPhysical)) len += bus->getLength();

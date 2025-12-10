@@ -48,7 +48,7 @@ void NetworkClass::localMAC(uint8_t* MAC)
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   // ETH.macAddress(MAC); // Does not work because of missing ETHClass:: in ETH.ccp
 
-  // Iniciar work around
+  // Start work around
   String macString = ETH.macAddress();
   char macChar[18];
   char * octetEnd = macChar;

@@ -1,6 +1,6 @@
 //page js
 var loc = false, locip, locproto = "http:";
-var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, syncSend = false/*, syncTglRecv = verdadero*/;
+var isOn = false, nlA = false, isLv = false, isInfo = false, isNodes = false, syncSend = false/*, syncTglRecv = true*/;
 var hasWhite = false, hasRGB = false, hasCCT = false, has2D = false;
 var nlDur = 60, nlTar = 0;
 var nlMode = false;
@@ -32,7 +32,7 @@ var cfg = {
 		  labels:true, pcmbot:false, pid:true, seglen:false, segpwr:false, segexp:false,
 		  css:true, hdays:false, fxdef:true, on:0, off:0, idsort: false}
 };
-// [year, month (0 -> January, 11 -> December), day, duración in days, image url]
+// [year, month (0 -> January, 11 -> December), day, duration in days, image url]
 var hol = [
 	[0, 11, 24, 4, "https://aircoookie.github.io/xmas.png"],		// christmas
 	[0, 2, 17, 1, "https://images.alphacoders.com/491/491123.jpg"],	// st. Patrick's day
@@ -62,13 +62,13 @@ function isEmpty(o) {for (const i in o) return false; return true;}
 function isObj(i) {return (i && typeof i === 'object' && !Array.isArray(i));}
 function isNumeric(n) {return !isNaN(parseFloat(n)) && isFinite(n);}
 
-// returns verdadero if dataset R, G & B values are 0
+// returns true if dataset R, G & B values are 0
 function isRgbBlack(a) {return (parseInt(a.r) == 0 && parseInt(a.g) == 0 && parseInt(a.b) == 0);}
 
 // returns RGB color from a given dataset
 function rgbStr(a) {return "rgb(" + a.r + "," + a.g + "," + a.b + ")";}
 
-// brillo approximation for selecting white as texto color if background bri < 127, and black if higher
+// brightness approximation for selecting white as text color if background bri < 127, and black if higher
 function rgbBri(a) {return 0.2126*parseInt(a.r) + 0.7152*parseInt(a.g) + 0.0722*parseInt(a.b);}
 
 // sets background of color slot selectors
@@ -278,11 +278,11 @@ function onLoad()
 	cpick.on("color:change", () => {updatePSliders()});
 	pmtLS = localStorage.getItem('wledPmt');
 
-	// Cargar initial datos
+	// Load initial data
 	loadPalettes(()=>{
-		// fill efecto extra datos matriz
+		// fill effect extra data array
 		loadFXData(()=>{
-			// carga and populate effects
+			// load and populate effects
 			setTimeout(()=>{loadFX(()=>{
 				loadPalettesData(()=>{
 					requestJson();// will load presets and create WS
@@ -294,7 +294,7 @@ function onLoad()
 	resetUtil();
 
 	d.addEventListener("visibilitychange", handleVisibilityChange, false);
-	//tamaño();
+	//size();
 	gId("cv").style.opacity=0;
 	d.querySelectorAll('input[type="range"]').forEach((sl)=>{
 		sl.addEventListener('touchstart', toggleBubble);
@@ -337,7 +337,7 @@ var timeout;
 function showToast(text, error = false)
 {
 	var x = gId('toast');
-	//if (error) texto += '<i clase="icons btn-icon" style="transform:rotate(45deg);posición:absoluto;top:10px;right:0px;" onclick="clearErrorToast(100);">&#xe18a;</i>';
+	//if (error) text += '<i class="icons btn-icon" style="transform:rotate(45deg);position:absolute;top:10px;right:0px;" onclick="clearErrorToast(100);">&#xe18a;</i>';
 	x.innerHTML = text;
 	x.classList.add(error ? 'error':'show');
 	clearTimeout(timeout);
@@ -483,9 +483,9 @@ function restore(txt) {
 
 function loadPresets(callback = null)
 {
-	// 1st boot (because there is a devolución de llamada)
+	// 1st boot (because there is a callback)
 	if (callback && pmt == pmtLS && pmt > 0) {
-		// we have a copy of the presets in local almacenamiento and don't need to obtener another one
+		// we have a copy of the presets in local storage and don't need to fetch another one
 		populatePresets(true);
 		pmtLast = pmt;
 		callback();
@@ -509,7 +509,7 @@ function loadPresets(callback = null)
 		populatePresets();
 	})
 	.catch((e)=>{
-		//showToast(e, verdadero);
+		//showToast(e, true);
 		presetError(false);
 	})
 	.finally(()=>{
@@ -582,7 +582,7 @@ function loadFXData(callback = null)
 	})
 	.then((json)=>{
 		fxdata = json||[];
-		// add default valor for Solid
+		// add default value for Solid
 		fxdata.shift()
 		fxdata.unshift(";!;");
 		retry = false;
@@ -691,24 +691,24 @@ function parseInfo(i) {
 //	}
 //	if (!i.u || !i.u.AudioReactive) {
 //		gId("filterVol").classList.add("hide"); hideModes(" ♪"); // hide volume reactive effects
-//		gId("filterFreq").classList.add("hide"); hideModes(" ♫"); // hide frecuencia reactive effects
+//		gId("filterFreq").classList.add("hide"); hideModes(" ♫"); // hide frequency reactive effects
 //	}
-	// Verificar for versión upgrades on page carga
+	// Check for version upgrades on page load
 	checkVersionUpgrade(i);
 }
 
 //https://stackoverflow.com/questions/2592092/executing-script-elements-inserted-with-innerhtml
-//var setInnerHTML = función(elm, HTML) {
-//	elm.innerHTML = HTML;
-//	Matriz.from(elm.querySelectorAll("script")).forEach( oldScript => {
-//	  constante newScript = document.createElement("script");
-//	  Matriz.from(oldScript.attributes)
-//		.forEach( attr => newScript.setAttribute(attr.name, attr.valor) );
+//var setInnerHTML = function(elm, html) {
+//	elm.innerHTML = html;
+//	Array.from(elm.querySelectorAll("script")).forEach( oldScript => {
+//	  const newScript = document.createElement("script");
+//	  Array.from(oldScript.attributes)
+//		.forEach( attr => newScript.setAttribute(attr.name, attr.value) );
 //	  newScript.appendChild(document.createTextNode(oldScript.innerHTML));
 //	  oldScript.parentNode.replaceChild(newScript, oldScript);
 //	});
 //}
-//setInnerHTML(obj, HTML);
+//setInnerHTML(obj, html);
 
 function populateInfo(i)
 {
@@ -748,7 +748,7 @@ ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.
 ${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
 </table>`;
 	gId('kv').innerHTML = cn;
-	//  actualizar all sliders in Información
+	//  update all sliders in Info
 	d.querySelectorAll('#kv .sliderdisplay').forEach((sd,i) => {
 		let s = sd.previousElementSibling;
 		if (s) updateTrail(s);
@@ -771,7 +771,7 @@ function populateSegments(s)
 		let sg = gId(`seg${i}`);
 		let exp = sg ? (sg.classList.contains('expanded') || (i===0 && cfg.comp.segexp)) : false;
 
-		// segmento set icon color
+		// segment set icon color
 		let cG = "var(--c-b)";
 		switch (inst.set) {
 			case 1: cG = "var(--c-r)"; break;
@@ -915,7 +915,7 @@ function populateSegments(s)
 	if (segCount < 2) {
 		gId(`segd${lSeg}`).classList.add("hide"); // hide delete if only one segment
 		if (parseInt(gId("seg0bri").value)==255) gId(`segp0`).classList.add("hide");
-		// hide segmento controls if there is only one segmento in simplified UI
+		// hide segment controls if there is only one segment in simplified UI
 		if (simplifiedUI) gId("segcont").classList.add("hide");
 	}
 	if (!isM && !noNewSegs && (cfg.comp.seglen?parseInt(gId(`seg${lSeg}s`).value):0)+parseInt(gId(`seg${lSeg}e`).value)<ledCount) gId(`segr${lSeg}`).classList.remove("hide");
@@ -997,7 +997,7 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// añadir custom palettes (when loading for the 1st time)
+	// append custom palettes (when loading for the 1st time)
 	let li = lastinfo;
 	if (!isEmpty(li) && li.cpalcount) {
 		for (let j = 0; j<li.cpalcount; j++) {
@@ -1151,7 +1151,7 @@ function loadNodes()
 	});
 }
 
-// actualizar the 'sliderdisplay' background div of a slider for a visual indication of slider posición
+// update the 'sliderdisplay' background div of a slider for a visual indication of slider position
 function updateTrail(e)
 {
 	if (e==null) return;
@@ -1167,14 +1167,14 @@ function updateTrail(e)
 	if (b) b.innerHTML = e.value;
 }
 
-// rangetouch slider función
+// rangetouch slider function
 function toggleBubble(e)
 {
 	var b = e.target.parentNode.parentNode.getElementsByTagName('output')[0];
 	b.classList.toggle('sliderbubbleshow');
 }
 
-// updates segmento longitud upon entrada of segmento values
+// updates segment length upon input of segment values
 function updateLen(s)
 {
 	if (!gId(`seg${s}s`)) return;
@@ -1189,7 +1189,7 @@ function updateLen(s)
 	let mySH = gId("mkSYH");
 	let mySD = gId("mkSYD");
 	if (isM) {
-		// do we have 1D segmento *after* the matrix?
+		// do we have 1D segment *after* the matrix?
 		if (start >= mw*mh) {
 			if (sY) { sY.value = 0; sY.max = 0; sY.min = 0; }
 			if (eY) { eY.value = 1; eY.max = 1; eY.min = 0; }
@@ -1199,7 +1199,7 @@ function updateLen(s)
 			if (mySD) mySD.classList.add("hide");
 			if (of) of.classList.remove("hide");
 		} else {
-			// matrix configuración
+			// matrix setup
 			if (mySH) mySH.classList.remove("hide");
 			if (mySD) mySD.classList.remove("hide");
 			if (of) of.classList.add("hide");
@@ -1208,7 +1208,7 @@ function updateLen(s)
 			len *= (stopY-startY);
 			let tPL = gId(`seg${s}lbtm`);
 			if (stop-start>1 && stopY-startY>1) {
-				// 2D segmento
+				// 2D segment
 				if (tPL) tPL.classList.remove('hide'); // unhide transpose checkbox
 				let sE = gId('fxlist').querySelector(`.lstI[data-id="${selectedFx}"]`);
 				if (sE) {
@@ -1220,7 +1220,7 @@ function updateLen(s)
 					}
 				}
 			} else {
-				// 1D segmento in 2D set-up
+				// 1D segment in 2D set-up
 				if (tPL) {
 					tPL.classList.add('hide'); // hide transpose checkbox
 					gId(`seg${s}tp`).checked = false;	// and uncheck it
@@ -1308,7 +1308,7 @@ function updateUI()
 	gId('rgbwrap').style.display = (hasRGB && ccfg.rgb) ? "block":"none";     // RGB sliders
 	gId('qcs-w').style.display   = (hasRGB && ccfg.quick) ? "block":"none";   // quick selection
 	//gId('csl').style.display     = (hasRGB || hasWhite) ? "block":"none";     // color selectors (hide for On/Off bus)
-	//gId('palw').style.display    = (hasRGB) ? "en línea-block":"none";          // palettes are shown/hidden in setEffectParameters()
+	//gId('palw').style.display    = (hasRGB) ? "inline-block":"none";          // palettes are shown/hidden in setEffectParameters()
 
 	updatePA();
 	updatePSliders();
@@ -1332,7 +1332,7 @@ function updateSelectedPalette(s)
 		gId("palwbtn").innerText = "Palette: " + selectedName;
 	}
 
-	// in case of special palettes (* Colors...), force show color selectors (if hidden by efecto datos)
+	// in case of special palettes (* Colors...), force show color selectors (if hidden by effect data)
 	let cd = gId('csl').children; // color selectors
 	if (s > 1 && s < 6) {
 		cd[0].classList.remove('hide'); // * Color 1
@@ -1359,7 +1359,7 @@ function updateSelectedFx()
 	if (selectedEffect) {
 		selectedEffect.classList.add('selected');
 		setEffectParameters(selectedFx);
-		// hide non-0D effects if segmento only has 1 píxel (0D)
+		// hide non-0D effects if segment only has 1 pixel (0D)
 		parent.querySelectorAll('.lstI').forEach((fx)=>{
 			let ds = fx.dataset;
 			if (ds.opt) {
@@ -1375,13 +1375,13 @@ function updateSelectedFx()
 		});
 		var selectedName = selectedEffect.querySelector(".lstIname").innerText;
 
-		// Display selected efecto name on button in simplified UI
+		// Display selected effect name on button in simplified UI
 		let selectedNameOnlyAscii = selectedName.replace(/[^\x00-\x7F]/g, "");
 		if (simplifiedUI) {
 			gId("fxbtn").innerText = "Effect: " + selectedNameOnlyAscii;
 		}
 
-		// hide 2D mapping and/or sound simulación options
+		// hide 2D mapping and/or sound simulation options
 		gId("segcont").querySelectorAll(`div[data-map="map2D"]`).forEach((seg)=>{
 			if (selectedName.indexOf("\u25A6")<0) seg.classList.remove('hide'); else seg.classList.add('hide');
 		});
@@ -1402,7 +1402,7 @@ function displayRover(i,s)
 function cmpP(a, b)
 {
 	if (cfg.comp.idsort || !a[1].n) return (parseInt(a[0]) > parseInt(b[0]));
-	// sort playlists first, followed by presets with characters and last presets with special 1st carácter
+	// sort playlists first, followed by presets with characters and last presets with special 1st character
 	const c = a[1].n.charCodeAt(0);
 	const d = b[1].n.charCodeAt(0);
 	if ((c>47 && c<58) || (c>64 && c<91) || (c>96 && c<123) || c>255) x = '='; else x = '>';
@@ -1425,7 +1425,7 @@ function makeWS() {
 		lastUpdate = new Date();
 		clearErrorToast();
 		gId('connind').style.backgroundColor = "var(--c-l)";
-		// JSON object should contain JSON.información AND JSON.estado (but may not)
+		// json object should contain json.info AND json.state (but may not)
 		var i = json.info;
 		if (i) {
 			parseInfo(i);
@@ -1442,7 +1442,7 @@ function makeWS() {
 		ws = null;
 	}
 	ws.onopen = (e)=>{
-		//ws.enviar("{'v':verdadero}"); // unnecessary (https://github.com/WLED/WLED/blob/master/wled00/ws.cpp#L18)
+		//ws.send("{'v':true}"); // unnecessary (https://github.com/wled/WLED/blob/master/wled00/ws.cpp#L18)
 		wsRpt = 0;
 		reqsLegal = true;
 	}
@@ -1565,24 +1565,24 @@ function readState(s,command=false)
 // control HTML elements for Slider and Color Control (original ported form WLED-SR)
 // Technical notes
 // ===============
-// If an efecto name is followed by an @, slider and color control is effective.
+// If an effect name is followed by an @, slider and color control is effective.
 // If not effective then:
 //      - For AC effects (id<128) 2 sliders and 3 colors and the palette will be shown
 //      - For SR effects (id>128) 5 sliders and 3 colors and the palette will be shown
 // If effective (@)
 //      - a ; separates slider controls (left) from color controls (middle) and palette control (right)
 //      - if left, middle or right is empty no controls are shown
-//      - a , separates slider controls (max 5) or color controls (max 3). Paleta has only one valor
+//      - a , separates slider controls (max 5) or color controls (max 3). Palette has only one value
 //      - a ! means that the default is used.
-//             - For sliders: Efecto speeds, Efecto intensidad, Personalizado 1, Personalizado 2, Personalizado 3
-//             - For colors: Fx color, Background color, Personalizado
+//             - For sliders: Effect speeds, Effect intensity, Custom 1, Custom 2, Custom 3
+//             - For colors: Fx color, Background color, Custom
 //             - For palette: prompt for color palette OR palette ID if numeric (will hide palette selection)
 //
 // Note: If palette is on and no colors are specified 1,2 and 3 is shown in each color circle.
-//       If a color is specified, the 1,2 or 3 is replaced by that especificación.
-// Note: Effects can anular default patrón behaviour
-//       - FadeToBlack can anular the background setting
-//       - Defining SEGCOL(<i>) can anular a specific palette usando these values (e.g. Color Gradient)
+//       If a color is specified, the 1,2 or 3 is replaced by that specification.
+// Note: Effects can override default pattern behaviour
+//       - FadeToBlack can override the background setting
+//       - Defining SEGCOL(<i>) can override a specific palette using these values (e.g. Color Gradient)
 function setEffectParameters(idx)
 {
 	if (!(Array.isArray(fxdata) && fxdata.length>idx)) return;
@@ -1593,7 +1593,7 @@ function setEffectParameters(idx)
 	var coOnOff = (effectPars.length<2  || effectPars[1]=='')?[]:effectPars[1].split(",");
 	var paOnOff = (effectPars.length<3  || effectPars[2]=='')?[]:effectPars[2].split(",");
 
-	// set HTML slider items on/off
+	// set html slider items on/off
 	d.querySelectorAll("#sliders .sliderwrap").forEach((slider, i)=>{
 		let text = slider.getAttribute("title");
 		if ((!controlDefined && i<((idx<128)?2:nSliders)) || (slOnOff.length>i && slOnOff[i]!="")) {
@@ -1619,7 +1619,7 @@ function setEffectParameters(idx)
 		});
 	} else gId('fxopt').classList.add('fade');
 
-	// set the bottom posición of selected efecto (sticky) as the top of sliders div
+	// set the bottom position of selected effect (sticky) as the top of sliders div
 	function setSelectedEffectPosition() {
 		if (simplifiedUI) return;
 		let top = parseInt(getComputedStyle(gId("sliders")).height);
@@ -1630,13 +1630,13 @@ function setEffectParameters(idx)
 
 	setSelectedEffectPosition();
 	setInterval(setSelectedEffectPosition,750);
-	// set HTML color items on/off
+	// set html color items on/off
 	var cslLabel = '';
 	var sep = '';
 	var cslCnt = 0, oCsel = csel;
 	d.querySelectorAll("#csl button").forEach((e,i)=>{
 		var btn = gId("csl" + i);
-		// if no controlDefined or coOnOff has a valor
+		// if no controlDefined or coOnOff has a value
 		if (coOnOff.length>i && coOnOff[i] != "") {
 			btn.classList.remove('hide');
 			btn.dataset.hide = 0;
@@ -1674,7 +1674,7 @@ function setEffectParameters(idx)
 	var pall = gId("pall");	// label
 	var icon = '<i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> ';
 	var text = 'Color palette';
-	// if not controlDefined or palette has a valor
+	// if not controlDefined or palette has a value
 	if (hasRGB && ((!controlDefined) || (paOnOff.length>0 && paOnOff[0]!="" && isNaN(paOnOff[0])))) {
 		palw.style.display = "inline-block";
 		if (paOnOff.length>0 && paOnOff[0].indexOf("=")>0) {
@@ -1687,7 +1687,7 @@ function setEffectParameters(idx)
 		gId("adPal").classList.remove("hide");
 		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
 	} else {
-		// deshabilitar palette lista
+		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
 		gId("adPal").classList.add("hide");
@@ -1699,12 +1699,12 @@ function setEffectParameters(idx)
 	}
 	pall.innerHTML = icon + text;
 	// not all color selectors shown, hide palettes created from color selectors
-	// NOTE: this will disallow usuario to select "* Color ..." palettes which may be undesirable in some cases or for some users
+	// NOTE: this will disallow user to select "* Color ..." palettes which may be undesirable in some cases or for some users
 	//for (let e of (gId('pallist').querySelectorAll('.lstI')||[])) {
 	//	let fltr = "* C";
 	//	if (cslCnt==1 && csel==0) fltr = "* Colors";
 	//	else if (cslCnt==2) fltr = "* Colors Only";
-	//	if (cslCnt < 3 && e.querySelector('.lstIname').innerText.indexOf(fltr)>=0) e.classList.add('hide'); else e.classList.eliminar('hide');
+	//	if (cslCnt < 3 && e.querySelector('.lstIname').innerText.indexOf(fltr)>=0) e.classList.add('hide'); else e.classList.remove('hide');
 	//}
 }
 
@@ -1727,7 +1727,7 @@ function requestJson(command=null)
 			var tn = parseInt(t.value*10);
 			if (tn != tr) command.transition = tn;
 		}
-		//command.bs = parseInt(gId('bs').valor);
+		//command.bs = parseInt(gId('bs').value);
 		req = JSON.stringify(command);
 		if (req.length > 1340) useWs = false; // do not send very long requests over websocket
 		if (req.length >  500 && lastinfo && lastinfo.arch == "esp8266") useWs = false; // esp8266 can only handle 500 bytes
@@ -1765,7 +1765,7 @@ function requestJson(command=null)
 		var s = json.state ? json.state : json;
 		readState(s);
 
-		//carga presets and open WebSocket sequentially
+		//load presets and open websocket sequentially
 		if (!pJson || isEmpty(pJson)) setTimeout(()=>{
 			loadPresets(()=>{
 				wsRpt = 0;
@@ -1931,7 +1931,7 @@ function makePlSel(p, el)
 		var n = a[1].n ? a[1].n : "Preset " + a[0];
 		if (isPlaylist(a[1])) n += ' &#9654;'; // mark playlist
 		if (cfg.comp.idsort) n = a[0] + ' ' + n;
-		// omitir endless playlists and itself
+		// skip endless playlists and itself
 		if (!isPlaylist(a[1]) || (a[1].playlist.repeat > 0 && a[0]!=p)) plSelContent += `<option value="${a[0]}" ${a[0]==el?"selected":""}>${n}</option>`;
 	});
 	return plSelContent;
@@ -1957,7 +1957,7 @@ function refreshPlE(p)
 	});
 }
 
-// p: preset ID, i: playlist item índice
+// p: preset ID, i: playlist item index
 function addPl(p,i)
 {
 	const pl = plJson[p];
@@ -2395,7 +2395,7 @@ function tglFreeze(s=null)
 	var obj = {"seg": {"frz": "t"}}; // toggle
 	if (s!==null) {
 		obj.seg.id = s;
-		// if live segmento, enter live anular (which also unfreezes)
+		// if live segment, enter live override (which also unfreezes)
 		if (lastinfo && s==lastinfo.liveseg && lastinfo.live) obj = {"lor":1};
 	}
 	requestJson(obj);
@@ -2409,7 +2409,7 @@ function setFX(ind = null)
 		d.querySelector(`#fxlist input[name="fx"][value="${ind}"]`).checked = true;
 	}
 
-	// Close efecto dialog in simplified UI
+	// Close effect dialog in simplified UI
 	if (simplifiedUI) {
 		gId("fx").lastElementChild.close();
 	}
@@ -2484,8 +2484,8 @@ function setPreset(i)
 {
 	var obj = {"ps":i};
 	if (!isPlaylist(i) && pJson && pJson[i] && (!pJson[i].win || pJson[i].win.indexOf("Please") <= 0)) {
-		// we will enviar the complete preset contenido as to avoid retraso introduced by
-		// asíncrono nature of applyPreset() and having to leer the preset from archivo sistema.
+		// we will send the complete preset content as to avoid delay introduced by
+		// async nature of applyPreset() and having to read the preset from file system.
 		obj = {"pd":i}; // use "pd" instead of "ps" to indicate that we are sending the preset content directly
 		Object.assign(obj, pJson[i]);
 		delete obj.ql; // no need for quick load
@@ -2599,14 +2599,14 @@ function selectSlot(b)
 	for (let i of cd) i.classList.remove('sl');
 	cd[b].classList.add('sl');
 	setPicker(rgbStr(cd[b].dataset));
-	// force slider actualizar on initial carga (picker "color:change" not fired if black)
+	// force slider update on initial load (picker "color:change" not fired if black)
 	if (cpick.color.value == 0) updatePSliders();
 	gId('sliderW').value = parseInt(cd[b].dataset.w);
 	updateTrail(gId('sliderW'));
 	redrawPalPrev();
 }
 
-// set the color from a hex cadena. Used by quick color selectors
+// set the color from a hex string. Used by quick color selectors
 var lasth = 0;
 function pC(col)
 {
@@ -2623,20 +2623,20 @@ function pC(col)
 }
 
 function updatePSliders() {
-	// actualizar RGB sliders
+	// update RGB sliders
 	var col = cpick.color.rgb;
 	gId('sliderR').value = col.r;
 	gId('sliderG').value = col.g;
 	gId('sliderB').value = col.b;
 
-	// actualizar hex campo
+	// update hex field
 	var str = cpick.color.hexString.substring(1);
 	var w = parseInt(gId("csl").children[csel].dataset.w);
 	if (w > 0) str += w.toString(16);
 	gId('hexc').value = str;
 	gId('hexcnf').style.backgroundColor = "var(--c-3)";
 
-	// actualizar HSV sliders
+	// update HSV sliders
 	var c;
 	let h = cpick.color.hue;
 	let s = cpick.color.saturation;
@@ -2652,7 +2652,7 @@ function updatePSliders() {
 	c = iro.Color.hsvToRgb({"h":h,"s":s,"v":100});
 	gId('sliderV').nextElementSibling.style.backgroundImage = 'linear-gradient(90deg, #000 -15%, rgb('+c.r+','+c.g+','+c.b+'))';
 
-	// actualizar Kelvin slider
+	// update Kelvin slider
 	gId('sliderK').value = cpick.color.kelvin;
 }
 
@@ -2872,14 +2872,14 @@ function getPalettesData(page, callback)
 	});
 }
 /*
-función hideModes(txt)
+function hideModes(txt)
 {
 	for (let e of (gId('fxlist').querySelectorAll('.lstI')||[])) {
 		let iT = e.querySelector('.lstIname').innerText;
-		let f = falso;
+		let f = false;
 		if (txt==="2D") f = iT.indexOf("\u25A6") >= 0 && iT.indexOf("\u22EE") < 0; // 2D && !1D
 		else f = iT.indexOf(txt) >= 0;
-		if (f) e.classList.add('hide'); //else e.classList.eliminar('hide');
+		if (f) e.classList.add('hide'); //else e.classList.remove('hide');
 	}
 }
 */
@@ -2889,7 +2889,7 @@ function search(field, listId = null) {
 
 	const search = field.value !== '';
 
-	// restore default preset sorting if no buscar term is entered
+	// restore default preset sorting if no search term is entered
 	if (!search) {
 		if (listId === 'pcont') { populatePresets(); return; }
 		if (listId === 'pallist') {
@@ -2900,15 +2900,15 @@ function search(field, listId = null) {
 		}
 	}
 
-	// limpiar filtro if searching in fxlist
+	// clear filter if searching in fxlist
 	if (listId === 'fxlist' && search) {
 		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { e.checked = false; });
 	}
 
-	// do not buscar if filtro is active
+	// do not search if filter is active
 	if (gId("filters").querySelectorAll("input[type=checkbox]:checked").length) return;
 
-	// filtro lista items but leave (Predeterminado & Solid) always visible
+	// filter list items but leave (Default & Solid) always visible
 	const listItems = gId(listId).querySelectorAll('.lstI');
 	listItems.forEach((listItem, i) => {
 		if (listId !== 'pcont' && i === 0) return;
@@ -2922,7 +2922,7 @@ function search(field, listId = null) {
 		listItem.style.display = (searchIndex < 0) && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 
-	// sort lista items by buscar índice and name
+	// sort list items by search index and name
 	const sortedListItems = Array.from(listItems).sort((a, b) => {
 		const aSearchIndex = parseInt(a.dataset.searchIndex);
 		const bSearchIndex = parseInt(b.dataset.searchIndex);
@@ -2940,7 +2940,7 @@ function search(field, listId = null) {
 		gId(listId).append(item);
 	});
 
-	// scroll to first buscar resultado
+	// scroll to first search result
 	const firstVisibleItem = sortedListItems.find(item => item.style.display !== 'none' && !item.classList.contains('sticky') && !item.classList.contains('selected'));
 	if (firstVisibleItem && search) {
 		firstVisibleItem.scrollIntoView({ behavior: "instant", block: "center" });
@@ -2964,7 +2964,7 @@ function filterFocus(e) {
 	const h = f.offsetHeight;
 	const sti = parseInt(getComputedStyle(d.documentElement).getPropertyValue('--sti'));
 	if (e.type === "focus") {
-		// compute sticky top (with retraso for transición)
+		// compute sticky top (with delay for transition)
 		if (!h) setTimeout(() => {
 			sCol('--sti', (sti+f.offsetHeight) + "px"); // has an unpleasant consequence on palette offset
 		}, 255);
@@ -2973,7 +2973,7 @@ function filterFocus(e) {
 	if (e.type === "blur") {
 		setTimeout(() => {
 			if (e.target === document.activeElement && document.hasFocus()) return;
-			// do not hide if filtro is active
+			// do not hide if filter is active
 			if (!c) {
 				// compute sticky top
 				sCol('--sti', (sti-h) + "px"); // has an unpleasant consequence on palette offset
@@ -2991,7 +2991,7 @@ function filterFx() {
 	gId("fxlist").querySelectorAll('.lstI').forEach((listItem, i) => {
 		const listItemName = listItem.querySelector('.lstIname').innerText;
 		let hide = false;
-		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i > 0 /*verdadero*/; });
+		gId("filters").querySelectorAll("input[type=checkbox]").forEach((e) => { if (e.checked && !listItemName.includes(e.dataset.flt)) hide = i > 0 /*true*/; });
 		listItem.style.display = hide && !listItem.classList.contains("selected") ? 'none' : '';
 	});
 }
@@ -3001,7 +3001,7 @@ function preventBlur(e) {
 	e.preventDefault();
 }
 
-// make sure "dur" and "transición" are arrays with at least the longitud of "ps"
+// make sure "dur" and "transition" are arrays with at least the length of "ps"
 function formatArr(pl) {
 	var l = pl.ps.length;
 	if (!Array.isArray(pl.dur)) {
@@ -3179,7 +3179,7 @@ function tooltip(cont=null)
 {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
-			// guardar title
+			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
 			tooltip.className = "tooltip";
@@ -3216,9 +3216,9 @@ function tooltip(cont=null)
 
 // Transforms the default UI into the simple UI
 function simplifyUI() {
-	// Crear dropdown dialog
+	// Create dropdown dialog
 	function createDropdown(id, buttonText, dialogElements = null) {
-		// Crear dropdown dialog
+		// Create dropdown dialog
 		const dialog = document.createElement("dialog");
 		// Move every dialogElement to the dropdown dialog or if none are given, move all children of the element with the given id
 		if (dialogElements) {
@@ -3231,7 +3231,7 @@ function simplifyUI() {
 			}
 		}
 
-		// Crear button for the dropdown
+		// Create button for the dropdown
 		const btn = document.createElement("button");
 		btn.id = id + "btn";
 		btn.classList.add("btn");
@@ -3257,31 +3257,31 @@ function simplifyUI() {
 		gId(id).append(dialog);
 	}
 
-	// Verificar if the UI was already simplified
+	// Check if the UI was already simplified
 	if (gId("Colors").classList.contains("simplified")) return;
 
-	// Deshabilitar PC Mode as it does not exist in simple UI
+	// Disable PC Mode as it does not exist in simple UI
 	if (pcMode) togglePcMode(true);
 	_C.style.width = '100%'
 	_C.style.setProperty('--n', 1);
 
 	gId("Colors").classList.add("simplified");
-	// Put effects below palett lista
+	// Put effects below palett list
 	gId("Colors").append(gId("fx"));
 	gId("Colors").append(gId("sliders"));
-	// Put segments before palette lista
+	// Put segments before palette list
 	gId("Colors").insertBefore(gId("segcont"), gId("pall"));
-	// Put preset quick carga before palette lista and segemts
+	// Put preset quick load before palette list and segemts
 	gId("Colors").insertBefore(gId("pql"), gId("pall"));
 
-	// Crear dropdown for palette lista
+	// Create dropdown for palette list
 	createDropdown("palw", "Change palette");
 	createDropdown("fx", "Change effect", [gId("fxFind"), gId("fxlist")]);
 
 	// Hide palette label
 	gId("pall").style.display = "none";
 	gId("Colors").insertBefore(document.createElement("br"), gId("pall"));
-	// Hide efecto label
+	// Hide effect label
 	gId("modeLabel").style.display = "none";
 
 	// Hide buttons in top bar
@@ -3299,31 +3299,31 @@ function simplifyUI() {
 	gId("Segments").style.display = "none";
 	gId("Presets").style.display = "none";
 
-	// Hide filtro options
+	// Hide filter options
 	gId("filters").style.display = "none";
 
-	// Hide buttons for píxel art and custom palettes (add / eliminar)
+	// Hide buttons for pixel art and custom palettes (add / delete)
 	gId("btns").style.display = "none";
 }
 
-// Versión reporting feature
+// Version reporting feature
 var versionCheckDone = false;
 
 function checkVersionUpgrade(info) {
-	// Only verificar once per page carga
+	// Only check once per page load
 	if (versionCheckDone) return;
 	versionCheckDone = true;
 
-	// Suprimir feature if in AP mode (no internet conexión available)
+	// Suppress feature if in AP mode (no internet connection available)
 	if (info.wifi && info.wifi.ap) return;
 
-	// Obtener versión-información.JSON usando existing /edit extremo
+	// Fetch version-info.json using existing /edit endpoint
 	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
 		method: 'get'
 	})
 		.then(res => {
 			if (res.status === 404) {
-				// Archivo doesn't exist - first install, show install prompt
+				// File doesn't exist - first install, show install prompt
 				showVersionUpgradePrompt(info, null, info.ver);
 				return null;
 			}
@@ -3335,24 +3335,24 @@ function checkVersionUpgrade(info) {
 		.then(versionInfo => {
 			if (!versionInfo) return; // 404 case already handled
 
-			// Verificar if usuario opted out
+			// Check if user opted out
 			if (versionInfo.neverAsk) return;
 
-			// Verificar if versión has changed
+			// Check if version has changed
 			const currentVersion = info.ver;
 			const storedVersion = versionInfo.version || '';
 
 			if (storedVersion && storedVersion !== currentVersion) {
-				// Versión has changed, show mejora prompt
+				// Version has changed, show upgrade prompt
 				showVersionUpgradePrompt(info, storedVersion, currentVersion);
 			} else if (!storedVersion) {
-				// Empty versión in archivo, show install prompt
+				// Empty version in file, show install prompt
 				showVersionUpgradePrompt(info, null, currentVersion);
 			}
 		})
 		.catch(e => {
 			console.log('Failed to load version-info.json', e);
-			// On error, guardar current versión for next time
+			// On error, save current version for next time
 			if (info && info.ver) {
 				updateVersionInfo(info.ver, false);
 			}
@@ -3360,10 +3360,10 @@ function checkVersionUpgrade(info) {
 }
 
 function showVersionUpgradePrompt(info, oldVersion, newVersion) {
-	// Determine if this is an install or mejora
+	// Determine if this is an install or upgrade
 	const isInstall = !oldVersion;
 
-	// Crear overlay and dialog
+	// Create overlay and dialog
 	const overlay = d.createElement('div');
 	overlay.id = 'versionUpgradeOverlay';
 	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
@@ -3371,7 +3371,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	const dialog = d.createElement('div');
 	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
 
-	// Compilación contextual mensaje based on install vs mejora
+	// Build contextual message based on install vs upgrade
 	const title = isInstall
 		? '🎉 Thank you for installing WLED!'
 		: '🎉 WLED Upgrade Detected!';
@@ -3399,14 +3399,14 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	overlay.appendChild(dialog);
 	d.body.appendChild(overlay);
 
-	// Add evento listeners
+	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
 		reportUpgradeEvent(info, oldVersion);
 		d.body.removeChild(overlay);
 	});
 
 	gId('versionReportNo').addEventListener('click', () => {
-		// Don't actualizar versión, will ask again on next carga
+		// Don't update version, will ask again on next load
 		d.body.removeChild(overlay);
 	});
 
@@ -3420,14 +3420,14 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 function reportUpgradeEvent(info, oldVersion) {
 	showToast('Reporting upgrade...');
 
-	// Obtener fresh datos from /JSON/información extremo as requested
+	// Fetch fresh data from /json/info endpoint as requested
 	fetch(getURL('/json/info'), {
 		method: 'get'
 	})
 		.then(res => res.json())
 		.then(infoData => {
 			// Map to UpgradeEventRequest structure per OpenAPI spec
-			// Required fields: deviceId, versión, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
+			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 			const upgradeData = {
 				deviceId: infoData.deviceId,                     // Use anonymous unique device ID
 				version: infoData.ver || '',                     // Current version string
@@ -3443,8 +3443,9 @@ function reportUpgradeEvent(info, oldVersion) {
 			};
 
 			// Add optional fields if available
-			if (infoData.psram !== undefined) upgradeData.psramSize = Math.round(infoData.psram / (1024 * 1024));  // convert bytes to MB
-			// Note: partitionSizes not currently available in /JSON/información extremo
+			if (infoData.psramPresent !== undefined) upgradeData.psramPresent = infoData.psramPresent;  // Whether device has PSRAM
+			if (infoData.psramSize !== undefined) upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
+			// Note: partitionSizes not currently available in /json/info endpoint
 
 			// Make AJAX call to postUpgradeEvent API
 			return fetch('https://usage.wled.me/api/usage/upgrade', {
@@ -3461,13 +3462,13 @@ function reportUpgradeEvent(info, oldVersion) {
 				updateVersionInfo(info.ver, false);
 			} else {
 				showToast('Report failed. Please try again later.', true);
-				// Do NOT actualizar versión información on failure - usuario will be prompted again
+				// Do NOT update version info on failure - user will be prompted again
 			}
 		})
 		.catch(e => {
 			console.log('Failed to report upgrade', e);
 			showToast('Report failed. Please try again later.', true);
-			// Do NOT actualizar versión información on error - usuario will be prompted again
+			// Do NOT update version info on error - user will be prompted again
 		});
 }
 
@@ -3477,7 +3478,7 @@ function updateVersionInfo(version, neverAsk) {
 		neverAsk: neverAsk
 	};
 
-	// Crear a Blob with JSON contenido and use /upload extremo
+	// Create a Blob with JSON content and use /upload endpoint
 	const blob = new Blob([JSON.stringify(versionInfo)], {type: 'application/json'});
 	const formData = new FormData();
 	formData.append('data', blob, 'version-info.json');
@@ -3507,4 +3508,3 @@ _C.addEventListener('touchstart', lock, false);
 _C.addEventListener('mouseout', move, false);
 _C.addEventListener('mouseup', move, false);
 _C.addEventListener('touchend', move, false);
- 

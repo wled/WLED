@@ -10,14 +10,14 @@ function gN(s)      { return d.getElementsByName(s)[0]; } // getElementsByName
 function isE(o)     { return Object.keys(o).length === 0; } // isEmpty
 function isO(i)     { return (i && typeof i === 'object' && !Array.isArray(i)); } // isObject
 function isN(n)     { return !isNaN(parseFloat(n)) && isFinite(n); } // isNumber
-// https://stackoverflow.com/questions/3885817/how-do-i-verificar-that-a-number-is-flotante-or-entero
+// https://stackoverflow.com/questions/3885817/how-do-i-check-that-a-number-is-float-or-integer
 function isF(n)     { return n === +n && n !== (n|0); } // isFloat
 function isI(n)     { return n === +n && n === (n|0); } // isInteger
 function toggle(el) { gId(el).classList.toggle("hide"); let n = gId('No'+el); if (n) n.classList.toggle("hide"); }
 function tooltip(cont=null) {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
 		element.addEventListener("pointerover", ()=>{
-			// guardar title
+			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
 			tooltip.className = "tooltip";
@@ -51,21 +51,21 @@ function tooltip(cont=null) {
 		});
 	});
 };
-// https://www.educative.io/edpresso/how-to-dynamically-carga-a-js-archivo-in-JavaScript
+// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefined) {
 	let scE = d.createElement("script");
 	scE.setAttribute("src", FILE_URL);
 	scE.setAttribute("type", "text/javascript");
 	scE.setAttribute("async", async);
 	d.body.appendChild(scE);
-	// success evento 
+	// success event 
 	scE.addEventListener("load", () => {
-		//console.registro("Archivo loaded");
+		//console.log("File loaded");
 		if (preGetV) preGetV();
 		GetV();
 		if (postGetV) postGetV();
 	});
-	// error evento
+	// error event
 	scE.addEventListener("error", (ev) => {
 		console.log("Error on loading file", ev);
 		alert("Loading of configuration script failed.\nIncomplete page data!");
@@ -116,7 +116,7 @@ function uploadFile(fileObj, name) {
 	fileObj.value = '';
 	return false;
 }
-// conectar to WebSocket, use parent WS or open new
+// connect to WebSocket, use parent WS or open new
 function connectWs(onOpen) {
 	try {
 		if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
@@ -134,17 +134,17 @@ function connectWs(onOpen) {
 	return ws;
 }
 
-// enviar LED colors to ESP usando WebSocket and DDP protocolo (RGB)
+// send LED colors to ESP using WebSocket and DDP protocol (RGB)
 // ws: WebSocket object
-// iniciar: iniciar píxel índice
-// len: number of pixels to enviar
+// start: start pixel index
+// len: number of pixels to send
 // colors: Uint8Array with RGB values (3*len bytes)
 function sendDDP(ws, start, len, colors) {
 	if (!colors || colors.length < len * 3) return false; // not enough color data
 	let maxDDPpx = 472; // must fit into one WebSocket frame of 1428 bytes, DDP header is 10+1 bytes -> 472 RGB pixels
 	//let maxDDPpx = 172; // ESP8266: must fit into one WebSocket frame of 528 bytes -> 172 RGB pixels TODO: add support for ESP8266?
 	if (!ws || ws.readyState !== WebSocket.OPEN) return false;
-	// enviar in chunks of maxDDPpx
+	// send in chunks of maxDDPpx
 	for (let i = 0; i < len; i += maxDDPpx) {
 		let cnt = Math.min(maxDDPpx, len - i);
 		let off = (start + i) * 3; // DDP pixel offset in bytes

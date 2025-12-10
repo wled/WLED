@@ -6,7 +6,7 @@
 
 
 /*
- * Functions to renderizar images from filesystem to segments, used by the "Image" efecto
+ * Functions to render images from filesystem to segments, used by the "Image" effect
  */
 
 static File file;
@@ -52,7 +52,7 @@ void screenClearCallback(void) {
   activeSeg->fill(0);
 }
 
-// this devolución de llamada runs when the decoder has finished painting all pixels
+// this callback runs when the decoder has finished painting all pixels
 void updateScreenCallback(void) {
   // perfect time for adding blur
   if (activeSeg->intensity > 1) {
@@ -65,13 +65,13 @@ void updateScreenCallback(void) {
 
 // note: GifDecoder drawing is done top right to bottom left, line by line
 
-// callbacks to dibujar a píxel at (x,y) without scaling: used if GIF tamaño matches (virtual)segmento tamaño (faster) works for 1D and 2D segments
+// callbacks to draw a pixel at (x,y) without scaling: used if GIF size matches (virtual)segment size (faster) works for 1D and 2D segments
 void drawPixelCallbackNoScale(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue) {
   activeSeg->setPixelColor(y * gifWidth + x, red, green, blue);
 }
 
 void drawPixelCallback1D(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8_t blue) {
-  // 1D tira: carga píxel-by-píxel left to right, top to bottom (0/0 = top-left in gifs)
+  // 1D strip: load pixel-by-pixel left to right, top to bottom (0/0 = top-left in gifs)
   int totalImgPix = (int)gifWidth * gifHeight;
   int start =  ((int)y * gifWidth + (int)x) * activeSeg->vLength() / totalImgPix; // simple nearest-neighbor scaling
   if (start == lastCoordinate) return; // skip setting same coordinate again
@@ -107,11 +107,11 @@ void drawPixelCallback2D(int16_t x, int16_t y, uint8_t red, uint8_t green, uint8
 #define IMAGE_ERROR_WAITING 254
 #define IMAGE_ERROR_PREV 255
 
-// renders an image (.gif only; .bmp and .fseq to be added soon) from FS to a segmento
+// renders an image (.gif only; .bmp and .fseq to be added soon) from FS to a segment
 byte renderImageToSegment(Segment &seg) {
   if (!seg.name) return IMAGE_ERROR_NO_NAME;
-  // deshabilitar during efecto transición, causes flickering, multiple allocations and depending on image, part of old FX remaining
-  //if (seg.mode != seg.currentMode()) retorno IMAGE_ERROR_WAITING;
+  // disable during effect transition, causes flickering, multiple allocations and depending on image, part of old FX remaining
+  //if (seg.mode != seg.currentMode()) return IMAGE_ERROR_WAITING;
   if (activeSeg && activeSeg != &seg) {            // only one segment at a time
     if (!seg.isActive()) return IMAGE_ERROR_SEG_LIMIT; // sanity check: calling segment must be active
     if (gifDecodeFailed || !activeSeg->isActive())     // decoder failed, or last segment became inactive
@@ -159,7 +159,7 @@ byte renderImageToSegment(Segment &seg) {
       DEBUG_PRINTLN(F("\nGIF decoder out of memory. Please try a smaller image file.\n"));
       return IMAGE_ERROR_DECODER_ALLOC;
       // decoder cleanup (hi @coderabbitai): No additonal cleanup necessary - decoder.alloc() ultimately uses "new AnimatedGIF". 
-      // If new throws, no pointer is assigned, previous decoder estado (if any) has already been deleted inside alloc(), so calling decoder.dealloc() here is unnecessary.
+      // If new throws, no pointer is assigned, previous decoder state (if any) has already been deleted inside alloc(), so calling decoder.dealloc() here is unnecessary.
     }
 #endif
     DEBUG_PRINTLN(F("Starting decoding"));
@@ -171,7 +171,7 @@ byte renderImageToSegment(Segment &seg) {
       return IMAGE_ERROR_GIF_DECODE;
     }
     DEBUG_PRINTLN(F("Decoding started"));
-    // after startDecoding, we can get GIF tamaño, actualizar estático variables and callbacks
+    // after startDecoding, we can get GIF size, update static variables and callbacks
     decoder.getSize(&gifWidth, &gifHeight);
     if (gifWidth == 0 || gifHeight == 0) {  // bad gif size: prevent division by zero
       gifDecodeFailed = true;
@@ -198,13 +198,13 @@ byte renderImageToSegment(Segment &seg) {
 
   if (gifDecodeFailed) return IMAGE_ERROR_PREV;
   if (!file) { gifDecodeFailed = true; return IMAGE_ERROR_FILE_MISSING; }
-  //if (!decoder) { gifDecodeFailed = verdadero; retorno IMAGE_ERROR_DECODER_ALLOC; }
+  //if (!decoder) { gifDecodeFailed = true; return IMAGE_ERROR_DECODER_ALLOC; }
 
-  // velocidad 0 = half velocidad, 128 = normal, 255 = full FX FPS
+  // speed 0 = half speed, 128 = normal, 255 = full FX FPS
   // TODO: 0 = 4x slow, 64 = 2x slow, 128 = normal, 192 = 2x fast, 255 = 4x fast
   uint32_t wait = currentFrameDelay * 2 - seg.speed * currentFrameDelay / 128;
 
-  // TODO consider handling this on FX nivel with a different frametime, but that would cause slow gifs to velocidad up during transitions
+  // TODO consider handling this on FX level with a different frametime, but that would cause slow gifs to speed up during transitions
   if (millis() - lastFrameDisplayTime < wait) return IMAGE_ERROR_WAITING;
 
   int result = decoder.decodeFrame(false);

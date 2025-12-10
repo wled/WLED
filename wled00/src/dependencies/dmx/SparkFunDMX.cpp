@@ -1,14 +1,14 @@
 /******************************************************************************
 SparkFunDMX.h
-Arduino Biblioteca for the SparkFun ESP32 LED to DMX Shield
+Arduino Library for the SparkFun ESP32 LED to DMX Shield
 Andy England @ SparkFun Electronics
 7/22/2019
 
 Development environment specifics:
 Arduino IDE 1.6.4
 
-This código is released under the [MIT License](HTTP://opensource.org/licenses/MIT).
-Please review the LICENSE.md archivo included with this example. If you have any questions 
+This code is released under the [MIT License](http://opensource.org/licenses/MIT).
+Please review the LICENSE.md file included with this example. If you have any questions 
 or concerns with licensing, please contact techsupport@sparkfun.com.
 Distributed as-is; no warranty is given.
 ******************************************************************************/
@@ -34,7 +34,7 @@ static const int enablePin = -1;		// disable the enable pin because it is not ne
 static const int rxPin = -1;       // disable the receiving pin because it is not needed - softhack007: Pin=-1 means "use default" not "disable"
 static const int txPin = 2;        // transmit DMX data over this pin (default is pin 2)
 
-//DMX valor matriz and tamaño. Entry 0 will hold startbyte, so we need 512+1 elements
+//DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
 static uint8_t dmxData[dmxMaxChannel+1] = { 0 };
 static int chanSize = 0;
 #if !defined(DMX_SEND_ONLY)
@@ -50,7 +50,7 @@ static int currentChannel = 0;
 
 static HardwareSerial DMXSerial(2);
 
-/* Interrupción Temporizador for DMX Recibir */
+/* Interrupt Timer for DMX Receive */
 #if !defined(DMX_SEND_ONLY)
 static hw_timer_t * timer = NULL;
 static portMUX_TYPE timerMux = portMUX_INITIALIZER_UNLOCKED;
@@ -61,7 +61,7 @@ static volatile bool _startCodeDetected = false;
 
 
 #if !defined(DMX_SEND_ONLY)
-/* Iniciar Código is detected by 21 low interrupts */
+/* Start Code is detected by 21 low interrupts */
 void IRAM_ATTR onTimer() {
 	if ((rxPin >= 0) && (digitalRead(rxPin) == 1))
 	{
@@ -101,7 +101,7 @@ void SparkFunDMX::initRead(int chanQuant) {
 }
 #endif
 
-// Set up the DMX-Protocolo
+// Set up the DMX-Protocol
 void SparkFunDMX::initWrite (int chanQuant) {
 
   _READWRITE = _WRITE;
@@ -119,14 +119,14 @@ void SparkFunDMX::initWrite (int chanQuant) {
 }
 
 #if !defined(DMX_SEND_ONLY)
-// Función to leer DMX datos
+// Function to read DMX data
 uint8_t SparkFunDMX::read(int Channel) {
   if (Channel > chanSize) Channel = chanSize;
   return(dmxData[Channel - 1]); //subtract one to account for start byte
 }
 #endif
 
-// Función to enviar DMX datos
+// Function to send DMX data
 void SparkFunDMX::write(int Channel, uint8_t value) {
   if (Channel < 0) Channel = 0;
   if (Channel > chanSize) chanSize = Channel;
@@ -139,7 +139,7 @@ void SparkFunDMX::write(int Channel, uint8_t value) {
 void SparkFunDMX::update() {
   if (_READWRITE == _WRITE)
   {
-    //Enviar DMX ruptura
+    //Send DMX break
     digitalWrite(txPin, HIGH);
     DMXSerial.begin(BREAKSPEED, BREAKFORMAT, rxPin, txPin);//Begin the Serial port
     DMXSerial.write(0);
@@ -147,7 +147,7 @@ void SparkFunDMX::update() {
     delay(1);
     DMXSerial.end();
     
-    //Enviar DMX datos
+    //Send DMX data
     DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);//Begin the Serial port
     DMXSerial.write(dmxData, chanSize);
     DMXSerial.flush();
@@ -177,6 +177,6 @@ void SparkFunDMX::update() {
 #endif
 }
 
-// Función to actualizar the DMX bus
+// Function to update the DMX bus
 #endif
 #endif

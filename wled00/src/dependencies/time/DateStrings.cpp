@@ -1,11 +1,11 @@
 /* DateStrings.cpp
- * Definitions for date strings for use with the Hora biblioteca
+ * Definitions for date strings for use with the Time library
  *
  * Updated for Arduino 1.5.7 18 July 2014
  *
- * No memoria is consumed in the sketch if your código does not call any of the cadena methods
- * You can change the texto of the strings, make sure the short strings are each exactly 3 characters 
- * the long strings can be any longitud up to the constante dt_MAX_STRING_LEN defined in TimeLib.h
+ * No memory is consumed in the sketch if your code does not call any of the string methods
+ * You can change the text of the strings, make sure the short strings are each exactly 3 characters 
+ * the long strings can be any length up to the constant dt_MAX_STRING_LEN defined in TimeLib.h
  * 
  */
 
@@ -65,7 +65,7 @@ const PROGMEM char * const PROGMEM dayNames_P[] =
 
 const char dayShortNames_P[] PROGMEM = "ErrSunMonTueWedThuFriSat";
 
-/* functions to retorno date strings */
+/* functions to return date strings */
 
 char* monthStr(uint8_t month)
 {

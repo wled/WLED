@@ -6,7 +6,7 @@
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
 // The following six pins are neither configurable nor
 // can they be re-assigned through IOMUX / GPIO matrix.
-// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.HTML#ip101gri-phy-interfaz
+// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
 const managed_pin_type esp32_nonconfigurable_ethernet_pins[WLED_ETH_RSVD_PINS_COUNT] = {
     { 21, true  }, // RMII EMAC TX EN  == When high, clocks the data on TXD0 and TXD1 to transmitter
     { 19, true  }, // RMII EMAC TXD0   == First bit of transmitted data
@@ -180,7 +180,7 @@ bool initEthernet()
     { (int8_t)es.eth_power, true },  // [8] = optional pin, not all boards use
     { ((int8_t)0xFE),       false }, // [9] = replaced with eth_clk_mode, mandatory
   };
-  // actualizar the clock pin....
+  // update the clock pin....
   if (es.eth_clk_mode == ETH_CLOCK_GPIO0_IN) {
     pinsToAllocate[9].pin = 0;
     pinsToAllocate[9].isOutput = false;
@@ -204,9 +204,9 @@ bool initEthernet()
   }
 
   /*
-  For LAN8720 the most correct way is to perform clean restablecer each time before init
+  For LAN8720 the most correct way is to perform clean reset each time before init
   applying LOW to power or nRST pin for at least 100 us (please refer to datasheet, page 59)
-  ESP_IDF > V4 implements it (150 us, lan87xx_reset_hw(esp_eth_phy_t *phy) función in 
+  ESP_IDF > V4 implements it (150 us, lan87xx_reset_hw(esp_eth_phy_t *phy) function in 
   /components/esp_eth/src/esp_eth_phy_lan87xx.c, line 280)
   but ESP_IDF < V4 does not. Lets do it:
   [not always needed, might be relevant in some EMI situations at startup and for hot resets]
@@ -280,8 +280,8 @@ void fillStr2MAC(uint8_t *mac, const char *str) {
 }
 
 
-// performs asíncrono scan for available networks (which may take couple of seconds to finish)
-// returns configured WiFi ID with the strongest señal (or default if no configured networks available)
+// performs asynchronous scan for available networks (which may take couple of seconds to finish)
+// returns configured WiFi ID with the strongest signal (or default if no configured networks available)
 int findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
     DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\n"), multiWiFi[0].clientSSID);
@@ -302,7 +302,7 @@ int findWiFi(bool doScan) {
       for (unsigned n = 0; n < multiWiFi.size(); n++)
         if (!strcmp(WiFi.SSID(o).c_str(), multiWiFi[n].clientSSID)) {
           bool foundBSSID = memcmp(multiWiFi[n].bssid, WiFi.BSSID(o), 6) == 0;
-          // encontrar the WiFi with the strongest señal (but keep priority of entry if señal difference is not big)
+          // find the WiFi with the strongest signal (but keep priority of entry if signal difference is not big)
           if (foundBSSID || (n < selected && WiFi.RSSI(o) > rssi-10) || WiFi.RSSI(o) > rssi) {
             rssi = foundBSSID ? 0 : WiFi.RSSI(o); // RSSI is only ever negative
             selected = n;
@@ -343,17 +343,17 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
 #endif
 
-//handle Ethernet conexión evento
+//handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
 {
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
-      // AP cliente disconnected
+      // AP client disconnected
       if (--apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if awailable
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Disconnected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      // AP cliente connected
+      // AP client connected
       apClients++;
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
@@ -401,7 +401,7 @@ void WiFiEvent(WiFiEvent_t event)
       } else {
         ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
       }
-      // convertir the "serverDescription" into a valid DNS hostname (alphanumeric)
+      // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
       char hostname[64];
       prepareHostname(hostname);
       ETH.setHostname(hostname);
@@ -414,7 +414,7 @@ void WiFiEvent(WiFiEvent_t event)
       // as it's only configured once.  Rather, it
       // may be necessary to reconnect the WiFi when
       // ethernet disconnects, as a way to provide
-      // alternative acceso to the dispositivo.
+      // alternative access to the device.
       if (interfacesInited && WiFi.scanComplete() >= 0) findWiFi(true); // reinit WiFi scan
       forceReconnect = true;
       break;

@@ -1,6 +1,6 @@
 /*
- * DS1307RTC.h - biblioteca for DS1307 RTC
- * This biblioteca is intended to be uses with Arduino Hora biblioteca functions
+ * DS1307RTC.h - library for DS1307 RTC
+ * This library is intended to be uses with Arduino Time library functions
  */
 
 #ifndef DS1307RTC_h
@@ -9,10 +9,10 @@
 #include "TimeLib.h"
 #include "Wire.h"
 
-// biblioteca interfaz description
+// library interface description
 class DS1307RTC
 {
-  // usuario-accessible "public" interfaz
+  // user-accessible "public" interface
   public:
     DS1307RTC() {}
     static void begin() { Wire.begin(); }

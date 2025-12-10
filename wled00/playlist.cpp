@@ -130,7 +130,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
     parentPlaylistIndex = -1;
     parentPlaylistRepeat = 0;
   } else if (rep == 0) {
-    // endless playlist will never retorno to parent so erase parent information if it was called from it
+    // endless playlist will never return to parent so erase parent information if it was called from it
     parentPlaylistPresetId = 0;
     parentPlaylistIndex = -1;
     parentPlaylistRepeat = 0;
@@ -163,7 +163,7 @@ void handlePlaylist() {
         return;
       }
       if (playlistRepeat > 1) playlistRepeat--; // decrease repeat count on each index reset if not an endless playlist
-      // playlistRepeat == 0: endless bucle
+      // playlistRepeat == 0: endless loop
       if (playlistOptions & PL_OPTION_SHUFFLE) shufflePlaylist(); // shuffle playlist and start over
     }
 

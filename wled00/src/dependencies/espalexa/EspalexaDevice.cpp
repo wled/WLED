@@ -1,8 +1,8 @@
-//EspalexaDevice Clase
+//EspalexaDevice Class
 
 #include "EspalexaDevice.h"
 
-// depuración macros
+// debug macros
 #ifdef ESPALEXA_DEBUG
  #define EA_DEBUG(x)  Serial.print (x)
  #define EA_DEBUGLN(x) Serial.println (x)
@@ -131,7 +131,7 @@ uint32_t EspalexaDevice::getRGB()
 
   if (_mode == EspalexaColorMode::ct)
   {
-    //TODO tweak a bit to coincidir hue lamp characteristics
+    //TODO tweak a bit to match hue lamp characteristics
     //based on https://gist.github.com/paulkaplan/5184275
     float temp = (_ct != 0) ? (10000/ _ct) : 2; //kelvins = 1,000,000/mired (and that /100)   softhack007: avoid division by zero - using "2" as substitute
     float r, g, b;
@@ -275,7 +275,7 @@ void EspalexaDevice::setId(uint8_t id)
   _id = id;
 }
 
-//you need to re-discover the dispositivo for the Alexa name to change
+//you need to re-discover the device for the Alexa name to change
 void EspalexaDevice::setName(String name)
 {
   _deviceName = name;

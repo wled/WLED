@@ -5,11 +5,11 @@
  */
 
 /*
- * color mezcla función, based on FastLED mezcla función
- * the cálculo for each color is: resultado = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
+ * color blend function, based on FastLED blend function
+ * the calculation for each color is: result = (A*(amountOfA) + A + B*(amountOfB) + B) / 256 with amountOfA = 255 - amountOfB
  */
 uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, uint8_t blend) {
-  // min / max mezcla checking is omitted: calls with 0 or 255 are rare, checking lowers overall rendimiento
+  // min / max blend checking is omitted: calls with 0 or 255 are rare, checking lowers overall performance
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;     // mask for R and B channels or W and G if negated (poorman's SIMD; https://github.com/wled/WLED/pull/4568#discussion_r1986587221)
   uint32_t rb1 =  color1       & TWO_CHANNEL_MASK;  // extract R & B channels from color1
   uint32_t wg1 = (color1 >> 8) & TWO_CHANNEL_MASK;  // extract W & G channels from color1 (shifted for multiplication later)
@@ -21,9 +21,9 @@ uint32_t WLED_O2_ATTR IRAM_ATTR color_blend(uint32_t color1, uint32_t color2, ui
 }
 
 /*
- * color add función that preserves ratio
- * original idea: https://github.com/WLED-dev/WLED/extraer/2465 by https://github.com/Proto-molecule
- * velocidad optimisations by @dedehai
+ * color add function that preserves ratio
+ * original idea: https://github.com/wled-dev/WLED/pull/2465 by https://github.com/Proto-molecule
+ * speed optimisations by @dedehai
  */
 uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //1212558 | 1212598 | 1212576 | 1212530
 {
@@ -48,9 +48,9 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
       wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
     } else wg <<= 8; //shift white and green back to correct position
   } else {
-    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF, entrada is 0xFF+0xFF=0x1EF max)
-    // example with desbordamiento: entrada: 0x01EF01EF -> (0x0100100 - 0x00010001) = 0x00FF00FF -> entrada|0x00FF00FF = 0x00FF00FF (saturate)
-    // example without desbordamiento: entrada: 0x007F007F -> (0x00000000 - 0x00000000) = 0x00000000 -> entrada|0x00000000 = entrada  (no change)
+    // branchless per-channel saturation to 255 (extract 9th bit, subtract 1 if it is set, mask with 0xFF, input is 0xFF+0xFF=0x1EF max)
+    // example with overflow: input: 0x01EF01EF -> (0x0100100 - 0x00010001) = 0x00FF00FF -> input|0x00FF00FF = 0x00FF00FF (saturate)
+    // example without overflow: input: 0x007F007F -> (0x00000000 - 0x00000000) = 0x00000000 -> input|0x00000000 = input  (no change)
     rb |= ((rb & 0x01000100) - ((rb >> 8) & 0x00010001)) & 0x00FF00FF;
     wg |= ((wg & 0x01000100) - ((wg >> 8) & 0x00010001)) & 0x00FF00FF;
     wg <<= 8; // restore WG position
@@ -60,7 +60,7 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
 
 /*
  * fades color toward black
- * if usando "video" método the resulting color will never become black unless it is already black
+ * if using "video" method the resulting color will never become black unless it is already black
  */
 uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
   if (c1 == 0 || amount == 0) return 0; // black or no change
@@ -85,8 +85,8 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
 
 /*
  * color adjustment in HSV color space (converts RGB to HSV and back), color conversions are not 100% accurate!
-   shifts hue, increase brillo, decreases saturation (if not black)
-   note: inputs are 32bit to velocidad up the función, useful entrada valor ranges are 0-255
+   shifts hue, increase brightness, decreases saturation (if not black)
+   note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
  */
 uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten) {
   if (rgb == 0 || hueShift + lighten + brighten == 0) return rgb; // black or no change
@@ -100,7 +100,7 @@ uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_
   return rgb_adjusted;
 }
 
-// 1:1 replacement of fastled función optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
+// 1:1 replacement of fastled function optimized for ESP, slightly faster, more accurate and uses less flash (~ -200bytes)
 uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t brightness, TBlendType blendType) {
   if (blendType == LINEARBLEND_NOWRAP) {
     index = (index * 0xF0) >> 8; // Blend range is affected by lo4 blend of values, remap to avoid wrapping
@@ -121,7 +121,7 @@ uint32_t ColorFromPaletteWLED(const CRGBPalette16& pal, unsigned index, uint8_t 
     blue1  = (blue1  * f1 + (unsigned)entry->b * f2) >> 8;
   }
   if (brightness < 255) { // note: zero checking could be done to return black but that is hardly ever used so it is omitted
-    // actually same as color_fade(), usando color_fade() is slower
+    // actually same as color_fade(), using color_fade() is slower
     uint32_t scale = brightness + 1; // adjust for rounding (bitshift)
     red1   = (red1   * scale) >> 8;
     green1 = (green1 * scale) >> 8;
@@ -138,7 +138,7 @@ void setRandomColor(byte* rgb)
 
 /*
  * generates a random palette based on harmonic color theory
- * takes a base palette as the entrada, it will choose one color of the base palette and keep it
+ * takes a base palette as the input, it will choose one color of the base palette and keep it
  */
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
 {
@@ -146,9 +146,9 @@ CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette)
   uint8_t keepcolorposition = hw_random8(4); // color position of current random palette to keep
   palettecolors[keepcolorposition] = rgb2hsv(basepalette.entries[keepcolorposition*5]); // read one of the base colors of the current palette
   palettecolors[keepcolorposition].hue += hw_random8(10)-5; // +/- 5 randomness of base color
-  // generate 4 saturation and brillo valor numbers
+  // generate 4 saturation and brightness value numbers
   // only one saturation is allowed to be below 200 creating mostly vibrant colors
-  // only one brillo valor number is allowed below 200, creating mostly bright palettes
+  // only one brightness value number is allowed below 200, creating mostly bright palettes
 
   for (int i = 0; i < 3; i++) { // generate three high values
     palettecolors[i].saturation = hw_random8(200,255);
@@ -261,7 +261,7 @@ void loadCustomPalettes() {
         if (!pal.isNull() && pal.size()>3) { // not an empty palette (at least 2 entries)
           memset(tcp, 255, sizeof(tcp));
           if (pal[0].is<int>() && pal[1].is<const char *>()) {
-            // we have an matriz of índice & hex strings
+            // we have an array of index & hex strings
             size_t palSize = MIN(pal.size(), 36);
             palSize -= palSize % 2; // make sure size is multiple of 2
             for (size_t i=0, j=0; i<palSize && pal[i].as<int>()<256; i+=2) {
@@ -353,7 +353,7 @@ void colorHStoRGB(uint16_t hue, byte sat, byte* rgb) { //hue, sat to rgb
   rgb[2] = byte(crgb);
 }
 
-//get RGB values from color temperature in K (https://tannerhelland.com/2012/09/18/convertir-temperature-rgb-algoritmo-código.HTML)
+//get RGB values from color temperature in K (https://tannerhelland.com/2012/09/18/convert-temperature-rgb-algorithm-code.html)
 void colorKtoRGB(uint16_t kelvin, byte* rgb) //white spectrum to rgb, calc
 {
   int r = 0, g = 0, b = 0;
@@ -380,7 +380,7 @@ void colorKtoRGB(uint16_t kelvin, byte* rgb) //white spectrum to rgb, calc
 
 void colorCTtoRGB(uint16_t mired, byte* rgb) //white spectrum to rgb, bins
 {
-  //this is only an approximation usando WS2812B with gamma correction enabled
+  //this is only an approximation using WS2812B with gamma correction enabled
   if (mired > 475) {
     rgb[0]=255;rgb[1]=199;rgb[2]=92;//500
   } else if (mired > 425) {
@@ -488,7 +488,7 @@ void colorFromDecOrHexString(byte* rgb, const char* in)
   rgb[3] = W(c);
 }
 
-//contrary to the colorFromDecOrHexString() función, this uses the more estándar RRGGBB / RRGGBBWW order
+//contrary to the colorFromDecOrHexString() function, this uses the more standard RRGGBB / RRGGBBWW order
 bool colorFromHexString(byte* rgb, const char* in) {
   if (in == nullptr) return false;
   size_t inputSize = strnlen(in, 9);
@@ -521,7 +521,7 @@ static inline float maxf(float v, float w)
   return v;
 }
 
-// adjust RGB values based on color temperature in K (rango [2800-10200]) (https://en.wikipedia.org/wiki/Color_balance)
+// adjust RGB values based on color temperature in K (range [2800-10200]) (https://en.wikipedia.org/wiki/Color_balance)
 // called from bus manager when color correction is enabled!
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)
 {
@@ -539,19 +539,19 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb)
 }
 
 //approximates a Kelvin color temperature from an RGB color.
-//this does no verificar for the "whiteness" of the color,
-//so should be used combined with a saturation verificar (as done by auto-white)
-//values from HTTP://www.vendian.org/mncharity/dir3/blackbody/UnstableURLs/bbr_color.HTML (10deg)
+//this does no check for the "whiteness" of the color,
+//so should be used combined with a saturation check (as done by auto-white)
+//values from http://www.vendian.org/mncharity/dir3/blackbody/UnstableURLs/bbr_color.html (10deg)
 //equation spreadsheet at https://bit.ly/30RkHaN
 //accuracy +-50K from 1900K up to 8000K
-//minimum returned: 1900K, maximum returned: 10091K (rango of 8192)
+//minimum returned: 1900K, maximum returned: 10091K (range of 8192)
 uint16_t approximateKelvinFromRGB(uint32_t rgb) {
-  //if not either red or blue is 255, color is dimmed. Escala up
+  //if not either red or blue is 255, color is dimmed. Scale up
   uint8_t r = R(rgb), b = B(rgb);
   if (r == b) return 6550; //red == blue at about 6600K (also can't go further if both R and B are 0)
 
   if (r > b) {
-    //escala blue up as if red was at 255
+    //scale blue up as if red was at 255
     uint16_t scale = 0xFFFF / r; //get scale factor (range 257-65535)
     b = ((uint16_t)b * scale) >> 8;
     //For all temps K<6600 R is bigger than B (for full bri colors R=255)
@@ -566,7 +566,7 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb) {
     if (b < 230) return 5100 + (b-210) *30;
                  return 5700 + (b-230) *34;
   } else {
-    //escala red up as if blue was at 255
+    //scale red up as if blue was at 255
     uint16_t scale = 0xFFFF / b; //get scale factor (range 257-65535)
     r = ((uint16_t)r * scale) >> 8;
     //For all temps K>6600 B is bigger than R (for full bri colors B=255)

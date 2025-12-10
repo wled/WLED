@@ -1,30 +1,26 @@
 #ifndef WLED_H
 #define WLED_H
 /*
-   Principal sketch, global variable declarations
+   Main sketch, global variable declarations
    @title WLED project sketch
    @author Christian Schwinne
  */
 
-// VERSIÓN DEL FIRMWARE
-#define VERSION 2506160 // formato: aammddv (año-mes-día-versión)
+// version code in format yymmddb (b = daily build)
+#define VERSION 2506160
 
-// CONFIGURACIONES PRINCIPALES DEL DISPOSITIVO
-#define WLED_ENABLE_WEBSOCKET
-#define WLED_ENABLE_JSON
+//uncomment this if you have a "my_config.h" file you'd like to use
+//#define WLED_USE_MY_CONFIG
 
-//uncomment this if you have a "my_config.h" archivo you'd like to use
-//#definir WLED_USE_MY_CONFIG
+// ESP8266-01 (blue) got too little storage space to work with WLED. 0.10.2 is the last release supporting this unit.
 
-// ESP8266-01 (blue) got too little almacenamiento space to work with WLED. 0.10.2 is the last lanzamiento supporting this unit.
+// ESP8266-01 (black) has 1MB flash and can thus fit the whole program, although OTA update is not possible. Use 1M(128K SPIFFS).
+// 2-step OTA may still be possible: https://github.com/wled-dev/WLED/issues/2040#issuecomment-981111096
+// Uncomment some of the following lines to disable features:
+// Alternatively, with platformio pass your chosen flags to your custom build target in platformio_override.ini
 
-// ESP8266-01 (black) has 1MB flash and can thus fit the whole program, although OTA actualizar is not possible. Use 1M(128K SPIFFS).
-// 2-paso OTA may still be possible: https://github.com/WLED-dev/WLED/issues/2040#issuecomment-981111096
-// Uncomment some of the following lines to deshabilitar features:
-// Alternatively, with platformio pass your chosen flags to your custom compilación target in platformio_override.ini
-
-// You are required to deshabilitar over-the-air updates:
-//#definir WLED_DISABLE_OTA         // saves 14kb
+// You are required to disable over-the-air updates:
+//#define WLED_DISABLE_OTA         // saves 14kb
 #ifdef WLED_ENABLE_AOTA
   #if defined(WLED_DISABLE_OTA)
     #warning WLED_DISABLE_OTA was defined but it will be ignored due to WLED_ENABLE_AOTA.
@@ -32,10 +28,10 @@
   #undef WLED_DISABLE_OTA
 #endif
 
-// You can choose some of these features to deshabilitar:
-//#definir WLED_DISABLE_ALEXA       // saves 11kb
-//#definir WLED_DISABLE_HUESYNC     // saves 4kb
-//#definir WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
+// You can choose some of these features to disable:
+//#define WLED_DISABLE_ALEXA       // saves 11kb
+//#define WLED_DISABLE_HUESYNC     // saves 4kb
+//#define WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
 #ifndef WLED_DISABLE_MQTT
   #define WLED_ENABLE_MQTT         // saves 12kb
 #endif
@@ -44,7 +40,7 @@
 #else
   #undef WLED_ENABLE_ADALIGHT      // disable has priority over enable
 #endif
-//#definir WLED_ENABLE_DMX          // uses 3.5kb
+//#define WLED_ENABLE_DMX          // uses 3.5kb
 #ifndef WLED_DISABLE_LOXONE
   #define WLED_ENABLE_LOXONE       // uses 1.2kb
 #endif
@@ -54,30 +50,30 @@
   #define WLED_ENABLE_JSONLIVE     // peek LED output via /json/live (WS binary peek is always enabled)
 #endif
 
-//#definir WLED_DISABLE_ESPNOW      // Removes dependence on esp now
+//#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
 
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
 
-// to toggle usb serial depuración (un)comment the following line
-//#definir WLED_DEBUG
+// to toggle usb serial debug (un)comment the following line
+//#define WLED_DEBUG
 
 // filesystem specific debugging
-//#definir WLED_DEBUG_FS
+//#define WLED_DEBUG_FS
 
 #ifndef WLED_WATCHDOG_TIMEOUT
   // 3 seconds should be enough to detect a lockup
-  // definir WLED_WATCHDOG_TIMEOUT=0 to deshabilitar watchdog, default
+  // define WLED_WATCHDOG_TIMEOUT=0 to disable watchdog, default
   #define WLED_WATCHDOG_TIMEOUT 0
 #endif
 
-//optionally deshabilitar brownout detector on ESP32.
-//This is generally a terrible idea, but improves boot success on boards with a 3.3v regulator + cap configuración that can't provide 400mA peaks
-//#definir WLED_DISABLE_BROWNOUT_DET
+//optionally disable brownout detector on ESP32.
+//This is generally a terrible idea, but improves boot success on boards with a 3.3v regulator + cap setup that can't provide 400mA peaks
+//#define WLED_DISABLE_BROWNOUT_DET
 
 #include <cstddef>
 #include <vector>
 
-// Biblioteca inclusions.
+// Library inclusions.
 #include <Arduino.h>
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
@@ -140,7 +136,7 @@
   #define ESPALEXA_ASYNC
   #define ESPALEXA_NO_SUBPAGE
   #define ESPALEXA_MAXDEVICES 10
-  // #definir ESPALEXA_DEBUG
+  // #define ESPALEXA_DEBUG
   #include "src/dependencies/espalexa/Espalexa.h"
   #include "src/dependencies/espalexa/EspalexaDevice.h"
 #endif
@@ -166,11 +162,11 @@
 #include "src/dependencies/json/AsyncJson-v6.h"
 #include "src/dependencies/json/ArduinoJson-v6.h"
 
-// ESP32-WROVER features SPI RAM (aka PSRAM) which can be allocated usando ps_malloc()
-// we can crear custom PSRAMDynamicJsonDocument to use such feature (replacing DynamicJsonDocument)
-// The following is a construct to habilitar código to compile without it.
-// There is a código that will still not use PSRAM though:
-//    AsyncJsonResponse is a derived clase that implements DynamicJsonDocument (AsyncJson-v6.h)
+// ESP32-WROVER features SPI RAM (aka PSRAM) which can be allocated using ps_malloc()
+// we can create custom PSRAMDynamicJsonDocument to use such feature (replacing DynamicJsonDocument)
+// The following is a construct to enable code to compile without it.
+// There is a code that will still not use PSRAM though:
+//    AsyncJsonResponse is a derived class that implements DynamicJsonDocument (AsyncJson-v6.h)
 #if defined(BOARD_HAS_PSRAM)
 struct PSRAM_Allocator {
   void* allocate(size_t size) {
@@ -244,7 +240,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   #include <IRutils.h>
 #endif
 
-//Filesystem to use for preset and config files. SPIFFS or LittleFS on ESP8266, SPIFFS only on ESP32 (now usando LITTLEFS puerto by lorol)
+//Filesystem to use for preset and config files. SPIFFS or LittleFS on ESP8266, SPIFFS only on ESP32 (now using LITTLEFS port by lorol)
 #ifdef ESP8266
   #define WLED_FS LittleFS
 #else
@@ -256,7 +252,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #endif
 
 // GLOBAL VARIABLES
-// both declared and defined in encabezado (solution from HTTP://www.keil.com/support/docs/1868.htm)
+// both declared and defined in header (solution from http://www.keil.com/support/docs/1868.htm)
 //
 //e.g. byte test = 2 becomes WLED_GLOBAL byte test _INIT(2);
 //     int arr[]{0,1,2} becomes WLED_GLOBAL int arr[] _INIT_N(({0,1,2}));
@@ -269,7 +265,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #else
   #define WLED_GLOBAL
   #define _INIT(x) = x
-  //needed to ignorar commas in matriz definitions
+  //needed to ignore commas in array definitions
   #define UNPACK( ... ) __VA_ARGS__
   #define _INIT_N(x) UNPACK x
   #define _INIT_PROGMEM(x) PROGMEM = x
@@ -300,7 +296,7 @@ WLED_GLOBAL int8_t rlyPin _INIT(-1);
 #else
 WLED_GLOBAL int8_t rlyPin _INIT(RLYPIN);
 #endif
-//Relay mode (1 = active high, 0 = active low, flipped in cfg.JSON)
+//Relay mode (1 = active high, 0 = active low, flipped in cfg.json)
 #ifndef RLYMDE
 WLED_GLOBAL bool rlyMde _INIT(true);
 #else
@@ -320,7 +316,7 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
 #endif
 
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || (defined(RX) && defined(TX))
-  // use RX/TX as set by the marco de trabajo - these boards do _not_ have RX=3 and TX=1
+  // use RX/TX as set by the framework - these boards do _not_ have RX=3 and TX=1
   constexpr uint8_t hardwareRX = RX;
   constexpr uint8_t hardwareTX = TX;
 #else
@@ -400,9 +396,9 @@ WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
 WLED_GLOBAL bool turnOnAtBoot _INIT(true);                // turn on LEDs at power-up
 WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load after power-up
 
-//if verdadero, a segmento per bus will be created on boot and LED settings guardar
-//if falso, only one segmento spanning the total LEDs is created,
-//but not on LED settings guardar if there is more than one segmento currently
+//if true, a segment per bus will be created on boot and LED settings save
+//if false, only one segment spanning the total LEDs is created,
+//but not on LED settings save if there is more than one segment currently
 #ifdef ESP8266
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
@@ -429,7 +425,7 @@ WLED_GLOBAL byte nightlightMode      _INIT(NL_MODE_FADE); // See const.h for ava
 
 WLED_GLOBAL byte briMultiplier _INIT(100);          // % of brightness to set (to limit power, if you set it to 50 and set bri to 255, actual brightness will be 127)
 
-// Usuario Interfaz CONFIG
+// User Interface CONFIG
 #ifndef SERVERNAME
 WLED_GLOBAL char serverDescription[33] _INIT("WLED");  // Name of module - use default
 #else
@@ -438,7 +434,7 @@ WLED_GLOBAL char serverDescription[33] _INIT(SERVERNAME);  // use predefined nam
 WLED_GLOBAL bool simplifiedUI          _INIT(false);   // enable simplified UI
 WLED_GLOBAL byte cacheInvalidate       _INIT(0);       // used to invalidate browser cache
 
-// Sincronizar CONFIG
+// Sync CONFIG
 WLED_GLOBAL NodesMap Nodes;
 WLED_GLOBAL bool nodeListEnabled _INIT(true);
 WLED_GLOBAL bool nodeBroadcastEnabled _INIT(true);
@@ -495,7 +491,7 @@ WLED_GLOBAL bool e131Multicast _INIT(false);                      // multicast o
 WLED_GLOBAL bool e131SkipOutOfSequence _INIT(false);              // freeze instead of flickering
 WLED_GLOBAL uint16_t pollReplyCount _INIT(0);                     // count number of replies for ArtPoll node report
 
-// MQTT
+// mqtt
 WLED_GLOBAL unsigned long lastMqttReconnectAttempt _INIT(0);  // used for other periodic tasks too
 #ifndef WLED_DISABLE_MQTT
   #ifndef MQTT_MAX_TOPIC_LEN
@@ -544,7 +540,7 @@ WLED_GLOBAL std::vector<std::array<char, 13>> linked_remotes; // MAC of ESP-NOW 
 WLED_GLOBAL char last_signal_src[13] _INIT("");     // last seen ESP-NOW sender
 #endif
 
-// Hora CONFIG
+// Time CONFIG
 #ifndef WLED_NTP_ENABLED
   #define WLED_NTP_ENABLED false
 #endif
@@ -576,7 +572,7 @@ WLED_GLOBAL byte macroNl   _INIT(0);        // after nightlight delay over
 WLED_GLOBAL byte macroCountdown _INIT(0);
 WLED_GLOBAL byte macroAlexaOn _INIT(0), macroAlexaOff _INIT(0);
 
-// Seguridad CONFIG
+// Security CONFIG
 #ifdef WLED_OTA_PASS
 WLED_GLOBAL bool otaLock        _INIT(true);     // prevents OTA firmware updates without password. ALWAYS enable if system exposed to any public networks
 #else
@@ -596,7 +592,7 @@ WLED_GLOBAL unsigned long lastEditTime _INIT(0);
 WLED_GLOBAL uint16_t userVar0 _INIT(0), userVar1 _INIT(0); //available for use in usermod
 
 // internal global variable declarations
-// WiFi
+// wifi
 WLED_GLOBAL bool apActive _INIT(false);
 WLED_GLOBAL byte apClients _INIT(0);
 WLED_GLOBAL bool forceReconnect _INIT(false);
@@ -629,7 +625,7 @@ WLED_GLOBAL unsigned long lastNlUpdate;
 WLED_GLOBAL byte briNlT _INIT(0);                     // current nightlight brightness
 WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightlight color
 
-// brillo
+// brightness
 WLED_GLOBAL unsigned long lastOnTime _INIT(0);
 WLED_GLOBAL bool offMode             _INIT(!turnOnAtBoot);
 WLED_GLOBAL byte briS                _INIT(128);           // default brightness
@@ -678,7 +674,7 @@ WLED_GLOBAL uint8_t notificationCount _INIT(0);
 WLED_GLOBAL uint8_t syncGroups    _INIT(0x01);                // sync send groups this instance syncs to (bit mapped)
 WLED_GLOBAL uint8_t receiveGroups _INIT(0x01);                // sync receive groups this instance belongs to (bit mapped)
 #ifdef WLED_SAVE_RAM
-// this will guardar us 8 bytes of RAM while increasing código by ~400 bytes
+// this will save us 8 bytes of RAM while increasing code by ~400 bytes
 typedef class Receive {
   public:
     union {
@@ -758,9 +754,9 @@ WLED_GLOBAL byte effectIntensity _INIT(128);
 WLED_GLOBAL byte effectPalette _INIT(0);
 WLED_GLOBAL bool stateChanged _INIT(false);
 
-// red
+// network
 #ifdef WLED_SAVE_RAM
-// this will guardar us 2 bytes of RAM while increasing código by ~400 bytes
+// this will save us 2 bytes of RAM while increasing code by ~400 bytes
 typedef class Udp {
   public:
     uint16_t  Port;
@@ -820,14 +816,14 @@ WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
 WLED_GLOBAL unsigned long countdownTime _INIT(1514764800L);
 WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
-//temporizador
+//timer
 WLED_GLOBAL byte lastTimerMinute  _INIT(0);
 WLED_GLOBAL byte timerHours[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
 WLED_GLOBAL int8_t timerMinutes[] _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
 WLED_GLOBAL byte timerMacro[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-//weekdays to activate on, bit patrón of arr elem: 0b11111111: sun,sat,fri,thu,wed,tue,mon,validity
+//weekdays to activate on, bit pattern of arr elem: 0b11111111: sun,sat,fri,thu,wed,tue,mon,validity
 WLED_GLOBAL byte timerWeekday[]   _INIT_N(({ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 }));
-//upper 4 bits iniciar, lower 4 bits end month (default 28: iniciar month 1 and end month 12)
+//upper 4 bits start, lower 4 bits end month (default 28: start month 1 and end month 12)
 WLED_GLOBAL byte timerMonth[]     _INIT_N(({28,28,28,28,28,28,28,28}));
 WLED_GLOBAL byte timerDay[]       _INIT_N(({1,1,1,1,1,1,1,1}));
 WLED_GLOBAL byte timerDayEnd[]		_INIT_N(({31,31,31,31,31,31,31,31}));
@@ -857,17 +853,17 @@ WLED_GLOBAL bool realtimeRespectLedMaps _INIT(true);                     // Resp
 WLED_GLOBAL unsigned long lastInterfaceUpdate _INIT(0);
 WLED_GLOBAL byte interfaceUpdateCallMode _INIT(CALL_MODE_INIT);
 
-// alexa UDP
+// alexa udp
 WLED_GLOBAL String escapedMac;
 #ifndef WLED_DISABLE_ALEXA
   WLED_GLOBAL Espalexa espalexa;
   WLED_GLOBAL EspalexaDevice* espalexaDevice;
 #endif
 
-// dns servidor
+// dns server
 WLED_GLOBAL DNSServer dnsServer;
 
-// red time
+// network time
 #ifndef WLED_LAT
   #define WLED_LAT 0.0f
 #endif
@@ -905,14 +901,14 @@ WLED_GLOBAL byte optionType;
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
-// estado LED
+// status led
 #if defined(STATUSLED)
 WLED_GLOBAL unsigned long ledStatusLastMillis _INIT(0);
 WLED_GLOBAL uint8_t ledStatusType _INIT(0); // current status type - corresponds to number of blinks per second
 WLED_GLOBAL bool ledStatusState _INIT(false); // the current LED state
 #endif
 
-// servidor biblioteca objects
+// server library objects
 WLED_GLOBAL AsyncWebServer server _INIT_N(((80, {0, WLED_REQUEST_MAX_QUEUE, WLED_REQUEST_MIN_HEAP, WLED_REQUEST_HEAP_USAGE})));
 #ifdef WLED_ENABLE_WEBSOCKETS
 WLED_GLOBAL AsyncWebSocket ws _INIT_N((("/ws")));
@@ -922,14 +918,14 @@ WLED_GLOBAL AsyncClient     *hueClient _INIT(NULL);
 #endif
 WLED_GLOBAL AsyncWebHandler *editHandler _INIT(nullptr);
 
-// UDP interfaz objects
+// udp interface objects
 WLED_GLOBAL WiFiUDP notifierUdp, rgbUdp, notifier2Udp;
 WLED_GLOBAL WiFiUDP ntpUdp;
 WLED_GLOBAL ESPAsyncE131 e131 _INIT_N(((handleE131Packet)));
 WLED_GLOBAL ESPAsyncE131 ddp  _INIT_N(((handleE131Packet)));
 WLED_GLOBAL bool e131NewData _INIT(false);
 
-// LED fx biblioteca object
+// led fx library object
 WLED_GLOBAL WS2812FX   strip         _INIT(WS2812FX());
 WLED_GLOBAL std::vector<BusConfig> busConfigs;    //temporary, to remember values from network callback until after
 WLED_GLOBAL bool       doInitBusses  _INIT(false);
@@ -957,13 +953,13 @@ WLED_GLOBAL int8_t i2c_scl  _INIT(-1);
 WLED_GLOBAL int8_t i2c_scl  _INIT(I2CSCLPIN);
 #endif
 
-// global SPI DATOS/MOSI pin (used for usermods)
+// global SPI DATA/MOSI pin (used for usermods)
 #ifndef SPIMOSIPIN
 WLED_GLOBAL int8_t spi_mosi  _INIT(-1);
 #else
 WLED_GLOBAL int8_t spi_mosi  _INIT(SPIMOSIPIN);
 #endif
-// global SPI DATOS/MISO pin (used for usermods)
+// global SPI DATA/MISO pin (used for usermods)
 #ifndef SPIMISOPIN
 WLED_GLOBAL int8_t spi_miso  _INIT(-1);
 #else
@@ -976,12 +972,12 @@ WLED_GLOBAL int8_t spi_sclk  _INIT(-1);
 WLED_GLOBAL int8_t spi_sclk  _INIT(SPISCLKPIN);
 #endif
 
-// global ArduinoJson búfer
+// global ArduinoJson buffer
 #if defined(ARDUINO_ARCH_ESP32)
 WLED_GLOBAL SemaphoreHandle_t jsonBufferLockMutex _INIT(xSemaphoreCreateRecursiveMutex());
 #endif
 #ifdef BOARD_HAS_PSRAM
-// if board has PSRAM, use it for JSON document (allocated in configuración())
+// if board has PSRAM, use it for JSON document (allocated in setup())
 WLED_GLOBAL JsonDocument *pDoc _INIT(nullptr);
 #else
 WLED_GLOBAL StaticJsonDocument<JSON_BUFFER_SIZE> gDoc;
@@ -989,10 +985,10 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
 WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
-// habilitar additional depuración salida
+// enable additional debug output
 #if defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
-  // On the host side, use netcat to recibir the registro statements: nc -l 7868 -u
+  // On the host side, use netcat to receive the log statements: nc -l 7868 -u
   // use -D WLED_DEBUG_HOST='"192.168.xxx.xxx"' or FQDN within quotes
   #define DEBUGOUT NetDebug
   WLED_GLOBAL bool netDebugEnabled _INIT(true);
@@ -1030,7 +1026,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #define DEBUGFS_PRINTF(x...)
 #endif
 
-// depuración macro variable definitions
+// debug macro variable definitions
 #ifdef WLED_DEBUG
   WLED_GLOBAL unsigned long debugTime _INIT(0);
   WLED_GLOBAL int lastWifiState _INIT(3);
@@ -1056,7 +1052,7 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   } while(0)
 #endif
 
-//macro to convertir F to constante
+//macro to convert F to const
 #define SET_F(x)  (const char*)F(x)
 
 //color mangling macros

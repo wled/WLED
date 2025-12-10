@@ -6,17 +6,17 @@
 #ifdef WLED_USE_ETHERNET
 
 // For ESP32, the remaining five pins are at least somewhat configurable.
-// eth_address  is in rango [0..31], indicates which PHY (MAC?) address should be allocated to the interfaz
-// eth_power    is an salida GPIO pin used to habilitar/deshabilitar the ethernet puerto (and/or external oscillator)
-// eth_mdc      is an salida GPIO pin used to provide the clock for the management datos
-// eth_mdio     is an entrada/salida GPIO pin used to transfer management datos
-// eth_type     is the physical ethernet módulo's tipo (ETH_PHY_LAN8720, ETH_PHY_TLK110)
-// eth_clk_mode defines the GPIO pin and GPIO mode for the clock señal
+// eth_address  is in range [0..31], indicates which PHY (MAC?) address should be allocated to the interface
+// eth_power    is an output GPIO pin used to enable/disable the ethernet port (and/or external oscillator)
+// eth_mdc      is an output GPIO pin used to provide the clock for the management data
+// eth_mdio     is an input/output GPIO pin used to transfer management data
+// eth_type     is the physical ethernet module's type (ETH_PHY_LAN8720, ETH_PHY_TLK110)
+// eth_clk_mode defines the GPIO pin and GPIO mode for the clock signal
 //              However, there are really only four configurable options on ESP32:
-//              ETH_CLOCK_GPIO0_IN    == External oscillator, clock entrada  via GPIO0
-//              ETH_CLOCK_GPIO0_OUT   == ESP32 provides 50MHz clock salida via GPIO0
-//              ETH_CLOCK_GPIO16_OUT  == ESP32 provides 50MHz clock salida via GPIO16
-//              ETH_CLOCK_GPIO17_OUT  == ESP32 provides 50MHz clock salida via GPIO17
+//              ETH_CLOCK_GPIO0_IN    == External oscillator, clock input  via GPIO0
+//              ETH_CLOCK_GPIO0_OUT   == ESP32 provides 50MHz clock output via GPIO0
+//              ETH_CLOCK_GPIO16_OUT  == ESP32 provides 50MHz clock output via GPIO16
+//              ETH_CLOCK_GPIO17_OUT  == ESP32 provides 50MHz clock output via GPIO17
 typedef struct EthernetSettings {
   uint8_t        eth_address;
   int            eth_power;
