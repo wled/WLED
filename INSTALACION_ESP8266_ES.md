@@ -56,8 +56,8 @@ sudo apt install python3
 winget search Python
 winget install Python.Python.3.9
 
-
-
+git config --global user.name "jlc"
+git config --global user.email "jlc@jlc.es"
 
 ```
 
