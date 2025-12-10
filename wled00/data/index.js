@@ -3443,8 +3443,11 @@ function reportUpgradeEvent(info, oldVersion) {
 			};
 
 			// Add optional fields if available
-			if (infoData.psramPresent !== undefined) upgradeData.psramPresent = infoData.psramPresent;  // Whether device has PSRAM
-			if (infoData.psramSize !== undefined) upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
+			if (infoData.psramSize !== undefined) {
+				upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
+				upgradeData.psramUsed = (infoData.psram !== undefined);
+			}
+
 			// Note: partitionSizes not currently available in /json/info endpoint
 
 			// Make AJAX call to postUpgradeEvent API
