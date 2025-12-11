@@ -3443,8 +3443,8 @@ function reportUpgradeEvent(info, oldVersion) {
 			};
 
 			// Add optional fields if available
-			if (infoData.psramSize !== undefined) {
-				upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
+			if (infoData.psrSz !== undefined) {
+				upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB
 				upgradeData.psramUsed = (infoData.psram !== undefined);
 			}
 
