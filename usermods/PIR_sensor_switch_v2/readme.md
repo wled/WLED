@@ -6,7 +6,7 @@
 
 Back in the day, I added PIR functionality to WLED before it became a built-in feature. Since then, a PIR usermod was added (credit to @gegu & @blazoncek! for PIR_sensor_switch). 
 
-However, I needed something more flexible for my setup - multiple PIRs triggering different actions in various combinations. The official version works great for simple cases, but when you need complex linking between sensors and actions, macro chains get messy real quick, and moreover we still cannot easily have seemless fx (i.e avoid restarting an fx animation when called again), So I built this.
+However, I needed something more flexible for my setup - multiple PIRs triggering different actions in various combinations. The official version works great for simple cases, but when you need complex linking between sensors and actions, macro chains get messy, and moreover we still cannot easily have seamless fx (i.e avoid restarting an fx animation when called again), So I built this.
 
 ## Screenshots
 
@@ -59,14 +59,14 @@ This helps if you need:
 
 - Uses a preset FIFO queue to prevent flooding (on testing I noticed if presets were called at the same time one would usually be skipped).
 - Optimized RAM usage with bitmasks instead of 2D arrays, but you could change this if you need more than 8 PIRs or Actions.
-- PIR to Acion contributor tracking ensures Actions behave correctly with multiple PIRs
+- PIR to Action contributor tracking ensures Actions behave correctly with multiple PIRs
 
 ## Notes
 
-- To add more pirs or actions, just change the defines in the the cpp file (defaults) or the platformio.ini / override
+- To add more pirs or actions, just change the defines in the cpp file (defaults) or the platformio.ini / override
   - PIR_SENSOR_MAX
   - ACTION_MAX
 
-- If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so bit remember to adjust the custom webapge formatting also.
+- If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so but remember to adjust the custom webpage formatting also.
 
-Hope its useful :)
+Hope it's useful :)
