@@ -63,10 +63,11 @@ This helps if you need:
 
 ## Notes
 
-- To add more pirs or actions, just change the defines in the cpp file (defaults) or the platformio.ini / override
+- To add more PIRs or Actions, just change the defines in the cpp file (defaults) or the platformio.ini / override
   - PIR_SENSOR_MAX
   - ACTION_MAX
 
-- If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so but remember to adjust the custom webpage formatting also.
+- If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so but remember to adjust the custom webpage formatting accordingly.
 
 Hope it's useful :)
+
