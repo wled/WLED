@@ -1,6 +1,6 @@
 # PIR Sensor Switch v2
 
-**Rawframe**
+## Rawframe
 
 ## Background
 
@@ -70,4 +70,5 @@ This helps if you need:
 - If anyone wants to add the other options from the @gegu & @blazoncek usermod then feel free to do so but remember to adjust the custom webpage formatting accordingly.
 
 Hope it's useful :)
+
 
