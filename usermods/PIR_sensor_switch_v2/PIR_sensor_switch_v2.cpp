@@ -1,4 +1,5 @@
 /*
+ * Rawframe
  * Usermod for PIR sensor motion detection.
  *
  * This usermod handles PIR sensor states and triggers actions (presets) based on motion.
@@ -155,14 +156,6 @@ public:
           actionEnabled[a] = ap["enabled"].as<bool>(); // FIX: Explicit cast
         }
       }
-    }
-
-    // If config didn't include enabled flags, ensure sensible defaults
-    for (int a = 0; a < ACTION_MAX; a++) {
-      // actionEnabled is initialized to true in class def.
-      // If config was missing, it stays true.
-      // If config had "enabled": false, it became false.
-      // No further action needed here.
     }
 
     return true;
@@ -337,9 +330,12 @@ public:
       } else {
         bool active = actions[a].activeCount > 0;
         uint32_t remain = 0;
+        // Calculate remaining time, avoiding underflow if timer already elapsed
         if (!active && actions[a].offStartMs > 0) {
-          unsigned long end = actions[a].offStartMs + actions[a].offDelayMs;
-          if (end > now) remain = (end - now) / 1000;
+          unsigned long elapsed = now - actions[a].offStartMs;
+          if (elapsed < actions[a].offDelayMs) {
+            remain = (actions[a].offDelayMs - elapsed) / 1000;
+          }
         }
         if (active) status = "⏱ active";
         else if (remain > 0) status = String("⏱ off in ") + String(remain) + "s";
