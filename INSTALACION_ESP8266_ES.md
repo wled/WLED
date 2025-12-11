@@ -261,6 +261,9 @@ Anota el número de puerto (ejemplo: COM3)
 ```bash
 ls /dev/tty.*
 # Busca algo como /dev/ttyUSB0, /dev/ttyACM0, o /dev/cu.wchusbserial*
+
+powershell
+Get-ChildItem -Path Function:\ | Where-Object { $_.Name -like "tty*" }
 ```
 
 ### 6.2 Instalar drivers USB (si es necesario)
