@@ -839,15 +839,12 @@ void serializeInfo(JsonObject root)
 #endif
 
   root[F("freeheap")] = getFreeHeapSize();
-  #ifdef ARDUINO_ARCH_ESP32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
   // Report PSRAM information
-  size_t psramSize = ESP.getPsramSize();  // returns 0 if no psram
-  if (psramSize > 0) {
-    #if defined(BOARD_HAS_PSRAM)
-    root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
-    #endif
-    root[F("psrSz")] = 1 + ((psramSize - 1) / (1024U * 1024U)); // Total PSRAM size in MB, round up to correct for allocator overhead
-  }
+  // Free PSRAM in bytes (backward compatibility)
+  root[F("psram")] = ESP.getFreePsram(); 
+  // Total PSRAM size in MB, round up to correct for allocator overhead
+  root[F("psrSz")] = (ESP.getPsramSize() + (1024U * 1024U - 1)) / (1024U * 1024U); 
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
