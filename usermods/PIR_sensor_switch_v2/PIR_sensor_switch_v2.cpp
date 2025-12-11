@@ -150,6 +150,7 @@ public:
         if (ap.containsKey("offPreset")) actions[a].offPreset = ap["offPreset"] | actions[a].offPreset;
         if (ap.containsKey("offSec")) {
           uint32_t s = ap["offSec"] | (actions[a].offDelayMs / 1000UL);
+          if (s > 4294967) s = 4294967;  // Max ~49.7 days, prevents overflow when multiplied by 1000
           actions[a].offDelayMs = s * 1000UL;
         }
         if (ap.containsKey("enabled")) {
@@ -617,3 +618,4 @@ public:
 // Register instance
 static MotionDetectionUsermod motionDetectionUsermod;
 REGISTER_USERMOD(motionDetectionUsermod);
+
