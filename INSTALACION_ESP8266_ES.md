@@ -87,6 +87,7 @@ Si no está instalado, descárgalo desde [git-scm.com](https://git-scm.com).
 
 ```bash
 pip install platformio
+python -m pip install platformio
 ```
 
 ---
@@ -121,6 +122,7 @@ ls -la
 ```bash
 # Windows
 pip install -r requirements.txt
+python -m pip install -r requirements.txt
 
 # Linux/Mac
 pip3 install -r requirements.txt
@@ -146,6 +148,8 @@ Descarga el instalador desde [nodejs.org](https://nodejs.org) y ejecuta.
 
 ```bash
 npm install
+node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" install
+
 ```
 
 ---
@@ -184,6 +188,7 @@ D2 (GPIO4) ──470Ω───┤ Din
 
 ```bash
 npm run build
+node "C:\Program Files\nodejs\node_modules\npm\bin\npm-cli.js" run build
 ```
 
 **Salida esperada:**
@@ -225,6 +230,7 @@ default_envs = esp01_1m_full
 
 ```bash
 pio run -e nodemcuv2
+ python -m platformio run -e nodemcuv2 --target upload -s
 ```
 
 **Salida esperada (puede tomar 5-15 minutos):**
@@ -325,6 +331,7 @@ Hard resetting via RTS pin...
 ```bash
 # Windows
 pio run -e nodemcuv2 --target upload -s
+python -m platformio run -e nodemcuv2 --target upload -s
 
 # Linux/Mac
 pio run -e nodemcuv2 --target upload
@@ -343,7 +350,7 @@ pio run -e nodemcuv2 --target upload
 ### 8.1 Conectar a WiFi
 
 1. Busca una red WiFi llamada "WLED-AP" (Access Point)
-2. Conéctate a ella (sin contraseña o contraseña por defecto)
+2. Conéctate a ella (sin contraseña o contraseña por defecto es wled1234.)
 3. Abre un navegador y ve a `http://4.3.2.1` o `http://192.168.4.1`
 
 ### 8.2 Configurar red WiFi permanente

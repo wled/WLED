@@ -211,6 +211,35 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
   #define MDNS_NAME DEFAULT_MDNS_NAME
 #endif
 
+// --- SinricPro support (optional) ---
+// Define WLED_ENABLE_SINRICPRO to enable inclusion of SinricPro support.
+// You can override the following values in your `my_config.h` when
+// `WLED_USE_MY_CONFIG` is defined before including this file.
+#ifdef WLED_ENABLE_SINRICPRO
+  #include <SinricPro.h>
+  #include <SinricProDimSwitch.h>
+
+  #ifndef WIFI_SSID
+    #define WIFI_SSID         "YOUR-WIFI-SSID"
+  #endif
+  #ifndef WIFI_PASS
+    #define WIFI_PASS         "YOUR-WIFI-PASSWORD"
+  #endif
+  #ifndef APP_KEY
+    #define APP_KEY           "YOUR-APP-KEY"
+  #endif
+  #ifndef APP_SECRET
+    #define APP_SECRET        "YOUR-APP-SECRET"
+  #endif
+  #ifndef DIMSWITCH_ID
+    #define DIMSWITCH_ID      "YOUR-DEVICE-ID"
+  #endif
+  #ifndef BAUD_RATE
+    #define BAUD_RATE         115200
+  #endif
+#endif // WLED_ENABLE_SINRICPRO
+
+
 #if defined(WLED_AP_PASS) && !defined(WLED_AP_SSID)
   #error WLED_AP_PASS is defined but WLED_AP_SSID is still the default. \
          Please change WLED_AP_SSID to something unique.

@@ -1,0 +1,8 @@
+{
+  "name": "SinricPro",
+  "version": "1.0.0",
+  "description": "Usermod to integrate SinricPro DimSwitch for WLED (power + brightness)",
+  "authors": [ { "name": "WLED usermod" } ],
+  "frameworks": ["arduino"],
+  "platforms": ["espressif32","espressif8266"]
+}
