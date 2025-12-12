@@ -11,6 +11,7 @@
 	var timerCount = 0;
 	var maxTimers = 64;
 	var presets = {};
+	var sortedPresetOptions = '';
 	function S() {
 		getLoc();
 		loadPresets();
@@ -26,6 +27,21 @@
 			var p = localStorage.getItem("wledP");
 			if (p) presets = JSON.parse(p);
 		} catch(e) {}
+		buildSortedPresetOptions();
+	}
+	function buildSortedPresetOptions() {
+		var arr = Object.entries(presets).sort((a,b)=>{
+			var nameA = (a[1].n || ("Preset " + a[0])).toLowerCase();
+			var nameB = (b[1].n || ("Preset " + b[0])).toLowerCase();
+			return nameA.localeCompare(nameB);
+		});
+		sortedPresetOptions = '';
+		for (var p of arr) {
+			if (p[0]=="0") continue;
+			var id = parseInt(p[0]);
+			var name = p[1].n || ("Preset " + id);
+			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
+		}
 	}
 	function expand(o,i)
 	{
@@ -57,16 +73,8 @@
 		var dow = weekdays >> 1;
 		var tbody = gId("timerRows");
 		var tr = tbody.insertRow();
-		var typeVal = isSpecial ? hour : 0;
 		var hourVal = isSpecial ? 0 : hour;
-		var presetOpts = '<option value="0">None</option>';
-		var arr = Object.entries(presets).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
-		for (var p of arr) {
-			if (p[0]=="0") continue;
-			var id = parseInt(p[0]);
-			var name = p[1].n || ("Preset " + id);
-			presetOpts += `<option value="${id}" ${preset==id?'selected':''}>${id}: ${name}</option>`;
-		}
+		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions.replace(new RegExp(`value="${preset}"`, 'g'), `value="${preset}" selected`);
 		tr.innerHTML = `<td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></td>
 <td><select id="TS${i}" class="xs" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="xs" type="number" min="0" max="24" value="${hourVal}" style="display:${isSpecial?'none':'inline'}"></td>
 <td><input name="N${i}" id="N${i}" class="xs" type="number" min="${isSpecial?-120:0}" max="${isSpecial?120:59}" value="${minute}"></td>
@@ -112,14 +120,7 @@
 		populateMacroPresets();
 	}
 	function populateMacroPresets() {
-		var presetOpts = '<option value="0">None</option>';
-		var arr = Object.entries(presets).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
-		for (var p of arr) {
-			if (p[0]=="0") continue;
-			var id = parseInt(p[0]);
-			var name = p[1].n || ("Preset " + id);
-			presetOpts += `<option value="${id}">${id}: ${name}</option>`;
-		}
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
 		var fields = ['A0','A1','MC','MN'];
 		for (var f of fields) {
 			var inp = gN(f);
@@ -156,14 +157,7 @@
 		var rCnt = t.rows.length;
 		var tr = t.insertRow(rCnt);
 		var b = String.fromCharCode((i<10?48:55)+i);
-		var presetOpts = '<option value="0">None</option>';
-		var arr = Object.entries(presets).sort((a,b)=>parseInt(a[0])-parseInt(b[0]));
-		for (var pr of arr) {
-			if (pr[0]=="0") continue;
-			var id = parseInt(pr[0]);
-			var name = pr[1].n || ("Preset " + id);
-			presetOpts += `<option value="${id}">${id}: ${name}</option>`;
-		}
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
 		var td = document.createElement('td');
 		td = tr.insertCell(0);
 		td.innerHTML = `Button ${i}:`;
