@@ -52,7 +52,7 @@
 		var typeVal = isSpecial ? hour : 0;
 		var hourVal = isSpecial ? 0 : hour;
 		tr.innerHTML = `<td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></td>
-<td><select id="TS${i}" class="xs" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select><input name="H${i}" id="H${i}" class="xs" type="number" min="0" max="24" value="${hourVal}" style="display:${isSpecial?'none':'inline'}"></td>
+<td><select id="TS${i}" class="xs" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="xs" type="number" min="0" max="24" value="${hourVal}" style="display:${isSpecial?'none':'inline'}"></td>
 <td><input name="N${i}" id="N${i}" class="xs" type="number" min="${isSpecial?-120:0}" max="${isSpecial?120:59}" value="${minute}"></td>
 <td><input name="T${i}" class="s" type="number" min="0" max="250" value="${preset}"></td>
 <td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td>`;
@@ -75,11 +75,18 @@
 		var isSpecial = sel.value != 0;
 		hour.style.display = isSpecial ? "none" : "inline";
 		if (isSpecial) {
-			hour.value = sel.value;
+			// Save current hour value before switching to sunrise/sunset
+			hour.setAttribute("data-regular-hour", hour.value);
+			hour.removeAttribute("name");
 			min.min = -120;
 			min.max = 120;
 		} else {
-			hour.value = 0;
+			// Restore saved hour value when switching back to regular
+			var savedHour = hour.getAttribute("data-regular-hour");
+			if (savedHour !== null && savedHour !== "") {
+				hour.value = savedHour;
+			}
+			hour.setAttribute("name", "H"+i);
 			min.min = 0;
 			min.max = 59;
 			if (min.value < 0 || min.value > 59) min.value = 0;
@@ -94,7 +101,11 @@
 			gId("W"+i).value=val;
 			var sel = gId("TS"+i);
 			var hour = gId("H"+i);
-			if (sel && sel.value != 0) hour.value = sel.value;
+			if (sel && sel.value != 0) {
+				// Re-add name attribute and set value for sunrise/sunset before submission
+				hour.setAttribute("name", "H"+i);
+				hour.value = sel.value;
+			}
 		}
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
