@@ -51,6 +51,38 @@ function tooltip(cont=null) {
 		});
 	});
 };
+// sequential loading of external resources (JS or CSS) with retry, calls init() when done
+function loadResources(files, init) {
+	let i = 0;
+	const loadNext = () => {
+		if (i >= files.length) {
+			if (init) {
+				d.documentElement.style.visibility = 'visible'; // make page visible after all files are loaded if it was hidden (prevent ugly display)
+				d.readyState === 'complete' ? init() : window.addEventListener('load', init);
+			}
+			return;
+		}
+		const file = files[i++];
+		const isCSS = file.endsWith('.css');
+		const el = d.createElement(isCSS ? 'link' : 'script');
+		if (isCSS) {
+			el.rel = 'stylesheet';
+			el.href = file;
+			const st = d.head.querySelector('style');
+			if (st) d.head.insertBefore(el, st); // insert before any <style> to allow overrides
+			else d.head.appendChild(el);
+		} else {
+			el.src = file;
+			d.head.appendChild(el);
+		}
+		el.onload = () => {	loadNext(); };
+		el.onerror = () => {
+			i--; // load this file again
+			setTimeout(loadNext, 100);
+		};
+	};
+	loadNext();
+}
 // https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefined) {
 	let scE = d.createElement("script");
@@ -116,21 +148,22 @@ function uploadFile(fileObj, name) {
 	fileObj.value = '';
 	return false;
 }
-// connect to WebSocket, use parent WS or open new
+// connect to WebSocket, use parent WS or open new, callback function gets passed the new WS object
 function connectWs(onOpen) {
-	try {
-		if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
-			if (onOpen) onOpen();
-			return top.window.ws;
-		}
-	} catch (e) {}
-
-	getLoc(); // ensure globals (loc, locip, locproto) are up to date
-	let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
-	let ws = new WebSocket(url);
-	ws.binaryType = "arraybuffer";
-	if (onOpen) { ws.onopen = onOpen; }
-	try { top.window.ws = ws; } catch (e) {} // store in parent for reuse
+	let ws;
+	try {	ws = top.window.ws;} catch (e) {}
+	// reuse if open
+	if (ws && ws.readyState === WebSocket.OPEN) {
+		if (onOpen) onOpen(ws);
+	} else {
+		// create new ws connection
+		getLoc(); // ensure globals are up to date
+		let url = loc ? getURL('/ws').replace("http", "ws")
+									: "ws://" + window.location.hostname + "/ws";
+		ws = new WebSocket(url);
+		ws.binaryType = "arraybuffer";
+		if (onOpen) ws.onopen = () => onOpen(ws);
+	}
 	return ws;
 }
 

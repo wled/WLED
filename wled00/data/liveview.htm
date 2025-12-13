@@ -17,8 +17,15 @@
       position: absolute;
     }
   </style>
-  <script src="common.js"></script>
   <script>
+    // load common.js with retry on error
+    (function common() {
+      const l = document.createElement('script');
+      l.src = 'common.js';
+      l.onload = () => S();
+      l.onerror = () => setTimeout(common, 100);
+      document.head.appendChild(l);
+    })();
     var ws;
     var tmout = null;
     var c;
@@ -31,7 +38,7 @@
         ctx.fillRect(Math.round((i - start) * w / skip), 0, Math.ceil(w), c.height);
       }
     }
-    function update() { // via HTTP (/json/live)
+    function update(retry=0) { // via HTTP (/json/live)
       if (d.hidden) {
         clearTimeout(tmout);
         tmout = setTimeout(update, 250);
@@ -53,7 +60,7 @@
       .catch((error)=>{
         //console.error("Peek HTTP error:",error);
         clearTimeout(tmout);
-        tmout = setTimeout(update, 2500);
+        if (retry<5) tmout = setTimeout(() => update(retry+1), 2500); // stop endlessly bugging the ESP if resource is not available
       })
     }
     function S() { // Startup function (onload)
@@ -62,10 +69,7 @@
       if (window.location.href.indexOf("?ws") == -1) {update(); return;}
 
       // Initialize WebSocket connection
-      ws = connectWs(function () {
-        //console.info("Peek WS open");
-        ws.send('{"lv":true}');
-      });
+      ws = connectWs(ws => ws.send('{"lv":true}'));
       ws.addEventListener('message', (e) => {
         try {
           if (toString.call(e.data) === '[object ArrayBuffer]') {
@@ -81,7 +85,7 @@
     }
   </script>
 </head>
-<body onload="S()">
+<body>
   <canvas id="canv"></canvas>
 </body>
 </html>
