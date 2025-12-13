@@ -12,8 +12,8 @@
 #ifdef WLED_ENABLE_PXMAGIC
   #include "html_pxmagic.h"
 #endif
-#ifndef WLED_DISABLE_MATRIXTOOL
-  #include "html_matrixtool.h"
+#ifndef WLED_DISABLE_PIXELFORGE
+  #include "html_pixelforge.h"
 #endif
 #include "html_cpal.h"
 #include "html_edit.h"
@@ -610,10 +610,10 @@ void initServer()
   });
   #endif
 
-  #ifndef WLED_DISABLE_MATRIXTOOL
-  static const char _matrixtool_htm[] PROGMEM = "/matrixtool.htm";
-  server.on(_matrixtool_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_matrixtool_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_matrixtool, PAGE_matrixtool_length);
+  #ifndef WLED_DISABLE_PIXELFORGE
+  static const char _pixelforge_htm[] PROGMEM = "/pixelforge.htm";
+  server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
   });
   #endif
 #endif

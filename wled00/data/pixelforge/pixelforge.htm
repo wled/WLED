@@ -6,7 +6,7 @@
 <meta name="author" content="@dedehai" />
 <link rel="shortcut icon" href="favicon.ico">
 <link rel="stylesheet" href="style.css"> <!-- do not use @import url() for css file, it prevents minifying! -->
-<title>WLED Matrix Tool</title>
+<title>WLED PixelForge</title>
 <script src="omggif.js"></script> <!-- TODO: add sequential loading, also addin common.js and optimize code size (getURL() etc.) -->
 <style>
 body {
@@ -23,16 +23,17 @@ body {
 h3 {
 	margin-bottom: 0;
 }
-/* rainbow text animation */
-.title .rb {
-	background: linear-gradient(to right, #ef5350, #f48fb1, #7e57c2, #2196f3, #26c6da, #43a047, #eeff41, #f9a825, #ff5722);
-	-webkit-background-clip: text;
-	-webkit-text-fill-color: transparent;
-	background-size: 200% 200%;
-	animation: rb 5s linear infinite;
-	font-size: 36px;
+/* shimmer text animation */
+.title .sh {
+  background: linear-gradient(90deg,
+    #7b47db 0%, #ff6b6b 20%, #feca57 40%, #48dbfb 60%, #7b47db 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s ease-in-out 5;
+  font-size: 36px;
 }
-@keyframes rb{0%{background-position:200% 0}100%{background-position:0 0}}
+@keyframes shimmer { 50% { background-position: 600% 0; } }
 
 /* image grid */
 .g {
@@ -244,7 +245,7 @@ button, .btn {
 </head>
 <body>
 <div class="cont">
-	<div class="title">WLED<span class="rb">MATRIX</span>TOOL</div>
+	<div class="title">WLED<span class="sh">PixelForge</span></div>
 
 	<div class="tb">
 		<button class="active" id="tImg">Image Tool</button>
