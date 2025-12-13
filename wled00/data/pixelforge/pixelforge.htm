@@ -1158,8 +1158,9 @@ async function txtSegLoad(){
 function txtUp(){
 	const id=+gId('segT').value,txt=gId('txt').value.trim().slice(0,64);
 	const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
-	fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
-	segLoad();
+	fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)})
+		.then(r => { if(r.ok) segLoad(); })
+		.catch(console.error);
 }
 
 /* apply button */
