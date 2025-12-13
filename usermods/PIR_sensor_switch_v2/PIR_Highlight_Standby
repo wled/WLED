@@ -1,0 +1,347 @@
+#pragma once
+
+#include "wled.h"
+
+/*
+ * --------------------
+ * Rawframe edit:
+ * - TESTED ON WLED VS.0.10.1 - WHERE ONLY PRESET 16 SAVES SEGMENTS - some macros may not be needed if this changes.
+ * - Code has been modified as my usage changed, as such it has poor use of functions vs if thens, but feel free to change it for me :)
+ * 
+ * Edited to SWITCH between two lighting scenes/modes : STANDBY and HIGHLIGHT
+ * 
+ * Usage:
+ *  - Standby is the default mode and Highlight is activated when the PIR detects activity.
+ *  - PIR delay now set to same value as Nightlight feature on boot but otherwise controlled as normal.
+ *  - Standby and Highlight brightness can be set on the fly (default values set on boot via macros calling presets).
+ *  - Macros are used to set Standby and Highlight states (macros can load saved presets etc).
+ * 
+ *    - Macro short button press   =  Highlight state default (used on boot only and sets default brightness).
+ *    - Macro double button press  =  Standby state default   (used on boot only and sets default brightness).
+ *    - Macro long button press    =  Highlight state         (after boot).
+ *    - Macro 16                   =  Standby state           (after boot).
+ *
+ *    ! It is advised not to set 'Apply preset at boot' or a boot macro (that activates a preset) as we will call our own macros on boot.
+ * 
+ *  - When the strip is off before PIR activates the strip will return to off for Standby mode, and vice versa.
+ *  - When the strip is turned off while in Highlight mode, it will return to standby mode. (This behaviour could be changed easily if for some reason you wanted the lights to go out when the pir is activated).
+ *  - Macros can be chained so you could do almost anything, such as have standby mode also turn on the nightlight function with a new time delay.
+ * 
+ * Segment Notes:
+ * - It's easier to save the segment selections in preset than apply via macro while we a limited to preset 16. (Ie, instead of selecting sections at the point of activating standby/highlight modes). 
+ * - Because only preset 16 saves segments, for now we are having to use addiotional macros to control segments where they are involved. Macros can be chained so this works but it would be better if macros also accepted json-api commands. (Testing http api segement behaviour of SS with SB left me a little confused).
+ * 
+ * Future:
+ *  - Maybe a second timer/timetable that turns on/off standby mode also after set inactivity period / date & times. For now this can be achieved others ways so may not be worth eating more processing power.
+ * 
+ * --------------------
+ * 
+ * This usermod handles PIR sensor states.
+ * The strip will be switched on and the off timer will be resetted when the sensor goes HIGH. 
+ * When the sensor state goes LOW, the off timer is started and when it expires, the strip is switched off. 
+ * 
+ * 
+ * Usermods allow you to add own functionality to WLED more easily
+ * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
+ * 
+ * v2 usermods are class inheritance based and can (but don't have to) implement more functions, each of them is shown in this example.
+ * Multiple v2 usermods can be added to one compilation easily.
+ * 
+ * Creating a usermod:
+ * This file serves as an example. If you want to create a usermod, it is recommended to use usermod_v2_empty.h from the usermods folder as a template.
+ * Please remember to rename the class and file to a descriptive name.
+ * You may also use multiple .h and .cpp files.
+ * 
+ * Using a usermod:
+ * 1. Copy the usermod into the sketch folder (same folder as wled00.ino)
+ * 2. Register the usermod by adding #include "usermod_filename.h" in the top and registerUsermod(new MyUsermodClass()) in the bottom of usermods_list.cpp
+ */
+
+class PIRsensorSwitch : public Usermod {
+  private:
+    // PIR sensor pin
+    const uint8_t PIRsensorPin = 13; // D7 on D1 mini
+    // notification mode for stateUpdated()
+    const byte NotifyUpdateMode = CALL_MODE_NO_NOTIFY; // CALL_MODE_DIRECT_CHANGE
+    // 1 min delay before switch off after the sensor state goes LOW
+    uint32_t m_switchOffDelay = 60000;
+    // off timer start time
+    uint32_t m_offTimerStart = 0;
+    // current PIR sensor pin state
+    byte m_PIRsensorPinState = LOW;
+    // PIR sensor enabled - ISR attached
+    bool m_PIRenabled = true;
+    // temp standby brightness store. initial value set as nightlight default target brightness
+    byte briStandby _INIT(nightlightTargetBri);
+    // temp hightlight brightness store. initial value set as current brightness
+    byte briHighlight _INIT(bri);
+    // highlight active/deactive monitor 
+    bool highlightActive = false;
+    // wled on/off state in standby mode
+    bool standbyoff = false;
+
+    /*
+     * return or change if new PIR sensor state is available
+     */
+    static volatile bool newPIRsensorState(bool changeState = false, bool newState = false) {
+      static volatile bool s_PIRsensorState = false;
+      if (changeState) {
+        s_PIRsensorState = newState;
+      }
+      return s_PIRsensorState;
+    }
+
+    /*
+     * PIR sensor state has changed
+     */
+    static void IRAM_ATTR ISR_PIRstateChange() {
+      newPIRsensorState(true, true);
+    }
+
+    /*
+     * switch strip on/off
+     */
+    // now allowing adjustable standby and highlight brightness
+    void switchStrip(bool switchOn) {
+      //if (switchOn && bri == 0) {
+      if (switchOn) { // **pir sensor is on and activated** 
+        //bri = briLast;
+        if (bri != 0) { // is WLED currently on
+          if (highlightActive) { // and is Highlight already on
+            briHighlight = bri; // then update highlight brightness with current brightness
+          }
+          else {
+            briStandby = bri; // else update standby brightness with current brightness
+          }
+        }
+        else { // WLED is currently off
+          if (!highlightActive) { // and Highlight is not already on
+            briStandby = briLast; // then update standby brightness with last active brightness (before turned off)
+            standbyoff = true;
+          }
+          else { // and Highlight is already on
+            briHighlight = briLast; // then set hightlight brightness to last active brightness (before turned off)
+          }
+        }
+        applyMacro(16); // apply highlight lighting without brightness
+        if (bri != briHighlight) { 
+          bri = briHighlight; // set current highlight brightness to last set highlight brightness
+        }
+        stateUpdated(NotifyUpdateMode);
+        highlightActive = true; // flag highlight is on
+      }    
+      else { // **pir timer has elapsed**
+        //briLast = bri;
+        //bri = 0;
+        if (bri != 0) { // is WLED currently on
+          briHighlight = bri; // update highlight brightness with current brightness
+          if (!standbyoff) { // 
+            bri = briStandby; // set standby brightness to last set standby brightness
+          }
+          else { // 
+            briLast = briStandby; // set standby off brightness
+            bri = 0; // set power off in standby
+            standbyoff = false; // turn off flag
+          }
+          applyMacro(macroLongPress); // apply standby lighting without brightness
+        }
+        else { // WLED is currently off
+          briHighlight = briLast; // set last active brightness (before turned off) to highlight lighting brightness
+          if (!standbyoff) { // 
+            bri = briStandby; // set standby brightness to last set standby brightness
+          }
+          else { // 
+            briLast = briStandby; // set standby off brightness 
+            bri = 0; // set power off in standby
+            standbyoff = false; // turn off flag 
+          }
+          applyMacro(macroLongPress); // apply standby lighting without brightness
+        }
+        stateUpdated(NotifyUpdateMode);
+        highlightActive = false; // flag highlight is off
+      }
+    }
+
+    /*
+     * Read and update PIR sensor state.
+     * Initilize/reset switch off timer
+     */
+    bool updatePIRsensorState() {
+      if (newPIRsensorState()) {
+        m_PIRsensorPinState = digitalRead(PIRsensorPin);
+        
+        if (m_PIRsensorPinState == HIGH) {
+          m_offTimerStart = 0;
+          switchStrip(true);
+        }
+        else if (bri != 0) {
+          // start switch off timer
+          m_offTimerStart = millis();
+        }
+        newPIRsensorState(true, false);
+        return true;
+      }
+      return false;
+    }
+
+    /* 
+     * switch off the strip if the delay has elapsed 
+     */
+    bool handleOffTimer() {
+      if (m_offTimerStart > 0) {
+        if ((millis() - m_offTimerStart > m_switchOffDelay) || bri == 0 ) { // now also checking for manual power off during highlight mode
+        switchStrip(false);
+        m_offTimerStart = 0;        
+        return true;
+        }
+      }
+      return false;
+    }
+
+  public:
+    //Functions called by WLED
+
+    /*
+     * setup() is called once at boot. WiFi is not yet connected at this point.
+     * You can use it to initialize variables, sensors or similar.
+     */
+    void setup() {
+      // PIR Sensor mode INPUT_PULLUP
+      pinMode(PIRsensorPin, INPUT_PULLUP);
+      // assign interrupt function and set CHANGE mode
+      attachInterrupt(digitalPinToInterrupt(PIRsensorPin), ISR_PIRstateChange, CHANGE);
+      // set delay to nightlight default duration on boot (after which json PIRoffSec overides if needed)
+      m_switchOffDelay = (nightlightDelayMins*60000);
+      applyMacro(macroButton); // apply default highlight lighting
+      briHighlight = bri;
+      applyMacro(macroDoublePress); // apply default standby lighting with brightness
+      briStandby = bri;
+    }
+
+
+    /*
+     * connected() is called every time the WiFi is (re)connected
+     * Use it to initialize network interfaces
+     */
+    void connected() {
+
+    }
+
+
+    /*
+     * loop() is called continuously. Here you can check for events, read sensors, etc.
+     */
+    void loop() {
+      if (!updatePIRsensorState()) {
+        handleOffTimer();
+      }
+    }
+
+    /*
+     * addToJsonInfo() can be used to add custom entries to the /json/info part of the JSON API.
+     * 
+     * Add PIR sensor state and switch off timer duration to jsoninfo
+     */
+    void addToJsonInfo(JsonObject& root)
+    {
+      //this code adds "u":{"&#x23F2; PIR sensor state":uiDomString} to the info object
+      // the value contains a button to toggle the sensor enabled/disabled
+      JsonObject user = root["u"];
+      if (user.isNull()) user = root.createNestedObject("u");
+
+      JsonArray infoArr = user.createNestedArray("&#x23F2; PIR sensor state"); //name
+      String uiDomString = "<button class=\"btn infobtn\" onclick=\"requestJson({PIRenabled:";
+      String sensorStateInfo;
+
+      // PIR sensor state
+      if (m_PIRenabled) {
+        uiDomString += "false";
+        sensorStateInfo = (m_PIRsensorPinState != LOW ? "active" : "inactive"); //value
+      } else {
+        uiDomString += "true";
+        sensorStateInfo = "Disabled !";
+      }
+      uiDomString += "});return false;\">";
+      uiDomString +=  sensorStateInfo;
+      uiDomString += "</button>";
+      infoArr.add(uiDomString); //value
+
+      //this code adds "u":{"&#x23F2; switch off timer":uiDomString} to the info object
+      infoArr = user.createNestedArray("&#x23F2; switch off timer"); //name
+
+      // off timer
+      if (m_offTimerStart > 0) {
+        uiDomString = "";
+        unsigned int offSeconds = (m_switchOffDelay - (millis() - m_offTimerStart)) / 1000;
+        if (offSeconds >= 3600) {
+          uiDomString += (offSeconds / 3600); 
+          uiDomString += " hours "; 
+          offSeconds %= 3600;
+        }
+        if (offSeconds >= 60) {
+          uiDomString += (offSeconds / 60); 
+          offSeconds %= 60;
+        } else if (uiDomString.length() > 0){
+          uiDomString += 0; 
+        }
+        if (uiDomString.length() > 0){
+          uiDomString += " min ";
+        }
+        uiDomString += (offSeconds); 
+        infoArr.add(uiDomString + " sec");
+      } else {
+        infoArr.add("inactive");
+      }
+    }
+
+
+    /*
+     * addToJsonState() can be used to add custom entries to the /json/state part of the JSON API (state object).
+     * Values in the state object may be modified by connected clients
+     * Add "PIRenabled" to json state. This can be used to disable/enable the sensor.
+     * Add "PIRoffSec" to json state. This can be used to adjust <m_switchOffDelay> milliseconds .
+     */
+    void addToJsonState(JsonObject& root)
+    {
+      root["PIRenabled"] = m_PIRenabled;
+      root["PIRoffSec"] = (m_switchOffDelay / 1000);
+    }
+
+
+    /*
+     * readFromJsonState() can be used to receive data clients send to the /json/state part of the JSON API (state object).
+     * Values in the state object may be modified by connected clients
+     * Read "PIRenabled" from json state and switch enable/disable the PIR sensor.
+     * Read "PIRoffSec" from json state and adjust <m_switchOffDelay> milliseconds .
+     */
+    void readFromJsonState(JsonObject& root)
+    {
+      if (root["PIRoffSec"] != nullptr) {
+        m_switchOffDelay = (1000 * max(60UL, min(43200UL, root["PIRoffSec"].as<unsigned long>())));
+      }
+      
+      if (root["PIRenabled"] != nullptr) {
+        if (root["PIRenabled"] && !m_PIRenabled) {
+          attachInterrupt(digitalPinToInterrupt(PIRsensorPin), ISR_PIRstateChange, CHANGE);
+          newPIRsensorState(true, true);
+        } 
+        else if(m_PIRenabled) {
+          detachInterrupt(PIRsensorPin);
+        }
+        m_PIRenabled = root["PIRenabled"];          
+      }
+    }
+    
+   
+    /*
+     * getId() allows you to optionally give your V2 usermod an unique ID (please define it in const.h!).
+     * This could be used in the future for the system to determine whether your usermod is installed.
+     */
+    uint16_t getId()
+    {
+      return USERMOD_ID_PIRSWITCH;
+    }
+
+   //More methods can be added in the future, this example will then be extended.
+   //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
+};
