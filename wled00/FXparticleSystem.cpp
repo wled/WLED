@@ -1304,7 +1304,7 @@ void ParticleSystem1D::particleMoveUpdate(PSparticle1D &part, PSparticleFlags1D 
     partFlags.outofbounds = false; // reset out of bounds (in case particle was created outside the matrix and is now moving into view)
 
     if (perParticleSize && advancedproperties != nullptr) { // using individual particle size?
-      renderradius = PS_P_HALFRADIUS - 1 + advancedproperties->size; // note: for single pixel particles, it should be zero, but it does not matter as out of bounds checking is done in rendering function
+      renderradius = PS_P_HALFRADIUS_1D - 1 + advancedproperties->size; // note: for single pixel particles, it should be zero, but it does not matter as out of bounds checking is done in rendering function
       if (advancedproperties->size > 1)
         particleHardRadius = PS_P_MINHARDRADIUS_1D + ((advancedproperties->size * 52) >> 6); // use 1 pixel + 80% of size for hard radius (slight overlap with boarders so they do not "float" and nicer stacking)
       else // single pixel particles use half the collision distance for walls
