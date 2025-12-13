@@ -3439,11 +3439,11 @@ function reportUpgradeEvent(info, oldVersion) {
 				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
 				brand: infoData.brand,                           // Device brand (always present)
 				product: infoData.product,                       // Product name (always present)
-				flashSize: infoData.flash                        // Flash size (always present)
+				flashSize: infoData.flash,                       // Flash size (always present)
+				repo: infoData.repo                              // GitHub repository (always present)
 			};
 
 			// Add optional fields if available
-			if (infoData.repo !== undefined) upgradeData.repo = infoData.repo;  // GitHub repository
 			if (infoData.psramPresent !== undefined) upgradeData.psramPresent = infoData.psramPresent;  // Whether device has PSRAM
 			if (infoData.psramSize !== undefined) upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
 			// Note: partitionSizes not currently available in /json/info endpoint
