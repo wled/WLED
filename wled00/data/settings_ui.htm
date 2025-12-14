@@ -4,10 +4,19 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>UI Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var initial_ds, initial_st, initial_su, oldUrl;
 	var sett = null;
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
 	var l = {
 		"comp":{
 			"labels":"Show button labels",
@@ -208,9 +217,8 @@
 		gId("theme_bg_rnd").checked = false;
 	}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>

@@ -157,12 +157,6 @@ void sendDataWs(AsyncWebSocketClient * client)
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
   size_t heap1 = getFreeHeapSize();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
-  #ifdef ESP8266
-  if (len>heap1) {
-    DEBUG_PRINTLN(F("Out of memory (WS)!"));
-    return;
-  }
-  #endif
   AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
   size_t heap2 = getFreeHeapSize();
