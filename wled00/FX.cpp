@@ -3178,6 +3178,202 @@ static uint16_t rolling_balls(void) {
 static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of balls,,,,Collide,Overlay,Trails;!,!,!;!;1;m12=1"; //bar
 #endif // WLED_PS_DONT_REPLACE_1D_FX
 
+
+/*
+/  Pac-Man by Bob Loeffler with help from @dedehai and @blazoncek
+*   speed slider is for speed.
+*   intensity slider is for selecting the number of power dots.
+*   custom1 slider is for selecting the LED where the ghosts will start blinking blue.
+*   custom2 slider is for blurring the LEDs in the segment.
+*   custom3 slider is for selecting the # of ghosts (between 2 and 8).
+*   check1 is for displaying White Dots that PacMan eats.  Enabled will show white dots.  Disabled will not show any white dots (all leds will be black).
+*   check2 is for Smear mode (enabled will smear/persist the LED colors, disabled will not).
+*   check3 is for the Compact Dots mode of displaying white dots.  Enabled will show white dots in every LED.  Disabled will show black LEDs between the white dots.
+*   aux0 is used to keep track of the previous number of power dots in case the user selects a different number with the intensity slider.
+*   aux1 is the main counter for timing.
+*/
+typedef struct PacManChars {
+  signed    pos;
+  signed    topPos;     // LED position of farthest PacMan has moved
+  uint32_t  color;
+  bool      direction;  // true = moving away from first LED
+  bool      blue;       // used for ghosts only
+  bool      eaten;      // used for power dots only
+} pacmancharacters_t;
+
+static uint16_t mode_pacman(void) {
+  constexpr unsigned ORANGEYELLOW = 0xFFCC00;
+  constexpr unsigned PURPLEISH    = 0xB000B0;
+  constexpr unsigned ORANGEISH    = 0xFF8800;
+  constexpr unsigned WHITEISH     = 0x999999;
+  constexpr unsigned PACMAN = 0;   // PacMan is character[0]
+  constexpr uint32_t ghostColors[] = {RED, PURPLEISH, CYAN, ORANGEISH};
+
+  unsigned maxPowerDots = min(SEGLEN / 10U, 255U);  // cap the max so packed state fits in 8 bits
+  unsigned numPowerDots = map(SEGMENT.intensity, 0, 255, 1, maxPowerDots);
+  unsigned numGhosts = map(SEGMENT.custom3, 0, 31, 2, 8);
+  bool smearMode = SEGMENT.check2;
+
+  // Pack two 8-bit values into one 16-bit field (stored in SEGENV.aux0)
+  uint16_t combined_value = uint16_t(((numPowerDots & 0xFF) << 8) | (numGhosts & 0xFF));
+  if (combined_value != SEGENV.aux0) SEGENV.call = 0;  // Reinitialize on setting change
+  SEGENV.aux0 = combined_value;
+
+  // Allocate segment data
+  unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
+  if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) return mode_static();
+  pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
+
+  // Calculate when blue ghosts start blinking.
+  // On first call (or after settings change), `topPos` is not known yet, so fall back to the full segment length in that case.
+  int maxBlinkPos = (SEGENV.call == 0) ? (int)SEGLEN - 1 : character[PACMAN].topPos;
+  if (maxBlinkPos < 20) maxBlinkPos = 20;
+  int startBlinkingGhostsLED = (SEGLEN < 64)
+    ? (int)SEGLEN / 3
+    : map(SEGMENT.custom1, 0, 255, 20, maxBlinkPos);
+
+  // Initialize characters on first call
+  if (SEGENV.call == 0) {
+    // Initialize PacMan
+    character[PACMAN].color = YELLOW;
+    character[PACMAN].pos = 0;
+    character[PACMAN].topPos = 0;
+    character[PACMAN].direction = true;
+    character[PACMAN].blue = false;
+
+    // Initialize ghosts with alternating colors
+    for (int i = 1; i <= numGhosts; i++) {
+      character[i].color = ghostColors[(i-1) % 4];
+      character[i].pos = -2 * (i + 1);
+      character[i].direction = true;
+      character[i].blue = false;
+    }
+
+    // Initialize power dots
+    for (int i = 0; i < numPowerDots; i++) {
+      character[i + numGhosts + 1].color = ORANGEYELLOW;
+      character[i + numGhosts + 1].eaten = false;
+    }
+    character[numGhosts + 1].pos = SEGLEN - 1;  // Last power dot at end
+  }
+
+  if (strip.now > SEGENV.step) {
+    SEGENV.step = strip.now;
+    SEGENV.aux1++;
+  }
+
+  // Clear background if not in smear mode
+  if (!smearMode) SEGMENT.fill(BLACK);
+
+  // Draw white dots in front of PacMan if option selected
+  if (SEGMENT.check1) {
+    int step = SEGMENT.check3 ? 1 : 2;  // Compact or spaced dots
+    for (int i = SEGLEN - 1; i > character[PACMAN].topPos; i -= step) {
+      SEGMENT.setPixelColor(i, WHITEISH);
+    }
+  }
+
+  // Update power dot positions dynamically
+  uint32_t everyXLeds = (((uint32_t)SEGLEN - 10U) << 8) / numPowerDots;    // Fixed-point spacing for power dots: use 32-bit math to avoid overflow on long segments.
+  for (int i = 1; i < numPowerDots; i++) {
+    character[i + numGhosts + 1].pos = 10 + ((i * everyXLeds) >> 8);
+  }
+
+  // Blink power dots every 10 ticks
+  if (SEGENV.aux1 % 10 == 0) {
+    uint32_t dotColor = (character[numGhosts + 1].color == ORANGEYELLOW) ? BLACK : ORANGEYELLOW;
+    for (int i = 0; i < numPowerDots; i++) {
+      character[i + numGhosts + 1].color = dotColor;
+    }
+  }
+
+  // Blink blue ghosts when nearing start
+  if (SEGENV.aux1 % 15 == 0 && character[1].blue && character[PACMAN].pos <= startBlinkingGhostsLED) {
+    uint32_t ghostColor = (character[1].color == BLUE) ? WHITEISH : BLUE;
+    for (int i = 1; i <= numGhosts; i++) {
+      character[i].color = ghostColor;
+    }
+  }
+
+  // Draw uneaten power dots
+  for (int i = 0; i < numPowerDots; i++) {
+    if (!character[i + numGhosts + 1].eaten && (unsigned)character[i + numGhosts + 1].pos < SEGLEN) {
+      SEGMENT.setPixelColor(character[i + numGhosts + 1].pos, character[i + numGhosts + 1].color);
+    }
+  }
+
+  // Check if PacMan ate a power dot
+  for (int j = 0; j < numPowerDots; j++) {
+    auto &dot = character[j + numGhosts + 1];
+    if (character[PACMAN].pos == dot.pos && !dot.eaten) {
+      // Reverse all characters - PacMan now chases ghosts
+      for (int i = 0; i <= numGhosts; i++) {
+        character[i].direction = false;
+      }
+      // Turn ghosts blue
+      for (int i = 1; i <= numGhosts; i++) {
+        character[i].color = BLUE;
+        character[i].blue = true;
+      }
+      dot.eaten = true;
+      break; // only one power dot per frame
+    }
+  }
+
+  // Reset when PacMan reaches start with blue ghosts
+  if (character[1].blue && character[PACMAN].pos <= 0) {
+    // Reverse direction back
+    for (int i = 0; i <= numGhosts; i++) {
+      character[i].direction = true;
+    }
+    // Reset ghost colors
+    for (int i = 1; i <= numGhosts; i++) {
+      character[i].color = ghostColors[(i-1) % 4];
+      character[i].blue = false;
+    }
+    // Reset power dots if last one was eaten
+    if (character[numGhosts + 1].eaten) {
+      for (int i = 0; i < numPowerDots; i++) {
+        character[i + numGhosts + 1].eaten = false;
+      }
+      character[PACMAN].topPos = 0;    // set the top position of PacMan to LED 0 (beginning of the segment)
+    }
+  }
+
+  // Update and draw characters based on speed setting
+  bool updatePositions = (SEGENV.aux1 % map(SEGMENT.speed, 0, 255, 15, 1) == 0);
+
+  // update positions of characters if it's time to do so
+  if (updatePositions) {
+    character[PACMAN].pos += character[PACMAN].direction ? 1 : -1;
+    for (int i = 1; i <= numGhosts; i++) {
+      character[i].pos += character[i].direction ? 1 : -1;
+    }
+  }
+
+  // Draw PacMan
+  if ((unsigned)character[PACMAN].pos < SEGLEN) {
+    SEGMENT.setPixelColor(character[PACMAN].pos, character[PACMAN].color);
+  }
+
+  // Draw ghosts
+  for (int i = 1; i <= numGhosts; i++) {
+    if ((unsigned)character[i].pos < SEGLEN) {
+      SEGMENT.setPixelColor(character[i].pos, character[i].color);
+    }
+  }
+
+  // Track farthest position of PacMan
+  if (character[PACMAN].topPos < character[PACMAN].pos) {
+    character[PACMAN].topPos = character[PACMAN].pos;
+  }
+
+  SEGMENT.blur(SEGMENT.custom2>>1);
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of PowerDots,Blink distance,Blur,# of Ghosts,Dots,Smear,Compact;;!;1;m12=0,sx=192,ix=64,c1=64,c2=0,c3=12,o1=1,o2=0";
+
+
 /*
 * Sinelon stolen from FASTLED examples
 */
@@ -10929,6 +11125,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
+  addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
