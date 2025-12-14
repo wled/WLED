@@ -430,12 +430,7 @@ void WLED::setup()
   }
 
   handleBootLoop(); // check for bootloop and take action (requires WLED_FS)
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-  else deEEP();
-#else
   initPresetsFile();
-#endif
   updateFSInfo();
 
   // generate module IDs must be done before AP setup
