@@ -268,11 +268,7 @@ void loadCustomPalettes() {
               uint8_t rgbw[] = {0,0,0,0};
               if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
                 tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
-                // Apply inverse gamma correction to match built-in palettes
-                uint32_t color = NeoGammaWLEDMethod::inverseGamma32(RGBW32(rgbw[0], rgbw[1], rgbw[2], 0));
-                tcp[j+1] = R(color);
-                tcp[j+2] = G(color);
-                tcp[j+3] = B(color);
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw[c]; // only use RGB component
                 DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
                 j += 4;
               }
@@ -282,11 +278,7 @@ void loadCustomPalettes() {
             palSize -= palSize % 4; // make sure size is multiple of 4
             for (size_t i=0; i<palSize && pal[i].as<int>()<256; i+=4) {
               tcp[ i ] = (uint8_t) pal[ i ].as<int>(); // index
-              // Apply inverse gamma correction to match built-in palettes
-              uint32_t color = NeoGammaWLEDMethod::inverseGamma32(RGBW32(pal[i+1].as<int>(), pal[i+2].as<int>(), pal[i+3].as<int>(), 0));
-              tcp[i+1] = R(color);
-              tcp[i+2] = G(color);
-              tcp[i+3] = B(color);
+              for (size_t c=0; c<3; c++) tcp[i+1+c] = (uint8_t) pal[i+1+c].as<int>();
               DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[i]), int(tcp[i+1]), int(tcp[i+2]), int(tcp[i+3]));
             }
           }
