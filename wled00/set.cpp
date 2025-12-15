@@ -21,7 +21,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   {
     unsigned cnt = 0;
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
+      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; // WiFi encryption type
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
+      char ea[4] = "EA"; ea[2] = 48+n; ea[3] = 0; //enterprise anonymous identity
+      char ei[4] = "EI"; ei[2] = 48+n; ei[3] = 0; //enterprise identity
       char pw[4] = "PW"; pw[2] = 48+n; pw[3] = 0; //client password
       char bs[4] = "BS"; bs[2] = 48+n; bs[3] = 0; //BSSID
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
@@ -29,11 +32,31 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
       if (request->hasArg(cs)) {
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
+        byte oldType; oldType = multiWiFi[n].encryptionType;
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
+        char oldAnon[65]; strcpy(oldAnon, multiWiFi[n].enterpriseAnonIdentity);
+        char oldIden[65]; strcpy(oldIden, multiWiFi[n].enterpriseIdentity);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
 
+        multiWiFi[n].encryptionType = request->arg(et).toInt();
+        forceReconnect |= oldType != multiWiFi[n].encryptionType;
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
         if (strlen(oldSSID) == 0 || !strncmp(multiWiFi[n].clientSSID, oldSSID, 32)) {
+          forceReconnect = true;
+        }
+        if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
+          // PSK - Clear the anonymous identity and identity fields
+          multiWiFi[n].enterpriseAnonIdentity[0] = '\0';
+          multiWiFi[n].enterpriseIdentity[0] = '\0';
+        } else {
+          // WPA2-Enterprise
+          strlcpy(multiWiFi[n].enterpriseAnonIdentity, request->arg(ea).c_str(), 65);
+          strlcpy(multiWiFi[n].enterpriseIdentity, request->arg(ei).c_str(), 65);
+        }
+        if (!strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64)) {
+          forceReconnect = true;
+        }
+        if (!strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64)) {
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
@@ -955,6 +978,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
+
   
   //set brightness
   updateVal(req.c_str(), "&A=", bri);

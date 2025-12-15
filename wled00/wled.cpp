@@ -683,13 +683,45 @@ void WLED::initConnection()
 
   if (WLED_WIFI_CONFIGURED) {
     showWelcomePage = false;
-    
+
     DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
-    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+    if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
+      DEBUG_PRINTF_P(PSTR("Using PSK\n"));
+#ifndef WLED_DISABLE_WPA_ENTERPRISE
+#ifdef ESP8266
+      wifi_station_set_wpa2_enterprise_auth(0);
+      wifi_station_clear_enterprise_ca_cert();
+      wifi_station_clear_enterprise_cert_key();
+      wifi_station_clear_enterprise_identity();
+      wifi_station_clear_enterprise_username();
+      wifi_station_clear_enterprise_password();
+#endif
+#endif
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+    } else {
+#ifndef WLED_DISABLE_WPA_ENTERPRISE
+      DEBUG_PRINTF_P(PSTR("Using WPA2_AUTH_PEAP (Anon: %s, Ident: %s)\n"), multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity);
+#ifdef ESP8266
+      struct station_config sta_conf;
+      os_memset(&sta_conf, 0, sizeof(sta_conf));
+      os_memcpy(sta_conf.ssid, multiWiFi[selectedWiFi].clientSSID, 32);
+      os_memcpy(sta_conf.password, multiWiFi[selectedWiFi].clientPass, 64);
+      wifi_station_set_config(&sta_conf);
+      wifi_station_set_wpa2_enterprise_auth(1);
+      wifi_station_set_enterprise_identity((u8*)(void*)multiWiFi[selectedWiFi].enterpriseAnonIdentity, os_strlen(multiWiFi[selectedWiFi].enterpriseAnonIdentity));
+      wifi_station_set_enterprise_username((u8*)(void*)multiWiFi[selectedWiFi].enterpriseIdentity, os_strlen(multiWiFi[selectedWiFi].enterpriseIdentity));
+      wifi_station_set_enterprise_password((u8*)(void*)multiWiFi[selectedWiFi].clientPass, os_strlen(multiWiFi[selectedWiFi].clientPass));
+      wifi_station_connect();
+#else
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, WPA2_AUTH_PEAP, multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity, multiWiFi[selectedWiFi].clientPass);
+#endif
+#endif
+    }
+
 
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));

@@ -198,8 +198,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       memset(fpass,'*',l);
       char bssid[13];
       fillMAC2Str(bssid, multiWiFi[n].bssid);
-      settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X);"),
+      settingsScript.printf_P(PSTR("addWiFi(\"%u\",\"%s\",\"%s\",\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X);"),
+        multiWiFi[n].encryptionType,
         multiWiFi[n].clientSSID,
+        multiWiFi[n].enterpriseAnonIdentity,
+        multiWiFi[n].enterpriseIdentity,
         fpass,
         bssid,
         (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
@@ -413,7 +416,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 #ifndef WLED_DISABLE_INFRARED
     printSetFormValue(settingsScript,PSTR("IR"),irPin);
     printSetFormValue(settingsScript,PSTR("IT"),irEnabled);
-#endif    
+#endif
     printSetFormCheckbox(settingsScript,PSTR("MSO"),!irApplyToAllSelected);
   }
 
