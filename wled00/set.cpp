@@ -41,7 +41,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         multiWiFi[n].encryptionType = request->arg(et).toInt();
         forceReconnect |= oldType != multiWiFi[n].encryptionType;
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
-        if (strlen(oldSSID) == 0 || !strncmp(multiWiFi[n].clientSSID, oldSSID, 32)) {
+        if (strlen(oldSSID) == 0 || strncmp(multiWiFi[n].clientSSID, oldSSID, 32) != 0) {
           forceReconnect = true;
         }
         if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
@@ -53,10 +53,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           strlcpy(multiWiFi[n].enterpriseAnonIdentity, request->arg(ea).c_str(), 65);
           strlcpy(multiWiFi[n].enterpriseIdentity, request->arg(ei).c_str(), 65);
         }
-        if (!strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64)) {
+        if (strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64) != 0) {
           forceReconnect = true;
         }
-        if (!strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64)) {
+        if (strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64) != 0) {
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
