@@ -592,7 +592,7 @@ size_t getTimerCount() {
 void compactTimers() {
   for (size_t i = 0; i < timers.size();) {
     const Timer& t = timers[i];
-    if (t.preset == 0 && t.hour == 0 && t.minute == 0 && (t.weekdays == 0 || t.weekdays == 255)) {
+    if (t.preset == 0) {
       timers.erase(timers.begin() + i);
     } else {
       ++i;
