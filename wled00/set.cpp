@@ -21,7 +21,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   {
     unsigned cnt = 0;
     for (size_t n = 0; n < WLED_MAX_WIFI_COUNT; n++) {
-      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; // WiFi encryption type
+      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; //WiFi encryption type
       char cs[4] = "CS"; cs[2] = 48+n; cs[3] = 0; //client SSID
       char ea[4] = "EA"; ea[2] = 48+n; ea[3] = 0; //enterprise anonymous identity
       char ei[4] = "EI"; ei[2] = 48+n; ei[3] = 0; //enterprise identity
@@ -326,7 +326,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
             DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), buttons[i].pin, i);
             PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
             buttons[i].type = BTN_TYPE_NONE;
-          }          
+          }
           #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
           else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
@@ -979,7 +979,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
 
-  
+
   //set brightness
   updateVal(req.c_str(), "&A=", bri);
 

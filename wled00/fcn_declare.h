@@ -68,10 +68,10 @@ typedef struct WiFiConfig {
   char enterpriseIdentity[65];
   WiFiConfig(const char *ssid="", const char *pass="", uint32_t ip=0, uint32_t gw=0, uint32_t subnet=0x00FFFFFF // little endian
     , byte enc_type=WIFI_ENCRYPTION_TYPE_PSK, const char *ent_anon="", const char *ent_iden="")
-  : staticIP(ip)
+  : encryptionType(enc_type)
+  , staticIP(ip)
   , staticGW(gw)
   , staticSN(subnet)
-  , encryptionType(enc_type)
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
@@ -334,7 +334,7 @@ class Usermod {
     static Print* oappend_shim;
     // old form of appendConfigData; called by default appendConfigData(Print&) with oappend_shim set up
     // private so it is not accidentally invoked except via Usermod::appendConfigData(Print&)
-    virtual void appendConfigData() {}    
+    virtual void appendConfigData() {}
   protected:
     // Shim for oappend(), which used to exist in utils.cpp
     template<typename T> static inline void oappend(const T& t) { oappend_shim->print(t); };

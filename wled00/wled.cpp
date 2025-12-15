@@ -173,7 +173,7 @@ void WLED::loop()
   if (millis() - heapTime > 15000) {
     uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);      
+      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
       strip.resetSegments(); // remove all but one segments from memory
       if (!Update.isRunning()) forceReconnect = true;
     } else if (heap < MIN_HEAP_SIZE) {
@@ -690,7 +690,7 @@ void WLED::initConnection()
     char hostname[25];
     prepareHostname(hostname);
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
-      DEBUG_PRINTF_P(PSTR("Using PSK\n"));
+      DEBUG_PRINTLN(F("Using PSK"));
 #ifndef WLED_DISABLE_WPA_ENTERPRISE
 #ifdef ESP8266
       wifi_station_set_wpa2_enterprise_auth(0);
@@ -702,7 +702,7 @@ void WLED::initConnection()
 #endif
 #endif
       WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
-    } else {
+    } else { // WIFI_ENCRYPTION_TYPE_ENTERPRISE
 #ifndef WLED_DISABLE_WPA_ENTERPRISE
       DEBUG_PRINTF_P(PSTR("Using WPA2_AUTH_PEAP (Anon: %s, Ident: %s)\n"), multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity);
 #ifdef ESP8266
@@ -719,6 +719,9 @@ void WLED::initConnection()
 #else
       WiFi.begin(multiWiFi[selectedWiFi].clientSSID, WPA2_AUTH_PEAP, multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity, multiWiFi[selectedWiFi].clientPass);
 #endif
+#else
+      DEBUG_PRINTLN(F("WPA2_AUTH_PEAP is disabled by WLED_DISABLE_WPA_ENTERPRISE, connecting using PSK."));
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
 #endif
     }
 
