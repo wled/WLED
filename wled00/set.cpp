@@ -32,7 +32,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
       if (request->hasArg(cs)) {
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
-        byte oldType; oldType = multiWiFi[n].encryptionType;
+        byte oldType = multiWiFi[n].encryptionType;
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldAnon[65]; strcpy(oldAnon, multiWiFi[n].enterpriseAnonIdentity);
         char oldIden[65]; strcpy(oldIden, multiWiFi[n].enterpriseIdentity);
