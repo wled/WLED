@@ -1,105 +1,151 @@
 # SkyStrip Interpretation Guide
 
-This FAQ explains how to read the various HSV-based views of the
-`usermod_v2_skystrip` module. Each view maps weather data onto hue,
-saturation, and value (brightness) along the LED strip.
-
+This FAQ explains how to interpret the SkyStrip display.
+There are 4 strips, from top to bottom:
+- Cloud View
+- Wind View
+- Temperature View
+- 24 Hour Delta View
 
 ## Cloud View (CV)
 
-Markers for sunrise or sunset show as orange pixels. During
-precipitation, hue denotes type—deep blue for rain, lavender for snow,
-and indigo for mixed—while value scales with probability. In the
-absence of precipitation, hue differentiates day from night: daylight
-clouds appear pale yellow, nighttime clouds desaturate toward
-white. Cloud coverage now dithers along forecast time using a
-triangle-wave mask: the central band of each wave lights up, and its
-width matches the cloud fraction. Sparse clouds show as occasional
-dots, roughly half cover alternates on/off bands, and 100% cover stays
-solid. Adjust band spacing with the `CloudWaveHalfPx` setting
-(half-cycle in pixels; default 2.2). Thus, a bright blue pixel highlights
-likely rain, whereas a striped soft yellow glow marks daytime cloud
-cover.
+Displays the next 48 hour forecast of clouds and rain, with sunrise/sunset markers.
+
+### Features
+- **Sunrise/sunset markers** appear as single orange pixels at time of sunrise/sunset.
+
+- **Day/night clouds** pale yellow in daylight and turn darker at night.
+
+- **Cloud coverage** from sparse to full.
+
+- **Precipitation** rain is blue, snow is purple. Pastel shades
+  represent less chance of precipitation, bold colors indicate it's
+  likely. Brightness indicates forecast accumulation.
+
+### Config notes
+- `RainMaxInHr`: sets the precipitation rate that maps to full
+  brightness (default 1.0 in/hr), so lower values make lighter rates pop
+  brighter.
+- `CloudWaveHalfPx`: half-cycle length of the dithering wave in pixels
+  (default 2.2); lower values make the on/off cloud bands tighter.
 
 
 ## Wind View (WV)
 
-The hue encodes wind direction around the compass: blue (240°) points
-north, orange (~30°) east, yellow (~60°) south, and green (~120°)
-west, with intermediate shades for diagonal winds. Saturation rises
-with gustiness—calm breezes stay washed out while strong gusts drive
-the color toward full intensity. Value scales with wind strength,
-boosting brightness as the highest of sustained speed or gust
-approaches 50 mph (or equivalent). For example, a saturated blue pixel
-indicates gusty north winds, while a dim pastel green suggests a
-gentle westerly breeze.
+Displays the next 48 hour forecast of wind direction and velocity.
 
-The mapping between wind direction and hue can be approximated as:
+### Features
+- **Color shows where the wind is coming from.** Hue walks around the
+  compass so you can read direction at a glance (e.g., blue for north,
+  orange for east, yellow for south, green for west, with smooth
+  blends in between).
 
-| Direction | Hue (°) | Color  |
-|-----------|---------|--------|
-| N         | 240     | Blue   |
-| NE        | 300     | Purple |
-| E         | 30      | Orange |
-| SE        | 45      | Gold   |
-| S         | 60      | Yellow |
-| SW        | 90      | Lime   |
-| W         | 120     | Green  |
-| NW        | 180     | Cyan   |
-| N         | 240     | Blue   |
+- **Brightness tracks how windy it feels.** Value uses the stronger of
+  sustained speed or gusts, dimming calm periods and pushing toward
+  full brightness as winds climb toward 50 mph.
+
+- **Saturation highlights gustiness.** Colors stay pastel when gusts
+  match the steady wind, then grow more vivid as gusts pull ahead,
+  making choppy conditions easy to spot.
+
+| Direction | Color  | Hue (°) |
+|-----------|--------|---------|
+| N         | Blue   | 240     |
+| NE        | Purple | 300     |
+| E         | Orange | 30      |
+| SE        | Gold   | 45      |
+| S         | Yellow | 60      |
+| SW        | Lime   | 90      |
+| W         | Green  | 120     |
+| NW        | Cyan   | 180     |
+| N         | Blue   | 240     |
 
 Note: Hues wrap at 360°, so “N” repeats at the boundary.
 
 
 ## Temperature View (TV)
 
-Hue comes from a configurable `ColorMap` string of `center:hue` pairs
-separated by `|` (hue is 0–359 degrees or a name: `magenta, purple, blue, cyan, green, yellow, orange, red`). Saturation still tracks dew‑point spread (muggy = desaturated, dry = vivid), value is fixed mid‑brightness, time markers dim pixels briefly at 3‑hour intervals, and hue is linearly interpolated between centers.
+Displays the next 48 hours forecast of temperature and humidity.
 
-Default 15 °F rotation (with short wraps at the ends): `-45:yellow|-30:orange|-15:red|0:magenta|15:purple|30:blue|45:cyan|60:green|75:yellow|90:orange|105:red|120:magenta|135:purple|150:blue`. The palette wraps instead of clamping at extremes.
+### Features
+- **Hue traces the temperature.** Colors shift through the palette as the
+  forecast warms or cools, so you can read temperature at a glance.
+- **Degree crossings are marked.** Single ticks mark each 5 °F step, and
+  double ticks mark the 10 °F steps to anchor the scale.
+- **Time notches keep you oriented.** Small notches appear every three
+  hours, with larger ones at noon and midnight so you can line up events
+  to the clock.
+- **Saturation reflects humidity.** Colors wash out when it’s muggy and
+  stay vivid when the air is dry.
 
-Primary rotation reference:
-
-| Center (°F) | Hue name | Hue (°) |
+| Center (°F) | Color    | Hue (°) |
 |-------------|----------|---------|
-| 120         | magenta  | 300     |
-| 105         | red      | 0       |
-| 90          | orange   | 30      |
-| 75          | yellow   | 60      |
-| 60          | green    | 130     |
-| 45          | cyan     | 185     |
-| 30          | blue     | 220     |
-| 15          | purple   | 275     |
-| 0           | magenta  | 300     |
+| -45         | yellow   | 60      |
+| -30         | orange   | 30      |
 | -15         | red      | 0       |
+| 0           | magenta  | 300     |
+| 15          | purple   | 275     |
+| 30          | blue     | 220     |
+| 45          | cyan     | 185     |
+| 60          | green    | 130     |
+| 75          | yellow   | 60      |
+| 90          | orange   | 30      |
+| 105         | red      | 0       |
+| 120         | magenta  | 300     |
+| 135         | purple   | 275     |
+| 150         | blue     | 220     |
+
+Colors wrap outside the 0–120 °F range—it’s “so cold it’s hot” or “so hot
+it’s cold.”
+
+### Config notes
+- `ColorMap`: pipe-separated `center:hue` pairs set the palette (hues can be
+  numbers or names); defaults to 15 °F steps using the table above.
+- `MoveOffset`: optional integer shift, applied on save, that moves every
+  color stop by the same °F amount without editing each entry.
 
 
 ## 24-Hour Delta View (DV)
 
-Shows how much warmer or colder it is compared to the same time
-yesterday. Small changes stay dark so quiet days don’t flicker.
-Humidity changes are ignored.
+Shows how much warmer or colder it is forecast to be compared to the
+same time 24 hours prior.
 
-Default thresholds are 5 / 10 / 15 °F (configurable with
-`DeltaThresholds`). Colors run from cold on the left to warm on the
-right, with “no change” in the middle:
+Color indicates how much change is forecast:
 
-| Change vs 24h prior  | Strip color | Brightness  |
-|----------------------|-------------|-------------|
-| More than 15° colder | Purple      | Very Strong |
-| 10–15° colder        | Indigo      | Strong      |
-| 5–10° colder         | Cyan-blue   | Medium      |
-| Less than 5° change  | Off (blank) | Off         |
-| 5–10° warmer         | Yellow      | Medium      |
-| 10–15° warmer        | Orange      | Strong      |
-| More than 15° warmer | Red         | Very Strong |
+| Change vs 24h prior | Strip color | Brightness |
+|---------------------|-------------|------------|
+| Colder than -15°    | Purple      | Shout      |
+| -15° to -10°        | Indigo      | Strong     |
+| -10° to -5°         | Cyan-blue   | Moderate   |
+| -5° to +5°          | Off (blank) | Off        |
+| +5° to +10°         | Yellow      | Moderate   |
+| +10° to +15°        | Orange      | Strong     |
+| Warmer than +15°    | Red         | Shout      |
+
+### Config notes
+- Default thresholds are 5 / 10 / 15 °F (configurable with
+  `DeltaThresholds`).
 
 
-## Test Pattern View (TP)
+## Debug Pixel
 
-This diagnostic view simply interpolates hue, saturation, and value
-between configured start and end points along the segment. Hue shifts
-steadily from the starting hue to the ending hue, with saturation and
-brightness following the same linear ramp. It carries no weather
-meaning; a common example is a gradient from black to white to verify
-LED orientation.
+You can use the debug pixel to examine details of each view at a
+particular point on the display.
+
+### Choose a pixel
+
+Set the **Pixel index** to the LED you want to inspect (0 is the left edge,
+141 is the right), replacing the default `-1` disabled value.
+
+### Save and spot the blink
+
+Click **Save** to lock in the index. The selected pixel position blinks as
+a vertical column across all strips until you turn **Debug pixel** back
+off. This makes it easy to confirm you’re watching the right spot.
+
+### Read the per-view values
+
+Reopen the config screen to see the captured inputs and outputs for
+that pixel in the **Debug pixel** box. Change the index and save again
+any time you want a fresh sample.  Set the **Pixel Index** back to
+`-1` when you are done.
