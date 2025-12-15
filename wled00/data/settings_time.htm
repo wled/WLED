@@ -12,6 +12,7 @@
 	var maxTimers = 64;
 	var presets = {};
 	var sortedPresetOptions = '';
+	var sortByName = false;
 	function S() {
 		getLoc();
 		loadPresets();
@@ -27,20 +28,39 @@
 			var p = localStorage.getItem("wledP");
 			if (p) presets = JSON.parse(p);
 		} catch(e) {}
+		// Load sort preference from localStorage
+		try {
+			var sortPref = localStorage.getItem("wledPresetSort");
+			if (sortPref !== null) {
+				sortByName = (sortPref === "name");
+				// Update radio buttons to match saved preference
+				if (sortByName) {
+					var sortByNameRadio = document.getElementById("sortByName");
+					if (sortByNameRadio) sortByNameRadio.checked = true;
+				}
+			}
+		} catch(e) {}
 		buildSortedPresetOptions();
 	}
 	function buildSortedPresetOptions() {
-		var arr = Object.entries(presets).sort((a,b)=>{
-			var nameA = (a[1].n || ("Preset " + a[0])).toLowerCase();
-			var nameB = (b[1].n || ("Preset " + b[0])).toLowerCase();
-			return nameA.localeCompare(nameB);
-		});
+		var arr = Object.entries(presets);
+		if (sortByName) {
+			arr.sort((a,b)=>{
+				var nameA = (a[1].n || ("Preset " + a[0])).toLowerCase();
+				var nameB = (b[1].n || ("Preset " + b[0])).toLowerCase();
+				return nameA.localeCompare(nameB);
+			});
+		} else {
+			arr.sort((a,b)=> parseInt(a[0]) - parseInt(b[0]));
+		}
 		sortedPresetOptions = '';
 		for (var p of arr) {
 			if (p[0]=="0") continue;
 			var id = parseInt(p[0]);
 			var name = p[1].n || ("Preset " + id);
-			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
+			// Truncate long preset names to 20 chars and add ellipsis
+			var displayName = name.length > 20 ? name.substring(0, 19) + '&hellip;' : name;
+			sortedPresetOptions += `<option value="${id}">${id}: ${displayName}</option>`;
 		}
 	}
 	function expand(o,i)
@@ -117,6 +137,23 @@
 		}
 	}
 	function FC() {
+		populateMacroPresets();
+	}
+	function updateSort(byName) {
+		sortByName = byName;
+		// Save sort preference to localStorage
+		try {
+			localStorage.setItem("wledPresetSort", byName ? "name" : "id");
+		} catch(e) {}
+		buildSortedPresetOptions();
+		for (var i = 0; i < timerCount; i++) {
+			var sel = gId("T"+i);
+			if (sel) {
+				var val = sel.value;
+				sel.innerHTML = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+				sel.value = val;
+			}
+		}
 		populateMacroPresets();
 	}
 	function populateMacroPresets() {
@@ -247,6 +284,7 @@
 		Date:&nbsp;<nowrap>20<input name="CY" class="xs" type="number" min="0" max="99" required>-<input name="CI" class="xs" type="number" min="1" max="12" required>-<input name="CD" class="xs" type="number" min="1" max="31" required></nowrap><br>
 		Time:&nbsp;<nowrap><input name="CH" class="xs" type="number" min="0" max="23" required>:<input name="CM" class="xs" type="number" min="0" max="59" required>:<input name="CS" class="xs" type="number" min="0" max="59" required></nowrap><br>
 		<h3>Macro presets</h3>
+		Sort Dropdowns: <input type="radio" id="sortById" name="sortOrder" onchange="updateSort(false)" checked><label for="sortById">by ID</label> <input type="radio" id="sortByName" name="sortOrder" onchange="updateSort(true)"><label for="sortByName">by name</label><br>
 		<b>Macros have moved!</b><br>
 		<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
 		Just enter the preset ID below!</i>
