@@ -4,8 +4,17 @@
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WiFi Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+
 		var scanLoops = 0, preScanSSID = "";
 		var maxNetworks = 3;
 		function N() {
@@ -178,9 +187,8 @@ Static subnet mask:<br>
 		}
 
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
   <form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
@@ -270,6 +278,7 @@ Static subnet mask:<br>
 				<option value="5">TwilightLord-ESP32</option>
 				<option value="3">WESP32</option>
 				<option value="1">WT32-ETH01</option>
+				<option value="13">Gledopto</option>
 			</select><br><br>
 		</div>
 		<hr>

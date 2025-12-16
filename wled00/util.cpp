@@ -1170,11 +1170,11 @@ String generateDeviceFingerprint() {
   // mix in ADC calibration data:
   esp_adc_cal_characteristics_t ch;
   #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
-  #define BIT_WIDTH ADC_WIDTH_BIT_13
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
   #else
-  #define BIT_WIDTH ADC_WIDTH_BIT_12
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
   #endif
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, BIT_WIDTH, 1100, &ch);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, myBIT_WIDTH, 1100, &ch);
   fp[0] ^= ch.coeff_a;
   fp[1] ^= ch.coeff_b;
   if (ch.low_curve) {

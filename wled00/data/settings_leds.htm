@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
@@ -26,6 +26,15 @@
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+
 		function S() {
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
@@ -268,10 +277,10 @@
 			}
 
 			// enable/disable LED fields
+			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
 			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
-				if (i < LTs.length-1) s.disabled = true; // prevent changing type (as we can't update options)
 				// is the field a LED type?
 				var n = s.name.substring(2,3); // bus number (0-Z)
 				var t = parseInt(s.value);
@@ -448,17 +457,8 @@
 		{
 			var o = gEBCN("iST");
 			var i = o.length;
-			let disable = (sel,opt) => { sel.querySelectorAll(opt).forEach((o)=>{o.disabled=true;}); }
 
 			var f = gId("mLC");
-			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
-			f.querySelectorAll("select[name^=LT]").forEach((s)=>{
-				let t = s.value;
-				if (isDig(t) && !isD2P(t)) digitalB++;
-				if (isD2P(t)) twopinB++;
-				if (isPWM(t)) analogB += numPins(t); // each GPIO is assigned to a channel
-				if (isVir(t)) virtB++;
-			});
 
 			if ((n==1 && i>=36) || (n==-1 && i==0)) return; // used to be i>=maxB+maxV when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 			var s = chrID(i);
@@ -468,7 +468,7 @@
 				var cn = `<div class="iST">
 <hr class="sml">
 ${i+1}:
-<select name="LT${s}" onchange="UI(true)"></select><br>
+<select name="LT${s}" onchange="updateTypeDropdowns();UI(true)"></select><br>
 <div id="abl${s}">
 mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
@@ -523,18 +523,15 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
-				// disable inappropriate LED types
+				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
 				let sel = d.getElementsByName("LT"+s)[0];
-				// 32 & S2 supports mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
-				let maxDB = maxD - (is32() || isS2() || isS3() ? (!d.Sf["PR"].checked)*8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
-				if (digitalB >= maxDB) disable(sel,'option[data-type="D"]'); // NOTE: see isDig()
-				if (twopinB  >= 2)     disable(sel,'option[data-type="2P"]'); // NOTE: see isD2P() (we will only allow 2 2pin buses)
-				disable(sel,`option[data-type^="${'A'.repeat(maxA-analogB+1)}"]`); // NOTE: see isPWM()
+				sel.value = sel.querySelector('option[data-type="N"]').value;
+				updateTypeDropdowns(); // update valid bus options including this new one
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
+				updateTypeDropdowns(); // update again for the newly selected type
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
-				o[i].querySelector("[name^=LT]").disabled = false;
 			}
 
 			gId("+").style.display = (i<35) ? "inline":"none"; // was maxB+maxV-1 when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -829,10 +826,37 @@ Swap: <select id="xw${s}" name="XW${s}">
 			}
 			return opt;
 		}
+		// dynamically enforce bus type availability based on current usage
+		function updateTypeDropdowns() {
+			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
+			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
+			// count currently used buses
+			LTs.forEach(sel => {
+				let t = parseInt(sel.value);
+				if (isDig(t) && !isD2P(t)) digitalB++;
+				if (isPWM(t)) analogB += numPins(t);
+				if (isD2P(t)) twopinB++;
+				if (isVir(t)) virtB++;
+			});
+			// enable/disable type options according to limits in dropdowns
+			LTs.forEach(sel => {
+				const curType = parseInt(sel.value);
+				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
+				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
+				enable('option'); // reset all first
+				// max digital buses: ESP32 & S2 support mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
+				// supported outputs using parallel I2S/mono I2S: S2: 12/5, S3: 12/4, ESP32: 16/9
+				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
+				// disallow adding more of a type that has reached its limit but allow changing the current type
+				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
+				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
+				// Disable PWM types that need more pins than available (accounting for current type's pins if PWM)
+				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
+			});
+		}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#led-settings')">?</button></div>

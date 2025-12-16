@@ -9,8 +9,11 @@
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
-#ifndef WLED_DISABLE_PXMAGIC
+#ifdef WLED_ENABLE_PXMAGIC
   #include "html_pxmagic.h"
+#endif
+#ifndef WLED_DISABLE_PIXELFORGE
+  #include "html_pixelforge.h"
 #endif
 #include "html_cpal.h"
 #include "html_edit.h"
@@ -605,10 +608,17 @@ void initServer()
   });
   #endif
 
-  #ifndef WLED_DISABLE_PXMAGIC
+  #ifdef WLED_ENABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
+  });
+  #endif
+
+  #ifndef WLED_DISABLE_PIXELFORGE
+  static const char _pixelforge_htm[] PROGMEM = "/pixelforge.htm";
+  server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
   });
   #endif
 #endif
