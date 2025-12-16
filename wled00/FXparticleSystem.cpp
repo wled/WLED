@@ -607,7 +607,7 @@ void ParticleSystem2D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    //if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
@@ -969,51 +969,47 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
       particle2.vy = ((int32_t)particle2.vy * coeff) / 255;
       #endif
     }
-
+  }
     // particles have volume, push particles apart if they are too close
-    // tried lots of configurations, it works best if given a little velocity, it tends to oscillate less this way
-    // when hard pushing by offsetting position, they sink into each other under gravity
-    // a problem with giving velocity is, that on harder collisions, this adds up as it is not dampened enough, so add friction in the FX if required
-    if (distanceSquared < collDistSq && dotProduct > -250) { // too close and also slow, push them apart
-      bool fairlyrandom = dotProduct & 0x01; //dotprouct LSB should be somewhat random, so no need to calculate a random number
-      int32_t pushamount = 1 + ((250 + dotProduct) >> 6); // the closer dotproduct is to zero, the closer the particles are
-      int32_t push = 0;
-      if (dx < 0)  // particle 1 is on the right
-        push = pushamount;
-      else if (dx > 0)
-        push = -pushamount;
-      else { // on the same x coordinate, shift it a little so they do not stack
-        if (fairlyrandom)
-          particle1.x++; // move it so pile collapses
-        else
-          particle1.x--;
-      }
-      particle1.vx += push;
-      push = 0;
-      if (dy < 0)
-        push = pushamount;
-      else if (dy > 0)
-        push = -pushamount;
-      else { // dy==0
-        if (fairlyrandom)
-          particle1.y++; // move it so pile collapses
-        else
-          particle1.y--;
-      }
-      particle1.vy += push;
+    // tried lots of configurations, what works best is to give one particle a little velocity. When adding hard pushing things tend to oscillate.
+    // when hard pushing by offsetting position without velocity, they tend to sink into each other under gravity.
+    // when using hard-pushing and velocity, there are some oscillations and softer particles do not pile nicely.
+    // oscillation get worse if pushing both particles so one is chosen somewhat randomly.
+    // softer collisions are not perfect on purpose: soft particles should pile up and overlap slightly, if separation is made perfect, it does not have the intended look
 
-      // note: pushing may push particles out of frame, if bounce is active, it will move it back as position will be limited to within frame, if bounce is disabled: bye bye
-      if (collisionHardness < 5) { // if they are very soft, stop slow particles completely to make them stick to each other
-        particle1.vx = 0;
-        particle1.vy = 0;
-        particle2.vx = 0;
-        particle2.vy = 0;
-        //push them apart
-        particle1.x += push;
-        particle1.y += push;
+    if (distanceSquared < collDistSq && (relativeVx*relativeVx + relativeVy*relativeVy < 50)) { // too close and also slow, push them apart
+      bool fairlyrandom = dotProduct & 0x01; //dotprouct LSB should be somewhat random, so no need to calculate a random number
+      int32_t pushamount = 1 + ((collDistSq - distanceSquared) >> 13); // found this by experimentation: it means push by 1, push more if overlapping more than 1.4 physical pixels (i.e. larger particles only)
+      int8_t pushx = dx > 0 ? -pushamount : pushamount; // particle 1 is on the left
+      int8_t pushy = dy > 0 ? -pushamount : pushamount; // particle 1 is below particle 2
+
+      // if they are very soft, stop slow particles completely to make them stick to each other
+      if (collisionHardness < 5) {
+        if (fairlyrandom) { // do not stop them every frame to avoid groups of particles hanging mid-air
+          particle1.vx = 0;
+          particle1.vy = 0;
+          particle2.vx = 0;
+          particle2.vy = 0;
+          // hard-push particle 1 only: if both are pushed, this oscillates ever so slightly
+          particle1.x += pushx;
+          particle1.y += pushy;
+        }
+      }
+      else {
+        if (fairlyrandom) {
+          particle1.vx += pushx;
+          //particle1.x += pushx;
+          particle1.vy += pushy;
+          //particle1.y += pushy;
+        }
+        else {
+          particle2.vx -= pushx;
+          //particle2.x -= pushx;
+          particle2.vy -= pushy;
+          //particle2.y -= pushy;
+        }
       }
     }
-  }
 }
 
 // update size and pointers (memory location and size can change dynamically)
