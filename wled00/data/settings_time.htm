@@ -72,8 +72,7 @@
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
 	function BTa()
 	{
-		var ih="<thead><tr><th>En.</th><th>Type/Hour</th><th>Minute</th><th>Preset</th><th></th></tr></thead><tbody id=\"timerRows\"></tbody>";
-		gId("TMT").innerHTML=ih;
+		gId("TMT").innerHTML = "";
 	}
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
 		if (timerCount >= maxTimers) return;
@@ -91,33 +90,56 @@
 		if (dayEnd === undefined) dayEnd = 31;
 		var enabled = weekdays & 1;
 		var dow = weekdays >> 1;
-		var tbody = gId("timerRows");
-		var tr = tbody.insertRow();
+		var container = gId("TMT");
 		var hourVal = isSpecial ? 0 : hour;
 		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions.replace(new RegExp(`value="${preset}"`, 'g'), `value="${preset}" selected`);
-		tr.innerHTML = `<td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></td>
-<td><select id="TS${i}" class="xs" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="xs" type="number" min="0" max="24" value="${hourVal}" style="display:${isSpecial?'none':'inline'}"></td>
-<td><input name="N${i}" id="N${i}" class="xs" type="number" min="${isSpecial?-120:0}" max="${isSpecial?120:59}" value="${minute}"></td>
-<td><select name="T${i}" id="T${i}" class="s">${presetOpts}</select></td>
-<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td>`;
-		tr = tbody.insertRow();
-		var ih = `<div id="WD${i}" style="display:none;background-color:#444;"><hr>Run on weekdays<table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
-		for (j=1;j<8;j++) ih += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
-		ih += `</tr></table>`;
-		ih += `<div id="DR${i}">from <select name="M${i}">`;
-		for (j=0;j<12;j++) ih += `<option value="${j+1}" ${monthStart==j+1?'selected':''}>${ms[j]}</option>`;
-		ih += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="${dayStart}"> to <select name="P${i}">`;
-		for (j=0;j<12;j++) ih += `<option value="${j+1}" ${monthEnd==j+1?'selected':''}>${ms[j]}</option>`;
-		ih += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="${dayEnd}"></div>`;
-		ih += `<hr></div>`;
-		tr.innerHTML = `<td colspan=5>${ih}</td>`;
+
+		var timerBlock = document.createElement('div');
+		timerBlock.className = 'tb';
+
+		var timerMain = `
+			<div class="tm">
+				<div class="ts ts1">
+					<div class="tf tfe"><label for="W${i}0">En.</label><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></div>
+					<div class="tf"><label for="TS${i}">Type</label><select id="TS${i}" class="s" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select></div>
+				</div>
+				<div class="ts ts2">
+					<div class="tf"><label for="H${i}">Hour</label><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="l" type="number" min="0" max="24" value="${hourVal}" ${isSpecial?'disabled':''}></div>
+					<div class="tf"><label for="N${i}">Minute</label><input name="N${i}" id="N${i}" class="l" type="number" min="${isSpecial?-120:0}" max="${isSpecial?120:59}" value="${minute}"></div>
+				</div>
+				<div class="ts ts3">
+					<div class="tf"><label for="T${i}">Preset</label><select name="T${i}" id="T${i}" class="s">${presetOpts}</select></div>
+					<div class="tf tc"><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></div>
+				</div>
+			</div>
+		`;
+
+		var weekdayTable = '<table class="tw"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>';
+		for (j=1;j<8;j++) weekdayTable += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
+		weekdayTable += '</tr></table>';
+
+		var dateRange = `<div id="DR${i}" class="tdr"><span class="tdf">from <select name="M${i}">`;
+		for (j=0;j<12;j++) dateRange += `<option value="${j+1}" ${monthStart==j+1?'selected':''}>${ms[j]}</option>`;
+		dateRange += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="${dayStart}"></span><span class="tdf">to <select name="P${i}">`;
+		for (j=0;j<12;j++) dateRange += `<option value="${j+1}" ${monthEnd==j+1?'selected':''}>${ms[j]}</option>`;
+		dateRange += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="${dayEnd}"></span></div>`;
+
+		var timerExpanded = `
+			<div id="WD${i}" class="te" style="display:none;">
+				<div class="twd">Run on weekdays${weekdayTable}</div>
+				${dateRange}
+			</div>
+		`;
+
+		timerBlock.innerHTML = timerMain + timerExpanded;
+		container.appendChild(timerBlock);
 	}
 	function TT(i) {
 		var sel = gId("TS"+i);
 		var hour = gId("H"+i);
 		var min = gId("N"+i);
 		var isSpecial = sel.value != 0;
-		hour.style.display = isSpecial ? "none" : "inline";
+		hour.disabled = isSpecial;
 		if (isSpecial) {
 			// Save current hour value before switching to sunrise/sunset
 			hour.setAttribute("data-regular-hour", hour.value);
@@ -190,20 +212,29 @@
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}
 	function addRow(i,p,l,d) {
-		var t = gId("macros");
-		var rCnt = t.rows.length;
-		var tr = t.insertRow(rCnt);
+		var container = gId("macros");
 		var b = String.fromCharCode((i<10?48:55)+i);
 		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
-		var td = document.createElement('td');
-		td = tr.insertCell(0);
-		td.innerHTML = `Button ${i}:`;
-		td = tr.insertCell(1);
-		td.innerHTML = `<select name="MP${b}" class="s" required>${presetOpts.replace(`value="${p}"`, `value="${p}" selected`)}</select>`;
-		td = tr.insertCell(2);
-		td.innerHTML = `<select name="ML${b}" class="s" required>${presetOpts.replace(`value="${l}"`, `value="${l}" selected`)}</select>`;
-		td = tr.insertCell(3);
-		td.innerHTML = `<select name="MD${b}" class="s" required>${presetOpts.replace(`value="${d}"`, `value="${d}" selected`)}</select>`;
+		var buttonBlock = document.createElement('div');
+		buttonBlock.className = 'bb';
+		buttonBlock.innerHTML = `
+			<div class="bh">Button ${i}</div>
+			<div class="bs">
+				<div class="ba">
+					<label>Push/Switch</label>
+					<select name="MP${b}" class="s" required>${presetOpts.replace(`value="${p}"`, `value="${p}" selected`)}</select>
+				</div>
+				<div class="ba">
+					<label>Short (on→off)</label>
+					<select name="ML${b}" class="s" required>${presetOpts.replace(`value="${l}"`, `value="${l}" selected`)}</select>
+				</div>
+				<div class="ba">
+					<label>Long (off→on)</label>
+					<select name="MD${b}" class="s" required>${presetOpts.replace(`value="${d}"`, `value="${d}" selected`)}</select>
+				</div>
+			</div>
+		`;
+		container.appendChild(buttonBlock);
 	}
 	function getLatLon() {
 		if (!el) {
@@ -293,24 +324,11 @@
 		Countdown-Over Preset: <input name="MC" class="m" type="number" min="0" max="250" required><br>
 		Timed-Light-Over Presets: <input name="MN" class="m" type="number" min="0" max="250" required><br>
 		<h3>Button actions</h3>
-		<table style="margin: 0 auto;" id="macros">
-			<thead>
-				<tr>
-					<td>push<br>switch</td>
-					<td>short<br>on-&gt;off</td>
-					<td>long<br>off-&gt;on</td>
-					<td>double<br>N/A</td>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
+		<div id="macros" class="bc"></div>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 		<h3>Time-controlled presets</h3>
-		<div style="display: inline-block">
-		<table id="TMT" style="min-width:330px;"></table>
+		<div id="TMT" class="tmc"></div>
 		<button type="button" onclick="addTimerRow()">Add Timer</button>
-		</div>
 		<hr>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
