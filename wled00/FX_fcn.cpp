@@ -466,7 +466,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   #endif
 
   m12 = constrain(m12, 0, 7);
-  if (stop && (spc > 0 || m12 != map1D2D)) fill(BLACK);
+  if (stop) fill(BLACK); // turn off LEDs in segment before changing geometry
   if (m12 != map1D2D) map1D2D = m12;
 /*
   if (boundsUnchanged
