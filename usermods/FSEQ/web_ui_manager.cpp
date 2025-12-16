@@ -339,7 +339,14 @@ void WebUIManager::registerEndpoints() {
   // API - Stop FSEQ
   server.on("/api/fseq/stop", HTTP_GET, [](AsyncWebServerRequest *request) {
     FSEQPlayer::clearLastPlayback();
-    realtimeLock(10, REALTIME_MODE_INACTIVE);
+    if (realtimeOverride == REALTIME_OVERRIDE_ONCE)
+      realtimeOverride = REALTIME_OVERRIDE_NONE;
+    if (realtimeMode)
+      exitRealtime();
+    else {
+      realtimeMode = REALTIME_MODE_INACTIVE;
+      strip.trigger();
+    }
     request->send(200, "text/plain", "FSEQ stopped");
   });
 
