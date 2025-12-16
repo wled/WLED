@@ -212,8 +212,9 @@
 			var sel = gId("TS"+i);
 			var hour = gId("H"+i);
 			if (sel && sel.value != 0) {
-				// Re-add name attribute and set value for sunrise/sunset before submission
+				// Re-add name attribute, remove disabled, and set value for sunrise/sunset before submission
 				hour.setAttribute("name", "H"+i);
+				hour.disabled = false;
 				hour.value = sel.value;
 			}
 		}
