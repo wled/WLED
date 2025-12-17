@@ -152,7 +152,7 @@ td {
 }
 /* Timer layout - tmc=container, tb=block, tm=main, ts=section, tf=field, tfe=enabled field, te=expanded, tw=weekdays, tdr=daterange, tdf=date from/to, tc=calendar, twd=weekday text */
 .tmc{display:flex;flex-direction:column;gap:12px;max-width:800px;margin:0 auto}
-.tb{background:#333;border:2px solid #444;border-radius:8px;padding:12px}
+.tb{background:#282828;border:2px solid #333;border-radius:8px;padding:12px}
 .tm{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
 .ts{display:flex;flex-wrap:nowrap;gap:8px;align-items:flex-end}
 .ts1{flex:1 0 28%;min-width:160px}
@@ -172,7 +172,7 @@ td {
 
 /* Button actions - bc=container, bb=block, bh=header, bs=actions, ba=action */
 .bc{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin:16px 0}
-.bb{background:#333;border:2px solid #444;border-radius:8px;padding:12px;min-width:200px;flex:1 1 auto;max-width:300px}
+.bb{background:#282828;border:2px solid #333;border-radius:8px;padding:12px;min-width:200px;flex:1 1 auto;max-width:300px}
 .bh{font-weight:bold;font-size:1.1em;margin-bottom:12px;color:#28f;text-align:center}
 .bs{display:flex;flex-direction:column;gap:8px}
 .ba{display:flex;flex-direction:column;gap:4px}
