@@ -607,7 +607,7 @@ void ParticleSystem2D::render() {
         hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
       }
     }
-    //if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
+    if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
