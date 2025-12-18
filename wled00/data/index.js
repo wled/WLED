@@ -1283,7 +1283,8 @@ function updateSelectedPalette(s)
 	if (selElement) selElement.classList.remove('selected');
 
 	var selectedPalette = parent.querySelector(`.lstI[data-id="${s}"]`);
-	if (selectedPalette)  parent.querySelector(`.lstI[data-id="${s}"]`).classList.add('selected');
+	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
+	selectedPalette.classList.add('selected');
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
