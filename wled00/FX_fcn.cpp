@@ -1503,9 +1503,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
-        // (bri != briT) && !bri => from On to Off
-        // (bri != briT) &&  bri => from Off to On
-        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
+        // Check if this is an on/off transition at the segment level (not a brightness change)
+        bool isOnOffTransition = segO && (topSegment.on != segO->on);
+        if (isOnOffTransition) {
+          // turning off: unclipped pixels go BLACK; turning on: clipped pixels go BLACK
+          if ((!clipped && !topSegment.on) || (clipped && topSegment.on)) c_a = BLACK;
+        }
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1573,9 +1576,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // workaround for On/Off transition
-        // (bri != briT) && !bri => from On to Off
-        // (bri != briT) &&  bri => from Off to On
-        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
+        // Check if this is an on/off transition at the segment level (not a brightness change)
+        bool isOnOffTransition = segO && (topSegment.on != segO->on);
+        if (isOnOffTransition) {
+          // turning off: unclipped pixels go BLACK; turning on: clipped pixels go BLACK
+          if ((!clipped && !topSegment.on) || (clipped && topSegment.on)) c_a = BLACK;
+        }
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
