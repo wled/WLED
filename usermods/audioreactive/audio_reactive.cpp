@@ -20,6 +20,26 @@
  * ....
  */
 
+#define FFT_PREFER_EXACT_PEAKS  // use Blackman-Harris FFT windowing instead of Flat Top -> results in "sharper" peaks and less "leaking" into other frequencies (credits to @softhack)
+
+/*
+ * Note on FFT variants:
+ * - ArduinoFFT: uses floating point calculations, very slow on S2 and C3 (no FPU)
+ * - ESP-IDF DSP library:
+     - faster but uses ~13k of extra flash on ESP32 and S3
+ *   - uses integer math on S2 and C3: slightly less accurate but over 10x faster than ArduinoFFT and uses less flash
+     - not available in IDF < 4.4
+ * - ArduinoFFT is used by default on ESP32 and S3
+ * - ESP-IDF DSP FFT with integer math is used by default on S2 and C3
+ * - defines:
+ *   - UM_AUDIOREACTIVE_USE_ARDUINO_FFT: use ArduinoFFT library for FFT
+ *   - UM_AUDIOREACTIVE_USE_ESPDSP_FFT:  use ESP-IDF DSP for FFT
+*/
+
+//#define UM_AUDIOREACTIVE_USE_ESPDSP_FFT  // default on S2 and C3
+//#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // use integer FFT if using ESP-IDF DSP library, always used on S2 and C3 (UM_AUDIOREACTIVE_USE_ARDUINO_FFT takes priority)
+//#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // default on ESP32 and S3
+
 #if !defined(FFTTASK_PRIORITY)
 #define FFTTASK_PRIORITY 1 // standard: looptask prio
 //#define FFTTASK_PRIORITY 2 // above looptask, below asyc_tcp
@@ -99,6 +119,46 @@ static uint8_t maxVol = 31;          // (was 10) Reasonable value for constant v
 static uint8_t binNum = 8;           // Used to select the bin for FFT based beat detection  (deprecated)
 
 #ifdef ARDUINO_ARCH_ESP32
+#if !defined(UM_AUDIOREACTIVE_USE_ESPDSP_FFT) && (defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32))
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // use ArduinoFFT library for FFT instead of ESP-IDF DSP library by default on ESP32 and S3
+#endif
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 4, 0)
+#define UM_AUDIOREACTIVE_USE_ARDUINO_FFT // DSP FFT library is not available in ESP-IDF < 4.4
+#endif
+
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+#include <arduinoFFT.h> // ArduinoFFT library for FFT and window functions
+#undef UM_AUDIOREACTIVE_USE_INTEGER_FFT // arduinoFFT has not integer support
+#else
+#include "dsps_fft2r.h" // ESP-IDF DSP library for FFT and window functions
+#ifdef FFT_PREFER_EXACT_PEAKS
+#include "dsps_wind_blackman_harris.h"
+#else
+#include "dsps_wind_flat_top.h"
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
+#endif
+#endif
+
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+using FFTsampleType = float;
+using FFTmathType = float;
+#define FFTabs fabsf
+#else
+using FFTsampleType = int16_t;
+using FFTmathType = int32_t;
+#define FFTabs abs
+#endif
+// These are the input and output vectors.  Input vectors receive computed results from FFT.
+static FFTsampleType* valFFT = nullptr;
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+static float* vImag = nullptr; // imaginary part of FFT results
+#endif
+
+// pre-computed window function
+FFTsampleType* windowFFT;
 
 // use audio source class (ESP32 specific)
 #include "audio_source.h"
@@ -140,8 +200,8 @@ const float agcSampleSmooth[AGC_NUM_PRESETS]  = {  1/12.f,   1/6.f,  1/16.f}; //
 // AGC presets end
 
 static AudioSource *audioSource = nullptr;
-static bool useBandPassFilter = false;                    // if true, enables a bandpass filter 80Hz-16Khz to remove noise. Applies before FFT.
-
+static bool useBandPassFilter = false;                    // if true, enables a hard cutoff bandpass filter. Applies after FFT.
+static bool useMicFilter = false;                         // if true, enables a IIR bandpass filter 80Hz-20Khz to remove noise. Applies before FFT.
 ////////////////////
 // Begin FFT Code //
 ////////////////////
@@ -149,7 +209,7 @@ static bool useBandPassFilter = false;                    // if true, enables a 
 // some prototypes, to ensure consistent interfaces
 static float fftAddAvg(int from, int to);   // average of several FFT result bins
 void FFTcode(void * parameter);      // audio processing task: read samples, run FFT, fill GEQ channels from FFT results
-static void runMicFilter(uint16_t numSamples, float *sampleBuffer);          // pre-filtering of raw samples (band-pass)
+static void runMicFilter(uint16_t numSamples, FFTsampleType *sampleBuffer);
 static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels); // post-processing and post-amp of GEQ channels
 
 static TaskHandle_t FFT_Task = nullptr;
@@ -185,12 +245,12 @@ constexpr uint16_t samplesFFT = 512;            // Samples in an FFT batch - Thi
 constexpr uint16_t samplesFFT_2 = 256;          // meaningfull part of FFT results - only the "lower half" contains useful information.
 // the following are observed values, supported by a bit of "educated guessing"
 //#define FFT_DOWNSCALE 0.65f                             // 20kHz - downscaling factor for FFT results - "Flat-Top" window @20Khz, old freq channels 
+#ifdef FFT_PREFER_EXACT_PEAKS
+#define FFT_DOWNSCALE 0.40f                             // downscaling factor for FFT results, RMS averaging for "Blackman-Harris" Window @22kHz (credit to MM)
+#else
 #define FFT_DOWNSCALE 0.46f                             // downscaling factor for FFT results - for "Flat-Top" window @22Khz, new freq channels
+#endif
 #define LOG_256  5.54517744f                            // log(256)
-
-// These are the input and output vectors.  Input vectors receive computed results from FFT.
-static float* vReal = nullptr;                  // FFT sample inputs / freq output -  these are our raw result bins
-static float* vImag = nullptr;                  // imaginary parts
 
 // Create FFT object
 // lib_deps += https://github.com/kosme/arduinoFFT#develop @ 1.9.2
@@ -200,16 +260,20 @@ static float* vImag = nullptr;                  // imaginary parts
 // Below options are forcing ArduinoFFT to use sqrtf() instead of sqrt()
 // #define sqrt_internal sqrtf          // see https://github.com/kosme/arduinoFFT/pull/83 - since v2.0.0 this must be done in build_flags
 
-#include <arduinoFFT.h>             // FFT object is created in FFTcode
 // Helper functions
 
 // compute average of several FFT result bins
 static float fftAddAvg(int from, int to) {
-  float result = 0.0f;
+  FFTmathType result = 0;
   for (int i = from; i <= to; i++) {
-    result += vReal[i];
+    result += valFFT[i];
   }
-  return result / float(to - from + 1);
+ #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+  result = result * 0.0625; // divide by 16 to reduce magnitude. Want end result to be scaled linear and ~4096 max.
+ #else
+  result *= 32; // scale result to match float values. note: raw scaling value between float and int is 512, float version is scaled down by 16
+#endif
+  return float(result) / float(to - from + 1); // return average as float
 }
 
 //
@@ -218,18 +282,61 @@ static float fftAddAvg(int from, int to) {
 void FFTcode(void * parameter)
 {
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
-
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
   // allocate FFT buffers on first call
-  if (vReal == nullptr) vReal = (float*) calloc(samplesFFT, sizeof(float));
-  if (vImag == nullptr) vImag = (float*) calloc(samplesFFT, sizeof(float));
-  if ((vReal == nullptr) || (vImag == nullptr)) {
+  if (valFFT == nullptr) valFFT = (float*) calloc(samplesFFT, sizeof(float));
+  if (vImag == nullptr)  vImag  = (float*) calloc(samplesFFT, sizeof(float));
+  if ((valFFT == nullptr) || (vImag == nullptr)) {
     // something went wrong
-    if (vReal) free(vReal); vReal = nullptr;
+    if (valFFT) free(valFFT); valFFT = nullptr;
     if (vImag) free(vImag); vImag = nullptr;
     return;
   }
   // Create FFT object with weighing factor storage
-  ArduinoFFT<float> FFT = ArduinoFFT<float>( vReal, vImag, samplesFFT, SAMPLE_RATE, true);
+  ArduinoFFT<float> FFT = ArduinoFFT<float>(valFFT, vImag, samplesFFT, SAMPLE_RATE, true);
+#elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+  // allocate and initialize FFT buffers on first call
+  // note: free() is never used on these pointers. If it ever is implemented, this implementation can cause memory leaks (need to free raw pointers)
+  if (valFFT == nullptr) {
+    float* raw_buffer = (float*)heap_caps_malloc((2 * samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
+    if ((raw_buffer == nullptr)) return; // something went wrong
+    valFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+  }
+  // create window
+  if (windowFFT == nullptr) {
+    float* raw_buffer = (float*)heap_caps_malloc((samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
+    if ((raw_buffer == nullptr)) return; // something went wrong
+    windowFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary
+  }
+  if (dsps_fft2r_init_fc32(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+  // create window function for FFT
+#ifdef FFT_PREFER_EXACT_PEAKS
+  dsps_wind_blackman_harris_f32(windowFFT, samplesFFT);
+#else
+  dsps_wind_flat_top_f32(windowFFT, samplesFFT);
+#endif
+#else
+  // allocate and initialize integer FFT buffers on first call
+  if (valFFT == nullptr) valFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT * 2);
+  if ((valFFT == nullptr)) return; // something went wrong
+  // create window
+  if (windowFFT == nullptr) windowFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT);
+  if ((windowFFT == nullptr)) return; // something went wrong
+  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+  // create window function for FFT
+  float *windowFloat = (float*) calloc(sizeof(float), samplesFFT); // temporary buffer for window function
+  if ((windowFloat == nullptr)) return; // something went wrong
+#ifdef FFT_PREFER_EXACT_PEAKS
+  dsps_wind_blackman_harris_f32(windowFloat, samplesFFT);
+#else
+  dsps_wind_flat_top_f32(windowFloat, samplesFFT);
+#endif
+  // convert float window to 16-bit int
+  for (int i = 0; i < samplesFFT; i++) {
+    windowFFT[i] = (int16_t)(windowFloat[i] * 32767.0f);
+  }
+  free(windowFloat); // free temporary buffer
+#endif
 
   // see https://www.freertos.org/vtaskdelayuntil.html
   const TickType_t xFrequency = FFT_MIN_CYCLE * portTICK_PERIOD_MS;  
@@ -251,8 +358,7 @@ void FFTcode(void * parameter)
 #endif
 
     // get a fresh batch of samples from I2S
-    if (audioSource) audioSource->getSamples(vReal, samplesFFT);
-    memset(vImag, 0, samplesFFT * sizeof(float));   // set imaginary parts to 0
+    if (audioSource) audioSource->getSamples(valFFT, samplesFFT); // note: valFFT is used as a int16_t buffer on C3 and S2, could optimize RAM use by only allocating half the size (but makes code harder to read)
 
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
     if (start < esp_timer_get_time()) { // filter out overflows
@@ -264,16 +370,15 @@ void FFTcode(void * parameter)
 
     xLastWakeTime = xTaskGetTickCount();       // update "last unblocked time" for vTaskDelay
 
-    // band pass filter - can reduce noise floor by a factor of 50
+    // band pass filter - can reduce noise floor by a factor of 50 and avoid aliasing effects to base & high frequency bands
     // downside: frequencies below 100Hz will be ignored
-    if (useBandPassFilter) runMicFilter(samplesFFT, vReal);
-
+    if (useMicFilter) runMicFilter(samplesFFT, valFFT);
     // find highest sample in the batch
-    float maxSample = 0.0f;                         // max sample from FFT batch
+    FFTsampleType maxSample = 0;                         // max sample from FFT batch
     for (int i=0; i < samplesFFT; i++) {
 	    // pick our  our current mic sample - we take the max value from all samples that go into FFT
-	    if ((vReal[i] <= (INT16_MAX - 1024)) && (vReal[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
-        if (fabsf((float)vReal[i]) > maxSample) maxSample = fabsf((float)vReal[i]);
+	    if ((valFFT[i] <= (INT16_MAX - 1024)) && (valFFT[i] >= (INT16_MIN + 1024)))  //skip extreme values - normally these are artefacts
+        if (FFTabs(valFFT[i]) > maxSample) maxSample = FFTabs(valFFT[i]);
     }
     // release highest sample to volume reactive effects early - not strictly necessary here - could also be done at the end of the function
     // early release allows the filters (getSample() and agcAvg()) to work with fresh values - we will have matching gain and noise gate values when we want to process the FFT results.
@@ -285,31 +390,95 @@ void FFTcode(void * parameter)
     if (sampleAvg > 0.25f) { // noise gate open means that FFT results will be used. Don't run FFT if results are not needed.
 #endif
 
-      // run FFT (takes 3-5ms on ESP32, ~12ms on ESP32-S2)
+#ifdef UM_AUDIOREACTIVE_USE_ARDUINO_FFT
+      // run Arduino FFT (takes 3-5ms on ESP32, ~12ms on ESP32-S2, ~20ms on ESP32-C3)
+      memset(vImag, 0, samplesFFT * sizeof(float));               // set imaginary parts to 0
       FFT.dcRemoval();                                            // remove DC offset
+#ifdef FFT_PREFER_EXACT_PEAKS
+      FFT.windowing(FFTWindow::Blackman_Harris, FFTDirection::Forward);  // Weigh data using "Blackman- Harris" window - sharp peaks due to excellent sideband rejection
+#else
       FFT.windowing( FFTWindow::Flat_top, FFTDirection::Forward); // Weigh data using "Flat Top" function - better amplitude accuracy
-      //FFT.windowing(FFTWindow::Blackman_Harris, FFTDirection::Forward);  // Weigh data using "Blackman- Harris" window - sharp peaks due to excellent sideband rejection
+#endif
       FFT.compute( FFTDirection::Forward );                       // Compute FFT
       FFT.complexToMagnitude();                                   // Compute magnitudes
-      vReal[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
-
-      FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);                // let the effects know which freq was most dominant
+      valFFT[0] = 0;   // The remaining DC offset on the signal produces a strong spike on position 0 that should be eliminated to avoid issues.
+      FFT.majorPeak(&FFT_MajorPeak, &FFT_Magnitude);              // let the effects know which freq was most dominant
+      // note: scaling is done in fftAddAvg(), so we don't scale here
+#else
+      // run run float DSP FFT (takes ~x ms on ESP32, ~x ms on ESP32-S2, , ~x ms on ESP32-C3) TODO: test and fill in these values
+      // remove DC offset
+      FFTmathType sum = 0;
+      for (int i = 0; i < samplesFFT; i++) sum += valFFT[i];
+      FFTmathType mean = sum / (FFTmathType)samplesFFT;
+      for (int i = 0; i < samplesFFT; i++) valFFT[i] -= mean;
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+      //apply window function to samples and fill buffer with interleaved complex values [Re,Im,Re,Im,...]
+      for (int i = samplesFFT - 1; i >= 0 ; i--) {
+        // fill the buffer back to front to avoid overwriting samples
+        float windowed_sample = valFFT[i] * windowFFT[i];
+        valFFT[i * 2] = windowed_sample;
+        valFFT[i * 2 + 1] = 0.0; // set imaginary part to zero
+      }
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+      dsps_fft2r_fc32_aes3(valFFT, samplesFFT); // ESP32 S3 optimized version of FFT
+#elif defined(CONFIG_IDF_TARGET_ESP32)
+      dsps_fft2r_fc32_ae32(valFFT, samplesFFT); // ESP32 optimized version of FFT
+#else
+      dsps_fft2r_fc32_ansi(valFFT, samplesFFT); // perform FFT using ANSI C implementation
+#endif
+      dsps_bit_rev_fc32(valFFT, samplesFFT);    // bit reverse
+      valFFT[0] = 0;  // set DC bin to 0, as it is not needed and can cause issues
+      // convert to magnitude & find FFT_MajorPeak and FFT_Magnitude
+      FFT_MajorPeak = 0;
+      FFT_Magnitude = 0;
+      for (int i = 1; i < samplesFFT_2; i++) {  // skip [0] as it is DC offset
+        float real_part = valFFT[i * 2];
+        float imag_part = valFFT[i * 2 + 1];
+        valFFT[i] = sqrtf(real_part * real_part + imag_part * imag_part);
+        if (valFFT[i] > FFT_Magnitude) {
+          FFT_Magnitude = valFFT[i];
+          FFT_MajorPeak = i*(SAMPLE_RATE/samplesFFT);
+        }
+        // note: scaling is done in fftAddAvg(), so we don't scale here
+      }
+#else
+      // run integer DSP FFT (takes ~x ms on ESP32, ~x ms on ESP32-S2, , ~1.5 ms on ESP32-C3) TODO: test and fill in these values
+      //apply window function to samples and fill buffer with interleaved complex values [Re,Im,Re,Im,...]
+      for (int i = samplesFFT - 1; i >= 0 ; i--) {
+        // fill the buffer back to front to avoid overwriting samples
+        int16_t windowed_sample = ((int32_t)valFFT[i] * (int32_t)windowFFT[i]) >> 15; // both values are ±15bit
+        valFFT[i * 2] = windowed_sample;
+        valFFT[i * 2 + 1] = 0; // set imaginary part to zero
+      }
+      dsps_fft2r_sc16_ansi(valFFT, samplesFFT); // perform FFT on complex value pairs (Re,Im)
+      dsps_bit_rev_sc16_ansi(valFFT, samplesFFT);    // bit reverse i.e. "unshuffle" the results
+      valFFT[0] = 0; // set DC bin to 0, as it is not needed and can cause issues
+      // convert to magnitude, FFT returns interleaved complex values [Re,Im,Re,Im,...]
+      int FFT_MajorPeak_int = 0;
+      int FFT_Magnitude_int = 0;
+      for (int i = 1; i < samplesFFT_2; i++) { // skip [0], it is DC offset
+        int32_t real_part = valFFT[i * 2];
+        int32_t imag_part = valFFT[i * 2 + 1];
+        valFFT[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
+        if (valFFT[i] > FFT_Magnitude_int) {
+          FFT_Magnitude_int = valFFT[i] * 512; // scale to match raw float value
+          FFT_MajorPeak_int = ((i * SAMPLE_RATE)/samplesFFT);
+        }
+        // note: scaling is done in fftAddAvg(), so we don't scale here
+      }
+      FFT_MajorPeak = FFT_MajorPeak_int;
+      FFT_Magnitude = FFT_Magnitude_int;
+#endif
+#endif
       FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
-
 #if defined(WLED_DEBUG) || defined(SR_DEBUG)
       haveDoneFFT = true;
 #endif
-
-    } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this.
-      memset(vReal, 0, samplesFFT * sizeof(float));
+    } else { // noise gate closed - only clear results as FFT was skipped. MIC samples are still valid when we do this -> set all samples to 0
+      memset(valFFT, 0, samplesFFT * sizeof(FFTsampleType));
       FFT_MajorPeak = 1;
       FFT_Magnitude = 0.001;
     }
-
-    for (int i = 0; i < samplesFFT; i++) {
-      float t = fabsf(vReal[i]);                      // just to be sure - values in fft bins should be positive any way
-      vReal[i] = t / 16.0f;                           // Reduce magnitude. Want end result to be scaled linear and ~4096 max.
-    } // for()
 
     // mapping of FFT result bins to frequency channels
     if (fabsf(sampleAvg) > 0.5f) { // noise gate open
@@ -341,7 +510,7 @@ void FFTcode(void * parameter)
       fftCalc[15] = fftAddAvg(194,250);   // 3880 - 5000 // avoid the last 5 bins, which are usually inaccurate
 #else
       /* new mapping, optimized for 22050 Hz by softhack007 */
-                                                    // bins frequency  range
+      // bins frequency  range
       if (useBandPassFilter) {
         // skip frequencies below 100hz
         fftCalc[ 0] = 0.8f * fftAddAvg(3,4);
@@ -403,12 +572,15 @@ void FFTcode(void * parameter)
 // Pre / Postprocessing  //
 ///////////////////////////
 
-static void runMicFilter(uint16_t numSamples, float *sampleBuffer)          // pre-filtering of raw samples (band-pass)
+static void runMicFilter(uint16_t numSamples, FFTsampleType *sampleBuffer)          // pre-filtering of raw samples (band-pass)
 {
-  // low frequency cutoff parameter - see https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+  // low frequency cutoff parameter - see https://dsp.stackexchange.com/questions/40462/exponential-moving-average-cut-off-frequency (alpha = 2π × fc / fs)
   //constexpr float alpha = 0.04f;   // 150Hz
   //constexpr float alpha = 0.03f;   // 110Hz
-  constexpr float alpha = 0.0225f; // 80hz
+  //constexpr float alpha = 0.0285f; //100Hz
+  constexpr float alpha = 0.0256f; //90Hz
+  //constexpr float alpha = 0.0225f; // 80hz
   //constexpr float alpha = 0.01693f;// 60hz
   // high frequency cutoff  parameter
   //constexpr float beta1 = 0.75f;   // 11Khz
@@ -432,6 +604,39 @@ static void runMicFilter(uint16_t numSamples, float *sampleBuffer)          // p
         lowfilt += alpha * (sampleBuffer[i] - lowfilt);
         sampleBuffer[i] = sampleBuffer[i] - lowfilt;
   }
+#else
+  // low frequency cutoff parameter 17.15 fixed point format
+  //constexpr int32_t ALPHA_FP = 1311;    // 0.04f * (1<<15) (150Hz)
+  //constexpr int32_t ALPHA_FP = 983;     // 0.03f * (1<<15) (110Hz)
+  //constexpr int32_t ALPHA_FP = 934;     // 0.0285f * (1<<15) (100Hz)
+  constexpr int32_t ALPHA_FP = 840;       // 0.0256f * (1<<15) (90Hz)
+  //constexpr int32_t ALPHA_FP = 737;     // 0.0225f * (1<<15) (80Hz)
+  //constexpr int32_t ALPHA_FP = 555;     // 0.01693f * (1<<15) (60Hz)
+
+  // high frequency cutoff parameters 16.16 fixed point format
+  //constexpr int32_t BETA1_FP = 49152;   // 0.75f * (1<<16) (11KHz)
+  //constexpr int32_t BETA1_FP = 53740;   // 0.82f * (1<<16) (15KHz)
+  //constexpr int32_t BETA1_FP = 54297;   // 0.8285f * (1<<16) (18KHz)
+  constexpr int32_t BETA1_FP = 55706;     // 0.85f * (1<<16) (20KHz)
+  constexpr int32_t BETA2_FP = (65536 - BETA1_FP) / 2;  // ((1.0f - beta1) / 2.0f) * (1<<16)
+
+  static int32_t last_vals[2] = { 0 };    // FIR high freq cutoff filter (scaled by sample range)
+  static int32_t lowfilt_fp = 0;          // IIR low frequency cutoff filter (16.16 fixed point)
+
+  for (int i = 0; i < numSamples; i++) {
+    // FIR lowpass filter to remove high frequency noise
+    int32_t highFilteredSample_fp;
+
+    if (i < (numSamples - 1))
+      highFilteredSample_fp = (BETA1_FP * (int32_t)sampleBuffer[i] + BETA2_FP * last_vals[0] + BETA2_FP * (int32_t)sampleBuffer[i + 1]) >> 16; // smooth out spikes
+    else
+      highFilteredSample_fp = (BETA1_FP * (int32_t)sampleBuffer[i] + BETA2_FP * last_vals[0] + BETA2_FP * last_vals[1]) >> 16; // special handling for last sample in array
+    last_vals[1] = last_vals[0];
+    last_vals[0] = (int32_t)sampleBuffer[i];
+    lowfilt_fp += ALPHA_FP * (highFilteredSample_fp - (lowfilt_fp >> 15)); // low pass filter in 17.15 fixed point format
+    sampleBuffer[i] = highFilteredSample_fp - (lowfilt_fp >> 15);
+  }
+#endif
 }
 
 static void postProcessFFTResults(bool noiseGateOpen, int numberOfChannels) // post-processing and post-amp of GEQ channels
@@ -520,7 +725,7 @@ static void detectSamplePeak(void) {
   // Poor man's beat detection by seeing if sample > Average + some value.
   // This goes through ALL of the 255 bins - but ignores stupid settings
   // Then we got a peak, else we don't. The peak has to time out on its own in order to support UDP sound sync.
-  if ((sampleAvg > 1) && (maxVol > 0) && (binNum > 4) && (vReal[binNum] > maxVol) && ((millis() - timeOfPeak) > 100)) {
+  if ((sampleAvg > 1) && (maxVol > 0) && (binNum > 4) && (valFFT[binNum] > maxVol) && ((millis() - timeOfPeak) > 100)) {
     havePeak = true;
   }
 
@@ -1165,8 +1370,8 @@ class AudioReactive : public Usermod {
         periph_module_reset(PERIPH_I2S0_MODULE);   // not possible on -C3
       #endif
       delay(100);         // Give that poor microphone some time to setup.
-
-      useBandPassFilter = false;
+      useBandPassFilter = false; // filter cuts lowest and highest frequency bands from FFT result (use on very noisy mic inputs)
+      useMicFilter = true;       // filter fixes aliasing to base & highest frequency bands and reduces noise floor (recommended for all mic inputs)
 
       #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         if ((i2sckPin == I2S_PIN_NO_CHANGE) && (i2ssdPin >= 0) && (i2swsPin >= 0) && ((dmType == 1) || (dmType == 4)) ) dmType = 5;   // dummy user support: SCK == -1 --means--> PDM microphone
@@ -1201,6 +1406,7 @@ class AudioReactive : public Usermod {
         case 4:
           DEBUGSR_PRINT(F("AR: Generic I2S Microphone with Master Clock - ")); DEBUGSR_PRINTLN(F(I2S_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/24.0f);
+          useMicFilter = false; // I2S with Master Clock is mostly used for line-in, skip sample filtering
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
@@ -1216,6 +1422,7 @@ class AudioReactive : public Usermod {
         case 6:
           DEBUGSR_PRINTLN(F("AR: ES8388 Source"));
           audioSource = new ES8388Source(SAMPLE_RATE, BLOCK_SIZE);
+          useMicFilter = false;
           delay(100);
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
