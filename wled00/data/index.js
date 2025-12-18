@@ -1286,6 +1286,7 @@ function updateSelectedPalette(s)
 	if (selectedPalette)  parent.querySelector(`.lstI[data-id="${s}"]`).classList.add('selected');
 
 	// Display selected palette name on button in simplified UI
+	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
 	if (simplifiedUI) {
 		gId("palwbtn").innerText = "Palette: " + selectedName;
