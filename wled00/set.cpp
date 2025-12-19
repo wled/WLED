@@ -576,9 +576,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (request->hasArg(F("RS"))) //complete factory reset
     {
       WLED_FS.format();
-      #ifdef WLED_ADD_EEPROM_SUPPORT
-      clearEEPROM();
-      #endif
       serveMessage(request, 200, F("All Settings erased."), F("Connect to WLED-AP to setup again"),255);
       doReboot = true; // may reboot immediately on dual-core system (race condition) which is desireable in this case
     }

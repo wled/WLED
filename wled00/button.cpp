@@ -327,9 +327,6 @@ void handleButton()
       if (b == 0 && dur > WLED_LONG_AP) { // long press on button 0 (when released)
         if (dur > WLED_LONG_FACTORY_RESET) { // factory reset if pressed > 10 seconds
           WLED_FS.format();
-          #ifdef WLED_ADD_EEPROM_SUPPORT
-          clearEEPROM();
-          #endif
           doReboot = true;
         } else {
           WLED::instance().initAP(true);

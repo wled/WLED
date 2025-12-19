@@ -497,14 +497,6 @@ class JSONBufferGuard {
     inline void release() { if (holding_lock) releaseJSONBufferLock(); holding_lock = false; }
 };
 
-#ifdef WLED_ADD_EEPROM_SUPPORT
-//wled_eeprom.cpp
-void applyMacro(byte index);
-void deEEP();
-void deEEPSettings();
-void clearEEPROM();
-#endif
-
 //wled_math.cpp
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
