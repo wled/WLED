@@ -670,7 +670,6 @@ void WLED::initConnection()
   if (!WLED_WIFI_CONFIGURED) {
     DEBUG_PRINTLN(F("No connection configured."));
     if (!apActive) initAP();        // instantly go to ap mode
-    return;
   } else if (!apActive) {
     if (apBehavior == AP_BEHAVIOR_ALWAYS) {
       DEBUG_PRINTLN(F("Access point ALWAYS enabled."));

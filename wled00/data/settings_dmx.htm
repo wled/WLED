@@ -4,8 +4,16 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>DMX Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
 	function HW(){window.open("https://kno.wled.ge/interfaces/dmx-output/");}
 	function GCH(num) {
 		gId('dmxchannels').innerHTML += "";
@@ -38,9 +46,8 @@
 		if (loc) d.Sf.action = getURL('/settings/dmx');
 	}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 <form id="form_s" name="Sf" method="post">
 <div class="toprow">
 <div class="helpB"><button type="button" onclick="HW()">?</button></div>
