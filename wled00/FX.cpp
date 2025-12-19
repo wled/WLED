@@ -189,6 +189,18 @@ uint16_t mode_copy_segment(void) {
 static const char _data_FX_MODE_COPY[] PROGMEM = "Copy Segment@,Color shift,Lighten,Brighten,ID,Axis(2D),FullStack(last frame);;;12;ix=0,c1=0,c2=0,c3=0";
 
 uint16_t mode_rotate_segment(void) {
+  
+  uint32_t sourceid = SEGMENT.custom3;
+  Segment& sourcesegment = strip.getSegment(sourceid);
+  
+  if (!sourcesegment.isActive() || 
+      !sourcesegment.is2D() ||
+       sourceid >= strip.getSegmentsNum() ||
+       sourceid == strip.getCurrSegmentId()) {
+         SEGMENT.fadeToBlackBy(5); // fade out
+         return FRAMETIME;
+        }
+        
   const int cols = SEG_W, rows = SEG_H;
   const int midX = cols / 2;
   const int midY = rows / 2;
@@ -200,14 +212,14 @@ uint16_t mode_rotate_segment(void) {
   const uint8_t Scale_Shift = 10;
   const int Fixed_Scale = (1 << Scale_Shift);
   const int RoundVal = (1 << (Scale_Shift - 1));
-    
+  
   int zoomOffset = SEGMENT.intensity - 128; // -128 - 127
   const int zoomRange = (Fixed_Scale * 3) / 4;  // 768
   int zoomScale = Fixed_Scale + (zoomOffset * zoomRange) / 128;
   if (zoomScale <= 0) zoomScale = 1; // avoid divide-by-zero and negative zoom
 
   int shearAngle = SEGENV.aux0;
-    
+
   bool flip = (shearAngle > 90 && shearAngle < 270); // Flip to avoid instability near 180°
   shearAngle = flip ? (shearAngle + 180) % 360 : shearAngle;
 
@@ -218,72 +230,62 @@ uint16_t mode_rotate_segment(void) {
 
   SEGMENT.fill(0); // clear segment before drawing rotated copy
 
-  uint32_t sourceid = SEGMENT.custom3;
-  if (sourceid >= strip.getSegmentsNum() || sourceid == strip.getCurrSegmentId()) { // invalid source
-    SEGMENT.fadeToBlackBy(5); // fade out
-    return FRAMETIME;
-  }
-  Segment& sourcesegment = strip.getSegment(sourceid);
+  const int srcWidth  = sourcesegment.width();
+  const int srcHeight = sourcesegment.height();
+  const int WRAP_PAD_X = srcWidth  << 5; // ×32
+  const int WRAP_PAD_Y = srcHeight << 5; // Ensures wrap works with large negative coordinates when zoomed out
 
-  if (sourcesegment.isActive()) {
-    if(sourcesegment.is2D()) {
-      const int srcWidth  = sourcesegment.width();
-      const int srcHeight = sourcesegment.height();
-      const int WRAP_PAD_X = srcWidth  << 5; // ×32
-      const int WRAP_PAD_Y = srcHeight << 5; // Ensures wrap works with large negative coordinates when zoomed out
+  // Use inverse mapping: iterate destination pixels, find source coordinates
+  for (int destY = 0; destY < rows; destY++) {
+    for (int destX = 0; destX < cols; destX++) {
+      // Translate destination to origin
+      int dx = destX - midX;
+      int dy = destY - midY;
 
-      // Use inverse mapping: iterate destination pixels, find source coordinates
-      for (int destY = 0; destY < rows; destY++) {
-        for (int destX = 0; destX < cols; destX++) {
-          // Translate destination to origin
-          int dx = destX - midX;
-          int dy = destY - midY;
+      // Inverse shear transformations (reverse order)
+      int x1 = dx - ((shearX * dy + RoundVal) >> Scale_Shift);
+      int y0 = dy - ((shearY * x1 + RoundVal) >> Scale_Shift);
+      int x0 = x1 - ((shearX * y0 + RoundVal) >> Scale_Shift);
 
-          // Inverse shear transformations (reverse order)
-          int x1 = dx - ((shearX * dy + RoundVal) >> Scale_Shift);
-          int y0 = dy - ((shearY * x1 + RoundVal) >> Scale_Shift);
-          int x0 = x1 - ((shearX * y0 + RoundVal) >> Scale_Shift);
+      // Apply zoom to source coordinates
+      x0 = (x0 * Fixed_Scale) / zoomScale;
+      y0 = (y0 * Fixed_Scale) / zoomScale;
 
-          // Apply zoom to source coordinates
-          x0 = (x0 * Fixed_Scale) / zoomScale;
-          y0 = (y0 * Fixed_Scale) / zoomScale;
+      // Handle flip
+      int srcX = flip ? (midX - x0) : (midX + x0);
+      int srcY = flip ? (midY - y0) : (midY + y0);
 
-          // Handle flip
-          int srcX = flip ? (midX - x0) : (midX + x0);
-          int srcY = flip ? (midY - y0) : (midY + y0);
-
-          // Bounds check or wrap
-          if (SEGMENT.check1) { // Wrap around
-            srcX = (srcX + WRAP_PAD_X) % srcWidth;
-            srcY = (srcY + WRAP_PAD_Y) % srcHeight;
-          }
-          else if (SEGMENT.check2) { // Wrap plus mirror
-            int tileX = (srcX + WRAP_PAD_X) / srcWidth;
-            int tileY = (srcY + WRAP_PAD_Y) / srcHeight;
-  
-            // Wrap src
-            srcX = (srcX + WRAP_PAD_X) % srcWidth;
-            srcY = (srcY + WRAP_PAD_Y) % srcHeight;
-  
-            // Flip on odd tiles
-            if (tileX & 1) srcX = srcWidth - 1 - srcX;
-            if (tileY & 1) srcY = srcHeight - 1 - srcY;
-          }
-          else if (srcX < 0 || srcX >= srcWidth || srcY < 0 || srcY >= srcHeight) continue;
-          
-          // Sample from source
-          sourcesegment.setDrawDimensions();
-          uint32_t sourcecolor = sourcesegment.getPixelColorXY(srcX, srcY);
-          
-          if (sourcecolor == 0) continue; // skip black pixels
-
-          // Write to destination
-          SEGMENT.setDrawDimensions();
-          SEGMENT.setPixelColorXY(destX, destY, sourcecolor);
-        }
+      // Bounds check or wrap
+      if (SEGMENT.check1) { // Wrap around
+        srcX = (srcX + WRAP_PAD_X) % srcWidth;
+        srcY = (srcY + WRAP_PAD_Y) % srcHeight;
       }
+      else if (SEGMENT.check2) { // Wrap plus mirror
+        int tileX = (srcX + WRAP_PAD_X) / srcWidth;
+        int tileY = (srcY + WRAP_PAD_Y) / srcHeight;
+
+        // Wrap src
+        srcX = (srcX + WRAP_PAD_X) % srcWidth;
+        srcY = (srcY + WRAP_PAD_Y) % srcHeight;
+
+        // Flip on odd tiles
+        if (tileX & 1) srcX = srcWidth - 1 - srcX;
+        if (tileY & 1) srcY = srcHeight - 1 - srcY;
+      }
+      else if (srcX < 0 || srcX >= srcWidth || srcY < 0 || srcY >= srcHeight) continue;
+      
+      // Sample from source
+      sourcesegment.setDrawDimensions();
+      uint32_t sourcecolor = sourcesegment.getPixelColorXY(srcX, srcY);
+      
+      if (sourcecolor == 0) continue; // skip black pixels already filled to black
+
+      // Write to destination
+      SEGMENT.setDrawDimensions();
+      SEGMENT.setPixelColorXY(destX, destY, sourcecolor);
     }
   }
+
   return FRAMETIME;
 }
 static const char _data_FX_MODE_ROTATE[] PROGMEM = "Rotate Segment@!,Zoom,,,ID,Wrap,Mirror Wrap;;;2;sx=0,ix=128,c1=0,c2=0,c3=0";
@@ -11301,6 +11303,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_2DOCTOPUS, &mode_2Doctopus, _data_FX_MODE_2DOCTOPUS);
   addEffect(FX_MODE_2DWAVINGCELL, &mode_2Dwavingcell, _data_FX_MODE_2DWAVINGCELL);
   addEffect(FX_MODE_2DAKEMI, &mode_2DAkemi, _data_FX_MODE_2DAKEMI); // audio
+  addEffect(FX_MODE_ROTATE, &mode_rotate_segment, _data_FX_MODE_ROTATE);
 
 #ifndef WLED_DISABLE_PARTICLESYSTEM2D
   addEffect(FX_MODE_PARTICLEVOLCANO, &mode_particlevolcano, _data_FX_MODE_PARTICLEVOLCANO);
