@@ -16,7 +16,7 @@
 #endif
 
 constexpr uint32_t WLED_CUSTOM_DESC_MAGIC = 0x57535453;  // "WSTS" (WLED System Tag Structure)
-constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 2;    // v1 - original PR; v2 - "safe to update from" version
+constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 1;
 
 // Compile-time validation that release name doesn't exceed maximum length
 static_assert(sizeof(WLED_RELEASE_NAME) <= WLED_RELEASE_NAME_MAX_LEN, 
@@ -59,11 +59,6 @@ const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUIL
     TOSTRING(WLED_VERSION),
     WLED_RELEASE_NAME,                        // release_name
     std::integral_constant<uint32_t, djb2_hash_constexpr(WLED_RELEASE_NAME)>::value, // hash - computed at compile time; integral_constant enforces this
-#if defined(ESP32) && defined(CONFIG_IDF_TARGET_ESP32)
-    { 0, 15, 3 },  // Some older ESP32 might have bootloader issues; assume we'll have it sorted by 0.15.3
-#else    
-    { 0, 15, 2 },  // All other platforms can update safely
-#endif
 };
 
 static const char repoString_s[] PROGMEM = WLED_REPO;
@@ -101,7 +96,7 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
         memcpy(&candidate, binaryData + offset, sizeof(candidate));
 
         // Found potential match, validate version
-        if (candidate.desc_version > WLED_CUSTOM_DESC_VERSION) {
+        if (candidate.desc_version != WLED_CUSTOM_DESC_VERSION) {
           DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
                         offset, candidate.desc_version);
           continue;
@@ -156,41 +151,11 @@ bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessa
 
   if (strncmp_P(safeFirmwareRelease, releaseString, WLED_RELEASE_NAME_MAX_LEN) != 0) {
     if (errorMessage && errorMessageLen > 0) {
-      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware release name mismatch: current='%s', uploaded='%s'."), 
+      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
                releaseString, safeFirmwareRelease);
       errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
     }
     return false;
-  }
-
-  if (firmwareDescription.desc_version > 1) {
-    // Add safe version check
-    // Parse our version (x.y.z) and compare it to the "safe version" array
-    const char* our_version = versionString;
-    for(unsigned v_index = 0; v_index < 3; ++v_index) {
-      char* our_version_end = nullptr;
-      long our_v_parsed = strtol(our_version, &our_version_end, 10); 
-      if (!our_version_end || (our_version_end == our_version)) {
-        // We were built with a malformed version string
-        // We blame the integrator and attempt the update anyways - nothing the user can do to fix this
-        break;
-      }
-
-      if (firmwareDescription.safe_update_version[v_index] > our_v_parsed) {
-        if (errorMessage && errorMessageLen > 0) {
-          snprintf_P(errorMessage, errorMessageLen, PSTR("Cannot update from this version: requires at least %d.%d.%d, current='%s'."), 
-                  firmwareDescription.safe_update_version[0], firmwareDescription.safe_update_version[1], firmwareDescription.safe_update_version[2],
-                  versionString);
-          errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
-        }
-        return false;
-      } else if (firmwareDescription.safe_update_version[v_index] < our_v_parsed) {
-        break;  // no need to check the other components
-      }
-
-      if (*our_version_end == '.') ++our_version_end;
-      our_version = our_version_end;
-    }  
   }
 
   // TODO: additional checks go here
