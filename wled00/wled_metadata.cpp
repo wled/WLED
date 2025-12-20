@@ -100,13 +100,6 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
         wled_metadata_t candidate;
         memcpy(&candidate, binaryData + offset, sizeof(candidate));
 
-        // Found potential match, validate version
-        if (candidate.desc_version > WLED_CUSTOM_DESC_VERSION) {
-          DEBUG_PRINTF_P(PSTR("Found WLED structure at offset %u but version mismatch: %u\n"), 
-                        offset, candidate.desc_version);
-          continue;
-        }
-        
         // Validate hash using runtime function
         uint32_t expected_hash = djb2_hash_runtime(candidate.release_name);
         if (candidate.hash != expected_hash) {
