@@ -272,7 +272,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
         targetPalette = *fastledPalettes[pal - DYNAMIC_PALETTE_COUNT];
       } else {
         byte tcp[72];
-        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), 72);
+        memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[pal - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
         targetPalette.loadDynamicGradientPalette(tcp);
       }
       break;

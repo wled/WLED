@@ -950,21 +950,20 @@ void serializePalettes(JsonObject root, int page)
   constexpr int itemPerPage = 8;
   #endif
 
-  int customPalettesCount = customPalettes.size();
-  int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
+  const int customPalettesCount = customPalettes.size();
+  const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
+  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
-  int start = itemPerPage * page;
-  int end = start + itemPerPage;
-  if (end > palettesCount + customPalettesCount) end = palettesCount + customPalettesCount;
+  const int start = itemPerPage * page;
+  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i <= end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
+  for (int i = start; i < end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -998,7 +997,7 @@ void serializePalettes(JsonObject root, int page)
         else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
-          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), 72);
+          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
           setPaletteColors(curPalette, tcp);
         }
         break;
