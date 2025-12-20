@@ -945,15 +945,15 @@ void serializePalettes(JsonObject root, int page)
 {
   byte tcp[72];
   #ifdef ESP8266
-  int itemPerPage = 5;
+  constexpr int itemPerPage = 5;
   #else
-  int itemPerPage = 8;
+  constexpr int itemPerPage = 8;
   #endif
 
   int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
+  int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
+  int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
   int start = itemPerPage * page;
@@ -993,12 +993,12 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i > palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
-        else if (i < 13) // palette 6 - 12, fastled palettes
-          setPaletteColors(curPalette, *fastledPalettes[i-6]);
+        if (i >= palettesCount) // custom palettes
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+          setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
-          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), 72);
           setPaletteColors(curPalette, tcp);
         }
         break;
