@@ -55,7 +55,7 @@ inline uint32_t djb2_hash_runtime(const char* str) {
 // Structure instantiation for this build 
 const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUILD_DESCRIPTION = {
     WLED_CUSTOM_DESC_MAGIC,                   // magic
-    WLED_CUSTOM_DESC_VERSION,                 // version 
+    /*WLED_CUSTOM_DESC_VERSION*/ 1,           // structure version.  Currently set to 1 to allow OTA from broken original version. FIXME before 0.16 release.
     TOSTRING(WLED_VERSION),
     WLED_RELEASE_NAME,                        // release_name
     std::integral_constant<uint32_t, djb2_hash_constexpr(WLED_RELEASE_NAME)>::value, // hash - computed at compile time; integral_constant enforces this
