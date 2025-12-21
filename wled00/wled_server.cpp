@@ -395,7 +395,7 @@ void initServer()
     bool verboseResponse = false;
     bool isConfig = false;
 
-    if (!requestJSONBufferLock(14)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SERVER)) {
       request->deferResponse();
       return;
     }
