@@ -450,6 +450,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_SETTINGS         5
 #define JSON_LOCK_XML              6
 #define JSON_LOCK_LEDMAP           7
+// unused                          8
 #define JSON_LOCK_PRESET_LOAD      9
 #define JSON_LOCK_PRESET_SAVE     10
 #define JSON_LOCK_WS_RECEIVE      11

@@ -486,7 +486,7 @@ void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of r
 class JSONBufferGuard {
   bool holding_lock;
   public:
-    inline JSONBufferGuard(uint8_t module=255) : holding_lock(requestJSONBufferLock(module)) {};
+    inline JSONBufferGuard(uint8_t module=JSON_LOCK_UNKNOWN) : holding_lock(requestJSONBufferLock(module)) {};
     inline ~JSONBufferGuard() { if (holding_lock) releaseJSONBufferLock(); };
     inline JSONBufferGuard(const JSONBufferGuard&) = delete; // Noncopyable
     inline JSONBufferGuard& operator=(const JSONBufferGuard&) = delete;
