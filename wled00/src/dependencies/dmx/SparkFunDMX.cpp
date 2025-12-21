@@ -27,8 +27,6 @@ Distributed as-is; no warranty is given.
 
 #define DMXSPEED       250000
 #define DMXFORMAT      SERIAL_8N2
-#define BREAKSPEED     83333
-#define BREAKFORMAT    SERIAL_8N1
 
 static const int enablePin = -1;		// disable the enable pin because it is not needed
 static const int rxPin = -1;       // disable the receiving pin because it is not needed - softhack007: Pin=-1 means "use default" not "disable"
