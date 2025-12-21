@@ -142,9 +142,9 @@ void SparkFunDMX::update() {
     // Manually create DMX break signal, is more efficient than using Serial settings
     // Break is just a high signal for minimum 88us, then low (mark) for 8us
     pinMode(txPin, OUTPUT);
-    digitalWrite(txPin, HIGH);
-    delayMicroseconds(176); // Break duration (176us is standard, 88us minimum)
     digitalWrite(txPin, LOW);
+    delayMicroseconds(176); // Break duration (176us is standard, 88us minimum)
+    digitalWrite(txPin, HIGH);
     delayMicroseconds(8);
     
     // Re-enable serial and send data

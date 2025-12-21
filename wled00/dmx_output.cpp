@@ -29,19 +29,9 @@ void handleDMXOutput()
 
   uint8_t brightness = strip.getBrightness();
   
-  // Track last brightness sent to DMX, allow one final update when brightness becomes 0
-  static uint8_t lastSentBrightness = 255;
-  
   // Skip DMX entirely if strip is off
-  if (brightness == 0 && lastSentBrightness == 0) return;
+  if (brightness == 0) return;
 
-  // Change detection: only update if strip data has changed since last update
-  static unsigned long lastStripShow = 0;
-  unsigned long currentShow = strip.getLastShow();
-  if (currentShow == lastStripShow && brightness == strip.getBrightness() && brightness != 0) {
-    return;
-  }
-  lastStripShow = currentShow;
   last_dmx_time = millis();
 
   bool calc_brightness = true;
@@ -97,7 +87,6 @@ void handleDMXOutput()
   }
 
   dmx.update();        // update the DMX bus
-  lastSentBrightness = brightness;
 }
 
 void initDMXOutput() {
