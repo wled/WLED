@@ -636,6 +636,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CG"),DMXGap);
     printSetFormValue(settingsScript,PSTR("CS"),DMXStart);
     printSetFormValue(settingsScript,PSTR("SL"),DMXStartLED);
+    printSetFormValue(settingsScript,PSTR("NF"),DMXNumFixtures);
 
     printSetFormIndex(settingsScript,PSTR("CH1"),DMXFixtureMap[0]);
     printSetFormIndex(settingsScript,PSTR("CH2"),DMXFixtureMap[1]);

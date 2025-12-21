@@ -12,12 +12,37 @@
 
 #ifdef WLED_ENABLE_DMX
 
+#define MAX_DMX_RATE 44 // max DMX update rate in Hz
+
 void handleDMXOutput()
 {
   // don't act, when in DMX Proxy mode
   if (e131ProxyUniverse != 0) return;
 
+  // Ensure segments exist before accessing strip data
+  if (strip.getSegmentsNum() == 0) return;
+
+  // Rate limiting
+  static unsigned long last_dmx_time = 0;
+  const unsigned long dmxFrameTime = 1000 / MAX_DMX_RATE;
+  if (millis() - last_dmx_time < dmxFrameTime) return;
+
   uint8_t brightness = strip.getBrightness();
+  
+  // Track last brightness sent to DMX, allow one final update when brightness becomes 0
+  static uint8_t lastSentBrightness = 255;
+  
+  // Skip DMX entirely if strip is off
+  if (brightness == 0 && lastSentBrightness == 0) return;
+
+  // Change detection: only update if strip data has changed since last update
+  static unsigned long lastStripShow = 0;
+  unsigned long currentShow = strip.getLastShow();
+  if (currentShow == lastStripShow && brightness == strip.getBrightness() && brightness != 0) {
+    return;
+  }
+  lastStripShow = currentShow;
+  last_dmx_time = millis();
 
   bool calc_brightness = true;
 
@@ -28,9 +53,15 @@ void handleDMXOutput()
    }
 
   uint16_t len = strip.getLengthTotal();
-  for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
-
-    uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462
+  if (len == 0) return;
+  
+  // OPTIMIZATION: Only process the LEDs that actually need DMX output
+  // Limit to configured number of fixtures instead of processing all LEDs
+  uint16_t dmxEndLED = DMXStartLED + DMXNumFixtures;
+  if (dmxEndLED > len) dmxEndLED = len;
+  
+  for (int i = DMXStartLED; i < dmxEndLED; i++) {
+    uint32_t in = strip.getPixelColor(i);
     byte w = W(in);
     byte r = R(in);
     byte g = G(in);
@@ -66,6 +97,7 @@ void handleDMXOutput()
   }
 
   dmx.update();        // update the DMX bus
+  lastSentBrightness = brightness;
 }
 
 void initDMXOutput() {

@@ -139,19 +139,18 @@ void SparkFunDMX::write(int Channel, uint8_t value) {
 void SparkFunDMX::update() {
   if (_READWRITE == _WRITE)
   {
-    //Send DMX break
-    digitalWrite(txPin, HIGH);
-    DMXSerial.begin(BREAKSPEED, BREAKFORMAT, rxPin, txPin);//Begin the Serial port
-    DMXSerial.write(0);
-    DMXSerial.flush();
-    delay(1);
-    DMXSerial.end();
+    // Manually create DMX break signal
+    // Break is just a high signal for minimum 88us, then low (mark) for 8us
+    pinMode(txPin, OUTPUT);
+    digitalWrite(txPin, HIGH);  // Break: high signal
+    delayMicroseconds(176);      // Break duration (176us is standard, >88us minimum)
+    digitalWrite(txPin, LOW);   // Mark: low signal before start code
+    delayMicroseconds(8);        // Mark duration (8us minimum)
     
-    //Send DMX data
-    DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);//Begin the Serial port
+    // Re-enable serial and send data (serial is already configured at DMXSPEED)
+    DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);
     DMXSerial.write(dmxData, chanSize);
-    DMXSerial.flush();
-    DMXSerial.end();//clear our DMX array, end the Hardware Serial port
+    DMXSerial.end();
   }
 #if !defined(DMX_SEND_ONLY)
   else if (_READWRITE == _READ)//In a perfect world, this function ends serial communication upon packet completion and attaches RX to a CHANGE interrupt so the start code can be read again

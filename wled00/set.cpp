@@ -640,6 +640,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t>=0 && t < MAX_LEDS) {
       DMXStartLED = t;
     }
+    t = request->arg(F("NF")).toInt();
+    if (t>0 && t<=512) {
+      DMXNumFixtures = t;
+    }
     for (int i=0; i<15; i++) {
       String argname = "CH" + String((i+1));
       t = request->arg(argname).toInt();
