@@ -139,15 +139,15 @@ void SparkFunDMX::write(int Channel, uint8_t value) {
 void SparkFunDMX::update() {
   if (_READWRITE == _WRITE)
   {
-    // Manually create DMX break signal
+    // Manually create DMX break signal, is more efficient than using Serial settings
     // Break is just a high signal for minimum 88us, then low (mark) for 8us
     pinMode(txPin, OUTPUT);
-    digitalWrite(txPin, HIGH);  // Break: high signal
-    delayMicroseconds(176);      // Break duration (176us is standard, >88us minimum)
-    digitalWrite(txPin, LOW);   // Mark: low signal before start code
-    delayMicroseconds(8);        // Mark duration (8us minimum)
+    digitalWrite(txPin, HIGH);
+    delayMicroseconds(176); // Break duration (176us is standard, 88us minimum)
+    digitalWrite(txPin, LOW);
+    delayMicroseconds(8);
     
-    // Re-enable serial and send data (serial is already configured at DMXSPEED)
+    // Re-enable serial and send data
     DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);
     DMXSerial.write(dmxData, chanSize);
     DMXSerial.end();
