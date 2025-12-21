@@ -3456,7 +3456,7 @@ static uint16_t mode_ants(void) {
   // Extract configuration from segment settings
   unsigned numAnts = min(1 + (SEGLEN * SEGMENT.intensity >> 12), MAX_ANTS);
   bool gatherFood = SEGMENT.check1;
-  bool overlayMode = SEGMENT.check2;
+  bool smearMode = SEGMENT.check2;
   bool passBy = SEGMENT.check3 || gatherFood;  // global no‑collision when gathering food is enabled
   unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
 
@@ -3482,7 +3482,7 @@ static uint16_t mode_ants(void) {
   float timeConversionFactor = float(scale8(8, 255 - SEGMENT.speed) + 1) * 20000.0f;
 
   // Clear background if not in overlay mode
-  if (!overlayMode) SEGMENT.fill(backgroundColor);
+  if (!smearMode) SEGMENT.fill(backgroundColor);
 
   // Update and render each ant
   for (int i = 0; i < numAnts; i++) {
@@ -3559,7 +3559,7 @@ static uint16_t mode_ants(void) {
   SEGMENT.blur(SEGMENT.custom2>>1);
   return FRAMETIME;
 }
-static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Overlay,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
+static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Smear,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
 
 
 /*
