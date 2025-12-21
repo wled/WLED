@@ -3,11 +3,11 @@
 /*
  * Support for DMX  output via serial (e.g. MAX485).
  * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
+ * Change the output pin in src/dependencies/dmx/EspDmxOutput.cpp, if needed (ESP32/S3)
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 
 #ifdef WLED_ENABLE_DMX
@@ -24,7 +24,7 @@ void handleDMXOutput()
 
   // Rate limiting
   static unsigned long last_dmx_time = 0;
-  const unsigned long dmxFrameTime = 1000 / MAX_DMX_RATE;
+  const unsigned long dmxFrameTime = (1000UL + MAX_DMX_RATE - 1) / MAX_DMX_RATE;
   if (millis() - last_dmx_time < dmxFrameTime) return;
 
   uint8_t brightness = strip.getBrightness();
