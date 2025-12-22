@@ -89,6 +89,137 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
 
+/*
+/  Scrolling Morse Code by Bob Loeffler
+*   With help from code by automaticaddison.com and then a pass through claude.ai
+*   aux0 is the pattern offset for scrolling
+*   aux1 is the total pattern length
+*/
+
+// Build morse pattern into a buffer
+void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) {
+//  unsigned int i = 0;
+  const char *c = morse_code;
+  
+  // Build the dots and dashes into pattern array
+  while (*c != '\0') {
+    // it's a dot which is 1 pixel
+    if (*c == '.') {
+      pattern[index++] = true;
+    }
+    else { // Must be a dash which is 3 pixels
+      pattern[index++] = true;
+      pattern[index++] = true;
+      pattern[index++] = true;
+    }
+    
+    // 1 space between parts of a letter or number
+    pattern[index++] = false;
+    c++;
+  }
+    
+  // 3 spaces between two letters
+  pattern[index++] = false;
+  pattern[index++] = false;
+  pattern[index++] = false;
+}
+
+static uint16_t mode_morsecode(void) {
+  if (SEGLEN < 1) return mode_static();
+
+  // A-Z in Morse Code
+  static const char * letters[] PROGMEM = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
+                     "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
+  // 0-9 in Morse Code
+  static const char * numbers[] PROGMEM = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
+
+  // Get the text to display
+  char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
+  size_t len = 0;
+  
+  if (SEGMENT.name) len = strlen(SEGMENT.name);
+  if (len == 0) { // fallback if empty segment name
+    strcpy_P(text, PSTR("I Love WLED"));
+  } else {
+    strcpy(text, SEGMENT.name);
+  }
+
+  // Convert to uppercase in place
+  for (char *p = text; *p; p++) {
+    *p = toupper(*p);
+  }
+
+  // Build the complete morse pattern (estimate max size generously)
+  static bool morsecodePattern[1024]; // Static to avoid stack overflow
+
+  static char lastText[WLED_MAX_SEGNAME_LEN+1] = {'\0'};  // Track last text
+  bool textChanged = (strcmp(text, lastText) != 0);  // Check if the text has changed since the last frame
+
+  // Initialize on first call or rebuild pattern
+  if (SEGENV.call == 0 || textChanged) {
+    SEGENV.aux0 = 0;
+    strcpy(lastText, text); // Save current text
+
+    int patternLength = 0;
+
+    // Build complete morse code pattern
+    for (char *c = text; *c; c++) {
+      // Check for letters
+      if (*c >= 'A' && *c <= 'Z') {
+        build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength);
+      } 
+      // Check for numbers
+      else if (*c >= '0' && *c <= '9') {
+        build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength);
+      }
+      // Check for space between words
+      else if (*c == ' ') {
+        for (int x = 0; x < 7; x++) {
+          morsecodePattern[patternLength++] = false;
+        }
+      }
+    }
+
+    // End of message
+    build_morsecode_pattern(".-.-.", morsecodePattern, patternLength);
+    for (int x = 0; x < 7; x++) {
+      morsecodePattern[patternLength++] = false;
+    }
+
+    SEGENV.aux1 = patternLength; // Store pattern length
+  }
+
+  // Update offset to make the morse code scroll
+  uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*3;
+  uint32_t it = strip.now / cycleTime;
+  if (SEGENV.step != it) {
+    SEGENV.aux0++; // Increment scroll offset
+    SEGENV.step = it;
+  }
+
+  int patternLength = SEGENV.aux1;
+
+  // Clear background
+  SEGMENT.fill(BLACK);
+
+  // Draw the scrolling pattern
+  int offset = SEGENV.aux0 % patternLength;
+
+  for (int i = 0; i < SEGLEN; i++) {
+    int patternIndex = (offset + i) % patternLength;
+    if (morsecodePattern[patternIndex]) {
+      if (SEGMENT.check1)
+        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(SEGENV.aux0 + i));
+      else
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, (strip.paletteBlend == 1 || strip.paletteBlend == 3), 0));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_PS_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,,Colorful,,;;!;1;sx=128,o1=1";
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -98,6 +229,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_morsecode, _data_FX_MODE_PS_MORSECODE);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
