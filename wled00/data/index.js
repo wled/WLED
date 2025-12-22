@@ -741,7 +741,21 @@ function populateSegments(s)
 		let segp = `<div id="segp${i}" class="sbs">`+
 						`<i class="icons slider-icon pwr ${inst.on ? "act":""}" id="seg${i}pwr" title="Power" onclick="setSegPwr(${i})">&#xe08f;</i>`+
 						`<div class="sliderwrap il" title="Opacity/Brightness">`+
-							`<input id="seg${i}bri" class="noslide" onchange="setSegBri(${i})" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />`+
+							`<input id="seg${i}bri" class="noslide" onchange="setSegProp(${i},'bri')" oninput="updateTrail(this)" max="255" min="1" type="range" value="${inst.bri}" />`+
+							`<div class="sliderdisplay"></div>`+
+						`</div>`+
+					`</div>`;
+		let zoom = `<div id="segzm${i}" class="lbl-l">`+
+						`Zoom<br>`+
+						`<div class="sliderwrap il" title="Zoom amount">`+
+							`<input id="seg${i}zA" class="noslide" onchange="setSegProp(${i},'zA')" oninput="updateTrail(this)" max="15" min="0" type="range" value="${inst.zA}" />`+
+							`<div class="sliderdisplay"></div>`+
+						`</div>`+
+					`</div>`;
+		let rotate =`<div id="segrt${i}" class="lbl-l">`+
+						`Rotation<br>`+
+						`<div class="sliderwrap il" title="Rotation speed">`+
+							`<input id="seg${i}rS" class="noslide" onchange="setSegProp(${i},'rS')" oninput="updateTrail(this)" max="15" min="0" type="range" value="${inst.rS}" />`+
 							`<div class="sliderdisplay"></div>`+
 						`</div>`+
 					`</div>`;
@@ -750,16 +764,16 @@ function populateSegments(s)
 		let staY = inst.startY;
 		let stoY = inst.stopY;
 		let isMSeg = isM && staX<mw*mh; // 2D matrix segment
-		let rvXck = `<label class="check revchkl">Reverse ${isM?'':'direction'}<input type="checkbox" id="seg${i}rev" onchange="setRev(${i})" ${inst.rev?"checked":""}><span class="checkmark"></span></label>`;
-		let miXck = `<label class="check revchkl">Mirror<input type="checkbox" id="seg${i}mi" onchange="setMi(${i})" ${inst.mi?"checked":""}><span class="checkmark"></span></label>`;
+		let rvXck = `<label class="check revchkl">Reverse ${isM?'':'direction'}<input type="checkbox" id="seg${i}rev" onchange="setSegProp(${i},'rev')" ${inst.rev?"checked":""}><span class="checkmark"></span></label>`;
+		let miXck = `<label class="check revchkl">Mirror<input type="checkbox" id="seg${i}mi" onchange="setSegProp(${i},'mi')" ${inst.mi?"checked":""}><span class="checkmark"></span></label>`;
 		let rvYck = "", miYck ="";
 		let smpl = simplifiedUI ? 'hide' : '';
 		if (isMSeg) {
-			rvYck = `<label class="check revchkl">Reverse<input type="checkbox" id="seg${i}rY" onchange="setRevY(${i})" ${inst.rY?"checked":""}><span class="checkmark"></span></label>`;
-			miYck = `<label class="check revchkl">Mirror<input type="checkbox" id="seg${i}mY" onchange="setMiY(${i})" ${inst.mY?"checked":""}><span class="checkmark"></span></label>`;
+			rvYck = `<label class="check revchkl">Reverse<input type="checkbox" id="seg${i}rY" onchange="setSegProp(${i},'rY')" ${inst.rY?"checked":""}><span class="checkmark"></span></label>`;
+			miYck = `<label class="check revchkl">Mirror<input type="checkbox" id="seg${i}mY" onchange="setSegProp(${i},'mY')" ${inst.mY?"checked":""}><span class="checkmark"></span></label>`;
 		}
-		let map2D = `<div id="seg${i}map2D" data-map="map2D" class="lbl-s hide">Expand 1D FX<br>`+
-						`<div class="sel-p"><select class="sel-p" id="seg${i}m12" onchange="setM12(${i})">`+
+		let map2D = `<div id="seg${i}map2D" data-map="map2D" data-fx="${inst.fx}" class="lbl-s hide">Expand 1D FX<br>`+
+						`<div class="sel-p"><select class="sel-p" id="seg${i}m12" onchange="setSegProp(${i},'m12')">`+
 							`<option value="0" ${inst.m12==0?' selected':''}>Pixels</option>`+
 							`<option value="1" ${inst.m12==1?' selected':''}>Bar</option>`+
 							`<option value="2" ${inst.m12==2?' selected':''}>Arc</option>`+
@@ -768,7 +782,7 @@ function populateSegments(s)
 						`</select></div>`+
 					`</div>`;
 		let blend = `<div class="lbl-l">Blend mode<br>`+
-						`<div class="sel-p"><select class="sel-ple" id="seg${i}bm" onchange="setBm(${i})">`+
+						`<div class="sel-p"><select class="sel-ple" id="seg${i}bm" onchange="setSegProp(${i},'bm')">`+
 							`<option value="0" ${inst.bm==0?' selected':''}>Top/Default</option>`+
 							`<option value="1" ${inst.bm==1?' selected':''}>Bottom/None</option>`+
 							`<option value="2" ${inst.bm==2?' selected':''}>Add</option>`+
@@ -788,7 +802,7 @@ function populateSegments(s)
 						`</select></div>`+
 					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
-						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSi(${i})">`+
+						`<div class="sel-p"><select class="sel-p" id="seg${i}si" onchange="setSegProp(${i},'si')">`+
 							`<option value="0" ${inst.si==0?' selected':''}>BeatSin</option>`+
 							`<option value="1" ${inst.si==1?' selected':''}>WeWillRockYou</option>`+
 							`<option value="2" ${inst.si==2?' selected':''}>10/13</option>`+
@@ -844,12 +858,14 @@ function populateSegments(s)
 					`<div class="h bp" id="seg${i}len"></div>`+
 					blend +
 					(!isMSeg ? rvXck : '') +
+					(isMSeg?zoom:'')+
+					(isMSeg?rotate:'')+
 					(isMSeg&&stoY-staY>1&&stoX-staX>1 ? map2D : '') +
 					(s.AudioReactive && s.AudioReactive.on ? "" : sndSim) +
 					`<label class="check revchkl" id="seg${i}lbtm">`+
 						(isMSeg?'Transpose':'Mirror effect') + (isMSeg ?
-						'<input type="checkbox" id="seg'+i+'tp" onchange="setTp('+i+')" '+(inst.tp?"checked":"")+'>':
-						'<input type="checkbox" id="seg'+i+'mi" onchange="setMi('+i+')" '+(inst.mi?"checked":"")+'>') +
+						'<input type="checkbox" id="seg'+i+'tp" onchange="setSegProp('+i+',\'tp\')" '+(inst.tp?"checked":"")+'>':
+						'<input type="checkbox" id="seg'+i+'mi" onchange="setSegProp('+i+',\'mi\')" '+(inst.mi?"checked":"")+'>') +
 						`<span class="checkmark"></span>`+
 					`</label>`+
 					`<div class="del">`+
@@ -870,6 +886,8 @@ function populateSegments(s)
 		if (!gId(`seg${i}`)) continue;
 		updateLen(i);
 		updateTrail(gId(`seg${i}bri`));
+		let r = gId(`seg${i}rS`); if (r) updateTrail(r);
+		let z = gId(`seg${i}zA`); if (z) updateTrail(z);
 		gId(`segr${i}`).classList.add("hide");
 	}
 	if (segCount < 2) {
@@ -2265,6 +2283,14 @@ function delSeg(s)
 	requestJson(obj);
 }
 
+function setSegProp(s,p)
+{
+	let o = gId(`seg${s}${p}`);
+	let val = o.type === "checkbox" ? o.checked : parseInt(o.value);
+	var obj = {"seg": {"id": s, [p]: val}};
+	requestJson(obj);
+}
+/*
 function setRev(s)
 {
 	var rev = gId(`seg${s}rev`).checked;
@@ -2320,7 +2346,7 @@ function setTp(s)
 	var obj = {"seg": {"id": s, "tp": tp}};
 	requestJson(obj);
 }
-
+*/
 function setGrp(s, g)
 {
 	event.preventDefault();
@@ -2328,20 +2354,32 @@ function setGrp(s, g)
 	var obj = {"seg": {"id": s, "set": g}};
 	requestJson(obj);
 }
+/*
+function setZoom(s)
+{
+	var obj = {"seg": {"id": s, "zA": parseInt(gId(`seg${s}za`).value)}};
+	requestJson(obj);
+}
 
+function setRotation(s)
+{
+	var obj = {"seg": {"id": s, "rS": parseInt(gId(`seg${s}rs`).value)}};
+	requestJson(obj);
+}
+*/
 function setSegPwr(s)
 {
 	var pwr = gId(`seg${s}pwr`).classList.contains('act');
 	var obj = {"seg": {"id": s, "on": !pwr}};
 	requestJson(obj);
 }
-
+/*
 function setSegBri(s)
 {
 	var obj = {"seg": {"id": s, "bri": parseInt(gId(`seg${s}bri`).value)}};
 	requestJson(obj);
 }
-
+*/
 function tglFreeze(s=null)
 {
 	var obj = {"seg": {"frz": "t"}}; // toggle

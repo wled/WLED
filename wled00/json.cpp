@@ -35,6 +35,9 @@ namespace {
     bool     check1;
     bool     check2;
     bool     check3;
+    uint8_t  blendMode;
+    uint8_t  zoomAmount;
+    uint8_t  rotateSpeed;
   } SegmentCopy;
 
   uint8_t differs(const Segment& b, const SegmentCopy& a) {
@@ -57,6 +60,9 @@ namespace {
     if (a.check3 != b.check3)       d |= SEG_DIFFERS_FX;
     if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
     if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
+    if (a.blendMode != b.blendMode) d |= SEG_DIFFERS_OPT;
+    if (a.zoomAmount != b.zoomAmount)   d |= SEG_DIFFERS_OPT;
+    if (a.rotateSpeed != b.rotateSpeed) d |= SEG_DIFFERS_OPT;
 
     //bit pattern: (msb first)
     // set:2, sound:2, mapping:3, transposed, mirrorY, reverseY, [reset,] paused, mirrored, on, reverse, [selected]
@@ -108,7 +114,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
     seg.custom3,
     seg.check1,
     seg.check2,
-    seg.check3
+    seg.check3,
+    seg.blendMode,
+    seg.zoomAmount,
+    seg.rotateSpeed
   };
 
   int start = elem["start"] | seg.start;
@@ -152,6 +161,8 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   uint16_t spc       = elem[F("spc")] | seg.spacing;
   uint16_t of        = seg.offset;
   uint8_t  soundSim  = elem["si"] | seg.soundSim;
+  uint8_t  rotateSpeed = elem["rS"] | seg.rotateSpeed;
+  uint8_t  zoomAmount  = elem["zA"] | seg.zoomAmount;
   uint8_t  map1D2D   = elem["m12"] | seg.map1D2D;
   uint8_t  set       = elem[F("set")] | seg.set;
   bool     selected  = getBoolVal(elem["sel"], seg.selected);
@@ -269,6 +280,8 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   }
   #endif
 
+  seg.rotateSpeed = constrain(rotateSpeed, 0, 15);
+  seg.zoomAmount  = constrain(zoomAmount, 0, 15);
   seg.set       = constrain(set, 0, 3);
   seg.soundSim  = constrain(soundSim, 0, 3);
   seg.selected  = selected;
@@ -631,6 +644,8 @@ static void serializeSegment(JsonObject& root, const Segment& seg, byte id, bool
   root["si"]  = seg.soundSim;
   root["m12"] = seg.map1D2D;
   root["bm"]  = seg.blendMode;
+  root["rS"]  = seg.rotateSpeed;
+  root["zA"]  = seg.zoomAmount;
 }
 
 void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segmentBounds, bool selectedSegmentsOnly)

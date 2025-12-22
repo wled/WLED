@@ -563,7 +563,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
       sOpt = extractModeDefaults(fx, "ix");  intensity = (sOpt >= 0) ? sOpt : DEFAULT_INTENSITY;
       sOpt = extractModeDefaults(fx, "c1");  custom1   = (sOpt >= 0) ? sOpt : DEFAULT_C1;
       sOpt = extractModeDefaults(fx, "c2");  custom2   = (sOpt >= 0) ? sOpt : DEFAULT_C2;
-      sOpt = extractModeDefaults(fx, "c3");  custom3   = (sOpt >= 0) ? sOpt : DEFAULT_C3;
+      sOpt = extractModeDefaults(fx, "c3");  custom3   = (sOpt >= 0) ? constrain(sOpt, 0, 31) : DEFAULT_C3;
       sOpt = extractModeDefaults(fx, "o1");  check1    = (sOpt >= 0) ? (bool)sOpt : false;
       sOpt = extractModeDefaults(fx, "o2");  check2    = (sOpt >= 0) ? (bool)sOpt : false;
       sOpt = extractModeDefaults(fx, "o3");  check3    = (sOpt >= 0) ? (bool)sOpt : false;
@@ -573,6 +573,8 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
       sOpt = extractModeDefaults(fx, "mi");  if (sOpt >= 0) mirror    = (bool)sOpt; // NOTE: setting this option is a risky business
       sOpt = extractModeDefaults(fx, "rY");  if (sOpt >= 0) reverse_y = (bool)sOpt;
       sOpt = extractModeDefaults(fx, "mY");  if (sOpt >= 0) mirror_y  = (bool)sOpt; // NOTE: setting this option is a risky business
+      sOpt = extractModeDefaults(fx, "rS");  if (sOpt >= 0) rotateSpeed = constrain(sOpt, 0, 15); // 0 = no rotation
+      sOpt = extractModeDefaults(fx, "zA");  if (sOpt >= 0) zoomAmount  = constrain(sOpt, 0, 15); // 8 = no zoom
     }
     sOpt = extractModeDefaults(fx, "pal"); // always extract 'pal' to set _default_palette
     if (sOpt >= 0 && loadDefaults) setPalette(sOpt);
@@ -1474,9 +1476,109 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
     };
 
+    // zooming and rotation
+    auto RotateAndZoom = [](uint32_t *srcPixels, uint32_t *destPixels, int midX, int midY, int cols, int rows, int shearAngle, int zoomOffset) {
+      for (int i = 0; i < cols * rows; i++) destPixels[i] = BLACK; // fill black
+    
+      constexpr uint8_t Scale_Shift = 10;
+      constexpr int Fixed_Scale = (1 << Scale_Shift);
+      constexpr int RoundVal = (1 << (Scale_Shift - 1));
+      constexpr int zoomRange = (Fixed_Scale * 3) / 4;  // 768
+      int zoomScale = Fixed_Scale + (zoomOffset * zoomRange) / 8; // zoomOffset: -8 .. +7 -> zoomScale: 256 .. 1696
+      if (zoomScale <= 0) zoomScale = 1; // avoid divide-by-zero and negative zoom
+
+      const bool flip = (shearAngle > 90 && shearAngle < 270); // Flip to avoid instability near 180°
+      if (flip) shearAngle = (shearAngle + 180) % 360;
+
+      // Calculate shearX and shearY
+      const float angleRadians = radians(shearAngle);
+      int shearX = -tan_t(angleRadians / 2) * Fixed_Scale;
+      int shearY =  sin_t(angleRadians)     * Fixed_Scale;
+
+      const int WRAP_PAD_X = cols << 5; // ×32
+      const int WRAP_PAD_Y = rows << 5; // Ensures wrap works with large negative coordinates when zoomed out
+
+      // Use inverse mapping: iterate destination pixels, find source coordinates
+      for (int destY = 0; destY < rows; destY++) {
+        for (int destX = 0; destX < cols; destX++) {
+          // Translate destination to origin
+          int dx = destX - midX;
+          int dy = destY - midY;
+    
+          // Inverse shear transformations (reverse order)
+          int x1 = dx - ((shearX * dy + RoundVal) >> Scale_Shift);
+          int y0 = dy - ((shearY * x1 + RoundVal) >> Scale_Shift);
+          int x0 = x1 - ((shearX * y0 + RoundVal) >> Scale_Shift);
+    
+          // Apply zoom to source coordinates
+          x0 = (x0 * Fixed_Scale) / zoomScale;
+          y0 = (y0 * Fixed_Scale) / zoomScale;
+    
+          // Handle flip
+          int srcX = flip ? (midX - x0) : (midX + x0);
+          int srcY = flip ? (midY - y0) : (midY + y0);
+    
+          // Bounds check or wrap
+          //if (wrap) { // Wrap around
+            srcX = (srcX + WRAP_PAD_X); while (srcX >= cols) srcX -= cols;  // positive modulo since % is slow
+            srcY = (srcY + WRAP_PAD_Y); while (srcY >= rows) srcY -= rows;  // positive modulo since % is slow
+          //}
+          //else if (wrap_and_mirror) { // Wrap plus mirror
+          //  int tileX = (srcX + WRAP_PAD_X) / cols;
+          //  int tileY = (srcY + WRAP_PAD_Y) / rows;
+    
+          //  // Wrap src
+          //  srcX = (srcX + WRAP_PAD_X); while (srcX >= cols) srcX -= cols;  // positive modulo since % is slow
+          //  srcY = (srcY + WRAP_PAD_Y); while (srcY >= rows) srcY -= rows;  // positive modulo since % is slow
+    
+          //  // Flip on odd tiles
+          //  if (tileX & 1) srcX = cols - 1 - srcX;
+          //  if (tileY & 1) srcY = rows - 1 - srcY;
+          //}
+          //else
+          if ((unsigned)srcX >= (unsigned)cols || (unsigned)srcY >= (unsigned)rows) continue;
+          
+          // Sample from source & write to destination
+          destPixels[destX + destY * cols] = srcPixels[srcX + srcY * cols];
+        }
+      }
+    };
+
+    uint32_t *_pixelsN = topSegment.getPixels();  // we will use this pointer as a source later insetad of getPixelColorRaw()
+    if (topSegment.rotateSpeed || topSegment.zoomAmount) {
+      _pixelsN = new uint32_t[nCols * nRows]; // may use allocateBuffer() if needed
+      const int midX = nCols / 2;
+      const int midY = nRows / 2;
+      if (topSegment.rotateSpeed != 0) {
+        topSegment.rotatedAngle += topSegment.rotateSpeed;
+        while (topSegment.rotatedAngle > 3600) topSegment.rotatedAngle -= 3600;
+      } else {
+        topSegment.rotatedAngle = 0; // reset angle if no rotation
+      }
+      RotateAndZoom(topSegment.getPixels(), _pixelsN, midX, midY, nCols, nRows, topSegment.rotatedAngle/10, topSegment.zoomAmount - 8);
+    }
+    uint32_t *_pixelsO = topSegment.getPixels();  // we will use this pointer as a source (old segment during transition) later insetad of getPixelColorRaw()
+    if (segO) {
+      _pixelsO = segO->getPixels(); // default to unmodified old segment pixels
+      if (segO->rotateSpeed || segO->zoomAmount) {
+        _pixelsO = new uint32_t[oCols * oRows]; // may use allocateBuffer() if needed
+        const int midXo = oCols / 2;
+        const int midYo = oRows / 2;
+        if (topSegment.rotateSpeed != 0) {
+          segO->rotatedAngle += segO->rotateSpeed;
+          while (segO->rotatedAngle > 3600) segO->rotatedAngle -= 3600;
+        } else {
+          segO->rotatedAngle = 0;
+        }
+        RotateAndZoom(segO->getPixels(), _pixelsO, midXo, midYo, oCols, oRows, segO->rotatedAngle/10, segO->zoomAmount - 8);
+      }
+    }
+
     // if we blend using "push" style we need to "shift" canvas to left/right/up/down
     unsigned offsetX = (blendingStyle == BLEND_STYLE_PUSH_UP   || blendingStyle == BLEND_STYLE_PUSH_DOWN)  ? 0 : progInv * nCols / 0xFFFFU;
     unsigned offsetY = (blendingStyle == BLEND_STYLE_PUSH_LEFT || blendingStyle == BLEND_STYLE_PUSH_RIGHT) ? 0 : progInv * nRows / 0xFFFFU;
+    if (blendingStyle == BLEND_STYLE_PUSH_RIGHT) offsetX = nCols - offsetX;
+    if (blendingStyle == BLEND_STYLE_PUSH_UP)    offsetY = nRows - offsetY;
 
     // we only traverse new segment, not old one
     for (int r = 0; r < nRows; r++) for (int c = 0; c < nCols; c++) {
@@ -1485,22 +1587,19 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int vCols = seg == segO ? oCols : nCols;         // old segment may have different dimensions
       int vRows = seg == segO ? oRows : nRows;         // old segment may have different dimensions
+      uint32_t *_pixelsR = seg == segO ? _pixelsO : _pixelsN;
       int x = c;
       int y = r;
       // if we blend using "push" style we need to "shift" canvas to left/right/up/down
-      switch (blendingStyle) {
-        case BLEND_STYLE_PUSH_RIGHT: x = (x + offsetX) % nCols;         break;
-        case BLEND_STYLE_PUSH_LEFT:  x = (x - offsetX + nCols) % nCols; break;
-        case BLEND_STYLE_PUSH_DOWN:  y = (y + offsetY) % nRows;         break;
-        case BLEND_STYLE_PUSH_UP:    y = (y - offsetY + nRows) % nRows; break;
-      }
+      if (offsetX != 0) { x = (x + offsetX); while (x >= nCols) x -= nCols; }
+      if (offsetY != 0) { y = (y + offsetY); while (y >= nRows) y -= nRows; }
       uint32_t c_a = BLACK;
-      if (x < vCols && y < vRows) c_a = seg->getPixelColorRaw(x + y*vCols); // will get clipped pixel from old segment or unclipped pixel from new segment
+      if (x < vCols && y < vRows) c_a = _pixelsR[x + y*vCols]; // will get clipped pixel from old segment or unclipped pixel from new segment
       if (segO && blendingStyle == BLEND_STYLE_FADE
         && (topSegment.mode != segO->mode || (segO->name != topSegment.name && segO->name && topSegment.name && strncmp(segO->name, topSegment.name, WLED_MAX_SEGNAME_LEN) != 0))
         && x < oCols && y < oRows) {
         // we need to blend old segment using fade as pixels are not clipped
-        c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
+        c_a = color_blend16(c_a, _pixelsO[x + y*oCols], progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
         // workaround for On/Off transition
@@ -1531,6 +1630,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         }
       }
     }
+    // clean up
+    if (topSegment.rotateSpeed || topSegment.zoomAmount) delete[] _pixelsN;
+    if (segO && (segO->rotateSpeed || segO->zoomAmount)) delete[] _pixelsO;
 #endif
   } else {
     const int nLen = topSegment.virtualLength();
