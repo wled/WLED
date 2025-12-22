@@ -416,7 +416,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 #ifndef WLED_DISABLE_INFRARED
     printSetFormValue(settingsScript,PSTR("IR"),irPin);
     printSetFormValue(settingsScript,PSTR("IT"),irEnabled);
-#endif
+#endif    
     printSetFormCheckbox(settingsScript,PSTR("MSO"),!irApplyToAllSelected);
   }
 

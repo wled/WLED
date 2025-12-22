@@ -173,7 +173,7 @@ void WLED::loop()
   if (millis() - heapTime > 15000) {
     uint32_t heap = getFreeHeapSize();
     if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);
+      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);      
       strip.resetSegments(); // remove all but one segments from memory
       if (!Update.isRunning()) forceReconnect = true;
     } else if (heap < MIN_HEAP_SIZE) {
@@ -683,7 +683,7 @@ void WLED::initConnection()
 
   if (WLED_WIFI_CONFIGURED) {
     showWelcomePage = false;
-
+    
     DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)

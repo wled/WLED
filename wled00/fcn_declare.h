@@ -334,7 +334,7 @@ class Usermod {
     static Print* oappend_shim;
     // old form of appendConfigData; called by default appendConfigData(Print&) with oappend_shim set up
     // private so it is not accidentally invoked except via Usermod::appendConfigData(Print&)
-    virtual void appendConfigData() {}
+    virtual void appendConfigData() {}    
   protected:
     // Shim for oappend(), which used to exist in utils.cpp
     template<typename T> static inline void oappend(const T& t) { oappend_shim->print(t); };
