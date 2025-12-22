@@ -689,9 +689,10 @@ void WLED::initConnection()
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
+
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
       DEBUG_PRINTLN(F("Using PSK"));
-#ifndef WLED_DISABLE_WPA_ENTERPRISE
 #ifdef ESP8266
       wifi_station_set_wpa2_enterprise_auth(0);
       wifi_station_clear_enterprise_ca_cert();
@@ -700,10 +701,8 @@ void WLED::initConnection()
       wifi_station_clear_enterprise_username();
       wifi_station_clear_enterprise_password();
 #endif
-#endif
-      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
     } else { // WIFI_ENCRYPTION_TYPE_ENTERPRISE
-#ifndef WLED_DISABLE_WPA_ENTERPRISE
       DEBUG_PRINTF_P(PSTR("Using WPA2_AUTH_PEAP (Anon: %s, Ident: %s)\n"), multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity);
 #ifdef ESP8266
       struct station_config sta_conf;
@@ -719,12 +718,10 @@ void WLED::initConnection()
 #else
       WiFi.begin(multiWiFi[selectedWiFi].clientSSID, WPA2_AUTH_PEAP, multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity, multiWiFi[selectedWiFi].clientPass);
 #endif
-#else
-      DEBUG_PRINTLN(F("WPA2_AUTH_PEAP is disabled by WLED_DISABLE_WPA_ENTERPRISE, connecting using PSK."));
-      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
-#endif
     }
-
+#else // WLED_ENABLE_WPA_ENTERPRISE
+    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+#endif // WLED_ENABLE_WPA_ENTERPRISE
 
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));

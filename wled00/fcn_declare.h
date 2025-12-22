@@ -58,25 +58,31 @@ bool getJsonValue(const JsonVariant& element, DestType& destination, const Defau
 
 typedef struct WiFiConfig {
   char clientSSID[33];
-  byte encryptionType;
   char clientPass[65];
   uint8_t bssid[6];
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+  byte encryptionType;
   char enterpriseAnonIdentity[65];
   char enterpriseIdentity[65];
   WiFiConfig(const char *ssid="", const char *pass="", uint32_t ip=0, uint32_t gw=0, uint32_t subnet=0x00FFFFFF // little endian
     , byte enc_type=WIFI_ENCRYPTION_TYPE_PSK, const char *ent_anon="", const char *ent_iden="")
-  : encryptionType(enc_type)
-  , staticIP(ip)
+#else
+  WiFiConfig(const char *ssid="", const char *pass="", uint32_t ip=0, uint32_t gw=0, uint32_t subnet=0x00FFFFFF) // little endian
+#endif
+  : staticIP(ip)
   , staticGW(gw)
   , staticSN(subnet)
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+    encryptionType = enc_type;
     strncpy(enterpriseAnonIdentity, ent_anon, 64); enterpriseAnonIdentity[64] = 0;
     strncpy(enterpriseIdentity, ent_iden, 64); enterpriseIdentity[64] = 0;
+#endif
     memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;

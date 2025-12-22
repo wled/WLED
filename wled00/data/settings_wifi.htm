@@ -118,12 +118,12 @@
 			gId("wifi_add").style.display = (i<maxNetworks) ? "inline":"none";
 			gId("wifi_rem").style.display = (i>1) ? "inline":"none";
 		}
-		function addWiFi(type=0,ssid="",anon="",ident="",pass="",bssid="",ip=0,gw=0,sn=0x00ffffff) { // little endian
+		function addWiFi(ssid="",pass="",bssid="",ip=0,gw=0,sn=0x00ffffff,type=-1,anon="",ident="") { // little endian
 			var i = gId("wifi_entries").childNodes.length;
 			if (i >= maxNetworks) return;
-			var b = `<div id="net${i}"><hr class="sml">
-Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
-WiFi encryption type:<br>
+			var encryptionTypeField = "";
+			if (type >=0 && type < 2) {
+				encryptionTypeField = `WiFi encryption type:<br>
 <select id="ET${i}" name="ET${i}" onchange="E(${i})">
 <option value="0"${(type==0) ? ' selected':''}>None/WPA/WPA2</option>
 <option value="1"${(type==1) ? ' selected':''}>WPA/WPA2-Enterprise</option>
@@ -131,7 +131,11 @@ WiFi encryption type:<br>
 <div id="IDS${i}" style="${(type==0) ? 'display:none;':''}">
 Anonymous identity:<br><input type="text" id="EA${i}" name="EA${i}" maxlength="64" value="${anon}"><br>
 Identity:<br><input type="text" id="EI${i}" name="EI${i}" maxlength="64" value="${ident}"><br>
-</div>
+</div>`;
+			}
+			var b = `<div id="net${i}"><hr class="sml">
+Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
+${encryptionTypeField}
 Network password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
 BSSID (optional):<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
 Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>

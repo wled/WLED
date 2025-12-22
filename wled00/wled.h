@@ -77,7 +77,7 @@
 #include <Arduino.h>
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
-  #ifndef WLED_DISABLE_WPA_ENTERPRISE
+  #ifdef WLED_ENABLE_WPA_ENTERPRISE
     #include "wpa2_enterprise.h"
   #endif
   #include <ESP8266mDNS.h>
