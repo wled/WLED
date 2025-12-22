@@ -416,6 +416,8 @@ button, .btn {
 
 <script>
 const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
+const imgageFX = 53; // image effect number
+const txtFX = 122;   // scrolling text effect number
 
 /* canvases */
 const cv=gId('cv'),cx=cv.getContext('2d',{willReadFrequently:true});
@@ -467,7 +469,7 @@ function segLoad(){
 		if(j.seg&&j.seg.length){
 			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
 				const w=stop-start,h=(stopY-startY)||1;
-				const t = (n || `Segment ${id}`) + (h>1 ? ` (${w}x${h})` : ` (${w}px)`) + (fx===53 ? ' [Image]' : (fx===122 ? ' [Scrolling Text]' : ''));
+				const t = (n || `Segment ${id}`) + (h>1 ? ` (${w}x${h})` : ` (${w}px)`) + (fx===imgageFX ? ' [Image]' : (fx===txtFX ? ' [Scrolling Text]' : ''));
 				const o=new Option(t,id);
 				o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
 				s1.add(o); // gif tool
@@ -488,7 +490,7 @@ function segLoad(){
 function curImgSeg(){
 	const sel=gId('seg');
 	for(let i=0;i<sel.options.length;i++){
-		if(parseInt(sel.options[i].dataset.fx)===53) return parseInt(sel.options[i].value);
+		if(parseInt(sel.options[i].dataset.fx)===imgageFX) return parseInt(sel.options[i].value);
 	}
 	return null;
 }
