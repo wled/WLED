@@ -91,9 +91,12 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 /*
 /  Scrolling Morse Code by Bob Loeffler
-*   With help from code by automaticaddison.com and then a pass through claude.ai
+*   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
 *   aux1 is the total pattern length
+*   the sx slider selects the scrolling speed
+*   check1 selects the color mode
+*   we get the text from the SEGMENT.name and convert it to morse code
 */
 
 // Build morse pattern into a buffer
@@ -129,7 +132,7 @@ static uint16_t mode_morsecode(void) {
 
   // A-Z in Morse Code
   static const char * letters[] PROGMEM = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
-                     "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
+                                           "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
   // 0-9 in Morse Code
   static const char * numbers[] PROGMEM = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
 
