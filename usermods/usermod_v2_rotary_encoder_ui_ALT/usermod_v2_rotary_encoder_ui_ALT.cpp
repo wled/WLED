@@ -401,7 +401,7 @@ void RotaryEncoderUIUsermod::sortModesAndPalettes() {
   re_sortModes(modes_qstrings, modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
 
   DEBUG_PRINT(F("Sorting palettes: ")); DEBUG_PRINT(getPaletteCount()); DEBUG_PRINT('/'); DEBUG_PRINTLN(customPalettes.size());
-  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount());
+  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount() + 1); // +1 for default palette
   palettes_alpha_indexes = re_initIndexArray(getPaletteCount());
   if (customPalettes.size()) {
     for (int i=0; i<customPalettes.size(); i++) {

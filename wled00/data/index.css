@@ -794,7 +794,7 @@ input[type=range]::-moz-range-thumb {
 /* buttons */
 .btn {
 	padding: 8px;
-	/*margin: 10px 4px;*/
+	margin: 10px 4px;
 	width: 230px;
 	font-size: 19px;
 	color: var(--c-d);
@@ -1476,7 +1476,7 @@ dialog {
 .expanded {
 	display: inline-block !important;
 }
-.hide, .expanded .segin.hide, .expanded .presin.hide, .expanded .sbs.hide, .expanded .frz, .expanded .g-icon {
+.hide, .expanded .segin.hide, .expanded .presin.hide, .expanded .sbs.hide, .expanded .g-icon {
 	display: none !important;
 }
 
