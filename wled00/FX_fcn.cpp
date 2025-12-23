@@ -1545,7 +1545,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     };
 
     uint32_t *_pixelsN = topSegment.getPixels();  // we will use this pointer as a source later insetad of getPixelColorRaw()
-    if (topSegment.rotateSpeed || topSegment.zoomAmount) {
+    if (topSegment.rotateSpeed || topSegment.zoomAmount != 8) {
       _pixelsN = new uint32_t[nCols * nRows]; // may use allocateBuffer() if needed
       const int midX = nCols / 2;
       const int midY = nRows / 2;
@@ -1560,7 +1560,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     uint32_t *_pixelsO = topSegment.getPixels();  // we will use this pointer as a source (old segment during transition) later insetad of getPixelColorRaw()
     if (segO) {
       _pixelsO = segO->getPixels(); // default to unmodified old segment pixels
-      if (segO->rotateSpeed || segO->zoomAmount) {
+      if (segO->rotateSpeed || segO->zoomAmount != 8) {
         _pixelsO = new uint32_t[oCols * oRows]; // may use allocateBuffer() if needed
         const int midXo = oCols / 2;
         const int midYo = oRows / 2;
@@ -1631,8 +1631,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
     }
     // clean up
-    if (topSegment.rotateSpeed || topSegment.zoomAmount) delete[] _pixelsN;
-    if (segO && (segO->rotateSpeed || segO->zoomAmount)) delete[] _pixelsO;
+    if (topSegment.rotateSpeed || topSegment.zoomAmount != 8) delete[] _pixelsN;
+    if (segO && (segO->rotateSpeed || segO->zoomAmount != 8)) delete[] _pixelsO;
 #endif
   } else {
     const int nLen = topSegment.virtualLength();
