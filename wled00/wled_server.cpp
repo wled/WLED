@@ -753,6 +753,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 
     char s[32];
     char s2[45] = "";
+    bool otaPwdErr = otaPasswordIncorrect; // save state before clearing
 
     switch (subPage) {
       case SUBPAGE_WIFI   : strcpy_P(s, PSTR("WiFi")); strcpy_P(s2, PSTR("Please connect to the new IP (if changed)")); break;
@@ -760,7 +761,15 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       case SUBPAGE_UI     : strcpy_P(s, PSTR("UI")); break;
       case SUBPAGE_SYNC   : strcpy_P(s, PSTR("Sync")); break;
       case SUBPAGE_TIME   : strcpy_P(s, PSTR("Time")); break;
-      case SUBPAGE_SEC    : strcpy_P(s, PSTR("Security")); if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); break;
+      case SUBPAGE_SEC    : 
+        strcpy_P(s, PSTR("Security")); 
+        if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); 
+        else if (otaPwdErr) {
+          strcpy_P(s, PSTR("Settings NOT saved!"));
+          strcpy_P(s2, PSTR("Incorrect password. Enter correct OTA password to change OTA lock settings."));
+          otaPasswordIncorrect = false; // clear flag after displaying message
+        }
+        break;
 #ifdef WLED_ENABLE_DMX
       case SUBPAGE_DMX    : strcpy_P(s, PSTR("DMX")); break;
 #endif
@@ -771,7 +780,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       case SUBPAGE_PINREQ : strcpy_P(s, correctPIN ? PSTR("PIN accepted") : PSTR("PIN rejected")); break;
     }
 
-    if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
+    if (subPage != SUBPAGE_PINREQ && !(subPage == SUBPAGE_SEC && otaPwdErr)) strcat_P(s, PSTR(" settings saved."));
 
     if (subPage == SUBPAGE_PINREQ && correctPIN) {
       subPage = originalSubPage; // on correct PIN load settings page the user intended
