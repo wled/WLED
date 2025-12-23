@@ -1564,7 +1564,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         _pixelsO = new uint32_t[oCols * oRows]; // may use allocateBuffer() if needed
         const int midXo = oCols / 2;
         const int midYo = oRows / 2;
-        if (topSegment.rotateSpeed != 0) {
+        if (segO->rotateSpeed != 0) {
           segO->_rotatedAngle += segO->rotateSpeed;
           while (segO->_rotatedAngle > 3600) segO->_rotatedAngle -= 3600;
         } else {
