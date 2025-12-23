@@ -9,8 +9,11 @@
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
-#ifndef WLED_DISABLE_PXMAGIC
+#ifdef WLED_ENABLE_PXMAGIC
   #include "html_pxmagic.h"
+#endif
+#ifndef WLED_DISABLE_PIXELFORGE
+  #include "html_pixelforge.h"
 #endif
 #include "html_cpal.h"
 #include "html_edit.h"
@@ -27,6 +30,7 @@ static const char s_accessdenied[]   PROGMEM = "Access Denied";
 static const char s_not_found[]      PROGMEM = "Not found";
 static const char s_wsec[]           PROGMEM = "wsec.json";
 static const char s_func[]           PROGMEM = "func";
+static const char s_list[]           PROGMEM = "list";
 static const char s_path[]           PROGMEM = "path";
 static const char s_cache_control[]  PROGMEM = "Cache-Control";
 static const char s_no_store[]       PROGMEM = "no-store";
@@ -66,7 +70,7 @@ static bool inLocalSubnet(const IPAddress &client) {
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
-  sprintf_P(etag, PSTR("%7d-%02x-%04x"), VERSION, cacheInvalidate, eTagSuffix);
+  sprintf_P(etag, PSTR("%u-%02x-%04x"), WEB_BUILD_TIME, cacheInvalidate, eTagSuffix);
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
@@ -226,14 +230,18 @@ void createEditHandler() {
       return;
     }
     const String& func = request->arg(FPSTR(s_func));
+    bool legacyList = false;
+    if (request->hasArg(FPSTR(s_list))) {
+      legacyList = true; // support for '?list=/'
+    }
 
-    if(func.length() == 0) {
+    if(func.length() == 0 && !legacyList) {
       // default: serve the editor page
       handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
       return;
     }
 
-    if (func == "list") {
+    if (func == FPSTR(s_list) || legacyList) {
       bool first = true;
       AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JSON));
       response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
@@ -243,15 +251,15 @@ void createEditHandler() {
       File rootdir = WLED_FS.open("/", "r");
       File rootfile = rootdir.openNextFile();
       while (rootfile) {
-          String name = rootfile.name();
-          if (name.indexOf(FPSTR(s_wsec)) >= 0) {
-            rootfile = rootdir.openNextFile(); // skip wsec.json
-            continue;
-          }
-          if (!first) response->write(',');
-          first = false;
-          response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
-          rootfile = rootdir.openNextFile();
+        String name = rootfile.name();
+        if (name.indexOf(FPSTR(s_wsec)) >= 0) {
+          rootfile = rootdir.openNextFile(); // skip wsec.json
+          continue;
+        }
+        if (!first) response->write(',');
+        first = false;
+        response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
+        rootfile = rootdir.openNextFile();
       }
       rootfile.close();
       rootdir.close();
@@ -600,10 +608,17 @@ void initServer()
   });
   #endif
 
-  #ifndef WLED_DISABLE_PXMAGIC
+  #ifdef WLED_ENABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
+  });
+  #endif
+
+  #ifndef WLED_DISABLE_PIXELFORGE
+  static const char _pixelforge_htm[] PROGMEM = "/pixelforge.htm";
+  server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
   });
   #endif
 #endif

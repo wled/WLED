@@ -213,7 +213,7 @@ function createTop(element, editor){
 	function httpPostCb(st,resp){
 		if (st!=200) alert("ERROR "+st+": "+resp);
 		else {
-			alert("Upload successful!");
+			showToast("Upload successful!");
 			refreshTree();
 		}
 	}
@@ -264,7 +264,7 @@ function createTree(element, editor){
 		leaf.textContent=name;
 		var span = cE("span");
 		span.style.cssText = "font-size: 14px; color: #aaa; margin-left: 8px;";
-		span.textContent =  (size / 1024).toFixed(1) + "KB";
+		span.textContent =  (size > 0 ? Math.max(0.1, (size / 1024)).toFixed(1) : 0) + "KB"; // show size in KB, minimum 0.1 to not show 0KB for small files
 		leaf.appendChild(span);
 		leaf.onmouseover=function(){ leaf.style.background="#333"; };
 		leaf.onmouseout=function(){ leaf.style.background=""; };
@@ -377,13 +377,13 @@ function prettyLedmap(json){
 			rows.push("    " + obj.map.slice(i, i + width).map(pad).join(", "));
 		}
 
-		let pretty = "{\n  \"map\": [\n" + rows.join(",\n") + "\n  ]";
+		let pretty = "{\n";
 		for (let k of Object.keys(obj)) {
 			if (k !== "map") {
-				pretty += ",\n  \"" + k + "\": " + JSON.stringify(obj[k]);
+				pretty += " \"" + k + "\": " + JSON.stringify(obj[k]) + ",\n"; // print all keys first (speeds up loading)
 			}
 		}
-		pretty += "\n}";
+		pretty += " \"map\": [\n" + rows.join(",\n") + "\n  ]\n}";
 		return pretty;
 	} catch (e) {
 		return json;
@@ -493,7 +493,7 @@ function createEditor(element,file){
 		req.add("POST","/upload",fd,function(st,resp){
 			if (st!=200) alert("ERROR "+st+": "+resp);
 			else {
-				alert("File saved successfully!");
+				showToast("File saved");
 				refreshTree();
 			}
 		});
@@ -567,10 +567,18 @@ function onBodyLoad(){
 	var editor=createEditor("editor",vars.file);
 	globalTree=createTree("tree",editor);
 	createTop("top",editor);
+	// Add Ctrl+S / Cmd+S override to save the file
+	document.addEventListener('keydown', function(e) {
+		if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+			e.preventDefault();
+			editor.save();
+		}
+	});
 }
 </script>
 </head>
 <body onload="onBodyLoad()">
+	<div id="toast"></div>
 	<div id="loader"><div class="loader"></div></div>
 	<div id="top"></div>
 	<div style="flex:1;position:relative">

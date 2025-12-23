@@ -1,5 +1,6 @@
 #include "wled.h"
 
+
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -690,6 +691,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
+
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -697,6 +699,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+  root[F("deviceId")] = getDeviceId();
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -836,8 +839,16 @@ void serializeInfo(JsonObject root)
 #endif
 
   root[F("freeheap")] = getFreeHeapSize();
-  #if defined(BOARD_HAS_PSRAM)
-  root[F("psram")] = ESP.getFreePsram();
+  #ifdef ARDUINO_ARCH_ESP32
+  // Report PSRAM information
+  bool hasPsram = psramFound();
+  root[F("psramPresent")] = hasPsram;
+  if (hasPsram) {
+    #if defined(BOARD_HAS_PSRAM)
+    root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
+    #endif
+    root[F("psramSize")] = ESP.getPsramSize() / (1024UL * 1024UL); // Total PSRAM size in MB
+  }
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
