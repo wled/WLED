@@ -17,6 +17,7 @@
 // note: matrix may be comprised of multiple panels each with different orientation
 // but ledmap takes care of that. ledmap is constructed upon initialization
 // so matrix should disable regular ledmap processing
+// WARNING: effect drawing has to be suspended (strip.suspend()) or must be called from loop() context
 void WS2812FX::setUpMatrix() {
 #ifndef WLED_DISABLE_2D
   // isMatrix is set in cfg.cpp or set.cpp
@@ -45,12 +46,12 @@ void WS2812FX::setUpMatrix() {
       return;
     }
 
-    suspend();
-    waitForIt();
-
     customMappingSize = 0; // prevent use of mapping if anything goes wrong
 
     d_free(customMappingTable);
+    // Segment::maxWidth and Segment::maxHeight are set according to panel layout
+    // and the product will include at least all leds in matrix
+    // if actual LEDs are more, getLengthTotal() will return correct number of LEDs
     customMappingTable = static_cast<uint16_t*>(d_malloc(sizeof(uint16_t)*getLengthTotal())); // prefer to not use SPI RAM
 
     if (customMappingTable) {
@@ -113,7 +114,6 @@ void WS2812FX::setUpMatrix() {
 
       // delete gap array as we no longer need it
       p_free(gapTable);
-      resume();
 
       #ifdef WLED_DEBUG
       DEBUG_PRINT(F("Matrix ledmap:"));

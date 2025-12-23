@@ -17,7 +17,7 @@
 #include <stdint.h>
 #include "wled.h"
 
-#define PS_P_MAXSPEED 120 // maximum speed a particle can have (vx/vy is int8)
+#define PS_P_MAXSPEED 120 // maximum speed a particle can have (vx/vy is int8), limiting below 127 to avoid overflows in collisions due to rounding errors
 #define MAX_MEMIDLE 10 // max idle time (in frames) before memory is deallocated (if deallocated during an effect, it will crash!)
 
 //#define WLED_DEBUG_PS // note: enabling debug uses ~3k of flash
@@ -103,7 +103,7 @@ typedef union {
 
 // struct for additional particle settings (option)
 typedef struct { // 2 bytes
-  uint8_t size; // particle size, 255 means 10 pixels in diameter, 0  means use global size (including single pixel rendering)
+  uint8_t size; // particle size, 255 means 10 pixels in diameter, set perParticleSize = true to enable
   uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle;
 
@@ -190,16 +190,18 @@ public:
   int32_t maxXpixel, maxYpixel; // last physical pixel that can be drawn to (FX can read this to read segment size if required), equal to width-1 / height-1
   uint32_t numSources; // number of sources
   uint32_t usedParticles; // number of particles used in animation, is relative to 'numParticles'
+  bool perParticleSize; // if true, uses individual particle sizes from advPartProps if available (disabled when calling setParticleSize())
   //note: some variables are 32bit for speed and code size at the cost of ram
 
 private:
   //rendering functions
   void render();
   [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
+  void renderLargeParticle(const uint32_t size, const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrapX, const bool wrapY);
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle &particle1, PSparticle &particle2, const int32_t dx, const int32_t dy, const uint32_t collDistSq);
+  void collideParticles(PSparticle &particle1, PSparticle &particle2, int32_t dx, int32_t dy, const uint32_t collDistSq, int32_t massratio1, int32_t massratio2);
   void fireParticleupdate();
   //utility functions
   void updatePSpointers(const bool isadvanced, const bool sizecontrol); // update the data pointers to current segment data space
@@ -226,12 +228,26 @@ private:
   uint8_t smearBlur; // 2D smeared blurring of full frame
 };
 
-void blur2D(uint32_t *colorbuffer, const uint32_t xsize, uint32_t ysize, const uint32_t xblur, const uint32_t yblur, const uint32_t xstart = 0, uint32_t ystart = 0, const bool isparticle = false);
 // initialization functions (not part of class)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, const uint32_t requestedsources, const uint32_t additionalbytes = 0, const bool advanced = false, const bool sizecontrol = false);
 uint32_t calculateNumberOfParticles2D(const uint32_t pixels, const bool advanced, const bool sizecontrol);
 uint32_t calculateNumberOfSources2D(const uint32_t pixels, const uint32_t requestedsources);
 bool allocateParticleSystemMemory2D(const uint32_t numparticles, const uint32_t numsources, const bool advanced, const bool sizecontrol, const uint32_t additionalbytes);
+
+// distance-based brightness for ellipse rendering, returns brightness (0-255) based on distance from ellipse center
+inline uint8_t calculateEllipseBrightness(int32_t dx, int32_t dy, int32_t rxsq, int32_t rysq, uint8_t maxBrightness) {
+  // square the distances
+  uint32_t dx_sq = dx * dx;
+  uint32_t dy_sq = dy * dy;
+
+  uint32_t dist_sq = ((dx_sq << 8) / rxsq) + ((dy_sq << 8) / rysq); // normalized squared distance in fixed point: (dx²/rx²) * 256 + (dy²/ry²) * 256
+
+  if (dist_sq >= 256) return 0;  // pixel is outside the ellipse, unit radius in fixed point: 256 = 1.0
+  //if (dist_sq <= 96) return maxBrightness; // core at full brightness
+  int32_t falloff = 256 - dist_sq;
+  return (maxBrightness * falloff) >> 8; // linear falloff
+  //return (maxBrightness * falloff * falloff) >> 16; // squared falloff for even softer edges
+}
 #endif // WLED_DISABLE_PARTICLESYSTEM2D
 
 ////////////////////////
@@ -301,9 +317,9 @@ typedef union {
 
 // struct for additional particle settings (optional)
 typedef struct {
-  uint8_t sat; //color saturation
+  uint8_t sat;  // color saturation
   uint8_t size; // particle size, 255 means 10 pixels in diameter, this overrides global size setting
-  uint8_t forcecounter;
+  uint8_t forcecounter; // counter for applying forces to individual particles
 } PSadvancedParticle1D;
 
 //struct for a particle source (20 bytes)
@@ -346,9 +362,10 @@ public:
   void setColorByPosition(const bool enable);
   void setMotionBlur(const uint8_t bluramount); // note: motion blur can only be used if 'particlesize' is set to zero
   void setSmearBlur(const uint8_t bluramount); // enable 1D smeared blurring of full frame
-  void setParticleSize(const uint8_t size); //size 0 = 1 pixel, size 1 = 2 pixels, is overruled if advanced particle is used
+  void setParticleSize(const uint8_t size); // particle diameter: size 0 = 1 pixel, size 1 = 2 pixels, size = 255 = 10 pixels, disables per particle size control if called
   void setGravity(int8_t force = 8);
   void enableParticleCollisions(bool enable, const uint8_t hardness = 255);
+
 
   PSparticle1D *particles; // pointer to particle array
   PSparticleFlags1D *particleFlags; // pointer to particle flags array
@@ -360,16 +377,18 @@ public:
   int32_t maxXpixel; // last physical pixel that can be drawn to (FX can read this to read segment size if required), equal to width-1
   uint32_t numSources; // number of sources
   uint32_t usedParticles; // number of particles used in animation, is relative to 'numParticles'
+  bool perParticleSize; // if true, uses individual particle sizes from advPartProps if available (disabled when calling setParticleSize())
 
 private:
   //rendering functions
   void render(void);
-  [[gnu::hot]] void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap);
+  void renderParticle(const uint32_t particleindex, const uint8_t brightness, const CRGBW &color, const bool wrap);
+  void renderLargeParticle(const uint32_t size, const uint32_t particleindex, const uint8_t brightness, const CRGBW& color, const bool wrap);
 
   //paricle physics applied by system if flags are set
   void applyGravity(); // applies gravity to all particles
   void handleCollisions();
-  [[gnu::hot]] void collideParticles(PSparticle1D &particle1, const PSparticleFlags1D &particle1flags, PSparticle1D &particle2, const PSparticleFlags1D &particle2flags, const int32_t dx, const uint32_t dx_abs, const uint32_t collisiondistance);
+  void collideParticles(uint32_t partIdx1, uint32_t partIdx2, int32_t dx, uint32_t collisiondistance);
 
   //utility functions
   void updatePSpointers(const bool isadvanced); // update the data pointers to current segment data space
@@ -397,5 +416,5 @@ bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedso
 uint32_t calculateNumberOfParticles1D(const uint32_t fraction, const bool isadvanced);
 uint32_t calculateNumberOfSources1D(const uint32_t requestedsources);
 bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t numsources, const bool isadvanced, const uint32_t additionalbytes);
-void blur1D(uint32_t *colorbuffer, uint32_t size, uint32_t blur, uint32_t start);
+
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
