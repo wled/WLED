@@ -506,8 +506,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"];
-  float light_gc_col = light["gc"]["col"];
+  float light_gc_bri = light["gc"]["bri"] | 1.0f; // default to 1.0 (false)
+  float light_gc_col = light["gc"]["col"] | 2.2f; // default to 2.2 (true)
   if (light_gc_bri > 1.0f) gammaCorrectBri = true;
   else                     gammaCorrectBri = false;
   if (light_gc_col > 1.0f) gammaCorrectCol = true;
