@@ -897,7 +897,7 @@ WLED_GLOBAL byte optionType;
 
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
-WLED_GLOBAL bool otaPasswordIncorrect _INIT(false);     // flag to indicate OTA password was incorrect during security settings save
+WLED_GLOBAL bool otaPassCorrect    _INIT(true);         // flag to indicate OTA password was correct during security settings save
 
 // status led
 #if defined(STATUSLED)

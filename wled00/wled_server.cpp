@@ -753,7 +753,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 
     char s[32];
     char s2[45] = "";
-    bool otaPwdErr = otaPasswordIncorrect; // save state before clearing
+    bool otaPwdErr = !otaPassCorrect; // save state before clearing
 
     switch (subPage) {
       case SUBPAGE_WIFI   : strcpy_P(s, PSTR("WiFi")); strcpy_P(s2, PSTR("Please connect to the new IP (if changed)")); break;
@@ -765,9 +765,9 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
         strcpy_P(s, PSTR("Security")); 
         if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); 
         else if (otaPwdErr) {
-          strcpy_P(s, PSTR("Settings NOT saved!"));
-          strcpy_P(s2, PSTR("Incorrect password. Enter correct OTA password to change OTA lock settings."));
-          otaPasswordIncorrect = false; // clear flag after displaying message
+          strcpy_P(s, PSTR("Error"));
+          strcpy_P(s2, PSTR("Password incorrect"));
+          otaPassCorrect = true; // reset flag after displaying message
         }
         break;
 #ifdef WLED_ENABLE_DMX
