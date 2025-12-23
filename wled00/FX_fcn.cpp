@@ -1550,12 +1550,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int midX = nCols / 2;
       const int midY = nRows / 2;
       if (topSegment.rotateSpeed != 0) {
-        topSegment.rotatedAngle += topSegment.rotateSpeed;
-        while (topSegment.rotatedAngle > 3600) topSegment.rotatedAngle -= 3600;
+        topSegment._rotatedAngle += topSegment.rotateSpeed;
+        while (topSegment._rotatedAngle > 3600) topSegment._rotatedAngle -= 3600;
       } else {
-        topSegment.rotatedAngle = 0; // reset angle if no rotation
+        topSegment._rotatedAngle = 0; // reset angle if no rotation
       }
-      RotateAndZoom(topSegment.getPixels(), _pixelsN, midX, midY, nCols, nRows, topSegment.rotatedAngle/10, topSegment.zoomAmount - 8);
+      RotateAndZoom(topSegment.getPixels(), _pixelsN, midX, midY, nCols, nRows, topSegment._rotatedAngle/10, topSegment.zoomAmount - 8);
     }
     uint32_t *_pixelsO = topSegment.getPixels();  // we will use this pointer as a source (old segment during transition) later insetad of getPixelColorRaw()
     if (segO) {
@@ -1565,12 +1565,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const int midXo = oCols / 2;
         const int midYo = oRows / 2;
         if (topSegment.rotateSpeed != 0) {
-          segO->rotatedAngle += segO->rotateSpeed;
-          while (segO->rotatedAngle > 3600) segO->rotatedAngle -= 3600;
+          segO->_rotatedAngle += segO->rotateSpeed;
+          while (segO->_rotatedAngle > 3600) segO->_rotatedAngle -= 3600;
         } else {
-          segO->rotatedAngle = 0;
+          segO->_rotatedAngle = 0;
         }
-        RotateAndZoom(segO->getPixels(), _pixelsO, midXo, midYo, oCols, oRows, segO->rotatedAngle/10, segO->zoomAmount - 8);
+        RotateAndZoom(segO->getPixels(), _pixelsO, midXo, midYo, oCols, oRows, segO->_rotatedAngle/10, segO->zoomAmount - 8);
       }
     }
 

@@ -491,7 +491,7 @@ class Segment {
         bool    _manualW  : 1;
       };
     };
-    mutable uint16_t rotatedAngle;    // current rotation angle (2D)
+    mutable uint16_t _rotatedAngle;    // current rotation angle (2D)
 
     // static variables are use to speed up effect calculations by stashing common pre-calculated values
     static unsigned      _usedSegmentData;    // amount of data used by all segments
@@ -607,6 +607,7 @@ class Segment {
     , _dataLen(0)
     , _default_palette(6)
     , _capabilities(0)
+    , _rotatedAngle(0)
     , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
