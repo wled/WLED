@@ -1053,6 +1053,47 @@ void serializeNodes(JsonObject root)
 #define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
 #define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
 
+// Convert PinOwner enum to human-readable string
+const char* getPinOwnerName(PinOwner owner, uint8_t buttonType = 0) {
+  switch (owner) {
+    case PinOwner::None:          return "System";
+    case PinOwner::Ethernet:      return "Ethernet";
+    case PinOwner::BusDigital:    return "LED Digital";
+    case PinOwner::BusOnOff:      return "LED On/Off";
+    case PinOwner::BusPwm:        return "LED PWM";
+    case PinOwner::Button:
+      // For buttons, include the button type in the name
+      switch (buttonType) {
+        case BTN_TYPE_PUSH:           return "Button (Push)";
+        case BTN_TYPE_PUSH_ACT_HIGH:  return "Button (Push Inv)";
+        case BTN_TYPE_SWITCH:         return "Button (Switch)";
+        case BTN_TYPE_PIR_SENSOR:     return "Button (PIR)";
+        case BTN_TYPE_TOUCH:          return "Button (Touch)";
+        case BTN_TYPE_ANALOG:         return "Button (Analog)";
+        case BTN_TYPE_ANALOG_INVERTED:return "Button (Analog Inv)";
+        case BTN_TYPE_TOUCH_SWITCH:   return "Button (Touch Switch)";
+        default:                      return "Button";
+      }
+    case PinOwner::IR:            return "IR Receiver";
+    case PinOwner::Relay:         return "Relay";
+    case PinOwner::SPI_RAM:       return "SPI RAM";
+    case PinOwner::DebugOut:      return "Debug";
+    case PinOwner::DMX:           return "DMX Output";
+    case PinOwner::HW_I2C:        return "I2C";
+    case PinOwner::HW_SPI:        return "SPI";
+    case PinOwner::DMX_INPUT:     return "DMX Input";
+    case PinOwner::HUB75:         return "HUB75";
+    // Usermods - return generic name for now
+    // TODO: Get actual usermod name from UsermodManager
+    default:
+      // Check if it's a usermod (low bit not set)
+      if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
+        return "Usermod";
+      }
+      return "Unknown";
+  }
+}
+
 void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
@@ -1129,37 +1170,23 @@ void serializePins(JsonObject root)
     // Add allocated status and owner
     PinOwner owner = PinManager::getPinOwner(gpio);
     pinObj["a"] = isAllocated;  // allocated status
-    if (isAllocated) {
-      uint8_t ownerVal = static_cast<uint8_t>(owner);
-      pinObj["o"] = ownerVal;  // owner ID
-      // For usermod owners (low bit not set), try to get the usermod name
-      if (!(ownerVal & 0x80) && ownerVal > 0) {
-        Usermod* um = UsermodManager::lookup(ownerVal);
-        if (um) {
-          // Get usermod name by calling addToConfig and extracting the key
-          /*
-          StaticJsonDocument<64> tmpDoc; // enough for name plus "enabled" key
-          JsonObject tmpObj = tmpDoc.to<JsonObject>();
-          um->addToConfig(tmpObj);
-          for (JsonPair kv : tmpObj) {
-            const char* name = kv.key().c_str();
-            pinObj["n"] = name ? name : "UM"; // usermod name  -> TODO: this does not work, could use json buffer lock but it would be overkill to just geht the UM name
-          }
-          */
-          pinObj["n"] = "Usermod"; // usermod name TODO: see above
-        }
-      }
-    }
-
-    // check if this pin is used as a button
+    
+    // check if this pin is used as a button (need to get button type for owner name)
     bool isButton = false;
     int buttonIndex = -1;
+    uint8_t btnType = BTN_TYPE_NONE;
     for (size_t b = 0; b < buttons.size(); b++) {
       if (buttons[b].pin >= 0 && buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
         isButton = true;
         buttonIndex = b;
+        btnType = buttons[b].type;
         break;
       }
+    }
+
+    // Add owner name as string (pass button type for Button owner)
+    if (isAllocated) {
+      pinObj["n"] = getPinOwnerName(owner, btnType);
     }
 
     // Relay pin
@@ -1169,7 +1196,6 @@ void serializePins(JsonObject root)
     }
     // Button pins, get type and state using isButtonPressed()
     else if (isAllocated && isButton && buttonIndex >= 0) {
-      uint8_t btnType = buttons[buttonIndex].type;
       pinObj["m"] = 0;  // mode: input
       pinObj["t"] = btnType; // button type
       pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
