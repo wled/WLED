@@ -401,6 +401,8 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
+String computeSHA1(const String& input);
+String getDeviceId();
 uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
 uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
 uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
@@ -495,14 +497,6 @@ class JSONBufferGuard {
     inline void release() { if (holding_lock) releaseJSONBufferLock(); holding_lock = false; }
 };
 
-#ifdef WLED_ADD_EEPROM_SUPPORT
-//wled_eeprom.cpp
-void applyMacro(byte index);
-void deEEP();
-void deEEPSettings();
-void clearEEPROM();
-#endif
-
 //wled_math.cpp
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
@@ -541,7 +535,6 @@ void handleSerial();
 void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
-void createEditHandler(bool enable);
 void initServer();
 void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& headl, const String& subl="", byte optionT=255);
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);
