@@ -51,6 +51,12 @@ std::pair<bool, String> getOTAResult(AsyncWebServerRequest *request);
  */
 void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, size_t len, bool isFinal);
 
+/**
+ * Mark currently running firmware as valid to prevent auto-rollback on reboot.
+ * This option can be enabled in some builds/bootloaders, it is an sdkconfig flag.
+ */
+void markOTAvalid();
+
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
 /**
  * Calculate and cache the bootloader SHA256 digest

@@ -461,11 +461,11 @@ class PixelsDiceTrayUsermod : public Usermod {
 #if USING_TFT_DISPLAY
   bool handleButton(uint8_t b) override {
     if (!enabled || b > 1  // buttons 0,1 only
-        || buttonType[b] == BTN_TYPE_SWITCH || buttonType[b] == BTN_TYPE_NONE ||
-        buttonType[b] == BTN_TYPE_RESERVED ||
-        buttonType[b] == BTN_TYPE_PIR_SENSOR ||
-        buttonType[b] == BTN_TYPE_ANALOG ||
-        buttonType[b] == BTN_TYPE_ANALOG_INVERTED) {
+        || buttons[b].type == BTN_TYPE_SWITCH || buttons[b].type == BTN_TYPE_NONE ||
+        buttons[b].type == BTN_TYPE_RESERVED ||
+        buttons[b].type == BTN_TYPE_PIR_SENSOR ||
+        buttons[b].type == BTN_TYPE_ANALOG ||
+        buttons[b].type == BTN_TYPE_ANALOG_INVERTED) {
       return false;
     }
 
@@ -476,43 +476,43 @@ class PixelsDiceTrayUsermod : public Usermod {
     static unsigned long buttonWaitTime[2] = {0};
 
     //momentary button logic
-    if (!buttonLongPressed[b] && isButtonPressed(b)) {  //pressed
-      if (!buttonPressedBefore[b]) {
-        buttonPressedTime[b] = now;
+    if (!buttons[b].longPressed && isButtonPressed(b)) {  //pressed
+      if (!buttons[b].pressedBefore) {
+        buttons[b].pressedTime = now;
       }
-      buttonPressedBefore[b] = true;
+      buttons[b].pressedBefore = true;
 
-      if (now - buttonPressedTime[b] > WLED_LONG_PRESS) {  //long press
+      if (now - buttons[b].pressedTime > WLED_LONG_PRESS) {  //long press
         menu_ctrl.HandleButton(ButtonType::LONG, b);
-        buttonLongPressed[b] = true;
+        buttons[b].longPressed = true;
         return true;
       }
-    } else if (!isButtonPressed(b) && buttonPressedBefore[b]) {  //released
+    } else if (!isButtonPressed(b) && buttons[b].pressedBefore) {  //released
 
-      long dur = now - buttonPressedTime[b];
+      long dur = now - buttons[b].pressedTime;
       if (dur < WLED_DEBOUNCE_THRESHOLD) {
-        buttonPressedBefore[b] = false;
+        buttons[b].pressedBefore = false;
         return true;
       }  //too short "press", debounce
 
-      bool doublePress = buttonWaitTime[b];  //did we have short press before?
-      buttonWaitTime[b] = 0;
+      bool doublePress = buttons[b].waitTime;  //did we have short press before?
+      buttons[b].waitTime = 0;
 
-      if (!buttonLongPressed[b]) {  //short press
+      if (!buttons[b].longPressed) {  //short press
         // if this is second release within 350ms it is a double press (buttonWaitTime!=0)
         if (doublePress) {
           menu_ctrl.HandleButton(ButtonType::DOUBLE, b);
         } else {
-          buttonWaitTime[b] = now;
+          buttons[b].waitTime = now;
         }
       }
-      buttonPressedBefore[b] = false;
-      buttonLongPressed[b] = false;
+      buttons[b].pressedBefore = false;
+      buttons[b].longPressed = false;
     }
     // if 350ms elapsed since last press/release it is a short press
-    if (buttonWaitTime[b] && now - buttonWaitTime[b] > WLED_DOUBLE_PRESS &&
-        !buttonPressedBefore[b]) {
-      buttonWaitTime[b] = 0;
+    if (buttons[b].waitTime && now - buttons[b].waitTime > WLED_DOUBLE_PRESS &&
+        !buttons[b].pressedBefore) {
+      buttons[b].waitTime = 0;
       menu_ctrl.HandleButton(ButtonType::SINGLE, b);
     }
 

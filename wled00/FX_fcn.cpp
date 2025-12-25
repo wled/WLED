@@ -458,7 +458,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     return;
   }
   if (i1 < Segment::maxWidth || (i1 >= Segment::maxWidth*Segment::maxHeight && i1 < strip.getLengthTotal())) start = i1; // Segment::maxWidth equals strip.getLengthTotal() for 1D
-  stop = i2 > Segment::maxWidth*Segment::maxHeight ? MIN(i2,strip.getLengthTotal()) : constrain(i2, 1, Segment::maxWidth);
+  stop = i2 > Segment::maxWidth*Segment::maxHeight && i1 >= Segment::maxWidth*Segment::maxHeight ? MIN(i2,strip.getLengthTotal()) : constrain(i2, 1, Segment::maxWidth); // check for 2D trailing strip
   startY = 0;
   stopY  = 1;
   #ifndef WLED_DISABLE_2D
@@ -1502,10 +1502,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
+        // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
-        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
+        if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1572,10 +1573,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         // we need to blend old segment using fade as pixels are not clipped
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != BLEND_STYLE_FADE) {
+        // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
         // workaround for On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
-        if ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri)) c_a = BLACK;
+        if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
@@ -1687,10 +1689,11 @@ void WS2812FX::setTransitionMode(bool t) {
 // rare circumstances are: setting FPS to high number (i.e. 120) and have very slow effect that will need more
 // time than 2 * _frametime (1000/FPS) to draw content
 void WS2812FX::waitForIt() {
-  unsigned long maxWait = millis() + 2*getFrameTime() + 100; // TODO: this needs a proper fix for timeout! see #4779
-  while (isServicing() && maxWait > millis()) delay(1);
+  unsigned long waitStart = millis();
+  unsigned long maxWait = 2*getFrameTime() + 100; // TODO: this needs a proper fix for timeout! see #4779
+  while (isServicing() && (millis() - waitStart < maxWait)) delay(1); // safe even when millis() rolls over
   #ifdef WLED_DEBUG
-  if (millis() >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
+  if (millis()-waitStart >= maxWait) DEBUG_PRINTLN(F("Waited for strip to finish servicing."));
   #endif
 };
 
@@ -1997,6 +2000,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     Segment::maxWidth  = min(max(root[F("width")].as<int>(), 1), 255);
     Segment::maxHeight = min(max(root[F("height")].as<int>(), 1), 255);
     isMatrix = true;
+    DEBUG_PRINTF_P(PSTR("LED map width=%d, height=%d\n"), Segment::maxWidth, Segment::maxHeight);
   }
 
   d_free(customMappingTable);
@@ -2020,9 +2024,9 @@ bool WS2812FX::deserializeMap(unsigned n) {
         } while (i < 32);
         if (!foundDigit) break;
         int index = atoi(number);
-        if (index < 0 || index > 16384) index = 0xFFFF;
+        if (index < 0 || index > 65535) index = 0xFFFF; // prevent integer wrap around
         customMappingTable[customMappingSize++] = index;
-        if (customMappingSize > getLengthTotal()) break;
+        if (customMappingSize >= getLengthTotal()) break;
       } else break; // there was nothing to read, stop
     }
     currentLedmap = n;
@@ -2032,7 +2036,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     DEBUG_PRINT(F("Loaded ledmap:"));
     for (unsigned i=0; i<customMappingSize; i++) {
       if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
-      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+      DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i] < 0xFFFFU ? customMappingTable[i] : -1);
     }
     DEBUG_PRINTLN();
     #endif
