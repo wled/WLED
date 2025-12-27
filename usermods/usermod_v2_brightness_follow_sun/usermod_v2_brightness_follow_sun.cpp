@@ -39,6 +39,11 @@ public:
     return USERMOD_ID_BRIGHTNESS_FOLLOW_SUN;
   }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
   void update() 
   {
     if (sunrise == 0 || sunset == 0 || localTime == 0)

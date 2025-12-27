@@ -78,6 +78,11 @@ public:
     return USERMOD_ID_SN_PHOTORESISTOR;
   }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
   /**
      * addToConfig() (called from set.cpp) stores persistent properties to cfg.json
      */

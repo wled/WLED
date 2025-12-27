@@ -288,6 +288,11 @@ class RotaryEncoderUIUsermod : public Usermod {
      * This could be used in the future for the system to determine whether your usermod is installed.
      */
     uint16_t getId() override { return USERMOD_ID_ROTARY_ENC_UI; }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
     /**
      * Enable/Disable the usermod
      */

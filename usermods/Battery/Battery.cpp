@@ -604,6 +604,11 @@ class UsermodBattery : public Usermod
       return USERMOD_ID_BATTERY;
     }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
     /**
      * get currently active battery type
      */

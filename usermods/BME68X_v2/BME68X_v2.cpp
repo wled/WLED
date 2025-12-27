@@ -74,6 +74,7 @@
  
 	 private:
 	 /* Private: Functions */
+	 static const char _name[];
 	 void HomeAssistantDiscovery();
 	 void MQTT_PublishHASensor(const String& name, const String& deviceClass, const String& unitOfMeasurement, const int8_t& digs, const uint8_t& option = 0);
 	 void MQTT_publish(const char* topic, const float& value, const int8_t& dig);
@@ -864,6 +865,15 @@
 	 return USERMOD_ID_BME68X;
  }
  
+ /**
+  * @brief Called by WLED: Returns the user module name
+  * 
+  * @return const char* User module name
+  */
+ const char* UsermodBME68X::getName() {
+	 return FPSTR(_name);
+ }
+ 
  
  /**
   * @brief Returns the current temperature in the scale which is choosen in settings
@@ -1109,6 +1119,8 @@
 	 }
  }
  
+ 
+ const char UsermodBME68X::_name[] PROGMEM = "BME68X";
  
  static UsermodBME68X bme68x_v2;
  REGISTER_USERMOD(bme68x_v2);

@@ -687,6 +687,11 @@ class QuinLEDAnPentaUsermod : public Usermod
     {
       return USERMOD_ID_QUINLED_AN_PENTA;
     }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 // strings to reduce flash memory usage (used more than twice)

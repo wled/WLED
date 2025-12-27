@@ -473,6 +473,11 @@ public:
   uint16_t getId() {
     return USERMOD_ID_BME280;
   }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 const char UsermodBME280::_name[]                      PROGMEM = "BME280/BMP280";

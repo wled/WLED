@@ -86,6 +86,11 @@ public:
   bool readFromConfig(JsonObject& root);
   void addToConfig(JsonObject& root);
   uint16_t getId() { return USERMOD_ID_HTTP_PULL_LIGHT_CONTROL; }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
   inline void enable(bool enable) { enabled = enable; }   // Enable or Disable the usermod
   inline bool isEnabled() { return enabled; }             // Get usermod enabled or disabled state
   virtual ~HttpPullLightControl() { 

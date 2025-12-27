@@ -220,6 +220,11 @@ class Si7021_MQTT_HA : public Usermod
     {
       return USERMOD_ID_SI7021_MQTT_HA;
     }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 // strings to reduce flash memory usage (used more than twice)

@@ -218,6 +218,11 @@ void addToConfig(JsonObject& root) override
         return USERMOD_ID_DEEP_SLEEP;
     }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
 };
 
 // add more strings here to reduce flash memory usage
