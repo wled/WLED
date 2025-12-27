@@ -13,7 +13,7 @@
 			l.onerror = () => setTimeout(loadFiles, 100);
 			document.head.appendChild(l);
 		})();
-		pinsTimer=null, gpioInfo={};
+		var pinsTimer=null, gpioInfo={};
 		function S() {
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=11'), false, ()=>{
@@ -36,7 +36,7 @@
 			// Use firmware-provided name if available
 			if(n) return n;
 			if(!o) return "System"; // no owner provided
-			if(o&0x85){ return getBtnTypeName(t); } // button pin
+			if(o===0x85){ return getBtnTypeName(t); } // button pin
 			return "UM #"+o;
 		}
 		function getBtnTypeName(t) {
