@@ -214,6 +214,10 @@ class GyroSurge : public Usermod {
       // TODO - multiple segment handling??
       strip.getSegment(0).fadeToBlackBy(max - result);
     }
+
+    const char* getName() {
+      return FPSTR(_name);
+    }
 };
 
 const char GyroSurge::_name[] PROGMEM = "GyroSurge";
