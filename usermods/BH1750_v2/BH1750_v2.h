@@ -89,4 +89,9 @@ public:
     return USERMOD_ID_BH1750;
   }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
 };

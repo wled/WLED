@@ -79,6 +79,10 @@ class UdpNameSync : public Usermod {
       DEBUG_PRINT(F("UdpNameSync: set segment name"));
       return true;
      }
+
+    const char* getName() override {
+      return FPSTR(_name);
+    }
 };
 
 static UdpNameSync udp_name_sync;

@@ -215,6 +215,11 @@ public:
   {
     return USERMOD_ID_KLIPPER;
   }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 const char klipper_percentage::_name[] PROGMEM = "Klipper_Percentage";
 const char klipper_percentage::_enabled[] PROGMEM = "enabled";

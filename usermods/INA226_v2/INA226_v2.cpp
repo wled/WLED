@@ -359,6 +359,11 @@ public:
         return USERMOD_ID_INA226;
     }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
     void addToJsonInfo(JsonObject &root) override
     {
         JsonObject user = root["u"];

@@ -171,6 +171,11 @@ public:
   {
     return USERMOD_ID_INTERNAL_TEMPERATURE;
   }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 const char InternalTemperatureUsermod::_name[] PROGMEM = "Internal Temperature";

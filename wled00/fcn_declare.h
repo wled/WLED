@@ -321,6 +321,7 @@ class Usermod {
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
+    virtual const char* getName() { return nullptr; }                        // get usermod name
 
   // API shims
   private:
@@ -361,6 +362,7 @@ namespace UsermodManager {
   void onUpdateBegin(bool);
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
+  const char* getName(uint16_t mod_id);
   size_t getModCount();
 };
 

@@ -187,6 +187,11 @@ public:
    * This could be used in the future for the system to determine whether your usermod is installed.
    */
   uint16_t getId() override { return USERMOD_ID_PIRSWITCH; }
+
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 // strings to reduce flash memory usage (used more than twice)

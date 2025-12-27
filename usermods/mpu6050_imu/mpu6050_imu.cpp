@@ -432,6 +432,11 @@ class MPU6050Driver : public Usermod {
       return USERMOD_ID_IMU;
     }
 
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
+
 };
 
 
