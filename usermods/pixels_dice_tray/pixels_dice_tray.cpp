@@ -41,7 +41,7 @@ class PixelsDiceTrayUsermod : public Usermod {
  private:
   
     static const char _name[];
-bool enabled = true;
+    bool enabled = true;
 
   DiceUpdate dice_update;
 

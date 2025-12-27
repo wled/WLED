@@ -4,7 +4,7 @@ class UsermodCronixie : public Usermod {
   private:
     
     static const char _name[];
-unsigned long lastTime = 0;
+    unsigned long lastTime = 0;
     char cronixieDisplay[7] = "HHMMSS";
     byte _digitOut[6] = {10,10,10,10,10,10};
     byte dP[6] = {255, 255, 255, 255, 255, 255};

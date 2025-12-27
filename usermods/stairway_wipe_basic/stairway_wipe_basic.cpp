@@ -15,7 +15,7 @@ class StairwayWipeUsermod : public Usermod {
   private:
     
     static const char _name[];
-//Private class members. You can declare variables and functions only accessible to your usermod here
+    //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     byte wipeState = 0; //0: inactive 1: wiping 2: solid
     unsigned long timeStaticStart = 0;

@@ -18,7 +18,7 @@ class UserMod_SensorsToMQTT : public Usermod
 private:
   
     static const char _name[];
-bool initialized = false;
+    bool initialized = false;
   bool mqttInitialized = false;
   float SensorPressure = 0;
   float SensorTemperature = 0;

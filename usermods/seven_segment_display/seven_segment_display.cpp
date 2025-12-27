@@ -12,7 +12,7 @@ class SevenSegmentDisplay : public Usermod
 private:
   
     static const char _name[];
-//Runtime variables.
+    //Runtime variables.
   unsigned long lastRefresh = 0;
   unsigned long lastCharacterStep = 0;
   String ssDisplayBuffer = "";

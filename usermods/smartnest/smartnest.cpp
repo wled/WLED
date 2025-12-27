@@ -9,7 +9,7 @@ class Smartnest : public Usermod
 private:
   
     static const char _name[];
-bool initialized = false;
+    bool initialized = false;
   unsigned long lastMqttReport = 0;
   unsigned long mqttReportInterval = 60000; // Report every minute
 

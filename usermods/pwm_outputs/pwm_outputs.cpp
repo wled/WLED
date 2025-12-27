@@ -218,7 +218,7 @@ class PwmOutputsUsermod : public Usermod {
   private:
     
     static const char _name[];
-PwmOutput pwms_[USERMOD_PWM_OUTPUT_PINS];
+    PwmOutput pwms_[USERMOD_PWM_OUTPUT_PINS];
 
 };
 

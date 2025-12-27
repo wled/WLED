@@ -38,7 +38,7 @@ class UsermodVL53L0XGestures : public Usermod {
   private:
     
     static const char _name[];
-//Private class members. You can declare variables and functions only accessible to your usermod here
+    //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     VL53L0X sensor;
     bool enabled = true;
