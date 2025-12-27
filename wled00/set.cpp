@@ -607,6 +607,14 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
+    // Check if any OTA-related settings are being changed
+    bool otaSettingsChanged = (request->hasArg(F("NO")) != otaLock) ||
+                               (request->hasArg(F("OW")) != wifiLock) ||
+                               #ifndef WLED_DISABLE_OTA
+                               (request->hasArg(F("AO")) != aOtaEnabled) ||
+                               #endif
+                               (request->hasArg(F("SU")) != otaSameSubnet);
+
     if (pwdCorrect) //allow changes if correct pwd or no ota active
     {
       otaLock = request->hasArg(F("NO"));
@@ -615,8 +623,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
       otaSameSubnet = request->hasArg(F("SU"));
-    } else if (otaLock) {
-      // If OTA is locked and password is incorrect, return error immediately
+    } else if (otaLock && otaSettingsChanged) {
+      // If OTA is locked and password is incorrect AND user tried to change OTA settings, return error immediately
       serveMessage(request, 401, F("Error"), F("Password incorrect"), 254);
       return;
     }
