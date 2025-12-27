@@ -9,6 +9,8 @@
 #error "This user mod requires MQTT to be enabled."
 #endif
 
+const char UserMod_SensorsToMQTT::_name[] PROGMEM = "Sensors to MQTT";
+
 static Adafruit_BMP280 bmp;
 static Adafruit_Si7021 si7021;
 static Adafruit_CCS811 ccs811;
@@ -16,7 +18,9 @@ static Adafruit_CCS811 ccs811;
 class UserMod_SensorsToMQTT : public Usermod
 {
 private:
-  bool initialized = false;
+  
+    static const char _name[];
+bool initialized = false;
   bool mqttInitialized = false;
   float SensorPressure = 0;
   float SensorTemperature = 0;
@@ -274,6 +278,10 @@ public:
       }
     }
   }
+
+    const char* getName() override {
+        return FPSTR(_name);
+    }
 };
 
 

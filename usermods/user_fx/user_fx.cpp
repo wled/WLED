@@ -95,7 +95,9 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 class UserFxUsermod : public Usermod {
  private:
- public:
+ 
+    static const char _name[];
+public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
 
@@ -111,7 +113,13 @@ class UserFxUsermod : public Usermod {
   }
   void loop() override {} // nothing to do in the loop
   uint16_t getId() override { return USERMOD_ID_USER_FX; }
+
+    const char* getName() override {
+        return FPSTR(_name);
+    }
 };
+
+const char UserFxUsermod::_name[] PROGMEM = "User FX";
 
 static UserFxUsermod user_fx;
 REGISTER_USERMOD(user_fx);

@@ -448,6 +448,11 @@ class AnimartrixUsermod : public Usermod {
       return USERMOD_ID_ANIMARTRIX;
     }
 
+    const char* getName()
+    {
+      return _name;
+    }
+
 };
 
 static AnimartrixUsermod animartrix_module("Animartrix", false);

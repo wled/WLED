@@ -20,7 +20,9 @@
 
 class BuzzerUsermod : public Usermod {
   private:
-    unsigned long lastTime_ = 0;
+    
+    static const char _name[];
+unsigned long lastTime_ = 0;
     unsigned long delay_ = 0;
     std::deque<std::pair<uint8_t, unsigned long>> sequence_ {};
   public:
@@ -77,7 +79,13 @@ class BuzzerUsermod : public Usermod {
     {
       return USERMOD_ID_BUZZER;
     }
+
+    const char* getName() override {
+        return FPSTR(_name);
+    }
 };
+
+const char BuzzerUsermod::_name[] PROGMEM = "Buzzer";
 
 static BuzzerUsermod buzzer;
 REGISTER_USERMOD(buzzer);

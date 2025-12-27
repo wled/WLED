@@ -7,7 +7,9 @@
 class Smartnest : public Usermod
 {
 private:
-  bool initialized = false;
+  
+    static const char _name[];
+bool initialized = false;
   unsigned long lastMqttReport = 0;
   unsigned long mqttReportInterval = 60000; // Report every minute
 
@@ -171,6 +173,10 @@ public:
     return USERMOD_ID_SMARTNEST;
   }
 
+    const char* getName() override {
+        return FPSTR(_name);
+    }
+
   /**
    * setup() is called once at startup to initialize the usermod.
    */
@@ -202,6 +208,8 @@ public:
   }
 };
 
+
+const char Smartnest::_name[] PROGMEM = "Smartnest";
 
 static Smartnest smartnest;
 REGISTER_USERMOD(smartnest);

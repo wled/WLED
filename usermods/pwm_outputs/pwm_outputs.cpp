@@ -211,14 +211,22 @@ class PwmOutputsUsermod : public Usermod {
       return USERMOD_ID_PWM_OUTPUTS;
     }
 
+    const char* getName() override {
+        return FPSTR(_name);
+    }
+
   private:
-    PwmOutput pwms_[USERMOD_PWM_OUTPUT_PINS];
+    
+    static const char _name[];
+PwmOutput pwms_[USERMOD_PWM_OUTPUT_PINS];
 
 };
 
 const char PwmOutputsUsermod::USERMOD_NAME[] PROGMEM = "PwmOutputs";
 const char PwmOutputsUsermod::PWM_STATE_NAME[] PROGMEM = "pwm";
 
+
+const char PwmOutputsUsermod::_name[] PROGMEM = "PWM Outputs";
 
 static PwmOutputsUsermod pwm_outputs;
 REGISTER_USERMOD(pwm_outputs);

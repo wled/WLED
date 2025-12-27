@@ -59,7 +59,9 @@ DHT_nonblocking dht_sensor(DHTPIN, DHTTYPE);
 
 class UsermodDHT : public Usermod {
   private:
-    unsigned long nextReadTime = 0;
+    
+    static const char _name[];
+unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
     float humidity, temperature = 0;
     bool initializing = true;
@@ -242,8 +244,14 @@ class UsermodDHT : public Usermod {
       return USERMOD_ID_DHT;
     }
 
+    const char* getName() override {
+        return FPSTR(_name);
+    }
+
 };
 
+
+const char UsermodDHT::_name[] PROGMEM = "DHT";
 
 static UsermodDHT dht;
 REGISTER_USERMOD(dht);

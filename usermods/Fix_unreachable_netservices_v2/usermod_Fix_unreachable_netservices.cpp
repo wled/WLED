@@ -26,7 +26,9 @@
 class FixUnreachableNetServices : public Usermod
 {
 private:
-  //Private class members. You can declare variables and functions only accessible to your usermod here
+  
+    static const char _name[];
+//Private class members. You can declare variables and functions only accessible to your usermod here
   unsigned long m_lastTime = 0;
 
   // declare required variables
@@ -159,7 +161,13 @@ Delay <input type=\"number\" min=\"5\" max=\"300\" value=\"";
   {
     return USERMOD_ID_FIXNETSERVICES;
   }
+
+    const char* getName() override {
+        return FPSTR(_name);
+    }
 };
+
+const char FixUnreachableNetServices::_name[] PROGMEM = "Fix Unreachable Netservices";
 
 static FixUnreachableNetServices fix_unreachable_net_services;
 REGISTER_USERMOD(fix_unreachable_net_services);
