@@ -27,13 +27,18 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; //WiFi encryption type
+      char ea[4] = "EA"; ea[2] = 48+n; ea[3] = 0; //enterprise anonymous identity
+      char ei[4] = "EI"; ei[2] = 48+n; ei[3] = 0; //enterprise identity
+#endif
       if (request->hasArg(cs)) {
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
 
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
-        if (strlen(oldSSID) == 0 || !strncmp(multiWiFi[n].clientSSID, oldSSID, 32)) {
+        if (strlen(oldSSID) == 0 || strncmp(multiWiFi[n].clientSSID, oldSSID, 32) != 0) {
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
@@ -49,6 +54,34 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           multiWiFi[n].staticGW[i] = request->arg(gw).toInt();
           multiWiFi[n].staticSN[i] = request->arg(sn).toInt();
         }
+
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+        byte oldType = multiWiFi[n].encryptionType;
+        char oldAnon[65]; strcpy(oldAnon, multiWiFi[n].enterpriseAnonIdentity);
+        char oldIden[65]; strcpy(oldIden, multiWiFi[n].enterpriseIdentity);
+        if (request->hasArg(et) && request->hasArg(ea) && request->hasArg(ei)) {
+          multiWiFi[n].encryptionType = request->arg(et).toInt();
+          strlcpy(multiWiFi[n].enterpriseAnonIdentity, request->arg(ea).c_str(), 65);
+          strlcpy(multiWiFi[n].enterpriseIdentity, request->arg(ei).c_str(), 65);
+        } else {
+          // No enterprise settings provided, default to PSK
+          multiWiFi[n].encryptionType = WIFI_ENCRYPTION_TYPE_PSK;
+        }
+
+        if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
+          // PSK - Clear the anonymous identity and identity fields
+          multiWiFi[n].enterpriseAnonIdentity[0] = '\0';
+          multiWiFi[n].enterpriseIdentity[0] = '\0';
+        }
+        forceReconnect |= oldType != multiWiFi[n].encryptionType;
+        if (strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64) != 0) {
+          forceReconnect = true;
+        }
+        if (strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64) != 0) {
+          forceReconnect = true;
+        }
+#endif
+
         cnt++;
       }
     }
