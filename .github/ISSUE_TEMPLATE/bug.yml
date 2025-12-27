@@ -44,7 +44,10 @@ body:
     id: version
     attributes:
       label: What version of WLED?
-      description: You can find this in by going to Config -> Security & Updates -> Scroll to Bottom. Copy and paste the entire line after "Server message"
+      description: |-
+        Find this by going to <kbd><samp>⚙️ Config</samp></kbd> → <kbd><samp>Security & Updates</samp></kbd> → Scroll to Bottom.
+        Copy and paste the rest of the line that begins “<samp>Installed version: </samp>”,
+        or, for older versions, the entire line after “<samp>Server message</samp>”.
       placeholder: "e.g. WLED 0.13.1 (build 2203150)"
     validations:
       required: true
