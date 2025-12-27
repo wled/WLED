@@ -4,8 +4,15 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>Pin Info</title>
-	<script src="common.js" type="text/javascript"></script>
 	<script>
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
 		pinsTimer=null, gpioInfo={};
 		function S() {
 			getLoc();
@@ -25,52 +32,35 @@
 
 		function B(){window.open(getURL('/settings'),'_self');} // back button
 
-		function getOwnerName(o,t,n){
-			// Use firmware-provided name if available, otherwise fall back to ID-based lookup
+		function getOwnerName(o,t,n) {
+			// Use firmware-provided name if available
 			if(n) return n;
-			if(!o) return "System";
-			if(o&0x80){
-				switch(o){
-					case 0x81: return "Ethernet";
-					case 0x82: return "LED Digital";
-					case 0x83: return "LED On/Off";
-					case 0x84: return "LED PWM";
-					case 0x85: return getBtnTypeName(t);
-					case 0x86: return "IR Receiver";
-					case 0x87: return "Relay";
-					case 0x88: return "SPI RAM";
-					case 0x89: return "Debug";
-					case 0x8A: return "DMX Output";
-					case 0x8B: return "I2C";
-					case 0x8C: return "SPI";
-					case 0x8D: return "DMX Input";
-					case 0x8E: return "HUB75";
-				}
-			}
+			if(!o) return "System"; // no owner provided
+			if(o&0x85){ return getBtnTypeName(t); } // button pin
 			return "UM #"+o;
 		}
-		function getBtnTypeName(t){
+		function getBtnTypeName(t) {
 			var n=["None","Reserved","Push","Push Inv","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
 			var label = n[t] || "?";
 			return 'Button <span style="font-size:10px;color:#888">'+label+'</span>';
 		}
-		function getCaps(p,c){
+		function getCaps(p,c) {
 			var r=[];
 			// Use touch info from settings endpoint
 			if(d.touch && d.touch.includes(p)) r.push("Touch");
+			if(d.ro_gpio && d.ro_gpio.includes(p)) r.push("Input Only");
 			// Use other caps from JSON (Analog, Boot, Input Only)
 			if(c&0x02) r.push("Analog");
 			if(c&0x08) r.push("Flash Boot");
 			if(c&0x10) r.push("Bootstrap");
-			if(c&0x20) r.push("Input Only");
 			return r.length?r.join(", "):"-";
 		}
-		function loadPins(){
+		function loadPins() {
 			fetch(getURL('/json/pins'),{method:'get'})
 			.then(r=>r.json())
 			.then(j=>{
 				var cn="",pins=j.pins||[];
-				if(!pins.length){
+				if(!pins.length) {
 					cn="No pins available.";
 				}else{
 					cn='<table><tr><th>Pin</th><th>Used by</th><th>Specialities</th></tr>';
@@ -78,11 +68,9 @@
 						var st=""; // button state indicator
 						var tv=""; // touch value
 						if(typeof p.s!=='undefined'){
-							st='<span class="ps" style="background:'+(p.s?'#0B4':'#666')+'"></span> '; // button state, gray=off, green=on
-							// Add raw touch reading if available
-							if(typeof p.r!=='undefined')tv=' <span style="font-size:10px;color:#888">'+p.r+'</span>';
+							st='<span class="bs" style="background:'+(p.s?'#0B4':'#666')+'"></span> ';	// button state dot, gray=off, green=on
+							if(typeof p.r!=='undefined') tv=' <span class="tv">'+p.r+'</span>';					// add raw touch reading if available
 						}
-						// Determine owner name using firmware name or fallback to UI lookup
 						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
 						//if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
 						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+tv+'<td>'+getCaps(p.p,p.c||0)+'</td></tr>';
@@ -95,17 +83,18 @@
 		}
 	</script>
 	<style>
-		@import url("style.css");
 		body{text-align:center;background:#222;margin:auto;padding:10px;max-width: 550px}
 		table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;border-radius:6px;overflow:hidden;}
 		th,td{padding:8px;border:3px solid #444;color:#fff}
 		th{background:#444}
 		tr:nth-child(even){background:#222}
 		tr:nth-child(odd){background:#111}
-		.ps{display:inline-block;width:14px;height:14px;border-radius:50%}
+		.bs{display:inline-block;width:14px;height:14px;border-radius:50%} /* button state dot */
+		.tv{display:inline-block;font-size:10px;color:#888;min-width:6ch;text-align:right;} /* touch value */
 	</style>
 </head>
-<body onload="S()">
+<body>
+	<button type="button" onclick="B()">Back</button>
 	<h2>Pin Info</h2>
 	<div id="pins">Loading...</div>
 	<button type="button" onclick="B()">Back</button>
