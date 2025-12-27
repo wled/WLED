@@ -16,13 +16,12 @@ var simplifiedUI = false;
 var tr = 7;
 var d = document;
 const ranges = RangeTouch.setup('input[type="range"]', {});
-var retry = false;
 var palettesData;
 var fxdata = [];
 var pJson = {}, eJson = {}, lJson = {};
 var plJson = {}; // array of playlists
 var pN = "", pI = 0, pNum = 0;
-var pmt = 1, pmtLS = 0, pmtLast = 0;
+var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
 var ws, wsRpt=0;
@@ -200,19 +199,17 @@ function loadBg() {
 	});
 }
 
-function loadSkinCSS(cId)
-{
-	if (!gId(cId))	// check if element exists
-	{
-		var h  = d.getElementsByTagName('head')[0];
-		var l  = d.createElement('link');
-		l.id   = cId;
-		l.rel  = 'stylesheet';
-		l.type = 'text/css';
+function loadSkinCSS(cId) {
+	return new Promise((resolve, reject) => {
+		if (gId(cId)) return resolve();
+		const l = d.createElement('link');
+		l.id = cId;
+		l.rel = 'stylesheet';
 		l.href = getURL('/skin.css');
-		l.media = 'all';
-		h.appendChild(l);
-	}
+		l.onload = resolve;
+		l.onerror = reject;
+		d.head.appendChild(l);
+	});
 }
 
 function getURL(path) {
@@ -278,19 +275,23 @@ function onLoad()
 	cpick.on("color:change", () => {updatePSliders()});
 	pmtLS = localStorage.getItem('wledPmt');
 
-	// Load initial data
-	loadPalettes(()=>{
-		// fill effect extra data array
-		loadFXData(()=>{
-			// load and populate effects
-			setTimeout(()=>{loadFX(()=>{
-				loadPalettesData(()=>{
-					requestJson();// will load presets and create WS
-					if (cfg.comp.css) setTimeout(()=>{loadSkinCSS('skinCss')},50);
-				});
-			})},50);
-		});
-	});
+	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
+	(async ()=>{
+		try {
+			await loadPalettes();        // loads base palettes and builds #pallist (safe first)
+			await loadFXData();          // loads fx data
+			await loadFX();              // populates effect list
+			await requestJson();         // updates info variables
+			await loadPalettesData();    // fills palettesData[] for previews
+			populatePalettes();          // repopulate with custom palettes now that cpalcount is known
+			if(pmt == pmtLS) populatePresets(true); // load presets from localStorage if signature matches (i.e. no device reboot)
+			else await loadPresets();    // load and populate presets
+			if (cfg.comp.css) await loadSkinCSS('skinCss');
+			if (!ws) makeWS();
+		} catch(e) {
+			showToast("Init failed: " + e, true);
+		}
+	})();
 	resetUtil();
 
 	d.addEventListener("visibilitychange", handleVisibilityChange, false);
@@ -448,7 +449,7 @@ function presetError(empty)
 		if (bckstr.length > 10) hasBackup = true;
 	} catch (e) {}
 
-	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="pmtLast=0;loadPresets();"'}>`;
+	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="loadPresets();"'}>`;
 	if (empty)
 		cn += `You have no presets yet!`;
 	else
@@ -481,123 +482,81 @@ function restore(txt) {
 	return false;
 }
 
-function loadPresets(callback = null)
-{
-	// 1st boot (because there is a callback)
-	if (callback && pmt == pmtLS && pmt > 0) {
-		// we have a copy of the presets in local storage and don't need to fetch another one
-		populatePresets(true);
-		pmtLast = pmt;
-		callback();
-		return;
-	}
-
-	// afterwards
-	if (!callback && pmt == pmtLast) return;
-
-	fetch(getURL('/presets.json'), {
-		method: 'get'
-	})
-	.then(res => {
-		if (res.status=="404") return {"0":{}};
-		//if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then(json => {
-		pJson = json;
-		pmtLast = pmt;
-		populatePresets();
-	})
-	.catch((e)=>{
-		//showToast(e, true);
-		presetError(false);
-	})
-	.finally(()=>{
-		if (callback) setTimeout(callback,99);
+async function loadPresets() {
+	return new Promise((resolve) => {
+		fetch(getURL('/presets.json'), {method: 'get'})
+		.then(res => res.status=="404" ? {"0":{}} : res.json())
+		.then(json => {
+			pJson = json;
+			populatePresets();
+			resolve();
+		})
+		.catch(() => {
+			presetError(false);
+			resolve();
+		})
 	});
 }
 
-function loadPalettes(callback = null)
-{
-	fetch(getURL('/json/palettes'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		lJson = Object.entries(json);
-		populatePalettes();
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(loadPalettes, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadPalettes(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/palettes'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			lJson = Object.entries(json);
+			populatePalettes();
+			resolve();
+		})
+		.catch((e) => {
+			if (retry<5) {
+				setTimeout(() => loadPalettes(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
-function loadFX(callback = null)
-{
-	fetch(getURL('/json/effects'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		eJson = Object.entries(json);
-		populateEffects();
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(loadFX, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadFX(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/effects'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			eJson = Object.entries(json);
+			populateEffects();
+			resolve();
+		})
+		.catch((e) => {
+			if (retry<5) {
+				setTimeout(() => loadFX(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
-function loadFXData(callback = null)
-{
-	fetch(getURL('/json/fxdata'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		fxdata = json||[];
-		// add default value for Solid
-		fxdata.shift()
-		fxdata.unshift(";!;");
-		retry = false;
-	})
-	.catch((e)=>{
-		fxdata = [];
-		if (!retry) {
-			retry = true;
-			setTimeout(()=>{loadFXData(loadFX);}, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadFXData(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/fxdata'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			fxdata = json||[];
+			fxdata.shift();
+			fxdata.unshift(";!;");
+			resolve();
+		})
+		.catch((e) => {
+			fxdata = [];
+			if (retry<5) {
+				setTimeout(() => loadFXData(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
@@ -619,7 +578,7 @@ function populateQL()
 function populatePresets(fromls)
 {
 	if (fromls) pJson = JSON.parse(localStorage.getItem("wledP"));
-	if (!pJson) {setTimeout(loadPresets,250); return;}
+	if (!pJson) {loadPresets(); return;} // note: no await as this is a fallback that should not be needed as init function fetches pJson
 	delete pJson["0"];
 	var cn = "";
 	var arr = Object.entries(pJson).sort(cmpP);
@@ -701,10 +660,10 @@ function parseInfo(i) {
 //var setInnerHTML = function(elm, html) {
 //	elm.innerHTML = html;
 //	Array.from(elm.querySelectorAll("script")).forEach( oldScript => {
-//	  const newScript = document.createElement("script");
+//	  const newScript = d.createElement("script");
 //	  Array.from(oldScript.attributes)
 //		.forEach( attr => newScript.setAttribute(attr.name, attr.value) );
-//	  newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+//	  newScript.appendChild(d.createTextNode(oldScript.innerHTML));
 //	  oldScript.parentNode.replaceChild(newScript, oldScript);
 //	});
 //}
@@ -906,6 +865,7 @@ function populateSegments(s)
 	gId("segcont").classList.remove("hide");
 	let noNewSegs = (lowestUnused >= maxSeg);
 	resetUtil(noNewSegs);
+	if (segCount === 0) return; // no segments to populate
 	for (var i = 0; i <= lSeg; i++) {
 		if (!gId(`seg${i}`)) continue;
 		updateLen(i);
@@ -1276,7 +1236,6 @@ function updateUI()
 	gId('buttonPower').className = (isOn) ? 'active':'';
 	gId('buttonNl').className = (nlA) ? 'active':'';
 	gId('buttonSync').className = (syncSend) ? 'active':'';
-	gId('pxmb').style.display = (isM) ? "inline-block" : "none";
 
 	updateSelectedFx();
 	updateSelectedPalette(selectedPal); // must be after updateSelectedFx() to un-hide color slots for * palettes
@@ -1324,7 +1283,8 @@ function updateSelectedPalette(s)
 	if (selElement) selElement.classList.remove('selected');
 
 	var selectedPalette = parent.querySelector(`.lstI[data-id="${s}"]`);
-	if (selectedPalette)  parent.querySelector(`.lstI[data-id="${s}"]`).classList.add('selected');
+	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
+	selectedPalette.classList.add('selected');
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
@@ -1438,7 +1398,7 @@ function makeWS() {
 	};
 	ws.onclose = (e)=>{
 		gId('connind').style.backgroundColor = "var(--c-r)";
-		if (wsRpt++ < 5) setTimeout(makeWS,1500); // retry WS connection
+		if (wsRpt++ < 10) setTimeout(makeWS,wsRpt * 200); // retry WS connection
 		ws = null;
 	}
 	ws.onopen = (e)=>{
@@ -1471,6 +1431,7 @@ function readState(s,command=false)
 
 	populateSegments(s);
 	hasRGB = hasWhite = hasCCT = has2D = false;
+	segLmax = 0; // reset max selected segment length
 	let i = {};
 	// determine light capabilities from selected segments
 	for (let seg of (s.seg||[])) {
@@ -1710,77 +1671,68 @@ function setEffectParameters(idx)
 
 var jsonTimeout;
 var reqsLegal = false;
+async function requestJson(command=null, retry=0) {
+	return new Promise((resolve, reject) => {
+		gId('connind').style.backgroundColor = "var(--c-y)";
+		if (command && !reqsLegal) {resolve(); return;}
+		if (!jsonTimeout) jsonTimeout = setTimeout(()=>{if (ws) ws.close(); ws=null; showErrorToast()}, 3000);
 
-function requestJson(command=null)
-{
-	gId('connind').style.backgroundColor = "var(--c-y)";
-	if (command && !reqsLegal) return; // stop post requests from chrome onchange event on page restore
-	if (!jsonTimeout) jsonTimeout = setTimeout(()=>{if (ws) ws.close(); ws=null; showErrorToast()}, 3000);
-	var req = null;
-	var useWs = (ws && ws.readyState === WebSocket.OPEN);
-	var type = command ? 'post':'get';
-	if (command) {
-		command.v = true; // force complete /json/si API response
-		command.time = Math.floor(Date.now() / 1000);
-		var t = gId('tt');
-		if (t.validity.valid && command.transition==null) {
-			var tn = parseInt(t.value*10);
-			if (tn != tr) command.transition = tn;
+		var useWs = (ws && ws.readyState === WebSocket.OPEN);
+		var req = null;
+		if (command) {
+			command.v = true;
+			command.time = Math.floor(Date.now() / 1000);
+			var t = gId('tt');
+			if (t && t.validity.valid && command.transition==null) {
+				var tn = parseInt(t.value*10);
+				if (tn != tr) command.transition = tn;
+			}
+			req = JSON.stringify(command);
+			if (req.length > 1340) useWs = false;
+			if (req.length > 500 && lastinfo && lastinfo.arch == "esp8266") useWs = false;
 		}
-		//command.bs = parseInt(gId('bs').value);
-		req = JSON.stringify(command);
-		if (req.length > 1340) useWs = false; // do not send very long requests over websocket
-		if (req.length >  500 && lastinfo && lastinfo.arch == "esp8266") useWs = false; // esp8266 can only handle 500 bytes
-	};
 
-	if (useWs) {
-		ws.send(req?req:'{"v":true}');
-		return;
-	}
-
-	fetch(getURL('/json/si'), {
-		method: type,
-		headers: {"Content-Type": "application/json; charset=UTF-8"},
-		body: req
-	})
-	.then(res => {
-		clearTimeout(jsonTimeout);
-		jsonTimeout = null;
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then(json => {
-		lastUpdate = new Date();
-		clearErrorToast(3000);
-		gId('connind').style.backgroundColor = "var(--c-g)";
-		if (!json) { showToast('Empty response', true); return; }
-		if (json.success) return;
-		if (json.info) {
-			let i = json.info;
-			parseInfo(i);
-			populatePalettes(i);
-			if (isInfo) populateInfo(i);
-			if (simplifiedUI) simplifyUI();
+		if (useWs) {
+			ws.send(req?req:'{"v":true}');
+			resolve();
+			return;
 		}
-		var s = json.state ? json.state : json;
-		readState(s);
 
-		//load presets and open websocket sequentially
-		if (!pJson || isEmpty(pJson)) setTimeout(()=>{
-			loadPresets(()=>{
-				wsRpt = 0;
-				if (!(ws && ws.readyState === WebSocket.OPEN)) makeWS();
-			});
-		},25);
-		reqsLegal = true;
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(requestJson,500);
-		}
-		showToast(e, true);
+		fetch(getURL('/json/si'), {
+			method: command ? 'post' : 'get',
+			headers: {"Content-Type": "application/json; charset=UTF-8"},
+			body: req
+		})
+		.then(res => {
+			clearTimeout(jsonTimeout);
+			jsonTimeout = null;
+			return res.ok ? res.json() : Promise.reject();
+		})
+		.then(json => {
+			lastUpdate = new Date();
+			clearErrorToast(3000);
+			gId('connind').style.backgroundColor = "var(--c-g)";
+			if (!json) { showToast('Empty response', true); resolve(); return; }
+			if (json.success) {resolve(); return;}
+			if (json.info) {
+				parseInfo(json.info);
+				if (isInfo) populateInfo(json.info);
+				if (simplifiedUI) simplifyUI();
+			}
+			var s = json.state ? json.state : json;
+			readState(s);
+
+			reqsLegal = true;
+			resolve();
+		})
+		.catch((e)=>{
+			if (retry<10) {
+				setTimeout(() => requestJson(command,retry+1).then(resolve).catch(reject), retry*50);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
@@ -2555,7 +2507,7 @@ function saveP(i,pl)
 	}
 	populatePresets();
 	resetPUtil();
-	setTimeout(()=>{pmtLast=0; loadPresets();}, 750); // force reloading of presets
+	setTimeout(()=>{loadPresets();}, 750); // force reloading of presets
 }
 
 function testPl(i,bt) {
@@ -2821,56 +2773,51 @@ function rSegs()
 	requestJson(obj);
 }
 
-function loadPalettesData(callback = null)
-{
-	if (palettesData) return;
-	const lsKey = "wledPalx";
-	var lsPalData = localStorage.getItem(lsKey);
-	if (lsPalData) {
-		try {
-			var d = JSON.parse(lsPalData);
-			if (d && d.vid == d.vid) {
-				palettesData = d.p;
-				if (callback) callback();
-				return;
-			}
-		} catch (e) {}
-	}
+function loadPalettesData() {
+	return new Promise((resolve) => {
+		if (palettesData) return resolve(); // already loaded
+		var lsPalData = localStorage.getItem("wledPalx");
+		if (lsPalData) {
+			try {
+				var d = JSON.parse(lsPalData);
+				if (d && d.vid == lastinfo.vid) {
+					palettesData = d.p;
+					redrawPalPrev();
+					return resolve();
+				}
+			} catch (e) {}
+		}
 
-	palettesData = {};
-	getPalettesData(0, ()=>{
-		localStorage.setItem(lsKey, JSON.stringify({
-			p: palettesData,
-			vid: lastinfo.vid
-		}));
-		redrawPalPrev();
-		if (callback) setTimeout(callback, 99);
+		palettesData = {};
+		getPalettesData(0, () => {
+			localStorage.setItem("wledPalx", JSON.stringify({
+				p: palettesData,
+				vid: lastinfo.vid
+			}));
+			redrawPalPrev();
+			setTimeout(resolve, 99); // delay optional
+		});
 	});
 }
 
-function getPalettesData(page, callback)
-{
-	fetch(getURL(`/json/palx?page=${page}`), {
-		method: 'get'
-	})
-	.then(res => {
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
+function getPalettesData(page, callback, retry=0) {
+	fetch(getURL(`/json/palx?page=${page}`), {method: 'get'})
+	.then(res => res.ok ? res.json() : Promise.reject())
 	.then(json => {
-		retry = false;
 		palettesData = Object.assign({}, palettesData, json.p);
 		if (page < json.m) setTimeout(()=>{ getPalettesData(page + 1, callback); }, 75);
 		else callback();
 	})
 	.catch((error)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(()=>{getPalettesData(page,callback);}, 500); // retry
+		if (retry<5) {
+			setTimeout(()=>{getPalettesData(page,callback,retry+1);}, 100);
+		} else {
+			showToast(error, true);
+			callback();
 		}
-		showToast(error, true);
 	});
 }
+
 /*
 function hideModes(txt)
 {
@@ -2972,7 +2919,7 @@ function filterFocus(e) {
 	}
 	if (e.type === "blur") {
 		setTimeout(() => {
-			if (e.target === document.activeElement && document.hasFocus()) return;
+			if (e.target === d.activeElement && d.hasFocus()) return;
 			// do not hide if filter is active
 			if (!c) {
 				// compute sticky top
@@ -3219,7 +3166,7 @@ function simplifyUI() {
 	// Create dropdown dialog
 	function createDropdown(id, buttonText, dialogElements = null) {
 		// Create dropdown dialog
-		const dialog = document.createElement("dialog");
+		const dialog = d.createElement("dialog");
 		// Move every dialogElement to the dropdown dialog or if none are given, move all children of the element with the given id
 		if (dialogElements) {
 			dialogElements.forEach((e) => {
@@ -3232,7 +3179,7 @@ function simplifyUI() {
 		}
 
 		// Create button for the dropdown
-		const btn = document.createElement("button");
+		const btn = d.createElement("button");
 		btn.id = id + "btn";
 		btn.classList.add("btn");
 		btn.innerText = buttonText;
@@ -3280,7 +3227,7 @@ function simplifyUI() {
 
 	// Hide palette label
 	gId("pall").style.display = "none";
-	gId("Colors").insertBefore(document.createElement("br"), gId("pall"));
+	gId("Colors").insertBefore(d.createElement("br"), gId("pall"));
 	// Hide effect label
 	gId("modeLabel").style.display = "none";
 
@@ -3292,7 +3239,7 @@ function simplifyUI() {
 
 	// Hide bottom bar 
 	gId("bot").style.display = "none";
-	document.documentElement.style.setProperty('--bh', '0px');
+	d.documentElement.style.setProperty('--bh', '0px');
 
 	// Hide other tabs
 	gId("Effects").style.display = "none";
@@ -3439,11 +3386,13 @@ function reportUpgradeEvent(info, oldVersion) {
 				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
 				brand: infoData.brand,                           // Device brand (always present)
 				product: infoData.product,                       // Product name (always present)
-				flashSize: infoData.flash                        // Flash size (always present)
+				flashSize: infoData.flash,                       // Flash size (always present)
+				repo: infoData.repo                              // GitHub repository (always present)
 			};
 
 			// Add optional fields if available
-			if (infoData.psram !== undefined) upgradeData.psramSize = Math.round(infoData.psram / (1024 * 1024));  // convert bytes to MB
+			if (infoData.psramPresent !== undefined) upgradeData.psramPresent = infoData.psramPresent;  // Whether device has PSRAM
+			if (infoData.psramSize !== undefined) upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
 			// Note: partitionSizes not currently available in /json/info endpoint
 
 			// Make AJAX call to postUpgradeEvent API

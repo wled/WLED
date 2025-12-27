@@ -789,11 +789,6 @@ void resetConfig() {
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
-  #ifdef WLED_ADD_EEPROM_SUPPORT
-  if (!success) { //if file does not exist, try reading from EEPROM
-    deEEPSettings();
-  }
-  #endif
 
   if (!requestJSONBufferLock(1)) return false;
 

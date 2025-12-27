@@ -2,7 +2,7 @@
   "build": {
     "arduino":{
       "ldscript": "esp32s3_out.ld",
-      "partitions": "partitions-8MB-tinyuf2.csv"
+      "partitions": "default_8MB.csv"
     },
     "core": "esp32",
     "extra_flags": [
@@ -43,16 +43,8 @@
     "arduino",
     "espidf"
   ],
-  "name": "Adafruit MatrixPortal ESP32-S3",
+  "name": "Adafruit MatrixPortal ESP32-S3 for WLED",
   "upload": {
-    "arduino": {
-      "flash_extra_images": [
-        [
-          "0x410000",
-          "variants/adafruit_matrixportal_esp32s3/tinyuf2.bin"
-        ]
-      ]
-    },
     "flash_size": "8MB",
     "maximum_ram_size": 327680,
     "maximum_size": 8388608,
