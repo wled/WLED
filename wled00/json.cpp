@@ -1053,18 +1053,18 @@ void serializeNodes(JsonObject root)
   }
 }
 
-// Pin capability flags - only "special" capabilities useful for debugging
-// Touch capability is now in appendGPIOinfo() (d.touch_gpio)
+// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
 #define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
 #define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
 #define PIN_CAP_BOOT         0x08   // bootloader pin
 #define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
 #define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
 
-// Convert PinOwner enum to human-readable string
-const char* getPinOwnerName(PinOwner owner) {
+// Convert PinOwner enum to string for allocated pins
+const char* getPinOwnerName(uint8_t gpio) {
+  PinOwner owner = PinManager::getPinOwner(gpio); // returns "none" if allocated by system, unallocated or unavailable
   switch (owner) {
-    case PinOwner::None:          return "System";
+    case PinOwner::None:          return PinManager::isPinAllocated(gpio) ? "System" : "Unknown";
     case PinOwner::Ethernet:      return "Ethernet";
     case PinOwner::BusDigital:    return "LED Digital";
     case PinOwner::BusOnOff:      return "LED On/Off";
@@ -1164,15 +1164,14 @@ void serializePins(JsonObject root)
     pinObj["c"] = caps;  // capabilities
 
     // Add allocated status and owner
-    PinOwner owner = PinManager::getPinOwner(gpio);
     pinObj["a"] = isAllocated;  // allocated status
-    
+
     // check if this pin is used as a button (need to get button type for owner name)
     bool isButton = false;
     int buttonIndex = -1;
     uint8_t btnType = BTN_TYPE_NONE;
     for (size_t b = 0; b < buttons.size(); b++) {
-      if (buttons[b].pin >= 0 && buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
+      if (buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
         isButton = true;
         buttonIndex = b;
         btnType = buttons[b].type;
@@ -1181,39 +1180,40 @@ void serializePins(JsonObject root)
     }
 
     // Add owner ID and name
+    PinOwner owner = PinManager::getPinOwner(gpio);
     if (isAllocated) {
-      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (for backward compatibility and UI lookup)
-      pinObj["n"] = getPinOwnerName(owner);  // owner name from firmware
-    }
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (can be used for UI lookup)
+      pinObj["n"] = getPinOwnerName(gpio);  // owner name (string)
 
-    // Relay pin
-    if (isAllocated && gpio == rlyPin) {
-      pinObj["m"] = 1;  // mode: output
-      pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
-    }
-    // Button pins, get type and state using isButtonPressed()
-    else if (isAllocated && isButton && buttonIndex >= 0) {
-      pinObj["m"] = 0;  // mode: input
-      pinObj["t"] = btnType; // button type
-      pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
-
-      // For touch buttons, get raw reading value (useful for debugging threshold)
-      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-      if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
-        if (digitalPinToTouchChannel(gpio) >= 0) {
-          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
-          pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
-          #else
-          pinObj["r"] = touchRead(gpio);
-          #endif
-        }
+      // Relay pin
+      if (owner == PinOwner::Relay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
       }
-      #endif
-    }
-    // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.)
-    else if (isAllocated && (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay)) {
-      pinObj["m"] = 1;  // mode: output
-      pinObj["s"] = digitalRead(gpio);  // state
+      // Button pins, get type and state using isButtonPressed()
+      else if (isButton && buttonIndex >= 0) {
+        pinObj["m"] = 0;  // mode: input
+        pinObj["t"] = btnType; // button type
+        pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
+
+        // For touch buttons, get raw reading value (useful for debugging threshold)
+        #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+        if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
+          if (digitalPinToTouchChannel(gpio) >= 0) {
+            #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
+            pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
+            #else
+            pinObj["r"] = touchRead(gpio);
+            #endif
+          }
+        }
+        #endif
+      }
+      // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.) TODO: expand for other pin owners as needed
+      else if (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(gpio);  // state
+      }
     }
   }
 }
