@@ -1054,26 +1054,14 @@ void serializeNodes(JsonObject root)
 #define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
 
 // Convert PinOwner enum to human-readable string
-const char* getPinOwnerName(PinOwner owner, uint8_t buttonType = 0) {
+const char* getPinOwnerName(PinOwner owner) {
   switch (owner) {
     case PinOwner::None:          return "System";
     case PinOwner::Ethernet:      return "Ethernet";
     case PinOwner::BusDigital:    return "LED Digital";
     case PinOwner::BusOnOff:      return "LED On/Off";
     case PinOwner::BusPwm:        return "LED PWM";
-    case PinOwner::Button:
-      // For buttons, include the button type in the name
-      switch (buttonType) {
-        case BTN_TYPE_PUSH:           return "Button (Push)";
-        case BTN_TYPE_PUSH_ACT_HIGH:  return "Button (Push Inv)";
-        case BTN_TYPE_SWITCH:         return "Button (Switch)";
-        case BTN_TYPE_PIR_SENSOR:     return "Button (PIR)";
-        case BTN_TYPE_TOUCH:          return "Button (Touch)";
-        case BTN_TYPE_ANALOG:         return "Button (Analog)";
-        case BTN_TYPE_ANALOG_INVERTED:return "Button (Analog Inv)";
-        case BTN_TYPE_TOUCH_SWITCH:   return "Button (Touch Switch)";
-        default:                      return "Button";
-      }
+    case PinOwner::Button:        return "Button";
     case PinOwner::IR:            return "IR Receiver";
     case PinOwner::Relay:         return "Relay";
     case PinOwner::SPI_RAM:       return "SPI RAM";
@@ -1184,9 +1172,10 @@ void serializePins(JsonObject root)
       }
     }
 
-    // Add owner name as string (pass button type for Button owner)
+    // Add owner ID and name
     if (isAllocated) {
-      pinObj["n"] = getPinOwnerName(owner, btnType);
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (for backward compatibility and UI lookup)
+      pinObj["n"] = getPinOwnerName(owner);  // owner name from firmware
     }
 
     // Relay pin

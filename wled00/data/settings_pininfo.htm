@@ -26,12 +26,33 @@
 		function B(){window.open(getURL('/settings'),'_self');} // back button
 
 		function getOwnerName(o,t,n){
-			// Owner name is now provided by the firmware
-			return n || "Unknown";
+			// Use firmware-provided name if available, otherwise fall back to ID-based lookup
+			if(n) return n;
+			if(!o) return "System";
+			if(o&0x80){
+				switch(o){
+					case 0x81: return "Ethernet";
+					case 0x82: return "LED Digital";
+					case 0x83: return "LED On/Off";
+					case 0x84: return "LED PWM";
+					case 0x85: return getBtnTypeName(t);
+					case 0x86: return "IR Receiver";
+					case 0x87: return "Relay";
+					case 0x88: return "SPI RAM";
+					case 0x89: return "Debug";
+					case 0x8A: return "DMX Output";
+					case 0x8B: return "I2C";
+					case 0x8C: return "SPI";
+					case 0x8D: return "DMX Input";
+					case 0x8E: return "HUB75";
+				}
+			}
+			return "UM #"+o;
 		}
 		function getBtnTypeName(t){
-			// Button type name is now included in owner name from firmware
-			return "";
+			var n=["None","Reserved","Push","Push Inv","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
+			var label = n[t] || "?";
+			return 'Button <span style="font-size:10px;color:#888">'+label+'</span>';
 		}
 		function getCaps(p,c){
 			var r=[];
@@ -61,8 +82,8 @@
 							// Add raw touch reading if available
 							if(typeof p.r!=='undefined')tv=' <span style="font-size:10px;color:#888">'+p.r+'</span>';
 						}
-						// Determine owner name - firmware now provides it as 'n' field
-						var ow=p.a?(p.n||'Unknown'):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
+						// Determine owner name using firmware name or fallback to UI lookup
+						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
 						//if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
 						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+tv+'<td>'+getCaps(p.p,p.c||0)+'</td></tr>';
 					}
