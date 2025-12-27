@@ -97,7 +97,8 @@ class UserFxUsermod : public Usermod {
  private:
  
     static const char _name[];
-public:
+    
+ public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
 

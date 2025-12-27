@@ -9,7 +9,7 @@ class RF433Usermod : public Usermod
 private:
   
     static const char _name[];
-RCSwitch mySwitch = RCSwitch();
+    RCSwitch mySwitch = RCSwitch();
   unsigned long lastCommand = 0;
   unsigned long lastTime = 0;
 

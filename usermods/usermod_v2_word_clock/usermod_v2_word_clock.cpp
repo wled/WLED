@@ -17,7 +17,7 @@ class WordClockUsermod : public Usermod
   private:
     
     static const char _name[];
-unsigned long lastTime = 0;
+    unsigned long lastTime = 0;
     int lastTimeMinutes = -1;
 
     // set your config variables to their boot default value (this can also be done in readFromConfig() or a constructor if you prefer)

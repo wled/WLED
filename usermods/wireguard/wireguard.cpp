@@ -118,7 +118,7 @@ class WireguardUsermod : public Usermod {
    private:
     
     static const char _name[];
-WireGuard wg;
+    WireGuard wg;
     char preshared_key[45];
     char private_key[45];
     IPAddress local_ip;

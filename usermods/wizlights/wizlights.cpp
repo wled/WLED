@@ -14,7 +14,7 @@ class WizLightsUsermod : public Usermod {
   private:
     
     static const char _name[];
-unsigned long lastTime = 0;
+    unsigned long lastTime = 0;
     long updateInterval;
     long sendDelay;
     
