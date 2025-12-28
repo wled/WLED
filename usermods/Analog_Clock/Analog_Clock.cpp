@@ -7,9 +7,8 @@ extern Timezone* tz;
 
 class AnalogClockUsermod : public Usermod {
 private:
-    
     static const char _name[];
-static constexpr uint32_t refreshRate = 50; // per second
+    static constexpr uint32_t refreshRate = 50; // per second
     static constexpr uint32_t refreshDelay = 1000 / refreshRate;
 
     struct Segment {

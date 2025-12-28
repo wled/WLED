@@ -59,9 +59,8 @@ DHT_nonblocking dht_sensor(DHTPIN, DHTTYPE);
 
 class UsermodDHT : public Usermod {
   private:
-    
     static const char _name[];
-unsigned long nextReadTime = 0;
+    unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
     float humidity, temperature = 0;
     bool initializing = true;

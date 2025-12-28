@@ -26,7 +26,6 @@
 class FixUnreachableNetServices : public Usermod
 {
 private:
-  
     static const char _name[];
 //Private class members. You can declare variables and functions only accessible to your usermod here
   unsigned long m_lastTime = 0;

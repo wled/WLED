@@ -91,9 +91,9 @@ Usermod* UsermodManager::lookup(uint16_t mod_id) {
  * Get usermod name by ID.
  */
 const char* UsermodManager::getName(uint16_t mod_id) {
-  Usermod* um = lookup(mod_id);
-  if (um != nullptr) {
-    return um->getName();
+  Usermod* mod = lookup(mod_id);
+  if (mod != nullptr) {
+    return mod->getName();
   }
   return nullptr;
 }

@@ -10,7 +10,6 @@ class SevenSegmentDisplay : public Usermod
 #define WLED_SS_BUFFLEN 6
 #define REFRESHTIME 497
 private:
-  
     static const char _name[];
 //Runtime variables.
   unsigned long lastRefresh = 0;

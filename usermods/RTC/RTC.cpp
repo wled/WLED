@@ -5,9 +5,8 @@
 
 class RTCUsermod : public Usermod {
   private:
-    
     static const char _name[];
-unsigned long lastTime = 0;
+    unsigned long lastTime = 0;
     bool disabled = false;
   public:
 
