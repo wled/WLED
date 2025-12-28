@@ -10,8 +10,8 @@ class SevenSegmentDisplay : public Usermod
 #define WLED_SS_BUFFLEN 6
 #define REFRESHTIME 497
 private:
-    static const char _name[];
-//Runtime variables.
+  //Runtime variables.
+  static const char _name[];
   unsigned long lastRefresh = 0;
   unsigned long lastCharacterStep = 0;
   String ssDisplayBuffer = "";
@@ -491,7 +491,7 @@ public:
   const char* getName() override {
     return _name;
   }
-  };
+};
 
 const char SevenSegmentDisplay::_str_perSegment[] PROGMEM = "perSegment";
 const char SevenSegmentDisplay::_str_perPeriod[] PROGMEM = "perPeriod";

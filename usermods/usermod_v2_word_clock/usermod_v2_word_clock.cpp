@@ -15,7 +15,6 @@
 class WordClockUsermod : public Usermod 
 {
   private:
-    
     static const char _name[];
     unsigned long lastTime = 0;
     int lastTimeMinutes = -1;

@@ -10,7 +10,7 @@
 class WordClockMatrix : public Usermod
 {
 private:
-    static const char _name[];
+  static const char _name[];
   unsigned long lastTime = 0;
   uint8_t minuteLast = 99;
   int dayBrightness = 128;
