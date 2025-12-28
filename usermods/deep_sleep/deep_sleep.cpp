@@ -220,7 +220,7 @@ void addToConfig(JsonObject& root) override
 
   const char* getName() override
   {
-    return FPSTR(_name);
+    return reinterpret_cast<const char*>(FPSTR(_name));
   }
 
 };

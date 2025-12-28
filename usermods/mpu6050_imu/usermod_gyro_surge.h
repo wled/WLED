@@ -216,7 +216,7 @@ class GyroSurge : public Usermod {
     }
 
     const char* getName() {
-      return FPSTR(_name);
+      return reinterpret_cast<const char*>(FPSTR(_name));
     }
 };
 

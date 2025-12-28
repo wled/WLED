@@ -120,7 +120,7 @@ public:
 
   const char* getName() override
   {
-    return FPSTR(_name);
+    return reinterpret_cast<const char*>(FPSTR(_name));
   }
 
   // this function follows the same principle as decodeIRJson() / remoteJson()

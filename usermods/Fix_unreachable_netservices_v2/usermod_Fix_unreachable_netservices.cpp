@@ -162,7 +162,7 @@ Delay <input type=\"number\" min=\"5\" max=\"300\" value=\"";
 
   const char* getName() override
   {
-    return FPSTR(_name);
+    return reinterpret_cast<const char*>(FPSTR(_name));
   }
 };
 

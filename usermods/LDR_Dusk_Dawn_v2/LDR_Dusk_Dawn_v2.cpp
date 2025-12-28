@@ -150,7 +150,7 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
 
   const char* getName() override
   {
-    return FPSTR(_name);
+    return reinterpret_cast<const char*>(FPSTR(_name));
   }
 };
 

@@ -134,7 +134,7 @@ class UsermodSdCard : public Usermod {
 
   const char* getName() override
   {
-    return FPSTR(_name);
+    return reinterpret_cast<const char*>(FPSTR(_name));
   }
 
     void addToConfig(JsonObject& root)

@@ -871,7 +871,7 @@
   * @return const char* User module name
   */
  const char* UsermodBME68X::getName() {
-	 return FPSTR(_name);
+	 return reinterpret_cast<const char*>(FPSTR(_name));
  }
  
  
