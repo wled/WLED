@@ -2,6 +2,10 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
+// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
+
 // static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
@@ -94,14 +98,18 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
 *   aux1 is the total pattern length
-*   the sx slider selects the scrolling speed
-*   check1 selects the color mode
-*   we get the text from the SEGMENT.name and convert it to morse code
+*   The sx slider selects the scrolling speed
+*   Checkbox1 selects the color mode
+*   Checkbox2 displays punctuation or not
+*   Checkbox3 displays the End-of-message code or not
+*   We get the text from the SEGMENT.name and convert it to morse code
+*   Morse Code rules:
+*    - there is one space between each part of a letter or number
+*    - there are 3 spaces between each letter or number
+*    - there are 7 spaces between each word
 */
-
 // Build morse pattern into a buffer
 void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) {
-//  unsigned int i = 0;
   const char *c = morse_code;
   
   // Build the dots and dashes into pattern array
@@ -116,12 +124,12 @@ void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) 
       pattern[index++] = true;
     }
     
-    // 1 space between parts of a letter or number
+    // 1 space between parts of a character (letter/number/punctuation)
     pattern[index++] = false;
     c++;
   }
     
-  // 3 spaces between two letters
+  // 3 spaces between each character
   pattern[index++] = false;
   pattern[index++] = false;
   pattern[index++] = false;
@@ -132,7 +140,7 @@ static uint16_t mode_morsecode(void) {
 
   // A-Z in Morse Code
   static const char * letters[] PROGMEM = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
-                                           "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
+                     "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
   // 0-9 in Morse Code
   static const char * numbers[] PROGMEM = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
 
@@ -142,7 +150,7 @@ static uint16_t mode_morsecode(void) {
   
   if (SEGMENT.name) len = strlen(SEGMENT.name);
   if (len == 0) { // fallback if empty segment name
-    strcpy_P(text, PSTR("I Love WLED"));
+    strcpy_P(text, PSTR("I Love WLED!"));
   } else {
     strcpy(text, SEGMENT.name);
   }
@@ -155,14 +163,18 @@ static uint16_t mode_morsecode(void) {
   // Build the complete morse pattern (estimate max size generously)
   static bool morsecodePattern[1024]; // Static to avoid stack overflow
 
+  static bool lastCheck2 = false;
+  static bool lastCheck3 = false;
   static char lastText[WLED_MAX_SEGNAME_LEN+1] = {'\0'};  // Track last text
-  bool textChanged = (strcmp(text, lastText) != 0);  // Check if the text has changed since the last frame
+
+  bool settingsChanged = (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);  // check if any checkbox settings were changed since last frame
+  bool textChanged = (strcmp(text, lastText) != 0);   // check if the text has changed since the last frame
 
   // Initialize on first call or rebuild pattern
-  if (SEGENV.call == 0 || textChanged) {
-    SEGENV.aux0 = 0;
+  if (SEGENV.call == 0 || textChanged || settingsChanged) {
     strcpy(lastText, text); // Save current text
-
+    lastCheck2 = SEGMENT.check2;  // Save current state
+    lastCheck3 = SEGMENT.check3;  // Save current state
     int patternLength = 0;
 
     // Build complete morse code pattern
@@ -175,17 +187,41 @@ static uint16_t mode_morsecode(void) {
       else if (*c >= '0' && *c <= '9') {
         build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength);
       }
-      // Check for space between words
+      // Check for a space between words
       else if (*c == ' ') {
-        for (int x = 0; x < 7; x++) {
+        for (int x = 0; x < 4; x++) {   // 7 spaces after the morse code pattern (3 after the last character and now 4 more)
           morsecodePattern[patternLength++] = false;
+        }
+      }
+      // Check for punctuation
+      else if (SEGMENT.check2) {
+        const char *punctuationCode = nullptr;
+        switch (*c) {
+          case '.': punctuationCode = ".-.-.-"; break;
+          case ',': punctuationCode = "--..--"; break;
+          case '?': punctuationCode = "..--.."; break;
+          case ':': punctuationCode = "---..."; break;
+          case '-': punctuationCode = "-....-"; break;
+          case '!': punctuationCode = "-.-.--"; break;
+          case '&': punctuationCode = ".-..."; break;
+          case '@': punctuationCode = ".--.-."; break;
+          case ')': punctuationCode = "-.--.-"; break;
+          case '(': punctuationCode = "-.--."; break;
+          case '/': punctuationCode = "-..-."; break;
+          case '\'': punctuationCode = ".----."; break;  // apostrophe character must be escaped with a \ character
+        }
+        if (punctuationCode) {
+          build_morsecode_pattern(punctuationCode, morsecodePattern, patternLength);
         }
       }
     }
 
-    // End of message
-    build_morsecode_pattern(".-.-.", morsecodePattern, patternLength);
-    for (int x = 0; x < 7; x++) {
+    // Build the End-of-message pattern
+    if (SEGMENT.check3) {
+      build_morsecode_pattern(".-.-.", morsecodePattern, patternLength);
+    }
+
+    for (int x = 0; x < 7; x++) {   // 10 spaces after the last pattern (3 after the last character and now 7 more)
       morsecodePattern[patternLength++] = false;
     }
 
@@ -214,13 +250,13 @@ static uint16_t mode_morsecode(void) {
       if (SEGMENT.check1)
         SEGMENT.setPixelColor(i, SEGMENT.color_wheel(SEGENV.aux0 + i));
       else
-        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, (strip.paletteBlend == 1 || strip.paletteBlend == 3), 0));
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
     }
   }
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_PS_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,,Colorful,,;;!;1;sx=128,o1=1";
+static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,,Color mode,Punctuation,EndOfMessage;;!;1;sx=128,o1=1,o2=1";
 
 
 /////////////////////
