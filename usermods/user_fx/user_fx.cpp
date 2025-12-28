@@ -268,7 +268,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
-    strip.addEffect(255, &mode_morsecode, _data_FX_MODE_PS_MORSECODE);
+    strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
