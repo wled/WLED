@@ -48,6 +48,7 @@ extern int getSignalQuality(int rssi);
 //class name. Use something descriptive and leave the ": public Usermod" part :)
 class St7789DisplayUsermod : public Usermod {
   private:
+    static const char _name[];
     //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     bool enabled = true;
@@ -408,12 +409,14 @@ class St7789DisplayUsermod : public Usermod {
 
     const char* getName() override
     {
-      return reinterpret_cast<const char*>(FPSTR(_name));
+      return _name;
     }
 
    //More methods can be added in the future, this example will then be extended.
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
-static name. st7789_display;
+const char St7789DisplayUsermod::_name[] PROGMEM = "ST7789 Display";
+
+static St7789DisplayUsermod st7789_display;
 REGISTER_USERMOD(st7789_display);

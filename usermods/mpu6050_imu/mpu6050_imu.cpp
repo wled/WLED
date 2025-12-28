@@ -434,7 +434,7 @@ class MPU6050Driver : public Usermod {
 
   const char* getName() override
   {
-    return reinterpret_cast<const char*>(FPSTR(_name));
+    return _name;
   }
 
 };

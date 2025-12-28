@@ -355,7 +355,7 @@ class Animated_Staircase : public Usermod {
 
   const char* getName() override
   {
-    return reinterpret_cast<const char*>(FPSTR(_name));
+    return _name;
   }
 
 #ifndef WLED_DISABLE_MQTT

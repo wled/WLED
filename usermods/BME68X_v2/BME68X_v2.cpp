@@ -45,6 +45,7 @@
 	 public:
 	 /* Public: Functions */
 	 uint16_t getId();
+	 const char* getName();
 	 void loop();								// Loop of the user module called by wled main in loop
 	 void setup();								// Setup of the user module called by wled main
 	 void addToConfig(JsonObject& root);			// Extends the settings/user module settings page to include the user module requirements. The settings are written from the wled core to the configuration file.
@@ -871,7 +872,7 @@
   * @return const char* User module name
   */
  const char* UsermodBME68X::getName() {
-	 return reinterpret_cast<const char*>(FPSTR(_name));
+	 return _name;
  }
  
  

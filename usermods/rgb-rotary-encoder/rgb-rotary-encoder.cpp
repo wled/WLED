@@ -330,7 +330,7 @@ class RgbRotaryEncoderUsermod : public Usermod
 
   const char* getName() override
   {
-    return reinterpret_cast<const char*>(FPSTR(_name));
+    return _name;
   }
 
     //More methods can be added in the future, this example will then be extended.

@@ -313,7 +313,7 @@ class FourLineDisplayUsermod : public Usermod {
       }
 
       const char* getName() override {
-        return reinterpret_cast<const char*>(FPSTR(_name));
+        return _name;
       }
   };
   

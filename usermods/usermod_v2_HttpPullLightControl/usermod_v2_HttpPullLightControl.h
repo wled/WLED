@@ -89,7 +89,7 @@ public:
 
   const char* getName() override
   {
-    return reinterpret_cast<const char*>(FPSTR(_name));
+    return _name;
   }
   inline void enable(bool enable) { enabled = enable; }   // Enable or Disable the usermod
   inline bool isEnabled() { return enabled; }             // Get usermod enabled or disabled state

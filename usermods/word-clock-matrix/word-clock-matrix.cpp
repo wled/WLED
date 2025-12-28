@@ -10,7 +10,9 @@
 class WordClockMatrix : public Usermod
 {
 private:
-  unsigned long lastTime = 0;
+  
+    static const char _name[];
+unsigned long lastTime = 0;
   uint8_t minuteLast = 99;
   int dayBrightness = 128;
   int nightBrightness = 16;
@@ -332,14 +334,15 @@ public:
       return 500;
     }
 
-    const char* getName() override
-    {
-      return reinterpret_cast<const char*>(FPSTR(_name));
+    const char* getName() override {
+        return _name;
     }
 
 
 };
 
+
+const char WordClockMatrix::_name[] PROGMEM = "Word Clock Matrix";
 
 static WordClockMatrix word_clock_matrix;
 REGISTER_USERMOD(word_clock_matrix);

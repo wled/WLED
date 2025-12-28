@@ -111,13 +111,14 @@ class WireguardUsermod : public Usermod {
 
     uint16_t getId() { return USERMOD_ID_WIREGUARD; }
 
-    const char* getName() override
-    {
-      return reinterpret_cast<const char*>(FPSTR(_name));
+    const char* getName() override {
+        return _name;
     }
 
    private:
-    WireGuard wg;
+    
+    static const char _name[];
+WireGuard wg;
     char preshared_key[45];
     char private_key[45];
     IPAddress local_ip;
@@ -128,6 +129,8 @@ class WireguardUsermod : public Usermod {
     bool is_enabled = false;
     unsigned long lastTime = 0;
 };
+
+const char WireguardUsermod::_name[] PROGMEM = "Wireguard";
 
 static WireguardUsermod wireguard;
 REGISTER_USERMOD(wireguard);

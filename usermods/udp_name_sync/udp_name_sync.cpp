@@ -81,9 +81,11 @@ class UdpNameSync : public Usermod {
      }
 
     const char* getName() override {
-      return reinterpret_cast<const char*>(FPSTR(_name));
+      return _name;
     }
 };
+
+const char UdpNameSync::_name[] PROGMEM = "UDP Name Sync";
 
 static UdpNameSync udp_name_sync;
 REGISTER_USERMOD(udp_name_sync);

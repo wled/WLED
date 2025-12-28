@@ -276,10 +276,9 @@ public:
     }
   }
 
-  const char* getName()
-  {
-    return reinterpret_cast<const char*>(FPSTR(_name));
-  }
+    const char* getName() override {
+        return _name;
+    }
 };
 
 const char UserMod_SensorsToMQTT::_name[] PROGMEM = "Sensors to MQTT";

@@ -218,7 +218,7 @@ public:
 
   const char* getName() override
   {
-    return reinterpret_cast<const char*>(FPSTR(_name));
+    return _name;
   }
 };
 const char klipper_percentage::_name[] PROGMEM = "Klipper_Percentage";

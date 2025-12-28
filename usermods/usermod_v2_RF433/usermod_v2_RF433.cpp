@@ -7,7 +7,9 @@
 class RF433Usermod : public Usermod
 {
 private:
-  RCSwitch mySwitch = RCSwitch();
+  
+    static const char _name[];
+RCSwitch mySwitch = RCSwitch();
   unsigned long lastCommand = 0;
   unsigned long lastTime = 0;
 
@@ -118,10 +120,9 @@ public:
     return USERMOD_ID_RF433;
   }
 
-  const char* getName() override
-  {
-    return reinterpret_cast<const char*>(FPSTR(_name));
-  }
+    const char* getName() override {
+        return _name;
+    }
 
   // this function follows the same principle as decodeIRJson() / remoteJson()
   bool remoteJson433(int button)
@@ -183,6 +184,8 @@ public:
 const char RF433Usermod::_modName[]          PROGMEM = "RF433 Remote";
 const char RF433Usermod::_modEnabled[]       PROGMEM = "Enabled";
 const char RF433Usermod::_receivePin[]       PROGMEM = "RX Pin";
+
+const char RF433Usermod::_name[] PROGMEM = "RF433";
 
 static RF433Usermod usermod_v2_RF433;
 REGISTER_USERMOD(usermod_v2_RF433);

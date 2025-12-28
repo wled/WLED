@@ -39,7 +39,9 @@
 
 class PixelsDiceTrayUsermod : public Usermod {
  private:
-  bool enabled = true;
+  
+    static const char _name[];
+bool enabled = true;
 
   DiceUpdate dice_update;
 
@@ -527,16 +529,17 @@ class PixelsDiceTrayUsermod : public Usermod {
    */
   uint16_t getId() { return USERMOD_ID_PIXELS_DICE_TRAY; }
 
-  const char* getName() override
-  {
-    return reinterpret_cast<const char*>(FPSTR(_name));
-  }
+    const char* getName() override {
+        return _name;
+    }
 
   // More methods can be added in the future, this example will then be
   // extended. Your usermod will remain compatible as it does not need to
   // implement all methods from the Usermod base class!
 };
 
+
+const char PixelsDiceTrayUsermod::_name[] PROGMEM = "Pixels Dice Tray";
 
 static PixelsDiceTrayUsermod pixels_dice_tray;
 REGISTER_USERMOD(pixels_dice_tray);
