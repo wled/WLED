@@ -69,8 +69,8 @@ class ShtUsermod : public Usermod
 
     uint16_t getId() { return USERMOD_ID_SHT; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 };

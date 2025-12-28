@@ -118,10 +118,10 @@ class ADS1115Usermod : public Usermod {
       return USERMOD_ID_ADS1115;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
   private:
     static const char _name[];

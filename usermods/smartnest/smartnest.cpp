@@ -172,9 +172,9 @@ public:
     return USERMOD_ID_SMARTNEST;
   }
 
-    const char* getName() override {
-        return _name;
-    }
+  const char* getName() override {
+    return _name;
+  }
 
   /**
    * setup() is called once at startup to initialize the usermod.

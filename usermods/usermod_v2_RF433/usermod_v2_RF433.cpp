@@ -118,9 +118,9 @@ public:
     return USERMOD_ID_RF433;
   }
 
-    const char* getName() override {
-        return _modName;
-    }
+  const char* getName() override {
+    return _modName;
+  }
 
   // this function follows the same principle as decodeIRJson() / remoteJson()
   bool remoteJson433(int button)

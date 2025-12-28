@@ -266,10 +266,10 @@ class AutoSaveUsermod : public Usermod {
       return USERMOD_ID_AUTO_SAVE;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 };
 
 // strings to reduce flash memory usage (used more than twice)

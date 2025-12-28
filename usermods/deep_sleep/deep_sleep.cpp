@@ -218,10 +218,10 @@ void addToConfig(JsonObject& root) override
         return USERMOD_ID_DEEP_SLEEP;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
 };
 

@@ -353,10 +353,10 @@ class Animated_Staircase : public Usermod {
 
     uint16_t getId() { return USERMOD_ID_ANIMATED_STAIRCASE; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
 #ifndef WLED_DISABLE_MQTT
     /**

@@ -88,10 +88,10 @@ class UsermodTemperature : public Usermod {
     const char *getTemperatureUnit();
     uint16_t getId() override { return USERMOD_ID_TEMPERATURE; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
     void setup() override;
     void loop() override;

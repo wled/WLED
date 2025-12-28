@@ -132,10 +132,10 @@ class UsermodSdCard : public Usermod {
       return USERMOD_ID_SD_CARD;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
     void addToConfig(JsonObject& root)
     {

@@ -161,10 +161,10 @@ Delay <input type=\"number\" min=\"5\" max=\"300\" value=\"";
     return USERMOD_ID_FIXNETSERVICES;
   }
 
-    const char* getName() override {
-        return _name;
-    }
-};
+  const char* getName() override {
+    return _name;
+  }
+  };
 
 const char FixUnreachableNetServices::_name[] PROGMEM = "Fix Unreachable Netservices";
 

@@ -388,10 +388,10 @@ class PWMFanUsermod : public Usermod {
         return USERMOD_ID_PWM_FAN;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 };
 
 // strings to reduce flash memory usage (used more than twice)

@@ -209,10 +209,10 @@ class LD2410Usermod : public Usermod {
       return USERMOD_ID_LD2410;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 };
 
 

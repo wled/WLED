@@ -359,10 +359,10 @@ class BobLightUsermod : public Usermod {
 
     uint16_t getId() override { return USERMOD_ID_BOBLIGHT; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
 };
 

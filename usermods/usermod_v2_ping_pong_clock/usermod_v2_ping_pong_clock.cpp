@@ -115,9 +115,9 @@ public:
     return USERMOD_ID_PING_PONG_CLOCK;
   }
 
-    const char* getName() override {
-        return _name;
-    }
+  const char* getName() override {
+    return _name;
+  }
 
 };
 

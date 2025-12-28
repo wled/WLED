@@ -328,10 +328,10 @@ class RgbRotaryEncoderUsermod : public Usermod
       return USERMOD_RGB_ROTARY_ENCODER;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
     //More methods can be added in the future, this example will then be extended.
     //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!

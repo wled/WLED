@@ -146,10 +146,10 @@ class MultiRelay : public Usermod {
      */
     inline uint16_t getId() override { return USERMOD_ID_MULTI_RELAY; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
     /**
      * switch relay on/off

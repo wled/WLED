@@ -289,10 +289,10 @@ class RotaryEncoderUIUsermod : public Usermod {
      */
     uint16_t getId() override { return USERMOD_ID_ROTARY_ENC_UI; }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
     /**
      * Enable/Disable the usermod
      */

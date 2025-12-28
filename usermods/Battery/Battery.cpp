@@ -604,10 +604,10 @@ class UsermodBattery : public Usermod
       return USERMOD_ID_BATTERY;
     }
 
-  const char* getName() override
-  {
-    return _name;
-  }
+    const char* getName() override
+    {
+      return _name;
+    }
 
     /**
      * get currently active battery type

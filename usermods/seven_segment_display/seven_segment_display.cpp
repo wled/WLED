@@ -488,10 +488,10 @@ public:
     return USERMOD_ID_SEVEN_SEGMENT_DISPLAY;
   }
 
-    const char* getName() override {
-        return _name;
-    }
-};
+  const char* getName() override {
+    return _name;
+  }
+  };
 
 const char SevenSegmentDisplay::_str_perSegment[] PROGMEM = "perSegment";
 const char SevenSegmentDisplay::_str_perPeriod[] PROGMEM = "perPeriod";
