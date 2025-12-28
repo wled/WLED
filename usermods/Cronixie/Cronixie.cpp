@@ -2,7 +2,6 @@
 
 class UsermodCronixie : public Usermod {
   private:
-    
     static const char _name[];
 unsigned long lastTime = 0;
     char cronixieDisplay[7] = "HHMMSS";

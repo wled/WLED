@@ -20,7 +20,6 @@
 
 class BuzzerUsermod : public Usermod {
   private:
-    
     static const char _name[];
 unsigned long lastTime_ = 0;
     unsigned long delay_ = 0;

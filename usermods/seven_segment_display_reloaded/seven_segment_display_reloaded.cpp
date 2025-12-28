@@ -15,7 +15,6 @@ class UsermodSSDR : public Usermod {
 //#define REFRESHTIME 497
 
 private:
-  static const char _name[];
   //Runtime variables.
   unsigned long umSSDRLastRefresh = 0;
   unsigned long umSSDRResfreshTime = 3000;
@@ -582,11 +581,10 @@ public:
   }
 
   const char* getName() {
-    return _name;
+    return _str_name;
   }
 };
 
-const char UsermodSSDR::_name[] PROGMEM = "Seven Segment Display Reloaded";
 const char UsermodSSDR::_str_name[]        PROGMEM = "UsermodSSDR";
 const char UsermodSSDR::_str_timeEnabled[] PROGMEM = "enabled";
 const char UsermodSSDR::_str_inverted[]    PROGMEM = "inverted";

@@ -365,7 +365,7 @@ class St7789DisplayUsermod : public Usermod {
      */
     void addToConfig(JsonObject& root) override
     {
-      JsonObject top = root.createNestedObject("ST7789");
+      JsonObject top = root.createNestedObject(FPSTR(_name));
       JsonArray pins = top.createNestedArray("pin");
       pins.add(TFT_CS);
       pins.add(TFT_DC);
@@ -416,7 +416,7 @@ class St7789DisplayUsermod : public Usermod {
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
-const char St7789DisplayUsermod::_name[] PROGMEM = "ST7789 Display";
+const char St7789DisplayUsermod::_name[] PROGMEM = "ST7789";
 
 static St7789DisplayUsermod st7789_display;
 REGISTER_USERMOD(st7789_display);

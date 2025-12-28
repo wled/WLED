@@ -379,8 +379,7 @@ class MyExampleUsermod : public Usermod {
     }
 
     /*
-     * getName() returns the name of the usermod.
-     * If your usermod has a _name string, return it here.
+     * getName() must return the _name string of the usermod.
      */
     const char* getName() override
     {
