@@ -5,8 +5,6 @@
 
 class RTCUsermod : public Usermod {
   private:
-    
-    static const char _name[];
     unsigned long lastTime = 0;
     bool disabled = false;
   public:
@@ -49,12 +47,11 @@ class RTCUsermod : public Usermod {
       return USERMOD_ID_RTC;
     }
 
-    const char* getName() override {
-        return FPSTR(_name);
+    const char* getName() override
+    {
+      return FPSTR(_name);
     }
 };
-
-const char RTCUsermod::_name[] PROGMEM = "RTC";
 
 static RTCUsermod rtc;
 REGISTER_USERMOD(rtc);

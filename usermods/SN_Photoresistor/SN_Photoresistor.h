@@ -78,7 +78,7 @@ public:
     return USERMOD_ID_SN_PHOTORESISTOR;
   }
 
-  const char* getName() override
+  const char* getName()
   {
     return FPSTR(_name);
   }

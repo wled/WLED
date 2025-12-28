@@ -10,9 +10,7 @@ class SevenSegmentDisplay : public Usermod
 #define WLED_SS_BUFFLEN 6
 #define REFRESHTIME 497
 private:
-  
-    static const char _name[];
-    //Runtime variables.
+  //Runtime variables.
   unsigned long lastRefresh = 0;
   unsigned long lastCharacterStep = 0;
   String ssDisplayBuffer = "";
@@ -489,9 +487,10 @@ public:
     return USERMOD_ID_SEVEN_SEGMENT_DISPLAY;
   }
 
-    const char* getName() override {
-        return FPSTR(_name);
-    }
+  const char* getName() override
+  {
+    return FPSTR(_name);
+  }
 };
 
 const char SevenSegmentDisplay::_str_perSegment[] PROGMEM = "perSegment";
@@ -503,8 +502,6 @@ const char SevenSegmentDisplay::_str_scrollSpd[] PROGMEM = "scrollSpd";
 const char SevenSegmentDisplay::_str_displayMask[] PROGMEM = "displayMask";
 const char SevenSegmentDisplay::_str_displayMsg[] PROGMEM = "displayMsg";
 const char SevenSegmentDisplay::_str_sevenSeg[] PROGMEM = "sevenSeg";
-
-const char SevenSegmentDisplay::_name[] PROGMEM = "Seven Segment Display";
 
 static SevenSegmentDisplay seven_segment_display;
 REGISTER_USERMOD(seven_segment_display);

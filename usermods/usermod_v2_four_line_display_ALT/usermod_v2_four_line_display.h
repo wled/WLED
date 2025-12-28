@@ -312,9 +312,8 @@ class FourLineDisplayUsermod : public Usermod {
         return USERMOD_ID_FOUR_LINE_DISP;
       }
 
-  const char* getName() override
-  {
-    return FPSTR(_name);
-  }
+      const char* getName() override {
+        return FPSTR(_name);
+      }
   };
   

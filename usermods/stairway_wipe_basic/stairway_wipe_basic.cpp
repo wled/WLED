@@ -13,8 +13,6 @@
 
 class StairwayWipeUsermod : public Usermod {
   private:
-    
-    static const char _name[];
     //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     byte wipeState = 0; //0: inactive 1: wiping 2: solid
@@ -91,8 +89,9 @@ void setup() {
       return USERMOD_ID_STAIRWAY_WIPE;
     }
 
-    const char* getName() override {
-        return FPSTR(_name);
+    const char* getName() override
+    {
+      return FPSTR(_name);
     }
 
 
@@ -133,8 +132,6 @@ void setup() {
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
-
-const char StairwayWipeUsermod::_name[] PROGMEM = "Stairway Wipe";
 
 static StairwayWipeUsermod stairway_wipe_basic;
 REGISTER_USERMOD(stairway_wipe_basic);

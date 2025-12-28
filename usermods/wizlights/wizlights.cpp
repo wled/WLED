@@ -12,8 +12,6 @@ WiFiUDP UDP;
 class WizLightsUsermod : public Usermod {
   
   private:
-    
-    static const char _name[];
     unsigned long lastTime = 0;
     long updateInterval;
     long sendDelay;
@@ -156,13 +154,12 @@ class WizLightsUsermod : public Usermod {
         
     uint16_t getId(){return USERMOD_ID_WIZLIGHTS;}
 
-    const char* getName() override {
-        return FPSTR(_name);
+    const char* getName() override
+    {
+      return FPSTR(_name);
     }
 };
 
-
-const char WizLightsUsermod::_name[] PROGMEM = "Wiz Lights";
 
 static WizLightsUsermod wizlights;
 REGISTER_USERMOD(wizlights);
