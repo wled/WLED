@@ -156,7 +156,7 @@ void ParticleSystem2D::setParticleSize(uint8_t size) {
     particleHardRadius = PS_P_MINHARDRADIUS + ((particlesize * 52) >> 6); // use 1 pixel + 80% of size for hard radius (slight overlap with boarders so they do not "float" and nicer stacking)
   }
   else if (particlesize == 0)
-    particleHardRadius = particleHardRadius >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
+    particleHardRadius = PS_P_MINHARDRADIUS >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
 }
 
 // enable/disable gravity, optionally, set the force (force=8 is default) can be -127 to +127, 0 is disable
@@ -595,7 +595,7 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
+      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
@@ -842,7 +842,7 @@ void ParticleSystem2D::handleCollisions() {
   for (uint32_t bin = 0; bin < numBins; bin++) {
     binParticleCount = 0; // reset for this bin
     int32_t binStart = bin * binWidth - overlap; // note: first bin will extend to negative, but that is ok as out of bounds particles are ignored
-    int32_t binEnd = binStart + binWidth + overlap; // note: last bin can be out of bounds, see above;
+    int32_t binEnd = binStart + binWidth + (overlap << 1); // add twice the overlap as start is start-overlap, note: last bin can be out of bounds, see above;
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {
@@ -879,7 +879,7 @@ void ParticleSystem2D::handleCollisions() {
           massratio1 = (mass2 << 8) / totalmass; // massratio 1 depends on mass of particle 2, i.e. if 2 is heavier -> higher velocity impact on 1
           massratio2 = (mass1 << 8) / totalmass;
         }
-        // note: using the same logic as in 1D is much slower though it would be more accurate but it is not really needed in 2D
+        // note: using the same logic as in 1D is much slower though it would be more accurate but it is not really needed in 2D: particles slipping through each other is much less visible
         int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance with lookahead
         if (dx * dx < collDistSq) { // check x direction, if close, check y direction (squaring is faster than abs() or dual compare)
           int32_t dy = (particles[idx_j].y + particles[idx_j].vy)  - (particles[idx_i].y + particles[idx_i].vy); // distance with lookahead
@@ -1247,7 +1247,7 @@ void ParticleSystem1D::setParticleSize(const uint8_t size) {
     particleHardRadius = PS_P_MINHARDRADIUS_1D + ((particlesize * 52) >> 6); // use 1 pixel + 80% of size for hard radius (slight overlap with boarders so they do not "float" and nicer stacking)
   }
   else if (particlesize == 0)
-    particleHardRadius = particleHardRadius >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
+    particleHardRadius = PS_P_MINHARDRADIUS_1D >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
 }
 
 // enable/disable gravity, optionally, set the force (force=8 is default) can be -127 to +127, 0 is disable
@@ -1632,7 +1632,7 @@ void ParticleSystem1D::handleCollisions() {
   for (uint32_t bin = 0; bin < numBins; bin++) {
     binParticleCount = 0; // reset for this bin
     int32_t binStart = bin * binWidth - overlap; // note: first bin will extend to negative, but that is ok as out of bounds particles are ignored
-    int32_t binEnd = binStart + binWidth + overlap; // note: last bin can be out of bounds, see above
+    int32_t binEnd = binStart + binWidth + (overlap << 1); // add twice the overlap as start is start-overlap, note: last bin can be out of bounds, see above
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {

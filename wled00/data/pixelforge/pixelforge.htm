@@ -399,9 +399,17 @@ button, .btn {
 	<hr>
 	<div class="ed active">
 		<div>
+			<h3>Video Lab</h3>
+			<div><small>Stream video and generate animated GIFs (beta)</small></div>
+			<button class="btn" id="t2" style="display:none"></button>
+		</div>
+	</div>
+	<hr>
+	<div class="ed active">
+		<div>
 			<h3>PIXEL MAGIC Tool</h3>
 			<div><small>Legacy pixel art editor</small></div>
-			<button class="btn" id="t2" style="display:none"></button>
+			<button class="btn" id="t3" style="display:none"></button>
 		</div>
 	</div>
 	<hr>
@@ -439,7 +447,8 @@ let fL; // file list
 	await segLoad(); // load available segments
 	await flU(); // update file list
 	toolChk('pixelpaint.htm','t1'); // update buttons of additional tools
-	toolChk('pxmagic.htm','t2');
+	toolChk('videolab.htm','t2');
+	toolChk('pxmagic.htm','t3');
 	await fsMem(); // show file system memory info
 })();
 
