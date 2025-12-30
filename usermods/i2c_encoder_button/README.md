@@ -1,6 +1,6 @@
 # usermod_i2c_encoder
 
-This usermod enables the use of a [DUPPA I2CEncoder V2.1](https://www.tindie.com/products/saimon/i2cencoder-v21-connect-rotary-encoder-on-i2c-bus/) rotary encoder + pushbutton to control WLED.
+This usermod enables the use of a [DUPPA I2CEncoder V2.1](https://github.com/DuPPadotnet/I2CEncoderV2.1) rotary encoder + pushbutton to control WLED.
 
 Settings will be available on the Usermods page of the web UI. Here you can define which pins are used for interrupt, SCL, and SDA. Restart is needed for new values to take effect.
 
