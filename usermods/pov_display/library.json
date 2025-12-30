@@ -1,5 +1,0 @@
-{
-  "name:": "pov_display",
-  "build": { "libArchive": false},
-  "platforms": ["espressif32"]
-}

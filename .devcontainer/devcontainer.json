@@ -5,7 +5,10 @@
 		"context": "..",
 		"args": { 
 			// Update 'VARIANT' to pick a Python version: 3, 3.6, 3.7, 3.8, 3.9
-			"VARIANT": "3"
+			"VARIANT": "3",
+			// Options
+			"INSTALL_NODE": "true",
+			"NODE_VERSION": "lts/*"
 		}
 	},
 
@@ -24,8 +27,7 @@
 	// risk to running the build directly on the host.
 	// "runArgs": ["--privileged", "-v", "/dev/bus/usb:/dev/bus/usb", "--group-add", "dialout"],
 
-	"customizations": {
-		"vscode": {
+	// Set *default* container specific settings.json values on container create.
 			"settings": { 
 				"terminal.integrated.shell.linux": "/bin/bash",
 				"python.pythonPath": "/usr/local/bin/python",
@@ -41,18 +43,18 @@
 				"python.linting.pydocstylePath": "/usr/local/py-utils/bin/pydocstyle",
 				"python.linting.pylintPath": "/usr/local/py-utils/bin/pylint"
 			},
+
+	// Add the IDs of extensions you want installed when the container is created.
 			"extensions": [
 				"ms-python.python",
 				"platformio.platformio-ide"
-			]
-		}
-	},
+	],
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "bash -i -c 'nvm install && npm ci'",
+	"postCreateCommand": "npm install",
 
 	// Comment out connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
 	"remoteUser": "vscode"
