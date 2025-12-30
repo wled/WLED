@@ -1,7 +1,0 @@
-{
-  "name": "mpu6050_imu",
-  "build": { "libArchive": false},
-  "dependencies": {
-    "electroniccats/MPU6050":"1.0.1"
-  }
-}

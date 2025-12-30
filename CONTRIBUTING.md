@@ -14,7 +14,7 @@ A good description helps us to review and understand your proposed changes. For 
 
 ### Target branch for pull requests
 
-Please make all PRs against the `main` branch.
+Please make all PRs against the `0_15` branch.
 
 ### Updating your code
 While the PR is open - and under review by maintainers - you may be asked to modify your PR source code.
@@ -27,7 +27,7 @@ Github will pick up the changes so your PR stays up-to-date.
 > For example, we regularly lost review comments when the PR author force-pushes code changes. So, pretty please, do not force-push.
 
 
-You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
+You can find a collection of very useful tips and tricks here: https://github.com/Aircoookie/WLED/wiki/How-to-properly-submit-a-PR
 
 
 ### Code style

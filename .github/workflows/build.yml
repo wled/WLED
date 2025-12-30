@@ -26,7 +26,7 @@ jobs:
 
 
   build:
-    name: Build Environments
+    name: Build Enviornments
     runs-on: ubuntu-latest
     needs: get_default_envs
     strategy:
@@ -38,12 +38,8 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version-file: '.nvmrc'
         cache: 'npm'
-    - run: |
-        npm ci
-        VERSION=`date +%y%m%d0`
-        sed -i -r -e "s/define VERSION .+/define VERSION $VERSION/" wled00/wled.h
+    - run: npm ci
     - name: Cache PlatformIO
       uses: actions/cache@v4
       with:
@@ -60,7 +56,6 @@ jobs:
           cache: 'pip'
     - name: Install PlatformIO
       run: pip install -r requirements.txt
-
     - name: Build firmware
       run: pio run -e ${{ matrix.environment }}
     - uses: actions/upload-artifact@v4
@@ -79,7 +74,7 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version-file: '.nvmrc'
+          node-version: '20.x'
           cache: 'npm'
       - run: npm ci
       - run: npm test
