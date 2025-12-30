@@ -1,0 +1,80 @@
+name: WLED Build
+
+# Only included into other workflows
+on:
+  workflow_call:
+  
+jobs:
+
+  get_default_envs:
+    name: Gather Environments
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    - name: Install PlatformIO
+      run: pip install -r requirements.txt
+    - name: Get default environments
+      id: envs
+      run: |
+        echo "environments=$(pio project config --json-output | jq -cr '.[0][1][0][1]')" >> $GITHUB_OUTPUT
+    outputs:
+      environments: ${{ steps.envs.outputs.environments }}
+
+
+  build:
+    name: Build Enviornments
+    runs-on: ubuntu-latest
+    needs: get_default_envs
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: ${{ fromJSON(needs.get_default_envs.outputs.environments) }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        cache: 'npm'
+    - run: npm ci
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+              ~/.platformio/.cache
+              ~/.buildcache
+              build_output
+        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+          python-version: '3.12'
+          cache: 'pip'
+    - name: Install PlatformIO
+      run: pip install -r requirements.txt
+    - name: Build firmware
+      run: pio run -e ${{ matrix.environment }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: firmware-${{ matrix.environment }}
+        path: |
+          build_output/release/*.bin
+          build_output/release/*_ESP02*.bin.gz
+
+
+  testCdata:
+    name: Test cdata.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm test

@@ -1,0 +1,86 @@
+name: Bug Report
+description: File a bug report
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please quickly search existing issues first before submitting a bug.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear and concise description of what the bug is.
+      placeholder: Tell us what the problem is.
+    validations:
+      required: true
+  - type: textarea
+    id: how-to-reproduce
+    attributes:
+      label: To Reproduce Bug
+      description: Steps to reproduce the behavior, if consistently possible.
+      placeholder: Tell us how to make the bug appear.
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: A clear and concise description of what you expected to happen.
+      placeholder: Tell us what you expected to happen.
+    validations:
+      required: true
+  - type: dropdown
+    id: install_format
+    attributes:
+      label: Install Method
+      description: How did you install WLED?
+      options:
+        - Binary from WLED.me
+        - Self-Compiled
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: What version of WLED?
+      description: You can find this in by going to Config -> Security & Updates -> Scroll to Bottom. Copy and paste the entire line after "Server message"
+      placeholder: "e.g. WLED 0.13.1 (build 2203150)"
+    validations:
+      required: true
+  - type: dropdown
+    id: Board
+    attributes:
+      label: Which microcontroller/board are you seeing the problem on?
+      multiple: true
+      options:
+        - ESP8266
+        - ESP32
+        - ESP32-S3
+        - ESP32-S2
+        - ESP32-C3
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log/trace output
+      description: Please copy and paste any relevant log output if you have it. This will be automatically formatted into code, so no need for backticks.
+      render: shell
+  - type: textarea
+    attributes:
+      label: Anything else?
+      description: |
+        Links? References? Anything that will give us more context about the issue you are encountering!
+        Tip: You can attach images or log files by clicking this area to highlight it and then dragging files in.
+    validations:
+      required: false
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/Aircoookie/WLED/blob/master/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
