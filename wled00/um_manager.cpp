@@ -68,6 +68,10 @@ bool UsermodManager::onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t 
   return false;
 }
 #endif
+bool UsermodManager::onUdpPacket(uint8_t* payload, size_t len) {
+  for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) if ((*mod)->onUdpPacket(payload, len)) return true;
+  return false;
+}
 void UsermodManager::onUpdateBegin(bool init) { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->onUpdateBegin(init); } // notify usermods that update is to begin
 void UsermodManager::onStateChange(uint8_t mode) { for (auto mod = _usermod_table_begin; mod < _usermod_table_end; ++mod) (*mod)->onStateChange(mode); } // notify usermods that WLED state changed
 

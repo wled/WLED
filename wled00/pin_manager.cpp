@@ -139,6 +139,12 @@ bool PinManager::allocateMultiplePins(const managed_pin_type * mptArray, byte ar
   return true;
 }
 
+bool PinManager::allocateMultiplePins(const int8_t * mptArray, byte arrayElementCount, PinOwner tag, boolean output) {
+  PinManagerPinType pins[arrayElementCount];
+  for (int i=0; i<arrayElementCount; i++) pins[i] = {mptArray[i], output};
+  return allocateMultiplePins(pins, arrayElementCount, tag);
+}
+
 bool PinManager::allocatePin(byte gpio, bool output, PinOwner tag)
 {
   // HW I2C & SPI pins have to be allocated using allocateMultiplePins variant since there is always SCL/SDA pair

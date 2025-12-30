@@ -28,27 +28,77 @@ log() {
     fi
 }
 
-# Generic curl handler function
-curl_handler() {
-    local command="$1"
-    local hostname="$2"
+# Fetch a URL to a destination file, validating status codes.
+# Usage: fetch "<url>" "<dest or empty>" "200 404"
+fetch() {
+    local url="$1"
+    local dest="$2"
+    local accepted="${3:-200}"
 
-    response=$($command -w "%{http_code}" -o /dev/null)
-    curl_exit_code=$?
-
-    if [ "$response" -ge 200 ] && [ "$response" -lt 300 ]; then
-        return 0
-    elif [ $curl_exit_code -ne 0 ]; then
-        log "ERROR" "$RED" "Connection error during request to $hostname (curl exit code: $curl_exit_code)."
-        return 1
-    elif [ "$response" -ge 400 ]; then
-        log "ERROR" "$RED" "Server error during request to $hostname (HTTP status code: $response)."
-        return 2
+    # If no dest given, just discard body
+    local out
+    if [ -n "$dest" ]; then
+        # Write to ".tmp" files first, then move when success, to ensure we don't write partial files
+        out="${dest}.tmp"
     else
-        log "ERROR" "$RED" "Unexpected response from $hostname (HTTP status code: $response)."
-        return 3
+        out="/dev/null"
     fi
+
+    response=$(curl --connect-timeout 5 --max-time 30 -s -w "%{http_code}" -o "$out" "$url")
+    local curl_exit_code=$?
+
+    if [ $curl_exit_code -ne 0 ]; then
+        [ -n "$dest" ] && rm -f "$out"
+        log "ERROR" "$RED" "Connection error during request to $url (curl exit code: $curl_exit_code)."
+        return 1
+    fi
+
+    for code in $accepted; do
+        if [ "$response" = "$code" ]; then
+            # Accepted; only persist body for 2xx responses
+            if [ -n "$dest" ]; then
+                if [[ "$response" =~ ^2 ]]; then
+                    mv "$out" "$dest"
+                else
+                    rm -f "$out"
+                fi
+            fi
+            return 0
+        fi
+    done
+
+    # not accepted
+    [ -n "$dest" ] && rm -f "$out"
+    log "ERROR" "$RED" "Unexpected response from $url (HTTP $response)."
+    return 2
 }
+
+
+# POST a file to a URL, validating status codes.
+# Usage: post_file "<url>" "<file>" "200"
+post_file() {
+    local url="$1"
+    local file="$2"
+    local accepted="${3:-200}"
+
+    response=$(curl --connect-timeout 5 --max-time 300 -s -w "%{http_code}" -o /dev/null -X POST -F "file=@$file" "$url")
+    local curl_exit_code=$?
+
+    if [ $curl_exit_code -ne 0 ]; then
+        log "ERROR" "$RED" "Connection error during POST to $url (curl exit code: $curl_exit_code)."
+        return 1
+    fi
+
+    for code in $accepted; do
+        if [ "$response" -eq "$code" ]; then
+            return 0
+        fi
+    done
+
+    log "ERROR" "$RED" "Unexpected response from $url (HTTP $response)."
+    return 2
+}
+
 
 # Print help message
 show_help() {
@@ -109,33 +159,27 @@ backup_one() {
     local address="$2"
     local port="$3"
 
-    log "INFO" "$YELLOW" "Backing up device config/presets: $hostname ($address:$port)"
+    log "INFO" "$YELLOW" "Backing up device config/presets/ir: $hostname ($address:$port)"
 
     mkdir -p "$backup_dir"
 
-    local cfg_url="http://$address:$port/cfg.json"
-    local presets_url="http://$address:$port/presets.json"
-    local cfg_dest="${backup_dir}/${hostname}.cfg.json"
-    local presets_dest="${backup_dir}/${hostname}.presets.json"
+    local file_prefix="${backup_dir}/${hostname}"
 
-    # Write to ".tmp" files first, then move when success, to ensure we don't write partial files
-    local curl_command_cfg="curl -s "$cfg_url" -o "$cfg_dest.tmp""
-    local curl_command_presets="curl -s "$presets_url" -o "$presets_dest.tmp""
-
-    if ! curl_handler "$curl_command_cfg" "$hostname"; then  
+    if ! fetch "http://$address:$port/cfg.json" "${file_prefix}.cfg.json"; then  
         log "ERROR" "$RED" "Failed to backup configuration for $hostname"  
-        rm -f "$cfg_dest.tmp"  
         return 1  
     fi  
     
-    if ! curl_handler "$curl_command_presets" "$hostname"; then  
+    if ! fetch "http://$address:$port/presets.json" "${file_prefix}.presets.json"; then  
         log "ERROR" "$RED" "Failed to backup presets for $hostname"  
-        rm -f "$presets_dest.tmp"  
         return 1  
-    fi 
+    fi
 
-    mv "$cfg_dest.tmp" "$cfg_dest"
-    mv "$presets_dest.tmp" "$presets_dest"
+    # ir.json is optional
+    if ! fetch "http://$address:$port/ir.json" "${file_prefix}.ir.json" "200 404"; then
+        log "ERROR" "$RED" "Failed to backup ir configs for $hostname" 
+    fi
+
     log "INFO" "$GREEN" "Successfully backed up config and presets for $hostname"
     return 0
 }
@@ -150,9 +194,8 @@ update_one() {
     log "INFO" "$YELLOW" "Starting firmware update for device: $hostname ($address:$port)"
 
     local url="http://$address:$port/update"
-    local curl_command="curl -s -X POST -F "file=@$firmware" "$url""
 
-    if ! curl_handler "$curl_command" "$hostname"; then
+    if ! post_file "$url" "$firmware" "200"; then
         log "ERROR" "$RED" "Failed to update firmware for $hostname"
         return 1
     fi
