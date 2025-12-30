@@ -200,6 +200,7 @@ void getTimeString(char* out);
 bool checkCountdown();
 void setCountdown();
 byte weekdayMondayFirst();
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd);
 void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
