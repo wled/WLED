@@ -1000,7 +1000,8 @@ void Segment::refreshLightCapabilities() const {
         if (!strip.cctFromRgb && bus->hasCCT())                   capabilities |= SEG_CAPABILITY_CCT;
         if (strip.correctWB && (bus->hasRGB() || bus->hasCCT()))  capabilities |= SEG_CAPABILITY_CCT; //white balance correction (CCT slider)
         if (bus->hasWhite()) {
-          unsigned aWM = Bus::getGlobalAWMode() == AW_GLOBAL_DISABLED ? bus->getAutoWhiteMode() : Bus::getGlobalAWMode();
+          // get auto white mode: priority is global -> temp global -> per bus
+          unsigned aWM = Bus::getGlobalAWMode() == AW_GLOBAL_DISABLED? (Bus::getTempAWMode() == AW_GLOBAL_DISABLED ? bus->getAutoWhiteMode() : Bus::getTempAWMode()) : Bus::getGlobalAWMode();
           bool whiteSlider = (aWM == RGBW_MODE_DUAL || aWM == RGBW_MODE_MANUAL_ONLY); // white slider allowed
           // if auto white calculation from RGB is active (Accurate/Brighter), force RGB controls even if there are no RGB busses
           if (!whiteSlider) capabilities |= SEG_CAPABILITY_RGB;
