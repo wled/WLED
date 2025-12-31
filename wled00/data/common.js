@@ -151,7 +151,7 @@ async function uploadFile(fileObj, name, callback) {
   }
 	var req = new XMLHttpRequest();
 	req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400); if(callback) callback(this.status < 400);});
-	req.addEventListener('error', function(e){showToast(e.stack,true); if(callback) callback(false);});
+	req.addEventListener('error', function(e){showToast("Upload failed",true); if(callback) callback(false);});
 	req.open("POST", "/upload");
 	var formData = new FormData();
 	formData.append("data", file, name);
