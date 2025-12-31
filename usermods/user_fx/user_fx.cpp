@@ -101,6 +101,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *   Checkbox2 is for Overlay mode (enabled is Overlay, disabled is no overlay)
 *   Checkbox3 is for whether the ants will bump into each other (disabled) or just pass by each other (enabled)
 */
+
 // Ant structure representing each ant's state
 struct Ant {
   unsigned long lastBumpUpdate;  // the last time the ant bumped into another ant
@@ -274,6 +275,7 @@ static uint16_t mode_ants(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Smear,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
+
 
 
 /////////////////////
