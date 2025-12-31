@@ -17,26 +17,65 @@
 			}
 			window.open(getURL("/update?revert"),"_self");
 		}
-		function GetV() {/*injected values here*/}
+		function GetV() {
+			// Fetch device info via JSON API instead of compiling it in
+			fetch('/json/info')
+				.then(response => response.json())
+				.then(data => {
+					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
+					document.querySelector('.release-name').textContent = data.release;
+					// TODO - assemble update URL
+					// TODO - can this be done at build time?
+					if (data.arch == "esp8266") {
+						toggle('rev');
+					}
+					const isESP32 = data.arch && (data.arch.toLowerCase() === 'esp32' || data.arch.toLowerCase() === 'esp32-s2');
+					if (isESP32) {
+						gId('bootloader-section').style.display = 'block';
+						if (data.bootloaderSHA256) {
+							gId('bootloader-hash').innerText = 'Current bootloader SHA256: ' + data.bootloaderSHA256;
+						}
+					}
+				})
+				.catch(error => {
+					console.log('Could not fetch device info:', error);
+					// Fallback to compiled-in value if API call fails
+					document.querySelector('.installed-version').textContent = 'Unknown';
+					document.querySelector('.release-name').textContent = 'Unknown';
+				});
+		}
 	</script>
 	<style>
 		@import url("style.css");
 	</style>
 </head>
-
-<body onload="GetV()">
+<body onload="GetV();">
 	<h2>WLED Software Update</h2>
 	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="toggle('upd')">
-		Installed version: <span class="sip">WLED ##VERSION##</span><br>
+		Installed version: <span class="sip installed-version">Loading...</span><br>
+		Release: <span class="sip release-name">Loading...</span><br>
 		Download the latest binary: <a href="https://github.com/wled-dev/WLED/releases" target="_blank" 
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square"></a><br>
+		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
+		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
+		<label for='skipValidation'>Ignore firmware validation</label><br>
 		<button type="submit">Update!</button><br>
 		<hr class="sml">
 		<button id="rev" type="button" onclick="cR()">Revert update</button><br>
 		<button type="button" onclick="B()">Back</button>
 	</form>
+	<div id="bootloader-section" style="display:none;">
+		<hr class="sml">
+		<h2>ESP32 Bootloader Update</h2>
+		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;"></div>
+		<form method='POST' action='./updatebootloader' id='bootupd' enctype='multipart/form-data' onsubmit="toggle('bootupd')">
+			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br>
+			<input type='file' name='update' required><br>
+			<button type="submit">Update Bootloader</button>
+		</form>
+	</div>
 	<div id="Noupd" class="hide"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
 </body>
 </html>

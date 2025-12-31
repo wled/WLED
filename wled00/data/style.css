@@ -36,6 +36,7 @@ button, .btn {
   min-width: 48px;
   cursor: pointer;
   text-decoration: none;
+  transition: all 0.3s ease;
 }
 button.sml {
   padding: 8px;
@@ -44,6 +45,11 @@ button.sml {
   min-width: 40px;
   margin: 0 0 0 10px;
 }
+button:hover, .btn:hover{
+  background:#555;
+  border-color:#555;
+}
+
 #scan {
   margin-top: -10px;
 }
