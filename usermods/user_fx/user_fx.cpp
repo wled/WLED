@@ -108,6 +108,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *    - there are 3 spaces between each letter or number
 *    - there are 7 spaces between each word
 */
+
 // Build morse pattern into a buffer
 void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) {
   const char *c = morse_code;
@@ -257,6 +258,7 @@ static uint16_t mode_morsecode(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,,Color mode,Punctuation,EndOfMessage;;!;1;sx=128,o1=1,o2=1";
+
 
 
 /////////////////////
