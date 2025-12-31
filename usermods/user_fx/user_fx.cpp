@@ -95,11 +95,17 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 
 /*
- * Lava Lamp 2D effect
- *  Uses particles to simulate rising blobs of "lava"
- *  Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
- *  Created by Bob Loeffler using claude.ai
- */
+/  Lava Lamp 2D effect
+*  Uses particles to simulate rising blobs of "lava"
+*  Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
+*  Created by Bob Loeffler using claude.ai
+*  The first slider sets the speed of the rising and falling blobs
+*  The second slider sets the number of active blobs
+*  The third slider sets the size range of the blobs
+*  The first checkbox sets the color mode (color wheel or palette)
+*  The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*/
+
 #define MAX_LAVA_PARTICLES 50
 
 typedef struct LavaParticle {
@@ -159,7 +165,7 @@ uint16_t mode_2D_lavalamp(void) {
 
   // Spawn new particles at the bottom near the center
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
-    if (!lavaParticles[i].active && random8() < 32) { // Always spawn when slot available
+    if (!lavaParticles[i].active && hw_random8() < 32) { // Always spawn when slot available
       // Spawn in the middle 60% of the width
       float centerStart = cols * 0.20f;
       float centerWidth = cols * 0.60f;
@@ -178,7 +184,7 @@ uint16_t mode_2D_lavalamp(void) {
       float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
       lavaParticles[i].size = minSize + random16((int)(sizeRange * 10)) / 10.0f;
 
-      lavaParticles[i].hue = SEGMENT.check1 ? random8() : random16(256);
+      lavaParticles[i].hue = SEGMENT.check1 ? hw_random8() : random16(256);
       lavaParticles[i].life = 255;
       lavaParticles[i].active = true;
       break;
@@ -325,7 +331,7 @@ uint16_t mode_2D_lavalamp(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;ix=64,o2=1,pal=47";
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;sx=64,ix=64,o2=1,pal=47";
 #undef MAX_LAVA_PARTICLES
 
 
