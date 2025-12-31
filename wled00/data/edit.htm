@@ -5,12 +5,10 @@
 <meta name="author" content="DedeHai, based on editor by Me-No-Dev">
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"><!-- prevent too much scaling on mobile -->
 <link rel="shortcut icon" href="favicon.ico">
-<link href="style.css" rel="stylesheet">
 <!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
-<script src="common.js"></script>
 <style>
 /* Editor-specific styles */
 body {
@@ -113,6 +111,15 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <script>
+// load common.js with retry on error
+(function loadFiles() {
+	const l = document.createElement('script');
+	l.src = 'common.js';
+	l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+	l.onerror = () => setTimeout(loadFiles, 100);
+	document.head.appendChild(l);
+})();
+
 var QueuedRequester = function(){ this.q=[]; this.r=false; this.x=null; }
 QueuedRequester.prototype = {
 	_request: function(req){
@@ -411,7 +418,7 @@ function createEditor(element,file){
 		// Check filename from text field or current file
 		var pathField = gId("filepath");
 		var filename = (pathField && pathField.value) ? pathField.value : currentFile;
-		aceEditor.session.setMode(filename && filename.toLowerCase().endsWith('.json') ? "ace/mode/json" : "ace/mode/text");
+		aceEditor.session.setMode(filename && (/\.json$/i.test(filename)) ? "ace/mode/json" : "ace/mode/text"); // same as filename.toLowerCase().endsWith('.json')
 	}
 
 	// Try to initialize Ace editor if available
@@ -467,7 +474,7 @@ function createEditor(element,file){
 		var filename = pathField ? pathField.value : currentFile;
 		var border = "2px solid #333";
 
-		if (filename && filename.toLowerCase().endsWith('.json')) {
+		if (filename && (/\.json$/i.test(filename))) { // same as filename.toLowerCase().endsWith('.json')
 			try {
 				JSON.parse(ta.value);
 			} catch(e) {
@@ -478,23 +485,19 @@ function createEditor(element,file){
 	};
 
 	function saveFile(filename,data){
-		var finalData = data;
-		// Minify JSON files before upload
-		if (filename.toLowerCase().endsWith('.json')) {
+		var outdata = data;
+		if (/\.json$/i.test(filename)) { // same as filename.toLowerCase().endsWith('.json')
 			try {
-				finalData = JSON.stringify(JSON.parse(data));
+				outdata = JSON.stringify(JSON.parse(data)); // validate and minify
 			} catch(e) {
-				alert("Invalid JSON! Please fix syntax.");
+				alert("Invalid JSON! Please fix.");
 				return;
 			}
 		}
-		var fd=new FormData();
-		fd.append("file",new Blob([finalData],{type:"text/plain"}),filename);
-		req.add("POST","/upload",fd,function(st,resp){
-			if (st!=200) alert("ERROR "+st+": "+resp);
-			else {
-				showToast("File saved");
+		uploadFile({files: [new Blob([outdata], {type:"text/plain"})]}, filename, function(s) {
+			if(s) {
 				refreshTree();
+				loadFile(filename); // (re)load if saved successfully to update formating or show file content
 			}
 		});
 	}
@@ -505,9 +508,9 @@ function createEditor(element,file){
 			gId("preview").style.display="none";
 			gId("editor").style.display="flex";
 			if (st==200) {
-				if (filename.toLowerCase().endsWith('.json')) {
+				if ((/\.json$/i.test(filename))) { // same as filename.toLowerCase().endsWith('.json')
 					try {
-						setContent(filename.toLowerCase().includes('ledmap') ? prettyLedmap(resp) : JSON.stringify(JSON.parse(resp), null, 2));
+						setContent(/ledmap/i.test(filename) ? prettyLedmap(resp) : JSON.stringify(JSON.parse(resp), null, 2)); // pretty-print ledmap files (i.e. if file name includes "ledmap" case-insensitive)
 					} catch(e) {
 						setContent(resp);
 					}
@@ -534,8 +537,7 @@ function createEditor(element,file){
 			}
 			if (!fn.startsWith("/")) fn = "/" + fn;
 			currentFile = fn; // Update current file
-			saveFile(fn, getContent());
-			loadFile(fn);
+			saveFile(fn, getContent()) 
 		},
 		loadText:function(fn){
 			currentFile=fn;
@@ -558,7 +560,7 @@ function createEditor(element,file){
 	};
 }
 
-function onBodyLoad(){
+function S(){
 	var vars={};
 	window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi,function(m,k,v){
 		vars[decodeURIComponent(k)]=decodeURIComponent(v);
@@ -577,7 +579,7 @@ function onBodyLoad(){
 }
 </script>
 </head>
-<body onload="onBodyLoad()">
+<body>
 	<div id="toast"></div>
 	<div id="loader"><div class="loader"></div></div>
 	<div id="top"></div>
