@@ -201,7 +201,7 @@ static uint16_t mode_ants(void) {
 
   // Update and render each ant
   for (int i = 0; i < numAnts; i++) {
-    float timeSinceLastUpdate = float(strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+    float timeSinceLastUpdate = float(int(strip.now - ants[i].lastBumpUpdate)) / timeConversionFactor;
     float newPosition = ants[i].position + ants[i].velocity * timeSinceLastUpdate;
 
     // Reset ants that wandered too far off-track (e.g., after intensity change)
@@ -227,7 +227,7 @@ static uint16_t mode_ants(void) {
         float collisionTime = (timeConversionFactor * (ants[i].position - ants[j].position) + ants[i].velocity * timeOffset) / (ants[j].velocity - ants[i].velocity);
 
         // Check if collision occurred in valid time window
-        float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
+        float timeSinceJ = float(int(strip.now - ants[j].lastBumpUpdate));
         if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
           // Update positions to collision point
           float adjustedTime = (collisionTime + float(int(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate))) / timeConversionFactor;
@@ -247,7 +247,7 @@ static uint16_t mode_ants(void) {
           }
 
           // Recalculate position after collision
-          newPosition = ants[i].position + ants[i].velocity * (strip.now - ants[i].lastBumpUpdate) / timeConversionFactor;
+          newPosition = ants[i].position + ants[i].velocity * float(int(strip.now - ants[i].lastBumpUpdate)) / timeConversionFactor;
         }
       }
     }
