@@ -223,7 +223,7 @@ static uint16_t mode_ants(void) {
         if (fabsf(ants[j].velocity - ants[i].velocity) < 0.001f) continue;  // Moving in same direction at same speed; avoids tiny denominators
 
         // Calculate collision time using physics -  collisionTime formula adapted from rolling_balls
-        float timeOffset = float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate);
+        float timeOffset = float(int(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate));
         float collisionTime = (timeConversionFactor * (ants[i].position - ants[j].position) + ants[i].velocity * timeOffset) / (ants[j].velocity - ants[i].velocity);
 
         // Check if collision occurred in valid time window
