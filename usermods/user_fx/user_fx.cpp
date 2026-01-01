@@ -287,15 +287,17 @@ uint16_t mode_2D_lavalamp(void) {
     }
     
     // Extract RGB
-    uint8_t r = (color >> 16) & 0xFF;
-    uint8_t g = (color >> 8) & 0xFF;
-    uint8_t b = color & 0xFF;
-    
+    uint8_t w = W(color);
+    uint8_t r = R(color);
+    uint8_t g = G(color);
+    uint8_t b = B(color);
+
     // Apply life/opacity
+    w = (w * p->life) >> 8;
     r = (r * p->life) >> 8;
     g = (g * p->life) >> 8;
     b = (b * p->life) >> 8;
-    
+
     // Draw blob with soft edges (gaussian-like falloff)
     for (int dy = -(int)p->size; dy <= (int)p->size; dy++) {
       for (int dx = -(int)p->size; dx <= (int)p->size; dx++) {
@@ -309,21 +311,24 @@ uint16_t mode_2D_lavalamp(void) {
             float intensity = 1.0f - (dist / p->size);
             intensity = intensity * intensity; // Square for smoother falloff
             
+            uint8_t bw = w * intensity;
             uint8_t br = r * intensity;
             uint8_t bg = g * intensity;
             uint8_t bb = b * intensity;
-            
+
             // Additive blending for organic merging
             uint32_t existing = SEGMENT.getPixelColorXY(px, py);
+            uint8_t ew = (existing >> 24) & 0xFF;
             uint8_t er = (existing >> 16) & 0xFF;
             uint8_t eg = (existing >> 8) & 0xFF;
             uint8_t eb = existing & 0xFF;
-            
+
+            ew = qadd8(ew, bw);
             er = qadd8(er, br);
             eg = qadd8(eg, bg);
             eb = qadd8(eb, bb);
             
-            SEGMENT.setPixelColorXY(px, py, RGBW32(er, eg, eb, 0));
+            SEGMENT.setPixelColorXY(px, py, RGBW32(er, eg, eb, ew));
           }
         }
       }
