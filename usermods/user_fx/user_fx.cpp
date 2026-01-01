@@ -151,6 +151,19 @@ static uint16_t mode_morsecode(void) {
   // 0-9 in Morse Code
   static const char * numbers[] = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
 
+  // Punctuation in Morse Code
+  struct PunctuationMapping {
+    char character;
+    const char* code;
+  };
+
+  static const PunctuationMapping punctuation[] = {
+    {'.', ".-.-.-"}, {',', "--..--"}, {'?', "..--.."}, 
+    {':', "---..."}, {'-', "-....-"}, {'!', "-.-.--"},
+    {'&', ".-..."}, {'@', ".--.-."}, {')', "-.--.-"},
+    {'(', "-.--."}, {'/', "-..-."}, {'\'', ".----."}
+  };
+
   // Get the text to display
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t len = 0;
@@ -207,19 +220,11 @@ static uint16_t mode_morsecode(void) {
       // Check for punctuation
       else if (SEGMENT.check2) {
         const char *punctuationCode = nullptr;
-        switch (*c) {
-          case '.': punctuationCode = ".-.-.-"; break;
-          case ',': punctuationCode = "--..--"; break;
-          case '?': punctuationCode = "..--.."; break;
-          case ':': punctuationCode = "---..."; break;
-          case '-': punctuationCode = "-....-"; break;
-          case '!': punctuationCode = "-.-.--"; break;
-          case '&': punctuationCode = ".-..."; break;
-          case '@': punctuationCode = ".--.-."; break;
-          case ')': punctuationCode = "-.--.-"; break;
-          case '(': punctuationCode = "-.--."; break;
-          case '/': punctuationCode = "-..-."; break;
-          case '\'': punctuationCode = ".----."; break;  // apostrophe character must be escaped with a \ character
+        for (const auto& p : punctuation) {
+          if (*c == p.character) {
+            punctuationCode = p.code;
+            break;
+          }
         }
         if (punctuationCode) {
           build_morsecode_pattern(punctuationCode, morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
