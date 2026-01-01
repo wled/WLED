@@ -114,6 +114,8 @@ constexpr unsigned MAX_ANTS = 32;
 constexpr float MIN_COLLISION_TIME_MS = 2.0f;
 constexpr float VELOCITY_MIN = 2.0f;
 constexpr float VELOCITY_MAX = 10.0f;
+constexpr unsigned ANT_SIZE_MIN = 1;
+constexpr unsigned ANT_SIZE_MAX = 20;
 
 // Helper function to get food pixel color based on ant and background colors
 static uint32_t getFoodColor(uint32_t antColor, uint32_t backgroundColor) {
@@ -173,7 +175,7 @@ static uint16_t mode_ants(void) {
   bool gatherFood = SEGMENT.check1;
   bool SmearMode = SEGMENT.check2;
   bool passBy = SEGMENT.check3 || gatherFood;  // global no‑collision when gathering food is enabled
-  unsigned antSize = map(SEGMENT.custom1, 0, 255, 1, 20) + (gatherFood ? 1 : 0);
+  unsigned antSize = map(SEGMENT.custom1, 0, 255, ANT_SIZE_MIN, ANT_SIZE_MAX) + (gatherFood ? 1 : 0);
 
   // Initialize ants on first call
   if (SEGENV.call == 0) {
