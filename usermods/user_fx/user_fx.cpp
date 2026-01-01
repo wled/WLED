@@ -230,7 +230,7 @@ static uint16_t mode_ants(void) {
         float timeSinceJ = float(strip.now - ants[j].lastBumpUpdate);
         if (collisionTime > MIN_COLLISION_TIME_MS && collisionTime < timeSinceJ) {
           // Update positions to collision point
-          float adjustedTime = (collisionTime + float(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate)) / timeConversionFactor;
+          float adjustedTime = (collisionTime + float(int(ants[j].lastBumpUpdate - ants[i].lastBumpUpdate))) / timeConversionFactor;
           ants[i].position += ants[i].velocity * adjustedTime;
           ants[j].position = ants[i].position;
 
