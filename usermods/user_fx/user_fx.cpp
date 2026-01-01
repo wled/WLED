@@ -110,27 +110,30 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 */
 
 // Build morse pattern into a buffer
-void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) {
+void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index, int maxSize) {
   const char *c = morse_code;
   
   // Build the dots and dashes into pattern array
   while (*c != '\0') {
+    if (index >= maxSize - 4) return; // Reserve space for spacing
     // it's a dot which is 1 pixel
     if (*c == '.') {
       pattern[index++] = true;
     }
     else { // Must be a dash which is 3 pixels
+      if (index >= maxSize - 3) return;
       pattern[index++] = true;
       pattern[index++] = true;
       pattern[index++] = true;
     }
     
-    // 1 space between parts of a character (letter/number/punctuation)
+    // 1 space between parts of a letter/number
     pattern[index++] = false;
     c++;
   }
     
-  // 3 spaces between each character
+  // 3 spaces between two letters
+  if (index >= maxSize - 3) return;
   pattern[index++] = false;
   pattern[index++] = false;
   pattern[index++] = false;
@@ -138,17 +141,17 @@ void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index) 
 
 static uint16_t mode_morsecode(void) {
   if (SEGLEN < 1) return mode_static();
-
+  
   // A-Z in Morse Code
-  static const char * letters[] PROGMEM = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
+  static const char * letters[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
                      "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
   // 0-9 in Morse Code
-  static const char * numbers[] PROGMEM = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
+  static const char * numbers[] = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
 
   // Get the text to display
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t len = 0;
-  
+
   if (SEGMENT.name) len = strlen(SEGMENT.name);
   if (len == 0) { // fallback if empty segment name
     strcpy_P(text, PSTR("I Love WLED!"));
@@ -161,8 +164,10 @@ static uint16_t mode_morsecode(void) {
     *p = toupper(*p);
   }
 
-  // Build the complete morse pattern (estimate max size generously)
-  static bool morsecodePattern[1024]; // Static to avoid stack overflow
+  // Allocate per-segment storage for pattern
+  constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1024;
+  if (!SEGENV.allocateData(MORSECODE_MAX_PATTERN_SIZE)) return mode_static();
+  bool* morsecodePattern = reinterpret_cast<bool*>(SEGENV.data);
 
   static bool lastCheck2 = false;
   static bool lastCheck3 = false;
@@ -182,11 +187,11 @@ static uint16_t mode_morsecode(void) {
     for (char *c = text; *c; c++) {
       // Check for letters
       if (*c >= 'A' && *c <= 'Z') {
-        build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength);
-      } 
+        build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
+      }
       // Check for numbers
       else if (*c >= '0' && *c <= '9') {
-        build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength);
+        build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
       }
       // Check for a space between words
       else if (*c == ' ') {
@@ -212,14 +217,14 @@ static uint16_t mode_morsecode(void) {
           case '\'': punctuationCode = ".----."; break;  // apostrophe character must be escaped with a \ character
         }
         if (punctuationCode) {
-          build_morsecode_pattern(punctuationCode, morsecodePattern, patternLength);
+          build_morsecode_pattern(punctuationCode, morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
         }
       }
     }
 
     // Build the End-of-message pattern
     if (SEGMENT.check3) {
-      build_morsecode_pattern(".-.-.", morsecodePattern, patternLength);
+      build_morsecode_pattern(".-.-.", morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
     }
 
     for (int x = 0; x < 7; x++) {   // 10 spaces after the last pattern (3 after the last character and now 7 more)
