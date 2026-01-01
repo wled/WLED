@@ -172,11 +172,10 @@
 		// enable and update LED Amps
 		function enLA(s,n)
 		{
-			const abl = d.Sf.ABL.checked;
 			const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 			gId('LAdis'+n).style.display = s.selectedIndex==5 ? "inline" : "none"; // show/hide custom mA field
 			if (s.value!=="0") d.Sf["LA"+n].value = s.value; // set value from select object
-			d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1; // set minimum value for validation
+			d.Sf["LA"+n].min = (!isDig(t)) ? 0 : 1; // set minimum value for validation (required for power monitoring)
 		}
 		function setABL()
 		{
@@ -287,11 +286,11 @@
 				memu += getMem(t, n); // calc memory
 				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
-				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
+				gId("dig"+n+"ma").style.display = isDig(t) ? "inline" : "none"; // show mA/LED for digital LEDs (for power monitoring)
 				if (change) { // did we change LED type?
 					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
 					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
-					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
+					d.Sf["LA"+n].min = (!isDig(t)) ? 0 : 1;                 // set minimum value for LED mA (always required for power monitoring)
 					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
@@ -469,8 +468,8 @@
 <hr class="sml">
 ${i+1}:
 <select name="LT${s}" onchange="updateTypeDropdowns();UI(true)"></select><br>
-<div id="abl${s}">
-mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
+<div id="dig${s}ma" style="display:none">
+mA/LED (for power monitoring): <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
 <option value="35">35mA (eco WS2812)</option>
 <option value="30">30mA (typ. 12V)</option>
@@ -478,9 +477,9 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="15">15mA (seed/fairy pixels)</option>
 <option value="0">Custom</option>
 </select><br>
-<div id="LAdis${s}" style="display: none;">max. mA/LED: <input name="LA${s}" type="number" min="1" max="255" oninput="UI()"> mA<br></div>
-<div id="PSU${s}">PSU: <input name="MA${s}" type="number" class="xl" min="250" max="65000" oninput="UI()" value="250"> mA<br></div>
+<div id="LAdis${s}" style="display: none;">Custom mA/LED: <input name="LA${s}" type="number" min="1" max="255" oninput="UI()"> mA<br></div>
 </div>
+<div id="PSU${s}">PSU: <input name="MA${s}" type="number" class="xl" min="250" max="65000" oninput="UI()" value="250"> mA<br></div>
 <div id="co${s}" style="display:inline">Color Order:
 <select name="CO${s}">
 <option value="0">GRB</option>
@@ -692,9 +691,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("SP"+i)[0].value   = v.freq;
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
+							if (v.voltage) d.getElementsByName("LV"+i)[0].value = v.voltage;
 						});
 						d.getElementsByName("PR")[0].checked  = l.prl | 0;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
+						if (l.voltage) d.getElementsByName("LV")[0].value = l.voltage;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
 					if(c.hw.com) {
@@ -867,6 +868,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<i>Recommended power supply for brightest white:</i><br>
 		<b><span id="psu">?</span></b><br>
 		<span id="psu2"><br></span>
+		<br>
+		LED Strip Voltage: <input name="LV" type="number" class="m" step="1" min="0" max="50" value="5" oninput="UI()"> V<br>
+		<i>Used for approximate power consumption calculations. Typical: 5V for WS281x, 12V or 24V for others</i><br>
 		<br>
 		Enable automatic brightness limiter: <input type="checkbox" name="ABL" onchange="enABL()"><br>
 		<div id="abl">

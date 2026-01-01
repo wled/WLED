@@ -147,6 +147,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     unsigned ablMilliampsMax = request->arg(F("MA")).toInt();
     BusManager::setMilliampsMax(ablMilliampsMax);
 
+    uint8_t ledVoltage = request->arg(F("LV")).toInt();
+    if (ledVoltage > 0) BusManager::setVoltage(ledVoltage);
+
     strip.autoSegments = request->hasArg(F("MS"));
     strip.correctWB = request->hasArg(F("CCT"));
     strip.cctFromRgb = request->hasArg(F("CR"));
