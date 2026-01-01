@@ -104,6 +104,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *  The third slider sets the size range of the blobs
 *  The first checkbox sets the color mode (color wheel or palette)
 *  The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*  aux0 keeps track of the blob size changes
 */
 
 typedef struct LavaParticle {
@@ -142,7 +143,7 @@ uint16_t mode_2D_lavalamp(void) {
   if (numParticles > MAX_LAVA_PARTICLES) numParticles = MAX_LAVA_PARTICLES;
   
   // Track size slider changes
-  static uint8_t lastSizeControl = 128;
+  uint8_t lastSizeControl = SEGENV.aux0;
   uint8_t currentSizeControl = SEGMENT.custom1;
   bool sizeChanged = (currentSizeControl != lastSizeControl);
 
@@ -160,7 +161,7 @@ uint16_t mode_2D_lavalamp(void) {
         if (lavaParticles[i].size < minSize) lavaParticles[i].size = minSize;
       }
     }
-    lastSizeControl = currentSizeControl;
+    SEGENV.aux0 = currentSizeControl;
   }
 
   // Spawn new particles at the bottom near the center
