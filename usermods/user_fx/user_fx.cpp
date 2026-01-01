@@ -106,8 +106,6 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *  The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
 */
 
-#define MAX_LAVA_PARTICLES 50
-
 typedef struct LavaParticle {
   float x, y;           // Position
   float vx, vy;         // Velocity
@@ -117,14 +115,17 @@ typedef struct LavaParticle {
   bool active;          // will not be displayed if false
 } LavaParticle;
 
-static LavaParticle lavaParticles[MAX_LAVA_PARTICLES];
-
 uint16_t mode_2D_lavalamp(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
   
   const uint16_t cols = SEGMENT.virtualWidth();
   const uint16_t rows = SEGMENT.virtualHeight();
   
+  // Allocate per-segment storage
+  constexpr size_t MAX_LAVA_PARTICLES = 50;
+  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) return mode_static();
+  LavaParticle* lavaParticles = reinterpret_cast<LavaParticle*>(SEGENV.data);
+
   // Initialize particles on first call
   if (SEGENV.call == 0) {
     for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
@@ -159,7 +160,6 @@ uint16_t mode_2D_lavalamp(void) {
         if (lavaParticles[i].size < minSize) lavaParticles[i].size = minSize;
       }
     }
-    
     lastSizeControl = currentSizeControl;
   }
 
@@ -184,7 +184,7 @@ uint16_t mode_2D_lavalamp(void) {
       float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
       lavaParticles[i].size = minSize + random16((int)(sizeRange * 10)) / 10.0f;
 
-      lavaParticles[i].hue = SEGMENT.check1 ? hw_random8() : random16(256);
+      lavaParticles[i].hue = hw_random8();
       lavaParticles[i].life = 255;
       lavaParticles[i].active = true;
       break;
@@ -332,7 +332,6 @@ uint16_t mode_2D_lavalamp(void) {
   return FRAMETIME;
 }
 static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;sx=64,ix=64,o2=1,pal=47";
-#undef MAX_LAVA_PARTICLES
 
 
 
