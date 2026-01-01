@@ -15,8 +15,8 @@ class WizLightsUsermod : public Usermod {
     unsigned long lastTime = 0;
     long updateInterval;
     long sendDelay;
-    int ledOffset;
-    
+    uint16_t ledOffset;
+
     long forceUpdateMinutes;
     bool forceUpdate;
 
@@ -130,6 +130,13 @@ class WizLightsUsermod : public Usermod {
       bool configComplete = !top.isNull();
 
       configComplete &= getJsonValue(top["LED Offset"],                   ledOffset,          0);     // Offset the "address" of the Wiz Lights for individual control
+
+      if (ledOffset + MAX_WIZ_LIGHTS > strip.getLengthTotal())
+      {
+        ledOffset = 0;
+        configComplete = false;
+      }
+
       configComplete &= getJsonValue(top["Interval (ms)"],                updateInterval,     1000);  // How frequently to update the Wiz lights
       configComplete &= getJsonValue(top["Send Delay (ms)"],              sendDelay,          0);     // Optional delay after sending each UDP message
       configComplete &= getJsonValue(top["Use Enhanced White *"],         useEnhancedWhite,   false); // When color is white use Wiz white LEDs instead of mixing RGB
