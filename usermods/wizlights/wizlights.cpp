@@ -91,7 +91,11 @@ class WizLightsUsermod : public Usermod {
         bool update = false;
         for (uint8_t i = 0; i < MAX_WIZ_LIGHTS; i++) {
           if (!lightsValid[i]) { continue; }
-          uint32_t newColor = strip.getPixelColor(i + ledOffset);
+
+          uint16_t pixelIndex = i + ledOffset;
+          if (pixelIndex >= strip.getLengthTotal()) continue;
+          uint32_t newColor = strip.getPixelColor(pixelIndex);
+
           if (forceUpdate || (newColor != colorsSent[i]) || (ellapsedTime > forceUpdateMinutes*60000)){
             wizSendColor(lightsIP[i], newColor);
             colorsSent[i] = newColor;
