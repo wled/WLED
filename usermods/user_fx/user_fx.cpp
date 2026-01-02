@@ -156,7 +156,7 @@ uint16_t mode_2D_lavalamp(void) {
     for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
       if (lavaParticles[i].active) {
         // Assign new random size within the new range
-        lavaParticles[i].size = minSize + random16((int)(newRange * 10)) / 10.0f;
+        lavaParticles[i].size = minSize + random16((int)(newRange)) / 1.0f;
         // Ensure minimum size
         if (lavaParticles[i].size < minSize) lavaParticles[i].size = minSize;
       }
@@ -170,7 +170,7 @@ uint16_t mode_2D_lavalamp(void) {
       // Spawn in the middle 60% of the width
       float centerStart = cols * 0.20f;
       float centerWidth = cols * 0.60f;
-      lavaParticles[i].x = centerStart + (random16((int)(centerWidth * 10)) / 10.0f);
+      lavaParticles[i].x = centerStart + random16((int)(centerWidth)) / 1.0f;
       lavaParticles[i].y = rows - 1;
       lavaParticles[i].vx = (random16(7) - 3) / 250.0f;
       
@@ -183,7 +183,7 @@ uint16_t mode_2D_lavalamp(void) {
       float minSize = cols * 0.15f; // Minimum 15% of width
       float maxSize = cols * 0.4f;  // Maximum 40% of width
       float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
-      lavaParticles[i].size = minSize + random16((int)(sizeRange * 10)) / 10.0f;
+      lavaParticles[i].size = minSize + random16((int)(sizeRange)) / 1.0f;
 
       lavaParticles[i].hue = hw_random8();
       lavaParticles[i].life = 255;
@@ -226,12 +226,13 @@ uint16_t mode_2D_lavalamp(void) {
         
         float dx = other->x - p->x;
         float dy = other->y - p->y;
-        float dist = sqrt(dx*dx + dy*dy);
-        
+
         // Apply weak horizontal attraction only
         float attractRange = (p->size + other->size) * 1.0f;
-        if (dist > 0 && dist < attractRange) {
-          // Very weak horizontal-only attraction
+        float distSq = dx*dx + dy*dy;
+        float attractRangeSq = attractRange * attractRange;
+        if (distSq > 0 && distSq < attractRangeSq) {
+          float dist = sqrt(distSq); // Only compute sqrt when needed
           float force = (1.0f - (dist / attractRange)) * 0.0001f;
           p->vx += (dx / dist) * force;
         }
@@ -293,16 +294,17 @@ uint16_t mode_2D_lavalamp(void) {
     uint8_t b = (B(color) * p->life) >> 8;
 
     // Draw blob with soft edges (gaussian-like falloff)
+    float sizeSq = p->size * p->size;
     for (int dy = -(int)p->size; dy <= (int)p->size; dy++) {
       for (int dx = -(int)p->size; dx <= (int)p->size; dx++) {
         int px = (int)(p->x + dx);
         int py = (int)(p->y + dy);
         
         if (px >= 0 && px < cols && py >= 0 && py < rows) {
-          float dist = sqrt(dx*dx + dy*dy);
-          if (dist < p->size) {
+          float distSq = dx*dx + dy*dy;
+          if (distSq < sizeSq) {
             // Soft falloff
-            float intensity = 1.0f - (dist / p->size);
+            float intensity = 1.0f - sqrt(distSq) / p->size;
             intensity = intensity * intensity; // Square for smoother falloff
             
             uint8_t bw = w * intensity;
