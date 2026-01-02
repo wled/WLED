@@ -2,10 +2,6 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
-// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
-
 // static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
@@ -197,6 +193,7 @@ uint16_t mode_2D_lavalamp(void) {
   
   // Update and draw particles
   int activeCount = 0;
+  unsigned long currentMillis = millis();
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
     if (!lavaParticles[i].active) continue;
     activeCount++;
@@ -240,7 +237,7 @@ uint16_t mode_2D_lavalamp(void) {
     }
 
     // Horizontal oscillation (makes it more organic)
-    p->vx += sin((millis() / 1000.0f + i) * 0.5f) * 0.002f; // Reduced oscillation
+    p->vx += sin((currentMillis / 1000.0f + i) * 0.5f) * 0.002f; // Reduced oscillation
     p->vx *= 0.92f; // Stronger damping for less drift
     
     // Bounce off sides (don't affect vertical velocity)
