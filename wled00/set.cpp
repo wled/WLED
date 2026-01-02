@@ -279,6 +279,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
+      if (!request->hasArg(bt)) break; // no more buttons configured
       int hw_btn_pin = request->arg(bt).toInt();
       if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
       else {
@@ -327,7 +328,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     // we should remove all unused buttons from the vector
-    for (int i = buttons.size()-1; i > 0; i--) {
+    for (int i = buttons.size()-1; i >= 0; i--) {
       if (buttons[i].pin < 0 && buttons[i].type == BTN_TYPE_NONE) {
         buttons.erase(buttons.begin() + i); // remove button from vector
       }
