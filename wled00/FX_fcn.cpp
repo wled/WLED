@@ -1205,10 +1205,10 @@ void WS2812FX::finalizeInit() {
   for (const auto &bus : busConfigs) {
     unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
     mem += memB;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when parallel I2S is enabled)
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
       #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-    const bool usesI2S = (BusManager::hasParallelOutput() && digitalCount <= 8);
+    const bool usesI2S = (BusManager::hasI2SOutput() && digitalCount <= 8);
       #else
     const bool usesI2S = false;
       #endif
