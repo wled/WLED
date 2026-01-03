@@ -1036,7 +1036,7 @@ uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
 
 void BusHub75Matrix::setBrightness(uint8_t b) {
   _bri = b;
-  display->setBrightness8(_bri); 
+  display->setBrightness(_bri); 
 }
 
 void BusHub75Matrix::show(void) {
@@ -1063,8 +1063,8 @@ void BusHub75Matrix::show(void) {
 
 void BusHub75Matrix::cleanup() {
   if (display && _valid) display->stopDMAoutput();  // terminate DMA driver (display goes black)
-  delay(30); // give some time to finish DMA
   _valid = false;
+  delay(30); // give some time to finish DMA
   _panelWidth = 0;
   deallocatePins();
   DEBUGBUS_PRINTLN(F("HUB75 output ended."));
