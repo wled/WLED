@@ -419,12 +419,29 @@
 					} else LC.style.color = "#fff";
 			});
 			if (is32() || isS2() || isS3()) {
+				// Always show Enable I2S checkbox on ESP32/S2/S3
+				// But disable parallel I2S if conditions aren't met
 				if (maxLC > 600 || dC < 2 || sameType <= 0) {
-					d.Sf["PR"].checked = false;
-					gId("prl").classList.add("hide");
-				} else
+					// Parallel I2S not possible, but single I2S still available
+					// Don't hide the checkbox, just uncheck it if it was relying on parallel mode
 					gId("prl").classList.remove("hide");
-			} else d.Sf["PR"].checked = false;
+				} else {
+					gId("prl").classList.remove("hide");
+				}
+			} else {
+				d.Sf["PR"].checked = false;
+			}
+			
+			// Remove excess buses if max count decreased
+			let maxBusCount = d.Sf["PR"].checked ? maxD : (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
+			let busesToRemove = dC - maxBusCount;
+			if (busesToRemove > 0) {
+				// Remove buses from the end
+				for (let i = 0; i < busesToRemove; i++) {
+					addLEDs(-1, false);
+				}
+			}
+			
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
