@@ -1052,6 +1052,171 @@ void serializeNodes(JsonObject root)
   }
 }
 
+// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
+#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
+#define PIN_CAP_BOOT         0x08   // bootloader pin
+#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
+#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
+
+// Convert PinOwner enum to string for allocated pins
+const char* getPinOwnerName(uint8_t gpio) {
+  PinOwner owner = PinManager::getPinOwner(gpio); // returns "none" if allocated by system, unallocated or unavailable
+  switch (owner) {
+    case PinOwner::None:          return PinManager::isPinAllocated(gpio) ? "System" : "Unknown";
+    case PinOwner::Ethernet:      return "Ethernet";
+    case PinOwner::BusDigital:    return "LED Digital";
+    case PinOwner::BusOnOff:      return "LED On/Off";
+    case PinOwner::BusPwm:        return "LED PWM";
+    case PinOwner::Button:        return "Button";
+    case PinOwner::IR:            return "IR Receiver";
+    case PinOwner::Relay:         return "Relay";
+    case PinOwner::SPI_RAM:       return "SPI RAM";
+    case PinOwner::DebugOut:      return "Debug";
+    case PinOwner::DMX:           return "DMX Output";
+    case PinOwner::HW_I2C:        return "I2C";
+    case PinOwner::HW_SPI:        return "SPI";
+    case PinOwner::DMX_INPUT:     return "DMX Input";
+    case PinOwner::HUB75:         return "HUB75";
+    // Usermods - return generic name for now
+    // TODO: Get actual usermod name from UsermodManager
+    default:
+      // Check if it's a usermod (low bit not set)
+      if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
+        return "Usermod";
+      }
+      return "Unknown";
+  }
+}
+
+void serializePins(JsonObject root)
+{
+  JsonArray pins = root.createNestedArray(F("pins"));
+  #ifdef ESP8266
+  constexpr int ENUM_PINS = 17; // GPIO0-16 + A0 (17)
+  #else
+  constexpr int ENUM_PINS = WLED_NUM_PINS;
+  #endif
+  for (int gpio = 0; gpio < ENUM_PINS; gpio++) {
+    bool canInput = PinManager::isPinOk(gpio, false);
+    bool canOutput = PinManager::isPinOk(gpio, true);
+    bool isAllocated = PinManager::isPinAllocated(gpio);
+    // Skip pins that are neither usable nor allocated (truly unusable pins)
+    if (!canInput && !canOutput && !isAllocated) continue;
+
+    JsonObject pinObj = pins.createNestedObject();
+    pinObj["p"] = gpio;  // pin number
+
+    // Pin capabilities
+    // Touch capability is provided by appendGPIOinfo() via d.touch
+    uint8_t caps = 0;
+
+    #ifdef ARDUINO_ARCH_ESP32
+    // Check ADC capability: only ADC1 channels can be used (ADC2 channels are not usable when WiFi is active)
+    #if CONFIG_IDF_TARGET_ESP32
+    // ESP32: ADC1 channels 0-7 (GPIO 36, 37, 38, 39, 32, 33, 34, 35)
+    int adc_channel = digitalPinToAnalogChannel(gpio);
+    if (adc_channel >= 0 && adc_channel <= 7) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32S2
+        // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32S3
+        // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    #elif CONFIG_IDF_TARGET_ESP32C3
+        // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
+        int adc_channel = digitalPinToAnalogChannel(gpio);
+        if (adc_channel >= 0 && adc_channel <= 4) caps |= PIN_CAP_ADC;
+    #endif
+
+    // PWM on all ESP32 variants: all output pins can use ledc PWM so this is redundant
+    //if (canOutput) caps |= PIN_CAP_PWM;
+
+    // Input-only pins (ESP32 classic: GPIO34-39)
+    if (canInput && !canOutput) caps |= PIN_CAP_INPUT_ONLY;
+
+    // Bootloader/strapping pins
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    if (gpio == 0) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
+    #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (gpio == 9) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // both GPIO2 and GPIO8 must be high to enter bootloader mode
+    #else // ESP32 classic
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
+    #endif
+    #else
+    // ESP8266: GPIO 0-16 + GPIO17=A0
+    // if (gpio < 16) caps |= PIN_CAP_PWM;  // software PWM available on all GPIO except GPIO16
+    // ESP8266 strapping pins
+    if (gpio == 0) caps |= PIN_CAP_BOOT;
+    if (gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // GPIO2 must be high, GPIO15 low to boot normally
+    if (gpio == 17) caps = PIN_CAP_INPUT_ONLY | PIN_CAP_ADC; // TODO: display as A0 pin
+    #endif
+
+    pinObj["c"] = caps;  // capabilities
+
+    // Add allocated status and owner
+    pinObj["a"] = isAllocated;  // allocated status
+
+    // check if this pin is used as a button (need to get button type for owner name)
+    bool isButton = false;
+    int buttonIndex = -1;
+    uint8_t btnType = BTN_TYPE_NONE;
+    for (size_t b = 0; b < buttons.size(); b++) {
+      if (buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
+        isButton = true;
+        buttonIndex = b;
+        btnType = buttons[b].type;
+        break;
+      }
+    }
+
+    // Add owner ID and name
+    PinOwner owner = PinManager::getPinOwner(gpio);
+    if (isAllocated) {
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (can be used for UI lookup)
+      pinObj["n"] = getPinOwnerName(gpio);  // owner name (string)
+
+      // Relay pin
+      if (owner == PinOwner::Relay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
+      }
+      // Button pins, get type and state using isButtonPressed()
+      else if (isButton && buttonIndex >= 0) {
+        pinObj["m"] = 0;  // mode: input
+        pinObj["t"] = btnType; // button type
+        pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
+
+        // For touch buttons, get raw reading value (useful for debugging threshold)
+        #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+        if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
+          if (digitalPinToTouchChannel(gpio) >= 0) {
+            #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
+            pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
+            #else
+            pinObj["r"] = touchRead(gpio);
+            #endif
+          }
+        }
+        #endif
+      }
+      // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.) TODO: expand for other pin owners as needed
+      else if (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(gpio);  // state
+      }
+    }
+  }
+}
+
 // deserializes mode data string into JsonArray
 void serializeModeData(JsonArray fxdata)
 {
@@ -1110,7 +1275,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
 void serveJson(AsyncWebServerRequest* request)
 {
   enum class json_target {
-    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config
+    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config, pins
   };
   json_target subJson = json_target::all;
 
@@ -1124,6 +1289,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
+  else if (url.indexOf(F("pins"))  > 0) subJson = json_target::pins;
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
@@ -1167,6 +1333,8 @@ void serveJson(AsyncWebServerRequest* request)
       serializeNetworks(lDoc); break;
     case json_target::config:
       serializeConfig(lDoc); break;
+    case json_target::pins:
+      serializePins(lDoc); break;
     case json_target::state_info:
     case json_target::all:
       JsonObject state = lDoc.createNestedObject("state");
