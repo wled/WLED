@@ -152,7 +152,7 @@ uint16_t mode_2D_lavalamp(void) {
     for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
       if (lavaParticles[i].active) {
         // Assign new random size within the new range
-        lavaParticles[i].size = minSize + random16((int)(newRange)) / 1.0f;
+        lavaParticles[i].size = minSize + (float)random16((int)(newRange));
         // Ensure minimum size
         if (lavaParticles[i].size < minSize) lavaParticles[i].size = minSize;
       }
@@ -166,7 +166,7 @@ uint16_t mode_2D_lavalamp(void) {
       // Spawn in the middle 60% of the width
       float centerStart = cols * 0.20f;
       float centerWidth = cols * 0.60f;
-      lavaParticles[i].x = centerStart + random16((int)(centerWidth)) / 1.0f;
+      lavaParticles[i].x = centerStart + (float)random16((int)(centerWidth));
       lavaParticles[i].y = rows - 1;
       lavaParticles[i].vx = (random16(7) - 3) / 250.0f;
       
@@ -179,7 +179,7 @@ uint16_t mode_2D_lavalamp(void) {
       float minSize = cols * 0.15f; // Minimum 15% of width
       float maxSize = cols * 0.4f;  // Maximum 40% of width
       float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
-      lavaParticles[i].size = minSize + random16((int)(sizeRange)) / 1.0f;
+      lavaParticles[i].size = minSize + (float)random16((int)(sizeRange));
 
       lavaParticles[i].hue = hw_random8();
       lavaParticles[i].life = 255;
