@@ -156,7 +156,7 @@ void ParticleSystem2D::setParticleSize(uint8_t size) {
     particleHardRadius = PS_P_MINHARDRADIUS + ((particlesize * 52) >> 6); // use 1 pixel + 80% of size for hard radius (slight overlap with boarders so they do not "float" and nicer stacking)
   }
   else if (particlesize == 0)
-    particleHardRadius = particleHardRadius >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
+    particleHardRadius = PS_P_MINHARDRADIUS >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
 }
 
 // enable/disable gravity, optionally, set the force (force=8 is default) can be -127 to +127, 0 is disable
@@ -595,7 +595,7 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
+      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
@@ -842,7 +842,7 @@ void ParticleSystem2D::handleCollisions() {
   for (uint32_t bin = 0; bin < numBins; bin++) {
     binParticleCount = 0; // reset for this bin
     int32_t binStart = bin * binWidth - overlap; // note: first bin will extend to negative, but that is ok as out of bounds particles are ignored
-    int32_t binEnd = binStart + binWidth + overlap; // note: last bin can be out of bounds, see above;
+    int32_t binEnd = binStart + binWidth + (overlap << 1); // add twice the overlap as start is start-overlap, note: last bin can be out of bounds, see above;
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {
@@ -879,7 +879,7 @@ void ParticleSystem2D::handleCollisions() {
           massratio1 = (mass2 << 8) / totalmass; // massratio 1 depends on mass of particle 2, i.e. if 2 is heavier -> higher velocity impact on 1
           massratio2 = (mass1 << 8) / totalmass;
         }
-        // note: using the same logic as in 1D is much slower though it would be more accurate but it is not really needed in 2D
+        // note: using the same logic as in 1D is much slower though it would be more accurate but it is not really needed in 2D: particles slipping through each other is much less visible
         int32_t dx = (particles[idx_j].x + particles[idx_j].vx) - (particles[idx_i].x + particles[idx_i].vx); // distance with lookahead
         if (dx * dx < collDistSq) { // check x direction, if close, check y direction (squaring is faster than abs() or dual compare)
           int32_t dy = (particles[idx_j].y + particles[idx_j].vy)  - (particles[idx_i].y + particles[idx_i].vy); // distance with lookahead
@@ -969,51 +969,47 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
       particle2.vy = ((int32_t)particle2.vy * coeff) / 255;
       #endif
     }
-
+  }
     // particles have volume, push particles apart if they are too close
-    // tried lots of configurations, it works best if given a little velocity, it tends to oscillate less this way
-    // when hard pushing by offsetting position, they sink into each other under gravity
-    // a problem with giving velocity is, that on harder collisions, this adds up as it is not dampened enough, so add friction in the FX if required
-    if (distanceSquared < collDistSq && dotProduct > -250) { // too close and also slow, push them apart
-      bool fairlyrandom = dotProduct & 0x01; //dotprouct LSB should be somewhat random, so no need to calculate a random number
-      int32_t pushamount = 1 + ((250 + dotProduct) >> 6); // the closer dotproduct is to zero, the closer the particles are
-      int32_t push = 0;
-      if (dx < 0)  // particle 1 is on the right
-        push = pushamount;
-      else if (dx > 0)
-        push = -pushamount;
-      else { // on the same x coordinate, shift it a little so they do not stack
-        if (fairlyrandom)
-          particle1.x++; // move it so pile collapses
-        else
-          particle1.x--;
-      }
-      particle1.vx += push;
-      push = 0;
-      if (dy < 0)
-        push = pushamount;
-      else if (dy > 0)
-        push = -pushamount;
-      else { // dy==0
-        if (fairlyrandom)
-          particle1.y++; // move it so pile collapses
-        else
-          particle1.y--;
-      }
-      particle1.vy += push;
+    // tried lots of configurations, what works best is to give one particle a little velocity. When adding hard pushing things tend to oscillate.
+    // when hard pushing by offsetting position without velocity, they tend to sink into each other under gravity.
+    // when using hard-pushing and velocity, there are some oscillations and softer particles do not pile nicely.
+    // oscillation get worse if pushing both particles so one is chosen somewhat randomly.
+    // softer collisions are not perfect on purpose: soft particles should pile up and overlap slightly, if separation is made perfect, it does not have the intended look
 
-      // note: pushing may push particles out of frame, if bounce is active, it will move it back as position will be limited to within frame, if bounce is disabled: bye bye
-      if (collisionHardness < 5) { // if they are very soft, stop slow particles completely to make them stick to each other
-        particle1.vx = 0;
-        particle1.vy = 0;
-        particle2.vx = 0;
-        particle2.vy = 0;
-        //push them apart
-        particle1.x += push;
-        particle1.y += push;
+    if (distanceSquared < collDistSq && (relativeVx*relativeVx + relativeVy*relativeVy < 50)) { // too close and also slow, push them apart
+      bool fairlyrandom = dotProduct & 0x01; //dotprouct LSB should be somewhat random, so no need to calculate a random number
+      int32_t pushamount = 1 + ((collDistSq - distanceSquared) >> 13); // found this by experimentation: it means push by 1, push more if overlapping more than 1.4 physical pixels (i.e. larger particles only)
+      int8_t pushx = dx > 0 ? -pushamount : pushamount; // particle 1 is on the left
+      int8_t pushy = dy > 0 ? -pushamount : pushamount; // particle 1 is below particle 2
+
+      // if they are very soft, stop slow particles completely to make them stick to each other
+      if (collisionHardness < 5) {
+        if (fairlyrandom) { // do not stop them every frame to avoid groups of particles hanging mid-air
+          particle1.vx = 0;
+          particle1.vy = 0;
+          particle2.vx = 0;
+          particle2.vy = 0;
+          // hard-push particle 1 only: if both are pushed, this oscillates ever so slightly
+          particle1.x += pushx;
+          particle1.y += pushy;
+        }
+      }
+      else {
+        if (fairlyrandom) {
+          particle1.vx += pushx;
+          //particle1.x += pushx;
+          particle1.vy += pushy;
+          //particle1.y += pushy;
+        }
+        else {
+          particle2.vx -= pushx;
+          //particle2.x -= pushx;
+          particle2.vy -= pushy;
+          //particle2.y -= pushy;
+        }
       }
     }
-  }
 }
 
 // update size and pointers (memory location and size can change dynamically)
@@ -1251,7 +1247,7 @@ void ParticleSystem1D::setParticleSize(const uint8_t size) {
     particleHardRadius = PS_P_MINHARDRADIUS_1D + ((particlesize * 52) >> 6); // use 1 pixel + 80% of size for hard radius (slight overlap with boarders so they do not "float" and nicer stacking)
   }
   else if (particlesize == 0)
-    particleHardRadius = particleHardRadius >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
+    particleHardRadius = PS_P_MINHARDRADIUS_1D >> 1; // single pixel particles have half the radius (i.e. 1/2 pixel)
 }
 
 // enable/disable gravity, optionally, set the force (force=8 is default) can be -127 to +127, 0 is disable
@@ -1636,7 +1632,7 @@ void ParticleSystem1D::handleCollisions() {
   for (uint32_t bin = 0; bin < numBins; bin++) {
     binParticleCount = 0; // reset for this bin
     int32_t binStart = bin * binWidth - overlap; // note: first bin will extend to negative, but that is ok as out of bounds particles are ignored
-    int32_t binEnd = binStart + binWidth + overlap; // note: last bin can be out of bounds, see above
+    int32_t binEnd = binStart + binWidth + (overlap << 1); // add twice the overlap as start is start-overlap, note: last bin can be out of bounds, see above
 
     // fill the binIndices array for this bin
     for (uint32_t i = 0; i < usedParticles; i++) {
