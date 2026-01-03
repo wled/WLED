@@ -102,7 +102,7 @@ void handleSerial()
         else if (next == 'O')  { continuousSendLED = true; } // Enable Continuous Serial Streaming
         else if (next == '{')  { //JSON API
           bool verboseResponse = false;
-          if (!requestJSONBufferLock(16)) {
+          if (!requestJSONBufferLock(JSON_LOCK_SERIAL)) {
             Serial.printf_P(PSTR("{\"error\":%d}\n"), ERR_NOBUF);
             return;
           }

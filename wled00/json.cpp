@@ -1139,7 +1139,7 @@ void serveJson(AsyncWebServerRequest* request)
     return;
   }
 
-  if (!requestJSONBufferLock(17)) {
+  if (!requestJSONBufferLock(JSON_LOCK_SERVEJSON)) {
     request->deferResponse();    
     return;
   }
