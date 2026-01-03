@@ -159,7 +159,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 
 
 BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
-: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == (TYPE_TM1814 || TYPE_TM1815))) // TM1814/15 need refresh or they fall-back to a "demo mode"
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814 || bc.type == TYPE_TM1815)) // TM1814/15 need refresh or they fall-back to a "demo mode"
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
