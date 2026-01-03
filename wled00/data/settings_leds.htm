@@ -233,13 +233,11 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				let parallelI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t);
-				if (isC3() || (isS3() && !parallelI2S)) {
-					mul = 2; // ESP32 RMT uses double buffer
-				} else if ((is32() || isS2() || isS3()) && toNum(n) > (parallelI2S ? 7 : 0)) {
-					mul = 2; // ESP32 RMT uses double buffer
-				} else if ((parallelI2S && toNum(n) < 8) || (n == 0 && is32())) { // I2S uses extra DMA buffer
-					dbl = len * ch * 3; // DMA buffer for parallel I2S (TODO: ony the bus with largst LED count should be used)
+				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t);
+				if (isC3() || !enabledI2S) {
+					mul = 2; // RMT uses double buffer
+				} else if (enabledI2S && toNum(n) < 8) { // I2S/LCD uses extra DMA buffer
+					dbl = len * ch * 3; // DMA buffer for I2S/LCD (TODO: only the bus with largest LED count should be used)
 				}
 			}
 			return len * ch * mul + dbl + pbfr;
@@ -861,9 +859,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
-				// max digital buses: ESP32 & S2 support mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
-				// supported outputs using parallel I2S/mono I2S: S2: 12/5, S3: 12/4, ESP32: 16/9
-				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
+				// max digital buses when using RMT only: ESP32: 8, S2/S3: 4, C3: 2
+				// max digital buses when I2S enabled: ESP32: 16 (8 I2S + 8 RMT), S2: 12 (8 I2S + 4 RMT), S3: 12 (8 LCD + 4 RMT)
+				let maxDB = d.Sf["PR"].checked ? maxD : (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 				// disallow adding more of a type that has reached its limit but allow changing the current type
 				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
@@ -916,7 +914,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
 		</div>
 		<hr class="sml">
-		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
+		<div id="prl" class="hide">Enable I2S: <input type="checkbox" name="PR" onchange="UI()"><br></div>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		<hr class="sml">

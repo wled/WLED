@@ -1162,7 +1162,7 @@ void WS2812FX::finalizeInit() {
 
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
+  // Only use I2S/LCD output if user explicitly enables it
   unsigned maxLedsOnBus = 0;
   unsigned busType = 0;
   for (const auto &bus : busConfigs) {
@@ -1170,8 +1170,8 @@ void WS2812FX::finalizeInit() {
       digitalCount++;
       if (busType == 0) busType = bus.type; // remember first bus type
       if (busType != bus.type) {
-        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Forcing single I2S output.\n"));
-        useParallelI2S = false; // mixed bus types, no parallel I2S
+        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Disabling I2S output.\n"));
+        useParallelI2S = false; // mixed bus types, no I2S
       }
       if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
@@ -1179,7 +1179,7 @@ void WS2812FX::finalizeInit() {
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
   // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
   if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
-  else useParallelI2S = false; // enforce single I2S
+  else useParallelI2S = false; // disable I2S if LEDs per bus exceed limit
   digitalCount = 0;
   #endif
 
@@ -1190,11 +1190,9 @@ void WS2812FX::finalizeInit() {
   for (const auto &bus : busConfigs) {
     unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
     mem += memB;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    const bool usesI2S = ((useParallelI2S && digitalCount <= 8) || (!useParallelI2S && digitalCount == 1));
-      #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
     const bool usesI2S = (useParallelI2S && digitalCount <= 8);
       #else
     const bool usesI2S = false;

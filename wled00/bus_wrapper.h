@@ -481,14 +481,9 @@ class PolyBus {
 
     #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
     if (_useParallelI2S && (channel >= 8)) {
-        // Parallel I2S channels are to be used first, so subtract 8 to get the RMT channel number
+        // I2S/LCD channels are to be used first, so subtract 8 to get the RMT channel number
         channel -= 8;
     }
-    #endif
-
-    #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
-    if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
     #endif
 
     void* busPtr = nullptr;
@@ -1340,16 +1335,15 @@ class PolyBus {
           return I_8266_U0_SM16825_5 + offset;
       }
       #else //ESP32
-      uint8_t offset = 0; // 0 = RMT (num 1-8), 1 = I2S1 [I2S0 is used by Audioreactive]
+      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
       #if defined(CONFIG_IDF_TARGET_ESP32S2)
-      // ESP32-S2 only has 4 RMT channels
+      // ESP32-S2 has 4 RMT channels
       if (_useParallelI2S) {
         if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S0 channels followed by RMT
+        if (num < 8) offset = 1;    // use x8 I2S0 channels followed by RMT (when I2S enabled)
                                     // Note: conflicts with AudioReactive if enabled
       } else {
-        if (num > 4) return I_NONE;
-        if (num > 3) offset = 1;  // only one I2S0 (use last to allow Audioreactive)
+        if (num > 3) return I_NONE; // only 4 RMT channels available
       }
       #elif defined(CONFIG_IDF_TARGET_ESP32C3)
       // On ESP32-C3 only the first 2 RMT channels are usable for transmitting
@@ -1359,18 +1353,17 @@ class PolyBus {
       // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
       if (_useParallelI2S) {
         if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S LCD channels, followed by RMT
+        if (num < 8) offset = 1;    // use x8 LCD channels, followed by RMT (when I2S enabled)
       } else {
-        if (num > 3) return I_NONE; // do not use single I2S (as it is not supported)
+        if (num > 3) return I_NONE; // only 4 RMT channels available
       }
       #else
-      // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
+      // standard ESP32 has 8 RMT channels and optionally x8 I2S1 channels
       if (_useParallelI2S) {
         if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
+        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT (when I2S enabled)
       } else {
-        if (num > 9) return I_NONE;
-        if (num == 0) offset = 1; // prefer I2S1 for 1st bus (less flickering but more RAM needed)
+        if (num > 7) return I_NONE; // only 8 RMT channels available
       }
       #endif
       switch (busType) {
