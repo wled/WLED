@@ -166,7 +166,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  CJSON(useParallelI2S, hw_led[F("prl")]);
+  CJSON(useI2S, hw_led[F("prl")]);
   #endif
 
   #ifndef WLED_DISABLE_2D

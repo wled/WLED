@@ -339,11 +339,14 @@
 //handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
-    static bool _useParallelI2S;
+    static bool _useParallelI2S;  // use parallel I2S/LCD (8 channels)
+    static bool _useI2S;           // use I2S/LCD at all (could be parallel or single)
 
   public:
     static inline void setParallelI2S1Output(bool b = true) { _useParallelI2S = b; }
     static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
+    static inline void setI2SOutput(bool b = true) { _useI2S = b; }
+    static inline bool isI2SOutput(void) { return _useI2S; }
 
   // initialize SPI bus speed for DotStar methods
   template <class T>
@@ -1338,10 +1341,17 @@ class PolyBus {
       uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
       #if defined(CONFIG_IDF_TARGET_ESP32S2)
       // ESP32-S2 has 4 RMT channels
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 I2S0 channels followed by RMT (when I2S enabled)
-                                    // Note: conflicts with AudioReactive if enabled
+      if (_useI2S) {
+        if (_useParallelI2S) {
+          // Parallel I2S: use x8 I2S0 channels for first 8 buses, then RMT for remaining
+          if (num > 11) return I_NONE;
+          if (num < 8) offset = 1;    // use x8 parallel I2S0 channels
+                                      // Note: conflicts with AudioReactive if enabled
+        } else {
+          // Single I2S: use RMT for first buses, single I2S for the last bus
+          if (num > 4) return I_NONE; // 4 RMT + 1 I2S
+          if (num == 4) offset = 1;   // only last bus uses single I2S0
+        }
       } else {
         if (num > 3) return I_NONE; // only 4 RMT channels available
       }
@@ -1351,17 +1361,30 @@ class PolyBus {
       //if (num > 1) offset = 1; // I2S not supported yet (only 1 I2S)
       #elif defined(CONFIG_IDF_TARGET_ESP32S3)
       // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 LCD channels, followed by RMT (when I2S enabled)
+      if (_useI2S) {
+        if (_useParallelI2S) {
+          // Parallel LCD: use x8 LCD channels for first 8 buses, then RMT for remaining
+          if (num > 11) return I_NONE;
+          if (num < 8) offset = 1;    // use x8 LCD channels
+        } else {
+          // Single I2S not supported on S3
+          if (num > 3) return I_NONE; // only 4 RMT channels available
+        }
       } else {
         if (num > 3) return I_NONE; // only 4 RMT channels available
       }
       #else
       // standard ESP32 has 8 RMT channels and optionally x8 I2S1 channels
-      if (_useParallelI2S) {
-        if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT (when I2S enabled)
+      if (_useI2S) {
+        if (_useParallelI2S) {
+          // Parallel I2S: use x8 I2S1 channels for first 8 buses, then RMT for remaining
+          if (num > 15) return I_NONE;
+          if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
+        } else {
+          // Single I2S: use RMT for first buses, single I2S for the last bus
+          if (num > 8) return I_NONE; // 8 RMT + 1 I2S
+          if (num == 8) offset = 1;   // only last bus uses single I2S1
+        }
       } else {
         if (num > 7) return I_NONE; // only 8 RMT channels available
       }

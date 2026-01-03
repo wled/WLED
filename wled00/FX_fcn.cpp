@@ -1162,24 +1162,39 @@ void WS2812FX::finalizeInit() {
 
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  // Only use I2S/LCD output if user explicitly enables it
+  // Determine if I2S/LCD should be used and whether parallel mode is possible
   unsigned maxLedsOnBus = 0;
   unsigned busType = 0;
+  bool mixedBusTypes = false;
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
       if (busType == 0) busType = bus.type; // remember first bus type
       if (busType != bus.type) {
-        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Disabling I2S output.\n"));
-        useParallelI2S = false; // mixed bus types, no I2S
+        mixedBusTypes = true;
       }
       if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
   DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-  // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
-  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
-  else useParallelI2S = false; // disable I2S if LEDs per bus exceed limit
+  
+  // Determine parallel vs single I2S usage
+  bool useParallelI2S = false;
+  if (useI2S) {
+    // Parallel I2S only possible if: no mixed bus types, LEDs per bus <= 600, and enabled by user
+    if (!mixedBusTypes && maxLedsOnBus <= 600) {
+      useParallelI2S = true;
+      DEBUG_PRINTF_P(PSTR("Using parallel I2S/LCD output.\n"));
+    } else {
+      DEBUG_PRINTF_P(PSTR("Using single I2S output (mixed types or >600 LEDs/bus).\n"));
+    }
+  }
+  
+  // Set the flags in PolyBus via BusManager
+  BusManager::useI2SOutput(useI2S);
+  if (useParallelI2S) {
+    BusManager::useParallelOutput(); // This sets parallel I2S flag - must call before creating buses
+  }
   digitalCount = 0;
   #endif
 
@@ -1193,7 +1208,7 @@ void WS2812FX::finalizeInit() {
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
       #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-    const bool usesI2S = (useParallelI2S && digitalCount <= 8);
+    const bool usesI2S = (BusManager::hasI2SOutput() && digitalCount <= 8);
       #else
     const bool usesI2S = false;
       #endif

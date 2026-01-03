@@ -324,6 +324,30 @@
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
 				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
 				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
+				
+				// Display I2S/RMT driver info for ESP32 digital buses
+				let drv = gId("drv"+n);
+				if (drv && isDig(t) && !isD2P(t) && !is8266() && !isC3()) {
+					let i = toNum(n);
+					let useI2S = d.Sf.PR && d.Sf.PR.checked;
+					let info = "";
+					if (useI2S) {
+						if (sameType != -1 && maxLC <= 600) {
+							// Parallel I2S
+							info = i < 8 ? " (I2S)" : " (RMT)";
+						} else {
+							// Single I2S
+							if (isS2()) info = i == 4 ? " (I2S)" : " (RMT)";
+							else if (is32()) info = i == 8 ? " (I2S)" : " (RMT)";
+							else info = " (RMT)"; // S3 doesn't support single I2S
+						}
+					} else {
+						info = " (RMT)";
+					}
+					drv.textContent = info;
+				} else if (drv) {
+					drv.textContent = "";
+				}
 			});
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
@@ -516,6 +540,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <span id="p2d${s}"></span><input type="number" name="L2${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p3d${s}"></span><input type="number" name="L3${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
+<span id="drv${s}" style="color:#999"></span>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
