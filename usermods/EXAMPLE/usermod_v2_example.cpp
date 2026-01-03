@@ -378,6 +378,14 @@ class MyExampleUsermod : public Usermod {
       return USERMOD_ID_EXAMPLE;
     }
 
+    /*
+     * getName() must return the _name string of the usermod.
+     */
+    const char* getName() override
+    {
+      return _name;
+    }
+
    //More methods can be added in the future, this example will then be extended.
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };

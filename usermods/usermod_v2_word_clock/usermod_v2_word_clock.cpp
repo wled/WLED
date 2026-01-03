@@ -15,6 +15,7 @@
 class WordClockUsermod : public Usermod 
 {
   private:
+    static const char _name[];
     unsigned long lastTime = 0;
     int lastTimeMinutes = -1;
 
@@ -500,9 +501,15 @@ class WordClockUsermod : public Usermod
       return USERMOD_ID_WORDCLOCK;
     }
 
+    const char* getName() override {
+        return _name;
+    }
+
    //More methods can be added in the future, this example will then be extended.
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
+
+const char WordClockUsermod::_name[] PROGMEM = "Word Clock";
 
 static WordClockUsermod usermod_v2_word_clock;
 REGISTER_USERMOD(usermod_v2_word_clock);

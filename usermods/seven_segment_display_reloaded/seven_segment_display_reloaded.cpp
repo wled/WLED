@@ -579,6 +579,10 @@ public:
   uint16_t getId() {
     return USERMOD_ID_SSDR;
   }
+
+  const char* getName() {
+    return _str_name;
+  }
 };
 
 const char UsermodSSDR::_str_name[]        PROGMEM = "UsermodSSDR";

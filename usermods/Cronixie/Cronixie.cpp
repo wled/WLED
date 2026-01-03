@@ -2,6 +2,7 @@
 
 class UsermodCronixie : public Usermod {
   private:
+    static const char _name[];
     unsigned long lastTime = 0;
     char cronixieDisplay[7] = "HHMMSS";
     byte _digitOut[6] = {10,10,10,10,10,10};
@@ -297,7 +298,13 @@ class UsermodCronixie : public Usermod {
     {
       return USERMOD_ID_CRONIXIE;
     }
+
+    const char* getName() override {
+        return _name;
+    }
 };
+
+const char UsermodCronixie::_name[] PROGMEM = "Cronixie";
 
 static UsermodCronixie cronixie;
 REGISTER_USERMOD(cronixie);

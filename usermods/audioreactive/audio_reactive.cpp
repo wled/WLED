@@ -1974,6 +1974,11 @@ class AudioReactive : public Usermod {
     {
       return USERMOD_ID_AUDIOREACTIVE;
     }
+
+    const char* getName() override
+    {
+      return _name;
+    }
 };
 
 void AudioReactive::removeAudioPalettes(void) {

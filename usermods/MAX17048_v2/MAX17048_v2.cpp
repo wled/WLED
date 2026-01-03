@@ -268,6 +268,11 @@ class  Usermod_MAX17048 : public Usermod {
       return USERMOD_ID_MAX17048;
     }
 
+    const char* getName() override
+    {
+      return _name;
+    }
+
 };
 
 

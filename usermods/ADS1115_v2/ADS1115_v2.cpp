@@ -118,7 +118,13 @@ class ADS1115Usermod : public Usermod {
       return USERMOD_ID_ADS1115;
     }
 
+    const char* getName() override
+    {
+      return _name;
+    }
+
   private:
+    static const char _name[];
     static const uint8_t channelsCount = 8;
 
     ChannelSettings channelSettings[channelsCount] = {
@@ -251,6 +257,8 @@ class ADS1115Usermod : public Usermod {
         readings[activeChannel] = ads.computeVolts(results);
     }
 };
+
+const char ADS1115Usermod::_name[] PROGMEM = "ADS1115";
 
 static ADS1115Usermod ads1115_v2;
 REGISTER_USERMOD(ads1115_v2);

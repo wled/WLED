@@ -89,4 +89,9 @@ public:
     return USERMOD_ID_BH1750;
   }
 
+  inline const char* getName()
+  {
+    return _name;
+  }
+
 };

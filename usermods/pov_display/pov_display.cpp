@@ -69,6 +69,11 @@ public:
   uint16_t getId() override {
     return USERMOD_ID_POV_DISPLAY;
   }
+
+  const char* getName() override
+  {
+    return _name;
+  }
 };
 
 static PovDisplayUsermod pov_display("POV Display", false);

@@ -45,6 +45,7 @@
 	 public:
 	 /* Public: Functions */
 	 uint16_t getId();
+	 const char* getName();
 	 void loop();								// Loop of the user module called by wled main in loop
 	 void setup();								// Setup of the user module called by wled main
 	 void addToConfig(JsonObject& root);			// Extends the settings/user module settings page to include the user module requirements. The settings are written from the wled core to the configuration file.
@@ -74,6 +75,7 @@
  
 	 private:
 	 /* Private: Functions */
+	 static const char _name[];
 	 void HomeAssistantDiscovery();
 	 void MQTT_PublishHASensor(const String& name, const String& deviceClass, const String& unitOfMeasurement, const int8_t& digs, const uint8_t& option = 0);
 	 void MQTT_publish(const char* topic, const float& value, const int8_t& dig);
@@ -864,6 +866,15 @@
 	 return USERMOD_ID_BME68X;
  }
  
+ /**
+  * @brief Called by WLED: Returns the user module name
+  * 
+  * @return const char* User module name
+  */
+ const char* UsermodBME68X::getName() {
+	 return _name;
+ }
+ 
  
  /**
   * @brief Returns the current temperature in the scale which is choosen in settings
@@ -1109,6 +1120,8 @@
 	 }
  }
  
+ 
+ const char UsermodBME68X::_name[] PROGMEM = "BME68X";
  
  static UsermodBME68X bme68x_v2;
  REGISTER_USERMOD(bme68x_v2);

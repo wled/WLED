@@ -87,6 +87,17 @@ Usermod* UsermodManager::lookup(uint16_t mod_id) {
   return nullptr;
 }
 
+/*
+ * Get usermod name by ID.
+ */
+const char* UsermodManager::getName(uint16_t mod_id) {
+  Usermod* mod = lookup(mod_id);
+  if (mod != nullptr) {
+    return mod->getName();
+  }
+  return nullptr;
+}
+
 size_t UsermodManager::getModCount() { return getCount(); };
 
 /* Usermod v2 interface shim for oappend */

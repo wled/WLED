@@ -4,6 +4,7 @@ class PingPongClockUsermod : public Usermod
 {
 private:
   // Private class members. You can declare variables and functions only accessible to your usermod here
+  static const char _name[];
   unsigned long lastTime = 0;
   bool colonOn = true;
 
@@ -114,8 +115,14 @@ public:
     return USERMOD_ID_PING_PONG_CLOCK;
   }
 
+  const char* getName() override {
+    return _name;
+  }
+
 };
 
+
+const char PingPongClockUsermod::_name[] PROGMEM = "Ping Pong Clock";
 
 static PingPongClockUsermod usermod_v2_ping_pong_clock;
 REGISTER_USERMOD(usermod_v2_ping_pong_clock);

@@ -48,6 +48,7 @@ extern int getSignalQuality(int rssi);
 //class name. Use something descriptive and leave the ": public Usermod" part :)
 class St7789DisplayUsermod : public Usermod {
   private:
+    static const char _name[];
     //Private class members. You can declare variables and functions only accessible to your usermod here
     unsigned long lastTime = 0;
     bool enabled = true;
@@ -364,7 +365,7 @@ class St7789DisplayUsermod : public Usermod {
      */
     void addToConfig(JsonObject& root) override
     {
-      JsonObject top = root.createNestedObject("ST7789");
+      JsonObject top = root.createNestedObject(FPSTR(_name));
       JsonArray pins = top.createNestedArray("pin");
       pins.add(TFT_CS);
       pins.add(TFT_DC);
@@ -406,9 +407,16 @@ class St7789DisplayUsermod : public Usermod {
       return USERMOD_ID_ST7789_DISPLAY;
     }
 
+    const char* getName() override
+    {
+      return _name;
+    }
+
    //More methods can be added in the future, this example will then be extended.
    //Your usermod will remain compatible as it does not need to implement all methods from the Usermod base class!
 };
 
-static name. st7789_display;
+const char St7789DisplayUsermod::_name[] PROGMEM = "ST7789";
+
+static St7789DisplayUsermod st7789_display;
 REGISTER_USERMOD(st7789_display);

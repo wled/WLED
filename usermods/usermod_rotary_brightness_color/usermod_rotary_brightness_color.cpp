@@ -6,6 +6,7 @@ class RotaryEncoderBrightnessColor : public Usermod
 {
 private:
   //Private class members. You can declare variables and functions only accessible to your usermod here
+  static const char _name[];
   unsigned long lastTime = 0;
   unsigned long currentTime;
   unsigned long loopTime;
@@ -184,8 +185,14 @@ public:
 
     return configComplete;
   }
+
+  const char* getName() override {
+      return _name;
+  }
 };
 
+
+const char RotaryEncoderBrightnessColor::_name[] PROGMEM = "Rotary Brightness Color";
 
 static RotaryEncoderBrightnessColor usermod_rotary_brightness_color;
 REGISTER_USERMOD(usermod_rotary_brightness_color);

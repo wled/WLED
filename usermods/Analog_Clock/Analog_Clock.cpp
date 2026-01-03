@@ -7,6 +7,7 @@ extern Timezone* tz;
 
 class AnalogClockUsermod : public Usermod {
 private:
+    static const char _name[];
     static constexpr uint32_t refreshRate = 50; // per second
     static constexpr uint32_t refreshDelay = 1000 / refreshRate;
 
@@ -252,8 +253,14 @@ public:
     uint16_t getId() override {
         return USERMOD_ID_ANALOG_CLOCK;
     }
+
+    const char* getName() override {
+        return _name;
+    }
 };
 
+
+const char AnalogClockUsermod::_name[] PROGMEM = "Analog Clock";
 
 static AnalogClockUsermod analog_clock;
 REGISTER_USERMOD(analog_clock);
