@@ -119,7 +119,7 @@ uint16_t mode_2D_lavalamp(void) {
   const uint16_t rows = SEGMENT.virtualHeight();
   
   // Allocate per-segment storage
-  constexpr size_t MAX_LAVA_PARTICLES = 50;
+  constexpr size_t MAX_LAVA_PARTICLES = 35;
   if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) return mode_static();
   LavaParticle* lavaParticles = reinterpret_cast<LavaParticle*>(SEGENV.data);
 
@@ -225,7 +225,7 @@ uint16_t mode_2D_lavalamp(void) {
         float dy = other->y - p->y;
 
         // Apply weak horizontal attraction only
-        float attractRange = (p->size + other->size) * 1.0f;
+        float attractRange = p->size + other->size;
         float distSq = dx*dx + dy*dy;
         float attractRangeSq = attractRange * attractRange;
         if (distSq > 0 && distSq < attractRangeSq) {
@@ -292,6 +292,7 @@ uint16_t mode_2D_lavalamp(void) {
 
     // Draw blob with soft edges (gaussian-like falloff)
     float sizeSq = p->size * p->size;
+    float invSize = 1.0f / p->size;
     for (int dy = -(int)p->size; dy <= (int)p->size; dy++) {
       for (int dx = -(int)p->size; dx <= (int)p->size; dx++) {
         int px = (int)(p->x + dx);
@@ -301,7 +302,7 @@ uint16_t mode_2D_lavalamp(void) {
           float distSq = dx*dx + dy*dy;
           if (distSq < sizeSq) {
             // Soft falloff
-            float intensity = 1.0f - sqrt(distSq) / p->size;
+            float intensity = 1.0f - sqrt(distSq) * invSize;
             intensity = intensity * intensity; // Square for smoother falloff
             
             uint8_t bw = w * intensity;
@@ -322,7 +323,7 @@ uint16_t mode_2D_lavalamp(void) {
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;sx=64,ix=64,o2=1,pal=47";
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;ix=64,o2=1,pal=47";
 
 
 
