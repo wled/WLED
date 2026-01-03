@@ -156,6 +156,7 @@
 // special types and classes not officially supported by NPB
 
 // TM1815 is exactly half the speed of TM1814, normal is inverted signal compared to WS281x (low pulse timing, high idle/reset)
+//RMT timing
 class NeoEsp32RmtSpeedTm1815 : public NeoEsp32RmtInvertedSpeedBase
 {
 public:
@@ -181,15 +182,8 @@ void NeoEsp32RmtSpeedTm1815::Translate(const void* src,
     _translate(src, dest, src_size, wanted_num, translated_size, item_num,
         RmtBit0, RmtBit1, RmtDurationReset);
 }
-#else // ESP8266
-// special types and classes not officially supported by NPB
-class NeoBitsSpeedTm1815 : public NeoBitsSpeedBase
-{
-public:
-    const static uint16_t BitSendTimeNs = 2500;
-    const static uint16_t ResetTimeUs = 200;
-};
 
+#else // ESP8266
 // Tm1815 normal is inverted signal
 class NeoEspBitBangSpeedTm1815
 {
@@ -216,6 +210,14 @@ class NeoWrgbTm1815Feature :
 {
 };
 #endif
+
+// I2S / DMA custom timing
+class NeoBitsSpeedTm1815 : public NeoBitsSpeedBase
+{
+public:
+    const static uint16_t BitSendTimeNs = 2500;
+    const static uint16_t ResetTimeUs = 200;
+};
 
 // special non-native I2S NPB methods
 #ifdef ESP32
