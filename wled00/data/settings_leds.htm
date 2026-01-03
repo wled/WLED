@@ -293,24 +293,6 @@
 			// enable/disable LED fields
 			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
 			let dC = 0; // count of digital buses (for parallel I2S)
-			
-			// Pre-calculate sameType and maxLC for driver info display
-			let sameType = 0;
-			let maxLEDsPerBus = 0;
-			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
-				let n = s.name.substring(2,3);
-				let t = parseInt(s.value);
-				if (isDig(t) && !isD2P(t)) {
-					if (sameType == 0) sameType = t;
-					else if (sameType != t) sameType = -1;
-					let lc = d.Sf["LC"+n];
-					if (lc && lc.value) {
-						let c = parseInt(lc.value, 10);
-						if (c > maxLEDsPerBus) maxLEDsPerBus = c;
-					}
-				}
-			});
-			
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
 				// is the field a LED type?
@@ -342,30 +324,6 @@
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
 				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
 				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
-				
-				// Display I2S/RMT driver info for ESP32 digital buses
-				let drv = gId("drv"+n);
-				if (drv && isDig(t) && !isD2P(t) && !is8266() && !isC3()) {
-					let i = toNum(n);
-					let useI2S = d.Sf.PR && d.Sf.PR.checked;
-					let info = "";
-					if (useI2S) {
-						if (sameType != -1 && maxLEDsPerBus <= 600) {
-							// Parallel I2S
-							info = i < 8 ? " (I2S)" : " (RMT)";
-						} else {
-							// Single I2S
-							if (isS2()) info = i == 4 ? " (I2S)" : " (RMT)";
-							else if (is32()) info = i == 8 ? " (I2S)" : " (RMT)";
-							else info = " (RMT)"; // S3 doesn't support single I2S
-						}
-					} else {
-						info = " (RMT)";
-					}
-					drv.textContent = info;
-				} else if (drv) {
-					drv.textContent = "";
-				}
 			});
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
@@ -481,6 +439,31 @@
 			gId('ledwarning').style.display = (maxLC > Math.min(maxPB,800) || bquot > 80) ? 'inline':'none';
 			gId('ledwarning').style.color = (maxLC > Math.max(maxPB,800) || bquot > 100) ? 'red':'orange';
 			gId('wreason').innerHTML = (bquot > 80) ? "80% of max LED memory" +(bquot>100 ? ` (<b>WARNING: using over ${maxM}B!</b>)` : "") : "800 LEDs per output";
+			// Update I2S/RMT driver info display for ESP32 digital buses
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
+				let n = s.name.substring(2,3);
+				let t = parseInt(s.value);
+				let drv = gId("drv"+n);
+				if (drv && isDig(t) && !isD2P(t) && !is8266() && !isC3()) {
+					let i = toNum(n);
+					let useI2S = d.Sf.PR && d.Sf.PR.checked;
+					let info = "";
+					if (useI2S) {
+						if (sameType != -1 && maxLC <= 600) {
+							info = i < 8 ? " (I2S)" : " (RMT)";
+						} else {
+							if (isS2()) info = i == 4 ? " (I2S)" : " (RMT)";
+							else if (is32()) info = i == 8 ? " (I2S)" : " (RMT)";
+							else info = " (RMT)";
+						}
+					} else {
+						info = " (RMT)";
+					}
+					drv.textContent = info;
+				} else if (drv) {
+					drv.textContent = "";
+				}
+			});
 			// calculate power
 			gId('ampwarning').style.display = (parseInt(d.Sf.MA.value,10) > 7200) ? 'inline':'none';
 			var val = Math.ceil((100 + busMA)/500)/2;
