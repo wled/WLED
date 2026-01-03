@@ -109,7 +109,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 */
 
 // Build morse pattern into a buffer
-void build_morsecode_pattern(const char *morse_code, bool *pattern, int &index, int maxSize) {
+void build_morsecode_pattern(const char *morse_code, bool *pattern, uint16_t &index, int maxSize) {
   const char *c = morse_code;
   
   // Build the dots and dashes into pattern array
@@ -163,12 +163,12 @@ static uint16_t mode_morsecode(void) {
     {'(', "-.--."}, {'/', "-..-."}, {'\'', ".----."}
   };
 
-  // Get the text to display
+    // Get the text to display
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t len = 0;
 
   if (SEGMENT.name) len = strlen(SEGMENT.name);
-  if (len == 0) { // fallback if empty segment name
+  if (len == 0) {
     strcpy_P(text, PSTR("I Love WLED!"));
   } else {
     strcpy(text, SEGMENT.name);
@@ -184,39 +184,43 @@ static uint16_t mode_morsecode(void) {
   if (!SEGENV.allocateData(MORSECODE_MAX_PATTERN_SIZE)) return mode_static();
   bool* morsecodePattern = reinterpret_cast<bool*>(SEGENV.data);
 
-  static bool lastCheck2 = false;
-  static bool lastCheck3 = false;
-  static char lastText[WLED_MAX_SEGNAME_LEN+1] = {'\0'};  // Track last text
+  // Use bits in aux1 to store the checkbox states (upper bits since pattern length won't exceed 1024)
+  // Bit 15: lastCheck2, Bit 14: lastCheck3, Bit 13: textChanged flag, Bits 0-12: pattern length
+  bool lastCheck2 = (SEGENV.aux1 & 0x8000) != 0;
+  bool lastCheck3 = (SEGENV.aux1 & 0x4000) != 0;
+  uint16_t patternLength = SEGENV.aux1 & 0x1FFF; // Lower 13 bits for length (up to 8191)
 
-  bool settingsChanged = (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);  // check if any checkbox settings were changed since last frame
-  bool textChanged = (strcmp(text, lastText) != 0);   // check if the text has changed since the last frame
+  bool settingsChanged = (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);
+  
+  // For text comparison, we need to store a hash or checksum since we can't store the full text
+  // Use step for text hash storage when not scrolling
+  uint16_t textHash = 0;
+  for (char *p = text; *p; p++) {
+    textHash = ((textHash << 5) + textHash) + *p; // djb2 hash
+  }
+  
+  bool textChanged = (SEGENV.step != textHash && SEGENV.call != 0);
 
   // Initialize on first call or rebuild pattern
   if (SEGENV.call == 0 || textChanged || settingsChanged) {
-    strcpy(lastText, text); // Save current text
-    lastCheck2 = SEGMENT.check2;  // Save current state
-    lastCheck3 = SEGMENT.check3;  // Save current state
-    int patternLength = 0;
+    patternLength = 0;
 
     // Build complete morse code pattern
     for (char *c = text; *c; c++) {
-      if (patternLength >= MORSECODE_MAX_PATTERN_SIZE - 10) break; // Reserve space for trailing pattern
-      // Check for letters
+      if (patternLength >= MORSECODE_MAX_PATTERN_SIZE - 10) break;
+      
       if (*c >= 'A' && *c <= 'Z') {
         build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
       }
-      // Check for numbers
       else if (*c >= '0' && *c <= '9') {
         build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
       }
-      // Check for a space between words
       else if (*c == ' ') {
-        for (int x = 0; x < 4; x++) {   // 7 spaces after the morse code pattern (3 after the last character and now 4 more)
+        for (int x = 0; x < 4; x++) {
           if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
           morsecodePattern[patternLength++] = false;
         }
       }
-      // Check for punctuation
       else if (SEGMENT.check2) {
         const char *punctuationCode = nullptr;
         for (const auto& p : punctuation) {
@@ -231,40 +235,46 @@ static uint16_t mode_morsecode(void) {
       }
     }
 
-    // Build the End-of-message pattern
     if (SEGMENT.check3) {
       build_morsecode_pattern(".-.-.", morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
     }
 
-    for (int x = 0; x < 7; x++) {   // 10 spaces after the last pattern (3 after the last character and now 7 more)
+    for (int x = 0; x < 7; x++) {
       if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
       morsecodePattern[patternLength++] = false;
     }
 
-    SEGENV.aux1 = patternLength; // Store pattern length
+    // Store pattern length and checkbox states in aux1
+    SEGENV.aux1 = patternLength | (SEGMENT.check2 ? 0x8000 : 0) | (SEGMENT.check3 ? 0x4000 : 0);
+    
+    // Store text hash in step
+    SEGENV.step = textHash;
+    
+    // Reset scroll offset
+    SEGENV.aux0 = 0;
   }
 
   // Update offset to make the morse code scroll
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*3;
   uint32_t it = strip.now / cycleTime;
-  if (SEGENV.step != it) {
-    SEGENV.aux0++; // Increment scroll offset
-    SEGENV.step = it;
+  uint16_t scrollCounter = SEGENV.aux0 >> 8; // Use upper byte for scroll timing
+  if (scrollCounter != (it & 0xFF)) {
+    SEGENV.aux0 = (SEGENV.aux0 & 0xFF) + 1 + ((it & 0xFF) << 8); // Increment scroll offset (lower byte), update counter (upper byte)
   }
 
-  int patternLength = SEGENV.aux1;
+  uint16_t scrollOffset = SEGENV.aux0 & 0xFF;
 
   // Clear background
   SEGMENT.fill(BLACK);
 
   // Draw the scrolling pattern
-  int offset = SEGENV.aux0 % patternLength;
+  int offset = scrollOffset % patternLength;
 
   for (int i = 0; i < SEGLEN; i++) {
     int patternIndex = (offset + i) % patternLength;
     if (morsecodePattern[patternIndex]) {
       if (SEGMENT.check1)
-        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(SEGENV.aux0 + i));
+        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(scrollOffset + i));
       else
         SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
     }
