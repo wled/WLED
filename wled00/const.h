@@ -15,6 +15,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #else
   #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
 #endif
+#define WLED_MAX_CUSTOM_PALETTE_GAP 20 // max number of empty palette files in a row before stopping to look for more (20 takes 100ms)
 
 // You can define custom product info from build flags.
 // This is useful to allow API consumer to identify what type of WLED version
