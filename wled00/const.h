@@ -301,10 +301,11 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_FW1906              28            //RGB + CW + WW + unused channel (6 channels per IC)
 #define TYPE_UCS8904             29            //first RGBW digital type (hardcoded in busmanager.cpp, memUsage())
 #define TYPE_SK6812_RGBW         30
-#define TYPE_TM1814              31
+#define TYPE_TM1814              31            //RGBW
 #define TYPE_WS2805              32            //RGB + WW + CW
 #define TYPE_TM1914              33            //RGB
 #define TYPE_SM16825             34            //RGB + WW + CW
+#define TYPE_TM1815              35            //RGBW (half speed TM1814)
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
 #define TYPE_ONOFF               40            //binary output (relays etc.; NOT PWM)
