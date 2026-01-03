@@ -293,6 +293,24 @@
 			// enable/disable LED fields
 			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
 			let dC = 0; // count of digital buses (for parallel I2S)
+			
+			// Pre-calculate sameType and maxLC for driver info display
+			let sameType = 0;
+			let maxLEDsPerBus = 0;
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
+				let n = s.name.substring(2,3);
+				let t = parseInt(s.value);
+				if (isDig(t) && !isD2P(t)) {
+					if (sameType == 0) sameType = t;
+					else if (sameType != t) sameType = -1;
+					let lc = d.Sf["LC"+n];
+					if (lc && lc.value) {
+						let c = parseInt(lc.value, 10);
+						if (c > maxLEDsPerBus) maxLEDsPerBus = c;
+					}
+				}
+			});
+			
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
 				// is the field a LED type?
@@ -332,7 +350,7 @@
 					let useI2S = d.Sf.PR && d.Sf.PR.checked;
 					let info = "";
 					if (useI2S) {
-						if (sameType != -1 && maxLC <= 600) {
+						if (sameType != -1 && maxLEDsPerBus <= 600) {
 							// Parallel I2S
 							info = i < 8 ? " (I2S)" : " (RMT)";
 						} else {
