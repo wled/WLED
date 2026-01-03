@@ -9,26 +9,23 @@
 #include <Arduino.h>
 #include "NeoPixelBus.h"
 
-#define WLED_USE_SHARED_RMT
-
-#ifdef ESP32
-// RMT driver selection
+#ifdef ARDUINO_ARCH_ESP32
+// RMT driver selection, includes needed for custom RMT types
 #if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
 #include <NeoEsp32RmtHIMethod.h>
-//#define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
 #define USE_NEOPIXELBUS_RMT_HI
 #else
-#include "internal/methods/NeoEsp32RmtMethod.h" // needed for custom RMT types
-//#define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
+#include "internal/methods/NeoEsp32RmtMethod.h"
+#endif
 #endif
 
 ////////////////////////////////
-// TM1815 timing definitions  //
+// TM1815 timing and methods  //
 ////////////////////////////////
 
 // TM1815 is exactly half the speed of TM1814, other features are identical so can use TM1814 as a base class
 // normal timing pulses are inverted compared to WS281x (low pulse timing, high idle/reset)
-
+#ifdef ARDUINO_ARCH_ESP32
 // RMT timing
 class NeoEsp32RmtSpeedTm1815 : public NeoEsp32RmtInvertedSpeedBase
 {
@@ -55,7 +52,6 @@ void NeoEsp32RmtSpeedTm1815::Translate(const void* src,
     _translate(src, dest, src_size, wanted_num, translated_size, item_num,
         RmtBit0, RmtBit1, RmtDurationReset);
 }
-
 #else // ESP8266
 class NeoEspBitBangSpeedTm1815
 {
@@ -92,14 +88,13 @@ public:
 };
 
 // TM1815 methods
-#ifdef ESP32
+#ifdef ARDUINO_ARCH_ESP32
   // ESP32 RMT Methods
   #ifdef USE_NEOPIXELBUS_RMT_HI
     typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeedTm1815, NeoEsp32RmtChannelN> NeoEsp32RmtHINTm1815Method;
   #else
     typedef NeoEsp32RmtMethodBase<NeoEsp32RmtSpeedTm1815, NeoEsp32RmtChannelN> NeoEsp32RmtNTm1815Method;
   #endif
-
   // ESP32 I2S Methods
   #if !defined(CONFIG_IDF_TARGET_ESP32C3)
     typedef NeoEsp32I2sMethodBase<NeoBitsSpeedTm1815,  NeoEsp32I2sBusZero,  NeoBitsInverted, NeoEsp32I2sCadence> NeoEsp32I2s0Tm1815Method;
@@ -118,12 +113,11 @@ public:
     typedef NeoEsp32I2s1X8Tm1815Method   X8Tm1815Method;
     #endif
   #endif // !CONFIG_IDF_TARGET_ESP32C3
-
-  #else // ESP8266
-    typedef NeoEsp8266UartMethodBase<NeoEsp8266UartSpeedTm1815, NeoEsp8266Uart<UartFeature0, NeoEsp8266UartContext>, NeoEsp8266UartInverted> NeoEsp8266Uart0Tm1815Method;
-    typedef NeoEsp8266UartMethodBase<NeoEsp8266UartSpeedTm1815, NeoEsp8266Uart<UartFeature1, NeoEsp8266UartContext>, NeoEsp8266UartInverted> NeoEsp8266Uart1Tm1815Method;
-    typedef NeoEsp8266DmaMethodBase<NeoEsp8266I2sCadence<NeoEsp8266DmaInvertedPattern>,NeoBitsSpeedTm1815> NeoEsp8266DmaTm1815Method;
-    typedef NeoEspBitBangMethodBase<NeoEspBitBangSpeedTm1815, NeoEspInverted, true> NeoEsp8266BitBangTm1815Method;
+#else // ESP8266
+  typedef NeoEsp8266UartMethodBase<NeoEsp8266UartSpeedTm1815, NeoEsp8266Uart<UartFeature0, NeoEsp8266UartContext>, NeoEsp8266UartInverted> NeoEsp8266Uart0Tm1815Method;
+  typedef NeoEsp8266UartMethodBase<NeoEsp8266UartSpeedTm1815, NeoEsp8266Uart<UartFeature1, NeoEsp8266UartContext>, NeoEsp8266UartInverted> NeoEsp8266Uart1Tm1815Method;
+  typedef NeoEsp8266DmaMethodBase<NeoEsp8266I2sCadence<NeoEsp8266DmaInvertedPattern>,NeoBitsSpeedTm1815> NeoEsp8266DmaTm1815Method;
+  typedef NeoEspBitBangMethodBase<NeoEspBitBangSpeedTm1815, NeoEspInverted, true> NeoEsp8266BitBangTm1815Method;
 #endif
 
 #endif // BusCustomNPBtiming_h

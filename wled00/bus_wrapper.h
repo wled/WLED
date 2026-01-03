@@ -143,17 +143,6 @@
 #define I_HS_LPO_3 109
 #define I_SS_LPO_3 110
 
-#ifdef ESP32
-// RMT driver selection
-#if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
-#include <NeoEsp32RmtHIMethod.h>
-#define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
-#else
-#include "internal/methods/NeoEsp32RmtMethod.h" // needed for custom RMT types
-#define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
-#endif
-#endif
-
 // In the following NeoGammaNullMethod can be replaced with NeoGammaWLEDMethod to perform Gamma correction implicitly
 // unfortunately that may apply Gamma correction to pre-calculated palettes which is undesired
 
@@ -270,6 +259,14 @@
   typedef NeoEsp32I2s1Apa106Method X1Apa106Method;
   typedef NeoEsp32I2s1Ws2805Method X1Ws2805Method;
   typedef NeoEsp32I2s1Tm1914Method X1Tm1914Method;
+#endif
+
+// RMT driver selection
+#if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
+#include <NeoEsp32RmtHIMethod.h>
+#define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
+#else
+#define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
 #endif
 
 //RGB
