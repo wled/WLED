@@ -166,7 +166,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  CJSON(useParallelI2S, hw_led[F("prl")]);
+  CJSON(useI2S, hw_led[F("prl")]);
   #endif
 
   #ifndef WLED_DISABLE_2D
@@ -234,9 +234,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
+      uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=I2S
 
       String host = elm[F("text")] | String();
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, host);
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -319,7 +320,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       unsigned start = 0;
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
-      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
+      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, LED_MILLIAMPS_DEFAULT, ABL_MILLIAMPS_DEFAULT, 0); // driver=0 (RMT default)
       doInitBusses = true;  // finalization done in beginStrip()
     }
   }
@@ -984,6 +985,10 @@ void serializeConfig(JsonObject root) {
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
+    // Save driver preference from busConfigs if available
+    if (s < busConfigs.size()) {
+      ins[F("drv")] = busConfigs[s].driverType;
+    }
     ins[F("text")]   = bus->getCustomText();
   }
 

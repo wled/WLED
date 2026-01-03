@@ -140,6 +140,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
+    virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
     virtual size_t   getBusSize() const                         { return sizeof(Bus); }
     virtual const String getCustomText() const                  { return String(); }
 
@@ -258,6 +259,7 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
@@ -272,6 +274,7 @@ class BusDigital : public Bus {
     uint8_t  _colorOrder;
     uint8_t  _pins[2];
     uint8_t  _iType;
+    uint8_t  _driverType; // 0=RMT (default), 1=I2S
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
     uint8_t  _milliAmpsPerLed;
@@ -421,9 +424,10 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
+  uint8_t driverType; // 0=RMT (default), 1=I2S
   String text;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, String sometext = "")
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -433,13 +437,14 @@ struct BusConfig {
   , frequency(clock_kHz)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
+  , driverType(driver)
   , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     size_t nPins = Bus::getNumberOfPins(type);
     for (size_t i = 0; i < nPins; i++) pins[i] = ppins[i];
-    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%d)\n"),
       (int)start, (int)(start+len),
       (int)type,
       (int)colorOrder,
@@ -447,7 +452,8 @@ struct BusConfig {
       (int)skipAmount,
       (int)autoWhite,
       (int)frequency,
-      (int)milliAmpsPerLed, (int)milliAmpsMax
+      (int)milliAmpsPerLed, (int)milliAmpsMax,
+      (int)driverType
     );
   }
 
@@ -504,6 +510,8 @@ namespace BusManager {
 
   void useParallelOutput(); // workaround for inaccessible PolyBus
   bool hasParallelOutput(); // workaround for inaccessible PolyBus
+  void useI2SOutput(bool enable); // set I2S/LCD usage flag
+  bool hasI2SOutput(); // check I2S/LCD usage flag
 
   //do not call this method from system context (network callback)
   void removeAll();

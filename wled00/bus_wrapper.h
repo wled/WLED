@@ -339,11 +339,14 @@
 //handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
-    static bool _useParallelI2S;
+    static bool _useParallelI2S;  // use parallel I2S/LCD (8 channels)
+    static bool _useI2S;           // use I2S/LCD at all (could be parallel or single)
 
   public:
     static inline void setParallelI2S1Output(bool b = true) { _useParallelI2S = b; }
     static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
+    static inline void setI2SOutput(bool b = true) { _useI2S = b; }
+    static inline bool isI2SOutput(void) { return _useI2S; }
 
   // initialize SPI bus speed for DotStar methods
   template <class T>
@@ -481,14 +484,9 @@ class PolyBus {
 
     #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
     if (_useParallelI2S && (channel >= 8)) {
-        // Parallel I2S channels are to be used first, so subtract 8 to get the RMT channel number
+        // I2S/LCD channels are to be used first, so subtract 8 to get the RMT channel number
         channel -= 8;
     }
-    #endif
-
-    #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
-    if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
     #endif
 
     void* busPtr = nullptr;
@@ -1283,8 +1281,19 @@ class PolyBus {
     return size;
   }
 
+  // Channel tracking for dynamic allocation
+  static uint8_t _rmtChannelsUsed;
+  static uint8_t _i2sChannelsUsed;
+  
+  // Reset channel tracking (call before adding buses)
+  static void resetChannelTracking() {
+    _rmtChannelsUsed = 0;
+    _i2sChannelsUsed = 0;
+  }
+  
   //gives back the internal type index (I_XX_XXX_X above) for the input
-  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0) {
+  // driverPreference: 0=RMT (default), 1=I2S/LCD
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0, uint8_t driverPreference = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
       bool isHSPI = false;
@@ -1340,38 +1349,44 @@ class PolyBus {
           return I_8266_U0_SM16825_5 + offset;
       }
       #else //ESP32
-      uint8_t offset = 0; // 0 = RMT (num 1-8), 1 = I2S1 [I2S0 is used by Audioreactive]
+      // Dynamic channel allocation based on driver preference
+      // Get platform-specific max channels
       #if defined(CONFIG_IDF_TARGET_ESP32S2)
-      // ESP32-S2 only has 4 RMT channels
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S0 channels followed by RMT
-                                    // Note: conflicts with AudioReactive if enabled
-      } else {
-        if (num > 4) return I_NONE;
-        if (num > 3) offset = 1;  // only one I2S0 (use last to allow Audioreactive)
-      }
+      const uint8_t maxRMT = 4;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
       #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-      // On ESP32-C3 only the first 2 RMT channels are usable for transmitting
-      if (num > 1) return I_NONE;
-      //if (num > 1) offset = 1; // I2S not supported yet (only 1 I2S)
+      const uint8_t maxRMT = 2;
+      const uint8_t maxI2S = 0; // I2S not supported on C3
       #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-      // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S LCD channels, followed by RMT
-      } else {
-        if (num > 3) return I_NONE; // do not use single I2S (as it is not supported)
-      }
+      const uint8_t maxRMT = 4;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 0) : 0; // LCD only, no single I2S
       #else
-      // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
-      if (_useParallelI2S) {
-        if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
+      // Standard ESP32
+      const uint8_t maxRMT = 8;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
+      #endif
+      
+      // Determine which driver to use based on preference and availability
+      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
+      bool useI2S = false;
+      
+      if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
+        // User wants I2S and we have I2S channels available
+        useI2S = true;
+        _i2sChannelsUsed++;
+      } else if (_rmtChannelsUsed < maxRMT) {
+        // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
+        _rmtChannelsUsed++;
+      } else if (_i2sChannelsUsed < maxI2S) {
+        // RMT full, fallback to I2S if available
+        useI2S = true;
+        _i2sChannelsUsed++;
       } else {
-        if (num > 9) return I_NONE;
-        if (num == 0) offset = 1; // prefer I2S1 for 1st bus (less flickering but more RAM needed)
+        // No channels available
+        return I_NONE;
       }
+      
+      if (useI2S) offset = 1;
       #endif
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
@@ -1402,7 +1417,6 @@ class PolyBus {
         case TYPE_SM16825:
           return I_32_RN_SM16825_5 + offset;
       }
-      #endif
     }
     return I_NONE;
   }

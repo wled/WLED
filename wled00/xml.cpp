@@ -291,7 +291,23 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+    // Calculate max RMT and I2S channels based on platform
+    uint8_t maxRMT = 0, maxI2S = 0;
+    #if defined(CONFIG_IDF_TARGET_ESP32)
+      maxRMT = 8;  // ESP32 has 8 RMT channels
+      maxI2S = 8;  // Can use 8 parallel I2S or 1 single I2S
+    #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+      maxRMT = 4;  // ESP32-S2 has 4 RMT channels
+      maxI2S = 8;  // Can use 8 parallel I2S or 1 single I2S
+    #elif defined(CONFIG_IDF_TARGET_ESP32S3)
+      maxRMT = 4;  // ESP32-S3 has 4 RMT channels
+      maxI2S = 8;  // Can use 8 parallel LCD (no single I2S support)
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+      maxRMT = 2;  // ESP32-C3 has 2 RMT channels
+      maxI2S = 0;  // No I2S support
+    #endif
+    
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
       WLED_MAX_BUSSES,
       WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
       MAX_LEDS_PER_BUS,
@@ -300,7 +316,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       WLED_MAX_COLOR_ORDER_MAPPINGS,
       WLED_MAX_DIGITAL_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
-      WLED_MAX_BUTTONS
+      WLED_MAX_BUTTONS,
+      maxRMT,
+      maxI2S
     );
 
     printSetFormCheckbox(settingsScript,PSTR("MS"),strip.autoSegments);
@@ -330,6 +348,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       settingsScript.print(F("addLEDs(1);"));
       uint8_t pins[OUTPUT_MAX_PINS];
@@ -370,6 +389,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,sp,speed);
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
+      printSetFormValue(settingsScript,ld,bus->getDriverType());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
       sumMa += bus->getMaxCurrent();
     }
