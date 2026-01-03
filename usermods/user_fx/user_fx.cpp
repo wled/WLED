@@ -162,7 +162,7 @@ uint16_t mode_2D_lavalamp(void) {
 
   // Spawn new particles at the bottom near the center
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
-    if (!lavaParticles[i].active && hw_random8() < 32) { // Always spawn when slot available
+    if (!lavaParticles[i].active && hw_random8() < 32) { // sporadically spawn when slot available
       // Spawn in the middle 60% of the width
       float centerStart = cols * 0.20f;
       float centerWidth = cols * 0.60f;
@@ -193,7 +193,7 @@ uint16_t mode_2D_lavalamp(void) {
   
   // Update and draw particles
   int activeCount = 0;
-  unsigned long currentMillis = millis();
+  unsigned long currentMillis = strip.now;
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
     if (!lavaParticles[i].active) continue;
     activeCount++;
@@ -292,7 +292,6 @@ uint16_t mode_2D_lavalamp(void) {
 
     // Draw blob with soft edges (gaussian-like falloff)
     float sizeSq = p->size * p->size;
-    float invSize = 1.0f / p->size;
     for (int dy = -(int)p->size; dy <= (int)p->size; dy++) {
       for (int dx = -(int)p->size; dx <= (int)p->size; dx++) {
         int px = (int)(p->x + dx);
@@ -301,8 +300,8 @@ uint16_t mode_2D_lavalamp(void) {
         if (px >= 0 && px < cols && py >= 0 && py < rows) {
           float distSq = dx*dx + dy*dy;
           if (distSq < sizeSq) {
-            // Soft falloff
-            float intensity = 1.0f - sqrt(distSq) * invSize;
+            // Soft falloff using squared distance (faster)
+            float intensity = 1.0f - (distSq / sizeSq);
             intensity = intensity * intensity; // Square for smoother falloff
             
             uint8_t bw = w * intensity;
