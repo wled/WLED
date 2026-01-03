@@ -420,20 +420,34 @@
 			});
 			if (is32() || isS2() || isS3()) {
 				// Always show Enable I2S checkbox on ESP32/S2/S3
-				// But disable parallel I2S if conditions aren't met
-				if (maxLC > 600 || dC < 2 || sameType <= 0) {
-					// Parallel I2S not possible, but single I2S still available
-					// Don't hide the checkbox, just uncheck it if it was relying on parallel mode
-					gId("prl").classList.remove("hide");
-				} else {
-					gId("prl").classList.remove("hide");
-				}
+				gId("prl").classList.remove("hide");
 			} else {
 				d.Sf["PR"].checked = false;
 			}
 			
+			// Calculate max bus count based on configuration
+			// Logic:
+			// - If I2S is enabled and all buses are same type with ≤600 LEDs/bus: parallel I2S (8 I2S + RMT)
+			// - If I2S is enabled but buses are mixed or >600 LEDs/bus: single I2S (RMT + 1 I2S)
+			// - If I2S is disabled: RMT only
+			let maxBusCount;
+			if (d.Sf["PR"].checked) {
+				if (sameType > 0 && maxLC <= 600 && dC >= 2) {
+					// Parallel I2S mode possible
+					maxBusCount = maxD; // ESP32: 16, S2: 12, S3: 12
+				} else {
+					// Single I2S mode
+					if (is32()) maxBusCount = 9; // 8 RMT + 1 I2S
+					else if (isS2()) maxBusCount = 5; // 4 RMT + 1 I2S
+					else if (isS3()) maxBusCount = 4; // S3 doesn't support single I2S, only RMT
+					else maxBusCount = maxD;
+				}
+			} else {
+				// RMT only
+				maxBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
+			}
+			
 			// Remove excess buses if max count decreased
-			let maxBusCount = d.Sf["PR"].checked ? maxD : (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 			let busesToRemove = dC - maxBusCount;
 			if (busesToRemove > 0) {
 				// Remove buses from the end
