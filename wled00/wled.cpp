@@ -430,12 +430,7 @@ void WLED::setup()
   }
 
   handleBootLoop(); // check for bootloop and take action (requires WLED_FS)
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-  else deEEP();
-#else
   initPresetsFile();
-#endif
   updateFSInfo();
 
   // generate module IDs must be done before AP setup
@@ -670,7 +665,6 @@ void WLED::initConnection()
   if (!WLED_WIFI_CONFIGURED) {
     DEBUG_PRINTLN(F("No connection configured."));
     if (!apActive) initAP();        // instantly go to ap mode
-    return;
   } else if (!apActive) {
     if (apBehavior == AP_BEHAVIOR_ALWAYS) {
       DEBUG_PRINTLN(F("Access point ALWAYS enabled."));

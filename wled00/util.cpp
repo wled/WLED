@@ -213,7 +213,7 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (including SR extensions)!
+// caller must provide large enough buffer for name (including SR extensions)! maxLen is (buffersize - 1)
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
@@ -235,7 +235,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
 
   if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
     snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
-    dest[maxLen-1] = '\0';
+    dest[maxLen] = '\0';
     return strlen(dest);
   }
 
@@ -336,7 +336,7 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
           case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
           case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
         }
-        dest[maxLen] = '\0'; // strncpy does not necessarily null terminate string
+        dest[maxLen-1] = '\0'; // strncpy does not necessarily null terminate string
       }
     }
     return strlen(dest);
@@ -636,9 +636,11 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
     #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
-    // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
+    // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
     #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
               see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
+  #endif
   #endif
 #else
   #if !defined(IDF_TARGET_ESP32C3) && !defined(ESP8266)
@@ -1157,60 +1159,62 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
-static String dump_raw_block(esp_efuse_block_t block)
-{
-  const int WORDS = 8; // ESP32: 8×32-bit words per block i.e. 256bits
-  uint32_t buf[WORDS] = {0};
-
-  const esp_efuse_desc_t d = {
-    .efuse_block = block,
-    .bit_start = 0,
-    .bit_count = WORDS * 32
-  };
-  const esp_efuse_desc_t* field[2] = { &d, NULL };
-
-  esp_err_t err = esp_efuse_read_field_blob(field, buf, WORDS * 32);
-  if (err != ESP_OK) {
-    return "";
+#include "esp_adc_cal.h"
+String generateDeviceFingerprint() {
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
+  esp_chip_info_t chip_info;
+  esp_chip_info(&chip_info);
+  esp_efuse_mac_get_default((uint8_t*)fp);
+  fp[1] ^= ESP.getFlashChipSize();
+  fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
+  // mix in ADC calibration data:
+  esp_adc_cal_characteristics_t ch;
+  #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
+  #else
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
+  #endif
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, myBIT_WIDTH, 1100, &ch);
+  fp[0] ^= ch.coeff_a;
+  fp[1] ^= ch.coeff_b;
+  if (ch.low_curve) {
+    for (int i = 0; i < 8; i++) {
+      fp[0] ^= ch.low_curve[i];
+    }
   }
-
-  String result = "";
-  for (const unsigned int i : buf) {
-    char line[32];
-    sprintf(line, "0x%08X", i);
-    result += line;
+  if (ch.high_curve) {
+    for (int i = 0; i < 8; i++) {
+      fp[1] ^= ch.high_curve[i];
+    }
   }
-  return result;
+  char fp_string[17];  // 16 hex chars + null terminator
+  sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
+  return String(fp_string);
+}
+#else // ESP8266
+String generateDeviceFingerprint() {
+  uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
+  WiFi.macAddress((uint8_t*)&fp); // use MAC address as fingerprint base
+  fp[0] ^= ESP.getFlashChipId();
+  fp[1] ^= ESP.getFlashChipSize() | ESP.getFlashChipVendorId() << 16;
+  char fp_string[17];  // 16 hex chars + null terminator
+  sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
+  return String(fp_string);
 }
 #endif
 
-
-// Generate a device ID based on SHA1 hash of MAC address salted with "WLED"
+// Generate a device ID based on SHA1 hash of MAC address salted with other unique device info
 // Returns: original SHA1 + last 2 chars of double-hashed SHA1 (42 chars total)
 String getDeviceId() {
   static String cachedDeviceId = "";
   if (cachedDeviceId.length() > 0) return cachedDeviceId;
-
-  uint8_t mac[6];
-  WiFi.macAddress(mac);
-  char macStr[18];
-  sprintf(macStr, "%02x:%02x:%02x:%02x:%02x:%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-
   // The device string is deterministic as it needs to be consistent for the same device, even after a full flash erase
   // MAC is salted with other consistent device info to avoid rainbow table attacks.
   // If the MAC address is known by malicious actors, they could precompute SHA1 hashes to impersonate devices,
   // but as WLED developers are just looking at statistics and not authenticating devices, this is acceptable.
   // If the usage data was exfiltrated, you could not easily determine the MAC from the device ID without brute forcing SHA1
-#ifdef ESP8266
-  String deviceString = String(macStr) + "WLED" + ESP.getFlashChipId();
-#else
-  String deviceString = String(macStr) + "WLED" + ESP.getChipModel() + ESP.getChipRevision();
-  deviceString += dump_raw_block(EFUSE_BLK0);
-  deviceString += dump_raw_block(EFUSE_BLK1);
-  deviceString += dump_raw_block(EFUSE_BLK2);
-  deviceString += dump_raw_block(EFUSE_BLK3);
-#endif
-  String firstHash = computeSHA1(deviceString);
+
+  String firstHash = computeSHA1(generateDeviceFingerprint());
 
   // Second hash: SHA1 of the first hash
   String secondHash = computeSHA1(firstHash);
