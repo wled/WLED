@@ -218,7 +218,7 @@ uint16_t mode_2D_lavalamp(void) {
         
         LavaParticle *other = &lavaParticles[j];
         
-        // Only attract if moving in opposite vertical directions
+        // Skip attraction if moving in same vertical direction (both up or both down)
         if ((p->vy < 0 && other->vy < 0) || (p->vy > 0 && other->vy > 0)) continue;
         
         float dx = other->x - p->x;
