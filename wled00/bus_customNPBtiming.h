@@ -97,12 +97,13 @@ public:
   #endif
   // ESP32 I2S Methods
   #if !defined(CONFIG_IDF_TARGET_ESP32C3)
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    typedef NeoEsp32LcdXMethodBase<NeoBitsSpeedTm1815,   NeoEsp32LcdMux8Bus, NeoBitsInverted> NeoEsp32LcdX8Tm1815Method; // S3 only
+    #else // ESP32 classic & S2
     typedef NeoEsp32I2sMethodBase<NeoBitsSpeedTm1815,  NeoEsp32I2sBusZero,  NeoBitsInverted, NeoEsp32I2sCadence> NeoEsp32I2s0Tm1815Method;
     typedef NeoEsp32I2sMethodBase<NeoBitsSpeedTm1815,  NeoEsp32I2sBusOne,   NeoBitsInverted, NeoEsp32I2sCadence> NeoEsp32I2s1Tm1815Method;
     typedef NeoEsp32I2sXMethodBase<NeoBitsSpeedTm1815, NeoEsp32I2s0Mux8Bus, NeoBitsInverted>                     NeoEsp32I2s0X8Tm1815Method; // used by S2
     typedef NeoEsp32I2sXMethodBase<NeoBitsSpeedTm1815, NeoEsp32I2s1Mux8Bus, NeoBitsInverted>                     NeoEsp32I2s1X8Tm1815Method; // used by classic ESP32
-    #if defined(CONFIG_IDF_TARGET_ESP32S3)
-    typedef NeoEsp32LcdXMethodBase<NeoBitsSpeedTm1815,   NeoEsp32LcdMux8Bus, NeoBitsInverted> NeoEsp32LcdX8Tm1815Method; // S3 only
     #endif
     // I2S Aliases
     #if defined(CONFIG_IDF_TARGET_ESP32S3)
