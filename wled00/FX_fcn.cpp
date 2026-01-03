@@ -1208,7 +1208,22 @@ void WS2812FX::finalizeInit() {
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
       #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-    const bool usesI2S = (BusManager::hasI2SOutput() && digitalCount <= 8);
+    bool usesI2S = false;
+    if (BusManager::hasI2SOutput()) {
+      if (BusManager::hasParallelOutput()) {
+        // Parallel I2S: first 8 buses use I2S
+        usesI2S = (digitalCount <= 8);
+      } else {
+        // Single I2S: only the last bus uses I2S
+        #if defined(CONFIG_IDF_TARGET_ESP32)
+          usesI2S = (digitalCount == 9); // bus 8 (9th bus, 0-indexed)
+        #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+          usesI2S = (digitalCount == 5); // bus 4 (5th bus, 0-indexed)
+        #elif defined(CONFIG_IDF_TARGET_ESP32S3)
+          usesI2S = false; // S3 doesn't support single I2S
+        #endif
+      }
+    }
       #else
     const bool usesI2S = false;
       #endif
