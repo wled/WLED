@@ -49,13 +49,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   //long vid = doc[F("vid")]; // 2010020
 
-#ifdef WLED_USE_ETHERNET
-  JsonObject ethernet = doc[F("eth")];
-  CJSON(ethernetType, ethernet["type"]);
-  // NOTE: Ethernet configuration takes priority over other use of pins
-  initEthernet();
-#endif
-
   JsonObject id = doc["id"];
   getStringFromJson(cmDNS, id[F("mdns")], 33);
   getStringFromJson(serverDescription, id[F("name")], 33);
@@ -124,6 +117,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       CJSON(dnsAddress[i], dns[i]);
     }
   }
+
+  // https://github.com/wled/WLED/issues/5247
+#ifdef WLED_USE_ETHERNET
+  JsonObject ethernet = doc[F("eth")];
+  CJSON(ethernetType, ethernet["type"]);
+  // NOTE: Ethernet configuration takes priority over other use of pins
+  initEthernet();
+#endif
 
   JsonObject ap = doc["ap"];
   getStringFromJson(apSSID, ap[F("ssid")], 33);
