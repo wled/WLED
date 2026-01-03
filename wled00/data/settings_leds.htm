@@ -85,22 +85,7 @@
 				//check for pin conflicts
 				if (LC.value!="" && LC.value!="-1") {
 					let p = d.rsvd.concat(d.um_p); // used pin array
-					d.Sf.querySelectorAll("select.pin").forEach((e)=>{
-						if(e.value>-1) {
-							// Check if this is a button pin (name starts with "BT")
-							if (e.name.startsWith("BT")) {
-								// Get button type field (BEx where BTx is the pin field)
-								let btnTypeField = d.Sf["BE" + e.name.substring(2)];
-								// Only add to used pins if button is not disabled (type != 0)
-								if (btnTypeField && btnTypeField.value != "0") {
-									p.push(parseInt(e.value));
-								}
-							} else {
-								// For IR and Relay pins, add normally
-								p.push(parseInt(e.value));
-							}
-						}
-					}) // buttons, IR & relay
+					d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
 					if (p.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(p)} can't be used.`);
 						LC.value="";
@@ -402,22 +387,7 @@
 				if (nm.search(/^L[0-4]/) == 0) // pin fields
 					if (LC.value!="" && LC.value!="-1") {
 						let p = d.rsvd.concat(d.um_p); // used pin array
-						d.Sf.querySelectorAll("select.pin").forEach((e)=>{
-							if(e.value>-1) {
-								// Check if this is a button pin (name starts with "BT")
-								if (e.name.startsWith("BT")) {
-									// Get button type field (BEx where BTx is the pin field)
-									let btnTypeField = d.Sf["BE" + e.name.substring(2)];
-									// Only add to used pins if button is not disabled (type != 0)
-									if (btnTypeField && btnTypeField.value != "0") {
-										p.push(parseInt(e.value));
-									}
-								} else {
-									// For IR and Relay pins, add normally
-									p.push(parseInt(e.value));
-								}
-							}
-						}) // buttons, IR & relay
+						d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
 						for (j=0; j<nList.length; j++) {
 							if (i==j) continue;
 							let n2 = nList[j].name.substring(0,2); // field name : /L./

@@ -327,7 +327,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     // we should remove all unused buttons from the vector
-    for (int i = buttons.size()-1; i >= 0; i--) {
+    for (int i = buttons.size()-1; i > 0; i--) {
       if (buttons[i].pin < 0 && buttons[i].type == BTN_TYPE_NONE) {
         buttons.erase(buttons.begin() + i); // remove button from vector
       }
