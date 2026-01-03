@@ -2,6 +2,9 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
+// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+
 // static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
@@ -89,6 +92,200 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
 
+/*
+/  Scrolling Morse Code by Bob Loeffler
+*   Adapted from code by automaticaddison.com and then optimized by claude.ai
+*   aux0 is the pattern offset for scrolling
+*   aux1 is the total pattern length
+*   The sx slider selects the scrolling speed
+*   Checkbox1 selects the color mode
+*   Checkbox2 displays punctuation or not
+*   Checkbox3 displays the End-of-message code or not
+*   We get the text from the SEGMENT.name and convert it to morse code
+*   Morse Code rules:
+*    - there is one space between each part of a letter or number
+*    - there are 3 spaces between each letter or number
+*    - there are 7 spaces between each word
+*/
+
+// Build morse pattern into a buffer
+void build_morsecode_pattern(const char *morse_code, bool *pattern, uint16_t &index, int maxSize) {
+  const char *c = morse_code;
+  
+  // Build the dots and dashes into pattern array
+  while (*c != '\0') {
+    // it's a dot which is 1 pixel
+    if (*c == '.') {
+      if (index >= maxSize - 1) return; // Reserve space for spacing
+      pattern[index++] = true;
+    }
+    else { // Must be a dash which is 3 pixels
+      if (index >= maxSize - 3) return;
+      pattern[index++] = true;
+      pattern[index++] = true;
+      pattern[index++] = true;
+    }
+    
+    // 1 space between parts of a letter/number
+    if (index >= maxSize) return;
+    pattern[index++] = false;
+    c++;
+  }
+    
+  // 3 spaces between two letters
+  if (index >= maxSize - 2) return;
+  pattern[index++] = false;
+  if (index >= maxSize - 1) return;
+  pattern[index++] = false;
+  if (index >= maxSize) return;
+  pattern[index++] = false;
+}
+
+static uint16_t mode_morsecode(void) {
+  if (SEGLEN < 1) return mode_static();
+  
+  // A-Z in Morse Code
+  static const char * letters[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
+                     "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
+  // 0-9 in Morse Code
+  static const char * numbers[] = {"-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."};
+
+  // Punctuation in Morse Code
+  struct PunctuationMapping {
+    char character;
+    const char* code;
+  };
+
+  static const PunctuationMapping punctuation[] = {
+    {'.', ".-.-.-"}, {',', "--..--"}, {'?', "..--.."}, 
+    {':', "---..."}, {'-', "-....-"}, {'!', "-.-.--"},
+    {'&', ".-..."}, {'@', ".--.-."}, {')', "-.--.-"},
+    {'(', "-.--."}, {'/', "-..-."}, {'\'', ".----."}
+  };
+
+    // Get the text to display
+  char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
+  size_t len = 0;
+
+  if (SEGMENT.name) len = strlen(SEGMENT.name);
+  if (len == 0) {
+    strcpy_P(text, PSTR("I Love WLED!"));
+  } else {
+    strcpy(text, SEGMENT.name);
+  }
+
+  // Convert to uppercase in place
+  for (char *p = text; *p; p++) {
+    *p = toupper(*p);
+  }
+
+  // Allocate per-segment storage for pattern
+  constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1024;
+  if (!SEGENV.allocateData(MORSECODE_MAX_PATTERN_SIZE)) return mode_static();
+  bool* morsecodePattern = reinterpret_cast<bool*>(SEGENV.data);
+
+  // Use bits in aux1 to store the checkbox states (upper bits since pattern length won't exceed 1024)
+  // Bit 15: lastCheck2, Bit 14: lastCheck3, Bit 13: textChanged flag, Bits 0-12: pattern length
+  bool lastCheck2 = (SEGENV.aux1 & 0x8000) != 0;
+  bool lastCheck3 = (SEGENV.aux1 & 0x4000) != 0;
+  uint16_t patternLength = SEGENV.aux1 & 0x1FFF; // Lower 13 bits for length (up to 8191)
+
+  bool settingsChanged = (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);
+  
+  // For text comparison, we need to store a hash or checksum since we can't store the full text
+  // Use step for text hash storage when not scrolling
+  uint16_t textHash = 0;
+  for (char *p = text; *p; p++) {
+    textHash = ((textHash << 5) + textHash) + *p; // djb2 hash
+  }
+  
+  bool textChanged = (SEGENV.step != textHash && SEGENV.call != 0);
+
+  // Initialize on first call or rebuild pattern
+  if (SEGENV.call == 0 || textChanged || settingsChanged) {
+    patternLength = 0;
+
+    // Build complete morse code pattern
+    for (char *c = text; *c; c++) {
+      if (patternLength >= MORSECODE_MAX_PATTERN_SIZE - 10) break;
+      
+      if (*c >= 'A' && *c <= 'Z') {
+        build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
+      }
+      else if (*c >= '0' && *c <= '9') {
+        build_morsecode_pattern(numbers[*c - '0'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
+      }
+      else if (*c == ' ') {
+        for (int x = 0; x < 4; x++) {
+          if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
+          morsecodePattern[patternLength++] = false;
+        }
+      }
+      else if (SEGMENT.check2) {
+        const char *punctuationCode = nullptr;
+        for (const auto& p : punctuation) {
+          if (*c == p.character) {
+            punctuationCode = p.code;
+            break;
+          }
+        }
+        if (punctuationCode) {
+          build_morsecode_pattern(punctuationCode, morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
+        }
+      }
+    }
+
+    if (SEGMENT.check3) {
+      build_morsecode_pattern(".-.-.", morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
+    }
+
+    for (int x = 0; x < 7; x++) {
+      if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
+      morsecodePattern[patternLength++] = false;
+    }
+
+    // Store pattern length and checkbox states in aux1
+    SEGENV.aux1 = patternLength | (SEGMENT.check2 ? 0x8000 : 0) | (SEGMENT.check3 ? 0x4000 : 0);
+    
+    // Store text hash in step
+    SEGENV.step = textHash;
+    
+    // Reset scroll offset
+    SEGENV.aux0 = 0;
+  }
+
+  // Update offset to make the morse code scroll
+  uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*3;
+  uint32_t it = strip.now / cycleTime;
+  uint16_t scrollCounter = SEGENV.aux0 >> 8; // Use upper byte for scroll timing
+  if (scrollCounter != (it & 0xFF)) {
+    SEGENV.aux0 = (SEGENV.aux0 & 0xFF) + 1 + ((it & 0xFF) << 8); // Increment scroll offset (lower byte), update counter (upper byte)
+  }
+
+  uint16_t scrollOffset = SEGENV.aux0 & 0xFF;
+
+  // Clear background
+  SEGMENT.fill(BLACK);
+
+  // Draw the scrolling pattern
+  int offset = scrollOffset % patternLength;
+
+  for (int i = 0; i < SEGLEN; i++) {
+    int patternIndex = (offset + i) % patternLength;
+    if (morsecodePattern[patternIndex]) {
+      if (SEGMENT.check1)
+        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(scrollOffset + i));
+      else
+        SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,,Color mode,Punctuation,EndOfMessage;;!;1;sx=128,o1=1,o2=1";
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -98,6 +295,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
