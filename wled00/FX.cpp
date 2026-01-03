@@ -10276,7 +10276,7 @@ uint16_t mode_particleBalance(void) {
     if (SEGMENT.check3) // random, use perlin noise
       xgravity = ((int16_t)perlin8(SEGENV.aux0) - 128);
     else // sinusoidal
-      xgravity = (int16_t)cos8(SEGENV.aux0) - 128;//((int32_t)(SEGMENT.custom3 << 2) * cos8(SEGENV.aux0)
+      xgravity = (int16_t)cos8_t(SEGENV.aux0) - 128;//((int32_t)(SEGMENT.custom3 << 2) * cos8(SEGENV.aux0)
     // scale the force
     xgravity = (xgravity * ((SEGMENT.custom3+1) << 2)) / 128; // xgravity: -127 to +127
     PartSys->applyForce(xgravity);
