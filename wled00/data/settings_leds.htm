@@ -444,18 +444,34 @@
 				maxDigitalBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 			}
 			
-			// Remove excess single-pin digital buses if limit exceeded
-			// Note: Other bus types (2-pin digital, PWM, virtual) are not affected by this limit
-			if (dC > maxDigitalBusCount) {
-				let busesToRemove = dC - maxDigitalBusCount;
-				let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-				// Remove from the end, but only single-pin digital buses
-				for (let i = LTs.length - 1; i >= 0 && busesToRemove > 0; i--) {
-					let t = parseInt(LTs[i].value);
-					if (isDig(t) && !isD2P(t)) {
-						addLEDs(-1, false);
-						busesToRemove--;
+			// Mark invalid single-pin digital buses in red (similar to pin validation)
+			// Count and mark buses that exceed the channel limit
+			let invalidBusCount = 0;
+			let digitalBusIndex = 0;
+			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
+			LTs.forEach((s)=>{
+				let n = s.name.substring(2,3);
+				let t = parseInt(s.value);
+				if (isDig(t) && !isD2P(t)) {
+					digitalBusIndex++;
+					// Mark buses that exceed the limit in red
+					if (digitalBusIndex > maxDigitalBusCount) {
+						s.style.color = "red";
+						invalidBusCount++;
+					} else {
+						s.style.color = "#fff";
 					}
+				}
+			});
+			
+			// Show warning if there are invalid buses
+			let busWarning = gId('buswarning');
+			if (busWarning) {
+				if (invalidBusCount > 0) {
+					busWarning.style.display = 'inline';
+					gId('busreason').textContent = `Too many single-pin digital buses (${dC}/${maxDigitalBusCount})`;
+				} else {
+					busWarning.style.display = 'none';
 				}
 			}
 
@@ -972,6 +988,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<div id="ledwarning" class="warn" style="display: none;">
 			&#9888; You might run into stability or lag issues.<br>
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
+		</div>
+		<div id="buswarning" class="warn" style="display: none;">
+			&#9888; Invalid output combination!<br>
+			<span id="busreason">Too many single-pin digital buses</span><br>
 		</div>
 		<hr class="sml">
 		<div id="prl" class="hide">Enable I2S: <input type="checkbox" name="PR" onchange="UI()"><br></div>
