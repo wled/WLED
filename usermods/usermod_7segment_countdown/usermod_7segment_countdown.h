@@ -16,10 +16,15 @@ static constexpr uint16_t TOTAL_PANEL_LEDS = 6 * LEDS_PER_DIGIT + 2 * SEP_LEDS; 
 std::vector<uint8_t> mask;  // 1=keep current color/effect, 0=force black
 bool enabled = true;
 bool sepsOn  = true;
+// New UI-configurable separator flags (only affect drawClock())
+bool SeperatorOn  = true; // when true, separators are forced on in clock view
+bool SeperatorOff = true; // when true, separators are forced off in clock view
 
 // Display mode flags (no logic here, just state)
 bool showClock     = true;
 bool showCountdown = false;
+// Seconds to alternate between clock and countdown when both are enabled
+uint16_t alternatingTime = 10; // default 10s
 
 // Countdown target (local time) and derived UNIX timestamp
 int     targetYear   = 2026;
@@ -37,6 +42,11 @@ uint32_t remDays     = 0;
 uint8_t  remHours    = 0;
 uint8_t  remMinutes  = 0;
 uint8_t  remSeconds  = 0;
+
+// Timekeeping
+unsigned long lastSecondMillis = 0;
+int lastSecondValue = -1;
+
 
 // Index helpers into the linear LED stream
 static uint16_t digitBase(uint8_t d) {

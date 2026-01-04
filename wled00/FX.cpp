@@ -133,7 +133,7 @@ static um_data_t* getAudioData() {
  */
 uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
+  return FRAMETIME;
 }
 static const char _data_FX_MODE_STATIC[] PROGMEM = "Solid";
 

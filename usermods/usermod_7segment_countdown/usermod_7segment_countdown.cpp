@@ -45,17 +45,58 @@ private:
     }
   }
 
+  //Time helpers --------------------------------------------------------------
+    //hundreds of seconds calculation
+  int getHundredths(int currentSeconds) {
+  unsigned long now = millis();
+
+  // Sekunde hat sich geändert → neu synchronisieren
+  if (currentSeconds != lastSecondValue) {
+    lastSecondValue = currentSeconds;
+    lastSecondMillis = now;
+    return 99; // start at 99 when a new second begins (counting down)
+  }
+
+  unsigned long delta = now - lastSecondMillis;
+
+  // Count down from 99 to 0 across the second
+  int hundredths = 99 - (delta / 10);
+  if (hundredths < 0) hundredths = 0;
+  if (hundredths > 99) hundredths = 99;
+
+  return hundredths;
+}
   // Drawing helpers -----------------------------------------------------------
   void drawClock() {
-    setDigit(0, hour(localTime) / 10);
-    setDigit(1, hour(localTime) % 10);
-    setDigit(2, minute(localTime) / 10);
-    setDigit(3, minute(localTime) % 10);
-    setDigit(4, second(localTime) / 10);
-    setDigit(5, second(localTime) % 10);
-    if (second(localTime) % 2) {
+    setDigitInt(0, hour(localTime) / 10);
+    setDigitInt(1, hour(localTime) % 10);
+    setDigitInt(2, minute(localTime) / 10);
+    setDigitInt(3, minute(localTime) % 10);
+    setDigitInt(4, second(localTime) / 10);
+    setDigitInt(5, second(localTime) % 10);
+    // Separator behavior for clock view is controlled by SeperatorOn/SeperatorOff:
+    // - both true: blink (as before)
+    // - SeperatorOn true only: always on
+    // - SeperatorOff true only: always off
+    // - fallback: blink
+    if (SeperatorOn && SeperatorOff) {
+      if (second(localTime) % 2) {
+        setSeparator(1, sepsOn);
+        setSeparator(2, sepsOn);
+      }
+    }
+    else if (SeperatorOn) {
       setSeparator(1, sepsOn);
       setSeparator(2, sepsOn);
+    }
+    else if (SeperatorOff) {
+      // explicitly off for clock view → do nothing
+    }
+    else {
+      if (second(localTime) % 2) {
+        setSeparator(1, sepsOn);
+        setSeparator(2, sepsOn);
+      }
     }
   }
 
@@ -71,10 +112,59 @@ private:
     fullHours   = diff / 3600u;
     fullMinutes = diff / 60u;
     fullSeconds = diff;
+
+      // > 99 Tage
+  if (remDays > 99) {
+    setDigitChar(0, ' ');
+    setDigitInt(1, (remDays / 100) % 10);
+    setDigitInt(2, (remDays / 10) % 10);
+    setDigitInt(3, remDays % 10);
+    setDigitChar(4, 't');
+    setDigitChar(5, ' ');
+    return;
+  }
+
+  // < 99 Tage
+  if (remDays <=99 && fullHours > 99) {
+    setDigitInt(0, remDays / 10);
+    setDigitInt(1, remDays % 10);
+    setSeparator(1, sepsOn);
+    setDigitInt(2, remHours / 10);
+    setDigitInt(3, remHours % 10);
+    setSeparator(2, sepsOn);
+    setDigitInt(4, remMinutes / 10);
+    setDigitInt(5, remMinutes % 10);
+    return;
+  }
+
+  // < 99 Stunden
+  if (fullHours <=99 && fullMinutes > 99) {
+    setDigitInt(0, fullHours / 10);
+    setDigitInt(1, fullHours % 10);
+    setSeparator(1, sepsOn);
+    setDigitInt(2, remMinutes / 10);
+    setDigitInt(3, remMinutes % 10);
+    setSeparator(2, sepsOn);
+    setDigitInt(4, remSeconds / 10);
+    setDigitInt(5, remSeconds % 10);
+    return;
+  }
+
+  // < 99 Minuten → MM SS HH (Hundertstel)
+  int hs = getHundredths(remSeconds);
+
+  setDigitInt(0, fullMinutes / 10);
+  setDigitInt(1, fullMinutes % 10);
+  setSeparatorHalf(1, true, sepsOn);  // upper dot
+  setDigitInt(2, remSeconds / 10);
+  setDigitInt(3, remSeconds % 10);
+  setSeparator(2, sepsOn);
+  setDigitInt(4, hs / 10);
+  setDigitInt(5, hs % 10);
   }
 
   // Turn on segments for a single digit according to bitmask
-  void setDigit(uint8_t digitIndex, int8_t value) {
+  void setDigitInt(uint8_t digitIndex, int8_t value) {
     if (digitIndex > 5) return;
     if (value < 0) return;
 
@@ -90,11 +180,34 @@ private:
       }
     }
   }
+    void setDigitChar(uint8_t digitIndex, char c) {
+    if (digitIndex > 5) return;
+
+    uint16_t base = digitBase(digitIndex);
+    uint8_t bits  = LETTER_MASK(c);
+
+    for (uint8_t physSeg = 0; physSeg < SEGS_PER_DIGIT; physSeg++) {
+      uint8_t logSeg = PHYS_TO_LOG[physSeg];
+      bool segOn = (bits >> logSeg) & 0x01;
+      if (segOn) {
+        uint16_t segStart = base + (uint16_t)physSeg * LEDS_PER_SEG;
+        setRangeOn(segStart, LEDS_PER_SEG);
+      }
+    }
+  }
 
   // Turn on both separator dots if requested
   void setSeparator(uint8_t which, bool on) {
     uint16_t base = (which == 1) ? sep1Base() : sep2Base();
     if (on) setRangeOn(base, SEP_LEDS);
+  }
+
+  // Turn on a single half (upper/lower) of the separator (each half = SEP_LEDS/2)
+  void setSeparatorHalf(uint8_t which, bool upper, bool on) {
+    uint16_t base = (which == 1) ? sep1Base() : sep2Base();
+    uint16_t halfLen = SEP_LEDS / 2;
+    uint16_t start = base + (upper ? 0 : halfLen);
+    if (on) setRangeOn(start, halfLen);
   }
 
   // Apply mask to strip: 1 keeps color/effect, 0 forces black
@@ -139,21 +252,35 @@ private:
 public:
   void setup() override {
     ensureMaskSize();
-    Serial.print("7Segment Setup - MOD: ");
-    Serial.println(enabled ? "enabled" : "disabled");
   }
   void loop() override {}
 
-  void handleOverlayDraw(){
-    if (!enabled) return;
-    clearMask();
-    if (showClock && !showCountdown) {
-      drawClock();
-    } else {
-      drawCountdown();
-    }
-    applyMaskToStrip();
+ void handleOverlayDraw() {
+  if (!enabled) return;
+
+  clearMask();
+
+  // Beide aktiv -> im alternatingTime-Sekunden-Takt wechseln
+  if (showClock && showCountdown) {
+    uint32_t period = (alternatingTime > 0) ? (uint32_t)alternatingTime : 10U;
+
+    // Blockindex (0,1,2,...) über Unix-Sekunden
+    uint32_t block = (uint32_t)localTime / period;
+
+    // Gerade Blöcke: Uhr, ungerade: Countdown (oder umgekehrt, wenn du willst)
+    if ((block & 1U) == 0U) drawClock();
+    else                    drawCountdown();
   }
+  else if (showClock) {
+    drawClock();
+  }
+  else { // showCountdown oder Default
+    drawCountdown();
+  }
+
+  applyMaskToStrip();
+}
+
 
   // Info UI (u-group)
   void addToJsonInfo(JsonObject& root) override {
@@ -168,6 +295,10 @@ public:
     JsonArray se = grp.createNestedArray(F("seps"));
     se.add(sepsOn ? F("on") : F("off"));
     se.add("");
+
+    JsonArray se_cfg = grp.createNestedArray(F("seps cfg"));
+    se_cfg.add(SeperatorOn ? F("on") : F("off"));
+    se_cfg.add(SeperatorOff ? F("on") : F("off"));
 
     JsonArray pl = grp.createNestedArray(F("panel leds"));
     pl.add(TOTAL_PANEL_LEDS);
@@ -187,6 +318,9 @@ public:
     if (s.isNull()) s = root.createNestedObject(F("7seg"));
     s[F("enabled")] = enabled;
 
+    s[F("SeperatorOn")]  = SeperatorOn;
+    s[F("SeperatorOff")] = SeperatorOff;
+
     s[F("targetYear")]   = targetYear;
     s[F("targetMonth")]  = targetMonth;
     s[F("targetDay")]    = targetDay;
@@ -195,6 +329,7 @@ public:
 
     s[F("showClock")]     = showClock;
     s[F("showCountdown")] = showCountdown;
+    s[F("alternatingTime")] = alternatingTime;
   }
 
   void readFromJsonState(JsonObject& root) override {
@@ -212,6 +347,9 @@ public:
 
     if (s.containsKey(F("showClock")))     showClock     = s[F("showClock")].as<bool>();
     if (s.containsKey(F("showCountdown"))) showCountdown = s[F("showCountdown")].as<bool>();
+    if (s.containsKey(F("alternatingTime"))) alternatingTime = s[F("alternatingTime")].as<uint16_t>();
+    if (s.containsKey(F("SeperatorOn")))  SeperatorOn  = s[F("SeperatorOn")].as<bool>();
+    if (s.containsKey(F("SeperatorOff"))) SeperatorOff = s[F("SeperatorOff")].as<bool>();
 
     if (changed) validateTarget(true);
   }
@@ -229,6 +367,9 @@ public:
 
     s[F("showClock")]     = showClock;
     s[F("showCountdown")] = showCountdown;
+    s[F("alternatingTime")] = alternatingTime; // seconds to alternate when both modes enabled
+    s[F("SeperatorOn")]  = SeperatorOn;
+    s[F("SeperatorOff")] = SeperatorOff;
   }
 
   bool readFromConfig(JsonObject& root) override {
@@ -244,6 +385,9 @@ public:
 
     showClock     = s[F("showClock")]     | true;
     showCountdown = s[F("showCountdown")] | false;
+    alternatingTime = s[F("alternatingTime")] | 10; // default 10s
+    SeperatorOn  = s[F("SeperatorOn")]  | true;
+    SeperatorOff = s[F("SeperatorOff")] | true;
 
     validateTarget(true);
     return true;

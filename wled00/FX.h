@@ -46,7 +46,7 @@
 #define DEFAULT_MODE       (uint8_t)0
 #define DEFAULT_SPEED      (uint8_t)128
 #define DEFAULT_INTENSITY  (uint8_t)128
-#define DEFAULT_COLOR      (uint32_t)0xFFAA00
+#define DEFAULT_COLOR      (uint32_t)0xFF0000
 #define DEFAULT_C1         (uint8_t)128
 #define DEFAULT_C2         (uint8_t)128
 #define DEFAULT_C3         (uint8_t)16
