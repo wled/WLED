@@ -502,8 +502,8 @@ namespace BusManager {
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
   inline uint8_t  getVoltage()                  { return _gVoltage; }
   inline void     setVoltage(uint8_t v)         { _gVoltage = v; }
-  inline bool     getPowerMonitoring()          { return _usePowerMonitoring; }
-  inline void     setPowerMonitoring(bool pm)   { _usePowerMonitoring = pm; }
+  inline bool     powerMonitoring()             { return _usePowerMonitoring; }
+  inline void     enablePowerMonitoring(bool pm){ _usePowerMonitoring = pm; }
   float           currentWatts();               // calculate total power consumption in Watts
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
