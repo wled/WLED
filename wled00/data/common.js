@@ -137,16 +137,26 @@ function showToast(text, error = false) {
 	x.style.animation = 'none';
 	timeout = setTimeout(function(){ x.className = x.className.replace("show", ""); }, 2900);
 }
-function uploadFile(fileObj, name) {
+async function uploadFile(fileObj, name, callback) {
+	let file = fileObj.files?.[0]; // get first file, "?"" = optional chaining in case no file is selected
+  if (!file) { callback?.(false); return; }
+	if (/\.json$/i.test(name)) { // same as name.toLowerCase().endsWith('.json')
+    try {
+      const minified = JSON.stringify(JSON.parse(await file.text())); // validate and minify JSON
+      file = new Blob([minified], { type: file.type || "application/json" });
+    } catch (err) {
+      if (!confirm("JSON invalid. Continue?")) { callback?.(false); return; }
+      // proceed with original file if invalid but user confirms
+    }
+  }
 	var req = new XMLHttpRequest();
-	req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-	req.addEventListener('error', function(e){showToast(e.stack,true);});
+	req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400); if(callback) callback(this.status < 400);});
+	req.addEventListener('error', function(e){showToast("Upload failed",true); if(callback) callback(false);});
 	req.open("POST", "/upload");
 	var formData = new FormData();
-	formData.append("data", fileObj.files[0], name);
+	formData.append("data", file, name);
 	req.send(formData);
 	fileObj.value = '';
-	return false;
 }
 // connect to WebSocket, use parent WS or open new, callback function gets passed the new WS object
 function connectWs(onOpen) {
