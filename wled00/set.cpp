@@ -148,7 +148,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     BusManager::setMilliampsMax(ablMilliampsMax);
 
     uint8_t ledVoltage = request->arg(F("LV")).toInt();
-    if (ledVoltage > 0 && ledVoltage <= 50) BusManager::setVoltage(ledVoltage);
+    if (ledVoltage > 0) BusManager::setVoltage(ledVoltage);
 
     BusManager::enablePowerMonitoring(request->hasArg(F("PM")));
 

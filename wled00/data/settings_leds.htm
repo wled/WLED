@@ -138,6 +138,7 @@
 			var en = d.Sf.PM.checked;
 			gId('pwrmon').style.display = (en) ? 'inline':'none';
 			gId('pmwarn').style.display = (en && !d.Sf.ABL.checked) ? 'inline':'none';
+			UI();
 		}
 		function enABL()
 		{
@@ -180,10 +181,11 @@
 		// enable and update LED Amps
 		function enLA(s,n)
 		{
+			const abl = d.Sf.ABL.checked;
 			const t = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 			gId('LAdis'+n).style.display = s.selectedIndex==5 ? "inline" : "none"; // show/hide custom mA field
 			if (s.value!=="0") d.Sf["LA"+n].value = s.value; // set value from select object
-			d.Sf["LA"+n].min = (!isDig(t)) ? 0 : 1; // set minimum value for validation (required for power monitoring)
+			d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1; // set minimum value for validation
 		}
 		function setABL()
 		{
@@ -295,11 +297,11 @@
 				memu += getMem(t, n); // calc memory
 				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
-				gId("dig"+n+"ma").style.display = isDig(t) ? "inline" : "none"; // show mA/LED for digital LEDs (for power monitoring)
+				gId("dig"+n+"ma").style.display = (isDig(t) && (d.Sf.ABL.checked || d.Sf.PM.checked)) ? "inline" : "none"; // show mA/LED only when ABL or power monitoring enabled
 				if (change) { // did we change LED type?
 					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
 					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
-					d.Sf["LA"+n].min = (!isDig(t)) ? 0 : 1;                 // set minimum value for LED mA (always required for power monitoring)
+					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
 					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
@@ -879,7 +881,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<br>
 		Enable power monitoring: <input type="checkbox" name="PM" onchange="enPM()"><br>
 		<div id="pwrmon" style="display:none">
-		LED Strip Voltage: <input name="LV" type="number" class="m" step="1" min="1" max="50" value="5" oninput="UI()"> V<br>
+		LED Strip Voltage: <input name="LV" type="number" class="m" step="1" min="1" max="255" value="5" oninput="UI()"> V<br>
 		<i>Exposes power in API. Typical: 5V (WS281x), 12V/24V (others)</i><br>
 		<i id="pmwarn" class="warn">⚠ CPU intensive, may reduce FPS</i><br>
 		</div>
