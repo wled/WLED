@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,mixed=false; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -233,7 +233,7 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t);
+				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t) && !mixed; // I2S enabled and not 2-pin LED nor mixed bus setup
 				if (isC3() || !enabledI2S) {
 					mul = 2; // RMT uses double buffer
 				} else if (enabledI2S && toNum(n) < 8) { // I2S/LCD uses extra DMA buffer
@@ -338,9 +338,9 @@
 				let nm = LC.name.substring(0,2);     // field name : /L./
 				let n  = LC.name.substring(2,3);     // bus number (0-Z)
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-				if (isDig(t)) {
+				if (isDig(t) && !isD2P(t)) {
 					if (sameType == 0) sameType = t; // first bus type
-					else if (sameType != t) sameType = -1; // different bus type
+					else if (sameType != t) mixed = true; // different bus type -> mixed bus setup
 				}
 				// do we have a led count field
 				if (nm=="LC") {
@@ -430,13 +430,13 @@
 			// - If I2S is disabled: RMT only
 			let maxBusCount;
 			if (d.Sf["PR"].checked) {
-				if (sameType > 0 && maxLC <= 600 && dC >= 2) {
+				if (!mixed && maxLC <= 600 && dC >= 2) {
 					// Parallel I2S mode possible
 					maxBusCount = maxD; // ESP32: 16, S2: 12, S3: 12
 				} else {
 					// Single I2S mode
 					// Uses maxD-7 to match bus_wrapper.h logic (ESP32: 16-7=9, S2: 12-7=5)
-					if (isS3()) maxBusCount = 4; // S3 doesn't support single I2S, only RMT
+					if (isS3()) maxBusCount = 4; // S3 doesn't currently support single I2S, only RMT
 					else maxBusCount = maxD - 7;
 				}
 			} else {
@@ -475,7 +475,7 @@
 					let useI2S = d.Sf.PR && d.Sf.PR.checked;
 					let info = " (RMT)"; // Default to RMT
 					if (useI2S) {
-						if (sameType > 0 && maxLC <= 600 && dC >= 2) {
+						if (!mixed && maxLC <= 600 && dC >= 2) {
 							// Parallel I2S mode: first 8 buses use I2S
 							if (i < 8) info = " (I2S)";
 						} else {
