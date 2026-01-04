@@ -444,14 +444,14 @@
 				maxDigitalBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 			}
 			
-			// Mark invalid single-pin digital buses in red (similar to pin validation)
-			// Count and mark buses that exceed the channel limit
+			// Mark invalid buses and update driver info in a single loop
 			let invalidBusCount = 0;
 			let digitalBusIndex = 0;
-			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-			LTs.forEach((s)=>{
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
 				let n = s.name.substring(2,3);
 				let t = parseInt(s.value);
+				let drv = gId("drv"+n);
+				
 				if (isDig(t) && !isD2P(t)) {
 					digitalBusIndex++;
 					// Mark buses that exceed the limit in red
@@ -461,6 +461,27 @@
 					} else {
 						s.style.color = "#fff";
 					}
+					
+					// Update I2S/RMT driver info for ESP32 digital buses
+					if (drv && !is8266()) {
+						let useI2S = d.Sf.PR && d.Sf.PR.checked;
+						let info = " (RMT)"; // Default to RMT
+						if (useI2S) {
+							if (!mixed && maxLC <= 600 && dC >= 2) {
+								// Parallel I2S mode: first 8 buses use I2S
+								if (digitalBusIndex <= 8) info = " (I2S)";
+							} else {
+								// Single I2S mode: buses beyond RMT count use I2S
+								let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
+								if (digitalBusIndex > rmtCount && !isS3()) info = " (I2S)"; // S3 doesn't support single I2S
+							}
+						}
+						drv.textContent = info;
+					} else if (drv) {
+						drv.textContent = "";
+					}
+				} else if (drv) {
+					drv.textContent = "";
 				}
 			});
 			
@@ -489,31 +510,6 @@
 			gId('ledwarning').style.display = (maxLC > Math.min(maxPB,800) || bquot > 80) ? 'inline':'none';
 			gId('ledwarning').style.color = (maxLC > Math.max(maxPB,800) || bquot > 100) ? 'red':'orange';
 			gId('wreason').innerHTML = (bquot > 80) ? "80% of max LED memory" +(bquot>100 ? ` (<b>WARNING: using over ${maxM}B!</b>)` : "") : "800 LEDs per output";
-			// Update I2S/RMT driver info display for ESP32 digital buses
-			let digitalBus = 0; // count non-2-pin digital buses
-			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
-				let n = s.name.substring(2,3);
-				let t = parseInt(s.value);
-				let drv = gId("drv"+n);
-				if (drv && isDig(t) && !isD2P(t) && !is8266()) {
-					let useI2S = d.Sf.PR && d.Sf.PR.checked;
-					let info = " (RMT)"; // Default to RMT
-					if (useI2S) {
-						if (!mixed && maxLC <= 600 && dC >= 2) {
-							// Parallel I2S mode: first 8 buses use I2S
-							if (digitalBus < 8) info = " (I2S)";
-						} else {
-							// Single I2S mode: buses beyond RMT count use I2S
-							let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
-							if (digitalBus >= rmtCount && !isS3()) info = " (I2S)"; // S3 doesn't support single I2S
-						}
-					}
-					digitalBus++;
-					drv.textContent = info;
-				} else if (drv) {
-					drv.textContent = "";
-				}
-			});
 			// calculate power
 			gId('ampwarning').style.display = (parseInt(d.Sf.MA.value,10) > 7200) ? 'inline':'none';
 			var val = Math.ceil((100 + busMA)/500)/2;
