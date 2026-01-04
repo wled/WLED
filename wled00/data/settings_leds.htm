@@ -477,17 +477,16 @@
 				if (drv && isDig(t) && !isD2P(t) && !is8266() && !isC3()) {
 					let i = toNum(n);
 					let useI2S = d.Sf.PR && d.Sf.PR.checked;
-					let info = "";
+					let info = " (RMT)"; // Default to RMT
 					if (useI2S) {
-						if (sameType != -1 && maxLC <= 600) {
-							info = i < 8 ? " (I2S)" : " (RMT)";
+						if (sameType > 0 && maxLC <= 600 && dC >= 2) {
+							// Parallel I2S mode: first 8 buses use I2S
+							if (i < 8) info = " (I2S)";
 						} else {
-							if (isS2()) info = i == 4 ? " (I2S)" : " (RMT)";
-							else if (is32()) info = i == 8 ? " (I2S)" : " (RMT)";
-							else info = " (RMT)";
+							// Single I2S mode: buses beyond RMT count use I2S
+							let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
+							if (i >= rmtCount && !isS3()) info = " (I2S)"; // S3 doesn't support single I2S
 						}
-					} else {
-						info = " (RMT)";
 					}
 					drv.textContent = info;
 				} else if (drv) {
