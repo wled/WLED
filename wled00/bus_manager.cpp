@@ -252,8 +252,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   c = color_fade(c, _bri, true); // apply brightness
 
-  if (BusManager::_useABL) {
-    // if using ABL, sum all color channels to estimate current and limit brightness in show()
+  if (BusManager::_useABL || BusManager::_usePowerMonitoring) {
+    // if using ABL or power monitoring, sum all color channels to estimate current
     uint8_t r = R(c), g = G(c), b = B(c);
     if (_milliAmpsPerLed < 255) { // normal ABL
       _colorSum += r + g + b + W(c);
@@ -317,6 +317,10 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 
 size_t BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0); // does not include common I2S DMA buffer
+}
+
+float BusDigital::getVoltage() const {
+  return BusManager::getVoltage();
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -1415,8 +1419,25 @@ void BusManager::applyABL() {
     }
     _gMilliAmpsUsed = milliAmpsSum;
   }
+  else if (_usePowerMonitoring) {
+    // Calculate current for power monitoring without applying brightness limits
+    unsigned milliAmpsSum = 0;
+    for (auto &bus : busses) {
+      if (bus->isDigital() && bus->isOk()) {
+        BusDigital &busd = static_cast<BusDigital&>(*bus);
+        busd.estimateCurrent();
+        busd.applyBriLimit(255); // reset _colorSum without limiting brightness
+        milliAmpsSum += busd.getUsedCurrent();
+      }
+    }
+    _gMilliAmpsUsed = milliAmpsSum;
+  }
   else
     _gMilliAmpsUsed = 0; // reset, we have no current estimation without ABL
+}
+
+float BusManager::currentWatts() {
+  return (currentMilliamps() * _gVoltage) / 1000.0;
 }
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
@@ -1434,4 +1455,6 @@ uint16_t BusDigital::_milliAmpsTotal = 0;
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
+uint8_t BusManager::_gVoltage = LED_VOLTAGE_DEFAULT;
 bool BusManager::_useABL = false;
+bool BusManager::_usePowerMonitoring = false;
