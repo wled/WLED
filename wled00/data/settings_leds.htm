@@ -419,14 +419,12 @@
 					} else LC.style.color = "#fff";
 			});
 			if (is32() || isS2() || isS3()) {
-				// Always show Enable I2S checkbox on ESP32/S2/S3
+				// Always show show I2S checkbox on ESP32/S2/S3
 				gId("prl").classList.remove("hide");
 			} else {
 				d.Sf["PR"].checked = false;
 			}
-			
-			// Calculate max bus count based on configuration
-			// Logic:
+			// Calculate max bus count based on configuration:
 			// - If I2S is enabled and all buses are same type with ≤600 LEDs/bus: parallel I2S (8 I2S + RMT)
 			// - If I2S is enabled but buses are mixed or >600 LEDs/bus: single I2S (RMT + 1 I2S)
 			// - If I2S is disabled: RMT only
@@ -442,10 +440,8 @@
 					else maxBusCount = maxD - 7;
 				}
 			} else {
-				// RMT only
-				maxBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
+				maxBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD); // RMT only
 			}
-			
 			// Remove excess buses if max count decreased
 			let busesToRemove = dC - maxBusCount;
 			if (busesToRemove > 0) {
@@ -454,7 +450,7 @@
 					addLEDs(-1, false);
 				}
 			}
-			
+
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -474,7 +470,7 @@
 				let n = s.name.substring(2,3);
 				let t = parseInt(s.value);
 				let drv = gId("drv"+n);
-				if (drv && isDig(t) && !isD2P(t) && !is8266() && !isC3()) {
+				if (drv && isDig(t) && !isD2P(t) && !is8266()) {
 					let i = toNum(n);
 					let useI2S = d.Sf.PR && d.Sf.PR.checked;
 					let info = " (RMT)"; // Default to RMT
