@@ -424,30 +424,38 @@
 			} else {
 				d.Sf["PR"].checked = false;
 			}
-			// Calculate max bus count based on configuration:
+			// Calculate max single-pin digital bus count based on configuration:
 			// - If I2S is enabled and all buses are same type with ≤600 LEDs/bus: parallel I2S (8 I2S + RMT)
 			// - If I2S is enabled but buses are mixed or >600 LEDs/bus: single I2S (RMT + 1 I2S)
 			// - If I2S is disabled: RMT only
-			let maxBusCount;
+			let maxDigitalBusCount;
 			if (d.Sf["PR"].checked) {
 				if (!mixed && maxLC <= 600 && dC >= 2) {
 					// Parallel I2S mode possible
-					maxBusCount = maxD; // ESP32: 16, S2: 12, S3: 12
+					maxDigitalBusCount = maxD; // ESP32: 16, S2: 12, S3: 12
 				} else {
 					// Single I2S mode
 					// Uses maxD-7 to match bus_wrapper.h logic (ESP32: 16-7=9, S2: 12-7=5)
-					if (isS3()) maxBusCount = 4; // S3 doesn't currently support single I2S, only RMT
-					else maxBusCount = maxD - 7;
+					if (isS3()) maxDigitalBusCount = 4; // S3 doesn't support single I2S, only RMT
+					else maxDigitalBusCount = maxD - 7;
 				}
 			} else {
-				maxBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD); // RMT only
+				// RMT only
+				maxDigitalBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 			}
-			// Remove excess buses if max count decreased
-			let busesToRemove = dC - maxBusCount;
-			if (busesToRemove > 0) {
-				// Remove buses from the end
-				for (let i = 0; i < busesToRemove; i++) {
-					addLEDs(-1, false);
+			
+			// Remove excess single-pin digital buses if limit exceeded
+			// Note: Other bus types (2-pin digital, PWM, virtual) are not affected by this limit
+			if (dC > maxDigitalBusCount) {
+				let busesToRemove = dC - maxDigitalBusCount;
+				let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
+				// Remove from the end, but only single-pin digital buses
+				for (let i = LTs.length - 1; i >= 0 && busesToRemove > 0; i--) {
+					let t = parseInt(LTs[i].value);
+					if (isDig(t) && !isD2P(t)) {
+						addLEDs(-1, false);
+						busesToRemove--;
+					}
 				}
 			}
 
