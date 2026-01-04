@@ -293,9 +293,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   c = color_fade(c, _bri, true); // apply brightness
 
-  // Always sum color channels for power monitoring (used for ABL and power consumption tracking)
-  // Only skip if LED current is not configured (0mA per led)
-  if (_milliAmpsPerLed > 0) {
+  if (BusManager::_useABL || BusManager::_usePowerMonitoring) {
+    // if using ABL or power monitoring, sum all color channels to estimate current
     uint8_t r = R(c), g = G(c), b = B(c);
     if (_milliAmpsPerLed < 255) { // normal ABL
       _colorSum += r + g + b + W(c);
@@ -1398,51 +1397,59 @@ void BusManager::initializeABL() {
 }
 
 void BusManager::applyABL() {
-  // Only calculate current if ABL or power monitoring is enabled
-  if (!_useABL && !_usePowerMonitoring) {
-    _gMilliAmpsUsed = 0;
-    return; // Skip expensive calculations when neither feature is enabled
-  }
-
-  unsigned milliAmpsSum = 0;
-  unsigned totalLEDs = 0;
-
-  for (auto &bus : busses) {
-    if (bus->isDigital() && bus->isOk()) {
-      BusDigital &busd = static_cast<BusDigital&>(*bus);
-      busd.estimateCurrent(); // sets _milliAmpsTotal, current is estimated for all buses even if they have the limit set to 0
-      if (_useABL && _gMilliAmpsMax == 0)
-        busd.applyBriLimit(0); // apply per bus ABL limit, updates _milliAmpsTotal if limit reached
-      milliAmpsSum += busd.getUsedCurrent();
-      totalLEDs += busd.getLength(); // sum total number of LEDs for global Limit
-    }
-  }
-
-  // Calculate brightness limit when ABL is enabled, otherwise use max brightness
-  uint8_t newBri = 255; // Default: no limiting
-
-  if (_useABL && _gMilliAmpsMax > 0) {
-    uint32_t globalMax = _gMilliAmpsMax > MA_FOR_ESP ? _gMilliAmpsMax - MA_FOR_ESP : 1; // subtract ESP current consumption, fully limit if too low
-    if (globalMax > totalLEDs) { // check if budget is larger than standby current
-      if (milliAmpsSum > globalMax) {
-        newBri = globalMax * 255 / milliAmpsSum + 1; // scale brightness down to stay in current limit, +1 to avoid 0 brightness
-        milliAmpsSum = globalMax; // update total used current
+  if (_useABL) {
+    unsigned milliAmpsSum = 0; // use temporary variable to always return a valid _gMilliAmpsUsed to UI
+    unsigned totalLEDs = 0;
+    for (auto &bus : busses) {
+      if (bus->isDigital() && bus->isOk()) {
+        BusDigital &busd = static_cast<BusDigital&>(*bus);
+        busd.estimateCurrent(); // sets _milliAmpsTotal, current is estimated for all buses even if they have the limit set to 0
+        if (_gMilliAmpsMax == 0)
+          busd.applyBriLimit(0); // apply per bus ABL limit, updates _milliAmpsTotal if limit reached
+        milliAmpsSum += busd.getUsedCurrent();
+        totalLEDs += busd.getLength(); // sum total number of LEDs for global Limit
       }
-    } else {
-      newBri = 1; // limit too low, set brightness to minimum
-      milliAmpsSum = totalLEDs; // estimate total used current as minimum
     }
-  }
+    // check global current limit and apply global ABL limit, total current is summed above
+    if (_gMilliAmpsMax > 0) {
+      uint8_t  newBri = 255;
+      uint32_t globalMax = _gMilliAmpsMax > MA_FOR_ESP ? _gMilliAmpsMax - MA_FOR_ESP : 1; // subtract ESP current consumption, fully limit if too low
+      if (globalMax > totalLEDs) { // check if budget is larger than standby current
+        if (milliAmpsSum > globalMax) {
+          newBri = globalMax * 255 / milliAmpsSum + 1; // scale brightness down to stay in current limit, +1 to avoid 0 brightness
+          milliAmpsSum = globalMax; // update total used current
+        }
+      } else {
+        newBri = 1; // limit too low, set brightness to minimum
+        milliAmpsSum = totalLEDs; // estimate total used current as minimum
+      }
 
-  // Apply brightness limit to each bus (if ABL enabled) or just reset _colorSum (if power monitoring only)
-  for (auto &bus : busses) {
-    if (bus->isDigital() && bus->isOk()) {
-      BusDigital &busd = static_cast<BusDigital&>(*bus);
-      if (busd.getLEDCurrent() > 0)
-        busd.applyBriLimit(newBri);
+      // apply brightness limit to each bus, if its 255 it will only reset _colorSum
+      for (auto &bus : busses) {
+        if (bus->isDigital() && bus->isOk()) {
+          BusDigital &busd = static_cast<BusDigital&>(*bus);
+          if (busd.getLEDCurrent() > 0)  // skip buses with LED current set to 0
+            busd.applyBriLimit(newBri);
+        }
+      }
     }
+    _gMilliAmpsUsed = milliAmpsSum;
   }
-  _gMilliAmpsUsed = milliAmpsSum;
+  else if (_usePowerMonitoring) {
+    // Calculate current for power monitoring without applying brightness limits
+    unsigned milliAmpsSum = 0;
+    for (auto &bus : busses) {
+      if (bus->isDigital() && bus->isOk()) {
+        BusDigital &busd = static_cast<BusDigital&>(*bus);
+        busd.estimateCurrent();
+        busd.applyBriLimit(255); // reset _colorSum without limiting brightness
+        milliAmpsSum += busd.getUsedCurrent();
+      }
+    }
+    _gMilliAmpsUsed = milliAmpsSum;
+  }
+  else
+    _gMilliAmpsUsed = 0; // reset, we have no current estimation without ABL
 }
 
 float BusManager::currentWatts() {

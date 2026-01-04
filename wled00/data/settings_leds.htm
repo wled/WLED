@@ -486,7 +486,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="15">15mA (seed/fairy pixels)</option>
 <option value="0">Custom</option>
 </select><br>
-<div id="LAdis${s}" style="display: none;">Custom mA/LED: <input name="LA${s}" type="number" min="1" max="255" oninput="UI()"> mA<br></div>
+<div id="LAdis${s}" style="display: none;">max. mA/LED: <input name="LA${s}" type="number" min="1" max="255" oninput="UI()"> mA<br></div>
 </div>
 <div id="PSU${s}">PSU: <input name="MA${s}" type="number" class="xl" min="250" max="65000" oninput="UI()" value="250"> mA<br></div>
 <div id="co${s}" style="display:inline">Color Order:
@@ -880,8 +880,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 		Enable power monitoring: <input type="checkbox" name="PM" onchange="enPM()"><br>
 		<div id="pwrmon" style="display:none">
 		LED Strip Voltage: <input name="LV" type="number" class="m" step="1" min="1" max="50" value="5" oninput="UI()"> V<br>
-		<i>Exposes approximate power consumption in API. Typical voltage: 5V for WS281x, 12V or 24V for others</i><br>
-		<i id="pmwarn" class="warn">⚠ Power monitoring calculates current every frame and uses CPU resources. This can lower effect FPS on slower devices.</i><br>
+		<i>Exposes power in API. Typical: 5V (WS281x), 12V/24V (others)</i><br>
+		<i id="pmwarn" class="warn">⚠ CPU intensive, may reduce FPS</i><br>
 		</div>
 		Enable automatic brightness limiter: <input type="checkbox" name="ABL" onchange="enABL()"><br>
 		<div id="abl">
@@ -895,7 +895,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				<i>Make sure you enter correct value for each LED output.<br>
 				If using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.</i><br>
 			</div>
-			<i class="warn">⚠ Automatic brightness limiter uses CPU resources. This can lower effect FPS on slower devices.</i><br>
+			<i class="warn">⚠ CPU intensive, may reduce FPS</i><br>
 			<div id="ampwarning" class="warn" style="display: none;">
 				&#9888; Your power supply provides high current.<br>
 				To improve the safety of your setup,<br>
