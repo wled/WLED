@@ -504,6 +504,8 @@ namespace BusManager {
 
   void useParallelOutput(); // workaround for inaccessible PolyBus
   bool hasParallelOutput(); // workaround for inaccessible PolyBus
+  void useI2SOutput(bool enable); // set I2S/LCD usage flag
+  bool hasI2SOutput(); // check I2S/LCD usage flag
 
   //do not call this method from system context (network callback)
   void removeAll();

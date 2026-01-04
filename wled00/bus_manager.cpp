@@ -27,7 +27,7 @@
 
 extern char cmDNS[];
 extern bool cctICused;
-extern bool useParallelI2S;
+extern bool useI2S;
 
 // functions to get/set bits in an array - based on functions created by Brandon for GOL
 //  toDo : make this a class that's completely defined in a header file
@@ -1213,6 +1213,14 @@ bool BusManager::hasParallelOutput() {
   return PolyBus::isParallelI2S1Output();
 }
 
+void BusManager::useI2SOutput(bool enable) {
+  PolyBus::setI2SOutput(enable);
+}
+
+bool BusManager::hasI2SOutput() {
+  return PolyBus::isI2SOutput();
+}
+
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
@@ -1423,6 +1431,7 @@ ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
 
 bool PolyBus::_useParallelI2S = false;
+bool PolyBus::_useI2S = false;
 
 // Bus static member definition
 int16_t Bus::_cct = -1;
