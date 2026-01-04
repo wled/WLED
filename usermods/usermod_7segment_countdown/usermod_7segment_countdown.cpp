@@ -1,43 +1,22 @@
-// 7-segment countdown usermod overlay: builds a display mask over the LED strip
+// 7-segment countdown usermod overlay
+// Renders a 6-digit, two-separator seven-segment display as an overlay mask over the
+// underlying WLED pixels. Lit mask pixels keep the original effect/color, masked pixels
+// are forced to black.
 #include "wled.h"
 #include "usermod_7segment_countdown.h"
 
-// Layout/Segment mapping (keep these comments)
-// Phys segment order per digit (0..6): F-A-B-G-E-D-C
-// Logical segment indices: A=0,B=1,C=2,D=3,E=4,F=5,G=6
-static constexpr uint8_t PHYS_TO_LOG[SEGS_PER_DIGIT] = {
-    5, // F
-    0, // A
-    1, // B
-    6, // G
-    4, // E
-    3, // D
-    2  // C
-};
-
-// Digit bitmasks (bits A..G -> 0..6) (keep these comments)
-static constexpr uint8_t DIGIT_MASKS[10] = {
-  0b00111111, // 0 (A..F)
-  0b00000110, // 1 (B,C)
-  0b01011011, // 2 (A,B,D,E,G)
-  0b01001111, // 3 (A,B,C,D,G)
-  0b01100110, // 4 (B,C,F,G)
-  0b01101101, // 5 (A,C,D,F,G)
-  0b01111101, // 6 (A,C,D,E,F,G)
-  0b00000111, // 7 (A,B,C)
-  0b01111111, // 8 (A..G)
-  0b01101111  // 9 (A,B,C,D,F,G)
-};
 
 class Usermod7SegmentCountdown : public Usermod {
 private:
-  // Mask helpers --------------------------------------------------------------
+  // Ensures the mask buffer matches the panel size.
   void ensureMaskSize() {
     if (mask.size() != TOTAL_PANEL_LEDS) mask.assign(TOTAL_PANEL_LEDS, 0);
   }
+  // Clears the mask to fully transparent (all 0 → cleared when applied).
   void clearMask() {
     std::fill(mask.begin(), mask.end(), 0);
   }
+  // Sets a contiguous LED range in the mask to 1 (keep underlying pixel).
   void setRangeOn(uint16_t start, uint16_t len) {
     for (uint16_t i = 0; i < len; i++) {
       uint16_t idx = start + i;
@@ -45,28 +24,37 @@ private:
     }
   }
 
-  //Time helpers --------------------------------------------------------------
-    //hundreds of seconds calculation
-  int getHundredths(int currentSeconds) {
-  unsigned long now = millis();
+  // Time helpers --------------------------------------------------------------
+  // Calculates hundredths of a second (0..99) within the current second.
+  // If countDown=true: 99→0; otherwise: 0→99.
+  int getHundredths(int currentSeconds, bool countDown) {
+    unsigned long now = millis();
 
-  // Sekunde hat sich geändert → neu synchronisieren
-  if (currentSeconds != lastSecondValue) {
-    lastSecondValue = currentSeconds;
-    lastSecondMillis = now;
-    return 99; // start at 99 when a new second begins (counting down)
+    // Resynchronize on second changes
+    if (currentSeconds != lastSecondValue) {
+      lastSecondValue = currentSeconds;
+      lastSecondMillis = now;
+      return countDown ? 99 : 0; // start at boundary
+    }
+
+    unsigned long delta = now - lastSecondMillis;
+
+    int hundredths;
+    if (countDown) {
+      // 99 → 0 across the second
+      hundredths = 99 - (int)(delta / 10);
+    } else {
+      // 0 → 99 across the second
+      hundredths = (int)(delta / 10);
+    }
+
+    if (hundredths < 0) hundredths = 0;
+    if (hundredths > 99) hundredths = 99;
+
+    return hundredths;
   }
-
-  unsigned long delta = now - lastSecondMillis;
-
-  // Count down from 99 to 0 across the second
-  int hundredths = 99 - (delta / 10);
-  if (hundredths < 0) hundredths = 0;
-  if (hundredths > 99) hundredths = 99;
-
-  return hundredths;
-}
   // Drawing helpers -----------------------------------------------------------
+  // Draws HH:MM:SS into the mask. Separator behavior is controlled by SeperatorOn/Off.
   void drawClock() {
     setDigitInt(0, hour(localTime) / 10);
     setDigitInt(1, hour(localTime) % 10);
@@ -74,11 +62,11 @@ private:
     setDigitInt(3, minute(localTime) % 10);
     setDigitInt(4, second(localTime) / 10);
     setDigitInt(5, second(localTime) % 10);
-    // Separator behavior for clock view is controlled by SeperatorOn/SeperatorOff:
-    // - both true: blink (as before)
-    // - SeperatorOn true only: always on
-    // - SeperatorOff true only: always off
-    // - fallback: blink
+    // Separator rules:
+    // - both true: blink
+    // - only SeperatorOn: always on
+    // - only SeperatorOff: always off
+    // - neither: blink
     if (SeperatorOn && SeperatorOff) {
       if (second(localTime) % 2) {
         setSeparator(1, sepsOn);
@@ -90,7 +78,7 @@ private:
       setSeparator(2, sepsOn);
     }
     else if (SeperatorOff) {
-      // explicitly off for clock view → do nothing
+      // explicitly off → do nothing
     }
     else {
       if (second(localTime) % 2) {
@@ -100,31 +88,62 @@ private:
     }
   }
 
-  // Compute remaining time to targetUnix; also provide full totals (h/min/sec)
+  // Draws the countdown or count-up (if target is in the past) into the mask.
   void drawCountdown() {
-    int64_t diff = (int64_t)targetUnix - (int64_t)localTime;
+    int64_t diff = (int64_t)targetUnix - (int64_t)localTime; // >0 remaining, <0 passed
 
-    remDays    = diff / 86400u;
-    remHours   = (uint8_t)((diff % 86400u) / 3600u);
-    remMinutes = (uint8_t)((diff % 3600u) / 60u);
-    remSeconds = (uint8_t)(diff % 60u);
+    // If the target is in the past, count up from the moment it was reached
+    bool countingUp = (diff < 0);
+    int64_t absDiff = abs(diff); // absolute difference for display
 
-    fullHours   = diff / 3600u;
-    fullMinutes = diff / 60u;
-    fullSeconds = diff;
+    if (countingUp && absDiff < 60) {
+      setDigitChar(0, 'x');
+      setDigitChar(1, 'x');
+      setDigitInt(2, absDiff / 10);
+      setDigitInt(3, absDiff % 10);
+      setDigitChar(4, 'x');
+      setDigitChar(5, 'x');
+      return;
+    }
 
-      // > 99 Tage
+    if (countingUp && absDiff < 3600) {
+      setDigitChar(0, 'x');
+      setDigitChar(1, 'x');
+      setDigitInt(2, absDiff / 600);
+      setDigitInt(3, (absDiff / 60) % 10);
+      setSeparator(2, sepsOn);
+      setDigitInt(4, (absDiff % 60) / 10);
+      setDigitInt(5, (absDiff % 60) % 10);
+      return;
+    }
+
+    if (countingUp >= 3600) {
+      drawClock();
+      return;
+    }
+
+    // Split absolute difference into parts and totals
+    remDays    = (uint32_t)(absDiff / 86400);
+    remHours   = (uint8_t)((absDiff % 86400) / 3600);
+    remMinutes = (uint8_t)((absDiff % 3600) / 60);
+    remSeconds = (uint8_t)(absDiff % 60);
+
+    fullHours   = (uint32_t)(absDiff / 3600);
+    fullMinutes = (uint32_t)(absDiff / 60);
+    fullSeconds = (uint32_t)absDiff;
+
+  // > 99 days → show ddd d
   if (remDays > 99) {
     setDigitChar(0, ' ');
     setDigitInt(1, (remDays / 100) % 10);
     setDigitInt(2, (remDays / 10) % 10);
     setDigitInt(3, remDays % 10);
-    setDigitChar(4, 't');
+    setDigitChar(4, 'd');
     setDigitChar(5, ' ');
     return;
   }
 
-  // < 99 Tage
+  // ≤ 99 days → show dd:hh:mm
   if (remDays <=99 && fullHours > 99) {
     setDigitInt(0, remDays / 10);
     setDigitInt(1, remDays % 10);
@@ -137,7 +156,7 @@ private:
     return;
   }
 
-  // < 99 Stunden
+  // ≤ 99 hours → show hh:mm:ss
   if (fullHours <=99 && fullMinutes > 99) {
     setDigitInt(0, fullHours / 10);
     setDigitInt(1, fullHours % 10);
@@ -150,12 +169,12 @@ private:
     return;
   }
 
-  // < 99 Minuten → MM SS HH (Hundertstel)
-  int hs = getHundredths(remSeconds);
+  // ≤ 99 minutes → MM'SS:hh (hundredths)
+  int hs = getHundredths(remSeconds, /*countDown*/ !countingUp);
 
   setDigitInt(0, fullMinutes / 10);
   setDigitInt(1, fullMinutes % 10);
-  setSeparatorHalf(1, true, sepsOn);  // upper dot
+  setSeparatorHalf(1, true, sepsOn);  // place an upper dot between minutes and seconds
   setDigitInt(2, remSeconds / 10);
   setDigitInt(3, remSeconds % 10);
   setSeparator(2, sepsOn);
@@ -163,7 +182,7 @@ private:
   setDigitInt(5, hs % 10);
   }
 
-  // Turn on segments for a single digit according to bitmask
+  // Lights segments for a single digit based on a numeric value (0..9).
   void setDigitInt(uint8_t digitIndex, int8_t value) {
     if (digitIndex > 5) return;
     if (value < 0) return;
@@ -180,6 +199,7 @@ private:
       }
     }
   }
+    // Lights segments for a single digit using a letter/symbol mask.
     void setDigitChar(uint8_t digitIndex, char c) {
     if (digitIndex > 5) return;
 
@@ -196,13 +216,13 @@ private:
     }
   }
 
-  // Turn on both separator dots if requested
+  // Lights both dots of a separator when requested.
   void setSeparator(uint8_t which, bool on) {
     uint16_t base = (which == 1) ? sep1Base() : sep2Base();
     if (on) setRangeOn(base, SEP_LEDS);
   }
 
-  // Turn on a single half (upper/lower) of the separator (each half = SEP_LEDS/2)
+  // Lights a single half (upper/lower) of the separator; each half is SEP_LEDS/2.
   void setSeparatorHalf(uint8_t which, bool upper, bool on) {
     uint16_t base = (which == 1) ? sep1Base() : sep2Base();
     uint16_t halfLen = SEP_LEDS / 2;
@@ -210,7 +230,7 @@ private:
     if (on) setRangeOn(start, halfLen);
   }
 
-  // Apply mask to strip: 1 keeps color/effect, 0 forces black
+  // Applies the mask to the WLED strip: 1 keeps pixel, 0 clears it to black.
   void applyMaskToStrip() {
     uint16_t stripLen = strip.getLengthTotal();
     uint16_t limit = (stripLen < (uint16_t)mask.size()) ? stripLen : (uint16_t)mask.size();
@@ -224,7 +244,7 @@ private:
     return (v < lo) ? lo : (v > hi ? hi : v);
   }
 
-  // Clamp target fields and derive targetUnix; optional debug on change
+  // Validates target fields, computes targetUnix, and optionally logs changes.
   void validateTarget(bool changed = false) {
     targetYear   = clampVal(targetYear, 1970, 2099);
     targetMonth  = clampVal<uint8_t>(targetMonth, 1, 12);
@@ -250,31 +270,34 @@ private:
   }
 
 public:
+  // Prepare the mask buffer on boot.
   void setup() override {
     ensureMaskSize();
   }
+  // No periodic work; rendering is driven by handleOverlayDraw().
   void loop() override {}
 
+ // Main entry point from WLED to draw the overlay.
  void handleOverlayDraw() {
   if (!enabled) return;
 
   clearMask();
 
-  // Beide aktiv -> im alternatingTime-Sekunden-Takt wechseln
+  // If both views are enabled, alternate every "alternatingTime" seconds.
   if (showClock && showCountdown) {
     uint32_t period = (alternatingTime > 0) ? (uint32_t)alternatingTime : 10U;
 
-    // Blockindex (0,1,2,...) über Unix-Sekunden
+    // Block index based on current time
     uint32_t block = (uint32_t)localTime / period;
 
-    // Gerade Blöcke: Uhr, ungerade: Countdown (oder umgekehrt, wenn du willst)
+    // Even blocks: clock; odd blocks: countdown
     if ((block & 1U) == 0U) drawClock();
     else                    drawCountdown();
   }
   else if (showClock) {
     drawClock();
   }
-  else { // showCountdown oder Default
+  else { // countdown only (or default)
     drawCountdown();
   }
 
@@ -282,37 +305,53 @@ public:
 }
 
 
-  // Info UI (u-group)
+  // Adds a compact UI block to the info screen (u-group).
   void addToJsonInfo(JsonObject& root) override {
-    JsonObject user = root["u"].as<JsonObject>();
+    JsonObject user = root["u"];
     if (user.isNull()) user = root.createNestedObject("u");
-    JsonObject grp = user.createNestedObject(F("7 Segment Counter"));
 
-    JsonArray state = grp.createNestedArray(F("state"));
-    state.add(enabled ? F("active") : F("disabled"));
-    state.add("");
+    // Top-level array for this usermod
+    JsonArray infoArr = user.createNestedArray(F("7 Segment Counter"));
 
-    JsonArray se = grp.createNestedArray(F("seps"));
-    se.add(sepsOn ? F("on") : F("off"));
-    se.add("");
+    // Enable/disable button
+    String uiDomString = F("<button class=\"btn btn-xs\" onclick=\"requestJson({'7seg':{");
+    uiDomString += F("'enabled':");
+    uiDomString += enabled ? F("false}});\">") : F("true}});\">");
+    uiDomString += F("<i class=\"icons");
+    uiDomString += enabled ? F(" on\">") : F(" off\">");
+    uiDomString += F("&#xe08f;</i></button>");
+    infoArr.add(uiDomString);
 
-    JsonArray se_cfg = grp.createNestedArray(F("seps cfg"));
-    se_cfg.add(SeperatorOn ? F("on") : F("off"));
-    se_cfg.add(SeperatorOff ? F("on") : F("off"));
+    // State
+    infoArr = user.createNestedArray(F("Status"));
+    infoArr.add(enabled ? F("active") : F("disabled"));
 
-    JsonArray pl = grp.createNestedArray(F("panel leds"));
-    pl.add(TOTAL_PANEL_LEDS);
-    pl.add(F(" px"));
+    infoArr = user.createNestedArray(F("Clock Seperators"));
+    if (SeperatorOn && SeperatorOff) infoArr.add(F("Blinking"));
+    else if (SeperatorOn)          infoArr.add(F("Always On"));
+    else if (SeperatorOff)         infoArr.add(F("Always Off"));
+    else                           infoArr.add(F("Blinking"));
 
-    JsonArray tgt = grp.createNestedArray(F("target"));
+    // Modes
+    infoArr = user.createNestedArray(F("Mode"));
+    if (showClock && showCountdown) infoArr.add(F("Clock & Countdown"));
+    else if (showClock)             infoArr.add(F("Clock Only"));
+    else                            infoArr.add(F("Countdown Only"));
+
+    // Target
+    infoArr = user.createNestedArray(F("Target Date"));
     char buf[24];
     snprintf(buf, sizeof(buf), "%04d-%02u-%02u %02u:%02u",
              targetYear, targetMonth, targetDay, targetHour, targetMinute);
-    tgt.add(buf);
-    tgt.add("");
+    infoArr.add(buf);
+    
+    // Panel LEDs
+    infoArr = user.createNestedArray(F("Total Panel LEDs"));
+    infoArr.add(TOTAL_PANEL_LEDS);
+    infoArr.add(F(" px"));
   }
 
-  // JSON state/config ---------------------------------------------------------
+  // JSON state/config: persist and apply overlay parameters via state/config.
   void addToJsonState(JsonObject& root) override {
     JsonObject s = root[F("7seg")].as<JsonObject>();
     if (s.isNull()) s = root.createNestedObject(F("7seg"));
@@ -355,45 +394,46 @@ public:
   }
 
   void addToConfig(JsonObject& root) override {
-    JsonObject s = root[F("7seg")].as<JsonObject>();
-    if (s.isNull()) s = root.createNestedObject(F("7seg"));
-    s[F("enabled")] = enabled;
+    JsonObject top = root.createNestedObject(F("7seg"));
+    top[F("enabled")] = enabled;
 
-    s[F("targetYear")]   = targetYear;
-    s[F("targetMonth")]  = targetMonth;
-    s[F("targetDay")]    = targetDay;
-    s[F("targetHour")]   = targetHour;
-    s[F("targetMinute")] = targetMinute;
+    top[F("targetYear")]   = targetYear;
+    top[F("targetMonth")]  = targetMonth;
+    top[F("targetDay")]    = targetDay;
+    top[F("targetHour")]   = targetHour;
+    top[F("targetMinute")] = targetMinute;
 
-    s[F("showClock")]     = showClock;
-    s[F("showCountdown")] = showCountdown;
-    s[F("alternatingTime")] = alternatingTime; // seconds to alternate when both modes enabled
-    s[F("SeperatorOn")]  = SeperatorOn;
-    s[F("SeperatorOff")] = SeperatorOff;
+    top[F("showClock")]     = showClock;
+    top[F("showCountdown")] = showCountdown;
+    top[F("alternatingTime")] = alternatingTime; // seconds to alternate when both modes enabled
+    top[F("SeperatorOn")]  = SeperatorOn;
+    top[F("SeperatorOff")] = SeperatorOff;
   }
 
   bool readFromConfig(JsonObject& root) override {
-    JsonObject s = root[F("7seg")].as<JsonObject>();
-    if (s.isNull()) return false;
+    JsonObject top = root[F("7seg")];
+    bool configComplete = !top.isNull();
 
-    enabled       = s[F("enabled")]       | true;
-    targetYear    = s[F("targetYear")]    | year(localTime);
-    targetMonth   = s[F("targetMonth")]   | 1;
-    targetDay     = s[F("targetDay")]     | 1;
-    targetHour    = s[F("targetHour")]    | 0;
-    targetMinute  = s[F("targetMinute")]  | 0;
+    configComplete &= getJsonValue(top[F("enabled")], enabled, true);
 
-    showClock     = s[F("showClock")]     | true;
-    showCountdown = s[F("showCountdown")] | false;
-    alternatingTime = s[F("alternatingTime")] | 10; // default 10s
-    SeperatorOn  = s[F("SeperatorOn")]  | true;
-    SeperatorOff = s[F("SeperatorOff")] | true;
+    configComplete &= getJsonValue(top[F("targetYear")], targetYear, year(localTime));
+    configComplete &= getJsonValue(top[F("targetMonth")], targetMonth, (uint8_t)1);
+    configComplete &= getJsonValue(top[F("targetDay")], targetDay, (uint8_t)1);
+    configComplete &= getJsonValue(top[F("targetHour")], targetHour, (uint8_t)0);
+    configComplete &= getJsonValue(top[F("targetMinute")], targetMinute, (uint8_t)0);
+
+    configComplete &= getJsonValue(top[F("showClock")], showClock, true);
+    configComplete &= getJsonValue(top[F("showCountdown")], showCountdown, false);
+    configComplete &= getJsonValue(top[F("alternatingTime")], alternatingTime, (uint16_t)10);
+    configComplete &= getJsonValue(top[F("SeperatorOn")], SeperatorOn, true);
+    configComplete &= getJsonValue(top[F("SeperatorOff")], SeperatorOff, true);
 
     validateTarget(true);
-    return true;
+    return configComplete;
   }
 
-  uint16_t getId() override { return 0x7A01; }
+  // Unique usermod id (arbitrary, but stable).
+  uint16_t getId() override { return 0x22B8; }
 };
 
 static Usermod7SegmentCountdown usermod;
