@@ -270,6 +270,12 @@ static uint16_t mode_morsecode(void) {
     SEGENV.aux0 = 0;
   }
 
+  // if pattern is empty for some reason, display black background only
+  if (patternLength == 0) {
+    SEGMENT.fill(BLACK);
+    return FRAMETIME;
+  }
+
   // Update offset to make the morse code scroll
   // Use step for scroll timing only
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*3;
