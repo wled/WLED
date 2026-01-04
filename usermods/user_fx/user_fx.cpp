@@ -96,49 +96,63 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 /  Scrolling Morse Code by Bob Loeffler
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
-*   aux1 is the total pattern length
-*   The sx slider selects the scrolling speed
+*   aux1 saves settings: check3 (1 bit), check3 (1 bit), text hash (4 bits) and pattern length (10 bits)
+*   The first slider (sx) selects the scrolling speed
 *   Checkbox1 selects the color mode
 *   Checkbox2 displays punctuation or not
 *   Checkbox3 displays the End-of-message code or not
 *   We get the text from the SEGMENT.name and convert it to morse code
+*   This effect uses a bit array, instead of bool array, for efficient storage - 8x memory reduction (128 bytes vs 1024 bytes)
+*
 *   Morse Code rules:
-*    - there is one space between each part of a letter or number
-*    - there are 3 spaces between each letter or number
+*    - a dot is 1 pixel/LED; a dash is 3 pixels/LEDs
+*    - there is 1 space between each part (dot or dash) of a letter/number/punctuation
+*    - there are 3 spaces between each letter/number/punctuation
 *    - there are 7 spaces between each word
 */
 
-// Build morse pattern into a buffer
-void build_morsecode_pattern(const char *morse_code, bool *pattern, uint16_t &index, int maxSize) {
+// Bit manipulation macros
+#define SET_BIT8(arr, i) ((arr)[(i) >> 3] |= (1 << ((i) & 7)))
+#define GET_BIT8(arr, i) (((arr)[(i) >> 3] & (1 << ((i) & 7))) != 0)
+
+// Build morse code pattern into a buffer
+void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, uint16_t &index, int maxSize) {
   const char *c = morse_code;
   
   // Build the dots and dashes into pattern array
   while (*c != '\0') {
     // it's a dot which is 1 pixel
     if (*c == '.') {
-      if (index >= maxSize - 1) return; // Reserve space for spacing
-      pattern[index++] = true;
+      if (index >= maxSize - 1) return;
+      SET_BIT8(pattern, index);
+      index++;
     }
     else { // Must be a dash which is 3 pixels
       if (index >= maxSize - 3) return;
-      pattern[index++] = true;
-      pattern[index++] = true;
-      pattern[index++] = true;
+      SET_BIT8(pattern, index);
+      index++;
+      SET_BIT8(pattern, index);
+      index++;
+      SET_BIT8(pattern, index);
+      index++;
     }
-    
-    // 1 space between parts of a letter/number
-    if (index >= maxSize) return;
-    pattern[index++] = false;
+
     c++;
+
+    // 1 space between parts of a letter/number/punctuation (but not after the last one)
+    if (*c != '\0') {
+      if (index >= maxSize) return;
+      index++;
+    }
   }
-    
-  // 3 spaces between two letters
+
+  // 3 spaces between two letters/numbers/punctuation
   if (index >= maxSize - 2) return;
-  pattern[index++] = false;
+  index++;
   if (index >= maxSize - 1) return;
-  pattern[index++] = false;
+  index++;
   if (index >= maxSize) return;
-  pattern[index++] = false;
+  index++;
 }
 
 static uint16_t mode_morsecode(void) {
@@ -163,7 +177,7 @@ static uint16_t mode_morsecode(void) {
     {'(', "-.--."}, {'/', "-..-."}, {'\'', ".----."}
   };
 
-    // Get the text to display
+  // Get the text to display
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t len = 0;
 
@@ -179,36 +193,41 @@ static uint16_t mode_morsecode(void) {
     *p = toupper(*p);
   }
 
-  // Allocate per-segment storage for pattern
+  // Allocate per-segment storage for pattern (1024 bits = 128 bytes)
   constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1024;
-  if (!SEGENV.allocateData(MORSECODE_MAX_PATTERN_SIZE)) return mode_static();
-  bool* morsecodePattern = reinterpret_cast<bool*>(SEGENV.data);
+  constexpr size_t MORSECODE_PATTERN_BYTES = MORSECODE_MAX_PATTERN_SIZE / 8; // 128 bytes
+  if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES)) return mode_static();
+  uint8_t* morsecodePattern = reinterpret_cast<uint8_t*>(SEGENV.data);
 
-  // Use bits in aux1 to store the checkbox states (upper bits since pattern length won't exceed 1024)
-  // Bit 15: lastCheck2, Bit 14: lastCheck3, Bit 13: textChanged flag, Bits 0-12: pattern length
+  // SEGENV.aux1 stores: [bit 15: check2] [bit 14: check3] [bits 10-13: text hash (4 bits)] [bits 0-9: pattern length]
   bool lastCheck2 = (SEGENV.aux1 & 0x8000) != 0;
   bool lastCheck3 = (SEGENV.aux1 & 0x4000) != 0;
-  uint16_t patternLength = SEGENV.aux1 & 0x1FFF; // Lower 13 bits for length (up to 8191)
+  uint16_t lastHashBits = (SEGENV.aux1 >> 10) & 0xF; // 4 bits of hash
+  uint16_t patternLength = SEGENV.aux1 & 0x3FF; // Lower 10 bits for length (up to 1023)
 
-  bool settingsChanged = (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);
-  
-  // For text comparison, we need to store a hash or checksum since we can't store the full text
-  // Use step for text hash storage when not scrolling
+  // Compute text hash
   uint16_t textHash = 0;
   for (char *p = text; *p; p++) {
-    textHash = ((textHash << 5) + textHash) + *p; // djb2 hash
+    textHash = ((textHash << 5) + textHash) + *p;
   }
-  
-  bool textChanged = (SEGENV.step != textHash && SEGENV.call != 0);
+  uint16_t currentHashBits = (textHash >> 12) & 0xF; // Use upper 4 bits of hash
+
+  bool textChanged = (currentHashBits != lastHashBits) && (SEGENV.call > 0);
+
+  // Check if we need to rebuild the pattern
+  bool needsRebuild = (SEGENV.call == 0) || textChanged || (SEGMENT.check2 != lastCheck2) || (SEGMENT.check3 != lastCheck3);
 
   // Initialize on first call or rebuild pattern
-  if (SEGENV.call == 0 || textChanged || settingsChanged) {
+  if (needsRebuild) {
     patternLength = 0;
+
+    // Clear the bit array first
+    memset(morsecodePattern, 0, MORSECODE_PATTERN_BYTES);
 
     // Build complete morse code pattern
     for (char *c = text; *c; c++) {
       if (patternLength >= MORSECODE_MAX_PATTERN_SIZE - 10) break;
-      
+
       if (*c >= 'A' && *c <= 'Z') {
         build_morsecode_pattern(letters[*c - 'A'], morsecodePattern, patternLength, MORSECODE_MAX_PATTERN_SIZE);
       }
@@ -218,7 +237,7 @@ static uint16_t mode_morsecode(void) {
       else if (*c == ' ') {
         for (int x = 0; x < 4; x++) {
           if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
-          morsecodePattern[patternLength++] = false;
+          patternLength++;
         }
       }
       else if (SEGMENT.check2) {
@@ -241,40 +260,36 @@ static uint16_t mode_morsecode(void) {
 
     for (int x = 0; x < 7; x++) {
       if (patternLength >= MORSECODE_MAX_PATTERN_SIZE) break;
-      morsecodePattern[patternLength++] = false;
+      patternLength++;
     }
 
-    // Store pattern length and checkbox states in aux1
-    SEGENV.aux1 = patternLength | (SEGMENT.check2 ? 0x8000 : 0) | (SEGMENT.check3 ? 0x4000 : 0);
-    
-    // Store text hash in step
-    SEGENV.step = textHash;
-    
-    // Reset scroll offset
+    // Store pattern length, checkbox states, and hash bits in aux1
+    SEGENV.aux1 = patternLength | (currentHashBits << 10) | (SEGMENT.check2 ? 0x8000 : 0) | (SEGMENT.check3 ? 0x4000 : 0);
+
+    // Reset the scroll offset
     SEGENV.aux0 = 0;
   }
 
   // Update offset to make the morse code scroll
+  // Use step for scroll timing only
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed)*3;
   uint32_t it = strip.now / cycleTime;
-  uint16_t scrollCounter = SEGENV.aux0 >> 8; // Use upper byte for scroll timing
-  if (scrollCounter != (it & 0xFF)) {
-    SEGENV.aux0 = (SEGENV.aux0 & 0xFF) + 1 + ((it & 0xFF) << 8); // Increment scroll offset (lower byte), update counter (upper byte)
+  if (SEGENV.step != it) {
+    SEGENV.aux0++;
+    SEGENV.step = it;
   }
-
-  uint16_t scrollOffset = SEGENV.aux0 & 0xFF;
 
   // Clear background
   SEGMENT.fill(BLACK);
 
   // Draw the scrolling pattern
-  int offset = scrollOffset % patternLength;
+  int offset = SEGENV.aux0 % patternLength;
 
   for (int i = 0; i < SEGLEN; i++) {
     int patternIndex = (offset + i) % patternLength;
-    if (morsecodePattern[patternIndex]) {
+    if (GET_BIT8(morsecodePattern, patternIndex)) {
       if (SEGMENT.check1)
-        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(scrollOffset + i));
+        SEGMENT.setPixelColor(i, SEGMENT.color_wheel(SEGENV.aux0 + i));
       else
         SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
     }
