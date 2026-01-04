@@ -375,6 +375,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     }
     printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);
     printSetFormValue(settingsScript,PSTR("LV"),BusManager::getVoltage());
+    printSetFormCheckbox(settingsScript,PSTR("PM"),BusManager::getPowerMonitoring());
     printSetFormCheckbox(settingsScript,PSTR("ABL"),BusManager::ablMilliampsMax() || sumMa > 0);
     printSetFormCheckbox(settingsScript,PSTR("PPL"),!BusManager::ablMilliampsMax() && sumMa > 0);
 

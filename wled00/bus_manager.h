@@ -484,6 +484,7 @@ namespace BusManager {
   extern uint16_t _gMilliAmpsMax;
   extern uint8_t  _gVoltage;
   extern bool     _useABL;
+  extern bool     _usePowerMonitoring;
 
   #ifdef ESP32_DATA_IDLE_HIGH
   void    esp32RMTInvertIdle() ;
@@ -501,6 +502,8 @@ namespace BusManager {
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
   inline uint8_t  getVoltage()                  { return _gVoltage; }
   inline void     setVoltage(uint8_t v)         { _gVoltage = v; }
+  inline bool     getPowerMonitoring()          { return _usePowerMonitoring; }
+  inline void     setPowerMonitoring(bool pm)   { _usePowerMonitoring = pm; }
   float           currentWatts();               // calculate total power consumption in Watts
   inline float    ablWattsMax()                 { return (_gMilliAmpsMax * _gVoltage) / 1000.0; }
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized

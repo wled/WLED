@@ -160,6 +160,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   BusManager::setMilliampsMax(ablMilliampsMax);
   uint8_t ledVoltage = hw_led[F("voltage")] | LED_VOLTAGE_DEFAULT;
   BusManager::setVoltage(ledVoltage);
+  bool powerMonitoring = hw_led[F("pwrmon")] | false;
+  BusManager::setPowerMonitoring(powerMonitoring);
   Bus::setGlobalAWMode(hw_led[F("rgbwm")] | AW_GLOBAL_DISABLED);
   CJSON(strip.correctWB, hw_led["cct"]);
   CJSON(strip.cctFromRgb, hw_led[F("cr")]);
@@ -924,6 +926,7 @@ void serializeConfig(JsonObject root) {
   hw_led[F("total")] = strip.getLengthTotal(); //provided for compatibility on downgrade and per-output ABL
   hw_led[F("maxpwr")] = BusManager::ablMilliampsMax();
   hw_led[F("voltage")] = BusManager::getVoltage();
+  hw_led[F("pwrmon")] = BusManager::getPowerMonitoring();
 //  hw_led[F("ledma")] = 0; // no longer used
   hw_led["cct"] = strip.correctWB;
   hw_led[F("cr")] = strip.cctFromRgb;

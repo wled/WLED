@@ -150,6 +150,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     uint8_t ledVoltage = request->arg(F("LV")).toInt();
     if (ledVoltage > 0 && ledVoltage <= 50) BusManager::setVoltage(ledVoltage);
 
+    BusManager::setPowerMonitoring(request->hasArg(F("PM")));
+
     strip.autoSegments = request->hasArg(F("MS"));
     strip.correctWB = request->hasArg(F("CCT"));
     strip.cctFromRgb = request->hasArg(F("CR"));

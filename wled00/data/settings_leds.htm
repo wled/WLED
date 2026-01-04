@@ -133,11 +133,19 @@
 				}
 			}
 		}
+		function enPM()
+		{
+			var en = d.Sf.PM.checked;
+			gId('pwrmon').style.display = (en) ? 'inline':'none';
+			gId('pmwarn').style.display = (en && !d.Sf.ABL.checked) ? 'inline':'none';
+		}
 		function enABL()
 		{
 			var en = d.Sf.ABL.checked;
 			gId('abl').style.display = (en) ? 'inline':'none';
 			gId('psu2').style.display = (en) ? 'inline':'none';
+			// Change power monitoring warning visibility (hide if ABL is enabled - calculations already running)
+			if (d.Sf.PM.checked) gId('pmwarn').style.display = (!en) ? 'inline':'none';
 			if (!en) {
 				// limiter disabled
 				d.Sf.PPL.checked = false;
@@ -201,6 +209,7 @@
 				else sel.value = 0;
 				enLA(sel,n); // configure individual limiter
 			});
+			enPM();
 			enABL();
 			gId('m1').innerHTML = maxM;
 		}
@@ -469,7 +478,7 @@
 ${i+1}:
 <select name="LT${s}" onchange="updateTypeDropdowns();UI(true)"></select><br>
 <div id="dig${s}ma" style="display:none">
-mA/LED (for power monitoring): <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
+mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
 <option value="35">35mA (eco WS2812)</option>
 <option value="30">30mA (typ. 12V)</option>
@@ -868,9 +877,12 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<b><span id="psu">?</span></b><br>
 		<span id="psu2"><br></span>
 		<br>
+		Enable power monitoring: <input type="checkbox" name="PM" onchange="enPM()"><br>
+		<div id="pwrmon" style="display:none">
 		LED Strip Voltage: <input name="LV" type="number" class="m" step="1" min="1" max="50" value="5" oninput="UI()"> V<br>
-		<i>Used for approximate power consumption calculations. Typical: 5V for WS281x, 12V or 24V for others</i><br>
-		<br>
+		<i>Exposes approximate power consumption in API. Typical voltage: 5V for WS281x, 12V or 24V for others</i><br>
+		<i id="pmwarn" class="warn">⚠ Power monitoring calculates current every frame and uses CPU resources. This can lower effect FPS on slower devices.</i><br>
+		</div>
 		Enable automatic brightness limiter: <input type="checkbox" name="ABL" onchange="enABL()"><br>
 		<div id="abl">
 			<i>Automatically limits brightness to stay close to the limit.<br>
@@ -883,6 +895,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				<i>Make sure you enter correct value for each LED output.<br>
 				If using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.</i><br>
 			</div>
+			<i class="warn">⚠ Automatic brightness limiter uses CPU resources. This can lower effect FPS on slower devices.</i><br>
 			<div id="ampwarning" class="warn" style="display: none;">
 				&#9888; Your power supply provides high current.<br>
 				To improve the safety of your setup,<br>
