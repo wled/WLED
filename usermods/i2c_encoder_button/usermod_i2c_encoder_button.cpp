@@ -111,10 +111,10 @@ public:
             i2cEncoderLibV2::IPUP_ENABLE | i2cEncoderLibV2::RMOD_X1 | i2cEncoderLibV2::RGB_ENCODER
         );
 
-        encoder_p->writeCounter(0); /* Reset the counter value */
-        encoder_p->writeMax(255);   /* Set the maximum threshold*/
-        encoder_p->writeMin(0);     /* Set the minimum threshold */
-        encoder_p->writeStep(1);    /* Set the step to 1*/
+        encoder_p->writeCounter((int32_t)0);  // Reset the counter value
+        encoder_p->writeMax((int32_t)255);  // Set the maximum threshold
+        encoder_p->writeMin((int32_t)0);  // Set the minimum threshold
+        encoder_p->writeStep((int32_t)1);  // Set the step to 1
         encoder_p->writeAntibouncingPeriod(5);
         encoder_p->writeFadeRGB(1);
         encoder_p->writeInterruptConfig(
