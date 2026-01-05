@@ -63,8 +63,8 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
  * if using "video" method the resulting color will never become black unless it is already black
  */
 uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
-  if (c1 == 0 || amount == 0) return 0; // black or no change
-  if (amount == 255) return c1;
+  if (c1 == BLACK || amount == 0) return 0; // black or full fade
+  if (amount == 255) return c1;             // no change
   uint32_t addRemains = 0;
 
   if (!video) amount++; // add one for correct scaling using bitshifts
