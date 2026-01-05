@@ -38,7 +38,7 @@ void closeFile() {
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
-  if (f) f.close(); // only close if we have an open file
+  f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
   doCloseFile = false;
 }
