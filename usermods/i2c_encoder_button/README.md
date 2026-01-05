@@ -22,8 +22,8 @@ Settings will be available on the Usermods page of the web UI. Here you can defi
 This usermod is intended to work with the I2CEncoder V2.1 with the following configuration:
 
 - Rotary encoder: Illuminated RGB Encoder
-  - This encoder includes a pushbutton switch and an internal RGB LED to illuminate the shaft and any know attached to it.
-  - This is the encoder: https://www.sparkfun.com/products/15141
+  - This encoder includes a pushbutton switch and an internal RGB LED to illuminate the shaft and any knob attached to it.
+  - This is the encoder: [Sparkfun RGB Encoder](https://www.sparkfun.com/products/15141)
 - Knob: Any knob works, but the black knob has a transparent ring that lets the internal LED light through for a nice glow.
 - Connectors: any
 - LEDs: none (this is separate from the LED included in the encoder above)

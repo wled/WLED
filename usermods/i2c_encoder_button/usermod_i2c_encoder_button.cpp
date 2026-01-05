@@ -37,7 +37,7 @@ private:
     const uint32_t encoderModes[2] = {0x0000FF, 0xFF0000};
     uint32_t lastInteractionTime = 0;
     const uint32_t modeResetTimeout = 30000; // timeout for reseting mode to 0
-    const uint32_t brightnessDelta = 16;
+    const int8_t brightnessDelta = 16;
     bool enabled = false;
     bool initDone = false;
     // Configurable pins and address (now user-configurable via JSON config)
@@ -51,15 +51,13 @@ private:
         colorUpdated(CALL_MODE_BUTTON);
     }
 
-    void updateEffect(int8_t deltaEffect)
-    {
+    void updateEffect(int8_t deltaEffect) {
         // set new effect with rollover at 0 and MODE_COUNT
         effectCurrent = (effectCurrent + MODE_COUNT + deltaEffect) % MODE_COUNT;
         colorUpdated(CALL_MODE_FX_CHANGED);
     }
 
-    void setEncoderMode(uint8_t mode)
-    {
+    void setEncoderMode(uint8_t mode) {
         // set new mode and update encoder LED color
         encoderMode = mode;
         encoder_p->writeRGBCode(encoderModes[encoderMode]);
@@ -69,7 +67,7 @@ private:
         colorUpdated(CALL_MODE_BUTTON);
         setEncoderMode(0);
     }
-    void handlEncoderLongButtonPress() {
+    void handleEncoderLongButtonPress() {
         if (encoderMode == 0 && bri == 0) {
             applyPreset(1);
             colorUpdated(CALL_MODE_FX_CHANGED);
@@ -126,7 +124,7 @@ public:
         initDone = true;
     }
     void loop() override {
-        if (!enabled) return;
+        if (!enabled || !encoder_p) return;
         if (digitalRead(intPin) == LOW) {
             if (encoder_p->updateStatus()) {
                 if (encoder_p->readStatus(i2cEncoderLibV2::RINC) || encoder_p->readStatus(i2cEncoderLibV2::RDEC)) encoderRotated(encoder_p);
@@ -135,7 +133,7 @@ public:
             }
         }
         if (encoderButtonDown) buttonPressDuration = millis() - buttonPressStartTime;
-        if (buttonPressDuration > buttonLongPressThreshold) handlEncoderLongButtonPress();
+        if (buttonPressDuration > buttonLongPressThreshold) handleEncoderLongButtonPress();
         if (encoderMode != 0 && millis() - lastInteractionTime > modeResetTimeout) setEncoderMode(0);
     }
     void addToJsonInfo(JsonObject& root) override {
@@ -164,7 +162,7 @@ public:
         configComplete &= getJsonValue(top["i2cAddress"], i2cAddress, I2C_ENCODER_DEFAULT_ADDRESS);
         return configComplete;
     }
-    uint16_t getId() override { return USERMOD_I2C_ENCODER_BUTTON; }
+    uint16_t getId() override { return USERMOD_ID_I2C_ENCODER_BUTTON; }
 };
 
 static UsermodI2CEncoderButton usermod_i2c_encoder_button;
