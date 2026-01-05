@@ -101,7 +101,11 @@ public:
     }
     void setup() override {
         // (Re)initialize encoder with current config
-        if (encoder_p) delete encoder_p;
+        if (encoder_p) {
+            delete encoder_p;
+            encoder_p = nullptr;
+        }
+        if (!enabled) return;
         encoder_p = new i2cEncoderLibV2(i2cAddress);
         pinMode(intPin, INPUT);
         Wire.begin(sdaPin, sclPin);
