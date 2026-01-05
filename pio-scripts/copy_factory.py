@@ -1,7 +1,6 @@
 Import('env')
 import os
 import shutil
-import gzip
 import json
 
 OUTPUT_DIR = "build_output{}".format(os.path.sep)

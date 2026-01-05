@@ -113,13 +113,13 @@ def esp32_build_filesystem(fs_size):
         files = env.GetProjectOption("custom_files_upload").splitlines()
     except Exception:
         print()
-        print(Fore.RED + "custom_files_upload: NOT DEFINED will NOT create littlefs.bin and NOT overwrite fs partition! ")
+        print(Fore.YELLOW + "custom_files_upload: NOT DEFINED will NOT create littlefs.bin and NOT overwrite fs partition! ")
         print()
         return False
 
     if not any(f.strip() for f in files):
         print()
-        print(Fore.RED + "custom_files_upload: empty will NOT create littlefs.bin and NOT overwrite fs partition! ")
+        print(Fore.YELLOW + "custom_files_upload: empty will NOT create littlefs.bin and NOT overwrite fs partition! ")
         print()
         return False
 
@@ -142,7 +142,7 @@ def esp32_build_filesystem(fs_size):
             parts = file.split()
             url = parts[0]
 
-            response = requests.get(url)
+            response = requests.get(url, timeout=30) 
             if response.ok:
                 # Extract filename safely from URL
                 parsed = urlparse(url)
@@ -173,7 +173,9 @@ def esp32_build_filesystem(fs_size):
     tool = env.subst(env["MKFSTOOL"])
     cmd = (tool,"-c",filesystem_dir,"-s",fs_size,join(env.subst("$BUILD_DIR"),"littlefs.bin"))
     returncode = subprocess.call(cmd, shell=False)
-    # print(returncode)
+    if returncode != 0:
+        print(Fore.RED + f"Failed to create littlefs.bin (exit code: {returncode})")
+        return False
     return True
 
 
