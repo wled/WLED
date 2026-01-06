@@ -35,7 +35,22 @@
 	function loadPresets() {
 		try {
 			var p = localStorage.getItem("wledP");
-			if (p) presets = JSON.parse(p);
+			if (p) {
+				presets = JSON.parse(p);
+			} else {
+				fetch(getURL('/presets.json'), {method: 'get'})
+					.then(res => res.ok ? res.json() : {})
+					.then(json => {
+						delete json["0"]; // remove default preset entry
+						presets = json;
+						// Save to localStorage for future use
+						try { localStorage.setItem("wledP", JSON.stringify(presets)); } catch(e) {}
+						// run here because fetch is async
+						buildSortedPresetOptions();
+						populateMacroPresets();
+					})
+					.catch(e => console.log("Failed to fetch presets:", e));
+			}
 		} catch(e) {}
 		// Load sort preference from localStorage
 		try {
