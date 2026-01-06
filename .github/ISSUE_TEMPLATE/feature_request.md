@@ -1,6 +1,6 @@
 ---
-name: Feature request
-about: Suggest an improvement idea for WLED!
+name: Prośba o funkcję
+about: Zaproponuj pomysł na ulepszenie WLED!
 title: ''
 labels: enhancement
 assignees: ''
