@@ -1,0 +1,40 @@
+# Example GitHub Actions workflow to enforce pre-commit checks
+# Place this in .github/workflows/pre-commit-check.yml
+#
+# This runs on every push and prevents merging if checks fail
+# Combine with branch protection rules to require this check to pass
+
+name: Pre-commit Checks
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      - name: Install pre-commit
+        run: |
+          pip install pre-commit
+      
+      - name: Run pre-commit on all files
+        run: |
+          pre-commit run --all-files
+      
+      # Optional: Check for secrets using detect-secrets or similar
+      - name: Check for secrets
+        run: |
+          pip install detect-secrets
+          detect-secrets scan --baseline .secrets.baseline
+          detect-secrets audit .secrets.baseline
+

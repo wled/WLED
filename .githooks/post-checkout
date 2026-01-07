@@ -1,0 +1,51 @@
+#!/bin/bash
+# Post-checkout hook that auto-configures Git hooks
+# This runs automatically after clone/checkout and sets up hooksPath
+# Users can still disable it, but it prevents accidents
+
+# Colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Get the repository root
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+
+if [ -z "$REPO_ROOT" ]; then
+    # Not in a git repo, exit silently
+    exit 0
+fi
+
+cd "$REPO_ROOT"
+
+# Check if core.hooksPath is already configured
+CURRENT_HOOKS_PATH=$(git config core.hooksPath 2>/dev/null)
+
+if [ "$CURRENT_HOOKS_PATH" != ".githooks" ] && [ -d ".githooks" ]; then
+    # Configure hooksPath if not already set
+    git config core.hooksPath .githooks
+    
+    # Make sure all hooks are executable
+    find .githooks -type f -name "*" ! -name "*.md" ! -name "*.txt" -exec chmod +x {} \; 2>/dev/null || true
+    
+    echo -e "${GREEN}✅ Git hooks automatically configured!${NC}"
+    echo -e "${BLUE}   Hooks directory: .githooks${NC}"
+    echo -e "${YELLOW}   Note: You can still bypass with --no-verify, but please don't!${NC}"
+fi
+
+# If this is the first checkout (clone), show a message
+if [ "$1" = "0" ] || [ -z "$1" ]; then
+    # This might be a clone or first checkout
+    if [ ! -f ".git/hooks/post-checkout" ] || [ -L ".git/hooks/post-checkout" ]; then
+        # Create a symlink or copy to ensure this runs on future checkouts
+        # (This is a one-time bootstrap)
+        if [ -f ".githooks/post-checkout" ]; then
+            # Try to create a symlink (if supported)
+            ln -sf "../../.githooks/post-checkout" ".git/hooks/post-checkout" 2>/dev/null || true
+        fi
+    fi
+fi
+
+exit 0
+

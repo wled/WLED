@@ -1,0 +1,50 @@
+#!/bin/bash
+# Pre-commit hook example
+# This will run automatically if core.hooksPath is set to .githooks
+# Users can still bypass with: git commit --no-verify
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}Running pre-commit checks...${NC}"
+
+# Check for common secret patterns
+PATTERNS=(
+    "password\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "api[_-]?key\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "secret\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "token\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+)
+
+ERRORS=0
+FILES_TO_CHECK=$(git diff --cached --name-only)
+
+for file in $FILES_TO_CHECK; do
+    # Skip if file doesn't exist or is binary
+    [ ! -f "$file" ] && continue
+    
+    # Check each pattern
+    for pattern in "${PATTERNS[@]}"; do
+        if git diff --cached "$file" | grep -iE "$pattern" > /dev/null 2>&1; then
+            echo -e "${RED}ERROR: Potential secret detected in $file${NC}"
+            echo -e "${RED}Pattern: $pattern${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+done
+
+if [ $ERRORS -gt 0 ]; then
+    echo ""
+    echo -e "${RED}❌ Pre-commit checks failed!${NC}"
+    echo -e "${RED}Please remove sensitive information before committing.${NC}"
+    echo ""
+    echo -e "${YELLOW}Note: You can bypass this check with --no-verify, but DON'T!${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Pre-commit checks passed${NC}"
+exit 0
+

@@ -421,6 +421,51 @@
             </div>
             
             <div class="section">
+                <h2>🚴 Group Ride Management</h2>
+                <div class="control-group">
+                    <label>Device Name:</label>
+                    <input type="text" id="deviceName" placeholder="Enter device name" maxlength="20" onchange="setDeviceName(this.value)">
+                    <small>Name shown to other group members</small>
+                </div>
+                
+                <div class="control-group">
+                    <div id="groupStatus" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                        <strong>Group Status:</strong> <span id="groupStatusText">Not in group</span><br>
+                        <strong>Group Code:</strong> <span id="groupCodeText">None</span><br>
+                        <strong>Role:</strong> <span id="groupRoleText">None</span><br>
+                        <strong>Members:</strong> <span id="groupMemberCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Group Code:</label>
+                    <input type="text" id="groupCodeInput" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
+                    <div style="margin-top: 10px;">
+                        <button onclick="createGroup()" class="btn btn-primary">Create Group</button>
+                        <button onclick="joinGroup()" class="btn btn-secondary">Join Group</button>
+                        <button onclick="leaveGroup()" class="btn btn-danger">Leave Group</button>
+                    </div>
+                    <small>Create a new group or join an existing one with a 6-digit code</small>
+                </div>
+                
+                <div class="control-group" id="masterControls" style="display: none;">
+                    <h3>Master Controls</h3>
+                    <div style="margin: 10px 0;">
+                        <button onclick="allowGroupJoin()" class="btn btn-success">Allow New Members</button>
+                        <button onclick="blockGroupJoin()" class="btn btn-warning">Block New Members</button>
+                    </div>
+                    <small>Control who can join your group</small>
+                </div>
+                
+                <div class="control-group">
+                    <div id="groupMembers" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                        <strong>Group Members:</strong>
+                        <div id="groupMembersList">No members</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
                 <h2>LED Configuration</h2>
             <div class="control-group">
                 <label>Headlight LED Count:</label>
@@ -434,33 +479,35 @@
                 <label>Headlight LED Type:</label>
                 <select id="headlightLedType" onchange="updateLEDConfig()">
                     <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
+                    <option value="1">SK6812 (RGB)</option>
+                    <option value="2">WS2812B (RGB)</option>
+                    <option value="3">APA102 (RGB)</option>
+                    <option value="4">LPD8806 (RGB)</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Taillight LED Type:</label>
                 <select id="taillightLedType" onchange="updateLEDConfig()">
                     <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
+                    <option value="1">SK6812 (RGB)</option>
+                    <option value="2">WS2812B (RGB)</option>
+                    <option value="3">APA102 (RGB)</option>
+                    <option value="4">LPD8806 (RGB)</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Headlight Color Order:</label>
                 <select id="headlightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
+                    <option value="0">RGB</option>
+                    <option value="1">GRB</option>
                     <option value="2">BGR</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Taillight Color Order:</label>
                 <select id="taillightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
+                    <option value="0">RGB</option>
+                    <option value="1">GRB</option>
                     <option value="2">BGR</option>
                 </select>
             </div>

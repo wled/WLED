@@ -158,3 +158,6 @@ bool processUIUpdateChunked(const String& updatePath) {
     Serial.printf("UI update completed successfully - %d files processed\n", filesProcessed);
     return filesProcessed > 0;
 }
+
+
+

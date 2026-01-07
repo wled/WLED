@@ -715,6 +715,37 @@ function updateStatus() {
             if (useESPNowSyncEl) useESPNowSyncEl.checked = data.useESPNowSync;
             const espNowChannelEl = document.getElementById('espNowChannel');
             if (espNowChannelEl) espNowChannelEl.value = data.espNowChannel;
+            
+            // Update group status
+            console.log('Group status update:', data.groupCode, data.isGroupMaster, data.groupMemberCount);
+            if (data.groupCode && data.groupCode.length > 0) {
+                document.getElementById('groupStatusText').textContent = 'In group';
+                document.getElementById('groupCodeText').textContent = data.groupCode;
+                document.getElementById('groupRoleText').textContent = data.isGroupMaster ? 'Master' : 'Follower';
+                document.getElementById('groupMemberCount').textContent = data.groupMemberCount || 0;
+                
+                // Show master controls if this device is the master
+                const masterControls = document.getElementById('masterControls');
+                if (masterControls) {
+                    masterControls.style.display = data.isGroupMaster ? 'block' : 'none';
+                }
+            } else {
+                document.getElementById('groupStatusText').textContent = 'Not in group';
+                document.getElementById('groupCodeText').textContent = 'None';
+                document.getElementById('groupRoleText').textContent = 'None';
+                document.getElementById('groupMemberCount').textContent = '0';
+                
+                const masterControls = document.getElementById('masterControls');
+                if (masterControls) {
+                    masterControls.style.display = 'none';
+                }
+            }
+            
+            // Update device name
+            const deviceNameEl = document.getElementById('deviceName');
+            if (deviceNameEl && data.deviceName) {
+                deviceNameEl.value = data.deviceName;
+            }
             const espNowChannelValueEl = document.getElementById('espNowChannelValue');
             if (espNowChannelValueEl) espNowChannelValueEl.textContent = data.espNowChannel;
             const espNowStatusTextEl = document.getElementById('espNowStatusText');
@@ -845,6 +876,96 @@ function setESPNowChannel(channel) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ espNowChannel: parseInt(channel) })
+    });
+}
+
+// Group Management Functions
+function setDeviceName(name) {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceName: name })
+    });
+}
+
+function createGroup() {
+    const code = document.getElementById('groupCodeInput').value;
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        alert('Please enter a valid 6-digit code');
+        return;
+    }
+    
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'create',
+            groupCode: code
+        })
+    }).then(() => {
+        document.getElementById('groupCodeInput').value = '';
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function joinGroup() {
+    const code = document.getElementById('groupCodeInput').value;
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        alert('Please enter a valid 6-digit code');
+        return;
+    }
+    
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'join',
+            groupCode: code
+        })
+    }).then(() => {
+        document.getElementById('groupCodeInput').value = '';
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function leaveGroup() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'leave'
+        })
+    }).then(() => {
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function allowGroupJoin() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'allow_join'
+        })
+    });
+}
+
+function blockGroupJoin() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'block_join'
+        })
     });
 }
 

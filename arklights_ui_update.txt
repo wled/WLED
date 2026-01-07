@@ -421,6 +421,51 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
             </div>
             
             <div class="section">
+                <h2>🚴 Group Ride Management</h2>
+                <div class="control-group">
+                    <label>Device Name:</label>
+                    <input type="text" id="deviceName" placeholder="Enter device name" maxlength="20" onchange="setDeviceName(this.value)">
+                    <small>Name shown to other group members</small>
+                </div>
+                
+                <div class="control-group">
+                    <div id="groupStatus" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                        <strong>Group Status:</strong> <span id="groupStatusText">Not in group</span><br>
+                        <strong>Group Code:</strong> <span id="groupCodeText">None</span><br>
+                        <strong>Role:</strong> <span id="groupRoleText">None</span><br>
+                        <strong>Members:</strong> <span id="groupMemberCount">0</span>
+                    </div>
+                </div>
+                
+                <div class="control-group">
+                    <label>Group Code:</label>
+                    <input type="text" id="groupCodeInput" placeholder="Enter 6-digit code" maxlength="6" pattern="[0-9]{6}">
+                    <div style="margin-top: 10px;">
+                        <button onclick="createGroup()" class="btn btn-primary">Create Group</button>
+                        <button onclick="joinGroup()" class="btn btn-secondary">Join Group</button>
+                        <button onclick="leaveGroup()" class="btn btn-danger">Leave Group</button>
+                    </div>
+                    <small>Create a new group or join an existing one with a 6-digit code</small>
+                </div>
+                
+                <div class="control-group" id="masterControls" style="display: none;">
+                    <h3>Master Controls</h3>
+                    <div style="margin: 10px 0;">
+                        <button onclick="allowGroupJoin()" class="btn btn-success">Allow New Members</button>
+                        <button onclick="blockGroupJoin()" class="btn btn-warning">Block New Members</button>
+                    </div>
+                    <small>Control who can join your group</small>
+                </div>
+                
+                <div class="control-group">
+                    <div id="groupMembers" style="padding: 10px; background: #333; border-radius: 5px; margin: 10px 0; color: #fff;">
+                        <strong>Group Members:</strong>
+                        <div id="groupMembersList">No members</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
                 <h2>LED Configuration</h2>
             <div class="control-group">
                 <label>Headlight LED Count:</label>
@@ -434,33 +479,35 @@ FILENAME:/ui/index.html:<!DOCTYPE html>
                 <label>Headlight LED Type:</label>
                 <select id="headlightLedType" onchange="updateLEDConfig()">
                     <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
+                    <option value="1">SK6812 (RGB)</option>
+                    <option value="2">WS2812B (RGB)</option>
+                    <option value="3">APA102 (RGB)</option>
+                    <option value="4">LPD8806 (RGB)</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Taillight LED Type:</label>
                 <select id="taillightLedType" onchange="updateLEDConfig()">
                     <option value="0">SK6812 (RGBW)</option>
-                    <option value="1">WS2812B (RGB)</option>
-                    <option value="2">APA102 (RGB)</option>
-                    <option value="3">LPD8806 (RGB)</option>
+                    <option value="1">SK6812 (RGB)</option>
+                    <option value="2">WS2812B (RGB)</option>
+                    <option value="3">APA102 (RGB)</option>
+                    <option value="4">LPD8806 (RGB)</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Headlight Color Order:</label>
                 <select id="headlightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
+                    <option value="0">RGB</option>
+                    <option value="1">GRB</option>
                     <option value="2">BGR</option>
                 </select>
             </div>
             <div class="control-group">
                 <label>Taillight Color Order:</label>
                 <select id="taillightColorOrder" onchange="updateLEDConfig()">
-                    <option value="0">GRB</option>
-                    <option value="1">RGB</option>
+                    <option value="0">RGB</option>
+                    <option value="1">GRB</option>
                     <option value="2">BGR</option>
                 </select>
             </div>
@@ -1373,6 +1420,37 @@ function updateStatus() {
             if (useESPNowSyncEl) useESPNowSyncEl.checked = data.useESPNowSync;
             const espNowChannelEl = document.getElementById('espNowChannel');
             if (espNowChannelEl) espNowChannelEl.value = data.espNowChannel;
+            
+            // Update group status
+            console.log('Group status update:', data.groupCode, data.isGroupMaster, data.groupMemberCount);
+            if (data.groupCode && data.groupCode.length > 0) {
+                document.getElementById('groupStatusText').textContent = 'In group';
+                document.getElementById('groupCodeText').textContent = data.groupCode;
+                document.getElementById('groupRoleText').textContent = data.isGroupMaster ? 'Master' : 'Follower';
+                document.getElementById('groupMemberCount').textContent = data.groupMemberCount || 0;
+                
+                // Show master controls if this device is the master
+                const masterControls = document.getElementById('masterControls');
+                if (masterControls) {
+                    masterControls.style.display = data.isGroupMaster ? 'block' : 'none';
+                }
+            } else {
+                document.getElementById('groupStatusText').textContent = 'Not in group';
+                document.getElementById('groupCodeText').textContent = 'None';
+                document.getElementById('groupRoleText').textContent = 'None';
+                document.getElementById('groupMemberCount').textContent = '0';
+                
+                const masterControls = document.getElementById('masterControls');
+                if (masterControls) {
+                    masterControls.style.display = 'none';
+                }
+            }
+            
+            // Update device name
+            const deviceNameEl = document.getElementById('deviceName');
+            if (deviceNameEl && data.deviceName) {
+                deviceNameEl.value = data.deviceName;
+            }
             const espNowChannelValueEl = document.getElementById('espNowChannelValue');
             if (espNowChannelValueEl) espNowChannelValueEl.textContent = data.espNowChannel;
             const espNowStatusTextEl = document.getElementById('espNowStatusText');
@@ -1503,6 +1581,96 @@ function setESPNowChannel(channel) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ espNowChannel: parseInt(channel) })
+    });
+}
+
+// Group Management Functions
+function setDeviceName(name) {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceName: name })
+    });
+}
+
+function createGroup() {
+    const code = document.getElementById('groupCodeInput').value;
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        alert('Please enter a valid 6-digit code');
+        return;
+    }
+    
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'create',
+            groupCode: code
+        })
+    }).then(() => {
+        document.getElementById('groupCodeInput').value = '';
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function joinGroup() {
+    const code = document.getElementById('groupCodeInput').value;
+    if (code.length !== 6 || !/^\d{6}$/.test(code)) {
+        alert('Please enter a valid 6-digit code');
+        return;
+    }
+    
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'join',
+            groupCode: code
+        })
+    }).then(() => {
+        document.getElementById('groupCodeInput').value = '';
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function leaveGroup() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'leave'
+        })
+    }).then(() => {
+        // Add a small delay to ensure the backend has processed the request
+        setTimeout(() => {
+            updateStatus();
+        }, 500);
+    });
+}
+
+function allowGroupJoin() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'allow_join'
+        })
+    });
+}
+
+function blockGroupJoin() {
+    fetch('/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+            groupAction: 'block_join'
+        })
     });
 }
 

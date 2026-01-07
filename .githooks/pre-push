@@ -1,0 +1,55 @@
+#!/bin/bash
+# Pre-push hook example
+# This will run automatically if core.hooksPath is set to .githooks
+# Users can still bypass with: git push --no-verify
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${YELLOW}Running pre-push checks...${NC}"
+
+# Check for common secret patterns
+PATTERNS=(
+    "password\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "api[_-]?key\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "secret\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+    "token\s*[:=]\s*['\"]?[^'\"]+['\"]?"
+)
+
+ERRORS=0
+FILES_TO_CHECK=$(git diff --name-only origin/$(git rev-parse --abbrev-ref HEAD) 2>/dev/null || git diff --name-only HEAD@{upstream} 2>/dev/null || echo "")
+
+if [ -z "$FILES_TO_CHECK" ]; then
+    # If we can't determine upstream, check all staged files
+    FILES_TO_CHECK=$(git diff --cached --name-only)
+fi
+
+for file in $FILES_TO_CHECK; do
+    # Skip if file doesn't exist or is binary
+    [ ! -f "$file" ] && continue
+    
+    # Check each pattern
+    for pattern in "${PATTERNS[@]}"; do
+        if git diff --cached "$file" 2>/dev/null | grep -iE "$pattern" > /dev/null 2>&1; then
+            echo -e "${RED}ERROR: Potential secret detected in $file${NC}"
+            echo -e "${RED}Pattern: $pattern${NC}"
+            ERRORS=$((ERRORS + 1))
+        fi
+    done
+done
+
+if [ $ERRORS -gt 0 ]; then
+    echo ""
+    echo -e "${RED}❌ Pre-push checks failed!${NC}"
+    echo -e "${RED}Please remove sensitive information before pushing.${NC}"
+    echo ""
+    echo -e "${YELLOW}Note: You can bypass this check with --no-verify, but DON'T!${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Pre-push checks passed${NC}"
+exit 0
+
