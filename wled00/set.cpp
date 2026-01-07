@@ -640,12 +640,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (t>=0 && t < MAX_LEDS) {
       DMXStartLED = t;
     }
-    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
+    for (int i=0; i<WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
       String argname = "CH" + String((i+1));
       t = request->arg(argname).toInt();
       DMXFixtureMap[i] = t;
     }
-    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
+    for (int i=0; i<WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
       String argname = "DV" + String((i+1));
       t = request->arg(argname).toInt();
       DMXChannelsValue[i] = constrain(t, 0, 255);

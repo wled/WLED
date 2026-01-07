@@ -1,7 +1,7 @@
 #include "wled.h"
 
 #ifndef WLED_DISABLE_OTA
-  #include "ota_update.h"  
+  #include "ota_update.h"
 #endif
 #include "html_ui.h"
 #include "html_settings.h"
@@ -144,12 +144,12 @@ static String dmxProcessor(const String& var)
     mapJS += F(";\nLC=");
     mapJS += String(strip.getLengthTotal());
     mapJS += F(";\nvar CH=[");
-    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
+    for (int i=0; i<WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
       mapJS += String(DMXFixtureMap[i]) + ',';
     }
     mapJS += F("0];");
     mapJS += F(";\nvar DV=[");
-    for (int i=0; i<MAX_CHANNELS_PER_FIXTURE; i++) {
+    for (int i=0; i<WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
       mapJS += String(DMXChannelsValue[i]) + ',';
     }
     mapJS += F("0];");
@@ -341,7 +341,7 @@ void initServer()
   DefaultHeaders::Instance().addHeader(F("Access-Control-Allow-Headers"), "*");
 
 #ifdef WLED_ENABLE_WEBSOCKETS
-  #ifndef WLED_DISABLE_2D 
+  #ifndef WLED_DISABLE_2D
   server.on(F("/liveview2D"), HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, "", 200, FPSTR(CONTENT_TYPE_HTML), PAGE_liveviewws2D, PAGE_liveviewws2D_length);
   });
@@ -507,7 +507,7 @@ void initServer()
       serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
-    if (index == 0) { 
+    if (index == 0) {
       // Allocate the context structure
       if (!initOTA(request)) {
         return; // Error will be dealt with after upload in response handler, above
@@ -515,7 +515,7 @@ void initServer()
 
       // Privilege checks
       IPAddress client  = request->client()->remoteIP();
-      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {        
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
         DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
         serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
         setOTAReplied(request);
@@ -530,7 +530,7 @@ void initServer()
         serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
         setOTAReplied(request);
         return;
-      }      
+      }
     }
 
     handleOTAData(request, index, data, len, isFinal);
@@ -698,7 +698,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     request->send_P(401, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('PIN incorrect.');"));
     return;
   }
-  
+
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
   response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
   response->addHeader(FPSTR(s_expires), F("0"));
