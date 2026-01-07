@@ -231,6 +231,7 @@ class TetrisAIUsermod : public Usermod
 {
 
 private:
+  static const char _name[];
 
 public:
   void setup()
@@ -247,8 +248,15 @@ public:
   {
     return USERMOD_ID_TETRISAI;
   }
+
+  const char* getName() override
+  {
+    return _name;
+  }
 };
 
+
+const char TetrisAIUsermod::_name[] PROGMEM = "Tetris AI";
 
 static TetrisAIUsermod tetrisai_v2;
 REGISTER_USERMOD(tetrisai_v2);

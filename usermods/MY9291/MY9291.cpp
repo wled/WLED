@@ -13,6 +13,7 @@
 
 class MY9291Usermod : public Usermod {
   private:
+    static const char _name[];
     my92xx _my92xx = my92xx(MY92XX_MODEL, MY92XX_CHIPS, MY92XX_DI_PIN, MY92XX_DCKI_PIN, MY92XX_COMMAND_DEFAULT);
 
   public:
@@ -40,7 +41,13 @@ class MY9291Usermod : public Usermod {
     uint16_t getId() {
       return USERMOD_ID_MY9291;
     }
+
+    const char* getName() override {
+        return _name;
+    }
 };
+
+const char MY9291Usermod::_name[] PROGMEM = "MY9291";
 
 static MY9291Usermod my9291;
 REGISTER_USERMOD(my9291);

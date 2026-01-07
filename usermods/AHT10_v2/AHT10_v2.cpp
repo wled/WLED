@@ -182,6 +182,11 @@ public:
     return USERMOD_ID_AHT10;
   }
 
+  const char* getName() override
+  {
+    return _name;
+  }
+
   void addToJsonInfo(JsonObject &root) override
   {
     // if "u" object does not exist yet wee need to create it

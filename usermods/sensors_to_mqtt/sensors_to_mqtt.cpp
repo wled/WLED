@@ -16,6 +16,7 @@ static Adafruit_CCS811 ccs811;
 class UserMod_SensorsToMQTT : public Usermod
 {
 private:
+  static const char _name[];
   bool initialized = false;
   bool mqttInitialized = false;
   float SensorPressure = 0;
@@ -274,8 +275,13 @@ public:
       }
     }
   }
+
+    const char* getName() override {
+        return _name;
+    }
 };
 
+const char UserMod_SensorsToMQTT::_name[] PROGMEM = "Sensors to MQTT";
 
 static UserMod_SensorsToMQTT sensors_to_mqtt;
 REGISTER_USERMOD(sensors_to_mqtt);

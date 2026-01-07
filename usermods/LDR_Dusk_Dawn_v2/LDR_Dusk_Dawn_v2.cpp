@@ -147,6 +147,11 @@ class LDR_Dusk_Dawn_v2 : public Usermod {
   uint16_t getId() {
     return USERMOD_ID_LDR_DUSK_DAWN;
   }
+
+  const char* getName() override
+  {
+    return _name;
+  }
 };
 
 const char LDR_Dusk_Dawn_v2::_name[]    PROGMEM = "LDR_Dusk_Dawn_v2";
