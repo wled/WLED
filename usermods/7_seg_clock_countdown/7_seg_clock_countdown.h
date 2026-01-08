@@ -12,6 +12,10 @@
 #define SEG_F 5
 #define SEG_G 6
 
+/*-------------------------------Begin modifications down here!!!------------------------
+-----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------------*/
+
 // Geometry: LED counts for a single digit and the full panel.
 // - One digit has 7 segments, each with LEDS_PER_SEG pixels
 // - Two separator blocks exist between digit 2/3 and 4/5, each with SEP_LEDS pixels
@@ -20,6 +24,8 @@ static const uint8_t  SEGS_PER_DIGIT = 7;
 static const uint16_t SEP_LEDS       = 10;
 static constexpr uint16_t LEDS_PER_DIGIT = LEDS_PER_SEG * SEGS_PER_DIGIT; // 35
 static constexpr uint16_t TOTAL_PANEL_LEDS = 6 * LEDS_PER_DIGIT + 2 * SEP_LEDS; // 230
+
+static const char* MQTT_Topic = "7seg";
 
 // Physical-to-logical segment mapping per digit: physical order F-A-B-G-E-D-C → logical A..G.
 // This allows drawing by logical segment index while wiring can remain arbitrary.
@@ -32,6 +38,28 @@ static constexpr uint8_t PHYS_TO_LOG[SEGS_PER_DIGIT] = {
     SEG_D,
     SEG_C
 };
+
+// Index helpers into the linear LED stream for each digit and separator block.
+static uint16_t digitBase(uint8_t d) {
+  switch (d) {
+    case 0: return 0;   // digit 1
+    case 1: return 35;  // digit 2
+    case 2: return 80;  // digit 3
+    case 3: return 115; // digit 4
+    case 4: return 160; // digit 5
+    case 5: return 195; // digit 6
+    default: return 0;
+  }
+}
+static constexpr uint16_t sep1Base() { return 70; }
+static constexpr uint16_t sep2Base() { return 150; }
+
+// Interval the coundtown digits blink when counting up (in ms).
+static unsigned long countdownBlinkInterval = 500;
+
+/*--------------------------------------------------------------------------------------
+--------------------------Do NOT edit anything below this line--------------------------
+--------------------------------------------------------------------------------------*/
 
 // Digit bitmasks (bits A..G correspond to indices 0..6). 1 means the segment is lit.
 static constexpr uint8_t DIGIT_MASKS[10] = {
@@ -88,20 +116,16 @@ uint8_t  remSeconds  = 0;
 unsigned long lastSecondMillis = 0;
 int lastSecondValue = -1;
 
-// Index helpers into the linear LED stream for each digit and separator block.
-static uint16_t digitBase(uint8_t d) {
-  switch (d) {
-    case 0: return 0;   // digit 1
-    case 1: return 35;  // digit 2
-    case 2: return 80;  // digit 3
-    case 3: return 115; // digit 4
-    case 4: return 160; // digit 5
-    case 5: return 195; // digit 6
-    default: return 0;
-  }
-}
-static constexpr uint16_t sep1Base() { return 70; }
-static constexpr uint16_t sep2Base() { return 150; }
+// To keep track of the mode before switching to counting up.
+bool IgnoreBlinking = false;
+bool ModeChanged = false;
+uint8_t prevMode=0;
+uint32_t prevColor=0;
+uint8_t prevSpeed=0;
+uint8_t prevIntensity=0;
+uint8_t prevBrightness=0;
+unsigned long lastBlink = 0;
+bool BlinkToggle = false;
 
 // Letter-to-segment mapping for a 7-seg display.
 // Returns a bitmask A..G (0..6). If the character is unsupported, fallback lights A, D, G.

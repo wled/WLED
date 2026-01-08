@@ -1,10 +1,10 @@
 {
-  "name": "usermod_7segment_countdown",
+  "name": "7_seg_clock_countdown",
   "version": "0.1.0",
-  "description": "7-segment clock and countdown usermod for WLED",
+  "description": "7-segment clock and countdown",
   "authors": [
     {
-      "name": "Phips"
+      "name": "DereIBims"
     }
   ],
   "frameworks": ["arduino"],

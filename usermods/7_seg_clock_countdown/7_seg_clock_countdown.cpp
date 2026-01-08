@@ -3,10 +3,10 @@
 // underlying WLED pixels. Lit mask pixels keep the original effect/color, masked pixels
 // are forced to black.
 #include "wled.h"
-#include "usermod_7segment_countdown.h"
+#include "7_seg_clock_countdown.h"
 
 
-class Usermod7SegmentCountdown : public Usermod {
+class SevenSegClockCountdown : public Usermod {
 private:
   // Ensures the mask buffer matches the panel size.
   void ensureMaskSize() {
@@ -53,9 +53,11 @@ private:
 
     return hundredths;
   }
+ 
   // Drawing helpers -----------------------------------------------------------
   // Draws HH:MM:SS into the mask. Separator behavior is controlled by SeperatorOn/Off.
   void drawClock() {
+    clearMask();
     setDigitInt(0, hour(localTime) / 10);
     setDigitInt(1, hour(localTime) % 10);
     setDigitInt(2, minute(localTime) / 10);
@@ -88,25 +90,84 @@ private:
     }
   }
 
+  void revertMode(){
+    Segment& selseg = strip.getSegment(0);
+    selseg.setMode(prevMode, false);
+    selseg.setColor(0, prevColor);
+    selseg.speed=prevSpeed;
+    selseg.intensity=prevIntensity;
+    strip.setBrightness(prevBrightness);
+  }
+
+  void SaveMode(){
+    Segment& selseg = strip.getSegment(0);
+    prevMode=selseg.mode;
+    prevColor=selseg.colors[0];
+    prevSpeed=selseg.speed;
+    prevIntensity=selseg.intensity;
+    prevBrightness=bri;
+  }
+
+  void setMode(uint8_t mode, uint32_t color, uint8_t speed, uint8_t intensity, uint8_t brightness){
+    Segment& selseg = strip.getSegment(0);
+    selseg.setMode(mode, false);
+    selseg.setColor(0, color);
+    selseg.speed=speed;
+    selseg.intensity=intensity;
+    strip.setBrightness(brightness);
+  }
+
   // Draws the countdown or count-up (if target is in the past) into the mask.
   void drawCountdown() {
+    clearMask();
     int64_t diff = (int64_t)targetUnix - (int64_t)localTime; // >0 remaining, <0 passed
 
     // If the target is in the past, count up from the moment it was reached
     bool countingUp = (diff < 0);
     int64_t absDiff = abs(diff); // absolute difference for display
 
-    if (countingUp && absDiff < 60) {
+    if(countingUp && absDiff > 3600) {
+      if(ModeChanged){
+        revertMode();
+        ModeChanged = false;
+      }
+      drawClock();
+      return;
+    }
+
+    if(countingUp){
+      Segment& selseg = strip.getSegment(0);
+      if(!ModeChanged){
+        SaveMode();
+        setMode(FX_MODE_STATIC, 0xFF0000, 128, 128, 255);
+        ModeChanged = true;
+        IgnoreBlinking = false;
+      }
+      if(selseg.mode != FX_MODE_STATIC && ModeChanged && !IgnoreBlinking){
+        IgnoreBlinking=true;
+        revertMode();
+      }
+
+      if(millis() - lastBlink >= countdownBlinkInterval){
+      BlinkToggle = !BlinkToggle;
+      lastBlink = millis();
+      }
+
+      if(BlinkToggle && !IgnoreBlinking){
+        strip.setBrightness(255);
+      } else if (!BlinkToggle && !IgnoreBlinking){
+        strip.setBrightness(0);
+      }
+
+    if (absDiff < 60) {
       setDigitChar(0, 'x');
       setDigitChar(1, 'x');
       setDigitInt(2, absDiff / 10);
       setDigitInt(3, absDiff % 10);
       setDigitChar(4, 'x');
       setDigitChar(5, 'x');
-      return;
     }
-
-    if (countingUp && absDiff < 3600) {
+    if (absDiff >= 60) {
       setDigitChar(0, 'x');
       setDigitChar(1, 'x');
       setDigitInt(2, absDiff / 600);
@@ -114,72 +175,76 @@ private:
       setSeparator(2, sepsOn);
       setDigitInt(4, (absDiff % 60) / 10);
       setDigitInt(5, (absDiff % 60) % 10);
-      return;
     }
+  }
+    
 
-    if (countingUp >= 3600) {
-      drawClock();
-      return;
+    if(!countingUp){
+      // Cleanup from counting up mode
+      if(ModeChanged){
+        revertMode();
+        ModeChanged = false;
+      }
+
+      // Split absolute difference into parts and totals
+      remDays    = (uint32_t)(absDiff / 86400);
+      remHours   = (uint8_t)((absDiff % 86400) / 3600);
+      remMinutes = (uint8_t)((absDiff % 3600) / 60);
+      remSeconds = (uint8_t)(absDiff % 60);
+
+      fullHours   = (uint32_t)(absDiff / 3600);
+      fullMinutes = (uint32_t)(absDiff / 60);
+      fullSeconds = (uint32_t)absDiff;
+
+      // > 99 days → show ddd d
+      if (remDays > 99) {
+        setDigitChar(0, ' ');
+        setDigitInt(1, (remDays / 100) % 10);
+        setDigitInt(2, (remDays / 10) % 10);
+        setDigitInt(3, remDays % 10);
+        setDigitChar(4, 'd');
+        setDigitChar(5, ' ');
+        return;
+      }
+
+      // ≤ 99 days → show dd:hh:mm
+      if (remDays <=99 && fullHours > 99) {
+        setDigitInt(0, remDays / 10);
+        setDigitInt(1, remDays % 10);
+        setSeparator(1, sepsOn);
+        setDigitInt(2, remHours / 10);
+        setDigitInt(3, remHours % 10);
+        setSeparator(2, sepsOn);
+        setDigitInt(4, remMinutes / 10);
+        setDigitInt(5, remMinutes % 10);
+        return;
+      }
+
+      // ≤ 99 hours → show hh:mm:ss
+      if (fullHours <=99 && fullMinutes > 99) {
+        setDigitInt(0, fullHours / 10);
+        setDigitInt(1, fullHours % 10);
+        setSeparator(1, sepsOn);
+        setDigitInt(2, remMinutes / 10);
+        setDigitInt(3, remMinutes % 10);
+        setSeparator(2, sepsOn);
+        setDigitInt(4, remSeconds / 10);
+        setDigitInt(5, remSeconds % 10);
+        return;
+      }
+
+      // ≤ 99 minutes → MM'SS:hh (hundredths)
+      int hs = getHundredths(remSeconds, /*countDown*/ !countingUp);
+    
+      setDigitInt(0, fullMinutes / 10);
+      setDigitInt(1, fullMinutes % 10);
+      setSeparatorHalf(1, true, sepsOn);  // place an upper dot between minutes and seconds
+      setDigitInt(2, remSeconds / 10);
+      setDigitInt(3, remSeconds % 10);
+      setSeparator(2, sepsOn);
+      setDigitInt(4, hs / 10);
+      setDigitInt(5, hs % 10);
     }
-
-    // Split absolute difference into parts and totals
-    remDays    = (uint32_t)(absDiff / 86400);
-    remHours   = (uint8_t)((absDiff % 86400) / 3600);
-    remMinutes = (uint8_t)((absDiff % 3600) / 60);
-    remSeconds = (uint8_t)(absDiff % 60);
-
-    fullHours   = (uint32_t)(absDiff / 3600);
-    fullMinutes = (uint32_t)(absDiff / 60);
-    fullSeconds = (uint32_t)absDiff;
-
-  // > 99 days → show ddd d
-  if (remDays > 99) {
-    setDigitChar(0, ' ');
-    setDigitInt(1, (remDays / 100) % 10);
-    setDigitInt(2, (remDays / 10) % 10);
-    setDigitInt(3, remDays % 10);
-    setDigitChar(4, 'd');
-    setDigitChar(5, ' ');
-    return;
-  }
-
-  // ≤ 99 days → show dd:hh:mm
-  if (remDays <=99 && fullHours > 99) {
-    setDigitInt(0, remDays / 10);
-    setDigitInt(1, remDays % 10);
-    setSeparator(1, sepsOn);
-    setDigitInt(2, remHours / 10);
-    setDigitInt(3, remHours % 10);
-    setSeparator(2, sepsOn);
-    setDigitInt(4, remMinutes / 10);
-    setDigitInt(5, remMinutes % 10);
-    return;
-  }
-
-  // ≤ 99 hours → show hh:mm:ss
-  if (fullHours <=99 && fullMinutes > 99) {
-    setDigitInt(0, fullHours / 10);
-    setDigitInt(1, fullHours % 10);
-    setSeparator(1, sepsOn);
-    setDigitInt(2, remMinutes / 10);
-    setDigitInt(3, remMinutes % 10);
-    setSeparator(2, sepsOn);
-    setDigitInt(4, remSeconds / 10);
-    setDigitInt(5, remSeconds % 10);
-    return;
-  }
-
-  // ≤ 99 minutes → MM'SS:hh (hundredths)
-  int hs = getHundredths(remSeconds, /*countDown*/ !countingUp);
-
-  setDigitInt(0, fullMinutes / 10);
-  setDigitInt(1, fullMinutes % 10);
-  setSeparatorHalf(1, true, sepsOn);  // place an upper dot between minutes and seconds
-  setDigitInt(2, remSeconds / 10);
-  setDigitInt(3, remSeconds % 10);
-  setSeparator(2, sepsOn);
-  setDigitInt(4, hs / 10);
-  setDigitInt(5, hs % 10);
   }
 
   // Lights segments for a single digit based on a numeric value (0..9).
@@ -280,8 +345,6 @@ public:
  // Main entry point from WLED to draw the overlay.
  void handleOverlayDraw() {
   if (!enabled) return;
-
-  clearMask();
 
   // If both views are enabled, alternate every "alternatingTime" seconds.
   if (showClock && showCountdown) {
@@ -432,9 +495,80 @@ public:
     return configComplete;
   }
 
+  void onMqttConnect(bool sessionPresent) override {
+    String topic = mqttDeviceTopic;
+    topic += MQTT_Topic;
+    mqtt->subscribe(topic.c_str(), 0);
+  }
+
+  bool onMqttMessage(char* topic, char* payload) {
+    String topicStr = String(topic);
+
+    if (!topicStr.startsWith(F("/7seg/"))) return false;
+
+    String subTopic = topicStr.substring(strlen("/7seg/"));
+    if (subTopic.indexOf(F("enabled")) >= 0) {
+      String payloadStr = String(payload);
+      enabled = (payloadStr == F("true") || payloadStr == F("1"));
+      return true;
+    }
+    if (subTopic.indexOf(F("targetYear")) >= 0) {
+      String payloadStr = String(payload);
+      targetYear = payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("targetMonth")) >= 0) {
+      String payloadStr = String(payload);
+      targetMonth = (uint8_t)payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("targetDay")) >= 0) {
+      String payloadStr = String(payload);
+      targetDay = (uint8_t)payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("targetHour")) >= 0) {
+      String payloadStr = String(payload);
+      targetHour = (uint8_t)payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("targetMinute")) >= 0) {
+      String payloadStr = String(payload);
+      targetMinute = (uint8_t)payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("showClock")) >= 0) {
+      String payloadStr = String(payload);
+      showClock = (payloadStr == F("true") || payloadStr == F("1"));
+      return true;
+    }
+    if (subTopic.indexOf(F("showCountdown")) >= 0) {
+      String payloadStr = String(payload);
+      showCountdown = (payloadStr == F("true") || payloadStr == F("1"));
+      return true;
+    }
+    if (subTopic.indexOf(F("alternatingTime")) >= 0) {
+      String payloadStr = String(payload);
+      alternatingTime = (uint16_t)payloadStr.toInt();
+      return true;
+    }
+    if (subTopic.indexOf(F("SeperatorOn")) >= 0) {
+      String payloadStr = String(payload);
+      SeperatorOn = (payloadStr == F("true") || payloadStr == F("1"));
+      return true;
+    }
+    if (subTopic.indexOf(F("SeperatorOff")) >= 0) {
+      String payloadStr = String(payload);
+      SeperatorOff = (payloadStr == F("true") || payloadStr == F("1"));
+      return true;
+    }
+
+    return false;
+  }
+
   // Unique usermod id (arbitrary, but stable).
   uint16_t getId() override { return 0x22B8; }
 };
 
-static Usermod7SegmentCountdown usermod;
+static SevenSegClockCountdown usermod;
 REGISTER_USERMOD(usermod);
