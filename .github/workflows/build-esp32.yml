@@ -30,14 +30,23 @@ jobs:
       - name: Build firmware (esp32dev only)
         run: pio run -e esp32dev
 
-      - name: Show firmware info (size + sha256)
+      - name: Prepare single output bin
         run: |
-          ls -lh .pio/build/esp32dev/firmware.bin
-          sha256sum .pio/build/esp32dev/firmware.bin
+          set -e
+          mkdir -p out
+          # Обычно итоговый файл здесь:
+          if [ -f ".pio/build/esp32dev/firmware.bin" ]; then
+            cp ".pio/build/esp32dev/firmware.bin" "out/WLED_0.15.3_ESP32dev_no_v.bin"
+          else
+            echo "ERROR: firmware.bin not found"
+            ls -lah .pio/build/esp32dev || true
+            exit 1
+          fi
+          ls -lh out/*.bin
+          sha256sum out/*.bin
 
-      - name: Upload firmware artifact
+      - name: Upload firmware artifact (single file)
         uses: actions/upload-artifact@v4
         with:
           name: WLED_0.15.3_ESP32dev_no_v
-          path: .pio/build/esp32dev/firmware.bin
-
+          path: out/*.bin
