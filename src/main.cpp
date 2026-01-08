@@ -53,6 +53,9 @@ struct CRGBW {
 // ArkLights PEV Lighting System - Modular Version
 // This is a clean, focused implementation for PEV devices
 
+// Debug flag - set to false to disable all debug Serial output for release builds
+#define DEBUG_ENABLED false
+
 // Configuration for XIAO ESP32S3
 #define HEADLIGHT_PIN 2
 #define TAILLIGHT_PIN 3
@@ -287,6 +290,22 @@ unsigned long blinkerStartTime = 0;
 unsigned long parkStartTime = 0;
 unsigned long lastImpactTime = 0;
 
+// Direction detection state
+bool directionBasedLighting = false;
+bool isMovingForward = true;  // true = forward, false = backward
+bool directionChangePending = false;  // Direction change detected but not yet applied
+float forwardAccelThreshold = 0.3;  // G-force threshold for direction change
+unsigned long directionChangeDetectedTime = 0;
+unsigned long directionFadeStartTime = 0;
+const unsigned long DIRECTION_SUSTAIN_TIME = 500;  // ms direction must be sustained before switching
+const unsigned long DIRECTION_FADE_DURATION = 1500;  // ms for smooth fade transition (needs to be visible)
+uint8_t headlightMode = 0;  // 0 = solid white, 1 = headlight effect
+float directionFadeProgress = 0.0;  // 0.0 to 1.0 for fade transition
+
+// Filtering for direction detection (to reduce noise)
+float filteredForwardAccel = 0.0;
+const float FILTER_ALPHA = 0.7;  // Low-pass filter coefficient (0.0-1.0, higher = less filtering)
+
 // Calibration system
 bool calibrationMode = false;
 bool calibrationComplete = false;
@@ -478,6 +497,9 @@ String apPassword = "float420";
 // Function declarations
 void updateEffects();
 bool shouldUpdateEffect(EffectTiming& timing, uint8_t speed, uint8_t length);
+void processDirectionDetection(MotionData& data);
+void blendLEDArrays(CRGB* target, CRGB* source1, CRGB* source2, uint8_t numLeds, float fadeProgress);
+void applyEffectToArray(CRGB* leds, uint8_t numLeds, uint8_t effect, CRGB color, EffectTiming& timing, uint8_t ledType, uint8_t colorOrder);
 
 // Original effect functions (kept for compatibility)
 void effectBreath(CRGB* leds, uint8_t numLeds, CRGB color);
@@ -797,13 +819,97 @@ bool shouldUpdateEffect(EffectTiming& timing, uint8_t speed, uint8_t length) {
     return false;
 }
 
+// Helper function to blend two LED arrays with fade progress
+void blendLEDArrays(CRGB* target, CRGB* source1, CRGB* source2, uint8_t numLeds, float fadeProgress) {
+    for (uint8_t i = 0; i < numLeds; i++) {
+        // Blend between source1 (old) and source2 (new) based on fadeProgress
+        // fadeProgress 0.0 = all source1, 1.0 = all source2
+        float r = source1[i].r + (source2[i].r - source1[i].r) * fadeProgress;
+        float g = source1[i].g + (source2[i].g - source1[i].g) * fadeProgress;
+        float b = source1[i].b + (source2[i].b - source1[i].b) * fadeProgress;
+        target[i].r = (uint8_t)constrain(r, 0, 255);
+        target[i].g = (uint8_t)constrain(g, 0, 255);
+        target[i].b = (uint8_t)constrain(b, 0, 255);
+    }
+}
+
+// Helper function to apply effect to LED array
+void applyEffectToArray(CRGB* leds, uint8_t numLeds, uint8_t effect, CRGB color, EffectTiming& timing, uint8_t ledType, uint8_t colorOrder) {
+    switch (effect) {
+        case FX_SOLID:
+            fillSolidWithColorOrder(leds, numLeds, color, ledType, colorOrder);
+            break;
+        case FX_BREATH:
+            effectBreathImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_RAINBOW:
+            effectRainbowImproved(leds, numLeds, timing.step);
+            break;
+        case FX_CHASE:
+            effectChaseImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_BLINK_RAINBOW:
+            effectBlinkRainbowImproved(leds, numLeds, timing.step);
+            break;
+        case FX_TWINKLE:
+            effectTwinkleImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_FIRE:
+            effectFireImproved(leds, numLeds, timing.step);
+            break;
+        case FX_METEOR:
+            effectMeteorImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_WAVE:
+            effectWaveImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_COMET:
+            effectCometImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_CANDLE:
+            effectCandleImproved(leds, numLeds, timing.step);
+            break;
+        case FX_STATIC_RAINBOW:
+            effectStaticRainbow(leds, numLeds);
+            break;
+        case FX_KNIGHT_RIDER:
+            effectKnightRiderImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_POLICE:
+            effectPoliceImproved(leds, numLeds, timing.step);
+            break;
+        case FX_STROBE:
+            effectStrobeImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_LARSON_SCANNER:
+            effectLarsonScannerImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_COLOR_WIPE:
+            effectColorWipeImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_THEATER_CHASE:
+            effectTheaterChaseImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_RUNNING_LIGHTS:
+            effectRunningLightsImproved(leds, numLeds, color, timing.step);
+            break;
+        case FX_COLOR_SWEEP:
+            effectColorSweepImproved(leds, numLeds, color, timing.step);
+            break;
+    }
+    // Apply color order conversion for RGBW LEDs (FX_SOLID already handles this)
+    if (effect != FX_SOLID) {
+        applyColorOrderToArray(leds, numLeds, ledType, colorOrder);
+    }
+}
+
 void updateEffects() {
     // Use WLED-inspired timing system for consistent effect speeds
     bool headlightUpdate = shouldUpdateEffect(headlightTiming, effectSpeed, headlightLedCount);
     bool taillightUpdate = shouldUpdateEffect(taillightTiming, effectSpeed, taillightLedCount);
     
-    // Only update if timing allows it
-    if (!headlightUpdate && !taillightUpdate) {
+    // Only update if timing allows it, UNLESS we're in a fade (need smooth blending every frame)
+    if (!headlightUpdate && !taillightUpdate && !directionChangePending) {
         return;
     }
     
@@ -823,145 +929,143 @@ void updateEffects() {
     // Restore normal brightness
     FastLED.setBrightness(globalBrightness);
     
-    // Update headlight effect (only if timing allows)
-    if (headlightUpdate) {
-        switch (headlightEffect) {
-            case FX_SOLID:
-                fillSolidWithColorOrder(headlight, headlightLedCount, headlightColor, headlightLedType, headlightColorOrder);
-                break;
-            case FX_BREATH:
-                effectBreathImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_RAINBOW:
-                effectRainbowImproved(headlight, headlightLedCount, headlightTiming.step);
-                break;
-            case FX_CHASE:
-                effectChaseImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_BLINK_RAINBOW:
-                effectBlinkRainbowImproved(headlight, headlightLedCount, headlightTiming.step);
-                break;
-            case FX_TWINKLE:
-                effectTwinkleImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_FIRE:
-                effectFireImproved(headlight, headlightLedCount, headlightTiming.step);
-                break;
-            case FX_METEOR:
-                effectMeteorImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_WAVE:
-                effectWaveImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_COMET:
-                effectCometImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_CANDLE:
-                effectCandleImproved(headlight, headlightLedCount, headlightTiming.step);
-                break;
-            case FX_STATIC_RAINBOW:
-                effectStaticRainbow(headlight, headlightLedCount);
-                break;
-            case FX_KNIGHT_RIDER:
-                effectKnightRiderImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_POLICE:
-                effectPoliceImproved(headlight, headlightLedCount, headlightTiming.step);
-                break;
-            case FX_STROBE:
-                effectStrobeImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_LARSON_SCANNER:
-                effectLarsonScannerImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_COLOR_WIPE:
-                effectColorWipeImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_THEATER_CHASE:
-                effectTheaterChaseImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_RUNNING_LIGHTS:
-                effectRunningLightsImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
-            case FX_COLOR_SWEEP:
-                effectColorSweepImproved(headlight, headlightLedCount, headlightColor, headlightTiming.step);
-                break;
+    // Direction-based lighting mode
+    if (directionBasedLighting) {
+        // Determine which lights are "front" (headlight) and "back" (taillight) based on direction
+        CRGB* frontLights = isMovingForward ? headlight : taillight;
+        CRGB* backLights = isMovingForward ? taillight : headlight;
+        uint8_t frontCount = isMovingForward ? headlightLedCount : taillightLedCount;
+        uint8_t backCount = isMovingForward ? taillightLedCount : headlightLedCount;
+        uint8_t frontLedType = isMovingForward ? headlightLedType : taillightLedType;
+        uint8_t backLedType = isMovingForward ? taillightLedType : headlightLedType;
+        uint8_t frontColorOrder = isMovingForward ? headlightColorOrder : taillightColorOrder;
+        uint8_t backColorOrder = isMovingForward ? taillightColorOrder : headlightColorOrder;
+        EffectTiming& frontTiming = isMovingForward ? headlightTiming : taillightTiming;
+        EffectTiming& backTiming = isMovingForward ? taillightTiming : headlightTiming;
+        bool frontUpdate = isMovingForward ? headlightUpdate : taillightUpdate;
+        bool backUpdate = isMovingForward ? taillightUpdate : headlightUpdate;
+        
+        // Static arrays for fade blending (sized to maximum possible)
+        static CRGB* headlightOld = nullptr;
+        static CRGB* taillightOld = nullptr;
+        static bool arraysInitialized = false;
+        static bool fadeStateSaved = false;  // Track if we've saved state for current fade
+        
+        if (!arraysInitialized) {
+            uint8_t maxCount = (headlightLedCount > taillightLedCount) ? headlightLedCount : taillightLedCount;
+            headlightOld = new CRGB[maxCount];
+            taillightOld = new CRGB[maxCount];
+            arraysInitialized = true;
         }
-        // Apply color order conversion for RGBW LEDs (FX_SOLID already handles this)
-        if (headlightEffect != FX_SOLID) {
-            applyColorOrderToArray(headlight, headlightLedCount, headlightLedType, headlightColorOrder);
+        
+        // Handle fade transition (including 100% completion frame)
+        if (directionChangePending && directionFadeProgress >= 0.0 && directionFadeProgress <= 1.0) {
+            // During fade: blend between old and new directions
+            // Note: isMovingForward is still the OLD direction during fade
+            bool newDirection = !isMovingForward;
+            
+            // Save current state on FIRST frame of fade (when fadeProgress is exactly 0.0)
+            // This captures what's currently displayed BEFORE we start blending
+            if (directionFadeProgress == 0.0 && !fadeStateSaved) {
+                // Save from the arrays that are currently being displayed (based on OLD direction)
+                CRGB* currentFrontLights = isMovingForward ? headlight : taillight;
+                CRGB* currentBackLights = isMovingForward ? taillight : headlight;
+                uint8_t currentFrontCount = isMovingForward ? headlightLedCount : taillightLedCount;
+                uint8_t currentBackCount = isMovingForward ? taillightLedCount : headlightLedCount;
+                
+                // Save to the appropriate old arrays
+                memcpy(isMovingForward ? headlightOld : taillightOld, currentFrontLights, currentFrontCount * sizeof(CRGB));
+                memcpy(isMovingForward ? taillightOld : headlightOld, currentBackLights, currentBackCount * sizeof(CRGB));
+                fadeStateSaved = true;
+            }
+            
+            // Reset flag when fade completes
+            if (directionFadeProgress >= 1.0 && !directionChangePending) {
+                fadeStateSaved = false;
+            }
+            CRGB* newFrontLights = newDirection ? headlight : taillight;
+            CRGB* newBackLights = newDirection ? taillight : headlight;
+            uint8_t newFrontCount = newDirection ? headlightLedCount : taillightLedCount;
+            uint8_t newBackCount = newDirection ? taillightLedCount : headlightLedCount;
+            uint8_t newFrontLedType = newDirection ? headlightLedType : taillightLedType;
+            uint8_t newBackLedType = newDirection ? taillightLedType : headlightLedType;
+            uint8_t newFrontColorOrder = newDirection ? headlightColorOrder : taillightColorOrder;
+            uint8_t newBackColorOrder = newDirection ? taillightColorOrder : headlightColorOrder;
+            EffectTiming& newFrontTiming = newDirection ? headlightTiming : taillightTiming;
+            EffectTiming& newBackTiming = newDirection ? taillightTiming : headlightTiming;
+            
+            // Render new direction effects to temporary arrays
+            CRGB* newFrontTemp = new CRGB[newFrontCount];
+            CRGB* newBackTemp = new CRGB[newBackCount];
+            
+            // Apply front light effect (headlight mode: solid white or effect)
+            if (frontUpdate || backUpdate) {
+                if (headlightMode == 0) {
+                    // Solid white
+                    fillSolidWithColorOrder(newFrontTemp, newFrontCount, CRGB::White, newFrontLedType, newFrontColorOrder);
+                } else {
+                    // Headlight effect
+                    applyEffectToArray(newFrontTemp, newFrontCount, headlightEffect, headlightColor, newFrontTiming, newFrontLedType, newFrontColorOrder);
+                }
+                
+                // Apply back light effect (always taillight effect)
+                applyEffectToArray(newBackTemp, newBackCount, taillightEffect, taillightColor, newBackTiming, newBackLedType, newBackColorOrder);
+            }
+            
+            // Blend old and new for both headlight and taillight
+            // IMPORTANT: The physical arrays (headlight/taillight) don't change, only their roles do
+            // When fading forward->backward:
+            //   - Old front (headlight) becomes new back (headlight) - same physical array!
+            //   - Old back (taillight) becomes new front (taillight) - same physical array!
+            // So we always blend: headlightOld -> headlight, taillightOld -> taillight
+            
+            // Determine which new effect goes to which physical array:
+            // - headlight array gets: newDirection's front effect (if forward) or back effect (if backward)
+            // - taillight array gets: newDirection's back effect (if forward) or front effect (if backward)
+            CRGB* newHeadlightEffect = newDirection ? newFrontTemp : newBackTemp;  // Forward: front, Backward: back
+            CRGB* newTaillightEffect = newDirection ? newBackTemp : newFrontTemp;  // Forward: back, Backward: front
+            uint8_t newHeadlightCount = newDirection ? newFrontCount : newBackCount;
+            uint8_t newTaillightCount = newDirection ? newBackCount : newFrontCount;
+            
+            // Always blend headlightOld -> headlight, taillightOld -> taillight
+            blendLEDArrays(headlight, headlightOld, newHeadlightEffect, newHeadlightCount, directionFadeProgress);
+            blendLEDArrays(taillight, taillightOld, newTaillightEffect, newTaillightCount, directionFadeProgress);
+            
+            delete[] newFrontTemp;
+            delete[] newBackTemp;
+        } else {
+            // Normal operation: apply effects based on current direction
+            // Reset fade state saved flag when not in fade (so it's ready for next fade)
+            fadeStateSaved = false;
+            if (frontUpdate && frontCount > 0) {
+                if (headlightMode == 0) {
+                    // Solid white for headlight
+                    fillSolidWithColorOrder(frontLights, frontCount, CRGB::White, frontLedType, frontColorOrder);
+                } else {
+                    // Headlight effect
+                    applyEffectToArray(frontLights, frontCount, headlightEffect, headlightColor, frontTiming, frontLedType, frontColorOrder);
+                }
+            }
+            
+            if (backUpdate && backCount > 0) {
+                // Taillight always gets taillight effect
+                applyEffectToArray(backLights, backCount, taillightEffect, taillightColor, backTiming, backLedType, backColorOrder);
+            }
+        }
+    } else {
+        // Normal mode: effects apply to fixed headlight/taillight
+        // Update headlight effect (only if timing allows)
+        if (headlightUpdate) {
+            applyEffectToArray(headlight, headlightLedCount, headlightEffect, headlightColor, headlightTiming, headlightLedType, headlightColorOrder);
+        }
+        
+        // Update taillight effect (only if timing allows)
+        if (taillightUpdate) {
+            applyEffectToArray(taillight, taillightLedCount, taillightEffect, taillightColor, taillightTiming, taillightLedType, taillightColorOrder);
         }
     }
     
-    // Update taillight effect (only if timing allows)
-    if (taillightUpdate) {
-        switch (taillightEffect) {
-            case FX_SOLID:
-                fillSolidWithColorOrder(taillight, taillightLedCount, taillightColor, taillightLedType, taillightColorOrder);
-                break;
-            case FX_BREATH:
-                effectBreathImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_RAINBOW:
-                effectRainbowImproved(taillight, taillightLedCount, taillightTiming.step);
-                break;
-            case FX_CHASE:
-                effectChaseImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_BLINK_RAINBOW:
-                effectBlinkRainbowImproved(taillight, taillightLedCount, taillightTiming.step);
-                break;
-            case FX_TWINKLE:
-                effectTwinkleImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_FIRE:
-                effectFireImproved(taillight, taillightLedCount, taillightTiming.step);
-                break;
-            case FX_METEOR:
-                effectMeteorImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_WAVE:
-                effectWaveImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_COMET:
-                effectCometImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_CANDLE:
-                effectCandleImproved(taillight, taillightLedCount, taillightTiming.step);
-                break;
-            case FX_STATIC_RAINBOW:
-                effectStaticRainbow(taillight, taillightLedCount);
-                break;
-            case FX_KNIGHT_RIDER:
-                effectKnightRiderImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_POLICE:
-                effectPoliceImproved(taillight, taillightLedCount, taillightTiming.step);
-                break;
-            case FX_STROBE:
-                effectStrobeImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_LARSON_SCANNER:
-                effectLarsonScannerImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_COLOR_WIPE:
-                effectColorWipeImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_THEATER_CHASE:
-                effectTheaterChaseImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_RUNNING_LIGHTS:
-                effectRunningLightsImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-            case FX_COLOR_SWEEP:
-                effectColorSweepImproved(taillight, taillightLedCount, taillightColor, taillightTiming.step);
-                break;
-        }
-        // Apply color order conversion for RGBW LEDs (FX_SOLID already handles this)
-        if (taillightEffect != FX_SOLID) {
-            applyColorOrderToArray(taillight, taillightLedCount, taillightLedType, taillightColorOrder);
-        }
-    }
+    FastLED.show();
 }
 
 void effectBreath(CRGB* leds, uint8_t numLeds, CRGB color) {
@@ -1992,6 +2096,10 @@ void updateMotionControl() {
     }
     
     // Process motion features
+    if (directionBasedLighting) {
+        processDirectionDetection(data);
+    }
+    
     if (blinkerEnabled) {
         processBlinkers(data);
     }
@@ -2022,7 +2130,9 @@ void processBlinkers(MotionData& data) {
             blinkerActive = true;
             blinkerDirection = direction;
             blinkerStartTime = currentTime;
+            #if DEBUG_ENABLED
             Serial.printf("🔄 Blinker activated: %s\n", direction > 0 ? "Right" : "Left");
+            #endif
         }
     } else if (blinkerActive && currentTime - blinkerStartTime > blinkerTimeout) {
         blinkerActive = false;
@@ -2051,12 +2161,14 @@ void processParkMode(MotionData& data) {
     float gyroNoiseThreshold = parkGyroNoiseThreshold;  // deg/s threshold for gyro noise
     
     // Debug output every 2 seconds
+    #if DEBUG_ENABLED
     static unsigned long lastDebugTime = 0;
     if (currentTime - lastDebugTime > 2000) {
         Serial.printf("🔍 Park Debug - Accel: %.3fG (dev: %.3f), Gyro: %.1f°/s, Thresholds: %.3fG, %.1f°/s\n", 
                      accelMagnitude, accelDeviation, gyroDegPerSec, accelNoiseThreshold, gyroNoiseThreshold);
         lastDebugTime = currentTime;
     }
+    #endif
     
     // Check if device is stationary (below noise thresholds)
     // Use acceleration deviation from gravity instead of total magnitude
@@ -2067,12 +2179,16 @@ void processParkMode(MotionData& data) {
             if (parkStartTime == 0) {
                 // Start park mode timer
                 parkStartTime = currentTime;
+                #if DEBUG_ENABLED
                 Serial.printf("🅿️ Starting park timer (stationary detected)\n");
+                #endif
             } else {
                 // Check if we've been stationary long enough
                 if (currentTime - parkStartTime > parkStationaryTime) {
                     parkModeActive = true;
+                    #if DEBUG_ENABLED
                     Serial.printf("🅿️ Park mode activated (stationary for %dms)\n", parkStationaryTime);
+                    #endif
                     showParkEffect();
                 }
             }
@@ -2082,11 +2198,15 @@ void processParkMode(MotionData& data) {
         if (parkModeActive) {
             parkModeActive = false;
             parkStartTime = 0;
+            #if DEBUG_ENABLED
             Serial.println("🅿️ Park mode deactivated (motion detected)");
+            #endif
         } else if (parkStartTime > 0) {
             // Reset timer if we were counting down but motion detected
             parkStartTime = 0;
+            #if DEBUG_ENABLED
             Serial.println("🅿️ Park timer reset (motion detected)");
+            #endif
         }
     }
 }
@@ -2105,6 +2225,132 @@ void processImpactDetection(MotionData& data) {
         lastImpactTime = currentTime;
         Serial.printf("💥 Impact detected! G-force: %.1f\n", gForce);
         showImpactEffect();
+    }
+}
+
+void processDirectionDetection(MotionData& data) {
+    if (!directionBasedLighting || !motionEnabled) return;
+    
+    unsigned long currentTime = millis();
+    float rawForwardAccel = calibration.valid ? getCalibratedForwardAccel(data) : data.accelX;
+    
+    // Apply low-pass filter to reduce noise
+    filteredForwardAccel = FILTER_ALPHA * filteredForwardAccel + (1.0 - FILTER_ALPHA) * rawForwardAccel;
+    float forwardAccel = filteredForwardAccel;
+    
+    // Debug output only when direction changes or every 5 seconds
+    #if DEBUG_ENABLED
+    static unsigned long lastDebugTime = 0;
+    static bool lastDirectionState = isMovingForward;
+    if (currentTime - lastDebugTime > 5000 || lastDirectionState != isMovingForward) {
+        Serial.printf("🔄 Direction Debug - Raw: %.3fG, Filtered: %.3fG, Threshold: ±%.3fG, Current: %s\n", 
+                     rawForwardAccel, filteredForwardAccel, forwardAccelThreshold, isMovingForward ? "Forward" : "Backward");
+        lastDebugTime = currentTime;
+        lastDirectionState = isMovingForward;
+    }
+    #endif
+    
+    // Determine desired direction based on filtered forward acceleration
+    // Use hysteresis to prevent rapid switching (different thresholds for forward vs backward)
+    // Positive = forward, negative = backward
+    float forwardThreshold = forwardAccelThreshold;
+    float backwardThreshold = -forwardAccelThreshold;
+    
+    // Add hysteresis: once moving in a direction, require more force to change
+    if (isMovingForward) {
+        backwardThreshold = -forwardAccelThreshold * 0.7;  // Easier to detect backward when currently forward
+    } else {
+        forwardThreshold = forwardAccelThreshold * 0.7;  // Easier to detect forward when currently backward
+    }
+    
+    bool desiredForward = forwardAccel > forwardThreshold;
+    bool desiredBackward = forwardAccel < backwardThreshold;
+    
+    // If we're in a fade transition, continue it (don't check for new changes)
+    if (directionChangePending) {
+        unsigned long fadeElapsed = currentTime - directionFadeStartTime;
+        
+        if (fadeElapsed < DIRECTION_FADE_DURATION) {
+            // Still fading - update progress
+            directionFadeProgress = (float)fadeElapsed / DIRECTION_FADE_DURATION;
+            if (directionFadeProgress > 1.0) directionFadeProgress = 1.0;
+            
+            // Debug fade progress every 100ms
+            #if DEBUG_ENABLED
+            static unsigned long lastFadeDebug = 0;
+            if (currentTime - lastFadeDebug > 100) {
+                Serial.printf("🔄 Fade progress: %.1f%% (%d/%dms)\n", 
+                             directionFadeProgress * 100.0, fadeElapsed, DIRECTION_FADE_DURATION);
+                lastFadeDebug = currentTime;
+            }
+            #endif
+            // Continue to updateEffects() to render the fade
+        } else {
+            // Fade duration reached - set to 100% and keep fading for one more frame
+            if (directionFadeProgress < 1.0) {
+                directionFadeProgress = 1.0;
+                #if DEBUG_ENABLED
+                Serial.printf("🔄 Fade reached 100%% - rendering final blend frame\n");
+                #endif
+                // Continue to updateEffects() to render the 100% blend
+            } else {
+                // Fade complete (100% rendered for at least one frame) - now apply direction change
+                isMovingForward = !isMovingForward;
+                directionChangePending = false;
+                directionFadeProgress = 0.0;
+                directionChangeDetectedTime = 0;
+                #if DEBUG_ENABLED
+                Serial.printf("🔄 Direction switched: %s (fade complete after %dms)\n", 
+                             isMovingForward ? "Forward" : "Backward", fadeElapsed);
+                #endif
+            }
+        }
+        // During fade, don't process new direction changes
+        return;
+    }
+    
+    // Check if direction change is needed
+    bool needsChange = false;
+    if (isMovingForward && desiredBackward) {
+        needsChange = true;
+    } else if (!isMovingForward && desiredForward) {
+        needsChange = true;
+    }
+    
+    if (needsChange) {
+        if (directionChangeDetectedTime == 0) {
+            // Start tracking sustained direction change
+            directionChangeDetectedTime = currentTime;
+            #if DEBUG_ENABLED
+            Serial.printf("🔄 Direction change detected! Desired: %s, Current: %s, Accel: %.3fG\n", 
+                         desiredForward ? "Forward" : "Backward", isMovingForward ? "Forward" : "Backward", forwardAccel);
+            #endif
+        } else {
+            unsigned long elapsed = currentTime - directionChangeDetectedTime;
+            if (elapsed >= DIRECTION_SUSTAIN_TIME) {
+                // Direction has been sustained long enough - start fade transition
+                // Only start if not already fading
+                if (!directionChangePending) {
+                    directionChangePending = true;
+                    directionFadeStartTime = currentTime;
+                    directionFadeProgress = 0.0;
+                    #if DEBUG_ENABLED
+                    Serial.printf("🔄 Direction change confirmed (sustained for %dms) - starting fade to %s\n", 
+                                 DIRECTION_SUSTAIN_TIME, desiredForward ? "Forward" : "Backward");
+                    #endif
+                }
+            }
+        }
+    } else {
+        // Direction matches current state - reset detection timer
+        if (directionChangeDetectedTime > 0) {
+            unsigned long elapsed = currentTime - directionChangeDetectedTime;
+            #if DEBUG_ENABLED
+            Serial.printf("🔄 Direction change cancelled after %dms - direction reverted (accel: %.3fG)\n", 
+                         elapsed, forwardAccel);
+            #endif
+            directionChangeDetectedTime = 0;
+        }
     }
 }
 
@@ -4248,6 +4494,25 @@ void handleAPI() {
             }
         }
         
+        // Direction-based lighting API
+        if (doc.containsKey("direction_based_lighting")) {
+            directionBasedLighting = doc["direction_based_lighting"] | false;
+            saveSettings(); // Auto-save
+            #if DEBUG_ENABLED
+            Serial.printf("🔄 Direction-based lighting: %s\n", directionBasedLighting ? "enabled" : "disabled");
+            #endif
+        }
+        if (doc.containsKey("headlight_mode")) {
+            headlightMode = doc["headlight_mode"] | 0;
+            saveSettings(); // Auto-save
+            Serial.printf("💡 Headlight mode: %s\n", headlightMode == 0 ? "Solid White" : "Effect");
+        }
+        if (doc.containsKey("forward_accel_threshold")) {
+            forwardAccelThreshold = doc["forward_accel_threshold"] | 0.3;
+            saveSettings(); // Auto-save
+            Serial.printf("🔄 Forward acceleration threshold: %.2fG\n", forwardAccelThreshold);
+        }
+        
         // OTA Update API
         if (doc.containsKey("otaUpdateURL")) {
             otaUpdateURL = doc["otaUpdateURL"].as<String>();
@@ -4377,6 +4642,12 @@ void handleStatus() {
     doc["park_mode_enabled"] = parkModeEnabled;
     doc["impact_detection_enabled"] = impactDetectionEnabled;
     doc["motion_sensitivity"] = motionSensitivity;
+    
+    // Direction-based lighting status
+    doc["direction_based_lighting"] = directionBasedLighting;
+    doc["headlight_mode"] = headlightMode;
+    doc["is_moving_forward"] = isMovingForward;
+    doc["forward_accel_threshold"] = forwardAccelThreshold;
     doc["blinker_delay"] = blinkerDelay;
     doc["blinker_timeout"] = blinkerTimeout;
     doc["park_detection_angle"] = parkDetectionAngle;
@@ -4466,6 +4737,10 @@ String getStatusJSON() {
     (*doc)["bluetoothEnabled"] = bluetoothEnabled;
     (*doc)["bluetoothDeviceName"] = bluetoothDeviceName;
     (*doc)["bluetoothConnected"] = deviceConnected;
+    (*doc)["direction_based_lighting"] = directionBasedLighting;
+    (*doc)["headlight_mode"] = headlightMode;
+    (*doc)["is_moving_forward"] = isMovingForward;
+    (*doc)["forward_accel_threshold"] = forwardAccelThreshold;
     
     String jsonString;
     serializeJson(*doc, jsonString);
@@ -4791,6 +5066,11 @@ bool saveSettings() {
     doc["park_gyro_noise_threshold"] = parkGyroNoiseThreshold;
     doc["park_stationary_time"] = parkStationaryTime;
     
+    // Direction-based lighting settings
+    doc["direction_based_lighting"] = directionBasedLighting;
+    doc["headlight_mode"] = headlightMode;
+    doc["forward_accel_threshold"] = forwardAccelThreshold;
+    
     // Park mode effect settings
     doc["park_effect"] = parkEffect;
     doc["park_effect_speed"] = parkEffectSpeed;
@@ -4954,6 +5234,11 @@ bool loadSettings() {
     parkAccelNoiseThreshold = doc["park_accel_noise_threshold"] | 0.05;
     parkGyroNoiseThreshold = doc["park_gyro_noise_threshold"] | 2.5;
     parkStationaryTime = doc["park_stationary_time"] | 2000;
+    
+    // Load direction-based lighting settings
+    directionBasedLighting = doc["direction_based_lighting"] | false;
+    headlightMode = doc["headlight_mode"] | 0;
+    forwardAccelThreshold = doc["forward_accel_threshold"] | 0.3;
     
     // Load park mode effect settings
     parkEffect = doc["park_effect"] | FX_BREATH;
