@@ -14,19 +14,16 @@ ARKLIGHTS_WLED/
 ├── platformio_arklights.ini        # Full ArkLights configuration
 ├── ARKLIGHTS_README.md             # This documentation
 ├── LICENSE                         # Project license
-└── legacy/                         # Original WLED files (preserved)
-    ├── wled00/                     # Original WLED source
-    ├── usermods/                   # WLED user modifications
-    ├── tools/                      # WLED tools and utilities
-    └── ...                         # Other WLED files
+└── legacy/                         # Legacy reference files (preserved)
+    └── ...                         # Reference files
 ```
 
-The `legacy/` folder contains all original WLED files for reference, while the root directory contains only the ArkLights-specific implementation.
+The `legacy/` folder contains reference files, while the root directory contains only the ArkLights-specific implementation.
 
 ## Features
 
 ### 🎯 PEV-Focused Design
-- **Simplified Architecture**: Clean, maintainable codebase without WLED bloat
+- **Simplified Architecture**: Clean, maintainable codebase
 - **Embedded Optimized**: Designed for devices that are hard to update once installed
 - **Mobile-First**: Built for devices that move and aren't connected to home WiFi
 - **Low Power**: Optimized for battery-powered devices
@@ -227,28 +224,11 @@ Devices can synchronize effects automatically:
 2. Adjust pin assignments as needed
 3. Update build flags in `platformio_arklights.ini`
 
-## Comparison with WLED
-
-| Feature | WLED | ArkLights |
-|---------|------|-----------|
-| Code Size | ~500KB | ~100KB |
-| Memory Usage | High | Low |
-| WiFi Required | Yes | No |
-| Web Server | Yes | No |
-| MQTT/Alexa | Yes | No |
-| Motion Control | Usermod | Built-in |
-| ESP-NOW Sync | Yes | Yes |
-| Bluetooth | No | Yes |
-| PEV Focused | No | Yes |
-| Embedded Friendly | No | Yes |
-
 ## License
 
-This project maintains the same license as the original WLED project.
+This project is licensed under the MIT License.
 
 ## Acknowledgments
-
-- Original WLED project by AirCookie
 - MPU6050 integration using Adafruit libraries
 - PEV community for inspiration and testing
 

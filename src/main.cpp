@@ -16,7 +16,7 @@
 #include "BLEUtils.h"
 #include "BLE2902.h"
 
-// CRGBW struct for RGBW LED support (from WLED)
+// CRGBW struct for RGBW LED support
 struct CRGBW {
     union {
         uint32_t color32; // Access as a 32-bit value (0xWWRRGGBB)
@@ -71,7 +71,7 @@ uint8_t taillightLedType = 0;
 uint8_t headlightColorOrder = 1;  // 0=RGB, 1=GRB, 2=BGR - Default to GRB for SK6812 RGBW
 uint8_t taillightColorOrder = 1;  // 0=RGB, 1=GRB, 2=BGR - Default to GRB for SK6812 RGBW
 
-// LED Type Configuration (matching WLED setup)
+// LED Type Configuration
 // Can be overridden via build flags: -D LED_TYPE=SK6812 -D LED_COLOR_ORDER=GRB
 #ifndef LED_TYPE
 #define LED_TYPE SK6812  // Default to SK6812 (RGBW capable)
@@ -360,12 +360,12 @@ void espNowSendCallback(const uint8_t *mac_addr, esp_now_send_status_t status) {
     }
 }
 
-// WLED-inspired speed normalization
-#define WLED_FPS 42
-#define FRAMETIME_FIXED (1000/WLED_FPS)
+// Speed normalization for consistent effect timing
+#define ARKLIGHTS_FPS 42
+#define FRAMETIME_FIXED (1000/ARKLIGHTS_FPS)
 #define MIN_FRAME_DELAY 2
 
-// Speed formula for length-normalized effects (inspired by WLED)
+// Speed formula for length-normalized effects
 #define SPEED_FORMULA_L(speed, length) (5U + (50U*(255U - speed))/length)
 
 // Effect timing system
@@ -904,7 +904,7 @@ void applyEffectToArray(CRGB* leds, uint8_t numLeds, uint8_t effect, CRGB color,
 }
 
 void updateEffects() {
-    // Use WLED-inspired timing system for consistent effect speeds
+    // Use timing system for consistent effect speeds
     bool headlightUpdate = shouldUpdateEffect(headlightTiming, effectSpeed, headlightLedCount);
     bool taillightUpdate = shouldUpdateEffect(taillightTiming, effectSpeed, taillightLedCount);
     
@@ -1124,7 +1124,7 @@ void effectTwinkle(CRGB* leds, uint8_t numLeds, CRGB color) {
     }
 }
 
-// WLED-inspired Fire Effect
+// Fire Effect
 void effectFire(CRGB* leds, uint8_t numLeds) {
     // Fire simulation with heat and cooling
     static uint8_t heat[200]; // Max LEDs supported
@@ -1156,7 +1156,7 @@ void effectFire(CRGB* leds, uint8_t numLeds) {
     }
 }
 
-// WLED-inspired Meteor Effect
+// Meteor Effect
 void effectMeteor(CRGB* leds, uint8_t numLeds, CRGB color) {
     // Fade all LEDs
     for (uint8_t i = 0; i < numLeds; i++) {
@@ -1180,7 +1180,7 @@ void effectMeteor(CRGB* leds, uint8_t numLeds, CRGB color) {
     effectStep++;
 }
 
-// WLED-inspired Wave Effect
+// Wave Effect
 void effectWave(CRGB* leds, uint8_t numLeds, CRGB color) {
     // Calculate wave speed
     uint16_t waveSpeed = map(effectSpeed, 0, 255, 1000, 100);
@@ -1202,7 +1202,7 @@ void effectWave(CRGB* leds, uint8_t numLeds, CRGB color) {
     }
 }
 
-// WLED-inspired Comet Effect
+// Comet Effect
 void effectComet(CRGB* leds, uint8_t numLeds, CRGB color) {
     // Fade all LEDs
     for (uint8_t i = 0; i < numLeds; i++) {
@@ -1226,7 +1226,7 @@ void effectComet(CRGB* leds, uint8_t numLeds, CRGB color) {
     effectStep++;
 }
 
-// WLED-inspired Candle Effect
+// Candle Effect
 void effectCandle(CRGB* leds, uint8_t numLeds) {
     // Calculate candle flicker speed
     uint8_t flickerSpeed = map(effectSpeed, 0, 255, 50, 200);
@@ -1245,7 +1245,7 @@ void effectCandle(CRGB* leds, uint8_t numLeds) {
     }
 }
 
-// WLED-inspired Static Rainbow Effect
+// Static Rainbow Effect
 void effectStaticRainbow(CRGB* leds, uint8_t numLeds) {
     // Static rainbow - no movement, just rainbow colors across the strip
     for (uint8_t i = 0; i < numLeds; i++) {
@@ -2775,7 +2775,7 @@ void handleOTAError(int error) {
     FastLED.show();
 }
 
-// File Upload Handler for OTA - WLED Style Approach
+// File Upload Handler for OTA
 void handleOTAUpload() {
     HTTPUpload& upload = server.upload();
     
@@ -2795,7 +2795,7 @@ void handleOTAUpload() {
         otaError = "";
         otaStartTime = millis();
         
-        // Start OTA update (WLED style)
+        // Start OTA update
         Serial.println("🔄 Starting OTA update");
         size_t freeSpace = ESP.getFreeSketchSpace();
         Serial.printf("💾 Free sketch space: %d bytes\n", freeSpace);
@@ -2817,7 +2817,7 @@ void handleOTAUpload() {
         FastLED.show();
         
     } else if (upload.status == UPLOAD_FILE_WRITE) {
-        // Write data (WLED style - no return value check)
+        // Write data (no return value check)
         if (!Update.hasError()) {
             Update.write(upload.buf, upload.currentSize);
             

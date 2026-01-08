@@ -4,7 +4,7 @@ This document explains the new **UI Update System** that allows you to update th
 
 ## 🎯 **Why This Approach?**
 
-Instead of embedding UI in firmware (which increases binary size and requires full recompiles), ArkLights now uses your **WLED-inspired UI update system**:
+Instead of embedding UI in firmware (which increases binary size and requires full recompiles), ArkLights uses a **UI update system**:
 
 - **Smaller Firmware**: No embedded UI = smaller `.bin` files
 - **Faster Development**: Update UI without recompiling firmware
