@@ -1,4 +1,4 @@
-name: Build WLED ESP32 (v0.15.3-no-v)
+name: Build WLED ESP32dev (v0.15.3-no-v)
 
 on:
   workflow_dispatch:
@@ -15,8 +15,29 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+          key: ${{ runner.os }}-pio-${{ hashFiles('platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
       - name: Install PlatformIO
         run: pip install --upgrade platformio
 
-      - name: Build firmware (esp32)
-        run: pio run -e esp32
+      - name: Build firmware (esp32dev only)
+        run: pio run -e esp32dev
+
+      - name: Show firmware info (size + sha256)
+        run: |
+          ls -lh .pio/build/esp32dev/firmware.bin
+          sha256sum .pio/build/esp32dev/firmware.bin
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WLED_0.15.3_ESP32dev_no_v
+          path: .pio/build/esp32dev/firmware.bin
+
