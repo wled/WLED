@@ -544,6 +544,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
   if (subPage == SUBPAGE_TIME)
   {
+    settingsScript.printf_P(PSTR("zones=%s;"), getTZNamesJSONString().c_str());
     printSetFormCheckbox(settingsScript,PSTR("NT"),ntpEnabled);
     printSetFormValue(settingsScript,PSTR("NS"),ntpServerName);
     printSetFormCheckbox(settingsScript,PSTR("CF"),!useAMPM);
