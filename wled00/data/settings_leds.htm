@@ -52,7 +52,7 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(b,v,p,m,l,o=5,d=2,a=6,n=4) {
+		function bLimits(b,v,p,m,l,o=5,d=2,a=6,n=4,rmt=0,i2s=0) {
 			maxB  = b; // maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
 			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
 			maxPB = p; // maxPB - max LEDs per bus
@@ -62,6 +62,8 @@
 			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
 			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n; // maxBT - max buttons
+			maxRMT = rmt; // maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
+			maxI2S = i2s; // maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
 		}
 		function is8266() { return maxA ==  5 && maxD ==  3; } // NOTE: see const.h
 		function is32()   { return maxA == 16 && maxD == 16; } // NOTE: see const.h
