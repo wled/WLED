@@ -446,9 +446,12 @@
 				maxDigitalBusCount = (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
 			}
 			
-			// Mark invalid buses and update driver info
+			// Mark invalid buses and update driver info + track channel usage
 			let invalidBusCount = 0;
 			let digitalBusIndex = 0;
+			let rmtUsed = 0, i2sUsed = 0; // track channel usage
+			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
+			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
 			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
 				let n = s.name.substring(2,3);
 				let t = parseInt(s.value);
@@ -459,6 +462,15 @@
 				s.style.color = "#fff"; // reset
 				if (isDig(t) && !isD2P(t)) {
 					digitalBusIndex++;
+					// Count channel usage based on user's driver selection
+					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+					if (d.Sf.PR.checked && driverPref === 1 && i2sUsed < maxI2S) {
+						i2sUsed++;
+					} else if (rmtUsed < maxRMT) {
+						rmtUsed++;
+					} else if (d.Sf.PR.checked && i2sUsed < maxI2S) {
+						i2sUsed++;
+					}
 					// Mark buses that exceed the limit in red
 					if (digitalBusIndex > maxDigitalBusCount) {
 						s.style.color = "red";
@@ -493,6 +505,30 @@
 				}
 			});
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed)
+			
+			// Show channel usage warning
+			let channelWarning = gId('channelwarning');
+			let channelMsg = gId('channelmsg');
+			if (channelWarning && channelMsg && !is8266()) {
+				if (rmtUsed > maxRMT || i2sUsed > maxI2S) {
+					channelWarning.style.display = 'inline';
+					channelWarning.style.color = 'red';
+					let msg = '';
+					if (rmtUsed > maxRMT) msg += `RMT: ${rmtUsed}/${maxRMT}`;
+					if (i2sUsed > maxI2S) {
+						if (msg) msg += ', ';
+						msg += `I2S: ${i2sUsed}/${maxI2S}`;
+					}
+					channelMsg.textContent = 'Channel limit exceeded! ' + msg;
+				} else if (d.Sf.PR.checked && (rmtUsed >= maxRMT - 1 || i2sUsed >= maxI2S - 1)) {
+					channelWarning.style.display = 'inline';
+					channelWarning.style.color = 'orange';
+					channelMsg.textContent = `Channel usage: RMT ${rmtUsed}/${maxRMT}, I2S ${i2sUsed}/${maxI2S}`;
+				} else {
+					channelWarning.style.display = 'none';
+				}
+			}
+			
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -1000,6 +1036,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 		<div id="ledwarning" class="warn" style="display: none;">
 			&#9888; You might run into stability or lag issues.<br>
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
+		</div>
+		<div id="channelwarning" class="warn" style="display: none; color: orange;">
+			&#9888; <span id="channelmsg"></span><br>
 		</div>
 		<hr class="sml">
 		<div id="prl" class="hide">Enable I2S: <input type="checkbox" name="PR" onchange="UI()"><br></div>
