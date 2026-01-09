@@ -1281,8 +1281,19 @@ class PolyBus {
     return size;
   }
 
+  // Channel tracking for dynamic allocation
+  static uint8_t _rmtChannelsUsed;
+  static uint8_t _i2sChannelsUsed;
+  
+  // Reset channel tracking (call before adding buses)
+  static void resetChannelTracking() {
+    _rmtChannelsUsed = 0;
+    _i2sChannelsUsed = 0;
+  }
+  
   //gives back the internal type index (I_XX_XXX_X above) for the input
-  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0) {
+  // driverPreference: 0=RMT (default), 1=I2S/LCD
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0, uint8_t driverPreference = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
       bool isHSPI = false;
@@ -1338,56 +1349,44 @@ class PolyBus {
           return I_8266_U0_SM16825_5 + offset;
       }
       #else //ESP32
-      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
+      // Dynamic channel allocation based on driver preference
+      // Get platform-specific max channels
       #if defined(CONFIG_IDF_TARGET_ESP32S2)
-      // ESP32-S2 has 4 RMT channels
-      if (_useI2S) {
-        if (_useParallelI2S) {
-          // Parallel I2S: use x8 I2S0 channels for first 8 buses, then RMT for remaining
-          if (num > 11) return I_NONE;
-          if (num < 8) offset = 1;    // use x8 parallel I2S0 channels
-                                      // Note: conflicts with AudioReactive if enabled
-        } else {
-          // Single I2S: use RMT for first buses, single I2S for the last bus
-          if (num > 4) return I_NONE; // 4 RMT + 1 I2S
-          if (num == 4) offset = 1;   // only last bus uses single I2S0
-        }
-      } else {
-        if (num > 3) return I_NONE; // only 4 RMT channels available
-      }
+      const uint8_t maxRMT = 4;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
       #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-      // On ESP32-C3 only the first 2 RMT channels are usable for transmitting
-      if (num > 1) return I_NONE;
-      //if (num > 1) offset = 1; // I2S not supported yet (only 1 I2S)
+      const uint8_t maxRMT = 2;
+      const uint8_t maxI2S = 0; // I2S not supported on C3
       #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-      // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
-      if (_useI2S) {
-        if (_useParallelI2S) {
-          // Parallel LCD: use x8 LCD channels for first 8 buses, then RMT for remaining
-          if (num > 11) return I_NONE;
-          if (num < 8) offset = 1;    // use x8 LCD channels
-        } else {
-          // Single I2S not supported on S3
-          if (num > 3) return I_NONE; // only 4 RMT channels available
-        }
-      } else {
-        if (num > 3) return I_NONE; // only 4 RMT channels available
-      }
+      const uint8_t maxRMT = 4;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 0) : 0; // LCD only, no single I2S
       #else
-      // standard ESP32 has 8 RMT channels and optionally x8 I2S1 channels
-      if (_useI2S) {
-        if (_useParallelI2S) {
-          // Parallel I2S: use x8 I2S1 channels for first 8 buses, then RMT for remaining
-          if (num > 15) return I_NONE;
-          if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
-        } else {
-          // Single I2S: use RMT for first buses, single I2S for the last bus
-          if (num > 8) return I_NONE; // 8 RMT + 1 I2S
-          if (num == 8) offset = 1;   // only last bus uses single I2S1
-        }
+      // Standard ESP32
+      const uint8_t maxRMT = 8;
+      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
+      #endif
+      
+      // Determine which driver to use based on preference and availability
+      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
+      bool useI2S = false;
+      
+      if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
+        // User wants I2S and we have I2S channels available
+        useI2S = true;
+        _i2sChannelsUsed++;
+      } else if (_rmtChannelsUsed < maxRMT) {
+        // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
+        _rmtChannelsUsed++;
+      } else if (_i2sChannelsUsed < maxI2S) {
+        // RMT full, fallback to I2S if available
+        useI2S = true;
+        _i2sChannelsUsed++;
       } else {
-        if (num > 7) return I_NONE; // only 8 RMT channels available
+        // No channels available
+        return I_NONE;
       }
+      
+      if (useI2S) offset = 1;
       #endif
       switch (busType) {
         case TYPE_WS2812_1CH_X3:

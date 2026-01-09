@@ -139,7 +139,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
     _pins[1] = bc.pins[1];
     _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
   }
-  _iType = PolyBus::getI(bc.type, _pins, nr);
+  _iType = PolyBus::getI(bc.type, _pins, nr, bc.driverType);
   if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
@@ -1228,6 +1228,8 @@ void BusManager::removeAll() {
   while (!canAllShow()) yield();
   busses.clear();
   PolyBus::setParallelI2S1Output(false);
+  // Reset channel tracking for fresh allocation
+  PolyBus::resetChannelTracking();
 }
 
 #ifdef ESP32_DATA_IDLE_HIGH
@@ -1439,6 +1441,10 @@ uint8_t Bus::_cctBlend = 0; // 0 - 127
 uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
+
+// PolyBus channel tracking for dynamic allocation
+uint8_t PolyBus::_rmtChannelsUsed = 0;
+uint8_t PolyBus::_i2sChannelsUsed = 0;
 
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
