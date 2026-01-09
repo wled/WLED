@@ -421,9 +421,10 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
+  uint8_t driverType; // 0=RMT (default), 1=I2S
   String text;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, String sometext = "")
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -433,13 +434,14 @@ struct BusConfig {
   , frequency(clock_kHz)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
+  , driverType(driver)
   , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     size_t nPins = Bus::getNumberOfPins(type);
     for (size_t i = 0; i < nPins; i++) pins[i] = ppins[i];
-    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%d)\n"),
       (int)start, (int)(start+len),
       (int)type,
       (int)colorOrder,
@@ -447,7 +449,8 @@ struct BusConfig {
       (int)skipAmount,
       (int)autoWhite,
       (int)frequency,
-      (int)milliAmpsPerLed, (int)milliAmpsMax
+      (int)milliAmpsPerLed, (int)milliAmpsMax,
+      (int)driverType
     );
   }
 
