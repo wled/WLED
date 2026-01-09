@@ -453,7 +453,9 @@
 				let n = s.name.substring(2,3);
 				let t = parseInt(s.value);
 				let drv = gId("drv"+n); // bus driver info (I2S/RMT)
+				let drvsel = gId("drvsel"+n); // driver selection dropdown
 				if (drv) drv.textContent = ""; // reset
+				if (drvsel) drvsel.style.display = "none"; // hide by default
 				s.style.color = "#fff"; // reset
 				if (isDig(t) && !isD2P(t)) {
 					digitalBusIndex++;
@@ -462,24 +464,31 @@
 						s.style.color = "red";
 						invalidBusCount++;
 					}
-					// Update I2S/RMT driver info for ESP32 digital buses
-					if (drv && !is8266()) {
-						drv.textContent = ""; // reset
+					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
+					if (!is8266()) {
 						let useI2S = d.Sf.PR.checked;
 						d.Sf.PR.disabled = false; // reset
-						let info = " (RMT)"; // Default to RMT
-						let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
+						
+						// Show driver selection dropdown when I2S is enabled
+						if (useI2S && drvsel) {
+							drvsel.style.display = "inline";
+							// Set default value if not already set (backward compatibility)
+							if (!d.Sf["LD"+n].value) {
+								d.Sf["LD"+n].value = "0"; // default to RMT
+							}
+						} else if (drv) {
+							// Show info text when I2S is disabled
+							drv.textContent = " (RMT)";
+						}
+						
+						// Lock PR checkbox if disabling would result in invalid config
 						if (useI2S) {
+							let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
 							if (!mixed && maxLC <= 600) {
-								// Parallel I2S mode: first 8 buses use I2S
-								if (digitalBusIndex <= 8) info = " (I2S)"; // first 8 digital buses use I2S if enabled
-								if (digitalBusIndex > rmtCount) d.Sf.PR.disabled = true; // lock the checkmark as disabling results in invalid bus config (TODO: need a better solution but it is very complex to catch all possible combinations)
-							} else {
-								// Single I2S mode: buses beyond RMT count use I2S
-								if (digitalBusIndex > rmtCount && !isS3()) info = " (I2S)"; // S3 doesn't support single I2S
+								// Parallel I2S mode
+								if (digitalBusIndex > rmtCount) d.Sf.PR.disabled = true;
 							}
 						}
-						drv.textContent = info;
 					}
 				}
 			});
@@ -578,6 +587,12 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <span id="p3d${s}"></span><input type="number" name="L3${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="drv${s}" style="color:#999"></span>
+<div id="drvsel${s}" style="display:none">
+Driver: <select name="LD${s}" onchange="UI()">
+<option value="0">RMT</option>
+<option value="1">I2S</option>
+</select>
+</div>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
