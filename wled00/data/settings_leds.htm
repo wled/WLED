@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,mixed=false; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -235,7 +235,7 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t) && !mixed; // I2S enabled and not 2-pin LED nor mixed bus setup
+				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t); // I2S enabled and not 2-pin LED
 				if (isC3() || !enabledI2S) {
 					mul = 2; // RMT uses double buffer
 				} else if (enabledI2S && toNum(n) < 8) { // I2S/LCD uses extra DMA buffer
@@ -333,7 +333,6 @@
 			}
 			// update start indexes, max values, calculate current, etc
 			let sameType = 0;
-			mixed = false;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);     // field name : /L./
@@ -341,8 +340,6 @@
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
 				if (isDig(t) && !isD2P(t)) {
 					if (sameType == 0) sameType = t; // first bus type
-					else if (sameType != t) mixed = true; // different bus type -> mixed bus setup
-					console.log(`Bus ${n} type ${t} (sameType: ${sameType}, mixed: ${mixed})`);
 				}
 				// do we have a led count field
 				if (nm=="LC") {
@@ -427,12 +424,12 @@
 				d.Sf["PR"].checked = false;
 			}
 			// Calculate max single-pin digital bus count based on configuration:
-			// - If I2S is enabled and all buses are same type with ≤600 LEDs/bus: parallel I2S (8 I2S + RMT)
-			// - If I2S is enabled but buses are mixed or >600 LEDs/bus: single I2S (RMT + 1 I2S)
+			// - If I2S is enabled and ≤600 LEDs/bus: parallel I2S (8 I2S + RMT)
+			// - If I2S is enabled but >600 LEDs/bus: single I2S (RMT + 1 I2S)
 			// - If I2S is disabled: RMT only
 			let maxDigitalBusCount;
 			if (d.Sf["PR"].checked) {
-				if (!mixed && maxLC <= 600) {
+				if (maxLC <= 600) {
 					// Parallel I2S mode possible
 					maxDigitalBusCount = maxD; // ESP32: 16, S2: 12, S3: 12
 				} else {
@@ -496,7 +493,7 @@
 						// Lock PR checkbox if disabling would result in invalid config
 						if (useI2S) {
 							let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
-							if (!mixed && maxLC <= 600) {
+							if (maxLC <= 600) {
 								// Parallel I2S mode
 								if (digitalBusIndex > rmtCount) d.Sf.PR.disabled = true;
 							}
