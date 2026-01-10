@@ -68,6 +68,12 @@ void handleDMXOutput()
 
 void initDMXOutput(int outputPin) {
   if (outputPin < 1) return;
+  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
+  if (!pinAllocated) {
+    DEBUG_PRINTF("DMXOutput: Error: Failed to allocate pins for DMX_OUTPUT. Pin already in use:\n");
+    DEBUG_PRINTF("In use by: %s\n", PinManager::getPinOwner(outputPin));
+    return;
+  }
   dmx.init(outputPin);        // set output pin and initialize DMX output
 }
 
