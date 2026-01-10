@@ -32,7 +32,7 @@ RTC_DATA_ATTR uint8_t wakeupPreset = 0; // preset to apply after deep sleep wake
 class DeepSleepUsermod : public Usermod {
 
   private:
-    bool enabled = true;
+    bool enabled = false; // do not enable by default
     bool initDone = false;
     uint8_t wakeupPin = DEEPSLEEP_WAKEUPPIN;
     uint8_t wakeWhenHigh = DEEPSLEEP_WAKEWHENHIGH; // wake up when pin goes high if 1, triggers on low if 0
@@ -50,7 +50,7 @@ class DeepSleepUsermod : public Usermod {
     static const char _enabled[];
 
     bool pin_is_valid(uint8_t wakePin) {
-    #ifdef CONFIG_IDF_TARGET_ESP32 //ESP32: GPIOs 0,2,4, 12-15, 25-39 can be used for wake-up
+    #ifdef CONFIG_IDF_TARGET_ESP32 //ESP32: GPIOs 0,2,4, 12-15, 25-39 can be used for wake-up. note: input-only GPIOs 34-39 do not have internal pull resistors
       if (wakePin == 0 || wakePin == 2 || wakePin == 4 || (wakePin >= 12 && wakePin <= 15) || (wakePin >= 25 && wakePin <= 27) || (wakePin >= 32 && wakePin <= 39)) {
           return true;
       }
@@ -136,7 +136,8 @@ class DeepSleepUsermod : public Usermod {
     }
 
     void loop() {
-      if (!enabled || !offMode) { // disabled or LEDs are on
+      if (!enabled) return;
+      if (!offMode) { // LEDs are on
         lastLoopTime = 0; // reset timer
         if (delaycounter) delaycounter--; // decrease delay counter if LEDs are on (they are always turned on after a wake-up, see below)
         else if (wakeupPreset) applyPreset(wakeupPreset); // apply preset if set, this ensures macro is applied even if we missed the wake-up time
@@ -192,52 +193,58 @@ class DeepSleepUsermod : public Usermod {
       }
 
     #if defined(CONFIG_IDF_TARGET_ESP32C3) // ESP32 C3
-    if (noPull)
-      gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_FLOATING);
-    else { // enable pullup/pulldown resistor
+      gpio_hold_dis((gpio_num_t)wakeupPin); // disable hold and configure pin
       if (wakeWhenHigh)
-        gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_PULLDOWN_ONLY);
+        halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_HIGH);
       else
-        gpio_sleep_set_pull_mode((gpio_num_t)wakeupPin, GPIO_PULLUP_ONLY);
-    }
-    if (wakeWhenHigh)
-      halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_HIGH);
-    else
-      halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_LOW);
+        halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_LOW);
+      // note: on C3 calling esp_deep_sleep_enable_gpio_wakeup() automatically configures pin as RTC IO and enables pullup/pulldown unless we call gpio_hold_en() which overrides that
+      gpio_pullup_dis((gpio_num_t)wakeupPin);
+      gpio_pulldown_dis((gpio_num_t)wakeupPin);
+      if (!noPull)  {
+        if (wakeWhenHigh) {
+          gpio_pulldown_en((gpio_num_t)wakeupPin);
+        } else {
+          gpio_pullup_en((gpio_num_t)wakeupPin);
+        }
+      }
+      gpio_hold_en((gpio_num_t)wakeupPin); // if hole_en is used, pullups are disabled for some reason, lets make use of that
     #else // ESP32, S2, S3
-    gpio_pulldown_dis((gpio_num_t)wakeupPin); // disable internal pull resistors for GPIO use
-    gpio_pullup_dis((gpio_num_t)wakeupPin);
-    if (noPull) {
+      rtc_gpio_hold_dis((gpio_num_t)wakeupPin); // disable hold and configure pin
+      rtc_gpio_init((gpio_num_t)wakeupPin);     // initialize GPIO for RTC domain use
+      rtc_gpio_set_direction((gpio_num_t)wakeupPin, RTC_GPIO_MODE_INPUT_ONLY);
       rtc_gpio_pullup_dis((gpio_num_t)wakeupPin);
       rtc_gpio_pulldown_dis((gpio_num_t)wakeupPin);
-    }
-    else { // enable pullup/pulldown resistor for RTC use
+    if (!noPull)  {
+      if (wakeWhenHigh) {
+          rtc_gpio_pulldown_en((gpio_num_t)wakeupPin);
+        } else {
+          rtc_gpio_pullup_en((gpio_num_t)wakeupPin);
+        }
+      }
       if (wakeWhenHigh)
-        rtc_gpio_pulldown_en((gpio_num_t)wakeupPin);
+        halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
       else
-        rtc_gpio_pullup_en((gpio_num_t)wakeupPin);
-    }
-    if (wakeWhenHigh)
-      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
-    else
-      halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
-    if (enableTouchWakeup) {
-      #ifdef SOC_TOUCH_VERSION_2    // S2 and S3 use much higher thresholds
-      touchSleepWakeUpEnable(touchPin, touchThreshold  << 4); // ESP32 S2 & S3: lower threshold = more sensitive
-      #else 
-      touchSleepWakeUpEnable(touchPin, touchThreshold); // ESP32: higher threshold = more sensitive
-      #endif
-    }
-  #endif
+        halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
+
+      if (enableTouchWakeup) {
+        #ifdef SOC_TOUCH_VERSION_2 // S2 and S3 use much higher thresholds
+        touchSleepWakeUpEnable(touchPin, touchThreshold  << 4); // ESP32 S2 & S3: lower threshold = more sensitive
+        #else
+        touchSleepWakeUpEnable(touchPin, touchThreshold); // ESP32: higher threshold = more sensitive
+        #endif
+      }
+      delay(1); // just in case: wait for pins to be ready
+      rtc_gpio_hold_en((gpio_num_t)wakeupPin); // hold the configured GPIO state during deep sleep
+    #endif
       WiFi.mode(WIFI_OFF);  // Completely shut down the Wi-Fi module
-      delay(1); // wait for pin to be ready
       if (halerror == ESP_OK) esp_deep_sleep_start(); // go into deep sleep
       else DEBUG_PRINTLN(F("sleep failed"));
     }
 
     //void connected() {} //unused, this is called every time the WiFi is (re)connected
 
-void addToConfig(JsonObject& root) override
+    void addToConfig(JsonObject& root) override
     {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
@@ -245,10 +252,10 @@ void addToConfig(JsonObject& root) override
       top["gpio"] = wakeupPin;
       top["wakeWhen"] = wakeWhenHigh;
       top["pull"] = noPull;
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
+    #ifndef CONFIG_IDF_TARGET_ESP32C3
         top["enableTouchWakeup"] = enableTouchWakeup;
         top["touchPin"] = touchPin;
-      #endif
+    #endif
       top["presetWake"] = presetWake;
       top["wakeAfter"] = wakeupAfter;
       top["delaySleep"] = sleepDelay;
@@ -269,10 +276,10 @@ void addToConfig(JsonObject& root) override
       }
       configComplete &= getJsonValue(top["wakeWhen"], wakeWhenHigh, DEEPSLEEP_WAKEWHENHIGH); // default to wake on low
       configComplete &= getJsonValue(top["pull"], noPull, DEEPSLEEP_DISABLEPULL); // default to no pullup/pulldown
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+    #ifndef CONFIG_IDF_TARGET_ESP32C3
       configComplete &= getJsonValue(top["enableTouchWakeup"], enableTouchWakeup);
       configComplete &= getJsonValue(top["touchPin"], touchPin, DEEPSLEEP_WAKEUP_TOUCH_PIN);
-#endif
+    #endif
       configComplete &= getJsonValue(top["presetWake"], presetWake);
       configComplete &= getJsonValue(top["wakeAfter"], wakeupAfter, DEEPSLEEP_WAKEUPINTERVAL);
       configComplete &= getJsonValue(top["delaySleep"], sleepDelay, DEEPSLEEP_DELAY);
@@ -298,7 +305,7 @@ void addToConfig(JsonObject& root) override
           oappend(SET_F(");"));
         }
       }
-#ifndef CONFIG_IDF_TARGET_ESP32C3
+    #ifndef CONFIG_IDF_TARGET_ESP32C3
       // dropdown for touch wakeupPin
       touch_sensor_channel_io_map[SOC_TOUCH_SENSOR_NUM];
       oappend(SET_F("dd=addDropdown('DeepSleep','touchPin');"));
@@ -311,7 +318,7 @@ void addToConfig(JsonObject& root) override
           oappend(SET_F(");"));
         }
       }
-#endif
+    #endif
 
       oappend(SET_F("dd=addDropdown('DeepSleep','wakeWhen');"));
       oappend(SET_F("addOption(dd,'Low',0);"));
@@ -330,7 +337,6 @@ void addToConfig(JsonObject& root) override
     uint16_t getId() {
         return USERMOD_ID_DEEP_SLEEP;
     }
-
 };
 
 // add more strings here to reduce flash memory usage

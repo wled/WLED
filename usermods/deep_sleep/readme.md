@@ -28,7 +28,7 @@ For lowest power consumption, remove the Power LED and make sure your board does
 
 The GPIOs that can be used to wake the ESP from deep sleep are limited. Only pins connected to the internal RTC unit can be used:
 
-- ESP32: GPIO 0, 2, 4, 12-15, 25-39
+- ESP32: GPIO 0, 2, 4, 12-15, 25-39  note: input-only GPIOs 34-39 do not have internal pull up/down resistors, external resistors are required
 - ESP32 S3: GPIO 0-21
 - ESP32 S2: GPIO 0-21
 - ESP32 C3: GPIO 0-5
