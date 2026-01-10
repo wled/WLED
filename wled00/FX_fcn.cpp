@@ -1234,6 +1234,8 @@ void WS2812FX::finalizeInit() {
       constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
       #endif
       unsigned i2sCommonSize = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
+      // Parallel I2S uses 8 channels, requiring 8x the DMA buffer size
+      if (BusManager::hasParallelOutput()) i2sCommonSize *= 8;
       if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
     }
     #endif
