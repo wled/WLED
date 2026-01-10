@@ -68,13 +68,10 @@ void handleDMXOutput()
 }
 
 void initDMXOutput() {
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   dmx.init(512);        // initialize with bus length
- #else
-
- #endif
 }
 
+#if !defined(ESP8266)
 void DMXOutput::init(uint8_t txPin)
 {
   dmx_config_t config = DMX_CONFIG_DEFAULT;
@@ -89,6 +86,8 @@ void DMXOutput::update()
 {
   dmx_send(dmxPort, DMX_PACKET_SIZE);
 }
+#endif
+
 
 #else
 void initDMXOutput(){}
