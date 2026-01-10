@@ -348,6 +348,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       settingsScript.print(F("addLEDs(1);"));
       uint8_t pins[OUTPUT_MAX_PINS];
@@ -388,6 +389,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,sp,speed);
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
+      printSetFormValue(settingsScript,ld,bus->getDriverType());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
       sumMa += bus->getMaxCurrent();
     }

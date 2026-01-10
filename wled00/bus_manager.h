@@ -140,6 +140,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
+    virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
     virtual size_t   getBusSize() const                         { return sizeof(Bus); }
     virtual const String getCustomText() const                  { return String(); }
 
@@ -258,6 +259,7 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
@@ -272,6 +274,7 @@ class BusDigital : public Bus {
     uint8_t  _colorOrder;
     uint8_t  _pins[2];
     uint8_t  _iType;
+    uint8_t  _driverType; // 0=RMT (default), 1=I2S
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
     uint8_t  _milliAmpsPerLed;

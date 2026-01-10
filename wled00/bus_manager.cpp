@@ -123,6 +123,7 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
+, _driverType(bc.driverType) // Store driver preference (0=RMT, 1=I2S)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
@@ -1111,11 +1112,7 @@ size_t BusConfig::memUsage(unsigned nr) const {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    // Don't call getI() here - it has side effects (increments channel counters)
-    // Estimate conservatively: I2S uses slightly more memory than RMT
-    uint8_t iType = (type == TYPE_WS2812_1CH_X3) ? I_32_I1_3X1_400 : 
-                    (type == TYPE_WS2812_2CH_X3) ? I_32_I2_3X8_400 : I_32_I1_NEO_3;
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr, driverType));
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {

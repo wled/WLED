@@ -1195,7 +1195,6 @@ void WS2812FX::finalizeInit() {
   if (useParallelI2S) {
     BusManager::useParallelOutput(); // This sets parallel I2S flag - must call before creating buses
   }
-  PolyBus::resetChannelTracking(); // Reset channel counters before bus creation
   digitalCount = 0;
   #endif
 
