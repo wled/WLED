@@ -7,7 +7,6 @@
 
 #if defined(ESP8266)
 #include "src/dependencies/dmx/ESPDMX.h"
-DMXESPSerial dmx;
 #else
 #include <esp_dmx.h>
 /**
@@ -28,8 +27,6 @@ Port 0 is typically used to transmit serial data back to your Serial Monitor,
 so we shouldn't use that port. Lets use port 1! */
     dmx_port_t dmxPort = 1;
 };
-
-DMXOutput dmx;
 #endif
 
 
