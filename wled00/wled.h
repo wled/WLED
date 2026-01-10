@@ -450,6 +450,11 @@ WLED_GLOBAL bool arlsDisableGammaCorrection _INIT(true);          // activate if
 WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to force max brightness if source has very dark colors that would be black
 
 #ifdef WLED_ENABLE_DMX
+  #if defined(ESP8266)
+  WLED_GLOBAL DMXESPSerial dmx;
+  #else
+  WLED_GLOBAL DMXOutput dmx;
+  #endif
   WLED_GLOBAL int dmxOutputPin _INIT(-1);                        // DMX output pin (use -1 for disabled)
   WLED_GLOBAL uint16_t e131ProxyUniverse _INIT(0);                  // output this E1.31 (sACN) / ArtNet universe via MAX485 (0 = disabled)
   // dmx CONFIG
@@ -459,11 +464,6 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL uint16_t DMXGap _INIT(10);          // gap between the fixtures. makes addressing easier because you don't have to memorize odd numbers when climbing up onto a rig.
   WLED_GLOBAL uint16_t DMXStart _INIT(10);        // start address of the first fixture
   WLED_GLOBAL uint16_t DMXStartLED _INIT(0);      // LED from which DMX fixtures start
-  #if defined(ESP8266)
-    WLED_GLOBAL DMXESPSerial dmx;
-  #else
-    WLED_GLOBAL DMXOutput dmx;
-  #endif
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
   WLED_GLOBAL int dmxInputTransmitPin _INIT(0);
