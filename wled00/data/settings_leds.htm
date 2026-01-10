@@ -52,24 +52,24 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(b,v,p,m,l,o=5,d=2,a=6,n=4,rmt=0,i2s=0) {
-			maxB  = b; // maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
-			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
-			maxPB = p; // maxPB - max LEDs per bus
-			maxM  = m; // maxM - max LED memory
-			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
-			maxCO = o; // maxCO - max Color Order mappings
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
-			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
-			maxBT = n; // maxBT - max buttons
-			maxRMT = rmt; // maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
-			maxI2S = i2s; // maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
+		function bLimits(b,v,p,m,l,o,d,r,i,a,n) {
+			maxB  = b;		// maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+			maxV  = v;		// maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
+			maxPB = p;		// maxPB - max LEDs per bus
+			maxM  = m;		// maxM - max LED memory
+			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
+			maxCO = o;		// maxCO - max Color Order mappings
+			maxD  = d;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
+			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
+			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
+			maxBT = n;		// maxBT - max buttons
 		}
-		function is8266() { return maxA ==  5 && maxD ==  3; } // NOTE: see const.h
-		function is32()   { return maxA == 16 && maxD == 16; } // NOTE: see const.h
-		function isC3()   { return maxA ==  6 && maxD ==  2; } // NOTE: see const.h
-		function isS2()   { return maxA ==  8 && maxD == 12 && maxV == 4; } // NOTE: see const.h
-		function isS3()   { return maxA ==  8 && maxD == 12 && maxV == 6; } // NOTE: see const.h
+		function is8266() { return maxV == 0; } // NOTE: see const.h // TODO: this is hacky, use info json data instead
+		function is32()   { return maxV == 1; } // NOTE: see const.h
+		function isC3()   { return maxV == 2; } // NOTE: see const.h
+		function isS2()   { return maxV == 4; } // NOTE: see const.h
+		function isS3()   { return maxV == 6; } // NOTE: see const.h
 		function pinsOK() {
 			var ok = true;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");

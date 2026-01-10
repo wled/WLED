@@ -1291,8 +1291,7 @@ class PolyBus {
     _i2sChannelsUsed = 0;
   }
   
-  //gives back the internal type index (I_XX_XXX_X above) for the input
-  // driverPreference: 0=RMT (default), 1=I2S/LCD
+  // gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
   static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0, uint8_t driverPreference = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
@@ -1365,11 +1364,12 @@ class PolyBus {
       const uint8_t maxRMT = 8;
       const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
       #endif
-      
+
       // Determine which driver to use based on preference and availability
       uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
       bool useI2S = false;
-      
+      // TODO: need to track parallel I2S usage separately: add variable for "lock" of parallel I2S channel used
+      // TODO2: do not increment the channel use here, need a seperate function for that. 
       if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
         // User wants I2S and we have I2S channels available
         useI2S = true;
