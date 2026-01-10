@@ -240,6 +240,8 @@
 					mul = 2; // RMT uses double buffer
 				} else if (enabledI2S && toNum(n) < 8) { // I2S/LCD uses extra DMA buffer
 					dbl = len * ch * 3; // DMA buffer for I2S/LCD (TODO: only the bus with largest LED count should be used)
+					// Parallel I2S uses 8 channels, requiring 8x the DMA buffer size
+					if (d.Sf.PI && d.Sf.PI.checked) dbl *= 8;
 				}
 			}
 			return len * ch * mul + dbl + pbfr;
