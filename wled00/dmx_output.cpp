@@ -1,13 +1,12 @@
 #include "wled.h"
-
+#include "dmx_output.h"
 /*
  * Support for DMX  output via serial (e.g. MAX485).
  * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 
 #ifdef WLED_ENABLE_DMX
@@ -72,9 +71,25 @@ void initDMXOutput() {
  #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   dmx.init(512);        // initialize with bus length
  #else
-  dmx.initWrite(512);  // initialize with bus length
+
  #endif
 }
+
+void DMXOutput::init(uint8_t txPin)
+{
+  dmx_config_t config = DMX_CONFIG_DEFAULT;
+  dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
+  dmx_set_pin(dmxPort, txPin, -1, -1);
+}
+void DMXOutput::write(uint8_t channel, uint8_t value)
+{
+  dmxdata[channel] = value;
+}
+void DMXOutput::update()
+{
+  dmx_send(dmxPort, DMX_PACKET_SIZE);
+}
+
 #else
 void initDMXOutput(){}
 void handleDMXOutput() {}
