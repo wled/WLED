@@ -30,8 +30,6 @@ void DMXESPSerial::init(int sendPin) {
 
 // Function to read DMX data
 uint8_t DMXESPSerial::read(int Channel) {
-  if (dmxStarted == false) init();
-
   if (Channel < 1) Channel = 1;
   if (Channel > dmxMaxChannel) Channel = dmxMaxChannel;
   return(dmxDataStore[Channel]);
@@ -39,8 +37,6 @@ uint8_t DMXESPSerial::read(int Channel) {
 
 // Function to send DMX data
 void DMXESPSerial::write(int Channel, uint8_t value) {
-  if (dmxStarted == false) init();
-
   if (Channel < 1) Channel = 1;
   if (Channel > channelSize) Channel = channelSize;
   if (value < 0) value = 0;
@@ -56,8 +52,6 @@ void DMXESPSerial::end() {
 }
 
 void DMXESPSerial::update() {
-  if (dmxStarted == false) init();
-
   //Send break
   digitalWrite(sendPin, HIGH);
   Serial1.begin(BREAKSPEED, BREAKFORMAT);
