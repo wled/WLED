@@ -1417,7 +1417,6 @@ class PolyBus {
         case TYPE_SM16825:
           return I_32_RN_SM16825_5 + offset;
       }
-      #endif
     }
     return I_NONE;
   }
