@@ -50,6 +50,10 @@
 	}
 	function hideDMXInput(){gId("dmxInput").style.display="none";}
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
+	function hideNoDMX(){
+		gId("dmxOnOff2").style.display="none";
+		gId("dmxOutput").style.display="inline";
+	}
 	</script>
 </head>
 <body>
@@ -166,7 +170,11 @@ Realtime LED offset: <input name="WO" type="number" min="-255" max="255" require
 	DMX TX: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
 	DMX Enable: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
 	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
-</div> 
+</div>
+<div id="dmxOutput" style="display: none">
+	<h4>Wired DMX Output Pin</h4>
+	DMX TX: <input name="IDMO" type="number" min="-1" max="99"><br/>
+</div>
 <div id="dmxInputOff">
 	<br><em style="color:darkorange">This firmware build does not include DMX Input support. <br></em>
 </div> 

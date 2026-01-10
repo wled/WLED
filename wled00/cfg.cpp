@@ -597,6 +597,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   tdd = if_live[F("timeout")] | -1;
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
 
+#ifdef WLED_ENABLE_DMX
+  CJSON(dmxOutputPin, if_live_dmx[F("outputPin")]);
+#endif
   #ifdef WLED_ENABLE_DMX_INPUT
     CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
     CJSON(dmxInputReceivePin, if_live_dmx[F("inputTxPin")]);
@@ -1118,6 +1121,9 @@ void serializeConfig(JsonObject root) {
   if_live_dmx[F("addr")] = DMXAddress;
   if_live_dmx[F("dss")] = DMXSegmentSpacing;
   if_live_dmx["mode"] = DMXMode;
+  #ifdef WLED_ENABLE_DMX
+  if_live_dmx[F("dmxOutputPin")] = dmxOutputPin;
+  #endif
   #ifdef WLED_ENABLE_DMX_INPUT
     if_live_dmx[F("inputRxPin")] = dmxInputTransmitPin;
     if_live_dmx[F("inputTxPin")] = dmxInputReceivePin;
