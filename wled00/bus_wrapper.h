@@ -1367,56 +1367,27 @@ class PolyBus {
       #endif
       
       // Determine which driver to use based on preference and availability
-      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
-      bool useI2S = false;
+      uint8_t effectiveDriverPref = 0; // 0 = RMT, 1 = I2S/LCD
       
       if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
         // User wants I2S and we have I2S channels available
-        useI2S = true;
+        effectiveDriverPref = 1;
         _i2sChannelsUsed++;
       } else if (_rmtChannelsUsed < maxRMT) {
         // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
         _rmtChannelsUsed++;
       } else if (_i2sChannelsUsed < maxI2S) {
         // RMT full, fallback to I2S if available
-        useI2S = true;
+        effectiveDriverPref = 1;
         _i2sChannelsUsed++;
       } else {
         // No channels available
         return I_NONE;
       }
       
-      if (useI2S) offset = 1;
+      // Use determineBusType() to get the actual bus type with the determined driver preference
+      return determineBusType(busType, pins, num, effectiveDriverPref);
       #endif
-      switch (busType) {
-        case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
-        case TYPE_WS2812_RGB:
-        case TYPE_WS2812_WWA:
-          return I_32_RN_NEO_3 + offset;
-        case TYPE_SK6812_RGBW:
-          return I_32_RN_NEO_4 + offset;
-        case TYPE_WS2811_400KHZ:
-          return I_32_RN_400_3 + offset;
-        case TYPE_TM1814:
-          return I_32_RN_TM1_4 + offset;
-        case TYPE_TM1829:
-          return I_32_RN_TM2_3 + offset;
-        case TYPE_UCS8903:
-          return I_32_RN_UCS_3 + offset;
-        case TYPE_UCS8904:
-          return I_32_RN_UCS_4 + offset;
-        case TYPE_APA106:
-          return I_32_RN_APA106_3 + offset;
-        case TYPE_FW1906:
-          return I_32_RN_FW6_5 + offset;
-        case TYPE_WS2805:
-          return I_32_RN_2805_5 + offset;
-        case TYPE_TM1914:
-          return I_32_RN_TM1914_3 + offset;
-        case TYPE_SM16825:
-          return I_32_RN_SM16825_5 + offset;
-      }
     }
     return I_NONE;
   }
