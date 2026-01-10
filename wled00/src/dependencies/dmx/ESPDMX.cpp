@@ -27,20 +27,10 @@ void DMXESPSerial::init(int sendPin) {
   dmxStarted = true;
 }
 
-
-// Function to read DMX data
-uint8_t DMXESPSerial::read(int Channel) {
-  if (Channel < 1) Channel = 1;
-  if (Channel > dmxMaxChannel) Channel = dmxMaxChannel;
-  return(dmxDataStore[Channel]);
-}
-
 // Function to send DMX data
 void DMXESPSerial::write(int Channel, uint8_t value) {
   if (Channel < 1) Channel = 1;
   if (Channel > channelSize) Channel = channelSize;
-  if (value < 0) value = 0;
-  if (value > 255) value = 255;
 
   dmxDataStore[Channel] = value;
 }
