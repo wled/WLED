@@ -1112,7 +1112,8 @@ size_t BusConfig::memUsage(unsigned nr) const {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr, driverType));
+    // Use determineBusType() instead of getI() to avoid side effects (channel counter increments)
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::determineBusType(type, pins, nr, driverType));
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {
