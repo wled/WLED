@@ -188,7 +188,7 @@ void updateTimezone() {
 
 String getTZNamesJSONString() {
   String names = "[";
-  name.reserve(512);
+  names.reserve(512);
   for (size_t i = 0; i < countof(TZ_TABLE); i++) {
     // the following is shorter code than sprintf()
     names += '"';
