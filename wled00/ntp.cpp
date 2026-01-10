@@ -16,130 +16,156 @@ Timezone* tz;
 #define TZ_INIT 255
 byte tzCurrent = TZ_INIT; //uninitialized
 
-/* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
-static const std::tuple<const char*, TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
-  /* TZ_UTC */ {
-    "UTC",
+// workaround to put all strings into PROGMEM
+static const char _utc[]    PROGMEM = "UTC";
+static const char _gmt[]    PROGMEM = "GMT/BST";
+static const char _cet[]    PROGMEM = "CET/CEST";
+static const char _eet[]    PROGMEM = "EET/EEST";
+static const char _us_est[] PROGMEM = "US-EST/EDT";
+static const char _us_cst[] PROGMEM = "US-CST/CDT";
+static const char _us_mst[] PROGMEM = "US-MST/MDT";
+static const char _us_az[]  PROGMEM = "US-AZ";
+static const char _us_pst[] PROGMEM = "US-PST/PDT";
+static const char _cst[]    PROGMEM = "CST (AWST, PHST)";
+static const char _jst[]    PROGMEM = "JST (KST)";
+static const char _aest[]   PROGMEM = "AEST/AEDT";
+static const char _nzst[]   PROGMEM = "NZST/NZDT";
+static const char _nkst[]   PROGMEM = "North Korea";
+static const char _ist[]    PROGMEM = "IST (India)";
+static const char _ca_sk[]  PROGMEM = "CA-Saskatchewan";
+static const char _acst[]   PROGMEM = "ACST";
+static const char _acst2[]  PROGMEM = "ACST/ACDT";
+static const char _hst[]    PROGMEM = "HST (Hawaii)";
+static const char _novt[]   PROGMEM = "NOVT (Novosibirsk)";
+static const char _akst[]   PROGMEM = "AKST/AKDT (Anchorage)";
+static const char _mxcst[]  PROGMEM = "MX-CST";
+static const char _pkt[]    PROGMEM = "PKT (Pakistan)";
+static const char _brt[]    PROGMEM = "BRT (Brasília)";
+static const char _awst[]   PROGMEM = "AWST (Perth)";
+
+static const std::tuple<const char*, const TimeChangeRule, const TimeChangeRule> TZ_TABLE[] PROGMEM = {
+  {
+    _utc,
     {Last, Sun, Mar, 1, 0}, // UTC
     {Last, Sun, Mar, 1, 0}  // Same
   },
-  /* TZ_UK */ {
-    "GMT/BST",
+  {
+    _gmt,
     {Last, Sun, Mar, 1, 60},      //British Summer Time
     {Last, Sun, Oct, 2, 0}       //Standard Time
   },
-  /* TZ_EUROPE_CENTRAL */ {
-    "CET/CEST",
+  {
+    _cet,
     {Last, Sun, Mar, 2, 120},     //Central European Summer Time
     {Last, Sun, Oct, 3, 60}      //Central European Standard Time
   },
-  /* TZ_EUROPE_EASTERN */ {
-    "EET/EEST",
+  {
+    _eet,
     {Last, Sun, Mar, 3, 180},     //East European Summer Time
     {Last, Sun, Oct, 4, 120}     //East European Standard Time
   },
-  /* TZ_US_EASTERN */ {
-    "US-EST/EDT",
+  {
+    _us_est,
     {Second, Sun, Mar, 2, -240},  //EDT = UTC - 4 hours
     {First,  Sun, Nov, 2, -300}  //EST = UTC - 5 hours
   },
-  /* TZ_US_CENTRAL */ {
-    "US-CST/CDT",
+  {
+    _us_cst,
     {Second, Sun, Mar, 2, -300},  //CDT = UTC - 5 hours
     {First,  Sun, Nov, 2, -360}  //CST = UTC - 6 hours
   },
-  /* TZ_US_MOUNTAIN */ {
-    "US-MST/MDT",
+  {
+    _us_mst,
     {Second, Sun, Mar, 2, -360},  //MDT = UTC - 6 hours
     {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
   },
-  /* TZ_US_ARIZONA */ {
-    "US-AZ",
+  {
+    _us_az,
     {First,  Sun, Nov, 2, -420},  //MST = UTC - 7 hours
     {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
   },
-  /* TZ_US_PACIFIC */ {
-    "US-PST/PDT",
+  {
+    _us_pst,
     {Second, Sun, Mar, 2, -420},  //PDT = UTC - 7 hours
     {First,  Sun, Nov, 2, -480}  //PST = UTC - 8 hours
   },
-  /* TZ_CHINA */ {
-    "CST (AWST, PHST)",
+  {
+    _cst,
     {Last, Sun, Mar, 1, 480},     //CST = UTC + 8 hours
     {Last, Sun, Mar, 1, 480}
   },
-  /* TZ_JAPAN */ {
-    "JST (KST)",
+  {
+    _jst,
     {Last, Sun, Mar, 1, 540},     //JST = UTC + 9 hours
     {Last, Sun, Mar, 1, 540}
   },
-  /* TZ_AUSTRALIA_EASTERN */ {
-    "AEST/AEDT",
+  {
+    _aest,
     {First,  Sun, Oct, 2, 660},   //AEDT = UTC + 11 hours
     {First,  Sun, Apr, 3, 600}   //AEST = UTC + 10 hours
   },
-  /* TZ_NEW_ZEALAND */ {
-    "NZST/NZDT",
+  {
+    _nzst,
     {Last,   Sun, Sep, 2, 780},   //NZDT = UTC + 13 hours
     {First,  Sun, Apr, 3, 720}   //NZST = UTC + 12 hours
   },
-  /* TZ_NORTH_KOREA */ {
-    "North Korea",
+  {
+    _nkst,
     {Last, Sun, Mar, 1, 510},     //Pyongyang Time = UTC + 8.5 hours
     {Last, Sun, Mar, 1, 510}
   },
-  /* TZ_INDIA */ {
-    "IST (India)",
+  {
+    _ist,
     {Last, Sun, Mar, 1, 330},     //India Standard Time = UTC + 5.5 hours
     {Last, Sun, Mar, 1, 330}
   },
-  /* TZ_SASKACHEWAN */ {
-    "CA-Saskatchewan",
+  {
+    _ca_sk,
     {First,  Sun, Nov, 2, -360},  //CST = UTC - 6 hours
     {First,  Sun, Nov, 2, -360}
   },
-  /* TZ_AUSTRALIA_NORTHERN */ {
-    "ACST",
+  {
+    _acst,
     {First, Sun, Apr, 3, 570},   //ACST = UTC + 9.5 hours
     {First, Sun, Apr, 3, 570}
   },
-  /* TZ_AUSTRALIA_SOUTHERN */ {
-    "ACST/ACDT",
+  {
+    _acst2,
     {First, Sun, Oct, 2, 630},   //ACDT = UTC + 10.5 hours
     {First, Sun, Apr, 3, 570}   //ACST = UTC + 9.5 hours
   },
-  /* TZ_HAWAII */ {
-    "HST (Hawaii)",
+  {
+    _hst,
     {Last, Sun, Mar, 1, -600},   //HST =  UTC - 10 hours
     {Last, Sun, Mar, 1, -600}
   },
-  /* TZ_NOVOSIBIRSK */ {
-    "NOVT (Novosibirsk)",
+  {
+    _novt,
     {Last, Sun, Mar, 1, 420},     //CST = UTC + 7 hours
     {Last, Sun, Mar, 1, 420}
   },
-  /* TZ_ANCHORAGE */ {
-    "AKST/AKDT (Anchorage)",
+  {
+    _akst,
     {Second, Sun, Mar, 2, -480},  //AKDT = UTC - 8 hours
     {First, Sun, Nov, 2, -540}   //AKST = UTC - 9 hours
   },
-    /* TZ_MX_CENTRAL */ {
-    "MX-CST",
+  {
+    _mxcst,
     {First, Sun, Apr, 2, -360},  //CST = UTC - 6 hours
     {First, Sun, Apr, 2, -360}
   },
-  /* TZ_PAKISTAN */ {
-    "PKT (Pakistan)",
+  {
+    _pkt,
     {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
     {Last, Sun, Mar, 1, 300}
   },
-  /* TZ_BRASILIA */ {
-    "BRT (Brasília)",
+  {
+    _brt,
     {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
     {Last, Sun, Mar, 1, -180}
   },
-  /* TZ_AUSTRALIA_WESTERN */ {
-    "AWST (Perth)",
+  {
+    _awst,
     {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
     {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
   }
@@ -163,6 +189,7 @@ void updateTimezone() {
 String getTZNamesJSONString() {
   String names = "[";
   for (size_t i = 0; i < countof(TZ_TABLE); i++) {
+    // the following is shorter code than sprintf()
     names += '"';
     names += FPSTR(std::get<0>(TZ_TABLE[i]));
     names += '"';
