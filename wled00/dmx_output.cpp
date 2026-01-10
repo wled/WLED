@@ -66,8 +66,9 @@ void handleDMXOutput()
   dmx.update();        // update the DMX bus
 }
 
-void initDMXOutput() {
-  dmx.init(2);        // set output pin and initialize DMX output
+void initDMXOutput(int outputPin) {
+  if (outputPin < 1) return;
+  dmx.init(outputPin);        // set output pin and initialize DMX output
 }
 
 #if !defined(ESP8266)
