@@ -1,8 +1,7 @@
 #include "wled.h"
 #include "dmx_output.h"
 /*
- * Support for DMX  output via serial (e.g. MAX485).
- * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
+ * Support for DMX output via serial (e.g. MAX485).
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
@@ -68,7 +67,7 @@ void handleDMXOutput()
 }
 
 void initDMXOutput() {
-  dmx.init(512);        // initialize with bus length
+  dmx.init(2);        // set output pin and initialize DMX output
 }
 
 #if !defined(ESP8266)
