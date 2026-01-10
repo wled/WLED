@@ -17,7 +17,7 @@
 class DMXOutput
 {
 public:
-    void init(uint8_t txPin);
+    void init(uint8_t outputPin);
     void write(uint8_t channel, uint8_t value);
     void update();
 private:

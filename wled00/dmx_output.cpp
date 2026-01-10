@@ -78,18 +78,15 @@ void initDMXOutput(int outputPin) {
 }
 
 #if !defined(ESP8266)
-void DMXOutput::init(uint8_t outputPin)
-{
+void DMXOutput::init(uint8_t outputPin) {
   dmx_config_t config = DMX_CONFIG_DEFAULT;
   dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
   dmx_set_pin(dmxPort, outputPin, -1, -1);
 }
-void DMXOutput::write(uint8_t channel, uint8_t value)
-{
+void DMXOutput::write(uint8_t channel, uint8_t value) {
   dmxdata[channel] = value;
 }
-void DMXOutput::update()
-{
+void DMXOutput::update() {
   dmx_send(dmxPort, DMX_PACKET_SIZE);
 }
 #endif
