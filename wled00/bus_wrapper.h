@@ -1372,22 +1372,21 @@ class PolyBus {
       // TODO2: do not increment the channel use here, need a seperate function for that. 
       if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
         // User wants I2S and we have I2S channels available
-        useI2S = true;
+        offset = 1;
         _i2sChannelsUsed++;
       } else if (_rmtChannelsUsed < maxRMT) {
         // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
         _rmtChannelsUsed++;
       } else if (_i2sChannelsUsed < maxI2S) {
         // RMT full, fallback to I2S if available
-        useI2S = true;
+        offset = 1;
         _i2sChannelsUsed++;
       } else {
         // No channels available
         return I_NONE;
       }
       
-      if (useI2S) offset = 1;
-      #endif
+      // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_2CH_X3:
@@ -1417,6 +1416,7 @@ class PolyBus {
         case TYPE_SM16825:
           return I_32_RN_SM16825_5 + offset;
       }
+      #endif
     }
     return I_NONE;
   }

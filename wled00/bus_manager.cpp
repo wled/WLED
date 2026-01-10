@@ -140,7 +140,9 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
     _pins[1] = bc.pins[1];
     _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
   }
-  _iType = PolyBus::getI(bc.type, _pins, nr, bc.driverType);
+  // Reuse the iType that was determined during memory estimation (memUsage)
+  // This avoids calling getI() twice which would double-count channels
+  _iType = bc.iType;
   if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
@@ -1112,7 +1114,10 @@ size_t BusConfig::memUsage(unsigned nr) const {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr, driverType));
+    // Call getI() to determine bus type and allocate channel (this is the single call)
+    // Store the result in iType for later reuse during bus creation
+    const_cast<BusConfig*>(this)->iType = PolyBus::getI(type, pins, nr, driverType);
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {
