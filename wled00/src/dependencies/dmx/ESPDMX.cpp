@@ -18,24 +18,8 @@
 #include "ESPDMX.h"
 
 
-
-#define dmxMaxChannel  512
-#define defaultMax 32
-
-#define DMXSPEED       250000
-#define DMXFORMAT      SERIAL_8N2
-#define BREAKSPEED     83333
-#define BREAKFORMAT    SERIAL_8N1
-
-bool dmxStarted = false;
-int sendPin = 2;		//default on ESP8266
-
-//DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
-uint8_t dmxDataStore[dmxMaxChannel+1] = {};
-int channelSize;
-
-
-void DMXESPSerial::init() {
+void DMXESPSerial::init(int sendPin) {
+  this->sendPin = sendPin;
   channelSize = defaultMax;
 
   Serial1.begin(DMXSPEED);
@@ -43,19 +27,6 @@ void DMXESPSerial::init() {
   dmxStarted = true;
 }
 
-// Set up the DMX-Protocol
-void DMXESPSerial::init(int chanQuant) {
-
-  if (chanQuant > dmxMaxChannel || chanQuant <= 0) {
-    chanQuant = defaultMax;
-  }
-
-  channelSize = chanQuant;
-
-  Serial1.begin(DMXSPEED);
-  pinMode(sendPin, OUTPUT);
-  dmxStarted = true;
-}
 
 // Function to read DMX data
 uint8_t DMXESPSerial::read(int Channel) {
