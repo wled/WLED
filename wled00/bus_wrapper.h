@@ -1367,91 +1367,25 @@ class PolyBus {
       #endif
       
       // Determine which driver to use based on preference and availability
-      uint8_t effectiveDriverPref = 0; // 0 = RMT, 1 = I2S/LCD
+      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
       
       if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
         // User wants I2S and we have I2S channels available
-        effectiveDriverPref = 1;
+        offset = 1;
         _i2sChannelsUsed++;
       } else if (_rmtChannelsUsed < maxRMT) {
         // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
         _rmtChannelsUsed++;
       } else if (_i2sChannelsUsed < maxI2S) {
         // RMT full, fallback to I2S if available
-        effectiveDriverPref = 1;
+        offset = 1;
         _i2sChannelsUsed++;
       } else {
         // No channels available
         return I_NONE;
       }
       
-      // Use determineBusType() to get the actual bus type with the determined driver preference
-      return determineBusType(busType, pins, num, effectiveDriverPref);
-      #endif
-    }
-    return I_NONE;
-  }
-
-  // Determine bus type without side effects (no channel allocation)
-  // Used by memUsage() for memory estimation before buses are created
-  static uint8_t determineBusType(uint8_t busType, uint8_t* pins, uint8_t busNum = 0, uint8_t driverPreference = 0) {
-    if (!IS_DIGITAL(busType) || !busType) return I_NONE;
-    if (IS_2PIN(busType)) { //SPI LED chips
-      bool isHSPI = false;
-      #ifdef ESP8266
-      if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
-      #else
-      if (pins[0] == P_32_HS_MOSI && pins[1] == P_32_HS_CLK) isHSPI = true;
-      #endif
-      uint8_t t = I_NONE;
-      switch (busType) {
-        case TYPE_APA102:  t = I_HS_DOT_3; break;
-        case TYPE_LPD8806: t = I_HS_LPD_3; break;
-        case TYPE_LPD6803: t = I_HS_LPO_3; break;
-        case TYPE_WS2801:  t = I_HS_WS1_3; break;
-        case TYPE_P9813:   t = I_HS_P98_3; break;
-        default: t=I_NONE;
-      }
-      if (t > I_NONE && !isHSPI) t--; //shift to SS variant
-      return t;
-    } else {
-      #ifdef ESP8266
-      uint8_t offset = pins[0] -1; //for driver: 0 = uart0, 1 = uart1, 2 = dma, 3 = bitbang
-      if (offset > 3) offset = 3;
-      switch (busType) {
-        case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
-        case TYPE_WS2812_RGB:
-        case TYPE_WS2812_WWA:
-          return I_8266_U0_NEO_3 + offset;
-        case TYPE_SK6812_RGBW:
-          return I_8266_U0_NEO_4 + offset;
-        case TYPE_WS2811_400KHZ:
-          return I_8266_U0_400_3 + offset;
-        case TYPE_TM1814:
-          return I_8266_U0_TM1_4 + offset;
-        case TYPE_TM1829:
-          return I_8266_U0_TM2_3 + offset;
-        case TYPE_UCS8903:
-          return I_8266_U0_UCS_3 + offset;
-        case TYPE_UCS8904:
-          return I_8266_U0_UCS_4 + offset;
-        case TYPE_APA106:
-          return I_8266_U0_APA106_3 + offset;
-        case TYPE_FW1906:
-          return I_8266_U0_FW6_5 + offset;
-        case TYPE_WS2805:
-          return I_8266_U0_2805_5 + offset;
-        case TYPE_TM1914:
-          return I_8266_U0_TM1914_3 + offset;
-        case TYPE_SM16825:
-          return I_8266_U0_SM16825_5 + offset;
-      }
-      #else //ESP32
-      // Determine offset based on driver preference, but don't allocate channels
-      // This mirrors the logic in getI() but without side effects
-      uint8_t offset = (driverPreference == 1) ? 1 : 0; // 0 = RMT, 1 = I2S/LCD
-      #endif
+      // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_2CH_X3:
@@ -1481,6 +1415,7 @@ class PolyBus {
         case TYPE_SM16825:
           return I_32_RN_SM16825_5 + offset;
       }
+      #endif
     }
     return I_NONE;
   }
