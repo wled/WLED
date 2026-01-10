@@ -307,7 +307,6 @@ class DeepSleepUsermod : public Usermod {
       }
     #ifndef CONFIG_IDF_TARGET_ESP32C3
       // dropdown for touch wakeupPin
-      touch_sensor_channel_io_map[SOC_TOUCH_SENSOR_NUM];
       oappend(SET_F("dd=addDropdown('DeepSleep','touchPin');"));
       for (int touchchannel = 0; touchchannel < SOC_TOUCH_SENSOR_NUM; touchchannel++) {
         if (touch_sensor_channel_io_map[touchchannel] >= 0) {
