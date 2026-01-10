@@ -80,8 +80,8 @@ class DeepSleepUsermod : public Usermod {
     }
 
     int findNextTimerInterval() {
-      if (localTime < 1672502400) { // time invalid before NTP sync 2023-1-1
-        DEBUG_PRINTLN("Skipping timer check: local time not yet synchronized.");
+      if (toki.getTimeSource() == TOKI_TS_NONE) {
+        DEBUG_PRINTLN("DeepSleep: local time not yet synchronized, skipping timer check.");
         return -1;
       }
       int currentHour = hour(localTime);
@@ -129,9 +129,8 @@ class DeepSleepUsermod : public Usermod {
       #ifdef WLED_DEBUG
         DEBUG_PRINTF("sleep wakeup cause: %d\n", esp_sleep_get_wakeup_cause());
       #endif
-      if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER) {
+      if (esp_sleep_get_wakeup_cause() != ESP_SLEEP_WAKEUP_TIMER)
         wakeupPreset = 0; // not a timed wakeup, don't apply preset
-      }
       initDone = true;
     }
 
@@ -139,20 +138,22 @@ class DeepSleepUsermod : public Usermod {
       if (!enabled) return;
       if (!offMode) { // LEDs are on
         lastLoopTime = 0; // reset timer
-        if (delaycounter) delaycounter--; // decrease delay counter if LEDs are on (they are always turned on after a wake-up, see below)
-        else if (wakeupPreset) applyPreset(wakeupPreset); // apply preset if set, this ensures macro is applied even if we missed the wake-up time
+        if (delaycounter)
+          delaycounter--; // decrease delay counter if LEDs are on (they are always turned on after a wake-up, see below)
+        else if (wakeupPreset)
+          applyPreset(wakeupPreset); // apply preset if set, this ensures macro is applied even if we missed the wake-up time
         return;
       }
 
       if (sleepDelay > 0) {
-        powerup = false; // disable powerup sleep if delay is set
-        if (lastLoopTime == 0) lastLoopTime = millis(); // initialize
-        if (millis() - lastLoopTime < sleepDelay * 1000) {
+        powerup = false; // disable "safety" powerup sleep if delay is set
+        if (lastLoopTime == 0)
+          lastLoopTime = millis(); // initialize
+        if (millis() - lastLoopTime < sleepDelay * 1000)
           return; // wait until delay is over
-        }
       } else if (powerup && delaycounter) {
         delaycounter--; // on first boot without sleepDelay set, do not force-turn on
-        delay(1000); // just in case: give user a short ~10s window to turn LEDs on in UI
+        delay(1000);    // just in case: give user a short ~10s window to turn LEDs on in UI (delaycounter is 10 by default)
         return;
       }
       if (powerup == false && delaycounter) { // delay sleep in case a preset is being loaded and turnOnAtBoot is disabled (handleIO() does enable offMode temporarily in this case)
@@ -198,8 +199,8 @@ class DeepSleepUsermod : public Usermod {
         halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_HIGH);
       else
         halerror = esp_deep_sleep_enable_gpio_wakeup(1<<wakeupPin, ESP_GPIO_WAKEUP_GPIO_LOW);
-      // note: on C3 calling esp_deep_sleep_enable_gpio_wakeup() automatically configures pin as RTC IO and enables pullup/pulldown unless we call gpio_hold_en() which overrides that
-      gpio_pullup_dis((gpio_num_t)wakeupPin);
+      // note: on C3 calling esp_deep_sleep_enable_gpio_wakeup() automatically enables pullup/pulldown unless we call gpio_hold_en() which overrides that
+      gpio_pullup_dis((gpio_num_t)wakeupPin); // disable pull resistors by default
       gpio_pulldown_dis((gpio_num_t)wakeupPin);
       if (!noPull)  {
         if (wakeWhenHigh) {
@@ -208,34 +209,33 @@ class DeepSleepUsermod : public Usermod {
           gpio_pullup_en((gpio_num_t)wakeupPin);
         }
       }
-      gpio_hold_en((gpio_num_t)wakeupPin); // if hole_en is used, pullups are disabled for some reason, lets make use of that
+      gpio_hold_en((gpio_num_t)wakeupPin); // hold the configured GPIO state during deep sleep, overrides the automatic pullup/pulldown, see note above
     #else // ESP32, S2, S3
-      rtc_gpio_hold_dis((gpio_num_t)wakeupPin); // disable hold and configure pin
-      rtc_gpio_init((gpio_num_t)wakeupPin);     // initialize GPIO for RTC domain use
+      rtc_gpio_hold_dis((gpio_num_t)wakeupPin); // disable hold so we can (re)configure pin
+      rtc_gpio_init((gpio_num_t)wakeupPin);     // hand the pin over to RTC module
       rtc_gpio_set_direction((gpio_num_t)wakeupPin, RTC_GPIO_MODE_INPUT_ONLY);
-      rtc_gpio_pullup_dis((gpio_num_t)wakeupPin);
+      rtc_gpio_pullup_dis((gpio_num_t)wakeupPin); // disable pull resistors by default
       rtc_gpio_pulldown_dis((gpio_num_t)wakeupPin);
-    if (!noPull)  {
-      if (wakeWhenHigh) {
+      if (!noPull) {
+        if (wakeWhenHigh)
           rtc_gpio_pulldown_en((gpio_num_t)wakeupPin);
-        } else {
+        else
           rtc_gpio_pullup_en((gpio_num_t)wakeupPin);
-        }
       }
       if (wakeWhenHigh)
-        halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // only RTC pins can be used
+        halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ANY_HIGH); // use ext1 as ext0 does not work with touch wakeup
       else
         halerror = esp_sleep_enable_ext1_wakeup(1ULL << wakeupPin, ESP_EXT1_WAKEUP_ALL_LOW);
 
       if (enableTouchWakeup) {
-        #ifdef SOC_TOUCH_VERSION_2 // S2 and S3 use much higher thresholds
+      #ifdef SOC_TOUCH_VERSION_2 // S2 and S3 use much higher thresholds, see notes in pin_manager
         touchSleepWakeUpEnable(touchPin, touchThreshold  << 4); // ESP32 S2 & S3: lower threshold = more sensitive
-        #else
-        touchSleepWakeUpEnable(touchPin, touchThreshold); // ESP32: higher threshold = more sensitive
-        #endif
+      #else
+        touchSleepWakeUpEnable(touchPin, touchThreshold); // ESP32: use normal threshold (higher = more sensitive)
+      #endif
       }
-      delay(1); // just in case: wait for pins to be ready
-      rtc_gpio_hold_en((gpio_num_t)wakeupPin); // hold the configured GPIO state during deep sleep
+      delay(1); // wait for pins to be ready
+      rtc_gpio_hold_en((gpio_num_t)wakeupPin); // latch and hold the configured GPIO state during deep sleep
     #endif
       WiFi.mode(WIFI_OFF);  // Completely shut down the Wi-Fi module
       if (halerror == ESP_OK) esp_deep_sleep_start(); // go into deep sleep
@@ -253,8 +253,8 @@ class DeepSleepUsermod : public Usermod {
       top["wakeWhen"] = wakeWhenHigh;
       top["pull"] = noPull;
     #ifndef CONFIG_IDF_TARGET_ESP32C3
-        top["enableTouchWakeup"] = enableTouchWakeup;
-        top["touchPin"] = touchPin;
+      top["enableTouchWakeup"] = enableTouchWakeup;
+      top["touchPin"] = touchPin;
     #endif
       top["presetWake"] = presetWake;
       top["wakeAfter"] = wakeupAfter;
