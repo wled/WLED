@@ -1185,6 +1185,9 @@ void WS2812FX::finalizeInit() {
   }
   DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u, Max LEDs on I2S bus: %u\n"), digitalCount, i2sBusCount, maxI2SLedsOnBus);
   
+  // Determine I2S usage automatically based on bus configuration
+  bool useI2S = (i2sBusCount > 0); // Use I2S if any buses have driverType == 1
+  
   // Determine parallel vs single I2S usage
   bool useParallelI2S = false;
   if (useI2S && i2sBusCount > 0) {

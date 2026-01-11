@@ -166,7 +166,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  CJSON(useI2S, hw_led[F("prl")]);
+  // useI2S no longer loaded from config - determined automatically based on bus configuration
+  // CJSON(useI2S, hw_led[F("prl")]);  // Removed - PR checkbox eliminated
   #endif
 
   #ifndef WLED_DISABLE_2D

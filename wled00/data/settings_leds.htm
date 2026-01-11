@@ -235,7 +235,7 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				let enabledI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t); // I2S enabled and not 2-pin LED
+				let enabledI2S = (is32() || isS2() || isS3()) && !isD2P(t); // I2S always available (not 2-pin LED)
 				if (isC3() || !enabledI2S) {
 					mul = 2; // RMT uses double buffer
 				} else if (enabledI2S && toNum(n) < 8) { // I2S/LCD uses extra DMA buffer
@@ -478,10 +478,9 @@
 					
 					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
 					if (!is8266()) {
-						let useI2S = d.Sf.PR.checked;
-						d.Sf.PR.disabled = false; // reset
+						let useI2S = (is32() || isS2() || isS3()); // I2S always available on ESP32 variants
 						
-						// Show driver selection dropdown when I2S is enabled
+						// Show driver selection dropdown when I2S is available
 						if (useI2S && drvsel) {
 							drvsel.style.display = "inline";
 							// Set default value if not already set (backward compatibility)
@@ -532,7 +531,7 @@
 						msg += `I2S: ${i2sUsed}/${maxI2S}`;
 					}
 					channelMsg.textContent = 'Channel limit exceeded! ' + msg;
-				} else if (d.Sf.PR.checked && (rmtUsed >= maxRMT - 1 || i2sUsed >= maxI2S - 1)) {
+				} else if ((is32() || isS2() || isS3()) && (rmtUsed >= maxRMT - 1 || i2sUsed >= maxI2S - 1)) {
 					channelWarning.style.display = 'inline';
 					channelWarning.style.color = 'orange';
 					channelMsg.textContent = `Channel usage: RMT ${rmtUsed}/${maxRMT}, I2S ${i2sUsed}/${maxI2S}`;
@@ -673,7 +672,7 @@ Driver: <select name="LD${s}" onchange="updateTypeDropdowns();UI()">
 				// Set driver preference based on channel availability
 				let drvSelect = d.Sf["LD"+s];
 				if (drvSelect) {
-					if (rmtFull && !i2sFull && d.Sf.PR.checked) {
+					if (rmtFull && !i2sFull && (is32() || isS2() || isS3())) {
 						// RMT is full but I2S available - default to I2S
 						drvSelect.value = "1";
 					} else {
@@ -1007,7 +1006,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
 				
 				if (isDig(t) && !isD2P(t)) {
-					if (d.Sf.PR.checked && driverPref === 1) {
+					if (driverPref === 1) {
 						i2sUsed++;
 						if (!firstI2SType) firstI2SType = t;
 						if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
@@ -1062,7 +1061,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 				// Update LED type constraints for digital buses
 				if (isDig(curType) && !isD2P(curType)) {
 					// If this bus uses I2S and other I2S buses exist, restrict to same type
-					if (d.Sf.PR.checked && curDriver === 1 && firstI2SType !== null) {
+					// First I2S bus can select any type, subsequent I2S buses restricted to first type
+					let isFirstI2SBus = (curDriver === 1 && firstI2SType === null);
+					if (curDriver === 1 && firstI2SType !== null && !isFirstI2SBus) {
 						sel.querySelectorAll('option[data-type="D"]').forEach(o => {
 							if (parseInt(o.value) !== firstI2SType) o.disabled = true;
 						});
@@ -1070,7 +1071,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				} else {
 					// For non-digital current types, check if we can add digital buses
 					let canAddRMT = (rmtUsed < maxRMT || (isDig(curType) && !isD2P(curType) && curDriver === 0));
-					let canAddI2S = (d.Sf.PR.checked && i2sUsed < maxI2S) || (isDig(curType) && !isD2P(curType) && curDriver === 1);
+					let canAddI2S = ((is32() || isS2() || isS3()) && i2sUsed < maxI2S) || (isDig(curType) && !isD2P(curType) && curDriver === 1);
 					
 					// If both RMT and I2S are full, disable all digital types
 					if (!canAddRMT && !canAddI2S) {
@@ -1086,7 +1087,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			});
 			
 			// Third pass: update driver selection dropdowns
-			if (d.Sf.PR.checked) {
+			if (is32() || isS2() || isS3()) {
 				LTs.forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
@@ -1175,7 +1176,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			&#9888; <span id="channelmsg"></span><br>
 		</div>
 		<hr class="sml">
-		<div id="prl" class="hide">Enable I2S: <input type="checkbox" name="PR" onchange="UI()"><br></div>
+
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		<hr class="sml">
