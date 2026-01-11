@@ -400,9 +400,6 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
-  #ifndef CONFIG_IDF_TARGET_ESP32C3
-WLED_GLOBAL bool useI2S             _INIT(false); // I2S/LCD for ESP32 (parallel or single)
-  #endif
 #endif
 #ifdef WLED_USE_IC_CCT
 WLED_GLOBAL bool cctICused          _INIT(true);  // CCT IC used (Athom 15W bulbs)

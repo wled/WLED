@@ -27,7 +27,6 @@
 
 extern char cmDNS[];
 extern bool cctICused;
-extern bool useI2S;
 
 // functions to get/set bits in an array - based on functions created by Brandon for GOL
 //  toDo : make this a class that's completely defined in a header file
@@ -117,7 +116,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 }
 
 
-BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
+BusDigital::BusDigital(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
@@ -140,24 +139,24 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
     _pins[1] = bc.pins[1];
     _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
   }
-  // Reuse the iType that was determined during memory estimation (memUsage)
-  // This avoids calling getI() twice which would double-count channels
-  _iType = bc.iType;
+
+  _iType = bc.iType; // reuse the iType that was determined during memory estimation (memUsage)
   if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
-  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
+  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip);
+  Serial.printf("Creating bus type %d with %d leds (skip %d)\n", _iType, lenToCreate, _skip);
   _valid = (_busPtr != nullptr) && bc.count > 0;
+  Serial.printf("bus valid: %d, LED count %d\n", _valid, bc.count);
   // fix for wled#4759
   if (_valid) for (unsigned i = 0; i < _skip; i++) {
     PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
   }
-  DEBUGBUS_PRINTF_P(PSTR("Bus: %successfully inited #%u (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
+  DEBUGBUS_PRINTF_P(PSTR("Bus: %successful (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
     _valid?"S":"Uns",
-    (int)nr,
     (int)bc.count,
     (int)bc.type,
     (int)_hasRgb, (int)_hasWhite, (int)_hasCCT,
@@ -1139,7 +1138,7 @@ size_t BusManager::memUsage() {
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
     if (bus->isDigital() && !bus->is2Pin()) {
       digitalCount++;
-      if ((PolyBus::isParallelI2S1Output() && digitalCount <= 8) || (!PolyBus::isParallelI2S1Output() && digitalCount == 1)) {
+      if ((PolyBus::isParallelI2SOutput() && digitalCount <= 8) || (!PolyBus::isParallelI2SOutput() && digitalCount == 1)) {
         #ifdef NPB_CONF_4STEP_CADENCE
         constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
         #else
@@ -1156,6 +1155,8 @@ size_t BusManager::memUsage() {
 
 int BusManager::add(const BusConfig &bc) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
+  Serial.printf("Bus: Adding bus (p:%d v:%d)\n", getNumBusses(), getNumVirtualBusses());
+  Serial.printf("BusConfig type: %d, start: %d, count: %d\n", bc.type, bc.start, bc.count);
   unsigned digital = 0;
   unsigned analog  = 0;
   unsigned twoPin  = 0;
@@ -1172,7 +1173,7 @@ int BusManager::add(const BusConfig &bc) {
     busses.push_back(make_unique<BusHub75Matrix>(bc));
 #endif
   } else if (Bus::isDigital(bc.type)) {
-    busses.push_back(make_unique<BusDigital>(bc, Bus::is2Pin(bc.type) ? twoPin : digital));
+    busses.push_back(make_unique<BusDigital>(bc));
   } else if (Bus::isOnOff(bc.type)) {
     busses.push_back(make_unique<BusOnOff>(bc));
   } else {
@@ -1212,19 +1213,11 @@ String BusManager::getLEDTypesJSONString() {
 
 void BusManager::useParallelOutput() {
   DEBUGBUS_PRINTLN(F("Bus: Enabling parallel I2S."));
-  PolyBus::setParallelI2S1Output();
+  PolyBus::setParallelI2SOutput();
 }
 
 bool BusManager::hasParallelOutput() {
-  return PolyBus::isParallelI2S1Output();
-}
-
-void BusManager::useI2SOutput(bool enable) {
-  PolyBus::setI2SOutput(enable);
-}
-
-bool BusManager::hasI2SOutput() {
-  return PolyBus::isI2SOutput();
+  return PolyBus::isParallelI2SOutput();
 }
 
 //do not call this method from system context (network callback)
@@ -1233,7 +1226,7 @@ void BusManager::removeAll() {
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
   busses.clear();
-  PolyBus::setParallelI2S1Output(false);
+  PolyBus::setParallelI2SOutput(false);
   // Reset channel tracking for fresh allocation
   PolyBus::resetChannelTracking();
 }
@@ -1258,7 +1251,7 @@ void BusManager::esp32RMTInvertIdle() {
       if (u > 3) return;
       rmt = u;
     #else
-      unsigned numI2S = !PolyBus::isParallelI2S1Output(); // if using parallel I2S, RMT is used 1st
+      unsigned numI2S = !PolyBus::isParallelI2SOutput(); // if using parallel I2S, RMT is used 1st
       if (numI2S > u) continue;
       if (u > 7 + numI2S) return;
       rmt = u - numI2S;
@@ -1438,11 +1431,11 @@ void BusManager::applyABL() {
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
 bool PolyBus::_useParallelI2S = false;
-bool PolyBus::_useI2S = false;
 // PolyBus channel tracking for dynamic allocation
-uint8_t PolyBus::_rmtChannelsUsed = 0;
-uint8_t PolyBus::_i2sChannelsUsed = 0;
-uint8_t PolyBus::_parallelBusItype = 0; // type I_NONE
+uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
+uint8_t PolyBus::_rmtChannelsUsed = 0;     // number of RMT channels actually used during bus creation in create()
+uint8_t PolyBus::_i2sChannelsAssigned = 0; // number of I2S channels assigned durig getI() check
+uint8_t PolyBus::_parallelBusItype = 0;    // type I_NONE
 
 // Bus static member definition
 int16_t Bus::_cct = -1;
@@ -1450,8 +1443,6 @@ uint8_t Bus::_cctBlend = 0; // 0 - 127
 uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
-
-
 
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;

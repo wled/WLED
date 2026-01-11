@@ -312,7 +312,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
-    printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
