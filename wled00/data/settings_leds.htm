@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxB=1,maxD=1,maxI2S=0,maxRMT=0,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -448,8 +448,6 @@
 			// Mark invalid buses and update driver info + track channel usage
 			let invalidBusCount = 0;
 			let digitalBusIndex = 0;
-			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
-			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
 			
 			// Use helper function to calculate channel usage
 			let usage = calculateChannelUsage();
@@ -999,8 +997,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function updateTypeDropdowns() {
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
-			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
-			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
 			
 			// Use helper function to calculate channel usage
 			let usage = calculateChannelUsage();

@@ -1114,8 +1114,8 @@ size_t BusConfig::memUsage(unsigned nr) const {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    // Call to getI() determines bus types/drivers, allocates and tracks polybus channels
-    // Store the result in iType for later reuse during bus creation
+    // call to getI() determines bus types/drivers, allocates and tracks polybus channels
+    // store the result in iType for later reuse during bus creation (getI() must only be called once per BusConfig)
     const_cast<BusConfig*>(this)->iType = PolyBus::getI(type, pins, nr, driverType);
     return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
   } else if (Bus::isOnOff(type)) {
