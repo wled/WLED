@@ -986,10 +986,8 @@ void serializeConfig(JsonObject root) {
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
-    // Save driver preference from busConfigs if available
-    if (s < busConfigs.size()) {
-      ins[F("drv")] = busConfigs[s].driverType;
-    }
+    // Save driver preference directly from bus object (busConfigs is cleared after bus creation)
+    ins[F("drv")] = bus->getDriverType();
     ins[F("text")]   = bus->getCustomText();
   }
 
