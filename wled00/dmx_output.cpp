@@ -87,6 +87,7 @@ void DMXOutput::write(uint8_t channel, uint8_t value) {
   dmxdata[channel] = value;
 }
 void DMXOutput::update() {
+  dmx_write(dmxPort, dmxdata, DMX_PACKET_SIZE);
   dmx_send(dmxPort, DMX_PACKET_SIZE);
 }
 #endif
