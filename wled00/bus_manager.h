@@ -439,7 +439,7 @@ struct BusConfig {
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
   , driverType(driver)
-  , iType(I_NONE) // Initialize to I_NONE, will be set during memory estimation
+  , iType(0) // default to I_NONE
   , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);

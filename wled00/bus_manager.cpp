@@ -1114,7 +1114,7 @@ size_t BusConfig::memUsage(unsigned nr) const {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    // Call getI() to determine bus type and allocate channel (this is the single call)
+    // Call to getI() determines bus types/drivers, allocates and tracks polybus channels
     // Store the result in iType for later reuse during bus creation
     const_cast<BusConfig*>(this)->iType = PolyBus::getI(type, pins, nr, driverType);
     return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
@@ -1437,9 +1437,12 @@ void BusManager::applyABL() {
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
-
 bool PolyBus::_useParallelI2S = false;
 bool PolyBus::_useI2S = false;
+// PolyBus channel tracking for dynamic allocation
+uint8_t PolyBus::_rmtChannelsUsed = 0;
+uint8_t PolyBus::_i2sChannelsUsed = 0;
+uint8_t PolyBus::_parallelBusItype = 0; // type I_NONE
 
 // Bus static member definition
 int16_t Bus::_cct = -1;
@@ -1448,9 +1451,7 @@ uint8_t Bus::_gAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
 
-// PolyBus channel tracking for dynamic allocation
-uint8_t PolyBus::_rmtChannelsUsed = 0;
-uint8_t PolyBus::_i2sChannelsUsed = 0;
+
 
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;

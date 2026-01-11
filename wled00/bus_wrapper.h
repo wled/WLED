@@ -339,8 +339,11 @@
 //handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
-    static bool _useParallelI2S;  // use parallel I2S/LCD (8 channels)
-    static bool _useI2S;           // use I2S/LCD at all (could be parallel or single)
+    static bool _useI2S;              // use I2S/LCD (can be single or parallel output)
+    static bool _useParallelI2S;      // use parallel I2S/LCD (8 channels)
+    static uint8_t _rmtChannelsUsed;   // Channel tracking for dynamic allocation
+    static uint8_t _i2sChannelsUsed;
+    static uint8_t _parallelBusItype;  // parallel output does not allow mixed LED types, track I_Type
 
   public:
     static inline void setParallelI2S1Output(bool b = true) { _useParallelI2S = b; }
@@ -1281,19 +1284,21 @@ class PolyBus {
     return size;
   }
 
-  // Channel tracking for dynamic allocation
-  static uint8_t _rmtChannelsUsed;
-  static uint8_t _i2sChannelsUsed;
-  
   // Reset channel tracking (call before adding buses)
   static void resetChannelTracking() {
     _rmtChannelsUsed = 0;
     _i2sChannelsUsed = 0;
+    _parallelBusItype = I_NONE;
   }
-  
-  // gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
+
+  static void setParallelI2Stype(uint8_t type) {
+    _parallelBusItype = type;
+  }
+
+  // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
   static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0, uint8_t driverPreference = 0) {
     if (!Bus::isDigital(busType)) return I_NONE;
+    uint8_t t = I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
       bool isHSPI = false;
       #ifdef ESP8266
@@ -1303,7 +1308,6 @@ class PolyBus {
       // SPI global variable is normally linked to VSPI on ESP32 (or FSPI C3, S3)
       if (!num) isHSPI = true;
       #endif
-      uint8_t t = I_NONE;
       switch (busType) {
         case TYPE_APA102:  t = I_SS_DOT_3; break;
         case TYPE_LPD8806: t = I_SS_LPD_3; break;
@@ -1323,61 +1327,46 @@ class PolyBus {
         case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
-          return I_8266_U0_NEO_3 + offset;
+          t = I_8266_U0_NEO_3 + offset;
         case TYPE_SK6812_RGBW:
-          return I_8266_U0_NEO_4 + offset;
+          t = I_8266_U0_NEO_4 + offset;
         case TYPE_WS2811_400KHZ:
-          return I_8266_U0_400_3 + offset;
+          t = I_8266_U0_400_3 + offset;
         case TYPE_TM1814:
-          return I_8266_U0_TM1_4 + offset;
+          t = I_8266_U0_TM1_4 + offset;
         case TYPE_TM1829:
-          return I_8266_U0_TM2_3 + offset;
+          t = I_8266_U0_TM2_3 + offset;
         case TYPE_UCS8903:
-          return I_8266_U0_UCS_3 + offset;
+          t = I_8266_U0_UCS_3 + offset;
         case TYPE_UCS8904:
-          return I_8266_U0_UCS_4 + offset;
+          t = I_8266_U0_UCS_4 + offset;
         case TYPE_APA106:
-          return I_8266_U0_APA106_3 + offset;
+          t = I_8266_U0_APA106_3 + offset;
         case TYPE_FW1906:
-          return I_8266_U0_FW6_5 + offset;
+          t = I_8266_U0_FW6_5 + offset;
         case TYPE_WS2805:
-          return I_8266_U0_2805_5 + offset;
+          t = I_8266_U0_2805_5 + offset;
         case TYPE_TM1914:
-          return I_8266_U0_TM1914_3 + offset;
+          t = I_8266_U0_TM1914_3 + offset;
         case TYPE_SM16825:
-          return I_8266_U0_SM16825_5 + offset;
+          t = I_8266_U0_SM16825_5 + offset;
       }
       #else //ESP32
       // Dynamic channel allocation based on driver preference
-      // Get platform-specific max channels
-      #if defined(CONFIG_IDF_TARGET_ESP32S2)
-      const uint8_t maxRMT = 4;
-      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
-      #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-      const uint8_t maxRMT = 2;
-      const uint8_t maxI2S = 0; // I2S not supported on C3
-      #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-      const uint8_t maxRMT = 4;
-      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 0) : 0; // LCD only, no single I2S
-      #else
-      // Standard ESP32
-      const uint8_t maxRMT = 8;
-      const uint8_t maxI2S = _useI2S ? (_useParallelI2S ? 8 : 1) : 0;
-      #endif
 
       // Determine which driver to use based on preference and availability
       uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
-      bool useI2S = false;
       // TODO: need to track parallel I2S usage separately: add variable for "lock" of parallel I2S channel used
-      // TODO2: do not increment the channel use here, need a seperate function for that. 
-      if (driverPreference == 1 && _i2sChannelsUsed < maxI2S) {
-        // User wants I2S and we have I2S channels available
+      // TODO: this whole logic needs to be revisited: in finalize init first need to determine the number of requested I2S channels and if its viable to use parallel I2S at all before assigning channels here
+      // it may be a bit of a chicken and egg problem though. 
+      if (driverPreference == 1 && _i2sChannelsUsed < WLED_MAX_I2S_CHANNELS) {
+        // prefer I2S and we have I2S channels available
         offset = 1;
         _i2sChannelsUsed++;
-      } else if (_rmtChannelsUsed < maxRMT) {
+      } else if (_rmtChannelsUsed < WLED_MAX_RMT_CHANNELS) {
         // Use RMT (either user wants RMT, or I2S unavailable, or fallback)
         _rmtChannelsUsed++;
-      } else if (_i2sChannelsUsed < maxI2S) {
+      } else if (_i2sChannelsUsed < WLED_MAX_I2S_CHANNELS) {
         // RMT full, fallback to I2S if available
         offset = 1;
         _i2sChannelsUsed++;
@@ -1385,40 +1374,45 @@ class PolyBus {
         // No channels available
         return I_NONE;
       }
-      
+
       // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
-          return I_32_RN_NEO_3 + offset;
+          t = I_32_RN_NEO_3 + offset;
         case TYPE_SK6812_RGBW:
-          return I_32_RN_NEO_4 + offset;
+          t = I_32_RN_NEO_4 + offset;
         case TYPE_WS2811_400KHZ:
-          return I_32_RN_400_3 + offset;
+          t = I_32_RN_400_3 + offset;
         case TYPE_TM1814:
-          return I_32_RN_TM1_4 + offset;
+          t = I_32_RN_TM1_4 + offset;
         case TYPE_TM1829:
-          return I_32_RN_TM2_3 + offset;
+          t = I_32_RN_TM2_3 + offset;
         case TYPE_UCS8903:
-          return I_32_RN_UCS_3 + offset;
+          t = I_32_RN_UCS_3 + offset;
         case TYPE_UCS8904:
-          return I_32_RN_UCS_4 + offset;
+          t = I_32_RN_UCS_4 + offset;
         case TYPE_APA106:
-          return I_32_RN_APA106_3 + offset;
+          t = I_32_RN_APA106_3 + offset;
         case TYPE_FW1906:
-          return I_32_RN_FW6_5 + offset;
+          t = I_32_RN_FW6_5 + offset;
         case TYPE_WS2805:
-          return I_32_RN_2805_5 + offset;
+          t = I_32_RN_2805_5 + offset;
         case TYPE_TM1914:
-          return I_32_RN_TM1914_3 + offset;
+          t = I_32_RN_TM1914_3 + offset;
         case TYPE_SM16825:
-          return I_32_RN_SM16825_5 + offset;
+          t = I_32_RN_SM16825_5 + offset;
       }
+      // If using parallel I2S, set the type accordingly
+      if (_i2sChannelsUsed == 1) // first I2S channel, lock the type
+        _parallelBusItype = (offset == 1) ? t : I_NONE;
+      else if (offset == 1) // not first I2S channel, use locked type
+        t = _parallelBusItype;
       #endif
     }
-    return I_NONE;
+    return t;
   }
 };
 #endif
