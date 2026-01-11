@@ -598,7 +598,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
 
 #ifdef WLED_ENABLE_DMX
-  CJSON(dmxOutputPin, if_live_dmx[F("outputPin")]);
+  CJSON(dmxOutputPin, if_live_dmx[F("dmxOutputPin")]);
 #endif
   #ifdef WLED_ENABLE_DMX_INPUT
     CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
