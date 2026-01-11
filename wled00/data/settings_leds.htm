@@ -448,12 +448,16 @@
 			// Mark invalid buses and update driver info + track channel usage
 			let invalidBusCount = 0;
 			let digitalBusIndex = 0;
-			let rmtUsed = 0, i2sUsed = 0; // track channel usage
 			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
 			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
-			let firstI2SType = null;
-			let maxLEDsOnI2SBus = 0;
-			let i2sBusesOver600 = 0;
+			
+			// Use helper function to calculate channel usage
+			let usage = calculateChannelUsage();
+			let rmtUsed = usage.rmtUsed;
+			let i2sUsed = usage.i2sUsed;
+			let firstI2SType = usage.firstI2SType;
+			let maxLEDsOnI2SBus = usage.maxLEDsOnI2SBus;
+			let i2sBusesOver600 = usage.i2sBusesOver600;
 			
 			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
 				let n = s.name.substring(2,3);
@@ -471,31 +475,6 @@
 					digitalBusIndex++;
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
 					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
-					
-					// Count actual channel usage based on user preference and availability
-					if (d.Sf.PR.checked && driverPref === 1) {
-						// User wants I2S
-						if (i2sUsed < maxI2S) {
-							i2sUsed++;
-							if (i2sUsed === 1) firstI2SType = t;
-							if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
-							if (ledCount > 600) i2sBusesOver600++;
-						} else {
-							// I2S full, falls back to RMT
-							if (rmtUsed < maxRMT) rmtUsed++;
-						}
-					} else {
-						// User wants RMT or defaulting to RMT
-						if (rmtUsed < maxRMT) {
-							rmtUsed++;
-						} else if (d.Sf.PR.checked && i2sUsed < maxI2S) {
-							// RMT full, falls back to I2S
-							i2sUsed++;
-							if (i2sUsed === 1) firstI2SType = t;
-							if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
-							if (ledCount > 600) i2sBusesOver600++;
-						}
-					}
 					
 					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
 					if (!is8266()) {
@@ -648,7 +627,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <div id="dig${s}l" style="display:none">Clock: <select name="SP${s}"><option value="0">Slowest</option><option value="1">Slow</option><option value="2">Normal</option><option value="3">Fast</option><option value="4">Fastest</option></select></div>
 <div>
 <span id="psd${s}">Start:</span> <input type="number" name="LS${s}" id="ls${s}" class="l starts" min="0" max="8191" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
-<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="updateTypeDropdowns();UI()" /></div><br>
+<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI();updateTypeDropdowns()" /></div><br>
 </div>
 <span id="p0d${s}">GPIO:</span><input type="number" name="L0${s}" required class="s" onchange="UI();pinUpd(this);"/>
 <span id="p1d${s}"></span><input type="number" name="L1${s}" class="s" onchange="UI();pinUpd(this);"/>
@@ -987,36 +966,53 @@ Swap: <select id="xw${s}" name="XW${s}">
 			}
 			return opt;
 		}
+		// Helper function to calculate channel usage across all buses
+		function calculateChannelUsage() {
+			let rmtUsed = 0, i2sUsed = 0;
+			let firstI2SType = null;
+			let maxLEDsOnI2SBus = 0;
+			let i2sBusesOver600 = 0;
+			
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+				let n = sel.name.substring(2,3);
+				let t = parseInt(sel.value);
+				let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+				let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
+				
+				if (isDig(t) && !isD2P(t)) {
+					if (d.Sf.PR.checked && driverPref === 1) {
+						i2sUsed++;
+						if (!firstI2SType) firstI2SType = t;
+						if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
+						if (ledCount > 600) i2sBusesOver600++;
+					} else {
+						rmtUsed++;
+					}
+				}
+			});
+			
+			let parallelI2SAllowed = (maxLEDsOnI2SBus <= 600);
+			return { rmtUsed, i2sUsed, firstI2SType, maxLEDsOnI2SBus, i2sBusesOver600, parallelI2SAllowed };
+		}
+		
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
-			let rmtUsed = 0, i2sUsed = 0;
-			let firstI2SType = null; // Track the first I2S bus LED type
-			let maxLEDsOnI2SBus = 0; // Track max LEDs on any I2S bus
 			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
 			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
 			
-			// First pass: count buses and gather I2S constraints
+			// Use helper function to calculate channel usage
+			let usage = calculateChannelUsage();
+			let rmtUsed = usage.rmtUsed;
+			let i2sUsed = usage.i2sUsed;
+			let firstI2SType = usage.firstI2SType;
+			let maxLEDsOnI2SBus = usage.maxLEDsOnI2SBus;
+			
+			// Count all bus types
 			LTs.forEach(sel => {
-				let n = sel.name.substring(2,3);
 				let t = parseInt(sel.value);
-				let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-				
-				if (isDig(t) && !isD2P(t)) { 
-					digitalB++;
-					// Track which buses use which driver
-					if (d.Sf.PR.checked && driverPref === 1) {
-						// User wants I2S
-						if (i2sUsed === 0) firstI2SType = t; // First I2S bus sets the type
-						i2sUsed++;
-						let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
-						if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
-					} else {
-						// Uses RMT (either preference or fallback)
-						rmtUsed++;
-					}
-				}
+				if (isDig(t) && !isD2P(t)) digitalB++;
 				if (isPWM(t)) analogB += numPins(t);
 				if (isD2P(t)) twopinB++;
 				if (isVir(t)) virtB++;

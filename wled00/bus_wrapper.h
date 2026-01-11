@@ -1419,10 +1419,5 @@ class PolyBus {
     }
     return I_NONE;
   }
-
-  static void resetChannelTracking() {
-    _rmtChannelsUsed = 0;
-    _i2sChannelsUsed = 0;
-  }
 };
 #endif
