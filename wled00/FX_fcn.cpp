@@ -1188,12 +1188,12 @@ void WS2812FX::finalizeInit() {
   // Determine parallel vs single I2S usage
   bool useParallelI2S = false;
   #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // ESP32-S3 always uses LCD driver for I2S
-  if (i2sBusCount > 0  && maxI2SLedsOnBus <= 600) {
-    BusManager::useParallelOutput(); // set parallel I2S flag - must call before creating buses
+  // ESP32-S3 always uses parallel LCD driver for I2S
+  if (i2sBusCount > 0) {
+    BusManager::useParallelOutput();
   }
   #else
-  if (i2sBusCount > 1 && maxI2SLedsOnBus <= 600 && !mixedI2SBusTypes) {
+  if (i2sBusCount > 1 && !mixedI2SBusTypes) {
     BusManager::useParallelOutput(); // set parallel I2S flag - must call before creating buses
   }
   #endif
@@ -1205,7 +1205,7 @@ void WS2812FX::finalizeInit() {
   unsigned mem = 0;
   unsigned maxI2S = 0;
   for (const auto &bus : busConfigs) {
-    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
+    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer, assignes digital bus type
     mem += memB;
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)

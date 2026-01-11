@@ -481,7 +481,7 @@ class PolyBus {
   }
 
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len) {
-    Serial.printf("Creating bus type %d on pins %d,%d,%d,%d for %d LEDs, RMT channel = %d, use parallel I2S %d\n", busType, pins[0], pins[1], pins[2], pins[3], len, _rmtChannelsUsed, _useParallelI2S);
+    Serial.printf("Creating bus type %d on pins %d,%d,%d,%d for %d LEDs, RMT channel = %d, use parallel I2S %d\n", busType, pins[0], pins[1], pins[2], pins[3], len, _rmtChannelsUsed, _useParallelI2S);  ///!!! remvoe
     void* busPtr = nullptr;
     switch (busType) {
       case I_NONE: break;
@@ -1354,7 +1354,7 @@ class PolyBus {
       } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
         offset = 1; // I2S requested or RMT full
         _i2sChannelsAssigned++; // TODO: need to check if parallel I2S can even be used if this is a fallback
-        Serial.printf("Assigning I2S channel %d\n", _i2sChannelsAssigned);
+        Serial.printf("Assigning I2S channel %d\n", _i2sChannelsAssigned);  ///!!! remvoe
       } else {
         return I_NONE; // No channels available
       }
@@ -1389,15 +1389,15 @@ class PolyBus {
         case TYPE_SM16825:
           t = I_32_RN_SM16825_5 + offset; break;
       }
-      Serial.printf("requested type: %d, Assigned bus type %d (offset %d)\n",busType, t, offset);
+      Serial.printf("requested type: %d, Assigned bus type %d (offset %d)\n",busType, t, offset);  ///!!! remvoe
       // If using parallel I2S, set the type accordingly
       if (_i2sChannelsAssigned == 1 && offset == 1) { // first I2S channel request, lock the type
         _parallelBusItype = t;
-        Serial.printf("Locked parallel bus type to %d\n",_parallelBusItype);
+        Serial.printf("Locked parallel bus type to %d\n",_parallelBusItype);  ///!!! remvoe
       }
       else if (offset == 1) // not first I2S channel, use locked type
         t = _parallelBusItype;
-      Serial.printf("Final Assigned bus type %d\n",t);
+      Serial.printf("Final Assigned bus type %d\n",t);  ///!!! remvoe
       #endif
     }
     return t;

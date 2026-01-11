@@ -126,6 +126,7 @@ BusDigital::BusDigital(const BusConfig &bc)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
+
   if (!PinManager::allocatePin(bc.pins[0], true, PinOwner::BusDigital)) { DEBUGBUS_PRINTLN(F("Pin 0 allocated!")); return; }
   _frequencykHz = 0U;
   _colorSum = 0;
@@ -148,14 +149,17 @@ BusDigital::BusDigital(const BusConfig &bc)
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip);
-  Serial.printf("Creating bus type %d with %d leds (skip %d)\n", _iType, lenToCreate, _skip);
+  Serial.printf("Creating bus type %d with %d leds (skip %d)\n", _iType, lenToCreate, _skip); ///!!! remvoe
   _valid = (_busPtr != nullptr) && bc.count > 0;
-  Serial.printf("bus valid: %d, LED count %d\n", _valid, bc.count);
+  Serial.printf("bus valid: %d, LED count %d\n", _valid, bc.count); /// !!!remove
   // fix for wled#4759
   if (_valid) for (unsigned i = 0; i < _skip; i++) {
     PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
   }
-  DEBUGBUS_PRINTF_P(PSTR("Bus: %successful (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
+  else {
+    cleanup();
+  }
+  DEBUGBUS_PRINTF_P(PSTR("Bus: Successful (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
     _valid?"S":"Uns",
     (int)bc.count,
     (int)bc.type,
@@ -1155,8 +1159,8 @@ size_t BusManager::memUsage() {
 
 int BusManager::add(const BusConfig &bc) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
-  Serial.printf("Bus: Adding bus (p:%d v:%d)\n", getNumBusses(), getNumVirtualBusses());
-  Serial.printf("BusConfig type: %d, start: %d, count: %d\n", bc.type, bc.start, bc.count);
+  Serial.printf("Bus: Adding bus (p:%d v:%d)\n", getNumBusses(), getNumVirtualBusses());  ///!!! remvoe
+  Serial.printf("BusConfig type: %d, start: %d, count: %d\n", bc.type, bc.start, bc.count);  ///!!! remvoe
   unsigned digital = 0;
   unsigned analog  = 0;
   unsigned twoPin  = 0;
