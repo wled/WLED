@@ -1,5 +1,12 @@
 # WLED Usermod: 7‑Segment Countdown Overlay
 
+## Status & resources
+- 3D-print files (enclosures/mounts) and PCB design files will be published soon:
+  - 3D-print: MakerWorld
+  - PCB: GitHub, in this usermod’s folder
+- Active development happens in the WLED fork by DereIBims:
+  - https://github.com/DereIBims/WLED
+
 A usermod that renders a six‑digit, two‑separator seven‑segment display as an overlay mask on top of WLED’s normal effects/colors. Lit “segments” preserve the underlying pixel color; all other pixels are forced to black. This lets you show a clock or a countdown without losing the active effect.
 
 ## What it shows
@@ -32,22 +39,15 @@ A physical‑to‑logical segment map (`PHYS_TO_LOG`) allows arbitrary wiring or
 - During `applyMaskToStrip()`, pixels with mask 0 are cleared to black; mask 1 keeps the existing effect color.
 
 ## Build and enable
-This usermod is already placed under `usermods/usermod_7segment_countdown` and can be enabled via PlatformIO environments that specify it in `custom_usermods`.
+This usermod is located at `usermods/7_seg_clock_countdown` and can be enabled by adding the folder name to your PlatformIO environment’s `custom_usermods` setting.
 
-- Recommended environment: `env:esp32dev` (includes `custom_usermods = usermod_7segment_countdown`).
-- To include all usermods, you can use `env:usermods` (`custom_usermods = *`).
+- Example: `custom_usermods = 7_seg_clock_countdown`
+- To include all usermods, you can also use an environment that sets `custom_usermods = *`.
 
-Follow the project’s standard workflow:
-1) Build web UI first: `npm run build`
-2) Optional: run tests: `npm test`
-3) Build firmware: `pio run -e esp32dev`
-
-> Ensure the device time is correct (NTP/timezone) so clock/countdown displays accurately.
+> Ensure the device time is correct (NTP/timezone) so clock/countdown display accurately.
 
 ### Required core tweak for smooth hundredths
-To guarantee that the hundredths display updates every frame without visible lag, the static effect’s frame timing must not idle the render loop. Adjust the return value of `mode_static()` in [wled00/FX.cpp](wled00/FX.cpp) to always return `FRAMETIME`.
-
-This ensures the render loop runs continuously so the overlay’s hundredths (00–99) are refreshed in real time.
+To guarantee hundredths update every frame without lag, the static effect must not idle the render loop. In `wled00/FX.cpp`, adjust `mode_static()` to always return `FRAMETIME`. This keeps the render loop continuous so hundredths (00–99) refresh in real time.
 
 ## Runtime configuration
 All settings live under the `7seg` object in state/config JSON.
@@ -106,6 +106,46 @@ Turn the overlay off:
 { "7seg": { "enabled": false } }
 ```
 
+## Custom MQTT API
+Publish to your device topic with the `7seg` subpath. Topic format:
+- {deviceTopic}/7seg/{key}
+
+Accepted keys and payloads:
+- Boolean keys (payload: "true"/"1" or "false"/"0"):
+  - enabled
+  - showClock
+  - showCountdown
+  - SeperatorOn
+  - SeperatorOff
+- Numeric keys (payload: integer):
+  - targetYear (1970–2099)
+  - targetMonth (1–12)
+  - targetDay (1–31)
+  - targetHour (0–23)
+  - targetMinute (0–59)
+  - alternatingTime (seconds)
+
+Examples (mosquitto_pub):
+- Enable overlay:
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/enabled" -m "true"
+- Clock only, separators always on:
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/showClock" -m "true"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/showCountdown" -m "false"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/SeperatorOn" -m "true"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/SeperatorOff" -m "false"
+- Set countdown target to 2026‑01‑01 00:00:
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/targetYear" -m "2026"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/targetMonth" -m "1"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/targetDay" -m "1"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/targetHour" -m "0"
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/targetMinute" -m "0"
+- Alternate clock/countdown every 15s:
+  - mosquitto_pub -h <broker> -t "wled/mystrip/7seg/alternatingTime" -m "15"
+
+Notes:
+- Device topic is the WLED “Device Topic” you configured (e.g. wled/mystrip).
+- Payloads are simple strings; booleans accept "true"/"1" and "false"/"0".
+
 ## UI integration
 - The usermod adds a compact block to the “Info” screen:
   - A small toggle button to enable/disable the overlay
@@ -123,8 +163,8 @@ The usermod uses WLED’s `localTime`. Configure NTP and timezone in WLED so the
 - Separator half‑lighting is used to place an upper dot between minutes and seconds in the ≤99‑minute view.
 
 ## Files
-- `usermod_7segment_countdown.h` — constants, geometry, masks, helpers
-- `usermod_7segment_countdown.cpp` — rendering, JSON/config wiring, registration
+- `usermods/7_seg_clock_countdown/7_seg_clock_countdown.h` — constants, geometry, masks, helpers
+- `usermods/7_seg_clock_countdown/7_seg_clock_countdown.cpp` — rendering, JSON/config wiring, registration
 
 ## License
 This usermod follows the WLED project license (see repository `LICENSE`).
