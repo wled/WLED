@@ -451,30 +451,52 @@
 			let rmtUsed = 0, i2sUsed = 0; // track channel usage
 			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
 			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
+			let firstI2SType = null;
+			let maxLEDsOnI2SBus = 0;
+			let i2sBusesOver600 = 0;
+			
 			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
 				let n = s.name.substring(2,3);
 				let t = parseInt(s.value);
 				let drv = gId("drv"+n); // bus driver info (I2S/RMT)
 				let drvsel = gId("drvsel"+n); // driver selection dropdown
 				if (drv) drv.textContent = ""; // reset
-				if (drvsel) drvsel.style.display = "none"; // hide by default
+				if (drvsel) {
+					drvsel.style.display = "none"; // hide by default
+					drvsel.style.color = "#fff"; // reset color
+				}
 				s.style.color = "#fff"; // reset
+				
 				if (isDig(t) && !isD2P(t)) {
 					digitalBusIndex++;
-					// Count channel usage based on user's driver selection
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-					if (d.Sf.PR.checked && driverPref === 1 && i2sUsed < maxI2S) {
-						i2sUsed++;
-					} else if (rmtUsed < maxRMT) {
-						rmtUsed++;
-					} else if (d.Sf.PR.checked && i2sUsed < maxI2S) {
-						i2sUsed++;
+					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
+					
+					// Count actual channel usage based on user preference and availability
+					if (d.Sf.PR.checked && driverPref === 1) {
+						// User wants I2S
+						if (i2sUsed < maxI2S) {
+							i2sUsed++;
+							if (i2sUsed === 1) firstI2SType = t;
+							if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
+							if (ledCount > 600) i2sBusesOver600++;
+						} else {
+							// I2S full, falls back to RMT
+							if (rmtUsed < maxRMT) rmtUsed++;
+						}
+					} else {
+						// User wants RMT or defaulting to RMT
+						if (rmtUsed < maxRMT) {
+							rmtUsed++;
+						} else if (d.Sf.PR.checked && i2sUsed < maxI2S) {
+							// RMT full, falls back to I2S
+							i2sUsed++;
+							if (i2sUsed === 1) firstI2SType = t;
+							if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
+							if (ledCount > 600) i2sBusesOver600++;
+						}
 					}
-					// Mark buses that exceed the limit in red
-					if (digitalBusIndex > maxDigitalBusCount) {
-						s.style.color = "red";
-						invalidBusCount++;
-					}
+					
 					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
 					if (!is8266()) {
 						let useI2S = d.Sf.PR.checked;
@@ -487,6 +509,18 @@
 							if (!d.Sf["LD"+n].value) {
 								d.Sf["LD"+n].value = "0"; // default to RMT
 							}
+							
+							// Mark driver selection red if this I2S bus violates parallel I2S rules
+							if (driverPref === 1) {
+								// This bus uses I2S - check if it violates rules
+								if (i2sBusesOver600 > 0 && i2sUsed > 1) {
+									// Multiple I2S buses and at least one is >600 LEDs - invalid
+									drvsel.style.color = "red";
+								} else if (firstI2SType !== null && t !== firstI2SType) {
+									// I2S buses must all be same type
+									drvsel.style.color = "red";
+								}
+							}
 						} else if (drv) {
 							// Show info text when I2S is disabled
 							drv.textContent = " (RMT)";
@@ -495,8 +529,8 @@
 						// Lock PR checkbox if disabling would result in invalid config
 						if (useI2S) {
 							let rmtCount = is32() ? 8 : (isS2() || isS3()) ? 4 : 0;
-							if (maxLC <= 600) {
-								// Parallel I2S mode
+							if (maxLEDsOnI2SBus <= 600) {
+								// Parallel I2S mode would be used
 								if (digitalBusIndex > rmtCount) d.Sf.PR.disabled = true;
 							}
 						}
@@ -614,7 +648,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <div id="dig${s}l" style="display:none">Clock: <select name="SP${s}"><option value="0">Slowest</option><option value="1">Slow</option><option value="2">Normal</option><option value="3">Fast</option><option value="4">Fastest</option></select></div>
 <div>
 <span id="psd${s}">Start:</span> <input type="number" name="LS${s}" id="ls${s}" class="l starts" min="0" max="8191" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
-<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI()" /></div><br>
+<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="updateTypeDropdowns();UI()" /></div><br>
 </div>
 <span id="p0d${s}">GPIO:</span><input type="number" name="L0${s}" required class="s" onchange="UI();pinUpd(this);"/>
 <span id="p1d${s}"></span><input type="number" name="L1${s}" class="s" onchange="UI();pinUpd(this);"/>
@@ -623,7 +657,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="drv${s}" style="color:#999"></span>
 <div id="drvsel${s}" style="display:none">
-Driver: <select name="LD${s}" onchange="UI()">
+Driver: <select name="LD${s}" onchange="updateTypeDropdowns();UI()">
 <option value="0">RMT</option>
 <option value="1">I2S</option>
 </select>
@@ -955,42 +989,120 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
-		 	const i2sLocked = d.Sf.PR.disabled; // checkbox was locked because config needs I2S
-			let I2SdigitalType = null;
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
-			// count currently used buses
+			let rmtUsed = 0, i2sUsed = 0;
+			let firstI2SType = null; // Track the first I2S bus LED type
+			let maxLEDsOnI2SBus = 0; // Track max LEDs on any I2S bus
+			let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
+			let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : isS3() ? 8 : 0);
+			
+			// First pass: count buses and gather I2S constraints
 			LTs.forEach(sel => {
+				let n = sel.name.substring(2,3);
 				let t = parseInt(sel.value);
+				let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+				
 				if (isDig(t) && !isD2P(t)) { 
 					digitalB++;
-					if (i2sLocked && I2SdigitalType === null) I2SdigitalType = t; // use first digital type for I2S lock
+					// Track which buses use which driver
+					if (d.Sf.PR.checked && driverPref === 1) {
+						// User wants I2S
+						if (i2sUsed === 0) firstI2SType = t; // First I2S bus sets the type
+						i2sUsed++;
+						let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
+						if (ledCount > maxLEDsOnI2SBus) maxLEDsOnI2SBus = ledCount;
+					} else {
+						// Uses RMT (either preference or fallback)
+						rmtUsed++;
+					}
 				}
 				if (isPWM(t)) analogB += numPins(t);
 				if (isD2P(t)) twopinB++;
 				if (isVir(t)) virtB++;
 			});
-			// enable/disable type options according to limits in dropdowns
+			
+			// Determine if parallel I2S is allowed (all I2S buses ≤600 LEDs)
+			let parallelI2SOK = (maxLEDsOnI2SBus <= 600);
+			let rmtFull = (rmtUsed >= maxRMT);
+			let i2sFull = (i2sUsed >= maxI2S);
+			
+			// Second pass: update each dropdown with appropriate constraints
 			LTs.forEach(sel => {
+				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
+				const curDriver = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
-				// max digital buses when using RMT only: ESP32: 8, S2/S3: 4, C3: 2
-				// max digital buses when I2S enabled: ESP32: 16 (8 I2S + 8 RMT), S2: 12 (8 I2S + 4 RMT), S3: 12 (8 LCD + 4 RMT)
-				let maxDB = d.Sf["PR"].checked ? maxD : (isC3() ? 2 : (isS2() || isS3()) ? 4 : is32() ? 8 : maxD);
-				// disallow adding more of a type that has reached its limit but allow changing the current type
-				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
-				// If I2S is on and a single digital type is in use, hide other single-pin digital types
-				if (I2SdigitalType !== null) {
-					sel.querySelectorAll('option[data-type="D"]').forEach(o => {
-						if (parseInt(o.value) !== I2SdigitalType) o.disabled = true;
-					});
+				
+				// Update LED type constraints for digital buses
+				if (isDig(curType) && !isD2P(curType)) {
+					// If this bus uses I2S and other I2S buses exist, restrict to same type
+					if (d.Sf.PR.checked && curDriver === 1 && firstI2SType !== null) {
+						sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+							if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+						});
+					}
+				} else {
+					// For non-digital current types, check if we can add digital buses
+					let canAddRMT = (rmtUsed < maxRMT || (isDig(curType) && !isD2P(curType) && curDriver === 0));
+					let canAddI2S = (d.Sf.PR.checked && i2sUsed < maxI2S) || (isDig(curType) && !isD2P(curType) && curDriver === 1);
+					
+					// If both RMT and I2S are full, disable all digital types
+					if (!canAddRMT && !canAddI2S) {
+						disable('option[data-type="D"]');
+					}
 				}
+				
+				// 2-pin digital buses limited to 2
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
-				// Disable PWM types that need more pins than available (accounting for current type's pins if PWM)
+				
+				// PWM analog types limited by pin count
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
 			});
+			
+			// Third pass: update driver selection dropdowns
+			if (d.Sf.PR.checked) {
+				LTs.forEach(sel => {
+					let n = sel.name.substring(2,3);
+					let t = parseInt(sel.value);
+					let drvsel = gId("drvsel"+n);
+					
+					if (drvsel && isDig(t) && !isD2P(t)) {
+						let rmtOpt = drvsel.querySelector('option[value="0"]');
+						let i2sOpt = drvsel.querySelector('option[value="1"]');
+						let curDriver = parseInt(d.Sf["LD"+n].value || 0);
+						
+						// Enable both options by default
+						if (rmtOpt) rmtOpt.disabled = false;
+						if (i2sOpt) i2sOpt.disabled = false;
+						
+						// Disable RMT if full (unless this bus already uses RMT)
+						if (rmtFull && curDriver !== 0) {
+							if (rmtOpt) rmtOpt.disabled = true;
+						}
+						
+						// Disable I2S if full (unless this bus already uses I2S)
+						if (i2sFull && curDriver !== 1) {
+							if (i2sOpt) i2sOpt.disabled = true;
+						}
+						
+						// For I2S buses >600 LEDs or when mixing with other I2S buses, validate
+						let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
+						if (curDriver === 1 && !parallelI2SOK && ledCount > 600) {
+							// This I2S bus has >600 LEDs - mark as invalid if other I2S buses exist
+							if (i2sUsed > 1) {
+								drvsel.style.color = "red";
+							} else {
+								drvsel.style.color = "#fff";
+							}
+						} else {
+							drvsel.style.color = "#fff";
+						}
+					}
+				});
+			}
 		}
 	</script>
 </head>
