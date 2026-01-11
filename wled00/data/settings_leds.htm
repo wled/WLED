@@ -663,11 +663,38 @@ Driver: <select name="LD${s}" onchange="updateTypeDropdowns();UI()">
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
+				// Check channel availability before selecting default type
+				let usage = calculateChannelUsage();
+				let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : isC3() ? 2 : 0);
+				let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : 0);
+				let rmtFull = (usage.rmtUsed >= maxRMT);
+				let i2sFull = (usage.i2sUsed >= maxI2S);
+				
+				// Set driver preference based on channel availability
+				let drvSelect = d.Sf["LD"+s];
+				if (drvSelect) {
+					if (rmtFull && !i2sFull && d.Sf.PR.checked) {
+						// RMT is full but I2S available - default to I2S
+						drvSelect.value = "1";
+					} else {
+						// Default to RMT (backward compatible)
+						drvSelect.value = "0";
+					}
+				}
+				
 				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
 				let sel = d.getElementsByName("LT"+s)[0];
 				sel.value = sel.querySelector('option[data-type="N"]').value;
 				updateTypeDropdowns(); // update valid bus options including this new one
-				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
+				
+				// Select first non-disabled option
+				let firstEnabled = sel.querySelector('option:not(:disabled)');
+				if (firstEnabled) {
+					sel.value = firstEnabled.value;
+				} else {
+					// All digital types disabled - keep as network type
+					sel.value = sel.querySelector('option[data-type="N"]').value;
+				}
 				updateTypeDropdowns(); // update again for the newly selected type
 			}
 			if (n==-1) {
