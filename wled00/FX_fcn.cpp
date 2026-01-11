@@ -1163,30 +1163,53 @@ void WS2812FX::finalizeInit() {
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // Determine if I2S/LCD should be used and whether parallel mode is possible
-  unsigned maxLedsOnBus = 0;
-  unsigned busType = 0;
-  bool mixedBusTypes = false;
+  // Count I2S buses and check if they meet requirements
+  unsigned i2sBusCount = 0;
+  unsigned firstI2SBusType = 0;
+  unsigned maxI2SLedsOnBus = 0;
+  bool mixedI2SBusTypes = false;
+  
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
-      if (busType == 0) busType = bus.type; // remember first bus type
-      if (busType != bus.type) {
-        mixedBusTypes = true;
+      // Check if this bus will use I2S driver (driverType == 1)
+      if (bus.driverType == 1) {
+        i2sBusCount++;
+        if (firstI2SBusType == 0) firstI2SBusType = bus.type; // remember first I2S bus type
+        if (firstI2SBusType != bus.type) {
+          mixedI2SBusTypes = true;
+        }
+        if (bus.count > maxI2SLedsOnBus) maxI2SLedsOnBus = bus.count;
       }
-      if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
-  DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
+  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u, Max LEDs on I2S bus: %u\n"), digitalCount, i2sBusCount, maxI2SLedsOnBus);
   
   // Determine parallel vs single I2S usage
   bool useParallelI2S = false;
-  if (useI2S) {
-    // Parallel I2S only possible if: no mixed bus types, LEDs per bus <= 600, and enabled by user
-    if (!mixedBusTypes && maxLedsOnBus <= 600) {
+  if (useI2S && i2sBusCount > 0) {
+    // Parallel I2S requirements:
+    // - All I2S buses must be same LED type
+    // - If multiple I2S buses OR ESP32-S3: all I2S buses must have ≤600 LEDs
+    // - Single I2S bus has no LED count restriction
+    bool ledCountValid = true;
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    // S3: all I2S buses (LCD driver) must have ≤600 LEDs
+    if (maxI2SLedsOnBus > 600) ledCountValid = false;
+    #else
+    // ESP32/S2: only restrict if multiple I2S buses
+    if (i2sBusCount > 1 && maxI2SLedsOnBus > 600) ledCountValid = false;
+    #endif
+    
+    if (!mixedI2SBusTypes && ledCountValid) {
       useParallelI2S = true;
       DEBUG_PRINTF_P(PSTR("Using parallel I2S/LCD output.\n"));
     } else {
-      DEBUG_PRINTF_P(PSTR("Using single I2S output (mixed types or >600 LEDs/bus).\n"));
+      if (mixedI2SBusTypes) {
+        DEBUG_PRINTF_P(PSTR("Using single I2S output (mixed I2S bus types).\n"));
+      } else {
+        DEBUG_PRINTF_P(PSTR("Using single I2S output (I2S bus >600 LEDs).\n"));
+      }
     }
   }
   
