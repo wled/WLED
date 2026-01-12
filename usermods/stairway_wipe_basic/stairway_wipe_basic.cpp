@@ -25,11 +25,51 @@ class StairwayWipeUsermod : public Usermod {
   public:
 void setup() {
     }
-    void loop() {
+    /**
+ * @brief Drives the stairway wipe state machine and reacts to user variables.
+ *
+ * @details
+ * Reads userVar0 (U0) and userVar1 (U1) to control a directional stairway color wipe:
+ * - U0 = 0: off.
+ * - U0 = 1: start/keep wipe from local side.
+ * - U0 = 2: start/keep wipe from opposite side.
+ * - U0 = 3: toggle mode for direction 1 (becomes 1 when off, 0 when on).
+ * - U0 = 4: toggle mode for direction 2 (becomes 2 when off, 0 when on).
+ *
+ * Manages a small state machine:
+ * - State 0: idle, will start a wipe.
+ * - State 1: wiping; transitions to static when wipe completes.
+ * - State 2: static/hold; transitions to off after U1 seconds if U1 > 0.
+ * - State 3: prepare to wipe off (or immediately off if off-wipe is disabled).
+ * - State 4: wiping off; turns fully off when wipe-off completes.
+ *
+ * The wipe duration and wipe-off timing are derived from the current effectSpeed. A change
+ * in trigger side (previousUserVar0 differing from userVar0) forces the usermod to begin
+ * turning off. When turning on/off the code invokes startWipe() or turnOff() and issues
+ * color/state update notifications as appropriate.
+ *
+ * @note Defining STAIRCASE_WIPE_OFF enables a reverse color-wipe transition when turning off;
+ * without it the lights fade off immediately.
+ */
+void loop() {
   //userVar0 (U0 in HTTP API):
   //has to be set to 1 if movement is detected on the PIR that is the same side of the staircase as the ESP8266
   //has to be set to 2 if movement is detected on the PIR that is the opposite side
   //can be set to 0 if no movement is detected. Otherwise LEDs will turn off after a configurable timeout (userVar1 seconds)
+  //U0 = 3: Toggle mode for direction 1 (if off, turn on with U0=1; if on, turn off with U0=0)
+  //U0 = 4: Toggle mode for direction 2 (if off, turn on with U0=2; if on, turn off with U0=0)
+
+  // Handle toggle modes U0=3 and U0=4
+  if (userVar0 == 3 || userVar0 == 4) {
+    if (wipeState == 0 || wipeState == 3 || wipeState == 4) {
+      // Lights are off or turning off, so turn them on
+      wipeState = 0; // Reset state so the state machine starts fresh
+      userVar0 = (userVar0 == 3) ? 1 : 2;
+    } else {
+      // Lights are on or turning on, so turn them off
+      userVar0 = 0;
+    }
+  }
 
   if (userVar0 > 0)
   {
