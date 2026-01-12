@@ -49,6 +49,7 @@
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
 				pinDropdowns();
+				fixLegacyDriverConfig(); // Handle legacy configs without driver selection
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
@@ -814,6 +815,67 @@ Swap: <select id="xw${s}" name="XW${s}">
 			gId("si").checked = cs;
 			tglSi(cs);
 		}
+		function fixLegacyDriverConfig() { //on load, handle legacy configs without driver type (LD) field
+			// Check if this is a legacy config by seeing if all LD fields are unset or all RMT
+			if (!is32() && !isS2() && !isS3()) return; // Only applies to ESP32 variants
+			
+			let drvSelects = d.Sf.querySelectorAll("select[name^=LD]");
+			if (drvSelects.length === 0) return; // No driver selects found
+			
+			// Check if any LD field has a non-default value (indicating it was set by backend)
+			let hasDriverConfig = false;
+			let allRMT = true;
+			let digitalBusCount = 0;
+			
+			drvSelects.forEach((sel) => {
+				let n = sel.name.substring(2, 3);
+				let t = parseInt(d.Sf["LT"+n].value);
+				
+				// Only check digital single-pin buses
+				if (isDig(t) && !isD2P(t)) {
+					digitalBusCount++;
+					if (sel.value && sel.value !== "" && sel.value !== "0") {
+						hasDriverConfig = true;
+						allRMT = false;
+					}
+				}
+			});
+			
+			// If all drivers are RMT and we have digital buses, this might be a legacy config
+			// Apply intelligent driver assignment: fill RMT first, then fallback to I2S
+			if (allRMT && digitalBusCount > 0) {
+				let maxRMT = (is32() ? 8 : (isS2() || isS3()) ? 4 : 0);
+				let maxI2S = (is32() ? 8 : (isS2() || isS3()) ? 8 : 0);
+				let rmtAssigned = 0;
+				let i2sAssigned = 0;
+				
+				// First pass: assign drivers intelligently
+				drvSelects.forEach((sel) => {
+					let n = sel.name.substring(2, 3);
+					let t = parseInt(d.Sf["LT"+n].value);
+					
+					// Only process digital single-pin buses
+					if (isDig(t) && !isD2P(t)) {
+						if (rmtAssigned < maxRMT) {
+							// RMT channel available - use it
+							sel.value = "0";
+							rmtAssigned++;
+						} else if (i2sAssigned < maxI2S) {
+							// RMT full, but I2S available - use I2S
+							sel.value = "1";
+							i2sAssigned++;
+						} else {
+							// Both full - leave as RMT (will show validation error)
+							sel.value = "0";
+						}
+					}
+				});
+				
+				// Update UI to reflect the changes
+				updateTypeDropdowns();
+				UI();
+			}
+		}
 		// https://stackoverflow.com/questions/7346563/loading-local-json-file
 		function loadCfg(o) {
 			var f, fr;
@@ -858,6 +920,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("SP"+i)[0].value   = v.freq;
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
+							// Handle driver type (LD field) - load from JSON if present
+							if (v.drv !== undefined && d.getElementsByName("LD"+i)[0]) {
+								d.getElementsByName("LD"+i)[0].value = v.drv;
+							}
 						});
 						d.getElementsByName("PR")[0].checked  = l.prl | 0;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
@@ -892,6 +958,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					if (li) {
 						d.getElementsByName("MS")[0].checked  = li.aseg;
 					}
+					fixLegacyDriverConfig(); // Handle legacy configs without driver selection
 					UI();
 				}
 			}
