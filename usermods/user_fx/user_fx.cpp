@@ -2,11 +2,15 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
+// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+
 // static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
+
 
 /////////////////////////
 //  User FX functions  //
@@ -89,6 +93,245 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
 
+/*
+/  Lava Lamp 2D effect
+*  Uses particles to simulate rising blobs of "lava"
+*  Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
+*  Created by Bob Loeffler using claude.ai
+*  The first slider sets the speed of the rising and falling blobs
+*  The second slider sets the number of active blobs
+*  The third slider sets the size range of the blobs
+*  The first checkbox sets the color mode (color wheel or palette)
+*  The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*  aux0 keeps track of the blob size changes
+*/
+
+typedef struct LavaParticle {
+  float x, y;           // Position
+  float vx, vy;         // Velocity
+  float size;           // Blob size
+  uint8_t hue;          // Color
+  uint8_t life;         // Lifetime/opacity
+  bool active;          // will not be displayed if false
+} LavaParticle;
+
+static uint16_t mode_2D_lavalamp(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
+  
+  const uint16_t cols = SEGMENT.virtualWidth();
+  const uint16_t rows = SEGMENT.virtualHeight();
+  
+  // Allocate per-segment storage
+  constexpr size_t MAX_LAVA_PARTICLES = 35;  // increasing this value could cause slowness for large matrices
+  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) return mode_static();
+  LavaParticle* lavaParticles = reinterpret_cast<LavaParticle*>(SEGENV.data);
+
+  // Initialize particles on first call
+  if (SEGENV.call == 0) {
+    for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
+      lavaParticles[i].active = false;
+    }
+  }
+  
+  // Speed control (slower = more lava lamp like)
+  uint8_t speed = SEGMENT.speed >> 3; // 0-31 range
+  if (speed < 1) speed = 1;
+  
+  // Intensity controls number of active particles
+  uint8_t numParticles = (SEGMENT.intensity >> 3) + 3; // 3-34 particles (fewer blobs)
+  if (numParticles > MAX_LAVA_PARTICLES) numParticles = MAX_LAVA_PARTICLES;
+  
+  // Track size slider changes
+  uint8_t lastSizeControl = SEGENV.aux0;
+  uint8_t currentSizeControl = SEGMENT.custom1;
+  bool sizeChanged = (currentSizeControl != lastSizeControl);
+
+  if (sizeChanged) {
+    // Recalculate size range based on new slider value
+    float minSize = cols * 0.15f;
+    float maxSize = cols * 0.4f;
+    float newRange = (maxSize - minSize) * (currentSizeControl / 255.0f);
+    
+    for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
+      if (lavaParticles[i].active) {
+        // Assign new random size within the new range
+        int rangeInt = max(1, (int)(newRange));
+        lavaParticles[i].size = minSize + (float)random16(rangeInt);
+        // Ensure minimum size
+        if (lavaParticles[i].size < minSize) lavaParticles[i].size = minSize;
+      }
+    }
+    SEGENV.aux0 = currentSizeControl;
+  }
+
+  // Spawn new particles at the bottom near the center
+  for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
+    if (!lavaParticles[i].active && hw_random8() < 32) { // sporadically spawn when slot available
+      // Spawn in the middle 60% of the width
+      float centerStart = cols * 0.20f;
+      float centerWidth = cols * 0.60f;
+      int cwInt = max(1, (int)(centerWidth));
+      lavaParticles[i].x = centerStart + (float)random16(cwInt);
+      lavaParticles[i].y = rows - 1;
+      lavaParticles[i].vx = (random16(7) - 3) / 250.0f;
+      
+      // Speed slider controls vertical velocity (faster = more speed)
+      float speedFactor = (SEGMENT.speed + 30) / 100.0f; // 0.3 to 2.85 range
+      lavaParticles[i].vy = -(random16(20) + 10) / 100.0f * speedFactor;
+      
+      // Custom1 slider controls blob size (based on matrix width)
+      uint8_t sizeControl = SEGMENT.custom1; // 0-255
+      float minSize = cols * 0.15f; // Minimum 15% of width
+      float maxSize = cols * 0.4f;  // Maximum 40% of width
+      float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
+      int rangeInt = max(1, (int)(sizeRange));
+      lavaParticles[i].size = minSize + (float)random16(rangeInt);
+
+      lavaParticles[i].hue = hw_random8();
+      lavaParticles[i].life = 255;
+      lavaParticles[i].active = true;
+      break;
+    }
+  }
+
+  // Fade background slightly for trailing effect
+  SEGMENT.fadeToBlackBy(40);
+  
+  // Update and draw particles
+  int activeCount = 0;
+  unsigned long currentMillis = strip.now;
+  for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
+    if (!lavaParticles[i].active) continue;
+    activeCount++;
+
+    // Keep particle count on target by deactivating excess particles
+    if (activeCount > numParticles) {
+      lavaParticles[i].active = false;
+      activeCount--;
+      continue;
+    }
+
+    LavaParticle *p = &lavaParticles[i];
+    
+    // Physics update
+    p->x += p->vx;
+    p->y += p->vy;
+    
+    // Optional blob attraction (enabled with check2)
+    if (SEGMENT.check2) {
+      for (int j = 0; j < MAX_LAVA_PARTICLES; j++) {
+        if (i == j || !lavaParticles[j].active) continue;
+        
+        LavaParticle *other = &lavaParticles[j];
+        
+        // Skip attraction if moving in same vertical direction (both up or both down)
+        if ((p->vy < 0 && other->vy < 0) || (p->vy > 0 && other->vy > 0)) continue;
+        
+        float dx = other->x - p->x;
+        float dy = other->y - p->y;
+
+        // Apply weak horizontal attraction only
+        float attractRange = p->size + other->size;
+        float distSq = dx*dx + dy*dy;
+        float attractRangeSq = attractRange * attractRange;
+        if (distSq > 0 && distSq < attractRangeSq) {
+          float dist = sqrt(distSq); // Only compute sqrt when needed
+          float force = (1.0f - (dist / attractRange)) * 0.0001f;
+          p->vx += (dx / dist) * force;
+        }
+      }
+    }
+
+    // Horizontal oscillation (makes it more organic)
+    p->vx += sin((currentMillis / 1000.0f + i) * 0.5f) * 0.002f; // Reduced oscillation
+    p->vx *= 0.92f; // Stronger damping for less drift
+    
+    // Bounce off sides (don't affect vertical velocity)
+    if (p->x <= 0) {
+      p->x = 1;
+      p->vx = abs(p->vx); // Just reverse horizontal, don't reduce
+    }
+    if (p->x >= cols) {
+      p->x = cols - 1;
+      p->vx = -abs(p->vx); // Just reverse horizontal, don't reduce
+    }
+    
+    // Boundary handling with proper reversal
+    // When reaching TOP (y=0 area), reverse to fall back down
+    if (p->y <= 0.5f * p->size) {
+      p->y = 0.5f * p->size;
+      if (p->vy < 0) {
+        p->vy = -p->vy * 0.5f; // Reverse to positive (fall down) at HALF speed
+        // Ensure minimum downward velocity
+        if (p->vy < 0.06f) p->vy = 0.06f;
+      }
+    }
+
+    // When reaching BOTTOM (y=rows-1 area), reverse to rise back up
+    if (p->y >= rows - 0.5f * p->size) {
+      p->y = rows - 0.5f * p->size;
+      if (p->vy > 0) {
+        p->vy = -p->vy; // Reverse to negative (rise up)
+        // Add random speed boost when rising
+        p->vy -= random16(15) / 100.0f; // Subtract to make MORE negative (faster up)
+        // Ensure minimum upward velocity
+        if (p->vy > -0.10f) p->vy = -0.10f;
+      }
+    }
+
+    // Keep blobs alive forever (no fading) - maybe change in the future?
+    p->life = 255;
+    
+    // Get color
+    uint32_t color;
+    if (SEGMENT.check1) {
+      color = SEGMENT.color_wheel(p->hue);  // Random colors mode
+    } else {
+      color = SEGMENT.color_from_palette(p->hue, true, PALETTE_SOLID_WRAP, 0);   // Palette mode
+    }
+    
+    // Extract RGB and apply life/opacity
+    uint8_t w = (W(color) * p->life) >> 8;
+    uint8_t r = (R(color) * p->life) >> 8;
+    uint8_t g = (G(color) * p->life) >> 8;
+    uint8_t b = (B(color) * p->life) >> 8;
+
+    // Draw blob with soft edges (gaussian-like falloff)
+    float sizeSq = p->size * p->size;
+    for (int dy = -(int)p->size; dy <= (int)p->size; dy++) {
+      for (int dx = -(int)p->size; dx <= (int)p->size; dx++) {
+        int px = (int)(p->x + dx);
+        int py = (int)(p->y + dy);
+        
+        if (px >= 0 && px < cols && py >= 0 && py < rows) {
+          float distSq = dx*dx + dy*dy;
+          if (distSq < sizeSq) {
+            // Soft falloff using squared distance (faster)
+            float intensity = 1.0f - (distSq / sizeSq);
+            intensity = intensity * intensity; // Square for smoother falloff
+            
+            uint8_t bw = w * intensity;
+            uint8_t br = r * intensity;
+            uint8_t bg = g * intensity;
+            uint8_t bb = b * intensity;
+
+            // Additive blending for organic merging
+            uint32_t existing = SEGMENT.getPixelColorXY(px, py);
+            uint32_t newColor = RGBW32(br, bg, bb, bw);
+            uint32_t blended = color_add(existing, newColor);
+            SEGMENT.setPixelColorXY(px, py, blended);
+          }
+        }
+      }
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;ix=64,o2=1,pal=47";
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -98,6 +341,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_2D_lavalamp, _data_FX_MODE_2D_LAVALAMP);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
