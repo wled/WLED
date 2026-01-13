@@ -305,7 +305,7 @@
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
 				if (change) { // did we change LED type?
-					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
+					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31 || t == 35); // LEDs require data in off state (mandatory for TM1814/TM1815)
 					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
 					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
 					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
