@@ -651,7 +651,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == SUBPAGE_UM)
   {
-    if (!requestJSONBufferLock(5)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SETTINGS)) {
       request->deferResponse();
       return;
     }
