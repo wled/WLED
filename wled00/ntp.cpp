@@ -43,6 +43,8 @@ static const char _pkt[]    PROGMEM = "PKT (Pakistan)";
 static const char _brt[]    PROGMEM = "BRT (Brasília)";
 static const char _awst[]   PROGMEM = "AWST (Perth)";
 
+// WARNING: Changing the order of entries in this table will change the meaning of stored timezone indices in settings!
+// Add new timezones only at the end of the list to preserve compatibility!
 static const std::tuple<const char*, const TimeChangeRule, const TimeChangeRule> TZ_TABLE[] PROGMEM = {
   {
     _utc,
@@ -179,7 +181,7 @@ void updateTimezone() {
   if (tz_table_entry >= countof(TZ_TABLE)) {
     tz_table_entry = 0;
   }
-  tzCurrent = currentTimezone;
+  tzCurrent = currentTimezone = tz_table_entry;
   memcpy_P(&tcrDaylight, &std::get<1>(TZ_TABLE[tz_table_entry]), sizeof(tcrDaylight));
   memcpy_P(&tcrStandard, &std::get<2>(TZ_TABLE[tz_table_entry]), sizeof(tcrStandard));
 
