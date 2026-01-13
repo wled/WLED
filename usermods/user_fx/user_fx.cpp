@@ -2,11 +2,17 @@
 
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
+// paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
+#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+
+#define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
+
 // static effect, used if an effect fails to initialize
 static uint16_t mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
+
 
 /////////////////////////
 //  User FX functions  //
@@ -89,6 +95,189 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
 
+/*
+ * Spinning Wheel effect - LED animates around 1D strip (or each column in a 2D matrix), slows down and stops at random position
+ *  Created by Bob Loeffler and claude.ai
+ *  First slider (Spin speed) is for the speed of the moving/spinning LED (random number within a narrow speed range)
+ *  Second slider (Spin time) is for how long before the slowdown phase starts (random number within a narrow time range)
+ *  Third slider (Spin delay) is for how long it takes for the LED to start spinning again after the previous spin
+ *  The first checkbox sets the color mode (color wheel or palette)
+ *  The second checkbox sets the spin speed to a random number (within the full speed range)
+ *  The third checkbox sets the spin time to a random number (within the full time range)
+ *  aux0 stores the settings checksum to detect changes
+ *  aux1 stores the color scale for performance
+ */
+
+uint16_t mode_spinning_wheel(void) {
+  if (SEGLEN < 1) return mode_static();
+  
+  unsigned strips = SEGMENT.nrOfVStrips();
+  const unsigned stateVarsPerStrip = 8;
+  unsigned dataSize = sizeof(uint32_t) * stateVarsPerStrip;
+  if (!SEGENV.allocateData(dataSize * strips)) return mode_static();
+  uint32_t* state = reinterpret_cast<uint32_t*>(SEGENV.data);
+  // state[0] = current position (fixed point: upper 16 bits = position, lower 16 bits = fraction)
+  // state[1] = velocity (fixed point: pixels per frame * 65536)
+  // state[2] = phase (0=fast spin, 1=slowing, 2=wobble, 3=stopped)
+  // state[3] = stop time (when phase 3 was entered)
+  // state[4] = wobble step (0=at stop pos, 1=moved back, 2=returned to stop)
+  // state[5] = slowdown start time (when to transition from phase 0 to phase 1)
+  // state[6] = wobble timing (for 200ms / 400ms / 300ms delays)
+  // state[7] = store the stop position per strip
+
+  // state[] index values for easier readability
+  constexpr unsigned CUR_POS_IDX       = 0;
+  constexpr unsigned VELOCITY_IDX      = 1;
+  constexpr unsigned PHASE_IDX         = 2;
+  constexpr unsigned STOP_TIME_IDX     = 3;
+  constexpr unsigned WOBBLE_STEP_IDX   = 4;
+  constexpr unsigned SLOWDOWN_TIME_IDX = 5;
+  constexpr unsigned WOBBLE_TIME_IDX   = 6;
+  constexpr unsigned STOP_POS_IDX      = 7;
+
+  SEGMENT.fill(SEGCOLOR(1));
+
+  // Handle random seeding globally (outside the virtual strip)
+  if (SEGENV.call == 0) {
+    random16_set_seed(analogRead(0));
+    SEGENV.aux1 = (255 << 16) / SEGLEN; // Cache the color scaling
+  }
+
+  // Check if settings changed (do this once, not per virtual strip)
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom3 + SEGMENT.check2 + SEGMENT.check3;
+  bool settingsChanged = (SEGENV.aux0 != settingssum);
+  if (settingsChanged) {
+    random16_add_entropy(analogRead(0));
+    SEGENV.aux0 = settingssum;
+  }
+
+  struct virtualStrip {
+    
+    static void runStrip(uint16_t stripNr, uint32_t* state, bool settingsChanged) {
+
+      uint8_t phase = state[PHASE_IDX];
+      uint32_t now = strip.now;
+
+      // Check for restart conditions
+      bool needsReset = false;
+      if (SEGENV.call == 0) {
+        needsReset = true;
+      } else if (settingsChanged) {
+        needsReset = true;
+      } else if (phase == 3 && state[STOP_TIME_IDX] != 0) {
+          uint16_t spin_delay = map(SEGMENT.custom3, 0, 31, 2000, 15000);  // delay between spins
+          if (now >= state[STOP_TIME_IDX] + spin_delay)
+            needsReset = true;
+      }
+
+      // Initialize or restart
+      if (needsReset) {
+        state[CUR_POS_IDX] = 0;
+        
+        // Set velocity
+        if (SEGMENT.check2) {  // random speed
+          state[VELOCITY_IDX] = random16(200, 900) * 655;
+        } else {
+          uint16_t speed = map(SEGMENT.speed, 0, 255, 300, 800);
+          state[VELOCITY_IDX] = random16(speed - 100, speed + 100) * 655;
+        }
+        
+        // Set slowdown start time
+        if (SEGMENT.check3) {  // random slowdown
+          state[SLOWDOWN_TIME_IDX] = now + random16(2000, 6000);
+        } else {
+          uint16_t slowdown = map(SEGMENT.intensity, 0, 255, 3000, 5000);
+          state[SLOWDOWN_TIME_IDX] = now + random16(slowdown - 1000, slowdown + 1000);
+        }
+        
+        state[PHASE_IDX] = 0;
+        state[STOP_TIME_IDX] = 0;
+        state[WOBBLE_STEP_IDX] = 0;
+        state[WOBBLE_TIME_IDX] = 0;
+        state[STOP_POS_IDX] = 0; // Initialize stop position
+        phase = 0;
+      }
+      
+      uint32_t pos_fixed = state[CUR_POS_IDX];
+      uint32_t velocity = state[VELOCITY_IDX];
+      
+      // Phase management
+      if (phase == 0) {
+        // Fast spinning phase
+        if (now >= state[SLOWDOWN_TIME_IDX]) {
+          phase = 1;
+          state[PHASE_IDX] = 1;
+        }
+      } else if (phase == 1) {
+        // Slowing phase - apply deceleration
+        uint32_t decel = velocity / 80;
+        if (decel < 100) decel = 100;
+        
+        velocity = (velocity > decel) ? velocity - decel : 0;
+        state[VELOCITY_IDX] = velocity;
+        
+        // Check if stopped
+        if (velocity < 2000) {
+          velocity = 0;
+          state[VELOCITY_IDX] = 0;
+          phase = 2;
+          state[PHASE_IDX] = 2;
+          state[WOBBLE_STEP_IDX] = 0;
+          uint16_t stop_pos = (pos_fixed >> 16) % SEGLEN;
+          state[STOP_POS_IDX] = stop_pos;
+          state[WOBBLE_TIME_IDX] = now;
+        }
+      } else if (phase == 2) {
+        // Wobble phase (moves the LED back one and then forward one)
+        uint32_t wobble_step = state[WOBBLE_STEP_IDX];
+        uint16_t stop_pos = state[STOP_POS_IDX];
+        uint32_t elapsed = now - state[WOBBLE_TIME_IDX];
+        
+        if (wobble_step == 0 && elapsed >= 200) {
+          // Move back one LED from stop position
+          uint16_t back_pos = (stop_pos == 0) ? SEGLEN - 1 : stop_pos - 1;
+          pos_fixed = ((uint32_t)back_pos) << 16;
+          state[CUR_POS_IDX] = pos_fixed;
+          state[WOBBLE_STEP_IDX] = 1;
+          state[WOBBLE_TIME_IDX] = now;
+        } else if (wobble_step == 1 && elapsed >= 400) {
+          // Move forward to the stop position
+          pos_fixed = ((uint32_t)stop_pos) << 16;
+          state[CUR_POS_IDX] = pos_fixed;
+          state[WOBBLE_STEP_IDX] = 2;
+          state[WOBBLE_TIME_IDX] = now;
+        } else if (wobble_step == 2 && elapsed >= 300) {
+          // Wobble complete, enter stopped phase
+          phase = 3;
+          state[PHASE_IDX] = 3;
+          state[STOP_TIME_IDX] = now;
+        }
+      }
+      
+      // Update position (phases 0 and 1 only)
+      if (phase == 0 || phase == 1) {
+        pos_fixed += velocity;
+        state[CUR_POS_IDX] = pos_fixed;
+      }
+      
+      // Draw LED for all phases using indexToVStrip
+      uint16_t pos = (pos_fixed >> 16) % SEGLEN;
+      uint8_t hue = (SEGENV.aux1 * pos) >> 16; // Use cached color scaling
+      uint32_t color = SEGMENT.check1 ? SEGMENT.color_wheel(hue) : SEGMENT.color_from_palette(hue, true, PALETTE_SOLID_WRAP, 0);
+      SEGMENT.setPixelColor(indexToVStrip(pos, stripNr), color);
+    }
+  };
+
+  for (unsigned stripNr=0; stripNr<strips; stripNr++) {
+    virtualStrip::runStrip(stripNr, &state[stripNr * stateVarsPerStrip], settingsChanged);
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Spin speed,Spin time,,,Spin delay,Color mode,Random speed,Random time;!,!;!;;m12=1,c3=8";
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -98,6 +287,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_spinning_wheel, _data_FX_MODE_SPINNINGWHEEL);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
