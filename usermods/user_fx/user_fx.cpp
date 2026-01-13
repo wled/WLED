@@ -140,7 +140,7 @@ static uint16_t mode_spinning_wheel(void) {
   // Handle random seeding globally (outside the virtual strip)
   if (SEGENV.call == 0) {
     random16_set_seed(analogRead(0));
-    SEGENV.aux1 = (255 << 16) / SEGLEN; // Cache the color scaling
+    SEGENV.aux1 = (255 << 8) / SEGLEN; // Cache the color scaling
   }
 
   // Check if settings changed (do this once, not per virtual strip)
@@ -176,7 +176,7 @@ static uint16_t mode_spinning_wheel(void) {
         
         // Set velocity
         if (SEGMENT.check2) {  // random speed
-          state[VELOCITY_IDX] = random16(200, 900) * 655;
+          state[VELOCITY_IDX] = random16(200, 900) * 655;   // fixed-point velocity scaling (approx. 65536/100) 
         } else {
           uint16_t speed = map(SEGMENT.speed, 0, 255, 300, 800);
           state[VELOCITY_IDX] = random16(speed - 100, speed + 100) * 655;
@@ -262,7 +262,7 @@ static uint16_t mode_spinning_wheel(void) {
       
       // Draw LED for all phases using indexToVStrip
       uint16_t pos = (pos_fixed >> 16) % SEGLEN;
-      uint8_t hue = (SEGENV.aux1 * pos) >> 16; // Use cached color scaling
+      uint8_t hue = (SEGENV.aux1 * pos) >> 8; // Use cached color scaling
       uint32_t color = SEGMENT.check1 ? SEGMENT.color_wheel(hue) : SEGMENT.color_from_palette(hue, true, PALETTE_SOLID_WRAP, 0);
       SEGMENT.setPixelColor(indexToVStrip(pos, stripNr), color);
     }
