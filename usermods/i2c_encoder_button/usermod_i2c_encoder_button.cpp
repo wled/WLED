@@ -9,12 +9,12 @@
 #ifndef I2C_ENCODER_DEFAULT_INT_PIN
 #define I2C_ENCODER_DEFAULT_INT_PIN 1
 #endif
-#ifndef I2C_ENCODER_DEFAULT_SDA_PIN
-#define I2C_ENCODER_DEFAULT_SDA_PIN 0
-#endif
-#ifndef I2C_ENCODER_DEFAULT_SCL_PIN
-#define I2C_ENCODER_DEFAULT_SCL_PIN 2
-#endif
+// #ifndef I2C_ENCODER_DEFAULT_SDA_PIN
+// #define I2C_ENCODER_DEFAULT_SDA_PIN 0
+// #endif
+// #ifndef I2C_ENCODER_DEFAULT_SCL_PIN
+// #define I2C_ENCODER_DEFAULT_SCL_PIN 2
+// #endif
 #ifndef I2C_ENCODER_DEFAULT_ADDRESS
 #define I2C_ENCODER_DEFAULT_ADDRESS 0x00
 #endif
@@ -22,6 +22,7 @@
 // v2 usermod for I2C Encoder
 class UsermodI2CEncoderButton : public Usermod {
 private:
+    static const char _name[];
     i2cEncoderLibV2 * encoder_p;
     bool encoderButtonDown = false;
     uint32_t buttonPressStartTime = 0;  // Millis when button was pressed
@@ -39,23 +40,28 @@ private:
     const uint32_t modeResetTimeout = 30000;  // Timeout for reseting mode to 0
     const int8_t brightnessDelta = 16;
     bool enabled = false;
-    bool initDone = false;
 
     // Configurable pins and address (now user-configurable via JSON config)
-    int8_t intPin = I2C_ENCODER_DEFAULT_INT_PIN;  // Interrupt pin for I2C encoder
-    int8_t sdaPin = I2C_ENCODER_DEFAULT_SDA_PIN;  // I2C SDA pin
-    int8_t sclPin = I2C_ENCODER_DEFAULT_SCL_PIN;  // I2C SCL pin
+    int8_t irqPin = I2C_ENCODER_DEFAULT_INT_PIN;  // Interrupt pin for I2C encoder
+    // int8_t sdaPin = I2C_ENCODER_DEFAULT_SDA_PIN;  // I2C SDA pin
+    // int8_t sclPin = I2C_ENCODER_DEFAULT_SCL_PIN;  // I2C SCL pin
     uint8_t i2cAddress = I2C_ENCODER_DEFAULT_ADDRESS;  // I2C address of encoder
+
+    void update() {
+        stateUpdated(CALL_MODE_BUTTON);
+        updateInterfaces(CALL_MODE_BUTTON);
+    }
 
     void updateBrightness(int8_t deltaBrightness) {
         bri = constrain(bri + deltaBrightness, 0, 255);
-        colorUpdated(CALL_MODE_BUTTON);
+        update();
     }
 
     void updateEffect(int8_t deltaEffect) {
         // Set new effect with rollover at 0 and MODE_COUNT
         effectCurrent = (effectCurrent + MODE_COUNT + deltaEffect) % MODE_COUNT;
-        colorUpdated(CALL_MODE_FX_CHANGED);
+        // colorUpdated(CALL_MODE_FX_CHANGED);
+        update();
     }
 
     void setEncoderMode(uint8_t mode) {
@@ -65,15 +71,18 @@ private:
     }
 
     void handleEncoderShortButtonPress() {
+        DEBUG_PRINTLN(F("Encoder short button press"));
         toggleOnOff();
-        colorUpdated(CALL_MODE_BUTTON);
+        update();
         setEncoderMode(0);
     }
 
     void handleEncoderLongButtonPress() {
+        DEBUG_PRINTLN(F("Encoder long button press"));
         if (encoderMode == 0 && bri == 0) {
             applyPreset(1);
-            colorUpdated(CALL_MODE_FX_CHANGED);
+            // colorUpdated(CALL_MODE_FX_CHANGED);
+            update();
         } else {
             setEncoderMode((encoderMode + 1) % (sizeof(encoderModes) / sizeof(encoderModes[0])));
         }
@@ -82,6 +91,7 @@ private:
     }
 
     void encoderRotated(i2cEncoderLibV2 *obj) {
+        DEBUG_PRINTLN(F("Encoder rotated"));
         switch (encoderMode) {
             case 0: updateBrightness(obj->readStatus(i2cEncoderLibV2::RINC) ? brightnessDelta : -brightnessDelta); break;
             case 1: updateEffect(obj->readStatus(i2cEncoderLibV2::RINC) ? 1 : -1); break;
@@ -90,11 +100,13 @@ private:
     }
 
     void encoderButtonPush(i2cEncoderLibV2 *obj) {
+        DEBUG_PRINTLN(F("Encoder button pushed"));
         encoderButtonDown = true;
         buttonPressStartTime = lastInteractionTime = millis();
     }
 
     void encoderButtonRelease(i2cEncoderLibV2 *obj) {
+        DEBUG_PRINTLN(F("Encoder button released"));
         encoderButtonDown = false;
         if (!wasLongButtonPress) handleEncoderShortButtonPress();
         wasLongButtonPress = false;
@@ -109,6 +121,22 @@ public:
     }
 
     void setup() override {
+
+        if (i2c_sda < 0 || i2c_scl < 0) {
+            DEBUG_PRINTLN(F("I2C pins not set, disabling I2C encoder usermod."));
+            enabled = false;
+            return;
+        } else {
+            if (irqPin >= 0 && PinManager::allocatePin(irqPin, false, PinOwner::UM_I2C_ENCODER_BUTTON)) {
+                pinMode(irqPin, INPUT);
+            } else {
+                DEBUG_PRINTLN(F("Unable to allocate interrupt pin, disabling I2C encoder usermod."));
+                irqPin = -1;
+                enabled = false;
+                return;
+            }
+        }
+
         // (Re)initialize encoder with current config
         if (encoder_p) {
             delete encoder_p;
@@ -116,8 +144,6 @@ public:
         }
         if (!enabled) return;
         encoder_p = new i2cEncoderLibV2(i2cAddress);
-        pinMode(intPin, INPUT);
-        Wire.begin(sdaPin, sclPin);
         encoder_p->reset();
         encoder_p->begin(
             i2cEncoderLibV2::INT_DATA | i2cEncoderLibV2::WRAP_ENABLE | i2cEncoderLibV2::DIRE_RIGHT |
@@ -128,18 +154,17 @@ public:
         encoder_p->writeMax((int32_t)255);  // Set the maximum threshold
         encoder_p->writeMin((int32_t)0);  // Set the minimum threshold
         encoder_p->writeStep((int32_t)1);  // Set the step to 1
-        encoder_p->writeAntibouncingPeriod(5);
+        encoder_p->writeAntibouncingPeriod(20);
         encoder_p->writeFadeRGB(1);
         encoder_p->writeInterruptConfig(
             i2cEncoderLibV2::RINC | i2cEncoderLibV2::RDEC | i2cEncoderLibV2::PUSHP | i2cEncoderLibV2::PUSHR
         );
         setEncoderMode(0);
-        initDone = true;
     }
 
     void loop() override {
         if (!enabled || !encoder_p) return;
-        if (digitalRead(intPin) == LOW) {
+        if (digitalRead(irqPin) == LOW) {
             if (encoder_p->updateStatus()) {
                 if (encoder_p->readStatus(i2cEncoderLibV2::RINC) || encoder_p->readStatus(i2cEncoderLibV2::RDEC)) encoderRotated(encoder_p);
                 if (encoder_p->readStatus(i2cEncoderLibV2::PUSHP)) encoderButtonPush(encoder_p);
@@ -160,28 +185,32 @@ public:
 
     void addToConfig(JsonObject& root) override {
         // Add user-configurable pins and address to config
-        JsonObject top = root.createNestedObject(F("I2C_Encoder_Button"));
+        JsonObject top = root.createNestedObject(FPSTR(_name));
         top["enabled"] = enabled;
-        top["intPin"] = intPin;
-        top["sdaPin"] = sdaPin;
-        top["sclPin"] = sclPin;
-        top["i2cAddress"] = i2cAddress;
+        top["irq_pin"] = irqPin;
+        // top["sdaPin"] = sdaPin;
+        // top["sclPin"] = sclPin;
+        top["i2c_address"] = i2cAddress;
+        // JsonArray pinArray = top.createNestedArray("pin");
+        // pinArray.add(intPin);
     }
 
     bool readFromConfig(JsonObject& root) override {
         // Read user-configurable pins and address from config
-        JsonObject top = root["I2C_Encoder_Button"];
+        JsonObject top = root[FPSTR(_name)];
         bool configComplete = !top.isNull();
         configComplete &= getJsonValue(top["enabled"], enabled, I2C_ENCODER_DEFAULT_ENABLED);
-        configComplete &= getJsonValue(top["intPin"], intPin, I2C_ENCODER_DEFAULT_INT_PIN);
-        configComplete &= getJsonValue(top["sdaPin"], sdaPin, I2C_ENCODER_DEFAULT_SDA_PIN);
-        configComplete &= getJsonValue(top["sclPin"], sclPin, I2C_ENCODER_DEFAULT_SCL_PIN);
-        configComplete &= getJsonValue(top["i2cAddress"], i2cAddress, I2C_ENCODER_DEFAULT_ADDRESS);
+        configComplete &= getJsonValue(top["irq_pin"], irqPin, I2C_ENCODER_DEFAULT_INT_PIN);
+        // configComplete &= getJsonValue(top["sdaPin"], sdaPin, I2C_ENCODER_DEFAULT_SDA_PIN);
+        // configComplete &= getJsonValue(top["sclPin"], sclPin, I2C_ENCODER_DEFAULT_SCL_PIN);
+        configComplete &= getJsonValue(top["i2c_address"], i2cAddress, I2C_ENCODER_DEFAULT_ADDRESS);
         return configComplete;
     }
 
     uint16_t getId() override { return USERMOD_ID_I2C_ENCODER_BUTTON; }
 };
+
+const char UsermodI2CEncoderButton::_name[] PROGMEM = "i2c_encoder_button";
 
 static UsermodI2CEncoderButton usermod_i2c_encoder_button;
 REGISTER_USERMOD(usermod_i2c_encoder_button);
