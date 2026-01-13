@@ -108,7 +108,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
  *  aux1 stores the color scale for performance
  */
 
-uint16_t mode_spinning_wheel(void) {
+static uint16_t mode_spinning_wheel(void) {
   if (SEGLEN < 1) return mode_static();
   
   unsigned strips = SEGMENT.nrOfVStrips();
@@ -166,7 +166,7 @@ uint16_t mode_spinning_wheel(void) {
         needsReset = true;
       } else if (phase == 3 && state[STOP_TIME_IDX] != 0) {
           uint16_t spin_delay = map(SEGMENT.custom3, 0, 31, 2000, 15000);  // delay between spins
-          if (now >= state[STOP_TIME_IDX] + spin_delay)
+          if ((now - state[STOP_TIME_IDX]) >= spin_delay)
             needsReset = true;
       }
 
@@ -204,7 +204,7 @@ uint16_t mode_spinning_wheel(void) {
       // Phase management
       if (phase == 0) {
         // Fast spinning phase
-        if (now >= state[SLOWDOWN_TIME_IDX]) {
+        if ((int32_t)(now - state[SLOWDOWN_TIME_IDX]) >= 0) {
           phase = 1;
           state[PHASE_IDX] = 1;
         }
