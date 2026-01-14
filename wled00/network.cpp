@@ -144,7 +144,17 @@ const ethernet_settings ethernetBoards[] = {
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
-  }
+  },
+
+ // Gledopto Series With Ethernet
+ {
+    1,                    // eth_address, 
+    5,                    // eth_power, 
+    23,                   // eth_mdc, 
+    33,                   // eth_mdio, 
+    ETH_PHY_LAN8720,      // eth_type,
+    ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
+  },
 };
 
 bool initEthernet()
@@ -229,7 +239,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
-    DEBUG_PRINTLN(F("initC: ETH.begin() failed"));
+    DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
       PinManager::deallocatePin(mpt.pin, PinOwner::Ethernet);
@@ -237,8 +247,15 @@ bool initEthernet()
     return false;
   }
 
+  // https://github.com/wled/WLED/issues/5247
+  if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+    ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
+  } else {
+    ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  }
+
   successfullyConfiguredEthernet = true;
-  DEBUG_PRINTLN(F("initC: *** Ethernet successfully configured! ***"));
+  DEBUG_PRINTLN(F("initE: *** Ethernet successfully configured! ***"));
   return true;
 }
 #endif
@@ -395,11 +412,6 @@ void WiFiEvent(WiFiEvent_t event)
       DEBUG_PRINTLN(F("ETH-E: Connected"));
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
-      }
-      if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
-        ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
-      } else {
-        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
       }
       // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
       char hostname[64];
