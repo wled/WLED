@@ -24,7 +24,7 @@ void handleDMXOutput()
 
   // Rate limiting
   static unsigned long last_dmx_time = 0;
-  const unsigned long dmxFrameTime = (1000UL + MAX_DMX_RATE - 1) / MAX_DMX_RATE;
+  const unsigned long dmxFrameTime = (1000UL + MAX_DMX_RATE - 1) / MAX_DMX_RATE; // Subtract 1 to round up
   if (millis() - last_dmx_time < dmxFrameTime) return;
 
   uint8_t brightness = strip.getBrightness();
