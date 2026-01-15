@@ -461,8 +461,10 @@ void applyBootTimerPreset()
       if (timerMinute < 0) continue;  // would be yesterday, skip
     }
 
-    // Only consider timers that should have already triggered today
-    if (timerMinute <= currentMinuteOfDay && timerMinute > latestTimerMinute) {
+    // Only consider timers that should have already triggered today.
+    // Use >= so that if multiple timers share the same minute, the highest index wins,
+    // matching checkTimers() behavior where all are applied and the last one sticks.
+    if (timerMinute <= currentMinuteOfDay && timerMinute >= latestTimerMinute) {
       latestTimerMinute = timerMinute;
       latestPreset = timerMacro[i];
     }
