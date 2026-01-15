@@ -253,6 +253,7 @@
 
 		// check if bus configuration is valid
 		function isBCok(n, usage) {
+			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
 			let drv = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value||0) : 0; // driver preference selection: 0=RMT, 1=I2S
@@ -963,22 +964,14 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (isDig(curType) && !isD2P(curType)) {
 					// If this bus uses I2S and other I2S buses exist, restrict to same type
 					if (curDriver === 1) {
-						if (firstI2SType == null) firstI2SType = curType; // set first type, first type is allowed all digital types
+						if (firstI2SType == null) firstI2SType = curType; // set first type, first I2S bus is allowed to change to any digital type
 						else {
 							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
 								if (parseInt(o.value) !== firstI2SType) o.disabled = true;
 							});
 						}
 					}
-				} else {
-					// For non-digital current types, check if we can add digital buses
-					let canAddRMT = (usage.rmtUsed < maxRMT || (isDig(curType) && !isD2P(curType) && curDriver === 0));
-					let canAddI2S = (usage.i2sUsed < maxI2S) || (isDig(curType) && !isD2P(curType) && curDriver === 1);
-					// If both RMT and I2S are full, disable all digital types
-					if (!canAddRMT && !canAddI2S) {
-						disable('option[data-type="D"]');
-					}
-				}
+				} else if (digitalB >= maxD) disable('option[data-type="D"]'); // disable digital bus options if limit reached
 				// 2-pin digital buses limited to 2
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
 				// PWM analog types limited by pin count
