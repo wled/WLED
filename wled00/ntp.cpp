@@ -292,6 +292,8 @@ bool checkNTPResponse()
   // if time changed re-calculate sunrise/sunset
   updateLocalTime();
   calculateSunriseAndSunset();
+  // Apply most recent timer preset on first NTP sync after boot
+  applyBootTimerPreset();
   return true;
 }
 
@@ -376,6 +378,39 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 	return (m == monthStart && d >= dayStart && d <= dayEnd); //just the designated days this month
 }
 
+/*
+ * Returns the minute-of-day (0-1439) for timer i if it's valid for today, or -1 if invalid.
+ * Validates: preset assigned, timer enabled, weekday matches, date range (for timers 0-7).
+ * For "every hour" timers (hour=24), returns the current hour's scheduled minute.
+ * For sunrise/sunset timers (8/9), returns the calculated trigger time.
+ */
+static int getTimerMinuteOfDay(unsigned i)
+{
+  if (i > 9) return -1;
+  if (timerMacro[i] == 0) return -1;
+  if (!(timerWeekday[i] & 0x01)) return -1;  // not enabled
+  if (!((timerWeekday[i] >> weekdayMondayFirst()) & 0x01)) return -1;  // wrong weekday
+
+  if (i < 8) {
+    // Standard timer (0-7)
+    if (!isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])) return -1;
+    if (timerHours[i] == 24) {
+      return hour(localTime) * 60 + timerMinutes[i];  // "every hour" at this minute
+    }
+    return timerHours[i] * 60 + timerMinutes[i];
+  } else if (i == 8) {
+    // Sunrise timer
+    if (!sunrise) return -1;
+    time_t t = sunrise + timerMinutes[8] * 60;
+    return hour(t) * 60 + minute(t);
+  } else {
+    // Sunset timer (i == 9)
+    if (!sunset) return -1;
+    time_t t = sunset + timerMinutes[9] * 60;
+    return hour(t) * 60 + minute(t);
+  }
+}
+
 void checkTimers()
 {
   if (lastTimerMinute != minute(localTime)) //only check once a new minute begins
@@ -385,48 +420,60 @@ void checkTimers()
     // re-calculate sunrise and sunset just after midnight
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
 
+    int currentMinuteOfDay = hour(localTime) * 60 + minute(localTime);
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
-    for (unsigned i = 0; i < 8; i++)
+
+    for (unsigned i = 0; i < 10; i++)
     {
-      if (timerMacro[i] != 0
-          && (timerWeekday[i] & 0x01) //timer is enabled
-          && (timerHours[i] == hour(localTime) || timerHours[i] == 24) //if hour is set to 24, activate every hour
-          && timerMinutes[i] == minute(localTime)
-          && ((timerWeekday[i] >> weekdayMondayFirst()) & 0x01) //timer should activate at current day of week
-          && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])
-         )
-      {
+      int timerMinute = getTimerMinuteOfDay(i);
+      if (timerMinute == currentMinuteOfDay) {
         applyPreset(timerMacro[i]);
+        if (i == 8) DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."), timerMacro[8]);
+        if (i == 9) DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."), timerMacro[9]);
       }
     }
-    // sunrise macro
-    if (sunrise) {
-      time_t tmp = sunrise + timerMinutes[8]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[8] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[8] & 0x01) //timer is enabled
-          && ((timerWeekday[8] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[8]);
-        DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."),timerMacro[8]);
-      }
+  }
+}
+
+/*
+ * Apply the most recent time-controlled preset that should have triggered today.
+ * Called once after NTP sync on boot to handle powering on after a scheduled time.
+ */
+void applyBootTimerPreset()
+{
+  if (bootTimerApplied || !applyTimerOnBoot) return;
+  bootTimerApplied = true;
+
+  int currentMinuteOfDay = hour(localTime) * 60 + minute(localTime);
+  int latestTimerMinute = -1;
+  byte latestPreset = 0;
+
+  DEBUG_PRINTLN(F("Checking for boot timer preset..."));
+
+  for (unsigned i = 0; i < 10; i++)
+  {
+    int timerMinute = getTimerMinuteOfDay(i);
+    if (timerMinute < 0) continue;
+
+    // For "every hour" timers, find the most recent past occurrence
+    if (i < 8 && timerHours[i] == 24 && timerMinute > currentMinuteOfDay) {
+      timerMinute -= 60;
+      if (timerMinute < 0) continue;  // would be yesterday, skip
     }
-    // sunset macro
-    if (sunset) {
-      time_t tmp = sunset + timerMinutes[9]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF_P(PSTR("Trigger time: %02d:%02d\n"), hour(tmp), minute(tmp));
-      if (timerMacro[9] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[9] & 0x01) //timer is enabled
-          && ((timerWeekday[9] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        applyPreset(timerMacro[9]);
-        DEBUG_PRINTF_P(PSTR("Sunset macro %d triggered."),timerMacro[9]);
-      }
+
+    // Only consider timers that should have already triggered today
+    if (timerMinute <= currentMinuteOfDay && timerMinute > latestTimerMinute) {
+      latestTimerMinute = timerMinute;
+      latestPreset = timerMacro[i];
     }
+  }
+
+  if (latestPreset > 0) {
+    DEBUG_PRINTF_P(PSTR("Applying boot timer preset %d (scheduled for %02d:%02d)\n"),
+                   latestPreset, latestTimerMinute / 60, latestTimerMinute % 60);
+    applyPreset(latestPreset);
+  } else {
+    DEBUG_PRINTLN(F("No applicable boot timer preset found."));
   }
 }
 

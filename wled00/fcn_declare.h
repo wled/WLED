@@ -202,6 +202,7 @@ void setCountdown();
 byte weekdayMondayFirst();
 bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd);
 void checkTimers();
+void applyBootTimerPreset();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
