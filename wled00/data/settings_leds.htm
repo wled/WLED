@@ -251,7 +251,7 @@
 			return len * ch * mul + dma + pbfr;
 		}
 
-		// check if bus configuration is invalid
+		// check if bus configuration is valid
 		function isBCok(n, usage) {
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
@@ -450,6 +450,7 @@
 
 				if (isDig(t) && !isD2P(t)) {
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+					console.log(`UI(): Bus ${n} type ${t} driver pref ${driverPref}`);
 					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
 
 					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
@@ -459,11 +460,13 @@
 							drvsel.style.display = "inline";
 							if (!d.Sf["LD"+n].value) d.Sf["LD"+n].value = "0"; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
+							driverPref = parseInt(d.Sf["LD"+n].value);
+							console.log(`UI(): Bus ${n} type ${t} driver pref ${driverPref} after display`);
 						}
 					}
 				}
 			});
-			//updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed)
+			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed)
 
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
@@ -598,21 +601,31 @@ Driver: <select name="LD${s}" onchange="UI()">
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
+				/*
 				let usage = getDuse(); // check channel availability before selecting default type
 				let drvSelect = d.Sf["LD"+s];
-				if (drvSelect) {
-					if (usage.rmtUsed > maxRMT && !(usage.i2sUsed >= maxI2S)) {
-						drvSelect.value = "1"; // RMT is full but I2S available - default to I2S
-					} else {
-						drvSelect.value = "0"; // default to RMT (backward compatible)
-					}
-				}
+				console.log(drvSelect);
+				console.log(usage);
+				console.log(`Adding LED bus ${s}: RMT used ${usage.rmtUsed}/${maxRMT}, I2S used ${usage.i2sUsed}/${maxI2S}`);
+				console.log('rmt used:', usage.rmtUsed, 'maxRMT:', maxRMT);
+				if (usage.rmtUsed > maxRMT)
+					console.log(`RMT is full (${usage.rmtUsed}/${maxRMT})`);
+				if (!(usage.i2sUsed >= maxI2S))
+					console.log(`I2S is available (${usage.i2sUsed}/${maxI2S})`);
+				if (usage.rmtUsed > maxRMT && !(usage.i2sUsed >= maxI2S)) {
+					console.log("Defaulting to I2S");
+					drvSelect.value = "1"; // RMT is full but I2S available - default to I2S
+				} else {
+					console.log("Defaulting to RMT");
+					drvSelect.value = "0"; // default to RMT (backward compatible)
+				}*/
 				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
 				let sel = d.getElementsByName("LT"+s)[0];
 				sel.value = sel.querySelector('option[data-type="N"]').value;
 				updateTypeDropdowns(); // update valid bus options including this new one
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
 				updateTypeDropdowns(); // update again for the newly selected type
+				// TODO: the type dropdown update is not ideal here: if loading a config, this will be overwritten by getV(), if a new bus is added, it calls UI(). so better do this in UI().
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
@@ -765,6 +778,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
 							d.getElementsByName("LT"+i)[0].value   = v.type;
+							d.getElementsByName("LD"+i)[0].value   = v.drv; // output driver type (RMT or I2S)
 							d.getElementsByName("LS"+i)[0].value   = v.start;
 							d.getElementsByName("LC"+i)[0].value   = v.len;
 							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
@@ -954,11 +968,14 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (isVir(t)) virtB++;
 			});
 
-			// update each dropdown with appropriate constraints
+			// update each LED-type and driver dropdown with appropriate constraints
+			let RMTcount = 0;
+			let I2Scount = 0;
 			LTs.forEach(sel => {
 				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
 				const curDriver = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+				console.log(`Updating LED bus ${n}: type ${curType}, driver ${curDriver}, RMT used ${usage.rmtUsed}/${maxRMT}, I2S used ${usage.i2sUsed}/${maxI2S}`);
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
@@ -996,13 +1013,25 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (drvsel && isDig(t) && !isD2P(t)) {
 					let rmtOpt = drvsel.querySelector('option[value="0"]');
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
-					let curDriver = parseInt(d.Sf["LD"+n].value || 0);
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
-					if ((usage.rmtUsed >= maxRMT) && curDriver !== 0)
-						rmtOpt.disabled = true; // disable RMT if full (unless this bus already uses RMT)
-					if ((usage.i2sUsed >= maxI2S) && curDriver !== 1)
-						i2sOpt.disabled = true; // disable I2S if full (unless this bus already uses I2S)
+					let curDriver = parseInt(d.Sf["LD"+n].value || 0);
+					if (curDriver === 0) {
+						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
+						RMTcount++;
+						if (RMTcount > maxRMT) {
+							rmtOpt.disabled = true; // disable RMT if now full (other logic disables digital types if both full)
+							d.Sf["LD"+n].value = "1"; // switch to I2S (assume its available, it should be)
+						}
+					}
+					else {
+						if ((usage.rmtUsed >= maxRMT))	rmtOpt.disabled = true; // disable RMT selection on I2S buses if full
+						I2Scount++;
+						if (I2Scount > maxI2S) {
+							i2sOpt.disabled = true; // disable I2S if now full (other logic disables digital types if both full)
+							d.Sf["LD"+n].value = "0"; // switch to RMT (assume its available, it should be)
+						}
+					}
 				}
 			});
 		}
