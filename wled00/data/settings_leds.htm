@@ -601,31 +601,12 @@ Driver: <select name="LD${s}" onchange="UI()">
 					}
 				});
 				enLA(d.Sf["LAsel"+s],s); // update LED mA
-				/*
-				let usage = getDuse(); // check channel availability before selecting default type
-				let drvSelect = d.Sf["LD"+s];
-				console.log(drvSelect);
-				console.log(usage);
-				console.log(`Adding LED bus ${s}: RMT used ${usage.rmtUsed}/${maxRMT}, I2S used ${usage.i2sUsed}/${maxI2S}`);
-				console.log('rmt used:', usage.rmtUsed, 'maxRMT:', maxRMT);
-				if (usage.rmtUsed > maxRMT)
-					console.log(`RMT is full (${usage.rmtUsed}/${maxRMT})`);
-				if (!(usage.i2sUsed >= maxI2S))
-					console.log(`I2S is available (${usage.i2sUsed}/${maxI2S})`);
-				if (usage.rmtUsed > maxRMT && !(usage.i2sUsed >= maxI2S)) {
-					console.log("Defaulting to I2S");
-					drvSelect.value = "1"; // RMT is full but I2S available - default to I2S
-				} else {
-					console.log("Defaulting to RMT");
-					drvSelect.value = "0"; // default to RMT (backward compatible)
-				}*/
 				// temporarily set to virtual (network) type to avoid "same type" exception during dropdown update
 				let sel = d.getElementsByName("LT"+s)[0];
 				sel.value = sel.querySelector('option[data-type="N"]').value;
 				updateTypeDropdowns(); // update valid bus options including this new one
 				sel.selectedIndex = sel.querySelector('option:not(:disabled)').index;
 				updateTypeDropdowns(); // update again for the newly selected type
-				// TODO: the type dropdown update is not ideal here: if loading a config, this will be overwritten by getV(), if a new bus is added, it calls UI(). so better do this in UI().
 			}
 			if (n==-1) {
 				o[--i].remove();--i;
@@ -946,7 +927,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 				}
 			});
-			I2Smem = I2Smem / i2sUsed; // average memory per I2S bus (used for memory calculation)
+			I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
 			return { rmtUsed, i2sUsed, I2SType, I2Smem };
 		}
 
@@ -974,8 +955,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			LTs.forEach(sel => {
 				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
-				const curDriver = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-				console.log(`Updating LED bus ${n}: type ${curType}, driver ${curDriver}, RMT used ${usage.rmtUsed}/${maxRMT}, I2S used ${usage.i2sUsed}/${maxI2S}`);
+				const curDriver = parseInt(d.Sf["LD"+n].value || 0);
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
@@ -1003,14 +983,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
 				// PWM analog types limited by pin count
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
-			});
 
-			// update driver selection dropdowns
-			LTs.forEach(sel => {
-				let n = sel.name.substring(2,3);
-				let t = parseInt(sel.value);
+				// update driver selection dropdowns
 				let drvsel = gId("drvsel"+n);
-				if (drvsel && isDig(t) && !isD2P(t)) {
+				if (drvsel && isDig(curType) && !isD2P(curType)) {
 					let rmtOpt = drvsel.querySelector('option[value="0"]');
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
 					rmtOpt.disabled = false;
@@ -1021,7 +997,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						RMTcount++;
 						if (RMTcount > maxRMT) {
 							rmtOpt.disabled = true; // disable RMT if now full (other logic disables digital types if both full)
-							d.Sf["LD"+n].value = "1"; // switch to I2S (assume its available, it should be)
+							d.Sf["LD"+n].value = "1"; // switch to I2S (if no I2S available, digital type is disabled above)
 						}
 					}
 					else {
@@ -1029,7 +1005,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						I2Scount++;
 						if (I2Scount > maxI2S) {
 							i2sOpt.disabled = true; // disable I2S if now full (other logic disables digital types if both full)
-							d.Sf["LD"+n].value = "0"; // switch to RMT (assume its available, it should be)
+							d.Sf["LD"+n].value = "0"; // switch to RMT (if no RMT available, digital type is disabled above)
 						}
 					}
 				}
