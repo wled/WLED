@@ -149,9 +149,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
   _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip);
-  Serial.printf("Creating bus type %d with %d leds (skip %d)\n", _iType, lenToCreate, _skip); ///!!! remvoe
   _valid = (_busPtr != nullptr) && bc.count > 0;
-  Serial.printf("bus valid: %d, LED count %d\n", _valid, bc.count); /// !!!remove
   // fix for wled#4759
   if (_valid) for (unsigned i = 0; i < _skip; i++) {
     PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
@@ -159,13 +157,14 @@ BusDigital::BusDigital(const BusConfig &bc)
   else {
     cleanup();
   }
-  DEBUGBUS_PRINTF_P(PSTR("Bus: Successful (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
-    _valid?"S":"Uns",
+  DEBUGBUS_PRINTF_P(PSTR("Bus len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u, driver:%s] mA=%d/%d %s\n"),
+    _valid ? "" : "FAILED",
     (int)bc.count,
     (int)bc.type,
     (int)_hasRgb, (int)_hasWhite, (int)_hasCCT,
     (unsigned)_pins[0], is2Pin(bc.type)?(unsigned)_pins[1]:255U,
     (unsigned)_iType,
+    isI2S() ? "I2S" : "RMT",
     (int)_milliAmpsPerLed, (int)_milliAmpsMax
   );
 }
@@ -355,6 +354,10 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_LPD6803,       "2P", PSTR("LPD6803")},
     {TYPE_P9813,         "2P", PSTR("PP9813")},
   };
+}
+
+bool BusDigital::isI2S() {
+  return (_iType & 0x01) == 0; // I2S types have even iType values
 }
 
 void BusDigital::begin() {
@@ -1127,8 +1130,6 @@ size_t BusConfig::memUsage() const {
 
 int BusManager::add(const BusConfig &bc) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
-  Serial.printf("Bus: Adding bus (p:%d v:%d)\n", getNumBusses(), getNumVirtualBusses());  ///!!! remvoe
-  Serial.printf("BusConfig type: %d, start: %d, count: %d\n", bc.type, bc.start, bc.count);  ///!!! remvoe
   unsigned digital = 0;
   unsigned analog  = 0;
   unsigned twoPin  = 0;
@@ -1192,36 +1193,26 @@ void BusManager::removeAll() {
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
   busses.clear();
-  PolyBus::setParallelI2SOutput(false);
+  #ifndef ESP8266
   // Reset channel tracking for fresh allocation
   PolyBus::resetChannelTracking();
+  #endif
 }
 
 #ifdef ESP32_DATA_IDLE_HIGH
 // #2478
 // If enabled, RMT idle level is set to HIGH when off
 // to prevent leakage current when using an N-channel MOSFET to toggle LED power
+// since I2S outputs are known only during config of buses, lets just assume RMT is used for digital buses
+// unused RMT channels should have no effect
 void BusManager::esp32RMTInvertIdle() {
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
   for (auto &bus : busses) {
     if (bus->getLength()==0 || !bus->isDigital() || bus->is2Pin()) continue;
-    #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, only has 1 I2S but NPB does not support it ATM
-      if (u > 1) return;
-      rmt = u;
-    #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, only has 1 I2S bus, supported in NPB
-      if (u > 3) return;
-      rmt = u;
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, has 2 I2S but NPB does not support them ATM
-      if (u > 3) return;
-      rmt = u;
-    #else
-      unsigned numI2S = !PolyBus::isParallelI2SOutput(); // if using parallel I2S, RMT is used 1st
-      if (numI2S > u) continue;
-      if (u > 7 + numI2S) return;
-      rmt = u - numI2S;
-    #endif
+    if (bus->isI2S()) continue;
+    if (u >= WLED_MAX_RMT_CHANNELS) return;
     //assumes that bus number to rmt channel mapping stays 1:1
     rmt_channel_t ch = static_cast<rmt_channel_t>(rmt);
     rmt_idle_level_t lvl;
@@ -1396,7 +1387,7 @@ void BusManager::applyABL() {
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
-
+#ifndef ESP8266
 // PolyBus channel tracking for dynamic allocation
 bool PolyBus::_useParallelI2S = false;
 uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
@@ -1404,7 +1395,7 @@ uint8_t PolyBus::_rmtChannel = 0;     // number of RMT channels actually used du
 uint8_t PolyBus::_i2sChannelsAssigned = 0; // number of I2S channels assigned durig getI() check
 uint8_t PolyBus::_parallelBusItype = 0;    // type I_NONE
 uint8_t PolyBus::_2PchannelsAssigned = 0;
-
+#endif
 // Bus static member definition
 int16_t Bus::_cct = -1;
 uint8_t Bus::_cctBlend = 0; // 0 - 127

@@ -339,6 +339,7 @@
 //handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
+  #ifndef ESP8266
     static bool _useParallelI2S;          // use parallel I2S/LCD (8 channels)
     static uint8_t _rmtChannelsAssigned;  // RMT channel tracking for dynamic allocation
     static uint8_t _rmtChannel;           // physical RMT channel to use during bus creation
@@ -347,9 +348,8 @@ class PolyBus {
     static uint8_t _2PchannelsAssigned;  // 2-Pin (SPI) channel assigned: first one gets the hardware SPI, others use bit-banged SPI
     // note on 2-Pin Types: all supported types except WS2801 use start/stop or latch frames, speed is not critical. WS2801 uses a 500us timeout and is prone to flickering if bit-banged too slow.
     // TODO: according to #4863 using more than one bit-banged output can cause glitches even in APA102. This needs investigation as from a hardware perspective all but WS2801 should be immune to timing issues.
+  #endif
   public:
-    static inline void setParallelI2SOutput(bool b = true) { _useParallelI2S = b; }
-    static inline bool isParallelI2SOutput(void) { return _useParallelI2S; }
 
   // initialize SPI bus speed for DotStar methods
   template <class T>
@@ -483,7 +483,6 @@ class PolyBus {
   }
 
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len) {
-    Serial.printf("Creating bus type %d on pins %d,%d,%d,%d for %d LEDs, RMT channel = %d, use parallel I2S %d\n", busType, pins[0], pins[1], pins[2], pins[3], len, _rmtChannel, _useParallelI2S);  ///!!! remvoe
     void* busPtr = nullptr;
     switch (busType) {
       case I_NONE: break;
@@ -1275,7 +1274,7 @@ class PolyBus {
     }
     return size;
   }
-
+#ifndef ESP8266
   // Reset channel tracking (call before adding buses)
   static void resetChannelTracking() {
     _useParallelI2S = false;
@@ -1285,7 +1284,7 @@ class PolyBus {
     _parallelBusItype = I_NONE;
     _2PchannelsAssigned = 0;
   }
-
+#endif
   // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
   static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
     if (!Bus::isDigital(busType)) return I_NONE;
@@ -1296,6 +1295,7 @@ class PolyBus {
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
       if (_2PchannelsAssigned == 0) isHSPI = true; // first 2-pin channel uses hardware SPI
+      _2PchannelsAssigned++;
       #endif
       switch (busType) {
         case TYPE_APA102:  t = I_SS_DOT_3; break;
@@ -1304,7 +1304,6 @@ class PolyBus {
         case TYPE_WS2801:  t = I_SS_WS1_3; break;
         case TYPE_P9813:   t = I_SS_P98_3; break;
       }
-      _2PchannelsAssigned++;
       if (t > I_NONE && isHSPI) t--; //hardware SPI has one smaller ID than software
     } else {
       #ifdef ESP8266
@@ -1348,7 +1347,6 @@ class PolyBus {
       } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
         offset = 1; // I2S requested or RMT full
         _i2sChannelsAssigned++;
-        Serial.printf("Assigning I2S channel %d\n", _i2sChannelsAssigned);  ///!!! remvoe
       } else {
         return I_NONE; // No channels available
       }
@@ -1383,15 +1381,12 @@ class PolyBus {
         case TYPE_SM16825:
           t = I_32_RN_SM16825_5 + offset; break;
       }
-      Serial.printf("requested type: %d, Assigned bus type %d (offset %d)\n",busType, t, offset);  ///!!! remvoe
       // If using parallel I2S, set the type accordingly
       if (_i2sChannelsAssigned == 1 && offset == 1) { // first I2S channel request, lock the type
         _parallelBusItype = t;
-        Serial.printf("Locked parallel bus type to %d\n",_parallelBusItype);  ///!!! remvoe
       }
       else if (offset == 1) // not first I2S channel, use locked type
         t = _parallelBusItype;
-      Serial.printf("Final Assigned bus type %d\n",t);  ///!!! remvoe
       #endif
     }
     return t;

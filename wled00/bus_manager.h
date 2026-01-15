@@ -264,6 +264,7 @@ class BusDigital : public Bus {
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
+    bool isI2S(); // true if this bus uses I2S driver
     void begin() override;
     void cleanup();
 
