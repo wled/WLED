@@ -4,8 +4,8 @@
   over the underlying WLED pixels. Mask bit 1 keeps the original effect/color;
   mask bit 0 forces black.
 */
-#include "wled.h"
 #include "7_seg_clock_countdown.h"
+#include "wled.h"
 
 /* ===== Static member definitions ===== */
 constexpr uint8_t SevenSegClockCountdown::PHYS_TO_LOG[SevenSegClockCountdown::SEGS_PER_DIGIT];
@@ -13,35 +13,29 @@ constexpr uint8_t SevenSegClockCountdown::DIGIT_MASKS[10];
 
 /* ===== Lifecycle ===== */
 // Prepare mask buffer on boot.
-void SevenSegClockCountdown::setup()
-{
+void SevenSegClockCountdown::setup() {
   ensureMaskSize();
 }
 
 // Idle loop (no periodic work required).
-void SevenSegClockCountdown::loop()
-{
+void SevenSegClockCountdown::loop() {
 }
 
 /* ===== Mask management ===== */
 // Ensure the mask buffer matches the panel size.
-void SevenSegClockCountdown::ensureMaskSize()
-{
+void SevenSegClockCountdown::ensureMaskSize() {
   if (mask.size() != TOTAL_PANEL_LEDS)
     mask.assign(TOTAL_PANEL_LEDS, 0);
 }
 
 // Clear the mask to fully black.
-void SevenSegClockCountdown::clearMask()
-{
+void SevenSegClockCountdown::clearMask() {
   std::fill(mask.begin(), mask.end(), 0);
 }
 
 // Set a contiguous LED range in the mask to 1.
-void SevenSegClockCountdown::setRangeOn(uint16_t start, uint16_t len)
-{
-  for (uint16_t i = 0; i < len; i++)
-  {
+void SevenSegClockCountdown::setRangeOn(uint16_t start, uint16_t len) {
+  for (uint16_t i = 0; i < len; i++) {
     uint16_t idx = start + i;
     if (idx < mask.size())
       mask[idx] = 1;
@@ -50,23 +44,18 @@ void SevenSegClockCountdown::setRangeOn(uint16_t start, uint16_t len)
 
 /* ===== Time helpers ===== */
 // Return hundredths-of-second (0..99); descending in countdown mode.
-int SevenSegClockCountdown::getHundredths(int currentSeconds, bool countDown)
-{
+int SevenSegClockCountdown::getHundredths(int currentSeconds, bool countDown) {
   unsigned long now = millis();
-  if (currentSeconds != lastSecondValue)
-  {
+  if (currentSeconds != lastSecondValue) {
     lastSecondValue = currentSeconds;
     lastSecondMillis = now;
     return countDown ? 99 : 0;
   }
   unsigned long delta = now - lastSecondMillis;
   int hundredths;
-  if (countDown)
-  {
+  if (countDown) {
     hundredths = 99 - (int)(delta / 10);
-  }
-  else
-  {
+  } else {
     hundredths = (int)(delta / 10);
   }
   if (hundredths < 0)
@@ -78,8 +67,7 @@ int SevenSegClockCountdown::getHundredths(int currentSeconds, bool countDown)
 
 /* ===== Mode management (save/restore base effect) ===== */
 // Restore previously saved effect mode and parameters.
-void SevenSegClockCountdown::revertMode()
-{
+void SevenSegClockCountdown::revertMode() {
   Segment &selseg = strip.getSegment(0);
   selseg.setMode(prevMode, false);
   selseg.setColor(0, prevColor);
@@ -89,8 +77,7 @@ void SevenSegClockCountdown::revertMode()
 }
 
 // Save current effect mode and parameters.
-void SevenSegClockCountdown::SaveMode()
-{
+void SevenSegClockCountdown::SaveMode() {
   Segment &selseg = strip.getSegment(0);
   prevMode = selseg.mode;
   prevColor = selseg.colors[0];
@@ -100,8 +87,7 @@ void SevenSegClockCountdown::SaveMode()
 }
 
 // Apply a specific effect mode and parameters.
-void SevenSegClockCountdown::setMode(uint8_t mode, uint32_t color, uint8_t speed, uint8_t intensity, uint8_t brightness)
-{
+void SevenSegClockCountdown::setMode(uint8_t mode, uint32_t color, uint8_t speed, uint8_t intensity, uint8_t brightness) {
   Segment &selseg = strip.getSegment(0);
   selseg.setMode(mode, false);
   selseg.setColor(0, color);
@@ -112,8 +98,7 @@ void SevenSegClockCountdown::setMode(uint8_t mode, uint32_t color, uint8_t speed
 
 /* ===== Drawing helpers ===== */
 // Draw HH:MM:SS into the mask with configurable separator behavior.
-void SevenSegClockCountdown::drawClock()
-{
+void SevenSegClockCountdown::drawClock() {
   clearMask();
   setDigitInt(0, hour(localTime) / 10);
   setDigitInt(1, hour(localTime) % 10);
@@ -122,26 +107,17 @@ void SevenSegClockCountdown::drawClock()
   setDigitInt(4, second(localTime) / 10);
   setDigitInt(5, second(localTime) % 10);
 
-  if (SeperatorOn && SeperatorOff)
-  {
-    if (second(localTime) % 2)
-    {
+  if (SeparatorOn && SeparatorOff) {
+    if (second(localTime) % 2) {
       setSeparator(1, sepsOn);
       setSeparator(2, sepsOn);
     }
-  }
-  else if (SeperatorOn)
-  {
+  } else if (SeparatorOn) {
     setSeparator(1, sepsOn);
     setSeparator(2, sepsOn);
-  }
-  else if (SeperatorOff)
-  {
-  }
-  else
-  {
-    if (second(localTime) % 2)
-    {
+  } else if (SeparatorOff) {
+  } else {
+    if (second(localTime) % 2) {
       setSeparator(1, sepsOn);
       setSeparator(2, sepsOn);
     }
@@ -149,20 +125,17 @@ void SevenSegClockCountdown::drawClock()
 }
 
 // Light segments for a single digit from a numeric value (0..9).
-void SevenSegClockCountdown::setDigitInt(uint8_t digitIndex, int8_t value)
-{
+void SevenSegClockCountdown::setDigitInt(uint8_t digitIndex, int8_t value) {
   if (digitIndex > 5)
     return;
   if (value < 0)
     return;
   uint16_t base = digitBase(digitIndex);
   uint8_t bits = DIGIT_MASKS[(uint8_t)value];
-  for (uint8_t physSeg = 0; physSeg < SEGS_PER_DIGIT; physSeg++)
-  {
+  for (uint8_t physSeg = 0; physSeg < SEGS_PER_DIGIT; physSeg++) {
     uint8_t logSeg = PHYS_TO_LOG[physSeg];
     bool segOn = (bits >> logSeg) & 0x01;
-    if (segOn)
-    {
+    if (segOn) {
       uint16_t segStart = base + (uint16_t)physSeg * LEDS_PER_SEG;
       setRangeOn(segStart, LEDS_PER_SEG);
     }
@@ -170,18 +143,15 @@ void SevenSegClockCountdown::setDigitInt(uint8_t digitIndex, int8_t value)
 }
 
 // Light segments for a single digit using a letter/symbol mask.
-void SevenSegClockCountdown::setDigitChar(uint8_t digitIndex, char c)
-{
+void SevenSegClockCountdown::setDigitChar(uint8_t digitIndex, char c) {
   if (digitIndex > 5)
     return;
   uint16_t base = digitBase(digitIndex);
   uint8_t bits = LETTER_MASK(c);
-  for (uint8_t physSeg = 0; physSeg < SEGS_PER_DIGIT; physSeg++)
-  {
+  for (uint8_t physSeg = 0; physSeg < SEGS_PER_DIGIT; physSeg++) {
     uint8_t logSeg = PHYS_TO_LOG[physSeg];
     bool segOn = (bits >> logSeg) & 0x01;
-    if (segOn)
-    {
+    if (segOn) {
       uint16_t segStart = base + (uint16_t)physSeg * LEDS_PER_SEG;
       setRangeOn(segStart, LEDS_PER_SEG);
     }
@@ -189,16 +159,14 @@ void SevenSegClockCountdown::setDigitChar(uint8_t digitIndex, char c)
 }
 
 // Light both dots of a separator.
-void SevenSegClockCountdown::setSeparator(uint8_t which, bool on)
-{
+void SevenSegClockCountdown::setSeparator(uint8_t which, bool on) {
   uint16_t base = (which == 1) ? sep1Base() : sep2Base();
   if (on)
     setRangeOn(base, SEP_LEDS);
 }
 
 // Light a single half (upper/lower) of the separator.
-void SevenSegClockCountdown::setSeparatorHalf(uint8_t which, bool upper, bool on)
-{
+void SevenSegClockCountdown::setSeparatorHalf(uint8_t which, bool upper, bool on) {
   uint16_t base = (which == 1) ? sep1Base() : sep2Base();
   uint16_t halfLen = SEP_LEDS / 2;
   uint16_t start = base + (upper ? 0 : halfLen);
@@ -207,12 +175,10 @@ void SevenSegClockCountdown::setSeparatorHalf(uint8_t which, bool upper, bool on
 }
 
 // Apply the mask to the strip (0 → black, 1 → keep pixel).
-void SevenSegClockCountdown::applyMaskToStrip()
-{
+void SevenSegClockCountdown::applyMaskToStrip() {
   uint16_t stripLen = strip.getLengthTotal();
   uint16_t limit = (stripLen < (uint16_t)mask.size()) ? stripLen : (uint16_t)mask.size();
-  for (uint16_t i = 0; i < limit; i++)
-  {
+  for (uint16_t i = 0; i < limit; i++) {
     if (!mask[i])
       strip.setPixelColor(i, 0);
   }
@@ -220,8 +186,7 @@ void SevenSegClockCountdown::applyMaskToStrip()
 
 /* ===== Target handling ===== */
 // Clamp target fields and compute targetUnix; optionally log changes.
-void SevenSegClockCountdown::validateTarget(bool changed)
-{
+void SevenSegClockCountdown::validateTarget(bool changed) {
   targetYear = clampVal(targetYear, 1970, 2099);
   targetMonth = clampVal(targetMonth, 1, 12);
   targetDay = clampVal(targetDay, 1, 31);
@@ -235,8 +200,7 @@ void SevenSegClockCountdown::validateTarget(bool changed)
   tm.Month = targetMonth;
   tm.Year = CalendarYrToTm(targetYear);
   targetUnix = makeTime(tm);
-  if (changed)
-  {
+  if (changed) {
     char buf[24];
     snprintf(buf, sizeof(buf), "%04d-%02u-%02u-%02u-%02u",
              targetYear, targetMonth, targetDay, targetHour, targetMinute);
@@ -246,61 +210,48 @@ void SevenSegClockCountdown::validateTarget(bool changed)
 
 /* ===== Countdown rendering ===== */
 // Draw countdown (or count-up when target passed) into the mask.
-void SevenSegClockCountdown::drawCountdown()
-{
+void SevenSegClockCountdown::drawCountdown() {
   clearMask();
   int64_t diff = (int64_t)targetUnix - (int64_t)localTime;
   bool countingUp = (diff < 0);
-  int64_t absDiff = abs(diff);
-  if (countingUp && absDiff > 3600)
-  {
-    if (ModeChanged)
-    {
+  int64_t absDiff = (diff < 0) ? -diff : diff;
+  if (countingUp && absDiff > 3600) {
+    if (ModeChanged) {
       revertMode();
       ModeChanged = false;
     }
     drawClock();
     return;
   }
-  if (countingUp)
-  {
+  if (countingUp) {
     Segment &selseg = strip.getSegment(0);
-    if (!ModeChanged)
-    {
+    if (!ModeChanged) {
       SaveMode();
       setMode(FX_MODE_STATIC, 0xFF0000, 128, 128, 255);
       ModeChanged = true;
       IgnoreBlinking = false;
     }
-    if (selseg.mode != FX_MODE_STATIC && ModeChanged && !IgnoreBlinking)
-    {
+    if (selseg.mode != FX_MODE_STATIC && ModeChanged && !IgnoreBlinking) {
       IgnoreBlinking = true;
       revertMode();
     }
-    if (millis() - lastBlink >= countdownBlinkInterval)
-    {
+    if (millis() - lastBlink >= countdownBlinkInterval) {
       BlinkToggle = !BlinkToggle;
       lastBlink = millis();
     }
-    if (BlinkToggle && !IgnoreBlinking)
-    {
+    if (BlinkToggle && !IgnoreBlinking) {
       strip.setBrightness(255);
-    }
-    else if (!BlinkToggle && !IgnoreBlinking)
-    {
+    } else if (!BlinkToggle && !IgnoreBlinking) {
       strip.setBrightness(0);
     }
-    if (absDiff < 60)
-    {
+    if (absDiff < 60) {
       setDigitChar(0, 'x');
       setDigitChar(1, 'x');
       setDigitInt(2, absDiff / 10);
       setDigitInt(3, absDiff % 10);
       setDigitChar(4, 'x');
       setDigitChar(5, 'x');
-    }
-    if (absDiff >= 60)
-    {
+    } else if (absDiff >= 60) {
       setDigitChar(0, 'x');
       setDigitChar(1, 'x');
       setDigitInt(2, absDiff / 600);
@@ -311,10 +262,8 @@ void SevenSegClockCountdown::drawCountdown()
     }
   }
 
-  if (!countingUp)
-  {
-    if (ModeChanged)
-    {
+  if (!countingUp) {
+    if (ModeChanged) {
       revertMode();
       ModeChanged = false;
     }
@@ -326,18 +275,21 @@ void SevenSegClockCountdown::drawCountdown()
     fullMinutes = (uint32_t)(absDiff / 60);
     fullSeconds = (uint32_t)absDiff;
 
-    if (remDays > 99)
-    {
+    if (remDays > 999) {
+      setDigitChar(0, 'o');
+      setDigitInt(1, 9);
+      setDigitInt(2, 9);
+      setDigitInt(3, 9);
+      setDigitChar(4, 'd');
+      setDigitChar(5, ' ');
+    } else if (remDays > 99 && remDays <= 999) {
       setDigitChar(0, ' ');
       setDigitInt(1, (remDays / 100) % 10);
       setDigitInt(2, (remDays / 10) % 10);
       setDigitInt(3, remDays % 10);
       setDigitChar(4, 'd');
       setDigitChar(5, ' ');
-      return;
-    }
-    if (remDays <= 99 && fullHours > 99)
-    {
+    } else if (remDays <= 99 && fullHours > 99) {
       setDigitInt(0, remDays / 10);
       setDigitInt(1, remDays % 10);
       setSeparator(1, sepsOn);
@@ -346,10 +298,7 @@ void SevenSegClockCountdown::drawCountdown()
       setSeparator(2, sepsOn);
       setDigitInt(4, remMinutes / 10);
       setDigitInt(5, remMinutes % 10);
-      return;
-    }
-    if (fullHours <= 99 && fullMinutes > 99)
-    {
+    } else if (fullHours <= 99 && fullMinutes > 99) {
       setDigitInt(0, fullHours / 10);
       setDigitInt(1, fullHours % 10);
       setSeparator(1, sepsOn);
@@ -358,42 +307,36 @@ void SevenSegClockCountdown::drawCountdown()
       setSeparator(2, sepsOn);
       setDigitInt(4, remSeconds / 10);
       setDigitInt(5, remSeconds % 10);
-      return;
-    }
-    int hs = getHundredths(remSeconds, /*countDown*/ !countingUp);
+    } else {
+      int hs = getHundredths(remSeconds, /*countDown*/ !countingUp);
 
-    setDigitInt(0, fullMinutes / 10);
-    setDigitInt(1, fullMinutes % 10);
-    setSeparatorHalf(1, true, sepsOn);
-    setDigitInt(2, remSeconds / 10);
-    setDigitInt(3, remSeconds % 10);
-    setSeparator(2, sepsOn);
-    setDigitInt(4, hs / 10);
-    setDigitInt(5, hs % 10);
+      setDigitInt(0, fullMinutes / 10);
+      setDigitInt(1, fullMinutes % 10);
+      setSeparatorHalf(1, true, sepsOn);
+      setDigitInt(2, remSeconds / 10);
+      setDigitInt(3, remSeconds % 10);
+      setSeparator(2, sepsOn);
+      setDigitInt(4, hs / 10);
+      setDigitInt(5, hs % 10);
+    }
   }
 }
 
 /* ===== WLED overlay entrypoint ===== */
 // Draw the overlay (clock, countdown, or alternating) and apply mask.
-void SevenSegClockCountdown::handleOverlayDraw()
-{
+void SevenSegClockCountdown::handleOverlayDraw() {
   if (!enabled)
     return;
-  if (showClock && showCountdown)
-  {
+  if (showClock && showCountdown) {
     uint32_t period = (alternatingTime > 0) ? (uint32_t)alternatingTime : 10U;
     uint32_t block = (uint32_t)localTime / period;
     if ((block & 1U) == 0U)
       drawClock();
     else
       drawCountdown();
-  }
-  else if (showClock)
-  {
+  } else if (showClock) {
     drawClock();
-  }
-  else
-  {
+  } else {
     drawCountdown();
   }
   applyMaskToStrip();
@@ -401,8 +344,7 @@ void SevenSegClockCountdown::handleOverlayDraw()
 
 /* ===== UI / JSON state ===== */
 // Add compact info UI elements to the JSON info block.
-void SevenSegClockCountdown::addToJsonInfo(JsonObject &root)
-{
+void SevenSegClockCountdown::addToJsonInfo(JsonObject &root) {
   JsonObject user = root["u"];
   if (user.isNull())
     user = root.createNestedObject("u");
@@ -416,12 +358,12 @@ void SevenSegClockCountdown::addToJsonInfo(JsonObject &root)
   infoArr.add(uiDomString);
   infoArr = user.createNestedArray(F("Status"));
   infoArr.add(enabled ? F("active") : F("disabled"));
-  infoArr = user.createNestedArray(F("Clock Seperators"));
-  if (SeperatorOn && SeperatorOff)
+  infoArr = user.createNestedArray(F("Clock Separators"));
+  if (SeparatorOn && SeparatorOff)
     infoArr.add(F("Blinking"));
-  else if (SeperatorOn)
+  else if (SeparatorOn)
     infoArr.add(F("Always On"));
-  else if (SeperatorOff)
+  else if (SeparatorOff)
     infoArr.add(F("Always Off"));
   else
     infoArr.add(F("Blinking"));
@@ -443,14 +385,13 @@ void SevenSegClockCountdown::addToJsonInfo(JsonObject &root)
 }
 
 // Serialize usermod state into JSON state.
-void SevenSegClockCountdown::addToJsonState(JsonObject &root)
-{
+void SevenSegClockCountdown::addToJsonState(JsonObject &root) {
   JsonObject s = root[F("7seg")].as<JsonObject>();
   if (s.isNull())
     s = root.createNestedObject(F("7seg"));
   s[F("enabled")] = enabled;
-  s[F("SeperatorOn")] = SeperatorOn;
-  s[F("SeperatorOff")] = SeperatorOff;
+  s[F("SeparatorOn")] = SeparatorOn;
+  s[F("SeparatorOff")] = SeparatorOff;
   s[F("targetYear")] = targetYear;
   s[F("targetMonth")] = targetMonth;
   s[F("targetDay")] = targetDay;
@@ -462,36 +403,30 @@ void SevenSegClockCountdown::addToJsonState(JsonObject &root)
 }
 
 // Read usermod state from JSON state and validate target.
-void SevenSegClockCountdown::readFromJsonState(JsonObject &root)
-{
+void SevenSegClockCountdown::readFromJsonState(JsonObject &root) {
   JsonObject s = root[F("7seg")].as<JsonObject>();
   if (s.isNull())
     return;
   if (s.containsKey(F("enabled")))
     enabled = s[F("enabled")].as<bool>();
   bool changed = false;
-  if (s.containsKey(F("targetYear")))
-  {
+  if (s.containsKey(F("targetYear"))) {
     targetYear = s[F("targetYear")].as<int>();
     changed = true;
   }
-  if (s.containsKey(F("targetMonth")))
-  {
+  if (s.containsKey(F("targetMonth"))) {
     targetMonth = s[F("targetMonth")].as<uint8_t>();
     changed = true;
   }
-  if (s.containsKey(F("targetDay")))
-  {
+  if (s.containsKey(F("targetDay"))) {
     targetDay = s[F("targetDay")].as<uint8_t>();
     changed = true;
   }
-  if (s.containsKey(F("targetHour")))
-  {
+  if (s.containsKey(F("targetHour"))) {
     targetHour = s[F("targetHour")].as<uint8_t>();
     changed = true;
   }
-  if (s.containsKey(F("targetMinute")))
-  {
+  if (s.containsKey(F("targetMinute"))) {
     targetMinute = s[F("targetMinute")].as<uint8_t>();
     changed = true;
   }
@@ -501,18 +436,17 @@ void SevenSegClockCountdown::readFromJsonState(JsonObject &root)
     showCountdown = s[F("showCountdown")].as<bool>();
   if (s.containsKey(F("alternatingTime")))
     alternatingTime = s[F("alternatingTime")].as<uint16_t>();
-  if (s.containsKey(F("SeperatorOn")))
-    SeperatorOn = s[F("SeperatorOn")].as<bool>();
-  if (s.containsKey(F("SeperatorOff")))
-    SeperatorOff = s[F("SeperatorOff")].as<bool>();
+  if (s.containsKey(F("SeparatorOn")))
+    SeparatorOn = s[F("SeparatorOn")].as<bool>();
+  if (s.containsKey(F("SeparatorOff")))
+    SeparatorOff = s[F("SeparatorOff")].as<bool>();
   if (changed)
     validateTarget(true);
 }
 
 /* ===== Config persistence ===== */
 // Write persistent configuration to cfg.json.
-void SevenSegClockCountdown::addToConfig(JsonObject &root)
-{
+void SevenSegClockCountdown::addToConfig(JsonObject &root) {
   JsonObject top = root.createNestedObject(F("7seg"));
   top[F("enabled")] = enabled;
   top[F("targetYear")] = targetYear;
@@ -523,13 +457,12 @@ void SevenSegClockCountdown::addToConfig(JsonObject &root)
   top[F("showClock")] = showClock;
   top[F("showCountdown")] = showCountdown;
   top[F("alternatingTime")] = alternatingTime;
-  top[F("SeperatorOn")] = SeperatorOn;
-  top[F("SeperatorOff")] = SeperatorOff;
+  top[F("SeparatorOn")] = SeparatorOn;
+  top[F("SeparatorOff")] = SeparatorOff;
 }
 
 // Read persistent configuration from cfg.json.
-bool SevenSegClockCountdown::readFromConfig(JsonObject &root)
-{
+bool SevenSegClockCountdown::readFromConfig(JsonObject &root) {
   JsonObject top = root[F("7seg")];
   bool configComplete = !top.isNull();
   configComplete &= getJsonValue(top[F("enabled")], enabled, true);
@@ -541,92 +474,85 @@ bool SevenSegClockCountdown::readFromConfig(JsonObject &root)
   configComplete &= getJsonValue(top[F("showClock")], showClock, true);
   configComplete &= getJsonValue(top[F("showCountdown")], showCountdown, false);
   configComplete &= getJsonValue(top[F("alternatingTime")], alternatingTime, (uint16_t)10);
-  configComplete &= getJsonValue(top[F("SeperatorOn")], SeperatorOn, true);
-  configComplete &= getJsonValue(top[F("SeperatorOff")], SeperatorOff, true);
+  configComplete &= getJsonValue(top[F("SeparatorOn")], SeparatorOn, true);
+  configComplete &= getJsonValue(top[F("SeparatorOff")], SeparatorOff, true);
   validateTarget(true);
   return configComplete;
 }
 
 /* ===== MQTT integration ===== */
 // Subscribe to usermod MQTT topic on connect.
-void SevenSegClockCountdown::onMqttConnect(bool sessionPresent)
-{
+void SevenSegClockCountdown::onMqttConnect(bool sessionPresent) {
   String topic = mqttDeviceTopic;
-  topic += MQTT_Topic;
+  topic += "/"; topic += MQTT_Topic; topic += "/#"; 
   mqtt->subscribe(topic.c_str(), 0);
 }
 
 // Handle usermod MQTT messages (simple key/value).
-bool SevenSegClockCountdown::onMqttMessage(char *topic, char *payload)
-{
+bool SevenSegClockCountdown::onMqttMessage(char *topic, char *payload) {
   String topicStr = String(topic);
-  if (!topicStr.startsWith(F("/7seg/")))
+  String prefix = "/"; prefix += mqttDeviceTopic; prefix += "/";
+  if (!topicStr.startsWith(prefix))
     return false;
-  String subTopic = topicStr.substring(strlen("/7seg/"));
-  if (subTopic.indexOf(F("enabled")) >= 0)
-  {
+  String subTopic = topicStr.substring(strlen(prefix.c_str()));
+  if (subTopic.indexOf(F("enabled")) >= 0) {
     String payloadStr = String(payload);
     enabled = (payloadStr == F("true") || payloadStr == F("1"));
     return true;
   }
-  if (subTopic.indexOf(F("targetYear")) >= 0)
-  {
+  if (subTopic.indexOf(F("targetYear")) >= 0) {
     String payloadStr = String(payload);
     targetYear = payloadStr.toInt();
+    validateTarget(true);
     return true;
   }
-  if (subTopic.indexOf(F("targetMonth")) >= 0)
-  {
+  if (subTopic.indexOf(F("targetMonth")) >= 0) {
     String payloadStr = String(payload);
     targetMonth = (uint8_t)payloadStr.toInt();
+    validateTarget(true);
     return true;
   }
-  if (subTopic.indexOf(F("targetDay")) >= 0)
-  {
+  if (subTopic.indexOf(F("targetDay")) >= 0) {
     String payloadStr = String(payload);
     targetDay = (uint8_t)payloadStr.toInt();
+    validateTarget(true);
     return true;
   }
-  if (subTopic.indexOf(F("targetHour")) >= 0)
-  {
+  if (subTopic.indexOf(F("targetHour")) >= 0) {
     String payloadStr = String(payload);
     targetHour = (uint8_t)payloadStr.toInt();
+    validateTarget(true);
     return true;
   }
-  if (subTopic.indexOf(F("targetMinute")) >= 0)
-  {
+  if (subTopic.indexOf(F("targetMinute")) >= 0) {
     String payloadStr = String(payload);
     targetMinute = (uint8_t)payloadStr.toInt();
+    validateTarget(true);
     return true;
   }
-  if (subTopic.indexOf(F("showClock")) >= 0)
-  {
+  if (subTopic.indexOf(F("showClock")) >= 0) {
     String payloadStr = String(payload);
     showClock = (payloadStr == F("true") || payloadStr == F("1"));
     return true;
   }
-  if (subTopic.indexOf(F("showCountdown")) >= 0)
-  {
+  if (subTopic.indexOf(F("showCountdown")) >= 0) {
     String payloadStr = String(payload);
     showCountdown = (payloadStr == F("true") || payloadStr == F("1"));
     return true;
   }
-  if (subTopic.indexOf(F("alternatingTime")) >= 0)
-  {
+  if (subTopic.indexOf(F("alternatingTime")) >= 0) {
     String payloadStr = String(payload);
     alternatingTime = (uint16_t)payloadStr.toInt();
     return true;
   }
-  if (subTopic.indexOf(F("SeperatorOn")) >= 0)
-  {
+  if (subTopic.indexOf(F("SeparatorOn")) >= 0) {
     String payloadStr = String(payload);
-    SeperatorOn = (payloadStr == F("true") || payloadStr == F("1"));
+    SeparatorOn = (payloadStr == F("true") || payloadStr == F("1"));
     return true;
   }
-  if (subTopic.indexOf(F("SeperatorOff")) >= 0)
-  {
+  if (subTopic.indexOf(F("SeparatorOff")) >= 0) {
     String payloadStr = String(payload);
-    SeperatorOff = (payloadStr == F("true") || payloadStr == F("1"));
+    SeparatorOff = (payloadStr == F("true") || payloadStr == F("1"));
     return true;
   }
   return false;

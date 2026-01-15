@@ -5,14 +5,15 @@
   - 3D-print: MakerWorld
   - PCB: GitHub, in this usermod’s folder
 - Active development happens in the WLED fork by DereIBims:
-  - https://github.com/DereIBims/WLED
+  - [github.com/DereIBims/WLED](https://github.com/DereIBims/WLED)
 
 A usermod that renders a six‑digit, two‑separator seven‑segment display as an overlay mask on top of WLED’s normal effects/colors. Lit “segments” preserve the underlying pixel color; all other pixels are forced to black. This lets you show a clock or a countdown without losing the active effect.
 
 ## What it shows
 - Clock: HH:MM:SS with configurable separator behavior (on/off/blink)
 - Countdown to a target date/time
-  - > 99 days: ` ddd d`
+  - > 999 days: `'o'ddd d`
+  - > 99 days: `' 'ddd d`
   - ≤ 99 days: `dd:hh:mm`
   - ≤ 99 hours: `hh:mm:ss`
   - ≤ 99 minutes: `MM·SS:hh` (upper dot between minutes and seconds, plus hundredths 00–99)
