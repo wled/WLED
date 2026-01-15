@@ -816,7 +816,7 @@ WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 //timer
 WLED_GLOBAL byte lastTimerMinute  _INIT(0);
 WLED_GLOBAL bool bootTimerApplied _INIT(false);  // whether boot-time timer check has been performed
-WLED_GLOBAL bool applyTimerOnBoot _INIT(true);   // apply most recent scheduled timer preset on boot (after NTP sync)
+WLED_GLOBAL bool applyTimerOnBoot _INIT(false);  // apply most recent scheduled timer preset on boot (after NTP sync)
 WLED_GLOBAL byte timerHours[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
 WLED_GLOBAL int8_t timerMinutes[] _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
 WLED_GLOBAL byte timerMacro[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
