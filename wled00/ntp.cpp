@@ -420,12 +420,12 @@ void checkTimers()
     // re-calculate sunrise and sunset just after midnight
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
 
-    int currentMinuteOfDay = hour(localTime) * 60 + minute(localTime);
+    int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
     DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
 
     for (unsigned i = 0; i < 10; i++)
     {
-      int timerMinute = getTimerMinuteOfDay(i);
+      int timerMinute = getTimerMinuteOfDay(i);  // returns -1 if timer not valid for today
       if (timerMinute == currentMinuteOfDay) {
         applyPreset(timerMacro[i]);
         if (i == 8) DEBUG_PRINTF_P(PSTR("Sunrise macro %d triggered."), timerMacro[8]);
@@ -444,7 +444,7 @@ void applyBootTimerPreset()
   if (bootTimerApplied || !applyTimerOnBoot) return;
   bootTimerApplied = true;
 
-  int currentMinuteOfDay = hour(localTime) * 60 + minute(localTime);
+  int currentMinuteOfDay = elapsedSecsToday(localTime) / 60;
   int latestTimerMinute = -1;
   byte latestPreset = 0;
 
@@ -452,7 +452,7 @@ void applyBootTimerPreset()
 
   for (unsigned i = 0; i < 10; i++)
   {
-    int timerMinute = getTimerMinuteOfDay(i);
+    int timerMinute = getTimerMinuteOfDay(i);  // returns -1 if timer not valid for today
     if (timerMinute < 0) continue;
 
     // For "every hour" timers, find the most recent past occurrence
