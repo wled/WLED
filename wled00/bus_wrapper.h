@@ -341,10 +341,12 @@ class PolyBus {
   private:
     static bool _useParallelI2S;          // use parallel I2S/LCD (8 channels)
     static uint8_t _rmtChannelsAssigned;  // RMT channel tracking for dynamic allocation
-    static uint8_t _rmtChannelsUsed;      // RMT channel tracking for actual usage during bus creation
+    static uint8_t _rmtChannel;           // physical RMT channel to use during bus creation
     static uint8_t _i2sChannelsAssigned;  // I2S channel tracking for dynamic allocation
     static uint8_t _parallelBusItype;     // parallel output does not allow mixed LED types, track I_Type
-
+    static uint8_t _2PchannelsAssigned;  // 2-Pin (SPI) channel assigned: first one gets the hardware SPI, others use bit-banged SPI
+    // note on 2-Pin Types: all supported types except WS2801 use start/stop or latch frames, speed is not critical. WS2801 uses a 500us timeout and is prone to flickering if bit-banged too slow.
+    // TODO: according to #4863 using more than one bit-banged output can cause glitches even in APA102. This needs investigation as from a hardware perspective all but WS2801 should be immune to timing issues.
   public:
     static inline void setParallelI2SOutput(bool b = true) { _useParallelI2S = b; }
     static inline bool isParallelI2SOutput(void) { return _useParallelI2S; }
@@ -481,7 +483,7 @@ class PolyBus {
   }
 
   static void* create(uint8_t busType, uint8_t* pins, uint16_t len) {
-    Serial.printf("Creating bus type %d on pins %d,%d,%d,%d for %d LEDs, RMT channel = %d, use parallel I2S %d\n", busType, pins[0], pins[1], pins[2], pins[3], len, _rmtChannelsUsed, _useParallelI2S);  ///!!! remvoe
+    Serial.printf("Creating bus type %d on pins %d,%d,%d,%d for %d LEDs, RMT channel = %d, use parallel I2S %d\n", busType, pins[0], pins[1], pins[2], pins[3], len, _rmtChannel, _useParallelI2S);  ///!!! remvoe
     void* busPtr = nullptr;
     switch (busType) {
       case I_NONE: break;
@@ -537,18 +539,18 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses
-      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_TM2_3: busPtr = new B_32_RN_TM2_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_UCS_3: busPtr = new B_32_RN_UCS_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_UCS_4: busPtr = new B_32_RN_UCS_4(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_APA106_3: busPtr = new B_32_RN_APA106_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_FW6_5: busPtr = new B_32_RN_FW6_5(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_2805_5: busPtr = new B_32_RN_2805_5(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_TM1914_3: busPtr = new B_32_RN_TM1914_3(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
-      case I_32_RN_SM16825_5: busPtr = new B_32_RN_SM16825_5(len, pins[0], (NeoBusChannel)_rmtChannelsUsed++); break;
+      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM2_3: busPtr = new B_32_RN_TM2_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_UCS_3: busPtr = new B_32_RN_UCS_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_UCS_4: busPtr = new B_32_RN_UCS_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_APA106_3: busPtr = new B_32_RN_APA106_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_FW6_5: busPtr = new B_32_RN_FW6_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_2805_5: busPtr = new B_32_RN_2805_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM1914_3: busPtr = new B_32_RN_TM1914_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_SM16825_5: busPtr = new B_32_RN_SM16825_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
       // I2S1 bus or paralell buses
       #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I2_NEO_3: if (_useParallelI2S) busPtr = new B_32_IP_NEO_3(len, pins[0]); else busPtr = new B_32_I2_NEO_3(len, pins[0]); break;
@@ -1276,18 +1278,16 @@ class PolyBus {
 
   // Reset channel tracking (call before adding buses)
   static void resetChannelTracking() {
+    _useParallelI2S = false;
     _rmtChannelsAssigned = 0;
-    _rmtChannelsUsed = 0;
+    _rmtChannel = 0;
     _i2sChannelsAssigned = 0;
     _parallelBusItype = I_NONE;
-  }
-
-  static void setParallelI2Stype(uint8_t type) {
-    _parallelBusItype = type;
+    _2PchannelsAssigned = 0;
   }
 
   // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
-  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0, uint8_t driverPreference = 0) {
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
     if (!Bus::isDigital(busType)) return I_NONE;
     uint8_t t = I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
@@ -1295,9 +1295,7 @@ class PolyBus {
       #ifdef ESP8266
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
-      // temporary hack to limit use of hardware SPI to a single SPI peripheral (HSPI): only allow ESP32 hardware serial on segment 0
-      // SPI global variable is normally linked to VSPI on ESP32 (or FSPI C3, S3)
-      if (!num) isHSPI = true;
+      if (_2PchannelsAssigned == 0) isHSPI = true; // first 2-pin channel uses hardware SPI
       #endif
       switch (busType) {
         case TYPE_APA102:  t = I_SS_DOT_3; break;
@@ -1306,8 +1304,8 @@ class PolyBus {
         case TYPE_WS2801:  t = I_SS_WS1_3; break;
         case TYPE_P9813:   t = I_SS_P98_3; break;
       }
+      _2PchannelsAssigned++;
       if (t > I_NONE && isHSPI) t--; //hardware SPI has one smaller ID than software
-      return t;
     } else {
       #ifdef ESP8266
       uint8_t offset = pins[0] -1; //for driver: 0 = uart0, 1 = uart1, 2 = dma, 3 = bitbang
@@ -1342,18 +1340,14 @@ class PolyBus {
           t = I_8266_U0_SM16825_5 + offset; break;
       }
       #else //ESP32
-      // Dynamic channel allocation based on driver preference
-
-      // Determine which driver to use based on preference and availability
+      // dynamic channel allocation based on driver preference
+      // determine which driver to use based on preference and availability. First I2S bus locks the I2S type, all subsequent I2S buses are assigned the same type (hardware restriction)
       uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
-      // TODO: need to track parallel I2S usage separately: add variable for "lock" of parallel I2S channel used
-      // TODO: this whole logic needs to be revisited: in finalize init first need to determine the number of requested I2S channels and if its viable to use parallel I2S at all before assigning channels here
       if (driverPreference == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
-        // Use RMT (either user wants RMT or default fallback)
         _rmtChannelsAssigned++;
       } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
         offset = 1; // I2S requested or RMT full
-        _i2sChannelsAssigned++; // TODO: need to check if parallel I2S can even be used if this is a fallback
+        _i2sChannelsAssigned++;
         Serial.printf("Assigning I2S channel %d\n", _i2sChannelsAssigned);  ///!!! remvoe
       } else {
         return I_NONE; // No channels available

@@ -141,7 +141,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
   }
 
-  _iType = bc.iType; // reuse the iType that was determined during memory estimation (memUsage)
+  _iType = bc.iType; // reuse the iType that was determined by polyBus in getI() in finalizeInit()
   if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
@@ -1112,49 +1112,17 @@ size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
 // ***************************************************************************
 
 //utility to get the approx. memory usage of a given BusConfig
-size_t BusConfig::memUsage(unsigned nr) const {
+size_t BusConfig::memUsage() const {
   if (Bus::isVirtual(type)) {
     return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    // call to getI() determines bus types/drivers, allocates and tracks polybus channels
-    // store the result in iType for later reuse during bus creation (getI() must only be called once per BusConfig)
-    const_cast<BusConfig*>(this)->iType = PolyBus::getI(type, pins, nr, driverType);
     return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
   } else if (Bus::isOnOff(type)) {
     return sizeof(BusOnOff);
   } else {
     return sizeof(BusPwm);
   }
-}
-
-
-size_t BusManager::memUsage() {
-  // when ESP32, S2 & S3 use parallel I2S only the largest bus determines the total memory requirements for back buffers
-  // front buffers are always allocated per bus
-  unsigned size = 0;
-  unsigned maxI2S = 0;
-  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-  unsigned digitalCount = 0;
-  #endif
-  for (const auto &bus : busses) {
-    size += bus->getBusSize();
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    if (bus->isDigital() && !bus->is2Pin()) {
-      digitalCount++;
-      if ((PolyBus::isParallelI2SOutput() && digitalCount <= 8) || (!PolyBus::isParallelI2SOutput() && digitalCount == 1)) {
-        #ifdef NPB_CONF_4STEP_CADENCE
-        constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
-        #else
-        constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
-        #endif
-        unsigned i2sCommonSize = stepFactor * bus->getLength() * bus->getNumberOfChannels() * (bus->is16bit()+1);
-        if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
-      }
-    }
-    #endif
-  }
-  return size + maxI2S;
 }
 
 int BusManager::add(const BusConfig &bc) {
@@ -1215,15 +1183,9 @@ String BusManager::getLEDTypesJSONString() {
   return json;
 }
 
-void BusManager::useParallelOutput() {
-  DEBUGBUS_PRINTLN(F("Bus: Enabling parallel I2S."));
-  PolyBus::setParallelI2SOutput();
+uint8_t BusManager::getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
+  return PolyBus::getI(busType, pins, driverPreference);
 }
-
-bool BusManager::hasParallelOutput() {
-  return PolyBus::isParallelI2SOutput();
-}
-
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
@@ -1434,12 +1396,14 @@ void BusManager::applyABL() {
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
-bool PolyBus::_useParallelI2S = false;
+
 // PolyBus channel tracking for dynamic allocation
+bool PolyBus::_useParallelI2S = false;
 uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
-uint8_t PolyBus::_rmtChannelsUsed = 0;     // number of RMT channels actually used during bus creation in create()
+uint8_t PolyBus::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
 uint8_t PolyBus::_i2sChannelsAssigned = 0; // number of I2S channels assigned durig getI() check
 uint8_t PolyBus::_parallelBusItype = 0;    // type I_NONE
+uint8_t PolyBus::_2PchannelsAssigned = 0;
 
 // Bus static member definition
 int16_t Bus::_cct = -1;

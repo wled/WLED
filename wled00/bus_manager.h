@@ -471,7 +471,7 @@ struct BusConfig {
     return true;
   }
 
-  size_t memUsage(unsigned nr = 0) const;
+  size_t memUsage() const;
 };
 
 
@@ -502,7 +502,6 @@ namespace BusManager {
     return j;
   }
 
-  size_t          memUsage();
   inline uint16_t currentMilliamps()            { return _gMilliAmpsUsed + MA_FOR_ESP; }
   //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
@@ -510,8 +509,7 @@ namespace BusManager {
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
-  void useParallelOutput(); // workaround for inaccessible PolyBus
-  bool hasParallelOutput(); // workaround for inaccessible PolyBus
+  uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference); // workaround for access to PolyBus function from FX_fcn.cpp
 
   //do not call this method from system context (network callback)
   void removeAll();

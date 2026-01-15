@@ -61,7 +61,7 @@ class RgbRotaryEncoderUsermod : public Usermod
       _pins[0] = static_cast<byte>(ledIo);
       BusConfig busCfg = BusConfig(TYPE_WS2812_RGB, _pins, 0, numLeds, COL_ORDER_GRB, false, 0);
 
-      ledBus = new BusDigital(busCfg, WLED_MAX_BUSSES - 1);
+      ledBus = new BusDigital(busCfg);
       if (!ledBus->isOk()) {
         cleanup();
         return;
