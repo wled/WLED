@@ -451,7 +451,6 @@
 
 				if (isDig(t) && !isD2P(t)) {
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-					console.log(`UI(): Bus ${n} type ${t} driver pref ${driverPref}`);
 					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
 
 					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
@@ -462,7 +461,6 @@
 							if (!d.Sf["LD"+n].value) d.Sf["LD"+n].value = "0"; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
 							driverPref = parseInt(d.Sf["LD"+n].value);
-							console.log(`UI(): Bus ${n} type ${t} driver pref ${driverPref} after display`);
 						}
 					}
 				}
@@ -971,7 +969,15 @@ Swap: <select id="xw${s}" name="XW${s}">
 							});
 						}
 					}
-				} else if (digitalB >= maxD) disable('option[data-type="D"]'); // disable digital bus options if limit reached
+				} else {
+				 	if (digitalB >= maxD) disable('option[data-type="D"]'); // disable digital bus options if limit reached
+					else if (!is8266() && usage.rmtUsed >= maxRMT && (firstI2SType != null)) {
+						// there are still digital buses available, restrict digital bus options to I2S type if RMT is full (ESP32 only)
+						sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+							if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+						});
+					}
+				}
 				// 2-pin digital buses limited to 2
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
 				// PWM analog types limited by pin count
