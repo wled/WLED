@@ -21,7 +21,7 @@ While the PR is open - and under review by maintainers - you may be asked to mod
 You can simply update your own branch, and push changes in response to reviewer recommendations. 
 Github will pick up the changes so your PR stays up-to-date.
 
-You don't need to provide us with a single commit 'squashed' PR; you can simply add commits while your pull request (PR) is open.
+You don't need to provide us with a single-commit 'squashed' PR; you can simply add commits while your pull request (PR) is open.
 
 > [!CAUTION]
 > Do not use "force-push" while your PR is open!
