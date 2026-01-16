@@ -289,10 +289,10 @@ bool checkNTPResponse()
   #endif
 
   if (countdownTime - toki.second() > 0) countdownOverTriggered = false;
-  // if time changed re-calculate sunrise/sunset
+
+  // NTP sync succeeded
   updateLocalTime();
   calculateSunriseAndSunset();
-  // Apply most recent timer preset on first NTP sync after boot
   applyBootTimerPreset();
   return true;
 }
