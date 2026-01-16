@@ -9,12 +9,6 @@
 #ifndef I2C_ENCODER_DEFAULT_INT_PIN
 #define I2C_ENCODER_DEFAULT_INT_PIN 1
 #endif
-// #ifndef I2C_ENCODER_DEFAULT_SDA_PIN
-// #define I2C_ENCODER_DEFAULT_SDA_PIN 0
-// #endif
-// #ifndef I2C_ENCODER_DEFAULT_SCL_PIN
-// #define I2C_ENCODER_DEFAULT_SCL_PIN 2
-// #endif
 #ifndef I2C_ENCODER_DEFAULT_ADDRESS
 #define I2C_ENCODER_DEFAULT_ADDRESS 0x00
 #endif
@@ -39,12 +33,10 @@ private:
     uint32_t lastInteractionTime = 0;
     const uint32_t modeResetTimeout = 30000;  // Timeout for reseting mode to 0
     const int8_t brightnessDelta = 16;
-    bool enabled = false;
+    bool enabled = I2C_ENCODER_DEFAULT_ENABLED;
 
     // Configurable pins and address (now user-configurable via JSON config)
     int8_t irqPin = I2C_ENCODER_DEFAULT_INT_PIN;  // Interrupt pin for I2C encoder
-    // int8_t sdaPin = I2C_ENCODER_DEFAULT_SDA_PIN;  // I2C SDA pin
-    // int8_t sclPin = I2C_ENCODER_DEFAULT_SCL_PIN;  // I2C SCL pin
     uint8_t i2cAddress = I2C_ENCODER_DEFAULT_ADDRESS;  // I2C address of encoder
 
     void update() {
@@ -52,15 +44,18 @@ private:
         updateInterfaces(CALL_MODE_BUTTON);
     }
 
-    void updateBrightness(int8_t deltaBrightness) {
-        bri = constrain(bri + deltaBrightness, 0, 255);
+    void updateBrightness(bool increase) {
+        int8_t delta = bri < 40 ? brightnessDelta / 2 : brightnessDelta;
+        bri = constrain(bri + (increase ? delta : -delta), 0, 255);
         update();
     }
 
-    void updateEffect(int8_t deltaEffect) {
+    void updateEffect(bool increase) {
         // Set new effect with rollover at 0 and MODE_COUNT
-        effectCurrent = (effectCurrent + MODE_COUNT + deltaEffect) % MODE_COUNT;
-        // colorUpdated(CALL_MODE_FX_CHANGED);
+        effectCurrent = (effectCurrent + MODE_COUNT + (increase ? 1 : -1)) % MODE_COUNT;
+        stateChanged = true;
+        Segment& seg = strip.getSegment(strip.getMainSegmentId());
+        seg.setMode(effectCurrent);
         update();
     }
 
@@ -81,7 +76,6 @@ private:
         DEBUG_PRINTLN(F("Encoder long button press"));
         if (encoderMode == 0 && bri == 0) {
             applyPreset(1);
-            // colorUpdated(CALL_MODE_FX_CHANGED);
             update();
         } else {
             setEncoderMode((encoderMode + 1) % (sizeof(encoderModes) / sizeof(encoderModes[0])));
@@ -93,8 +87,8 @@ private:
     void encoderRotated(i2cEncoderLibV2 *obj) {
         DEBUG_PRINTLN(F("Encoder rotated"));
         switch (encoderMode) {
-            case 0: updateBrightness(obj->readStatus(i2cEncoderLibV2::RINC) ? brightnessDelta : -brightnessDelta); break;
-            case 1: updateEffect(obj->readStatus(i2cEncoderLibV2::RINC) ? 1 : -1); break;
+            case 0: updateBrightness(obj->readStatus(i2cEncoderLibV2::RINC)); break;
+            case 1: updateEffect(obj->readStatus(i2cEncoderLibV2::RINC)); break;
         }
         lastInteractionTime = millis();
     }
@@ -149,7 +143,6 @@ public:
             i2cEncoderLibV2::INT_DATA | i2cEncoderLibV2::WRAP_ENABLE | i2cEncoderLibV2::DIRE_RIGHT |
             i2cEncoderLibV2::IPUP_ENABLE | i2cEncoderLibV2::RMOD_X1 | i2cEncoderLibV2::RGB_ENCODER
         );
-
         encoder_p->writeCounter((int32_t)0);  // Reset the counter value
         encoder_p->writeMax((int32_t)255);  // Set the maximum threshold
         encoder_p->writeMin((int32_t)0);  // Set the minimum threshold
@@ -188,11 +181,7 @@ public:
         JsonObject top = root.createNestedObject(FPSTR(_name));
         top["enabled"] = enabled;
         top["irq_pin"] = irqPin;
-        // top["sdaPin"] = sdaPin;
-        // top["sclPin"] = sclPin;
         top["i2c_address"] = i2cAddress;
-        // JsonArray pinArray = top.createNestedArray("pin");
-        // pinArray.add(intPin);
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -201,8 +190,6 @@ public:
         bool configComplete = !top.isNull();
         configComplete &= getJsonValue(top["enabled"], enabled, I2C_ENCODER_DEFAULT_ENABLED);
         configComplete &= getJsonValue(top["irq_pin"], irqPin, I2C_ENCODER_DEFAULT_INT_PIN);
-        // configComplete &= getJsonValue(top["sdaPin"], sdaPin, I2C_ENCODER_DEFAULT_SDA_PIN);
-        // configComplete &= getJsonValue(top["sclPin"], sclPin, I2C_ENCODER_DEFAULT_SCL_PIN);
         configComplete &= getJsonValue(top["i2c_address"], i2cAddress, I2C_ENCODER_DEFAULT_ADDRESS);
         return configComplete;
     }
