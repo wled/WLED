@@ -6,6 +6,8 @@ Here are a few suggestions to make it easier for you to contribute!
 Start your pull request (PR) in a branch of your own fork. Don't make a PR directly from your main branch.
 This lets you update your PR if needed, while you can work on other tasks in 'main' or in other branches.
 
+<img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
+
 Tip: When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
 When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
 
