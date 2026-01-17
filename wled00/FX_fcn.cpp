@@ -1216,24 +1216,19 @@ void WS2812FX::finalizeInit() {
       constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
       #endif
       unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
-      Serial.printf("Bus %d: bus bytes: %dB\n", (int)bus.type, bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
       if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
       if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
     }
     #endif
     if (mem + I2SdmaMem <= MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
-      int freeheap = getFreeHeapSize();
-      DEBUG_PRINTF_P(PSTR("Heap before bus add: %d\n"), freeheap);
       BusManager::add(bus);
-      DEBUG_PRINTF_P(PSTR("*************Heap after bus add: %d, difference: %d\n"), getFreeHeapSize(), getFreeHeapSize() - freeheap);
-      DEBUG_PRINTF_P(PSTR("Bus memory: %uB, common I2S memory: %uB\n"), memB, I2SdmaMem);
     } else {
       errorFlag = ERR_NORAM_PX; // alert UI
       DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) not created."), (int)bus.type, (int)bus.count);
       break;
     }
   }
-  DEBUG_PRINTF_P(PSTR("LED buses buffer size: %uB\n"), mem + I2SdmaMem);
+  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
