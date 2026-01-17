@@ -9,6 +9,10 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 Tip: When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
 When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
 
+### Target branch for pull requests
+
+Please make all PRs against the `main` branch.
+
 ### Describe your PR
 
 Please add a description of your proposed code changes. It does not need to be an exhaustive essay, however a PR with no description or just a few words might not get accepted, simply because very basic information is missing.
@@ -19,9 +23,6 @@ A good description helps us to review and understand your proposed changes. For 
 * testing you performed, known limitations, open ends you possibly could not solve.
 * any areas where you like to get help from an experienced maintainer (yes WLED has become big 😉)
 
-### Target branch for pull requests
-
-Please make all PRs against the `main` branch.
 
 ### Updating your code
 While the PR is open - and under review by maintainers - you may be asked to modify your PR source code.
