@@ -1159,6 +1159,11 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
+  // free unused segment data to help with fragmentation and give NPB more ram to create the buses (it can still fail and crash: parallel I2S needs a lot of RAM, NPB just crashes if it can't allocate)
+  strip.resetSegments(); // free segment data
+  p_free(_pixels); // free global buffer
+  customMappingSize = 0;
+  d_free(customMappingTable); // free ledmap (is re-created below if needed)
 
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
@@ -1190,13 +1195,16 @@ void WS2812FX::finalizeInit() {
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   // create buses/outputs
-  unsigned mem = 0;
+  unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
   unsigned I2SdmaMem = 0;
   for (auto &bus : busConfigs) {
-    // call to getI() determines bus types/drivers, allocates and tracks polybus channels
-    // store the result in iType for later reuse during bus creation (getI() must only be called once per BusConfig)
-    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType); // assignes digital bus type and output driver type
-    unsigned memB = bus.memUsage(); // does not include DMA/RMT buffer
+    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
+    // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
+    // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
+    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
+  }
+  for (auto &bus : busConfigs) {
+    unsigned memB = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
     mem += memB;
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
@@ -1207,14 +1215,18 @@ void WS2812FX::finalizeInit() {
       #else
       constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
       #endif
-      unsigned i2sCommonMem = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
-      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size
+      unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
+      Serial.printf("Bus %d: bus bytes: %dB\n", (int)bus.type, bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
+      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
       if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
     }
     #endif
-    if (mem + I2SdmaMem <= MAX_LED_MEMORY) {
+    if (mem + I2SdmaMem <= MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
+      int freeheap = getFreeHeapSize();
+      DEBUG_PRINTF_P(PSTR("Heap before bus add: %d\n"), freeheap);
       BusManager::add(bus);
-      DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
+      DEBUG_PRINTF_P(PSTR("*************Heap after bus add: %d, difference: %d\n"), getFreeHeapSize(), getFreeHeapSize() - freeheap);
+      DEBUG_PRINTF_P(PSTR("Bus memory: %uB, common I2S memory: %uB\n"), memB, I2SdmaMem);
     } else {
       errorFlag = ERR_NORAM_PX; // alert UI
       DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) not created."), (int)bus.type, (int)bus.count);
@@ -1252,7 +1264,6 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));

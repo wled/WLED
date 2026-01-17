@@ -486,16 +486,19 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
+// maximum total memory that can be used for bus-buffers and pixel buffers
 #ifndef MAX_LED_MEMORY
   #ifdef ESP8266
-    #define MAX_LED_MEMORY 4096
+    #define MAX_LED_MEMORY (8*1024)
   #else
     #if defined(ARDUINO_ARCH_ESP32S2)
-      #define MAX_LED_MEMORY 16384
+      #define MAX_LED_MEMORY (28*1024)
+    #elif defined(ARDUINO_ARCH_ESP32S3)
+      #define MAX_LED_MEMORY (128*1024)
     #elif defined(ARDUINO_ARCH_ESP32C3)
-      #define MAX_LED_MEMORY 32768
+      #define MAX_LED_MEMORY (80*1024)
     #else
-      #define MAX_LED_MEMORY 65536
+      #define MAX_LED_MEMORY (85*1024) // ESP32 has about 160k of free heap after boot and an additional 64k of 32bit access memory that is used for pixel buffers
     #endif
   #endif
 #endif

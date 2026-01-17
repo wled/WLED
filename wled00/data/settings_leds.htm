@@ -144,7 +144,7 @@
 					}
 				}
 			};
-			if (bquot > 200) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
+			if (bquot > 100) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
 				if (bquot > 100) msg += "\n\rToo many LEDs for me to handle properly!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
@@ -227,12 +227,12 @@
 			enABL();
 			gId('m1').innerHTML = maxM;
 		}
-		//returns mem usage
+		//returns mem usage for buses including two pixel buffers (segment buffer + global buffer)
 		function getMem(t, n) {
 			if (isAna(t)) return 5;	// analog
 			let len = parseInt(d.Sf["LC"+n].value);
 			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
-			let dma = 0;
+			let dma = 0; // DMA memory for this bus (only for I2S)
 			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
@@ -241,12 +241,16 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				if (!is8266()) mul = 2; // default to double buffer (RMT, 2-pin digital) TODO: does 2-pin use double buffering? old code suggests so.
-				let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0; // driver preference selection: 0=RMT, 1=I2S
-				if (driverPref == 1) { // I2S to be used
-					let usage = getDuse();
-					dma = usage.I2Smem; // DMA buffer for I2S/LCD, getDuse() returns the average per I2S bus so it can be distributed and summed
+				if (!is8266()) {
+					mul = 2; // default to double buffer (RMT, 2-pin digital)
+					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0; // driver preference selection: 0=RMT, 1=I2S
+					if (driverPref == 1) { // I2S to be used
+						mul = 1; // NPB uses single pixel buffer for I2S, DMA buffer serves as second buffer
+						let usage = getDuse();
+						dma = usage.I2Smem; // DMA buffer for I2S/LCD, getDuse() returns the average per I2S bus so it can be distributed and summed
+					}
 				}
+				//console.log(`LED mem for bus ${n} (NPB buffers, DMA buffer per bus, WLED pixel buffers): ${len * ch * mul} + ${dma} + ${pbfr}`);
 			}
 			return len * ch * mul + dma + pbfr;
 		}
@@ -908,25 +912,31 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let rmtUsed = 0, i2sUsed = 0;
 			let I2SType = null;
 			let I2Smem = 0; // DMA memory usage for I2S buses: 3x LED count for single I2S bus, 24x LED count for parallel I2S
+			let maxLEDs = 0; // max number of LEDs for DMA buffer calc
+			if (!is8266()) {
+				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+					let n = sel.name.substring(2,3);
+					let t = parseInt(sel.value);
+					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
 
-			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
-				let n = sel.name.substring(2,3);
-				let t = parseInt(sel.value);
-				let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-				let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
-
-				if (isDig(t) && !isD2P(t)) {
-					if (driverPref === 1) {
-						i2sUsed++;
-						if (!I2SType) I2SType = t; // first I2S bus determines allowed type for all subsequent I2S buses (parallel I2S limitation)
-						let I2SmemoryDMA = ledCount * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED for single I2S, 24 bytes per LED for parallel I2S (S3 always uses parallel)
-						if (I2Smem < I2SmemoryDMA) I2Smem = I2SmemoryDMA;
-					} else {
-						rmtUsed++;
+					if (isDig(t) && !isD2P(t)) {
+						if (driverPref === 1) {
+							i2sUsed++;
+							maxLEDs = maxLEDs > ledCount ? maxLEDs : ledCount; // for parallel I2S the memory buffer is shared, largest bus determines total memory usage
+							if (!I2SType) I2SType = t; // first I2S bus determines allowed type for all subsequent I2S buses (parallel I2S limitation)
+						} else {
+							rmtUsed++;
+						}
 					}
+				});
+				// calculate I2S memory usage
+				if (I2SType) {
+					let ch = 3*hasRGB(I2SType) + hasW(I2SType) + hasCCT(I2SType); // byte channel count per LED
+					I2Smem = maxLEDs * ch * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED byte for single I2S, 24 bytes per LED byte for parallel I2S (S3 always uses parallel), assumes 3-step cadence
+					I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
 				}
-			});
-			I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
+			}
 			return { rmtUsed, i2sUsed, I2SType, I2Smem };
 		}
 

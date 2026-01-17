@@ -141,7 +141,7 @@ class Bus {
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
     virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
-    virtual size_t   getBusSize() const                         { return sizeof(Bus); }
+    virtual size_t   getBusSize() const                         { return sizeof(Bus); } // currently unused
     virtual const String getCustomText() const                  { return String(); }
 
     inline  bool     hasRGB() const                             { return _hasRgb; }
@@ -447,7 +447,7 @@ struct BusConfig {
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     size_t nPins = Bus::getNumberOfPins(type);
     for (size_t i = 0; i < nPins; i++) pins[i] = ppins[i];
-    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%d)\n"),
+    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%s)\n"),
       (int)start, (int)(start+len),
       (int)type,
       (int)colorOrder,
@@ -456,7 +456,7 @@ struct BusConfig {
       (int)autoWhite,
       (int)frequency,
       (int)milliAmpsPerLed, (int)milliAmpsMax,
-      (int)driverType
+      driverType == 0 ? "RMT" : "I2S"
     );
   }
 
