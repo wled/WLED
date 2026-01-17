@@ -75,7 +75,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 2       // no longer used for bus creation but used to distinguish ESP type in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
-    #define WLED_MAX_RMT_CHANNELS 4         // ESP32-S2 has 4 RMT output channels
+    #define WLED_MAX_RMT_CHANNELS 4         // ESP32-S3 has 4 RMT output channels
     #define WLED_MAX_I2S_CHANNELS 8         // uses LCD parallel output not I2S
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 3       // no longer used for bus creation but used to distinguish ESP type in UI

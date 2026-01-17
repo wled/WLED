@@ -1110,6 +1110,9 @@ class PolyBus {
 
   static unsigned getDataSize(void* busPtr, uint8_t busType) {
     unsigned size = 0;
+    #ifdef ARDUINO_ARCH_ESP32
+    size = 100; // ~100bytes for NPB internal structures (measured for both I2S and RMT, much smaller and more variable on ESP8266)
+    #endif
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
@@ -1164,7 +1167,6 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses (front + back + small system managed RMT)
-      size = 100; // ~100bytes for NPB internal structures (measured for both I2S and RMT)
       case I_32_RN_NEO_3: size += (static_cast<B_32_RN_NEO_3*>(busPtr))->PixelsSize()*2; break;
       case I_32_RN_NEO_4: size += (static_cast<B_32_RN_NEO_4*>(busPtr))->PixelsSize()*2; break;
       case I_32_RN_400_3: size += (static_cast<B_32_RN_400_3*>(busPtr))->PixelsSize()*2; break;

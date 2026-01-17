@@ -96,7 +96,7 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { p_free(name); name = nullptr; }
+    if (name) { p_free(name); }
     if (_t) stopTransition(); // also erases _t
     deallocateData();
     p_free(pixels);
@@ -129,7 +129,7 @@ Segment& Segment::operator= (const Segment &orig) {
 Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
-    if (name) { p_free(name); name = nullptr; } // free old name
+    if (name) { p_free(name); } // free old name
     if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
     p_free(pixels);   // free old pixel buffer
@@ -453,7 +453,6 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     #endif
     deallocateData();
     p_free(pixels);
-    pixels = nullptr;
     stop = 0;
     return;
   }
@@ -474,7 +473,6 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     #endif
     deallocateData();
     p_free(pixels);
-    pixels = nullptr;
     stop = 0;
     return;
   }
@@ -1160,11 +1158,10 @@ void WS2812FX::finalizeInit() {
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
   // free unused segment data to help with fragmentation and give NPB more ram to create the buses (it can still fail and crash: parallel I2S needs a lot of RAM, NPB just crashes if it can't allocate)
-  strip.resetSegments(); // free segment data
+  strip.resetSegments(); // remove unused segments note: can't use resetSegments() as buses are currently undefined, and it can lead to heap corruption
   p_free(_pixels); // free global buffer
   customMappingSize = 0;
   d_free(customMappingTable); // free ledmap (is re-created below if needed)
-
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // validate the bus config: count I2S buses and check if they meet requirements
@@ -1208,7 +1205,7 @@ void WS2812FX::finalizeInit() {
     mem += memB;
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    bool usesI2S = bus.driverType == 1;
+    bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
       #ifdef NPB_CONF_4STEP_CADENCE
       constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
@@ -1653,7 +1650,6 @@ void WS2812FX::show() {
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
 
   p_free(_pixelCCT);
-  _pixelCCT = nullptr;
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.

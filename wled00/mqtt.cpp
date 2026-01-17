@@ -102,7 +102,6 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
       // Non-Wled Topic used here. Probably a usermod subscribed to this topic.
       UsermodManager::onMqttMessage(topic, payloadStr);
       p_free(payloadStr);
-      payloadStr = nullptr;
       return;
     }
   }
@@ -132,7 +131,6 @@ static void onMqttMessage(char* topic, char* payload, AsyncMqttClientMessageProp
     parseMQTTBriPayload(payloadStr);
   }
   p_free(payloadStr);
-  payloadStr = nullptr;
 }
 
 // Print adapter for flat buffers

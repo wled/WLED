@@ -79,8 +79,6 @@ static void doSaveState() {
   presetToSave = 0;
   p_free(saveName);
   p_free(quickLoad);
-  saveName = nullptr;
-  quickLoad = nullptr;
   playlistSave = false;
 }
 
@@ -204,7 +202,6 @@ void handlePresets()
   //Aircoookie recommended not to delete buffer
   if (tmpPreset==255 && tmpRAMbuffer!=nullptr) {
     p_free(tmpRAMbuffer);
-    tmpRAMbuffer = nullptr;
   }
   #endif
 
@@ -266,8 +263,6 @@ void savePreset(byte index, const char* pname, JsonObject sObj)
       }
       p_free(saveName);
       p_free(quickLoad);
-      saveName = nullptr;
-      quickLoad = nullptr;
     } else {
       // store playlist
       // WARNING: playlist will be loaded in json.cpp after this call and will have repeat counter increased by 1 it will also be randomised if selected

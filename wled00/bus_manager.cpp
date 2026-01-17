@@ -1213,7 +1213,7 @@ void BusManager::esp32RMTInvertIdle() {
   unsigned u = 0;
   for (auto &bus : busses) {
     if (bus->getLength()==0 || !bus->isDigital() || bus->is2Pin()) continue;
-    if (bus->isI2S()) continue;
+    if (static_cast<BusDigital*>(bus.get())->isI2S()) continue;
     if (u >= WLED_MAX_RMT_CHANNELS) return;
     //assumes that bus number to rmt channel mapping stays 1:1
     rmt_channel_t ch = static_cast<rmt_channel_t>(rmt);
