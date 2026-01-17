@@ -393,7 +393,6 @@ static const uint8_t *getPresetCache(size_t &size) {
   if ((presetsModifiedTime != presetsCachedTime) || (presetsCachedValidate != cacheInvalidate)) {
     if (presetsCached) {
       p_free(presetsCached);
-      presetsCached = nullptr;
     }
   }
 

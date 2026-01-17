@@ -1157,11 +1157,7 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
-  // free unused segment data to help with fragmentation and give NPB more ram to create the buses (it can still fail and crash: parallel I2S needs a lot of RAM, NPB just crashes if it can't allocate)
-  strip.resetSegments(); // remove unused segments note: can't use resetSegments() as buses are currently undefined, and it can lead to heap corruption
-  p_free(_pixels); // free global buffer
-  customMappingSize = 0;
-  d_free(customMappingTable); // free ledmap (is re-created below if needed)
+  // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // validate the bus config: count I2S buses and check if they meet requirements

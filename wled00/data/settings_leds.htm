@@ -241,7 +241,7 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				if (!is8266()) {
+				if (!is8266() && !isD2P(t)) {
 					mul = 2; // default to double buffer (RMT, 2-pin digital)
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0; // driver preference selection: 0=RMT, 1=I2S
 					if (driverPref == 1) { // I2S to be used
@@ -933,6 +933,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				// calculate I2S memory usage
 				if (I2SType) {
 					let ch = 3*hasRGB(I2SType) + hasW(I2SType) + hasCCT(I2SType); // byte channel count per LED
+					if (is16b(I2SType)) maxLEDs *= 2; // 16 bit LEDs use 2 bytes per channel
 					I2Smem = maxLEDs * ch * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED byte for single I2S, 24 bytes per LED byte for parallel I2S (S3 always uses parallel), assumes 3-step cadence
 					I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
 				}

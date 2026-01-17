@@ -750,7 +750,6 @@ std::vector<LEDType> BusNetwork::getLEDTypes() {
 void BusNetwork::cleanup() {
   DEBUGBUS_PRINTLN(F("Virtual Cleanup."));
   d_free(_data);
-  _data = nullptr;
   _type = I_NONE;
   _valid = false;
 }
@@ -1083,8 +1082,8 @@ void BusHub75Matrix::cleanup() {
   display = nullptr;
   virtualDisp = nullptr; // note: when not using "NO_GFX" this causes a memory leak
   #endif
-  if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
-  if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
+  if (_ledBuffer != nullptr) d_free(_ledBuffer);
+  if (_ledsDirty != nullptr) d_free(_ledsDirty);
 }
 
 void BusHub75Matrix::deallocatePins() {
