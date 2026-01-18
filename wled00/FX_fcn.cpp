@@ -96,16 +96,17 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { p_free(name); name = nullptr; }
+    if (name) { p_free(name); }
+    name = nullptr;
     if (_t) stopTransition(); // also erases _t
     deallocateData();
     p_free(pixels);
+    pixels = nullptr;
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
-    pixels = nullptr;
     if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
     if (orig.pixels) {
@@ -1159,66 +1160,71 @@ void WS2812FX::finalizeInit() {
 
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
-
+  // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-  unsigned maxLedsOnBus = 0;
-  unsigned busType = 0;
+  // validate the bus config: count I2S buses and check if they meet requirements
+  unsigned i2sBusCount = 0;
+
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
-      if (busType == 0) busType = bus.type; // remember first bus type
-      if (busType != bus.type) {
-        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Forcing single I2S output.\n"));
-        useParallelI2S = false; // mixed bus types, no parallel I2S
-      }
-      if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
+      if (bus.driverType == 1)
+        i2sBusCount++;
     }
   }
-  DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-  // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
-  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
-  else useParallelI2S = false; // enforce single I2S
-  digitalCount = 0;
+  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
+
+  // Determine parallel vs single I2S usage (used for memory calculation only)
+  bool useParallelI2S = false;
+  #if defined(CONFIG_IDF_TARGET_ESP32S3)
+  // ESP32-S3 always uses parallel LCD driver for I2S
+  if (i2sBusCount > 0) {
+    useParallelI2S = true;
+  }
+  #else
+  if (i2sBusCount > 1) {
+    useParallelI2S = true;
+  }
+  #endif
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   // create buses/outputs
-  unsigned mem = 0;
-  unsigned maxI2S = 0;
-  for (const auto &bus : busConfigs) {
-    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
+  unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
+  unsigned I2SdmaMem = 0;
+  for (auto &bus : busConfigs) {
+    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
+    // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
+    // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
+    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
+  }
+  for (auto &bus : busConfigs) {
+    unsigned memB = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
     mem += memB;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    const bool usesI2S = ((useParallelI2S && digitalCount <= 8) || (!useParallelI2S && digitalCount == 1));
-      #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    const bool usesI2S = (useParallelI2S && digitalCount <= 8);
-      #else
-    const bool usesI2S = false;
-      #endif
+    bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
       #ifdef NPB_CONF_4STEP_CADENCE
       constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
       #else
       constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
       #endif
-      unsigned i2sCommonSize = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
-      if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
+      unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
+      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
+      if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
     }
     #endif
-    if (mem + maxI2S <= MAX_LED_MEMORY) {
+    if (mem + I2SdmaMem <= MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
       BusManager::add(bus);
-      DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
     } else {
       errorFlag = ERR_NORAM_PX; // alert UI
-      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
+      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) not created."), (int)bus.type, (int)bus.count);
       break;
     }
   }
-  DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());
+  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
@@ -1249,7 +1255,6 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
-  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
