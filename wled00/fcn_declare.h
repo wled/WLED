@@ -445,16 +445,16 @@ extern "C" {
   void *d_calloc(size_t, size_t);
   void *d_realloc_malloc(void *ptr, size_t size);
   #ifndef ESP8266
-  inline void d_free(void *ptr) { heap_caps_free(ptr); ptr = nullptr; }
+  inline void d_free(void *ptr) { heap_caps_free(ptr); }
   #else
-  inline void d_free(void *ptr) { free(ptr); ptr = nullptr; }
+  inline void d_free(void *ptr) { free(ptr); }
   #endif
   #if defined(BOARD_HAS_PSRAM)
   // prefer PSRAM in p_xalloc functions, DRAM as fallback
   void *p_malloc(size_t);
   void *p_calloc(size_t, size_t);
   void *p_realloc_malloc(void *ptr, size_t size);
-  inline void p_free(void *ptr) { heap_caps_free(ptr); ptr = nullptr; }
+  inline void p_free(void *ptr) { heap_caps_free(ptr); }
   #else
   #define p_malloc d_malloc
   #define p_calloc d_calloc

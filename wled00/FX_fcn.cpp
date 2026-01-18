@@ -97,15 +97,16 @@ Segment& Segment::operator= (const Segment &orig) {
   if (this != &orig) {
     // clean destination
     if (name) { p_free(name); }
+    name = nullptr;
     if (_t) stopTransition(); // also erases _t
     deallocateData();
     p_free(pixels);
+    pixels = nullptr;
     // copy source
     memcpy((void*)this, (void*)&orig, sizeof(Segment));
     // erase pointers to allocated data
     data = nullptr;
     _dataLen = 0;
-    pixels = nullptr;
     if (!stop) return *this;  // nothing to do if segment is inactive/invalid
     // copy source data
     if (orig.pixels) {
@@ -129,7 +130,7 @@ Segment& Segment::operator= (const Segment &orig) {
 Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
-    if (name) { p_free(name); } // free old name
+    if (name) { p_free(name); name = nullptr; } // free old name
     if (_t) stopTransition(); // also erases _t
     deallocateData(); // free old runtime data
     p_free(pixels);   // free old pixel buffer
@@ -453,6 +454,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     #endif
     deallocateData();
     p_free(pixels);
+    pixels = nullptr;
     stop = 0;
     return;
   }
@@ -473,6 +475,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
     #endif
     deallocateData();
     p_free(pixels);
+    pixels = nullptr;
     stop = 0;
     return;
   }
@@ -1646,6 +1649,7 @@ void WS2812FX::show() {
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
 
   p_free(_pixelCCT);
+  _pixelCCT = nullptr;
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
