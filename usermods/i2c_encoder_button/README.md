@@ -2,7 +2,7 @@
 
 This usermod enables the use of a [DUPPA I2CEncoder V2.1](https://github.com/DuPPadotnet/I2CEncoderV2.1) rotary encoder + pushbutton to control WLED.
 
-Settings will be available on the Usermods page of the web UI. Here you can define which pins are used for interrupt, SCL, and SDA. Restart is needed for new values to take effect.
+Settings will be available on the Usermods page of the web UI. Here you can define which pins are used for SDA, SCL, and interrupt. Global I2C settings are used for SDA and SCL but interrupt setting will be located in the i2c_encoder_button section at the bottom of the page. Restart is needed for new values to take effect.
 
 ## Features
 
