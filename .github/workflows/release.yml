@@ -20,13 +20,13 @@ jobs:
         merge-multiple: true
     - name: "✏️ Generate release changelog"
       id: changelog
-      uses: janheinrichmerker/action-github-changelog-generator@v2.3
+      uses: janheinrichmerker/action-github-changelog-generator@v2.4
       with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           sinceTag: v0.15.0
           maxIssues: 500
           # Exclude issues that were closed without resolution from changelog
-          exclude-labels: 'stale,wontfix,duplicate,invalid'       
+          excludeLabels: 'stale,wontfix,duplicate,invalid,question,use-as-is,not_planned'       
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:

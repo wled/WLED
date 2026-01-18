@@ -762,7 +762,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						if (d.ro_gpio.includes(j)) txt += " (R/O)";
 						let opt = addOption(sel, txt, j);
 						if (j === v) opt.selected = true; // this is "our" pin
-						else if (d.um_p.includes(j)) opt.disabled = true; // someone else's pin
+						else if (d.um_p.includes(j) && j > -1) opt.disabled = true; // someone else's pin
 					}
 				}
 			}
