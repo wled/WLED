@@ -489,16 +489,16 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #ifdef ESP8266
     #define MAX_LED_MEMORY (8*1024)
   #else
-    #if defined(ARDUINO_ARCH_ESP32S2)
+    #if defined(CONFIG_IDF_TARGET_ESP32S2)
       #ifndef BOARD_HAS_PSRAM
         #define MAX_LED_MEMORY (28*1024)  // S2 has ~170k of free heap after boot, using 28k is the absolute limit to keep WLED functional
       #else
         #define MAX_LED_MEMORY (48*1024)  // with PSRAM there is more wiggle room as buffers get moved to PSRAM when needed (prioritize functionality over speed)
       #endif
-    #elif defined(ARDUINO_ARCH_ESP32S3)
+    #elif defined(CONFIG_IDF_TARGET_ESP32S3)
       #define MAX_LED_MEMORY (192*1024) // S3 has ~330k of free heap after boot
-    #elif defined(ARDUINO_ARCH_ESP32C3)
-      #define MAX_LED_MEMORY (100*1024) // C3 has ~240k of free heap after boot, even with 8000 LEDs configured there is 30k of contiguous heap left
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+      #define MAX_LED_MEMORY (100*1024) // C3 has ~240k of free heap after boot, even with 8000 LEDs configured (2D) there is 30k of contiguous heap left
     #else
       #define MAX_LED_MEMORY (85*1024) // ESP32 has ~160k of free heap after boot and an additional 64k of 32bit access memory that is used for pixel buffers
     #endif
@@ -565,7 +565,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #ifdef ESP8266
   #define JSON_BUFFER_SIZE 10240
 #else
-  #if defined(ARDUINO_ARCH_ESP32S2)
+  #if defined(CONFIG_IDF_TARGET_ESP32S2)
     #define JSON_BUFFER_SIZE 24576
   #else
     #define JSON_BUFFER_SIZE 32767
