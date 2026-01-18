@@ -115,6 +115,16 @@ public:
     }
 
     void setup() override {
+        // Clean up existing encoder if any
+        if (encoder_p) {
+            delete encoder_p;
+            encoder_p = nullptr;
+        }
+
+        if (!enabled) {
+            if (irqPin >= 0) PinManager::deallocatePin(irqPin, PinOwner::UM_I2C_ENCODER_BUTTON);
+            return;
+        }
 
         if (i2c_sda < 0 || i2c_scl < 0) {
             DEBUG_PRINTLN(F("I2C pins not set, disabling I2C encoder usermod."));
@@ -132,11 +142,6 @@ public:
         }
 
         // (Re)initialize encoder with current config
-        if (encoder_p) {
-            delete encoder_p;
-            encoder_p = nullptr;
-        }
-        if (!enabled) return;
         encoder_p = new i2cEncoderLibV2(i2cAddress);
         encoder_p->reset();
         encoder_p->begin(
@@ -166,7 +171,7 @@ public:
         }
         if (encoderButtonDown) buttonPressDuration = millis() - buttonPressStartTime;
         if (buttonPressDuration > buttonLongPressThreshold) handleEncoderLongButtonPress();
-        if (encoderMode != 0 && millis() - lastInteractionTime > modeResetTimeout) setEncoderMode(0);
+        if ((encoderMode != 0) && ((millis() - lastInteractionTime) > modeResetTimeout)) setEncoderMode(0);
     }
 
     void addToJsonInfo(JsonObject& root) override {
