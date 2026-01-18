@@ -479,8 +479,6 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
     #define MAX_LEDS 1536 //can't rely on memory limit to limit this to 1536 LEDs
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     #define MAX_LEDS 2048 //due to memory constraints S2
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-    #define MAX_LEDS 4096
   #else
     #define MAX_LEDS 16384
   #endif
@@ -500,7 +498,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
     #elif defined(ARDUINO_ARCH_ESP32S3)
       #define MAX_LED_MEMORY (192*1024) // S3 has ~330k of free heap after boot
     #elif defined(ARDUINO_ARCH_ESP32C3)
-      #define MAX_LED_MEMORY (80*1024)
+      #define MAX_LED_MEMORY (100*1024) // C3 has ~240k of free heap after boot, even with 8000 LEDs configured there is 30k of contiguous heap left
     #else
       #define MAX_LED_MEMORY (85*1024) // ESP32 has ~160k of free heap after boot and an additional 64k of 32bit access memory that is used for pixel buffers
     #endif
