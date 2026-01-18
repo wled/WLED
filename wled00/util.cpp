@@ -692,15 +692,21 @@ static void *validateFreeHeap(void *buffer) {
   return buffer;
 }
 
+#ifdef BOARD_HAS_PSRAM
+#define RTC_RAM_THRESHOLD 1024 // use RTC RAM for allocations smaller than this size
+#else
+#define RTC_RAM_THRESHOLD 65535 // without PSRAM, allow any size into RTC RAM (useful especially on S2 without PSRAM)
+#endif
+
 void *d_malloc(size_t size) {
-  void *buffer;
+  void *buffer = nullptr;
   #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
-  // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
-  if (size < 256 || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
+  // use RTC RAM for small allocations or if DRAM is running low to improve fragmentation
+  if (size <= RTC_RAM_THRESHOLD || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
     buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_RTCRAM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  else
+  if (buffer == nullptr) // no RTC RAM allocation: use DRAM
   #endif
   buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // allocate in any available heap memory
   buffer = validateFreeHeap(buffer); // make sure there is enough free heap left
