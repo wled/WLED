@@ -1162,24 +1162,65 @@ void WS2812FX::finalizeInit() {
 
   unsigned digitalCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  // determine if it is sensible to use parallel I2S outputs on ESP32 (i.e. more than 5 outputs = 1 I2S + 4 RMT)
-  unsigned maxLedsOnBus = 0;
-  unsigned busType = 0;
+  // Determine if I2S/LCD should be used and whether parallel mode is possible
+  // Count I2S buses and check if they meet requirements
+  unsigned i2sBusCount = 0;
+  unsigned firstI2SBusType = 0;
+  unsigned maxI2SLedsOnBus = 0;
+  bool mixedI2SBusTypes = false;
+  
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
-      if (busType == 0) busType = bus.type; // remember first bus type
-      if (busType != bus.type) {
-        DEBUG_PRINTF_P(PSTR("Mixed digital bus types detected! Forcing single I2S output.\n"));
-        useParallelI2S = false; // mixed bus types, no parallel I2S
+      // Check if this bus will use I2S driver (driverType == 1)
+      if (bus.driverType == 1) {
+        i2sBusCount++;
+        if (firstI2SBusType == 0) firstI2SBusType = bus.type; // remember first I2S bus type
+        if (firstI2SBusType != bus.type) {
+          mixedI2SBusTypes = true;
+        }
+        if (bus.count > maxI2SLedsOnBus) maxI2SLedsOnBus = bus.count;
       }
-      if (bus.count > maxLedsOnBus) maxLedsOnBus = bus.count;
     }
   }
-  DEBUG_PRINTF_P(PSTR("Maximum LEDs on a bus: %u\nDigital buses: %u\n"), maxLedsOnBus, digitalCount);
-  // we may remove 600 LEDs per bus limit when NeoPixelBus is updated beyond 2.8.3
-  if (maxLedsOnBus <= 600 && useParallelI2S) BusManager::useParallelOutput(); // must call before creating buses
-  else useParallelI2S = false; // enforce single I2S
+  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u, Max LEDs on I2S bus: %u\n"), digitalCount, i2sBusCount, maxI2SLedsOnBus);
+  
+  // Determine I2S usage automatically based on bus configuration
+  bool useI2S = (i2sBusCount > 0); // Use I2S if any buses have driverType == 1
+  
+  // Determine parallel vs single I2S usage
+  bool useParallelI2S = false;
+  if (useI2S && i2sBusCount > 0) {
+    // Parallel I2S requirements:
+    // - All I2S buses must be same LED type
+    // - If multiple I2S buses OR ESP32-S3: all I2S buses must have ≤600 LEDs
+    // - Single I2S bus has no LED count restriction
+    bool ledCountValid = true;
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    // S3: all I2S buses (LCD driver) must have ≤600 LEDs
+    if (maxI2SLedsOnBus > 600) ledCountValid = false;
+    #else
+    // ESP32/S2: only restrict if multiple I2S buses
+    if (i2sBusCount > 1 && maxI2SLedsOnBus > 600) ledCountValid = false;
+    #endif
+    
+    if (!mixedI2SBusTypes && ledCountValid) {
+      useParallelI2S = true;
+      DEBUG_PRINTF_P(PSTR("Using parallel I2S/LCD output.\n"));
+    } else {
+      if (mixedI2SBusTypes) {
+        DEBUG_PRINTF_P(PSTR("Using single I2S output (mixed I2S bus types).\n"));
+      } else {
+        DEBUG_PRINTF_P(PSTR("Using single I2S output (I2S bus >600 LEDs).\n"));
+      }
+    }
+  }
+  
+  // Set the flags in PolyBus via BusManager
+  BusManager::useI2SOutput(useI2S);
+  if (useParallelI2S) {
+    BusManager::useParallelOutput(); // This sets parallel I2S flag - must call before creating buses
+  }
   digitalCount = 0;
   #endif
 
@@ -1190,12 +1231,25 @@ void WS2812FX::finalizeInit() {
   for (const auto &bus : busConfigs) {
     unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
     mem += memB;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
+    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    const bool usesI2S = ((useParallelI2S && digitalCount <= 8) || (!useParallelI2S && digitalCount == 1));
-      #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    const bool usesI2S = (useParallelI2S && digitalCount <= 8);
+      #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+    bool usesI2S = false;
+    if (BusManager::hasI2SOutput()) {
+      if (BusManager::hasParallelOutput()) {
+        // Parallel I2S: first 8 buses use I2S
+        usesI2S = (digitalCount <= 8);
+      } else {
+        // Single I2S: only the last bus uses I2S
+        #if defined(CONFIG_IDF_TARGET_ESP32)
+          usesI2S = (digitalCount == 9); // bus 8 (9th bus, 0-indexed)
+        #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+          usesI2S = (digitalCount == 5); // bus 4 (5th bus, 0-indexed)
+        #elif defined(CONFIG_IDF_TARGET_ESP32S3)
+          usesI2S = false; // S3 doesn't support single I2S
+        #endif
+      }
+    }
       #else
     const bool usesI2S = false;
       #endif
@@ -1206,6 +1260,8 @@ void WS2812FX::finalizeInit() {
       constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
       #endif
       unsigned i2sCommonSize = stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1);
+      // Parallel I2S uses 8 channels, requiring 8x the DMA buffer size
+      if (BusManager::hasParallelOutput()) i2sCommonSize *= 8;
       if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
     }
     #endif
