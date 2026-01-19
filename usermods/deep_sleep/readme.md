@@ -1,7 +1,7 @@
 # Deep Sleep usermod
 
 This usermod unleashes the low power capabilities of th ESP: when you power off your LEDs (using the UI power button or a macro) the ESP will be put into deep sleep mode, reducing power consumption to a minimum.
-During deep sleep the ESP is shut down completely: no WiFi, no CPU, no outputs. The only way to wake it up is to use an external signal or a button. Once it wakes from deep sleep it reboots so ***make sure to use a boot-up preset.***
+During deep sleep the ESP is shut down completely: no WiFi, no CPU, no outputs. The only way to wake it up is by using an external signal, a button, or an automation timer set to the nearest preset time. Once it wakes from deep sleep it reboots so ***make sure to use a boot-up preset.***
 
 # A word of warning
 
@@ -28,7 +28,7 @@ For lowest power consumption, remove the Power LED and make sure your board does
 
 The GPIOs that can be used to wake the ESP from deep sleep are limited. Only pins connected to the internal RTC unit can be used:
 
-- ESP32: GPIO 0, 2, 4, 12-15, 25-39
+- ESP32: GPIO 0, 2, 4, 12-15, 25-39  note: input-only GPIOs 34-39 do not have internal pull up/down resistors, external resistors are required
 - ESP32 S3: GPIO 0-21
 - ESP32 S2: GPIO 0-21
 - ESP32 C3: GPIO 0-5
@@ -61,6 +61,7 @@ To override the default settings, place the `#define` in wled.h or add `-D DEEPS
 * `DEEPSLEEP_DISABLEPULL`    - if defined, internal pullup/pulldown is disabled in deep sleep (default is ebnabled)
 * `DEEPSLEEP_WAKEUPINTERVAL` - number of seconds after which a wake-up happens automatically, sooner if button is pressed. 0 = never. accuracy is about 2%
 * `DEEPSLEEP_DELAY`          - delay between power-off and sleep
+* `DEEPSLEEP_WAKEUP_TOUCH_PIN` - specify GPIO pin used for touch-based wakeup
 
 example for env build flags:
  `-D USERMOD_DEEP_SLEEP`

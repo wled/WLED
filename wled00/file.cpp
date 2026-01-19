@@ -38,7 +38,7 @@ void closeFile() {
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
-  f.close();
+  f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
   doCloseFile = false;
 }
@@ -270,6 +270,8 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
     serializeJson(*content, Serial); DEBUGFS_PRINTLN();
     s = millis();
   #endif
+
+  if (doCloseFile) closeFile(); // This prevents the loss of file data that is still cached in the File object.
 
   size_t pos = 0;
   char fileName[129]; strncpy_P(fileName, file, 128); fileName[128] = 0; //use PROGMEM safe copy as FS.open() does not

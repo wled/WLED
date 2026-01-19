@@ -2,6 +2,19 @@
 
 Here are a few suggestions to make it easier for you to contribute!
 
+### PR from a branch in your own fork
+Start your pull request (PR) in a branch of your own fork. Don't make a PR directly from your main branch.
+This lets you update your PR if needed, while you can work on other tasks in 'main' or in other branches.
+
+<img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
+
+Tip: When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
+When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
+
+### Target branch for pull requests
+
+Please make all PRs against the `main` branch.
+
 ### Describe your PR
 
 Please add a description of your proposed code changes. It does not need to be an exhaustive essay, however a PR with no description or just a few words might not get accepted, simply because very basic information is missing.
@@ -12,14 +25,13 @@ A good description helps us to review and understand your proposed changes. For 
 * testing you performed, known limitations, open ends you possibly could not solve.
 * any areas where you like to get help from an experienced maintainer (yes WLED has become big 😉)
 
-### Target branch for pull requests
-
-Please make all PRs against the `main` branch.
 
 ### Updating your code
 While the PR is open - and under review by maintainers - you may be asked to modify your PR source code.
 You can simply update your own branch, and push changes in response to reviewer recommendations. 
 Github will pick up the changes so your PR stays up-to-date.
+
+You don't need to provide us with a single-commit 'squashed' PR; you can simply add commits while your pull request (PR) is open.
 
 > [!CAUTION]
 > Do not use "force-push" while your PR is open!
