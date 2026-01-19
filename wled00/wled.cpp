@@ -169,19 +169,20 @@ void WLED::loop()
     correctPIN = false;
   }
 
-   // free memory and reconnect WiFi to clear stale allocations if heap is too low for too long, check once per second
-  if ((uint16_t)(millis() - heapTime) > 1000) {
+   // free memory and reconnect WiFi to clear stale allocations if heap is too low for too long, check once every 5s
+  if ((uint16_t)(millis() - heapTime) > 5000) {
     #ifdef ESP8266
     uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
     #else
     #ifdef CONFIG_IDF_TARGET_ESP32C3
-    // calling getContiguousFreeHeap() during led update causes glitches on C3, this is a dirty workaround (tested up to 1500 LEDs)
+    // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
-    delay(15);
+    unsigned t0 = millis();
+    while (strip.isUpdating() && (millis() - t0 < 15)) delay(1);    // be nice, but not too nice. Waits up to 15ms
     #endif
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif
-    if (heap < MIN_HEAP_SIZE - 1024) heapDanger++; // allow 1k of "wiggle room" for things that do not respect min heap limits
+    if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
     else heapDanger = 0;
     switch (heapDanger) {
       case 15: // 15 consecutive seconds
