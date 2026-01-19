@@ -1187,9 +1187,9 @@ void WS2812FX::finalizeInit() {
   // create buses/outputs
   unsigned mem = 0;
   unsigned maxI2S = 0;
-  for (const auto &bus : busConfigs) {
-    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
-    mem += memB;
+  for (auto bus : busConfigs) {
+    bool use_placeholder = false;
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
       #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -1209,13 +1209,14 @@ void WS2812FX::finalizeInit() {
       if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
     }
     #endif
-    if (mem + maxI2S <= MAX_LED_MEMORY) {
-      BusManager::add(bus);
-      DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
-    } else {
-      errorFlag = ERR_NORAM_PX; // alert UI
-      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
-      break;
+    if (mem + busMemUsage + maxI2S > MAX_LED_MEMORY) {
+      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
+      use_placeholder = true;
+    }
+    if (BusManager::add(bus, use_placeholder) != -1) {
+      mem += BusManager::busses.back()->getBusSize();
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
   DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());
@@ -1824,6 +1825,10 @@ void WS2812FX::resetSegments() {
   if (isServicing()) return;
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  if(_segments.size() == 0) {
+    _segments.emplace_back(); // if out of heap, create a default segment
+    errorFlag = ERR_NORAM_PX;
+  }
   _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
@@ -1846,7 +1851,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
       const Bus *bus = BusManager::getBus(i);
-      if (!bus || !bus->isOk()) break;
+      if (!bus) break;
 
       segStarts[s] = bus->getStart();
       segStops[s]  = segStarts[s] + bus->getLength();
