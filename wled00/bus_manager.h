@@ -399,7 +399,7 @@ class BusPlaceholder : public Bus {
   private:
     uint8_t _colorOrder;
     uint8_t _skipAmount;
-    uint8_t _pins[5];
+    uint8_t _pins[OUTPUT_MAX_PINS];
     uint16_t _frequency;
     uint8_t _milliAmpsPerLed;
     uint16_t _milliAmpsMax;

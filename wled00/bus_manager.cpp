@@ -1178,6 +1178,8 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     if (bus->isDigital() && !bus->is2Pin()) digital++;
     if (bus->is2Pin()) twoPin++;
   }
+  digital += (Bus::isDigital(bc.type) && !Bus::is2Pin(bc.type));
+  analog  += (Bus::isPWM(bc.type) ? Bus::numPWMPins(bc.type) : 0);
   if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true; // TODO: add errorFlag here
   if (placeholder) {
     busses.push_back(make_unique<BusPlaceholder>(bc));
