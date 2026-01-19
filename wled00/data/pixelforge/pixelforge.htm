@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="@dedehai" />
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="stylesheet" href="style.css"> <!-- do not use @import url() for css file, it prevents minifying! -->
+<title>WLED PixelForge</title>
+<script src="omggif.js"></script> <!-- TODO: add sequential loading, also addin common.js and optimize code size (getURL() etc.) -->
+<style>
+body {
+	max-width: 800px;
+	margin: 0 auto;
+}
+/* Header styles */
+.title {
+	font-size: 32px;
+	font-weight: bold;
+	color: #fff;
+	padding-top: 20px;
+}
+h3 {
+	margin-bottom: 0;
+}
+/* shimmer text animation */
+.title .sh {
+  background: linear-gradient(90deg,
+    #7b47db 0%, #ff6b6b 20%, #feca57 40%, #48dbfb 60%, #7b47db 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 4s ease-in-out 5;
+  font-size: 36px;
+}
+@keyframes shimmer { 50% { background-position: 600% 0; } }
+
+/* image grid */
+.g {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+	gap: 10px;
+	margin: 20px 0;
+	padding: 0 5px;
+}
+
+/* shared border styles */
+.it, #cv, #pv, .dp, button, .btn {
+	border: 2px solid #555;
+}
+.it:hover, .dp:hover, button:hover, .btn:hover {
+	border-color: #48a;
+}
+
+/* shared transitions */
+.it, .dp {
+	transition: all 0.3s ease;
+}
+
+.it {
+	aspect-ratio: 1;
+	border-radius: 4px;
+	background-size: 100% 100%;
+	background-position: center;
+	cursor: pointer;
+	image-rendering: pixelated;
+}
+
+/* shared flex centering */
+.it.loading, .crw, .cs {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+.it.loading {
+	background: #222;
+}
+.it.loading::before {
+	content: "Loading...";
+}
+
+/* context menu */
+.cm {
+	position: fixed;
+}
+.cm button {
+	display: block;
+	width: 100%;
+	text-align: left;
+	cursor: pointer;
+	border-radius: 1px;
+	font-size: 14px;
+	margin: 0;
+}
+.cm button:hover {
+	background: #555;
+}
+.cm button.danger {
+	color: #f44;
+}
+
+/* Editor styles */
+.ed {
+	display: none;
+	margin: 20px 0;
+	padding: 20px;
+	background: #222;
+}
+.ed.active {
+	display: block;
+}
+input[type="color"] {
+	border: 0;
+}
+
+/* canvas wrap */
+.cw {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	align-items: center;
+	width: 100%;
+}
+
+/* shared canvas styles */
+#cv, #pv {
+	background: #333;
+}
+#cv {
+	cursor: crosshair;
+	max-width: 100%;
+	border-radius: 8px;
+}
+#pv {
+	image-rendering: pixelated;
+	border-radius: 4px;
+}
+
+/* toast */
+.t {
+	position: fixed;
+	top: 20px;
+	right: 20px;
+	background: #555;
+	color: #fff;
+	padding: 12px 20px;
+	border-radius: 8px;
+	font-size: 14px;
+	z-index: 888;
+	border: 2px solid #888;
+}
+
+/* drop zone */
+.dp {
+	border: 2px dashed #555;
+	border-radius: 8px;
+	padding: 40px 20px;
+	background: #222;
+	cursor: pointer;
+	margin: 20px auto;
+	max-width: 80%;
+}
+.dp:hover {
+	background: #333;
+}
+
+/* buttons */
+button, .btn {
+	border: 2px solid #333;
+}
+
+/* sliders */
+.slc {
+	text-align: center;
+	margin-bottom: 5px;
+}
+.slc label {
+	display: block;
+	margin-bottom: 5px;
+}
+.sl {
+	width: 100%;
+	max-width: 500px;
+}
+
+/* controls row */
+.crw {
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: 15px 0;
+}
+
+/* tabs */
+.tabc {
+	display: none;
+}
+.tabc.active {
+	display: block;
+}
+.tb {
+	display: flex;
+	gap: 4px;
+	border-bottom: 2px solid #555;
+	margin: 20px 0 0 0;
+	padding: 0 20px;
+}
+.tb button {
+	flex: 1;
+	background: #111;
+	border: none;
+	border-radius: 8px 8px 0 0;
+	padding: 12px 24px;
+	margin: 0;
+	color: #888;
+}
+.tb button:hover {
+	background: #222;
+	color: #aaa;
+}
+.tb button.active {
+	background: #333;
+	color: #fff;
+	border-bottom: 2px solid #333;
+}
+
+/* text tool */
+.cs {
+	flex-direction: column;
+	gap: 0;
+}
+.fr {
+	display: grid;
+	grid-template-columns: 100px 1fr;
+	align-items: center;
+	text-align: left;
+	gap: 8px;
+	max-width: 500px;
+}
+.tk {
+	color: #8cf;
+	text-decoration: underline;
+	cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="cont">
+	<div class="title">WLED<span class="sh">PixelForge</span></div>
+
+	<div class="tb">
+		<button class="active" id="tImg">Image Tool</button>
+		<button id="tTxt">Scrolling Text</button>
+		<button id="tOth">Other Tools</button>
+	</div>
+
+	<div id="iTab" class="tabc active">
+		<h3 style="margin-top:20px;">Target Segment</h3>
+		<select id="seg"></select>
+
+		<h3>Images on Device</h3>
+		<div class="g" id="gr"></div>
+
+		<h3>Upload New Image</h3>
+		<div id="drop" class="dp">
+			<p>Drop image or click to select</p>
+		</div>
+		<input type="file" id="src" accept="image/*" style="display:none">
+
+		<div class="ed" id="ed">
+			<h3 style="margin-top:0;padding-top:0;border-top:0">Crop & Adjust Image</h3>
+
+			<div class="crw">
+				<button class="sml" id="matchAspect">Match Aspect Ratio</button>
+				<button class="sml" id="matchSize">Match Size (1:1)</button>
+				<button class="sml" id="fullSize">Full Size</button>
+				<button class="sml" id="resetCrop">Reset</button>
+			</div>
+
+			<div class="cw">
+				<div style="width:100%">
+					<div class="slc">
+						<label>Zoom: </label>
+						<input type="range" id="zoom" min="0" max="100" value="0" class="sl">
+					</div>
+					<canvas id="cv" width="500" height="400"></canvas>
+				</div>
+
+				<small>Preview at target resolution</small>
+
+				<canvas id="pv"></canvas>
+
+				<div class="slc">
+					<label>Dark Pixel Cutoff</label>
+					<input type="range" id="bt" min="0" max="255" value="0" class="sl">
+					<div style="display:flex;align-items:center;justify-content:center;margin-bottom:15px">
+						<label for="bg" style="margin-right:10px">Background Color</label>
+						<input type="color" id="bg" value="#000000">
+					</div>
+				</div>
+
+				<div style="display:none" id="sz">
+					<div>
+						<label>Output size:</label>
+						<input type="number" id="w" value="16" min="1" size="5">
+						x
+						<input type="number" id="h" value="16" min="1" size="5">
+					</div>
+				</div>
+
+			</div>
+		</div>
+
+		<div class="row" style="margin-top:20px">
+			<div class="col">
+				<label for="fn">Filename</label>
+				<input type="text" id="fn" placeholder="image" maxlength="26">
+				<small>.gif will be added</small>
+			</div>
+		</div>
+		<button class="btn" id="up">Convert & Upload to WLED</button>
+	</div>
+</div>
+
+<div id="xTab" class="tabc">
+	<h3 style="margin-top:20px;">Target Segment</h3>
+	<select id="segT"></select>
+	<div id="ti">
+		<h3>Text to show</h3>
+		<div class="col" style="display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap">
+			<input type="text" id="txt" placeholder="Enter text" maxlength="64"  style="margin-left:15px;flex:1;min-width:300px;">
+			<button class="btn" id="aTxt">✓</button>
+		</div>
+
+		<h3>Settings</h3>
+		<div class="cs">
+			<div class="fr">
+				Speed	<input type="range" id="sx" min="0" max="255">
+			</div>
+			<div class="fr">
+				Y Offset	<input type="range" id="ix" min="0" max="255">
+			</div>
+			<div class="fr">
+				Trail	<input type="range" id="c1" min="0" max="255">
+			</div>
+			<div class="fr">
+				Font Size	<input type="range" id="c2" min="0" max="255">
+			</div>
+			<div class="fr">
+				Rotate <input type="range" id="c3" min="0" max="31">
+			</div>
+		</div>
+
+		<div class="col" style="display:flex;gap:20px;justify-content:center;">
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o1"> Gradient
+			</label>
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o3"> Reverse
+			</label>
+		</div>
+
+		<h3>Available Tokens</h3>
+		<div style="padding:15px;">
+			<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;text-align:left">
+				<div><a href="#" class="tk" data-t="#TIME">#TIME</a> - HH:MM AM/PM</div>
+				<div><a href="#" class="tk" data-t="#HHMM">#HHMM</a> - HH:MM</div>
+				<div><a href="#" class="tk" data-t="#DATE">#DATE</a> - DD.MM.YYYY</div>
+				<div><a href="#" class="tk" data-t="#DDMM">#DDMM</a> - Day.Month</div>
+				<div><a href="#" class="tk" data-t="#MMDD">#MMDD</a> - Month/Day</div>
+				<div><a href="#" class="tk" data-t="#YYYY">#YYYY</a> - Year</div>
+				<div><a href="#" class="tk" data-t="#YY">#YY</a> - Year 2-digit</div>
+				<div><a href="#" class="tk" data-t="#HH">#HH</a> - Hours</div>
+				<div><a href="#" class="tk" data-t="#MM">#MM</a> - Minutes</div>
+				<div><a href="#" class="tk" data-t="#SS">#SS</a> - Seconds</div>
+				<div><a href="#" class="tk" data-t="#MO">#MO</a> - Month number</div>
+				<div><a href="#" class="tk" data-t="#DD">#DD</a> - Day number</div>
+				<div><a href="#" class="tk" data-t="#MON">#MON</a> - Month (Jan)</div>
+				<div><a href="#" class="tk" data-t="#MONL">#MONL</a> - Month (January)</div>
+				<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
+				<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
+			</div>
+			<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+				<strong>Tips:</strong></small><br>
+				• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
+				• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
+			</div>
+		</div>
+	</div>
+	<div id="ti1D" style="display:none;">Not available in 1D</div>
+</div>
+<div id="oTab" class="tabc">
+	<div class="ed active">
+		<div>
+			<h3>Pixel Paint</h3>
+			<div><small>Interactive painting tool</small></div>
+			<button class="btn" id="t1" style="display:none"></button>
+		</div>
+	</div>
+	<hr>
+	<div class="ed active">
+		<div>
+			<h3>Video Lab</h3>
+			<div><small>Stream video and generate animated GIFs (beta)</small></div>
+			<button class="btn" id="t2" style="display:none"></button>
+		</div>
+	</div>
+	<hr>
+	<div class="ed active">
+		<div>
+			<h3>PIXEL MAGIC Tool</h3>
+			<div><small>Legacy pixel art editor</small></div>
+			<button class="btn" id="t3" style="display:none"></button>
+		</div>
+	</div>
+	<hr>
+</div>
+
+<div style="margin:20px 0">
+	<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
+</div>
+
+<div id="ov"></div>
+<div id="mem" style="display:none;font-size:12px;color:#aaa;"></div>
+
+<script>
+const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
+const imgageFX = 53; // image effect number
+const txtFX = 122;   // scrolling text effect number
+
+/* canvases */
+const cv=gId('cv'),cx=cv.getContext('2d',{willReadFrequently:true});
+const pv=gId('pv'),pvx=pv.getContext('2d',{willReadFrequently:true});
+
+/* globals */
+let wu='',sI=null,sF=null,cI=null,bS=1,iS=1,pX=0,pY=0;
+let cr={x:50,y:50,w:200,h:150},drag=false,dH=null,oX=0,oY=0;
+let pan=false,psX=0,psY=0,poX=0,poY=0;
+let iL=[]; // image list
+let gF=null,gI=null,aT=null;
+let fL; // file list
+
+/* init */
+(async()=>{
+	const params=new URLSearchParams(window.location.search);
+	wu=`http://${params.get('host')||window.location.host}`;
+
+	await segLoad(); // load available segments
+	await flU(); // update file list
+	toolChk('pixelpaint.htm','t1'); // update buttons of additional tools
+	toolChk('videolab.htm','t2');
+	toolChk('pxmagic.htm','t3');
+	await fsMem(); // show file system memory info
+})();
+
+/* update file list */
+async function flU(){
+	try{
+		const r = await fetch(`${wu}/edit?func=list`);
+		fL = await r.json();
+	}catch(e){console.error(e);}
+}
+
+/* toast */
+function msg(m,t=''){
+	const el=cE('div');el.className='t';el.textContent=m;
+	if(t==='err')el.style.background='#a00';
+	d.body.appendChild(el);setTimeout(()=>el.remove(),3000);
+}
+/* "loading" overlay */
+function ovShow(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
+function ovHide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
+
+/* segments */
+function segLoad(){
+	const s1=gId('seg'),v1=s1.value,s2=gId('segT'),v2=s2.value;
+	fetch(`${wu}/json/state`).then(r=>r.json()).then(j=>{
+		s1.innerHTML=''; s2.innerHTML='';
+		if(j.seg&&j.seg.length){
+			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
+				const w=stop-start,h=(stopY-startY)||1;
+				const t = (n || `Segment ${id}`) + (h>1 ? ` (${w}x${h})` : ` (${w}px)`) + (fx===imgageFX ? ' [Image]' : (fx===txtFX ? ' [Scrolling Text]' : ''));
+				const o=new Option(t,id);
+				o.dataset.w=w; o.dataset.h=h; o.dataset.fx=fx||0;
+				s1.add(o); // gif tool
+				s2.add(o.cloneNode(true)); // scrolling text tool
+			});
+		}else{
+			const o=new Option('Segment 0',0);
+			s1.add(o); s2.add(o.cloneNode(true));
+		}
+		if(v1) s1.value=v1; if(v2) s2.value=v2;
+		s2.onchange(); // trigger on load to toggle show/hide of text tool
+		const o=s1.options[s1.selectedIndex];
+		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; }
+	}).catch(console.error);
+}
+
+/* which seg is showing image fx 53 */
+function curImgSeg(){
+	const sel=gId('seg');
+	for(let i=0;i<sel.options.length;i++){
+		if(parseInt(sel.options[i].dataset.fx)===imgageFX) return parseInt(sel.options[i].value);
+	}
+	return null;
+}
+
+/* seg change -> update target size */
+gId('seg').onchange = () =>{
+	const o=gId('seg').selectedOptions[0];
+	gId('w').value=o.dataset.w;
+	gId('h').value=o.dataset.h;
+	if(cI) crDraw();
+};
+
+gId('segT').onchange = () => {
+	const is2D = (gId('segT').selectedOptions[0].dataset.h || 1) > 1;
+	gId('ti').style.display = is2D ? 'block' : 'none';
+	gId('ti1D').style.display = is2D ? 'none' : 'block';
+};
+
+/* image list */
+async function imgLoad(){
+	try{
+		await flU(); // update file list
+		const grid=gId('gr');
+		const types=['gif','png','jpg','jpeg','bmp'];
+		const imgs=fL.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
+		const newList=imgs.map(f=>f.name.replace('/',''));
+		const miss=newList.filter(n=>!iL.includes(n));
+
+		if(iL.length===0){
+			grid.innerHTML='';
+			iL=[...newList];
+			if(!imgs.length){
+				grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images</div>';
+				return;
+			}
+			await imgLoad2(imgs);
+		}else if(miss.length>0){
+			const missData=imgs.filter(f=>miss.includes(f.name.replace('/','')));
+			iL=[...newList];
+			await imgLoad2(missData);
+		}
+	}catch(e){console.error(e);}
+}
+
+/* load images into grid TODO: when switching tabs, it can throw 503 and have unloaded images, tried to fix it but all my attempts failed*/
+async function imgLoad2(imgs){
+	const grid=gId('gr');
+	for(const f of imgs){
+		const name=f.name.replace('/',''),url=`${wu}/${name}`;
+		const isGif=name.toLowerCase().endsWith('.gif');
+		const it=cE('div');it.className='it loading';
+		it.dataset.name=name;it.dataset.url=url;
+		it.onclick=()=>{ if(isGif) imgPlay(url,name); else unsup(url,name); };
+		it.oncontextmenu=e=>{e.preventDefault();sI={name,url};menuShow(e.pageX,e.pageY);};
+		grid.appendChild(it);
+		await new Promise(res=>{
+			const im=new Image();
+			im.onload=()=>{
+				it.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
+				if(!isGif) it.style.border="5px solid red";
+				it.classList.remove('loading'); res();
+				const kb=Math.round(f.size/1024);
+				it.title=`${name}\n${im.width}x${im.height}\n${kb} KB`;
+			};
+			im.onerror=()=>{it.classList.remove('loading');it.style.background='#222';res();};
+			im.src=url+'?cb='+Date.now();
+		});
+	}
+}
+
+function imgRm(nm){
+	iL=iL.filter(n=>n!==nm);
+	const grid=gId('gr');
+	grid.querySelectorAll('.it').forEach(it=>{ if(it.dataset.name===nm) it.remove(); });
+	//if(iL.length===0){
+	//	grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
+	//}
+}
+
+/* additional tools: check if present, install if not */
+function toolChk(file, btnId) {
+	try {
+		const has = fL.some(f => f.name.includes(file));
+		const b = gId(btnId);
+		b.style.display = 'block';
+		b.style.margin = '10px auto';
+		if (has) {
+			b.textContent = 'Open';
+			b.onclick = () => window.open(`${wu}/${file}`, '_blank'); // open tool: remove gz to not trigger download
+		} else {
+			b.textContent = 'Download';
+			b.onclick = async () => {
+				const fileGz = file + '.gz'; // use gz version
+				const url = `https://dedehai.github.io/${fileGz}`; // always download gz version
+				if (!confirm(`Download ${url}?`)) return;
+				try {
+					const f = await fetch(url);
+					if (!f.ok) throw new Error("Download failed " + f.status);
+					const blob = await f.blob(), fd = new FormData();
+					fd.append("data", blob, fileGz);
+					const u = await fetch(wu + "/upload", { method: "POST", body: fd });
+					alert(u.ok ? "Tool installed!" : "Upload failed");
+					await flU(); // update file list
+					toolChk(file, btnId); // re-check and update button (must pass non-gz file name)
+				} catch (e) { alert("Error " + e.message); }
+			};
+		}
+	} catch (e) { console.error(e); }
+}
+
+/* fs/mem info */
+async function fsMem(){
+	try{
+		const r=await fetch(`${wu}/json/info`);
+		const info=await r.json();
+		if(info&&info.fs){
+			gId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+			gId("mem").style.display="block";
+		}
+	}catch(e){console.error(e);}
+}
+
+/* drag-drop + file input */
+gId('drop').onclick=()=>{gId('src').value='';gId('src').click();};
+gId('drop').ondragover=e=>{e.preventDefault();gId('drop').classList.add('active');};
+gId('drop').ondragleave=()=>gId('drop').classList.remove('active');
+gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;fileHandle();};
+gId('src').onchange=fileHandle;
+
+/* file handler */
+function fileHandle() {
+	const file = gId('src').files[0];
+	if (!file) return;
+	sF = file; gI = null; gF = [];
+	gId('sz').style.display = 'block';
+
+	const isGif = file.type === 'image/gif';
+	const rdr = new FileReader();
+
+	rdr.onload = e => {
+		if (isGif) {
+			try {
+				const arr = new Uint8Array(e.target.result);
+				const gif = new GifReader(arr);
+				gI = { width: gif.width, height: gif.height, numFrames: gif.numFrames() };
+				const ac = cE('canvas'); ac.width = gif.width; ac.height = gif.height;
+				const acx = ac.getContext('2d', { willReadFrequently: true });
+				let saved = null;
+				for (let i = 0; i < gI.numFrames; i++) {
+					const fi = gif.frameInfo(i), disp = fi.disposal || 0;
+					if (disp === 3) saved = acx.getImageData(0, 0, gif.width, gif.height);
+					const tp = new Uint8Array(gif.width * gif.height * 4);
+					gif.decodeAndBlitFrameRGBA(i, tp);
+					const tc = cE('canvas'); tc.width = gif.width; tc.height = gif.height;
+					const tctx = tc.getContext('2d');
+					const tid = new ImageData(new Uint8ClampedArray(tp), gif.width, gif.height);
+					tctx.putImageData(tid, 0, 0);
+					acx.drawImage(tc, 0, 0);
+					const full = acx.getImageData(0, 0, gif.width, gif.height);
+					gF.push({ pixels: new Uint8Array(full.data), delay: fi.delay || 10 });
+					if (disp === 2) acx.clearRect(0, 0, gif.width, gif.height);
+					else if (disp === 3 && saved) acx.putImageData(saved, 0, 0);
+				}
+				const tc = cE('canvas'); tc.width = gI.width; tc.height = gI.height;
+				const tctx = tc.getContext('2d');
+				tctx.putImageData(new ImageData(new Uint8ClampedArray(gF[0].pixels), gI.width, gI.height), 0, 0);
+				imgShow(tc.toDataURL(), file.name);
+			} catch (err) {
+				msg('GIF load failed', 'err');
+				console.error(err);
+			}
+		} else {
+			// static image → treat as single-frame GIF
+			const im = new Image();
+			im.onload = () => {
+				const c = cE('canvas');
+				c.width = im.width; c.height = im.height;
+				const ctx = c.getContext('2d');
+				ctx.drawImage(im, 0, 0);
+				const id = ctx.getImageData(0, 0, im.width, im.height);
+				gF = [{ pixels: new Uint8Array(id.data), delay: 0 }];
+				gI = { width: im.width, height: im.height, numFrames: 1 };
+				imgShow(c.toDataURL(), file.name);
+			};
+			im.src = e.target.result;
+		}
+	};
+
+	isGif ? rdr.readAsArrayBuffer(file) : rdr.readAsDataURL(file);
+}
+
+/* display image on canvas */
+function imgShow(src, name) {
+	cI = new Image();
+	cI.onload = () => {
+		gId('ed').classList.add('active');
+		gId('drop').innerHTML = `<p>Image loaded: ${name}<br><small>Drop another to replace</small></p>`;
+		gId('fn').value = name.split('.')[0].substring(0, 16);
+		viewReset();
+		cr.w = cv.width * 0.8; cr.h = cv.height * 0.8;
+		cr.x = (cv.width - cr.w) / 2; cr.y = (cv.height - cr.h) / 2;
+		crClamp();
+		gifStart(); // handles both single- and multi-frame
+	};
+	cI.src = src;
+}
+
+function gifStart() {
+	if (aT) clearInterval(aT);
+	if (!gF || !gI || gF.length === 0) return crDraw();
+
+	let idx = 0;
+	const tc = cE('canvas');
+	tc.width = gI.width;
+	tc.height = gI.height;
+	const tctx = tc.getContext('2d');
+
+	const step = () => {
+		const id = new ImageData(new Uint8ClampedArray(gF[idx].pixels), gI.width, gI.height);
+		tctx.putImageData(id, 0, 0);
+		cI.src = tc.toDataURL();
+		idx = (idx + 1) % gF.length;
+	};
+
+	cI.onload = () => crDraw();
+	step();
+
+	if (gF.length > 1) {
+		const avg = gF.reduce((s, f) => s + f.delay, 0) / gF.length;
+		aT = setInterval(step, Math.max(avg * 10, 50));
+	}
+}
+function gifStop(){ if(aT){ clearInterval(aT); aT=null; } }
+
+/* formats not supported by WLED */
+function unsup(url, name) {
+	alert(`Image format not supported.\nPlease convert to GIF or use PIXEL MAGIC TOOL`);
+	fetch(url).then(r => r.blob()).then(b => {
+		const f = new File([b], name, { type: b.type });
+		const dt = new DataTransfer();
+		dt.items.add(f);
+		gId('src').files = dt.files;
+		fileHandle();
+	}).catch(() => msg('Failed to load image', 'err'));
+}
+
+/* size change -> redraw */
+gId('w').oninput=()=>{if(cI)crDraw();};
+gId('h').oninput=()=>{if(cI)crDraw();};
+
+/* crop helpers */
+function crClamp(){
+	cr.w=Math.max(30,Math.min(cr.w,cv.width));
+	cr.h=Math.max(30,Math.min(cr.h,cv.height));
+	cr.x=Math.max(0,Math.min(cr.x,cv.width-cr.w));
+	cr.y=Math.max(0,Math.min(cr.y,cv.height-cr.h));
+}
+function viewReset(){
+	bS=Math.min(cv.width/cI.width,cv.height/cI.height);
+	iS=bS;
+	pX=(cv.width-cI.width*iS)/2;
+	pY=(cv.height-cI.height*iS)/2;
+}
+
+/* zoom */
+gId('zoom').oninput=()=>{
+	if(!cI)return;
+	const t=gId('zoom').value/100,ns=bS*Math.pow(40,t);
+	const cxm=cv.width/2,cym=cv.height/2;
+	const dx=cxm-pX,dy=cym-pY,f=ns/iS;
+	pX=cxm-dx*f; pY=cym-dy*f; iS=ns;
+	crClamp(); crDraw();
+};
+
+/* color change */
+gId('bg').oninput=crDraw;
+
+/* quick controls */
+gId('matchAspect').onclick=e=>{
+	e.preventDefault();
+	const r=+gId('w').value/+gId('h').value;
+	cr.h=cr.w/r; crClamp(); crDraw();
+};
+gId('matchSize').onclick=e=>{
+	e.preventDefault();
+	if(!cI)return;
+	cr.w=+gId('w').value*iS; cr.h=+gId('h').value*iS;
+	crClamp(); crDraw();
+};
+gId('fullSize').onclick=e=>{
+	e.preventDefault();
+	if(!cI)return;
+	cr.x=0; cr.y=0; cr.w=cv.width; cr.h=cv.height;
+	crClamp(); crDraw();
+};
+gId('resetCrop').onclick=e=>{
+	e.preventDefault();
+	if(!cI)return;
+	cr.w=cv.width*0.8; cr.h=cv.height*0.8;
+	cr.x=(cv.width-cr.w)/2; cr.y=(cv.height-cr.h)/2;
+	crClamp(); crDraw();
+};
+
+/* crop handles */
+function crHandles(r){
+	const s=40,o=s/2,ox=r.x-o,oy=r.y-o,ow=r.w+s,oh=r.h+s;
+	return{
+		nw:{x:ox,y:oy,w:s,h:s}, ne:{x:ox+ow-s,y:oy,w:s,h:s},
+		sw:{x:ox,y:oy+oh-s,w:s,h:s}, se:{x:ox+ow-s,y:oy+oh-s,w:s,h:s},
+		n:{x:ox+s/2,y:oy,w:ow-s,h:s}, s:{x:ox+s/2,y:oy+oh-s,w:ow-s,h:s},
+		w:{x:ox,y:oy+s/2,w:s,h:oh-s}, e:{x:ox+ow-s,y:oy+s/2,w:s,h:oh-s}
+	};
+}
+function crHit(mx,my){
+	const h=crHandles(cr);
+	for(const k in h){let r=h[k];if(mx>=r.x&&mx<=r.x+r.w&&my>=r.y&&my<=r.y+r.h)return k;}
+	return null;
+}
+
+/* event coord */
+function posGet(e){
+	const r=cv.getBoundingClientRect();
+	const sx=cv.width/r.width,sy=cv.height/r.height;
+	if(e.touches){
+		return {x:(e.touches[0].clientX-r.left)*sx,y:(e.touches[0].clientY-r.top)*sy};
+	}else{
+		return {x:(e.clientX-r.left)*sx,y:(e.clientY-r.top)*sy};
+	}
+}
+
+/* actions */
+function actStart(mx,my){
+	dH=crHit(mx,my);
+	if(dH){drag=true;return;}
+	if(mx>cr.x&&mx<cr.x+cr.w&&my>cr.y&&my<cr.y+cr.h){
+		drag=true;dH="move";oX=mx-cr.x;oY=my-cr.y;
+	}else{
+		pan=true;psX=mx;psY=my;poX=pX;poY=pY;
+	}
+}
+function actMove(mx,my){
+	if(drag){
+		switch(dH){
+			case "move":cr.x=mx-oX;cr.y=my-oY;break;
+			case "nw":cr.w+=(cr.x-mx);cr.h+=(cr.y-my);cr.x=mx;cr.y=my;break;
+			case "ne":cr.w=mx-cr.x;cr.h+=(cr.y-my);cr.y=my;break;
+			case "sw":cr.w+=(cr.x-mx);cr.x=mx;cr.h=my-cr.y;break;
+			case "se":cr.w=mx-cr.x;cr.h=my-cr.y;break;
+			case "n":cr.h+=(cr.y-my);cr.y=my;break;
+			case "s":cr.h=my-cr.y;break;
+			case "w":cr.w+=(cr.x-mx);cr.x=mx;break;
+			case "e":cr.w=mx-cr.x;break;
+		}
+		crClamp(); crDraw();
+	}else if(pan){
+		pX=poX+(mx-psX); pY=poY+(my-psY);
+		crClamp(); crDraw();
+	}
+}
+function actEnd(){ drag=false; dH=null; pan=false; }
+
+/* mouse */
+cv.onmousedown=e=>{if(!cI)return;const {x,y}=posGet(e);actStart(x,y);};
+cv.onmousemove=e=>{if(!cI)return;const {x,y}=posGet(e);actMove(x,y);};
+cv.onmouseup=actEnd;
+
+/* touch */
+cv.ontouchstart=e=>{
+	if(!cI||e.touches.length!==1)return;
+	e.preventDefault();
+	const {x,y}=posGet(e); actStart(x,y);
+};
+cv.ontouchmove=e=>{
+	if(!cI||e.touches.length!==1)return;
+	e.preventDefault();
+	const {x,y}=posGet(e); actMove(x,y);
+};
+cv.ontouchend=e=>{e.preventDefault();actEnd();};
+cv.ontouchcancel=e=>{e.preventDefault();actEnd();};
+
+/* draw + preview */
+function crDraw(){
+	cx.clearRect(0,0,cv.width,cv.height);
+	if(!cI)return;
+	cx.fillStyle=gId('bg').value; cx.fillRect(0,0,cv.width,cv.height);
+	cx.imageSmoothingEnabled=false;
+	cx.drawImage(cI,0,0,cI.width,cI.height,pX,pY,cI.width*iS,cI.height*iS);
+	/* crop frame */
+	cx.lineWidth=3; cx.setLineDash([6,4]); cx.shadowColor="#000"; cx.shadowBlur=2;
+	cx.strokeStyle="#FFF"; cx.beginPath(); cx.roundRect(cr.x,cr.y,cr.w,cr.h,6); cx.stroke();
+	cx.shadowColor="#000F";
+	prevUpd();
+}
+
+gId('bt').addEventListener('input',()=>{prevUpd();});
+function blackTh(c){
+	let t=+gId('bt').value,
+		dt=c.getImageData(0,0,c.canvas.width,c.canvas.height),
+		b=gId('bg').value.match(/\w\w/g).map(x=>parseInt(x,16));
+	for(let i=0;i<dt.data.length;i+=4)
+		if(dt.data[i]<t&&dt.data[i+1]<t&&dt.data[i+2]<t)
+			dt.data[i]=b[0],dt.data[i+1]=b[1],dt.data[i+2]=b[2];
+	c.putImageData(dt,0,0);
+}
+
+function prevUpd(){
+	if(!cI)return;
+	let w=+gId('w').value,h=+gId('h').value;
+	// Temporary canvas at target size
+	const tc = cE('canvas'); tc.width = w; tc.height = h;
+	const tcx = tc.getContext('2d');
+	tcx.fillStyle=gId('bg').value;
+	tcx.fillRect(0,0,w,h); // fill background (for transparent images)
+	tcx.drawImage(cI,(cr.x-pX)/iS,(cr.y-pY)/iS,cr.w/iS,cr.h/iS,0,0,w,h);
+	blackTh(tcx);
+	// scale/stretch to preview canvas, limit to 256px in largest dimension but keep aspect ratio
+	const ratio = h/w;
+	if(ratio > 1) {
+		pv.height = 256;
+		pv.width = Math.max(4, Math.round(256 / ratio)); // min 4px width for better visibility
+	} else {
+		pv.width = 256;
+		pv.height = Math.max(4, Math.round(256 * ratio));
+	}
+	pvx.imageSmoothingEnabled=false;
+	pvx.drawImage(tc,0,0,w,h,0,0,pv.width,pv.height);
+}
+
+// generate gif palette using median-cut algorithm, palette is padded to power of 2 size (gif standard)
+function genPal(pix){
+	const map=new Map();
+	for(let i=0;i<pix.length;i+=4){
+		const c=(pix[i]<<16)|(pix[i+1]<<8)|pix[i+2];
+		map.set(c,(map.get(c)||0)+1);
+	}
+	let buckets=[Array.from(map,([rgb,count])=>({r:rgb>>16&255,g:rgb>>8&255,b:rgb&255,count}))];
+	while(buckets.length<256&&buckets.some(b=>b.length>1)){
+		buckets.sort((a,b)=>b.length-a.length);
+		const b=buckets.shift();
+		const ch=['r','g','b'].map(k=>({k,range:Math.max(...b.map(c=>c[k]))-Math.min(...b.map(c=>c[k]))}))
+			.reduce((a,b)=>a.range>b.range?a:b).k;
+		b.sort((a,c)=>a[ch]-c[ch]);
+		const m=b.length>>1;
+		buckets.push(b.slice(0,m),b.slice(m));
+	}
+	const pal=buckets.map(b=>{
+		const t=b.reduce((s,c)=>s+c.count,0);
+		const r=Math.round(b.reduce((s,c)=>s+c.r*c.count,0)/t);
+		const g=Math.round(b.reduce((s,c)=>s+c.g*c.count,0)/t);
+		const bl=Math.round(b.reduce((s,c)=>s+c.b*c.count,0)/t);
+		return(r<<16)|(g<<8)|bl;
+	});
+	let p2=1;
+	while(p2<pal.length)p2<<=1; // make it power of 2
+	for(let i=pal.length;i<p2;i++)pal[i]=pal[pal.length-1];
+	const idx=new Uint8Array(pix.length/4);
+	for(let i=0,j=0;i<pix.length;i+=4,j++){
+		let r=pix[i],g=pix[i+1],b=pix[i+2],best=0,min=1e9;
+		for(let k=0;k<buckets.length;k++){
+			const p=pal[k],pr=p>>16&255,pg=p>>8&255,pb=p&255;
+			const d=(r-pr)**2+(g-pg)**2+(b-pb)**2;
+			if(d<min){min=d;best=k;}
+		}
+		idx[j]=best;
+	}
+	return{indexed:idx,palette:pal};
+}
+
+// calculate optimal grid dimensions for 1D pixel data (gif is restricted to 320x320)
+function grid(length) {
+	if (length <= 320) return { w: length, h: 1 };
+	let best = [1, length], waste = length;
+	// find best matching width/height with least wasted pixels (should never be more than 1)
+	for (let w = 320; w >= 2; w--) {
+		const h = Math.ceil(length / w);
+		const wst = w * h - length;
+		if (wst < waste) {
+			best = [w, h];
+			waste = wst;
+			if (!waste) break;
+		}
+	}
+	return { w: best[0], h: best[1] };
+}
+
+/* create GIF and upload */
+gId('up').onclick = async () => {
+	if (!gF || !gI) return; // no image
+	const w = +gId('w').value, h = +gId('h').value, fn = gId('fn').value.trim() || 'image';
+	const filename = `${fn}.gif`;
+	const repl = iL.includes(filename);
+	if (repl && !confirm(`${filename} already exists. Overwrite?`)) return;
+
+	ovShow();
+	try {
+		const tc = cE('canvas'); tc.width = gI.width; tc.height = gI.height;
+		const tctx = tc.getContext('2d');
+		const cc = cE('canvas'); cc.width = w; cc.height = h;
+		const cctx = cc.getContext('2d');
+		cctx.imageSmoothingEnabled = false;
+
+		const frames = [];
+		for (let i = 0; i < gF.length; i++) {
+			const id = new ImageData(new Uint8ClampedArray(gF[i].pixels), gI.width, gI.height);
+			tctx.putImageData(id, 0, 0);
+			cctx.fillStyle = gId('bg').value;
+			cctx.fillRect(0, 0, w, h);
+			cctx.drawImage(tc, (cr.x - pX) / iS, (cr.y - pY) / iS, cr.w / iS, cr.h / iS, 0, 0, w, h);
+			blackTh(cctx);
+			const fd = cctx.getImageData(0, 0, w, h);
+			frames.push({ data: fd.data, delay: gF[i].delay });
+		}
+
+		const g = grid(w); // calculate optimal grid size: 1D image is saved as "2D gif" if w > 320 (WLED gif size limit), 2D can not be larger than 256x256 so is unchange
+		let gw = g.w, gh = Math.max(g.h, h); // gif width and height
+		const all = new Uint8Array(frames.length * gw * gh * 4);
+		// concat all frames to single array to create palette from all colors
+		frames.forEach((f, i) => {
+			const off = i * gw * gh * 4;
+			for (let j = 0; j < gw * gh; j++) {
+				const src = (j < w*h ? j : w*h-1) * 4; // pad with last pixel of source frame if out of bounds (for 1D images)
+				all[off + j*4] = f.data[src]; all[off + j*4 + 1] = f.data[src + 1]; all[off + j*4 + 2] = f.data[src + 2]; all[off + j*4 + 3] = 255;
+			}
+		});
+		const { indexed, palette } = genPal(all);
+		const gifData = [];
+		const wr = new GifWriter(gifData, gw, gh, { palette, loop: 0 });
+		for (let i = 0; i < frames.length; i++) {
+			const framePixels = indexed.slice(i * gw * gh, (i + 1) * gw * gh); // slice global array back into per-frame data
+			wr.addFrame(0, 0, gw, gh, framePixels, { delay: frames[i].delay, disposal: 2 });
+		}
+		wr.end();
+
+		const fU = new File([new Uint8Array(gifData)], filename, { type: 'image/gif' });
+		const fd = new FormData();
+		fd.append('file', fU, filename);
+		const r = await fetch(`${wu}/upload`, { method: 'POST', body: fd });
+
+		if (r.ok) {
+			msg(`${filename} uploaded`);
+			if (repl) imgRm(filename);
+			await imgLoad();
+			gId('src').value = '';
+			gId('drop').innerHTML = '<p>Drop image or click to select</p>';
+		} else msg('Upload failed', 'err');
+	} catch (e) {
+		msg(`Error: ${e.message}`, 'err');
+	} finally {
+		ovHide();
+	}
+};
+
+/* play on device */
+async function imgPlay(url,name){
+	const tgt=+gId('seg').value,cur=curImgSeg();
+	if(cur!==null && cur!==tgt){
+		if(!confirm(`Segment ${cur} is currently displaying an image. Switch image display to segment ${tgt}?`))return;
+	}
+	ovShow();
+	try{
+		const j={
+			on:true,
+			seg: cur!==null && cur!==tgt
+				? [{id:cur,fx:0,n:""},{id:tgt,fx:53,frz:false,sx:128,n:name}]
+				: {id:tgt,fx:53,frz:false,sx:128,n:name}
+		};
+		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const out=await r.json();
+		if(out.success){
+			msg(`Playing ${name}`);
+			await segLoad();
+		}else msg('Failed to play','err');
+	}catch(e){msg(`Error: ${e.message}`,'err');}
+	finally{ovHide();}
+}
+
+/* ctx menu */
+function menuShow(x,y){
+	menuClose();
+	const m=cE('div');
+	m.className='cm';
+	m.style.left=x+'px'; m.style.top=y+'px';
+	m.innerHTML=`
+		<button onclick="imgDl()">Download</button>
+		<button class="danger" onclick="imgDel()">Delete</button>`;
+	d.body.appendChild(m);
+	setTimeout(()=>{
+		const h=e=>{
+			if(!e.target.closest('.cm')){menuClose();d.removeEventListener('click',h);}
+		};
+		d.addEventListener('click',h);
+	},100);
+}
+function menuClose(){d.querySelectorAll('.cm').forEach(m=>m.remove());}
+
+async function imgDl(){
+	try{
+		const r=await fetch(sI.url),b=await r.blob();
+		const u=URL.createObjectURL(b),a=cE('a');
+		a.href=u;a.download=sI.name;a.click();
+		URL.revokeObjectURL(u); msg('Downloaded');
+	}catch(e){msg('Download failed','err');}
+	menuClose();
+}
+async function imgDel(){
+	if(!confirm(`Delete ${sI.name}?`))return;
+	ovShow();
+	try{
+		const r = await fetch(`${wu}/edit?func=delete&path=/${sI.name}`);
+		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
+		else msg('Delete failed! File in use?','err');
+	}catch(e){msg('Delete failed','err');}
+	finally{ovHide();}
+	menuClose();
+}
+
+/* tab select and additional tools */
+function tabSw(tab) {
+	'iTab,xTab,oTab,tImg,tTxt,tOth'.split(',').forEach((id,i)=>{
+		gId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
+	});
+	localStorage.tab=tab;
+	({txt:txtSegLoad,img:imgLoad}[tab]||(()=>{}))(); // functions to execute on tab switch (currently none for oth)
+}
+'Img,Txt,Oth'.split(',').forEach((s,i)=>{
+	gId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
+});
+tabSw(localStorage.tab||'img');
+
+/* tokens insert */
+function txtIns(el,t){
+	const s=el.selectionStart??el.value.length,e=el.selectionEnd??el.value.length,v=el.value;
+	const nv=(v.slice(0,s)+t+v.slice(e)).slice(0,64);
+	const p=Math.min(s+t.length,nv.length);
+	el.value=nv;el.focus();el.selectionStart=el.selectionEnd=p;
+}
+document.addEventListener('click',e=>{
+	const a=e.target.closest('.tk'); if(!a) return;
+	e.preventDefault(); txtIns(gId('txt'),a.dataset.t);
+	// txtUp();
+});
+
+/* load seg settings into text UI */
+async function txtSegLoad(){
+	const id=+gId('segT').value;
+	try{
+
+		const r=await fetch(`${wu}/json/state`),j=await r.json();
+		if(j.seg&&j.seg[id]){
+			const s=j.seg[id];
+			gId('txt').value=s.n||'';
+			gId('sx').value=s.sx||128;
+			gId('ix').value=s.ix||128;
+			gId('c1').value=s.c1||0;
+			gId('c2').value=s.c2||0;
+			gId('c3').value=s.c3||0;
+			gId('o1').checked=!(!s.o1);
+			gId('o3').checked=!(!s.o3);
+		}
+	}catch(e){console.error(e);}
+}
+
+/* auto apply on change */
+['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ gId(id).onchange=txtUp; });
+
+/* send text settings */
+function txtUp(){
+	const id=+gId('segT').value,txt=gId('txt').value.trim().slice(0,64);
+	const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
+	fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)})
+		.then(r => { if(r.ok) segLoad(); })
+		.catch(console.error);
+}
+
+/* apply button */
+gId('aTxt').onclick=async()=>{
+	const id=+gId('segT').value,txt=gId('txt').value.trim();
+	ovShow();
+	try{
+		const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
+		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const out=await r.json();
+		if(out.success!==false){ msg(`Applied to Segment ${id}`); await segLoad(); }
+		else msg('Failed to apply','err');
+	}catch(e){ msg(`Error: ${e.message}`,'err'); }
+	finally{ ovHide(); }
+};
+</script>
+</body>
+</html>

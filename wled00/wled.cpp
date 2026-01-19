@@ -1,6 +1,7 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#include "ota_update.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
   #include <ArduinoOTA.h>
@@ -166,7 +167,6 @@ void WLED::loop()
   // 15min PIN time-out
   if (strlen(settingsPIN)>0 && correctPIN && millis() - lastEditTime > PIN_TIMEOUT) {
     correctPIN = false;
-    createEditHandler(false);
   }
 
    // free memory and reconnect WiFi to clear stale allocations if heap is too low for too long, check once per second
@@ -202,7 +202,7 @@ void WLED::loop()
         DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
         strip.~WS2812FX();      // deallocate strip and all its memory
         new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
-        forceReconnect = true;  // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
+        if (!Update.isRunning()) forceReconnect = true; // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
         errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: strip reset
         break;
       default:
@@ -457,12 +457,7 @@ void WLED::setup()
   }
 
   handleBootLoop(); // check for bootloop and take action (requires WLED_FS)
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-  else deEEP();
-#else
   initPresetsFile();
-#endif
   updateFSInfo();
 
   // generate module IDs must be done before AP setup
@@ -501,7 +496,7 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
-  if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
+  if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
   WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
@@ -582,6 +577,7 @@ void WLED::setup()
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
+  markOTAvalid();
 }
 
 void WLED::beginStrip()
@@ -696,7 +692,6 @@ void WLED::initConnection()
   if (!WLED_WIFI_CONFIGURED) {
     DEBUG_PRINTLN(F("No connection configured."));
     if (!apActive) initAP();        // instantly go to ap mode
-    return;
   } else if (!apActive) {
     if (apBehavior == AP_BEHAVIOR_ALWAYS) {
       DEBUG_PRINTLN(F("Access point ALWAYS enabled."));
