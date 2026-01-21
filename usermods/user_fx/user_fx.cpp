@@ -303,7 +303,7 @@ static uint16_t mode_spinning_wheel(void) {
       uint8_t hue;
       if (SEGMENT.check2) {
         // Each spinner block gets its own color based on strip number
-        uint16_t numSpinners = max(1, (int)(SEGMENT.nrOfVStrips() / spinnerSize));
+        uint16_t numSpinners = max(1U, (SEGMENT.nrOfVStrips() + spinnerSize - 1) / spinnerSize);
         hue = (255 * (stripNr / spinnerSize)) / numSpinners;
       } else {
         // Color changes with position
