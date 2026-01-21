@@ -32,7 +32,7 @@ static void doSaveState() {
   unsigned long maxWait = millis() + strip.getFrameTime();
   while (strip.isUpdating() && millis() < maxWait) delay(1); // wait for strip to finish updating, accessing FS during sendout causes glitches
 
-  if (!requestJSONBufferLock(10)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_PRESET_SAVE)) return;
 
   initPresetsFile(); // just in case if someone deleted presets.json using /edit
   JsonObject sObj = pDoc->to<JsonObject>();
@@ -86,7 +86,7 @@ static void doSaveState() {
 
 bool getPresetName(byte index, String& name)
 {
-  if (!requestJSONBufferLock(19)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_PRESET_NAME)) return false;
   bool presetExists = false;
   if (readObjectFromFileUsingId(getPresetsFileName(), index, pDoc)) {
     JsonObject fdo = pDoc->as<JsonObject>();
@@ -152,7 +152,7 @@ void handlePresets()
     return;
   }
 
-  if (presetToApply == 0 || !requestJSONBufferLock(9)) return; // no preset waiting to apply, or JSON buffer is already allocated, return to loop until free
+  if (presetToApply == 0 || !requestJSONBufferLock(JSON_LOCK_PRESET_LOAD)) return; // no preset waiting to apply, or JSON buffer is already allocated, return to loop until free
 
   bool changePreset = false;
   uint8_t tmpPreset = presetToApply; // store temporary since deserializeState() may call applyPreset()

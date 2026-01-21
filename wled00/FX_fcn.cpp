@@ -1987,7 +1987,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     return false;
   }
 
-  if (!isFile || !requestJSONBufferLock(7)) return false;
+  if (!isFile || !requestJSONBufferLock(JSON_LOCK_LEDMAP)) return false;
 
   StaticJsonDocument<64> filter;
   filter[F("width")]  = true;

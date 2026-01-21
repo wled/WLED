@@ -559,7 +559,7 @@ static void decodeIRJson(uint32_t code)
   JsonObject fdo;
   JsonObject jsonCmdObj;
 
-  if (!requestJSONBufferLock(13)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_IR)) return;
 
   sprintf_P(objKey, PSTR("\"0x%lX\":"), (unsigned long)code);
   strcpy_P(fileName, PSTR("/ir.json")); // for FS.exists()
