@@ -111,7 +111,7 @@ body {
 function loadFiles(u, r, cb) {
 	var s = document.createElement('script'),
 			// set 1s timeout if retry count is less than 10 (i.e. for Ace scripts)
-			tm = r < 10 ? setTimeout(() => { s.onload=null; cb(); }, 1000) : 0;
+			tm = r < 10 ? setTimeout(() => { s.onload=s.onerror=null; cb(); }, 1000) : 0;
 	s.src = u;
 	s.onload = () => { clearTimeout(tm); cb(); };
 	s.onerror = () => {
