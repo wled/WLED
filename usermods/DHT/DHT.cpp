@@ -20,6 +20,8 @@
 #define DHTTYPE DHT_TYPE_21
 #elif USERMOD_DHT_DHTTYPE == 22
 #define DHTTYPE DHT_TYPE_22
+#else
+#error Invalid USERMOD_DHT_DHTTYPE
 #endif
 
 // Connect pin 1 (on the left) of the sensor to +5V
@@ -57,11 +59,11 @@
 
 DHT_nonblocking dht_sensor(DHTPIN, DHTTYPE);
 
-class UsermodDHT : public Usermod {
+class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySensor {
   private:
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    float humidity, temperature = 0;
+    float tempC, humidity, temperature = 0;
     bool initializing = true;
     bool disabled = false;
     #ifdef USERMOD_DHT_MQTT
@@ -89,6 +91,8 @@ class UsermodDHT : public Usermod {
       #ifdef USERMOD_DHT_STATS
       nextResetStatsTime = millis() + 60*60*1000;
       #endif
+      pluginManager.registerTemperatureSensor(*this, "DHT");
+      pluginManager.registerHumiditySensor(*this, "DHT");
     }
 
     void loop() {
@@ -112,13 +116,14 @@ class UsermodDHT : public Usermod {
       }
       #endif
 
-      float tempC;
       if (dht_sensor.measure(&tempC, &humidity)) {
         #ifdef USERMOD_DHT_CELSIUS
         temperature = tempC;
         #else
         temperature = tempC * 9 / 5 + 32;
         #endif
+        _isTemperatureValid = true;
+        _isHumidityValid = true;
 
         #ifdef USERMOD_DHT_MQTT
         // 10^n where n is number of decimal places to display in mqtt message. Please adjust buff size together with this constant
@@ -168,6 +173,8 @@ class UsermodDHT : public Usermod {
 
       if (((millis() - lastReadTime) > 10*USERMOD_DHT_MEASUREMENT_INTERVAL)) {
         disabled = true;
+        _isTemperatureValid = false;
+        _isHumidityValid = false;
       }
     }
 
@@ -242,6 +249,9 @@ class UsermodDHT : public Usermod {
       return USERMOD_ID_DHT;
     }
 
+  private:
+    float do_getTemperatureC() override { return tempC; }
+    float do_getHumidity() override { return humidity; }
 };
 
 
