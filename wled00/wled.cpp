@@ -40,8 +40,8 @@ void WLED::reset()
 
 void WLED::loop()
 {
-  static uint32_t      lastHeap = UINT32_MAX;
-  static unsigned long heapTime = 0;
+  static uint16_t      heapTime = 0;   // timestamp for heap check
+  static uint8_t       heapDanger = 0; // counter for consecutive low-heap readings
 #ifdef WLED_DEBUG
   static unsigned long lastRun = 0;
   unsigned long        loopMillis = millis();
@@ -169,19 +169,47 @@ void WLED::loop()
     correctPIN = false;
   }
 
-  // reconnect WiFi to clear stale allocations if heap gets too low
-  if (millis() - heapTime > 15000) {
-    uint32_t heap = getFreeHeapSize();
-    if (heap < MIN_HEAP_SIZE && lastHeap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTF_P(PSTR("Heap too low! %u\n"), heap);      
-      strip.resetSegments(); // remove all but one segments from memory
-      if (!Update.isRunning()) forceReconnect = true;
-    } else if (heap < MIN_HEAP_SIZE) {
-      DEBUG_PRINTLN(F("Heap low, purging segments."));
-      strip.purgeSegments();
+   // free memory and reconnect WiFi to clear stale allocations if heap is too low for too long, check once every 5s
+  if ((uint16_t)(millis() - heapTime) > 5000) {
+    #ifdef ESP8266
+    uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
+    #else
+    #ifdef CONFIG_IDF_TARGET_ESP32C3
+    // calling getContiguousFreeHeap() during led update causes glitches on C3
+    // this can (probably) be removed once RMT driver for C3 is fixed
+    unsigned t0 = millis();
+    while (strip.isUpdating() && (millis() - t0 < 15)) delay(1);    // be nice, but not too nice. Waits up to 15ms
+    #endif
+    uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
+    #endif
+    if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
+    else heapDanger = 0;
+    switch (heapDanger) {
+      case 15: // 15 consecutive seconds
+        DEBUG_PRINTLN(F("Heap low, purging segments"));
+        strip.purgeSegments();
+        strip.setTransition(0); // disable transitions
+        for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+          strip.getSegments()[i].setMode(FX_MODE_STATIC); // set static mode to free effect memory
+        }
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
+        break;
+      case 30: // 30 consecutive seconds
+        DEBUG_PRINTLN(F("Heap low, reset segments"));
+        strip.resetSegments(); // remove all but one segments from memory
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
+        break;
+      case 45: // 45 consecutive seconds
+        DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
+        strip.~WS2812FX();      // deallocate strip and all its memory
+        new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
+        if (!Update.isRunning()) forceReconnect = true; // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
+        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: strip reset
+        break;
+      default:
+        break;
     }
-    lastHeap = heap;
-    heapTime = millis();
+    heapTime = (uint16_t)millis();
   }
 
   //LED settings have been saved, re-init busses

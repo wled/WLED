@@ -1118,19 +1118,19 @@ size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
 size_t BusConfig::memUsage() const {
   size_t mem = (count + skipAmount) * 8; // 8 bytes per pixel for segment + global buffer
   if (Bus::isVirtual(type)) {
-    mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
+    return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
+    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr));
   } else if (Bus::isOnOff(type)) {
-    mem += sizeof(BusOnOff);
+    return sizeof(BusOnOff);
   } else {
     mem += sizeof(BusPwm);
   }
   return mem;
 }
 
-int BusManager::add(const BusConfig &bc) {
+int BusManager::add(const BusConfig &bc, bool placeholder) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
   unsigned digital = 0;
   unsigned analog  = 0;
@@ -1140,8 +1140,12 @@ int BusManager::add(const BusConfig &bc) {
     if (bus->isDigital() && !bus->is2Pin()) digital++;
     if (bus->is2Pin()) twoPin++;
   }
-  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) return -1;
-  if (Bus::isVirtual(bc.type)) {
+  digital += (Bus::isDigital(bc.type) && !Bus::is2Pin(bc.type));
+  analog  += (Bus::isPWM(bc.type) ? Bus::numPWMPins(bc.type) : 0);
+  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true; // TODO: add errorFlag here
+  if (placeholder) {
+    busses.push_back(make_unique<BusPlaceholder>(bc));
+  } else if (Bus::isVirtual(bc.type)) {
     busses.push_back(make_unique<BusNetwork>(bc));
 #ifdef WLED_ENABLE_HUB75MATRIX
   } else if (Bus::isHub75(bc.type)) {
@@ -1234,7 +1238,7 @@ void BusManager::on() {
   if (PinManager::getPinOwner(LED_BUILTIN) == PinOwner::BusDigital) {
     for (auto &bus : busses) {
       uint8_t pins[2] = {255,255};
-      if (bus->isDigital() && bus->getPins(pins)) {
+      if (bus->isDigital() && bus->getPins(pins) && bus->isOk()) {
         if (pins[0] == LED_BUILTIN || pins[1] == LED_BUILTIN) {
           BusDigital &b = static_cast<BusDigital&>(*bus);
           b.begin();
@@ -1329,7 +1333,7 @@ void BusManager::initializeABL() {
       _useABL = true; // at least one bus has ABL set
       uint32_t ESPshare = MA_FOR_ESP / numABLbuses; // share of ESP current per ABL bus
       for (auto &bus : busses) {
-        if (bus->isDigital()) {
+        if (bus->isDigital() && bus->isOk()) {
           BusDigital &busd = static_cast<BusDigital&>(*bus);
           uint32_t busLength = busd.getLength();
           uint32_t busDemand = busLength * busd.getLEDCurrent();

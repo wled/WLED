@@ -1200,8 +1200,9 @@ void WS2812FX::finalizeInit() {
     bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
   }
   for (auto &bus : busConfigs) {
-    unsigned memB = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
-    mem += memB;
+    bool use_placeholder = false;
+    unsigned busMemUsage = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
+    mem += busMemUsage;
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
     bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
@@ -1216,12 +1217,14 @@ void WS2812FX::finalizeInit() {
       if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
     }
     #endif
-    if (mem + I2SdmaMem <= MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
-      BusManager::add(bus);
-    } else {
-      errorFlag = ERR_NORAM_PX; // alert UI
-      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) not created."), (int)bus.type, (int)bus.count);
-      break;
+    if (mem + I2SdmaMem > MAX_LED_MEMORY +1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
+      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
+      use_placeholder = true;
+    }
+    if (BusManager::add(bus, use_placeholder) != -1) {
+      mem += BusManager::busses.back()->getBusSize();
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
   DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
@@ -1255,6 +1258,7 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
+  p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
@@ -1829,6 +1833,10 @@ void WS2812FX::resetSegments() {
   if (isServicing()) return;
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  if(_segments.size() == 0) {
+    _segments.emplace_back(); // if out of heap, create a default segment
+    errorFlag = ERR_NORAM_PX;
+  }
   _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
@@ -1851,7 +1859,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
       const Bus *bus = BusManager::getBus(i);
-      if (!bus || !bus->isOk()) break;
+      if (!bus) break;
 
       segStarts[s] = bus->getStart();
       segStops[s]  = segStarts[s] + bus->getLength();
