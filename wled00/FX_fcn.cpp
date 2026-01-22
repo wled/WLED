@@ -96,8 +96,7 @@ Segment& Segment::operator= (const Segment &orig) {
   //DEBUG_PRINTF_P(PSTR("-- Copying segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     // clean destination
-    if (name) { p_free(name); }
-    name = nullptr;
+    if (name) { p_free(name); name = nullptr; }
     if (_t) stopTransition(); // also erases _t
     deallocateData();
     p_free(pixels);
