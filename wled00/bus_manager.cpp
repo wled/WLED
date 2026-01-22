@@ -1114,16 +1114,36 @@ size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
 #endif
 // ***************************************************************************
 
+BusPlaceholder::BusPlaceholder(const BusConfig &bc)
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, bc.refreshReq)
+, _colorOrder(bc.colorOrder)
+, _skipAmount(bc.skipAmount)
+, _frequency(bc.frequency)
+, _milliAmpsPerLed(bc.milliAmpsPerLed)
+, _milliAmpsMax(bc.milliAmpsMax)
+, _text(bc.text)
+{
+  memcpy(_pins, bc.pins, sizeof(_pins));
+}
+
+size_t BusPlaceholder::getPins(uint8_t* pinArray) const {
+  size_t nPins = Bus::getNumberOfPins(_type);
+  if (pinArray) {
+    for (size_t i = 0; i < nPins; i++) pinArray[i] = _pins[i];
+  }
+  return nPins;
+}
+
 //utility to get the approx. memory usage of a given BusConfig inclduding segmentbuffer and global buffer (4 bytes per pixel)
 size_t BusConfig::memUsage() const {
   size_t mem = (count + skipAmount) * 8; // 8 bytes per pixel for segment + global buffer
   if (Bus::isVirtual(type)) {
-    return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
+    mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr));
+    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
   } else if (Bus::isOnOff(type)) {
-    return sizeof(BusOnOff);
+    mem += sizeof(BusOnOff);
   } else {
     mem += sizeof(BusPwm);
   }

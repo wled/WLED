@@ -1216,7 +1216,7 @@ void WS2812FX::finalizeInit() {
       if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
     }
     #endif
-    if (mem + I2SdmaMem > MAX_LED_MEMORY +1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
+    if (mem + I2SdmaMem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
       DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
       errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
       use_placeholder = true;
