@@ -115,7 +115,7 @@ static uint16_t mode_spinning_wheel(void) {
   if (SEGLEN < 1) return mode_static();
   
   unsigned strips = SEGMENT.nrOfVStrips();
-  const unsigned stateVarsPerStrip = 8;
+  constexpr unsigned stateVarsPerStrip = 8;
   unsigned dataSize = sizeof(uint32_t) * stateVarsPerStrip;
   if (!SEGENV.allocateData(dataSize * strips)) return mode_static();
   uint32_t* state = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -142,7 +142,7 @@ static uint16_t mode_spinning_wheel(void) {
 
   // Handle random seeding globally (outside the virtual strip)
   if (SEGENV.call == 0) {
-    random16_set_seed(analogRead(0));
+    random16_set_seed(hw_random16());
     SEGENV.aux1 = (255 << 8) / SEGLEN; // Cache the color scaling
   }
 
@@ -150,7 +150,7 @@ static uint16_t mode_spinning_wheel(void) {
   uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom3 + SEGMENT.check3;
   bool settingsChanged = (SEGENV.aux0 != settingssum);
   if (settingsChanged) {
-    random16_add_entropy(analogRead(0));
+    random16_add_entropy(hw_random16());
     SEGENV.aux0 = settingssum;
   }
 
