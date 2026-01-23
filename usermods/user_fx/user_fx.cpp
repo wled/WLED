@@ -3,9 +3,8 @@
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
 // static effect, used if an effect fails to initialize
-static uint16_t mode_static(void) {
+static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 
 /////////////////////////
@@ -13,7 +12,7 @@ static uint16_t mode_static(void) {
 /////////////////////////
 
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
-static uint16_t mode_diffusionfire(void) {
+static void mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
     return mode_static();  // not a 2D set-up
 
@@ -84,7 +83,6 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 

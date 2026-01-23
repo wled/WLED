@@ -81,7 +81,7 @@ Pre-loaded in this template is an example 2D Effect called "Diffusion Fire".  (T
 The effect starts off by checking to see if the segment that the effect is being applied to is a 2D Matrix, and if it is not, then it returns the static effect which displays no pattern:
 ```cpp
 if (!strip.isMatrix || !SEGMENT.is2D()) 
-return mode_static();  // not a 2D set-up 
+  mode_static();  // not a 2D set-up 
 ```
 The next code block contains several constant variable definitions which essentially serve to extract the dimensions of the user's 2D matrix and allow WLED to interpret the matrix as a 1D coordinate system (WLED must do this for all 2D animations):
 ```cpp
@@ -128,7 +128,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 
 ```cpp
 if (!SEGENV.allocateData(dataSize))
-return mode_static(); // allocation failed
+  mode_static(); // allocation failed
 ```
 * Upon the first call, this section allocates a persistent data buffer tied to the segment environment (`SEGENV.data`). All subsequent calls simply ensure that the data is still valid.
 * The syntax `SEGENV.allocateData(n)` requests a buffer of size n bytes (1 byte per pixel here).
@@ -250,20 +250,7 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 * `SEGCOLOR(0)` gets the first user-selected color for the segment.
 * The final line of code fades that base color according to the heat value (acts as brightness multiplier).
 
-The final piece of this custom effect returns the frame time:
-```cpp
-}
-return FRAMETIME;
-}
-```
-* The first bracket closes the earlier `if ((strip.now - SEGENV.step) >= refresh_ms)` block.
-  * It ensures that the fire simulation (scrolling, sparking, diffusion, rendering) only runs when enough time has passed since the last update.
-* returning the frame time tells WLED how soon this effect wants to be called again.
-  * `FRAMETIME` is a predefined macro in WLED, typically set to ~16ms, corresponding to ~60 FPS (frames per second).
-  * Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals to check whether an update is needed.
-* ⚠️ Important: Because the actual frame logic is gated by strip.now - SEGENV.step, returning FRAMETIME here doesn’t cause excessive updates — it just keeps the engine responsive.  **Also note that an Effect should ALWAYS return FRAMETIME.  Not doing so can cause glitches.**
-* The final bracket closes the `mode_diffusionfire()` function itself.
-
+* Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals (the FPS limit set in config) to check whether an update is needed. If nothing needs to change, the frame still needs to be re-rendered so color or brightness transitions will be smooth.
 
 ### The Metadata String
 At the end of every effect is an important line of code called the **metadata string**.

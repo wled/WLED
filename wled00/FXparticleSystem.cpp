@@ -79,9 +79,8 @@ void ParticleSystem2D::update(void) {
 }
 
 // update function for fire animation
-void ParticleSystem2D::updateFire(const uint8_t intensity,const bool renderonly) {
-  if (!renderonly)
-    fireParticleupdate();
+void ParticleSystem2D::updateFire(const uint8_t intensity) {
+  fireParticleupdate();
   fireIntesity = intensity > 0 ? intensity : 1; // minimum of 1, zero checking is used in render function
   render();
 }

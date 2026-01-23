@@ -1285,7 +1285,6 @@ void WS2812FX::service() {
     if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
     {
       doShow = true;
-      unsigned frameDelay = FRAMETIME;
 
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
@@ -1293,7 +1292,7 @@ void WS2812FX::service() {
         seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
-        frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
+        _mode[seg.mode]();                  // run new/current mode (needed for bri workaround)
         seg.call++;
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
@@ -1304,14 +1303,13 @@ void WS2812FX::service() {
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
-          frameDelay = min(frameDelay, (unsigned)(*_mode[segO->mode])());  // run old mode (needed for bri workaround; semaphore!!)
-          segO->call++;                     // increment old mode run counter
+          _mode[segO->mode]();     // run old mode (needed for bri workaround; semaphore!!)
+          segO->call++;                     // increment old mode run  counter
           Segment::modeBlend(false);        // unset semaphore
         }
-        if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
       }
 
-      seg.next_time = nowUp + frameDelay;
+      seg.next_time = nowUp + FRAMETIME;
     }
     _segment_index++;
   }
