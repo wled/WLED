@@ -5050,8 +5050,10 @@ uint16_t mode_ColorClouds()
   const uint32_t hueX0 = SEGENV.aux1;
   const uint8_t hueOffset0 = volX0 + hueX0;
 
-  // Put more emphasis on the red'ish colors when true (or begin & end of palette).
-  const bool moreRed = SEGMENT.check3;
+  // Makes a very soft wraparound of the color palette by putting more emphasis on the begin & end
+  // of the palette (or on the red'ish colors in case of a rainbow spectrum).
+  // This gives the effect oftentimes an even more calm perception.
+  const bool cozy = SEGMENT.check3;
 
   // Higher values make the clouds move faster.
   const uint32_t volSpeed = 1 + SEGMENT.speed;
@@ -5066,8 +5068,8 @@ uint16_t mode_ColorClouds()
   const uint32_t hueSqueeze = SEGMENT.custom2;
 
   // Higher values make larger gaps between the clouds.
-  const long volCutoff   = 12500 + SEGMENT.custom3 * 900;
-  const long volSaturate = 52000;
+  const int32_t volCutoff   = 12500 + SEGMENT.custom3 * 900;
+  const int32_t volSaturate = 52000;
   // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
 
   const uint32_t now = strip.now;
@@ -5077,7 +5079,7 @@ uint16_t mode_ColorClouds()
 
   for (int i = 0; i < SEGLEN; i++) {
     const uint32_t volX = i * volSqueeze * 64;
-    long vol = perlin16(volX0 + volX, volT);
+    int32_t vol = perlin16(volX0 + volX, volT);
     vol = map(vol, volCutoff, volSaturate, 0, 255);
     vol = constrain(vol, 0, 255);
 
@@ -5085,7 +5087,7 @@ uint16_t mode_ColorClouds()
     uint8_t hue = perlin16(hueX0 + hueX, hueT) >> 7;
     hue += hueOffset0;
     hue += hueOffset;
-    if (moreRed) {
+    if (cozy) {
       hue = cos8_t(128 + hue / 2);
     }
 
@@ -5094,8 +5096,6 @@ uint16_t mode_ColorClouds()
     else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
-    // Unfortunately this doesn't always work properly when gamma correction for color is enabled.
-    // So, when using this effect standalone, also try it without color gamma correction.
     if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
       pixel = 0;
     }
@@ -5105,7 +5105,7 @@ uint16_t mode_ColorClouds()
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,More red;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,cozy;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
 
 // WLED-SR effects
