@@ -212,6 +212,15 @@ void handlePresets()
   if (changePreset) notify(tmpMode); // force UDP notification
   stateUpdated(tmpMode);  // was colorUpdated() if anything breaks
   updateInterfaces(tmpMode);
+  
+  // Fix for boot preset with relay: ensure relay state is correct after boot preset is applied
+  if (tmpMode == CALL_MODE_INIT && rlyPin >= 0 && bri > 0 && offMode) {
+    // Boot preset turned LEDs on, but relay might not have been updated yet
+    // Force relay on immediately instead of waiting for handleIO()
+    pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
+    digitalWrite(rlyPin, rlyMde);
+    offMode = false;
+  }
 }
 
 //called from handleSet(PS=) [network callback (sObj is empty), IR (irrational), deserializeState, UDP] and deserializeState() [network callback (filedoc!=nullptr)]
