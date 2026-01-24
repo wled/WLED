@@ -14,6 +14,8 @@
 #include "FX.h"
 #include "fcn_declare.h"
 
+#define FX_FALLBACK_STATIC { mode_static(); return; }
+
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D))
   #include "FXparticleSystem.h" // include particle system code only if at least one system is enabled
   #ifdef WLED_DISABLE_PARTICLESYSTEM2D
@@ -259,7 +261,7 @@ static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;
  * if (bool rev == true) then LEDs are turned off in reverse order
  */
 void color_wipe(bool rev, bool useRandomColors) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   unsigned prog = (perc * 65535) / cycleTime;
@@ -383,7 +385,7 @@ static const char _data_FX_MODE_RANDOM_COLOR[] PROGMEM = "Random Colors@!,Fade t
  * to new random colors.
  */
 void mode_dynamic(void) {
-  if (!SEGENV.allocateData(SEGLEN)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(SEGLEN)) FX_FALLBACK_STATIC; //allocation failed
 
   if(SEGENV.call == 0) {
     //SEGMENT.fill(BLACK);
@@ -464,7 +466,7 @@ static const char _data_FX_MODE_FADE[] PROGMEM = "Fade@!;!,!;!;01";
  * Scan mode parent function
  */
 void scan(bool dual) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   uint32_t cycleTime = 750 + (255 - SEGMENT.speed)*150;
   uint32_t perc = strip.now % cycleTime;
   int prog = (perc * 65535) / cycleTime;
@@ -686,7 +688,7 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
  */
 void dissolve(uint32_t color) {
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
@@ -849,7 +851,7 @@ static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;
  * Android loading circle, refactored by @dedehai
  */
 void mode_android(void) {
-  if (!SEGENV.allocateData(sizeof(uint32_t))) mode_static();
+  if (!SEGENV.allocateData(sizeof(uint32_t))) FX_FALLBACK_STATIC;
   uint32_t* counter = reinterpret_cast<uint32_t*>(SEGENV.data);
   unsigned size = SEGENV.aux1 >> 1; // upper 15 bit
   unsigned shrinking = SEGENV.aux1 & 0x01; // lowest bit
@@ -1047,7 +1049,7 @@ static const char _data_FX_MODE_COLORFUL[] PROGMEM = "Colorful@!,Saturation;1,2,
  * Emulates a traffic light.
  */
 void mode_traffic_light(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   for (unsigned i=0; i < SEGLEN; i++)
     SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   uint32_t mdelay = 500;
@@ -1078,7 +1080,7 @@ static const char _data_FX_MODE_TRAFFIC_LIGHT[] PROGMEM = "Traffic Light@!,US st
  */
 #define FLASH_COUNT 4
 void mode_chase_flash(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned now = strip.now; // save time for delay calculation
   bool advance = true;
   unsigned flash_step = SEGENV.aux1 % ((FLASH_COUNT * 2) + 1);
@@ -1116,7 +1118,7 @@ static const char _data_FX_MODE_CHASE_FLASH[] PROGMEM = "Chase Flash@!;Bg,Fx;!";
  * Prim flashes running, followed by random color.
  */
 void mode_chase_flash_random(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned now = strip.now; // save time for delay calculation
   bool advance = true;
   if (now < SEGENV.step) {
@@ -1204,7 +1206,7 @@ static const char _data_FX_MODE_RUNNING_RANDOM[] PROGMEM = "Stream@!,Zone size;;
  * K.I.T.T.
  */
 void mode_larson_scanner(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
   const unsigned speed  = FRAMETIME * map(SEGMENT.speed, 0, 255, 96, 2); // map into useful range
   const unsigned pixels = SEGLEN / speed; // how many pixels to advance per frame
@@ -1260,7 +1262,7 @@ static const char _data_FX_MODE_DUAL_LARSON_SCANNER[] PROGMEM = "Scanner Dual@!,
  * Firing comets from one end. "Lighthouse"
  */
 void mode_comet(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned counter = (strip.now * ((SEGMENT.speed >>2) +1)) & 0xFFFF;
   unsigned index = (counter * SEGLEN) >> 16;
   if (SEGENV.call == 0) SEGENV.aux0 = index;
@@ -1285,7 +1287,7 @@ static const char _data_FX_MODE_COMET[] PROGMEM = "Lighthouse@!,Fade rate;!,!;!"
  * Fireworks function.
  */
 void mode_fireworks() {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const uint16_t width  = SEGMENT.is2D() ? SEG_W : SEGLEN;
   const uint16_t height = SEG_H;
 
@@ -1325,7 +1327,7 @@ static const char _data_FX_MODE_FIREWORKS[] PROGMEM = "Fireworks@,Frequency;!,!;
 
 //Twinkling LEDs running. Inspired by https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Rain.h
 void mode_rain() {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const unsigned width  = SEG_W;
   const unsigned height = SEG_H;
   SEGENV.step += FRAMETIME;
@@ -1389,7 +1391,7 @@ static const char _data_FX_MODE_FIRE_FLICKER[] PROGMEM = "Fire Flicker@!,!;!;!;0
  * Gradient run base function
  */
 void gradient_base(bool loading) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   uint16_t counter = strip.now * ((SEGMENT.speed >> 2) + 1);
   uint16_t pp = (counter * SEGLEN) >> 16;
   if (SEGENV.call == 0) pp = 0;
@@ -1432,7 +1434,7 @@ static const char _data_FX_MODE_LOADING[] PROGMEM = "Loading@!,Fade;!,!;!;;ix=16
  * Two dots running
  */
 void mode_two_dots() {
- if (SEGLEN <= 1) mode_static();
+ if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned delay = 1 + (FRAMETIME<<3) / SEGLEN;  // longer segments should change faster
   uint32_t it = strip.now / map(SEGMENT.speed, 0, 255, delay<<4, delay);
   unsigned offset = it % SEGLEN;
@@ -1543,7 +1545,7 @@ static const char _data_FX_MODE_FAIRY[] PROGMEM = "Fairy@!,# of flashers;!,!;!";
  */
 void mode_fairytwinkle() {
   unsigned dataSize = sizeof(flasher) * SEGLEN;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   Flasher* flashers = reinterpret_cast<Flasher*>(SEGENV.data);
   unsigned now16 = strip.now & 0xFFFF;
   uint16_t PRNG16 = 5100 + strip.getCurrSegmentId();
@@ -1776,7 +1778,7 @@ void mode_multi_comet(void) {
   uint32_t cycleTime = 10 + (uint32_t)(255 - SEGMENT.speed);
   uint32_t it = strip.now / cycleTime;
   if (SEGENV.step == it) return;
-  if (!SEGENV.allocateData(sizeof(uint16_t) * MAX_COMETS)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(uint16_t) * MAX_COMETS)) FX_FALLBACK_STATIC; //allocation failed
 
   SEGMENT.fade_out(SEGMENT.intensity/2 + 128);
 
@@ -1854,7 +1856,7 @@ void mode_oscillate(void) {
   constexpr unsigned numOscillators = 3;
   constexpr unsigned dataSize = sizeof(oscillator) * numOscillators;
 
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Oscillator* oscillators = reinterpret_cast<Oscillator*>(SEGENV.data);
 
@@ -1901,7 +1903,7 @@ static const char _data_FX_MODE_OSCILLATE[] PROGMEM = "Oscillate";
 
 
 void mode_lightning(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned ledstart = hw_random16(SEGLEN);               // Determine starting location of flash
   unsigned ledlen = 1 + hw_random16(SEGLEN -ledstart);   // Determine length of flash (not to go beyond NUM_LEDS-1)
   uint8_t bri = 255/hw_random8(1, 3);
@@ -2009,7 +2011,7 @@ static const char _data_FX_MODE_COLORWAVES[] PROGMEM = "Colorwaves@!,Hue;!;!;;pa
 
 //eight colored dots, weaving in and out of sync with each other
 void mode_juggle(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
   SEGMENT.fadeToBlackBy(192 - (3*SEGMENT.intensity/4));
   CRGB fastled_col;
@@ -2152,9 +2154,9 @@ static const char _data_FX_MODE_PALETTE[] PROGMEM = "Palette@Shift,Size,Rotation
 // feel of your fire: COOLING (used in step 1 above) (Speed = COOLING), and SPARKING (used
 // in step 3 above) (Effect Intensity = Sparking).
 void mode_fire_2012() {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const unsigned strips = SEGMENT.nrOfVStrips();
-  if (!SEGENV.allocateData(strips * SEGLEN)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(strips * SEGLEN)) FX_FALLBACK_STATIC; //allocation failed
   byte* heat = SEGENV.data;
 
   const uint32_t it = strip.now >> 5; //div 32
@@ -2299,7 +2301,7 @@ static const char _data_FX_MODE_NOISE16_4[] PROGMEM = "Noise 4@!;!;!;;pal=26";
 //based on https://gist.github.com/kriegsman/5408ecd397744ba0393e
 void mode_colortwinkle() {
   unsigned dataSize = (SEGLEN+7) >> 3; //1 bit per LED
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   //limit update rate
   if (strip.now - SEGENV.step < FRAMETIME_FIXED) return;
@@ -2374,8 +2376,8 @@ static const char _data_FX_MODE_LAKE[] PROGMEM = "Lake@!;Fx;!";
 // send a meteor from begining to to the end of the strip with a trail that randomly decays.
 // adapted from https://www.tweaking4all.com/hardware/arduino/adruino-led-strip-effects/#LEDStripEffectMeteorRain
 void mode_meteor() {
-  if (SEGLEN <= 1) mode_static();
-  if (!SEGENV.allocateData(SEGLEN)) mode_static(); //allocation failed
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
+  if (!SEGENV.allocateData(SEGLEN)) FX_FALLBACK_STATIC; //allocation failed
   const bool meteorSmooth = SEGMENT.check3;
   byte* trail = SEGENV.data;
 
@@ -2442,7 +2444,7 @@ static const char _data_FX_MODE_METEOR[] PROGMEM = "Meteor@!,Trail,,,,Gradient,,
 
 //Railway Crossing / Christmas Fairy lights
 void mode_railway() {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned dur = (256 - SEGMENT.speed) * 40;
   uint16_t rampdur = (dur * SEGMENT.intensity) >> 8;
   if (SEGENV.step > dur)
@@ -2491,7 +2493,7 @@ static void ripple_base(uint8_t blurAmount = 0) {
   unsigned maxRipples = min(1 + (int)(SEGLEN >> 2), MAX_RIPPLES);  // 56 max for 16 segment ESP8266
   unsigned dataSize = sizeof(ripple) * maxRipples;
 
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
 
@@ -2541,7 +2543,7 @@ static void ripple_base(uint8_t blurAmount = 0) {
 
 
 void mode_ripple(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   if(SEGMENT.custom1 || SEGMENT.check2) // blur or overlay
     SEGMENT.fade_out(250);
   else
@@ -2553,7 +2555,7 @@ static const char _data_FX_MODE_RIPPLE[] PROGMEM = "Ripple@!,Wave #,Blur,,,,Over
 
 
 void mode_ripple_rainbow(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   if (SEGENV.call ==0) {
     SEGENV.aux0 = hw_random8();
     SEGENV.aux1 = hw_random8();
@@ -2731,14 +2733,14 @@ void mode_halloween_eyes()
     uint32_t blinkEndTime;
   };
 
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const unsigned maxWidth = strip.isMatrix ? SEG_W : SEGLEN;
   const unsigned HALLOWEEN_EYE_SPACE = MAX(2, strip.isMatrix ? SEG_W>>4: SEGLEN>>5);
   const unsigned HALLOWEEN_EYE_WIDTH = HALLOWEEN_EYE_SPACE/2;
   unsigned eyeLength = (2*HALLOWEEN_EYE_WIDTH) + HALLOWEEN_EYE_SPACE;
-  if (eyeLength >= maxWidth) mode_static(); //bail if segment too short
+  if (eyeLength >= maxWidth) FX_FALLBACK_STATIC; //bail if segment too short
 
-  if (!SEGENV.allocateData(sizeof(EyeData))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(EyeData))) FX_FALLBACK_STATIC; //allocation failed
   EyeData& data = *reinterpret_cast<EyeData*>(SEGENV.data);
 
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1)); //fill background
@@ -2910,7 +2912,7 @@ static const char _data_FX_MODE_TRI_STATIC_PATTERN[] PROGMEM = "Solid Pattern Tr
 
 static void spots_base(uint16_t threshold)
 {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
 
   unsigned maxZones = SEGLEN >> 2;
@@ -2963,12 +2965,12 @@ typedef struct Ball {
 *  Bouncing Balls Effect
 */
 void mode_bouncing_balls(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   //allocate segment data
   const unsigned strips = SEGMENT.nrOfVStrips(); // adapt for 2D
   const size_t maxNumBalls = 16;
   unsigned dataSize = sizeof(ball) * maxNumBalls;
-  if (!SEGENV.allocateData(dataSize * strips)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize * strips)) FX_FALLBACK_STATIC; //allocation failed
 
   Ball* balls = reinterpret_cast<Ball*>(SEGENV.data);
 
@@ -3051,7 +3053,7 @@ static void mode_rolling_balls(void) {
   //allocate segment data
   const unsigned maxNumBalls = 16; // 255/16 + 1
   unsigned dataSize = sizeof(rball_t) * maxNumBalls;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   rball_t *balls = reinterpret_cast<rball_t *>(SEGENV.data);
 
@@ -3176,7 +3178,7 @@ static void mode_pacman(void) {
 
   // Allocate segment data
   unsigned dataSize = sizeof(pacmancharacters_t) * (numGhosts + maxPowerDots + 1);    // +1 is the PacMan character
-  if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) mode_static();
+  if (SEGLEN <= 16 + (2*numGhosts) || !SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;
   pacmancharacters_t *character = reinterpret_cast<pacmancharacters_t *>(SEGENV.data);
 
   // Calculate when blue ghosts start blinking.
@@ -3332,7 +3334,7 @@ static const char _data_FX_MODE_PACMAN[] PROGMEM = "PacMan@Speed,# of PowerDots,
 * Sinelon stolen from FASTLED examples
 */
 static void sinelon_base(bool dual, bool rainbow=false) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   SEGMENT.fade_out(SEGMENT.intensity);
   unsigned pos = beatsin16_t(SEGMENT.speed/10,0,SEGLEN-1);
   if (SEGENV.call == 0) SEGENV.aux0 = pos;
@@ -3431,13 +3433,13 @@ typedef struct Spark {
 *  modified from https://github.com/kitesurfer1404/WS2812FX/blob/master/src/custom/Popcorn.h
 */
 void mode_popcorn(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   //allocate segment data
   unsigned strips = SEGMENT.nrOfVStrips();
   unsigned usablePopcorns = maxNumPopcorn;
   if (usablePopcorns * strips * sizeof(spark) > FAIR_DATA_PER_SEG) usablePopcorns = FAIR_DATA_PER_SEG / (strips * sizeof(spark)) + 1; // at least 1 popcorn per vstrip
   unsigned dataSize = sizeof(spark) * usablePopcorns; // on a matrix 64x64 this could consume a little less than 27kB when Bar expansion is used
-  if (!SEGENV.allocateData(dataSize * strips)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize * strips)) FX_FALLBACK_STATIC; //allocation failed
 
   Spark* popcorn = reinterpret_cast<Spark*>(SEGENV.data);
 
@@ -3606,7 +3608,7 @@ typedef struct particle {
 } star;
 
 void mode_starburst(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned maxData = FAIR_DATA_PER_SEG; //ESP8266: 256 ESP32: 640
   unsigned segs = strip.getActiveSegmentsNum();
   if (segs <= (strip.getMaxSegments() /2)) maxData *= 2; //ESP8266: 512 if <= 8 segs ESP32: 1280 if <= 16 segs
@@ -3617,7 +3619,7 @@ void mode_starburst(void) {
   if (numStars > maxStars) numStars = maxStars;
   unsigned dataSize = sizeof(star) * numStars;
 
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   uint32_t it = strip.now;
 
@@ -3725,7 +3727,7 @@ static const char _data_FX_MODE_STARBURST[] PROGMEM = "Fireworks Starburst@Chanc
  */
 void mode_exploding_fireworks(void)
 {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const int cols = SEGMENT.is2D() ? SEG_W : 1;
   const int rows = SEGMENT.is2D() ? SEG_H : SEGLEN;
 
@@ -3738,7 +3740,7 @@ void mode_exploding_fireworks(void)
 
   unsigned numSparks = min(5 + ((rows*cols) >> 1), maxSparks);
   unsigned dataSize = sizeof(spark) * numSparks;
-  if (!SEGENV.allocateData(dataSize + sizeof(float))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize + sizeof(float))) FX_FALLBACK_STATIC; //allocation failed
   float *dying_gravity = reinterpret_cast<float*>(SEGENV.data + dataSize);
 
   if (dataSize != SEGENV.aux1) { //reset to flare if sparks were reallocated (it may be good idea to reset segment if bounds change)
@@ -3861,12 +3863,12 @@ static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gr
  */
 void mode_drip(void)
 {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   //allocate segment data
   unsigned strips = SEGMENT.nrOfVStrips();
   const int maxNumDrops = 4;
   unsigned dataSize = sizeof(spark) * maxNumDrops;
-  if (!SEGENV.allocateData(dataSize * strips)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize * strips)) FX_FALLBACK_STATIC; //allocation failed
   Spark* drops = reinterpret_cast<Spark*>(SEGENV.data);
 
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
@@ -3954,10 +3956,10 @@ typedef struct Tetris {
 } tetris;
 
 void mode_tetrix(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned strips = SEGMENT.nrOfVStrips(); // allow running on virtual strips (columns in 2D segment)
   unsigned dataSize = sizeof(tetris);
-  if (!SEGENV.allocateData(dataSize * strips)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize * strips)) FX_FALLBACK_STATIC; //allocation failed
   Tetris* drops = reinterpret_cast<Tetris*>(SEGENV.data);
 
   //if (SEGENV.call == 0) SEGMENT.fill(SEGCOLOR(1));  // will fill entire segment (1D or 2D), then use drop->step = 0 below
@@ -4252,7 +4254,7 @@ static const char _data_FX_MODE_PACIFICA[] PROGMEM = "Pacifica@!,Angle;;!;;pal=5
  * Mode simulates a gradual sunrise
  */
 void mode_sunrise() {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   //speed 0 - static sun
   //speed 1 - 60: sunrise time in minutes
   //speed 60 - 120 : sunset time in minutes - 60;
@@ -4358,7 +4360,7 @@ void mode_noisepal(void) {                                    // Slow noise pale
   //#define scale 30
 
   unsigned dataSize = sizeof(CRGBPalette16) * 2; //allocate space for 2 Palettes (2 * 16 * 3 = 96 bytes)
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   CRGBPalette16* palettes = reinterpret_cast<CRGBPalette16*>(SEGENV.data);
 
@@ -4448,7 +4450,7 @@ static const char _data_FX_MODE_FLOW[] PROGMEM = "Flow@!,Zones;;!;;m12=1"; //ver
  */
 void mode_chunchun(void)
 {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   SEGMENT.fade_out(254); // add a bit of trail
   unsigned counter = strip.now * (6 + (SEGMENT.speed >> 4));
   unsigned numBirds = 2 + (SEGLEN >> 3);  // 2 + 1/8 of a segment
@@ -4498,13 +4500,13 @@ typedef struct Spotlight {
  */
 void mode_dancing_shadows(void)
 {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned numSpotlights = map(SEGMENT.intensity, 0, 255, 2, SPOT_MAX_COUNT);  // 49 on 32 segment ESP32, 17 on 16 segment ESP8266
   bool initialize = SEGENV.aux0 != numSpotlights;
   SEGENV.aux0 = numSpotlights;
 
   unsigned dataSize = sizeof(spotlight) * numSpotlights;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   Spotlight* spotlights = reinterpret_cast<Spotlight*>(SEGENV.data);
 
   SEGMENT.fill(BLACK);
@@ -4635,7 +4637,7 @@ static const char _data_FX_MODE_WASHING_MACHINE[] PROGMEM = "Washing Machine@!,!
 */
 void mode_image(void) {
   #ifndef WLED_ENABLE_GIF
-  mode_static();
+  FX_FALLBACK_STATIC;
   #else
   renderImageToSegment(SEGMENT);
   #endif
@@ -4653,7 +4655,7 @@ static const char _data_FX_MODE_IMAGE[] PROGMEM = "Image@!,Blur,;;;12;sx=128,ix=
 void mode_blends(void) {
   unsigned pixelLen = SEGLEN > UINT8_MAX ? UINT8_MAX : SEGLEN;
   unsigned dataSize = sizeof(uint32_t) * (pixelLen + 1);  // max segment length of 56 pixels on 16 segment ESP8266
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
   uint8_t blendSpeed = map(SEGMENT.intensity, 0, UINT8_MAX, 10, 128);
   unsigned shift = (strip.now * ((SEGMENT.speed >> 3) +1)) >> 8;
@@ -4701,7 +4703,7 @@ void mode_tv_simulator(void) {
   int nr, ng, nb, r, g, b, i, hue;
   uint8_t  sat, bri, j;
 
-  if (!SEGENV.allocateData(sizeof(tvSim))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(tvSim))) FX_FALLBACK_STATIC; //allocation failed
   TvSim* tvSimulator = reinterpret_cast<TvSim*>(SEGENV.data);
 
   uint8_t colorSpeed     = map(SEGMENT.speed,     0, UINT8_MAX,  1, 20);
@@ -4913,7 +4915,7 @@ void mode_aurora(void) {
   AuroraWave* waves;
   SEGENV.aux1 = map(SEGMENT.intensity, 0, 255, 2, W_MAX_COUNT); // aux1 = Wavecount
   if (!SEGENV.allocateData(sizeof(AuroraWave) * SEGENV.aux1)) {
-    mode_static();
+    FX_FALLBACK_STATIC;
   }
   waves = reinterpret_cast<AuroraWave*>(SEGENV.data);
 
@@ -4954,7 +4956,7 @@ static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pa
 // 16 bit perlinmove. Use Perlin Noise instead of sinewaves for movement. By Andrew Tuline.
 // Controls are speed, # of pixels, faderate.
 void mode_perlinmove(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   SEGMENT.fade_out(255-SEGMENT.custom1);
   for (int i = 0; i < SEGMENT.intensity/16 + 1; i++) {
     unsigned locn = perlin16(strip.now*128/(260-SEGMENT.speed)+i*15000, strip.now*128/(260-SEGMENT.speed)); // Get a new pixel location from moving noise.
@@ -4986,7 +4988,7 @@ static const char _data_FX_MODE_WAVESINS[] PROGMEM = "Wavesins@!,Brightness vari
 //////////////////////////////
 // By: ldirko  https://editor.soulmatelights.com/gallery/392-flow-led-stripe , modifed by: Andrew Tuline, fixed by @DedeHai
 void mode_FlowStripe(void) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   const int hl = SEGLEN * 10 / 13;
   uint8_t hue = strip.now / (SEGMENT.speed+1);
   uint32_t t = strip.now / (SEGMENT.intensity/8+1);
@@ -5007,7 +5009,7 @@ static const char _data_FX_MODE_FLOWSTRIPE[] PROGMEM = "Flow Stripe@Hue speed,Ef
   by DedeHai (Damian Schneider), based on idea from @Charming-Lime (#4905)
 */
 void mode_shimmer() {
-  if(!SEGENV.allocateData(sizeof(uint32_t))) { mode_static(); }
+  if(!SEGENV.allocateData(sizeof(uint32_t))) { FX_FALLBACK_STATIC; }
   uint32_t* lastTime = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   uint32_t radius = (SEGMENT.custom1 * SEGLEN >> 7) + 1;        // [1, 2*SEGLEN+1] pixels
@@ -5079,7 +5081,7 @@ static const char _data_FX_MODE_SHIMMER[] PROGMEM = "Shimmer@Speed,Interval,Size
 
 // Black hole
 void mode_2DBlackHole(void) {            // By: Stepko https://editor.soulmatelights.com/gallery/1012 , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5111,7 +5113,7 @@ static const char _data_FX_MODE_2DBLACKHOLE[] PROGMEM = "Black Hole@Fade rate,Ou
 //     2D Colored Bursts  //
 ////////////////////////////
 void mode_2DColoredBursts() {              // By: ldirko   https://editor.soulmatelights.com/gallery/819-colored-bursts , modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5161,7 +5163,7 @@ static const char _data_FX_MODE_2DCOLOREDBURSTS[] PROGMEM = "Colored Bursts@Spee
 //      2D DNA     //
 /////////////////////
 void mode_2Ddna(void) {         // dna originally by by ldirko at https://pastebin.com/pCkkkzcs. Updated by Preyy. WLED conversion by Andrew Tuline.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5179,7 +5181,7 @@ static const char _data_FX_MODE_2DDNA[] PROGMEM = "DNA@Scroll speed,Blur,,,,Smea
 //     2D DNA Spiral   //
 /////////////////////////
 void mode_2DDNASpiral() {               // By: ldirko  https://editor.soulmatelights.com/gallery/512-dna-spiral-variation , modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5225,7 +5227,7 @@ static const char _data_FX_MODE_2DDNASPIRAL[] PROGMEM = "DNA Spiral@Scroll speed
 //     2D Drift        //
 /////////////////////////
 void mode_2DDrift() {              // By: Stepko   https://editor.soulmatelights.com/gallery/884-drift , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5253,7 +5255,7 @@ static const char _data_FX_MODE_2DDRIFT[] PROGMEM = "Drift@Rotation speed,Blur,,
 //     2D Firenoise     //
 //////////////////////////
 void mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline. Yet another short routine.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5285,7 +5287,7 @@ static const char _data_FX_MODE_2DFIRENOISE[] PROGMEM = "Firenoise@X scale,Y sca
 //     2D Frizzles          //
 //////////////////////////////
 void mode_2DFrizzles(void) {                 // By: Stepko https://editor.soulmatelights.com/gallery/640-color-frizzles , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5310,11 +5312,11 @@ typedef struct Cell {
 
 void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ 
                                    // and https://github.com/DougHaber/nlife-color , Modified By: Brandon Butler
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
   const int cols = SEG_W, rows = SEG_H;
   const unsigned maxIndex = cols * rows;
 
-  if (!SEGENV.allocateData(SEGMENT.length() * sizeof(Cell))) mode_static(); // allocation failed
+  if (!SEGENV.allocateData(SEGMENT.length() * sizeof(Cell))) FX_FALLBACK_STATIC; // allocation failed
 
   Cell *cells = reinterpret_cast<Cell*> (SEGENV.data);
 
@@ -5464,7 +5466,7 @@ static const char _data_FX_MODE_2DGAMEOFLIFE[] PROGMEM = "Game Of Life@!,,Blur,,
 //     2D Hiphotic     //
 /////////////////////////
 void mode_2DHiphotic() {                        //  By: ldirko  https://editor.soulmatelights.com/gallery/810 , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5494,12 +5496,12 @@ typedef struct Julia {
 } julia;
 
 void mode_2DJulia(void) {                           // An animated Julia set by Andrew Tuline.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  if (!SEGENV.allocateData(sizeof(julia))) mode_static();
+  if (!SEGENV.allocateData(sizeof(julia))) FX_FALLBACK_STATIC;
   Julia* julias = reinterpret_cast<Julia*>(SEGENV.data);
 
   float reAl;
@@ -5599,7 +5601,7 @@ static const char _data_FX_MODE_2DJULIA[] PROGMEM = "Julia@,Max iterations per p
 //     2D Lissajous         //
 //////////////////////////////
 void mode_2DLissajous(void) {            // By: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5626,14 +5628,14 @@ static const char _data_FX_MODE_2DLISSAJOUS[] PROGMEM = "Lissajous@X frequency,F
 //    2D Matrix      //
 ///////////////////////
 void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Adapted by Andrew Tuline & improved by merkisoft and ewowi, and softhack007.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
   const auto XY = [&](int x, int y) { return (x%cols) + (y%rows) * cols; };
 
   unsigned dataSize = (SEGMENT.length()+7) >> 3; //1 bit per LED for trails
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -5695,7 +5697,7 @@ static const char _data_FX_MODE_2DMATRIX[] PROGMEM = "Matrix@!,Spawning rate,Tra
 //     2D Metaballs    //
 /////////////////////////
 void mode_2Dmetaballs(void) {   // Metaballs by Stefan Petrick. Cannot have one of the dimensions be 2 or less. Adapted by Andrew Tuline.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5752,7 +5754,7 @@ static const char _data_FX_MODE_2DMETABALLS[] PROGMEM = "Metaballs@!;;!;2";
 //    2D Noise      //
 //////////////////////
 void mode_2Dnoise(void) {                  // By Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5773,7 +5775,7 @@ static const char _data_FX_MODE_2DNOISE[] PROGMEM = "Noise2D@!,Scale;;!;2";
 //     2D Plasma Ball       //
 //////////////////////////////
 void mode_2DPlasmaball(void) {                   // By: Stepko https://editor.soulmatelights.com/gallery/659-plasm-ball , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5809,7 +5811,7 @@ static const char _data_FX_MODE_2DPLASMABALL[] PROGMEM = "Plasma Ball@Speed,,Fad
 ////////////////////////////////
 
 void mode_2DPolarLights(void) {        // By: Kostyantyn Matviyevskyy  https://editor.soulmatelights.com/gallery/762-polar-lights , Modified by: Andrew Tuline & @dedehai (palette support)
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5841,7 +5843,7 @@ static const char _data_FX_MODE_2DPOLARLIGHTS[] PROGMEM = "Polar Lights@!,Scale,
 //     2D Pulser       //
 /////////////////////////
 void mode_2DPulser(void) {                       // By: ldirko   https://editor.soulmatelights.com/gallery/878-pulse-test , modifed by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5861,7 +5863,7 @@ static const char _data_FX_MODE_2DPULSER[] PROGMEM = "Pulser@!,Blur;;!;2";
 //     2D Sindots      //
 /////////////////////////
 void mode_2DSindots(void) {                             // By: ldirko   https://editor.soulmatelights.com/gallery/597-sin-dots , modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5890,7 +5892,7 @@ static const char _data_FX_MODE_2DSINDOTS[] PROGMEM = "Sindots@!,Dot distance,Fa
 // custom3 affects the blur amount.
 void mode_2Dsquaredswirl(void) {            // By: Mark Kriegsman. https://gist.github.com/kriegsman/368b316c55221134b160
                                                           // Modifed by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -5919,12 +5921,12 @@ static const char _data_FX_MODE_2DSQUAREDSWIRL[] PROGMEM = "Squared Swirl@,Fade,
 //     2D Sun Radiation     //
 //////////////////////////////
 void mode_2DSunradiation(void) {                   // By: ldirko https://editor.soulmatelights.com/gallery/599-sun-radiation  , modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  if (!SEGENV.allocateData(sizeof(byte)*(cols+2)*(rows+2))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(byte)*(cols+2)*(rows+2))) FX_FALLBACK_STATIC; //allocation failed
   byte *bump = reinterpret_cast<byte*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
@@ -5968,7 +5970,7 @@ static const char _data_FX_MODE_2DSUNRADIATION[] PROGMEM = "Sun Radiation@Varian
 //     2D Tartan       //
 /////////////////////////
 void mode_2Dtartan(void) {          // By: Elliott Kember  https://editor.soulmatelights.com/gallery/3-tartan , Modified by: Andrew Tuline
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6005,7 +6007,7 @@ static const char _data_FX_MODE_2DTARTAN[] PROGMEM = "Tartan@X scale,Y scale,,,S
 //     2D spaceships   //
 /////////////////////////
 void mode_2Dspaceships(void) {    //// Space ships by stepko (c)05.02.21 [https://editor.soulmatelights.com/gallery/639-space-ships], adapted by Blaz Kristan (AKA blazoncek)
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6046,7 +6048,7 @@ static const char _data_FX_MODE_2DSPACESHIPS[] PROGMEM = "Spaceships@!,Blur,,,,S
 //// Crazy bees by stepko (c)12.02.21 [https://editor.soulmatelights.com/gallery/651-crazy-bees], adapted by Blaz Kristan (AKA blazoncek), improved by @dedehai
 #define MAX_BEES 5
 void mode_2Dcrazybees(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6069,7 +6071,7 @@ void mode_2Dcrazybees(void) {
     };
   } bee_t;
 
-  if (!SEGENV.allocateData(sizeof(bee_t)*MAX_BEES)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(bee_t)*MAX_BEES)) FX_FALLBACK_STATIC; //allocation failed
   bee_t *bee = reinterpret_cast<bee_t*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
@@ -6118,7 +6120,7 @@ static const char _data_FX_MODE_2DCRAZYBEES[] PROGMEM = "Crazy Bees@!,Blur,,,,Sm
 //// Ghost Rider by stepko (c)2021 [https://editor.soulmatelights.com/gallery/716-ghost-rider], adapted by Blaz Kristan (AKA blazoncek)
 #define LIGHTERS_AM 64  // max lighters (adequate for 32x32 matrix)
 void mode_2Dghostrider(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6136,7 +6138,7 @@ void mode_2Dghostrider(void) {
     int8_t   Vspeed;
   } lighter_t;
 
-  if (!SEGENV.allocateData(sizeof(lighter_t))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(lighter_t))) FX_FALLBACK_STATIC; //allocation failed
   lighter_t *lighter = reinterpret_cast<lighter_t*>(SEGENV.data);
 
   const size_t maxLighters = min(cols + rows, LIGHTERS_AM);
@@ -6205,7 +6207,7 @@ static const char _data_FX_MODE_2DGHOSTRIDER[] PROGMEM = "Ghost Rider@Fade rate,
 //// Floating Blobs by stepko (c)2021 [https://editor.soulmatelights.com/gallery/573-blobs], adapted by Blaz Kristan (AKA blazoncek)
 #define MAX_BLOBS 8
 void mode_2Dfloatingblobs(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6220,7 +6222,7 @@ void mode_2Dfloatingblobs(void) {
 
   size_t Amount = (SEGMENT.intensity>>5) + 1; // NOTE: be sure to update MAX_BLOBS if you change this
 
-  if (!SEGENV.allocateData(sizeof(blob_t))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(blob_t))) FX_FALLBACK_STATIC; //allocation failed
   blob_t *blob = reinterpret_cast<blob_t*>(SEGENV.data);
 
   if (SEGENV.aux0 != cols || SEGENV.aux1 != rows) {
@@ -6301,7 +6303,7 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 //     2D Scrolling text  //
 ////////////////////////////
 void mode_2Dscrollingtext(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6450,7 +6452,7 @@ static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Off
 ////////////////////////////
 //// Drift Rose by stepko (c)2021 [https://editor.soulmatelights.com/gallery/1369-drift-rose-pattern], adapted by Blaz Kristan (AKA blazoncek) improved by @dedehai
 void mode_2Ddriftrose(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6476,13 +6478,13 @@ static const char _data_FX_MODE_2DDRIFTROSE[] PROGMEM = "Drift Rose@Fade,Blur,,,
 /////////////////////////////
 // Plasma Rotozoomer by ldirko (c)2020 [https://editor.soulmatelights.com/gallery/457-plasma-rotozoomer], adapted for WLED by Blaz Kristan (AKA blazoncek)
 void mode_2Dplasmarotozoom() {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
 
   unsigned dataSize = SEGMENT.length() + sizeof(float);
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   float *a = reinterpret_cast<float*>(SEGENV.data);
   byte *plasma = reinterpret_cast<byte*>(SEGENV.data+sizeof(float));
 
@@ -6532,7 +6534,7 @@ void mode_ripplepeak(void) {                // * Ripple peak. By Andrew Tuline.
 
   unsigned maxRipples = 16;
   unsigned dataSize = sizeof(Ripple) * maxRipples;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   Ripple* ripples = reinterpret_cast<Ripple*>(SEGENV.data);
 
   um_data_t *um_data = getAudioData();
@@ -6601,7 +6603,7 @@ static const char _data_FX_MODE_RIPPLEPEAK[] PROGMEM = "Ripple Peak@Fade rate,Ma
 /////////////////////////
 // By: Mark Kriegsman https://gist.github.com/kriegsman/5adca44e14ad025e6d3b , modified by Andrew Tuline
 void mode_2DSwirl(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6638,7 +6640,7 @@ static const char _data_FX_MODE_2DSWIRL[] PROGMEM = "Swirl@!,Sensitivity,Blur;,B
 /////////////////////////
 // By: Stepko, https://editor.soulmatelights.com/gallery/652-wave , modified by Andrew Tuline
 void mode_2DWaverly(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -6682,10 +6684,10 @@ typedef struct Gravity {
 // Gravcenter base function for Gravcenter (0), Gravcentric (1), Gravimeter (2), Gravfreq (3) (merged by @dedehai)
 
 void mode_gravcenter_base(unsigned mode) {
-  if (SEGLEN == 1) mode_static();
+  if (SEGLEN == 1) FX_FALLBACK_STATIC;
 
   const unsigned dataSize = sizeof(gravity);
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   Gravity* gravcen = reinterpret_cast<Gravity*>(SEGENV.data);
 
   um_data_t *um_data = getAudioData();
@@ -6820,7 +6822,7 @@ static const char _data_FX_MODE_JUGGLES[] PROGMEM = "Juggles@!,# of balls;!,!;!;
 void mode_matripix(void) {                  // Matripix. By Andrew Tuline.
   // effect can work on single pixels, we just lose the shifting effect
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   um_data_t *um_data = getAudioData();
@@ -6852,7 +6854,7 @@ static const char _data_FX_MODE_MATRIPIX[] PROGMEM = "Matripix@!,Brightness;!,!;
 //   * MIDNOISE     //
 //////////////////////
 void mode_midnoise(void) {                  // Midnoise. By Andrew Tuline.
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 // Changing xdist to SEGENV.aux0 and ydist to SEGENV.aux1.
 
   um_data_t *um_data = getAudioData();
@@ -6937,7 +6939,7 @@ static const char _data_FX_MODE_NOISEMETER[] PROGMEM = "Noisemeter@Fade rate,Wid
 //   * PIXELWAVE    //
 //////////////////////
 void mode_pixelwave(void) {                 // Pixelwave. By Andrew Tuline.
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
 
   if (SEGENV.call == 0) {
@@ -6971,7 +6973,7 @@ typedef struct Plasphase {
 
 void mode_plasmoid(void) {                  // Plasmoid. By Andrew Tuline.
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
-  if (!SEGENV.allocateData(sizeof(plasphase))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(sizeof(plasphase))) FX_FALLBACK_STATIC; //allocation failed
   Plasphase* plasmoip = reinterpret_cast<Plasphase*>(SEGENV.data);
 
   um_data_t *um_data = getAudioData();
@@ -7001,7 +7003,7 @@ static const char _data_FX_MODE_PLASMOID[] PROGMEM = "Plasmoid@Phase,# of pixels
 //////////////////////
 // Puddles/Puddlepeak By Andrew Tuline. Merged by @dedehai
 void mode_puddles_base(bool peakdetect) {
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   unsigned size = 0;
   uint8_t fadeVal = map(SEGMENT.speed, 0, 255, 224, 254);
   unsigned pos = hw_random16(SEGLEN);                          // Set a random starting position.
@@ -7049,9 +7051,9 @@ static const char _data_FX_MODE_PUDDLES[] PROGMEM = "Puddles@Fade rate,Puddle si
 //     * PIXELS     //
 //////////////////////
 void mode_pixels(void) {                    // Pixels. By Andrew Tuline.
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
-  if (!SEGENV.allocateData(32*sizeof(uint8_t))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(32*sizeof(uint8_t))) FX_FALLBACK_STATIC; //allocation failed
   uint8_t *myVals = reinterpret_cast<uint8_t*>(SEGENV.data); // Used to store a pile of samples because WLED frame rate and WLED sample rate are not synchronized. Frame rate is too low.
 
   um_data_t *um_data;
@@ -7075,7 +7077,7 @@ static const char _data_FX_MODE_PIXELS[] PROGMEM = "Pixels@Fade rate,# of pixels
 //    ** Blurz      //
 //////////////////////
 void mode_blurz(void) {                    // Blurz. By Andrew Tuline.
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   // even with 1D effect we have to take logic for 2D segments for allocation as fill_solid() fills whole segment
 
   um_data_t *um_data = getAudioData();
@@ -7135,7 +7137,7 @@ static const char _data_FX_MODE_DJLIGHT[] PROGMEM = "DJ Light@Speed;;;01f;m12=2,
 //   ** Freqmap   //
 ////////////////////
 void mode_freqmap(void) {                   // Map FFT_MajorPeak to SEGLEN. Would be better if a higher framerate.
-  if (SEGLEN <= 1) mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
   // Start frequency = 60 Hz and log10(60) = 1.78
   // End frequency = MAX_FREQUENCY in Hz and lo10(MAX_FREQUENCY) = MAX_FREQ_LOG10
 
@@ -7366,7 +7368,7 @@ static const char _data_FX_MODE_ROCKTAVES[] PROGMEM = "Rocktaves@;!,!;!;01f;m12=
 void mode_waterfall(void) {                   // Waterfall. By: Andrew Tuline
   // effect can work on single pixels, we just lose the shifting effect
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
-  if (!SEGENV.allocateData(dataSize)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
   um_data_t *um_data    = getAudioData();
@@ -7418,14 +7420,14 @@ static const char _data_FX_MODE_WATERFALL[] PROGMEM = "Waterfall@!,Adjust color,
 //     ** 2D GEQ       //
 /////////////////////////
 void mode_2DGEQ(void) { // By Will Tatam. Code reduction by Ewoud Wijma.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int NUM_BANDS = map(SEGMENT.custom1, 0, 255, 1, 16);
   const int CENTER_BIN = map(SEGMENT.custom3, 0, 31, 0, 15);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  if (!SEGENV.allocateData(cols*sizeof(uint16_t))) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(cols*sizeof(uint16_t))) FX_FALLBACK_STATIC; //allocation failed
   uint16_t *previousBarHeight = reinterpret_cast<uint16_t*>(SEGENV.data); //array of previous bar heights per frequency band
 
   um_data_t *um_data = getAudioData();
@@ -7477,7 +7479,7 @@ static const char _data_FX_MODE_2DGEQ[] PROGMEM = "GEQ@Fade speed,Ripple decay,#
 //  ** 2D Funky plank  //
 /////////////////////////
 void mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Will Tatam.
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7563,7 +7565,7 @@ static uint8_t akemi[] PROGMEM = {
 };
 
 void mode_2DAkemi(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7630,7 +7632,7 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
 // adapted for WLED by @blazoncek, improvements by @dedehai
 void mode_2Ddistortionwaves() {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7762,7 +7764,7 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
 }
 
 void mode_2Dsoap() {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7770,7 +7772,7 @@ void mode_2Dsoap() {
 
   const size_t segSize = SEGMENT.width() * SEGMENT.height(); // prevent reallocation if mirrored or grouped
   const size_t dataSize = segSize * (sizeof(uint8_t) + sizeof(CRGB)); // pixels and noise
-  if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize + sizeof(uint32_t)*3)) FX_FALLBACK_STATIC; //allocation failed
 
   uint8_t  *noise3d    = reinterpret_cast<uint8_t*>(SEGENV.data);
   CRGB     *pixels     = reinterpret_cast<CRGB*>(SEGENV.data + segSize * sizeof(uint8_t));
@@ -7813,7 +7815,7 @@ static const char _data_FX_MODE_2DSOAP[] PROGMEM = "Soap@!,Smoothness,Density;;!
 //Stepko and Sutaburosu
 // adapted for WLED by @blazoncek
 void mode_2Doctopus() {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7826,7 +7828,7 @@ void mode_2Doctopus() {
   } map_t;
 
   const size_t dataSize = SEGMENT.width() * SEGMENT.height() * sizeof(map_t); // prevent reallocation if mirrored or grouped
-  if (!SEGENV.allocateData(dataSize + 2)) mode_static(); //allocation failed
+  if (!SEGENV.allocateData(dataSize + 2)) FX_FALLBACK_STATIC; //allocation failed
 
   map_t *rMap = reinterpret_cast<map_t*>(SEGENV.data);
   uint8_t *offsX = reinterpret_cast<uint8_t*>(SEGENV.data + dataSize);
@@ -7870,7 +7872,7 @@ static const char _data_FX_MODE_2DOCTOPUS[] PROGMEM = "Octopus@!,,Offset X,Offse
 //@Stepko (https://editor.soulmatelights.com/gallery/1704-wavingcells)
 // adapted for WLED by @blazoncek, improvements by @dedehai
 void mode_2Dwavingcell() {
-  if (!strip.isMatrix || !SEGMENT.is2D()) mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -7901,13 +7903,13 @@ static const char _data_FX_MODE_2DWAVINGCELL[] PROGMEM = "Waving Cell@!,Blur,Amp
 #define NUMBEROFSOURCES 8
 void mode_particlevortex(void) {
   if (SEGLEN == 1)
-    mode_static();
+    FX_FALLBACK_STATIC;
   ParticleSystem2D *PartSys = nullptr;
   uint32_t i, j;
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES))
-      mode_static(); // allocation failed
+      FX_FALLBACK_STATIC; // allocation failed
     #ifdef ESP8266
     PartSys->setMotionBlur(180);
     #else
@@ -7925,7 +7927,7 @@ void mode_particlevortex(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   uint32_t spraycount = min(PartSys->numSources, (uint32_t)(1 + (SEGMENT.custom1 >> 5))); // number of sprays to display, 1-8
@@ -8019,7 +8021,7 @@ void mode_particlefireworks(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES))
-      mode_static(); // allocation failed
+      FX_FALLBACK_STATIC; // allocation failed
 
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
     PartSys->setWallHardness(120); // ground bounce is fixed
@@ -8033,7 +8035,7 @@ void mode_particlefireworks(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   numRockets = map(SEGMENT.speed, 0 , 255, 4, min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES));
@@ -8165,7 +8167,7 @@ void mode_particlevolcano(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES)) // init, no additional data needed
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
 
     PartSys->setBounceY(true);
     PartSys->setGravity(); // enable with default gforce
@@ -8186,7 +8188,7 @@ void mode_particlevolcano(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES); // number of volcanoes
 
@@ -8234,14 +8236,14 @@ void mode_particlefire(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, SEGMENT.vWidth(), 4)) //maximum number of source (PS may limit based on segment size); need 4 additional bytes for time keeping (uint32_t lastcall)
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     SEGENV.aux0 = hw_random16(); // aux0 is wind position (index) in the perlin noise
   }
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWrapX(SEGMENT.check2);
@@ -8336,7 +8338,7 @@ void mode_particlepit(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 0, 0, true, false)) // init
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true);
     PartSys->setGravity(); // enable with default gravity
     PartSys->setUsedParticles(170); // use 75% of available particles
@@ -8344,7 +8346,7 @@ void mode_particlepit(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
 
@@ -8407,7 +8409,7 @@ void mode_particlewaterfall(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 12)) // init, request 12 sources, no additional data needed
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
 
     PartSys->setGravity();  // enable with default gforce
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
@@ -8428,7 +8430,7 @@ void mode_particlewaterfall(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8477,7 +8479,7 @@ void mode_particlebox(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1, 0, true)) // init
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setBounceX(true);
     PartSys->setBounceY(true);
     SEGENV.aux0 = hw_random16(); // position in perlin noise
@@ -8486,7 +8488,7 @@ void mode_particlebox(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWallHardness(min(SEGMENT.custom2, (uint8_t)200)); // wall hardness is 200 or more
@@ -8563,7 +8565,7 @@ void mode_particleperlin(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1, 0, true)) // init with 1 source and advanced properties
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
 
     PartSys->setKillOutOfBounds(true); // should never happen, but lets make sure there are no stray particles
     PartSys->setMotionBlur(230); // anable motion blur
@@ -8574,7 +8576,7 @@ void mode_particleperlin(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setWrapX(SEGMENT.check1);
@@ -8626,7 +8628,7 @@ void mode_particleimpact(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES)) // init, no additional data needed
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true);
     PartSys->setGravity(); // enable default gravity
     PartSys->setBounceY(true); // always use ground bounce
@@ -8641,7 +8643,7 @@ void mode_particleimpact(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8735,7 +8737,7 @@ void mode_particleattractor(void) {
   PSparticle *attractor; // particle pointer to the attractor
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1, sizeof(PSparticle), true)) // init using 1 source and advanced particle settings
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].source.vx = -7; // will collied with wall and get random bounce direction
     PartSys->sources[0].sourceFlags.collide = true; // seeded particles will collide
@@ -8756,7 +8758,7 @@ void mode_particleattractor(void) {
   }
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8823,7 +8825,7 @@ void mode_particlespray(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1)) // init, no additional data needed
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
     PartSys->setBounceY(true);
     PartSys->setMotionBlur(200); // anable motion blur
@@ -8836,7 +8838,7 @@ void mode_particlespray(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -8895,14 +8897,14 @@ void mode_particleGEQ(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1))
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true);
     PartSys->setUsedParticles(170); // use 2/3 of available particles
   }
   else
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   uint32_t i;
   // set particle system properties
@@ -8971,7 +8973,7 @@ void mode_particlecenterGEQ(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, NUMBEROFSOURCES))  // init, request 16 sources
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
 
     numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
     for (i = 0; i < numSprays; i++) {
@@ -8987,7 +8989,7 @@ void mode_particlecenterGEQ(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   numSprays = min(PartSys->numSources, (uint32_t)NUMBEROFSOURCES);
@@ -9039,7 +9041,7 @@ void mode_particleghostrider(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1)) // init, no additional data needed
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
     PartSys->sources[0].maxLife = 260; // lifetime in frames
     PartSys->sources[0].minLife = 250;
@@ -9052,7 +9054,7 @@ void mode_particleghostrider(void) {
   }
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   if (SEGMENT.intensity > 0) { // spiraling
     if (SEGENV.aux1) {
@@ -9117,7 +9119,7 @@ void mode_particleblobs(void) {
 
   if (SEGMENT.call == 0) {
     if (!initParticleSystem2D(PartSys, 0, 0, true, true)) //init, no additional bytes, advanced size & size control
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->setBounceX(true);
     PartSys->setBounceY(true);
     PartSys->setWallHardness(255);
@@ -9129,7 +9131,7 @@ void mode_particleblobs(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setUsedParticles(map(SEGMENT.intensity, 0, 255, 25, 128)); // minimum 10%, maximum 50% of available particles (note: PS ensures at least 1)
@@ -9191,7 +9193,7 @@ void mode_particlegalaxy(void) {
   sourcesettings.asByte = 0b00001100; // PS settings for bounceY, bounceY used for source movement (it always bounces whereas particles do not)
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem2D(PartSys, 1, 0, true)) // init using 1 source and advanced particle settings
-      mode_static(); // allocation failed or not 2D
+      FX_FALLBACK_STATIC; // allocation failed or not 2D
     PartSys->sources[0].source.vx = -4; // will collide with wall and get random bounce direction
     PartSys->sources[0].source.x =  PartSys->maxX >> 1; // start in the center
     PartSys->sources[0].source.y =  PartSys->maxY >> 1;
@@ -9206,7 +9208,7 @@ void mode_particlegalaxy(void) {
     PartSys = reinterpret_cast<ParticleSystem2D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   }
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   uint8_t particlesize = SEGMENT.custom1;
@@ -9296,7 +9298,7 @@ void mode_particleDrip(void) {
   //uint8_t numSprays;
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 4)) // init
-      mode_static(); // allocation failed or single pixel
+      FX_FALLBACK_STATIC; // allocation failed or single pixel
     PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
     PartSys->sources[0].source.hue = hw_random16();
     SEGENV.aux1 = 0xFFFF; // invalidate
@@ -9305,7 +9307,7 @@ void mode_particleDrip(void) {
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9400,7 +9402,7 @@ void mode_particlePinball(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 128, 0, true)) // init
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->sources[0].sourceFlags.collide = true; // seeded particles will collide (if enabled)
     PartSys->sources[0].source.x = -1000; // shoot up from below
     //PartSys->setKillOutOfBounds(true); // out of bounds particles dont return (except on top, taken care of by gravity setting)
@@ -9411,7 +9413,7 @@ void mode_particlePinball(void) {
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   //uint32_t hardness = 240 + (SEGMENT.custom1>>4);
@@ -9518,7 +9520,7 @@ void mode_particleDancingShadows(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1)) // init, one source
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->sources[0].maxLife = 1000; //set long life (kill out of bounds is done in custom way)
     PartSys->sources[0].minLife = PartSys->sources[0].maxLife;
   }
@@ -9527,7 +9529,7 @@ void mode_particleDancingShadows(void) {
   }
 
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9633,14 +9635,14 @@ void mode_particleFireworks1D(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 4, 150, 4, true)) // init advanced particle system
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->sources[0].sourceFlags.custom1 = 1; // set rocket state to standby
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9754,11 +9756,11 @@ void mode_particleSparkler(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 16, 128 ,0, true)) // init, no additional data needed
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
   } else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9823,14 +9825,14 @@ void mode_particleHourglass(void) {
   uint32_t* settingTracker;
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 0, 255, 8, false)) // init
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setBounce(true);
     PartSys->setWallHardness(100);
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9944,7 +9946,7 @@ void mode_particle1Dspray(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1))
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->setWallHardness(150);
     PartSys->setParticleSize(1);
@@ -9952,7 +9954,7 @@ void mode_particle1Dspray(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -9995,13 +9997,13 @@ void mode_particleBalance(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 128)) // init, no additional data needed, use half of max particles
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setParticleSize(1);
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10073,7 +10075,7 @@ void mode_particleChase(void) {
   ParticleSystem1D *PartSys = nullptr;
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 191, 2, true)) // init
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     SEGENV.aux0 = 0xFFFF; // invalidate
     *PartSys->PSdataEnd = 1; // huedir
     *(PartSys->PSdataEnd + 1) = 1; // sizedir
@@ -10081,7 +10083,7 @@ void mode_particleChase(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setColorByPosition(SEGMENT.check3);
@@ -10170,7 +10172,7 @@ void mode_particleStarburst(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 200, 0, true)) // init
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
     PartSys->sources[0].source.ttl = 1; // set initial stanby time
@@ -10179,7 +10181,7 @@ void mode_particleStarburst(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10231,12 +10233,12 @@ void mode_particle1DGEQ(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 16, 255, 0, true)) // init, no additional data needed
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10301,14 +10303,14 @@ void mode_particleFire1D(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 5)) // init
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->setParticleSize(1);
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10364,7 +10366,7 @@ void mode_particle1DsonicStream(void) {
 
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 255, 0, true)) // init, no additional data needed
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->sources[0].source.x = 0; // at start
     //PartSys->sources[1].source.x = PartSys->maxX; // at end
@@ -10373,7 +10375,7 @@ void mode_particle1DsonicStream(void) {
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10465,13 +10467,13 @@ void mode_particle1DsonicBoom(void) {
   ParticleSystem1D *PartSys = nullptr;
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 255, 0, true)) // init, no additional data needed
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
 
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
@@ -10554,13 +10556,13 @@ void mode_particleSpringy(void) {
   ParticleSystem1D *PartSys = nullptr;
   if (SEGMENT.call == 0) { // initialization
     if (!initParticleSystem1D(PartSys, 1, 128, 0, true)) // init with advanced properties (used for spring forces)
-      mode_static(); // allocation failed or is single pixel
+      FX_FALLBACK_STATIC; // allocation failed or is single pixel
     SEGENV.aux0 = SEGENV.aux1 = 0xFFFF; // invalidate settings
   }
   else
     PartSys = reinterpret_cast<ParticleSystem1D *>(SEGENV.data); // if not first call, just set the pointer to the PS
   if (PartSys == nullptr)
-    mode_static(); // something went wrong, no data!
+    FX_FALLBACK_STATIC; // something went wrong, no data!
   // Particle System settings
   PartSys->updateSystem(); // update system properties (dimensions and data pointers)
   PartSys->setMotionBlur(220 * SEGMENT.check1); // anable motion blur

@@ -1303,8 +1303,8 @@ void WS2812FX::service() {
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
-          _mode[segO->mode]();     // run old mode (needed for bri workaround; semaphore!!)
-          segO->call++;                     // increment old mode run  counter
+          _mode[segO->mode]();              // run old mode (needed for bri workaround; semaphore!!)
+          segO->call++;                     // increment old mode run counter
           Segment::modeBlend(false);        // unset semaphore
         }
       }
