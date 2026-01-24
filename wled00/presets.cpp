@@ -217,8 +217,10 @@ void handlePresets()
   if (tmpMode == CALL_MODE_INIT && rlyPin >= 0 && bri > 0 && offMode) {
     // Boot preset turned LEDs on, but relay might not have been updated yet
     // Force relay on immediately instead of waiting for handleIO()
+    // (Similar relay control logic exists in handleIO(), but we need it here for the boot case)
     pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
     digitalWrite(rlyPin, rlyMde);
+    delay(50); // wait for relay to switch and power to stabilize
     offMode = false;
   }
 }
