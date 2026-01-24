@@ -368,8 +368,7 @@ void handleIO()
   // if we want to control on-board LED (ESP8266) or relay we have to do it here as the final show() may not happen until
   // next loop() cycle
   if (strip.getBrightness()) {
-    lastOnTime = millis();
-    if (offMode) {
+    if (offMode || lastOnTime == 0) {
       BusManager::on();
       if (rlyPin>=0) {
         pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
@@ -378,6 +377,7 @@ void handleIO()
       }
       offMode = false;
     }
+    lastOnTime = millis();
   } else if (millis() - lastOnTime > 600 && !strip.needsUpdate()) {
     // for turning LED or relay off we need to wait until strip no longer needs updates (strip.trigger())
     if (!offMode) {
