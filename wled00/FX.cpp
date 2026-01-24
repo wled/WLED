@@ -5105,7 +5105,7 @@ uint16_t mode_ColorClouds()
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@Cloud speed,Color speed,Clouds,Colors,Distance,,,cozy;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@!,!,Clouds,Colors,Distance,,,cozy;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
 
 
 // WLED-SR effects
