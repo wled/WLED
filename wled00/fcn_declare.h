@@ -332,6 +332,7 @@ class Usermod {
   protected:
     // Shim for oappend(), which used to exist in utils.cpp
     template<typename T> static inline void oappend(const T& t) { oappend_shim->print(t); };
+    template<typename T> static inline void oappendi(const T& t) { oappend_shim->print(t); };
 #ifdef ESP8266
     // Handle print(PSTR()) without crashing by detecting PROGMEM strings
     static void oappend(const char* c) { if ((intptr_t) c >= 0x40000000) oappend_shim->print(FPSTR(c)); else oappend_shim->print(c); };
