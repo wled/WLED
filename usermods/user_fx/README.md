@@ -76,12 +76,14 @@ The first line of the code imports the [wled.h](https://github.com/wled/WLED/blo
 ### Static Effect Definition
 The next code block is the `mode_static` definition.  This is usually left as `SEGMENT.fill(SEGCOLOR(0));` to leave all pixels off if the effect fails to load, but in theory one could use this as a 'fallback effect' to take on a different behavior, such as displaying some other color instead of leaving the pixels off.
 
+`FX_FALLBACK_STATIC` is a macro that calls `mode_static()` and then returns.
+
 ### User Effect Definitions
 Pre-loaded in this template is an example 2D Effect called "Diffusion Fire".  (This is the name that would be shown in the UI once the binary is compiled and run on your device, as defined in the metadata string.)
-The effect starts off by checking to see if the segment that the effect is being applied to is a 2D Matrix, and if it is not, then it returns the static effect which displays no pattern:
+The effect starts off by checking to see if the segment that the effect is being applied to is a 2D Matrix, and if it is not, then it runs the static effect which displays no pattern:
 ```cpp
 if (!strip.isMatrix || !SEGMENT.is2D()) 
-  mode_static();  // not a 2D set-up 
+  FX_FALLBACK_STATIC;  // not a 2D set-up
 ```
 The next code block contains several constant variable definitions which essentially serve to extract the dimensions of the user's 2D matrix and allow WLED to interpret the matrix as a 1D coordinate system (WLED must do this for all 2D animations):
 ```cpp
@@ -128,7 +130,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 
 ```cpp
 if (!SEGENV.allocateData(dataSize))
-  mode_static(); // allocation failed
+  FX_FALLBACK_STATIC; // allocation failed
 ```
 * Upon the first call, this section allocates a persistent data buffer tied to the segment environment (`SEGENV.data`). All subsequent calls simply ensure that the data is still valid.
 * The syntax `SEGENV.allocateData(n)` requests a buffer of size n bytes (1 byte per pixel here).
@@ -303,7 +305,7 @@ static uint16_t sinelon_base(bool dual, bool rainbow=false) {
 * Notice that it has some optional flags; these parameters will allow us to easily define the effect in different ways in the UI.
 
 ```cpp
-  if (SEGLEN <= 1) return mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 ```
 * If segment length ≤ 1, there’s nothing to animate. Just show static mode.
 

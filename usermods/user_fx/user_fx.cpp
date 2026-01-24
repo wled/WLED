@@ -7,6 +7,8 @@ static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
 }
 
+#define FX_FALLBACK_STATIC { mode_static(); return; }
+
 /////////////////////////
 //  User FX functions  //
 /////////////////////////
@@ -14,7 +16,7 @@ static void mode_static(void) {
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
 static void mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
-    return mode_static();  // not a 2D set-up
+    FX_FALLBACK_STATIC;  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -28,7 +30,7 @@ static void mode_diffusionfire(void) {
 
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
-    return mode_static();  // allocation failed
+    FX_FALLBACK_STATIC;  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
