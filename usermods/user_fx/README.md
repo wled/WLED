@@ -299,7 +299,7 @@ We will break this effect down step by step.
 (This effect was originally one of the FastLED example effects; more information on FastLED can be found [here](https://fastled.io/).)
 
 ```cpp
-static uint16_t sinelon_base(bool dual, bool rainbow=false) {
+static sinelon_base(bool dual, bool rainbow=false) {
 ```
 * The first line of code defines `sinelon base` as static helper function.  This is how all effects are initially defined.
 * Notice that it has some optional flags; these parameters will allow us to easily define the effect in different ways in the UI.
@@ -395,18 +395,18 @@ Finally, we return the `FRAMETIME`, as with all effect functions:
 The last part of this effect has the Wrapper functions for different Sinelon modes.
 Notice that there are three different modes that we can define from the single effect definition by leveraging the arguments in the function:
 ```cpp
-uint16_t mode_sinelon(void) {
-  return sinelon_base(false);
+mode_sinelon(void) {
+  sinelon_base(false);
 }
 // Calls sinelon_base with dual = false and rainbow = false 
 
-uint16_t mode_sinelon_dual(void) {
-  return sinelon_base(true);
+mode_sinelon_dual(void) {
+  sinelon_base(true);
 }
 // Calls sinelon_base with dual = true and rainbow = false 
 
-uint16_t mode_sinelon_rainbow(void) {
-  return sinelon_base(false, true);
+mode_sinelon_rainbow(void) {
+  sinelon_base(false, true);
 }
 // Calls sinelon_base with dual = false and rainbow = true 
 ```
