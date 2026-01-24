@@ -20,7 +20,7 @@
 #define PS_P_MAXSPEED 120 // maximum speed a particle can have (vx/vy is int8), limiting below 127 to avoid overflows in collisions due to rounding errors
 #define MAX_MEMIDLE 10 // max idle time (in frames) before memory is deallocated (if deallocated during an effect, it will crash!)
 
-#define WLED_DEBUG_PS // note: enabling debug uses ~3k of flash
+//#define WLED_DEBUG_PS // note: enabling debug uses ~3k of flash
 
 #ifdef WLED_DEBUG_PS
   #define PSPRINT(x) Serial.print(x)
