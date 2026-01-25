@@ -30,7 +30,11 @@ private:
     size_t reassemblySize = 0;
     unsigned long reassemblyStartTime = 0;  // Timestamp when reassembly began
 
-    // Cleanup reassembly state
+    /**
+     * Cleanup reassembly state
+     * Frees the reassembly buffer and resets all fragment tracking variables.
+     * Called when reassembly completes, times out, or encounters an error.
+     */
     void cleanupReassembly() {
         if (reassemblyBuffer) {
             free(reassemblyBuffer);
@@ -42,10 +46,19 @@ private:
     }
 
 public:
+    /**
+     * Called once at startup
+     * No initialization required for this usermod.
+     */
     void setup() override {
       // Nothing to initialize
     }
 
+    /**
+     * Called every loop iteration
+     * Monitors for stale fragment reassembly and cleans up timed-out messages
+     * to prevent memory leaks from incomplete transmissions.
+     */
     void loop() override {
         // Check for stale reassembly state and clean up if timed out
         if (reassemblyBuffer && reassemblyStartTime > 0) {
@@ -170,6 +183,10 @@ public:
         return true; // Message was handled
     }
 
+    /**
+     * Returns the unique identifier for this usermod
+     * @return USERMOD_ID_ESPNOW_JSON
+     */
     uint16_t getId() override {
         return USERMOD_ID_ESPNOW_JSON;
     }
