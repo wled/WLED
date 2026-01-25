@@ -28,6 +28,7 @@ private:
     uint8_t fragmentsReceived = 0;
     uint8_t* reassemblyBuffer = nullptr;
     size_t reassemblySize = 0;
+    char _last_signal_src[13];
     unsigned long reassemblyStartTime = 0;  // Timestamp when reassembly began
 
     /**
@@ -74,17 +75,18 @@ public:
      * Returns true if the message was handled (prevents default processing)
      */
     bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) override {
-    
+        sprintf_P(_last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), sender[0], sender[1], sender[2], sender[3], sender[4], sender[5]);
+
         bool knownRemote = false;
         for (const auto& mac : linked_remotes) {
-            if (strlen(mac.data()) == 12 && strcmp(last_signal_src, mac.data()) == 0) {
+            if (strlen(mac.data()) == 12 && strcmp(_last_signal_src, mac.data()) == 0) {
                 knownRemote = true;
                 break;
             }
         }
         if (!knownRemote) {
             DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
-            DEBUG_PRINTLN(last_signal_src);
+            DEBUG_PRINTLN(_last_signal_src);
             return false; // Not handled
         }
 
