@@ -24,7 +24,7 @@ class EspNowJsonHandler : public Usermod {
 private:
   // Fragment reassembly state
     uint8_t lastMsgId = 0;
-    uint8_t lastProcessedMsgId = 0;
+    uint8_t lastProcessedMsgId = 255;
     uint8_t fragmentsReceived = 0;
     uint8_t* reassemblyBuffer = nullptr;
     size_t reassemblySize = 0;
