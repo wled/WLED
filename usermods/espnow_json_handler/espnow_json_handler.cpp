@@ -9,7 +9,7 @@
  * It reassembles fragments and deserializes the complete JSON payload
  * to control WLED state.
  *
- * Fragment header structure (4 bytes):
+ * Fragment header structure (3 bytes):
  *   - Byte 0: message_id (unique identifier for reassembly)
  *   - Byte 1: fragment_index (0-based fragment number)
  *   - Byte 2: total_fragments (total number of fragments in message)
@@ -17,6 +17,7 @@
  */
 
 #define ESPNOW_FRAGMENT_HEADER_SIZE 3
+#define ESPNOW_REASSEMBLY_TIMEOUT_MS 5000  // 5 second timeout for incomplete fragment reassembly
 
 class EspNowJsonHandler : public Usermod {
 
@@ -27,6 +28,7 @@ private:
     uint8_t fragmentsReceived = 0;
     uint8_t* reassemblyBuffer = nullptr;
     size_t reassemblySize = 0;
+    unsigned long reassemblyStartTime = 0;  // Timestamp when reassembly began
 
     // Cleanup reassembly state
     void cleanupReassembly() {
@@ -36,6 +38,7 @@ private:
         }
         fragmentsReceived = 0;
         reassemblySize = 0;
+        reassemblyStartTime = 0;
     }
 
 public:
@@ -44,7 +47,13 @@ public:
     }
 
     void loop() override {
-      // Nothing to do in loop
+        // Check for stale reassembly state and clean up if timed out
+        if (reassemblyBuffer && reassemblyStartTime > 0) {
+            if (millis() - reassemblyStartTime > ESPNOW_REASSEMBLY_TIMEOUT_MS) {
+                DEBUG_PRINTF_P(PSTR("ESP-NOW reassembly timeout for message %d, discarding %d fragments\n"), lastMsgId, fragmentsReceived);
+                cleanupReassembly();
+            }
+        }
     }
 
     /**
@@ -52,9 +61,23 @@ public:
      * Returns true if the message was handled (prevents default processing)
      */
     bool onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len) override {
+    
+        bool knownRemote = false;
+        for (const auto& mac : linked_remotes) {
+            if (strlen(mac.data()) == 12 && strcmp(last_signal_src, mac.data()) == 0) {
+                knownRemote = true;
+                break;
+            }
+        }
+        if (!knownRemote) {
+            DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
+            DEBUG_PRINTLN(last_signal_src);
+            return false; // Not handled
+        }
+
       // Need at least header size to process
         if (len < ESPNOW_FRAGMENT_HEADER_SIZE) {
-            return false;
+            return false; // Not handled
         }
 
         // Check if this looks like a fragmented JSON message
@@ -90,6 +113,7 @@ public:
           // Clean up old reassembly buffer if exists
             cleanupReassembly();
             lastMsgId = messageId;
+            reassemblyStartTime = millis();  // Start timeout timer for new message
         }
 
         // Validate fragment index is sequential
