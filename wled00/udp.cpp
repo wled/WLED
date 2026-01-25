@@ -914,128 +914,11 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
   return 0;
 }
 
-// ESP-NOW limits
-#define ESPNOW_MAX_PAYLOAD 250
-#define FRAGMENT_HEADER_SIZE 4
-#define FRAGMENT_DATA_SIZE (ESPNOW_MAX_PAYLOAD - FRAGMENT_HEADER_SIZE)
-
-// Fragment header structure
-typedef struct {
-    uint8_t message_id;      // Unique message ID for reassembly
-    uint8_t fragment_index;   // Current fragment number (0-based)
-    uint8_t total_fragments;  // Total number of fragments in message
-} __attribute__((packed)) fragment_header_t;
-
 #ifndef WLED_DISABLE_ESPNOW
 // ESP-NOW message sent callback function
 void espNowSentCB(uint8_t* address, uint8_t status) {
     DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
 }
-
-void handleJsonEspNow(uint8_t* address, uint8_t* data, uint8_t len) {
-  static uint8_t last_msg_id = 0;
-  static uint8_t fragments_received = 0;
-  static uint8_t *reassembly_buffer = nullptr;
-  static size_t reassembly_size = 0;
-
-  // handle fragmented JSON messages
-  if (len >= FRAGMENT_HEADER_SIZE) {
-    static uint8_t last_processed_msg_id = 0;
-    
-    uint8_t message_id      = data[0];
-    uint8_t fragment_index  = data[1];
-    uint8_t total_fragments = data[2];
-    
-    DEBUG_PRINTF_P(PSTR("ESP-NOW fragment %d/%d of message %d (%d bytes)\n"), fragment_index + 1, total_fragments, message_id, len - FRAGMENT_HEADER_SIZE);
-
-    // Check if this message was already processed (deduplication for multi-channel reception)
-    if (message_id == last_processed_msg_id) {
-      DEBUG_PRINTF_P(PSTR("ESP-NOW message %d already processed, skipping\n"), message_id);
-      // If we're currently reassembling this message, clean up
-      if (message_id == last_msg_id && reassembly_buffer) {
-        free(reassembly_buffer);
-        reassembly_buffer = nullptr;
-        fragments_received = 0;
-        reassembly_size = 0;
-      }
-      return;
-    }
-
-    // Check if this is a new message
-    if (message_id != last_msg_id) {
-      // Clean up old reassembly buffer if exists
-      if (reassembly_buffer) {
-        free(reassembly_buffer);
-        reassembly_buffer = nullptr;
-      }
-      last_msg_id = message_id;
-      fragments_received = 0;
-      reassembly_size = 0;
-    }
-
-    // Validate fragment index is sequential
-    if (fragment_index != fragments_received) {
-      DEBUG_PRINTF_P(PSTR("ESP-NOW fragment out of order: expected %d, got %d\n"), fragments_received, fragment_index);
-      if (reassembly_buffer) {
-        free(reassembly_buffer);
-        reassembly_buffer = nullptr;
-      }
-      fragments_received = 0;
-      reassembly_size = 0;
-      return;
-    }
-
-    // Allocate or reallocate buffer
-    size_t fragment_data_size = len - FRAGMENT_HEADER_SIZE;
-    size_t new_size = reassembly_size + fragment_data_size;
-    
-    uint8_t *new_buffer = (uint8_t *)realloc(reassembly_buffer, new_size + 1); // +1 for null terminator
-    if (!new_buffer) {
-      DEBUG_PRINTLN(F("ESP-NOW fragment reassembly: memory allocation failed"));
-      if (reassembly_buffer) free(reassembly_buffer);
-      reassembly_buffer = nullptr;
-      fragments_received = 0;
-      reassembly_size = 0;
-      return;
-    }
-    
-    reassembly_buffer = new_buffer;
-    
-    // Copy fragment data
-    memcpy(reassembly_buffer + reassembly_size, data + FRAGMENT_HEADER_SIZE, fragment_data_size);
-    reassembly_size = new_size;
-    fragments_received++;
-
-    // Check if we have all fragments
-    if (fragments_received >= total_fragments) {
-      reassembly_buffer[reassembly_size] = '\0'; // Null terminate
-      DEBUG_PRINTF_P(PSTR("ESP-NOW complete message reassembled (%d bytes)\n"), reassembly_size);
-
-      // Mark this message as processed for deduplication
-      last_processed_msg_id = message_id;
-
-      // Process the complete JSON message
-      if (requestJSONBufferLock(18)) {
-        DeserializationError error = deserializeJson(*pDoc, reassembly_buffer, reassembly_size);
-        JsonObject root = pDoc->as<JsonObject>();
-        if (!error && !root.isNull()) {
-          deserializeState(root);
-        } else {
-          DEBUG_PRINTF_P(PSTR("ESP-NOW JSON deserialization error: %s\n"), error.c_str());
-        }
-        releaseJSONBufferLock();
-      }
-
-      // Clean up
-      free(reassembly_buffer);
-      reassembly_buffer = nullptr;
-      fragments_received = 0;
-      reassembly_size = 0;
-    }
-    return;
-  }
-}
-
 
 // ESP-NOW message receive callback function
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
@@ -1069,7 +952,6 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
-  handleJsonEspNow(address, data, len);
 
 
   partial_packet_t *buffer = reinterpret_cast<partial_packet_t *>(data);
