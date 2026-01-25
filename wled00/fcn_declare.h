@@ -200,6 +200,7 @@ void getTimeString(char* out);
 bool checkCountdown();
 void setCountdown();
 byte weekdayMondayFirst();
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd);
 void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
@@ -496,14 +497,6 @@ class JSONBufferGuard {
     explicit inline operator bool() const { return owns_lock(); };
     inline void release() { if (holding_lock) releaseJSONBufferLock(); holding_lock = false; }
 };
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-//wled_eeprom.cpp
-void applyMacro(byte index);
-void deEEP();
-void deEEPSettings();
-void clearEEPROM();
-#endif
 
 //wled_math.cpp
 //float cos_t(float phi); // use float math

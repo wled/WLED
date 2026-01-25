@@ -5,12 +5,6 @@
 <meta name="author" content="DedeHai, based on editor by Me-No-Dev">
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"><!-- prevent too much scaling on mobile -->
 <link rel="shortcut icon" href="favicon.ico">
-<link href="style.css" rel="stylesheet">
-<!-- Optional lightweight JSON editor - fallback to textarea if CDN is unavailable -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/mode-json.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/theme-monokai.min.js"></script>
-<script src="common.js"></script>
 <style>
 /* Editor-specific styles */
 body {
@@ -113,6 +107,33 @@ body {
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 <script>
+// load common.js with retry on error, then load Ace editor from CDN with retries, then load style.css
+function loadFiles(u, r, cb) {
+	var s = document.createElement('script'),
+			// set 1s timeout if retry count is less than 10 (i.e. for Ace scripts)
+			tm = r < 10 ? setTimeout(() => { s.onload=s.onerror=null; cb(); }, 1000) : 0;
+	s.src = u;
+	s.onload = () => { clearTimeout(tm); cb(); };
+	s.onerror = () => {
+		clearTimeout(tm);
+		if (r !== 0) setTimeout(() => loadFiles(u, r < 0 ? r : r - 1, cb), 100); // if r is -1 or > 0 try again
+		else cb();
+	};
+	document.head.appendChild(s);
+}
+
+loadFiles('common.js', -1, () => {
+	const cdn = "https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/";
+	// load external scripts in sequence (3 retries each)
+	loadFiles(cdn + 'ace.min.js', 3, () => {
+		loadFiles(cdn + 'mode-json.min.js', 3, () => {
+			loadFiles(cdn + 'theme-monokai.min.js', 3, () => {
+				// all scripts loaded (or skipped) load style.css
+				if (window.loadResources) loadResources(['style.css'], S);
+			});
+		});
+	});
+});
 var QueuedRequester = function(){ this.q=[]; this.r=false; this.x=null; }
 QueuedRequester.prototype = {
 	_request: function(req){
@@ -558,7 +579,7 @@ function createEditor(element,file){
 	};
 }
 
-function onBodyLoad(){
+function S(){
 	var vars={};
 	window.location.href.replace(/[?&]+([^=&]+)=([^&]*)/gi,function(m,k,v){
 		vars[decodeURIComponent(k)]=decodeURIComponent(v);
@@ -577,7 +598,7 @@ function onBodyLoad(){
 }
 </script>
 </head>
-<body onload="onBodyLoad()">
+<body>
 	<div id="toast"></div>
 	<div id="loader"><div class="loader"></div></div>
 	<div id="top"></div>

@@ -313,11 +313,11 @@ class MyExampleUsermod : public Usermod {
       yield();
       // ignore certain button types as they may have other consequences
       if (!enabled
-       || buttonType[b] == BTN_TYPE_NONE
-       || buttonType[b] == BTN_TYPE_RESERVED
-       || buttonType[b] == BTN_TYPE_PIR_SENSOR
-       || buttonType[b] == BTN_TYPE_ANALOG
-       || buttonType[b] == BTN_TYPE_ANALOG_INVERTED) {
+       || buttons[b].type == BTN_TYPE_NONE
+       || buttons[b].type == BTN_TYPE_RESERVED
+       || buttons[b].type == BTN_TYPE_PIR_SENSOR
+       || buttons[b].type == BTN_TYPE_ANALOG
+       || buttons[b].type == BTN_TYPE_ANALOG_INVERTED) {
         return false;
       }
 
