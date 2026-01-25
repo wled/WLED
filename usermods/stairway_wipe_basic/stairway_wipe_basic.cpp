@@ -112,10 +112,12 @@ void setup() {
     effectCurrent = FX_MODE_COLOR_WIPE;
     strip.resetTimebase(); //make sure wipe starts from beginning
 
-    //set wipe direction
-    Segment& seg = strip.getSegment(0);
+    //set wipe direction for all segments
     bool doReverse = (userVar0 == 2);
-    seg.setOption(1, doReverse);
+    for (uint8_t i = 0; i < strip.getSegmentsNum(); i++) {
+      Segment& seg = strip.getSegment(i);
+      seg.setOption(1, doReverse);
+    }
 
     colorUpdated(CALL_MODE_NOTIFICATION);
     }
