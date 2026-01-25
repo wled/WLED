@@ -22,8 +22,8 @@
  */
 #define DECLARE_PLUGIN_API(API_type) extern API_type *PLUGINAPI_##API_type __attribute__((weak))
 
-/** Place this macro in the sourcefile of the custom plugin API.
- * @note Every API needs its own sourcefile, which must always be compiled; regardless whether the
+/** Place this macro in the cpp file of the custom plugin API.
+ * @note Every API needs its own source file, which must always be compiled; regardless whether the
  * corresponding usermod is enabled or not. It usually contains just the few lines that are shown
  * below. Be aware that the header and the cpp file of the API \e must be located in a different
  * directory than the actual usermod implementation!
@@ -35,7 +35,7 @@
  */
 #define CPPFILE_PLUGIN_API(API_type) API_type *PLUGINAPI_##API_type __attribute__((weak)) = nullptr
 
-/** Place this macro in the sourcefile of the corresponding usermod implementation.
+/** Place this macro in the cpp file of the corresponding usermod implementation.
  * @note The usermod itself doesn't necessarily need to have its own headerfile; everything may be
  * contained inside its cpp file.
  * @code
@@ -63,6 +63,6 @@
  * // else: WLED was compiled without the corresponding usermod
  * @endcode
  */
-#define GET_PLUGIN_API(API_typee) PLUGINAPI_##API_typee
+#define GET_PLUGIN_API(API_type) PLUGINAPI_##API_type
 
 //--------------------------------------------------------------------------------------------------

@@ -14,17 +14,17 @@ The problem arises, when your usermod wants to access the other usermod _optiona
 
 (2) An alternative solution would be to use `#define`s, which are set by the other usermod. Ideas about how to do this have already been pointed out in the issue's thread by @softhack007 . However, that approach does _not_ work out of the box, because of some magic performed by the Arduino framework; see below for more details on that problem.
 
-(3) See the failing build as a feature and not as a problem. Just include the other's headerfile in your usermod, and use it like any other class. Therefore, make its object accesible through its headerfile. (How to do that has also been shown in the issue's thread by @willmmiles ) <br>
+(3) See the failing build as a feature and not as a problem. Just include the other's headerfile in your usermod, and use it like any other class. Therefore, make its object accessible through its headerfile. (How to do that has also been shown in the issue's thread by @willmmiles ) <br>
 Now, when the build fails, this is a reminder for you that you forgot to enable the other usermod as well. But as a consequence, the 'optional' part of detecting the other usermod is then gone.
 
-In the end, it will be the developer's choice which option to chose; there is not only one right way. This PR shows an additional clean and interface based way - at the expense of virtual functions. However, when weighing the cost of the vtable against the feature gain and simplicity, I am happiliy willing to pay that price.
+In the end, it will be the developer's choice which option to choose; there is not only one right way. This PR shows an additional clean and interface-based way - at the expense of virtual functions. However, when weighing the cost of the vtable against the feature gain and simplicity, I am happily willing to pay that price.
 
 
 ## Why a dedicated folder for custom usermod APIs - shouldn't they live in the same folder as the usermod itself?
 
 Short answer: Yes, absolutely! Long answer: Unfortunately that doesn't work in practice.
 The problem here is some magic that the underlying Arduino framework (I assume) is performing under the hood: <br>
-Whenever your sourcecode includes a headerfile from the directory of another usermod, that usermod's cpp files will be compiled automatically. Regardles if that usermod is enabled or not! This always ends with a failed build in the latter case, because e.g. include paths are not set appropriately. At least that was my experience during development. If anyone knows how to prevent that from happening: solutions are really welcome!
+Whenever your sourcecode includes a headerfile from the directory of another usermod, that usermod's cpp files will be compiled automatically. Regardless if that usermod is enabled or not! This always ends with a failed build in the latter case, because e.g. include paths are not set appropriately. At least that was my experience during development. If anyone knows how to prevent that from happening: solutions are really welcome!
 
 
 ## Why does a custom usermod API need a cpp file, when it is just an interface?
@@ -35,8 +35,8 @@ Now, when the actual usermod is enabled, it contains a _strong implementation_ o
 If anyone knows a solution how the linker will default missing weak symbols to NULL, please share! Then we can get rid of this cpp file and the corresponding macro completely!
 
 
-## The PluginManger's info section in the UI is a bit bloated and messy...
+## The PluginManager's info section in the UI is a bit bloated and messy...
 
-Yes, indeed... The current implementation is intended as demontration and for debugging.
+Yes, indeed... The current implementation is intended as demonstration and for debugging.
 For release code, it may also be removed completely since it isn't essentially needed.
-My idea would be to make its 'bloatyness' configurable via `#define`s, like `PLUGINMGR_DISABLE_UI`. Any suggestions about what would be of interest are highly appreciated!
+My idea would be to make its 'bloatiness' configurable via `#define`s, like `PLUGINMGR_DISABLE_UI`. Any suggestions about what would be of interest are highly appreciated!

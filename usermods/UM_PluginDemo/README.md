@@ -1,3 +1,3 @@
-# Examples custom plugins.
+# Examples for writing custom plugins.
 
 This usermod provides examples for custom plugin implementations.

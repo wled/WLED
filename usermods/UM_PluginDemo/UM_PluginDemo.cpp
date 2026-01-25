@@ -139,7 +139,7 @@ class UM_PluginDemo : public Usermod, public PinUser
 
     // try to get a TemperatureSensor - and quit if that fails
     TemperatureSensor *tempSensor = pluginManager.getTemperatureSensor();
-    if (!tempSensor)
+    if (!tempSensor || !tempSensor->isReady())
       return;
 
     // read the temperature value from the other plugin

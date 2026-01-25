@@ -5,14 +5,14 @@ These interfaces here are very high-level by explicit design choice - and they a
 by the WLED framework only. <br>
 This directory here is **not** the place for specialized custom interfaces - use the subdirectory
 `custom` for that. <br>
-Have a look at the examples and the comments in the sourcefiles for inspiration for your own
+Have a look at the examples and the comments in the source files for inspiration for your own
 usermods.
 
 
 ## Upgrading Usermods to Plugins
 
 Read the design description below, follow the examples in the usermods `UM_PluginDemo` and
-`UM_DummySensor`, and have a look at the comments in the sourcefiles inside this directory.
+`UM_DummySensor`, and have a look at the comments in the source files inside this directory.
 
 
 # Design Description
@@ -73,7 +73,7 @@ classDiagram
 
 Since there exist more real temperature sensors than the `DHT` usermod can handle, there are other
 usermods for other hardware. And even a `DummySensor`, which just simulates temperature readings. <br>
-Regardless of which one of those other usermodes is compiled into WLED, our little thermometer
+Regardless of which one of those other usermods is compiled into WLED, our little thermometer
 effect will always get its desired temperature value. Without actually having to worry about from
 whom (because the `PluginManager` takes care of that):
 
@@ -106,7 +106,7 @@ classDiagram
 
 ## Custom Plugin APIs
 
-Our `DummySensor` can offer more functionality through a custom interface, which is is defined by the
+Our `DummySensor` can offer more functionality through a custom interface, which is defined by the
 usermod itself (and not by WLED, in contrast to the administrated interfaces from before). Through
 that custom interface, it can offer any kind of functionality (whether it makes sense for anyone
 else or not). In our example, its simulated TemperatureSensor can be enabled and disabled. <br>
@@ -159,7 +159,7 @@ without the `DummySensor` usermod. In case the dummy is missing, it will just ig
 
 ## GPIO Pin Handling for Plugins
 
-Usermods can aquire their desired GPIO pins through the `PluginManager`. For an example, have a
+Usermods can acquire their desired GPIO pins through the `PluginManager`. For an example, have a
 look at the `UM_PluginDemo` usermod. <br>
 In a nutshell, the procedure is as follows:
 - Usermods that want to use GPIO pins must have `PinUser` as a base class.
@@ -168,7 +168,7 @@ In a nutshell, the procedure is as follows:
 - During `setup()`, they register this configuration at the `PluginManager`.
 - The `PluginManager` forwards the request to WLED's `PinManager` and returns its result.
 
-There's no more a need for defining dedicated `PinManager` constants for every usermod inside
+There's no longer a need for defining dedicated `PinManager` constants for every usermod inside
 `pin_manager.h`. All registrations are done in the name of the `PluginManager` (as a proxy), who
 internally keeps track of all its registered `PinUser`s.
 
@@ -204,16 +204,16 @@ And don't forget to have a look into `platformio_override.sample.ini` and
 - `BatterySensor` with `uint16_t batteryLevel()`, with range 0 ... 1000 representing 0.0 ... 100.0%
   (or just `float` as for the other APIs)
 - `TimeProvider` with `getTime()`, returning a struct of `year/month/day` & `hour/minute/second`
-  - Localtime; without DST and timezone.
+  - Local time; without DST and timezone.
   - With usermod implementations, based on I2C or OneWire RTC or NTP or DCF77 or ...
 - `AudioSensor` with ...
   - ... be careful to stay generic with these interfaces!
-- `UiClient_PowerButton` for a generic handling of all usermod's powerbuttons in the info-page of the UI.
+- `UiClient_PowerButton` for a generic handling of all usermod's power-buttons in the info-page of the UI.
   - Thus a lot of repeated boilerplate code from many usermods could be consolidated inside PluginManager.
 - `UiClient_InfoSection` with a more comfortable API for adding entries to the info-page of the UI.
   - Also enables consolidation of repeated boilerplate code from the usermods.
 - `ButtonUser` with `void onButtonPressed()`, for plugins that need an external trigger from a pushbutton.
-  - WLED somehow integrates these into its exising button management, as it already does for macros
+  - WLED somehow integrates these into its existing button management, as it already does for macros
     in the UI configuration under "Button actions".
   - So the plugin doesn't have to deal with raw GPIO pins when it just needs a simple trigger.
 - MQTT publisher / subscriber

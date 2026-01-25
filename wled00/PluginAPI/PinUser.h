@@ -72,7 +72,7 @@ using PinConfigs = std::array<PinConfig, NUM_PINS>;
 class PinUser
 {
 #if (0) // only with PluginManager's UI optimization for pin selection
-  /// The pin confuguration (from the UI) has changed. Not implemented yet.
+  /// The pin configuration (from the UI) has changed. Not implemented yet.
   virtual void onPinConfigurationChanged() {}
 #else
   // Intentionally empty.

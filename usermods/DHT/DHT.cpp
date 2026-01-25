@@ -63,7 +63,7 @@ class UsermodDHT : public Usermod, public TemperatureSensor, public HumiditySens
   private:
     unsigned long nextReadTime = 0;
     unsigned long lastReadTime = 0;
-    float tempC, humidity, temperature = 0;
+    float tempC = 0, humidity = 0, temperature = 0;
     bool initializing = true;
     bool disabled = false;
     #ifdef USERMOD_DHT_MQTT

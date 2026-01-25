@@ -14,8 +14,8 @@
 // set this via PlatformIO to disable PluginManager's UI info entries for demo & debugging
 // #define PLUGINMGR_DISABLE_UI
 
-// set this via PlatformIO for sorting PluginManager's UI info entries by plugin name
-// #define PLUGINMGR_SORT_UI_INFO_BY_NAME
+// set this via PlatformIO for grouping PluginManager's UI info entries by plugin name
+// #define PLUGINMGR_GROUP_UI_INFO_BY_NAME
 
 //--------------------------------------------------------------------------------------------------
 
@@ -90,12 +90,12 @@ public:
 private:
   bool rollbackPinRegistration(PinUser &user, uint8_t pinCount, PinConfig *pinConfig);
 #ifndef PLUGINMGR_DISABLE_UI
-#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+#ifdef PLUGINMGR_GROUP_UI_INFO_BY_NAME
   void addUiInfo(JsonObject &root, bool advanced);
 #else
   void addUiInfo_basic(JsonObject &user);
   void addUiInfo_advanced(JsonObject &user);
-#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
+#endif // PLUGINMGR_GROUP_UI_INFO_BY_NAME
   void addUiInfo_plugins(JsonObject &user);
 #endif // PLUGINMGR_DISABLE_UI
   const char *getPluginName(const PinUser *user) const;

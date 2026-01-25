@@ -7,7 +7,7 @@
 
 //--------------------------------------------------------------------------------------------------
 
-/// Interface of a sensor that can provide tempreature readings.
+/// Interface of a sensor that can provide temperature readings.
 class TemperatureSensor
 {
 public:

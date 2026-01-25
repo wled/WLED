@@ -16,7 +16,7 @@ namespace
   static const char *unknownName = "[???]";
   static const char *notAvailable = "[n/a]";
 
-#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+#ifdef PLUGINMGR_GROUP_UI_INFO_BY_NAME
   class InfoDataBuilder
   {
     using DataMap = std::map<const char *, String>;
@@ -37,7 +37,7 @@ namespace
   private:
     DataMap _dict;
   };
-#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
+#endif // PLUGINMGR_GROUP_UI_INFO_BY_NAME
 
   bool isOutputPin(PinType pinType)
   {
@@ -136,21 +136,25 @@ bool PluginManager::rollbackPinRegistration(PinUser &user, uint8_t pinCount, Pin
 
 void PluginManager::unregisterPinUser(PinUser &user)
 {
-  for (const auto &entry : _pinUserConfigs)
+  for (auto itr = _pinUserConfigs.begin(); itr != _pinUserConfigs.end();)
   {
-    const auto &pinConfig = entry.second;
-    PinManager::deallocatePin(pinConfig.pinNr, PinOwner::PluginMgr);
+    const auto &pinUser = itr->first;
+    if (pinUser == &user)
+    {
+      const auto &pinConfig = itr->second;
+      PinManager::deallocatePin(pinConfig.pinNr, PinOwner::PluginMgr);
+      itr = _pinUserConfigs.erase(itr);
+    }
+    else
+    {
+      ++itr;
+    }
   }
 
-  auto pred1 = [&user](const PinUserConfigs::value_type &entry)
-  { return entry.first == &user; };
-  _pinUserConfigs.erase(
-      std::remove_if(_pinUserConfigs.begin(), _pinUserConfigs.end(), pred1), _pinUserConfigs.end());
-
-  auto pred2 = [&user](const PinUsers::value_type &entry)
+  auto pred = [&user](const PinUsers::value_type &entry)
   { return entry.first == &user; };
   _pinUsers.erase(
-      std::remove_if(_pinUsers.begin(), _pinUsers.end(), pred2), _pinUsers.end());
+      std::remove_if(_pinUsers.begin(), _pinUsers.end(), pred), _pinUsers.end());
 }
 
 // ----- TemperatureSensor handling -----
@@ -223,16 +227,16 @@ void PluginManager::addToJsonInfo(JsonObject &root, bool advanced)
     user = root.createNestedObject("u");
 
   addUiInfo_plugins(user);
-#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+#ifdef PLUGINMGR_GROUP_UI_INFO_BY_NAME
   addUiInfo(user, advanced);
 #else
   addUiInfo_basic(user);
   if (advanced)
     addUiInfo_advanced(user);
-#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
+#endif // PLUGINMGR_GROUP_UI_INFO_BY_NAME
 }
 
-#ifdef PLUGINMGR_SORT_UI_INFO_BY_NAME
+#ifdef PLUGINMGR_GROUP_UI_INFO_BY_NAME
 
 void PluginManager::addUiInfo(JsonObject &user, bool advanced)
 {
@@ -289,7 +293,7 @@ void PluginManager::addUiInfo(JsonObject &user, bool advanced)
     user.createNestedArray(line.first).add(line.second);
 }
 
-#else // PLUGINMGR_SORT_UI_INFO_BY_NAME
+#else // PLUGINMGR_GROUP_UI_INFO_BY_NAME
 
 void PluginManager::addUiInfo_basic(JsonObject &user)
 {
@@ -398,7 +402,7 @@ void PluginManager::addUiInfo_advanced(JsonObject &user)
   }
 }
 
-#endif // PLUGINMGR_SORT_UI_INFO_BY_NAME
+#endif // PLUGINMGR_GROUP_UI_INFO_BY_NAME
 
 void PluginManager::addUiInfo_plugins(JsonObject &user)
 {

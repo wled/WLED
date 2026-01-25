@@ -21,8 +21,8 @@ class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSen
   {
     // register sensor plugins
     pluginManager.registerTemperatureSensor(*this, _name);
-    enableTemperatureSensor();
-    enableHumiditySensor();
+    pluginManager.registerHumiditySensor(*this, _name);
+    // this dummy can deliver readings instantly
     _isTemperatureValid = true;
     _isHumidityValid = true;
   }
@@ -70,7 +70,7 @@ class UM_DummySensor : public Usermod, public DummySensor, public TemperatureSen
 
   // ----- HumiditySensor plugin functions -----
 
-  /// @copydoc HumiditySensor::do_getHumidityC()
+  /// @copydoc HumiditySensor::do_getHumidity()
   float do_getHumidity() override { return readHumidity(); }
 
   // ----- internal processing functions -----

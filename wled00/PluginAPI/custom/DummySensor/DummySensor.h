@@ -11,7 +11,7 @@
 
 /** This is a plugin API that is very specific only for the DummySensor usermod.
  * Other usermods or effects can directly interact with the usermod through this API.
- * They can determine at runtinme if the usermod is included in the WLED binary or not.
+ * They can determine at runtime if the usermod is included in the WLED binary or not.
  */
 class DummySensor
 {
