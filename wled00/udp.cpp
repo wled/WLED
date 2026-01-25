@@ -952,8 +952,6 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
-
-
   partial_packet_t *buffer = reinterpret_cast<partial_packet_t *>(data);
   if (len < 3 || !broadcast || buffer->magic != 'W' || !useESPNowSync || WLED_CONNECTED) {
     DEBUG_PRINTLN(F("ESP-NOW unexpected packet, not syncing or connected to WiFi."));
