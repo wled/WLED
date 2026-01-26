@@ -98,7 +98,9 @@ const char *getPinName(PinType pinType) // only needed for allocations at PinMan
 
 bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *pinConfig, const char *pluginName)
 {
-  unregisterPinUser(user); // always remove previous registration
+  unregisterPinUser(user); // _always_ remove previous registration (even on invalid args)
+  if (pinCount == 0 || pinConfig == nullptr)
+    return false;
 
   auto begin = pinConfig;
   auto end = begin + pinCount;
@@ -111,8 +113,8 @@ bool PluginManager::registerPinUser(PinUser &user, uint8_t pinCount, PinConfig *
       // this is just a demo example how auto-pin-assignment could look like
       // (no interaction with PinManger in that case)
       static uint8_t counter = 199;
-      itr->pinNr = ++counter;
-      // otherwise:
+      itr->pinNr = ++counter; // this should be determined by some kind of future "ResourceManager"
+      // TODO(cleanup) Enable this rollback again before production
       // return rollbackPinRegistration(user, pinCount, pinConfig);
     }
     else if (!PinManager::allocatePin(itr->pinNr, isOutputPin(itr->pinType), PinOwner::PluginMgr))
