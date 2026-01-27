@@ -254,6 +254,13 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 
 * Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals (the FPS limit set in config) to check whether an update is needed. If nothing needs to change, the frame still needs to be re-rendered so color or brightness transitions will be smooth.
 
+If you want to run your effect at a fixed frame rate you can use the following code to not update your effect state, be aware however that transitions for your effect will also run at this frame rate - for example if you limit your effect to say 5 FPS, brightness changes and color changes may not look smooth. Also `SEGMENT.call` is still incremented on each fuction call.
+```cpp
+//limit update rate
+if (strip.now - SEGENV.step < FRAMETIME_FIXED) return;
+SEGENV.step = strip.now;
+```
+
 ### The Metadata String
 At the end of every effect is an important line of code called the **metadata string**.
 It defines how the effect is to be interacted with in the UI:
@@ -384,13 +391,6 @@ This final part of the effect function will fill in the 'trailing' pixels to com
 * Fills in all pixels between previous position (SEGENV.aux0) and new position (pos) to ensure smooth continuous trail.
   * Works in both directions: Forward (if new pos > old pos), and Backward (if new pos < old pos).
 * Updates `SEGENV.aux0` to current position at the end.
-
-Finally, we return the `FRAMETIME`, as with all effect functions:
-```cpp
-  return FRAMETIME;
-}
-```
-* Returns `FRAMETIME` constant to set effect update rate (usually ~16 ms).
 
 The last part of this effect has the Wrapper functions for different Sinelon modes.
 Notice that there are three different modes that we can define from the single effect definition by leveraging the arguments in the function:

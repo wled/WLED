@@ -41,7 +41,7 @@ static pixels::RollEvent GetLastRollForSegment() {
  */
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-static uint16_t running_copy(uint32_t color1, uint32_t color2, bool theatre = false) {
+static void running_copy(uint32_t color1, uint32_t color2, bool theatre = false) {
   int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
   uint32_t it = strip.now / cycleTime;
@@ -63,10 +63,9 @@ static uint16_t running_copy(uint32_t color1, uint32_t color2, bool theatre = fa
     SEGENV.aux0 = (SEGENV.aux0 +1) % (theatre ? width : (width<<1));
     SEGENV.step = it;
   }
-  return FRAMETIME;
 }
 
-static uint16_t simple_roll() {
+static void simple_roll() {
   auto roll = GetLastRollForSegment();
   if (roll.state != pixels::RollState::ON_FACE) {
     SEGMENT.fill(0);
@@ -79,7 +78,6 @@ static uint16_t simple_roll() {
       SEGMENT.setPixelColor(i, SEGCOLOR(1));
     }
   }
-  return FRAMETIME;
 }
 // See https://kno.wled.ge/interfaces/json-api/#effect-metadata
 // Name - DieSimple
