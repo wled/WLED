@@ -8,10 +8,10 @@
 #include "dice_state.h"
 
 // Reuse FX display functions.
-extern uint16_t mode_breath();
-extern uint16_t mode_blends();
-extern uint16_t mode_glitter();
-extern uint16_t mode_gravcenter();
+extern void mode_breath();
+extern void mode_blends();
+extern void mode_glitter();
+extern void mode_gravcenter();
 
 static constexpr uint8_t USER_ANY_DIE = 0xFF;
 /**
@@ -90,31 +90,34 @@ static void simple_roll() {
 static const char _data_FX_MODE_SIMPLE_DIE[] PROGMEM =
     "DieSimple@,,Selected Die;!,!;;1;c1=255";
 
-static uint16_t pulse_roll() {
+static void pulse_roll() {
   auto roll = GetLastRollForSegment();
   if (roll.state != pixels::RollState::ON_FACE) {
-    return mode_breath();
+    mode_breath();
+    return;
   } else {
-    uint16_t ret = mode_blends();
+    mode_blends();
     uint16_t num_segments = float(roll.current_face + 1) / 20.0 * SEGLEN;
     for (int i = num_segments; i < SEGLEN; i++) {
       SEGMENT.setPixelColor(i, SEGCOLOR(1));
     }
-    return ret;
   }
 }
 static const char _data_FX_MODE_PULSE_DIE[] PROGMEM =
     "DiePulse@!,!,Selected Die;!,!;!;1;sx=24,pal=50,c1=255";
 
-static uint16_t check_roll() {
+static void check_roll() {
   auto roll = GetLastRollForSegment();
   if (roll.state != pixels::RollState::ON_FACE) {
-    return running_copy(SEGCOLOR(0), SEGCOLOR(2));
+    running_copy(SEGCOLOR(0), SEGCOLOR(2));
+    return
   } else {
     if (roll.current_face + 1 >= SEGMENT.custom2) {
-      return mode_glitter();
+      mode_glitter();
+      return;
     } else {
-      return mode_gravcenter();
+      mode_gravcenter();
+      return;
     }
   }
 }

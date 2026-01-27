@@ -104,7 +104,7 @@ void mode_2DTetrisAI()
   {
     // not a 2D set-up
     SEGMENT.fill(SEGCOLOR(0));
-    return 350;
+    return;
   }
   TetrisAI_data* tetrisai_data = reinterpret_cast<TetrisAI_data*>(SEGENV.data);
 

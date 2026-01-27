@@ -1,6 +1,6 @@
 #include "UsermodTemperature.h"
 
-static uint16_t mode_temperature();
+static void mode_temperature();
 
 //Dallas sensor quick (& dirty) reading. Credit to - Author: Peter Scargill, August 17th, 2013
 float UsermodTemperature::readDallas() {
