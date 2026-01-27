@@ -254,7 +254,7 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 
 * Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals (the FPS limit set in config) to check whether an update is needed. If nothing needs to change, the frame still needs to be re-rendered so color or brightness transitions will be smooth.
 
-If you want to run your effect at a fixed frame rate you can use the following code to not update your effect state, be aware however that transitions for your effect will also run at this frame rate - for example if you limit your effect to say 5 FPS, brightness changes and color changes may not look smooth. Also `SEGMENT.call` is still incremented on each fuction call.
+If you want to run your effect at a fixed frame rate you can use the following code to not update your effect state, be aware however that transitions for your effect will also run at this frame rate - for example if you limit your effect to say 5 FPS, brightness changes and color changes may not look smooth. Also `SEGMENT.call` is still incremented on each function call.
 ```cpp
 //limit update rate
 if (strip.now - SEGENV.step < FRAMETIME_FIXED) return;
