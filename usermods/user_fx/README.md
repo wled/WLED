@@ -306,7 +306,7 @@ We will break this effect down step by step.
 (This effect was originally one of the FastLED example effects; more information on FastLED can be found [here](https://fastled.io/).)
 
 ```cpp
-static sinelon_base(bool dual, bool rainbow=false) {
+static void sinelon_base(bool dual, bool rainbow=false) {
 ```
 * The first line of code defines `sinelon base` as static helper function.  This is how all effects are initially defined.
 * Notice that it has some optional flags; these parameters will allow us to easily define the effect in different ways in the UI.
@@ -395,17 +395,17 @@ This final part of the effect function will fill in the 'trailing' pixels to com
 The last part of this effect has the Wrapper functions for different Sinelon modes.
 Notice that there are three different modes that we can define from the single effect definition by leveraging the arguments in the function:
 ```cpp
-mode_sinelon(void) {
+void mode_sinelon(void) {
   sinelon_base(false);
 }
 // Calls sinelon_base with dual = false and rainbow = false 
 
-mode_sinelon_dual(void) {
+void mode_sinelon_dual(void) {
   sinelon_base(true);
 }
 // Calls sinelon_base with dual = true and rainbow = false 
 
-mode_sinelon_rainbow(void) {
+void mode_sinelon_rainbow(void) {
   sinelon_base(false, true);
 }
 // Calls sinelon_base with dual = false and rainbow = true 

@@ -110,7 +110,7 @@ static void check_roll() {
   auto roll = GetLastRollForSegment();
   if (roll.state != pixels::RollState::ON_FACE) {
     running_copy(SEGCOLOR(0), SEGCOLOR(2));
-    return
+    return;
   } else {
     if (roll.current_face + 1 >= SEGMENT.custom2) {
       mode_glitter();
