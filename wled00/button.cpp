@@ -387,7 +387,7 @@ void handleOnOff(bool forceOff)
     if (!offMode) {
       BusManager::off();
       if (rlyPin>=0) {
-        digitalWrite(rlyPin, !rlyMde);
+        digitalWrite(rlyPin, !rlyMde); // set output before disabling high-z state to avoid output glitches
         pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
       }
       offMode = true;
