@@ -5,6 +5,8 @@
 #include "tetrisaigame.h"
 // By: muebau
 
+bool noFlashOnClear = false;
+
 typedef struct TetrisAI_data
 {
   unsigned long lastTime = 0;
@@ -38,10 +40,14 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
       CRGB color;
       uint8_t gridPixel = *tetris->grid.getPixel(index_x, index_y);
       if (isRowClearing) {
-        //flash color white and black every 200ms
-        color = (strip.now % 200) < 150
-          ? CRGB::Gray
-          : CRGB::Black;
+        if (noFlashOnClear) {
+          color = CRGB::Gray; 
+        } else {
+          //flash color white and black every 200ms
+          color = (strip.now % 200) < 150
+            ? CRGB::Gray
+            : CRGB::Black;
+        }
       }
       else if (gridPixel == 0) {
         //BG color
@@ -254,11 +260,26 @@ class TetrisAIUsermod : public Usermod
 {
 
 private:
+  static const char _name[];
 
 public:
   void setup()
   {
     strip.addEffect(255, &mode_2DTetrisAI, _data_FX_MODE_2DTETRISAI);
+  }
+
+  void addToConfig(JsonObject& root) override
+  {
+    JsonObject top = root.createNestedObject(FPSTR(_name));
+    top["noFlashOnClear"] = noFlashOnClear;
+  }
+
+  bool readFromConfig(JsonObject& root) override
+  {
+    JsonObject top = root[FPSTR(_name)];
+    bool configComplete = !top.isNull();
+    configComplete &= getJsonValue(top["noFlashOnClear"], noFlashOnClear);
+    return configComplete;
   }
 
   void loop()
@@ -272,6 +293,7 @@ public:
   }
 };
 
+const char TetrisAIUsermod::_name[] PROGMEM = "TetrisAI_v2";
 
 static TetrisAIUsermod tetrisai_v2;
 REGISTER_USERMOD(tetrisai_v2);
