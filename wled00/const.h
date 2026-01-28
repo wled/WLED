@@ -613,7 +613,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #else
   #if defined(WLED_USE_ETHERNET)
     #define DEFAULT_LED_PIN 4    // GPIO4 seems to be a "safe bet" for all known ethernet boards (issue #5155)
-    #warning "Compiling with Ethernet support. The default LED pin has been changed to pin 4."
+    //#warning "Compiling with Ethernet support. The default LED pin has been changed to pin 4."
   #else
     #define DEFAULT_LED_PIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards (if it is unusable it will be reassigned in WS2812FX::finalizeInit())
   #endif
