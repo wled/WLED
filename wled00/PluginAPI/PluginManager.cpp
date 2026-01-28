@@ -310,12 +310,12 @@ void PluginManager::addUiInfo_basic(JsonObject &user)
     key += " = ";
     if (sensor.isReady())
     {
-      val += sensor.temperature();
-      val += sensor.useFahrenheit() ? " °F" : " °C";
+      key += sensor.temperature();
+      key += sensor.useFahrenheit() ? " °F" : " °C";
     }
     else
     {
-      val += notAvailable;
+      key += notAvailable;
     }
     user.createNestedArray(key).add(entry.second);
 #else
@@ -350,12 +350,12 @@ void PluginManager::addUiInfo_basic(JsonObject &user)
     key += " = ";
     if (sensor.isReady())
     {
-      val += sensor.humidity();
-      val += " %rel";
+      key += sensor.humidity();
+      key += " %rel";
     }
     else
     {
-      val += notAvailable;
+      key += notAvailable;
     }
     user.createNestedArray(key).add(entry.second);
 #else
