@@ -423,9 +423,13 @@ void WLED::setup()
 
 #if defined(BOARD_HAS_PSRAM)
   // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
-  pDoc = new PSRAMDynamicJsonDocument(2 * JSON_BUFFER_SIZE);
-  DEBUG_PRINTF_P(PSTR("JSON buffer size: %ubytes\n"), (2 * JSON_BUFFER_SIZE));
-  DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
+  if (psramFound() && ESP.getPsramSize()) {
+    pDoc = new PSRAMDynamicJsonDocument(2 * JSON_BUFFER_SIZE);
+    DEBUG_PRINTF_P(PSTR("JSON buffer size: %ubytes\n"), (2 * JSON_BUFFER_SIZE));
+    DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
+  } else {
+    pDoc = new DynamicJsonDocument(JSON_BUFFER_SIZE);  // Use onboard RAM instead as a fallback
+  }
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32)
