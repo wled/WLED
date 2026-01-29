@@ -120,6 +120,9 @@ void WS2812FX::setUpMatrix() {
       for (unsigned i=0; i<customMappingSize; i++) {
         if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
         DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+        #if defined(CONFIG_IDF_TARGET_ESP32S2)
+        delay(1); // on S2 the CDC output can crash without a delay
+        #endif
       }
       DEBUG_PRINTLN();
       #endif
