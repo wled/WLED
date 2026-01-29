@@ -918,7 +918,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
 					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
+					let ledCount = (parseInt(d.Sf["LC"+n].value) || 0) + (parseInt(d.Sf["SL"+n].value) || 0);
 
 					if (isDig(t) && !isD2P(t)) {
 						if (driverPref === 1) {

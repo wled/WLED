@@ -395,6 +395,7 @@ class BusPlaceholder : public Bus {
     uint16_t getFrequency() const override   { return _frequency; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    uint8_t  getDriverType() const override  { return _driverType; }
     const String getCustomText() const override { return _text; }
     bool     isPlaceholder() const override  { return true; }
 
@@ -404,6 +405,7 @@ class BusPlaceholder : public Bus {
     uint8_t _colorOrder;
     uint8_t _skipAmount;
     uint8_t _pins[OUTPUT_MAX_PINS];
+    uint8_t _driverType;
     uint16_t _frequency;
     uint8_t _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
