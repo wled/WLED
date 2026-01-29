@@ -291,8 +291,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
-      WLED_MAX_BUSSES,
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
       WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish ESP types in UI
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,

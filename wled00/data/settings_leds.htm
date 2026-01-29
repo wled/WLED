@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxB=1,maxD=1,maxI2S=0,maxRMT=0,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -52,8 +52,7 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(b,v,p,m,l,o,d,r,i,a,n) {
-			maxB  = b;		// maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
+		function bLimits(v,p,m,l,o,d,r,i,a,n) {
 			maxV  = v;		// maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
@@ -454,17 +453,13 @@
 				s.style.color = "#fff"; // reset
 
 				if (isDig(t) && !isD2P(t)) {
-					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
-					let ledCount = parseInt(d.Sf["LC"+n].value) || 0;
-
-					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
-					if (!is8266()) {
+					// Update I2S/RMT driver info/dropdown for ESP32 digital buses, C3 only supports RMT
+					if (!is8266() && !isC3()) {
 						// Show driver selection dropdown when I2S is enabled, mark red if invalid
 						if (drvsel) {
-							drvsel.style.display = "inline";
+							if (d.Sf.AS.checked) drvsel.style.display = "inline"; // only show when advanced settings enabled
 							if (!d.Sf["LD"+n].value) d.Sf["LD"+n].value = "0"; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
-							driverPref = parseInt(d.Sf["LD"+n].value);
 						}
 					}
 				}
@@ -1054,6 +1049,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				multiple power injection points and a fuse!<br>
 			</div>
 		</div>
+		<div>Show Advanced Settings <input type="checkbox" name="AS" onchange="UI()"><br></div>
 		<h3>Hardware setup</h3>
 		<div id="mLC">LED outputs:</div>
 		<hr class="sml">
