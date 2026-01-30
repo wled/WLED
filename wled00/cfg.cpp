@@ -791,7 +791,7 @@ void resetConfig() {
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
 
-  if (!requestJSONBufferLock(1)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_DES)) return false;
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
@@ -812,7 +812,7 @@ void serializeConfigToFS() {
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
-  if (!requestJSONBufferLock(2)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SER)) return;
 
   JsonObject root = pDoc->to<JsonObject>();
 
@@ -1256,7 +1256,7 @@ static const char s_wsec_json[] PROGMEM = "/wsec.json";
 bool deserializeConfigSec() {
   DEBUG_PRINTLN(F("Reading settings from /wsec.json..."));
 
-  if (!requestJSONBufferLock(3)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_DES)) return false;
 
   bool success = readObjectFromFile(s_wsec_json, nullptr, pDoc);
   if (!success) {
@@ -1310,7 +1310,7 @@ bool deserializeConfigSec() {
 void serializeConfigSec() {
   DEBUG_PRINTLN(F("Writing settings to /wsec.json..."));
 
-  if (!requestJSONBufferLock(4)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_SER)) return;
 
   JsonObject root = pDoc->to<JsonObject>();
 

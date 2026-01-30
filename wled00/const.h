@@ -441,6 +441,31 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
 
+// JSON buffer lock owners
+#define JSON_LOCK_UNKNOWN        255
+#define JSON_LOCK_CFG_DES          1
+#define JSON_LOCK_CFG_SER          2
+#define JSON_LOCK_CFG_SEC_DES      3
+#define JSON_LOCK_CFG_SEC_SER      4
+#define JSON_LOCK_SETTINGS         5
+#define JSON_LOCK_XML              6
+#define JSON_LOCK_LEDMAP           7
+// unused                          8
+#define JSON_LOCK_PRESET_LOAD      9
+#define JSON_LOCK_PRESET_SAVE     10
+#define JSON_LOCK_WS_RECEIVE      11
+#define JSON_LOCK_WS_SEND         12
+#define JSON_LOCK_IR              13
+#define JSON_LOCK_SERVER          14
+#define JSON_LOCK_MQTT            15
+#define JSON_LOCK_SERIAL          16
+#define JSON_LOCK_SERVEJSON       17
+#define JSON_LOCK_NOTIFY          18
+#define JSON_LOCK_PRESET_NAME     19
+#define JSON_LOCK_LEDGAP          20
+#define JSON_LOCK_LEDMAP_ENUM     21
+#define JSON_LOCK_REMOTE          22
+
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
 #define NL_MODE_FADE              1            //Fade to target brightness gradually
