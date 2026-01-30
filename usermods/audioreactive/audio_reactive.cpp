@@ -1742,14 +1742,14 @@ class AudioReactive : public Usermod {
         }
 #endif
       }
-      if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
+      if (palettes > 0 && root.containsKey(F("rmcpal"))) {
         // handle removal of custom palettes from JSON call so we don't break things
         removeAudioPalettes();
       }
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<WLED_MAX_CUSTOM_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
