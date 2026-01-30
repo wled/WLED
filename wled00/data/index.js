@@ -3395,11 +3395,15 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		<p style="color:var(--c-f);font-size:0.9em;">
 			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
 		</p>
+		<div style="margin-top:15px;margin-bottom:15px;">
+			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
+				<input type="checkbox" id="versionSaveChoice" checked style="cursor:pointer;">
+				<span>Save my choice for future updates</span>
+			</label>
+		</div>
 		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
-			<button id="versionReportYes" class="btn">Yes</button>
-			<button id="versionReportAlways" class="btn">Yes, Always</button>
-			<button id="versionReportNo" class="btn">Not Now</button>
-			<button id="versionReportNever" class="btn">Never Ask</button>
+			<button id="versionReportYes" class="btn">Report this update</button>
+			<button id="versionReportNo" class="btn">Skip reporting</button>
 		</div>
 	`;
 
@@ -3408,25 +3412,25 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
-		reportUpgradeEvent(info, oldVersion);
+		const saveChoice = gId('versionSaveChoice').checked;
+		reportUpgradeEvent(info, oldVersion, saveChoice); // Pass saveChoice for alwaysReport
 		d.body.removeChild(overlay);
-	});
-
-	gId('versionReportAlways').addEventListener('click', () => {
-		reportUpgradeEvent(info, oldVersion, true); // Pass true for alwaysReport
-		d.body.removeChild(overlay);
-		showToast('Thank you! Future upgrades will be reported automatically.');
+		if (saveChoice) {
+			showToast('Thank you! Future upgrades will be reported automatically.');
+		} else {
+			showToast('Thank you for reporting!');
+		}
 	});
 
 	gId('versionReportNo').addEventListener('click', () => {
-		// Don't update version, will ask again on next load
+		const saveChoice = gId('versionSaveChoice').checked;
+		if (saveChoice) {
+			// Save "never ask" preference
+			updateVersionInfo(newVersion, true, false);
+			showToast('You will not be asked again.');
+		}
+		// Don't update version if not saving choice, will ask again on next load
 		d.body.removeChild(overlay);
-	});
-
-	gId('versionReportNever').addEventListener('click', () => {
-		updateVersionInfo(newVersion, true, false);
-		d.body.removeChild(overlay);
-		showToast('You will not be asked again.');
 	});
 }
 
