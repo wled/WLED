@@ -248,7 +248,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("ETH"),ethernetType);
     #else
     //hide ethernet setting if not compiled in
-    settingsScript.print(F("gId('ethd').style.display='none';"));
+    //settingsScript.print(F("gId('ethd').style.display='none';"));
     #endif
 
     if (Network.isConnected()) //is connected
@@ -587,7 +587,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     char k[4];
     k[2] = 0; //Time macros
-    for (int i = 0; i<10; i++)
+    for (i = 0; i<10; i++)
     {
       k[1] = 48+i; //ascii 0,1,2,3
       if (i<8) { k[0] = 'H'; printSetFormValue(settingsScript,k,timerHours[i]); }
