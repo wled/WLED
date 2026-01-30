@@ -315,7 +315,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
       const Bus *bus = BusManager::getBus(s);
-      if (!bus || !bus->isOk()) break; // should not happen but for safety
+      if (!bus) break; // should not happen but for safety
       int offset = s < 10 ? '0' : 'A' - 10;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length

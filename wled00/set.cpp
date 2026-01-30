@@ -279,7 +279,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
-      int hw_btn_pin = request->arg(bt).toInt();
+      int hw_btn_pin = request->hasArg(bt) ? request->arg(bt).toInt() : -1;
       if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
       else {
         buttons[i].pin  = hw_btn_pin;

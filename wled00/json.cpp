@@ -209,7 +209,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
@@ -232,6 +232,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               if (kelvin <  0) continue;
               if (kelvin == 0) seg.setColor(i, 0);
               if (kelvin >  0) colorKtoRGB(kelvin, brgbw);
+              colValid = true;
+            } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
+              setRandomColor(brgbw);
               colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
@@ -945,26 +948,25 @@ void serializePalettes(JsonObject root, int page)
 {
   byte tcp[72];
   #ifdef ESP8266
-  int itemPerPage = 5;
+  constexpr int itemPerPage = 5;
   #else
-  int itemPerPage = 8;
+  constexpr int itemPerPage = 8;
   #endif
 
-  int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
+  const int customPalettesCount = customPalettes.size();
+  const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
+  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
-  int start = itemPerPage * page;
-  int end = start + itemPerPage;
-  if (end > palettesCount + customPalettesCount) end = palettesCount + customPalettesCount;
+  const int start = itemPerPage * page;
+  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i <= end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
+  for (int i = start; i < end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -993,12 +995,12 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i > palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
-        else if (i < 13) // palette 6 - 12, fastled palettes
-          setPaletteColors(curPalette, *fastledPalettes[i-6]);
+        if (i >= palettesCount) // custom palettes
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+          setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
-          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
           setPaletteColors(curPalette, tcp);
         }
         break;

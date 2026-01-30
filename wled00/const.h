@@ -6,9 +6,9 @@
  * Readability defines and their associated numerical values + compile-time constants
  */
 
-constexpr size_t FASTLED_PALETTE_COUNT = 7;   // = sizeof(fastledPalettes) / sizeof(fastledPalettes[0]);
-constexpr size_t GRADIENT_PALETTE_COUNT = 59; // = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
-constexpr size_t DYNAMIC_PALETTE_COUNT = 5;   // 1-5 are dynamic palettes (1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
+constexpr size_t FASTLED_PALETTE_COUNT = 7;   //  6-12 = sizeof(fastledPalettes) / sizeof(fastledPalettes[0]);
+constexpr size_t GRADIENT_PALETTE_COUNT = 59; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
+constexpr size_t DYNAMIC_PALETTE_COUNT = 6;   //  0- 5 = dynamic palettes (0=default(virtual),1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
 constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
 #ifndef ESP8266
   #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
@@ -611,7 +611,12 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
     #define DEFAULT_LED_PIN 2    // GPIO2 (D4) on Wemos D1 mini compatible boards, safe to use on any board
   #endif
 #else
-  #define DEFAULT_LED_PIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards (if it is unusable it will be reassigned in WS2812FX::finalizeInit())
+  #if defined(WLED_USE_ETHERNET)
+    #define DEFAULT_LED_PIN 4    // GPIO4 seems to be a "safe bet" for all known ethernet boards (issue #5155)
+    //#warning "Compiling with Ethernet support. The default LED pin has been changed to pin 4."
+  #else
+    #define DEFAULT_LED_PIN 16   // aligns with GPIO2 (D4) on Wemos D1 mini32 compatible boards (if it is unusable it will be reassigned in WS2812FX::finalizeInit())
+  #endif
 #endif
 #define DEFAULT_LED_TYPE TYPE_WS2812_RGB
 #define DEFAULT_LED_COUNT 30

@@ -401,19 +401,19 @@ void RotaryEncoderUIUsermod::sortModesAndPalettes() {
   re_sortModes(modes_qstrings, modes_alpha_indexes, strip.getModeCount(), MODE_SORT_SKIP_COUNT);
 
   DEBUG_PRINT(F("Sorting palettes: ")); DEBUG_PRINT(getPaletteCount()); DEBUG_PRINT('/'); DEBUG_PRINTLN(customPalettes.size());
-  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount() + 1); // +1 for default palette
-  palettes_alpha_indexes = re_initIndexArray(getPaletteCount());
+  palettes_qstrings = re_findModeStrings(JSON_palette_names, getPaletteCount()); // allocates memory for all palette names
+  palettes_alpha_indexes = re_initIndexArray(getPaletteCount()); // allocates memory for all palette indexes
   if (customPalettes.size()) {
     for (int i=0; i<customPalettes.size(); i++) {
-      palettes_alpha_indexes[getPaletteCount()-customPalettes.size()+i] = 255-i;
-      palettes_qstrings[getPaletteCount()-customPalettes.size()+i] = PSTR("~Custom~");
+      palettes_alpha_indexes[FIXED_PALETTE_COUNT+i] = 255-i;
+      palettes_qstrings[FIXED_PALETTE_COUNT+i] = PSTR("~Custom~");
     }
   }
   // How many palette names start with '*' and should not be sorted?
   // (Also skipping the first one, 'Default').
-  int skipPaletteCount = 1;
-  while (pgm_read_byte_near(palettes_qstrings[skipPaletteCount]) == '*') skipPaletteCount++;
-  re_sortModes(palettes_qstrings, palettes_alpha_indexes, getPaletteCount()-customPalettes.size(), skipPaletteCount);
+  int skipPaletteCount = 1; // could use DYNAMIC_PALETTE_COUNT instead
+  while (pgm_read_byte_near(palettes_qstrings[skipPaletteCount]) == '*') skipPaletteCount++; // legacy code
+  re_sortModes(palettes_qstrings, palettes_alpha_indexes, FIXED_PALETTE_COUNT, skipPaletteCount); // only sort fixed palettes (skip dynamic)
 }
 
 byte *RotaryEncoderUIUsermod::re_initIndexArray(int numModes) {
