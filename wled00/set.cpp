@@ -37,8 +37,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
-          strlcpy(multiWiFi[n].clientPass, request->arg(pw).c_str(), 65);
-          forceReconnect = true;
+          int passlen = request->arg(pw).length();
+          if (passlen == 0 || (passlen > 7 && passlen < 64)) { // WPA2 passphrase: 8-63 chars
+            strlcpy(multiWiFi[n].clientPass, request->arg(pw).c_str(), 65);
+            forceReconnect = true;
+          }
         }
         fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
         for (size_t i = 0; i < 4; i++) {
