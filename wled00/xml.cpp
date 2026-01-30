@@ -248,7 +248,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("ETH"),ethernetType);
     #else
     //hide ethernet setting if not compiled in
-    //settingsScript.print(F("gId('ethd').style.display='none';"));
+    settingsScript.print(F("gId('ethd').style.display='none';"));
     #endif
 
     if (Network.isConnected()) //is connected
