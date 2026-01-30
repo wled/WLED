@@ -3413,24 +3413,20 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
 		const saveChoice = gId('versionSaveChoice').checked;
-		reportUpgradeEvent(info, oldVersion, saveChoice); // Pass saveChoice for alwaysReport
 		d.body.removeChild(overlay);
-		if (saveChoice) {
-			showToast('Thank you! Future upgrades will be reported automatically.');
-		} else {
-			showToast('Thank you for reporting!');
-		}
+		// Pass saveChoice as alwaysReport parameter
+		reportUpgradeEvent(info, oldVersion, saveChoice);
 	});
 
 	gId('versionReportNo').addEventListener('click', () => {
 		const saveChoice = gId('versionSaveChoice').checked;
+		d.body.removeChild(overlay);
 		if (saveChoice) {
 			// Save "never ask" preference
 			updateVersionInfo(newVersion, true, false);
 			showToast('You will not be asked again.');
 		}
 		// Don't update version if not saving choice, will ask again on next load
-		d.body.removeChild(overlay);
 	});
 }
 
@@ -3474,7 +3470,11 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 		})
 		.then(res => {
 			if (res.ok) {
-				showToast('Thank you for reporting!');
+				if (alwaysReport) {
+					showToast('Thank you! Future upgrades will be reported automatically.');
+				} else {
+					showToast('Thank you for reporting!');
+				}
 				updateVersionInfo(info.ver, false, !!alwaysReport);
 			} else {
 				showToast('Report failed. Please try again later.', true);
