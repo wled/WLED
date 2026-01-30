@@ -3402,7 +3402,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 			</label>
 		</div>
 		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
-			<button id="versionReportYes" class="btn">Report this update</button>
+			<button id="versionReportYes" class="btn">Report update</button>
 			<button id="versionReportNo" class="btn">Skip reporting</button>
 		</div>
 	`;
