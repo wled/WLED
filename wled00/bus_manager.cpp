@@ -672,7 +672,9 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _hasCCT = false;
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
+  #ifdef ARDUINO_ARCH_ESP32
   _DNSlookup = nullptr;
+  #endif
   #ifdef ARDUINO_ARCH_ESP32
   _hostname = bc.text;
   resolveHostname(); // resolve hostname to IP address if needed
