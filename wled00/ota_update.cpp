@@ -466,10 +466,6 @@ static void invalidateBootloaderSHA256Cache() {
  * @return true if validation passed, false otherwise
  */
 static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& bootloaderErrorMsg) {
-  if (!bootloaderErrorMsg) {
-    DEBUG_PRINTLN(F("bootloaderErrorMsg is null"));
-    return false;
-  }
   const size_t MIN_IMAGE_HEADER_SIZE = sizeof(esp_image_header_t);
 
   // 1. Validate minimum size for header
