@@ -591,6 +591,10 @@ void WLED::beginStrip()
   strip.setShowCallback(handleOverlayDraw);
   doInitBusses = false;
 
+  // init offMode and relay
+  offMode = false;   // init to on state to allow proper relay init
+  handleOnOff(true); // init relay and force off
+
   if (turnOnAtBoot) {
     if (briS > 0) bri = briS;
     else if (bri == 0) bri = 128;
@@ -606,7 +610,8 @@ void WLED::beginStrip()
     }
     briLast = briS; bri = 0;
     strip.fill(BLACK);
-    strip.show();
+    if (rlyPin < 0)
+      strip.show(); // ensure LEDs are off if no relay is used
   }
   colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
   if (bootPreset > 0) {
@@ -614,12 +619,6 @@ void WLED::beginStrip()
   }
 
   strip.setTransition(transitionDelayDefault);  // restore transitions
-
-  // init relay pin
-  if (rlyPin >= 0) {
-    pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
-    digitalWrite(rlyPin, (rlyMde ? bri : !bri));
-  }
 }
 
 void WLED::initAP(bool resetAP)
