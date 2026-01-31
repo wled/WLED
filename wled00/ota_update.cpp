@@ -348,6 +348,50 @@ static void invalidateBootloaderSHA256Cache() {
 }
 
 /**
+ * Compute bootloader size based on image header and segment layout.
+ * Returns total size in bytes when valid, or 0 when invalid.
+ */
+static size_t getBootloaderImageSize(const esp_image_header_t &header,
+                                          size_t availableLen) {
+  size_t offset = sizeof(esp_image_header_t);
+  size_t actualBootloaderSize = offset;
+  const uint8_t* buffer = reinterpret_cast<const uint8_t*>(&header);
+
+  if (offset + (header.segment_count*8) > availableLen) {
+    // Not enough space for segments
+    return 0;
+  }
+
+  for (uint8_t i = 0; i < header.segment_count; i++) {
+    uint32_t segmentSize = buffer[offset + 4] | (buffer[offset + 5] << 8) |
+                           (buffer[offset + 6] << 16) | (buffer[offset + 7] << 24);
+
+    // Segment size sanity check
+    // ESP32 classic bootloader segments can be larger, C3 are smaller
+    if (segmentSize > 0x20000) {  // 128KB max per segment (very generous)
+      return 0;
+    }
+
+    offset += 8 + segmentSize;  // Skip segment header and data
+  }
+
+  actualBootloaderSize = offset;
+
+  // Check for appended SHA256 hash (byte 23 in header)
+  // If hash_appended != 0, there's a 32-byte SHA256 hash after the segments
+  if (header.hash_appended != 0) {
+    actualBootloaderSize += 32;
+  }
+
+  // Sometimes there is a checksum byte
+  if (availableLen > actualBootloaderSize) {
+    actualBootloaderSize += 1;
+  }
+
+  return actualBootloaderSize;
+}
+
+/**
  * Verify complete buffered bootloader using ESP-IDF validation approach
  * This matches the key validation steps from esp_image_verify() in ESP-IDF
  * @param buffer Reference to pointer to bootloader binary data (will be adjusted if offset detected)
@@ -404,71 +448,27 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& b
     return false;
   }
 
-  // 4. Basic segment structure validation
-  // Each segment has a header: load_addr (4 bytes) + data_len (4 bytes)
-  size_t offset = MIN_IMAGE_HEADER_SIZE;
-  size_t actualBootloaderSize = MIN_IMAGE_HEADER_SIZE;
-
-  for (uint8_t i = 0; i < imageHeader.segment_count && offset + 8 <= len; i++) {
-    uint32_t segmentSize = buffer[offset + 4] | (buffer[offset + 5] << 8) |
-                           (buffer[offset + 6] << 16) | (buffer[offset + 7] << 24);
-
-    // Segment size sanity check
-    // ESP32 classic bootloader segments can be larger, C3 are smaller
-    if (segmentSize > 0x20000) {  // 128KB max per segment (very generous)
-      bootloaderErrorMsg = "Segment " + String(i) + " too large: " + String(segmentSize) + " bytes";
-      return false;
-    }
-
-    offset += 8 + segmentSize;  // Skip segment header and data
-  }
-
-  actualBootloaderSize = offset;
-
-  // 5. Check for appended SHA256 hash (byte 23 in header)
-  // If hash_appended != 0, there's a 32-byte SHA256 hash after the segments
-  if (imageHeader.hash_appended != 0) {
-    actualBootloaderSize += 32;
-    if (actualBootloaderSize > availableLen) {
-      bootloaderErrorMsg = "Bootloader missing SHA256 trailer";
-      return false;
-    }
-    DEBUG_PRINTF_P(PSTR("Bootloader has appended SHA256 hash\n"));
-  }
-
-  // 6. The image may also have a 1-byte checksum after segments/hash
-  // Check if there's at least one more byte available
-  if (actualBootloaderSize + 1 <= availableLen) {
-    // There's likely a checksum byte
-    actualBootloaderSize += 1;
-  } else if (actualBootloaderSize > availableLen) {
-    bootloaderErrorMsg = "Bootloader truncated before checksum";
+  // 4. Validate image size
+  size_t actualBootloaderSize = getBootloaderImageSize(imageHeader, availableLen);
+  if (actualBootloaderSize == 0) {
+    bootloaderErrorMsg = "Invalid image";
     return false;
   }
-
-  // 7. Align to 16 bytes (ESP32 requirement for flash writes)
+ 
+  // 5. Align to 16 bytes (ESP32 requirement for flash writes)
   // The bootloader image must be 16-byte aligned
   if (actualBootloaderSize % 16 != 0) {
-    size_t alignedSize = ((actualBootloaderSize + 15) / 16) * 16;
-    // Make sure we don't exceed available data
-    if (alignedSize <= len) {
-      actualBootloaderSize = alignedSize;
-    }
+    actualBootloaderSize = ((actualBootloaderSize + 15) / 16) * 16;
+  }
+
+  if (actualBootloaderSize > len) {
+    // Same as above
+    bootloaderErrorMsg = "Too small";
+    return false;
   }
 
   DEBUG_PRINTF_P(PSTR("Bootloader validation: %d segments, actual size %d bytes (buffer size %d bytes, hash_appended=%d)\n"),
                  imageHeader.segment_count, actualBootloaderSize, len, imageHeader.hash_appended);
-
-  // 8. Verify we have enough data for all segments + hash + checksum
-  if (actualBootloaderSize > availableLen) {
-    bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(actualBootloaderSize) + " bytes, have " + String(availableLen) + " bytes";
-    return false;
-  }
-
-  if (offset > availableLen) {
-    bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(offset) + " bytes, have " + String(len) + " bytes";
-    return false;
-  }
 
   // Update len to reflect actual bootloader size (including hash and checksum, with alignment)
   // This is critical - we must write the complete image including checksums
