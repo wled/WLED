@@ -289,11 +289,114 @@ void markOTAvalid() {
 // Cache for bootloader SHA256 digest as hex string
 static String bootloaderSHA256HexCache = "";
 
+// Helper function to calculate actual bootloader size from flash
+// Returns the actual size of the bootloader image, or 0 if invalid
+static size_t getActualBootloaderSize() {
+  const size_t MIN_IMAGE_HEADER_SIZE = 24;
+  
+  // We need to read enough data to parse all segment headers
+  // Typical bootloader has 4-6 segments, each header is 8 bytes
+  // Reading first 2KB should be sufficient for header parsing
+  const size_t PARSE_BUFFER_SIZE = 2048;
+  
+  uint8_t* parseBuffer = (uint8_t*)malloc(PARSE_BUFFER_SIZE);
+  if (!parseBuffer) {
+    DEBUG_PRINTLN(F("Failed to allocate parse buffer"));
+    return 0;
+  }
+  
+  // Read initial portion for parsing
+  if (esp_flash_read(NULL, parseBuffer, BOOTLOADER_OFFSET, PARSE_BUFFER_SIZE) != ESP_OK) {
+    DEBUG_PRINTLN(F("Failed to read bootloader header"));
+    free(parseBuffer);
+    return 0;
+  }
+
+  // Validate magic byte
+  if (parseBuffer[0] != 0xE9) {
+    DEBUG_PRINTF_P(PSTR("Invalid bootloader magic byte: 0x%02X\n"), parseBuffer[0]);
+    free(parseBuffer);
+    return 0;
+  }
+
+  // Get segment count
+  uint8_t segmentCount = parseBuffer[1];
+  if (segmentCount == 0 || segmentCount > 16) {
+    DEBUG_PRINTF_P(PSTR("Invalid segment count: %d\n"), segmentCount);
+    free(parseBuffer);
+    return 0;
+  }
+
+  // Parse segments to find actual bootloader size
+  size_t offset = MIN_IMAGE_HEADER_SIZE;
+  
+  for (uint8_t i = 0; i < segmentCount; i++) {
+    // Check if segment header is within our parse buffer
+    if (offset + 8 > PARSE_BUFFER_SIZE) {
+      DEBUG_PRINTF_P(PSTR("Segment %d header at offset %d beyond parse buffer\n"), i, offset);
+      free(parseBuffer);
+      // Fall back to full size if we can't parse all segments
+      return BOOTLOADER_SIZE;
+    }
+    
+    // Read segment size (little-endian uint32_t at offset+4)
+    uint32_t segmentSize = parseBuffer[offset + 4] | 
+                          (parseBuffer[offset + 5] << 8) |
+                          (parseBuffer[offset + 6] << 16) | 
+                          (parseBuffer[offset + 7] << 24);
+    
+    // Sanity check segment size
+    if (segmentSize > 0x20000) {  // 128KB max per segment
+      DEBUG_PRINTF_P(PSTR("Segment %d too large: %u bytes\n"), i, segmentSize);
+      free(parseBuffer);
+      return BOOTLOADER_SIZE;  // Fall back to full size on error
+    }
+    
+    offset += 8 + segmentSize;  // Skip segment header (8 bytes) and data
+  }
+  
+  size_t actualSize = offset;
+  
+  // Check for appended SHA256 hash (byte 23 in header)
+  uint8_t hashAppended = parseBuffer[23];
+  if (hashAppended != 0) {
+    actualSize += 32;
+    DEBUG_PRINTLN(F("Bootloader has appended SHA256"));
+  }
+  
+  // Add checksum byte (typically present)
+  actualSize += 1;
+  
+  // Align to 16 bytes (ESP32 flash requirement)
+  if (actualSize % 16 != 0) {
+    actualSize = ((actualSize + 15) / 16) * 16;
+  }
+  
+  free(parseBuffer);
+  
+  // Sanity check - actual size should not exceed allocated bootloader space
+  if (actualSize > BOOTLOADER_SIZE) {
+    DEBUG_PRINTF_P(PSTR("Calculated size %d exceeds max %d, using max\n"), actualSize, BOOTLOADER_SIZE);
+    return BOOTLOADER_SIZE;
+  }
+  
+  DEBUG_PRINTF_P(PSTR("Actual bootloader size: %d bytes (from %d segments)\n"), actualSize, segmentCount);
+  return actualSize;
+}
+
 // Calculate and cache the bootloader SHA256 digest as hex string
 void calculateBootloaderSHA256() {
   if (!bootloaderSHA256HexCache.isEmpty()) return;
 
-  // Calculate SHA256
+  // First, determine the actual bootloader size
+  size_t actualBootloaderSize = getActualBootloaderSize();
+  if (actualBootloaderSize == 0) {
+    DEBUG_PRINTLN(F("Failed to determine bootloader size, using empty hash"));
+    bootloaderSHA256HexCache = "";
+    return;
+  }
+
+  // Calculate SHA256 only over the actual bootloader data
   uint8_t sha256[32];
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
@@ -302,8 +405,8 @@ void calculateBootloaderSHA256() {
   const size_t chunkSize = 256;
   uint8_t buffer[chunkSize];
 
-  for (uint32_t offset = 0; offset < BOOTLOADER_SIZE; offset += chunkSize) {
-    size_t readSize = min((size_t)(BOOTLOADER_SIZE - offset), chunkSize);
+  for (uint32_t offset = 0; offset < actualBootloaderSize; offset += chunkSize) {
+    size_t readSize = min((size_t)(actualBootloaderSize - offset), chunkSize);
     if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
       mbedtls_sha256_update(&ctx, buffer, readSize);
     }
