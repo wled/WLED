@@ -48,6 +48,7 @@
 				d.rsvd = [];
 				d.ro_gpio = [];
 				d.extra = [];
+				d.a_pins = []; // analog pins array
 			}, ()=>{
 				for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
 				if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
@@ -216,7 +217,11 @@
 			um += ":"+fld;
 		} else if (typeof(fld) === "number") sel.classList.add("pin"); // a hack to add a class
 		let arr = d.getElementsByName(um);
-		let idx = arr[0].type==="hidden"?1:0; // ignore hidden field
+		if (!arr || arr.length === 0) {
+			console.log("addDD: No elements found for name:", um);
+			return null; // no elements found
+		}
+		let idx = (arr[0] && arr[0].type==="hidden")?1:0; // ignore hidden field
 		if (arr.length > 1+idx) {
 			// we have array of values (usually pins)
 			for (let i of arr) {
@@ -282,11 +287,17 @@
 	// TODO: rename this function, needs to be in sync with the now out of tree mod
 	function aOpt(name,el) {
 		let obj = d.getElementsByName(name);
+		if (!obj || obj.length === 0) return; // No elements found
+
 		var select = obj;
 		if (obj[el]) select = obj[el];
+
+		// Check if it's actually a select element with options
+		if (!select.options || !select.options.length) return;
+
 		for (let i=0; i<select.options.length; i++) {
 			let c = select.options[i];
-			found = false;
+			let found = false;
 			for (let jj=0; jj<d.a_pins.length; jj++) if (d.a_pins[jj] == c.value) found = true; //value -1 or analog pins
 			if (c.value != -1 && !found) {
 				select.removeChild(c);
@@ -296,6 +307,74 @@
 			//https://www.javascripttutorial.net/javascript-dom/javascript-remove-items-from-a-select-conditionally/
 		}
 	}
+	function rOpt(name,el,txt,val) {
+		let obj = d.getElementsByName(name);
+		if (!obj || obj.length === 0) return; // No elements found
+		var select = obj;
+		if (obj[el]) select = obj[el];
+
+		// Check if element has childNodes
+		if (!select.childNodes || !select.childNodes.length) return;
+
+		for (let i=0; i<select.childNodes.length; i++) {
+			let c = select.childNodes[i];
+			if (c.value == val) c.text = txt;
+		}
+	}
+	function xOpt(name,el,txt,val) {
+		let obj = d.getElementsByName(name);
+		if (!obj || obj.length === 0) return; // No elements found
+		var select = obj;
+		if (obj[el]) select = obj[el];
+
+		// Check if element has childNodes
+		if (!select.childNodes || !select.childNodes.length) return;
+
+		for (let i=0; i<select.childNodes.length; i++) {
+			let c = select.childNodes[i];
+			if (c.value == val) c.text += txt;
+		}
+	}
+	function dOpt(name,el,valFrom,valTo) {
+		let obj = d.getElementsByName(name);
+		if (!obj || obj.length === 0) return; // No elements found
+		var select = obj;
+		if (obj[el]) select = obj[el];
+
+		// Check if it's actually a select element with options
+		if (!select.options || !select.options.length) return;
+
+		for (let i=0; i<select.options.length; i++) {
+			let c = select.options[i];
+			if (c.value >= valFrom && c.value <= valTo) {
+				select.removeChild(c);
+				i--; //decrease i by one because the index has been adjusted
+			}
+			//https://www.javascripttutorial.net/javascript-dom/javascript-add-remove-options/
+			//https://www.javascripttutorial.net/javascript-dom/javascript-remove-items-from-a-select-conditionally/
+		}
+	}
+	function dRO(name,el) {
+		// Initialize d.ro_gpio if not already set
+		if (!d.ro_gpio) d.ro_gpio = [];
+
+		let obj = d.getElementsByName(name);
+		if (!obj || obj.length === 0) return; // No elements found
+
+		var select = obj;
+		if (obj[el]) select = obj[el];
+
+		// Check if it's actually a select element with options
+		if (!select.options || !select.options.length) return;
+
+		// console.log("dRO", name, el, obj, "s", select, d.ro_gpio);
+		for (let i=0; i<select.options.length; i++) {
+			let c = select.options[i];
+			// console.log("dRO option", c, c.value, d.ro_gpio.includes(c.value));
+			for (let j=0; j<d.ro_gpio.length; j++) if (d.ro_gpio[j] == c.value) c.disabled=true; //if (d.ro_gpio.includes(c.value))
+		}
+	}
+
 	</script>
 </head>
 
