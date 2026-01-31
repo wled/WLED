@@ -24,7 +24,8 @@ enum class SensorValueType : uint8_t
   Int32,
   UInt32,
   Array,
-  Struct
+  Struct,
+  Whatever
 };
 
 class SensorValue
@@ -34,8 +35,9 @@ public:
   SensorValue(float val) : _float{val}, _type{SensorValueType::Float} {}
   SensorValue(int32_t val) : _int32{val}, _type{SensorValueType::Int32} {}
   SensorValue(uint32_t val) : _uint32{val}, _type{SensorValueType::UInt32} {}
-  SensorValue(const SensorValueArray *val) : _array{val}, _type{SensorValueType::Array} {}
-  SensorValue(const SensorValueStruct *val) : _struct{val}, _type{SensorValueType::Struct} {}
+  explicit SensorValue(const SensorValueArray *val) : _array{val}, _type{SensorValueType::Array} {}
+  explicit SensorValue(const SensorValueStruct *val) : _struct{val}, _type{SensorValueType::Struct} {}
+  explicit SensorValue(const void *val) : _whatever{val}, _type{SensorValueType::Whatever} {}
 
   bool as_bool() const { return _type == SensorValueType::Bool ? _bool : false; }
   float as_float() const { return _type == SensorValueType::Float ? _float : 0.0f; }
@@ -43,6 +45,7 @@ public:
   uint32_t as_uint32() const { return _type == SensorValueType::UInt32 ? _uint32 : 0U; }
   const SensorValueArray *as_array() const { return _type == SensorValueType::Array ? _array : nullptr; }
   const SensorValueStruct *as_struct() const { return _type == SensorValueType::Struct ? _struct : nullptr; }
+  const void *as_whatever() const { return _type == SensorValueType::Whatever ? _whatever : nullptr; }
 
   SensorValueType type() const { return _type; }
 
@@ -52,8 +55,9 @@ public:
   operator float() const { return as_float(); }
   operator int32_t() const { return as_int32(); }
   operator uint32_t() const { return as_uint32(); }
-  operator const SensorValueArray *() const { return as_array(); }
-  operator const SensorValueStruct *() const { return as_struct(); }
+  explicit operator const SensorValueArray *() const { return as_array(); }
+  explicit operator const SensorValueStruct *() const { return as_struct(); }
+  explicit operator const void *() const { return as_whatever(); }
 
 private:
   friend class Sensor;
@@ -65,6 +69,7 @@ private:
     uint32_t _uint32;
     const SensorValueArray *_array;
     const SensorValueStruct *_struct;
+    const void *_whatever;
   };
 
   SensorValueType _type;
@@ -87,7 +92,7 @@ struct SensorChannelProps
 };
 
 template <size_t CHANNEL_COUNT>
-using SensorChannelPropertiesArray = std::array<SensorChannelProps, CHANNEL_COUNT>;
+using SensorChannelPropsArray = std::array<SensorChannelProps, CHANNEL_COUNT>;
 
 //--------------------------------------------------------------------------------------------------
 
@@ -102,7 +107,7 @@ public:
 
   SensorValue getValue(uint8_t channelIndex = 0) { return do_getSensorValue(channelIndex); }
 
-  const SensorChannelProps &getProperties(uint8_t channelIndex = 0) { return do_getSensorProperties(channelIndex); }
+  const SensorChannelProps &getProps(uint8_t channelIndex = 0) { return do_getSensorProperties(channelIndex); }
 
   void accept(uint8_t channelIndex, SensorChannelVisitor &visitor);
   void accept(SensorChannelVisitor &visitor) { accept(0, visitor); }
@@ -132,7 +137,7 @@ public:
 private:
   bool do_isSensorReady() override { return _realSensor.isReady(); }
   SensorValue do_getSensorValue(uint8_t) override { return _realSensor.getValue(_channelIndex); }
-  const SensorChannelProps &do_getSensorProperties(uint8_t) override { return _realSensor.getProperties(_channelIndex); }
+  const SensorChannelProps &do_getSensorProperties(uint8_t) override { return _realSensor.getProps(_channelIndex); }
 
   Sensor &_realSensor;
   const uint8_t _channelIndex;
@@ -147,8 +152,9 @@ public:
   virtual void visit(float val) {}
   virtual void visit(int32_t val) {}
   virtual void visit(uint32_t val) {}
-  virtual void visit(const SensorValueArray *val) {}
-  virtual void visit(const SensorValueStruct *val) {}
+  virtual void visit(const SensorValueArray &val) {}
+  virtual void visit(const SensorValueStruct &val) {}
+  virtual void visit(const void *val) {}
 };
 
 class SensorChannelVisitor
@@ -160,6 +166,115 @@ public:
   virtual void visit(uint32_t val, const SensorChannelProps &props) {}
   virtual void visit(const SensorValueArray &val, const SensorChannelProps &props) {}
   virtual void visit(const SensorValueStruct &val, const SensorChannelProps &props) {}
+  virtual void visit(const void *val, const SensorChannelProps &props) {}
+};
+
+//--------------------------------------------------------------------------------------------------
+class Usermod;
+
+// A cursor to iterate over all available sensors.
+class SensorCursor
+{
+public:
+  using UmIterator = Usermod *const *;
+
+  SensorCursor(UmIterator umBegin, UmIterator umEnd) : _umBegin{umBegin}, _umEnd{umEnd} { reset(); }
+  bool isValid() const { return _sensor != nullptr; }
+  Sensor &get() { return {*_sensor}; }
+  Sensor &operator*() { return *_sensor; }
+  Sensor *operator->() { return _sensor; }
+  bool next();
+  void reset();
+
+private:
+  UmIterator _umBegin;
+  UmIterator _umEnd;
+  UmIterator _umIter = nullptr;
+  Sensor *_sensor = nullptr;
+  uint8_t _sensorIndex = 0;
+};
+
+// Base class for cursors to iterate over specific channels of all sensors.
+class SensorChannelCursor
+{
+public:
+  bool isValid() const { return _sensorCursor.isValid(); }
+  SensorChannelProxy get() { return {*_sensorCursor, _channelIndex}; }
+  bool next();
+  void reset();
+
+protected:
+  ~SensorChannelCursor() = default;
+  explicit SensorChannelCursor(SensorCursor allSensors)
+      : _sensorCursor{allSensors} { reset(); }
+
+  virtual bool matches(const SensorChannelProps &channelProps) = 0;
+
+private:
+  SensorCursor _sensorCursor;
+  uint8_t _channelIndex = 0;
+};
+
+// A cursor to iterate over all available channels of all sensors.
+class AllSensorChannels final : public SensorChannelCursor
+{
+public:
+  explicit AllSensorChannels(SensorCursor allSensors)
+      : SensorChannelCursor{allSensors} {}
+
+private:
+  bool matches(const SensorChannelProps &) override { return true; }
+};
+
+// A cursor to iterate over all available channels with a specific ValueType.
+class SensorChannelsByType final : public SensorChannelCursor
+{
+public:
+  SensorChannelsByType(SensorCursor allSensors, SensorValueType valueType)
+      : SensorChannelCursor{allSensors}, _type{valueType} {}
+
+private:
+  bool matches(const SensorChannelProps &props) override { return props.rangeMin.type() == _type; }
+  SensorValueType _type;
+};
+
+// A cursor to iterate over all available channels with a specific name.
+class SensorChannelsByName final : public SensorChannelCursor
+{
+public:
+  SensorChannelsByName(SensorCursor allSensors, const char *channelName)
+      : SensorChannelCursor{allSensors}, _name{channelName} {}
+
+private:
+  bool matches(const SensorChannelProps &props) override { return strcmp(props.channelName, _name) == 0; }
+  const char *_name;
+};
+
+class SensorList
+{
+public:
+  SensorList(SensorCursor::UmIterator umBegin, SensorCursor::UmIterator umEnd)
+      : _umBegin{umBegin}, _umEnd{umEnd} {}
+
+  SensorCursor getAllSensors() { return SensorCursor{_umBegin, _umEnd}; }
+
+  Sensor *findSensorByName(const char *sensorName)
+  {
+    for (auto cursor = getAllSensors(); cursor.isValid(); cursor.next())
+      if (strcmp(cursor->name(), sensorName) == 0)
+        return &cursor.get();
+    return nullptr;
+  }
+
+  AllSensorChannels getAllSensorChannels() { return AllSensorChannels{getAllSensors()}; }
+
+  SensorChannelsByType getSensorChannelByType(SensorValueType valueType) { return {getAllSensors(), valueType}; }
+
+  SensorChannelsByName getSensorChannelByName(const char *channelName) { return {getAllSensors(), channelName}; }
+
+private:
+  SensorCursor::UmIterator _umBegin;
+  SensorCursor::UmIterator _umEnd;
 };
 
 //--------------------------------------------------------------------------------------------------

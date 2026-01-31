@@ -3,7 +3,77 @@
  * Licensed under the EUPL v. 1.2 or later
  */
 
+#include "wled.h"
 #include "Sensor.h"
+
+//--------------------------------------------------------------------------------------------------
+
+void SensorCursor::reset()
+{
+  _sensorIndex = 0;
+  for (_umIter = _umBegin; _umIter < _umEnd; ++_umIter)
+  {
+    Usermod *um = *_umIter;
+    if (um->getSensorCount())
+    {
+      _sensor = um->getSensor(0);
+      if (_sensor && _sensor->channelCount())
+        return;
+    }
+  }
+  _sensor = nullptr;
+}
+
+bool SensorCursor::next()
+{
+  if (isValid())
+  {
+    // try next sensor of current usermod
+    Usermod *um = *_umIter;
+    if (++_sensorIndex < um->getSensorCount())
+    {
+      _sensor = um->getSensor(_sensorIndex);
+      if (_sensor && _sensor->channelCount())
+        return true;
+    }
+    // try next usermod
+    _sensorIndex = 0;
+    while (++_umIter < _umEnd)
+    {
+      um = *_umIter;
+      if (um->getSensorCount())
+      {
+        _sensor = um->getSensor(0);
+        if (_sensor && _sensor->channelCount())
+          return true;
+      }
+    }
+    // no more sensors found
+    _sensor = nullptr;
+  }
+  return false;
+}
+
+//--------------------------------------------------------------------------------------------------
+
+void SensorChannelCursor::reset()
+{
+  _sensorCursor.reset();
+  _channelIndex = 0;
+}
+
+bool SensorChannelCursor::next()
+{
+  while (_sensorCursor.isValid())
+  {
+    if (++_channelIndex < _sensorCursor->channelCount())
+      if (matches(_sensorCursor->getProps(_channelIndex)))
+        return true;
+    _channelIndex = 0;
+    _sensorCursor.next();
+  }
+  return false;
+}
 
 //--------------------------------------------------------------------------------------------------
 
@@ -24,10 +94,12 @@ void SensorValue::accept(SensorValueVisitor &visitor) const
     visitor.visit(_uint32);
     break;
   case SensorValueType::Array:
-    visitor.visit(_array);
+    visitor.visit(*_array);
     break;
   case SensorValueType::Struct:
-    visitor.visit(_struct);
+    visitor.visit(*_struct);
+  case SensorValueType::Whatever:
+    visitor.visit(_whatever);
     break;
   }
 }
@@ -38,7 +110,7 @@ void Sensor::accept(uint8_t channelIndex, SensorChannelVisitor &visitor)
     return;
 
   const auto &val = getValue(channelIndex);
-  const auto &props = getProperties(channelIndex);
+  const auto &props = getProps(channelIndex);
   switch (val.type())
   {
   case SensorValueType::Bool:
@@ -58,6 +130,9 @@ void Sensor::accept(uint8_t channelIndex, SensorChannelVisitor &visitor)
     break;
   case SensorValueType::Struct:
     visitor.visit(*val._struct, props);
+    break;
+  case SensorValueType::Whatever:
+    visitor.visit(val._whatever, props);
     break;
   }
 }
