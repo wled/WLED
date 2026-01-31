@@ -98,13 +98,13 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
 ////////////////////////////
 //     2D Tetris AI       //
 ////////////////////////////
-uint16_t mode_2DTetrisAI()
+void mode_2DTetrisAI()
 {
   if (!strip.isMatrix || !SEGENV.allocateData(sizeof(tetrisai_data)))
   {
     // not a 2D set-up
     SEGMENT.fill(SEGCOLOR(0));
-    return 350;
+    return;
   }
   TetrisAI_data* tetrisai_data = reinterpret_cast<TetrisAI_data*>(SEGENV.data);
 
@@ -222,8 +222,6 @@ uint16_t mode_2DTetrisAI()
   {
     tetrisai_data->tetris.poll();
   }
-
-  return FRAMETIME;
 } // mode_2DTetrisAI()
 static const char _data_FX_MODE_2DTETRISAI[] PROGMEM = "Tetris AI@!,Look ahead,Intelligence,Rotate color,Mistake free,Show next,Border,Mistakes;Game Over,!,Border;!;2;sx=127,ix=64,c1=255,c2=0,c3=31,o1=1,o2=1,o3=0,pal=11";
 
