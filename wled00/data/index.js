@@ -3346,7 +3346,7 @@ function checkVersionUpgrade(info) {
 				// Version has changed
 				if (versionInfo.alwaysReport) {
 					// Automatically report if user opted in for always reporting
-					reportUpgradeEvent(info, storedVersion);
+					reportUpgradeEvent(info, storedVersion, true);
 				} else {
 					// Show upgrade prompt
 					showVersionUpgradePrompt(info, storedVersion, currentVersion);
