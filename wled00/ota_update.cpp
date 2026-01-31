@@ -289,6 +289,9 @@ void markOTAvalid() {
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+
+// Class for computing the expected bootloader data size given a stream of the data.
+// If the image includes an SHA256 appended after the data stream, we do not consider it here.
 class BootloaderImageSizer {
 public:
 
@@ -313,9 +316,6 @@ public:
       }
 
       imageSize = sizeof(esp_image_header_t);
-      if (header.hash_appended) {
-        imageSize += 32;
-      }
       segmentsLeft = header.segment_count;
       data += sizeof(esp_image_header_t);
       len -= sizeof(esp_image_header_t);
@@ -345,6 +345,11 @@ public:
         --segmentsLeft;
         if (segmentsLeft == 0) {
           // all done, actually; we don't need to read any more
+ 
+          // Round up to nearest 16 bytes.
+          // Always add 1 to account for the checksum byte.
+          imageSize = ((imageSize/ 16) + 1) * 16;
+
           DEBUG_PRINTF("BLS complete, is %d\n", imageSize);        
           return false;
         }        
@@ -387,7 +392,13 @@ static uint8_t bootloaderSHA256Cache[32];
 
 /**
  * Calculate and cache the bootloader SHA256 digest
- * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
+ * Reads the bootloader from flash and computes SHA256 hash
+ * 
+ * Strictly speaking, most bootloader images already contain a hash at the end of the image; 
+ * we could in theory just read it.  The trouble is that we have to parse the structure anyways
+ * to find the actual endpoint, so we might as well always calculate it ourselves rather than
+ * handle a special case if the hash isn't stored.
+ * 
  */
 static void calculateBootloaderSHA256() {
   // Calculate SHA256
@@ -399,6 +410,7 @@ static void calculateBootloaderSHA256() {
   alignas(esp_image_header_t) uint8_t buffer[chunkSize];
   size_t bootloaderSize = BOOTLOADER_SIZE;
   BootloaderImageSizer sizer;
+  size_t totalHashLen = 0;
 
   for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
     size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
@@ -417,6 +429,7 @@ static void calculateBootloaderSHA256() {
       }
 
       if (hashLen > 0) {
+        totalHashLen += hashLen;
         mbedtls_sha256_update(&ctx, buffer, hashLen);
       }
     }
@@ -424,6 +437,7 @@ static void calculateBootloaderSHA256() {
 
   mbedtls_sha256_finish(&ctx, bootloaderSHA256Cache);
   mbedtls_sha256_free(&ctx);
+
   bootloaderSHA256CacheValid = true;
 }
 
@@ -513,18 +527,17 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& b
   // 4. Validate image size
   BootloaderImageSizer sizer;
   sizer.feed(buffer, availableLen);
-  if (sizer.hasError() || !sizer.isSizeKnown()) {
+  if (!sizer.isSizeKnown()) {
     bootloaderErrorMsg = "Invalid image";
     return false;
   }
   size_t actualBootloaderSize = sizer.totalSize();
- 
-  // 5. Align to 16 bytes (ESP32 requirement for flash writes)
-  // The bootloader image must be 16-byte aligned
-  if (actualBootloaderSize % 16 != 0) {
-    actualBootloaderSize = ((actualBootloaderSize + 15) / 16) * 16;
-  }
 
+  // 5. SHA256 checksum (optional)
+  if (imageHeader.hash_appended == 1) {
+    actualBootloaderSize += 32;
+  }
+ 
   if (actualBootloaderSize > len) {
     // Same as above
     bootloaderErrorMsg = "Too small";
