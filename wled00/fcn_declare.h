@@ -200,6 +200,7 @@ void getTimeString(char* out);
 bool checkCountdown();
 void setCountdown();
 byte weekdayMondayFirst();
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd);
 void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
@@ -394,7 +395,7 @@ size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
 void prepareHostname(char* hostname);
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
-bool requestJSONBufferLock(uint8_t moduleID=255);
+bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
 uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxLen, uint8_t *var = nullptr);
@@ -486,7 +487,7 @@ void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of r
 class JSONBufferGuard {
   bool holding_lock;
   public:
-    inline JSONBufferGuard(uint8_t module=255) : holding_lock(requestJSONBufferLock(module)) {};
+    inline JSONBufferGuard(uint8_t module=JSON_LOCK_UNKNOWN) : holding_lock(requestJSONBufferLock(module)) {};
     inline ~JSONBufferGuard() { if (holding_lock) releaseJSONBufferLock(); };
     inline JSONBufferGuard(const JSONBufferGuard&) = delete; // Noncopyable
     inline JSONBufferGuard& operator=(const JSONBufferGuard&) = delete;
@@ -496,14 +497,6 @@ class JSONBufferGuard {
     explicit inline operator bool() const { return owns_lock(); };
     inline void release() { if (holding_lock) releaseJSONBufferLock(); holding_lock = false; }
 };
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-//wled_eeprom.cpp
-void applyMacro(byte index);
-void deEEP();
-void deEEPSettings();
-void clearEEPROM();
-#endif
 
 //wled_math.cpp
 //float cos_t(float phi); // use float math

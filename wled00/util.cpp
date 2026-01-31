@@ -213,7 +213,7 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (including SR extensions)!
+// caller must provide large enough buffer for name (including SR extensions)! maxLen is (buffersize - 1)
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
@@ -235,7 +235,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
 
   if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
     snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
-    dest[maxLen-1] = '\0';
+    dest[maxLen] = '\0';
     return strlen(dest);
   }
 
@@ -336,7 +336,7 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
           case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
           case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
         }
-        dest[maxLen] = '\0'; // strncpy does not necessarily null terminate string
+        dest[maxLen-1] = '\0'; // strncpy does not necessarily null terminate string
       }
     }
     return strlen(dest);
@@ -561,7 +561,7 @@ void enumerateLedmaps() {
       ledMaps |= 1 << i;
 
       #ifndef ESP8266
-      if (requestJSONBufferLock(21)) {
+      if (requestJSONBufferLock(JSON_LOCK_LEDMAP_ENUM)) {
         if (readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
           size_t len = 0;
           JsonObject root = pDoc->as<JsonObject>();
@@ -1170,11 +1170,11 @@ String generateDeviceFingerprint() {
   // mix in ADC calibration data:
   esp_adc_cal_characteristics_t ch;
   #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
-  #define BIT_WIDTH ADC_WIDTH_BIT_13
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
   #else
-  #define BIT_WIDTH ADC_WIDTH_BIT_12
+  constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
   #endif
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, BIT_WIDTH, 1100, &ch);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, myBIT_WIDTH, 1100, &ch);
   fp[0] ^= ch.coeff_a;
   fp[1] ^= ch.coeff_b;
   if (ch.low_curve) {

@@ -279,7 +279,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
-      int hw_btn_pin = request->arg(bt).toInt();
+      int hw_btn_pin = request->hasArg(bt) ? request->arg(bt).toInt() : -1;
       if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
       else {
         buttons[i].pin  = hw_btn_pin;
@@ -576,9 +576,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (request->hasArg(F("RS"))) //complete factory reset
     {
       WLED_FS.format();
-      #ifdef WLED_ADD_EEPROM_SUPPORT
-      clearEEPROM();
-      #endif
       serveMessage(request, 200, F("All Settings erased."), F("Connect to WLED-AP to setup again"),255);
       doReboot = true; // may reboot immediately on dual-core system (race condition) which is desireable in this case
     }
@@ -654,7 +651,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == SUBPAGE_UM)
   {
-    if (!requestJSONBufferLock(5)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SETTINGS)) {
       request->deferResponse();
       return;
     }

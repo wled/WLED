@@ -99,7 +99,7 @@ void appendGPIOinfo(Print& settingsScript)
     settingsScript.printf_P(PSTR(",%d,%d"), spi_mosi, spi_sclk);
   }
   // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
-  if (requestJSONBufferLock(6)) {
+  if (requestJSONBufferLock(JSON_LOCK_XML)) {
     // if we can't allocate JSON buffer ignore usermod pins
     JsonObject mods = pDoc->createNestedObject("um");
     UsermodManager::addToConfig(mods);
@@ -315,7 +315,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
       const Bus *bus = BusManager::getBus(s);
-      if (!bus || !bus->isOk()) break; // should not happen but for safety
+      if (!bus) break; // should not happen but for safety
       int offset = s < 10 ? '0' : 'A' - 10;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length

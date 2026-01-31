@@ -42,7 +42,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
 
         bool verboseResponse = false;
-        if (!requestJSONBufferLock(11)) {
+        if (!requestJSONBufferLock(JSON_LOCK_WS_RECEIVE)) {
           client->text(F("{\"error\":3}")); // ERR_NOBUF
           return;
         }
@@ -136,7 +136,7 @@ void sendDataWs(AsyncWebSocketClient * client)
 {
   if (!ws.count()) return;
 
-  if (!requestJSONBufferLock(12)) {
+  if (!requestJSONBufferLock(JSON_LOCK_WS_SEND)) {
     const char* error = PSTR("{\"error\":3}");
     if (client) {
       client->text(FPSTR(error)); // ERR_NOBUF
@@ -157,12 +157,6 @@ void sendDataWs(AsyncWebSocketClient * client)
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
   size_t heap1 = getFreeHeapSize();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
-  #ifdef ESP8266
-  if (len>heap1) {
-    DEBUG_PRINTLN(F("Out of memory (WS)!"));
-    return;
-  }
-  #endif
   AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
   size_t heap2 = getFreeHeapSize();
@@ -236,7 +230,7 @@ bool sendLiveLedsWs(uint32_t wsClient)
 #ifndef WLED_DISABLE_2D
     if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
 #endif
-    uint32_t c = strip.getPixelColor(i);
+    uint32_t c = strip.getPixelColor(i); // note: LEDs mapped outside of valid range are set to black
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);

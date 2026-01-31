@@ -10,11 +10,18 @@
 		margin: 0;
 	}
 	</style>
-	<script src="common.js"></script>
 </head>
 <body>
 	<canvas id="canv"></canvas>
 	<script>
+		// load common.js with retry on error
+		(function common() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => S();
+			l.onerror = () => setTimeout(common, 100);
+			document.head.appendChild(l);
+		})();
 		var c = document.getElementById('canv');
 		var leds = "";
 		var throttled = false;
@@ -22,36 +29,35 @@
 			c.width  = window.innerWidth * 0.98; //remove scroll bars
 			c.height = window.innerHeight * 0.98; //remove scroll bars
 		}
-		setCanvas();
-		// Check for canvas support
-		var ctx = c.getContext('2d');
-		if (ctx) { // Access the rendering context
-			// use parent WS or open new
-			var ws = connectWs(()=>{
-				ws.send('{"lv":true}');
-			});
-			ws.addEventListener('message',(e)=>{
-				try {
-					if (toString.call(e.data) === '[object ArrayBuffer]') {
-						let leds = new Uint8Array(e.data);
-						if (leds[0] != 76 || leds[1] != 2 || !ctx) return; //'L', set in ws.cpp
-						let mW = leds[2]; // matrix width
-						let mH = leds[3]; // matrix height
-						let pPL = Math.min(c.width / mW, c.height / mH); // pixels per LED (width of circle)
-						let lOf = Math.floor((c.width - pPL*mW)/2); //left offset (to center matrix)
-						var i = 4;
-						for (y=0.5;y<mH;y++) for (x=0.5; x<mW; x++) {
-							ctx.fillStyle = `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
-							ctx.beginPath();
-							ctx.arc(x*pPL+lOf, y*pPL, pPL*0.4, 0, 2 * Math.PI);
-							ctx.fill();
-							i+=3;
+		function S() { // Startup function (onload)
+			setCanvas();
+			// Check for canvas support
+			var ctx = c.getContext('2d');
+			if (ctx) { // Access the rendering context
+				ws = connectWs(ws => ws.send('{"lv":true}')); // use parent WS or open new
+				ws.addEventListener('message',(e)=>{
+					try {
+						if (toString.call(e.data) === '[object ArrayBuffer]') {
+							let leds = new Uint8Array(e.data);
+							if (leds[0] != 76 || leds[1] != 2 || !ctx) return; //'L', set in ws.cpp
+							let mW = leds[2]; // matrix width
+							let mH = leds[3]; // matrix height
+							let pPL = Math.min(c.width / mW, c.height / mH); // pixels per LED (width of circle)
+							let lOf = Math.floor((c.width - pPL*mW)/2); //left offset (to center matrix)
+							var i = 4;
+							for (y=0.5;y<mH;y++) for (x=0.5; x<mW; x++) {
+								ctx.fillStyle = `rgb(${leds[i]},${leds[i+1]},${leds[i+2]})`;
+								ctx.beginPath();
+								ctx.arc(x*pPL+lOf, y*pPL, pPL*0.4, 0, 2 * Math.PI);
+								ctx.fill();
+								i+=3;
+							}
 						}
+					} catch (err) {
+						console.error("Peek WS error:",err);
 					}
-				} catch (err) {
-					console.error("Peek WS error:",err);
-				} 
-			});
+				});
+			}
 		}
 		// window.resize event listener
 		window.addEventListener('resize', (e)=>{
