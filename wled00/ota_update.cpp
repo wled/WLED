@@ -293,6 +293,7 @@ static String bootloaderSHA256HexCache = "";
 // Returns the actual size of the bootloader image, or 0 if invalid
 static size_t getActualBootloaderSize() {
   const size_t MIN_IMAGE_HEADER_SIZE = 24;
+  const size_t MAX_SEGMENT_SIZE = 0x20000;  // 128KB maximum per segment
   
   // We need to read enough data to parse all segment headers
   // Typical bootloader has 4-6 segments, each header is 8 bytes
@@ -346,7 +347,7 @@ static size_t getActualBootloaderSize() {
                           (parseBuffer[offset + 7] << 24);
     
     // Sanity check segment size
-    if (segmentSize > 0x20000) {  // 128KB max per segment
+    if (segmentSize > MAX_SEGMENT_SIZE) {
       DEBUG_PRINTF_P(PSTR("Segment %d too large: %u bytes\n"), i, segmentSize);
       free(parseBuffer);
       return BOOTLOADER_SIZE;  // Fall back to full size on error
@@ -364,13 +365,13 @@ static size_t getActualBootloaderSize() {
     DEBUG_PRINTLN(F("Bootloader has appended SHA256"));
   }
   
-  // Add checksum byte (typically present)
+  // ESP32 bootloader images include a 1-byte checksum after segments/hash
+  // This is part of the standard ESP-IDF image format
   actualSize += 1;
   
   // Align to 16 bytes (ESP32 flash requirement)
-  if (actualSize % 16 != 0) {
-    actualSize = ((actualSize + 15) / 16) * 16;
-  }
+  // Use bitwise operation for efficient power-of-2 alignment
+  actualSize = (actualSize + 15) & ~15;
   
   free(parseBuffer);
   
