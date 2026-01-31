@@ -289,49 +289,98 @@ void markOTAvalid() {
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-/**
- * Compute bootloader size based on image header and segment layout.
- * Returns total size in bytes when valid, or 0 when invalid.
- */
-static size_t getBootloaderImageSize(const esp_image_header_t &header,
-                                          size_t availableLen) {
-  size_t offset = sizeof(esp_image_header_t);
-  size_t actualBootloaderSize = offset;
-  const uint8_t* buffer = reinterpret_cast<const uint8_t*>(&header);
+class BootloaderImageSizer {
+public:
 
-  if (offset + (header.segment_count*8) > availableLen) {
-    // Not enough space for segments
-    return 0;
-  }
+  bool feed(const uint8_t* data, size_t len) {
+    if (error) return false;
 
-  for (uint8_t i = 0; i < header.segment_count; i++) {
-    uint32_t segmentSize = buffer[offset + 4] | (buffer[offset + 5] << 8) |
-                           (buffer[offset + 6] << 16) | (buffer[offset + 7] << 24);
+    //DEBUG_PRINTF("Feed %d\n", len);
 
-    // Segment size sanity check
-    // ESP32 classic bootloader segments can be larger, C3 are smaller
-    if (segmentSize > 0x20000) {  // 128KB max per segment (very generous)
-      return 0;
+    if (imageSize == 0) {
+      // Parse header first
+      if (len < sizeof(esp_image_header_t)) {
+        error = true;
+        return false;
+      }
+
+      esp_image_header_t header;
+      memcpy(&header, data, sizeof(esp_image_header_t));
+
+      if (header.segment_count == 0) {
+        error = true;
+        return false;
+      }
+
+      imageSize = sizeof(esp_image_header_t);
+      if (header.hash_appended) {
+        imageSize += 32;
+      }
+      segmentsLeft = header.segment_count;
+      data += sizeof(esp_image_header_t);
+      len -= sizeof(esp_image_header_t);
+      DEBUG_PRINTF("BLS parsed image header, segment count %d, is %d\n", segmentsLeft, imageSize);
     }
 
-    offset += 8 + segmentSize;  // Skip segment header and data
+    while (len && segmentsLeft) {
+      if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
+        size_t headerBytes = std::min(len, sizeof(esp_image_segment_header_t) - segmentHeaderBytes);
+        memcpy(&segmentHeader, data, headerBytes);
+        segmentHeaderBytes += headerBytes;
+        if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
+          return true;  // needs more bytes for the header
+        }
+
+        DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);        
+
+        // Validate segment size
+        if (segmentHeader.data_len > BOOTLOADER_SIZE) {
+          error = true;
+          return false;
+        }
+
+        data += headerBytes;
+        len -= headerBytes;
+        imageSize += sizeof(esp_image_segment_header_t) + segmentHeader.data_len;
+        --segmentsLeft;
+        if (segmentsLeft == 0) {
+          // all done, actually; we don't need to read any more
+          DEBUG_PRINTF("BLS complete, is %d\n", imageSize);        
+          return false;
+        }        
+      }
+      
+      // If we don't have enough bytes ...
+      if (len < segmentHeader.data_len) {
+        //DEBUG_PRINTF("Needs more bytes\n");
+        segmentHeader.data_len -= len;
+        return true;  // still in this segment
+      }
+
+      // Segment complete
+      len -= segmentHeader.data_len;
+      data += segmentHeader.data_len;
+      segmentHeaderBytes = 0;
+      //DEBUG_PRINTF("Segment complete: len %d\n", len);
+    }
+
+    return !error;
   }
 
-  actualBootloaderSize = offset;
-
-  // Check for appended SHA256 hash (byte 23 in header)
-  // If hash_appended != 0, there's a 32-byte SHA256 hash after the segments
-  if (header.hash_appended != 0) {
-    actualBootloaderSize += 32;
+  bool hasError() const { return error; }
+  bool isSizeKnown() const { return !error && imageSize != 0 && segmentsLeft == 0; }
+  size_t totalSize() const {
+    if (!isSizeKnown()) return 0;
+    return imageSize;
   }
 
-  // Sometimes there is a checksum byte
-  if (availableLen > actualBootloaderSize) {
-    actualBootloaderSize += 1;
-  }
-
-  return actualBootloaderSize;
-}
+private:
+  size_t imageSize = 0;
+  size_t segmentsLeft = 0;
+  esp_image_segment_header_t segmentHeader;
+  size_t segmentHeaderBytes = 0;
+  bool error = false;
+};
 
 static bool bootloaderSHA256CacheValid = false;
 static uint8_t bootloaderSHA256Cache[32];
@@ -349,19 +398,27 @@ static void calculateBootloaderSHA256() {
   const size_t chunkSize = 256;
   alignas(esp_image_header_t) uint8_t buffer[chunkSize];
   size_t bootloaderSize = BOOTLOADER_SIZE;
+  BootloaderImageSizer sizer;
 
   for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
     size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
     if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
-      if (offset == 0 && readSize >= sizeof(esp_image_header_t)) {
-        const esp_image_header_t& header = *reinterpret_cast<const esp_image_header_t*>(buffer);
-        size_t imageSize = getBootloaderImageSize(header, readSize);
-        if (imageSize > 0 && imageSize <= BOOTLOADER_SIZE) {
-          bootloaderSize = imageSize;
-          readSize = min(readSize, bootloaderSize);
+      sizer.feed(buffer, readSize);
+
+      size_t hashLen = readSize;
+      if (sizer.isSizeKnown()) {
+        size_t totalSize = sizer.totalSize();
+        if (totalSize > 0 && totalSize <= BOOTLOADER_SIZE) {
+          bootloaderSize = totalSize;
+          if (offset + readSize > totalSize) {
+            hashLen = (totalSize > offset) ? (totalSize - offset) : 0;
+          }
         }
       }
-      mbedtls_sha256_update(&ctx, buffer, readSize);
+
+      if (hashLen > 0) {
+        mbedtls_sha256_update(&ctx, buffer, hashLen);
+      }
     }
   }
 
@@ -426,7 +483,7 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& b
   if (len > BOOTLOADER_OFFSET + MIN_IMAGE_HEADER_SIZE &&
       buffer[BOOTLOADER_OFFSET] == ESP_IMAGE_HEADER_MAGIC &&
       buffer[0] != ESP_IMAGE_HEADER_MAGIC) {
-    DEBUG_PRINTF_P(PSTR("Bootloader magic byte detected at offset 0x%04X - adjusting buffer\n"), BOOTLOADER_OFFSET);
+    DEBUG_PRINTF_P(PSTR("Bootloader detected at offset\n"));
     // Adjust buffer pointer to start at the actual bootloader
     buffer = buffer + BOOTLOADER_OFFSET;
     len = len - BOOTLOADER_OFFSET;
@@ -458,11 +515,13 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& b
   }
 
   // 4. Validate image size
-  size_t actualBootloaderSize = getBootloaderImageSize(imageHeader, availableLen);
-  if (actualBootloaderSize == 0) {
+  BootloaderImageSizer sizer;
+  sizer.feed(buffer, availableLen);
+  if (sizer.hasError() || !sizer.isSizeKnown()) {
     bootloaderErrorMsg = "Invalid image";
     return false;
   }
+  size_t actualBootloaderSize = sizer.totalSize();
  
   // 5. Align to 16 bytes (ESP32 requirement for flash writes)
   // The bootloader image must be 16-byte aligned
