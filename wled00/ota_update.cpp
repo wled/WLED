@@ -18,9 +18,11 @@ constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears afte
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
 constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#define BOOTLOADER_OTA_UNSUPPORTED    // still needs validation on these platforms.
 #elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
 constexpr size_t BOOTLOADER_OFFSET = 0x2000; // (future support) esp32-P4 and esp32-C5
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#define BOOTLOADER_OTA_UNSUPPORTED    // still needs testing on these platforms
 #else
 constexpr size_t BOOTLOADER_OFFSET = 0x1000; // esp32 and esp32-s2
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
@@ -30,6 +32,7 @@ constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
 #endif
+
 constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
 
@@ -352,38 +355,24 @@ static void invalidateBootloaderSHA256Cache() {
  * @param bootloaderErrorMsg Pointer to String to store error message (must not be null)
  * @return true if validation passed, false otherwise
  */
-static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootloaderErrorMsg) {
-  size_t availableLen = len;
+static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& bootloaderErrorMsg) {
   if (!bootloaderErrorMsg) {
     DEBUG_PRINTLN(F("bootloaderErrorMsg is null"));
     return false;
   }
-  // ESP32 image header structure (based on esp_image_format.h)
-  // Offset 0: magic (0xE9)
-  // Offset 1: segment_count
-  // Offset 2: spi_mode
-  // Offset 3: spi_speed (4 bits) + spi_size (4 bits)
-  // Offset 4-7: entry_addr (uint32_t)
-  // Offset 8: wp_pin
-  // Offset 9-11: spi_pin_drv[3]
-  // Offset 12-13: chip_id (uint16_t, little-endian)
-  // Offset 14: min_chip_rev
-  // Offset 15-22: reserved[8]
-  // Offset 23: hash_appended
-
-  const size_t MIN_IMAGE_HEADER_SIZE = 24;
+  const size_t MIN_IMAGE_HEADER_SIZE = sizeof(esp_image_header_t);
 
   // 1. Validate minimum size for header
   if (len < MIN_IMAGE_HEADER_SIZE) {
-    *bootloaderErrorMsg = "Bootloader too small - invalid header";
+    bootloaderErrorMsg = "Too small";
     return false;
   }
 
   // Check if the bootloader starts at offset 0x1000 (common in partition table dumps)
   // This happens when someone uploads a complete flash dump instead of just the bootloader
   if (len > BOOTLOADER_OFFSET + MIN_IMAGE_HEADER_SIZE &&
-      buffer[BOOTLOADER_OFFSET] == 0xE9 &&
-      buffer[0] != 0xE9) {
+      buffer[BOOTLOADER_OFFSET] == ESP_IMAGE_HEADER_MAGIC &&
+      buffer[0] != ESP_IMAGE_HEADER_MAGIC) {
     DEBUG_PRINTF_P(PSTR("Bootloader magic byte detected at offset 0x%04X - adjusting buffer\n"), BOOTLOADER_OFFSET);
     // Adjust buffer pointer to start at the actual bootloader
     buffer = buffer + BOOTLOADER_OFFSET;
@@ -391,106 +380,43 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* b
 
     // Re-validate size after adjustment
     if (len < MIN_IMAGE_HEADER_SIZE) {
-      *bootloaderErrorMsg = "Bootloader at offset 0x1000 too small - invalid header";
+      bootloaderErrorMsg = "Too small";
       return false;
     }
   }
 
-  // 2. Magic byte check (matches esp_image_verify step 1)
-  if (buffer[0] != 0xE9) {
-    *bootloaderErrorMsg = "Invalid bootloader magic byte (expected 0xE9, got 0x" + String(buffer[0], HEX) + ")";
+  size_t availableLen = len;
+  esp_image_header_t imageHeader{};
+  memcpy(&imageHeader, buffer, sizeof(imageHeader));
+
+  // 2. Basic header sanity checks (matches early esp_image_verify checks)
+  if (imageHeader.magic != ESP_IMAGE_HEADER_MAGIC ||
+      imageHeader.segment_count == 0 || imageHeader.segment_count > 16 ||
+      imageHeader.spi_mode > 3 ||
+      imageHeader.entry_addr < 0x40000000 || imageHeader.entry_addr > 0x50000000) {
+    bootloaderErrorMsg = "Invalid header";
     return false;
   }
 
-  // 3. Segment count validation (matches esp_image_verify step 2)
-  uint8_t segmentCount = buffer[1];
-  if (segmentCount == 0 || segmentCount > 16) {
-    *bootloaderErrorMsg = "Invalid segment count: " + String(segmentCount);
+  // 3. Chip ID validation (matches esp_image_verify step 3)
+  if (imageHeader.chip_id != CONFIG_IDF_FIRMWARE_CHIP_ID) {
+    bootloaderErrorMsg = "Chip ID mismatch";
     return false;
   }
 
-  // 4. SPI mode validation (basic sanity check)
-  uint8_t spiMode = buffer[2];
-  if (spiMode > 3) {  // Valid modes are 0-3 (QIO, QOUT, DIO, DOUT)
-    *bootloaderErrorMsg = "Invalid SPI mode: " + String(spiMode);
-    return false;
-  }
-
-  // 5. Chip ID validation (matches esp_image_verify step 3)
-  uint16_t chipId = buffer[12] | (buffer[13] << 8);  // Little-endian
-
-  // Known ESP32 chip IDs from ESP-IDF:
-  // 0x0000 = ESP32
-  // 0x0002 = ESP32-S2
-  // 0x0005 = ESP32-C3
-  // 0x0009 = ESP32-S3
-  // 0x000C = ESP32-C2
-  // 0x000D = ESP32-C6
-  // 0x0010 = ESP32-H2
-
-  #if defined(CONFIG_IDF_TARGET_ESP32)
-    if (chipId != 0x0000) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32 (0x0000), got 0x" + String(chipId, HEX);
-      return false;
-    }
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    if (chipId != 0x0002) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-S2 (0x0002), got 0x" + String(chipId, HEX);
-      return false;
-    }
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (chipId != 0x0005) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C3 (0x0005), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-C3 update not supported yet";
-    return false;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (chipId != 0x0009) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-S3 (0x0009), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-S3 update not supported yet";
-    return false;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
-    if (chipId != 0x000D) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C6 (0x000D), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-C6 update not supported yet";
-    return false;
-  #else
-    // Generic validation - chip ID should be valid
-    if (chipId > 0x00FF) {
-      *bootloaderErrorMsg = "Invalid chip ID: 0x" + String(chipId, HEX);
-      return false;
-    }
-   *bootloaderErrorMsg = "Unknown ESP32 target - bootloader update not supported";
-   return false;
-  #endif
-
-  // 6. Entry point validation (should be in valid memory range)
-  uint32_t entryAddr = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
-  // ESP32 bootloader entry points are typically in IRAM range (0x40000000 - 0x40400000)
-  // or ROM range (0x40000000 and above)
-  if (entryAddr < 0x40000000 || entryAddr > 0x50000000) {
-    *bootloaderErrorMsg = "Invalid entry address: 0x" + String(entryAddr, HEX);
-    return false;
-  }
-
-  // 7. Basic segment structure validation
+  // 4. Basic segment structure validation
   // Each segment has a header: load_addr (4 bytes) + data_len (4 bytes)
   size_t offset = MIN_IMAGE_HEADER_SIZE;
   size_t actualBootloaderSize = MIN_IMAGE_HEADER_SIZE;
 
-  for (uint8_t i = 0; i < segmentCount && offset + 8 <= len; i++) {
+  for (uint8_t i = 0; i < imageHeader.segment_count && offset + 8 <= len; i++) {
     uint32_t segmentSize = buffer[offset + 4] | (buffer[offset + 5] << 8) |
                            (buffer[offset + 6] << 16) | (buffer[offset + 7] << 24);
 
     // Segment size sanity check
     // ESP32 classic bootloader segments can be larger, C3 are smaller
     if (segmentSize > 0x20000) {  // 128KB max per segment (very generous)
-      *bootloaderErrorMsg = "Segment " + String(i) + " too large: " + String(segmentSize) + " bytes";
+      bootloaderErrorMsg = "Segment " + String(i) + " too large: " + String(segmentSize) + " bytes";
       return false;
     }
 
@@ -499,29 +425,28 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* b
 
   actualBootloaderSize = offset;
 
-  // 8. Check for appended SHA256 hash (byte 23 in header)
+  // 5. Check for appended SHA256 hash (byte 23 in header)
   // If hash_appended != 0, there's a 32-byte SHA256 hash after the segments
-  uint8_t hashAppended = buffer[23];
-  if (hashAppended != 0) {
+  if (imageHeader.hash_appended != 0) {
     actualBootloaderSize += 32;
     if (actualBootloaderSize > availableLen) {
-      *bootloaderErrorMsg = "Bootloader missing SHA256 trailer";
+      bootloaderErrorMsg = "Bootloader missing SHA256 trailer";
       return false;
     }
     DEBUG_PRINTF_P(PSTR("Bootloader has appended SHA256 hash\n"));
   }
 
-  // 9. The image may also have a 1-byte checksum after segments/hash
+  // 6. The image may also have a 1-byte checksum after segments/hash
   // Check if there's at least one more byte available
   if (actualBootloaderSize + 1 <= availableLen) {
     // There's likely a checksum byte
     actualBootloaderSize += 1;
   } else if (actualBootloaderSize > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated before checksum";
+    bootloaderErrorMsg = "Bootloader truncated before checksum";
     return false;
   }
 
-  // 10. Align to 16 bytes (ESP32 requirement for flash writes)
+  // 7. Align to 16 bytes (ESP32 requirement for flash writes)
   // The bootloader image must be 16-byte aligned
   if (actualBootloaderSize % 16 != 0) {
     size_t alignedSize = ((actualBootloaderSize + 15) / 16) * 16;
@@ -532,16 +457,16 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* b
   }
 
   DEBUG_PRINTF_P(PSTR("Bootloader validation: %d segments, actual size %d bytes (buffer size %d bytes, hash_appended=%d)\n"),
-                 segmentCount, actualBootloaderSize, len, hashAppended);
+                 imageHeader.segment_count, actualBootloaderSize, len, imageHeader.hash_appended);
 
-  // 11. Verify we have enough data for all segments + hash + checksum
+  // 8. Verify we have enough data for all segments + hash + checksum
   if (actualBootloaderSize > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(actualBootloaderSize) + " bytes, have " + String(availableLen) + " bytes";
+    bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(actualBootloaderSize) + " bytes, have " + String(availableLen) + " bytes";
     return false;
   }
 
   if (offset > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(offset) + " bytes, have " + String(len) + " bytes";
+    bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(offset) + " bytes, have " + String(len) + " bytes";
     return false;
   }
 
@@ -601,10 +526,13 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
     DEBUG_PRINTLN(F("Failed to allocate bootloader OTA context"));
     return false;
   }
-
   request->_tempObject = context;
   request->onDisconnect([=]() { endBootloaderOTA(request); });  // ensures cleanup on disconnect
 
+#ifdef BOOTLOADER_OTA_UNSUPPORTED
+  context->errorMessage = F("Bootloader update not supported on this chip");
+  return false;
+#else
   DEBUG_PRINTLN(F("Bootloader Update Start - initializing buffer"));
   #if WLED_WATCHDOG_TIMEOUT > 0
   WLED::instance().disableWatchdog();
@@ -630,6 +558,7 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
 
   context->bytesBuffered = 0;
   return true;
+#endif  
 }
 
 // Set bootloader OTA replied flag
@@ -709,7 +638,7 @@ void handleBootloaderOTAData(AsyncWebServerRequest *request, size_t index, uint8
       // Verify the complete bootloader image before flashing
       // Note: verifyBootloaderImage may adjust bootloaderData pointer and bootloaderSize
       // for validation purposes only
-      if (!verifyBootloaderImage(bootloaderData, bootloaderSize, &context->errorMessage)) {
+      if (!verifyBootloaderImage(bootloaderData, bootloaderSize, context->errorMessage)) {
         DEBUG_PRINTLN(F("Bootloader validation failed!"));
         // Error message already set by verifyBootloaderImage
       } else {
