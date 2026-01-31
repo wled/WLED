@@ -614,14 +614,13 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
   strip.resetSegments();
 
   // Check available heap before attempting allocation
-  size_t freeHeap = getFreeHeapSize();
-  DEBUG_PRINTF_P(PSTR("Free heap before bootloader buffer allocation: %d bytes (need %d bytes)\n"), freeHeap, context->maxBootloaderSize);
+  DEBUG_PRINTF_P(PSTR("Free heap before bootloader buffer allocation: %d bytes (need %d bytes)\n"), getContiguousFreeHeap(), context->maxBootloaderSize);
 
   context->buffer = (uint8_t*)malloc(context->maxBootloaderSize);
   if (!context->buffer) {
-    size_t freeHeapNow = getFreeHeapSize();
-    DEBUG_PRINTF_P(PSTR("Failed to allocate %d byte bootloader buffer! Free heap: %d bytes\n"), context->maxBootloaderSize, freeHeapNow);
-    context->errorMessage = "Out of memory! Free heap: " + String(freeHeapNow) + " bytes, need: " + String(context->maxBootloaderSize) + " bytes";
+    size_t freeHeapNow = getContiguousFreeHeap();
+    DEBUG_PRINTF_P(PSTR("Failed to allocate %d byte bootloader buffer! Contiguous heap: %d bytes\n"), context->maxBootloaderSize, freeHeapNow);
+    context->errorMessage = "Out of memory! Contiguous heap: " + String(freeHeapNow) + " bytes, need: " + String(context->maxBootloaderSize) + " bytes";
     strip.resume();
     #if WLED_WATCHDOG_TIMEOUT > 0
     WLED::instance().enableWatchdog();
