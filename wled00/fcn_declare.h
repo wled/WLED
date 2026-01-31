@@ -192,6 +192,7 @@ bool initMqtt();
 void publishMqtt();
 
 //ntp.cpp
+String getTZNamesJSONString();
 void handleTime();
 void handleNetworkTime();
 void sendNTPPacket();
