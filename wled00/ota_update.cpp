@@ -289,64 +289,6 @@ void markOTAvalid() {
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-static bool bootloaderSHA256CacheValid = false;
-static uint8_t bootloaderSHA256Cache[32];
-
-/**
- * Calculate and cache the bootloader SHA256 digest
- * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
- */
-static void calculateBootloaderSHA256() {
-  // Calculate SHA256
-  mbedtls_sha256_context ctx;
-  mbedtls_sha256_init(&ctx);
-  mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
-
-  const size_t chunkSize = 256;
-  uint8_t buffer[chunkSize];
-
-  for (uint32_t offset = 0; offset < BOOTLOADER_SIZE; offset += chunkSize) {
-    size_t readSize = min((size_t)(BOOTLOADER_SIZE - offset), chunkSize);
-    if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
-      mbedtls_sha256_update(&ctx, buffer, readSize);
-    }
-  }
-
-  mbedtls_sha256_finish(&ctx, bootloaderSHA256Cache);
-  mbedtls_sha256_free(&ctx);
-  bootloaderSHA256CacheValid = true;
-}
-
-// Get bootloader SHA256 as hex string
-String getBootloaderSHA256Hex() {
-  if (!bootloaderSHA256CacheValid) {
-    calculateBootloaderSHA256();
-  }
-
-  // Convert to hex string
-  String result;
-  result.reserve(65);
-  for (int i = 0; i < 32; i++) {
-    char b1 = bootloaderSHA256Cache[i];
-    char b2 = b1 >> 4;
-    b1 &= 0x0F;
-    b1 += '0'; b2 += '0';
-    if (b1 > '9') b1 += 39;
-    if (b2 > '9') b2 += 39;
-    result.concat(b2);
-    result.concat(b1);
-  }
-  return result;
-}
-
-/**
- * Invalidate cached bootloader SHA256 (call after bootloader update)
- * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
- */
-static void invalidateBootloaderSHA256Cache() {
-  bootloaderSHA256CacheValid = false;
-}
-
 /**
  * Compute bootloader size based on image header and segment layout.
  * Returns total size in bytes when valid, or 0 when invalid.
@@ -389,6 +331,73 @@ static size_t getBootloaderImageSize(const esp_image_header_t &header,
   }
 
   return actualBootloaderSize;
+}
+
+static bool bootloaderSHA256CacheValid = false;
+static uint8_t bootloaderSHA256Cache[32];
+
+/**
+ * Calculate and cache the bootloader SHA256 digest
+ * Reads the bootloader from flash at offset 0x1000 and computes SHA256 hash
+ */
+static void calculateBootloaderSHA256() {
+  // Calculate SHA256
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
+
+  const size_t chunkSize = 256;
+  alignas(esp_image_header_t) uint8_t buffer[chunkSize];
+  size_t bootloaderSize = BOOTLOADER_SIZE;
+
+  for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
+    size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
+    if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
+      if (offset == 0 && readSize >= sizeof(esp_image_header_t)) {
+        const esp_image_header_t& header = *reinterpret_cast<const esp_image_header_t*>(buffer);
+        size_t imageSize = getBootloaderImageSize(header, readSize);
+        if (imageSize > 0 && imageSize <= BOOTLOADER_SIZE) {
+          bootloaderSize = imageSize;
+          readSize = min(readSize, bootloaderSize);
+        }
+      }
+      mbedtls_sha256_update(&ctx, buffer, readSize);
+    }
+  }
+
+  mbedtls_sha256_finish(&ctx, bootloaderSHA256Cache);
+  mbedtls_sha256_free(&ctx);
+  bootloaderSHA256CacheValid = true;
+}
+
+// Get bootloader SHA256 as hex string
+String getBootloaderSHA256Hex() {
+  if (!bootloaderSHA256CacheValid) {
+    calculateBootloaderSHA256();
+  }
+
+  // Convert to hex string
+  String result;
+  result.reserve(65);
+  for (int i = 0; i < 32; i++) {
+    char b1 = bootloaderSHA256Cache[i];
+    char b2 = b1 >> 4;
+    b1 &= 0x0F;
+    b1 += '0'; b2 += '0';
+    if (b1 > '9') b1 += 39;
+    if (b2 > '9') b2 += 39;
+    result.concat(b2);
+    result.concat(b1);
+  }
+  return result;
+}
+
+/**
+ * Invalidate cached bootloader SHA256 (call after bootloader update)
+ * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
+ */
+static void invalidateBootloaderSHA256Cache() {
+  bootloaderSHA256CacheValid = false;
 }
 
 /**
