@@ -672,6 +672,7 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _hasCCT = false;
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
+  _DNSlookup = nullptr;
   #ifdef ARDUINO_ARCH_ESP32
   _hostname = bc.text;
   resolveHostname(); // resolve hostname to IP address if needed
@@ -713,12 +714,45 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
   static unsigned long nextResolve = 0;
-  if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
-    nextResolve = millis() + 600000; // resolve only every 10 minutes
-    IPAddress clnt;
-    if (strlen(cmDNS) > 0) clnt = MDNS.queryHost(_hostname);
-    else WiFi.hostByName(_hostname.c_str(), clnt);
-    if (clnt != IPAddress()) _client = clnt;
+  if (Network.isConnected()) {
+    if (_DNSlookup != nullptr) {
+      if (_DNSlookup->status() == DnsResult::Success) {
+        _client = _DNSlookup->getIP();
+        delete _DNSlookup;
+        _DNSlookup = nullptr;
+      }
+    }
+    if (millis() > nextResolve && _hostname.length() > 0) {
+      nextResolve = millis() + 600000; // resolve only every 10 minutes
+      IPAddress clnt;
+      if (strlen(cmDNS) > 0) {
+        clnt = MDNS.queryHost(_hostname);
+        if (clnt != IPAddress()) _client = clnt; // update client IP if not null
+      }
+      else {
+        if (_DNSlookup == nullptr) {
+          _DNSlookup = new AsyncDNS;
+          _DNSlookup->query(_hostname.c_str()); // start async DNS query
+        } else {
+          // there is a previous, unresolved query (should be in  error state)
+          // TODO: all this error handling is only required because of an IDF bug, otherwise we could just query again later, should be fixed in V5
+          if (_DNSlookup->status() == DnsResult::Error) {
+            if (_DNSlookup->getErrorCount() <= 2) {
+              _DNSlookup->renew(); // clear error state, keep error count
+              _DNSlookup->query(_hostname.c_str()); // restart async DNS query
+            } else {
+              forceReconnect = true; // reset network connection as dns is probably stuck
+              delete _DNSlookup;
+              _DNSlookup = nullptr;
+            }
+          }
+          else {
+            delete _DNSlookup; // cleanup if other error just in case (should not happen)
+            _DNSlookup = nullptr;
+          }
+        }
+      }
+    }
   }
 }
 #endif
