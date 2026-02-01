@@ -319,7 +319,7 @@ public:
       segmentsLeft = header.segment_count;
       data += sizeof(esp_image_header_t);
       len -= sizeof(esp_image_header_t);
-      DEBUG_PRINTF("BLS parsed image header, segment count %d, is %d\n", segmentsLeft, imageSize);
+      //DEBUG_PRINTF("BLS parsed image header, segment count %d, is %d\n", segmentsLeft, imageSize);
     }
 
     while (len && segmentsLeft) {
@@ -331,7 +331,7 @@ public:
           return true;  // needs more bytes for the header
         }
 
-        DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);        
+        //DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);        
 
         // Validate segment size
         if (segmentHeader.data_len > BOOTLOADER_SIZE) {
@@ -350,7 +350,7 @@ public:
           // Always add 1 to account for the checksum byte.
           imageSize = ((imageSize/ 16) + 1) * 16;
 
-          DEBUG_PRINTF("BLS complete, is %d\n", imageSize);        
+          //DEBUG_PRINTF("BLS complete, is %d\n", imageSize);        
           return false;
         }        
       }
