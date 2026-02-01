@@ -712,7 +712,7 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
-  static AsyncDNS DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
+  static std::shared_ptr<AsyncDNS> DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
   if (Network.isConnected()) {
     IPAddress clnt;
     if (strlen(cmDNS) > 0) {
@@ -721,13 +721,12 @@ void BusNetwork::resolveHostname() {
     }
     else {
       int timeout = 5000; // 5 seconds timeout
-      DNSlookup.reset();
-      DNSlookup.query(_hostname.c_str()); // start async DNS query
-      while (DNSlookup.status() == AsyncDNS::result::Busy && timeout-- > 0) {
+      DNSlookup = AsyncDNS::query(_hostname.c_str(), DNSlookup); // start async DNS query
+      while (DNSlookup->status() == AsyncDNS::result::Busy && timeout-- > 0) {
         delay(1);
       }
-      if (DNSlookup.status() == AsyncDNS::result::Success) {
-        _client = DNSlookup.getIP(); // update client IP
+      if (DNSlookup->status() == AsyncDNS::result::Success) {
+        _client = DNSlookup->getIP(); // update client IP
       }
     }
   }

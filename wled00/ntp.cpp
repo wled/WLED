@@ -2,6 +2,7 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "asyncDNS.h"
+#include <memory>
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
@@ -181,9 +182,11 @@ void handleTime() {
   }
 }
 
+
 void handleNetworkTime()
 {
-  static AsyncDNS* ntpDNSlookup = nullptr;
+  static std::shared_ptr<AsyncDNS> ntpDNSlookup;
+  
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
   {
     if (millis() - ntpPacketSentTime > 10000)
@@ -193,33 +196,32 @@ void handleNetworkTime()
       #endif
       if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
       {
-        if (ntpDNSlookup == nullptr) ntpDNSlookup = new AsyncDNS;
-        AsyncDNS::result res = ntpDNSlookup->status();
+        AsyncDNS::result res = ntpDNSlookup ? ntpDNSlookup->status() : AsyncDNS::result::Idle;
         switch (res) {
           case AsyncDNS::result::Idle:
             //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
-            ntpDNSlookup->query(ntpServerName); // start dnslookup asynchronously
+            ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup); // start dnslookup asynchronously
             return;
 
           case AsyncDNS::result::Busy:
             return; // still in progress
 
           case AsyncDNS::result::Success:
-              ntpServerIP = ntpDNSlookup->getIP();
-              DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
-              sendNTPPacket();
-              delete ntpDNSlookup;
-              ntpDNSlookup = nullptr;
-              break;
+            ntpServerIP = ntpDNSlookup->getIP();
+            DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+            sendNTPPacket();
+            ntpDNSlookup.reset();
+            break;
 
           case AsyncDNS::result::Error:
             DEBUG_PRINTLN(F("NTP DNS failed"));
-            ntpDNSlookup->renew(); // try a new lookup next time
             if (ntpDNSlookup->getErrorCount() > 6) {
               // after 6 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
               if (offMode) forceReconnect = true; // do not disturb while LEDs are running
-              delete ntpDNSlookup;
-              ntpDNSlookup = nullptr;
+              ntpDNSlookup.reset();
+            } else {
+              // Retry
+              ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup);
             }
             ntpLastSyncTime = millis() - (1000*NTP_SYNC_INTERVAL - 300000); // pause for 5 minutes
             break;
