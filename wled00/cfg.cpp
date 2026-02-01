@@ -107,6 +107,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       multiWiFi[n].staticIP = nIP;
       multiWiFi[n].staticGW = nGW;
       multiWiFi[n].staticSN = nSN;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      byte encType = WIFI_ENCRYPTION_TYPE_PSK;
+      char anonIdent[65] = "";
+      char ident[65] = "";
+      CJSON(encType, wifi[F("enc_type")]);
+      getStringFromJson(anonIdent, wifi["e_anon_ident"], 65);
+      getStringFromJson(ident, wifi["e_ident"], 65);
+      multiWiFi[n].encryptionType = encType;
+      strlcpy(multiWiFi[n].enterpriseAnonIdentity, anonIdent, 65);
+      strlcpy(multiWiFi[n].enterpriseIdentity, ident, 65);
+#endif
       if (++n >= WLED_MAX_WIFI_COUNT) break;
     }
   }
@@ -866,6 +877,13 @@ void serializeConfig(JsonObject root) {
       wifi_gw.add(multiWiFi[n].staticGW[i]);
       wifi_sn.add(multiWiFi[n].staticSN[i]);
     }
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+    wifi[F("enc_type")] = multiWiFi[n].encryptionType;
+    if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_ENTERPRISE) {
+      wifi[F("e_anon_ident")] = multiWiFi[n].enterpriseAnonIdentity;
+      wifi[F("e_ident")] = multiWiFi[n].enterpriseIdentity;
+    }
+#endif
   }
 
   JsonArray dns = nw.createNestedArray(F("dns"));
