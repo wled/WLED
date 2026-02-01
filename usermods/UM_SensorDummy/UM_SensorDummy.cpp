@@ -53,8 +53,8 @@ class UM_SensorDummy : public Usermod
   // ----- member variables -----
 
   uint32_t _nextUpdateTime = 0;
-  EasySensor _temperatureSensor{"Dummy-Temp", makeChannelProps_Temperature()};
-  EasySensor _humiditySensor{"Dummy-Hum", makeChannelProps_Humidity()};
+  EasySensor _temperatureSensor{"Dummy-Temp", makeChannelProps_Temperature("perlin")};
+  EasySensor _humiditySensor{"Dummy-Hum", makeChannelProps_Humidity("beatsin")};
 };
 
 //--------------------------------------------------------------------------------------------------

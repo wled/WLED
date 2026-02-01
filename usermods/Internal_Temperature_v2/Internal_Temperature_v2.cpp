@@ -22,7 +22,7 @@ private:
   static const char _activationThreshold[];
   static const char _presetToActivate[];
 
-  const SensorChannelProps sensorProps = makeChannelProps_Temperature(0.0f, 80.0f);
+  const SensorChannelProps sensorProps = makeChannelProps_Temperature("on-chip", 0.0f, 80.0f);
   bool do_isSensorReady() override { return isEnabled && temperature >= 0.0f; }
   SensorValue do_getSensorChannelValue(uint8_t) override { return temperature; }
   const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return sensorProps; }

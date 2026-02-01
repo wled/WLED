@@ -197,15 +197,12 @@ class UM_SensorInfo : public Usermod
         key += ".";
         key += channelIndex;
         key += " ";
-        key += channelProps.channelName;
+        key += channelProps.name;
 
         const bool isChannelReady = sensor.isReady(channelIndex);
         String val;
-        if (channelProps.channelNameShort[0] != '\0')
-        {
-          val += channelProps.channelNameShort;
-          val += " = ";
-        }
+        val += channelProps.quantity.name;
+        val += "<br>";
         if (isChannelReady)
         {
           const SensorValue sensorValue = sensor.getValue(channelIndex);
@@ -216,7 +213,7 @@ class UM_SensorInfo : public Usermod
           val += "[n/a]";
         }
         val += " ";
-        val += channelProps.unitString;
+        val += channelProps.quantity.unit;
 
         user.createNestedArray(key).add(val);
       }

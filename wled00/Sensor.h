@@ -9,13 +9,13 @@
 
 //--------------------------------------------------------------------------------------------------
 
-class SensorValueArray;
-class SensorValueStruct;
+class SensorValueArray;  // TODO(feature) Not implemented yet!
+class SensorValueStruct; // TODO(feature) Not implemented yet!
 
-class SensorChannelVisitor;
 class SensorValueVisitor;
-class SensorValueArrayVisitor;
-class SensorValueStructVisitor;
+class SensorValueArrayVisitor;  // TODO(feature) Not implemented yet!
+class SensorValueStructVisitor; // TODO(feature) Not implemented yet!
+class SensorChannelVisitor;
 
 enum class SensorValueType : uint8_t
 {
@@ -75,20 +75,37 @@ private:
   SensorValueType _type;
 };
 
+struct SensorQuantity
+{
+  const char *const name;
+  const char *const unit;
+
+  static SensorQuantity Temperature() { return {"Temperature", "°C"}; }
+  static SensorQuantity Humidity() { return {"Humidity", "%rel"}; }
+  static SensorQuantity AirPressure() { return {"AirPressure", "hPa"}; }
+
+  static SensorQuantity Voltage() { return {"Voltage", "V"}; }
+  static SensorQuantity Current() { return {"Current", "A"}; }
+  static SensorQuantity Power() { return {"Power", "W"}; }
+  static SensorQuantity Energy() { return {"Energy", "kWh"}; }
+
+  static SensorQuantity Angle() { return {"Angle", "°"}; }
+
+  static SensorQuantity Percent() { return {"Percent", "%"}; }
+};
+
 struct SensorChannelProps
 {
   SensorChannelProps(const char *channelName_,
-                     const char *unitString_,
+                     SensorQuantity quantity_,
                      SensorValue rangeMin_,
-                     SensorValue rangeMax_,
-                     const char *channelNameShort_ = "")
-      : channelName{channelName_}, unitString{unitString_}, rangeMin{rangeMin_}, rangeMax{rangeMax_}, channelNameShort{channelNameShort_} {}
+                     SensorValue rangeMax_)
+      : name{channelName_}, quantity{quantity_}, rangeMin{rangeMin_}, rangeMax{rangeMax_} {}
 
-  const char *channelName;
-  const char *unitString;
-  SensorValue rangeMin;
-  SensorValue rangeMax;
-  const char *channelNameShort;
+  const char *const name;
+  const SensorQuantity quantity;
+  const SensorValue rangeMin;
+  const SensorValue rangeMax;
 };
 
 template <size_t CHANNEL_COUNT>
@@ -255,7 +272,7 @@ public:
       : SensorChannelCursor{allSensors}, _name{channelName} {}
 
 private:
-  bool matches(const SensorChannelProps &props) override { return strcmp(props.channelName, _name) == 0; }
+  bool matches(const SensorChannelProps &props) override { return strcmp(props.name, _name) == 0; }
   const char *_name;
 };
 
@@ -322,22 +339,30 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
-inline SensorChannelProps makeChannelProps_Bool(const char *channelName,
-                                                const char *channelNameShort = "",
-                                                const char *unitString = "")
+inline SensorChannelProps makeChannelProps_Bool(const char *quantityName,
+                                                const char *channelName = nullptr)
 {
-  return {channelName, unitString, false, true, channelNameShort};
+  return {channelName ? channelName : quantityName, {quantityName, ""}, false, true};
+}
+
+inline SensorChannelProps makeChannelProps_Temperature(const char *channelName,
+                                                       float rangeMin = 0.0f,
+                                                       float rangeMax = 40.0f)
+{
+  const auto quantity = SensorQuantity::Temperature();
+  return {channelName ? channelName : quantity.name, quantity, rangeMin, rangeMax};
 }
 
 inline SensorChannelProps makeChannelProps_Temperature(float rangeMin = 0.0f,
                                                        float rangeMax = 40.0f)
 {
-  return {"Temperature", "°C", rangeMin, rangeMax, "Temp"};
+  return makeChannelProps_Temperature(nullptr, rangeMin, rangeMax);
 }
 
-inline SensorChannelProps makeChannelProps_Humidity()
+inline SensorChannelProps makeChannelProps_Humidity(const char *channelName = nullptr)
 {
-  return {"Humidity", "%rel", 0.0f, 100.0f, "Hum"};
+  const auto quantity = SensorQuantity::Humidity();
+  return {channelName ? channelName : quantity.name, quantity, 0.0f, 100.0f};
 }
 
 //--------------------------------------------------------------------------------------------------
