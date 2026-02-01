@@ -325,7 +325,7 @@ public:
     while (len && segmentsLeft) {
       if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
         size_t headerBytes = std::min(len, sizeof(esp_image_segment_header_t) - segmentHeaderBytes);
-        memcpy(&segmentHeader, data, headerBytes);
+        memcpy(reinterpret_cast<uint8_t*>(&segmentHeader) + segmentHeaderBytes, data, headerBytes);
         segmentHeaderBytes += headerBytes;
         if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
           return true;  // needs more bytes for the header
