@@ -503,7 +503,7 @@ void WLED::setup()
 
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
-  WiFi.persistent(false);
+  WiFi.persistent(false); // note: this is only applied if WiFi.mode() is called and only if mode changes, use low level esp_wifi_set_storage() to change storage method immediately
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
@@ -666,6 +666,23 @@ void WLED::initAP(bool resetAP)
 
 void WLED::initConnection()
 {
+  static bool firstCall = true;
+  bool updateWiFiNVM = false;
+  if (firstCall) {
+    // check cached WiFi config in flash, esp_wifi_get_config still contains NVM values at this point
+    // note: connecting to the NVM stored wifi is much faster and prevents boot-up glitches on LEDs
+    wifi_config_t cachedConfig;
+    esp_err_t configResult = esp_wifi_get_config( (wifi_interface_t)ESP_IF_WIFI_STA, &cachedConfig );
+    if( configResult == ESP_OK ) {
+      if (strncmp((const char*)cachedConfig.ap.ssid, multiWiFi[0].clientSSID, 32) != 0 ||
+      strncmp((const char*)cachedConfig.ap.password, multiWiFi[0].clientPass, 64) != 0) {
+        updateWiFiNVM = true; // SSID or pass changed, update NVM at next WiFi.begin() call
+        DEBUG_PRINTLN(F("WiFi config NVM update triggered"));
+      }
+    }
+    firstCall = false;
+  }
+
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
@@ -716,6 +733,10 @@ void WLED::initConnection()
     char hostname[25];
     prepareHostname(hostname);
 
+    // NVM only can store one wifi so store credentials of first WiFi even if multiple are configured
+    if(updateWiFiNVM && selectedWiFi == 0)
+      esp_wifi_set_storage(WIFI_STORAGE_FLASH); // temporary override WiFi.persistent(false) to store credentials in flash
+
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
       DEBUG_PRINTLN(F("Using PSK"));
@@ -758,6 +779,7 @@ void WLED::initConnection()
     WiFi.hostname(hostname);
 #endif
   }
+  esp_wifi_set_storage(WIFI_STORAGE_RAM);   // do not update credentials while running to prevent wear on flash
 
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow) {
