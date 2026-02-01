@@ -367,9 +367,6 @@ class BusNetwork : public Bus {
 
   private:
     IPAddress _client;
-    #ifdef ARDUINO_ARCH_ESP32
-    AsyncDNS* _DNSlookup;
-    #endif
     uint8_t   _UDPtype;
     uint8_t   _UDPchannels;
     bool      _broadcastLock;

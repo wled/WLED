@@ -673,9 +673,6 @@ BusNetwork::BusNetwork(const BusConfig &bc)
   _UDPchannels = _hasWhite + 3;
   _client = IPAddress(bc.pins[0],bc.pins[1],bc.pins[2],bc.pins[3]);
   #ifdef ARDUINO_ARCH_ESP32
-  _DNSlookup = nullptr;
-  #endif
-  #ifdef ARDUINO_ARCH_ESP32
   _hostname = bc.text;
   resolveHostname(); // resolve hostname to IP address if needed
   #endif
@@ -715,44 +712,22 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
-  static unsigned long nextResolve = 0;
+  static AsyncDNS DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
   if (Network.isConnected()) {
-    if (_DNSlookup != nullptr) {
-      if (_DNSlookup->status() == DnsResult::Success) {
-        _client = _DNSlookup->getIP();
-        delete _DNSlookup;
-        _DNSlookup = nullptr;
-      }
+    IPAddress clnt;
+    if (strlen(cmDNS) > 0) {
+      clnt = MDNS.queryHost(_hostname);
+      if (clnt != IPAddress()) _client = clnt; // update client IP if not null
     }
-    if (millis() > nextResolve && _hostname.length() > 0) {
-      nextResolve = millis() + 600000; // resolve only every 10 minutes
-      IPAddress clnt;
-      if (strlen(cmDNS) > 0) {
-        clnt = MDNS.queryHost(_hostname);
-        if (clnt != IPAddress()) _client = clnt; // update client IP if not null
+    else {
+      int timeout = 5000; // 5 seconds timeout
+      DNSlookup.reset();
+      DNSlookup.query(_hostname.c_str()); // start async DNS query
+      while (DNSlookup.status() == AsyncDNS::result::Busy && timeout-- > 0) {
+        delay(1);
       }
-      else {
-        if (_DNSlookup == nullptr) {
-          _DNSlookup = new AsyncDNS;
-          _DNSlookup->query(_hostname.c_str()); // start async DNS query
-        } else {
-          // there is a previous, unresolved query (should be in  error state)
-          // TODO: all this error handling is only required because of an IDF bug, otherwise we could just query again later, should be fixed in V5
-          if (_DNSlookup->status() == DnsResult::Error) {
-            if (_DNSlookup->getErrorCount() <= 2) {
-              _DNSlookup->renew(); // clear error state, keep error count
-              _DNSlookup->query(_hostname.c_str()); // restart async DNS query
-            } else {
-              forceReconnect = true; // reset network connection as dns is probably stuck
-              delete _DNSlookup;
-              _DNSlookup = nullptr;
-            }
-          }
-          else {
-            delete _DNSlookup; // cleanup if other error just in case (should not happen)
-            _DNSlookup = nullptr;
-          }
-        }
+      if (DNSlookup.status() == AsyncDNS::result::Success) {
+        _client = DNSlookup.getIP(); // update client IP
       }
     }
   }
@@ -1336,12 +1311,17 @@ void BusManager::on() {
     }
   }
   #else
+  static uint32_t nextResolve = 0;  // initial resolve is done on bus creation
+  bool resolveNow = (millis() - nextResolve >= 600000); // wait at least 10 minutes between hostname resolutions (blocking call)
   for (auto &bus : busses) if (bus->isVirtual()) {
     // virtual/network bus should check for IP change if hostname is specified
     // otherwise there are no endpoints to force DNS resolution
     BusNetwork &b = static_cast<BusNetwork&>(*bus);
-    b.resolveHostname();
+    if (resolveNow)
+      b.resolveHostname();
   }
+  if (resolveNow)
+    nextResolve = millis();
   #endif
   #ifdef ESP32_DATA_IDLE_HIGH
   esp32RMTInvertIdle();
