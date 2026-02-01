@@ -1,6 +1,7 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include "asyncDNS.h"
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
@@ -180,6 +181,7 @@ void handleTime() {
   }
 }
 
+AsyncDNS* ntpDNSlookup;
 void handleNetworkTime()
 {
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
@@ -189,26 +191,54 @@ void handleNetworkTime()
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
       while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
       #endif
-      sendNTPPacket();
-      ntpPacketSentTime = millis();
+      if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
+      {
+        if (ntpDNSlookup == nullptr) ntpDNSlookup = new AsyncDNS;
+        DnsResult res = ntpDNSlookup->status();
+        switch (res) {
+          case DnsResult::Idle:
+            //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            Serial.printf_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            ntpDNSlookup->query(ntpServerName); // start dnslookup asynchronously
+            return;
+
+          case DnsResult::Busy:
+            return; // still in progress
+
+          case DnsResult::Success:
+              DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+              Serial.printf_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+              ntpServerIP = ntpDNSlookup->getIP();
+              sendNTPPacket();
+              break;
+
+          case DnsResult::Error:
+            DEBUG_PRINTLN(F("NTP DNS failed"));
+            ntpDNSlookup->renew(); // try a new lookup next time
+            if ((toki.getTimeSource() == TOKI_TS_NONE) || ntpDNSlookup->getErrorCount() >= 3) {
+              // no time source or after 3 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
+              if (!realtimeMode) forceReconnect = true; // do not disturb streaming clients
+              delete ntpDNSlookup;
+              ntpDNSlookup = nullptr;
+            }
+            ntpLastSyncTime = toki.getTimeSource() == TOKI_TS_NONE ? NTP_NEVER : millis() - (1000*NTP_SYNC_INTERVAL - 600000); // keep trying if no time source, otherwise pause for 10 minutes
+            break;
+        }
+      }
+      else
+        sendNTPPacket();
     }
     if (checkNTPResponse())
     {
       ntpLastSyncTime = millis();
+      delete ntpDNSlookup;
+      ntpDNSlookup = nullptr;
     }
   }
 }
 
 void sendNTPPacket()
 {
-  if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
-  {
-    #ifdef ESP8266
-    WiFi.hostByName(ntpServerName, ntpServerIP, 750);
-    #else
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-    #endif
-  }
 
   DEBUG_PRINTLN(F("send NTP"));
   byte pbuf[NTP_PACKET_SIZE];
@@ -227,6 +257,7 @@ void sendNTPPacket()
   ntpUdp.beginPacket(ntpServerIP, 123); //NTP requests are to port 123
   ntpUdp.write(pbuf, NTP_PACKET_SIZE);
   ntpUdp.endPacket();
+  ntpPacketSentTime = millis();
 }
 
 static bool isValidNtpResponse(const byte* ntpPacket) {
