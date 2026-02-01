@@ -21,7 +21,7 @@ namespace
   {
   public:
     const uint8_t offset = 3;
-    const uint8_t size = 15;
+    const uint8_t size = 16;
     const uint8_t space = 3;
 
     void showInfo(Sensor &sensor)
@@ -44,7 +44,7 @@ namespace
     {
       int pos = _startPos;
       const uint8_t channelCount = sensor.channelCount();
-      for (uint8_t ch = 0; ch < MIN(channelCount, size / 3); ++ch)
+      for (uint8_t ch = 0; ch < MIN(channelCount, size / 2); ++ch)
       {
         SensorChannelProxy channel = sensor.channel(ch);
         const auto color = getChannelColor(channel);
