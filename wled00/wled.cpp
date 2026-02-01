@@ -682,6 +682,8 @@ void WLED::initConnection()
     }
     firstCall = false;
   }
+  else
+    esp_wifi_set_storage(WIFI_STORAGE_RAM); // do keep update credentials while running to prevent wear on flash
 
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
   #ifdef WLED_ENABLE_WEBSOCKETS
@@ -779,8 +781,6 @@ void WLED::initConnection()
     WiFi.hostname(hostname);
 #endif
   }
-  esp_wifi_set_storage(WIFI_STORAGE_RAM);   // do not update credentials while running to prevent wear on flash
-
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow) {
     quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
