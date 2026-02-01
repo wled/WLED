@@ -81,6 +81,8 @@ class UsermodOLED72x40 : public Usermod {
     void setup() {
       pinMode(LED_PIN, OUTPUT);
       Wire.begin(OLED_SDA, OLED_SCL);
+      WiFi.setTxPower(WIFI_POWER_8_5dBm);
+      // Wire.setClock(100000); // Set to 100kHz (Standard Mode) to avoid frequent connection issues
       u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
       
       if (u8g2->begin()) {
@@ -88,10 +90,26 @@ class UsermodOLED72x40 : public Usermod {
         u8g2->setFlipMode(flipDisplay ? 1 : 0);
         memset(vValues, 0, sizeof(vValues));
         u8g2->clearBuffer();
-        u8g2->drawBitmap(0, yOff, 16, 40, akemi_logo);
+
+        // FIXED X-OFFSET FOR SPLASH
+        // Since akemi_logo is 128px wide (16 bytes), we don't shift X.
+        // We only shift Y to align the 40px height within the 64px buffer.
+        int splashX = 0; 
+        int splashY = flipDisplay ? (64 - 40 - yOff) : yOff;
+
+        // Draw the 128x40 bitmap
+        u8g2->drawBitmap(splashX, splashY, 16, 40, akemi_logo);
+        
+        // The IP address/mDNS text still needs the relative shift to stay 
+        // centered under the logo area
+        int textX = flipDisplay ? (128 - 72 - xOff) : xOff;
+        
         u8g2->setFont(u8g2_font_4x6_tf);
-        u8g2->setCursor(xOff + 12, yOff + 38);
-        if (Network.isConnected()) u8g2->print(Network.localIP()); else u8g2->print(cmDNS);
+        u8g2->setCursor(textX + 12, splashY + 38);
+        
+        if (Network.isConnected()) u8g2->print(Network.localIP()); 
+        else u8g2->print(cmDNS);
+        
         u8g2->sendBuffer();
         delay(5000); 
         lastInteraction = millis();
@@ -121,26 +139,36 @@ class UsermodOLED72x40 : public Usermod {
       if (strip.isUpdating()) return;
 
       if (millis() - lastUpdate > 100) {
-        lastUpdate = millis();
-        if (displayOff) { u8g2->setPowerSave(0); displayOff = false; }
+          lastUpdate = millis();
+          if (displayOff) { u8g2->setPowerSave(0); displayOff = false; }
 
-        u8g2->clearBuffer();
-        u8g2->setFont(u8g2_font_5x7_tf);
-        char lineBuffer[17];
-        extractModeName(effectCurrent, JSON_mode_names, lineBuffer, 16);
-        u8g2->drawStr(xOff, yOff + 7, lineBuffer);
-        u8g2->drawHLine(xOff, yOff + 9, 72);
+          u8g2->clearBuffer();
+          
+          // ADJUST OFFSETS BASED ON FLIP
+          // Normal: xOff=28, yOff=24
+          // Flipped: We need to shift the content to the opposite side of the 128x64 buffer
+          int currentX = flipDisplay ? (128 - 72 - xOff) : xOff;
+          int currentY = flipDisplay ? (64 - 40 - yOff) : yOff;
 
-        for (int i = 0; i < 71; i++) vValues[i] = vValues[i+1];
-        vValues[71] = map(bri, 0, 255, 0, 15);
-        for (int i = 0; i < 71; i++) u8g2->drawLine(xOff + i, yOff + 26, xOff + i, yOff + 26 - vValues[i]);
+          u8g2->setFont(u8g2_font_5x7_tf);
+          char lineBuffer[17];
+          extractModeName(effectCurrent, JSON_mode_names, lineBuffer, 16);
+          u8g2->drawStr(currentX, currentY + 7, lineBuffer);
+          u8g2->drawHLine(currentX, currentY + 9, 72);
 
-        u8g2->setFont(u8g2_font_4x6_tf);
-        u8g2->setCursor(xOff, yOff + 38);
-        u8g2->print("S:"); u8g2->print(map(effectSpeed, 0, 255, 0, 99)); u8g2->print("% ");
-        u8g2->print("I:"); u8g2->print(map(effectIntensity, 0, 255, 0, 99)); u8g2->print("% ");
-        u8g2->print("B:"); u8g2->print(map(bri, 0, 255, 0, 100)); u8g2->print("%");
-        u8g2->sendBuffer();
+          for (int i = 0; i < 71; i++) vValues[i] = vValues[i+1];
+          vValues[71] = map(bri, 0, 255, 0, 15);
+          for (int i = 0; i < 71; i++) {
+              u8g2->drawLine(currentX + i, currentY + 26, currentX + i, currentY + 26 - vValues[i]);
+          }
+
+          u8g2->setFont(u8g2_font_4x6_tf);
+          u8g2->setCursor(currentX, currentY + 38);
+          u8g2->print("S:"); u8g2->print(map(effectSpeed, 0, 255, 0, 99)); u8g2->print("% ");
+          u8g2->print("I:"); u8g2->print(map(effectIntensity, 0, 255, 0, 99)); u8g2->print("% ");
+          u8g2->print("B:"); u8g2->print(map(bri, 0, 255, 0, 100)); u8g2->print("%");
+          
+          u8g2->sendBuffer();
       }
     }
 
@@ -156,6 +184,18 @@ class UsermodOLED72x40 : public Usermod {
       return false; 
     }
 
+    void appendConfigData(JsonArray &config) {
+      JsonObject top = config.createNestedObject();
+      top[F("usermod")] = F("OLED_72x40");
+
+      // This creates the UI elements in the Usermod settings page
+      config.createNestedObject()[F("OLED_72x40:enabled")];
+      config.createNestedObject()[F("OLED_72x40:flipDisplay")];
+      config.createNestedObject()[F("OLED_72x40:x-offset")];
+      config.createNestedObject()[F("OLED_72x40:y-offset")];
+      config.createNestedObject()[F("OLED_72x40:sleepTimeout")];
+      config.createNestedObject()[F("OLED_72x40:bootButtonPin")];
+    }
     void addToConfig(JsonObject& root) {
       JsonObject top = root.createNestedObject(F("OLED_72x40"));
       top[F("enabled")] = enabled;
@@ -166,20 +206,25 @@ class UsermodOLED72x40 : public Usermod {
       top["sleepTimeout"] = screenTimeoutMS / 1000;
     }
 
-    bool readFromConfig(JsonObject& root) {
+   bool readFromConfig(JsonObject& root) {
       JsonObject top = root[F("OLED_72x40")];
       if (top.isNull()) return false;
 
       enabled = top[F("enabled")] | enabled;
-      flipDisplay = top[F("flipDisplay")] | flipDisplay; // Read setting from UI
-      xOff = top["x-offset"] | xOff;
-      yOff = top["y-offset"] | yOff;
-      screenTimeoutMS = (top["sleepTimeout"] | (screenTimeoutMS / 1000)) * 1000;
+      flipDisplay = top[F("flipDisplay")] | flipDisplay;
+      xOff = top[F("x-offset")] | 28; 
+      yOff = top[F("y-offset")] | 24;
+      
+      // Guard against 0 or negative timeout values
+      unsigned long timeoutSec = top[F("sleepTimeout")] | 60;
+      screenTimeoutMS = timeoutSec * 1000;
 
       if (initDone && u8g2) u8g2->setFlipMode(flipDisplay ? 1 : 0);
 
-      if (btnPin[0] == -1 || btnPin[0] != 9) {
-        btnPin[0] = 9;
+      // Apply the button pin 9 default logic
+      int pin = top[F("bootButtonPin")] | 9;
+      if (btnPin[0] == -1 || btnPin[0] != pin) {
+        btnPin[0] = pin;
         buttonType[0] = BTN_TYPE_PUSH;
       }
       return true;
