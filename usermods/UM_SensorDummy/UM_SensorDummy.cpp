@@ -49,7 +49,7 @@ public:
     _sensorArray.set(2, readHumidity());
 #if (0) // Battery is empty :-(
     _sensorArray.set(3, readTemperature() - 3.0f);
-    _sensorArray.set(4, readHumidity() + 5.0f);
+    _sensorArray.set(4, readHumidity() - 5.0f);
 #endif
   }
 
@@ -71,23 +71,13 @@ public:
 
   float readSEF(uint8_t index)
   {
-    int32_t raw = 0;
-    switch (index)
+    if (index >= 3)
     {
-    case 0:
-      raw = beatsin16_t(6, 0, 0xFFFF, 0, 0);
-      break;
-    case 1:
-      raw = beatsin16_t(6, 0, 0xFFFF, 0, 0xFFFF / 3);
-      break;
-    case 2:
-      raw = beatsin16_t(6, 0, 0xFFFF, 0, 2 * 0xFFFF / 3);
-      break;
-
-    default:
-      return -123.45f;
+      const int32_t raw = abs(beat16(20) - 0x8000);
+      return raw / 32767.0f * 100.0f;
     }
-    return 180.0f + raw / 65535.0f * 90.0f;
+    const int32_t raw = beatsin16_t(40, 0, 0xFFFF, 0, (index * 0xFFFF) / 3);
+    return 90.0f + raw / 65535.0f * 90.0f;
   }
 
   // ----- member variables -----

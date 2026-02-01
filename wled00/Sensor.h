@@ -75,11 +75,13 @@ private:
   SensorValueType _type;
 };
 
+// The physical (or theoretical/virtual) quantity of the readings from a sensor channel.
 struct SensorQuantity
 {
   const char *const name;
   const char *const unit;
 
+  // common physical measurements (just for convenience and consistency)
   static SensorQuantity Temperature() { return {"Temperature", "°C"}; }
   static SensorQuantity Humidity() { return {"Humidity", "%rel"}; }
   static SensorQuantity AirPressure() { return {"Air Pressure", "hPa"}; }
@@ -224,7 +226,7 @@ private:
 class SensorChannelCursor
 {
 public:
-  bool isValid() const { return _sensorCursor.isValid(); }
+  bool isValid();
   SensorChannelProxy get() { return {*_sensorCursor, _channelIndex}; }
   bool next();
   void reset();
@@ -252,6 +254,21 @@ private:
   bool matches(const SensorChannelProps &) override { return true; }
 };
 
+// A cursor to iterate over all available channels with a specific quantity.
+class SensorChannelsByQuantity final : public SensorChannelCursor
+{
+public:
+  SensorChannelsByQuantity(SensorCursor allSensors, const char *quantityName)
+      : SensorChannelCursor{allSensors}, _quantityName{quantityName} {}
+
+  SensorChannelsByQuantity(SensorCursor allSensors, SensorQuantity quantity)
+      : SensorChannelsByQuantity{allSensors, quantity.name} {}
+
+private:
+  bool matches(const SensorChannelProps &props) override { return strcmp(props.quantity.name, _quantityName) == 0; }
+  const char *const _quantityName;
+};
+
 // A cursor to iterate over all available channels with a specific ValueType.
 class SensorChannelsByType final : public SensorChannelCursor
 {
@@ -261,7 +278,7 @@ public:
 
 private:
   bool matches(const SensorChannelProps &props) override { return props.rangeMin.type() == _type; }
-  SensorValueType _type;
+  const SensorValueType _type;
 };
 
 // A cursor to iterate over all available channels with a specific name.
@@ -273,7 +290,7 @@ public:
 
 private:
   bool matches(const SensorChannelProps &props) override { return strcmp(props.name, _name) == 0; }
-  const char *_name;
+  const char *const _name;
 };
 
 class SensorList
@@ -294,6 +311,9 @@ public:
 
   AllSensorChannels getAllSensorChannels() { return AllSensorChannels{getAllSensors()}; }
 
+  SensorChannelsByQuantity getSensorChannelsByQuantity(const char *quantityName) { return {getAllSensors(), quantityName}; }
+  SensorChannelsByQuantity getSensorChannelsByQuantity(SensorQuantity quantity) { return {getAllSensors(), quantity}; }
+
   SensorChannelsByType getSensorChannelsByType(SensorValueType valueType) { return {getAllSensors(), valueType}; }
 
   SensorChannelsByName getSensorChannelsByName(const char *channelName) { return {getAllSensors(), channelName}; }
@@ -304,42 +324,6 @@ private:
 };
 
 //--------------------------------------------------------------------------------------------------
-
-#if (0)
-class EasySensorBase : public Sensor
-{
-public:
-  void suspendSensor() { _isSensorReady = false; }
-  void suspendChannel(uint8_t channelIndex) { _isChannelReady[channelIndex] = false; }
-
-  void set(uint8_t channelIndex, SensorValue val)
-  {
-    if (val.type() == _val[channelIndex].type())
-    {
-      _val[channelIndex] = val;
-      _isChannelReady[channelIndex] = true;
-      _isSensorReady = true;
-    }
-  }
-
-  SensorValue get(uint8_t channelIndex) const { return _val[channelIndex]; }
-
-protected:
-  EasySensorArray(const char *sensorName, const SensorChannelPropsArray<CHANNEL_COUNT> &channelProps)
-      : Sensor{sensorName, CHANNEL_COUNT}, _props{channelProps}, _val{channelProps.rangeMin} {}
-
-private:
-  bool do_isSensorReady() override { return _isSensorReady; }
-  SensorValue do_getSensorChannelValue(uint8_t) override { return _val; }
-  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return _props; }
-
-private:
-  const SensorChannelPropsArray<CHANNEL_COUNT> _props;
-  std::array<SensorValue, CHANNEL_COUNT> _val;
-  std::array<bool, CHANNEL_COUNT> _isChannelReady{};
-  bool _isSensorReady = false;
-};
-#endif
 
 template <size_t CHANNEL_COUNT>
 class EasySensorArray : public Sensor

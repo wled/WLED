@@ -56,6 +56,15 @@ bool SensorCursor::next()
 
 //--------------------------------------------------------------------------------------------------
 
+bool SensorChannelCursor::isValid()
+{
+  if (!_sensorCursor.isValid())
+    return false;
+  if (matches(_sensorCursor->getProps(_channelIndex)))
+    return true;
+  return next();
+}
+
 void SensorChannelCursor::reset()
 {
   _sensorCursor.reset();
@@ -69,8 +78,11 @@ bool SensorChannelCursor::next()
     if (++_channelIndex < _sensorCursor->channelCount())
       if (matches(_sensorCursor->getProps(_channelIndex)))
         return true;
+
     _channelIndex = 0;
-    _sensorCursor.next();
+    if (_sensorCursor.next())
+      if (matches(_sensorCursor->getProps(_channelIndex)))
+        return true;
   }
   return false;
 }

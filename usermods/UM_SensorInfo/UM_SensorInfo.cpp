@@ -5,6 +5,8 @@
 
 #include "wled.h"
 
+extern uint16_t mode_static(void);
+
 //--------------------------------------------------------------------------------------------------
 
 namespace
@@ -47,7 +49,7 @@ namespace
       for (uint8_t ch = 0; ch < MIN(channelCount, size / 2); ++ch)
       {
         SensorChannelProxy channel = sensor.channel(ch);
-        const auto color = getChannelColor(channel);
+        const uint32_t color = getChannelColor(channel);
         SEGMENT.setPixelColor(pos, color);
         pos += 2;
       }
@@ -73,7 +75,7 @@ uint16_t mode_SensorInfo()
 
   SensorChannelVisualizer visualizer;
 
-  auto sensorList = UsermodManager::getSensors();
+  SensorList sensorList = UsermodManager::getSensors();
   for (auto cursor = sensorList.getAllSensors();
        cursor.isValid();
        cursor.next())
@@ -83,71 +85,118 @@ uint16_t mode_SensorInfo()
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_SENSOR_INFO[] PROGMEM = "! SensorInfo";
+static const char _data_FX_MODE_SENSOR_INFO[] PROGMEM = "1 Sensor Info";
 
 //--------------------------------------------------------------------------------------------------
-
-#if (0)
 
 uint16_t mode_NumberDumper()
 {
   SEGMENT.clear();
 
-#if (0)
-  auto sensorList = UsermodManager::getSensors();
-  int counter = 0;
-  for (auto cursor = sensorList.getSensorChannelsByType(SensorValueType::Float);
-       cursor.isValid();
-       cursor.next())
+  SensorList sensorList = UsermodManager::getSensors();
+  uint8_t hue = 0;
+  for (auto cursor = sensorList.getSensorChannelsByType(SensorValueType::Float); cursor.isValid(); cursor.next())
   {
-    auto sensor = cursor.get();
-    const bool isReady = sensor.isReady();
-    SEGMENT.setPixelColor(counter * 10 + 5, isReady ? 0x008800 : 0x880000);
-
-    if (isReady)
+    auto channel = cursor.get();
+    const bool isReady = channel.isReady();
+    if (!isReady)
       continue;
-    const float sensorValue = sensor.getValue();
-    const float sensorValueMax = sensor.getProps().rangeMax;
+
+    const auto &props = channel.getProps();
+    const float sensorValue = channel.getValue();
+    const float sensorValueMax = channel.getProps().rangeMax;
+    // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {
       const int pos = sensorValue * (SEGLEN - 1) / sensorValueMax;
-      SEGMENT.setPixelColor(pos, 0x000088);
-      // SEGMENT.setPixelColor(pos, SEGCOLOR(0));
-      // SEGMENT.setPixelColor(pos, fast_color_scale(SEGCOLOR(0), 64));
-    }
-
-    ++counter;
-  }
-#endif
-
-#if (1)
-  auto sensorList = UsermodManager::getSensors();
-  int counter = 0;
-  for (auto cursor = sensorList.getAllSensors();
-       cursor.isValid();
-       cursor.next())
-  {
-    const int basePos = 5 + 25 * counter++;
-
-    auto &sensor = cursor.get();
-    const bool isReady = sensor.isReady();
-    SEGMENT.setPixelColor(basePos, isReady ? 0x004400 : 0x440000);
-
-    int baseOffset = 2;
-    const uint8_t channelCount = sensor.channelCount();
-    for (uint8_t ch = 0; ch < channelCount; ++ch)
-    {
-      SEGMENT.setPixelColor(basePos + baseOffset + ch * baseOffset, 0x440044);
+      uint32_t color;
+      hsv2rgb(CHSV32(hue, 255, 255), color);
+      SEGMENT.setPixelColor(pos, color);
+      hue += 74;
     }
   }
-#endif
 
   return FRAMETIME;
 }
-static const char _data_FX_MODE_EX_NUMBER_DUMPER[] PROGMEM = "! SensorNumberDumper";
-// static const char _data_FX_MODE_EX_NUMBER_DUMPER[] PROGMEM = "Ex: NumberDumper@,,,,,,Humidity Info,Temperature Info;!;;o2=1,o3=1";
+static const char _data_FX_MODE_NUMBER_DUMPER[] PROGMEM = "2 Numbers";
 
-#endif
+//--------------------------------------------------------------------------------------------------
+
+uint16_t mode_SEF_all()
+{
+  SensorList sensorList = UsermodManager::getSensors();
+  Sensor *sensor = sensorList.findSensorByName("SEF");
+  if (!sensor || !sensor->isReady())
+    return mode_static();
+
+  SEGMENT.clear();
+  SEGMENT.fill(0x080800);
+
+  uint8_t hue = 0;
+  for (uint8_t channelIndex = 0; channelIndex < sensor->channelCount(); ++channelIndex)
+  {
+    if (!sensor->isReady(channelIndex))
+      continue;
+
+    const auto &props = sensor->getProps(channelIndex);
+    const float sensorValue = sensor->getValue(channelIndex);
+    const float sensorValueMax = sensor->getProps(channelIndex).rangeMax;
+    // TODO(feature) Also take care for negative ranges, and map accordingly.
+    if (sensorValueMax > 0.0f)
+    {
+      const int pos = sensorValue * (SEGLEN - 1) / sensorValueMax;
+      uint32_t color;
+      hsv2rgb(CHSV32(hue, 255, 255), color);
+      SEGMENT.setPixelColor(pos, color);
+      hue += 74;
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_SEF_ALL[] PROGMEM = "3 SEF all";
+
+//--------------------------------------------------------------------------------------------------
+
+class FluctuationChannels final : public SensorChannelCursor
+{
+public:
+  explicit FluctuationChannels(SensorList &sensorList) : SensorChannelCursor{sensorList.getAllSensors()} {}
+
+private:
+  bool matches(const SensorChannelProps &props) override { return strcmp(props.quantity.name, "offset") == 0; }
+};
+
+uint16_t mode_Fluctuations()
+{
+  SEGMENT.clear();
+  SEGMENT.fill(0x080800);
+
+  SensorList sensorList = UsermodManager::getSensors();
+  uint8_t hue = 0;
+  for (FluctuationChannels cursor{sensorList}; cursor.isValid(); cursor.next())
+  {
+    auto channel = cursor.get();
+    if (!channel.isReady())
+      continue;
+
+    const auto &props = channel.getProps();
+    const float sensorValue = channel.getValue();
+    const float sensorValueMax = channel.getProps().rangeMax;
+    // TODO(feature) Also take care for negative ranges, and map accordingly.
+    if (sensorValueMax > 0.0f)
+    {
+      const int pos = sensorValue * (SEGLEN - 1) / sensorValueMax;
+      uint32_t color;
+      hsv2rgb(CHSV32(hue, 255, 255), color);
+      SEGMENT.setPixelColor(pos, color);
+      hue += 74;
+    }
+  }
+
+  return FRAMETIME;
+}
+static const char _data_FX_MODE_FLUCTUATIONS[] PROGMEM = "4 Fluct only";
 
 //--------------------------------------------------------------------------------------------------
 
@@ -156,7 +205,9 @@ class UM_SensorInfo : public Usermod
   void setup() override
   {
     strip.addEffect(255, &mode_SensorInfo, _data_FX_MODE_SENSOR_INFO);
-    // strip.addEffect(255, &mode_NumberDumper, _data_FX_MODE_EX_NUMBER_DUMPER);
+    strip.addEffect(255, &mode_NumberDumper, _data_FX_MODE_NUMBER_DUMPER);
+    strip.addEffect(255, &mode_SEF_all, _data_FX_MODE_SEF_ALL);
+    strip.addEffect(255, &mode_Fluctuations, _data_FX_MODE_FLUCTUATIONS);
   }
 
   void loop() override {}
@@ -168,7 +219,7 @@ class UM_SensorInfo : public Usermod
       user = root.createNestedObject("u");
 
     int sensorIndex = 0;
-    auto sensorList = UsermodManager::getSensors();
+    SensorList sensorList = UsermodManager::getSensors();
     for (auto cursor = sensorList.getAllSensors(); cursor.isValid(); cursor.next())
     {
       Sensor &sensor = cursor.get();
@@ -206,6 +257,7 @@ class UM_SensorInfo : public Usermod
         if (isChannelReady)
         {
           const SensorValue sensorValue = sensor.getValue(channelIndex);
+          // TODO(feature) Also take care for other datatypes (via visitor).
           val += sensorValue.as_float();
         }
         else
