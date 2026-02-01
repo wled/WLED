@@ -367,6 +367,7 @@ namespace UsermodManager {
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
   size_t getModCount();
+  SensorList getSensors();
 };
 
 // Register usermods by building a static list via a linker section

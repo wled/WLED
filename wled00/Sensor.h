@@ -95,19 +95,24 @@ template <size_t CHANNEL_COUNT>
 using SensorChannelPropsArray = std::array<SensorChannelProps, CHANNEL_COUNT>;
 
 //--------------------------------------------------------------------------------------------------
+class SensorChannelProxy;
 
 class Sensor
 {
 public:
   const char *name() const { return _sensorName; }
 
-  uint8_t channelCount() const { return _channelCount; }
-
   bool isReady() { return do_isSensorReady(); }
 
-  SensorValue getValue(uint8_t channelIndex = 0) { return do_getSensorValue(channelIndex); }
+  uint8_t channelCount() const { return _channelCount; }
 
-  const SensorChannelProps &getProps(uint8_t channelIndex = 0) { return do_getSensorProperties(channelIndex); }
+  SensorChannelProxy channel(uint8_t channelIndex);
+
+  bool isReady(uint8_t channelIndex) { return do_isSensorReady() ? do_isSensorChannelReady(channelIndex) : false; }
+
+  SensorValue getValue(uint8_t channelIndex = 0) { return do_getSensorChannelValue(channelIndex); }
+
+  const SensorChannelProps &getProps(uint8_t channelIndex = 0) { return do_getSensorChannelProperties(channelIndex); }
 
   void accept(uint8_t channelIndex, SensorChannelVisitor &visitor);
   void accept(SensorChannelVisitor &visitor) { accept(0, visitor); }
@@ -117,8 +122,9 @@ protected:
       : _sensorName{sensorName}, _channelCount{channelCount} {}
 
   virtual bool do_isSensorReady() = 0;
-  virtual SensorValue do_getSensorValue(uint8_t channelIndex) = 0;
-  virtual const SensorChannelProps &do_getSensorProperties(uint8_t channelIndex) = 0;
+  virtual bool do_isSensorChannelReady(uint8_t channelIndex) { return true; };
+  virtual SensorValue do_getSensorChannelValue(uint8_t channelIndex) = 0;
+  virtual const SensorChannelProps &do_getSensorChannelProperties(uint8_t channelIndex) = 0;
 
 private:
   const char *_sensorName;
@@ -136,12 +142,15 @@ public:
 
 private:
   bool do_isSensorReady() override { return _realSensor.isReady(); }
-  SensorValue do_getSensorValue(uint8_t) override { return _realSensor.getValue(_channelIndex); }
-  const SensorChannelProps &do_getSensorProperties(uint8_t) override { return _realSensor.getProps(_channelIndex); }
+  bool do_isSensorChannelReady(uint8_t) override { return _realSensor.isReady(_channelIndex); }
+  SensorValue do_getSensorChannelValue(uint8_t) override { return _realSensor.getValue(_channelIndex); }
+  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return _realSensor.getProps(_channelIndex); }
 
   Sensor &_realSensor;
   const uint8_t _channelIndex;
 };
+
+inline SensorChannelProxy Sensor::channel(uint8_t channelIndex) { return SensorChannelProxy{*this, channelIndex}; }
 
 //--------------------------------------------------------------------------------------------------
 
@@ -268,9 +277,9 @@ public:
 
   AllSensorChannels getAllSensorChannels() { return AllSensorChannels{getAllSensors()}; }
 
-  SensorChannelsByType getSensorChannelByType(SensorValueType valueType) { return {getAllSensors(), valueType}; }
+  SensorChannelsByType getSensorChannelsByType(SensorValueType valueType) { return {getAllSensors(), valueType}; }
 
-  SensorChannelsByName getSensorChannelByName(const char *channelName) { return {getAllSensors(), channelName}; }
+  SensorChannelsByName getSensorChannelsByName(const char *channelName) { return {getAllSensors(), channelName}; }
 
 private:
   SensorCursor::UmIterator _umBegin;
@@ -302,8 +311,8 @@ public:
 
 private:
   bool do_isSensorReady() override { return _isReady; }
-  SensorValue do_getSensorValue(uint8_t) override { return _val; }
-  const SensorChannelProps &do_getSensorProperties(uint8_t) override { return _props; }
+  SensorValue do_getSensorChannelValue(uint8_t) override { return _val; }
+  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return _props; }
 
 private:
   const SensorChannelProps _props;
