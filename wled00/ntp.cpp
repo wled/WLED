@@ -10,7 +10,7 @@
  * Acquires time from NTP server
  */
 //#define WLED_DEBUG_NTP
-#define NTP_SYNC_INTERVAL 15//42000UL //Get fresh NTP time about twice per day
+#define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
 Timezone* tz;
 
