@@ -784,6 +784,7 @@ void WLED::initConnection()
     WiFi.hostname(hostname);
 #endif
   }
+
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow) {
     quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
