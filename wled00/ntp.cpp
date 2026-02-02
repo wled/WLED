@@ -45,128 +45,129 @@ static const char _awst[]   PROGMEM = "AWST (Perth)";
 
 // WARNING: Changing the order of entries in this table will change the meaning of stored timezone indices in settings!
 // Add new timezones only at the end of the list to preserve compatibility!
-static const std::tuple<const char*, const TimeChangeRule, const TimeChangeRule> TZ_TABLE[] PROGMEM = {
-  {
+using tz_data = std::tuple<const char*, const TimeChangeRule, const TimeChangeRule>;
+static const tz_data TZ_TABLE[] PROGMEM = {
+  tz_data{
     _utc,
     {Last, Sun, Mar, 1, 0}, // UTC
     {Last, Sun, Mar, 1, 0}  // Same
   },
-  {
+  tz_data{
     _gmt,
     {Last, Sun, Mar, 1, 60},      //British Summer Time
     {Last, Sun, Oct, 2, 0}       //Standard Time
   },
-  {
+  tz_data{
     _cet,
     {Last, Sun, Mar, 2, 120},     //Central European Summer Time
     {Last, Sun, Oct, 3, 60}      //Central European Standard Time
   },
-  {
+  tz_data{
     _eet,
     {Last, Sun, Mar, 3, 180},     //East European Summer Time
     {Last, Sun, Oct, 4, 120}     //East European Standard Time
   },
-  {
+  tz_data{
     _us_est,
     {Second, Sun, Mar, 2, -240},  //EDT = UTC - 4 hours
     {First,  Sun, Nov, 2, -300}  //EST = UTC - 5 hours
   },
-  {
+  tz_data{
     _us_cst,
     {Second, Sun, Mar, 2, -300},  //CDT = UTC - 5 hours
     {First,  Sun, Nov, 2, -360}  //CST = UTC - 6 hours
   },
-  {
+  tz_data{
     _us_mst,
     {Second, Sun, Mar, 2, -360},  //MDT = UTC - 6 hours
     {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
   },
-  {
+  tz_data{
     _us_az,
     {First,  Sun, Nov, 2, -420},  //MST = UTC - 7 hours
     {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
   },
-  {
+  tz_data{
     _us_pst,
     {Second, Sun, Mar, 2, -420},  //PDT = UTC - 7 hours
     {First,  Sun, Nov, 2, -480}  //PST = UTC - 8 hours
   },
-  {
+  tz_data{
     _cst,
     {Last, Sun, Mar, 1, 480},     //CST = UTC + 8 hours
     {Last, Sun, Mar, 1, 480}
   },
-  {
+  tz_data{
     _jst,
     {Last, Sun, Mar, 1, 540},     //JST = UTC + 9 hours
     {Last, Sun, Mar, 1, 540}
   },
-  {
+  tz_data{
     _aest,
     {First,  Sun, Oct, 2, 660},   //AEDT = UTC + 11 hours
     {First,  Sun, Apr, 3, 600}   //AEST = UTC + 10 hours
   },
-  {
+  tz_data{
     _nzst,
     {Last,   Sun, Sep, 2, 780},   //NZDT = UTC + 13 hours
     {First,  Sun, Apr, 3, 720}   //NZST = UTC + 12 hours
   },
-  {
+  tz_data{
     _nkst,
     {Last, Sun, Mar, 1, 510},     //Pyongyang Time = UTC + 8.5 hours
     {Last, Sun, Mar, 1, 510}
   },
-  {
+  tz_data{
     _ist,
     {Last, Sun, Mar, 1, 330},     //India Standard Time = UTC + 5.5 hours
     {Last, Sun, Mar, 1, 330}
   },
-  {
+  tz_data{
     _ca_sk,
     {First,  Sun, Nov, 2, -360},  //CST = UTC - 6 hours
     {First,  Sun, Nov, 2, -360}
   },
-  {
+  tz_data{
     _acst,
     {First, Sun, Apr, 3, 570},   //ACST = UTC + 9.5 hours
     {First, Sun, Apr, 3, 570}
   },
-  {
+  tz_data{
     _acst2,
     {First, Sun, Oct, 2, 630},   //ACDT = UTC + 10.5 hours
     {First, Sun, Apr, 3, 570}   //ACST = UTC + 9.5 hours
   },
-  {
+  tz_data{
     _hst,
     {Last, Sun, Mar, 1, -600},   //HST =  UTC - 10 hours
     {Last, Sun, Mar, 1, -600}
   },
-  {
+  tz_data{
     _novt,
     {Last, Sun, Mar, 1, 420},     //CST = UTC + 7 hours
     {Last, Sun, Mar, 1, 420}
   },
-  {
+  tz_data{
     _akst,
     {Second, Sun, Mar, 2, -480},  //AKDT = UTC - 8 hours
     {First, Sun, Nov, 2, -540}   //AKST = UTC - 9 hours
   },
-  {
+  tz_data{
     _mxcst,
     {First, Sun, Apr, 2, -360},  //CST = UTC - 6 hours
     {First, Sun, Apr, 2, -360}
   },
-  {
+  tz_data{
     _pkt,
     {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
     {Last, Sun, Mar, 1, 300}
   },
-  {
+  tz_data{
     _brt,
     {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
     {Last, Sun, Mar, 1, -180}
   },
-  {
+  tz_data{
     _awst,
     {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
     {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
