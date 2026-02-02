@@ -328,78 +328,89 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
-template <size_t CHANNEL_COUNT>
-class EasySensorArray : public Sensor
+class EasySensorBase : public Sensor
 {
 public:
-  EasySensorArray(const char *sensorName, const SensorChannelPropsArray<CHANNEL_COUNT> &channelProps)
-      : Sensor{sensorName, CHANNEL_COUNT}, _props{channelProps}
-  {
-    for (size_t i = 0; i < CHANNEL_COUNT; ++i)
-    {
-      _val[i] = _props[i].rangeMin;
-      _isChannelReady[i] = false;
-    }
-  }
-
-  void suspend() { _isSensorReady = false; }
-  void suspendChannel(uint8_t channelIndex) { _isChannelReady[channelIndex] = false; }
+  void suspendSensor() { _isSensorReady = false; }
+  void suspendChannel(uint8_t channelIndex) { _channelReadyFlags &= ~(1U << channelIndex); }
 
   void set(uint8_t channelIndex, SensorValue val)
   {
-    if (val.type() == _val[channelIndex].type())
-    {
-      _val[channelIndex] = val;
-      _isChannelReady[channelIndex] = true;
-      _isSensorReady = true;
-    }
+    if (channelIndex >= channelCount())
+      channelIndex = 0;
+    _channelValues[channelIndex] = val;
+    _channelReadyFlags |= (1U << channelIndex);
+    _isSensorReady = true;
   }
 
-  SensorValue get(uint8_t channelIndex) const { return _val[channelIndex]; }
+protected:
+  ~EasySensorBase() = default;
+  EasySensorBase(const char *sensorName, uint8_t channelCount,
+                 SensorValue *channelValues, const SensorChannelProps *channelProps)
+      : Sensor{sensorName, channelCount},
+        _channelProps{channelProps}, _channelValues{channelValues} {}
 
 private:
-  bool do_isSensorReady() override { return _isSensorReady; }
-  virtual bool do_isSensorChannelReady(uint8_t channelIndex) { return _isChannelReady[channelIndex]; };
-  SensorValue do_getSensorChannelValue(uint8_t channelIndex) override { return _val[channelIndex]; }
-  const SensorChannelProps &do_getSensorChannelProperties(uint8_t channelIndex) override { return _props[channelIndex]; }
+  bool do_isSensorReady() final { return _isSensorReady; }
+
+  bool do_isSensorChannelReady(uint8_t channelIndex) final
+  {
+    if (channelIndex >= channelCount())
+      channelIndex = 0;
+    return _channelReadyFlags & (1U << channelIndex);
+  };
+
+  SensorValue do_getSensorChannelValue(uint8_t channelIndex) final
+  {
+    if (channelIndex >= channelCount())
+      channelIndex = 0;
+    return _channelValues[channelIndex];
+  }
+
+  const SensorChannelProps &do_getSensorChannelProperties(uint8_t channelIndex) final
+  {
+    if (channelIndex >= channelCount())
+      channelIndex = 0;
+    return _channelProps[channelIndex];
+  }
 
 private:
-  const SensorChannelPropsArray<CHANNEL_COUNT> _props;
-  std::array<SensorValue, CHANNEL_COUNT> _val;
-  std::array<bool, CHANNEL_COUNT> _isChannelReady{};
+  const SensorChannelProps *_channelProps;
+  SensorValue *_channelValues;
+  uint32_t _channelReadyFlags = 0;
   bool _isSensorReady = false;
 };
 
-class EasySensor : public Sensor
+template <size_t CHANNEL_COUNT>
+class EasySensorArray : public EasySensorBase
 {
 public:
-  EasySensor(const char *sensorName, const SensorChannelProps &channelProps)
-      : Sensor{sensorName, 1}, _props{channelProps}, _val{channelProps.rangeMin} {}
+  static_assert(CHANNEL_COUNT <= 32, "EasySensorArray supports max. 32 sensor channels");
 
-  void suspend() { _isReady = false; }
-
-  void set(SensorValue val)
-  {
-    if (val.type() == _val.type())
-    {
-      _val = val;
-      _isReady = true;
-    }
-  }
-
-  SensorValue get() const { return _val; }
-
-  void operator=(SensorValue val) { set(val); }
+  EasySensorArray(const char *sensorName, const SensorChannelPropsArray<CHANNEL_COUNT> &channelProps)
+      : EasySensorBase{sensorName, CHANNEL_COUNT, _channelValues.data(), _channelProps.data()},
+        _channelProps{channelProps} {}
 
 private:
-  bool do_isSensorReady() override { return _isReady; }
-  SensorValue do_getSensorChannelValue(uint8_t) override { return _val; }
-  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return _props; }
+  const SensorChannelPropsArray<CHANNEL_COUNT> _channelProps;
+  std::array<SensorValue, CHANNEL_COUNT> _channelValues;
+};
+
+class EasySensor : public EasySensorBase
+{
+public:
+  void suspendChannel(uint8_t channelIndex) = delete;
+  void set(uint8_t channelIndex, SensorValue val) = delete;
+
+  EasySensor(const char *sensorName, const SensorChannelProps &channelProps)
+      : EasySensorBase{sensorName, 1, &_val, &_props}, _props{channelProps} {}
+
+  void set(SensorValue val) { EasySensorBase::set(0, val); }
+  void operator=(SensorValue val) { set(val); }
 
 private:
   const SensorChannelProps _props;
   SensorValue _val;
-  bool _isReady = false;
 };
 
 //--------------------------------------------------------------------------------------------------

@@ -167,7 +167,7 @@ void UsermodTemperature::loop() {
     if (getTemperatureC() < -100.0f) {
       if (++errorCount > 10) {
         sensorFound = 0;
-        temperatureSensor.suspend();
+        temperatureSensor.suspendSensor();
       }
       lastMeasurement = now - readingInterval + 300; // force new measurement in 300ms
       return;
