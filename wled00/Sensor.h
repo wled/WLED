@@ -102,9 +102,9 @@ struct SensorChannelProps
                      SensorQuantity quantity_,
                      SensorValue rangeMin_,
                      SensorValue rangeMax_)
-      : name{channelName_}, quantity{quantity_}, rangeMin{rangeMin_}, rangeMax{rangeMax_} {}
+      : channelName{channelName_}, quantity{quantity_}, rangeMin{rangeMin_}, rangeMax{rangeMax_} {}
 
-  const char *const name;
+  const char *const channelName;
   const SensorQuantity quantity;
   const SensorValue rangeMin;
   const SensorValue rangeMax;
@@ -119,19 +119,19 @@ class SensorChannelProxy;
 class Sensor
 {
 public:
-  const char *name() const { return _sensorName; }
+  const char *name() { return _sensorName; }
 
-  bool isReady() { return do_isSensorReady(); }
+  uint8_t channelCount() { return _channelCount; }
 
-  uint8_t channelCount() const { return _channelCount; }
+  bool isSensorReady() { return do_isSensorReady(); }
 
-  SensorChannelProxy channel(uint8_t channelIndex);
+  SensorChannelProxy getChannel(uint8_t channelIndex);
 
-  bool isReady(uint8_t channelIndex) { return do_isSensorReady() ? do_isSensorChannelReady(channelIndex) : false; }
+  bool isChannelReady(uint8_t channelIndex) { return do_isSensorReady() ? do_isSensorChannelReady(channelIndex) : false; }
 
-  SensorValue getValue(uint8_t channelIndex = 0) { return do_getSensorChannelValue(channelIndex); }
+  SensorValue getChannelValue(uint8_t channelIndex) { return do_getSensorChannelValue(channelIndex); }
 
-  const SensorChannelProps &getProps(uint8_t channelIndex = 0) { return do_getSensorChannelProperties(channelIndex); }
+  const SensorChannelProps &getChannelProps(uint8_t channelIndex) { return do_getSensorChannelProperties(channelIndex); }
 
   void accept(uint8_t channelIndex, SensorChannelVisitor &visitor);
   void accept(SensorChannelVisitor &visitor) { accept(0, visitor); }
@@ -150,26 +150,29 @@ private:
   const uint8_t _channelCount;
 };
 
-class SensorChannelProxy final : public Sensor
+class SensorChannelProxy
 {
 public:
   SensorChannelProxy(Sensor &realSensor, const uint8_t channelIndex)
-      : Sensor{realSensor.name(), 1}, _realSensor{realSensor}, _channelIndex{channelIndex} {}
+      : _parent{realSensor}, _index{channelIndex} {}
 
-  Sensor &getRealSensor() { return _realSensor; }
-  uint8_t getRealChannelIndex() { return _channelIndex; }
+  const char *name() { return getProps().channelName; }
+
+  bool isReady() { return _parent.isChannelReady(_index); }
+
+  SensorValue getValue() { return _parent.getChannelValue(_index); }
+
+  const SensorChannelProps &getProps() { return _parent.getChannelProps(_index); }
+
+  Sensor &getRealSensor() { return _parent; }
+  uint8_t getRealChannelIndex() { return _index; }
 
 private:
-  bool do_isSensorReady() override { return do_isSensorChannelReady(_channelIndex); }
-  bool do_isSensorChannelReady(uint8_t) override { return _realSensor.isReady(_channelIndex); }
-  SensorValue do_getSensorChannelValue(uint8_t) override { return _realSensor.getValue(_channelIndex); }
-  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return _realSensor.getProps(_channelIndex); }
-
-  Sensor &_realSensor;
-  const uint8_t _channelIndex;
+  Sensor &_parent;
+  const uint8_t _index;
 };
 
-inline SensorChannelProxy Sensor::channel(uint8_t channelIndex) { return SensorChannelProxy{*this, channelIndex}; }
+inline SensorChannelProxy Sensor::getChannel(uint8_t channelIndex) { return SensorChannelProxy{*this, channelIndex}; }
 
 //--------------------------------------------------------------------------------------------------
 
@@ -205,10 +208,10 @@ class SensorCursor
 {
 public:
   using UmIterator = Usermod *const *;
-
   SensorCursor(UmIterator umBegin, UmIterator umEnd) : _umBegin{umBegin}, _umEnd{umEnd} { reset(); }
+
   bool isValid() const { return _sensor != nullptr; }
-  Sensor &get() { return {*_sensor}; }
+  Sensor &get() { return *_sensor; }
   Sensor &operator*() { return *_sensor; }
   Sensor *operator->() { return _sensor; }
   bool next();
@@ -289,7 +292,7 @@ public:
       : SensorChannelCursor{allSensors}, _name{channelName} {}
 
 private:
-  bool matches(const SensorChannelProps &props) override { return strcmp(props.name, _name) == 0; }
+  bool matches(const SensorChannelProps &props) override { return strcmp(props.channelName, _name) == 0; }
   const char *const _name;
 };
 

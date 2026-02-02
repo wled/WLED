@@ -60,7 +60,7 @@ bool SensorChannelCursor::isValid()
 {
   if (!_sensorCursor.isValid())
     return false;
-  if (matches(_sensorCursor->getProps(_channelIndex)))
+  if (matches(_sensorCursor->getChannelProps(_channelIndex)))
     return true;
   return next();
 }
@@ -76,12 +76,12 @@ bool SensorChannelCursor::next()
   while (_sensorCursor.isValid())
   {
     if (++_channelIndex < _sensorCursor->channelCount())
-      if (matches(_sensorCursor->getProps(_channelIndex)))
+      if (matches(_sensorCursor->getChannelProps(_channelIndex)))
         return true;
 
     _channelIndex = 0;
     if (_sensorCursor.next())
-      if (matches(_sensorCursor->getProps(_channelIndex)))
+      if (matches(_sensorCursor->getChannelProps(_channelIndex)))
         return true;
   }
   return false;
@@ -118,11 +118,11 @@ void SensorValue::accept(SensorValueVisitor &visitor) const
 
 void Sensor::accept(uint8_t channelIndex, SensorChannelVisitor &visitor)
 {
-  if (!isReady())
+  if (!isSensorReady())
     return;
 
-  const auto &val = getValue(channelIndex);
-  const auto &props = getProps(channelIndex);
+  const auto &val = getChannelValue(channelIndex);
+  const auto &props = getChannelProps(channelIndex);
   switch (val.type())
   {
   case SensorValueType::Bool:

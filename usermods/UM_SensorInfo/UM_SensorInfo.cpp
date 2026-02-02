@@ -39,7 +39,7 @@ namespace
   private:
     void showReadyState(Sensor &sensor)
     {
-      drawLine(_startPos, size, sensor.isReady() ? 0x002200 : 0x220000);
+      drawLine(_startPos, size, sensor.isSensorReady() ? 0x002200 : 0x220000);
     }
 
     void showChannelInfo(Sensor &sensor)
@@ -48,7 +48,7 @@ namespace
       const uint8_t channelCount = sensor.channelCount();
       for (uint8_t ch = 0; ch < MIN(channelCount, size / 2); ++ch)
       {
-        SensorChannelProxy channel = sensor.channel(ch);
+        SensorChannelProxy channel = sensor.getChannel(ch);
         const uint32_t color = getChannelColor(channel);
         SEGMENT.setPixelColor(pos, color);
         pos += 2;
@@ -126,7 +126,7 @@ uint16_t mode_SEF_all()
 {
   SensorList sensorList = UsermodManager::getSensors();
   Sensor *sensor = sensorList.findSensorByName("SEF");
-  if (!sensor || !sensor->isReady())
+  if (!sensor || !sensor->isSensorReady())
     return mode_static();
 
   SEGMENT.clear();
@@ -135,12 +135,12 @@ uint16_t mode_SEF_all()
   uint8_t hue = 0;
   for (uint8_t channelIndex = 0; channelIndex < sensor->channelCount(); ++channelIndex)
   {
-    if (!sensor->isReady(channelIndex))
+    if (!sensor->isChannelReady(channelIndex))
       continue;
 
-    const auto &props = sensor->getProps(channelIndex);
-    const float sensorValue = sensor->getValue(channelIndex);
-    const float sensorValueMax = sensor->getProps(channelIndex).rangeMax;
+    const auto &props = sensor->getChannelProps(channelIndex);
+    const float sensorValue = sensor->getChannelValue(channelIndex);
+    const float sensorValueMax = sensor->getChannelProps(channelIndex).rangeMax;
     // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {
@@ -223,7 +223,7 @@ class UM_SensorInfo : public Usermod
     for (auto cursor = sensorList.getAllSensors(); cursor.isValid(); cursor.next())
     {
       Sensor &sensor = cursor.get();
-      const bool isSensorReady = sensor.isReady();
+      const bool isSensorReady = sensor.isSensorReady();
       const int channelCount = sensor.channelCount();
 
       String sensorName;
@@ -241,22 +241,22 @@ class UM_SensorInfo : public Usermod
 
       for (int channelIndex = 0; channelIndex < channelCount; ++channelIndex)
       {
-        SensorChannelProxy channel = sensor.channel(channelIndex);
-        const SensorChannelProps &channelProps = channel.getProps(channelIndex);
+        SensorChannelProxy channel = sensor.getChannel(channelIndex);
+        const SensorChannelProps &channelProps = channel.getProps();
         String key;
         key += sensorIndex;
         key += ".";
         key += channelIndex;
         key += " ";
-        key += channelProps.name;
+        key += channel.name();
 
-        const bool isChannelReady = sensor.isReady(channelIndex);
+        const bool isChannelReady = channel.isReady();
         String val;
         val += channelProps.quantity.name;
         val += "<br>";
         if (isChannelReady)
         {
-          const SensorValue sensorValue = sensor.getValue(channelIndex);
+          const SensorValue sensorValue = channel.getValue();
           // TODO(feature) Also take care for other datatypes (via visitor).
           val += sensorValue.as_float();
         }
