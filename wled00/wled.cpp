@@ -61,6 +61,9 @@ void WLED::loop()
   #ifndef WLED_DISABLE_INFRARED
   handleIR();        // 2nd call to function needed for ESP32 to return valid results -- should be good for ESP8266, too
   #endif
+  #ifdef WLED_ENABLE_BLE_PROVISIONING
+  handleBLEProvisioning();
+  #endif
   handleConnection();
   #ifdef WLED_ENABLE_ADALIGHT
   handleSerial();
@@ -503,6 +506,20 @@ void WLED::setup()
 
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
+
+  // BLE provisioning: Start BLE if WiFi is not configured (first boot)
+  // This allows iOS/Android apps to provision WiFi credentials via BLE
+  // avoiding the iOS captive portal popup issue
+  #ifdef WLED_ENABLE_BLE_PROVISIONING
+  if (!WLED_WIFI_CONFIGURED) {
+    char bleName[33];
+    snprintf(bleName, sizeof(bleName), "WLED-%s", escapedMac.c_str() + 6);
+    if (initBLEProvisioning(bleName)) {
+      DEBUG_PRINTLN(F("BLE provisioning started"));
+    }
+  }
+  #endif
+
   WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
