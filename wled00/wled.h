@@ -77,6 +77,9 @@
 #include <Arduino.h>
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
+  #ifdef WLED_ENABLE_WPA_ENTERPRISE
+    #include "wpa2_enterprise.h"
+  #endif
   #include <ESP8266mDNS.h>
   #include <ESPAsyncTCP.h>
   #include <LittleFS.h>
