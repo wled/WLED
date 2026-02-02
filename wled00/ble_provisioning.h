@@ -23,8 +23,8 @@
 // ESP32, ESP32-S3, ESP32-C3, ESP32-C6 have BLE
 // ESP8266 and ESP32-S2 do NOT have BLE
 #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2)
-  // Use built-in ESP32 BLE library (Bluedroid) unless disabled
-  #if __has_include(<BLEDevice.h>) && !defined(WLED_DISABLE_BLE_PROVISIONING)
+  // Use NimBLE library (lighter weight than Bluedroid)
+  #if __has_include(<NimBLEDevice.h>) && !defined(WLED_DISABLE_BLE_PROVISIONING)
     #define WLED_ENABLE_BLE_PROVISIONING
   #endif
 #endif

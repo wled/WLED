@@ -507,19 +507,6 @@ void WLED::setup()
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
 
-  // BLE provisioning: Start BLE if WiFi is not configured (first boot)
-  // This allows iOS/Android apps to provision WiFi credentials via BLE
-  // avoiding the iOS captive portal popup issue
-  #ifdef WLED_ENABLE_BLE_PROVISIONING
-  if (!WLED_WIFI_CONFIGURED) {
-    char bleName[33];
-    snprintf(bleName, sizeof(bleName), "WLED-%s", escapedMac.c_str() + 6);
-    if (initBLEProvisioning(bleName)) {
-      DEBUG_PRINTLN(F("BLE provisioning started"));
-    }
-  }
-  #endif
-
   WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
@@ -599,6 +586,18 @@ void WLED::setup()
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
+
+  // BLE provisioning: Start BLE at the END of setup if WiFi is not configured
+  // Starting late ensures WiFi/AP is fully initialized first
+  #ifdef WLED_ENABLE_BLE_PROVISIONING
+  if (!WLED_WIFI_CONFIGURED) {
+    DEBUG_PRINTLN(F("Starting BLE provisioning (WiFi not configured)"));
+    char bleName[33];
+    snprintf(bleName, sizeof(bleName), "WLED-%s", escapedMac.c_str() + 6);
+    initBLEProvisioning(bleName);
+  }
+  #endif
+
   markOTAvalid();
 }
 
