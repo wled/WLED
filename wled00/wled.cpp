@@ -675,8 +675,8 @@ void WLED::initConnection()
     wifi_config_t cachedConfig;
     esp_err_t configResult = esp_wifi_get_config( (wifi_interface_t)ESP_IF_WIFI_STA, &cachedConfig );
     if( configResult == ESP_OK ) {
-      if (strncmp((const char*)cachedConfig.ap.ssid, multiWiFi[0].clientSSID, 32) != 0 ||
-      strncmp((const char*)cachedConfig.ap.password, multiWiFi[0].clientPass, 64) != 0) {
+      if (strncmp((const char*)cachedConfig.sta.ssid, multiWiFi[0].clientSSID, 32) != 0 ||
+      strncmp((const char*)cachedConfig.sta.password, multiWiFi[0].clientPass, 64) != 0) {
         updateWiFiNVM = true; // SSID or pass changed, update NVM at next WiFi.begin() call
         DEBUG_PRINTLN(F("WiFi config NVM update triggered"));
       }
