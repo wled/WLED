@@ -2952,20 +2952,21 @@ static uint16_t spots_base(uint16_t threshold)
   if (SEGLEN <= 1) return mode_static();
   if (!SEGMENT.check2) SEGMENT.fill(SEGCOLOR(1));
 
-  unsigned maxZones = SEGLEN >> 2;
-  unsigned zones = 1 + ((SEGMENT.intensity * maxZones) >> 8);
+  unsigned maxZones = max(1U, SEGLEN >> 2); // prevents "0 zones"
+  unsigned zones = 1U + ((uint32_t(SEGMENT.intensity) * maxZones) >> 8);
   unsigned zoneLen = SEGLEN / zones;
-  unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
+  unsigned zoneLen8 = zones < 8 ? zoneLen * 8 : SEGLEN / (zones >> 3); // zoneLength * 8 -> avoids gaps at right/left sides
+  unsigned offset = (uint32_t(SEGLEN) - ((zones * zoneLen8)>>3)) >> 1;
 
   for (unsigned z = 0; z < zones; z++)
   {
-    unsigned pos = offset + z * zoneLen;
+    unsigned pos = offset +((z * zoneLen8)>>3);
     for (unsigned i = 0; i < zoneLen; i++)
     {
       unsigned wave = triwave16((i * 0xFFFF) / zoneLen);
       if (wave > threshold) {
-        unsigned index = 0 + pos + i;
-        unsigned s = (wave - threshold)*255 / (0xFFFF - threshold);
+        unsigned index = pos + i;
+        unsigned s = ((wave - threshold)*255 / (0xFFFF - threshold)) & 0xFF; // & 0xFF prevents overflow in next line
         SEGMENT.setPixelColor(index, color_blend(SEGMENT.color_from_palette(index, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), uint8_t(255-s)));
       }
     }
@@ -2991,7 +2992,7 @@ uint16_t mode_spots_fade()
   unsigned tr = (t >> 1) + (t >> 2);
   return spots_base(tr);
 }
-static const char _data_FX_MODE_SPOTS_FADE[] PROGMEM = "Spots Fade@Spread,Width,,,,,Overlay;!,!;!";
+static const char _data_FX_MODE_SPOTS_FADE[] PROGMEM = "Spots Fade@Speed,Width,,,,,Overlay;!,!;!";
 
 //each needs 12 bytes
 typedef struct Ball {
