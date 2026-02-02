@@ -246,7 +246,11 @@ bool PinManager::isPinOk(byte gpio, bool output)
       // for classic ESP32 (non-mini) modules, these are the SPI flash pins
       if (gpio > 5 && gpio < 12) return false;      //SPI flash pins
     }
-    if (gpio == 16 || gpio == 17) return !psramFound(); // PSRAM pins on ESP32-D0WDR2-V3 (these are IO)
+    if ((strncmp_P(PSTR("ESP32-D0WDR2-V3"), ESP.getChipModel(), 15) == 0) || (strncmp_P(PSTR("ESP32-D0WDRH2-V3"), ESP.getChipModel(), 16) == 0)) {  // allow gpio17 on modules with in-package PSRAM
+        if (gpio == 16) return !psramFound();
+        if (gpio == 17) return true;
+    } else if (gpio == 16 || gpio == 17) return !psramFound(); // PSRAM pins on modules with off-package PSRAM
+    
   #endif
     if (output) return digitalPinCanOutput(gpio);
     else        return true;
