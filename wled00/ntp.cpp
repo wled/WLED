@@ -180,10 +180,15 @@ bool posixTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
   // example: "Europe/Ljubljana":"CET-1CEST,M3.5.0,M10.5.0/3"
 }
 */
+
 static const char __weeks[] PROGMEM = "LasFirSecThiFou";
 static char _week[4];
+
 static const char* weekShortStr(uint8_t dow) {
-   if (dow > 4) dow = 0;
+   if (dow > 4) {
+    DEBUG_PRINTF_P(PSTR("TZ Error: JSON week parsing. (%d)"), (int)dow);
+    dow = 0;
+   }
    uint8_t index = dow*3;
    for (int i=0; i < 3; i++) _week[i] = pgm_read_byte(&(__weeks[index + i]));
    _week[3] = 0;
@@ -195,70 +200,76 @@ bool jsonTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
   // example: {"dst":{"w":"Last","dow":"Sun","m":"Mar","h":1,"off":60},"std":{"w":"Last","dow":"Sun","m":"Oct","h":1,"off":0}}
   bool success = false;
   File f;
-  f = WLED_FS.open("timezone.json", "r");
+  f = WLED_FS.open("/timezone.json", "r");
   if (f) {
+    DEBUG_PRINTLN(F("Reading timezone form JSON file"));
     StaticJsonDocument<64> filter;
     filter["dst"] = true;
     filter["std"] = true;
-    StaticJsonDocument<256> d;
+    StaticJsonDocument<384> d;
     if (deserializeJson(d, f, DeserializationOption::Filter(filter)) == DeserializationError::Ok) {
       JsonObject o = d.as<JsonObject>();
-      if (!(o[F("dst")].isNull() || o[F("std")].isNull())) {
-        if (o["dst"]["w"].is<const char*>())
+      if (!(o["dst"].isNull() || o["std"].isNull())) {
+        // fill default values from UTC in case of missing data
+        memcpy_P(&dst, &std::get<1>(TZ_TABLE[0]), sizeof(TimeChangeRule));
+        memcpy_P(&std, &std::get<2>(TZ_TABLE[0]), sizeof(TimeChangeRule));
+
+        if (!o["dst"]["w"].isNull() && o["dst"]["w"].is<const char*>())
           for (int i=0; i<5; i++) {
             if (strncmp(weekShortStr(i), o["dst"]["w"].as<const char*>(), 3) == 0) {
               dst.week = i;
               break;
             }
           }
-        else dst.week = o["dst"]["w"] | 0;
-        if (o["dst"]["dow"].is<const char*>())
+        else dst.week = max(min(o["dst"]["w"] | 0, 4), 0);
+        if (!o["dst"]["dow"].isNull() && o["dst"]["dow"].is<const char*>())
           for (int i=0; i<7; i++) {
             if (strncmp(dayShortStr(i+1), o["dst"]["dow"].as<const char*>(), 3) == 0) {
               dst.dow = i+1;
               break;
             }
           }
-        else dst.dow = o["dst"]["dow"] | 1;
-        if (o["dst"]["m"].is<const char*>())
+        else dst.dow = max(min(o["dst"]["dow"] | 1, 7), 1);
+        if (!o["dst"]["m"].isNull() && o["dst"]["m"].is<const char*>())
           for (int i=0; i<12; i++) {
             if (strncmp(monthShortStr(i+1), o["dst"]["m"].as<const char*>(), 3) == 0) {
               dst.month = i+1;
               break;
             }
           }
-        else dst.month = o["dst"]["m"] | 3;
-        dst.hour   = o["dst"]["h"]   | 1;
-        dst.offset = o["dst"]["off"] | 0;
+        else dst.month = max(min(o["dst"]["m"] | 3, 12), 1);
+        dst.hour   = max(min(o["dst"]["h"]   | 1, 23), 0);
+        dst.offset = max(min(o["dst"]["off"] | 0, 1440), -1440);
 
-        if (o["std"]["w"].is<const char*>())
+        if (!o["std"]["w"].isNull() && o["std"]["w"].is<const char*>())
           for (int i=0; i<5; i++) {
             if (strncmp(weekShortStr(i), o["std"]["w"].as<const char*>(), 3) == 0) {
               std.week = i;
               break;
             }
           }
-        else std.week = o["std"]["w"] | 0;
-        if (o["std"]["dow"].is<const char*>())
+        else std.week = max(min(o["std"]["w"] | 0, 4), 0);
+        if (!o["std"]["dow"].isNull() && o["std"]["dow"].is<const char*>())
           for (int i=0; i<7; i++) {
             if (strncmp(dayShortStr(i+1), o["std"]["dow"].as<const char*>(), 3) == 0) {
               std.dow = i+1;
               break;
             }
           }
-        else std.dow = o["std"]["dow"] | 1;
-        if (o["std"]["m"].is<const char*>())
+        else std.dow = max(min(o["std"]["dow"] | 1, 7), 1);
+        if (!o["std"]["m"].isNull() && o["std"]["m"].is<const char*>())
           for (int i=0; i<12; i++) {
             if (strncmp(monthShortStr(i+1), o["std"]["m"].as<const char*>(), 3) == 0) {
               std.month = i+1;
               break;
             }
           }
-        else std.month = o["std"]["m"] | 3;
-        std.hour   = o["std"]["h"]   | 1;
-        std.offset = o["std"]["off"] | 0;
+        else std.month = max(min(o["std"]["m"] | 3, 12), 1);
+        std.hour   = max(min(o["std"]["h"]   | 1, 23), 0);
+        std.offset = max(min(o["std"]["off"] | 0, 1440), -1440);
 
         success = true;
+        DEBUG_PRINTLN(F("... was successful."));
       }
     }
     f.close();
