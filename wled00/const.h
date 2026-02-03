@@ -530,7 +530,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #endif
 
 #ifndef MAX_LEDS_PER_BUS
-#define MAX_LEDS_PER_BUS 2048   // may not be enough for fast LEDs (i.e. APA102)
+#define MAX_LEDS_PER_BUS 4096   // may not be enough for fast LEDs (i.e. APA102)
 #endif
 
 // string temp buffer (now stored in stack locally)
