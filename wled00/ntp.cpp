@@ -232,7 +232,7 @@ bool jsonTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
         dst.offset = o["dst"]["off"] | 0;
 
         if (o["std"]["w"].is<const char*>())
-          for (int i=0; i<4; i++) {
+          for (int i=0; i<5; i++) {
             if (strncmp(weekShortStr(i), o["std"]["w"].as<const char*>(), 3) == 0) {
               std.week = i;
               break;
