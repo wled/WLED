@@ -239,7 +239,7 @@ bool jsonTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
             }
           }
         else std.week = o["std"]["w"] | 0;
-        if (o["dst"]["dow"].is<const char*>())
+        if (o["std"]["dow"].is<const char*>())
           for (int i=0; i<7; i++) {
             if (strncmp(dayShortStr(i+1), o["std"]["dow"].as<const char*>(), 3) == 0) {
               std.dow = i+1;
