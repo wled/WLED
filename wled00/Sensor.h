@@ -134,7 +134,6 @@ public:
   const SensorChannelProps &getChannelProps(uint8_t channelIndex) { return do_getSensorChannelProperties(channelIndex); }
 
   void accept(uint8_t channelIndex, SensorChannelVisitor &visitor);
-  void accept(SensorChannelVisitor &visitor) { accept(0, visitor); }
 
 protected:
   Sensor(const char *sensorName, uint8_t channelCount)
@@ -203,7 +202,7 @@ public:
 //--------------------------------------------------------------------------------------------------
 class Usermod;
 
-// A cursor to iterate over all available sensors.
+// A cursor to iterate over all available sensors (provided by UsermodManager).
 class SensorCursor
 {
 public:
@@ -214,6 +213,7 @@ public:
   Sensor &get() { return *_sensor; }
   Sensor &operator*() { return *_sensor; }
   Sensor *operator->() { return _sensor; }
+
   bool next();
   void reset();
 
@@ -225,19 +225,23 @@ private:
   uint8_t _sensorIndex = 0;
 };
 
-// Base class for cursors to iterate over specific channels of all sensors.
+Sensor *findSensorByName(SensorCursor allSensors, const char *sensorName);
+
+//--------------------------------------------------------------------------------------------------
+
+// Base class for cursors that iterate over specific channels of all sensors.
 class SensorChannelCursor
 {
 public:
   bool isValid();
   SensorChannelProxy get() { return {*_sensorCursor, _channelIndex}; }
+
   bool next();
   void reset();
 
 protected:
   ~SensorChannelCursor() = default;
-  explicit SensorChannelCursor(SensorCursor allSensors)
-      : _sensorCursor{allSensors} { reset(); }
+  explicit SensorChannelCursor(SensorCursor allSensors) : _sensorCursor{allSensors} { reset(); }
 
   virtual bool matches(const SensorChannelProps &channelProps) = 0;
 
@@ -246,7 +250,7 @@ private:
   uint8_t _channelIndex = 0;
 };
 
-// A cursor to iterate over all available channels of all sensors.
+// A cursor to iterate over all channels of all sensors.
 class AllSensorChannels final : public SensorChannelCursor
 {
 public:
@@ -257,7 +261,7 @@ private:
   bool matches(const SensorChannelProps &) override { return true; }
 };
 
-// A cursor to iterate over all available channels with a specific quantity.
+// A cursor to iterate over all channels with a specific quantity.
 class SensorChannelsByQuantity final : public SensorChannelCursor
 {
 public:
@@ -272,7 +276,7 @@ private:
   const char *const _quantityName;
 };
 
-// A cursor to iterate over all available channels with a specific ValueType.
+// A cursor to iterate over all channels with a specific ValueType.
 class SensorChannelsByType final : public SensorChannelCursor
 {
 public:
@@ -284,7 +288,7 @@ private:
   const SensorValueType _type;
 };
 
-// A cursor to iterate over all available channels with a specific name.
+// A cursor to iterate over all channels with a specific name.
 class SensorChannelsByName final : public SensorChannelCursor
 {
 public:
@@ -294,36 +298,6 @@ public:
 private:
   bool matches(const SensorChannelProps &props) override { return strcmp(props.channelName, _name) == 0; }
   const char *const _name;
-};
-
-class SensorList
-{
-public:
-  SensorList(SensorCursor::UmIterator umBegin, SensorCursor::UmIterator umEnd)
-      : _umBegin{umBegin}, _umEnd{umEnd} {}
-
-  SensorCursor getAllSensors() { return SensorCursor{_umBegin, _umEnd}; }
-
-  Sensor *findSensorByName(const char *sensorName)
-  {
-    for (auto cursor = getAllSensors(); cursor.isValid(); cursor.next())
-      if (strcmp(cursor->name(), sensorName) == 0)
-        return &cursor.get();
-    return nullptr;
-  }
-
-  AllSensorChannels getAllSensorChannels() { return AllSensorChannels{getAllSensors()}; }
-
-  SensorChannelsByQuantity getSensorChannelsByQuantity(const char *quantityName) { return {getAllSensors(), quantityName}; }
-  SensorChannelsByQuantity getSensorChannelsByQuantity(SensorQuantity quantity) { return {getAllSensors(), quantity}; }
-
-  SensorChannelsByType getSensorChannelsByType(SensorValueType valueType) { return {getAllSensors(), valueType}; }
-
-  SensorChannelsByName getSensorChannelsByName(const char *channelName) { return {getAllSensors(), channelName}; }
-
-private:
-  SensorCursor::UmIterator _umBegin;
-  SensorCursor::UmIterator _umEnd;
 };
 
 //--------------------------------------------------------------------------------------------------

@@ -54,6 +54,17 @@ bool SensorCursor::next()
   return false;
 }
 
+Sensor *findSensorByName(SensorCursor allSensors, const char *sensorName)
+{
+  while (allSensors.isValid())
+  {
+    if (strcmp(allSensors->name(), sensorName) == 0)
+      return &allSensors.get();
+    allSensors.next();
+  }
+  return nullptr;
+}
+
 //--------------------------------------------------------------------------------------------------
 
 bool SensorChannelCursor::isValid()

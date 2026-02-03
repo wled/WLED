@@ -75,10 +75,7 @@ uint16_t mode_SensorInfo()
 
   SensorChannelVisualizer visualizer;
 
-  SensorList sensorList = UsermodManager::getSensors();
-  for (auto cursor = sensorList.getAllSensors();
-       cursor.isValid();
-       cursor.next())
+  for (auto cursor = UsermodManager::getSensors(); cursor.isValid(); cursor.next())
   {
     visualizer.showInfo(cursor.get());
   }
@@ -93,9 +90,8 @@ uint16_t mode_NumberDumper()
 {
   SEGMENT.clear();
 
-  SensorList sensorList = UsermodManager::getSensors();
   uint8_t hue = 0;
-  for (auto cursor = sensorList.getSensorChannelsByType(SensorValueType::Float); cursor.isValid(); cursor.next())
+  for (SensorChannelsByType cursor{UsermodManager::getSensors(), SensorValueType::Float}; cursor.isValid(); cursor.next())
   {
     auto channel = cursor.get();
     const bool isReady = channel.isReady();
@@ -124,8 +120,7 @@ static const char _data_FX_MODE_NUMBER_DUMPER[] PROGMEM = "2 Numbers";
 
 uint16_t mode_SEF_all()
 {
-  SensorList sensorList = UsermodManager::getSensors();
-  Sensor *sensor = sensorList.findSensorByName("SEF");
+  Sensor *sensor = findSensorByName(UsermodManager::getSensors(), "SEF");
   if (!sensor || !sensor->isSensorReady())
     return mode_static();
 
@@ -161,7 +156,8 @@ static const char _data_FX_MODE_SEF_ALL[] PROGMEM = "3 SEF all";
 class FluctuationChannels final : public SensorChannelCursor
 {
 public:
-  explicit FluctuationChannels(SensorList &sensorList) : SensorChannelCursor{sensorList.getAllSensors()} {}
+  explicit FluctuationChannels(SensorCursor allSensors)
+      : SensorChannelCursor{allSensors} {}
 
 private:
   bool matches(const SensorChannelProps &props) override { return strcmp(props.quantity.name, "offset") == 0; }
@@ -172,9 +168,8 @@ uint16_t mode_Fluctuations()
   SEGMENT.clear();
   SEGMENT.fill(0x080800);
 
-  SensorList sensorList = UsermodManager::getSensors();
   uint8_t hue = 0;
-  for (FluctuationChannels cursor{sensorList}; cursor.isValid(); cursor.next())
+  for (FluctuationChannels cursor{UsermodManager::getSensors()}; cursor.isValid(); cursor.next())
   {
     auto channel = cursor.get();
     if (!channel.isReady())
@@ -182,7 +177,7 @@ uint16_t mode_Fluctuations()
 
     const auto &props = channel.getProps();
     const float sensorValue = channel.getValue();
-    const float sensorValueMax = channel.getProps().rangeMax;
+    const float sensorValueMax = props.rangeMax;
     // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {
@@ -219,8 +214,7 @@ class UM_SensorInfo : public Usermod
       user = root.createNestedObject("u");
 
     int sensorIndex = 0;
-    SensorList sensorList = UsermodManager::getSensors();
-    for (auto cursor = sensorList.getAllSensors(); cursor.isValid(); cursor.next())
+    for (auto cursor = UsermodManager::getSensors(); cursor.isValid(); cursor.next())
     {
       Sensor &sensor = cursor.get();
       const bool isSensorReady = sensor.isSensorReady();
