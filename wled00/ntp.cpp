@@ -174,24 +174,121 @@ static const tz_data TZ_TABLE[] PROGMEM = {
   }
 };
 
+#ifndef WLED_NO_CUSTOM_TIMEZONE
+/*
+bool posixTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
+  // example: "Europe/Ljubljana":"CET-1CEST,M3.5.0,M10.5.0/3"
+}
+*/
+static const char __weeks[] PROGMEM = "LasFirSecThiFou";
+static char _week[4];
+static const char* weekShortStr(uint8_t dow) {
+   if (dow > 4) dow = 0;
+   uint8_t index = dow*3;
+   for (int i=0; i < 3; i++) _week[i] = pgm_read_byte(&(__weeks[index + i]));
+   _week[3] = 0;
+   return _week;
+}
+
+bool jsonTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
+  // example: {"dst":{"w":0,"dow":1,"m":3,"h":1,"off":60},"std":{"w":0,"dow":1,"m":10,"h":1,"off":0}}
+  // example: {"dst":{"w":"Last","dow":"Sun","m":"Mar","h":1,"off":60},"std":{"w":"Last","dow":"Sun","m":"Oct","h":1,"off":0}}
+  bool success = false;
+  File f;
+  f = WLED_FS.open("timezone.json", "r");
+  if (f) {
+    StaticJsonDocument<64> filter;
+    filter["dst"] = true;
+    filter["std"] = true;
+    StaticJsonDocument<256> d;
+    if (deserializeJson(d, f, DeserializationOption::Filter(filter)) == DeserializationError::Ok) {
+      JsonObject o = d.as<JsonObject>();
+      if (!(o[F("dst")].isNull() || o[F("std")].isNull())) {
+        if (o["dst"]["w"].is<const char*>())
+          for (int i=0; i<5; i++) {
+            if (strncmp(weekShortStr(i), o["dst"]["w"].as<const char*>(), 3) == 0) {
+              dst.week = i;
+              break;
+            }
+          }
+        else dst.week = o["dst"]["w"] | 0;
+        if (o["dst"]["dow"].is<const char*>())
+          for (int i=0; i<7; i++) {
+            if (strncmp(dayShortStr(i+1), o["dst"]["dow"].as<const char*>(), 3) == 0) {
+              dst.dow = i+1;
+              break;
+            }
+          }
+        else dst.dow = o["dst"]["dow"] | 1;
+        if (o["dst"]["m"].is<const char*>())
+          for (int i=0; i<12; i++) {
+            if (strncmp(monthShortStr(i+1), o["dst"]["m"].as<const char*>(), 3) == 0) {
+              dst.month = i+1;
+              break;
+            }
+          }
+        else dst.month = o["dst"]["m"] | 3;
+        dst.hour   = o["dst"]["h"]   | 1;
+        dst.offset = o["dst"]["off"] | 0;
+
+        if (o["std"]["w"].is<const char*>())
+          for (int i=0; i<4; i++) {
+            if (strncmp(weekShortStr(i), o["std"]["w"].as<const char*>(), 3) == 0) {
+              std.week = i;
+              break;
+            }
+          }
+        else std.week = o["std"]["w"] | 0;
+        if (o["dst"]["dow"].is<const char*>())
+          for (int i=0; i<7; i++) {
+            if (strncmp(dayShortStr(i+1), o["std"]["dow"].as<const char*>(), 3) == 0) {
+              std.dow = i+1;
+              break;
+            }
+          }
+        else std.dow = o["std"]["dow"] | 1;
+        if (o["std"]["m"].is<const char*>())
+          for (int i=0; i<12; i++) {
+            if (strncmp(monthShortStr(i+1), o["std"]["m"].as<const char*>(), 3) == 0) {
+              std.month = i+1;
+              break;
+            }
+          }
+        else std.month = o["std"]["m"] | 3;
+        std.hour   = o["std"]["h"]   | 1;
+        std.offset = o["std"]["off"] | 0;
+
+        success = true;
+      }
+    }
+    f.close();
+  }
+  return success;
+}
+#endif
 
 void updateTimezone() {
+  bool customTZ = false;
   delete tz;
   TimeChangeRule tcrDaylight, tcrStandard;
   auto tz_table_entry = currentTimezone;
   if (tz_table_entry >= countof(TZ_TABLE)) {
     tz_table_entry = 0;
+    #ifndef WLED_NO_CUSTOM_TIMEZONE
+    customTZ = jsonTimezone(tcrDaylight, tcrStandard);
+    #endif
   }
-  tzCurrent = currentTimezone = tz_table_entry;
-  memcpy_P(&tcrDaylight, &std::get<1>(TZ_TABLE[tz_table_entry]), sizeof(tcrDaylight));
-  memcpy_P(&tcrStandard, &std::get<2>(TZ_TABLE[tz_table_entry]), sizeof(tcrStandard));
-
+  tzCurrent = currentTimezone;
+  if (!customTZ) {
+    memcpy_P(&tcrDaylight, &std::get<1>(TZ_TABLE[tz_table_entry]), sizeof(tcrDaylight));
+    memcpy_P(&tcrStandard, &std::get<2>(TZ_TABLE[tz_table_entry]), sizeof(tcrStandard));
+  }
   tz = new Timezone(tcrDaylight, tcrStandard);
 }
 
 String getTZNamesJSONString() {
   String names = "[";
-  names.reserve(512);
+  names.reserve(512); // prevent heap fragmentation by allocating needed space upfront
   for (size_t i = 0; i < countof(TZ_TABLE); i++) {
     // the following is shorter code than sprintf()
     names += '"';
@@ -199,7 +296,11 @@ String getTZNamesJSONString() {
     names += '"';
     names += ',';
   }
+  #ifndef WLED_NO_CUSTOM_TIMEZONE
+  names += F("\"Custom (JSON)\"]");
+  #else
   names.setCharAt(names.length()-1, ']'); // replace last comma with bracket
+  #endif
   return names;
 }
 
