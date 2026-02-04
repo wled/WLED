@@ -15,7 +15,8 @@ class WizLightsUsermod : public Usermod {
     unsigned long lastTime = 0;
     long updateInterval;
     long sendDelay;
-    
+    uint16_t ledOffset;
+
     long forceUpdateMinutes;
     bool forceUpdate;
 
@@ -90,7 +91,11 @@ class WizLightsUsermod : public Usermod {
         bool update = false;
         for (uint8_t i = 0; i < MAX_WIZ_LIGHTS; i++) {
           if (!lightsValid[i]) { continue; }
-          uint32_t newColor = strip.getPixelColor(i);
+
+          uint16_t pixelIndex = i + ledOffset;
+          if (pixelIndex >= strip.getLengthTotal()) continue;
+          uint32_t newColor = strip.getPixelColor(pixelIndex);
+
           if (forceUpdate || (newColor != colorsSent[i]) || (ellapsedTime > forceUpdateMinutes*60000)){
             wizSendColor(lightsIP[i], newColor);
             colorsSent[i] = newColor;
@@ -107,6 +112,7 @@ class WizLightsUsermod : public Usermod {
     void addToConfig(JsonObject& root)
     {
       JsonObject top = root.createNestedObject("wizLightsUsermod");
+      top["LED Offset"] = ledOffset;
       top["Interval (ms)"]                = updateInterval;
       top["Send Delay (ms)"]              = sendDelay;
       top["Use Enhanced White *"]         = useEnhancedWhite;
@@ -127,13 +133,21 @@ class WizLightsUsermod : public Usermod {
       JsonObject top = root["wizLightsUsermod"];
       bool configComplete = !top.isNull();
 
-      configComplete &= getJsonValue(top["Interval (ms)"],                updateInterval,     1000);  // How frequently to update the wiz lights
+      configComplete &= getJsonValue(top["LED Offset"],                   ledOffset,          0);     // Offset the "address" of the Wiz Lights for individual control
+
+      if (ledOffset + MAX_WIZ_LIGHTS > strip.getLengthTotal())
+      {
+        ledOffset = 0;
+        configComplete = false;
+      }
+
+      configComplete &= getJsonValue(top["Interval (ms)"],                updateInterval,     1000);  // How frequently to update the Wiz lights
       configComplete &= getJsonValue(top["Send Delay (ms)"],              sendDelay,          0);     // Optional delay after sending each UDP message
-      configComplete &= getJsonValue(top["Use Enhanced White *"],         useEnhancedWhite,   false); // When color is white use wiz white LEDs instead of mixing RGB
+      configComplete &= getJsonValue(top["Use Enhanced White *"],         useEnhancedWhite,   false); // When color is white use Wiz white LEDs instead of mixing RGB
       configComplete &= getJsonValue(top["* Warm White Value (0-255)"],   warmWhite,          0);     // Warm White LED value for Enhanced White
-      configComplete &= getJsonValue(top["* Cold White Value (0-255)"],   coldWhite,          50);   // Cold White LED value for Enhanced White
-      configComplete &= getJsonValue(top["Always Force Update"],          forceUpdate,        false); // Update wiz light every loop, even if color value has not changed
-      configComplete &= getJsonValue(top["Force Update Every x Minutes"], forceUpdateMinutes, 5);     // Update wiz light if color value has not changed, every x minutes
+      configComplete &= getJsonValue(top["* Cold White Value (0-255)"],   coldWhite,          50);    // Cold White LED value for Enhanced White
+      configComplete &= getJsonValue(top["Always Force Update"],          forceUpdate,        false); // Update Wiz light every loop, even if color value has not changed
+      configComplete &= getJsonValue(top["Force Update Every x Minutes"], forceUpdateMinutes, 5);     // Update Wiz light if color value has not changed, every x minutes
       
       // Read list of IPs
       String tempIp;
