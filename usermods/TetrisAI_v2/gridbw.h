@@ -142,7 +142,7 @@ public:
 
     bool isLineFull(uint8_t y)
     {
-        return pixels[y] == (uint32_t)((1 << width) - 1);
+        return pixels[y] == (width >= 32 ? UINT32_MAX : (1U << width) - 1);
     }
 
     bool isLineReadyForRemoval(uint8_t y)
