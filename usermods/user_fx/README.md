@@ -23,7 +23,7 @@ custom_usermods = user_fx
 ```
 Or if you are already using a usermod, append user_fx to the list
 ```ini
-custom_usermods = audioreactive, user_fx
+custom_usermods = audioreactive user_fx
 ```
 
 ## How The Usermod Works
