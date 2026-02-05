@@ -1,15 +1,19 @@
-## Thank you for making WLED better!
+# Thank you for making WLED better!
 
 Here are a few suggestions to make it easier for you to contribute!
 
-### PR from a branch in your own fork
+## PR from a branch in your own fork
 Start your pull request (PR) in a branch of your own fork. Don't make a PR directly from your main branch.
 This lets you update your PR if needed, while you can work on other tasks in 'main' or in other branches.
 
-<img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
+> [!TIP]
+>   **The easiest way to start you first PR**
+>   
+>   When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
+>   When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
+>   
+>   <img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
 
-Tip: When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
-When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
 
 ### Target branch for pull requests
 
@@ -43,7 +47,7 @@ You don't need to provide us with a single-commit 'squashed' PR; you can simply 
 
 You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
 
-### Source Code from an AI agent or bot
+## Source Code from an AI agent or bot
 > [!IMPORTANT]
 > Its OK if you took help from an AI for writing your source code. 
 >
@@ -61,17 +65,17 @@ You can find a collection of very useful tips and tricks here: https://github.co
   * If the AI has rewritten existing code, check that the change is necessary and that nothing has been lost or broken. Also check that previous code comments are still intact.
 
 
-### Code style
+## Code style
 
 When in doubt, it is easiest to replicate the code style you find in the files you want to edit :)
 Below are the guidelines we use in the WLED repository.
 
-#### Indentation
+### Indentation
 
 We use tabs for Indentation in Web files (.html/.css/.js) and spaces (2 per indentation level) for all other files.  
 You are all set if you have enabled `Editor: Detect Indentation` in VS Code.
 
-#### Blocks
+### Blocks
 
 Whether the opening bracket of e.g. an `if` block is in the same line as the condition or in a separate line is up to your discretion. If there is only one statement, leaving out block brackets is acceptable.
 
@@ -114,7 +118,7 @@ if( a==b ){
 }
 ```
 
-#### Comments
+### Comments
 
 Comments should have a space between the delimiting characters (e.g. `//`) and the comment text.
 Note: This is a recent change, the majority of the codebase still has comments without spaces.
