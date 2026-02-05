@@ -8,7 +8,6 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 
 > [!TIP]
 >   **The easiest way to start your first PR**
->   
 >   When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
 >   When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
 >   
@@ -60,13 +59,13 @@ You don't need to squash commits or clean up history - we'll handle that when me
 
 When we ask for changes:
 
-- **Add new commits** - don't amend or force-push
+- **Add new commits** - please don't amend or force-push
 - **Reply in the PR** - let us know when you've addressed comments
 - **Ask questions** - if something's unclear, just ask!
 - **Be patient** - we're all volunteers here 😊
 
 You can reference feedback in commit messages:
-> ```
+> ```text
 > Fix naming per `@Aircoookie`'s suggestion
 > ```
 
@@ -86,14 +85,14 @@ Got conflicts with `main`? No worries - here's how to fix them:
 
 **Using command line**:
 
-```bash
-git fetch origin
-git merge origin/main
-# Fix conflicts in your editor
-git add .
-git commit
-git push
-```
+   ```bash
+   git fetch origin
+   git merge origin/main
+   # Fix conflicts in your editor
+   git add .
+   git commit
+   git push
+   ```
 
 Either way works fine - pick what you're comfortable with! Merging is simpler than rebasing and keeps everything connected.
 
@@ -118,7 +117,7 @@ Sometimes you might hit merge conflicts with `main` that are harder to solve. He
    ```
    Then **leave a comment** explaining why you had to force-push, and be ready to re-address some feedback.
 
-### more
+### Additional Ressources
 You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
 
 
