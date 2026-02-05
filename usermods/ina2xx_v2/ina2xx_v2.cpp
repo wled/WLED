@@ -43,6 +43,99 @@ bool UsermodINA2xx::hasValueChanged() {
 		return changed;
 }
 
+bool UsermodINA2xx::isTimeValid() const {
+	return localTime >= 1577836800UL && localTime <= 4102444800UL;
+}
+
+void UsermodINA2xx::applyMqttRestoreIfReady() {
+	if (!mqttRestorePending || mqttStateRestored) {
+		return;
+	}
+
+	if (!isTimeValid()) {
+		_logUsermodInaSensor("Deferring MQTT energy restore until time sync is valid");
+		return;
+	}
+
+	long currentDay = localTime / 86400;
+	long currentMonth = year(localTime) * 12 + month(localTime) - 1;
+
+	if (mqttRestoreData.hasTotalEnergy) {
+		totalEnergy_kWh += mqttRestoreData.totalEnergy;
+		_logUsermodInaSensor("Applied total energy from MQTT: +%.6f kWh => %.6f kWh",
+			mqttRestoreData.totalEnergy, totalEnergy_kWh);
+	}
+
+	auto dailyResetMatches = [&]() {
+		if (mqttRestoreData.hasDailyResetTime) {
+			return static_cast<long>(mqttRestoreData.dailyResetTime) == currentDay;
+		}
+		if (mqttRestoreData.hasDailyResetTimestamp) {
+			return static_cast<long>(mqttRestoreData.dailyResetTimestamp / 86400UL) == currentDay;
+		}
+		if (dailyResetTime != 0) {
+			return static_cast<long>(dailyResetTime) == currentDay;
+		}
+		return true; // no reset info available, assume same day
+	};
+
+	if (mqttRestoreData.hasDailyEnergy) {
+		if (dailyResetMatches()) {
+			dailyEnergy_kWh += mqttRestoreData.dailyEnergy;
+			_logUsermodInaSensor("Applied daily energy from MQTT: +%.6f kWh => %.6f kWh",
+				mqttRestoreData.dailyEnergy, dailyEnergy_kWh);
+			if (mqttRestoreData.hasDailyResetTime) {
+				dailyResetTime = mqttRestoreData.dailyResetTime;
+			}
+			if (mqttRestoreData.hasDailyResetTimestamp) {
+				dailyResetTimestamp = mqttRestoreData.dailyResetTimestamp;
+			}
+		} else {
+			dailyResetTime = currentDay;
+			dailyResetTimestamp = localTime - (localTime % 86400UL);
+			_logUsermodInaSensor("Skipped daily MQTT restore (different day). Resetting daily window to today.");
+		}
+	}
+
+	auto monthlyResetMatches = [&]() {
+		if (mqttRestoreData.hasMonthlyResetTime) {
+			return static_cast<long>(mqttRestoreData.monthlyResetTime) == currentMonth;
+		}
+		if (mqttRestoreData.hasMonthlyResetTimestamp) {
+			long restoredMonth = year(mqttRestoreData.monthlyResetTimestamp) * 12 +
+				month(mqttRestoreData.monthlyResetTimestamp) - 1;
+			return restoredMonth == currentMonth;
+		}
+		if (monthlyResetTime != 0) {
+			return static_cast<long>(monthlyResetTime) == currentMonth;
+		}
+		return true; // no reset info available, assume same month
+	};
+
+	if (mqttRestoreData.hasMonthlyEnergy) {
+		if (monthlyResetMatches()) {
+			monthlyEnergy_kWh += mqttRestoreData.monthlyEnergy;
+			_logUsermodInaSensor("Applied monthly energy from MQTT: +%.6f kWh => %.6f kWh",
+				mqttRestoreData.monthlyEnergy, monthlyEnergy_kWh);
+			if (mqttRestoreData.hasMonthlyResetTime) {
+				monthlyResetTime = mqttRestoreData.monthlyResetTime;
+			}
+			if (mqttRestoreData.hasMonthlyResetTimestamp) {
+				monthlyResetTimestamp = mqttRestoreData.monthlyResetTimestamp;
+			}
+		} else {
+			monthlyResetTime = currentMonth;
+			monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+			_logUsermodInaSensor("Skipped monthly MQTT restore (different month). Resetting monthly window to current month.");
+		}
+	}
+
+	mqttStateRestored = true;
+	mqttRestorePending = false;
+	mqttRestoreData = MqttRestoreData{};
+	_logUsermodInaSensor("MQTT energy restore applied");
+}
+
 // Update INA2xx settings and reinitialize sensor if necessary
 bool UsermodINA2xx::updateINA2xxSettings() {
 	_logUsermodInaSensor("Updating INA2xx sensor settings");
@@ -192,7 +285,7 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 	}
 
 	// Skip time-based resets if time seems invalid (before 2020 or unrealistic future)
-	if (localTime < 1577836800UL || localTime > 4102444800UL) { // Jan 1 2020 to Jan 1 2100
+	if (!isTimeValid()) { // Jan 1 2020 to Jan 1 2100
 		_logUsermodInaSensor("SKIPPED: Invalid time detected (%lu), waiting for NTP sync", localTime);
 		return;
 	}
@@ -465,62 +558,60 @@ bool UsermodINA2xx::onMqttMessage(char* topic, char* payload) {
 
 		// Update the energy values
 		if (!mqttStateRestored) {
-			// Only merge in retained MQTT values once!
+			mqttRestoreData = MqttRestoreData{};
+
 			if (jsonDoc.containsKey("daily_energy_kWh")) {
 				float restored = jsonDoc["daily_energy_kWh"];
 				if (!isnan(restored) && restored >= 0) {
-					dailyEnergy_kWh += restored;
-					_logUsermodInaSensor("Merged daily energy from MQTT: +%.6f kWh => %.6f kWh", restored, dailyEnergy_kWh);
+					mqttRestoreData.hasDailyEnergy = true;
+					mqttRestoreData.dailyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthly_energy_kWh")) {
 				float restored = jsonDoc["monthly_energy_kWh"];
 				if (!isnan(restored) && restored >= 0) {
-					monthlyEnergy_kWh += restored;
-					_logUsermodInaSensor("Merged monthly energy from MQTT: +%.6f kWh => %.6f kWh", restored, monthlyEnergy_kWh);
+					mqttRestoreData.hasMonthlyEnergy = true;
+					mqttRestoreData.monthlyEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("total_energy_kWh")) {
 				float restored = jsonDoc["total_energy_kWh"];
 				if (!isnan(restored) && restored >= 0) {
-					totalEnergy_kWh += restored;
-					_logUsermodInaSensor("Merged total energy from MQTT: +%.6f kWh => %.6f kWh", restored, totalEnergy_kWh);
+					mqttRestoreData.hasTotalEnergy = true;
+					mqttRestoreData.totalEnergy = restored;
 				}
 			}
 			if (jsonDoc.containsKey("dailyResetTime")) {
 				uint32_t restored = jsonDoc["dailyResetTime"].as<uint32_t>();
-				// Check if value is valid (not 0 which could be uninitialized, and within reasonable range)
 				if (restored > 0 && restored < 1000000) { // reasonable day count since epoch
-					_logUsermodInaSensor("Restored daily reset time from MQTT: %ld => %ld", dailyResetTime, restored);
-					dailyResetTime = restored;
+					mqttRestoreData.hasDailyResetTime = true;
+					mqttRestoreData.dailyResetTime = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthlyResetTime")) {
 				uint32_t restored = jsonDoc["monthlyResetTime"].as<uint32_t>();
-				// Check if value is valid and within reasonable range
 				if (restored > 0 && restored < 100000) { // reasonable month count
-					_logUsermodInaSensor("Restored monthly reset time from MQTT: %ld => %ld", monthlyResetTime, restored);
-					monthlyResetTime = restored;
+					mqttRestoreData.hasMonthlyResetTime = true;
+					mqttRestoreData.monthlyResetTime = restored;
 				}
 			}
 			if (jsonDoc.containsKey("dailyResetTimestamp")) {
 				uint32_t restored = jsonDoc["dailyResetTimestamp"].as<uint32_t>();
-				// Validate timestamp is after Jan 1 2020 and before Jan 1 2100
 				if (restored >= 1577836800UL && restored <= 4102444800UL) {
-					_logUsermodInaSensor("Restored daily reset timestamp from MQTT: %ld => %ld", dailyResetTimestamp, restored);
-					dailyResetTimestamp = restored;
+					mqttRestoreData.hasDailyResetTimestamp = true;
+					mqttRestoreData.dailyResetTimestamp = restored;
 				}
 			}
 			if (jsonDoc.containsKey("monthlyResetTimestamp")) {
 				uint32_t restored = jsonDoc["monthlyResetTimestamp"].as<uint32_t>();
-				// Validate timestamp is after Jan 1 2020 and before Jan 1 2100
 				if (restored >= 1577836800UL && restored <= 4102444800UL) {
-					_logUsermodInaSensor("Restored monthly reset timestamp from MQTT: %ld => %ld", monthlyResetTimestamp, restored);
-					monthlyResetTimestamp = restored;
+					mqttRestoreData.hasMonthlyResetTimestamp = true;
+					mqttRestoreData.monthlyResetTimestamp = restored;
 				}
 			}
 
-			mqttStateRestored = true;  // Only do this once!
+			mqttRestorePending = true;
+			applyMqttRestoreIfReady();
 		}
 		return true;
 	}
@@ -601,6 +692,8 @@ void UsermodINA2xx::checkForI2cErrors(){
 
 // Loop function called continuously
 void UsermodINA2xx::loop() {
+	applyMqttRestoreIfReady();
+
 	// Check if the usermod is enabled and the check interval has elapsed
 	if (!enabled || !initDone || !_ina2xx || millis() - lastCheck < checkInterval) {
 		return;
