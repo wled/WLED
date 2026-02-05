@@ -65,7 +65,7 @@ You don't need to squash commits or clean up history - we'll handle that when me
 > So, pretty please, do not force-push.
 
 > [!TIP]
-> use [cherry-picking](https://docs.github.com/en/desktop/managing-commits/cherry-picking-a-commit-in-github-desktop) to copy commits from one branch to another.
+> Use [cherry-picking](https://docs.github.com/en/desktop/managing-commits/cherry-picking-a-commit-in-github-desktop) to copy commits from one branch to another.
 
 
 ### Responding to Reviews
