@@ -16,7 +16,7 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 > [!TIP]
 >   **The easiest way to start your first PR**
 >   When viewing a file in `wled/WLED`, click on the "pen" icon and start making changes.
->   When you chose to 'Commit changes', GitHub will automatically create a PR from your fork.
+>   When you choose to 'Commit changes', GitHub will automatically create a PR from your fork.
 >   
 >   <img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
 
@@ -61,7 +61,7 @@ You don't need to squash commits or clean up history - we'll handle that when me
 > [!CAUTION] 
 > Do not use "force-push" while your PR is open!
 > It has many subtle and unexpected consequences on our GitHub repository.
-> For example, we regularly lost review comments when the PR author force-pushes code changes. Our review bot (coderabbit) may become unable to properly track changes, it gets confused or stops responding to questions.
+> For example, we regularly lose review comments when the PR author force-pushes code changes. Our review bot (coderabbit) may become unable to properly track changes, it gets confused or stops responding to questions.
 > So, pretty please, do not force-push.
 
 > [!TIP]
@@ -149,10 +149,10 @@ Your contribution will be in the next WLED release - thank you! 🎉
 >
 > AI tools can be very helpful, but as the contributor, **you're responsible for the code**.
 
-* Make sure you really understand the AI generated code, don't just accept it because it "seems to work".
+* Make sure you really understand the AI-generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
 * Remember that AI are still "Often-Wrong" ;-)
-* If you don't feel very confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results is correct. The translation might still have wrong technical terms, or errors in some details.
+* If you don't feel very confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results are correct. The translation might still have wrong technical terms, or errors in some details.
 
 #### Best Practice with AI
 
@@ -171,7 +171,7 @@ Here are our main guidelines:
 
 #### Indentation
 
-We use tabs for Indentation in Web files (.html/.css/.js) and spaces (2 per indentation level) for all other files.  
+We use tabs for indentation in Web files (.html/.css/.js) and spaces (2 per indentation level) for all other files.  
 You are all set if you have enabled `Editor: Detect Indentation` in VS Code.
 
 #### Blocks
