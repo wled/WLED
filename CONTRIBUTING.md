@@ -151,14 +151,14 @@ Your contribution will be in the next WLED release - thank you! 🎉
 
 * Make sure you really understand the AI-generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
-* Remember that AI are still "Often-Wrong" ;-)
-* If you don't feel very confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results are correct. The translation might still have wrong technical terms, or errors in some details.
+* Remember that AI is still "Often-Wrong" ;-)
+* If you don't feel confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results are correct. The translation might still have wrong technical terms, or errors in some details.
 
 #### Best Practice with AI
 
 AI tools are powerful but "often wrong" - your judgment is essential! 😊
 
-- ✅ **Understand the code** - As the person contributing to WLED, make sure you understand exactly what the AI generated source code does
+- ✅ **Understand the code** - As the person contributing to WLED, make sure you understand exactly what the AI-generated source code does
 - ✅ **Review carefully** - AI can lose comments, introduce bugs, or make unnecessary changes
 - ✅ **Be transparent** - Add a comment like `// This section was AI-generated` for larger chunks
 - ✅ **Use AI for translation** - AI is great for translating comments to English (but verify technical terms!)
