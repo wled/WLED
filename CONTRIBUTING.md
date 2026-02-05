@@ -1,8 +1,15 @@
 # Thank you for making WLED better!
 
-Here are a few suggestions to make it easier for you to contribute!
+WLED is a community-driven project, and every contribution matters! We appreciate your time and effort.
 
-## PR from a branch in your own fork
+Our maintainers are here for two things: **helping you** improve your code, and **keeping WLED** lean, efficient, and maintainable. 
+We'll work with you to refine your contribution, but we'll also push back if something might create technical debt or add features without clear value. Don't take it personally - we're just protecting WLED's architecture while helping your contribution succeed!
+
+## Getting Started
+
+Here are a few suggestions to make it easier for you to contribute:
+
+### PR from a branch in your own fork
 Start your pull request (PR) in a branch of your own fork. Don't make a PR directly from your main branch.
 This lets you update your PR if needed, while you can work on other tasks in 'main' or in other branches.
 
@@ -20,13 +27,15 @@ Please make all PRs against the `main` branch.
 
 ### Describing your PR
 
-Please add a description of your proposed code changes. It does not need to be an exhaustive essay, however a PR with no description or just a few words might not get accepted, simply because very basic information is missing.
+Please add a description of your proposed code changes. 
+A PR with no description or just a few words might not get accepted, simply because very basic information is missing.
+No need to write an essay!
 
 A good description helps us to review and understand your proposed changes. For example, you could say a few words about
-* what you try to achieve (new feature, fixing a bug, refactoring, security enhancements, etc.)
-* how your code works (short technical summary - focus on important aspects that might not be obvious when reading the code)
-* testing you performed, known limitations, open ends you possibly could not solve.
-* any areas where you like to get help from an experienced maintainer (yes WLED has become big 😉)
+* What you try to achieve (new feature, fixing a bug, refactoring, security enhancements, etc.)
+* How your code works (short technical summary - focus on important aspects that might not be obvious when reading the code)
+* Testing you performed, known limitations, anything you couldn't quite solve.
+* Let us know if you'd like guidance from a maintainer (WLED is a big project 😉)
 
 ### Testing Your Changes
 
@@ -39,8 +48,12 @@ Before submitting:
 
 Mention your testing in the PR description (e.g., "Tested on ESP32 + WS2812B").
 
+## During Review
 
-## Updating your code
+We're all volunteers, so reviews can take some time (longer during busy times). 
+Don't worry - we haven't forgotten you! Feel free to ping after a week if there's no activity.
+
+### Updating your code
 While the PR is open, you can keep updating your branch - just push more commits! GitHub will automatically update your PR. 
 
 You don't need to squash commits or clean up history - we'll handle that when merging.
@@ -118,38 +131,50 @@ Sometimes you might hit merge conflicts with `main` that are harder to solve. He
    Then **leave a comment** explaining why you had to force-push, and be ready to re-address some feedback.
 
 ### Additional Resources
-You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
+Want to know more? Check out:
+- 📚 [GitHub Desktop documentation](https://docs.github.com/en/desktop) - if you prefer GUI tools
+- 🎓 [How to properly submit a PR](https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR) - detailed tips and tricks
 
 
-## Source Code from an AI agent or bot
+## After Approval
+Once approved, a maintainer will merge your PR (possibly squashing commits). 
+Your contribution will be in the next WLED release - thank you! 🎉
+
+
+## Coding Guidelines
+
+### Source Code from an AI agent or bot
 > [!IMPORTANT]
-> Its OK if you took help from an AI for writing your source code. 
+> It's OK if you took help from an AI for writing your source code. 
 >
-> However, we expect a few things from you as the person making a contribution to WLED:
-* Make sure you really understand the code suggested by the AI, and don't just accept it because it "seems to work".
+> AI tools can be very helpful, but as the contributor, **you're responsible for the code**.
+
+* Make sure you really understand the AI generated code, don't just accept it because it "seems to work".
 * Don't let the AI change existing code without double-checking by you as the contributor. Often, the result will not be complete. For example, previous source code comments may be lost.
 * Remember that AI are still "Often-Wrong" ;-)
 * If you don't feel very confident using English, you can use AI for translating code comments and descriptions into English. AI bots are very good at understanding language. However, always check if the results is correct. The translation might still have wrong technical terms, or errors in some details.
 
-#### best practice with AI:
-  * As the person who contributes source code to WLED, make sure you understand exactly what the AI generated code does
-  * best practice: add a comment like ``'// below section of my code was generated by an AI``, when larger parts of your source code were not written by you personally.
-  * always review translations and code comments for correctness
-  * always review AI generated source code
-  * If the AI has rewritten existing code, check that the change is necessary and that nothing has been lost or broken. Also check that previous code comments are still intact.
+#### Best Practice with AI
 
+AI tools are powerful but "often wrong" - your judgment is essential! 😊
 
-## Code style
+- ✅ **Understand the code** - As the person contributing to WLED, make sure you understand exactly what the AI generated source code does
+- ✅ **Review carefully** - AI can lose comments, introduce bugs, or make unnecessary changes
+- ✅ **Be transparent** - Add a comment like `// This section was AI-generated` for larger chunks
+- ✅ **Use AI for translation** - AI is great for translating comments to English (but verify technical terms!)
 
-When in doubt, it is easiest to replicate the code style you find in the files you want to edit :)
-Below are the guidelines we use in the WLED repository.
+### Code style
 
-### Indentation
+Don't stress too much about style! When in doubt, just match the style in the files you're editing. 😊
+
+Here are our main guidelines:
+
+#### Indentation
 
 We use tabs for Indentation in Web files (.html/.css/.js) and spaces (2 per indentation level) for all other files.  
 You are all set if you have enabled `Editor: Detect Indentation` in VS Code.
 
-### Blocks
+#### Blocks
 
 Whether the opening bracket of e.g. an `if` block is in the same line as the condition or in a separate line is up to your discretion. If there is only one statement, leaving out block brackets is acceptable.
 
@@ -164,7 +189,7 @@ if (a == b) {
 if (a == b) doStuff(a);
 ```
 
-Acceptable - however the first variant is usually easier to read:
+Also acceptable (though the first style is usually easier to read):
 ```cpp
 if (a == b)
 {
@@ -192,10 +217,10 @@ if( a==b ){
 }
 ```
 
-### Comments
+#### Comments
 
 Comments should have a space between the delimiting characters (e.g. `//`) and the comment text.
-Note: This is a recent change, the majority of the codebase still has comments without spaces.
+We're gradually adopting this style - don't worry if you see older code without spaces!
 
 Good:  
 ```cpp
