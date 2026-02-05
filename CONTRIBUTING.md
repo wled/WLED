@@ -19,7 +19,7 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 
 Please make all PRs against the `main` branch.
 
-### Describe your PR
+### Describing your PR
 
 Please add a description of your proposed code changes. It does not need to be an exhaustive essay, however a PR with no description or just a few words might not get accepted, simply because very basic information is missing.
 
@@ -29,23 +29,98 @@ A good description helps us to review and understand your proposed changes. For 
 * testing you performed, known limitations, open ends you possibly could not solve.
 * any areas where you like to get help from an experienced maintainer (yes WLED has become big 😉)
 
+### Testing Your Changes
 
-### Updating your code
-While the PR is open - and under review by maintainers - you may be asked to modify your PR source code.
-You can simply update your own branch, and push changes in response to reviewer recommendations. 
-Github will pick up the changes so your PR stays up-to-date.
+Before submitting:
 
-You don't need to provide us with a single-commit 'squashed' PR; you can simply add commits while your pull request (PR) is open.
+- ✅ Does it compile?
+- ✅ Does your feature/fix actually work?
+- ✅ Did you break anything else?
+- ✅ Tested on actual hardware if possible?
 
-> [!CAUTION]
+Mention your testing in the PR description (e.g., "Tested on ESP32 + WS2812B").
+
+
+## Updating your code
+While the PR is open, you can keep updating your branch - just push more commits! GitHub will automatically update your PR. 
+
+You don't need to squash commits or clean up history - we'll handle that when merging.
+
+> [!CAUTION] 
 > Do not use "force-push" while your PR is open!
-> It has many subtle and unexpected consequences on our github reposistory.
-> For example, we regularly lost review comments when the PR author force-pushes code changes. So, pretty please, do not force-push.
+> It has many subtle and unexpected consequences on our github repository.
+> For example, we regularly lost review comments when the PR author force-pushes code changes. Our review bot (coderabbit) may become unable to properly track changes, it gets confused or stops responding to questions.
+> So, pretty please, do not force-push.
 
 > [!TIP]
 > use [cherry-picking](https://docs.github.com/en/desktop/managing-commits/cherry-picking-a-commit-in-github-desktop) to copy commits from one branch to another.
 
+
+### Responding to Reviews
+
+When we ask for changes:
+
+- **Add new commits** - don't amend or force-push
+- **Reply in the PR** - let us know when you've addressed comments
+- **Ask questions** - if something's unclear, just ask!
+- **Be patient** - we're all volunteers here 😊
+
+You can reference feedback in commit messages:
+> ```
+> Fix naming per `@Aircoookie`'s suggestion
+> ```
+
+### Dealing with Merge Conflicts
+
+Got conflicts with `main`? No worries - here's how to fix them:
+
+**Using GitHub Desktop** (easier for beginners):
+
+1. Click **Fetch origin**, then **Pull origin**
+2. If conflicts exist, GitHub Desktop will warn you - click **View conflicts**
+3. Open the conflicted files in your editor (VS Code, etc.)
+4. Remove the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`) and keep the correct code
+5. Save the files
+6. Back in GitHub Desktop, commit the merge (it'll suggest a message)
+7. Click **Push origin**
+
+**Using command line**:
+
+```bash
+git fetch origin
+git merge origin/main
+# Fix conflicts in your editor
+git add .
+git commit
+git push
+```
+
+Either way works fine - pick what you're comfortable with! Merging is simpler than rebasing and keeps everything connected.
+
+#### When you MUST rebase (really rare!)
+
+Sometimes you might hit merge conflicts with `main` that are harder to solve. Here's what to try:
+
+1. **Merge instead of rebase** (safest option):
+   ```bash
+   git fetch origin
+   git merge origin/main
+   git push
+   ```
+   Keeps review comments attached and CI results visible!
+
+2. **Use cherry-picking** to copy commits between branches without rewriting history - [here's how](https://docs.github.com/en/desktop/managing-commits/cherry-picking-a-commit-in-github-desktop).
+
+3. **If all else fails, use `--force-with-lease`** (not plain `--force`):
+   ```bash
+   git rebase origin/main
+   git push --force-with-lease
+   ```
+   Then **leave a comment** explaining why you had to force-push, and be ready to re-address some feedback.
+
+### more
 You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
+
 
 ## Source Code from an AI agent or bot
 > [!IMPORTANT]
