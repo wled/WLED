@@ -66,7 +66,7 @@ When we ask for changes:
 
 You can reference feedback in commit messages:
 > ```text
-> Fix naming per `@Aircoookie`'s suggestion
+> Fix naming per @Aircoookie's suggestion
 > ```
 
 ### Dealing with Merge Conflicts
@@ -117,7 +117,7 @@ Sometimes you might hit merge conflicts with `main` that are harder to solve. He
    ```
    Then **leave a comment** explaining why you had to force-push, and be ready to re-address some feedback.
 
-### Additional Ressources
+### Additional Resources
 You can find a collection of very useful tips and tricks here: https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR
 
 
@@ -198,17 +198,19 @@ Comments should have a space between the delimiting characters (e.g. `//`) and t
 Note: This is a recent change, the majority of the codebase still has comments without spaces.
 
 Good:  
-```
-// This is a comment.
-
-/* This is a CSS inline comment */
+```cpp
+// This is a short inline comment.
 
 /* 
- * This is a comment
+ * This is a longer comment
  * wrapping over multiple lines,
  * used in WLED for file headers and function explanations
  */
-
+```
+```css
+/* This is a CSS inline comment */
+```
+```html
 <!-- This is an HTML comment -->
 ```
 
