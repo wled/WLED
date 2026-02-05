@@ -66,10 +66,16 @@ void SyslogPrinter::flushBuffer() {
     return;
   }
 
+  // Trim trailing CR/LF so we don't send extra blank lines
+  while (_bufferIndex > 0 && (_buffer[_bufferIndex - 1] == '\r' || _buffer[_bufferIndex - 1] == '\n')) {
+    _bufferIndex--;
+  }
+  if (_bufferIndex == 0) return;
+
   // Check if the message contains only whitespace
   bool onlyWhitespace = true;
   for (size_t i = 0; i < _bufferIndex; i++) {
-    if (_buffer[i] != ' ' && _buffer[i] != '\t') {
+    if (_buffer[i] != ' ' && _buffer[i] != '\t' && _buffer[i] != '\r' && _buffer[i] != '\n') {
       onlyWhitespace = false;
       break;
     }
@@ -78,12 +84,6 @@ void SyslogPrinter::flushBuffer() {
     _bufferIndex = 0;
     return;
   }
-
-  // Trim trailing CR/LF so we don't send extra blank lines
-  while (_bufferIndex > 0 && (_buffer[_bufferIndex - 1] == '\r' || _buffer[_bufferIndex - 1] == '\n')) {
-    _bufferIndex--;
-  }
-  if (_bufferIndex == 0) return;
 
   // Null-terminate
   _buffer[_bufferIndex] = '\0';
