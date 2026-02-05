@@ -48,7 +48,7 @@ You don't need to squash commits or clean up history - we'll handle that when me
 
 > [!CAUTION] 
 > Do not use "force-push" while your PR is open!
-> It has many subtle and unexpected consequences on our github repository.
+> It has many subtle and unexpected consequences on our GitHub repository.
 > For example, we regularly lost review comments when the PR author force-pushes code changes. Our review bot (coderabbit) may become unable to properly track changes, it gets confused or stops responding to questions.
 > So, pretty please, do not force-push.
 
