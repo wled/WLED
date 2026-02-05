@@ -747,8 +747,9 @@ void UsermodINA2xx::loop() {
 	// Publish sensor data via MQTT if connected and enabled
 	if (WLED_MQTT_CONNECTED) {
 		if (mqttPublish) {
-			if (mqttPublishAlways || hasValueChanged()) {
-				_logUsermodInaSensor("Publishing MQTT data (always=%d, changed=%d)", mqttPublishAlways, hasValueChanged());
+			bool valueChanged = hasValueChanged();
+			if (mqttPublishAlways || valueChanged) {
+				_logUsermodInaSensor("Publishing MQTT data (always=%d, changed=%d)", mqttPublishAlways, valueChanged);
 				publishMqtt(shuntVoltage, busVoltage, loadVoltage, current, current_mA, power, power_mW, overflow);
 
 				last_sent_shuntVoltage = shuntVoltage;
@@ -1013,7 +1014,7 @@ void UsermodINA2xx::appendConfigData() {
 	// Append the dropdown for decimal precision (0 to 3)
 	oappend("df=addDropdown('INA2xx','decimals');");
 	for (int i = 0; i <= 3; i++) {
-		oappend(String("addOption(df,'" + String(i) + "'," + String(i) + (i == 2 ? ", true);" : ");")).c_str());
+		oappend(String("addOption(df,'" + String(i) + "'," + String(i) + (i == _decimalFactor ? ", true);" : ");")).c_str());
 	}
 
 #if INA_SENSOR_TYPE == 219
