@@ -261,33 +261,34 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 	float durationHours = durationMs / 3600000.0; // Milliseconds to hours
 	_logUsermodInaSensor("Updating energy - Power: %.3f W, Duration: %lu ms (%.6f hours)", power, durationMs, durationHours);
 
-	// Skip negligible power values to avoid accumulating rounding errors
-	if (power < 0.01) {
-		_logUsermodInaSensor("SKIPPED: Power too low (%.3f W) – skipping to avoid rounding errors.", power);
-		return;
-	}
-
-	float energy_kWh = (power / 1000.0) * durationHours; // Watts to kilowatt-hours (kWh)
-	_logUsermodInaSensor("Calculated energy: %.6f kWh", energy_kWh);
-
-	// Skip negative values or unrealistic spikes
-	if (energy_kWh < 0 || energy_kWh > 10.0) { // 10 kWh in a few seconds is unrealistic
-		_logUsermodInaSensor("SKIPPED: Energy value out of range (%.6f kWh)", energy_kWh);
-		return;
-	}
-
-	totalEnergy_kWh += energy_kWh; // Update total energy consumed
-	_logUsermodInaSensor("Total energy updated to: %.6f kWh", totalEnergy_kWh);
-
-	// Sanity check on accumulated total (e.g., 100,000 kWh = ~11 years at 1kW continuous)
-	if (totalEnergy_kWh > 100000.0) {
-		_logUsermodInaSensor("WARNING: Total energy suspiciously high (%.6f kWh), possible corruption", totalEnergy_kWh);
-	}
-
 	// Skip time-based resets if time seems invalid (before 2020 or unrealistic future)
 	if (!isTimeValid()) { // Jan 1 2020 to Jan 1 2100
 		_logUsermodInaSensor("SKIPPED: Invalid time detected (%lu), waiting for NTP sync", localTime);
 		return;
+	}
+
+	float energy_kWh = 0.0f;
+	if (power < 0.01f) {
+		_logUsermodInaSensor("Power too low (%.3f W) – skipping accumulation.", power);
+	} else {
+		energy_kWh = (power / 1000.0f) * durationHours; // Watts to kilowatt-hours (kWh)
+		_logUsermodInaSensor("Calculated energy: %.6f kWh", energy_kWh);
+
+		// Skip negative values or unrealistic spikes
+		if (energy_kWh < 0 || energy_kWh > 10.0f) { // 10 kWh in a few seconds is unrealistic
+			_logUsermodInaSensor("SKIPPED: Energy value out of range (%.6f kWh)", energy_kWh);
+			energy_kWh = 0.0f;
+		}
+	}
+
+	if (energy_kWh > 0.0f) {
+		totalEnergy_kWh += energy_kWh; // Update total energy consumed
+		_logUsermodInaSensor("Total energy updated to: %.6f kWh", totalEnergy_kWh);
+
+		// Sanity check on accumulated total (e.g., 100,000 kWh = ~11 years at 1kW continuous)
+		if (totalEnergy_kWh > 100000.0f) {
+			_logUsermodInaSensor("WARNING: Total energy suspiciously high (%.6f kWh), possible corruption", totalEnergy_kWh);
+		}
 	}
 
 	// Calculate day identifier (days since epoch)
