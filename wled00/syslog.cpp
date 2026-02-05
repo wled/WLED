@@ -79,6 +79,12 @@ void SyslogPrinter::flushBuffer() {
     return;
   }
 
+  // Trim trailing CR/LF so we don't send extra blank lines
+  while (_bufferIndex > 0 && (_buffer[_bufferIndex - 1] == '\r' || _buffer[_bufferIndex - 1] == '\n')) {
+    _bufferIndex--;
+  }
+  if (_bufferIndex == 0) return;
+
   // Null-terminate
   _buffer[_bufferIndex] = '\0';
 
@@ -124,6 +130,16 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
     _lastErrorMessage = F("Syslog is disabled");
     return 0;
   }
+  if (syslogHost[0] == '\0') {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Syslog host is empty");
+    return 0;
+  }
+  if (syslogPort <= 0) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Syslog port is invalid");
+    return 0;
+  }
   if (!resolveHostname()) {
     _lastOperationSucceeded = false;
     _lastErrorMessage = F("Failed to resolve hostname");
@@ -138,6 +154,12 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   // Skip empty messages
   if (size == 0) return 0;
 
+  // Trim trailing CR/LF to avoid blank lines
+  while (size > 0 && (buf[size - 1] == '\r' || buf[size - 1] == '\n')) {
+    size--;
+  }
+  if (size == 0) return 0;
+
   // Check if the message contains only whitespace
   bool onlyWhitespace = true;
   for (size_t i = 0; i < size; i++) {
@@ -148,7 +170,11 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   }
   if (onlyWhitespace) return size; // Skip sending this message
 
-  syslogUdp.beginPacket(syslogHostIP, syslogPort);
+  if (syslogUdp.beginPacket(syslogHostIP, syslogPort) != 1) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Failed to begin UDP packet");
+    return 0;
+  }
   
   // Calculate priority value
   uint8_t pri = (_facility << 3) | severity;
@@ -187,7 +213,11 @@ size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
   // Add message content
   size = syslogUdp.write(buf, size);
   
-  syslogUdp.endPacket();
+  if (syslogUdp.endPacket() != 1) {
+    _lastOperationSucceeded = false;
+    _lastErrorMessage = F("Failed to send UDP packet");
+    return 0;
+  }
   return size;
 }
 
