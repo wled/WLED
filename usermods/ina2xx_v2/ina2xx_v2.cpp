@@ -124,8 +124,8 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 			return static_cast<long>(mqttRestoreData.monthlyResetTime);
 		}
 		if (mqttRestoreData.hasMonthlyResetTimestamp) {
-			return year(mqttRestoreData.monthlyResetTimestamp) * 12 +
-				month(mqttRestoreData.monthlyResetTimestamp) - 1;
+			return static_cast<long>(year(mqttRestoreData.monthlyResetTimestamp)) * 12L +
+				static_cast<long>(month(mqttRestoreData.monthlyResetTimestamp)) - 1L;
 		}
 		return static_cast<long>(monthlyResetTime);
 	};
