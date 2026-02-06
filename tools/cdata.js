@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -257,6 +257,19 @@ writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'px
 writeHtmlGzipped("wled00/data/pixelforge/pixelforge.htm", "wled00/html_pixelforge.h", 'pixelforge', false); // do not inline css
 //writeHtmlGzipped("wled00/data/edit.htm", "wled00/html_edit.h", 'edit');
 
+writeChunks(
+  "wled00/data/",
+  [
+    {
+      file: "iro.js",
+      name: "JS_iro",
+      method: "gzip",
+      filter: "plain", // no minification, it is already minified
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_iro.h"
+);
 
 writeChunks(
   "wled00/data",

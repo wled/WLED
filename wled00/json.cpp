@@ -209,7 +209,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
@@ -232,6 +232,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               if (kelvin <  0) continue;
               if (kelvin == 0) seg.setColor(i, 0);
               if (kelvin >  0) colorKtoRGB(kelvin, brgbw);
+              colValid = true;
+            } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
+              setRandomColor(brgbw);
               colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
@@ -532,17 +535,15 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     else callMode = CALL_MODE_DIRECT_CHANGE;  // possible bugfix for playlist only containing HTTP API preset FX=~
   }
 
-  if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
-    if (customPalettes.size()) {
-      char fileName[32];
-      sprintf_P(fileName, PSTR("/palette%d.json"), customPalettes.size()-1);
-      if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
-      loadCustomPalettes();
-    }
+  if (root.containsKey(F("rmcpal"))) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), root[F("rmcpal")].as<uint8_t>());
+    if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
+    loadCustomPalettes();
   }
 
   doAdvancePlaylist = root[F("np")] | doAdvancePlaylist; //advances to next preset in playlist when true
-  
+
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
     bool apMode = getBoolVal(wifi[F("ap")], apActive);
@@ -839,16 +840,12 @@ void serializeInfo(JsonObject root)
 #endif
 
   root[F("freeheap")] = getFreeHeapSize();
-  #ifdef ARDUINO_ARCH_ESP32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
   // Report PSRAM information
-  bool hasPsram = psramFound();
-  root[F("psramPresent")] = hasPsram;
-  if (hasPsram) {
-    #if defined(BOARD_HAS_PSRAM)
-    root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
-    #endif
-    root[F("psramSize")] = ESP.getPsramSize() / (1024UL * 1024UL); // Total PSRAM size in MB
-  }
+  // Free PSRAM in bytes (backward compatibility)
+  root[F("psram")] = ESP.getFreePsram(); 
+  // Total PSRAM size in MB, round up to correct for allocator overhead
+  root[F("psrSz")] = (ESP.getPsramSize() + (1024U * 1024U - 1)) / (1024U * 1024U); 
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
@@ -1139,7 +1136,7 @@ void serveJson(AsyncWebServerRequest* request)
     return;
   }
 
-  if (!requestJSONBufferLock(17)) {
+  if (!requestJSONBufferLock(JSON_LOCK_SERVEJSON)) {
     request->deferResponse();    
     return;
   }
