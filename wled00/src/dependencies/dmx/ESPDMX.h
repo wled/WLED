@@ -16,16 +16,32 @@
 #ifndef ESPDMX_h
 #define ESPDMX_h
 
+
+#define dmxMaxChannel  512
+#define defaultMax 32
+
+#define DMXSPEED       250000
+#define DMXFORMAT      SERIAL_8N2
+#define BREAKSPEED     83333
+#define BREAKFORMAT    SERIAL_8N1
+
 // ---- Methods ----
 
 class DMXESPSerial {
 public:
-  void init();
-  void init(int MaxChan);
+  void init(int sendPin);
   uint8_t read(int Channel);
   void write(int channel, uint8_t value);
   void update();
   void end();
+private:
+  int sendPin;
+  bool dmxStarted = false;
+
+  //DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
+  uint8_t dmxDataStore[dmxMaxChannel+1] = {};
+  int channelSize;
+
 };
 
 #endif

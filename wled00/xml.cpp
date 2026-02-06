@@ -473,6 +473,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
     settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+    printSetFormValue(settingsScript,SET_F("IDMO"), dmxOutputPin);
 #endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings

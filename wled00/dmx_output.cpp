@@ -1,13 +1,11 @@
 #include "wled.h"
-
+#include "dmx_output.h"
 /*
- * Support for DMX  output via serial (e.g. MAX485).
- * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
+ * Support for DMX output via serial (e.g. MAX485).
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 
 #ifdef WLED_ENABLE_DMX
@@ -68,13 +66,33 @@ void handleDMXOutput()
   dmx.update();        // update the DMX bus
 }
 
-void initDMXOutput() {
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-  dmx.init(512);        // initialize with bus length
- #else
-  dmx.initWrite(512);  // initialize with bus length
- #endif
+void initDMXOutput(int outputPin) {
+  if (outputPin < 1) return;
+  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
+  if (!pinAllocated) {
+    DEBUG_PRINTF("DMXOutput: Error: Failed to allocate pin for DMX_OUTPUT. Pin already in use:\n");
+    DEBUG_PRINTF("In use by: %s\n", PinManager::getPinOwner(outputPin));
+    return;
+  }
+  dmx.init(outputPin);        // set output pin and initialize DMX output
 }
+
+#if !defined(ESP8266)
+void DMXOutput::init(uint8_t outputPin) {
+  dmx_config_t config = DMX_CONFIG_DEFAULT;
+  dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
+  dmx_set_pin(dmxPort, outputPin, -1, -1);
+}
+void DMXOutput::write(uint8_t channel, uint8_t value) {
+  dmxdata[channel] = value;
+}
+void DMXOutput::update() {
+  dmx_write(dmxPort, dmxdata, DMX_PACKET_SIZE);
+  dmx_send(dmxPort, DMX_PACKET_SIZE);
+}
+#endif
+
+
 #else
 void initDMXOutput(){}
 void handleDMXOutput() {}

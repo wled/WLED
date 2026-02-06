@@ -471,7 +471,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     arlsDisableGammaCorrection = request->hasArg(F("RG"));
     t = request->arg(F("WO")).toInt();
     if (t >= -255  && t <= 255) arlsOffset = t;
-
+#ifdef WLED_ENABLE_DMX
+    dmxOutputPin = request->arg(F("IDMO")).toInt();
+#endif
 #ifdef WLED_ENABLE_DMX_INPUT
     dmxInputTransmitPin = request->arg(F("IDMT")).toInt();
     dmxInputReceivePin = request->arg(F("IDMR")).toInt();
