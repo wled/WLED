@@ -570,6 +570,10 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #endif
 #endif
 
+#ifndef LED_VOLTAGE_DEFAULT
+  #define LED_VOLTAGE_DEFAULT 5  // 5V is most common for WS281x
+#endif
+
 // PWM settings
 #ifndef WLED_PWM_FREQ
 #ifdef ESP8266

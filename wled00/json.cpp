@@ -705,8 +705,10 @@ void serializeInfo(JsonObject root)
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
   leds[F("pwr")] = BusManager::currentMilliamps();
+  leds[F("watts")] = BusManager::currentWatts();
   leds["fps"] = strip.getFps();
   leds[F("maxpwr")] = BusManager::currentMilliamps()>0 ? BusManager::ablMilliampsMax() : 0;
+  leds[F("voltage")] = BusManager::getVoltage();
   leds[F("maxseg")] = WS2812FX::getMaxSegments();
   //leds[F("actseg")] = strip.getActiveSegmentsNum();
   //leds[F("seglock")] = false; //might be used in the future to prevent modifications to segment config
