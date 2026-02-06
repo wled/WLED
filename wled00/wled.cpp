@@ -174,9 +174,9 @@ void WLED::loop()
     #ifdef ESP8266
     uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
     #else
-    #ifdef CONFIG_IDF_TARGET_ESP32C3
-    // calling getContiguousFreeHeap() during led update causes glitches on C3
-    // this can (probably) be removed once RMT driver for C3 is fixed
+    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5)
+    // calling getContiguousFreeHeap() during led update causes glitches on C3/C5
+    // this can (probably) be removed once RMT driver for C3/C5 is fixed
     unsigned t0 = millis();
     while (strip.isUpdating() && (millis() - t0 < 15)) delay(1);    // be nice, but not too nice. Waits up to 15ms
     #endif
@@ -379,7 +379,7 @@ void WLED::setup()
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
   #endif
-  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
+  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || ARDUINO_USB_CDC_ON_BOOT)
   delay(2500);  // allow CDC USB serial to initialise
   #endif
   #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
@@ -685,7 +685,7 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
-  if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
+  if ((uint32_t)multiWiFi[selectedWiFi].staticIP != 0 && (uint32_t)multiWiFi[selectedWiFi].staticGW != 0) {
     WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
   } else {
     WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
@@ -716,7 +716,69 @@ void WLED::initConnection()
     char hostname[25];
     prepareHostname(hostname);
 
-#ifdef WLED_ENABLE_WPA_ENTERPRISE
+#if defined(CONFIG_IDF_TARGET_ESP32C5)
+    // ESP32-C5: Prefer 5GHz WiFi 6 for better performance with hidden SSIDs
+    #include "esp_wifi.h"
+    DEBUG_PRINTF_P(PSTR("ESP32-C5: Trying 5GHz for hidden SSID: %s\n"), multiWiFi[selectedWiFi].clientSSID);
+
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+    delay(100);
+    WiFi.mode(WIFI_STA);
+    WiFi.persistent(false);
+
+    // Set country code to enable all 5GHz channels (including DFS)
+    wifi_country_t country = {
+      .cc = "US",  // US allows most 5GHz channels
+      .schan = 1,
+      .nchan = 14,
+      .max_tx_power = 80,  // 20 dBm
+      .policy = WIFI_COUNTRY_POLICY_MANUAL
+    };
+    esp_wifi_set_country(&country);
+    DEBUG_PRINTLN(F("ESP32-C5: Country set to US for full 5GHz support"));
+
+    // Set 5GHz only mode
+    WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY);
+    DEBUG_PRINTLN(F("ESP32-C5: Band mode set to 5GHz ONLY"));
+
+    // Configure WiFi for hidden SSID using ESP-IDF API
+    wifi_config_t wifi_config = {};
+    strncpy((char*)wifi_config.sta.ssid, multiWiFi[selectedWiFi].clientSSID, sizeof(wifi_config.sta.ssid) - 1);
+    strncpy((char*)wifi_config.sta.password, multiWiFi[selectedWiFi].clientPass, sizeof(wifi_config.sta.password) - 1);
+    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    esp_wifi_connect();
+
+    // Wait up to 20 seconds for 5GHz connection (DFS channels need longer)
+    DEBUG_PRINTLN(F("ESP32-C5: Waiting for 5GHz connection (20s timeout)..."));
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 20000) {
+      delay(250);
+      if ((millis() - start) % 3000 < 250) {
+        DEBUG_PRINTF_P(PSTR("  ...%lus, status=%d\n"), (millis() - start) / 1000, WiFi.status());
+      }
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+      // 5GHz failed, fall back to AUTO mode
+      DEBUG_PRINTLN(F("ESP32-C5: 5GHz failed, falling back to AUTO mode"));
+      esp_wifi_disconnect();
+      WiFi.mode(WIFI_OFF);
+      delay(100);
+      WiFi.mode(WIFI_STA);
+      WiFi.setBandMode(WIFI_BAND_MODE_AUTO);
+
+      // Reconfigure for AUTO mode
+      esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+      esp_wifi_connect();
+    } else {
+      DEBUG_PRINTF_P(PSTR("ESP32-C5: SUCCESS! Connected to 5GHz, channel: %d\n"), WiFi.channel());
+    }
+#elif defined(WLED_ENABLE_WPA_ENTERPRISE)
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
       DEBUG_PRINTLN(F("Using PSK"));
 #ifdef ESP8266
@@ -924,6 +986,11 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(Network.localIP());
+    #if defined(CONFIG_IDF_TARGET_ESP32C5)
+    // Show WiFi channel to verify 5GHz connection (channels 36+ = 5GHz)
+    int32_t channel = WiFi.channel();
+    DEBUG_PRINTF_P(PSTR("WiFi channel: %d (%s)\n"), channel, (channel >= 36) ? "5GHz" : "2.4GHz");
+    #endif
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);

@@ -226,7 +226,7 @@ typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeed800Kbps, NeoEsp32RmtChannel1> Ne
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeed400Kbps, NeoEsp32RmtChannel1> NeoEsp32RmtHI1400KbpsMethod;
 typedef NeoEsp32RmtHI1Ws2805Method NeoEsp32RmtHI1Ws2814Method;
 
-#if !defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5)
 
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeedWs2811, NeoEsp32RmtChannel2> NeoEsp32RmtHI2Ws2811Method;
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeedWs2812x, NeoEsp32RmtChannel2> NeoEsp32RmtHI2Ws2812xMethod;
@@ -321,7 +321,7 @@ typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtSpeed400Kbps, NeoEsp32RmtChannel7> Ne
 typedef NeoEsp32RmtHI7Ws2805Method NeoEsp32RmtHI7Ws2814Method;
 
 #endif // !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-#endif // !defined(CONFIG_IDF_TARGET_ESP32C3)
+#endif // !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5)
 
 // inverted
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeedWs2811, NeoEsp32RmtChannelN> NeoEsp32RmtHINWs2811InvertedMethod;
@@ -369,7 +369,7 @@ typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeed800Kbps, NeoEsp32RmtChan
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeed400Kbps, NeoEsp32RmtChannel1> NeoEsp32RmtHI1400KbpsInvertedMethod;
 typedef NeoEsp32RmtHI1Ws2805InvertedMethod NeoEsp32RmtHI1Ws2814InvertedMethod;
 
-#if !defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5)
 
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeedWs2811, NeoEsp32RmtChannel2> NeoEsp32RmtHI2Ws2811InvertedMethod;
 typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeedWs2812x, NeoEsp32RmtChannel2> NeoEsp32RmtHI2Ws2812xInvertedMethod;
@@ -464,6 +464,6 @@ typedef NeoEsp32RmtHIMethodBase<NeoEsp32RmtInvertedSpeed400Kbps, NeoEsp32RmtChan
 typedef NeoEsp32RmtHI7Ws2805InvertedMethod NeoEsp32RmtHI7Ws2814InvertedMethod;
 
 #endif // !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
-#endif // !defined(CONFIG_IDF_TARGET_ESP32C3)
+#endif // !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5)
 
 #endif

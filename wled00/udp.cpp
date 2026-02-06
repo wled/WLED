@@ -722,6 +722,8 @@ void sendSysInfoUDP()
   memcpy((byte *)data + 6, serverDescription, 32);
   #ifdef ESP8266
   data[38] = NODE_TYPE_ID_ESP8266;
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+  data[38] = NODE_TYPE_ID_ESP32C5;
   #elif defined(CONFIG_IDF_TARGET_ESP32C3)
   data[38] = NODE_TYPE_ID_ESP32C3;
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)

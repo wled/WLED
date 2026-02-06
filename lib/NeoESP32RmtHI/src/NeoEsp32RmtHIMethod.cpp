@@ -31,8 +31,14 @@ License along with NeoPixel.  If not, see
 
 #if defined(ARDUINO_ARCH_ESP32)
 
-#include <algorithm>  
 #include "esp_idf_version.h"
+
+// NeoEsp32RmtHI uses the legacy (IDF 4.x) low-level RMT API which is incompatible with IDF 5.x.
+// On IDF 5+ builds (pioarduino / Arduino-ESP32 v3.x), WLED selects standard NeoEsp32RmtN methods
+// for RISC-V targets anyway (see bus_wrapper.h), so this implementation is not needed.
+#if ESP_IDF_VERSION_MAJOR < 5
+
+#include <algorithm>
 #include "NeoEsp32RmtHIMethod.h"
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
@@ -504,4 +510,5 @@ esp_err_t NeoEsp32RmtHiMethodDriver::WaitForTxDone(rmt_channel_t channel, TickTy
     return rv;
 }
 
-#endif
+#endif // ESP_IDF_VERSION_MAJOR < 5
+#endif // ARDUINO_ARCH_ESP32

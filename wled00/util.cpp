@@ -694,7 +694,7 @@ static void *validateFreeHeap(void *buffer) {
 
 void *d_malloc(size_t size) {
   void *buffer;
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
   // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
@@ -795,7 +795,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
     DEBUG_PRINTF_P(PSTR("*Buffer allocated: size:%d, address:%p"), size, (uintptr_t)buffer);
     if ((uintptr_t)buffer > SOC_DRAM_LOW && (uintptr_t)buffer < SOC_DRAM_HIGH)
       DEBUG_PRINTLN(F(" in DRAM"));
-    #ifndef CONFIG_IDF_TARGET_ESP32C3
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5)
     else if ((uintptr_t)buffer > SOC_EXTRAM_DATA_LOW && (uintptr_t)buffer < SOC_EXTRAM_DATA_HIGH)
       DEBUG_PRINTLN(F(" in PSRAM"));
     #endif
@@ -1142,9 +1142,15 @@ String computeSHA1(const String& input) {
     mbedtls_sha1_context ctx;
 
     mbedtls_sha1_init(&ctx);
+    #if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 5
+    mbedtls_sha1_starts(&ctx);
+    mbedtls_sha1_update(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish(&ctx, shaResult);
+    #else
     mbedtls_sha1_starts_ret(&ctx);
     mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
     mbedtls_sha1_finish_ret(&ctx, shaResult);
+    #endif
     mbedtls_sha1_free(&ctx);
 
     // Convert to hexadecimal string
@@ -1159,15 +1165,25 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
-#include "esp_adc_cal.h"
+#if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 5
+  #include "esp_chip_info.h"
+  #include "esp_mac.h"
+#else
+  #include "esp_adc_cal.h"
+#endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
+  #if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 5
+  fp[0] ^= chip_info.revision | (chip_info.model << 16);
+  #else
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
-  // mix in ADC calibration data:
+  #endif
+#if !defined(ESP_IDF_VERSION_MAJOR) || ESP_IDF_VERSION_MAJOR < 5
+  // mix in ADC calibration data (legacy API removed in IDF 5.x):
   esp_adc_cal_characteristics_t ch;
   #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
@@ -1187,6 +1203,7 @@ String generateDeviceFingerprint() {
       fp[1] ^= ch.high_curve[i];
     }
   }
+#endif
   char fp_string[17];  // 16 hex chars + null terminator
   sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
   return String(fp_string);

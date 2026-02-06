@@ -248,7 +248,7 @@ bool initEthernet()
   }
 
   // https://github.com/wled/WLED/issues/5247
-  if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+  if ((uint32_t)multiWiFi[0].staticIP != 0 && (uint32_t)multiWiFi[0].staticGW != 0) {
     ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
   } else {
     ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);

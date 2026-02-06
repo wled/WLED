@@ -208,7 +208,7 @@ bool PinManager::isPinOk(byte gpio, bool output)
   if (gpio >= WLED_NUM_PINS) return false;     // catch error case, to avoid array out-of-bounds access
 #ifdef ARDUINO_ARCH_ESP32
   if (digitalPinIsValid(gpio)) {
-  #if defined(CONFIG_IDF_TARGET_ESP32C3)
+  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5)
     // strapping pins: 2, 8, & 9
     if (gpio > 11 && gpio < 18) return false;     // 11-17 SPI FLASH
     #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
