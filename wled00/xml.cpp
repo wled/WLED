@@ -472,7 +472,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+    settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message
 #endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings
