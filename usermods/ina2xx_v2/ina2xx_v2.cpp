@@ -53,10 +53,14 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 	}
 
 	if (!isTimeValid()) {
-		_logUsermodInaSensor("Deferring MQTT energy restore until time sync is valid");
+		if (!mqttRestoreDeferredLogged) {
+			_logUsermodInaSensor("Deferring MQTT energy restore until time sync is valid");
+			mqttRestoreDeferredLogged = true;
+		}
 		return;
 	}
 
+	mqttRestoreDeferredLogged = false;
 	long currentDay = localTime / 86400;
 	long currentMonth = year(localTime) * 12 + month(localTime) - 1;
 
@@ -65,6 +69,16 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 		_logUsermodInaSensor("Applied total energy from MQTT: +%.6f kWh => %.6f kWh",
 			mqttRestoreData.totalEnergy, totalEnergy_kWh);
 	}
+
+	auto restoredDailyDay = [&]() {
+		if (mqttRestoreData.hasDailyResetTime) {
+			return static_cast<long>(mqttRestoreData.dailyResetTime);
+		}
+		if (mqttRestoreData.hasDailyResetTimestamp) {
+			return static_cast<long>(mqttRestoreData.dailyResetTimestamp / 86400UL);
+		}
+		return static_cast<long>(dailyResetTime);
+	};
 
 	auto dailyResetMatches = [&]() {
 		if (mqttRestoreData.hasDailyResetTime) {
@@ -91,11 +105,30 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 				dailyResetTimestamp = mqttRestoreData.dailyResetTimestamp;
 			}
 		} else {
-			dailyResetTime = currentDay;
-			dailyResetTimestamp = localTime - (localTime % 86400UL);
-			_logUsermodInaSensor("Skipped daily MQTT restore (different day). Resetting daily window to today.");
+			long restoredDay = restoredDailyDay();
+			if (restoredDay > currentDay) {
+				dailyEnergy_kWh += mqttRestoreData.dailyEnergy;
+				dailyResetTime = currentDay;
+				dailyResetTimestamp = localTime - (localTime % 86400UL);
+				_logUsermodInaSensor("Restored daily energy with future reset; clamping reset window to today.");
+			} else {
+				dailyResetTime = currentDay;
+				dailyResetTimestamp = localTime - (localTime % 86400UL);
+				_logUsermodInaSensor("Skipped daily MQTT restore (different day). Resetting daily window to today.");
+			}
 		}
 	}
+
+	auto restoredMonthlyId = [&]() {
+		if (mqttRestoreData.hasMonthlyResetTime) {
+			return static_cast<long>(mqttRestoreData.monthlyResetTime);
+		}
+		if (mqttRestoreData.hasMonthlyResetTimestamp) {
+			return year(mqttRestoreData.monthlyResetTimestamp) * 12 +
+				month(mqttRestoreData.monthlyResetTimestamp) - 1;
+		}
+		return static_cast<long>(monthlyResetTime);
+	};
 
 	auto monthlyResetMatches = [&]() {
 		if (mqttRestoreData.hasMonthlyResetTime) {
@@ -124,9 +157,17 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 				monthlyResetTimestamp = mqttRestoreData.monthlyResetTimestamp;
 			}
 		} else {
-			monthlyResetTime = currentMonth;
-			monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
-			_logUsermodInaSensor("Skipped monthly MQTT restore (different month). Resetting monthly window to current month.");
+			long restoredMonth = restoredMonthlyId();
+			if (restoredMonth > currentMonth) {
+				monthlyEnergy_kWh += mqttRestoreData.monthlyEnergy;
+				monthlyResetTime = currentMonth;
+				monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+				_logUsermodInaSensor("Restored monthly energy with future reset; clamping reset window to current month.");
+			} else {
+				monthlyResetTime = currentMonth;
+				monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
+				_logUsermodInaSensor("Skipped monthly MQTT restore (different month). Resetting monthly window to current month.");
+			}
 		}
 	}
 
@@ -370,8 +411,6 @@ void UsermodINA2xx::publishMqtt(float shuntVoltage, float busVoltage, float load
 		_logUsermodInaSensor("MQTT not connected, skipping publish");
 		return;
 	}
-
-	_logUsermodInaSensor("Publishing sensor data to MQTT");
 
 	// Create a JSON document to hold sensor data
 	StaticJsonDocument<1024> jsonDoc;

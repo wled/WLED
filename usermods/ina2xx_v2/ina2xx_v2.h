@@ -159,6 +159,7 @@ private:
 
   bool mqttStateRestored = false;
   bool mqttRestorePending = false;
+  bool mqttRestoreDeferredLogged = false;
 
   struct MqttRestoreData {
     bool hasDailyEnergy = false;
