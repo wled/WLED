@@ -110,7 +110,11 @@ size_t SyslogPrinter::write(uint8_t c) {
 }
 
 size_t SyslogPrinter::write(const uint8_t *buf, size_t size) {
-  return write(buf, size, _severity);
+  if (buf == nullptr || size == 0) return 0;
+  for (size_t i = 0; i < size; i++) {
+    write(buf[i]);
+  }
+  return size;
 }
 
 size_t SyslogPrinter::write(const uint8_t *buf, size_t size, uint8_t severity) {
