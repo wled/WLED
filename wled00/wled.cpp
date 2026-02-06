@@ -732,9 +732,10 @@ void WLED::initConnection()
       wifi_station_clear_enterprise_password();
 #endif
       uint8_t *bssid = nullptr;
+      // check if user BSSID is non zero for current WiFi config
       for (int i = 0; i < sizeof(multiWiFi[selectedWiFi].bssid); i++) {
-        if (multiWiFi[selectedWiFi].bssid[i]) {
-          bssid = multiWiFi[selectedWiFi].bssid; // use BSSID if set
+        if (multiWiFi[selectedWiFi].bssid[i] != 0) {
+        bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
           break;
         }
       }
@@ -758,9 +759,10 @@ void WLED::initConnection()
     }
 #else // WLED_ENABLE_WPA_ENTERPRISE
     uint8_t *bssid = nullptr;
+    // check if user BSSID is non zero for current WiFi config
     for (int i = 0; i < sizeof(multiWiFi[selectedWiFi].bssid); i++) {
-      if (multiWiFi[selectedWiFi].bssid[i]) {
-        bssid = multiWiFi[selectedWiFi].bssid; // use BSSID if set
+      if (multiWiFi[selectedWiFi].bssid[i] != 0) {
+        bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
         break;
       }
     }

@@ -36,6 +36,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
+        uint8_t oldBSSID[6]; memcpy(oldBSSID, multiWiFi[n].bssid, 6);  // save old BSSID
 
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
         if (strlen(oldSSID) == 0 || strncmp(multiWiFi[n].clientSSID, oldSSID, 32) != 0) {
@@ -46,6 +47,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           forceReconnect = true;
         }
         fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
+        if (memcmp(oldBSSID, multiWiFi[n].bssid, 6) != 0) {  // check if BSSID changed
+          forceReconnect = true;
+        }
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
