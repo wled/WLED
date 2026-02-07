@@ -798,7 +798,9 @@ void serializeInfo(JsonObject root)
   wifi_info[F("signal")] = getSignalQuality(qrssi);
   int wifiChannel = WiFi.channel();
   wifi_info[F("channel")] = wifiChannel;
-  wifi_info[F("band")] = (wifiChannel >= 36) ? F("5GHz") : F("2.4GHz");
+  if (wifiChannel > 0) {
+    wifi_info[F("band")] = (wifiChannel >= 36) ? F("5GHz") : F("2.4GHz");
+  }
   wifi_info[F("ap")] = apActive;
 
   JsonObject fs_info = root.createNestedObject("fs");
