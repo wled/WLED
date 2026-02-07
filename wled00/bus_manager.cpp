@@ -9,7 +9,7 @@
 #include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
-  #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
+  #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
     #define LEDC_MUTEX_LOCK()    do {} while (xSemaphoreTake(_ledc_sys_lock, portMAX_DELAY) != pdPASS)
     #define LEDC_MUTEX_UNLOCK()  xSemaphoreGive(_ledc_sys_lock)
     extern SemaphoreHandle_t _ledc_sys_lock;
@@ -593,7 +593,11 @@ void BusPwm::show() {
     unsigned ch = channel%8;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
+    #if defined(CONFIG_IDF_TARGET_ESP32C5)
+    LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init
+    #else
     LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
+    #endif
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
     #endif
@@ -1140,12 +1144,12 @@ size_t BusManager::memUsage() {
   // front buffers are always allocated per bus
   unsigned size = 0;
   unsigned maxI2S = 0;
-  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(ESP8266)
   unsigned digitalCount = 0;
   #endif
   for (const auto &bus : busses) {
     size += bus->getBusSize();
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(ESP8266)
     if (bus->isDigital() && !bus->is2Pin()) {
       digitalCount++;
       if ((PolyBus::isParallelI2S1Output() && digitalCount <= 8) || (!PolyBus::isParallelI2S1Output() && digitalCount == 1)) {
@@ -1242,8 +1246,8 @@ void BusManager::removeAll() {
 // If enabled, RMT idle level is set to HIGH when off
 // to prevent leakage current when using an N-channel MOSFET to toggle LED power
 void BusManager::esp32RMTInvertIdle() {
-#if defined(CONFIG_IDF_TARGET_ESP32C6)
-  // ESP32-C6 uses BitBang method, not RMT - nothing to do here
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6)
+  // ESP32-C5/C6 use shared RMT method - idle level inversion not supported
   return;
 #else
   bool idle_out;

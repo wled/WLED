@@ -351,7 +351,7 @@ void WLED::setup()
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
   #endif
-  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
+  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || ARDUINO_USB_CDC_ON_BOOT)
   delay(2500);  // allow CDC USB serial to initialise
   #endif
   #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
@@ -696,7 +696,56 @@ if (multiWiFi.empty()) {                       // guard: handle empty WiFi list 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
+#if defined(CONFIG_IDF_TARGET_ESP32C5)
+    // ESP32-C5: Prefer 5GHz WiFi 6 for better performance
+    DEBUG_PRINTF_P(PSTR("ESP32-C5: Trying 5GHz for SSID: %s\n"), multiWiFi[selectedWiFi].clientSSID);
+
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_STA);
+
+    // Set country code to enable all 5GHz channels
+    wifi_country_t country = {
+      .cc = "US",
+      .schan = 1,
+      .nchan = 14,
+      .max_tx_power = 80,
+      .policy = WIFI_COUNTRY_POLICY_MANUAL
+    };
+    esp_wifi_set_country(&country);
+    WiFi.setBandMode(WIFI_BAND_MODE_5G_ONLY);
+    DEBUG_PRINTLN(F("ESP32-C5: Band mode set to 5GHz ONLY"));
+
+    wifi_config_t wifi_config = {};
+    strncpy((char*)wifi_config.sta.ssid, multiWiFi[selectedWiFi].clientSSID, sizeof(wifi_config.sta.ssid) - 1);
+    strncpy((char*)wifi_config.sta.password, multiWiFi[selectedWiFi].clientPass, sizeof(wifi_config.sta.password) - 1);
+    wifi_config.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+    wifi_config.sta.sort_method = WIFI_CONNECT_AP_BY_SIGNAL;
+    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
+    esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+    esp_wifi_connect();
+
+    // Wait up to 20 seconds for 5GHz connection
+    DEBUG_PRINTLN(F("ESP32-C5: Waiting for 5GHz connection (20s timeout)..."));
+    unsigned long c5start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - c5start < 20000) {
+      delay(250);
+      if ((millis() - c5start) % 3000 < 250) {
+        DEBUG_PRINTF_P(PSTR("  ...%lus, status=%d\n"), (millis() - c5start) / 1000, WiFi.status());
+      }
+    }
+
+    if (WiFi.status() != WL_CONNECTED) {
+      DEBUG_PRINTLN(F("ESP32-C5: 5GHz failed, falling back to AUTO mode"));
+      esp_wifi_disconnect();
+      WiFi.setBandMode(WIFI_BAND_MODE_AUTO);
+      esp_wifi_set_config(WIFI_IF_STA, &wifi_config);
+      esp_wifi_connect();
+    } else {
+      DEBUG_PRINTF_P(PSTR("ESP32-C5: Connected on 5GHz, channel: %d\n"), WiFi.channel());
+    }
+#else
     WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+#endif
 
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
@@ -873,6 +922,9 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());
+    #if defined(CONFIG_IDF_TARGET_ESP32C5)
+    { int32_t ch = WiFi.channel(); DEBUG_PRINTF_P(PSTR("WiFi channel: %d (%s)\n"), ch, (ch >= 36) ? "5GHz" : "2.4GHz"); }
+    #endif
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
