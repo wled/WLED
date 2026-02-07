@@ -874,7 +874,7 @@ void WLED::handleConnection()
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());
     #if defined(CONFIG_IDF_TARGET_ESP32C5)
-    { int32_t ch = WiFi.channel(); DEBUG_PRINTF_P(PSTR("WiFi channel: %d (%s)\n"), ch, (ch >= 36) ? "5GHz" : "2.4GHz"); }
+    { constexpr int kFirst5GHzChannel = 36; int32_t ch = WiFi.channel(); DEBUG_PRINTF_P(PSTR("WiFi channel: %d (%s)\n"), ch, (ch >= kFirst5GHzChannel) ? "5GHz" : "2.4GHz"); }
     #endif
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);

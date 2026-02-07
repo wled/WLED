@@ -410,6 +410,7 @@ bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootload
   // 0x000C = ESP32-C2
   // 0x000D = ESP32-C6
   // 0x0010 = ESP32-H2
+  // 0x0017 = ESP32-C5
 
   #if defined(CONFIG_IDF_TARGET_ESP32)
     if (chipId != 0x0000) {
