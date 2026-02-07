@@ -73,28 +73,15 @@
 		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
 
 		// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
-		// load CSS
-		const l1 = document.createElement('link');
-		l1.rel = 'stylesheet';
-		l1.href = 'style.css';
-		l1.onload = () => {
-			// load iro.js
-			const l2 = document.createElement('script');
-			l2.src = 'iro.js';
-			l2.onload = () => {
-				// load common.js
-				const l3 = document.createElement('script');
-				l3.src = 'common.js';
-				// initialize when all documents are loaded
-				l3.onload = () => document.readyState === 'complete' ? init() : window.addEventListener('load', init);
-				l3.onerror = () => setTimeout(() => document.head.appendChild(l3), 100);
-				document.head.appendChild(l3);
+		(function loadFiles() {
+			const s = document.createElement('script');
+			s.src = 'common.js';
+			s.onerror = () => setTimeout(loadFiles, 100);
+			s.onload = () => {
+				loadResources(['style.css', 'iro.js'], init);
 			};
-			l2.onerror = () => setTimeout(() => document.head.appendChild(l2), 100);
-			document.head.appendChild(l2);
-		};
-		l1.onerror = () => setTimeout(() => document.head.appendChild(l1), 100);
-		document.head.appendChild(l1);
+			document.head.appendChild(s);
+		})();
 
 		// main init function, called when all resources are loaded
 		function init() {

@@ -272,6 +272,20 @@ writeChunks(
 );
 
 writeChunks(
+  "wled00/data/pixelforge",
+  [
+    {
+      file: "omggif.js",
+      name: "JS_omggif",
+      method: "gzip",
+      filter: "js-minify",
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_omggif.h"
+);
+
+writeChunks(
   "wled00/data",
   [
     {
