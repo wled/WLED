@@ -735,7 +735,7 @@ void WLED::initConnection()
       // check if user BSSID is non zero for current WiFi config
       for (int i = 0; i < sizeof(multiWiFi[selectedWiFi].bssid); i++) {
         if (multiWiFi[selectedWiFi].bssid[i] != 0) {
-        bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
+          bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
           break;
         }
       }
