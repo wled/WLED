@@ -7823,6 +7823,735 @@ uint16_t mode_2DAkemi(void) {
 static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Head palette,Arms & Legs,Eyes & Mouth;Face palette;2f;si=0"; //beatsin
 
 
+/////////////////////////
+//  Xmas Twinkle       //
+/////////////////////////
+
+// We need to keep data for each twinkle light. 8 bytes/light
+typedef struct XTwinkleLight {
+  int16_t timeToEvent;
+  int16_t maxCycle;
+  int16_t retwnkleTime;
+  uint8_t colorIdx;
+
+  uint8_t flags;
+#define TWINKLE_ON   0x01
+} XTwinkleLight;
+
+// For creating skewed random numbers toward the shorter end.
+// The sum of percentages must = 100%
+const uint8_t pSize = 20;
+const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15}; // PROGMEM?
+const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19}; // PROGMEM?
+
+// Input is 0-100, Ouput is skewed 0-100.
+// PArray may be any size, but elements must add up to 100.
+#define RAND_PREC_SHIFT 10              // Vertual binary point from the right
+int32_t skewedRandom( uint8_t rand100,
+                      const uint8_t pArraySize,
+                      const uint8_t *pArray)
+{
+    int32_t index = 0;
+    int32_t cumulativePercentage = 0;
+
+    // Find the range in the table based on randomValue.
+    while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
+        cumulativePercentage += pArray[index];
+        index++;
+    }
+
+    // Calculate linear interpolation
+    int32_t t = ((rand100 - cumulativePercentage) << RAND_PREC_SHIFT) / pArray[index];
+    int32_t result = ((index << RAND_PREC_SHIFT) + t) * 100 / pArraySize >> RAND_PREC_SHIFT;
+
+    return result;
+}
+
+// Take two percentage tables and average them using the weighting factor.
+// Both tables and the result must be the same size.
+void weightPercentages(const uint8_t *arg1,
+                       const uint8_t *arg2,
+                       const int cnt,
+                       const uint32_t factor,   // 0.0-1.0 weight given to arg2 << RAND_PREC_SHIFT
+                       uint8_t *result)
+{
+	uint32_t arg1Factor = (1 << RAND_PREC_SHIFT) - factor;
+	for (int i = 0; i < cnt; ++i)
+		result[i] = arg1[i] * arg1Factor + arg2[i] * factor >> RAND_PREC_SHIFT;
+}
+
+uint16_t mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
+  /* SEGMENT usage:
+   *   aux0   number of twinklers
+   *   aux1   previous SEGMENT.speed
+   *   step   last time stamp
+   *   data   array of XTwinkleLight structure
+   */
+  uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
+  if (numTwiklers <= 0)
+    numTwiklers = 1;        // Divide checks are not cool.
+
+  // Reinitialize evertying if the number of twinklers has changed.
+  if (numTwiklers != SEGMENT.aux0 || SEGMENT.call == 0)
+    SEGMENT.aux0 = 0;
+  
+  // The maximum twinkle time varies based on the time slider
+  int32_t slowWeight = (255 - SEGMENT.speed << RAND_PREC_SHIFT) / 255;    // 0.0 - 1.0 shifted
+  int32_t maximumTime = (slowWeight * 9000) + 1000 >> RAND_PREC_SHIFT;  // Between 1000 & 10000 milliseconds
+
+  // We have two tables, one of 'normal' weights, 1 of slow weights.
+  // use more of the slow percentages in he last quarter of the segment times.
+  uint8_t wkgPercentages[pSize];
+  slowWeight = (slowWeight - /* 0.75 */ 768) * 4;     // (0.75 << RAND_PREC_SHIFT)
+  if (slowWeight < 0)
+    slowWeight = 0;
+  weightPercentages(percentages, slowPercentages, pSize, slowWeight, wkgPercentages);
+
+  uint16_t dataSize = sizeof(XTwinkleLight) * numTwiklers;
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  XTwinkleLight* twinklers = reinterpret_cast<XTwinkleLight*>(SEGENV.data);
+
+  // Initialize the twinkle lights.
+  if (SEGMENT.aux0 == 0)
+  {
+    for (int i = 0; i < numTwiklers; ++i)
+    {
+      XTwinkleLight *light = &twinklers[i];
+
+      light->colorIdx = random8();
+      light->flags = 0;
+      int32_t cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
+
+      light->maxCycle = cycleTime;
+      light->timeToEvent = random(500, cycleTime);
+      light->retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
+    }
+
+    SEGMENT.step = millis();
+    SEGMENT.aux0 = numTwiklers;     // Initialized.
+    SEGMENT.aux1 = SEGMENT.speed;   // So we don't recalculate reTwinkle time.
+  }
+
+  // Get the current time,  handling overflows.
+  uint32_t lastTime = SEGMENT.step;
+  uint32_t currTime = millis();
+  if (currTime < lastTime)
+    lastTime = 0;
+  
+  // The interval may be zero if the refresh rate is fast enought.
+  uint32_t interval = currTime - lastTime;
+
+  // Note the time passed to the LEDs, and process any events that occured.
+  for (int i = 0; i < numTwiklers; ++i)
+  {
+    XTwinkleLight *light = &twinklers[i];
+    
+    // See if we are at the end of twinkle on o off cycle.
+    int16_t eventTime = light->timeToEvent - interval;
+    if (eventTime <= 0)
+    {
+      // Twinkle on cycles are 1/3 length of twinkle off cycles. We're' twinkling after all.
+      if (light->flags & TWINKLE_ON)
+        eventTime += random(500, light->maxCycle);     // turn OFF
+      else
+      {
+        // Based on the check box, either use a constant palette index or a new one each time it turns on.
+        if (SEGMENT.check1)
+          light->colorIdx = random8();
+        eventTime += random(100, light->maxCycle / 3); // turn ON
+      }
+      
+      light->flags ^= TWINKLE_ON;
+    }
+    // Put the updated event time back.
+    light->timeToEvent = eventTime;
+
+    // If we are at the end of a major cycle or the speed has changed, recalculate the max cycle time.
+    int16_t cycleTime = light->retwnkleTime - interval;
+    if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
+    {
+      int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
+      light->maxCycle = maxTime;
+      cycleTime += 20000;                        // 20 seconds
+    }
+    light->retwnkleTime = cycleTime;
+  }
+
+  // Remember the last time as ms.
+  SEGMENT.step += interval;
+  SEGMENT.aux1 = SEGMENT.speed;   // Se we know if this change.
+
+  // Turm off all the LEDS.
+  for (int i = 0; i < SEGLEN; ++i)
+    SEGMENT.setPixelColor(i, CRGB::Black);
+  
+  // Turn on only those leds that should be.
+ for (int i = 0; i < numTwiklers; ++i)
+  {
+    XTwinkleLight *light = &twinklers[i];
+
+    if ((light->flags & TWINKLE_ON) == 0)
+      continue;
+    
+    // Compute the offset of the light in the string.
+    short inset = i * SEGLEN / numTwiklers;
+    if (inset > SEGLEN)       // Safety
+      break;
+
+    SEGMENT.setPixelColor(inset, ColorFromPalette(SEGPALETTE,light->colorIdx));
+  }
+
+  return FRAMETIME;
+} // mode_XmasTwinkle
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,,,,Color indices vary;;!;012;m12=0";
+
+////////////////////////////
+//  Elastic Collisions    //
+////////////////////////////
+
+// For print diagnostics, only.
+ #define FLOAT_IT(x)     ((float)(x) / (1 << SPHERE_PREC_SHIFT))
+
+ /* Note: When you multiply two fixed numbers, the binary point shifts left by the sum of 
+ * binary points. In division the binary point shift right by the difference between
+ * divident - divisor. */
+#define SPHERE_PREC_SHIFT        16             // Vertual binary point from the right
+typedef int32_t                  nfixed;        // These represent fixed point fractional numbers as Q16.16
+
+#define SLOWDOWN_FACTOR       0.4               // (Make this a variable?) for very large spheres.
+#define BOUNCE_CYCLE_TIME     50                // ms.
+#define RESET_CYCLE_TIME      1200              // Number of cycles (60 * 1000 / 50) 
+#define WALL_COLLAPSE_INTR    125               // Cycles left till regen.
+
+// --- Portable countLeadingZeros64 for faster SQRT ---
+int countLeadingZeros64(uint64_t x)
+{
+#if defined(__GNUC__) || defined(__clang__)
+    return __builtin_clzll(x);
+#else
+    if (x == 0) return 64;
+    int n = 0;
+    uint64_t mask = 1ULL << 63;
+    while ((x & mask) == 0) {
+        n++;
+        mask >>= 1;
+    }
+    return n;
+#endif
+}
+
+class MBSphere
+{
+    nfixed  x, y;               // Position
+    nfixed  vx, vy;             // Velocity
+    nfixed  radius;             // Radius
+    nfixed  _density = (1 << SPHERE_PREC_SHIFT);    // Density is 1 for bouncing, other values for gravity
+    uint8_t colorIdx;
+#if false
+    AbstractList<MBSphere*> *attrocters;    // Null unless this object is affected by gravity.
+#endif
+
+
+public:
+    MBSphere(nfixed radius, nfixed x, nfixed y, nfixed vx, nfixed vy, int8_t color)
+        : x(x), y(y), vx(vx), vy(vy), radius(radius), colorIdx(color) /*, attrocters(nullptr) */
+    {
+    }
+    ~MBSphere() { }
+#if false
+    // For effects with gravity.
+    void addAttractor(MBSphere *sp)
+	{
+		if (! attrocters)
+			attrocters = new List<MBSphere*>;
+		
+		attrocters->add(sp);
+	}
+#endif
+    nfixed density() { return _density; }
+    void setDensity(nfixed newD) { _density = newD; }
+    nfixed mass() { return fixedMult(fixedMult(fixedMult(radius, radius), radius), density()); }
+
+    static nfixed fixedMult(nfixed a, nfixed b)
+    {
+        return (int64_t)a * b >> SPHERE_PREC_SHIFT;
+    }
+
+    static nfixed fixedDiv(nfixed a, nfixed b)
+    {
+        return ((int64_t)a << SPHERE_PREC_SHIFT) / b;
+    }
+
+    static nfixed fixedSqrt(nfixed x)
+    {
+        // Promote to 64-bit and scale up for precision
+        uint64_t n = (uint64_t)x << SPHERE_PREC_SHIFT; // Q16.16 -> Q32.32
+        return fixed64Sqrt(n);
+    }
+
+    // Faster SQRT function curtesy Code Copilot 5.
+    static nfixed fixed64Sqrt(int64_t n)
+    {
+      if (n <= 0) return 0;
+
+        // Initial guess from highest bit.
+        int lz = 63 - countLeadingZeros64(n);
+        uint64_t res = 1ULL << (lz / 2);
+
+        // Newton–Raphson refinement (3–4 iterations are plenty)
+        res = (res + n / res) >> 1;
+        res = (res + n / res) >> 1;
+        res = (res + n / res) >> 1;
+
+        // Clamp back to 32-bit Q16.16
+        return (nfixed)res;
+    }
+
+    /* Squaring coordinates can blow out the range of nfixed. 
+    * Work with the 64 bit intermediate result. */
+    static nfixed fixedDist(nfixed a, nfixed b)
+    {
+        int64_t n = (int64_t)a * a + (int64_t)b * b;
+        return fixed64Sqrt(n);
+    }
+
+    // Update the sphere's position and velocity
+    void update(nfixed dt) { x += fixedMult(vx, dt); y += fixedMult(vy, dt); }
+    void newLoc(nfixed newX, nfixed newY) { x = newX; y = newY; }
+
+    // Detect if two circles are colliding (simple distance check)
+    bool areSpheresColliding(MBSphere sp)
+	{
+    nfixed dist = fixedDist(sp.x - this->x, sp.y - this->y);
+    return dist <= this->radius + sp.radius;
+	}
+
+  /* Make sure two spheres haven't gotten too close.
+   * Note: There is a pathological case where two spheres
+   * can crash into each other so hard, that one actually
+   * ends up insde the other. This function prevents that. */
+  void enforceMinDist(MBSphere *sp)
+  {
+      nfixed dist = radius + sp->radius;
+
+      nfixed dx = sp->x - x;
+      nfixed dy = sp->y - y;
+      nfixed length = fixedDist(dx, dy);
+
+      if (length >= dist || length == 0.0)
+          return; // Already long enough, or degenerate point
+
+      // Normalize direction
+      if (length << 1 == 0)
+      {
+          // handle gracefully, but this shouldn't happen.
+          Serial.println("At 0 #1");
+          return;
+      }
+      nfixed scale = fixedDiv(dist - length, length << 1);
+
+      nfixed offsetX = fixedMult(dx, scale);
+      nfixed offsetY = fixedMult(dy, scale);
+
+      x -= offsetX;
+      y -= offsetY;
+      sp->x += offsetX;
+      sp->y += offsetY;
+  }
+
+  // Function to simulate the elastic collision and update velocities
+  void handleCollision(MBSphere *sp, bool is2D)
+	{
+    nfixed m1 = this->mass();
+    nfixed m2 = sp->mass();
+
+    // Calculate the normal and tangent vectors
+    nfixed nx = sp->x - x;
+    nfixed ny = sp->y - y;
+    nfixed dist = fixedDist(nx, ny);
+    while (dist == 0) {
+        // handle gracefully
+        Serial.println("Two objects on top of each other!");
+
+        x += 1 << (SPHERE_PREC_SHIFT -2);
+        nx += 1 << (SPHERE_PREC_SHIFT -2);
+        dist = fixedDist(nx, ny);
+    }
+    nx = fixedDiv(nx, dist);
+    ny  = fixedDiv(ny, dist);
+
+    // Tangent is perpendicular to normal
+    nfixed tx = -ny;
+    nfixed ty = nx;
+
+    // Use canned values if 1D, otherwise an x velocity creeps in.
+    if (!is2D)
+    {
+        nx = 0;
+        ny = ((sp->y >= y) ? 1 : -1) << SPHERE_PREC_SHIFT;
+        tx = -ny;
+        ty = 0;
+    }
+
+    // Project velocities onto the normal and tangent
+    nfixed v1n = fixedMult(vx, nx) + fixedMult(vy, ny);
+    nfixed v1t = fixedMult(vx, tx) + fixedMult(vy, ty);
+    nfixed v2n = fixedMult(sp->vx, nx) + fixedMult(sp->vy, ny);
+    nfixed v2t = fixedMult(sp->vx, tx) + fixedMult(sp->vy, ty);
+
+    // Apply 1D elastic collision for the normal components
+    nfixed v1n_final = fixedDiv(fixedMult(v1n, m1 - m2) + fixedMult(2 * m2, v2n), m1 + m2);
+    nfixed v2n_final = fixedDiv(fixedMult(v2n, m2 - m1) + fixedMult(2 * m1, v1n), m1 + m2);
+
+    // Final velocity vectors (tangential velocity remains the same)
+    vx = fixedMult(v1n_final, nx) + fixedMult(v1t, tx);
+    vy = fixedMult(v1n_final, ny) + fixedMult(v1t, ty);
+    sp->vx = fixedMult(v2n_final, nx) + fixedMult(v2t, tx);
+    sp->vy = fixedMult(v2n_final, ny) + fixedMult(v2t, ty);
+	}
+
+    // Function to handle wall collisions
+    void handleWallCollision(nfixed windowWidth, nfixed windowHeight)
+	{
+    if (x - radius < 0) {
+        x = radius;  // Keep inside the left wall
+        vx = -vx;    // Reverse x velocity
+    } else if (x + radius > windowWidth) {
+        x = windowWidth - radius;  // Keep inside the right wall
+        vx = -vx;    // Reverse x velocity
+    }
+
+    if (y - radius < 0) {
+        y = radius;  // Keep inside the top wall
+        vy = -vy;    // Reverse y velocity
+    } else if (y + radius > windowHeight) {
+        y = windowHeight - radius;  // Keep inside the bottom wall
+        vy = -vy;    // Reverse y velocity
+    }
+	}
+
+#if false
+    // Apply the force of gravity with another sphere over the time period in ms.
+    void applyAttractorGravity(long overTime);
+    void applyGravity(MBSphere *sp, long overTime);
+
+    // Calculate the initial velocity for a circular orbit.
+    void initializeOrbit(MBSphere *sp, float dx, float dy);
+#endif
+
+  nfixed clamp(nfixed value, nfixed minVal, nfixed maxVal)
+  {
+      if (value < minVal) return minVal;
+      if (value > maxVal) return maxVal;
+      return value;
+  }
+
+  nfixed smoothstep(nfixed edge0, nfixed edge1, nfixed x)
+  {
+      // float t = clamp((x - edge0) / (edge1 - edge0), 0.0f, 1.0f);
+      // nfixed t = clamp(fixedDiv(x - edge0, edge1 - edge0), 0, 1 << SPHERE_PREC_SHIFT);
+      // return t * t * (3.0f - 2.0f * t);
+
+      // Use a faster divide and multiply using Q24.8 numbers instead of Q16.16.
+      edge0 >>= 8;
+      edge1 >>= 8;
+      x >>= 8;
+      int t = clamp((x - edge0 << 8) / (edge1 - edge0), 0, 1 << 8);   // Q24.8
+      return (t * t >> 8) * ((3 << 8) - 2 * t);        // Result of cubing is Q16.16.
+  }
+	
+	// For generality, the spere uses the segment passed in, not a global.
+  void drawMe(Segment &seg, bool draw)
+	{
+    const bool is2D = seg.is2D();
+    const int gridW = (is2D) ? (int)seg.vWidth() : 1;
+    const int gridH = (is2D) ? (int)seg.vHeight() : seg.vLength();
+	
+    CRGB sphereColor = ColorFromPalette(seg.getCurrentPalette(), colorIdx);
+		CRGB drawColor;
+		
+		/* Thank you Code Copilot: "Using C++, I have a coordinate space that is 10 times
+		 * an LED array. I want to draw a solid circle of diameter 'r' and position 'x'
+		 * and 'y' in the LED array, anti-aliasing the pixels."
+		 * Optimize the loop to only working on pixels near the object. Don't do the
+		 * whole panel. */
+    nfixed edge0 = radius - (1 << SPHERE_PREC_SHIFT) / 2;  // Soft transition start
+    nfixed edge1 = radius + (1 << SPHERE_PREC_SHIFT) / 2;  // Soft transition end
+    int lowX = (x - edge1 >> SPHERE_PREC_SHIFT) - 1;        // We don't need to cut it too close.
+    int highX = (x + edge1 >> SPHERE_PREC_SHIFT) + 2;
+    int lowY = ((y - edge1 >> SPHERE_PREC_SHIFT)) - 1;
+    int highY = ((y + edge1 >> SPHERE_PREC_SHIFT)) + 2;
+    
+    // If completely off the screen, stop it, to avoid an overflow.
+    if (lowX > gridW || highX < 0 || lowY > gridH || highY < 0)
+    {
+        vx = 0;
+        vy = 0;
+    }
+
+    // Don't calculate beyond the edges of the LED array.
+		if (lowX < 0)
+			lowX = 0;
+		if (highX > gridW)
+			highX = gridW;
+		if (lowY < 0)
+			lowY = 0;
+		if (highY > gridH)
+			highY = gridH;
+
+    /* Loop over a range of pixels on a panel to see how bright the LEDs
+     * there should be to represent this object. */
+		for (int lY = lowY; lY < highY; lY++) {
+			for (int lX = lowX; lX < highX; lX++) {
+				// LED pixel center in high-resolution space
+        const nfixed halfPixel = 1 << (SPHERE_PREC_SHIFT - 1);
+        nfixed pixelX = (lX << SPHERE_PREC_SHIFT) + halfPixel;
+        nfixed pixelY = (lY << SPHERE_PREC_SHIFT) + halfPixel;
+	
+				// Distance from the circle center
+        nfixed dist = fixedDist(pixelX - x, pixelY - y);
+	
+				// Compute anti-aliasing weight
+        // float alpha = RGBEffect::clamp(1.0f - RGBEffect::smoothstep(FLOAT_IT(edge0), FLOAT_IT(edge1), dist), 0.0f, 1.0f);
+        nfixed alpha = clamp((1 << SPHERE_PREC_SHIFT) - smoothstep(edge0, edge1, dist), 0, 1 << SPHERE_PREC_SHIFT) + 0;
+        // nfixed alpha = clamp((1 << SPHERE_PREC_SHIFT) - smoothstep(edge0, edge1, dist), 1 << (SPHERE_PREC_SHIFT - 2), 1 << SPHERE_PREC_SHIFT);
+        // alpha = 1 << SPHERE_PREC_SHIFT;
+	
+				// Store intensity in LED array (0-1 range)
+				if (draw)
+				{
+					drawColor = sphereColor;
+					drawColor.nscale8(alpha * 255 >> SPHERE_PREC_SHIFT);
+				}
+				else
+					drawColor = CRGB::Black;
+	
+				if (alpha > 0.0)
+				{
+					if (is2D)
+						seg.setPixelColorXY(lX, lY, drawColor);
+					else
+						seg.setPixelColor(lY, drawColor);
+				}
+			}
+		}
+	}
+
+#if false
+  // For diagnotistics only.
+  void print(int instNo)
+  {
+    Serial.printf("No. %d, x = %.2f, y = %.2f, vx = %.2f, vy = %.2f, radius = %.2f, density = %.2f, mass = %.2f\n", instNo,
+                  FLOAT_IT(x), FLOAT_IT(y), FLOAT_IT(vx), FLOAT_IT(vy),
+                  FLOAT_IT(radius), FLOAT_IT(_density), FLOAT_IT(mass()));
+  }
+#endif
+};
+
+// Given 0-255 from SEGMENT.custom2, return in number of 50ms cycles.
+uint32_t elasticLifetime()
+{
+  // 8 categories.
+  switch (SEGMENT.custom2 >> 5)   // /32
+  {
+  case 0:
+    return 300;     // 15s
+  case 1:
+    return 600;     // 30s
+  case 2:
+    return 1200;    // 1m
+  case 3:
+    return 2400;    // 2m
+  case 4:
+    return 6000;    // 5m
+  case 5:
+    return 12000;   // 10m
+  case 6:
+    return 36000;   // 30m
+  case 7:
+    return 72000;   // 1hr
+  default:
+    return 1200;
+  }
+}
+
+/* We want of range from 0.1->1->10. 
+ * Thank you Claude.ai. */
+nfixed sliderToSpeed(uint8_t slider)
+{
+  // Q16.16 quadratic coefficients (calculated from your 3 points)
+  const int32_t a_q16 = 8;       // ~0.000148 in Q16.16 (much smaller!)
+  const int32_t b_q16 = 300;      // ~0.004336 in Q16.16
+  const int32_t c_q16 = 6554;     // ~0.1 in Q16.16
+
+  // slider is 0-255
+  int64_t x = slider;
+  
+  // Calculate ax² + bx + c in Q16.16
+  int64_t result = ((int64_t)a_q16 * x * x) + ((int64_t)b_q16 * x) + c_q16;
+  
+  return (int32_t)result;
+}
+
+uint16_t mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
+
+  int numSpheres = 1 + (SEGMENT.intensity * 29) / 255;    // 1-30
+  
+  /*
+   *  SEGMENT.aux0.0 = desired number of spheres.
+   *  SEGMENT.aux0.1 = actual number allocated. Might be < aux0.0.
+   *  SEGMENT.step = Next movement intereval
+   *  SEGMENT.aux1 = Next total rebuild as a number of increments.
+   */
+  #define SPHERES_DESIRED 0xff00
+  #define SPHERES_DESIRED_SHIFT 8
+  #define SPHERES_ALLOCATED 0x00ff
+
+  const bool is2D = strip.isMatrix && SEGMENT.is2D();
+  const int cols = (is2D) ? SEG_W : 1;
+  const int rows = (is2D) ? SEG_H : SEGLEN;
+
+  // Make a virtual coordinate space that is SPACE_FACTOR times the led array.
+  const nfixed internalX = cols << SPHERE_PREC_SHIFT;
+  const nfixed internalY = rows << SPHERE_PREC_SHIFT;
+  const nfixed halfInternalY = internalY >> 1;
+
+  // Radius distribution.
+	const int dmTableSize = 20;
+	const uint8_t dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
+  
+  // Reinitialize evertying if the number of spheres has changed.
+  // (We need a separate counter for the number wanted, vs. the number actually initialized.)
+  if (numSpheres != ((SEGMENT.aux0 & SPHERES_DESIRED) >> SPHERES_DESIRED_SHIFT))
+    SEGMENT.aux0 = 0;
+
+  // Point to the sheres.
+  uint16_t dataSize = sizeof(MBSphere) * numSpheres;
+  if (!SEGENV.allocateData(dataSize)) return mode_static(); //allocation failed
+  MBSphere* spheres = reinterpret_cast<MBSphere*>(SEGENV.data);
+
+  // Initialize the spheres.
+  if ((SEGMENT.aux0 & SPHERES_DESIRED) == 0)
+  {
+  	SEGMENT.aux0 &= SPHERES_DESIRED;
+    const int32_t complementUniformity = 100 - ((int32_t) SEGMENT.custom1) * 100 / 255;
+
+    for (int i = 0; i < numSpheres; ++i)
+    {
+        // Diameter is based on the uniformity.
+        // radius = (250 + skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity << SPHERE_PREC_SHIFT)  / 250; // 5-25
+        nfixed radius = (7 << 16) + ((((uint64_t)skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity << 16) / 10000) * (23 << 16) >> 16);// 7-30
+        // radius = 30 << SPHERE_PREC_SHIFT;
+        nfixed massFactor = MBSphere::fixedDiv((11 << SPHERE_PREC_SHIFT), radius);           // Big things should move slower to keep momentum down.
+        nfixed vx = (-50.0 + random(100)) * massFactor / 5.0;                               // ±10
+        nfixed vy = (-50.0 + random(100)) * massFactor * complementUniformity / 500.0;    // ±10
+        radius /= 10;
+        vx /= 10;
+        vy /= 10;
+        if (complementUniformity == 0)    // Just one sphere has motion intially, if uniformity = 100%.
+        {
+            if (i == 0)
+                vx = 1 << (SPHERE_PREC_SHIFT - 1);  // 0.5
+            else
+                vx = 0;
+        }
+        if (!is2D)
+        {
+          vy = vx;
+          vx = 0;
+        }
+
+        MBSphere *candidate = new (&spheres[i]) MBSphere(radius, 0, 0, vx, vy, random8());
+
+        // Make sure the sphere doesn't land on another one.
+        bool conflicted = false;
+        int safety = 100;                   // Don't try a fit too many items.
+        do
+        {
+            // Give it a random location—closer to the vertical center based on the uniformity.
+            // (Gotcha! WLED random() returns unsigned. It can't go negative.)
+            nfixed x = random(internalX);
+            nfixed y = halfInternalY + (((int32_t)(random(internalY)) - halfInternalY) * complementUniformity / 100) & 0xffff0000;
+            if (!is2D)
+            {
+              y = random(internalY);
+            	x = 0;
+            }
+            candidate->newLoc(x, y);
+
+            // Make sure it doesn't land on anything else.
+            conflicted = false;
+            for (int j = 0; j < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++j)
+                if (spheres[j].areSpheresColliding(*candidate))
+                {
+                    conflicted = true;
+                    break;
+                }
+        } while (conflicted && --safety >= 0);
+        
+        // Stop, if we were unsuccessful.
+        if (conflicted)
+            break;
+        
+        ++SEGMENT.aux0;       // Increments SPHERES_ALLOCATED
+    }
+    
+    SEGMENT.aux0 = (numSpheres << SPHERES_DESIRED_SHIFT) | (SEGMENT.aux0 & SPHERES_ALLOCATED);
+    SEGMENT.step =  millis() + BOUNCE_CYCLE_TIME;
+    SEGMENT.aux1 = elasticLifetime();
+  }
+
+  // If it is time to do something.
+  if (millis() > SEGMENT.step)
+  {
+    // Turm off all the LEDS.
+    for (int i = 0; i < SEGLEN; ++i)
+      SEGMENT.setPixelColor(i, CRGB::Black);
+
+    // Draw the spheres.
+    for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
+      spheres[i].drawMe(SEGMENT, true);
+    
+    // Move the spheres and check for collisions with the walls.
+    // We want of range from 0.1->1->10.
+    nfixed speed = sliderToSpeed(SEGMENT.speed);
+    for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
+    {
+        // nfixed fixedSpeed = speed * (1 << SPHERE_PREC_SHIFT);
+        spheres[i].update(speed);
+
+        // If nearing a regeneration, let the walls fall and the spheres fly off!
+        if (SEGMENT.aux1 > WALL_COLLAPSE_INTR)
+            spheres[i].handleWallCollision(internalX, internalY);
+    }
+
+    // Check for collisions with other spheres.
+    for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
+        for (int j = i + 1; j < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++j)
+            if (spheres[i].areSpheresColliding(spheres[j]))
+            {
+              /* Make sure the two spheres haven't collided so hard that
+               * one is inside the other. */
+              spheres[i].enforceMinDist(spheres + j);
+              spheres[i].handleCollision(spheres + j, is2D);
+            }
+    
+      // After a while, force a complete recalculation
+      if (--SEGMENT.aux1 == 0)
+      {
+        SEGMENT.aux1 = elasticLifetime();
+        SEGMENT.aux0 = 0;
+      }
+
+    // Remember the last time
+    SEGMENT.step += BOUNCE_CYCLE_TIME;
+  }
+
+  return FRAMETIME;
+} // mode_ElasticCollisions
+static const char _data_FXMODE_ELASTICCOLLISIONS[] PROGMEM = "Elastic Collisions@Speed,Count,Uniformity,Lifetime;;!;12;c1=0,sx=90,c2=64";
+
+
 // Distortion waves - ldirko
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
 // adapted for WLED by @blazoncek, improvements by @dedehai
@@ -11125,6 +11854,9 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
+
+  addEffect(FX_MODE_XMASTWINKLE, &mode_XmasTwinkle, _data_FX_MODE_XMASTWINKLE);
+  addEffect(FX_MODE_ELASTICCOLLISIONS, &mode_ElasticCollisions, _data_FXMODE_ELASTICCOLLISIONS);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
