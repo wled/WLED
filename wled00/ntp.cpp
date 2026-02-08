@@ -13,153 +13,306 @@
 
 Timezone* tz;
 
-#define TZ_UTC                  0
-#define TZ_UK                   1
-#define TZ_EUROPE_CENTRAL       2
-#define TZ_EUROPE_EASTERN       3
-#define TZ_US_EASTERN           4
-#define TZ_US_CENTRAL           5
-#define TZ_US_MOUNTAIN          6
-#define TZ_US_ARIZONA           7
-#define TZ_US_PACIFIC           8
-#define TZ_CHINA                9
-#define TZ_JAPAN               10
-#define TZ_AUSTRALIA_EASTERN   11
-#define TZ_NEW_ZEALAND         12
-#define TZ_NORTH_KOREA         13
-#define TZ_INDIA               14
-#define TZ_SASKACHEWAN         15
-#define TZ_AUSTRALIA_NORTHERN  16
-#define TZ_AUSTRALIA_SOUTHERN  17
-#define TZ_HAWAII              18
-#define TZ_NOVOSIBIRSK         19
-#define TZ_ANCHORAGE           20
-#define TZ_MX_CENTRAL          21
-#define TZ_PAKISTAN            22
-#define TZ_BRASILIA            23
-#define TZ_AUSTRALIA_WESTERN   24
-
-#define TZ_COUNT               25
-#define TZ_INIT               255
-
+#define TZ_INIT 255
 byte tzCurrent = TZ_INIT; //uninitialized
 
-/* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
-static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
-    /* TZ_UTC */ {
-      {Last, Sun, Mar, 1, 0}, // UTC
-      {Last, Sun, Mar, 1, 0}  // Same
-    },
-    /* TZ_UK */ {
-      {Last, Sun, Mar, 1, 60},      //British Summer Time
-      {Last, Sun, Oct, 2, 0}       //Standard Time
-    },
-    /* TZ_EUROPE_CENTRAL */ {
-      {Last, Sun, Mar, 2, 120},     //Central European Summer Time
-      {Last, Sun, Oct, 3, 60}      //Central European Standard Time
-    },
-    /* TZ_EUROPE_EASTERN */ {
-      {Last, Sun, Mar, 3, 180},     //East European Summer Time
-      {Last, Sun, Oct, 4, 120}     //East European Standard Time
-    },
-    /* TZ_US_EASTERN */ {
-      {Second, Sun, Mar, 2, -240},  //EDT = UTC - 4 hours
-      {First,  Sun, Nov, 2, -300}  //EST = UTC - 5 hours
-    },
-    /* TZ_US_CENTRAL */ {
-      {Second, Sun, Mar, 2, -300},  //CDT = UTC - 5 hours
-      {First,  Sun, Nov, 2, -360}  //CST = UTC - 6 hours
-    },
-    /* TZ_US_MOUNTAIN */ {
-      {Second, Sun, Mar, 2, -360},  //MDT = UTC - 6 hours
-      {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
-    },
-    /* TZ_US_ARIZONA */ {
-      {First,  Sun, Nov, 2, -420},  //MST = UTC - 7 hours
-      {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
-    },
-    /* TZ_US_PACIFIC */ {
-      {Second, Sun, Mar, 2, -420},  //PDT = UTC - 7 hours
-      {First,  Sun, Nov, 2, -480}  //PST = UTC - 8 hours
-    },
-    /* TZ_CHINA */ {
-      {Last, Sun, Mar, 1, 480},     //CST = UTC + 8 hours
-      {Last, Sun, Mar, 1, 480}
-    },
-    /* TZ_JAPAN */ {
-      {Last, Sun, Mar, 1, 540},     //JST = UTC + 9 hours
-      {Last, Sun, Mar, 1, 540}
-    },
-    /* TZ_AUSTRALIA_EASTERN */ {
-      {First,  Sun, Oct, 2, 660},   //AEDT = UTC + 11 hours
-      {First,  Sun, Apr, 3, 600}   //AEST = UTC + 10 hours
-    },
-    /* TZ_NEW_ZEALAND */ {
-      {Last,   Sun, Sep, 2, 780},   //NZDT = UTC + 13 hours
-      {First,  Sun, Apr, 3, 720}   //NZST = UTC + 12 hours
-    },
-    /* TZ_NORTH_KOREA */ {
-      {Last, Sun, Mar, 1, 510},     //Pyongyang Time = UTC + 8.5 hours
-      {Last, Sun, Mar, 1, 510}
-    },
-    /* TZ_INDIA */ {
-      {Last, Sun, Mar, 1, 330},     //India Standard Time = UTC + 5.5 hours
-      {Last, Sun, Mar, 1, 330}
-    },
-    /* TZ_SASKACHEWAN */ {
-      {First,  Sun, Nov, 2, -360},  //CST = UTC - 6 hours
-      {First,  Sun, Nov, 2, -360}
-    },
-    /* TZ_AUSTRALIA_NORTHERN */ {
-      {First, Sun, Apr, 3, 570},   //ACST = UTC + 9.5 hours
-      {First, Sun, Apr, 3, 570}
-    },
-    /* TZ_AUSTRALIA_SOUTHERN */ {
-      {First, Sun, Oct, 2, 630},   //ACDT = UTC + 10.5 hours
-      {First, Sun, Apr, 3, 570}   //ACST = UTC + 9.5 hours
-    },
-    /* TZ_HAWAII */ {
-      {Last, Sun, Mar, 1, -600},   //HST =  UTC - 10 hours
-      {Last, Sun, Mar, 1, -600}
-    },
-    /* TZ_NOVOSIBIRSK */ {
-      {Last, Sun, Mar, 1, 420},     //CST = UTC + 7 hours
-      {Last, Sun, Mar, 1, 420}
-    },
-    /* TZ_ANCHORAGE */ {
-      {Second, Sun, Mar, 2, -480},  //AKDT = UTC - 8 hours
-      {First, Sun, Nov, 2, -540}   //AKST = UTC - 9 hours
-    },
-     /* TZ_MX_CENTRAL */ {
-      {First, Sun, Apr, 2, -360},  //CST = UTC - 6 hours
-      {First, Sun, Apr, 2, -360}
-    },
-    /* TZ_PAKISTAN */ {
-      {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
-      {Last, Sun, Mar, 1, 300}
-    },
-    /* TZ_BRASILIA */ {
-      {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
-      {Last, Sun, Mar, 1, -180}
-    },
-    /* TZ_AUSTRALIA_WESTERN */ {
-      {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
-      {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
-    }
+// workaround to put all strings into PROGMEM
+static const char _utc[]    PROGMEM = "UTC";
+static const char _gmt[]    PROGMEM = "GMT/BST";
+static const char _cet[]    PROGMEM = "CET/CEST";
+static const char _eet[]    PROGMEM = "EET/EEST";
+static const char _us_est[] PROGMEM = "US-EST/EDT";
+static const char _us_cst[] PROGMEM = "US-CST/CDT";
+static const char _us_mst[] PROGMEM = "US-MST/MDT";
+static const char _us_az[]  PROGMEM = "US-AZ";
+static const char _us_pst[] PROGMEM = "US-PST/PDT";
+static const char _cst[]    PROGMEM = "CST (AWST, PHST)";
+static const char _jst[]    PROGMEM = "JST (KST)";
+static const char _aest[]   PROGMEM = "AEST/AEDT";
+static const char _nzst[]   PROGMEM = "NZST/NZDT";
+static const char _nkst[]   PROGMEM = "North Korea";
+static const char _ist[]    PROGMEM = "IST (India)";
+static const char _ca_sk[]  PROGMEM = "CA-Saskatchewan";
+static const char _acst[]   PROGMEM = "ACST";
+static const char _acst2[]  PROGMEM = "ACST/ACDT";
+static const char _hst[]    PROGMEM = "HST (Hawaii)";
+static const char _novt[]   PROGMEM = "NOVT (Novosibirsk)";
+static const char _akst[]   PROGMEM = "AKST/AKDT (Anchorage)";
+static const char _mxcst[]  PROGMEM = "MX-CST";
+static const char _pkt[]    PROGMEM = "PKT (Pakistan)";
+static const char _brt[]    PROGMEM = "BRT (Brasília)";
+static const char _awst[]   PROGMEM = "AWST (Perth)";
+
+// WARNING: Changing the order of entries in this table will change the meaning of stored timezone indices in settings!
+// Add new timezones only at the end of the list to preserve compatibility!
+using tz_data = std::tuple<const char*, const TimeChangeRule, const TimeChangeRule>;
+static const tz_data TZ_TABLE[] PROGMEM = {
+  tz_data{
+    _utc,
+    {Last, Sun, Mar, 1, 0}, // UTC
+    {Last, Sun, Mar, 1, 0}  // Same
+  },
+  tz_data{
+    _gmt,
+    {Last, Sun, Mar, 1, 60},      //British Summer Time
+    {Last, Sun, Oct, 2, 0}       //Standard Time
+  },
+  tz_data{
+    _cet,
+    {Last, Sun, Mar, 2, 120},     //Central European Summer Time
+    {Last, Sun, Oct, 3, 60}      //Central European Standard Time
+  },
+  tz_data{
+    _eet,
+    {Last, Sun, Mar, 3, 180},     //East European Summer Time
+    {Last, Sun, Oct, 4, 120}     //East European Standard Time
+  },
+  tz_data{
+    _us_est,
+    {Second, Sun, Mar, 2, -240},  //EDT = UTC - 4 hours
+    {First,  Sun, Nov, 2, -300}  //EST = UTC - 5 hours
+  },
+  tz_data{
+    _us_cst,
+    {Second, Sun, Mar, 2, -300},  //CDT = UTC - 5 hours
+    {First,  Sun, Nov, 2, -360}  //CST = UTC - 6 hours
+  },
+  tz_data{
+    _us_mst,
+    {Second, Sun, Mar, 2, -360},  //MDT = UTC - 6 hours
+    {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
+  },
+  tz_data{
+    _us_az,
+    {First,  Sun, Nov, 2, -420},  //MST = UTC - 7 hours
+    {First,  Sun, Nov, 2, -420}  //MST = UTC - 7 hours
+  },
+  tz_data{
+    _us_pst,
+    {Second, Sun, Mar, 2, -420},  //PDT = UTC - 7 hours
+    {First,  Sun, Nov, 2, -480}  //PST = UTC - 8 hours
+  },
+  tz_data{
+    _cst,
+    {Last, Sun, Mar, 1, 480},     //CST = UTC + 8 hours
+    {Last, Sun, Mar, 1, 480}
+  },
+  tz_data{
+    _jst,
+    {Last, Sun, Mar, 1, 540},     //JST = UTC + 9 hours
+    {Last, Sun, Mar, 1, 540}
+  },
+  tz_data{
+    _aest,
+    {First,  Sun, Oct, 2, 660},   //AEDT = UTC + 11 hours
+    {First,  Sun, Apr, 3, 600}   //AEST = UTC + 10 hours
+  },
+  tz_data{
+    _nzst,
+    {Last,   Sun, Sep, 2, 780},   //NZDT = UTC + 13 hours
+    {First,  Sun, Apr, 3, 720}   //NZST = UTC + 12 hours
+  },
+  tz_data{
+    _nkst,
+    {Last, Sun, Mar, 1, 510},     //Pyongyang Time = UTC + 8.5 hours
+    {Last, Sun, Mar, 1, 510}
+  },
+  tz_data{
+    _ist,
+    {Last, Sun, Mar, 1, 330},     //India Standard Time = UTC + 5.5 hours
+    {Last, Sun, Mar, 1, 330}
+  },
+  tz_data{
+    _ca_sk,
+    {First,  Sun, Nov, 2, -360},  //CST = UTC - 6 hours
+    {First,  Sun, Nov, 2, -360}
+  },
+  tz_data{
+    _acst,
+    {First, Sun, Apr, 3, 570},   //ACST = UTC + 9.5 hours
+    {First, Sun, Apr, 3, 570}
+  },
+  tz_data{
+    _acst2,
+    {First, Sun, Oct, 2, 630},   //ACDT = UTC + 10.5 hours
+    {First, Sun, Apr, 3, 570}   //ACST = UTC + 9.5 hours
+  },
+  tz_data{
+    _hst,
+    {Last, Sun, Mar, 1, -600},   //HST =  UTC - 10 hours
+    {Last, Sun, Mar, 1, -600}
+  },
+  tz_data{
+    _novt,
+    {Last, Sun, Mar, 1, 420},     //CST = UTC + 7 hours
+    {Last, Sun, Mar, 1, 420}
+  },
+  tz_data{
+    _akst,
+    {Second, Sun, Mar, 2, -480},  //AKDT = UTC - 8 hours
+    {First, Sun, Nov, 2, -540}   //AKST = UTC - 9 hours
+  },
+  tz_data{
+    _mxcst,
+    {First, Sun, Apr, 2, -360},  //CST = UTC - 6 hours
+    {First, Sun, Apr, 2, -360}
+  },
+  tz_data{
+    _pkt,
+    {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
+    {Last, Sun, Mar, 1, 300}
+  },
+  tz_data{
+    _brt,
+    {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
+    {Last, Sun, Mar, 1, -180}
+  },
+  tz_data{
+    _awst,
+    {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
+    {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
+  }
 };
 
+#ifndef WLED_NO_CUSTOM_TIMEZONE
+/*
+bool posixTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
+  // example: "Europe/Ljubljana":"CET-1CEST,M3.5.0,M10.5.0/3"
+}
+*/
+
+static const char __weeks[] PROGMEM = "LasFirSecThiFou";
+static char _week[4];
+
+static const char* weekShortStr(uint8_t dow) {
+   if (dow > 4) {
+    DEBUG_PRINTF_P(PSTR("TZ Error: JSON week parsing. (%d)"), (int)dow);
+    dow = 0;
+   }
+   uint8_t index = dow*3;
+   for (int i=0; i < 3; i++) _week[i] = pgm_read_byte(&(__weeks[index + i]));
+   _week[3] = 0;
+   return _week;
+}
+
+bool jsonTimezone(TimeChangeRule &dst, TimeChangeRule &std) {
+  // example: {"dst":{"w":0,"dow":1,"m":3,"h":1,"off":60},"std":{"w":0,"dow":1,"m":10,"h":1,"off":0}}
+  // example: {"dst":{"w":"Last","dow":"Sun","m":"Mar","h":1,"off":60},"std":{"w":"Last","dow":"Sun","m":"Oct","h":1,"off":0}}
+  bool success = false;
+  File f;
+  f = WLED_FS.open("/timezone.json", "r");
+  if (f) {
+    DEBUG_PRINTLN(F("Reading timezone form JSON file"));
+    StaticJsonDocument<64> filter;
+    filter["dst"] = true;
+    filter["std"] = true;
+    StaticJsonDocument<384> d;
+    if (deserializeJson(d, f, DeserializationOption::Filter(filter)) == DeserializationError::Ok) {
+      JsonObject o = d.as<JsonObject>();
+      if (!(o["dst"].isNull() || o["std"].isNull())) {
+        // fill default values from UTC in case of missing data
+        memcpy_P(&dst, &std::get<1>(TZ_TABLE[0]), sizeof(TimeChangeRule));
+        memcpy_P(&std, &std::get<2>(TZ_TABLE[0]), sizeof(TimeChangeRule));
+
+        if (!o["dst"]["w"].isNull() && o["dst"]["w"].is<const char*>())
+          for (int i=0; i<5; i++) {
+            if (strncmp(weekShortStr(i), o["dst"]["w"].as<const char*>(), 3) == 0) {
+              dst.week = i;
+              break;
+            }
+          }
+        else dst.week = max(min(o["dst"]["w"] | 0, 4), 0);
+        if (!o["dst"]["dow"].isNull() && o["dst"]["dow"].is<const char*>())
+          for (int i=0; i<7; i++) {
+            if (strncmp(dayShortStr(i+1), o["dst"]["dow"].as<const char*>(), 3) == 0) {
+              dst.dow = i+1;
+              break;
+            }
+          }
+        else dst.dow = max(min(o["dst"]["dow"] | 1, 7), 1);
+        if (!o["dst"]["m"].isNull() && o["dst"]["m"].is<const char*>())
+          for (int i=0; i<12; i++) {
+            if (strncmp(monthShortStr(i+1), o["dst"]["m"].as<const char*>(), 3) == 0) {
+              dst.month = i+1;
+              break;
+            }
+          }
+        else dst.month = max(min(o["dst"]["m"] | 3, 12), 1);
+        dst.hour   = max(min(o["dst"]["h"]   | 1, 23), 0);
+        dst.offset = max(min(o["dst"]["off"] | 0, 1440), -1440);
+
+        if (!o["std"]["w"].isNull() && o["std"]["w"].is<const char*>())
+          for (int i=0; i<5; i++) {
+            if (strncmp(weekShortStr(i), o["std"]["w"].as<const char*>(), 3) == 0) {
+              std.week = i;
+              break;
+            }
+          }
+        else std.week = max(min(o["std"]["w"] | 0, 4), 0);
+        if (!o["std"]["dow"].isNull() && o["std"]["dow"].is<const char*>())
+          for (int i=0; i<7; i++) {
+            if (strncmp(dayShortStr(i+1), o["std"]["dow"].as<const char*>(), 3) == 0) {
+              std.dow = i+1;
+              break;
+            }
+          }
+        else std.dow = max(min(o["std"]["dow"] | 1, 7), 1);
+        if (!o["std"]["m"].isNull() && o["std"]["m"].is<const char*>())
+          for (int i=0; i<12; i++) {
+            if (strncmp(monthShortStr(i+1), o["std"]["m"].as<const char*>(), 3) == 0) {
+              std.month = i+1;
+              break;
+            }
+          }
+        else std.month = max(min(o["std"]["m"] | 3, 12), 1);
+        std.hour   = max(min(o["std"]["h"]   | 1, 23), 0);
+        std.offset = max(min(o["std"]["off"] | 0, 1440), -1440);
+
+        success = true;
+        DEBUG_PRINTLN(F("... was successful."));
+      }
+    }
+    f.close();
+  }
+  return success;
+}
+#endif
+
 void updateTimezone() {
+  bool customTZ = false;
   delete tz;
   TimeChangeRule tcrDaylight, tcrStandard;
   auto tz_table_entry = currentTimezone;
-  if (tz_table_entry >= TZ_COUNT) {
+  if (tz_table_entry >= countof(TZ_TABLE)) {
     tz_table_entry = 0;
+    #ifndef WLED_NO_CUSTOM_TIMEZONE
+    customTZ = jsonTimezone(tcrDaylight, tcrStandard);
+    #endif
   }
   tzCurrent = currentTimezone;
-  memcpy_P(&tcrDaylight, &TZ_TABLE[tz_table_entry].first, sizeof(tcrDaylight));
-  memcpy_P(&tcrStandard, &TZ_TABLE[tz_table_entry].second, sizeof(tcrStandard));
-
+  if (!customTZ) {
+    memcpy_P(&tcrDaylight, &std::get<1>(TZ_TABLE[tz_table_entry]), sizeof(tcrDaylight));
+    memcpy_P(&tcrStandard, &std::get<2>(TZ_TABLE[tz_table_entry]), sizeof(tcrStandard));
+  }
   tz = new Timezone(tcrDaylight, tcrStandard);
+}
+
+String getTZNamesJSONString() {
+  String names = "[";
+  names.reserve(512); // prevent heap fragmentation by allocating needed space upfront
+  for (size_t i = 0; i < countof(TZ_TABLE); i++) {
+    // the following is shorter code than sprintf()
+    names += '"';
+    names += FPSTR(std::get<0>(TZ_TABLE[i]));
+    names += '"';
+    names += ',';
+  }
+  #ifndef WLED_NO_CUSTOM_TIMEZONE
+  names += F("\"Custom (JSON)\"]");
+  #else
+  names.setCharAt(names.length()-1, ']'); // replace last comma with bracket
+  #endif
+  return names;
 }
 
 void handleTime() {
@@ -236,7 +389,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
   if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
   if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
-  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
+  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 &&
       ntpPacket[18] == 0 && ntpPacket[19] == 0 &&
       ntpPacket[20] == 0 && ntpPacket[21] == 0 &&
       ntpPacket[22] == 0 && ntpPacket[23] == 0)               //reject ReferenceTimestamp == 0
@@ -483,7 +636,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
 	return UT*60;
 }
 
-#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes 
+#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes
 // calculate sunrise and sunset (if longitude and latitude are set)
 void calculateSunriseAndSunset() {
   if ((int)(longitude*10.) || (int)(latitude*10.)) {
