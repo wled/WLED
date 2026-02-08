@@ -36,8 +36,9 @@
 			urows="";
 			if (isO(umCfg)) {
 				for (const [k,o] of Object.entries(umCfg)) {
-					urows += `<hr><h3>${k}</h3>`;
+					urows += `<div class="sec"><h3>${k}</h3>`;
 					addField(k,'unknown',o);
+					urows += `</div>`;
 				}
 			}
 			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
@@ -290,18 +291,20 @@
 		<span id="lserr" style="color:red; display:none">&#9888; Could not load configuration.</span><hr>
 		</div>
 		<h2>Usermod Setup</h2>
-		Global I<sup>2</sup>C GPIOs (HW)<br>
-		<i class="warn">(change requires reboot!)</i><br>
-		SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
-		SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL">
-		<hr class="sml">
-		Global SPI GPIOs (HW)<br>
-		<i class="warn">(only changable on ESP32, change requires reboot!)</i><br>
-		MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
-		MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
-		SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK">
-		<hr class="sml">
-		Reboot after save? <input type="checkbox" name="RBT"><br>
+		<div class="sec">
+			<h3>Global I<sup>2</sup>C & SPI</h3>
+			
+			<b>I<sup>2</sup>C GPIOs (HW)</b><br>
+			SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
+			SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL"><br>
+			<br><b>SPI GPIOs (HW)</b><br>
+			<i class="warn">only changable on ESP32</i><br>
+			MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
+			MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
+			SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK"><br>
+			<br><i class="warn">change requires reboot!</i><br>
+			Reboot after save? <input type="checkbox" name="RBT">
+		</div>
 		<div id="um">Loading settings...</div>
 		<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
