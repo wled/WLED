@@ -29,9 +29,9 @@
 					if (data.arch == "esp8266") {
 						toggle('rev');
 					}
-					const isESP32 = data.arch && (data.arch.toLowerCase() === 'esp32' || data.arch.toLowerCase() === 'esp32-s2');
-					if (isESP32) {
-						gId('bootloader-section').style.display = 'block';
+					const allowBl = data.arch && (data.arch.toLowerCase() === 'esp32' || data.arch.toLowerCase() === 'esp32-s2');
+					if (allowBl) {
+						toggle('bootupd')
 						if (data.bootloaderSHA256) {
 							gId('bootloader-hash').innerText = 'Current bootloader SHA256: ' + data.bootloaderSHA256;
 						}
@@ -44,14 +44,18 @@
 					document.querySelector('.release-name').textContent = 'Unknown';
 				});
 		}
+		function hideforms() {
+			gId('bootupd').classList.add("hide");
+			toggle('upd');			
+		}
 	</script>
 	<style>
 		@import url("style.css");
 	</style>
 </head>
 <body onload="GetV();">
-	<h2>WLED Software Update</h2>
-	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="toggle('upd')">
+	<h2>WLED Software Update</h2>	
+	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="hideforms()">
 		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
 		Download the latest binary: <a href="https://github.com/wled-dev/WLED/releases" target="_blank" 
@@ -66,11 +70,11 @@
 		<button id="rev" type="button" onclick="cR()">Revert update</button><br>
 		<button type="button" onclick="B()">Back</button>
 	</form>
-	<div id="bootloader-section" style="display:none;">
+	<div id="bootupd" class="hide">
 		<hr class="sml">
-		<h2>ESP32 Bootloader Update</h2>
+		<h2>Bootloader Update</h2>
 		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;"></div>
-		<form method='POST' action='./updatebootloader' id='bootupd' enctype='multipart/form-data' onsubmit="toggle('bootupd')">
+		<form method='POST' action='./updatebootloader' enctype='multipart/form-data' onsubmit="hideforms()">
 			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br>
 			<input type='file' name='update' required><br>
 			<button type="submit">Update Bootloader</button>
