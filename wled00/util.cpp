@@ -13,10 +13,10 @@
 #endif
 #include "mbedtls/sha1.h"   // for SHA1 on ESP32
 #include "esp_efuse.h"
-  #include "esp_chip_info.h"
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    #include <esp_mac.h>      // V5 requirement
-  #endif
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #include <esp_mac.h>      // V5 requirement
+#endif
 #endif
 
 

@@ -2,7 +2,11 @@
 #include "wled.h"
 #include "wled_ethernet.h"
 #ifdef ARDUINO_ARCH_ESP32
+#include "esp_efuse.h"
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "esp_mac.h"
+#endif
 #endif
 #include "ota_update.h"
 #ifdef WLED_ENABLE_AOTA
