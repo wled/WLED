@@ -1158,12 +1158,12 @@ size_t BusManager::memUsage() {
   // front buffers are always allocated per bus
   unsigned size = 0;
   unsigned maxI2S = 0;
-  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(ESP8266)
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32P4) && !defined(ESP8266)
   unsigned digitalCount = 0;
   #endif
   for (const auto &bus : busses) {
     size += bus->getBusSize();
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(ESP8266)
+    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32P4) && !defined(ESP8266)
     if (bus->isDigital() && !bus->is2Pin()) {
       digitalCount++;
       if ((PolyBus::isParallelI2S1Output() && digitalCount <= 8) || (!PolyBus::isParallelI2S1Output() && digitalCount == 1)) {
