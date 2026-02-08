@@ -1090,7 +1090,7 @@ void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
   #ifdef ESP8266
-  constexpr int ENUM_PINS = WLED_NUM_PINS; // GPIO0-16 (A0 (17) is analog input only and not available through pinmanager)
+  constexpr int ENUM_PINS = WLED_NUM_PINS; // GPIO0-16 (A0 (17) is analog input only and always assigned to any analog input, even if set "unused") TODO: can currently not be handled
   #else
   constexpr int ENUM_PINS = WLED_NUM_PINS;
   #endif
