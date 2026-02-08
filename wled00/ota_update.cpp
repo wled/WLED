@@ -410,6 +410,7 @@ bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootload
   // 0x000C = ESP32-C2
   // 0x000D = ESP32-C6
   // 0x0010 = ESP32-H2
+  // 0x0017 = ESP32-C5
 
   #if defined(CONFIG_IDF_TARGET_ESP32)
     if (chipId != 0x0000) {
@@ -434,6 +435,13 @@ bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootload
       return false;
     }
     *bootloaderErrorMsg = "ESP32-S3 update not supported yet";
+    return false;
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    if (chipId != 0x0017) {
+      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C5 (0x0017), got 0x" + String(chipId, HEX);
+      return false;
+    }
+    *bootloaderErrorMsg = "ESP32-C5 update not supported yet";
     return false;
   #elif defined(CONFIG_IDF_TARGET_ESP32C6)
     if (chipId != 0x000D) {

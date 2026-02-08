@@ -1,6 +1,7 @@
 #include "wled.h"
 #ifdef ESP32
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+// ESP32-C5 on pioarduino uses IDF 5.5+ which has SHA1 built-in, skip shim
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 5, 0)
 #include "mbedtls/sha1.h"
 #include "SHA1Builder.h"
 
