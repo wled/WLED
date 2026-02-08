@@ -637,8 +637,8 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // PSRAM compile time checks to provide info for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
-  #if defined(IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(ESP8266)
-    #error "ESP32-C3/C5 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
+#if defined(IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ESP8266)
+    #error "ESP32-C3/C6 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
     // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
