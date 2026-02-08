@@ -637,7 +637,7 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // PSRAM compile time checks to provide info for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
-#if defined(IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ESP8266)
+#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ESP8266)
     #error "ESP32-C3/C6 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
   #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // PSRAM fix only needed for classic esp32
@@ -647,7 +647,7 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
   #endif
   #endif
 #else
-  #if !defined(IDF_TARGET_ESP32C3) && !defined(IDF_TARGET_ESP32C6) && !defined(ESP8266)
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(ESP8266)
     #pragma message("BOARD_HAS_PSRAM not defined, not using PSRAM.")
   #endif
 #endif
