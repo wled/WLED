@@ -249,12 +249,13 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
+  StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers -> TODO: current format uses 214 bytes max per palette, why is this buffer so large?
+  unsigned emptyPaletteGap = 0; // count gaps in palette files to stop looking for more (each exists() call takes ~5ms)
   for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
-
-    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
     if (WLED_FS.exists(fileName)) {
+      emptyPaletteGap = 0; // reset gap counter if file exists
       DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -288,7 +289,8 @@ void loadCustomPalettes() {
         }
       }
     } else {
-      break;
+      emptyPaletteGap++;
+      if (emptyPaletteGap > WLED_MAX_CUSTOM_PALETTE_GAP) break; // stop looking for more palettes
     }
   }
 }

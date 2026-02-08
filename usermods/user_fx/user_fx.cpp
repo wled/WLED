@@ -8,6 +8,10 @@ static uint16_t mode_static(void) {
   return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 
+// If you define configuration options in your class and need to reference them in your effect function, add them here.
+// If you only need to use them in your class you can define them as class members instead.
+// bool myConfigValue = false;
+
 /////////////////////////
 //  User FX functions  //
 /////////////////////////
@@ -109,6 +113,25 @@ class UserFxUsermod : public Usermod {
     // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
     // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
+
+  
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+  //  If you want configuration options in the usermod settings page, implement these methods  //
+  ///////////////////////////////////////////////////////////////////////////////////////////////
+
+  // void addToConfig(JsonObject& root) override
+  // {
+  //   JsonObject top = root.createNestedObject(FPSTR("User FX"));
+  //   top["myConfigValue"] = myConfigValue;
+  // }
+  // bool readFromConfig(JsonObject& root) override
+  // {
+  //   JsonObject top = root[FPSTR("User FX")];
+  //   bool configComplete = !top.isNull();
+  //   configComplete &= getJsonValue(top["myConfigValue"], myConfigValue);
+  //   return configComplete;
+  // }
+
   void loop() override {} // nothing to do in the loop
   uint16_t getId() override { return USERMOD_ID_USER_FX; }
 };
