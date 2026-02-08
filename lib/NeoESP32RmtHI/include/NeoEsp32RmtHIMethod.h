@@ -1,4 +1,3 @@
-#if false
 /*-------------------------------------------------------------------------
 NeoPixel driver for ESP32 RMTs using High-priority Interrupt
 
@@ -30,6 +29,7 @@ License along with NeoPixel.  If not, see
 #pragma once
 
 #if defined(ARDUINO_ARCH_ESP32)
+#if !defined(WLED_USE_SHARED_RMT) // V5 fix: don't compile this file on unsupported platforms
 
 // Use the NeoEspRmtSpeed types from the driver-based implementation
 #include <NeoPixelBus.h>
@@ -468,5 +468,4 @@ typedef NeoEsp32RmtHI7Ws2805InvertedMethod NeoEsp32RmtHI7Ws2814InvertedMethod;
 #endif // !defined(CONFIG_IDF_TARGET_ESP32C3)
 
 #endif
-
-#endif // NEOE_SP32_RMT_HI_METHODS_H
+#endif

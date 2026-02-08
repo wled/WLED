@@ -37,8 +37,9 @@ Timezone* tz;
 #define TZ_MX_CENTRAL          21
 #define TZ_PAKISTAN            22
 #define TZ_BRASILIA            23
+#define TZ_AUSTRALIA_WESTERN   24
 
-#define TZ_COUNT               24
+#define TZ_COUNT               25
 #define TZ_INIT               255
 
 byte tzCurrent = TZ_INIT; //uninitialized
@@ -140,6 +141,10 @@ static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
     /* TZ_BRASILIA */ {
       {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
       {Last, Sun, Mar, 1, -180}
+    },
+    /* TZ_AUSTRALIA_WESTERN */ {
+      {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
+      {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
     }
 };
 
@@ -182,7 +187,11 @@ void handleNetworkTime()
     if (millis() - ntpPacketSentTime > 10000)
     {
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-      while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+        while (ntpUdp.parsePacket() > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+      #else
+        while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
+      #endif
       #endif
       sendNTPPacket();
       ntpPacketSentTime = millis();
@@ -245,7 +254,11 @@ bool checkNTPResponse()
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {
     #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
-    if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+      if (cb > 0) ntpUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      if (cb > 0) ntpUdp.flush();  // this avoids memory leaks on esp32
+    #endif
     #endif
     return false;
   }

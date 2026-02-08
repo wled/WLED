@@ -18,6 +18,13 @@
 
 #include "Arduino.h"
 
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#endif
+#endif
+
 //you can use these defines for library config in your sketch. Just use them before #include <Espalexa.h>
 //#define ESPALEXA_ASYNC
 
@@ -251,10 +258,10 @@ private:
     #ifdef ESPALEXA_ASYNC
     if (serverAsync == nullptr) {
       serverAsync = new AsyncWebServer(80);
-      serverAsync->onNotFound([=](AsyncWebServerRequest *request){server = request; serveNotFound();});
+      serverAsync->onNotFound([this](AsyncWebServerRequest *request){server = request; serveNotFound();}); // fix: implicit capture of "this"
     }
     
-    serverAsync->onRequestBody([=](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    serverAsync->onRequestBody([this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){ // fix: implicit capture of "this"
       char b[len +1];
       b[len] = 0;
       memcpy(b, data, len);
@@ -263,9 +270,9 @@ private:
       EA_DEBUGLN(body);
     });
     #ifndef ESPALEXA_NO_SUBPAGE
-    serverAsync->on("/espalexa", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; servePage();});
+    serverAsync->on("/espalexa", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; servePage();});
     #endif
-    serverAsync->on("/description.xml", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; serveDescription();});
+    serverAsync->on("/description.xml", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; serveDescription();}); // fix: implicit capture of "this"
     serverAsync->begin();
     
     #else
@@ -379,7 +386,11 @@ public:
     espalexaUdp.read(packetBuffer, packetSize);
     packetBuffer[packetSize] = 0;
   
-    espalexaUdp.flush();
+    #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+      espalexaUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      espalexaUdp.flush();
+    #endif
     if (!discoverable) return; //do not reply to M-SEARCH if not discoverable
   
     const char* request = (const char *) packetBuffer;
@@ -626,5 +637,12 @@ public:
   
   ~Espalexa(){} //note: Espalexa is NOT meant to be destructed
 };
+
+// dummy macro cleanup
+#ifndef ARDUINO_ARCH_ESP32
+#ifdef ESP_IDF_VERSION_VAL
+#undef ESP_IDF_VERSION_VAL
+#endif
+#endif
 
 #endif

@@ -1,646 +1,908 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>WLED Custom Palette Editor</title>
-    <script type="text/javascript">
-      var d = document;
-      function gId(e) {return d.getElementById(e);}
-      function cE(e) {return d.createElement(e);}
-    </script>
-  	<script src="common.js" type="text/javascript"></script>
-
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background-color: #111;
-        font-size: 16px;
-        color: #ddd;
-        margin: 0 10px;
-        line-height: 0.5;
-      }
-      #pCont {
-        position: relative;
-        width: 100%;
-        height: 20px;
-      }
-      #bCont {
-        position: absolute;
-        margin-top: 50px;
-      }
-      #gBox {
-        width: 100%;
-        height: 100%;
-      }
-      .cMark, .cPickMark {
-        position: absolute;
-        border-radius: 3px;
-        background-color: rgb(192, 192, 192);
-        border: 2px solid rgba(68, 68, 68, 0.5);
-        z-index: 2;
-      }
-      .cMark {
-        height: 30px;
-        width: 7px;
-        top: 50%;
-        transform: translateY(-50%);
-        touch-action: none;
-      }
-      .cPickMark {
-        height: 7px;
-        width: 7px;
-        top: 150%;
-      }
-      .dMark {
-        position: absolute;
-        height: 5px;
-        width: 5px;
-        border-radius: 3px;
-        background-color: rgb(255, 255, 255);
-        border: 3px solid rgb(155, 40, 40);
-        top: 220%;
-        z-index: 2;
-      }
-      .cPick {
-        position: absolute;
-        height: 1px;
-        width: 1px;
-        border: 1px;
-        top: 150%;
-        z-index: 1;
-        border-color: #111;
-        background-color: #111;
-      }
-      .btnCls {
-        padding: 0;
-        margin: 0;
-        vertical-align: bottom;
-        background-color: #111;
-      }
-      #bCont span {
-        display: inline-flex;
-        align-items: center;
-        color: #fff;
-        font-size: 12px;
-        vertical-align: middle;
-      }
-      #info {
-        text-align: center;
-        color: #fff; 
-        font-size: 12px;
-        position: relative;
-        margin-top: 10px;
-        line-height: 1;
-      }
-      .wrap {
-        width: 100%;
-        margin: 0 auto;
-      }
-      @media (min-width: 800px) {
-        .wrap {
-          width: 800px;
-        }
-      }
-      .pal {height: 20px;}
-      .pGrads {flex: 1; height: 20px; border-radius: 3px;}
-      .pMain {margin-top: 50px; width: 100%;}
-      .pTop {height: fit-content; text-align: center; color: #fff; font-size: 14px; line-height: 1;}
-      .pGradPar {display: flex; align-items: center; height: fit-content; margin-top: 10px; text-align: center; color: #fff; font-size: 12px; line-height: 1;}
-      .btnsDiv {display: inline-flex; margin-left: 5px; width: 50px;}
-      .sSpan, .eSpan {cursor: pointer;}
-      h1 {font-size: 1.6rem;}
-    </style>
-  </head>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1">
+	<title>WLED Palette Editor</title>
+	<!--* <link rel="stylesheet" href="style.css">
+	<script src="common.js"></script>
+	<script src="iro.js"></script> 
+	<link rel="icon" href="data:,"> *-->
+</head>
 <body>
-<div id="wrap" class="wrap">
-  <div style="display: flex; justify-content: center;">
-    <h1 style="display: flex; align-items: center;">
-      <svg style="width: 36px; height: 36px; margin-right: 6px;" viewBox="0 0 32 32">
-        <rect style="fill: #03F" x="6" y="22" width="8" height="4"/>
-        <rect style="fill: #03F" x="14" y="14" width="4" height="8"/>
-        <rect style="fill: #03F" x="18" y="10" width="4" height="8"/>
-        <rect style="fill: #03F" x="22" y="6" width="8" height="4"/>
-      </svg>
-      <span id="head">WLED Palette Editor</span>
-    </h1>
-  </div>
+	<div class="ctr">
+		<header><h1>WLED Palette Editor</h1></header>
 
-  <div id="pCont"><div id="gBox"></div></div>
-  <div style="display: flex; justify-content: center;">
-    <div id="pals" class="pMain">
-      <div id="distDiv" class="pTop"></div>
-      <div id="memWarn" class="pTop" style="display:none; color:#ff6600; margin-bottom:8px; font-size:16px;">
-        Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup" style="color:#ff9900">backups</a> before proceeding.</div>
-      <div id="pTop" class="pTop">Custom palettes</div>
-    </div>
-  </div>
+		<div id="pickerWrap">
+			<div id="picker"></div>
+			<div class="rgbi">
+				<label>R</label><input type="number" id="rInput" min="0" max="255" value="0">
+				<label>G</label><input type="number" id="gInput" min="0" max="255" value="0">
+				<label>B</label><input type="number" id="bInput" min="0" max="255" value="0">
+			</div>
+		</div>
 
-  <div style="display: flex; justify-content: center;">
-    <div id="info">Click gradient to add. Box = color. Red = delete. Arrow = upload. Pencil = edit.</div>
-  </div>
-  <div style="display: flex; justify-content: center;">
-    <div id="sPals" class="pMain">
-        <div id="spTop" class="pTop">Static palettes</div>
-    </div>
-  </div>
+		<div class="bar">
+				<div class="bar">
+						<button id="btnNew" class="sml">Generate</button>
+						<button id="btnDist" class="sml">Distribute</button>
+				</div>
+				<div class="bar">
+						<button id="btnCopy" class="sml">Copy</button>
+						<button id="btnPaste" class="sml">Paste</button>
+						<button id="btnDel" class="sml">Delete</button>
+				</div>
+		</div>
+
+		<div id="editor">
+			<div id="gradWrap"><div id="grad"></div></div>
+		</div>
+
+		<label>
+			<input type="checkbox" id="chkPreview">
+			<span>preview on selected segments</span>
+		</label>
+
+		<div class="tbl" id="empty"></div>
+
+		<section>
+			<span id="memWarn">Warning: Adding many custom palettes might cause stability issues, create <a href="/settings/sec#backup">backups</a></span>
+			<div class="tbl"><div id="custom" class="lst"></div></div>
+		</section>
+
+		<section><div id="allCats" class="cats"></div></section>
+
+		<div>
+			<button id="btnFetchExt" class="btn">Download more palettes</button>
+		</div>
+		<div style="margin-bottom: 24px;">
+			  <button class="btn" onclick="window.location.href = getURL('/');">Back to the controls</button>
+		</div>
+
+		<div style="font-size:12px;color:#666;">by @dedehai</div>
+	</div>
+
+	<script>
+		// State
+		let gr, wr, rc, w = 0, sc = 1, pl = 16;
+		let sel = null, pk = null;
+		let cpc = 0, cpm = 10, pnm = [], cpal = [], spal = [];  // custom palette count, custom palette max, names, custom palettes, static palettes
+		let prvTmr = null, prvEn = false, palCache = [];
+		let isDragging = false;
+		let copyColor = '#000';
+		let ws = null;
+		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
+
+		// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
+		// load CSS
+		const l1 = document.createElement('link');
+		l1.rel = 'stylesheet';
+		l1.href = 'style.css';
+		l1.onload = () => {
+			// load iro.js
+			const l2 = document.createElement('script');
+			l2.src = 'iro.js';
+			l2.onload = () => {
+				// load common.js
+				const l3 = document.createElement('script');
+				l3.src = 'common.js';
+				// initialize when all documents are loaded
+				l3.onload = () => document.readyState === 'complete' ? init() : window.addEventListener('load', init);
+				l3.onerror = () => setTimeout(() => document.head.appendChild(l3), 100);
+				document.head.appendChild(l3);
+			};
+			l2.onerror = () => setTimeout(() => document.head.appendChild(l2), 100);
+			document.head.appendChild(l2);
+		};
+		l1.onerror = () => setTimeout(() => document.head.appendChild(l1), 100);
+		document.head.appendChild(l1);
+
+		// main init function, called when all resources are loaded
+		function init() {
+			// init iro color picker
+			pk = new iro.ColorPicker('#picker', {
+				width: 240,
+				wheelAngle: 270,
+				wheelDirection: 'clockwise',
+				layout: [
+					{component: iro.ui.Wheel},
+					{component: iro.ui.Slider, options: {sliderType: 'value'}}
+				]
+			});
+			// update color when picker changes
+			pk.on('color:change', (c) => { setCol(c.hexString); updRGB(c.hexString); });
+
+			const updFromRGB = () => {
+				const r = clamp(parseInt(gId('rInput').value) || 0, 0, 255);
+				const g = clamp(parseInt(gId('gInput').value) || 0, 0, 255);
+				const b = clamp(parseInt(gId('bInput').value) || 0, 0, 255);
+				pk.color.rgb = {r, g, b};
+			};
+			gId('rInput').addEventListener('change', updFromRGB);
+			gId('gInput').addEventListener('change', updFromRGB);
+			gId('bInput').addEventListener('change', updFromRGB);
+
+			gId('btnDist').onclick = dist;
+			gId('btnDel').onclick = deleteMarker;
+			gId('btnNew').onclick = rndPal;
+			gId('btnCopy').onclick = () => copypasteColor(0);
+			gId('btnPaste').onclick = () => copypasteColor(1);
+			gId('btnFetchExt').onclick = fetchExt;
+			gId('chkPreview').addEventListener('change', (e) => {
+				prvEn = e.target.checked;
+				if (prvEn) applyLED();
+				else requestJson({seg:{frz:false}});
+			});
+
+			gr = gId('grad');
+  		wr = gId('gradWrap');
+			wr.addEventListener('pointerdown', (e) => {
+				const m = e.target.closest('.mk');
+				if (m) {
+					isDragging = false;
+					selMk(m);
+					if (m.dataset.lock === '1') return;
+					e.preventDefault();
+					const startT = +m.dataset.t;
+					const mv = (ev) => {
+						isDragging = true;
+						const minT = (startT === 0) ? 0 : 1;
+						const maxT = (startT === 255) ? 255 : 254;
+						const x = clamp(Math.round((ev.clientX - (rc.left + pl)) / sc), minT, maxT);
+						m.dataset.t = x; m.style.left = (pl + (x * sc)) + 'px'; draw();
+					};
+					d.addEventListener('pointermove', mv);
+					d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
+				} else if (e.target === wr || e.target === gr) {
+					const t = clamp(Math.round((e.clientX - (rc.left + pl)) / sc), 1, 254);
+					if (canAdd() && t !== 0 && t !== 255) {
+						addMk(t, '#' + (palCache[t] || '000'));
+						// trigger drag immediately
+						const newM = sel;
+						if (newM) {
+							e.preventDefault();
+							const mv = (ev) => {
+								isDragging = true;
+								const x = clamp(Math.round((ev.clientX - (rc.left + pl)) / sc), 1, 254);
+								newM.dataset.t = x; newM.style.left = (pl + (x * sc)) + 'px'; draw();
+							};
+							d.addEventListener('pointermove', mv);
+							d.addEventListener('pointerup', () => d.removeEventListener('pointermove', mv), {once:1});
+						}
+					}
+				}
+			});
+			// keyboard nudge for selected marker (note: uses about 100 bytes of code)
+			d.addEventListener('keydown', (e) => {
+				if (!sel || sel.dataset.lock === '1') return;
+				let t = +sel.dataset.t;
+				if (e.key === 'ArrowLeft') t = Math.max(1, t - (e.shiftKey ? 8 : 1));
+				else if (e.key === 'ArrowRight') t = Math.min(254, t + (e.shiftKey ? 8 : 1));
+				else return;
+				sel.dataset.t = t; sel.style.left = (pl + (t * sc)) + 'px'; draw(); e.preventDefault();
+			});
+
+			getLoc(); // set base URL
+			ws = connectWs();
+
+			let extGrp = {};
+			const cached = tryCache();
+			if (!cached) gId('btnFetchExt').style.display = '';
+			// fetch info + palnames
+			Promise.all([fetch(getURL('/json/info')).then(r=>r.json()), fetch(getURL('/json/pal')).then(r=>r.json())])
+				.then(([inf, nm]) => {
+					pnm = nm; cpc = inf.cpalcount; cpm = inf.cpalmax;
+					fetchC(cpc);
+					if (inf.arch === 'esp8266') maxCol = 50; // TODO: test if this works.
+					else maxCol = 128;
+
+					// Extract WLED palettes from wledPalx cache from main UI
+					let cache; try { cache = JSON.parse(localStorage.getItem('wledPalx')); } catch {}
+					if (cache?.p) {
+						for (const k in cache.p) {
+							if (+k > 255 - cpm || !Array.isArray(cache.p[k])) { delete cache.p[k]; continue; }
+							const a = cache.p[k];
+							if (a[a.length-1][0] !== 255) a.push([255, ...a[a.length-1].slice(1)]);
+							cache.p[k].name = pnm[k];
+						}
+						spal = Object.entries(cache.p).filter(([k]) => +k >= 8).map(([k, v]) => ({[k]:v.flat(), name:v.name}));
+					}
+					try { const raw = localStorage.getItem('wledCptCityJson'); if (raw) extGrp = grpExt(JSON.parse(raw)); } catch(e) {}
+					bldCat(extGrp);
+				})
+				.catch(()=>{});
+
+			recalc();
+			rndPal();
+		}
+
+		// Utils
+		function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+		function rndHex() { return '#' + (Math.random() * 0xFFFFFF << 0).toString(16).padStart(6, '0'); }
+		function h2rgb(h) { h = h.replace('#', ''); const n = parseInt(h, 16); return [(n>>16)&255, (n>>8)&255, n&255]; }
+		function rgb2h(r, g, b) { return ((1<<24) + (r<<16) + (g<<8) + b).toString(16).slice(1); }
+		function lerp(a, b, t) { return a + (b-a)*t; }
+		function updRGB(h) { const [r,g,b] = h2rgb(h); gId('rInput').value=r; gId('gInput').value=g; gId('bInput').value=b; }
+		function isEmpty(a) { return Array.isArray(a) && a.length === 1 && a[0] === 255; }
+
+		// copy / paste color
+		function copypasteColor(paste = false) {
+			if (!sel) return;
+			if (paste) {
+				setCol(copyColor);
+			} else {
+				copyColor = sel.dataset.c;
+				gId('btnPaste').style.borderColor = copyColor;
+			}
+		}
+
+		// Geometry
+		function recalc() {
+			rc = wr.getBoundingClientRect();
+			const cs = getComputedStyle(wr);
+			pl = parseInt(cs.paddingLeft || 16, 10);
+			w = rc.width - pl - parseInt(cs.paddingRight || 16, 10);
+			sc = w / 255;
+			layout();
+			draw();
+		}
+
+		function layout() {
+			[...gr.querySelectorAll('.mk')].forEach(m => {
+				m.style.left = (pl + (+m.dataset.t * sc)) + 'px';
+			});
+		}
+
+		function stops() {
+			return [...gr.querySelectorAll('.mk')]
+				.map(m => ({ t: +m.dataset.t, c: m.dataset.c, lock: m.dataset.lock === '1' }))
+				.sort((a, b) => a.t - b.t);
+		}
+
+		/* Build a 256-entry cache of palette RGB hex (without #). This is used for previewing and sending to LEDs */
+		function bldCache() {
+			const s = stops();
+			palCache = new Array(256);
+			if (!s.length) { palCache.fill('000000'); return; }
+
+			for (let t = 0; t <= 255; t++) {
+				if (t <= s[0].t) { palCache[t] = s[0].c.slice(1); continue; }
+				if (t >= s[s.length - 1].t) { palCache[t] = s[s.length - 1].c.slice(1); continue; }
+
+				for (let i = 0; i < s.length - 1; i++) {
+					const a = s[i], b = s[i+1];
+					if (t >= a.t && t <= b.t) {
+						const f = (b.t === a.t) ? 0 : ((t - a.t) / (b.t - a.t));
+						const [ar,ag,ab] = h2rgb(a.c), [br,bg,bb] = h2rgb(b.c);
+						palCache[t] = rgb2h(Math.round(lerp(ar,br,f)), Math.round(lerp(ag,bg,f)), Math.round(lerp(ab,bb,f)));
+						break;
+					}
+				}
+			}
+		}
+
+		function draw() {
+			const s = stops();
+			gr.style.background = 'linear-gradient(to right,' + s.map(x => x.c + ' ' + Math.round(x.t * sc) + 'px').join(',') + ')';
+			bldCache();
+			if (prvEn && !prvTmr) {
+				let d = (ws && ws.readyState == 1) ? 50 : 500; // slower updates if using HTTP to not overwhelm the ESP
+				prvTmr = setTimeout(() => { prvTmr = null; applyLED(); }, d);
+			}
+		}
+
+		// Markers
+		function selMk(m) {
+			if (sel) sel.classList.remove('sel');
+			sel = m || null;
+			if (sel) {
+				sel.classList.add('sel');
+				if (pk) { pk.color.hexString = sel.dataset.c; updRGB(sel.dataset.c); }
+			}
+		}
+
+		function canAdd() { return gr.querySelectorAll('.mk').length < 16; }
+
+		function addMk(t, c, lock) {
+			// keep start and end markers at 0/255 locked
+			if (t < 0 || t > 255 || !canAdd() || gr.querySelector('.mk[data-t="' + t + '"]')) return;
+			const m = cE('div');
+			m.className = 'mk';
+			m.dataset.t = t;
+			m.dataset.c = c || rndHex();
+			m.dataset.lock = lock ? '1' : '0';
+			m.style.left = (pl + (t * sc)) + 'px';
+			m.style.background = m.dataset.c;
+			gr.appendChild(m);
+			selMk(m);
+			draw();
+		}
+
+		function deleteMarker() {
+			if (!sel || sel.dataset.lock === '1') return;
+			sel.remove();
+			selMk(null);
+			draw();
+		}
+
+		function setCol(h) {
+			if (!sel) return;
+			sel.dataset.c = h;
+			sel.style.background = h;
+			draw();
+		}
+
+		function dist() {
+			const s = stops();
+			if (s.length < 3) return;
+			const inner = s.slice(1, -1), step = Math.round(255 / (inner.length + 1));
+			inner.forEach((p, i) => {
+				// find node corresponding to this pos (skips locked)
+				const m = [...gr.querySelectorAll('.mk')].find(x => +x.dataset.t === p.t && x.dataset.lock !== '1');
+				if (m) { m.dataset.t = step * (i + 1); m.style.left = (pl + (m.dataset.t * sc)) + 'px'; }
+			});
+			draw();
+		}
+/*
+		function rndPal() {
+			gr.innerHTML = '';
+			addMk(0, rndHex(), 1);
+			const cnt = Math.floor(Math.random() * 3) + 2, pos = new Set();
+			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
+			[...pos].sort((a,b)=>a-b).forEach(t => addMk(t, rndHex()));
+			addMk(255, rndHex(), 1);
+		}*/
+
+		
+		// convert hsl to hex using canvas
+		function hslToHex(h, s, l) {
+			let ctx = cE("canvas").getContext("2d");
+			ctx.fillStyle = `hsl(${h},${s}%,${l}%)`;
+			return ctx.fillStyle;
+		}
+		// random or harmonic palette (uses 100 bytes extra compared to simple random palette)
+		function rndPal() {
+			gr.innerHTML = '';
+			const mode = Math.floor(Math.random() * 3); // 33% chance for random, 67% for harmonic
+			const cnt = Math.floor(Math.random() * 4) + 1; // 1-4 colors (+ start/end)
+			let pos = new Set();
+			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
+			const markers = [0, ...[...pos].sort((a,b)=>a-b), 255];
+			let colors;
+
+			if (mode === 0) { // random
+				//console.log('random');
+				colors = markers.map(() => hslToHex(
+					Math.random() * 360,
+					Math.random() * 100,
+					Math.random() * 60 + 10
+				));
+			}
+			else { // harmonic triadic/tetradic
+				//console.log('harmonic');
+				const hcount = Math.random() < 0.5 ? 3 : 4;
+				const base = Math.random() * 360;
+				colors = markers.map((_, i) => hslToHex(
+					(base + 360 * (i % hcount) / hcount) % 360,
+					100,
+					Math.random() * 60 + 25 // chance for pastel colors
+				));
+			}
+
+			markers.forEach((t, i) =>
+				addMk(t, colors[i], (i === 0 || i === markers.length - 1) ? 1 : 0)
+			);
+		}
+		// Data
+		function toJSON() { return JSON.stringify({ palette: stops().flatMap(s => [s.t, s.c.slice(1)]) }); }
+
+		// convert wled palette array to CSS gradient string
+		function cssArr(a) {
+			let out = [];
+			for (let i = 0; i < a.length; i += 2) {
+				const t = a[i], v = a[i + 1];
+				out.push(typeof v === 'string' ? `#${v} ${t/255*100}%` : `rgba(${v},${a[i+2]},${a[i+3]},1) ${t/255*100}%`);
+				if (typeof v !== 'string') i += 2;
+			}
+			return 'linear-gradient(to right,' + out.join(',') + ')';
+		}
+
+		// accepts stops array: [pos, color, pos, color, ...] where color can be 'rrggbb' or [r,g,b]
+		function loadArr(a) {
+			gr.innerHTML = '';
+			for (let i = 0; i < a.length; i += 2) {
+				const t = a[i], v = a[i + 1];
+				const h = typeof v === 'string' ? '#' + v : '#' + ((v << 16) | (a[i + 2] << 8) | a[i + 3]).toString(16).padStart(6, '0');
+				if (typeof v !== 'string') i += 2;
+				addMk(t, h, (t === 0 || t === 255));
+			}
+		}
+
+		function normCat(k) { const n = (k || '').toLowerCase(); return n === 'themed' ? 'thematic' : n; }
+
+		// group external palettes into categories
+		function grpExt(d) {
+			const g = {colorful:[], thematic:[], pastel:[], striped:[], gradient:[], monochrome:[]};
+			const add = (p) => { const k = normCat(p.category || p.class); if (g[k]) g[k].push(p); };
+			if (d?.categories && isO(d.categories)) {
+				for (const [k, l] of Object.entries(d.categories)) {
+					const nk = normCat(k);
+					if (Array.isArray(l)) l.forEach(p => { if (g[nk]) g[nk].push(p); });
+				}
+			} else if (Array.isArray(d?.palettes)) d.palettes.forEach(add);
+			else if (Array.isArray(d)) d.forEach(add);
+			return g;
+		}
+
+		// UI
+		function mkPalItem(name, author, css, arr, save, remove) {
+			const itm = cE('div'), nam = cE('div'), pvw = cE('div'), prow = cE('div'), pv = cE('div');
+			itm.className = 'pal';
+			nam.className = 'nam';
+			nam.textContent = name;
+			if (author) {
+				const a = cE('span');
+				a.className = 'by';
+				a.textContent = ' by ' + author; 
+				nam.appendChild(a);
+			}
+
+			pvw.style.alignItems = 'center';
+			pvw.style.flex = '1';
+			prow.className = 'prow';
+			pv.className = 'prv';
+			pv.style.background = css;
+			pv.title = 'Click to load';
+			pv.onclick = () => loadArr(arr);
+			pvw.append(nam, pv);
+			prow.appendChild(pvw);
+			if (save) prow.appendChild(save);
+			if (remove) prow.appendChild(remove);
+			itm.appendChild(prow);
+			return itm;
+		}
+
+		// Build the custom palette list (custom slots + empty slot handling)
+		// input: slots larger than "loaded" are set to 50% opacity to indicate they are not refreshed yet
+		function bldLst(loaded) {
+			const cd = gId('custom'), fc = d.createDocumentFragment();
+			cd.innerHTML = '';
+			let emptyslot = gId('empty');
+			emptyslot.innerHTML = '';
+			let foundEmpty = false;
+
+			cpal.forEach((p, i) => {
+				const sv = cE('button');
+				sv.className = 'sml';
+				sv.innerHTML = '&#8678;'; // alternative arrows: '&#8617;'  '&#8592;'
+				sv.title = 'Save to slot ' + i;
+				sv.onclick = () => upload(i);
+
+				const rm = cE('button');
+				rm.className = 'sml';
+				rm.title = 'Delete palette';
+				rm.innerHTML = '&#10006;';
+				rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 500); };
+
+				const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
+				const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
+				const item = mkPalItem(name, null, css, p.palette, sv, rm);
+				const prv = item.querySelector('.prv');
+				prv.style.opacity = i > loaded ? 0.5 : 1; // set opacity of palette preview
+
+				// disable loading for empty palettes
+				if (isEmpty(p.palette) && !foundEmpty) {
+					foundEmpty = true;
+					prv.style.cursor = 'not-allowed';
+					prv.onclick = null;
+					item.querySelector('.nam').style.transform = 'translateY(100%)'; // move name down to preview center
+					emptyslot.appendChild(item);
+				} else if (!isEmpty(p.palette)) {
+					fc.appendChild(item);
+				}
+			});
+
+			cd.appendChild(fc);
+			gId('memWarn').style.display = (cpc > 10) ? 'block' : 'none'; // show warning if 10 or more custom palettes
+		}
+
+		// build categories UI from grouped palettes
+		function bldCat(extGrp) {
+			const h = gId('allCats');
+			if (!h) return;
+			h.innerHTML = '';
+			const cats = [
+				{k:'wled', lbl:'WLED Palettes', items:spal},
+				{k:'colorful', lbl:'Colorful', items:extGrp.colorful||[]},
+				{k:'thematic', lbl:'Thematic', items:extGrp.thematic||[]},
+				{k:'pastel', lbl:'Pastel', items:extGrp.pastel||[]},
+				{k:'striped', lbl:'Striped', items:extGrp.striped||[]},
+				{k:'gradient', lbl:'Gradient', items:extGrp.gradient||[]},
+				{k:'monochrome', lbl:'Monochrome', items:extGrp.monochrome||[]}
+			];
+			cats.forEach(({k, lbl, items}) => {
+				if (!items.length && k !== 'wled') return; // skip external categories if empty
+				const det = cE('details'), sum = cE('summary'), body = cE('div');
+				det.className = 'cat';
+				sum.innerHTML = `&#9656; ${lbl} (${items.length})`;
+				det.appendChild(sum);
+				body.className = 'cbdy';
+
+				items.forEach(p => {
+				if (k === 'wled') {
+						const key = Object.keys(p)[0];
+						body.appendChild(mkPalItem(p.name || ' ', null, cssArr(p[key]), p[key]));
+				} else {
+						body.appendChild(mkPalItem(p.name || ' ', p.author, cssArr(p.colors), p.colors));
+					}
+				});
+				det.appendChild(body);
+				h.appendChild(det);
+				det.addEventListener('toggle', () => {
+					sum.innerHTML = det.open ? `&#9662; ${lbl} (${items.length})` : `&#9656; ${lbl} (${items.length})`;
+				});
+			});
+		}
+
+		// Network
+		function upload(i) {
+			const b = new Blob([toJSON()], {type:'application/json'});
+			const fakeFileObj = { files: [b] };
+			uploadFile(fakeFileObj, '/palette' + i + '.json');
+			localStorage.removeItem('wledPalx'); // invalidate main UI cache
+			setTimeout(refr, 300);
+		}
+
+		async function refr() {
+			try {
+				const inf = await fetch(getURL('/json/info'), {cache:'no-store'}).then(r=>r.json());
+				cpc = inf.cpalcount; cpm = inf.cpalmax;
+				await fetchC(cpc);
+			} catch(e) {}
+		}
+
+		// load custom palettes, loads from cache and updates in the background as palettes are coming in
+		async function fetchC(n) {
+			try {
+				const cached = localStorage.getItem('wledCustomPal');
+				if (cached) cpal = JSON.parse(cached);
+				if (cpal.length > n) cpal = cpal.slice(0, n);
+			} catch(e) {}
+
+			while (cpal.length < n) cpal.push({palette:[255]});
+			if (cpal.length < cpm) cpal.push({palette:[255]});
+			bldLst(0); // initial build, all previews at 50% opacity
+
+			// fetch and replace palettes as they load
+			for (let i = 0; i < n; i++) {
+				try {
+					const res = await fetch(getURL('/palette' + i + '.json'), {cache:'no-store'});
+					if (res.ok) {
+						cpal[i] = await res.json();
+						bldLst(i); // rebuild list, set opacity of this (and previous slots) to 100%
+					} else {
+						cpal[i] = {palette:[255]};
+					}
+				} catch(e) {
+					cpal[i] = {palette:[255]};
+				}
+			}
+
+			try {
+				localStorage.setItem('wledCustomPal', JSON.stringify(cpal));
+			} catch(e) {}
+		}
+
+		function tryCache() {
+			try {
+				const raw = localStorage.getItem('wledCptCityJson');
+				if (!raw) return false;
+				bldCat(grpExt(JSON.parse(raw)));
+				gId('btnFetchExt').style.display = 'none';
+				return true;
+			} catch (e) { localStorage.removeItem('wledCptCityJson'); return false; }
+		}
+
+		// download external palettes, these were hand picked from cpt-city (http://seaviewsensing.com/pub/cpt-city/)
+		// all palettes are licensed "free to use", converted to WLED JSON format by @dedehai
+		function fetchExt() {
+			fetch('https://dedehai.github.io/cpt_city_selection.json')
+				.then(r => { if (!r.ok) throw new Error(); return r.json(); })
+				.then(data => {
+					try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}
+					bldCat(grpExt(data));
+					gId('btnFetchExt').style.display = 'none';
+				})
+				.catch(() => { alert('Download failed'); });
+		}
+
+		// connect to WebSocket, use parent WS or open new
+		function connectWs(onOpen) {
+			try {
+				if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
+					if (onOpen) onOpen();
+					return top.window.ws;
+				}
+			} catch (e) {}
+			let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
+			let w = new WebSocket(url);
+			w.binaryType = "arraybuffer";
+			if (onOpen) w.addEventListener('open', onOpen);
+			w.addEventListener('close', () => { ws = null; });
+			w.addEventListener('error', () => { ws = null; });
+			return w;
+		}
+
+		async function requestJson(cmd)
+		{
+			if (ws && ws.readyState == 1) {
+				try {
+					ws.send(JSON.stringify(cmd));
+					return 1;
+				} catch (e) {}
+			}
+
+			if (!window._httpQueue) {
+				window._httpQueue = [];
+				window._httpRun = 0;
+			}
+			if (_httpQueue.length >= 5) {
+				return Promise.resolve(-1); // reject if too many queued requests
+			}
+
+			return new Promise(resolve => {
+				_httpQueue.push({ cmd, resolve });
+				(async function run() {
+					if (_httpRun) return;
+					_httpRun = 1;
+					while (_httpQueue.length) {
+						let q = _httpQueue.shift();
+						try {
+							await fetch(getURL('/json'), {
+								method: 'post',
+								body: JSON.stringify(q.cmd),
+								cache: 'no-store'
+							});
+						} catch (e) {}
+						await new Promise(r => setTimeout(r, 120));
+						q.resolve(0);
+					}
+					_httpRun = 0;
+				})();
+			});
+		}
+
+		// apply palette preview to selected segments
+		async function applyLED()
+		{
+			if (!palCache.length) return;
+			try {
+				let st = await (await fetch(getURL('/json/state'), { cache: 'no-store' })).json();
+				if (!st.seg || !st.seg.length) return;
+
+				// get selected segments, use main segment if none selected
+				let segs = st.seg.filter(s => s.sel);
+				if (!segs.length) {
+					const mainSeg = st.seg.find(s => s.id === (st.mainseg || 0));
+					if (mainSeg) segs.push(mainSeg);
+				}
+				// show palette on each selected segment, 2D are treated as 1D to show better gradient
+				for (let s of segs) {
+					let len = (s.stop - s.start) * ((s.stopY - s.startY) || 1);
+					let arr = [];
+					for (let i = 0; i < len; i++)
+						arr.push(palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0]);
+					// send colors in chunks
+					for (let j = 0; j < arr.length; j += maxCol) {
+						let chunk = [s.start + j, ...arr.slice(j, j + maxCol)];
+						await requestJson({ seg: { id: s.id, i: chunk } });
+					}
+				}
+			} catch (e) {}
+		}
+
+		// Events
+		window.addEventListener('resize', recalc);
+		// Unfreeze segments when page is unloaded
+		window.addEventListener('beforeunload', () => {
+			if (prvEn) requestJson({seg:{frz:false}});
+		});
+
+	</script>
+	<style>
+		:root {
+			--pad:16px;
+			--maxw:820px;
+		}
+		body {
+			background: #111;
+			min-width: 320px; /* prevent layout breakdown */
+		}
+		.ctr {
+			max-width: calc(var(--maxw) + 2*var(--pad));
+			margin: 20px auto;
+			padding: 0 var(--pad);
+			display: flex; flex-direction: column; align-items: center;
+		}
+
+		header {
+			text-align: center;
+			margin-bottom: 10px;
+			width: 100%;
+		}
+		header h1 {
+			margin: 0;
+			font-size: 20px;
+			font-weight: 600;
+		}
+		#pickerWrap {
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			margin: 8px 0 12px;
+			width: 100%;
+		}
+		.bar {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+				justify-content: center;
+				align-items: center;
+				margin: 8px 0;
+				width: 100%;
+		}
+
+		button.sml { min-width: 70px; }
+
+		#editor {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			position: sticky;
+			top: 0;
+			z-index: 5;
+			padding: 6px 0;
+			background: #111;
+		}
+		#gradWrap {
+			position: relative;
+			height: 34px;
+			width: 100%;
+			max-width: var(--maxw);
+			touch-action: none; /* fixes click&drag on touch devices */
+		}
+		#grad {
+			height: 100%;
+			border-radius: 5px;
+		}
+
+		#empty {
+			position: sticky;
+			top: 15px;
+			z-index: 4;
+			padding: 4px 0;
+		}
+
+		.mk {
+			position: absolute;
+			top: 50%;
+			transform: translate(-50%, -50%);
+			width: 8px;
+			height: 34px;
+			border: 2px solid #5557;
+			border-radius: 5px;
+			touch-action: none;
+		}
+		.mk.sel {
+			outline: 2px solid #0bf;
+			border-color: #000;
+		}
+		@media (pointer: coarse) {
+			#gradWrap {
+				height: 60px; /* taller gradient for touch devices */
+			}
+			.mk {
+				height: 60px;
+				width: 20px; /* wider markers for touch devices */
+			}
+			#empty {
+				top: 40px; /* adjust for taller gradient */
+			}
+		}
+
+		section {
+			margin-top: 18px;
+			width: 100%;
+		}
+		.tbl {
+			background: #111;
+			width: 100%;
+		}
+		.lst {
+			display: flex;
+			flex-direction: column;
+			width: 100%;
+		}
+
+		.pal {
+			display: flex;
+			flex-direction: column;
+			position: relative;
+			margin-bottom: 5px;
+		}
+		.pal .nam {
+			text-align: center;
+		}
+		.pal .nam .by {
+			font-size: 11px;
+			margin-left: 4px;
+		}
+		.pal .prow {
+			display: flex;
+			align-items: flex-end;
+			gap: 10px;
+		}
+		.pal .prv {
+			flex: 1;
+			border-radius: 26px;
+			padding: 17px;
+			cursor: pointer;
+		}
+		.pal .sml {
+			min-width: 32px;
+			height: 32px;
+			padding: 0;
+			font-weight: 600;
+		}
+
+		.cats {
+			width: 100%;
+		}
+		details.cat {
+			border: 1px solid #444;
+			border-radius: 8px;
+			margin: 10px 0;
+			background: #222;
+		}
+		details.cat > summary {
+			cursor: pointer;
+			padding: 8px 10px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			color: #fff;
+			list-style: none;
+			font-size: 18px;
+			font-weight: 500;
+		}
+		details.cat > summary::-webkit-details-marker {
+			display: none;
+		}
+		.cbdy {
+			padding: 8px 10px 12px;
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
+		}
+
+		.rgbi {
+			display: flex;
+			gap: 6px;
+			margin-top: 8px;
+			align-items: center;
+		}
+		.rgbi input {
+			width: 60px;
+			border-radius: 6px;
+		}
+
+		#memWarn {
+			display: none;
+			color: #ff9900;
+			font-size: 16px;
+			margin-bottom: 8px;
+			text-align: center;
+		}
+		#memWarn a { color: #ffcc00; text-decoration: underline; }
+	</style>
 </body>
-
-<script type="text/javascript">
-  // global vars
-  var gBox = gId('gBox');     // gradientBox
-  var cpalc = -1, cpalm = 10; // current palette count, max custom
-  var pxCol = {};             // pixel color map
-  var tCol = {};              // true color map
-  var rect = gBox.getBoundingClientRect(); // bounding rect of gBox
-  var gLen = rect.width;      // gradientLength
-  var mOffs = Math.round((gLen / 256) / 2) - 5; // marker offset
-  var palArr = [];            // paletteArray
-  var palNm = [];             // paletteName
-
-  var svgSave = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2A10,10 0 0,1 22,12M7,12L12,17V14H16V10H12V7L7,12Z"/></svg>'
-  var svgEdit = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M12,2C6.47,2 2,6.47 2,12C2,17.53 6.47,22 12,22C17.53,22 22,17.53 22,12C22,6.47 17.53,2 12,2M15.1,7.07C15.24,7.07 15.38,7.12 15.5,7.23L16.77,8.5C17,8.72 17,9.07 16.77,9.28L15.77,10.28L13.72,8.23L14.72,7.23C14.82,7.12 14.96,7.07 15.1,7.07M13.13,8.81L15.19,10.87L9.13,16.93H7.07V14.87L13.13,8.81Z"/></svg>'
-  var svgDist = '<svg style="width:25px;height:25px" viewBox="0 0 24 24"><path fill=#fff d="M4 22H2V2H4V22M22 2H20V22H22V2M13.5 7H10.5V17H13.5V7Z"/></svg>'
-  var svgTrash = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="30px" height="30px"><path style="fill:#880000; stroke: #888888; stroke-width: -2px;stroke-dasharray: 0.1, 8;" d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M7,6H17V19H7V6M9,8V17H11V8H9M13,8V17H15V8H13Z"/></svg>'
-
-  const distDiv = gId("distDiv");
-  distDiv.addEventListener('click', distrib);
-  distDiv.setAttribute('title', 'Distribute equally');
-  distDiv.innerHTML = svgDist;
-
-  function recOf() {
-    rect = gBox.getBoundingClientRect();
-    gLen = rect.width;
-    mOffs = Math.round((gLen / 256) / 2) - 5;
-  }
-
-  //Initiation
-  getInfo();
-  window.addEventListener('load', chkW);
-  window.addEventListener('resize', chkW);
-
-  gBox.addEventListener("click", clikGrad);
-
-  //Sets start and stop, mandatory
-  addC(0);
-  addC(255);
-
-  updGrad(); // updateGradient at startup
-
-  function clikGrad(e) { // clickOnGradient
-    rmTrash(e); // removeTrashcan
-    addC(Math.round((e.offsetX/gLen)*256));
-  }
-
-  ///////// Add a new color marker
-  function addC(tPos, thisCol = '') {
-    let pos = -1;
-    let exist = false;
-    const cMarks = gBox.querySelectorAll('.cMark'); // color markers
-
-    cMarks.forEach((cm) => {
-      if (cm.getAttribute("data-tpos") == tPos) exist = true;
-    });
-
-    if (cMarks.length > 17) exist = true;
-    if (exist) return;
-
-    if (tPos > 0 && tPos < 255) {
-      for (var i=1; i<=16 && pos<1; i++) {
-        if (!gId("cMark"+i)) pos = i;
-      }
-    } else {
-      pos = tPos;
-    }
-    if (thisCol == '') {
-      thisCol = `#${(Math.random()*0xFFFFFF<<0).toString(16).padStart(6,'0')}`;
-    }
-
-    const cMark = cE('span'); // color marker
-    cMark.className = 'cMark';
-    cMark.id = 'cMark' + pos;
-    cMark.setAttribute("data-tpos", tPos);
-    cMark.setAttribute("data-tcol", thisCol);
-    cMark.setAttribute("data-offset", mOffs);
-    cMark.addEventListener('click', stopProp);
-    cMark.style.left = `${Math.round((gLen/256)*tPos)+mOffs}px`;
-
-    const cPick = cE('input'); // colorPicker
-    cPick.type = 'color';
-    cPick.value = thisCol;
-    cPick.className = 'cPick';
-    cPick.id = 'cPick' + pos;
-    cPick.addEventListener('input', updGrad);
-    cPick.addEventListener('click', cpClk);
-
-    const cPM = cE('span'); // colorPickerMarker
-    cPM.className = 'cPickMark';
-    cPM.id = 'cPM' + pos;
-    cPM.addEventListener('click', colClk);
-    cPM.style.left = cMark.style.left;
-    cPick.style.left = cMark.style.left;
-
-    if (pos > 0 && pos < 255) {
-      const dMark = cE('span'); // deleteMarker
-      dMark.className = 'dMark';
-      dMark.id = 'dMark' + pos;
-      dMark.addEventListener('click', (e) => { delCol(e); });
-      dMark.style.left = cMark.style.left;
-      gBox.appendChild(dMark);
-    }
-
-    cMark.style.backgroundColor = cPick.value;
-    cPM.style.backgroundColor = cPick.value;
-
-    gBox.appendChild(cPick);
-    gBox.appendChild(cMark);
-    gBox.appendChild(cPM);
-    if (pos > 0 && pos < 255) mkDrag(gId(cMark.id)); // makeMeDrag
-
-    setTip(gId(cMark.id)); // setTooltipMarker
-    updGrad();
-  }
-
-  ///////// Update Gradient
-  function updGrad() { // updateGradient
-    const cMarks = gBox.querySelectorAll('.cMark');
-    pxCol = {};
-    tCol = {};
-    cMarks.forEach((cm) => {
-      const cp = gId(cm.id.replace('cMark','cPick'));
-      const col = cp.value;
-      gId(cm.id.replace('cMark','cPM')).style.backgroundColor = col;
-      cm.style.backgroundColor = col;
-      cm.setAttribute("data-tcol", col);
-      const tPos = cm.getAttribute("data-tpos");
-      const gPos = Math.round((gLen/256)*tPos);
-      pxCol[gPos] = col;
-      tCol[tPos] = col;
-    });
-    let gStr = 'linear-gradient(to right';
-    Object.entries(pxCol).forEach(([p,c]) => {
-      gStr += `, ${c} ${p}px`;
-    });
-    gStr += ')';
-    gBox.style.background = gStr;
-  }
-
-  function stopProp(e) { e.stopPropagation(); }
-
-  function colClk(e) {
-    rmTrash(e);
-    e.stopPropagation();
-    const src = e.target || e.srcElement;
-    let cp = gId(src.id.replace("cPM","cPick"));
-    cp.click();
-  }
-
-  function cpClk(e) {
-    rmTrash(e);
-    e.stopPropagation();
-  }
-
-  // make element draggable
-  function mkDrag(el) { // makeMeDrag
-    var posNew=0, mPos=0;
-    var rect=gBox.getBoundingClientRect();
-    var maxX=rect.right, minX=rect.left, gLen=maxX-minX+1;
-
-    el.onmousedown=dragStart;
-    el.ontouchstart=dragStart;
-
-    function dragStart(e) {
-      rmTrash(e);
-      var isT=e.type.startsWith('touch');
-      if (!isT) e.preventDefault();
-      mPos=isT?e.touches[0].clientX:e.clientX;
-      d.onmouseup=dragEnd; d.ontouchend=dragEnd; d.ontouchcancel=dragEnd;
-      d.onmousemove=dragMove; d.ontouchmove=dragMove;
-    }
-
-    function dragMove(e) {
-      var isT=e.type.startsWith('touch');
-      if (!isT) e.preventDefault();
-      var cX=isT?e.touches[0].clientX:e.clientX;
-      posNew=mPos-cX; mPos=cX;
-      var mInG=mPos-(minX+1);
-      var tPos=Math.round((mInG/gLen)*256);
-      var old=el.getAttribute("data-tpos");
-      if (tPos>0 && tPos<255 && old!=tPos) {
-        el.style.left=(Math.round((gLen/256)*tPos)+mOffs)+"px";
-        gId(el.id.replace('cMark','cPM')).style.left=el.style.left;
-        gId(el.id.replace('cMark','dMark')).style.left=el.style.left;
-        gId(el.id.replace('cMark','cPick')).style.left=el.style.left;
-        el.setAttribute("data-tpos",tPos);
-        setTip(el);
-        updGrad();
-      }
-    }
-
-    function dragEnd() {
-      d.onmouseup=null; d.ontouchend=null; d.ontouchcancel=null;
-      d.onmousemove=null; d.ontouchmove=null;
-    }
-  }
-
-  function setTip(el) { // setTooltipMarker
-    el.setAttribute('title', `${el.getAttribute("data-tpos")} : ${el.getAttribute("data-tcol")}`);
-  }
-
-  function delCol(e) { // deleteColor
-    var trash=cE("div");
-    var dM=e.target || e.srcElement;
-    var cM=gId(dM.id.replace("d","c"));
-    var cPM=gId(dM.id.replace("dMark","cPM"));
-    var cP=gId(dM.id.replace("dMark","cPick"));
-    var rX=dM.getBoundingClientRect().x-10;
-    var rY=dM.getBoundingClientRect().y+13;
-
-    trash.id="trash";
-    trash.innerHTML=svgTrash;
-    trash.style.position="absolute";
-    trash.style.left=rX+"px";
-    trash.style.top=rY+"px";
-    d.body.appendChild(trash);
-
-    trash.addEventListener("click",()=>{
-      trash.remove(); cM.remove(); cPM.remove(); cP.remove(); dM.remove();
-      updGrad();
-    });
-    e.stopPropagation();
-    d.addEventListener("click", rmTrash);
-  }
-
-  function rmTrash(e) { // removeTrashcan
-    var t=gId("trash");
-    if (t && e.target!=t) { t.remove(); d.removeEventListener("click", rmTrash);} 
-  }
-
-  function chkW() {
-    const wrap=gId('wrap'); const head=gId('head');
-    head.style.display=(wrap.offsetWidth<600)?'none':'inline';
-  }
-
-  function calcJSON() {
-    let rStr='{"palette":[';
-    Object.entries(tCol).forEach(([p,c],i)=>{
-      if (i>0) rStr+=',';
-      rStr+=`${p},"${c.slice(1)}"`;
-    });
-    rStr+=']}';
-    return rStr;
-  }
-
-  function initUpload(i) {
-    uploadJSON(calcJSON(), `/palette${i}.json`);
-  }
-
-  function uploadJSON(jsonString, fileName) {
-    //Some indication on "I'm working"
-    var req = new XMLHttpRequest();
-    var blob = new Blob([jsonString], {type: "application/json"});
-    req.addEventListener('load', ()=>{
-      console.log(this.responseText, ' - ',  this.status)
-      localStorage.removeItem('wledPalx');
-      //setTimeout(()=>{
-      //  ss.setAttribute('fill', '#fff');
-      //}, 1000);
-      //setTimeout(()=>{window.location.href='/';},2000);
-      window.location.href = '/'; //Guessing we want to return ASAP when we get confirmation save is done
-    });
-    req.addEventListener('error', (e)=>{
-      console.log('Error: ', e); console.log(' Status: ', this.status);
-      //Show some error notification for some time
-      setTimeout(()=>{
-        //Remove it when time has passed
-      }, 1000);
-    });
-    req.open("POST", "/upload");
-    var formData = new FormData();
-    formData.append("data", blob, fileName);
-    req.send(formData);
-    return false;
-  }
-
-  async function getInfo() {
-		getLoc();
-    try {
-      var arr = [];
-      const resInfo = await fetch(getURL('/json/info')); // fetch info (includes cpalcount and cpalmax)
-      const resPals = await fetch(getURL('/json/pal'));  // fetch palette names
-      const json = await resInfo.json();
-      palNm = await resPals.json();
-      cpalc = json.cpalcount;
-      cpalm = json.cpalmax;
-      fetchPals(cpalc-1);
-    } catch (error) {
-      console.error(error);
-    }
-  }
-
-  async function fetchPals(lastPal) {
-    palArr.length = 0;
-    for (let i = 0; i <= lastPal; i++) {
-      const url = getURL(`/palette${i}.json`);
-      try {
-        const response = await fetch(url);
-        const json = await response.json();
-        palArr.push(json);
-      } catch (error) {
-        cpalc--; //remove audio/dynamically generated palettes
-        console.error(`Error fetching JSON from ${url}: `, error);
-      }
-    }
-    //If there is room for more custom palettes, add an empty, gray slot
-    if (palArr.length < cpalm) {
-      //Room for one more :)
-      palArr.push({"palette":[0,70,70,70,255,70,70,70]});
-    }
-
-    //Get static palettes from localStorage and do some magic to reformat them into the same format as the palette JSONs
-    //This code excludes any objects with "non valid integer colors", i.e. r, c1, c2, c3 and such
-    //This code also fixes potentially broken palettes which doesn't end on 255
-    //The code finally also removes any representations of the custom palettes, since we read them from file
-
-    const wledPalx = JSON.parse(localStorage.getItem('wledPalx'));
-    if (!wledPalx) {
-      alert("Palette cache missing from browser. Return to main page first.","Missing cache!")
-    } else {
-      for (const key in wledPalx.p) {
-        wledPalx.p[key].name = palNm[key];
-        if (key > 255-cpalm) {
-          delete wledPalx.p[key]; // remove custom palettes
-          continue;
-        }
-        const arr = wledPalx.p[key];
-        let valid = true;
-        for (const subArr of arr) {
-          if (!Array.isArray(subArr) || subArr.length !== 4) {
-            valid = false;
-            break;
-          }
-          for (const val of subArr) {
-            if (typeof val !== 'number' || val < 0 || val > 255 || !Number.isInteger(val)) {
-              valid = false;
-              break;
-            }
-          }
-        }
-        if (!valid) {
-          delete wledPalx.p[key];
-          continue;
-        }
-        const lastArr = arr[arr.length - 1];
-        if (lastArr[0] !== 255) {
-          const copyArr = [...lastArr];
-          copyArr[0] = 255;
-          arr.push(copyArr);
-        }
-      }
-
-      const pArray = Object.entries(wledPalx.p).map(([key, value]) => ({
-        [key]: value.flat(),
-        name: value.name
-      }));
-      // Sort pArray by name
-      pArray.sort((a, b) => a.name.localeCompare(b.name));
-
-      palArr.push( ...pArray);
-    }
-    genPalDivs();
-  }
-
-  function genPalDivs() {
-    const palsDiv = gId("pals");
-    const sPalsDiv = gId("sPals");
-    const memWarn = gId("memWarn");
-    const palDivs = Array.from(palsDiv.children).filter((child) => {
-      return /^pal\d+$/.test(child.id); // match ids "pal" followed by one or more digits
-    });
-
-    for (const div of palDivs) {
-      palsDiv.removeChild(div); // remove each div that matches the above selector
-    }
-
-    memWarn.style.display = (cpalc >= 10) ? 'block' : 'none'; // Show/hide memory warning based on custom palette count
-
-    for (let i = 0; i < palArr.length; i++) {
-      const pal = palArr[i];
-      const palDiv = cE("div");
-      palDiv.id = `pal${i}`;
-      palDiv.classList.add("pal");
-      const thisKey = Object.keys(pal)[0];
-      palDiv.dataset.colarray = JSON.stringify(pal[thisKey]);
-
-      const gradDiv = cE("div");
-      gradDiv.id = `pGrad${i}`
-      const btnsDiv = cE("div");
-      btnsDiv.id = `btns${i}`;
-      btnsDiv.classList.add("btnsDiv")
-
-      const sSpan = cE("span");
-      sSpan.id = `s${i}`;
-      sSpan.onclick = function() {initUpload(i)};
-      sSpan.setAttribute('title', `Send current editor to slot ${i}`); // perhaps Save instead of Send?
-      sSpan.innerHTML = svgSave;
-      sSpan.classList.add("sSpan")
-      const eSpan = cE("span");
-      eSpan.id = `e${i}`;
-      eSpan.onclick = function() {loadEdit(i)};
-      eSpan.setAttribute('title', `Copy slot ${i} to editor`);
-      if (palArr[i].name) {
-        eSpan.setAttribute('title', `Copy ${palArr[i].name} to editor`);
-      }
-      eSpan.innerHTML = svgEdit;
-      eSpan.classList.add("eSpan")
-
-      gradDiv.classList.add("pGrads");
-      let gCols = "";
-
-      for (let j = 0; j < pal[thisKey].length; j += 2) {
-        const pos = pal[thisKey][j];
-        if (typeof(pal[thisKey][j+1]) === "string") {
-          gCols += `#${pal[thisKey][j+1]} ${pos/255*100}%, `;
-        } else {
-          const r = pal[thisKey][j + 1];
-          const g = pal[thisKey][j + 2];
-          const b = pal[thisKey][j + 3];
-          gCols += `rgba(${r}, ${g}, ${b}, 1) ${pos/255*100}%, `;
-          j += 2;
-        }
-      }
-
-      gCols = gCols.slice(0, -2); // remove the last comma and space
-      gradDiv.style.backgroundImage = `linear-gradient(to right, ${gCols})`;
-      palDiv.className = "pGradPar";
-      if (thisKey == "palette") {
-        btnsDiv.appendChild(sSpan); //Only offer to send to custom palettes
-      } else{
-        eSpan.style.marginLeft = "25px";
-      }
-      if (i!=cpalc) {
-        btnsDiv.appendChild(eSpan); //Dont offer to edit the empty spot
-      }
-      palDiv.appendChild(gradDiv);
-      palDiv.appendChild(btnsDiv);
-      if (thisKey == "palette") {
-        palsDiv.appendChild(palDiv);
-      } else {
-        sPalsDiv.appendChild(palDiv);
-      }
-    }
-  }
-
-  function loadEdit(i) {
-    d.querySelectorAll('input[id^="cPick"]').forEach((input) => {
-      input.parentNode.removeChild(input);
-    });
-    d.querySelectorAll('span[id^="cMark"], span[id^="cPM"], span[id^="dMark"]').forEach((span) => {
-      span.parentNode.removeChild(span);
-    });
-
-    let colArr = JSON.parse(gId(`pal${i}`).getAttribute("data-colarray"));
-
-    for (let j = 0; j < colArr.length; j += 2) {
-      const pos = colArr[j];
-      let hex;
-      if (typeof(colArr[j+1]) === "string") {
-        hex = `#${colArr[j+1]}`;
-      } else {
-        const r = colArr[j + 1];
-        const g = colArr[j + 2];
-        const b = colArr[j + 3];
-        hex = rgbToHex(r, g, b);
-        j += 2;
-      }
-      addC(pos, hex);
-      window.scroll(0, 0);
-    }
-  }
-
-  function distrib() {
-    let cMarks = [...gBox.querySelectorAll('.cMark')];
-    cMarks.sort((a, b) => a.getAttribute('data-tpos') - b.getAttribute('data-tpos'));
-    cMarks = cMarks.slice(1, -1);
-    const spacing = Math.round(256 / (cMarks.length + 1));
-
-    cMarks.forEach((e, i) => {
-      const mId = e.id.match(/\d+/)[0];
-      const tCol = e.getAttribute("data-tcol");
-      gBox.removeChild(e);
-      gBox.removeChild(gId(`cPick${mId}`));
-      gBox.removeChild(gId(`cPM${mId}`));
-      gBox.removeChild(gId(`dMark${mId}`));
-      addC(spacing * (i + 1), tCol);
-    });
-  }
-
-  function rgbToHex(r, g, b) {
-    const hex = ((r << 16) | (g << 8) | b).toString(16);
-    return "#" + "0".repeat(6 - hex.length) + hex;
-  }
-
-</script>
 </html>
