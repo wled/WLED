@@ -37,6 +37,7 @@
 
 		function S() {
 			getLoc();
+			if(localStorage.getItem('ASc')==='true') d.Sf.AS.checked=true;
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
 				d.ledTypes = [/*{i:22,c:1,t:"D",n:"WS2812"},{i:42,c:6,t:"AA",n:"PWM CCT"}*/]; // filled from GetV()
 				d.um_p = [];
@@ -1049,7 +1050,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 				multiple power injection points and a fuse!<br>
 			</div>
 		</div>
-		<div>Show Advanced Settings <input type="checkbox" name="AS" onchange="UI()"><br></div>
 		<h3>Hardware setup</h3>
 		<div id="mLC">LED outputs:</div>
 		<hr class="sml">
@@ -1065,6 +1065,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<span id="chanusemsg"></span><br>
 		</div>
 		<hr class="sml">
+		Show Advanced Settings <input type="checkbox" name="AS" onchange="localStorage.setItem('ASc',this.checked);UI()"><br>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		<hr class="sml">
