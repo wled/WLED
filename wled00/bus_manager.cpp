@@ -1264,8 +1264,8 @@ void BusManager::removeAll() {
 // If enabled, RMT idle level is set to HIGH when off
 // to prevent leakage current when using an N-channel MOSFET to toggle LED power
 void BusManager::esp32RMTInvertIdle() {
-#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6)
-  // ESP32-C5/C6 use shared RMT method - idle level inversion not supported
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6)  || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+  // ESP32-C5/C6/P4 use shared RMT method - idle level inversion not supported
   return;
 #else
   bool idle_out;
