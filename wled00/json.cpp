@@ -1192,18 +1192,31 @@ void serializePins(JsonObject root)
         pinObj["t"] = btnType; // button type
         pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
 
-        // For touch buttons, get raw reading value (useful for debugging threshold)
+        // for touch buttons, get raw reading value (useful for debugging threshold)
         #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
         if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
           if (digitalPinToTouchChannel(gpio) >= 0) {
             #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
             pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
             #else
-            pinObj["r"] = touchRead(gpio);
+            pinObj["r"] = touchRead(gpio); // send raw value
             #endif
           }
         }
         #endif
+        // for analog buttons, get raw reading value
+        if (btnType == BTN_TYPE_ANALOG || btnType == BTN_TYPE_ANALOG_INVERTED) {
+          int analogRaw = 0;
+          #ifdef ESP8266
+          analogRaw = analogRead(A0) >> 2;   // convert 10bit read to 8bit, ESP8266 only has one analog pin
+          #else
+          if (digitalPinToAnalogChannel(gpio) >= 0) {
+            analogRaw = (analogRead(gpio)>>4); // right shift to match button value (8bit) see button.cpp
+          }
+          #endif
+          if (btnType == BTN_TYPE_ANALOG_INVERTED) analogRaw = 255 - analogRaw;
+          pinObj["r"] = analogRaw; // send raw value
+        }
       }
       // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.) TODO: expand for other pin owners as needed
       else if (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay) {
