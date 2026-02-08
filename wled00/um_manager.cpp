@@ -98,3 +98,5 @@ void Usermod::appendConfigData(Print& settingsScript) {
   this->appendConfigData();
   oappend_shim = nullptr;
 }
+
+SensorCursor UsermodManager::getSensors() { return SensorCursor{_usermod_table_begin, _usermod_table_end}; }
