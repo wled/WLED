@@ -270,7 +270,7 @@ private:
       EA_DEBUGLN(body);
     });
     #ifndef ESPALEXA_NO_SUBPAGE
-    serverAsync->on("/espalexa", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; servePage();});
+    serverAsync->on("/espalexa", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; servePage();});
     #endif
     serverAsync->on("/description.xml", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; serveDescription();}); // fix: implicit capture of "this"
     serverAsync->begin();

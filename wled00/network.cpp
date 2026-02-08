@@ -231,7 +231,8 @@ bool initEthernet()
   }
   #endif
 
-  if (!ETH.begin(
+#if defined(ESP_IDF_VERSION) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+  if (!ETH.begin(    // parameter order in V5 has changed
                 (eth_phy_type_t)   es.eth_type,
                 (int32_t) es.eth_address,
                 (int)     es.eth_mdc,
@@ -239,6 +240,16 @@ bool initEthernet()
                 (int)     es.eth_power,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
+#else
+  if (!ETH.begin(
+                (uint8_t) es.eth_address,
+                (int)     es.eth_power,
+                (int)     es.eth_mdc,
+                (int)     es.eth_mdio,
+                (eth_phy_type_t)   es.eth_type,
+                (eth_clock_mode_t) es.eth_clk_mode
+                )) {
+#endif
     DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
