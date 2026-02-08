@@ -1,6 +1,9 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#ifdef ARDUINO_ARCH_ESP32
+#include "esp_mac.h"
+#endif
 #include "ota_update.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
@@ -442,6 +445,18 @@ void WLED::setup()
   escapedMac = WiFi.macAddress();
   escapedMac.replace(":", "");
   escapedMac.toLowerCase();
+#ifdef ARDUINO_ARCH_ESP32
+  // WiFi.macAddress() may return all zeros if the WiFi netif is not yet created
+  // (e.g. on ESP32-C5 where WiFi.mode() hasn't been called yet). Fall back to
+  // reading the base MAC directly from eFuse.
+  if (escapedMac == "000000000000") {
+    uint8_t mac[6] = {0};
+    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    char buf[13];
+    sprintf(buf, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    escapedMac = buf;
+  }
+#endif
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
