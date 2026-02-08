@@ -452,8 +452,10 @@ void WLED::setup()
 
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0)
     showWelcomePage = true;
-  #if !defined(ESP8266) && ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
+  #if defined(ARDUINO_ARCH_ESP32)
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0)
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  #endif
   #endif
   WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
