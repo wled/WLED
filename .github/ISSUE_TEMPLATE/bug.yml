@@ -63,6 +63,8 @@ body:
         - ESP32-S2
         - ESP32-C3
         - Other
+        - ESP32-C6 (experimental)
+        - ESP32-C5 (experimental)
     validations:
       required: true
   - type: textarea
