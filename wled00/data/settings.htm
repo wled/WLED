@@ -4,17 +4,23 @@
 	<meta charset="UTF-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WLED Settings</title>
-	<script src="common.js" type="text/javascript"></script>
 	<script>
-		function S() {
-			getLoc();
-			loadJS(getURL('/settings/s.js?p=0'), false);	// If we set async false, file is loaded and executed, then next statement is processed
-		}
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			// load style.css then initialize
+			l.onload = () => loadResources(['style.css'], () => {
+				getLoc();
+				loadJS(getURL('/settings/s.js?p=0'), false);
+			});
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
 	</script>
 	<style>
+	  @import url("style.css");
 		body {
-			text-align: center;
-			background: #222;
 			height: 100px;
 			margin: 0;
 		}
@@ -22,21 +28,17 @@
 			--h: 9vh;
 		}
 		button {
-			background: #333;
-			color: #fff;
-			font-family: Verdana, Helvetica, sans-serif;
 			display: block;
-			border: 1px solid #333;
 			border-radius: var(--h);
 			font-size: 6vmin;
 			height: var(--h);
 			width: calc(100% - 40px);
 			margin: 2vh auto 0;
-			cursor: pointer;
+			padding: 0;
 		}
 	</style>
 </head>
-<body onload="S()">
+<body>
 <button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
 <button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
 <button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>

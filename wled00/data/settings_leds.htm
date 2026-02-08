@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>LED Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
@@ -26,6 +26,15 @@
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+
 		function S() {
 			getLoc();
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
@@ -113,6 +122,20 @@
 			d.Sf.data.value = '';
 			e.preventDefault();
 			if (!pinsOK()) {e.stopPropagation();return false;} // Prevent form submission and contact with server
+			// validate HUB75 panel config
+			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
+			for (let i=0; i<LTs.length; i++) {
+    		let n = chrID(i);
+    		let t = parseInt(LTs[i].value);
+				if (isHub75(t)) {
+					let p = parseInt(d.Sf["L2"+n].value)||1, r = parseInt(d.Sf["L3"+n].value)||1, c = parseInt(d.Sf["L4"+n].value)||1, h = parseInt(d.Sf["L1"+n].value)||1;
+					if (r*c !== p) {alert(`HUB75 error: panels≠rows×cols`); e.stopPropagation(); return false;}
+					if (h >= 64 && p > 1) {alert(`HUB75 error: height >= 64, only single panel allowed`); e.stopPropagation(); return false;}
+					if(isS3()) {
+					  alert("HUB75 changes require a reboot"); // TODO: only throw this if panel config changed?
+					}
+				}
+			};
 			if (bquot > 200) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
@@ -247,17 +270,19 @@
 						p0d = "IP address:";
 						break;
 					case 'V': // virtual/non-GPIO based
-						p0d = "Config:"
+						p0d = "Config:";
 						break;
 					case 'H': // HUB75
-						p0d = "Panel size (width x height), Panel count:"
+						p0d = "Panel (width x height):";
+						gId("p2d"+n).innerHTML = "<br>No. of Panels:";
+						gId("p3d"+n).innerText = "rows x cols:";
 						break;
 				}
 				gId("p0d"+n).innerText = p0d;
 				gId("p1d"+n).innerText = p1d;
 				gId("off"+n).innerText = off;
 				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
-				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 2*isHub75(t); // fixes network pins to 4
+				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 4*isHub75(t); // fixes network pins to 4
 				for (let p=1; p<5; p++) {
 					var LK = d.Sf["L"+p+n];
 					if (!LK) continue;
@@ -321,32 +346,28 @@
 				}
 				// do we have a led count field
 				if (nm=="LC") {
+					if (!isHub75(t)) {
+						LC.max = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384); // set max value
+					} else {
+						LC.min = undefined;
+						LC.max = undefined;
+					}
 					let c = parseInt(LC.value,10); //get LED count
 					if (!customStarts || !startsDirty[toNum(n)]) gId("ls"+n).value = sLC; //update start value
 					gId("ls"+n).disabled = !customStarts; //enable/disable field editing
 					if (c) {
 						let s = parseInt(gId("ls"+n).value); //start value
 						if (s+c > sLC) sLC = s+c; //update total count
-						if (c > maxLC) maxLC = c; //max per output
 						if (!isVir(t)) sPC += c; //virtual out busses do not count towards physical LEDs
 						if (isDig(t)) {
+							if (c > maxLC) maxLC = c; //max per output
 							sDI += c; // summarize digital LED count
 							let maPL = parseInt(d.Sf["LA"+n].value);
-							if (maPL == 255) maPL = 12;
+							if (maPL == 255) maPL = 12; // wacky WS2815 mode (255 == 12mA per LED)
 							busMA += maPL*c; // summarize maximum bus current (calculated)
 						}
 					} // increase led count
 					return;
-				}
-				// do we have led pins for digital leds
-				if (nm=="L0" || nm=="L1") {
-					if (!isHub75(t)) {
-						d.Sf["LC"+n].max = maxPB; // update max led count value
-					}
-					else {
-						d.Sf["LC"+n].min = undefined;
-						d.Sf["LC"+n].max = undefined;
-					}
 				}
 				// ignore IP address (stored in pins for virtual busses)
 				if (nm.search(/^L[0-3]/) == 0) { // pin fields
@@ -367,10 +388,11 @@
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
-				else if (isHub75(t) && nm=="L2") {
-					// Chain length aka Panel Count
+				else if (isHub75(t) && (nm=="L2" || nm=="L3" || nm=="L4")) {
+					// chain length aka panel count (L2), cols(L3), rows(L4)
 					LC.max = 4;
 					LC.min = 1;
+					if (LC.value === "") LC.value = 1; // default to 1
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
@@ -736,7 +758,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						if (d.ro_gpio.includes(j)) txt += " (R/O)";
 						let opt = addOption(sel, txt, j);
 						if (j === v) opt.selected = true; // this is "our" pin
-						else if (d.um_p.includes(j)) opt.disabled = true; // someone else's pin
+						else if (d.um_p.includes(j) && j > -1) opt.disabled = true; // someone else's pin
 					}
 				}
 			}
@@ -846,9 +868,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			});
 		}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
+<body>
 	<form id="form_s" name="Sf" method="post">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/settings/#led-settings')">?</button></div>
