@@ -1090,7 +1090,7 @@ void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
   #ifdef ESP8266
-  constexpr int ENUM_PINS = WLED_NUM_PINS + 1; // GPIO0-16 + A0 (17)
+  constexpr int ENUM_PINS = WLED_NUM_PINS; // GPIO0-16 (A0 (17) is analog input only and not available through pinmanager)
   #else
   constexpr int ENUM_PINS = WLED_NUM_PINS;
   #endif
@@ -1115,17 +1115,17 @@ void serializePins(JsonObject root)
     int adc_channel = digitalPinToAnalogChannel(gpio);
     if (adc_channel >= 0 && adc_channel <= 7) caps |= PIN_CAP_ADC;
     #elif CONFIG_IDF_TARGET_ESP32S2
-        // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
-        int adc_channel = digitalPinToAnalogChannel(gpio);
-        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
+    int adc_channel = digitalPinToAnalogChannel(gpio);
+    if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
     #elif CONFIG_IDF_TARGET_ESP32S3
-        // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
-        int adc_channel = digitalPinToAnalogChannel(gpio);
-        if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
+    // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
+    int adc_channel = digitalPinToAnalogChannel(gpio);
+    if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
     #elif CONFIG_IDF_TARGET_ESP32C3
-        // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
-        int adc_channel = digitalPinToAnalogChannel(gpio);
-        if (adc_channel >= 0 && adc_channel <= 4) caps |= PIN_CAP_ADC;
+    // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
+    int adc_channel = digitalPinToAnalogChannel(gpio);
+    if (adc_channel >= 0 && adc_channel <= 4) caps |= PIN_CAP_ADC;
     #endif
 
     // PWM on all ESP32 variants: all output pins can use ledc PWM so this is redundant
@@ -1144,7 +1144,7 @@ void serializePins(JsonObject root)
     #elif defined(CONFIG_IDF_TARGET_ESP32C3)
     if (gpio == 9) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
     if (gpio == 2 || gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // both GPIO2 and GPIO8 must be high to enter bootloader mode
-    #else // ESP32 classic
+    #elif defined(CONFIG_IDF_TARGET_ESP32) // ESP32 classic
     if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
     if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
     #endif
