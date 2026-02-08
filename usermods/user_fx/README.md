@@ -4,6 +4,7 @@ This usermod is a common place to put various users’ WLED effects. It lets you
 
 Multiple Effects can be specified inside this single usermod, as we will illustrate below.  You will be able to define them with custom names, sliders, etc. as with any other Effect.
 
+* [Installation](./README.md#installation)
 * [How The Usermod Works](./README.md#how-the-usermod-works)
 * [Basic Syntax for WLED Effect Creation](./README.md#basic-syntax-for-wled-effect-creation)
 * [Understanding 2D WLED Effects](./README.md#understanding-2d-wled-effects)
@@ -13,6 +14,17 @@ Multiple Effects can be specified inside this single usermod, as we will illustr
 * [Compiling](./README.md#compiling)
 * [Change Log](./README.md#change-log)
 * [Contact Us](./README.md#contact-us)
+
+## Installation
+
+To activate the usermod, add the following line to your platformio_override.ini
+```ini
+custom_usermods = user_fx
+```
+Or if you are already using a usermod, append user_fx to the list
+```ini
+custom_usermods = audioreactive user_fx
+```
 
 ## How The Usermod Works
 

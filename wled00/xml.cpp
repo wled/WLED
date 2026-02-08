@@ -99,7 +99,7 @@ void appendGPIOinfo(Print& settingsScript)
     settingsScript.printf_P(PSTR(",%d,%d"), spi_mosi, spi_sclk);
   }
   // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
-  if (requestJSONBufferLock(6)) {
+  if (requestJSONBufferLock(JSON_LOCK_XML)) {
     // if we can't allocate JSON buffer ignore usermod pins
     JsonObject mods = pDoc->createNestedObject("um");
     UsermodManager::addToConfig(mods);
@@ -198,6 +198,18 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       memset(fpass,'*',l);
       char bssid[13];
       fillMAC2Str(bssid, multiWiFi[n].bssid);
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X,\"%u\",\"%s\",\"%s\");"),
+        multiWiFi[n].clientSSID,
+        fpass,
+        bssid,
+        (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
+        (uint32_t) multiWiFi[n].staticGW,
+        (uint32_t) multiWiFi[n].staticSN,
+        multiWiFi[n].encryptionType,
+        multiWiFi[n].enterpriseAnonIdentity,
+        multiWiFi[n].enterpriseIdentity);
+#else
       settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X);"),
         multiWiFi[n].clientSSID,
         fpass,
@@ -205,6 +217,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
         (uint32_t) multiWiFi[n].staticGW,
         (uint32_t) multiWiFi[n].staticSN);
+#endif
     }
 
     printSetFormValue(settingsScript,PSTR("D0"),dnsAddress[0]);
@@ -459,7 +472,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+    settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message
 #endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings

@@ -646,7 +646,7 @@ void handleNotifications()
   // API over UDP
   udpIn[packetSize] = '\0';
 
-  if (requestJSONBufferLock(18)) {
+  if (requestJSONBufferLock(JSON_LOCK_NOTIFY)) {
     if (udpIn[0] >= 'A' && udpIn[0] <= 'Z') { //HTTP API
       String apireq = "win"; apireq += '&'; // reduce flash string usage
       apireq += (char*)udpIn;

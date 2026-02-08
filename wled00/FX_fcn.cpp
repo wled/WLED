@@ -1380,6 +1380,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progInv   = 0xFFFFU - progress;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
+  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
@@ -1983,7 +1984,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     return false;
   }
 
-  if (!isFile || !requestJSONBufferLock(7)) return false;
+  if (!isFile || !requestJSONBufferLock(JSON_LOCK_LEDMAP)) return false;
 
   StaticJsonDocument<64> filter;
   filter[F("width")]  = true;

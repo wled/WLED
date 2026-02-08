@@ -488,7 +488,7 @@ struct BusConfig {
   //validates start and length and extends total if needed
   bool adjustBounds(uint16_t& total) {
     if (!count) count = 1;
-    if (count > MAX_LEDS_PER_BUS) count = MAX_LEDS_PER_BUS;
+    if (!Bus::isVirtual(type) && count > MAX_LEDS_PER_BUS) count = MAX_LEDS_PER_BUS;
     if (start >= MAX_LEDS) return false;
     //limit length of strip if it would exceed total permissible LEDs
     if (start + count > MAX_LEDS) count = MAX_LEDS - start;
