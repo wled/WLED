@@ -18,6 +18,13 @@
 
 #include "Arduino.h"
 
+// dummy macro for 8266
+#ifndef ARDUINO_ARCH_ESP32
+#ifndef ESP_IDF_VERSION_VAL
+#define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#endif
+#endif
+
 //you can use these defines for library config in your sketch. Just use them before #include <Espalexa.h>
 //#define ESPALEXA_ASYNC
 
@@ -630,5 +637,12 @@ public:
   
   ~Espalexa(){} //note: Espalexa is NOT meant to be destructed
 };
+
+// dummy macro cleanup
+#ifndef ARDUINO_ARCH_ESP32
+#ifdef ESP_IDF_VERSION_VAL
+#undef ESP_IDF_VERSION_VAL
+#endif
+#endif
 
 #endif

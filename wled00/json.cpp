@@ -700,7 +700,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)// ToDO: find a solution to make this work in V5
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)) // ToDO: find a solution to make this work in V5
   root[F("deviceId")] = getDeviceId();
 #endif
 
