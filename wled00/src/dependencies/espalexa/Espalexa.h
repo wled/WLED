@@ -251,10 +251,10 @@ private:
     #ifdef ESPALEXA_ASYNC
     if (serverAsync == nullptr) {
       serverAsync = new AsyncWebServer(80);
-      serverAsync->onNotFound([=](AsyncWebServerRequest *request){server = request; serveNotFound();});
+      serverAsync->onNotFound([this](AsyncWebServerRequest *request){server = request; serveNotFound();}); // fix: implicit capture of "this"
     }
     
-    serverAsync->onRequestBody([=](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){
+    serverAsync->onRequestBody([this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total){ // fix: implicit capture of "this"
       char b[len +1];
       b[len] = 0;
       memcpy(b, data, len);
@@ -265,7 +265,7 @@ private:
     #ifndef ESPALEXA_NO_SUBPAGE
     serverAsync->on("/espalexa", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; servePage();});
     #endif
-    serverAsync->on("/description.xml", HTTP_GET, [=](AsyncWebServerRequest *request){server = request; serveDescription();});
+    serverAsync->on("/description.xml", HTTP_GET, [this](AsyncWebServerRequest *request){server = request; serveDescription();}); // fix: implicit capture of "this"
     serverAsync->begin();
     
     #else
