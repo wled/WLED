@@ -63,7 +63,7 @@
 				if(!pins.length) {
 					cn="No pins available.";
 				}else{
-					cn='<table><tr><th>Pin</th><th>Used by</th><th>Specialities</th></tr>';
+					cn='<table><tr><th>Pin</th><th>Used by</th><th>Pin Notes</th></tr>';
 					for(var p of pins){
 						var st=""; // button state indicator
 						var tv=""; // touch value
@@ -73,7 +73,7 @@
 						}
 						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
 						//if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
-						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+tv+'<td>'+getCaps(p.p,p.c||0)+'</td></tr>';
+						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+tv+'</td><td>'+getCaps(p.p,p.c||0)+'</td></tr>';
 					}
 					cn+='</table>';
 				}
