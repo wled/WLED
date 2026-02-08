@@ -379,7 +379,11 @@ public:
     espalexaUdp.read(packetBuffer, packetSize);
     packetBuffer[packetSize] = 0;
   
-    espalexaUdp.flush();
+    #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+      espalexaUdp.clear();  // flush() is deprecated in arduino-esp32 3.x.y
+    #else
+      espalexaUdp.flush();
+    #endif
     if (!discoverable) return; //do not reply to M-SEARCH if not discoverable
   
     const char* request = (const char *) packetBuffer;
