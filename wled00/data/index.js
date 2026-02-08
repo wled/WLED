@@ -735,6 +735,7 @@ ${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:gr
 ${i.opt&0x100?inforow("Debug","<button class=\"btn btn-xs\" onclick=\"requestJson({'debug':"+(i.opt&0x0080?"false":"true")+"});\"><i class=\"icons "+(i.opt&0x0080?"on":"off")+"\">&#xe08f;</i></button>"):''}
 ${inforow("Build",i.vid)}
 ${inforow("Signal strength",i.wifi.signal +"% ("+ i.wifi.rssi, " dBm)")}
+${i.wifi.band?inforow("WiFi band",i.wifi.band + " (Ch " + i.wifi.channel + ")"):""}
 ${inforow("Uptime",getRuntimeStr(i.uptime))}
 ${inforow("Time",i.time)}
 ${inforow("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
@@ -1096,6 +1097,8 @@ function btype(b)
 		case 34: return "ESP32-S3";
 		case 5:
 		case 35: return "ESP32-C3";
+		case 36: return "ESP32-C6";
+		case 41: return "ESP32-C5";
 		case 1:
 		case 82: return "ESP8266";
 	}
