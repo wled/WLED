@@ -123,15 +123,9 @@ void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *
     for (uint16_t j = 0; j < height; j++) {
       // Generate Perlin noise value (0-255)
       uint8_t noise = perlin8(i * magmaDeltaValue, (j + ff_y_int + random8(2)) * magmaDeltaHue, ff_z_int);
-
-      // Apply the vertical fade gradient: j=0 (top of loop) has shiftHue=255, j=height-1 (bottom) has shiftHue=0
-      uint8_t paletteIndex = qsub8(noise, shiftHue[j]);
-
-      // Get color from palette
-      CRGB col = SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, 0);
-
-      // magma rises from bottom of display
-      SEGMENT.addPixelColorXY(i, height - 1 - j, col);
+      uint8_t paletteIndex = qsub8(noise, shiftHue[j]);  // Apply the vertical fade gradient
+      CRGB col = SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, 0);  // Get color from palette
+      SEGMENT.addPixelColorXY(i, height - 1 - j, col);  // magma rises from bottom of display
     }
   }
 }
@@ -170,13 +164,11 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
     
     if (xi >= 0 && xi < width && yi >= 0 && yi < height) {
       float velocityY = particleData[idx + 3];
-      uint8_t cooling = 0;
-      if (velocityY < 0) {
-        cooling = max((uint8_t)(fabsf(velocityY) * 40), (uint8_t)0);
-      }
-      
-      CRGB pcolor = CRGB(255, 96 - cooling, 0);
-      
+
+      // Get a random color from the current palette
+      uint8_t randomIndex = hw_random8(64, 128);
+      CRGB pcolor = ColorFromPaletteWLED(SEGPALETTE, randomIndex, 255, LINEARBLEND);
+
       // Pre-calculate anti-aliasing weights
       float xf = posX - xi;
       float yf = posY - yi;
@@ -269,7 +261,7 @@ uint16_t mode_2D_magma(void) {
   // Gravity control
   float gravity = map(SEGMENT.custom2, 0, 255, 5, 20) / 100.0f;
   
-  // Number of particles
+  // Number of particles (lava bombs)
   uint8_t particleCount = map(SEGMENT.custom1, 0, 255, 2, MAGMA_MAX_PARTICLES);
   particleCount = constrain(particleCount, 2, MAGMA_MAX_PARTICLES);
 
