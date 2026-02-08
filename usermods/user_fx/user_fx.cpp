@@ -132,8 +132,8 @@ void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *
 
 // Move and draw lava bombs (particles)
 void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleData, float gravity, uint8_t particleCount) {
-  for (uint8_t i = 0; i < particleCount; i++) {
-    uint8_t idx = i * 4;
+  for (uint16_t i = 0; i < particleCount; i++) {
+    uint16_t idx = i * 4;
     
     particleData[idx + 3] -= gravity;
     particleData[idx + 0] += particleData[idx + 2];
@@ -146,7 +146,7 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
       particleData[idx + 3] = -particleData[idx + 3] * 0.8f;
     }
     
-    if (posY < height / 8 - 1 || posX < 0 || posX >= width) {
+    if (posY < (float)(height / 8) - 1.0f || posX < 0 || posX >= width) {
       particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
       particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
       particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
@@ -185,7 +185,7 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
       SEGMENT.addPixelColorXY(xi, yFlipped, pcolor.scale8(w0));
       if (xi + 1 < width) 
         SEGMENT.addPixelColorXY(xi + 1, yFlipped, pcolor.scale8(w1));
-      if (yf - 1 >= 0)
+      if (yFlipped - 1 >= 0)
         SEGMENT.addPixelColorXY(xi, yFlipped - 1, pcolor.scale8(w2));
       if (xi + 1 < width && yFlipped - 1 >= 0) 
         SEGMENT.addPixelColorXY(xi + 1, yFlipped - 1, pcolor.scale8(w3));
@@ -198,6 +198,7 @@ uint16_t mode_2D_magma(void) {
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
   const uint8_t MAGMA_MAX_PARTICLES = width / 2;
+  if (MAGMA_MAX_PARTICLES < 2) return mode_static();  // matrix too narrow for lava bombs
   constexpr size_t SETTINGS_SUM_BYTES = 4; // 4 bytes for settings sum
 
   // Allocate memory: particles (4 floats each) + 2 floats for noise counters + shiftHue cache + settingsSum
@@ -234,8 +235,8 @@ uint16_t mode_2D_magma(void) {
     }
 
     // Initialize all particles
-    for (uint8_t i = 0; i < MAGMA_MAX_PARTICLES; i++) {
-      uint8_t idx = i * 4;
+    for (uint16_t i = 0; i < MAGMA_MAX_PARTICLES; i++) {
+      uint16_t idx = i * 4;
       particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
       particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
       particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
