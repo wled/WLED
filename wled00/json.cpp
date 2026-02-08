@@ -1078,7 +1078,7 @@ const char* getPinOwnerName(uint8_t gpio) {
     // Usermods - return generic name for now
     // TODO: Get actual usermod name from UsermodManager
     default:
-      // Check if it's a usermod (low bit not set)
+      // Check if it's a usermod (high bit not set)
       if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
         return "Usermod";
       }
@@ -1090,7 +1090,7 @@ void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
   #ifdef ESP8266
-  constexpr int ENUM_PINS = 17; // GPIO0-16 + A0 (17)
+  constexpr int ENUM_PINS = WLED_NUM_PINS + 1; // GPIO0-16 + A0 (17)
   #else
   constexpr int ENUM_PINS = WLED_NUM_PINS;
   #endif
