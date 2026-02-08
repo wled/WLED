@@ -640,14 +640,14 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 #if defined(IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(ESP8266)
     #error "ESP32-C3/C6 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // PSRAM fix only needed for classic esp32
     // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
     #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
               see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
   #endif
   #endif
 #else
-  #if !defined(IDF_TARGET_ESP32C3) && !defined(ESP8266)
+  #if !defined(IDF_TARGET_ESP32C3) && !defined(IDF_TARGET_ESP32C6) && !defined(ESP8266)
     #pragma message("BOARD_HAS_PSRAM not defined, not using PSRAM.")
   #endif
 #endif
