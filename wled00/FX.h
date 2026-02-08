@@ -466,7 +466,6 @@ class Segment {
     char     *name;               // segment name
 
     // runtime data
-    mutable unsigned long next_time;  // millis() of next update
     mutable uint32_t step;  // custom "step" var
     mutable uint32_t call;  // call counter
     mutable uint16_t aux0;  // custom var
@@ -592,7 +591,6 @@ class Segment {
     , check3(false)
     , blendMode(0)
     , name(nullptr)
-    , next_time(0)
     , step(0)
     , call(0)
     , aux0(0)

@@ -217,7 +217,7 @@ void Segment::resetIfRequired() {
     DEBUG_PRINTF_P(PSTR("-- Segment %p reset, data cleared\n"), this);
   }
   if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
-  next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
+  step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
   #ifdef WLED_ENABLE_GIF
   endImagePlayback(this);
@@ -1282,7 +1282,7 @@ void WS2812FX::service() {
     if (!seg.isActive()) continue;
 
     // last condition ensures all solid segments are updated at the same time
-    if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
+    if (nowUp > _lastServiceShow + _frametime || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
     {
       doShow = true;
 
@@ -1308,8 +1308,6 @@ void WS2812FX::service() {
           Segment::modeBlend(false);        // unset semaphore
         }
       }
-
-      seg.next_time = nowUp + FRAMETIME;
     }
     _segment_index++;
   }
@@ -1722,7 +1720,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   BusManager::setBrightness(scaledBri(b));
   if (!direct) {
     unsigned long t = millis();
-    if (_segments[0].next_time > t + 22 && t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
+    if (t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
   }
 }
 
