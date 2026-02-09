@@ -527,6 +527,15 @@ void WLED::setup()
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
 
+  #if defined(CONFIG_IDF_TARGET_ESP32C5)
+    // EXPERIMENTAL: enable 5Ghz WiFi
+    // see https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/network/esp_wifi.html#_CPPv425esp_wifi_set_country_codePKcb
+    // First use ESP-IDF APIs for advanced configuration
+    esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);    // 5GHz + 2.4Ghz; use WIFI_BAND_MODE_5G_ONLY for 5Ghz only
+    esp_wifi_set_country_code("01", true);          // Set country "01" = world safe mode; other options: "EU", "US"
+    // Then hand over to Arduino WiFi class for connection
+  #endif
+
   #ifndef ESP8266
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
   #endif
