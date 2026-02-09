@@ -702,6 +702,11 @@ void serializeInfo(JsonObject root)
   root[F("repo")] = repoString;
 #if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)) // ToDO: find a solution to make this work in V5
   root[F("deviceId")] = getDeviceId();
+#else
+  //#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // fake 38char fingerprint from bootloaderSHA1. WARNING: only for testing, not suitable for production!
+  //root[F("deviceId")] = String("0000") + getBootloaderSHA256Hex().substring(4, 34) + String("0000");
+  //#endif
 #endif
 
   JsonObject leds = root.createNestedObject(F("leds"));
