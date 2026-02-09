@@ -531,8 +531,10 @@ void WLED::setup()
     // EXPERIMENTAL: enable 5Ghz WiFi
     // see https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/network/esp_wifi.html#_CPPv425esp_wifi_set_country_codePKcb
     // First use ESP-IDF APIs for advanced configuration
-    esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);    // 5GHz + 2.4Ghz; use WIFI_BAND_MODE_5G_ONLY for 5Ghz only
-    esp_wifi_set_country_code("01", true);          // Set country "01" = world safe mode; other options: "EU", "US"
+    esp_err_t wifiErr = esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);    // 5GHz + 2.4Ghz; use WIFI_BAND_MODE_5G_ONLY for 5Ghz only
+    if (wifiErr != ESP_OK) DEBUG_PRINTF_P(PSTR("esp_wifi_set_band_mode failed: error %d\n"), wifiErr);
+    wifiErr = esp_wifi_set_country_code("01", true);                   // Set country "01" = world safe mode; other options: "EU", "US"
+    if (wifiErr != ESP_OK) DEBUG_PRINTF_P(PSTR("esp_wifi_set_country_code failed: %d\n"), wifiErr);
     // Then hand over to Arduino WiFi class for connection
   #endif
 
