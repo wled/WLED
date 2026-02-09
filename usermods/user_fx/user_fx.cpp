@@ -111,7 +111,6 @@ typedef struct LavaParticle {
   float vx, vy;         // Velocity
   float size;           // Blob size
   uint8_t hue;          // Color
-  uint8_t life;         // Lifetime/opacity - currently set at 255 below. Possibly will allow diff values in the future.
   bool active;          // will not be displayed if false
 } LavaParticle;
 
@@ -186,7 +185,6 @@ static uint16_t mode_2D_lavalamp(void) {
       if (lavaParticles[i].size > MAX_BLOB_RADIUS) lavaParticles[i].size = MAX_BLOB_RADIUS;
 
       lavaParticles[i].hue = hw_random8();
-      lavaParticles[i].life = 255;  // TODO: currently doesn't change, but might change this behavior in the future
       lavaParticles[i].active = true;
       break;
     }
@@ -276,9 +274,6 @@ static uint16_t mode_2D_lavalamp(void) {
         if (p->vy > -0.10f) p->vy = -0.10f;
       }
     }
-
-    // Keep blobs alive forever (no fading) - maybe change in the future?
-    p->life = 255;
     
     // Get color
     uint32_t color;
@@ -289,10 +284,10 @@ static uint16_t mode_2D_lavalamp(void) {
     }
     
     // Extract RGB and apply life/opacity
-    uint8_t w = (W(color) * p->life) >> 8;
-    uint8_t r = (R(color) * p->life) >> 8;
-    uint8_t g = (G(color) * p->life) >> 8;
-    uint8_t b = (B(color) * p->life) >> 8;
+    uint8_t w = (W(color) * 255) >> 8;
+    uint8_t r = (R(color) * 255) >> 8;
+    uint8_t g = (G(color) * 255) >> 8;
+    uint8_t b = (B(color) * 255) >> 8;
 
     // Draw blob with soft edges (gaussian-like falloff)
     float sizeSq = p->size * p->size;
