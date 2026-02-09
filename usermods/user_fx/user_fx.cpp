@@ -95,15 +95,15 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 /*
 /  Lava Lamp 2D effect
-*  Uses particles to simulate rising blobs of "lava"
-*  Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
-*  Created by Bob Loeffler using claude.ai
-*  The first slider sets the speed of the rising and falling blobs
-*  The second slider sets the number of active blobs
-*  The third slider sets the size range of the blobs
-*  The first checkbox sets the color mode (color wheel or palette)
-*  The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
-*  aux0 keeps track of the blob size changes
+*   Uses particles to simulate rising blobs of "lava"
+*   Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
+*   Created by Bob Loeffler using claude.ai
+*   The first slider sets the speed of the rising and falling blobs
+*   The second slider sets the number of active blobs
+*   The third slider sets the size range of the blobs
+*   The first checkbox sets the color mode (color wheel or palette)
+*   The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*   aux0 keeps track of the blob size changes
 */
 
 typedef struct LavaParticle {
@@ -111,15 +111,15 @@ typedef struct LavaParticle {
   float vx, vy;         // Velocity
   float size;           // Blob size
   uint8_t hue;          // Color
-  uint8_t life;         // Lifetime/opacity
+  uint8_t life;         // Lifetime/opacity - currently set at 255 below. Possibly will allow diff values in the future.
   bool active;          // will not be displayed if false
 } LavaParticle;
 
 static uint16_t mode_2D_lavalamp(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
   
-  const uint16_t cols = SEGMENT.virtualWidth();
-  const uint16_t rows = SEGMENT.virtualHeight();
+  const uint16_t cols = SEG_W;
+  const uint16_t rows = SEG_H;
   
   // Allocate per-segment storage
   constexpr size_t MAX_LAVA_PARTICLES = 35;  // increasing this value could cause slowness for large matrices
@@ -132,11 +132,7 @@ static uint16_t mode_2D_lavalamp(void) {
       lavaParticles[i].active = false;
     }
   }
-  
-  // Speed control (slower = more lava lamp like)
-  uint8_t speed = SEGMENT.speed >> 3; // 0-31 range
-  if (speed < 1) speed = 1;
-  
+ 
   // Intensity controls number of active particles
   uint8_t numParticles = (SEGMENT.intensity >> 3) + 3; // 3-34 particles (fewer blobs)
   if (numParticles > MAX_LAVA_PARTICLES) numParticles = MAX_LAVA_PARTICLES;
@@ -185,10 +181,12 @@ static uint16_t mode_2D_lavalamp(void) {
       float maxSize = cols * 0.4f;  // Maximum 40% of width
       float sizeRange = (maxSize - minSize) * (sizeControl / 255.0f);
       int rangeInt = max(1, (int)(sizeRange));
+      constexpr float MAX_BLOB_RADIUS = 20.0f; // cap to prevent frame rate drops on large matrices
       lavaParticles[i].size = minSize + (float)random16(rangeInt);
+      if (lavaParticles[i].size > MAX_BLOB_RADIUS) lavaParticles[i].size = MAX_BLOB_RADIUS;
 
       lavaParticles[i].hue = hw_random8();
-      lavaParticles[i].life = 255;
+      lavaParticles[i].life = 255;  // TODO: currently doesn't change, but might change this behavior in the future
       lavaParticles[i].active = true;
       break;
     }
@@ -247,8 +245,8 @@ static uint16_t mode_2D_lavalamp(void) {
     p->vx *= 0.92f; // Stronger damping for less drift
     
     // Bounce off sides (don't affect vertical velocity)
-    if (p->x <= 0) {
-      p->x = 1;
+    if (p->x < 0) {
+      p->x = 0;
       p->vx = abs(p->vx); // Just reverse horizontal, don't reduce
     }
     if (p->x >= cols) {
