@@ -535,7 +535,7 @@ void WLED::setup()
   WiFi.mode(WIFI_STA); // enable scanning
 
   #if defined(CONFIG_IDF_TARGET_ESP32C5)
-    // EXPERIMENTAL: enable 5Ghz WiFi - must be done _after_ wifi driver was initialized in WiFi.mode()
+    // EXPERIMENTAL: enable 5Ghz WiFi - must be done _after_ wifi driver was initialized in WiFi.mode(), but before WiFi.begin()
     // see https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/network/esp_wifi.html#_CPPv425esp_wifi_set_country_codePKcb
     // uses ESP-IDF APIs for advanced configuration
     bool haveWifiError = false;
