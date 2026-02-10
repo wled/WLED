@@ -802,11 +802,15 @@ void serializeInfo(JsonObject root)
   int qrssi = WiFi.RSSI();
   wifi_info[F("rssi")] = qrssi;
   wifi_info[F("signal")] = getSignalQuality(qrssi);
-  constexpr int WIFI_5GHZ_MIN_CHANNEL = 36;
   int wifiChannel = WiFi.channel();
   wifi_info[F("channel")] = wifiChannel;
-  if (wifiChannel > 0) {
-    wifi_info[F("band")] = (wifiChannel >= WIFI_5GHZ_MIN_CHANNEL) ? F("5GHz") : F("2.4GHz");
+  if ((wifiChannel > 0) && (unsigned(WiFi.status()) < unsigned(WL_CONNECT_FAILED))) { // Wifi Status > 3 are error statuses (disconnected, stopped, signal lost)
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      wifi_info[F("band")] = wifiBand == WIFI_BAND_2G ? F("2.4GHz") : (wifiBand == WIFI_BAND_5G ? F("5GHz"): F("(other)"));
+    #else
+      wifi_info[F("band")] = F("2.4GHz");
+    #endif
   }
   wifi_info[F("ap")] = apActive;
 

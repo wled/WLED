@@ -535,7 +535,7 @@ void WLED::setup()
   WiFi.mode(WIFI_STA); // enable scanning
 
 #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
-  // #if SOC_WIFI_SUPPORT_5G
+  // WiFi.setBandMode(WIFI_BAND_MODE_AUTO) can also be used without SOC_WIFI_SUPPORT_5G
   if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {   // WIFI_BAND_MODE_AUTO = 5GHz+2.4GHz; WIFI_BAND_MODE_5G_ONLY, WIFI_BAND_MODE_2G_ONLY
     DEBUG_PRINTLN(F("Wifi band configuration failed!\n"));
   }
@@ -981,9 +981,15 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());
-    #if defined(CONFIG_IDF_TARGET_ESP32C5)
-    { constexpr int kFirst5GHzChannel = 36; int32_t ch = WiFi.channel(); DEBUG_PRINTF_P(PSTR("WiFi channel: %d (%s)\n"), ch, (ch >= kFirst5GHzChannel) ? "5GHz" : "2.4GHz"); }
+    DEBUG_PRINT(F("Channel: ")); DEBUG_PRINT(WiFi.channel());
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      DEBUG_PRINT(wifiBand == WIFI_BAND_2G ? F(" (2.4GHz)") : (wifiBand == WIFI_BAND_5G ? F("  (5GHz)"): F(" (other)")));
+    #else
+      DEBUG_PRINT(F(" (2.4GHz)"));
     #endif
+    DEBUG_PRINTLN();
+
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
