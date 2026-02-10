@@ -263,7 +263,7 @@
 			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
 			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
 			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
-			if (drv==1 &&usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			if (drv==1 && usage.i2sUsed > maxI2S) return false; // too many I2S buses
 			return true;
 		}
 
