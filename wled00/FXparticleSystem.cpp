@@ -79,9 +79,8 @@ void ParticleSystem2D::update(void) {
 }
 
 // update function for fire animation
-void ParticleSystem2D::updateFire(const uint8_t intensity,const bool renderonly) {
-  if (!renderonly)
-    fireParticleupdate();
+void ParticleSystem2D::updateFire(const uint8_t intensity) {
+  fireParticleupdate();
   fireIntesity = intensity > 0 ? intensity : 1; // minimum of 1, zero checking is used in render function
   render();
 }
@@ -1096,7 +1095,11 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources, uint32_t additionalbytes, bool advanced, bool sizecontrol) {
   PSPRINT("PS 2D init ");
-  if (!strip.isMatrix) return false; // only for 2D
+  if (!strip.isMatrix) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // only for 2D
+  }
   uint32_t cols = SEGMENT.virtualWidth();
   uint32_t rows = SEGMENT.virtualHeight();
   uint32_t pixels = cols * rows;
@@ -1844,7 +1847,11 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 // note: percentofparticles is in uint8_t, for example 191 means 75%, (deafaults to 255 or 100% meaning one particle per pixel), can be more than 100% (but not recommended, can cause out of memory)
 bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedsources, const uint8_t fractionofparticles, const uint32_t additionalbytes, const bool advanced) {
-  if (SEGLEN == 1) return false; // single pixel not supported
+  if (SEGLEN == 1) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // single pixel not supported
+  }
   uint32_t numparticles = calculateNumberOfParticles1D(fractionofparticles, advanced);
   uint32_t numsources = calculateNumberOfSources1D(requestedsources);
   bool allocsuccess = false;
