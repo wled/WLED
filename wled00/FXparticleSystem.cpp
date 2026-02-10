@@ -500,7 +500,7 @@ void ParticleSystem2D::applyGravity(PSparticle &part) {
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem2D::applyFriction(PSparticle &part, const int32_t coefficient) {
   // note: not checking if particle is dead can be done by caller (or can be omitted)
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   part.vx = ((int32_t)part.vx * friction + (((int32_t)part.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
   part.vy = ((int32_t)part.vy * friction + (((int32_t)part.vy >> 31) & 0xFF)) >> 8;
@@ -514,7 +514,7 @@ void ParticleSystem2D::applyFriction(PSparticle &part, const int32_t coefficient
 // apply friction to all particles
 // note: not checking if particle is dead is faster as most are usually alive and if few are alive, rendering is fast anyways
 void ParticleSystem2D::applyFriction(const int32_t coefficient) {
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
     particles[i].vx = ((int32_t)particles[i].vx * friction + (((int32_t)particles[i].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
@@ -929,7 +929,7 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
     int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS >> 1); // if particles are soft, the impulse must stay above a limit or collisions slip through at higher speeds, 170 seems to be a good value
     int32_t impulse = (((((-dotProduct) << 15) / distanceSquared) * surfacehardness) >> 8); // note: inverting before bitshift corrects for asymmetry in right-shifts (is slightly faster)
 
-    #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+    #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
     int32_t ximpulse = (impulse * dx + ((dx >> 31) & 0x7FFF)) >> 15; // note: extracting sign bit and adding rounding value to correct for asymmetry in right shifts
     int32_t yimpulse = (impulse * dy + ((dy >> 31) & 0x7FFF)) >> 15;
     #else
@@ -957,7 +957,7 @@ void WLED_O2_ATTR ParticleSystem2D::collideParticles(PSparticle &particle1, PSpa
     if (collisionHardness < PS_P_MINSURFACEHARDNESS && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction (they do pile more nicely and stop sloshing around)
       const uint32_t coeff = collisionHardness + (255 - PS_P_MINSURFACEHARDNESS);
       // Note: could call applyFriction, but this is faster and speed is key here
-      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
       particle1.vx = ((int32_t)particle1.vx * coeff + (((int32_t)particle1.vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
       particle1.vy = ((int32_t)particle1.vy * coeff + (((int32_t)particle1.vy >> 31) & 0xFF)) >> 8;
       particle2.vx = ((int32_t)particle2.vx * coeff + (((int32_t)particle2.vx >> 31) & 0xFF)) >> 8;
@@ -1406,7 +1406,7 @@ void ParticleSystem1D::applyGravity(PSparticle1D &part, PSparticleFlags1D &partF
 // slow down particle by friction, the higher the speed, the higher the friction. a high friction coefficient slows them more (255 means instant stop)
 // note: a coefficient smaller than 0 will speed them up (this is a feature, not a bug), coefficient larger than 255 inverts the speed, so don't do that
 void ParticleSystem1D::applyFriction(int32_t coefficient) {
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+  #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
   int32_t friction = 256 - coefficient;
   for (uint32_t i = 0; i < usedParticles; i++) {
     if (particles[i].ttl)
@@ -1699,7 +1699,7 @@ void WLED_O2_ATTR ParticleSystem1D::collideParticles(uint32_t partIdx1, uint32_t
       }
       int32_t surfacehardness = max(collisionHardness, (int32_t)PS_P_MINSURFACEHARDNESS_1D); // if particles are soft, the impulse must stay above a limit or collisions slip through
       // Calculate new velocities after collision  note: not using dot product like in 2D as impulse is purely speed depnedent
-      #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+      #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
       int32_t impulse = (dv * surfacehardness + ((dv >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
       #else // division is faster on ESP32, S2 and S3
       int32_t impulse = (dv * surfacehardness) / 255;
@@ -1720,7 +1720,7 @@ void WLED_O2_ATTR ParticleSystem1D::collideParticles(uint32_t partIdx1, uint32_t
 
       if (collisionHardness < PS_P_MINSURFACEHARDNESS_1D && (SEGMENT.call & 0x07) == 0) { // if particles are soft, they become 'sticky' i.e. apply some friction
         const uint32_t coeff = collisionHardness + (250 - PS_P_MINSURFACEHARDNESS_1D);
-        #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(ESP8266) // use bitshifts with rounding instead of division (2x faster)
+        #if !defined(WLED_HAVE_FAST_int_DIVIDE) // use bitshifts with rounding instead of division (2x faster)
         particles[partIdx1].vx = ((int32_t)particles[partIdx1].vx * coeff + (((int32_t)particles[partIdx1].vx >> 31) & 0xFF)) >> 8; // note: (v>>31) & 0xFF)) extracts the sign and adds 255 if negative for correct rounding using shifts
         particles[partIdx2].vx = ((int32_t)particles[partIdx2].vx * coeff + (((int32_t)particles[partIdx2].vx >> 31) & 0xFF)) >> 8;
         #else // division is faster on ESP32, S2 and S3

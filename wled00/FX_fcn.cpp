@@ -1340,7 +1340,7 @@ static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t 
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
-#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
+#if !defined(WLED_HAVE_FAST_int_DIVIDE)
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3/C5 but slightly less accurate
 #else
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
@@ -1351,7 +1351,7 @@ static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
 static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
 static uint8_t _overlay   (uint8_t a, uint8_t b) { return b < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
 static uint8_t _hardlight (uint8_t a, uint8_t b) { return a < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
-#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
+#if !defined(WLED_HAVE_FAST_int_DIVIDE)
 static uint8_t _softlight (uint8_t a, uint8_t b) { return (((b * b * (255 - 2 * a))) + ((2 * a * b + 256) << 8)) >> 16; } // Pegtop's formula (1 - 2a)b^2
 #else
 static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) + 255 * 2 * a * b) / (255 * 255); } // Pegtop's formula (1 - 2a)b^2 + 2ab
