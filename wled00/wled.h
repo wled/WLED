@@ -136,6 +136,8 @@
   #include "my_config.h"
 #endif
 
+#include "wled_boards.h"  // pull in board-specific capability defines
+
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
 #include <DNSServer.h>

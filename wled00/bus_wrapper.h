@@ -5,6 +5,8 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "NeoPixelBus.h"
 
+#include "wled_boards.h"  // pull in board-specific capability defines
+
 #ifdef ARDUINO_ARCH_ESP32
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
 // --- temporary shim for NeoPixelBus CORE3 / RMT driver_v2 ------------------
