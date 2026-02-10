@@ -243,7 +243,7 @@
 				}
 				if (!is8266() && !isD2P(t)) {
 					mul = 2; // default to double buffer (RMT, 2-pin digital)
-					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0; // driver preference selection: 0=RMT, 1=I2S
+					let driverPref = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
 					if (driverPref == 1) { // I2S to be used
 						mul = 1; // NPB uses single pixel buffer for I2S, DMA buffer serves as second buffer
 						let usage = getDuse();
@@ -260,10 +260,10 @@
 			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
-			let drv = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value||0) : 0; // driver preference selection: 0=RMT, 1=I2S
+			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
 			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
-			if (usage.rmtUsed > maxRMT) return false; // too many RMT buses
-			if (usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
+			if (drv==1 &&usage.i2sUsed > maxI2S) return false; // too many I2S buses
 			return true;
 		}
 
@@ -459,7 +459,7 @@
 						// Show driver selection dropdown when I2S is enabled, mark red if invalid
 						if (drvsel) {
 							if (d.Sf.AS.checked) drvsel.style.display = "inline"; // only show when advanced settings enabled
-							if (!d.Sf["LD"+n].value) d.Sf["LD"+n].value = "0"; // default to RMT
+							d.Sf["LD"+n].value = d.Sf["LD"+n].value | 0; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
 						}
 					}
@@ -473,7 +473,7 @@
 			if (chanuse && channelMsg && !is8266()) {
 				chanuse.style.display = 'inline';
 				chanuse.style.color = '#ccc';
-				channelMsg.textContent = `Channel usage: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}`;
+				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}`;
 				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S) {
 					chanuse.style.color = 'red';
 				}
@@ -758,7 +758,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
 							d.getElementsByName("LT"+i)[0].value   = v.type;
-							d.getElementsByName("LD"+i)[0].value   = v.drv; // output driver type (RMT or I2S)
+							d.getElementsByName("LD"+i)[0].value   = v.drv | 0; // output driver type (RMT or I2S, default to RMT if not set)
 							d.getElementsByName("LS"+i)[0].value   = v.start;
 							d.getElementsByName("LC"+i)[0].value   = v.len;
 							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
@@ -913,7 +913,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
-					let driverPref = d.Sf["LD"+n] ? parseInt(d.Sf["LD"+n].value || 0) : 0;
+					let driverPref = d.Sf["LD"+n]?.value | 0;
 					let ledCount = (parseInt(d.Sf["LC"+n].value) || 0) + (parseInt(d.Sf["SL"+n].value) || 0);
 
 					if (isDig(t) && !isD2P(t)) {
@@ -961,7 +961,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			LTs.forEach(sel => {
 				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
-				const curDriver = parseInt(d.Sf["LD"+n].value || 0);
+				const curDriver = d.Sf["LD"+n]?.value | 0;
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
@@ -997,7 +997,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
-					let curDriver = parseInt(d.Sf["LD"+n].value || 0);
+					let curDriver = d.Sf["LD"+n]?.value | 0;
 					if (curDriver === 0) {
 						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
 						RMTcount++;
