@@ -33,7 +33,6 @@
   // no parallel I2S LEDs driver
 constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
 
-#else
   // sanity check for esp32
   #if defined(ARDUINO_ARCH_ESP32) || defined(ESP32)
     #error "ARDUINO_ARCH_ESP32 or ESP32 is defined together with ESP8266. Please fix your buildenv."
