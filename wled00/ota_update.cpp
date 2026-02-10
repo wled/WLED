@@ -15,7 +15,7 @@ constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears afte
 
 // Bootloader is at fixed offset 0x1000 (4KB), 0x0000 (0KB), or 0x2000 (8KB), and is typically 32KB
 // Bootloader offsets for different MCUs => see https://github.com/wled/WLED/issues/5064
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
 constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
 #elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)

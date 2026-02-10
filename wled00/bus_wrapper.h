@@ -251,7 +251,7 @@
   typedef NeoEsp32I2s0Apa106Method X1Apa106Method;
   typedef NeoEsp32I2s0Ws2805Method X1Ws2805Method;
   typedef NeoEsp32I2s0Tm1914Method X1Tm1914Method;
-#elif !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32P4)
+#elif !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32P4)
   // regular ESP32 will use I2S1
   typedef NeoEsp32I2s1Ws2812xMethod X1Ws2812xMethod;
   typedef NeoEsp32I2s1Sk6812Method X1Sk6812Method;

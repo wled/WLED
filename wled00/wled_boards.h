@@ -1,6 +1,6 @@
 /*
   WLED board capabilities: uses CONFIG_IDF_TARGET_... to extract board capability flags.
-  You can still use CONFIG_IDF_TARGET_ in the sourc code; this file provides shortcuts for repeating capability checks.
+  You can still use CONFIG_IDF_TARGET_ in the source code; this file provides shortcuts for repeating capability checks.
 */
 #pragma once
 
@@ -135,6 +135,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
   #define WLED_HAVE_RTC_MEMORY_HEAP 1 // TBC: does it have byte-accessible fast RTC memory that can be used as heap ?
   // no 4byte-accessible IRAM heap
   // no parallel I2S LEDs driver
+  #define WLED_HAS_PARALLEL_PARLIO  1  // (unsupported) P4 allows parallel leds driving with PARLIO unit
 
   constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP32P4;
 

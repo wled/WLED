@@ -668,7 +668,7 @@ class AudioReactive : public Usermod {
     static const char _dynamics[];
     static const char _frequency[];
     static const char _inputLvl[];
-#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32) // analog mic is only supported on classic esp32
     static const char _analogmic[];
 #endif
     static const char _digitalmic[];
