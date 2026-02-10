@@ -534,18 +534,12 @@ void WLED::setup()
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
 
-  #if defined(CONFIG_IDF_TARGET_ESP32C5)
-    // EXPERIMENTAL: enable 5Ghz WiFi - must be done _after_ wifi driver was initialized in WiFi.mode(), but before WiFi.begin()
-    // see https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/network/esp_wifi.html#_CPPv425esp_wifi_set_country_codePKcb
-    // uses ESP-IDF APIs for advanced configuration
-    bool haveWifiError = false;
-    esp_err_t wifiErr = esp_wifi_set_band_mode(WIFI_BAND_MODE_AUTO);    // 5GHz + 2.4Ghz; use WIFI_BAND_MODE_5G_ONLY for 5Ghz only
-    if (wifiErr != ESP_OK) { haveWifiError = true; DEBUG_PRINTF_P(PSTR("esp_wifi_set_band_mode failed: error %d\n"), wifiErr);}
-    wifiErr = esp_wifi_set_country_code("01", true);                    // Set country "01" = world safe mode; other options: "EU", "US"
-    if (wifiErr != ESP_OK) {haveWifiError = true; DEBUG_PRINTF_P(PSTR("esp_wifi_set_country_code failed: %d\n"), wifiErr);}
-    if (!haveWifiError) DEBUG_PRINTLN("Wifi: 5Ghz setup successful.\n");
-    // let Arduino WiFi class do the connection
-  #endif
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+  // #if SOC_WIFI_SUPPORT_5G
+  if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {   // WIFI_BAND_MODE_AUTO = 5GHz+2.4GHz; WIFI_BAND_MODE_5G_ONLY, WIFI_BAND_MODE_2G_ONLY
+    DEBUG_PRINTLN(F("Wifi band configuration failed!\n"));
+  }
+#endif
 
   findWiFi(true);      // start scanning for available WiFi-s
 
