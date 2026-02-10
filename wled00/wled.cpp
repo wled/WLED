@@ -537,7 +537,7 @@ void WLED::setup()
 #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
   // WiFi.setBandMode(WIFI_BAND_MODE_AUTO) can also be used without SOC_WIFI_SUPPORT_5G
   if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {   // WIFI_BAND_MODE_AUTO = 5GHz+2.4GHz; WIFI_BAND_MODE_5G_ONLY, WIFI_BAND_MODE_2G_ONLY
-    DEBUG_PRINTLN(F("Wifi band configuration failed!\n"));
+    DEBUG_PRINTLN(F("setup(): Wifi band configuration failed!\n"));
   }
 #endif
 
@@ -745,6 +745,12 @@ if (multiWiFi.empty()) {                       // guard: handle empty WiFi list 
       DEBUG_PRINTLN(F("Access point disabled (init)."));
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
+      #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      // we need to renew the "band mode" here, otherwise WiFi falls back to 2.4Ghz only
+      if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {   // WIFI_BAND_MODE_AUTO = 5GHz+2.4GHz; WIFI_BAND_MODE_5G_ONLY, WIFI_BAND_MODE_2G_ONLY
+        DEBUG_PRINTLN(F("initConnection(): Wifi band configuration failed!\n"));
+      }
+      #endif
     }
   }
 
