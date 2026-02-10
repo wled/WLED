@@ -244,6 +244,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #endif
     printSetFormCheckbox(settingsScript,PSTR("FG"),force802_3g);
     printSetFormCheckbox(settingsScript,PSTR("WS"),noWifiSleep);
+    #ifdef SOC_WIFI_SUPPORT_5G
+    printSetFormValue(settingsScript,PSTR("BM"),wifiBandMode);
+    #else
+    settingsScript.print(F("gId('bm').style.display='none';"));
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
