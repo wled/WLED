@@ -159,7 +159,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
-  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);  // ToDO: V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
 #endif
 
   JsonObject hw = doc[F("hw")];

@@ -397,7 +397,7 @@ WLED_GLOBAL bool force802_3g _INIT(false);
   #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
-WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
+WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);  // ToDO: change to int8_t; V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4. Also check if the UI can handle it.
   #endif
 #endif
 #define WLED_WIFI_CONFIGURED isWiFiConfigured()

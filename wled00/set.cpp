@@ -118,7 +118,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     #ifdef ARDUINO_ARCH_ESP32
     int tx = request->arg(F("TX")).toInt();
-    txPower = min(max(tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    txPower = min(max(tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);   // ToDO: V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
     #endif
 
     force802_3g = request->hasArg(F("FG"));
