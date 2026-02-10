@@ -9,9 +9,9 @@
 #include "NodeStruct.h"  // to get generic NODE_TYPE_IDs
 
 /*
- * Structure: the Below part uses isolated "#if defined()" instead of a chain of if ... elif ... else
+ * Structure: the below part uses isolated "#if defined()" instead of a chain of if ... elif ... else
  * so that the constant WLED_BOARD will be set exactly once unless there are conflicting build_flags. 
- * In case that several blocks are active, This causes a compiler error to easily spot the problem
+ * In case that several blocks are active, it causes a compiler error to easily spot the problem
  * "error: redefinition of 'constexpr const unsigned int WLED_BOARD'"
  */
 
