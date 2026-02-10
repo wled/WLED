@@ -1007,7 +1007,7 @@ void serializePalettes(JsonObject root, int page)
       default:
         if (i >= palettesCount) // custom palettes
           setPaletteColors(curPalette, customPalettes[i - palettesCount]);
-        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+        else if (i < int(DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
           memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
