@@ -431,9 +431,11 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   if (realtimeTimeout != UINT32_MAX) {
     realtimeTimeout = (timeoutMs == 255001 || timeoutMs == 65000) ? UINT32_MAX : millis() + timeoutMs;
   }
+  if (realtimeMode != md) { DEBUG_PRINT(F("RT md change:")); DEBUG_PRINTLN(md); }
   realtimeMode = md;
+  
 
-  if (realtimeOverride) return;
+  if (realtimeOverride) { DEBUG_PRINT(F("RT Lock blocked by Override:")); DEBUG_PRINTLN(realtimeOverride); return; }
   if (arlsForceMaxBri) strip.setBrightness(255, true);
   if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
 }
@@ -444,6 +446,7 @@ void exitRealtime() {
   strip.setBrightness(bri, true);
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
+  DEBUG_PRINTLN(F("RT Mode -> INACTIVE"));
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
@@ -501,11 +504,11 @@ void handleNotifications()
       if (!receiveDirect) return;
       if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;
       realtimeIP = rgbUdp.remoteIP();
-      DEBUG_PRINTLN(rgbUdp.remoteIP());
+      // DEBUG_PRINTLN(rgbUdp.remoteIP()); // Silenced for noise
       uint8_t lbuf[packetSize];
       rgbUdp.read(lbuf, packetSize);
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
-      if (realtimeOverride) return;
+      if (realtimeOverride) { DEBUG_PRINT(F("RT Lock blocked by Override:")); DEBUG_PRINTLN(realtimeOverride); return; }
       unsigned totalLen = strip.getLengthTotal();
       for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
@@ -578,7 +581,7 @@ void handleNotifications()
 
       realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
-      if (realtimeOverride) return;
+      if (realtimeOverride) { DEBUG_PRINT(F("RT Lock blocked by Override:")); DEBUG_PRINTLN(realtimeOverride); return; }
 
       tpmPacketCount++; //increment the packet count
       if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
@@ -610,7 +613,7 @@ void handleNotifications()
       } else {
         realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
       }
-      if (realtimeOverride) return;
+      if (realtimeOverride) { DEBUG_PRINT(F("RT Lock blocked by Override:")); DEBUG_PRINTLN(realtimeOverride); return; }
 
       unsigned totalLen = strip.getLengthTotal();
       if (udpIn[0] == 1 && packetSize > 5) { //warls

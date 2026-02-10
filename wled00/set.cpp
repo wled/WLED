@@ -1155,7 +1155,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   //receive live data via UDP/Hyperion
   pos = req.indexOf(F("RD="));
-  if (pos > 0) { receiveDirect = (req.charAt(pos+3) != '0'); if (!receiveDirect) exitRealtime(); }
+  if (pos >= 0) { receiveDirect = (req.charAt(pos+3) != '0');  if (!receiveDirect) exitRealtime(); }
 
   //main toggle on/off (parse before nightlight, #1214)
   pos = req.indexOf(F("&T="));
@@ -1228,10 +1228,12 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("LO="));
   if (pos > 0) {
     realtimeOverride = getNumVal(req, pos);
+DEBUG_PRINT(F("HTTP LO:")); DEBUG_PRINTLN(realtimeOverride);
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
     if (realtimeMode && useMainSegmentOnly) {
+DEBUG_PRINTLN(F("LO cleared due to useMainSegmentOnly"));
       strip.getMainSegment().freeze = !realtimeOverride;
-      realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
+// realtimeOverride = REALTIME_OVERRIDE_NONE; // Fix: do not clear override even if using main segment only
     }
   }
 

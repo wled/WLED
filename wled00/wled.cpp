@@ -106,7 +106,21 @@ void WLED::loop()
   #ifdef WLED_DEBUG
   stripMillis = millis();
   #endif
-  if (!realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly))  // block stuff if WARLS/Adalight is enabled
+  bool allowNormal = !realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly);
+#ifdef WLED_DEBUG
+  
+#endif
+  #ifdef WLED_DEBUG
+  
+  #endif
+  
+      if (!presetNeedsSaving()) {
+      handlePlaylist();
+      yield();
+    }
+    handlePresets();
+    yield();
+  if (allowNormal)  // block stuff if WARLS/Adalight is enabled
   {
     if (apActive) dnsServer.processNextRequest();
     #ifdef WLED_ENABLE_AOTA
@@ -120,12 +134,7 @@ void WLED::loop()
     yield();
     #endif
 
-    if (!presetNeedsSaving()) {
-      handlePlaylist();
-      yield();
-    }
-    handlePresets();
-    yield();
+
 
     if (!offMode || strip.isOffRefreshRequired() || strip.needsUpdate())
       strip.service();

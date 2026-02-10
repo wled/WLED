@@ -428,6 +428,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   sendNotificationsRT  = getBoolVal(udpn[F("send")], sendNotificationsRT);
   syncGroups           = udpn[F("sgrp")] | syncGroups;
   receiveGroups        = udpn[F("rgrp")] | receiveGroups;
+  receiveDirect        = getBoolVal(udpn[F("rd")], receiveDirect);
+  if (udpn.containsKey(F("rd"))) {
+    
+    if (!receiveDirect) exitRealtime();
+  }
   if ((bool)udpn[F("nn")]) callMode = CALL_MODE_NO_NOTIFY; //send no notification just for this request
 
   unsigned long timein = root["time"] | UINT32_MAX; //backup time source if NTP not synced
@@ -445,7 +450,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
   if (realtimeMode && useMainSegmentOnly) {
     strip.getMainSegment().freeze = !realtimeOverride;
-    realtimeOverride = REALTIME_OVERRIDE_NONE;  // ignore request for override if using main segment only
+  // realtimeOverride = REALTIME_OVERRIDE_NONE; // Fix: do not clear override even if using main segment only
   }
 
   if (root.containsKey("live")) {

@@ -1,0 +1,40 @@
+commit d7dda58461c92f208a33ac40e759ff5dffa21e11
+Author: Isacco <isacco.benedetti@gmail.com>
+Date:   Tue Feb 10 20:17:08 2026 +0100
+
+    ignore realtime
+
+diff --git a/wled00/e131.cpp b/wled00/e131.cpp
+index 357e7841f..d6da0b459 100644
+--- a/wled00/e131.cpp
++++ b/wled00/e131.cpp
+@@ -26,6 +26,7 @@ void handleDDPPacket(e131_packet_t* p) {
+     }
+   }
+ 
++  if (!receiveDirect) return;
+   unsigned ddpChannelsPerLed = ((p->dataType & 0b00111000)>>3 == 0b011) ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
+ 
+   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
+@@ -68,6 +69,8 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
+   uint8_t* e131_data = nullptr;
+   int seq = 0, mde = REALTIME_MODE_E131;
+ 
++  if (!receiveDirect) return;
++
+   if (protocol == P_ARTNET)
+   {
+     if (p->art_opcode == ARTNET_OPCODE_OPPOLL) {
+diff --git a/wled00/set.cpp b/wled00/set.cpp
+index ab3060d06..b61abdc57 100644
+--- a/wled00/set.cpp
++++ b/wled00/set.cpp
+@@ -1155,7 +1155,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
+ 
+   //receive live data via UDP/Hyperion
+   pos = req.indexOf(F("RD="));
+-  if (pos > 0) receiveDirect = (req.charAt(pos+3) != '0');
++  if (pos > 0) { receiveDirect = (req.charAt(pos+3) != '0'); if (!receiveDirect) exitRealtime(); }
+ 
+   //main toggle on/off (parse before nightlight, #1214)
+   pos = req.indexOf(F("&T="));
