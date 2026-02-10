@@ -163,7 +163,11 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #endif
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
-  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);  // ToDO: V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+  #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+  #else
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #endif
 #endif
 
   JsonObject hw = doc[F("hw")];
