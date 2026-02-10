@@ -123,6 +123,15 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     force802_3g = request->hasArg(F("FG"));
     noWifiSleep = request->hasArg(F("WS"));
+    #ifdef SOC_WIFI_SUPPORT_5G
+    if (request->hasArg(F("BM"))) {
+      int bm = request->arg(F("BM")).toInt();
+      if (bm >= WIFI_BAND_MODE_2G_ONLY && bm <= WIFI_BAND_MODE_AUTO) {
+        if (bm != wifiBandMode) forceReconnect = true;
+        wifiBandMode = bm;
+      }
+    }
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     bool oldESPNow = enableESPNow;

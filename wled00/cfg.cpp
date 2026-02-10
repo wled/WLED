@@ -157,6 +157,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
+#ifdef SOC_WIFI_SUPPORT_5G
+  CJSON(wifiBandMode, wifi[F("band")]);
+  if (wifiBandMode < WIFI_BAND_MODE_2G_ONLY || wifiBandMode > WIFI_BAND_MODE_AUTO) wifiBandMode = WIFI_BAND_MODE_AUTO;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
   txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);  // ToDO: V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
@@ -907,6 +911,9 @@ void serializeConfig(JsonObject root) {
   JsonObject wifi = root.createNestedObject(F("wifi"));
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
+#ifdef SOC_WIFI_SUPPORT_5G
+  wifi[F("band")] = wifiBandMode;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   wifi[F("txpwr")] = txPower;
 #endif

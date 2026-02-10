@@ -393,6 +393,9 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
+#ifdef SOC_WIFI_SUPPORT_5G
+WLED_GLOBAL byte wifiBandMode _INIT((byte)WIFI_BAND_MODE_AUTO);  // default for dual-band chips (1=2.4G, 2=5G, 3=Auto)
+#endif
 #if defined(ARDUINO_ARCH_ESP32)
   #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
