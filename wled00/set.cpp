@@ -1155,7 +1155,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   //receive live data via UDP/Hyperion
   pos = req.indexOf(F("RD="));
-  if (pos > 0) receiveDirect = (req.charAt(pos+3) != '0');
+  if (pos > 0) { receiveDirect = (req.charAt(pos+3) != '0'); if (!receiveDirect) exitRealtime(); }
 
   //main toggle on/off (parse before nightlight, #1214)
   pos = req.indexOf(F("&T="));
