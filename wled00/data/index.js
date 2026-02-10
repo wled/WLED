@@ -3300,8 +3300,14 @@ function checkVersionUpgrade(info) {
 			const storedVersion = versionInfo.version || '';
 
 			if (storedVersion && storedVersion !== currentVersion) {
-				// Version has changed, show upgrade prompt
-				showVersionUpgradePrompt(info, storedVersion, currentVersion);
+				// Version has changed
+				if (versionInfo.alwaysReport) {
+					// Automatically report if user opted in for always reporting
+					reportUpgradeEvent(info, storedVersion, true);
+				} else {
+					// Show upgrade prompt
+					showVersionUpgradePrompt(info, storedVersion, currentVersion);
+				}
 			} else if (!storedVersion) {
 				// Empty version in file, show install prompt
 				showVersionUpgradePrompt(info, null, currentVersion);
@@ -3311,7 +3317,7 @@ function checkVersionUpgrade(info) {
 			console.log('Failed to load version-info.json', e);
 			// On error, save current version for next time
 			if (info && info.ver) {
-				updateVersionInfo(info.ver, false);
+				updateVersionInfo(info.ver, false, false);
 			}
 		});
 }
@@ -3337,7 +3343,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
 		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
 
-	const question = 'Help make WLED better with a one-time hardware report? It includes only device details like chip type, LED count, etc. — never personal data or your activities.'
+	const question = 'Help make WLED better by sharing hardware details like chip type and LED count? This helps us understand how WLED is used and prioritize features — we never collect personal data or your activities.'
 
 	dialog.innerHTML = `
 		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
@@ -3346,10 +3352,15 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		<p style="color:var(--c-f);font-size:0.9em;">
 			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
 		</p>
-		<div style="margin-top:20px;">
-			<button id="versionReportYes" class="btn">Yes</button>
-			<button id="versionReportNo" class="btn">Not Now</button>
-			<button id="versionReportNever" class="btn">Never Ask</button>
+		<div style="margin-top:15px;margin-bottom:15px;">
+			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
+				<input type="checkbox" id="versionSaveChoice" checked style="cursor:pointer;">
+				<span>Save my choice for future updates</span>
+			</label>
+		</div>
+		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
+			<button id="versionReportYes" class="btn">Report update</button>
+			<button id="versionReportNo" class="btn">Skip reporting</button>
 		</div>
 	`;
 
@@ -3358,23 +3369,25 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
-		reportUpgradeEvent(info, oldVersion);
+		const saveChoice = gId('versionSaveChoice').checked;
 		d.body.removeChild(overlay);
+		// Pass saveChoice as alwaysReport parameter
+		reportUpgradeEvent(info, oldVersion, saveChoice);
 	});
 
 	gId('versionReportNo').addEventListener('click', () => {
-		// Don't update version, will ask again on next load
+		const saveChoice = gId('versionSaveChoice').checked;
 		d.body.removeChild(overlay);
-	});
-
-	gId('versionReportNever').addEventListener('click', () => {
-		updateVersionInfo(newVersion, true);
-		d.body.removeChild(overlay);
-		showToast('You will not be asked again.');
+		if (saveChoice) {
+			// Save "never ask" preference
+			updateVersionInfo(newVersion, true, false);
+			showToast('You will not be asked again.');
+		}
+		// Don't update version if not saving choice, will ask again on next load
 	});
 }
 
-function reportUpgradeEvent(info, oldVersion) {
+function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 	showToast('Reporting upgrade...');
 
 	// Fetch fresh data from /json/info endpoint as requested
@@ -3416,8 +3429,12 @@ function reportUpgradeEvent(info, oldVersion) {
 		})
 		.then(res => {
 			if (res.ok) {
-				showToast('Thank you for reporting!');
-				updateVersionInfo(info.ver, false);
+				if (alwaysReport) {
+					showToast('Thank you! Future upgrades will be reported automatically.');
+				} else {
+					showToast('Thank you for reporting!');
+				}
+				updateVersionInfo(info.ver, false, !!alwaysReport);
 			} else {
 				showToast('Report failed. Please try again later.', true);
 				// Do NOT update version info on failure - user will be prompted again
@@ -3430,10 +3447,11 @@ function reportUpgradeEvent(info, oldVersion) {
 		});
 }
 
-function updateVersionInfo(version, neverAsk) {
+function updateVersionInfo(version, neverAsk, alwaysReport) {
 	const versionInfo = {
 		version: version,
-		neverAsk: neverAsk
+		neverAsk: neverAsk,
+		alwaysReport: !!alwaysReport
 	};
 
 	// Create a Blob with JSON content and use /upload endpoint
