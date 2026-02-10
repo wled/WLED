@@ -551,19 +551,19 @@ void BusPwm::show() {
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
     #if defined(CONFIG_IDF_TARGET_ESP32C5)
-    // TODO: this may not work as intended.
     // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
     // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
-    // --> research latest (V5.5.x) esp-idf documentation on how to properly set the duty cycle registers by API calls.
-    // possible alternative: esp_err_t ledc_set_duty_and_update(ledc_mode_t speed_mode, ledc_channel_t channel, uint32_t duty, uint32_t hpoint)
+    // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
     //    https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/peripherals/ledc.html#_CPPv424ledc_set_duty_and_update11ledc_mode_t14ledc_channel_t8uint32_t8uint32_t
-    LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init
+    //   LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init, but requires additional steps to activate
+    // TODO: find out if / how dithering support can be impemented on P5
+    ledc_set_duty_and_update((ledc_mode_t)gr, (ledc_channel_t)ch, duty >> bitShift, hPoint >> bitShift);
     #else
     LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
-    #endif
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif
+    #endif // ESP32C5
+    #endif // 8266
 
     if (!_reversed) hPoint += duty;
     hPoint += deadTime;        // offset to cascade the signals
