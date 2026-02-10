@@ -127,7 +127,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (request->hasArg(F("BM"))) {
       int bm = request->arg(F("BM")).toInt();
       if (bm >= WIFI_BAND_MODE_2G_ONLY && bm <= WIFI_BAND_MODE_AUTO) {
-        if (bm != wifiBandMode) forceReconnect = true;
+        if (bm != wifiBandMode) { 
+          forceReconnect = true;
+          WiFi.scanDelete();
+        }
         wifiBandMode = bm;
       }
     }

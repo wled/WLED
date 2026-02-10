@@ -1025,6 +1025,9 @@ void serializeNetworks(JsonObject root)
 
   switch (status) {
     case WIFI_SCAN_FAILED:
+      #if defined(SOC_WIFI_SUPPORT_5G) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      if (!WiFi.setBandMode(wifi_band_mode_t(wifiBandMode))) { DEBUG_PRINTLN(F("serializeNetworks(): WiFi band configuration failed!")); }
+      #endif
       WiFi.scanNetworks(true);
       return;
     case WIFI_SCAN_RUNNING:
