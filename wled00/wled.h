@@ -331,7 +331,9 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
   #define IRTYPE 0
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S2) || (defined(RX) && defined(TX))
+// RX and TX: use "default" pins for 8266 and classic esp32
+// except when arduino-esp32 has explicitly defined RX and TX (some arduino variants don't define RX and TX)
+#if defined(ARDUINO_ARCH_ESP32) && (!defined(CONFIG_IDF_TARGET_ESP32) || (defined(RX) && defined(TX)))
   // use RX/TX as set by the framework - these boards do _not_ have RX=3 and TX=1
   constexpr uint8_t hardwareRX = RX;
   constexpr uint8_t hardwareTX = TX;
@@ -391,8 +393,8 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
-#ifdef ARDUINO_ARCH_ESP32
-  #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
+#if defined(ARDUINO_ARCH_ESP32)
+  #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
@@ -419,7 +421,7 @@ WLED_GLOBAL byte bootPreset   _INIT(0);                   // save preset to load
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(false); // double buffering disabled on ESP8266
 #else
 WLED_GLOBAL bool useGlobalLedBuffer _INIT(true);  // double buffering enabled on ESP32
-  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32P4)
+  #if defined(WLED_HAS_PARALLEL_I2S)
 WLED_GLOBAL bool useParallelI2S     _INIT(false); // parallel I2S for ESP32
   #endif
 #endif
