@@ -88,12 +88,14 @@ The first line of the code imports the [wled.h](https://github.com/wled/WLED/blo
 ### Static Effect Definition
 The next code block is the `mode_static` definition.  This is usually left as `SEGMENT.fill(SEGCOLOR(0));` to leave all pixels off if the effect fails to load, but in theory one could use this as a 'fallback effect' to take on a different behavior, such as displaying some other color instead of leaving the pixels off.
 
+`FX_FALLBACK_STATIC` is a macro that calls `mode_static()` and then returns.
+
 ### User Effect Definitions
 Pre-loaded in this template is an example 2D Effect called "Diffusion Fire".  (This is the name that would be shown in the UI once the binary is compiled and run on your device, as defined in the metadata string.)
-The effect starts off by checking to see if the segment that the effect is being applied to is a 2D Matrix, and if it is not, then it returns the static effect which displays no pattern:
+The effect starts off by checking to see if the segment that the effect is being applied to is a 2D Matrix, and if it is not, then it runs the static effect which displays no pattern:
 ```cpp
 if (!strip.isMatrix || !SEGMENT.is2D()) 
-return mode_static();  // not a 2D set-up 
+  FX_FALLBACK_STATIC;  // not a 2D set-up
 ```
 The next code block contains several constant variable definitions which essentially serve to extract the dimensions of the user's 2D matrix and allow WLED to interpret the matrix as a 1D coordinate system (WLED must do this for all 2D animations):
 ```cpp
@@ -140,7 +142,7 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 
 ```cpp
 if (!SEGENV.allocateData(dataSize))
-return mode_static(); // allocation failed
+  FX_FALLBACK_STATIC; // allocation failed
 ```
 * Upon the first call, this section allocates a persistent data buffer tied to the segment environment (`SEGENV.data`). All subsequent calls simply ensure that the data is still valid.
 * The syntax `SEGENV.allocateData(n)` requests a buffer of size n bytes (1 byte per pixel here).
@@ -262,20 +264,14 @@ After calculating tmp_row, we now handle rendering the pixels by updating the ac
 * `SEGCOLOR(0)` gets the first user-selected color for the segment.
 * The final line of code fades that base color according to the heat value (acts as brightness multiplier).
 
-The final piece of this custom effect returns the frame time:
-```cpp
-}
-return FRAMETIME;
-}
-```
-* The first bracket closes the earlier `if ((strip.now - SEGENV.step) >= refresh_ms)` block.
-  * It ensures that the fire simulation (scrolling, sparking, diffusion, rendering) only runs when enough time has passed since the last update.
-* returning the frame time tells WLED how soon this effect wants to be called again.
-  * `FRAMETIME` is a predefined macro in WLED, typically set to ~16ms, corresponding to ~60 FPS (frames per second).
-  * Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals to check whether an update is needed.
-* ⚠️ Important: Because the actual frame logic is gated by strip.now - SEGENV.step, returning FRAMETIME here doesn’t cause excessive updates — it just keeps the engine responsive.  **Also note that an Effect should ALWAYS return FRAMETIME.  Not doing so can cause glitches.**
-* The final bracket closes the `mode_diffusionfire()` function itself.
+* Even though the effect logic itself controls when to update based on refresh_ms, WLED will still call this function at roughly FRAMETIME intervals (the FPS limit set in config) to check whether an update is needed. If nothing needs to change, the frame still needs to be re-rendered so color or brightness transitions will be smooth.
 
+If you want to run your effect at a fixed frame rate you can use the following code to not update your effect state, be aware however that transitions for your effect will also run at this frame rate - for example if you limit your effect to say 5 FPS, brightness changes and color changes may not look smooth. Also `SEGMENT.call` is still incremented on each function call.
+```cpp
+//limit update rate
+if (strip.now - SEGENV.step < FRAMETIME_FIXED) return;
+SEGENV.step = strip.now;
+```
 
 ### The Metadata String
 At the end of every effect is an important line of code called the **metadata string**.
@@ -322,13 +318,13 @@ We will break this effect down step by step.
 (This effect was originally one of the FastLED example effects; more information on FastLED can be found [here](https://fastled.io/).)
 
 ```cpp
-static uint16_t sinelon_base(bool dual, bool rainbow=false) {
+static void sinelon_base(bool dual, bool rainbow=false) {
 ```
 * The first line of code defines `sinelon base` as static helper function.  This is how all effects are initially defined.
 * Notice that it has some optional flags; these parameters will allow us to easily define the effect in different ways in the UI.
 
 ```cpp
-  if (SEGLEN <= 1) return mode_static();
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 ```
 * If segment length ≤ 1, there’s nothing to animate. Just show static mode.
 
@@ -408,28 +404,21 @@ This final part of the effect function will fill in the 'trailing' pixels to com
   * Works in both directions: Forward (if new pos > old pos), and Backward (if new pos < old pos).
 * Updates `SEGENV.aux0` to current position at the end.
 
-Finally, we return the `FRAMETIME`, as with all effect functions:
-```cpp
-  return FRAMETIME;
-}
-```
-* Returns `FRAMETIME` constant to set effect update rate (usually ~16 ms).
-
 The last part of this effect has the Wrapper functions for different Sinelon modes.
 Notice that there are three different modes that we can define from the single effect definition by leveraging the arguments in the function:
 ```cpp
-uint16_t mode_sinelon(void) {
-  return sinelon_base(false);
+void mode_sinelon(void) {
+  sinelon_base(false);
 }
 // Calls sinelon_base with dual = false and rainbow = false 
 
-uint16_t mode_sinelon_dual(void) {
-  return sinelon_base(true);
+void mode_sinelon_dual(void) {
+  sinelon_base(true);
 }
 // Calls sinelon_base with dual = true and rainbow = false 
 
-uint16_t mode_sinelon_rainbow(void) {
-  return sinelon_base(false, true);
+void mode_sinelon_rainbow(void) {
+  sinelon_base(false, true);
 }
 // Calls sinelon_base with dual = false and rainbow = true 
 ```
