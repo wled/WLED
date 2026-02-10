@@ -44,7 +44,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
   #define WLED_HAVE_FAST_FLOAT  1     // has an FPU for fast floating point (single precision)
   #define WLED_HAVE_FAST_int_DIVIDE 1 // integer division is fast (no need to use bitshifts with rounding instead of integer division
   // no byte-accessible fast RTC memory (newer esp32 variants only)
-  #define WLED_HAVE_IRAM_32BIT_HEAP   // only classic ESP32 has "32bit accessible only" aka IRAM type heap
+  #define WLED_HAVE_IRAM_32BIT_HEAP 1 // only classic ESP32 has "32bit accessible only" aka IRAM type heap
 
   #define WLED_HAS_PARALLEL_I2S  1    // classic esp32 has I2S parallel leds driver (NeoPixelBus)
 
@@ -59,7 +59,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
 // Capabilities of ESP32-S3
   #define WLED_HAVE_FAST_FLOAT  1     // has an FPU for fast floating point (single precision)
   #define WLED_HAVE_FAST_int_DIVIDE 1 // integer division is fast (no need to use bitshifts with rounding instead of integer division
-  #define WLED_HAVE_RTC_MEMORY_HEAP   // has byte-accessible fast RTC memory that can be used as heap
+  #define WLED_HAVE_RTC_MEMORY_HEAP 1 // has byte-accessible fast RTC memory that can be used as heap
   // no 4byte-accessible IRAM heap
 
   #define WLED_HAS_PARALLEL_I2S  1    // esp32-S3 supports I2S parallel leds driver (NeoPixelBus)
@@ -75,7 +75,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
 // Capabilities of ESP32-S2
   // has no FPU
   #define WLED_HAVE_FAST_int_DIVIDE 1 // integer division is fast (no need to use bitshifts with rounding instead of integer division
-  #define WLED_HAVE_RTC_MEMORY_HEAP   // has byte-accessible fast RTC memory that can be used as heap
+  #define WLED_HAVE_RTC_MEMORY_HEAP 1 // has byte-accessible fast RTC memory that can be used as heap
   // no 4byte-accessible IRAM heap
 
   #define WLED_HAS_PARALLEL_I2S 1    // esp32-S3 supports I2S parallel leds driver (NeoPixelBus)
@@ -87,7 +87,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
 // Capabilities of ESP32-C3
   // has no FPU
   // bitshift with rounding is faster than integer division
-  #define WLED_HAVE_RTC_MEMORY_HEAP   // has byte-accessible fast RTC memory that can be used as heap
+  #define WLED_HAVE_RTC_MEMORY_HEAP 1 // has byte-accessible fast RTC memory that can be used as heap
   // no 4byte-accessible IRAM heap
   // no parallel I2S LEDs driver
 
@@ -98,7 +98,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
 // Capabilities of ESP32-C5
   // has no FPU
   // bitshift with rounding is faster than integer division
-  #define WLED_HAVE_RTC_MEMORY_HEAP   // has byte-accessible fast RTC memory that can be used as heap
+  #define WLED_HAVE_RTC_MEMORY_HEAP 1 // has byte-accessible fast RTC memory that can be used as heap
   // no 4byte-accessible IRAM heap
   // no parallel I2S LEDs driver
 
@@ -132,7 +132,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
   #define WLED_HAVE_FAST_FLOAT  1     // has an FPU for fast floating point (single precision)
   // TBC: is bitshift with rounding is faster than integer division ?
   #define WLED_HAVE_FAST_int_DIVIDE 1 // integer division is fast (no need to use bitshifts with rounding instead of integer division
-  #define WLED_HAVE_RTC_MEMORY_HEAP   // TBC: does it have byte-accessible fast RTC memory that can be used as heap ?
+  #define WLED_HAVE_RTC_MEMORY_HEAP 1  // TBC: does it have byte-accessible fast RTC memory that can be used as heap ?
   // no 4byte-accessible IRAM heap
   // no parallel I2S LEDs driver
 
