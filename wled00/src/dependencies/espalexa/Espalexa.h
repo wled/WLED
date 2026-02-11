@@ -22,6 +22,7 @@
 #ifndef ARDUINO_ARCH_ESP32
 #ifndef ESP_IDF_VERSION_VAL
 #define ESP_IDF_VERSION_VAL(n1,n2,n3) 500
+#define ESPALEXA_DEFINED_ESP_IDF_VERSION_VAL 1  // remember to undef this later
 #endif
 #endif
 
@@ -640,7 +641,7 @@ public:
 
 // dummy macro cleanup
 #ifndef ARDUINO_ARCH_ESP32
-#ifdef ESP_IDF_VERSION_VAL
+#ifdef ESPALEXA_DEFINED_ESP_IDF_VERSION_VAL
 #undef ESP_IDF_VERSION_VAL
 #endif
 #endif
