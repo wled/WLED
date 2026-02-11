@@ -8,20 +8,20 @@
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
 // static effect, used if an effect fails to initialize
-static uint16_t mode_static(void) {
+static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
 
+#define FX_FALLBACK_STATIC { mode_static(); return; }
 
 /////////////////////////
 //  User FX functions  //
 /////////////////////////
 
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
-static uint16_t mode_diffusionfire(void) {
+static void mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
-    return mode_static();  // not a 2D set-up
+    FX_FALLBACK_STATIC;  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -35,7 +35,7 @@ static uint16_t mode_diffusionfire(void) {
 
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
-    return mode_static();  // allocation failed
+    FX_FALLBACK_STATIC;  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -90,7 +90,6 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
@@ -111,15 +110,15 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
  *  aux1 stores the color scale for performance
  */
 
-static uint16_t mode_spinning_wheel(void) {
-  if (SEGLEN < 1) return mode_static();
+static void mode_spinning_wheel(void) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
   
   unsigned strips = SEGMENT.nrOfVStrips();
-  if (strips == 0) return mode_static();
+  if (strips == 0) FX_FALLBACK_STATIC;
 
   constexpr unsigned stateVarsPerStrip = 8;
   unsigned dataSize = sizeof(uint32_t) * stateVarsPerStrip;
-  if (!SEGENV.allocateData(dataSize * strips)) return mode_static();
+  if (!SEGENV.allocateData(dataSize * strips)) FX_FALLBACK_STATIC;
   uint32_t* state = reinterpret_cast<uint32_t*>(SEGENV.data);
   // state[0] = current position (fixed point: upper 16 bits = position, lower 16 bits = fraction)
   // state[1] = velocity (fixed point: pixels per frame * 65536)
@@ -335,8 +334,6 @@ static uint16_t mode_spinning_wheel(void) {
       virtualStrip::runStrip(stripNr, &state[stripNr * stateVarsPerStrip], settingsChanged, allReadyToRestart);
     }
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Speed (0=random),Slowdown (0=random),Spinner size,,Spin delay,Color mode,Color per block,Sync restart;!,!;!;;m12=1,c1=1,c3=8";
 
