@@ -6,10 +6,11 @@
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
 
 // static effect, used if an effect fails to initialize
-static uint16_t mode_static(void) {
+static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
+
+#define FX_FALLBACK_STATIC { mode_static(); return; }
 
 // If you define configuration options in your class and need to reference them in your effect function, add them here.
 // If you only need to use them in your class you can define them as class members instead.
@@ -20,9 +21,9 @@ static uint16_t mode_static(void) {
 /////////////////////////
 
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
-static uint16_t mode_diffusionfire(void) {
+static void mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
-    return mode_static();  // not a 2D set-up
+    FX_FALLBACK_STATIC;  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -36,7 +37,7 @@ static uint16_t mode_diffusionfire(void) {
 
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
-    return mode_static();  // allocation failed
+    FX_FALLBACK_STATIC;  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -91,7 +92,6 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
@@ -118,14 +118,14 @@ typedef struct LavaParticle {
 } LavaParticle;
 
 static uint16_t mode_2D_lavalamp(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static(); // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;; // not a 2D set-up
   
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
   
   // Allocate per-segment storage
   constexpr size_t MAX_LAVA_PARTICLES = 35;  // increasing this value could cause slowness for large matrices
-  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) return mode_static();
+  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) FX_FALLBACK_STATIC;;
   LavaParticle* lavaParticles = reinterpret_cast<LavaParticle*>(SEGENV.data);
 
   // Initialize particles on first call
@@ -366,8 +366,6 @@ static uint16_t mode_2D_lavalamp(void) {
       }
     }
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@Speed,# of blobs,Blob size,,,Color mode,Attract;;!;2;ix=64,o2=1,pal=47";
 
