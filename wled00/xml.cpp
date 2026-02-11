@@ -557,6 +557,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
   if (subPage == SUBPAGE_TIME)
   {
+    settingsScript.printf_P(PSTR("zones=%s;TZ();"), getTZNamesJSONString().c_str()); // we must fill select box immediately after populating array
     printSetFormCheckbox(settingsScript,PSTR("NT"),ntpEnabled);
     printSetFormValue(settingsScript,PSTR("NS"),ntpServerName);
     printSetFormCheckbox(settingsScript,PSTR("CF"),!useAMPM);

@@ -273,6 +273,10 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 
 #define STRINGIFY(X) #X
 #define TOSTRING(X) STRINGIFY(X)
+#ifdef countof
+  #undef countof
+#endif
+#define countof(x) (sizeof(x)/sizeof(x[0]))
 
 #define WLED_CODENAME "Niji"
 

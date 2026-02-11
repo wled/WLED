@@ -1,0 +1,17 @@
+{
+  "name":"CHAST/CHADT",
+  "dst": {
+    "w": "Last",
+    "dow": "Sun",
+    "m": "Sep",
+    "h": 2,
+    "off": 825
+  },
+  "std": {
+    "w": "First",
+    "dow": "Sun",
+    "m": "Apr",
+    "h": 3,
+    "off": 765
+  }
+}
