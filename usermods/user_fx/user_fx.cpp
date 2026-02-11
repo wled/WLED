@@ -6,10 +6,11 @@
 #define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
 
 // static effect, used if an effect fails to initialize
-static uint16_t mode_static(void) {
+static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
+
+#define FX_FALLBACK_STATIC { mode_static(); return; }
 
 /////////////////////////
 //  User FX functions  //
@@ -18,7 +19,7 @@ static uint16_t mode_static(void) {
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
 static uint16_t mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
-    return mode_static();  // not a 2D set-up
+    FX_FALLBACK_STATIC;  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -32,7 +33,7 @@ static uint16_t mode_diffusionfire(void) {
 
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
-    return mode_static();  // allocation failed
+    FX_FALLBACK_STATIC;  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -87,7 +88,6 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
@@ -164,8 +164,8 @@ void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, uint8_t *
   index++;
 }
 
-static uint16_t mode_morsecode(void) {
-  if (SEGLEN < 1) return mode_static();
+static void mode_morsecode(void) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
   
   // A-Z in Morse Code
   static const char * letters[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
@@ -207,7 +207,7 @@ static uint16_t mode_morsecode(void) {
   constexpr size_t MORSECODE_PATTERN_BYTES = MORSECODE_MAX_PATTERN_SIZE / 8; // 128 bytes
   constexpr size_t MORSECODE_WORD_INDEX_BYTES = MORSECODE_MAX_PATTERN_SIZE; // 1 byte per bit position
   constexpr size_t MORSECODE_WORD_COUNT_BYTES = 1; // 1 byte for word count
-  if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES + MORSECODE_WORD_COUNT_BYTES)) return mode_static();
+  if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES + MORSECODE_WORD_COUNT_BYTES)) FX_FALLBACK_STATIC;;
   uint8_t* morsecodePattern = reinterpret_cast<uint8_t*>(SEGENV.data);
   uint8_t* wordIndexArray = reinterpret_cast<uint8_t*>(SEGENV.data + MORSECODE_PATTERN_BYTES);
   uint8_t* wordCountPtr = reinterpret_cast<uint8_t*>(SEGENV.data + MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES);
@@ -298,7 +298,7 @@ static uint16_t mode_morsecode(void) {
   // if pattern is empty for some reason, display black background only
   if (patternLength == 0) {
     SEGMENT.fill(BLACK);
-    return FRAMETIME;
+    FX_FALLBACK_STATIC;
   }
 
   // Update offset to make the morse code scroll
@@ -340,7 +340,6 @@ static uint16_t mode_morsecode(void) {
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
