@@ -170,7 +170,7 @@ static void mode_ants(void) {
   // Allocate memory for ant data
   uint32_t backgroundColor = SEGCOLOR(1);
   unsigned dataSize = sizeof(Ant) * MAX_ANTS;
-  if (!SEGENV.allocateData(dataSize)) return FX_FALLBACK_STATIC;  // Allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;  // Allocation failed
 
   Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
 
