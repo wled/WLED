@@ -5,6 +5,9 @@
  */
 #ifdef WLED_ENABLE_WEBSOCKETS
 
+// forward declarations
+static bool sendLiveLedsWs(uint32_t wsClient);
+
 // define some constants for binary protocols, dont use defines but C++ style constexpr
 constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
 constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
@@ -185,7 +188,7 @@ void sendDataWs(AsyncWebSocketClient * client)
   releaseJSONBufferLock();
 }
 
-bool sendLiveLedsWs(uint32_t wsClient)
+static bool sendLiveLedsWs(uint32_t wsClient)
 {
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free

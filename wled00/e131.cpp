@@ -4,6 +4,12 @@
 #define MAX_4_CH_LEDS_PER_UNIVERSE 128
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
+// forward declarations
+static void handleArtnetPollReply(IPAddress ipAddress);
+static void prepareArtnetPollReply(ArtPollReply *reply);
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
+
+
 /*
  * E1.31 handler
  */
@@ -336,7 +342,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
   e131NewData = true;
 }
 
-void handleArtnetPollReply(IPAddress ipAddress) {
+static void handleArtnetPollReply(IPAddress ipAddress) {
   ArtPollReply artnetPollReply;
   prepareArtnetPollReply(&artnetPollReply);
 
@@ -402,7 +408,7 @@ void handleArtnetPollReply(IPAddress ipAddress) {
   #endif
 }
 
-void prepareArtnetPollReply(ArtPollReply *reply) {
+static void prepareArtnetPollReply(ArtPollReply *reply) {
   // Art-Net
   reply->reply_id[0] = 0x41;
   reply->reply_id[1] = 0x72;
@@ -521,7 +527,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   }
 }
 
-void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
   reply->reply_net_sw = (uint8_t)((portAddress >> 8) & 0x007F);
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);

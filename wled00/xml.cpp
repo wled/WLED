@@ -5,6 +5,9 @@
  * Sending XML status files to client
  */
 
+// forward declarations
+static void appendGPIOinfo(Print& settingsScript);
+
 //build XML response to HTTP /win API request
 void XML_response(Print& dest)
 {
@@ -38,7 +41,7 @@ static void extractPin(Print& settingsScript, const JsonObject &obj, const char 
   }
 }
 
-void fillWLEDVersion(char *buf, size_t len)
+static void fillWLEDVersion(char *buf, size_t len)
 {
   if (!buf || len == 0) return;
 
@@ -89,7 +92,7 @@ static void fillUMPins(Print& settingsScript, const JsonObject &mods)
   }
 }
 
-void appendGPIOinfo(Print& settingsScript)
+static void appendGPIOinfo(Print& settingsScript)
 {
   settingsScript.print(F("d.um_p=[-1")); // has to have 1 element
   if (i2c_sda > -1 && i2c_scl > -1) {

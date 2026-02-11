@@ -2,6 +2,11 @@
 #include "wled.h"
 #include "fcn_declare.h"
 
+// forward declarations
+static void sendNTPPacket();
+static bool checkNTPResponse();
+
+
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
 
@@ -199,7 +204,7 @@ void handleNetworkTime()
   }
 }
 
-void sendNTPPacket()
+static void sendNTPPacket()
 {
   if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
   {
@@ -245,7 +250,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   return true;
 }
 
-bool checkNTPResponse()
+static bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {
