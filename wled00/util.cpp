@@ -370,7 +370,7 @@ int16_t extractModeDefaults(uint8_t mode, const char *segVar)
 void checkSettingsPIN(const char* pin) {
   if (!pin) return;
   if (!correctPIN && millis() - lastEditTime < PIN_RETRY_COOLDOWN) return; // guard against PIN brute force
-  bool correctBefore = correctPIN;
+  //bool correctBefore = correctPIN; // unused
   correctPIN = (strlen(settingsPIN) == 0 || strncmp(settingsPIN, pin, 4) == 0);
   lastEditTime = millis();
 }
