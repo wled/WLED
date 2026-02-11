@@ -160,13 +160,13 @@ static void renderAntPixel(int pixelIndex, int pixelOffset, int antSize, const A
   }
 }
 
-static uint16_t mode_ants(void) {
-  if (SEGLEN <= 1) return mode_static();
+static void mode_ants(void) {
+  if (SEGLEN <= 1) FX_FALLBACK_STATIC;
 
   // Allocate memory for ant data
   uint32_t backgroundColor = SEGCOLOR(1);
   unsigned dataSize = sizeof(Ant) * MAX_ANTS;
-  if (!SEGENV.allocateData(dataSize)) return mode_static();  // Allocation failed
+  if (!SEGENV.allocateData(dataSize)) return FX_FALLBACK_STATIC;  // Allocation failed
 
   Ant* ants = reinterpret_cast<Ant*>(SEGENV.data);
 
@@ -274,7 +274,6 @@ static uint16_t mode_ants(void) {
   }
 
   SEGMENT.blur(SEGMENT.custom2>>1);
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Smear,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
 
