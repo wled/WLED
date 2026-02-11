@@ -570,16 +570,16 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     macroAlexaOff = request->arg(F("A1")).toInt();
     macroCountdown = request->arg(F("MC")).toInt();
     macroNl = request->arg(F("MN")).toInt();
-    int i = 0;
+    int ii = 0;
     for (auto &button : buttons) {
-      char mp[4] = "MP"; mp[2] = (i<10?'0':'A'-10)+i; mp[3] = 0; // short
-      char ml[4] = "ML"; ml[2] = (i<10?'0':'A'-10)+i; ml[3] = 0; // long
-      char md[4] = "MD"; md[2] = (i<10?'0':'A'-10)+i; md[3] = 0; // double
+      char mp[4] = "MP"; mp[2] = (ii<10?'0':'A'-10)+ii; mp[3] = 0; // short
+      char ml[4] = "ML"; ml[2] = (ii<10?'0':'A'-10)+ii; ml[3] = 0; // long
+      char md[4] = "MD"; md[2] = (ii<10?'0':'A'-10)+ii; md[3] = 0; // double
       //if (!request->hasArg(mp)) break;
       button.macroButton = request->arg(mp).toInt();      // these will default to 0 if not present
       button.macroLongPress = request->arg(ml).toInt();
       button.macroDoublePress = request->arg(md).toInt();
-      i++;
+      ii++;
     }
 
     char k[3]; k[2] = 0;
