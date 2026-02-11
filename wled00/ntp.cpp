@@ -11,7 +11,7 @@
 //#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
-Timezone* tz;
+static Timezone* tz;
 
 #define TZ_UTC                  0
 #define TZ_UK                   1
@@ -42,7 +42,7 @@ Timezone* tz;
 #define TZ_COUNT               25
 #define TZ_INIT               255
 
-byte tzCurrent = TZ_INIT; //uninitialized
+static byte tzCurrent = TZ_INIT; //uninitialized
 
 /* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {

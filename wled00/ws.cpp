@@ -11,9 +11,9 @@ constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
 constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
 constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
 
-uint16_t wsLiveClientId = 0;
-unsigned long wsLastLiveTime = 0;
-//uint8_t* wsFrameBuffer = nullptr;
+static uint16_t wsLiveClientId = 0;
+static unsigned long wsLastLiveTime = 0;
+//static uint8_t* wsFrameBuffer = nullptr;
 
 #define WS_LIVE_INTERVAL 40
 
