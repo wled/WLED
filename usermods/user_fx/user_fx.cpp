@@ -100,7 +100,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 /  Scrolling Morse Code by Bob Loeffler
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
-*   aux1 saves settings: check3 (1 bit), check3 (1 bit), text hash (4 bits) and pattern length (10 bits)
+*   aux1 saves settings: check2 (1 bit), check3 (1 bit), text hash (4 bits) and pattern length (10 bits)
 *   The first slider (sx) selects the scrolling speed
 *   The second slider selects the color mode (lower half selects color wheel, upper half selects color palettes)
 *   Checkbox1 displays all letters in a word with the same color
@@ -206,9 +206,9 @@ static void mode_morsecode(void) {
     *p = toupper(*p);
   }
 
-  // Allocate per-segment storage for pattern (1024 bits = 128 bytes) + word index array (1024 bytes) + word count (1 byte)
-  constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1024;
-  constexpr size_t MORSECODE_PATTERN_BYTES = MORSECODE_MAX_PATTERN_SIZE / 8; // 128 bytes
+  // Allocate per-segment storage for pattern (1023 bits = 127 bytes) + word index array (1024 bytes) + word count (1 byte)
+  constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1023;
+  constexpr size_t MORSECODE_PATTERN_BYTES = MORSECODE_MAX_PATTERN_SIZE / 8; // 127 bytes
   constexpr size_t MORSECODE_WORD_INDEX_BYTES = MORSECODE_MAX_PATTERN_SIZE; // 1 byte per bit position
   constexpr size_t MORSECODE_WORD_COUNT_BYTES = 1; // 1 byte for word count
   if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES + MORSECODE_WORD_COUNT_BYTES)) FX_FALLBACK_STATIC;;
@@ -302,7 +302,7 @@ static void mode_morsecode(void) {
   // if pattern is empty for some reason, display black background only
   if (patternLength == 0) {
     SEGMENT.fill(BLACK);
-    FX_FALLBACK_STATIC;
+    return;
   }
 
   // Update offset to make the morse code scroll
