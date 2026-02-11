@@ -17,10 +17,6 @@
 #include "bus_wrapper.h"
 #include "wled.h"
 
-extern char cmDNS[];
-extern bool cctICused;
-extern bool useParallelI2S;
-
 // functions to get/set bits in an array - based on functions created by Brandon for GOL
 //  toDo : make this a class that's completely defined in a header file
 // note: these functions are automatically inline by the compiler
