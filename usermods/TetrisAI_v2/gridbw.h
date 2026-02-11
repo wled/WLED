@@ -13,7 +13,6 @@
 #ifndef __GRIDBW_H__
 #define __GRIDBW_H__
 
-#include <iterator>
 #include <vector>
 #include "pieces.h"
 

@@ -27,7 +27,7 @@
 typedef struct WizMoteMessageStructure {
   uint8_t program;  // 0x91 for ON button, 0x81 for all others
   uint8_t seq[4];   // Incremetal sequence number 32 bit unsigned integer LSB first
-  uint8_t dt1;      // Button Data Type (0x32)
+  uint8_t dt1;      // Button Data Type (0x20)
   uint8_t button;   // Identifies which button is being pressed
   uint8_t dt2;      // Battery Level Data Type (0x01)
   uint8_t batLevel; // Battery Level 0-100
@@ -120,7 +120,7 @@ static bool remoteJson(int button)
   char objKey[10];
   bool parsed = false;
 
-  if (!requestJSONBufferLock(22)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
 
   sprintf_P(objKey, PSTR("\"%d\":"), button);
 
