@@ -550,7 +550,7 @@ void BusPwm::show() {
     unsigned ch = channel%8;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
-    #if defined(CONFIG_IDF_TARGET_ESP32C5)
+    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
     // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
     // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
     // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
