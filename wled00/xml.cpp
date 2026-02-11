@@ -593,9 +593,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("A1"),macroAlexaOff);
     printSetFormValue(settingsScript,PSTR("MC"),macroCountdown);
     printSetFormValue(settingsScript,PSTR("MN"),macroNl);
-    int i = 0;
+    int ii = 0;
     for (const auto &button : buttons) {
-      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), i++, button.macroButton, button.macroLongPress, button.macroDoublePress);
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
     }
 
     char k[4];
