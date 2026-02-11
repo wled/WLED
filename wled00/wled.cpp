@@ -107,12 +107,7 @@ void WLED::loop()
   stripMillis = millis();
   #endif
   bool allowNormal = !realtimeMode || realtimeOverride || (realtimeMode && useMainSegmentOnly);
-#ifdef WLED_DEBUG
-  
-#endif
-  #ifdef WLED_DEBUG
-  
-  #endif
+
   
       if (!presetNeedsSaving()) {
       handlePlaylist();

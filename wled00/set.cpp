@@ -1228,10 +1228,10 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   pos = req.indexOf(F("LO="));
   if (pos > 0) {
     realtimeOverride = getNumVal(req, pos);
-DEBUG_PRINT(F("HTTP LO:")); DEBUG_PRINTLN(realtimeOverride);
+
     if (realtimeOverride > 2) realtimeOverride = REALTIME_OVERRIDE_ALWAYS;
     if (realtimeMode && useMainSegmentOnly) {
-DEBUG_PRINTLN(F("LO cleared due to useMainSegmentOnly"));
+
       strip.getMainSegment().freeze = !realtimeOverride;
 // realtimeOverride = REALTIME_OVERRIDE_NONE; // Fix: do not clear override even if using main segment only
     }

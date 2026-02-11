@@ -429,10 +429,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   syncGroups           = udpn[F("sgrp")] | syncGroups;
   receiveGroups        = udpn[F("rgrp")] | receiveGroups;
   receiveDirect        = getBoolVal(udpn[F("rd")], receiveDirect);
-  if (udpn.containsKey(F("rd"))) {
-    
-    if (!receiveDirect) exitRealtime();
-  }
+  if (udpn.containsKey(F("rd")) && !receiveDirect) exitRealtime();
   if ((bool)udpn[F("nn")]) callMode = CALL_MODE_NO_NOTIFY; //send no notification just for this request
 
   unsigned long timein = root["time"] | UINT32_MAX; //backup time source if NTP not synced
