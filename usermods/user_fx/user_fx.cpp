@@ -3,10 +3,11 @@
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
 // static effect, used if an effect fails to initialize
-static uint16_t mode_static(void) {
+static void mode_static(void) {
   SEGMENT.fill(SEGCOLOR(0));
-  return strip.isOffRefreshRequired() ? FRAMETIME : 350;
 }
+
+#define FX_FALLBACK_STATIC { mode_static(); return; }
 
 #define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
 
@@ -19,9 +20,9 @@ static uint16_t mode_static(void) {
 /////////////////////////
 
 // Diffusion Fire: fire effect intended for 2D setups smaller than 16x16
-static uint16_t mode_diffusionfire(void) {
+static void mode_diffusionfire(void) {
   if (!strip.isMatrix || !SEGMENT.is2D())
-    return mode_static();  // not a 2D set-up
+    FX_FALLBACK_STATIC;  // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -35,7 +36,7 @@ static uint16_t mode_diffusionfire(void) {
 
 unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vWidth()*vHeight() for 2D
   if (!SEGENV.allocateData(dataSize))
-    return mode_static();  // allocation failed
+    FX_FALLBACK_STATIC;  // allocation failed
 
   if (SEGENV.call == 0) {
     SEGMENT.fill(BLACK);
@@ -90,7 +91,6 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
       }
     }
   }
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
@@ -193,17 +193,17 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
   }
 } 
 
-uint16_t mode_2D_magma(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) return mode_static();  // not a 2D set-up
+static void mode_2D_magma(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;;  // not a 2D set-up
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
   const uint8_t MAGMA_MAX_PARTICLES = width / 2;
-  if (MAGMA_MAX_PARTICLES < 2) return mode_static();  // matrix too narrow for lava bombs
+  if (MAGMA_MAX_PARTICLES < 2) FX_FALLBACK_STATIC;  // matrix too narrow for lava bombs
   constexpr size_t SETTINGS_SUM_BYTES = 4; // 4 bytes for settings sum
 
   // Allocate memory: particles (4 floats each) + 2 floats for noise counters + shiftHue cache + settingsSum
   const uint16_t dataSize = (MAGMA_MAX_PARTICLES * 4 + 2) * sizeof(float) + height * sizeof(uint8_t) + SETTINGS_SUM_BYTES;
-  if (!SEGENV.allocateData(dataSize)) return mode_static();  // allocation failed
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;  // allocation failed
 
   float* particleData = reinterpret_cast<float*>(SEGENV.data);
   float* ff_y = &particleData[MAGMA_MAX_PARTICLES * 4];
@@ -252,7 +252,7 @@ uint16_t mode_2D_magma(void) {
     *settingsSumPtr = settingssum;
   }
 
-  if (!shiftHue) return FRAMETIME;   // safety check
+  if (!shiftHue) FX_FALLBACK_STATIC;   // safety check
 
   // Speed control
   float speedfactor = SEGMENT.speed / 255.0f;
@@ -283,8 +283,6 @@ uint16_t mode_2D_magma(void) {
   *ff_z += speedfactor;
 
   SEGENV.step++;
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_2D_MAGMA[] PROGMEM = "Magma@Flow rate,Magma height,Lava bombs,Gravity,,,Bombs in front;;!;2;ix=192,c2=32,o2=1,pal=35";
 
