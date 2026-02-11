@@ -135,12 +135,15 @@ static uint16_t mode_2D_lavalamp(void) {
     }
   }
  
+  // Track size slider changes
+  uint8_t lastSizeControl = SEGENV.aux0;
+
   // Intensity controls number of active particles
   uint8_t numParticles = (SEGMENT.intensity >> 3) + 3; // 3-34 particles (fewer blobs)
   if (numParticles > MAX_LAVA_PARTICLES) numParticles = MAX_LAVA_PARTICLES;
   
   // Track size slider changes
-  uint8_t lastSizeControl = SEGENV.aux0;
+//  uint8_t lastSizeControl = SEGENV.aux0;
   uint8_t currentSizeControl = SEGMENT.custom1;
   bool sizeChanged = (currentSizeControl != lastSizeControl);
 
@@ -254,7 +257,49 @@ static uint16_t mode_2D_lavalamp(void) {
       p->x = cols - 1;
       p->vx = -abs(p->vx); // Just reverse horizontal, don't reduce
     }
+
+
+    // Adjust rise/fall velocity depending on distance from heat source (at bottom)
+    // In top 1/3rd of rows, slow down the rise rate
+    if (p->y < rows * .33f) {
+      if (p->vy <= 0) {  // if going up
+        // Add random speed amount when rising
+        //p->vy += 1.0f / 100.0f; // Add to make LESS negative (slower up)
+        p->vy += 0.03f; // Add to make LESS negative (slower up)
+        // Ensure minimum upward velocity
+        if (p->vy > -0.10f) p->vy = -0.10f;
+      }
+    }
+
+    // In middle 1/3rd of rows, slow down the rise or fall rate
+    if (p->y <= rows * .67f && p->y >= rows * .33f) {
+      if (p->vy > 0) {  // if going down
+        // Subtract random speed amount when falling
+        //p->vy -= random16(3) / 100.0f; // Subtract to make LESS positive (slower down)
+        p->vy -= 0.01f; // Subtract to make LESS positive (slower down)
+        // Ensure minimum downward velocity
+        if (p->vy < 0.06f) p->vy = 0.06f;
+      } else if (p->vy <= 0) {  // if going up
+        // Add random speed amount when rising
+        //p->vy += random16(3) / 100.0f; // Add to make LESS negative (slower up)
+        p->vy += 0.01f; // Add to make LESS negative (slower up)
+        // Ensure minimum upward velocity
+        if (p->vy > -0.10f) p->vy = -0.10f;
+      }
+    }
     
+    // In bottom 1/3rd of rows, slow down the fall rate
+    if (p->y > rows * .67f) {
+      if (p->vy >= 0) {  // if going down
+        // Subtract random speed amount when falling
+        //p->vy -= 1.0f / 100.0f; // Subtract to make LESS positive (slower down)
+        p->vy -= 0.03f; // Subtract to make LESS positive (slower down)
+        // Ensure minimum downward velocity
+        if (p->vy < 0.06f) p->vy = 0.06f;
+      }
+    }
+
+
     // Boundary handling with proper reversal
     // When reaching TOP (y=0 area), reverse to fall back down
     if (p->y <= 0.5f * p->size) {
@@ -277,7 +322,7 @@ static uint16_t mode_2D_lavalamp(void) {
         if (p->vy > -0.10f) p->vy = -0.10f;
       }
     }
-    
+
     // Get color
     uint32_t color;
     if (SEGMENT.check1) {
