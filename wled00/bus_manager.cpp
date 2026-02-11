@@ -106,7 +106,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 
 
 BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
-: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814 || bc.type == TYPE_TM1815)) // TM1814/15 need refresh or they fall-back to a "demo mode"
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
@@ -319,6 +319,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814")},
+    {TYPE_TM1815,        "D",  PSTR("TM1815")},
     {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz")},
     {TYPE_TM1829,        "D",  PSTR("TM1829")},
     {TYPE_UCS8903,       "D",  PSTR("UCS8903")},
