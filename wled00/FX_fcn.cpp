@@ -217,7 +217,7 @@ void Segment::resetIfRequired() {
     DEBUG_PRINTF_P(PSTR("-- Segment %p reset, data cleared\n"), this);
   }
   if (pixels) for (size_t i = 0; i < length(); i++) pixels[i] = BLACK; // clear pixel buffer
-  next_time = 0; step = 0; call = 0; aux0 = 0; aux1 = 0;
+  step = 0; call = 0; aux0 = 0; aux1 = 0;
   reset = false;
   #ifdef WLED_ENABLE_GIF
   endImagePlayback(this);
@@ -1187,9 +1187,9 @@ void WS2812FX::finalizeInit() {
   // create buses/outputs
   unsigned mem = 0;
   unsigned maxI2S = 0;
-  for (const auto &bus : busConfigs) {
-    unsigned memB = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
-    mem += memB;
+  for (auto bus : busConfigs) {
+    bool use_placeholder = false;
+    unsigned busMemUsage = bus.memUsage(Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) ? digitalCount++ : 0); // does not include DMA/RMT buffer
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses)
     #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
       #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
@@ -1209,13 +1209,14 @@ void WS2812FX::finalizeInit() {
       if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
     }
     #endif
-    if (mem + maxI2S <= MAX_LED_MEMORY) {
-      BusManager::add(bus);
-      DEBUG_PRINTF_P(PSTR("Bus memory: %uB\n"), memB);
-    } else {
-      errorFlag = ERR_NORAM_PX; // alert UI
-      DEBUG_PRINTF_P(PSTR("Out of LED memory! Bus %d (%d) #%u not created."), (int)bus.type, (int)bus.count, digitalCount);
-      break;
+    if (mem + busMemUsage + maxI2S > MAX_LED_MEMORY) {
+      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
+      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
+      use_placeholder = true;
+    }
+    if (BusManager::add(bus, use_placeholder) != -1) {
+      mem += BusManager::busses.back()->getBusSize();
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
   DEBUG_PRINTF_P(PSTR("LED buffer size: %uB/%uB\n"), mem + maxI2S, BusManager::memUsage());
@@ -1281,10 +1282,9 @@ void WS2812FX::service() {
     if (!seg.isActive()) continue;
 
     // last condition ensures all solid segments are updated at the same time
-    if (nowUp > seg.next_time || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
+    if (nowUp > _lastServiceShow + _frametime || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
     {
       doShow = true;
-      unsigned frameDelay = FRAMETIME;
 
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
@@ -1292,7 +1292,7 @@ void WS2812FX::service() {
         seg.beginDraw(prog);                // set up parameters for get/setPixelColor() (will also blend colors and palette if blend style is FADE)
         _currentSegment = &seg;             // set current segment for effect functions (SEGMENT & SEGENV)
         // workaround for on/off transition to respect blending style
-        frameDelay = (*_mode[seg.mode])();  // run new/current mode (needed for bri workaround)
+        _mode[seg.mode]();                  // run new/current mode (needed for bri workaround)
         seg.call++;
         // if segment is in transition and no old segment exists we don't need to run the old mode
         // (blendSegments() takes care of On/Off transitions and clipping)
@@ -1303,14 +1303,11 @@ void WS2812FX::service() {
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
-          frameDelay = min(frameDelay, (unsigned)(*_mode[segO->mode])());  // run old mode (needed for bri workaround; semaphore!!)
+          _mode[segO->mode]();              // run old mode (needed for bri workaround; semaphore!!)
           segO->call++;                     // increment old mode run counter
           Segment::modeBlend(false);        // unset semaphore
         }
-        if (seg.isInTransition() && frameDelay > FRAMETIME) frameDelay = FRAMETIME; // force faster updates during transition
       }
-
-      seg.next_time = nowUp + frameDelay;
     }
     _segment_index++;
   }
@@ -1383,6 +1380,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progInv   = 0xFFFFU - progress;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
+  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
 
   Segment::setClippingRect(0, 0);             // disable clipping by default
 
@@ -1723,7 +1721,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   BusManager::setBrightness(scaledBri(b));
   if (!direct) {
     unsigned long t = millis();
-    if (_segments[0].next_time > t + 22 && t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
+    if (t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
   }
 }
 
@@ -1824,6 +1822,10 @@ void WS2812FX::resetSegments() {
   if (isServicing()) return;
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
+  if(_segments.size() == 0) {
+    _segments.emplace_back(); // if out of heap, create a default segment
+    errorFlag = ERR_NORAM_PX;
+  }
   _segments.shrink_to_fit();  // just in case ...
   _mainSegment = 0;
 }
@@ -1846,7 +1848,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
 
     for (size_t i = s; i < BusManager::getNumBusses(); i++) {
       const Bus *bus = BusManager::getBus(i);
-      if (!bus || !bus->isOk()) break;
+      if (!bus) break;
 
       segStarts[s] = bus->getStart();
       segStops[s]  = segStarts[s] + bus->getLength();
@@ -1982,7 +1984,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
     return false;
   }
 
-  if (!isFile || !requestJSONBufferLock(7)) return false;
+  if (!isFile || !requestJSONBufferLock(JSON_LOCK_LEDMAP)) return false;
 
   StaticJsonDocument<64> filter;
   filter[F("width")]  = true;
