@@ -1,5 +1,8 @@
 #include "wled.h"
 
+// forward declarations
+static void sendBytes();
+
 /*
  * Adalight and TPM2 handler
  */
@@ -37,7 +40,7 @@ void updateBaudRate(uint32_t rate){
 }
 
 // RGB LED data return as JSON array. Slow, but easy to use on the other end.
-void sendJSON(){
+static inline void sendJSON(){
   if (serialCanTX) {
     unsigned used = strip.getLengthTotal();
     Serial.write('[');
@@ -50,7 +53,7 @@ void sendJSON(){
 }
 
 // RGB LED data returned as bytes in TPM2 format. Faster, and slightly less easy to use on the other end.
-void sendBytes(){
+static void sendBytes(){
   if (serialCanTX) {
     Serial.write(0xC9); Serial.write(0xDA);
     unsigned used = strip.getLengthTotal();

@@ -5,6 +5,7 @@
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
 // forward declarations
+static void handleDDPPacket(e131_packet_t* p);
 static void handleArtnetPollReply(IPAddress ipAddress);
 static void prepareArtnetPollReply(ArtPollReply *reply);
 static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
@@ -16,7 +17,7 @@ static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16
 
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
-void handleDDPPacket(e131_packet_t* p) {
+static void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
