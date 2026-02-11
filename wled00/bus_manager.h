@@ -140,6 +140,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
+    virtual float    getVoltage() const                         { return LED_VOLTAGE_DEFAULT; }
     virtual size_t   getBusSize() const                         { return sizeof(Bus); }
     virtual const String getCustomText() const                  { return String(); }
 
@@ -259,6 +260,7 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    float    getVoltage() const override;
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
@@ -517,7 +519,9 @@ namespace BusManager {
   //extern std::vector<Bus*> busses;
   extern uint16_t _gMilliAmpsUsed;
   extern uint16_t _gMilliAmpsMax;
+  extern uint8_t  _gVoltage;
   extern bool     _useABL;
+  extern bool     _usePowerMonitoring;
 
   #ifdef ESP32_DATA_IDLE_HIGH
   void    esp32RMTInvertIdle() ;
@@ -533,6 +537,11 @@ namespace BusManager {
   //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
   inline void     setMilliampsMax(uint16_t max) { _gMilliAmpsMax = max;}
+  inline uint8_t  getVoltage()                  { return _gVoltage; }
+  inline void     setVoltage(uint8_t v)         { _gVoltage = v; }
+  inline bool     powerMonitoring()             { return _usePowerMonitoring; }
+  inline void     enablePowerMonitoring(bool pm){ _usePowerMonitoring = pm; }
+  float           currentWatts();               // calculate total power consumption in Watts
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 

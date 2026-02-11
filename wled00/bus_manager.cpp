@@ -240,8 +240,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   c = color_fade(c, _bri, true); // apply brightness
 
-  if (BusManager::_useABL) {
-    // if using ABL, sum all color channels to estimate current and limit brightness in show()
+  if (BusManager::_useABL || BusManager::_usePowerMonitoring) {
+    // if using ABL or power monitoring, sum all color channels to estimate current
     uint8_t r = R(c), g = G(c), b = B(c);
     if (_milliAmpsPerLed < 255) { // normal ABL
       _colorSum += r + g + b + W(c);
@@ -305,6 +305,10 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 
 size_t BusDigital::getBusSize() const {
   return sizeof(BusDigital) + (isOk() ? PolyBus::getDataSize(_busPtr, _iType) : 0); // does not include common I2S DMA buffer
+}
+
+float BusDigital::getVoltage() const {
+  return BusManager::getVoltage();
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -1389,7 +1393,7 @@ void BusManager::initializeABL() {
 }
 
 void BusManager::applyABL() {
-  if (_useABL) {
+  if (_useABL || _usePowerMonitoring) {
     unsigned milliAmpsSum = 0; // use temporary variable to always return a valid _gMilliAmpsUsed to UI
     unsigned totalLEDs = 0;
     for (auto &bus : busses) {
@@ -1403,7 +1407,7 @@ void BusManager::applyABL() {
       }
     }
     // check global current limit and apply global ABL limit, total current is summed above
-    if (_gMilliAmpsMax > 0) {
+    if (_gMilliAmpsMax > 0 && _useABL) {
       uint8_t  newBri = 255;
       uint32_t globalMax = _gMilliAmpsMax > MA_FOR_ESP ? _gMilliAmpsMax - MA_FOR_ESP : 1; // subtract ESP current consumption, fully limit if too low
       if (globalMax > totalLEDs) { // check if budget is larger than standby current
@@ -1424,11 +1428,23 @@ void BusManager::applyABL() {
             busd.applyBriLimit(newBri);
         }
       }
+    } else if (_usePowerMonitoring) {
+      // reset _colorSum for power monitoring without applying brightness limits
+      for (auto &bus : busses) {
+        if (bus->isDigital() && bus->isOk()) {
+          BusDigital &busd = static_cast<BusDigital&>(*bus);
+          busd.applyBriLimit(255);
+        }
+      }
     }
     _gMilliAmpsUsed = milliAmpsSum;
   }
   else
-    _gMilliAmpsUsed = 0; // reset, we have no current estimation without ABL
+    _gMilliAmpsUsed = 0; // reset, we have no current estimation without ABL or power monitoring
+}
+
+float BusManager::currentWatts() {
+  return (currentMilliamps() * _gVoltage) / 1000.0;
 }
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
@@ -1446,4 +1462,6 @@ uint16_t BusDigital::_milliAmpsTotal = 0;
 std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
+uint8_t BusManager::_gVoltage = LED_VOLTAGE_DEFAULT;
 bool BusManager::_useABL = false;
+bool BusManager::_usePowerMonitoring = false;
