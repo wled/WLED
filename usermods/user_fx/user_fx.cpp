@@ -109,7 +109,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 */
 
 // Draw the magma
-void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *ff_z, uint8_t *shiftHue) {
+static void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *ff_z, uint8_t *shiftHue) {
   // Noise parameters - adjust these for different magma characteristics
   // deltaValue: higher = more detailed/turbulent magma
   // deltaHue: higher = taller magma structures
@@ -122,7 +122,7 @@ void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *
   for (uint16_t i = 0; i < width; i++) {
     for (uint16_t j = 0; j < height; j++) {
       // Generate Perlin noise value (0-255)
-      uint8_t noise = perlin8(i * magmaDeltaValue, (j + ff_y_int + random8(2)) * magmaDeltaHue, ff_z_int);
+      uint8_t noise = perlin8(i * magmaDeltaValue, (j + ff_y_int + hw_random8(2)) * magmaDeltaHue, ff_z_int);
       uint8_t paletteIndex = qsub8(noise, shiftHue[j]);  // Apply the vertical fade gradient
       CRGB col = SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, 0);  // Get color from palette
       SEGMENT.addPixelColorXY(i, height - 1 - j, col);  // magma rises from bottom of display
@@ -131,7 +131,7 @@ void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *
 }
 
 // Move and draw lava bombs (particles)
-void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleData, float gravity, uint8_t particleCount) {
+static void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleData, float gravity, uint8_t particleCount) {
   for (uint16_t i = 0; i < particleCount; i++) {
     uint16_t idx = i * 4;
     
@@ -163,8 +163,6 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
     int16_t yi = (int16_t)posY;
     
     if (xi >= 0 && xi < width && yi >= 0 && yi < height) {
-      float velocityY = particleData[idx + 3];
-
       // Get a random color from the current palette
       uint8_t randomIndex = hw_random8(64, 128);
       CRGB pcolor = ColorFromPaletteWLED(SEGPALETTE, randomIndex, 255, LINEARBLEND);
@@ -194,7 +192,7 @@ void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleD
 } 
 
 static void mode_2D_magma(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;;  // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
   const uint8_t MAGMA_MAX_PARTICLES = width / 2;
