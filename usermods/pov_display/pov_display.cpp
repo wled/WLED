@@ -5,37 +5,37 @@ static const char _data_FX_MODE_POV_IMAGE[] PROGMEM = "POV Image@!;;;;";
 
 static POV s_pov;
 
-uint16_t mode_pov_image(void) {
+void mode_pov_image(void) {
   Segment& mainseg = strip.getMainSegment();
   const char* segName = mainseg.name;
   if (!segName) {
-     return FRAMETIME;
+     return;
    }
   // Only proceed for files ending with .bmp (case-insensitive)
   size_t segLen = strlen(segName);
-  if (segLen < 4) return FRAMETIME;
+  if (segLen < 4) return;
   const char* ext = segName + (segLen - 4);
   // compare case-insensitive to ".bmp"
   if (!((ext[0]=='.') &&
         (ext[1]=='b' || ext[1]=='B') &&
         (ext[2]=='m' || ext[2]=='M') &&
         (ext[3]=='p' || ext[3]=='P'))) {
-    return FRAMETIME;
+    return;
   }
 
   const char* current = s_pov.getFilename();
   if (current && strcmp(segName, current) == 0) {
      s_pov.showNextLine();
-     return FRAMETIME;
+     return;
    }
 
   static unsigned long s_lastLoadAttemptMs = 0;
   unsigned long nowMs = millis();
   // Retry at most twice per second if the image is not yet loaded.
-  if (nowMs - s_lastLoadAttemptMs < 500) return FRAMETIME;
+  if (nowMs - s_lastLoadAttemptMs < 500) return;
   s_lastLoadAttemptMs = nowMs;
   s_pov.loadImage(segName);
-  return FRAMETIME;
+  return;
 }
 
 class PovDisplayUsermod : public Usermod {
