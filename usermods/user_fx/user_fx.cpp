@@ -97,7 +97,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 
 /*
-/  Scrolling Morse Code by Bob Loeffler
+/  Morse Code by Bob Loeffler
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
 *   aux1 saves settings: check2 (1 bit), check3 (1 bit), text hash (4 bits) and pattern length (10 bits)
@@ -121,7 +121,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 #define GET_BIT8(arr, i) (((arr)[(i) >> 3] & (1 << ((i) & 7))) != 0)
 
 // Build morse code pattern into a buffer
-void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, uint8_t *wordIndex, uint16_t &index, uint8_t currentWord, int maxSize) {
+static void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, uint8_t *wordIndex, uint16_t &index, uint8_t currentWord, int maxSize) {
   const char *c = morse_code;
   
   // Build the dots and dashes into pattern array
@@ -208,10 +208,10 @@ static void mode_morsecode(void) {
 
   // Allocate per-segment storage for pattern (1023 bits = 127 bytes) + word index array (1024 bytes) + word count (1 byte)
   constexpr size_t MORSECODE_MAX_PATTERN_SIZE = 1023;
-  constexpr size_t MORSECODE_PATTERN_BYTES = MORSECODE_MAX_PATTERN_SIZE / 8; // 127 bytes
+  constexpr size_t MORSECODE_PATTERN_BYTES = (MORSECODE_MAX_PATTERN_SIZE + 7) / 8; // 128 bytes
   constexpr size_t MORSECODE_WORD_INDEX_BYTES = MORSECODE_MAX_PATTERN_SIZE; // 1 byte per bit position
   constexpr size_t MORSECODE_WORD_COUNT_BYTES = 1; // 1 byte for word count
-  if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES + MORSECODE_WORD_COUNT_BYTES)) FX_FALLBACK_STATIC;;
+  if (!SEGENV.allocateData(MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES + MORSECODE_WORD_COUNT_BYTES)) FX_FALLBACK_STATIC;
   uint8_t* morsecodePattern = reinterpret_cast<uint8_t*>(SEGENV.data);
   uint8_t* wordIndexArray = reinterpret_cast<uint8_t*>(SEGENV.data + MORSECODE_PATTERN_BYTES);
   uint8_t* wordCountPtr = reinterpret_cast<uint8_t*>(SEGENV.data + MORSECODE_PATTERN_BYTES + MORSECODE_WORD_INDEX_BYTES);
