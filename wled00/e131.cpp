@@ -33,7 +33,6 @@ static void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  if (!receiveDirect) return;
   unsigned ddpChannelsPerLed = ((p->dataType & 0b00111000)>>3 == 0b011) ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
@@ -75,8 +74,6 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   int uni = 0, dmxChannels = 0;
   uint8_t* e131_data = nullptr;
   int seq = 0, mde = REALTIME_MODE_E131;
-
-  if (!receiveDirect) return;
 
   if (protocol == P_ARTNET)
   {

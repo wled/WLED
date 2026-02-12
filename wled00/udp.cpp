@@ -431,9 +431,7 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   if (realtimeTimeout != UINT32_MAX) {
     realtimeTimeout = (timeoutMs == 255001 || timeoutMs == 65000) ? UINT32_MAX : millis() + timeoutMs;
   }
-  
   realtimeMode = md;
-  
 
   if (realtimeOverride) return;
   if (arlsForceMaxBri) strip.setBrightness(255, true);
@@ -446,7 +444,6 @@ void exitRealtime() {
   strip.setBrightness(bri, true);
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
-  
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
@@ -504,7 +501,7 @@ void handleNotifications()
       if (!receiveDirect) return;
       if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;
       realtimeIP = rgbUdp.remoteIP();
-      
+      DEBUG_PRINTLN(rgbUdp.remoteIP());
       uint8_t lbuf[packetSize];
       rgbUdp.read(lbuf, packetSize);
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
