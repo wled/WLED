@@ -117,15 +117,15 @@ typedef struct LavaParticle {
   bool active;          // will not be displayed if false
 } LavaParticle;
 
-static uint16_t mode_2D_lavalamp(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;; // not a 2D set-up
+static void mode_2D_lavalamp(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
   
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
   
   // Allocate per-segment storage
   constexpr size_t MAX_LAVA_PARTICLES = 35;  // increasing this value could cause slowness for large matrices
-  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) FX_FALLBACK_STATIC;;
+  if (!SEGENV.allocateData(sizeof(LavaParticle) * MAX_LAVA_PARTICLES)) FX_FALLBACK_STATIC;
   LavaParticle* lavaParticles = reinterpret_cast<LavaParticle*>(SEGENV.data);
 
   // Initialize particles on first call
