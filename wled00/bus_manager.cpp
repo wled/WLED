@@ -418,7 +418,7 @@ BusPwm::BusPwm(const BusConfig &bc)
       ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
       ledcAttachPin(_pins[i], channel);
       #else
-      ledcAttach(_pins[i], _frequency,  _depth - (dithering*4));
+      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
       // LEDC timer reset credit @dedehai
       #endif
       // LEDC timer reset credit @dedehai
