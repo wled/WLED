@@ -38,7 +38,7 @@ static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTy
 //simple macro for ArduinoJSON's or syntax
 #define CJSON(a,b) a = b | a
 
-void getStringFromJson(char* dest, const char* src, size_t len) {
+static inline void getStringFromJson(char* dest, const char* src, size_t len) {
   if (src != nullptr) strlcpy(dest, src, len);
 }
 

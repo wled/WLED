@@ -19,6 +19,9 @@
 #include "html_cpal.h"
 #include "html_edit.h"
 
+// forward declarations
+static void createEditHandler();
+
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
@@ -222,7 +225,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
 
 static const char _edit_htm[] PROGMEM = "/edit.htm";
 
-void createEditHandler() {
+static void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
 
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
