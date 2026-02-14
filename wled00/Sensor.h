@@ -17,9 +17,11 @@ class SensorValueArrayVisitor;  // TODO(feature) Not implemented yet!
 class SensorValueStructVisitor; // TODO(feature) Not implemented yet!
 class SensorChannelVisitor;
 
+/// Specific datatype that is contained in a SensorValue.
 enum class SensorValueType : uint8_t
 {
-  Bool = 0,
+  invalid = 0, //< SensorValue is empty.
+  Bool,
   Float,
   Int32,
   UInt32,
@@ -28,16 +30,29 @@ enum class SensorValueType : uint8_t
   Whatever
 };
 
+/// Generic datatype that is delivered by a SensorChannel.
 class SensorValue
 {
 public:
+  /// Default constructor creates an invalid SensorValue.
+  SensorValue() : _type{SensorValueType::invalid} {}
+
   SensorValue(bool val) : _bool{val}, _type{SensorValueType::Bool} {}
   SensorValue(float val) : _float{val}, _type{SensorValueType::Float} {}
   SensorValue(int32_t val) : _int32{val}, _type{SensorValueType::Int32} {}
   SensorValue(uint32_t val) : _uint32{val}, _type{SensorValueType::UInt32} {}
   explicit SensorValue(const SensorValueArray *val) : _array{val}, _type{SensorValueType::Array} {}
   explicit SensorValue(const SensorValueStruct *val) : _struct{val}, _type{SensorValueType::Struct} {}
-  explicit SensorValue(const void *val = nullptr) : _whatever{val}, _type{SensorValueType::Whatever} {}
+  explicit SensorValue(const void *val) : _whatever{val}, _type{SensorValueType::Whatever} {}
+
+  /** Check if the SensorValue is valid.
+   * Converting an invalid SensorValue to a specific type results in undefined behaviour.
+   */
+  bool isValid() const { return _type != SensorValueType::invalid; }
+
+  SensorValueType type() const { return _type; }
+
+  void accept(SensorValueVisitor &visitor) const;
 
   bool as_bool() const { return _type == SensorValueType::Bool ? _bool : false; }
   float as_float() const { return _type == SensorValueType::Float ? _float : 0.0f; }
@@ -47,14 +62,10 @@ public:
   const SensorValueStruct *as_struct() const { return _type == SensorValueType::Struct ? _struct : nullptr; }
   const void *as_whatever() const { return _type == SensorValueType::Whatever ? _whatever : nullptr; }
 
-  SensorValueType type() const { return _type; }
-
-  void accept(SensorValueVisitor &visitor) const;
-
-  operator bool() const { return as_bool(); }
-  operator float() const { return as_float(); }
-  operator int32_t() const { return as_int32(); }
-  operator uint32_t() const { return as_uint32(); }
+  explicit operator bool() const { return as_bool(); }
+  explicit operator float() const { return as_float(); }
+  explicit operator int32_t() const { return as_int32(); }
+  explicit operator uint32_t() const { return as_uint32(); }
   explicit operator const SensorValueArray *() const { return as_array(); }
   explicit operator const SensorValueStruct *() const { return as_struct(); }
   explicit operator const void *() const { return as_whatever(); }
@@ -75,7 +86,7 @@ private:
   SensorValueType _type;
 };
 
-// The physical (or theoretical/virtual) quantity of the readings from a sensor channel.
+/// The physical (or theoretical/virtual) quantity of the readings from a sensor channel.
 struct SensorQuantity
 {
   const char *const name;
@@ -96,6 +107,7 @@ struct SensorQuantity
   static SensorQuantity Percent() { return {"Percent", "%"}; }
 };
 
+/// Properties of a SensorChannel.
 struct SensorChannelProps
 {
   SensorChannelProps(const char *channelName_,
@@ -104,35 +116,56 @@ struct SensorChannelProps
                      SensorValue rangeMax_)
       : channelName{channelName_}, quantity{quantity_}, rangeMin{rangeMin_}, rangeMax{rangeMax_} {}
 
-  const char *const channelName;
-  const SensorQuantity quantity;
-  const SensorValue rangeMin;
-  const SensorValue rangeMax;
+  const char *const channelName; //< The channel's name.
+  const SensorQuantity quantity; //< The quantity of the channel's readings.
+  const SensorValue rangeMin;    //< The readings' (typical) minimum range of operation.
+  const SensorValue rangeMax;    //< The readings' (typical) maximum range of operation.
 };
 
+/// Helper array for multiple SensorChannelProps.
 template <size_t CHANNEL_COUNT>
 using SensorChannelPropsArray = std::array<SensorChannelProps, CHANNEL_COUNT>;
 
 //--------------------------------------------------------------------------------------------------
 class SensorChannelProxy;
 
+/// Interface to be implemented by all sensors.
 class Sensor
 {
 public:
+  /// Get the sensor's name.
   const char *name() { return _sensorName; }
 
+  /// Get the number of provided sensor channels.
   uint8_t channelCount() { return _channelCount; }
 
+  /// Check if the sensor is online and ready to be used.
   bool isSensorReady() { return do_isSensorReady(); }
 
+  /** Get a proxy object that's representing one specific sensor channel.
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   SensorChannelProxy getChannel(uint8_t channelIndex);
 
+  /** Check if a specific sensor channel is ready to deliver data.
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   bool isChannelReady(uint8_t channelIndex) { return do_isSensorReady() ? do_isSensorChannelReady(channelIndex) : false; }
 
+  /** Read a value from a specific sensor channel.
+   * channelIndex >= channelCount() results in undefined behaviour.
+   * Reading a value while isChannelReady() returns false results in undefined behaviour.
+   */
   SensorValue getChannelValue(uint8_t channelIndex) { return do_getSensorChannelValue(channelIndex); }
 
+  /** Get the properties of a specific sensor channel.
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   const SensorChannelProps &getChannelProps(uint8_t channelIndex) { return do_getSensorChannelProperties(channelIndex); }
 
+  /** Accept the given \a visitor for a specific sensor channel.
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   void accept(uint8_t channelIndex, SensorChannelVisitor &visitor);
 
 protected:
@@ -149,21 +182,31 @@ private:
   const uint8_t _channelCount;
 };
 
+/// A proxy object that is representing one specific sensor channel.
 class SensorChannelProxy
 {
 public:
-  SensorChannelProxy(Sensor &realSensor, const uint8_t channelIndex)
-      : _parent{realSensor}, _index{channelIndex} {}
+  SensorChannelProxy(Sensor &parentSensor, const uint8_t channelIndex)
+      : _parent{parentSensor}, _index{channelIndex} {}
 
+  /// Get the channel's name.
   const char *name() { return getProps().channelName; }
 
+  /// Check if the channel is ready to deliver data.
   bool isReady() { return _parent.isChannelReady(_index); }
 
+  /** Read a value from the channel.
+   * Reading a value while isReady() returns false results in undefined behaviour.
+   */
   SensorValue getValue() { return _parent.getChannelValue(_index); }
 
+  /// Get the channel's properties.
   const SensorChannelProps &getProps() { return _parent.getChannelProps(_index); }
 
+  /// Get the channel's corresponding origin sensor.
   Sensor &getRealSensor() { return _parent; }
+
+  /// Get the channel's corresponding index at the origin sensor.
   uint8_t getRealChannelIndex() { return _index; }
 
 private:
@@ -202,19 +245,29 @@ public:
 //--------------------------------------------------------------------------------------------------
 class Usermod;
 
-// A cursor to iterate over all available sensors (provided by UsermodManager).
+/// A cursor to iterate over all available sensors (provided by UsermodManager).
 class SensorCursor
 {
 public:
   using UmIterator = Usermod *const *;
   SensorCursor(UmIterator umBegin, UmIterator umEnd) : _umBegin{umBegin}, _umEnd{umEnd} { reset(); }
 
+  /// Check if the cursor has currently selected a valid sensor instance.
   bool isValid() const { return _sensor != nullptr; }
+
+  /** Get the currently selected sensor instance.
+   * Getting the sensor while isValid() returns false results in undefined behaviour.
+   */
   Sensor &get() { return *_sensor; }
   Sensor &operator*() { return *_sensor; }
   Sensor *operator->() { return _sensor; }
 
+  /** Select the next sensor.
+   * @return Same as \c isValid()
+   */
   bool next();
+
+  /// Jump back to the first sensor (if any).
   void reset();
 
 private:
@@ -229,14 +282,24 @@ Sensor *findSensorByName(SensorCursor allSensors, const char *sensorName);
 
 //--------------------------------------------------------------------------------------------------
 
-// Base class for cursors that iterate over specific channels of all sensors.
+/// Base class for cursors that iterate over specific channels of all sensors.
 class SensorChannelCursor
 {
 public:
+  /// Check if the cursor has currently selected a valid sensor channel instance.
   bool isValid();
+
+  /** Get the currently selected sensor channel instance.
+   * Getting the channel while isValid() returns false results in undefined behaviour.
+   */
   SensorChannelProxy get() { return {*_sensorCursor, _channelIndex}; }
 
+  /** Select the next channel.
+   * @return Same as \c isValid()
+   */
   bool next();
+
+  /// Jump back to the first channel (if any).
   void reset();
 
 protected:
@@ -250,7 +313,7 @@ private:
   uint8_t _channelIndex = 0;
 };
 
-// A cursor to iterate over all channels of all sensors.
+/// A cursor to iterate over all channels of all sensors.
 class AllSensorChannels final : public SensorChannelCursor
 {
 public:
@@ -261,7 +324,7 @@ private:
   bool matches(const SensorChannelProps &) override { return true; }
 };
 
-// A cursor to iterate over all channels with a specific quantity.
+/// A cursor to iterate over all channels with a specific quantity.
 class SensorChannelsByQuantity final : public SensorChannelCursor
 {
 public:
@@ -302,12 +365,25 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
+/** Base class for simple sensor implementations.
+ * Supports at most 32 sensor channels.
+ * @see EasySensor
+ * @see EasySensorArray
+ */
 class EasySensorBase : public Sensor
 {
 public:
+  /// Put the entire sensor offline (by usermod).
   void suspendSensor() { _isSensorReady = false; }
+
+  /** Put a specific sensor channel offline (by usermod).
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   void suspendChannel(uint8_t channelIndex) { _channelReadyFlags &= ~(1U << channelIndex); }
 
+  /** Store the readings for a specific sensor channel (by usermod).
+   * channelIndex >= channelCount() results in undefined behaviour.
+   */
   void set(uint8_t channelIndex, SensorValue val)
   {
     if (channelIndex >= channelCount())
@@ -355,6 +431,14 @@ private:
   bool _isSensorReady = false;
 };
 
+/** A simple sensor implementation that provides multiple sensor channels.
+ * Most of the required sensor housekeeping is provided by this helper.
+ * The usermod is ultimately just responsible for:
+ * - Initialize this helper (as member variable) with the sensor's properties.
+ * - Make this helper available to the UsermodManager.
+ * - Periodically read the physical sensor.
+ * - Store the readings in this helper.
+ */
 template <size_t CHANNEL_COUNT>
 class EasySensorArray : public EasySensorBase
 {
@@ -370,6 +454,14 @@ private:
   std::array<SensorValue, CHANNEL_COUNT> _channelValues;
 };
 
+/** A simple sensor implementation that provides one single sensor channel (at index 0).
+ * Most of the required sensor housekeeping is provided by this helper.
+ * The usermod is ultimately just responsible for:
+ * - Initialize this helper (as member variable) with the sensor's properties.
+ * - Make this helper available to the UsermodManager.
+ * - Periodically read the physical sensor.
+ * - Store the readings in this helper.
+ */
 class EasySensor : public EasySensorBase
 {
 public:
@@ -379,6 +471,7 @@ public:
   EasySensor(const char *sensorName, const SensorChannelProps &channelProps)
       : EasySensorBase{sensorName, 1, &_val, &_props}, _props{channelProps} {}
 
+  /// Store the the readings for the sensor.
   void set(SensorValue val) { EasySensorBase::set(0, val); }
   void operator=(SensorValue val) { set(val); }
 
@@ -389,12 +482,14 @@ private:
 
 //--------------------------------------------------------------------------------------------------
 
+/// Create properties of a channel that delivers generic \c bool readings.
 inline SensorChannelProps makeChannelProps_Bool(const char *channelName,
                                                 const char *quantityName = nullptr)
 {
   return {channelName, {quantityName ? quantityName : channelName, ""}, false, true};
 }
 
+/// Create properties of a channel that delivers generic \c float readings.
 inline SensorChannelProps makeChannelProps_Float(const char *channelName,
                                                  const SensorQuantity &channelQuantity,
                                                  float rangeMin,
@@ -403,6 +498,7 @@ inline SensorChannelProps makeChannelProps_Float(const char *channelName,
   return {channelName, channelQuantity, rangeMin, rangeMax};
 }
 
+/// Create properties of a channel that delivers temperature readings.
 inline SensorChannelProps makeChannelProps_Temperature(const char *channelName,
                                                        float rangeMin = 0.0f,
                                                        float rangeMax = 40.0f)
@@ -411,12 +507,14 @@ inline SensorChannelProps makeChannelProps_Temperature(const char *channelName,
   return {channelName ? channelName : quantity.name, quantity, rangeMin, rangeMax};
 }
 
+/// Create properties of a channel that delivers temperature readings.
 inline SensorChannelProps makeChannelProps_Temperature(float rangeMin = 0.0f,
                                                        float rangeMax = 40.0f)
 {
   return makeChannelProps_Temperature(nullptr, rangeMin, rangeMax);
 }
 
+/// Create properties of a channel that delivers humidity readings.
 inline SensorChannelProps makeChannelProps_Humidity(const char *channelName = nullptr)
 {
   const auto quantity = SensorQuantity::Humidity();

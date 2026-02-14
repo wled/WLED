@@ -324,8 +324,8 @@ class Usermod {
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
-    virtual uint8_t getSensorCount() { return 0; }
-    virtual Sensor *getSensor(uint8_t index) { return nullptr; }
+    virtual uint8_t getSensorCount() { return 0; }                           // get number of provided sensors
+    virtual Sensor *getSensor(uint8_t index) { return nullptr; }             // get a specific sensor; index >= getSensorCount() results in undefined behaviour
 
   // API shims
   private:

@@ -99,8 +99,8 @@ uint16_t mode_NumberDumper()
       continue;
 
     const auto &props = channel.getProps();
-    const float sensorValue = channel.getValue();
-    const float sensorValueMax = channel.getProps().rangeMax;
+    const float sensorValue{channel.getValue()};
+    const float sensorValueMax{props.rangeMax};
     // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {
@@ -134,8 +134,8 @@ uint16_t mode_SEF_all()
       continue;
 
     const auto &props = sensor->getChannelProps(channelIndex);
-    const float sensorValue = sensor->getChannelValue(channelIndex);
-    const float sensorValueMax = sensor->getChannelProps(channelIndex).rangeMax;
+    const float sensorValue{sensor->getChannelValue(channelIndex)};
+    const float sensorValueMax{props.rangeMax};
     // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {
@@ -176,8 +176,8 @@ uint16_t mode_Fluctuations()
       continue;
 
     const auto &props = channel.getProps();
-    const float sensorValue = channel.getValue();
-    const float sensorValueMax = props.rangeMax;
+    const float sensorValue{channel.getValue()};
+    const float sensorValueMax{props.rangeMax};
     // TODO(feature) Also take care for negative ranges, and map accordingly.
     if (sensorValueMax > 0.0f)
     {

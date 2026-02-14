@@ -121,6 +121,7 @@ void SensorValue::accept(SensorValueVisitor &visitor) const
     break;
   case SensorValueType::Struct:
     visitor.visit(*_struct);
+    break;
   case SensorValueType::Whatever:
     visitor.visit(_whatever);
     break;

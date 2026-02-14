@@ -31,9 +31,9 @@ public:
 
   Sensor *getSensor(uint8_t index) override
   {
-    if (index != 0)
-      return this;
-    return &_sensorArray;
+    if (index == 0)
+      return &_sensorArray;
+    return this;
   }
 
   bool do_isSensorReady() override { return true; }
