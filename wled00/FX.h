@@ -291,15 +291,18 @@ struct FontHeader {
   uint8_t  maxW;
   uint8_t  first; // from font file
   uint8_t  last;  // from font file
+  char     name[16]; // The requested font name (e.g. "font3.wbf")
+  char     file[16]; // The actual file used (e.g. "font.wbf")
   uint8_t  cachedCodes[64]; // The "Checklist" to see if we need a rebuild, max string length of 64 
   // GlyphEntry registry[glyphCount]; // Variable length
-  // uint8_t bitmapData[]; // Variable length
+  // uint8_t bitmapData[]; // Helper to handle font loading and drawing
 };
 
-class FontHelper {
+class FontManager {
   public:
-    FontHelper(Segment* seg) : _segment(seg), _flashFont(nullptr), _fileFont(nullptr) {}
+    FontManager(Segment* seg) : _segment(seg), _flashFont(nullptr), _fileFont(nullptr) {}
 
+    bool loadFont(const char* filename, const uint8_t* flashFont = nullptr, bool init = false);
     void setFont(const uint8_t* flashFont, const char* filename);
     void setCacheNumbers(bool cache) { _cacheNumbers = cache; } // If set, always cache digits 0-9
     void prepare(const char* text);
@@ -310,6 +313,7 @@ class FontHelper {
     Segment* _segment;
     const uint8_t* _flashFont;
     const char* _fileFont;
+    const char* _fontName; // Requested font name
     bool _cacheNumbers = false;
 
     void rebuildCache(const char* text);
@@ -468,7 +472,7 @@ class WS2812FX;
 // segment, 76 bytes
 class Segment {
   public:
-    friend class FontHelper; // Allow FontHelper to access protected members
+    friend class FontManager; // Allow FontManager to access protected members
     uint32_t colors[NUM_COLORS];
     uint16_t start;   // start index / start X coordinate 2D (left)
     uint16_t stop;    // stop index / stop X coordinate 2D (right); segment is invalid if stop == 0

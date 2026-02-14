@@ -6323,16 +6323,15 @@ void mode_2Dscrollingtext(void) {
   bool useCustomFont = SEGMENT.check2;
   uint8_t fontNum = map(SEGMENT.custom2, 0, 255, 0, 4);
   
-  FontHelper fontHelper(&SEGMENT);
+  FontManager fontManager(&SEGMENT);
+  bool init = (SEGENV.call == 0);
 
   if (useCustomFont) {
     strcpy_P(fileName, PSTR("/font"));
     if (fontNum) sprintf(fileName +5, "%d", fontNum); 
     strcat_P(fileName, PSTR(".wbf"));
     
-    if (WLED_FS.exists(fileName)) {
-        fontHelper.setFont(nullptr, fileName);
-    } else {
+    if (!fontManager.loadFont(fileName, nullptr, init)) {
         useCustomFont = false;
     }
   }
@@ -6346,7 +6345,7 @@ void mode_2Dscrollingtext(void) {
       case 3: selectedFont = console_font_7x9;  break;
       case 4: selectedFont = console_font_5x12; break;
     }
-    fontHelper.setFont(selectedFont, nullptr);
+    fontManager.loadFont(nullptr, selectedFont, init);
     letterHeight = pgm_read_byte_near(&selectedFont[1]);
     letterWidth  = pgm_read_byte_near(&selectedFont[2]);
   }
@@ -6426,10 +6425,10 @@ void mode_2Dscrollingtext(void) {
 
   // PREPARE FONT CACHE
   if (useCustomFont) {
-      if (strpbrk(text, "0123456789")) fontHelper.setCacheNumbers(true); // Optimize for clocks
+      if (strpbrk(text, "0123456789")) fontManager.setCacheNumbers(true); // Optimize for clocks
       while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait 
   }
-  fontHelper.prepare(text);
+  fontManager.prepare(text);
   
   if (useCustomFont && SEGMENT.data) {
     FontHeader* header = (FontHeader*)SEGMENT.data;
@@ -6456,7 +6455,7 @@ void mode_2Dscrollingtext(void) {
     uint8_t charLen;
     uint32_t unicode = utf8_decode(&text[idx], &charLen);
     idx += charLen;
-    uint8_t w = fontHelper.getCharacterWidth(unicode);
+    uint8_t w = fontManager.getCharacterWidth(unicode);
     totalTextWidth += (rotate == 1 || rotate == -1) ? letterHeight : w; // if rotated +/-90, width is height
     if (c < numberOfChars - 1) totalTextWidth += letterSpacing;
   }
@@ -6515,7 +6514,7 @@ void mode_2Dscrollingtext(void) {
     uint32_t unicode = utf8_decode(&text[idx], &charLen);
     idx += charLen;
     
-    uint8_t glyphWidth = fontHelper.getCharacterWidth(unicode);
+    uint8_t glyphWidth = fontManager.getCharacterWidth(unicode);
     uint8_t spacing = letterSpacing;
     
     // Effective width for layout
@@ -6542,7 +6541,7 @@ void mode_2Dscrollingtext(void) {
     if (drawX + ((rotate == 1 || rotate == -1) ? letterHeight : glyphWidth) < 0) continue; 
     if (drawX >= cols) continue;
     
-    fontHelper.drawCharacter(unicode, drawX, yoffset, col1, col2, rotate);
+    fontManager.drawCharacter(unicode, drawX, yoffset, col1, col2, rotate);
   }
 }
 static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
