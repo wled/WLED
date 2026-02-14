@@ -6314,52 +6314,30 @@ void mode_2Dscrollingtext(void) {
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  uint8_t letterHeight;
-  uint8_t letterWidth;
-  uint8_t letterSpacing;
+  uint8_t letterHeight = 8; // Default
+  uint8_t letterWidth = 5;
+  uint8_t letterSpacing = 1;
 
   const uint8_t* selectedFont = nullptr;
-  static File fontFile; // TODO: come up with a good plan, maybe even support multiple files? could do it like image FX. Multi instance can be added if needed (still possible with built in fonts)
+  char fileName[32];
   bool useCustomFont = SEGMENT.check2;
   uint8_t fontNum = map(SEGMENT.custom2, 0, 255, 0, 4);
-  // use custom font from file if check2 is enabled and file exists
+  
+  FontHelper fontHelper(&SEGMENT);
+
   if (useCustomFont) {
-    while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait 
-  //  Serial.print(F("Looking for font file: "));
-    char fileName[16];
     strcpy_P(fileName, PSTR("/font"));
-    if (fontNum) sprintf(fileName +5, "%d", fontNum); // append font type to file name, e.g. /font1.wbf
+    if (fontNum) sprintf(fileName +5, "%d", fontNum); 
     strcat_P(fileName, PSTR(".wbf"));
-    //Serial.println(fileName);
-    if (WLED_FS.exists(fileName)) { // TODO: this is slow (~20ms(?)) maybe cache result? with this line: 9.5fps (3 segments), without: 9.5fps, so does not matter... open and close is the slow part.
-  //  Serial.print(F(" file found "));
-      //if(!fontFile) 
-      fontFile = WLED_FS.open(fileName);
-      if (fontFile) {
-        if (fontFile.read() == 'W') { // check file header
-        //  Serial.println(F(" Valid magic byte found"));
-          letterHeight = fontFile.read(); // font glyph height in pixels
-          letterWidth  = fontFile.read()* 5 / 7; // max glyph width in pixels  //!!! must load the width table and use actual glyph width, this is just a test hack
-          letterSpacing = fontFile.read(); // spacing between characters
-          /*
-          fontFile.seek(0); // reset file pointer to the beginning for later use in drawChar()
-          // print first 500 bytes of the file
-          for (int i = 0; i < 500; i++) {
-             Serial.print(fontFile.read(), DEC);
-             Serial.print(" ");
-          }*/
-        } else {
-          fontFile.close();
-          useCustomFont = false; // invalid file header, fallback to built-in font
-        }
-      }
+    
+    if (WLED_FS.exists(fileName)) {
+        fontHelper.setFont(nullptr, fileName);
+    } else {
+        useCustomFont = false;
     }
-    else return; // font file not found, do not run the effect for now
-    //else
-      //Serial.println(F("Font file not found, using built-in font"));
   }
+
   if (!useCustomFont) {
-    return; // TODO: !!! remvoe debug
     switch (fontNum) {
       default:
       case 0: selectedFont = console_font_4x6;  break;
@@ -6368,24 +6346,22 @@ void mode_2Dscrollingtext(void) {
       case 3: selectedFont = console_font_7x9;  break;
       case 4: selectedFont = console_font_5x12; break;
     }
-      // extract dimensions from the header (see font files for details)
+    fontHelper.setFont(selectedFont, nullptr);
     letterHeight = pgm_read_byte_near(&selectedFont[1]);
     letterWidth  = pgm_read_byte_near(&selectedFont[2]);
   }
-
-  unsigned rotLW, rotLH;
+  
   // letters are rotated
   const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
-  if (rotate == 1 || rotate == -1) {
-    rotLH = letterWidth;
-    rotLW = letterHeight;
-  } else {
-    rotLW = letterWidth;
-    rotLH = letterHeight;
-  }
-
+  
+  // Text preparation (Time/Date logic)
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
-  size_t result_pos = 0;
+  size_t result_pos = 0; // ... (Prepare text)
+  // Re-use the existing text generation logic from previous implementation
+  // We need to copy it or re-implement it. 
+  // I will re-implement the short version of the logic here or I should have copied it. 
+  // Since I am replacing the whole function, I must include the text generation logic.
+  
   char sec[5];
   int  AmPmHour = hour(localTime);
   bool isitAM = true;
@@ -6398,26 +6374,23 @@ void mode_2Dscrollingtext(void) {
   }
 
   size_t len = 0;
-  if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
-  if (len == 0) { // fallback if empty segment name: display date and time
+  if (SEGMENT.name) len = strlen(SEGMENT.name);
+  if (len == 0) {
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
   } else {
     size_t i = 0;
     while (i < len) {
       if (SEGMENT.name[i] == '#') {
-        char token[7]; // copy up to 6 chars + null terminator
-        bool zero = false; // a 0 suffix means display leading zeros
+        char token[7]; 
+        bool zero = false; 
         size_t j = 0;
         while (j < 6 && i + j < len) {
           token[j] = std::toupper(SEGMENT.name[i + j]);
-          if(token[j] == '0')
-            zero = true; // 0 suffix found. Note: there is an edge case where a '0' could be part of a trailing text and not the token, handling it is not worth the effort
+          if(token[j] == '0') zero = true; 
           j++;
         }
         token[j] = '\0';
-        int advance = 5; // number of chars to advance in 'text' after processing the token
-
-        // Process token
+        int advance = 5; 
         char temp[32];
         if      (!strncmp_P(token,PSTR("#DATE"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
         else if (!strncmp_P(token,PSTR("#DDMM"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
@@ -6435,32 +6408,74 @@ void mode_2Dscrollingtext(void) {
         else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 3; }
         else if (!strncmp_P(token,PSTR("#DAY"),4)) { sprintf  (temp,          ("%s")                       ,         dayShortStr(weekday(localTime))); advance = 4; }
         else if (!strncmp_P(token,PSTR("#DD"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         day(localTime)); advance = 3; }
-        else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; } // Unknown token, just copy the #
-
-        if(zero) advance++; // skip the '0' suffix
+        else { temp[0] = '#'; temp[1] = '\0'; zero = false; advance = 1; }
+        
+        if(zero) advance++; 
         size_t temp_len = strlen(temp);
         if (result_pos + temp_len < WLED_MAX_SEGNAME_LEN) {
           strcpy(text + result_pos, temp);
           result_pos += temp_len;
         }
-
         i += advance;
-      }
-      else {
-        if (result_pos < WLED_MAX_SEGNAME_LEN) {
-          text[result_pos++] = SEGMENT.name[i++]; // no token, just copy char
-        } else
-          break; // buffer full
+      } else {
+        if (result_pos < WLED_MAX_SEGNAME_LEN) text[result_pos++] = SEGMENT.name[i++];
+        else break;
       }
     }
   }
 
+  // PREPARE FONT CACHE
+  if (useCustomFont) {
+      if (strpbrk(text, "0123456789")) fontHelper.setCacheNumbers(true); // Optimize for clocks
+      while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait 
+  }
+  fontHelper.prepare(text);
+  
+  if (useCustomFont && SEGMENT.data) {
+    FontHeader* header = (FontHeader*)SEGMENT.data;
+    letterHeight = header->height;
+    letterSpacing = header->spacing;
+    letterWidth = header->maxW; 
+  }
+
+  unsigned rotLW, rotLH;
+  if (rotate == 1 || rotate == -1) {
+    rotLH = letterWidth;
+    rotLW = letterHeight;
+  } else {
+    rotLW = letterWidth;
+    rotLH = letterHeight;
+  }
+
   const int  numberOfChars = utf8_strlen(text);
-//  Serial.printf("Text to display: '%s' (length: %d chars)\n", text, numberOfChars);
-  int width = (numberOfChars * rotLW); // TODO: for variable width fonts calculate the actual width of the text instead of assuming fixed width
+  
+  // Calculate total width using variable width
+  int totalTextWidth = 0;
+  int idx = 0;
+  for (int c = 0; c < numberOfChars; c++) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+    uint8_t w = fontHelper.getCharacterWidth(unicode);
+    totalTextWidth += (rotate == 1 || rotate == -1) ? letterHeight : w; // if rotated +/-90, width is height
+    if (c < numberOfChars - 1) totalTextWidth += letterSpacing;
+  }
+  // If rotated, the "width" of the text string is actually dependent on orientation?
+  // Previous code: `int width = (numberOfChars * rotLW);`
+  // If rotated +/-90, rotLW = letterHeight.
+  // So it assumed fixed height as width.
+  // If variable width font is rotated 90 deg, the "height" of the char becomes its width in the string.
+  // "letterHeight" is constant for the font. So `maxW` doesn't matter for 90deg rotation?
+  // Yes, if rotated 90deg, the character takes `letterHeight` pixels horizontally.
+  
+  if (rotate == 1 || rotate == -1) {
+      totalTextWidth = numberOfChars * (letterHeight + letterSpacing); // Fixed vertical size
+  }
+
   int yoffset = map(SEGMENT.intensity, 0, 255, -rows/2, rows/2) + (rows-rotLH)/2;
-  if (width <= cols) {
-    // scroll vertically (e.g. ^^ Way out ^^) if it fits
+  
+  if (totalTextWidth <= cols) {
+    // scroll vertically
     int speed = map(SEGMENT.speed, 0, 255, 5000, 1000);
     int frac = strip.now % speed + 1;
     if (SEGMENT.intensity == 255) {
@@ -6471,47 +6486,64 @@ void mode_2Dscrollingtext(void) {
   }
 
   if (SEGENV.step < strip.now) {
-    // calculate start offset
-    if (width > cols) {
+    if (totalTextWidth > cols) {
       if (SEGMENT.check3) {
-        if (SEGENV.aux0 == 0) SEGENV.aux0  = width + cols - 1;
+        if (SEGENV.aux0 == 0) SEGENV.aux0  = totalTextWidth + cols - 1;
         else                --SEGENV.aux0;
-      } else                ++SEGENV.aux0 %= width + cols;
-    } else                    SEGENV.aux0  = (cols + width)/2;
-    ++SEGENV.aux1 &= 0xFF; // color shift
-    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
+      } else                ++SEGENV.aux0 %= totalTextWidth + cols;
+    } else                    SEGENV.aux0  = (cols + totalTextWidth)/2;
+    ++SEGENV.aux1 &= 0xFF; 
+    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50);
   }
 
-  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
+  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4)); 
   uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
   uint32_t col2 = BLACK;
-  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
-  // otherwise col2 == BLACK means use currently selected palette for gradient
-  // if gradient is not selected set both colors the same
-  if (SEGMENT.check1) { // use gradient
-    if (SEGMENT.palette == 0) { // use colors for gradient
+  if (SEGMENT.check1) { 
+    if (SEGMENT.palette == 0) { 
       col1 = SEGCOLOR(0);
       col2 = SEGCOLOR(2);
     }
-  } else col2 = col1; // force characters to use single color (from palette)
+  } else col2 = col1;
 
-  int idx = 0;
-
+  // Drawing Loop
+  idx = 0; // Reset index for UTF8
+  int currentXOffset = 0;
+  
   for (int c = 0; c < numberOfChars; c++) {
-    int xoffset = int(cols) - int(SEGENV.aux0) + ((rotLW+2)*c); // TODO: +1 is fixed, need something better
-    if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
     uint8_t charLen;
-    uint32_t unicode = utf8_decode(&text[idx], &charLen); // decode the UTF-8 character
-    //Serial.printf("charlen: %d, unicode: %u, xoffset: %d\n", charLen, unicode, xoffset);
-    idx += charLen; // advance by the length of the current UTF-8 character
-    SEGMENT.drawCharacter(unicode, xoffset, yoffset, selectedFont, fontFile, col1, col2, rotate);
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+    
+    uint8_t glyphWidth = fontHelper.getCharacterWidth(unicode);
+    uint8_t spacing = letterSpacing;
+    
+    // Effective width for layout
+    int advance = 0;
+    
+    int drawX = 0;
+    
+    if (rotate == 1 || rotate == -1) {
+        // Vertical text?
+        // If rotated 90deg, the text is still horizontal but letters are sideways?
+        // Previous logic: `xoffset = int(cols) - int(SEGENV.aux0) + ((rotLW+2)*c);`
+        // `rotLW` was `letterHeight`.
+        // So it advanced by `letterHeight+2`.
+        // I will match this logic.
+        advance = letterHeight + spacing;
+        drawX = int(cols) - int(SEGENV.aux0) + currentXOffset;
+        currentXOffset += advance;
+    } else {
+        advance = glyphWidth + spacing;
+        drawX = int(cols) - int(SEGENV.aux0) + currentXOffset;
+        currentXOffset += advance;
+    }
+
+    if (drawX + ((rotate == 1 || rotate == -1) ? letterHeight : glyphWidth) < 0) continue; 
+    if (drawX >= cols) continue;
+    
+    fontHelper.drawCharacter(unicode, drawX, yoffset, col1, col2, rotate);
   }
-  if (useCustomFont) fontFile.close(); // TODO: check if this is fast enough opening and closing plus parsing each frame. -> without closing, fps go from 9.5fps to 17fps, maybe better to cache the whole word and only update if changed?
-// it can be 64 chars max, each char in normal use is below 32x32 or 128bytes, so 8k per segment absolut max, probably more like 4k and this is not for 8266 terretory.
-// but that only works for text, not for clock. so would need to cache numbers 0-9 always. that is another 1k
-// or: cache currently visible glyphs only, reload if new char appears. add complexity but could still be way faster than rendering each glyph from file each frame.
-//single segment is still fast though, 60fps, with file exists check and open and close: drops to 23fps... cachig may be a good option, can put it in FX data as: charmap, bitmap combo to look it up quickly. 
-// although that may result in frame hickups whenever the file is being cached... psram would really solve it for good, could just drop the whole font in there.
 }
 static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 

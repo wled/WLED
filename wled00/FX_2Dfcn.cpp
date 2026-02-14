@@ -559,169 +559,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   }
 }
 
-// draws a raster font character on canvas
-// only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
-/*
-void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
-  if (!isActive()) return; // not active
-  if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
-  chr -= 32; // align with font table entries
-  const int font = w*h;
-
-  // if col2 == BLACK then use currently selected palette for gradient otherwise create gradient from color and col2
-  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
-
-  for (int i = 0; i<h; i++) { // character height
-    uint8_t bits = 0;
-    switch (font) {
-      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 4x6 font
-      case 40: bits = pgm_read_byte_near(&console_font_5x8[(chr * h) + i]); break;  // 5x8 font
-      case 48: bits = pgm_read_byte_near(&console_font_6x8[(chr * h) + i]); break;  // 6x8 font
-      case 63: bits = pgm_read_byte_near(&console_font_7x9[(chr * h) + i]); break;  // 7x9 font
-      case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
-      default: return;
-    }
-    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP); // NOBLEND is faster
-    for (int j = 0; j<w; j++) { // character width
-      int x0, y0;
-      switch (rotate) {
-        case -1: x0 = x + (h-1) - i; y0 = y + (w-1) - j; break; // -90 deg
-        case -2:
-        case  2: x0 = x + j;         y0 = y + (h-1) - i; break; // 180 deg
-        case  1: x0 = x + i;         y0 = y + j;         break; // +90 deg
-        default: x0 = x + (w-1) - j; y0 = y + i;         break; // no rotation
-      }
-      if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
-      if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXYRaw(x0, y0, c.color32);
-      }
-    }
-  }
-}*/
-#define FONT_MAGIC_BYTE 0x57 // 'W' for WLED
-#define FONT_HEADER_SIZE 11 // size of font header in bytes
-#define LAST_ASCII_CHAR 126 // last ASCII character supported by font (currently hardcoded, could be made dynamic in future)
-
-void Segment::drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2, int8_t rotate) const {
-  if (!isActive() || (fontData == nullptr && !fontFile)) return;
-  //if (pgm_read_byte_near(&fontData[0]) != FONT_MAGIC_BYTE) return; // Check for Magic 'W' TODO: do this in FX not here?
-  uint8_t w, h, space, first, last, flags;
-  uint32_t lastUnicode = 0; // will be calculated based on first unicode char and number of glyphs
-
-  fontFile.seek(1); // skip magic byte (already checked)
-  h     = fontFile.read();
-  w     = fontFile.read(); // max width, (currently not used but could be used to pre allocate a buffer)
-  space = fontFile.read(); // spacing between characters
-  flags = fontFile.read();
-  first = fontFile.read();
-  last  = fontFile.read();
-  uint32_t firstUnicode;
-  fontFile.read((uint8_t *)&firstUnicode,4); // first unicode char in this font
-  if (firstUnicode > 0 && last > LAST_ASCII_CHAR) {
-    lastUnicode = firstUnicode + (last - LAST_ASCII_CHAR - 1); // calculate last unicode char based on first unicode char and number of glyphs
-  }
-  /*
-  Serial.print("Font Metadata: w="); Serial.print(w, DEC);
-  Serial.print(" h="); Serial.print(h, DEC);
-  Serial.print(" flags="); Serial.print(flags, BIN);
-  Serial.print(" first="); Serial.print(first, DEC);
-  Serial.print(" last="); Serial.print(last, DEC);
-  Serial.print(" firstUnicode="); Serial.println(firstUnicode, DEC);*/
-  uint8_t numGlyphs = last - first + 1;
-
-  uint8_t widthTable[numGlyphs]; // max 256 characters, each with its own width (if flags & 0x01)
-  for (int i = 0; i < numGlyphs; i++) {
-    widthTable[i] = fontFile.read();
-  //  Serial.print("Width of char "); Serial.print(first + i, DEC); Serial.print(": "); Serial.println(widthTable[i], DEC);
-  }
-
-  //   print first 500 bytes of the file
-  //  for (int i = 0; i < 500; i++) {
-//Serial.print(fontFile.read(), DEC);
-  //      Serial.print(" ");
-  //  }
-
-  // read font metadata from header
-  /*
-  h     = pgm_read_byte_near(&fontData[1]);
-  w     = pgm_read_byte_near(&fontData[2]);
-  flags = pgm_read_byte_near(&fontData[3]);
-  first = pgm_read_byte_near(&fontData[4]);
-  last  = pgm_read_byte_near(&fontData[5]);
-*/
-  if (unicode < first) return;
-  if (unicode > LAST_ASCII_CHAR) {
-   if (unicode > lastUnicode || unicode < firstUnicode) {
-      unicode = '?'; // unicode is in extended range ad not supported by this font, draw a '?'
-    }
-    else {
-      unicode = unicode - firstUnicode + LAST_ASCII_CHAR + 1; // unicode is in extended range and supported by this font, calculate the corresponding font character index
-    }
-  }
-
-  uint16_t chrIdx = unicode - first;
-
-  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // TODO: move this to FX and pass the palette
-  //const uint8_t* bitmapData = fontData + 10; // data starts after 10-byte header  TODO: add skip over width table if present (flags & 0x01)
-
-  // calculate offset by counting bytes for each glyph
-  uint32_t bitmapDataOffset = FONT_HEADER_SIZE + numGlyphs; // start of bitmap data (after header and width table)
-  for (int i = 0; i < chrIdx; i++) {
-    uint32_t numbits = widthTable[i] * h;
-    uint32_t numbytes = (numbits + 7) / 8; // Calculate padding-inclusive byte size
-    bitmapDataOffset += numbytes;
-  }
-
-  //  bytes per glyph
-  w = widthTable[chrIdx]; // actual width of this character
-  uint16_t bitsPerChar = (uint32_t)w * h; // todo use 16bit math make sure large fonts do not overflow 
-  uint16_t bytesPerChar = (bitsPerChar + 7) / 8; // Calculate padding-inclusive byte size
-  //Serial.printf("Drawing char %u (index %u): w=%u, h=%u, bits=%u, bytes=%u\n", unicode, chrIdx, widthTable[chrIdx], h, bitsPerChar, bytesPerChar);
-
-  // Jump to the start of this specific character's data block
-  //const uint8_t* charData = bitmapData + (chrIdx * bytesPerChar);
-  uint8_t charData[bytesPerChar];
-  fontFile.seek(bitmapDataOffset); // Move file pointer to the character's bitmap data (skip header and width table)
-  fontFile.read(charData, bytesPerChar); // Read the character's bitmap data into
-  // draw glyph from top left to bottom right, row by row (packed format is MSB-first)
-  uint16_t bitIndex = 0;
-  for (int i = 0; i < h; i++) { // glyph height
-    CRGBW c = ColorFromPalette(grad, (i + 1) * 255 / h, 255, LINEARBLEND_NOWRAP);  // NOBLEND is faster
-
-    for (int j = 0; j < w; j++) { // glyph width
-      uint16_t bytePos = bitIndex >> 3; // locate the byte and the specific bit
-      uint8_t bitPos = 7 - (bitIndex & 0x07); // MSB-first bit position within the byte
-      //uint8_t byteVal = pgm_read_byte_near(&charData[bytePos]);
-      uint8_t byteVal = charData[bytePos];
-      bool bitSet = (byteVal >> bitPos) & 1;
-      bitIndex++;
-
-      if (bitSet) {
-        int x0, y0;
-        // Rotation Logic
-        /*
-        switch (rotate) {
-          case -1: x0 = x + (h-1) - i; y0 = y + (w-1) - j; break; // -90 deg
-          case -2:
-          case  2: x0 = x + j;         y0 = y + (h-1) - i; break; // 180 deg
-          case  1: x0 = x + i;         y0 = y + j;         break; // +90 deg
-          default: x0 = x + (w-1) - j; y0 = i + y;         break; // no rotation
-        }*/
-        switch (rotate) {
-          case -1: x0 = x + (h-1) - i; y0 = y + j;         break; // -90 deg
-          case -2:
-          case  2: x0 = x + (w-1) - j; y0 = y + (h-1) - i; break; // 180 deg
-          case  1: x0 = x + i;         y0 = y + (w-1) - j; break; // +90 deg
-          default: x0 = x + j;         y0 = y + i;         break; // No rotation
-        }
-
-        if (x0 >= 0 && x0 < (int)vWidth() && y0 >= 0 && y0 < (int)vHeight()) {
-          setPixelColorXYRaw(x0, y0, c.color32);
-        }
-      }
-    }
-  }
-}
+// Segment::wu_pixel implementation is next
 
 #define WU_WEIGHT(a,b) ((uint8_t) (((a)*(b)+(a)+(b))>>8))
 void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu_pixel procedure by reddit u/sutaburosu
@@ -746,3 +584,388 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 #undef WU_WEIGHT
 
 #endif // WLED_DISABLE_2D
+#define LAST_ASCII_CHAR 126
+// FontHelper implementation
+void FontHelper::setFont(const uint8_t* flashFont, const char* filename) {
+  _flashFont = flashFont;
+  _fileFont = filename;
+}
+
+// Helper to get glyph index from unicode
+int32_t FontHelper::getGlyphIndex(uint32_t unicode, const FontHeader* header) {
+    if (!header) return -1;
+    if (unicode < header->first) return -1;
+    
+    // ASCII Range
+    if (unicode <= LAST_ASCII_CHAR) {
+         if (unicode <= header->last) {
+             return unicode - header->first;
+         }
+    } 
+    // Extended Range
+    else {
+        if (header->firstUnicode > 0 && unicode >= header->firstUnicode) {
+            uint32_t lastUni = header->firstUnicode + (header->last - LAST_ASCII_CHAR - 1);
+            if (unicode <= lastUni) {
+                // Corrected formula: (VirtualIndex) - First
+                return (unicode - header->firstUnicode + LAST_ASCII_CHAR + 1) - header->first;
+            }
+        }
+    }
+    
+    return -1;
+}
+
+void FontHelper::prepare(const char* text) {
+  if (_flashFont) return; // PROGMEM fonts don't need preparation
+  if (!_fileFont) return;
+  if (!text) return;
+
+  // Ensure data loaded for header
+  if (!_segment->data) {
+    rebuildCache(text); // Load header
+    if (!_segment->data) return; // Failed
+  }
+
+  uint8_t neededCodes[64]; // Max unique chars
+  uint8_t neededCount = 0;
+  FontHeader* header = (FontHeader*)_segment->data;
+
+  // 0. Pre-add numbers if requested (Matrix/Clock mode)
+  if (_cacheNumbers) {
+      const char* nums = "0123456789:. ";
+      for (const char* p = nums; *p; p++) {
+          int32_t idx = getGlyphIndex((uint32_t)*p, header);
+          if (idx >= 0 && idx < 256) {
+             neededCodes[neededCount++] = (uint8_t)idx;
+          }
+      }
+  }
+
+  // 1. Decode text and find needed codes
+  size_t len = strlen(text);
+  size_t i = 0;
+
+  while (i < len) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[i], &charLen);
+    i += charLen;
+    
+    int32_t index = getGlyphIndex(unicode, header);
+    
+    if (index < 0) {
+        // Fallback to '?'
+        index = getGlyphIndex('?', header);
+    }
+    
+    if (index >= 0 && index < 256) {
+        // Check if we already marked this code as needed
+        bool alreadyNeeded = false;
+        for (int k=0; k<neededCount; k++) {
+          if (neededCodes[k] == (uint8_t)index) { 
+            alreadyNeeded = true; 
+            break; 
+          }
+        }
+        if (!alreadyNeeded && neededCount < 64) {
+          neededCodes[neededCount++] = (uint8_t)index;
+        }
+    }
+  }
+
+  // 2. Check if all needed codes are in cache
+  bool allCached = true;
+  for (int k=0; k<neededCount; k++) {
+    bool found = false;
+    for (int c=0; c<header->glyphCount; c++) {
+      if (header->cachedCodes[c] == neededCodes[k]) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      allCached = false;
+      break;
+    }
+  }
+  
+  if (!allCached) {
+    rebuildCache(text);
+  }
+}
+
+void FontHelper::rebuildCache(const char* text) {
+  if (!_fileFont) return;
+  
+  File file = WLED_FS.open(_fileFont, "r");
+  // Fallback logic for missing fonts
+  if (!file) {
+      // List of fallback fonts to try
+      // User requested: font.wbf, font1.wbf ... font4.wbf
+      const char* fallbackFonts[] = { "/font.wbf", "/font0.wbf", "/font1.wbf", "/font2.wbf", "/font3.wbf", "/font4.wbf", "/font5.wbf" };
+      
+      for (int i = 0; i < 7; i++) {
+          // Don't try the same file again if it was the initial request
+          if (strncmp(_fileFont, fallbackFonts[i], 15) == 0) continue; 
+          
+          file = WLED_FS.open(fallbackFonts[i], "r");
+          if (file) {
+              break; 
+          }
+      }
+  }
+
+  if (!file) return;
+
+  // Read header
+  if (file.read() != 'W') { file.close(); return; } // Magic
+  
+  FontHeader tempHeader;
+  tempHeader.height = file.read();
+  uint8_t maxWidth = file.read(); 
+  tempHeader.maxW = maxWidth;     
+  tempHeader.spacing = file.read();
+  uint8_t flags = file.read();
+  tempHeader.first = file.read();
+  tempHeader.last = file.read();
+  file.read((uint8_t*)&tempHeader.firstUnicode, 4);
+  
+  // Identify unique codes needed
+  uint8_t neededCodes[64];
+  uint8_t neededCount = 0;
+  
+  // 0. Pre-add numbers if requested (Matrix/Clock mode)
+  if (_cacheNumbers) {
+      const char* nums = "0123456789:. ";
+      for (const char* p = nums; *p; p++) {
+          int32_t idx = getGlyphIndex((uint32_t)*p, &tempHeader);
+          if (idx >= 0 && idx < 256) {
+             neededCodes[neededCount++] = (uint8_t)idx;
+          }
+      }
+  }
+
+  size_t len = strlen(text);
+  size_t i = 0;
+  while (i < len) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[i], &charLen);
+    i += charLen;
+    
+    int32_t index = getGlyphIndex(unicode, &tempHeader);
+
+    if (index < 0) {
+      index = getGlyphIndex('?', &tempHeader);
+    }
+    
+    if (index >= 0 && index < 256) {
+        // Add unique
+        bool known = false;
+        for (int k=0; k<neededCount; k++) if (neededCodes[k] == (uint8_t)index) known = true;
+        if (!known && neededCount < 64) neededCodes[neededCount++] = (uint8_t)index;
+    }
+  }
+  
+  tempHeader.glyphCount = neededCount;
+  // Fill cachedCodes
+  for(int k=0; k<neededCount; k++) tempHeader.cachedCodes[k] = neededCodes[k];
+
+  // Read Width Table
+  uint8_t numGlyphs = tempHeader.last - tempHeader.first + 1;
+  uint8_t widthTable[256]; 
+  if (flags & 0x01) { 
+     // Width table present
+     file.read(widthTable, numGlyphs);
+  } else {
+     // Fixed width
+     for(int k=0; k<numGlyphs; k++) widthTable[k] = tempHeader.maxW;
+  }
+  
+  // Calculate offsets and total size
+  // Bitmap data starts after header (11 bytes) + width table (if any)
+  uint32_t fileDataStart = 11 + ( (flags & 0x01) ? numGlyphs : 0 );
+  
+  uint32_t totalRam = sizeof(FontHeader) + (neededCount * sizeof(GlyphEntry));
+  
+  uint32_t fileOffsets[64];
+  uint32_t bitmapSizes[64];
+  
+  for (int k=0; k<neededCount; k++) {
+    uint8_t code = neededCodes[k];
+    if (code >= numGlyphs) { 
+        bitmapSizes[k] = 0; 
+        continue; 
+    }
+    
+    // Calculate file offset for this code
+    uint32_t offset = fileDataStart;
+    for (int j=0; j<code; j++) {
+       uint16_t bits = widthTable[j] * tempHeader.height;
+       offset += (bits + 7) / 8;
+    }
+    fileOffsets[k] = offset;
+    
+    // Size of this glyph
+    uint16_t bits = widthTable[code] * tempHeader.height;
+    bitmapSizes[k] = (bits + 7) / 8;
+    
+    totalRam += bitmapSizes[k];
+  }
+  
+  // Allocate RAM
+  if (!_segment->allocateData(totalRam)) {
+    file.close();
+    return;
+  }
+  
+  // Write Header
+  uint8_t* ptr = _segment->data;
+  memcpy(ptr, &tempHeader, sizeof(FontHeader));
+  ptr += sizeof(FontHeader);
+  
+  // Write Registry
+  GlyphEntry* registry = (GlyphEntry*)ptr;
+  ptr += neededCount * sizeof(GlyphEntry);
+  
+  uint8_t* bitmapDst = ptr;
+  
+  for (int k=0; k<neededCount; k++) {
+    uint8_t code = neededCodes[k];
+    registry[k].code = code;
+    registry[k].width = widthTable[code];
+    registry[k].height = tempHeader.height;
+    registry[k].padding = 0;
+    
+    if (bitmapSizes[k] > 0) {
+      file.seek(fileOffsets[k]);
+      file.read(bitmapDst, bitmapSizes[k]);
+      bitmapDst += bitmapSizes[k];
+    }
+  }
+  
+  file.close();
+}
+
+uint8_t FontHelper::getCharacterWidth(uint32_t code) {
+  if (_flashFont) {
+    // Flash font fallback
+    // TODO: Support variable width flash fonts if flags indicate it
+    return pgm_read_byte_near(&_flashFont[2]);
+  }
+  
+  if (_segment->data) {
+    FontHeader* header = (FontHeader*)_segment->data;
+    int32_t index = getGlyphIndex(code, header);
+    
+    if (index >= 0) {
+        // Find in registry
+        GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(FontHeader));
+        for (int k=0; k<header->glyphCount; k++) {
+          if (registry[k].code == (uint8_t)index) {
+            return registry[k].width;
+          }
+        }
+    }
+  }
+  return 0;
+}
+
+void FontHelper::drawCharacter(uint32_t code, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate) {
+  uint8_t w = 0, h = 0;
+  uint8_t* val = nullptr; // pointer to bitmap data (RAM or Flash)
+  // For file fonts, we need to read from file into buffer.
+  // For flash fonts, we point directly to PROGMEM.
+  
+  // To unify, we need a way to get the bitmap for the specific glyph.
+  // Flash: assumed fixed width for now (but user wants future proof). 
+  // Let's stick to current Flash logic but use getGlyphIndex if possible? 
+  // Flash fonts don't have a FontHeader struct in RAM easily to pass to getGlyphIndex.
+  // We'd need to construct a temp one or overload getGlyphIndex.
+  
+  if (_flashFont) {
+     const uint8_t* font = _flashFont;
+     h = pgm_read_byte_near(&font[1]);
+     w = pgm_read_byte_near(&font[2]);
+     
+     // TODO: proper mapping for flash fonts? They usually just support ASCII 32-126
+     if (code < 32 || code > 126) return;
+     uint8_t chr = code - 32;
+     
+     CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE;
+     
+     for (int i = 0; i < h; i++) {
+        uint8_t row = pgm_read_byte_near(&font[(chr * h) + i + 3]); 
+        
+        CRGBW c = ColorFromPalette(grad, (i + 1) * 255 / h, 255, LINEARBLEND_NOWRAP);
+        for (int j = 0; j < w; j++) {
+            if ((row >> (7-j)) & 1) { 
+                int x0, y0;
+                switch (rotate) {
+                  case -1: x0 = x + (h-1) - i; y0 = y + j;         break;
+                  case -2:
+                  case  2: x0 = x + (w-1) - j; y0 = y + (h-1) - i; break;
+                  case  1: x0 = x + i;         y0 = y + (w-1) - j; break;
+                  default: x0 = x + j;         y0 = y + i;         break;
+                }
+                if (x0 >= 0 && x0 < (int)_segment->vWidth() && y0 >= 0 && y0 < (int)_segment->vHeight()) {
+                    _segment->setPixelColorXYRaw(x0, y0, c.color32);
+                }
+            }
+        }
+     }
+     return;
+  }
+  
+  // File Font Logic
+  if (!_segment->data) return;
+  FontHeader* header = (FontHeader*)_segment->data;
+      
+  int32_t index = getGlyphIndex(code, header);
+  if (index < 0) return;
+  
+  GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(FontHeader));
+  GlyphEntry* entry = nullptr;
+  uint32_t bitmapOffset = 0;
+  
+  for (int k=0; k<header->glyphCount; k++) {
+    if (registry[k].code == (uint8_t)index) {
+      entry = &registry[k];
+      break;
+    }
+    uint16_t bits = registry[k].width * registry[k].height;
+    bitmapOffset += (bits + 7) / 8;
+  }
+  
+  if (!entry) return;
+  
+  uint8_t* bitmap = _segment->data + sizeof(FontHeader) + (header->glyphCount * sizeof(GlyphEntry)) + bitmapOffset;
+  w = entry->width;
+  h = entry->height;
+  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE;
+  
+  uint16_t bitIndex = 0;
+  for (int i = 0; i < h; i++) {
+    CRGBW c = ColorFromPalette(grad, (i + 1) * 255 / h, 255, LINEARBLEND_NOWRAP);
+    for (int j = 0; j < w; j++) {
+        uint16_t bytePos = bitIndex >> 3;
+        uint8_t bitPos = 7 - (bitIndex & 7);
+        uint8_t byteVal = bitmap[bytePos];
+        bool bitSet = (byteVal >> bitPos) & 1;
+        bitIndex++;
+        
+            if (bitSet) {
+                int x0, y0;
+                switch (rotate) {
+                  case -1: x0 = x + (h-1) - i; y0 = y + j;         break;
+                  case -2:
+                  case  2: x0 = x + (w-1) - j; y0 = y + (h-1) - i; break;
+                  case  1: x0 = x + i;         y0 = y + (w-1) - j; break;
+                  default: x0 = x + j;         y0 = y + i;         break;
+                }
+                if (x0 >= 0 && x0 < (int)_segment->vWidth() && y0 >= 0 && y0 < (int)_segment->vHeight()) {
+                    _segment->setPixelColorXYRaw(x0, y0, c.color32);
+                }
+            }
+    }
+  }
+}

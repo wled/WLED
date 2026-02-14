@@ -273,6 +273,50 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_TV_SIMULATOR           116
 #define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
 
+// Font Helper Class
+// Registry entry for the RAM cache
+struct GlyphEntry {
+  uint8_t code;   // 0-255 index, same as in font
+  uint8_t width; 
+  uint8_t height;
+  uint8_t padding;  // padding is added anyway, might as well indicate it for future use
+};
+
+// Header for the RAM cache
+struct FontHeader {
+  uint32_t firstUnicode; // from font file
+  uint8_t  glyphCount;
+  uint8_t  height;
+  uint8_t  spacing;
+  uint8_t  maxW;
+  uint8_t  first; // from font file
+  uint8_t  last;  // from font file
+  uint8_t  cachedCodes[64]; // The "Checklist" to see if we need a rebuild, max string length of 64 
+  // GlyphEntry registry[glyphCount]; // Variable length
+  // uint8_t bitmapData[]; // Variable length
+};
+
+class FontHelper {
+  public:
+    FontHelper(Segment* seg) : _segment(seg), _flashFont(nullptr), _fileFont(nullptr) {}
+
+    void setFont(const uint8_t* flashFont, const char* filename);
+    void setCacheNumbers(bool cache) { _cacheNumbers = cache; } // If set, always cache digits 0-9
+    void prepare(const char* text);
+    uint8_t getCharacterWidth(uint32_t code);
+    void drawCharacter(uint32_t code, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate);
+
+  private:
+    Segment* _segment;
+    const uint8_t* _flashFont;
+    const char* _fileFont;
+    bool _cacheNumbers = false;
+
+    void rebuildCache(const char* text);
+    int32_t getGlyphIndex(uint32_t unicode, const FontHeader* header);
+};
+
+
 // new 0.14 2D effects
 #define FX_MODE_2DSPACESHIPS           118 //gap fill
 #define FX_MODE_2DCRAZYBEES            119 //gap fill
@@ -424,6 +468,7 @@ class WS2812FX;
 // segment, 76 bytes
 class Segment {
   public:
+    friend class FontHelper; // Allow FontHelper to access protected members
     uint32_t colors[NUM_COLORS];
     uint16_t start;   // start index / start X coordinate 2D (left)
     uint16_t stop;    // stop index / stop X coordinate 2D (right); segment is invalid if stop == 0
@@ -770,7 +815,6 @@ class Segment {
     void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) const;
-    void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) const;
     void wu_pixel(uint32_t x, uint32_t y, CRGB c) const;
     inline void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { drawCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { fillCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
