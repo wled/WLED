@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxB=1,maxD=1,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -37,6 +37,7 @@
 
 		function S() {
 			getLoc();
+			if(localStorage.getItem('ASc')==='true') d.Sf.AS.checked=true;
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
 				d.ledTypes = [/*{i:22,c:1,t:"D",n:"WS2812"},{i:42,c:6,t:"AA",n:"PWM CCT"}*/]; // filled from GetV()
 				d.um_p = [];
@@ -52,22 +53,23 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(b,v,p,m,l,o=5,d=2,a=6,n=4) {
-			maxB  = b; // maxB - max physical (analog + digital) buses: 32 - ESP32, 14 - S3/S2, 6 - C3, 4 - 8266
-			maxV  = v; // maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
-			maxPB = p; // maxPB - max LEDs per bus
-			maxM  = m; // maxM - max LED memory
-			maxL  = l; // maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
-			maxCO = o; // maxCO - max Color Order mappings
-			maxD  = d; // maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
-			maxA  = a; // maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
-			maxBT = n; // maxBT - max buttons
+		function bLimits(c,p,m,l,o,di,r,i,a,n) {
+			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
+			maxPB = p;		// maxPB - max LEDs per bus
+			maxM  = m;		// maxM - max LED memory
+			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
+			maxCO = o;		// maxCO - max Color Order mappings
+			maxD  = di;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
+			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
+			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
+			maxBT = n;		// maxBT - max buttons
 		}
-		function is8266() { return maxA ==  5 && maxD ==  3; } // NOTE: see const.h
-		function is32()   { return maxA == 16 && maxD == 16; } // NOTE: see const.h
-		function isC3()   { return maxA ==  6 && maxD ==  2; } // NOTE: see const.h
-		function isS2()   { return maxA ==  8 && maxD == 12 && maxV == 4; } // NOTE: see const.h
-		function isS3()   { return maxA ==  8 && maxD == 12 && maxV == 6; } // NOTE: see const.h
+		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
+		function isC3()   { return chipID == 1; }
+		function isS2()   { return chipID == 2; }
+		function isS3()   { return chipID == 3; }
+		function is32()   { return chipID == 4; }
 		function pinsOK() {
 			var ok = true;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
@@ -122,6 +124,12 @@
 			d.Sf.data.value = '';
 			e.preventDefault();
 			if (!pinsOK()) {e.stopPropagation();return false;} // Prevent form submission and contact with server
+			let usage = getDuse(), invalidBus = false;
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(s=>{
+				let n = s.name.substring(2,3);
+				if (!isBCok(n, usage)) invalidBus = true;
+			});
+			if (invalidBus) { alert("Invalid Bus-config"); e.stopPropagation(); return false; }
 			// validate HUB75 panel config
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			for (let i=0; i<LTs.length; i++) {
@@ -136,7 +144,7 @@
 					}
 				}
 			};
-			if (bquot > 200) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
+			if (bquot > 100) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
 				if (bquot > 100) msg += "\n\rToo many LEDs for me to handle properly!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
@@ -219,12 +227,12 @@
 			enABL();
 			gId('m1').innerHTML = maxM;
 		}
-		//returns mem usage
+		//returns mem usage for buses including two pixel buffers (segment buffer + global buffer)
 		function getMem(t, n) {
 			if (isAna(t)) return 5;	// analog
 			let len = parseInt(d.Sf["LC"+n].value);
 			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
-			let dbl = 0;
+			let dma = 0; // DMA memory for this bus (only for I2S)
 			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			let mul = 1;
@@ -233,16 +241,30 @@
 				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
 					mul = 5;
 				}
-				let parallelI2S = d.Sf.PR.checked && (is32() || isS2() || isS3()) && !isD2P(t);
-				if (isC3() || (isS3() && !parallelI2S)) {
-					mul = 2; // ESP32 RMT uses double buffer
-				} else if ((is32() || isS2() || isS3()) && toNum(n) > (parallelI2S ? 7 : 0)) {
-					mul = 2; // ESP32 RMT uses double buffer
-				} else if ((parallelI2S && toNum(n) < 8) || (n == 0 && is32())) { // I2S uses extra DMA buffer
-					dbl = len * ch * 3; // DMA buffer for parallel I2S (TODO: ony the bus with largst LED count should be used)
+				if (!is8266() && !isD2P(t)) {
+					mul = 2; // default to double buffer (RMT, 2-pin digital)
+					let driverPref = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
+					if (driverPref == 1) { // I2S to be used
+						mul = 1; // NPB uses single pixel buffer for I2S, DMA buffer serves as second buffer
+						let usage = getDuse();
+						dma = usage.I2Smem; // DMA buffer for I2S/LCD, getDuse() returns the average per I2S bus so it can be distributed and summed
+					}
 				}
+				//console.log(`LED mem for bus ${n} (NPB buffers, DMA buffer per bus, WLED pixel buffers): ${len * ch * mul} + ${dma} + ${pbfr}`);
 			}
-			return len * ch * mul + dbl + pbfr;
+			return len * ch * mul + dma + pbfr;
+		}
+
+		// check if bus configuration is valid
+		function isBCok(n, usage) {
+			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
+			let t = parseInt(d.Sf["LT"+n].value);
+			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
+			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
+			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
+			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
+			if (drv==1 && usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			return true;
 		}
 
 		function UI(change=false)
@@ -294,14 +316,12 @@
 
 			// enable/disable LED fields
 			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
-			let dC = 0; // count of digital buses (for parallel I2S)
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			LTs.forEach((s,i)=>{
 				// is the field a LED type?
 				var n = s.name.substring(2,3); // bus number (0-Z)
 				var t = parseInt(s.value);
 				memu += getMem(t, n); // calc memory
-				dC += (isDig(t) && !isD2P(t));
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
 				if (change) { // did we change LED type?
@@ -340,9 +360,8 @@
 				let nm = LC.name.substring(0,2);     // field name : /L./
 				let n  = LC.name.substring(2,3);     // bus number (0-Z)
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-				if (isDig(t)) {
+				if (isDig(t) && !isD2P(t)) {
 					if (sameType == 0) sameType = t; // first bus type
-					else if (sameType != t) sameType = -1; // different bus type
 				}
 				// do we have a led count field
 				if (nm=="LC") {
@@ -416,13 +435,47 @@
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					} else LC.style.color = "#fff";
 			});
-			if (is32() || isS2() || isS3()) {
-				if (maxLC > 600 || dC < 2 || sameType <= 0) {
-					d.Sf["PR"].checked = false;
-					gId("prl").classList.add("hide");
-				} else
-					gId("prl").classList.remove("hide");
-			} else d.Sf["PR"].checked = false;
+
+			// Use helper function to calculate channel usage
+			let usage = getDuse();
+
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
+				let n = s.name.substring(2,3);
+				let t = parseInt(s.value);
+				let drvsel = gId("drvsel"+n); // driver selection dropdown
+				if (drvsel) {
+					drvsel.style.display = "none"; // hide by default
+					drvsel.style.color = "#fff"; // reset color
+				}
+				s.style.color = "#fff"; // reset
+
+				if (isDig(t) && !isD2P(t)) {
+					// Update I2S/RMT driver info/dropdown for ESP32 digital buses, C3 only supports RMT
+					if (!is8266() && !isC3()) {
+						// Show driver selection dropdown when I2S is enabled, mark red if invalid
+						if (drvsel) {
+							if (d.Sf.AS.checked) drvsel.style.display = "inline"; // only show when advanced settings enabled
+							d.Sf["LD"+n].value = d.Sf["LD"+n].value | 0; // default to RMT
+							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
+						}
+					}
+				}
+			});
+			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
+			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
+
+			// Show channel usage warning
+			let chanuse = gId('chanuse');
+			let channelMsg = gId('chanusemsg');
+			if (chanuse && channelMsg && !is8266()) {
+				chanuse.style.display = 'inline';
+				chanuse.style.color = '#ccc';
+				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}`;
+				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S) {
+					chanuse.style.color = 'red';
+				}
+			}
+
 			// distribute ABL current if not using PPL
 			enPPL(sDI);
 
@@ -458,6 +511,7 @@
 			gId('fpsWarn').style.display = (d.Sf.FR.value == 0) || (d.Sf.FR.value >= 80) ? 'block':'none';
 			gId('fpsHigh').style.display = (d.Sf.FR.value >= 80) ? 'block':'none';
 		}
+
 		function lastEnd(i) {
 			if (i-- < 1) return 0;
 			var s = chrID(i);
@@ -466,6 +520,7 @@
 			if (isPWM(t)) v = 1; //PWM busses
 			return isNaN(v) ? 0 : v;
 		}
+
 		function addLEDs(n,init=true)
 		{
 			var o = gEBCN("iST");
@@ -481,7 +536,7 @@
 				var cn = `<div class="iST">
 <hr class="sml">
 ${i+1}:
-<select name="LT${s}" onchange="updateTypeDropdowns();UI(true)"></select><br>
+<select name="LT${s}" onchange="UI(true)"></select><br>
 <div id="abl${s}">
 mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>
@@ -507,13 +562,19 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <div id="dig${s}l" style="display:none">Clock: <select name="SP${s}"><option value="0">Slowest</option><option value="1">Slow</option><option value="2">Normal</option><option value="3">Fast</option><option value="4">Fastest</option></select></div>
 <div>
 <span id="psd${s}">Start:</span> <input type="number" name="LS${s}" id="ls${s}" class="l starts" min="0" max="8191" value="${lastEnd(i)}" oninput="startsDirty[${i}]=true;UI();" required />&nbsp;
-<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI()" /></div><br>
+<div id="dig${s}c" style="display:inline">Length: <input type="number" name="LC${s}" class="l" min="1" max="${maxPB}" value="1" required oninput="UI();" /></div><br>
 </div>
 <span id="p0d${s}">GPIO:</span><input type="number" name="L0${s}" required class="s" onchange="UI();pinUpd(this);"/>
 <span id="p1d${s}"></span><input type="number" name="L1${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p2d${s}"></span><input type="number" name="L2${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p3d${s}"></span><input type="number" name="L3${s}" class="s" onchange="UI();pinUpd(this);"/>
 <span id="p4d${s}"></span><input type="number" name="L4${s}" class="s" onchange="UI();pinUpd(this);"/>
+<div id="drvsel${s}" style="display:none">
+Driver: <select name="LD${s}" onchange="UI()">
+<option value="0">RMT</option>
+<option value="1">I2S</option>
+</select>
+</div>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
@@ -694,6 +755,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
 							d.getElementsByName("LT"+i)[0].value   = v.type;
+							d.getElementsByName("LD"+i)[0].value   = v.drv | 0; // output driver type (RMT or I2S, default to RMT if not set)
 							d.getElementsByName("LS"+i)[0].value   = v.start;
 							d.getElementsByName("LC"+i)[0].value   = v.len;
 							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
@@ -706,7 +768,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
-						d.getElementsByName("PR")[0].checked  = l.prl | 0;
 						d.getElementsByName("MA")[0].value    = l.maxpwr;
 						d.getElementsByName("ABL")[0].checked = l.maxpwr > 0;
 					}
@@ -839,11 +900,50 @@ Swap: <select id="xw${s}" name="XW${s}">
 			}
 			return opt;
 		}
+		// calculate channel usage across all buses
+		function getDuse() {
+			let rmtUsed = 0, i2sUsed = 0;
+			let I2SType = null;
+			let I2Smem = 0; // DMA memory usage for I2S buses: 3x LED count for single I2S bus, 24x LED count for parallel I2S
+			let maxLEDs = 0; // max number of LEDs for DMA buffer calc
+			if (!is8266()) {
+				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+					let n = sel.name.substring(2,3);
+					let t = parseInt(sel.value);
+					let driverPref = d.Sf["LD"+n]?.value | 0;
+					let ledCount = (parseInt(d.Sf["LC"+n].value) || 0) + (parseInt(d.Sf["SL"+n].value) || 0);
+
+					if (isDig(t) && !isD2P(t)) {
+						if (driverPref === 1) {
+							i2sUsed++;
+							maxLEDs = maxLEDs > ledCount ? maxLEDs : ledCount; // for parallel I2S the memory buffer is shared, largest bus determines total memory usage
+							if (!I2SType) I2SType = t; // first I2S bus determines allowed type for all subsequent I2S buses (parallel I2S limitation)
+						} else {
+							rmtUsed++;
+						}
+					}
+				});
+				// calculate I2S memory usage
+				if (I2SType) {
+					let ch = 3*hasRGB(I2SType) + hasW(I2SType) + hasCCT(I2SType); // byte channel count per LED
+					if (is16b(I2SType)) maxLEDs *= 2; // 16 bit LEDs use 2 bytes per channel
+					I2Smem = maxLEDs * ch * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED byte for single I2S, 24 bytes per LED byte for parallel I2S (S3 always uses parallel), assumes 3-step cadence
+					I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
+				}
+			}
+			return { rmtUsed, i2sUsed, I2SType, I2Smem };
+		}
+
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
 			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
-			// count currently used buses
+
+			// calculate channel usage
+			let usage = getDuse();
+			let firstI2SType = null;
+
+			// Count all bus types
 			LTs.forEach(sel => {
 				let t = parseInt(sel.value);
 				if (isDig(t) && !isD2P(t)) digitalB++;
@@ -851,20 +951,66 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (isD2P(t)) twopinB++;
 				if (isVir(t)) virtB++;
 			});
-			// enable/disable type options according to limits in dropdowns
+
+			// update each LED-type and driver dropdown with appropriate constraints
+			let RMTcount = 0;
+			let I2Scount = 0;
 			LTs.forEach(sel => {
+				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
+				const curDriver = d.Sf["LD"+n]?.value | 0;
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
-				// max digital buses: ESP32 & S2 support mono I2S as well as parallel so we need to take that into account; S3 only supports parallel
-				// supported outputs using parallel I2S/mono I2S: S2: 12/5, S3: 12/4, ESP32: 16/9
-				let maxDB = maxD - ((is32() || isS2() || isS3()) ? (!d.Sf["PR"].checked) * 8 - (!isS3()) : 0); // adjust max digital buses if parallel I2S is not used
-				// disallow adding more of a type that has reached its limit but allow changing the current type
-				if (digitalB >= maxDB && !(isDig(curType) && !isD2P(curType))) disable('option[data-type="D"]');
+				// Update LED type constraints for digital buses
+				if (isDig(curType) && !isD2P(curType)) {
+					// If this bus uses I2S and other I2S buses exist, restrict to same type
+					if (curDriver === 1) {
+						if (firstI2SType == null) firstI2SType = curType; // set first type, first I2S bus is allowed to change to any digital type
+						else {
+							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+								if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+							});
+						}
+					}
+				} else {
+				 	if (digitalB >= maxD) disable('option[data-type="D"]'); // disable digital bus options if limit reached
+					else if (!is8266() && usage.rmtUsed >= maxRMT && (firstI2SType != null)) {
+						// there are still digital buses available, restrict digital bus options to I2S type if RMT is full (ESP32 only)
+						sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+							if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+						});
+					}
+				}
+				// 2-pin digital buses limited to 2
 				if (twopinB >= 2 && !isD2P(curType)) disable('option[data-type="2P"]');
-				// Disable PWM types that need more pins than available (accounting for current type's pins if PWM)
+				// PWM analog types limited by pin count
 				disable(`option[data-type^="${'A'.repeat(maxA - analogB + (isPWM(curType)?numPins(curType):0) + 1)}"]`);
+
+				// update driver selection dropdowns
+				let drvsel = gId("drvsel"+n);
+				if (drvsel && isDig(curType) && !isD2P(curType)) {
+					let rmtOpt = drvsel.querySelector('option[value="0"]');
+					let i2sOpt = drvsel.querySelector('option[value="1"]');
+					rmtOpt.disabled = false;
+					i2sOpt.disabled = false;
+					if (curDriver === 0) {
+						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
+						RMTcount++;
+						if (RMTcount > maxRMT) {
+							rmtOpt.disabled = true; // disable RMT if now full (other logic disables digital types if both full)
+							d.Sf["LD"+n].value = "1"; // switch to I2S (if no I2S available, digital type is disabled above)
+						}
+					}
+					else {
+						if ((usage.rmtUsed >= maxRMT))	rmtOpt.disabled = true; // disable RMT selection on I2S buses if full
+						I2Scount++;
+						if (I2Scount > maxI2S) {
+							i2sOpt.disabled = true; // disable I2S if now full (other logic disables digital types if both full)
+							d.Sf["LD"+n].value = "0"; // switch to RMT (if no RMT available, digital type is disabled above)
+						}
+					}
+				}
 			});
 		}
 	</script>
@@ -911,8 +1057,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 			&#9888; You might run into stability or lag issues.<br>
 			Use less than <span id="wreason">800 LEDs per output</span> for the best experience!<br>
 		</div>
+		<div id="chanuse" style="display: none;">
+			<span id="chanusemsg"></span><br>
+		</div>
 		<hr class="sml">
-		<div id="prl" class="hide">Use parallel I2S: <input type="checkbox" name="PR"><br></div>
+		Show Advanced Settings <input type="checkbox" name="AS" onchange="localStorage.setItem('ASc',this.checked);UI()"><br>
 		Make a segment for each output: <input type="checkbox" name="MS"><br>
 		Custom bus start indices: <input type="checkbox" onchange="tglSi(this.checked)" id="si"><br>
 		<hr class="sml">

@@ -105,15 +105,19 @@ uint32_t Bus::autoWhiteCalc(uint32_t c) const {
 }
 
 
-BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
+BusDigital::BusDigital(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814))
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
+, _driverType(bc.driverType) // Store driver preference (0=RMT, 1=I2S)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
+  _iType = bc.iType; // reuse the iType that was determined by polyBus in getI() in finalizeInit()
+  if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
+
   if (!PinManager::allocatePin(bc.pins[0], true, PinOwner::BusDigital)) { DEBUGBUS_PRINTLN(F("Pin 0 allocated!")); return; }
   _frequencykHz = 0U;
   _colorSum = 0;
@@ -127,28 +131,30 @@ BusDigital::BusDigital(const BusConfig &bc, uint8_t nr)
     _pins[1] = bc.pins[1];
     _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
   }
-  _iType = PolyBus::getI(bc.type, _pins, nr);
-  if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
+
   _hasRgb = hasRGB(bc.type);
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
-  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, nr);
+  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip);
   _valid = (_busPtr != nullptr) && bc.count > 0;
   // fix for wled#4759
   if (_valid) for (unsigned i = 0; i < _skip; i++) {
     PolyBus::setPixelColor(_busPtr, _iType, i, 0, COL_ORDER_GRB); // set sacrificial pixels to black (CO does not matter here)
   }
-  DEBUGBUS_PRINTF_P(PSTR("Bus: %successfully inited #%u (len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u] mA=%d/%d)\n"),
-    _valid?"S":"Uns",
-    (int)nr,
+  else {
+    cleanup();
+  }
+  DEBUGBUS_PRINTF_P(PSTR("Bus len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u, driver:%s] mA=%d/%d %s\n"),
     (int)bc.count,
     (int)bc.type,
     (int)_hasRgb, (int)_hasWhite, (int)_hasCCT,
     (unsigned)_pins[0], is2Pin(bc.type)?(unsigned)_pins[1]:255U,
     (unsigned)_iType,
-    (int)_milliAmpsPerLed, (int)_milliAmpsMax
+    isI2S() ? "I2S" : "RMT",
+    (int)_milliAmpsPerLed, (int)_milliAmpsMax,
+    _valid ? " " : "FAILED"
   );
 }
 
@@ -337,6 +343,10 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_LPD6803,       "2P", PSTR("LPD6803")},
     {TYPE_P9813,         "2P", PSTR("PP9813")},
   };
+}
+
+bool BusDigital::isI2S() {
+  return (_iType & 0x01) == 0; // I2S types have even iType values
 }
 
 void BusDigital::begin() {
@@ -1093,10 +1103,11 @@ size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
 #endif
 // ***************************************************************************
 
-BusPlaceholder::BusPlaceholder(const BusConfig &bc) 
+BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, bc.refreshReq)
 , _colorOrder(bc.colorOrder)
 , _skipAmount(bc.skipAmount)
+, _driverType(bc.driverType)
 , _frequency(bc.frequency)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
@@ -1113,47 +1124,20 @@ size_t BusPlaceholder::getPins(uint8_t* pinArray) const {
   return nPins;
 }
 
-//utility to get the approx. memory usage of a given BusConfig
-size_t BusConfig::memUsage(unsigned nr) const {
+//utility to get the approx. memory usage of a given BusConfig inclduding segmentbuffer and global buffer (4 bytes per pixel)
+size_t BusConfig::memUsage() const {
+  size_t mem = (count + skipAmount) * 8; // 8 bytes per pixel for segment + global buffer
   if (Bus::isVirtual(type)) {
-    return sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type));
+    mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    return sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, PolyBus::getI(type, pins, nr));
+    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
   } else if (Bus::isOnOff(type)) {
-    return sizeof(BusOnOff);
+    mem += sizeof(BusOnOff);
   } else {
-    return sizeof(BusPwm);
+    mem += sizeof(BusPwm);
   }
-}
-
-
-size_t BusManager::memUsage() {
-  // when ESP32, S2 & S3 use parallel I2S only the largest bus determines the total memory requirements for back buffers
-  // front buffers are always allocated per bus
-  unsigned size = 0;
-  unsigned maxI2S = 0;
-  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-  unsigned digitalCount = 0;
-  #endif
-  for (const auto &bus : busses) {
-    size += bus->getBusSize();
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    if (bus->isDigital() && !bus->is2Pin()) {
-      digitalCount++;
-      if ((PolyBus::isParallelI2S1Output() && digitalCount <= 8) || (!PolyBus::isParallelI2S1Output() && digitalCount == 1)) {
-        #ifdef NPB_CONF_4STEP_CADENCE
-        constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
-        #else
-        constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
-        #endif
-        unsigned i2sCommonSize = stepFactor * bus->getLength() * bus->getNumberOfChannels() * (bus->is16bit()+1);
-        if (i2sCommonSize > maxI2S) maxI2S = i2sCommonSize;
-      }
-    }
-    #endif
-  }
-  return size + maxI2S;
+  return mem;
 }
 
 int BusManager::add(const BusConfig &bc, bool placeholder) {
@@ -1178,7 +1162,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     busses.push_back(make_unique<BusHub75Matrix>(bc));
 #endif
   } else if (Bus::isDigital(bc.type)) {
-    busses.push_back(make_unique<BusDigital>(bc, Bus::is2Pin(bc.type) ? twoPin : digital));
+    busses.push_back(make_unique<BusDigital>(bc));
   } else if (Bus::isOnOff(bc.type)) {
     busses.push_back(make_unique<BusOnOff>(bc));
   } else {
@@ -1216,49 +1200,35 @@ String BusManager::getLEDTypesJSONString() {
   return json;
 }
 
-void BusManager::useParallelOutput() {
-  DEBUGBUS_PRINTLN(F("Bus: Enabling parallel I2S."));
-  PolyBus::setParallelI2S1Output();
+uint8_t BusManager::getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
+  return PolyBus::getI(busType, pins, driverPreference);
 }
-
-bool BusManager::hasParallelOutput() {
-  return PolyBus::isParallelI2S1Output();
-}
-
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
   busses.clear();
-  PolyBus::setParallelI2S1Output(false);
+  #ifndef ESP8266
+  // Reset channel tracking for fresh allocation
+  PolyBus::resetChannelTracking();
+  #endif
 }
 
 #ifdef ESP32_DATA_IDLE_HIGH
 // #2478
 // If enabled, RMT idle level is set to HIGH when off
 // to prevent leakage current when using an N-channel MOSFET to toggle LED power
+// since I2S outputs are known only during config of buses, lets just assume RMT is used for digital buses
+// unused RMT channels should have no effect
 void BusManager::esp32RMTInvertIdle() {
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
   for (auto &bus : busses) {
     if (bus->getLength()==0 || !bus->isDigital() || bus->is2Pin()) continue;
-    #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, only has 1 I2S but NPB does not support it ATM
-      if (u > 1) return;
-      rmt = u;
-    #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, only has 1 I2S bus, supported in NPB
-      if (u > 3) return;
-      rmt = u;
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, has 2 I2S but NPB does not support them ATM
-      if (u > 3) return;
-      rmt = u;
-    #else
-      unsigned numI2S = !PolyBus::isParallelI2S1Output(); // if using parallel I2S, RMT is used 1st
-      if (numI2S > u) continue;
-      if (u > 7 + numI2S) return;
-      rmt = u - numI2S;
-    #endif
+    if (static_cast<BusDigital*>(bus.get())->isI2S()) continue;
+    if (u >= WLED_MAX_RMT_CHANNELS) return;
     //assumes that bus number to rmt channel mapping stays 1:1
     rmt_channel_t ch = static_cast<rmt_channel_t>(rmt);
     rmt_idle_level_t lvl;
@@ -1433,9 +1403,15 @@ void BusManager::applyABL() {
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
-
+#ifndef ESP8266
+// PolyBus channel tracking for dynamic allocation
 bool PolyBus::_useParallelI2S = false;
-
+uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
+uint8_t PolyBus::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
+uint8_t PolyBus::_i2sChannelsAssigned = 0; // number of I2S channels assigned durig getI() check
+uint8_t PolyBus::_parallelBusItype = 0;    // type I_NONE
+uint8_t PolyBus::_2PchannelsAssigned = 0;
+#endif
 // Bus static member definition
 int16_t Bus::_cct = -1;
 uint8_t Bus::_cctBlend = 0; // 0 - 127
