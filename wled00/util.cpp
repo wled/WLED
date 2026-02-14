@@ -175,7 +175,6 @@ uint32_t utf8_decode(const char *s, uint8_t *len)
 {
     uint8_t c = (uint8_t)s[0];
     if (c == '\0') {
-      *len = 0; // null terminator, no code point
       return 0;
     }
     uint8_t n = UTF8_LEN(c);   // number of bytes in this UTF-8 sequence
@@ -202,7 +201,8 @@ size_t utf8_strlen(const char *s)
   size_t len = 0;
   while (*s != '\0') {
     uint8_t charLen;
-    utf8_decode(s, &charLen); // decode the UTF-8 character to get its length
+    uint32_t unicode = utf8_decode(s, &charLen); // decode the UTF-8 character to get its length
+    if (!unicode) break; // stop at null terminator (just in case, should not happen but to avoid infinite loop on malformed strings)
     s += charLen; // advance by the length of the current UTF-8 character
     len++;
   }

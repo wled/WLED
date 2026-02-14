@@ -6339,7 +6339,7 @@ void mode_2Dscrollingtext(void) {
   if (!useCustomFont) {
     switch (fontNum) {
       default:
-      case 0: selectedFont = console_font_4x6;  break;
+      case 0: selectedFont = tinypixie2_6px;  break;
       case 1: selectedFont = console_font_5x8;  break;
       case 2: selectedFont = console_font_6x8;  break;
       case 3: selectedFont = console_font_7x9;  break;
@@ -6426,15 +6426,14 @@ void mode_2Dscrollingtext(void) {
   // PREPARE FONT CACHE
   if (useCustomFont) {
       if (strpbrk(text, "0123456789")) fontManager.setCacheNumbers(true); // Optimize for clocks
-      while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait 
+      //while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait  -> TODO: do this in fontmanager before re-caching and only on C3
   }
   fontManager.prepare(text);
   
   if (useCustomFont && SEGMENT.data) {
     FontHeader* header = (FontHeader*)SEGMENT.data;
     letterHeight = header->height;
-    letterSpacing = header->spacing;
-    letterWidth = header->maxW; 
+    letterWidth = header->width; 
   }
 
   unsigned rotLW, rotLH;

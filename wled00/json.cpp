@@ -142,21 +142,6 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   if (elem["n"]) {
     // name field exists
     const char * name = elem["n"].as<const char*>();
-    // print chars as hex
-    for (size_t i = 0; name && name[i] != '\0'; i++) {
-      Serial.print(name[i], HEX);
-      Serial.print(' ');
-    }
-    Serial.println();
-    // print utf-8 decoded code points
-    size_t i = 0;
-    while (i < strlen(name)) {
-      uint8_t charLen;
-      uint32_t codePoint = utf8_decode(&name[i], &charLen);
-      Serial.print("U+");
-      Serial.println(codePoint, HEX);
-      i += charLen;
-    }
     seg.setName(name); // will resolve empty and null correctly
   } else if (start != seg.start || stop != seg.stop) {
     // clearing or setting segment without name field
