@@ -365,32 +365,28 @@
 				}
 				// do we have a led count field
 				if (nm=="LC") {
+					if (!isHub75(t)) {
+						LC.max = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384); // set max value
+					} else {
+						LC.min = undefined;
+						LC.max = undefined;
+					}
 					let c = parseInt(LC.value,10); //get LED count
 					if (!customStarts || !startsDirty[toNum(n)]) gId("ls"+n).value = sLC; //update start value
 					gId("ls"+n).disabled = !customStarts; //enable/disable field editing
 					if (c) {
 						let s = parseInt(gId("ls"+n).value); //start value
 						if (s+c > sLC) sLC = s+c; //update total count
-						if (c > maxLC) maxLC = c; //max per output
 						if (!isVir(t)) sPC += c; //virtual out busses do not count towards physical LEDs
 						if (isDig(t)) {
+							if (c > maxLC) maxLC = c; //max per output
 							sDI += c; // summarize digital LED count
 							let maPL = parseInt(d.Sf["LA"+n].value);
-							if (maPL == 255) maPL = 12;
+							if (maPL == 255) maPL = 12; // wacky WS2815 mode (255 == 12mA per LED)
 							busMA += maPL*c; // summarize maximum bus current (calculated)
 						}
 					} // increase led count
 					return;
-				}
-				// do we have led pins for digital leds
-				if (nm=="L0" || nm=="L1") {
-					if (!isHub75(t)) {
-						d.Sf["LC"+n].max = maxPB; // update max led count value
-					}
-					else {
-						d.Sf["LC"+n].min = undefined;
-						d.Sf["LC"+n].max = undefined;
-					}
 				}
 				// ignore IP address (stored in pins for virtual busses)
 				if (nm.search(/^L[0-3]/) == 0) { // pin fields
@@ -1111,7 +1107,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		Apply preset <input name="BP" type="number" class="m" min="0" max="250" required> at boot (0 uses values from above)<br><br>
 		Use Gamma correction for color: <input type="checkbox" name="GC"> (strongly recommended)<br>
 		Use Gamma correction for brightness: <input type="checkbox" name="GB"> (not recommended)<br>
-		Use Gamma value: <input name="GV" type="number" class="m" placeholder="2.8" min="1" max="3" step="0.1" required><br><br>
+		Use Gamma value: <input name="GV" type="number" class="m" placeholder="2.2" min="0.1" max="3" step="0.1" required><br><br>
 		Brightness factor: <input name="BF" type="number" class="m" min="1" max="255" required> %
 		<h3>Transitions</h3>
 		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>

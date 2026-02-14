@@ -74,7 +74,7 @@ void WS2812FX::setUpMatrix() {
       size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
 
-      if (isFile && requestJSONBufferLock(20)) {
+      if (isFile && requestJSONBufferLock(JSON_LOCK_LEDGAP)) {
         DEBUG_PRINT(F("Reading LED gap from "));
         DEBUG_PRINTLN(fileName);
         // read the array into global JSON buffer

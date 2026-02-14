@@ -109,7 +109,7 @@ static void setOff() {
   }
 }
 
-void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
@@ -120,7 +120,7 @@ static bool remoteJson(int button)
   char objKey[10];
   bool parsed = false;
 
-  if (!requestJSONBufferLock(22)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
 
   sprintf_P(objKey, PSTR("\"%d\":"), button);
 

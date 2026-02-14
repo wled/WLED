@@ -6,6 +6,7 @@
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"
+#include "js_iro.h"
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
@@ -17,6 +18,9 @@
 #endif
 #include "html_cpal.h"
 #include "html_edit.h"
+
+// forward declarations
+static void createEditHandler();
 
 
 // define flash strings once (saves flash memory)
@@ -36,6 +40,7 @@ static const char s_cache_control[]  PROGMEM = "Cache-Control";
 static const char s_no_store[]       PROGMEM = "no-store";
 static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
+static const char _iro_js[]          PROGMEM = "/iro.js";
 
 
 //Is this an IP?
@@ -220,7 +225,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
 
 static const char _edit_htm[] PROGMEM = "/edit.htm";
 
-void createEditHandler() {
+static void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
 
   editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
@@ -350,6 +355,10 @@ void initServer()
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
   });
 
+  server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_iro_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_iro, JS_iro_length);
+  });
+
   //settings page
   server.on(F("/settings"), HTTP_GET, [](AsyncWebServerRequest *request){
     serveSettings(request);
@@ -395,7 +404,7 @@ void initServer()
     bool verboseResponse = false;
     bool isConfig = false;
 
-    if (!requestJSONBufferLock(14)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SERVER)) {
       request->deferResponse();
       return;
     }
