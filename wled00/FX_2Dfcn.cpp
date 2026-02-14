@@ -559,14 +559,9 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   }
 }
 
-#include "src/font/console_font_4x6.h"
-#include "src/font/console_font_5x8.h"
-#include "src/font/console_font_5x12.h"
-#include "src/font/console_font_6x8.h"
-#include "src/font/console_font_7x9.h"
-
 // draws a raster font character on canvas
 // only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
+/*
 void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
   if (!isActive()) return; // not active
   if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
@@ -599,6 +594,130 @@ void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, 
       if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
       if (((bits>>(j+(8-w))) & 0x01)) { // bit set
         setPixelColorXYRaw(x0, y0, c.color32);
+      }
+    }
+  }
+}*/
+#define FONT_MAGIC_BYTE 0x57 // 'W' for WLED
+#define FONT_HEADER_SIZE 11 // size of font header in bytes
+#define LAST_ASCII_CHAR 126 // last ASCII character supported by font (currently hardcoded, could be made dynamic in future)
+
+void Segment::drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2, int8_t rotate) const {
+  if (!isActive() || (fontData == nullptr && !fontFile)) return;
+  //if (pgm_read_byte_near(&fontData[0]) != FONT_MAGIC_BYTE) return; // Check for Magic 'W' TODO: do this in FX not here?
+  uint8_t w, h, space, first, last, flags;
+  uint32_t lastUnicode = 0; // will be calculated based on first unicode char and number of glyphs
+
+  fontFile.seek(1); // skip magic byte (already checked)
+  h     = fontFile.read();
+  w     = fontFile.read(); // max width, (currently not used but could be used to pre allocate a buffer)
+  space = fontFile.read(); // spacing between characters
+  flags = fontFile.read();
+  first = fontFile.read();
+  last  = fontFile.read();
+  uint32_t firstUnicode;
+  fontFile.read((uint8_t *)&firstUnicode,4); // first unicode char in this font
+  if (firstUnicode > 0 && last > LAST_ASCII_CHAR) {
+    lastUnicode = firstUnicode + (last - LAST_ASCII_CHAR - 1); // calculate last unicode char based on first unicode char and number of glyphs
+  }
+  /*
+  Serial.print("Font Metadata: w="); Serial.print(w, DEC);
+  Serial.print(" h="); Serial.print(h, DEC);
+  Serial.print(" flags="); Serial.print(flags, BIN);
+  Serial.print(" first="); Serial.print(first, DEC);
+  Serial.print(" last="); Serial.print(last, DEC);
+  Serial.print(" firstUnicode="); Serial.println(firstUnicode, DEC);*/
+  uint8_t numGlyphs = last - first + 1;
+
+  uint8_t widthTable[numGlyphs]; // max 256 characters, each with its own width (if flags & 0x01)
+  for (int i = 0; i < numGlyphs; i++) {
+    widthTable[i] = fontFile.read();
+  //  Serial.print("Width of char "); Serial.print(first + i, DEC); Serial.print(": "); Serial.println(widthTable[i], DEC);
+  }
+
+  //   print first 500 bytes of the file
+  //  for (int i = 0; i < 500; i++) {
+//Serial.print(fontFile.read(), DEC);
+  //      Serial.print(" ");
+  //  }
+
+  // read font metadata from header
+  /*
+  h     = pgm_read_byte_near(&fontData[1]);
+  w     = pgm_read_byte_near(&fontData[2]);
+  flags = pgm_read_byte_near(&fontData[3]);
+  first = pgm_read_byte_near(&fontData[4]);
+  last  = pgm_read_byte_near(&fontData[5]);
+*/
+  if (unicode < first) return;
+  if (unicode > LAST_ASCII_CHAR) {
+   if (unicode > lastUnicode || unicode < firstUnicode) {
+      unicode = '?'; // unicode is in extended range ad not supported by this font, draw a '?'
+    }
+    else {
+      unicode = unicode - firstUnicode + LAST_ASCII_CHAR + 1; // unicode is in extended range and supported by this font, calculate the corresponding font character index
+    }
+  }
+
+  uint16_t chrIdx = unicode - first;
+
+  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // TODO: move this to FX and pass the palette
+  //const uint8_t* bitmapData = fontData + 10; // data starts after 10-byte header  TODO: add skip over width table if present (flags & 0x01)
+
+  // calculate offset by counting bytes for each glyph
+  uint32_t bitmapDataOffset = FONT_HEADER_SIZE + numGlyphs; // start of bitmap data (after header and width table)
+  for (int i = 0; i < chrIdx; i++) {
+    uint32_t numbits = widthTable[i] * h;
+    uint32_t numbytes = (numbits + 7) / 8; // Calculate padding-inclusive byte size
+    bitmapDataOffset += numbytes;
+  }
+
+  //  bytes per glyph
+  w = widthTable[chrIdx]; // actual width of this character
+  uint16_t bitsPerChar = (uint32_t)w * h; // todo use 16bit math make sure large fonts do not overflow 
+  uint16_t bytesPerChar = (bitsPerChar + 7) / 8; // Calculate padding-inclusive byte size
+  //Serial.printf("Drawing char %u (index %u): w=%u, h=%u, bits=%u, bytes=%u\n", unicode, chrIdx, widthTable[chrIdx], h, bitsPerChar, bytesPerChar);
+
+  // Jump to the start of this specific character's data block
+  //const uint8_t* charData = bitmapData + (chrIdx * bytesPerChar);
+  uint8_t charData[bytesPerChar];
+  fontFile.seek(bitmapDataOffset); // Move file pointer to the character's bitmap data (skip header and width table)
+  fontFile.read(charData, bytesPerChar); // Read the character's bitmap data into
+  // draw glyph from top left to bottom right, row by row (packed format is MSB-first)
+  uint16_t bitIndex = 0;
+  for (int i = 0; i < h; i++) { // glyph height
+    CRGBW c = ColorFromPalette(grad, (i + 1) * 255 / h, 255, LINEARBLEND_NOWRAP);  // NOBLEND is faster
+
+    for (int j = 0; j < w; j++) { // glyph width
+      uint16_t bytePos = bitIndex >> 3; // locate the byte and the specific bit
+      uint8_t bitPos = 7 - (bitIndex & 0x07); // MSB-first bit position within the byte
+      //uint8_t byteVal = pgm_read_byte_near(&charData[bytePos]);
+      uint8_t byteVal = charData[bytePos];
+      bool bitSet = (byteVal >> bitPos) & 1;
+      bitIndex++;
+
+      if (bitSet) {
+        int x0, y0;
+        // Rotation Logic
+        /*
+        switch (rotate) {
+          case -1: x0 = x + (h-1) - i; y0 = y + (w-1) - j; break; // -90 deg
+          case -2:
+          case  2: x0 = x + j;         y0 = y + (h-1) - i; break; // 180 deg
+          case  1: x0 = x + i;         y0 = y + j;         break; // +90 deg
+          default: x0 = x + (w-1) - j; y0 = i + y;         break; // no rotation
+        }*/
+        switch (rotate) {
+          case -1: x0 = x + (h-1) - i; y0 = y + j;         break; // -90 deg
+          case -2:
+          case  2: x0 = x + (w-1) - j; y0 = y + (h-1) - i; break; // 180 deg
+          case  1: x0 = x + i;         y0 = y + (w-1) - j; break; // +90 deg
+          default: x0 = x + j;         y0 = y + i;         break; // No rotation
+        }
+
+        if (x0 >= 0 && x0 < (int)vWidth() && y0 >= 0 && y0 < (int)vHeight()) {
+          setPixelColorXYRaw(x0, y0, c.color32);
+        }
       }
     }
   }

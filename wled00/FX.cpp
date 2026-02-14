@@ -6302,22 +6302,78 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 ////////////////////////////
 //     2D Scrolling text  //
 ////////////////////////////
+#include "src/font/console_font_4x6.h"
+#include "src/font/console_font_5x8.h"
+#include "src/font/console_font_5x12.h"
+#include "src/font/console_font_6x8.h"
+#include "src/font/console_font_7x9.h"
+
 void mode_2Dscrollingtext(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
 
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  unsigned letterWidth, rotLW;
-  unsigned letterHeight, rotLH;
-  switch (map(SEGMENT.custom2, 0, 255, 1, 5)) {
-    default:
-    case 1: letterWidth = 4; letterHeight =  6; break;
-    case 2: letterWidth = 5; letterHeight =  8; break;
-    case 3: letterWidth = 6; letterHeight =  8; break;
-    case 4: letterWidth = 7; letterHeight =  9; break;
-    case 5: letterWidth = 5; letterHeight = 12; break;
+  uint8_t letterHeight;
+  uint8_t letterWidth;
+  uint8_t letterSpacing;
+
+  const uint8_t* selectedFont = nullptr;
+  static File fontFile; // TODO: come up with a good plan, maybe even support multiple files? could do it like image FX. Multi instance can be added if needed (still possible with built in fonts)
+  bool useCustomFont = SEGMENT.check2;
+  uint8_t fontNum = map(SEGMENT.custom2, 0, 255, 0, 4);
+  // use custom font from file if check2 is enabled and file exists
+  if (useCustomFont) {
+    while (!BusManager::canAllShow()) yield(); // on C3, accessing file system while sending causes glitchs, so wait 
+  //  Serial.print(F("Looking for font file: "));
+    char fileName[16];
+    strcpy_P(fileName, PSTR("/font"));
+    if (fontNum) sprintf(fileName +5, "%d", fontNum); // append font type to file name, e.g. /font1.wbf
+    strcat_P(fileName, PSTR(".wbf"));
+    //Serial.println(fileName);
+    if (WLED_FS.exists(fileName)) { // TODO: this is slow (~20ms(?)) maybe cache result? with this line: 9.5fps (3 segments), without: 9.5fps, so does not matter... open and close is the slow part.
+  //  Serial.print(F(" file found "));
+      //if(!fontFile) 
+      fontFile = WLED_FS.open(fileName);
+      if (fontFile) {
+        if (fontFile.read() == 'W') { // check file header
+        //  Serial.println(F(" Valid magic byte found"));
+          letterHeight = fontFile.read(); // font glyph height in pixels
+          letterWidth  = fontFile.read()* 5 / 7; // max glyph width in pixels  //!!! must load the width table and use actual glyph width, this is just a test hack
+          letterSpacing = fontFile.read(); // spacing between characters
+          /*
+          fontFile.seek(0); // reset file pointer to the beginning for later use in drawChar()
+          // print first 500 bytes of the file
+          for (int i = 0; i < 500; i++) {
+             Serial.print(fontFile.read(), DEC);
+             Serial.print(" ");
+          }*/
+        } else {
+          fontFile.close();
+          useCustomFont = false; // invalid file header, fallback to built-in font
+        }
+      }
+    }
+    else return; // font file not found, do not run the effect for now
+    //else
+      //Serial.println(F("Font file not found, using built-in font"));
   }
+  if (!useCustomFont) {
+    return; // TODO: !!! remvoe debug
+    switch (fontNum) {
+      default:
+      case 0: selectedFont = console_font_4x6;  break;
+      case 1: selectedFont = console_font_5x8;  break;
+      case 2: selectedFont = console_font_6x8;  break;
+      case 3: selectedFont = console_font_7x9;  break;
+      case 4: selectedFont = console_font_5x12; break;
+    }
+      // extract dimensions from the header (see font files for details)
+    letterHeight = pgm_read_byte_near(&selectedFont[1]);
+    letterWidth  = pgm_read_byte_near(&selectedFont[2]);
+  }
+
+  unsigned rotLW, rotLH;
   // letters are rotated
   const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
   if (rotate == 1 || rotate == -1) {
@@ -6399,8 +6455,9 @@ void mode_2Dscrollingtext(void) {
     }
   }
 
-  const int  numberOfLetters = strlen(text);
-  int width = (numberOfLetters * rotLW);
+  const int  numberOfChars = utf8_strlen(text);
+//  Serial.printf("Text to display: '%s' (length: %d chars)\n", text, numberOfChars);
+  int width = (numberOfChars * rotLW); // TODO: for variable width fonts calculate the actual width of the text instead of assuming fixed width
   int yoffset = map(SEGMENT.intensity, 0, 255, -rows/2, rows/2) + (rows-rotLH)/2;
   if (width <= cols) {
     // scroll vertically (e.g. ^^ Way out ^^) if it fits
@@ -6438,13 +6495,25 @@ void mode_2Dscrollingtext(void) {
     }
   } else col2 = col1; // force characters to use single color (from palette)
 
-  for (int i = 0; i < numberOfLetters; i++) {
-    int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
+  int idx = 0;
+
+  for (int c = 0; c < numberOfChars; c++) {
+    int xoffset = int(cols) - int(SEGENV.aux0) + ((rotLW+2)*c); // TODO: +1 is fixed, need something better
     if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen); // decode the UTF-8 character
+    //Serial.printf("charlen: %d, unicode: %u, xoffset: %d\n", charLen, unicode, xoffset);
+    idx += charLen; // advance by the length of the current UTF-8 character
+    SEGMENT.drawCharacter(unicode, xoffset, yoffset, selectedFont, fontFile, col1, col2, rotate);
   }
+  if (useCustomFont) fontFile.close(); // TODO: check if this is fast enough opening and closing plus parsing each frame. -> without closing, fps go from 9.5fps to 17fps, maybe better to cache the whole word and only update if changed?
+// it can be 64 chars max, each char in normal use is below 32x32 or 128bytes, so 8k per segment absolut max, probably more like 4k and this is not for 8266 terretory.
+// but that only works for text, not for clock. so would need to cache numbers 0-9 always. that is another 1k
+// or: cache currently visible glyphs only, reload if new char appears. add complexity but could still be way faster than rendering each glyph from file each frame.
+//single segment is still fast though, 60fps, with file exists check and open and close: drops to 23fps... cachig may be a good option, can put it in FX data as: charmap, bitmap combo to look it up quickly. 
+// although that may result in frame hickups whenever the file is being cached... psram would really solve it for good, could just drop the whole font in there.
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////
