@@ -308,7 +308,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     // set limits
     settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
-      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish ESP types in UI
+      WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
       MAX_LEDS,

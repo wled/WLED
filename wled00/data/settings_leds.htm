@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,maxV=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -53,23 +53,23 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(v,p,m,l,o,d,r,i,a,n) {
-			maxV  = v;		// maxV - min virtual buses: 6 - ESP32/S3, 4 - S2/C3, 3 - ESP8266 (only used to distinguish S2/S3)
+		function bLimits(c,p,m,l,o,di,r,i,a,n) {
+			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
 			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o;		// maxCO - max Color Order mappings
-			maxD  = d;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxD  = di;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
 			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
 			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n;		// maxBT - max buttons
 		}
-		function is8266() { return maxV == 0; } // NOTE: see const.h WLED_MIN_VIRTUAL_BUSSES
-		function isC3()   { return maxV == 1; }
-		function isS2()   { return maxV == 2; }
-		function isS3()   { return maxV == 3; }
-		function is32()   { return maxV == 4; }
+		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
+		function isC3()   { return chipID == 1; }
+		function isS2()   { return chipID == 2; }
+		function isS3()   { return chipID == 3; }
+		function is32()   { return chipID == 4; }
 		function pinsOK() {
 			var ok = true;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
@@ -461,7 +461,8 @@
 					}
 				}
 			});
-			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed)
+			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
+			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
@@ -993,7 +994,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
-					let curDriver = d.Sf["LD"+n]?.value | 0;
 					if (curDriver === 0) {
 						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
 						RMTcount++;
