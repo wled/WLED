@@ -702,6 +702,11 @@ void serializeInfo(JsonObject root)
   root[F("repo")] = repoString;
 #if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)) // ToDO: find a solution to make this work in V5
   root[F("deviceId")] = getDeviceId();
+#else
+  //#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // fake 38char fingerprint from bootloaderSHA1. WARNING: only for testing, not suitable for production!
+  //root[F("deviceId")] = String("0000") + getBootloaderSHA256Hex().substring(4, 34) + String("0000");
+  //#endif
 #endif
 
   JsonObject leds = root.createNestedObject(F("leds"));
@@ -797,7 +802,16 @@ void serializeInfo(JsonObject root)
   int qrssi = WiFi.RSSI();
   wifi_info[F("rssi")] = qrssi;
   wifi_info[F("signal")] = getSignalQuality(qrssi);
-  wifi_info[F("channel")] = WiFi.channel();
+  int wifiChannel = WiFi.channel();
+  wifi_info[F("channel")] = wifiChannel;
+  if ((wifiChannel > 0) && (unsigned(WiFi.status()) < unsigned(WL_CONNECT_FAILED))) { // Wifi Status > 3 are error statuses (disconnected, stopped, signal lost)
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      wifi_info[F("band")] = wifiBand == WIFI_BAND_2G ? F("2.4GHz") : (wifiBand == WIFI_BAND_5G ? F("5GHz"): F("(other)"));
+    #else
+      wifi_info[F("band")] = F("2.4GHz");
+    #endif
+  }
   wifi_info[F("ap")] = apActive;
 
   JsonObject fs_info = root.createNestedObject("fs");
@@ -812,7 +826,7 @@ void serializeInfo(JsonObject root)
     wifi_info[F("txPower")] = (int) WiFi.getTxPower();
     wifi_info[F("sleep")] = (bool) WiFi.getSleep();
   #endif
-  #if !defined(CONFIG_IDF_TARGET_ESP32C2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(CONFIG_IDF_TARGET_ESP32)
     root[F("arch")] = "esp32";
   #else
     root[F("arch")] = ESP.getChipModel();
@@ -993,7 +1007,7 @@ void serializePalettes(JsonObject root, int page)
       default:
         if (i >= palettesCount) // custom palettes
           setPaletteColors(curPalette, customPalettes[i - palettesCount]);
-        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+        else if (i < int(DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
           memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
@@ -1011,6 +1025,9 @@ void serializeNetworks(JsonObject root)
 
   switch (status) {
     case WIFI_SCAN_FAILED:
+      #if defined(SOC_WIFI_SUPPORT_5G) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      if (!WiFi.setBandMode(wifi_band_mode_t(wifiBandMode))) { DEBUG_PRINTLN(F("serializeNetworks(): WiFi band configuration failed!")); }
+      #endif
       WiFi.scanNetworks(true);
       return;
     case WIFI_SCAN_RUNNING:

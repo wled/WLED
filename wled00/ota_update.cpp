@@ -15,7 +15,7 @@ constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears afte
 
 // Bootloader is at fixed offset 0x1000 (4KB), 0x0000 (0KB), or 0x2000 (8KB), and is typically 32KB
 // Bootloader offsets for different MCUs => see https://github.com/wled/WLED/issues/5064
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
+#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
 constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
 #elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
@@ -410,6 +410,7 @@ bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootload
   // 0x000C = ESP32-C2
   // 0x000D = ESP32-C6
   // 0x0010 = ESP32-H2
+  // 0x0017 = ESP32-C5
 
   #if defined(CONFIG_IDF_TARGET_ESP32)
     if (chipId != 0x0000) {
@@ -434,6 +435,13 @@ bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootload
       return false;
     }
     *bootloaderErrorMsg = "ESP32-S3 update not supported yet";
+    return false;
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    if (chipId != 0x0017) {
+      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C5 (0x0017), got 0x" + String(chipId, HEX);
+      return false;
+    }
+    *bootloaderErrorMsg = "ESP32-C5 update not supported yet";
     return false;
   #elif defined(CONFIG_IDF_TARGET_ESP32C6)
     if (chipId != 0x000D) {

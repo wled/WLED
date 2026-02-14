@@ -232,6 +232,20 @@ bool PinManager::isPinOk(byte gpio, bool output)
     if (gpio > 21 && gpio < 33) return false;     // 22 to 32: not connected + SPI FLASH
     // JTAG: GPIO39-42 are usually used for inline debugging
     // GPIO46 is input only and pulled down
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    // strapping pins: (2), 7, 25, 26, 27, 28 (GPIO2 is not a strapping pin; it's used only for external JTAG when GPIO7 selects it)
+    // GPIO 0-15 directly usable, 16-22 are for SPI flash
+    if (gpio > 15 && gpio < 23) return false;     // 16-22 SPI FLASH
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
+    if (gpio == 13 || gpio == 14) return false;   // 13-14 USB-JTAG
+    #endif
+  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    // strapping pins: 4, 5, 8, 9, 15  (GPIO4/MTMS and GPIO5/MTDI are also strapping pins)
+    // GPIO 0-23 directly usable, 24-30 are for SPI flash
+    if (gpio > 23 && gpio < 31) return false;     // 24-30 SPI FLASH
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
+    if (gpio == 12 || gpio == 13) return false;   // 12-13 USB-JTAG
+    #endif
   #else
 
     if ((strncmp_P(PSTR("ESP32-U4WDH"), ESP.getChipModel(), 11) == 0) ||    // this is the correct identifier, but....
