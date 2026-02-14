@@ -9,14 +9,6 @@
 #include "src/dependencies/network/Network.h" // for isConnected() (& WiFi)
 #include "driver/ledc.h"
 #include "soc/ledc_struct.h"
-  #if !(defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
-    #define LEDC_MUTEX_LOCK()    do {} while (xSemaphoreTake(_ledc_sys_lock, portMAX_DELAY) != pdPASS)
-    #define LEDC_MUTEX_UNLOCK()  xSemaphoreGive(_ledc_sys_lock)
-    extern xSemaphoreHandle _ledc_sys_lock;
-  #else
-    #define LEDC_MUTEX_LOCK()
-    #define LEDC_MUTEX_UNLOCK()
-  #endif
 #endif
 #ifdef ESP8266
 #include "core_esp8266_waveform.h"
@@ -25,21 +17,17 @@
 #include "bus_wrapper.h"
 #include "wled.h"
 
-extern char cmDNS[];
-extern bool cctICused;
-extern bool useParallelI2S;
-
 // functions to get/set bits in an array - based on functions created by Brandon for GOL
 //  toDo : make this a class that's completely defined in a header file
 // note: these functions are automatically inline by the compiler
-bool getBitFromArray(const uint8_t* byteArray, size_t position) { // get bit value
+static inline bool getBitFromArray(const uint8_t* byteArray, size_t position) { // get bit value
   size_t byteIndex = position >> 3;    // divide by 8
   unsigned bitIndex = position & 0x07; // modulo 8
   uint8_t byteValue = byteArray[byteIndex];
   return (byteValue >> bitIndex) & 1;
 }
 
-void setBitInArray(uint8_t* byteArray, size_t position, bool value) {  // set bit - with error handling for nullptr
+static inline void setBitInArray(uint8_t* byteArray, size_t position, bool value) {  // set bit - with error handling for nullptr
     //if (byteArray == nullptr) return;
     size_t byteIndex = position >> 3;    // divide by 8
     unsigned bitIndex = position & 0x07; // modulo 8
@@ -49,11 +37,11 @@ void setBitInArray(uint8_t* byteArray, size_t position, bool value) {  // set bi
         byteArray[byteIndex] &= ~(1 << bitIndex);
 }
 
-size_t getBitArrayBytes(size_t num_bits) { // number of bytes needed for an array with num_bits bits
+static inline size_t getBitArrayBytes(size_t num_bits) { // number of bytes needed for an array with num_bits bits
   return (num_bits + 7) >> 3;
 }
 
-void setBitArray(uint8_t* byteArray, size_t numBits, bool value) {  // set all bits to same value
+static inline void setBitArray(uint8_t* byteArray, size_t numBits, bool value) {  // set all bits to same value
   if (byteArray == nullptr) return;
   size_t len =  getBitArrayBytes(numBits);
   if (value) memset(byteArray, 0xFF, len);
@@ -1105,6 +1093,26 @@ size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
 #endif
 // ***************************************************************************
 
+BusPlaceholder::BusPlaceholder(const BusConfig &bc) 
+: Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, bc.refreshReq)
+, _colorOrder(bc.colorOrder)
+, _skipAmount(bc.skipAmount)
+, _frequency(bc.frequency)
+, _milliAmpsPerLed(bc.milliAmpsPerLed)
+, _milliAmpsMax(bc.milliAmpsMax)
+, _text(bc.text)
+{
+  memcpy(_pins, bc.pins, sizeof(_pins));
+}
+
+size_t BusPlaceholder::getPins(uint8_t* pinArray) const {
+  size_t nPins = Bus::getNumberOfPins(_type);
+  if (pinArray) {
+    for (size_t i = 0; i < nPins; i++) pinArray[i] = _pins[i];
+  }
+  return nPins;
+}
+
 //utility to get the approx. memory usage of a given BusConfig
 size_t BusConfig::memUsage(unsigned nr) const {
   if (Bus::isVirtual(type)) {
@@ -1148,7 +1156,7 @@ size_t BusManager::memUsage() {
   return size + maxI2S;
 }
 
-int BusManager::add(const BusConfig &bc) {
+int BusManager::add(const BusConfig &bc, bool placeholder) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
   unsigned digital = 0;
   unsigned analog  = 0;
@@ -1158,8 +1166,12 @@ int BusManager::add(const BusConfig &bc) {
     if (bus->isDigital() && !bus->is2Pin()) digital++;
     if (bus->is2Pin()) twoPin++;
   }
-  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) return -1;
-  if (Bus::isVirtual(bc.type)) {
+  digital += (Bus::isDigital(bc.type) && !Bus::is2Pin(bc.type));
+  analog  += (Bus::isPWM(bc.type) ? Bus::numPWMPins(bc.type) : 0);
+  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true; // TODO: add errorFlag here
+  if (placeholder) {
+    busses.push_back(make_unique<BusPlaceholder>(bc));
+  } else if (Bus::isVirtual(bc.type)) {
     busses.push_back(make_unique<BusNetwork>(bc));
 #ifdef WLED_ENABLE_HUB75MATRIX
   } else if (Bus::isHub75(bc.type)) {
@@ -1266,7 +1278,7 @@ void BusManager::on() {
   if (PinManager::getPinOwner(LED_BUILTIN) == PinOwner::BusDigital) {
     for (auto &bus : busses) {
       uint8_t pins[2] = {255,255};
-      if (bus->isDigital() && bus->getPins(pins)) {
+      if (bus->isDigital() && bus->getPins(pins) && bus->isOk()) {
         if (pins[0] == LED_BUILTIN || pins[1] == LED_BUILTIN) {
           BusDigital &b = static_cast<BusDigital&>(*bus);
           b.begin();
@@ -1361,7 +1373,7 @@ void BusManager::initializeABL() {
       _useABL = true; // at least one bus has ABL set
       uint32_t ESPshare = MA_FOR_ESP / numABLbuses; // share of ESP current per ABL bus
       for (auto &bus : busses) {
-        if (bus->isDigital()) {
+        if (bus->isDigital() && bus->isOk()) {
           BusDigital &busd = static_cast<BusDigital&>(*bus);
           uint32_t busLength = busd.getLength();
           uint32_t busDemand = busLength * busd.getLEDCurrent();
