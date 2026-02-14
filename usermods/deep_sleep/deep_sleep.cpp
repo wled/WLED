@@ -156,7 +156,7 @@ class DeepSleepUsermod : public Usermod {
         delay(1000);    // just in case: give user a short ~10s window to turn LEDs on in UI (delaycounter is 10 by default)
         return;
       }
-      if (powerup == false && delaycounter) { // delay sleep in case a preset is being loaded and turnOnAtBoot is disabled (handleIO() does enable offMode temporarily in this case)
+      if (powerup == false && delaycounter) { // delay sleep in case a preset is being loaded and turnOnAtBoot is disabled (beginStrip() / handleIO() does enable offMode temporarily in this case)
         delaycounter--;
         if (delaycounter == 1 && offMode) { // force turn on, no matter the settings (device is bricked if user set sleepDelay=0, no bootup preset and turnOnAtBoot=false)
           if (briS == 0) bri = 10; // turn on and set low brightness to avoid automatic turn off

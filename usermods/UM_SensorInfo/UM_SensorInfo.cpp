@@ -5,7 +5,7 @@
 
 #include "wled.h"
 
-extern uint16_t mode_static(void);
+extern void mode_static(void);
 
 //--------------------------------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ namespace
 
 //--------------------------------------------------------------------------------------------------
 
-uint16_t mode_SensorInfo()
+void mode_SensorInfo()
 {
   SEGMENT.clear();
 
@@ -79,14 +79,12 @@ uint16_t mode_SensorInfo()
   {
     visualizer.showInfo(cursor.get());
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_SENSOR_INFO[] PROGMEM = "1 Sensor Info";
 
 //--------------------------------------------------------------------------------------------------
 
-uint16_t mode_NumberDumper()
+void mode_NumberDumper()
 {
   SEGMENT.clear();
 
@@ -111,18 +109,19 @@ uint16_t mode_NumberDumper()
       hue += 74;
     }
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_NUMBER_DUMPER[] PROGMEM = "2 Numbers";
 
 //--------------------------------------------------------------------------------------------------
 
-uint16_t mode_SEF_all()
+void mode_SEF_all()
 {
   Sensor *sensor = findSensorByName(UsermodManager::getSensors(), "SEF");
   if (!sensor || !sensor->isSensorReady())
-    return mode_static();
+  {
+    mode_static();
+    return;
+  }
 
   SEGMENT.clear();
   SEGMENT.fill(0x080800);
@@ -146,8 +145,6 @@ uint16_t mode_SEF_all()
       hue += 74;
     }
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_SEF_ALL[] PROGMEM = "3 SEF all";
 
@@ -163,7 +160,7 @@ private:
   bool matches(const SensorChannelProps &props) override { return strcmp(props.quantity.name, "offset") == 0; }
 };
 
-uint16_t mode_Fluctuations()
+void mode_Fluctuations()
 {
   SEGMENT.clear();
   SEGMENT.fill(0x080800);
@@ -188,8 +185,6 @@ uint16_t mode_Fluctuations()
       hue += 74;
     }
   }
-
-  return FRAMETIME;
 }
 static const char _data_FX_MODE_FLUCTUATIONS[] PROGMEM = "4 Fluct only";
 

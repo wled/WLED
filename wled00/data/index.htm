@@ -10,7 +10,7 @@
 	<title>WLED</title>
 	<link rel="stylesheet" href="index.css">
 </head>
-<body onload="onLoad()">
+<body>
 
 <div id="cv" class="overlay">Loading WLED UI...</div>
 <noscript><div class="overlay" style="opacity:1;">Sorry, WLED UI needs JavaScript!</div></noscript>
@@ -129,8 +129,7 @@
 		<div style="padding: 8px 0;" id="btns">
 			<button class="btn btn-xs" title="File editor" type="button" id="edit" onclick="window.location.href=getURL('/edit')"><i class="icons btn-icon">&#xe2c6;</i></button>
 			<button class="btn btn-xs" title="PixelForge" type="button" onclick="window.location.href=getURL('/pixelforge.htm')"><i class="icons btn-icon">&#xe410;</i></button>
-			<button class="btn btn-xs" title="Add custom palette" type="button" id="adPal" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe18a;</i></button>
-			<button class="btn btn-xs" title="Remove last custom palette" type="button" id="rmPal" onclick="palettesData=null;localStorage.removeItem('wledPalx');requestJson({rmcpal:true});setTimeout(loadPalettes,250,loadPalettesData);"><i class="icons btn-icon">&#xe037;</i></button>
+			<button class="btn btn-xs" title="Custom palettes" type="button" id="editPal" onclick="window.location.href=getURL('/cpal.htm')"><i class="icons btn-icon">&#xe2b3;</i></button>
 		</div>
 		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
 		<div id="palw" class="il">
@@ -364,8 +363,9 @@
 <!-- 
 	If you want to load iro.js and rangetouch.js as consecutive requests, you can do it like it was done in 0.14.0:
 	https://github.com/wled/WLED/blob/v0.14.0/wled00/data/index.htm
+	A more compact approach is implemented to load iro.js at the beginning of index.js.
 -->
-<script src="iro.js"></script>
+<!--  <script src="iro.js"></script> NOTE: iro.js is loaded at the beginning of index.js -->
 <script src="rangetouch.js"></script>
 <script src="index.js"></script>
 </body>
