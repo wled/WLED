@@ -6,6 +6,7 @@
  */
 
 #if defined(__XTENSA__) && defined(ESP32) && !defined(CONFIG_BTDM_CTRL_HLI)
+#if !defined(WLED_USE_SHARED_RMT)
 
 #include <freertos/xtensa_context.h>
 #include "sdkconfig.h"
@@ -258,6 +259,6 @@ _highint_stack_switch:
     .global ld_include_hli_vectors_rmt
 ld_include_hli_vectors_rmt:
 
-
+#endif // !WLED_USE_SHARED_RMT
 #endif // CONFIG_BTDM_CTRL_HLI
 #endif // XTensa

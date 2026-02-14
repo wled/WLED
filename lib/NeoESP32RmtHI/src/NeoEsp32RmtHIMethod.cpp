@@ -30,6 +30,7 @@ License along with NeoPixel.  If not, see
 #include <Arduino.h>
 
 #if defined(ARDUINO_ARCH_ESP32)
+#if !defined(WLED_USE_SHARED_RMT) // V5 fix: don't compile this file on unsupported platforms
 
 #include <algorithm>  
 #include "esp_idf_version.h"
@@ -504,4 +505,5 @@ esp_err_t NeoEsp32RmtHiMethodDriver::WaitForTxDone(rmt_channel_t channel, TickTy
     return rv;
 }
 
+#endif
 #endif

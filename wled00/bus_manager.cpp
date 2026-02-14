@@ -424,8 +424,13 @@ BusPwm::BusPwm(const BusConfig &bc)
       pinMode(_pins[i], OUTPUT);
       #else
       unsigned channel = _ledcStart + i;
+      #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
       ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
       ledcAttachPin(_pins[i], channel);
+      #else
+      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
+      // LEDC timer reset credit @dedehai
+      #endif
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
@@ -589,7 +594,11 @@ void BusPwm::deallocatePins() {
     #ifdef ESP8266
     digitalWrite(_pins[i], LOW); //turn off PWM interrupt
     #else
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetachPin(_pins[i]);
+    #else
+    if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetach(_pins[i]);
+    #endif
     #endif
   }
   #ifdef ARDUINO_ARCH_ESP32
@@ -711,7 +720,7 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
   static unsigned long nextResolve = 0;
-  if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
+  if (WLEDNetwork.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
     nextResolve = millis() + 600000; // resolve only every 10 minutes
     IPAddress clnt;
     if (strlen(cmDNS) > 0) clnt = MDNS.queryHost(_hostname);
