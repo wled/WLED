@@ -9,6 +9,8 @@ static void mode_static(void) {
 
 #define FX_FALLBACK_STATIC { mode_static(); return; }
 
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
+
 // If you define configuration options in your class and need to reference them in your effect function, add them here.
 // If you only need to use them in your class you can define them as class members instead.
 // bool myConfigValue = false;
@@ -93,6 +95,197 @@ unsigned dataSize = cols * rows;  // SEGLEN (virtual length) is equivalent to vW
 static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spark rate,Diffusion Speed,Turbulence,,Use palette;;Color;;2;pal=35";
 
 
+/*
+/  Magma effect
+*   2D magma/lava animation
+*   Adapted from FireLamp_JeeUI implementation (https://github.com/DmytroKorniienko/FireLamp_JeeUI/tree/dev)
+*   Original idea by SottNick, remastered by kostyamat
+*   Adapted to WLED by Bob Loeffler and claude.ai
+*   First slider (speed) is for the speed or flow rate of the moving magma.
+*   Second slider (intensity) is for the height of the magma.
+*   Third slider (lava bombs) is for the number of lava bombs (particles).  The max # is 1/2 the number of columns on the 2D matrix.
+*   Fourth slider (gravity) is for how high the lava bombs will go.
+*   The checkbox (check2) is for whether the lava bombs can be seen in the magma or behind it.
+*/
+
+// Draw the magma
+static void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, float *ff_z, uint8_t *shiftHue) {
+  // Noise parameters - adjust these for different magma characteristics
+  // deltaValue: higher = more detailed/turbulent magma
+  // deltaHue: higher = taller magma structures
+  constexpr uint8_t magmaDeltaValue = 12U;
+  constexpr uint8_t magmaDeltaHue   = 10U;
+
+  uint16_t ff_y_int = (uint16_t)*ff_y;
+  uint16_t ff_z_int = (uint16_t)*ff_z;
+
+  for (uint16_t i = 0; i < width; i++) {
+    for (uint16_t j = 0; j < height; j++) {
+      // Generate Perlin noise value (0-255)
+      uint8_t noise = perlin8(i * magmaDeltaValue, (j + ff_y_int + hw_random8(2)) * magmaDeltaHue, ff_z_int);
+      uint8_t paletteIndex = qsub8(noise, shiftHue[j]);  // Apply the vertical fade gradient
+      CRGB col = SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, 0);  // Get color from palette
+      SEGMENT.addPixelColorXY(i, height - 1 - j, col);  // magma rises from bottom of display
+    }
+  }
+}
+
+// Move and draw lava bombs (particles)
+static void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleData, float gravity, uint8_t particleCount) {
+  for (uint16_t i = 0; i < particleCount; i++) {
+    uint16_t idx = i * 4;
+    
+    particleData[idx + 3] -= gravity;
+    particleData[idx + 0] += particleData[idx + 2];
+    particleData[idx + 1] += particleData[idx + 3];
+    
+    float posX = particleData[idx + 0];
+    float posY = particleData[idx + 1];
+    
+    if (posY > height + height / 4) {
+      particleData[idx + 3] = -particleData[idx + 3] * 0.8f;
+    }
+    
+    if (posY < (float)(height / 8) - 1.0f || posX < 0 || posX >= width) {
+      particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
+      particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
+      particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
+      
+      float baseVelocity = hw_random(60, 120) / 100.0f;
+      if (hw_random8() < 50) {
+        baseVelocity *= 1.6f;
+      }
+      particleData[idx + 3] = baseVelocity;
+      continue;
+    }
+    
+    int16_t xi = (int16_t)posX;
+    int16_t yi = (int16_t)posY;
+    
+    if (xi >= 0 && xi < width && yi >= 0 && yi < height) {
+      // Get a random color from the current palette
+      uint8_t randomIndex = hw_random8(64, 128);
+      CRGB pcolor = ColorFromPaletteWLED(SEGPALETTE, randomIndex, 255, LINEARBLEND);
+
+      // Pre-calculate anti-aliasing weights
+      float xf = posX - xi;
+      float yf = posY - yi;
+      float ix = 1.0f - xf;
+      float iy = 1.0f - yf;
+      
+      uint8_t w0 = 255 * ix * iy;
+      uint8_t w1 = 255 * xf * iy;
+      uint8_t w2 = 255 * ix * yf;
+      uint8_t w3 = 255 * xf * yf;
+      
+      int16_t yFlipped = height - 1 - yi;  // Flip Y coordinate
+  
+      SEGMENT.addPixelColorXY(xi, yFlipped, pcolor.scale8(w0));
+      if (xi + 1 < width) 
+        SEGMENT.addPixelColorXY(xi + 1, yFlipped, pcolor.scale8(w1));
+      if (yFlipped - 1 >= 0)
+        SEGMENT.addPixelColorXY(xi, yFlipped - 1, pcolor.scale8(w2));
+      if (xi + 1 < width && yFlipped - 1 >= 0) 
+        SEGMENT.addPixelColorXY(xi + 1, yFlipped - 1, pcolor.scale8(w3));
+    }
+  }
+} 
+
+static void mode_2D_magma(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
+  const uint16_t width = SEG_W;
+  const uint16_t height = SEG_H;
+  const uint8_t MAGMA_MAX_PARTICLES = width / 2;
+  if (MAGMA_MAX_PARTICLES < 2) FX_FALLBACK_STATIC;  // matrix too narrow for lava bombs
+  constexpr size_t SETTINGS_SUM_BYTES = 4; // 4 bytes for settings sum
+
+  // Allocate memory: particles (4 floats each) + 2 floats for noise counters + shiftHue cache + settingsSum
+  const uint16_t dataSize = (MAGMA_MAX_PARTICLES * 4 + 2) * sizeof(float) + height * sizeof(uint8_t) + SETTINGS_SUM_BYTES;
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC;  // allocation failed
+
+  float* particleData = reinterpret_cast<float*>(SEGENV.data);
+  float* ff_y = &particleData[MAGMA_MAX_PARTICLES * 4];
+  float* ff_z = &particleData[MAGMA_MAX_PARTICLES * 4 + 1];
+  uint32_t* settingsSumPtr = reinterpret_cast<uint32_t*>(&particleData[MAGMA_MAX_PARTICLES * 4 + 2]);
+  uint8_t* shiftHue = reinterpret_cast<uint8_t*>(reinterpret_cast<uint8_t*>(settingsSumPtr) + SETTINGS_SUM_BYTES);
+
+  // Check if settings changed
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2;
+  bool settingsChanged = (*settingsSumPtr != settingssum);
+
+  if (SEGENV.call == 0 || settingsChanged) {
+    // Intensity slider controls magma height
+    uint16_t intensity = SEGMENT.intensity;
+    uint16_t fadeRange = map(intensity, 0, 255, height / 3, height);
+
+    // shiftHue controls the vertical color gradient (magma fades out toward top)
+    for (uint16_t j = 0; j < height; j++) {
+      if (j < fadeRange) {
+        // prevent division issues and ensure smooth gradient
+        if (fadeRange > 1) {
+          shiftHue[j] = (uint8_t)(j * 255 / (fadeRange - 1));
+        } else {
+          shiftHue[j] = 0;  // Single row magma = no fade
+        }
+      } else {
+        shiftHue[j] = 255;
+      }
+    }
+
+    // Initialize all particles
+    for (uint16_t i = 0; i < MAGMA_MAX_PARTICLES; i++) {
+      uint16_t idx = i * 4;
+      particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
+      particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
+      particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
+      
+      float baseVelocity = hw_random(60, 120) / 100.0f;
+      if (hw_random8() < 50) {
+        baseVelocity *= 1.6f;
+      }
+      particleData[idx + 3] = baseVelocity;
+    }
+    *ff_y = 0.0f;
+    *ff_z = 0.0f;
+    *settingsSumPtr = settingssum;
+  }
+
+  if (!shiftHue) FX_FALLBACK_STATIC;   // safety check
+
+  // Speed control
+  float speedfactor = SEGMENT.speed / 255.0f;
+  speedfactor = speedfactor * speedfactor * 1.5f;
+  if (speedfactor < 0.001f) speedfactor = 0.001f;
+
+  // Gravity control
+  float gravity = map(SEGMENT.custom2, 0, 255, 5, 20) / 100.0f;
+  
+  // Number of particles (lava bombs)
+  uint8_t particleCount = map(SEGMENT.custom1, 0, 255, 2, MAGMA_MAX_PARTICLES);
+  particleCount = constrain(particleCount, 2, MAGMA_MAX_PARTICLES);
+
+  // Draw lava bombs in front of magma (or behind it)
+  if (SEGMENT.check2) {
+    drawMagma(width, height, ff_y, ff_z, shiftHue);
+    SEGMENT.fadeToBlackBy(70);    // Dim the entire display to create trailing effect
+    drawLavaBombs(width, height, particleData, gravity, particleCount);
+  }
+  else {
+    drawLavaBombs(width, height, particleData, gravity, particleCount);
+    SEGMENT.fadeToBlackBy(70);    // Dim the entire display to create trailing effect
+    drawMagma(width, height, ff_y, ff_z, shiftHue);
+  }
+
+  // noise counters based on speed slider
+  *ff_y += speedfactor * 2.0f;
+  *ff_z += speedfactor;
+
+  SEGENV.step++;
+}
+static const char _data_FX_MODE_2D_MAGMA[] PROGMEM = "Magma@Flow rate,Magma height,Lava bombs,Gravity,,,Bombs in front;;!;2;ix=192,c2=32,o2=1,pal=35";
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -102,6 +295,7 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
+    strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
