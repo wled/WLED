@@ -844,7 +844,6 @@ void FontManager::prepare(const char* text) {
   if (!text) return;
 
   // Helper to ensure header is valid
-  auto ensureHeader = [this]() -> bool {
   auto checkHeader = [this]() -> bool {
     if (!_headerValid) {
       updateReader();
