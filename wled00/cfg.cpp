@@ -744,6 +744,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(DMXGap,dmx[F("gap")]);
   CJSON(DMXStart, dmx["start"]);
   CJSON(DMXStartLED,dmx[F("start-led")]);
+  CJSON(DMXNumFixtures, dmx[F("num-fixtures")]);
 
   JsonArray dmx_fixmap = dmx[F("fixmap")];
   for (int i = 0; i < dmx_fixmap.size(); i++) {
@@ -1250,6 +1251,7 @@ void serializeConfig(JsonObject root) {
   dmx[F("gap")] = DMXGap;
   dmx["start"] = DMXStart;
   dmx[F("start-led")] = DMXStartLED;
+  dmx[F("num-fixtures")] = DMXNumFixtures;
 
   JsonArray dmx_fixmap = dmx.createNestedArray(F("fixmap"));
   for (unsigned i = 0; i < 15; i++) {
