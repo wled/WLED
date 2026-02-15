@@ -845,6 +845,7 @@ void FontManager::prepare(const char* text) {
 
   // Helper to ensure header is valid
   auto ensureHeader = [this]() -> bool {
+  auto checkHeader = [this]() -> bool {
     if (!_headerValid) {
       updateReader();
       if (_reader && parseHeader(*_reader, _cachedHeader)) {
@@ -858,14 +859,13 @@ void FontManager::prepare(const char* text) {
 
   // Flash fonts - just validate header and done
   if (_useFlashFont) {
-    ensureHeader();
+    checkHeader();
     return;
   }
 
   // Check if cache exists
   if (!_segment->data) {
     rebuildCache(text);
-    ensureHeader();
     return;
   }
   
@@ -874,14 +874,12 @@ void FontManager::prepare(const char* text) {
   // If glyphCount is 0, cache is empty - rebuild
   if (meta->glyphCount == 0) {
     rebuildCache(text);
-    ensureHeader();
     return;
   }
   
   // Validate header from existing cache
-  if (!ensureHeader()) {
+  if (!checkHeader()) {
     rebuildCache(text);
-    ensureHeader();
     return;
   }
 
@@ -904,7 +902,6 @@ void FontManager::prepare(const char* text) {
     if (!found) {
       // Missing glyph - rebuild cache
       rebuildCache(text);
-      ensureHeader();
       return;
     }
   }
@@ -1044,7 +1041,9 @@ void FontManager::rebuildCache(const char* text) {
   }
   
   file.close();
-  invalidateHeader(); // Invalidate header to force re-parse with new data
+  memcpy(&_cachedHeader, &fileHdr, sizeof(FontHeader));
+  _headerValid = true;  // Mark as valid, we just loaded it directly
+  updateReader();  // Set up reader for cached access
 }
 
 void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate) {
