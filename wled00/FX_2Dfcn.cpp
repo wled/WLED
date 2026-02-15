@@ -589,8 +589,6 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 #include "src/font/console_font_6x8.h"
 #include "src/font/console_font_7x9.h"
 
-#define LAST_ASCII_CHAR 126
-
 // Pure glyph index calculator (inline for speed)
 inline int32_t FontManager::getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode) {
   if (unicode <= LAST_ASCII_CHAR) {

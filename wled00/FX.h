@@ -1067,7 +1067,7 @@ class WS2812FX {
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
 
-#define LAST_ASCII_CHAR 126
+#define LAST_ASCII_CHAR 127
 #define FONT_HEADER_SIZE 12
 /**
  * Unified Font Format (Flash and RAM use IDENTICAL layout)
