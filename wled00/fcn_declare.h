@@ -409,6 +409,8 @@ size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
 void prepareHostname(char* hostname);
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
+uint32_t utf8_decode(const char *s, uint8_t *len);
+size_t utf8_strlen(const char *s);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);

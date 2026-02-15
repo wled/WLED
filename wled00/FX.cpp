@@ -6302,32 +6302,24 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 ////////////////////////////
 //     2D Scrolling text  //
 ////////////////////////////
+
 void mode_2Dscrollingtext(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
-
+  FontManager fontManager(&SEGMENT);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  unsigned letterWidth, rotLW;
-  unsigned letterHeight, rotLH;
-  switch (map(SEGMENT.custom2, 0, 255, 1, 5)) {
-    default:
-    case 1: letterWidth = 4; letterHeight =  6; break;
-    case 2: letterWidth = 5; letterHeight =  8; break;
-    case 3: letterWidth = 6; letterHeight =  8; break;
-    case 4: letterWidth = 7; letterHeight =  9; break;
-    case 5: letterWidth = 5; letterHeight = 12; break;
-  }
+  // Font selection
+  const uint8_t* selectedFont = nullptr;
+  char fileName[32];
+  bool useCustomFont = SEGMENT.check2;
+  uint8_t fontNum = map(SEGMENT.custom2, 0, 255, 0, 4);
+  bool init = (SEGENV.call == 0);
+
   // letters are rotated
   const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
-  if (rotate == 1 || rotate == -1) {
-    rotLH = letterWidth;
-    rotLW = letterHeight;
-  } else {
-    rotLW = letterWidth;
-    rotLH = letterHeight;
-  }
 
+  // generate time/date if there are any # tokens
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t result_pos = 0;
   char sec[5];
@@ -6374,7 +6366,7 @@ void mode_2Dscrollingtext(void) {
         else if (!strncmp_P(token,PSTR("#YY"),3))  { sprintf  (temp,          ("%02d")                     ,         year(localTime)%100); advance = 3; }
         else if (!strncmp_P(token,PSTR("#HH"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         AmPmHour); advance = 3; }
         else if (!strncmp_P(token,PSTR("#MM"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         minute(localTime)); advance = 3; }
-        else if (!strncmp_P(token,PSTR("#SS"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         second(localTime)); advance = 3; }
+        else if (!strncmp_P(token,PSTR("#SS"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         second(localTime)); advance = 3; fontManager.setCacheNumbers(true);} // cache all numbers
         else if (!strncmp_P(token,PSTR("#MON"),4)) { sprintf  (temp,          ("%s")                       ,         monthShortStr(month(localTime))); advance = 4; }
         else if (!strncmp_P(token,PSTR("#MO"),3))  { sprintf  (temp, zero?    ("%02d")          :    ("%d"),         month(localTime)); advance = 3; }
         else if (!strncmp_P(token,PSTR("#DAY"),4)) { sprintf  (temp,          ("%s")                       ,         dayShortStr(weekday(localTime))); advance = 4; }
@@ -6399,52 +6391,111 @@ void mode_2Dscrollingtext(void) {
     }
   }
 
-  const int  numberOfLetters = strlen(text);
-  int width = (numberOfLetters * rotLW);
-  int yoffset = map(SEGMENT.intensity, 0, 255, -rows/2, rows/2) + (rows-rotLH)/2;
-  if (width <= cols) {
-    // scroll vertically (e.g. ^^ Way out ^^) if it fits
+  // Load the font
+  fontManager.loadFont(fontNum, useCustomFont); // TODO: simplify this code, prepare is not really needed as a separate function.
+  fontManager.prepare(text);
+
+  // Get font dimensions
+  uint8_t letterHeight = fontManager.getFontHeight();
+  uint8_t letterWidth = fontManager.getFontWidth(); // for fonts with variable width, this is the max letter width TODO: actually use variable width
+  uint8_t letterSpacing = fontManager.getFontSpacing();
+
+  // Calculate rotated dimensions
+  unsigned rotLW, rotLH;
+  if (rotate == 1 || rotate == -1) {
+    rotLH = letterWidth;
+    rotLW = letterHeight;
+  } else {
+    rotLW = letterWidth;
+    rotLH = letterHeight;
+  }
+
+  // Calculate total text width
+  int totalTextWidth = 0;
+  int idx = 0;
+  const int numberOfChars = utf8_strlen(text);
+
+  for (int c = 0; c < numberOfChars; c++) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+
+    if (rotate == 1 || rotate == -1) {
+      totalTextWidth += letterHeight; // Fixed dimension when rotated
+    } else {
+      uint8_t w = fontManager.getGlyphWidth(unicode);
+      totalTextWidth += w;
+    }
+    if (c < numberOfChars - 1) totalTextWidth += letterSpacing;
+  }
+
+  // Y offset calculation
+  int yoffset = map(SEGMENT.intensity, 0, 255, -rows / 2, rows / 2) + (rows - rotLH) / 2;
+
+  if (totalTextWidth <= cols) {
+    // scroll vertically
     int speed = map(SEGMENT.speed, 0, 255, 5000, 1000);
     int frac = strip.now % speed + 1;
     if (SEGMENT.intensity == 255) {
-      yoffset = (2 * frac * rows)/speed - rows;
+      yoffset = (2 * frac * rows) / speed - rows;
     } else if (SEGMENT.intensity == 0) {
-      yoffset = rows - (2 * frac * rows)/speed;
+      yoffset = rows - (2 * frac * rows) / speed;
     }
   }
 
+  // Animation step
   if (SEGENV.step < strip.now) {
-    // calculate start offset
-    if (width > cols) {
+    if (totalTextWidth > cols) {
       if (SEGMENT.check3) {
-        if (SEGENV.aux0 == 0) SEGENV.aux0  = width + cols - 1;
-        else                --SEGENV.aux0;
-      } else                ++SEGENV.aux0 %= width + cols;
-    } else                    SEGENV.aux0  = (cols + width)/2;
-    ++SEGENV.aux1 &= 0xFF; // color shift
-    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
+        if (SEGENV.aux0 == 0) SEGENV.aux0 = totalTextWidth + cols - 1;
+        else --SEGENV.aux0;
+      } else {
+        ++SEGENV.aux0 %= totalTextWidth + cols;
+      }
+    } else {
+      SEGENV.aux0 = (cols - totalTextWidth) / 2; // Center
+    }
+    ++SEGENV.aux1 &= 0xFF;
+    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50);
   }
 
-  SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
+  SEGMENT.fade_out(255 - (SEGMENT.custom1 >> 4));
   uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
   uint32_t col2 = BLACK;
-  // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
-  // otherwise col2 == BLACK means use currently selected palette for gradient
-  // if gradient is not selected set both colors the same
-  if (SEGMENT.check1) { // use gradient
-    if (SEGMENT.palette == 0) { // use colors for gradient
+
+  if (SEGMENT.check1) {
+    if (SEGMENT.palette == 0) {
       col1 = SEGCOLOR(0);
       col2 = SEGCOLOR(2);
     }
-  } else col2 = col1; // force characters to use single color (from palette)
+  } else {
+    col2 = col1;
+  }
 
-  for (int i = 0; i < numberOfLetters; i++) {
-    int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
-    if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
+  // Draw characters
+  idx = 0;
+  int currentXOffset = 0;
+
+  for (int c = 0; c < numberOfChars; c++) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+    uint8_t glyphWidth = fontManager.getGlyphWidth(unicode);
+    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset;
+    int advance = (rotate == 1 || rotate == -1) ? letterHeight : glyphWidth;
+
+    // Skip if off-screen
+    if (drawX + advance < 0) {
+      currentXOffset += advance + letterSpacing;
+      continue;
+    }
+    if (drawX >= cols) break;
+
+    fontManager.drawCharacter(unicode, drawX, yoffset, col1, col2, rotate);
+    currentXOffset += advance + letterSpacing;
   }
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////
