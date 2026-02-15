@@ -694,7 +694,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
     return;
   }
   byte subPage = request->arg(F("p")).toInt();
-  if (subPage > 10) {
+  if (subPage > SUBPAGE_LAST) {
     request->send_P(501, FPSTR(CONTENT_TYPE_JAVASCRIPT), PSTR("alert('Settings for this request are not implemented.');"));
     return;
   }
@@ -734,6 +734,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #ifndef WLED_DISABLE_2D
     else if (url.indexOf(  "2D")    > 0) subPage = SUBPAGE_2D;
 #endif
+    else if (url.indexOf(F("pins")) > 0) subPage = SUBPAGE_PINS;
     else if (url.indexOf(F("lock")) > 0) subPage = SUBPAGE_LOCK;
   }
   else if (url.indexOf("/update") >= 0) subPage = SUBPAGE_UPDATE; // update page, for PIN check
@@ -827,6 +828,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
+    case SUBPAGE_PINS    :  content = PAGE_settings_pininfo; len = PAGE_settings_pininfo_length; break;
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
