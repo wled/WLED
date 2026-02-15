@@ -1044,6 +1044,7 @@ void FontManager::rebuildCache(const char* text) {
   }
   
   file.close();
+  invalidateHeader(); // Invalidate header to force re-parse with new data
 }
 
 void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate) {
