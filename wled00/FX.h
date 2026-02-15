@@ -1068,11 +1068,11 @@ extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
 
 #define LAST_ASCII_CHAR 126
-#define FONT_HEADER_SIZE 11
+#define FONT_HEADER_SIZE 12
 /**
  * Unified Font Format (Flash and RAM use IDENTICAL layout)
  * 
- * Header Layout (11 Bytes):
+ * Header Layout (12 Bytes):
  * [0]   Magic 'W' (0x57)
  * [1]   Glyph height
  * [2]   Fixed/max glyph width
@@ -1080,7 +1080,8 @@ extern const char JSON_palette_names[];
  * [4]   Flags: (0x01 = variable width)
  * [5]   First Char
  * [6]   Last Char
- * [7-10] Unicode Offset (32-bit little-endian)
+ * [7]   reserved: 0x00
+ * [8-11] Unicode Offset (32-bit little-endian)
  * 
  * Followed by:
  * - Width table (if variable width): [first..last] byte array

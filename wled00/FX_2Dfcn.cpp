@@ -611,7 +611,8 @@ bool FontManager::parseHeader(const ByteReader& reader, FontHeader& hdr) {
   hdr.flags = reader.readByte(4);
   hdr.first = reader.readByte(5);
   hdr.last = reader.readByte(6);
-  hdr.firstUnicode = reader.readUInt32LE(7);
+  // [7] reserved: 0x00
+  hdr.firstUnicode = reader.readUInt32LE(8);
   return true;
 }
 
@@ -726,7 +727,7 @@ bool FontManager::loadFont(uint8_t fontNum, bool useFile) {
   _useFlashFont = !useFile;
   switch (_fontNum) {
     default:
-    case 0: _flashFont = tinypixie2_6px;    break;
+    case 0: _flashFont = console_font_4x6;    break;
     case 1: _flashFont = console_font_5x8;  break;
     case 2: _flashFont = console_font_6x8;  break;
     case 3: _flashFont = console_font_7x9;  break;
@@ -960,6 +961,7 @@ void FontManager::rebuildCache(const char* text) {
   fileHdr.flags = file.read();
   fileHdr.first = file.read();
   fileHdr.last = file.read();
+  file.read(); // skip byte 7 (reserved)
   file.read((uint8_t*)&fileHdr.firstUnicode, 4);
 
   // Collect needed glyphs (no need to sort!)
