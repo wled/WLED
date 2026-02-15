@@ -1,0 +1,36 @@
+{
+  "title": "DepartStrip",
+  "lines": [
+    {
+      "label": "MNR 1 \u2022 Hudson Line",
+      "desc": "Green",
+      "hex": "#1CFF71"
+    },
+    {
+      "label": "BxM1 \u2022 Express",
+      "desc": "Yellow",
+      "hex": "#E8D08F"
+    },
+    {
+      "label": "BxM2 \u2022 Express",
+      "desc": "Red",
+      "hex": "#E26E6E"
+    },
+    {
+      "label": "BxM18 \u2022 Express",
+      "desc": "Purple",
+      "hex": "#B2A3D9"
+    },
+    {
+      "label": "Bx10 \u2022 Local",
+      "desc": "Light blue",
+      "hex": "#A2BCD9"
+    },
+    {
+      "label": "Bx20 \u2022 Local",
+      "desc": "Cobalt blue",
+      "hex": "#8282D4"
+    }
+  ],
+  "subtitle": "Live Transit Departures"
+}
