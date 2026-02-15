@@ -284,18 +284,26 @@ struct GlyphEntry {
 
 // Header for the RAM cache
 struct FontHeader {
-  uint32_t firstUnicode; // from font file
-  uint8_t  glyphCount;
-  uint8_t  height;
-  uint8_t  spacing;
-  uint8_t  maxW;
-  uint8_t  first; // from font file
-  uint8_t  last;  // from font file
-  char     name[16]; // The requested font name (e.g. "font3.wbf")
-  char     file[16]; // The actual file used (e.g. "font.wbf")
-  uint8_t  cachedCodes[64]; // The "Checklist" to see if we need a rebuild, max string length of 64 
-  // GlyphEntry registry[glyphCount]; // Variable length
-  // uint8_t bitmapData[]; // Helper to handle font loading and drawing
+  // Font metadata
+  uint8_t height;
+  uint8_t width;      // Max width for variable fonts
+  uint8_t flags;      // Font flags
+  uint8_t glyphCount; // Number of cached glyphs
+  
+  // Font range
+  uint8_t first;
+  uint8_t last;
+  uint16_t reserved;  // Alignment
+  uint32_t firstUnicode;
+
+  // Font tracking (stored in segment data)
+  uint8_t availableFonts;  // Bitflags: bit 0-4 for fonts 0-4
+  uint8_t cachedFontNum;   // Currently cached font number (0-4, 0xFF = none)
+  uint8_t fontsScanned;    // 1 if filesystem scanned, 0 otherwise
+  uint8_t padding;         // Alignment
+  
+  // GlyphEntry registry[glyphCount]; // Variable length follows
+  // uint8_t bitmapData[]; // Variable length bitmap data follows
 };
 
 class FontManager {
@@ -313,11 +321,17 @@ class FontManager {
     Segment* _segment;
     const uint8_t* _flashFont;
     const char* _fileFont;
-    const char* _fontName; // Requested font name
+    
+    void scanAvailableFonts();  // Scan filesystem for available fonts
+    
+    // Helper methods for unified flash/file font access
+    uint8_t getGlyphWidth(uint32_t code);
+    const uint8_t* getGlyphBitmap(uint32_t code, uint8_t& outWidth, uint8_t& outHeight);
+    int32_t getGlyphIndex(uint32_t unicode, uint8_t first,uint8_t last, uint32_t firstUnicode);
+    int32_t getGlyphIndex(uint32_t unicode, FontHeader* header);
     bool _cacheNumbers = false;
 
     void rebuildCache(const char* text);
-    int32_t getGlyphIndex(uint32_t unicode, const FontHeader* header);
 };
 
 
