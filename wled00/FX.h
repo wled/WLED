@@ -273,68 +273,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_TV_SIMULATOR           116
 #define FX_MODE_DYNAMIC_SMOOTH         117 // candidate for removal (check3 in dynamic)
 
-// Font Helper Class
-// Registry entry for the RAM cache
-struct GlyphEntry {
-  uint8_t code;   // 0-255 index, same as in font
-  uint8_t width; 
-  uint8_t height;
-  uint8_t padding;  // padding is added anyway, might as well indicate it for future use
-};
-
-// Header for the RAM cache
-struct FontHeader {
-  // Font metadata
-  uint8_t height;
-  uint8_t width;      // Max width for variable fonts
-  uint8_t flags;      // Font flags
-  uint8_t glyphCount; // Number of cached glyphs
-  
-  // Font range
-  uint8_t first;
-  uint8_t last;
-  uint16_t reserved;  // Alignment
-  uint32_t firstUnicode;
-
-  // Font tracking (stored in segment data)
-  uint8_t availableFonts;  // Bitflags: bit 0-4 for fonts 0-4
-  uint8_t cachedFontNum;   // Currently cached font number (0-4, 0xFF = none)
-  uint8_t fontsScanned;    // 1 if filesystem scanned, 0 otherwise
-  uint8_t padding;         // Alignment
-  
-  // GlyphEntry registry[glyphCount]; // Variable length follows
-  // uint8_t bitmapData[]; // Variable length bitmap data follows
-};
-
-class FontManager {
-  public:
-    FontManager(Segment* seg) : _segment(seg), _flashFont(nullptr), _fileFont(nullptr) {}
-
-    bool loadFont(const char* filename, const uint8_t* flashFont = nullptr, bool init = false);
-    void setFont(const uint8_t* flashFont, const char* filename);
-    void setCacheNumbers(bool cache) { _cacheNumbers = cache; } // If set, always cache digits 0-9
-    void prepare(const char* text);
-    uint8_t getCharacterWidth(uint32_t code);
-    void drawCharacter(uint32_t code, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate);
-
-  private:
-    Segment* _segment;
-    const uint8_t* _flashFont;
-    const char* _fileFont;
-    
-    void scanAvailableFonts();  // Scan filesystem for available fonts
-    
-    // Helper methods for unified flash/file font access
-    uint8_t getGlyphWidth(uint32_t code);
-    const uint8_t* getGlyphBitmap(uint32_t code, uint8_t& outWidth, uint8_t& outHeight);
-    int32_t getGlyphIndex(uint32_t unicode, uint8_t first,uint8_t last, uint32_t firstUnicode);
-    int32_t getGlyphIndex(uint32_t unicode, FontHeader* header);
-    bool _cacheNumbers = false;
-
-    void rebuildCache(const char* text);
-};
-
-
 // new 0.14 2D effects
 #define FX_MODE_2DSPACESHIPS           118 //gap fill
 #define FX_MODE_2DCRAZYBEES            119 //gap fill
@@ -482,6 +420,7 @@ typedef enum mapping1D2D {
 } mapping1D2D_t;
 
 class WS2812FX;
+class FontManager;
 
 // segment, 76 bytes
 class Segment {
@@ -1127,5 +1066,186 @@ class WS2812FX {
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
+
+#define LAST_ASCII_CHAR 126
+#define FONT_HEADER_SIZE 11
+/**
+ * Unified Font Format (Flash and RAM use IDENTICAL layout)
+ * 
+ * Header Layout (11 Bytes):
+ * [0]   Magic 'W' (0x57)
+ * [1]   Glyph height
+ * [2]   Fixed/max glyph width
+ * [3]   Spacing between chars
+ * [4]   Flags: (0x01 = variable width)
+ * [5]   First Char
+ * [6]   Last Char
+ * [7-10] Unicode Offset (32-bit little-endian)
+ * 
+ * Followed by:
+ * - Width table (if variable width): [first..last] byte array
+ * - Bitmap data: bit-packed glyphs
+ */
+
+// Abstract byte reader for unified flash/RAM access
+class ByteReader {
+public:
+  virtual uint8_t readByte(size_t offset) const = 0;
+  inline uint32_t readUInt32LE(size_t offset) const {
+    return readByte(offset) | 
+           (readByte(offset + 1) << 8) |
+           (readByte(offset + 2) << 16) |
+           (readByte(offset + 3) << 24);
+  }
+  virtual ~ByteReader() {}
+};
+
+// PROGMEM reader for flash fonts
+class FlashByteReader : public ByteReader {
+private:
+  const uint8_t* _base;
+public:
+  FlashByteReader() : _base(nullptr) {}  // default constructor
+  FlashByteReader(const uint8_t* base) : _base(base) {}
+  
+  inline uint8_t readByte(size_t offset) const override {
+    return _base ? pgm_read_byte_near(_base + offset) : 0;
+  }
+};
+
+// RAM reader for cached fonts
+class RAMByteReader : public ByteReader {
+private:
+  const uint8_t* _base;
+public:
+  RAMByteReader() : _base(nullptr) {}  // default constructor
+  RAMByteReader(const uint8_t* base) : _base(base) {}
+
+  inline uint8_t readByte(size_t offset) const override {
+    return _base ? _base[offset] : 0;
+  }
+};
+
+// Glyph entry in RAM cache
+struct GlyphEntry {
+  uint8_t code;      // Glyph index (0-255)
+  uint8_t width;     // Width in pixels
+  uint8_t height;    // Height in pixels
+};
+
+// Segment metadata (stored BEFORE the font data in RAM)
+struct SegmentFontMetadata {
+  uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
+  uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none)
+  uint8_t fontsScanned;    // 1 if filesystem scanned
+  uint8_t glyphCount;      // Number of glyphs cached
+};
+
+// Memory layout for cached fonts:
+// [SegmentFontMetadata] - 4 bytes
+// [GlyphEntry array] - 4 bytes each
+// [11-byte font header] - for compatibility and to store font info
+// [Bitmap data] - sequential, matches registry order
+
+// Font header structure
+struct FontHeader {
+  uint8_t height;
+  uint8_t width;
+  uint8_t spacing;
+  uint8_t flags;
+  uint8_t first;
+  uint8_t last;
+  uint32_t firstUnicode;
+};
+
+class FontManager {
+public:
+  FontManager(Segment* seg) : 
+    _segment(seg), 
+    _flashFont(nullptr), 
+    _fontNum(0),
+    _useFlashFont(false),
+    _cacheNumbers(false),
+    _headerValid(false),
+    _reader(nullptr),
+    _fontBase(nullptr) {}
+
+  bool loadFont(uint8_t fontNum, bool useFile);
+  void setCacheNumbers(bool cache) { _cacheNumbers = cache; }
+  void prepare(const char* text);
+
+  inline void beginFrame() {
+    if (!_headerValid) {
+      updateReader();
+      if (_reader) {
+        parseHeader(*_reader, _cachedHeader);
+        _headerValid = true;
+      }
+    }
+  }
+  
+  // Get dimensions (use cached header)
+  inline uint8_t getFontHeight() { return _cachedHeader.height; }
+  inline uint8_t getFontSpacing() { return _cachedHeader.spacing; }
+  uint8_t getGlyphWidth(uint32_t unicode);
+  
+  // Rendering
+  void drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate);
+
+private:
+  Segment* _segment;
+  const uint8_t* _flashFont;
+  uint8_t _fontNum;        // Font number (0-4)
+  bool _useFlashFont;      // true = flash, false = file
+  bool _cacheNumbers;
+  
+  // Cached data for performance (non-static, per-instance)
+  bool _headerValid;
+  FontHeader _cachedHeader;
+  const ByteReader* _reader;
+  const uint8_t* _fontBase;
+  FlashByteReader _flashReader;
+  RAMByteReader _ramReader;
+  
+  // Invalidate cached header (call when font changes)
+  inline void invalidateHeader() {
+    _headerValid = false;
+  }
+
+  inline void updateReader() {
+    if (_flashFont) {
+      _flashReader = FlashByteReader(_flashFont);
+      _reader = &_flashReader;
+      _fontBase = _flashFont;
+    } else if (_segment->data) {
+      SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
+      // Font header starts after metadata + registry
+      const uint8_t* fontData = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
+      _ramReader = RAMByteReader(fontData);
+      _reader = &_ramReader;
+      _fontBase = fontData;
+    } else {
+      _reader = nullptr;
+      _fontBase = nullptr;
+    }
+  }
+  
+  // Metadata access (RAM only)
+  SegmentFontMetadata* getMetadata() {
+    return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
+  }
+  
+  // Unified operations (work identically for flash and RAM)
+  static bool parseHeader(const ByteReader& reader, FontHeader& hdr);
+  const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
+  
+  // Glyph index calculation (pure function, inline for speed)
+  static inline int32_t getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode);
+  
+  // File font management
+  void scanAvailableFonts();
+  void rebuildCache(const char* text);
+  uint8_t collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes, uint8_t maxCount);
+};
 
 #endif
