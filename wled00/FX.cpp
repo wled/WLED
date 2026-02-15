@@ -6397,7 +6397,7 @@ void mode_2Dscrollingtext(void) {
 
   // Get font dimensions
   uint8_t letterHeight = fontManager.getFontHeight();
-  uint8_t letterWidth = 8; // Max width (not used for layout with variable width)
+  uint8_t letterWidth = fontManager.getFontWidth(); // for fonts with variable width, this is the max letter width TODO: actually use variable width
   uint8_t letterSpacing = fontManager.getFontSpacing();
 
   // Calculate rotated dimensions

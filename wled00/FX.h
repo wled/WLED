@@ -1082,10 +1082,10 @@ extern const char JSON_palette_names[];
  * [6]   Last Char
  * [7]   reserved: 0x00
  * [8-11] Unicode Offset (32-bit little-endian)
- * 
+ *
  * Followed by:
  * - Width table (if variable width): [first..last] byte array
- * - Bitmap data: bit-packed glyphs
+ * - Bitmap data: bit-packed glyphs - top left to bottom right, row by row, MSB first, see src/font files for example
  */
 
 // Abstract byte reader for unified flash/RAM access
@@ -1187,6 +1187,7 @@ public:
   
   // Get dimensions (use cached header)
   inline uint8_t getFontHeight() { return _cachedHeader.height; }
+  inline uint8_t getFontWidth()  { return _cachedHeader.width; }
   inline uint8_t getFontSpacing() { return _cachedHeader.spacing; }
   uint8_t getGlyphWidth(uint32_t unicode);
   
