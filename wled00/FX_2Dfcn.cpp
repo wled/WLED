@@ -898,7 +898,7 @@ void FontManager::prepare(const char* text) {
         break;
       }
     }
-    
+
     if (!found) {
       // Missing glyph - rebuild cache
       rebuildCache(text);
