@@ -1049,43 +1049,6 @@ void serializeNodes(JsonObject root)
   }
 }
 
-// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
-#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
-#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
-#define PIN_CAP_BOOT         0x08   // bootloader pin
-#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
-#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
-
-// Convert PinOwner enum to string for allocated pins
-const char* getPinOwnerName(uint8_t gpio) {
-  PinOwner owner = PinManager::getPinOwner(gpio); // returns "none" if allocated by system, unallocated or unavailable
-  switch (owner) {
-    case PinOwner::None:          return PinManager::isPinAllocated(gpio) ? "System" : "Unknown";
-    case PinOwner::Ethernet:      return "Ethernet";
-    case PinOwner::BusDigital:    return "LED Digital";
-    case PinOwner::BusOnOff:      return "LED On/Off";
-    case PinOwner::BusPwm:        return "LED PWM";
-    case PinOwner::Button:        return "Button";
-    case PinOwner::IR:            return "IR Receiver";
-    case PinOwner::Relay:         return "Relay";
-    case PinOwner::SPI_RAM:       return "SPI RAM";
-    case PinOwner::DebugOut:      return "Debug";
-    case PinOwner::DMX:           return "DMX Output";
-    case PinOwner::HW_I2C:        return "I2C";
-    case PinOwner::HW_SPI:        return "SPI";
-    case PinOwner::DMX_INPUT:     return "DMX Input";
-    case PinOwner::HUB75:         return "HUB75";
-    // Usermods - return generic name for now
-    // TODO: Get actual usermod name from UsermodManager
-    default:
-      // Check if it's a usermod (high bit not set)
-      if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
-        return "Usermod";
-      }
-      return "Unknown";
-  }
-}
-
 void serializePins(JsonObject root)
 {
   JsonArray pins = root.createNestedArray(F("pins"));
@@ -1109,24 +1072,7 @@ void serializePins(JsonObject root)
     uint8_t caps = 0;
 
     #ifdef ARDUINO_ARCH_ESP32
-    // Check ADC capability: only ADC1 channels can be used (ADC2 channels are not usable when WiFi is active)
-    #if CONFIG_IDF_TARGET_ESP32
-    // ESP32: ADC1 channels 0-7 (GPIO 36, 37, 38, 39, 32, 33, 34, 35)
-    int adc_channel = digitalPinToAnalogChannel(gpio);
-    if (adc_channel >= 0 && adc_channel <= 7) caps |= PIN_CAP_ADC;
-    #elif CONFIG_IDF_TARGET_ESP32S2
-    // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
-    int adc_channel = digitalPinToAnalogChannel(gpio);
-    if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
-    #elif CONFIG_IDF_TARGET_ESP32S3
-    // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
-    int adc_channel = digitalPinToAnalogChannel(gpio);
-    if (adc_channel >= 0 && adc_channel <= 9) caps |= PIN_CAP_ADC;
-    #elif CONFIG_IDF_TARGET_ESP32C3
-    // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
-    int adc_channel = digitalPinToAnalogChannel(gpio);
-    if (adc_channel >= 0 && adc_channel <= 4) caps |= PIN_CAP_ADC;
-    #endif
+    if (PinManager::isAnalogPin(gpio)) caps |= PIN_CAP_ADC;
 
     // PWM on all ESP32 variants: all output pins can use ledc PWM so this is redundant
     //if (canOutput) caps |= PIN_CAP_PWM;
@@ -1163,23 +1109,13 @@ void serializePins(JsonObject root)
     pinObj["a"] = isAllocated;  // allocated status
 
     // check if this pin is used as a button (need to get button type for owner name)
-    bool isButton = false;
-    int buttonIndex = -1;
-    uint8_t btnType = BTN_TYPE_NONE;
-    for (size_t b = 0; b < buttons.size(); b++) {
-      if (buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
-        isButton = true;
-        buttonIndex = b;
-        btnType = buttons[b].type;
-        break;
-      }
-    }
+    int buttonIndex = PinManager::getButtonIndex(gpio); // returns -1 if not a button pin, otherwise returns index in buttons array
 
     // Add owner ID and name
     PinOwner owner = PinManager::getPinOwner(gpio);
     if (isAllocated) {
       pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (can be used for UI lookup)
-      pinObj["n"] = getPinOwnerName(gpio);  // owner name (string)
+      pinObj["n"] = PinManager::getPinOwnerName(gpio);  // owner name (string)
 
       // Relay pin
       if (owner == PinOwner::Relay) {
@@ -1187,14 +1123,14 @@ void serializePins(JsonObject root)
         pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
       }
       // Button pins, get type and state using isButtonPressed()
-      else if (isButton && buttonIndex >= 0) {
+      else if (buttonIndex >= 0) {
         pinObj["m"] = 0;  // mode: input
-        pinObj["t"] = btnType; // button type
+        pinObj["t"] = buttons[buttonIndex].type; // button type
         pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
 
         // for touch buttons, get raw reading value (useful for debugging threshold)
         #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
-        if (btnType == BTN_TYPE_TOUCH || btnType == BTN_TYPE_TOUCH_SWITCH) {
+        if (buttons[buttonIndex].type == BTN_TYPE_TOUCH || buttons[buttonIndex].type == BTN_TYPE_TOUCH_SWITCH) {
           if (digitalPinToTouchChannel(gpio) >= 0) {
             #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
             pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
@@ -1205,7 +1141,7 @@ void serializePins(JsonObject root)
         }
         #endif
         // for analog buttons, get raw reading value
-        if (btnType == BTN_TYPE_ANALOG || btnType == BTN_TYPE_ANALOG_INVERTED) {
+        if (buttons[buttonIndex].type == BTN_TYPE_ANALOG || buttons[buttonIndex].type == BTN_TYPE_ANALOG_INVERTED) {
           int analogRaw = 0;
           #ifdef ESP8266
           analogRaw = analogRead(A0) >> 2;   // convert 10bit read to 8bit, ESP8266 only has one analog pin
@@ -1214,14 +1150,14 @@ void serializePins(JsonObject root)
             analogRaw = (analogRead(gpio)>>4); // right shift to match button value (8bit) see button.cpp
           }
           #endif
-          if (btnType == BTN_TYPE_ANALOG_INVERTED) analogRaw = 255 - analogRaw;
+          if (buttons[buttonIndex].type == BTN_TYPE_ANALOG_INVERTED) analogRaw = 255 - analogRaw;
           pinObj["r"] = analogRaw; // send raw value
         }
       }
       // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.) TODO: expand for other pin owners as needed
       else if (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay) {
         pinObj["m"] = 1;  // mode: output
-        pinObj["s"] = digitalRead(gpio);  // state
+        pinObj["s"] = digitalRead(gpio);  // read state from hardware (digitalRead returns output state for output pins)
       }
     }
   }
