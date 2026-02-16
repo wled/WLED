@@ -175,7 +175,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed;
+    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed, driverType;
     unsigned length, start, maMax;
     uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
@@ -192,9 +192,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setCCTBlend(cctBlending);
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    useParallelI2S = request->hasArg(F("PR"));
-    #endif
 
     bool busesChanged = false;
     for (int s = 0; s < 36; s++) { // theoretical limit is 36 : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -212,6 +209,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
         DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
@@ -263,10 +261,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
       type |= request->hasArg(rf) << 7; // off refresh override
+      driverType = request->arg(ld).toInt(); // 0=RMT (default), 1=I2S
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, text);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed

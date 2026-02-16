@@ -307,14 +307,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
-      WLED_MAX_BUSSES,
-      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+      WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
       MAX_LEDS,
       WLED_MAX_COLOR_ORDER_MAPPINGS,
       WLED_MAX_DIGITAL_CHANNELS,
+      WLED_MAX_RMT_CHANNELS,
+      WLED_MAX_I2S_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
       WLED_MAX_BUTTONS
     );
@@ -326,7 +327,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
-    printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
@@ -337,6 +337,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
       char lt[4] = "LT"; lt[2] = offset+s; lt[3] = 0; //strip type
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
@@ -356,6 +357,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       }
       printSetFormValue(settingsScript,lc,bus->getLength());
       printSetFormValue(settingsScript,lt,bus->getType());
+      printSetFormValue(settingsScript,ld,bus->getDriverType());
       printSetFormValue(settingsScript,co,bus->getColorOrder() & 0x0F);
       printSetFormValue(settingsScript,ls,bus->getStart());
       printSetFormCheckbox(settingsScript,cv,bus->isReversed());
