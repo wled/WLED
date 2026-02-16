@@ -200,6 +200,8 @@ class Bus {
     static inline int16_t  getCCT()                   { return _cct; }
     static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
+    static inline void     setTempAWMode(uint8_t m)   { if (m < 5) _tempAWM = m; else _tempAWM = AW_GLOBAL_DISABLED; }
+    static inline uint8_t  getTempAWMode()            { return _tempAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
     static inline uint8_t  getCCTBlend()              { return (_cctBlend * 100 + 64) / 127; } // returns 0-100, 100% = 127. +64 for rounding
     static inline void     setCCTBlend(uint8_t b) {        // input is 0-100
@@ -226,7 +228,8 @@ class Bus {
       bool _hasWhite;//     : 1;
       bool _hasCCT;//       : 1;
     //} __attribute__ ((packed));
-    static uint8_t _gAWM;
+    static uint8_t _gAWM;    // global auto white mode
+    static uint8_t _tempAWM; // temporary global auto white mode, set by JSON API, overriden by _gAWM
     // _cct has the following meanings (see calculateCCT() & BusManager::setSegmentCCT()):
     //    -1 means to extract approximate CCT value in K from RGB (in calcualteCCT())
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold

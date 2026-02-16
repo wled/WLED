@@ -91,6 +91,7 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
 uint32_t Bus::autoWhiteCalc(uint32_t c) const {
   unsigned aWM = _autoWhiteMode;
   if (_gAWM < AW_GLOBAL_DISABLED) aWM = _gAWM;
+  else if (_tempAWM < AW_GLOBAL_DISABLED) aWM = _tempAWM; // temporary global AWM active
   if (aWM == RGBW_MODE_MANUAL_ONLY) return c;
   unsigned w = W(c);
   //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
@@ -1416,6 +1417,7 @@ uint8_t PolyBus::_2PchannelsAssigned = 0;
 int16_t Bus::_cct = -1;
 uint8_t Bus::_cctBlend = 0; // 0 - 127
 uint8_t Bus::_gAWM = 255;
+uint8_t Bus::_tempAWM = 255;
 
 uint16_t BusDigital::_milliAmpsTotal = 0;
 
