@@ -604,6 +604,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         timerDayEnd[i] = request->arg(k).toInt();
       }
     }
+    applyTimerOnBoot = request->hasArg(F("TB"));
   }
 
   //SECURITY

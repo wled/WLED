@@ -619,6 +619,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 				k[0] = 'E'; printSetFormValue(settingsScript,k,timerDayEnd[i]);
       }
     }
+    printSetFormCheckbox(settingsScript,PSTR("TB"),applyTimerOnBoot);
   }
 
   if (subPage == SUBPAGE_SEC)
