@@ -811,8 +811,8 @@ class Segment {
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) {}
+    inline void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) {}
+    inline void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) {}
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
@@ -1093,10 +1093,10 @@ class ByteReader {
 public:
   virtual uint8_t readByte(size_t offset) const = 0;
   inline uint32_t readUInt32LE(size_t offset) const {
-    return readByte(offset) | 
-           (readByte(offset + 1) << 8) |
-           (readByte(offset + 2) << 16) |
-           (readByte(offset + 3) << 24);
+    return (uint32_t)(readByte(offset)) |
+           ((uint32_t)(readByte(offset + 1)) << 8) |
+           ((uint32_t)(readByte(offset + 2)) << 16) |
+           ((uint32_t)(readByte(offset + 3)) << 24);
   }
   virtual ~ByteReader() {}
 };
@@ -1145,7 +1145,7 @@ struct SegmentFontMetadata {
 // Memory layout for cached fonts:
 // [SegmentFontMetadata] - 4 bytes
 // [GlyphEntry array] - 4 bytes each
-// [11-byte font header] - for compatibility and to store font info
+// [12-byte font header] - for compatibility and to store font info
 // [Bitmap data] - sequential, matches registry order
 
 // Font header structure
