@@ -123,8 +123,39 @@ bool isButtonPressed(uint8_t b)
 
 void handleSwitch(uint8_t b)
 {
+  // extract the current input state check one; makes code faster and less prone to glitches if input state changes mid-function
+  uint8_t currentSwitchState = isButtonPressed(b);
+
+  // SWITCH type input on-boot state should not matter; the software should determine the initial state before processing state changes
+  switch (buttons[b].waitTime) {  // we are hijacking the waitTime variable to keep track of initialized and uninitialized switches
+    case 0: // reading initial state
+      buttons[b].pressedBefore = currentSwitchState;      // save current switch state
+      buttons[b].pressedTime = millis();                  // save debounce start time
+      ++buttons[b].waitTime;                              // change initialization stage to debouncing
+      return;                                             // will have to debounce later, might as well return now
+      break;                                              // redundant, left as guard 
+    case 1: // debouncing
+      if (buttons[b].pressedBefore == currentSwitchState) { // if state is not changing
+        if (millis() - buttons[b].pressedTime > WLED_DEBOUNCE_THRESHOLD) {  // and debounce time is reached
+          buttons[b].longPressed = currentSwitchState;                                    // set longterm state
+          buttons[b].waitTime = 2;                                                        // set switch as initialized
+          DEBUG_PRINTF_P(PSTR("Switch: State init to %u %u\n"), currentSwitchState, b);   // debug initialization success
+        }
+      }
+      else {    // if state is changing, save state and reset timer
+        buttons[b].pressedBefore = currentSwitchState;
+        buttons[b].pressedTime = millis();
+      }
+      return;
+      break;    // redundant, left as guard 
+    case 2:   // the switch is initialized
+      break;
+    default:  // only jumps here if something else messes with waitTime
+      break;
+  }
+
   // isButtonPressed() handles inverted/noninverted logic
-  if (buttons[b].pressedBefore != isButtonPressed(b)) {
+  if (buttons[b].pressedBefore != currentSwitchState) {
     DEBUG_PRINTF_P(PSTR("Switch: State changed %u\n"), b);
     buttons[b].pressedTime = millis();
     buttons[b].pressedBefore = !buttons[b].pressedBefore; // toggle pressed state
