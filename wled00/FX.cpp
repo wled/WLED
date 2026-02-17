@@ -10749,8 +10749,16 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
  * Long Transition Effect
  * Allows for very slow color/palette transitions over minutes
  * Speed slider controls transition duration in minutes (0 = instant for testing)
+ * Intensity slider (optional): target preset ID to trigger when transition completes
  * Stores initial, current, and target states for smooth blending
  * Updates at 10Hz for smooth transitions while rendering each frame
+ * 
+ * PRESET TRIGGERING:
+ * This effect can optionally trigger a preset when the transition completes.
+ * This is a non-standard pattern (effects typically don't trigger presets), but it
+ * enables creating "very slow playlists" by chaining transitions without using the
+ * scheduler. The preset system is designed to handle calls from various sources,
+ * so this should work safely, though it's somewhat of a hack as noted in the issue.
  */
 void mode_long_transition(void) {
   // Structure to store transition state
@@ -10761,6 +10769,7 @@ void mode_long_transition(void) {
     uint32_t lastUpdateTime;             // Last state update time (10Hz updates)
     uint32_t transitionStartTime;        // When current transition started
     uint8_t  lastPalette;                // Track palette changes
+    bool     presetTriggered;            // Flag to prevent re-triggering preset
   };
   
   // Allocate persistent data for this effect
@@ -10772,6 +10781,7 @@ void mode_long_transition(void) {
     state->transitionStartTime = strip.now;
     state->lastUpdateTime = strip.now;
     state->lastPalette = SEGMENT.palette;
+    state->presetTriggered = false;
     
     // Initialize colors from current palette/segment colors
     for (uint8_t i = 0; i < NUM_COLORS; i++) {
@@ -10815,14 +10825,17 @@ void mode_long_transition(void) {
       state->targetColors[i] = SEGCOLOR(i);
     }
     state->transitionStartTime = strip.now;
+    state->presetTriggered = false; // Reset preset trigger flag
   }
   
   // Calculate current transition progress
   uint32_t elapsed = strip.now - state->transitionStartTime;
   uint8_t progress;
+  bool transitionComplete = false;
   
   if (transitionDuration == 0 || elapsed >= transitionDuration) {
     progress = 255; // Transition complete
+    transitionComplete = true;
   } else {
     progress = (elapsed * 255UL) / transitionDuration;
   }
@@ -10834,6 +10847,19 @@ void mode_long_transition(void) {
     // Update current blended colors
     for (uint8_t i = 0; i < NUM_COLORS; i++) {
       state->currentColors[i] = color_blend(state->initialColors[i], state->targetColors[i], progress);
+    }
+  }
+  
+  // Trigger target preset when transition completes (if intensity > 0)
+  // Intensity slider value (0-255) maps to preset IDs 1-250 (valid preset range)
+  // 0 = no preset trigger, 1-250 = preset IDs
+  if (transitionComplete && !state->presetTriggered && SEGMENT.intensity > 0) {
+    uint8_t targetPreset = (SEGMENT.intensity * 250) / 255; // Map 1-255 intensity to 1-250 preset range
+    if (targetPreset > 0 && targetPreset <= 250) {
+      // Trigger the preset using CALL_MODE_NOTIFICATION to avoid feedback loops
+      // This is safe as the preset system handles concurrent calls
+      applyPreset(targetPreset, CALL_MODE_NOTIFICATION);
+      state->presetTriggered = true;
     }
   }
   
@@ -10850,7 +10876,7 @@ void mode_long_transition(void) {
     SEGMENT.setPixelColor(i, blendedColor);
   }
 }
-static const char _data_FX_MODE_LONG_TRANSITION[] PROGMEM = "Long Transition@Duration (min);;!;01";
+static const char _data_FX_MODE_LONG_TRANSITION[] PROGMEM = "Long Transition@Duration (min),Target Preset;;!;01";
 
 void WS2812FX::setupEffectData() {
   // Solid must be first! (assuming vector is empty upon call to setup)
