@@ -10852,9 +10852,10 @@ void mode_long_transition(void) {
   
   // Trigger target preset when transition completes (if intensity > 0)
   // Intensity slider value (0-255) maps to preset IDs 1-250 (valid preset range)
-  // 0 = no preset trigger, 1-250 = preset IDs
+  // 0 = no preset trigger, 1-255 = preset IDs 1-250
   if (transitionComplete && !state->presetTriggered && SEGMENT.intensity > 0) {
-    uint8_t targetPreset = (SEGMENT.intensity * 250) / 255; // Map 1-255 intensity to 1-250 preset range
+    // Use ceiling division to ensure intensity 1-255 always maps to preset 1-250
+    uint8_t targetPreset = ((SEGMENT.intensity * 250) + 254) / 255;
     if (targetPreset > 0 && targetPreset <= 250) {
       // Trigger the preset using CALL_MODE_NOTIFICATION to avoid feedback loops
       // This is safe as the preset system handles concurrent calls
