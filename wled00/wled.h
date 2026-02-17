@@ -969,7 +969,10 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   // On the host side, use a standard syslog server or tools like rsyslog
   // use -D WLED_ENABLE_SYSLOG and -D WLED_DEBUG
   #define DEBUGOUT Syslog
-  WLED_GLOBAL bool syslogEnabled _INIT(true);
+  #ifndef WLED_SYSLOG_ENABLED_FEATURE
+    #define WLED_SYSLOG_ENABLED_FEATURE true
+  #endif
+  WLED_GLOBAL bool syslogEnabled _INIT(WLED_SYSLOG_ENABLED_FEATURE);
   #ifndef WLED_SYSLOG_HOST
     #define WLED_SYSLOG_HOST ""
   #endif
