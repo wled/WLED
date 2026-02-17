@@ -10863,17 +10863,18 @@ void mode_long_transition(void) {
     }
   }
   
-  // Render each pixel with blended color/palette
-  // Display the currently selected palette, blending colors for smooth transitions
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    // Get color from palette (or solid color if palette is 0)
-    uint32_t paletteColor = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
-    
-    // For smooth transitions, blend with current transition state
-    // This allows for effects like fading to black (overlay) or color shifts
-    uint32_t blendedColor = color_blend(state->currentColors[1], paletteColor, 255);
-    
-    SEGMENT.setPixelColor(i, blendedColor);
+  // Render each pixel
+  // For solid colors (palette 0), fill with the blended color
+  // For palettes, we display the palette but transition between different palette selections
+  if (SEGMENT.palette == 0) {
+    // Solid color mode - fill with blended primary color
+    SEGMENT.fill(state->currentColors[0]);
+  } else {
+    // Palette mode - display the palette
+    // The palette system itself will use the segment colors which we're tracking
+    for (unsigned i = 0; i < SEGLEN; i++) {
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0));
+    }
   }
 }
 static const char _data_FX_MODE_LONG_TRANSITION[] PROGMEM = "Long Transition@Duration (min),Target Preset;;!;01";
