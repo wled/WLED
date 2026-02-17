@@ -241,6 +241,7 @@ class UsermodSSDR : public Usermod {
     void setup() override;
     void loop() override;
     void handleOverlayDraw();
+    void onStateChange(uint8_t mode) override;
     void addToJsonInfo(JsonObject& root) override;
     void addToJsonState(JsonObject& root) override;
     void readFromJsonState(JsonObject& root) override;
@@ -261,6 +262,13 @@ class UsermodSSDR : public Usermod {
 	  #ifdef DEBUG_PRINTF
 	  	_logUsermodSSDR("disableOutputFunction was triggered by an external Usermod: %s", externalLedOutputDisabled ? "true" : "false");
 	  #endif
+	  // When being disabled, clear the mask immediately so nothing gets drawn
+	  if (state && umSSDRMask != nullptr) {
+		_setAllFalse();
+		#ifdef DEBUG_PRINTF
+			_logUsermodSSDR("Cleared mask due to external disable");
+		#endif
+	  }
     }
     
     // Destructor to clean up memory
