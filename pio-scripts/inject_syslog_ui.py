@@ -134,6 +134,9 @@ def inject_syslog_ui(source, target, env, retry_count=0):
                 idx = modified.rfind('<hr>')
                 if idx == -1:
                     print("\033[41mCould not find <hr> to insert Syslog UI!\033[0m")
+                    # injection failed -> remove backup so we fail cleanly and can retry fresh next build
+                    if os.path.exists(bak):
+                        os.remove(bak)
                     return
                 modified = (
                     modified[:idx]
