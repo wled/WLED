@@ -6,10 +6,6 @@
 #include <driver/i2s.h>
 #include <driver/adc.h>
 
-#ifdef WLED_ENABLE_DMX
-  #error This audio reactive usermod is not compatible with DMX Out.
-#endif
-
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
@@ -65,11 +61,14 @@ static bool udpSyncConnected = false;         // UDP connection status -> true i
 
 // audioreactive variables
 #ifdef ARDUINO_ARCH_ESP32
+    #ifndef SR_AGC // Automatic gain control mode
+    #define SR_AGC 0 // default mode = off
+    #endif
 static float    micDataReal = 0.0f;             // MicIn data with full 24bit resolution - lowest 8bit after decimal point
 static float    multAgc = 1.0f;                 // sample * multAgc = sampleAgc. Our AGC multiplier
 static float    sampleAvg = 0.0f;               // Smoothed Average sample - sampleAvg < 1 means "quiet" (simple noise gate)
 static float    sampleAgc = 0.0f;               // Smoothed AGC sample
-static uint8_t  soundAgc = 0;                   // Automagic gain control: 0 - none, 1 - normal, 2 - vivid, 3 - lazy (config value)
+static uint8_t  soundAgc = SR_AGC;              // Automatic gain control: 0 - off, 1 - normal, 2 - vivid, 3 - lazy (config value)
 #endif
 //static float    volumeSmth = 0.0f;              // either sampleAvg or sampleAgc depending on soundAgc; smoothed sample
 static float FFT_MajorPeak = 1.0f;              // FFT: strongest (peak) frequency
@@ -221,8 +220,8 @@ void FFTcode(void * parameter)
   DEBUGSR_PRINT("FFT started on core: "); DEBUGSR_PRINTLN(xPortGetCoreID());
 
   // allocate FFT buffers on first call
-  if (vReal == nullptr) vReal = (float*) calloc(sizeof(float), samplesFFT);
-  if (vImag == nullptr) vImag = (float*) calloc(sizeof(float), samplesFFT);
+  if (vReal == nullptr) vReal = (float*) calloc(samplesFFT, sizeof(float));
+  if (vImag == nullptr) vImag = (float*) calloc(samplesFFT, sizeof(float));
   if ((vReal == nullptr) || (vImag == nullptr)) {
     // something went wrong
     if (vReal) free(vReal); vReal = nullptr;
@@ -1224,7 +1223,6 @@ class AudioReactive : public Usermod {
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
         case 0:
-        default:
           DEBUGSR_PRINTLN(F("AR: Analog Microphone (left channel only)."));
           audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE);
           delay(100);
@@ -1232,10 +1230,25 @@ class AudioReactive : public Usermod {
           if (audioSource) audioSource->initialize(audioPin);
           break;
         #endif
+
+        case 254: // dummy "network receive only" mode
+          if (audioSource) delete audioSource; audioSource = nullptr;
+          disableSoundProcessing = true;
+          audioSyncEnabled = 2; // force udp sound receive mode
+          enabled = true;
+          break;
+
+        case 255: // 255 = -1 = no audio source
+          // falls through to default
+        default:
+          if (audioSource) delete audioSource; audioSource = nullptr;
+          disableSoundProcessing = true;
+          enabled = false;
+        break;
       }
       delay(250); // give microphone enough time to initialise
 
-      if (!audioSource) enabled = false;                 // audio failed to initialise
+      if (!audioSource && (dmType != 254)) enabled = false;// audio failed to initialise
 #endif
       if (enabled) onUpdateBegin(false);                 // create FFT task, and initialize network
 
@@ -1318,7 +1331,7 @@ class AudioReactive : public Usermod {
         disableSoundProcessing = true;
       } else {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
-        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource->isInitialized()) {    // we just switched to "enabled"
+        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource && audioSource->isInitialized()) {    // we just switched to "enabled"
           DEBUG_PRINTLN(F("[AR userLoop]  realtime mode ended - audio processing resumed."));
           DEBUG_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
         }
@@ -1330,7 +1343,7 @@ class AudioReactive : public Usermod {
       if (audioSyncEnabled & 0x02) disableSoundProcessing = true;   // make sure everything is disabled IF in audio Receive mode
       if (audioSyncEnabled & 0x01) disableSoundProcessing = false;  // keep running audio IF we're in audio Transmit mode
 #ifdef ARDUINO_ARCH_ESP32
-      if (!audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
+      if (!audioSource || !audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
 
 
       // Only run the sampling code IF we're not in Receive mode or realtime mode
@@ -1527,7 +1540,7 @@ class AudioReactive : public Usermod {
       // better would be for AudioSource to implement getType()
       if (enabled
           && dmType == 0 && audioPin>=0
-          && (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED)
+          && (buttons[b].type == BTN_TYPE_ANALOG || buttons[b].type == BTN_TYPE_ANALOG_INVERTED)
          ) {
         return true;
       }
@@ -1729,14 +1742,14 @@ class AudioReactive : public Usermod {
         }
 #endif
       }
-      if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
+      if (palettes > 0 && root.containsKey(F("rmcpal"))) {
         // handle removal of custom palettes from JSON call so we don't break things
         removeAudioPalettes();
       }
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && strip.customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<WLED_MAX_CUSTOM_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -1966,20 +1979,20 @@ class AudioReactive : public Usermod {
 void AudioReactive::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
   while (palettes>0) {
-    strip.customPalettes.pop_back();
+    customPalettes.pop_back();
     DEBUG_PRINTLN(palettes);
     palettes--;
   }
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(strip.customPalettes.size());
+  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++)
-    if (strip.customPalettes.size() < 10) {
-      strip.customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
+    if (customPalettes.size() < WLED_MAX_CUSTOM_PALETTES) {
+      customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
       palettes++;
       DEBUG_PRINTLN(palettes);
     } else break;
@@ -2016,7 +2029,7 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
 
 void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
-  size_t lastCustPalette = strip.customPalettes.size();
+  size_t lastCustPalette = customPalettes.size();
   if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
   for (int pal=0; pal<palettes; pal++) {
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.
@@ -2045,7 +2058,7 @@ void AudioReactive::fillAudioPalettes() {
     tcp[14] = rgb.g;
     tcp[15] = rgb.b;
 
-    strip.customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
+    customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
   }
 }
 

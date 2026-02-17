@@ -7,6 +7,12 @@
 .pioenvs
 .piolibdeps
 .vscode
+compile_commands.json
+__pycache__/
+
+/.dummy
+/dependencies.lock
+/managed_components
 
 esp01-update.sh
 platformio_override.ini
@@ -23,3 +29,4 @@ wled-update.sh
 /wled00/Release
 /wled00/wled00.ino.cpp
 /wled00/html_*.h
+/wled00/js_*.h

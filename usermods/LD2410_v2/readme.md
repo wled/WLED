@@ -18,7 +18,7 @@ To enable, compile with `LD2140` in `custom_usermods` (e.g. in `platformio_overr
 ```ini
 [env:usermod_USERMOD_LD2410_esp32dev]
 extends = env:esp32dev
-custom_usermods = ${env:esp32dev.custom_usermods} LD2140
+custom_usermods = ${env:esp32dev.custom_usermods} LD2140_v2
 ```
 
 ### Configuration Options

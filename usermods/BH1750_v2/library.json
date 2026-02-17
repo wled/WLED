@@ -1,5 +1,6 @@
 {
-  "name:": "BH1750_v2",
+  "name": "BH1750_v2",
+  "build": { "libArchive": false },
   "dependencies": {
     "claws/BH1750":"^1.2.0"
   }

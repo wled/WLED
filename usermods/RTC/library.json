@@ -1,3 +1,4 @@
 {
-  "name:": "RTC"
+  "name": "RTC",
+  "build": { "libArchive": false }
 }

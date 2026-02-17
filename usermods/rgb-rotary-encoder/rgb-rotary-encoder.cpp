@@ -54,10 +54,14 @@ class RgbRotaryEncoderUsermod : public Usermod
 
     void initLedBus()
     {
-      byte _pins[5] = {(byte)ledIo, 255, 255, 255, 255};
+      // Initialize all pins to the sentinel value first…
+      byte _pins[OUTPUT_MAX_PINS];
+      std::fill(std::begin(_pins), std::end(_pins), 255);
+      // …then set only the LED pin
+      _pins[0] = static_cast<byte>(ledIo);
       BusConfig busCfg = BusConfig(TYPE_WS2812_RGB, _pins, 0, numLeds, COL_ORDER_GRB, false, 0);
-
-      ledBus = new BusDigital(busCfg, WLED_MAX_BUSSES - 1);
+      busCfg.iType = BusManager::getI(busCfg.type, busCfg.pins, busCfg.driverType); // assign internal bus type and output driver
+      ledBus = new BusDigital(busCfg);
       if (!ledBus->isOk()) {
         cleanup();
         return;

@@ -1,24 +1,47 @@
 #include "wled.h"
 
+#ifndef WLED_DISABLE_OTA
+  #include "ota_update.h"  
+#endif
 #include "html_ui.h"
 #include "html_settings.h"
 #include "html_other.h"
+#include "js_iro.h"
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
-#ifndef WLED_DISABLE_PXMAGIC
+#ifdef WLED_ENABLE_PXMAGIC
   #include "html_pxmagic.h"
 #endif
+#ifndef WLED_DISABLE_PIXELFORGE
+  #include "html_pixelforge.h"
+#endif
 #include "html_cpal.h"
+#include "html_edit.h"
+
+// forward declarations
+static void createEditHandler();
+
 
 // define flash strings once (saves flash memory)
 static const char s_redirecting[] PROGMEM = "Redirecting...";
 static const char s_content_enc[] PROGMEM = "Content-Encoding";
 static const char s_unlock_ota [] PROGMEM = "Please unlock OTA in security settings!";
 static const char s_unlock_cfg [] PROGMEM = "Please unlock settings using PIN code!";
+static const char s_rebooting  [] PROGMEM = "Rebooting now...";
 static const char s_notimplemented[] PROGMEM = "Not implemented";
 static const char s_accessdenied[]   PROGMEM = "Access Denied";
+static const char s_not_found[]      PROGMEM = "Not found";
+static const char s_wsec[]           PROGMEM = "wsec.json";
+static const char s_func[]           PROGMEM = "func";
+static const char s_list[]           PROGMEM = "list";
+static const char s_path[]           PROGMEM = "path";
+static const char s_cache_control[]  PROGMEM = "Cache-Control";
+static const char s_no_store[]       PROGMEM = "no-store";
+static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
+static const char _iro_js[]          PROGMEM = "/iro.js";
+
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -31,12 +54,28 @@ static bool isIp(const String &str) {
   return true;
 }
 
+static bool inSubnet(const IPAddress &ip, const IPAddress &subnet, const IPAddress &mask) {
+  return (((uint32_t)ip & (uint32_t)mask) == ((uint32_t)subnet & (uint32_t)mask));
+}
+
+static bool inSameSubnet(const IPAddress &client) {
+  return inSubnet(client, Network.localIP(), Network.subnetMask());
+}
+
+static bool inLocalSubnet(const IPAddress &client) {
+  return  inSubnet(client, IPAddress(10,0,0,0),    IPAddress(255,0,0,0))                  // 10.x.x.x
+      ||  inSubnet(client, IPAddress(192,168,0,0), IPAddress(255,255,0,0))                // 192.168.x.x
+      ||  inSubnet(client, IPAddress(172,16,0,0),  IPAddress(255,240,0,0))                // 172.16.x.x
+      || (inSubnet(client, IPAddress(4,3,2,0),     IPAddress(255,255,255,0)) && apActive) // WLED AP
+      ||  inSameSubnet(client);                                                           // same subnet as WLED device
+}
+
 /*
  * Integrated HTTP web server page declarations
  */
 
 static void generateEtag(char *etag, uint16_t eTagSuffix) {
-  sprintf_P(etag, PSTR("%7d-%02x-%04x"), VERSION, cacheInvalidate, eTagSuffix);
+  sprintf_P(etag, PSTR("%u-%02x-%04x"), WEB_BUILD_TIME, cacheInvalidate, eTagSuffix);
 }
 
 static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int code, uint16_t eTagSuffix = 0) {
@@ -47,9 +86,9 @@ static void setStaticContentCacheHeaders(AsyncWebServerResponse *response, int c
   #ifndef WLED_DEBUG
   // this header name is misleading, "no-cache" will not disable cache,
   // it just revalidates on every load using the "If-None-Match" header with the last ETag value
-  response->addHeader(F("Cache-Control"), F("no-cache"));
+  response->addHeader(FPSTR(s_cache_control), F("no-cache"));
   #else
-  response->addHeader(F("Cache-Control"), F("no-store,max-age=0"));  // prevent caching if debug build
+  response->addHeader(FPSTR(s_cache_control), F("no-store,max-age=0"));  // prevent caching if debug build
   #endif
   char etag[32];
   generateEtag(etag, eTagSuffix);
@@ -130,7 +169,7 @@ static String msgProcessor(const String& var)
     if (optt < 60) //redirect to settings after optionType seconds
     {
       messageBody += F("<script>setTimeout(RS,");
-      messageBody +=String(optt*1000);
+      messageBody += String(optt*1000);
       messageBody += F(")</script>");
     } else if (optt < 120) //redirect back after optionType-60 seconds, unused
     {
@@ -151,6 +190,7 @@ static String msgProcessor(const String& var)
   }
   return String();
 }
+
 
 static void handleUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool isFinal) {
   if (!correctPIN) {
@@ -174,34 +214,107 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
-      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Configuration restore successful.\nRebooting..."));
+      request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));
     } else {
-      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) strip.loadCustomPalettes();
+      if (filename.indexOf(F("palette")) >= 0 && filename.indexOf(F(".json")) >= 0) loadCustomPalettes();
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
     }
     cacheInvalidate++;
   }
 }
 
-void createEditHandler(bool enable) {
+static const char _edit_htm[] PROGMEM = "/edit.htm";
+
+static void createEditHandler() {
   if (editHandler != nullptr) server.removeHandler(editHandler);
-  if (enable) {
-    #ifdef WLED_ENABLE_FS_EDITOR
-      #ifdef ARDUINO_ARCH_ESP32
-      editHandler = &server.addHandler(new SPIFFSEditor(WLED_FS));//http_username,http_password));
-      #else
-      editHandler = &server.addHandler(new SPIFFSEditor("","",WLED_FS));//http_username,http_password));
-      #endif
-    #else
-      editHandler = &server.on(F("/edit"), HTTP_GET, [](AsyncWebServerRequest *request){
-        serveMessage(request, 501, FPSTR(s_notimplemented), F("The FS editor is disabled in this build."), 254);
-      });
-    #endif
-  } else {
-    editHandler = &server.on(F("/edit"), HTTP_ANY, [](AsyncWebServerRequest *request){
+
+  editHandler = &server.on(F("/edit"), static_cast<WebRequestMethod>(HTTP_GET), [](AsyncWebServerRequest *request) {
+    // PIN check for GET/DELETE, for POST it is done in handleUpload()
+    if (!correctPIN) {
       serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
-    });
-  }
+      return;
+    }
+    const String& func = request->arg(FPSTR(s_func));
+    bool legacyList = false;
+    if (request->hasArg(FPSTR(s_list))) {
+      legacyList = true; // support for '?list=/'
+    }
+
+    if(func.length() == 0 && !legacyList) {
+      // default: serve the editor page
+      handleStaticContent(request, FPSTR(_edit_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_edit, PAGE_edit_length);
+      return;
+    }
+
+    if (func == FPSTR(s_list) || legacyList) {
+      bool first = true;
+      AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JSON));
+      response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+      response->addHeader(FPSTR(s_expires), F("0"));
+      response->write('[');
+
+      File rootdir = WLED_FS.open("/", "r");
+      File rootfile = rootdir.openNextFile();
+      while (rootfile) {
+        String name = rootfile.name();
+        if (name.indexOf(FPSTR(s_wsec)) >= 0) {
+          rootfile = rootdir.openNextFile(); // skip wsec.json
+          continue;
+        }
+        if (!first) response->write(',');
+        first = false;
+        response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
+        rootfile = rootdir.openNextFile();
+      }
+      rootfile.close();
+      rootdir.close();
+      response->write(']');
+      request->send(response);
+      return;
+    }
+
+    String path = request->arg(FPSTR(s_path)); // remaining functions expect a path
+
+    if (path.length() == 0) {
+      request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Missing path"));
+      return;
+    }
+
+    if (path.charAt(0) != '/') {
+      path = '/' + path; // prepend slash if missing
+    }
+
+    if (!WLED_FS.exists(path)) {
+      request->send(404, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_not_found));
+      return;
+    }
+
+    if (path.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
+    }
+
+    if (func == "edit") {
+      request->send(WLED_FS, path);
+      return;
+    }
+
+    if (func == "download") {
+      request->send(WLED_FS, path, String(), true);
+      return;
+    }
+
+    if (func == "delete") {
+      if (!WLED_FS.remove(path))
+        request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
+      else
+        request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      return;
+    }
+
+    // unrecognized func
+    request->send(400, FPSTR(CONTENT_TYPE_PLAIN), F("Invalid function"));
+  });
 }
 
 static bool captivePortal(AsyncWebServerRequest *request)
@@ -242,6 +355,10 @@ void initServer()
     handleStaticContent(request, FPSTR(_common_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_common, JS_common_length);
   });
 
+  server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_iro_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_iro, JS_iro_length);
+  });
+
   //settings page
   server.on(F("/settings"), HTTP_GET, [](AsyncWebServerRequest *request){
     serveSettings(request);
@@ -270,7 +387,7 @@ void initServer()
   });
 
   server.on(F("/reset"), HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 200,F("Rebooting now..."),F("Please wait ~10 seconds..."),129);
+    serveMessage(request, 200, FPSTR(s_rebooting), F("Please wait ~10 seconds."), 131);
     doReboot = true;
   });
 
@@ -287,7 +404,7 @@ void initServer()
     bool verboseResponse = false;
     bool isConfig = false;
 
-    if (!requestJSONBufferLock(14)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SERVER)) {
       request->deferResponse();
       return;
     }
@@ -325,8 +442,13 @@ void initServer()
     if (verboseResponse) {
       if (!isConfig) {
         lastInterfaceUpdate = millis(); // prevent WS update until cooldown
-        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update
-        serveJson(request); return; //if JSON contains "v"
+        interfaceUpdateCallMode = CALL_MODE_WS_SEND; // override call mode & schedule WS update
+        #ifndef WLED_DISABLE_MQTT
+        // publish state to MQTT as requested in wled#4643 even if only WS response selected
+        publishMqtt();
+        #endif
+        serveJson(request);
+        return; //if JSON contains "v"
       } else {
         configNeedsWrite = true; //Save new settings to FS
       }
@@ -344,7 +466,7 @@ void initServer()
   });
 
   server.on(F("/freeheap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)ESP.getFreeHeap());
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), (String)getFreeHeapSize());
   });
 
 #ifdef WLED_ENABLE_USERMOD_PAGE
@@ -362,7 +484,7 @@ void initServer()
                       size_t len, bool isFinal) {handleUpload(request, filename, index, data, len, isFinal);}
   );
 
-  createEditHandler(correctPIN);
+  createEditHandler(); // initialize "/edit" handler, access is protected by "correctPIN"
 
   static const char _update[] PROGMEM = "/update";
 #ifndef WLED_DISABLE_OTA
@@ -375,93 +497,144 @@ void initServer()
   });
 
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
-    if (!correctPIN) {
-      serveSettings(request, true); // handle PIN page POST request
-      return;
-    }
-    if (otaLock) {
-      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
-      return;
-    }
-    if (Update.hasError()) {
-      serveMessage(request, 500, F("Update failed!"), F("Please check your file and retry!"), 254);
+    if (request->_tempObject) {
+      auto ota_result = getOTAResult(request);
+      if (ota_result.first) {
+        if (ota_result.second.length() > 0) {
+          serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+        }
+      }
     } else {
-      serveMessage(request, 200, F("Update successful!"), F("Rebooting..."), 131);
-      doReboot = true;
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
-    if (!correctPIN || otaLock) return;
-    if(!index){
-      DEBUG_PRINTLN(F("OTA Update Start"));
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().disableWatchdog();
-      #endif
-      UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-      lastEditTime = millis(); // make sure PIN does not lock during update
-      strip.suspend();
-      #ifdef ESP8266
-      strip.resetSegments();  // free as much memory as you can
-      Update.runAsync(true);
-      #endif
-      Update.begin((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-    }
-    if(!Update.hasError()) Update.write(data, len);
-    if(isFinal){
-      if(Update.end(true)){
-        DEBUG_PRINTLN(F("Update Success"));
-      } else {
-        DEBUG_PRINTLN(F("Update Failed"));
-        strip.resume();
-        UsermodManager::onUpdateBegin(false); // notify usermods that update has failed (some may require task init)
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
+    if (index == 0) { 
+      // Allocate the context structure
+      if (!initOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
       }
+
+      // Privilege checks
+      IPAddress client  = request->client()->remoteIP();
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {        
+        DEBUG_PRINTLN(F("Attempted OTA update from different/non-local subnet!"));
+        serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
+        setOTAReplied(request);
+        return;
+      }
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setOTAReplied(request);
+        return;
+      };
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setOTAReplied(request);
+        return;
+      }      
     }
+
+    handleOTAData(request, index, data, len, isFinal);
   });
 #else
-  server.on(_update, HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 501, FPSTR(s_notimplemented), F("OTA updating is disabled in this build."), 254);
+  const auto notSupported = [](AsyncWebServerRequest *request){
+    serveMessage(request, 501, FPSTR(s_notimplemented), F("This build does not support OTA update."), 254);
+  };
+  server.on(_update, HTTP_GET, notSupported);
+  server.on(_update, HTTP_POST, notSupported, [](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){});
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // ESP32 bootloader update endpoint
+  server.on(F("/updatebootloader"), HTTP_POST, [](AsyncWebServerRequest *request){
+    if (request->_tempObject) {
+      auto bootloader_result = getBootloaderOTAResult(request);
+      if (bootloader_result.first) {
+        if (bootloader_result.second.length() > 0) {
+          serveMessage(request, 500, F("Bootloader update failed!"), bootloader_result.second, 254);
+        } else {
+          serveMessage(request, 200, F("Bootloader updated successfully!"), FPSTR(s_rebooting), 131);
+        }
+      }
+    } else {
+      // No context structure - something's gone horribly wrong
+      serveMessage(request, 500, F("Bootloader update failed!"), F("Internal server fault"), 254);
+    }
+  },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
+    if (index == 0) {
+      // Privilege checks
+      IPAddress client = request->client()->remoteIP();
+      if (((otaSameSubnet && !inSameSubnet(client)) && !strlen(settingsPIN)) || (!otaSameSubnet && !inLocalSubnet(client))) {
+        DEBUG_PRINTLN(F("Attempted bootloader update from different/non-local subnet!"));
+        serveMessage(request, 401, FPSTR(s_accessdenied), F("Client is not on local subnet."), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+      if (!correctPIN) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_cfg), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+      if (otaLock) {
+        serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_unlock_ota), 254);
+        setBootloaderOTAReplied(request);
+        return;
+      }
+
+      // Allocate the context structure
+      if (!initBootloaderOTA(request)) {
+        return; // Error will be dealt with after upload in response handler, above
+      }
+    }
+
+    handleBootloaderOTAData(request, index, data, len, isFinal);
   });
 #endif
 
-
 #ifdef WLED_ENABLE_DMX
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap     , dmxProcessor);
-  });
-#else
-  server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
-    serveMessage(request, 501, FPSTR(s_notimplemented), F("DMX support is not enabled in this build."), 254);
+    request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap, dmxProcessor);
   });
 #endif
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (captivePortal(request)) return;
     if (!showWelcomePage || request->hasArg(F("sliders"))) {
-      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_L);
+      handleStaticContent(request, F("/index.htm"), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_index, PAGE_index_length);
     } else {
       serveSettings(request);
     }
   });
 
-#ifdef WLED_ENABLE_PIXART
+#ifndef WLED_DISABLE_2D
+  #ifdef WLED_ENABLE_PIXART
   static const char _pixart_htm[] PROGMEM = "/pixart.htm";
   server.on(_pixart_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_L);
+    handleStaticContent(request, FPSTR(_pixart_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixart, PAGE_pixart_length);
   });
-#endif
+  #endif
 
-#ifndef WLED_DISABLE_PXMAGIC
+  #ifdef WLED_ENABLE_PXMAGIC
   static const char _pxmagic_htm[] PROGMEM = "/pxmagic.htm";
   server.on(_pxmagic_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_L);
+    handleStaticContent(request, FPSTR(_pxmagic_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pxmagic, PAGE_pxmagic_length);
   });
+  #endif
+
+  #ifndef WLED_DISABLE_PIXELFORGE
+  static const char _pixelforge_htm[] PROGMEM = "/pixelforge.htm";
+  server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
+  });
+  #endif
 #endif
 
   static const char _cpal_htm[] PROGMEM = "/cpal.htm";
   server.on(_cpal_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
-    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_L);
+    handleStaticContent(request, FPSTR(_cpal_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_cpal, PAGE_cpal_length);
   });
 
 #ifdef WLED_ENABLE_WEBSOCKETS
@@ -531,8 +704,8 @@ void serveSettingsJS(AsyncWebServerRequest* request)
   }
   
   AsyncResponseStream *response = request->beginResponseStream(FPSTR(CONTENT_TYPE_JAVASCRIPT));
-  response->addHeader(F("Cache-Control"), F("no-store"));
-  response->addHeader(F("Expires"), F("0"));
+  response->addHeader(FPSTR(s_cache_control), FPSTR(s_no_store));
+  response->addHeader(FPSTR(s_expires), F("0"));
 
   response->print(F("function GetV(){var d=document;"));
   getSettingsJS(subPage, *response);
@@ -580,6 +753,11 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
   }
 
   if (post) { //settings/set POST request, saving
+    IPAddress client = request->client()->remoteIP();
+    if (!inLocalSubnet(client)) { // includes same subnet check
+      serveMessage(request, 401, FPSTR(s_accessdenied), FPSTR(s_redirecting), 123);
+      return;
+    }
     if (subPage != SUBPAGE_WIFI || !(wifiLock && otaLock)) handleSettingsSet(request, subPage);
 
     char s[32];
@@ -631,13 +809,26 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_DMX     :  content = PAGE_settings_dmx;  len = PAGE_settings_dmx_length;  break;
 #endif
     case SUBPAGE_UM      :  content = PAGE_settings_um;   len = PAGE_settings_um_length;   break;
-    case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;        break;
+#ifndef WLED_DISABLE_OTA
+    case SUBPAGE_UPDATE  :  content = PAGE_update;        len = PAGE_update_length;
+      #ifdef ARDUINO_ARCH_ESP32
+      if (request->hasArg(F("revert")) && inLocalSubnet(request->client()->remoteIP()) && Update.canRollBack()) {
+        doReboot = Update.rollBack();
+        if (doReboot) {
+          serveMessage(request, 200, F("Reverted to previous version!"), FPSTR(s_rebooting), 133);
+        } else {
+          serveMessage(request, 500, F("Rollback failed!"), F("Please reboot and retry."), 254);
+        }
+        return;
+      }
+      #endif
+      break;
+#endif
 #ifndef WLED_DISABLE_2D
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
-      createEditHandler(correctPIN);
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
       return;
     }

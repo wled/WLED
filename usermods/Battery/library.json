@@ -1,3 +1,4 @@
 {
-  "name:": "Battery"
+  "name": "Battery",
+  "build": { "libArchive": false }
 }
