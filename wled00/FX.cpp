@@ -10745,6 +10745,113 @@ uint8_t WS2812FX::addEffect(uint8_t id, mode_ptr mode_fn, const char *mode_name)
   }
 }
 
+/*
+ * Long Transition Effect
+ * Allows for very slow color/palette transitions over minutes
+ * Speed slider controls transition duration in minutes (0 = instant for testing)
+ * Stores initial, current, and target states for smooth blending
+ * Updates at 10Hz for smooth transitions while rendering each frame
+ */
+void mode_long_transition(void) {
+  // Structure to store transition state
+  struct TransitionState {
+    uint32_t initialColors[NUM_COLORS];  // Colors at start of transition
+    uint32_t targetColors[NUM_COLORS];   // Target colors for transition
+    uint32_t currentColors[NUM_COLORS];  // Current blended colors (updated at 10Hz)
+    uint32_t lastUpdateTime;             // Last state update time (10Hz updates)
+    uint32_t transitionStartTime;        // When current transition started
+    uint8_t  lastPalette;                // Track palette changes
+  };
+  
+  // Allocate persistent data for this effect
+  if (!SEGENV.allocateData(sizeof(TransitionState))) FX_FALLBACK_STATIC;
+  TransitionState* state = reinterpret_cast<TransitionState*>(SEGENV.data);
+  
+  // Initialize on first call
+  if (SEGENV.call == 0) {
+    state->transitionStartTime = strip.now;
+    state->lastUpdateTime = strip.now;
+    state->lastPalette = SEGMENT.palette;
+    
+    // Initialize colors from current palette/segment colors
+    for (uint8_t i = 0; i < NUM_COLORS; i++) {
+      state->initialColors[i] = SEGCOLOR(i);
+      state->targetColors[i] = SEGCOLOR(i);
+      state->currentColors[i] = SEGCOLOR(i);
+    }
+  }
+  
+  // Calculate transition duration based on speed slider
+  // Speed = 0: instant (for testing)
+  // Speed = 1-255: 1 to 255 minutes
+  uint32_t transitionDuration;
+  if (SEGMENT.speed == 0) {
+    transitionDuration = 0; // Instant transition
+  } else {
+    // Map speed 1-255 to 1-255 minutes (in milliseconds)
+    transitionDuration = (uint32_t)SEGMENT.speed * 60000UL; // speed * 60 seconds in ms
+  }
+  
+  // Check if palette or colors have changed (new transition target)
+  bool targetChanged = false;
+  if (state->lastPalette != SEGMENT.palette) {
+    targetChanged = true;
+    state->lastPalette = SEGMENT.palette;
+  } else {
+    // Check if any color has changed
+    for (uint8_t i = 0; i < NUM_COLORS; i++) {
+      if (state->targetColors[i] != SEGCOLOR(i)) {
+        targetChanged = true;
+        break;
+      }
+    }
+  }
+  
+  // If colors/palette changed, start new transition
+  if (targetChanged) {
+    // Current state becomes the new initial state
+    for (uint8_t i = 0; i < NUM_COLORS; i++) {
+      state->initialColors[i] = state->currentColors[i];
+      state->targetColors[i] = SEGCOLOR(i);
+    }
+    state->transitionStartTime = strip.now;
+  }
+  
+  // Calculate current transition progress
+  uint32_t elapsed = strip.now - state->transitionStartTime;
+  uint8_t progress;
+  
+  if (transitionDuration == 0 || elapsed >= transitionDuration) {
+    progress = 255; // Transition complete
+  } else {
+    progress = (elapsed * 255UL) / transitionDuration;
+  }
+  
+  // Update current state at 10Hz (every 100ms)
+  if (strip.now - state->lastUpdateTime >= 100) {
+    state->lastUpdateTime = strip.now;
+    
+    // Update current blended colors
+    for (uint8_t i = 0; i < NUM_COLORS; i++) {
+      state->currentColors[i] = color_blend(state->initialColors[i], state->targetColors[i], progress);
+    }
+  }
+  
+  // Render each pixel with blended color/palette
+  // Display the currently selected palette, blending colors for smooth transitions
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    // Get color from palette (or solid color if palette is 0)
+    uint32_t paletteColor = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+    
+    // For smooth transitions, blend with current transition state
+    // This allows for effects like fading to black (overlay) or color shifts
+    uint32_t blendedColor = color_blend(state->currentColors[1], paletteColor, 255);
+    
+    SEGMENT.setPixelColor(i, blendedColor);
+  }
+}
+static const char _data_FX_MODE_LONG_TRANSITION[] PROGMEM = "Long Transition@Duration (min);;!;01";
+
 void WS2812FX::setupEffectData() {
   // Solid must be first! (assuming vector is empty upon call to setup)
   _mode.push_back(&mode_static);
@@ -10994,5 +11101,8 @@ addEffect(FX_MODE_PS1DSONICSTREAM, &mode_particle1DsonicStream, _data_FX_MODE_PS
 addEffect(FX_MODE_PS1DSONICBOOM, &mode_particle1DsonicBoom, _data_FX_MODE_PS_SONICBOOM);
 addEffect(FX_MODE_PS1DSPRINGY, &mode_particleSpringy, _data_FX_MODE_PS_SPRINGY);
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
+
+  // Long Transition effect
+  addEffect(FX_MODE_LONG_TRANSITION, &mode_long_transition, _data_FX_MODE_LONG_TRANSITION);
 
 }
