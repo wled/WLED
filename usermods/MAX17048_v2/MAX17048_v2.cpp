@@ -35,8 +35,8 @@ class  Usermod_MAX17048 : public Usermod {
     unsigned long lastSend = UINT32_MAX - (USERMOD_MAX17048_MAX_MONITOR_INTERVAL - USERMOD_MAX17048_FIRST_MONITOR_AT);
 
 
-    uint8_t  VoltageDecimals = 3;  // Number of decimal places in published voltage values
-    uint8_t  PercentDecimals = 1;    // Number of decimal places in published percent values
+    unsigned VoltageDecimals = 3;  // Number of decimal places in published voltage values
+    unsigned PercentDecimals = 1;  // Number of decimal places in published percent values
 
     // string that are used multiple time (this will save some flash memory)
     static const char _name[];

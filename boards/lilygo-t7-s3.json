@@ -1,0 +1,47 @@
+{
+    "build": {
+        "arduino":{
+            "ldscript": "esp32s3_out.ld",
+            "memory_type": "qio_opi",
+            "partitions": "default_16MB.csv"
+        },
+        "core": "esp32",
+        "extra_flags": [
+			"-DARDUINO_TTGO_T7_S3",
+            "-DBOARD_HAS_PSRAM",
+            "-DARDUINO_USB_MODE=1"
+        ],
+        "f_cpu": "240000000L",
+        "f_flash": "80000000L",
+        "flash_mode": "qio",
+        "hwids": [
+            [
+                "0X303A",
+                "0x1001"
+            ]
+        ],
+        "mcu": "esp32s3",
+        "variant": "esp32s3"
+    },
+    "connectivity": [
+        "wifi",
+        "bluetooth"
+    ],
+    "debug": {
+        "openocd_target": "esp32s3.cfg"
+    },
+    "frameworks": [
+        "arduino",
+        "espidf"
+    ],
+    "name": "LILYGO T3-S3",
+    "upload": {
+        "flash_size": "16MB",
+        "maximum_ram_size": 327680,
+        "maximum_size": 16777216,
+        "require_upload_port": true,
+        "speed": 921600
+    },
+    "url": "https://www.aliexpress.us/item/3256804591247074.html",
+    "vendor": "LILYGO"
+}

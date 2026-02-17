@@ -15,7 +15,6 @@
 
 #include <stdint.h>
 #include <vector>
-#include <algorithm>
 
 #include "tetrisbag.h"
 
@@ -87,15 +86,10 @@ public:
     void queuePiece()
     {
         //move vector to left
-        std::rotate(piecesQueue.begin(), piecesQueue.begin() + 1, piecesQueue.end());
+        for (uint8_t i = 1; i < piecesQueue.size(); i++) {
+            piecesQueue[i - 1] = piecesQueue[i];
+        }
         piecesQueue[piecesQueue.size() - 1] = getNextPiece();
-    }
-
-    void queuePiece(uint8_t idx)
-    {
-        //move vector to left
-        std::rotate(piecesQueue.begin(), piecesQueue.begin() + 1, piecesQueue.end());
-        piecesQueue[piecesQueue.size() - 1] = Piece(idx % nPieces);
     }
 
     void reset()

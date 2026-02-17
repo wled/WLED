@@ -1,5 +1,5 @@
 {
-  "name:": "VL53L0X_gestures",
+  "name": "VL53L0X_gestures",
   "build": { "libArchive": false},
   "dependencies": {
     "pololu/VL53L0X" : "^1.3.0"

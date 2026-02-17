@@ -1,3 +1,4 @@
 {
-  "name:": "boblight"
+  "name": "boblight",
+  "build": { "libArchive": false }
 }

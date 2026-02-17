@@ -1,4 +1,5 @@
 {
-  "name:": "MY9291",
+  "name": "MY9291",
+  "build": { "libArchive": false },
   "platforms": ["espressif8266"]
 }

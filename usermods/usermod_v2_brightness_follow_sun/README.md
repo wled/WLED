@@ -10,8 +10,8 @@ define `USERMOD_BRIGHTNESS_FOLLOW_SUN` e.g. `#define USERMOD_BRIGHTNESS_FOLLOW_S
 
 or add `-D USERMOD_BRIGHTNESS_FOLLOW_SUN` to `build_flags` in platformio_override.ini
 
-
 ### Options
+
 Open Usermod Settings in WLED to change settings:
 
 `Enable` - When checked `Enable`, turn on the `Brightness Follow Sun` Usermod, which will automatically turn on the lights, adjust the brightness, and turn off the lights. If you need to completely turn off the lights, please unchecked `Enable`.
@@ -24,12 +24,12 @@ Open Usermod Settings in WLED to change settings:
 
 `Relax Hour` - The unit is in hours, with an effective range of 0-6. According to the settings, maintain the lowest brightness for 0-6 hours before sunrise and after sunset.
 
-
 ### PlatformIO requirements
 
 No special requirements.
 
-## Change Log
+### Change Log
 
 2025-01-02
+
 * init

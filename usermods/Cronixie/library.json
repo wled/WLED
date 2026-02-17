@@ -1,3 +1,4 @@
 {
-  "name:": "Cronixie"
+  "name": "Cronixie",
+  "build": { "libArchive": false }
 }

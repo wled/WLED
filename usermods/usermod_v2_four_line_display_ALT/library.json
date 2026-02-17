@@ -1,0 +1,8 @@
+{
+  "name": "four_line_display_ALT",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "U8g2": "~2.34.4",
+    "Wire": ""
+  }  
+}

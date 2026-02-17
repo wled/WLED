@@ -7,14 +7,14 @@
  * Infrared sensor support for several generic RGB remotes and custom JSON remote
  */
 
-IRrecv* irrecv;
-decode_results results;
-unsigned long irCheckedTime = 0;
-uint32_t lastValidCode = 0;
-byte lastRepeatableAction = ACTION_NONE;
-uint8_t lastRepeatableValue = 0;
-uint16_t irTimesRepeated = 0;
-uint8_t lastIR6ColourIdx = 0;
+static IRrecv* irrecv;
+static decode_results results;
+static unsigned long irCheckedTime = 0;
+static uint32_t lastValidCode = 0;
+static byte lastRepeatableAction = ACTION_NONE;
+static uint8_t lastRepeatableValue = 0;
+static uint16_t irTimesRepeated = 0;
+static uint8_t lastIR6ColourIdx = 0;
 
 
 // brightnessSteps: a static array of brightness levels following a geometric
@@ -425,8 +425,8 @@ static void decodeIR44(uint32_t code)
     case IR44_COLDWHITE2  : changeColor(COLOR_COLDWHITE2,   255); changeEffect(FX_MODE_STATIC);  break;
     case IR44_REDPLUS     : changeEffect(relativeChange(effectCurrent,  1, 0, strip.getModeCount() -1));               break;
     case IR44_REDMINUS    : changeEffect(relativeChange(effectCurrent, -1, 0, strip.getModeCount() -1));               break;
-    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, strip.getPaletteCount() -1)); break;
-    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, strip.getPaletteCount() -1)); break;
+    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, getPaletteCount() -1)); break;
+    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, getPaletteCount() -1)); break;
     case IR44_BLUEPLUS    : changeEffectIntensity( 16);                  break;
     case IR44_BLUEMINUS   : changeEffectIntensity(-16);                  break;
     case IR44_QUICK       : changeEffectSpeed( 16);                      break;
@@ -435,7 +435,7 @@ static void decodeIR44(uint32_t code)
     case IR44_DIY2        : presetFallback(2, FX_MODE_BREATH,        0); break;
     case IR44_DIY3        : presetFallback(3, FX_MODE_FIRE_FLICKER,  0); break;
     case IR44_DIY4        : presetFallback(4, FX_MODE_RAINBOW,       0); break;
-    case IR44_DIY5        : presetFallback(5, FX_MODE_METEOR, 0);        break;
+    case IR44_DIY5        : presetFallback(5, FX_MODE_METEOR,        0); break;
     case IR44_DIY6        : presetFallback(6, FX_MODE_RAIN,          0); break;
     case IR44_AUTO        : changeEffect(FX_MODE_STATIC);                break;
     case IR44_FLASH       : changeEffect(FX_MODE_PALETTE);               break;
@@ -484,7 +484,7 @@ static void decodeIR6(uint32_t code)
     case IR6_CHANNEL_UP:   incBrightness();                                                  break;
     case IR6_CHANNEL_DOWN: decBrightness();                                                  break;
     case IR6_VOLUME_UP:    changeEffect(relativeChange(effectCurrent, 1, 0, strip.getModeCount() -1)); break;
-    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, strip.getPaletteCount() -1));
+    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, getPaletteCount() -1));
       switch(lastIR6ColourIdx) {
         case 0: changeColor(COLOR_RED);       break;
         case 1: changeColor(COLOR_REDDISH);   break;
@@ -530,7 +530,7 @@ static void decodeIR9(uint32_t code)
 
 /*
 This allows users to customize IR actions without the need to edit C code and compile.
-From the https://github.com/wled-dev/WLED/wiki/Infrared-Control page, download the starter
+From the https://github.com/wled/WLED/wiki/Infrared-Control page, download the starter
 ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
 different labels or colors. Once you edit the ir.json file, upload it to your controller
@@ -559,7 +559,7 @@ static void decodeIRJson(uint32_t code)
   JsonObject fdo;
   JsonObject jsonCmdObj;
 
-  if (!requestJSONBufferLock(13)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_IR)) return;
 
   sprintf_P(objKey, PSTR("\"0x%lX\":"), (unsigned long)code);
   strcpy_P(fileName, PSTR("/ir.json")); // for FS.exists()

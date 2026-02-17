@@ -1,10 +1,13 @@
 #include "wled.h"
 
+// forward declarations
+static void _overlayAnalogCountdown();
+
 /*
  * Used to draw clock overlays over the strip
  */
 
-void _overlayAnalogClock()
+static void _overlayAnalogClock()
 {
   int overlaySize = overlayMax - overlayMin +1;
   if (countdownMode)
@@ -47,7 +50,7 @@ void _overlayAnalogClock()
 }
 
 
-void _overlayAnalogCountdown()
+static void _overlayAnalogCountdown()
 {
   if ((unsigned long)toki.second() < countdownTime)
   {
@@ -90,9 +93,8 @@ void _overlayAnalogCountdown()
 void handleOverlayDraw() {
   UsermodManager::handleOverlayDraw();
   if (analogClockSolidBlack) {
-    const Segment* segments = strip.getSegments();
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-      const Segment& segment = segments[i];
+      const Segment& segment = strip.getSegment(i);
       if (!segment.isActive()) continue;
       if (segment.mode > 0 || segment.colors[0] > 0) {
         return;
