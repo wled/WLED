@@ -158,6 +158,27 @@ private:
   unsigned long monthlyResetTimestamp = 0;
 
   bool mqttStateRestored = false;
+  bool mqttRestorePending = false;
+  bool mqttRestoreDeferredLogged = false;
+
+  struct MqttRestoreData {
+    bool hasDailyEnergy = false;
+    bool hasMonthlyEnergy = false;
+    bool hasTotalEnergy = false;
+    bool hasDailyResetTime = false;
+    bool hasMonthlyResetTime = false;
+    bool hasDailyResetTimestamp = false;
+    bool hasMonthlyResetTimestamp = false;
+    float dailyEnergy = 0.0f;
+    float monthlyEnergy = 0.0f;
+    float totalEnergy = 0.0f;
+    uint32_t dailyResetTime = 0;
+    uint32_t monthlyResetTime = 0;
+    uint32_t dailyResetTimestamp = 0;
+    uint32_t monthlyResetTimestamp = 0;
+  };
+
+  MqttRestoreData mqttRestoreData;
 
   INA_SENSOR_CLASS *_ina2xx = nullptr; // INA2xx sensor object
 
@@ -165,6 +186,8 @@ private:
   bool hasSignificantChange(float oldValue, float newValue, float threshold = 0.01f);
   bool hasValueChanged();
   void checkForI2cErrors();
+  bool isTimeValid() const;
+  void applyMqttRestoreIfReady();
   bool updateINA2xxSettings();
   String sanitizeMqttClientID(const String &clientID);
   void updateEnergy(float power, unsigned long durationMs);
