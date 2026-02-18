@@ -19,6 +19,8 @@ custom_usermods = ${env:d1_mini.custom_usermods} seven_segment_display_reloaded_
 
 For the auto brightness option, the usermod **SN_Photoresistor** or **BH1750_V2** has to be installed as well. See [SN_Photoresistor/readme.md](SN_Photoresistor/readme.md) or [BH1750_V2/readme.md](BH1750_V2/readme.md) for instructions.
 
+> **Note:** MQTT must be enabled in the build (do not set `WLED_DISABLE_MQTT`).
+
 ## Available Compile-Time Parameters
 
 These parameters can be configured at compile time using `#define` statements in `my_config.h`. The following table summarizes the available options:
@@ -112,7 +114,7 @@ Some settings can also be controlled through MQTT with a raw payload or via a JS
 
 The following is an example of an LED layout for a seven segment display. The diagram below shows the segment positions:
 
-```
+```text
   <  A  >
 /\       /\
 F         B
@@ -174,10 +176,9 @@ A public function `disableOutputFunction(bool state)` is provided to externally 
 
 This project, available on [Thingiverse](https://www.thingiverse.com/thing:4207524), uses a large hidden shelf edge as the display for a clock. If you build the modified clock that also shows 24 hours, use the following settings in your configuration:
 
-my_config.h Settings:
---------------------------------
+### Project 1 – my_config.h settings
 
-```
+```cpp
 #define USERMOD_SSDR
 
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
@@ -216,10 +217,9 @@ my_config.h Settings:
 
 The EleksTube project, available at [EleksTube Retro Glows Analog Nixie Tube Clock](https://elekstube.com/products/elekstube-r2-6-bit-electronic-led-luminous-retro-glows-analog-nixie-tube-clock). With the following settings, the SSDR usermod becomes more versatile and can be used with this clock as well:
 
-my_config.h Settings:
---------------------------------
+### Project 2 – my_config.h settings
 
-```
+```cpp
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
 #define umSSDR_ENABLE_AUTO_BRIGHTNESS   false       // Enable auto brightness (requires USERMOD_SN_PHOTORESISTOR)
 #define umSSDR_INVERTED                 false       // Inverted display
