@@ -10721,127 +10721,86 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
  * Slow Transition effect
  * Displays the currently selected palette/color with a very slow transition
  * speed slider controls the number of minutes for the transition (0 = 10s)
+ * after transition completes, applies preset set by intensity slider (if any)
+ * allows for chains of slow transitions just like a playlist
  * by DedeHai
  */
 typedef struct SlowTransitionData {
-  //uint32_t startColors[NUM_COLORS];  // initial
-  //uint32_t lastColors[NUM_COLORS];   // colors last time (need to check if target changed)
-  //uint8_t lastPalId;                 // palette id last time (need to check if target change)
-  //CRGBPalette16 startPalette;        // initial palette
+  CRGBPalette16 startPalette;        // initial palette
   CRGBPalette16 currentPalette;      // blended palette for current frame, need permanent storage so we can start from this if target changes mid transition
   CRGBPalette16 endPalette;          // target palette
-  //uint32_t lastUpdate;               // last time the palette was updated, used to control update rate of blending
-  uint32_t totalSteps;                  // total number of steps for blending
-  bool presetapplied;                // flag to indicate if preset was applied (one shot)
 } slow_transition_data;
 
 void mode_slow_transition(void) {
   // aliases
-  uint32_t* startTime = &SEGMENT.step; // use step to store start time of transition
+  uint32_t* startTime = &SEGMENT.step;  // use step to store start time of transition
   uint16_t* stepsDone = &SEGMENT.aux0;
-  // note: aux1 is used to keep track of color/channel to blend the palette colors
-
-  // palette blend function that transitions one by one of the 16 colors by one step
-  auto blendPaletteTowardPalette = [](CRGBPalette16& current, const CRGBPalette16& target) {
-    uint8_t* p1 = (uint8_t*)current.entries;
-    uint8_t* p2 = (uint8_t*)target.entries;
-    bool changed = false;
-    // put a bound on the attempts to avoid long loops, it will be called in the next frame
-    for (uint8_t attempts = 0; attempts < sizeof(CRGBPalette16) * sizeof(CRGB); attempts++) {
-      uint8_t colorChannel = SEGMENT.aux1 & 0x03;        // lower 2 bits, 3 color channels
-      uint8_t paletteColor = (SEGMENT.aux1 >> 8) & 0x0F; // upper nibble, 16 palette colors
-      uint8_t channelOffset = paletteColor * 3 + colorChannel; // offset for the current color in the palette (3 channels per color)
-      // go through all 16 palette colors and update one color channel, R, G or B by a max of one
-      //  for( uint8_t i = 0; i < sizeof(CRGBPalette16)/sizeof(CRGB); i++) {
-          //uint8_t colorChannel = i * 3 + SEGMENT.aux1; // channel offset (0 for R, 1 for G, 2 for B)
-          if( p1[channelOffset] < p2[channelOffset] ) {
-            p1[channelOffset]++;
-            changed = true;
-          }
-          else if( p1[channelOffset] > p2[channelOffset] ) {
-            p1[channelOffset]--;
-            changed = true;
-          }
-      //}
-      colorChannel = (colorChannel + 1) % 3;  // next channel
-      if (colorChannel == 0)
-        paletteColor = (paletteColor + 1) % 16; // next position in palette
-
-      SEGMENT.aux1 = (paletteColor << 8) | colorChannel; // update aux1 for next step
-      if (changed) {
-        if (SEGMENT.check2)
-          return; // if check1 is set, only update one palette color per step, "sweeping" through the palette
-        else if (paletteColor == 0)
-          return; // if check1 is not set, update all colors in the palette at once (results in "jumps" at low brightness)
-      }
-    }
-  };
+  uint16_t* startSpeed = &SEGMENT.aux1; // speed setting at the start of the transition, used to detect changes
 
   size_t dataSize = sizeof(slow_transition_data);
   if (!SEGMENT.allocateData(dataSize)) FX_FALLBACK_STATIC;
   slow_transition_data* data = reinterpret_cast<slow_transition_data*>(SEGMENT.data);
 
-  bool changed = (data->endPalette != SEGPALETTE);
+  bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed); // detect changes in target palette or speed setting
 
   // (re) init
   if (changed || SEGMENT.call == 0) {
     if (SEGMENT.call == 0) {
-      data->presetapplied = false;
+      //data->presetapplied = false;
+      data->startPalette = SEGPALETTE;
       data->currentPalette = SEGPALETTE;
       data->endPalette = SEGPALETTE;
+      *stepsDone = 0xFFFF; // set to max, fading will start once a change is detected
     }
     else {
+      data->startPalette = data->currentPalette;
       data->endPalette = SEGPALETTE;
-      // determine the number of steps the fade will take
-      data->totalSteps = 0; // reset step counter, 1 to avoid division by zero (just in case)
-      SEGMENT.aux1 = 0; // reset color/channel counter
-      // simulation run to determine number of steps
-      CRGBPalette16 temp = data->currentPalette;
-      while (temp != data->endPalette) {
-        data->totalSteps++;
-        blendPaletteTowardPalette(temp, data->endPalette); // blend one step
-        if (data->totalSteps >= sizeof(CRGBPalette16) * sizeof(CRGB) * 255) { // safety bound, should never happen
-          break;
-        }
-      }
-      /*
-      Serial.printf("total steps by simulation: %u\n", data->totalSteps);
-      // total steps calculated by formula:
-      uint16_t steps = 0;
-
-      const uint8_t* p1 = (const uint8_t*)data->currentPalette.entries;
-      const uint8_t* p2 = (const uint8_t*)data->endPalette.entries;
-
-      for (uint8_t i = 0; i < 16 * 3; i++) {
-        steps += abs((int)p1[i] - (int)p2[i]);
-      }
-      Serial.printf("total steps by formula: %u\n", steps);*/
-
-      SEGMENT.aux1 = 0; // reset color/channel tracker for blending
-      *stepsDone = 0; ; // reset counter
+      *stepsDone = 0; // reset counter
     }
+    *startSpeed = SEGMENT.speed;
     *startTime = strip.now; // set start time
-    //data->lastUpdate = strip.now;
   }
 
-  uint32_t duration = (SEGMENT.speed == 0) ? 10000 : (uint32_t)SEGMENT.speed * 60000; // 10s if zero, otherwise map 1-255 to 1-255 minutes
-  uint32_t starttime = *startTime;
-  uint32_t elapsed = strip.now - starttime;
-  uint32_t expectedSteps = (uint64_t)elapsed * data->totalSteps / duration;
-//  uint32_t doneSteps = SEGMENT.aux0;
+  uint32_t totalSteps = SEGMENT.check2 ? 16 * 255 : 255;
+  uint32_t duration = (SEGMENT.speed == 0) ? 10000 : (uint32_t)SEGMENT.speed * 60000; // 10s if zero (good for testing), otherwise map 1-255 to 1-255 minutes
+  uint32_t elapsed = strip.now - *startTime; // note: will overflow after ~50 days if just left alone (edge case unhandled)
+  uint32_t expectedSteps = (uint64_t)elapsed * totalSteps / duration;
+  expectedSteps = min(expectedSteps, totalSteps); // limit to total steps
 
-  while (*stepsDone < expectedSteps && *stepsDone < data->totalSteps) { // time to blend one (or several) steps
-    blendPaletteTowardPalette(data->currentPalette, data->endPalette);
-    (*stepsDone)++;
+  if (*stepsDone > expectedSteps)
+    *stepsDone = expectedSteps;// in case sweep was disabled mid transition
+
+  if (*stepsDone < expectedSteps) {
+    *stepsDone = expectedSteps; // jump to expected steps to make sure timing is correct (need up to 4080 frames, at 20fps that is ~200 seconds)
+    if (SEGMENT.check2) {
+        // sweep: one palette entry at a time
+        uint8_t i = *stepsDone % 16;
+        uint8_t blendAmount  = *stepsDone / 16;
+        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+    } else {
+      // full palette at once
+      uint8_t blendAmount = (uint8_t)*stepsDone;
+      for (uint8_t i = 0; i < 16; i++) {
+        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+      }
+    }
+    if (*stepsDone >= totalSteps) {
+      // transition complete, apply preset set by intensity slider (if any)
+      data->currentPalette = data->endPalette; // set to end palette (sweep may not have set all entries)
+      if (SEGMENT.intensity > 0) {
+        uint8_t targetPreset = SEGMENT.intensity;
+        applyPreset(targetPreset, CALL_MODE_DIRECT_CHANGE); // apply preset (if it exists)
+      }
+    }
   }
-
+  // display current palette over segment
   for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t paletteIndex = (i * 255) / SEGLEN;
     CRGBW palcol = ColorFromPaletteWLED(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
     SEGMENT.setPixelColor(i, palcol.color32);
   }
 }
-static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min), End reset,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0,o2=1";
+static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min), End reset,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0";
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
