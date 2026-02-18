@@ -68,7 +68,7 @@ public:
             }
 
             //line full if all ones in mask :-)
-            if (grid.isLineFull(row))
+            if (grid.isLineReadyForRemoval(row))
             {
                 rating->fullLines++;
             }
