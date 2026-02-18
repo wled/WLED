@@ -7,7 +7,6 @@ REGISTER_USERMOD(ina2xx_v2);
 
 // Function to truncate decimals based on the configured decimal factor
 float UsermodINA2xx::roundDecimals(float val) {
-	_logUsermodInaSensor("Truncating value %.6f with factor %d", val, _decimalFactor);
 	if (_decimalFactor == 0) {
 		return roundf(val);
 	}
@@ -244,8 +243,6 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 	_ina2xx->setResistorRange(shuntResistor,currentRange); // choose resistor 100 mOhm (default )and gain range up to 10 A (1.3A default)
 
 	_ina2xx->readAndClearFlags();
-
-	_ina2xx->waitUntilConversionCompleted(); //if you comment this line the first data might be zero
 #endif
 
 	_logUsermodInaSensor("INA2xx sensor configured successfully");
@@ -350,11 +347,9 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		_logUsermodInaSensor("Fixing missing daily reset timestamp: ts=%lu", dailyResetTimestamp);
 	}
 
-	// Reset daily energy at midnight or if day changed
-	if (currentDay > dailyResetTime) {
-	//if ((hour(localTime) == 0 && minute(localTime) == 0 && dailyResetTime != currentDay) ||
-		//(currentDay > dailyResetTime && dailyResetTime > 0)) {
-		_logUsermodInaSensor("Resetting daily energy counter (day change detected)");
+	// Reset daily energy whenever day marker does not match current day
+	if (static_cast<unsigned long>(currentDay) != dailyResetTime) {
+		_logUsermodInaSensor("Resetting daily energy counter (day marker mismatch: now=%ld, last=%lu)", currentDay, dailyResetTime);
 		dailyEnergy_kWh = 0;
 		dailyResetTime = currentDay;
 		// Set timestamp to midnight of the current day
@@ -372,7 +367,6 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		// Calculate midnight timestamp for first day of current month
 		// Formula: subtract (current_day - 1) days worth of seconds, then subtract time-of-day
 		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
-		//monthlyResetTimestamp = localTime - (localTime % 86400UL); // midnight seconds (first of month)
 		_logUsermodInaSensor("Initializing monthly reset: month=%ld, ts=%lu", monthlyResetTime, monthlyResetTimestamp);
 	}
 
@@ -382,19 +376,15 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		_logUsermodInaSensor("Fixing missing monthly reset timestamp: ts=%lu", monthlyResetTimestamp);
 	}
 
-	// Reset monthly energy on first day of month or if month changed
-	if (currentMonth > monthlyResetTime) {
-	//if ((day(localTime) == 1 && hour(localTime) == 0 && minute(localTime) == 0 &&
-			//monthlyResetTime != currentMonth) || (currentMonth > monthlyResetTime && monthlyResetTime > 0)) {
-		_logUsermodInaSensor("Resetting monthly energy counter (month change detected)");
+	// Reset monthly energy whenever month marker does not match current month
+	if (static_cast<unsigned long>(currentMonth) != monthlyResetTime) {
+		_logUsermodInaSensor("Resetting monthly energy counter (month marker mismatch: now=%ld, last=%lu)", currentMonth, monthlyResetTime);
 		monthlyEnergy_kWh = 0;
 		monthlyResetTime = currentMonth;
 
 		// Calculate midnight timestamp for first day of current month
 		// Formula: subtract (current_day - 1) days worth of seconds, then subtract time-of-day
 		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
-
-		//monthlyResetTimestamp = localTime - (localTime % 86400UL);
 	}
 	monthlyEnergy_kWh += energy_kWh;
 	_logUsermodInaSensor("Monthly energy updated to: %.6f kWh", monthlyEnergy_kWh);
@@ -439,14 +429,6 @@ void UsermodINA2xx::publishMqtt(float shuntVoltage, float busVoltage, float load
 	} else {
 		_logUsermodInaSensor("Skipping energy fields until MQTT state restored");
 	}
-
-	// Reset timestamps
-	//if (dailyResetTime > 0) {
-		//jsonDoc["dailyResetTime"] = dailyResetTime;
-	//}
-	//if (monthlyResetTime > 0) {
-		//jsonDoc["monthlyResetTime"] = monthlyResetTime;
-	//}
 
 	// Serialize the JSON document into a character buffer
 	char buffer[1024];
@@ -532,9 +514,10 @@ void UsermodINA2xx::mqttCreateHassSensor(const String &name, const String &topic
 	#else
 		device[F("hw")] = F("esp8266");
 	#endif
-	JsonArray connections = device[F("cns")].createNestedArray();
-	connections.add(F("mac"));
-	connections.add(WiFi.macAddress());
+	JsonArray connections = device.createNestedArray(F("cns"));
+	JsonArray macPair = connections.createNestedArray();
+	macPair.add(F("mac"));
+	macPair.add(WiFi.macAddress());
 
 	// Serialize the JSON document into a temporary string
 	char buffer[1024];
@@ -666,8 +649,7 @@ void UsermodINA2xx::onMqttConnect(bool sessionPresent) {
 	if (WLED_MQTT_CONNECTED) {
 		char subuf[64];
 		if (mqttDeviceTopic[0] != 0) {
-			strcpy(subuf, mqttDeviceTopic);
-			strcat_P(subuf, PSTR("/sensor/ina2xx"));
+			snprintf_P(subuf, sizeof(subuf), PSTR("%s/sensor/ina2xx"), mqttDeviceTopic);
 			mqtt->subscribe(subuf, 0);
 			_logUsermodInaSensor("Subscribed to MQTT topic: %s", subuf);
 		}
@@ -688,6 +670,11 @@ UsermodINA2xx::~UsermodINA2xx() {
 void UsermodINA2xx::setup() {
 	_logUsermodInaSensor("Setting up INA2xx sensor usermod");
 	initDone = updateINA2xxSettings();  // Configure INA2xx settings
+#if INA_SENSOR_TYPE == 226
+	if (initDone && _ina2xx) {
+		_ina2xx->waitUntilConversionCompleted(); // first data can be zero without this in continuous mode
+	}
+#endif
 	if (initDone) {
 		_logUsermodInaSensor("INA2xx setup complete and successful");
 	} else {
@@ -699,9 +686,7 @@ void UsermodINA2xx::setup() {
 void UsermodINA2xx::checkForI2cErrors(){
   byte errorCode = _ina2xx->getI2cErrorCode();
   if(errorCode){
-    Serial.print("I2C error: ");
-    Serial.println(errorCode);
-    _logUsermodInaSensor("I2C error: %u", errorCode);
+	    _logUsermodInaSensor("I2C error: %u", errorCode);
     switch(errorCode){
       case 1:
 		_logUsermodInaSensor("Data too long to fit in transmit buffer");
