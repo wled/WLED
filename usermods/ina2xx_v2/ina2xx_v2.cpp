@@ -243,7 +243,6 @@ bool UsermodINA2xx::updateINA2xxSettings() {
 	_ina2xx->setResistorRange(shuntResistor,currentRange); // choose resistor 100 mOhm (default )and gain range up to 10 A (1.3A default)
 
 	_ina2xx->readAndClearFlags();
-	_ina2xx->waitUntilConversionCompleted(); // ensures first data point is valid
 #endif
 
 	_logUsermodInaSensor("INA2xx sensor configured successfully");
@@ -671,6 +670,11 @@ UsermodINA2xx::~UsermodINA2xx() {
 void UsermodINA2xx::setup() {
 	_logUsermodInaSensor("Setting up INA2xx sensor usermod");
 	initDone = updateINA2xxSettings();  // Configure INA2xx settings
+#if INA_SENSOR_TYPE == 226
+	if (initDone && _ina2xx) {
+		_ina2xx->waitUntilConversionCompleted(); // first data can be zero without this in continuous mode
+	}
+#endif
 	if (initDone) {
 		_logUsermodInaSensor("INA2xx setup complete and successful");
 	} else {
