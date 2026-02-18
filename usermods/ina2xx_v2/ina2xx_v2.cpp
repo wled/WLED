@@ -177,7 +177,7 @@ void UsermodINA2xx::applyMqttRestoreIfReady() {
 }
 
 // Update INA2xx settings and reinitialize sensor if necessary
-bool UsermodINA2xx::updateINA2xxSettings(bool allowBlockingWait) {
+bool UsermodINA2xx::updateINA2xxSettings() {
 	_logUsermodInaSensor("Updating INA2xx sensor settings");
 
 	// Validate I2C pins; if invalid, disable usermod and log message
@@ -243,11 +243,7 @@ bool UsermodINA2xx::updateINA2xxSettings(bool allowBlockingWait) {
 	_ina2xx->setResistorRange(shuntResistor,currentRange); // choose resistor 100 mOhm (default )and gain range up to 10 A (1.3A default)
 
 	_ina2xx->readAndClearFlags();
-	if (allowBlockingWait) {
-		_ina2xx->waitUntilConversionCompleted();
-	} else {
-		_logUsermodInaSensor("Skipping conversion wait during runtime reconfiguration");
-	}
+	_ina2xx->waitUntilConversionCompleted(); // ensures first data point is valid
 #endif
 
 	_logUsermodInaSensor("INA2xx sensor configured successfully");
@@ -674,7 +670,7 @@ UsermodINA2xx::~UsermodINA2xx() {
 // Setup function called once on boot or restart
 void UsermodINA2xx::setup() {
 	_logUsermodInaSensor("Setting up INA2xx sensor usermod");
-	initDone = updateINA2xxSettings(true);  // Configure INA2xx settings (safe to block in setup)
+	initDone = updateINA2xxSettings();  // Configure INA2xx settings
 	if (initDone) {
 		_logUsermodInaSensor("INA2xx setup complete and successful");
 	} else {
@@ -1160,7 +1156,7 @@ bool UsermodINA2xx::readFromConfig(JsonObject& root) {
 	}
 
 	bool prevInitDone = initDone;
-	initDone = updateINA2xxSettings(false);  // Avoid blocking in runtime config updates
+	initDone = updateINA2xxSettings();  // Configure INA2xx settings
 
 	if (prevInitDone != initDone) {
 		_logUsermodInaSensor("Sensor initialization %s", initDone ? "succeeded" : "failed");
