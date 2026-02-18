@@ -188,7 +188,7 @@ private:
   void checkForI2cErrors();
   bool isTimeValid() const;
   void applyMqttRestoreIfReady();
-  bool updateINA2xxSettings();
+  bool updateINA2xxSettings(bool allowBlockingWait = false);
   String sanitizeMqttClientID(const String &clientID);
   void updateEnergy(float power, unsigned long durationMs);
 #ifndef WLED_DISABLE_MQTT
