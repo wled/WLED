@@ -339,12 +339,6 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		// Calculate midnight timestamp for current day
 		dailyResetTimestamp = localTime - (localTime % 86400UL);
 		_logUsermodInaSensor("Initializing daily reset: day=%ld, ts=%lu", dailyResetTime, dailyResetTimestamp);
-	} else if (dailyResetTime > static_cast<unsigned long>(currentDay)) {
-		// Guard against corrupted/future reset markers from restored state
-		_logUsermodInaSensor("Daily reset marker is in the future (%lu > %ld). Reinitializing daily counter.", dailyResetTime, currentDay);
-		dailyEnergy_kWh = 0;
-		dailyResetTime = currentDay;
-		dailyResetTimestamp = localTime - (localTime % 86400UL);
 	}
 
 	// Fix for missing dailyResetTimestamp when dailyResetTime was already restored
@@ -353,9 +347,9 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		_logUsermodInaSensor("Fixing missing daily reset timestamp: ts=%lu", dailyResetTimestamp);
 	}
 
-	// Reset daily energy at midnight or if day changed
-	if (currentDay > dailyResetTime) {
-		_logUsermodInaSensor("Resetting daily energy counter (day change detected)");
+	// Reset daily energy whenever day marker does not match current day
+	if (static_cast<unsigned long>(currentDay) != dailyResetTime) {
+		_logUsermodInaSensor("Resetting daily energy counter (day marker mismatch: now=%ld, last=%lu)", currentDay, dailyResetTime);
 		dailyEnergy_kWh = 0;
 		dailyResetTime = currentDay;
 		// Set timestamp to midnight of the current day
@@ -374,12 +368,6 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		// Formula: subtract (current_day - 1) days worth of seconds, then subtract time-of-day
 		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
 		_logUsermodInaSensor("Initializing monthly reset: month=%ld, ts=%lu", monthlyResetTime, monthlyResetTimestamp);
-	} else if (monthlyResetTime > static_cast<unsigned long>(currentMonth)) {
-		// Guard against corrupted/future reset markers from restored state
-		_logUsermodInaSensor("Monthly reset marker is in the future (%lu > %ld). Reinitializing monthly counter.", monthlyResetTime, currentMonth);
-		monthlyEnergy_kWh = 0;
-		monthlyResetTime = currentMonth;
-		monthlyResetTimestamp = localTime - ((day(localTime) - 1) * 86400UL) - (localTime % 86400UL);
 	}
 
 	// Fix for missing monthlyResetTimestamp when monthlyResetTime was already restored
@@ -388,9 +376,9 @@ void UsermodINA2xx::updateEnergy(float power, unsigned long durationMs) {
 		_logUsermodInaSensor("Fixing missing monthly reset timestamp: ts=%lu", monthlyResetTimestamp);
 	}
 
-	// Reset monthly energy on first day of month or if month changed
-	if (currentMonth > monthlyResetTime) {
-		_logUsermodInaSensor("Resetting monthly energy counter (month change detected)");
+	// Reset monthly energy whenever month marker does not match current month
+	if (static_cast<unsigned long>(currentMonth) != monthlyResetTime) {
+		_logUsermodInaSensor("Resetting monthly energy counter (month marker mismatch: now=%ld, last=%lu)", currentMonth, monthlyResetTime);
 		monthlyEnergy_kWh = 0;
 		monthlyResetTime = currentMonth;
 
