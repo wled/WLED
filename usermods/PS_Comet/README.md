@@ -1,6 +1,6 @@
 ## Description
 
-A 2D falling comet effect similar to "Matrix" but with a fire particle simulation to enhance the comet trail visuals. Works with custom color palletes, defaulting to "Fire". Supports "small" and "large" comets which are 1px and 3px wide respectively.
+A 2D falling comet effect similar to "Matrix" but with a fire particle simulation to enhance the comet trail visuals. Works with custom color palettes, defaulting to "Fire". Supports "small" and "large" comets which are 1px and 3px wide respectively.
 
 Demo: [https://imgur.com/a/i1v5WAy](https://imgur.com/a/i1v5WAy)
 
@@ -12,7 +12,7 @@ custom_usermods = ps_comet
 ```
 Or if you are already using a usermod, append ps_comet to the list
 ```ini
-custom_usermods = audioreactive, ps_comet
+custom_usermods = audioreactive ps_comet
 ```
 
 You should now see "PS Comet" appear in your effect list.
