@@ -1,0 +1,297 @@
+#include "cloud_view.h"
+#include "skymodel.h"
+#include "util.h"
+#include "wled.h"
+#include <algorithm>
+#include <cstdio>
+#include <cmath>
+#include <limits>
+
+static constexpr int16_t DEFAULT_SEG_ID = -1; // -1 means disabled
+const char CFG_SEG_ID[] PROGMEM = "SegmentId";
+const char CFG_RAIN_MAX[] PROGMEM = "RainMaxInHr";
+const char CFG_WAVE_HALF_PX[] PROGMEM = "CloudWaveHalfPx";
+
+static bool isDay(const SkyModel &m, time_t t) {
+  const time_t MAXTT = std::numeric_limits<time_t>::max();
+  if (m.sunrise_ == 0 && m.sunset_ == MAXTT)
+    return true; // 24h day
+  if (m.sunset_ == 0 && m.sunrise_ == MAXTT)
+    return false; // 24h night
+  constexpr time_t DAY = 24 * 60 * 60;
+  time_t sr = m.sunrise_;
+  time_t ss = m.sunset_;
+  while (t >= ss) {
+    sr += DAY;
+    ss += DAY;
+  }
+  while (t < sr) {
+    sr -= DAY;
+    ss -= DAY;
+  }
+  return t >= sr && t < ss;
+}
+
+CloudView::CloudView()
+    : segId_(DEFAULT_SEG_ID),
+      precipMaxInHr_(CloudView::DEFAULT_RAIN_MAX_INPH),
+      waveHalfCyclePx_(CloudView::DEFAULT_WAVE_HALF_PX) {
+  DEBUG_PRINTLN("SkyStrip: CV::CTOR");
+  snprintf(debugPixelString, sizeof(debugPixelString), "%s:\\n",
+           name().c_str());
+  debugPixelString[sizeof(debugPixelString) - 1] = '\0';
+}
+
+void CloudView::view(time_t now, SkyModel const &model, int16_t dbgPixelIndex) {
+  if (dbgPixelIndex < 0) {
+    snprintf(debugPixelString, sizeof(debugPixelString), "%s:\\n",
+             name().c_str());
+    debugPixelString[sizeof(debugPixelString) - 1] = '\0';
+  }
+  if (segId_ == DEFAULT_SEG_ID) {
+    freezeHandle_.release();
+    return;
+  }
+  if (model.cloud_cover_forecast.empty())
+    return;
+  if (segId_ < 0 || segId_ >= strip.getMaxSegments()) {
+    freezeHandle_.release();
+    return;
+  }
+
+  Segment *segPtr = freezeHandle_.acquire(segId_);
+  if (!segPtr)
+    return;
+  Segment &seg = *segPtr;
+  int len = seg.virtualLength();
+  if (len <= 0) {
+    freezeHandle_.release();
+    return;
+  }
+  // Initialize segment drawing parameters so virtualLength()/mapping are valid
+  seg.beginDraw();
+
+  constexpr double kHorizonSec = 48.0 * 3600.0;
+  const double step = (len > 1) ? (kHorizonSec / double(len - 1)) : 0.0;
+
+  const time_t markerTol = time_t(std::llround(step * 0.5));
+  const time_t sunrise = model.sunrise_;
+  const time_t sunset = model.sunset_;
+  constexpr time_t DAY = 24 * 60 * 60;
+  const time_t MAXTT = std::numeric_limits<time_t>::max();
+
+  long offset = skystrip::util::current_offset();
+
+  bool useSunrise = (sunrise != 0 && sunrise != MAXTT);
+  bool useSunset = (sunset != 0 && sunset != MAXTT);
+  time_t sunriseTOD = 0;
+  time_t sunsetTOD = 0;
+  if (useSunrise)
+    sunriseTOD = (((sunrise + offset) % DAY) + DAY) % DAY; // normalize to [0, DAY)
+  if (useSunset)
+    sunsetTOD = (((sunset + offset) % DAY) + DAY) % DAY;   // normalize to [0, DAY)
+
+  auto nearTOD = [&](time_t a, time_t b) {
+    time_t diff = (a >= b) ? (a - b) : (b - a);
+    if (diff <= markerTol)
+      return true;
+    return (DAY - diff) <= markerTol;
+  };
+
+  auto isMarker = [&](time_t t) {
+    if (!useSunrise && !useSunset)
+      return false;
+    time_t tod = (((t + offset) % DAY) + DAY) % DAY; // normalize to [0, DAY)
+    if (useSunrise && nearTOD(tod, sunriseTOD))
+      return true;
+    if (useSunset && nearTOD(tod, sunsetTOD))
+      return true;
+    return false;
+  };
+
+  constexpr float kCloudMaskThreshold = 0.05f;
+  constexpr float kDayHue = 60.f;
+  constexpr float kNightHue = 300.f;
+  constexpr float kDaySat = 0.30f;
+  constexpr float kNightSat = 0.00f;
+  constexpr float kDayVMax  = 0.40f;
+  constexpr float kNightVMax= 0.40f;
+
+  // Brightness floor as a fraction of Vmax so mid/low clouds stay visible.
+  constexpr float kDayVMinFrac   = 0.50f;  // try 0.40–0.60 to taste
+  constexpr float kNightVMinFrac = 0.50f;  // night can be a bit lower if preferred
+
+  constexpr float kMarkerHue= 25.f;
+  constexpr float kMarkerSat= 0.60f;
+  constexpr float kMarkerVal= 0.50f;
+
+  float halfWavePx = waveHalfCyclePx_;
+  constexpr float kMinHalfWavePx = 0.25f;
+  if (halfWavePx < kMinHalfWavePx)
+    halfWavePx = kMinHalfWavePx;
+  const double wavePeriodSec = step * 2.0 * double(halfWavePx);
+  const bool haveWave = wavePeriodSec > 0.0;
+  constexpr float kSolidCloudCutoff = 0.995f;
+  constexpr float kEdgeFeather = 0.05f; // soften edges to reduce shimmer
+
+  for (int i = 0; i < len; ++i) {
+    const time_t t = now + time_t(std::llround(step * i));
+    double clouds, precipTypeVal, precipProb, precipRate;
+    if (!skystrip::util::estimateCloudAt(model, t, step, clouds))
+      continue;
+    if (!skystrip::util::estimatePrecipTypeAt(model, t, step, precipTypeVal))
+      precipTypeVal = 0.0;
+    if (!skystrip::util::estimatePrecipProbAt(model, t, step, precipProb))
+      precipProb = 0.0;
+    if (!skystrip::util::estimatePrecipRateAt(model, t, step, precipRate))
+      precipRate = 0.0;
+
+    float clouds01 = skystrip::util::clamp01(float(clouds / 100.0));
+    int p = int(std::round(precipTypeVal));
+    bool daytime = isDay(model, t);
+    float precip01 = skystrip::util::clamp01(float(precipProb));
+    float precipRateIn = float(precipRate);
+
+    float hue = 0.f, sat = 0.f, val = 0.f;
+    if (isMarker(t)) {
+      // always put the sunrise sunset markers in
+      hue = kMarkerHue;
+      sat = kMarkerSat;
+      val = kMarkerVal;
+    } else if (precip01 >= 0.10f) {
+      // precipitation has next priority: rain=blue, snow=lavender,
+      // mixed=indigo-ish blend
+      constexpr float kHueRain = 210.f;   // deep blue
+      constexpr float kSatRainMin = 0.20f;
+      constexpr float kSatRainMax = 1.00f;
+
+      constexpr float kHueSnow = 285.f; // lavender for snow
+      constexpr float kSatSnow = 0.35f; // pastel-ish (tune to taste)
+
+      float popScaled =
+          skystrip::util::clamp01((precip01 - 0.10f) / 0.90f); // maps 10%->0, 100%->1
+      float satRain =
+          kSatRainMin + (kSatRainMax - kSatRainMin) * popScaled;
+
+      float rateMax = precipMaxInHr_;
+      if (rateMax <= 0.0f)
+        rateMax = CloudView::DEFAULT_RAIN_MAX_INPH;
+      float rateNorm = (rateMax > 0.0f) ? (precipRateIn / rateMax) : 0.0f;
+      rateNorm = skystrip::util::clamp01(rateNorm);
+
+      // Gentle curve so 0.1-0.5 in/hr remain distinguishable.
+      float rateCurve = sqrtf(rateNorm);
+      float valFromRate = 0.40f + 0.60f * rateCurve;
+      valFromRate = skystrip::util::clamp01(valFromRate);
+
+      if (p == 1 || p == 0) {
+        // rain (or unspecified → default to rain treatment)
+        hue = kHueRain;
+        sat = satRain;
+        val = valFromRate;
+      } else if (p == 2) {
+        // snow → lavender
+        hue = kHueSnow;
+        sat = kSatSnow;
+        val = valFromRate;
+      } else {
+        // mixed → halfway between blue and lavender
+        hue = 0.5f * (kHueRain + kHueSnow); // ~247.5° (indigo-ish)
+        sat = 0.5f * (satRain + kSatSnow);  // blended saturation
+        val = valFromRate;
+      }
+    } else {
+      // finally show daytime or nightime clouds
+      if (clouds01 < kCloudMaskThreshold) {
+        hue = 0.f;
+        sat = 0.f;
+        val = 0.f;
+      } else {
+        float vmax = daytime ? kDayVMax : kNightVMax;
+        float vmin = (daytime ? kDayVMinFrac : kNightVMinFrac) * vmax;
+        // Use sqrt curve to boost brightness at lower cloud coverage
+        float cloudVal  = vmin + (vmax - vmin) * sqrtf(clouds01);
+        hue = daytime ? kDayHue : kNightHue;
+        sat = daytime ? kDaySat : kNightSat;
+
+        float mask = 1.f;
+        if (clouds01 < kSolidCloudCutoff && haveWave) {
+          double phase = fmod(double(t), wavePeriodSec);
+          float phase01 =
+              wavePeriodSec > 0.0 ? float(phase / wavePeriodSec) : 0.f;
+          float tri = 1.f - fabsf(1.f - 2.f * phase01); // 0->1->0 shape
+          float thresh = 1.f - clouds01;                // center band width = clouds01
+          if (thresh < 0.f)
+            thresh = 0.f;
+
+          float feather = kEdgeFeather * clouds01; // scale feather with duty
+
+          if (tri < thresh - feather) {
+            mask = 0.f;
+          } else if (tri < thresh + feather) {
+            float span = (feather > 0.f) ? (2.f * feather) : 1.f;
+            mask = skystrip::util::clamp01(
+                (tri - (thresh - feather)) / span);
+          }
+        }
+
+        val = cloudVal * mask;
+      }
+    }
+
+    uint32_t col = skystrip::util::hsv2rgb(hue, sat, val);
+    seg.setPixelColor(i, skystrip::util::blinkDebug(i, dbgPixelIndex, col));
+
+    if (dbgPixelIndex >= 0) {
+      static time_t lastDebug = 0;
+      if (now - lastDebug > 1 && i == dbgPixelIndex) {
+        char nowbuf[20];
+        skystrip::util::fmt_local(nowbuf, sizeof(nowbuf), now);
+        char dbgbuf[20];
+        skystrip::util::fmt_local(dbgbuf, sizeof(dbgbuf), t);
+        snprintf(debugPixelString, sizeof(debugPixelString),
+                 "%s: nowtm=%s dbgndx=%d dbgtm=%s day=%d clouds01=%.2f precip=%d pop=%.2f acc=%.2fin/hr H=%.0f S=%.0f V=%.0f\\n",
+                 name().c_str(), nowbuf, i, dbgbuf, daytime, clouds01, p,
+                 precipProb, precipRateIn, hue, sat * 100, val * 100);
+        lastDebug = now;
+      }
+    }
+  }
+}
+
+void CloudView::deactivate() {
+  freezeHandle_.release();
+}
+
+void CloudView::addToConfig(JsonObject &subtree) {
+  subtree[FPSTR(CFG_SEG_ID)] = segId_;
+  subtree[FPSTR(CFG_RAIN_MAX)] = precipMaxInHr_;
+  subtree[FPSTR(CFG_WAVE_HALF_PX)] = waveHalfCyclePx_;
+}
+
+void CloudView::appendConfigData(Print &s) {
+  // Keep the hint INLINE (BEFORE the input = 4th arg):
+  s.print(F("addInfo('SkyStrip:CloudView:SegmentId',1,'',"
+            "'&nbsp;<small style=\\'opacity:.8\\'>(-1 disables)</small>'"
+            ");"));
+  s.print(F("addInfo('SkyStrip:CloudView:CloudWaveHalfPx',1,'',"));
+  char waveHint[80];
+  snprintf(
+      waveHint, sizeof(waveHint),
+      "'&nbsp;<small style=\\'opacity:.8\\'>(half-cycle px; default %.1f)</small>'",
+      double(CloudView::DEFAULT_WAVE_HALF_PX));
+  s.print(waveHint);
+  s.print(F(");"));
+}
+
+bool CloudView::readFromConfig(JsonObject &subtree, bool startup_complete,
+                               bool &invalidate_history) {
+  bool configComplete = !subtree.isNull();
+  configComplete &=
+      getJsonValue(subtree[FPSTR(CFG_SEG_ID)], segId_, DEFAULT_SEG_ID);
+  configComplete &=
+      getJsonValue(subtree[FPSTR(CFG_RAIN_MAX)], precipMaxInHr_, CloudView::DEFAULT_RAIN_MAX_INPH);
+  configComplete &=
+      getJsonValue(subtree[FPSTR(CFG_WAVE_HALF_PX)], waveHalfCyclePx_, CloudView::DEFAULT_WAVE_HALF_PX);
+  return configComplete;
+}

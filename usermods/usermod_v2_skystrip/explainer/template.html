@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>{{TITLE}} — Explainer</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		@page { size: 8.5in 11in; margin: 0.35in 0.45in; }
+		@media print {
+			.noprint { display: none !important; }
+			body { background: #fff; }
+			.page { margin: 0; box-shadow: none; }
+			.page-break-after { break-after: page; page-break-after: always; }
+		}
+		@media screen {
+			body { background: #f0f0f0; }
+			.page { background: #fff; margin: 0.25in auto; box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+		}
+
+		:root {
+			--text: #111;
+			--muted: #555;
+			--rule: #ddd;
+			--bg: #fff;
+			--chip-radius: 10px;
+			--font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+		}
+
+		html, body {
+			background: var(--bg);
+			color: var(--text);
+			font-family: var(--font);
+			font-size: 11pt;
+			line-height: 1.35;
+			margin: 0;
+		}
+
+		.page {
+			width: 100%;
+			min-height: 11in;
+			box-sizing: border-box;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
+			padding: 0 1.10in;
+			padding-top: 0.50in;
+		}
+
+		.header {
+			border-bottom: 1px solid var(--rule);
+			padding-bottom: 10px;
+		}
+		.title { font-weight: 750; letter-spacing: 0.2px; font-size: 1.45rem; }
+		.subtitle { color: var(--muted); font-size: 0.98rem; margin-top: 2px; }
+
+		.content {
+			column-count: 1;
+		}
+
+		h1, h2, h3 {
+			break-after: avoid;
+			margin: 10px 0 6px;
+			line-height: 1.15;
+		}
+
+		.content h2 {
+			margin-top: 16px;
+			padding-top: 10px;
+			border-top: 1px solid var(--rule);
+		}
+
+		.split-grid {
+			display: grid;
+			grid-template-columns: 1fr max-content;
+			gap: 80px;
+			align-items: start;
+		}
+		.split-right {
+			justify-self: end;
+			align-self: start;
+		}
+		.split-left > :first-child,
+		.split-right > :first-child {
+			margin-top: 0;
+		}
+		h2 { font-size: 1.1rem; }
+		h3 { font-size: 1.0rem; color: #222; }
+		p { margin: 0 0 8px; }
+
+		ul, ol {
+			margin: 0 0 10px 18px;
+			padding: 0;
+		}
+		li { margin: 3px 0; }
+
+		table {
+			width: fit-content;
+			max-width: 100%;
+			border-collapse: collapse;
+			margin: 6px 0 10px;
+			break-inside: avoid;
+			column-span: all;
+			font-size: 10pt;
+			line-height: 1.2;
+		}
+		th, td {
+			border: 1px solid var(--rule);
+			padding: 3px 6px;
+			vertical-align: top;
+		}
+		th {
+			background: #f6f6f6;
+			font-weight: 700;
+		}
+
+		code {
+			font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+			font-size: 0.95em;
+			background: #f3f3f3;
+			border: 1px solid #e6e6e6;
+			border-radius: 6px;
+			padding: 1px 4px;
+			white-space: nowrap;
+		}
+		pre {
+			margin: 8px 0 12px;
+			padding: 10px 12px;
+			border: 1px solid var(--rule);
+			border-radius: var(--chip-radius);
+			background: #fafafa;
+			overflow-x: auto;
+			break-inside: avoid;
+			column-span: all;
+		}
+		pre code { white-space: pre; background: transparent; border: none; padding: 0; }
+
+		.footer { display: none; }
+
+		/* Avoid awkward column splits on common blocks. */
+		ul, ol, table, pre, blockquote { break-inside: avoid; }
+	</style>
+</head>
+<body>
+	<section class="page" aria-label="{{TITLE}} Explainer">
+		<header class="header">
+			<div class="title">{{TITLE}}</div>
+			<div class="subtitle">Printable interpretation guide</div>
+		</header>
+		<div class="content">
+			{{CONTENT}}
+		</div>
+	</section>
+</body>
+</html>
