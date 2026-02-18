@@ -164,9 +164,10 @@
   void UsermodSSDR::_setLeds(int lednr, int lastSeenLedNr, bool range, int countSegments, int number, bool colon) {
     if (!umSSDRMask || (lednr < 0) || (lednr >= umSSDRLength)) return;  // prevent array bounds violation
 
-    if (!(colon && umSSDRColonblink) && ((number < 0) || (countSegments < 0))) return;
+    constexpr int MAX_SEGMENTS = sizeof(umSSDRNumbers[0]) / sizeof(umSSDRNumbers[0][0]);
+    if (!(colon && umSSDRColonblink) && ((number < 0) || (countSegments < 0) || (countSegments >= MAX_SEGMENTS))) return;
     
-    if ((colon && umSSDRColonblink) || (number < 10 && umSSDRNumbers[number][countSegments])) {
+    if ((colon && umSSDRColonblink) || (number < 10 && countSegments < MAX_SEGMENTS && umSSDRNumbers[number][countSegments])) {
       if (range) {
         for(int i = max(0, lastSeenLedNr); i <= lednr; i++) {
           umSSDRMask[i] = true;
@@ -281,6 +282,26 @@
       _logUsermodSSDR("Updated leadingZero");
       return true;
     }
+    if (_cmpIntSetting_P(topic, payload, _str_minBrightness, &umSSDRBrightnessMin)) {
+      _logUsermodSSDR("Updated minBrightness");
+      return true;
+    }
+    if (_cmpIntSetting_P(topic, payload, _str_maxBrightness, &umSSDRBrightnessMax)) {
+      _logUsermodSSDR("Updated maxBrightness");
+      return true;
+    }
+    if (_cmpIntSetting_P(topic, payload, _str_luxMin, &umSSDRLuxMin)) {
+      _logUsermodSSDR("Updated luxMin");
+      return true;
+    }
+    if (_cmpIntSetting_P(topic, payload, _str_luxMax, &umSSDRLuxMax)) {
+      _logUsermodSSDR("Updated luxMax");
+      return true;
+    }
+    if (_cmpIntSetting_P(topic, payload, _str_invertAutoBrightness, &umSSDRInvertAutoBrightness)) {
+      _logUsermodSSDR("Updated invertAutoBrightness");
+      return true;
+    }
 
     char displayMaskBuffer[30];
     strlcpy(displayMaskBuffer, reinterpret_cast<const char *>(_str_displayMask), sizeof(displayMaskBuffer));
@@ -385,12 +406,12 @@
   * loop() is called continuously. Here you can check for events, read sensors, etc.
   */
   void UsermodSSDR::loop() {
-    if (!umSSDRDisplayTime || strip.isUpdating() || umSSDRMask == nullptr) {
+    if (!umSSDRDisplayTime || strip.isUpdating() || umSSDRMask == nullptr || externalLedOutputDisabled) {
       return;
     }
 
     #if defined(USERMOD_SN_PHOTORESISTOR) || defined(USERMOD_BH1750)
-      if(bri != 0 && umSSDREnableLDR && (millis() - umSSDRLastRefresh > umSSDRRefreshTime) && !externalLedOutputDisabled) {
+      if(bri != 0 && umSSDREnableLDR && (millis() - umSSDRLastRefresh > umSSDRRefreshTime)) {
         float lux = -1; // Initialize lux with an invalid value
 	  
         #ifdef USERMOD_SN_PHOTORESISTOR
@@ -412,20 +433,25 @@
           float constrainedLux = constrain(lux, umSSDRLuxMin, umSSDRLuxMax);
 
           // float linear interpolation to preserve full 0–255 resolution
-          float spanLux   = umSSDRLuxMax   - umSSDRLuxMin;
+          float spanLux = umSSDRLuxMax - umSSDRLuxMin;
           float spanBright = umSSDRBrightnessMax - umSSDRBrightnessMin;
-          float ratio = (constrainedLux - umSSDRLuxMin) / spanLux;
-          
-          if (!umSSDRInvertAutoBrightness) {
-            brightness = static_cast<uint16_t>(ratio * spanBright + umSSDRBrightnessMin);
+          if (spanLux <= 0.0f) {
+            _logUsermodSSDR("Invalid lux range (%d..%d). Using min brightness.", umSSDRLuxMin, umSSDRLuxMax);
+            brightness = umSSDRBrightnessMin;
           } else {
-            brightness = static_cast<uint16_t>((1.0f - ratio) * spanBright + umSSDRBrightnessMin);
+            float ratio = (constrainedLux - umSSDRLuxMin) / spanLux;
+            if (!umSSDRInvertAutoBrightness) {
+              brightness = static_cast<uint16_t>(ratio * spanBright + umSSDRBrightnessMin);
+            } else {
+              brightness = static_cast<uint16_t>((1.0f - ratio) * spanBright + umSSDRBrightnessMin);
+            }
           }
           _logUsermodSSDR("Lux=%.2f brightness=%d", lux, brightness);
 
-          if (bri != brightness) {
-            _logUsermodSSDR("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, brightness);
-            bri = brightness;
+          uint8_t safeBrightness = (brightness > 255u) ? 255u : static_cast<uint8_t>(brightness);
+          if (bri != safeBrightness) {
+            _logUsermodSSDR("Adjusting brightness based on lux value: %.2f lx, new brightness: %d", lux, safeBrightness);
+            bri = safeBrightness;
             stateUpdated(1);
           }
         }
@@ -435,8 +461,24 @@
   }
 
   void UsermodSSDR::handleOverlayDraw() {
-    if (umSSDRDisplayTime && !externalLedOutputDisabled && umSSDRMask != nullptr) {
-      _overlaySevenSegmentDraw();
+    if (umSSDRMask == nullptr) {
+      return;
+    }
+    if (!umSSDRDisplayTime || externalLedOutputDisabled) {
+      _setAllFalse();
+      _setMaskToLeds();
+      return;
+    }
+    _overlaySevenSegmentDraw();
+  }
+
+  void UsermodSSDR::onStateChange(uint8_t mode) {
+    (void)mode;
+    // When disabled, clear our mask so nothing gets drawn
+    if (externalLedOutputDisabled && umSSDRMask != nullptr) {
+      _setAllFalse();
+      _setMaskToLeds();
+      _logUsermodSSDR("Cleared mask due to external disable in onStateChange");
     }
   }
 
@@ -562,32 +604,34 @@
 
   bool UsermodSSDR::onMqttMessage(char *topic, char *payload) {
     #ifndef WLED_DISABLE_MQTT
-    if (umSSDRDisplayTime) {
-      //If topic begins with sevenSeg cut it off, otherwise not our message.
-      size_t topicPrefixLen = strlen_P(PSTR("/wledSS/"));
-      if (strncmp_P(topic, PSTR("/wledSS/"), topicPrefixLen) == 0) {
-        _logUsermodSSDR("onMqttMessage topic='%s' payload='%s'", topic, payload);
-        topic += topicPrefixLen;
-        _logUsermodSSDR("Topic starts with /wledSS/, modified topic: '%s'", topic);
-      } else {
-        return false;
-      }
-      //We only care if the topic ends with /set
-      size_t topicLen = strlen(topic);
-      if (topicLen > 4 &&
-          topic[topicLen - 4] == '/' &&
-          topic[topicLen - 3] == 's' &&
-          topic[topicLen - 2] == 'e' &&
-          topic[topicLen - 1] == 't')
-      {
-        //Trim /set and handle it
-        topic[topicLen - 4] = '\0';
-        _logUsermodSSDR("Processing setting. Setting='%s', Value='%s'", topic, payload);
-        bool result = _handleSetting(topic, payload);
-        _logUsermodSSDR("Handling result: %s", result ? "success" : "failure");
-      }
+    if (!umSSDRDisplayTime) return false;
+
+    char nameBuffer[30], nameSegment[34];
+    strlcpy(nameBuffer, reinterpret_cast<const char *>(_str_name), sizeof(nameBuffer));
+    snprintf(nameSegment, sizeof(nameSegment), "/%s/", nameBuffer);
+
+    char *found = strstr(topic, nameSegment);
+    if (found == nullptr) return false;
+
+    topic = found + strlen(nameSegment);
+    _logUsermodSSDR("onMqttMessage stripped topic='%s' payload='%s'", topic, payload);
+
+    //We only care if the topic ends with /set
+    size_t topicLen = strlen(topic);
+    if (topicLen > 4 &&
+        topic[topicLen - 4] == '/' &&
+        topic[topicLen - 3] == 's' &&
+        topic[topicLen - 2] == 'e' &&
+        topic[topicLen - 1] == 't')
+    {
+      //Trim /set and handle it
+      topic[topicLen - 4] = '\0';
+      _logUsermodSSDR("Processing setting. Setting='%s', Value='%s'", topic, payload);
+      bool result = _handleSetting(topic, payload);
+      _logUsermodSSDR("Handling result: %s", result ? "success" : "failure");
+      return result;
     }
-    return true;
+    return false;
     #endif
   }
 
@@ -625,7 +669,7 @@
     umSSDRLuxMax                = top[FPSTR(_str_luxMax)] | umSSDRLuxMax;
     umSSDRInvertAutoBrightness  = top[FPSTR(_str_invertAutoBrightness)] | umSSDRInvertAutoBrightness;
 
-    _logUsermodSSDR("%s: config (re)loaded.)", reinterpret_cast<const char*>(_str_name));
+    _logUsermodSSDR("%s: config (re)loaded.", reinterpret_cast<const char*>(_str_name));
 
     return true;
   }

@@ -19,31 +19,33 @@ custom_usermods = ${env:d1_mini.custom_usermods} seven_segment_display_reloaded_
 
 For the auto brightness option, the usermod **SN_Photoresistor** or **BH1750_V2** has to be installed as well. See [SN_Photoresistor/readme.md](SN_Photoresistor/readme.md) or [BH1750_V2/readme.md](BH1750_V2/readme.md) for instructions.
 
+> **Note:** MQTT must be enabled in the build (do not set `WLED_DISABLE_MQTT`).
+
 ## Available Compile-Time Parameters
 
 These parameters can be configured at compile time using `#define` statements in `my_config.h`. The following table summarizes the available options:
 
 | Parameter                         | Default Value | Description |
 |-----------------------------------|---------------|-------------|
-| SSDR_ENABLED                      | true          | Enable SSDR usermod |
-| SSDR_ENABLE_AUTO_BRIGHTNESS       | false         | Enable auto brightness (requires USERMOD_SN_PHOTORESISTOR) |
-| SSDR_BRIGHTNESS_MIN               | 0             | Minimum brightness value for auto brightness mapping |
-| SSDR_BRIGHTNESS_MAX               | 128           | Maximum brightness value for auto brightness mapping |
-| SSDR_INVERTED                     | false         | Inverted display (background on, digits off) |
-| SSDR_COLONBLINK                   | true          | Enable blinking colon(s) |
-| SSDR_LEADING_ZERO                 | false         | Show leading zero for hours (e.g., "07" instead of "7") |
-| SSDR_DISPLAY_MASK                 | "H:m"         | Display mask for time format (see below) |
-| SSDR_HOURS                        | (see example) | LED definition for hours digits |
-| SSDR_MINUTES                      | (see example) | LED definition for minutes digits |
-| SSDR_SECONDS                      | ""            | Reserved for seconds if needed |
-| SSDR_COLONS                       | "266-275"     | Segment range for colon separators |
-| SSDR_LIGHT                        | "252-265"     | Segment range for light indicator |
-| SSDR_DAYS                         | ""            | Reserved for day display if needed |
-| SSDR_MONTHS                       | ""            | Reserved for month display if needed |
-| SSDR_YEARS                        | ""            | Reserved for year display if needed |
+| umSSDR_ENABLED                    | false         | Enable SSDR usermod |
+| umSSDR_ENABLE_AUTO_BRIGHTNESS     | false         | Enable auto brightness (requires USERMOD_SN_PHOTORESISTOR or USERMOD_BH1750) |
+| umSSDR_BRIGHTNESS_MIN             | 0             | Minimum brightness value for auto brightness mapping |
+| umSSDR_BRIGHTNESS_MAX             | 255           | Maximum brightness value for auto brightness mapping |
 | umSSDR_INVERT_AUTO_BRIGHTNESS     | false         | Invert brightness mapping (maps lux min to brightness max) |
 | umSSDR_LUX_MIN                    | 0             | Minimum lux level for brightness mapping |
 | umSSDR_LUX_MAX                    | 1000          | Maximum lux level for brightness mapping |
+| umSSDR_INVERTED                   | false         | Inverted display (background on, digits off) |
+| umSSDR_COLONBLINK                 | true          | Enable blinking colon(s) |
+| umSSDR_LEADING_ZERO               | false         | Show leading zero for hours (e.g., "07" instead of "7") |
+| umSSDR_DISPLAY_MASK               | "H:m"         | Display mask for time format (see below) |
+| umSSDR_HOURS                      | (see example) | LED definition for hours digits |
+| umSSDR_MINUTES                    | (see example) | LED definition for minutes digits |
+| umSSDR_SECONDS                    | ""            | Reserved for seconds if needed |
+| umSSDR_COLONS                     | ""            | Segment range for colon separators |
+| umSSDR_LIGHT                      | ""            | Segment range for light indicator |
+| umSSDR_DAYS                       | ""            | Reserved for day display if needed |
+| umSSDR_MONTHS                     | ""            | Reserved for month display if needed |
+| umSSDR_YEARS                      | ""            | Reserved for year display if needed |
 
 Additionally, the usermod allows overriding the internal LED segment number mapping with the optional macro:
 - umSSDR_NUMBERS
@@ -112,7 +114,7 @@ Some settings can also be controlled through MQTT with a raw payload or via a JS
 
 The following is an example of an LED layout for a seven segment display. The diagram below shows the segment positions:
 
-```
+```text
   <  A  >
 /\       /\
 F         B
@@ -166,7 +168,7 @@ Segments for each digit are separated by semicolons (;) and digits are separated
 Auto brightness is computed using sensor readings from either the SN_Photoresistor or BH1750. The value is mapped between the defined brightness and lux limits, with an option to invert the mapping.
 
 - **Disabling LED Output:**  
-A public function `disableOutputFunction(bool state)` is provided to externally disable or enable the LED output.
+A public function `disableOutputFunction(bool state)` is provided to externally disable or enable the LED output. When disabled, the overlay is cleared so the time/date segments are not shown.
 
 ## Additional Projects
 
@@ -174,10 +176,9 @@ A public function `disableOutputFunction(bool state)` is provided to externally 
 
 This project, available on [Thingiverse](https://www.thingiverse.com/thing:4207524), uses a large hidden shelf edge as the display for a clock. If you build the modified clock that also shows 24 hours, use the following settings in your configuration:
 
-my_config.h Settings:
---------------------------------
+### Project 1 – my_config.h settings
 
-```
+```cpp
 #define USERMOD_SSDR
 
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
@@ -216,10 +217,9 @@ my_config.h Settings:
 
 The EleksTube project, available at [EleksTube Retro Glows Analog Nixie Tube Clock](https://elekstube.com/products/elekstube-r2-6-bit-electronic-led-luminous-retro-glows-analog-nixie-tube-clock). With the following settings, the SSDR usermod becomes more versatile and can be used with this clock as well:
 
-my_config.h Settings:
---------------------------------
+### Project 2 – my_config.h settings
 
-```
+```cpp
 #define umSSDR_ENABLED                  true        // Enable SSDR usermod
 #define umSSDR_ENABLE_AUTO_BRIGHTNESS   false       // Enable auto brightness (requires USERMOD_SN_PHOTORESISTOR)
 #define umSSDR_INVERTED                 false       // Inverted display
