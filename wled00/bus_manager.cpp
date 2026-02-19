@@ -233,9 +233,8 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
       if (hasCCT()) {
         uint8_t cctWW, cctCW;
         Bus::calculateCCT(c, cctWW, cctCW); // calculate CCT before fade (more accurate)
-        cctCW = ((cctCW + 1) * _bri) & 0xFF00; // apply brightess to CCT (leave it in upper byte for 16bit NeoPixelBus value)
-        cctWW = ((cctWW + 1) * _bri) >> 8;
-        wwcw = cctCW | cctWW;
+        wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightess to CCT (leave it in upper byte for 16bit NeoPixelBus value)
+        wwcw |= ((cctWW + 1) * _bri) >> 8;
       }
       c = color_fade(c, newBri, true); // apply additional dimming  note: using inline version is a bit faster but overhead of getPixelColor() dominates the speed impact by far
       PolyBus::setPixelColor(_busPtr, _iType, i, c, co, wwcw); // repaint all pixels with new brightness
@@ -473,7 +472,7 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
     c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   }
   uint8_t cctWW, cctCW;
-  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW); // TODO: use cw ad ww below
+  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
   // note: no color scaling, brightness is applied in show()
 
