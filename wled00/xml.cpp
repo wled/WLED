@@ -605,7 +605,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     char k[4];
     k[2] = 0; //Time macros
-    for (i = 0; i<10; i++)
+    for (int i = 0; i<10; i++)
     {
       k[1] = 48+i; //ascii 0,1,2,3
       if (i<8) { k[0] = 'H'; printSetFormValue(settingsScript,k,timerHours[i]); }
