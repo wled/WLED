@@ -79,14 +79,16 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
   }
 
   // CCT blending modes (_cctBlend):
-  // blend<0: ww: ▓▓▒░__ cw:__░▒▓▓ | blend=0: ww: ▓▒▒░░ cw: ░░▒▒▓ |  blend>0 ww: ▓▓▓▒░ cw:░▒▓▓▓
+  // blend<0: ww: ▓▓▒░__  | blend=0: ww: ▓▒▒░░ |  blend>0 ww: ▓▓▓▒░
+  //          cw: __░▒▓▓  |          cw: ░░▒▒▓ |          cw: ░▒▓▓▓
   int32_t ww_val, cw_val;
   if (_cctBlend < 0) {
     uint16_t range = 255 - 2 * (uint8_t)(-_cctBlend);
-    ww_val = range ? ((int32_t)(255 + _cctBlend - cct) * 255) / range : (cct < 128 ? 255 : 0);
+    if (range > 255) range = 255; // prevent overflow
+    ww_val = range ? ((int32_t)(255 + _cctBlend - cct) * 255) / range : (cct < 128 ? 255 : 0); // exclusive blending
     cw_val = 255 - ww_val;
   } else {
-    ww_val = _cctBlend ? ((int32_t)(255 - cct) * 255) / (255 - _cctBlend) : 255 - cct;
+    ww_val = _cctBlend ? ((int32_t)(255 - cct) * 255) / (255 - _cctBlend) : 255 - cct; // additive blending
     cw_val = _cctBlend ? ((int32_t) cct      * 255) / (255 - _cctBlend) : cct;
   }
   ww = (uint8_t)(ww_val < 0 ? 0 : ww_val > 255 ? 255 : ww_val);
@@ -233,8 +235,8 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
       if (hasCCT()) {
         uint8_t cctWW, cctCW;
         Bus::calculateCCT(c, cctWW, cctCW); // calculate CCT before fade (more accurate)
-        wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightess to CCT (leave it in upper byte for 16bit NeoPixelBus value)
-        wwcw |= ((cctWW + 1) * _bri) >> 8;
+        wwcw = ((cctCW + 1) * newBri) & 0xFF00; // apply brightess to CCT (leave it in upper byte for 16bit NeoPixelBus value)
+        wwcw |= ((cctWW + 1) * newBri) >> 8;
       }
       c = color_fade(c, newBri, true); // apply additional dimming  note: using inline version is a bit faster but overhead of getPixelColor() dominates the speed impact by far
       PolyBus::setPixelColor(_busPtr, _iType, i, c, co, wwcw); // repaint all pixels with new brightness
