@@ -26,6 +26,7 @@ var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
 var ws, wsRpt=0;
+var lastIntermediateColorUpdate = new Date();
 var cfg = {
 	theme:{base:"dark", bg:{url:"", rnd: false, rndGrayscale: false, rndBlur: false}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
 	comp :{colors:{picker: true, rgb: false, quick: true, hex: false},
@@ -282,6 +283,7 @@ function onLoad()
 	handleLocationHash();
 	cpick.on("input:end", () => {setColor(1);});
 	cpick.on("color:change", () => {updatePSliders()});
+	cpick.on("color:change", () => {updateIntermediateColor()});
 	pmtLS = localStorage.getItem('wledPmt');
 
 	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
@@ -2616,6 +2618,14 @@ function updatePSliders() {
 
 	// update Kelvin slider
 	gId('sliderK').value = cpick.color.kelvin;
+}
+
+function updateIntermediateColor() {
+	const now = new Date();
+	if (now - lastIntermediateColorUpdate > 500) {
+		lastIntermediateColorUpdate = now;
+		setColor(1);
+	}
 }
 
 function hexEnter()
