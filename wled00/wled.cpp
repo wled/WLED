@@ -258,11 +258,11 @@ void WLED::loop()
 // DEBUG serial logging (every 30s)
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
-  if (loopMillis > 30) {
-    DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
-    DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
-    DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
-  }
+  //if (loopMillis > 30) {
+  //  DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
+  //  DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
+  //  DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
+  //}
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
   if (millis() - debugTime > 29999) {
