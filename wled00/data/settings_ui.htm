@@ -100,7 +100,7 @@
 						str += `${lb}: <input class="agi" type="number" id=${fk} value=${s[i]}><br>`;
 					} else if (t === 'string')
 					{
-						str += `${lb}:<br><input class="agi" id=${fk} value=${s[i]}><br>`;
+						str += `${lb}:<br><input class="agi sml" id=${fk} value=${s[i]}><br>`;
 					}
 				}
 			}
@@ -219,25 +219,28 @@
 	</script>
 </head>
 <body>
-	<form id="form_s" name="Sf" method="post">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button><br>
-		<span id="lssuc" style="color:green; display:none">&#10004; Local UI settings saved!</span>
-		<span id="lserr" style="color:red; display:none">&#9888; Could not access local storage. Make sure it is enabled in your browser.</span><hr>
-		</div>
-		<h2>Web Setup</h2>
-		Server description: <input type="text" name="DS" maxlength="32"><br>
-		<!-- Sync button toggles both send and receive: <input type="checkbox" name="ST"><br> -->
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button><br>
+	<span id="lssuc" style="color:green; display:none">&#10004; Local UI settings saved!</span>
+	<span id="lserr" style="color:red; display:none">&#9888; Could not access local storage. Make sure it is enabled in your browser.</span><hr>
+	</div>
+	<h2>User Interface</h2>
+	<div class="sec">
+		Device Name: <input type="text" name="DS" maxlength="32"><br>
 		Enable simplified UI: <input type="checkbox" name="SU"><br>
+	</div>
+  <div class="sec">
 		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
 		You will need to set them again if using a different browser, device or WLED IP address.<br>
 		Refresh the main UI to apply changes.</i><br>
-		
+
 		<div id="gen">Loading settings...</div>
-		
+
 		<h3>UI Appearance</h3>
 		<span class="l"></span>: <input type="checkbox" id="comp_labels" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_idsort" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_pcmbot" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_pid" class="agi cb"><br>
 		<span class="l"></span>: <input type="checkbox" id="comp_seglen" class="agi cb"><br>
@@ -246,10 +249,13 @@
 		<span class="l"></span>: <input type="checkbox" id="comp_fxdef" class="agi cb"><br>
 		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_on" class="agi"><br>
 		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_off" class="agi"><br>
-		<span class="l"></span>: <input type="checkbox" id="comp_idsort" class="agi cb"><br>
 		I hate dark mode: <input type="checkbox" id="dm" onchange="UI()"><br>
 		<span id="idonthateyou" style="display:none"><i>Why would you? </i>&#x1F97A;<br></span>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_tab" class="agi"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_css" class="agi cb"><br>
+		<div id="skin">Custom CSS: <input type="file" name="data" accept=".css"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data,'/skin.css');"><br></div>
+
+		<h3>UI Background</h3>
 		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_bg" class="agi"><br>
 		<span class="l"></span>: <input type="text" id="theme_color_bg" maxlength="9" class="agi"><br>
 		BG image: <input type="file" id="theme_bg_img" accept="image/*" onchange="ownBg(this)"> <input type="button" value="Remove" onclick="removeBgImg()"><br>
@@ -265,10 +271,9 @@
 			<span class="l"></span>: <input type="checkbox" id="theme_bg_rndBlur" class="agi cb" onchange="randomBg()"><br>
 		</div>
 		<input id="theme_base" class="agi" style="display:none">
-		<span class="l"></span>: <input type="checkbox" id="comp_css" class="agi cb"><br>
-		<div id="skin">Custom CSS: <input type="file" name="data" accept=".css"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data,'/skin.css');"><br></div>
 		<span class="l"></span>: <input type="checkbox" id="comp_hdays" class="agi cb"><br>
 		<div id="holidays">Holidays: <input type="file" name="data2" accept=".json"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data2,'/holidays.json');"><br></div>
+	</div>
 		<div id="toast"></div>
 		<hr><button type="button" onclick="cLS()">Clear local storage</button>
 		<hr><button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button>

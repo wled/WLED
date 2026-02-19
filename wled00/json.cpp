@@ -746,7 +746,7 @@ void serializeInfo(JsonObject root)
   spi.add(spi_miso);
   #endif
 
-  root[F("str")] = false; //syncToggleReceive;
+  root[F("str")] = false; // sync toggle receive
 
   root[F("name")] = serverDescription;
   root[F("udpport")] = udpPort;
