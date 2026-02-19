@@ -224,15 +224,21 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
   if (newBri < 255) {
     _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
-    uint8_t cctWW = 0, cctCW = 0;
+    uint16_t wwcw = 0;
     unsigned hwLen = _len;
     if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
     for (unsigned i = 0; i < hwLen; i++) {
       uint8_t co = _colorOrderMap.getPixelColorOrder(i+_start, _colorOrder); // need to revert color order for correct color scaling and CCT calc in case white is swapped
       uint32_t c = PolyBus::getPixelColor(_busPtr, _iType, i, co);
+      if (hasCCT()) {
+        uint8_t cctWW, cctCW;
+        Bus::calculateCCT(c, cctWW, cctCW); // calculate CCT before fade (more accurate)
+        cctCW = ((cctCW + 1) * _bri) & 0xFF00; // apply brightess to CCT (leave it in upper byte for 16bit NeoPixelBus value)
+        cctWW = ((cctWW + 1) * _bri) >> 8;
+        wwcw = cctCW | cctWW;
+      }
       c = color_fade(c, newBri, true); // apply additional dimming  note: using inline version is a bit faster but overhead of getPixelColor() dominates the speed impact by far
-      if (hasCCT()) Bus::calculateCCT(c, cctWW, cctCW);
-      PolyBus::setPixelColor(_busPtr, _iType, i, c, co, (cctCW<<8) | cctWW); // repaint all pixels with new brightness
+      PolyBus::setPixelColor(_busPtr, _iType, i, c, co, wwcw); // repaint all pixels with new brightness
     }
   }
 
@@ -262,10 +268,17 @@ void BusDigital::setStatusPixel(uint32_t c) {
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
-  uint8_t cctWW = 0, cctCW = 0;
-  if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  uint8_t cctWW = 0, cctCW = 0;
+  uint16_t wwcw = 0;
+  if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
   c = color_fade(c, _bri, true); // apply brightness
+
+  if (hasCCT()) {
+    wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightess to CCT (store CW in upper byte)
+    wwcw |= ((cctWW + 1) * _bri) >> 8;
+    if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
+  }
 
   if (BusManager::_useABL) {
     // if using ABL, sum all color channels to estimate current and limit brightness in show()
@@ -290,11 +303,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
       case 2: c = RGBW32(R(cOld), G(cOld), W(c)   , 0); break;
     }
   }
-  uint16_t wwcw = 0;
-  if (hasCCT()) {
-    wwcw = (cctCW<<8) | cctWW;
-    if (_type == TYPE_WS2812_WWA) c = RGBW32(cctWW, cctCW, 0, W(c));
-  }
+
   PolyBus::setPixelColor(_busPtr, _iType, pix, c, co, wwcw);
 }
 
@@ -460,12 +469,13 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
-  uint8_t CCTww, CCTcw;
-  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, CCTww, CCTcw); // TODO: use cw ad ww below
   if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
     c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   }
+  uint8_t cctWW, cctCW;
+  if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW); // TODO: use cw ad ww below
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
+  // note: no color scaling, brightness is applied in show()
 
   switch (_type) {
     case TYPE_ANALOG_1CH: //one channel (white), relies on auto white calculation
@@ -476,16 +486,16 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
         _data[0] = w;
         _data[1] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
       } else {
-        _data[0] = CCTww;
-        _data[1] = CCTcw;
+        _data[0] = cctWW;
+        _data[1] = cctCW;
       }
       break;
     case TYPE_ANALOG_5CH: //RGB + warm white + cold white
       if (cctICused)
         _data[4] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
       else {
-        w = CCTww;
-        _data[4] = CCTcw;
+        w = cctWW;
+        _data[4] = cctCW;
       }
       // fall through to set RGBW channels
     case TYPE_ANALOG_4CH: //RGBW

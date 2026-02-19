@@ -201,7 +201,7 @@ class Bus {
     static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
-    static inline int8_t   getCCTBlend()              { return (_cctBlend * 100 + (_cctBlend >= 0 ? 64 : -64)) / 127; } // returns -100 t +100, +/-100% = +/-127. +/-64 for rounding 
+    static inline int8_t   getCCTBlend()              { return (_cctBlend * 100 + (_cctBlend >= 0 ? 64 : -64)) / 127; } // returns -100 to +100, +/-100% = +/-127. +/-64 for rounding 
     static inline void     setCCTBlend(int8_t b) {    // input is -100 to +100
       _cctBlend = (std::max(-100, std::min(100, (int)b)) * 127 + (b >= 0 ? 50 : -50)) / 100; // +/-50 for rounding, b=+/-100% -> +/-127
       //compile-time limiter for hardware that can't power both white channels at max
