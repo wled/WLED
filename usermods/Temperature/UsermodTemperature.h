@@ -50,6 +50,8 @@ class UsermodTemperature : public Usermod {
     int16_t idx = -1;   // Domoticz virtual sensor idx
     uint8_t resolution = 0; // 9bits=0, 10bits=1, 11bits=2, 12bits=3
 
+    EasySensor temperatureSensor{_name, makeChannelProps_Temperature()};
+
     // strings to reduce flash memory usage (used more than twice)
     static const char _name[];
     static const char _enabled[];
@@ -106,5 +108,8 @@ class UsermodTemperature : public Usermod {
     bool readFromConfig(JsonObject &root) override;
 
     void appendConfigData() override;
+    
+    uint8_t getSensorCount() override { return 1; }
+    Sensor *getSensor(uint8_t) override { return &temperatureSensor; }
 };
 

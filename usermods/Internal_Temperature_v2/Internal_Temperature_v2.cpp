@@ -1,6 +1,6 @@
 #include "wled.h"
 
-class InternalTemperatureUsermod : public Usermod
+class InternalTemperatureUsermod : public Usermod, public Sensor
 {
 
 private:
@@ -22,10 +22,17 @@ private:
   static const char _activationThreshold[];
   static const char _presetToActivate[];
 
+  const SensorChannelProps sensorProps = makeChannelProps_Temperature("on-chip", 0.0f, 80.0f);
+  bool do_isSensorReady() override { return isEnabled && temperature >= 0.0f; }
+  SensorValue do_getSensorChannelValue(uint8_t) override { return temperature; }
+  const SensorChannelProps &do_getSensorChannelProperties(uint8_t) override { return sensorProps; }
+
   // any private methods should go here (non-inline method should be defined out of class)
   void publishMqtt(const char *state, bool retain = false); // example for publishing MQTT message
 
 public:
+  InternalTemperatureUsermod() : Sensor{"CPU", 1} {}
+
   void setup()
   {
   }
@@ -171,6 +178,9 @@ public:
   {
     return USERMOD_ID_INTERNAL_TEMPERATURE;
   }
+
+  uint8_t getSensorCount() override { return 1; }
+  Sensor *getSensor(uint8_t) override { return this; }
 };
 
 const char InternalTemperatureUsermod::_name[] PROGMEM = "Internal Temperature";

@@ -2,6 +2,8 @@
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
 
+#include "Sensor.h"
+
 /*
  * All globally accessible functions are declared here
  */
@@ -336,6 +338,8 @@ class Usermod {
     virtual void onUpdateBegin(bool) {}                                      // fired prior to and after unsuccessful firmware update
     virtual void onStateChange(uint8_t mode) {}                              // fired upon WLED state change
     virtual uint16_t getId() {return USERMOD_ID_UNSPECIFIED;}
+    virtual uint8_t getSensorCount() { return 0; }                           // get number of provided sensors
+    virtual Sensor *getSensor(uint8_t index) { return nullptr; }             // get a specific sensor; index >= getSensorCount() results in undefined behaviour
 
   // API shims
   private:
@@ -377,6 +381,7 @@ namespace UsermodManager {
   void onStateChange(uint8_t);
   Usermod* lookup(uint16_t mod_id);
   size_t getModCount();
+  SensorCursor getSensors();
 };
 
 // Register usermods by building a static list via a linker section
