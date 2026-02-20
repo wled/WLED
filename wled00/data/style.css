@@ -157,6 +157,9 @@ td {
   font-size:1.5rem;
   cursor:pointer
 }
+#TMT table {
+  width: 100%;
+}
 
 #msg {
   display: none;

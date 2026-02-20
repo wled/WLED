@@ -126,6 +126,18 @@ function getLoc() {
 	}
 }
 function getURL(path) { return (loc ? locproto + "//" + locip : "") + path; }
+async function fetchPresetsJson() {
+	try {
+		const res = await fetch(getURL('/presets.json'), {method: 'get'});
+		if (!res.ok) return {};
+		const json = await res.json();
+		if (!json || typeof json !== "object") return {};
+		delete json["0"]; // remove default preset entry
+		return json;
+	} catch (e) {
+		return {};
+	}
+}
 function B()          { window.open(getURL("/settings"),"_self"); }
 var timeout;
 function showToast(text, error = false) {

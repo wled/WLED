@@ -35,39 +35,43 @@
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
 	function loadPresets() {
-		try {
-			var p = localStorage.getItem("wledP");
-			if (p) {
-				presets = JSON.parse(p);
-			} else {
-				fetch(getURL('/presets.json'), {method: 'get'})
-					.then(res => res.ok ? res.json() : {})
-					.then(json => {
-						delete json["0"]; // remove default preset entry
-						presets = json;
-						// Save to localStorage for future use
-						try { localStorage.setItem("wledP", JSON.stringify(presets)); } catch(e) {}
-						// run here because fetch is async
-						buildSortedPresetOptions();
-						populateMacroPresets();
-					})
-					.catch(e => console.log("Failed to fetch presets:", e));
-			}
-		} catch(e) {}
-		buildSortedPresetOptions();
+		bSPO();
+		rTOPO();
+		rBPO();
+		fetchPresetsJson().then(json => {
+			presets = json;
+			bSPO();
+			pMP();
+			rTOPO();
+			rBPO();
+		});
 	}
-	function buildSortedPresetOptions() {
-		var arr = Object.entries(presets);
-		arr.sort((a,b)=> parseInt(a[0]) - parseInt(b[0]));
+	function bSPO() { // buildSortedPresetOptions
 		sortedPresetOptions = '';
-		for (var p of arr) {
-			if (p[0]=="0") continue;
-			var id = parseInt(p[0]);
+		for (var p of Object.entries(presets)) {
+			var id = p[0];
 			var name = p[1].n || ("Preset " + id);
-			// Truncate long preset names to 20 chars and add ellipsis
-			var displayName = name.length > 20 ? name.substring(0, 19) + '&hellip;' : name;
-			sortedPresetOptions += `<option value="${id}">${id}: ${displayName}</option>`;
+			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
 		}
+	}
+	function sPSV(sel, value, attrName) { // setPresetSelectValue
+		var v = (value === undefined || value === null || value === "") ? "0" : String(value);
+		sel.setAttribute(attrName, v);
+		sel.value = v;
+		if (sel.value === "") sel.value = "0";
+	}
+	function rPS(sel, presetOpts, attrName) { // refreshPresetSelect
+		var currentVal = sel.value;
+		var initialVal = sel.getAttribute(attrName);
+		var val = currentVal;
+		if ((val === "" || val === "0") && initialVal !== null && initialVal !== "" && initialVal !== "0") {
+			val = initialVal;
+		}
+		if (val === "") val = "0";
+		sel.innerHTML = presetOpts;
+		sel.value = val;
+		if (sel.value === "" && initialVal !== null && initialVal !== "") sel.value = initialVal;
+		if (sel.value === "") sel.value = "0";
 	}
 	function expand(o,i)
 	{
@@ -78,7 +82,8 @@
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
 	function BTa()
 	{
-		gId("TMT").innerHTML = "";
+		timerCount = 0;
+		gId("TMT").innerHTML = "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th></tr></thead>";
 	}
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
 		if (timerCount >= maxTimers) return;
@@ -98,27 +103,7 @@
 		var dow = weekdays >> 1;
 		var container = gId("TMT");
 		var hourVal = isSpecial ? 0 : hour;
-		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions.replace(new RegExp(`value="${preset}"`, 'g'), `value="${preset}" selected`);
-
-		var timerBlock = document.createElement('div');
-		timerBlock.className = 'tb';
-
-		var timerMain = `
-			<div class="tm">
-				<div class="ts ts1">
-					<div class="tf tfe"><label for="W${i}0">En.</label><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></div>
-					<div class="tf"><label for="TS${i}">Type</label><select id="TS${i}" class="s" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="${TIMER_SUNRISE}" ${isSunrise?'selected':''}>Sunrise</option><option value="${TIMER_SUNSET}" ${isSunset?'selected':''}>Sunset</option></select></div>
-				</div>
-				<div class="ts ts2">
-					<div class="tf"><label for="H${i}">Hour</label><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="l" type="number" min="0" max="24" value="${hourVal}" ${isSpecial?'disabled':''}></div>
-					<div class="tf"><label for="N${i}">Minute</label><input name="N${i}" id="N${i}" class="l" type="number" min="${isSpecial?-120:0}" max="${isSpecial?120:59}" value="${minute}"></div>
-				</div>
-				<div class="ts ts3">
-					<div class="tf"><label for="T${i}">Preset</label><select name="T${i}" id="T${i}" class="s">${presetOpts}</select></div>
-					<div class="tf tc"><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></div>
-				</div>
-			</div>
-		`;
+		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
 
 		var weekdayTable = '<table class="tw"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>';
 		for (j=1;j<8;j++) weekdayTable += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
@@ -130,15 +115,45 @@
 		for (j=0;j<12;j++) dateRange += `<option value="${j+1}" ${monthEnd==j+1?'selected':''}>${ms[j]}</option>`;
 		dateRange += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="${dayEnd}"></span></div>`;
 
-		var timerExpanded = `
-			<div id="WD${i}" class="te" style="display:none;">
-				<div class="twd">Run on weekdays${weekdayTable}</div>
-				${dateRange}
-			</div>
+		var timerMain = `
+			<tr>
+				<td>
+					<input name="W${i}" id="W${i}" type="hidden">
+					<input id="W${i}0" type="checkbox" ${enabled ? "checked" : ""}>
+				</td><td>
+					<select id="TS${i}" class="s" onchange="TT(${i})">
+						<option value="0" ${!isSpecial ? "selected" : ""}>Regular</option>
+						<option value="${TIMER_SUNRISE}" ${isSunrise ? "selected" : ""}>Sunrise</option>
+						<option value="${TIMER_SUNSET}" ${isSunset ? "selected" : ""}>Sunset</option>
+					</select><br>
+				</td><td>
+					<input ${isSpecial ? "" : 'name="H'+i+'"'} id="H${i}" class="s" type="number" min="0" max="24" value="${hourVal}" ${isSpecial ? "disabled" : ""}>
+				</td>
+				<td><input name="N${i}" id="N${i}" class="l" type="number" min="${isSpecial ? -120 : 0}" max="${isSpecial ? 120 : 59}" value="${minute}"></td>
+				<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td>
+			</tr><tr>
+				<td colspan="5">
+					<select name="T${i}" id="T${i}" class="s">${presetOpts}</select>
+				</td>
+			</tr><tr><td colspan="5"><hr></td></tr>
 		`;
 
-		timerBlock.innerHTML = timerMain + timerExpanded;
-		container.appendChild(timerBlock);
+		var timerExpanded = `
+			<tr>
+				<td colspan="5">
+					<div id="WD${i}" style="display:none;background-color:#444;">
+						<hr>Run on weekdays
+						${weekdayTable}
+						${dateRange}
+						<hr>
+					</div>
+				</td>
+			</tr>
+		`;
+
+		container.insertAdjacentHTML("beforeend", timerMain + timerExpanded);
+		var timerPresetSel = gId("T"+i);
+		sPSV(timerPresetSel, preset, "data-preset");
 	}
 	function TT(i) {
 		var sel = gId("TS"+i);
@@ -165,22 +180,45 @@
 		}
 	}
 	function FC() {
-		populateMacroPresets();
+		pMP();
 	}
-	function populateMacroPresets() {
+	function pMP() { // populateMacroPresets
 		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
 		var fields = ['A0','A1','MC','MN'];
 		for (var f of fields) {
 			var inp = gN(f);
 			if (!inp) continue;
-			var val = inp.value || 0;
-			var sel = document.createElement('select');
-			sel.name = f;
-			sel.className = inp.className;
-			sel.required = inp.required;
-			sel.innerHTML = presetOpts;
-			sel.value = val;
-			inp.parentNode.replaceChild(sel, inp);
+			var val = inp.getAttribute("data-preset-value");
+			if (val === null || val === "") val = inp.value;
+			if (inp.tagName === "SELECT") {
+				sPSV(inp, val, "data-preset-value");
+				rPS(inp, presetOpts, "data-preset-value");
+			} else {
+				var sel = document.createElement('select');
+				sel.name = f;
+				sel.className = inp.className;
+				sel.required = inp.required;
+				sPSV(sel, val, "data-preset-value");
+				rPS(sel, presetOpts, "data-preset-value");
+				inp.parentNode.replaceChild(sel, inp);
+			}
+		}
+	}
+	function rTOPO() { // refreshTimerPresetOptions
+		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+		for (var i=0; i<timerCount; i++) {
+			var sel = gId("T"+i);
+			if (!sel) continue;
+			rPS(sel, presetOpts, "data-preset");
+		}
+	}
+	function rBPO() { // refreshButtonPresetOptions
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var container = gId("macros");
+		if (!container) return;
+		var sels = container.querySelectorAll('select[name^="MP"],select[name^="ML"],select[name^="MD"]');
+		for (var sel of sels) {
+			rPS(sel, presetOpts, "data-preset");
 		}
 	}
 	function Wd()
@@ -202,7 +240,6 @@
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}
 	function addRow(i,p,l,d) {
-		var container = gId("macros");
 		var b = String.fromCharCode((i<10?48:55)+i);
 		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
 		var buttonBlock = document.createElement('div');
@@ -212,19 +249,25 @@
 			<div class="bs">
 				<div class="ba">
 					<label>Push/Switch</label>
-					<select name="MP${b}" class="s" required>${presetOpts.replace(`value="${p}"`, `value="${p}" selected`)}</select>
+					<select name="MP${b}" class="s" required>${presetOpts}</select>
 				</div>
 				<div class="ba">
 					<label>Short (on→off)</label>
-					<select name="ML${b}" class="s" required>${presetOpts.replace(`value="${l}"`, `value="${l}" selected`)}</select>
+					<select name="ML${b}" class="s" required>${presetOpts}</select>
 				</div>
 				<div class="ba">
 					<label>Long (off→on)</label>
-					<select name="MD${b}" class="s" required>${presetOpts.replace(`value="${d}"`, `value="${d}" selected`)}</select>
+					<select name="MD${b}" class="s" required>${presetOpts}</select>
 				</div>
 			</div>
+			<hr style="width:100%;margin:8px 0 0 0;">
 		`;
-		container.appendChild(buttonBlock);
+		var buttonSels = buttonBlock.querySelectorAll("select");
+		var buttonVals = [String(p), String(l), String(d)];
+		for (var si=0; si<buttonSels.length; si++) {
+			sPSV(buttonSels[si], buttonVals[si], "data-preset");
+		}
+		gId("macros").appendChild(buttonBlock);
 	}
 	function getLatLon() {
 		if (!el) {
@@ -323,24 +366,14 @@
 	</div>
 	<div class="sec">
 		<h3>Button Action Presets</h3>
-		<table style="margin: 0 auto;" id="macros">
-			<thead>
-				<tr>
-					<td>push<br>switch</td>
-					<td>short<br>on-&gt;off</td>
-					<td>long<br>off-&gt;on</td>
-					<td>double<br>N/A</td>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
+		<div id="macros"></div>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 	</div>
 	<div class="sec">
 		<h3>Time-Controlled Presets</h3>
 		<div style="display: inline-block">
-		<table id="TMT" style="min-width:330px;"></table>
+			<table id="TMT" style="min-width:330px;"></table>
+			<button type="button" onclick="addTimerRow()">Add Timer</button>
 		</div>
 	</div>
 	<hr>
