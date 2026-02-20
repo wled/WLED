@@ -7,6 +7,7 @@
 #include "html_settings.h"
 #include "html_other.h"
 #include "js_iro.h"
+#include "js_omggif.h"
 #ifdef WLED_ENABLE_PIXART
   #include "html_pixart.h"
 #endif
@@ -41,7 +42,7 @@ static const char s_no_store[]       PROGMEM = "no-store";
 static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
 static const char _iro_js[]          PROGMEM = "/iro.js";
-
+static const char _omggif_js[]       PROGMEM = "/omggif.js";
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -357,6 +358,10 @@ void initServer()
 
   server.on(_iro_js, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_iro_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_iro, JS_iro_length);
+  });
+
+  server.on(_omggif_js, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_omggif_js), 200, FPSTR(CONTENT_TYPE_JAVASCRIPT), JS_omggif, JS_omggif_length);
   });
 
   //settings page
