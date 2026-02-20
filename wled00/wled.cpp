@@ -258,11 +258,11 @@ void WLED::loop()
 // DEBUG serial logging (every 30s)
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
-  if (loopMillis > 30) {
-    DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
-    DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
-    DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
-  }
+  //if (loopMillis > 30) {
+  //  DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
+  //  DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
+  //  DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
+  //}
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
   if (millis() - debugTime > 29999) {
@@ -503,6 +503,10 @@ void WLED::setup()
 
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
+
+  #ifndef ESP8266
+  WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  #endif
   WiFi.persistent(false); // note: on ESP32 this is only applied if WiFi.mode() is called and only if mode changes, use low level esp_wifi_set_storage() to change storage method immediately
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
@@ -753,7 +757,15 @@ void WLED::initConnection()
       wifi_station_clear_enterprise_username();
       wifi_station_clear_enterprise_password();
 #endif
-      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass);
+      uint8_t *bssid = nullptr;
+      // check if user BSSID is non zero for current WiFi config
+      for (int i = 0; i < sizeof(multiWiFi[selectedWiFi].bssid); i++) {
+        if (multiWiFi[selectedWiFi].bssid[i] != 0) {
+          bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
+          break;
+        }
+      }
+      WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass, 0, bssid); // no harm if called multiple times
     } else { // WIFI_ENCRYPTION_TYPE_ENTERPRISE
       DEBUG_PRINTF_P(PSTR("Using WPA2_AUTH_PEAP (Anon: %s, Ident: %s)\n"), multiWiFi[selectedWiFi].enterpriseAnonIdentity, multiWiFi[selectedWiFi].enterpriseIdentity);
 #ifdef ESP8266
@@ -772,7 +784,15 @@ void WLED::initConnection()
 #endif
     }
 #else // WLED_ENABLE_WPA_ENTERPRISE
-    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass); // no harm if called multiple times
+    uint8_t *bssid = nullptr;
+    // check if user BSSID is non zero for current WiFi config
+    for (int i = 0; i < sizeof(multiWiFi[selectedWiFi].bssid); i++) {
+      if (multiWiFi[selectedWiFi].bssid[i] != 0) {
+        bssid = multiWiFi[selectedWiFi].bssid; // BSSID set, assign pointer and continue
+        break;
+      }
+    }
+    WiFi.begin(multiWiFi[selectedWiFi].clientSSID, multiWiFi[selectedWiFi].clientPass, 0, bssid); // no harm if called multiple times
 #endif // WLED_ENABLE_WPA_ENTERPRISE
 
 #ifdef ARDUINO_ARCH_ESP32

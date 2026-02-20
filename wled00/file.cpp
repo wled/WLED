@@ -396,6 +396,7 @@ static const uint8_t *getPresetCache(size_t &size) {
     if (presetsCached) {
       p_free(presetsCached);
       presetsCached = nullptr;
+      presetsCachedSize = 0;
     }
   }
 
