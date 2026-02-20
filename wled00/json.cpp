@@ -746,7 +746,7 @@ void serializeInfo(JsonObject root)
   spi.add(spi_miso);
   #endif
 
-  root[F("str")] = false; //syncToggleReceive;
+  root[F("str")] = false; // sync toggle receive
 
   root[F("name")] = serverDescription;
   root[F("udpport")] = udpPort;
@@ -898,7 +898,7 @@ void serializeInfo(JsonObject root)
   root["ip"] = s;
 }
 
-void setPaletteColors(JsonArray json, CRGBPalette16 palette)
+static void setPaletteColors(JsonArray json, CRGBPalette16 palette)
 {
     for (int i = 0; i < 16; i++) {
       JsonArray colors =  json.createNestedArray();
@@ -910,7 +910,7 @@ void setPaletteColors(JsonArray json, CRGBPalette16 palette)
     }
 }
 
-void setPaletteColors(JsonArray json, byte* tcp)
+static void setPaletteColors(JsonArray json, byte* tcp)
 {
     TRGBGradientPaletteEntryUnion* ent = (TRGBGradientPaletteEntryUnion*)(tcp);
     TRGBGradientPaletteEntryUnion u;
