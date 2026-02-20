@@ -319,9 +319,14 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       MAX_LED_MEMORY,
       MAX_LEDS,
       WLED_MAX_COLOR_ORDER_MAPPINGS,
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+      // pretend to be a C3 - temporary hack to keep seetings_leds working -> isC3() =>  maxD ==  2 && maxA ==  6
+      2, 6, 
+#else
       WLED_MAX_DIGITAL_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
-      WLED_MAX_BUTTONS
+#endif
+		WLED_MAX_BUTTONS
     );
 
     printSetFormCheckbox(settingsScript,PSTR("MS"),strip.autoSegments);
