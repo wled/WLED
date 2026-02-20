@@ -564,13 +564,13 @@ void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
       return;
     }
   }
-  if ((monthStart != 0 && (monthStart < 1 || monthStart > 12)) ||
-      (monthEnd != 0 && (monthEnd < 1 || monthEnd > 12))) {
+  if ((monthStart != 0 && monthStart > 12) ||
+      (monthEnd != 0 && monthEnd > 12)) {
     DEBUG_PRINTLN(F("Timer: Invalid month range"));
     return;
   }
-  if ((dayStart != 0 && (dayStart < 1 || dayStart > 31)) ||
-      (dayEnd != 0 && (dayEnd < 1 || dayEnd > 31))) {
+  if ((dayStart != 0 && dayStart > 31) ||
+      (dayEnd != 0 && dayEnd > 31)) {
     DEBUG_PRINTLN(F("Timer: Invalid day range"));
     return;
   }
