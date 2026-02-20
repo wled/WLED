@@ -12,7 +12,6 @@
 	var maxTimers = 64;
 	var presets = {};
 	var sortedPresetOptions = '';
-	var sortByName = false;
 	// load common.js with retry on error
 	(function loadFiles() {
 		const l = document.createElement('script');
@@ -52,31 +51,11 @@
 					.catch(e => console.log("Failed to fetch presets:", e));
 			}
 		} catch(e) {}
-		// Load sort preference from localStorage
-		try {
-			var sortPref = localStorage.getItem("wledPresetSort");
-			if (sortPref !== null) {
-				sortByName = (sortPref === "name");
-				// Update radio buttons to match saved preference
-				if (sortByName) {
-					var sortByNameRadio = document.getElementById("sortByName");
-					if (sortByNameRadio) sortByNameRadio.checked = true;
-				}
-			}
-		} catch(e) {}
 		buildSortedPresetOptions();
 	}
 	function buildSortedPresetOptions() {
 		var arr = Object.entries(presets);
-		if (sortByName) {
-			arr.sort((a,b)=>{
-				var nameA = (a[1].n || ("Preset " + a[0])).toLowerCase();
-				var nameB = (b[1].n || ("Preset " + b[0])).toLowerCase();
-				return nameA.localeCompare(nameB);
-			});
-		} else {
-			arr.sort((a,b)=> parseInt(a[0]) - parseInt(b[0]));
-		}
+		arr.sort((a,b)=> parseInt(a[0]) - parseInt(b[0]));
 		sortedPresetOptions = '';
 		for (var p of arr) {
 			if (p[0]=="0") continue;
@@ -183,23 +162,6 @@
 		}
 	}
 	function FC() {
-		populateMacroPresets();
-	}
-	function updateSort(byName) {
-		sortByName = byName;
-		// Save sort preference to localStorage
-		try {
-			localStorage.setItem("wledPresetSort", byName ? "name" : "id");
-		} catch(e) {}
-		buildSortedPresetOptions();
-		for (var i = 0; i < timerCount; i++) {
-			var sel = gId("T"+i);
-			if (sel) {
-				var val = sel.value;
-				sel.innerHTML = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
-				sel.value = val;
-			}
-		}
 		populateMacroPresets();
 	}
 	function populateMacroPresets() {
