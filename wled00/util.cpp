@@ -213,7 +213,7 @@ void releaseJSONBufferLock()
 
 
 // extracts effect mode (or palette) name from names serialized string
-// caller must provide large enough buffer for name (including SR extensions)!
+// caller must provide large enough buffer for name (including SR extensions)! maxLen is (buffersize - 1)
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen)
 {
   if (src == JSON_mode_names || src == nullptr) {
@@ -235,7 +235,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
 
   if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
     snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
-    dest[maxLen-1] = '\0';
+    dest[maxLen] = '\0';
     return strlen(dest);
   }
 
@@ -336,7 +336,7 @@ uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxL
           case 0:  strncpy_P(dest, PSTR("FX Speed"), maxLen); break;
           case 1:  strncpy_P(dest, PSTR("FX Intensity"), maxLen); break;
         }
-        dest[maxLen] = '\0'; // strncpy does not necessarily null terminate string
+        dest[maxLen-1] = '\0'; // strncpy does not necessarily null terminate string
       }
     }
     return strlen(dest);
@@ -370,7 +370,7 @@ int16_t extractModeDefaults(uint8_t mode, const char *segVar)
 void checkSettingsPIN(const char* pin) {
   if (!pin) return;
   if (!correctPIN && millis() - lastEditTime < PIN_RETRY_COOLDOWN) return; // guard against PIN brute force
-  bool correctBefore = correctPIN;
+  //bool correctBefore = correctPIN; // unused
   correctPIN = (strlen(settingsPIN) == 0 || strncmp(settingsPIN, pin, 4) == 0);
   lastEditTime = millis();
 }
@@ -561,7 +561,7 @@ void enumerateLedmaps() {
       ledMaps |= 1 << i;
 
       #ifndef ESP8266
-      if (requestJSONBufferLock(21)) {
+      if (requestJSONBufferLock(JSON_LOCK_LEDMAP_ENUM)) {
         if (readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
           size_t len = 0;
           JsonObject root = pDoc->as<JsonObject>();
@@ -692,15 +692,21 @@ static void *validateFreeHeap(void *buffer) {
   return buffer;
 }
 
+#ifdef BOARD_HAS_PSRAM
+#define RTC_RAM_THRESHOLD 1024 // use RTC RAM for allocations smaller than this size
+#else
+#define RTC_RAM_THRESHOLD 65535 // without PSRAM, allow any size into RTC RAM (useful especially on S2 without PSRAM)
+#endif
+
 void *d_malloc(size_t size) {
-  void *buffer;
+  void *buffer = nullptr;
   #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
-  // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
-  if (size < 256 || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
+  // use RTC RAM for small allocations or if DRAM is running low to improve fragmentation
+  if (size <= RTC_RAM_THRESHOLD || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
     buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_RTCRAM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  else
+  if (buffer == nullptr) // no RTC RAM allocation: use DRAM
   #endif
   buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // allocate in any available heap memory
   buffer = validateFreeHeap(buffer); // make sure there is enough free heap left

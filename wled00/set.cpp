@@ -27,13 +27,19 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; //WiFi encryption type
+      char ea[4] = "EA"; ea[2] = 48+n; ea[3] = 0; //enterprise anonymous identity
+      char ei[4] = "EI"; ei[2] = 48+n; ei[3] = 0; //enterprise identity
+#endif
       if (request->hasArg(cs)) {
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
+        uint8_t oldBSSID[6]; memcpy(oldBSSID, multiWiFi[n].bssid, 6);  // save old BSSID
 
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
-        if (strlen(oldSSID) == 0 || !strncmp(multiWiFi[n].clientSSID, oldSSID, 32)) {
+        if (strlen(oldSSID) == 0 || strncmp(multiWiFi[n].clientSSID, oldSSID, 32) != 0) {
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
@@ -41,6 +47,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           forceReconnect = true;
         }
         fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
+        if (memcmp(oldBSSID, multiWiFi[n].bssid, 6) != 0) {  // check if BSSID changed
+          forceReconnect = true;
+        }
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
@@ -49,6 +58,34 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           multiWiFi[n].staticGW[i] = request->arg(gw).toInt();
           multiWiFi[n].staticSN[i] = request->arg(sn).toInt();
         }
+
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+        byte oldType = multiWiFi[n].encryptionType;
+        char oldAnon[65]; strcpy(oldAnon, multiWiFi[n].enterpriseAnonIdentity);
+        char oldIden[65]; strcpy(oldIden, multiWiFi[n].enterpriseIdentity);
+        if (request->hasArg(et) && request->hasArg(ea) && request->hasArg(ei)) {
+          multiWiFi[n].encryptionType = request->arg(et).toInt();
+          strlcpy(multiWiFi[n].enterpriseAnonIdentity, request->arg(ea).c_str(), 65);
+          strlcpy(multiWiFi[n].enterpriseIdentity, request->arg(ei).c_str(), 65);
+        } else {
+          // No enterprise settings provided, default to PSK
+          multiWiFi[n].encryptionType = WIFI_ENCRYPTION_TYPE_PSK;
+        }
+
+        if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
+          // PSK - Clear the anonymous identity and identity fields
+          multiWiFi[n].enterpriseAnonIdentity[0] = '\0';
+          multiWiFi[n].enterpriseIdentity[0] = '\0';
+        }
+        forceReconnect |= oldType != multiWiFi[n].encryptionType;
+        if (strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64) != 0) {
+          forceReconnect = true;
+        }
+        if (strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64) != 0) {
+          forceReconnect = true;
+        }
+#endif
+
         cnt++;
       }
     }
@@ -138,7 +175,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
 
-    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed;
+    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed, driverType;
     unsigned length, start, maMax;
     uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
@@ -155,9 +192,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setCCTBlend(cctBlending);
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    useParallelI2S = request->hasArg(F("PR"));
-    #endif
 
     bool busesChanged = false;
     for (int s = 0; s < 36; s++) { // theoretical limit is 36 : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -175,6 +209,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
         DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
@@ -226,10 +261,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
       type |= request->hasArg(rf) << 7; // off refresh override
+      driverType = request->arg(ld).toInt(); // 0=RMT (default), 1=I2S
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, text);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -279,7 +315,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
-      int hw_btn_pin = request->arg(bt).toInt();
+      int hw_btn_pin = request->hasArg(bt) ? request->arg(bt).toInt() : -1;
       if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
       else {
         buttons[i].pin  = hw_btn_pin;
@@ -341,7 +377,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     gammaCorrectBri = request->hasArg(F("GB"));
     gammaCorrectCol = request->hasArg(F("GC"));
     gammaCorrectVal = request->arg(F("GV")).toFloat();
-    if (gammaCorrectVal <= 1.0f || gammaCorrectVal > 3) {
+    if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
       gammaCorrectVal = 1.0f; // no gamma correction
       gammaCorrectBri = false;
       gammaCorrectCol = false;
@@ -372,7 +408,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
-    //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();
@@ -533,16 +568,16 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     macroAlexaOff = request->arg(F("A1")).toInt();
     macroCountdown = request->arg(F("MC")).toInt();
     macroNl = request->arg(F("MN")).toInt();
-    int i = 0;
+    int ii = 0;
     for (auto &button : buttons) {
-      char mp[4] = "MP"; mp[2] = (i<10?'0':'A'-10)+i; mp[3] = 0; // short
-      char ml[4] = "ML"; ml[2] = (i<10?'0':'A'-10)+i; ml[3] = 0; // long
-      char md[4] = "MD"; md[2] = (i<10?'0':'A'-10)+i; md[3] = 0; // double
+      char mp[4] = "MP"; mp[2] = (ii<10?'0':'A'-10)+ii; mp[3] = 0; // short
+      char ml[4] = "ML"; ml[2] = (ii<10?'0':'A'-10)+ii; ml[3] = 0; // long
+      char md[4] = "MD"; md[2] = (ii<10?'0':'A'-10)+ii; md[3] = 0; // double
       //if (!request->hasArg(mp)) break;
       button.macroButton = request->arg(mp).toInt();      // these will default to 0 if not present
       button.macroLongPress = request->arg(ml).toInt();
       button.macroDoublePress = request->arg(md).toInt();
-      i++;
+      ii++;
     }
 
     clearTimers();
@@ -590,9 +625,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (request->hasArg(F("RS"))) //complete factory reset
     {
       WLED_FS.format();
-      #ifdef WLED_ADD_EEPROM_SUPPORT
-      clearEEPROM();
-      #endif
       serveMessage(request, 200, F("All Settings erased."), F("Connect to WLED-AP to setup again"),255);
       doReboot = true; // may reboot immediately on dual-core system (race condition) which is desireable in this case
     }
@@ -668,7 +700,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == SUBPAGE_UM)
   {
-    if (!requestJSONBufferLock(5)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SETTINGS)) {
       request->deferResponse();
       return;
     }

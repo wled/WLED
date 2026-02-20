@@ -5,6 +5,9 @@
  * Sending XML status files to client
  */
 
+// forward declarations
+static void appendGPIOinfo(Print& settingsScript);
+
 //build XML response to HTTP /win API request
 void XML_response(Print& dest)
 {
@@ -38,7 +41,7 @@ static void extractPin(Print& settingsScript, const JsonObject &obj, const char 
   }
 }
 
-void fillWLEDVersion(char *buf, size_t len)
+static void fillWLEDVersion(char *buf, size_t len)
 {
   if (!buf || len == 0) return;
 
@@ -89,7 +92,7 @@ static void fillUMPins(Print& settingsScript, const JsonObject &mods)
   }
 }
 
-void appendGPIOinfo(Print& settingsScript)
+static void appendGPIOinfo(Print& settingsScript)
 {
   settingsScript.print(F("d.um_p=[-1")); // has to have 1 element
   if (i2c_sda > -1 && i2c_scl > -1) {
@@ -99,7 +102,7 @@ void appendGPIOinfo(Print& settingsScript)
     settingsScript.printf_P(PSTR(",%d,%d"), spi_mosi, spi_sclk);
   }
   // usermod pin reservations will become unnecessary when settings pages will read cfg.json directly
-  if (requestJSONBufferLock(6)) {
+  if (requestJSONBufferLock(JSON_LOCK_XML)) {
     // if we can't allocate JSON buffer ignore usermod pins
     JsonObject mods = pDoc->createNestedObject("um");
     UsermodManager::addToConfig(mods);
@@ -198,6 +201,18 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       memset(fpass,'*',l);
       char bssid[13];
       fillMAC2Str(bssid, multiWiFi[n].bssid);
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X,\"%u\",\"%s\",\"%s\");"),
+        multiWiFi[n].clientSSID,
+        fpass,
+        bssid,
+        (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
+        (uint32_t) multiWiFi[n].staticGW,
+        (uint32_t) multiWiFi[n].staticSN,
+        multiWiFi[n].encryptionType,
+        multiWiFi[n].enterpriseAnonIdentity,
+        multiWiFi[n].enterpriseIdentity);
+#else
       settingsScript.printf_P(PSTR("addWiFi(\"%s\",\"%s\",\"%s\",0x%X,0x%X,0x%X);"),
         multiWiFi[n].clientSSID,
         fpass,
@@ -205,6 +220,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         (uint32_t) multiWiFi[n].staticIP, // explicit cast required as this is a struct
         (uint32_t) multiWiFi[n].staticGW,
         (uint32_t) multiWiFi[n].staticSN);
+#endif
     }
 
     printSetFormValue(settingsScript,PSTR("D0"),dnsAddress[0]);
@@ -291,14 +307,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
-      WLED_MAX_BUSSES,
-      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+      WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
       MAX_LEDS,
       WLED_MAX_COLOR_ORDER_MAPPINGS,
       WLED_MAX_DIGITAL_CHANNELS,
+      WLED_MAX_RMT_CHANNELS,
+      WLED_MAX_I2S_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
       WLED_MAX_BUTTONS
     );
@@ -310,17 +327,17 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
-    printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
       const Bus *bus = BusManager::getBus(s);
-      if (!bus || !bus->isOk()) break; // should not happen but for safety
+      if (!bus) break; // should not happen but for safety
       int offset = s < 10 ? '0' : 'A' - 10;
       char lp[4] = "L0"; lp[2] = offset+s; lp[3] = 0; //ascii 0-9 //strip data pin
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
       char lt[4] = "LT"; lt[2] = offset+s; lt[3] = 0; //strip type
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
@@ -340,6 +357,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       }
       printSetFormValue(settingsScript,lc,bus->getLength());
       printSetFormValue(settingsScript,lt,bus->getType());
+      printSetFormValue(settingsScript,ld,bus->getDriverType());
       printSetFormValue(settingsScript,co,bus->getColorOrder() & 0x0F);
       printSetFormValue(settingsScript,ls,bus->getStart());
       printSetFormCheckbox(settingsScript,cv,bus->isReversed());
@@ -459,7 +477,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMX();"));  // hide "not compiled in" message
+    settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message
 #endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings
@@ -580,9 +598,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("A1"),macroAlexaOff);
     printSetFormValue(settingsScript,PSTR("MC"),macroCountdown);
     printSetFormValue(settingsScript,PSTR("MN"),macroNl);
-    int i = 0;
+    int ii = 0;
     for (const auto &button : buttons) {
-      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), i++, button.macroButton, button.macroLongPress, button.macroDoublePress);
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
     }
 
     settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);

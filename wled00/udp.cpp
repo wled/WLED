@@ -334,8 +334,8 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
           selseg.custom2 = udpIn[30+ofs];
           selseg.custom3 = udpIn[31+ofs] & 0x1F;
           selseg.check1  = (udpIn[31+ofs]>>5) & 0x1;
-          selseg.check1  = (udpIn[31+ofs]>>6) & 0x1;
-          selseg.check1  = (udpIn[31+ofs]>>7) & 0x1;
+          selseg.check2  = (udpIn[31+ofs]>>6) & 0x1;
+          selseg.check3  = (udpIn[31+ofs]>>7) & 0x1;
         }
       }
       if (receiveSegmentBounds) {
@@ -457,7 +457,7 @@ void exitRealtime() {
 
 #define TMP2NET_OUT_PORT 65442
 
-void sendTPM2Ack() {
+static void sendTPM2Ack() {
   notifierUdp.beginPacket(notifierUdp.remoteIP(), TMP2NET_OUT_PORT);
   uint8_t response_ack = 0xac;
   notifierUdp.write(&response_ack, 1);
@@ -646,7 +646,7 @@ void handleNotifications()
   // API over UDP
   udpIn[packetSize] = '\0';
 
-  if (requestJSONBufferLock(18)) {
+  if (requestJSONBufferLock(JSON_LOCK_NOTIFY)) {
     if (udpIn[0] >= 'A' && udpIn[0] <= 'Z') { //HTTP API
       String apireq = "win"; apireq += '&'; // reduce flash string usage
       apireq += (char*)udpIn;

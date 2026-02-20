@@ -209,7 +209,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
@@ -232,6 +232,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               if (kelvin <  0) continue;
               if (kelvin == 0) seg.setColor(i, 0);
               if (kelvin >  0) colorKtoRGB(kelvin, brgbw);
+              colValid = true;
+            } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
+              setRandomColor(brgbw);
               colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
@@ -532,17 +535,15 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     else callMode = CALL_MODE_DIRECT_CHANGE;  // possible bugfix for playlist only containing HTTP API preset FX=~
   }
 
-  if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
-    if (customPalettes.size()) {
-      char fileName[32];
-      sprintf_P(fileName, PSTR("/palette%d.json"), customPalettes.size()-1);
-      if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
-      loadCustomPalettes();
-    }
+  if (root.containsKey(F("rmcpal"))) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), root[F("rmcpal")].as<uint8_t>());
+    if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
+    loadCustomPalettes();
   }
 
   doAdvancePlaylist = root[F("np")] | doAdvancePlaylist; //advances to next preset in playlist when true
-  
+
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
     bool apMode = getBoolVal(wifi[F("ap")], apActive);
@@ -745,7 +746,7 @@ void serializeInfo(JsonObject root)
   spi.add(spi_miso);
   #endif
 
-  root[F("str")] = false; //syncToggleReceive;
+  root[F("str")] = false; // sync toggle receive
 
   root[F("name")] = serverDescription;
   root[F("udpport")] = udpPort;
@@ -839,16 +840,12 @@ void serializeInfo(JsonObject root)
 #endif
 
   root[F("freeheap")] = getFreeHeapSize();
-  #ifdef ARDUINO_ARCH_ESP32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
   // Report PSRAM information
-  bool hasPsram = psramFound();
-  root[F("psramPresent")] = hasPsram;
-  if (hasPsram) {
-    #if defined(BOARD_HAS_PSRAM)
-    root[F("psram")] = ESP.getFreePsram(); // Free PSRAM in bytes (backward compatibility)
-    #endif
-    root[F("psramSize")] = ESP.getPsramSize() / (1024UL * 1024UL); // Total PSRAM size in MB
-  }
+  // Free PSRAM in bytes (backward compatibility)
+  root[F("psram")] = ESP.getFreePsram(); 
+  // Total PSRAM size in MB, round up to correct for allocator overhead
+  root[F("psrSz")] = (ESP.getPsramSize() + (1024U * 1024U - 1)) / (1024U * 1024U); 
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
@@ -901,7 +898,7 @@ void serializeInfo(JsonObject root)
   root["ip"] = s;
 }
 
-void setPaletteColors(JsonArray json, CRGBPalette16 palette)
+static void setPaletteColors(JsonArray json, CRGBPalette16 palette)
 {
     for (int i = 0; i < 16; i++) {
       JsonArray colors =  json.createNestedArray();
@@ -913,7 +910,7 @@ void setPaletteColors(JsonArray json, CRGBPalette16 palette)
     }
 }
 
-void setPaletteColors(JsonArray json, byte* tcp)
+static void setPaletteColors(JsonArray json, byte* tcp)
 {
     TRGBGradientPaletteEntryUnion* ent = (TRGBGradientPaletteEntryUnion*)(tcp);
     TRGBGradientPaletteEntryUnion u;
@@ -945,26 +942,25 @@ void serializePalettes(JsonObject root, int page)
 {
   byte tcp[72];
   #ifdef ESP8266
-  int itemPerPage = 5;
+  constexpr int itemPerPage = 5;
   #else
-  int itemPerPage = 8;
+  constexpr int itemPerPage = 8;
   #endif
 
-  int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
+  const int customPalettesCount = customPalettes.size();
+  const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
+  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
-  int start = itemPerPage * page;
-  int end = start + itemPerPage;
-  if (end > palettesCount + customPalettesCount) end = palettesCount + customPalettesCount;
+  const int start = itemPerPage * page;
+  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i <= end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
+  for (int i = start; i < end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -993,12 +989,12 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i > palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
-        else if (i < 13) // palette 6 - 12, fastled palettes
-          setPaletteColors(curPalette, *fastledPalettes[i-6]);
+        if (i >= palettesCount) // custom palettes
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+          setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
-          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
           setPaletteColors(curPalette, tcp);
         }
         break;
@@ -1140,7 +1136,7 @@ void serveJson(AsyncWebServerRequest* request)
     return;
   }
 
-  if (!requestJSONBufferLock(17)) {
+  if (!requestJSONBufferLock(JSON_LOCK_SERVEJSON)) {
     request->deferResponse();    
     return;
   }

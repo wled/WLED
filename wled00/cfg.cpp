@@ -38,7 +38,7 @@ static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTy
 //simple macro for ArduinoJSON's or syntax
 #define CJSON(a,b) a = b | a
 
-void getStringFromJson(char* dest, const char* src, size_t len) {
+static inline void getStringFromJson(char* dest, const char* src, size_t len) {
   if (src != nullptr) strlcpy(dest, src, len);
 }
 
@@ -48,13 +48,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   //int rev_minor = doc["rev"][1]; // 0
 
   //long vid = doc[F("vid")]; // 2010020
-
-#ifdef WLED_USE_ETHERNET
-  JsonObject ethernet = doc[F("eth")];
-  CJSON(ethernetType, ethernet["type"]);
-  // NOTE: Ethernet configuration takes priority over other use of pins
-  initEthernet();
-#endif
 
   JsonObject id = doc["id"];
   getStringFromJson(cmDNS, id[F("mdns")], 33);
@@ -114,6 +107,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       multiWiFi[n].staticIP = nIP;
       multiWiFi[n].staticGW = nGW;
       multiWiFi[n].staticSN = nSN;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      byte encType = WIFI_ENCRYPTION_TYPE_PSK;
+      char anonIdent[65] = "";
+      char ident[65] = "";
+      CJSON(encType, wifi[F("enc_type")]);
+      getStringFromJson(anonIdent, wifi["e_anon_ident"], 65);
+      getStringFromJson(ident, wifi["e_ident"], 65);
+      multiWiFi[n].encryptionType = encType;
+      strlcpy(multiWiFi[n].enterpriseAnonIdentity, anonIdent, 65);
+      strlcpy(multiWiFi[n].enterpriseIdentity, ident, 65);
+#endif
       if (++n >= WLED_MAX_WIFI_COUNT) break;
     }
   }
@@ -124,6 +128,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       CJSON(dnsAddress[i], dns[i]);
     }
   }
+
+  // https://github.com/wled/WLED/issues/5247
+#ifdef WLED_USE_ETHERNET
+  JsonObject ethernet = doc[F("eth")];
+  CJSON(ethernetType, ethernet["type"]);
+  // NOTE: Ethernet configuration takes priority over other use of pins
+  initEthernet();
+#endif
 
   JsonObject ap = doc["ap"];
   getStringFromJson(apSSID, ap[F("ssid")], 33);
@@ -165,9 +177,6 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
   strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  CJSON(useParallelI2S, hw_led[F("prl")]);
-  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -234,9 +243,10 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
+      uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=I2S note: polybus may override this if driver is not available
 
       String host = elm[F("text")] | String();
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, host);
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -319,7 +329,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       unsigned start = 0;
       // analog always has length 1
       if (Bus::isPWM(dataType) || Bus::isOnOff(dataType)) count = 1;
-      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0);
+      busConfigs.emplace_back(dataType, defPin, start, count, DEFAULT_LED_COLOR_ORDER, false, 0, RGBW_MODE_MANUAL_ONLY, 0, LED_MILLIAMPS_DEFAULT, ABL_MILLIAMPS_DEFAULT, 0); // driver=0 (RMT default)
       doInitBusses = true;  // finalization done in beginStrip()
     }
   }
@@ -506,13 +516,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(strip.autoSegments, light[F("aseg")]);
 
   CJSON(gammaCorrectVal, light["gc"]["val"]); // default 2.2
-  float light_gc_bri = light["gc"]["bri"];
-  float light_gc_col = light["gc"]["col"];
-  if (light_gc_bri > 1.0f) gammaCorrectBri = true;
-  else                     gammaCorrectBri = false;
-  if (light_gc_col > 1.0f) gammaCorrectCol = true;
-  else                     gammaCorrectCol = false;
-  if (gammaCorrectVal <= 1.0f || gammaCorrectVal > 3) {
+  float light_gc_bri = light["gc"]["bri"] | 1.0f; // default to 1.0 (false)
+  float light_gc_col = light["gc"]["col"] | gammaCorrectVal; // default to gammaCorrectVal (true)
+  if (light_gc_bri != 1.0f) gammaCorrectBri = true;
+  else                      gammaCorrectBri = false;
+  if (light_gc_col != 1.0f) gammaCorrectCol = true;
+  else                      gammaCorrectCol = false;
+  if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
     gammaCorrectVal = 1.0f; // no gamma correction
     gammaCorrectBri = false;
     gammaCorrectCol = false;
@@ -780,13 +790,8 @@ void resetConfig() {
 
 bool deserializeConfigFromFS() {
   [[maybe_unused]] bool success = deserializeConfigSec();
-  #ifdef WLED_ADD_EEPROM_SUPPORT
-  if (!success) { //if file does not exist, try reading from EEPROM
-    deEEPSettings();
-  }
-  #endif
 
-  if (!requestJSONBufferLock(1)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_DES)) return false;
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
@@ -807,7 +812,7 @@ void serializeConfigToFS() {
 
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
-  if (!requestJSONBufferLock(2)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SER)) return;
 
   JsonObject root = pDoc->to<JsonObject>();
 
@@ -861,6 +866,13 @@ void serializeConfig(JsonObject root) {
       wifi_gw.add(multiWiFi[n].staticGW[i]);
       wifi_sn.add(multiWiFi[n].staticSN[i]);
     }
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+    wifi[F("enc_type")] = multiWiFi[n].encryptionType;
+    if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_ENTERPRISE) {
+      wifi[F("e_anon_ident")] = multiWiFi[n].enterpriseAnonIdentity;
+      wifi[F("e_ident")] = multiWiFi[n].enterpriseIdentity;
+    }
+#endif
   }
 
   JsonArray dns = nw.createNestedArray(F("dns"));
@@ -924,9 +936,6 @@ void serializeConfig(JsonObject root) {
   hw_led[F("cb")] = Bus::getCCTBlend();
   hw_led["fps"] = strip.getTargetFps();
   hw_led[F("rgbwm")] = Bus::getGlobalAWMode(); // global auto white mode override
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-  hw_led[F("prl")] = BusManager::hasParallelOutput();
-  #endif
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
@@ -953,7 +962,7 @@ void serializeConfig(JsonObject root) {
   for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
     DEBUG_PRINTF_P(PSTR("Cfg: Saving bus #%u\n"), s);
     const Bus *bus = BusManager::getBus(s);
-    if (!bus || !bus->isOk()) break;
+    if (!bus) break;  // Memory corruption, iterator invalid
     DEBUG_PRINTF_P(PSTR("  (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
       (int)bus->getStart(), (int)(bus->getStart()+bus->getLength()),
       (int)(bus->getType() & 0x7F),
@@ -980,6 +989,7 @@ void serializeConfig(JsonObject root) {
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
+    ins[F("drv")]    = bus->getDriverType();
     ins[F("text")]   = bus->getCustomText();
   }
 
@@ -1249,7 +1259,7 @@ static const char s_wsec_json[] PROGMEM = "/wsec.json";
 bool deserializeConfigSec() {
   DEBUG_PRINTLN(F("Reading settings from /wsec.json..."));
 
-  if (!requestJSONBufferLock(3)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_DES)) return false;
 
   bool success = readObjectFromFile(s_wsec_json, nullptr, pDoc);
   if (!success) {
@@ -1303,7 +1313,7 @@ bool deserializeConfigSec() {
 void serializeConfigSec() {
   DEBUG_PRINTLN(F("Writing settings to /wsec.json..."));
 
-  if (!requestJSONBufferLock(4)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_SER)) return;
 
   JsonObject root = pDoc->to<JsonObject>();
 
