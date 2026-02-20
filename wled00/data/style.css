@@ -1,5 +1,5 @@
 html {
-	touch-action: manipulation;
+  touch-action: manipulation;
 }
 body {
   font-family: Verdana, sans-serif;
@@ -35,7 +35,7 @@ button, .btn {
   color: #fff;
   font-family: Verdana, sans-serif;
   border: 0.3ch solid #333;
-	border-radius: 24px;
+  border-radius: 24px;
   display: inline-block;
   font-size: 20px;
   margin: 12px 8px 8px;
@@ -166,32 +166,32 @@ td {
 }
 
 #toast {
-	opacity: 0;
-	background-color: #444;
-	border-radius: 5px;
-	bottom: 64px;
-	color: #fff;
-	font-size: 17px;
-	padding: 16px;
-	pointer-events: none;
-	position: fixed;
-	text-align: center;
-	z-index: 5;
-	transform: translateX(-50%);
+  opacity: 0;
+  background-color: #444;
+  border-radius: 5px;
+  bottom: 64px;
+  color: #fff;
+  font-size: 17px;
+  padding: 16px;
+  pointer-events: none;
+  position: fixed;
+  text-align: center;
+  z-index: 5;
+  transform: translateX(-50%);
   max-width: 90%;
-	left: 50%;
+  left: 50%;
 }
 
 #toast.show {
-	opacity: 1;
-	background-color: #264;
-	animation: fadein 0.5s, fadein 0.5s 2.5s reverse;
+  opacity: 1;
+  background-color: #264;
+  animation: fadein 0.5s, fadein 0.5s 2.5s reverse;
 }
 
 #toast.error {
-	opacity: 1;
-	background-color: #b21;
-	animation: fadein 0.5s;
+  opacity: 1;
+  background-color: #b21;
+  animation: fadein 0.5s;
 }
 
 @media screen and (max-width: 767px) {
