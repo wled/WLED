@@ -157,34 +157,6 @@ td {
   font-size:1.5rem;
   cursor:pointer
 }
-/* Timer layout - tmc=container, tb=block, tm=main, ts=section, tf=field, tfe=enabled field, te=expanded, tw=weekdays, tdr=daterange, tdf=date from/to, tc=calendar, twd=weekday text */
-.tmc{display:flex;flex-direction:column;gap:12px;max-width:800px;margin:0 auto}
-.tb{background:#282828;border:2px solid #333;border-radius:8px;padding:12px}
-.tm{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
-.ts{display:flex;flex-wrap:nowrap;gap:8px;align-items:flex-end}
-.ts1{flex:1 0 28%;min-width:160px}
-.ts2{flex:1 0 28%;min-width:160px}
-.ts3{flex:1 0 38%;min-width:200px}
-.tf{display:flex;flex-direction:column;gap:4px;flex:1 1 auto;min-width:70px}
-.tf label{font-size:.85em;color:#aaa;align-self:center}
-.tf input:not([type="checkbox"]),.tf select{box-sizing:border-box;border:2px solid #333;margin-left:auto;margin-right:auto}
-.tfe{flex:0 0 auto;min-width:50px;justify-content:flex-end}
-.tc{align-self:flex-end;flex:0 0 auto!important;min-width:40px}
-.te{background-color:#444;margin-top:12px;padding:8px;border-radius:4px}
-.twd{margin-bottom:8px}
-.tw{margin:8px auto;border-collapse:collapse}
-.tw th,.tw td{padding:4px 8px}
-.tdr{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:8px 0}
-.tdf{display:inline-flex;flex-wrap:nowrap;gap:4px;align-items:center;white-space:nowrap}
-
-/* Button actions - bc=container, bb=block, bh=header, bs=actions, ba=action */
-.bc{display:flex;flex-wrap:wrap;gap:16px;justify-content:center;margin:16px 0}
-.bb{background:#282828;border:2px solid #333;border-radius:8px;padding:12px;min-width:200px;flex:1 1 auto;max-width:300px}
-.bh{font-weight:bold;font-size:1.1em;margin-bottom:12px;color:#28f;text-align:center}
-.bs{display:flex;flex-direction:column;gap:8px}
-.ba{display:flex;flex-direction:column;gap:4px}
-.ba label{font-size:.9em;color:#aaa;text-align:left}
-.ba select{width:100%}
 
 #msg {
   display: none;
@@ -243,9 +215,4 @@ td {
   #btns select {
     width: 144px;
   }
-  .button-block {
-    min-width: 100%;
-    max-width: 100%;
-  }
-  .tmc{max-width:100%}
 }
