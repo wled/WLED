@@ -1016,17 +1016,19 @@ Swap: <select id="xw${s}" name="XW${s}">
 	</script>
 </head>
 <body>
-	<form id="form_s" name="Sf" method="post">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#led-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
-		</div>
-		<h2>LED &amp; Hardware setup</h2>
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#led-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+	</div>
+	<h2>LED setup</h2>
+	<div class="sec">
 		Total LEDs: <span id="lc">?</span> <span id="pc"></span><br>
 		<i>Recommended power supply for brightest white:</i><br>
 		<b><span id="psu">?</span></b><br>
 		<span id="psu2"><br></span>
 		<br>
+		Global brightness factor: <input name="BF" type="number" class="m" min="1" max="255" required> %<br>
 		Enable automatic brightness limiter: <input type="checkbox" name="ABL" onchange="enABL()"><br>
 		<div id="abl">
 			<i>Automatically limits brightness to stay close to the limit.<br>
@@ -1034,7 +1036,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				If using multiple outputs it is recommended to use per-output limiter.<br>
 				Analog (PWM) and virtual LEDs cannot use automatic brightness limiter.<br></i>
 			<div id="psuMA">Maximum PSU Current: <input name="MA" type="number" class="xl" min="250" max="65000" oninput="UI()" required> mA<br></div>
-			Use per-output limiter: <input type="checkbox" name="PPL" onchange="UI()"><br>
+			Use per-output limiter: <input type="checkbox" name="PPL" onchange="UI()"><br><br>
 			<div id="ppldis" style="display:none;">
 				<i>Make sure you enter correct value for each LED output.<br>
 				If using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.</i><br>
@@ -1046,8 +1048,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				multiple power injection points and a fuse!<br>
 			</div>
 		</div>
-		<h3>Hardware setup</h3>
-		<div id="mLC">LED outputs:</div>
+		<div id="mLC"><h4>LED outputs:</h4></div>
 		<hr class="sml">
 		<button type="button" id="+" onclick="addLEDs(1,false)">+</button>
 		<button type="button" id="-" onclick="addLEDs(-1,false)">-</button><br>
@@ -1072,17 +1073,44 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<button type="button" id="com_add" onclick="addCOM()">+</button>
 			<button type="button" id="com_rem" onclick="remCOM()">-</button>
 		</div>
-		<hr class="sml">
+	</div>
+	<div class="sec">
+		<h3>Color & White</h3>
+		Use Gamma correction for color: <input type="checkbox" name="GC"> (strongly recommended)<br>
+		Use Gamma correction for brightness: <input type="checkbox" name="GB"> (not recommended)<br>
+		Use Gamma value: <input name="GV" type="number" class="m" placeholder="2.2" min="0.1" max="3" step="0.1" required><br><br>
+		White Balance correction: <input type="checkbox" name="CCT"><br>
+		<div id="wc">
+			Global override for Auto-calculate white:
+			<select name="AW">
+				<option value=255>Disabled</option>
+				<option value=0>None</option>
+				<option value=1>Brighter</option>
+				<option value=2>Accurate</option>
+				<option value=3>Dual</option>
+				<option value=4>Max</option>
+			</select>
+			<br>
+			Calculate CCT from RGB: <input type="checkbox" name="CR"><br>
+			CCT IC used (Athom 15W): <input type="checkbox" name="IC"><br>
+			CCT additive blending: <input type="number" class="s" min="0" max="100" name="CB" onchange="UI()" required> %<br>
+			<i class="warn"><b>⚠</b> Set to 0 when using 2-wire (reverse polarity) CCT strips</i><br><br>
+		</div>
+	</div>
+	<h2>Hardware setup</h2>
+	<div class="sec">
+		<h3>Buttons</h3>
 		<div id="btn_wrap">
-			Buttons:
 			<div id="btns"></div>
 			<hr class="sml">
 			<button type="button" id="btn_add" onclick="addBtn(gId('btns').children.length,-1,0)">+</button>
 			<button type="button" id="btn_rem" onclick="remBtn()">-</button>
 		</div>
 		Disable internal pull-up/down: <input type="checkbox" name="IP"><br>
-		Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br>
-		<hr class="sml">
+		Touch threshold: <input type="number" class="s" min="0" max="100" name="TT" required><br><br>
+	</div>
+	<div class="sec">
+		<h3>IR Remote</h3>
 		IR GPIO: <input type="number" min="-1" max="48" name="IR" onchange="UI()" class="xs"><select name="IT" onchange="UI()">
 		<option value=0>Remote disabled</option>
 		<option value=1>24-key RGB</option>
@@ -1096,22 +1124,31 @@ Swap: <select id="xw${s}" name="XW${s}">
 		</select><span style="cursor: pointer;" onclick="off('IR')">&nbsp;&#x2715;</span><br>
 		Apply IR change to main segment only: <input type="checkbox" name="MSO"><br>
 		<div id="json" style="display:none;">JSON file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/ir.json')">Upload</button><br></div>
-		<a href="https://kno.wled.ge/interfaces/infrared/" target="_blank">IR info</a><br>
-		<hr class="sml">
+		<a href="https://kno.wled.ge/interfaces/infrared/" target="_blank">IR info</a><br><br>
+	</div>
+	<div class="sec">
+		<h3>Relay</h3>
 		Relay GPIO: <input type="number" min="-1" max="48" name="RL" onchange="UI()" class="xs"><span style="cursor: pointer;" onclick="off('RL')">&nbsp;&#x2715;</span><br>
-		Invert <input type="checkbox" name="RM"> Open drain <input type="checkbox" name="RO"><br>
-		<hr class="sml">
-		<h3>Defaults</h3>
+		Invert <input type="checkbox" name="RM"> Open drain <input type="checkbox" name="RO"><br><br>
+	</div>
+	<h2>General settings</h2>
+	<div class="sec">
+		<h3>Power up</h3>
 		Turn LEDs on after power up/reset: <input type="checkbox" name="BO"><br>
-		Default brightness: <input name="CA" type="number" class="m" min="1" max="255" required> (1-255)<br><br>
-		Apply preset <input name="BP" type="number" class="m" min="0" max="250" required> at boot (0 uses values from above)<br><br>
-		Use Gamma correction for color: <input type="checkbox" name="GC"> (strongly recommended)<br>
-		Use Gamma correction for brightness: <input type="checkbox" name="GB"> (not recommended)<br>
-		Use Gamma value: <input name="GV" type="number" class="m" placeholder="2.2" min="0.1" max="3" step="0.1" required><br><br>
-		Brightness factor: <input name="BF" type="number" class="m" min="1" max="255" required> %
+		with brightness: <input name="CA" type="number" class="m" min="1" max="255" required> (1-255)<br>
+		<i>(disable if using boot preset to turn LEDs on)</i><br><br>
+		Apply preset <input name="BP" type="number" class="m" min="0" max="250" required> at boot (0 = none)<br><br>
+	</div>
+	<div class="sec">
 		<h3>Transitions</h3>
-		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br>
-		<i>Random Cycle</i> Palette Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br>
+		Default transition time: <input name="TD" type="number" class="xl" min="0" max="65500"> ms<br><br>
+	</div>
+	<div class="sec">
+		<h3>Random Palettes</h3>
+		Use harmonic colors in <i>Random palettes</i>: <input type="checkbox" name="TH"><br>
+		<i>Random Palette</i> Cycle Time: <input name="TP" type="number" class="m" min="1" max="255"> s<br><br>
+	</div>
+	<div class="sec">
 		<h3>Timed light</h3>
 		Default duration: <input name="TL" type="number" class="m" min="1" max="255" required> min<br>
 		Default target brightness: <input name="TB" type="number" class="m" min="0" max="255" required><br>
@@ -1122,24 +1159,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<option value="2">Fade Color</option>
 			<option value="3">Sunrise</option>
 		</select>
-		<h3>White management</h3>
-		White Balance correction: <input type="checkbox" name="CCT"><br>
-		<div id="wc">
-			Global override for Auto-calculate white:<br>
-			<select name="AW">
-				<option value=255>Disabled</option>
-				<option value=0>None</option>
-				<option value=1>Brighter</option>
-				<option value=2>Accurate</option>
-				<option value=3>Dual</option>
-				<option value=4>Max</option>
-			</select>
-			<br>
-			Calculate CCT from RGB: <input type="checkbox" name="CR"><br>
-			CCT IC used (Athom 15W): <input type="checkbox" name="IC"><br>
-			CCT additive blending: <input type="number" class="s" min="0" max="100" name="CB" onchange="UI()" required> %<br>
-			<i class="warn">WARNING: When using H-bridge for reverse polarity (2-wire) CCT LED strip<br><b>make sure this value is 0</b>.<br>(ESP32 variants only, ESP8266 does not support H-bridges)</i>
-		</div>
+		<br><br>
+	</div>
+	<div class="sec">
 		<h3>Advanced</h3>
 		Palette wrapping:
 		<select name="PB">
@@ -1148,16 +1170,16 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<option value="2">Linear (never wrap)</option>
 			<option value="3">None (not recommended)</option>
 		</select><br>
-		Use harmonic <i>Random Cycle</i> palette: <input type="checkbox" name="TH"><br>
 		Target refresh rate: <input type="number" class="s" min="0" max="250" name="FR" oninput="UI()" required> FPS
 		<div id="fpsNone" class="warn" style="display: none;">&#9888; Unlimited FPS Mode is experimental &#9888;<br></div>
 		<div id="fpsHigh" class="warn" style="display: none;">&#9888; High FPS Mode is experimental.<br></div>
 		<div id="fpsWarn" class="warn" style="display: none;">Please <a class="lnk" href="sec#backup">backup</a> WLED configuration and presets first!<br></div>
-		<hr class="sml">
-		<div id="cfg">Config template: <input type="file" name="data2" accept=".json"><button type="button" class="sml" onclick="loadCfg(d.Sf.data2)">Apply</button><br></div>
-		<hr>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
-	</form>
-	<div id="toast"></div>
+		<br><br>
+	</div>
+	<div id="cfg">Config template: <input type="file" name="data2" accept=".json"><button type="button" class="sml" onclick="loadCfg(d.Sf.data2)">Apply</button><br></div>
+	<hr>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+</form>
+<div id="toast"></div>
 </body>
 </html>
