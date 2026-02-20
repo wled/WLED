@@ -491,22 +491,6 @@ function restore(txt) {
 	return false;
 }
 
-async function loadPresets() {
-	return new Promise((resolve) => {
-		fetch(getURL('/presets.json'), {method: 'get'})
-		.then(res => res.status=="404" ? {"0":{}} : res.json())
-		.then(json => {
-			pJson = json;
-			populatePresets();
-			resolve();
-		})
-		.catch(() => {
-			presetError(false);
-			resolve();
-		})
-	});
-}
-
 async function loadPalettes(retry=0) {
 	return new Promise((resolve) => {
 		fetch(getURL('/json/palettes'), {method: 'get'})

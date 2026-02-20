@@ -26,7 +26,7 @@
 
 	function S() {
 		getLoc();
-		loadPresets(onPresetsLoaded);
+		populatePresets(true);
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
 			updLatLon();
 			Cs();
@@ -34,8 +34,14 @@
 		});
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
+	function populatePresets(fromls) {
+		if (fromls) presets = JSON.parse(localStorage.getItem("wledP"));
+		if (!presets) {loadPresets(onPresetsLoaded); return;}
+		onPresetsLoaded(presets);
+	}
 	function onPresetsLoaded(json) {
 		presets = json;
+		delete presets["0"];
 		bSPO();
 		pMP();
 		rTOPO();
