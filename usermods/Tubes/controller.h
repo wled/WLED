@@ -694,9 +694,10 @@ class PatternController : public MessageReceiver {
     uint colors[4] = {18, 58, 71, 111};
     next_state.palette_id = colors[r];
 #elif defined(CHRISTMAS)   // 81, 107 are too bright
-    uint r = random8(0, 20);
-    uint colors[20] = {/*gold:*/18, 58, 71, 111, 
+    uint r = random8(0, 26);
+    uint colors[26] = {/*gold:*/18, 58, 71, 111, 
                       /*yes:*/25, 34, 61, 63, 81, 112,        
+                      /*yesx2:*/25, 34, 61, 63, 81, 112,        
                       /*best yes:*/25, 34, 34, 61, 63, 81, 112,        
                       /*maybe:*/81, 28, 107};
     next_state.palette_id = colors[r];
