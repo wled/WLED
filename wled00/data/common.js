@@ -93,9 +93,9 @@ function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefine
 	// success event
 	scE.addEventListener("load", () => {
 		//console.log("File loaded");
-		if (typeof preGetV === "function") preGetV();
-		if (typeof GetV === "function") GetV();
-		if (typeof postGetV === "function") postGetV();
+		if (preGetV) preGetV();
+		if (GetV) GetV();
+		if (postGetV) postGetV();
 	});
 	// error event
 	scE.addEventListener("error", (ev) => {
@@ -137,6 +137,11 @@ async function fetchPresetsJson() {
 	} catch (e) {
 		return {};
 	}
+}
+async function loadPresets(callback) {
+	const json = await fetchPresetsJson();
+	if (callback) callback(json);
+	return json;
 }
 function B()          { window.open(getURL("/settings"),"_self"); }
 var timeout;

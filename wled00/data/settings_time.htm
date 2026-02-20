@@ -26,7 +26,7 @@
 
 	function S() {
 		getLoc();
-		loadPresets();
+		loadPresets(onPresetsLoaded);
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
 			updLatLon();
 			Cs();
@@ -34,17 +34,12 @@
 		});
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
-	function loadPresets() {
+	function onPresetsLoaded(json) {
+		presets = json;
 		bSPO();
+		pMP();
 		rTOPO();
 		rBPO();
-		fetchPresetsJson().then(json => {
-			presets = json;
-			bSPO();
-			pMP();
-			rTOPO();
-			rBPO();
-		});
 	}
 	function bSPO() { // buildSortedPresetOptions
 		sortedPresetOptions = '';
