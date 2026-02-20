@@ -315,3 +315,66 @@ void PinManager::deallocateLedc(byte pos, byte channels)
   }
 }
 #endif
+
+// Convert PinOwner enum to string for allocated pins
+const char* PinManager::getPinOwnerName(uint8_t gpio) {
+  PinOwner owner = PinManager::getPinOwner(gpio); // returns "none" if allocated by system, unallocated or unavailable
+  switch (owner) {
+    case PinOwner::None:          return PinManager::isPinAllocated(gpio) ? "System" : "Unknown";
+    case PinOwner::Ethernet:      return "Ethernet";
+    case PinOwner::BusDigital:    return "LED Digital";
+    case PinOwner::BusOnOff:      return "LED On/Off";
+    case PinOwner::BusPwm:        return "LED PWM";
+    case PinOwner::Button:        return "Button";
+    case PinOwner::IR:            return "IR Receiver";
+    case PinOwner::Relay:         return "Relay";
+    case PinOwner::SPI_RAM:       return "SPI RAM";
+    case PinOwner::DebugOut:      return "Debug";
+    case PinOwner::DMX:           return "DMX Output";
+    case PinOwner::HW_I2C:        return "I2C";
+    case PinOwner::HW_SPI:        return "SPI";
+    case PinOwner::DMX_INPUT:     return "DMX Input";
+    case PinOwner::HUB75:         return "HUB75";
+    // Usermods - return generic name for now
+    // TODO: Get actual usermod name from UsermodManager
+    default:
+      // Check if it's a usermod (high bit not set)
+      if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
+        return "Usermod";
+      }
+      return "Unknown";
+  }
+}
+
+int PinManager::getButtonIndex(byte gpio) {
+  for (size_t b = 0; b < buttons.size(); b++) {
+    if (buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
+      return b;
+    }
+  }
+  return -1;
+}
+
+bool PinManager::isAnalogPin(byte gpio) {
+  #ifdef ARDUINO_ARCH_ESP32
+  // Check ADC capability: only ADC1 channels can be used (ADC2 channels are not usable when WiFi is active)
+  #if CONFIG_IDF_TARGET_ESP32
+  // ESP32: ADC1 channels 0-7 (GPIO 36, 37, 38, 39, 32, 33, 34, 35)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 7) return true;
+  #elif CONFIG_IDF_TARGET_ESP32S2
+  // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 9) return true;
+  #elif CONFIG_IDF_TARGET_ESP32S3
+  // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 9) return true;
+  #elif CONFIG_IDF_TARGET_ESP32C3
+  // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 4) return true;
+  #endif
+  #endif
+  return false; // not an analog pin if it doesn't have ADC capability, ESP8266 has only one ADC pin (A0) which is handled separately in button.cpp, so return false for all pins here
+}
