@@ -398,7 +398,7 @@ void checkTimers()
         if (!sunset) continue;
         tt = sunset + t.minute * 60;
       } else {
-        struct tm tim;
+        struct tm tim = {};
         tim.tm_year = year(localTime) - 1900;
         tim.tm_mon = month(localTime) - 1;
         tim.tm_mday = day(localTime);

@@ -597,7 +597,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       k[0] = 'H';
       uint8_t h = request->arg(k).toInt();
       k[0] = 'N';
-      int8_t m = request->arg(k).toInt();
+      int minuteVal = request->arg(k).toInt();
+      if (minuteVal < -120) minuteVal = -120;
+      if (minuteVal > 120) minuteVal = 120;
+      int8_t m = (int8_t)minuteVal;
       k[0] = 'W';
       uint8_t wd = request->arg(k).toInt();
       uint8_t ms = 1, me = 12, ds = 1, de = 31;

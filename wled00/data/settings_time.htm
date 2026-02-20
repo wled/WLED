@@ -9,9 +9,12 @@
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 	var timerCount = 0;
-	var maxTimers = 64;
+	var maxTimers;
 	var presets = {};
 	var sortedPresetOptions = '';
+	const TIMER_SUNRISE = 255;
+	const TIMER_SUNSET = 254;
+	const TIMER_WEEKDAYS_ALL = 255;
 	// load common.js with retry on error
 	(function loadFiles() {
 		const l = document.createElement('script');
@@ -80,13 +83,13 @@
 	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
 		if (timerCount >= maxTimers) return;
 		var i = timerCount++;
-		var isSunrise = (hour === 255);
-		var isSunset = (hour === 254);
+		var isSunrise = (hour === TIMER_SUNRISE);
+		var isSunset = (hour === TIMER_SUNSET);
 		var isSpecial = isSunrise || isSunset;
 		if (hour === undefined) hour = 0;
 		if (minute === undefined) minute = 0;
 		if (preset === undefined) preset = 0;
-		if (weekdays === undefined) weekdays = 255;
+		if (weekdays === undefined) weekdays = TIMER_WEEKDAYS_ALL;
 		if (monthStart === undefined) monthStart = 1;
 		if (dayStart === undefined) dayStart = 1;
 		if (monthEnd === undefined) monthEnd = 12;
@@ -104,7 +107,7 @@
 			<div class="tm">
 				<div class="ts ts1">
 					<div class="tf tfe"><label for="W${i}0">En.</label><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox" ${enabled?'checked':''}></div>
-					<div class="tf"><label for="TS${i}">Type</label><select id="TS${i}" class="s" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="255" ${isSunrise?'selected':''}>Sunrise</option><option value="254" ${isSunset?'selected':''}>Sunset</option></select></div>
+					<div class="tf"><label for="TS${i}">Type</label><select id="TS${i}" class="s" onchange="TT(${i})"><option value="0" ${!isSpecial?'selected':''}>Regular</option><option value="${TIMER_SUNRISE}" ${isSunrise?'selected':''}>Sunrise</option><option value="${TIMER_SUNSET}" ${isSunset?'selected':''}>Sunset</option></select></div>
 				</div>
 				<div class="ts ts2">
 					<div class="tf"><label for="H${i}">Hour</label><input ${isSpecial?'':'name="H'+i+'"'} id="H${i}" class="l" type="number" min="0" max="24" value="${hourVal}" ${isSpecial?'disabled':''}></div>
