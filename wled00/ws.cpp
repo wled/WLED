@@ -95,7 +95,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
             if (len < 10 + offset) return; // DDP header is 10 bytes (+1 protocol byte)
             size_t ddpDataLen = (data[8+offset] << 8) | data[9+offset]; // data length in bytes from DDP header
             uint8_t flags = data[0+offset];
-            if ((flags & DDP_TIMECODE_FLAG) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
+            if ((flags & DDP_FLAGS_TIME) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
             if (len < (10 + offset + ddpDataLen)) return; // not enough data, prevent out of bounds read
             // could be a valid DDP packet, forward to handler
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_DDP);
