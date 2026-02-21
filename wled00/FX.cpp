@@ -5268,7 +5268,6 @@ void mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline. Ye
   unsigned yscale = SEGMENT.speed*8;
   unsigned indexx = 0;
 
-  //CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
   CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : CRGBPalette16(CRGB::Black,     CRGB::Black,      CRGB::Black,  CRGB::Black,
                                                                   CRGB::Red,       CRGB::Red,        CRGB::Red,    CRGB::DarkOrange,
                                                                   CRGB::DarkOrange,CRGB::DarkOrange, CRGB::Orange, CRGB::Orange,
@@ -10718,6 +10717,91 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
+/*
+ * Slow Transition effect
+ * Displays the currently selected palette/color with a very slow transition
+ * speed slider controls the number of minutes for the transition (0 = 10s)
+ * after transition completes, applies preset set by intensity slider (if any)
+ * allows for chains of slow transitions just like a playlist
+ * by DedeHai
+ */
+typedef struct SlowTransitionData {
+  CRGBPalette16 startPalette;        // initial palette
+  CRGBPalette16 currentPalette;      // blended palette for current frame, need permanent storage so we can start from this if target changes mid transition
+  CRGBPalette16 endPalette;          // target palette
+} slow_transition_data;
+
+void mode_slow_transition(void) {
+  // aliases
+  uint32_t* startTime = &SEGMENT.step;  // use step to store start time of transition
+  uint16_t* stepsDone = &SEGMENT.aux0;
+  uint16_t* startSpeed = &SEGMENT.aux1; // speed setting at the start of the transition, used to detect changes
+
+  size_t dataSize = sizeof(slow_transition_data);
+  if (!SEGMENT.allocateData(dataSize)) FX_FALLBACK_STATIC;
+  slow_transition_data* data = reinterpret_cast<slow_transition_data*>(SEGMENT.data);
+
+  bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed); // detect changes in target palette or speed setting
+
+  // (re) init
+  if (changed || SEGMENT.call == 0) {
+    if (SEGMENT.call == 0) {
+      //data->presetapplied = false;
+      data->startPalette = SEGPALETTE;
+      data->currentPalette = SEGPALETTE;
+      data->endPalette = SEGPALETTE;
+      *stepsDone = 0xFFFF; // set to max, fading will start once a change is detected
+    }
+    else {
+      data->startPalette = data->currentPalette;
+      data->endPalette = SEGPALETTE;
+      *stepsDone = 0; // reset counter
+    }
+    *startSpeed = SEGMENT.speed;
+    *startTime = strip.now; // set start time
+  }
+
+  uint32_t totalSteps = SEGMENT.check2 ? 16 * 255 : 255;
+  uint32_t duration = (SEGMENT.speed == 0) ? 10000 : (uint32_t)SEGMENT.speed * 60000; // 10s if zero (good for testing), otherwise map 1-255 to 1-255 minutes
+  uint32_t elapsed = strip.now - *startTime; // note: will overflow after ~50 days if just left alone (edge case unhandled)
+  uint32_t expectedSteps = (uint64_t)elapsed * totalSteps / duration;
+  expectedSteps = min(expectedSteps, totalSteps); // limit to total steps
+
+  if (*stepsDone > expectedSteps)
+    *stepsDone = expectedSteps;// in case sweep was disabled mid transition
+
+  if (*stepsDone < expectedSteps) {
+    *stepsDone = expectedSteps; // jump to expected steps to make sure timing is correct (need up to 4080 frames, at 20fps that is ~200 seconds)
+    if (SEGMENT.check2) {
+        // sweep: one palette entry at a time
+        uint8_t i = *stepsDone % 16;
+        uint8_t blendAmount  = *stepsDone / 16;
+        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+    } else {
+      // full palette at once
+      uint8_t blendAmount = (uint8_t)*stepsDone;
+      for (uint8_t i = 0; i < 16; i++) {
+        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+      }
+    }
+    if (*stepsDone >= totalSteps) {
+      // transition complete, apply preset set by intensity slider (if any)
+      data->currentPalette = data->endPalette; // set to end palette (sweep may not have set all entries)
+      if (SEGMENT.intensity > 0) {
+        uint8_t targetPreset = SEGMENT.intensity;
+        applyPreset(targetPreset, CALL_MODE_DIRECT_CHANGE); // apply preset (if it exists)
+      }
+    }
+  }
+  // display current palette over segment
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    uint8_t paletteIndex = (i * 255) / SEGLEN;
+    CRGBW palcol = ColorFromPaletteWLED(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
+    SEGMENT.setPixelColor(i, palcol.color32);
+  }
+}
+static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min), End reset,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0";
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
@@ -10880,6 +10964,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
+  addEffect(FX_MODE_SLOW_TRANSITION, &mode_slow_transition, _data_FX_MODE_SLOW_TRANSITION);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
