@@ -372,7 +372,11 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
   bool stateResponse = root[F("v")] | false;
 
   #if defined(WLED_DEBUG) && defined(WLED_DEBUG_HOST)
-  netDebugEnabled = root[F("debug")] | netDebugEnabled;
+    netDebugEnabled = root[F("debug")] | netDebugEnabled;
+  #elif defined(WLED_DEBUG) && defined(WLED_ENABLE_SYSLOG)
+    syslogEnabled = root[F("debug")] | syslogEnabled;
+    configNeedsWrite = true;
+    DEBUG_PRINTF_P(PSTR("Syslog: %s\n"), syslogEnabled ? PSTR("ENABLED") : PSTR("DISABLED") );
   #endif
 
   bool onBefore = bri;
@@ -861,6 +865,9 @@ void serializeInfo(JsonObject root)
     #ifdef WLED_DEBUG_HOST
     os |= 0x0100;
     if (!netDebugEnabled) os &= ~0x0080;
+    #elif defined(WLED_ENABLE_SYSLOG)
+    os |= 0x0100;
+    if (!syslogEnabled) os &= ~0x0080;
     #endif
   #endif
   #ifndef WLED_DISABLE_ALEXA

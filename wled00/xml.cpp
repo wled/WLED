@@ -126,7 +126,7 @@ static void appendGPIOinfo(Print& settingsScript)
   settingsScript.print(2); // DMX hardcoded pin
   firstPin = false;
   #endif
-  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST) && !defined(WLED_ENABLE_SYSLOG)
   if (!firstPin) settingsScript.print(',');
   settingsScript.print(hardwareTX); // debug output (TX) pin
   firstPin = false;
@@ -571,6 +571,13 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.print(F("toggle('Hue');"));    // hide Hue Sync settings
     #endif
     printSetFormValue(settingsScript,PSTR("BD"),serialBaud);
+
+    #ifdef WLED_ENABLE_SYSLOG
+    printSetFormCheckbox(settingsScript,PSTR("SL_en"), syslogEnabled);     // enable/disable
+    printSetFormValue   (settingsScript,PSTR("SL_host"), syslogHost);      // host
+    printSetFormValue   (settingsScript,PSTR("SL_port"), syslogPort);      // port
+    #endif
+
     #ifndef WLED_ENABLE_ADALIGHT
     settingsScript.print(F("toggle('Serial');"));
     #endif
