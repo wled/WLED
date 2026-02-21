@@ -3,21 +3,36 @@
 /*
  * Support for DMX  output via serial (e.g. MAX485).
  * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
+ * Change the output pin in src/dependencies/dmx/EspDmxOutput.cpp, if needed (ESP32/S3)
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 
 #ifdef WLED_ENABLE_DMX
+
+#define MAX_DMX_RATE 44 // max DMX update rate in Hz
 
 void handleDMXOutput()
 {
   // don't act, when in DMX Proxy mode
   if (e131ProxyUniverse != 0) return;
 
+  // Ensure segments exist before accessing strip data
+  if (strip.getSegmentsNum() == 0) return;
+
+  // Rate limiting
+  static unsigned long last_dmx_time = 0;
+  constexpr unsigned long dmxFrameTime = (1000UL + MAX_DMX_RATE - 1) / MAX_DMX_RATE; // Ceiling division to round up
+  if (millis() - last_dmx_time < dmxFrameTime) return;
+
   uint8_t brightness = strip.getBrightness();
+  
+  // Skip DMX entirely if strip is off
+  if (brightness == 0) return;
+
+  last_dmx_time = millis();
 
   bool calc_brightness = true;
 
@@ -28,9 +43,15 @@ void handleDMXOutput()
    }
 
   uint16_t len = strip.getLengthTotal();
-  for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
-
-    uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462
+  if (len == 0) return;
+  
+  // OPTIMIZATION: Only process the LEDs that actually need DMX output
+  // Limit to configured number of fixtures instead of processing all LEDs
+  uint16_t dmxEndLED = DMXStartLED + DMXNumFixtures;
+  if (dmxEndLED > len) dmxEndLED = len;
+  
+  for (int i = DMXStartLED; i < dmxEndLED; i++) {
+    uint32_t in = strip.getPixelColor(i);
     byte w = W(in);
     byte r = R(in);
     byte g = G(in);
