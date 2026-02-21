@@ -53,6 +53,19 @@ typedef struct ip_addr ip4_addr_t;
 #define DDP_PUSH_FLAG 0x01
 #define DDP_TIMECODE_FLAG 0x10
 
+#define DDP_HEADER_LEN 10
+#define DDP_SYNCPACKET_LEN 10
+
+#define DDP_FLAGS1_VER 0xc0     // version mask
+#define DDP_FLAGS1_VER1 0x40    // version=1
+#define DDP_FLAGS1_PUSH 0x01
+#define DDP_FLAGS1_QUERY 0x02
+#define DDP_FLAGS1_REPLY 0x04
+#define DDP_FLAGS1_STORAGE 0x08
+#define DDP_FLAGS1_TIME 0x10
+
+#define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
+
 #define DDP_TYPE_RGB24  0x0B // 00 001 011 (RGB , 8 bits per channel, 3 channels)
 #define DDP_TYPE_RGBW32 0x1B // 00 011 011 (RGBW, 8 bits per channel, 4 channels)
 
