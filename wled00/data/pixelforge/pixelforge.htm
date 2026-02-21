@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="author" content="@dedehai" />
 <link rel="shortcut icon" href="favicon.ico">
-<link rel="stylesheet" href="style.css"> <!-- do not use @import url() for css file, it prevents minifying! -->
 <title>WLED PixelForge</title>
-<script src="omggif.js"></script> <!-- TODO: add sequential loading, also addin common.js and optimize code size (getURL() etc.) -->
 <style>
 body {
 	max-width: 800px;
@@ -420,35 +418,49 @@ button, .btn {
 </div>
 
 <div style="margin:20px 0">
-	<button class="btn" onclick="window.location.href=wu">Back to the controls</button>
+	<button class="btn" onclick="window.location.href=getURL('/')">Back to the controls</button>
 </div>
 
 <div id="ov"></div>
 <div id="mem" style="display:none;font-size:12px;color:#aaa;"></div>
 
 <script>
-const d=document,gId=i=>d.getElementById(i),cE=t=>d.createElement(t);
 const imgageFX = 53; // image effect number
 const txtFX = 122;   // scrolling text effect number
+const getId = (i) => document.getElementById(i); // getId() is defined in common.js, but needed before it is loaded
 
 /* canvases */
-const cv=gId('cv'),cx=cv.getContext('2d',{willReadFrequently:true});
-const pv=gId('pv'),pvx=pv.getContext('2d',{willReadFrequently:true});
-const rv = cE('canvas'), rvc = rv.getContext('2d',{willReadFrequently:true}); // off screen canvas for drawing resized & rotated image
-rv.width = cv.width; rv.height = cv.height;
+const cv=getId('cv'),cx=cv.getContext('2d',{willReadFrequently:true});
+const pv=getId('pv'),pvx=pv.getContext('2d',{willReadFrequently:true});
+let rv, rvc; // off screen canvas for drawing resized & rotated image (created in init())
+
 
 /* globals */
-let wu='',sI=null,sF=null,cI=null,bS=1,iS=1,pX=0,pY=0,rot=0;
+let sI=null,sF=null,cI=null,bS=1,iS=1,pX=0,pY=0,rot=0;
 let cr={x:50,y:50,w:200,h:150},drag=false,dH=null,oX=0,oY=0;
 let pan=false,psX=0,psY=0,poX=0,poY=0;
 let iL=[]; // image list
 let gF=null,gI=null,aT=null;
 let fL; // file list
 
+// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
+(function loadFiles() {
+	const s = document.createElement('script');
+	s.src = 'common.js';
+	s.onerror = () => setTimeout(loadFiles, 100);
+	s.onload = () => {
+		loadResources(['style.css','omggif.js'], init); // load omggif.js then call init()
+	};
+	document.head.appendChild(s);
+})();
+
 /* init */
-(async()=>{
-	const params=new URLSearchParams(window.location.search);
-	wu=`http://${params.get('host')||window.location.host}`;
+async function init() {
+	getLoc();
+	// create off screen canvas
+	rv = cE('canvas');
+	rvc = rv.getContext('2d',{willReadFrequently:true}); 
+	rv.width = cv.width; rv.height = cv.height;
 
 	await segLoad(); // load available segments
 	await flU(); // update file list
@@ -456,12 +468,12 @@ let fL; // file list
 	toolChk('videolab.htm','t2');
 	toolChk('pxmagic.htm','t3');
 	await fsMem(); // show file system memory info
-})();
+}
 
 /* update file list */
 async function flU(){
 	try{
-		const r = await fetch(`${wu}/edit?func=list`);
+		const r = await fetch(getURL('/edit?list=/'));
 		fL = await r.json();
 	}catch(e){console.error(e);}
 }
@@ -473,13 +485,13 @@ function msg(m,t=''){
 	d.body.appendChild(el);setTimeout(()=>el.remove(),3000);
 }
 /* "loading" overlay */
-function ovShow(){gId('ov').classList.add('loading');gId('ov').style.display='block';}
-function ovHide(){gId('ov').classList.remove('loading');gId('ov').style.display='none';}
+function ovShow(){getId('ov').classList.add('loading');getId('ov').style.display='block';}
+function ovHide(){getId('ov').classList.remove('loading');getId('ov').style.display='none';}
 
 /* segments */
 function segLoad(){
-	const s1=gId('seg'),v1=s1.value,s2=gId('segT'),v2=s2.value;
-	fetch(`${wu}/json/state`).then(r=>r.json()).then(j=>{
+	const s1=getId('seg'),v1=s1.value,s2=getId('segT'),v2=s2.value;
+	fetch(getURL('/json/state')).then(r=>r.json()).then(j=>{
 		s1.innerHTML=''; s2.innerHTML='';
 		if(j.seg&&j.seg.length){
 			j.seg.forEach(({id,n,start,stop,startY,stopY,fx})=>{
@@ -497,13 +509,13 @@ function segLoad(){
 		if(v1) s1.value=v1; if(v2) s2.value=v2;
 		s2.onchange(); // trigger on load to toggle show/hide of text tool
 		const o=s1.options[s1.selectedIndex];
-		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; }
+		if(o){ getId('w').value=o.dataset.w||16; getId('h').value=o.dataset.h||16; }
 	}).catch(console.error);
 }
 
 /* which seg is showing image fx 53 */
 function curImgSeg(){
-	const sel=gId('seg');
+	const sel=getId('seg');
 	for(let i=0;i<sel.options.length;i++){
 		if(parseInt(sel.options[i].dataset.fx)===imgageFX) return parseInt(sel.options[i].value);
 	}
@@ -511,24 +523,24 @@ function curImgSeg(){
 }
 
 /* seg change -> update target size */
-gId('seg').onchange = () =>{
-	const o=gId('seg').selectedOptions[0];
-	gId('w').value=o.dataset.w;
-	gId('h').value=o.dataset.h;
+getId('seg').onchange = () =>{
+	const o=getId('seg').selectedOptions[0];
+	getId('w').value=o.dataset.w;
+	getId('h').value=o.dataset.h;
 	if(cI) crDraw();
 };
 
-gId('segT').onchange = () => {
-	const is2D = (gId('segT').selectedOptions[0].dataset.h || 1) > 1;
-	gId('ti').style.display = is2D ? 'block' : 'none';
-	gId('ti1D').style.display = is2D ? 'none' : 'block';
+getId('segT').onchange = () => {
+	const is2D = (getId('segT').selectedOptions[0].dataset.h || 1) > 1;
+	getId('ti').style.display = is2D ? 'block' : 'none';
+	getId('ti1D').style.display = is2D ? 'none' : 'block';
 };
 
 /* image list */
 async function imgLoad(){
 	try{
 		await flU(); // update file list
-		const grid=gId('gr');
+		const grid=getId('gr');
 		const types=['gif','png','jpg','jpeg','bmp'];
 		const imgs=fL.filter(f=>types.includes(f.name.split('.').pop()?.toLowerCase()));
 		const newList=imgs.map(f=>f.name.replace('/',''));
@@ -552,9 +564,9 @@ async function imgLoad(){
 
 /* load images into grid TODO: when switching tabs, it can throw 503 and have unloaded images, tried to fix it but all my attempts failed*/
 async function imgLoad2(imgs){
-	const grid=gId('gr');
+	const grid=getId('gr');
 	for(const f of imgs){
-		const name=f.name.replace('/',''),url=`${wu}/${name}`;
+		const name=f.name.replace('/',''),url=getURL(`/${name}`);
 		const isGif=name.toLowerCase().endsWith('.gif');
 		const it=cE('div');it.className='it loading';
 		it.dataset.name=name;it.dataset.url=url;
@@ -578,7 +590,7 @@ async function imgLoad2(imgs){
 
 function imgRm(nm){
 	iL=iL.filter(n=>n!==nm);
-	const grid=gId('gr');
+	const grid=getId('gr');
 	grid.querySelectorAll('.it').forEach(it=>{ if(it.dataset.name===nm) it.remove(); });
 	//if(iL.length===0){
 	//	grid.innerHTML='<div style="grid-column:1/-1;text-align:center;color:#aaa;padding:20px">No images found</div>';
@@ -589,12 +601,12 @@ function imgRm(nm){
 function toolChk(file, btnId) {
 	try {
 		const has = fL.some(f => f.name.includes(file));
-		const b = gId(btnId);
+		const b = getId(btnId);
 		b.style.display = 'block';
 		b.style.margin = '10px auto';
 		if (has) {
 			b.textContent = 'Open';
-			b.onclick = () => window.open(`${wu}/${file}`, '_blank'); // open tool: remove gz to not trigger download
+			b.onclick = () => window.open(getURL(`/${file}`), '_blank'); // open tool: remove gz to not trigger download
 		} else {
 			b.textContent = 'Download';
 			b.onclick = async () => {
@@ -606,7 +618,7 @@ function toolChk(file, btnId) {
 					if (!f.ok) throw new Error("Download failed " + f.status);
 					const blob = await f.blob(), fd = new FormData();
 					fd.append("data", blob, fileGz);
-					const u = await fetch(wu + "/upload", { method: "POST", body: fd });
+					const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
 					alert(u.ok ? "Tool installed!" : "Upload failed");
 					await flU(); // update file list
 					toolChk(file, btnId); // re-check and update button (must pass non-gz file name)
@@ -619,28 +631,28 @@ function toolChk(file, btnId) {
 /* fs/mem info */
 async function fsMem(){
 	try{
-		const r=await fetch(`${wu}/json/info`);
+		const r=await fetch(getURL('/json/info'));
 		const info=await r.json();
 		if(info&&info.fs){
-			gId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
-			gId("mem").style.display="block";
+			getId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+			getId("mem").style.display="block";
 		}
 	}catch(e){console.error(e);}
 }
 
 /* drag-drop + file input */
-gId('drop').onclick=()=>{gId('src').value='';gId('src').click();};
-gId('drop').ondragover=e=>{e.preventDefault();gId('drop').classList.add('active');};
-gId('drop').ondragleave=()=>gId('drop').classList.remove('active');
-gId('drop').ondrop=e=>{e.preventDefault();gId('drop').classList.remove('active');gId('src').files=e.dataTransfer.files;fileHandle();};
-gId('src').onchange=fileHandle;
+getId('drop').onclick=()=>{getId('src').value='';getId('src').click();};
+getId('drop').ondragover=e=>{e.preventDefault();getId('drop').classList.add('active');};
+getId('drop').ondragleave=()=>getId('drop').classList.remove('active');
+getId('drop').ondrop=e=>{e.preventDefault();getId('drop').classList.remove('active');getId('src').files=e.dataTransfer.files;fileHandle();};
+getId('src').onchange=fileHandle;
 
 /* file handler */
 function fileHandle() {
-	const file = gId('src').files[0];
+	const file = getId('src').files[0];
 	if (!file) return;
 	sF = file; gI = null; gF = [];
-	gId('sz').style.display = 'block';
+	getId('sz').style.display = 'block';
 
 	const isGif = file.type === 'image/gif';
 	const rdr = new FileReader();
@@ -701,9 +713,9 @@ function fileHandle() {
 function imgShow(src, name) {
 	cI = new Image();
 	cI.onload = () => {
-		gId('ed').classList.add('active');
-		gId('drop').innerHTML = `<p>Image loaded: ${name}<br><small>Drop another to replace</small></p>`;
-		gId('fn').value = name.split('.')[0].substring(0, 16);
+		getId('ed').classList.add('active');
+		getId('drop').innerHTML = `<p>Image loaded: ${name}<br><small>Drop another to replace</small></p>`;
+		getId('fn').value = name.split('.')[0].substring(0, 16);
 		viewReset();
 		cr.w = cv.width * 0.8; cr.h = cv.height * 0.8;
 		cr.x = (cv.width - cr.w) / 2; cr.y = (cv.height - cr.h) / 2;
@@ -747,14 +759,14 @@ function unsup(url, name) {
 		const f = new File([b], name, { type: b.type });
 		const dt = new DataTransfer();
 		dt.items.add(f);
-		gId('src').files = dt.files;
+		getId('src').files = dt.files;
 		fileHandle();
 	}).catch(() => msg('Failed to load image', 'err'));
 }
 
 /* size change -> redraw */
-gId('w').oninput=()=>{if(cI)crDraw();};
-gId('h').oninput=()=>{if(cI)crDraw();};
+getId('w').oninput=()=>{if(cI)crDraw();};
+getId('h').oninput=()=>{if(cI)crDraw();};
 
 /* crop helpers */
 function crClamp(){
@@ -771,9 +783,9 @@ function viewReset(){
 }
 
 /* zoom */
-gId('zoom').oninput=()=>{
+getId('zoom').oninput=()=>{
 	if(!cI)return;
-	const t=gId('zoom').value/100,ns=bS*Math.pow(40,t);
+	const t=getId('zoom').value/100,ns=bS*Math.pow(40,t);
 	const cxm=cv.width/2,cym=cv.height/2;
 	const dx=cxm-pX,dy=cym-pY,f=ns/iS;
 	pX=cxm-dx*f; pY=cym-dy*f; iS=ns;
@@ -782,36 +794,36 @@ gId('zoom').oninput=()=>{
 
 /* rotation */
 function rotUpd(v){
-	if(gId('snap').checked) v = Math.round(v/15)*15 % 360; // snap to multiples of 15°
+	if(getId('snap').checked) v = Math.round(v/15)*15 % 360; // snap to multiples of 15°
 	rot = v;
-	gId('rotVal').textContent = v;
+	getId('rotVal').textContent = v;
 	if(cI) crDraw();
 }
-gId('rotSl').oninput = ()=> rotUpd(+gId('rotSl').value);
+getId('rotSl').oninput = ()=> rotUpd(+getId('rotSl').value);
 
 
 /* color change */
-gId('bg').oninput=crDraw;
+getId('bg').oninput=crDraw;
 
 /* quick controls */
-gId('matchAspect').onclick=e=>{
+getId('matchAspect').onclick=e=>{
 	e.preventDefault();
-	const r=+gId('w').value/+gId('h').value;
+	const r=+getId('w').value/+getId('h').value;
 	cr.h=cr.w/r; crClamp(); crDraw();
 };
-gId('matchSize').onclick=e=>{
+getId('matchSize').onclick=e=>{
 	e.preventDefault();
 	if(!cI)return;
-	cr.w=+gId('w').value*iS; cr.h=+gId('h').value*iS;
+	cr.w=+getId('w').value*iS; cr.h=+getId('h').value*iS;
 	crClamp(); crDraw();
 };
-gId('fullSize').onclick=e=>{
+getId('fullSize').onclick=e=>{
 	e.preventDefault();
 	if(!cI)return;
 	cr.x=0; cr.y=0; cr.w=cv.width; cr.h=cv.height;
 	crClamp(); crDraw();
 };
-gId('resetCrop').onclick=e=>{
+getId('resetCrop').onclick=e=>{
 	e.preventDefault();
 	if(!cI)return;
 	cr.w=cv.width*0.8; cr.h=cv.height*0.8;
@@ -902,7 +914,7 @@ function crDraw(){
 
 	// render rotated image to offscreen
 	rvc.clearRect(0,0,rv.width,rv.height);
-	rvc.fillStyle = gId('bg').value;
+	rvc.fillStyle = getId('bg').value;
 	rvc.fillRect(0,0,rv.width,rv.height);
 	rvc.imageSmoothingEnabled = false;
 	rvc.save();
@@ -923,11 +935,11 @@ function crDraw(){
 	prevUpd();
 }
 
-gId('bt').addEventListener('input',()=>{prevUpd();});
+getId('bt').addEventListener('input',()=>{prevUpd();});
 function blackTh(c){
-	let t=+gId('bt').value,
+	let t=+getId('bt').value,
 		dt=c.getImageData(0,0,c.canvas.width,c.canvas.height),
-		b=gId('bg').value.match(/\w\w/g).map(x=>parseInt(x,16));
+		b=getId('bg').value.match(/\w\w/g).map(x=>parseInt(x,16));
 	for(let i=0;i<dt.data.length;i+=4)
 		if(dt.data[i]<t&&dt.data[i+1]<t&&dt.data[i+2]<t)
 			dt.data[i]=b[0],dt.data[i+1]=b[1],dt.data[i+2]=b[2];
@@ -936,11 +948,11 @@ function blackTh(c){
 
 function prevUpd(){
 	if(!cI)return;
-	let w=+gId('w').value,h=+gId('h').value;
+	let w=+getId('w').value,h=+getId('h').value;
 	// Temporary canvas at target size
 	const tc = cE('canvas'); tc.width = w; tc.height = h;
 	const tcx = tc.getContext('2d');
-	tcx.fillStyle=gId('bg').value;
+	tcx.fillStyle=getId('bg').value;
 	tcx.fillRect(0,0,w,h); // fill background (for transparent images)
 	tcx.imageSmoothingEnabled = false;
 	tcx.drawImage(rv, cr.x, cr.y, cr.w, cr.h, 0, 0, w, h); // sample cropped area from off screen canvas
@@ -1016,9 +1028,9 @@ function grid(length) {
 }
 
 /* create GIF and upload */
-gId('up').onclick = async () => {
+getId('up').onclick = async () => {
 	if (!gF || !gI) return; // no image
-	const w = +gId('w').value, h = +gId('h').value, fn = gId('fn').value.trim() || 'image';
+	const w = +getId('w').value, h = +getId('h').value, fn = getId('fn').value.trim() || 'image';
 	const filename = `${fn}.gif`;
 	const repl = iL.includes(filename);
 	if (repl && !confirm(`${filename} already exists. Overwrite?`)) return;
@@ -1039,7 +1051,7 @@ gId('up').onclick = async () => {
 
 			// render this frame into the offscreen rotated canvas (no overlay)
 			rvc.clearRect(0, 0, rv.width, rv.height);
-			rvc.fillStyle = gId('bg').value;
+			rvc.fillStyle = getId('bg').value;
 			rvc.fillRect(0, 0, rv.width, rv.height);
 			rvc.imageSmoothingEnabled = false;
 			rvc.save();
@@ -1050,7 +1062,7 @@ gId('up').onclick = async () => {
 			rvc.restore();
 
 			// sample the crop from the offscreen (already rotated) canvas into output size
-			cctx.fillStyle = gId('bg').value;
+			cctx.fillStyle = getId('bg').value;
 			cctx.fillRect(0, 0, w, h);
 			cctx.imageSmoothingEnabled = false;
 			cctx.drawImage(rv, cr.x, cr.y, cr.w, cr.h, 0, 0, w, h);
@@ -1083,14 +1095,14 @@ gId('up').onclick = async () => {
 		const fU = new File([new Uint8Array(gifData)], filename, { type: 'image/gif' });
 		const fd = new FormData();
 		fd.append('file', fU, filename);
-		const r = await fetch(`${wu}/upload`, { method: 'POST', body: fd });
+		const r = await fetch(getURL('/upload'), { method: 'POST', body: fd });
 
 		if (r.ok) {
 			msg(`${filename} uploaded`);
 			if (repl) imgRm(filename);
 			await imgLoad();
-			gId('src').value = '';
-			gId('drop').innerHTML = '<p>Drop image or click to select</p>';
+			getId('src').value = '';
+			getId('drop').innerHTML = '<p>Drop image or click to select</p>';
 		} else msg('Upload failed', 'err');
 	} catch (e) {
 		msg(`Error: ${e.message}`, 'err');
@@ -1101,7 +1113,7 @@ gId('up').onclick = async () => {
 
 /* play on device */
 async function imgPlay(url,name){
-	const tgt=+gId('seg').value,cur=curImgSeg();
+	const tgt=+getId('seg').value,cur=curImgSeg();
 	if(cur!==null && cur!==tgt){
 		if(!confirm(`Segment ${cur} is currently displaying an image. Switch image display to segment ${tgt}?`))return;
 	}
@@ -1113,7 +1125,7 @@ async function imgPlay(url,name){
 				? [{id:cur,fx:0,n:""},{id:tgt,fx:53,frz:false,sx:128,n:name}]
 				: {id:tgt,fx:53,frz:false,sx:128,n:name}
 		};
-		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const r=await fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)});
 		const out=await r.json();
 		if(out.success){
 			msg(`Playing ${name}`);
@@ -1155,7 +1167,7 @@ async function imgDel(){
 	if(!confirm(`Delete ${sI.name}?`))return;
 	ovShow();
 	try{
-		const r = await fetch(`${wu}/edit?func=delete&path=/${sI.name}`);
+		const r = await fetch(getURL(`/edit?func=delete&path=/${sI.name}`));
 		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
 		else msg('Delete failed! File in use?','err');
 	}catch(e){msg('Delete failed','err');}
@@ -1166,13 +1178,13 @@ async function imgDel(){
 /* tab select and additional tools */
 function tabSw(tab) {
 	'iTab,xTab,oTab,tImg,tTxt,tOth'.split(',').forEach((id,i)=>{
-		gId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
+		getId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
 	({txt:txtSegLoad,img:imgLoad}[tab]||(()=>{}))(); // functions to execute on tab switch (currently none for oth)
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
-	gId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
+	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
 });
 tabSw(localStorage.tab||'img');
 
@@ -1185,49 +1197,49 @@ function txtIns(el,t){
 }
 document.addEventListener('click',e=>{
 	const a=e.target.closest('.tk'); if(!a) return;
-	e.preventDefault(); txtIns(gId('txt'),a.dataset.t);
+	e.preventDefault(); txtIns(getId('txt'),a.dataset.t);
 	// txtUp();
 });
 
 /* load seg settings into text UI */
 async function txtSegLoad(){
-	const id=+gId('segT').value;
+	const id=+getId('segT').value;
 	try{
 
-		const r=await fetch(`${wu}/json/state`),j=await r.json();
+		const r=await fetch(getURL('/json/state')),j=await r.json();
 		if(j.seg&&j.seg[id]){
 			const s=j.seg[id];
-			gId('txt').value=s.n||'';
-			gId('sx').value=s.sx||128;
-			gId('ix').value=s.ix||128;
-			gId('c1').value=s.c1||0;
-			gId('c2').value=s.c2||0;
-			gId('c3').value=s.c3||0;
-			gId('o1').checked=!(!s.o1);
-			gId('o3').checked=!(!s.o3);
+			getId('txt').value=s.n||'';
+			getId('sx').value=s.sx||128;
+			getId('ix').value=s.ix||128;
+			getId('c1').value=s.c1||0;
+			getId('c2').value=s.c2||0;
+			getId('c3').value=s.c3||0;
+			getId('o1').checked=!(!s.o1);
+			getId('o3').checked=!(!s.o3);
 		}
 	}catch(e){console.error(e);}
 }
 
 /* auto apply on change */
-['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ gId(id).onchange=txtUp; });
+['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ getId(id).onchange=txtUp; });
 
 /* send text settings */
 function txtUp(){
-	const id=+gId('segT').value,txt=gId('txt').value.trim().slice(0,64);
-	const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
-	fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)})
+	const id=+getId('segT').value,txt=getId('txt').value.trim().slice(0,64);
+	const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o3:getId('o3').checked}};
+	fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)})
 		.then(r => { if(r.ok) segLoad(); })
 		.catch(console.error);
 }
 
 /* apply button */
-gId('aTxt').onclick=async()=>{
-	const id=+gId('segT').value,txt=gId('txt').value.trim();
+getId('aTxt').onclick=async()=>{
+	const id=+getId('segT').value,txt=getId('txt').value.trim();
 	ovShow();
 	try{
-		const j={on:true,seg:{id,fx:122,n:txt,sx:+gId('sx').value,ix:+gId('ix').value,c1:+gId('c1').value,c2:+gId('c2').value,c3:+gId('c3').value,o1:gId('o1').checked,o3:gId('o3').checked}};
-		const r=await fetch(`${wu}/json/state`,{method:'POST',body:JSON.stringify(j)});
+		const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o3:getId('o3').checked}};
+		const r=await fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)});
 		const out=await r.json();
 		if(out.success!==false){ msg(`Applied to Segment ${id}`); await segLoad(); }
 		else msg('Failed to apply','err');
