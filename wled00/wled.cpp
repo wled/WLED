@@ -506,8 +506,10 @@ void WLED::setup()
 
   #ifndef ESP8266
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.persistent(true); // storing credentials in NVM fixes boot-up pause as connection is much faster, is disabled after first connection
+  #else
+  WiFi.persistent(false); // on ES8266 using NVM for wifi config has no benefit of faster connection
   #endif
-  WiFi.persistent(false); // note: on ESP32 this is only applied if WiFi.mode() is called and only if mode changes, use low level esp_wifi_set_storage() to change storage method immediately
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
@@ -670,27 +672,6 @@ void WLED::initAP(bool resetAP)
 
 void WLED::initConnection()
 {
-  #ifdef ARDUINO_ARCH_ESP32
-  static bool firstCall = true;
-  bool updateWiFiNVM = false;
-  if (firstCall) {
-    // check cached WiFi config in flash, esp_wifi_get_config still contains NVM values at this point
-    // note: connecting to the NVM stored wifi is much faster and prevents boot-up glitches on LEDs (there is no benefit on ESP8266)
-    wifi_config_t cachedConfig;
-    esp_err_t configResult = esp_wifi_get_config( (wifi_interface_t)ESP_IF_WIFI_STA, &cachedConfig );
-    if( configResult == ESP_OK ) {
-      if (strncmp((const char*)cachedConfig.sta.ssid, multiWiFi[0].clientSSID, 32) != 0 ||
-      strncmp((const char*)cachedConfig.sta.password, multiWiFi[0].clientPass, 64) != 0) {
-        updateWiFiNVM = true; // SSID or pass changed, update NVM at next WiFi.begin() call
-        DEBUG_PRINTLN(F("WiFi config NVM update triggered"));
-      }
-    }
-    firstCall = false;
-  }
-  else
-    esp_wifi_set_storage(WIFI_STORAGE_RAM); // do not update NVM credentials while running to prevent wear on flash
-  #endif
-
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
@@ -740,11 +721,6 @@ void WLED::initConnection()
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
     char hostname[25];
     prepareHostname(hostname);
-
-    #ifdef ARDUINO_ARCH_ESP32
-    if(updateWiFiNVM && selectedWiFi == 0)      // NVM only can store one wifi: store credentials of first WiFi even if multiple are configured
-      esp_wifi_set_storage(WIFI_STORAGE_FLASH); // temporary override WiFi.persistent(false) to store credentials in flash (is reset to RAM on next initConnection() call)
-    #endif
 
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
@@ -970,6 +946,9 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(Network.localIP());
+    #ifdef ARDUINO_ARCH_ESP32
+    esp_wifi_set_storage(WIFI_STORAGE_RAM); // disable further updates of NVM credentials to prevent wear on flash (same as WiFi.persistent(false) but updates immediately, arduino wifi deficiency workaround)
+    #endif
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);
