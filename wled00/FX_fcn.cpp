@@ -2017,6 +2017,9 @@ bool WS2812FX::deserializeMap(unsigned n) {
 
   if (customMappingTable) {
     DEBUG_PRINTF_P(PSTR("ledmap allocated: %uB\n"), sizeof(uint16_t)*getLengthTotal());
+    unsigned matrixSize = Segment::maxWidth * Segment::maxHeight;
+    for (unsigned i = 0; i<matrixSize; i++) customMappingTable[i] = 0xFFFFU;          // fill with empty in case we don't fill the entire matrix
+    for (unsigned i = matrixSize; i<getLengthTotal(); i++) customMappingTable[i] = i; // trailing LEDs for ledmap (after matrix) if it exist
     File f = WLED_FS.open(fileName, "r");
     f.find("\"map\":[");
     while (f.available()) { // f.position() < f.size() - 1
