@@ -420,10 +420,12 @@ typedef enum mapping1D2D {
 } mapping1D2D_t;
 
 class WS2812FX;
+class FontManager;
 
 // segment, 76 bytes
 class Segment {
   public:
+    friend class FontManager; // Allow FontManager to access protected members
     uint32_t colors[NUM_COLORS];
     uint16_t start;   // start index / start X coordinate 2D (left)
     uint16_t stop;    // stop index / stop X coordinate 2D (right); segment is invalid if stop == 0
@@ -770,12 +772,11 @@ class Segment {
     void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) const;
-    void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) const;
     void wu_pixel(uint32_t x, uint32_t y, CRGB c) const;
     inline void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { drawCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { fillCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) const { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), soft); } // automatic inline
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) const { drawCharacter(chr, x, y, w, h, RGBW32(c.r,c.g,c.b,0), RGBW32(c2.r,c2.g,c2.b,0), rotate); } // automatic inline
+    inline void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) const { drawCharacter(unicode, x, y, fontData, fontFile, RGBW32(c.r,c.g,c.b,0), RGBW32(c2.r,c2.g,c2.b,0), rotate); } // automatic inline
     inline void fill_solid(CRGB c) const { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
     inline bool is2D() const                                                      { return false; }
@@ -810,8 +811,8 @@ class Segment {
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t = 0, int8_t = 0) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2, int8_t rotate = 0) {}
+    inline void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) {}
+    inline void drawCharacter(uint32_t unicode, int16_t x, int16_t y, const uint8_t* fontData, File &fontFile, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) {}
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
@@ -1065,5 +1066,188 @@ class WS2812FX {
 
 extern const char JSON_mode_names[];
 extern const char JSON_palette_names[];
+
+#define LAST_ASCII_CHAR 127
+#define FONT_HEADER_SIZE 12
+/**
+ * Unified Font Format (Flash and RAM use IDENTICAL layout)
+ * 
+ * Header Layout (12 Bytes):
+ * [0]   Magic 'W' (0x57)
+ * [1]   Glyph height
+ * [2]   Fixed/max glyph width
+ * [3]   Spacing between chars
+ * [4]   Flags: (0x01 = variable width)
+ * [5]   First Char
+ * [6]   Last Char
+ * [7]   reserved: 0x00
+ * [8-11] Unicode Offset (32-bit little-endian)
+ *
+ * Followed by:
+ * - Width table (if variable width): [first..last] byte array
+ * - Bitmap data: bit-packed glyphs - top left to bottom right, row by row, MSB first, see src/font files for example
+ */
+
+// Abstract byte reader for unified flash/RAM access
+class ByteReader {
+public:
+  virtual uint8_t readByte(size_t offset) const = 0;
+  inline uint32_t readUInt32LE(size_t offset) const {
+    return (uint32_t)(readByte(offset)) |
+           ((uint32_t)(readByte(offset + 1)) << 8) |
+           ((uint32_t)(readByte(offset + 2)) << 16) |
+           ((uint32_t)(readByte(offset + 3)) << 24);
+  }
+  virtual ~ByteReader() {}
+};
+
+// PROGMEM reader for flash fonts
+class FlashByteReader : public ByteReader {
+private:
+  const uint8_t* _base;
+public:
+  FlashByteReader() : _base(nullptr) {}  // default constructor
+  FlashByteReader(const uint8_t* base) : _base(base) {}
+  
+  inline uint8_t readByte(size_t offset) const override {
+    return _base ? pgm_read_byte_near(_base + offset) : 0;
+  }
+};
+
+// RAM reader for cached fonts
+class RAMByteReader : public ByteReader {
+private:
+  const uint8_t* _base;
+public:
+  RAMByteReader() : _base(nullptr) {}  // default constructor
+  RAMByteReader(const uint8_t* base) : _base(base) {}
+
+  inline uint8_t readByte(size_t offset) const override {
+    return _base ? _base[offset] : 0;
+  }
+};
+
+// Glyph entry in RAM cache
+struct GlyphEntry {
+  uint8_t code;      // Glyph index (0-255)
+  uint8_t width;     // Width in pixels
+  uint8_t height;    // Height in pixels
+};
+
+// Segment metadata (stored BEFORE the font data in RAM)
+struct SegmentFontMetadata {
+  uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
+  uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none)
+  uint8_t fontsScanned;    // 1 if filesystem scanned
+  uint8_t glyphCount;      // Number of glyphs cached
+};
+
+// Memory layout for cached fonts:
+// [SegmentFontMetadata] - 4 bytes
+// [GlyphEntry array] - 4 bytes each
+// [12-byte font header] - for compatibility and to store font info
+// [Bitmap data] - sequential, matches registry order
+
+// Font header structure
+struct FontHeader {
+  uint8_t height;
+  uint8_t width;
+  uint8_t spacing;
+  uint8_t flags;
+  uint8_t first;
+  uint8_t last;
+  uint32_t firstUnicode;
+};
+
+class FontManager {
+public:
+  FontManager(Segment* seg) : 
+    _segment(seg), 
+    _flashFont(nullptr), 
+    _fontNum(0),
+    _useFlashFont(false),
+    _cacheNumbers(false),
+    _headerValid(false),
+    _reader(nullptr),
+    _fontBase(nullptr) {}
+
+  bool loadFont(uint8_t fontNum, bool useFile);
+  void setCacheNumbers(bool cache) { _cacheNumbers = cache; }
+  void prepare(const char* text);
+
+  inline void beginFrame() {
+    if (!_headerValid) {
+      updateReader();
+      if (_reader) {
+        parseHeader(*_reader, _cachedHeader);
+        _headerValid = true;
+      }
+    }
+  }
+  
+  // Get dimensions (use cached header)
+  inline uint8_t getFontHeight() { return _cachedHeader.height; }
+  inline uint8_t getFontWidth()  { return _cachedHeader.width; }
+  inline uint8_t getFontSpacing() { return _cachedHeader.spacing; }
+  uint8_t getGlyphWidth(uint32_t unicode);
+  
+  // Rendering
+  void drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate);
+
+private:
+  Segment* _segment;
+  const uint8_t* _flashFont;
+  uint8_t _fontNum;        // Font number (0-4)
+  bool _useFlashFont;      // true = flash, false = file
+  bool _cacheNumbers;
+  
+  // Cached data for performance (non-static, per-instance)
+  bool _headerValid;
+  FontHeader _cachedHeader;
+  const ByteReader* _reader;
+  const uint8_t* _fontBase;
+  FlashByteReader _flashReader;
+  RAMByteReader _ramReader;
+  
+  // Invalidate cached header (call when font changes)
+  inline void invalidateHeader() {
+    _headerValid = false;
+  }
+
+  inline void updateReader() {
+    if (_flashFont) {
+      _flashReader = FlashByteReader(_flashFont);
+      _reader = &_flashReader;
+      _fontBase = _flashFont;
+    } else if (_segment->data) {
+      SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
+      // Font header starts after metadata + registry
+      const uint8_t* fontData = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
+      _ramReader = RAMByteReader(fontData);
+      _reader = &_ramReader;
+      _fontBase = fontData;
+    } else {
+      _reader = nullptr;
+      _fontBase = nullptr;
+    }
+  }
+  
+  // Metadata access (RAM only)
+  SegmentFontMetadata* getMetadata() {
+    return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
+  }
+  
+  // Unified operations (work identically for flash and RAM)
+  static bool parseHeader(const ByteReader& reader, FontHeader& hdr);
+  const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
+  
+  // Glyph index calculation (pure function, inline for speed)
+  static inline int32_t getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode);
+  
+  // File font management
+  void scanAvailableFonts();
+  void rebuildCache(const char* text);
+  uint8_t collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes, uint8_t maxCount);
+};
 
 #endif

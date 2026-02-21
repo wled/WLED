@@ -162,6 +162,52 @@ bool isAsterisksOnly(const char* str, byte maxLen)
   return (str[0] != 0); //false on empty string
 }
 
+/*
+  UTF-8 to unicode conversion:
+  1 byte:  0xxxxxxx: U+0000 - U+007F
+  2 bytes: 110xxxxx 10xxxxxx: U+0080 - U+07FF
+  3 bytes: 1110xxxx 10xxxxxx 10xxxxxx: U+0800 - U+FFFF
+  4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx: U+10000 - U+10FFFF
+*/
+#define UTF8_LEN(c) ((c) < 0x80 ? 1 : ((c) < 0xE0 ? 2 : ((c) < 0xF0 ? 3 : 4))) // determine UTF-8 sequence length from first byte
+
+uint32_t utf8_decode(const char *s, uint8_t *len)
+{
+  uint8_t c = (uint8_t)s[0];
+  if (c == '\0') {
+    return 0;
+  }
+  uint8_t n = UTF8_LEN(c);   // number of bytes in this UTF-8 sequence
+  uint32_t cp = c;
+  *len = n; // return byte count to caller
+  if (n > 1) {
+    // check if there are enough continuation bytes
+    for (uint8_t i = 1; i < n; i++) {
+      if ((s[i] & 0xC0) != 0x80) { // not a valid continuation byte (also catches '\0')
+        *len = 1; // invalid sequence, return default char
+        return '?';
+      }
+    }
+    cp &= (1U << (8 - n)) - 1; // mask off the UTF-8 prefix bits (110, 1110, 11110)
+    for (uint8_t i = 1; i < n; i++)
+      cp = (cp << 6) | (s[i] & 0x3F); // Each continuation byte has the form: 10xxxxxx, the lower 6 bits are appended to the code point.
+  }
+  return cp;
+}
+
+// Count the number of UTF-8 characters in a string
+size_t utf8_strlen(const char *s)
+{
+  size_t len = 0;
+  while (*s != '\0') {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(s, &charLen); // decode the UTF-8 character to get its length
+    if (!unicode) break; // stop at null terminator (just in case, should not happen but to avoid infinite loop on malformed strings)
+    s += charLen; // advance by the length of the current UTF-8 character
+    len++;
+  }
+  return len;
+}
 
 //threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)

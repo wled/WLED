@@ -562,50 +562,7 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   }
 }
 
-#include "src/font/console_font_4x6.h"
-#include "src/font/console_font_5x8.h"
-#include "src/font/console_font_5x12.h"
-#include "src/font/console_font_6x8.h"
-#include "src/font/console_font_7x9.h"
-
-// draws a raster font character on canvas
-// only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
-void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
-  if (!isActive()) return; // not active
-  if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
-  chr -= 32; // align with font table entries
-  const int font = w*h;
-
-  // if col2 == BLACK then use currently selected palette for gradient otherwise create gradient from color and col2
-  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
-
-  for (int i = 0; i<h; i++) { // character height
-    uint8_t bits = 0;
-    switch (font) {
-      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 4x6 font
-      case 40: bits = pgm_read_byte_near(&console_font_5x8[(chr * h) + i]); break;  // 5x8 font
-      case 48: bits = pgm_read_byte_near(&console_font_6x8[(chr * h) + i]); break;  // 6x8 font
-      case 63: bits = pgm_read_byte_near(&console_font_7x9[(chr * h) + i]); break;  // 7x9 font
-      case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
-      default: return;
-    }
-    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP); // NOBLEND is faster
-    for (int j = 0; j<w; j++) { // character width
-      int x0, y0;
-      switch (rotate) {
-        case -1: x0 = x + (h-1) - i; y0 = y + (w-1) - j; break; // -90 deg
-        case -2:
-        case  2: x0 = x + j;         y0 = y + (h-1) - i; break; // 180 deg
-        case  1: x0 = x + i;         y0 = y + j;         break; // +90 deg
-        default: x0 = x + (w-1) - j; y0 = y + i;         break; // no rotation
-      }
-      if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
-      if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXYRaw(x0, y0, c.color32);
-      }
-    }
-  }
-}
+// Segment::wu_pixel implementation is next
 
 #define WU_WEIGHT(a,b) ((uint8_t) (((a)*(b)+(a)+(b))>>8))
 void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu_pixel procedure by reddit u/sutaburosu
@@ -628,5 +585,468 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
   }
 }
 #undef WU_WEIGHT
+
+#include "src/font/console_font_4x6.h"
+#include "src/font/console_font_5x8.h"
+#include "src/font/console_font_5x12.h"
+#include "src/font/console_font_6x8.h"
+#include "src/font/console_font_7x9.h"
+
+// Pure glyph index calculator (inline for speed)
+inline int32_t FontManager::getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode) {
+  if (unicode <= LAST_ASCII_CHAR) {
+    if (unicode >= first && unicode <= last) return unicode - first;
+  } else if (firstUnicode > 0 && unicode >= firstUnicode) {
+    uint32_t adjusted = unicode - firstUnicode + LAST_ASCII_CHAR + 1;
+    if (adjusted >= first && adjusted <= last) return adjusted - first;
+  }
+  return -1;
+}
+
+// Parse header from either flash or RAM (IDENTICAL format)
+bool FontManager::parseHeader(const ByteReader& reader, FontHeader& hdr) {
+  if (reader.readByte(0) != 0x57) return false; // Magic check
+  hdr.height = reader.readByte(1);
+  hdr.width = reader.readByte(2);
+  hdr.spacing = reader.readByte(3);
+  hdr.flags = reader.readByte(4);
+  hdr.first = reader.readByte(5);
+  hdr.last = reader.readByte(6);
+  // [7] reserved: 0x00
+  hdr.firstUnicode = reader.readUInt32LE(8);
+  return true;
+}
+
+// Get glyph width
+uint8_t FontManager::getGlyphWidth(uint32_t unicode) {
+  if (!_headerValid) return 0;
+  int32_t idx = getGlyphIndex(unicode, _cachedHeader.first, _cachedHeader.last, _cachedHeader.firstUnicode);
+  if (idx < 0) return 0;
+
+  // For flash fonts, read from width table
+  if (_useFlashFont) {
+    if (_cachedHeader.flags & 0x01) {
+      return _reader->readByte(FONT_HEADER_SIZE + idx);
+    } else {
+      return _cachedHeader.width;
+    }
+  }
+
+  // For cached fonts, look up in registry
+  if (!_segment->data) return 0;
+  SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
+  GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
+
+  for (uint8_t k = 0; k < meta->glyphCount; k++) {
+    if (registry[k].code == idx) {
+      return registry[k].width;
+    }
+  }
+
+  return 0; // Not found in cache
+}
+
+// Get glyph bitmap (uses cached header and reader)
+const uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight) {
+  if (!_reader || !_fontBase) return nullptr;
+
+  int32_t idx = getGlyphIndex(unicode, _cachedHeader.first, _cachedHeader.last, _cachedHeader.firstUnicode);
+  if (idx < 0) return nullptr;
+  // For flash fonts, calculate offset normally
+  if (_useFlashFont) {
+    uint8_t numGlyphs = _cachedHeader.last - _cachedHeader.first + 1;
+    outHeight = _cachedHeader.height;
+    size_t offset = FONT_HEADER_SIZE; // Start after header
+
+    if (_cachedHeader.flags & 0x01) {
+      outWidth = _reader->readByte(FONT_HEADER_SIZE + idx);
+      offset += numGlyphs;
+
+      for (int32_t i = 0; i < idx; i++) {
+        uint8_t w = _reader->readByte(FONT_HEADER_SIZE + i);
+        uint16_t bits = w * _cachedHeader.height;
+        offset += (bits + 7) / 8;
+      }
+    } else {
+      outWidth = _cachedHeader.width;
+      uint16_t bitsPerGlyph = _cachedHeader.width * _cachedHeader.height;
+      uint16_t bytesPerGlyph = (bitsPerGlyph + 7) / 8;
+      offset += idx * bytesPerGlyph;
+    }
+
+    return _fontBase + offset;
+  }
+
+  // For cached fonts, use registry lookup
+  if (!_segment->data) return nullptr;
+  SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
+  GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
+  // Find glyph in registry
+  uint32_t bitmapOffset = 0;
+  for (uint8_t k = 0; k < meta->glyphCount; k++) {
+    if (registry[k].code == idx) {
+      outWidth = registry[k].width;
+      outHeight = registry[k].height;
+      // Bitmap starts after: metadata + registry + header
+      const uint8_t* bitmap = _segment->data + sizeof(SegmentFontMetadata) +(meta->glyphCount * sizeof(GlyphEntry)) + FONT_HEADER_SIZE + bitmapOffset;
+      return bitmap;
+    }
+    // Accumulate offset to next glyph
+    uint16_t bits = registry[k].width * registry[k].height;
+    bitmapOffset += (bits + 7) / 8;
+  }
+  return nullptr; // Glyph not found in cache
+}
+
+void FontManager::scanAvailableFonts() {
+  SegmentFontMetadata* meta = getMetadata();
+  if (!meta) return;
+  meta->availableFonts = 0;
+  for (int i = 0; i < 5; i++) {
+    char fileName[16];
+    strcpy_P(fileName, PSTR("/font"));
+    if (i > 0) sprintf(fileName + 5, "%d", i);
+    strcat_P(fileName, PSTR(".wbf"));
+    if (WLED_FS.exists(fileName)) {
+      meta->availableFonts |= (1 << i);
+    }
+  }
+  meta->fontsScanned = 1;
+}
+
+bool FontManager::loadFont(uint8_t fontNum, bool useFile) {
+  _fontNum = fontNum;
+  _useFlashFont = !useFile;
+  switch (_fontNum) {
+    default:
+    case 0: _flashFont = console_font_4x6;    break;
+    case 1: _flashFont = console_font_5x8;  break;
+    case 2: _flashFont = console_font_6x8;  break;
+    case 3: _flashFont = console_font_7x9;  break;
+    case 4: _flashFont = console_font_5x12; break;
+  }
+  invalidateHeader();
+
+  if (_useFlashFont) {
+    updateReader();
+    return true;
+  }
+  // File font requested
+  SegmentFontMetadata* meta = getMetadata(); // is null if data is not allocated yet
+  // Ensure segment data exists
+  if (!meta) {
+    if (!_segment->allocateData(sizeof(SegmentFontMetadata))) {
+      return false;
+    }
+    meta = getMetadata();
+    memset(meta, 0, sizeof(SegmentFontMetadata));
+    meta->cachedFontNum = 0xFF;
+    meta->fontsScanned = 0;
+  }
+
+  // Scan filesystem only if not already scanned
+  if (!meta->fontsScanned) {
+    scanAvailableFonts();
+  }
+  // Determine which font to actually use (with fallback)
+  uint8_t fontToUse = fontNum;
+  // Check if requested font is available
+  if (!(meta->availableFonts & (1 << fontNum))) {
+    // Not available - find first available font
+    fontToUse = 0xFF;
+    for (int i = 0; i < 5; i++) {
+      if (meta->availableFonts & (1 << i)) {
+        fontToUse = i;
+        break;
+      }
+    }
+    if (fontToUse == 0xFF) {
+      _useFlashFont = true; // no custom fonts available, use flash font
+      updateReader();
+      return true;
+    }
+  }
+  // Store the actual font being used
+  _fontNum = fontToUse;
+  // Check if the ACTUAL font to use has changed
+  if (fontToUse != meta->cachedFontNum) {
+    // Font changed - clear cache but preserve scan results
+    uint8_t avail = meta->availableFonts;
+    uint8_t scanned = meta->fontsScanned;
+    if (!_segment->allocateData(sizeof(SegmentFontMetadata))) {
+      return false;
+    }
+    meta = getMetadata();
+    meta->availableFonts = avail;
+    meta->cachedFontNum = fontToUse;
+    meta->fontsScanned = scanned;
+    meta->glyphCount = 0;
+  }
+  return true;
+}
+
+uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes, uint8_t maxCount) {
+  uint8_t count = 0;
+  // Pre-add numbers if caching
+  if (_cacheNumbers) {
+    const char* nums = "0123456789:. "; // TOD: use printf
+    for (const char* p = nums; *p && count < maxCount; p++) {
+      int32_t idx = getGlyphIndex(*p, hdr.first, hdr.last, hdr.firstUnicode);
+      if (idx >= 0 && idx < 256) {
+        outCodes[count++] = idx;
+      }
+    }
+  }
+  // Parse text
+  size_t i = 0, len = strlen(text);
+  while (i < len && count < maxCount) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[i], &charLen);
+    if (!charLen || charLen > 4) break;
+    i += charLen;
+    int32_t idx = getGlyphIndex(unicode, hdr.first, hdr.last, hdr.firstUnicode);
+    if (idx < 0) {
+      idx = getGlyphIndex('?', hdr.first, hdr.last, hdr.firstUnicode);
+    }
+    if (idx >= 0 && idx < 256) {
+      // Add if unique
+      bool exists = false;
+      for (uint8_t k = 0; k < count; k++) {
+        if (outCodes[k] == idx) {
+          exists = true;
+          break;
+        }
+      }
+      if (!exists) outCodes[count++] = idx;
+    }
+  }
+  return count;
+}
+
+void FontManager::prepare(const char* text) {
+  if (!text) return;
+
+  // Helper to ensure header is valid
+  auto checkHeader = [this]() -> bool {
+    if (!_headerValid) {
+      updateReader();
+      if (_reader && parseHeader(*_reader, _cachedHeader)) {
+        _headerValid = true;
+        return true;
+      }
+      return false;
+    }
+    return true;
+  };
+
+  // Flash fonts - just validate header and done
+  if (_useFlashFont) {
+    checkHeader();
+    return;
+  }
+
+  // Check if cache exists
+  if (!_segment->data) {
+    rebuildCache(text);
+    return;
+  }
+  SegmentFontMetadata* meta = getMetadata();
+  // If glyphCount is 0, cache is empty - rebuild
+  if (meta->glyphCount == 0) {
+    rebuildCache(text);
+    return;
+  }
+  // Validate header from existing cache
+  if (!checkHeader()) {
+    rebuildCache(text);
+    return;
+  }
+
+  // Check if all needed glyphs are present
+  uint8_t neededCodes[64];
+  uint8_t neededCount = collectNeededCodes(text, _cachedHeader, neededCodes, 64);
+
+  GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
+  for (uint8_t k = 0; k < neededCount; k++) {
+    // Look up in registry
+    bool found = false;
+    for (uint8_t j = 0; j < meta->glyphCount; j++) {
+      if (registry[j].code == neededCodes[k]) {
+        found = true;
+        break;
+      }
+    }
+
+    if (!found) {
+      // Missing glyph - rebuild cache
+      rebuildCache(text);
+      return;
+    }
+  }
+  // All glyphs present, cache is valid
+}
+
+void FontManager::rebuildCache(const char* text) {
+  if (_useFlashFont || !text) return;
+
+  // Preserve metadata
+  SegmentFontMetadata savedMeta = {0, 0xFF, 0, 0};
+  if (_segment->data) {
+    memcpy(&savedMeta, _segment->data, sizeof(SegmentFontMetadata));
+  }
+
+  // Build filename from font number  TODO: make file name generation a function
+  char fileName[16];
+  strcpy_P(fileName, PSTR("/font"));
+  if (_fontNum > 0) sprintf(fileName + 5, "%d", _fontNum);
+  strcat_P(fileName, PSTR(".wbf"));
+  #ifdef CONFIG_IDF_TARGET_ESP32C3
+  while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
+  #endif
+  File file = WLED_FS.open(fileName, "r");
+
+  // Fallback logic - try other available fonts
+  if (!file) {
+    SegmentFontMetadata* meta = getMetadata();
+    if (meta) {
+      for (int i = 0; i < 5; i++) {
+        if (i == _fontNum) continue; // Already tried this one
+        if (meta->availableFonts & (1 << i)) {
+          strcpy_P(fileName, PSTR("/font"));
+          if (i > 0) sprintf(fileName + 5, "%d", i);
+          strcat_P(fileName, PSTR(".wbf"));
+          file = WLED_FS.open(fileName, "r");
+          if (file) {
+            _fontNum = i; // Update to fallback font
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (!file) return;
+
+  // Read header from file
+  FontHeader fileHdr;
+  if (file.read() != 'W') { file.close(); return; }
+  // TODO: check if this works: file.read((uint8_t*)&fileHdr, 10); // Read remaining 10 bytes of header
+  fileHdr.height = file.read();
+  fileHdr.width = file.read();
+  fileHdr.spacing = file.read();
+  fileHdr.flags = file.read();
+  fileHdr.first = file.read();
+  fileHdr.last = file.read();
+  file.read(); // skip byte 7 (reserved)
+  file.read((uint8_t*)&fileHdr.firstUnicode, 4);
+
+  // Collect needed glyphs (no need to sort!)
+  uint8_t neededCodes[64];
+  uint8_t neededCount = collectNeededCodes(text, fileHdr, neededCodes, 64);
+  if (fileHdr.last < fileHdr.first) { file.close(); return; } // Invalid header
+  uint8_t numGlyphs = fileHdr.last - fileHdr.first + 1;
+  uint8_t widthTable[numGlyphs];
+
+  // Read width table
+  if (fileHdr.flags & 0x01) {
+     if (file.read(widthTable, numGlyphs) != numGlyphs) { file.close(); return; } // width table incomplete
+  } else {
+    for (uint8_t k = 0; k < numGlyphs; k++) {
+      widthTable[k] = fileHdr.width;
+    }
+  }
+  // Calculate size: metadata + registry + header + bitmaps
+  uint32_t fileDataStart = FONT_HEADER_SIZE + ((fileHdr.flags & 0x01) ? numGlyphs : 0);
+  size_t ramFontSize = sizeof(SegmentFontMetadata) + (neededCount * sizeof(GlyphEntry)) + FONT_HEADER_SIZE; // Just the header, no width table needed
+
+  for (uint8_t k = 0; k < neededCount; k++) {
+    uint8_t code = neededCodes[k];
+    if (code < numGlyphs) {
+      uint16_t bits = widthTable[code] * fileHdr.height;
+      ramFontSize += (bits + 7) / 8;
+    }
+  }
+  // Allocate RAM
+  if (!_segment->allocateData(ramFontSize)) {
+    file.close();
+    return;
+  }
+  // Write metadata
+  SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
+  meta->availableFonts = savedMeta.availableFonts;
+  meta->cachedFontNum = savedMeta.cachedFontNum;
+  meta->fontsScanned = savedMeta.fontsScanned;
+  meta->glyphCount = neededCount;
+
+  uint8_t* ptr = _segment->data + sizeof(SegmentFontMetadata);
+
+  // Write registry (GlyphEntry array)
+  GlyphEntry* registry = (GlyphEntry*)ptr;
+  for (uint8_t k = 0; k < neededCount; k++) {
+    uint8_t code = neededCodes[k];
+    registry[k].code = code;
+    registry[k].width = widthTable[code];
+    registry[k].height = fileHdr.height;
+  }
+  ptr += neededCount * sizeof(GlyphEntry);
+
+  // Write font header (for compatibility and easy access to spacing/firstUnicode)
+  file.seek(0); // Go back to start of file
+  file.read(ptr, FONT_HEADER_SIZE); // could also write it from fileHdr, but this is simpler
+  ptr += FONT_HEADER_SIZE;
+
+  // Write bitmap data in registry order (no sorting needed)
+  for (uint8_t k = 0; k < neededCount; k++) {
+    uint8_t code = neededCodes[k];
+    uint16_t bits = widthTable[code] * fileHdr.height;
+    uint16_t bytes = (bits + 7) / 8;
+    // Calculate file offset
+    uint32_t offset = fileDataStart;
+    for (uint8_t j = 0; j < code; j++) {
+      uint16_t b = widthTable[j] * fileHdr.height;
+      offset += (b + 7) / 8;
+    }
+    // Read from file
+    file.seek(offset);
+    file.read(ptr, bytes);
+    ptr += bytes;
+  }
+  file.close();
+  memcpy(&_cachedHeader, &fileHdr, sizeof(FontHeader));
+  _headerValid = true;  // Mark as valid, we just loaded it directly
+  updateReader();  // Set up reader for cached access
+}
+
+void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate) {
+  if (!_reader || !_fontBase) return;
+  uint8_t w, h;
+  const uint8_t* bitmap = getGlyphBitmap(unicode, w, h);
+  if (!bitmap || w == 0) return;
+  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE;
+  uint16_t bitIndex = 0;
+  for (int row = 0; row < h; row++) {
+    CRGBW c = ColorFromPalette(grad, (row + 1) * 255 / h, 255, LINEARBLEND_NOWRAP);
+    for (int col = 0; col < w; col++) {
+      uint16_t bytePos = bitIndex >> 3;
+      uint8_t bitPos = 7 - (bitIndex & 7);
+      // Direct pointer access for speed
+      uint8_t byteVal = _reader->readByte((bitmap - _fontBase) + bytePos);
+      if ((byteVal >> bitPos) & 1) {
+        int x0, y0;
+        switch (rotate) {
+          case -1: x0 = x + (h-1) - row; y0 = y + col;         break;
+          case -2:
+          case  2: x0 = x + (w-1) - col; y0 = y + (h-1) - row; break;
+          case  1: x0 = x + row;         y0 = y + (w-1) - col; break;
+          default: x0 = x + col;         y0 = y + row;         break;
+        }
+        if (x0 >= 0 && x0 < (int)_segment->vWidth() && 
+            y0 >= 0 && y0 < (int)_segment->vHeight()) {
+          _segment->setPixelColorXYRaw(x0, y0, c.color32);
+        }
+      }
+      bitIndex++;
+    }
+  }
+}
 
 #endif // WLED_DISABLE_2D
