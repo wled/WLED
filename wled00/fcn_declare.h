@@ -220,6 +220,34 @@ void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
+const uint8_t TH_SUNRISE = 255;
+const uint8_t TH_SUNSET = 254;
+
+struct Timer {
+  uint8_t preset;
+  uint8_t hour;
+  int8_t minute;
+  uint8_t weekdays;
+  uint8_t monthStart;
+  uint8_t monthEnd;
+  uint8_t dayStart;
+  uint8_t dayEnd;
+  inline bool isEnabled() const { return (weekdays & 0x01) && (preset != 0); }
+  inline bool isSunrise() const { return hour == TH_SUNRISE; }
+  inline bool isSunset() const { return hour == TH_SUNSET; }
+  inline bool isRegular() const { return hour < TH_SUNSET; }
+  Timer() : preset(0), hour(0), minute(0), weekdays(255), monthStart(1), monthEnd(12), dayStart(1), dayEnd(31) {}
+  Timer(uint8_t p, uint8_t h, int8_t m, uint8_t wd, uint8_t ms = 1, uint8_t me = 12, uint8_t ds = 1, uint8_t de = 31)
+    : preset(p), hour(h), minute(m), weekdays(wd), monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
+};
+
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart = 1, uint8_t monthEnd = 12, uint8_t dayStart = 1, uint8_t dayEnd = 31);
+void removeTimer(size_t index);
+void clearTimers();
+size_t getTimerCount();
+void compactTimers();
+
 //overlay.cpp
 void handleOverlayDraw();
 // void _overlayAnalogCountdown();  // local function, only used in overlay.cpp

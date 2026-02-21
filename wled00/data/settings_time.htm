@@ -8,6 +8,13 @@
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+	var timerCount = 0;
+	var maxTimers;
+	var presets = {};
+	var sortedPresetOptions = '';
+	const TIMER_SUNRISE = 255;
+	const TIMER_SUNSET = 254;
+	const TIMER_WEEKDAYS_ALL = 255;
 	// load common.js with retry on error
 	(function loadFiles() {
 		const l = document.createElement('script');
@@ -19,12 +26,62 @@
 
 	function S() {
 		getLoc();
+		populatePresets(true);
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
 			updLatLon();
 			Cs();
-			FC();
-		});	// If we set async false, file is loaded and executed, then next statement is processed
+		});
 		if (loc) d.Sf.action = getURL('/settings/time');
+	}
+	async function populatePresets(fromls) {
+		let json = null;
+		if (fromls) json = JSON.parse(localStorage.getItem("wledP"));
+		if (!json) json = await loadPresets();
+		if (json) onPresetsLoaded(json);
+	}
+	async function loadPresets() {
+		try {
+			const res = await fetch(getURL('/presets.json'), {method: 'get'});
+			return res.status == "404" ? {"0": {}} : await res.json();
+		} catch (e) {
+			console.error("Failed to load presets:", e);
+			return null;
+		}
+	}
+	function onPresetsLoaded(json) {
+		presets = json;
+		delete presets["0"];
+		bSPO();
+		pMP();
+		rTOPO();
+		rBPO();
+	}
+	function bSPO() { // buildSortedPresetOptions
+		sortedPresetOptions = '';
+		for (var p of Object.entries(presets)) {
+			var id = p[0];
+			var name = p[1].n || ("Preset " + id);
+			sortedPresetOptions += `<option value="${id}">${id}: ${name}</option>`;
+		}
+	}
+	function sPSV(sel, value, attrName) { // setPresetSelectValue
+		var v = (value === undefined || value === null || value === "") ? "0" : String(value);
+		sel.setAttribute(attrName, v);
+		sel.value = v;
+		if (sel.value === "") sel.value = "0";
+	}
+	function rPS(sel, presetOpts, attrName) { // refreshPresetSelect
+		var currentVal = sel.value;
+		var initialVal = sel.getAttribute(attrName);
+		var val = currentVal;
+		if ((val === "" || val === "0") && initialVal !== null && initialVal !== "" && initialVal !== "0") {
+			val = initialVal;
+		}
+		if (val === "") val = "0";
+		sel.innerHTML = presetOpts;
+		sel.value = val;
+		if (sel.value === "" && initialVal !== null && initialVal !== "") sel.value = initialVal;
+		if (sel.value === "") sel.value = "0";
 	}
 	function expand(o,i)
 	{
@@ -35,79 +92,189 @@
 	function Cs() { gId("cac").style.display=(gN("OL").checked)?"block":"none"; }
 	function BTa()
 	{
-		var ih="<thead><tr><th>En.</th><th>Hour</th><th>Minute</th><th>Preset</th><th></th></tr></thead>";
-		for (i=0;i<8;i++) {
-			ih+=`<tr><td><input name="W${i}" id="W${i}" type="hidden"><input id="W${i}0" type="checkbox"></td>
-<td><input name="H${i}" class="xs" type="number" min="0" max="24"></td>
-<td><input name="N${i}" class="xs" type="number" min="0" max="59"></td>
-<td><input name="T${i}" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td></tr>`;
-			ih+=`<tr><td colspan=5><div id="WD${i}" style="display:none;background-color:#444;"><hr>Run on weekdays`;
-			ih+=`<table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`
-			for (j=1;j<8;j++) ih+=`<td><input id="W${i}${j}" type="checkbox"></td>`;
-			ih+=`</tr></table>from <select name="M${i}">`;
-			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
-			ih+=`</select><input name="D${i}" class="xs" type="number" min="1" max="31"></input> to <select name="P${i}">`;
-			for (j=0;j<12;j++) ih+=`<option value="${j+1}">${ms[j]}</option>`;
-			ih+=`</select><input name="E${i}" class="xs" type="number" min="1" max="31"></input>
-		<hr></div></td></tr>`;
-		}
-		ih+=`<tr><td><input name="W8" id="W8" type="hidden"><input id="W80" type="checkbox"></td>
-<td>Sunrise<input name="H8" value="255" type="hidden"></td>
-<td><input name="N8" class="xs" type="number" min="-59" max="59"></td>
-<td><input name="T8" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB8" onclick="expand(this,8)" class="cal">&#128197;</div></td></tr><tr><td colspan=5>`;
-		ih+=`<div id="WD8" style="display:none;background-color:#444;"><hr><table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
-		for (j=1;j<8;j++) ih+=`<td><input id="W8${j}" type="checkbox"></td>`;
-		ih+="</tr></table><hr></div></td></tr>";
-		ih+=`<tr><td><input name="W9" id="W9" type="hidden"><input id="W90" type="checkbox"></td>
-<td>Sunset<input name="H9" value="255" type="hidden"></td>
-<td><input name="N9" class="xs" type="number" min="-59" max="59"></td>
-<td><input name="T9" class="s" type="number" min="0" max="250"></td>
-<td><div id="CB9" onclick="expand(this,9)" class="cal">&#128197;</div></td></tr><tr><td colspan=5>`;
-		ih+=`<div id="WD9" style="display:none;background-color:#444;"><hr><table><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>`;
-		for (j=1;j<8;j++) ih+=`<td><input id="W9${j}" type="checkbox"></td>`;
-		ih+="</tr></table><hr></div></td></tr>";
-		gId("TMT").innerHTML=ih;
+		timerCount = 0;
+		gId("TMT").innerHTML = "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th></tr></thead>";
 	}
-	function FC()
-	{
-		for(i=0;i<10;i++)
-		{
-			let wd = gId("W"+i).value;
-			for(j=0;j<8;j++) {
-				gId("W"+i+j).checked=wd>>j&1;
+	function addTimerRow(hour, minute, preset, weekdays, monthStart, dayStart, monthEnd, dayEnd) {
+		if (timerCount >= maxTimers) return;
+		var i = timerCount++;
+		var isSunrise = (hour === TIMER_SUNRISE);
+		var isSunset = (hour === TIMER_SUNSET);
+		var isSpecial = isSunrise || isSunset;
+		if (hour === undefined) hour = 0;
+		if (minute === undefined) minute = 0;
+		if (preset === undefined) preset = 0;
+		if (weekdays === undefined) weekdays = TIMER_WEEKDAYS_ALL;
+		if (monthStart === undefined) monthStart = 1;
+		if (dayStart === undefined) dayStart = 1;
+		if (monthEnd === undefined) monthEnd = 12;
+		if (dayEnd === undefined) dayEnd = 31;
+		var enabled = weekdays & 1;
+		var dow = weekdays >> 1;
+		var container = gId("TMT");
+		var hourVal = isSpecial ? 0 : hour;
+		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+
+		var weekdayTable = '<table class="tw"><tr><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th><th>S</th></tr><tr>';
+		for (j=1;j<8;j++) weekdayTable += `<td><input id="W${i}${j}" type="checkbox" ${(dow>>(j-1))&1?'checked':''}></td>`;
+		weekdayTable += '</tr></table>';
+
+		var dateRange = `<div id="DR${i}" class="tdr"><span class="tdf">from <select name="M${i}">`;
+		for (j=0;j<12;j++) dateRange += `<option value="${j+1}" ${monthStart==j+1?'selected':''}>${ms[j]}</option>`;
+		dateRange += `</select><input name="D${i}" class="xs" type="number" min="1" max="31" value="${dayStart}"></span><span class="tdf">to <select name="P${i}">`;
+		for (j=0;j<12;j++) dateRange += `<option value="${j+1}" ${monthEnd==j+1?'selected':''}>${ms[j]}</option>`;
+		dateRange += `</select><input name="E${i}" class="xs" type="number" min="1" max="31" value="${dayEnd}"></span></div>`;
+
+		var timerMain = `
+			<tr>
+				<td>
+					<input name="W${i}" id="W${i}" type="hidden">
+					<input id="W${i}0" type="checkbox" ${enabled ? "checked" : ""}>
+				</td><td>
+					<select id="TS${i}" class="s" onchange="TT(${i})">
+						<option value="0" ${!isSpecial ? "selected" : ""}>Regular</option>
+						<option value="${TIMER_SUNRISE}" ${isSunrise ? "selected" : ""}>Sunrise</option>
+						<option value="${TIMER_SUNSET}" ${isSunset ? "selected" : ""}>Sunset</option>
+					</select><br>
+				</td><td>
+					<input ${isSpecial ? "" : 'name="H'+i+'"'} id="H${i}" class="s" type="number" min="0" max="24" value="${hourVal}" ${isSpecial ? "disabled" : ""}>
+				</td>
+				<td><input name="N${i}" id="N${i}" class="l" type="number" min="${isSpecial ? -120 : 0}" max="${isSpecial ? 120 : 59}" value="${minute}"></td>
+				<td><div id="CB${i}" onclick="expand(this,${i})" class="cal">&#128197;</div></td>
+			</tr><tr>
+				<td colspan="5">
+					<select name="T${i}" id="T${i}" class="s">${presetOpts}</select>
+				</td>
+			</tr><tr><td colspan="5"><hr></td></tr>
+		`;
+
+		var timerExpanded = `
+			<tr>
+				<td colspan="5">
+					<div id="WD${i}" style="display:none;background-color:#444;">
+						<hr>Run on weekdays
+						${weekdayTable}
+						${dateRange}
+						<hr>
+					</div>
+				</td>
+			</tr>
+		`;
+
+		container.insertAdjacentHTML("beforeend", timerMain + timerExpanded);
+		var timerPresetSel = gId("T"+i);
+		sPSV(timerPresetSel, preset, "data-preset");
+	}
+	function TT(i) {
+		var sel = gId("TS"+i);
+		var hour = gId("H"+i);
+		var min = gId("N"+i);
+		var isSpecial = sel.value != 0;
+		hour.disabled = isSpecial;
+		if (isSpecial) {
+			// Save current hour value before switching to sunrise/sunset
+			hour.setAttribute("data-regular-hour", hour.value);
+			hour.removeAttribute("name");
+			min.min = -120;
+			min.max = 120;
+		} else {
+			// Restore saved hour value when switching back to regular
+			var savedHour = hour.getAttribute("data-regular-hour");
+			if (savedHour !== null && savedHour !== "") {
+				hour.value = savedHour;
 			}
-			if ((wd&254) != 254 || (i<8 && (gN("M"+i).value != 1 || gN("D"+i).value != 1 || gN("P"+i).value != 12 || gN("E"+i).value != 31))) {
-				expand(gId("CB"+i),i); //expand macros with custom DOW or date range set
+			hour.setAttribute("name", "H"+i);
+			min.min = 0;
+			min.max = 59;
+			if (min.value < 0 || min.value > 59) min.value = 0;
+		}
+	}
+	function pMP() { // populateMacroPresets
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var fields = ['A0','A1','MC','MN'];
+		for (var f of fields) {
+			var inp = gN(f);
+			if (!inp) continue;
+			var val = inp.getAttribute("data-preset-value");
+			if (val === null || val === "") val = inp.value;
+			if (inp.tagName === "SELECT") {
+				sPSV(inp, val, "data-preset-value");
+				rPS(inp, presetOpts, "data-preset-value");
+			} else {
+				var sel = document.createElement('select');
+				sel.name = f;
+				sel.className = inp.className;
+				sel.required = inp.required;
+				sPSV(sel, val, "data-preset-value");
+				rPS(sel, presetOpts, "data-preset-value");
+				inp.parentNode.replaceChild(sel, inp);
 			}
+		}
+	}
+	function rTOPO() { // refreshTimerPresetOptions
+		var presetOpts = '<option value="0">Delete Timer</option>' + sortedPresetOptions;
+		for (var i=0; i<timerCount; i++) {
+			var sel = gId("T"+i);
+			if (!sel) continue;
+			rPS(sel, presetOpts, "data-preset");
+		}
+	}
+	function rBPO() { // refreshButtonPresetOptions
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var container = gId("macros");
+		if (!container) return;
+		var sels = container.querySelectorAll('select[name^="MP"],select[name^="ML"],select[name^="MD"]');
+		for (var sel of sels) {
+			rPS(sel, presetOpts, "data-preset");
 		}
 	}
 	function Wd()
 	{
-		a = [0,0,0,0,0,0,0,0,0,0];
-		for (i=0; i<10; i++) {
-			m=1;
-			for(j=0;j<8;j++) { a[i]+=gId(("W"+i)+j).checked*m; m*=2;}
-			gId("W"+i).value=a[i];
+		for (i=0; i<timerCount; i++) {
+			var m=1, val=0;
+			for(j=0;j<8;j++) { val+=gId(("W"+i)+j).checked*m; m*=2;}
+			gId("W"+i).value=val;
+			var sel = gId("TS"+i);
+			var hour = gId("H"+i);
+			if (sel && sel.value != 0) {
+				// Re-add name attribute, remove disabled, and set value for sunrise/sunset before submission
+				hour.setAttribute("name", "H"+i);
+				hour.disabled = false;
+				hour.value = sel.value;
+			}
 		}
 		if (d.Sf.LTR.value==="S") { d.Sf.LT.value = -1*parseFloat(d.Sf.LT.value); }
 		if (d.Sf.LNR.value==="W") { d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); }
 	}
 	function addRow(i,p,l,d) {
-		var t = gId("macros");	// table
-		var rCnt = t.rows.length;   // get the number of rows.
-		var tr = t.insertRow(rCnt); // table row.
 		var b = String.fromCharCode((i<10?48:55)+i);
-		var td = document.createElement('td');          // TABLE DEFINITION.
-		td = tr.insertCell(0);
-		td.innerHTML = `Button ${i}:`;
-		td = tr.insertCell(1);
-		td.innerHTML = `<input name="MP${b}" type="number" class="s" min="0" max="250" value="${p}" required>`;
-		td = tr.insertCell(2);
-		td.innerHTML = `<input name="ML${b}" type="number" class="s" min="0" max="250" value="${l}" required>`;
-		td = tr.insertCell(3);
-		td.innerHTML = `<input name="MD${b}" type="number" class="s" min="0" max="250" value="${d}" required>`;
+		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var buttonBlock = document.createElement('div');
+		buttonBlock.className = 'bb';
+		buttonBlock.innerHTML = `
+			<div class="bh">Button ${i}</div>
+			<div class="bs">
+				<div class="ba">
+					<label>Push/Switch</label>
+					<select name="MP${b}" class="s" required>${presetOpts}</select>
+				</div>
+				<div class="ba">
+					<label>Short (on→off)</label>
+					<select name="ML${b}" class="s" required>${presetOpts}</select>
+				</div>
+				<div class="ba">
+					<label>Long (off→on)</label>
+					<select name="MD${b}" class="s" required>${presetOpts}</select>
+				</div>
+			</div>
+			<hr style="width:100%;margin:8px 0 0 0;">
+		`;
+		var buttonSels = buttonBlock.querySelectorAll("select");
+		var buttonVals = [String(p), String(l), String(d)];
+		for (var si=0; si<buttonSels.length; si++) {
+			sPSV(buttonSels[si], buttonVals[si], "data-preset");
+		}
+		gId("macros").appendChild(buttonBlock);
 	}
 	function getLatLon() {
 		if (!el) {
@@ -206,24 +373,14 @@
 	</div>
 	<div class="sec">
 		<h3>Button Action Presets</h3>
-		<table style="margin: 0 auto;" id="macros">
-			<thead>
-				<tr>
-					<td>push<br>switch</td>
-					<td>short<br>on-&gt;off</td>
-					<td>long<br>off-&gt;on</td>
-					<td>double<br>N/A</td>
-				</tr>
-			</thead>
-			<tbody>
-			</tbody>
-		</table>
+		<div id="macros"></div>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 	</div>
 	<div class="sec">
 		<h3>Time-Controlled Presets</h3>
 		<div style="display: inline-block">
-		<table id="TMT" style="min-width:330px;"></table>
+			<table id="TMT" style="min-width:330px;"></table>
+			<button type="button" onclick="addTimerRow()">Add Timer</button>
 		</div>
 	</div>
 	<hr>

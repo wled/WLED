@@ -689,37 +689,28 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(macroCountdown, cntdwn["macro"]);
   setCountdown();
 
-  JsonArray timers = tm["ins"];
-  uint8_t it = 0;
-  for (JsonObject timer : timers) {
-    if (it > 9) break;
-    if (it<8 && timer[F("hour")]==255) it=8;  // hour==255 -> sunrise/sunset
-    CJSON(timerHours[it], timer[F("hour")]);
-    CJSON(timerMinutes[it], timer["min"]);
-    CJSON(timerMacro[it], timer["macro"]);
-
-    byte dowPrev = timerWeekday[it];
-    //note: act is currently only 0 or 1.
-    //the reason we are not using bool is that the on-disk type in 0.11.0 was already int
-    int actPrev = timerWeekday[it] & 0x01;
-    CJSON(timerWeekday[it], timer[F("dow")]);
-    if (timerWeekday[it] != dowPrev) { //present in JSON
-      timerWeekday[it] <<= 1; //add active bit
-      int act = timer["en"] | actPrev;
-      if (act) timerWeekday[it]++;
+  JsonArray timersArray = tm["ins"];
+  if (!timersArray.isNull()) {
+    clearTimers();
+    for (JsonObject timer : timersArray) {
+      uint8_t h = timer[F("hour")] | 0;
+      int8_t m = timer[F("min")] | 0;
+      uint8_t p = timer[F("macro")] | 0;
+      uint8_t dow = timer[F("dow")] | 127;
+      uint8_t wd = (dow << 1) | ((timer[F("en")] | 0) ? 1 : 0);
+      uint8_t ms = 1, me = 12, ds = 1, de = 31;
+      JsonObject start = timer[F("start")];
+      if (!start.isNull()) {
+        ms = start[F("mon")] | 1;
+        ds = start[F("day")] | 1;
+      }
+      JsonObject end = timer[F("end")];
+      if (!end.isNull()) {
+        me = end[F("mon")] | 12;
+        de = end[F("day")] | 31;
+      }
+      addTimer(p, h, m, wd, ms, me, ds, de);
     }
-    if (it<8) {
-      JsonObject start = timer["start"];
-      byte startm = start["mon"];
-      if (startm) timerMonth[it] = (startm << 4);
-      CJSON(timerDay[it], start["day"]);
-      JsonObject end = timer["end"];
-      CJSON(timerDayEnd[it], end["day"]);
-      byte endm = end["mon"];
-      if (startm) timerMonth[it] += endm & 0x0F;
-      if (!(timerMonth[it] & 0x0F)) timerMonth[it] += 12; //default end month to 12
-    }
-    it++;
   }
 
   JsonObject ota = doc["ota"];
@@ -1216,23 +1207,21 @@ void serializeConfig(JsonObject root) {
   cntdwn["macro"] = macroCountdown;
 
   JsonArray timers_ins = timers.createNestedArray("ins");
-
-  for (unsigned i = 0; i < 10; i++) {
-    if (timerMacro[i] == 0 && timerHours[i] == 0 && timerMinutes[i] == 0) continue; // sunrise/sunset get saved always (timerHours=255)
-    JsonObject timers_ins0 = timers_ins.createNestedObject();
-    timers_ins0["en"] = (timerWeekday[i] & 0x01);
-    timers_ins0[F("hour")] = timerHours[i];
-    timers_ins0["min"] = timerMinutes[i];
-    timers_ins0["macro"] = timerMacro[i];
-    timers_ins0[F("dow")] = timerWeekday[i] >> 1;
-    if (i<8) {
-      JsonObject start = timers_ins0.createNestedObject("start");
-      start["mon"] = (timerMonth[i] >> 4) & 0xF;
-      start["day"] = timerDay[i];
-      JsonObject end = timers_ins0.createNestedObject("end");
-      end["mon"] = timerMonth[i] & 0xF;
-      end["day"] = timerDayEnd[i];
-    }
+  for (size_t i = 0; i < ::timers.size(); i++) {
+    const Timer& t = ::timers[i];
+    if (t.preset == 0 && t.hour == 0 && t.minute == 0) continue;
+    JsonObject ti = timers_ins.createNestedObject();
+    ti[F("en")] = t.isEnabled() ? 1 : 0;
+    ti[F("hour")] = t.hour;
+    ti[F("min")] = t.minute;
+    ti[F("macro")] = t.preset;
+    ti[F("dow")] = t.weekdays >> 1;
+    JsonObject start = ti.createNestedObject(F("start"));
+    start[F("mon")] = t.monthStart;
+    start[F("day")] = t.dayStart;
+    JsonObject end = ti.createNestedObject(F("end"));
+    end[F("mon")] = t.monthEnd;
+    end[F("day")] = t.dayEnd;
   }
 
   JsonObject ota = root.createNestedObject("ota");

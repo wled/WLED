@@ -90,7 +90,7 @@ function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefine
 	scE.setAttribute("type", "text/javascript");
 	scE.setAttribute("async", async);
 	d.body.appendChild(scE);
-	// success event 
+	// success event
 	scE.addEventListener("load", () => {
 		//console.log("File loaded");
 		if (preGetV) preGetV();
