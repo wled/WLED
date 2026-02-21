@@ -5,6 +5,14 @@
 #include <esp_ota_ops.h>
 #include <esp_spi_flash.h>
 #include <mbedtls/sha256.h>
+
+#if !(ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 0, 0))
+// Shim for V3 IDF.  We only access the default flash anyways, so we can strip off the first argument.
+#define esp_flash_read(chip, buffer, address, length) spi_flash_read(address, buffer, length)
+#define esp_flash_erase_region(chip, start, length) spi_flash_erase_range(start, length)
+#define esp_flash_write(chip, buffer, address, length) spi_flash_write(address, buffer, length)
+#endif
+
 #endif
 
 // Platform-specific metadata locations
