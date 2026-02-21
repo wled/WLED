@@ -47,7 +47,7 @@ static void handleDDPPacket(e131_packet_t* p) {
   unsigned stop = start + dataLen / ddpChannelsPerLed;
   uint8_t* data = p->data;
   unsigned c = 0;
-  if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+  if (p->flags & DDP_FLAGS_TIME) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
 
   unsigned numLeds = stop - start; // stop >= start is guaranteed
   unsigned maxDataIndex = c + numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
@@ -65,7 +65,7 @@ static void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  bool push = p->flags & DDP_PUSH_FLAG;
+  bool push = p->flags & DDP_FLAGS_PUSH;
   ddpSeenPush |= push;
   if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
     e131NewData = true;
