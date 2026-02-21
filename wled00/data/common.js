@@ -94,7 +94,7 @@ function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefine
 	scE.addEventListener("load", () => {
 		//console.log("File loaded");
 		if (preGetV) preGetV();
-		if (GetV) GetV();
+		GetV();
 		if (postGetV) postGetV();
 	});
 	// error event
