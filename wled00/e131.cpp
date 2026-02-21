@@ -21,6 +21,12 @@ static void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
+  // reject unsupported data types (only RGB and RGBW are supported)
+  if (p->dataType != DDP_TYPE_RGB24 && p->dataType != DDP_TYPE_RGBW32) return;
+
+  // reject status and config packets (not implemented)
+  if (p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
+
   //reject late packets belonging to previous frame (assuming 4 packets max. before push)
   if (e131SkipOutOfSequence && lastPushSeq) {
     int sn = p->sequenceNum & 0xF;

@@ -762,11 +762,7 @@ void sendSysInfoUDP()
 #define DDP_FLAGS1_STORAGE 0x08
 #define DDP_FLAGS1_TIME 0x10
 
-#define DDP_ID_DISPLAY 1
-#define DDP_ID_CONFIG 250
-#define DDP_ID_STATUS 251
 
-// 1440 channels per packet
 #define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
 
 //
