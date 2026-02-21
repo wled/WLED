@@ -710,13 +710,24 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
-  static unsigned long nextResolve = 0;
-  if (Network.isConnected() && millis() > nextResolve && _hostname.length() > 0) {
-    nextResolve = millis() + 600000; // resolve only every 10 minutes
+  static AsyncDNS DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
+  if (Network.isConnected()) {
     IPAddress clnt;
-    if (strlen(cmDNS) > 0) clnt = MDNS.queryHost(_hostname);
-    else WiFi.hostByName(_hostname.c_str(), clnt);
-    if (clnt != IPAddress()) _client = clnt;
+    if (strlen(cmDNS) > 0) {
+      clnt = MDNS.queryHost(_hostname);
+      if (clnt != IPAddress()) _client = clnt; // update client IP if not null
+    }
+    else {
+      int timeout = 5000; // 5 seconds timeout
+      DNSlookup.reset();
+      DNSlookup.query(_hostname.c_str()); // start async DNS query
+      while (DNSlookup.status() == AsyncDNS::result::Busy && timeout-- > 0) {
+        delay(1);
+      }
+      if (DNSlookup.status() == AsyncDNS::result::Success) {
+        _client = DNSlookup.getIP(); // update client IP
+      }
+    }
   }
 }
 #endif
@@ -1258,12 +1269,17 @@ void BusManager::on() {
     }
   }
   #else
+  static uint32_t nextResolve = 0;  // initial resolve is done on bus creation
+  bool resolveNow = (millis() - nextResolve >= 600000); // wait at least 10 minutes between hostname resolutions (blocking call)
   for (auto &bus : busses) if (bus->isVirtual()) {
     // virtual/network bus should check for IP change if hostname is specified
     // otherwise there are no endpoints to force DNS resolution
     BusNetwork &b = static_cast<BusNetwork&>(*bus);
-    b.resolveHostname();
+    if (resolveNow)
+      b.resolveHostname();
   }
+  if (resolveNow)
+    nextResolve = millis();
   #endif
   #ifdef ESP32_DATA_IDLE_HIGH
   esp32RMTInvertIdle();

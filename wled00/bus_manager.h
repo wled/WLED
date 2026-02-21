@@ -17,6 +17,9 @@
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
+#ifdef ARDUINO_ARCH_ESP32
+#include "asyncDNS.h"
+#endif
 
 #if __cplusplus >= 201402L
 using std::make_unique;
