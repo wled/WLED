@@ -126,22 +126,6 @@ function getLoc() {
 	}
 }
 function getURL(path) { return (loc ? locproto + "//" + locip : "") + path; }
-async function loadPresets(callback) {
-	return new Promise((resolve) => {
-		fetch(getURL('/presets.json'), {method: 'get'})
-		.then(res => res.status == "404" ? {"0":{}} : res.json())
-		.then(json => {
-			if (typeof pJson !== "undefined") pJson = json;
-			if (callback) callback(json);
-			else if (typeof populatePresets === "function") populatePresets();
-			resolve(json);
-		})
-		.catch(() => {
-			if (typeof presetError === "function") presetError(false);
-			resolve(null);
-		})
-	});
-}
 function B()          { window.open(getURL("/settings"),"_self"); }
 var timeout;
 function showToast(text, error = false) {

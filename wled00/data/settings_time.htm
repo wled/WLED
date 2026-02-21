@@ -30,14 +30,23 @@
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
 			updLatLon();
 			Cs();
-			FC();
 		});
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
-	function populatePresets(fromls) {
-		if (fromls) presets = JSON.parse(localStorage.getItem("wledP"));
-		if (!presets) {loadPresets(onPresetsLoaded); return;}
-		onPresetsLoaded(presets);
+	async function populatePresets(fromls) {
+		let json = null;
+		if (fromls) json = JSON.parse(localStorage.getItem("wledP"));
+		if (!json) json = await loadPresets();
+		if (json) onPresetsLoaded(json);
+	}
+	async function loadPresets() {
+		try {
+			const res = await fetch(getURL('/presets.json'), {method: 'get'});
+			return res.status == "404" ? {"0": {}} : await res.json();
+		} catch (e) {
+			console.error("Failed to load presets:", e);
+			return null;
+		}
 	}
 	function onPresetsLoaded(json) {
 		presets = json;
@@ -179,9 +188,6 @@
 			min.max = 59;
 			if (min.value < 0 || min.value > 59) min.value = 0;
 		}
-	}
-	function FC() {
-		pMP();
 	}
 	function pMP() { // populateMacroPresets
 		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
