@@ -4421,21 +4421,20 @@ void mode_flow(void)
   }
 
   unsigned maxZones = SEGLEN / 6; //only looks good if each zone has at least 6 LEDs
-  unsigned zones = (SEGMENT.intensity * maxZones) >> 8;
+  int zones = (SEGMENT.intensity * maxZones) >> 8;
   if (zones & 0x01) zones++; //zones must be even
   if (zones < 2) zones = 2;
-  unsigned zoneLen = SEGLEN / zones;
-  unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
+  int zoneLen = SEGLEN / zones;
+  zones += 2; //add two extra zones to cover beginning and end of segment (compensate integer truncation)
+  int offset = ((int)SEGLEN - (zones * zoneLen)) / 2; // center the zones on the segment (can not use bit shift on negative number)
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, true, 255));
-
-  for (unsigned z = 0; z < zones; z++)
+  for (int z = 0; z < zones; z++)
   {
-    unsigned pos = offset + z * zoneLen;
-    for (unsigned i = 0; i < zoneLen; i++)
+    int pos = offset + z * zoneLen;
+    for (int i = 0; i < zoneLen; i++)
     {
       unsigned colorIndex = (i * 255 / zoneLen) - counter;
-      unsigned led = (z & 0x01) ? i : (zoneLen -1) -i;
+      int led = (z & 0x01) ? i : (zoneLen -1) -i;
       if (SEGMENT.reverse) led = (zoneLen -1) -led;
       SEGMENT.setPixelColor(pos + led, SEGMENT.color_from_palette(colorIndex, false, true, 255));
     }
