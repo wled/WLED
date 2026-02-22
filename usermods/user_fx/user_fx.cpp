@@ -98,7 +98,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 /*
 /  Lava Lamp 2D effect
-*   Uses particles to simulate rising blobs of "lava"
+*   Uses particles to simulate rising blobs of "lava" or wax
 *   Particles slowly rise, merge to create organic flowing shapes, and then fall to the bottom to start again
 *   Created by Bob Loeffler using claude.ai
 *   The first slider sets the number of active blobs
@@ -170,8 +170,6 @@ static void mode_2D_lavalamp(void) {
   const float spawnXStart = cols * 0.20f;
   const float spawnXWidth = cols * 0.60f;
   int spawnX = max(1, (int)(spawnXWidth));
-
-  //float speedFactor = (SEGMENT.speed + 5) / 255.0f;     // (SEGMENT.speed + 30) / 100.0f; // 0.3 to 2.85 range
 
   // Spawn new particles at the bottom near the center
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
@@ -384,7 +382,7 @@ static void mode_2D_lavalamp(void) {
     }
   }
 }
-static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,Horz Damping,,Color mode,Attract;;!;2;ix=64,o2=1,pal=47";
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,H. Damping,,Color mode,Attract;;!;2;ix=64,c2=192,o2=1,pal=47";
 
 
 
