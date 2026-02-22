@@ -498,6 +498,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define SUBPAGE_UM                8
 #define SUBPAGE_UPDATE            9
 #define SUBPAGE_2D               10
+#define SUBPAGE_PINS             11
+#define SUBPAGE_LAST             SUBPAGE_PINS
 #define SUBPAGE_LOCK            251
 #define SUBPAGE_PINREQ          252
 #define SUBPAGE_CSS             253
