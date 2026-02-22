@@ -16,7 +16,7 @@
 #define USERMOD_DALLASTEMPERATURE_MEASUREMENT_INTERVAL 60000
 #endif
 
-class UsermodTemperature : public Usermod {
+class UsermodTemperature : public Usermod, public TemperatureSensor {
 
   private:
 
@@ -71,6 +71,7 @@ class UsermodTemperature : public Usermod {
 #ifndef WLED_DISABLE_MQTT
     void publishHomeAssistantAutodiscovery();
 #endif
+    float do_getTemperatureC() override { return temperature; }
 
     static UsermodTemperature* _instance; // to overcome nonstatic getTemperatureC() method and avoid UsermodManager::lookup(USERMOD_ID_TEMPERATURE);
 
@@ -107,4 +108,3 @@ class UsermodTemperature : public Usermod {
 
     void appendConfigData() override;
 };
-

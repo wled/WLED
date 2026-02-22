@@ -198,6 +198,7 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #include "bus_manager.h"
 #include "FX.h"
 #include "wled_metadata.h"
+#include "PluginAPI/PluginManager.h"
 
 #ifndef CLIENT_SSID
   #define CLIENT_SSID DEFAULT_CLIENT_SSID
