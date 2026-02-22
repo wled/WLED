@@ -33,20 +33,23 @@
 		});
 		if (loc) d.Sf.action = getURL('/settings/time');
 	}
-	async function populatePresets(fromls) {
+	function populatePresets(fromls) {
 		let json = null;
-		if (fromls) json = JSON.parse(localStorage.getItem("wledP"));
-		if (!json) json = await loadPresets();
-		if (json) onPresetsLoaded(json);
-	}
-	async function loadPresets() {
-		try {
-			const res = await fetch(getURL('/presets.json'), {method: 'get'});
-			return res.status == "404" ? {"0": {}} : await res.json();
-		} catch (e) {
-			console.error("Failed to load presets:", e);
-			return null;
+		if (fromls) {
+			try {
+				json = JSON.parse(localStorage.getItem("wledP"));
+			} catch (e) {}
 		}
+
+		if (!json) {
+			showPresetWarning();
+			return;
+		}
+
+		onPresetsLoaded(json);
+	}
+	function showPresetWarning() {
+		showToast("Please visit the main UI first to load presets", true);
 	}
 	function onPresetsLoaded(json) {
 		presets = json;
