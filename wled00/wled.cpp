@@ -511,8 +511,13 @@ void WLED::setup()
   WiFi.persistent(false); // on ES8266 using NVM for wifi config has no benefit of faster connection
   #endif
   WiFi.onEvent(WiFiEvent);
+#ifdef WLED_FORCE_WIFI_OFF
+  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF: forcing WiFi OFF."));
+  WiFi.mode(WIFI_OFF);
+#else
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
+#endif
 
   // all GPIOs are allocated at this point
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
@@ -633,6 +638,10 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
+#ifdef WLED_FORCE_WIFI_OFF
+  return;
+#endif
+
   if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
     return;
 
@@ -673,6 +682,13 @@ void WLED::initAP(bool resetAP)
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
+#ifdef WLED_FORCE_WIFI_OFF
+  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF active. Skipping WiFi/AP init."));
+  WiFi.disconnect(true);
+  WiFi.mode(WIFI_OFF);
+  return;
+#endif
+
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
   #endif

@@ -29,6 +29,7 @@
 #endif
 
 // You can choose some of these features to disable:
+//#define WLED_FORCE_WIFI_OFF      // saves 5kb, hard-disable WiFi radio entirely (WIFI_OFF). AP/STA will not start.
 //#define WLED_DISABLE_ALEXA       // saves 11kb
 //#define WLED_DISABLE_HUESYNC     // saves 4kb
 //#define WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
