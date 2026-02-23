@@ -22,5 +22,6 @@
 #define CLIENT_PASS "Your_Password"
 */
 
+//#define WLED_FORCE_WIFI_OFF // Hard disable WiFi radio (WIFI_OFF): no STA and no AP.
 //#define MAX_LEDS 1500       // Maximum total LEDs. More than 1500 might create a low memory situation on ESP8266.
 //#define MDNS_NAME "wled"    // mDNS hostname, ie: *.local

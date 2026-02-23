@@ -21,6 +21,8 @@
 
 // You are required to disable over-the-air updates:
 //#define WLED_DISABLE_OTA         // saves 14kb
+// hard-disable WiFi radio entirely (WIFI_OFF). AP/STA will not start.
+//#define WLED_FORCE_WIFI_OFF
 #ifdef WLED_ENABLE_AOTA
   #if defined(WLED_DISABLE_OTA)
     #warning WLED_DISABLE_OTA was defined but it will be ignored due to WLED_ENABLE_AOTA.
