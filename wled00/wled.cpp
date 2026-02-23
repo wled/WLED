@@ -684,6 +684,7 @@ void WLED::initConnection()
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
 #ifdef WLED_FORCE_WIFI_OFF
   DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF active. Skipping WiFi/AP init."));
+  lastReconnectAttempt = millis();
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   return;
