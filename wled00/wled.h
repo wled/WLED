@@ -21,8 +21,6 @@
 
 // You are required to disable over-the-air updates:
 //#define WLED_DISABLE_OTA         // saves 14kb
-// hard-disable WiFi radio entirely (WIFI_OFF). AP/STA will not start.
-//#define WLED_FORCE_WIFI_OFF
 #ifdef WLED_ENABLE_AOTA
   #if defined(WLED_DISABLE_OTA)
     #warning WLED_DISABLE_OTA was defined but it will be ignored due to WLED_ENABLE_AOTA.
@@ -31,6 +29,7 @@
 #endif
 
 // You can choose some of these features to disable:
+//#define WLED_FORCE_WIFI_OFF      // saves 5kb, hard-disable WiFi radio entirely (WIFI_OFF). AP/STA will not start.
 //#define WLED_DISABLE_ALEXA       // saves 11kb
 //#define WLED_DISABLE_HUESYNC     // saves 4kb
 //#define WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
