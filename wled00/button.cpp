@@ -396,7 +396,9 @@ void handleOnOff(bool forceOff)
   }
 }
 
+#ifdef SOC_TOUCH_VERSION_2 //ESP32 S2 and S3 provide a function to check touch state (state is updated in interrupt)
 void IRAM_ATTR touchButtonISR()
 {
   // used for ESP32 S2 and S3: nothing to do, ISR is just used to update registers of HAL driver
 }
+#endif
