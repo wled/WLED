@@ -246,6 +246,26 @@ bool PinManager::isPinOk(byte gpio, bool output)
     #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
     if (gpio == 12 || gpio == 13) return false;   // 12-13 USB-JTAG
     #endif
+  #elif defined(CONFIG_IDF_TARGET_ESP32P4)
+    // strapping pins: 34,35,36,37,38
+    // Hide all pins not available on connector except pins we need to assign to things later, like I2S
+    // TODO: this list is over-protective - clean up later.
+    if (             gpio ==  9) return false;     // I2S Sound Output Pin
+    if (gpio > 13 && gpio <  20) return false;     // ESP-Hosted WiFi pins
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
+      if (gpio > 23 && gpio <  26) return false;     // USB Pins
+    #endif
+    if (gpio > 27 && gpio <  32) return false;     // Ethernet pins
+    if (gpio > 33 && gpio <  36) return false;     // Ethernet pins - boot button is on 35 and works... but messes with Ethernet if enabled in WLED
+    if (gpio > 38 && gpio <  45) return false;     // SD1 Pins
+    if (gpio > 48 && gpio <  53) return false;     // Ethernet pins & others
+    if (             gpio == 54) return false;     // C6 WiFi EN pin
+    // 
+    // 24-25 is is USB, but so is 26-27 but they're exposed on the header and work OK for pin outout.
+    // 6 is C5 wakeup - but works fine for pin outout.
+    // 45 is SD power but it's NC without hacking the board.
+    // 53 is for PA enable but it's exposed on header and works for WLED pin output. Best to not use it but left available.
+    // 54 is "C6 EN pin" so I guess we shouldn't touch it.
   #else
 
     if ((strncmp_P(PSTR("ESP32-U4WDH"), ESP.getChipModel(), 11) == 0) ||    // this is the correct identifier, but....
