@@ -385,10 +385,12 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
         DEBUG_PRINTF_P(PSTR("WiFi-E: Disconnected! @ %lus\n"), millis()/1000);
+#ifndef WLED_FORCE_WIFI_OFF
         if (interfacesInited && multiWiFi.size() > 1 && WiFi.scanComplete() >= 0) {
           findWiFi(true); // reinit WiFi scan
           forceReconnect = true;
         }
+#endif
         interfacesInited = false;
       }
       break;
@@ -427,7 +429,9 @@ void WiFiEvent(WiFiEvent_t event)
       // may be necessary to reconnect the WiFi when
       // ethernet disconnects, as a way to provide
       // alternative access to the device.
+#ifndef WLED_FORCE_WIFI_OFF
       if (interfacesInited && WiFi.scanComplete() >= 0) findWiFi(true); // reinit WiFi scan
+#endif
       forceReconnect = true;
       break;
     #endif

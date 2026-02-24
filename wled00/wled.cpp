@@ -884,7 +884,11 @@ void WLED::handleConnection()
 
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
-  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
+  bool wifiScanRunning = false;
+#ifndef WLED_FORCE_WIFI_OFF
+  wifiScanRunning = (wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0);
+#endif
+  if (wifiScanRunning || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
