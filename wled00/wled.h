@@ -29,7 +29,7 @@
 #endif
 
 // You can choose some of these features to disable:
-//#define WLED_FORCE_WIFI_OFF      // saves 5kb, hard-disable WiFi radio entirely (WIFI_OFF). AP/STA will not start.
+//#define WLED_FORCE_WIFI_OFF      // disable regular WiFi (STA/AP fallback). Requires a configured momentary button 0 for emergency AP long-press recovery.
 //#define WLED_DISABLE_ALEXA       // saves 11kb
 //#define WLED_DISABLE_HUESYNC     // saves 4kb
 //#define WLED_DISABLE_INFRARED    // saves 12kb, there is no pin left for this on ESP8266-01
@@ -291,6 +291,18 @@ WLED_GLOBAL char otaPass[33] _INIT(DEFAULT_OTA_PASS);
 #endif
 #ifndef BTNTYPE
   #define BTNTYPE BTN_TYPE_PUSH
+#endif
+
+#ifdef WLED_FORCE_WIFI_OFF
+  #ifndef WLED_USE_ETHERNET
+    #error "WLED_FORCE_WIFI_OFF requires WLED_USE_ETHERNET."
+  #endif
+  #if (BTNPIN < 0)
+    #warning "WLED_FORCE_WIFI_OFF: BTNPIN is disabled. Emergency AP long-press on button 0 will not be available unless configured in cfg.json."
+  #endif
+  #if !((BTNTYPE == BTN_TYPE_PUSH) || (BTNTYPE == BTN_TYPE_PUSH_ACT_HIGH) || (BTNTYPE == BTN_TYPE_TOUCH))
+    #warning "WLED_FORCE_WIFI_OFF: BTNTYPE is not momentary by default. Emergency AP long-press on button 0 requires a momentary button type."
+  #endif
 #endif
 #ifndef RLYPIN
 WLED_GLOBAL int8_t rlyPin _INIT(-1);

@@ -512,7 +512,8 @@ void WLED::setup()
   #endif
   WiFi.onEvent(WiFiEvent);
 #ifdef WLED_FORCE_WIFI_OFF
-  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF: forcing WiFi OFF."));
+  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF: disabling regular WiFi startup (AP button emergency remains available)."));
+  apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
   WiFi.mode(WIFI_OFF);
 #else
   WiFi.mode(WIFI_STA); // enable scanning
@@ -638,10 +639,6 @@ void WLED::beginStrip()
 
 void WLED::initAP(bool resetAP)
 {
-#ifdef WLED_FORCE_WIFI_OFF
-  return;
-#endif
-
   if (apBehavior == AP_BEHAVIOR_BUTTON_ONLY && !resetAP)
     return;
 
@@ -683,10 +680,13 @@ void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
 #ifdef WLED_FORCE_WIFI_OFF
-  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF active. Skipping WiFi/AP init."));
+  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF active. WiFi stays OFF unless AP emergency mode is opened by button."));
+  apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
   lastReconnectAttempt = millis();
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
+  if (!apActive) {
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+  }
   return;
 #endif
 
