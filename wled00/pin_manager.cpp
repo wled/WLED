@@ -247,6 +247,7 @@ bool PinManager::isPinOk(byte gpio, bool output)
     if (gpio == 12 || gpio == 13) return false;   // 12-13 USB-JTAG
     #endif
   #elif defined(CONFIG_IDF_TARGET_ESP32P4)
+    // based on P4 port by troyhacks https://github.com/troyhacks/WLED/tree/P4_experimental
     // strapping pins: 34,35,36,37,38
     // Hide all pins not available on connector except pins we need to assign to things later, like I2S
     // TODO: this list is over-protective - clean up later.
