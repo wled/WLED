@@ -1088,44 +1088,6 @@ extern const char JSON_palette_names[];
  * - Bitmap data: bit-packed glyphs - top left to bottom right, row by row, MSB first, see src/font files for example
  */
 
-// Abstract byte reader for unified flash/RAM access
-class ByteReader {
-public:
-  virtual uint8_t readByte(size_t offset) const = 0;
-  inline uint32_t readUInt32LE(size_t offset) const {
-    return (uint32_t)(readByte(offset)) |
-           ((uint32_t)(readByte(offset + 1)) << 8) |
-           ((uint32_t)(readByte(offset + 2)) << 16) |
-           ((uint32_t)(readByte(offset + 3)) << 24);
-  }
-  virtual ~ByteReader() {}
-};
-
-// PROGMEM reader for flash fonts
-class FlashByteReader : public ByteReader {
-private:
-  const uint8_t* _base;
-public:
-  FlashByteReader() : _base(nullptr) {}  // default constructor
-  FlashByteReader(const uint8_t* base) : _base(base) {}
-  
-  inline uint8_t readByte(size_t offset) const override {
-    return _base ? pgm_read_byte_near(_base + offset) : 0;
-  }
-};
-
-// RAM reader for cached fonts
-class RAMByteReader : public ByteReader {
-private:
-  const uint8_t* _base;
-public:
-  RAMByteReader() : _base(nullptr) {}  // default constructor
-  RAMByteReader(const uint8_t* base) : _base(base) {}
-
-  inline uint8_t readByte(size_t offset) const override {
-    return _base ? _base[offset] : 0;
-  }
-};
 
 // Glyph entry in RAM cache
 struct GlyphEntry {
@@ -1172,19 +1134,17 @@ public:
     _useFlashFont(false),
     _cacheNumbers(false),
     _headerValid(false),
-    _reader(nullptr),
     _fontBase(nullptr) {}
 
-  bool loadFont(uint8_t fontNum, bool useFile);
+  bool loadFont(uint8_t fontNum, const char* text, bool useFile);
   void cacheNumbers(bool cache) { _cacheNumbers = cache; }
   void prepare(const char* text);
 
   inline void beginFrame() {
     if (!_headerValid) {
-      updateReader();
-      if (_reader) {
-        parseHeader(*_reader, _cachedHeader);
-        _headerValid = true;
+      updateFontBase();
+      if (_fontBase) {
+        parseHeader();
       }
     }
   }
@@ -1208,30 +1168,19 @@ private:
   // Cached data for performance (non-static, per-instance)
   bool _headerValid;
   FontHeader _cachedHeader;
-  const ByteReader* _reader;
   const uint8_t* _fontBase;
-  FlashByteReader _flashReader;
-  RAMByteReader _ramReader;
 
   // Invalidate cached header (call when font changes)
   inline void invalidateHeader() {
     _headerValid = false;
   }
 
-  inline void updateReader() {
-    if (_flashFont) {
-      _flashReader = FlashByteReader(_flashFont);
-      _reader = &_flashReader;
-      _fontBase = _flashFont;
-    } else if (_segment->data) {
+  inline void updateFontBase() {
+    if (_segment->data) {
       SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
       // Font header starts after metadata + registry
-      const uint8_t* fontData = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
-      _ramReader = RAMByteReader(fontData);
-      _reader = &_ramReader;
-      _fontBase = fontData;
+      _fontBase = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
     } else {
-      _reader = nullptr;
       _fontBase = nullptr;
     }
   }
@@ -1241,8 +1190,7 @@ private:
     return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
   }
 
-  // Unified operations (work identically for flash and RAM)
-  static bool parseHeader(const ByteReader& reader, FontHeader& hdr);
+  void parseHeader();
   const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
 
   // Glyph index calculation (pure function, inline for speed)
