@@ -893,7 +893,9 @@ void WLED::handleConnection()
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
+#ifndef WLED_FORCE_WIFI_OFF
     selectedWiFi = findWiFi(); // find strongest WiFi
+#endif
     initConnection();
     interfacesInited = false;
     forceReconnect = false;
@@ -926,12 +928,16 @@ void WLED::handleConnection()
     if (interfacesInited) {
       if (scanDone && multiWiFi.size() > 1) {
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
+#ifndef WLED_FORCE_WIFI_OFF
         findWiFi(true); // reinit scan
+#endif
         scanDone = false;
         return;         // try to connect in next iteration
       }
       DEBUG_PRINTLN(F("Disconnected!"));
+#ifndef WLED_FORCE_WIFI_OFF
       selectedWiFi = findWiFi();
+#endif
       initConnection();
       interfacesInited = false;
       scanDone = true;
