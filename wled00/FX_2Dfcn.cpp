@@ -583,7 +583,7 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 }
 #undef WU_WEIGHT
 
-#include "src/font/console_font_4x6.h"
+#include "src/font/font_TinyPixie2_6px.h"
 #include "src/font/console_font_5x8.h"
 #include "src/font/console_font_5x12.h"
 #include "src/font/console_font_6x8.h"
@@ -699,8 +699,8 @@ void FontManager::scanAvailableFonts() {
   SegmentFontMetadata* meta = getMetadata();
   if (!meta) return;
   meta->availableFonts = 0;
-  for (int i = 0; i < 5; i++) {
-    char fileName[16];
+  for (int i = 0; i < MAX_FONTS; i++) {
+    char fileName[FONT_NAME_BUFFER_SIZE];
     strcpy_P(fileName, PSTR("/font"));
     if (i > 0) sprintf(fileName + 5, "%d", i);
     strcat_P(fileName, PSTR(".wbf"));
@@ -716,7 +716,7 @@ bool FontManager::loadFont(uint8_t fontNum, bool useFile) {
   _useFlashFont = !useFile;
   switch (_fontNum) {
     default:
-    case 0: _flashFont = console_font_4x6;    break;
+    case 0: _flashFont = font_TinyPixie2_6px;    break;
     case 1: _flashFont = console_font_5x8;  break;
     case 2: _flashFont = console_font_6x8;  break;
     case 3: _flashFont = console_font_7x9;  break;
@@ -751,7 +751,7 @@ bool FontManager::loadFont(uint8_t fontNum, bool useFile) {
   if (!(meta->availableFonts & (1 << fontNum))) {
     // Not available - find first available font
     fontToUse = 0xFF;
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < MAX_FONTS; i++) {
       if (meta->availableFonts & (1 << i)) {
         fontToUse = i;
         break;
@@ -782,12 +782,12 @@ bool FontManager::loadFont(uint8_t fontNum, bool useFile) {
   return true;
 }
 
-uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes, uint8_t maxCount) {
+uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes) {
   uint8_t count = 0;
-  // Pre-add numbers if caching
+  // Pre-add numbers if caching (for clock use without constant re-caching)
   if (_cacheNumbers) {
-    const char* nums = "0123456789:. "; // TOD: use printf
-    for (const char* p = nums; *p && count < maxCount; p++) {
+    static const char s_nums[] PROGMEM = "0123456789:. ";
+    for (const char* p = s_nums; *p && count < MAX_CACHED_GLYPHS; p++) {
       int32_t idx = getGlyphIndex(*p, hdr.first, hdr.last, hdr.firstUnicode);
       if (idx >= 0 && idx < 256) {
         outCodes[count++] = idx;
@@ -796,10 +796,10 @@ uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr,
   }
   // Parse text
   size_t i = 0, len = strlen(text);
-  while (i < len && count < maxCount) {
+  while (i < len && count < MAX_CACHED_GLYPHS) {
     uint8_t charLen;
     uint32_t unicode = utf8_decode(&text[i], &charLen);
-    if (!charLen || charLen > 4) break;
+    if (!charLen) break; // invalid input, stop processing
     i += charLen;
     int32_t idx = getGlyphIndex(unicode, hdr.first, hdr.last, hdr.firstUnicode);
     if (idx < 0) {
@@ -860,8 +860,8 @@ void FontManager::prepare(const char* text) {
   }
 
   // Check if all needed glyphs are present
-  uint8_t neededCodes[64];
-  uint8_t neededCount = collectNeededCodes(text, _cachedHeader, neededCodes, 64);
+  uint8_t neededCodes[MAX_CACHED_GLYPHS];
+  uint8_t neededCount = collectNeededCodes(text, _cachedHeader, neededCodes);
 
   GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
   for (uint8_t k = 0; k < neededCount; k++) {
@@ -893,7 +893,7 @@ void FontManager::rebuildCache(const char* text) {
   }
 
   // Build filename from font number  TODO: make file name generation a function
-  char fileName[16];
+  char fileName[FONT_NAME_BUFFER_SIZE];
   strcpy_P(fileName, PSTR("/font"));
   if (_fontNum > 0) sprintf(fileName + 5, "%d", _fontNum);
   strcat_P(fileName, PSTR(".wbf"));
@@ -906,7 +906,7 @@ void FontManager::rebuildCache(const char* text) {
   if (!file) {
     SegmentFontMetadata* meta = getMetadata();
     if (meta) {
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < MAX_FONTS; i++) {
         if (i == _fontNum) continue; // Already tried this one
         if (meta->availableFonts & (1 << i)) {
           strcpy_P(fileName, PSTR("/font"));
@@ -936,9 +936,9 @@ void FontManager::rebuildCache(const char* text) {
   file.read(); // skip byte 7 (reserved)
   file.read((uint8_t*)&fileHdr.firstUnicode, 4);
 
-  // Collect needed glyphs (no need to sort!)
-  uint8_t neededCodes[64];
-  uint8_t neededCount = collectNeededCodes(text, fileHdr, neededCodes, 64);
+  // Collect needed glyphs
+  uint8_t neededCodes[MAX_CACHED_GLYPHS];
+  uint8_t neededCount = collectNeededCodes(text, fileHdr, neededCodes);
   if (fileHdr.last < fileHdr.first) { file.close(); return; } // Invalid header
   uint8_t numGlyphs = fileHdr.last - fileHdr.first + 1;
   uint8_t widthTable[numGlyphs];
@@ -1025,21 +1025,17 @@ void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t
     for (int col = 0; col < w; col++) {
       uint16_t bytePos = bitIndex >> 3;
       uint8_t bitPos = 7 - (bitIndex & 7);
-      // Direct pointer access for speed
-      uint8_t byteVal = _reader->readByte((bitmap - _fontBase) + bytePos);
+      uint8_t byteVal = _reader->readByte((bitmap - _fontBase) + bytePos); // note: could read only if new byte is needed but this is fast enough and simpler
       if ((byteVal >> bitPos) & 1) {
         int x0, y0;
         switch (rotate) {
-          case -1: x0 = x + (h-1) - row; y0 = y + col;         break;
+          case -1: x0 = x + row;         y0 = y + col;         break; // 90° CW
+          case  1: x0 = x + (h-1) - row; y0 = y + (w-1) - col; break; // 90° CCW
           case -2:
           case  2: x0 = x + (w-1) - col; y0 = y + (h-1) - row; break;
-          case  1: x0 = x + row;         y0 = y + (w-1) - col; break;
           default: x0 = x + col;         y0 = y + row;         break;
         }
-        if (x0 >= 0 && x0 < (int)_segment->vWidth() && 
-            y0 >= 0 && y0 < (int)_segment->vHeight()) {
-          _segment->setPixelColorXYRaw(x0, y0, c.color32);
-        }
+        _segment->setPixelColorXY(x0, y0, c.color32); // bounds checking is done in setPixelColorXY
       }
       bitIndex++;
     }

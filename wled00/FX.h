@@ -1148,6 +1148,10 @@ struct SegmentFontMetadata {
 // [12-byte font header] - for compatibility and to store font info
 // [Bitmap data] - sequential, matches registry order
 
+static constexpr uint8_t MAX_CACHED_GLYPHS = 64;     // max segment string length is 64 chars so this is absolute worst case
+static constexpr uint8_t MAX_FONTS = 5;              // scrolli text supports font numbers 0-4
+static constexpr size_t  FONT_NAME_BUFFER_SIZE = 16; // font names is /fontX.wbf
+
 // Font header structure
 struct FontHeader {
   uint8_t height;
@@ -1172,7 +1176,7 @@ public:
     _fontBase(nullptr) {}
 
   bool loadFont(uint8_t fontNum, bool useFile);
-  void setCacheNumbers(bool cache) { _cacheNumbers = cache; }
+  void cacheNumbers(bool cache) { _cacheNumbers = cache; }
   void prepare(const char* text);
 
   inline void beginFrame() {
@@ -1184,13 +1188,13 @@ public:
       }
     }
   }
-  
+
   // Get dimensions (use cached header)
   inline uint8_t getFontHeight() { return _cachedHeader.height; }
   inline uint8_t getFontWidth()  { return _cachedHeader.width; }
   inline uint8_t getFontSpacing() { return _cachedHeader.spacing; }
   uint8_t getGlyphWidth(uint32_t unicode);
-  
+
   // Rendering
   void drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t color, uint32_t col2, int8_t rotate);
 
@@ -1200,7 +1204,7 @@ private:
   uint8_t _fontNum;        // Font number (0-4)
   bool _useFlashFont;      // true = flash, false = file
   bool _cacheNumbers;
-  
+
   // Cached data for performance (non-static, per-instance)
   bool _headerValid;
   FontHeader _cachedHeader;
@@ -1208,7 +1212,7 @@ private:
   const uint8_t* _fontBase;
   FlashByteReader _flashReader;
   RAMByteReader _ramReader;
-  
+
   // Invalidate cached header (call when font changes)
   inline void invalidateHeader() {
     _headerValid = false;
@@ -1231,23 +1235,23 @@ private:
       _fontBase = nullptr;
     }
   }
-  
+
   // Metadata access (RAM only)
   SegmentFontMetadata* getMetadata() {
     return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
   }
-  
+
   // Unified operations (work identically for flash and RAM)
   static bool parseHeader(const ByteReader& reader, FontHeader& hdr);
   const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
-  
+
   // Glyph index calculation (pure function, inline for speed)
   static inline int32_t getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode);
-  
+
   // File font management
   void scanAvailableFonts();
   void rebuildCache(const char* text);
-  uint8_t collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes, uint8_t maxCount);
+  uint8_t collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes);
 };
 
 #endif
