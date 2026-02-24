@@ -19,6 +19,10 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+#if defined(CONFIG_IDF_TARGET_ESP32P4)
+#include "WiFi.h"           // WiFi library for network connectivity
+#include "ESP_HostedOTA.h"  // ESP-Hosted OTA update functionality
+#endif
 extern "C" void usePWMFixedNMI();
 
 /*
@@ -994,6 +998,22 @@ void WLED::handleConnection()
       DEBUG_PRINT(F(" (2.4GHz)"));
     #endif
     DEBUG_PRINTLN();
+
+  #if defined(CONFIG_IDF_TARGET_ESP32P4)
+    // directly after connection, attempt to update the ESP-Hosted Wi-Fi co-processor firmware
+    if (!apActive && !improvActive) {
+      // This function will:
+      // - Check if ESP-Hosted is initialized
+      // - Verify if an update is available
+      // - Download and install the firmware update if needed
+      if (updateEspHostedSlave()) {
+        // Restart the host ESP32 after successful update
+        // This is currently required to properly activate the new firmware on the ESP-Hosted co-processor
+        // ESP.restart();
+        doReboot = true; // schedule reboot
+      }
+    }
+  #endif
 
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
