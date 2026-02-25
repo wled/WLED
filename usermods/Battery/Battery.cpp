@@ -255,12 +255,13 @@ class UsermodBattery : public Usermod {
         nextReadTime = millis() + readingInterval;
       }
 
-      // auto-detect INA226 usermod once after initial delay (all usermods are set up by now)
+      // auto-detect INA226 usermod (keep trying until first successful sensor read)
       if (!ina226Probed) {
-        ina226Probed = true;
         um_data_t *data = nullptr;
-        if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data)
+        if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data) {
           estimatedRuntimeEnabled = true;
+          ina226Probed = true;
+        }
       }
 
       if (isFirstVoltageReading) {
