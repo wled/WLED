@@ -16,6 +16,8 @@ Enables battery level monitoring of your project.
 
 - 💯 Displays current battery voltage
 - 🚥 Displays battery level
+- 🔌 Charging state detection (voltage trend based)
+- ⏱️ Estimated runtime remaining (dV/dt based)
 - 🚫 Auto-off with configurable threshold
 - 🚨 Low power indicator with many configuration possibilities
 
@@ -79,10 +81,109 @@ All parameters can be configured at runtime via the Usermods settings page.
 
 **NOTICE:** Each Battery type can be pre-configured individualy (in `my_config.h`)
 
-| Name            | Alias         | `my_config.h` example                 |
-| --------------- | ------------- | ------------------------------------- |
-| Lithium Polymer | lipo (Li-Po)  | `USERMOD_BATTERY_lipo_MIN_VOLTAGE`    |
-| Lithium Ionen   | lion (Li-Ion) | `USERMOD_BATTERY_lion_TOTAL_CAPACITY` |
+| Name                    | Alias           | `my_config.h` example                    |
+| ----------------------- | --------------- | ---------------------------------------- |
+| Lithium Polymer         | lipo (Li-Po)    | `USERMOD_BATTERY_LIPO_MIN_VOLTAGE`       |
+| Lithium Ionen           | lion (Li-Ion)   | `USERMOD_BATTERY_LION_MIN_VOLTAGE`       |
+| Lithium Iron Phosphate  | lifepo4 (LFP)  | `USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE`    |
+
+<br><br>
+
+## 🔋 Adding a Custom Battery Type
+
+If none of the built-in battery types match your cell chemistry, you can add your own.
+
+### Step-by-step
+
+1. **Create a new header** in `usermods/Battery/types/`, e.g. `MyBattery.h`.
+   Use an existing type as a template (e.g. `LipoUMBattery.h`):
+
+   ```cpp
+   #ifndef UMBMyBattery_h
+   #define UMBMyBattery_h
+
+   #include "../battery_defaults.h"
+   #include "../UMBattery.h"
+
+   class MyBattery : public UMBattery
+   {
+       private:
+           static const LutEntry dischargeLut[] PROGMEM;
+           static const uint8_t dischargeLutSize;
+
+       public:
+           MyBattery() : UMBattery()
+           {
+               // Set your cell's voltage limits
+               this->setMinVoltage(3.0f);
+               this->setMaxVoltage(4.2f);
+           }
+
+           float mapVoltage(float v) override
+           {
+               return this->lutInterpolate(v, dischargeLut, dischargeLutSize);
+           };
+
+           // Optional: override setMaxVoltage to enforce a minimum gap
+           // void setMaxVoltage(float voltage) override
+           // {
+           //     this->maxVoltage = max(getMinVoltage()+0.5f, voltage);
+           // }
+   };
+
+   // Discharge lookup table – voltage (descending) → percentage
+   // Obtain this data from your cell's datasheet
+   const UMBattery::LutEntry MyBattery::dischargeLut[] PROGMEM = {
+       {4.20f, 100.0f},
+       {3.90f,  75.0f},
+       {3.60f,  25.0f},
+       {3.00f,   0.0f},
+   };
+   const uint8_t MyBattery::dischargeLutSize =
+       sizeof(MyBattery::dischargeLut) / sizeof(MyBattery::dischargeLut[0]);
+
+   #endif
+   ```
+
+2. **Add a new enum value** in `battery_defaults.h`:
+
+   ```cpp
+   typedef enum
+   {
+     lipo=1,
+     lion=2,
+     lifepo4=3,
+     mybattery=4    // <-- new
+   } batteryType;
+   ```
+
+3. **Register defaults** (optional) in `battery_defaults.h`:
+
+   ```cpp
+   #ifndef USERMOD_BATTERY_MYBATTERY_MIN_VOLTAGE
+     #define USERMOD_BATTERY_MYBATTERY_MIN_VOLTAGE 3.0f
+   #endif
+   #ifndef USERMOD_BATTERY_MYBATTERY_MAX_VOLTAGE
+     #define USERMOD_BATTERY_MYBATTERY_MAX_VOLTAGE 4.2f
+   #endif
+   ```
+
+4. **Wire it up** in `Battery.cpp`:
+
+   - Add the include at the top:
+     ```cpp
+     #include "types/MyBattery.h"
+     ```
+   - Add a case in `createBattery()`:
+     ```cpp
+     case mybattery: return new MyBattery();
+     ```
+   - Add a dropdown option in `appendConfigData()`:
+     ```cpp
+     oappend(F("addOption(td,'My Battery','4');"));
+     ```
+
+5. **Compile and flash** — select your new type from the Battery settings page.
 
 <br><br>
 
@@ -128,6 +229,13 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 <br><br>
 
 ## 📝 Change Log
+
+2025-02-24
+
+- Added LiFePO4 battery type with piecewise-linear discharge curve mapping
+- Added charging state detection based on voltage trend (dV/dt)
+- Added estimated runtime remaining (sliding window dV/dt extrapolation)
+- Added charging status and runtime to MQTT, JSON API, and web UI info panel
 
 2024-08-19
 
