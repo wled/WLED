@@ -43,22 +43,30 @@ class UsermodBattery : public Usermod {
     unsigned long lowPowerActivationTime = 0;
     uint8_t lastPreset = 0;
 
-    // --- Charging detection ---
+    // --- Charging detection (voltage trend over sliding window) ---
     bool charging = false;
-    uint8_t chargingRiseCount = 0;
-    float previousVoltage = 0.0f;
-    static const uint8_t CHARGE_DETECT_THRESHOLD = 3;
-    static const uint8_t CHARGE_COUNT_MAX = 6;
-    static constexpr float CHARGE_VOLTAGE_DEADBAND = 0.01f;
+    static const uint8_t VOLTAGE_HISTORY_SIZE = 5;  // 5 × 30s = 2.5 min window
+    float voltageHistory[5] = {0};
+    uint8_t voltageHistoryIdx = 0;
+    bool voltageHistoryFull = false;
+    static constexpr float CHARGE_VOLTAGE_THRESHOLD = 0.01f;  // 10mV rise over window
 
-    // --- Estimated runtime (requires INA226) ---
-    #ifdef USERMOD_INA226
-    bool estimatedRuntimeEnabled = USERMOD_BATTERY_ESTIMATED_RUNTIME_ENABLED;
+    // --- Estimated runtime (auto-enabled when INA226 detected) ---
+    bool estimatedRuntimeEnabled = false;
+    bool ina226Probed = false;
     uint16_t batteryCapacity = USERMOD_BATTERY_CAPACITY;
     int32_t estimatedTimeLeft = -1;
-    float smoothedEstimate = -1.0f;
-    static constexpr float ESTIMATE_SMOOTHING = 0.3f;
-    #endif
+    float smoothedCurrent = -1.0f;
+    static constexpr float CURRENT_SMOOTHING = 0.2f;
+
+    // --- Coulomb counting (active when INA226 is available) ---
+    float coulombSoC = -1.0f;
+    bool coulombInitialized = false;
+    unsigned long lastCoulombTime = 0;
+    unsigned long restStartTime = 0;
+    bool atRest = false;
+    static constexpr float REST_CURRENT_THRESHOLD = 0.01f;
+    static const unsigned long REST_RECALIBRATE_MS = 60000;
 
     // --- Inter-usermod data exchange ---
     float umVoltage = 0.0f;
@@ -121,13 +129,11 @@ class UsermodBattery : public Usermod {
       #endif
     }
 
-    #ifdef USERMOD_INA226
     float getINA226Current() {
       um_data_t *data = nullptr;
       if (!UsermodManager::getUMData(&data, USERMOD_ID_INA226) || !data) return -1.0f;
       return *(float*)data->u_data[0];
     }
-    #endif
 
 #ifndef WLED_DISABLE_MQTT
     void addMqttSensor(const String &name, const String &type, const String &topic, const String &deviceClass, const String &unitOfMeasurement = "", const bool &isDiagnostic = false) {
@@ -249,6 +255,14 @@ class UsermodBattery : public Usermod {
         nextReadTime = millis() + readingInterval;
       }
 
+      // auto-detect INA226 usermod once after initial delay (all usermods are set up by now)
+      if (!ina226Probed) {
+        ina226Probed = true;
+        um_data_t *data = nullptr;
+        if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data)
+          estimatedRuntimeEnabled = true;
+      }
+
       if (isFirstVoltageReading) {
         bat->setVoltage(readVoltage());
         isFirstVoltageReading = false;
@@ -271,37 +285,62 @@ class UsermodBattery : public Usermod {
       umVoltage = filteredVoltage;
       umLevel = bat->getLevel();
 
-      // charging detection based on voltage trend
-      if (previousVoltage > 0.0f) {
-        if (filteredVoltage > previousVoltage + CHARGE_VOLTAGE_DEADBAND) {
-          chargingRiseCount = min((uint8_t)(chargingRiseCount + 1), CHARGE_COUNT_MAX);
-        } else if (filteredVoltage < previousVoltage - CHARGE_VOLTAGE_DEADBAND) {
-          if (chargingRiseCount > 0) chargingRiseCount--;
-        }
-        charging = (chargingRiseCount >= CHARGE_DETECT_THRESHOLD);
+      // charging detection: compare current voltage against ~2.5 minutes ago
+      float oldestVoltage = voltageHistory[voltageHistoryIdx];
+      voltageHistory[voltageHistoryIdx] = filteredVoltage;
+      voltageHistoryIdx = (voltageHistoryIdx + 1) % VOLTAGE_HISTORY_SIZE;
+      if (!voltageHistoryFull && voltageHistoryIdx == 0) voltageHistoryFull = true;
+
+      if (voltageHistoryFull && oldestVoltage > 0.0f) {
+        charging = (filteredVoltage - oldestVoltage > CHARGE_VOLTAGE_THRESHOLD);
       }
-      previousVoltage = filteredVoltage;
 
-      // estimated runtime via INA226 current sensor
-      #ifdef USERMOD_INA226
-      if (estimatedRuntimeEnabled) {
-        float current_A = getINA226Current();
-        if (!charging && current_A > 0.01f && batteryCapacity > 0 && bat->getLevel() > 0) {
-          float remaining_Ah = (bat->getLevel() / 100.0f) * (batteryCapacity / 1000.0f);
-          float rawEstimate = min(remaining_Ah / current_A * 60.0f, 14400.0f);
+      // Coulomb counting & runtime estimation via INA226
+      float current_A = estimatedRuntimeEnabled ? getINA226Current() : -1.0f;
+      if (estimatedRuntimeEnabled && current_A >= 0.0f) {
+        unsigned long now = millis();
+        float capacity_Ah = batteryCapacity / 1000.0f;
 
-          if (smoothedEstimate < 0.0f) {
-            smoothedEstimate = rawEstimate;
-          } else {
-            smoothedEstimate = ESTIMATE_SMOOTHING * rawEstimate + (1.0f - ESTIMATE_SMOOTHING) * smoothedEstimate;
+        // initialize Coulomb counter from voltage-based SoC on first valid reading
+        if (!coulombInitialized) {
+          coulombSoC = bat->getLevel() / 100.0f;
+          coulombInitialized = true;
+          lastCoulombTime = now;
+        } else {
+          float dt_hours = (now - lastCoulombTime) / 3600000.0f;
+          lastCoulombTime = now;
+
+          // only subtract charge while discharging
+          if (!charging && current_A > 0.0f && capacity_Ah > 0.0f) {
+            coulombSoC -= (current_A * dt_hours) / capacity_Ah;
           }
-          estimatedTimeLeft = (int32_t)smoothedEstimate;
+          coulombSoC = constrain(coulombSoC, 0.0f, 1.0f);
+        }
+
+        // recalibrate from voltage-based SoC when battery is at rest (OCV is accurate)
+        if (current_A < REST_CURRENT_THRESHOLD) {
+          if (!atRest) { atRest = true; restStartTime = now; }
+          if (now - restStartTime >= REST_RECALIBRATE_MS) {
+            coulombSoC = bat->getLevel() / 100.0f;
+          }
+        } else {
+          atRest = false;
+        }
+
+        // runtime estimation using Coulomb-tracked SoC
+        if (!charging && current_A > 0.01f && batteryCapacity > 0 && coulombSoC > 0.0f) {
+          if (smoothedCurrent < 0.0f) {
+            smoothedCurrent = current_A;
+          } else {
+            smoothedCurrent = CURRENT_SMOOTHING * current_A + (1.0f - CURRENT_SMOOTHING) * smoothedCurrent;
+          }
+          float remaining_Ah = coulombSoC * capacity_Ah;
+          estimatedTimeLeft = (int32_t)min(remaining_Ah / smoothedCurrent * 60.0f, 14400.0f);
         } else {
           estimatedTimeLeft = -1;
-          smoothedEstimate = -1.0f;
+          smoothedCurrent = -1.0f;
         }
       }
-      #endif
 
       // auto-off
       if (autoOffEnabled && (autoOffThreshold >= bat->getLevel()))
@@ -311,11 +350,9 @@ class UsermodBattery : public Usermod {
       publishMqtt("battery", String(bat->getLevel(), 0).c_str());
       publishMqtt("voltage", String(bat->getVoltage()).c_str());
       publishMqtt("charging", charging ? "on" : "off");
-      #ifdef USERMOD_INA226
       if (estimatedRuntimeEnabled && estimatedTimeLeft >= 0) {
         publishMqtt("runtime", String(estimatedTimeLeft).c_str());
       }
-      #endif
 #endif
     }
 
@@ -381,7 +418,6 @@ class UsermodBattery : public Usermod {
 
       infoCharging.add(charging ? F("Yes") : F("No"));
 
-      #ifdef USERMOD_INA226
       if (estimatedRuntimeEnabled) {
         JsonArray infoRuntime = user.createNestedArray(F("Est. runtime"));
         if (charging) {
@@ -390,14 +426,14 @@ class UsermodBattery : public Usermod {
           infoRuntime.add(F("calculating"));
         } else if (estimatedTimeLeft < 60) {
           infoRuntime.add(estimatedTimeLeft);
-          infoRuntime.add(F(" min"));
+          infoRuntime.add(cfg.type == lifepo4 ? F(" min (approx)") : F(" min"));
         } else {
-          char buf[16];
-          snprintf_P(buf, sizeof(buf), PSTR("%dh %dm"), estimatedTimeLeft / 60, estimatedTimeLeft % 60);
+          char buf[24];
+          snprintf_P(buf, sizeof(buf), cfg.type == lifepo4 ? PSTR("%dh %dm (approx)") : PSTR("%dh %dm"),
+                     estimatedTimeLeft / 60, estimatedTimeLeft % 60);
           infoRuntime.add(buf);
         }
       }
-      #endif
     }
 
     void addToJsonState(JsonObject& root) {
@@ -410,11 +446,10 @@ class UsermodBattery : public Usermod {
       if (forJsonState) {
         battery[F("type")] = cfg.type;
         battery[F("charging")] = charging;
-        #ifdef USERMOD_INA226
+        battery[F("estimated-runtime-enabled")] = estimatedRuntimeEnabled;
         if (estimatedRuntimeEnabled) {
           battery[F("estimated-runtime")] = estimatedTimeLeft;
         }
-        #endif
       } else {
         battery[F("type")] = (String)cfg.type;
       }
@@ -422,10 +457,7 @@ class UsermodBattery : public Usermod {
       battery[F("max-voltage")] = bat->getMaxVoltage();
       battery[F("calibration")] = bat->getCalibration();
       battery[F("voltage-multiplier")] = bat->getVoltageMultiplier();
-      #ifdef USERMOD_INA226
       battery[F("capacity")] = batteryCapacity;
-      battery[F("estimated-runtime-enabled")] = estimatedRuntimeEnabled;
-      #endif
       battery[FPSTR(_readInterval)] = readingInterval;
       battery[FPSTR(_haDiscovery)] = HomeAssistantDiscovery;
 
@@ -467,10 +499,7 @@ class UsermodBattery : public Usermod {
       oappend(F("addInfo('Battery:type',1,'<small style=\"color:orange\">requires reboot</small>');")); // 81 Bytes
       oappend(F("addInfo('Battery:min-voltage',1,'v');"));          // 38 Bytes
       oappend(F("addInfo('Battery:max-voltage',1,'v');"));          // 38 Bytes
-      #ifdef USERMOD_INA226
       oappend(F("addInfo('Battery:capacity',1,'mAh');"));                // 37 Bytes
-      oappend(F("addInfo('Battery:estimated-runtime-enabled',1,'');"));  // 51 Bytes
-      #endif
       oappend(F("addInfo('Battery:interval',1,'ms');"));            // 36 Bytes
       oappend(F("addInfo('Battery:HA-discovery',1,'');"));          // 38 Bytes
       oappend(F("addInfo('Battery:auto-off:threshold',1,'%');"));   // 45 Bytes
@@ -508,10 +537,7 @@ class UsermodBattery : public Usermod {
       getJsonValue(battery[F("calibration")], cfg.calibration);
       getJsonValue(battery[F("voltage-multiplier")], cfg.voltageMultiplier);
 
-      #ifdef USERMOD_INA226
       batteryCapacity = battery[F("capacity")] | batteryCapacity;
-      estimatedRuntimeEnabled = battery[F("estimated-runtime-enabled")] | estimatedRuntimeEnabled;
-      #endif
 
       setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
       HomeAssistantDiscovery = battery[FPSTR(_haDiscovery)] | HomeAssistantDiscovery;
@@ -548,9 +574,6 @@ class UsermodBattery : public Usermod {
           && !battery[F("type")].isNull()
           && !battery[F("auto-off")].isNull()
           && !battery[F("indicator")].isNull();
-      #ifdef USERMOD_INA226
-      configComplete = configComplete && !battery[F("estimated-runtime-enabled")].isNull();
-      #endif
       return configComplete;
     }
 
@@ -565,11 +588,9 @@ class UsermodBattery : public Usermod {
       registerMqttSensor("battery",  F("Battery"),  "sensor",        "battery",          "%");
       registerMqttSensor("voltage",  F("Voltage"),  "sensor",        "voltage",          "V");
       registerMqttSensor("charging", F("Charging"), "binary_sensor", "battery_charging");
-      #ifdef USERMOD_INA226
       if (estimatedRuntimeEnabled) {
         registerMqttSensor("runtime",  F("Runtime"),  "sensor",        "duration",         "min");
       }
-      #endif
     }
 
     void registerMqttSensor(const char* subtopic, const String &name, const char* type, const char* deviceClass, const char* unit = "", bool diagnostic = true) {

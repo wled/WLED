@@ -117,16 +117,9 @@
   #define USERMOD_BATTERY_LOW_POWER_INDICATOR_DURATION 5
 #endif
 
-// estimated runtime feature (requires INA226 current sensor)
-#ifdef USERMOD_INA226
-  #ifndef USERMOD_BATTERY_ESTIMATED_RUNTIME_ENABLED
-    #define USERMOD_BATTERY_ESTIMATED_RUNTIME_ENABLED true
-  #endif
-
-  // battery capacity in mAh (used for runtime estimation with INA226 current sensor)
-  #ifndef USERMOD_BATTERY_CAPACITY
-    #define USERMOD_BATTERY_CAPACITY 3000
-  #endif
+// battery capacity in mAh (used for runtime estimation with INA226 current sensor)
+#ifndef USERMOD_BATTERY_CAPACITY
+  #define USERMOD_BATTERY_CAPACITY 3000
 #endif
 
 // battery types

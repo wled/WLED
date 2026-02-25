@@ -17,7 +17,7 @@ Enables battery level monitoring of your project.
 - 💯 Displays current battery voltage
 - 🚥 Displays battery level
 - 🔌 Charging state detection (voltage trend based)
-- ⏱️ Estimated runtime remaining (dV/dt based)
+- ⏱️ Estimated runtime remaining (requires INA226 current sensor)
 - 🚫 Auto-off with configurable threshold
 - 🚨 Low power indicator with many configuration possibilities
 
@@ -69,6 +69,8 @@ In `platformio_override.ini` (or `platformio.ini`)<br>Under: `custom_usermods =`
 | Auto-Off                                        | ---         | ---                                                                                   |
 | `USERMOD_BATTERY_AUTO_OFF_ENABLED`              | true/false  | Enables auto-off                                                                      |
 | `USERMOD_BATTERY_AUTO_OFF_THRESHOLD`            | % (0-100)   | When this threshold is reached master power turns off                                 |
+| Estimated Runtime                               | ---         | ---                                                                                   |
+| `USERMOD_BATTERY_CAPACITY`                      | mAh         | Total battery capacity for runtime calculation. defaults to 3000                      |
 | Low-Power-Indicator                             | ---         | ---                                                                                   |
 | `USERMOD_BATTERY_LOW_POWER_INDICATOR_ENABLED`   | true/false  | Enables low power indication                                                          |
 | `USERMOD_BATTERY_LOW_POWER_INDICATOR_PRESET`    | preset id   | When low power is detected then use this preset to indicate low power                 |
@@ -187,6 +189,69 @@ If none of the built-in battery types match your cell chemistry, you can add you
 
 <br><br>
 
+## ⏱️ Estimated Runtime
+
+The battery usermod can estimate the remaining runtime of your project. This feature is **automatically enabled** when the [INA226 usermod](../INA226_v2/) is detected at runtime — no extra configuration needed.
+
+### How it works
+
+1. The INA226 current sensor measures the actual current draw of your project
+2. **Coulomb counting**: Current is integrated over time (`SoC -= I × dt / capacity`) to track charge consumed, instead of relying solely on voltage. When the battery is at rest (current < 10mA for 60s), the Coulomb counter recalibrates from the voltage-based SoC (OCV is accurate at rest)
+3. The current reading is smoothed using an exponential moving average to reduce jitter from load fluctuations (e.g. LED effect changes, WiFi traffic)
+4. The estimated time remaining is: `remaining_Ah / smoothed_current_A`
+
+### Setup
+
+Add both usermods to your `platformio_override.ini`:
+
+```ini
+custom_usermods = Battery INA226
+```
+
+Set your battery capacity in the WLED Usermods settings page or at compile time:
+
+```ini
+-D USERMOD_BATTERY_CAPACITY=3000
+```
+
+### Accuracy
+
+> **This is an estimation, not a precise measurement.**
+
+The battery usermod combines voltage-based lookup tables with software Coulomb counting. This is the same approach used by many consumer battery management systems. It is suitable for hobby projects and provides a useful estimate, but it is **not a substitute for a dedicated battery fuel gauge IC**.
+
+What the usermod does to improve accuracy:
+
+- **Coulomb counting**: Instead of relying solely on voltage, the usermod integrates current over time to track charge consumed. This is more accurate during discharge than voltage-based estimation alone.
+- **Rest recalibration**: When the battery is at rest (current < 10mA for 60 seconds), the Coulomb counter recalibrates from the voltage-based SoC. Open-circuit voltage is accurate at rest, which corrects for Coulomb counting drift.
+
+Remaining limitations:
+
+- **Voltage under load**: SoC is estimated from the battery voltage while your LEDs are drawing current. The voltage drop across the battery's internal resistance makes the initial SoC seed and rest recalibrations more pessimistic than reality. Typical error: 10-15%.
+- **Variable loads**: LED effects with changing brightness cause current fluctuations. The smoothing filter takes a few minutes to converge after a load change.
+- **LiFePO4 flat curve**: LiFePO4 cells have an extremely flat discharge curve (25% of SoC maps to just ~50mV). Even with Coulomb counting, the initial SoC seed and rest recalibrations are voltage-based. Runtime estimates for LiFePO4 are marked as approximate.
+- **Battery aging**: The configured capacity (mAh) does not account for capacity fade over charge cycles.
+- **30-second interval**: The measurement interval (default 30s) is relatively coarse for Coulomb counting. Rapid load changes between readings may not be captured.
+
+**Realistic accuracy**: 15-25% error at steady load for LiPo/Li-Ion, 20-40% for variable loads. For LiFePO4, expect 25-50% error in the mid-range.
+
+For hobby LED projects, this level of accuracy is usually sufficient — you'll know roughly how many hours you have left, which is better than no estimate at all.
+
+### For advanced users: dedicated battery fuel gauge ICs
+
+If you need more accurate hardware-based readings, consider using a dedicated battery fuel gauge IC. The [MAX17048 usermod](../MAX17048_v2/) supports one such IC out of the box — no sense resistor required.
+
+Other ICs that use hardware Coulomb counting, temperature compensation, and sophisticated algorithms to achieve 1-3% SoC accuracy:
+
+| IC                 | Interface | Method                          | Notes                                           |
+| ------------------ | --------- | ------------------------------- | ----------------------------------------------- |
+| **TI INA228**      | I2C       | Voltage/current + charge accum. | INA226 successor with hardware Coulomb counter  |
+| **TI BQ27441**     | I2C       | Impedance Track                 | Full fuel gauge with temperature compensation   |
+| **Analog LTC2941** | I2C       | Coulomb counting                | Simple, accurate, programmable alerts           |
+| **ST STC3117**     | I2C       | OptimGauge (combined approach)  | Coulomb counting with voltage-based corrections |
+
+<br><br>
+
 ## 🔧 Calibration
 
 The calibration number is a value that is added to the final computed voltage after it has been scaled by the voltage multiplier. 
@@ -233,8 +298,8 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 2025-02-24
 
 - Added LiFePO4 battery type with piecewise-linear discharge curve mapping
-- Added charging state detection based on voltage trend (dV/dt)
-- Added estimated runtime remaining (sliding window dV/dt extrapolation)
+- Added charging state detection based on voltage trend (sliding window)
+- Added estimated runtime remaining (INA226 current sensor, auto-detected at runtime)
 - Added charging status and runtime to MQTT, JSON API, and web UI info panel
 
 2024-08-19
