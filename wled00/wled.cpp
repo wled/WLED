@@ -490,7 +490,11 @@ void WLED::setup()
   // reading the base MAC directly from eFuse.
   if (escapedMac == "000000000000") {
     uint8_t mac[6] = {0};
-    esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    #if defined(CONFIG_IDF_TARGET_ESP32P4)  // P4 does not have on-chip WIFI, use ethernet MAC
+      esp_read_mac(mac, ESP_MAC_ETH);
+    #else
+      esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    #endif
     char buf[13];
     sprintf(buf, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     escapedMac = buf;
