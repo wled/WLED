@@ -86,7 +86,7 @@ All parameters can be configured at runtime via the Usermods settings page.
 | Name                    | Alias           | `my_config.h` example                    |
 | ----------------------- | --------------- | ---------------------------------------- |
 | Lithium Polymer         | lipo (Li-Po)    | `USERMOD_BATTERY_LIPO_MIN_VOLTAGE`       |
-| Lithium Ionen           | lion (Li-Ion)   | `USERMOD_BATTERY_LION_MIN_VOLTAGE`       |
+| Lithium Ion             | lion (Li-Ion)   | `USERMOD_BATTERY_LION_MIN_VOLTAGE`       |
 | Lithium Iron Phosphate  | lifepo4 (LFP)  | `USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE`    |
 
 <br><br>

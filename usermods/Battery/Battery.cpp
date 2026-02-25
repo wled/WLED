@@ -134,6 +134,7 @@ class UsermodBattery : public Usermod {
     float getINA226Current() {
       um_data_t *data = nullptr;
       if (!UsermodManager::getUMData(&data, USERMOD_ID_INA226) || !data) return -1.0f;
+      if (data->u_size < 1 || !data->u_data || !data->u_data[0]) return -1.0f;
       return *(float*)data->u_data[0];
     }
 
@@ -263,8 +264,19 @@ class UsermodBattery : public Usermod {
         if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data) {
           estimatedRuntimeEnabled = true;
           ina226Probed = true;
+#ifndef WLED_DISABLE_MQTT
+          if (HomeAssistantDiscovery && WLED_MQTT_CONNECTED) {
+            registerMqttSensor("runtime", F("Runtime"), "sensor", "duration", "min");
+          }
+#endif
         }
       }
+
+      #ifdef ARDUINO_ARCH_ESP32
+        if (batteryPin < 0 || !PinManager::isPinAllocated(batteryPin, PinOwner::UM_Battery)) return;
+      #else
+        if (batteryPin < 0) return;
+      #endif
 
       if (isFirstVoltageReading) {
         bat->setVoltage(readVoltage());
@@ -273,8 +285,6 @@ class UsermodBattery : public Usermod {
 
       if (millis() < nextReadTime) return;
       nextReadTime = millis() + readingInterval;
-
-      if (batteryPin < 0) return;
 
       initializing = false;
       float rawValue = readVoltage();
@@ -494,7 +504,12 @@ class UsermodBattery : public Usermod {
       addBatteryToJsonObject(battery, false);
 
       // re-read voltage in case calibration or multiplier changed
-      bat->setVoltage(readVoltage());
+      #ifdef ARDUINO_ARCH_ESP32
+        if (batteryPin >= 0 && PinManager::isPinAllocated(batteryPin, PinOwner::UM_Battery))
+      #else
+        if (batteryPin >= 0)
+      #endif
+          bat->setVoltage(readVoltage());
 
       DEBUG_PRINTLN(F("Battery config saved."));
     }
