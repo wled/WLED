@@ -927,8 +927,10 @@ void WLED::handleConnection()
   if (!Network.isConnected()) {
     if (interfacesInited) {
       if (scanDone && multiWiFi.size() > 1) {
+#ifdef WLED_FORCE_WIFI_OFF
+        DEBUG_PRINTLN(F("WiFi scan suppressed (WLED_FORCE_WIFI_OFF)."));
+#else
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
-#ifndef WLED_FORCE_WIFI_OFF
         findWiFi(true); // reinit scan
 #endif
         scanDone = false;
