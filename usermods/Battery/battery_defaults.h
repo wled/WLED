@@ -27,24 +27,12 @@
 
 
 /* Default Battery Type
- * 0 = unkown
  * 1 = Lipo
  * 2 = Lion
+ * 3 = LiFePO4
  */
 #ifndef USERMOD_BATTERY_DEFAULT_TYPE
-  #define USERMOD_BATTERY_DEFAULT_TYPE 0
-#endif
-/*
- *
- *  Unkown 'Battery' defaults
- *
- */
-#ifndef USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE
-  // Extra save defaults
-  #define USERMOD_BATTERY_UNKOWN_MIN_VOLTAGE 3.3f
-#endif
-#ifndef USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE
-  #define USERMOD_BATTERY_UNKOWN_MAX_VOLTAGE 4.2f
+  #define USERMOD_BATTERY_DEFAULT_TYPE 1
 #endif
 
 /*
@@ -71,6 +59,18 @@
 #endif
 #ifndef USERMOD_BATTERY_LION_MAX_VOLTAGE
   #define USERMOD_BATTERY_LION_MAX_VOLTAGE 4.2f
+#endif
+
+/*
+ *
+ *  Lithium Iron Phosphate (LiFePO4) defaults
+ *
+ */
+#ifndef USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE
+  #define USERMOD_BATTERY_LIFEPO4_MIN_VOLTAGE 2.8f
+#endif
+#ifndef USERMOD_BATTERY_LIFEPO4_MAX_VOLTAGE
+  #define USERMOD_BATTERY_LIFEPO4_MAX_VOLTAGE 3.6f
 #endif
 
 // the default ratio for the voltage divider
@@ -117,12 +117,24 @@
   #define USERMOD_BATTERY_LOW_POWER_INDICATOR_DURATION 5
 #endif
 
+// estimated runtime feature (requires INA226 current sensor)
+#ifdef USERMOD_INA226
+  #ifndef USERMOD_BATTERY_ESTIMATED_RUNTIME_ENABLED
+    #define USERMOD_BATTERY_ESTIMATED_RUNTIME_ENABLED true
+  #endif
+
+  // battery capacity in mAh (used for runtime estimation with INA226 current sensor)
+  #ifndef USERMOD_BATTERY_CAPACITY
+    #define USERMOD_BATTERY_CAPACITY 3000
+  #endif
+#endif
+
 // battery types
 typedef enum
 {
-  unknown=0,
   lipo=1,
-  lion=2
+  lion=2,
+  lifepo4=3
 } batteryType;
 
 // used for initial configuration after boot 
