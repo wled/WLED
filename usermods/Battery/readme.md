@@ -295,12 +295,13 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 
 ## 📝 Change Log
 
-2025-02-24
+2025-02-25
 
-- Added LiFePO4 battery type with piecewise-linear discharge curve mapping
-- Added charging state detection based on voltage trend (sliding window)
-- Added estimated runtime remaining (INA226 current sensor, auto-detected at runtime)
+- Added LiFePO4 battery type with piecewise-linear discharge curve
+- Added estimated runtime with Coulomb counting (auto-detected via INA226 usermod)
+- Added charging detection using sliding window voltage trend
 - Added charging status and runtime to MQTT, JSON API, and web UI info panel
+- Code cleanup and reorganization
 
 2024-08-19
 
