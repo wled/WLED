@@ -295,7 +295,7 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 
 ## 📝 Change Log
 
-2025-02-25
+2026-02-25
 
 - Added LiFePO4 battery type with piecewise-linear discharge curve
 - Added estimated runtime with Coulomb counting (auto-detected via INA226 usermod)

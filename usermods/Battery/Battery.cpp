@@ -104,8 +104,10 @@ class UsermodBattery : public Usermod {
     void lowPowerIndicator() {
       if (!lowPowerIndicatorEnabled) return;
       if (batteryPin < 0) return;
-      if (lowPowerIndicationDone && lowPowerIndicatorReactivationThreshold <= bat->getLevel()) lowPowerIndicationDone = false;
-      if (lowPowerIndicatorThreshold <= bat->getLevel()) return;
+      const int8_t level = bat->getLevel();
+      if (level < 0) return; // wait for first valid reading
+      if (lowPowerIndicationDone && lowPowerIndicatorReactivationThreshold <= level) lowPowerIndicationDone = false;
+      if (lowPowerIndicatorThreshold <= level) return;
       if (lowPowerIndicationDone) return;
       if (!lowPowerIndicatorActive) {
         lowPowerIndicatorActive = true;
@@ -341,6 +343,10 @@ class UsermodBattery : public Usermod {
           estimatedTimeLeft = -1;
           smoothedCurrent = -1.0f;
         }
+      } else {
+        estimatedTimeLeft = -1;
+        smoothedCurrent = -1.0f;
+        atRest = false;
       }
 
       // auto-off
@@ -394,7 +400,8 @@ class UsermodBattery : public Usermod {
       JsonArray infoCharging = user.createNestedArray(F("Battery charging"));
       JsonArray infoNextUpdate = user.createNestedArray(F("Next update"));
 
-      infoNextUpdate.add((nextReadTime - millis()) / 1000);
+      unsigned long now = millis();
+      infoNextUpdate.add(nextReadTime > now ? (nextReadTime - now) / 1000 : 0);
       infoNextUpdate.add(F(" sec"));
 
       if (initializing) {
@@ -585,6 +592,15 @@ class UsermodBattery : public Usermod {
 #ifndef WLED_DISABLE_MQTT
     void onMqttConnect(bool sessionPresent) {
       if (!HomeAssistantDiscovery) return;
+
+      // probe INA226 now in case it wasn't detected yet during loop()
+      if (!ina226Probed) {
+        um_data_t *data = nullptr;
+        if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data) {
+          estimatedRuntimeEnabled = true;
+          ina226Probed = true;
+        }
+      }
 
       registerMqttSensor("battery",  F("Battery"),  "sensor",        "battery",          "%");
       registerMqttSensor("voltage",  F("Voltage"),  "sensor",        "voltage",          "V");

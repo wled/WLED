@@ -48,7 +48,9 @@ class UMBattery
                 memcpy_P(&lo, &lut[i+1], sizeof(LutEntry));
 
                 if (v >= lo.voltage) {
-                    float ratio = (v - lo.voltage) / (hi.voltage - lo.voltage);
+                    float span = hi.voltage - lo.voltage;
+                    if (fabsf(span) < 1e-6f) return hi.percent;
+                    float ratio = (v - lo.voltage) / span;
                     return lo.percent + ratio * (hi.percent - lo.percent);
                 }
             }

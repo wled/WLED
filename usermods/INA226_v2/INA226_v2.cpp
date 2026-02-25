@@ -69,6 +69,7 @@ private:
 
     unsigned long _lastLoopCheck = 0;
     unsigned long _lastTriggerTime = 0;
+    bool _hasValidReading = false;
 
     bool _settingEnabled : 1;                  // Enable the usermod
     bool _mqttPublish : 1;                     // Publish MQTT values
@@ -169,6 +170,7 @@ private:
         _lastPower = power;
         _lastShuntVoltage = shuntVoltage;
         _lastOverflow = overflow;
+        _hasValidReading = true;
     }
 
     void handleTriggeredMode(unsigned long currentTime)
@@ -346,7 +348,7 @@ public:
 
     bool getUMData(um_data_t **data) override
     {
-        if (!data || !_settingEnabled || _lastLoopCheck == 0) return false;
+        if (!data || !_settingEnabled || !_hasValidReading) return false;
         *data = um_data;
         return true;
     }
