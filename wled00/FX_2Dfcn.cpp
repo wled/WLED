@@ -583,9 +583,9 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 }
 #undef WU_WEIGHT
 
-#include "src/font/font_TinyPixie2_6px.h"
-#include "src/font/console_font_5x8.h"
-#include "src/font/console_font_5x12.h"
+#include "src/font/font_tom_thumb_6px.h"
+#include "src/font/font_TinyUnicode_8px.h"
+#include "src/font/font_6x12.h"
 #include "src/font/console_font_6x8.h"
 #include "src/font/console_font_7x9.h"
 
@@ -641,7 +641,7 @@ uint8_t FontManager::getGlyphWidth(uint32_t unicode) {
   return 0; // Not found in cache
 }
 
-// Get glyph bitmap 
+// Get glyph bitmap
 const uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight) {
   if (!_fontBase) return nullptr;
 
@@ -651,7 +651,7 @@ const uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, 
   if (!_segment->data) return nullptr;
   SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
   GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
-  
+
   uint32_t bitmapOffset = 0;
   for (uint8_t k = 0; k < meta->glyphCount; k++) {
     if (registry[k].code == idx) {
@@ -684,11 +684,11 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
   _fontNum = fontNum;
   switch (_fontNum) {
     default:
-    case 0: _flashFont = font_TinyPixie2_6px;    break;
-    case 1: _flashFont = console_font_5x8;  break;
-    case 2: _flashFont = console_font_6x8;  break;
-    case 3: _flashFont = console_font_7x9;  break;
-    case 4: _flashFont = console_font_5x12; break;
+    case 0: _flashFont = font_tom_thumb_6px;    break;
+    case 1: _flashFont = font_TinyUnicode_8px;  break;
+    case 2: _flashFont = console_font_6x8;      break;
+    case 3: _flashFont = console_font_7x9;      break;
+    case 4: _flashFont = font_6x12;             break;
   }
   invalidateHeader();
 
