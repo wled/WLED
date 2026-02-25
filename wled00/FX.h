@@ -1070,8 +1070,8 @@ extern const char JSON_palette_names[];
 #define LAST_ASCII_CHAR 127
 #define FONT_HEADER_SIZE 12
 /**
- * Unified Font Format (Flash and RAM use IDENTICAL layout)
- * 
+ * Font format:
+ *
  * Header Layout (12 Bytes):
  * [0]   Magic 'W' (0x57)
  * [1]   Glyph height
@@ -1084,10 +1084,9 @@ extern const char JSON_palette_names[];
  * [8-11] Unicode Offset (32-bit little-endian)
  *
  * Followed by:
- * - Width table (if variable width): [first..last] byte array
+ * - Width table (if variable width): [first..last] byte array omitted for fixed width fonts i.e. glyphs start after header
  * - Bitmap data: bit-packed glyphs - top left to bottom right, row by row, MSB first, see src/font files for example
  */
-
 
 // Glyph entry in RAM cache
 struct GlyphEntry {
@@ -1096,7 +1095,7 @@ struct GlyphEntry {
   uint8_t height;    // Height in pixels
 };
 
-// Segment metadata (stored BEFORE the font data in RAM)
+// Segment metadata (stored BEFORE the font data in segment data)
 struct SegmentFontMetadata {
   uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
   uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none)
@@ -1104,7 +1103,7 @@ struct SegmentFontMetadata {
   uint8_t glyphCount;      // Number of glyphs cached
 };
 
-// Memory layout for cached fonts:
+// Memory layout of cached font in segment data:
 // [SegmentFontMetadata] - 4 bytes
 // [GlyphEntry array] - 4 bytes each
 // [12-byte font header] - for compatibility and to store font info
@@ -1114,7 +1113,6 @@ static constexpr uint8_t MAX_CACHED_GLYPHS = 64;     // max segment string lengt
 static constexpr uint8_t MAX_FONTS = 5;              // scrolli text supports font numbers 0-4
 static constexpr size_t  FONT_NAME_BUFFER_SIZE = 16; // font names is /fontX.wbf
 
-// Font header structure
 struct FontHeader {
   uint8_t height;
   uint8_t width;
@@ -1127,11 +1125,11 @@ struct FontHeader {
 
 class FontManager {
 public:
-  FontManager(Segment* seg) : 
-    _segment(seg), 
-    _flashFont(nullptr), 
+  FontManager(Segment* seg) :
+    _segment(seg),
+    _flashFont(nullptr), // pointer to font data in flash (if used)
     _fontNum(0),
-    _useFlashFont(false),
+    _useFileFont(false),
     _cacheNumbers(false),
     _headerValid(false),
     _fontBase(nullptr) {}
@@ -1160,9 +1158,9 @@ public:
 
 private:
   Segment* _segment;
+  uint8_t _fontNum;   // Font number (0-4)
+  bool _useFileFont;  // true = file, false = flash
   const uint8_t* _flashFont;
-  uint8_t _fontNum;        // Font number (0-4)
-  bool _useFlashFont;      // true = flash, false = file
   bool _cacheNumbers;
 
   // Cached data for performance (non-static, per-instance)
@@ -1194,7 +1192,7 @@ private:
   const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
 
   // Glyph index calculation (pure function, inline for speed)
-  static inline int32_t getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode);
+  static inline int32_t getGlyphIndex(uint32_t unicode, const FontHeader& hdr);
 
   // File font management
   void scanAvailableFonts();

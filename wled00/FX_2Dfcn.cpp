@@ -596,12 +596,12 @@ static void getFontFileName(uint8_t fontNum, char* buffer, size_t bufferSize) {
 }
 
 // Pure glyph index calculator (inline for speed)
-inline int32_t FontManager::getGlyphIndex(uint32_t unicode, uint8_t first, uint8_t last, uint32_t firstUnicode) {
+inline int32_t FontManager::getGlyphIndex(uint32_t unicode, const FontHeader& hdr) {
   if (unicode <= LAST_ASCII_CHAR) {
-    if (unicode >= first && unicode <= last) return unicode - first;
-  } else if (firstUnicode > 0 && unicode >= firstUnicode) {
-    uint32_t adjusted = unicode - firstUnicode + LAST_ASCII_CHAR + 1;
-    if (adjusted >= first && adjusted <= last) return adjusted - first;
+    if (unicode >= hdr.first && unicode <= hdr.last) return unicode - hdr.first;
+  } else if (hdr.firstUnicode > 0 && unicode >= hdr.firstUnicode) {
+    uint32_t adjusted = unicode - hdr.firstUnicode + LAST_ASCII_CHAR + 1;
+    if (adjusted >= hdr.first && adjusted <= hdr.last) return adjusted - hdr.first;
   }
   return -1;
 }
@@ -624,7 +624,7 @@ void FontManager::parseHeader() {
 // Get glyph width
 uint8_t FontManager::getGlyphWidth(uint32_t unicode) {
   if (!_headerValid) return 0;
-  int32_t idx = getGlyphIndex(unicode, _cachedHeader.first, _cachedHeader.last, _cachedHeader.firstUnicode);
+  int32_t idx = getGlyphIndex(unicode, _cachedHeader);
   if (idx < 0) return 0;
 
   // For cached fonts, look up in registry
@@ -645,7 +645,7 @@ uint8_t FontManager::getGlyphWidth(uint32_t unicode) {
 const uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight) {
   if (!_fontBase) return nullptr;
 
-  int32_t idx = getGlyphIndex(unicode, _cachedHeader.first, _cachedHeader.last, _cachedHeader.firstUnicode);
+  int32_t idx = getGlyphIndex(unicode, _cachedHeader);
   if (idx < 0) return nullptr;
 
   if (!_segment->data) return nullptr;
@@ -710,7 +710,7 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
   }
   // Determine which font to actually use (with fallback)
   uint8_t fontToUse = fontNum;
-  bool actualUseFlash = !useFile;
+  bool _useFileFont = useFile;
   // Check if requested font is available
   if (useFile && !(meta->availableFonts & (1 << fontNum))) {
     // Not available - find first available font
@@ -723,13 +723,12 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
     }
     if (fontToUse == 0xFF) {
       fontToUse = fontNum; // no custom fonts available, use flash font
-      actualUseFlash = true;
+      _useFileFont = false;
     }
   }
   // Store the actual font being used
   _fontNum = fontToUse;
-  _useFlashFont = actualUseFlash;
-  uint8_t cacheID = _fontNum | (_useFlashFont ? 0x80 : 0x00);
+  uint8_t cacheID = _fontNum | (_useFileFont ? 0x80 : 0x00);
 
   // Check if the ACTUAL font to use has changed
   if (cacheID != meta->cachedFontNum) {
@@ -755,7 +754,7 @@ uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr,
   if (_cacheNumbers) {
     static const char s_nums[] PROGMEM = "0123456789:. ";
     for (const char* p = s_nums; *p && count < MAX_CACHED_GLYPHS; p++) {
-      int32_t idx = getGlyphIndex(*p, hdr.first, hdr.last, hdr.firstUnicode);
+      int32_t idx = getGlyphIndex(*p, hdr);
       if (idx >= 0 && idx < 256) {
         outCodes[count++] = idx;
       }
@@ -768,9 +767,9 @@ uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr,
     uint32_t unicode = utf8_decode(&text[i], &charLen);
     if (!charLen) break; // invalid input, stop processing
     i += charLen;
-    int32_t idx = getGlyphIndex(unicode, hdr.first, hdr.last, hdr.firstUnicode);
+    int32_t idx = getGlyphIndex(unicode, hdr);
     if (idx < 0) {
-      idx = getGlyphIndex('?', hdr.first, hdr.last, hdr.firstUnicode);
+      idx = getGlyphIndex('?', hdr);
     }
     if (idx >= 0 && idx < 256) {
       // Add if unique
@@ -849,7 +848,7 @@ void FontManager::rebuildCache(const char* text) {
   }
 
   File file;
-  if (!_useFlashFont) {
+  if (_useFileFont) {
     // Build filename from font number
     char fileName[FONT_NAME_BUFFER_SIZE];
     getFontFileName(_fontNum, fileName, sizeof(fileName));
@@ -870,7 +869,7 @@ void FontManager::rebuildCache(const char* text) {
             file = WLED_FS.open(fileName, "r");
             if (file) {
               _fontNum = i; // Update to fallback font
-              savedMeta.cachedFontNum = i;
+              savedMeta.cachedFontNum = i | 0x80;
               break;
             }
           }
@@ -879,8 +878,8 @@ void FontManager::rebuildCache(const char* text) {
     }
 
     if (!file) {
-      _useFlashFont = true; // Fallback straight to flash font
-      savedMeta.cachedFontNum = _fontNum | 0x80;
+      _useFileFont = false; // Fallback straight to flash font
+      savedMeta.cachedFontNum = _fontNum;
     }
   }
 

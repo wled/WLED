@@ -6302,14 +6302,13 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 ////////////////////////////
 //     2D Scrolling text  //
 ////////////////////////////
-
 void mode_2Dscrollingtext(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
   FontManager fontManager(&SEGMENT);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  // generate time/date if there are any # tokens
+  // generate time/date if there are any # tokens or no segment name set
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t result_pos = 0;
   char sec[5];
@@ -6346,7 +6345,7 @@ void mode_2Dscrollingtext(void) {
         token[j] = '\0';
         int advance = 5; // number of chars to advance in 'text' after processing the token
 
-        // process token
+        // Process token
         char temp[32];
         if      (!strncmp_P(token,PSTR("#DATE"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d.%04d"):PSTR("%d.%d.%d"),   day(localTime),   month(localTime),  year(localTime));
         else if (!strncmp_P(token,PSTR("#DDMM"),5))  sprintf_P(temp, zero?PSTR("%02d.%02d")     :PSTR("%d.%d"),      day(localTime),   month(localTime));
