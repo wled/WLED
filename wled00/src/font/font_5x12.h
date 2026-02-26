@@ -37,19 +37,15 @@
  *
  * at the end of each glyph bitmap, padding bits are added if necessary to fill the last byte
  */
-// Font: 6x12
+
+// Font: 5x12
 // Height: 12, Max Width: 5, Spacing: 1
-// Characters: 32-127 (96 glyphs)
-// Unicode Offset: 0x00000000
-// Variable Width: Yes
-// Font: 6x12
-// Height: 12, Max Width: 5, Spacing: 1
-// Characters: 32-127 (96 glyphs)
+// Characters: 32-126 (95 glyphs)
 // Unicode Offset: 0x00000000
 // Variable Width: Yes
 
-static const unsigned char font_6x12[] PROGMEM = {
-    0x57, 0x0C, 0x05, 0x01, 0x01, 0x20, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x00,  // Header: 'W', H, W, S, Flags, First, Last, Reserved, UnicodeOffset (32bit)
+static const unsigned char font_5x12[] PROGMEM = {
+    0x57, 0x0C, 0x05, 0x01, 0x01, 0x20, 0x7E, 0x00, 0x00, 0x00, 0x00, 0x00,  // Header: 'W', H, W, S, Flags, First, Last, Reserved, UnicodeOffset (32bit)
 
     // Width table
     0x02, 0x01, 0x03, 0x05, 0x05, 0x05, 0x05, 0x01, 0x03, 0x03, 0x05, 0x05, 0x03, 0x05, 0x02, 0x05,

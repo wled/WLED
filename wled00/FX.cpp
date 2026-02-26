@@ -6395,9 +6395,9 @@ void mode_2Dscrollingtext(void) {
   if (!fontManager.loadFont(fontNum, text, useCustomFont)) return; // note: FontManageraccess can lead to crashes if font loading fails due to low heap
 
   // Get font dimensions
-  uint8_t glyphHeight = fontManager.getFontHeight();
+  uint8_t fontHeight = fontManager.getFontHeight();
   uint8_t fontWidth = fontManager.getFontWidth(); // for fonts with variable width, this is the max letter width
-  uint8_t letterSpacing = fontManager.getFontSpacing();
+  uint8_t letterSpacing = isRotated ? 1 : fontManager.getFontSpacing(); // when rotated use spacing of 1, otherwise use font defined spacing
 
   // Calculate total text width
   int totalTextWidth = 0;
@@ -6410,11 +6410,10 @@ void mode_2Dscrollingtext(void) {
     idx += charLen;
 
     if (isRotated) {
-      totalTextWidth += glyphHeight + 1; // use height when rotated, spacing of 1
+      totalTextWidth += fontHeight + letterSpacing; // use height when rotated, spacing of 1
     } else {
       totalTextWidth += fontManager.getGlyphWidth(unicode) + letterSpacing;
     }
-    if (c < numberOfChars - 1) totalTextWidth += letterSpacing;
   }
   totalTextWidth -= letterSpacing; // remove spacing after last character
 
@@ -6442,7 +6441,7 @@ void mode_2Dscrollingtext(void) {
         ++SEGENV.aux0 %= totalTextWidth + cols;
       }
     } else {
-      SEGENV.aux0 = (cols - totalTextWidth) / 2; // Center
+      SEGENV.aux0 = (cols + totalTextWidth) / 2; // text fits, position it at the center
     }
     ++SEGENV.aux1 &= 0xFF; // color shift
     SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50);
@@ -6470,18 +6469,18 @@ void mode_2Dscrollingtext(void) {
     uint8_t charLen;
     uint32_t unicode = utf8_decode(&text[idx], &charLen);
     idx += charLen;
-    uint8_t glyphWidth = fontManager.getGlyphWidth(unicode);
-    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset; // AUX0 is scrolling offset
-    int advance = isRotated ? glyphHeight + 1 : glyphWidth + letterSpacing; // when rotated use spacing of 1
+    int glyphWidth = isRotated ? fontHeight : fontManager.getGlyphWidth(unicode);
+    int glyphHeight = isRotated ? glyphWidth : fontHeight; // use (variable) glyph-width for height if 90° rotated
+    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset; // aux0 is (scrolling) offset, no offset position is right side boarder (cols)
+    if (drawX >= cols) break; // skip if character is off-screen on the right
+    int advance = glyphWidth + letterSpacing;
 
-    // Skip if off-screen
     if (drawX + advance < 0) {
       currentXOffset += advance;
-      continue;
+      continue; // Skip if off-screen on the left
     }
-    if (drawX >= cols) break;
-    unsigned rotHeight = isRotated ? glyphWidth : glyphHeight; // use (variable) glyph-width for height if 90° rotated
-    int16_t drawY = yoffset + (rows - rotHeight) / 2; // center glyph vertically
+
+    int16_t drawY = yoffset + (rows - glyphHeight) / 2; // center glyph vertically
 
     fontManager.drawCharacter(unicode, drawX, drawY, col1, col2, rotate);
     currentXOffset += advance;

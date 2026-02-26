@@ -583,7 +583,7 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 
 #include "src/font/font_tom_thumb_6px.h"
 #include "src/font/font_TinyUnicode_8px.h"
-#include "src/font/font_6x12.h"
+#include "src/font/font_5x12.h"
 #include "src/font/console_font_6x8.h"
 #include "src/font/console_font_7x9.h"
 
@@ -595,14 +595,14 @@ static void getFontFileName(uint8_t fontNum, char* buffer, size_t bufferSize) {
 
 // load font by number and prepare/validate font cache, must be called before using any other FontManager functions, must not use the font if this function returns false!
 bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
-  _fontNum = fontNum;
   _segment->allocateData(sizeof(SegmentFontMetadata)); // make sure at least metadata is available, sets to 0 if segment.call==0
 
   SegmentFontMetadata* meta = getMetadata();
   if (!meta)
-    return false; // ensure segment data exists
+    return false; // can not continue if no segment data
 
   _fontNum = fontNum; // store font to be used
+
   if (useFile) {
     if (!meta->fontsScanned) {
       scanAvailableFonts(); // scan filesystem if not already scanned
@@ -726,7 +726,7 @@ void FontManager::rebuildCache(const char* text) {
     case 1: flashFont = font_TinyUnicode_8px;  break;
     case 2: flashFont = console_font_6x8;      break;
     case 3: flashFont = console_font_7x9;      break;
-    case 4: flashFont = font_6x12;             break;
+    case 4: flashFont = font_5x12;             break;
   }
 
   // read wbf font header
@@ -856,8 +856,6 @@ uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_
   FontHeader* hdr = reinterpret_cast<FontHeader*>(_fontBase);
   int32_t idx = getGlyphIndex(unicode, hdr);
   if (idx < 0) return nullptr;
-
-  if (!_segment->data) return nullptr;
   SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
   GlyphEntry* registry = (GlyphEntry*)(_segment->data + sizeof(SegmentFontMetadata));
 
