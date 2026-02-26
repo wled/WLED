@@ -3425,8 +3425,10 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 			// Save "never ask" preference
 			updateVersionInfo(newVersion, true, false);
 			showToast('You will not be asked again.');
+		} else {
+			// Save current version to prevent re-prompting until version changes
+			updateVersionInfo(newVersion, false, false);
 		}
-		// Don't update version if not saving choice, will ask again on next load
 	});
 }
 
