@@ -6392,7 +6392,7 @@ void mode_2Dscrollingtext(void) {
   const bool isRotated = (rotate == 1 || rotate == -1); // +/- 90° rotated, swap width and height for calculations
 
   // Load the font
-  fontManager.loadFont(fontNum, text, useCustomFont);
+  if (!fontManager.loadFont(fontNum, text, useCustomFont)) return; // note: FontManageraccess can lead to crashes if font loading fails due to low heap
 
   // Get font dimensions
   uint8_t glyphHeight = fontManager.getFontHeight();

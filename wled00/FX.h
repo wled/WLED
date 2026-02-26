@@ -1105,33 +1105,35 @@ struct SegmentFontMetadata {
 
 // Memory layout of cached font in segment data:
 // [SegmentFontMetadata] - 4 bytes
-// [GlyphEntry array] - 4 bytes each
-// [12-byte font header] - for compatibility and to store font info
+// [GlyphEntry array]
+// [12-byte font header] - copy of the relevant font header data
 // [Bitmap data] - sequential, matches registry order
 
 static constexpr uint8_t MAX_CACHED_GLYPHS = 64;     // max segment string length is 64 chars so this is absolute worst case
 static constexpr uint8_t MAX_FONTS = 5;              // scrolli text supports font numbers 0-4
 static constexpr size_t  FONT_NAME_BUFFER_SIZE = 16; // font names is /fontX.wbf
 
+// font header, identical to wbf header, size must be FONT_HEADER_SIZE
 struct FontHeader {
-  uint8_t height;
+  uint8_t magic;  // should be 'W' (0x57)
+  uint8_t height; // TODO: should we use the padding bytes and store a full copy of the header? might make copying the header easier?
   uint8_t width;
   uint8_t spacing;
   uint8_t flags;
   uint8_t first;
   uint8_t last;
+  uint8_t reserved; // should be 0x00
   uint32_t firstUnicode;
 };
+static_assert(sizeof(FontHeader) == FONT_HEADER_SIZE, "FontHeader size must be exactly FONT_HEADER_SIZE bytes");
 
 class FontManager {
 public:
   FontManager(Segment* seg) :
     _segment(seg),
-    _flashFont(nullptr), // pointer to font data in flash (if used)
     _fontNum(0),
     _useFileFont(false),
     _cacheNumbers(false),
-    _headerValid(false),
     _fontBase(nullptr) {}
 
   bool loadFont(uint8_t fontNum, const char* text, bool useFile);
@@ -1139,9 +1141,9 @@ public:
   void cacheGlyphs(const char* text);
 
   // Get dimensions (use cached header)
-  inline uint8_t getFontHeight() { return _cachedHeader.height; }
-  inline uint8_t getFontWidth()  { return _cachedHeader.width; }
-  inline uint8_t getFontSpacing() { return _cachedHeader.spacing; }
+  inline uint8_t getFontHeight() { return reinterpret_cast<FontHeader*>(_fontBase)->height; }
+  inline uint8_t getFontWidth()  { return reinterpret_cast<FontHeader*>(_fontBase)->width; }
+  inline uint8_t getFontSpacing() { return reinterpret_cast<FontHeader*>(_fontBase)->spacing; }
   uint8_t getGlyphWidth(uint32_t unicode);
 
   // Rendering
@@ -1151,44 +1153,29 @@ private:
   Segment* _segment;
   uint8_t _fontNum;   // Font number (0-4)
   bool _useFileFont;  // true = file, false = flash
-  const uint8_t* _flashFont;
   bool _cacheNumbers;
+  uint8_t* _fontBase; // pointer to start of font data (header + bitmaps) in segment data
 
-  // Cached data for performance (non-static, per-instance)
-  bool _headerValid;
-  FontHeader _cachedHeader;
-  const uint8_t* _fontBase;
-
-  // Invalidate cached header (call when font changes)
-  inline void invalidateHeader() {
-    _headerValid = false;
-  }
-
-  inline void updateFontBase() {
-    if (_segment->data) {
-      SegmentFontMetadata* meta = (SegmentFontMetadata*)_segment->data;
-      // Font header starts after metadata + registry
-      _fontBase = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
-    } else {
-      _fontBase = nullptr;
-    }
-  }
-
-  // Metadata access
+  // get metadata pointer
   SegmentFontMetadata* getMetadata() {
-    return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
+    return (SegmentFontMetadata*)_segment->data;
   }
 
-  void parseHeader();
-  const uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
+  void updateFontBase() {
+    SegmentFontMetadata* meta = getMetadata();
+    // font data (header + glyph bitmaps) starts after metadata + registry
+    _fontBase = _segment->data + sizeof(SegmentFontMetadata) + (meta->glyphCount * sizeof(GlyphEntry));
+  }
+
+  uint8_t* getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_t& outHeight);
 
   // Glyph index calculation (pure function, inline for speed)
-  static inline int32_t getGlyphIndex(uint32_t unicode, const FontHeader& hdr);
+  int32_t getGlyphIndex(uint32_t unicode, FontHeader* hdr);
 
   // File font management
   void scanAvailableFonts();
   void rebuildCache(const char* text);
-  uint8_t collectNeededCodes(const char* text, const FontHeader& hdr, uint8_t* outCodes);
+  uint8_t collectNeededCodes(const char* text, FontHeader* hdr, uint8_t* outCodes);
 };
 
 #endif
