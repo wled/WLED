@@ -3397,7 +3397,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		</p>
 		<div style="margin-top:15px;margin-bottom:15px;">
 			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
-				<input type="checkbox" id="versionSaveChoice" checked style="cursor:pointer;">
+				<input type="checkbox" id="versionSaveChoice" style="cursor:pointer;">
 				<span>Save my choice for future updates</span>
 			</label>
 		</div>
