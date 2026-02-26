@@ -83,7 +83,7 @@ void Bus::calculateCCT(uint32_t c, uint8_t &ww, uint8_t &cw) {
   //          cw: __░▒▓▓  |          cw: ░░▒▒▓ |          cw: ░▒▓▓▓
   int32_t ww_val, cw_val;
   if (_cctBlend < 0) {
-    uint16_t range = 255 - 2 * (uint8_t)(-_cctBlend);
+    uint16_t range = 255 - 2 * (uint16_t)(-_cctBlend);
     if (range > 255) range = 255; // prevent overflow
     ww_val = range ? ((int32_t)(255 + _cctBlend - cct) * 255) / range : (cct < 128 ? 255 : 0); // exclusive blending
     cw_val = 255 - ww_val;
