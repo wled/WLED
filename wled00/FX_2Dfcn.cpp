@@ -704,6 +704,10 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
     meta->glyphCount = 0;          // invalidate cache and rebuild with new font
   }
   cacheGlyphs(text); // prepare cache with needed glyphs
+  meta = getMetadata(); // reload metadata after potential cache rebuild
+  if (meta->glyphCount == 0) {
+    return false; // cache build failed (invalid font file)
+  }
   return true;
 }
 
@@ -783,8 +787,7 @@ void FontManager::cacheGlyphs(const char* text) {
 
 void FontManager::rebuildCache(const char* text) {
   if (!text) return;
-
-  // Preserve metadata (function is only called if segment data is allocated so no null check needed)
+  // preserve metadata (function is only called if segment data is allocated so no null check needed)
   SegmentFontMetadata savedMeta;
   SegmentFontMetadata* meta = getMetadata();
   meta->glyphCount = 0; // invalidates cached font
