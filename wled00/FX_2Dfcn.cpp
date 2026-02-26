@@ -691,60 +691,46 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
     case 4: _flashFont = font_6x12;             break;
   }
   invalidateHeader();
+  if (_segment->call == 0) {
+    _segment->allocateData(sizeof(SegmentFontMetadata)); // allocates memory and/or sets it to 0
+  }
 
   SegmentFontMetadata* meta = getMetadata();
-  // Ensure segment data exists
-  if (!meta) {
-    if (!_segment->allocateData(sizeof(SegmentFontMetadata))) {
-      return false;
-    }
-    meta = getMetadata();
-    memset(meta, 0, sizeof(SegmentFontMetadata));
-    meta->cachedFontNum = 0xFF;
-    meta->fontsScanned = 0;
-  }
+  if (!meta)
+    return false; // ensure segment data exists
 
-  // Scan filesystem only if not already scanned
-  if (!meta->fontsScanned) {
-    scanAvailableFonts();
-  }
-  // Determine which font to actually use (with fallback)
-  uint8_t fontToUse = fontNum;
-  bool _useFileFont = useFile;
-  // Check if requested font is available
-  if (useFile && !(meta->availableFonts & (1 << fontNum))) {
-    // Not available - find first available font
-    fontToUse = 0xFF;
-    for (int i = 0; i < MAX_FONTS; i++) {
-      if (meta->availableFonts & (1 << i)) {
-        fontToUse = i;
-        break;
+  _fontNum = fontNum; // store font to be used
+  if (useFile) {
+    if (!meta->fontsScanned) {
+      scanAvailableFonts(); // scan filesystem if not already scanned
+    }
+    // Determine which font to actually use (with fallback)
+    uint8_t fontToUse = fontNum;
+    _useFileFont = useFile;
+    // Check if requested font is available
+    if (!(meta->availableFonts & (1 << fontNum))) {
+      // Not available - find first available font
+      _fontNum = 0xFF;
+      for (int i = 0; i < MAX_FONTS; i++) {
+        if (meta->availableFonts & (1 << i)) {
+          _fontNum = i;
+          break;
+        }
+      }
+      if (_fontNum == 0xFF) {
+        _fontNum = fontNum; // no custom fonts available, use flash font
+        _useFileFont = false;
       }
     }
-    if (fontToUse == 0xFF) {
-      fontToUse = fontNum; // no custom fonts available, use flash font
-      _useFileFont = false;
-    }
   }
-  // Store the actual font being used
-  _fontNum = fontToUse;
-  uint8_t cacheID = _fontNum | (_useFileFont ? 0x80 : 0x00);
 
-  // Check if the ACTUAL font to use has changed
+  uint8_t cacheID = _fontNum | (_useFileFont ? 0x80 : 0x00); // highest bit indicates file vs flash
+
   if (cacheID != meta->cachedFontNum) {
-    // Font changed - clear cache but preserve scan results
-    uint8_t avail = meta->availableFonts;
-    uint8_t scanned = meta->fontsScanned;
-    if (!_segment->allocateData(sizeof(SegmentFontMetadata))) {
-      return false;
-    }
-    meta = getMetadata();
-    meta->availableFonts = avail;
-    meta->cachedFontNum = cacheID;
-    meta->fontsScanned = scanned;
-    meta->glyphCount = 0;
+    meta->cachedFontNum = cacheID; // new font
+    meta->glyphCount = 0;          // invalidate cache and rebuild with new font
   }
-  prepare(text);
+  cacheGlyphs(text); // prepare cache with needed glyphs
   return true;
 }
 
@@ -786,7 +772,7 @@ uint8_t FontManager::collectNeededCodes(const char* text, const FontHeader& hdr,
   return count;
 }
 
-void FontManager::prepare(const char* text) {
+void FontManager::cacheGlyphs(const char* text) {
   if (!text) return;
 
   // Helper to ensure header is valid
@@ -802,19 +788,21 @@ void FontManager::prepare(const char* text) {
     return true;
   };
 
-  // Check if cache exists
-  if (!_segment->data) {
-    rebuildCache(text);
-    return;
-  }
   SegmentFontMetadata* meta = getMetadata();
-  // If glyphCount is 0, cache is empty - rebuild
-  if (meta->glyphCount == 0 || !checkHeader()) {
+  // if glyphCount is 0, cache is empty - rebuild
+  if (meta->glyphCount == 0) {
     rebuildCache(text);
-    return;
   }
 
-  // Check if all needed glyphs are present
+  // TODO: this assumes a font is cached, if not, this can read out of bounds of segment data, maybe better track it elsewhere? after rebuilding?
+  if (!_headerValid) {
+    updateFontBase();
+    if (_fontBase) {
+      parseHeader();
+    }
+  }
+
+  // check if all needed glyphs for the text are present in cache
   uint8_t neededCodes[MAX_CACHED_GLYPHS];
   uint8_t neededCount = collectNeededCodes(text, _cachedHeader, neededCodes);
 
@@ -935,7 +923,7 @@ void FontManager::rebuildCache(const char* text) {
 
   // Calculate size: metadata + registry + header + bitmaps
   uint32_t dataStart = FONT_HEADER_SIZE + ((hdr.flags & 0x01) ? numGlyphs : 0);
-  size_t ramFontSize = sizeof(SegmentFontMetadata) + (neededCount * sizeof(GlyphEntry)) + FONT_HEADER_SIZE; // Just the header, no width table needed
+  size_t ramFontSize = sizeof(SegmentFontMetadata) + (neededCount * sizeof(GlyphEntry)) + FONT_HEADER_SIZE;
 
   for (uint8_t k = 0; k < neededCount; k++) {
     uint8_t code = neededCodes[k];

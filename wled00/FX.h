@@ -1098,7 +1098,7 @@ struct GlyphEntry {
 // Segment metadata (stored BEFORE the font data in segment data)
 struct SegmentFontMetadata {
   uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
-  uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none)
+  uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none, highest bit set = file font)
   uint8_t fontsScanned;    // 1 if filesystem scanned
   uint8_t glyphCount;      // Number of glyphs cached
 };
@@ -1136,16 +1136,7 @@ public:
 
   bool loadFont(uint8_t fontNum, const char* text, bool useFile);
   void cacheNumbers(bool cache) { _cacheNumbers = cache; }
-  void prepare(const char* text);
-
-  inline void beginFrame() {
-    if (!_headerValid) {
-      updateFontBase();
-      if (_fontBase) {
-        parseHeader();
-      }
-    }
-  }
+  void cacheGlyphs(const char* text);
 
   // Get dimensions (use cached header)
   inline uint8_t getFontHeight() { return _cachedHeader.height; }
@@ -1183,7 +1174,7 @@ private:
     }
   }
 
-  // Metadata access (RAM only)
+  // Metadata access
   SegmentFontMetadata* getMetadata() {
     return _segment->data ? (SegmentFontMetadata*)_segment->data : nullptr;
   }
