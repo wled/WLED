@@ -12,7 +12,8 @@ bool restartWiFiScanIfEnabled(bool requireMultiWiFi)
 #else
   if (!interfacesInited) return false;
   if (requireMultiWiFi && multiWiFi.size() <= 1) return false;
-  if (WiFi.scanComplete() < 0) return false;
+  const int scanStatus = WiFi.scanComplete();
+  if (scanStatus == WIFI_SCAN_RUNNING) return false; // do not restart while scan is active
   findWiFi(true); // reinit WiFi scan
   return true;
 #endif
