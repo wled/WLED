@@ -778,7 +778,7 @@ void FontManager::rebuildCache(const char* text) {
   // collect needed glyphs
   uint8_t neededCodes[MAX_CACHED_GLYPHS];
   uint8_t neededCount = collectNeededCodes(text, &hdr, neededCodes);
-  uint8_t numGlyphs = hdr.last - hdr.first + 1;
+  uint32_t numGlyphs = hdr.last - hdr.first + 1;
   uint8_t widthTable[numGlyphs];
 
   // read width table
@@ -789,7 +789,7 @@ void FontManager::rebuildCache(const char* text) {
       memcpy_P(widthTable, flashFont + FONT_HEADER_SIZE, numGlyphs); // assumes built in fonts are in a valid, compatible format
     }
   } else {
-    for (uint8_t k = 0; k < numGlyphs; k++) {
+    for (uint32_t k = 0; k < numGlyphs; k++) {
       widthTable[k] = hdr.width; // fixed width, fill with given width from header
     }
   }
@@ -957,7 +957,7 @@ void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t
     for (int col = 0; col < w; col++) {
       uint16_t bytePos = bitIndex >> 3;
       uint8_t bitPos = 7 - (bitIndex & 7);
-      uint8_t byteVal = bitmap[bytePos];
+      uint8_t byteVal =   [bytePos];
       if ((byteVal >> bitPos) & 1) {
         int x0, y0;
         switch (rotate) {
