@@ -1099,7 +1099,7 @@ struct GlyphEntry {
 struct SegmentFontMetadata {
   uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
   uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none, highest bit set = file font)
-  uint8_t fontsScanned;    // 1 if filesystem scanned
+  uint8_t fontsScanned;    // 1 if filesystem scanned (only done once when using file fonts)
   uint8_t glyphCount;      // Number of glyphs cached
 };
 

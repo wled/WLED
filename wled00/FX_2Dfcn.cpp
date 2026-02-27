@@ -608,7 +608,6 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
       scanAvailableFonts(); // scan filesystem if not already scanned
     }
     // determine which font to actually use (with fallback)
-    uint8_t fontToUse = fontNum;
     _useFileFont = useFile;
     // check if requested font is available - find first available font if not
     if (!(meta->availableFonts & (1 << fontNum))) {
@@ -626,10 +625,10 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
     }
   }
 
-  uint8_t cacheID = _fontNum | (_useFileFont ? 0x80 : 0x00); // highest bit indicates file vs flash
+  uint8_t fontToUse = _fontNum | (_useFileFont ? 0x80 : 0x00); // highest bit indicates file vs flash
 
-  if (cacheID != meta->cachedFontNum) {
-    meta->cachedFontNum = cacheID; // new font
+  if (fontToUse != meta->cachedFontNum) {
+    meta->cachedFontNum = fontToUse; // new font
     meta->glyphCount = 0;          // invalidate cache and rebuild with new font
   }
   cacheGlyphs(text); // prepare cache with needed glyphs
@@ -641,6 +640,7 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
   return true;
 }
 
+// check if all glyphs needed for the given text are present in cache, rebuild cache if not
 void FontManager::cacheGlyphs(const char* text) {
   if (!text) return;
 
@@ -705,7 +705,7 @@ void FontManager::rebuildCache(const char* text) {
           file = WLED_FS.open(fileName, "r");
           if (file) {
             _fontNum = i; // update to fallback font
-            savedMeta.cachedFontNum = i | 0x80;
+            savedMeta.cachedFontNum = i | 0x80; // set highest bit to indicate file font
             break;
           }
         }
@@ -787,6 +787,7 @@ void FontManager::rebuildCache(const char* text) {
   GlyphEntry* registry = (GlyphEntry*)dataptr;
   for (uint8_t k = 0; k < neededCount; k++) {
     uint8_t code = neededCodes[k];
+    if (code >= numGlyphs) continue; // skip invalid codes (safety check if anything is corrupted)
     registry[k].code = code;
     registry[k].width = widthTable[code];
     registry[k].height = hdr.height;

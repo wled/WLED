@@ -6469,9 +6469,10 @@ void mode_2Dscrollingtext(void) {
     uint8_t charLen;
     uint32_t unicode = utf8_decode(&text[idx], &charLen);
     idx += charLen;
-    int glyphWidth = isRotated ? fontHeight : fontManager.getGlyphWidth(unicode);
-    int glyphHeight = isRotated ? glyphWidth : fontHeight; // use (variable) glyph-width for height if 90° rotated
-    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset; // aux0 is (scrolling) offset, no offset position is right side boarder (cols)
+    int unrotatedWidth = fontManager.getGlyphWidth(unicode);
+    int glyphWidth  = isRotated ? fontHeight     : unrotatedWidth;  // use font height for width if 90° rotated
+    int glyphHeight = isRotated ? unrotatedWidth : fontHeight;      // use (variable) glyph-width for height if 90° rotated
+    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset;      // aux0 is (scrolling) offset, no offset position is right side boarder (cols)
     if (drawX >= cols) break; // skip if character is off-screen on the right
     int advance = glyphWidth + letterSpacing;
 
