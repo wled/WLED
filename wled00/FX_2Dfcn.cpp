@@ -957,7 +957,7 @@ void FontManager::drawCharacter(uint32_t unicode, int16_t x, int16_t y, uint32_t
     for (int col = 0; col < w; col++) {
       uint16_t bytePos = bitIndex >> 3;
       uint8_t bitPos = 7 - (bitIndex & 7);
-      uint8_t byteVal =   [bytePos];
+      uint8_t byteVal = bitmap[bytePos];
       if ((byteVal >> bitPos) & 1) {
         int x0, y0;
         switch (rotate) {
