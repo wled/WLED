@@ -587,29 +587,65 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
 #include "src/font/console_font_6x8.h"
 #include "src/font/console_font_7x9.h"
 
-static void getFontFileName(uint8_t fontNum, char* buffer, size_t bufferSize) {
-  strcpy_P(buffer, PSTR("/font"));
-  if (fontNum > 0) snprintf(buffer + 5, bufferSize - 5, "%d", fontNum);
-  strcat_P(buffer, PSTR(".wbf"));
+// scan file system for .wbf font files, if scanAll is set, also updates availableFonts
+void FontManager::getFontFileName(uint8_t fontNum, char* buffer, bool scanAll) {
+  SegmentFontMetadata* meta = getMetadata();
+  if (scanAll) {
+    if (!meta) return;
+    meta->availableFonts = 0; // reset available fonts before scanning
+  }
+  buffer[0] = '\0'; // invalidate
+  #ifdef CONFIG_IDF_TARGET_ESP32C3
+    while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
+  #endif
+  File rootdir = WLED_FS.open("/", "r");
+  File rootfile = rootdir.openNextFile();
+  uint8_t i = 0;
+  while (rootfile && i < MAX_FONTS) {
+    String name = rootfile.name();
+    if (name.endsWith(F(".wbf"))) {
+      if (i == fontNum) {
+        if (name.charAt(0) != '/') name = "/" + name; // need to add leading slash
+        strncpy(buffer, name.c_str(), FONT_NAME_BUFFER_SIZE - 1);
+        buffer[FONT_NAME_BUFFER_SIZE - 1] = '\0';
+        if (!scanAll) {
+          rootfile.close();
+          rootdir.close();
+          return;
+        }
+      }
+      if (scanAll)
+        meta->availableFonts |= (1 << i); // note: openNextFile() usually opens them in alphaetical order but there is no guarantee
+      i++;
+    }
+    rootfile = rootdir.openNextFile();
+  }
+  rootfile.close();
+  rootdir.close();
+}
+
+// scan file system for available fonts
+void FontManager::scanAvailableFonts() {
+  char buffer[FONT_NAME_BUFFER_SIZE];
+  getFontFileName(0, buffer, true);
 }
 
 // load font by number and prepare/validate font cache, must be called before using any other FontManager functions, must not use the font if this function returns false!
 bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
-  _segment->allocateData(sizeof(SegmentFontMetadata)); // make sure at least metadata is available, sets to 0 if segment.call==0
-
+  _segment->allocateData(sizeof(SegmentFontMetadata)); // make sure at least metadata is available, sets to 0 if segment.call==0, does nothing if already allocated
   SegmentFontMetadata* meta = getMetadata();
   if (!meta)
     return false; // can not continue if no segment data
 
   _fontNum = fontNum; // store font to be used
+  _useFileFont = useFile;
+  uint8_t fontRequested = fontNum | (useFile ? 0x80 : 0x00);
 
   if (useFile) {
-    if (!meta->fontsScanned) {
-      scanAvailableFonts(); // scan filesystem if not already scanned
+    if (meta->lastFontNum != fontRequested) {
+      scanAvailableFonts(); // scan filesystem again if file font changes
     }
-    // determine which font to actually use (with fallback)
-    _useFileFont = useFile;
-    // check if requested font is available - find first available font if not
+    // determine which font to actually use (with fallback): check if requested font is available - find first available font if not
     if (!(meta->availableFonts & (1 << fontNum))) {
       _fontNum = 0xFF; // invalidate
       for (int i = 0; i < MAX_FONTS; i++) {
@@ -624,12 +660,11 @@ bool FontManager::loadFont(uint8_t fontNum, const char* text, bool useFile) {
       }
     }
   }
+  meta->lastFontNum = fontRequested; // store last requested file font (only used to check file fonts)
 
   uint8_t fontToUse = _fontNum | (_useFileFont ? 0x80 : 0x00); // highest bit indicates file vs flash
-
   if (fontToUse != meta->cachedFontNum) {
-    meta->cachedFontNum = fontToUse; // new font
-    meta->glyphCount = 0;          // invalidate cache and rebuild with new font
+    meta->glyphCount = 0; // invalidate cache
   }
   cacheGlyphs(text); // prepare cache with needed glyphs
   meta = getMetadata(); // reload metadata after potential cache rebuild
@@ -684,13 +719,12 @@ void FontManager::rebuildCache(const char* text) {
   SegmentFontMetadata* meta = getMetadata();
   meta->glyphCount = 0; // invalidates cached font
   memcpy(&savedMeta, meta, sizeof(SegmentFontMetadata));
-  savedMeta.cachedFontNum = 0xFF; // invalidate cache
 
   File file;
   if (_useFileFont) {
     // build filename from font number
     char fileName[FONT_NAME_BUFFER_SIZE];
-    getFontFileName(_fontNum, fileName, sizeof(fileName));
+    getFontFileName(_fontNum, fileName);
 
     #ifdef CONFIG_IDF_TARGET_ESP32C3
     while (!BusManager::canAllShow()) yield(); // accessing FS causes glitches due to RMT issue on C3 TODO: remove this when fixed
@@ -701,11 +735,11 @@ void FontManager::rebuildCache(const char* text) {
     if (!file) {
       for (int i = 0; i < MAX_FONTS; i++) {
         if (meta->availableFonts & (1 << i)) {
-          getFontFileName(i, fileName, sizeof(fileName));
+          getFontFileName(i, fileName);
           file = WLED_FS.open(fileName, "r");
           if (file) {
             _fontNum = i; // update to fallback font
-            savedMeta.cachedFontNum = i | 0x80; // set highest bit to indicate file font
+            //savedMeta.cachedFontNum = i | 0x80; // set highest bit to indicate file font
             break;
           }
         }
@@ -714,9 +748,11 @@ void FontManager::rebuildCache(const char* text) {
 
     if (!file) {
       _useFileFont = false; // fallback straight to flash font
-      savedMeta.cachedFontNum = _fontNum;
+      //savedMeta.cachedFontNum = _fontNum;
     }
   }
+
+  savedMeta.cachedFontNum = _fontNum | (_useFileFont ? 0x80 : 0x00); // set highest bit to indicate file font
 
   // determine flash font to use (not used if using file font)
   const uint8_t* flashFont;
@@ -776,9 +812,7 @@ void FontManager::rebuildCache(const char* text) {
 
   // write metadata
   meta = getMetadata(); // get pointer again in case segment was reallocated
-  meta->availableFonts = savedMeta.availableFonts;
-  meta->cachedFontNum = savedMeta.cachedFontNum;
-  meta->fontsScanned = savedMeta.fontsScanned;
+  memcpy(meta, &savedMeta, sizeof(SegmentFontMetadata));
   meta->glyphCount = neededCount; // glyph count is used to determine if cache is valid. If file is corrupted, ram cache is still large enough to not cause crashes
 
   uint8_t* dataptr = _segment->data + sizeof(SegmentFontMetadata);
@@ -872,21 +906,6 @@ uint8_t* FontManager::getGlyphBitmap(uint32_t unicode, uint8_t& outWidth, uint8_
     bitmapOffset += (bits + 7) / 8;
   }
   return nullptr; // Glyph not found in cache
-}
-
-// scan file system for available fonts
-void FontManager::scanAvailableFonts() {
-  SegmentFontMetadata* meta = getMetadata();
-  if (!meta) return;
-  meta->availableFonts = 0;
-  for (int i = 0; i < MAX_FONTS; i++) {
-    char fileName[FONT_NAME_BUFFER_SIZE];
-    getFontFileName(i, fileName, sizeof(fileName));
-    if (WLED_FS.exists(fileName)) {
-      meta->availableFonts |= (1 << i);
-    }
-  }
-  meta->fontsScanned = 1;
 }
 
 uint8_t FontManager::collectNeededCodes(const char* text, FontHeader* hdr, uint8_t* outCodes) {

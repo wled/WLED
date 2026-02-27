@@ -1099,7 +1099,7 @@ struct GlyphEntry {
 struct SegmentFontMetadata {
   uint8_t availableFonts;  // Bitflags for available fonts: set to 1 << fontNum if font is available in FS (0-4)
   uint8_t cachedFontNum;   // Currently cached font (0-4, 0xFF = none, highest bit set = file font)
-  uint8_t fontsScanned;    // 1 if filesystem scanned (only done once when using file fonts)
+  uint8_t lastFontNum;     // font number requested in last call
   uint8_t glyphCount;      // Number of glyphs cached
 };
 
@@ -1111,7 +1111,7 @@ struct SegmentFontMetadata {
 
 static constexpr uint8_t MAX_CACHED_GLYPHS = 64;     // max segment string length is 64 chars so this is absolute worst case
 static constexpr uint8_t MAX_FONTS = 5;              // scrolli text supports font numbers 0-4
-static constexpr size_t  FONT_NAME_BUFFER_SIZE = 16; // font names is /fontX.wbf
+static constexpr size_t  FONT_NAME_BUFFER_SIZE = 64; // font names
 
 // font header, identical to wbf header, size must be FONT_HEADER_SIZE
 struct FontHeader {
@@ -1173,6 +1173,7 @@ private:
   int32_t getGlyphIndex(uint32_t unicode, FontHeader* hdr);
 
   // File font management
+  void getFontFileName(uint8_t fontNum, char* buffer, bool scanAll = false);
   void scanAvailableFonts();
   void rebuildCache(const char* text);
   uint8_t collectNeededCodes(const char* text, FontHeader* hdr, uint8_t* outCodes);
