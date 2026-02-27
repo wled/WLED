@@ -1090,6 +1090,7 @@ struct GlyphEntry {
   uint8_t code;      // Glyph index (0-255)
   uint8_t width;     // Width in pixels
   uint8_t height;    // Height in pixels
+  uint8_t reserved;  // Padding to keep FontHeader 4-byte aligned
 };
 
 // Segment metadata (stored BEFORE the font data in segment data)
