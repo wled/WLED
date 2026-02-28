@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh api repos/wled/WLED/pulls/5399/reviews --jq '.[] | {id, user: .user.login, state: .state, submitted_at: .submitted_at, body: .body}')",
+      "Bash(gh api repos/wled/WLED/pulls/5399/comments --jq '.[] | {id, user: .user.login, created_at: .created_at, path: .path, line: .line, body: .body}')"
+    ]
+  }
+}

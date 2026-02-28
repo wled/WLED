@@ -135,6 +135,9 @@ If none of the built-in battery types match your cell chemistry, you can add you
 
    // Discharge lookup table – voltage (descending) → percentage
    // Obtain this data from your cell's datasheet
+   // Note: these definitions live in the header because Battery.cpp is the only
+   // translation unit that includes battery-type headers (same pattern as the
+   // built-in types). Do not include this header from other .cpp files.
    const UMBattery::LutEntry MyBattery::dischargeLut[] PROGMEM = {
        {4.20f, 100.0f},
        {3.90f,  75.0f},
@@ -191,7 +194,7 @@ If none of the built-in battery types match your cell chemistry, you can add you
 
 ## ⏱️ Estimated Runtime
 
-The battery usermod can estimate the remaining runtime of your project. This feature is **automatically enabled** when the [INA226 usermod](../INA226_v2/) is detected at runtime — no extra configuration needed.
+The battery usermod can estimate the remaining runtime of your project. This feature is **automatically enabled** when the [INA226 usermod](../INA226_v2/) is detected at runtime — no additional build flags or compile-time configuration are required beyond adding the INA226 usermod to `custom_usermods` (see [Setup](#setup) below).
 
 ### How it works
 

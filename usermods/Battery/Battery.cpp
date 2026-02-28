@@ -46,7 +46,7 @@ class UsermodBattery : public Usermod {
     // --- Charging detection (voltage trend over sliding window) ---
     bool charging = false;
     static const uint8_t VOLTAGE_HISTORY_SIZE = 5;  // 5 × 30s = 2.5 min window
-    float voltageHistory[5] = {0};
+    float voltageHistory[VOLTAGE_HISTORY_SIZE] = {0};
     uint8_t voltageHistoryIdx = 0;
     bool voltageHistoryFull = false;
     static constexpr float CHARGE_VOLTAGE_THRESHOLD = 0.01f;  // 10mV rise over window
@@ -70,7 +70,7 @@ class UsermodBattery : public Usermod {
 
     // --- Inter-usermod data exchange ---
     float umVoltage = 0.0f;
-    int8_t umLevel = -1;
+    int16_t umLevel = -1;
 
     // --- State ---
     bool initDone = false;
@@ -140,7 +140,7 @@ class UsermodBattery : public Usermod {
 
 #ifndef WLED_DISABLE_MQTT
     void addMqttSensor(const String &name, const String &type, const String &topic, const String &deviceClass, const String &unitOfMeasurement = "", const bool &isDiagnostic = false) {
-      StaticJsonDocument<600> doc;
+      StaticJsonDocument<1024> doc;
       char uid[128], json_str[1024], buf[128];
 
       doc[F("name")] = name;
@@ -235,8 +235,8 @@ class UsermodBattery : public Usermod {
         um_data->u_data = new void*[4];
         um_data->u_data[0] = &umVoltage;   // float, Volts
         um_data->u_type[0] = UMT_FLOAT;
-        um_data->u_data[1] = &umLevel;     // int8_t, 0-100%
-        um_data->u_type[1] = UMT_BYTE;
+        um_data->u_data[1] = &umLevel;     // int16_t, 0-100% (or -1 if invalid)
+        um_data->u_type[1] = UMT_INT16;
         um_data->u_data[2] = &charging;    // bool
         um_data->u_type[2] = UMT_BYTE;
         um_data->u_data[3] = &cfg.type;    // batteryType enum (1=lipo,2=lion,3=lifepo4)
@@ -316,8 +316,10 @@ class UsermodBattery : public Usermod {
 
         // initialize Coulomb counter from voltage-based SoC on first valid reading
         if (!coulombInitialized) {
-          coulombSoC = bat->getLevel() / 100.0f;
-          coulombInitialized = true;
+          if (bat->getLevel() >= 0) {
+            coulombSoC = bat->getLevel() / 100.0f;
+            coulombInitialized = true;
+          }
           lastCoulombTime = now;
         } else {
           float dt_hours = (now - lastCoulombTime) / 3600000.0f;
@@ -333,7 +335,7 @@ class UsermodBattery : public Usermod {
         // recalibrate from voltage-based SoC when battery is at rest (OCV is accurate)
         if (current_A < REST_CURRENT_THRESHOLD) {
           if (!atRest) { atRest = true; restStartTime = now; }
-          if (now - restStartTime >= REST_RECALIBRATE_MS) {
+          if (now - restStartTime >= REST_RECALIBRATE_MS && bat->getLevel() >= 0) {
             coulombSoC = bat->getLevel() / 100.0f;
           }
         } else {
@@ -360,7 +362,7 @@ class UsermodBattery : public Usermod {
       }
 
       // auto-off
-      if (autoOffEnabled && (autoOffThreshold >= bat->getLevel()))
+      if (autoOffEnabled && bat->getLevel() >= 0 && autoOffThreshold >= bat->getLevel())
         turnOff();
 
 #ifndef WLED_DISABLE_MQTT
