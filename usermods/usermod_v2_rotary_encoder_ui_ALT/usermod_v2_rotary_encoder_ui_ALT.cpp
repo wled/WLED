@@ -738,7 +738,7 @@ void RotaryEncoderUIUsermod::loop()
 
 void RotaryEncoderUIUsermod::displayNetworkInfo() {
   #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->networkOverlay(PSTR("NETWORK INFO"), 10000);
+  if (display) { display->networkOverlay(PSTR("NETWORK INFO"), 10000); }
   #endif
 
   #ifdef USERMOD_GC9A01_DISPLAY
@@ -816,7 +816,7 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -833,7 +833,7 @@ void RotaryEncoderUIUsermod::changeBrightness(bool increase) {
   else bri = max(min((increase ? bri+fadeAmount : bri-fadeAmount), 255), 0);
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->updateBrightness();
+  if (display) { display->updateBrightness(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -860,7 +860,7 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -886,7 +886,7 @@ void RotaryEncoderUIUsermod::changeEffect(bool increase) {
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->showCurrentEffectOrPalette(effectCurrent, JSON_mode_names, 3);
+  if (display) { display->showCurrentEffectOrPalette(effectCurrent, JSON_mode_names, 3); }
 #endif
 }
 
@@ -898,7 +898,7 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -924,7 +924,7 @@ void RotaryEncoderUIUsermod::changeEffectSpeed(bool increase) {
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->updateSpeed();
+  if (display) { display->updateSpeed(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -942,7 +942,7 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -968,7 +968,7 @@ void RotaryEncoderUIUsermod::changeEffectIntensity(bool increase) {
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->updateIntensity();
+  if (display) { display->updateIntensity(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -987,7 +987,7 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1029,7 +1029,7 @@ void RotaryEncoderUIUsermod::changeCustom(uint8_t par, bool increase) {
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", val);
-  display->overlay(lineBuffer, 500, 10); // use star
+  if (display) { display->overlay(lineBuffer, 500, 10); } // use star
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1049,7 +1049,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1076,7 +1076,7 @@ void RotaryEncoderUIUsermod::changePalette(bool increase) {
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
-  display->showCurrentEffectOrPalette(effectPalette, JSON_palette_names, 2);
+  if (display) { display->showCurrentEffectOrPalette(effectPalette, JSON_palette_names, 2); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1094,7 +1094,7 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1123,7 +1123,7 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", currentHue1);
-  display->overlay(lineBuffer, 500, 7); // use brush
+  if (display) { display->overlay(lineBuffer, 500, 7); } // use brush
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1142,7 +1142,7 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1170,7 +1170,7 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", currentSat1);
-  display->overlay(lineBuffer, 500, 8); // use contrast
+  if (display) { display->overlay(lineBuffer, 500, 8); } // use contrast
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1189,7 +1189,7 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1219,7 +1219,7 @@ void RotaryEncoderUIUsermod::changePreset(bool increase) {
     lampUdated();
   #ifdef USERMOD_FOUR_LINE_DISPLAY
     sprintf(str, "%d", currentPreset);
-    display->overlay(str, 500, 11); // use heart
+    if (display) { display->overlay(str, 500, 11); } // use heart
   #endif
 
   #ifdef USERMOD_GC9A01_DISPLAY
@@ -1239,7 +1239,7 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
     // Throw away wake up input
     return;
   }
-  display->updateRedrawTime();
+  if (display) { display->updateRedrawTime(); }
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
@@ -1266,7 +1266,7 @@ void RotaryEncoderUIUsermod::changeCCT(bool increase){
 #ifdef USERMOD_FOUR_LINE_DISPLAY
   char lineBuffer[64];
   sprintf(lineBuffer, "%d", currentCCT);
-  display->overlay(lineBuffer, 500, 10); // use star
+  if (display) { display->overlay(lineBuffer, 500, 10); } // use star
 #endif
 
 #ifdef USERMOD_GC9A01_DISPLAY
