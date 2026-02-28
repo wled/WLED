@@ -73,6 +73,7 @@ class UsermodBattery : public Usermod {
     int16_t umLevel = -1;
 
     // --- State ---
+    bool enabled = true;
     bool initDone = false;
     bool initializing = true;
     bool HomeAssistantDiscovery = false;
@@ -100,6 +101,33 @@ class UsermodBattery : public Usermod {
       bri = 0;
       stateUpdated(CALL_MODE_DIRECT_CHANGE);
     }
+
+#ifdef USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
+    void applyJsonConfig(JsonObject& battery) {
+      enabled = battery[FPSTR(_enabled)] | enabled;
+      bat->setCalibration(battery[F("calibration")] | bat->getCalibration());
+      bat->setVoltageMultiplier(battery[F("voltage-multiplier")] | bat->getVoltageMultiplier());
+      batteryCapacity = battery[F("capacity")] | batteryCapacity;
+      bat->setMinVoltage(battery[F("min-voltage")] | bat->getMinVoltage());
+      bat->setMaxVoltage(battery[F("max-voltage")] | bat->getMaxVoltage());
+      setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
+
+      JsonObject ao = battery[F("auto-off")];
+      if (!ao.isNull()) {
+        autoOffEnabled = ao[FPSTR(_enabled)] | autoOffEnabled;
+        setAutoOffThreshold(ao[FPSTR(_threshold)] | autoOffThreshold);
+      }
+
+      JsonObject lp = battery[F("indicator")];
+      if (!lp.isNull()) {
+        lowPowerIndicatorEnabled = lp[FPSTR(_enabled)] | lowPowerIndicatorEnabled;
+        lowPowerIndicatorPreset = lp[FPSTR(_preset)] | lowPowerIndicatorPreset;
+        setLowPowerIndicatorThreshold(lp[FPSTR(_threshold)] | lowPowerIndicatorThreshold);
+        lowPowerIndicatorReactivationThreshold = lowPowerIndicatorThreshold + 10;
+        lowPowerIndicatorDuration = lp[FPSTR(_duration)] | lowPowerIndicatorDuration;
+      }
+    }
+#endif
 
     void lowPowerIndicator() {
       if (!lowPowerIndicatorEnabled) return;
@@ -188,6 +216,9 @@ class UsermodBattery : public Usermod {
 #endif
 
   public:
+    inline void enable(bool en) { enabled = en; }
+    inline bool isEnabled() { return enabled; }
+
     // =============================================
     //  Factory & Lifecycle
     // =============================================
@@ -201,7 +232,7 @@ class UsermodBattery : public Usermod {
       }
     }
 
-    void setup() {
+    void setup() override {
       delete bat;
       bat = createBattery(cfg.type);
       bat->update(cfg);
@@ -246,8 +277,8 @@ class UsermodBattery : public Usermod {
       initDone = true;
     }
 
-    void loop() {
-      if (strip.isUpdating()) return;
+    void loop() override {
+      if (!enabled || strip.isUpdating()) return;
 
       lowPowerIndicator();
 
@@ -375,14 +406,14 @@ class UsermodBattery : public Usermod {
 #endif
     }
 
-    uint16_t getId() {
+    uint16_t getId() override {
       return USERMOD_ID_BATTERY;
     }
 
     /*
      * Battery data exposed to other usermods via getUMData():
      *   slot 0: voltage  (float, Volts)
-     *   slot 1: level    (int8_t, 0-100%)
+     *   slot 1: level    (int16_t, 0-100% or -1 if invalid)
      *   slot 2: charging (bool)
      *   slot 3: type     (uint8_t, 1=lipo,2=lion,3=lifepo4)
      */
@@ -396,9 +427,15 @@ class UsermodBattery : public Usermod {
     //  JSON Info & State
     // =============================================
 
-    void addToJsonInfo(JsonObject& root) {
+    void addToJsonInfo(JsonObject& root) override {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
+
+      if (!enabled) {
+        JsonArray infoBattery = user.createNestedArray(FPSTR(_name));
+        infoBattery.add(F("disabled"));
+        return;
+      }
 
       if (batteryPin < 0) {
         JsonArray infoVoltage = user.createNestedArray(F("Battery voltage"));
@@ -456,13 +493,24 @@ class UsermodBattery : public Usermod {
       }
     }
 
-    void addToJsonState(JsonObject& root) {
+    void addToJsonState(JsonObject& root) override {
+      if (!initDone) return;  // prevent crash on boot applyPreset()
       JsonObject battery = root.createNestedObject(FPSTR(_name));
       addBatteryToJsonObject(battery, true);
       DEBUG_PRINTLN(F("Battery state exposed in JSON API."));
     }
 
+#ifdef USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
+    void readFromJsonState(JsonObject& root) override {
+      if (!initDone) return;
+      JsonObject battery = root[FPSTR(_name)];
+      if (battery.isNull()) return;
+      applyJsonConfig(battery);
+    }
+#endif
+
     void addBatteryToJsonObject(JsonObject& battery, bool forJsonState) {
+      battery[FPSTR(_enabled)] = enabled;
       if (forJsonState) {
         battery[F("type")] = cfg.type;
         battery[F("charging")] = charging;
@@ -496,7 +544,7 @@ class UsermodBattery : public Usermod {
     //  Configuration
     // =============================================
 
-    void addToConfig(JsonObject& root) {
+    void addToConfig(JsonObject& root) override {
       JsonObject battery = root.createNestedObject(FPSTR(_name));
 
       #ifdef ARDUINO_ARCH_ESP32
@@ -516,7 +564,7 @@ class UsermodBattery : public Usermod {
       DEBUG_PRINTLN(F("Battery config saved."));
     }
 
-    void appendConfigData() {
+    void appendConfigData() override {
       oappend(F("td=addDropdown('Battery','type');"));              // 34 Bytes
       oappend(F("addOption(td,'LiPo','1');"));                      // 26 Bytes
       oappend(F("addOption(td,'LiOn','2');"));                      // 26 Bytes
@@ -533,7 +581,7 @@ class UsermodBattery : public Usermod {
     }
 
     // Called BEFORE setup() on boot and on settings save
-    bool readFromConfig(JsonObject& root) {
+    bool readFromConfig(JsonObject& root) override {
       #ifdef ARDUINO_ARCH_ESP32
         int8_t newBatteryPin = batteryPin;
       #endif
@@ -544,6 +592,8 @@ class UsermodBattery : public Usermod {
         DEBUG_PRINTLN(F(": No config found. (Using defaults.)"));
         return false;
       }
+
+      enabled = battery[FPSTR(_enabled)] | enabled;
 
       #ifdef ARDUINO_ARCH_ESP32
         newBatteryPin = battery[F("pin")] | newBatteryPin;
@@ -607,7 +657,17 @@ class UsermodBattery : public Usermod {
     // =============================================
 
 #ifndef WLED_DISABLE_MQTT
-    void onMqttConnect(bool sessionPresent) {
+    void onMqttConnect(bool sessionPresent) override {
+#ifdef USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
+      // subscribe to battery config updates
+      if (mqttDeviceTopic[0] != 0) {
+        char subuf[64];
+        strcpy(subuf, mqttDeviceTopic);
+        strcat_P(subuf, PSTR("/battery/set"));
+        mqtt->subscribe(subuf, 0);
+      }
+#endif
+
       if (!HomeAssistantDiscovery) return;
 
       // probe INA226 now in case it wasn't detected yet during loop()
@@ -626,6 +686,19 @@ class UsermodBattery : public Usermod {
         registerMqttSensor("runtime",  F("Runtime"),  "sensor",        "duration",         "min");
       }
     }
+
+#ifdef USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
+    bool onMqttMessage(char* topic, char* payload) override {
+      if (strlen(topic) < 12 || strncmp_P(topic, PSTR("/battery/set"), 12) != 0) return false;
+
+      StaticJsonDocument<256> doc;
+      if (deserializeJson(doc, payload)) return false;
+
+      JsonObject obj = doc.as<JsonObject>();
+      applyJsonConfig(obj);
+      return true;
+    }
+#endif
 
     void registerMqttSensor(const char* subtopic, const String &name, const char* type, const char* deviceClass, const char* unit = "", bool diagnostic = true) {
       char topic[128];

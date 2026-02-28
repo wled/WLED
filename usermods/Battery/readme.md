@@ -298,6 +298,18 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 
 ## 📝 Change Log
 
+2026-02-28
+
+- Added `readFromJsonState()` for remote config updates via JSON API
+- Added `onMqttMessage()` for remote config updates via MQTT (`<deviceTopic>/battery/set`)
+- Both gated behind `USERMOD_BATTERY_ALLOW_REMOTE_UPDATE` compile-time flag
+- Added `override` keyword to all overridden methods for compile-time safety
+- Added `addToJsonState()` init guard to prevent crash on boot
+- Increased MQTT discovery JSON buffer from 600 to 1024 bytes
+- Fixed `umLevel` type mismatch (`int8_t`/`UMT_BYTE` → `int16_t`/`UMT_INT16`)
+- Fixed auto-off, Coulomb init, and rest recalibration firing on invalid `-1` level
+- Used `VOLTAGE_HISTORY_SIZE` constant instead of magic number for array size
+
 2026-02-25
 
 - Added LiFePO4 battery type with piecewise-linear discharge curve

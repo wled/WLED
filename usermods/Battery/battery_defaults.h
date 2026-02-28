@@ -122,6 +122,10 @@
   #define USERMOD_BATTERY_CAPACITY 3000
 #endif
 
+// Enable remote battery config updates via JSON API and MQTT
+// Uncomment below or define in my_config.h / build flags to allow runtime config changes
+// #define USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
+
 // battery types
 typedef enum
 {
