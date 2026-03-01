@@ -106,6 +106,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *   The third slider sets the damping value for horizontal blob movement
 *   The first checkbox sets the color mode (color wheel or palette)
 *   The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*   The third checkbox sets whether we preserve the color ratio when displaying pixels that are in 2 or more overlapping blobs
 *   aux0 keeps track of the blob size value
 *   aux1 keeps track of the number of blobs
 */
@@ -376,13 +377,14 @@ static void mode_2D_lavalamp(void) {
 
           uint32_t existing = SEGMENT.getPixelColorXY(px, py);
           uint32_t newColor = RGBW32(br, bg, bb, bw);
-          SEGMENT.setPixelColorXY(px, py, color_add(existing, newColor));
+          bool preserveColorRatio = SEGMENT.check3;
+          SEGMENT.setPixelColorXY(px, py, color_add(existing, newColor, preserveColorRatio ? true : false));
         }
       }
     }
   }
 }
-static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,H. Damping,,Color mode,Attract;;!;2;ix=64,c2=192,o2=1,pal=47";
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,H. Damping,,Color mode,Attract,Keep Color Ratio;;!;2;ix=64,c2=192,o2=1,pal=47";
 
 
 
