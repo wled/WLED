@@ -109,7 +109,7 @@ static void setOff() {
   }
 }
 
-void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }

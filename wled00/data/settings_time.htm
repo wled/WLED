@@ -130,12 +130,13 @@
 	</script>
 </head>
 <body>
-	<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
-		</div>
-		<h2>Time setup</h2>
+<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+	</div>
+	<h2>Time setup</h2>
+	<div class="sec">
 		Get time from NTP server: <input type="checkbox" name="NT"><br>
 		<input type="text" name="NS" maxlength="32"><br>
 		Use 24h format: <input type="checkbox" name="CF"><br>
@@ -174,6 +175,8 @@
 		<button type="button" id="locbtn" onclick="getLatLon()">Get location</button>
 		<div><i>(opens new tab, only works in browser)</i></div>
 		<div id="sun" class="times"></div>
+	</div>
+	<div class="sec">
 		<h3>Clock</h3>
 		Analog Clock overlay: <input type="checkbox" name="OL" onchange="Cs()"><br>
 		<div id="cac">
@@ -187,15 +190,22 @@
 		Countdown Goal:<br>
 		Date:&nbsp;<nowrap>20<input name="CY" class="xs" type="number" min="0" max="99" required>-<input name="CI" class="xs" type="number" min="1" max="12" required>-<input name="CD" class="xs" type="number" min="1" max="31" required></nowrap><br>
 		Time:&nbsp;<nowrap><input name="CH" class="xs" type="number" min="0" max="23" required>:<input name="CM" class="xs" type="number" min="0" max="59" required>:<input name="CS" class="xs" type="number" min="0" max="59" required></nowrap><br>
-		<h3>Macro presets</h3>
-		<b>Macros have moved!</b><br>
-		<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
-		Just enter the preset ID below!</i>
-		<i>Use 0 for the default action instead of a preset</i><br>
-		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
+	</div>
+	<hr>
+	<h2>Macro Presets</h2>
+	<i>Presets can be used as macros for both JSON and HTTP API commands.<br>
+	Enter the preset ID below.</i>
+	<i>Use 0 for the default action instead of a preset</i><br>
+	<a href="https://kno.wled.ge/interfaces/json-api/" target="_blank">JSON API</a><br>
+	<a href="https://kno.wled.ge/interfaces/http-api/" target="_blank">HTTP API</a><br>
+	<div class="sec">
+		<h3>Timer & Alexa Presets</h3>
 		Countdown-Over Preset: <input name="MC" class="m" type="number" min="0" max="250" required><br>
 		Timed-Light-Over Presets: <input name="MN" class="m" type="number" min="0" max="250" required><br>
-		<h3>Button actions</h3>
+		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
+	</div>
+	<div class="sec">
+		<h3>Button Action Presets</h3>
 		<table style="margin: 0 auto;" id="macros">
 			<thead>
 				<tr>
@@ -209,12 +219,15 @@
 			</tbody>
 		</table>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
-		<h3>Time-controlled presets</h3>
+	</div>
+	<div class="sec">
+		<h3>Time-Controlled Presets</h3>
 		<div style="display: inline-block">
 		<table id="TMT" style="min-width:330px;"></table>
 		</div>
-		<hr>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
-	</form>
+	</div>
+	<hr>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+</form>
 </body>
 </html>
