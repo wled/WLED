@@ -172,6 +172,8 @@ static void mode_2D_lavalamp(void) {
   const float spawnXWidth = cols * 0.60f;
   int spawnX = max(1, (int)(spawnXWidth));
 
+  bool preserveColorRatio = SEGMENT.check3;
+
   // Spawn new particles at the bottom near the center
   for (int i = 0; i < MAX_LAVA_PARTICLES; i++) {
     if (!lavaParticles[i].active && hw_random8() < 32) { // spawn when slot available
@@ -377,7 +379,6 @@ static void mode_2D_lavalamp(void) {
 
           uint32_t existing = SEGMENT.getPixelColorXY(px, py);
           uint32_t newColor = RGBW32(br, bg, bb, bw);
-          bool preserveColorRatio = SEGMENT.check3;
           SEGMENT.setPixelColorXY(px, py, color_add(existing, newColor, preserveColorRatio ? true : false));
         }
       }
