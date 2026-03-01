@@ -2,6 +2,11 @@
 #include "wled.h"
 #include "fcn_declare.h"
 
+// forward declarations
+static void sendNTPPacket();
+static bool checkNTPResponse();
+
+
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
 
@@ -11,7 +16,7 @@
 //#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
-Timezone* tz;
+static Timezone* tz;
 
 #define TZ_UTC                  0
 #define TZ_UK                   1
@@ -42,7 +47,7 @@ Timezone* tz;
 #define TZ_COUNT               25
 #define TZ_INIT               255
 
-byte tzCurrent = TZ_INIT; //uninitialized
+static byte tzCurrent = TZ_INIT; //uninitialized
 
 /* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
@@ -199,7 +204,7 @@ void handleNetworkTime()
   }
 }
 
-void sendNTPPacket()
+static void sendNTPPacket()
 {
   if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
   {
@@ -245,7 +250,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   return true;
 }
 
-bool checkNTPResponse()
+static bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {

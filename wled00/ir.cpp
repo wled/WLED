@@ -7,14 +7,14 @@
  * Infrared sensor support for several generic RGB remotes and custom JSON remote
  */
 
-IRrecv* irrecv;
-decode_results results;
-unsigned long irCheckedTime = 0;
-uint32_t lastValidCode = 0;
-byte lastRepeatableAction = ACTION_NONE;
-uint8_t lastRepeatableValue = 0;
-uint16_t irTimesRepeated = 0;
-uint8_t lastIR6ColourIdx = 0;
+static IRrecv* irrecv;
+static decode_results results;
+static unsigned long irCheckedTime = 0;
+static uint32_t lastValidCode = 0;
+static byte lastRepeatableAction = ACTION_NONE;
+static uint8_t lastRepeatableValue = 0;
+static uint16_t irTimesRepeated = 0;
+static uint8_t lastIR6ColourIdx = 0;
 
 
 // brightnessSteps: a static array of brightness levels following a geometric

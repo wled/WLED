@@ -457,7 +457,7 @@ void exitRealtime() {
 
 #define TMP2NET_OUT_PORT 65442
 
-void sendTPM2Ack() {
+static void sendTPM2Ack() {
   notifierUdp.beginPacket(notifierUdp.remoteIP(), TMP2NET_OUT_PORT);
   uint8_t response_ack = 0xac;
   notifierUdp.write(&response_ack, 1);

@@ -71,7 +71,7 @@
  * if you want to receive two channels, one is the actual data from microphone and another channel is suppose to receive 0, it's different data in two channels, you need to choose I2S_CHANNEL_FMT_RIGHT_LEFT in this case.
 */
 
-#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 4, 6))
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 5, 0))
 // espressif bug: only_left has no sound, left and right are swapped 
 // https://github.com/espressif/esp-idf/issues/9635  I2S mic not working since 4.4 (IDFGH-8138)
 // https://github.com/espressif/esp-idf/issues/8538  I2S channel selection issue? (IDFGH-6918)
@@ -225,15 +225,17 @@ class I2SSource : public AudioSource {
 
         _config.mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM); // Change mode to pdm if clock pin not provided. PDM is not supported on ESP32-S2. PDM RX not supported on ESP32-C3
         _config.channel_format =I2S_PDM_MIC_CHANNEL;                             // seems that PDM mono mode always uses left channel.
-        _config.use_apll = true;                                                 // experimental - use aPLL clock source to improve sampling quality
+        _config.use_apll = false;                                                // don't use aPLL clock source (fix for #5391)
         #endif
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
       if (mclkPin != I2S_PIN_NO_CHANGE) {
+        #if !defined(WLED_USE_ETHERNET)  // fix for #5391 aPLL resource conflict - aPLL is needed for ethernet boards with internal RMII clock
         _config.use_apll = true; // experimental - use aPLL clock source to improve sampling quality, and to avoid glitches.
         // //_config.fixed_mclk = 512 * _sampleRate;
         // //_config.fixed_mclk = 256 * _sampleRate;
+        #endif
       }
       
       #if !defined(SOC_I2S_SUPPORTS_APLL)
