@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h", "wled00/js_omggif.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -272,6 +272,20 @@ writeChunks(
 );
 
 writeChunks(
+  "wled00/data/pixelforge",
+  [
+    {
+      file: "omggif.js",
+      name: "JS_omggif",
+      method: "gzip",
+      filter: "js-minify",
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_omggif.h"
+);
+
+writeChunks(
   "wled00/data",
   [
     {
@@ -378,6 +392,12 @@ writeChunks(
     {
       file: "settings_pin.htm",
       name: "PAGE_settings_pin",
+      method: "gzip",
+      filter: "html-minify"
+    },
+    {
+      file: "settings_pininfo.htm",
+      name: "PAGE_settings_pininfo",
       method: "gzip",
       filter: "html-minify"
     }
