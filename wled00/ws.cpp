@@ -80,10 +80,11 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           // force broadcast in 500ms after updating client
           //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
-      }else if (info->opcode == WS_BINARY) {
+      } else if (info->opcode == WS_BINARY) {
         // first byte determines protocol. Note: since e131_packet_t is "packed", the compiler handles alignment issues
         //DEBUG_PRINTF_P(PSTR("WS binary message: len %u, byte0: %u\n"), len, data[0]);
         constexpr int offset = 1; // offset to skip protocol byte
+        if (!data || len < offset+1) return; // catch invalid / single-byte payload
         switch (data[0]) {
           case BINARY_PROTOCOL_E131:
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_E131);
