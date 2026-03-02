@@ -220,7 +220,7 @@ void handleRemote() {
       case WIZMOTE_BUTTON_TWO            : presetWithFallback(2, FX_MODE_BREATH,        0); break;
       case WIZMOTE_BUTTON_THREE          : presetWithFallback(3, FX_MODE_FIRE_FLICKER,  0); break;
       case WIZMOTE_BUTTON_FOUR           : presetWithFallback(4, FX_MODE_RAINBOW,       0); break;
-      case WIZMOTE_BUTTON_FIVE           : presetWithFallback(5, FX_MODE_SCAN,          0); break;
+      case WIZMOTE_BUTTON_FIVE           : presetWithFallback(5, FX_MODE_FIRE_FLICKER,  0); break;
       case WIZMOTE_BUTTON_SIX            : presetWithFallback(6, FX_MODE_BLINK,         0); break;
       case WIZMOTE_BUTTON_SEVEN          : presetWithFallback(7, FX_MODE_FADE,          0); break;
       case WIZMOTE_BUTTON_NIGHT          : activateNightMode();                             break;
