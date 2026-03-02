@@ -104,9 +104,8 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 *   The first slider sets the number of active blobs
 *   The second slider sets the size range of the blobs
 *   The third slider sets the damping value for horizontal blob movement
-*   The first checkbox sets the color mode (color wheel or palette)
-*   The second checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
-*   The third checkbox sets whether we preserve the color ratio when displaying pixels that are in 2 or more overlapping blobs
+*   The Attract checkbox sets the attraction of blobs (checked will make the blobs attract other close blobs horizontally)
+*   The Keep Color Ratio checkbox sets whether we preserve the color ratio when displaying pixels that are in 2 or more overlapping blobs
 *   aux0 keeps track of the blob size value
 *   aux1 keeps track of the number of blobs
 */
@@ -246,9 +245,8 @@ static void mode_2D_lavalamp(void) {
     }
 
     // Horizontal oscillation (makes it more organic)
-    float damping= map(SEGMENT.custom2, 0, 255, 87, 97) / 100.0f;
+    float damping= map(SEGMENT.custom2, 0, 255, 97, 87) / 100.0f;
     p->vx += sin((currentMillis / 1000.0f + i) * 0.5f) * 0.002f; // Reduced oscillation
-    //p->vx *= 0.92f; // Stronger damping for less drift
     p->vx *= damping; // damping for more or less horizontal drift
 
     // Bounce off sides (don't affect vertical velocity)
@@ -335,11 +333,7 @@ static void mode_2D_lavalamp(void) {
 
     // Get color
     uint32_t color;
-    if (SEGMENT.check1) {
-      color = SEGMENT.color_wheel(p->hue);  // Random colors mode
-    } else {
-      color = SEGMENT.color_from_palette(p->hue, true, PALETTE_SOLID_WRAP, 0);   // Palette mode
-    }
+    color = SEGMENT.color_from_palette(p->hue, true, PALETTE_SOLID_WRAP, 0);
     
     // Extract RGB and apply life/opacity
     uint8_t w = (W(color) * 255) >> 8;
@@ -385,7 +379,7 @@ static void mode_2D_lavalamp(void) {
     }
   }
 }
-static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,H. Damping,,Color mode,Attract,Keep Color Ratio;;!;2;ix=64,c2=192,o2=1,pal=47";
+static const char _data_FX_MODE_2D_LAVALAMP[] PROGMEM = "Lava Lamp@,# of blobs,Blob size,H. Damping,,,Attract,Keep Color Ratio;;!;2;ix=64,c2=192,o2=1,o3=1,pal=47";
 
 
 
