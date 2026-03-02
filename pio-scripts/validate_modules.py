@@ -3,14 +3,7 @@ from pathlib import Path   # For OS-agnostic path manipulation
 from typing import Iterable
 from click import secho
 from SCons.Script import Action, Exit
-from platformio.builder.tools.piolib import LibBuilderBase
 Import("env")
-
-def is_wled_module(env, dep: LibBuilderBase) -> bool:
-  """Returns true if the specified library is a wled module
-  """
-  usermod_dir = Path(env["PROJECT_DIR"]).resolve() / "usermods"
-  return usermod_dir in Path(dep.src_dir).parents or str(dep.name).startswith("wled-")
 
 
 def read_lines(p: Path):
