@@ -285,6 +285,7 @@ static void mode_ants(void) {
 static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant size,Blur,,Gathering food,Smear,Pass by;!,!,!;!;1;sx=192,ix=255,c1=32,c2=0,o1=1,o3=1";
 
 
+/*
 /  Morse Code by Bob Loeffler
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
@@ -534,7 +535,6 @@ static void mode_morsecode(void) {
   }
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
-
 
 
 /////////////////////
