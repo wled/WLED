@@ -12,8 +12,6 @@ static void mode_static(void) {
 
 #define FX_FALLBACK_STATIC { mode_static(); return; }
 
-#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
-
 // If you define configuration options in your class and need to reference them in your effect function, add them here.
 // If you only need to use them in your class you can define them as class members instead.
 // bool myConfigValue = false;
@@ -99,7 +97,6 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 
 /*
-<<<<<<< pr-magma-user-fx
 /  Magma effect
 *   2D magma/lava animation
 *   Adapted from FireLamp_JeeUI implementation (https://github.com/DmytroKorniienko/FireLamp_JeeUI/tree/dev)
@@ -214,9 +211,10 @@ static void mode_2D_magma(void) {
   uint8_t* shiftHue = reinterpret_cast<uint8_t*>(reinterpret_cast<uint8_t*>(settingsSumPtr) + SETTINGS_SUM_BYTES);
 
   // Check if settings changed
-  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom2;
-  bool settingsChanged = (*settingsSumPtr != settingssum);
-
+  uint32_t settingsKey = (uint32_t)SEGMENT.speed | ((uint32_t)SEGMENT.intensity << 8) |
+      ((uint32_t)SEGMENT.custom1 << 16) | ((uint32_t)SEGMENT.custom2 << 24);
+  bool settingsChanged = (*settingsSumPtr != settingsKey);
+ 
   if (SEGENV.call == 0 || settingsChanged) {
     // Intensity slider controls magma height
     uint16_t intensity = SEGMENT.intensity;
@@ -251,7 +249,7 @@ static void mode_2D_magma(void) {
     }
     *ff_y = 0.0f;
     *ff_z = 0.0f;
-    *settingsSumPtr = settingssum;
+    *settingsSumPtr = settingsKey;
   }
 
   if (!shiftHue) FX_FALLBACK_STATIC;   // safety check
@@ -287,8 +285,9 @@ static void mode_2D_magma(void) {
   SEGENV.step++;
 }
 static const char _data_FX_MODE_2D_MAGMA[] PROGMEM = "Magma@Flow rate,Magma height,Lava bombs,Gravity,,,Bombs in front;;!;2;ix=192,c2=32,o2=1,pal=35";
-=======
-/  Morse Code by Bob Loeffler
+
+
+/*  Morse Code by Bob Loeffler
 *   Adapted from code by automaticaddison.com and then optimized by claude.ai
 *   aux0 is the pattern offset for scrolling
 *   aux1 saves settings: check2 (1 bit), check3 (1 bit), text hash (4 bits) and pattern length (10 bits)
@@ -537,8 +536,6 @@ static void mode_morsecode(void) {
   }
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
->>>>>>> main
-
 
 
 /////////////////////
@@ -550,11 +547,8 @@ class UserFxUsermod : public Usermod {
  public:
   void setup() override {
     strip.addEffect(255, &mode_diffusionfire, _data_FX_MODE_DIFFUSIONFIRE);
-<<<<<<< pr-magma-user-fx
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
-=======
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
->>>>>>> main
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
