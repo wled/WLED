@@ -549,17 +549,17 @@ static void mode_2D_magma(void) {
   float gravity = map(SEGMENT.custom2, 0, 255, 5, 20) / 100.0f;
   
   // Number of particles (lava bombs)
-  uint8_t particleCount = map(SEGMENT.custom1, 0, 255, 2, MAGMA_MAX_PARTICLES);
-  particleCount = constrain(particleCount, 2, MAGMA_MAX_PARTICLES);
+  uint8_t particleCount = map(SEGMENT.custom1, 0, 255, 0, MAGMA_MAX_PARTICLES);
+  particleCount = constrain(particleCount, 0, MAGMA_MAX_PARTICLES);
 
   // Draw lava bombs in front of magma (or behind it)
   if (SEGMENT.check2) {
     drawMagma(width, height, ff_y, ff_z, shiftHue);
     SEGMENT.fadeToBlackBy(70);    // Dim the entire display to create trailing effect
-    drawLavaBombs(width, height, particleData, gravity, particleCount);
+    if (particleCount > 0) drawLavaBombs(width, height, particleData, gravity, particleCount);
   }
   else {
-    drawLavaBombs(width, height, particleData, gravity, particleCount);
+    if (particleCount > 0) drawLavaBombs(width, height, particleData, gravity, particleCount);
     SEGMENT.fadeToBlackBy(70);    // Dim the entire display to create trailing effect
     drawMagma(width, height, ff_y, ff_z, shiftHue);
   }
