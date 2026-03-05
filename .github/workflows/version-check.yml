@@ -1,0 +1,41 @@
+name: Version Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-version-bump:
+    name: GRIDLIGHTS_VERSION bumped
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version on PR branch
+        id: pr_version
+        run: |
+          VERSION=$(grep GRIDLIGHTS_VERSION platformio_override.ini | grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract version on main
+        id: main_version
+        run: |
+          VERSION=$(git show origin/main:platformio_override.ini | grep GRIDLIGHTS_VERSION | grep -oP '[0-9]+\.[0-9]+\.[0-9]+')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Fail if version not bumped
+        run: |
+          PR="${{ steps.pr_version.outputs.version }}"
+          MAIN="${{ steps.main_version.outputs.version }}"
+          echo "main:   $MAIN"
+          echo "PR:     $PR"
+          if [ "$PR" = "$MAIN" ]; then
+            echo "❌ GRIDLIGHTS_VERSION ($MAIN) must be bumped before merging."
+            echo "   Update GRIDLIGHTS_VERSION in platformio_override.ini."
+            exit 1
+          fi
+          echo "✅ Version bumped: $MAIN → $PR"
