@@ -391,30 +391,9 @@ button, .btn {
 	<div id="ti1D" style="display:none;">Not available in 1D</div>
 </div>
 <div id="oTab" class="tabc">
-	<div class="ed active">
-		<div>
-			<h3>Pixel Paint</h3>
-			<div><small>Interactive painting tool</small></div>
-			<button class="btn" id="t1" style="display:none"></button>
-		</div>
-	</div>
-	<hr>
-	<div class="ed active">
-		<div>
-			<h3>Video Lab</h3>
-			<div><small>Stream video and generate animated GIFs (beta)</small></div>
-			<button class="btn" id="t2" style="display:none"></button>
-		</div>
-	</div>
-	<hr>
-	<div class="ed active">
-		<div>
-			<h3>PIXEL MAGIC Tool</h3>
-			<div><small>Legacy pixel art editor</small></div>
-			<button class="btn" id="t3" style="display:none"></button>
-		</div>
-	</div>
-	<hr>
+    <div id="tools">
+        <div style="padding:20px;text-align:center;">Loading tools...</div>
+    </div>
 </div>
 
 <div style="margin:20px 0">
@@ -442,6 +421,11 @@ let pan=false,psX=0,psY=0,poX=0,poY=0;
 let iL=[]; // image list
 let gF=null,gI=null,aT=null;
 let fL; // file list
+let pT = []; // local tools list from JSON
+const remoteURL = 'https://dedehai.github.io/pf_tools.json'; // Change to your actual repo
+const toolsjson = 'pf_tools.json';
+// note: the pf_tools.json must use major.minor for tool versions (e.g. 0.95 or 1.1), otherwise the update check won't work
+//       also the code assumes that the tool url points to a gz file
 
 // load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
 (function loadFiles() {
@@ -459,21 +443,19 @@ async function init() {
 	getLoc();
 	// create off screen canvas
 	rv = cE('canvas');
-	rvc = rv.getContext('2d',{willReadFrequently:true}); 
+	rvc = rv.getContext('2d',{willReadFrequently:true});
 	rv.width = cv.width; rv.height = cv.height;
-
+	tabSw(localStorage.tab||'img'); // switch to last open tab or image tab by default
 	await segLoad(); // load available segments
 	await flU(); // update file list
-	toolChk('pixelpaint.htm','t1'); // update buttons of additional tools
-	toolChk('videolab.htm','t2');
-	toolChk('pxmagic.htm','t3');
+	await loadTools(); // load additional tools list from pf_tools.json
 	await fsMem(); // show file system memory info
 }
 
 /* update file list */
 async function flU(){
 	try{
-		const r = await fetch(getURL('/edit?list=/'));
+		const r = await fetch(getURL('/edit?list=/&cb=' + Date.now()));
 		fL = await r.json();
 	}catch(e){console.error(e);}
 }
@@ -576,14 +558,14 @@ async function imgLoad2(imgs){
 		await new Promise(res=>{
 			const im=new Image();
 			im.onload=()=>{
-				it.style.backgroundImage=`url(${url}?cb=${Date.now()})`;
+				it.style.backgroundImage=`url('${encodeURI(url)}?cb=${Date.now()}')`;
 				if(!isGif) it.style.border="5px solid red";
 				it.classList.remove('loading'); res();
 				const kb=Math.round(f.size/1024);
 				it.title=`${name}\n${im.width}x${im.height}\n${kb} KB`;
 			};
 			im.onerror=()=>{it.classList.remove('loading');it.style.background='#222';res();};
-			im.src=url+'?cb='+Date.now();
+			im.src=encodeURI(url)+'?cb='+Date.now();
 		});
 	}
 }
@@ -597,35 +579,93 @@ function imgRm(nm){
 	//}
 }
 
-/* additional tools: check if present, install if not */
-function toolChk(file, btnId) {
+/* additional tools: loaded from pf_tools.json, store json locally for offline use*/
+async function loadTools() {
 	try {
-		const has = fL.some(f => f.name.includes(file));
-		const b = getId(btnId);
-		b.style.display = 'block';
-		b.style.margin = '10px auto';
-		if (has) {
-			b.textContent = 'Open';
-			b.onclick = () => window.open(getURL(`/${file}`), '_blank'); // open tool: remove gz to not trigger download
-		} else {
-			b.textContent = 'Download';
-			b.onclick = async () => {
-				const fileGz = file + '.gz'; // use gz version
-				const url = `https://dedehai.github.io/${fileGz}`; // always download gz version
-				if (!confirm(`Download ${url}?`)) return;
-				try {
-					const f = await fetch(url);
-					if (!f.ok) throw new Error("Download failed " + f.status);
-					const blob = await f.blob(), fd = new FormData();
-					fd.append("data", blob, fileGz);
-					const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
-					alert(u.ok ? "Tool installed!" : "Upload failed");
-					await flU(); // update file list
-					toolChk(file, btnId); // re-check and update button (must pass non-gz file name)
-				} catch (e) { alert("Error " + e.message); }
-			};
+		const res = await fetch(getURL('/' + toolsjson + '?cb=' + Date.now())); // load local tools list
+		pT = res.ok ? await res.json() : [];
+	} catch (e) {}
+
+	renderTools(); // render whatever we have
+
+	try {
+		const rT = await (await fetch(remoteURL + '?cb=' + Date.now())).json();
+		let changed = false;
+		rT.forEach(rt => {
+			let lt = pT.find(t => t.id === rt.id);
+			if (!lt) {
+				pT.push(rt); // new tool available
+				changed = true;
+			} else {
+				// check version
+				if (isNewer(rt.ver, lt.ver)) {
+					lt.upv = rt.ver;
+					changed = true;
+				} else if (lt.upv) {
+					delete lt.upv; // clean up flag if user updated or remote rolled back
+					changed = true;
+				}
+				lt.source = rt.source; lt.desc = rt.desc; // update info in case it changed
+			}
+		});
+		if (changed) {
+			await saveToolsjson(); // save updated json
+			renderTools();
 		}
-	} catch (e) { console.error(e); }
+	} catch(e){console.error(e);}
+}
+
+async function saveToolsjson() {
+		const fd = new FormData();
+    fd.append("data", new Blob([JSON.stringify(pT)], {type:'application/json'}), toolsjson);
+    await fetch(getURL("/upload"), { method: "POST", body: fd });
+}
+
+// tool versions must be in format major.minor (e.g. 0.95 or 1.1)
+function isNewer(vN, vO) {
+    return parseFloat(vN) > parseFloat(vO);
+}
+
+function renderTools() {
+	let h = '';
+	pT.forEach(t => {
+		const installed = fL.some(f => f.name.includes(t.file)); // check if tool file exists (either .htm or .htm.gz)
+		h += `<div class="ed active" style="margin-bottom:10px; border-radius:20px; text-align:left;">
+			<div style="display:flex; justify-content:space-between;">
+				<h3>${t.name} <small style="font-size:10px">v${t.ver}</small></h3>
+				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${t.file}')">✕</button>` : ''}
+			</div>
+			${t.desc}
+			<div style="font-size:10px; color:#888;">
+				by ${t.author} | <a href="${t.source}" target="_blank">${t.source}</a>
+			</div>
+			<div class="crw">
+				${installed ? `<button class="btn" onclick="window.location.href=getURL('/${t.file}')">Open</button>` : `<button class="btn" onclick="insT('${t.id}')">Install</button>`}
+				${t.upv && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${t.id}')">Update v${t.upv}</button>` : ''}
+			</div>
+		</div>`;
+	});
+	getId('tools').innerHTML = h || 'No tools found (offline?).';
+}
+
+// install or update tool
+async function insT(id) {
+    const t = pT.find(x => x.id == id);
+    ovShow();
+    try {
+        const f = await fetch(t.url); // url in json must be pointing to a gz file
+				if (!f.ok) throw new Error("Download failed " + f.status);
+        const fd = new FormData();
+        fd.append("data", await f.blob(), t.file + '.gz'); // always use gz for file name (source MUST be gz)
+        const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
+				alert(u.ok ? "Tool installed!" : "Install failed");
+        if (t.upv) { t.ver = t.upv; delete t.upv; } // remove update flag
+        await saveToolsjson();
+        await flU(); // refresh file list
+        renderTools();
+    } catch(e) { alert("Error " + e.message); }
+		fsMem(); // refresh memory info after upload
+    ovHide();
 }
 
 /* fs/mem info */
@@ -1107,6 +1147,7 @@ getId('up').onclick = async () => {
 	} catch (e) {
 		msg(`Error: ${e.message}`, 'err');
 	} finally {
+		fsMem(); // refresh memory info after upload
 		ovHide();
 	}
 };
@@ -1143,7 +1184,7 @@ function menuShow(x,y){
 	m.style.left=x+'px'; m.style.top=y+'px';
 	m.innerHTML=`
 		<button onclick="imgDl()">Download</button>
-		<button class="danger" onclick="imgDel()">Delete</button>`;
+		<button class="danger" onclick="imgDel(sI.name)">Delete</button>`;
 	d.body.appendChild(m);
 	setTimeout(()=>{
 		const h=e=>{
@@ -1163,16 +1204,23 @@ async function imgDl(){
 	}catch(e){msg('Download failed','err');}
 	menuClose();
 }
-async function imgDel(){
-	if(!confirm(`Delete ${sI.name}?`))return;
+
+async function deleteFile(name){
+	const ins = fL.some(f => f.name.includes(name));
+	if (fL.some(f => f.name === `${name}.gz`))
+		name += '.gz'; // if .gz version of file exists, delete that (handles tools which are stored gzipped on device)
+	if(!confirm(`Delete ${name}?`))return;
 	ovShow();
 	try{
-		const r = await fetch(getURL(`/edit?func=delete&path=/${sI.name}`));
-		if(r.ok){ msg('Deleted'); imgRm(sI.name); }
+		const r = await fetch(getURL(`/edit?func=delete&path=/${name}`));
+		if(r.ok){ msg('Deleted'); imgRm(name); }
 		else msg('Delete failed! File in use?','err');
 	}catch(e){msg('Delete failed','err');}
 	finally{ovHide();}
-	menuClose();
+	fsMem(); 			 // refresh memory info after delete
+	menuClose();   // close menu (used for image delete button)
+	await flU();   // update file list
+	renderTools(); // re-render tools list
 }
 
 /* tab select and additional tools */
@@ -1186,7 +1234,6 @@ function tabSw(tab) {
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
 });
-tabSw(localStorage.tab||'img');
 
 /* tokens insert */
 function txtIns(el,t){
