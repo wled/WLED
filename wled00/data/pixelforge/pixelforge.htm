@@ -391,9 +391,9 @@ button, .btn {
 	<div id="ti1D" style="display:none;">Not available in 1D</div>
 </div>
 <div id="oTab" class="tabc">
-    <div id="tools">
-        <div style="padding:20px;text-align:center;">Loading tools...</div>
-    </div>
+	<div id="tools">
+		<div style="padding:20px;text-align:center;">Loading tools...</div>
+	</div>
 </div>
 
 <div style="margin:20px 0">
@@ -599,13 +599,9 @@ async function loadTools() {
 			} else {
 				// check version
 				if (isNewer(rt.ver, lt.ver)) {
-					lt.upv = rt.ver;
-					changed = true;
-				} else if (lt.upv) {
-					delete lt.upv; // clean up flag if user updated or remote rolled back
+					lt.pending = { ver: rt.ver, url: rt.url, file: rt.file, desc: rt.desc }; // add pending update info
 					changed = true;
 				}
-				lt.source = rt.source; lt.desc = rt.desc; // update info in case it changed
 			}
 		});
 		if (changed) {
@@ -632,16 +628,16 @@ function renderTools() {
 		const installed = fL.some(f => f.name.includes(t.file)); // check if tool file exists (either .htm or .htm.gz)
 		h += `<div class="ed active" style="margin-bottom:10px; border-radius:20px; text-align:left;">
 			<div style="display:flex; justify-content:space-between;">
-				<h3>${t.name} <small style="font-size:10px">v${t.ver}</small></h3>
+				<h3>${esc(t.name)} <small style="font-size:10px">v${t.ver}</small></h3>
 				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${t.file}')">✕</button>` : ''}
 			</div>
 			${t.desc}
 			<div style="font-size:10px; color:#888;">
-				by ${t.author} | <a href="${t.source}" target="_blank">${t.source}</a>
+				by ${esc(t.author)} | <a href="${safeUrl(t.source)}" target="_blank">${safeUrl(t.source)}</a>
 			</div>
 			<div class="crw">
 				${installed ? `<button class="btn" onclick="window.location.href=getURL('/${t.file}')">Open</button>` : `<button class="btn" onclick="insT('${t.id}')">Install</button>`}
-				${t.upv && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${t.id}')">Update v${t.upv}</button>` : ''}
+				${t.pending && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${t.id}')">Update v${t.pending.ver}</button>` : ''}
 			</div>
 		</div>`;
 	});
@@ -659,7 +655,14 @@ async function insT(id) {
         fd.append("data", await f.blob(), t.file + '.gz'); // always use gz for file name (source MUST be gz)
         const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
 				alert(u.ok ? "Tool installed!" : "Install failed");
-        if (t.upv) { t.ver = t.upv; delete t.upv; } // remove update flag
+        if (u.ok && t.pending) {
+					// save and remove update info after successful update
+					t.ver = t.pending.ver;
+					t.url = t.pending.url;
+					t.file = t.pending.file;
+					t.desc = t.pending.desc;
+					delete t.pending;
+				}
         await saveToolsjson();
         await flU(); // refresh file list
         renderTools();
@@ -1184,7 +1187,7 @@ function menuShow(x,y){
 	m.style.left=x+'px'; m.style.top=y+'px';
 	m.innerHTML=`
 		<button onclick="imgDl()">Download</button>
-		<button class="danger" onclick="imgDel(sI.name)">Delete</button>`;
+		<button class="danger" onclick="deleteFile(sI.name)">Delete</button>`;
 	d.body.appendChild(m);
 	setTimeout(()=>{
 		const h=e=>{
@@ -1206,14 +1209,17 @@ async function imgDl(){
 }
 
 async function deleteFile(name){
-	const ins = fL.some(f => f.name.includes(name));
+	name=name.replace('/',''); // remove leading slash if present (just in case)
 	if (fL.some(f => f.name === `${name}.gz`))
 		name += '.gz'; // if .gz version of file exists, delete that (handles tools which are stored gzipped on device)
 	if(!confirm(`Delete ${name}?`))return;
 	ovShow();
 	try{
 		const r = await fetch(getURL(`/edit?func=delete&path=/${name}`));
-		if(r.ok){ msg('Deleted'); imgRm(name); }
+		if(r.ok){ 
+			msg('Deleted');
+			imgRm(name); // remove image from grid (if this was not an image, this does nothing)
+		}
 		else msg('Delete failed! File in use?','err');
 	}catch(e){msg('Delete failed','err');}
 	finally{ovHide();}
