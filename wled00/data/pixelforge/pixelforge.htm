@@ -612,14 +612,14 @@ async function loadTools() {
 }
 
 async function saveToolsjson() {
-		const fd = new FormData();
-    fd.append("data", new Blob([JSON.stringify(pT)], {type:'application/json'}), toolsjson);
-    await fetch(getURL("/upload"), { method: "POST", body: fd });
+	const fd = new FormData();
+	fd.append("data", new Blob([JSON.stringify(pT)], {type:'application/json'}), toolsjson);
+	await fetch(getURL("/upload"), { method: "POST", body: fd });
 }
 
 // tool versions must be in format major.minor (e.g. 0.95 or 1.1)
 function isNewer(vN, vO) {
-    return parseFloat(vN) > parseFloat(vO);
+	return parseFloat(vN) > parseFloat(vO);
 }
 
 function renderTools() {
@@ -646,29 +646,30 @@ function renderTools() {
 
 // install or update tool
 async function insT(id) {
-    const t = pT.find(x => x.id == id);
-    ovShow();
-    try {
-        const f = await fetch(t.url); // url in json must be pointing to a gz file
-				if (!f.ok) throw new Error("Download failed " + f.status);
-        const fd = new FormData();
-        fd.append("data", await f.blob(), t.file + '.gz'); // always use gz for file name (source MUST be gz)
-        const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
-				alert(u.ok ? "Tool installed!" : "Install failed");
-        if (u.ok && t.pending) {
-					// save and remove update info after successful update
-					t.ver = t.pending.ver;
-					t.url = t.pending.url;
-					t.file = t.pending.file;
-					t.desc = t.pending.desc;
-					delete t.pending;
-				}
-        await saveToolsjson();
-        await flU(); // refresh file list
-        renderTools();
-    } catch(e) { alert("Error " + e.message); }
-		fsMem(); // refresh memory info after upload
-    ovHide();
+	const t = pT.find(x => x.id == id);
+	ovShow();
+	try {
+		const src = t.pending || t;
+		const f = await fetch(src.url); // url in json must be pointing to a gz file
+		if (!f.ok) throw new Error("Download failed " + f.status);
+		const fd = new FormData();
+		fd.append("data", await f.blob(), src.file + '.gz'); // always use gz for file name (source MUST be gz)
+		const u = await fetch(getURL("/upload"), { method: "POST", body: fd });
+		alert(u.ok ? "Tool installed!" : "Install failed");
+		if (u.ok && t.pending) {
+			// save and remove update info after successful update
+			t.ver = t.pending.ver;
+			t.url = t.pending.url;
+			t.file = t.pending.file;
+			t.desc = t.pending.desc;
+			delete t.pending;
+		}
+		await saveToolsjson();
+		await flU(); // refresh file list
+		renderTools();
+	} catch(e) { alert("Error " + e.message); }
+	fsMem(); // refresh memory info after upload
+	ovHide();
 }
 
 /* fs/mem info */
@@ -1209,8 +1210,8 @@ async function imgDl(){
 }
 
 async function deleteFile(name){
-	name=name.replace('/',''); // remove leading slash if present (just in case)
-	if (fL.some(f => f.name === `${name}.gz`))
+	name = name.replace('/',''); // remove leading slash if present (just in case)
+	if (fL.some(f => f.name.replace('/','') === `${name}.gz`))
 		name += '.gz'; // if .gz version of file exists, delete that (handles tools which are stored gzipped on device)
 	if(!confirm(`Delete ${name}?`))return;
 	ovShow();
