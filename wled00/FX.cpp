@@ -9138,6 +9138,514 @@ static const char _data_FX_MODE_CORNER_FLASH_HZ[] PROGMEM = "Corner Flash Hz@Pat
 static const char _data_FX_MODE_HIGH_FREQ_TEST[] PROGMEM = "High Freq Test@Speed (25-50Hz),Brightness;;!;";
 
 // =============================================================================
+// JOURNEY EFFECTS
+// =============================================================================
+
+// aSimplestar
+const uint8_t aSIMPLESTAR200[] = {
+  1,0,0,1,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  1,0,0,1
+};
+const uint8_t aSimplestar30[] = {
+  1,0,0,1,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  1,0,0,1
+};
+const uint8_t aSimplestar60[] = {
+  1,0,0,1,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  1,0,0,1
+};
+const uint8_t aSimplestar90[] = {
+  1,0,0,1,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  1,0,0,1
+};
+const uint8_t aSimplestar120[] = {
+  1,0,0,1,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  1,0,0,1
+};
+uint16_t mode_aSimplestar3() {
+  const Frame frames[] = { { aSimplestar30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSimplestar6() {
+  const Frame frames[] = { { aSimplestar60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSimplestar9() {
+  const Frame frames[] = { { aSimplestar90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSimplestar12() {
+  const Frame frames[] = { { aSimplestar120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSIMPLESTAR20() {
+  const Frame frames[] = { { aSIMPLESTAR200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_ASIMPLESTAR3[]  PROGMEM = "aSimplestar3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIMPLESTAR6[]  PROGMEM = "aSimplestar6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIMPLESTAR9[]  PROGMEM = "aSimplestar9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIMPLESTAR12[] PROGMEM = "aSimplestar12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIMPLESTAR20[] PROGMEM = "aSIMPLESTAR20@!,!,,,,Smooth;;!";
+
+// aFull
+const uint8_t aFull30[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aFull60[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aFull90[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aFull120[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aFull200[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+uint16_t mode_aFull3() {
+  const Frame frames[] = { { aFull30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aFull6() {
+  const Frame frames[] = { { aFull60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aFull9() {
+  const Frame frames[] = { { aFull90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aFull12() {
+  const Frame frames[] = { { aFull120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aFull20() {
+  const Frame frames[] = { { aFull200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_AFULL3[]  PROGMEM = "aFull3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AFULL6[]  PROGMEM = "aFull6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AFULL9[]  PROGMEM = "aFull9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AFULL12[] PROGMEM = "aFull12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AFULL20[] PROGMEM = "aFull20@!,!,,,,Smooth;;!";
+
+// aMerkabah
+const uint8_t aMerkabah30[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aMerkabah60[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aMerkabah90[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aMerkabah120[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+const uint8_t aMerkabah200[] = {
+  0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,1,1,0,0,
+  0,1,1,1,1,0,
+  0,0,1,0,0,
+  0,0,0,0
+};
+uint16_t mode_aMerkabah3() {
+  const Frame frames[] = { { aMerkabah30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aMerkabah6() {
+  const Frame frames[] = { { aMerkabah60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aMerkabah9() {
+  const Frame frames[] = { { aMerkabah90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aMerkabah12() {
+  const Frame frames[] = { { aMerkabah120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aMerkabah20() {
+  const Frame frames[] = { { aMerkabah200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_AMERKABAH3[]  PROGMEM = "aMerkabah3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AMERKABAH6[]  PROGMEM = "aMerkabah6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AMERKABAH9[]  PROGMEM = "aMerkabah9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AMERKABAH12[] PROGMEM = "aMerkabah12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AMERKABAH20[] PROGMEM = "aMerkabah20@!,!,,,,Smooth;;!";
+
+// aSidewaysMerkabah
+const uint8_t aSidewaysMerkabah30[] = {
+  0,0,0,0,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  0,1,1,1,1,1,0,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  0,0,0,0
+};
+const uint8_t aSidewaysMerkabah60[] = {
+  0,0,0,0,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  0,1,1,1,1,1,0,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  0,0,0,0
+};
+const uint8_t aSidewaysMerkabah90[] = {
+  0,0,0,0,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  0,1,1,1,1,1,0,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  0,0,0,0
+};
+const uint8_t aSidewaysMerkabah120[] = {
+  0,0,0,0,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  0,1,1,1,1,1,0,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  0,0,0,0
+};
+const uint8_t aSidewaysMerkabah200[] = {
+  0,0,0,0,
+  0,1,0,1,0,
+  0,0,1,1,0,0,
+  0,1,1,1,1,1,0,
+  0,0,1,1,0,0,
+  0,1,0,1,0,
+  0,0,0,0
+};
+uint16_t mode_aSidewaysMerkabah3() {
+  const Frame frames[] = { { aSidewaysMerkabah30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSidewaysMerkabah6() {
+  const Frame frames[] = { { aSidewaysMerkabah60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSidewaysMerkabah9() {
+  const Frame frames[] = { { aSidewaysMerkabah90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSidewaysMerkabah12() {
+  const Frame frames[] = { { aSidewaysMerkabah120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aSidewaysMerkabah20() {
+  const Frame frames[] = { { aSidewaysMerkabah200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_ASIDEWAYSMERKABAH3[]  PROGMEM = "aSidewaysMerkabah3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIDEWAYSMERKABAH6[]  PROGMEM = "aSidewaysMerkabah6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIDEWAYSMERKABAH9[]  PROGMEM = "aSidewaysMerkabah9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIDEWAYSMERKABAH12[] PROGMEM = "aSidewaysMerkabah12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ASIDEWAYSMERKABAH20[] PROGMEM = "aSidewaysMerkabah20@!,!,,,,Smooth;;!";
+
+// aHourglass
+const uint8_t aHourglass30[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  0,0,0,1,0,0,0,
+  0,0,1,1,0,0,
+  0,1,1,1,0,
+  1,1,1,1
+};
+const uint8_t aHourglass60[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  0,0,0,1,0,0,0,
+  0,0,1,1,0,0,
+  0,1,1,1,0,
+  1,1,1,1
+};
+const uint8_t aHourglass90[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  0,0,0,1,0,0,0,
+  0,0,1,1,0,0,
+  0,1,1,1,0,
+  1,1,1,1
+};
+const uint8_t aHourglass120[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  0,0,0,1,0,0,0,
+  0,0,1,1,0,0,
+  0,1,1,1,0,
+  1,1,1,1
+};
+const uint8_t aHourglass200[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  0,0,0,1,0,0,0,
+  0,0,1,1,0,0,
+  0,1,1,1,0,
+  1,1,1,1
+};
+uint16_t mode_aHourglass3() {
+  const Frame frames[] = { { aHourglass30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aHourglass6() {
+  const Frame frames[] = { { aHourglass60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aHourglass9() {
+  const Frame frames[] = { { aHourglass90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aHourglass12() {
+  const Frame frames[] = { { aHourglass120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aHourglass20() {
+  const Frame frames[] = { { aHourglass200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_AHOURGLASS3[]  PROGMEM = "aHourglass3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AHOURGLASS6[]  PROGMEM = "aHourglass6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AHOURGLASS9[]  PROGMEM = "aHourglass9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AHOURGLASS12[] PROGMEM = "aHourglass12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_AHOURGLASS20[] PROGMEM = "aHourglass20@!,!,,,,Smooth;;!";
+
+// AlmostNuke
+const uint8_t AlmostNuke30[] = {
+  0,0,0,0,
+  1,0,0,0,1,
+  1,1,0,0,1,1,
+  0,0,0,1,0,0,0,
+  0,0,0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,0
+};
+const uint8_t AlmostNuke60[] = {
+  0,0,0,0,
+  1,0,0,0,1,
+  1,1,0,0,1,1,
+  0,0,0,1,0,0,0,
+  0,0,0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,0
+};
+const uint8_t AlmostNuke90[] = {
+  0,0,0,0,
+  1,0,0,0,1,
+  1,1,0,0,1,1,
+  0,0,0,1,0,0,0,
+  0,0,0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,0
+};
+const uint8_t AlmostNuke120[] = {
+  0,0,0,0,
+  1,0,0,0,1,
+  1,1,0,0,1,1,
+  0,0,0,1,0,0,0,
+  0,0,0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,0
+};
+const uint8_t AlmostNuke200[] = {
+  0,0,0,0,
+  1,0,0,0,1,
+  1,1,0,0,1,1,
+  0,0,0,1,0,0,0,
+  0,0,0,0,0,0,
+  0,0,1,0,0,
+  0,1,1,0
+};
+uint16_t mode_AlmostNuke3() {
+  const Frame frames[] = { { AlmostNuke30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_AlmostNuke6() {
+  const Frame frames[] = { { AlmostNuke60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_AlmostNuke9() {
+  const Frame frames[] = { { AlmostNuke90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_AlmostNuke12() {
+  const Frame frames[] = { { AlmostNuke120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_AlmostNuke20() {
+  const Frame frames[] = { { AlmostNuke200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_ALMOSTNUKE3[]  PROGMEM = "AlmostNuke3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ALMOSTNUKE6[]  PROGMEM = "AlmostNuke6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ALMOSTNUKE9[]  PROGMEM = "AlmostNuke9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ALMOSTNUKE12[] PROGMEM = "AlmostNuke12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ALMOSTNUKE20[] PROGMEM = "AlmostNuke20@!,!,,,,Smooth;;!";
+
+// aNuke
+const uint8_t aNuke30[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  1,1,1,1,1,1,
+  1,1,0,1,1,
+  1,0,0,1
+};
+const uint8_t aNuke60[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  1,1,1,1,1,1,
+  1,1,0,1,1,
+  1,0,0,1
+};
+const uint8_t aNuke90[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  1,1,1,1,1,1,
+  1,1,0,1,1,
+  1,0,0,1
+};
+const uint8_t aNuke120[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  1,1,1,1,1,1,
+  1,1,0,1,1,
+  1,0,0,1
+};
+const uint8_t aNuke200[] = {
+  1,1,1,1,
+  0,1,1,1,0,
+  0,0,1,1,0,0,
+  1,1,1,1,1,1,1,
+  1,1,1,1,1,1,
+  1,1,0,1,1,
+  1,0,0,1
+};
+uint16_t mode_aNuke3() {
+  const Frame frames[] = { { aNuke30,  37, 1, 60,  3, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aNuke6() {
+  const Frame frames[] = { { aNuke60,  37, 1, 60,  6, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aNuke9() {
+  const Frame frames[] = { { aNuke90,  37, 1, 60,  9, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aNuke12() {
+  const Frame frames[] = { { aNuke120, 37, 1, 60, 12, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+uint16_t mode_aNuke20() {
+  const Frame frames[] = { { aNuke200, 37, 1, 60, 20, 255 } };
+  return mode_custom_shapes(frames, 1);
+}
+static const char _data_FX_MODE_ANUKE3[]  PROGMEM = "aNuke3@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ANUKE6[]  PROGMEM = "aNuke6@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ANUKE9[]  PROGMEM = "aNuke9@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ANUKE12[] PROGMEM = "aNuke12@!,!,,,,Smooth;;!";
+static const char _data_FX_MODE_ANUKE20[] PROGMEM = "aNuke20@!,!,,,,Smooth;;!";
+
+// =============================================================================
 // HZ-CONTROLLED PATTERN EFFECTS
 // =============================================================================
 // These effects combine pattern animation with Hz-based flashing
@@ -9765,6 +10273,42 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_MOVING_STRIPES_HZ, &mode_moving_stripes_hz, _data_FX_MODE_MOVING_STRIPES_HZ);
   addEffect(FX_MODE_CORNER_FLASH_HZ, &mode_corner_flash_hz, _data_FX_MODE_CORNER_FLASH_HZ);
   addEffect(FX_MODE_STATIC_HZ_TEST, &mode_static_hz_test, _data_FX_MODE_STATIC_HZ_TEST);
+  // Journey effects
+  addEffect(FX_MODE_ASIMPLESTAR3,        &mode_aSimplestar3,        _data_FX_MODE_ASIMPLESTAR3);
+  addEffect(FX_MODE_ASIMPLESTAR6,        &mode_aSimplestar6,        _data_FX_MODE_ASIMPLESTAR6);
+  addEffect(FX_MODE_ASIMPLESTAR9,        &mode_aSimplestar9,        _data_FX_MODE_ASIMPLESTAR9);
+  addEffect(FX_MODE_ASIMPLESTAR12,       &mode_aSimplestar12,       _data_FX_MODE_ASIMPLESTAR12);
+  addEffect(FX_MODE_ASIMPLESTAR20,       &mode_aSIMPLESTAR20,       _data_FX_MODE_ASIMPLESTAR20);
+  addEffect(FX_MODE_AFULL3,              &mode_aFull3,              _data_FX_MODE_AFULL3);
+  addEffect(FX_MODE_AFULL6,              &mode_aFull6,              _data_FX_MODE_AFULL6);
+  addEffect(FX_MODE_AFULL9,              &mode_aFull9,              _data_FX_MODE_AFULL9);
+  addEffect(FX_MODE_AFULL12,             &mode_aFull12,             _data_FX_MODE_AFULL12);
+  addEffect(FX_MODE_AFULL20,             &mode_aFull20,             _data_FX_MODE_AFULL20);
+  addEffect(FX_MODE_AMERKABAH3,          &mode_aMerkabah3,          _data_FX_MODE_AMERKABAH3);
+  addEffect(FX_MODE_AMERKABAH6,          &mode_aMerkabah6,          _data_FX_MODE_AMERKABAH6);
+  addEffect(FX_MODE_AMERKABAH9,          &mode_aMerkabah9,          _data_FX_MODE_AMERKABAH9);
+  addEffect(FX_MODE_AMERKABAH12,         &mode_aMerkabah12,         _data_FX_MODE_AMERKABAH12);
+  addEffect(FX_MODE_AMERKABAH20,         &mode_aMerkabah20,         _data_FX_MODE_AMERKABAH20);
+  addEffect(FX_MODE_ASIDEWAYSMERKABAH3,  &mode_aSidewaysMerkabah3,  _data_FX_MODE_ASIDEWAYSMERKABAH3);
+  addEffect(FX_MODE_ASIDEWAYSMERKABAH6,  &mode_aSidewaysMerkabah6,  _data_FX_MODE_ASIDEWAYSMERKABAH6);
+  addEffect(FX_MODE_ASIDEWAYSMERKABAH9,  &mode_aSidewaysMerkabah9,  _data_FX_MODE_ASIDEWAYSMERKABAH9);
+  addEffect(FX_MODE_ASIDEWAYSMERKABAH12, &mode_aSidewaysMerkabah12, _data_FX_MODE_ASIDEWAYSMERKABAH12);
+  addEffect(FX_MODE_ASIDEWAYSMERKABAH20, &mode_aSidewaysMerkabah20, _data_FX_MODE_ASIDEWAYSMERKABAH20);
+  addEffect(FX_MODE_AHOURGLASS3,         &mode_aHourglass3,         _data_FX_MODE_AHOURGLASS3);
+  addEffect(FX_MODE_AHOURGLASS6,         &mode_aHourglass6,         _data_FX_MODE_AHOURGLASS6);
+  addEffect(FX_MODE_AHOURGLASS9,         &mode_aHourglass9,         _data_FX_MODE_AHOURGLASS9);
+  addEffect(FX_MODE_AHOURGLASS12,        &mode_aHourglass12,        _data_FX_MODE_AHOURGLASS12);
+  addEffect(FX_MODE_AHOURGLASS20,        &mode_aHourglass20,        _data_FX_MODE_AHOURGLASS20);
+  addEffect(FX_MODE_ALMOSTNUKE3,         &mode_AlmostNuke3,         _data_FX_MODE_ALMOSTNUKE3);
+  addEffect(FX_MODE_ALMOSTNUKE6,         &mode_AlmostNuke6,         _data_FX_MODE_ALMOSTNUKE6);
+  addEffect(FX_MODE_ALMOSTNUKE9,         &mode_AlmostNuke9,         _data_FX_MODE_ALMOSTNUKE9);
+  addEffect(FX_MODE_ALMOSTNUKE12,        &mode_AlmostNuke12,        _data_FX_MODE_ALMOSTNUKE12);
+  addEffect(FX_MODE_ALMOSTNUKE20,        &mode_AlmostNuke20,        _data_FX_MODE_ALMOSTNUKE20);
+  addEffect(FX_MODE_ANUKE3,              &mode_aNuke3,              _data_FX_MODE_ANUKE3);
+  addEffect(FX_MODE_ANUKE6,              &mode_aNuke6,              _data_FX_MODE_ANUKE6);
+  addEffect(FX_MODE_ANUKE9,              &mode_aNuke9,              _data_FX_MODE_ANUKE9);
+  addEffect(FX_MODE_ANUKE12,             &mode_aNuke12,             _data_FX_MODE_ANUKE12);
+  addEffect(FX_MODE_ANUKE20,             &mode_aNuke20,             _data_FX_MODE_ANUKE20);
   addEffect(FX_MODE_BLINK, &mode_blink, _data_FX_MODE_BLINK);
   addEffect(FX_MODE_BREATH, &mode_breath, _data_FX_MODE_BREATH);
   addEffect(FX_MODE_COLOR_WIPE, &mode_color_wipe, _data_FX_MODE_COLOR_WIPE);

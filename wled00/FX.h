@@ -342,7 +342,43 @@
 #define FX_MODE_BLACK_HOLE_15          212
 #define FX_MODE_BLACK_HOLE_CUSTOM      213
 
-#define MODE_COUNT                     214
+#define FX_MODE_ASIMPLESTAR3           214
+#define FX_MODE_ASIMPLESTAR6           215
+#define FX_MODE_ASIMPLESTAR9           216
+#define FX_MODE_ASIMPLESTAR12          217
+#define FX_MODE_ASIMPLESTAR20          218
+#define FX_MODE_AFULL3                 219
+#define FX_MODE_AFULL6                 220
+#define FX_MODE_AFULL9                 221
+#define FX_MODE_AFULL12                222
+#define FX_MODE_AFULL20                223
+#define FX_MODE_AMERKABAH3             224
+#define FX_MODE_AMERKABAH6             225
+#define FX_MODE_AMERKABAH9             226
+#define FX_MODE_AMERKABAH12            227
+#define FX_MODE_AMERKABAH20            228
+#define FX_MODE_ASIDEWAYSMERKABAH3     229
+#define FX_MODE_ASIDEWAYSMERKABAH6     230
+#define FX_MODE_ASIDEWAYSMERKABAH9     231
+#define FX_MODE_ASIDEWAYSMERKABAH12    232
+#define FX_MODE_ASIDEWAYSMERKABAH20    233
+#define FX_MODE_AHOURGLASS3            234
+#define FX_MODE_AHOURGLASS6            235
+#define FX_MODE_AHOURGLASS9            236
+#define FX_MODE_AHOURGLASS12           237
+#define FX_MODE_AHOURGLASS20           238
+#define FX_MODE_ALMOSTNUKE3            239
+#define FX_MODE_ALMOSTNUKE6            240
+#define FX_MODE_ALMOSTNUKE9            241
+#define FX_MODE_ALMOSTNUKE12           242
+#define FX_MODE_ALMOSTNUKE20           243
+#define FX_MODE_ANUKE3                 244
+#define FX_MODE_ANUKE6                 245
+#define FX_MODE_ANUKE9                 246
+#define FX_MODE_ANUKE12                247
+#define FX_MODE_ANUKE20                248
+
+#define MODE_COUNT                     249
 
 typedef enum mapping1D2D {
   M12_Pixels = 0,
