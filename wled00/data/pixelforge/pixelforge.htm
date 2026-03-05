@@ -629,15 +629,15 @@ function renderTools() {
 		h += `<div class="ed active" style="margin-bottom:10px; border-radius:20px; text-align:left;">
 			<div style="display:flex; justify-content:space-between;">
 				<h3>${esc(t.name)} <small style="font-size:10px">v${t.ver}</small></h3>
-				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${t.file}')">✕</button>` : ''}
+				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${esc(t.file)}')">✕</button>` : ''}
 			</div>
 			${t.desc}
 			<div style="font-size:10px; color:#888;">
 				by ${esc(t.author)} | <a href="${safeUrl(t.source)}" target="_blank">${safeUrl(t.source)}</a>
 			</div>
 			<div class="crw">
-				${installed ? `<button class="btn" onclick="window.location.href=getURL('/${t.file}')">Open</button>` : `<button class="btn" onclick="insT('${t.id}')">Install</button>`}
-				${t.pending && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${t.id}')">Update v${t.pending.ver}</button>` : ''}
+				${installed ? `<button class="btn" onclick="window.location.href=getURL('/${esc(t.file)}')">Open</button>` : `<button class="btn" onclick="insT('${esc(t.id)}')">Install</button>`}
+				${t.pending && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${esc(t.id)}')">Update v${t.pending.ver}</button>` : ''}
 			</div>
 		</div>`;
 	});
