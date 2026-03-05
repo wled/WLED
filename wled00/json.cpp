@@ -612,6 +612,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
+  root[F("gl_ver")] = F(GRIDLIGHTS_VERSION);
   root[F("vid")] = VERSION;
   //root[F("cn")] = WLED_CODENAME;
 
