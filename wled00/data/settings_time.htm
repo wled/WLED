@@ -42,14 +42,11 @@
 		}
 
 		if (!json) {
-			showPresetWarning();
+			showToast("Please visit the main UI first to load presets", true);
 			return;
 		}
 
 		onPresetsLoaded(json);
-	}
-	function showPresetWarning() {
-		showToast("Please visit the main UI first to load presets", true);
 	}
 	function onPresetsLoaded(json) {
 		presets = json;
