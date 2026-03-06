@@ -125,13 +125,20 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
 
 
 /**
- * Check if OTA should be allowed based on release compatibility using custom description
- * @param binaryData Pointer to binary file data (not modified)
- * @param dataSize Size of binary data in bytes
- * @param errorMessage Buffer to store error message if validation fails 
- * @param errorMessageLen Maximum length of error message buffer
- * @return true if OTA should proceed, false if it should be blocked
+ * Normalize a release name by removing the trailing "_V4" suffix (if present).
+ * This allows OTA compatibility checks to treat e.g. "ESP32" and "ESP32_V4" as equivalent.
+ * @param input  Source release name string
+ * @param output Buffer to receive normalized name (must be at least WLED_RELEASE_NAME_MAX_LEN bytes)
  */
+static void normalizeReleaseName(const char* input, char* output) {
+  strncpy(output, input, WLED_RELEASE_NAME_MAX_LEN - 1);
+  output[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';
+  size_t len = strlen(output);
+  // Strip "_V4" suffix to allow upgrading between IDF v4 and newer IDF builds
+  if (len >= 4 && strcmp(output + len - 3, "_V4") == 0) {
+    output[len - 3] = '\0';
+  }
+}
 
 bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
   // Clear error message
@@ -150,12 +157,21 @@ bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessa
   }  
 
   if (strncmp_P(safeFirmwareRelease, releaseString, WLED_RELEASE_NAME_MAX_LEN) != 0) {
-    if (errorMessage && errorMessageLen > 0) {
-      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
-               releaseString, safeFirmwareRelease);
-      errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
+    // Exact match failed - check if the names are compatible after normalizing the "_V4" suffix.
+    // This allows upgrading between e.g. "ESP32_V4" (IDF v4 build) and "ESP32" (newer IDF build).
+    char normalizedFirmware[WLED_RELEASE_NAME_MAX_LEN];
+    char normalizedCurrent[WLED_RELEASE_NAME_MAX_LEN];
+    normalizeReleaseName(safeFirmwareRelease, normalizedFirmware);
+    normalizeReleaseName(releaseString, normalizedCurrent);
+
+    if (strcmp(normalizedFirmware, normalizedCurrent) != 0) {
+      if (errorMessage && errorMessageLen > 0) {
+        snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
+                 releaseString, safeFirmwareRelease);
+        errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
+      }
+      return false;
     }
-    return false;
   }
 
   // TODO: additional checks go here
