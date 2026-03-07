@@ -3,7 +3,7 @@
 #define BusWrapper_h
 
 //#define NPB_CONF_4STEP_CADENCE
-#include "NeoPixelBus.h"
+#include "src/WLEDpixelBus/WLEDpixelBus.h"
 
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
@@ -134,209 +134,9 @@
 #define I_HS_LPO_3 109
 #define I_SS_LPO_3 110
 
-
 // In the following NeoGammaNullMethod can be replaced with NeoGammaWLEDMethod to perform Gamma correction implicitly
 // unfortunately that may apply Gamma correction to pre-calculated palettes which is undesired
 
-/*** ESP8266 Neopixel methods ***/
-#ifdef ESP8266
-//RGB
-#define B_8266_U0_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart0Ws2813Method> //3 chan, esp8266, gpio1
-#define B_8266_U1_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1Ws2813Method> //3 chan, esp8266, gpio2
-#define B_8266_DM_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma800KbpsMethod>  //3 chan, esp8266, gpio3
-#define B_8266_BB_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBang800KbpsMethod> //3 chan, esp8266, bb (any pin but 16)
-//RGBW
-#define B_8266_U0_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Uart0Ws2813Method>   //4 chan, esp8266, gpio1
-#define B_8266_U1_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Uart1Ws2813Method>   //4 chan, esp8266, gpio2
-#define B_8266_DM_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266Dma800KbpsMethod>    //4 chan, esp8266, gpio3
-#define B_8266_BB_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp8266BitBang800KbpsMethod> //4 chan, esp8266, bb (any pin)
-//400Kbps
-#define B_8266_U0_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart0400KbpsMethod>   //3 chan, esp8266, gpio1
-#define B_8266_U1_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Uart1400KbpsMethod>   //3 chan, esp8266, gpio2
-#define B_8266_DM_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266Dma400KbpsMethod>     //3 chan, esp8266, gpio3
-#define B_8266_BB_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBang400KbpsMethod> //3 chan, esp8266, bb (any pin)
-//TM1814 (RGBW)
-#define B_8266_U0_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266Uart0Tm1814Method>
-#define B_8266_U1_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266Uart1Tm1814Method>
-#define B_8266_DM_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266DmaTm1814Method>
-#define B_8266_BB_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp8266BitBangTm1814Method>
-//TM1829 (RGB)
-#define B_8266_U0_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266Uart0Tm1829Method>
-#define B_8266_U1_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266Uart1Tm1829Method>
-#define B_8266_DM_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266DmaTm1829Method>
-#define B_8266_BB_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp8266BitBangTm1829Method>
-//UCS8903
-#define B_8266_U0_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Uart0Ws2813Method> //3 chan, esp8266, gpio1
-#define B_8266_U1_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Uart1Ws2813Method> //3 chan, esp8266, gpio2
-#define B_8266_DM_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266Dma800KbpsMethod>  //3 chan, esp8266, gpio3
-#define B_8266_BB_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp8266BitBang800KbpsMethod> //3 chan, esp8266, bb (any pin but 16)
-//UCS8904 RGBW
-#define B_8266_U0_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Uart0Ws2813Method>   //4 chan, esp8266, gpio1
-#define B_8266_U1_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Uart1Ws2813Method>   //4 chan, esp8266, gpio2
-#define B_8266_DM_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266Dma800KbpsMethod>    //4 chan, esp8266, gpio3
-#define B_8266_BB_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp8266BitBang800KbpsMethod> //4 chan, esp8266, bb (any pin)
-//APA106
-#define B_8266_U0_APA106_3 NeoPixelBus<NeoRbgFeature, NeoEsp8266Uart0Apa106Method> //3 chan, esp8266, gpio1
-#define B_8266_U1_APA106_3 NeoPixelBus<NeoRbgFeature, NeoEsp8266Uart1Apa106Method> //3 chan, esp8266, gpio2
-#define B_8266_DM_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266DmaApa106Method>  //3 chan, esp8266, gpio3
-#define B_8266_BB_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBangApa106Method> //3 chan, esp8266, bb (any pin but 16)
-//FW1906 GRBCW
-#define B_8266_U0_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart0Ws2813Method>   //esp8266, gpio1
-#define B_8266_U1_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart1Ws2813Method>   //esp8266, gpio2
-#define B_8266_DM_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Dma800KbpsMethod>   //esp8266, gpio3
-#define B_8266_BB_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266BitBang800KbpsMethod>   //esp8266, bb
-//WS2805 GRBCW
-#define B_8266_U0_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart0Ws2805Method> //esp8266, gpio1
-#define B_8266_U1_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart1Ws2805Method> //esp8266, gpio2
-#define B_8266_DM_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266DmaWs2805Method> //esp8266, gpio3
-#define B_8266_BB_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266BitBangWs2805Method> //esp8266, bb
-//TM1914 (RGB)
-#define B_8266_U0_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266Uart0Tm1914Method>
-#define B_8266_U1_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266Uart1Tm1914Method>
-#define B_8266_DM_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266DmaTm1914Method>
-#define B_8266_BB_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266BitBangTm1914Method>
-//Sm16825 (RGBWC)
-#define B_8266_U0_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart0Ws2813Method>
-#define B_8266_U1_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart1Ws2813Method>
-#define B_8266_DM_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Dma800KbpsMethod>
-#define B_8266_BB_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266BitBangWs2813Method>
-#endif
-
-/*** ESP32 Neopixel methods ***/
-#ifdef ARDUINO_ARCH_ESP32
-// C3: I2S0 and I2S1 methods not supported (has one I2S bus)
-// S2: I2S0 methods supported (single & parallel), I2S1 methods not supported (has one I2S bus)
-// S3: I2S0 methods not supported, I2S1 supports LCD parallel methods (has two I2S buses)
-// https://github.com/Makuna/NeoPixelBus/blob/b32f719e95ef3c35c46da5c99538017ef925c026/src/internal/Esp32_i2s.h#L4
-// https://github.com/Makuna/NeoPixelBus/blob/b32f719e95ef3c35c46da5c99538017ef925c026/src/internal/NeoEsp32RmtMethod.h#L857
-#if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // S3 will always use LCD parallel output
-  typedef X8Ws2812xMethod X1Ws2812xMethod;
-  typedef X8Sk6812Method X1Sk6812Method;
-  typedef X8400KbpsMethod X1400KbpsMethod;
-  typedef X8800KbpsMethod X1800KbpsMethod;
-  typedef X8Tm1814Method X1Tm1814Method;
-  typedef X8Tm1829Method X1Tm1829Method;
-  typedef X8Apa106Method X1Apa106Method;
-  typedef X8Ws2805Method X1Ws2805Method;
-  typedef X8Tm1914Method X1Tm1914Method;
-#elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  // S2 will use I2S0
-  typedef NeoEsp32I2s0Ws2812xMethod X1Ws2812xMethod;
-  typedef NeoEsp32I2s0Sk6812Method X1Sk6812Method;
-  typedef NeoEsp32I2s0400KbpsMethod X1400KbpsMethod;
-  typedef NeoEsp32I2s0800KbpsMethod X1800KbpsMethod;
-  typedef NeoEsp32I2s0Tm1814Method X1Tm1814Method;
-  typedef NeoEsp32I2s0Tm1829Method X1Tm1829Method;
-  typedef NeoEsp32I2s0Apa106Method X1Apa106Method;
-  typedef NeoEsp32I2s0Ws2805Method X1Ws2805Method;
-  typedef NeoEsp32I2s0Tm1914Method X1Tm1914Method;
-#elif !defined(CONFIG_IDF_TARGET_ESP32C3)
-  // regular ESP32 will use I2S1
-  typedef NeoEsp32I2s1Ws2812xMethod X1Ws2812xMethod;
-  typedef NeoEsp32I2s1Sk6812Method X1Sk6812Method;
-  typedef NeoEsp32I2s1400KbpsMethod X1400KbpsMethod;
-  typedef NeoEsp32I2s1800KbpsMethod X1800KbpsMethod;
-  typedef NeoEsp32I2s1Tm1814Method X1Tm1814Method;
-  typedef NeoEsp32I2s1Tm1829Method X1Tm1829Method;
-  typedef NeoEsp32I2s1Apa106Method X1Apa106Method;
-  typedef NeoEsp32I2s1Ws2805Method X1Ws2805Method;
-  typedef NeoEsp32I2s1Tm1914Method X1Tm1914Method;
-#endif
-
-// RMT driver selection
-#if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
-#include <NeoEsp32RmtHIMethod.h>
-#define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
-#else
-#define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
-#endif
-
-//RGB
-#define B_32_RN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtMethod(Ws2812x)> // ESP32, S2, S3, C3
-//#define B_32_IN_NEO_3 NeoPixelBus<NeoGrbFeature, NeoEsp32I2sNWs2812xMethod> // ESP32 (dynamic I2S selection)
-#define B_32_I2_NEO_3 NeoPixelBus<NeoGrbFeature, X1Ws2812xMethod> // ESP32, S2, S3 (automatic I2S selection, see typedef above)
-#define B_32_IP_NEO_3 NeoPixelBus<NeoGrbFeature, X8Ws2812xMethod> // parallel I2S (ESP32, S2, S3)
-//RGBW
-#define B_32_RN_NEO_4 NeoPixelBus<NeoGrbwFeature, NeoEsp32RmtMethod(Sk6812)>
-#define B_32_I2_NEO_4 NeoPixelBus<NeoGrbwFeature, X1Sk6812Method>
-#define B_32_IP_NEO_4 NeoPixelBus<NeoGrbwFeature, X8Sk6812Method> // parallel I2S
-//400Kbps
-#define B_32_RN_400_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtMethod(400Kbps)>
-#define B_32_I2_400_3 NeoPixelBus<NeoGrbFeature, X1400KbpsMethod>
-#define B_32_IP_400_3 NeoPixelBus<NeoGrbFeature, X8400KbpsMethod> // parallel I2S
-//TM1814 (RGBW)
-#define B_32_RN_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, NeoEsp32RmtMethod(Tm1814)>
-#define B_32_I2_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, X1Tm1814Method>
-#define B_32_IP_TM1_4 NeoPixelBus<NeoWrgbTm1814Feature, X8Tm1814Method> // parallel I2S
-//TM1829 (RGB)
-#define B_32_RN_TM2_3 NeoPixelBus<NeoBrgFeature, NeoEsp32RmtMethod(Tm1829)>
-#define B_32_I2_TM2_3 NeoPixelBus<NeoBrgFeature, X1Tm1829Method>
-#define B_32_IP_TM2_3 NeoPixelBus<NeoBrgFeature, X8Tm1829Method> // parallel I2S
-//UCS8903
-#define B_32_RN_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, NeoEsp32RmtMethod(Ws2812x)>
-#define B_32_I2_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, X1800KbpsMethod>
-#define B_32_IP_UCS_3 NeoPixelBus<NeoRgbUcs8903Feature, X8800KbpsMethod> // parallel I2S
-//UCS8904
-#define B_32_RN_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, NeoEsp32RmtMethod(Ws2812x)>
-#define B_32_I2_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, X1800KbpsMethod>
-#define B_32_IP_UCS_4 NeoPixelBus<NeoRgbwUcs8904Feature, X8800KbpsMethod>// parallel I2S
-//APA106
-#define B_32_RN_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtMethod(Apa106)>
-#define B_32_I2_APA106_3 NeoPixelBus<NeoGrbFeature, X1Apa106Method>
-#define B_32_IP_APA106_3 NeoPixelBus<NeoGrbFeature, X8Apa106Method> // parallel I2S
-//FW1906 GRBCW
-#define B_32_RN_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp32RmtMethod(Ws2812x)>
-#define B_32_I2_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X1800KbpsMethod>
-#define B_32_IP_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X8800KbpsMethod> // parallel I2S
-//WS2805 RGBWC
-#define B_32_RN_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp32RmtMethod(Ws2805)>
-#define B_32_I2_2805_5 NeoPixelBus<NeoGrbwwFeature, X1Ws2805Method>
-#define B_32_IP_2805_5 NeoPixelBus<NeoGrbwwFeature, X8Ws2805Method> // parallel I2S
-//TM1914 (RGB)
-#define B_32_RN_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, NeoEsp32RmtMethod(Tm1914)>
-#define B_32_I2_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X1Tm1914Method>
-#define B_32_IP_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X8Tm1914Method> // parallel I2S
-//Sm16825 (RGBWC)
-#define B_32_RN_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, NeoEsp32RmtMethod(Ws2812x)>
-#define B_32_I2_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X1Ws2812xMethod>
-#define B_32_IP_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X8Ws2812xMethod> // parallel I2S
-#endif
-
-//APA102
-#ifdef WLED_USE_ETHERNET
-// fix for #2542 (by @BlackBird77)
-#define B_HS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarEsp32HspiHzMethod> //hardware HSPI (was DotStarEsp32DmaHspi5MhzMethod in NPB @ 2.6.9)
-#else
-#define B_HS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarSpiHzMethod> //hardware VSPI
-#endif
-#define B_SS_DOT_3 NeoPixelBus<DotStarBgrFeature, DotStarMethod>    //soft SPI
-
-//LPD8806
-#define B_HS_LPD_3 NeoPixelBus<Lpd8806GrbFeature, Lpd8806SpiHzMethod>
-#define B_SS_LPD_3 NeoPixelBus<Lpd8806GrbFeature, Lpd8806Method>
-
-//LPD6803
-#define B_HS_LPO_3 NeoPixelBus<Lpd6803GrbFeature, Lpd6803SpiHzMethod>
-#define B_SS_LPO_3 NeoPixelBus<Lpd6803GrbFeature, Lpd6803Method>
-
-//WS2801
-#ifdef WLED_USE_ETHERNET
-#define B_HS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801MethodBase<TwoWireHspiImple<SpiSpeedHz>>>
-#else
-#define B_HS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801SpiHzMethod>
-#endif
-#define B_SS_WS1_3 NeoPixelBus<NeoRbgFeature, Ws2801Method>
-
-//P9813
-#define B_HS_P98_3 NeoPixelBus<P9813BgrFeature, P9813SpiHzMethod>
-#define B_SS_P98_3 NeoPixelBus<P9813BgrFeature, P9813Method>
-
-// 48bit & 64bit to 24bit & 32bit RGB(W) conversion
-#define toRGBW32(c) (RGBW32((c>>40)&0xFF, (c>>24)&0xFF, (c>>8)&0xFF, (c>>56)&0xFF))
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
-
-//handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
   #ifndef ESP8266
@@ -353,861 +153,101 @@ class PolyBus {
 
   // initialize SPI bus speed for DotStar methods
   template <class T>
-  static void beginDotStar(void* busPtr, int8_t sck, int8_t miso, int8_t mosi, int8_t ss, uint16_t clock_kHz /* 0 == use default */) {
-    T dotStar_strip = static_cast<T>(busPtr);
-    #ifdef ESP8266
-    dotStar_strip->Begin();
-    #else
-    if (sck == -1 && mosi == -1) dotStar_strip->Begin();
-    else                         dotStar_strip->Begin(sck, miso, mosi, ss);
-    #endif
-    if (clock_kHz) dotStar_strip->SetMethodSettings(NeoSpiSettings((uint32_t)clock_kHz*1000));
+  
+  static void begin(void* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz) {
+    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->begin();
   }
-
-  // Begin & initialize the PixelSettings for TM1814 strips.
-  template <class T>
-  static void beginTM1814(void* busPtr) {
-    T tm1814_strip = static_cast<T>(busPtr);
-    tm1814_strip->Begin();
-    // Max current for each LED (22.5 mA).
-    tm1814_strip->SetPixelSettings(NeoTm1814Settings(/*R*/225, /*G*/225, /*B*/225, /*W*/225));
-  }
-
-  template <class T>
-  static void beginTM1914(void* busPtr) {
-    T tm1914_strip = static_cast<T>(busPtr);
-    tm1914_strip->Begin();
-    tm1914_strip->SetPixelSettings(NeoTm1914Settings());  //NeoTm1914_Mode_DinFdinAutoSwitch, NeoTm1914_Mode_DinOnly, NeoTm1914_Mode_FdinOnly 
-  }
-
-  static void begin(void* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz /* only used by DotStar */) {
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->Begin(); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->Begin(); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->Begin(); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->Begin(); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->Begin(); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->Begin(); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->Begin(); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->Begin(); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->Begin(); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->Begin(); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->Begin(); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->Begin(); break;
-      case I_8266_U0_TM1_4: beginTM1814<B_8266_U0_TM1_4*>(busPtr); break;
-      case I_8266_U1_TM1_4: beginTM1814<B_8266_U1_TM1_4*>(busPtr); break;
-      case I_8266_DM_TM1_4: beginTM1814<B_8266_DM_TM1_4*>(busPtr); break;
-      case I_8266_BB_TM1_4: beginTM1814<B_8266_BB_TM1_4*>(busPtr); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_3*>(busPtr))->Begin(); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_3*>(busPtr))->Begin(); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_3*>(busPtr))->Begin(); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_3*>(busPtr))->Begin(); break;
-      case I_HS_DOT_3: beginDotStar<B_HS_DOT_3*>(busPtr, -1, -1, -1, -1, clock_kHz); break;
-      case I_HS_LPD_3: beginDotStar<B_HS_LPD_3*>(busPtr, -1, -1, -1, -1, clock_kHz); break;
-      case I_HS_LPO_3: beginDotStar<B_HS_LPO_3*>(busPtr, -1, -1, -1, -1, clock_kHz); break;
-      case I_HS_WS1_3: beginDotStar<B_HS_WS1_3*>(busPtr, -1, -1, -1, -1, clock_kHz); break;
-      case I_HS_P98_3: beginDotStar<B_HS_P98_3*>(busPtr, -1, -1, -1, -1, clock_kHz); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->Begin(); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->Begin(); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->Begin(); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->Begin(); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->Begin(); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->Begin(); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->Begin(); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->Begin(); break;
-      case I_8266_U0_APA106_3: (static_cast<B_8266_U0_APA106_3*>(busPtr))->Begin(); break;
-      case I_8266_U1_APA106_3: (static_cast<B_8266_U1_APA106_3*>(busPtr))->Begin(); break;
-      case I_8266_DM_APA106_3: (static_cast<B_8266_DM_APA106_3*>(busPtr))->Begin(); break;
-      case I_8266_BB_APA106_3: (static_cast<B_8266_BB_APA106_3*>(busPtr))->Begin(); break;
-      case I_8266_U0_FW6_5: (static_cast<B_8266_U0_FW6_5*>(busPtr))->Begin(); break;
-      case I_8266_U1_FW6_5: (static_cast<B_8266_U1_FW6_5*>(busPtr))->Begin(); break;
-      case I_8266_DM_FW6_5: (static_cast<B_8266_DM_FW6_5*>(busPtr))->Begin(); break;
-      case I_8266_BB_FW6_5: (static_cast<B_8266_BB_FW6_5*>(busPtr))->Begin(); break;
-      case I_8266_U0_2805_5: (static_cast<B_8266_U0_2805_5*>(busPtr))->Begin(); break;
-      case I_8266_U1_2805_5: (static_cast<B_8266_U1_2805_5*>(busPtr))->Begin(); break;
-      case I_8266_DM_2805_5: (static_cast<B_8266_DM_2805_5*>(busPtr))->Begin(); break;
-      case I_8266_BB_2805_5: (static_cast<B_8266_BB_2805_5*>(busPtr))->Begin(); break;
-      case I_8266_U0_TM1914_3: beginTM1914<B_8266_U0_TM1914_3*>(busPtr); break;
-      case I_8266_U1_TM1914_3: beginTM1914<B_8266_U1_TM1914_3*>(busPtr); break;
-      case I_8266_DM_TM1914_3: beginTM1914<B_8266_DM_TM1914_3*>(busPtr); break;
-      case I_8266_BB_TM1914_3: beginTM1914<B_8266_BB_TM1914_3*>(busPtr); break;
-      case I_8266_U0_SM16825_5: (static_cast<B_8266_U0_SM16825_5*>(busPtr))->Begin(); break;
-      case I_8266_U1_SM16825_5: (static_cast<B_8266_U1_SM16825_5*>(busPtr))->Begin(); break;
-      case I_8266_DM_SM16825_5: (static_cast<B_8266_DM_SM16825_5*>(busPtr))->Begin(); break;
-      case I_8266_BB_SM16825_5: (static_cast<B_8266_BB_SM16825_5*>(busPtr))->Begin(); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Begin(); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Begin(); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Begin(); break;
-      case I_32_RN_TM1_4: beginTM1814<B_32_RN_TM1_4*>(busPtr); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->Begin(); break;
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->Begin(); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->Begin(); break;
-      case I_32_RN_FW6_5: (static_cast<B_32_RN_FW6_5*>(busPtr))->Begin(); break;
-      case I_32_RN_APA106_3: (static_cast<B_32_RN_APA106_3*>(busPtr))->Begin(); break;
-      case I_32_RN_2805_5: (static_cast<B_32_RN_2805_5*>(busPtr))->Begin(); break;
-      case I_32_RN_TM1914_3: beginTM1914<B_32_RN_TM1914_3*>(busPtr); break;
-      case I_32_RN_SM16825_5: (static_cast<B_32_RN_SM16825_5*>(busPtr))->Begin(); break;
-      // I2S1 bus or parellel buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) (static_cast<B_32_IP_NEO_3*>(busPtr))->Begin(); else (static_cast<B_32_I2_NEO_3*>(busPtr))->Begin(); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->Begin(); else (static_cast<B_32_I2_NEO_4*>(busPtr))->Begin(); break;
-      case I_32_I2_400_3: if (_useParallelI2S) (static_cast<B_32_IP_400_3*>(busPtr))->Begin(); else (static_cast<B_32_I2_400_3*>(busPtr))->Begin(); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) beginTM1814<B_32_IP_TM1_4*>(busPtr); else beginTM1814<B_32_I2_TM1_4*>(busPtr); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) (static_cast<B_32_IP_TM2_3*>(busPtr))->Begin(); else (static_cast<B_32_I2_TM2_3*>(busPtr))->Begin(); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->Begin(); else (static_cast<B_32_I2_UCS_3*>(busPtr))->Begin(); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->Begin(); else (static_cast<B_32_I2_UCS_4*>(busPtr))->Begin(); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) (static_cast<B_32_IP_FW6_5*>(busPtr))->Begin(); else (static_cast<B_32_I2_FW6_5*>(busPtr))->Begin(); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) (static_cast<B_32_IP_APA106_3*>(busPtr))->Begin(); else (static_cast<B_32_I2_APA106_3*>(busPtr))->Begin(); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) (static_cast<B_32_IP_2805_5*>(busPtr))->Begin(); else (static_cast<B_32_I2_2805_5*>(busPtr))->Begin(); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) beginTM1914<B_32_IP_TM1914_3*>(busPtr); else beginTM1914<B_32_I2_TM1914_3*>(busPtr); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) (static_cast<B_32_IP_SM16825_5*>(busPtr))->Begin(); else (static_cast<B_32_I2_SM16825_5*>(busPtr))->Begin(); break;
-      #endif
-      // ESP32 can (and should, to avoid inadvertantly driving the chip select signal) specify the pins used for SPI, but only in begin()
-      case I_HS_DOT_3: beginDotStar<B_HS_DOT_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
-      case I_HS_LPD_3: beginDotStar<B_HS_LPD_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
-      case I_HS_LPO_3: beginDotStar<B_HS_LPO_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
-      case I_HS_WS1_3: beginDotStar<B_HS_WS1_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
-      case I_HS_P98_3: beginDotStar<B_HS_P98_3*>(busPtr, pins[1], -1, pins[0], -1, clock_kHz); break;
-    #endif
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->Begin(); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->Begin(); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->Begin(); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->Begin(); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->Begin(); break;
+  static void* cleanup(void* busPtr, uint8_t busType) {
+    if (busPtr) {
+        delete static_cast<WLEDpixelBus::IBus*>(busPtr);
     }
+    return nullptr;
   }
-
-  static void* create(uint8_t busType, uint8_t* pins, uint16_t len) {
-    void* busPtr = nullptr;
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: busPtr = new B_8266_U0_NEO_3(len, pins[0]); break;
-      case I_8266_U1_NEO_3: busPtr = new B_8266_U1_NEO_3(len, pins[0]); break;
-      case I_8266_DM_NEO_3: busPtr = new B_8266_DM_NEO_3(len, pins[0]); break;
-      case I_8266_BB_NEO_3: busPtr = new B_8266_BB_NEO_3(len, pins[0]); break;
-      case I_8266_U0_NEO_4: busPtr = new B_8266_U0_NEO_4(len, pins[0]); break;
-      case I_8266_U1_NEO_4: busPtr = new B_8266_U1_NEO_4(len, pins[0]); break;
-      case I_8266_DM_NEO_4: busPtr = new B_8266_DM_NEO_4(len, pins[0]); break;
-      case I_8266_BB_NEO_4: busPtr = new B_8266_BB_NEO_4(len, pins[0]); break;
-      case I_8266_U0_400_3: busPtr = new B_8266_U0_400_3(len, pins[0]); break;
-      case I_8266_U1_400_3: busPtr = new B_8266_U1_400_3(len, pins[0]); break;
-      case I_8266_DM_400_3: busPtr = new B_8266_DM_400_3(len, pins[0]); break;
-      case I_8266_BB_400_3: busPtr = new B_8266_BB_400_3(len, pins[0]); break;
-      case I_8266_U0_TM1_4: busPtr = new B_8266_U0_TM1_4(len, pins[0]); break;
-      case I_8266_U1_TM1_4: busPtr = new B_8266_U1_TM1_4(len, pins[0]); break;
-      case I_8266_DM_TM1_4: busPtr = new B_8266_DM_TM1_4(len, pins[0]); break;
-      case I_8266_BB_TM1_4: busPtr = new B_8266_BB_TM1_4(len, pins[0]); break;
-      case I_8266_U0_TM2_3: busPtr = new B_8266_U0_TM2_3(len, pins[0]); break;
-      case I_8266_U1_TM2_3: busPtr = new B_8266_U1_TM2_3(len, pins[0]); break;
-      case I_8266_DM_TM2_3: busPtr = new B_8266_DM_TM2_3(len, pins[0]); break;
-      case I_8266_BB_TM2_3: busPtr = new B_8266_BB_TM2_3(len, pins[0]); break;
-      case I_8266_U0_UCS_3: busPtr = new B_8266_U0_UCS_3(len, pins[0]); break;
-      case I_8266_U1_UCS_3: busPtr = new B_8266_U1_UCS_3(len, pins[0]); break;
-      case I_8266_DM_UCS_3: busPtr = new B_8266_DM_UCS_3(len, pins[0]); break;
-      case I_8266_BB_UCS_3: busPtr = new B_8266_BB_UCS_3(len, pins[0]); break;
-      case I_8266_U0_UCS_4: busPtr = new B_8266_U0_UCS_4(len, pins[0]); break;
-      case I_8266_U1_UCS_4: busPtr = new B_8266_U1_UCS_4(len, pins[0]); break;
-      case I_8266_DM_UCS_4: busPtr = new B_8266_DM_UCS_4(len, pins[0]); break;
-      case I_8266_BB_UCS_4: busPtr = new B_8266_BB_UCS_4(len, pins[0]); break;
-      case I_8266_U0_APA106_3: busPtr = new B_8266_U0_APA106_3(len, pins[0]); break;
-      case I_8266_U1_APA106_3: busPtr = new B_8266_U1_APA106_3(len, pins[0]); break;
-      case I_8266_DM_APA106_3: busPtr = new B_8266_DM_APA106_3(len, pins[0]); break;
-      case I_8266_BB_APA106_3: busPtr = new B_8266_BB_APA106_3(len, pins[0]); break;
-      case I_8266_U0_FW6_5: busPtr = new B_8266_U0_FW6_5(len, pins[0]); break;
-      case I_8266_U1_FW6_5: busPtr = new B_8266_U1_FW6_5(len, pins[0]); break;
-      case I_8266_DM_FW6_5: busPtr = new B_8266_DM_FW6_5(len, pins[0]); break;
-      case I_8266_BB_FW6_5: busPtr = new B_8266_BB_FW6_5(len, pins[0]); break;
-      case I_8266_U0_2805_5: busPtr = new B_8266_U0_2805_5(len, pins[0]); break;
-      case I_8266_U1_2805_5: busPtr = new B_8266_U1_2805_5(len, pins[0]); break;
-      case I_8266_DM_2805_5: busPtr = new B_8266_DM_2805_5(len, pins[0]); break;
-      case I_8266_BB_2805_5: busPtr = new B_8266_BB_2805_5(len, pins[0]); break;
-      case I_8266_U0_TM1914_3: busPtr = new B_8266_U0_TM1914_3(len, pins[0]); break;
-      case I_8266_U1_TM1914_3: busPtr = new B_8266_U1_TM1914_3(len, pins[0]); break;
-      case I_8266_DM_TM1914_3: busPtr = new B_8266_DM_TM1914_3(len, pins[0]); break;
-      case I_8266_BB_TM1914_3: busPtr = new B_8266_BB_TM1914_3(len, pins[0]); break;
-      case I_8266_U0_SM16825_5: busPtr = new B_8266_U0_SM16825_5(len, pins[0]); break;
-      case I_8266_U1_SM16825_5: busPtr = new B_8266_U1_SM16825_5(len, pins[0]); break;
-      case I_8266_DM_SM16825_5: busPtr = new B_8266_DM_SM16825_5(len, pins[0]); break;
-      case I_8266_BB_SM16825_5: busPtr = new B_8266_BB_SM16825_5(len, pins[0]); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_TM2_3: busPtr = new B_32_RN_TM2_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_UCS_3: busPtr = new B_32_RN_UCS_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_UCS_4: busPtr = new B_32_RN_UCS_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_APA106_3: busPtr = new B_32_RN_APA106_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_FW6_5: busPtr = new B_32_RN_FW6_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_2805_5: busPtr = new B_32_RN_2805_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_TM1914_3: busPtr = new B_32_RN_TM1914_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      case I_32_RN_SM16825_5: busPtr = new B_32_RN_SM16825_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) busPtr = new B_32_IP_NEO_3(len, pins[0]); else busPtr = new B_32_I2_NEO_3(len, pins[0]); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) busPtr = new B_32_IP_NEO_4(len, pins[0]); else busPtr = new B_32_I2_NEO_4(len, pins[0]); break;
-      case I_32_I2_400_3: if (_useParallelI2S) busPtr = new B_32_IP_400_3(len, pins[0]); else busPtr = new B_32_I2_400_3(len, pins[0]); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) busPtr = new B_32_IP_TM1_4(len, pins[0]); else busPtr = new B_32_I2_TM1_4(len, pins[0]); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) busPtr = new B_32_IP_TM2_3(len, pins[0]); else busPtr = new B_32_I2_TM2_3(len, pins[0]); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) busPtr = new B_32_IP_UCS_3(len, pins[0]); else busPtr = new B_32_I2_UCS_3(len, pins[0]); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) busPtr = new B_32_IP_UCS_4(len, pins[0]); else busPtr = new B_32_I2_UCS_4(len, pins[0]); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) busPtr = new B_32_IP_APA106_3(len, pins[0]); else busPtr = new B_32_I2_APA106_3(len, pins[0]); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) busPtr = new B_32_IP_FW6_5(len, pins[0]); else busPtr = new B_32_I2_FW6_5(len, pins[0]); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) busPtr = new B_32_IP_2805_5(len, pins[0]); else busPtr = new B_32_I2_2805_5(len, pins[0]); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) busPtr = new B_32_IP_TM1914_3(len, pins[0]); else busPtr = new B_32_I2_TM1914_3(len, pins[0]); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) busPtr = new B_32_IP_SM16825_5(len, pins[0]); else busPtr = new B_32_I2_SM16825_5(len, pins[0]); break;
-      #endif
-    #endif
-      // for 2-wire: pins[1] is clk, pins[0] is dat.  begin expects (len, clk, dat)
-      case I_HS_DOT_3: busPtr = new B_HS_DOT_3(len, pins[1], pins[0]); break;
-      case I_SS_DOT_3: busPtr = new B_SS_DOT_3(len, pins[1], pins[0]); break;
-      case I_HS_LPD_3: busPtr = new B_HS_LPD_3(len, pins[1], pins[0]); break;
-      case I_SS_LPD_3: busPtr = new B_SS_LPD_3(len, pins[1], pins[0]); break;
-      case I_HS_LPO_3: busPtr = new B_HS_LPO_3(len, pins[1], pins[0]); break;
-      case I_SS_LPO_3: busPtr = new B_SS_LPO_3(len, pins[1], pins[0]); break;
-      case I_HS_WS1_3: busPtr = new B_HS_WS1_3(len, pins[1], pins[0]); break;
-      case I_SS_WS1_3: busPtr = new B_SS_WS1_3(len, pins[1], pins[0]); break;
-      case I_HS_P98_3: busPtr = new B_HS_P98_3(len, pins[1], pins[0]); break;
-      case I_SS_P98_3: busPtr = new B_SS_P98_3(len, pins[1], pins[0]); break;
-    }
-
-    return busPtr;
+  static void show(void* busPtr, uint8_t busType, bool isI2s = false) {
+    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->show();
   }
-
-  static void show(void* busPtr, uint8_t busType, bool consistent = true) {
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_APA106_3: (static_cast<B_8266_U0_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_APA106_3: (static_cast<B_8266_U1_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_APA106_3: (static_cast<B_8266_DM_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_APA106_3: (static_cast<B_8266_BB_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_FW6_5: (static_cast<B_8266_U0_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_FW6_5: (static_cast<B_8266_U1_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_FW6_5: (static_cast<B_8266_DM_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_FW6_5: (static_cast<B_8266_BB_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_2805_5: (static_cast<B_8266_U0_2805_5*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_2805_5: (static_cast<B_8266_U1_2805_5*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_2805_5: (static_cast<B_8266_DM_2805_5*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_2805_5: (static_cast<B_8266_BB_2805_5*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_TM1914_3: (static_cast<B_8266_U0_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_TM1914_3: (static_cast<B_8266_U1_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_TM1914_3: (static_cast<B_8266_DM_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_TM1914_3: (static_cast<B_8266_BB_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_8266_U0_SM16825_5: (static_cast<B_8266_U0_SM16825_5*>(busPtr))->Show(consistent); break;
-      case I_8266_U1_SM16825_5: (static_cast<B_8266_U1_SM16825_5*>(busPtr))->Show(consistent); break;
-      case I_8266_DM_SM16825_5: (static_cast<B_8266_DM_SM16825_5*>(busPtr))->Show(consistent); break;
-      case I_8266_BB_SM16825_5: (static_cast<B_8266_BB_SM16825_5*>(busPtr))->Show(consistent); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_32_RN_APA106_3: (static_cast<B_32_RN_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_FW6_5: (static_cast<B_32_RN_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_32_RN_2805_5: (static_cast<B_32_RN_2805_5*>(busPtr))->Show(consistent); break;
-      case I_32_RN_TM1914_3: (static_cast<B_32_RN_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_32_RN_SM16825_5: (static_cast<B_32_RN_SM16825_5*>(busPtr))->Show(consistent); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) (static_cast<B_32_IP_NEO_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_NEO_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_NEO_4*>(busPtr))->Show(consistent); break;
-      case I_32_I2_400_3: if (_useParallelI2S) (static_cast<B_32_IP_400_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_400_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) (static_cast<B_32_IP_TM1_4*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_TM1_4*>(busPtr))->Show(consistent); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) (static_cast<B_32_IP_TM2_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_TM2_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_UCS_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_UCS_4*>(busPtr))->Show(consistent); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) (static_cast<B_32_IP_APA106_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_APA106_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) (static_cast<B_32_IP_FW6_5*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_FW6_5*>(busPtr))->Show(consistent); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) (static_cast<B_32_IP_2805_5*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_2805_5*>(busPtr))->Show(consistent); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) (static_cast<B_32_IP_TM1914_3*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_TM1914_3*>(busPtr))->Show(consistent); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) (static_cast<B_32_IP_SM16825_5*>(busPtr))->Show(consistent); else (static_cast<B_32_I2_SM16825_5*>(busPtr))->Show(consistent); break;
-      #endif
-    #endif
-      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->Show(consistent); break;
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->Show(consistent); break;
-      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->Show(consistent); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->Show(consistent); break;
-      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->Show(consistent); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->Show(consistent); break;
-      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->Show(consistent); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->Show(consistent); break;
-      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->Show(consistent); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->Show(consistent); break;
-    }
-  }
-
   static bool canShow(void* busPtr, uint8_t busType) {
-    switch (busType) {
-      case I_NONE: return true;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: return (static_cast<B_8266_U0_NEO_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_NEO_3: return (static_cast<B_8266_U1_NEO_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_NEO_3: return (static_cast<B_8266_DM_NEO_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_NEO_3: return (static_cast<B_8266_BB_NEO_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_NEO_4: return (static_cast<B_8266_U0_NEO_4*>(busPtr))->CanShow(); break;
-      case I_8266_U1_NEO_4: return (static_cast<B_8266_U1_NEO_4*>(busPtr))->CanShow(); break;
-      case I_8266_DM_NEO_4: return (static_cast<B_8266_DM_NEO_4*>(busPtr))->CanShow(); break;
-      case I_8266_BB_NEO_4: return (static_cast<B_8266_BB_NEO_4*>(busPtr))->CanShow(); break;
-      case I_8266_U0_400_3: return (static_cast<B_8266_U0_400_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_400_3: return (static_cast<B_8266_U1_400_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_400_3: return (static_cast<B_8266_DM_400_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_400_3: return (static_cast<B_8266_BB_400_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_TM1_4: return (static_cast<B_8266_U0_TM1_4*>(busPtr))->CanShow(); break;
-      case I_8266_U1_TM1_4: return (static_cast<B_8266_U1_TM1_4*>(busPtr))->CanShow(); break;
-      case I_8266_DM_TM1_4: return (static_cast<B_8266_DM_TM1_4*>(busPtr))->CanShow(); break;
-      case I_8266_BB_TM1_4: return (static_cast<B_8266_BB_TM1_4*>(busPtr))->CanShow(); break;
-      case I_8266_U0_TM2_3: return (static_cast<B_8266_U0_TM2_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_TM2_3: return (static_cast<B_8266_U1_TM2_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_TM2_3: return (static_cast<B_8266_DM_TM2_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_TM2_3: return (static_cast<B_8266_BB_TM2_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_UCS_3: return (static_cast<B_8266_U0_UCS_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_UCS_3: return (static_cast<B_8266_U1_UCS_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_UCS_3: return (static_cast<B_8266_DM_UCS_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_UCS_3: return (static_cast<B_8266_BB_UCS_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_UCS_4: return (static_cast<B_8266_U0_UCS_4*>(busPtr))->CanShow(); break;
-      case I_8266_U1_UCS_4: return (static_cast<B_8266_U1_UCS_4*>(busPtr))->CanShow(); break;
-      case I_8266_DM_UCS_4: return (static_cast<B_8266_DM_UCS_4*>(busPtr))->CanShow(); break;
-      case I_8266_BB_UCS_4: return (static_cast<B_8266_BB_UCS_4*>(busPtr))->CanShow(); break;
-      case I_8266_U0_APA106_3: return (static_cast<B_8266_U0_APA106_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_APA106_3: return (static_cast<B_8266_U1_APA106_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_APA106_3: return (static_cast<B_8266_DM_APA106_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_APA106_3: return (static_cast<B_8266_BB_APA106_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_FW6_5: return (static_cast<B_8266_U0_FW6_5*>(busPtr))->CanShow(); break;
-      case I_8266_U1_FW6_5: return (static_cast<B_8266_U1_FW6_5*>(busPtr))->CanShow(); break;
-      case I_8266_DM_FW6_5: return (static_cast<B_8266_DM_FW6_5*>(busPtr))->CanShow(); break;
-      case I_8266_BB_FW6_5: return (static_cast<B_8266_BB_FW6_5*>(busPtr))->CanShow(); break;
-      case I_8266_U0_2805_5: return (static_cast<B_8266_U0_2805_5*>(busPtr))->CanShow(); break;
-      case I_8266_U1_2805_5: return (static_cast<B_8266_U1_2805_5*>(busPtr))->CanShow(); break;
-      case I_8266_DM_2805_5: return (static_cast<B_8266_DM_2805_5*>(busPtr))->CanShow(); break;
-      case I_8266_BB_2805_5: return (static_cast<B_8266_BB_2805_5*>(busPtr))->CanShow(); break;
-      case I_8266_U0_TM1914_3: return (static_cast<B_8266_U0_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_8266_U1_TM1914_3: return (static_cast<B_8266_U1_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_8266_DM_TM1914_3: return (static_cast<B_8266_DM_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_8266_BB_TM1914_3: return (static_cast<B_8266_BB_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_8266_U0_SM16825_5: return (static_cast<B_8266_U0_SM16825_5*>(busPtr))->CanShow(); break;
-      case I_8266_U1_SM16825_5: return (static_cast<B_8266_U1_SM16825_5*>(busPtr))->CanShow(); break;
-      case I_8266_DM_SM16825_5: return (static_cast<B_8266_DM_SM16825_5*>(busPtr))->CanShow(); break;
-      case I_8266_BB_SM16825_5: return (static_cast<B_8266_BB_SM16825_5*>(busPtr))->CanShow(); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: return (static_cast<B_32_RN_NEO_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_NEO_4: return (static_cast<B_32_RN_NEO_4*>(busPtr))->CanShow(); break;
-      case I_32_RN_400_3: return (static_cast<B_32_RN_400_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_TM1_4: return (static_cast<B_32_RN_TM1_4*>(busPtr))->CanShow(); break;
-      case I_32_RN_TM2_3: return (static_cast<B_32_RN_TM2_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_UCS_3: return (static_cast<B_32_RN_UCS_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_UCS_4: return (static_cast<B_32_RN_UCS_4*>(busPtr))->CanShow(); break;
-      case I_32_RN_APA106_3: return (static_cast<B_32_RN_APA106_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_FW6_5: return (static_cast<B_32_RN_FW6_5*>(busPtr))->CanShow(); break;
-      case I_32_RN_2805_5: return (static_cast<B_32_RN_2805_5*>(busPtr))->CanShow(); break;
-      case I_32_RN_TM1914_3: return (static_cast<B_32_RN_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_32_RN_SM16825_5: return (static_cast<B_32_RN_SM16825_5*>(busPtr))->CanShow(); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) return (static_cast<B_32_IP_NEO_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_NEO_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) return (static_cast<B_32_IP_NEO_4*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_NEO_4*>(busPtr))->CanShow(); break;
-      case I_32_I2_400_3: if (_useParallelI2S) return (static_cast<B_32_IP_400_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_400_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) return (static_cast<B_32_IP_TM1_4*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_TM1_4*>(busPtr))->CanShow(); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) return (static_cast<B_32_IP_TM2_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_TM2_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) return (static_cast<B_32_IP_UCS_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_UCS_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) return (static_cast<B_32_IP_UCS_4*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_UCS_4*>(busPtr))->CanShow(); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) return (static_cast<B_32_IP_APA106_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_APA106_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) return (static_cast<B_32_IP_FW6_5*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_FW6_5*>(busPtr))->CanShow(); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) return (static_cast<B_32_IP_2805_5*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_2805_5*>(busPtr))->CanShow(); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) return (static_cast<B_32_IP_TM1914_3*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_TM1914_3*>(busPtr))->CanShow(); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) return (static_cast<B_32_IP_SM16825_5*>(busPtr))->CanShow(); else return (static_cast<B_32_I2_SM16825_5*>(busPtr))->CanShow(); break;
-      #endif
-    #endif
-      case I_HS_DOT_3: return (static_cast<B_HS_DOT_3*>(busPtr))->CanShow(); break;
-      case I_SS_DOT_3: return (static_cast<B_SS_DOT_3*>(busPtr))->CanShow(); break;
-      case I_HS_LPD_3: return (static_cast<B_HS_LPD_3*>(busPtr))->CanShow(); break;
-      case I_SS_LPD_3: return (static_cast<B_SS_LPD_3*>(busPtr))->CanShow(); break;
-      case I_HS_LPO_3: return (static_cast<B_HS_LPO_3*>(busPtr))->CanShow(); break;
-      case I_SS_LPO_3: return (static_cast<B_SS_LPO_3*>(busPtr))->CanShow(); break;
-      case I_HS_WS1_3: return (static_cast<B_HS_WS1_3*>(busPtr))->CanShow(); break;
-      case I_SS_WS1_3: return (static_cast<B_SS_WS1_3*>(busPtr))->CanShow(); break;
-      case I_HS_P98_3: return (static_cast<B_HS_P98_3*>(busPtr))->CanShow(); break;
-      case I_SS_P98_3: return (static_cast<B_SS_P98_3*>(busPtr))->CanShow(); break;
-    }
+    if (busPtr) return static_cast<WLEDpixelBus::IBus*>(busPtr)->canShow();
     return true;
   }
-
-  [[gnu::hot]] static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint8_t co, uint16_t wwcw = 0) {
-    uint8_t r = c >> 16;
-    uint8_t g = c >> 8;
-    uint8_t b = c >> 0;
-    uint8_t w = c >> 24;
-    RgbwColor col;
-    uint8_t cctWW = wwcw & 0xFF, cctCW = (wwcw>>8) & 0xFF;
-
-    // reorder channels to selected order
-    switch (co & 0x0F) {
-      default: col.G = g; col.R = r; col.B = b; break; //0 = GRB, default
-      case  1: col.G = r; col.R = g; col.B = b; break; //1 = RGB, common for WS2811
-      case  2: col.G = b; col.R = r; col.B = g; break; //2 = BRG
-      case  3: col.G = r; col.R = b; col.B = g; break; //3 = RBG
-      case  4: col.G = b; col.R = g; col.B = r; break; //4 = BGR
-      case  5: col.G = g; col.R = b; col.B = r; break; //5 = GBR
-    }
-    // upper nibble contains W swap information
-    switch (co >> 4) {
-      default: col.W = w;                break; // no swapping
-      case  1: col.W = col.B; col.B = w; break; // swap W & B
-      case  2: col.W = col.G; col.G = w; break; // swap W & G
-      case  3: col.W = col.R; col.R = w; break; // swap W & R
-      case  4: std::swap(cctWW, cctCW);  break; // swap WW & CW
-    }
-
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: (static_cast<B_8266_U0_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U1_NEO_3: (static_cast<B_8266_U1_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_DM_NEO_3: (static_cast<B_8266_DM_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_BB_NEO_3: (static_cast<B_8266_BB_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U0_NEO_4: (static_cast<B_8266_U0_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_U1_NEO_4: (static_cast<B_8266_U1_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_DM_NEO_4: (static_cast<B_8266_DM_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_BB_NEO_4: (static_cast<B_8266_BB_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_U0_400_3: (static_cast<B_8266_U0_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U1_400_3: (static_cast<B_8266_U1_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_DM_400_3: (static_cast<B_8266_DM_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_BB_400_3: (static_cast<B_8266_BB_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U0_TM1_4: (static_cast<B_8266_U0_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_U1_TM1_4: (static_cast<B_8266_U1_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_DM_TM1_4: (static_cast<B_8266_DM_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_BB_TM1_4: (static_cast<B_8266_BB_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_8266_U0_TM2_3: (static_cast<B_8266_U0_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U1_TM2_3: (static_cast<B_8266_U1_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_DM_TM2_3: (static_cast<B_8266_DM_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_BB_TM2_3: (static_cast<B_8266_BB_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U0_UCS_3: (static_cast<B_8266_U0_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_8266_U1_UCS_3: (static_cast<B_8266_U1_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_8266_DM_UCS_3: (static_cast<B_8266_DM_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_8266_BB_UCS_3: (static_cast<B_8266_BB_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_8266_U0_UCS_4: (static_cast<B_8266_U0_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_8266_U1_UCS_4: (static_cast<B_8266_U1_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_8266_DM_UCS_4: (static_cast<B_8266_DM_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_8266_BB_UCS_4: (static_cast<B_8266_BB_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_8266_U0_APA106_3: (static_cast<B_8266_U0_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U1_APA106_3: (static_cast<B_8266_U1_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_DM_APA106_3: (static_cast<B_8266_DM_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_BB_APA106_3: (static_cast<B_8266_BB_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U0_FW6_5: (static_cast<B_8266_U0_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_U1_FW6_5: (static_cast<B_8266_U1_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_DM_FW6_5: (static_cast<B_8266_DM_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_BB_FW6_5: (static_cast<B_8266_BB_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_U0_2805_5: (static_cast<B_8266_U0_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_U1_2805_5: (static_cast<B_8266_U1_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_DM_2805_5: (static_cast<B_8266_DM_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_BB_2805_5: (static_cast<B_8266_BB_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_8266_U0_TM1914_3: (static_cast<B_8266_U0_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U1_TM1914_3: (static_cast<B_8266_U1_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_DM_TM1914_3: (static_cast<B_8266_DM_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_BB_TM1914_3: (static_cast<B_8266_BB_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_8266_U0_SM16825_5: (static_cast<B_8266_U0_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-      case I_8266_U1_SM16825_5: (static_cast<B_8266_U1_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-      case I_8266_DM_SM16825_5: (static_cast<B_8266_DM_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-      case I_8266_BB_SM16825_5: (static_cast<B_8266_BB_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: (static_cast<B_32_RN_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_RN_NEO_4: (static_cast<B_32_RN_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_32_RN_400_3: (static_cast<B_32_RN_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_RN_TM1_4: (static_cast<B_32_RN_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_32_RN_TM2_3: (static_cast<B_32_RN_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_RN_UCS_3: (static_cast<B_32_RN_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_32_RN_UCS_4: (static_cast<B_32_RN_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_32_RN_APA106_3: (static_cast<B_32_RN_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_RN_FW6_5: (static_cast<B_32_RN_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_32_RN_2805_5: (static_cast<B_32_RN_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_32_RN_TM1914_3: (static_cast<B_32_RN_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_RN_SM16825_5: (static_cast<B_32_RN_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) (static_cast<B_32_IP_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_NEO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) (static_cast<B_32_IP_NEO_4*>(busPtr))->SetPixelColor(pix, col); else (static_cast<B_32_I2_NEO_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_32_I2_400_3: if (_useParallelI2S) (static_cast<B_32_IP_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_400_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) (static_cast<B_32_IP_TM1_4*>(busPtr))->SetPixelColor(pix, col); else (static_cast<B_32_I2_TM1_4*>(busPtr))->SetPixelColor(pix, col); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) (static_cast<B_32_IP_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_TM2_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) (static_cast<B_32_IP_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); else (static_cast<B_32_I2_UCS_3*>(busPtr))->SetPixelColor(pix, Rgb48Color(RgbColor(col))); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) (static_cast<B_32_IP_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); else (static_cast<B_32_I2_UCS_4*>(busPtr))->SetPixelColor(pix, Rgbw64Color(col)); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) (static_cast<B_32_IP_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_APA106_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) (static_cast<B_32_IP_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); else (static_cast<B_32_I2_FW6_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) (static_cast<B_32_IP_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); else (static_cast<B_32_I2_2805_5*>(busPtr))->SetPixelColor(pix, RgbwwColor(col.R, col.G, col.B, cctWW, cctCW)); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) (static_cast<B_32_IP_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); else (static_cast<B_32_I2_TM1914_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) (static_cast<B_32_IP_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); else (static_cast<B_32_I2_SM16825_5*>(busPtr))->SetPixelColor(pix, Rgbww80Color(col.R*257, col.G*257, col.B*257, cctWW*257, cctCW*257)); break;
-      #endif
-    #endif
-      case I_HS_DOT_3: (static_cast<B_HS_DOT_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_SS_DOT_3: (static_cast<B_SS_DOT_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_HS_LPD_3: (static_cast<B_HS_LPD_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_SS_LPD_3: (static_cast<B_SS_LPD_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_HS_LPO_3: (static_cast<B_HS_LPO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_SS_LPO_3: (static_cast<B_SS_LPO_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_HS_WS1_3: (static_cast<B_HS_WS1_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_SS_WS1_3: (static_cast<B_SS_WS1_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_HS_P98_3: (static_cast<B_HS_P98_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-      case I_SS_P98_3: (static_cast<B_SS_P98_3*>(busPtr))->SetPixelColor(pix, RgbColor(col)); break;
-    }
+  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint32_t cW) {
+    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setPixelColor(pix, c);
   }
-
-  [[gnu::hot]] static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint8_t co) {
-    RgbwColor col(0,0,0,0);
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: col = (static_cast<B_8266_U0_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_NEO_3: col = (static_cast<B_8266_U1_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_NEO_3: col = (static_cast<B_8266_DM_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_NEO_3: col = (static_cast<B_8266_BB_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_NEO_4: col = (static_cast<B_8266_U0_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_NEO_4: col = (static_cast<B_8266_U1_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_NEO_4: col = (static_cast<B_8266_DM_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_NEO_4: col = (static_cast<B_8266_BB_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_400_3: col = (static_cast<B_8266_U0_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_400_3: col = (static_cast<B_8266_U1_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_400_3: col = (static_cast<B_8266_DM_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_400_3: col = (static_cast<B_8266_BB_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_TM1_4: col = (static_cast<B_8266_U0_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_TM1_4: col = (static_cast<B_8266_U1_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_TM1_4: col = (static_cast<B_8266_DM_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_TM1_4: col = (static_cast<B_8266_BB_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_TM2_3: col = (static_cast<B_8266_U0_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_TM2_3: col = (static_cast<B_8266_U1_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_TM2_3: col = (static_cast<B_8266_DM_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_TM2_3: col = (static_cast<B_8266_BB_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_UCS_3: { Rgb48Color c = (static_cast<B_8266_U0_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,0); } break;
-      case I_8266_U1_UCS_3: { Rgb48Color c = (static_cast<B_8266_U1_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,0); } break;
-      case I_8266_DM_UCS_3: { Rgb48Color c = (static_cast<B_8266_DM_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,0); } break;
-      case I_8266_BB_UCS_3: { Rgb48Color c = (static_cast<B_8266_BB_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,0); } break;
-      case I_8266_U0_UCS_4: { Rgbw64Color c = (static_cast<B_8266_U0_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,c.W>>8); } break;
-      case I_8266_U1_UCS_4: { Rgbw64Color c = (static_cast<B_8266_U1_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,c.W>>8); } break;
-      case I_8266_DM_UCS_4: { Rgbw64Color c = (static_cast<B_8266_DM_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,c.W>>8); } break;
-      case I_8266_BB_UCS_4: { Rgbw64Color c = (static_cast<B_8266_BB_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,c.W>>8); } break;
-      case I_8266_U0_APA106_3: col = (static_cast<B_8266_U0_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_APA106_3: col = (static_cast<B_8266_U1_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_APA106_3: col = (static_cast<B_8266_DM_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_APA106_3: col = (static_cast<B_8266_BB_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_FW6_5: { RgbwwColor c = (static_cast<B_8266_U0_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_U1_FW6_5: { RgbwwColor c = (static_cast<B_8266_U1_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_DM_FW6_5: { RgbwwColor c = (static_cast<B_8266_DM_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_BB_FW6_5: { RgbwwColor c = (static_cast<B_8266_BB_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_U0_2805_5: { RgbwwColor c = (static_cast<B_8266_U0_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_U1_2805_5: { RgbwwColor c = (static_cast<B_8266_U1_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_DM_2805_5: { RgbwwColor c = (static_cast<B_8266_DM_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_BB_2805_5: { RgbwwColor c = (static_cast<B_8266_BB_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_U0_TM1914_3: col = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U1_TM1914_3: col = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_DM_TM1914_3: col = (static_cast<B_8266_DM_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_BB_TM1914_3: col = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_8266_U0_SM16825_5: { Rgbww80Color c = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_U1_SM16825_5: { Rgbww80Color c = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_DM_SM16825_5: { Rgbww80Color c = (static_cast<B_8266_DM_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_8266_BB_SM16825_5: { Rgbww80Color c = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: col = (static_cast<B_32_RN_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_NEO_4: col = (static_cast<B_32_RN_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_400_3: col = (static_cast<B_32_RN_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_TM1_4: col = (static_cast<B_32_RN_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_TM2_3: col = (static_cast<B_32_RN_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_UCS_3: { Rgb48Color c = (static_cast<B_32_RN_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,0); } break;
-      case I_32_RN_UCS_4: { Rgbw64Color c = (static_cast<B_32_RN_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R>>8,c.G>>8,c.B>>8,c.W>>8); } break;
-      case I_32_RN_APA106_3: col = (static_cast<B_32_RN_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_FW6_5: { RgbwwColor c = (static_cast<B_32_RN_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_32_RN_2805_5: { RgbwwColor c = (static_cast<B_32_RN_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_32_RN_TM1914_3: col = (static_cast<B_32_RN_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_RN_SM16825_5: { Rgbww80Color c = (static_cast<B_32_RN_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R/257,c.G/257,c.B/257,max(c.WW,c.CW)/257); } break; // will not return original W
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: col = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_NEO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_NEO_4: col = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_NEO_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_400_3: col = (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_400_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_TM1_4: col = (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_TM1_4*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_TM2_3: col = (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_TM2_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_UCS_3: { Rgb48Color c = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_UCS_3*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R/257,c.G/257,c.B/257,0); } break;
-      case I_32_I2_UCS_4: { Rgbw64Color c = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_UCS_4*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R/257,c.G/257,c.B/257,c.W/257); } break;
-      case I_32_I2_APA106_3: col = (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_APA106_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_FW6_5: { RgbwwColor c = (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_FW6_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_32_I2_2805_5: { RgbwwColor c = (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_2805_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R,c.G,c.B,max(c.WW,c.CW)); } break; // will not return original W
-      case I_32_I2_TM1914_3: col = (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_TM1914_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_32_I2_SM16825_5: { Rgbww80Color c = (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->GetPixelColor(pix) : (static_cast<B_32_I2_SM16825_5*>(busPtr))->GetPixelColor(pix); col = RGBW32(c.R/257,c.G/257,c.B/257,max(c.WW,c.CW)/257); } break; // will not return original W
-      #endif
-    #endif
-      case I_HS_DOT_3: col = (static_cast<B_HS_DOT_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_SS_DOT_3: col = (static_cast<B_SS_DOT_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_HS_LPD_3: col = (static_cast<B_HS_LPD_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_SS_LPD_3: col = (static_cast<B_SS_LPD_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_HS_LPO_3: col = (static_cast<B_HS_LPO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_SS_LPO_3: col = (static_cast<B_SS_LPO_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_HS_WS1_3: col = (static_cast<B_HS_WS1_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_SS_WS1_3: col = (static_cast<B_SS_WS1_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_HS_P98_3: col = (static_cast<B_HS_P98_3*>(busPtr))->GetPixelColor(pix); break;
-      case I_SS_P98_3: col = (static_cast<B_SS_P98_3*>(busPtr))->GetPixelColor(pix); break;
-    }
-
-    // upper nibble contains W swap information
-    uint8_t w = col.W;
-    switch (co >> 4) {
-      case 1: col.W = col.B; col.B = w; break; // swap W & B
-      case 2: col.W = col.G; col.G = w; break; // swap W & G
-      case 3: col.W = col.R; col.R = w; break; // swap W & R
-    }
-    switch (co & 0x0F) {
-      //                    W               G              R               B
-      default: return ((col.W << 24) | (col.G << 8) | (col.R << 16) | (col.B)); //0 = GRB, default
-      case  1: return ((col.W << 24) | (col.R << 8) | (col.G << 16) | (col.B)); //1 = RGB, common for WS2811
-      case  2: return ((col.W << 24) | (col.B << 8) | (col.R << 16) | (col.G)); //2 = BRG
-      case  3: return ((col.W << 24) | (col.B << 8) | (col.G << 16) | (col.R)); //3 = RBG
-      case  4: return ((col.W << 24) | (col.R << 8) | (col.B << 16) | (col.G)); //4 = BGR
-      case  5: return ((col.W << 24) | (col.G << 8) | (col.B << 16) | (col.R)); //5 = GBR
-    }
+  static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
+    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setBrightness(b);
+  }
+  static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t cW) {
+    if (busPtr) return static_cast<WLEDpixelBus::IBus*>(busPtr)->getPixelColor(pix);
     return 0;
   }
 
-  static void cleanup(void* busPtr, uint8_t busType) {
-    if (busPtr == nullptr) return;
-    switch (busType) {
-      case I_NONE: break;
+static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder) {
+    Serial.printf("[WPB] PolyBus::create busType=%u pin=%u len=%u\n", busType, pins[0], len);
+    if (busType == I_NONE) { Serial.println("[WPB] busType=I_NONE, returning null"); return nullptr; }
+    auto btype = WLEDpixelBus::BusType::Auto;
+    auto timing = WLEDpixelBus::Timing::WS2812;
+    uint8_t hwIndex = pins[0]; 
+    
     #ifdef ESP8266
-      case I_8266_U0_NEO_3: delete (static_cast<B_8266_U0_NEO_3*>(busPtr)); break;
-      case I_8266_U1_NEO_3: delete (static_cast<B_8266_U1_NEO_3*>(busPtr)); break;
-      case I_8266_DM_NEO_3: delete (static_cast<B_8266_DM_NEO_3*>(busPtr)); break;
-      case I_8266_BB_NEO_3: delete (static_cast<B_8266_BB_NEO_3*>(busPtr)); break;
-      case I_8266_U0_NEO_4: delete (static_cast<B_8266_U0_NEO_4*>(busPtr)); break;
-      case I_8266_U1_NEO_4: delete (static_cast<B_8266_U1_NEO_4*>(busPtr)); break;
-      case I_8266_DM_NEO_4: delete (static_cast<B_8266_DM_NEO_4*>(busPtr)); break;
-      case I_8266_BB_NEO_4: delete (static_cast<B_8266_BB_NEO_4*>(busPtr)); break;
-      case I_8266_U0_400_3: delete (static_cast<B_8266_U0_400_3*>(busPtr)); break;
-      case I_8266_U1_400_3: delete (static_cast<B_8266_U1_400_3*>(busPtr)); break;
-      case I_8266_DM_400_3: delete (static_cast<B_8266_DM_400_3*>(busPtr)); break;
-      case I_8266_BB_400_3: delete (static_cast<B_8266_BB_400_3*>(busPtr)); break;
-      case I_8266_U0_TM1_4: delete (static_cast<B_8266_U0_TM1_4*>(busPtr)); break;
-      case I_8266_U1_TM1_4: delete (static_cast<B_8266_U1_TM1_4*>(busPtr)); break;
-      case I_8266_DM_TM1_4: delete (static_cast<B_8266_DM_TM1_4*>(busPtr)); break;
-      case I_8266_BB_TM1_4: delete (static_cast<B_8266_BB_TM1_4*>(busPtr)); break;
-      case I_8266_U0_TM2_3: delete (static_cast<B_8266_U0_TM2_3*>(busPtr)); break;
-      case I_8266_U1_TM2_3: delete (static_cast<B_8266_U1_TM2_3*>(busPtr)); break;
-      case I_8266_DM_TM2_3: delete (static_cast<B_8266_DM_TM2_3*>(busPtr)); break;
-      case I_8266_BB_TM2_3: delete (static_cast<B_8266_BB_TM2_3*>(busPtr)); break;
-      case I_8266_U0_UCS_3: delete (static_cast<B_8266_U0_UCS_3*>(busPtr)); break;
-      case I_8266_U1_UCS_3: delete (static_cast<B_8266_U1_UCS_3*>(busPtr)); break;
-      case I_8266_DM_UCS_3: delete (static_cast<B_8266_DM_UCS_3*>(busPtr)); break;
-      case I_8266_BB_UCS_3: delete (static_cast<B_8266_BB_UCS_3*>(busPtr)); break;
-      case I_8266_U0_UCS_4: delete (static_cast<B_8266_U0_UCS_4*>(busPtr)); break;
-      case I_8266_U1_UCS_4: delete (static_cast<B_8266_U1_UCS_4*>(busPtr)); break;
-      case I_8266_DM_UCS_4: delete (static_cast<B_8266_DM_UCS_4*>(busPtr)); break;
-      case I_8266_BB_UCS_4: delete (static_cast<B_8266_BB_UCS_4*>(busPtr)); break;
-      case I_8266_U0_APA106_3: delete (static_cast<B_8266_U0_APA106_3*>(busPtr)); break;
-      case I_8266_U1_APA106_3: delete (static_cast<B_8266_U1_APA106_3*>(busPtr)); break;
-      case I_8266_DM_APA106_3: delete (static_cast<B_8266_DM_APA106_3*>(busPtr)); break;
-      case I_8266_BB_APA106_3: delete (static_cast<B_8266_BB_APA106_3*>(busPtr)); break;
-      case I_8266_U0_FW6_5: delete (static_cast<B_8266_U0_FW6_5*>(busPtr)); break;
-      case I_8266_U1_FW6_5: delete (static_cast<B_8266_U1_FW6_5*>(busPtr)); break;
-      case I_8266_DM_FW6_5: delete (static_cast<B_8266_DM_FW6_5*>(busPtr)); break;
-      case I_8266_BB_FW6_5: delete (static_cast<B_8266_BB_FW6_5*>(busPtr)); break;
-      case I_8266_U0_2805_5: delete (static_cast<B_8266_U0_2805_5*>(busPtr)); break;
-      case I_8266_U1_2805_5: delete (static_cast<B_8266_U1_2805_5*>(busPtr)); break;
-      case I_8266_DM_2805_5: delete (static_cast<B_8266_DM_2805_5*>(busPtr)); break;
-      case I_8266_BB_2805_5: delete (static_cast<B_8266_BB_2805_5*>(busPtr)); break;
-      case I_8266_U0_TM1914_3: delete (static_cast<B_8266_U0_TM1914_3*>(busPtr)); break;
-      case I_8266_U1_TM1914_3: delete (static_cast<B_8266_U1_TM1914_3*>(busPtr)); break;
-      case I_8266_DM_TM1914_3: delete (static_cast<B_8266_DM_TM1914_3*>(busPtr)); break;
-      case I_8266_BB_TM1914_3: delete (static_cast<B_8266_BB_TM1914_3*>(busPtr)); break;
-      case I_8266_U0_SM16825_5: delete (static_cast<B_8266_U0_SM16825_5*>(busPtr)); break;
-      case I_8266_U1_SM16825_5: delete (static_cast<B_8266_U1_SM16825_5*>(busPtr)); break;
-      case I_8266_DM_SM16825_5: delete (static_cast<B_8266_DM_SM16825_5*>(busPtr)); break;
-      case I_8266_BB_SM16825_5: delete (static_cast<B_8266_BB_SM16825_5*>(busPtr)); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses
-      case I_32_RN_NEO_3: delete (static_cast<B_32_RN_NEO_3*>(busPtr)); break;
-      case I_32_RN_NEO_4: delete (static_cast<B_32_RN_NEO_4*>(busPtr)); break;
-      case I_32_RN_400_3: delete (static_cast<B_32_RN_400_3*>(busPtr)); break;
-      case I_32_RN_TM1_4: delete (static_cast<B_32_RN_TM1_4*>(busPtr)); break;
-      case I_32_RN_TM2_3: delete (static_cast<B_32_RN_TM2_3*>(busPtr)); break;
-      case I_32_RN_UCS_3: delete (static_cast<B_32_RN_UCS_3*>(busPtr)); break;
-      case I_32_RN_UCS_4: delete (static_cast<B_32_RN_UCS_4*>(busPtr)); break;
-      case I_32_RN_APA106_3: delete (static_cast<B_32_RN_APA106_3*>(busPtr)); break;
-      case I_32_RN_FW6_5: delete (static_cast<B_32_RN_FW6_5*>(busPtr)); break;
-      case I_32_RN_2805_5: delete (static_cast<B_32_RN_2805_5*>(busPtr)); break;
-      case I_32_RN_TM1914_3: delete (static_cast<B_32_RN_TM1914_3*>(busPtr)); break;
-      case I_32_RN_SM16825_5: delete (static_cast<B_32_RN_SM16825_5*>(busPtr)); break;
-      // I2S1 bus or paralell buses
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: if (_useParallelI2S) delete (static_cast<B_32_IP_NEO_3*>(busPtr)); else delete (static_cast<B_32_I2_NEO_3*>(busPtr)); break;
-      case I_32_I2_NEO_4: if (_useParallelI2S) delete (static_cast<B_32_IP_NEO_4*>(busPtr)); else delete (static_cast<B_32_I2_NEO_4*>(busPtr)); break;
-      case I_32_I2_400_3: if (_useParallelI2S) delete (static_cast<B_32_IP_400_3*>(busPtr)); else delete (static_cast<B_32_I2_400_3*>(busPtr)); break;
-      case I_32_I2_TM1_4: if (_useParallelI2S) delete (static_cast<B_32_IP_TM1_4*>(busPtr)); else delete (static_cast<B_32_I2_TM1_4*>(busPtr)); break;
-      case I_32_I2_TM2_3: if (_useParallelI2S) delete (static_cast<B_32_IP_TM2_3*>(busPtr)); else delete (static_cast<B_32_I2_TM2_3*>(busPtr)); break;
-      case I_32_I2_UCS_3: if (_useParallelI2S) delete (static_cast<B_32_IP_UCS_3*>(busPtr)); else delete (static_cast<B_32_I2_UCS_3*>(busPtr)); break;
-      case I_32_I2_UCS_4: if (_useParallelI2S) delete (static_cast<B_32_IP_UCS_4*>(busPtr)); else delete (static_cast<B_32_I2_UCS_4*>(busPtr)); break;
-      case I_32_I2_APA106_3: if (_useParallelI2S) delete (static_cast<B_32_IP_APA106_3*>(busPtr)); else delete (static_cast<B_32_I2_APA106_3*>(busPtr)); break;
-      case I_32_I2_FW6_5: if (_useParallelI2S) delete (static_cast<B_32_IP_FW6_5*>(busPtr)); else delete (static_cast<B_32_I2_FW6_5*>(busPtr)); break;
-      case I_32_I2_2805_5: if (_useParallelI2S) delete (static_cast<B_32_IP_2805_5*>(busPtr)); else delete (static_cast<B_32_I2_2805_5*>(busPtr)); break;
-      case I_32_I2_TM1914_3: if (_useParallelI2S) delete (static_cast<B_32_IP_TM1914_3*>(busPtr)); else delete (static_cast<B_32_I2_TM1914_3*>(busPtr)); break;
-      case I_32_I2_SM16825_5: if (_useParallelI2S) delete (static_cast<B_32_IP_SM16825_5*>(busPtr)); else delete (static_cast<B_32_I2_SM16825_5*>(busPtr)); break;
-      #endif
-    #endif
-      case I_HS_DOT_3: delete (static_cast<B_HS_DOT_3*>(busPtr)); break;
-      case I_SS_DOT_3: delete (static_cast<B_SS_DOT_3*>(busPtr)); break;
-      case I_HS_LPD_3: delete (static_cast<B_HS_LPD_3*>(busPtr)); break;
-      case I_SS_LPD_3: delete (static_cast<B_SS_LPD_3*>(busPtr)); break;
-      case I_HS_LPO_3: delete (static_cast<B_HS_LPO_3*>(busPtr)); break;
-      case I_SS_LPO_3: delete (static_cast<B_SS_LPO_3*>(busPtr)); break;
-      case I_HS_WS1_3: delete (static_cast<B_HS_WS1_3*>(busPtr)); break;
-      case I_SS_WS1_3: delete (static_cast<B_SS_WS1_3*>(busPtr)); break;
-      case I_HS_P98_3: delete (static_cast<B_HS_P98_3*>(busPtr)); break;
-      case I_SS_P98_3: delete (static_cast<B_SS_P98_3*>(busPtr)); break;
+    // ESP8266: timing selection based on iType ranges
+    if      (busType >= I_8266_U0_NEO_3 && busType <= I_8266_BB_NEO_3) timing = WLEDpixelBus::Timing::WS2812;
+    else if (busType >= I_8266_U0_400_3 && busType <= I_8266_BB_400_3) timing = WLEDpixelBus::Timing::Generic400Kbps;
+    else if (busType >= I_8266_U0_TM1_4 && busType <= I_8266_BB_TM1_4) timing = WLEDpixelBus::Timing::TM1814;
+    else if (busType >= I_8266_U0_TM2_3 && busType <= I_8266_BB_TM2_3) timing = WLEDpixelBus::Timing::TM1829;
+    else if (busType >= I_8266_U0_UCS_3 && busType <= I_8266_BB_UCS_3) timing = WLEDpixelBus::Timing::UCS8903;
+    else if (busType >= I_8266_U0_UCS_4 && busType <= I_8266_BB_UCS_4) timing = WLEDpixelBus::Timing::UCS8904;
+    else if (busType >= I_8266_U0_APA106_3 && busType <= I_8266_BB_APA106_3) timing = WLEDpixelBus::Timing::APA106;
+    else if (busType >= I_8266_U0_FW6_5  && busType <= I_8266_BB_FW6_5)  timing = WLEDpixelBus::Timing::FW1906;
+    else if (busType >= I_8266_U0_2805_5 && busType <= I_8266_BB_2805_5) timing = WLEDpixelBus::Timing::WS2805;
+    else if (busType >= I_8266_U0_TM1914_3 && busType <= I_8266_BB_TM1914_3) timing = WLEDpixelBus::Timing::TM1914;
+    else if (busType >= I_8266_U0_SM16825_5 && busType <= I_8266_BB_SM16825_5) timing = WLEDpixelBus::Timing::SM16825;
+    // ESP8266: bus type selection (UART0, UART1, DMA, BitBang)
+    if (busType == I_8266_U0_NEO_3 || busType == I_8266_U0_400_3 || busType == I_8266_U0_TM1_4 || busType == I_8266_U0_NEO_4 || busType == I_8266_U0_TM2_3 || busType == I_8266_U0_UCS_3 || busType == I_8266_U0_UCS_4 || busType == I_8266_U0_APA106_3 || busType == I_8266_U0_FW6_5 || busType == I_8266_U0_2805_5 || busType == I_8266_U0_TM1914_3 || busType == I_8266_U0_SM16825_5) btype = WLEDpixelBus::BusType::UART;
+    else if (busType == I_8266_U1_NEO_3 || busType == I_8266_U1_400_3 || busType == I_8266_U1_TM1_4 || busType == I_8266_U1_NEO_4 || busType == I_8266_U1_TM2_3 || busType == I_8266_U1_UCS_3 || busType == I_8266_U1_UCS_4 || busType == I_8266_U1_APA106_3 || busType == I_8266_U1_FW6_5 || busType == I_8266_U1_2805_5 || busType == I_8266_U1_TM1914_3 || busType == I_8266_U1_SM16825_5) btype = WLEDpixelBus::BusType::UART;
+    else if (busType == I_8266_DM_NEO_3 || busType == I_8266_DM_400_3 || busType == I_8266_DM_TM1_4 || busType == I_8266_DM_NEO_4 || busType == I_8266_DM_TM2_3 || busType == I_8266_DM_UCS_3 || busType == I_8266_DM_UCS_4 || busType == I_8266_DM_APA106_3 || busType == I_8266_DM_FW6_5 || busType == I_8266_DM_2805_5 || busType == I_8266_DM_TM1914_3 || busType == I_8266_DM_SM16825_5) btype = WLEDpixelBus::BusType::DMA;
+    else btype = WLEDpixelBus::BusType::BitBang;
+    #else
+    // ESP32: timing selection based on iType (RN=RMT odd, I2=I2S even)
+    switch (busType) {
+      case I_32_RN_NEO_3:     case I_32_I2_NEO_3:     timing = WLEDpixelBus::Timing::WS2812;         break;
+      case I_32_RN_NEO_4:     case I_32_I2_NEO_4:     timing = WLEDpixelBus::Timing::WS2812;         break;
+      case I_32_RN_400_3:     case I_32_I2_400_3:     timing = WLEDpixelBus::Timing::Generic400Kbps;  break;
+      case I_32_RN_TM1_4:     case I_32_I2_TM1_4:     timing = WLEDpixelBus::Timing::TM1814;         break;
+      case I_32_RN_TM2_3:     case I_32_I2_TM2_3:     timing = WLEDpixelBus::Timing::TM1829;         break;
+      case I_32_RN_UCS_3:     case I_32_I2_UCS_3:     timing = WLEDpixelBus::Timing::UCS8903;        break;
+      case I_32_RN_UCS_4:     case I_32_I2_UCS_4:     timing = WLEDpixelBus::Timing::UCS8904;        break;
+      case I_32_RN_FW6_5:     case I_32_I2_FW6_5:     timing = WLEDpixelBus::Timing::FW1906;         break;
+      case I_32_RN_APA106_3:  case I_32_I2_APA106_3:  timing = WLEDpixelBus::Timing::APA106;         break;
+      case I_32_RN_2805_5:    case I_32_I2_2805_5:    timing = WLEDpixelBus::Timing::WS2805;         break;
+      case I_32_RN_TM1914_3:  case I_32_I2_TM1914_3:  timing = WLEDpixelBus::Timing::TM1914;         break;
+      case I_32_RN_SM16825_5: case I_32_I2_SM16825_5: timing = WLEDpixelBus::Timing::SM16825;        break;
+      default:                                         timing = WLEDpixelBus::Timing::WS2812;         break;
     }
+    // ESP32: bus type selection (odd iType = RMT, even = I2S/Auto)
+    if (busType & 0x01) btype = WLEDpixelBus::BusType::RMT;
+    // else: leave as Auto (will resolve to I2S or LCD depending on platform)
+    #endif
+
+    // Assign RMT channel from PolyBus tracking (incremented for each RMT bus)
+    int8_t rmtCh = -1; // default: let WLEDpixelBus auto-allocate
+    #ifndef ESP8266
+    if (btype == WLEDpixelBus::BusType::RMT) {
+      if (_rmtChannel < WLED_MAX_RMT_CHANNELS) {
+        rmtCh = _rmtChannel++;
+      } else {
+        Serial.printf("[WPB] ERROR: no RMT channels left (max=%u)\n", WLED_MAX_RMT_CHANNELS);
+        return nullptr;
+      }
+    }
+    #endif
+
+    Serial.printf("[WPB] resolved: btype=%u timing_t0h=%u pin=%u rmtCh=%d\n", (unsigned)btype, timing.t0h_ns, hwIndex, rmtCh);
+    return WLEDpixelBus::createBus(btype, hwIndex, timing, colorOrder, len, rmtCh);
   }
 
-  static unsigned getDataSize(void* busPtr, uint8_t busType) {
-    unsigned size = 0;
-    #ifdef ARDUINO_ARCH_ESP32
-    size = 100; // ~100bytes for NPB internal structures (measured for both I2S and RMT, much smaller and more variable on ESP8266)
-    #endif
-    switch (busType) {
-      case I_NONE: break;
-    #ifdef ESP8266
-      case I_8266_U0_NEO_3: size = (static_cast<B_8266_U0_NEO_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_NEO_3: size = (static_cast<B_8266_U1_NEO_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_NEO_3: size = (static_cast<B_8266_DM_NEO_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_3: size = (static_cast<B_8266_BB_NEO_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_NEO_4: size = (static_cast<B_8266_U0_NEO_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_NEO_4: size = (static_cast<B_8266_U1_NEO_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_NEO_4: size = (static_cast<B_8266_DM_NEO_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_NEO_4: size = (static_cast<B_8266_BB_NEO_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_400_3: size = (static_cast<B_8266_U0_400_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_400_3: size = (static_cast<B_8266_U1_400_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_400_3: size = (static_cast<B_8266_DM_400_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_400_3: size = (static_cast<B_8266_BB_400_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM1_4: size = (static_cast<B_8266_U0_TM1_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM1_4: size = (static_cast<B_8266_U1_TM1_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_TM1_4: size = (static_cast<B_8266_DM_TM1_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1_4: size = (static_cast<B_8266_BB_TM1_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM2_3: size = (static_cast<B_8266_U0_TM2_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM2_3: size = (static_cast<B_8266_U1_TM2_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_TM2_3: size = (static_cast<B_8266_DM_TM2_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM2_3: size = (static_cast<B_8266_BB_TM2_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_UCS_3: size = (static_cast<B_8266_U0_UCS_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_UCS_3: size = (static_cast<B_8266_U1_UCS_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_UCS_3: size = (static_cast<B_8266_DM_UCS_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_3: size = (static_cast<B_8266_BB_UCS_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_UCS_4: size = (static_cast<B_8266_U0_UCS_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_UCS_4: size = (static_cast<B_8266_U1_UCS_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_UCS_4: size = (static_cast<B_8266_DM_UCS_4*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_UCS_4: size = (static_cast<B_8266_BB_UCS_4*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_APA106_3: size = (static_cast<B_8266_U0_APA106_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_APA106_3: size = (static_cast<B_8266_U1_APA106_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_APA106_3: size = (static_cast<B_8266_DM_APA106_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_APA106_3: size = (static_cast<B_8266_BB_APA106_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_FW6_5: size = (static_cast<B_8266_U0_FW6_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_FW6_5: size = (static_cast<B_8266_U1_FW6_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_FW6_5: size = (static_cast<B_8266_DM_FW6_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_FW6_5: size = (static_cast<B_8266_BB_FW6_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_2805_5: size = (static_cast<B_8266_U0_2805_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_2805_5: size = (static_cast<B_8266_U1_2805_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_2805_5: size = (static_cast<B_8266_DM_2805_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_2805_5: size = (static_cast<B_8266_BB_2805_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_TM1914_3: size = (static_cast<B_8266_U0_TM1914_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_TM1914_3: size = (static_cast<B_8266_U1_TM1914_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_TM1914_3: size = (static_cast<B_8266_DM_TM1914_3*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_TM1914_3: size = (static_cast<B_8266_BB_TM1914_3*>(busPtr))->PixelsSize(); break;
-      case I_8266_U0_SM16825_5: size = (static_cast<B_8266_U0_SM16825_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_U1_SM16825_5: size = (static_cast<B_8266_U1_SM16825_5*>(busPtr))->PixelsSize(); break;
-      case I_8266_DM_SM16825_5: size = (static_cast<B_8266_DM_SM16825_5*>(busPtr))->PixelsSize()*5; break;
-      case I_8266_BB_SM16825_5: size = (static_cast<B_8266_BB_SM16825_5*>(busPtr))->PixelsSize(); break;
-    #endif
-    #ifdef ARDUINO_ARCH_ESP32
-      // RMT buses (front + back + small system managed RMT)
-      case I_32_RN_NEO_3: size += (static_cast<B_32_RN_NEO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_NEO_4: size += (static_cast<B_32_RN_NEO_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_400_3: size += (static_cast<B_32_RN_400_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM1_4: size += (static_cast<B_32_RN_TM1_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM2_3: size += (static_cast<B_32_RN_TM2_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_UCS_3: size += (static_cast<B_32_RN_UCS_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_UCS_4: size += (static_cast<B_32_RN_UCS_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_APA106_3: size += (static_cast<B_32_RN_APA106_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_FW6_5: size += (static_cast<B_32_RN_FW6_5*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_2805_5: size += (static_cast<B_32_RN_2805_5*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM1914_3: size += (static_cast<B_32_RN_TM1914_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_SM16825_5: size += (static_cast<B_32_RN_SM16825_5*>(busPtr))->PixelsSize()*2; break;
-      // I2S1 bus or paralell buses (front + DMA; DMA = front * cadence, aligned to 4 bytes) not: for parallel I2S only the largest bus counts for DMA memory, this is not done correctly here, also assumes 3-step cadence
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_NEO_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_400_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_400_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM1_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM2_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM2_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_UCS_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_UCS_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_APA106_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_APA106_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_FW6_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_FW6_5*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_2805_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_2805_5*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM1914_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1914_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_SM16825_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_SM16825_5*>(busPtr))->PixelsSize()*4; break;
-      #endif
-    #endif
-      case I_HS_DOT_3: size = (static_cast<B_HS_DOT_3*>(busPtr))->PixelsSize()*2; break;
-      case I_SS_DOT_3: size = (static_cast<B_SS_DOT_3*>(busPtr))->PixelsSize()*2; break;
-      case I_HS_LPD_3: size = (static_cast<B_HS_LPD_3*>(busPtr))->PixelsSize()*2; break;
-      case I_SS_LPD_3: size = (static_cast<B_SS_LPD_3*>(busPtr))->PixelsSize()*2; break;
-      case I_HS_LPO_3: size = (static_cast<B_HS_LPO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_SS_LPO_3: size = (static_cast<B_SS_LPO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_HS_WS1_3: size = (static_cast<B_HS_WS1_3*>(busPtr))->PixelsSize()*2; break;
-      case I_SS_WS1_3: size = (static_cast<B_SS_WS1_3*>(busPtr))->PixelsSize()*2; break;
-      case I_HS_P98_3: size = (static_cast<B_HS_P98_3*>(busPtr))->PixelsSize()*2; break;
-      case I_SS_P98_3: size = (static_cast<B_SS_P98_3*>(busPtr))->PixelsSize()*2; break;
-    }
-    return size;
-  }
+  [[gnu::hot]] 
+
+  [[gnu::hot]] 
 
   static unsigned memUsage(unsigned count, unsigned busType) {
     unsigned size = count*3;  // let's assume 3 channels, we will add count or 2*count below for 4 channels or 5 channels
@@ -1287,6 +327,7 @@ class PolyBus {
     _i2sChannelsAssigned = 0;
     _parallelBusItype = I_NONE;
     _2PchannelsAssigned = 0;
+    WLEDpixelBus::RmtBus::resetAutoChannel();  // also reset WLEDpixelBus internal counter
   }
 #endif
   // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins

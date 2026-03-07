@@ -63,11 +63,15 @@ void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) con
 // RMT Bus Implementation
 //==============================================================================
 
-// Thread-local context for RMT translate callback
-static struct {
+// Context for RMT translate callback - must be in DRAM for IRAM ISR access
+static DRAM_ATTR struct {
     uint32_t bit0;
     uint32_t bit1;
+    uint16_t resetDuration;
 } s_rmtCtx;
+
+// Static auto-channel counter for RmtBus
+uint8_t RmtBus::s_nextAutoChannel = 0;
 
 RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t channel)
     : _pin(pin)
@@ -128,14 +132,17 @@ bool RmtBus::begin() {
 
     // Auto-select channel if needed
     if (_channel < 0) {
-        _channel = 0;
+        // Use static counter for auto-allocation (fallback if caller didn't specify)
+        if (s_nextAutoChannel >= getRmtMaxChannels()) {
+            return false;
+        }
+        _channel = s_nextAutoChannel++;
     }
 
-#if defined(WLEDPB_ESP32)
-    if (_channel > 7) return false;
-#else
-    if (_channel > 3) return false;
-#endif
+    if (_channel >= (int8_t)getRmtMaxChannels()) {
+        Serial.printf("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, getRmtMaxChannels());
+        return false;
+    }
     _rmtChannel = (rmt_channel_t)_channel;
 
     updateRmtTiming();
@@ -158,20 +165,21 @@ bool RmtBus::begin() {
 
     esp_err_t err = rmt_config(&config);
     if (err != ESP_OK) {
-        log_e("RMT config failed: %d", err);
         return false;
     }
 
-
-    err = rmt_driver_install(_rmtChannel, 0, ESP_INTR_FLAG_IRAM);
+    // Use interrupt flags matching NeoPixelBus behavior
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
+    err = rmt_driver_install(_rmtChannel, 0, ESP_INTR_FLAG_LOWMED);
+#else
+    err = rmt_driver_install(_rmtChannel, 0, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1);
+#endif
     if (err != ESP_OK) {
-        log_e("RMT driver install failed: %d", err);
         return false;
     }
 
     err = rmt_translator_init(_rmtChannel, translateCB);
     if (err != ESP_OK) {
-        log_e("RMT translator init failed:  %d", err);
         rmt_driver_uninstall(_rmtChannel);
         return false;
     }
@@ -214,7 +222,18 @@ bool RmtBus::allocateBuffer(uint16_t numPixels) {
 }
 
 bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-    if (!_initialized || !pixels || numPixels == 0) return false;
+    static uint32_t showDbgCnt = 0;
+    if (!pixels) {
+        pixels = _pixelData;
+        numPixels = _numPixels;
+        cct = _cctData;
+    }
+    if (numPixels == 0) numPixels = _numPixels;
+    if (!cct) cct = _cctData;
+
+    if (!_initialized || !pixels || numPixels == 0) {
+      return false;
+    }
 
     // Wait for previous transmission
     rmt_wait_tx_done(_rmtChannel, portMAX_DELAY);
@@ -234,20 +253,21 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
     // Update context for ISR
     s_rmtCtx.bit0 = _rmtBit0;
     s_rmtCtx.bit1 = _rmtBit1;
+    s_rmtCtx.resetDuration = _rmtResetTicks;
 
     // Start transmission
     size_t dataLen = numPixels * numCh;
-    esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, true);
+    if (showDbgCnt++ < 20) Serial.printf("[WPB] show() ch=%d numPix=%u numCh=%u dataLen=%u pix[0]=0x%08X\n", _rmtChannel, numPixels, numCh, dataLen, pixels[0]);
+    esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
+    if (showDbgCnt <= 3 && err != ESP_OK) Serial.printf("[WPB] rmt_write_sample FAIL: %d (%s)\n", err, esp_err_to_name(err));
 
     return err == ESP_OK;
 }
 
 bool RmtBus::canShow() const {
     if (!_initialized) return true;
-
-    rmt_channel_status_result_t status;
-    rmt_get_channel_status(&status);
-    return status.status[_rmtChannel] == RMT_CHANNEL_IDLE;
+    // Use rmt_wait_tx_done with 0 timeout to check if TX is done (matching NeoPixelBus)
+    return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 
 void RmtBus::waitComplete() {
@@ -283,16 +303,37 @@ void IRAM_ATTR RmtBus::translateCB(const void* src, rmt_item32_t* dest,
 
     uint32_t bit0 = s_rmtCtx.bit0;
     uint32_t bit1 = s_rmtCtx.bit1;
+    uint16_t resetDuration = s_rmtCtx.resetDuration;
 
-    while (size < src_size && num < wanted_num) {
-        uint8_t byte = *psrc++;
+    // Each byte produces 8 RMT items
+    for (;;)
+    {
+        uint8_t data = *psrc;
+
+        for (uint8_t bit = 0; bit < 8; bit++)
+        {
+            pdest->val = (data & 0x80) ? bit1 : bit0;
+            pdest++;
+            data <<= 1;
+        }
+        num += 8;
         size++;
 
-        for (int i = 7; i >= 0 && num < wanted_num; i--) {
-            pdest->val = (byte & (1 << i)) ? bit1 : bit0;
-            pdest++;
-            num++;
+        // If this is the last byte, extend the last bit's LOW duration
+        // to include the full reset signal length
+        if (size >= src_size)
+        {
+            pdest--;
+            pdest->duration1 = resetDuration;
+            break;
         }
+
+        if (num >= wanted_num)
+        {
+            break;
+        }
+
+        psrc++;
     }
 
     *translated_size = size;
@@ -1591,17 +1632,19 @@ void LcdBus::setColorOrder(ColorOrder order) {
 //==============================================================================
 
 IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
-                ColorOrder order, size_t bufferSize) {
+                ColorOrder order, size_t bufferSize, int8_t channel) {
     
+    Serial.printf("[WPB] createBus type=%u pin=%d bufSize=%u ch=%d\n", (unsigned)type, pin, bufferSize, channel);
     if (type == BusType::Auto) {
         type = getRecommendedBusType();
+        Serial.printf("[WPB] Auto resolved to type=%u\n", (unsigned)type);
     }
 
     IBus* bus = nullptr;
 
     switch (type) {
         case BusType::RMT:
-            bus = new RmtBus(pin, timing, order);
+            bus = new RmtBus(pin, timing, order, channel);
             break;
 
 #ifdef WLEDPB_I2S_SUPPORT

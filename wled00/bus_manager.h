@@ -13,6 +13,7 @@
  * Class for addressing various light types
  */
 
+#include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "const.h"
 #include "pin_manager.h"
 #include <vector>
@@ -283,7 +284,7 @@ class BusDigital : public Bus {
     uint8_t  _milliAmpsPerLed;
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
-    void    *_busPtr;
+    WLEDpixelBus::IBus* _busPtr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 

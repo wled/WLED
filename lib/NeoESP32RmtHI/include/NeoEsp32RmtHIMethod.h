@@ -31,7 +31,7 @@ License along with NeoPixel.  If not, see
 #if defined(ARDUINO_ARCH_ESP32)
 
 // Use the NeoEspRmtSpeed types from the driver-based implementation
-#include <NeoPixelBus.h>
+#include <WLEDpixelBus.h>
 
 
 namespace NeoEsp32RmtHiMethodDriver {

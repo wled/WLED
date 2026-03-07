@@ -29,6 +29,7 @@ Features:
 #include "esp_attr.h"
 #include "driver/gpio.h"
 #include "esp_idf_version.h"
+#include "driver/rmt.h"
 
 // Platform detection
 #if defined(CONFIG_IDF_TARGET_ESP32)
@@ -51,6 +52,8 @@ Features:
     #define WLEDPB_LCD_SUPPORT
 #endif
 
+#include "WLEDpixelBus_Timings.h"
+
 namespace WLEDpixelBus {
 
 //==============================================================================
@@ -60,38 +63,7 @@ namespace WLEDpixelBus {
 /**
  * LED timing parameters in nanoseconds
  */
-struct LedTiming {
-    uint16_t t0h_ns;    // '0' bit high time
-    uint16_t t0l_ns;    // '0' bit low time
-    uint16_t t1h_ns;    // '1' bit high time
-    uint16_t t1l_ns;    // '1' bit low time
-    uint32_t reset_us;  // Reset/latch time in microseconds
 
-    constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
-        : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}
-
-    // Calculate bit period in ns
-    constexpr uint32_t bitPeriod() const { 
-        return (t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2; 
-    }
-};
-
-// Predefined timing constants
-namespace Timing {
-    constexpr LedTiming WS2812  {200, 750, 500, 450, 100};
-    constexpr LedTiming WS2811  {300, 950, 900, 350, 300};
-    constexpr LedTiming WS2813  {400, 850, 800, 450, 300};
-    constexpr LedTiming WS2815  {400, 850, 800, 450, 300};
-    constexpr LedTiming WS2805  {300, 790, 790, 300, 300};
-    constexpr LedTiming SK6812  {400, 850, 800, 450, 80};
-    constexpr LedTiming TM1814  {360, 890, 720, 530, 200};
-    constexpr LedTiming TM1829  {300, 900, 800, 400, 200};
-    constexpr LedTiming APA106  {350, 1350, 1350, 350, 50};
-    constexpr LedTiming UCS1903 {400, 850, 800, 450, 500};
-    constexpr LedTiming SM16703 {300, 900, 900, 300, 80};
-    constexpr LedTiming Generic800Kbps {400, 850, 800, 450, 300};
-    constexpr LedTiming Generic400Kbps {800, 1700, 1600, 900, 300};
-}
 
 //==============================================================================
 // Color Order Configuration
@@ -190,8 +162,17 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 //==============================================================================
 
 class IBus {
+protected:
+    uint32_t* _pixelData = nullptr;
+    CctPixel* _cctData = nullptr;
+    uint16_t _numPixels = 0;
+    uint8_t _brightness = 255;
+
 public:
-    virtual ~IBus() = default;
+    virtual ~IBus() {
+        if (_pixelData) free(_pixelData);
+        if (_cctData) free(_cctData);
+    }
 
     virtual bool begin() = 0;
     virtual void end() = 0;
@@ -203,12 +184,57 @@ public:
      * @param cct Optional CCT data (2 bytes per pixel:  WW, CW)
      * @return true if transmission started successfully
      */
-    virtual bool show(const uint32_t* pixels, uint16_t numPixels, 
+    virtual bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0,
                       const CctPixel* cct = nullptr) = 0;
 
     virtual bool canShow() const = 0;
     virtual void waitComplete() = 0;
     virtual const char* getType() const = 0;
+
+    virtual bool allocatePixelBuffer(uint16_t numPixels, bool hasCCT = false) {
+        if (_pixelData) {
+            if (_numPixels == numPixels) return true;
+            free(_pixelData);
+            _pixelData = nullptr;
+        }
+        if (_cctData) {
+            free(_cctData);
+            _cctData = nullptr;
+        }
+        
+        _numPixels = numPixels;
+        if (numPixels == 0) return true;
+        
+        _pixelData = (uint32_t*)malloc(numPixels * sizeof(uint32_t));
+        if (!_pixelData) return false;
+        memset(_pixelData, 0, numPixels * sizeof(uint32_t));
+        
+        if (hasCCT) {
+            _cctData = (CctPixel*)malloc(numPixels * sizeof(CctPixel));
+            if (_cctData) memset(_cctData, 0, numPixels * sizeof(CctPixel));
+        }
+        
+        return true;
+    }
+
+    virtual void setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) {
+        if (pix >= _numPixels || !_pixelData) return;
+        _pixelData[pix] = c;
+        if (cp && _cctData) _cctData[pix] = *cp;
+    }
+
+    virtual uint32_t getPixelColor(uint16_t pix) const {
+        if (pix >= _numPixels || !_pixelData) return 0;
+        return _pixelData[pix];
+    }
+    
+    virtual uint16_t getNumPixels() const {
+        return _numPixels;
+    }
+
+    virtual void setBrightness(uint8_t b) {
+        _brightness = b;
+    }
 };
 
 //==============================================================================
@@ -287,6 +313,9 @@ public:
     void setTiming(const LedTiming& timing);
     void setColorOrder(ColorOrder order);
 
+    // Reset the auto-allocation counter (call before re-creating buses)
+    static void resetAutoChannel() { s_nextAutoChannel = 0; }
+
 private:
     int8_t _pin;
     int8_t _channel;
@@ -303,6 +332,8 @@ private:
     // Encode buffer
     uint8_t* _encodeBuffer;
     size_t _encodeBufferSize;
+
+    static uint8_t s_nextAutoChannel;  // auto-allocation counter
 
     void updateRmtTiming();
     bool allocateBuffer(uint16_t numPixels);
@@ -615,15 +646,33 @@ enum class BusType :  uint8_t {
 };
 
 /**
+ * Get the maximum number of RMT TX channels for the current platform
+ */
+constexpr uint8_t getRmtMaxChannels() {
+#if defined(WLEDPB_ESP32)
+    return 8;   // ESP32 original: 8 RMT channels
+#elif defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3)
+    return 4;   // ESP32-S2/S3: 4 RMT TX channels
+#elif defined(WLEDPB_ESP32C3)
+    return 2;   // ESP32-C3: 2 RMT TX channels
+#else
+    return 0;
+#endif
+}
+
+/**
  * Create a bus instance
  * @param type Bus type (Auto will select best for platform)
  * @param pin GPIO pin
  * @param timing LED timing
  * @param order Color order
+ * @param bufferSize DMA buffer size (for I2S/LCD)
+ * @param channel RMT channel to use (-1 for auto-allocate)
  * @return Bus instance (caller owns, delete when done)
  */
 IBus* createBus(BusType type, int8_t pin, const LedTiming& timing, 
-                ColorOrder order, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
+                ColorOrder order, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
+                int8_t channel = -1);
 
 /**
  * Get recommended bus type for current platform
