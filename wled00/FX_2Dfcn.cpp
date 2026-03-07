@@ -627,7 +627,7 @@ void FontManager::getFontFileName(uint8_t fontNum, char* buffer, bool scanAll) {
 // scan file system for available fonts
 void FontManager::scanAvailableFonts() {
   char buffer[FONT_NAME_BUFFER_SIZE];
-  getFontFileName(0, buffer, true);
+  getFontFileName(0, buffer, true); // scan all fonts to update availableFonts in metadata
 }
 
 // load font by number and prepare/validate font cache, must be called before using any other FontManager functions, must not use the font if this function returns false!
