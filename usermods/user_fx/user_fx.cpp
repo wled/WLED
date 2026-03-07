@@ -99,20 +99,19 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 
 /*
-/ Spinning Wheel effect - LED animates around 1D strip (or each column in a 2D matrix), slows down and stops at random position
-*  Created by Bob Loeffler and claude.ai
-*  First slider (Spin speed) is for the speed of the moving/spinning LED (random number within a narrow speed range).
-*     If value is 0, a random speed will be selected from the full range of values.
-*  Second slider (Spin slowdown start time) is for how long before the slowdown phase starts (random number within a narrow time range).
-*     If value is 0, a random time will be selected from the full range of values.
-*  Third slider (Spinner size) is for the number of pixels that make up the spinner.
-*  Fourth slider (Spin delay) is for how long it takes for the LED to start spinning again after the previous spin.
-*  The first checkbox sets the color mode (color wheel or palette).
-*  The second checkbox sets "color per block" mode. Enabled means that each spinner block will be the same color no matter what its LED position is.
-*  The third checkbox enables synchronized restart (all spinners restart together instead of individually).
-*  aux0 stores the settings checksum to detect changes
-*  aux1 stores the color scale for performance
-*/
+ * Spinning Wheel effect - LED animates around 1D strip (or each column in a 2D matrix), slows down and stops at random position
+ *  Created by Bob Loeffler and claude.ai
+ *  First slider (Spin speed) is for the speed of the moving/spinning LED (random number within a narrow speed range).
+ *     If value is 0, a random speed will be selected from the full range of values.
+ *  Second slider (Spin slowdown start time) is for how long before the slowdown phase starts (random number within a narrow time range).
+ *     If value is 0, a random time will be selected from the full range of values.
+ *  Third slider (Spinner size) is for the number of pixels that make up the spinner.
+ *  Fourth slider (Spin delay) is for how long it takes for the LED to start spinning again after the previous spin.
+ *  The first checkbox sets "color per block" mode. Enabled means that each spinner block will be the same color no matter what its LED position is.
+ *  The second checkbox enables synchronized restart (all spinners restart together instead of individually).
+ *  aux0 stores the settings checksum to detect changes
+ *  aux1 stores the color scale for performance
+ */
 
 static void mode_spinning_wheel(void) {
   if (SEGLEN < 1) FX_FALLBACK_STATIC;
@@ -182,8 +181,7 @@ static void mode_spinning_wheel(void) {
   }
  
   struct virtualStrip {
-    static void runStrip(uint16_t stripNr, uint32_t* state, bool settingsChanged, bool allReadyToRestart) {
-
+    static void runStrip(uint16_t stripNr, uint32_t* state, bool settingsChanged, bool allReadyToRestart, unsigned strips) {
       uint8_t phase = state[PHASE_IDX];
       uint32_t now = strip.now;
 
@@ -307,14 +305,14 @@ static void mode_spinning_wheel(void) {
       uint8_t hue;
       if (SEGMENT.check2) {
         // Each spinner block gets its own color based on strip number
-        uint16_t numSpinners = max(1U, (SEGMENT.nrOfVStrips() + spinnerSize - 1) / spinnerSize);
-        hue = (255 * (stripNr / spinnerSize)) / numSpinners;
+        uint16_t numSpinners = max(1U, (strips + spinnerSize - 1) / spinnerSize);
+        hue = (uint32_t)(255) * (stripNr / spinnerSize) / numSpinners;
       } else {
         // Color changes with position
         hue = (SEGENV.aux1 * pos) >> 8;
       }
 
-      uint32_t color = SEGMENT.check1 ? SEGMENT.color_wheel(hue) : SEGMENT.color_from_palette(hue, true, PALETTE_SOLID_WRAP, 0);
+      uint32_t color = ColorFromPaletteWLED(SEGPALETTE, hue, 255, LINEARBLEND);
 
       // Draw the spinner with configurable size (1-10 LEDs)
       for (int8_t x = 0; x < spinnerSize; x++) {
@@ -323,7 +321,7 @@ static void mode_spinning_wheel(void) {
           int16_t drawStrip = stripNr + x;
           
           // Wrap horizontally if needed, or skip if out of bounds
-          if (drawStrip >= 0 && drawStrip < (int16_t)SEGMENT.nrOfVStrips()) {
+          if (drawStrip >= 0 && drawStrip < strips) {
             SEGMENT.setPixelColor(indexToVStrip(drawPos, drawStrip), color);
           }
         }
@@ -331,15 +329,15 @@ static void mode_spinning_wheel(void) {
     }
   };
 
-  for (unsigned stripNr=0; stripNr<strips; stripNr++) {
+  for (unsigned stripNr = 0; stripNr < strips; stripNr++) {
     // Only run on strips that are multiples of spinnerSize to avoid overlap
     uint8_t spinnerSize = map(SEGMENT.custom1, 0, 255, 1, 10);
     if (stripNr % spinnerSize == 0) {
-      virtualStrip::runStrip(stripNr, &state[stripNr * stateVarsPerStrip], settingsChanged, allReadyToRestart);
+      virtualStrip::runStrip(stripNr, &state[stripNr * stateVarsPerStrip], settingsChanged, allReadyToRestart, strips);
     }
   }
 }
-static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Speed (0=random),Slowdown (0=random),Spinner size,,Spin delay,Color mode,Color per block,Sync restart;!,!;!;;m12=1,c1=1,c3=8";
+static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Speed (0=random),Slowdown (0=random),Spinner size,,Spin delay,,Color per block,Sync restart;!,!;!;;m12=1,c1=1,c3=8";
 
 
 /*
