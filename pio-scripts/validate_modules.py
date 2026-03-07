@@ -1,6 +1,7 @@
+import os
 import re
+import subprocess
 from pathlib import Path   # For OS-agnostic path manipulation
-from typing import Iterable
 from click import secho
 from SCons.Script import Action, Exit
 Import("env")
@@ -12,23 +13,63 @@ def read_lines(p: Path):
         return f.readlines()
 
 
-def check_map_file_objects(map_file: list[str], dirs: Iterable[str]) -> set[str]:
-    """ Identify which dirs contributed to the final build
+def _get_nm_path(env) -> str:
+    """ Derive the nm tool path from the build environment """
+    if "NM" in env:
+        return env.subst("$NM")
+    # Derive from the C compiler: xtensa-esp32-elf-gcc → xtensa-esp32-elf-nm
+    cc = env.subst("$CC")
+    nm = re.sub(r'(gcc|g\+\+)$', 'nm', os.path.basename(cc))
+    return os.path.join(os.path.dirname(cc), nm)
 
-        Returns the (sub)set of dirs that are found in the output ELF
+
+def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
+    """ Check which modules have at least one defined symbol placed in the ELF.
+
+        The map file is not a reliable source for this: with LTO, original object
+        file paths are replaced by temporary ltrans.o partitions in all output
+        sections, making per-module attribution impossible from the map alone.
+        Instead we invoke nm --defined-only -l on the ELF, which uses DWARF debug
+        info to attribute each placed symbol to its original source file.
+
+        Requires usermod libraries to be compiled with -g so that DWARF sections
+        are present in the ELF.  load_usermods.py injects -g for all WLED modules
+        via dep.env.AppendUnique(CCFLAGS=["-g"]).
+
+        Returns the set of build_dir basenames for confirmed modules.
     """
-    # Pattern to match symbols in object directories
-    # Join directories into alternation
-    usermod_dir_regex = "|".join([re.escape(dir) for dir in dirs])
-    # Matches nonzero address, any size, and any path in a matching directory
-    object_path_regex = re.compile(r"0x0*[1-9a-f][0-9a-f]*\s+0x[0-9a-f]+\s+\S+[/\\](" + usermod_dir_regex + r")[/\\]\S+\.o")
+    nm_path = _get_nm_path(env)
+    try:
+        result = subprocess.run(
+            [nm_path, "--defined-only", "-l", str(elf_path)],
+            capture_output=True, text=True, errors="ignore", timeout=120,
+        )
+        nm_output = result.stdout
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        secho(f"WARNING: nm failed ({e}); skipping per-module validation", fg="yellow", err=True)
+        return {Path(b.build_dir).name for b in module_lib_builders}  # conservative pass
+
+    # Build a filtered set of lines that have a nonzero address.
+    # nm --defined-only still includes debugging symbols (type 'N') such as the
+    # per-CU markers GCC emits in .debug_info (e.g. "usermod_example_cpp_6734d48d").
+    # These live at address 0x00000000 in their debug section — not in any load
+    # segment — so filtering them out leaves only genuinely placed symbols.
+    placed_lines = [
+        line for line in nm_output.splitlines()
+        if (parts := line.split(None, 1)) and parts[0].lstrip('0')
+    ]
+    placed_output = "\n".join(placed_lines)
 
     found = set()
-    for line in map_file:
-        matches = object_path_regex.findall(line)
-        for m in matches:
-            found.add(m)
+    for builder in module_lib_builders:
+        # builder.src_dir is the library source directory (used by is_wled_module() too)
+        src_dir = str(builder.src_dir).rstrip("/\\")
+        # Guard against prefix collisions (e.g. /path/to/mod vs /path/to/mod-extra)
+        # by requiring a path separator immediately after the directory name.
+        if re.search(re.escape(src_dir) + r'[/\\]', placed_output):
+            found.add(Path(builder.build_dir).name)
     return found
+
 
 DYNARRAY_SECTION = ".dtors" if env.get("PIOPLATFORM") == "espressif8266" else ".dynarray"
 USERMODS_SECTION = f"{DYNARRAY_SECTION}.usermods.1"
@@ -60,11 +101,13 @@ def validate_map_file(source, target, env):
     usermod_object_count = count_usermod_objects(map_file_contents)
     secho(f"INFO: {usermod_object_count} usermod object entries")
 
-    confirmed_modules = check_map_file_objects(map_file_contents, modules.keys())
+    elf_path = build_dir / env.subst("${PROGNAME}.elf")
+    confirmed_modules = check_elf_modules(elf_path, env, module_lib_builders)
+
     missing_modules = [modname for mdir, modname in modules.items() if mdir not in confirmed_modules]
     if missing_modules:
         secho(
-            f"ERROR: No object files from {missing_modules} found in linked output!",
+            f"ERROR: No symbols from {missing_modules} found in linked output!",
             fg="red",
             err=True)
         Exit(1)

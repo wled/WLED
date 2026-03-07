@@ -180,6 +180,14 @@ def wrapped_ConfigureProjectLibBuilder(xenv):
     # Add WLED's own dependencies
     for dir in extra_include_dirs:
       dep.env.PrependUnique(CPPPATH=str(dir))
+    # Ensure debug info is emitted for this module's source files.
+    # validate_modules.py uses `nm --defined-only -l` on the final ELF to check
+    # that each module has at least one symbol placed in the binary.  The -l flag
+    # reads DWARF debug sections to map placed symbols back to their original source
+    # files; without -g those sections are absent and the check cannot attribute any
+    # symbol to a specific module.  We scope this to usermods only — the main WLED
+    # build and other libraries are unaffected.
+    dep.env.AppendUnique(CCFLAGS=["-g"])
     # Enforce that libArchive is not set; we must link them directly to the executable
     if dep.lib_archive:
       broken_usermods.append(dep)
