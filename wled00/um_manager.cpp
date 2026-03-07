@@ -48,11 +48,6 @@ void UsermodManager::addToJsonInfo(JsonObject& obj)     {
 void UsermodManager::readFromJsonState(JsonObject& obj) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->readFromJsonState(obj); }
 void UsermodManager::addToConfig(JsonObject& obj)       { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->addToConfig(obj); }
 bool UsermodManager::readFromConfig(JsonObject& obj)    {
-  Serial.printf_P(PSTR("Mods: %d  Begin: %08X  End: %08X\n"), getCount(), (intptr_t) &DYNARRAY_BEGIN(usermods)[0], (intptr_t) &DYNARRAY_END(usermods)[0]);
-  Usermod** volatile x =  (Usermod**) DYNARRAY_BEGIN(usermods);
-  Serial.printf_P(PSTR("X: %08X\n"), (intptr_t) x);
-  Serial.printf_P(PSTR("*X: %08X\n"), (intptr_t) *x);
-
   bool allComplete = true;  
   for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
     if (!(*mod)->readFromConfig(obj)) allComplete = false;

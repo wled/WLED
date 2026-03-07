@@ -73,9 +73,11 @@ def _predict_dep_name(entry: str) -> str | None:
       parts = [p for p in parsed.path.split('/') if p]
       if len(parts) >= 2:
         name = parts[1]
-        return name[:-4] if name.endswith('.git') else name
-    name = Path(parsed.path.rstrip('/')).name
-    return name.split('.')[0].strip() or None
+      else:
+        name = Path(parsed.path.rstrip('/')).name.strip()
+      if name.endswith('.git'):
+        name = name[:-4]
+      return name or None
   # SSH git URL: git@github.com:user/repo.git#tag → repo
   if _SSH_URL_RE.match(entry):
     path_part = entry.split(':', 1)[1].split('#')[0].rstrip('/')
