@@ -40,12 +40,13 @@
 	</script>
 </head>
 <body>
-	<form id="form_s" name="Sf" method="post">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#security-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
-		</div>
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#security-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+	</div>
 		<h2>Security & Update setup</h2>
+	<div class="sec">
 		Settings PIN: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="Please enter a 4 digit number"><br>
 		<div class="warn">&#9888; Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!</div><br>
 		Lock wireless (OTA) software update: <input type="checkbox" name="NO"><br>
@@ -58,14 +59,16 @@
 		Factory reset: <input type="checkbox" name="RS"><br>
 		All settings and presets will be erased.<br><br>
 		<div class="warn">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
-		<span id="OTA"><hr>
+	</div>
+	<div class="sec" id="OTA">
 		<h3>Software Update</h3>
 		<button type="button" onclick="U()">Manual OTA Update</button><br>
 		<div id="aOTA">Enable ArduinoOTA: <input type="checkbox" name="AO"></div>
 		Only allow update from same network/WiFi: <input type="checkbox" name="SU"><br>
 		<i class="warn">&#9888; If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.<br>
 			Disabling this option will make your device less secure.</i><br></span>
-		<hr id="backup">
+	</div>
+	<div class="sec" id="backup">
 		<h3>Backup & Restore</h3>
 		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
 		Incorrect upload or configuration may require a factory reset or re-flashing of your ESP.<br>
@@ -74,14 +77,16 @@
 		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
 		<div>Restore configuration<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
-		<hr>
+	</div>
+	<div class="sec">
 		<h3>About</h3>
 		<a href="https://github.com/wled-dev/WLED/" target="_blank">WLED</a>&#32;version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
 		<a href="https://kno.wled.ge/about/contributors/" target="_blank">Contributors, dependencies and special thanks</a><br>
 		A huge thank you to everyone who helped me create WLED!<br><br>
 		(c) 2016-2024 Christian Schwinne <br>
 		<i>Licensed under the <a href="https://github.com/wled-dev/WLED/blob/main/LICENSE" target="_blank">EUPL v1.2 license</a></i><br><br>
-		Installed version: <span class="sip">WLED ##VERSION##</span><hr>
+		Installed version: <span class="sip">WLED ##VERSION##</span>
+	</div>
 		<div id="toast"></div>
 		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>

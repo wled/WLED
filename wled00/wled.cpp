@@ -258,11 +258,11 @@ void WLED::loop()
 // DEBUG serial logging (every 30s)
 #ifdef WLED_DEBUG
   loopMillis = millis() - loopMillis;
-  if (loopMillis > 30) {
-    DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
-    DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
-    DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
-  }
+  //if (loopMillis > 30) {
+  //  DEBUG_PRINTF_P(PSTR("Loop took %lums.\n"), loopMillis);
+  //  DEBUG_PRINTF_P(PSTR("Usermods took %lums.\n"), usermodMillis);
+  //  DEBUG_PRINTF_P(PSTR("Strip took %lums.\n"), stripMillis);
+  //}
   avgLoopMillis += loopMillis;
   if (loopMillis > maxLoopMillis) maxLoopMillis = loopMillis;
   if (millis() - debugTime > 29999) {
@@ -506,8 +506,10 @@ void WLED::setup()
 
   #ifndef ESP8266
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
+  WiFi.persistent(true); // storing credentials in NVM fixes boot-up pause as connection is much faster, is disabled after first connection
+  #else
+  WiFi.persistent(false); // on ES8266 using NVM for wifi config has no benefit of faster connection
   #endif
-  WiFi.persistent(false);
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
   findWiFi(true);      // start scanning for available WiFi-s
@@ -950,6 +952,9 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());
+    #ifdef ARDUINO_ARCH_ESP32
+    esp_wifi_set_storage(WIFI_STORAGE_RAM); // disable further updates of NVM credentials to prevent wear on flash (same as WiFi.persistent(false) but updates immediately, arduino wifi deficiency workaround)
+    #endif
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);

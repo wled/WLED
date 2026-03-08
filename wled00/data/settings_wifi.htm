@@ -210,27 +210,51 @@ Static subnet mask:<br>
 	</script>
 </head>
 <body>
-  <form id="form_s" name="Sf" method="post">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
-		</div>
-		<h2>WiFi setup</h2>
-		<h3>Connect to existing network</h3>
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
+	</div>
+	<h2>WiFi & Network Settings</h2>
+	<div class="sec">
+		<h3>Wireless network</h3>
 		<button type="button" id="scan" onclick="N()">Scan</button><br>
 		<div id="wifi">
-			Wireless networks
 			<div id="wifi_entries"></div>
 			<hr class="sml">
 			<button type="button" id="wifi_add" onclick="addWiFi()">+</button>
 			<button type="button" id="wifi_rem" onclick="remWiFi()">-</button><br>
 		</div>
+	</div>
+	<div class="sec" id="ethd">
+		<h3>Ethernet Type</h3>
+		<select name="ETH">
+			<option value="0">None</option>
+			<option value="6">IoTorero/ESP32Deux/RGB2Go</option>
+			<option value="9">ABC! WLED V43 & compatible</option>
+			<option value="2">ESP32-POE</option>
+			<option value="11">ESP32-POE-WROVER</option>
+			<option value="7">KIT-VE</option>
+			<option value="12">LILYGO T-POE Pro</option>
+			<option value="8">QuinLED-Dig-Octa & T-ETH-POE</option>
+			<option value="4">QuinLED-ESP32</option>
+			<option value="10">Serg74-ETH32</option>
+			<option value="5">TwilightLord-ESP32</option>
+			<option value="3">WESP32</option>
+			<option value="1">WT32-ETH01</option>
+			<option value="13">Gledopto</option>
+		</select><br><br>
+	</div>
+	<div class="sec">
+		<h3>DNS & mDNS</h3>
 		DNS server address:<br>
 		<input name="D0" type="number" class="s" min="0" max="255" required>.<input name="D1" type="number" class="s" min="0" max="255" required>.<input name="D2" type="number" class="s" min="0" max="255" required>.<input name="D3" type="number" class="s" min="0" max="255" required><br>
 		<br>
 		mDNS address (leave empty for no mDNS):<br>
 		http:// <input type="text" name="CM" maxlength="32"> .local<br>
 		Client IP: <span class="sip"> Not connected </span> <br>
+	</div>
+	<div class="sec">
 		<h3>Configure Access Point</h3>
 		AP SSID (leave empty for no AP):<br> <input type="text" name="AS" maxlength="32"><br>
 		Hide AP name: <input type="checkbox" name="AH"><br>
@@ -245,11 +269,13 @@ Static subnet mask:<br>
 			<option value="4">Temporary (no connection after boot)</option>
 		</select><br>
 		AP IP: <span class="sip"> Not active </span><br>
-		<h3>Experimental</h3>
+	</div>
+	<div class="sec">
+		<h3>WiFi Power</h3>
 		Force 802.11g mode (ESP8266 only): <input type="checkbox" name="FG"><br>
 		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
-		<i>Can help with connectivity issues and Audioreactive sync.<br>
-		Disabling WiFi sleep increases power consumption.</i><br>
+		<i>Disabling WiFi sleep increases power consumption<br>
+		but can help with connectivity issues and sync.</i><br><br>
 		<div id="tx">Max. TX power: <select name="TX">
 			<option value="78">19.5 dBm</option>
 			<option value="76">19 dBm</option>
@@ -265,7 +291,8 @@ Static subnet mask:<br>
 		</select><br>
 		<i class="warn">WARNING: Modifying TX power may render device unreachable.</i>
 		</div>
-
+	</div>
+	<div class="sec">
 		<h3>ESP-NOW Wireless</h3>
 		<div id="NoESPNOW" class="hide">
 			<i class="warn">This firmware build does not include ESP-NOW support.<br></i>
@@ -282,28 +309,9 @@ Static subnet mask:<br>
 				</div>
 			</div>
 		</div>
-
-		<div id="ethd">
-			<h3>Ethernet Type</h3>
-			<select name="ETH">
-				<option value="0">None</option>
-				<option value="6">IoTorero/ESP32Deux/RGB2Go</option>
-				<option value="9">ABC! WLED V43 & compatible</option>
-				<option value="2">ESP32-POE</option>
-				<option value="11">ESP32-POE-WROVER</option>
-				<option value="7">KIT-VE</option>
-				<option value="12">LILYGO T-POE Pro</option>
-				<option value="8">QuinLED-Dig-Octa & T-ETH-POE</option>
-				<option value="4">QuinLED-ESP32</option>
-				<option value="10">Serg74-ETH32</option>
-				<option value="5">TwilightLord-ESP32</option>
-				<option value="3">WESP32</option>
-				<option value="1">WT32-ETH01</option>
-				<option value="13">Gledopto</option>
-			</select><br><br>
-		</div>
-		<hr>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button>
-	</form>
+	</div>
+	<hr>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button>
+</form>
 </body>
 </html>

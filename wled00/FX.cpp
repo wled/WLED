@@ -4421,21 +4421,20 @@ void mode_flow(void)
   }
 
   unsigned maxZones = SEGLEN / 6; //only looks good if each zone has at least 6 LEDs
-  unsigned zones = (SEGMENT.intensity * maxZones) >> 8;
+  int zones = (SEGMENT.intensity * maxZones) >> 8;
   if (zones & 0x01) zones++; //zones must be even
   if (zones < 2) zones = 2;
-  unsigned zoneLen = SEGLEN / zones;
-  unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
+  int zoneLen = SEGLEN / zones;
+  zones += 2; //add two extra zones to cover beginning and end of segment (compensate integer truncation)
+  int offset = ((int)SEGLEN - (zones * zoneLen)) / 2; // center the zones on the segment (can not use bit shift on negative number)
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, true, 255));
-
-  for (unsigned z = 0; z < zones; z++)
+  for (int z = 0; z < zones; z++)
   {
-    unsigned pos = offset + z * zoneLen;
-    for (unsigned i = 0; i < zoneLen; i++)
+    int pos = offset + z * zoneLen;
+    for (int i = 0; i < zoneLen; i++)
     {
       unsigned colorIndex = (i * 255 / zoneLen) - counter;
-      unsigned led = (z & 0x01) ? i : (zoneLen -1) -i;
+      int led = (z & 0x01) ? i : (zoneLen -1) -i;
       if (SEGMENT.reverse) led = (zoneLen -1) -led;
       SEGMENT.setPixelColor(pos + led, SEGMENT.color_from_palette(colorIndex, false, true, 255));
     }
@@ -8377,7 +8376,6 @@ void mode_particlepit(void) {
           PartSys->perParticleSize = true;
           PartSys->advPartProps[i].size = hw_random16(SEGMENT.custom1); // set each particle to random size
         } else {
-          PartSys->perParticleSize = false;
           PartSys->setParticleSize(SEGMENT.custom1); // set global size
           PartSys->advPartProps[i].size = SEGMENT.custom1; // also set individual size for consistency
         }
@@ -9650,6 +9648,7 @@ void mode_particleFireworks1D(void) {
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   int32_t gravity = (1 + (SEGMENT.speed >> 3)); // gravity value used for rocket speed calculation
   PartSys->setGravity(SEGMENT.speed ? gravity : 0); // set gravity
+  PartSys->setParticleSize(SEGMENT.check3); // 1 or 2 pixel rendering (global size, disables per particle size)
 
   if (PartSys->sources[0].sourceFlags.custom1 == 1) { // rocket is on standby
     PartSys->sources[0].source.ttl--;
@@ -9671,7 +9670,6 @@ void mode_particleFireworks1D(void) {
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
       PartSys->sources[0].sat = 30; // low saturation exhaust
-      PartSys->sources[0].size = SEGMENT.check3; // single or double pixel rendering
       PartSys->sources[0].sourceFlags.reversegrav = false ; // normal gravity
 
       if (SEGENV.aux0) { // inverted rockets launch from end
@@ -9771,6 +9769,7 @@ void mode_particleSparkler(void) {
   numSparklers = PartSys->numSources;
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur/overlay
   //PartSys->setSmearBlur(SEGMENT.custom2); // anable smearing blur
+  PartSys->setParticleSize( SEGMENT.check3 ? 60 : 0); // single pixel or large particle rendering
 
   for (uint32_t i = 0; i < numSparklers; i++) {
     PartSys->sources[i].source.hue = hw_random16();
@@ -9783,7 +9782,6 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
-    PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
     if (SEGMENT.speed == 255) // random position at highest speed setting
       PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
     else
@@ -10157,7 +10155,6 @@ void mode_particleChase(void) {
     }
   }
 
-  PartSys->setParticleSize(SEGMENT.custom1); // if custom1 == 0 this sets rendering size to one pixel
   PartSys->update(); // update and render
 }
 static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,Playful,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
@@ -10175,7 +10172,7 @@ void mode_particleStarburst(void) {
       FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
-    PartSys->sources[0].source.ttl = 1; // set initial stanby time
+    PartSys->sources[0].source.ttl = 1; // set initial standby time
     PartSys->sources[0].sat = 0; // emitted particles start out white
   }
   else
@@ -10192,12 +10189,11 @@ void mode_particleStarburst(void) {
     uint32_t explosionsize = 4 + hw_random16(SEGMENT.intensity >> 2);
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].var = 10 + (explosionsize << 1);
-    PartSys->sources[0].minLife = 250;
+    PartSys->sources[0].minLife = 150;
     PartSys->sources[0].maxLife = 300;
     PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
     PartSys->sources[0].source.ttl = 10 + hw_random16(255 - SEGMENT.speed);
     PartSys->sources[0].size = SEGMENT.custom1; // Fragment size
-    PartSys->setParticleSize(SEGMENT.custom1); // enable advanced size rendering
     PartSys->sources[0].sourceFlags.collide = SEGMENT.check3;
     for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
       if (SEGMENT.check2)
@@ -10208,9 +10204,9 @@ void mode_particleStarburst(void) {
   //shrink all particles
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->advPartProps[i].size)
-      PartSys->advPartProps[i].size--;
-    if (PartSys->advPartProps[i].sat < 251)
-      PartSys->advPartProps[i].sat += 1 + (SEGMENT.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+      PartSys->advPartProps[i].size --;
+    if (PartSys->advPartProps[i].sat < 250)
+      PartSys->advPartProps[i].sat += 2 + (SEGMENT.custom3 >> 3);
   }
 
   if (SEGMENT.call % 5 == 0) {
@@ -10534,7 +10530,6 @@ void mode_particle1DsonicBoom(void) {
     PartSys->sources[0].minLife = 200;
     PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
     PartSys->sources[0].source.hue = SEGMENT.aux0;
-    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
     uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
     explosionsize = hw_random16((explosionsize * loudness) >> 10);
     for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
