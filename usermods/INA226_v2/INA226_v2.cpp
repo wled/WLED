@@ -5,7 +5,7 @@
 #define INA226_ADDRESS 0x40 // Default I2C address for INA226
 #endif
 
-#define DEFAULT_CHECKINTERVAL 10000
+#define DEFAULT_CHECKINTERVAL 1000
 #define DEFAULT_INASAMPLES 128
 #define DEFAULT_INASAMPLESENUM AVERAGE_128
 #define DEFAULT_INACONVERSIONTIME 1100
@@ -99,7 +99,7 @@ private:
     uint8_t _i2cAddress;
     uint16_t _checkIntervalMs;  // milliseconds, user settings is in seconds
     float _decimalFactor;       // a power of 10 factor. 1 would be no change, 10 is one decimal, 100 is two etc. User sees a power of 10 (0, 1, 2, ..)
-    uint32_t _shuntResistorUOhm; // Shunt resistor value in micro-ohms (μΩ). Config JSON uses milliohms for backward compat.
+    uint32_t _shuntResistorUOhm; // Shunt resistor value in micro-ohms (μΩ)
     uint16_t _currentRangeMa;    // Expected maximum current in milliamps
     int16_t _currentOffsetMa;    // Current offset in milliamps, subtracted from readings
 
@@ -481,7 +481,7 @@ public:
         top[F("INASamples")] = _settingInaSamples;
         top[F("INAConversionTime")] = _settingInaConversionTimeUs << 2;
         top[F("Decimals")] = log10f(_decimalFactor);
-        top[F("ShuntResistor")] = _shuntResistorUOhm / 1000;  // Store as milliohms for backward compat
+        top[F("ShuntResistor")] = static_cast<float>(_shuntResistorUOhm) / 1000.0f;
         top[F("CurrentRange")] = _currentRangeMa;
         top[F("CurrentOffset")] = _currentOffsetMa;
 #ifndef WLED_DISABLE_MQTT
@@ -491,6 +491,17 @@ public:
 #endif
 
         DEBUG_PRINTLN(F("INA226 config saved."));
+    }
+
+    void appendConfigData() override
+    {
+        oappend(F("addInfo('INA226:CheckInterval',1,'seconds');"));
+        oappend(F("addInfo('INA226:INASamples',1,'samples (1-1024)');"));
+        oappend(F("addInfo('INA226:INAConversionTime',1,'&micro;s');"));
+        oappend(F("addInfo('INA226:Decimals',1,'(0-5)');"));
+        oappend(F("addInfo('INA226:ShuntResistor',1,'m&Omega;');"));
+        oappend(F("addInfo('INA226:CurrentRange',1,'mA');"));
+        oappend(F("addInfo('INA226:CurrentOffset',1,'mA');"));
     }
 
     bool readFromConfig(JsonObject &root) override
@@ -547,9 +558,9 @@ public:
         else
             configComplete = false;
 
-        uint16_t shuntMilliOhms;
+        float shuntMilliOhms;
         if (getJsonValue(top[F("ShuntResistor")], shuntMilliOhms))
-            _shuntResistorUOhm = static_cast<uint32_t>(shuntMilliOhms) * 1000;
+            _shuntResistorUOhm = static_cast<uint32_t>(shuntMilliOhms * 1000.0f + 0.5f);
         else
             configComplete = false;
 
