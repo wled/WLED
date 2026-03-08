@@ -1093,7 +1093,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			<br>
 			Calculate CCT from RGB: <input type="checkbox" name="CR"><br>
 			CCT IC used (Athom 15W): <input type="checkbox" name="IC"><br>
-			CCT additive blending: <input type="number" class="s" min="0" max="100" name="CB" onchange="UI()" required> %<br>
+			CCT blending (±100%): <input type="number" class="s" min="-100" max="100" name="CB" onchange="UI()" required> %<br>
+			<small>Positive: additive blend, Negative: exclusive blend<br></small>
 			<i class="warn"><b>⚠</b> Set to 0 when using 2-wire (reverse polarity) CCT strips</i><br><br>
 		</div>
 	</div>
