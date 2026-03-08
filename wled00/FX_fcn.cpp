@@ -224,8 +224,8 @@ void Segment::resetIfRequired() {
   #endif
 }
 
-CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
-  // there is one randomy generated palette (1) followed by 4 palettes created from segment colors (2-5)
+void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
+  // there is one randomly generated palette (1) followed by 4 palettes created from segment colors (2-5)
   // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
   // then come the custom palettes (255,254,...) growing downwards from 255 (255 being 1st custom palette)
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
@@ -277,7 +277,6 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       }
       break;
   }
-  return targetPalette;
 }
 
 // starting a transition has to occur before change so we get current values 1st
@@ -577,7 +576,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
     sOpt = extractModeDefaults(fx, "pal"); // always extract 'pal' to set _default_palette
     if (sOpt >= 0 && loadDefaults) setPalette(sOpt);
     if (sOpt <= 0) sOpt = 6; // partycolors if zero or not set
-    _default_palette = sOpt; // _deault_palette is loaded into pal0 in loadPalette() (if selected)
+    _default_palette = sOpt; // _default_palette is loaded into pal0 in loadPalette() (if selected)
     markForReset();
     stateChanged = true; // send UDP/WS broadcast
   }

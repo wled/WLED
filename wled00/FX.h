@@ -379,7 +379,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
-#define MODE_COUNT                     218
+#define FX_MODE_SLOW_TRANSITION        218
+#define MODE_COUNT                     219
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -547,7 +548,7 @@ class Segment {
     inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned X, unsigned Y){ return X + Y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
   #endif
     void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
-    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
