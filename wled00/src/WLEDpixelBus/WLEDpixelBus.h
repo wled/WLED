@@ -334,6 +334,7 @@ private:
     size_t _encodeBufferSize;
 
     static uint8_t s_nextAutoChannel;  // auto-allocation counter
+    static uint8_t s_activeChannelMask; // bitmask of initialized channels
 
     void updateRmtTiming();
     bool allocateBuffer(uint16_t numPixels);
