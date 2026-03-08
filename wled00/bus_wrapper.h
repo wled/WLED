@@ -77,42 +77,31 @@
 #define I_8266_BB_SM16825_5 48
 
 /*** ESP32 Neopixel methods ***/
+// iType only encodes LED protocol, driver type (RMT/I2S/LCD) is a separate numeric
 //RGB
 #define I_32_RN_NEO_3 1
-#define I_32_I2_NEO_3 2
 //RGBW
 #define I_32_RN_NEO_4 5
-#define I_32_I2_NEO_4 6
 //400Kbps
 #define I_32_RN_400_3 9
-#define I_32_I2_400_3 10
 //TM1814 (RGBW)
 #define I_32_RN_TM1_4 13
-#define I_32_I2_TM1_4 14
 //TM1829 (RGB)
 #define I_32_RN_TM2_3 17
-#define I_32_I2_TM2_3 18
 //UCS8903 (RGB)
 #define I_32_RN_UCS_3 21
-#define I_32_I2_UCS_3 22
 //UCS8904 (RGBW)
 #define I_32_RN_UCS_4 25
-#define I_32_I2_UCS_4 26
 //FW1906 GRBCW
 #define I_32_RN_FW6_5 29
-#define I_32_I2_FW6_5 30
 //APA106
 #define I_32_RN_APA106_3 33
-#define I_32_I2_APA106_3 34
 //WS2805 (RGBCW)
 #define I_32_RN_2805_5 37
-#define I_32_I2_2805_5 38
 //TM1914 (RGB)
 #define I_32_RN_TM1914_3 41
-#define I_32_I2_TM1914_3 42
 //SM16825 (RGBCW)
 #define I_32_RN_SM16825_5 45
-#define I_32_I2_SM16825_5 46
 
 //APA102
 #define I_HS_DOT_3 101 //hardware SPI
@@ -181,7 +170,7 @@ class PolyBus {
     return 0;
   }
 
-static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder) {
+static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0) {
     Serial.printf("[WPB] PolyBus::create busType=%u pin=%u len=%u\n", busType, pins[0], len);
     if (busType == I_NONE) { Serial.println("[WPB] busType=I_NONE, returning null"); return nullptr; }
     auto btype = WLEDpixelBus::BusType::Auto;
@@ -207,25 +196,36 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     else if (busType == I_8266_DM_NEO_3 || busType == I_8266_DM_400_3 || busType == I_8266_DM_TM1_4 || busType == I_8266_DM_NEO_4 || busType == I_8266_DM_TM2_3 || busType == I_8266_DM_UCS_3 || busType == I_8266_DM_UCS_4 || busType == I_8266_DM_APA106_3 || busType == I_8266_DM_FW6_5 || busType == I_8266_DM_2805_5 || busType == I_8266_DM_TM1914_3 || busType == I_8266_DM_SM16825_5) btype = WLEDpixelBus::BusType::DMA;
     else btype = WLEDpixelBus::BusType::BitBang;
     #else
-    // ESP32: timing selection based on iType (RN=RMT odd, I2=I2S even)
+    // ESP32: timing selection based on iType (LED protocol only, driver type is separate)
     switch (busType) {
-      case I_32_RN_NEO_3:     case I_32_I2_NEO_3:     timing = WLEDpixelBus::Timing::WS2812;         break;
-      case I_32_RN_NEO_4:     case I_32_I2_NEO_4:     timing = WLEDpixelBus::Timing::WS2812;         break;
-      case I_32_RN_400_3:     case I_32_I2_400_3:     timing = WLEDpixelBus::Timing::Generic400Kbps;  break;
-      case I_32_RN_TM1_4:     case I_32_I2_TM1_4:     timing = WLEDpixelBus::Timing::TM1814;         break;
-      case I_32_RN_TM2_3:     case I_32_I2_TM2_3:     timing = WLEDpixelBus::Timing::TM1829;         break;
-      case I_32_RN_UCS_3:     case I_32_I2_UCS_3:     timing = WLEDpixelBus::Timing::UCS8903;        break;
-      case I_32_RN_UCS_4:     case I_32_I2_UCS_4:     timing = WLEDpixelBus::Timing::UCS8904;        break;
-      case I_32_RN_FW6_5:     case I_32_I2_FW6_5:     timing = WLEDpixelBus::Timing::FW1906;         break;
-      case I_32_RN_APA106_3:  case I_32_I2_APA106_3:  timing = WLEDpixelBus::Timing::APA106;         break;
-      case I_32_RN_2805_5:    case I_32_I2_2805_5:    timing = WLEDpixelBus::Timing::WS2805;         break;
-      case I_32_RN_TM1914_3:  case I_32_I2_TM1914_3:  timing = WLEDpixelBus::Timing::TM1914;         break;
-      case I_32_RN_SM16825_5: case I_32_I2_SM16825_5: timing = WLEDpixelBus::Timing::SM16825;        break;
-      default:                                         timing = WLEDpixelBus::Timing::WS2812;         break;
+      case I_32_RN_NEO_3:     timing = WLEDpixelBus::Timing::WS2812;         break;
+      case I_32_RN_NEO_4:     timing = WLEDpixelBus::Timing::WS2812;         break;
+      case I_32_RN_400_3:     timing = WLEDpixelBus::Timing::Generic400Kbps;  break;
+      case I_32_RN_TM1_4:     timing = WLEDpixelBus::Timing::TM1814;         break;
+      case I_32_RN_TM2_3:     timing = WLEDpixelBus::Timing::TM1829;         break;
+      case I_32_RN_UCS_3:     timing = WLEDpixelBus::Timing::UCS8903;        break;
+      case I_32_RN_UCS_4:     timing = WLEDpixelBus::Timing::UCS8904;        break;
+      case I_32_RN_FW6_5:     timing = WLEDpixelBus::Timing::FW1906;         break;
+      case I_32_RN_APA106_3:  timing = WLEDpixelBus::Timing::APA106;         break;
+      case I_32_RN_2805_5:    timing = WLEDpixelBus::Timing::WS2805;         break;
+      case I_32_RN_TM1914_3:  timing = WLEDpixelBus::Timing::TM1914;         break;
+      case I_32_RN_SM16825_5: timing = WLEDpixelBus::Timing::SM16825;        break;
+      default:                timing = WLEDpixelBus::Timing::WS2812;         break;
     }
-    // ESP32: bus type selection (odd iType = RMT, even = I2S/Auto)
-    if (busType & 0x01) btype = WLEDpixelBus::BusType::RMT;
-    // else: leave as Auto (will resolve to I2S or LCD depending on platform)
+    // ESP32: bus type from explicit driverType parameter (0=RMT, 1=I2S/LCD)
+    switch (driverType) {
+      case 0:  btype = WLEDpixelBus::BusType::RMT; break;
+      case 1:
+        #if defined(CONFIG_IDF_TARGET_ESP32S3)
+        btype = WLEDpixelBus::BusType::LCD;
+        #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
+        btype = WLEDpixelBus::BusType::I2S;
+        #else
+        btype = WLEDpixelBus::BusType::RMT;  // C3 has no parallel output
+        #endif
+        break;
+      default: btype = WLEDpixelBus::BusType::RMT; break;
+    }
     #endif
 
     // Assign RMT channel from PolyBus tracking (incremented for each RMT bus)
@@ -244,9 +244,9 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     // Determine channel count to parse correct WLEDpixelBus::ColorOrder
     uint8_t channels = 3;
     switch (busType) {
-      case I_32_RN_NEO_4: case I_32_I2_NEO_4:
-      case I_32_RN_TM1_4: case I_32_I2_TM1_4:
-      case I_32_RN_UCS_4: case I_32_I2_UCS_4:
+      case I_32_RN_NEO_4:
+      case I_32_RN_TM1_4:
+      case I_32_RN_UCS_4:
       #ifdef ESP8266
       case I_8266_U0_NEO_4: case I_8266_U1_NEO_4: case I_8266_DM_NEO_4: case I_8266_BB_NEO_4:
       case I_8266_U0_TM1_4: case I_8266_U1_TM1_4: case I_8266_DM_TM1_4: case I_8266_BB_TM1_4:
@@ -254,9 +254,9 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       #endif
         channels = 4;
         break;
-      case I_32_RN_FW6_5: case I_32_I2_FW6_5:
-      case I_32_RN_2805_5: case I_32_I2_2805_5:
-      case I_32_RN_SM16825_5: case I_32_I2_SM16825_5:
+      case I_32_RN_FW6_5:
+      case I_32_RN_2805_5:
+      case I_32_RN_SM16825_5:
       #ifdef ESP8266
       case I_8266_U0_FW6_5: case I_8266_U1_FW6_5: case I_8266_DM_FW6_5: case I_8266_BB_FW6_5:
       case I_8266_U0_2805_5: case I_8266_U1_2805_5: case I_8266_DM_2805_5: case I_8266_BB_2805_5:
@@ -300,7 +300,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
 
   [[gnu::hot]] 
 
-  static unsigned memUsage(unsigned count, unsigned busType) {
+  static unsigned memUsage(unsigned count, unsigned busType, unsigned driverType = 0) {
     unsigned size = count*3;  // let's assume 3 channels, we will add count or 2*count below for 4 channels or 5 channels
     switch (busType) {
       case I_NONE: size = 0; break;
@@ -341,32 +341,22 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case I_8266_DM_2805_5   : size = (size + 2*count)*5;   break;
       case I_8266_DM_SM16825_5: size = (size + 2*count)*2*5; break;
     #else
-      // note: RMT and I2S buses use ~100 bytes of internal NPB memory each, not included here for simplicity
-      // RMT buses (1x front and 1x back buffer, does not include small RMT buffer)
+      // Adjust for channel count and 16-bit types
       case I_32_RN_NEO_4    : // fallthrough
-      case I_32_RN_TM1_4    : size = (size + count)*2;     break; // 4 channels
-      case I_32_RN_UCS_3    : size *= 2*2;                 break; // 16bit
-      case I_32_RN_UCS_4    : size = (size + count)*2*2;   break; // 16bit, 4 channels
+      case I_32_RN_TM1_4    : size += count;                break; // 4 channels
+      case I_32_RN_UCS_3    : size *= 2;                    break; // 16bit
+      case I_32_RN_UCS_4    : size = (size + count)*2;      break; // 16bit, 4 channels
       case I_32_RN_FW6_5    : // fallthrough
-      case I_32_RN_2805_5   : size = (size + 2*count)*2;   break; // 5 channels
-      case I_32_RN_SM16825_5: size = (size + 2*count)*2*2; break; // 16bit, 5 channels
-      // I2S bus or paralell I2S buses (1x front, does not include DMA buffer which is front*cadence, a bit(?) more for LCD)
-      #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3    : // fallthrough
-      case I_32_I2_400_3    : // fallthrough
-      case I_32_I2_TM2_3    : // fallthrough
-      case I_32_I2_APA106_3 :                              break; // do nothing, I2S uses single buffer + DMA buffer
-      case I_32_I2_NEO_4    : // fallthrough
-      case I_32_I2_TM1_4    : size = (size + count);       break; // 4 channels
-      case I_32_I2_UCS_3    : size *= 2;                   break; // 16 bit
-      case I_32_I2_UCS_4    : size = (size + count)*2;     break; // 16 bit, 4 channels
-      case I_32_I2_FW6_5    : // fallthrough
-      case I_32_I2_2805_5   : size = (size + 2*count);     break; // 5 channels
-      case I_32_I2_SM16825_5: size = (size + 2*count)*2;   break; // 16 bit, 5 channels
-      #endif
-      default               : size *= 2;                   break; // everything else uses 2 buffers
+      case I_32_RN_2805_5   : size += 2*count;              break; // 5 channels
+      case I_32_RN_SM16825_5: size = (size + 2*count)*2;    break; // 16bit, 5 channels
+      // 3ch types (NEO_3, 400_3, TM2_3, APA106_3, TM1914_3): size stays as count*3
+      default               :                               break;
     #endif
     }
+    // ESP32: RMT uses double buffer, I2S/LCD uses single buffer (+ DMA buffer not accounted here)
+    #ifndef ESP8266
+    if (busType != I_NONE && driverType == 0) size *= 2; // RMT: double buffer
+    #endif
     return size;
   }
 #ifndef ESP8266
@@ -382,7 +372,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
   }
 #endif
   // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
-  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
+  // driverType is updated to reflect the actual resolved driver (may differ from preference if channels are exhausted)
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
     if (!Bus::isDigital(busType)) return I_NONE;
     uint8_t t = I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
@@ -437,54 +428,54 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       #else //ESP32
       // dynamic channel allocation based on driver preference
       // determine which driver to use based on preference and availability. First I2S bus locks the I2S type, all subsequent I2S buses are assigned the same type (hardware restriction)
-      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
-      if (driverPreference == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
+      if (driverType == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
         _rmtChannelsAssigned++;
+        // driverType stays 0 (RMT)
       } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
-        offset = 1; // I2S requested or RMT full
+        driverType = 1; // resolved to I2S/LCD (may differ from preference if RMT was full)
         _i2sChannelsAssigned++;
       } else {
         return I_NONE; // No channels available
       }
 
-      // Now determine actual bus type with the chosen offset
+      // Determine iType for LED protocol only (no driver encoding)
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
-          t = I_32_RN_NEO_3 + offset; break;
+          t = I_32_RN_NEO_3; break;
         case TYPE_SK6812_RGBW:
-          t = I_32_RN_NEO_4 + offset; break;
+          t = I_32_RN_NEO_4; break;
         case TYPE_WS2811_400KHZ:
-          t = I_32_RN_400_3 + offset; break;
+          t = I_32_RN_400_3; break;
         case TYPE_TM1814:
-          t = I_32_RN_TM1_4 + offset; break;
+          t = I_32_RN_TM1_4; break;
         case TYPE_TM1829:
-          t = I_32_RN_TM2_3 + offset; break;
+          t = I_32_RN_TM2_3; break;
         case TYPE_UCS8903:
-          t = I_32_RN_UCS_3 + offset; break;
+          t = I_32_RN_UCS_3; break;
         case TYPE_UCS8904:
-          t = I_32_RN_UCS_4 + offset; break;
+          t = I_32_RN_UCS_4; break;
         case TYPE_APA106:
-          t = I_32_RN_APA106_3 + offset; break;
+          t = I_32_RN_APA106_3; break;
         case TYPE_FW1906:
-          t = I_32_RN_FW6_5 + offset; break;
+          t = I_32_RN_FW6_5; break;
         case TYPE_WS2805:
-          t = I_32_RN_2805_5 + offset; break;
+          t = I_32_RN_2805_5; break;
         case TYPE_TM1914:
-          t = I_32_RN_TM1914_3 + offset; break;
+          t = I_32_RN_TM1914_3; break;
         case TYPE_SM16825:
-          t = I_32_RN_SM16825_5 + offset; break;
+          t = I_32_RN_SM16825_5; break;
       }
       // If using parallel I2S, set the type accordingly
-      if (_i2sChannelsAssigned == 1 && offset == 1) { // first I2S channel request, lock the type
+      if (_i2sChannelsAssigned == 1 && driverType == 1) { // first I2S channel request, lock the type
         _parallelBusItype = t;
         #ifdef CONFIG_IDF_TARGET_ESP32S3
         _useParallelI2S = true; // ESP32-S3 always uses parallel I2S (LCD method)
         #endif
       }
-      else if (offset == 1) { // not first I2S channel, use locked type and enable parallel flag
+      else if (driverType == 1) { // not first I2S channel, use locked type and enable parallel flag
         _useParallelI2S = true;
         t = _parallelBusItype;
       }

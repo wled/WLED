@@ -159,7 +159,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
 
   // create bus via PolyBus wrapper which will return a WLEDpixelBus::IBus
-  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder);
+  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType);
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759
@@ -396,7 +396,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
 }
 
 bool BusDigital::isI2S() {
-  return (_iType & 0x01) == 0; // I2S types have even iType values
+  return _driverType == 1; // driverType 1 = I2S/LCD
 }
 
 void BusDigital::begin() {
@@ -1190,7 +1190,7 @@ size_t BusConfig::memUsage() const {
     mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType);
+    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType, driverType);
   } else if (Bus::isOnOff(type)) {
     mem += sizeof(BusOnOff);
   } else {
@@ -1259,8 +1259,8 @@ String BusManager::getLEDTypesJSONString() {
   return json;
 }
 
-uint8_t BusManager::getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
-  return PolyBus::getI(busType, pins, driverPreference);
+uint8_t BusManager::getI(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
+  return PolyBus::getI(busType, pins, driverType);
 }
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {

@@ -548,7 +548,7 @@ namespace BusManager {
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
-  uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference); // workaround for access to PolyBus function from FX_fcn.cpp
+  uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t& driverType); // workaround for access to PolyBus function from FX_fcn.cpp
 
   //do not call this method from system context (network callback)
   void removeAll();
