@@ -18,6 +18,7 @@ The following settings can be configured in the Usermod Menu:
 - **Decimals**: Number of decimals in the output.
 - **ShuntResistor**: Shunt resistor value in milliohms. An R100 shunt resistor should be written as "100", while R010 should be "10".
 - **CurrentRange**: Expected maximum current in milliamps (e.g., 5 A = 5000 mA).
+- **CurrentOffset**: Current offset in milliamps, subtracted from raw readings. Useful for compensating a consistent bias in the sensor. Default is 0.
 - **MqttPublish**: Enable or disable MQTT publishing.
 - **MqttPublishAlways**: Publish always, regardless if there is a change.
 - **MqttHomeAssistantDiscovery**: Enable Home Assistant discovery.
@@ -64,3 +65,31 @@ custom_usermods = ${env:esp32dev.custom_usermods} INA226
 build_flags = ${env:esp32dev.build_flags}
   ; -D USERMOD_INA226_DEBUG ; -- add a debug status to the info modal
 ```
+
+### Compile-time Defaults
+
+Several parameters can be overridden at compile time via `-D` build flags. This is useful for setting board-specific defaults so the device works correctly on first boot without manual configuration.
+
+| Build Flag | Default | Unit | Description |
+|---|---|---|---|
+| `INA226_ADDRESS` | `0x40` | — | I2C address of the INA226 |
+| `INA226_SHUNT_MICRO_OHMS` | `1000000` | μΩ | Shunt resistor value (1 000 000 μΩ = 1 Ω) |
+| `INA226_DEFAULT_CURRENT_RANGE` | `1000` | mA | Expected maximum current (1000 mA = 1 A) |
+| `INA226_CURRENT_OFFSET_MA` | `0` | mA | Current offset subtracted from readings |
+| `INA226_ENABLED_DEFAULT` | `false` | — | Enable the usermod on first boot |
+
+Example for a board with a 2.888 mΩ effective shunt, 10 A range, -118 mA offset, and enabled by default:
+
+```ini
+[env:my_board]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} INA226
+build_flags = ${env:esp32dev.build_flags}
+  -D USERMOD_INA226
+  -D INA226_ENABLED_DEFAULT=true
+  -D INA226_SHUNT_MICRO_OHMS=2888
+  -D INA226_DEFAULT_CURRENT_RANGE=10000
+  -D INA226_CURRENT_OFFSET_MA=-118
+```
+
+All compile-time defaults can still be changed at runtime through the Usermod settings page.
