@@ -135,9 +135,11 @@ private:
         _ina226 = new INA226_WE(_i2cAddress);
         if (!_ina226->init())
         {
-            DEBUG_PRINTLN(F("INA226 initialization failed!"));
+            DEBUG_PRINTLN(F("INA226: init failed!"));
             return;
         }
+        DEBUG_PRINTF_P(PSTR("INA226: addr=0x%02X shunt=%luμΩ range=%umA offset=%dmA\n"),
+                       _i2cAddress, _shuntResistorUOhm, _currentRangeMa, _currentOffsetMa);
         _ina226->setCorrectionFactor(1.0);
 
         uint16_t tmpShort = _settingInaSamples;
@@ -158,6 +160,10 @@ private:
         }
 
         _ina226->setResistorRange(static_cast<float>(_shuntResistorUOhm) / 1000000.0f, static_cast<float>(_currentRangeMa) / 1000.0f);
+
+        DEBUG_PRINTF_P(PSTR("INA226: mode=%s interval=%ums samples=%u convTime=%uμs\n"),
+                       _isTriggeredOperationMode ? "triggered" : "continuous",
+                       _checkIntervalMs, _settingInaSamples, _settingInaConversionTimeUs << 2);
     }
 
     void fetchAndPushValues()
@@ -186,6 +192,9 @@ private:
         _lastPower = power;
         _lastShuntVoltage = shuntVoltage;
         _lastOverflow = overflow;
+
+        DEBUG_PRINTF_P(PSTR("INA226: %.3fA %.2fV %.2fW shunt=%.2fmV%s\n"),
+                       current, voltage, power, shuntVoltage, overflow ? " OVF" : "");
     }
 
     void handleTriggeredMode(unsigned long currentTime)
