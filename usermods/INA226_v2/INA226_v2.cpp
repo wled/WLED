@@ -176,14 +176,14 @@ private:
         float current = truncateDecimals((_ina226->getCurrent_mA() - _currentOffsetMa) / 1000.0f);
         float voltage = truncateDecimals(_ina226->getBusVoltage_V());
         float power = truncateDecimals(_ina226->getBusPower() / 1000.0);
-        float shuntVoltage = truncateDecimals(_ina226->getShuntVoltage_V());
+        float shuntVoltage = truncateDecimals(_ina226->getShuntVoltage_mV());
         bool overflow = _ina226->overflow;
 
 #ifndef WLED_DISABLE_MQTT
         mqttPublishIfChanged(F("current"), _lastCurrentSent, current, 0.01f);
         mqttPublishIfChanged(F("voltage"), _lastVoltageSent, voltage, 0.01f);
         mqttPublishIfChanged(F("power"), _lastPowerSent, power, 0.1f);
-        mqttPublishIfChanged(F("shunt_voltage"), _lastShuntVoltageSent, shuntVoltage, 0.01f);
+        mqttPublishIfChanged(F("shunt_voltage_drop"), _lastShuntVoltageSent, shuntVoltage, 0.01f);
         mqttPublishIfChanged(F("overflow"), _lastOverflowSent, overflow);
 #endif
 
@@ -250,8 +250,8 @@ private:
         snprintf_P(topic, 127, "%s/power", mqttDeviceTopic);
         mqttCreateHassSensor(F("Power"), topic, F("power"), F("W"));
 
-        snprintf_P(topic, 127, "%s/shunt_voltage", mqttDeviceTopic);
-        mqttCreateHassSensor(F("Shunt Voltage"), topic, F("voltage"), F("V"));
+        snprintf_P(topic, 127, "%s/shunt_voltage_drop", mqttDeviceTopic);
+        mqttCreateHassSensor(F("Shunt Voltage Drop"), topic, F("voltage"), F("mV"));
 
         snprintf_P(topic, 127, "%s/overflow", mqttDeviceTopic);
         mqttCreateHassBinarySensor(F("Overflow"), topic);
@@ -434,7 +434,7 @@ public:
         JsonArray jsonCurrent = user.createNestedArray(F("Current"));
         JsonArray jsonVoltage = user.createNestedArray(F("Voltage"));
         JsonArray jsonPower = user.createNestedArray(F("Power"));
-        JsonArray jsonShuntVoltage = user.createNestedArray(F("Shunt Voltage"));
+        JsonArray jsonShuntVoltage = user.createNestedArray(F("Shunt Voltage Drop"));
         JsonArray jsonOverflow = user.createNestedArray(F("Overflow"));
 
         if (_lastLoopCheck == 0)
@@ -467,7 +467,7 @@ public:
         jsonPower.add(F("W"));
 
         jsonShuntVoltage.add(_lastShuntVoltage);
-        jsonShuntVoltage.add(F("V"));
+        jsonShuntVoltage.add(F("mV"));
 
         jsonOverflow.add(_lastOverflow ? F("true") : F("false"));
     }
