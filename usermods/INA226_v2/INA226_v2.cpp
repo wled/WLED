@@ -332,6 +332,7 @@ public:
     UsermodINA226()
     {
         // Default values
+        _settingEnabled = true;
         _settingInaSamples = DEFAULT_INASAMPLES;
         _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME;
 
@@ -341,6 +342,13 @@ public:
         _shuntResistorUOhm = INA226_SHUNT_MICRO_OHMS;
         _currentRangeMa = INA226_DEFAULT_CURRENT_RANGE;
         _currentOffsetMa = INA226_CURRENT_OFFSET_MA;
+
+        _mqttPublish = false;
+        _mqttPublishAlways = false;
+        _mqttHomeAssistant = false;
+        _initDone = false;
+        _isTriggeredOperationMode = false;
+        _measurementTriggered = false;
     }
 
     void setup()
