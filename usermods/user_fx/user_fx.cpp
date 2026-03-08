@@ -107,8 +107,10 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
  *     If value is 0, a random time will be selected from the full range of values.
  *  Third slider (Spinner size) is for the number of pixels that make up the spinner.
  *  Fourth slider (Spin delay) is for how long it takes for the LED to start spinning again after the previous spin.
- *  The first checkbox sets "color per block" mode. Enabled means that each spinner block will be the same color no matter what its LED position is.
- *  The second checkbox enables synchronized restart (all spinners restart together instead of individually).
+ *  The first checkbox allows the spinner to spin. If it's enabled, the spinner will do its thing. If it's not enabled, it will wait for the user to enable
+ *     it either by clicking the checkbox or by pressing a physical button (e.g. using a playlist to run a couple presets that have JSON API codes).
+ *  The second checkbox sets "color per block" mode. Enabled means that each spinner block will be the same color no matter what its LED position is.
+ *  The third checkbox enables synchronized restart (all spinners restart together instead of individually).
  *  aux0 stores the settings checksum to detect changes
  *  aux1 stores the color scale for performance
  */
@@ -151,7 +153,7 @@ static void mode_spinning_wheel(void) {
   }
 
   // Check if settings changed (do this once, not per virtual strip)
-  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom3 + SEGMENT.check3;
+  uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom3 + SEGMENT.check1 + SEGMENT.check3;
   bool settingsChanged = (SEGENV.aux0 != settingssum);
   if (settingsChanged) {
     random16_add_entropy(hw_random16());
@@ -189,7 +191,7 @@ static void mode_spinning_wheel(void) {
       bool needsReset = false;
       if (SEGENV.call == 0) {
         needsReset = true;
-      } else if (settingsChanged) {
+      } else if (settingsChanged && SEGMENT.check1) {
         needsReset = true;
       } else if (phase == 3 && state[STOP_TIME_IDX] != 0) {
           // If synchronized restart is enabled, only restart when all strips are ready
@@ -207,7 +209,7 @@ static void mode_spinning_wheel(void) {
       }
 
       // Initialize or restart
-      if (needsReset) {
+      if (needsReset && SEGMENT.check1) {   // spin the spinner(s) only if the "Spin me!" checkbox is enabled
         state[CUR_POS_IDX] = 0;
         
         // Set velocity
@@ -233,7 +235,7 @@ static void mode_spinning_wheel(void) {
         state[STOP_POS_IDX] = 0; // Initialize stop position
         phase = 0;
       }
-      
+
       uint32_t pos_fixed = state[CUR_POS_IDX];
       uint32_t velocity = state[VELOCITY_IDX];
       
@@ -337,7 +339,7 @@ static void mode_spinning_wheel(void) {
     }
   }
 }
-static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Speed (0=random),Slowdown (0=random),Spinner size,,Spin delay,,Color per block,Sync restart;!,!;!;;m12=1,c1=1,c3=8";
+static const char _data_FX_MODE_SPINNINGWHEEL[] PROGMEM = "Spinning Wheel@Speed (0=random),Slowdown (0=random),Spinner size,,Spin delay,Spin me!,Color per block,Sync restart;!,!;!;;m12=1,c1=1,c3=8,o3=1";
 
 
 /*
