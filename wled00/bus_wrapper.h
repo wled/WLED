@@ -241,8 +241,59 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
+    // Determine channel count to parse correct WLEDpixelBus::ColorOrder
+    uint8_t channels = 3;
+    switch (busType) {
+      case I_32_RN_NEO_4: case I_32_I2_NEO_4:
+      case I_32_RN_TM1_4: case I_32_I2_TM1_4:
+      case I_32_RN_UCS_4: case I_32_I2_UCS_4:
+      #ifdef ESP8266
+      case I_8266_U0_NEO_4: case I_8266_U1_NEO_4: case I_8266_DM_NEO_4: case I_8266_BB_NEO_4:
+      case I_8266_U0_TM1_4: case I_8266_U1_TM1_4: case I_8266_DM_TM1_4: case I_8266_BB_TM1_4:
+      case I_8266_U0_UCS_4: case I_8266_U1_UCS_4: case I_8266_DM_UCS_4: case I_8266_BB_UCS_4:
+      #endif
+        channels = 4;
+        break;
+      case I_32_RN_FW6_5: case I_32_I2_FW6_5:
+      case I_32_RN_2805_5: case I_32_I2_2805_5:
+      case I_32_RN_SM16825_5: case I_32_I2_SM16825_5:
+      #ifdef ESP8266
+      case I_8266_U0_FW6_5: case I_8266_U1_FW6_5: case I_8266_DM_FW6_5: case I_8266_BB_FW6_5:
+      case I_8266_U0_2805_5: case I_8266_U1_2805_5: case I_8266_DM_2805_5: case I_8266_BB_2805_5:
+      case I_8266_U0_SM16825_5: case I_8266_U1_SM16825_5: case I_8266_DM_SM16825_5: case I_8266_BB_SM16825_5:
+      #endif
+        channels = 5;
+        break;
+    }
+
+    // Map WLED UI order (0-5) to WLEDpixelBus order (which natively handles byte extraction)
+    uint8_t wledOrder = (uint8_t)colorOrder & 0x0F;
+    WLEDpixelBus::ColorOrder finalOrder = WLEDpixelBus::ColorOrder::GRB;
+    
+    if (channels >= 4) {
+      switch (wledOrder) {
+        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
+        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBW; break;
+        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRGW; break;
+        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBGW; break;
+        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGRW; break; // Note WLED's 4 is BGR, so we explicitly select BGRW
+        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBRW; break; // Note WLED's 5 is GBR, so we explicitly select GBRW
+        default: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
+      }
+    } else {
+      switch (wledOrder) {
+        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRB; break;
+        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGB; break;
+        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRG; break;
+        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBG; break;
+        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGR; break; // WLED 4 is BGR, WPB enum for BGR is 5 but explicit is safer
+        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBR; break; // WLED 5 is GBR, WPB enum for GBR is 4 but explicit is safer
+        default: finalOrder = WLEDpixelBus::ColorOrder::GRB; break;
+      }
+    }
+
     Serial.printf("[WPB] resolved: btype=%u timing_t0h=%u pin=%u rmtCh=%d\n", (unsigned)btype, timing.t0h_ns, hwIndex, rmtCh);
-    return WLEDpixelBus::createBus(btype, hwIndex, timing, colorOrder, len, rmtCh);
+    return WLEDpixelBus::createBus(btype, hwIndex, timing, finalOrder, len, rmtCh);
   }
 
   [[gnu::hot]] 
