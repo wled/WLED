@@ -3,7 +3,6 @@
 /*
  * Usermod for analog clock
  */
-extern Timezone* tz;
 
 class AnalogClockUsermod : public Usermod {
 private:

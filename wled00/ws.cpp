@@ -5,15 +5,18 @@
  */
 #ifdef WLED_ENABLE_WEBSOCKETS
 
+// forward declarations
+static bool sendLiveLedsWs(uint32_t wsClient);
+
 // define some constants for binary protocols, dont use defines but C++ style constexpr
 constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
 constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
 constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
 constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
 
-uint16_t wsLiveClientId = 0;
-unsigned long wsLastLiveTime = 0;
-//uint8_t* wsFrameBuffer = nullptr;
+static uint16_t wsLiveClientId = 0;
+static unsigned long wsLastLiveTime = 0;
+//static uint8_t* wsFrameBuffer = nullptr;
 
 #define WS_LIVE_INTERVAL 40
 
@@ -42,7 +45,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
 
         bool verboseResponse = false;
-        if (!requestJSONBufferLock(11)) {
+        if (!requestJSONBufferLock(JSON_LOCK_WS_RECEIVE)) {
           client->text(F("{\"error\":3}")); // ERR_NOBUF
           return;
         }
@@ -136,7 +139,7 @@ void sendDataWs(AsyncWebSocketClient * client)
 {
   if (!ws.count()) return;
 
-  if (!requestJSONBufferLock(12)) {
+  if (!requestJSONBufferLock(JSON_LOCK_WS_SEND)) {
     const char* error = PSTR("{\"error\":3}");
     if (client) {
       client->text(FPSTR(error)); // ERR_NOBUF
@@ -185,7 +188,7 @@ void sendDataWs(AsyncWebSocketClient * client)
   releaseJSONBufferLock();
 }
 
-bool sendLiveLedsWs(uint32_t wsClient)
+static bool sendLiveLedsWs(uint32_t wsClient)
 {
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
