@@ -124,20 +124,10 @@ bool findWledMetadata(const uint8_t* binaryData, size_t dataSize, wled_metadata_
 }
 
 
-/**
- * Normalize a release name by removing the trailing "_V4" suffix (if present).
- * This allows OTA compatibility checks to treat e.g. "ESP32" and "ESP32_V4" as equivalent.
- * @param input  Source release name string
- * @param output Buffer to receive normalized name (must be at least WLED_RELEASE_NAME_MAX_LEN bytes)
- */
-static void normalizeReleaseName(const char* input, char* output) {
-  strncpy(output, input, WLED_RELEASE_NAME_MAX_LEN - 1);
-  output[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';
-  size_t len = strlen(output);
-  // Strip "_V4" suffix to allow upgrading between IDF v4 and newer IDF builds
-  if (len >= 4 && strcmp(output + len - 3, "_V4") == 0) {
-    output[len - 3] = '\0';
-  }
+// Strip "_V4" suffix from a release name to allow upgrading between IDF v4 and newer IDF builds.
+static String normalizeReleaseName(const String& name) {
+  if (name.endsWith("_V4")) return name.substring(0, name.length() - 3);
+  return name;
 }
 
 bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
@@ -146,28 +136,20 @@ bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessa
     errorMessage[0] = '\0';
   }
 
-  // Validate compatibility using extracted release name
-  // We make a stack copy so we can print it safely
-  char safeFirmwareRelease[WLED_RELEASE_NAME_MAX_LEN];
-  strncpy(safeFirmwareRelease, firmwareDescription.release_name, WLED_RELEASE_NAME_MAX_LEN - 1);
-  safeFirmwareRelease[WLED_RELEASE_NAME_MAX_LEN - 1] = '\0';
-  
-  if (strlen(safeFirmwareRelease) == 0) {
-    return false;
-  }  
+  const String uploadedRelease(firmwareDescription.release_name);
+  const String currentRelease(releaseString);
 
-  if (strncmp_P(safeFirmwareRelease, releaseString, WLED_RELEASE_NAME_MAX_LEN) != 0) {
+  if (uploadedRelease.isEmpty()) {
+    return false;
+  }
+
+  if (uploadedRelease != currentRelease) {
     // Exact match failed - check if the names are compatible after normalizing the "_V4" suffix.
     // This allows upgrading between e.g. "ESP32_V4" (IDF v4 build) and "ESP32" (newer IDF build).
-    char normalizedFirmware[WLED_RELEASE_NAME_MAX_LEN];
-    char normalizedCurrent[WLED_RELEASE_NAME_MAX_LEN];
-    normalizeReleaseName(safeFirmwareRelease, normalizedFirmware);
-    normalizeReleaseName(releaseString, normalizedCurrent);
-
-    if (strcmp(normalizedFirmware, normalizedCurrent) != 0) {
+    if (normalizeReleaseName(uploadedRelease) != normalizeReleaseName(currentRelease)) {
       if (errorMessage && errorMessageLen > 0) {
-        snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."), 
-                 releaseString, safeFirmwareRelease);
+        snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware compatibility mismatch: current='%s', uploaded='%s'."),
+                 currentRelease.c_str(), uploadedRelease.c_str());
         errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
       }
       return false;
