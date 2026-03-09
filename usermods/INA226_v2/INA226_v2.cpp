@@ -97,7 +97,7 @@ private:
     uint16_t _settingInaSamples : 11;          // Number of samples for averaging, max 1024
 
     uint8_t _i2cAddress;
-    uint16_t _checkIntervalMs;  // milliseconds, user settings is in seconds
+    uint32_t _checkIntervalMs;  // milliseconds, user settings is in seconds
     float _decimalFactor;       // a power of 10 factor. 1 would be no change, 10 is one decimal, 100 is two etc. User sees a power of 10 (0, 1, 2, ..)
     uint32_t _shuntResistorUOhm; // Shunt resistor value in micro-ohms (μΩ)
     uint16_t _currentRangeMa;    // Expected maximum current in milliamps
