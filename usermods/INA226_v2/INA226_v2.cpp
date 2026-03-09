@@ -343,7 +343,7 @@ public:
         // Default values
         _settingEnabled = true;
         _settingInaSamples = DEFAULT_INASAMPLES;
-        _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME;
+        _settingInaConversionTimeUs = DEFAULT_INACONVERSIONTIME >> 2; // stored shifted to fit 12-bit field
 
         _i2cAddress = INA226_ADDRESS;
         _checkIntervalMs = DEFAULT_CHECKINTERVAL;
