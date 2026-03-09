@@ -57,7 +57,7 @@ inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return col
 [[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video = false);
 void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange);
 
-[[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
+[[gnu::hot, gnu::pure]] uint32_t ColorFromPalette(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 void loadCustomPalettes();

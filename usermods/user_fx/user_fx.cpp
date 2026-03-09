@@ -452,7 +452,7 @@ static void drawLavaBombs(const uint16_t width, const uint16_t height, float *pa
     if (xi >= 0 && xi < width && yi >= 0 && yi < height) {
       // Get a random color from the current palette
       uint8_t randomIndex = hw_random8(64, 128);
-      CRGB pcolor = ColorFromPaletteWLED(SEGPALETTE, randomIndex, 255, LINEARBLEND);
+      CRGB pcolor = ColorFromPalette(SEGPALETTE, randomIndex, 255, LINEARBLEND);
 
       // Pre-calculate anti-aliasing weights
       float xf = posX - xi;

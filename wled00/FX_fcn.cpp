@@ -237,7 +237,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
-      targetPalette = PartyColors_p;
+      targetPalette = PartyColors_gc22;
       break;
     case 1: //randomly generated palette
       targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette()
@@ -1107,7 +1107,7 @@ uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
   CRGBW rgb;
-  rgb = (CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
+  rgb = CHSV32(static_cast<uint16_t>(pos << 8), 255, 255);
   return rgb.color32 | (w << 24); // add white channel
 }
 

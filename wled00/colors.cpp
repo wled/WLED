@@ -96,7 +96,7 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
  * note: inputs are 32bit to speed up the function, useful input value ranges are -255 to +255
  * note2: if only one hue change is needed, use CRGBW.adjust_hue() instead (much faster)
  */
-__attribute__((optimize("O3"))) void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t satChange, int32_t valueChange) {
+WLED_O3_ATTR void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t satChange, int32_t valueChange) {
   if(rgb.color32 == 0 && valueChange <= 0) return; // black and no value change -> return black
   CHSV32 hsv;
   rgb2hsv(rgb, hsv); //convert to HSV
@@ -302,7 +302,7 @@ void loadCustomPalettes() {
 }
 
 // convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
-__attribute__((optimize("O2"))) void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
+WLED_O2_ATTR void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
   unsigned p, q, t;
   unsigned region = ((unsigned)hsv.h * 6) >> 16; // h / (65536 / 6)
   unsigned remainder = (hsv.h - (region * 10923)) * 6; // 10923 = (65536 / 6)
@@ -359,7 +359,7 @@ void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb) {
 }
 
 // convert RGB to HSV (16bit hue), not 100% color accurate. note: using "O3" makes it ~5% faster at minimal flash cost (~20 bytes)
-__attribute__((optimize("O3"))) void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
+WLED_O3_ATTR void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
     int32_t r = rgb.r; // note: using 32bit variables tested faster than 8bit
     int32_t g = rgb.g;
     int32_t b = rgb.b;

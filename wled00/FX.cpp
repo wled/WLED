@@ -5425,7 +5425,7 @@ void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://na
 
         if (aliveParents) {
           // Set color based on random neighbor
-          unsigned parentIndex = parentIdx[random8(aliveParents)];
+          unsigned parentIndex = parentIdx[hw_random8(aliveParents)];
           birthColor = SEGMENT.getPixelColor(parentIndex);
         }
         newColor = birthColor;
@@ -7690,7 +7690,7 @@ void mode_2Ddistortionwaves() {
           SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP));
         } else {
           // color mapping: calculate hue from pixel color, map it to palette index
-          CHSV hsvclr = rgb2hsv_approximate(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
+          CHSV hsvclr = rgb2hsv(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
           SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, hsvclr.h, brightness));
         }
       }
