@@ -75,6 +75,11 @@
 #define I_8266_U1_SM16825_5 46
 #define I_8266_DM_SM16825_5 47
 #define I_8266_BB_SM16825_5 48
+//TM1815 (RGBW)
+#define I_8266_U0_TM15_4 49
+#define I_8266_U1_TM15_4 50
+#define I_8266_DM_TM15_4 51
+#define I_8266_BB_TM15_4 52
 
 /*** ESP32 Neopixel methods ***/
 // iType only encodes LED protocol, driver type (RMT/I2S/LCD) is a separate numeric
@@ -102,6 +107,8 @@
 #define I_32_RN_TM1914_3 41
 //SM16825 (RGBCW)
 #define I_32_RN_SM16825_5 45
+//TM1815 (RGBW)
+#define I_32_RN_TM15_4 49
 
 //APA102
 #define I_HS_DOT_3 101 //hardware SPI
@@ -190,10 +197,11 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     else if (busType >= I_8266_U0_2805_5 && busType <= I_8266_BB_2805_5) timing = WLEDpixelBus::Timing::WS2805;
     else if (busType >= I_8266_U0_TM1914_3 && busType <= I_8266_BB_TM1914_3) timing = WLEDpixelBus::Timing::TM1914;
     else if (busType >= I_8266_U0_SM16825_5 && busType <= I_8266_BB_SM16825_5) timing = WLEDpixelBus::Timing::SM16825;
+    else if (busType >= I_8266_U0_TM15_4 && busType <= I_8266_BB_TM15_4) timing = WLEDpixelBus::Timing::TM1815;
     // ESP8266: bus type selection (UART0, UART1, DMA, BitBang)
-    if (busType == I_8266_U0_NEO_3 || busType == I_8266_U0_400_3 || busType == I_8266_U0_TM1_4 || busType == I_8266_U0_NEO_4 || busType == I_8266_U0_TM2_3 || busType == I_8266_U0_UCS_3 || busType == I_8266_U0_UCS_4 || busType == I_8266_U0_APA106_3 || busType == I_8266_U0_FW6_5 || busType == I_8266_U0_2805_5 || busType == I_8266_U0_TM1914_3 || busType == I_8266_U0_SM16825_5) btype = WLEDpixelBus::BusType::UART;
-    else if (busType == I_8266_U1_NEO_3 || busType == I_8266_U1_400_3 || busType == I_8266_U1_TM1_4 || busType == I_8266_U1_NEO_4 || busType == I_8266_U1_TM2_3 || busType == I_8266_U1_UCS_3 || busType == I_8266_U1_UCS_4 || busType == I_8266_U1_APA106_3 || busType == I_8266_U1_FW6_5 || busType == I_8266_U1_2805_5 || busType == I_8266_U1_TM1914_3 || busType == I_8266_U1_SM16825_5) btype = WLEDpixelBus::BusType::UART;
-    else if (busType == I_8266_DM_NEO_3 || busType == I_8266_DM_400_3 || busType == I_8266_DM_TM1_4 || busType == I_8266_DM_NEO_4 || busType == I_8266_DM_TM2_3 || busType == I_8266_DM_UCS_3 || busType == I_8266_DM_UCS_4 || busType == I_8266_DM_APA106_3 || busType == I_8266_DM_FW6_5 || busType == I_8266_DM_2805_5 || busType == I_8266_DM_TM1914_3 || busType == I_8266_DM_SM16825_5) btype = WLEDpixelBus::BusType::DMA;
+    if (busType == I_8266_U0_NEO_3 || busType == I_8266_U0_400_3 || busType == I_8266_U0_TM1_4 || busType == I_8266_U0_NEO_4 || busType == I_8266_U0_TM2_3 || busType == I_8266_U0_UCS_3 || busType == I_8266_U0_UCS_4 || busType == I_8266_U0_APA106_3 || busType == I_8266_U0_FW6_5 || busType == I_8266_U0_2805_5 || busType == I_8266_U0_TM1914_3 || busType == I_8266_U0_SM16825_5 || busType == I_8266_U0_TM15_4) btype = WLEDpixelBus::BusType::UART;
+    else if (busType == I_8266_U1_NEO_3 || busType == I_8266_U1_400_3 || busType == I_8266_U1_TM1_4 || busType == I_8266_U1_NEO_4 || busType == I_8266_U1_TM2_3 || busType == I_8266_U1_UCS_3 || busType == I_8266_U1_UCS_4 || busType == I_8266_U1_APA106_3 || busType == I_8266_U1_FW6_5 || busType == I_8266_U1_2805_5 || busType == I_8266_U1_TM1914_3 || busType == I_8266_U1_SM16825_5 || busType == I_8266_U1_TM15_4) btype = WLEDpixelBus::BusType::UART;
+    else if (busType == I_8266_DM_NEO_3 || busType == I_8266_DM_400_3 || busType == I_8266_DM_TM1_4 || busType == I_8266_DM_NEO_4 || busType == I_8266_DM_TM2_3 || busType == I_8266_DM_UCS_3 || busType == I_8266_DM_UCS_4 || busType == I_8266_DM_APA106_3 || busType == I_8266_DM_FW6_5 || busType == I_8266_DM_2805_5 || busType == I_8266_DM_TM1914_3 || busType == I_8266_DM_SM16825_5 || busType == I_8266_DM_TM15_4) btype = WLEDpixelBus::BusType::DMA;
     else btype = WLEDpixelBus::BusType::BitBang;
     #else
     // ESP32: timing selection based on iType (LED protocol only, driver type is separate)
@@ -210,6 +218,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case I_32_RN_2805_5:    timing = WLEDpixelBus::Timing::WS2805;         break;
       case I_32_RN_TM1914_3:  timing = WLEDpixelBus::Timing::TM1914;         break;
       case I_32_RN_SM16825_5: timing = WLEDpixelBus::Timing::SM16825;        break;
+      case I_32_RN_TM15_4:    timing = WLEDpixelBus::Timing::TM1815;         break;
       default:                timing = WLEDpixelBus::Timing::WS2812;         break;
     }
     // ESP32: bus type from explicit driverType parameter (0=RMT, 1=I2S/LCD)
@@ -247,10 +256,12 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case I_32_RN_NEO_4:
       case I_32_RN_TM1_4:
       case I_32_RN_UCS_4:
+      case I_32_RN_TM15_4:
       #ifdef ESP8266
       case I_8266_U0_NEO_4: case I_8266_U1_NEO_4: case I_8266_DM_NEO_4: case I_8266_BB_NEO_4:
       case I_8266_U0_TM1_4: case I_8266_U1_TM1_4: case I_8266_DM_TM1_4: case I_8266_BB_TM1_4:
       case I_8266_U0_UCS_4: case I_8266_U1_UCS_4: case I_8266_DM_UCS_4: case I_8266_BB_UCS_4:
+      case I_8266_U0_TM15_4: case I_8266_U1_TM15_4: case I_8266_DM_TM15_4: case I_8266_BB_TM15_4:
       #endif
         channels = 4;
         break;
@@ -311,7 +322,10 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case I_8266_BB_NEO_4    : // fallthrough
       case I_8266_U0_TM1_4    : // fallthrough
       case I_8266_U1_TM1_4    : // fallthrough
-      case I_8266_BB_TM1_4    : size = (size + count);       break; // 4 channels
+      case I_8266_BB_TM1_4    : // fallthrough
+      case I_8266_U0_TM15_4   : // fallthrough
+      case I_8266_U1_TM15_4   : // fallthrough
+      case I_8266_BB_TM15_4   : size = (size + count);       break; // 4 channels
       case I_8266_U0_UCS_3    : // fallthrough
       case I_8266_U1_UCS_3    : // fallthrough
       case I_8266_BB_UCS_3    : size *= 2;                   break; // 16 bit
@@ -334,7 +348,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case I_8266_DM_APA106_3 : // fallthrough
       case I_8266_DM_TM1914_3 : size *= 5;                   break;
       case I_8266_DM_NEO_4    : // fallthrough
-      case I_8266_DM_TM1_4    : size = (size + count)*5;     break;
+      case I_8266_DM_TM1_4    : // fallthrough
+      case I_8266_DM_TM15_4   : size = (size + count)*5;     break;
       case I_8266_DM_UCS_3    : size *= 2*5;                 break;
       case I_8266_DM_UCS_4    : size = (size + count)*2*5;   break;
       case I_8266_DM_FW6_5    : // fallthrough
@@ -343,7 +358,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     #else
       // Adjust for channel count and 16-bit types
       case I_32_RN_NEO_4    : // fallthrough
-      case I_32_RN_TM1_4    : size += count;                break; // 4 channels
+      case I_32_RN_TM1_4    : // fallthrough
+      case I_32_RN_TM15_4   : size += count;                break; // 4 channels
       case I_32_RN_UCS_3    : size *= 2;                    break; // 16bit
       case I_32_RN_UCS_4    : size = (size + count)*2;      break; // 16bit, 4 channels
       case I_32_RN_FW6_5    : // fallthrough
@@ -424,6 +440,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
           t = I_8266_U0_TM1914_3 + offset; break;
         case TYPE_SM16825:
           t = I_8266_U0_SM16825_5 + offset; break;
+        case TYPE_TM1815:
+          t = I_8266_U0_TM15_4 + offset; break;
       }
       #else //ESP32
       // dynamic channel allocation based on driver preference
@@ -467,6 +485,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
           t = I_32_RN_TM1914_3; break;
         case TYPE_SM16825:
           t = I_32_RN_SM16825_5; break;
+        case TYPE_TM1815:
+          t = I_32_RN_TM15_4; break;
       }
       // If using parallel I2S, set the type accordingly
       if (_i2sChannelsAssigned == 1 && driverType == 1) { // first I2S channel request, lock the type

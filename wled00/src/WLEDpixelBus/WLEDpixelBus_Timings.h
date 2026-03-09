@@ -35,6 +35,7 @@ namespace Timing {
 
     // ---- Titan Micro LEDs ----
     constexpr LedTiming TM1814  {360, 890, 720, 530, 200};   // TM1814 RGBW, requires prefix
+    constexpr LedTiming TM1815  {740, 1780, 1440, 1060, 200}; // TM1815 RGBW, requires prefix
     constexpr LedTiming TM1829  {300, 900, 800, 400, 200};   // TM1829 (inverted logic)
     constexpr LedTiming TM1914  {360, 890, 720, 530, 200};   // TM1914 RGB, requires prefix
 
