@@ -1,3 +1,4 @@
 {
-  "name:": "Animated_Staircase"
+  "name": "Animated_Staircase",
+  "build": { "libArchive": false }
 }

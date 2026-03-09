@@ -1,5 +1,6 @@
 {
   "name:": "EleksTube_IPS",
+  "build": { "libArchive": false },
   "dependencies": {
     "TFT_eSPI" : "2.5.33"
   } 

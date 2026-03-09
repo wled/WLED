@@ -1,3 +1,4 @@
 {
-  "name:": "wizlights"
+  "name": "wizlights",
+  "build": { "libArchive": false }
 }

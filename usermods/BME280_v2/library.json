@@ -1,5 +1,6 @@
 {
-  "name:": "BME280_v2",
+  "name": "BME280_v2",
+  "build": { "libArchive": false },
   "dependencies": {
     "finitespace/BME280":"~3.0.0"
   }

@@ -1,3 +1,4 @@
 {
-  "name:": "PIR_sensor_switch"
+  "name": "PIR_sensor_switch",
+  "build": { "libArchive": false }
 }

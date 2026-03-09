@@ -247,7 +247,7 @@ class UsermodCronixie : public Usermod {
         
         if (backlight && _digitOut[i] <11)
         {
-          uint32_t col = gamma32(strip.getSegment(0).colors[1]);
+          uint32_t col = strip.getSegment(0).colors[1];
           for (uint16_t j=o; j< o+10; j++) {
             if (j != excl) strip.setPixelColor(j, col);
           }

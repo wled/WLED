@@ -1,3 +1,4 @@
 {
-  "name:": "pwm_outputs"
+  "name": "pwm_outputs",
+  "build": { "libArchive": false }
 }

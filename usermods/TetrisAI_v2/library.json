@@ -1,3 +1,4 @@
 {
-  "name:": "TetrisAI_v2"
+  "name": "TetrisAI_v2",
+  "build": { "libArchive": false }
 }

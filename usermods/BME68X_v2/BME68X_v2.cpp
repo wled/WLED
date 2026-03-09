@@ -1,5 +1,5 @@
 /**
- * @file usermod_BMW68X.h
+ * @file usermod_BMW68X.cpp
  * @author Gabriel A. Sieben  (GeoGab)
  * @brief Usermod for WLED to implement the BME680/BME688 sensor
  * @version 1.0.2

@@ -1,6 +1,10 @@
+#pragma once
 #ifndef WLED_COLORS_H
 #define WLED_COLORS_H
 #include "src/dependencies/fastled/fastled_fcn.h"
+/*
+ * Color structs and color utility functions
+ */
 /*
   Note on color types and conversions:
   - WLED uses 32bit colors (RGBW), if possible, use CRGBW instead of CRGB for better performance (no conversion in setPixelColor)
@@ -24,27 +28,41 @@
 struct CRGBW;
 struct CHSV32;
 
+extern bool gammaCorrectCol;
 // similar to NeoPixelBus NeoGammaTableMethod but allows dynamic changes (superseded by NPB::NeoGammaDynamicTableMethod)
 class NeoGammaWLEDMethod {
   public:
-    [[gnu::hot]] static uint8_t Correct(uint8_t value);         // apply Gamma to single channel
-    [[gnu::hot]] static uint32_t Correct32(uint32_t color);     // apply Gamma to RGBW32 color (WLED specific, not used by NPB)
-    static void calcGammaTable(float gamma);                              // re-calculates & fills gamma table
+    [[gnu::hot]] static uint8_t Correct(uint8_t value);             // apply Gamma to single channel
+    [[gnu::hot]] static uint32_t inverseGamma32(uint32_t color);    // apply inverse Gamma to RGBW32 color
+    static void calcGammaTable(float gamma);                        // re-calculates & fills gamma tables
     static inline uint8_t rawGamma8(uint8_t val) { return gammaT[val]; }  // get value from Gamma table (WLED specific, not used by NPB)
+    static inline uint8_t rawInverseGamma8(uint8_t val) { return gammaT_inv[val]; }  // get value from inverse Gamma table (WLED specific, not used by NPB)
+    static inline uint32_t Correct32(uint32_t color) { // apply Gamma to RGBW32 color (WLED specific, not used by NPB)
+      if (!gammaCorrectCol) return color; // no gamma correction
+      uint8_t  w = byte(color>>24), r = byte(color>>16), g = byte(color>>8), b = byte(color); // extract r, g, b, w channels
+      w = gammaT[w]; r = gammaT[r]; g = gammaT[g]; b = gammaT[b];
+      return (uint32_t(w) << 24) | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
+    }
   private:
     static uint8_t gammaT[];
+    static uint8_t gammaT_inv[];
 };
 #define gamma32(c) NeoGammaWLEDMethod::Correct32(c)
 #define gamma8(c)  NeoGammaWLEDMethod::rawGamma8(c)
+#define gamma32inv(c) NeoGammaWLEDMethod::inverseGamma32(c)
+#define gamma8inv(c)  NeoGammaWLEDMethod::rawInverseGamma8(c)
 [[gnu::hot, gnu::pure]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
 inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
 [[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
-[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video=false);
+[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video = false);
 void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t valueChange, int32_t satChange);
-[[gnu::hot, gnu::pure]] uint32_t ColorFromPalette(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
+
+[[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
-
+void loadCustomPalettes();
+extern std::vector<CRGBPalette16> customPalettes;
+inline size_t getPaletteCount() { return FIXED_PALETTE_COUNT + customPalettes.size(); }
 
 void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb);
 void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb);
@@ -61,6 +79,19 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
 void setRandomColor(byte* rgb);
 
+// fast scaling function for colors, performs color*scale/256 for all four channels, speed over accuracy
+// note: inlining uses less code than actual function calls
+static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
+  uint32_t rb = (((c     & 0x00FF00FF) * scale) >> 8) &  0x00FF00FF;
+  uint32_t wg = (((c>>8) & 0x00FF00FF) * scale)       & ~0x00FF00FF;
+  return rb | wg;
+}
+
+// palettes
+extern const TProgmemRGBPalette16* const fastledPalettes[];
+extern const uint8_t* const gGradientPalettes[];
+
+
 struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   union {
     struct {
@@ -72,7 +103,7 @@ struct CHSV32 { // 32bit HSV color with 16bit hue for more accurate conversions
   };
   inline CHSV32() __attribute__((always_inline)) = default; // default constructor
 
-  // allow construction from hue, saturation, and value
+  // allow construction from hue (ih), saturation (is), and value (iv)
   inline CHSV32(uint16_t ih, uint8_t is, uint8_t iv) __attribute__((always_inline)) // constructor from 16bit h, s, v
         : h(ih), s(is), v(iv) {}
 
@@ -164,6 +195,4 @@ inline CHSV32& CHSV32::operator= (const CRGBW& rgb) { // assignment from 32bit r
   rgb2hsv(rgb, *this);
   return *this;
 }
-
-
 #endif

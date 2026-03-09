@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>Pin Info</title>
+	<script>
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+		var pinsTimer=null, gpioInfo={};
+		function S() {
+			getLoc();
+			loadJS(getURL('/settings/s.js?p=11'), false, ()=>{
+				d.um_p = [];
+				d.rsvd = [];
+				d.ro_gpio = [];
+				d.max_gpio = 50;
+				d.touch = [];
+			}, ()=>{
+				// Load extended GPIO info and start pin polling
+				loadPins();
+				pinsTimer = setInterval(loadPins, 250);
+			});
+		}
+
+		function B(){window.open(getURL('/settings'),'_self');} // back button
+
+		function getOwnerName(o,t,n) {
+			// Use firmware-provided name if available
+			if(n) return n;
+			if(!o) return "System"; // no owner provided
+			if(o===0x85){ return getBtnTypeName(t); } // button pin
+			return "UM #"+o;
+		}
+		function getBtnTypeName(t) {
+			var n=["None","Reserved","Push","Push Inv","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
+			var label = n[t] || "?";
+			return 'Button <span style="font-size:10px;color:#888">'+label+'</span>';
+		}
+		function getCaps(p,c) {
+			var r=[];
+			// Use touch info from settings endpoint
+			if(d.touch && d.touch.includes(p)) r.push("Touch");
+			if(d.ro_gpio && d.ro_gpio.includes(p)) r.push("Input Only");
+			// Use other caps from JSON (Analog, Boot, Input Only)
+			if(c&0x02) r.push("Analog");
+			if(c&0x08) r.push("Flash Boot");
+			if(c&0x10) r.push("Bootstrap");
+			return r.length?r.join(", "):"-";
+		}
+		function loadPins() {
+			fetch(getURL('/json/pins'),{method:'get'})
+			.then(r=>r.json())
+			.then(j=>{
+				var cn="",pins=j.pins||[];
+				if(!pins.length) {
+					cn="No pins available.";
+				}else{
+					cn='<table><tr><th>Pin</th><th>Used by</th><th>Pin Notes</th></tr>';
+					for(var p of pins){
+						var st=""; // button state indicator
+						var rv=""; // raw value (touch / analog)
+						if(typeof p.s!=='undefined'){
+							st='<span class="bs" style="background:'+(p.s?'#0B4':'#666')+'"></span> ';	// button state dot, gray=off, green=on
+							if(typeof p.r!=='undefined') rv=' <span class="rv">'+p.r+'</span>';					// add raw touch reading if available
+						}
+						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
+						//if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
+						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+rv+'</td><td>'+getCaps(p.p,p.c||0)+'</td></tr>';
+					}
+					cn+='</table>';
+				}
+				gId('pins').innerHTML=cn;
+			})
+			.catch(e=>{gId('pins').innerHTML='Error loading pin info';});
+		}
+	</script>
+	<style>
+		body{text-align:center;background:#222;margin:auto;padding:10px;max-width: 550px}
+		table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px;border-radius:6px;overflow:hidden;}
+		th,td{padding:8px;border:3px solid #444;color:#fff}
+		th{background:#444}
+		tr:nth-child(even){background:#222}
+		tr:nth-child(odd){background:#111}
+		.bs{display:inline-block;width:14px;height:14px;border-radius:50%} /* button state dot */
+		.rv{display:inline-block;font-size:10px;color:#888;min-width:6ch;text-align:right;} /* raw value (touch / analog) */
+	</style>
+</head>
+<body>
+	<button type="button" onclick="B()">Back</button>
+	<h2>Pin Info</h2>
+	<div id="pins">Loading...</div>
+	<button type="button" onclick="B()">Back</button>
+</body>
+</html>

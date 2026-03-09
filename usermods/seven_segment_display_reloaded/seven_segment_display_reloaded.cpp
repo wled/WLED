@@ -1,4 +1,10 @@
 #include "wled.h"
+#ifdef USERMOD_SN_PHOTORESISTOR
+  #include "SN_Photoresistor.h"
+#endif
+#ifdef USERMOD_BH1750
+  #include "BH1750_v2.h"
+#endif
 
 #ifdef WLED_DISABLE_MQTT
 #error "This user mod requires MQTT to be enabled."

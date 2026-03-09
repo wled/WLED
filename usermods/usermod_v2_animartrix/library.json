@@ -1,5 +1,6 @@
 {
   "name": "animartrix",
+  "build": { "libArchive": false },
   "dependencies": {
     "Animartrix": "https://github.com/netmindz/animartrix.git#b172586"
   }    

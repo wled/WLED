@@ -1,3 +1,4 @@
 {
-  "name:": "deep_sleep"
+  "name": "deep_sleep",
+  "build": { "libArchive": false }
 }
