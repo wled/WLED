@@ -1,6 +1,7 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
 
 /*
  * All globally accessible functions are declared here
@@ -381,7 +382,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
