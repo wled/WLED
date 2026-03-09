@@ -680,4 +680,28 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
  */
 BusType getRecommendedBusType();
 
+/**
+ * Estimate exact memory footprint of a bus.
+ * Accounts for encode buffers, driver overhead, and shared DMA contexts.
+ */
+static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t channelCount, size_t dmaBufferSize = DEFAULT_DMA_BUFFER_SIZE) {
+    size_t mem = 0;
+
+    // Bus instance overhead
+    mem += 128; // Approximate C++ object size + IBus data structures
+
+    // Encode buffer (allocated continuously across RMT, I2S, LCD)
+    mem += numPixels * channelCount;
+
+    // DMA buffers and descriptors for I2S/LCD 
+    // They are double-buffered and mapped via heap_caps_malloc
+    if (type == BusType::I2S || type == BusType::LCD || type == BusType::Auto) {
+        mem += dmaBufferSize * 2;
+        // Include minimal descriptor memory estimates (~64 bytes per context)
+        mem += 64; 
+    }
+
+    return mem;
+}
+
 } // namespace WLEDpixelBus

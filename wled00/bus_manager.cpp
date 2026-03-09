@@ -130,14 +130,12 @@ BusDigital::BusDigital(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814 || bc.type == TYPE_TM1815))
 , _skip(bc.skipAmount) //sacrificial pixels
 , _colorOrder(bc.colorOrder)
-, _iType(bc.iType) // internal bus type determined by getI()
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
 , _driverType(bc.driverType) // Store driver preference (0=RMT, 1=I2S)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
-  if (_iType == I_NONE) { DEBUGBUS_PRINTLN(F("Incorrect iType!")); return; }
 
   _frequencykHz = 0U;
   _colorSum = 0;
@@ -159,7 +157,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
 
   // create bus via PolyBus wrapper which will return a WLEDpixelBus::IBus
-  _busPtr = PolyBus::create(_iType, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType);
+  _busPtr = PolyBus::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType);
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759
@@ -171,12 +169,11 @@ BusDigital::BusDigital(const BusConfig &bc)
   } else {
     cleanup();
   }
-  DEBUGBUS_PRINTF_P(PSTR("Bus len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [itype:%u, driver:%s] mA=%d/%d %s\n"),
+  DEBUGBUS_PRINTF_P(PSTR("Bus len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [driver:%s] mA=%d/%d %s\n"),
     (int)bc.count,
     (int)bc.type,
     (int)_hasRgb, (int)_hasWhite, (int)_hasCCT,
     (unsigned)_pins[0], is2Pin(bc.type)?(unsigned)_pins[1]:255U,
-    (unsigned)_iType,
     isI2S() ? "I2S" : "RMT",
     (int)_milliAmpsPerLed, (int)_milliAmpsMax,
     _valid ? " " : "FAILED"
@@ -412,7 +409,6 @@ void BusDigital::cleanup() {
     delete _busPtr;
     _busPtr = nullptr;
   }
-  _iType = I_NONE;
   _valid = false;
   _busPtr = nullptr;
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
@@ -800,7 +796,7 @@ void BusNetwork::cleanup() {
   DEBUGBUS_PRINTLN(F("Virtual Cleanup."));
   d_free(_data);
   _data = nullptr;
-  _type = I_NONE;
+  _type = TYPE_NONE;
   _valid = false;
 }
 
@@ -1191,7 +1187,7 @@ size_t BusConfig::memUsage() const {
     mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    mem += sizeof(BusDigital) + PolyBus::memUsage(count + skipAmount, iType, driverType);
+    mem += sizeof(BusDigital) + PolyBus::memUsage(type, count + skipAmount, pins, driverType);
   } else if (Bus::isOnOff(type)) {
     mem += sizeof(BusOnOff);
   } else {
@@ -1260,8 +1256,8 @@ String BusManager::getLEDTypesJSONString() {
   return json;
 }
 
-uint8_t BusManager::getI(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
-  return PolyBus::getI(busType, pins, driverType);
+bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
+  return PolyBus::allocateHardware(busType, pins, driverType);
 }
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
@@ -1465,12 +1461,11 @@ ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
 #ifndef ESP8266
 // PolyBus channel tracking for dynamic allocation
-bool PolyBus::_useParallelI2S = false;
 uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
 uint8_t PolyBus::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
-uint8_t PolyBus::_i2sChannelsAssigned = 0; // number of I2S channels assigned durig getI() check
-uint8_t PolyBus::_parallelBusItype = 0;    // type I_NONE
+uint8_t PolyBus::_i2sChannelsAssigned = 0;
 uint8_t PolyBus::_2PchannelsAssigned = 0;
+uint8_t PolyBus::_parallelI2sBusType = 0;
 #endif
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()
@@ -1483,3 +1478,4 @@ std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
 bool BusManager::_useABL = false;
+

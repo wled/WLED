@@ -1173,50 +1173,23 @@ void WS2812FX::finalizeInit() {
     }
   }
   DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
-
-  // Determine parallel vs single I2S usage (used for memory calculation only)
-  bool useParallelI2S = false;
-  #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // ESP32-S3 always uses parallel LCD driver for I2S
-  if (i2sBusCount > 0) {
-    useParallelI2S = true;
-  }
-  #else
-  if (i2sBusCount > 1) {
-    useParallelI2S = true;
-  }
-  #endif
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
   // create buses/outputs
   unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
-  unsigned I2SdmaMem = 0;
   for (auto &bus : busConfigs) {
     // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
     // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
     // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
-    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
+    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
   }
   for (auto &bus : busConfigs) {
     bool use_placeholder = false;
-    unsigned busMemUsage = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
+    unsigned busMemUsage = bus.memUsage(); // includes pixel buffers (1x global, 1x segment) + driver memory (e.g. DMA)
     mem += busMemUsage;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
-    bool usesI2S = (bus.driverType == 1); // getI() updates driverType to reflect the actual resolved driver
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
-      #ifdef NPB_CONF_4STEP_CADENCE
-      constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
-      #else
-      constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
-      #endif
-      unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
-      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
-      if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
-    }
-    #endif
-    if (mem + I2SdmaMem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
+
+    if (mem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
       DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
       errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
       use_placeholder = true;
@@ -1226,7 +1199,7 @@ void WS2812FX::finalizeInit() {
       if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
-  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
+  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
@@ -2077,3 +2050,4 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
 "Candy2","Traffic Light"
 ])=====";
+

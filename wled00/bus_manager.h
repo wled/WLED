@@ -277,7 +277,6 @@ class BusDigital : public Bus {
     uint8_t  _skip;
     uint8_t  _colorOrder;
     uint8_t  _pins[2];
-    uint8_t  _iType;
     uint8_t  _driverType; // 0=RMT (default), 1=I2S
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
@@ -464,7 +463,6 @@ struct BusConfig {
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
   uint8_t driverType; // 0=RMT (default), 1=I2S
-  uint8_t iType; // internal bus type (I_*) determined during memory estimation, used for bus creation
   String text;
 
   BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
@@ -478,7 +476,6 @@ struct BusConfig {
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
   , driverType(driver)
-  , iType(0) // default to I_NONE
   , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);
@@ -548,7 +545,7 @@ namespace BusManager {
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
-  uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t& driverType); // workaround for access to PolyBus function from FX_fcn.cpp
+    bool allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType); // workaround to access PolyBus function
 
   //do not call this method from system context (network callback)
   void removeAll();
