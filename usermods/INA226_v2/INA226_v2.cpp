@@ -560,11 +560,22 @@ public:
 
         float shuntMilliOhms;
         if (getJsonValue(top[F("ShuntResistor")], shuntMilliOhms))
-            _shuntResistorUOhm = static_cast<uint32_t>(shuntMilliOhms * 1000.0f + 0.5f);
+        {
+            if (shuntMilliOhms > 0)
+                _shuntResistorUOhm = static_cast<uint32_t>(shuntMilliOhms * 1000.0f + 0.5f);
+            else
+                _shuntResistorUOhm = INA226_SHUNT_MICRO_OHMS;
+        }
         else
             configComplete = false;
 
-        configComplete &= getJsonValue(top[F("CurrentRange")], _currentRangeMa);
+        if (getJsonValue(top[F("CurrentRange")], _currentRangeMa))
+        {
+            if (_currentRangeMa == 0)
+                _currentRangeMa = INA226_DEFAULT_CURRENT_RANGE;
+        }
+        else
+            configComplete = false;
         if (!getJsonValue(top[F("CurrentOffset")], _currentOffsetMa))
             _currentOffsetMa = INA226_CURRENT_OFFSET_MA;  // Use compile-time default if missing from config
 
