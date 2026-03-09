@@ -148,8 +148,7 @@ void mode_copy_segment(void) {
   Segment& sourcesegment = strip.getSegment(sourceid);
 
   if (sourcesegment.isActive()) {
-    uint32_t sourcecolor;
-    uint32_t destcolor;
+    CRGBW color;
     if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
       for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
         for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
@@ -157,29 +156,29 @@ void mode_copy_segment(void) {
           unsigned sy = y;
           if(SEGMENT.check1) std::swap(sx, sy); // flip axis
           if(SEGMENT.check2) {
-            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+            color = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
           }
           else {
             sourcesegment.setDrawDimensions(); // set to source segment dimensions
-            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+            color = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
           }
-          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
           SEGMENT.setDrawDimensions(); // reset to current segment dimensions
-          SEGMENT.setPixelColorXY(x, y, destcolor);
+          SEGMENT.setPixelColorXY(x, y, color);
         }
       }
     } else { // 1D source, source can be expanded into 2D
       for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
         if(SEGMENT.check2) {
-          sourcecolor = strip.getPixelColorNoMap(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+          color = strip.getPixelColorNoMap(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
         }
         else {
           sourcesegment.setDrawDimensions(); // set to source segment dimensions
-          sourcecolor = sourcesegment.getPixelColor(i);
+          color = sourcesegment.getPixelColor(i);
         }
-        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
         SEGMENT.setDrawDimensions(); // reset to current segment dimensions
-        SEGMENT.setPixelColor(i, destcolor);
+        SEGMENT.setPixelColor(i, color);
       }
     }
   }

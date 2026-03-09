@@ -1106,9 +1106,9 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
 uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
-  uint32_t rgb;
-  hsv2rgb(CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
-  return rgb | (w << 24); // add white channel
+  CRGBW rgb;
+  rgb = (CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
+  return rgb.color32 | (w << 24); // add white channel
 }
 
 /*
