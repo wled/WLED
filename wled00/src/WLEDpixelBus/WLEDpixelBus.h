@@ -435,7 +435,7 @@ private:
     size_t _maxDataLen;
 
     // Encoding (4-step cadence)
-    void encode4Step(uint8_t* dest, size_t destLen);
+    void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen);
 
     // Singleton instances
     static I2sBusContext* _instances[WLEDPB_I2S_BUS_COUNT];
@@ -554,9 +554,9 @@ private:
     LcdBusContext();
     ~LcdBusContext();
 
-    size_t encodeIntoBuffer(uint8_t* dest, size_t destLen);
-    bool hasMoreData() const;
-    void fillBufferForState(uint8_t bufIdx);
+    size_t IRAM_ATTR encodeIntoBuffer(uint8_t* dest, size_t destLen);
+    bool IRAM_ATTR hasMoreData() const;
+    void IRAM_ATTR fillBufferForState(uint8_t bufIdx);
     
     static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan,
                                        gdma_event_data_t* event_data,

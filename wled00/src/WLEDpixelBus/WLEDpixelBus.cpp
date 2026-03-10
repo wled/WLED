@@ -696,7 +696,7 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
     }
 }
 
-void I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
+void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     // 4-step cadence encoding for parallel output
     // Each source bit becomes 4 DMA bytes (one bit per channel in each byte)
     // Desired output: [HIGH][data][data][LOW] for each bit
@@ -1368,7 +1368,7 @@ void LcdBusContext:: setChannelData(int8_t channelIdx, const uint8_t* data, size
     }
 }
 
-size_t LcdBusContext:: encodeIntoBuffer(uint8_t* dest, size_t destLen) {
+size_t IRAM_ATTR LcdBusContext:: encodeIntoBuffer(uint8_t* dest, size_t destLen) {
     // Encode pixel data from all channels
     // Returns number of bytes written (0 if no more data)
     
@@ -1432,7 +1432,7 @@ size_t LcdBusContext:: encodeIntoBuffer(uint8_t* dest, size_t destLen) {
     return written;
 }
 
-bool LcdBusContext::hasMoreData() const {
+bool IRAM_ATTR LcdBusContext::hasMoreData() const {
     for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
         if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
             return true;
@@ -1441,7 +1441,7 @@ bool LcdBusContext::hasMoreData() const {
     return false;
 }
 
-void LcdBusContext::fillBufferForState(uint8_t bufIdx) {
+void IRAM_ATTR LcdBusContext::fillBufferForState(uint8_t bufIdx) {
     // Fill buffer based on current transmission state
     // This is called from ISR context! 
     
