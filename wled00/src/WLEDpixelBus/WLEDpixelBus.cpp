@@ -247,14 +247,8 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
       return false;
     }
 
-    // Wait for ALL active RMT channels to complete their previous transmission.
-    // This ensures frame-level synchronization when multiple RMT outputs are used
-    // (prevents one channel from starting a new frame while another is still sending).
-    for (uint8_t ch = 0; ch < getRmtMaxChannels(); ch++) {
-        if (s_activeChannelMask & (1 << ch)) {
-            rmt_wait_tx_done((rmt_channel_t)ch, portMAX_DELAY);
-        }
-    }
+    // Wait for previous transmission on THIS channel to complete
+    rmt_wait_tx_done((rmt_channel_t)_rmtChannel, portMAX_DELAY);
 
     if (!allocateBuffer(numPixels)) return false;
 
