@@ -3465,4 +3465,4 @@ _C.addEventListener('touchstart', lock, false);
 
 _C.addEventListener('mouseout', move, false);
 _C.addEventListener('mouseup', move, false);
-_C.addEventListener('touchend', move, false);
+_C.addEventListener('touchend', move, false); 

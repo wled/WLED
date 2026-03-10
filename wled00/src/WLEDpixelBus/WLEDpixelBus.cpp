@@ -414,17 +414,17 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     if (_initialized) return true;
 
     _timing = timing;
-    _bufferSize = bufferSize;
+    _bufferSize = (bufferSize + 3) & ~3;  // align to 4 bytes
 
-    // Allocate DMA buffers
+    // Allocate DMA buffers (4-byte aligned for DMA)
     for (int i = 0; i < 2; i++) {
-        _dmaBuffer[i] = (uint8_t*)heap_caps_malloc(bufferSize, MALLOC_CAP_DMA);
+        _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
         if (!_dmaBuffer[i]) {
             log_e("I2S DMA buffer alloc failed");
             deinit();
             return false;
         }
-        memset(_dmaBuffer[i], 0, bufferSize);
+        memset(_dmaBuffer[i], 0, _bufferSize);
 
         _dmaDesc[i] = (lldesc_t*)heap_caps_malloc(sizeof(lldesc_t), MALLOC_CAP_DMA);
         if (!_dmaDesc[i]) {
@@ -434,16 +434,17 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
         }
     }
 
-    // Setup DMA descriptors - linked list for ping-pong
+    // Setup DMA descriptors - circular chain for gapless ping-pong
     for (int i = 0; i < 2; i++) {
-        _dmaDesc[i]->size = bufferSize;
-        _dmaDesc[i]->length = bufferSize;
+        _dmaDesc[i]->size = _bufferSize;
+        _dmaDesc[i]->length = _bufferSize;
         _dmaDesc[i]->buf = _dmaBuffer[i];
         _dmaDesc[i]->eof = 1;  // Generate interrupt on completion
         _dmaDesc[i]->sosf = 0;
         _dmaDesc[i]->owner = 1;
-        _dmaDesc[i]->qe.stqe_next = nullptr;  // Set dynamically
     }
+    _dmaDesc[0]->qe.stqe_next = _dmaDesc[1];
+    _dmaDesc[1]->qe.stqe_next = _dmaDesc[0];
 
     // Enable I2S peripheral
 #if defined(WLEDPB_ESP32)
@@ -452,56 +453,133 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     periph_module_enable(PERIPH_I2S0_MODULE);
 #endif
 
+    // Stop any existing transmission
+    _i2sDev->out_link.stop = 1;
+    _i2sDev->conf.tx_start = 0;
+    _i2sDev->int_ena.val = 0;
+    _i2sDev->int_clr.val = 0xFFFFFFFF;
+    _i2sDev->fifo_conf.dscr_en = 0;
+
     // Reset I2S
     _i2sDev->conf.tx_reset = 1;
     _i2sDev->conf.tx_reset = 0;
     _i2sDev->conf.rx_reset = 1;
     _i2sDev->conf.rx_reset = 0;
+
+    // Reset DMA
+    _i2sDev->lc_conf.in_rst = 1;
+    _i2sDev->lc_conf.in_rst = 0;
+    _i2sDev->lc_conf.out_rst = 1;
+    _i2sDev->lc_conf.out_rst = 0;
+    _i2sDev->lc_conf.ahbm_rst = 1;
+    _i2sDev->lc_conf.ahbm_rst = 0;
+    _i2sDev->lc_conf.ahbm_fifo_rst = 1;
+    _i2sDev->lc_conf.ahbm_fifo_rst = 0;
+
+    // Reset FIFO
     _i2sDev->conf.tx_fifo_reset = 1;
     _i2sDev->conf.tx_fifo_reset = 0;
+    _i2sDev->conf.rx_fifo_reset = 1;
+    _i2sDev->conf.rx_fifo_reset = 0;
 
-    // Configure for parallel LCD mode
+    // Configure for 8-bit parallel LCD mode (matching NeoPixelBus)
+    _i2sDev->conf2.val = 0;
     _i2sDev->conf2.lcd_en = 1;
-    _i2sDev->conf2.lcd_tx_wrx2_en = 0;
+    _i2sDev->conf2.lcd_tx_wrx2_en = 1;  // Required for 8-bit parallel output
     _i2sDev->conf2.lcd_tx_sdx2_en = 0;
 
-    // Calculate clock divider for 4-step cadence
-    // Bit period / 4 = step time
-    uint32_t bitPeriodNs = timing.bitPeriod();
-    uint32_t stepPeriodNs = bitPeriodNs / 4;
+    // DMA config
+    _i2sDev->lc_conf.val = 0;
+    _i2sDev->lc_conf.out_eof_mode = 1;
 
+    // Disable PDM
 #if defined(WLEDPB_ESP32)
-    uint32_t baseClock = 160000000;
-#else
-    uint32_t baseClock = 80000000;
+    _i2sDev->pdm_conf.tx_pdm_en = 0;
+    _i2sDev->pdm_conf.pcm2pdm_conv_en = 0;
 #endif
 
-    _clockDiv = (baseClock / 1000000) * stepPeriodNs / 1000;
-    if (_clockDiv < 2) _clockDiv = 2;
-    if (_clockDiv > 255) _clockDiv = 255;
-
-    // Set clock
-    _i2sDev->clkm_conf.clkm_div_a = 0;
-    _i2sDev->clkm_conf.clkm_div_b = 0;
-    _i2sDev->clkm_conf.clkm_div_num = _clockDiv;
-    _i2sDev->clkm_conf.clk_en = 1;
-
-    // Sample configuration
-    _i2sDev->fifo_conf.tx_fifo_mod = 1;  // 8-bit parallel
+    // FIFO configuration
+    _i2sDev->fifo_conf.val = 0;
     _i2sDev->fifo_conf.tx_fifo_mod_force_en = 1;
-    _i2sDev->sample_rate_conf.tx_bck_div_num = 1;
-    _i2sDev->sample_rate_conf.tx_bits_mod = 8;
+    _i2sDev->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel
+    _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
+
+    // PCM bypass
+    _i2sDev->conf1.val = 0;
+    _i2sDev->conf1.tx_stop_en = 0;
+    _i2sDev->conf1.tx_pcm_bypass = 1;
 
     // Channel config
-    _i2sDev->conf_chan.tx_chan_mod = 1;
-    _i2sDev->conf.tx_right_first = 1;
-    _i2sDev->conf.tx_msb_right = 0;
-    _i2sDev->conf.tx_mono = 1;
+    _i2sDev->conf_chan.val = 0;
+    _i2sDev->conf_chan.tx_chan_mod = 1;  // Right channel
 
-    // Enable DMA
-    _i2sDev->fifo_conf.dscr_en = 1;
-    _i2sDev->lc_conf.out_data_burst_en = 1;
-    _i2sDev->lc_conf.outdscr_burst_en = 1;
+    // I2S conf
+    _i2sDev->conf.val = 0;
+    _i2sDev->conf.tx_msb_shift = 0;  // No shift in parallel mode
+    _i2sDev->conf.tx_right_first = 1;
+
+    // Clear timing register
+    _i2sDev->timing.val = 0;
+
+    // Calculate clock divider for 4-step cadence (matching NeoPixelBus)
+    // bck_div_num must be >= 2 on ESP32 hardware (NeoPixelBus uses 4)
+    // step_time = clkm_div * bck_div / base_clock_MHz * 1000 ns
+    // clkm_div = step_time_ns * base_clock_MHz / (bck_div * 1000)
+    const uint8_t bckDiv = 4;  // must be >= 2, NeoPixelBus uses 4
+    uint32_t bitPeriodNs = timing.bitPeriod();
+
+#if defined(WLEDPB_ESP32)
+    const double baseClockMhz = 160.0;
+#else
+    const double baseClockMhz = 80.0;
+#endif
+
+    // NeoPixelBus formula: clkmdiv = nsBitSendTime / bytesPerSample / dmaBitPerDataBit / bck / 1000 * baseClkMhz
+    // For parallel 8-bit, bytesPerSample=1, dmaBitPerDataBit=4
+    double clkmdiv = (double)bitPeriodNs / 1.0 / 4.0 / (double)bckDiv / 1000.0 * baseClockMhz;
+    if (clkmdiv < 2.0) clkmdiv = 2.0;
+    if (clkmdiv > 255.0) clkmdiv = 255.0;
+
+    uint8_t clkmInteger = (uint8_t)clkmdiv;
+    double clkmFraction = clkmdiv - clkmInteger;
+
+    // Convert fraction to divB/divA (fraction = divB/divA)
+    uint8_t divB = 0;
+    uint8_t divA = 0;
+    if (clkmFraction > 0.001) {
+        divA = 63;  // use max denominator for best precision
+        divB = (uint8_t)(clkmFraction * 63.0 + 0.5);
+        if (divB >= divA) divB = divA - 1;
+    }
+
+    _clockDiv = clkmInteger;
+
+    Serial.printf("[I2S] Clock: bitPeriod=%uns, clkm_div=%u+%u/%u, bck_div=%u\n",
+                  bitPeriodNs, clkmInteger, divB, divA, bckDiv);
+    double actualStepNs = (double)clkmInteger * bckDiv / baseClockMhz * 1000.0;
+    if (divA > 0) actualStepNs = ((double)clkmInteger + (double)divB / divA) * bckDiv / baseClockMhz * 1000.0;
+    Serial.printf("[I2S] Step time: %.1fns (target: %.1fns), bit period: %.1fns\n",
+                  actualStepNs, (double)bitPeriodNs / 4.0, actualStepNs * 4.0);
+
+    // Set clock (with fractional divider for accurate timing)
+    _i2sDev->clkm_conf.val = 0;
+    _i2sDev->clkm_conf.clk_en = 1;
+    _i2sDev->clkm_conf.clkm_div_a = divA;
+    _i2sDev->clkm_conf.clkm_div_b = divB;
+    _i2sDev->clkm_conf.clkm_div_num = clkmInteger;
+
+    // Sample rate - bck must be >= 2 (NeoPixelBus uses 4)
+    _i2sDev->sample_rate_conf.val = 0;
+    _i2sDev->sample_rate_conf.tx_bck_div_num = bckDiv;
+    _i2sDev->sample_rate_conf.tx_bits_mod = 8;
+
+    // Final reset before ISR install
+    _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
+    _i2sDev->lc_conf.ahbm_rst = 1; _i2sDev->lc_conf.ahbm_fifo_rst = 1;
+    _i2sDev->lc_conf.in_rst = 0; _i2sDev->lc_conf.out_rst = 0;
+    _i2sDev->lc_conf.ahbm_rst = 0; _i2sDev->lc_conf.ahbm_fifo_rst = 0;
+    _i2sDev->conf.tx_reset = 1; _i2sDev->conf.tx_fifo_reset = 1;
+    _i2sDev->conf.tx_reset = 0; _i2sDev->conf.tx_fifo_reset = 0;
 
     // Install ISR
     int intSource;
@@ -521,14 +599,17 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     }
 
     _initialized = true;
+    Serial.printf("[I2S] Init complete: bus=%u, bufSize=%u\n", _busNum, _bufferSize);
     return true;
 }
 
 void I2sBusContext::deinit() {
     if (_i2sDev) {
+        _i2sDev->int_ena.val = 0;      // Disable interrupts first
         _i2sDev->conf.tx_start = 0;
         _i2sDev->out_link.start = 0;
     }
+    _state = DriverState::Idle;
 
     if (_isrHandle) {
         esp_intr_free(_isrHandle);
@@ -615,42 +696,48 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
     }
 }
 
-void I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, size_t* bytesWritten) {
+void I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     // 4-step cadence encoding for parallel output
     // Each source bit becomes 4 DMA bytes (one bit per channel in each byte)
-    // Pattern: [1][data][data][0] for each bit
+    // Desired output: [HIGH][data][data][LOW] for each bit
     //
-    // For multiple channels, we interleave bits into each byte position
+    // ESP32 I2S LCD mode with lcd_tx_wrx2_en=1 swaps half-words within 32-bit values:
+    //   Memory [b0,b1,b2,b3] outputs as [b2,b3,b0,b1]
+    //   (NeoPixelBus documents this as "bytes within the words are swapped")
+    //   So we write: p[0]=step2, p[1]=step3, p[2]=step0, p[3]=step1
+    //
+    // Buffer is always filled completely (zeros = LOW = reset signal)
 
-    size_t written = 0;
     memset(dest, 0, destLen);
+    size_t pos = 0;
 
     // Process each source byte position across all channels
-    while (written + 32 <= destLen) {  // 8 bits * 4 steps = 32 bytes per source byte
+    while (pos + 32 <= destLen) {  // 8 bits * 4 steps = 32 bytes per source byte
         bool hasData = false;
 
         for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-            if (! _channels[ch].active) continue;
+            if (!_channels[ch].active) continue;
             if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
 
             hasData = true;
             uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
             uint8_t chMask = (1 << ch);
 
-            uint8_t* p = dest + written;
+            uint8_t* p = dest + pos;
             for (int bit = 7; bit >= 0; bit--) {
                 uint8_t dataVal = (srcByte >> bit) & 1;
 
-                // Step 0: Always HIGH (start of bit)
-                p[0] |= chMask;
+                // Half-word swapped: memory layout [step2, step3, step0, step1]
+                // Step 0 (HIGH) -> p[2]
+                p[2] |= chMask;
 
-                // Step 1: HIGH for '1', LOW for '0'
-                if (dataVal) p[1] |= chMask;
+                // Step 1 (data) -> p[3]
+                if (dataVal) p[3] |= chMask;
 
-                // Step 2: HIGH for '1', LOW for '0'
-                if (dataVal) p[2] |= chMask;
+                // Step 2 (data) -> p[0]
+                if (dataVal) p[0] |= chMask;
 
-                // Step 3: Always LOW (already 0)
+                // Step 3 (LOW)  -> p[1] (already 0)
 
                 p += 4;
             }
@@ -665,16 +752,14 @@ void I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, size_t* bytesWrit
             }
         }
 
-        written += 32;
+        pos += 32;
     }
-
-    *bytesWritten = written;
+    // Rest of buffer remains zero (reset signal) from memset
 }
 
-void I2sBusContext:: fillBuffer(uint8_t bufIdx) {
-    size_t written;
-    encode4Step(_dmaBuffer[bufIdx], _bufferSize, &written);
-    _dmaDesc[bufIdx]->length = written;
+void I2sBusContext::fillBuffer(uint8_t bufIdx) {
+    encode4Step(_dmaBuffer[bufIdx], _bufferSize);
+    // desc->length stays at _bufferSize (set in init, never changes)
 }
 
 bool I2sBusContext::startTransmit() {
@@ -691,50 +776,50 @@ bool I2sBusContext::startTransmit() {
         }
     }
 
+    static uint32_t s_txCount = 0;
+    if (s_txCount < 3 || (s_txCount % 1000) == 0) {
+        Serial.printf("[I2S] startTransmit #%u: channels=%u, maxDataLen=%u, bufSize=%u\n",
+                      s_txCount, _channelCount, _maxDataLen, _bufferSize);
+    }
+    s_txCount++;
+
     // Fill both buffers initially
     fillBuffer(0);
     fillBuffer(1);
 
-    // Check if we need second buffer
-    bool moreData = false;
-    for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-        if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
-            moreData = true;
-            break;
-        }
-    }
-
-    // Setup DMA chain
-    if (moreData) {
-        _dmaDesc[0]->qe.stqe_next = _dmaDesc[1];
-        _dmaDesc[1]->qe.stqe_next = nullptr;  // Will be set in ISR if more data
-    } else {
-        _dmaDesc[0]->qe.stqe_next = _dmaDesc[1]->length > 0 ? _dmaDesc[1] : nullptr;
-        _dmaDesc[1]->qe.stqe_next = nullptr;
-    }
+    // Restore DMA descriptor ownership (DMA clears owner to 0 after processing)
+    _dmaDesc[0]->owner = 1;
+    _dmaDesc[1]->owner = 1;
 
     _activeBuffer = 0;
     _state = DriverState::Sending;
 
-    // Reset FIFO
-    _i2sDev->conf.tx_fifo_reset = 1;
-    _i2sDev->conf.tx_fifo_reset = 0;
+    // Reset DMA and FIFO before starting
+    _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
+    _i2sDev->lc_conf.ahbm_rst = 1; _i2sDev->lc_conf.ahbm_fifo_rst = 1;
+    _i2sDev->lc_conf.in_rst = 0; _i2sDev->lc_conf.out_rst = 0;
+    _i2sDev->lc_conf.ahbm_rst = 0; _i2sDev->lc_conf.ahbm_fifo_rst = 0;
+    _i2sDev->conf.tx_reset = 1; _i2sDev->conf.tx_fifo_reset = 1;
+    _i2sDev->conf.tx_reset = 0; _i2sDev->conf.tx_fifo_reset = 0;
 
-    // Clear interrupts
+    // Clear and enable interrupts
     _i2sDev->int_clr.val = 0xFFFFFFFF;
-
-    // Enable EOF interrupt
     _i2sDev->int_ena.out_eof = 1;
 
-    // Set DMA start address
+    // Enable DMA and start
+    _i2sDev->fifo_conf.dscr_en = 1;
+    _i2sDev->out_link.start = 0;
     _i2sDev->out_link.addr = (uint32_t)_dmaDesc[0];
-
-    // Start transmission
     _i2sDev->out_link.start = 1;
     _i2sDev->conf.tx_start = 1;
 
     return true;
 }
+
+static volatile uint32_t s_i2sIsrCount = 0;
+static volatile uint32_t s_i2sIsrSending = 0;
+static volatile uint32_t s_i2sIsrReset = 0;
+static volatile uint32_t s_i2sIsrIdle = 0;
 
 void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     I2sBusContext* ctx = (I2sBusContext*)arg;
@@ -743,36 +828,43 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     uint32_t status = dev->int_st.val;
     dev->int_clr.val = status;
 
-    if (status & I2S_OUT_EOF_INT_ST) {
-        // Current buffer finished, check if more data
+    if (!(status & I2S_OUT_EOF_INT_ST)) return;
+
+    s_i2sIsrCount++;
+
+    // The completed buffer just finished playing; DMA is now on the other buffer
+    uint8_t completedBuf = ctx->_activeBuffer;
+    ctx->_activeBuffer ^= 1;
+
+    if (ctx->_state == DriverState::Sending) {
+        s_i2sIsrSending++;
+        // Encode next chunk into the completed buffer
+        // encode4Step always fills the full buffer (zeros for any remainder)
+        ctx->encode4Step(ctx->_dmaBuffer[completedBuf], ctx->_bufferSize);
+
+        // Check if all source data has been consumed
         bool moreData = false;
         for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-            if (ctx->_channels[ch].active && 
+            if (ctx->_channels[ch].active &&
                 ctx->_channels[ch].srcPos < ctx->_channels[ch].srcLen) {
                 moreData = true;
                 break;
             }
         }
-
-        if (moreData) {
-            // Refill the completed buffer
-            uint8_t completedBuf = ctx->_activeBuffer;
-            ctx->_activeBuffer ^= 1;  // Switch to other buffer
-
-            // Fill the completed buffer with new data
-            size_t written;
-            ctx->encode4Step(ctx->_dmaBuffer[completedBuf], ctx->_bufferSize, &written);
-            ctx->_dmaDesc[completedBuf]->length = written;
-
-            // Link it after current buffer
-            ctx->_dmaDesc[ctx->_activeBuffer]->qe.stqe_next = ctx->_dmaDesc[completedBuf];
-            ctx->_dmaDesc[completedBuf]->qe.stqe_next = nullptr;
-        } else {
-            // All data sent, add reset time then go idle
-            ctx->_state = DriverState::Idle;
-            dev->conf.tx_start = 0;
-            dev->out_link.start = 0;
+        if (!moreData) {
+            s_i2sIsrReset++;
+            ctx->_state = DriverState::WaitingReset;
         }
+
+        // Restore DMA ownership so hardware can replay this buffer
+        ctx->_dmaDesc[completedBuf]->owner = 1;
+    } else {
+        // WaitingReset - one full zero buffer has been sent as reset, stop DMA
+        s_i2sIsrIdle++;
+        dev->int_ena.out_eof = 0;
+        dev->conf.tx_start = 0;
+        dev->out_link.start = 0;
+        ctx->_state = DriverState::Idle;
     }
 }
 
@@ -790,7 +882,6 @@ I2sBus::I2sBus(int8_t pin, const LedTiming& timing, ColorOrder order,
     , _ctx(nullptr)
     , _encodeBuffer(nullptr)
     , _encodeBufferSize(0)
-    , _encodedLen(0)
 {
 }
 
@@ -812,12 +903,14 @@ bool I2sBus::begin() {
 
     _channelIdx = _ctx->registerChannel(_pin, this);
     if (_channelIdx < 0) {
+        Serial.printf("[I2S] registerChannel failed for pin %d\n", _pin);
         I2sBusContext::release(_busNum);
         _ctx = nullptr;
         return false;
     }
 
     _initialized = true;
+    Serial.printf("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n", _pin, _busNum, _channelIdx);
     return true;
 }
 
@@ -825,13 +918,15 @@ void I2sBus::end() {
     if (!_initialized) return;
 
     if (_ctx) {
+        // Wait for any active transmission to complete before cleanup
+        while (!_ctx->isIdle()) vTaskDelay(1);
         _ctx->unregisterChannel(_channelIdx);
         I2sBusContext::release(_busNum);
         _ctx = nullptr;
     }
 
     if (_encodeBuffer) {
-        free(_encodeBuffer);
+        heap_caps_free(_encodeBuffer);
         _encodeBuffer = nullptr;
         _encodeBufferSize = 0;
     }
@@ -839,17 +934,17 @@ void I2sBus::end() {
     _initialized = false;
 }
 
-bool I2sBus:: allocateBuffer(uint16_t numPixels) {
+bool I2sBus::allocateBuffer(uint16_t numPixels) {
     size_t needed = numPixels * getChannelCount(_order);
     if (_encodeBuffer && _encodeBufferSize >= needed) {
         return true;
     }
 
     if (_encodeBuffer) {
-        free(_encodeBuffer);
+        heap_caps_free(_encodeBuffer);
     }
 
-    _encodeBuffer = (uint8_t*)malloc(needed);
+    _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_DMA);
     if (!_encodeBuffer) {
         _encodeBufferSize = 0;
         return false;
@@ -859,31 +954,44 @@ bool I2sBus:: allocateBuffer(uint16_t numPixels) {
 }
 
 bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-    if (!_initialized || !_ctx || !pixels || numPixels == 0) return false;
+    // Always use internal pixel buffer (WLED always calls show() without args)
+    if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
 
-    // Wait for previous transmission
-    while (! _ctx->isIdle()) {
+    // Wait for previous transmission to complete
+    while (!_ctx->isIdle()) {
         vTaskDelay(1);
     }
 
-    if (!allocateBuffer(numPixels)) return false;
+    if (!allocateBuffer(_numPixels)) return false;
 
-    // Encode pixels
+    // Encode pixels to byte stream
     ColorEncoder encoder(_order);
     uint8_t* dst = _encodeBuffer;
     uint8_t numCh = encoder.getNumChannels();
 
-    for (uint16_t i = 0; i < numPixels; i++) {
-        encoder.encode(pixels[i], cct ?  &cct[i] : nullptr, dst);
+    for (uint16_t i = 0; i < _numPixels; i++) {
+        encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
         dst += numCh;
     }
 
-    _encodedLen = numPixels * numCh;
+    // Debug: print ISR stats periodically
+    static uint32_t s_showCount = 0;
+    extern volatile uint32_t s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle;
+    if (s_showCount < 3 || (s_showCount % 1000) == 0) {
+        Serial.printf("[I2S] show #%u: %u px, %uch, %u bytes | ISR: total=%u send=%u reset=%u idle=%u\n",
+                      s_showCount, _numPixels, numCh, _numPixels * numCh,
+                      s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle);
+        // Print first 16 bytes of encode buffer
+        Serial.printf("[I2S] Encoded[0..15]: ");
+        for (int i = 0; i < 16 && i < (int)(_numPixels * numCh); i++) {
+            Serial.printf("%02X ", _encodeBuffer[i]);
+        }
+        Serial.println();
+    }
+    s_showCount++;
 
-    // Set data for our channel
-    _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodedLen);
-
-    // Start transmission
+    // Set data for our channel and start
+    _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
     return _ctx->startTransmit();
 }
 
@@ -1637,6 +1745,448 @@ void LcdBus::setColorOrder(ColorOrder order) {
 #endif // WLEDPB_LCD_SUPPORT
 
 //==============================================================================
+// SPI Parallel Bus Implementation (ESP32-C3)
+//==============================================================================
+
+#ifdef WLEDPB_SPI_SUPPORT
+
+// Pin assignments for SPI2 quad mode on C3
+// SPI2 signals: FSPID (MOSI/D0), FSPIQ (MISO/D1), FSPIWP (D2), FSPIHD (D3)
+static const int SPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_OUT_IDX, FSPIHD_OUT_IDX };
+
+// Encoding patterns for SPI quad mode (4-step cadence, LSB first)
+// Each lane is one bit position in a nibble, one byte = two clock cycles, 2 bytes = one 4-step bit
+static constexpr uint16_t SPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high
+static constexpr uint16_t SPI_ONE_BIT  = 0x0011;  // output: [1,1,0,0] = 50% high
+
+SpiBusContext* SpiBusContext::_instance = nullptr;
+uint8_t SpiBusContext::_refCount = 0;
+
+SpiBusContext* SpiBusContext::get() {
+    if (_instance == nullptr) {
+        _instance = new SpiBusContext();
+    }
+    _refCount++;
+    return _instance;
+}
+
+void SpiBusContext::release() {
+    if (_refCount == 0) return;
+    _refCount--;
+    if (_refCount == 0 && _instance) {
+        delete _instance;
+        _instance = nullptr;
+    }
+}
+
+SpiBusContext::SpiBusContext()
+    : _sending(false)
+    , _initialized(false)
+    , _currentBuffer(0)
+    , _isrHandle(nullptr)
+    , _hw(&GPSPI2)
+    , _channelCount(0)
+    , _framePos(0)
+    , _numBytes(0)
+{
+    _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
+    for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
+        _channels[i] = {nullptr, -1, nullptr, 0, false};
+    }
+}
+
+SpiBusContext::~SpiBusContext() {
+    deinit();
+}
+
+void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
+    uint8_t* dst = _dmaBuffer[bufIdx];
+    memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
+
+    if (!_sending) return;
+
+    size_t maxSrcThisChunk = WLEDPB_SPI_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
+    size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
+    size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
+
+    if (srcThisChunk == 0) {
+        _sending = false;
+        _framePos = 0;
+        return;
+    }
+
+    for (uint8_t lane = 0; lane < WLEDPB_SPI_MAX_CHANNELS; lane++) {
+        if (!_channels[lane].active || !_channels[lane].srcData) continue;
+
+        const uint16_t zerobit = SPI_ZERO_BIT << lane;
+        const uint16_t onebit  = SPI_ONE_BIT << lane;
+        const uint8_t* src = _channels[lane].srcData;
+        size_t srcLen = _channels[lane].srcLen;
+        uint16_t* pOut = reinterpret_cast<uint16_t*>(dst);
+
+        for (size_t i = 0; i < srcThisChunk; i++) {
+            size_t srcIdx = _framePos + i;
+            uint8_t v = (srcIdx < srcLen) ? src[srcIdx] : 0;
+            *pOut++ |= (v & 0x80) ? onebit : zerobit;
+            *pOut++ |= (v & 0x40) ? onebit : zerobit;
+            *pOut++ |= (v & 0x20) ? onebit : zerobit;
+            *pOut++ |= (v & 0x10) ? onebit : zerobit;
+            *pOut++ |= (v & 0x08) ? onebit : zerobit;
+            *pOut++ |= (v & 0x04) ? onebit : zerobit;
+            *pOut++ |= (v & 0x02) ? onebit : zerobit;
+            *pOut++ |= (v & 0x01) ? onebit : zerobit;
+        }
+    }
+    _framePos += srcThisChunk;
+}
+
+void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
+    SpiBusContext* ctx = (SpiBusContext*)arg;
+    gdma_dev_t* dma = &GDMA;
+
+    if (dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
+        if (ctx->_currentBuffer == 0) {
+            ctx->encodeSpiChunk(0);
+            ctx->_currentBuffer = 1;
+        } else {
+            ctx->encodeSpiChunk(1);
+            ctx->_currentBuffer = 0;
+        }
+    }
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.val;
+}
+
+bool SpiBusContext::init(const LedTiming& timing) {
+    if (_initialized) return true;
+
+    Serial.printf("[SPI] Initializing SPI parallel bus context\n");
+
+    // Allocate DMA buffers
+    for (int i = 0; i < 2; i++) {
+        _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE,
+                                                           MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+        if (!_dmaBuffer[i]) {
+            Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
+            deinit();
+            return false;
+        }
+        memset(_dmaBuffer[i], 0, WLEDPB_SPI_DMA_BUFFER_SIZE);
+    }
+
+    // Setup DMA descriptors - circular linked list
+    for (int i = 0; i < 2; i++) {
+        _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
+        _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
+        _dmaDesc[i].owner = 1;
+        _dmaDesc[i].sosf = 0;
+        _dmaDesc[i].eof = 1;
+        _dmaDesc[i].buf = _dmaBuffer[i];
+    }
+    _dmaDesc[0].qe.stqe_next = &_dmaDesc[1];
+    _dmaDesc[1].qe.stqe_next = &_dmaDesc[0];
+
+    // Enable peripheral clocks (SPI2 + DMA)
+    SYSTEM.perip_clk_en0.reg_spi2_clk_en = 1;
+    SYSTEM.perip_rst_en0.reg_spi2_rst = 1;
+    SYSTEM.perip_rst_en0.reg_spi2_rst = 0;
+
+    SYSTEM.perip_clk_en1.reg_dma_clk_en = 1;
+    SYSTEM.perip_rst_en1.reg_dma_rst = 1;
+    SYSTEM.perip_rst_en1.reg_dma_rst = 0;
+
+    // Configure SPI2 master
+    spi_ll_master_init(_hw);
+    spi_ll_master_set_mode(_hw, 0);
+    spi_ll_set_tx_lsbfirst(_hw, true);
+
+    spi_line_mode_t linemode = {};
+    linemode.data_lines = 4;  // quad mode
+    spi_ll_master_set_line_mode(_hw, linemode);
+
+    // Clock: target ~2.6MHz for ~390ns per step, matching user's tested config
+    // 4 steps per bit → ~1560ns per bit (within WS2812 tolerance)
+    uint32_t bitPeriodNs = timing.bitPeriod();
+    // Calculate SPI clock from timing: each DMA byte = 2 clock cycles (2 nibbles),
+    // each source bit = 2 bytes = 4 clock cycles → clock freq = 4 / (bitPeriod_ns * 1e-9)
+    uint32_t targetFreq = 4000000000UL / bitPeriodNs;
+    if (targetFreq < 2000000) targetFreq = 2000000;
+    if (targetFreq > 5000000) targetFreq = 5000000;
+
+    spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
+
+    Serial.printf("[SPI] Bit period: %uns, target SPI freq: %uHz\n", bitPeriodNs, targetFreq);
+
+    // Route SPI clock to a dummy pin (needed for DMA to work)
+    // GPIO11 is VDD_SPI on C3 but routing CLK to it doesn't affect power
+    pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
+
+    spi_ll_enable_mosi(_hw, true);
+    spi_ll_dma_tx_enable(_hw, true);
+    spi_ll_dma_tx_fifo_reset(_hw);
+    spi_ll_outfifo_empty_clr(_hw);
+    spi_ll_apply_config(_hw);
+
+    // Configure GDMA
+    gdma_dev_t* dma = &GDMA;
+    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+    gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+
+    // Enable EOF interrupt
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+
+    // Install ISR
+    esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE,
+                                    ESP_INTR_FLAG_IRAM,
+                                    gdmaISR, this, &_isrHandle);
+    if (err != ESP_OK) {
+        Serial.printf("[SPI] ISR alloc failed: %d\n", err);
+        deinit();
+        return false;
+    }
+
+    _initialized = true;
+    Serial.printf("[SPI] Init complete\n");
+    return true;
+}
+
+void SpiBusContext::deinit() {
+    _sending = false;
+
+    if (_isrHandle) {
+        esp_intr_free(_isrHandle);
+        _isrHandle = nullptr;
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (_dmaBuffer[i]) {
+            heap_caps_free(_dmaBuffer[i]);
+            _dmaBuffer[i] = nullptr;
+        }
+    }
+
+    SYSTEM.perip_rst_en0.reg_spi2_rst = 1;
+    _initialized = false;
+}
+
+int8_t SpiBusContext::registerChannel(int8_t pin, SpiBus* bus) {
+    int8_t idx = -1;
+    for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
+        if (!_channels[i].active) {
+            idx = i;
+            break;
+        }
+    }
+    if (idx < 0) return -1;
+
+    _channels[idx].bus = bus;
+    _channels[idx].pin = pin;
+    _channels[idx].active = true;
+    _channelCount++;
+
+    // Route SPI data signal to GPIO
+    pinMode(pin, OUTPUT);
+    pinMatrixOutAttach(pin, SPI_SIGNAL_INDICES[idx], false, false);
+
+    Serial.printf("[SPI] Registered channel %d on pin %d (signal=%d)\n", idx, pin, SPI_SIGNAL_INDICES[idx]);
+    return idx;
+}
+
+void SpiBusContext::unregisterChannel(int8_t channelIdx) {
+    if (channelIdx < 0 || channelIdx >= WLEDPB_SPI_MAX_CHANNELS) return;
+    if (!_channels[channelIdx].active) return;
+
+    if (_channels[channelIdx].pin >= 0) {
+        gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
+    }
+
+    _channels[channelIdx] = {nullptr, -1, nullptr, 0, false};
+    _channelCount--;
+}
+
+void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_t len) {
+    if (channelIdx < 0 || channelIdx >= WLEDPB_SPI_MAX_CHANNELS) return;
+    _channels[channelIdx].srcData = data;
+    _channels[channelIdx].srcLen = len;
+    if (len > _numBytes) _numBytes = len;
+}
+
+void SpiBusContext::resetAndStart() {
+    // Reset SPI
+    spi_ll_dma_tx_fifo_reset(_hw);
+    spi_ll_outfifo_empty_clr(_hw);
+    spi_ll_apply_config(_hw);
+
+    // Reset GDMA
+    gdma_dev_t* dma = &GDMA;
+    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+    gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+    gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
+    gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
+
+    // Start SPI transfer
+    spi_ll_user_start(_hw);
+}
+
+bool SpiBusContext::startTransmit() {
+    if (_sending) return false;
+    if (_channelCount == 0) return false;
+
+    _framePos = 0;
+    _numBytes = 0;
+    for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
+        if (_channels[ch].active && _channels[ch].srcLen > _numBytes) {
+            _numBytes = _channels[ch].srcLen;
+        }
+    }
+
+    // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
+    // Plus reset: extra zero bits at the end
+    uint32_t resetBits = 5000;  // ~300us reset at ~2.6MHz
+    uint32_t totalBits = (_numBytes * 16 * 8) + resetBits;
+    if (totalBits > 262143) totalBits = 262143;  // SPI max 18 bits for length register
+
+    spi_ll_set_mosi_bitlen(_hw, totalBits);
+
+    _sending = true;
+    _currentBuffer = 0;
+    encodeSpiChunk(0);
+    encodeSpiChunk(1);
+    resetAndStart();
+
+    static uint32_t s_spiTxCount = 0;
+    if (s_spiTxCount < 3 || (s_spiTxCount % 1000) == 0) {
+        Serial.printf("[SPI] startTransmit #%u: %u bytes, %u totalBits\n",
+                      s_spiTxCount, _numBytes, totalBits);
+    }
+    s_spiTxCount++;
+
+    return true;
+}
+
+// SpiBus implementation
+
+SpiBus::SpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
+    : _pin(pin)
+    , _timing(timing)
+    , _order(order)
+    , _initialized(false)
+    , _channelIdx(-1)
+    , _ctx(nullptr)
+    , _encodeBuffer(nullptr)
+    , _encodeBufferSize(0)
+{
+}
+
+SpiBus::~SpiBus() {
+    end();
+}
+
+bool SpiBus::begin() {
+    if (_initialized) return true;
+
+    _ctx = SpiBusContext::get();
+    if (!_ctx) return false;
+
+    if (!_ctx->init(_timing)) {
+        SpiBusContext::release();
+        _ctx = nullptr;
+        return false;
+    }
+
+    _channelIdx = _ctx->registerChannel(_pin, this);
+    if (_channelIdx < 0) {
+        Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
+        SpiBusContext::release();
+        _ctx = nullptr;
+        return false;
+    }
+
+    _initialized = true;
+    Serial.printf("[SPI] SpiBus::begin() OK: pin=%d, channel=%d\n", _pin, _channelIdx);
+    return true;
+}
+
+void SpiBus::end() {
+    if (!_initialized) return;
+
+    if (_ctx) {
+        while (!_ctx->isIdle()) vTaskDelay(1);
+        _ctx->unregisterChannel(_channelIdx);
+        SpiBusContext::release();
+        _ctx = nullptr;
+    }
+
+    if (_encodeBuffer) {
+        heap_caps_free(_encodeBuffer);
+        _encodeBuffer = nullptr;
+        _encodeBufferSize = 0;
+    }
+
+    _initialized = false;
+}
+
+bool SpiBus::allocateBuffer(uint16_t numPixels) {
+    size_t needed = numPixels * getChannelCount(_order);
+    if (_encodeBuffer && _encodeBufferSize >= needed) return true;
+
+    if (_encodeBuffer) heap_caps_free(_encodeBuffer);
+
+    _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_INTERNAL);
+    if (!_encodeBuffer) {
+        _encodeBufferSize = 0;
+        return false;
+    }
+    _encodeBufferSize = needed;
+    return true;
+}
+
+bool SpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+    if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
+
+    // Wait for previous transmission
+    while (!_ctx->isIdle()) {
+        vTaskDelay(1);
+    }
+
+    // Wait for SPI to finish any remaining transfer
+    while (!_ctx->isSpiDone()) {
+        vTaskDelay(1);
+    }
+
+    if (!allocateBuffer(_numPixels)) return false;
+
+    ColorEncoder encoder(_order);
+    uint8_t* dst = _encodeBuffer;
+    uint8_t numCh = encoder.getNumChannels();
+
+    for (uint16_t i = 0; i < _numPixels; i++) {
+        encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
+        dst += numCh;
+    }
+
+    _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
+    return _ctx->startTransmit();
+}
+
+bool SpiBus::canShow() const {
+    if (!_ctx) return true;
+    return _ctx->isIdle();
+}
+
+void SpiBus::waitComplete() {
+    while (_ctx && !_ctx->isIdle()) {
+        vTaskDelay(1);
+    }
+}
+
+void SpiBus::setColorOrder(ColorOrder order) {
+    _order = order;
+}
+
+#endif // WLEDPB_SPI_SUPPORT
+
+//==============================================================================
 // Bus Factory Implementation
 //==============================================================================
 
@@ -1658,13 +2208,19 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
 
 #ifdef WLEDPB_I2S_SUPPORT
         case BusType::I2S:
-            bus = new I2sBus(pin, timing, order, 0, bufferSize);
+            bus = new I2sBus(pin, timing, order, 1, bufferSize);
             break;
 #endif
 
 #ifdef WLEDPB_LCD_SUPPORT
         case BusType::LCD:
             bus = new LcdBus(pin, timing, order, bufferSize);
+            break;
+#endif
+
+#ifdef WLEDPB_SPI_SUPPORT
+        case BusType::SPI:
+            bus = new SpiBus(pin, timing, order);
             break;
 #endif
 
@@ -1680,6 +2236,8 @@ BusType getRecommendedBusType() {
     return BusType::LCD;  // S3 has best LCD support
 #elif defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2)
     return BusType::I2S;  // Original and S2 have I2S parallel
+#elif defined(WLEDPB_SPI_SUPPORT)
+    return BusType::SPI;  // C3 uses SPI quad mode
 #else
     return BusType::RMT;  // Fallback to RMT
 #endif

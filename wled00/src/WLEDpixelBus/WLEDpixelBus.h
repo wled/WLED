@@ -52,6 +52,11 @@ Features:
     #define WLEDPB_LCD_SUPPORT
 #endif
 
+// SPI parallel support (C3 - uses SPI quad mode with GDMA)
+#if defined(WLEDPB_ESP32C3)
+    #define WLEDPB_SPI_SUPPORT
+#endif
+
 #include "WLEDpixelBus_Timings.h"
 
 namespace WLEDpixelBus {
@@ -429,7 +434,7 @@ private:
     size_t _maxDataLen;
 
     // Encoding (4-step cadence)
-    void encode4Step(uint8_t* dest, size_t destLen, size_t* bytesWritten);
+    void encode4Step(uint8_t* dest, size_t destLen);
 
     // Singleton instances
     static I2sBusContext* _instances[WLEDPB_I2S_BUS_COUNT];
@@ -450,7 +455,7 @@ public:
      * @param bufferSize DMA buffer size
      */
     I2sBus(int8_t pin, const LedTiming& timing, ColorOrder order,
-           uint8_t busNum = 0, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
+           uint8_t busNum = 1, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
     ~I2sBus() override;
 
     bool begin() override;
@@ -465,10 +470,6 @@ public:
     void setTiming(const LedTiming& timing) { _timing = timing; }
     void setColorOrder(ColorOrder order);
 
-    // Access for context
-    const uint8_t* getEncodedData() const { return _encodeBuffer; }
-    size_t getEncodedLen() const { return _encodedLen; }
-
 private:
     int8_t _pin;
     uint8_t _busNum;
@@ -482,7 +483,6 @@ private:
 
     uint8_t* _encodeBuffer;
     size_t _encodeBufferSize;
-    size_t _encodedLen;
 
     bool allocateBuffer(uint16_t numPixels);
 };
@@ -636,6 +636,118 @@ private:
 #endif // WLEDPB_LCD_SUPPORT
 
 //==============================================================================
+// SPI Parallel Bus - ESP32-C3 (uses SPI2 quad mode + GDMA)
+//==============================================================================
+#ifdef WLEDPB_SPI_SUPPORT
+
+#include "hal/spi_ll.h"
+#include "soc/gdma_struct.h"
+#include "hal/gdma_ll.h"
+#include "soc/gdma_reg.h"
+#include "rom/lldesc.h"
+
+#define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
+#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024
+#define WLEDPB_SPI_GDMA_CHANNEL 0
+
+/**
+ * SPI bus context - manages SPI2 quad mode for parallel LED output on C3
+ * Uses GDMA with circular linked-list and ISR-driven buffer refill
+ */
+class SpiBusContext {
+public:
+    static SpiBusContext* get();
+    static void release();
+
+    bool init(const LedTiming& timing);
+    void deinit();
+
+    int8_t registerChannel(int8_t pin, SpiBus* bus);
+    void unregisterChannel(int8_t channelIdx);
+    uint8_t getChannelCount() const { return _channelCount; }
+
+    bool startTransmit();
+    bool isIdle() const { return !_sending; }
+    bool isSpiDone() const { return _hw ? spi_ll_usr_is_done(_hw) : true; }
+
+    void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
+
+private:
+    SpiBusContext();
+    ~SpiBusContext();
+
+    void encodeSpiChunk(uint8_t bufIdx);
+    void resetAndStart();
+
+    static void IRAM_ATTR gdmaISR(void* arg);
+
+    volatile bool _sending;
+    bool _initialized;
+    volatile uint8_t _currentBuffer;
+
+    // DMA
+    uint8_t* _dmaBuffer[2];
+    lldesc_t _dmaDesc[2];
+    intr_handle_t _isrHandle;
+
+    // SPI device
+    spi_dev_t* _hw;
+
+    // Source data per channel
+    struct ChannelData {
+        SpiBus* bus;
+        int8_t pin;
+        const uint8_t* srcData;
+        size_t srcLen;
+        bool active;
+    };
+    ChannelData _channels[WLEDPB_SPI_MAX_CHANNELS];
+    uint8_t _channelCount;
+    size_t _framePos;   // current source byte position
+    size_t _numBytes;   // total source bytes to send
+
+    static SpiBusContext* _instance;
+    static uint8_t _refCount;
+};
+
+/**
+ * SPI parallel output bus (for ESP32-C3)
+ */
+class SpiBus : public IBus {
+public:
+    SpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+    ~SpiBus() override;
+
+    bool begin() override;
+    void end() override;
+
+    bool show(const uint32_t* pixels, uint16_t numPixels,
+              const CctPixel* cct = nullptr) override;
+    bool canShow() const override;
+    void waitComplete() override;
+    const char* getType() const override { return "SPI"; }
+
+    void setTiming(const LedTiming& timing) { _timing = timing; }
+    void setColorOrder(ColorOrder order);
+
+private:
+    bool allocateBuffer(uint16_t numPixels);
+
+    int8_t _pin;
+    LedTiming _timing;
+    ColorOrder _order;
+    bool _initialized;
+
+    int8_t _channelIdx;
+    SpiBusContext* _ctx;
+
+    uint8_t* _encodeBuffer;
+    size_t _encodeBufferSize;
+};
+
+#endif // WLEDPB_SPI_SUPPORT
+
+//==============================================================================
 // Bus Factory - Create appropriate bus for platform
 //==============================================================================
 
@@ -643,6 +755,7 @@ enum class BusType :  uint8_t {
     RMT = 0,
     I2S = 1,
     LCD = 2,
+    SPI = 3,
     Auto = 255
 };
 

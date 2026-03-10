@@ -214,7 +214,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
-    return WLEDpixelBus::createBus(btype, hwIndex, proto.timing, finalOrder, len, rmtCh);
+    return WLEDpixelBus::createBus(btype, hwIndex, proto.timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
   }
 
   static unsigned memUsage(uint8_t busType, unsigned count, const uint8_t* pins, unsigned driverType = 0) {
