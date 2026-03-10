@@ -432,6 +432,7 @@ private:
     ChannelData _channels[WLEDPB_I2S_MAX_CHANNELS];
     uint8_t _channelCount;
     uint16_t _channelMask;
+    uint16_t _stagedMask;
     size_t _maxDataLen;
 
     // Encoding (4-step cadence)
@@ -590,6 +591,7 @@ private:
     ChannelData _channels[WLEDPB_LCD_MAX_CHANNELS];
     uint8_t _channelCount;
     uint8_t _channelMask;
+    uint8_t _stagedMask;
     size_t _maxDataLen;
 
     static LcdBusContext* _instance;

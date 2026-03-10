@@ -391,6 +391,7 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
     , _isrHandle(nullptr)
     , _channelCount(0)
     , _channelMask(0)
+    , _stagedMask(0)
     , _maxDataLen(0)
 {
 #if defined(WLEDPB_ESP32)
@@ -695,6 +696,12 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
     if (len > _maxDataLen) {
         _maxDataLen = len;
     }
+
+    // Safety: If this channel was already staged, it means we somehow missed triggering startTransmit()
+    if (_stagedMask & (1 << channelIdx)) {
+        _stagedMask = 0; 
+    }
+    _stagedMask |= (1 << channelIdx);
 }
 
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
@@ -766,6 +773,10 @@ void I2sBusContext::fillBuffer(uint8_t bufIdx) {
 bool I2sBusContext::startTransmit() {
     if (_state != DriverState::Idle) return false;
     if (_channelCount == 0) return false;
+
+    // Only start transmission if ALL active channels have populated data
+    if (_stagedMask != _channelMask) return false;
+    _stagedMask = 0; // Reset for next frame
 
     _maxDataLen = 0;
     for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
@@ -1085,6 +1096,7 @@ LcdBusContext::LcdBusContext()
     , _timing{0, 0, 0, 0, 0}
     , _channelCount(0)
     , _channelMask(0)
+    , _stagedMask(0)
     , _maxDataLen(0)
     , _activeBuffer(0)
     , _resetBytesRemaining(0)
@@ -1344,6 +1356,11 @@ void LcdBusContext:: setChannelData(int8_t channelIdx, const uint8_t* data, size
     if (len > _maxDataLen) {
         _maxDataLen = len;
     }
+
+    if (_stagedMask & (1 << channelIdx)) {
+        _stagedMask = 0; 
+    }
+    _stagedMask |= (1 << channelIdx);
 }
 
 size_t IRAM_ATTR LcdBusContext:: encodeIntoBuffer(uint8_t* dest, size_t destLen) {
@@ -1473,6 +1490,12 @@ void IRAM_ATTR LcdBusContext::fillBufferForState(uint8_t bufIdx) {
 }
 
 bool LcdBusContext::startTransmit() {
+    if (_stagedMask != _channelMask) {
+        return false; // wait for all channels (from multiple buses)
+    }
+    
+    _stagedMask = 0; // ready for next frame once we transmit
+
     if (_state != DriverState::Idle) {
         LCD_LOG("ERROR:  Not idle");
         return false;
