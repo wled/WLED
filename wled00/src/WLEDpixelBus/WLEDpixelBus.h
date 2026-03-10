@@ -151,7 +151,8 @@ struct CctPixel {
 enum class DriverState : uint8_t {
     Idle = 0,
     Sending = 1,
-    WaitingReset = 2
+    SendingLast = 2,   // Last data buffer was filled; wait for current buffer to finish so last-data buffer plays
+    WaitingReset = 3   // Last data buffer played; zero buffer playing as reset signal
 };
 
 //==============================================================================

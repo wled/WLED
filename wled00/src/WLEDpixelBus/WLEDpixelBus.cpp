@@ -852,14 +852,23 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
             }
         }
         if (!moreData) {
-            s_i2sIsrReset++;
-            ctx->_state = DriverState::WaitingReset;
+            // Last data chunk was just encoded into completedBuf.
+            // DMA is currently playing the OTHER buffer. We need to wait
+            // for that to finish so the last-data buffer gets played.
+            ctx->_state = DriverState::SendingLast;
         }
 
         // Restore DMA ownership so hardware can replay this buffer
         ctx->_dmaDesc[completedBuf]->owner = 1;
+    } else if (ctx->_state == DriverState::SendingLast) {
+        // The other buffer just finished. DMA is now playing the last-data buffer.
+        // Fill completed buffer with zeros (reset signal) so it plays after.
+        memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize);
+        ctx->_dmaDesc[completedBuf]->owner = 1;
+        s_i2sIsrReset++;
+        ctx->_state = DriverState::WaitingReset;
     } else {
-        // WaitingReset - one full zero buffer has been sent as reset, stop DMA
+        // WaitingReset - last data played, zero buffer sent as reset. Stop DMA.
         s_i2sIsrIdle++;
         dev->int_ena.out_eof = 0;
         dev->conf.tx_start = 0;
