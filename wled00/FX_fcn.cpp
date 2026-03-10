@@ -11,7 +11,6 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
-#include "palettes.h"
 #include "colors.h"
 
 /*

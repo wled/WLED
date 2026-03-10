@@ -1,5 +1,4 @@
 #include "wled.h"
-#include "palettes.h"
 
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2

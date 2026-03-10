@@ -1,3 +1,6 @@
+#include "wled.h"
+#include "src/dependencies/fastled/fastled_fcn.h"
+
 /*
  * WLED Color palettes
  *
@@ -6,10 +9,6 @@
  *       prior to WLED 0.16 which used pre-applied gammas of (2.6,2.2,2.5) for these palettes.
  *       Palettes from FastLED are intended to be used without gamma correction, an inverse gamma of 2.2 is applied to original colors
  */
-
-#pragma once
-
-#include "src/dependencies/fastled/fastled_fcn.h"
 
 // FastLED Palettes
 // ----------------

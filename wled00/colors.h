@@ -88,6 +88,7 @@ static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
 }
 
 // palettes
+extern const TProgmemRGBPalette16 PartyColors_gc22 PROGMEM;
 extern const TProgmemRGBPalette16* const fastledPalettes[];
 extern const uint8_t* const gGradientPalettes[];
 
