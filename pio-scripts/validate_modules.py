@@ -80,8 +80,7 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
     return found
 
 
-DYNARRAY_SECTION = ".dtors" if env.get("PIOPLATFORM") == "espressif8266" else ".dynarray"
-USERMODS_SECTION = f"{DYNARRAY_SECTION}.usermods.1"
+USERMODS_SECTION = f".dynarray.usermods.1"
 
 def count_usermod_objects(map_file: list[str]) -> int:
     """ Returns the number of usermod objects in the usermod list """
