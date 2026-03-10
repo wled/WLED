@@ -67,7 +67,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
   #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
     #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
-    #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
+    #define WLED_MAX_I2S_CHANNELS 4         // SPI parallel output supported by WLEDpixelBus
     //#define WLED_MAX_ANALOG_CHANNELS 6
     #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types, needs a proper fix!
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB

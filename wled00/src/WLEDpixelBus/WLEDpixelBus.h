@@ -57,6 +57,14 @@ Features:
     #define WLEDPB_SPI_SUPPORT
 #endif
 
+#ifdef WLEDPB_SPI_SUPPORT
+#include "soc/spi_struct.h"
+#include "soc/gdma_struct.h"
+#include "hal/gdma_ll.h"
+#include "soc/gdma_reg.h"
+#include "rom/lldesc.h"
+#endif
+
 #include "WLEDpixelBus_Timings.h"
 
 namespace WLEDpixelBus {
@@ -643,15 +651,11 @@ private:
 //==============================================================================
 #ifdef WLEDPB_SPI_SUPPORT
 
-#include "hal/spi_ll.h"
-#include "soc/gdma_struct.h"
-#include "hal/gdma_ll.h"
-#include "soc/gdma_reg.h"
-#include "rom/lldesc.h"
-
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
 #define WLEDPB_SPI_DMA_BUFFER_SIZE 1024
 #define WLEDPB_SPI_GDMA_CHANNEL 0
+
+class ParallelSpiBus;
 
 /**
  * SPI bus context - manages SPI2 quad mode for parallel LED output on C3
@@ -665,13 +669,13 @@ public:
     bool init(const LedTiming& timing);
     void deinit();
 
-    int8_t registerChannel(int8_t pin, SpiBus* bus);
+    int8_t registerChannel(int8_t pin, ParallelSpiBus* bus);
     void unregisterChannel(int8_t channelIdx);
     uint8_t getChannelCount() const { return _channelCount; }
 
     bool startTransmit();
     bool isIdle() const { return !_sending; }
-    bool isSpiDone() const { return _hw ? spi_ll_usr_is_done(_hw) : true; }
+    bool isSpiDone() const;
 
     void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
@@ -698,7 +702,7 @@ private:
 
     // Source data per channel
     struct ChannelData {
-        SpiBus* bus;
+        ParallelSpiBus* bus;
         int8_t pin;
         const uint8_t* srcData;
         size_t srcLen;
@@ -716,10 +720,10 @@ private:
 /**
  * SPI parallel output bus (for ESP32-C3)
  */
-class SpiBus : public IBus {
+class ParallelSpiBus : public IBus {
 public:
-    SpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
-    ~SpiBus() override;
+    ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+    ~ParallelSpiBus() override;
 
     bool begin() override;
     void end() override;

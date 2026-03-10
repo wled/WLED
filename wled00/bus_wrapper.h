@@ -195,6 +195,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
         btype = WLEDpixelBus::BusType::LCD;
         #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
         btype = WLEDpixelBus::BusType::I2S;
+        #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+        btype = WLEDpixelBus::BusType::SPI;
         #else
         btype = WLEDpixelBus::BusType::RMT;
         #endif
@@ -245,6 +247,8 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
           btype = WLEDpixelBus::BusType::LCD;
           #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
           btype = WLEDpixelBus::BusType::I2S;
+          #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+          btype = WLEDpixelBus::BusType::SPI;
           #else
           btype = WLEDpixelBus::BusType::RMT;
           #endif

@@ -16,6 +16,15 @@ Features:
 
 #include "WLEDpixelBus.h"
 
+#ifdef WLEDPB_SPI_SUPPORT
+#undef FLAG_ATTR
+#define FLAG_ATTR(TYPE)
+#include "hal/spi_ll.h"
+#include "driver/periph_ctrl.h"
+#include "esp_private/gdma.h"
+#include "esp_rom_gpio.h"
+#endif
+
 namespace WLEDpixelBus {
 
 //==============================================================================
@@ -1025,7 +1034,7 @@ Key design:
 
 #ifdef WLEDPB_LCD_SUPPORT
 
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h"
 #include "esp_private/gdma.h"
 #include "esp_rom_gpio.h"
 #include "hal/dma_types.h"
@@ -1809,6 +1818,10 @@ SpiBusContext::~SpiBusContext() {
     deinit();
 }
 
+bool SpiBusContext::isSpiDone() const {
+    return _hw ? spi_ll_usr_is_done(_hw) : true;
+}
+
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     uint8_t* dst = _dmaBuffer[bufIdx];
     memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
@@ -1896,13 +1909,8 @@ bool SpiBusContext::init(const LedTiming& timing) {
     _dmaDesc[1].qe.stqe_next = &_dmaDesc[0];
 
     // Enable peripheral clocks (SPI2 + DMA)
-    SYSTEM.perip_clk_en0.reg_spi2_clk_en = 1;
-    SYSTEM.perip_rst_en0.reg_spi2_rst = 1;
-    SYSTEM.perip_rst_en0.reg_spi2_rst = 0;
-
-    SYSTEM.perip_clk_en1.reg_dma_clk_en = 1;
-    SYSTEM.perip_rst_en1.reg_dma_rst = 1;
-    SYSTEM.perip_rst_en1.reg_dma_rst = 0;
+    periph_module_enable(PERIPH_SPI2_MODULE);
+    periph_module_enable(PERIPH_GDMA_MODULE);
 
     // Configure SPI2 master
     spi_ll_master_init(_hw);
@@ -1934,7 +1942,8 @@ bool SpiBusContext::init(const LedTiming& timing) {
     spi_ll_dma_tx_enable(_hw, true);
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
-    spi_ll_apply_config(_hw);
+    _hw->cmd.update = 1;
+    while (_hw->cmd.update);
 
     // Configure GDMA
     gdma_dev_t* dma = &GDMA;
@@ -1975,11 +1984,11 @@ void SpiBusContext::deinit() {
         }
     }
 
-    SYSTEM.perip_rst_en0.reg_spi2_rst = 1;
+    periph_module_disable(PERIPH_SPI2_MODULE);
     _initialized = false;
 }
 
-int8_t SpiBusContext::registerChannel(int8_t pin, SpiBus* bus) {
+int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
     int8_t idx = -1;
     for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
         if (!_channels[i].active) {
@@ -2025,7 +2034,8 @@ void SpiBusContext::resetAndStart() {
     // Reset SPI
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
-    spi_ll_apply_config(_hw);
+    _hw->cmd.update = 1;
+    while (_hw->cmd.update);
 
     // Reset GDMA
     gdma_dev_t* dma = &GDMA;
@@ -2035,7 +2045,7 @@ void SpiBusContext::resetAndStart() {
     gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
     // Start SPI transfer
-    spi_ll_user_start(_hw);
+    _hw->cmd.usr = 1;
 }
 
 bool SpiBusContext::startTransmit() {
@@ -2076,7 +2086,7 @@ bool SpiBusContext::startTransmit() {
 
 // SpiBus implementation
 
-SpiBus::SpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
+ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
     : _pin(pin)
     , _timing(timing)
     , _order(order)
@@ -2088,11 +2098,11 @@ SpiBus::SpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
 {
 }
 
-SpiBus::~SpiBus() {
+ParallelSpiBus::~ParallelSpiBus() {
     end();
 }
 
-bool SpiBus::begin() {
+bool ParallelSpiBus::begin() {
     if (_initialized) return true;
 
     _ctx = SpiBusContext::get();
@@ -2113,11 +2123,11 @@ bool SpiBus::begin() {
     }
 
     _initialized = true;
-    Serial.printf("[SPI] SpiBus::begin() OK: pin=%d, channel=%d\n", _pin, _channelIdx);
+    Serial.printf("[SPI] ParallelSpiBus::begin() OK: pin=%d, channel=%d\n", _pin, _channelIdx);
     return true;
 }
 
-void SpiBus::end() {
+void ParallelSpiBus::end() {
     if (!_initialized) return;
 
     if (_ctx) {
@@ -2136,7 +2146,7 @@ void SpiBus::end() {
     _initialized = false;
 }
 
-bool SpiBus::allocateBuffer(uint16_t numPixels) {
+bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
     size_t needed = numPixels * getChannelCount(_order);
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
 
@@ -2151,7 +2161,7 @@ bool SpiBus::allocateBuffer(uint16_t numPixels) {
     return true;
 }
 
-bool SpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
     if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
 
     // Wait for previous transmission
@@ -2179,18 +2189,18 @@ bool SpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
     return _ctx->startTransmit();
 }
 
-bool SpiBus::canShow() const {
+bool ParallelSpiBus::canShow() const {
     if (!_ctx) return true;
     return _ctx->isIdle();
 }
 
-void SpiBus::waitComplete() {
+void ParallelSpiBus::waitComplete() {
     while (_ctx && !_ctx->isIdle()) {
         vTaskDelay(1);
     }
 }
 
-void SpiBus::setColorOrder(ColorOrder order) {
+void ParallelSpiBus::setColorOrder(ColorOrder order) {
     _order = order;
 }
 
@@ -2230,7 +2240,7 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
 
 #ifdef WLEDPB_SPI_SUPPORT
         case BusType::SPI:
-            bus = new SpiBus(pin, timing, order);
+            bus = new ParallelSpiBus(pin, timing, order);
             break;
 #endif
 
@@ -2254,3 +2264,4 @@ BusType getRecommendedBusType() {
 }
 
 } // namespace WLEDpixelBus
+

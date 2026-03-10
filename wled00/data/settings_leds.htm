@@ -450,8 +450,8 @@
 				s.style.color = "#fff"; // reset
 
 				if (isDig(t) && !isD2P(t)) {
-					// Update I2S/RMT driver info/dropdown for ESP32 digital buses, C3 only supports RMT
-					if (!is8266() && !isC3()) {
+					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
+					if (!is8266()) {
 						// Show driver selection dropdown when I2S is enabled, mark red if invalid
 						if (drvsel) {
 							if (d.Sf.AS.checked) drvsel.style.display = "inline"; // only show when advanced settings enabled
