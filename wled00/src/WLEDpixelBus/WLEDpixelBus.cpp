@@ -169,12 +169,22 @@ bool RmtBus::begin() {
         return false;
     }
 
-    // Use interrupt flags matching NeoPixelBus behavior
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 3, 0)
-    err = rmt_driver_install(_rmtChannel, 0, ESP_INTR_FLAG_LOWMED);
-#else
-    err = rmt_driver_install(_rmtChannel, 0, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1);
+    // Prioritize RMT over I2S/SPI DMA interrupts (which use LEVEL1) to prevent starvation.
+    // Try LEVEL3 first, fallback to LEVEL2, then LEVEL1.
+    int flags = ESP_INTR_FLAG_IRAM;
+#ifdef ESP_INTR_FLAG_LEVEL3
+    err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL3);
+    if (err != ESP_OK)
 #endif
+    {
+#ifdef ESP_INTR_FLAG_LEVEL2
+        err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL2);
+        if (err != ESP_OK)
+#endif
+        {
+            err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL1);
+        }
+    }
     if (err != ESP_OK) {
         return false;
     }
@@ -225,7 +235,6 @@ bool RmtBus::allocateBuffer(uint16_t numPixels) {
 }
 
 bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-    static uint32_t showDbgCnt = 0;
     if (!pixels) {
         pixels = _pixelData;
         numPixels = _numPixels;
@@ -266,9 +275,7 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 
     // Start transmission
     size_t dataLen = numPixels * numCh;
-    if (showDbgCnt++ < 20) Serial.printf("[WPB] show() ch=%d numPix=%u numCh=%u dataLen=%u pix[0]=0x%08X\n", _rmtChannel, numPixels, numCh, dataLen, pixels[0]);
     esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
-    if (showDbgCnt <= 3 && err != ESP_OK) Serial.printf("[WPB] rmt_write_sample FAIL: %d (%s)\n", err, esp_err_to_name(err));
 
     return err == ESP_OK;
 }
@@ -776,13 +783,6 @@ bool I2sBusContext::startTransmit() {
         }
     }
 
-    static uint32_t s_txCount = 0;
-    if (s_txCount < 3 || (s_txCount % 1000) == 0) {
-        Serial.printf("[I2S] startTransmit #%u: channels=%u, maxDataLen=%u, bufSize=%u\n",
-                      s_txCount, _channelCount, _maxDataLen, _bufferSize);
-    }
-    s_txCount++;
-
     // Fill both buffers initially
     fillBuffer(0);
     fillBuffer(1);
@@ -982,22 +982,6 @@ bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
         encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
         dst += numCh;
     }
-
-    // Debug: print ISR stats periodically
-    static uint32_t s_showCount = 0;
-    extern volatile uint32_t s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle;
-    if (s_showCount < 3 || (s_showCount % 1000) == 0) {
-        Serial.printf("[I2S] show #%u: %u px, %uch, %u bytes | ISR: total=%u send=%u reset=%u idle=%u\n",
-                      s_showCount, _numPixels, numCh, _numPixels * numCh,
-                      s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle);
-        // Print first 16 bytes of encode buffer
-        Serial.printf("[I2S] Encoded[0..15]: ");
-        for (int i = 0; i < 16 && i < (int)(_numPixels * numCh); i++) {
-            Serial.printf("%02X ", _encodeBuffer[i]);
-        }
-        Serial.println();
-    }
-    s_showCount++;
 
     // Set data for our channel and start
     _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
