@@ -84,7 +84,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_PLATFORM_ID 3       // used in UI to distinguish ESP type in UI, needs a proper fix!
   #else
-    if defined(CONFIG_IDF_TARGET_ESP32)  // classic esp32
+    #if defined(CONFIG_IDF_TARGET_ESP32)  // classic esp32
       #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
       #define WLED_MAX_I2S_CHANNELS 8         // I2S parallel output supported by NPB
       //#define WLED_MAX_ANALOG_CHANNELS 16
