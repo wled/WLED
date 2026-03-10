@@ -49,36 +49,34 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
         secho(f"WARNING: nm failed ({e}); skipping per-module validation", fg="yellow", err=True)
         return {Path(b.build_dir).name for b in module_lib_builders}  # conservative pass
 
-    # Collect source file Paths from placed symbols (nonzero address only).
+    # Match placed symbols against builders as we parse nm output, exiting early
+    # once all builders are accounted for.
     # nm --defined-only still includes debugging symbols (type 'N') such as the
     # per-CU markers GCC emits in .debug_info (e.g. "usermod_example_cpp_6734d48d").
     # These live at address 0x00000000 in their debug section — not in any load
     # segment — so filtering them out leaves only genuinely placed symbols.
     # nm -l appends a tab-separated "file:lineno" location to each symbol line.
-    placed_paths: set[Path] = set()
-    for line in nm_output.splitlines():
-        parts = line.split(None, 1)
-        if not (parts and parts[0].lstrip('0')):
-            continue  # zero address — skip debug-section marker
-        if '\t' in line:
-            loc = line.rsplit('\t', 1)[1]
-            # Strip trailing :lineno  (e.g. "/path/to/foo.cpp:42" → "/path/to/foo.cpp")
-            file_part = loc.rsplit(':', 1)[0]
-            placed_paths.add(Path(file_part))
-
+    remaining = {Path(str(b.src_dir)): Path(b.build_dir).name for b in module_lib_builders}
     found = set()
-    for builder in module_lib_builders:
-        # builder.src_dir is the library source directory (used by is_wled_module() too)
-        src_dir = Path(str(builder.src_dir))
-        # Path.is_relative_to() / relative_to() handles OS-specific separators
-        # correctly without any regex, avoiding Windows path escaping issues.
-        for p in placed_paths:
-            try:
-                p.relative_to(src_dir)
-                found.add(Path(builder.build_dir).name)
+
+    for line in nm_output.splitlines():
+        if not remaining:
+            break  # all builders matched
+        addr, _, _ = line.partition(' ')
+        if not addr.lstrip('0'):
+            continue  # zero address — skip debug-section marker
+        if '\t' not in line:
+            continue
+        loc = line.rsplit('\t', 1)[1]
+        # Strip trailing :lineno  (e.g. "/path/to/foo.cpp:42" → "/path/to/foo.cpp")
+        src_path = Path(loc.rsplit(':', 1)[0])
+        # Path.is_relative_to() handles OS-specific separators correctly without
+        # any regex, avoiding Windows path escaping issues.
+        for src_dir in list(remaining):
+            if src_path.is_relative_to(src_dir):
+                found.add(remaining.pop(src_dir))
                 break
-            except ValueError:
-                pass
+
     return found
 
 
