@@ -66,7 +66,8 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
         src_dir = str(builder.src_dir).rstrip("/\\")
         # Guard against prefix collisions (e.g. /path/to/mod vs /path/to/mod-extra)
         # by requiring a path separator immediately after the directory name.
-        if re.search(re.escape(src_dir) + r'[/\\]', placed_output):
+        src_dir_pattern = re.escape(src_dir).replace(r'\\', r'[/\\]')
+        if re.search(src_dir_pattern + r'[/\\]', placed_output):
             found.add(Path(builder.build_dir).name)
     return found
 
