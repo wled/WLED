@@ -2087,6 +2087,10 @@ void SpiBusContext::resetAndStart() {
     gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
     gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
     gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
+
+    // Re-enable EOF interrupt after channel reset (reset may clear enable bits)
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 }
 
 bool SpiBusContext::startTransmit() {
@@ -2108,6 +2112,11 @@ bool SpiBusContext::startTransmit() {
     if (totalBits > 262143) totalBits = 262143;  // SPI max 18 bits for length register
 
     spi_ll_set_mosi_bitlen(_hw, totalBits);
+
+    // Clear the trans_done flag BEFORE starting new transfer.
+    // spi_ll_usr_is_done() checks dma_int_raw.trans_done which is sticky —
+    // it stays set after the previous transfer until explicitly cleared.
+    spi_ll_clear_int_stat(_hw);
 
     // Reset SPI + DMA first (matching working reference loop order)
     resetAndStart();
