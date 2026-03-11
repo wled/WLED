@@ -12,14 +12,7 @@
 
 // Static member definitions moved from header to avoid multiple definition
 // errors
-const char UsermodFseq::_name[] PROGMEM = "usermod FSEQ sd card";
-
-#ifdef WLED_USE_SD_SPI
-int8_t UsermodFseq::configPinSourceSelect = 5;
-int8_t UsermodFseq::configPinSourceClock = 18;
-int8_t UsermodFseq::configPinPoci = 19;
-int8_t UsermodFseq::configPinPico = 23;
-#endif
+const char UsermodFseq::_name[] PROGMEM = "FSEQ";
 
 File FSEQPlayer::recordingFile;
 String FSEQPlayer::currentFileName = "";
@@ -190,8 +183,7 @@ void FSEQPlayer::loadRecording(const char *filepath,
     if (currentFileName.startsWith("/"))
       currentFileName = currentFileName.substring(1);
   } else {
-    DEBUG_PRINTF("File %s not found (%s)\n", filepath,
-                 USED_STORAGE_FILESYSTEMS);
+    DEBUG_PRINTF("File %s not found (%s)\n", filepath);
     return;
   }
   if ((uint64_t)recordingFile.available() < sizeof(file_header)) {
