@@ -690,6 +690,7 @@ private:
 
     volatile bool _sending;
     bool _initialized;
+    bool _hasStarted;
     volatile uint8_t _currentBuffer;
 
     // DMA

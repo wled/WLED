@@ -1769,6 +1769,19 @@ void LcdBus::setColorOrder(ColorOrder order) {
 
 #ifdef WLEDPB_SPI_SUPPORT
 
+// low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
+static inline void spi_ll_apply_config(spi_dev_t *hw)
+{
+    hw->cmd.update = 1;
+    while (hw->cmd.update);    //waiting config applied
+}
+
+static inline void spi_ll_user_start(spi_dev_t *hw)
+{
+    hw->cmd.usr = 1;
+}
+
+
 // Pin assignments for SPI2 quad mode on C3
 // SPI2 signals: FSPID (MOSI/D0), FSPIQ (MISO/D1), FSPIWP (D2), FSPIHD (D3)
 static const int SPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_OUT_IDX, FSPIHD_OUT_IDX };
@@ -1776,7 +1789,7 @@ static const int SPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_O
 // Encoding patterns for SPI quad mode (4-step cadence, LSB first)
 // Each lane is one bit position in a nibble, one byte = two clock cycles, 2 bytes = one 4-step bit
 static constexpr uint16_t SPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high
-static constexpr uint16_t SPI_ONE_BIT  = 0x0011;  // output: [1,1,0,0] = 50% high
+static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high
 
 SpiBusContext* SpiBusContext::_instance = nullptr;
 uint8_t SpiBusContext::_refCount = 0;
@@ -1801,6 +1814,7 @@ void SpiBusContext::release() {
 SpiBusContext::SpiBusContext()
     : _sending(false)
     , _initialized(false)
+    , _hasStarted(false)
     , _currentBuffer(0)
     , _isrHandle(nullptr)
     , _hw(&GPSPI2)
@@ -1819,6 +1833,7 @@ SpiBusContext::~SpiBusContext() {
 }
 
 bool SpiBusContext::isSpiDone() const {
+    if (!_hasStarted) return true;  // no transfer ever started
     return _hw ? spi_ll_usr_is_done(_hw) : true;
 }
 
@@ -1833,7 +1848,6 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
 
     if (srcThisChunk == 0) {
-        if (_sending) Serial.printf("[SPI] encodeSpiChunk: done sending frame\n");
         _sending = false;
         _framePos = 0;
         return;
@@ -1879,13 +1893,6 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
         }
     }
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.val;
-}
-
-// low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
-static inline void spi_ll_apply_config(spi_dev_t *hw)
-{
-    hw->cmd.update = 1;
-    while (hw->cmd.update);    //waiting config applied
 }
 
 bool SpiBusContext::init(const LedTiming& timing) {
@@ -1952,22 +1959,29 @@ bool SpiBusContext::init(const LedTiming& timing) {
     // We don't set it as OUTPUT manually to allow the matrix to take full control.
     pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
 
+    // Matching working reference order: set_mosi_bitlen BEFORE enable_mosi
+    // Use a default value; will be overwritten in startTransmit with actual frame size
+    spi_ll_set_mosi_bitlen(_hw, 16384);
     spi_ll_enable_mosi(_hw, true);
+
     spi_ll_dma_tx_enable(_hw, true);
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
-    
-    // Force clear USR bit and apply config
     spi_ll_apply_config(_hw);
     
     Serial.printf("[SPI] init: hw->cmd.val after reset=0x%08X\n", _hw->cmd.val);
 
-    // Configure GDMA
+    // Configure GDMA (matching working reference: reset, connect, set desc addr, start)
     gdma_dev_t* dma = &GDMA;
     gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
     gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+    gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
+    gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
-    // Install ISR first, then enable interrupt (prevents spurious fire before handler is ready)
+    // Enable EOF interrupt, then install ISR (matching working reference order)
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+
     esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE,
                                     ESP_INTR_FLAG_IRAM,
                                     gdmaISR, this, &_isrHandle);
@@ -1976,10 +1990,6 @@ bool SpiBusContext::init(const LedTiming& timing) {
         deinit();
         return false;
     }
-
-    // Enable EOF interrupt (after ISR is installed)
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
 
     _initialized = true;
     Serial.printf("[SPI] Init complete\n");
@@ -2059,29 +2069,24 @@ void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 }
 
 void SpiBusContext::resetAndStart() {
-    // Reset SPI FIFO and apply config
+    // Matching working reference loop restart order exactly:
+    // 1. Wait for any previous SPI to finish
+    //    (caller should have ensured this, but belt-and-suspenders)
+    // 2. Reset SPI FIFO
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
     spi_ll_apply_config(_hw);
 
-    // Restore DMA descriptor ownership (DMA clears owner after processing)
+    // 3. Restore DMA descriptor ownership (DMA clears owner after processing)
     _dmaDesc[0].owner = 1;
     _dmaDesc[1].owner = 1;
 
-    // Reset and restart GDMA
+    // 4. Reset and restart GDMA (matching working reference order)
     gdma_dev_t* dma = &GDMA;
     gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
     gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
     gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
-
-    // Re-enable EOF interrupt (channel reset may clear interrupt config)
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
-
     gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
-
-    // Start SPI transfer
-    _hw->cmd.usr = 1;
 }
 
 bool SpiBusContext::startTransmit() {
@@ -2104,13 +2109,14 @@ bool SpiBusContext::startTransmit() {
 
     spi_ll_set_mosi_bitlen(_hw, totalBits);
 
+    // Reset SPI + DMA first (matching working reference loop order)
+    resetAndStart();
+
+    // Then set state and encode buffers (DMA is running but SPI hasn't started yet)
     _sending = true;
     _currentBuffer = 0;
     encodeSpiChunk(0);
     encodeSpiChunk(1);
-    
-    Serial.printf("[SPI] startTransmit: frame size %u, total bits %u, resetting and starting\n", _numBytes, totalBits);
-    resetAndStart();
 
     static uint32_t s_spiTxCount = 0;
     if (s_spiTxCount < 3 || (s_spiTxCount % 1000) == 0) {
@@ -2118,6 +2124,11 @@ bool SpiBusContext::startTransmit() {
                       s_spiTxCount, _numBytes, totalBits);
     }
     s_spiTxCount++;
+
+    _hasStarted = true;
+
+    // Start SPI transfer LAST (matching working reference: spi_ll_user_start is the final step)
+    spi_ll_user_start(_hw);
 
     return true;
 }
