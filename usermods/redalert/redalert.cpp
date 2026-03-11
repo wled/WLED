@@ -1,5 +1,6 @@
 #include "wled.h"
 #include <HTTPClient.h>
+#include "redalert_text_utils.h"
 
 #ifndef USERMOD_ID_PIKUD_HAOREF
 // Pick some unused ID or add to usermod_id.h
@@ -17,6 +18,7 @@ private:
   static const char _preAlertEnabled[];
   static const char _endEnabled[];
   static const char _okEnabled[];
+  static const char _allAreasEnabled[];
 
   static const char _alertPreset[];
   static const char _preAlertPreset[];
@@ -49,6 +51,7 @@ private:
   bool    enablePreAlert  = false;
   bool    enableEnd       = false;
   bool    enableOk        = false;
+  bool    enableAllAreas  = false;
   uint8_t alertPreset     = 0;
   uint8_t preAlertPreset  = 0;
   uint8_t endPreset       = 0;
@@ -104,6 +107,26 @@ private:
     return category;
   }
 
+  bool areaMatches(const char* cityNameRaw) {
+    if (enableAllAreas) return true;
+    if (!cityNameRaw) return false;
+
+    String cityNorm = RedAlertText::normalizeAreaText(String(cityNameRaw));
+    String areaNorm = RedAlertText::normalizeAreaText(areaName);
+    if (cityNorm.length() == 0 || areaNorm.length() == 0) return false;
+
+    bool match = (cityNorm == areaNorm || cityNorm.indexOf(areaNorm) >= 0 || areaNorm.indexOf(cityNorm) >= 0);
+
+    DEBUG_PRINT(F("RedAlert: area compare city=\""));
+    DEBUG_PRINT(cityNorm);
+    DEBUG_PRINT(F("\" area=\""));
+    DEBUG_PRINT(areaNorm);
+    DEBUG_PRINT(F("\" -> "));
+    DEBUG_PRINTLN(match ? F("MATCH") : F("NO_MATCH"));
+
+    return match;
+  }
+
   void updateState(AlertState newState) {
     if (newState == currentState) return;
 
@@ -148,7 +171,8 @@ private:
     if (!enabled) return;
     if (!Network.isConnected()) return;
     if (apiUrl.length() == 0) return;
-    if (areaName.length() == 0) return;
+    // If we are NOT in "all areas" mode, we require a non-empty areaName.
+    if (!enableAllAreas && areaName.length() == 0) return;
 
     HTTPClient http;
     http.setTimeout(3000); // 3s
@@ -194,25 +218,28 @@ private:
             if (cities.isNull()) cities = alert["cities"].as<JsonArray>();
             if (cities.isNull()) continue;
 
-            // TEMP/PRAGMATIC: treat any alert with at least one city as a match
-            const char* cityName = cities[0].as<const char*>();
-            if (!cityName) cityName = "";
+            for (JsonVariant cv : cities) {
+              const char* cityName = cv.as<const char*>();
+              if (!cityName) continue;
+              if (!areaMatches(cityName)) continue;
 
-            int category = extractCategory(alert);
+              int category = extractCategory(alert);
 
-            DEBUG_PRINT(F("RedAlert: FORCED match (array), city=\""));
-            DEBUG_PRINT(cityName);
-            DEBUG_PRINT(F("\", category="));
-            DEBUG_PRINTLN(category);
+              DEBUG_PRINT(F("RedAlert: match (array), city=\""));
+              DEBUG_PRINT(cityName);
+              DEBUG_PRINT(F("\", category="));
+              DEBUG_PRINTLN(category);
 
-            if (category == 14) {
-              newState = STATE_PRE_ALERT;  // "pre_alert"
-            } else if (category == 13) {
-              newState = STATE_END;        // "end"
-            } else {
-              newState = STATE_ALERT;      // main "alert"
+              if (category == 14) {
+                newState = STATE_PRE_ALERT;  // "pre_alert"
+              } else if (category == 13) {
+                newState = STATE_END;        // "end"
+              } else {
+                newState = STATE_ALERT;      // main "alert"
+              }
+              break;
             }
-            break;
+            if (newState != STATE_OK) break;
           }
         } else if (doc.is<JsonObject>()) {
           // Single alert object (current Pikud Haoref "alerts.json" shape)
@@ -221,23 +248,27 @@ private:
           JsonArray cities = alert["data"].as<JsonArray>();
           if (cities.isNull()) cities = alert["cities"].as<JsonArray>();
 
-          if (!cities.isNull() && cities.size() > 0) {
-            const char* cityName = cities[0].as<const char*>();
-            if (!cityName) cityName = "";
+          if (!cities.isNull()) {
+            for (JsonVariant cv : cities) {
+              const char* cityName = cv.as<const char*>();
+              if (!cityName) continue;
+              if (!areaMatches(cityName)) continue;
 
-            int category = extractCategory(alert);
+              int category = extractCategory(alert);
 
-            DEBUG_PRINT(F("RedAlert: FORCED match (object), city=\""));
-            DEBUG_PRINT(cityName);
-            DEBUG_PRINT(F("\", category="));
-            DEBUG_PRINTLN(category);
+              DEBUG_PRINT(F("RedAlert: match (object), city=\""));
+              DEBUG_PRINT(cityName);
+              DEBUG_PRINT(F("\", category="));
+              DEBUG_PRINTLN(category);
 
-            if (category == 14) {
-              newState = STATE_PRE_ALERT;
-            } else if (category == 13) {
-              newState = STATE_END;
-            } else {
-              newState = STATE_ALERT;
+              if (category == 14) {
+                newState = STATE_PRE_ALERT;
+              } else if (category == 13) {
+                newState = STATE_END;
+              } else {
+                newState = STATE_ALERT;
+              }
+              break;
             }
           }
         }
@@ -300,6 +331,7 @@ public:
     top[FPSTR(_preAlertEnabled)]  = enablePreAlert;
     top[FPSTR(_endEnabled)]       = enableEnd;
     top[FPSTR(_okEnabled)]        = enableOk;
+    top[FPSTR(_allAreasEnabled)]  = enableAllAreas;
     top[FPSTR(_alertPreset)]      = alertPreset;
     top[FPSTR(_preAlertPreset)]   = preAlertPreset;
     top[FPSTR(_endPreset)]        = endPreset;
@@ -326,6 +358,7 @@ public:
     cfg &= getJsonValue(top[FPSTR(_preAlertEnabled)], enablePreAlert, enablePreAlert);
     cfg &= getJsonValue(top[FPSTR(_endEnabled)],      enableEnd, enableEnd);
     cfg &= getJsonValue(top[FPSTR(_okEnabled)],       enableOk, enableOk);
+    cfg &= getJsonValue(top[FPSTR(_allAreasEnabled)], enableAllAreas, enableAllAreas);
     cfg &= getJsonValue(top[FPSTR(_alertPreset)],     alertPreset, alertPreset);
     cfg &= getJsonValue(top[FPSTR(_preAlertPreset)],  preAlertPreset, preAlertPreset);
     cfg &= getJsonValue(top[FPSTR(_endPreset)],       endPreset, endPreset);
@@ -394,6 +427,7 @@ const char UsermodPikudHaoref::_alertEnabled[]     PROGMEM = "alertEnabled";
 const char UsermodPikudHaoref::_preAlertEnabled[]  PROGMEM = "preAlertEnabled";
 const char UsermodPikudHaoref::_endEnabled[]       PROGMEM = "endEnabled";
 const char UsermodPikudHaoref::_okEnabled[]        PROGMEM = "okEnabled";
+const char UsermodPikudHaoref::_allAreasEnabled[]  PROGMEM = "allAreasEnabled";
 const char UsermodPikudHaoref::_alertPreset[]      PROGMEM = "alertPreset";
 const char UsermodPikudHaoref::_preAlertPreset[]   PROGMEM = "preAlertPreset";
 const char UsermodPikudHaoref::_endPreset[]        PROGMEM = "endPreset";
