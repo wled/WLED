@@ -1,0 +1,8 @@
+{
+  "name": "usermod-redalert",
+  "version": "1.0.0",
+  "description": "Red alert / Pikud Haoref usermod for WLED",
+  "build": {
+    "libArchive": false
+  }
+}
