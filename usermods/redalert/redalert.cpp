@@ -45,6 +45,7 @@ private:
   String areaName = "תל אביב - מזרח";
   bool   enabled = true;
   uint32_t pollIntervalMs = 15000;    // 15 seconds
+  String normalizedAreaName = RedAlertText::normalizeAreaText(areaName);
 
   // Per-state toggles and presets
   bool    enableAlert     = true;
@@ -68,6 +69,10 @@ private:
   AlertState currentState = STATE_OK;
   unsigned long lastStateChangeMs = 0;
   bool idlePresetApplied = false;
+
+  void refreshNormalizedAreaName() {
+    normalizedAreaName = RedAlertText::normalizeAreaText(areaName);
+  }
 
   const __FlashStringHelper* stateToLabel(AlertState s) {
     switch (s) {
@@ -112,15 +117,15 @@ private:
     if (!cityNameRaw) return false;
 
     String cityNorm = RedAlertText::normalizeAreaText(String(cityNameRaw));
-    String areaNorm = RedAlertText::normalizeAreaText(areaName);
-    if (cityNorm.length() == 0 || areaNorm.length() == 0) return false;
+    if (cityNorm.length() == 0 || normalizedAreaName.length() == 0) return false;
 
-    bool match = (cityNorm == areaNorm || cityNorm.indexOf(areaNorm) >= 0 || areaNorm.indexOf(cityNorm) >= 0);
+    // Strict direction: city text may contain configured area text.
+    bool match = (cityNorm == normalizedAreaName || cityNorm.indexOf(normalizedAreaName) >= 0);
 
     DEBUG_PRINT(F("RedAlert: area compare city=\""));
     DEBUG_PRINT(cityNorm);
     DEBUG_PRINT(F("\" area=\""));
-    DEBUG_PRINT(areaNorm);
+    DEBUG_PRINT(normalizedAreaName);
     DEBUG_PRINT(F("\" -> "));
     DEBUG_PRINTLN(match ? F("MATCH") : F("NO_MATCH"));
 
@@ -171,8 +176,8 @@ private:
     if (!enabled) return;
     if (!Network.isConnected()) return;
     if (apiUrl.length() == 0) return;
-    // If we are NOT in "all areas" mode, we require a non-empty areaName.
-    if (!enableAllAreas && areaName.length() == 0) return;
+    // If we are NOT in "all areas" mode, require non-empty normalized area text.
+    if (!enableAllAreas && normalizedAreaName.length() == 0) return;
 
     HTTPClient http;
     http.setTimeout(3000); // 3s
@@ -281,6 +286,7 @@ private:
 public:
   // Called once at boot
   void setup() override {
+    refreshNormalizedAreaName();
     initDone = true;
 
     DEBUG_PRINTLN(F("RedAlert: setup complete"));
@@ -365,6 +371,8 @@ public:
     cfg &= getJsonValue(top[FPSTR(_okPreset)],        okPreset, okPreset);
     cfg &= getJsonValue(top[FPSTR(_idleTimeoutSec)],  idleTimeoutSec, idleTimeoutSec);
     cfg &= getJsonValue(top[FPSTR(_idlePreset)],      idlePreset, idlePreset);
+
+    refreshNormalizedAreaName();
 
     return cfg;
   }
