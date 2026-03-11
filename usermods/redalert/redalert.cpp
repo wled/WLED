@@ -287,6 +287,17 @@ private:
 
               int category = extractCategory(alert);
 
+              // Category 0 / missing category means "no specific alert category".
+              // Treat as no state change.
+              if (category <= 0) {
+                if (verboseLogs) {
+                  DEBUG_PRINT(F("RedAlert: category 0/none, ignoring city=\""));
+                  DEBUG_PRINT(cityName);
+                  DEBUG_PRINTLN(F("\""));
+                }
+                continue;
+              }
+
               if (verboseLogs) {
                 DEBUG_PRINT(F("RedAlert: match (array), city=\""));
                 DEBUG_PRINT(cityName);
@@ -296,8 +307,9 @@ private:
 
               if (category == 14) {
                 newState = STATE_PRE_ALERT;  // "pre_alert"
-              } else if (category == 13) {
-                newState = STATE_END;        // "end"
+              } else if (category == 13 || category == 10) {
+                // 10: "may leave protected area but stay nearby" -> treat as END/clear
+                newState = STATE_END;
               } else {
                 newState = STATE_ALERT;      // main "alert"
               }
@@ -320,6 +332,17 @@ private:
 
               int category = extractCategory(alert);
 
+              // Category 0 / missing category means "no specific alert category".
+              // Treat as no state change.
+              if (category <= 0) {
+                if (verboseLogs) {
+                  DEBUG_PRINT(F("RedAlert: category 0/none, ignoring city=\""));
+                  DEBUG_PRINT(cityName);
+                  DEBUG_PRINTLN(F("\""));
+                }
+                continue;
+              }
+
               if (verboseLogs) {
                 DEBUG_PRINT(F("RedAlert: match (object), city=\""));
                 DEBUG_PRINT(cityName);
@@ -329,7 +352,8 @@ private:
 
               if (category == 14) {
                 newState = STATE_PRE_ALERT;
-              } else if (category == 13) {
+              } else if (category == 13 || category == 10) {
+                // 10: "may leave protected area but stay nearby" -> treat as END/clear
                 newState = STATE_END;
               } else {
                 newState = STATE_ALERT;
