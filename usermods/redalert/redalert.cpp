@@ -27,6 +27,7 @@ private:
 
   static const char _idleTimeoutSec[];
   static const char _idlePreset[];
+  static const char _verboseLogs[];
   static const char _resetUrl[];
 
   enum AlertState : uint8_t {
@@ -61,6 +62,7 @@ private:
   // Idle timeout handling (seconds + preset)
   uint32_t idleTimeoutSec = 0;        // 0 = disabled
   uint8_t  idlePreset     = 0;
+  bool     verboseLogs    = true;     // current behavior: verbose logging on
 
   // Internal state
   unsigned long lastPoll = 0;
@@ -122,12 +124,14 @@ private:
     // Strict direction: city text may contain configured area text.
     bool match = (cityNorm == normalizedAreaName || cityNorm.indexOf(normalizedAreaName) >= 0);
 
-    DEBUG_PRINT(F("RedAlert: area compare city=\""));
-    DEBUG_PRINT(cityNorm);
-    DEBUG_PRINT(F("\" area=\""));
-    DEBUG_PRINT(normalizedAreaName);
-    DEBUG_PRINT(F("\" -> "));
-    DEBUG_PRINTLN(match ? F("MATCH") : F("NO_MATCH"));
+    if (verboseLogs) {
+      DEBUG_PRINT(F("RedAlert: area compare city=\""));
+      DEBUG_PRINT(cityNorm);
+      DEBUG_PRINT(F("\" area=\""));
+      DEBUG_PRINT(normalizedAreaName);
+      DEBUG_PRINT(F("\" -> "));
+      DEBUG_PRINTLN(match ? F("MATCH") : F("NO_MATCH"));
+    }
 
     return match;
   }
@@ -190,17 +194,21 @@ private:
     int httpCode = http.GET();
     lastHttpCode = httpCode;
 
-    DEBUG_PRINT(F("RedAlert: HTTP GET "));
-    DEBUG_PRINT(apiUrl);
-    DEBUG_PRINT(F(" -> code "));
-    DEBUG_PRINTLN(httpCode);
+    if (verboseLogs) {
+      DEBUG_PRINT(F("RedAlert: HTTP GET "));
+      DEBUG_PRINT(apiUrl);
+      DEBUG_PRINT(F(" -> code "));
+      DEBUG_PRINTLN(httpCode);
+    }
 
     if (httpCode == HTTP_CODE_OK) {
       AlertState newState = STATE_OK;
       String payload = http.getString();
 
-      DEBUG_PRINTLN(F("RedAlert: raw JSON payload:"));
-      DEBUG_PRINTLN(payload);
+      if (verboseLogs) {
+        DEBUG_PRINTLN(F("RedAlert: raw JSON payload:"));
+        DEBUG_PRINTLN(payload);
+      }
 
       // Response can be:
       //  - a single JSON object (current Pikud Haoref format)
@@ -230,10 +238,12 @@ private:
 
               int category = extractCategory(alert);
 
-              DEBUG_PRINT(F("RedAlert: match (array), city=\""));
-              DEBUG_PRINT(cityName);
-              DEBUG_PRINT(F("\", category="));
-              DEBUG_PRINTLN(category);
+              if (verboseLogs) {
+                DEBUG_PRINT(F("RedAlert: match (array), city=\""));
+                DEBUG_PRINT(cityName);
+                DEBUG_PRINT(F("\", category="));
+                DEBUG_PRINTLN(category);
+              }
 
               if (category == 14) {
                 newState = STATE_PRE_ALERT;  // "pre_alert"
@@ -261,10 +271,12 @@ private:
 
               int category = extractCategory(alert);
 
-              DEBUG_PRINT(F("RedAlert: match (object), city=\""));
-              DEBUG_PRINT(cityName);
-              DEBUG_PRINT(F("\", category="));
-              DEBUG_PRINTLN(category);
+              if (verboseLogs) {
+                DEBUG_PRINT(F("RedAlert: match (object), city=\""));
+                DEBUG_PRINT(cityName);
+                DEBUG_PRINT(F("\", category="));
+                DEBUG_PRINTLN(category);
+              }
 
               if (category == 14) {
                 newState = STATE_PRE_ALERT;
@@ -289,7 +301,7 @@ public:
     refreshNormalizedAreaName();
     initDone = true;
 
-    DEBUG_PRINTLN(F("RedAlert: setup complete"));
+    if (verboseLogs) DEBUG_PRINTLN(F("RedAlert: setup complete"));
   }
 
   // Called frequently; do non-blocking work here
@@ -317,8 +329,10 @@ public:
         applyPreset(idlePreset);
         idlePresetApplied = true;
 
-        DEBUG_PRINT(F("RedAlert: idle timeout reached, applying idlePreset="));
-        DEBUG_PRINTLN(idlePreset);
+        if (verboseLogs) {
+          DEBUG_PRINT(F("RedAlert: idle timeout reached, applying idlePreset="));
+          DEBUG_PRINTLN(idlePreset);
+        }
       }
     }
 
@@ -328,22 +342,33 @@ public:
   void addToConfig(JsonObject &root) override {
     JsonObject top = root.createNestedObject(FPSTR(_name));
 
-    top[FPSTR(_enabled)]      = enabled;
-    top[FPSTR(_apiUrl)]       = apiUrl;
-    top[FPSTR(_areaName)]     = areaName;
-    top["pollIntervalMs"]     = pollIntervalMs;
+    // Core
+    JsonObject core = top.createNestedObject("core");
+    core[FPSTR(_enabled)]      = enabled;
+    core[FPSTR(_apiUrl)]       = apiUrl;
+    core["pollIntervalMs"]     = pollIntervalMs;
+    core[FPSTR(_verboseLogs)]  = verboseLogs;
 
-    top[FPSTR(_alertEnabled)]     = enableAlert;
-    top[FPSTR(_preAlertEnabled)]  = enablePreAlert;
-    top[FPSTR(_endEnabled)]       = enableEnd;
-    top[FPSTR(_okEnabled)]        = enableOk;
-    top[FPSTR(_allAreasEnabled)]  = enableAllAreas;
-    top[FPSTR(_alertPreset)]      = alertPreset;
-    top[FPSTR(_preAlertPreset)]   = preAlertPreset;
-    top[FPSTR(_endPreset)]        = endPreset;
-    top[FPSTR(_okPreset)]         = okPreset;
-    top[FPSTR(_idleTimeoutSec)]   = idleTimeoutSec;
-    top[FPSTR(_idlePreset)]       = idlePreset;
+    // Area selection
+    JsonObject area = top.createNestedObject("area");
+    area[FPSTR(_allAreasEnabled)] = enableAllAreas;
+    area[FPSTR(_areaName)]        = areaName;
+
+    // State actions (flat but grouped under "states" for a single divider)
+    JsonObject states = top.createNestedObject("states");
+    states["alertEnabled"]    = enableAlert;
+    states["alertPreset"]     = alertPreset;
+    states["preAlertEnabled"] = enablePreAlert;
+    states["preAlertPreset"]  = preAlertPreset;
+    states["endEnabled"]      = enableEnd;
+    states["endPreset"]       = endPreset;
+    states["okEnabled"]       = enableOk;
+    states["okPreset"]        = okPreset;
+
+    // Idle fallback
+    JsonObject idle = top.createNestedObject("idle");
+    idle["timeoutSec"] = idleTimeoutSec;
+    idle["preset"]     = idlePreset;
   }
 
   // Load JSON config
@@ -355,22 +380,90 @@ public:
     }
 
     bool cfg = true;
-    cfg &= getJsonValue(top[FPSTR(_enabled)],   enabled, true);
-    cfg &= getJsonValue(top[FPSTR(_apiUrl)],    apiUrl, apiUrl);
-    cfg &= getJsonValue(top[FPSTR(_areaName)],  areaName, areaName);
-    cfg &= getJsonValue(top["pollIntervalMs"],  pollIntervalMs, pollIntervalMs);
 
-    cfg &= getJsonValue(top[FPSTR(_alertEnabled)],    enableAlert, enableAlert);
-    cfg &= getJsonValue(top[FPSTR(_preAlertEnabled)], enablePreAlert, enablePreAlert);
-    cfg &= getJsonValue(top[FPSTR(_endEnabled)],      enableEnd, enableEnd);
-    cfg &= getJsonValue(top[FPSTR(_okEnabled)],       enableOk, enableOk);
-    cfg &= getJsonValue(top[FPSTR(_allAreasEnabled)], enableAllAreas, enableAllAreas);
-    cfg &= getJsonValue(top[FPSTR(_alertPreset)],     alertPreset, alertPreset);
-    cfg &= getJsonValue(top[FPSTR(_preAlertPreset)],  preAlertPreset, preAlertPreset);
-    cfg &= getJsonValue(top[FPSTR(_endPreset)],       endPreset, endPreset);
-    cfg &= getJsonValue(top[FPSTR(_okPreset)],        okPreset, okPreset);
-    cfg &= getJsonValue(top[FPSTR(_idleTimeoutSec)],  idleTimeoutSec, idleTimeoutSec);
-    cfg &= getJsonValue(top[FPSTR(_idlePreset)],      idlePreset, idlePreset);
+    // Core (new grouped layout), with legacy flat-key fallback
+    JsonObject core = top["core"];
+    if (!core.isNull()) {
+      cfg &= getJsonValue(core[FPSTR(_enabled)],      enabled, enabled);
+      cfg &= getJsonValue(core[FPSTR(_apiUrl)],       apiUrl, apiUrl);
+      cfg &= getJsonValue(core["pollIntervalMs"],     pollIntervalMs, pollIntervalMs);
+      cfg &= getJsonValue(core[FPSTR(_verboseLogs)],  verboseLogs, verboseLogs);
+    } else {
+      cfg &= getJsonValue(top[FPSTR(_enabled)],       enabled, enabled);
+      cfg &= getJsonValue(top[FPSTR(_apiUrl)],        apiUrl, apiUrl);
+      cfg &= getJsonValue(top["pollIntervalMs"],      pollIntervalMs, pollIntervalMs);
+      cfg &= getJsonValue(top[FPSTR(_verboseLogs)],   verboseLogs, verboseLogs);
+    }
+
+    // Area selection (new grouped layout), with legacy flat-key fallback
+    JsonObject area = top["area"];
+    if (!area.isNull()) {
+      cfg &= getJsonValue(area[FPSTR(_allAreasEnabled)], enableAllAreas, enableAllAreas);
+      cfg &= getJsonValue(area[FPSTR(_areaName)],        areaName, areaName);
+    } else {
+      cfg &= getJsonValue(top[FPSTR(_allAreasEnabled)],  enableAllAreas, enableAllAreas);
+      cfg &= getJsonValue(top[FPSTR(_areaName)],         areaName, areaName);
+    }
+
+    // State actions (new grouped layout), with legacy flat-key fallback
+    JsonObject states = top["states"];
+    if (!states.isNull()) {
+      // New flat-in-group layout
+      if (!states["alertEnabled"].isNull() || !states["alertPreset"].isNull()) {
+        cfg &= getJsonValue(states["alertEnabled"],    enableAlert, enableAlert);
+        cfg &= getJsonValue(states["alertPreset"],     alertPreset, alertPreset);
+        cfg &= getJsonValue(states["preAlertEnabled"], enablePreAlert, enablePreAlert);
+        cfg &= getJsonValue(states["preAlertPreset"],  preAlertPreset, preAlertPreset);
+        cfg &= getJsonValue(states["endEnabled"],      enableEnd, enableEnd);
+        cfg &= getJsonValue(states["endPreset"],       endPreset, endPreset);
+        cfg &= getJsonValue(states["okEnabled"],       enableOk, enableOk);
+        cfg &= getJsonValue(states["okPreset"],        okPreset, okPreset);
+      } else {
+        // Backward compatibility: older nested-in-group layout
+        JsonObject sAlert = states["alert"];
+        if (!sAlert.isNull()) {
+          cfg &= getJsonValue(sAlert["enabled"], enableAlert, enableAlert);
+          cfg &= getJsonValue(sAlert["preset"],  alertPreset, alertPreset);
+        }
+
+        JsonObject sPreAlert = states["preAlert"];
+        if (!sPreAlert.isNull()) {
+          cfg &= getJsonValue(sPreAlert["enabled"], enablePreAlert, enablePreAlert);
+          cfg &= getJsonValue(sPreAlert["preset"],  preAlertPreset, preAlertPreset);
+        }
+
+        JsonObject sEnd = states["end"];
+        if (!sEnd.isNull()) {
+          cfg &= getJsonValue(sEnd["enabled"], enableEnd, enableEnd);
+          cfg &= getJsonValue(sEnd["preset"],  endPreset, endPreset);
+        }
+
+        JsonObject sOk = states["ok"];
+        if (!sOk.isNull()) {
+          cfg &= getJsonValue(sOk["enabled"], enableOk, enableOk);
+          cfg &= getJsonValue(sOk["preset"],  okPreset, okPreset);
+        }
+      }
+    } else {
+      cfg &= getJsonValue(top[FPSTR(_alertEnabled)],    enableAlert, enableAlert);
+      cfg &= getJsonValue(top[FPSTR(_preAlertEnabled)], enablePreAlert, enablePreAlert);
+      cfg &= getJsonValue(top[FPSTR(_endEnabled)],      enableEnd, enableEnd);
+      cfg &= getJsonValue(top[FPSTR(_okEnabled)],       enableOk, enableOk);
+      cfg &= getJsonValue(top[FPSTR(_alertPreset)],     alertPreset, alertPreset);
+      cfg &= getJsonValue(top[FPSTR(_preAlertPreset)],  preAlertPreset, preAlertPreset);
+      cfg &= getJsonValue(top[FPSTR(_endPreset)],       endPreset, endPreset);
+      cfg &= getJsonValue(top[FPSTR(_okPreset)],        okPreset, okPreset);
+    }
+
+    // Idle fallback (new grouped layout), with legacy flat-key fallback
+    JsonObject idle = top["idle"];
+    if (!idle.isNull()) {
+      cfg &= getJsonValue(idle["timeoutSec"], idleTimeoutSec, idleTimeoutSec);
+      cfg &= getJsonValue(idle["preset"],     idlePreset, idlePreset);
+    } else {
+      cfg &= getJsonValue(top[FPSTR(_idleTimeoutSec)],  idleTimeoutSec, idleTimeoutSec);
+      cfg &= getJsonValue(top[FPSTR(_idlePreset)],      idlePreset, idlePreset);
+    }
 
     refreshNormalizedAreaName();
 
@@ -442,6 +535,7 @@ const char UsermodPikudHaoref::_endPreset[]        PROGMEM = "endPreset";
 const char UsermodPikudHaoref::_okPreset[]         PROGMEM = "okPreset";
 const char UsermodPikudHaoref::_idleTimeoutSec[]   PROGMEM = "idleTimeoutSec";
 const char UsermodPikudHaoref::_idlePreset[]       PROGMEM = "idlePreset";
+const char UsermodPikudHaoref::_verboseLogs[]      PROGMEM = "verboseLogs";
 const char UsermodPikudHaoref::_resetUrl[]         PROGMEM = "resetUrl";
 
 // register usermod instance
