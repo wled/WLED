@@ -29,7 +29,6 @@ private:
   static const char _idleTimeoutSec[];
   static const char _idlePreset[];
   static const char _verboseLogs[];
-  static const char _resetUrl[];
 
   enum AlertState : uint8_t {
     STATE_OK = 0,
@@ -584,14 +583,6 @@ public:
     arr.add(stateLabel);
     arr.add(F(" Pikud Haoref"));
 
-    // Add a small button to reset the API URL back to default
-    String uiDomString = F("<button class=\"btn btn-xs\" onclick=\"requestJson({");
-    uiDomString += FPSTR(_name);
-    uiDomString += F(":{");
-    uiDomString += FPSTR(_resetUrl);
-    uiDomString += F(":true}});\">Reset URL</button>");
-    arr.add(uiDomString);
-
     JsonObject sensor = root["sensor"];
     if (sensor.isNull()) sensor = root.createNestedObject("sensor");
     JsonArray status = sensor.createNestedArray(FPSTR(_name));
@@ -599,16 +590,8 @@ public:
     status.add(F(" last HTTP status"));
   }
 
-  // Handle JSON state updates (e.g. from the Reset URL button)
   void readFromJsonState(JsonObject &root) override {
-    if (!initDone) return;
-
-    JsonObject um = root[FPSTR(_name)];
-    if (um.isNull()) return;
-
-    if (um[FPSTR(_resetUrl)]) {
-      apiUrl = F("https://www.oref.org.il/WarningMessages/alert/alerts.json");
-    }
+    (void)root;
   }
 
   uint16_t getId() override {
@@ -633,7 +616,6 @@ const char UsermodPikudHaoref::_okPreset[]         PROGMEM = "okPreset";
 const char UsermodPikudHaoref::_idleTimeoutSec[]   PROGMEM = "idleTimeoutSec";
 const char UsermodPikudHaoref::_idlePreset[]       PROGMEM = "idlePreset";
 const char UsermodPikudHaoref::_verboseLogs[]      PROGMEM = "verboseLogs";
-const char UsermodPikudHaoref::_resetUrl[]         PROGMEM = "resetUrl";
 
 // register usermod instance
 static UsermodPikudHaoref usermod_pikud_haoref;

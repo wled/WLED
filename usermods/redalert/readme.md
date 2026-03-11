@@ -17,20 +17,17 @@ WLED usermod that polls the Israeli Home Front Command (Pikud HaOref / Oref) ale
 ## Requirements
 
 - **ESP32** build with TLS support for the official Oref HTTPS endpoint.  
-  For WLED’s default Tasmota-based ESP32 platform, HTTPS is not available to usermods; use a build that uses the stock **espressif32** platform (e.g. via `platformio_override.ini`) if you need HTTPS.
+For WLED’s default Tasmota-based ESP32 platform, HTTPS is not available to usermods; use a build that uses the stock **espressif32** platform (e.g. via `platformio_override.ini`) if you need HTTPS.
 - WiFi connectivity.
 
 ## Installation
 
 1. Add `redalert` to `custom_usermods` in your PlatformIO environment, for example in `platformio.ini` or `platformio_override.ini`:
-
-   ```ini
+  ```ini
    [env:esp32dev]
    custom_usermods = redalert
-   ```
-
+  ```
 2. If you need **HTTPS** (official Oref API), override the ESP32 platform to stock espressif32 and use a partition layout that fits the larger firmware (see main WLED docs or this usermod’s discussion for an example `platformio_override.ini`).
-
 3. Build and upload.
 
 ## Configuration (WLED UI)
@@ -52,8 +49,30 @@ No category toggles are exposed; all categories are enabled. Semantics:
 - The official endpoint is HTTPS-only and may require requests from Israeli IPs or with specific headers (`Referer`, `X-Requested-With`). The usermod sends a simple `User-Agent`.
 - Response format: single JSON object with `id`, `cat`, `title`, `data` (array of city names), `desc`. The usermod strips leading non-JSON bytes (e.g. BOM) before parsing.
 
+## Live log over WebSocket //TODO!!!
+
+WLED exposes a single WebSocket at `**/ws`** for state and live LED updates. A usermod can reuse it to stream log lines wirelessly without core changes.
+
+**Usermod side**
+
+- Declare `extern AsyncWebSocket ws;` (from `wled.h` / the build).
+- Whenever you want to send a log line, call e.g. `ws.textAll("{\"log\":\"RedAlert: ...\"}");` so every connected client receives the same text frame.
+- Use a stable JSON shape (e.g. `{"log":"message"}` or `{"source":"redalert","msg":"..."}`) so clients can parse and display only log lines.
+
+**Client side**
+
+- Connect to `ws://<device-ip>/ws` (or `wss://` if you add TLS in front).
+- Listen for `onmessage`; treat frames that parse as your log format as live log lines and append them to a console/view (browser, Node script, or custom dashboard). Ignore other frames (e.g. WLED state) or filter by a `source` field.
+
+**Caveats**
+
+- All WebSocket clients receive the same stream; WLED does not separate “log” from “state” traffic. Avoid sending huge or high-frequency log bursts to not interfere with the main UI.
+- The official WLED UI has no “Logs” tab; you need your own page or tool to connect to `/ws` and show the log lines.
+- No persistence: only clients connected at the time receive each message.
+
 ## Files
 
 - `redalert.cpp` — usermod implementation.
 - `redalert_text_utils.h` — area name normalization and Unicode escape decoding.
 - `library.json` — usermod metadata.
+
