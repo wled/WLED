@@ -28,6 +28,8 @@
 					if (data.repo && data.repo !== "unknown") {
 						document.querySelector('.release-repo').href = "https://github.com/" + data.repo + "/releases/latest";
 						document.querySelector('.release-badge').src = "https://img.shields.io/github/release/" + data.repo + ".svg?style=flat-square";
+					} else {
+						gId('release-download').classList.add("hide");
 					}
 					// TODO - can this be done at build time?
 					if (data.arch == "esp8266") {
@@ -69,9 +71,11 @@
 		<p>
 		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
+		<div id="release-download">
 		Download the latest binary: <a class="release-repo" href="https://github.com/wled-dev/WLED/releases" target="_blank"  rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img class="release-badge" src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square" alt="checking ..."></a><br>
+		</div>
 		</p>
 		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
