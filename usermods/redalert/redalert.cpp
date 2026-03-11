@@ -16,10 +16,12 @@ private:
   static const char _alertEnabled[];
   static const char _preAlertEnabled[];
   static const char _endEnabled[];
+  static const char _okEnabled[];
 
   static const char _alertPreset[];
   static const char _preAlertPreset[];
   static const char _endPreset[];
+  static const char _okPreset[];
 
   static const char _idleTimeoutSec[];
   static const char _idlePreset[];
@@ -46,9 +48,11 @@ private:
   bool    enableAlert     = true;
   bool    enablePreAlert  = false;
   bool    enableEnd       = false;
+  bool    enableOk        = false;
   uint8_t alertPreset     = 0;
   uint8_t preAlertPreset  = 0;
   uint8_t endPreset       = 0;
+  uint8_t okPreset        = 0;
 
   // Idle timeout handling (seconds + preset)
   uint32_t idleTimeoutSec = 0;        // 0 = disabled
@@ -62,8 +66,51 @@ private:
   unsigned long lastStateChangeMs = 0;
   bool idlePresetApplied = false;
 
+  const __FlashStringHelper* stateToLabel(AlertState s) {
+    switch (s) {
+      case STATE_PRE_ALERT: return F("PRE_ALERT");
+      case STATE_ALERT:     return F("ALERT");
+      case STATE_END:       return F("END");
+      case STATE_OK:
+      default:              return F("OK");
+    }
+  }
+
+  int extractCategory(JsonObject& alert) {
+    int category = 0;
+
+    // Prefer "cat" (string or number)
+    JsonVariant catVar = alert["cat"];
+    if (!catVar.isNull()) {
+      if (catVar.is<int>()) {
+        category = catVar.as<int>();
+      } else if (catVar.is<const char*>()) {
+        const char* catStr = catVar.as<const char*>();
+        if (catStr) category = atoi(catStr);
+      }
+    } else {
+      // Fallback to "category"
+      JsonVariant cat2 = alert["category"];
+      if (!cat2.isNull()) {
+        if (cat2.is<int>()) {
+          category = cat2.as<int>();
+        } else if (cat2.is<const char*>()) {
+          const char* catStr2 = cat2.as<const char*>();
+          if (catStr2) category = atoi(catStr2);
+        }
+      }
+    }
+
+    return category;
+  }
+
   void updateState(AlertState newState) {
     if (newState == currentState) return;
+
+    DEBUG_PRINT(F("RedAlert: state change "));
+    DEBUG_PRINT(stateToLabel(currentState));
+    DEBUG_PRINT(F(" -> "));
+    DEBUG_PRINTLN(stateToLabel(newState));
 
     currentState = newState;
     lastStateChangeMs = millis();
@@ -89,7 +136,9 @@ private:
         break;
       case STATE_OK:
       default:
-        // No automatic preset on OK; user can rely on idlePreset instead.
+        if (enableOk && okPreset > 0) {
+          applyPreset(okPreset);
+        }
         break;
     }
   }
@@ -111,39 +160,85 @@ private:
 
     int httpCode = http.GET();
     lastHttpCode = httpCode;
+
+    DEBUG_PRINT(F("RedAlert: HTTP GET "));
+    DEBUG_PRINT(apiUrl);
+    DEBUG_PRINT(F(" -> code "));
+    DEBUG_PRINTLN(httpCode);
+
     if (httpCode == HTTP_CODE_OK) {
       AlertState newState = STATE_OK;
       String payload = http.getString();
 
-      // Response is a JSON array of alert objects, or [] when no alerts.
+      DEBUG_PRINTLN(F("RedAlert: raw JSON payload:"));
+      DEBUG_PRINTLN(payload);
+
+      // Response can be:
+      //  - a single JSON object (current Pikud Haoref format)
+      //  - or an array of such objects (for future/other wrappers)
       DynamicJsonDocument doc(4096);
       DeserializationError err = deserializeJson(doc, payload);
-      if (!err) {
+      if (err) {
+        DEBUG_PRINT(F("RedAlert: JSON parse error: "));
+        DEBUG_PRINTLN(err.c_str());
+      } else {
         if (doc.is<JsonArray>()) {
+          // Array of alert objects
           JsonArray alerts = doc.as<JsonArray>();
           for (JsonVariant v : alerts) {
             if (!v.is<JsonObject>()) continue;
             JsonObject alert = v.as<JsonObject>();
-            // Expecting structure similar to oref_alert integration:
-            // "cities": [ "area1", ... ], "category": <int>, etc.
-            JsonArray cities = alert["cities"].as<JsonArray>();
-            for (JsonVariant cv : cities) {
-              const char* cityName = cv.as<const char*>();
-              if (!cityName) continue;
-              // Simple substring match so a broader area string still works.
-              if (String(cityName).indexOf(areaName) >= 0) {
-                int category = alert["category"] | 0;
-                if (category == 14) {
-                  newState = STATE_PRE_ALERT;  // "pre_alert"
-                } else if (category == 13) {
-                  newState = STATE_END;        // "end"
-                } else {
-                  newState = STATE_ALERT;      // main "alert"
-                }
-                break;
-              }
+
+            // Newer format uses "data" array; older/wrapper formats may use "cities"
+            JsonArray cities = alert["data"].as<JsonArray>();
+            if (cities.isNull()) cities = alert["cities"].as<JsonArray>();
+            if (cities.isNull()) continue;
+
+            // TEMP/PRAGMATIC: treat any alert with at least one city as a match
+            const char* cityName = cities[0].as<const char*>();
+            if (!cityName) cityName = "";
+
+            int category = extractCategory(alert);
+
+            DEBUG_PRINT(F("RedAlert: FORCED match (array), city=\""));
+            DEBUG_PRINT(cityName);
+            DEBUG_PRINT(F("\", category="));
+            DEBUG_PRINTLN(category);
+
+            if (category == 14) {
+              newState = STATE_PRE_ALERT;  // "pre_alert"
+            } else if (category == 13) {
+              newState = STATE_END;        // "end"
+            } else {
+              newState = STATE_ALERT;      // main "alert"
             }
-            if (newState != STATE_OK) break;
+            break;
+          }
+        } else if (doc.is<JsonObject>()) {
+          // Single alert object (current Pikud Haoref "alerts.json" shape)
+          JsonObject alert = doc.as<JsonObject>();
+
+          JsonArray cities = alert["data"].as<JsonArray>();
+          if (cities.isNull()) cities = alert["cities"].as<JsonArray>();
+
+          if (!cities.isNull() && cities.size() > 0) {
+            const char* cityName = cities[0].as<const char*>();
+            if (!cityName) cityName = "";
+
+            int category = extractCategory(alert);
+
+            DEBUG_PRINT(F("RedAlert: FORCED match (object), city=\""));
+            DEBUG_PRINT(cityName);
+            DEBUG_PRINT(F("\", category="));
+            DEBUG_PRINTLN(category);
+
+            if (category == 14) {
+              newState = STATE_PRE_ALERT;
+            } else if (category == 13) {
+              newState = STATE_END;
+            } else {
+              newState = STATE_ALERT;
+            }
           }
         }
         updateState(newState);
@@ -156,26 +251,37 @@ public:
   // Called once at boot
   void setup() override {
     initDone = true;
+
+    DEBUG_PRINTLN(F("RedAlert: setup complete"));
   }
 
   // Called frequently; do non-blocking work here
   void loop() override {
     if (!enabled) return;
 
+    // First handle periodic polling
     unsigned long now = millis();
-
-    // Periodic polling
     if (now - lastPoll >= pollIntervalMs) {
       lastPoll = now;
-      pollAlert();
+      pollAlert();                 // may change state and update lastStateChangeMs
     }
 
-    // Idle timeout handling: if state hasn't changed for configured time,
-    // optionally apply a fallback preset once.
-    if (initDone && idleTimeoutSec > 0 && idlePreset > 0 && lastStateChangeMs > 0 && !idlePresetApplied) {
+    // Re-sample time *after* polling, so idle timing is relative to the
+    // most recent state change, not the time before pollAlert() ran.
+    now = millis();
+
+    // Idle timeout handling:
+    // If we have been in the *same* state for configured time without any
+    // state changes, optionally apply a fallback preset once.
+    if (initDone &&
+        idleTimeoutSec > 0 && idlePreset > 0 &&
+        lastStateChangeMs > 0 && !idlePresetApplied) {
       if (now - lastStateChangeMs >= idleTimeoutSec * 1000UL) {
         applyPreset(idlePreset);
         idlePresetApplied = true;
+
+        DEBUG_PRINT(F("RedAlert: idle timeout reached, applying idlePreset="));
+        DEBUG_PRINTLN(idlePreset);
       }
     }
 
@@ -193,9 +299,11 @@ public:
     top[FPSTR(_alertEnabled)]     = enableAlert;
     top[FPSTR(_preAlertEnabled)]  = enablePreAlert;
     top[FPSTR(_endEnabled)]       = enableEnd;
+    top[FPSTR(_okEnabled)]        = enableOk;
     top[FPSTR(_alertPreset)]      = alertPreset;
     top[FPSTR(_preAlertPreset)]   = preAlertPreset;
     top[FPSTR(_endPreset)]        = endPreset;
+    top[FPSTR(_okPreset)]         = okPreset;
     top[FPSTR(_idleTimeoutSec)]   = idleTimeoutSec;
     top[FPSTR(_idlePreset)]       = idlePreset;
   }
@@ -217,9 +325,11 @@ public:
     cfg &= getJsonValue(top[FPSTR(_alertEnabled)],    enableAlert, enableAlert);
     cfg &= getJsonValue(top[FPSTR(_preAlertEnabled)], enablePreAlert, enablePreAlert);
     cfg &= getJsonValue(top[FPSTR(_endEnabled)],      enableEnd, enableEnd);
+    cfg &= getJsonValue(top[FPSTR(_okEnabled)],       enableOk, enableOk);
     cfg &= getJsonValue(top[FPSTR(_alertPreset)],     alertPreset, alertPreset);
     cfg &= getJsonValue(top[FPSTR(_preAlertPreset)],  preAlertPreset, preAlertPreset);
     cfg &= getJsonValue(top[FPSTR(_endPreset)],       endPreset, endPreset);
+    cfg &= getJsonValue(top[FPSTR(_okPreset)],        okPreset, okPreset);
     cfg &= getJsonValue(top[FPSTR(_idleTimeoutSec)],  idleTimeoutSec, idleTimeoutSec);
     cfg &= getJsonValue(top[FPSTR(_idlePreset)],      idlePreset, idlePreset);
 
@@ -283,9 +393,11 @@ const char UsermodPikudHaoref::_areaName[] PROGMEM = "areaName";
 const char UsermodPikudHaoref::_alertEnabled[]     PROGMEM = "alertEnabled";
 const char UsermodPikudHaoref::_preAlertEnabled[]  PROGMEM = "preAlertEnabled";
 const char UsermodPikudHaoref::_endEnabled[]       PROGMEM = "endEnabled";
+const char UsermodPikudHaoref::_okEnabled[]        PROGMEM = "okEnabled";
 const char UsermodPikudHaoref::_alertPreset[]      PROGMEM = "alertPreset";
 const char UsermodPikudHaoref::_preAlertPreset[]   PROGMEM = "preAlertPreset";
 const char UsermodPikudHaoref::_endPreset[]        PROGMEM = "endPreset";
+const char UsermodPikudHaoref::_okPreset[]         PROGMEM = "okPreset";
 const char UsermodPikudHaoref::_idleTimeoutSec[]   PROGMEM = "idleTimeoutSec";
 const char UsermodPikudHaoref::_idlePreset[]       PROGMEM = "idlePreset";
 const char UsermodPikudHaoref::_resetUrl[]         PROGMEM = "resetUrl";
