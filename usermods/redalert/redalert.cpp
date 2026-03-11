@@ -62,6 +62,7 @@ private:
   // Idle timeout handling (seconds + preset)
   uint32_t idleTimeoutSec = 0;        // 0 = disabled
   uint8_t  idlePreset     = 0;
+  bool     idleEnabled    = false;
   bool     verboseLogs    = true;     // current behavior: verbose logging on
 
   // Internal state
@@ -320,9 +321,10 @@ public:
     now = millis();
 
     // Idle timeout handling:
-    // If we have been in the *same* state for configured time without any
-    // state changes, optionally apply a fallback preset once.
-    if (initDone &&
+    // If idle fallback is enabled and we have been in the *same* state
+    // for configured time without any state changes, optionally apply
+    // a fallback preset once.
+    if (initDone && idleEnabled &&
         idleTimeoutSec > 0 && idlePreset > 0 &&
         lastStateChangeMs > 0 && !idlePresetApplied) {
       if (now - lastStateChangeMs >= idleTimeoutSec * 1000UL) {
@@ -344,31 +346,32 @@ public:
 
     // Core
     JsonObject core = top.createNestedObject("core");
-    core[FPSTR(_enabled)]      = enabled;
-    core[FPSTR(_apiUrl)]       = apiUrl;
-    core["pollIntervalMs"]     = pollIntervalMs;
-    core[FPSTR(_verboseLogs)]  = verboseLogs;
+    core["Enabled"]            = enabled;
+    core["API URL"]            = apiUrl;
+    core["Poll interval (ms)"] = pollIntervalMs;
+    core["Verbose logs"]       = verboseLogs;
 
     // Area selection
     JsonObject area = top.createNestedObject("area");
-    area[FPSTR(_allAreasEnabled)] = enableAllAreas;
-    area[FPSTR(_areaName)]        = areaName;
+    area["Match all areas"]    = enableAllAreas;
+    area["Target area name"]   = areaName;
 
     // State actions (flat but grouped under "states" for a single divider)
     JsonObject states = top.createNestedObject("states");
-    states["alertEnabled"]    = enableAlert;
-    states["alertPreset"]     = alertPreset;
-    states["preAlertEnabled"] = enablePreAlert;
-    states["preAlertPreset"]  = preAlertPreset;
-    states["endEnabled"]      = enableEnd;
-    states["endPreset"]       = endPreset;
-    states["okEnabled"]       = enableOk;
-    states["okPreset"]        = okPreset;
+    states["Alert enabled"]        = enableAlert;
+    states["Alert preset"]         = alertPreset;
+    states["Pre-alert enabled"]    = enablePreAlert;
+    states["Pre-alert preset"]     = preAlertPreset;
+    states["End enabled"]          = enableEnd;
+    states["End preset"]           = endPreset;
+    states["OK enabled"]           = enableOk;
+    states["OK preset"]            = okPreset;
 
     // Idle fallback
     JsonObject idle = top.createNestedObject("idle");
-    idle["timeoutSec"] = idleTimeoutSec;
-    idle["preset"]     = idlePreset;
+    idle["Enable idle fallback"] = idleEnabled;
+    idle["Idle timeout (sec)"]   = idleTimeoutSec;
+    idle["Idle preset"]          = idlePreset;
   }
 
   // Load JSON config
@@ -384,6 +387,12 @@ public:
     // Core (new grouped layout), with legacy flat-key fallback
     JsonObject core = top["core"];
     if (!core.isNull()) {
+      // New pretty labels
+      cfg &= getJsonValue(core["Enabled"],            enabled, enabled);
+      cfg &= getJsonValue(core["API URL"],            apiUrl, apiUrl);
+      cfg &= getJsonValue(core["Poll interval (ms)"], pollIntervalMs, pollIntervalMs);
+      cfg &= getJsonValue(core["Verbose logs"],       verboseLogs, verboseLogs);
+      // Backward compatibility for old keys in core object
       cfg &= getJsonValue(core[FPSTR(_enabled)],      enabled, enabled);
       cfg &= getJsonValue(core[FPSTR(_apiUrl)],       apiUrl, apiUrl);
       cfg &= getJsonValue(core["pollIntervalMs"],     pollIntervalMs, pollIntervalMs);
@@ -398,6 +407,9 @@ public:
     // Area selection (new grouped layout), with legacy flat-key fallback
     JsonObject area = top["area"];
     if (!area.isNull()) {
+      cfg &= getJsonValue(area["Match all areas"],      enableAllAreas, enableAllAreas);
+      cfg &= getJsonValue(area["Target area name"],     areaName, areaName);
+      // Backward compatibility
       cfg &= getJsonValue(area[FPSTR(_allAreasEnabled)], enableAllAreas, enableAllAreas);
       cfg &= getJsonValue(area[FPSTR(_areaName)],        areaName, areaName);
     } else {
@@ -408,16 +420,25 @@ public:
     // State actions (new grouped layout), with legacy flat-key fallback
     JsonObject states = top["states"];
     if (!states.isNull()) {
-      // New flat-in-group layout
-      if (!states["alertEnabled"].isNull() || !states["alertPreset"].isNull()) {
-        cfg &= getJsonValue(states["alertEnabled"],    enableAlert, enableAlert);
-        cfg &= getJsonValue(states["alertPreset"],     alertPreset, alertPreset);
-        cfg &= getJsonValue(states["preAlertEnabled"], enablePreAlert, enablePreAlert);
-        cfg &= getJsonValue(states["preAlertPreset"],  preAlertPreset, preAlertPreset);
-        cfg &= getJsonValue(states["endEnabled"],      enableEnd, enableEnd);
-        cfg &= getJsonValue(states["endPreset"],       endPreset, endPreset);
-        cfg &= getJsonValue(states["okEnabled"],       enableOk, enableOk);
-        cfg &= getJsonValue(states["okPreset"],        okPreset, okPreset);
+      // New flat-in-group layout with pretty labels
+      if (!states["Alert enabled"].isNull() || !states["Alert preset"].isNull()) {
+        cfg &= getJsonValue(states["Alert enabled"],        enableAlert, enableAlert);
+        cfg &= getJsonValue(states["Alert preset"],         alertPreset, alertPreset);
+        cfg &= getJsonValue(states["Pre-alert enabled"],    enablePreAlert, enablePreAlert);
+        cfg &= getJsonValue(states["Pre-alert preset"],     preAlertPreset, preAlertPreset);
+        cfg &= getJsonValue(states["End enabled"],          enableEnd, enableEnd);
+        cfg &= getJsonValue(states["End preset"],           endPreset, endPreset);
+        cfg &= getJsonValue(states["OK enabled"],           enableOk, enableOk);
+        cfg &= getJsonValue(states["OK preset"],            okPreset, okPreset);
+        // Backward compatibility for original flat keys in states
+        cfg &= getJsonValue(states["alertEnabled"],         enableAlert, enableAlert);
+        cfg &= getJsonValue(states["alertPreset"],          alertPreset, alertPreset);
+        cfg &= getJsonValue(states["preAlertEnabled"],      enablePreAlert, enablePreAlert);
+        cfg &= getJsonValue(states["preAlertPreset"],       preAlertPreset, preAlertPreset);
+        cfg &= getJsonValue(states["endEnabled"],           enableEnd, enableEnd);
+        cfg &= getJsonValue(states["endPreset"],            endPreset, endPreset);
+        cfg &= getJsonValue(states["okEnabled"],            enableOk, enableOk);
+        cfg &= getJsonValue(states["okPreset"],             okPreset, okPreset);
       } else {
         // Backward compatibility: older nested-in-group layout
         JsonObject sAlert = states["alert"];
@@ -458,8 +479,12 @@ public:
     // Idle fallback (new grouped layout), with legacy flat-key fallback
     JsonObject idle = top["idle"];
     if (!idle.isNull()) {
-      cfg &= getJsonValue(idle["timeoutSec"], idleTimeoutSec, idleTimeoutSec);
-      cfg &= getJsonValue(idle["preset"],     idlePreset, idlePreset);
+      cfg &= getJsonValue(idle["Enable idle fallback"], idleEnabled, idleEnabled);
+      cfg &= getJsonValue(idle["Idle timeout (sec)"],   idleTimeoutSec, idleTimeoutSec);
+      cfg &= getJsonValue(idle["Idle preset"],          idlePreset, idlePreset);
+      // Backward compatibility
+      cfg &= getJsonValue(idle["timeoutSec"],           idleTimeoutSec, idleTimeoutSec);
+      cfg &= getJsonValue(idle["preset"],               idlePreset, idlePreset);
     } else {
       cfg &= getJsonValue(top[FPSTR(_idleTimeoutSec)],  idleTimeoutSec, idleTimeoutSec);
       cfg &= getJsonValue(top[FPSTR(_idlePreset)],      idlePreset, idlePreset);
