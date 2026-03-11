@@ -1,5 +1,6 @@
 #include "wled.h"
 #include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include "redalert_text_utils.h"
 
 #ifndef USERMOD_ID_PIKUD_HAOREF
@@ -43,20 +44,21 @@ private:
   // Official Pikud Haoref alerts endpoint (JSON array)
   String apiUrl = "https://www.oref.org.il/WarningMessages/alert/alerts.json";
   // Area / city name to watch for (must match an entry in the 'cities' array)
-  String areaName = "תל אביב - מזרח";
+  String areaName = "תל אביב - מרכז";
   bool   enabled = true;
-  uint32_t pollIntervalMs = 15000;    // 15 seconds
+  // Default poll interval in ms (UI label: "Poll Interval Ms")
+  uint32_t pollIntervalMs = 100;
   String normalizedAreaName = RedAlertText::normalizeAreaText(areaName);
 
   // Per-state toggles and presets
   bool    enableAlert     = true;
-  bool    enablePreAlert  = false;
-  bool    enableEnd       = false;
+  bool    enablePreAlert  = true;
+  bool    enableEnd       = true;
   bool    enableOk        = false;
   bool    enableAllAreas  = false;
-  uint8_t alertPreset     = 0;
-  uint8_t preAlertPreset  = 0;
-  uint8_t endPreset       = 0;
+  uint8_t alertPreset     = 3;
+  uint8_t preAlertPreset  = 4;
+  uint8_t endPreset       = 2;
   uint8_t okPreset        = 0;
 
   // Idle timeout handling (seconds + preset)
@@ -68,6 +70,11 @@ private:
   // Internal state
   unsigned long lastPoll = 0;
   int lastHttpCode = 0;
+
+  // HTTPS client for ESP32 (kept as a member so its lifetime
+  // covers the HTTPClient usage when doing HTTPS requests).
+  WiFiClientSecure httpsClient;
+  bool httpsClientConfigured = false;
 
   AlertState currentState = STATE_OK;
   unsigned long lastStateChangeMs = 0;
@@ -187,7 +194,31 @@ private:
     HTTPClient http;
     http.setTimeout(3000); // 3s
 
-    http.begin(apiUrl);
+    bool isHttps = apiUrl.startsWith("https://");
+    bool beginOk = false;
+
+    if (isHttps) {
+      // Configure insecure HTTPS once; this trades certificate validation
+      // for the ability to talk to the HTTPS-only endpoint without bundling
+      // CA certs. For this use-case (public alert feed) this is acceptable.
+      if (!httpsClientConfigured) {
+        httpsClient.setInsecure();
+        httpsClientConfigured = true;
+      }
+      beginOk = http.begin(httpsClient, apiUrl);
+    } else {
+      beginOk = http.begin(apiUrl);
+    }
+
+    if (!beginOk) {
+      lastHttpCode = -1;
+      if (verboseLogs) {
+        DEBUG_PRINT(F("RedAlert: http.begin() failed for URL "));
+        DEBUG_PRINTLN(apiUrl);
+      }
+      http.end();
+      return;
+    }
 
     // Pikud Haoref endpoint is somewhat picky about headers; set a UA.
     http.addHeader("User-Agent", "WLED-PikudHaoref-ESP32");
@@ -209,6 +240,23 @@ private:
       if (verboseLogs) {
         DEBUG_PRINTLN(F("RedAlert: raw JSON payload:"));
         DEBUG_PRINTLN(payload);
+      }
+
+      // Some servers prepend a BOM or other non-JSON characters before
+      // the first '{'/'['. Strip everything before the first JSON token
+      // so ArduinoJson does not fail with InvalidInput.
+      int firstBrace   = payload.indexOf('{');
+      int firstBracket = payload.indexOf('[');
+      int start = -1;
+      if (firstBrace >= 0 && firstBracket >= 0) {
+        start = (firstBrace < firstBracket) ? firstBrace : firstBracket;
+      } else if (firstBrace >= 0) {
+        start = firstBrace;
+      } else if (firstBracket >= 0) {
+        start = firstBracket;
+      }
+      if (start > 0) {
+        payload.remove(0, start);
       }
 
       // Response can be:
