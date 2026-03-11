@@ -707,13 +707,17 @@ ${inforow("Uptime",getRuntimeStr(i.uptime))}
 ${inforow("Time",i.time)}
 ${inforow("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
+<tr><td colspan=2><hr class="sml"></td></tr>
+${i.leds.count?inforow("Total LEDs",i.leds.count):""}
 ${inforow("Estimated current",pwru)}
 ${inforow("Average FPS",i.leds.fps)}
+<tr><td colspan=2><hr class="sml"></td></tr>
 ${inforow("MAC address",i.mac)}
 ${inforow("CPU clock",i.clock," MHz")}
 ${inforow("Flash size",i.flash," MB")}
 ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
-${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
+${inforow("Environment",i.arch + " " + i.core + ( i.lwip ? " (" + i.lwip + ")" : ""))}
+${i.repo?inforow("GitHub","<a href=\"https://github.com/"+i.repo+"\" target=\"_blank\">" + i.repo + "</a>"):""}
 </table>`;
 	gId('kv').innerHTML = cn;
 	//  update all sliders in Info
