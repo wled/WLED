@@ -7,10 +7,9 @@ WLED usermod that polls the Israeli Home Front Command (Pikud HaOref / Oref) ale
 - Polls `https://www.oref.org.il/WarningMessages/alert/alerts.json` (or a custom HTTP/HTTPS URL).
 - Area-based matching: configure a target area name (e.g. "תל אביב - מרכז") or "Match all areas".
 - **Alert states** (each with optional preset):
-  - **Pre-alert** (category 14) → pre-alert preset
-  - **Alert** (all other positive categories) → alert preset
-  - **End / clear** (categories 10, 13 — "leave shelter, stay nearby") → end preset
-  - **OK** (no matching alert) → optional OK preset
+  - **Pre-alert** (category 10 with title “בדקות הקרובות צפויות להתקבל התרעות באזורך”) → pre-alert preset
+  - **End / clear** (category 10 with title “האירוע הסתיים”) → end preset
+  - **Alert** (all other positive categories, e.g. 13, 14) → alert preset
 - Idle fallback: after a configurable time in the same state, optionally apply an idle preset.
 - HTTPS supported on ESP32 when built with a platform that provides `WiFiClientSecure` (e.g. stock `espressif32`).
 
@@ -34,15 +33,16 @@ For WLED’s default Tasmota-based ESP32 platform, HTTPS is not available to use
 
 - **Core**: Enabled, API URL, Poll interval (ms), Verbose logs.
 - **Area**: Match all areas (checkbox), Target area name.
-- **States**: Per-state toggles and preset IDs for Alert, Pre-alert, End, OK.
+- **States**: Per-state toggles and preset IDs for Alert, Pre-alert, End.
 - **Idle**: Enable idle fallback, Idle timeout (sec), Idle preset.
 
 No category toggles are exposed; all categories are enabled. Semantics:
 
-- **Category 14** → pre-alert.
-- **Categories 10, 13** → end/clear (“leave shelter, stay nearby”).
+- **Category 10** is used for both pre-alert and end; the API `title` field differentiates:
+  - `"האירוע הסתיים"` → end/clear
+  - `"בדקות הקרובות צפויות להתקבל התרעות באזורך"` → pre-alert
 - **Category 0 or missing** → ignored (no state change).
-- **Any other category** → alert.
+- **Any other category** (e.g. 13, 14) → alert.
 
 ## API notes
 

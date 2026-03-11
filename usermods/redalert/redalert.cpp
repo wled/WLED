@@ -18,13 +18,13 @@ private:
   static const char _alertEnabled[];
   static const char _preAlertEnabled[];
   static const char _endEnabled[];
-  static const char _okEnabled[];
   static const char _allAreasEnabled[];
 
   static const char _alertPreset[];
   static const char _preAlertPreset[];
   static const char _endPreset[];
-  static const char _okPreset[];
+  static const char _titleEnd[];
+  static const char _titlePreAlert[];
 
   static const char _idleTimeoutSec[];
   static const char _idlePreset[];
@@ -53,12 +53,10 @@ private:
   bool    enableAlert     = true;
   bool    enablePreAlert  = true;
   bool    enableEnd       = true;
-  bool    enableOk        = false;
   bool    enableAllAreas  = false;
   uint8_t alertPreset     = 3;
   uint8_t preAlertPreset  = 4;
   uint8_t endPreset       = 2;
-  uint8_t okPreset        = 0;
 
   // Idle timeout handling (seconds + preset)
   uint32_t idleTimeoutSec = 0;        // 0 = disabled
@@ -89,7 +87,7 @@ private:
       case STATE_ALERT:     return F("ALERT");
       case STATE_END:       return F("END");
       case STATE_OK:
-      default:              return F("OK");
+      default:              return F("Idle");
     }
   }
 
@@ -119,6 +117,20 @@ private:
     }
 
     return category;
+  }
+
+  // OREF API: category 10 is used for both pre-alert and end; differentiate by title.
+  // All other positive categories -> alert.
+  AlertState stateFromAlert(JsonObject& alert) {
+    int category = extractCategory(alert);
+    if (category != 10) {
+      return STATE_ALERT;  // all non-10 categories (13, 14, etc.) -> alert
+    }
+    const char* title = alert["title"].as<const char*>();
+    if (!title) return STATE_END;
+    if (strcmp(title, (const char*)FPSTR(_titleEnd)) == 0) return STATE_END;
+    if (strcmp(title, (const char*)FPSTR(_titlePreAlert)) == 0) return STATE_PRE_ALERT;
+    return STATE_END;  // category 10 with unknown title -> treat as end
   }
 
   bool areaMatches(const char* cityNameRaw) {
@@ -175,10 +187,7 @@ private:
         break;
       case STATE_OK:
       default:
-        if (enableOk && okPreset > 0) {
-          applyPreset(okPreset);
-        }
-        break;
+        break;  // no preset when idle / no alert
     }
   }
 
@@ -304,14 +313,7 @@ private:
                 DEBUG_PRINTLN(category);
               }
 
-              if (category == 14) {
-                newState = STATE_PRE_ALERT;  // "pre_alert"
-              } else if (category == 13 || category == 10) {
-                // 10: "may leave protected area but stay nearby" -> treat as END/clear
-                newState = STATE_END;
-              } else {
-                newState = STATE_ALERT;      // main "alert"
-              }
+              newState = stateFromAlert(alert);
               break;
             }
             if (newState != STATE_OK) break;
@@ -349,14 +351,7 @@ private:
                 DEBUG_PRINTLN(category);
               }
 
-              if (category == 14) {
-                newState = STATE_PRE_ALERT;
-              } else if (category == 13 || category == 10) {
-                // 10: "may leave protected area but stay nearby" -> treat as END/clear
-                newState = STATE_END;
-              } else {
-                newState = STATE_ALERT;
-              }
+              newState = stateFromAlert(alert);
               break;
             }
           }
@@ -435,8 +430,6 @@ public:
     states["Pre-alert preset"]     = preAlertPreset;
     states["End enabled"]          = enableEnd;
     states["End preset"]           = endPreset;
-    states["OK enabled"]           = enableOk;
-    states["OK preset"]            = okPreset;
 
     // Idle fallback
     JsonObject idle = top.createNestedObject("idle");
@@ -499,8 +492,6 @@ public:
         cfg &= getJsonValue(states["Pre-alert preset"],     preAlertPreset, preAlertPreset);
         cfg &= getJsonValue(states["End enabled"],          enableEnd, enableEnd);
         cfg &= getJsonValue(states["End preset"],           endPreset, endPreset);
-        cfg &= getJsonValue(states["OK enabled"],           enableOk, enableOk);
-        cfg &= getJsonValue(states["OK preset"],            okPreset, okPreset);
         // Backward compatibility for original flat keys in states
         cfg &= getJsonValue(states["alertEnabled"],         enableAlert, enableAlert);
         cfg &= getJsonValue(states["alertPreset"],          alertPreset, alertPreset);
@@ -508,8 +499,6 @@ public:
         cfg &= getJsonValue(states["preAlertPreset"],       preAlertPreset, preAlertPreset);
         cfg &= getJsonValue(states["endEnabled"],           enableEnd, enableEnd);
         cfg &= getJsonValue(states["endPreset"],            endPreset, endPreset);
-        cfg &= getJsonValue(states["okEnabled"],            enableOk, enableOk);
-        cfg &= getJsonValue(states["okPreset"],             okPreset, okPreset);
       } else {
         // Backward compatibility: older nested-in-group layout
         JsonObject sAlert = states["alert"];
@@ -529,22 +518,14 @@ public:
           cfg &= getJsonValue(sEnd["enabled"], enableEnd, enableEnd);
           cfg &= getJsonValue(sEnd["preset"],  endPreset, endPreset);
         }
-
-        JsonObject sOk = states["ok"];
-        if (!sOk.isNull()) {
-          cfg &= getJsonValue(sOk["enabled"], enableOk, enableOk);
-          cfg &= getJsonValue(sOk["preset"],  okPreset, okPreset);
-        }
       }
     } else {
       cfg &= getJsonValue(top[FPSTR(_alertEnabled)],    enableAlert, enableAlert);
       cfg &= getJsonValue(top[FPSTR(_preAlertEnabled)], enablePreAlert, enablePreAlert);
       cfg &= getJsonValue(top[FPSTR(_endEnabled)],      enableEnd, enableEnd);
-      cfg &= getJsonValue(top[FPSTR(_okEnabled)],       enableOk, enableOk);
       cfg &= getJsonValue(top[FPSTR(_alertPreset)],     alertPreset, alertPreset);
       cfg &= getJsonValue(top[FPSTR(_preAlertPreset)],  preAlertPreset, preAlertPreset);
       cfg &= getJsonValue(top[FPSTR(_endPreset)],       endPreset, endPreset);
-      cfg &= getJsonValue(top[FPSTR(_okPreset)],        okPreset, okPreset);
     }
 
     // Idle fallback (new grouped layout), with legacy flat-key fallback
@@ -572,13 +553,13 @@ public:
     if (user.isNull()) user = root.createNestedObject("u");
 
     JsonArray arr = user.createNestedArray(FPSTR(_name));
-    const __FlashStringHelper* stateLabel = F("OK");
+    const __FlashStringHelper* stateLabel = F("Idle");
     switch (currentState) {
       case STATE_PRE_ALERT: stateLabel = F("PRE_ALERT"); break;
       case STATE_ALERT:     stateLabel = F("ALERT");     break;
       case STATE_END:       stateLabel = F("END");       break;
       case STATE_OK:
-      default:              stateLabel = F("OK");        break;
+      default:              stateLabel = F("Idle");      break;
     }
     arr.add(stateLabel);
     arr.add(F(" Pikud Haoref"));
@@ -607,12 +588,12 @@ const char UsermodPikudHaoref::_areaName[] PROGMEM = "areaName";
 const char UsermodPikudHaoref::_alertEnabled[]     PROGMEM = "alertEnabled";
 const char UsermodPikudHaoref::_preAlertEnabled[]  PROGMEM = "preAlertEnabled";
 const char UsermodPikudHaoref::_endEnabled[]       PROGMEM = "endEnabled";
-const char UsermodPikudHaoref::_okEnabled[]        PROGMEM = "okEnabled";
 const char UsermodPikudHaoref::_allAreasEnabled[]  PROGMEM = "allAreasEnabled";
 const char UsermodPikudHaoref::_alertPreset[]      PROGMEM = "alertPreset";
 const char UsermodPikudHaoref::_preAlertPreset[]   PROGMEM = "preAlertPreset";
 const char UsermodPikudHaoref::_endPreset[]        PROGMEM = "endPreset";
-const char UsermodPikudHaoref::_okPreset[]         PROGMEM = "okPreset";
+const char UsermodPikudHaoref::_titleEnd[]         PROGMEM = "\xd7\x94\xd7\x90\xd7\x99\xd7\xa8\xd7\x95\xd7\xa2 \xd7\x94\xd7\xa1\xd7\xaa\xd7\x99\xd7\x99\xd7\x9d";           // "האירוע הסתיים" UTF-8
+const char UsermodPikudHaoref::_titlePreAlert[]   PROGMEM = "\xd7\x91\xd7\x93\xd7\xa7\xd7\x95\xd7\xaa \xd7\x94\xd7\xa7\xd7\xa8\xd7\x95\xd7\x91\xd7\x95\xd7\xaa \xd7\xa6\xd7\xa4\xd7\x95\xd7\x99\xd7\x95\xd7\xaa \xd7\x9c\xd7\x94\xd7\xaa\xd7\xa7\xd7\x91\xd7\x9c \xd7\x94\xd7\xaa\xd7\xa8\xd7\xa2\xd7\x95\xd7\xaa \xd7\x91\xd7\x90\xd7\x96\xd7\x95\xd7\xa8\xd7\x9a";  // "בדקות הקרובות..." UTF-8
 const char UsermodPikudHaoref::_idleTimeoutSec[]   PROGMEM = "idleTimeoutSec";
 const char UsermodPikudHaoref::_idlePreset[]       PROGMEM = "idlePreset";
 const char UsermodPikudHaoref::_verboseLogs[]      PROGMEM = "verboseLogs";
