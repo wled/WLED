@@ -1,6 +1,5 @@
 #include "web_ui_manager.h"
 #include "fseq_player.h"
-#include "sd_manager.h"
 #include "usermod_fseq.h"
 
 struct UploadContext {

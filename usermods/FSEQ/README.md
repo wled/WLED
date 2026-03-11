@@ -23,8 +23,6 @@ or over the WLED Infotab
 
 This usermod adds support for playing FSEQ files from an SD card and provides a web interface for managing SD files and controlling FSEQ playback via HTTP and UDP.
 
-It supports configurable SPI pin settings when using SD over SPI.
-
 The usermod exposes several HTTP endpoints for file management and playback control.
 
 ---
@@ -45,15 +43,18 @@ The usermod exposes several HTTP endpoints for file management and playback cont
 Add the following to your `platformio_override.ini` (or `platformio.ini`):
 
 [env:esp32dev_V4]
-custom_usermods = FSEQ
+custom_usermods = 
+  FSEQ 
+  sd_card
+  
+You must add the sd_card usermode also to use the FSEQ usermode.
 
 ---
 
 ### Storage Configuration
 
-- If you use **SD over SPI**, the build flag  
+- If you use **SD over SPI**, you must manually set the build flag:  
   `-D WLED_USE_SD_SPI`  
-  will be enabled automatically (default behavior).
 
 - If you use **SD via MMC**, you must manually set the build flag:  
   `-D WLED_USE_SD_MMC`
@@ -123,27 +124,8 @@ Endpoint to stop FSEQ playback
 
 ---
 
-## Configurable SPI Pin Settings
-
-Default SPI pin assignments for SD over SPI:
-
-```cpp
-#ifdef WLED_USE_SD_SPI
-int8_t UsermodFseq::configPinSourceSelect = 5;
-int8_t UsermodFseq::configPinSourceClock  = 18;
-int8_t UsermodFseq::configPinPoci         = 19;
-int8_t UsermodFseq::configPinPico         = 23;
-#endif
-```
-
-These values can be modified via the WLED Usermods settings tab without recompiling the firmware.
-
-After making changes, you must reboot the device.
-
----
-
 ## Summary
 
-The SD & FSEQ Usermod for WLED enables FSEQ playback from an SD card with a full-featured web interface and UDP synchronization. With configurable SPI pin settings, it integrates seamlessly into WLED without modifying the core code.
+The SD & FSEQ Usermod for WLED enables FSEQ playback from an SD card with a full-featured web interface and UDP synchronization. 
 
 For further customization or support, please refer to the project documentation or open an issue on GitHub.
