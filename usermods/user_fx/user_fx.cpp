@@ -314,7 +314,7 @@ static void mode_spinning_wheel(void) {
         hue = (SEGENV.aux1 * pos) >> 8;
       }
 
-      uint32_t color = ColorFromPaletteWLED(SEGPALETTE, hue, 255, LINEARBLEND);
+      uint32_t color = ColorFromPalette(SEGPALETTE, hue, 255, LINEARBLEND);
 
       // Draw the spinner with configurable size (1-10 LEDs)
       for (int8_t x = 0; x < spinnerSize; x++) {
