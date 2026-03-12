@@ -1,6 +1,8 @@
 #include "wled.h"
 #include "wled_ethernet.h"
-
+#ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  #include "cfg_crc.h"
+#endif
 /*
  * Serializes and parses the cfg.json and wsec.json settings files, stored in internal FS.
  * The structure of the JSON is not to be considered an official API and may change without notice.
@@ -21,6 +23,7 @@
 #ifndef DEFAULT_LED_COLOR_ORDER
   #define DEFAULT_LED_COLOR_ORDER COL_ORDER_GRB  //default to GRB
 #endif
+
 
 static constexpr unsigned sumPinsRequired(const unsigned* current, size_t count) {
   return (count > 0) ? (Bus::getNumberOfPins(*current) + sumPinsRequired(current+1,count-1)) : 0;
@@ -768,13 +771,26 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 }
 
 static const char s_cfg_json[] PROGMEM = "/cfg.json";
+static const char s_wsec_json[] PROGMEM = "/wsec.json";
+#ifdef WLED_ENABLE_CRC_FOR_CONFIG
+static const char s_cfg_backup_json[] PROGMEM = "/cfg_backup.json";
+static const char s_cfg_crc_json[] PROGMEM = "/cfg.json.crc";
+static const char s_cfg_crc_backup_json[] PROGMEM = "/cfg_backup.json.crc";
+static const char s_wsec_backup_json[] PROGMEM = "/wsec_backup.json";
+static const char s_wsec_crc_json[] PROGMEM = "/wsec.json.crc";
+static const char s_wsec_crc_backup_json[] PROGMEM = "/wsec_backup.json.crc";
+#endif
 
 bool backupConfig() {
   return backupFile(s_cfg_json);
 }
 
 bool restoreConfig() {
-  return restoreFile(s_cfg_json);
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+    return false;
+  #else
+    return restoreFile(s_cfg_json);
+  #endif
 }
 
 bool verifyConfig() {
@@ -785,53 +801,141 @@ bool configBackupExists() {
   return checkBackupExists(s_cfg_json);
 }
 
+
 // rename config file and reboot
 // if the cfg file doesn't exist, such as after a reset, do nothing
 void resetConfig() {
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  if (!WLED_FS.exists(s_cfg_json) && !WLED_FS.exists(s_cfg_backup_json))
+    return;
+  #else
+  if (!WLED_FS.exists(s_cfg_json))
+    return;
+  #endif
+  DEBUG_PRINTLN(F("Reset config"));
+  char backupname[32];
+  // rename main config
   if (WLED_FS.exists(s_cfg_json)) {
-    DEBUG_PRINTLN(F("Reset config"));
-    char backupname[32];
     snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_json[1]);
     WLED_FS.rename(s_cfg_json, backupname);
-    doReboot = true;
   }
+  if (WLED_FS.exists(s_wsec_json))
+    WLED_FS.remove(s_wsec_json);
+
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  //rename backup config
+  if (WLED_FS.exists(s_cfg_backup_json)) {
+    snprintf_P(backupname, sizeof(backupname), PSTR("/rst.%s"), &s_cfg_backup_json[1]);
+    WLED_FS.rename(s_cfg_backup_json, backupname);
+  }
+  //remove CRC files
+  if (WLED_FS.exists(s_cfg_crc_json))
+    WLED_FS.remove(s_cfg_crc_json);
+
+  if (WLED_FS.exists(s_cfg_crc_backup_json))
+    WLED_FS.remove(s_cfg_crc_backup_json);
+
+  if (WLED_FS.exists(s_wsec_backup_json))
+    WLED_FS.remove(s_wsec_backup_json);
+
+  if (WLED_FS.exists(s_wsec_crc_json))
+    WLED_FS.remove(s_wsec_crc_json);
+
+  if (WLED_FS.exists(s_wsec_crc_backup_json))
+    WLED_FS.remove(s_wsec_crc_backup_json);
+
+  #endif
+  doReboot = true;
 }
 
 bool deserializeConfigFromFS() {
+
   [[maybe_unused]] bool success = deserializeConfigSec();
 
   if (!requestJSONBufferLock(JSON_LOCK_CFG_DES)) return false;
-
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
+  const char* loadFile = nullptr;
 
-  success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  uint32_t storedCRCMain = 0;
+  uint32_t storedCRCBackup = 0;
 
-  // NOTE: This routine deserializes *and* applies the configuration
-  //       Therefore, must also initialize ethernet from this function
+  bool haveMainCRC = loadCRC(s_cfg_crc_json, storedCRCMain);
+  bool haveBackupCRC = loadCRC(s_cfg_crc_backup_json, storedCRCBackup);
+
+  uint32_t crcMain = crc32_file(s_cfg_json);
+  uint32_t crcBackup = crc32_file(s_cfg_backup_json);
+
+  bool validMain = haveMainCRC && (crcMain == storedCRCMain);
+  bool validBackup = haveBackupCRC && (crcBackup == storedCRCBackup);
+
+  if (validMain && validBackup) {
+    loadFile = s_cfg_json;
+  } else if (validMain && !validBackup) {
+    DEBUG_PRINTLN(F("Backup config invalid, restoring..."));
+    copyFile(s_cfg_json, s_cfg_backup_json);
+    saveCRC(s_cfg_crc_backup_json, crcMain);
+    loadFile = s_cfg_json;
+  } else if (!validMain && validBackup) {
+    DEBUG_PRINTLN(F("Main config invalid, restoring from backup..."));
+    copyFile(s_cfg_backup_json, s_cfg_json);
+    saveCRC(s_cfg_crc_json, crcBackup);
+    loadFile = s_cfg_json;
+  } else {
+    DEBUG_PRINTLN(F("Both config files invalid! Using defaults."));
+    loadFile = nullptr; // signal no file
+  }
+  #else
+  loadFile = s_cfg_json;
+  #endif
+  if (loadFile)
+    success = readObjectFromFile(loadFile, nullptr, pDoc);
+  else
+    pDoc->clear();
   JsonObject root = pDoc->as<JsonObject>();
   bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
-
   return needsSave;
 }
 
 void serializeConfigToFS() {
   serializeConfigSec();
   backupConfig(); // backup before writing new config
-
   DEBUG_PRINTLN(F("Writing settings to /cfg.json..."));
 
   if (!requestJSONBufferLock(JSON_LOCK_CFG_SER)) return;
-
   JsonObject root = pDoc->to<JsonObject>();
-
   serializeConfig(root);
 
+  /*
+   * STEP 1
+   * write main config
+   */
   File f = WLED_FS.open(FPSTR(s_cfg_json), "w");
-  if (f) serializeJson(root, f);
-  f.close();
-  releaseJSONBufferLock();
 
+  if (f) {
+    serializeJson(root, f);
+    f.close();
+    #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+    uint32_t crcMain = crc32_file(s_cfg_json);
+    saveCRC(s_cfg_crc_json, crcMain);
+    #endif
+  }
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  /*
+   * STEP 2
+   * write backup config
+   */
+  f = WLED_FS.open(FPSTR(s_cfg_backup_json), "w");
+
+  if (f) {
+    serializeJson(root, f);
+    f.close();
+    uint32_t crcBackup = crc32_file(s_cfg_backup_json);
+    saveCRC(s_cfg_crc_backup_json, crcBackup);
+  }
+  #endif
+  releaseJSONBufferLock();
   configNeedsWrite = false;
 }
 
@@ -1263,16 +1367,48 @@ void serializeConfig(JsonObject root) {
   UsermodManager::addToConfig(usermods_settings);
 }
 
-
-static const char s_wsec_json[] PROGMEM = "/wsec.json";
-
 //settings in /wsec.json, not accessible via webserver, for passwords and tokens
 bool deserializeConfigSec() {
   DEBUG_PRINTLN(F("Reading settings from /wsec.json..."));
 
-  if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_DES)) return false;
+  const char* loadFile = nullptr;
 
-  bool success = readObjectFromFile(s_wsec_json, nullptr, pDoc);
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  uint32_t storedCRCMain = 0;
+  uint32_t storedCRCBackup = 0;
+
+  bool haveMainCRC   = loadCRC(s_wsec_crc_json, storedCRCMain);
+  bool haveBackupCRC = loadCRC(s_wsec_crc_backup_json, storedCRCBackup);
+
+  uint32_t crcMain   = crc32_file(s_wsec_json);
+  uint32_t crcBackup = crc32_file(s_wsec_backup_json);
+
+  bool validMain   = haveMainCRC && (crcMain == storedCRCMain);
+  bool validBackup = haveBackupCRC && (crcBackup == storedCRCBackup);
+
+  if (validMain && validBackup) {
+    loadFile = s_wsec_json;
+  }
+  else if (validMain && !validBackup) {
+    copyFile(s_wsec_json, s_wsec_backup_json);
+    saveCRC(s_wsec_crc_backup_json, crcMain);
+    loadFile = s_wsec_json;
+  }
+  else if (!validMain && validBackup) {
+    copyFile(s_wsec_backup_json, s_wsec_json);
+    saveCRC(s_wsec_crc_json, crcBackup);
+    loadFile = s_wsec_json;
+  }
+  else {
+    DEBUG_PRINTLN(F("Both wsec files invalid"));
+    releaseJSONBufferLock();
+    return false;
+  }
+  #else
+  loadFile = s_wsec_json;
+  #endif
+
+  bool success = readObjectFromFile(loadFile, nullptr, pDoc);
   if (!success) {
     releaseJSONBufferLock();
     return false;
@@ -1360,7 +1496,24 @@ void serializeConfigSec() {
   #endif
 
   File f = WLED_FS.open(FPSTR(s_wsec_json), "w");
-  if (f) serializeJson(root, f);
-  f.close();
+
+  if (f) {
+    serializeJson(root, f);
+    f.close();
+
+    #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+      uint32_t crcMain = crc32_file(s_wsec_json);
+      saveCRC(s_wsec_crc_json, crcMain);
+    #endif
+  }
+  #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  f = WLED_FS.open(FPSTR(s_wsec_backup_json), "w");
+  if (f) {
+    serializeJson(root, f);
+    f.close();
+    uint32_t crcBackup = crc32_file(s_wsec_backup_json);
+    saveCRC(s_wsec_crc_backup_json, crcBackup);
+  }
+  #endif
   releaseJSONBufferLock();
 }

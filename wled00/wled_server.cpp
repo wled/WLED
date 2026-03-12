@@ -20,6 +20,10 @@
 #include "html_cpal.h"
 #include "html_edit.h"
 
+#ifdef WLED_ENABLE_CRC_FOR_CONFIG
+  #include "cfg_crc.h"
+#endif
+
 // forward declarations
 static void createEditHandler();
 
@@ -43,6 +47,11 @@ static const char s_expires[]        PROGMEM = "Expires";
 static const char _common_js[]       PROGMEM = "/common.js";
 static const char _iro_js[]          PROGMEM = "/iro.js";
 static const char _omggif_js[]       PROGMEM = "/omggif.js";
+#ifdef WLED_ENABLE_CRC_FOR_CONFIG
+static const char s_wsec_backup_json[] PROGMEM = "wsec_backup.json";
+static const char s_wsec_crc_json[] PROGMEM = "wsec.json.crc";
+static const char s_wsec_crc_backup_json[] PROGMEM = "wsec_backup.json.crc";
+#endif
 
 //Is this an IP?
 static bool isIp(const String &str) {
@@ -213,6 +222,24 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
   }
   if (isFinal) {
     request->_tempFile.close();
+    
+    #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+    if (filename.indexOf("cfg.json") >= 0) {
+      uint32_t crcMain = crc32_file("/cfg.json");
+      saveCRC("/cfg.json.crc", crcMain);
+      copyFile("/cfg.json", "/cfg_backup.json");
+      uint32_t crcBackup = crc32_file("/cfg_backup.json");
+      saveCRC("/cfg_backup.json.crc", crcBackup);
+    }
+    if (filename.indexOf("wsec.json") >= 0) {
+      uint32_t crcMain = crc32_file("/wsec.json");
+      saveCRC("/wsec.json.crc", crcMain);
+      copyFile("/wsec.json", "/wsec_backup.json");
+      uint32_t crcBackup = crc32_file("/wsec_backup.json");
+      saveCRC("/wsec_backup.json.crc", crcBackup);
+    }
+    #endif
+
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));
@@ -262,6 +289,12 @@ static void createEditHandler() {
           rootfile = rootdir.openNextFile(); // skip wsec.json
           continue;
         }
+        #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+        if (name.indexOf(FPSTR(s_wsec_backup_json)) >= 0 || name.indexOf(FPSTR(s_wsec_crc_json)) >= 0 || name.indexOf(FPSTR(s_wsec_crc_backup_json)) >= 0) {
+          rootfile = rootdir.openNextFile(); // skip wsec_*.json
+          continue;
+        }
+        #endif
         if (!first) response->write(',');
         first = false;
         response->printf_P(PSTR("{\"name\":\"%s\",\"type\":\"file\",\"size\":%u}"), name.c_str(), rootfile.size());
@@ -294,6 +327,12 @@ static void createEditHandler() {
       request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
       return;
     }
+    #ifdef WLED_ENABLE_CRC_FOR_CONFIG
+      if (path.indexOf(FPSTR(s_wsec_backup_json)) >= 0 || path.indexOf(FPSTR(s_wsec_crc_json)) >= 0 || path.indexOf(FPSTR(s_wsec_crc_backup_json)) >= 0) {
+        request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec_*.json
+        return;
+      }
+    #endif
 
     if (func == "edit") {
       request->send(WLED_FS, path);
