@@ -51,7 +51,8 @@
 				});
 		}
 		function hideforms() {
-			gId('toprow').classList.add("hide");
+			gId('toprow').classList.add("hide");  // hide top row with "back" button
+			gId('backbtn').classList.add("hide"); // hide "back" button on botton of the page
 			gId('bootupd').classList.add("hide");
 			toggle('upd');			
 		}
@@ -65,9 +66,10 @@
 	<div class="helpB"><button type="button" aria-label="Help" onclick="H('basics/getting-started/#software-update-procedure')">?</button></div>
 	<button type="button" onclick="B()">Back</button>
 	</div>
-	<h2>WLED Software Update</h2>
+	<br>
 	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="hideforms()">
 	<div class="sec">
+		<h2>WLED Software Update</h2>
 		<p>
 		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
@@ -81,22 +83,26 @@
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
 		<label for='skipValidation'>Ignore firmware validation</label><br>
-		<button type="submit">Update!</button><br>
-		<hr class="sml">
-		<div id="toast"></div>
-		<button id="rev" type="button" onclick="cR()">Revert update</button><br>
-		<button type="button" onclick="B()">Back</button>
+		<button type="submit">Update WLED!</button><br>
+		<span id="rev">
+			<hr class="sml">
+			<button type="button" onclick="cR()">Revert update</button><br>
+		</span>
 	</div>
 	</form>
-	<div id="bootupd" class="hide sec">
+	<div id="bootupd" class="hide">
+	  <br>
+	  <div class="sec">
 		<h2>Bootloader Update</h2>
 		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;font-size:15px;word-break:break-all;"></div>
 		<form method='POST' action='./updatebootloader' enctype='multipart/form-data' onsubmit="hideforms()">
-			<p><b>Warning:</b> Only upload verified ESP32 bootloader files!</p>
+			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br><br>
 			<input type='file' name='update' required><br>
 			<button type="submit">Update Bootloader</button>
 		</form>
+	  </div>
 	</div>
 	<div id="Noupd" class="hide sec"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
+	<p><button id="backbtn" type="button" onclick="B()">Back</button></p>
 </body>
 </html>
