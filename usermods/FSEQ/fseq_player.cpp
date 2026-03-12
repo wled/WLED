@@ -89,11 +89,9 @@ void FSEQPlayer::processFrameData() {
     uint16_t length = (uint16_t)min(bytes_remaining, (uint32_t)sizeof(frame_data));
     recordingFile.readBytes(frame_data, length);
     bytes_remaining -= length;
-    for (uint16_t offset = 0; offset < length / 3; offset++) {
-      setRealtimePixel(index, crgb[offset].r, crgb[offset].g, crgb[offset].b,
-                       0);
-      if (++index > lastLed)
-        break;
+    for (uint16_t offset = 0; offset < length / 3 && index < lastLed; offset++) {
+      setRealtimePixel(index, crgb[offset].r, crgb[offset].g, crgb[offset].b, 0);
+      ++index;
     }
   }
   strip.show();
@@ -183,7 +181,7 @@ void FSEQPlayer::loadRecording(const char *filepath,
     if (currentFileName.startsWith("/"))
       currentFileName = currentFileName.substring(1);
   } else {
-    DEBUG_PRINTF("File %s not found (%s)\n", filepath);
+    DEBUG_PRINTF("File %s not found\n", filepath);
     return;
   }
   if ((uint64_t)recordingFile.available() < sizeof(file_header)) {

@@ -1,6 +1,6 @@
 # ✨ Usermod FSEQ ✨
 
-> **Original created original by: Andrej Chrcek**
+> **Originally created by: Andrej Chrcek**
 
 Welcome to the **Usermod FSEQ** project!  
 This module extends your WLED setup by enabling FSEQ file playback from an SD card, including a web UI and UDP remote control. It combines creativity with functionality to enhance your lighting experience.
@@ -42,12 +42,14 @@ The usermod exposes several HTTP endpoints for file management and playback cont
 
 Add the following to your `platformio_override.ini` (or `platformio.ini`):
 
+```ini
 [env:esp32dev_V4]
 custom_usermods = 
   FSEQ 
   sd_card
-  
-You must add the sd_card usermode also to use the FSEQ usermode.
+```
+
+You must add the sd_card usermod also to use the FSEQ usermod.
 
 ---
 
