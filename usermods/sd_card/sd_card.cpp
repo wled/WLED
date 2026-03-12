@@ -13,14 +13,11 @@
   #include "SPI.h"
 #endif
 
-#ifdef WLED_USE_SD_MMC
-#elif defined(WLED_USE_SD_SPI)
+#if defined(WLED_USE_SD_SPI)
   #if CONFIG_IDF_TARGET_ESP32
-  SPIClass spiPort = SPIClass(VSPI);
-  #elif CONFIG_IDF_TARGET_ESP32S3
-  SPIClass spiPort = SPI;
+    SPIClass spiPort = SPIClass(VSPI);
   #else
-  SPIClass spiPort = SPI;
+    SPIClass spiPort = SPI;
   #endif
 #endif
 

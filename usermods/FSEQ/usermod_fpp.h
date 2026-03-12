@@ -171,6 +171,9 @@ private:
     ips.add(WiFi.localIP().toString());
 
     String json;
+	if (doc.overflowed()) {
+      DEBUG_PRINTLN(F("[FPP] JSON overflow in buildSystemInfoJSON"));
+    }
     serializeJson(doc, json);
     return json;
   }
@@ -281,6 +284,9 @@ private:
     ips.add(WiFi.localIP().toString());
 
     String json;
+	if (doc.overflowed()) {
+      DEBUG_PRINTLN(F("[FPP] JSON overflow in buildSystemInfoJSON"));
+    }
     serializeJson(doc, json);
     return json;
   }
@@ -309,6 +315,9 @@ private:
     sys["mode"] = "remote";
 
     String json;
+	if (doc.overflowed()) {
+      DEBUG_PRINTLN(F("[FPP] JSON overflow in buildSystemInfoJSON"));
+    }
     serializeJson(doc, json);
     return json;
   }
@@ -541,16 +550,6 @@ public:
             }
 
             DEBUG_PRINTLN("[FPP] Starting file upload");
-
-            if (uploadStream) {
-              uploadStream->flush();
-              delete uploadStream;
-              uploadStream = nullptr;
-            }
-
-            if (currentUploadFile) {
-              currentUploadFile.close();
-            }
 
             String fileParam = "";
             if (request->hasParam("filename")) {

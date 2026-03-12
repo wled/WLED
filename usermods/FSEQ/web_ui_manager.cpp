@@ -399,51 +399,51 @@ void WebUIManager::registerEndpoints() {
     request->send_P(200, "text/html", PAGE_HTML);
   });
 
-	// API - List SD files (size in KB + storage info)
-	server.on("/api/sd/list", HTTP_GET, [](AsyncWebServerRequest *request) {
+  // API - List SD files (size in KB + storage info)
+    server.on("/api/sd/list", HTTP_GET, [](AsyncWebServerRequest *request) {
 
-	  File root = SD_ADAPTER.open("/");
+    File root = SD_ADAPTER.open("/");
 
-	  uint64_t totalBytes = SD_ADAPTER.totalBytes();
-	  uint64_t usedBytes  = SD_ADAPTER.usedBytes();
+    uint64_t totalBytes = SD_ADAPTER.totalBytes();
+    uint64_t usedBytes  = SD_ADAPTER.usedBytes();
 
-	  // Adjust size if needed (depends on max file count)
-	  DynamicJsonDocument doc(8192);
+    // Adjust size if needed (depends on max file count)
+    DynamicJsonDocument doc(8192);
 
-	  JsonObject rootObj = doc.to<JsonObject>();
-	  JsonArray files = rootObj.createNestedArray("files");
+    JsonObject rootObj = doc.to<JsonObject>();
+    JsonArray files = rootObj.createNestedArray("files");
 
-	  if (root && root.isDirectory()) {
+    if (root && root.isDirectory()) {
 
-		File file = root.openNextFile();
-		while (file) {
-			
-		  String name = file.name();
+      File file = root.openNextFile();
+      while (file) {
+	
+        String name = file.name();
 
-		  JsonObject obj = files.createNestedObject();
-		  obj["name"] = name;
-		  obj["size"] = (float)file.size() / 1024.0;
+        JsonObject obj = files.createNestedObject();
+        obj["name"] = name;
+        obj["size"] = (float)file.size() / 1024.0;
 
-		  file.close();
-		  file = root.openNextFile();
-		}
-	  }
+        file.close();
+        file = root.openNextFile();
+      }
+    }
 
-	  root.close();
+    root.close();
 
-	  rootObj["usedKB"]  = (float)usedBytes / 1024.0;
-	  rootObj["totalKB"] = (float)totalBytes / 1024.0;
+    rootObj["usedKB"]  = (float)usedBytes / 1024.0;
+    rootObj["totalKB"] = (float)totalBytes / 1024.0;
 
-	  String output;
-	  serializeJson(doc, output);
+    String output;
+    serializeJson(doc, output);
 	  
-	  if (doc.overflowed()) {
+    if (doc.overflowed()) {
       request->send(507, "text/plain", "JSON buffer too small; file list may be truncated");
       return;
       }
 
-	  request->send(200, "application/json", output);
-	});
+    request->send(200, "application/json", output);
+  });
 
 
   // API - List FSEQ files
