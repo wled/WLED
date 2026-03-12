@@ -3,7 +3,7 @@
 // for information how FX metadata strings work see https://kno.wled.ge/interfaces/json-api/#effect-metadata
 
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
@@ -874,7 +874,7 @@ static void handleBoundary(Ant& ant, float& position, bool gatherFood, bool atSt
 // Helper function to calculate ant color
 static uint32_t getAntColor(int antIndex, int numAnts, bool usePalette) {
   if (usePalette)
-    return SEGMENT.color_from_palette(antIndex * 255 / numAnts, false, (strip.paletteBlend == 1 || strip.paletteBlend == 3), 255);
+    return SEGMENT.color_from_palette(antIndex * 255 / numAnts, false, (paletteBlend == 1 || paletteBlend == 3), 255);
   // Alternate between two colors for default palette
   return (antIndex % 3 == 1) ? SEGCOLOR(0) : SEGCOLOR(2);
 }
