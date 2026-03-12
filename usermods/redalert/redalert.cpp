@@ -1,6 +1,7 @@
 #include "wled.h"
 #include <HTTPClient.h>
 #include <WiFiClientSecure.h>
+#include <pgmspace.h>
 #include "redalert_text_utils.h"
 
 #ifndef USERMOD_ID_PIKUD_HAOREF
@@ -23,8 +24,10 @@ private:
   static const char _alertPreset[];
   static const char _preAlertPreset[];
   static const char _endPreset[];
-  static const char _titleEnd[];
+  static const char _titleEnd[];       // JSON-escaped form
   static const char _titlePreAlert[];
+  static const char _titleEndUtf8[];   // UTF-8 form (for proxy/decoded payloads)
+  static const char _titlePreAlertUtf8[];
 
   static const char _idleTimeoutSec[];
   static const char _idlePreset[];
@@ -120,17 +123,41 @@ private:
   }
 
   // OREF API: category 10 is used for both pre-alert and end; differentiate by title.
-  // All other positive categories -> alert.
-  AlertState stateFromAlert(JsonObject& alert) {
+  // rawPayload: when non-null, we search the raw JSON for title strings.
+  AlertState stateFromAlert(JsonObject& alert, const char* rawPayload = nullptr) {
     int category = extractCategory(alert);
     if (category != 10) {
       return STATE_ALERT;  // all non-10 categories (13, 14, etc.) -> alert
     }
+
+    // Search raw JSON for literal "\u05XX" sequences (as in the wire format). Use inline literals so no PROGMEM.
+    // Pre-alert: "בדקות הקרובות..." appears as \u05d1\u05d3\u05e7\u05d5\u05ea in JSON
+    // End: "האירוע הסתיים" appears as \u05d4\u05d0\u05d9\u05e8\u05d5\u05e2 in JSON
+    if (rawPayload != nullptr) {
+      if (strstr(rawPayload, "\\u05d1\\u05d3\\u05e7\\u05d5\\u05ea ") != nullptr) return STATE_PRE_ALERT;
+      if (strstr(rawPayload, "\\u05d4\\u05d0\\u05d9\\u05e8\\u05d5\\u05e2 ") != nullptr) return STATE_END;
+      return STATE_END;
+    }
+
+    char bufEnd[80];
+    char bufPreAlert[160];
+    strcpy_P(bufEnd, (PGM_P)_titleEnd);
+    strcpy_P(bufPreAlert, (PGM_P)_titlePreAlert);
+
     const char* title = alert["title"].as<const char*>();
     if (!title) return STATE_END;
-    if (strcmp(title, (const char*)FPSTR(_titleEnd)) == 0) return STATE_END;
-    if (strcmp(title, (const char*)FPSTR(_titlePreAlert)) == 0) return STATE_PRE_ALERT;
-    return STATE_END;  // category 10 with unknown title -> treat as end
+
+    if (strstr(title, bufPreAlert) != nullptr) return STATE_PRE_ALERT;
+    if (strstr(title, bufEnd) != nullptr) return STATE_END;
+
+    char bufEndU8[32];
+    char bufPreAlertU8[96];
+    strcpy_P(bufEndU8, (PGM_P)_titleEndUtf8);
+    strcpy_P(bufPreAlertU8, (PGM_P)_titlePreAlertUtf8);
+    if (strstr(title, bufPreAlertU8) != nullptr) return STATE_PRE_ALERT;
+    if (strstr(title, bufEndU8) != nullptr) return STATE_END;
+
+    return STATE_END;
   }
 
   bool areaMatches(const char* cityNameRaw) {
@@ -313,7 +340,7 @@ private:
                 DEBUG_PRINTLN(category);
               }
 
-              newState = stateFromAlert(alert);
+              newState = stateFromAlert(alert, payload.c_str());
               break;
             }
             if (newState != STATE_OK) break;
@@ -351,7 +378,7 @@ private:
                 DEBUG_PRINTLN(category);
               }
 
-              newState = stateFromAlert(alert);
+              newState = stateFromAlert(alert, payload.c_str());
               break;
             }
           }
@@ -592,8 +619,12 @@ const char UsermodPikudHaoref::_allAreasEnabled[]  PROGMEM = "allAreasEnabled";
 const char UsermodPikudHaoref::_alertPreset[]      PROGMEM = "alertPreset";
 const char UsermodPikudHaoref::_preAlertPreset[]   PROGMEM = "preAlertPreset";
 const char UsermodPikudHaoref::_endPreset[]        PROGMEM = "endPreset";
-const char UsermodPikudHaoref::_titleEnd[]         PROGMEM = "\xd7\x94\xd7\x90\xd7\x99\xd7\xa8\xd7\x95\xd7\xa2 \xd7\x94\xd7\xa1\xd7\xaa\xd7\x99\xd7\x99\xd7\x9d";           // "האירוע הסתיים" UTF-8
-const char UsermodPikudHaoref::_titlePreAlert[]   PROGMEM = "\xd7\x91\xd7\x93\xd7\xa7\xd7\x95\xd7\xaa \xd7\x94\xd7\xa7\xd7\xa8\xd7\x95\xd7\x91\xd7\x95\xd7\xaa \xd7\xa6\xd7\xa4\xd7\x95\xd7\x99\xd7\x95\xd7\xaa \xd7\x9c\xd7\x94\xd7\xaa\xd7\xa7\xd7\x91\xd7\x9c \xd7\x94\xd7\xaa\xd7\xa8\xd7\xa2\xd7\x95\xd7\xaa \xd7\x91\xd7\x90\xd7\x96\xd7\x95\xd7\xa8\xd7\x9a";  // "בדקות הקרובות..." UTF-8
+// JSON-escaped form (raw API / ARDUINOJSON_DECODE_UNICODE 0)
+const char UsermodPikudHaoref::_titleEnd[]         PROGMEM = "\\u05d4\\u05d0\\u05d9\\u05e8\\u05d5\\u05e2 \\u05d4\\u05e1\\u05ea\\u05d9\\u05d9\\u05de";           // "האירוע הסתיים"
+const char UsermodPikudHaoref::_titlePreAlert[]   PROGMEM = "\\u05d1\\u05d3\\u05e7\\u05d5\\u05ea \\u05d4\\u05e7\\u05e8\\u05d5\\u05d1\\u05d5\\u05ea \\u05e6\\u05e4\\u05d5\\u05d9\\u05d5\\u05ea \\u05dc\\u05d4\\u05ea\\u05e7\\u05d1\\u05dc \\u05d4\\u05ea\\u05e8\\u05e2\\u05d5\\u05ea \\u05d1\\u05d0\\u05d6\\u05d5\\u05e8\\u05da";  // "בדקות הקרובות צפויות..."
+// UTF-8 form (decoded / proxy)
+const char UsermodPikudHaoref::_titleEndUtf8[]    PROGMEM = "\xd7\x94\xd7\x90\xd7\x99\xd7\xa8\xd7\x95\xd7\xa2 \xd7\x94\xd7\xa1\xd7\xaa\xd7\x99\xd7\x99\xd7\x9d";
+const char UsermodPikudHaoref::_titlePreAlertUtf8[] PROGMEM = "\xd7\x91\xd7\x93\xd7\xa7\xd7\x95\xd7\xaa \xd7\x94\xd7\xa7\xd7\xa8\xd7\x95\xd7\x91\xd7\x95\xd7\xaa \xd7\xa6\xd7\xa4\xd7\x95\xd7\x99\xd7\x95\xd7\xaa \xd7\x9c\xd7\x94\xd7\xaa\xd7\xa7\xd7\x91\xd7\x9c \xd7\x94\xd7\xaa\xd7\xa8\xd7\xa2\xd7\x95\xd7\xaa \xd7\x91\xd7\x90\xd7\x96\xd7\x95\xd7\xa8\xd7\x9a";
 const char UsermodPikudHaoref::_idleTimeoutSec[]   PROGMEM = "idleTimeoutSec";
 const char UsermodPikudHaoref::_idlePreset[]       PROGMEM = "idlePreset";
 const char UsermodPikudHaoref::_verboseLogs[]      PROGMEM = "verboseLogs";
