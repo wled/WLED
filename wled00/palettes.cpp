@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "src/dependencies/fastled/fastled_fcn.h"
 
 /*
  * WLED Color palettes
@@ -8,6 +9,103 @@
  *       prior to WLED 0.16 which used pre-applied gammas of (2.6,2.2,2.5) for these palettes.
  *       Palettes from FastLED are intended to be used without gamma correction, an inverse gamma of 2.2 is applied to original colors
  */
+
+// FastLED Palettes
+// ----------------
+// Palettes imported from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
+// See /src/dependencies/fastled/LICENSE.txt for details
+
+// Cloudy color palette
+const TProgmemRGBPalette16 CloudColors_p PROGMEM = {
+  CRGB::Blue,
+  CRGB::DarkBlue,
+  CRGB::DarkBlue,
+  CRGB::DarkBlue,
+
+  CRGB::DarkBlue,
+  CRGB::DarkBlue,
+  CRGB::DarkBlue,
+  CRGB::DarkBlue,
+
+  CRGB::Blue,
+  CRGB::DarkBlue,
+  CRGB::SkyBlue,
+  CRGB::SkyBlue,
+
+  CRGB::LightBlue,
+  CRGB::White,
+  CRGB::LightBlue,
+  CRGB::SkyBlue
+};
+
+// Lava color palette
+const TProgmemRGBPalette16 LavaColors_p PROGMEM = {
+  CRGB::Black,
+  CRGB::Maroon,
+  CRGB::Black,
+  CRGB::Maroon,
+
+  CRGB::DarkRed,
+  CRGB::DarkRed,
+  CRGB::Maroon,
+  CRGB::DarkRed,
+
+  CRGB::DarkRed,
+  CRGB::DarkRed,
+  CRGB::Red,
+  CRGB::Orange,
+
+  CRGB::White,
+  CRGB::Orange,
+  CRGB::Red,
+  CRGB::DarkRed
+};
+
+// Ocean colors, blues and whites
+const TProgmemRGBPalette16 OceanColors_p PROGMEM = {
+  CRGB::MidnightBlue,
+  CRGB::DarkBlue,
+  CRGB::MidnightBlue,
+  CRGB::Navy,
+
+  CRGB::DarkBlue,
+  CRGB::MediumBlue,
+  CRGB::SeaGreen,
+  CRGB::Teal,
+
+  CRGB::CadetBlue,
+  CRGB::Blue,
+  CRGB::DarkCyan,
+  CRGB::CornflowerBlue,
+
+  CRGB::Aquamarine,
+  CRGB::SeaGreen,
+  CRGB::Aqua,
+  CRGB::LightSkyBlue
+};
+
+// Forest colors, greens
+const TProgmemRGBPalette16 ForestColors_p PROGMEM = {
+  CRGB::DarkGreen,
+  CRGB::DarkGreen,
+  CRGB::DarkOliveGreen,
+  CRGB::DarkGreen,
+
+  CRGB::Green,
+  CRGB::ForestGreen,
+  CRGB::OliveDrab,
+  CRGB::Green,
+
+  CRGB::SeaGreen,
+  CRGB::MediumAquamarine,
+  CRGB::LimeGreen,
+  CRGB::YellowGreen,
+
+  CRGB::LightGreen,
+  CRGB::LawnGreen,
+  CRGB::MediumAquamarine,
+  CRGB::ForestGreen
+};
 
 // Gradient palette "ib_jul01_gp", originally from
 // http://seaviewsensing.com/pub/cpt-city/ing/xmas/ib_jul01.c3g
@@ -671,21 +769,21 @@ const byte Aurora2_gp[] PROGMEM = {
 // FastLed palettes, corrected with inverse gamma of 2.2 to match original looks
 
 // Party colors
-const TProgmemRGBPalette16 PartyColors_gc22 FL_PROGMEM = {
+const TProgmemRGBPalette16 PartyColors_gc22 PROGMEM = {
   0x9B00D5, 0xBD00B8, 0xDA0092, 0xF3005C,
   0xF45500, 0xDC8F00, 0xD5B400, 0xD5D500,
   0xD59B00, 0xEF6600, 0xF90044, 0xE10086,
   0xC400B0, 0xA300CF, 0x7600E8, 0x0032FC};
 
 // Rainbow colors
-const TProgmemRGBPalette16 RainbowColors_gc22 FL_PROGMEM = {
+const TProgmemRGBPalette16 RainbowColors_gc22 PROGMEM = {
   0xFF0000, 0xEB7000, 0xD59B00, 0xD5BA00,
   0xD5D500, 0x9CEB00, 0x00FF00, 0x00EB70,
   0x00D59B, 0x009CD4, 0x0000FF, 0x7000EB,
   0x9B00D5, 0xBA00BB, 0xD5009B, 0xEB0072};
 
 // Rainbow colors with alternatating stripes of black
-const TProgmemRGBPalette16 RainbowStripeColors_gc22 FL_PROGMEM = {
+const TProgmemRGBPalette16 RainbowStripeColors_gc22 PROGMEM = {
   0xFF0000, 0x000000, 0xD59B00, 0x000000,
   0xD5D500, 0x000000, 0x00FF00, 0x000000,
   0x00D59B, 0x000000, 0x0000FF, 0x000000,

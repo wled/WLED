@@ -11,6 +11,7 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
+#include "colors.h"
 
 /*
   Custom per-LED mapping has moved!
@@ -43,7 +44,7 @@ unsigned      Segment::_vLength           = 0;
 unsigned      Segment::_vWidth            = 0;
 unsigned      Segment::_vHeight           = 0;
 uint32_t      Segment::_currentColors[NUM_COLORS] = {0,0,0};
-CRGBPalette16 Segment::_currentPalette    = CRGBPalette16(CRGB::Black);
+CRGBPalette16 Segment::_currentPalette    = CRGBPalette16();
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // in seconds; perhaps it should be per segment
@@ -235,7 +236,7 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
-      targetPalette = PartyColors_p;
+      targetPalette = PartyColors_gc22;
       break;
     case 1: //randomly generated palette
       targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette()
@@ -1104,9 +1105,9 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
 uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
-  uint32_t rgb;
-  hsv2rgb(CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
-  return rgb | (w << 24); // add white channel
+  CRGBW rgb;
+  rgb = CHSV32(static_cast<uint16_t>(pos << 8), 255, 255);
+  return rgb.color32 | (w << 24); // add white channel
 }
 
 /*

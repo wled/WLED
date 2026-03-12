@@ -595,19 +595,17 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
+      baseRGB = ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
+      baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
-    if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
     renderParticle(i, brightness, baseRGB, particlesettings.wrapX, particlesettings.wrapY);
   }
 
@@ -1457,14 +1455,12 @@ void ParticleSystem1D::render() {
 
     // generate RGB values for particle
     brightness = min(particles[i].ttl << 1, (int)255);
-    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
-
+    baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
     if (advPartProps != nullptr) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
-        baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        CHSV32 baseHSV = baseRGB;
+        baseHSV.s = advPartProps[i].sat; // set the saturation
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
