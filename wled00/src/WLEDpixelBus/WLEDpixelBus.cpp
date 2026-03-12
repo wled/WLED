@@ -1821,6 +1821,7 @@ SpiBusContext::SpiBusContext()
     , _channelCount(0)
     , _framePos(0)
     , _numBytes(0)
+    , _lastTransmitMs(0)
     , _stagedMask(0)
     , _channelMask(0)
 {
@@ -1834,9 +1835,33 @@ SpiBusContext::~SpiBusContext() {
     deinit();
 }
 
-bool SpiBusContext::isSpiDone() const {
+bool SpiBusContext::isSpiDone() {
     if (!_hasStarted) return true;  // no transfer ever started
-    return _hw ? spi_ll_usr_is_done(_hw) : true;
+    if (_hw && !spi_ll_usr_is_done(_hw)) {
+        // TODO: This timeout is a workaround for underlying GDMA/SPI deadlock issues that cause stalls. 
+        // Monitor if bumping the interrupt priority fixed the underlying starvation. Consider removing later.  -> increasing ISR priority does not fix the stalls...
+        if (millis() - _lastTransmitMs > 100) {
+            forceIdle();
+            return true;
+        }
+        return false;
+    }
+    return true;
+}
+
+void SpiBusContext::forceIdle() {
+    _sending = false;
+    _stagedMask = 0;
+    
+    // Stop DMA immediately
+    gdma_dev_t* dma = &GDMA;
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
+    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+    
+    if (_hw) {
+        spi_ll_clear_int_stat(_hw);
+        _hw->cmd.usr = 0; // stop user transaction
+    }
 }
 
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
@@ -1889,14 +1914,12 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
     gdma_dev_t* dma = &GDMA;
 
     if (dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
-        // Serial.printf("I"); // Too fast for Serial, maybe just a counter Check later
-        if (ctx->_currentBuffer == 0) {
-            ctx->encodeSpiChunk(0);
-            ctx->_currentBuffer = 1;
-        } else {
-            ctx->encodeSpiChunk(1);
-            ctx->_currentBuffer = 0;
-        }
+        uint8_t completedBuf = ctx->_currentBuffer;
+        ctx->encodeSpiChunk(completedBuf);
+        // CRITICAL: Give ownership of the descriptor back to DMA so it can keep feeding SPI
+        // Even if we have finished source data, DMA needs to feed 0s to SPI for the remaining frame clock length!
+        ctx->_dmaDesc[completedBuf].owner = 1;
+        ctx->_currentBuffer = completedBuf ? 0 : 1;
     }
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.val;
 }
@@ -2004,7 +2027,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
     esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE,
-                                    ESP_INTR_FLAG_IRAM,
+                                    ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2,
                                     gdmaISR, this, &_isrHandle);
     if (err != ESP_OK) {
         Serial.printf("[SPI] ISR alloc failed: %d\n", err);
@@ -2128,6 +2151,14 @@ bool SpiBusContext::startTransmit() {
     if (_stagedMask != _channelMask) return false;
     _stagedMask = 0; // Reset for next frame
 
+    // Pre-emptively stop DMA and disable its interrupt so a late ISR from a previous
+    // frame's lingering zeroes doesn't trigger while we set up the new frame
+    gdma_dev_t* dma = &GDMA;
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
+    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+
+    _lastTransmitMs = millis();
     _framePos = 0;
     _numBytes = 0;
     for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {

@@ -675,7 +675,8 @@ public:
 
     bool startTransmit();
     bool isIdle() const { return !_sending; }
-    bool isSpiDone() const;
+    bool isSpiDone();
+    void forceIdle();
 
     void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
@@ -713,6 +714,7 @@ private:
     uint8_t _channelCount;
     size_t _framePos;   // current source byte position
     size_t _numBytes;   // total source bytes to send
+    mutable uint32_t _lastTransmitMs;
 
     uint8_t _stagedMask;
     uint8_t _channelMask;
