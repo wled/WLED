@@ -1858,15 +1858,19 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     for (uint8_t lane = 0; lane < WLEDPB_SPI_MAX_CHANNELS; lane++) {
         if (!_channels[lane].active || !_channels[lane].srcData) continue;
 
+        size_t srcLen = _channels[lane].srcLen;
+        if (_framePos >= srcLen) continue; // Past the end of this lane's data, leave buffer 0 (low/no pulse)
+
+        size_t validBytes = srcLen - _framePos;
+        if (validBytes > srcThisChunk) validBytes = srcThisChunk;
+
         const uint16_t zerobit = SPI_ZERO_BIT << lane;
         const uint16_t onebit  = SPI_ONE_BIT << lane;
         const uint8_t* src = _channels[lane].srcData;
-        size_t srcLen = _channels[lane].srcLen;
         uint16_t* pOut = reinterpret_cast<uint16_t*>(dst);
 
-        for (size_t i = 0; i < srcThisChunk; i++) {
-            size_t srcIdx = _framePos + i;
-            uint8_t v = (srcIdx < srcLen) ? src[srcIdx] : 0;
+        for (size_t i = 0; i < validBytes; i++) {
+            uint8_t v = src[_framePos + i];
             *pOut++ |= (v & 0x80) ? onebit : zerobit;
             *pOut++ |= (v & 0x40) ? onebit : zerobit;
             *pOut++ |= (v & 0x20) ? onebit : zerobit;
