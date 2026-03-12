@@ -677,6 +677,7 @@ public:
     bool isIdle() const { return !_sending; }
     bool isSpiDone();
     void forceIdle();
+    void dumpDebug();
 
     void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
@@ -688,16 +689,19 @@ private:
     void resetAndStart();
 
     static void IRAM_ATTR gdmaISR(void* arg);
+    static void IRAM_ATTR spiISR(void* arg);
 
     volatile bool _sending;
     bool _initialized;
     bool _hasStarted;
     volatile uint8_t _currentBuffer;
+    volatile uint8_t _descCount;
 
     // DMA
     uint8_t* _dmaBuffer[2];
     lldesc_t _dmaDesc[2];
     intr_handle_t _isrHandle;
+    intr_handle_t _spiIsrHandle;
 
     // SPI device
     spi_dev_t* _hw;
