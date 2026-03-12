@@ -88,15 +88,15 @@ enum class ColorOrder :  uint8_t {
     RGB = 1,
     BRG = 2,
     RBG = 3,
-    GBR = 4,
-    BGR = 5,
+    BGR = 4,
+    GBR = 5,
     // RGBW variants (4 bytes)
     GRBW = 10,
     RGBW = 11,
     BRGW = 12,
     RBGW = 13,
-    GBRW = 14,
-    BGRW = 15,
+    BGRW = 14,
+    GBRW = 15,
     WRGB = 16,
     WGRB = 17,
     WBRG = 18,
@@ -714,6 +714,9 @@ private:
     size_t _framePos;   // current source byte position
     size_t _numBytes;   // total source bytes to send
 
+    uint8_t _stagedMask;
+    uint8_t _channelMask;
+
     static SpiBusContext* _instance;
     static uint8_t _refCount;
 };
@@ -734,6 +737,8 @@ public:
     bool canShow() const override;
     void waitComplete() override;
     const char* getType() const override { return "SPI"; }
+
+    void setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) override;
 
     void setTiming(const LedTiming& timing) { _timing = timing; }
     void setColorOrder(ColorOrder order);

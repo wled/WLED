@@ -1821,6 +1821,8 @@ SpiBusContext::SpiBusContext()
     , _channelCount(0)
     , _framePos(0)
     , _numBytes(0)
+    , _stagedMask(0)
+    , _channelMask(0)
 {
     _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
     for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -1937,6 +1939,21 @@ bool SpiBusContext::init(const LedTiming& timing) {
     spi_ll_master_set_mode(_hw, 0);
     spi_ll_set_tx_lsbfirst(_hw, true);
 
+    _hw->user.usr_command = 0;
+    _hw->user.usr_addr = 0;
+    _hw->user.usr_dummy = 0;
+    _hw->user.usr_miso = 0;
+    _hw->user.usr_mosi = 1;
+
+    // To prevent D2 and D3 from idling high, explicitly clear idle output polarities
+    _hw->ctrl.q_pol = 0;
+    _hw->ctrl.d_pol = 0;
+    _hw->ctrl.hold_pol = 0;
+    _hw->ctrl.wp_pol = 0;
+
+    // To prevent WP (D2) and HD (D3) from idling high, clear quad mode in ctrl and user registers?
+    // Let's first clear the command/address phases to fix the initial corrupted 12 zeroes.
+    
     spi_line_mode_t linemode = {};
     linemode.data_lines = 4;  // quad mode
     spi_ll_master_set_line_mode(_hw, linemode);
@@ -2040,6 +2057,7 @@ int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
     _channels[idx].pin = pin;
     _channels[idx].active = true;
     _channelCount++;
+    _channelMask |= (1 << idx);
 
     // Route SPI data signal to GPIO
     pinMode(pin, OUTPUT);
@@ -2059,12 +2077,17 @@ void SpiBusContext::unregisterChannel(int8_t channelIdx) {
 
     _channels[channelIdx] = {nullptr, -1, nullptr, 0, false};
     _channelCount--;
+    _channelMask &= ~(1 << channelIdx);
 }
 
 void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_t len) {
     if (channelIdx < 0 || channelIdx >= WLEDPB_SPI_MAX_CHANNELS) return;
     _channels[channelIdx].srcData = data;
     _channels[channelIdx].srcLen = len;
+    
+    // Mark this channel as staged
+    _stagedMask |= (1 << channelIdx);
+    
     if (len > _numBytes) _numBytes = len;
 }
 
@@ -2097,6 +2120,10 @@ bool SpiBusContext::startTransmit() {
     if (_sending) return false;
     if (_channelCount == 0) return false;
 
+    // Only start transmission if ALL active channels have staged data
+    if (_stagedMask != _channelMask) return false;
+    _stagedMask = 0; // Reset for next frame
+
     _framePos = 0;
     _numBytes = 0;
     for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
@@ -2118,21 +2145,14 @@ bool SpiBusContext::startTransmit() {
     // it stays set after the previous transfer until explicitly cleared.
     spi_ll_clear_int_stat(_hw);
 
-    // Reset SPI + DMA first (matching working reference loop order)
-    resetAndStart();
-
-    // Then set state and encode buffers (DMA is running but SPI hasn't started yet)
+    // Set state and encode buffers FIRST before starting DMA
     _sending = true;
     _currentBuffer = 0;
     encodeSpiChunk(0);
     encodeSpiChunk(1);
 
-    static uint32_t s_spiTxCount = 0;
-    if (s_spiTxCount < 3 || (s_spiTxCount % 1000) == 0) {
-        Serial.printf("[SPI] startTransmit #%u: %u bytes, %u totalBits\n",
-                      s_spiTxCount, _numBytes, totalBits);
-    }
-    s_spiTxCount++;
+    // Reset SPI + DMA first (matching working reference loop order)
+    resetAndStart();
 
     _hasStarted = true;
 
@@ -2262,12 +2282,13 @@ bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
     }
 
     _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
+
     return _ctx->startTransmit();
 }
 
 bool ParallelSpiBus::canShow() const {
     if (!_ctx) return true;
-    return _ctx->isIdle();
+    return _ctx->isIdle() && _ctx->isSpiDone();
 }
 
 void ParallelSpiBus::waitComplete() {
@@ -2278,6 +2299,10 @@ void ParallelSpiBus::waitComplete() {
 
 void ParallelSpiBus::setColorOrder(ColorOrder order) {
     _order = order;
+}
+
+void ParallelSpiBus::setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp) {
+    IBus::setPixelColor(pix, c, cp);
 }
 
 #endif // WLEDPB_SPI_SUPPORT
