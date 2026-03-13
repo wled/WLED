@@ -1,6 +1,7 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include "asyncDNS.h"
 
 // forward declarations
 static void sendNTPPacket();
@@ -187,6 +188,7 @@ void handleTime() {
 
 void handleNetworkTime()
 {
+  static AsyncDNS* ntpDNSlookup = nullptr;
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
   {
     if (millis() - ntpPacketSentTime > 10000)
@@ -194,8 +196,42 @@ void handleNetworkTime()
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
       while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
       #endif
-      sendNTPPacket();
-      ntpPacketSentTime = millis();
+      if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
+      {
+        if (ntpDNSlookup == nullptr) ntpDNSlookup = new AsyncDNS;
+        AsyncDNS::result res = ntpDNSlookup->status();
+        switch (res) {
+          case AsyncDNS::result::Idle:
+            //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            ntpDNSlookup->query(ntpServerName); // start dnslookup asynchronously
+            return;
+
+          case AsyncDNS::result::Busy:
+            return; // still in progress
+
+          case AsyncDNS::result::Success:
+              ntpServerIP = ntpDNSlookup->getIP();
+              DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+              sendNTPPacket();
+              delete ntpDNSlookup;
+              ntpDNSlookup = nullptr;
+              break;
+
+          case AsyncDNS::result::Error:
+            DEBUG_PRINTLN(F("NTP DNS failed"));
+            ntpDNSlookup->renew(); // try a new lookup next time
+            if (ntpDNSlookup->getErrorCount() > 6) {
+              // after 6 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
+              if (offMode) forceReconnect = true; // do not disturb while LEDs are running
+              delete ntpDNSlookup;
+              ntpDNSlookup = nullptr;
+            }
+            ntpLastSyncTime = millis() - (1000*NTP_SYNC_INTERVAL - 300000); // pause for 5 minutes
+            break;
+        }
+      }
+      else
+        sendNTPPacket();
     }
     if (checkNTPResponse())
     {
@@ -206,14 +242,6 @@ void handleNetworkTime()
 
 static void sendNTPPacket()
 {
-  if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
-  {
-    #ifdef ESP8266
-    WiFi.hostByName(ntpServerName, ntpServerIP, 750);
-    #else
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-    #endif
-  }
 
   DEBUG_PRINTLN(F("send NTP"));
   byte pbuf[NTP_PACKET_SIZE];
@@ -232,6 +260,7 @@ static void sendNTPPacket()
   ntpUdp.beginPacket(ntpServerIP, 123); //NTP requests are to port 123
   ntpUdp.write(pbuf, NTP_PACKET_SIZE);
   ntpUdp.endPacket();
+  ntpPacketSentTime = millis();
 }
 
 static bool isValidNtpResponse(const byte* ntpPacket) {
