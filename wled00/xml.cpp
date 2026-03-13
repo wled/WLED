@@ -619,20 +619,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
     }
 
-    char k[4];
-    k[2] = 0; //Time macros
-    for (int i = 0; i<10; i++)
-    {
-      k[1] = 48+i; //ascii 0,1,2,3
-      if (i<8) { k[0] = 'H'; printSetFormValue(settingsScript,k,timerHours[i]); }
-      k[0] = 'N'; printSetFormValue(settingsScript,k,timerMinutes[i]);
-      k[0] = 'T'; printSetFormValue(settingsScript,k,timerMacro[i]);
-      k[0] = 'W'; printSetFormValue(settingsScript,k,timerWeekday[i]);
-      if (i<8) {
-        k[0] = 'M'; printSetFormValue(settingsScript,k,(timerMonth[i] >> 4) & 0x0F);
-				k[0] = 'P'; printSetFormValue(settingsScript,k,timerMonth[i] & 0x0F);
-        k[0] = 'D'; printSetFormValue(settingsScript,k,timerDay[i]);
-				k[0] = 'E'; printSetFormValue(settingsScript,k,timerDayEnd[i]);
+    settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);
+    if (timers.empty()) {
+      settingsScript.print(F("addTimerRow();"));
+    } else {
+      for (size_t ti = 0; ti < timers.size(); ti++) {
+        const Timer& timer = timers[ti];
+        settingsScript.printf_P(PSTR("addTimerRow(%d,%d,%d,%d,%d,%d,%d,%d);"),
+                               timer.hour, timer.minute, timer.preset, timer.weekdays,
+                               timer.monthStart, timer.dayStart, timer.monthEnd, timer.dayEnd);
       }
     }
   }

@@ -59,6 +59,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
   #define WLED_MAX_I2S_CHANNELS 0
   #define WLED_MAX_ANALOG_CHANNELS 5
+  #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
   #define WLED_PLATFORM_ID 0         // used in UI to distinguish ESP types, needs a proper fix!
 #else
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
@@ -86,6 +87,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 16
     #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
   #endif
+  #define WLED_MAX_TIMERS 64                // maximum number of timers
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
