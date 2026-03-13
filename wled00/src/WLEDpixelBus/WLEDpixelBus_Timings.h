@@ -33,6 +33,8 @@ namespace Timing {
     constexpr LedTiming WS2805  {300, 790, 790, 300, 300};   // WS2805 RGBCW (5ch)
     constexpr LedTiming SK6812  {300, 900, 800, 450, 200};    // SK6812 / SK6812 RGBW
 
+    // ---- High-speed WS281x (1MHz) ----
+    constexpr LedTiming WS281x_FAST {330, 670, 660, 340, 100}; // WS281x_FAST: 1MHz, 330ns low, 660ns high, 1000ns period
     // ---- Titan Micro LEDs ----
     constexpr LedTiming TM1814  {360, 890, 720, 530, 200};   // TM1814 RGBW, requires prefix
     constexpr LedTiming TM1815  {740, 1780, 1440, 1060, 200}; // TM1815 RGBW, requires prefix

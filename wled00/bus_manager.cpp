@@ -370,6 +370,7 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
+    {TYPE_WS281X_FAST,   "D",  PSTR("WS281x Fast")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814")},
     {TYPE_TM1815,        "D",  PSTR("TM1815")},

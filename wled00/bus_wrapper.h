@@ -28,6 +28,7 @@ inline ProtocolDef getProtocol(uint8_t wledType) {
     case TYPE_WS2812_2CH_X3:
     case TYPE_WS2812_RGB:
     case TYPE_WS2812_WWA:   return { WLEDpixelBus::Timing::WS2812, 3, false };
+    case TYPE_WS281X_FAST:  return { WLEDpixelBus::Timing::WS281x_FAST, 3, false };
     case TYPE_WS2811_400KHZ:return { WLEDpixelBus::Timing::Generic400Kbps, 3, false };
     case TYPE_TM1829:       return { WLEDpixelBus::Timing::TM1829, 3, false };
     case TYPE_UCS8903:      return { WLEDpixelBus::Timing::UCS8903, 3, true }; // 16bit

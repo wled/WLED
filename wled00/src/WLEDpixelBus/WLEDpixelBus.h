@@ -521,6 +521,17 @@ private:
 #define WLEDPB_LCD_CADENCE_STEPS 4
 #endif
 
+#if WLEDPB_LCD_DEBUG
+    #define LCD_LOG(fmt, ...) Serial.printf("[LCD] " fmt "\n", ##__VA_ARGS__)
+#else
+    #define LCD_LOG(fmt, ...)
+#endif
+
+static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE >= 64, "DMA buffer too small");
+static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE <= 4092, "DMA buffer too large");
+static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE % 4 == 0, "DMA buffer must be multiple of 4");
+static_assert(WLEDPB_LCD_CADENCE_STEPS == 3 || WLEDPB_LCD_CADENCE_STEPS == 4, "Cadence must be 3 or 4");
+
 #define WLEDPB_LCD_MAX_CHANNELS 8
 
 class LcdBusContext {
