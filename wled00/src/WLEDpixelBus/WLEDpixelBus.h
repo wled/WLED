@@ -514,26 +514,14 @@ private:
 #include "soc/gpio_sig_map.h"
 
 #ifndef WLEDPB_LCD_DMA_BUFFER_SIZE
-#define WLEDPB_LCD_DMA_BUFFER_SIZE 2048
+#define WLEDPB_LCD_DMA_BUFFER_SIZE 1024 //2048  -> 2048 works well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
 #endif
 
 #ifndef WLEDPB_LCD_CADENCE_STEPS
 #define WLEDPB_LCD_CADENCE_STEPS 4
 #endif
 
-#ifndef WLEDPB_LCD_DEBUG
-#define WLEDPB_LCD_DEBUG 1
-#endif
-
 #define WLEDPB_LCD_MAX_CHANNELS 8
-
-// Transmission state machine
-enum class TxState :  uint8_t {
-    Idle = 0,           // Not transmitting
-    SendingData,        // Sending pixel data
-    SendingReset,       // Sending zeros for reset period
-    StopPending         // Will stop on next EOF
-};
 
 class LcdBusContext {
 public:
@@ -548,12 +536,12 @@ public:
     uint8_t getChannelCount() const { return _channelCount; }
 
     bool startTransmit();
-    bool isIdle() const { return _state == DriverState:: Idle; }
+    bool isIdle() const { return _state == DriverState::Idle; }
     
     void forceIdle() {
         LCD_CAM.lcd_user.lcd_start = 0;
+        if (_dmaChannel) gdma_stop(_dmaChannel);
         _state = DriverState::Idle;
-        _txState = TxState:: Idle;
     }
 
     void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
@@ -563,16 +551,14 @@ private:
     LcdBusContext();
     ~LcdBusContext();
 
-    size_t IRAM_ATTR encodeIntoBuffer(uint8_t* dest, size_t destLen);
-    bool IRAM_ATTR hasMoreData() const;
-    void IRAM_ATTR fillBufferForState(uint8_t bufIdx);
+    void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen);
+    void fillBuffer(uint8_t bufIdx);
     
     static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan,
                                        gdma_event_data_t* event_data,
                                        void* user_data);
 
     volatile DriverState _state;
-    volatile TxState _txState;
     bool _initialized;
     bool _use16Bit;
 
@@ -584,8 +570,7 @@ private:
 
     // Timing
     LedTiming _timing;
-    size_t _resetBytesPerBuffer;
-    volatile size_t _resetBytesRemaining;
+    size_t _bufferSize;
 
     // Channels
     struct ChannelData {
