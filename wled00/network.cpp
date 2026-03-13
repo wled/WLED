@@ -148,10 +148,10 @@ const ethernet_settings ethernetBoards[] = {
 
  // Gledopto Series With Ethernet
  {
-    1,                    // eth_address, 
-    5,                    // eth_power, 
-    23,                   // eth_mdc, 
-    33,                   // eth_mdio, 
+    1,                    // eth_address,
+    5,                    // eth_power,
+    23,                   // eth_mdc,
+    33,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
   },
@@ -231,6 +231,16 @@ bool initEthernet()
   }
   #endif
 
+#if defined(ESP_IDF_VERSION) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+  if (!ETH.begin(    // parameter order in V5 has changed
+                (eth_phy_type_t)   es.eth_type,
+                (int32_t) es.eth_address,
+                (int)     es.eth_mdc,
+                (int)     es.eth_mdio,
+                (int)     es.eth_power,
+                (eth_clock_mode_t) es.eth_clk_mode
+                )) {
+#else
   if (!ETH.begin(
                 (uint8_t) es.eth_address,
                 (int)     es.eth_power,
@@ -239,6 +249,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
+#endif
     DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
@@ -375,7 +386,7 @@ void WiFiEvent(WiFiEvent_t event)
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(WLEDNetwork.localIP());
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE

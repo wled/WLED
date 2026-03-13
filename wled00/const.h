@@ -64,7 +64,10 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
     #include "driver/ledc.h" // needed for analog/LEDC channel counts
   #endif
-  #define WLED_MAX_ANALOG_CHANNELS (LEDC_CHANNEL_MAX*LEDC_SPEED_MODE_MAX)
+
+  // define -> constexpr to avoid preprocessor errors and enum arithmetic warnings from newer compilers
+  constexpr size_t WLED_MAX_ANALOG_CHANNELS = static_cast<size_t>(LEDC_CHANNEL_MAX) * static_cast<size_t>(LEDC_SPEED_MODE_MAX);
+
   #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
     #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
     #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
@@ -81,10 +84,17 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_PLATFORM_ID 3       // used in UI to distinguish ESP type in UI, needs a proper fix!
   #else
-    #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
-    #define WLED_MAX_I2S_CHANNELS 8         // I2S parallel output supported by NPB
-    //#define WLED_MAX_ANALOG_CHANNELS 16
-    #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
+    #if defined(CONFIG_IDF_TARGET_ESP32)  // classic esp32
+      #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
+      #define WLED_MAX_I2S_CHANNELS 8         // I2S parallel output supported by NPB
+      //#define WLED_MAX_ANALOG_CHANNELS 16
+      #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
+    #else // all other risc-v based boards: same as C3
+      #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
+      #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
+      //#define WLED_MAX_ANALOG_CHANNELS 6
+      #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
+    #endif      
   #endif
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
 #endif
