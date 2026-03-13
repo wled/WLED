@@ -1,14 +1,26 @@
 #include "wled.h"
 
+/*
+ * TLS backend detection — pick the first available:
+ *   1. WiFiClientSecure / NetworkClientSecure (official espressif32 platform)
+ *   2. ArduinoBearSSL wrapping WiFiClient (any platform, add lib dependency)
+ */
 #ifdef ARDUINO_ARCH_ESP32
-  // Arduino-ESP32 v3.x renamed WiFiClientSecure to NetworkClientSecure
   #if __has_include(<NetworkClientSecure.h>)
     #include <NetworkClientSecure.h>
-    #define HUE_SECURE_CLIENT NetworkClientSecure
+    #define HUE_TLS_BACKEND_NATIVE
   #elif __has_include(<WiFiClientSecure.h>)
     #include <WiFiClientSecure.h>
-    #define HUE_SECURE_CLIENT WiFiClientSecure
+    #define HUE_TLS_BACKEND_NATIVE
+  #elif __has_include(<BearSSLClient.h>)
+    #include <WiFi.h>
+    #include <BearSSLClient.h>
+    #define HUE_TLS_BACKEND_BEARSSL
   #endif
+#endif
+
+#if defined(HUE_TLS_BACKEND_NATIVE) || defined(HUE_TLS_BACKEND_BEARSSL)
+  #define HUE_HAS_TLS
 #endif
 
 /*
@@ -17,7 +29,9 @@
  * Polls a Philips Hue bridge using the newer CLIP V2 API (HTTPS)
  * and syncs brightness and color to WLED.
  *
- * ESP32 only — uses NetworkClientSecure for HTTPS.
+ * ESP32 only — requires a TLS backend. Supported options:
+ *   - WiFiClientSecure/NetworkClientSecure (official espressif32 platform)
+ *   - ArduinoBearSSL (any platform; add lib_deps = arduino-libraries/ArduinoBearSSL)
  *
  * Usage:
  *   1. Add this usermod to your build (it self-registers via REGISTER_USERMOD)
@@ -55,7 +69,7 @@ class PhilipsHueV2Usermod : public Usermod {
     static const char _name[];
     static const char _enabled[];
 
-#ifdef HUE_SECURE_CLIENT
+#ifdef HUE_HAS_TLS
     /*
      * Convert CIE 1931 xy coordinates to RGB.
      * Self-contained so the usermod works even when WLED_DISABLE_HUESYNC is set.
@@ -85,13 +99,26 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     /*
-     * Make an HTTPS request to the Hue bridge using NetworkClientSecure.
+     * Make an HTTPS request to the Hue bridge.
+     * Supports WiFiClientSecure/NetworkClientSecure or BearSSL backends.
      * Returns the response body or empty string on failure.
      */
     String httpsRequest(const char* method, const char* path, const char* body = nullptr) {
-      HUE_SECURE_CLIENT client;
+#ifdef HUE_TLS_BACKEND_NATIVE
+      // WiFiClientSecure or NetworkClientSecure
+  #if __has_include(<NetworkClientSecure.h>)
+      NetworkClientSecure client;
+  #else
+      WiFiClientSecure client;
+  #endif
       client.setInsecure();  // Hue bridge uses self-signed cert
       client.setTimeout(4);  // 4 second timeout
+#elif defined(HUE_TLS_BACKEND_BEARSSL)
+      // ArduinoBearSSL wrapping a plain WiFiClient
+      WiFiClient tcpClient;
+      BearSSLClient client(tcpClient, nullptr, 0);  // no trust anchors — accept any cert
+      client.setInsecure(BearSSLClient::SNI::Insecure);
+#endif
 
       if (!client.connect(bridgeIp, 443)) {
         statusStr = F("Connection failed");
@@ -279,7 +306,7 @@ class PhilipsHueV2Usermod : public Usermod {
 
       statusStr = F("OK");
     }
-#endif // HUE_SECURE_CLIENT
+#endif // HUE_HAS_TLS
 
   public:
 
@@ -288,7 +315,7 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     void loop() override {
-#ifdef HUE_SECURE_CLIENT
+#ifdef HUE_HAS_TLS
       if (!enabled || !initDone || strip.isUpdating()) return;
       if (!WLED_CONNECTED) return;
       if (strlen(bridgeIp) == 0) return;
@@ -312,7 +339,7 @@ class PhilipsHueV2Usermod : public Usermod {
       if (user.isNull()) user = root.createNestedObject("u");
 
       JsonArray status = user.createNestedArray(F("Hue V2"));
-#ifdef HUE_SECURE_CLIENT
+#ifdef HUE_HAS_TLS
       status.add(statusStr);
 #else
       status.add(F("SSL not available"));
