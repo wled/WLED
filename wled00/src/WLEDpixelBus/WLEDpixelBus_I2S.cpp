@@ -315,6 +315,8 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
     int sigIdx;
 #if defined(WLEDPB_ESP32)
     sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
+#elif defined(WLEDPB_ESP32S2)
+    sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes
 #else
     sigIdx = I2S0O_DATA_OUT0_IDX;
 #endif
@@ -391,6 +393,25 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
             uint8_t* p = dest + pos;
 
+#if defined(WLEDPB_ESP32S2)
+            // ESP32-S2 does NOT swap half-words (memory layout [step0, step1, step2, step3])
+            // bit 7
+            p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 6
+            p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 5
+            p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 4
+            p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 3
+            p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 2
+            p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 1
+            p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 0
+            p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+#else
             // Half-word swapped: memory layout [step2, step3, step0, step1]
             // bit 7
             p[2] |= chMask; if (srcByte & 0x80) { p[3] |= chMask; p[0] |= chMask; } p += 4;
@@ -408,6 +429,8 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
             p[2] |= chMask; if (srcByte & 0x02) { p[3] |= chMask; p[0] |= chMask; } p += 4;
             // bit 0
             p[2] |= chMask; if (srcByte & 0x01) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+#endif
+
         }
 
         if (!hasData) break;
