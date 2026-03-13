@@ -97,7 +97,7 @@
 	</form>
 	<div id="bootupd" class="hide sec">
 		<h2>Bootloader Update</h2>
-		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;font-size:15px;word-break:break-all;"></div>
+		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;font-size:15px;white-space:pre-wrap;word-break:break-all;"></div>
 		<form method='POST' action='./updatebootloader' enctype='multipart/form-data' onsubmit="hideforms()">
 			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br><br>
 			<input type='file' name='update' required><br>
