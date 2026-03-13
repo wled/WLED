@@ -677,7 +677,6 @@ public:
     bool isIdle() const { return !_sending; }
     bool isSpiDone();
     void forceIdle();
-    void dumpDebug();
 
     void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
@@ -695,7 +694,6 @@ private:
     bool _initialized;
     bool _hasStarted;
     volatile uint8_t _currentBuffer;
-    volatile uint8_t _descCount;
 
     // DMA
     uint8_t* _dmaBuffer[2];

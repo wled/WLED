@@ -1816,7 +1816,6 @@ SpiBusContext::SpiBusContext()
     , _initialized(false)
     , _hasStarted(false)
     , _currentBuffer(0)
-    , _descCount(0)
     , _isrHandle(nullptr)
     , _spiIsrHandle(nullptr)
     , _hw(&GPSPI2)
@@ -1869,19 +1868,6 @@ void SpiBusContext::forceIdle() {
     }
 }
 
-void SpiBusContext::dumpDebug() {
-    Serial.printf("\n--- SPI GDMA DEBUG ---\n");
-    Serial.printf("_sending=%d, _framePos=%u, _numBytes=%u, _hasStarted=%d\n", _sending, _framePos, _numBytes, _hasStarted);
-    Serial.printf("GDMA INTR ST=0x%08X, ENA=0x%08X\n", GDMA.intr[WLEDPB_SPI_GDMA_CHANNEL].st.val, GDMA.intr[WLEDPB_SPI_GDMA_CHANNEL].ena.val);
-    if (_hw) {
-        Serial.printf("SPI cmd.usr=%d, dma_int_raw=0x%08X\n", _hw->cmd.usr, _hw->dma_int_raw.val);
-    }
-    Serial.printf("Descriptors:\n");
-    Serial.printf("  Desc0: owner=%d length=%d eof=%d addr=0x%p next=0x%p\n", _dmaDesc[0].owner, _dmaDesc[0].length, _dmaDesc[0].eof, &_dmaDesc[0], _dmaDesc[0].qe.stqe_next);
-    Serial.printf("  Desc1: owner=%d length=%d eof=%d addr=0x%p next=0x%p\n", _dmaDesc[1].owner, _dmaDesc[1].length, _dmaDesc[1].eof, &_dmaDesc[1], _dmaDesc[1].qe.stqe_next);
-    Serial.printf("----------------------\n");
-}
-
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     uint8_t* dst = _dmaBuffer[bufIdx];
     memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
@@ -1929,19 +1915,15 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     _framePos += srcThisChunk;
 }
 
-// SPI interrupt ISR: handles both trans_done (bit counter expired) and
-// outfifo_empty_err (FIFO underrun from ISR latency, e.g. WiFi traffic).
-// On trans_done: just reload bit length and restart. Re-enable outfifo_empty_err if it was disabled.
-// On outfifo_empty_err: reset FIFO, reset DMA, restart. DISABLE the outfifo_empty_err interrupt
-// to prevent an infinite ISR loop (the error re-fires immediately if WiFi is still hogging CPU).
-// trans_done will re-enable it on the next successful cycle.
+// SPI ISR: handles trans_done (restart SPI bit counter) and outfifo_empty_err
+// (FIFO underrun recovery). outfifo_empty_err is temporarily disabled after
+// handling to prevent infinite ISR loops; trans_done re-enables it.
 void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     SpiBusContext* ctx = (SpiBusContext*)arg;
     uint32_t raw = ctx->_hw->dma_int_raw.val;
 
     if (raw & 0x02) {
-        // outfifo_empty_err (bit 1): SPI FIFO starved because DMA couldn't keep up.
-        // Temporarily disable this interrupt to prevent infinite ISR loop / WDT crash.
+        // outfifo_empty_err: FIFO starved, disable to prevent ISR loop
         ctx->_hw->dma_int_ena.outfifo_empty_err = 0;
         ctx->_hw->dma_int_clr.val = raw;  // Clear all SPI interrupt flags
         ctx->_hw->cmd.usr = 0;  // Stop SPI
@@ -1949,7 +1931,6 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
         spi_ll_dma_tx_fifo_reset(ctx->_hw);
         spi_ll_outfifo_empty_clr(ctx->_hw);
 
-        // Reset and restart DMA from current descriptor
         gdma_dev_t* dma = &GDMA;
         gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
         ctx->_dmaDesc[0].owner = 1;
@@ -1960,8 +1941,6 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
         dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
         dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-        // Restart SPI with max buffer-aligned bit count (31 * 1024 * 8 = 253952)
-        // to minimize trans_done restart gaps
         spi_ll_clear_int_stat(ctx->_hw);
         spi_ll_set_mosi_bitlen(ctx->_hw, 253952);
         ctx->_hw->cmd.usr = 1;
@@ -1969,11 +1948,9 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     }
 
     if (raw & 0x1000) {
-        // trans_done (bit 12): SPI finished counting its bits. Restart immediately.
         ctx->_hw->dma_int_clr.trans_done = 1;
         spi_ll_set_mosi_bitlen(ctx->_hw, 253952);
         ctx->_hw->cmd.usr = 1;
-        // Re-enable outfifo_empty_err now that we've had a successful cycle
         ctx->_hw->dma_int_ena.outfifo_empty_err = 1;
     }
 }
@@ -1998,8 +1975,6 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
 
 bool SpiBusContext::init(const LedTiming& timing) {
     if (_initialized) return true;
-
-    Serial.printf("[SPI] Initializing SPI parallel bus context\n");
 
     // Allocate DMA buffers
     for (int i = 0; i < 2; i++) {
@@ -2044,15 +2019,12 @@ bool SpiBusContext::init(const LedTiming& timing) {
     _hw->user.usr_miso = 0;
     _hw->user.usr_mosi = 1;
 
-    // To prevent D2 and D3 from idling high, explicitly clear idle output polarities
+    // Clear idle output polarities for D2/D3
     _hw->ctrl.q_pol = 0;
     _hw->ctrl.d_pol = 0;
     _hw->ctrl.hold_pol = 0;
     _hw->ctrl.wp_pol = 0;
 
-    // To prevent WP (D2) and HD (D3) from idling high, clear quad mode in ctrl and user registers?
-    // Let's first clear the command/address phases to fix the initial corrupted 12 zeroes.
-    
     spi_line_mode_t linemode = {};
     linemode.data_lines = 4;  // quad mode
     spi_ll_master_set_line_mode(_hw, linemode);
@@ -2068,15 +2040,9 @@ bool SpiBusContext::init(const LedTiming& timing) {
 
     spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
 
-    Serial.printf("[SPI] Bit period: %uns, target SPI freq: %uHz\n", bitPeriodNs, targetFreq);
-
     // Route SPI clock to a dummy pin (needed for DMA to work)
-    // GPIO11 is VDD_SPI on C3 but routing CLK to it doesn't affect power.
-    // We don't set it as OUTPUT manually to allow the matrix to take full control.
     pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
 
-    // Matching working reference order: set_mosi_bitlen BEFORE enable_mosi
-    // Use a default value; will be overwritten in startTransmit with actual frame size
     spi_ll_set_mosi_bitlen(_hw, 16384);
     spi_ll_enable_mosi(_hw, true);
 
@@ -2084,17 +2050,14 @@ bool SpiBusContext::init(const LedTiming& timing) {
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
     spi_ll_apply_config(_hw);
-    
-    Serial.printf("[SPI] init: hw->cmd.val after reset=0x%08X\n", _hw->cmd.val);
 
-    // Configure GDMA (matching working reference: reset, connect, set desc addr, start)
+    // Configure GDMA
     gdma_dev_t* dma = &GDMA;
     gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
     gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
     gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
     gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
-    // Enable EOF interrupt, then install ISR (matching working reference order)
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
@@ -2107,10 +2070,8 @@ bool SpiBusContext::init(const LedTiming& timing) {
         return false;
     }
 
-    // Install SPI ISR for trans_done and outfifo_empty_err recovery.
-    // trans_done: SPI finished its bit counter, restart immediately.
-    // outfifo_empty_err: FIFO underrun (e.g. WiFi ISR delayed DMA), must reset and recover.
-    _hw->dma_int_clr.val = 0xFFFFFFFF;  // Clear all flags
+    // Install SPI ISR for trans_done and outfifo_empty_err recovery
+    _hw->dma_int_clr.val = 0xFFFFFFFF;
     _hw->dma_int_ena.trans_done = 1;
     _hw->dma_int_ena.outfifo_empty_err = 1;
     err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE,
@@ -2123,12 +2084,10 @@ bool SpiBusContext::init(const LedTiming& timing) {
     }
 
     _initialized = true;
-    Serial.printf("[SPI] Init complete\n");
     return true;
 }
 
 void SpiBusContext::deinit() {
-    Serial.printf("[SPI] deinit() starting\n");
     _sending = false;
 
     // Stop SPI and DMA before freeing resources
@@ -2186,7 +2145,6 @@ int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
     pinMode(pin, OUTPUT);
     pinMatrixOutAttach(pin, SPI_SIGNAL_INDICES[idx], false, false);
 
-    Serial.printf("[SPI] Registered channel %d on pin %d (signal=%d)\n", idx, pin, SPI_SIGNAL_INDICES[idx]);
     return idx;
 }
 
@@ -2215,26 +2173,19 @@ void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 }
 
 void SpiBusContext::resetAndStart() {
-    // Matching working reference loop restart order exactly:
-    // 1. Wait for any previous SPI to finish
-    //    (caller should have ensured this, but belt-and-suspenders)
-    // 2. Reset SPI FIFO
     spi_ll_dma_tx_fifo_reset(_hw);
     spi_ll_outfifo_empty_clr(_hw);
     spi_ll_apply_config(_hw);
 
-    // 3. Restore DMA descriptor ownership (DMA clears owner after processing)
     _dmaDesc[0].owner = 1;
     _dmaDesc[1].owner = 1;
 
-    // 4. Reset and restart GDMA (matching working reference order)
     gdma_dev_t* dma = &GDMA;
     gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
     gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
     gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
     gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
-    // Re-enable EOF interrupt after channel reset (reset may clear enable bits)
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 }
@@ -2243,9 +2194,8 @@ bool SpiBusContext::startTransmit() {
     if (_sending) return false;
     if (_channelCount == 0) return false;
 
-    // Only start transmission if ALL active channels have staged data
     if (_stagedMask != _channelMask) return false;
-    _stagedMask = 0; // Reset for next frame
+    _stagedMask = 0;
 
     _lastTransmitMs = millis();
     size_t newBytes = 0;
@@ -2259,45 +2209,27 @@ bool SpiBusContext::startTransmit() {
         _framePos = 0;
         _numBytes = newBytes;
 
-        // Set totalBits to max buffer-aligned value (31 * 1024 * 8 = 253952 bits).
-        // This gives ~97ms of continuous output before trans_done fires and restarts.
-        // If FIFO underruns (WiFi traffic etc), outfifo_empty_err fires and recovers.
-        uint32_t totalBits = 253952;
-
-        spi_ll_set_mosi_bitlen(_hw, totalBits);
-
-        // Clear the trans_done flag BEFORE starting new transfer.
-        // spi_ll_usr_is_done() checks dma_int_raw.trans_done which is sticky —
-        // it stays set after the previous transfer until explicitly cleared.
+        // Max buffer-aligned bit count: continuous output for ~97ms before
+        // trans_done restarts. outfifo_empty_err handles FIFO underruns.
+        spi_ll_set_mosi_bitlen(_hw, 253952);
         spi_ll_clear_int_stat(_hw);
 
-        // Set state and encode buffers FIRST before starting DMA
         _sending = true;
         _currentBuffer = 0;
         encodeSpiChunk(0);
         encodeSpiChunk(1);
 
-        // Reset SPI + DMA first (matching working reference loop order)
         resetAndStart();
-
         _hasStarted = true;
-
-        // Start SPI transfer LAST (matching working reference: spi_ll_user_start is the final step)
         spi_ll_user_start(_hw);
     } else {
-        // Infinite send active!
-        // The hardware is already running, churning out zeros via the background ISR loop.
-        // All we need to do is reset the pointers and flip _sending = true. The ISR 
-        // will naturally pick this up and seamlessly transition from sending zeros to legitimate frame data!
-        
+        // Hardware already running - just update pointers, ISR picks up new data
         gdma_dev_t* dma = &GDMA;
-        dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0; // Temporarily pause ISR to prevent race condition
-
+        dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
         _framePos = 0;
         _numBytes = newBytes;
-        _sending = true; // Engage new frame
-
-        dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1; // Unpause ISR
+        _sending = true;
+        dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
     }
 
     return true;
@@ -2342,19 +2274,16 @@ bool ParallelSpiBus::begin() {
     }
 
     _initialized = true;
-    Serial.printf("[SPI] ParallelSpiBus::begin() OK: pin=%d, channel=%d\n", _pin, _channelIdx);
     return true;
 }
 
 void ParallelSpiBus::end() {
-    Serial.printf("[SPI] ParallelSpiBus::end() pin=%d\n", _pin);
     if (!_initialized) return;
 
     if (_ctx) {
         uint32_t startWait = millis();
         while (!_ctx->isIdle()) {
             if (millis() - startWait > 500) {
-                Serial.printf("[SPI] end() timeout waiting for idle, forcing...\n");
                 break;
             }
             vTaskDelay(1);
@@ -2395,9 +2324,6 @@ bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
     uint32_t startWait = millis();
     while (!_ctx->isIdle()) {
         if (millis() - startWait > 500) {
-            Serial.printf("[SPI] show() timeout waiting for idle\n");
-            _ctx->dumpDebug();
-            // Force idle to prevent endless freeze
             _ctx->forceIdle();
             return false;
         }
@@ -2408,8 +2334,6 @@ bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
     startWait = millis();
     while (!_ctx->isSpiDone()) {
         if (millis() - startWait > 500) {
-            Serial.printf("[SPI] show() timeout waiting for SpiDone\n");
-            _ctx->dumpDebug();
             _ctx->forceIdle();
             return false;
         }
