@@ -73,13 +73,26 @@ void Esp8266UartBus::updateUartTiming() {
     if (periodNs < 200) periodNs = 1250;
     uint32_t baud = 4000000000ULL / periodNs;
     
-    if (_pin == 2) {
+    uint8_t uartNum = (_pin == 2) ? 1 : 0;
+    if (uartNum == 1) {
         Serial1.begin(baud, SERIAL_6N1, SERIAL_TX_ONLY);
-        USC0(1) |= (1 << UCTXI); // set inverted logic
     } else {
         Serial.begin(baud, SERIAL_6N1, SERIAL_TX_ONLY);
-        USC0(0) |= (1 << UCTXI); // set inverted logic
     }
+    
+    // Clear the RX & TX FIFOS
+    const uint32_t fifoResetFlags = (1 << UCTXRST) | (1 << UCRXRST);
+    USC0(uartNum) |= fifoResetFlags;
+    USC0(uartNum) &= ~(fifoResetFlags);
+
+    // clear all invert bits
+    USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI));
+
+    // set inverted logic for TX
+    USC0(uartNum) |= (1 << UCTXI);
+
+    // Disable RX & TX interrupts that might have been enabled by Arduino Core Serial
+    USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE));
 }
 
 bool Esp8266UartBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
@@ -153,6 +166,15 @@ bool Esp8266BitBangBus::begin() {
 void Esp8266BitBangBus::end() {
     pinMode(_pin, INPUT);
     _initialized = false;
+}
+
+void Esp8266BitBangBus::setTiming(const LedTiming& timing) {
+    _timing = timing;
+    uint32_t cpuFreq = ESP.getCpuFreqMHz(); // usually 80 or 160
+    _t0h = (timing.t0h_ns * cpuFreq) / 1000;
+    _t0l = (timing.t0l_ns * cpuFreq) / 1000;
+    _t1h = (timing.t1h_ns * cpuFreq) / 1000;
+    _t1l = (timing.t1l_ns * cpuFreq) / 1000;
 }
 
 bool Esp8266BitBangBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
@@ -242,16 +264,11 @@ bool Esp8266DmaBus::begin() {
     if (_initialized) return true;
     if (_pin != 3) return false; // ESP8266 I2S RX is GPIO3 for NeoPixels
     
-    // Begin core I2S subsystem
-    i2s_begin(); 
-    
+    // Begin core I2S subsystem without driving clocks on GPIO15/GPIO2!
+    i2s_rxtxdrive_begin(false, true, false, false);
+
     // To make GPIO3 act as I2S Data Out instead of I2S IN, configure registers manually:
-    // (This disables I2S BCLK and WS on their default pins so we don't interfere with other hardware)
-    pinMode(3, FUNCTION_3); // Set RX to I2S0_DATA
-    
-    // Disable clock/ws pins on GPIO15/2
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_MTDO_U, FUNC_GPIO15); 
-    PIN_FUNC_SELECT(PERIPHS_IO_MUX_GPIO2_U, FUNC_GPIO2); 
+    PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0RXD_U, 1); // Select I2SO_DATA on GPIO3
 
     updateI2sTiming();
 

@@ -91,7 +91,7 @@ public:
     void waitComplete() override;
     const char* getType() const override { return "ESP8266_BB"; }
 
-    void setTiming(const LedTiming& timing) { _timing = timing; }
+    void setTiming(const LedTiming& timing);
     void setColorOrder(ColorOrder order) { _order = order; }
 
 private:
