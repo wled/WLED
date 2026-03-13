@@ -834,7 +834,6 @@ class WS2812FX {
   public:
 
     WS2812FX() :
-      paletteBlend(0),
       now(millis()),
       timebase(0),
       isMatrix(false),
@@ -936,7 +935,7 @@ class WS2812FX {
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
-    uint8_t paletteBlend;
+    // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;

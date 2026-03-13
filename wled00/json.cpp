@@ -810,7 +810,7 @@ void serializeInfo(JsonObject root)
     wifi_info[F("txPower")] = (int) WiFi.getTxPower();
     wifi_info[F("sleep")] = (bool) WiFi.getSleep();
   #endif
-  #if !defined(CONFIG_IDF_TARGET_ESP32C2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // classic esp32 only: report "esp32" without package details
     root[F("arch")] = "esp32";
   #else
     root[F("arch")] = ESP.getChipModel();

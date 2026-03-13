@@ -85,7 +85,7 @@ wled00/                 # Main firmware source (C++)
   │   ├── settings*.htm # Settings pages
   │   └── *.js/*.css   # Frontend resources
   ├── *.cpp/*.h        # Firmware source files
-  └── html_*.h         # Generated embedded web files (DO NOT EDIT)
+  └── html_*.h         # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
 tools/                 # Build tools (Node.js)
   ├── cdata.js         # Web UI build script
   └── cdata-test.js    # Test suite
@@ -101,7 +101,7 @@ package.json           # Node.js dependencies and scripts
 - `wled00/wled.h` - Main firmware configuration
 - `platformio.ini` - Hardware build targets and settings
 
-### Development Workflow
+### Development Workflow (applies to agent mode only)
 1. **For web UI changes**:
    - Edit files in `wled00/data/`
    - Run `npm run build` to regenerate headers
@@ -148,10 +148,13 @@ package.json           # Node.js dependencies and scripts
 
 ## Important Notes
 
-- **DO NOT edit `wled00/html_*.h` files** - they are auto-generated
-- **Always commit both source files AND generated html_*.h files**
-- **Web UI must be built before firmware compilation**
+- **Always commit source files**
+- **Web UI re-built is part of the platformio firmware compilation**
+- **do not commit generated html_*.h files**
+- **DO NOT edit `wled00/html_*.h` files** - they are auto-generated. If needed, modify Web UI files in `wled00/data/`.
 - **Test web interface manually after any web UI changes**
+- When reviewing a PR: the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
+- If updating Web UI files in `wled00/data/`, make use of common functions availeable in `wled00/data/common.js` where possible.
 - **Use VS Code with PlatformIO extension for best development experience**
 - **Hardware builds require appropriate ESP32/ESP8266 development board**
 
