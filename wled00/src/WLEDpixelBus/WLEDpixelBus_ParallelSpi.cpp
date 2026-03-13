@@ -1,14 +1,13 @@
 #include "WLEDpixelBus.h"
+#ifdef WLEDPB_SPI_SUPPORT
 #include "WLEDpixelBus_ParallelSpi.h"
 
-#ifdef WLEDPB_SPI_SUPPORT
 #undef FLAG_ATTR
 #define FLAG_ATTR(TYPE)
 #include "hal/spi_ll.h"
 #include "driver/periph_ctrl.h"
 #include "esp_private/gdma.h"
 #include "esp_rom_gpio.h"
-#endif
 
 namespace WLEDpixelBus {
 
@@ -16,7 +15,6 @@ namespace WLEDpixelBus {
 // SPI Parallel Bus Implementation (ESP32-C3)
 //==============================================================================
 
-#ifdef WLEDPB_SPI_SUPPORT
 
 // low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
 static inline void spi_ll_apply_config(spi_dev_t *hw)
@@ -624,6 +622,6 @@ void ParallelSpiBus::setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp)
     IBus::setPixelColor(pix, c, cp);
 }
 
-#endif // WLEDPB_SPI_SUPPORT
 
 } // namespace WLEDpixelBus
+#endif // WLEDPB_SPI_SUPPORT

@@ -1,4 +1,5 @@
 #include "WLEDpixelBus.h"
+#ifdef WLEDPB_LCD_SUPPORT
 #include "WLEDpixelBus_LCD.h"
 
 namespace WLEDpixelBus {
@@ -15,8 +16,6 @@ Key design:
 - Stop only after reset period completes on buffer boundary
 - No DMA reconfiguration during transmission
 -------------------------------------------------------------------------*/
-
-#ifdef WLEDPB_LCD_SUPPORT
 
 #include "driver/periph_ctrl.h"
 #include "esp_private/gdma.h"
@@ -578,6 +577,5 @@ void LcdBus::setColorOrder(ColorOrder order) {
     _order = order;
 }
 
-#endif // WLEDPB_LCD_SUPPORT
-
 } // namespace WLEDpixelBus
+#endif

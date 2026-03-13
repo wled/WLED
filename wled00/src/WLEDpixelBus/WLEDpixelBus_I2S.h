@@ -1,14 +1,12 @@
 #pragma once
 
 #include "WLEDpixelBus.h"
-
+#ifdef WLEDPB_I2S_SUPPORT
 namespace WLEDpixelBus {
 
 //==============================================================================
 // I2S Parallel Bus - ESP32 and ESP32-S2
 //==============================================================================
-
-#ifdef WLEDPB_I2S_SUPPORT
 
 #include "soc/i2s_struct.h"
 #include "soc/i2s_reg.h"
@@ -142,6 +140,5 @@ private:
     bool allocateBuffer(uint16_t numPixels);
 };
 
-#endif // WLEDPB_I2S_SUPPORT
-
 } // namespace WLEDpixelBus
+#endif // WLEDPB_I2S_SUPPORT

@@ -15,10 +15,17 @@ Features:
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus.h"
+
+#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
+#endif
+
+#if defined(WLEDPB_ESP8266)
+#include "WLEDpixelBus_ESP8266.h"
+#endif
 
 namespace WLEDpixelBus {
 
@@ -88,6 +95,7 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
     IBus* bus = nullptr;
 
     switch (type) {
+#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
         case BusType::RMT:
             bus = new RmtBus(pin, timing, order, channel);
             break;
@@ -110,6 +118,18 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
             break;
 #endif
 
+#elif defined(WLEDPB_ESP8266)
+        case BusType::UART:
+            bus = new Esp8266UartBus(pin, timing, order);
+            break;
+        case BusType::DMA:
+            bus = new Esp8266DmaBus(pin, timing, order);
+            break;
+        case BusType::BitBang:
+            bus = new Esp8266BitBangBus(pin, timing, order);
+            break;
+#endif
+
         default:
             return nullptr;
     }
@@ -124,6 +144,8 @@ BusType getRecommendedBusType() {
     return BusType::I2S;  // Original and S2 have I2S parallel
 #elif defined(WLEDPB_SPI_SUPPORT)
     return BusType::SPI;  // C3 uses SPI quad mode
+#elif defined(WLEDPB_ESP8266)
+    return BusType::UART;
 #else
     return BusType::RMT;  // Fallback to RMT
 #endif

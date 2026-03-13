@@ -4,10 +4,15 @@
 
 #include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_SPI.h"
+
+#if defined(ARDUINO_ARCH_ESP32)
 #include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_I2S.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_LCD.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_ParallelSpi.h"
+#elif defined(ARDUINO_ARCH_ESP8266)
+#include "src/WLEDpixelBus/WLEDpixelBus_ESP8266.h"
+#endif
 
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13

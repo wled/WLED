@@ -1,4 +1,4 @@
-#include "WLEDpixelBus_SPI.h"
+#include "WLEDpixelBus.h"
 
 namespace WLEDpixelBus {
 

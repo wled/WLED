@@ -1,4 +1,5 @@
 #include "WLEDpixelBus.h"
+#ifdef WLEDPB_I2S_SUPPORT
 #include "WLEDpixelBus_I2S.h"
 
 namespace WLEDpixelBus {
@@ -6,8 +7,6 @@ namespace WLEDpixelBus {
 //==============================================================================
 // I2S Bus Implementation
 //==============================================================================
-
-#ifdef WLEDPB_I2S_SUPPORT
 
 I2sBusContext* I2sBusContext::_instances[WLEDPB_I2S_BUS_COUNT] = {nullptr};
 uint8_t I2sBusContext::_refCount[WLEDPB_I2S_BUS_COUNT] = {0};
@@ -661,6 +660,7 @@ void I2sBus::setColorOrder(ColorOrder order) {
     _order = order;
 }
 
-#endif // WLEDPB_I2S_SUPPORT
+
 
 } // namespace WLEDpixelBus
+#endif // WLEDPB_I2S_SUPPORT

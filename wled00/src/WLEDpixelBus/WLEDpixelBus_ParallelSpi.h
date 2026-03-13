@@ -1,13 +1,13 @@
 #pragma once
 
 #include "WLEDpixelBus.h"
-
+#ifdef WLEDPB_SPI_SUPPORT
 namespace WLEDpixelBus {
 
 //==============================================================================
 // SPI Parallel Bus - ESP32-C3 (uses SPI2 quad mode + GDMA)
 //==============================================================================
-#ifdef WLEDPB_SPI_SUPPORT
+
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
 #define WLEDPB_SPI_DMA_BUFFER_SIZE 1024
@@ -120,6 +120,6 @@ private:
     size_t _encodeBufferSize;
 };
 
-#endif // WLEDPB_SPI_SUPPORT
-
 } // namespace WLEDpixelBus
+
+#endif // WLEDPB_SPI_SUPPORT

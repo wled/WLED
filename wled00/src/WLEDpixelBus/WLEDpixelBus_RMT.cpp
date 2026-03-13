@@ -1,4 +1,5 @@
 #include "WLEDpixelBus.h"
+#ifdef ARDUINO_ARCH_ESP32
 #include "WLEDpixelBus_RMT.h"
 
 namespace WLEDpixelBus {
@@ -347,3 +348,4 @@ void IRAM_ATTR RmtBus::translateCB(const void* src, rmt_item32_t* dest,
 }
 
 } // namespace WLEDpixelBus
+#endif

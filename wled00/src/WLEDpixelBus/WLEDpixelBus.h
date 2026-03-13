@@ -19,9 +19,7 @@ Features:
 #include <Arduino.h>
 #include <cstring>
 
-#if ! defined(ARDUINO_ARCH_ESP32)
-#error "WLEDpixelBus only supports ESP32 platforms"
-#endif
+#if defined(ARDUINO_ARCH_ESP32)
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -63,6 +61,14 @@ Features:
 #include "hal/gdma_ll.h"
 #include "soc/gdma_reg.h"
 #include "rom/lldesc.h"
+#endif
+
+#elif defined(ARDUINO_ARCH_ESP8266)
+
+#define WLEDPB_ESP8266
+
+#else
+#error "WLEDpixelBus only supports ESP32 and ESP8266 platforms"
 #endif
 
 #include "WLEDpixelBus_Timings.h"
@@ -312,6 +318,9 @@ enum class BusType :  uint8_t {
     I2S = 1,
     LCD = 2,
     SPI = 3,
+    UART = 4,
+    DMA = 5,
+    BitBang = 6,
     Auto = 255
 };
 
@@ -375,7 +384,13 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
 
 } // namespace WLEDpixelBus
 
+#include "WLEDpixelBus_SPI.h"
+
+#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
+#elif defined(WLEDPB_ESP8266)
+#include "WLEDpixelBus_ESP8266.h"
+#endif

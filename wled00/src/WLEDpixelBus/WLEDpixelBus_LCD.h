@@ -1,5 +1,5 @@
 #pragma once
-
+#ifdef WLEDPB_LCD_SUPPORT
 #include "WLEDpixelBus.h"
 
 namespace WLEDpixelBus {
@@ -7,7 +7,6 @@ namespace WLEDpixelBus {
 //==============================================================================
 // LCD Parallel Bus - ESP32-S3 only
 //==============================================================================
-#ifdef WLEDPB_LCD_SUPPORT
 
 #include "driver/periph_ctrl.h"
 #include "esp_private/gdma.h"
@@ -145,6 +144,6 @@ private:
     size_t _encodedLen;
 };
 
-#endif // WLEDPB_LCD_SUPPORT
-
 } // namespace WLEDpixelBus
+
+#endif // WLEDPB_LCD_SUPPORT
