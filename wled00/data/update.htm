@@ -51,6 +51,7 @@
 					// Fallback to compiled-in value if API call fails
 					document.querySelector('.installed-version').textContent = 'Unknown';
 					document.querySelector('.release-name').textContent = 'Unknown';
+					gId('Norelease-download').classList.add("hide"); // fetch failed -> hide everything
 				});
 		}
 		function hideforms() {
