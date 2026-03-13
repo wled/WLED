@@ -486,8 +486,4 @@ void registerUsermods()
   #ifdef USERMOD_RF433
   UsermodManager::add(new RF433Usermod());
   #endif
-
-  #ifdef USERMOD_HUE_V2
-  UsermodManager::add(new PhilipsHueV2Usermod());
-  #endif
 }
