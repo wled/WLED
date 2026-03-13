@@ -1,0 +1,7 @@
+{
+  "name": "usermod_v2_RF433",
+  "build": { "libArchive": false },
+  "dependencies": {
+    "sui77/rc-switch":"2.6.4"
+  }  
+}

@@ -22,7 +22,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   if (header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
     const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
     DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
-    doSerializeConfig = true;
+    configNeedsWrite = true;
     DEBUG_PRINTF("DMX personality changed to to: %d\n", DMXMode);
   }
 }
@@ -40,7 +40,7 @@ void rdmAddressChangedCb(dmx_port_t dmxPort, const rdm_header_t *header,
   if (header->cc == RDM_CC_SET_COMMAND_RESPONSE) {
     const uint16_t addr = dmx_get_start_address(dmx->inputPortNum);
     DMXAddress = std::min(512, int(addr));
-    doSerializeConfig = true;
+    configNeedsWrite = true;
     DEBUG_PRINTF("DMX start addr changed to: %d\n", DMXAddress);
   }
 }
@@ -55,8 +55,8 @@ static dmx_config_t createConfig()
   config.software_version_id = VERSION;
   strcpy(config.device_label, "WLED_MM");
 
-  const std::string versionString = "WLED_V" + std::to_string(VERSION);
-  strncpy(config.software_version_label, versionString.c_str(), 32);
+  const std::string dmxWledVersionString = "WLED_V" + std::to_string(VERSION);
+  strncpy(config.software_version_label, dmxWledVersionString.c_str(), 32);
   config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
 
   config.personalities[0].description = "SINGLE_RGB";

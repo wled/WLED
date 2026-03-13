@@ -13,6 +13,9 @@
 #define WIZMOTE_BUTTON_TWO         17
 #define WIZMOTE_BUTTON_THREE       18
 #define WIZMOTE_BUTTON_FOUR        19
+#define WIZMOTE_BUTTON_FIVE        20
+#define WIZMOTE_BUTTON_SIX         21
+#define WIZMOTE_BUTTON_SEVEN       22
 #define WIZMOTE_BUTTON_BRIGHT_UP   9
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
@@ -27,7 +30,7 @@
 typedef struct WizMoteMessageStructure {
   uint8_t program;  // 0x91 for ON button, 0x81 for all others
   uint8_t seq[4];   // Incremetal sequence number 32 bit unsigned integer LSB first
-  uint8_t dt1;      // Button Data Type (0x32)
+  uint8_t dt1;      // Button Data Type (0x20)
   uint8_t button;   // Identifies which button is being pressed
   uint8_t dt2;      // Battery Level Data Type (0x01)
   uint8_t batLevel; // Battery Level 0-100
@@ -109,7 +112,7 @@ static void setOff() {
   }
 }
 
-void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
+static void presetWithFallback(uint8_t presetID, uint8_t effectID, uint8_t paletteID) {
   resetNightMode();
   applyPresetWithFallback(presetID, CALL_MODE_BUTTON_PRESET, effectID, paletteID);
 }
@@ -120,7 +123,7 @@ static bool remoteJson(int button)
   char objKey[10];
   bool parsed = false;
 
-  if (!requestJSONBufferLock(22)) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
 
   sprintf_P(objKey, PSTR("\"%d\":"), button);
 
@@ -181,15 +184,9 @@ static bool remoteJson(int button)
   return parsed;
 }
 
-// Callback function that will be executed when data is received
+// Callback function that will be executed when data is received from a linked remote
 void handleWiZdata(uint8_t *incomingData, size_t len) {
   message_structure_t *incoming = reinterpret_cast<message_structure_t *>(incomingData);
-
-  if (strcmp(last_signal_src, linked_remote) != 0) {
-    DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
-    DEBUG_PRINTLN(last_signal_src);
-    return;
-  }
 
   if (len != sizeof(message_structure_t)) {
     DEBUG_PRINTF_P(PSTR("Unknown incoming ESP Now message received of length %u\n"), len);
@@ -223,6 +220,9 @@ void handleRemote() {
       case WIZMOTE_BUTTON_TWO            : presetWithFallback(2, FX_MODE_BREATH,        0); break;
       case WIZMOTE_BUTTON_THREE          : presetWithFallback(3, FX_MODE_FIRE_FLICKER,  0); break;
       case WIZMOTE_BUTTON_FOUR           : presetWithFallback(4, FX_MODE_RAINBOW,       0); break;
+      case WIZMOTE_BUTTON_FIVE           : presetWithFallback(5, FX_MODE_CANDLE,        0); break;
+      case WIZMOTE_BUTTON_SIX            : presetWithFallback(6, FX_MODE_RANDOM_COLOR,  0); break;
+      case WIZMOTE_BUTTON_SEVEN          : presetWithFallback(7, FX_MODE_FADE,          0); break;
       case WIZMOTE_BUTTON_NIGHT          : activateNightMode();                             break;
       case WIZMOTE_BUTTON_BRIGHT_UP      : brightnessUp();                                  break;
       case WIZMOTE_BUTTON_BRIGHT_DOWN    : brightnessDown();                                break;

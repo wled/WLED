@@ -102,7 +102,7 @@ lib_deps = ${esp32s3.lib_deps}
 # parallel. Also not clear exactly what difference between the ESP32 and the
 # ESP32S3 would be causing this, though they do run different BLE versions.
 # May be related to some of the issues discussed in:
-# https://github.com/Aircoookie/WLED/issues/1382
+# https://github.com/wled-dev/WLED/issues/1382
 ; [env:esp32dev_dice]
 ; extends = env:esp32dev
 ; build_flags = ${common.build_flags} ${esp32.build_flags} -D WLED_RELEASE_NAME=ESP32

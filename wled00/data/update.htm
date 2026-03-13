@@ -1,29 +1,110 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 	<meta content='width=device-width' name='viewport'>
 	<title>WLED Update</title>
+	<script src="common.js" type="text/javascript"></script>
 	<script>
 		function B() { window.history.back(); }
-		function U() { document.getElementById("uf").style.display="none";document.getElementById("msg").style.display="block"; }
-		function GetV() {/*injected values here*/}
+		var cnfr = false;
+		function cR() {
+			if (!cnfr) {
+				var bt = gId('rev');
+				bt.style.color = "red";
+				bt.innerText = "Revert!";
+				cnfr = true;
+				return;
+			}
+			window.open(getURL("/update?revert"),"_self");
+		}
+		function GetV() {
+			// Fetch device info via JSON API instead of compiling it in
+			fetch(getURL('/json/info'))
+				.then(response => response.json())
+				.then(data => {
+					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
+					document.querySelector('.release-name').textContent = data.release;
+					// assemble update URL and update release badge
+					if (data.repo && data.repo !== "unknown") {
+						const repoUrl = "https://github.com/" + data.repo + "/releases/latest";
+						const badgeUrl = "https://img.shields.io/github/release/" + data.repo + ".svg?style=flat-square";
+						document.querySelector('.release-repo').href = repoUrl;
+						document.querySelector('.release-badge').src = badgeUrl;
+						toggle('release-download'); // only show release download item after receiving a valid data.repo
+					} else {
+						gId('Norelease-download').classList.add("hide"); // repo invalid -> hide everything
+					}
+					// TODO - can this be done at build time?
+					if (data.arch == "esp8266") {
+						toggle('rev');
+					}
+					const allowBl = data.arch && (data.arch.toLowerCase() === 'esp32' || data.arch.toLowerCase() === 'esp32-s2');
+					if (allowBl) {
+						toggle('bootupd')
+						if (data.bootloaderSHA256) {
+							gId('bootloader-hash').innerText = 'Current bootloader SHA256: \n' + data.bootloaderSHA256;
+						}
+					}
+				})
+				.catch(error => {
+					console.log('Could not fetch device info:', error);
+					// Fallback to compiled-in value if API call fails
+					document.querySelector('.installed-version').textContent = 'Unknown';
+					document.querySelector('.release-name').textContent = 'Unknown';
+					gId('Norelease-download').classList.add("hide"); // fetch failed -> hide everything
+				});
+		}
+		function hideforms() {
+			gId('toprow').classList.add("hide");  // hide top row with "back" button
+			gId('backbtn').classList.add("hide"); // hide "back" button on bottom of the page
+			gId('bootupd').classList.add("hide");
+			toggle('upd');			
+		}
 	</script>
 	<style>
 		@import url("style.css");
 	</style>
 </head>
-
-<body onload="GetV()">
-	<h2>WLED Software Update</h2>
-	<form method='POST' action='./update' id='uf' enctype='multipart/form-data' onsubmit="U()">
-		Installed version: <span class="sip">##VERSION##</span><br>
-		Download the latest binary: <a href="https://github.com/Aircoookie/WLED/releases" target="_blank" 
+<body onload="GetV();">
+	<div id="toprow" class="toprow">
+	<div class="helpB"><button type="button" aria-label="Help" title="Help" onclick="H('basics/getting-started/#software-update-procedure')">?</button></div>
+	<button type="button" onclick="B()">Back</button>
+	</div>
+	<br>
+	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="hideforms()">
+	<div class="sec">
+		<h2>WLED Software Update</h2>
+		<p>
+		Installed version: <span class="sip installed-version">Loading...</span><br>
+		Release: <span class="sip release-name">Loading...</span><br>
+		<span id="Norelease-download">Latest binary: Checking...<br></span>
+		<span id="release-download" class="hide">
+		Download the latest binary: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
-		<img src="https://img.shields.io/github/release/Aircoookie/WLED.svg?style=flat-square"></a><br>
+		<img class="release-badge" alt="badge"></a><br> <!-- start with an empty placeholder, src will be filled after fetching /json/info -->
+		</span>
+		</p>
+		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
-		<button type="submit">Update!</button><br>
-		<button type="button" onclick="B()">Back</button>
+		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
+		<label for='skipValidation'>Ignore firmware validation</label><br>
+		<button type="submit">Update WLED!</button><br>
+		<span id="rev">
+			<hr class="sml">
+			<button type="button" onclick="cR()">Revert update</button><br>
+		</span>
+	</div>
 	</form>
-	<div id="msg"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
+	<div id="bootupd" class="hide sec">
+		<h2>Bootloader Update</h2>
+		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;font-size:15px;white-space:pre-wrap;word-break:break-all;"></div>
+		<form method='POST' action='./updatebootloader' enctype='multipart/form-data' onsubmit="hideforms()">
+			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br><br>
+			<input type='file' name='update' required><br>
+			<button type="submit">Update Bootloader</button>
+		</form>
+	</div>
+	<div id="Noupd" class="hide sec"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
+	<p><button id="backbtn" type="button" onclick="B()">Back</button></p>
 </body>
 </html>

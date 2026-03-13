@@ -8,30 +8,6 @@ https://user-images.githubusercontent.com/3090131/124680599-0180ab80-dec7-11eb-9
 The actual / original code that controls the LED modes is from Adam Zeloof. I take no credit for it. I ported it to WLED, which involved replacing the LED library he used, (because WLED already has one, so no need to add another one) plus the rotary encoder library because it was not compatible with ESP, only Arduino.
 It was quite a bit more work than I hoped, but I got there eventually :)
 
-## Requirements
-* "ESP Rotary" by Lennart Hennigs, v2.1.1 or higher: https://github.com/LennartHennigs/ESPRotary
-
-## Usermod installation
-Simply copy the below block (build task) to your `platformio_override.ini` and compile WLED using this new build task. Or use an existing one and add the buildflag `-D RGB_ROTARY_ENCODER`.
-
-ESP32:
-```
-[env:custom_esp32dev_usermod_rgb_encoder_board]
-extends = env:esp32dev
-build_flags = ${common.build_flags_esp32} -D WLED_RELEASE_NAME=ESP32 -D RGB_ROTARY_ENCODER
-lib_deps = ${esp32.lib_deps}
-    lennarthennigs/ESP Rotary@^2.1.1
-```
-
-ESP8266 / D1 Mini:
-```
-[env:custom_d1_mini_usermod_rgb_encoder_board]
-extends = env:d1_mini
-build_flags = ${common.build_flags_esp8266} -D RGB_ROTARY_ENCODER
-lib_deps = ${esp8266.lib_deps}
-    lennarthennigs/ESP Rotary@^2.1.1
-```
-
 ## How to connect the board to your ESP
 We'll need (minimum) three or (maximum) four GPIOs for the board:
 * "ea": reports the encoder direction

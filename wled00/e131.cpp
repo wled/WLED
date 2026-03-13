@@ -4,13 +4,20 @@
 #define MAX_4_CH_LEDS_PER_UNIVERSE 128
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
+// forward declarations
+static void handleDDPPacket(e131_packet_t* p);
+static void handleArtnetPollReply(IPAddress ipAddress);
+static void prepareArtnetPollReply(ArtPollReply *reply);
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
+
+
 /*
  * E1.31 handler
  */
 
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
-void handleDDPPacket(e131_packet_t* p) {
+static void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
@@ -30,16 +37,23 @@ void handleDDPPacket(e131_packet_t* p) {
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
-  unsigned stop = start + htons(p->dataLen) / ddpChannelsPerLed;
+  uint16_t dataLen = htons(p->dataLen);
+  unsigned stop = start + dataLen / ddpChannelsPerLed;
   uint8_t* data = p->data;
   unsigned c = 0;
   if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
 
+  unsigned numLeds = stop - start; // stop >= start is guaranteed
+  unsigned maxDataIndex = c + numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
+  if (maxDataIndex > dataLen) {
+    DEBUG_PRINTLN(F("DDP packet data bounds exceeded, rejecting."));
+    return;
+  }
+
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
 
-  if (!realtimeOverride || (realtimeMode && useMainSegmentOnly)) {
-    if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
+  if (!realtimeOverride) {
     for (unsigned i = start; i < stop; i++, c += ddpChannelsPerLed) {
       setRealtimePixel(i, data[c], data[c+1], data[c+2], ddpChannelsPerLed >3 ? data[c+3] : 0);
     }
@@ -150,10 +164,9 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
 
       realtimeLock(realtimeTimeoutMs, mde);
 
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
 
       wChannel = (availDMXLen > 3) ? e131_data[dataOffset+3] : 0;
-      if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
       for (unsigned i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+0], e131_data[dataOffset+1], e131_data[dataOffset+2], wChannel);
       break;
@@ -163,7 +176,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
       if (availDMXLen < 4) return;
 
       realtimeLock(realtimeTimeoutMs, mde);
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+      if (realtimeOverride) return;
       wChannel = (availDMXLen > 4) ? e131_data[dataOffset+4] : 0;
 
       if (bri != e131_data[dataOffset+0]) {
@@ -171,7 +184,6 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         strip.setBrightness(bri, true);
       }
 
-      if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
       for (unsigned i = 0; i < totalLen; i++)
         setRealtimePixel(i, e131_data[dataOffset+1], e131_data[dataOffset+2], e131_data[dataOffset+3], wChannel);
       break;
@@ -194,7 +206,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         // only change brightness if value changed
         if (bri != e131_data[dataOffset]) {                                        
           bri = e131_data[dataOffset];
-          strip.setBrightness(scaledBri(bri), false);
+          strip.setBrightness(bri, false);
           stateUpdated(CALL_MODE_WS_SEND);
         }
         return;
@@ -228,16 +240,16 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           if (e131_data[dataOffset+3]   != seg.intensity) seg.intensity = e131_data[dataOffset+3];
           if (e131_data[dataOffset+4]   != seg.palette)   seg.setPalette(e131_data[dataOffset+4]);
 
-          if ((e131_data[dataOffset+5] & 0b00000010) != seg.reverse_y) { seg.setOption(SEG_OPTION_REVERSED_Y, e131_data[dataOffset+5] & 0b00000010); }
-          if ((e131_data[dataOffset+5] & 0b00000100) != seg.mirror_y) { seg.setOption(SEG_OPTION_MIRROR_Y, e131_data[dataOffset+5] & 0b00000100); }
-          if ((e131_data[dataOffset+5] & 0b00001000) != seg.transpose) { seg.setOption(SEG_OPTION_TRANSPOSED, e131_data[dataOffset+5] & 0b00001000); }
-          if ((e131_data[dataOffset+5] & 0b00110000) / 8 != seg.map1D2D) {
-            seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) / 8;
+          if (bool(e131_data[dataOffset+5] & 0b00000010) != seg.reverse_y) { seg.reverse_y = bool(e131_data[dataOffset+5] & 0b00000010); }
+          if (bool(e131_data[dataOffset+5] & 0b00000100) != seg.mirror_y)  { seg.mirror_y  = bool(e131_data[dataOffset+5] & 0b00000100); }
+          if (bool(e131_data[dataOffset+5] & 0b00001000) != seg.transpose) { seg.transpose = bool(e131_data[dataOffset+5] & 0b00001000); }
+          if ((e131_data[dataOffset+5] & 0b00110000) >> 4 != seg.map1D2D) {
+            seg.map1D2D = (e131_data[dataOffset+5] & 0b00110000) >> 4;
           }
           // To maintain backwards compatibility with prior e1.31 values, reverse is fixed to mask 0x01000000
-          if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.setOption(SEG_OPTION_REVERSED, e131_data[dataOffset+5] & 0b01000000); }
+          if ((e131_data[dataOffset+5] & 0b01000000) != seg.reverse) { seg.reverse = bool(e131_data[dataOffset+5] & 0b01000000); }
           // To maintain backwards compatibility with prior e1.31 values, mirror is fixed to mask 0x10000000
-          if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.setOption(SEG_OPTION_MIRROR, e131_data[dataOffset+5] & 0b10000000); }
+          if ((e131_data[dataOffset+5] & 0b10000000) != seg.mirror) { seg.mirror = bool(e131_data[dataOffset+5] & 0b10000000); }
 
           uint32_t colors[3];
           byte whites[3] = {0,0,0};
@@ -271,7 +283,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
     case DMX_MODE_MULTIPLE_RGB:
     case DMX_MODE_MULTIPLE_RGBW:
       {
-        bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
+        const bool is4Chan = (DMXMode == DMX_MODE_MULTIPLE_RGBW);
         const unsigned dmxChannelsPerLed = is4Chan ? 4 : 3;
         const unsigned ledsPerUniverse = is4Chan ? MAX_4_CH_LEDS_PER_UNIVERSE : MAX_3_CH_LEDS_PER_UNIVERSE;
         uint8_t stripBrightness = bri;
@@ -303,7 +315,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
         }
 
         realtimeLock(realtimeTimeoutMs, mde);
-        if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
+        if (realtimeOverride) return;
 
         if (ledsTotal > totalLen) {
           ledsTotal = totalLen;
@@ -316,17 +328,9 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
           }
         }
 
-        if (useMainSegmentOnly) strip.getMainSegment().beginDraw();
-        if (!is4Chan) {
-          for (unsigned i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], 0);
-            dmxOffset+=3;
-          }
-        } else {
-          for (unsigned i = previousLeds; i < ledsTotal; i++) {
-            setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], e131_data[dmxOffset+3]);
-            dmxOffset+=4;
-          }
+        for (unsigned i = previousLeds; i < ledsTotal; i++) {
+          setRealtimePixel(i, e131_data[dmxOffset], e131_data[dmxOffset+1], e131_data[dmxOffset+2], is4Chan ? e131_data[dmxOffset+3] : 0);
+          dmxOffset += dmxChannelsPerLed;
         }
         break;
       }
@@ -339,7 +343,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
   e131NewData = true;
 }
 
-void handleArtnetPollReply(IPAddress ipAddress) {
+static void handleArtnetPollReply(IPAddress ipAddress) {
   ArtPollReply artnetPollReply;
   prepareArtnetPollReply(&artnetPollReply);
 
@@ -405,7 +409,7 @@ void handleArtnetPollReply(IPAddress ipAddress) {
   #endif
 }
 
-void prepareArtnetPollReply(ArtPollReply *reply) {
+static void prepareArtnetPollReply(ArtPollReply *reply) {
   // Art-Net
   reply->reply_id[0] = 0x41;
   reply->reply_id[1] = 0x72;
@@ -425,7 +429,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
+  char * numberEnd = (char*) versionString; // strtol promises not to try to edit this.
   reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
@@ -524,12 +528,12 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   }
 }
 
-void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
   reply->reply_net_sw = (uint8_t)((portAddress >> 8) & 0x007F);
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);
 
-  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v" TOSTRING(WLED_VERSION)), pollReplyCount);
+  snprintf_P((char *)reply->reply_node_report, sizeof(reply->reply_node_report)-1, PSTR("#0001 [%04u] OK - WLED v%s"), pollReplyCount, versionString);
 
   if (pollReplyCount < 9999) {
     pollReplyCount++;

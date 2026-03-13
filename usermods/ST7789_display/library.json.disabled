@@ -1,0 +1,4 @@
+{
+  "name:": "ST7789_display",
+  "build": { "libArchive": false }
+}
