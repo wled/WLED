@@ -103,13 +103,20 @@ enum class ColorOrder :  uint8_t {
     WRBG = 19,
     WGBR = 20,
     WBGR = 21,
+    // RGBCWCW variants (5 bytes)
+    GRBWC = 30,
+    RGBWC = 31,
+    BRGWC = 32,
+    RBGWC = 33,
+    BGRWC = 34,
+    GBRWC = 35,
 };
 
 /**
  * Get byte count per pixel for a color order
  */
 inline constexpr uint8_t getChannelCount(ColorOrder order) {
-    return (static_cast<uint8_t>(order) >= 10) ? 4 : 3;
+    return (static_cast<uint8_t>(order) >= 30) ? 5 : ((static_cast<uint8_t>(order) >= 10) ? 4 : 3);
 }
 
 /**

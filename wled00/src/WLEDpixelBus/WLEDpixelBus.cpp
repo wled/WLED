@@ -59,6 +59,14 @@ void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) con
         case ColorOrder::WGBR: out[0]=w; out[1]=g; out[2]=b; out[3]=r; break;
         case ColorOrder::WBGR: out[0]=w; out[1]=b; out[2]=g; out[3]=r; break;
 
+        // RGBWC variants
+        case ColorOrder::RGBWC: out[0]=r; out[1]=g; out[2]=b; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::GRBWC: out[0]=g; out[1]=r; out[2]=b; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::BRGWC: out[0]=b; out[1]=r; out[2]=g; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::RBGWC: out[0]=r; out[1]=b; out[2]=g; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::GBRWC: out[0]=g; out[1]=b; out[2]=r; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::BGRWC: out[0]=b; out[1]=g; out[2]=r; out[3]=ww; out[4]=cw; break;
+
         default: out[0]=g; out[1]=r; out[2]=b; break;
     }
 }

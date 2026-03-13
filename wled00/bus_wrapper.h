@@ -152,7 +152,17 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     uint8_t wledOrder = (uint8_t)colorOrder & 0x0F;
     WLEDpixelBus::ColorOrder finalOrder = WLEDpixelBus::ColorOrder::GRB;
     
-    if (proto.channels >= 4) {
+    if (proto.channels >= 5) {
+      switch (wledOrder) {
+        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
+        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBWC; break;
+        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRGWC; break;
+        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBGWC; break;
+        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGRWC; break;
+        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBRWC; break;
+        default: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
+      }
+    } else if (proto.channels == 4) {
       switch (wledOrder) {
         case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
         case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBW; break;
