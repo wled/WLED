@@ -396,6 +396,7 @@ bool LcdBusContext::startTransmit() {
     LCD_CAM.lcd_user.lcd_dout = 1;
     LCD_CAM.lcd_user.lcd_update = 1;
     LCD_CAM.lcd_misc.lcd_afifo_reset = 1;
+    LCD_CAM.lcd_misc.lcd_afifo_reset = 0;
 
     gdma_start(_dmaChannel, (intptr_t)_dmaDesc[0]);
     esp_rom_delay_us(1);
@@ -446,7 +447,7 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
         ctx->_state = DriverState::Idle;
     }
 
-    return true;
+    return false; // Do not yield OS for this DMA streaming interrupt
 }
 
 void LcdBusContext::printDebugStats() {
@@ -547,7 +548,7 @@ bool LcdBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
             _ctx->forceIdle();
             break;
         }
-        delay(1);
+        yield();
     }
 
     if (!allocateBuffer(_numPixels)) return false;
@@ -581,7 +582,7 @@ void LcdBus::waitComplete() {
             _ctx->forceIdle();
             return;
         }
-        delay(1);
+        yield();
     }
 }
 
