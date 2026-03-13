@@ -746,9 +746,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(DMXStartLED,dmx[F("start-led")]);
 
   JsonArray dmx_fixmap = dmx[F("fixmap")];
-  for (int i = 0; i < dmx_fixmap.size(); i++) {
-    if (i > 14) break;
+  for (int i = 0; i < MIN(dmx_fixmap.size(), WLED_DMX_MAX_CHANNELS_PER_FIXTURE); i++) {
     CJSON(DMXFixtureMap[i],dmx_fixmap[i]);
+  }
+
+  JsonArray dmx_chsval = dmx[F("chsval")];
+  for (int i = 0; i < MIN(dmx_chsval.size(), WLED_DMX_MAX_CHANNELS_PER_FIXTURE); i++) {
+    CJSON(DMXChannelsValue[i],dmx_chsval[i]);
   }
 
   CJSON(e131ProxyUniverse, dmx[F("e131proxy")]);
@@ -1252,8 +1256,13 @@ void serializeConfig(JsonObject root) {
   dmx[F("start-led")] = DMXStartLED;
 
   JsonArray dmx_fixmap = dmx.createNestedArray(F("fixmap"));
-  for (unsigned i = 0; i < 15; i++) {
+  for (unsigned i = 0; i < WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
     dmx_fixmap.add(DMXFixtureMap[i]);
+  }
+
+  JsonArray dmx_chsval = dmx.createNestedArray(F("chsval"));
+  for (unsigned i = 0; i < WLED_DMX_MAX_CHANNELS_PER_FIXTURE; i++) {
+    dmx_chsval.add(DMXChannelsValue[i]);
   }
 
   dmx[F("e131proxy")] = e131ProxyUniverse;
