@@ -14,6 +14,58 @@
 
 extern "C" void usePWMFixedNMI();
 
+namespace {
+
+bool regularWiFiEnabled()
+{
+#ifdef WLED_FORCE_WIFI_OFF
+  return false;
+#else
+  return true;
+#endif
+}
+
+void initRegularWiFiStartup()
+{
+  if (!regularWiFiEnabled()) {
+    DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF: disabling regular WiFi startup (AP button emergency remains available)."));
+    apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
+    WiFi.mode(WIFI_OFF);
+    return;
+  }
+
+  WiFi.mode(WIFI_STA); // enable scanning
+  findWiFi(true);      // start scanning for available WiFi-s
+}
+
+bool handleForceWiFiOffConnection()
+{
+  if (regularWiFiEnabled()) return false;
+
+  DEBUG_PRINTLN(F("WLED_FORCE_WIFI_OFF active. WiFi stays OFF unless AP emergency mode is opened by button."));
+  apBehavior = AP_BEHAVIOR_BUTTON_ONLY;
+  lastReconnectAttempt = millis();
+  if (!apActive) {
+    WiFi.disconnect(true);
+    WiFi.mode(WIFI_OFF);
+  }
+  return true;
+}
+
+bool wifiScanRunning(bool wifiConfigured)
+{
+  if (!regularWiFiEnabled()) return false;
+  return wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0;
+}
+
+int findWiFiIfEnabled(bool doScan = false)
+{
+  if (!regularWiFiEnabled()) return selectedWiFi;
+  return findWiFi(doScan);
+}
+
+} // namespace
+
 /*
  * Main WLED class implementation. Mostly initialization and connection logic
  */
@@ -511,8 +563,7 @@ void WLED::setup()
   WiFi.persistent(false); // on ES8266 using NVM for wifi config has no benefit of faster connection
   #endif
   WiFi.onEvent(WiFiEvent);
-  WiFi.mode(WIFI_STA); // enable scanning
-  findWiFi(true);      // start scanning for available WiFi-s
+  initRegularWiFiStartup();
 
   // all GPIOs are allocated at this point
   serialCanRX = !PinManager::isPinAllocated(hardwareRX); // Serial RX pin (GPIO 3 on ESP32 and ESP8266)
@@ -673,6 +724,8 @@ void WLED::initAP(bool resetAP)
 void WLED::initConnection()
 {
   DEBUG_PRINTF_P(PSTR("initConnection() called @ %lus.\n"), millis()/1000);
+  if (handleForceWiFiOffConnection()) return;
+
   #ifdef WLED_ENABLE_WEBSOCKETS
   ws.onEvent(wsEvent);
   #endif
@@ -867,12 +920,13 @@ void WLED::handleConnection()
 
   // ignore connection handling if WiFi is configured and scan still running
   // or within first 2s if WiFi is not configured or AP is always active
-  if ((wifiConfigured && multiWiFi.size() > 1 && WiFi.scanComplete() < 0) || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
+  const bool wifiScanRunning = ::wifiScanRunning(wifiConfigured);
+  if (wifiScanRunning || (now < 2000 && (!wifiConfigured || apBehavior == AP_BEHAVIOR_ALWAYS)))
     return;
 
   if (lastReconnectAttempt == 0 || forceReconnect) {
     DEBUG_PRINTF_P(PSTR("Initial connect or forced reconnect (@ %lus).\n"), nowS);
-    selectedWiFi = findWiFi(); // find strongest WiFi
+    selectedWiFi = findWiFiIfEnabled(); // find strongest WiFi
     initConnection();
     interfacesInited = false;
     forceReconnect = false;
@@ -905,12 +959,12 @@ void WLED::handleConnection()
     if (interfacesInited) {
       if (scanDone && multiWiFi.size() > 1) {
         DEBUG_PRINTLN(F("WiFi scan initiated on disconnect."));
-        findWiFi(true); // reinit scan
+        findWiFiIfEnabled(true); // reinit scan
         scanDone = false;
         return;         // try to connect in next iteration
       }
       DEBUG_PRINTLN(F("Disconnected!"));
-      selectedWiFi = findWiFi();
+      selectedWiFi = findWiFiIfEnabled();
       initConnection();
       interfacesInited = false;
       scanDone = true;
