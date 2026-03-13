@@ -371,11 +371,17 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     memset(dest, 0, destLen);
     size_t pos = 0;
 
+    // Pre-calculate max channels to speed up loop
+    uint8_t maxCh = 0;
+    for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+        if (_channels[ch].active) maxCh = ch + 1;
+    }
+
     // Process each source byte position across all channels
     while (pos + 32 <= destLen) {  // 8 bits * 4 steps = 32 bytes per source byte
         bool hasData = false;
 
-        for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+        for (int ch = 0; ch < maxCh; ch++) {
             if (!_channels[ch].active) continue;
             if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
 
@@ -384,29 +390,30 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
             uint8_t chMask = (1 << ch);
 
             uint8_t* p = dest + pos;
-            for (int bit = 7; bit >= 0; bit--) {
-                uint8_t dataVal = (srcByte >> bit) & 1;
 
-                // Half-word swapped: memory layout [step2, step3, step0, step1]
-                // Step 0 (HIGH) -> p[2]
-                p[2] |= chMask;
-
-                // Step 1 (data) -> p[3]
-                if (dataVal) p[3] |= chMask;
-
-                // Step 2 (data) -> p[0]
-                if (dataVal) p[0] |= chMask;
-
-                // Step 3 (LOW)  -> p[1] (already 0)
-
-                p += 4;
-            }
+            // Half-word swapped: memory layout [step2, step3, step0, step1]
+            // bit 7
+            p[2] |= chMask; if (srcByte & 0x80) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 6
+            p[2] |= chMask; if (srcByte & 0x40) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 5
+            p[2] |= chMask; if (srcByte & 0x20) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 4
+            p[2] |= chMask; if (srcByte & 0x10) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 3
+            p[2] |= chMask; if (srcByte & 0x08) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 2
+            p[2] |= chMask; if (srcByte & 0x04) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 1
+            p[2] |= chMask; if (srcByte & 0x02) { p[3] |= chMask; p[0] |= chMask; } p += 4;
+            // bit 0
+            p[2] |= chMask; if (srcByte & 0x01) { p[3] |= chMask; p[0] |= chMask; } p += 4;
         }
 
         if (!hasData) break;
 
         // Advance all channel positions
-        for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+        for (int ch = 0; ch < maxCh; ch++) {
             if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
                 _channels[ch].srcPos++;
             }

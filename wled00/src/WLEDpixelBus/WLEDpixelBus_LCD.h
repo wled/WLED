@@ -18,7 +18,7 @@ namespace WLEDpixelBus {
 #include "soc/gpio_sig_map.h"
 
 #ifndef WLEDPB_LCD_DMA_BUFFER_SIZE
-#define WLEDPB_LCD_DMA_BUFFER_SIZE 1024 //2048  -> 2048 works well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
+#define WLEDPB_LCD_DMA_BUFFER_SIZE 2048 //2048  -> 2048 works well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
 #endif
 
 #ifndef WLEDPB_LCD_CADENCE_STEPS
@@ -36,7 +36,7 @@ static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE <= 4092, "DMA buffer too large");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE % 4 == 0, "DMA buffer must be multiple of 4");
 static_assert(WLEDPB_LCD_CADENCE_STEPS == 3 || WLEDPB_LCD_CADENCE_STEPS == 4, "Cadence must be 3 or 4");
 
-#define WLEDPB_LCD_MAX_CHANNELS 8
+#define WLEDPB_LCD_MAX_CHANNELS 16
 
 class LcdBusContext {
 public:
@@ -98,8 +98,8 @@ private:
     };
     ChannelData _channels[WLEDPB_LCD_MAX_CHANNELS];
     uint8_t _channelCount;
-    uint8_t _channelMask;
-    uint8_t _stagedMask;
+    uint16_t _channelMask;
+    uint16_t _stagedMask;
     size_t _maxDataLen;
 
     static LcdBusContext* _instance;

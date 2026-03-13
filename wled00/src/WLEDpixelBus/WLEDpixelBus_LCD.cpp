@@ -172,7 +172,7 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
     LCD_CAM.lcd_user.lcd_always_out_en = 1;
     LCD_CAM.lcd_user.lcd_8bits_order = 0;
     LCD_CAM.lcd_user.lcd_bit_order = 0;
-    LCD_CAM.lcd_user.lcd_2byte_en = use16Bit ?  1 : 0;
+    LCD_CAM.lcd_user.lcd_2byte_en = 1; // Always use 16-bit output for 16 channels
     LCD_CAM.lcd_user.lcd_dummy = 1;
     LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0;
     LCD_CAM.lcd_user.lcd_cmd = 0;
@@ -266,7 +266,7 @@ int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus) {
     gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
     gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);
 
-    LCD_LOG("Channel %d: pin=%d, mask=0x%02X", idx, pin, _channelMask);
+    LCD_LOG("Channel %d: pin=%d, mask=0x%04X", idx, pin, _channelMask);
     return idx;
 }
 
@@ -299,50 +299,62 @@ void LcdBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 
 void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     // 4-step cadence encoding for parallel output without byte swapping
-    // Each source bit becomes 4 DMA bytes (one bit per channel in each byte)
+    // Each source bit becomes 4 DMA words (one bit per channel in each 16-bit word)
     // Desired output: [HIGH][data][data][LOW] for each bit
     // Buffer is always filled completely (zeros = LOW = reset signal)
 
     memset(dest, 0, destLen);
     size_t pos = 0;
 
+    // Pre-calculate max channels to speed up loop
+    uint8_t maxCh = 0;
+    for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
+        if (_channels[ch].active) maxCh = ch + 1;
+    }
+
     // Process each source byte position across all channels
-    while (pos + 32 <= destLen) {  // 8 bits * 4 steps = 32 bytes per source byte
+    while (pos + 64 <= destLen) {  // 8 bits * 4 steps * 2 bytes = 64 bytes per source byte
         bool hasData = false;
 
-        for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
+        for (int ch = 0; ch < maxCh; ch++) {
             if (!_channels[ch].active) continue;
             if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
 
             hasData = true;
             uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
-            uint8_t chMask = (1 << ch);
+            uint16_t chMask = (1 << ch);
 
-            uint8_t* p = dest + pos;
-            for (int bit = 7; bit >= 0; bit--) {
-                uint8_t dataVal = (srcByte >> bit) & 1;
+            uint16_t* p = (uint16_t*)(dest + pos);
 
-                // Step 0 (HIGH)
-                p[0] |= chMask;
-                // Step 1 (data)
-                if (dataVal) p[1] |= chMask;
-                // Step 2 (data)
-                if (dataVal) p[2] |= chMask;
-                // Step 3 (LOW) - already 0
-                p += 4;
-            }
+            // Unrolled loop for 8 bits
+            // bit 7
+            p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 6
+            p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 5
+            p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 4
+            p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 3
+            p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 2
+            p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 1
+            p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+            // bit 0
+            p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4;
         }
 
         if (!hasData) break;
 
         // Advance all channel positions
-        for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
+        for (int ch = 0; ch < maxCh; ch++) {
             if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
                 _channels[ch].srcPos++;
             }
         }
 
-        pos += 32;
+        pos += 64;
     }
     // Rest of buffer remains zero (reset signal) from memset
 }
@@ -438,7 +450,7 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
 }
 
 void LcdBusContext::printDebugStats() {
-    LCD_LOG("state=%u, channels=%u, mask=0x%02X", (unsigned)_state, _channelCount, _channelMask);
+    LCD_LOG("state=%u, channels=%u, mask=0x%04X", (unsigned)_state, _channelCount, _channelMask);
 }
 
 // ============================================

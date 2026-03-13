@@ -362,6 +362,7 @@ BusType getRecommendedBusType();
  * Estimate exact memory footprint of a bus.
  * Accounts for encode buffers, driver overhead, and shared DMA contexts.
  */
+ // TODO: check if this is accurate and busmanager does not double-account for things calculated here
 static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t channelCount, size_t dmaBufferSize = DEFAULT_DMA_BUFFER_SIZE) {
     size_t mem = 0;
 
@@ -376,7 +377,7 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
     if (type == BusType::I2S || type == BusType::LCD || type == BusType::Auto) {
         mem += dmaBufferSize * 2;
         // Include minimal descriptor memory estimates (~64 bytes per context)
-        mem += 64; 
+        mem += 64;
     }
 
     return mem;
