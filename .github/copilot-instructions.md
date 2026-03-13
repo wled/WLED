@@ -101,7 +101,7 @@ package.json           # Node.js dependencies and scripts
 - `wled00/wled.h` - Main firmware configuration
 - `platformio.ini` - Hardware build targets and settings
 
-### Development Workflow
+### Development Workflow (applies to agent mode only)
 1. **For web UI changes**:
    - Edit files in `wled00/data/`
    - Run `npm run build` to regenerate headers
@@ -148,10 +148,10 @@ package.json           # Node.js dependencies and scripts
 
 ## Important Notes
 
-- **DO NOT edit `wled00/html_*.h` files** - they are auto-generated
 - **Always commit source files**
+- **Web UI re-built is part of the platformio firmware compilation**
 - **do not commit generated html_*.h files**
-- **Web UI must be built before firmware compilation**
+- **DO NOT edit `wled00/html_*.h` files** - they are auto-generated
 - **Test web interface manually after any web UI changes**
 - When reviewing a PR, the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
 - **Use VS Code with PlatformIO extension for best development experience**
