@@ -4,6 +4,11 @@
 
 namespace WLEDpixelBus {
 
+// Note on timings regarding I2S/LCD/SPI buses (4 step cadence):
+// the drivers will always use a 1/4 - 3/4 duty cycle for '0' and '1' bits (e.g. 250ns high + 750ns low for a 1us period)
+// it only derives the total period from the given timings for RMT (0hi+0lo+1hi+1lo)/2)
+// TODO: a better strategy might be to use 0hi*4 as the period as 0 timing is most critical
+
 /**
  * LED timing parameters in nanoseconds
  */
@@ -17,18 +22,18 @@ struct LedTiming {
     constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
         : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}
 
-    // Calculate bit period in ns
-    constexpr uint32_t bitPeriod() const { 
-        return (t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2; 
-    }
+  // Calculate bit period in ns  TODO: drop 3 step cadence support?
+  constexpr uint32_t bitPeriod(uint8_t cadenceSteps = 0) const {
+    return (cadenceSteps == 4) ? (t0h_ns * cadenceSteps) : ((t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2);
+  }
 };
 
 // Predefined timing constants
 namespace Timing {
     // ---- Standard 1-wire LEDs (800KHz family) ----
-    constexpr LedTiming WS2812  {300, 900, 800, 450, 100};   // WS2812B
-    constexpr LedTiming WS2811  {300, 950, 900, 350, 300};   // WS2811 (12V)
-    constexpr LedTiming WS2813  {400, 850, 800, 450, 300};   // WS2813 (backup data)
+    constexpr LedTiming WS2812  {300, 900, 700, 500, 100};   // WS2812B
+    constexpr LedTiming WS2811  {300, 900, 700, 500, 300};   // WS2811 (12V)
+    constexpr LedTiming WS2813  {300, 850, 700, 350, 300};   // WS2813 (backup data)
     constexpr LedTiming WS2815  {400, 850, 800, 450, 300};   // WS2815 (12V, 255mA)
     constexpr LedTiming WS2805  {300, 790, 790, 300, 300};   // WS2805 RGBCW (5ch)
     constexpr LedTiming SK6812  {300, 900, 800, 450, 200};    // SK6812 / SK6812 RGBW
@@ -73,7 +78,7 @@ namespace Timing {
  * @return Clock divider value
  */
 inline uint32_t calcClockDiv(const LedTiming& timing, uint8_t cadenceSteps, uint32_t baseClockMHz) {
-    uint32_t bitPeriodNs = timing.bitPeriod();
+    uint32_t bitPeriodNs = timing.bitPeriod(cadenceSteps);
     uint32_t stepPeriodNs = bitPeriodNs / cadenceSteps;
     uint32_t div = (baseClockMHz * stepPeriodNs) / 1000;
     return (div < 2) ? 2 : (div > 255) ? 255 : div;
@@ -86,7 +91,7 @@ inline uint32_t calcClockDiv(const LedTiming& timing, uint8_t cadenceSteps, uint
  * @return Number of zero-bytes needed for reset period
  */
 inline uint32_t calcResetBytes(const LedTiming& timing, uint8_t cadenceSteps) {
-    uint32_t bitPeriodNs = timing.bitPeriod();
+    uint32_t bitPeriodNs = timing.bitPeriod(cadenceSteps);
     uint32_t clockPeriodNs = bitPeriodNs / cadenceSteps;
     uint32_t bytesPerUs = (clockPeriodNs > 0) ? (1000 / clockPeriodNs) : 1;
     return timing.reset_us * bytesPerUs;
