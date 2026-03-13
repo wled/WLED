@@ -38,7 +38,12 @@ public:
     void setColorOrder(ColorOrder order);
 
     // Reset the auto-allocation counter (call before re-creating buses)
-    static void resetAutoChannel() { s_nextAutoChannel = 0; }
+    static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
+    static void resetAutoChannel() {
+        s_allocatedCount = 0;
+        s_currentChannelIndex = 0;
+        s_usedBlocks = 0;
+    }
 
 private:
     int8_t _pin;
@@ -57,7 +62,10 @@ private:
     uint8_t* _encodeBuffer;
     size_t _encodeBufferSize;
 
-    static uint8_t s_nextAutoChannel;  // auto-allocation counter
+    static uint8_t s_expectedChannels;
+    static uint8_t s_allocatedCount;
+    static uint8_t s_currentChannelIndex;
+    static uint8_t s_usedBlocks;
     static uint8_t s_activeChannelMask; // bitmask of initialized channels
 
     void updateRmtTiming();

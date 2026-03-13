@@ -15,7 +15,10 @@ static DRAM_ATTR struct {
 } s_rmtCtx;
 
 // Static auto-channel counter for RmtBus
-uint8_t RmtBus::s_nextAutoChannel = 0;
+uint8_t RmtBus::s_expectedChannels = 1;
+uint8_t RmtBus::s_allocatedCount = 0;
+uint8_t RmtBus::s_currentChannelIndex = 0;
+uint8_t RmtBus::s_usedBlocks = 0;
 uint8_t RmtBus::s_activeChannelMask = 0;
 
 RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t channel)
@@ -75,35 +78,71 @@ void RmtBus::updateRmtTiming() {
 bool RmtBus::begin() {
     if (_initialized) return true;
 
-    // Auto-select channel if needed
+    uint8_t blocksToUse = 1;
+    uint8_t maxTxChannels = getRmtMaxChannels();
+
+    // Auto-channel select with optimized memory block allocation (assumes no RMT RX usage)
+    // note on channel allocation: channels are assigned such as to maximize the number of memory blocks
+    // available to the channel to minimize the number of interrupts needed for buffer re-fills (less context switching overhead)
+    // C3 and S3 have less channels than blocks, so the last channel can always use additional blocks
+    // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
+    // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 blocks, and CH3 with 5 blocks
     if (_channel < 0) {
-        // Use static counter for auto-allocation (fallback if caller didn't specify)
-        if (s_nextAutoChannel >= getRmtMaxChannels()) {
+        if (s_allocatedCount >= s_expectedChannels || s_allocatedCount >= maxTxChannels) {
             return false;
         }
-        _channel = s_nextAutoChannel++;
+
+        uint8_t totalBlocks;
+#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S3)
+        totalBlocks = 8; // ESP32 and S3 have 8 blocks of RMT memory
+#elif defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3) // note: C6 RMT hardware is the same as C3
+        totalBlocks = 4; // other supported ESP32 variants have 4 blocks
+#else
+        totalBlocks = 4; // default to 4 if unknown, should be safe
+#endif
+
+
+
+        int left_channels = s_expectedChannels - s_allocatedCount - 1;
+
+        if (left_channels == 0) {
+            _channel = s_currentChannelIndex;
+            blocksToUse = totalBlocks - s_usedBlocks;
+        } else {
+            int k = totalBlocks / s_expectedChannels;
+            int max_k_for_index = maxTxChannels - s_currentChannelIndex - left_channels;
+            if (k > max_k_for_index) k = max_k_for_index;
+            if (k < 1) k = 1;
+
+            _channel = s_currentChannelIndex;
+            blocksToUse = k;
+        }
+
+        s_currentChannelIndex += blocksToUse;
+        s_usedBlocks += blocksToUse;
+        s_allocatedCount++;
     }
 
-    if (_channel >= (int8_t)getRmtMaxChannels()) {
-        Serial.printf("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, getRmtMaxChannels());
+    if (_channel >= (int8_t)maxTxChannels) {
+        Serial.printf("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, maxTxChannels);
         return false;
     }
     _rmtChannel = (rmt_channel_t)_channel;
 
+    Serial.printf("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n", _channel, blocksToUse, s_allocatedCount, maxTxChannels);
+
     updateRmtTiming();
 
     rmt_config_t config = {};
-    
+
     config.rmt_mode = RMT_MODE_TX;
     config.channel = _rmtChannel;
     config.gpio_num = (gpio_num_t)_pin;
-    config.mem_block_num = 1;
+    config.mem_block_num = blocksToUse;
     config.clk_div = 2;  // 40MHz
 
     config.tx_config.loop_en = false;
     config.tx_config.carrier_en = false;
-    //config.tx_config.carrier_freq_hz = 38000;
-    //config.tx_config.carrier_duty_percent = 33;
     config.tx_config.idle_output_en = true;
     config.tx_config.idle_level = _inverted ? RMT_IDLE_LEVEL_HIGH : RMT_IDLE_LEVEL_LOW;
 
@@ -132,6 +171,19 @@ bool RmtBus::begin() {
     if (err != ESP_OK) {
         return false;
     }
+
+    // Register hack for memory blocks normally assigned to RX
+#if defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+    #if defined(WLEDPB_ESP32S3)
+    for (int i = 4; i < 8; i++) {
+        rmt_set_memory_owner((rmt_channel_t)i, RMT_MEM_OWNER_TX);
+    }
+    #elif defined(WLEDPB_ESP32C3)
+    for (int i = 2; i < 4; i++) {
+        rmt_set_memory_owner((rmt_channel_t)i, RMT_MEM_OWNER_TX);
+    }
+    #endif
+#endif
 
     err = rmt_translator_init(_rmtChannel, translateCB);
     if (err != ESP_OK) {

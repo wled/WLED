@@ -176,7 +176,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     // Clear timing register
     _i2sDev->timing.val = 0;
 
-    // Calculate clock divider for 4-step cadence (matching NeoPixelBus)
+    // Calculate clock divider for 4-step cadence
     // bck_div_num must be >= 2 on ESP32 hardware (NeoPixelBus uses 4)
     // step_time = clkm_div * bck_div / base_clock_MHz * 1000 ns
     // clkm_div = step_time_ns * base_clock_MHz / (bck_div * 1000)

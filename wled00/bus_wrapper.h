@@ -2,7 +2,6 @@
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
-//#define NPB_CONF_4STEP_CADENCE
 #include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_SPI.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
@@ -220,11 +219,12 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
-    int8_t rmtCh = -1;
+    int8_t rmtCh = -1; // -1 means auto select by RMT driver
     #ifndef ESP8266
     if (btype == WLEDpixelBus::BusType::RMT) {
       if (_rmtChannel < WLED_MAX_RMT_CHANNELS) {
-        rmtCh = _rmtChannel++;
+        //rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
+        _rmtChannel++; // increment channel count for tracking, but use auto-channel  to optimize memory block allocation
       } else {
         return nullptr;
       }

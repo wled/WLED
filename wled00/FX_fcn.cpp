@@ -11,6 +11,9 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
+#if defined(ARDUINO_ARCH_ESP32)
+#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
+#endif
 
 /*
   Custom per-LED mapping has moved!
@@ -1161,18 +1164,33 @@ void WS2812FX::finalizeInit() {
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
   unsigned digitalCount = 0;
+  unsigned rmtBusCount = 0;
   #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   // validate the bus config: count I2S buses and check if they meet requirements
   unsigned i2sBusCount = 0;
+  #endif
 
   for (const auto &bus : busConfigs) {
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
       digitalCount++;
+      #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       if (bus.driverType == 1)
         i2sBusCount++;
+      else
+        rmtBusCount++;
+      #else
+      rmtBusCount++;
+      #endif
     }
   }
+
+  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
+  #endif
+
+  #if defined(ARDUINO_ARCH_ESP32)
+  WLEDpixelBus::RmtBus::resetAutoChannel();
+  WLEDpixelBus::RmtBus::setExpectedChannels((uint8_t)rmtBusCount);
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
