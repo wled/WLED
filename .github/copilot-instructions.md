@@ -153,7 +153,8 @@ package.json           # Node.js dependencies and scripts
 - **do not commit generated html_*.h files**
 - **DO NOT edit `wled00/html_*.h` files** - they are auto-generated. If needed, modify Web UI files in `wled00/data/`.
 - **Test web interface manually after any web UI changes**
-- When reviewing a PR, the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
+- When reviewing a PR: the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
+- If updating Web UI files in `wled00/data/`, make use of common functions availeable in `wled00/data/common.js` where possible.
 - **Use VS Code with PlatformIO extension for best development experience**
 - **Hardware builds require appropriate ESP32/ESP8266 development board**
 
