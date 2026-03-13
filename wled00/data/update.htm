@@ -26,10 +26,13 @@
 					document.querySelector('.release-name').textContent = data.release;
 					// assemble update URL and update release badge
 					if (data.repo && data.repo !== "unknown") {
-						document.querySelector('.release-repo').href = "https://github.com/" + data.repo + "/releases/latest";
-						document.querySelector('.release-badge').src = "https://img.shields.io/github/release/" + data.repo + ".svg?style=flat-square";
+						const repoUrl = "https://github.com/" + data.repo + "/releases/latest";
+						const badgeUrl = "https://img.shields.io/github/release/" + data.repo + ".svg?style=flat-square";
+						document.querySelector('.release-repo').href = repoUrl;
+						document.querySelector('.release-badge').src = badgeUrl;
+						toggle('release-download'); // only show release download item after receiving a valid data.repo
 					} else {
-						gId('release-download').classList.add("hide");
+						gId('Norelease-download').classList.add("hide"); // repo invalid -> hide everything
 					}
 					// TODO - can this be done at build time?
 					if (data.arch == "esp8266") {
@@ -73,10 +76,11 @@
 		<p>
 		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
-		<span id="release-download">
-		Download the latest binary: <a class="release-repo" href="https://github.com/wled-dev/WLED/releases" target="_blank" rel="noopener noreferrer"
+		<span id="Norelease-download">Latest binary: Checking...<br></span>
+		<span id="release-download" class="hide">
+		Download the latest binary: <a class="release-repo" href="https://github.com/wled_bad/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
-		<img class="release-badge" src="https://img.shields.io/github/release/wled-dev/WLED.svg?style=flat-square" alt="checking ..."></a><br>
+		<img class="release-badge" alt="badge"></a><br> <!-- start with an empty placeholder, src will be filled after fetching /json/info -->
 		</span>
 		</p>
 		<input type="hidden" name="skipValidation" value="" id="sV">
