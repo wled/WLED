@@ -5,6 +5,10 @@
 //#define NPB_CONF_4STEP_CADENCE
 #include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_SPI.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_I2S.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_LCD.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_ParallelSpi.h"
 
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
