@@ -151,27 +151,72 @@ class PhilipsHueV2Usermod : public Usermod {
      * Self-contained so the usermod works even when WLED_DISABLE_HUESYNC is set.
      */
     static void xyToRGB(float x, float y, byte* rgb) {
+      //coordinates to rgb (https://www.developers.meethue.com/documentation/color-conversions-rgb-xy)
       float z = 1.0f - x - y;
-      float Y = 1.0f;
-      float X = (Y / y) * x;
-      float Z = (Y / y) * z;
+      float X = (1.0f / y) * x;
+      float Z = (1.0f / y) * z;
+      float r = (int)255 * (X * 1.656492f - 0.354851f - Z * 0.255038f);
+      float g = (int)255 * (-X * 0.707196f + 1.655397f + Z * 0.036152f);
+      float b = (int)255 * (X * 0.051713f - 0.121364f + Z * 1.011530f);
+      if (r > b && r > g && r > 1.0f)
+      {
+        // red is too big
+        g = g / r;
+        b = b / r;
+        r = 1.0f;
+      }
+      else if (g > b && g > r && g > 1.0f)
+      {
+        // green is too big
+        r = r / g;
+        b = b / g;
+        g = 1.0f;
+      }
+      else if (b > r && b > g && b > 1.0f)
+      {
+        // blue is too big
+        r = r / b;
+        g = g / b;
+        b = 1.0f;
+      }
+      // Apply gamma correction
+      r = r <= 0.0031308f ? 12.92f * r : (1.0f + 0.055f) * powf(r, (1.0f / 2.4f)) - 0.055f;
+      g = g <= 0.0031308f ? 12.92f * g : (1.0f + 0.055f) * powf(g, (1.0f / 2.4f)) - 0.055f;
+      b = b <= 0.0031308f ? 12.92f * b : (1.0f + 0.055f) * powf(b, (1.0f / 2.4f)) - 0.055f;
 
-      float r = X * 1.656492f - Y * 0.354851f - Z * 0.255038f;
-      float g = -X * 0.707196f + Y * 1.655397f + Z * 0.036152f;
-      float b = X * 0.051713f - Y * 0.121364f + Z * 1.011530f;
-
-      // clamp and scale
-      if (r > b && r > g && r > 1.0f) { g /= r; b /= r; r = 1.0f; }
-      else if (g > b && g > r && g > 1.0f) { r /= g; b /= g; g = 1.0f; }
-      else if (b > r && b > g && b > 1.0f) { r /= b; g /= b; b = 1.0f; }
-
-      r = (r < 0.0f) ? 0.0f : r;
-      g = (g < 0.0f) ? 0.0f : g;
-      b = (b < 0.0f) ? 0.0f : b;
-
-      rgb[0] = (byte)(r * 255.0f);
-      rgb[1] = (byte)(g * 255.0f);
-      rgb[2] = (byte)(b * 255.0f);
+      if (r > b && r > g)
+      {
+        // red is biggest
+        if (r > 1.0f)
+        {
+          g = g / r;
+          b = b / r;
+          r = 1.0f;
+        }
+      }
+      else if (g > b && g > r)
+      {
+        // green is biggest
+        if (g > 1.0f)
+        {
+          r = r / g;
+          b = b / g;
+          g = 1.0f;
+        }
+      }
+      else if (b > r && b > g)
+      {
+        // blue is biggest
+        if (b > 1.0f)
+        {
+          r = r / b;
+          g = g / b;
+          b = 1.0f;
+        }
+      }
+      rgb[0] = byte(255.0f * r);
+      rgb[1] = byte(255.0f * g);
+      rgb[2] = byte(255.0f * b);
     }
 
     /*
