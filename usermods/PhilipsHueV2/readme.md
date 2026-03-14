@@ -28,6 +28,20 @@ WLED in real time.
   available.
 - **Automatic backoff** — on connection failure the poll/reconnect interval is
   progressively extended to avoid flooding the network.
+- **Effect mapping** — Hue V2 light effects are mapped to the closest WLED
+  equivalent. Enable with the *Apply Effect* setting (on by default).
+
+  | Hue Effect | WLED Effect | Notes |
+  |------------|-------------|-------|
+  | `no_effect` | Solid | Static colour from xy/ct |
+  | `candle` | Candle Multi | Flickering candle (uses "Color 1" palette) |
+  | `fire` | Fire 2012 | Fire simulation (uses "Color 1" palette) |
+  | `sparkle` | Sparkle | Random sparkles (uses "Color 1" palette) |
+  | `prism` | Rainbow Cycle | Rotating rainbow (uses its own colours) |
+  | `opal` | Breath | Slow pulsing (uses "Color 1" palette) |
+  | `glisten` | Twinklefox | Twinkling glisten (uses "Color 1" palette) |
+  | `sunrise` | Sunrise | Sunrise simulation (uses its own colours) |
+  | *(unknown)* | Solid | Fallback for unrecognised effects |
 
 ## Build
 
@@ -121,6 +135,7 @@ to force plain HTTP (requires the bridge to be accessible on port 8088).
 | applyOnOff | Sync on/off state from Hue to WLED | true |
 | applyBri | Sync brightness from Hue to WLED | true |
 | applyColor | Sync colour (xy and colour temperature) from Hue to WLED | true |
+| applyEffect | Sync Hue effects to closest WLED equivalent | true |
 | attemptAuth | Trigger authentication (press link button first) | false |
 | fetchLights | Fetch light list from bridge for dropdown selection | false |
 | sseEnabled | Use SSE for real-time events instead of polling | true |

@@ -57,6 +57,7 @@ class PhilipsHueV2Usermod : public Usermod {
     bool applyOnOff = true;
     bool applyBri = true;
     bool applyColor = true;
+    bool applyEffect = true;
     bool attemptAuth = false;
     bool fetchLights = false;
 
@@ -66,6 +67,10 @@ class PhilipsHueV2Usermod : public Usermod {
     float lastX = 0.0f;
     float lastY = 0.0f;
     uint16_t lastCt = 0;
+    uint8_t lastEffect = 0;         // last applied WLED FX mode
+    bool pendingEffectChange = false; // effect change deferred until outside service()
+    uint8_t pendingEffect = 0;
+    uint8_t pendingPalette = 0;     // palette to apply with pendingEffect
     String statusStr = "Idle";
     uint8_t failCount = 0;          // consecutive connection failures for backoff
     bool mdnsDiscovered = false;    // true if bridgeIp was auto-filled via mDNS
@@ -217,6 +222,33 @@ class PhilipsHueV2Usermod : public Usermod {
       rgb[0] = byte(255.0f * r);
       rgb[1] = byte(255.0f * g);
       rgb[2] = byte(255.0f * b);
+    }
+
+    /*
+     * Map a Hue V2 effect name to the closest WLED FX mode.
+     * Hue effects: no_effect, candle, fire, prism, sparkle, opal, glisten, sunrise
+     * Returns FX_MODE_SOLID (0) for no_effect or unrecognised effects.
+     */
+    /*
+     * Map a Hue V2 effect name to the closest WLED FX mode and palette.
+     * Hue effects: no_effect, candle, fire, prism, sparkle, opal, glisten, sunrise
+     * Returns FX_MODE_STATIC (0) for no_effect or unrecognised effects.
+     * Sets outPalette to the recommended palette (0 = default, 2 = "Color 1" for fire).
+     */
+    uint8_t hueEffectToFxMode(const char* effect, uint8_t& outPalette) {
+      outPalette = 0;  // default palette
+      if (!effect || strcmp(effect, "no_effect") == 0) return FX_MODE_STATIC;
+      // Use CANDLE_MULTI instead of CANDLE — candle(false) has a WLED bug where
+      // it dereferences unallocated data on first call after mode change.
+      if (strcmp(effect, "candle")  == 0)  { outPalette = 2; return FX_MODE_CANDLE_MULTI; } // palette 2 = "Color 1"
+      if (strcmp(effect, "fire")    == 0)  { outPalette = 2; return FX_MODE_FIRE_2012; }   // palette 2 = "Color 1"
+      if (strcmp(effect, "sparkle") == 0)  { outPalette = 2; return FX_MODE_SPARKLE; }     // palette 2 = "Color 1"
+      if (strcmp(effect, "prism")   == 0)  return FX_MODE_RAINBOW_CYCLE;                   // rainbow — uses its own colours
+      if (strcmp(effect, "opal")    == 0)  { outPalette = 2; return FX_MODE_BREATH; }      // palette 2 = "Color 1"
+      if (strcmp(effect, "glisten") == 0)  { outPalette = 2; return FX_MODE_TWINKLEFOX; }  // palette 2 = "Color 1"
+      if (strcmp(effect, "sunrise") == 0)  return FX_MODE_SUNRISE;                         // sunrise — uses its own colours
+      DEBUG_PRINTF("[%s] Unknown Hue effect: %s\n", _name, effect);
+      return FX_MODE_STATIC;
     }
 
     /*
@@ -597,6 +629,26 @@ class PhilipsHueV2Usermod : public Usermod {
         }
       }
 
+      // apply effect
+      if (applyEffect) {
+        const char* effectName = light["effects"]["status"];
+        if (!effectName) effectName = light["effects_v2"]["status"]["effect"];
+        if (effectName) {
+          uint8_t fxPalette = 0;
+          uint8_t fxMode = hueEffectToFxMode(effectName, fxPalette);
+          if (fxMode != lastEffect) {
+            DEBUG_PRINTF("[%s] Effect changed: \"%s\" -> FX mode %d, palette %d\n", _name, effectName, fxMode, fxPalette);
+            // defer the actual setMode() call to loop() — calling it here crashes
+            // because applyLightState() can be invoked from inside WS2812FX::service()
+            pendingEffect = fxMode;
+            pendingPalette = fxPalette;
+            pendingEffectChange = true;
+            lastEffect = fxMode;
+            changed = true;
+          }
+        }
+      }
+
       if (changed) {
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
       }
@@ -737,6 +789,7 @@ class PhilipsHueV2Usermod : public Usermod {
       filter[0]["data"][0]["color"]["xy"] = true;
       filter[0]["data"][0]["color_temperature"]["mirek"] = true;
       filter[0]["data"][0]["color_temperature"]["mirek_valid"] = true;
+      filter[0]["data"][0]["effects"]["status"] = true;
 
       DynamicJsonDocument doc(2048);
       DeserializationError err = deserializeJson(doc, data, DeserializationOption::Filter(filter));
@@ -881,6 +934,7 @@ class PhilipsHueV2Usermod : public Usermod {
       filter["data"][0]["color"]["xy"] = true;
       filter["data"][0]["color_temperature"]["mirek"] = true;
       filter["data"][0]["color_temperature"]["mirek_valid"] = true;
+      filter["data"][0]["effects"]["status"] = true;
 
       DynamicJsonDocument doc(1024);
       DeserializationError err = deserializeJson(doc, response, DeserializationOption::Filter(filter));
@@ -970,6 +1024,26 @@ class PhilipsHueV2Usermod : public Usermod {
         }
       }
 
+      // --- Apply pending effect change (deferred from applyLightState to avoid
+      //     calling setMode() from inside WS2812FX::service()) ---
+      if (pendingEffectChange && !strip.isUpdating()) {
+        pendingEffectChange = false;
+        // Set effect the same way the WLED web UI does: update the effectCurrent
+        // global and let colorUpdated() -> applyValuesToSelectedSegs() handle
+        // the actual seg.setMode() call.  Calling seg.setMode() directly
+        // races with service()'s resetIfRequired() and leaves data==nullptr,
+        // which crashes effects like candle() that dereference it immediately.
+        effectCurrent = pendingEffect;
+        effectPalette = pendingPalette;  // e.g. palette 2 for fire to use Hue color
+        // load speed/intensity defaults for this effect
+        int sx = extractModeDefaults(pendingEffect, "sx");
+        int ix = extractModeDefaults(pendingEffect, "ix");
+        effectSpeed     = (sx >= 0) ? sx : DEFAULT_SPEED;
+        effectIntensity = (ix >= 0) ? ix : DEFAULT_INTENSITY;
+        colorUpdated(CALL_MODE_DIRECT_CHANGE);
+        DEBUG_PRINTF("[%s] Applied deferred effect FX mode %d, palette %d\n", _name, pendingEffect, pendingPalette);
+      }
+
       // --- Timed actions: auth, fetch lights, or polling fallback ---
       unsigned long now = millis();
       if (now - lastPoll < pollInterval) return;
@@ -1030,6 +1104,7 @@ class PhilipsHueV2Usermod : public Usermod {
       top[F("applyOnOff")] = applyOnOff;
       top[F("applyBri")] = applyBri;
       top[F("applyColor")] = applyColor;
+      top[F("applyEffect")] = applyEffect;
       top[F("attemptAuth")] = attemptAuth;
       top[F("fetchLights")] = fetchLights;
       top[F("sseEnabled")] = sseEnabled;
@@ -1044,6 +1119,7 @@ class PhilipsHueV2Usermod : public Usermod {
       configComplete &= getJsonValue(top[F("applyOnOff")], applyOnOff, true);
       configComplete &= getJsonValue(top[F("applyBri")], applyBri, true);
       configComplete &= getJsonValue(top[F("applyColor")], applyColor, true);
+      configComplete &= getJsonValue(top[F("applyEffect")], applyEffect, true);
       configComplete &= getJsonValue(top[F("attemptAuth")], attemptAuth, false);
       configComplete &= getJsonValue(top[F("fetchLights")], fetchLights, false);
       configComplete &= getJsonValue(top[F("sseEnabled")], sseEnabled, true);
