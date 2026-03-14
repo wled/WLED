@@ -6377,30 +6377,11 @@ static const char _data_FX_MODE_2DBLOBS[] PROGMEM = "Blobs@!,# blobs,Blur,Trail;
 ////////////////////////////
 void mode_2Dscrollingtext(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
-
+  FontManager fontManager(&SEGMENT);
   const int cols = SEG_W;
   const int rows = SEG_H;
 
-  unsigned letterWidth, rotLW;
-  unsigned letterHeight, rotLH;
-  switch (map(SEGMENT.custom2, 0, 255, 1, 5)) {
-    default:
-    case 1: letterWidth = 4; letterHeight =  6; break;
-    case 2: letterWidth = 5; letterHeight =  8; break;
-    case 3: letterWidth = 6; letterHeight =  8; break;
-    case 4: letterWidth = 7; letterHeight =  9; break;
-    case 5: letterWidth = 5; letterHeight = 12; break;
-  }
-  // letters are rotated
-  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
-  if (rotate == 1 || rotate == -1) {
-    rotLH = letterWidth;
-    rotLW = letterHeight;
-  } else {
-    rotLW = letterWidth;
-    rotLH = letterHeight;
-  }
-
+  // generate time/date if there are any # tokens or no segment name set
   char text[WLED_MAX_SEGNAME_LEN+1] = {'\0'};
   size_t result_pos = 0;
   char sec[5];
@@ -6414,10 +6395,13 @@ void mode_2Dscrollingtext(void) {
     sprintf_P(sec, PSTR(":%02d"), second(localTime));
   }
 
+  // prepare text string from segment name
   size_t len = 0;
   if (SEGMENT.name) len = strlen(SEGMENT.name); // note: SEGMENT.name is limited to WLED_MAX_SEGNAME_LEN
-  if (len == 0) { // fallback if empty segment name: display date and time
+  if (len == 0) {
+    // fallback if empty segment name: display date and time "#MON #DD #YYYY #TIME"
     sprintf_P(text, PSTR("%s %d, %d %d:%02d%s"), monthShortStr(month(localTime)), day(localTime), year(localTime), AmPmHour, minute(localTime), sec);
+    fontManager.cacheNumbers(true); // cache all numbers when using clock to avoid frequent re-caching
   } else {
     size_t i = 0;
     while (i < len) {
@@ -6460,7 +6444,7 @@ void mode_2Dscrollingtext(void) {
           strcpy(text + result_pos, temp);
           result_pos += temp_len;
         }
-
+        fontManager.cacheNumbers(true); // cache all numbers when using clocks to avoid frequent re-caching
         i += advance;
       }
       else {
@@ -6472,11 +6456,45 @@ void mode_2Dscrollingtext(void) {
     }
   }
 
-  const int  numberOfLetters = strlen(text);
-  int width = (numberOfLetters * rotLW);
-  int yoffset = map(SEGMENT.intensity, 0, 255, -rows/2, rows/2) + (rows-rotLH)/2;
-  if (width <= cols) {
-    // scroll vertically (e.g. ^^ Way out ^^) if it fits
+  // Font selection
+  bool useCustomFont = SEGMENT.check2;
+  uint8_t fontNum = map(SEGMENT.custom2, 0, 255, 0, 4);
+
+  // letters orientation: -2/+2 = upside down, -1 = 90° clockwise, 0 = normal, 1 = 90° counterclockwise
+  const int8_t rotate = map(SEGMENT.custom3, 0, 31, -2, 2);
+  const bool isRotated = (rotate == 1 || rotate == -1); // +/- 90° rotated, swap width and height for calculations
+
+  // Load the font
+  if (!fontManager.loadFont(fontNum, text, useCustomFont)) return; // note: FontManageraccess can lead to crashes if font loading fails due to low heap
+
+  // Get font dimensions
+  uint8_t fontHeight = fontManager.getFontHeight();
+  uint8_t fontWidth = fontManager.getFontWidth(); // for fonts with variable width, this is the max letter width
+  uint8_t letterSpacing = isRotated ? 1 : fontManager.getFontSpacing(); // when rotated use spacing of 1, otherwise use font defined spacing
+
+  // Calculate total text width
+  int totalTextWidth = 0;
+  int idx = 0;
+  const int numberOfChars = utf8_strlen(text);
+
+  for (int c = 0; c < numberOfChars; c++) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+
+    if (isRotated) {
+      totalTextWidth += fontHeight + letterSpacing; // use height when rotated, spacing of 1
+    } else {
+      totalTextWidth += fontManager.getGlyphWidth(unicode) + letterSpacing;
+    }
+  }
+  totalTextWidth -= letterSpacing; // remove spacing after last character
+
+  // y-offset calculation
+  int yoffset = map(SEGMENT.intensity, 0, 255, -rows / 2, rows / 2);
+
+  if (totalTextWidth <= cols) {
+    // if text fits matrix width, scroll vertically
     int speed = map(SEGMENT.speed, 0, 255, 5000, 1000);
     int frac = strip.now % speed + 1;
     if (SEGMENT.intensity == 255) {
@@ -6486,21 +6504,26 @@ void mode_2Dscrollingtext(void) {
     }
   }
 
+  // scroll step (AUX0 is current scrolling offset)
   if (SEGENV.step < strip.now) {
-    // calculate start offset
-    if (width > cols) {
-      if (SEGMENT.check3) {
-        if (SEGENV.aux0 == 0) SEGENV.aux0  = width + cols - 1;
-        else                --SEGENV.aux0;
-      } else                ++SEGENV.aux0 %= width + cols;
-    } else                    SEGENV.aux0  = (cols + width)/2;
+    if (totalTextWidth > cols) {
+      if (SEGMENT.check3) { // reverse direction
+        if (SEGENV.aux0 == 0) SEGENV.aux0 = totalTextWidth + cols - 1;
+        else --SEGENV.aux0;
+      } else {
+        ++SEGENV.aux0 %= totalTextWidth + cols;
+      }
+    } else {
+      SEGENV.aux0 = (cols + totalTextWidth) / 2; // text fits, position it at the center
+    }
     ++SEGENV.aux1 &= 0xFF; // color shift
-    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50); // shift letters every ~250ms to ~50ms
+    SEGENV.step = strip.now + map(SEGMENT.speed, 0, 255, 250, 50);
   }
 
   SEGMENT.fade_out(255 - (SEGMENT.custom1>>4));  // trail
   uint32_t col1 = SEGMENT.color_from_palette(SEGENV.aux1, false, PALETTE_SOLID_WRAP, 0);
   uint32_t col2 = BLACK;
+
   // if gradient is selected and palette is default (0) drawCharacter() uses gradient from SEGCOLOR(0) to SEGCOLOR(2)
   // otherwise col2 == BLACK means use currently selected palette for gradient
   // if gradient is not selected set both colors the same
@@ -6511,13 +6534,33 @@ void mode_2Dscrollingtext(void) {
     }
   } else col2 = col1; // force characters to use single color (from palette)
 
-  for (int i = 0; i < numberOfLetters; i++) {
-    int xoffset = int(cols) - int(SEGENV.aux0) + rotLW*i;
-    if (xoffset + rotLW < 0) continue; // don't draw characters off-screen
-    SEGMENT.drawCharacter(text[i], xoffset, yoffset, letterWidth, letterHeight, col1, col2, rotate);
+  // Draw characters
+  idx = 0;
+  int currentXOffset = 0; // offset of current glyph from text start
+
+  for (int c = 0; c < numberOfChars; c++) {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(&text[idx], &charLen);
+    idx += charLen;
+    int unrotatedWidth = fontManager.getGlyphWidth(unicode);
+    int glyphWidth  = isRotated ? fontHeight     : unrotatedWidth;  // use font height for width if 90° rotated
+    int glyphHeight = isRotated ? unrotatedWidth : fontHeight;      // use (variable) glyph-width for height if 90° rotated
+    int drawX = int(cols) - int(SEGENV.aux0) + currentXOffset;      // aux0 is (scrolling) offset, no offset position is right side boarder (cols)
+    if (drawX >= cols) break; // skip if character is off-screen on the right
+    int advance = glyphWidth + letterSpacing;
+
+    if (drawX + advance < 0) {
+      currentXOffset += advance;
+      continue; // Skip if off-screen on the left
+    }
+
+    int16_t drawY = yoffset + (rows - glyphHeight) / 2; // center glyph vertically
+
+    fontManager.drawCharacter(unicode, drawX, drawY, col1, col2, rotate);
+    currentXOffset += advance;
   }
 }
-static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
+static const char _data_FX_MODE_2DSCROLLTEXT[] PROGMEM = "Scrolling Text@!,Y Offset,Trail,Font size,Rotate,Gradient,Custom Font,Reverse;!,!,Gradient;!;2;ix=128,c1=0,rev=0,mi=0,rY=0,mY=0";
 
 
 ////////////////////////////
