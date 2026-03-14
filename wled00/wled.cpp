@@ -865,15 +865,11 @@ void WLED::handleConnection()
   #endif
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
-  // The DNS name of the ESP must be set before the first connection to the DHCP server. Otherwise, the esp default name, such as “esp32s3-267D0C,” will be used. GG
+  // The DNS name of the ESP must be set before the first connection to the DHCP server; otherwise, the default ESP name (such as "esp32s3-267D0C") will be used.
   #ifdef ARDUINO_ARCH_ESP32
-    // Use cmDNS (this is the buffer that holds your name)
-  if (cmDNS && cmDNS[0] != '\0') {
-    WiFi.setHostname(cmDNS);
-  } else {
-    // Fallback to DEVICE_NAME if cmDNS is still empty
-    WiFi.setHostname(WLED_HOST_NAME);
-  }
+    char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
+    getWLEDhostname(hostname, sizeof(hostname), true);   // create DNS name based on mDNS name if set, or fall back to standard WLED server name
+    WiFi.setHostname(hostname);
   #endif
   
   // ignore connection handling if WiFi is configured and scan still running
