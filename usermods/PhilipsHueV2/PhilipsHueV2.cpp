@@ -10,6 +10,7 @@
   #if __has_include(<NetworkClientSecure.h>)
     #include <NetworkClientSecure.h>
     #define HUE_TLS_BACKEND_NATIVE
+    #define HUE_NATIVE_IS_NETWORK_CLIENT  // has setBufferSizes, setHandshakeTimeout
   #elif __has_include(<WiFiClientSecure.h>)
     #include <WiFiClientSecure.h>
     #define HUE_TLS_BACKEND_NATIVE
@@ -70,6 +71,20 @@ class PhilipsHueV2Usermod : public Usermod {
 
     // persistent TCP client — reused to avoid socket exhaustion (errno 11)
     WiFiClient tcpClient;
+
+    // --- SSE (Server-Sent Events) stream ---
+    enum SseState : uint8_t { SSE_DISABLED, SSE_DISCONNECTED, SSE_READING_HEADERS, SSE_STREAMING };
+    SseState sseState = SSE_DISCONNECTED;
+    Client* sseClient = nullptr;                          // points into sseTlsOwner or ssePlainClient
+    std::unique_ptr<Client> sseTlsOwner;                  // owns heap-allocated TLS wrapper
+    std::unique_ptr<WiFiClient> sseTransportOwner;        // owns heap WiFiClient for BearSSL
+    WiFiClient ssePlainClient;                            // plain HTTP persistent client
+    String sseLineBuf;                                    // partial line accumulator
+    unsigned long sseLastDataTime = 0;                    // last time data was received
+    unsigned long sseReconnectTime = 0;                   // next reconnect attempt
+    unsigned long sseReconnectInterval = 5000;            // backoff interval (grows on failure)
+    bool sseInitialPollDone = false;                      // true after first full state poll
+    bool sseEnabled = true;                               // config: use SSE instead of polling
 
     // discovered lights for dropdown — persisted to /hue_lights.json, not kept in RAM
     bool lightsDiscovered = false;  // true once a successful fetch has been saved
@@ -198,7 +213,7 @@ class PhilipsHueV2Usermod : public Usermod {
 
 #ifdef HUE_TLS_BACKEND_NATIVE
       if (!usePlainHttp) {
-  #if __has_include(<NetworkClientSecure.h>)
+  #ifdef HUE_NATIVE_IS_NETWORK_CLIENT
         auto *tlsClient = new NetworkClientSecure;
   #else
         auto *tlsClient = new WiFiClientSecure;
@@ -206,7 +221,7 @@ class PhilipsHueV2Usermod : public Usermod {
         if (!tlsClient) { DEBUG_PRINTF("[%s] TLS alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
         tlsClient->setInsecure();
         tlsClient->setTimeout(4);
-  #if __has_include(<NetworkClientSecure.h>)
+  #ifdef HUE_NATIVE_IS_NETWORK_CLIENT
         tlsClient->setHandshakeTimeout(5);
         tlsClient->setBufferSizes(4096, 1024);  // reduce TLS buffer from 32KB to 5KB
   #endif
@@ -425,76 +440,32 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     /*
-     * Poll a specific light from the Hue bridge using the V2 API.
+     * Apply a parsed light JSON object to WLED state.
+     * Used by both pollLight() and SSE event handler.
+     * Returns true if any state changed.
      */
-    void pollLight() {
-      if (strlen(apiKey) == 0) {
-        DEBUG_PRINTF("[%s] Poll skipped: no API key configured\n", _name);
-        statusStr = F("No API key");
-        return;
-      }
-      if (strlen(lightId) == 0) {
-        DEBUG_PRINTF("[%s] Poll skipped: no light ID configured\n", _name);
-        statusStr = F("No light ID");
-        return;
-      }
-
-      String path = "/clip/v2/resource/light/" + String(lightId);
-      String response = httpsRequest("GET", path.c_str());
-
-      if (response.length() == 0) {
-        DEBUG_PRINTF("[%s] Poll: empty response\n", _name);
-        return;
-      }
-
-      DEBUG_PRINTF("[%s] Poll response (%u bytes)\n", _name, response.length());
-
-      // Use a filter to only parse the fields we need — a single light
-      // response can be 1.5 KB+ but we only care about on/off, brightness,
-      // color xy, and color temperature.
-      StaticJsonDocument<256> filter;
-      filter["errors"] = true;
-      filter["data"][0]["on"]["on"] = true;
-      filter["data"][0]["dimming"]["brightness"] = true;
-      filter["data"][0]["color"]["xy"] = true;
-      filter["data"][0]["color_temperature"]["mirek"] = true;
-      filter["data"][0]["color_temperature"]["mirek_valid"] = true;
-
-      // V2 responses can be large; use a dynamic document
-      DynamicJsonDocument doc(1024);
-      DeserializationError err = deserializeJson(doc, response, DeserializationOption::Filter(filter));
-      if (err) {
-        DEBUG_PRINTF("[%s] Poll: JSON parse error: %s\n", _name, err.c_str());
-        statusStr = "Poll JSON err: " + response.substring(0, 64);
-        return;
-      }
-
-      // check for errors array
-      JsonArray errors = doc["errors"];
-      if (errors && errors.size() > 0) {
-        const char* desc = errors[0]["description"];
-        DEBUG_PRINTF("[%s] Poll: API error: %s\n", _name, desc ? desc : "unknown");
-        statusStr = desc ? String(desc) : F("API error");
-        return;
-      }
-
-      JsonArray data = doc["data"];
-      if (!data || data.size() == 0) {
-        DEBUG_PRINTF("[%s] Poll: no 'data' array in response\n", _name);
-        statusStr = F("No data in response");
-        return;
-      }
-
-      JsonObject light = data[0];
+    bool applyLightState(JsonObject light) {
       bool isOn = light["on"]["on"] | false;
-      float brightness = light["dimming"]["brightness"] | 0.0f;
-      DEBUG_PRINTF("[%s] Poll: on=%s brightness=%.1f%%\n", _name, isOn ? "true" : "false", brightness);
+      float brightness = light["dimming"]["brightness"] | -1.0f;
 
-      // apply on/off and brightness
-      byte newBri = 0;
-      if (isOn) {
-        newBri = (byte)((brightness * 255.0f) / 100.0f);
-        if (newBri < 1 && brightness > 0) newBri = 1;
+      // if the event doesn't contain on/dimming, keep current state
+      bool hasOn = !light["on"].isNull();
+      bool hasBri = !light["dimming"].isNull();
+
+      byte newBri = lastBri;
+      if (hasOn || hasBri) {
+        if (hasOn && !isOn) {
+          newBri = 0;
+        } else if (hasBri && brightness >= 0) {
+          newBri = (byte)((brightness * 255.0f) / 100.0f);
+          if (newBri < 1 && brightness > 0) newBri = 1;
+        }
+        if (hasOn && isOn && !hasBri && lastBri == 0) {
+          newBri = briLast > 0 ? briLast : 128;  // turned on but no brightness in event
+        }
+        DEBUG_PRINTF("[%s] State: on=%s brightness=%.1f%% -> bri=%d\n",
+                     _name, hasOn ? (isOn ? "true" : "false") : "n/a",
+                     hasBri ? brightness : -1.0f, newBri);
       }
 
       bool changed = false;
@@ -550,8 +521,298 @@ class PhilipsHueV2Usermod : public Usermod {
       if (changed) {
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
       }
+      return changed;
+    }
 
-      failCount = 0;  // successful poll — clear backoff
+    // ======================= SSE (Server-Sent Events) =======================
+
+    /*
+     * Open a persistent HTTP(S) connection to the Hue SSE endpoint.
+     * The bridge streams light change events in real-time.
+     */
+    void sseConnect() {
+      const char* host = nullptr;
+      bool usePlainHttp = parseBridgeHost(host);
+      uint16_t port = usePlainHttp ? 8088 : 443;
+
+      DEBUG_PRINTF("[%s] SSE: connecting to %s:%u (free heap: %u)\n", _name, host, port, ESP.getFreeHeap());
+
+      // clean up any previous connection
+      sseDisconnect();
+
+      // --- create the appropriate client ---
+      if (usePlainHttp) {
+        ssePlainClient.setTimeout(2);
+        sseClient = &ssePlainClient;
+      }
+#ifdef HUE_TLS_BACKEND_NATIVE
+      else {
+  #ifdef HUE_NATIVE_IS_NETWORK_CLIENT
+        auto *tlsClient = new NetworkClientSecure;
+  #else
+        auto *tlsClient = new WiFiClientSecure;
+  #endif
+        if (!tlsClient) { DEBUG_PRINTF("[%s] SSE: TLS alloc failed\n", _name); statusStr = F("SSE alloc failed"); return; }
+        tlsClient->setInsecure();
+        tlsClient->setTimeout(4);
+  #ifdef HUE_NATIVE_IS_NETWORK_CLIENT
+        tlsClient->setHandshakeTimeout(5);
+        tlsClient->setBufferSizes(4096, 1024);
+  #endif
+        sseTlsOwner.reset(tlsClient);
+        sseClient = tlsClient;
+      }
+#endif
+#ifdef HUE_TLS_BACKEND_BEARSSL
+      if (!usePlainHttp && !sseClient) {
+        auto *transport = new WiFiClient;
+        if (!transport) { DEBUG_PRINTF("[%s] SSE: WiFiClient alloc failed\n", _name); statusStr = F("SSE alloc failed"); return; }
+        auto *bearClient = new BearSSLClient(*transport, nullptr, 0);
+        if (!bearClient) { delete transport; DEBUG_PRINTF("[%s] SSE: BearSSL alloc failed\n", _name); statusStr = F("SSE alloc failed"); return; }
+        bearClient->setInsecure(BearSSLClient::SNI::Insecure);
+        sseTlsOwner.reset(bearClient);
+        sseTransportOwner.reset(transport);
+        sseClient = bearClient;
+      }
+#endif
+
+      if (!sseClient) {
+        DEBUG_PRINTF("[%s] SSE: no TLS backend\n", _name);
+        statusStr = F("No TLS backend");
+        sseState = SSE_DISABLED;
+        return;
+      }
+
+      // --- connect ---
+      if (!sseClient->connect(host, port)) {
+        int e = errno;
+        DEBUG_PRINTF("[%s] SSE: connect failed (errno %d, heap: %u)\n", _name, e, ESP.getFreeHeap());
+        statusStr = F("SSE connect failed");
+        sseDisconnect();
+        return;
+      }
+
+      DEBUG_PRINTF("[%s] SSE: connected, sending request\n", _name);
+
+      // Send HTTP/1.1 request for SSE stream
+      String req = F("GET /eventstream/clip/v2 HTTP/1.1\r\n");
+      req += "Host: " + String(host) + "\r\n";
+      req += "hue-application-key: " + String(apiKey) + "\r\n";
+      req += F("Accept: text/event-stream\r\n");
+      req += F("Connection: keep-alive\r\n\r\n");
+      sseClient->print(req);
+
+      sseState = SSE_READING_HEADERS;
+      sseLastDataTime = millis();
+      sseLineBuf = "";
+      sseLineBuf.reserve(512);
+      sseReconnectInterval = 5000;  // reset backoff on successful connect
+      statusStr = F("SSE connecting...");
+    }
+
+    /*
+     * Cleanly tear down the SSE connection and free TLS memory.
+     */
+    void sseDisconnect() {
+      if (sseClient) {
+        sseClient->stop();
+        sseClient = nullptr;
+      }
+      sseTlsOwner.reset();
+      sseTransportOwner.reset();
+      ssePlainClient.stop();
+      sseLineBuf = "";
+      if (sseState == SSE_STREAMING || sseState == SSE_READING_HEADERS) {
+        DEBUG_PRINTF("[%s] SSE: disconnected\n", _name);
+      }
+      sseState = SSE_DISCONNECTED;
+      sseInitialPollDone = false;
+    }
+
+    /*
+     * Handle a complete SSE "data:" payload — a JSON array of events.
+     * Each event with type "update" that matches our lightId gets applied.
+     */
+    void handleSseEvent(const String& data) {
+      // SSE data is a JSON array: [{"creationtime":..., "data":[{light_state}], "id":..., "type":"update"}]
+      StaticJsonDocument<256> filter;
+      filter[0]["type"] = true;
+      filter[0]["data"][0]["id"] = true;
+      filter[0]["data"][0]["on"]["on"] = true;
+      filter[0]["data"][0]["dimming"]["brightness"] = true;
+      filter[0]["data"][0]["color"]["xy"] = true;
+      filter[0]["data"][0]["color_temperature"]["mirek"] = true;
+      filter[0]["data"][0]["color_temperature"]["mirek_valid"] = true;
+
+      DynamicJsonDocument doc(2048);
+      DeserializationError err = deserializeJson(doc, data, DeserializationOption::Filter(filter));
+      if (err) {
+        DEBUG_PRINTF("[%s] SSE: JSON parse error: %s\n", _name, err.c_str());
+        return;
+      }
+
+      JsonArray events = doc.as<JsonArray>();
+      for (JsonObject event : events) {
+        const char* type = event["type"];
+        if (!type || strcmp(type, "update") != 0) continue;
+
+        JsonArray eventData = event["data"];
+        for (JsonObject item : eventData) {
+          const char* id = item["id"];
+          if (!id || strcmp(id, lightId) != 0) continue;
+
+          DEBUG_PRINTF("[%s] SSE: event for our light\n", _name);
+          if (applyLightState(item)) {
+            statusStr = F("SSE OK");
+          }
+        }
+      }
+    }
+
+    /*
+     * Non-blocking SSE stream reader. Called every loop() iteration.
+     * Reads available bytes, assembles lines, and dispatches events.
+     */
+    void ssePoll() {
+      if (!sseClient || sseState == SSE_DISCONNECTED || sseState == SSE_DISABLED) return;
+
+      // check connection health
+      if (!sseClient->connected()) {
+        DEBUG_PRINTF("[%s] SSE: connection lost\n", _name);
+        sseDisconnect();
+        statusStr = F("SSE disconnected");
+        return;
+      }
+
+      // inactivity timeout — Hue bridge should send at least a comment every ~30s
+      if (millis() - sseLastDataTime > 60000) {
+        DEBUG_PRINTF("[%s] SSE: inactivity timeout\n", _name);
+        sseDisconnect();
+        statusStr = F("SSE timeout");
+        return;
+      }
+
+      // read up to 512 bytes per loop iteration to stay non-blocking
+      int bytesRead = 0;
+      while (sseClient->available() && bytesRead < 512) {
+        char c = sseClient->read();
+        bytesRead++;
+        sseLastDataTime = millis();
+
+        if (c == '\n') {
+          // complete line received
+          sseLineBuf.trim();  // remove \r
+
+          if (sseState == SSE_READING_HEADERS) {
+            if (sseLineBuf.length() == 0) {
+              // empty line = end of headers
+              DEBUG_PRINTF("[%s] SSE: headers complete, streaming\n", _name);
+              sseState = SSE_STREAMING;
+              statusStr = F("SSE streaming");
+            } else if (sseLineBuf.startsWith(F("HTTP/"))) {
+              // validate status code
+              int code = sseLineBuf.substring(9, 12).toInt();
+              if (code != 200) {
+                DEBUG_PRINTF("[%s] SSE: bad status: %s\n", _name, sseLineBuf.c_str());
+                sseDisconnect();
+                statusStr = F("SSE bad status");
+                return;
+              }
+              DEBUG_PRINTF("[%s] SSE: %s\n", _name, sseLineBuf.c_str());
+            }
+          } else if (sseState == SSE_STREAMING) {
+            // skip chunked encoding size lines (hex-only lines)
+            if (sseLineBuf.length() > 0 && sseLineBuf.length() <= 8) {
+              bool isChunkSize = true;
+              for (unsigned i = 0; i < sseLineBuf.length(); i++) {
+                char ch = sseLineBuf.charAt(i);
+                if (!isxdigit(ch)) { isChunkSize = false; break; }
+              }
+              if (isChunkSize) { sseLineBuf = ""; continue; }
+            }
+
+            if (sseLineBuf.startsWith(F("data: "))) {
+              String payload = sseLineBuf.substring(6);
+              handleSseEvent(payload);
+            } else if (sseLineBuf.startsWith(F("id: "))) {
+              // SSE event ID — ignore
+            } else if (sseLineBuf.startsWith(F(": "))) {
+              // SSE comment / keep-alive — ignore
+              DEBUG_PRINTF("[%s] SSE: keep-alive\n", _name);
+            }
+            // empty line = end of SSE event block (already handled by dispatching on data: line)
+          }
+
+          sseLineBuf = "";
+        } else {
+          if (sseLineBuf.length() < 4096) {
+            sseLineBuf += c;
+          }
+          // else: line too long, discard extra characters
+        }
+      }
+    }
+
+    // ======================== End SSE ========================
+
+    /*
+     * Poll a specific light from the Hue bridge using the V2 API.
+     */
+    void pollLight() {
+      if (strlen(apiKey) == 0) {
+        DEBUG_PRINTF("[%s] Poll skipped: no API key configured\n", _name);
+        statusStr = F("No API key");
+        return;
+      }
+      if (strlen(lightId) == 0) {
+        DEBUG_PRINTF("[%s] Poll skipped: no light ID configured\n", _name);
+        statusStr = F("No light ID");
+        return;
+      }
+
+      String path = "/clip/v2/resource/light/" + String(lightId);
+      String response = httpsRequest("GET", path.c_str());
+
+      if (response.length() == 0) {
+        DEBUG_PRINTF("[%s] Poll: empty response\n", _name);
+        return;
+      }
+
+      DEBUG_PRINTF("[%s] Poll response (%u bytes)\n", _name, response.length());
+
+      StaticJsonDocument<256> filter;
+      filter["errors"] = true;
+      filter["data"][0]["on"]["on"] = true;
+      filter["data"][0]["dimming"]["brightness"] = true;
+      filter["data"][0]["color"]["xy"] = true;
+      filter["data"][0]["color_temperature"]["mirek"] = true;
+      filter["data"][0]["color_temperature"]["mirek_valid"] = true;
+
+      DynamicJsonDocument doc(1024);
+      DeserializationError err = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+      if (err) {
+        DEBUG_PRINTF("[%s] Poll: JSON parse error: %s\n", _name, err.c_str());
+        statusStr = "Poll JSON err";
+        return;
+      }
+
+      JsonArray errors = doc["errors"];
+      if (errors && errors.size() > 0) {
+        const char* desc = errors[0]["description"];
+        DEBUG_PRINTF("[%s] Poll: API error: %s\n", _name, desc ? desc : "unknown");
+        statusStr = desc ? String(desc) : F("API error");
+        return;
+      }
+
+      JsonArray data = doc["data"];
+      if (!data || data.size() == 0) {
+        DEBUG_PRINTF("[%s] Poll: no 'data' array in response\n", _name);
+        statusStr = F("No data in response");
+        return;
+      }
+
+      applyLightState(data[0]);
+      failCount = 0;
       statusStr = F("OK");
     }
 
@@ -572,9 +833,42 @@ class PhilipsHueV2Usermod : public Usermod {
 
     void loop() override {
       if (!enabled || !initDone || strip.isUpdating()) return;
-      if (!WLED_CONNECTED) return;
+      if (!WLED_CONNECTED) {
+        if (sseState != SSE_DISCONNECTED) sseDisconnect();
+        return;
+      }
       if (strlen(bridgeIp) == 0) return;
 
+      // --- SSE: non-blocking read every iteration ---
+      if (sseEnabled && sseState != SSE_DISABLED) {
+        ssePoll();
+
+        // if SSE is connected and streaming, do an initial poll for full state sync
+        if (sseState == SSE_STREAMING && !sseInitialPollDone) {
+          unsigned long now = millis();
+          if (now - lastPoll >= pollInterval) {
+            lastPoll = now;
+            pollLight();
+            sseInitialPollDone = true;
+          }
+        }
+
+        // if SSE is disconnected, try to (re)connect on a timer
+        if (sseState == SSE_DISCONNECTED && strlen(apiKey) > 0 && strlen(lightId) > 0) {
+          unsigned long now = millis();
+          if (now >= sseReconnectTime) {
+            sseConnect();
+            if (sseState == SSE_DISCONNECTED) {
+              // connect failed — back off
+              sseReconnectInterval = min(sseReconnectInterval * 2, 60000UL);
+              sseReconnectTime = now + sseReconnectInterval;
+              DEBUG_PRINTF("[%s] SSE: next reconnect in %lums\n", _name, sseReconnectInterval);
+            }
+          }
+        }
+      }
+
+      // --- Timed actions: auth, fetch lights, or polling fallback ---
       unsigned long now = millis();
       if (now - lastPoll < pollInterval) return;
       lastPoll = now;
@@ -583,9 +877,9 @@ class PhilipsHueV2Usermod : public Usermod {
         authenticate();
       } else if (fetchLights) {
         discoverLights();
-      } else {
+      } else if (!sseEnabled || sseState == SSE_DISABLED) {
+        // polling fallback when SSE is disabled
         if (failCount > 0) {
-          // back off — skip this interval and decrement counter
           DEBUG_PRINTF("[%s] Backing off, %u interval(s) remaining\n", _name, failCount);
           failCount--;
           return;
@@ -602,6 +896,14 @@ class PhilipsHueV2Usermod : public Usermod {
 
       JsonArray status = user.createNestedArray(F("Hue V2"));
       status.add(statusStr);
+
+      if (sseEnabled) {
+        JsonArray sseRow = user.createNestedArray(F("Hue SSE"));
+        const char* sseStr = (sseState == SSE_STREAMING) ? "Streaming" :
+                             (sseState == SSE_READING_HEADERS) ? "Connecting..." :
+                             (sseState == SSE_DISABLED) ? "No TLS" : "Disconnected";
+        sseRow.add(sseStr);
+      }
 
       if (strlen(lightName) > 0) {
         JsonArray row = user.createNestedArray(F("Hue Light"));
@@ -621,6 +923,7 @@ class PhilipsHueV2Usermod : public Usermod {
       top[F("applyColor")] = applyColor;
       top[F("attemptAuth")] = attemptAuth;
       top[F("fetchLights")] = fetchLights;
+      top[F("sseEnabled")] = sseEnabled;
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -634,6 +937,7 @@ class PhilipsHueV2Usermod : public Usermod {
       configComplete &= getJsonValue(top[F("applyColor")], applyColor, true);
       configComplete &= getJsonValue(top[F("attemptAuth")], attemptAuth, false);
       configComplete &= getJsonValue(top[F("fetchLights")], fetchLights, false);
+      configComplete &= getJsonValue(top[F("sseEnabled")], sseEnabled, true);
 
       // char arrays must be read with strlcpy, not getJsonValue
       const char* s = nullptr;
@@ -641,7 +945,11 @@ class PhilipsHueV2Usermod : public Usermod {
       if (!(s = top[F("apiKey")])) configComplete = false; else strlcpy(apiKey, s, sizeof(apiKey));
       if (!(s = top[F("lightId")])) configComplete = false; else strlcpy(lightId, s, sizeof(lightId));
 
-      if (initDone) loadLightsFromFS();  // refresh lightName if config updated at runtime
+      // disconnect SSE on config change so it reconnects with new settings
+      if (initDone) {
+        sseDisconnect();
+        loadLightsFromFS();
+      }
 
 
       DEBUG_PRINTF("[%s] Config %s: enabled=%s bridgeIp=%s pollInterval=%lu\n",
@@ -686,6 +994,7 @@ class PhilipsHueV2Usermod : public Usermod {
       oappend(F("addInfo('Philips Hue V2:pollInterval',1,'ms between polls (min 1000)');"));
       oappend(F("addInfo('Philips Hue V2:attemptAuth',1,'Press link button first');"));
       oappend(F("addInfo('Philips Hue V2:fetchLights',1,'List lights (see Info tab)');"));
+      oappend(F("addInfo('Philips Hue V2:sseEnabled',1,'Real-time events (vs polling)');"));
     }
 
     uint16_t getId() override {
