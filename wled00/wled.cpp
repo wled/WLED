@@ -786,7 +786,6 @@ void WLED::initConnection()
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
-    WiFi.setHostname(hostname); // ToDO: check if this is needed here
 #else // ESP8266 accepts a hostname set after WiFi interface initialization
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
