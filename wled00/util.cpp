@@ -154,7 +154,7 @@ static void sanitizeHostname(char* hostname, size_t maxLen) {
  *   preferMDNSname -> use mDNS name if set, otherwise fall back to WLED "server description" name (legacy behaviour)
  */
 void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
-  if (maxLen < 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
   if (preferMDNS && strlen(cmDNS) > 0) {
     strlcpy(hostname, cmDNS, maxLen);
     sanitizeHostname(hostname, maxLen);  // sanitize cmDNS name
@@ -174,7 +174,7 @@ void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
  */
 void prepareHostname(char* hostname, size_t maxLen)
 {
-  if (maxLen < 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
   snprintf_P(hostname, maxLen, PSTR("wled-%s"), serverDescription);
   hostname[maxLen -1] = '\0';                         // ensure string termination
   sanitizeHostname(hostname+5, maxLen-5);             // sanitize name, keep "wled-" intact
