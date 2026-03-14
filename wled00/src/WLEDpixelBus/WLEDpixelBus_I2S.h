@@ -15,7 +15,7 @@ namespace WLEDpixelBus {
 #include "esp_intr_alloc.h"
 
 #if defined(WLEDPB_ESP32)
-    #define WLEDPB_I2S_BUS_COUNT 2
+    #define WLEDPB_I2S_BUS_COUNT 2 // TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
     #define WLEDPB_I2S_MAX_CHANNELS 16
 #else
     #define WLEDPB_I2S_BUS_COUNT 1

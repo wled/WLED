@@ -74,7 +74,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     for (int i = 0; i < 2; i++) {
         _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
         if (!_dmaBuffer[i]) {
-            log_e("I2S DMA buffer alloc failed");
+            Serial.println("I2S DMA buffer alloc failed");
             deinit();
             return false;
         }
@@ -82,7 +82,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
         _dmaDesc[i] = (lldesc_t*)heap_caps_malloc(sizeof(lldesc_t), MALLOC_CAP_DMA);
         if (!_dmaDesc[i]) {
-            log_e("I2S DMA desc alloc failed");
+            Serial.println("I2S DMA desc alloc failed");
             deinit();
             return false;
         }
@@ -155,7 +155,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     // FIFO configuration
     _i2sDev->fifo_conf.val = 0;
     _i2sDev->fifo_conf.tx_fifo_mod_force_en = 1;
-    _i2sDev->fifo_conf.tx_fifo_mod = 1;  // 16-bit single channel
+    _i2sDev->fifo_conf.tx_fifo_mod = 1;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single)
     _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
 
     // PCM bypass
@@ -165,12 +165,15 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
     // Channel config
     _i2sDev->conf_chan.val = 0;
-    _i2sDev->conf_chan.tx_chan_mod = 1;  // Right channel
+    _i2sDev->conf_chan.tx_chan_mod = 1;  // 0=stereo, 1=right-left, 2=left-right, 3=right only, 4=left only
 
     // I2S conf
     _i2sDev->conf.val = 0;
     _i2sDev->conf.tx_msb_shift = 0;  // No shift in parallel mode
     _i2sDev->conf.tx_right_first = 1;
+    #if defined(CONFIG_IDF_TARGET_ESP32S2)
+    _i2sDev->conf.tx_dma_equal = 1; // seems required for S2
+    #endif
 
     // Clear timing register
     _i2sDev->timing.val = 0;
@@ -185,7 +188,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 #if defined(WLEDPB_ESP32)
     const double baseClockMhz = 160.0;
 #else
-    const double baseClockMhz = 80.0;
+    const double baseClockMhz = 80.0; // S2 has 80MHz I2S base clock
 #endif
 
     // NeoPixelBus formula: clkmdiv = nsBitSendTime / bytesPerSample / dmaBitPerDataBit / bck / 1000 * baseClkMhz
@@ -225,7 +228,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     // Sample rate - bck must be >= 2 (NeoPixelBus uses 4)
     _i2sDev->sample_rate_conf.val = 0;
     _i2sDev->sample_rate_conf.tx_bck_div_num = bckDiv;
-    _i2sDev->sample_rate_conf.tx_bits_mod = 8;
+    _i2sDev->sample_rate_conf.tx_bits_mod = 8;  // TODO: try 16 bit mode an bump up outputs to 16 parallel channels, just like LCD driver does now
 
     // Final reset before ISR install
     _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
@@ -247,7 +250,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
                                     ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1,
                                     dmaISR, this, &_isrHandle);
     if (err != ESP_OK) {
-        log_e("I2S ISR alloc failed: %d", err);
+        Serial.printf("I2S ISR alloc failed: %d", err);
         deinit();
         return false;
     }
@@ -316,7 +319,7 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
 #if defined(WLEDPB_ESP32)
     sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
 #elif defined(WLEDPB_ESP32S2)
-    sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes
+    sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
 #else
     sigIdx = I2S0O_DATA_OUT0_IDX;
 #endif
@@ -452,6 +455,12 @@ void I2sBusContext::fillBuffer(uint8_t bufIdx) {
     // desc->length stays at _bufferSize (set in init, never changes)
 }
 
+// ----- I2S ISR Tracking -----
+static volatile uint32_t s_i2sIsrCount = 0;
+static volatile uint32_t s_i2sIsrSending = 0;
+static volatile uint32_t s_i2sIsrReset = 0;
+static volatile uint32_t s_i2sIsrIdle = 0;
+
 bool I2sBusContext::startTransmit() {
     if (_state != DriverState::Idle) return false;
     if (_channelCount == 0) return false;
@@ -482,12 +491,18 @@ bool I2sBusContext::startTransmit() {
     _state = DriverState::Sending;
 
     // Reset DMA and FIFO before starting
-    _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
-    _i2sDev->lc_conf.ahbm_rst = 1; _i2sDev->lc_conf.ahbm_fifo_rst = 1;
-    _i2sDev->lc_conf.in_rst = 0; _i2sDev->lc_conf.out_rst = 0;
-    _i2sDev->lc_conf.ahbm_rst = 0; _i2sDev->lc_conf.ahbm_fifo_rst = 0;
-    _i2sDev->conf.tx_reset = 1; _i2sDev->conf.tx_fifo_reset = 1;
-    _i2sDev->conf.tx_reset = 0; _i2sDev->conf.tx_fifo_reset = 0;
+    _i2sDev->lc_conf.in_rst = 1;
+    _i2sDev->lc_conf.out_rst = 1;
+    _i2sDev->lc_conf.ahbm_rst = 1;
+    _i2sDev->lc_conf.ahbm_fifo_rst = 1;
+    _i2sDev->lc_conf.in_rst = 0;
+    _i2sDev->lc_conf.out_rst = 0;
+    _i2sDev->lc_conf.ahbm_rst = 0;
+    _i2sDev->lc_conf.ahbm_fifo_rst = 0;
+    _i2sDev->conf.tx_reset = 1;
+    _i2sDev->conf.tx_fifo_reset = 1;
+    _i2sDev->conf.tx_reset = 0;
+    _i2sDev->conf.tx_fifo_reset = 0;
 
     // Clear and enable interrupts
     _i2sDev->int_clr.val = 0xFFFFFFFF;
@@ -500,13 +515,25 @@ bool I2sBusContext::startTransmit() {
     _i2sDev->out_link.start = 1;
     _i2sDev->conf.tx_start = 1;
 
+    // ----- DEBUG BLOCK START -----
+    /*
+    static uint32_t last_isr = 0;
+    uint32_t diff_isr = s_i2sIsrCount - last_isr;
+    last_isr = s_i2sIsrCount;
+    Serial.printf("[I2S-Tx] startTransmit triggering. ISR count delta since last tx: %u\n", diff_isr);
+    Serial.printf("[I2S-Tx] State vars: isrTotal=%u, send=%u, reset=%u, idle=%u\n", 
+                  s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle);
+    Serial.printf("[I2S-Tx] HW Regs: conf(0x%08x) conf1(0x%08x) conf2(0x%08x)\n", 
+                  _i2sDev->conf.val, _i2sDev->conf1.val, _i2sDev->conf2.val);
+    Serial.printf("[I2S-Tx] int_ena(0x%08x) int_raw(0x%08x)\n", 
+                  _i2sDev->int_ena.val, _i2sDev->int_raw.val);
+    Serial.printf("[I2S-Tx] out_link(0x%08x) lc_conf(0x%08x)\n", 
+                  _i2sDev->out_link.val, _i2sDev->lc_conf.val);
+          */
+    // ----- DEBUG BLOCK END -----
+
     return true;
 }
-
-static volatile uint32_t s_i2sIsrCount = 0;
-static volatile uint32_t s_i2sIsrSending = 0;
-static volatile uint32_t s_i2sIsrReset = 0;
-static volatile uint32_t s_i2sIsrIdle = 0;
 
 void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     I2sBusContext* ctx = (I2sBusContext*)arg;
@@ -517,14 +544,14 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
 
     if (!(status & I2S_OUT_EOF_INT_ST)) return;
 
-    s_i2sIsrCount++;
+    s_i2sIsrCount++; // debug, remove
 
     // The completed buffer just finished playing; DMA is now on the other buffer
     uint8_t completedBuf = ctx->_activeBuffer;
     ctx->_activeBuffer ^= 1;
 
     if (ctx->_state == DriverState::Sending) {
-        s_i2sIsrSending++;
+        s_i2sIsrSending++; // debug, remove
         // Encode next chunk into the completed buffer
         // encode4Step always fills the full buffer (zeros for any remainder)
         ctx->encode4Step(ctx->_dmaBuffer[completedBuf], ctx->_bufferSize);
@@ -552,11 +579,11 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
         // Fill completed buffer with zeros (reset signal) so it plays after.
         memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize);
         ctx->_dmaDesc[completedBuf]->owner = 1;
-        s_i2sIsrReset++;
+        s_i2sIsrReset++; // debug, remove
         ctx->_state = DriverState::WaitingReset;
     } else {
         // WaitingReset - last data played, zero buffer sent as reset. Stop DMA.
-        s_i2sIsrIdle++;
+        s_i2sIsrIdle++; // debug, remove
         dev->int_ena.out_eof = 0;
         dev->conf.tx_start = 0;
         dev->out_link.start = 0;
@@ -689,7 +716,6 @@ void I2sBus::waitComplete() {
 void I2sBus::setColorOrder(ColorOrder order) {
     _order = order;
 }
-
 
 
 } // namespace WLEDpixelBus

@@ -151,7 +151,7 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
     
     Serial.printf("[WPB] createBus type=%u pin=%d bufSize=%u ch=%d\n", (unsigned)type, pin, bufferSize, channel);
     if (type == BusType::Auto) {
-        type = getRecommendedBusType();
+        type = getRecommendedBusType(); // TODO: when is "auto" used? should auto default to RMT? it currently defaults to I2S
         Serial.printf("[WPB] Auto resolved to type=%u\n", (unsigned)type);
     }
 
@@ -165,7 +165,11 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
 
 #ifdef WLEDPB_I2S_SUPPORT
         case BusType::I2S:
+#if defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3)
+            bus = new I2sBus(pin, timing, order, 0, bufferSize);
+#else
             bus = new I2sBus(pin, timing, order, 1, bufferSize);
+#endif
             break;
 #endif
 

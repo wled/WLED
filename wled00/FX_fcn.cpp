@@ -1197,7 +1197,8 @@ void WS2812FX::finalizeInit() {
   // create buses/outputs
   unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
   for (auto &bus : busConfigs) {
-    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
+    //TODO: this comment needs updating once the driver is finished
+    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels  
     // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
     // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
     BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
@@ -1213,7 +1214,7 @@ void WS2812FX::finalizeInit() {
       use_placeholder = true;
     }
     if (BusManager::add(bus, use_placeholder) != -1) {
-      mem += BusManager::busses.back()->getBusSize();
+      mem += BusManager::busses.back()->getBusSize(); // TODO: check memory calculations
       if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
     }
   }
