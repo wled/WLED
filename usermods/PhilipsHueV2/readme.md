@@ -8,6 +8,14 @@ WLED in real time.
 
 ## Features
 
+- **mDNS auto-discovery** — leave the Bridge IP field empty and the usermod
+  will automatically find the Hue bridge on your network via mDNS
+  (`_hue._tcp`). The discovered IP is shown in the Info panel but not
+  persisted, so it re-discovers on each reboot (handles DHCP changes).
+- **Server-Sent Events (SSE)** — instead of polling, the usermod can maintain
+  a persistent connection to the bridge's `/eventstream/clip/v2` endpoint and
+  receive light state changes in real time. Enable with the *SSE Enabled*
+  setting (on by default). Falls back to polling if SSE is unavailable.
 - **Automatic authentication** — press the link button on the bridge, tick
   *Attempt Auth* in Usermod Settings, and save. The API key is obtained and
   persisted automatically.
@@ -18,7 +26,7 @@ WLED in real time.
   bridge IP is prefixed with `http://` the usermod connects over plain HTTP
   (port 8088) instead, which is useful for debugging or when TLS is not
   available.
-- **Automatic backoff** — on connection failure the poll interval is
+- **Automatic backoff** — on connection failure the poll/reconnect interval is
   progressively extended to avoid flooding the network.
 
 ## Build
@@ -87,7 +95,8 @@ to force plain HTTP (requires the bridge to be accessible on port 8088).
 
 ## Setup
 
-1. Enter your **Bridge IP** in Usermod Settings.
+1. **Bridge IP** — leave empty for automatic mDNS discovery, or enter
+   manually:
    - For HTTPS (default): enter the IP address, e.g. `192.168.1.100`
    - For plain HTTP: prefix with `http://`, e.g. `http://192.168.1.100`
 2. Press the **link button** on the bridge.
@@ -97,15 +106,15 @@ to force plain HTTP (requires the bridge to be accessible on port 8088).
    bridge and a dropdown will appear in settings.
 5. Select the light you want to monitor from the **Light ID** dropdown and
    save.
-6. The info panel will show the status (OK, Connection failed, etc.) and the
-   name of the monitored light.
+6. The info panel will show the status, SSE connection state, the bridge IP
+   (with "(mDNS)" if auto-discovered), and the monitored light name.
 
 ## Settings
 
 | Setting | Description | Default |
 |---------|-------------|---------|
 | enabled | Enable/disable the usermod | false |
-| bridgeIp | Bridge IP or `http://IP` for plain HTTP | (empty) |
+| bridgeIp | Bridge IP, `http://IP` for plain HTTP, or empty for mDNS | (empty) |
 | apiKey | Application key (auto-filled after auth) | (empty) |
 | lightId | Light UUID (use Fetch Lights to populate dropdown) | (empty) |
 | pollInterval | Poll interval in milliseconds (minimum 1000) | 2500 |
@@ -114,6 +123,7 @@ to force plain HTTP (requires the bridge to be accessible on port 8088).
 | applyColor | Sync colour (xy and colour temperature) from Hue to WLED | true |
 | attemptAuth | Trigger authentication (press link button first) | false |
 | fetchLights | Fetch light list from bridge for dropdown selection | false |
+| sseEnabled | Use SSE for real-time events instead of polling | true |
 
 ## Troubleshooting
 
