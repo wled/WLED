@@ -10,7 +10,7 @@ namespace WLEDpixelBus {
 
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
-#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024
+#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024 // must be a multiple of 16 (16 DMA bytes per source byte)
 #define WLEDPB_SPI_GDMA_CHANNEL 0
 
 class ParallelSpiBus;
@@ -99,8 +99,6 @@ public:
     bool canShow() const override;
     void waitComplete() override;
     const char* getType() const override { return "SPI"; }
-
-    void setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) override;
 
     void setTiming(const LedTiming& timing) { _timing = timing; }
     void setColorOrder(ColorOrder order);

@@ -204,17 +204,20 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
     return bus;
 }
 
+// TODO: this function is not really needed, bus type defaults should be handled by busmanager or buswrapper
 BusType getRecommendedBusType() {
+/*
 #if defined(WLEDPB_ESP32S3)
-    return BusType::LCD;  // S3 has best LCD support
+    return BusType::LCD;  // S3 has LCD support
 #elif defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2)
     return BusType::I2S;  // Original and S2 have I2S parallel
 #elif defined(WLEDPB_SPI_SUPPORT)
     return BusType::SPI;  // C3 uses SPI quad mode
-#elif defined(WLEDPB_ESP8266)
-    return BusType::UART;
+    */
+#if defined(WLEDPB_ESP8266)
+    return BusType::BitBang; // use bitbanging by default (most versatile)
 #else
-    return BusType::RMT;  // Fallback to RMT
+    return BusType::RMT;  // use RMT by default (most versatile)
 #endif
 }
 

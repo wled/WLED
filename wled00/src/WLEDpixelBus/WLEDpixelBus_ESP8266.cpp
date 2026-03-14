@@ -32,7 +32,7 @@ Esp8266UartBus::~Esp8266UartBus() {
 }
 
 void Esp8266UartBus::buildLut() {
-    if (!_encodeLut) _encodeLut = (uint8_t*)malloc(256 * 4);
+    if (!_encodeLut) _encodeLut = (uint8_t*)malloc(256 * 4); // TODO: this is really bad memory management! should only have a pixel buffer and do encoding on the fly
     if (!_encodeLut) return;
     const uint8_t uartData[4] = {0b110111, 0b000111, 0b110100, 0b000100};
     for (int i=0; i<256; i++) {
@@ -86,13 +86,10 @@ void Esp8266UartBus::updateUartTiming() {
     USC0(uartNum) &= ~(fifoResetFlags);
 
     // clear all invert bits
-    USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI));
+    USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI) |  (1 << UCTXI));
 
-    // set inverted logic for TX
-    USC0(uartNum) |= (1 << UCTXI);
-
-    // Disable RX & TX interrupts that might have been enabled by Arduino Core Serial
-    USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE));
+    // Disable RX & TX interrupts that might have been enabled by Arduino Core Serial -> needed? 
+    //USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE));
 }
 
 bool Esp8266UartBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
@@ -100,7 +97,7 @@ bool Esp8266UartBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
     if (!_initialized || !pixels || numPixels == 0) return false;
 
     size_t bpp = (_order >= ColorOrder::RGBWC) ? 5 : ((_order >= ColorOrder::RGBW) ? 4 : 3);
-    size_t outLen = numPixels * bpp * 4;
+    size_t outLen = numPixels * bpp * 4; // TODO: should not be *4, we can encode on the fly if done right.
     if (!allocateBuffer(outLen)) return false;
 
     ColorEncoder encoder(_order);

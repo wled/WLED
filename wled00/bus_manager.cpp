@@ -162,15 +162,14 @@ BusDigital::BusDigital(const BusConfig &bc)
 
   // fix for wled#4759
   if (_valid) {
-    _busPtr->allocatePixelBuffer(lenToCreate + _skip, _hasCCT);
-    _pixelDataPtr = _busPtr->getPixelData();
+    _valid = _busPtr->allocatePixelBuffer(lenToCreate + _skip, _hasCCT); // returns false if allocation fails
+    _pixelDataPtr = _busPtr->getPixelData(); // can be null if allocation failed
     _cctDataPtr = _busPtr->getCctData();
-    for (unsigned i = 0; i < _skip; i++) {
-        if (_pixelDataPtr) _pixelDataPtr[i] = 0; // set sacrificial pixels to black
-    }
-  } else {
-    cleanup();
   }
+
+  if (!_valid)
+    cleanup();
+
   DEBUGBUS_PRINTF_P(PSTR("Bus len:%u, type:%u (RGB:%d, W:%d, CCT:%d), pins:%u,%u [driver:%s] mA=%d/%d %s\n"),
     (int)bc.count,
     (int)bc.type,
@@ -272,19 +271,29 @@ bool BusDigital::canShow() const {
 //TODO only show if no new show due in the next 50ms
 void BusDigital::setStatusPixel(uint32_t c) {
   if (_valid && _skip) {
-    _busPtr->setPixelColor(0, c);
+    _pixelDataPtr[0] = c;
     if (canShow()) _busPtr->show();
   }
 }
 
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
+// TODO: this function needs some optimization, making better use of the new bus architecture
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
+  if (_reversed) pix = _len - pix -1;
+  pix += _skip;
+
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
-  if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
-  c = color_fade(c, _bri, true); // apply brightness
+  if (hasWhite()) {
+    c = autoWhiteCalc(c, cctWW, cctCW);
+  //  if (hasCCT()) {
+  //    _cctDataPtr[pix].ww = cctWW;  // TODO: uncomment after brightness scaling has been moved to bus level.
+  //    _cctDataPtr[pix].cw = cctCW;
+  //  }
+  }
+  c = color_fade(c, _bri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
 
   if (hasCCT()) {
     wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
@@ -302,10 +311,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  if (_reversed) pix = _len - pix -1;
-  pix += _skip;
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
-  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
+  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs  TODO: move this to bus level? would make sense to have a bus type for this.
     unsigned pOld = pix;
     pix = IC_INDEX_WS2812_1CH_3X(pix);
     uint32_t cOld = _busPtr->getPixelColor(pix);
@@ -316,13 +323,12 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  if (hasCCT() && _cctDataPtr) {
-      _cctDataPtr[pix].ww = wwcw & 0xFF;
+  // set pixels directly, note: if pointers are invalid, _valid is set to false in alloc function. TODO: need to check for out of bounds or is this safe by design?
+  if (hasCCT()) {
+      _cctDataPtr[pix].ww = wwcw & 0xFF; // TODO: check hasCCT() above and directly set this after autowhitecalc.
       _cctDataPtr[pix].cw = wwcw >> 8;
   }
-  if (_pixelDataPtr) {
-      _pixelDataPtr[pix] = c;
-  }
+  _pixelDataPtr[pix] = c;
 }
 
 // returns lossly restored color from bus

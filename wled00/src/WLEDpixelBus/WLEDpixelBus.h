@@ -228,30 +228,35 @@ public:
             free(_cctData);
             _cctData = nullptr;
         }
-        
         _numPixels = numPixels;
         if (numPixels == 0) return true;
-        
+        // TODO: use WLED alloc functions that are min-heap safe
         _pixelData = (uint32_t*)malloc(numPixels * sizeof(uint32_t));
         if (!_pixelData) return false;
         memset(_pixelData, 0, numPixels * sizeof(uint32_t));
-        
+
         if (hasCCT) {
             _cctData = (CctPixel*)malloc(numPixels * sizeof(CctPixel));
+            if (!_cctData) {
+                free(_pixelData);
+                _pixelData = nullptr;
+                return false;
+            }
             if (_cctData) memset(_cctData, 0, numPixels * sizeof(CctPixel));
         }
-        
+
         return true;
     }
 
-    virtual void setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) {
-        if (pix >= _numPixels || !_pixelData) return;
-        _pixelData[pix] = c;
-        if (cp && _cctData) _cctData[pix] = *cp;
-    }
+  // TODO: can be removed, pixels are now written to the buffer directly in busDigital::setPixelColor()
+  //  virtual void IRAM_ATTR setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) {
+  //      if (pix >= _numPixels) return; // TODO: can this be removed safely? busmanager already checks? its in the hot path.
+  //      _pixelData[pix] = c;
+  //      if (cp && _cctData) _cctData[pix] = *cp; // TODO: make set cct a seperate function? might speed things up by removing this check
+  //  }
 
     virtual uint32_t getPixelColor(uint16_t pix) const {
-        if (pix >= _numPixels || !_pixelData) return 0;
+        if (pix >= _numPixels) return 0;
         return _pixelData[pix];
     }
     

@@ -35,8 +35,8 @@ static const int SPI_SIGNAL_INDICES[] = { FSPID_OUT_IDX, FSPIQ_OUT_IDX, FSPIWP_O
 
 // Encoding patterns for SPI quad mode (4-step cadence, LSB first)
 // Each lane is one bit position in a nibble, one byte = two clock cycles, 2 bytes = one 4-step bit
-static constexpr uint16_t SPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high
-static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high
+static constexpr uint16_t SPI_ZERO_BIT = 0x0001;  // output: [1,0,0,0] = 25% high (0000 0000 0000 0001 in binary, output LSB first)
+static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% high (0000 0001 0001 0001 in binary, output LSB first)
 
 SpiBusContext* SpiBusContext::_instance = nullptr;
 uint8_t SpiBusContext::_refCount = 0;
@@ -86,7 +86,7 @@ SpiBusContext::~SpiBusContext() {
 bool SpiBusContext::isSpiDone() {
     if (!_hasStarted) return true;  // no transfer ever started
 
-    // We are logically done once all real data is encoded
+    // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
     if (!_sending) {
         return true;
     }
@@ -416,7 +416,7 @@ void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
     // Mark this channel as staged
     _stagedMask |= (1 << channelIdx);
     
-    if (len > _numBytes) _numBytes = len;
+    if (len > _numBytes) _numBytes = len; // update longest bus length
 }
 
 void SpiBusContext::resetAndStart() {
@@ -471,11 +471,14 @@ bool SpiBusContext::startTransmit() {
         spi_ll_user_start(_hw);
     } else {
         // Hardware already running - just update pointers, ISR picks up new data
+        // note: stopping the SPI between frames had some serious issues of the driver stalling all the time, that may be fixable but documentation is scarce
+        // leaving the SPI running continuously and feeding in new data if available seems to be working more reliably
         gdma_dev_t* dma = &GDMA;
         dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
         _framePos = 0;
         _numBytes = newBytes;
         _sending = true;
+        // TODO: do we need to validate that the correct buffer will be written when the interrupt is re-enabled?
         dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
     }
 
@@ -564,6 +567,7 @@ bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
     return true;
 }
 
+// TODO: this actually only uses internal buffer, could get rid of the parameters that are now unused.
 bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
     if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
 
@@ -616,10 +620,6 @@ void ParallelSpiBus::waitComplete() {
 
 void ParallelSpiBus::setColorOrder(ColorOrder order) {
     _order = order;
-}
-
-void ParallelSpiBus::setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp) {
-    IBus::setPixelColor(pix, c, cp);
 }
 
 

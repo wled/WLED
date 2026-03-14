@@ -91,9 +91,9 @@ class PolyBus {
     if (busPtr) return static_cast<WLEDpixelBus::IBus*>(busPtr)->canShow();
     return true;
   }
-  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint32_t cW) {
-    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setPixelColor(pix, c);
-  }
+//  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint32_t cW) {
+//    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setPixelColor(pix, c);
+//  }
   static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
     if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setBrightness(b);
   }
