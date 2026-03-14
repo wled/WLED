@@ -43,13 +43,13 @@
 class PhilipsHueV2Usermod : public Usermod {
 
   private:
-    static constexpr size_t RESPONSE_BUF_SIZE = 2048;
+    static constexpr size_t RESPONSE_BUF_SIZE = 24576;
 
     bool enabled = false;
     bool initDone = false;
 
-    // configuration
-    char bridgeIp[16] = "";
+    // configuration (bridgeIp may optionally start with "http://" to force plain HTTP)
+    char bridgeIp[24] = "";
     char apiKey[64] = "";
     char lightId[64] = "";
     unsigned long pollInterval = 2500;
@@ -57,6 +57,7 @@ class PhilipsHueV2Usermod : public Usermod {
     bool applyBri = true;
     bool applyColor = true;
     bool attemptAuth = false;
+    bool fetchLights = false;
 
     // state
     unsigned long lastPoll = 0;
@@ -66,11 +67,64 @@ class PhilipsHueV2Usermod : public Usermod {
     uint16_t lastCt = 0;
     String statusStr = "Idle";
 
+    // discovered lights for dropdown
+    static constexpr size_t MAX_LIGHTS = 16;
+    struct HueLight {
+      char id[40];    // UUID
+      char name[40];  // display name
+    };
+    HueLight discoveredLights[MAX_LIGHTS] = {};
+    size_t numDiscoveredLights = 0;
+
     // PROGMEM strings
     static const char _name[];
     static const char _enabled[];
 
-#ifdef HUE_HAS_TLS
+    /*
+     * Save discovered lights to a dedicated file so they persist across reboots
+     * without polluting the main config (which would show them as editable form fields).
+     */
+    void saveLightsToFS() {
+      StaticJsonDocument<2048> doc;
+      JsonArray arr = doc.to<JsonArray>();
+      for (size_t i = 0; i < numDiscoveredLights; i++) {
+        JsonObject l = arr.createNestedObject();
+        l[F("id")] = discoveredLights[i].id;
+        l[F("name")] = discoveredLights[i].name;
+      }
+      File f = WLED_FS.open(F("/hue_lights.json"), "w");
+      if (f) {
+        serializeJson(doc, f);
+        f.close();
+        DEBUG_PRINTF("[%s] Saved %u light(s) to /hue_lights.json\n", _name, numDiscoveredLights);
+      }
+    }
+
+    /*
+     * Load discovered lights from the dedicated file.
+     */
+    void loadLightsFromFS() {
+      File f = WLED_FS.open(F("/hue_lights.json"), "r");
+      if (!f) return;
+      StaticJsonDocument<2048> doc;
+      DeserializationError err = deserializeJson(doc, f);
+      f.close();
+      if (err) return;
+      JsonArray arr = doc.as<JsonArray>();
+      numDiscoveredLights = 0;
+      for (JsonObject l : arr) {
+        if (numDiscoveredLights >= MAX_LIGHTS) break;
+        const char* id = l[F("id")];
+        const char* name = l[F("name")];
+        if (id) {
+          strlcpy(discoveredLights[numDiscoveredLights].id, id, sizeof(discoveredLights[0].id));
+          strlcpy(discoveredLights[numDiscoveredLights].name, name ? name : "?", sizeof(discoveredLights[0].name));
+          numDiscoveredLights++;
+        }
+      }
+      DEBUG_PRINTF("[%s] Loaded %u light(s) from /hue_lights.json\n", _name, numDiscoveredLights);
+    }
+
     /*
      * Convert CIE 1931 xy coordinates to RGB.
      * Self-contained so the usermod works even when WLED_DISABLE_HUESYNC is set.
@@ -100,53 +154,85 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     /*
-     * Make an HTTPS request to the Hue bridge.
-     * Supports WiFiClientSecure/NetworkClientSecure or BearSSL backends.
+     * Helper: extract the bare IP/hostname from bridgeIp, stripping any
+     * "http://" prefix.  Returns true when plain HTTP should be used.
+     */
+    bool parseBridgeHost(const char* &host) const {
+      if (strncmp(bridgeIp, "http://", 7) == 0) {
+        host = bridgeIp + 7;
+        return true;   // plain HTTP
+      }
+      host = bridgeIp;
+      return false;     // use HTTPS
+    }
+
+    /*
+     * Make an HTTP(S) request to the Hue bridge.
+     * If bridgeIp starts with "http://" a plain-text WiFiClient on port 80
+     * is used (useful for debugging TLS issues).  Otherwise an HTTPS
+     * connection on port 443 is made using the available TLS backend.
      * Returns the response body or empty string on failure.
      */
     String httpsRequest(const char* method, const char* path, const char* body = nullptr) {
-      DEBUG_PRINTF("[%s] httpsRequest %s %s to %s\n", _name, method, path, bridgeIp);
-      /*
-       * TLS clients (WiFiClientSecure etc.) use very large stack buffers
-       * (10–16 KB on ESP-IDF v4).  The Arduino loopTask has only 8 KB of
-       * stack by default, so we MUST heap-allocate the client to avoid a
-       * stack overflow.
-       */
-#ifdef HUE_TLS_BACKEND_NATIVE
-  #if __has_include(<NetworkClientSecure.h>)
-      std::unique_ptr<NetworkClientSecure> client(new NetworkClientSecure);
-  #else
-      std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure);
-  #endif
-      if (!client) { DEBUG_PRINTF("[%s] TLS client alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-      client->setInsecure();  // Hue bridge uses self-signed cert
-      client->setTimeout(4);  // 4 second timeout
-#elif defined(HUE_TLS_BACKEND_BEARSSL)
-      WiFiClient tcpClient;
-      std::unique_ptr<BearSSLClient> client(new BearSSLClient(tcpClient, nullptr, 0));
-      if (!client) { DEBUG_PRINTF("[%s] TLS client alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-      client->setInsecure(BearSSLClient::SNI::Insecure);
-#endif
+      const char* host = nullptr;
+      bool usePlainHttp = parseBridgeHost(host);
+      uint16_t port = usePlainHttp ? 8088 : 443;
 
-      DEBUG_PRINTF("[%s] Connecting to %s:443 (free heap: %u)...\n", _name, bridgeIp, ESP.getFreeHeap());
-      if (!client->connect(bridgeIp, 443)) {
+      DEBUG_PRINTF("[%s] %s %s %s to %s:%u (free heap: %u)\n",
+                   _name, usePlainHttp ? "HTTP" : "HTTPS", method, path, host, port, ESP.getFreeHeap());
+
+      // --- create the appropriate client ---
+      // Both WiFiClient and BearSSLClient inherit from Client (Arduino base).
+      // We also need to prevent the BearSSL transport WiFiClient from being
+      // freed before the BearSSLClient, so we store it in a separate pointer.
+      std::unique_ptr<WiFiClient> tcpClient;     // kept alive for BearSSL transport
+      std::unique_ptr<Client> client;
+
+      if (usePlainHttp) {
+        client.reset(new WiFiClient);
+        if (!client) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+      }
 #ifdef HUE_TLS_BACKEND_NATIVE
-        char errBuf[128] = {0};
-        int err = client->lastError(errBuf, sizeof(errBuf));
-        DEBUG_PRINTF("[%s] Connection failed: %s (error %d, errno %d, free heap: %u)\n",
-                     _name, errBuf, err, errno, ESP.getFreeHeap());
-        statusStr = String(errBuf);
+      else {
+  #if __has_include(<NetworkClientSecure.h>)
+        auto *tlsClient = new NetworkClientSecure;
+  #else
+        auto *tlsClient = new WiFiClientSecure;
+  #endif
+        if (!tlsClient) { DEBUG_PRINTF("[%s] TLS client alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        tlsClient->setInsecure();  // Hue bridge uses self-signed cert
+        tlsClient->setTimeout(4);  // 4 second timeout
+        client.reset(tlsClient);
+      }
+#elif defined(HUE_TLS_BACKEND_BEARSSL)
+      else {
+        tcpClient.reset(new WiFiClient);
+        if (!tcpClient) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        auto *tlsClient = new BearSSLClient(*tcpClient, nullptr, 0);
+        if (!tlsClient) { DEBUG_PRINTF("[%s] BearSSL alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        tlsClient->setInsecure(BearSSLClient::SNI::Insecure);
+        client.reset(tlsClient);
+      }
 #else
-        DEBUG_PRINTF("[%s] Connection failed (errno %d)\n", _name, errno);
-        statusStr = F("Connection failed");
-#endif
+      else {
+        DEBUG_PRINTF("[%s] No TLS backend available — use http:// prefix for plain HTTP\n", _name);
+        statusStr = F("No TLS backend");
         return "";
       }
-      DEBUG_PRINTF("[%s] Connected\n", _name);
+#endif
 
-      // build HTTP request
-      String request = String(method) + " " + String(path) + " HTTP/1.1\r\n";
-      request += "Host: " + String(bridgeIp) + "\r\n";
+      // --- connect ---
+      if (!client->connect(host, port)) {
+        DEBUG_PRINTF("[%s] Connection to %s:%u failed (errno %d, free heap: %u)\n",
+                     _name, host, port, errno, ESP.getFreeHeap());
+        statusStr = F("Connection failed");
+        return "";
+      }
+      DEBUG_PRINTF("[%s] Connected to %s:%u\n", _name, host, port);
+
+      // build HTTP request (use HTTP/1.0 to avoid chunked transfer encoding)
+      String request = String(method) + " " + String(path) + " HTTP/1.0\r\n";
+      request += "Host: " + String(host) + "\r\n";
       if (strlen(apiKey) > 0) {
         request += "hue-application-key: " + String(apiKey) + "\r\n";
       }
@@ -201,11 +287,13 @@ class PhilipsHueV2Usermod : public Usermod {
         return;
       }
 
+      DEBUG_PRINTF("[%s] Auth response: %s\n", _name, response.c_str());
+
       StaticJsonDocument<512> doc;
       DeserializationError err = deserializeJson(doc, response);
       if (err) {
         DEBUG_PRINTF("[%s] Auth: JSON parse error: %s\n", _name, err.c_str());
-        statusStr = F("Auth JSON parse error");
+        statusStr = "Auth JSON err: " + response.substring(0, 64);
         return;
       }
 
@@ -236,6 +324,81 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     /*
+     * Fetch all lights from the Hue bridge using the V2 API.
+     * Results are logged to serial and stored for display in the info panel.
+     */
+    void discoverLights() {
+      if (strlen(apiKey) == 0) {
+        DEBUG_PRINTF("[%s] Discover: no API key configured\n", _name);
+        statusStr = F("No API key");
+        return;
+      }
+
+      DEBUG_PRINTF("[%s] Fetching light list...\n", _name);
+      statusStr = F("Fetching lights...");
+      String response = httpsRequest("GET", "/clip/v2/resource/light");
+
+      if (response.length() == 0) {
+        DEBUG_PRINTF("[%s] Discover: empty response\n", _name);
+        return;
+      }
+
+      DEBUG_PRINTF("[%s] Discover response (%u bytes)\n", _name, response.length());
+
+      // Use a filter to only parse the fields we need — the full response
+      // can be 20 KB+ but we only care about id and name.
+      StaticJsonDocument<128> filter;
+      filter["errors"] = true;
+      filter["data"][0]["id"] = true;
+      filter["data"][0]["metadata"]["name"] = true;
+
+      DynamicJsonDocument doc(4096);
+      DeserializationError err = deserializeJson(doc, response, DeserializationOption::Filter(filter));
+      if (err) {
+        DEBUG_PRINTF("[%s] Discover: JSON parse error: %s\n", _name, err.c_str());
+        statusStr = "Discover JSON err: " + response.substring(0, 64);
+        return;
+      }
+
+      JsonArray errors = doc["errors"];
+      if (errors && errors.size() > 0) {
+        const char* desc = errors[0]["description"];
+        DEBUG_PRINTF("[%s] Discover: API error: %s\n", _name, desc ? desc : "unknown");
+        statusStr = desc ? String(desc) : F("API error");
+        return;
+      }
+
+      JsonArray data = doc["data"];
+      if (!data || data.size() == 0) {
+        DEBUG_PRINTF("[%s] Discover: no lights found\n", _name);
+        statusStr = F("No lights found");
+        numDiscoveredLights = 0;
+        return;
+      }
+
+      numDiscoveredLights = 0;
+      DEBUG_PRINTF("[%s] === Discovered %d light(s) ===\n", _name, data.size());
+      for (JsonObject light : data) {
+        const char* id = light["id"];
+        // V2 API: name is inside metadata.name
+        const char* name = light["metadata"]["name"];
+
+        if (id && numDiscoveredLights < MAX_LIGHTS) {
+          DEBUG_PRINTF("[%s]   %s - \"%s\"\n", _name, id, name ? name : "?");
+          strlcpy(discoveredLights[numDiscoveredLights].id, id, sizeof(discoveredLights[0].id));
+          strlcpy(discoveredLights[numDiscoveredLights].name, name ? name : "?", sizeof(discoveredLights[0].name));
+          numDiscoveredLights++;
+        }
+      }
+      DEBUG_PRINTF("[%s] === End of light list ===\n", _name);
+
+      fetchLights = false;
+      statusStr = "Found " + String(data.size()) + " light(s)";
+      saveLightsToFS();
+      serializeConfigToFS();  // persist fetchLights=false
+    }
+
+    /*
      * Poll a specific light from the Hue bridge using the V2 API.
      */
     void pollLight() {
@@ -258,12 +421,25 @@ class PhilipsHueV2Usermod : public Usermod {
         return;
       }
 
+      DEBUG_PRINTF("[%s] Poll response (%u bytes)\n", _name, response.length());
+
+      // Use a filter to only parse the fields we need — a single light
+      // response can be 1.5 KB+ but we only care about on/off, brightness,
+      // color xy, and color temperature.
+      StaticJsonDocument<256> filter;
+      filter["errors"] = true;
+      filter["data"][0]["on"]["on"] = true;
+      filter["data"][0]["dimming"]["brightness"] = true;
+      filter["data"][0]["color"]["xy"] = true;
+      filter["data"][0]["color_temperature"]["mirek"] = true;
+      filter["data"][0]["color_temperature"]["mirek_valid"] = true;
+
       // V2 responses can be large; use a dynamic document
-      DynamicJsonDocument doc(2048);
-      DeserializationError err = deserializeJson(doc, response);
+      DynamicJsonDocument doc(1024);
+      DeserializationError err = deserializeJson(doc, response, DeserializationOption::Filter(filter));
       if (err) {
         DEBUG_PRINTF("[%s] Poll: JSON parse error: %s\n", _name, err.c_str());
-        statusStr = F("JSON parse error");
+        statusStr = "Poll JSON err: " + response.substring(0, 64);
         return;
       }
 
@@ -351,17 +527,16 @@ class PhilipsHueV2Usermod : public Usermod {
 
       statusStr = F("OK");
     }
-#endif // HUE_HAS_TLS
 
   public:
 
     void setup() override {
       DEBUG_PRINTF("[%s] Setup: enabled=%s bridgeIp=%s\n", _name, enabled ? "true" : "false", bridgeIp);
+      loadLightsFromFS();
       initDone = true;
     }
 
     void loop() override {
-#ifdef HUE_HAS_TLS
       if (!enabled || !initDone || strip.isUpdating()) return;
       if (!WLED_CONNECTED) return;
       if (strlen(bridgeIp) == 0) return;
@@ -372,10 +547,11 @@ class PhilipsHueV2Usermod : public Usermod {
 
       if (attemptAuth) {
         authenticate();
+      } else if (fetchLights) {
+        discoverLights();
       } else {
         pollLight();
       }
-#endif
     }
 
     void addToJsonInfo(JsonObject& root) override {
@@ -385,11 +561,14 @@ class PhilipsHueV2Usermod : public Usermod {
       if (user.isNull()) user = root.createNestedObject("u");
 
       JsonArray status = user.createNestedArray(F("Hue V2"));
-#ifdef HUE_HAS_TLS
       status.add(statusStr);
-#else
-      status.add(F("SSL not available"));
-#endif
+
+      if (numDiscoveredLights > 0) {
+        for (size_t i = 0; i < numDiscoveredLights; i++) {
+          JsonArray row = user.createNestedArray(F("Hue Light"));
+          row.add(String(discoveredLights[i].name));
+        }
+      }
     }
 
     void addToConfig(JsonObject& root) override {
@@ -403,6 +582,7 @@ class PhilipsHueV2Usermod : public Usermod {
       top[F("applyBri")] = applyBri;
       top[F("applyColor")] = applyColor;
       top[F("attemptAuth")] = attemptAuth;
+      top[F("fetchLights")] = fetchLights;
     }
 
     bool readFromConfig(JsonObject& root) override {
@@ -415,12 +595,14 @@ class PhilipsHueV2Usermod : public Usermod {
       configComplete &= getJsonValue(top[F("applyBri")], applyBri, true);
       configComplete &= getJsonValue(top[F("applyColor")], applyColor, true);
       configComplete &= getJsonValue(top[F("attemptAuth")], attemptAuth, false);
+      configComplete &= getJsonValue(top[F("fetchLights")], fetchLights, false);
 
       // char arrays must be read with strlcpy, not getJsonValue
       const char* s = nullptr;
       if (!(s = top[F("bridgeIp")])) configComplete = false; else strlcpy(bridgeIp, s, sizeof(bridgeIp));
       if (!(s = top[F("apiKey")])) configComplete = false; else strlcpy(apiKey, s, sizeof(apiKey));
       if (!(s = top[F("lightId")])) configComplete = false; else strlcpy(lightId, s, sizeof(lightId));
+
 
       DEBUG_PRINTF("[%s] Config %s: enabled=%s bridgeIp=%s pollInterval=%lu\n",
                    _name, configComplete ? "loaded" : "incomplete",
@@ -430,13 +612,31 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     void appendConfigData() override {
-#ifdef HUE_HAS_TLS
-      oappend(F("addInfo('Philips Hue V2:bridgeIp',1,'Hue bridge IP address');"));
+      DEBUG_PRINTF("[%s] appendConfigData: numDiscoveredLights=%u\n", _name, numDiscoveredLights);
+      oappend(F("addInfo('Philips Hue V2:bridgeIp',1,'IP or http://IP for plain HTTP');"));
       oappend(F("addInfo('Philips Hue V2:apiKey',1,'API key (auto-filled after auth)');"));
-      oappend(F("addInfo('Philips Hue V2:lightId',1,'Light resource UUID from V2 API');"));
+
+      // build dropdown for lightId if lights have been discovered
+      if (numDiscoveredLights > 0) {
+        oappend(F("dd=addDropdown('Philips Hue V2','lightId');"));
+        oappend(F("addOption(dd,'(select a light)','');"));
+        for (size_t i = 0; i < numDiscoveredLights; i++) {
+          oappend(F("addOption(dd,'"));
+          // escape single quotes in light name
+          String safeName = String(discoveredLights[i].name);
+          safeName.replace("'", "\\'");
+          oappend(safeName.c_str());
+          oappend(F("','"));
+          oappend(discoveredLights[i].id);
+          oappend(F("');"));
+        }
+      } else {
+        oappend(F("addInfo('Philips Hue V2:lightId',1,'Use Fetch Lights to populate list');"));
+      }
+
       oappend(F("addInfo('Philips Hue V2:pollInterval',1,'ms between polls (min 1000)');"));
       oappend(F("addInfo('Philips Hue V2:attemptAuth',1,'Press link button first');"));
-#endif
+      oappend(F("addInfo('Philips Hue V2:fetchLights',1,'List lights (see Info tab)');"));
     }
 
     uint16_t getId() override {
