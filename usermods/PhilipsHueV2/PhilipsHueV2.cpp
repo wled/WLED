@@ -68,6 +68,9 @@ class PhilipsHueV2Usermod : public Usermod {
     String statusStr = "Idle";
     uint8_t failCount = 0;          // consecutive connection failures for backoff
 
+    // persistent TCP client — reused to avoid socket exhaustion (errno 11)
+    WiFiClient tcpClient;
+
     // discovered lights for dropdown — persisted to /hue_lights.json, not kept in RAM
     bool lightsDiscovered = false;  // true once a successful fetch has been saved
     char lightName[40] = "";        // display name of the currently monitored light
@@ -182,53 +185,79 @@ class PhilipsHueV2Usermod : public Usermod {
       DEBUG_PRINTF("[%s] %s %s %s to %s:%u (free heap: %u)\n",
                    _name, usePlainHttp ? "HTTP" : "HTTPS", method, path, host, port, ESP.getFreeHeap());
 
-      // --- create the appropriate client ---
-      // Both WiFiClient and BearSSLClient inherit from Client (Arduino base).
-      // We also need to prevent the BearSSL transport WiFiClient from being
-      // freed before the BearSSLClient, so we store it in a separate pointer.
-      std::unique_ptr<WiFiClient> tcpClient;     // kept alive for BearSSL transport
-      std::unique_ptr<Client> client;
+      // ensure previous connection is closed
+      tcpClient.stop();
 
-      if (usePlainHttp) {
-        client.reset(new WiFiClient);
-        if (!client) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-        client->setTimeout(2);  // 2s TCP timeout
-      }
+      // --- create the appropriate client wrapper ---
+      // TLS wrappers are heap-allocated (too large for the stack) and
+      // cleaned up via unique_ptr at function exit.
+      // For plain HTTP we use the persistent tcpClient directly.
+      Client* client = nullptr;
+      std::unique_ptr<Client> tlsOwner;         // releases heap TLS wrapper on return
+      std::unique_ptr<WiFiClient> transportOwner; // releases heap WiFiClient used by BearSSL
+
 #ifdef HUE_TLS_BACKEND_NATIVE
-      else {
+      if (!usePlainHttp) {
   #if __has_include(<NetworkClientSecure.h>)
         auto *tlsClient = new NetworkClientSecure;
   #else
         auto *tlsClient = new WiFiClientSecure;
   #endif
-        if (!tlsClient) { DEBUG_PRINTF("[%s] TLS client alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-        tlsClient->setInsecure();  // Hue bridge uses self-signed cert
-        tlsClient->setTimeout(4);  // 4 second timeout
-        client.reset(tlsClient);
+        if (!tlsClient) { DEBUG_PRINTF("[%s] TLS alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        tlsClient->setInsecure();
+        tlsClient->setTimeout(4);
+  #if __has_include(<NetworkClientSecure.h>)
+        tlsClient->setHandshakeTimeout(5);
+        tlsClient->setBufferSizes(4096, 1024);  // reduce TLS buffer from 32KB to 5KB
+  #endif
+        tlsOwner.reset(tlsClient);
+        client = tlsClient;
+        DEBUG_PRINTF("[%s] TLS client created (free heap: %u)\n", _name, ESP.getFreeHeap());
       }
-#elif defined(HUE_TLS_BACKEND_BEARSSL)
-      else {
-        tcpClient.reset(new WiFiClient);
-        if (!tcpClient) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-        auto *tlsClient = new BearSSLClient(*tcpClient, nullptr, 0);
-        if (!tlsClient) { DEBUG_PRINTF("[%s] BearSSL alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
-        tlsClient->setInsecure(BearSSLClient::SNI::Insecure);
-        client.reset(tlsClient);
+#endif
+
+#ifdef HUE_TLS_BACKEND_BEARSSL
+      if (!usePlainHttp && !client) {
+        // BearSSL wraps a WiFiClient by reference — create a fresh one on
+        // the heap so it doesn't share state with the persistent tcpClient.
+        auto *transport = new WiFiClient;
+        if (!transport) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        auto *bearClient = new BearSSLClient(*transport, nullptr, 0);
+        if (!bearClient) { delete transport; DEBUG_PRINTF("[%s] BearSSL alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        bearClient->setInsecure(BearSSLClient::SNI::Insecure);
+        tlsOwner.reset(bearClient);
+        // Note: transport is leaked if BearSSLClient destructor doesn't stop() the underlying client.
+        // We clean it up explicitly after client->stop() below.
+        transportOwner.reset(transport);
+        client = bearClient;
+        DEBUG_PRINTF("[%s] BearSSL client created (free heap: %u)\n", _name, ESP.getFreeHeap());
       }
-#else
-      else {
+#endif
+
+      if (usePlainHttp) {
+        tcpClient.setTimeout(2);
+        client = &tcpClient;
+      }
+
+      if (!client) {
         DEBUG_PRINTF("[%s] No TLS backend available — use http:// prefix for plain HTTP\n", _name);
         statusStr = F("No TLS backend");
         return "";
       }
-#endif
 
       // --- connect ---
+      uint32_t heapBefore = ESP.getFreeHeap();
       if (!client->connect(host, port)) {
-        DEBUG_PRINTF("[%s] Connection to %s:%u failed (errno %d, free heap: %u)\n",
-                     _name, host, port, errno, ESP.getFreeHeap());
+        int e = errno;
+        uint32_t heapAfter = ESP.getFreeHeap();
+        const char* errStr = (e == 11) ? "EAGAIN (no sockets)" :
+                             (e == 111) ? "ECONNREFUSED" :
+                             (e == 113) ? "EHOSTUNREACH" :
+                             (e == 110) ? "ETIMEDOUT" : "?";
+        DEBUG_PRINTF("[%s] Connection to %s:%u failed: errno %d (%s), heap %u -> %u (used %d)\n",
+                     _name, host, port, e, errStr, heapBefore, heapAfter, (int)(heapBefore - heapAfter));
         statusStr = F("Connection failed");
-        failCount = min((int)failCount + 4, 16);  // back off up to 16 intervals (~40s at 2.5s poll)
+        failCount = min((int)failCount + 4, 16);
         return "";
       }
       DEBUG_PRINTF("[%s] Connected to %s:%u\n", _name, host, port);
@@ -529,6 +558,13 @@ class PhilipsHueV2Usermod : public Usermod {
   public:
 
     void setup() override {
+#ifdef HUE_TLS_BACKEND_NATIVE
+      DEBUG_PRINTF("[%s] TLS backend: native (WiFiClientSecure)\n", _name);
+#elif defined(HUE_TLS_BACKEND_BEARSSL)
+      DEBUG_PRINTF("[%s] TLS backend: BearSSL\n", _name);
+#else
+      DEBUG_PRINTF("[%s] TLS backend: none\n", _name);
+#endif
       DEBUG_PRINTF("[%s] Setup: enabled=%s bridgeIp=%s\n", _name, enabled ? "true" : "false", bridgeIp);
       loadLightsFromFS();
       initDone = true;
