@@ -68,6 +68,8 @@ class PhilipsHueV2Usermod : public Usermod {
     uint16_t lastCt = 0;
     String statusStr = "Idle";
     uint8_t failCount = 0;          // consecutive connection failures for backoff
+    bool mdnsDiscovered = false;    // true if bridgeIp was auto-filled via mDNS
+    unsigned long lastMdnsAttempt = 0; // rate-limit mDNS queries
 
     // persistent TCP client — reused to avoid socket exhaustion (errno 11)
     WiFiClient tcpClient;
@@ -170,6 +172,31 @@ class PhilipsHueV2Usermod : public Usermod {
       rgb[0] = (byte)(r * 255.0f);
       rgb[1] = (byte)(g * 255.0f);
       rgb[2] = (byte)(b * 255.0f);
+    }
+
+    /*
+     * Attempt to discover a Philips Hue bridge on the local network via mDNS.
+     * The bridge advertises itself as _hue._tcp.
+     * Returns true if a bridge was found and bridgeIp was populated.
+     */
+    bool discoverBridgeMdns() {
+      DEBUG_PRINTF("[%s] mDNS: querying for _hue._tcp ...\n", _name);
+      statusStr = F("mDNS searching...");
+
+      int n = MDNS.queryService("hue", "tcp");
+      if (n <= 0) {
+        DEBUG_PRINTF("[%s] mDNS: no Hue bridge found\n", _name);
+        statusStr = F("No bridge found (mDNS)");
+        return false;
+      }
+
+      // use the first result
+      IPAddress ip = MDNS.IP(0);
+      snprintf(bridgeIp, sizeof(bridgeIp), "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+      mdnsDiscovered = true;
+      DEBUG_PRINTF("[%s] mDNS: found Hue bridge at %s (port %d)\n", _name, bridgeIp, MDNS.port(0));
+      statusStr = "Bridge found: " + String(bridgeIp);
+      return true;
     }
 
     /*
@@ -837,7 +864,15 @@ class PhilipsHueV2Usermod : public Usermod {
         if (sseState != SSE_DISCONNECTED) sseDisconnect();
         return;
       }
-      if (strlen(bridgeIp) == 0) return;
+      if (strlen(bridgeIp) == 0) {
+        // no bridge configured — try mDNS discovery (rate-limited)
+        unsigned long now = millis();
+        if (now - lastMdnsAttempt >= 30000) {
+          lastMdnsAttempt = now;
+          discoverBridgeMdns();
+        }
+        return;
+      }
 
       // --- SSE: non-blocking read every iteration ---
       if (sseEnabled && sseState != SSE_DISABLED) {
@@ -909,12 +944,19 @@ class PhilipsHueV2Usermod : public Usermod {
         JsonArray row = user.createNestedArray(F("Hue Light"));
         row.add(lightName);
       }
+
+      if (strlen(bridgeIp) > 0) {
+        JsonArray row = user.createNestedArray(F("Hue Bridge"));
+        String label = String(bridgeIp);
+        if (mdnsDiscovered) label += F(" (mDNS)");
+        row.add(label);
+      }
     }
 
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled)] = enabled;
-      top[F("bridgeIp")] = bridgeIp;
+      top[F("bridgeIp")] = mdnsDiscovered ? "" : bridgeIp;  // don't persist mDNS-discovered IP
       top[F("apiKey")] = apiKey;
       top[F("lightId")] = lightId;
       top[F("pollInterval")] = pollInterval;
@@ -945,6 +987,9 @@ class PhilipsHueV2Usermod : public Usermod {
       if (!(s = top[F("apiKey")])) configComplete = false; else strlcpy(apiKey, s, sizeof(apiKey));
       if (!(s = top[F("lightId")])) configComplete = false; else strlcpy(lightId, s, sizeof(lightId));
 
+      // if user manually set a bridge IP, clear the mDNS flag
+      if (strlen(bridgeIp) > 0) mdnsDiscovered = false;
+
       // disconnect SSE on config change so it reconnects with new settings
       if (initDone) {
         sseDisconnect();
@@ -961,7 +1006,7 @@ class PhilipsHueV2Usermod : public Usermod {
 
     void appendConfigData() override {
       DEBUG_PRINTF("[%s] appendConfigData: lightsDiscovered=%s\n", _name, lightsDiscovered ? "true" : "false");
-      oappend(F("addInfo('Philips Hue V2:bridgeIp',1,'IP or http://IP for plain HTTP');"));
+      oappend(F("addInfo('Philips Hue V2:bridgeIp',1,'Leave empty for mDNS auto-discovery');"));
       oappend(F("addInfo('Philips Hue V2:apiKey',1,'API key (auto-filled after auth)');"));
 
       // build dropdown for lightId if lights have been discovered
