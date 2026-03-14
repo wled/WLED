@@ -488,6 +488,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("RD"),receiveDirect);
     printSetFormCheckbox(settingsScript,PSTR("MO"),useMainSegmentOnly);
     printSetFormCheckbox(settingsScript,PSTR("RLM"),realtimeRespectLedMaps);
+    printSetFormCheckbox(settingsScript,PSTR("ROP"),realtimeAllowPresets);
     printSetFormValue(settingsScript,PSTR("EP"),e131Port);
     printSetFormCheckbox(settingsScript,PSTR("ES"),e131SkipOutOfSequence);
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
