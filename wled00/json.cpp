@@ -764,6 +764,7 @@ void serializeInfo(JsonObject root)
     case REALTIME_MODE_ARTNET:   root["lm"] = F("Art-Net"); break;
     case REALTIME_MODE_TPM2NET:  root["lm"] = F("tpm2.net"); break;
     case REALTIME_MODE_DDP:      root["lm"] = F("DDP"); break;
+	case REALTIME_MODE_FSEQ:     root["lm"] = F("FSEQ"); break;
   }
 
   root[F("lip")] = realtimeIP[0] == 0 ? "" : realtimeIP.toString();
