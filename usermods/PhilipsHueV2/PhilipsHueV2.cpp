@@ -321,17 +321,24 @@ class PhilipsHueV2Usermod : public Usermod {
 
       client->print(request);
 
-      // read response — stop after 500ms of no new data to avoid blocking the loop
+      // read response
+      // First wait for data with a longer timeout, then drain everything.
       String rawResponse = "";
+      unsigned long startTime = millis();
+      // wait up to 5s for the first byte
+      while (!client->available() && client->connected() && millis() - startTime < 5000) {
+        yield();
+      }
+      // read while connected or data still in buffer
       unsigned long idleStart = millis();
-      while (client->connected()) {
+      while (client->connected() || client->available()) {
         if (client->available()) {
           String line = client->readStringUntil('\n');
           rawResponse += line + "\n";
           if (rawResponse.length() > RESPONSE_BUF_SIZE) break;
-          idleStart = millis();  // reset idle timer on data received
+          idleStart = millis();
         } else {
-          if (millis() - idleStart > 500) break;  // no data for 500ms — done
+          if (millis() - idleStart > 1000) break;  // no data for 1s — done
           yield();
         }
       }
