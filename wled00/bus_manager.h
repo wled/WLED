@@ -276,7 +276,7 @@ class BusDigital : public Bus {
   private:
     uint8_t  _skip;
     uint8_t  _colorOrder;
-    uint8_t  _pins[2];
+    uint8_t  _pins[2] = {255, 255};
     uint8_t  _driverType; // 0=RMT (default), 1=I2S
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;

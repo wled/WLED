@@ -394,16 +394,34 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
 
     // Bus instance overhead
     mem += 128; // Approximate C++ object size + IBus data structures
+    // TODO: check if this is correct
+    switch (type) {
+        case BusType::UART:
+            // UART encode buffer: 4 encoded bytes per LED byte (no DMA)
+            mem += numPixels * channelCount * 4;
+            break;
 
-    // Encode buffer (allocated continuously across RMT, I2S, LCD)
-    mem += numPixels * channelCount;
+        case BusType::BitBang:
+            mem += numPixels * channelCount;  // single buffer
+            break;
 
-    // DMA buffers and descriptors for I2S/LCD 
-    // They are double-buffered and mapped via heap_caps_malloc
-    if (type == BusType::I2S || type == BusType::LCD || type == BusType::Auto) {
-        mem += dmaBufferSize * 2;
-        // Include minimal descriptor memory estimates (~64 bytes per context)
-        mem += 64;
+        case BusType::DMA:
+            // I2S DMA on ESP8266: same 4-step encoding as UART but written via DMA
+            mem += numPixels * channelCount * 4;
+            break;
+
+        default:
+            // Encode buffer (RMT, I2S, LCD, SPI, etc.)
+            mem += numPixels * channelCount;
+
+            // DMA buffers and descriptors for I2S/LCD
+            // They are double-buffered and mapped via heap_caps_malloc
+            if (type == BusType::I2S || type == BusType::LCD || type == BusType::Auto) {
+                mem += dmaBufferSize * 2;
+                // Include minimal descriptor memory estimates (~64 bytes per context)
+                mem += 64;
+            }
+            break;
     }
 
     return mem;

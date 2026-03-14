@@ -1262,11 +1262,15 @@ String BusManager::getLEDTypesJSONString() {
 bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
   return PolyBus::allocateHardware(busType, pins, driverType);
 }
+// Module-level cache for setPixelColor() fast path - must be reset in removeAll()
+static Bus* _lastBusCache = nullptr;
+
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
   DEBUGBUS_PRINTLN(F("Removing all."));
   //prevents crashes due to deleting busses while in use.
   while (!canAllShow()) yield();
+  _lastBusCache = nullptr; // Reset cache before destroying buses to avoid dangling pointer UB
   busses.clear();
   #ifndef ESP8266
   // Reset channel tracking for fresh allocation
@@ -1353,15 +1357,14 @@ void BusManager::show() {
 }
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
-  static Bus* lastBus = nullptr;
-  if (lastBus && lastBus->containsPixel(pix)) {
-    lastBus->setPixelColor(pix - lastBus->getStart(), c);
+  if (_lastBusCache && _lastBusCache->containsPixel(pix)) {
+    _lastBusCache->setPixelColor(pix - _lastBusCache->getStart(), c);
     return;
   }
   for (auto &bus : busses) {
     if (bus->containsPixel(pix)) {
       bus->setPixelColor(pix - bus->getStart(), c);
-      lastBus = bus.get();
+      _lastBusCache = bus.get();
       return;
     }
   }

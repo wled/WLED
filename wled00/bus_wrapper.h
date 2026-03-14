@@ -199,13 +199,13 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
 
     auto btype = WLEDpixelBus::BusType::Auto;
-    uint8_t hwIndex = pins[0]; 
     
     #ifdef ESP8266
-    uint8_t offset = pins[0] - 1; 
-    if (offset == 0 || offset == 1) btype = WLEDpixelBus::BusType::UART;
-    else if (offset == 2) btype = WLEDpixelBus::BusType::DMA;
-    else btype = WLEDpixelBus::BusType::BitBang;
+  //  uint8_t offset = pins[0] - 1; 
+  //  if (pins[0] == 1 || pins[0] == 2) btype = WLEDpixelBus::BusType::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
+    //else if (offset == 2) btype = WLEDpixelBus::BusType::DMA; // DMA method uses a lot of RAM!
+    //else btype = WLEDpixelBus::BusType::BitBang;
+    btype = WLEDpixelBus::BusType::BitBang; // bit banging works on all pins and uses less memory
     #else
     switch (driverType) {
       case 0:  btype = WLEDpixelBus::BusType::RMT; break;
@@ -236,7 +236,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
-    return WLEDpixelBus::createBus(btype, hwIndex, proto.timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
+    return WLEDpixelBus::createBus(btype, pins[0], proto.timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
   }
 
   static unsigned memUsage(uint8_t busType, unsigned count, const uint8_t* pins, unsigned driverType = 0) {
@@ -258,7 +258,14 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     auto btype = WLEDpixelBus::BusType::Auto;
 
     #ifdef ESP8266
-      btype = WLEDpixelBus::BusType::Auto;
+      // Determine the actual bus type from pin number (must mirror the logic in create())
+      // Pin 1 → UART0, Pin 2 → UART1, Pin 3 → DMA (I2S), all others → BitBang
+      //uint8_t offset = (pins && pins[0] >= 1) ? (pins[0] - 1) : 255;
+      //if (pins[0] == 1 || pins[0] == 2)  btype = WLEDpixelBus::BusType::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled
+      //else if (offset == 2)            btype = WLEDpixelBus::BusType::DMA; -> DMA method uses too much RAM (it is also not working right currently)
+      //else                             btype = WLEDpixelBus::BusType::BitBang;
+
+      btype = WLEDpixelBus::BusType::BitBang;
     #else
       switch (driverType) {
         case 0: btype = WLEDpixelBus::BusType::RMT; break;
