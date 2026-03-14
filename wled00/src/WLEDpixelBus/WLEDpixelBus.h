@@ -262,6 +262,9 @@ public:
     virtual void setBrightness(uint8_t b) {
         _brightness = b;
     }
+    
+    virtual uint32_t* getPixelData() { return _pixelData; }
+    virtual CctPixel* getCctData() { return _cctData; }
 };
 
 //==============================================================================
@@ -289,7 +292,7 @@ class LcdBusContext;
  */
 class ColorEncoder {
 public:
-    ColorEncoder(ColorOrder order) : _order(order), _numChannels(getChannelCount(order)) {}
+    ColorEncoder(ColorOrder order);
 
     /**
      * Encode a single pixel to output buffer
@@ -297,7 +300,7 @@ public:
      * @param cct Optional CCT data (for CCT strips, replaces W channel)
      * @param out Output buffer (must have space for numChannels bytes)
      */
-    void encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const;
+    inline void encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const;
 
     uint8_t getNumChannels() const { return _numChannels; }
     ColorOrder getOrder() const { return _order; }
@@ -305,7 +308,30 @@ public:
 private:
     ColorOrder _order;
     uint8_t _numChannels;
+    uint8_t _idxR;
+    uint8_t _idxG;
+    uint8_t _idxB;
+    uint8_t _idxW;
+    uint8_t _idxWW;
+    uint8_t _idxCW;
 };
+
+inline void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const {
+    uint8_t r = getR(pixel);
+    uint8_t g = getG(pixel);
+    uint8_t b = getB(pixel);
+    uint8_t w = getW(pixel);
+
+    out[_idxR] = r;
+    out[_idxG] = g;
+    out[_idxB] = b;
+    if (_idxW != 0xFF) out[_idxW] = w;
+
+    if (_idxWW != 0xFF) {
+        out[_idxWW] = cct ? cct->ww : w; // TODO: handle ww/cw more clever, there is not really a need to have this explicit, could save an if for RGB case
+        out[_idxCW] = cct ? cct->cw : 0;
+    }
+}
 
 
 

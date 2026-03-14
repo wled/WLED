@@ -163,8 +163,10 @@ BusDigital::BusDigital(const BusConfig &bc)
   // fix for wled#4759
   if (_valid) {
     _busPtr->allocatePixelBuffer(lenToCreate + _skip, _hasCCT);
+    _pixelDataPtr = _busPtr->getPixelData();
+    _cctDataPtr = _busPtr->getCctData();
     for (unsigned i = 0; i < _skip; i++) {
-      _busPtr->setPixelColor(i, 0); // set sacrificial pixels to black (color order does not matter here)
+        if (_pixelDataPtr) _pixelDataPtr[i] = 0; // set sacrificial pixels to black
     }
   } else {
     cleanup();
@@ -242,14 +244,13 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
       }
       c = color_fade(c, newBri, true); // apply additional dimming  note: using inline version is a bit faster but overhead of getPixelColor() dominates the speed impact by far
 
-      if (hasCCT()) {
-            WLEDpixelBus::CctPixel cp;
-            cp.ww = wwcw & 0xFF;
-            cp.cw = wwcw >> 8;
-            _busPtr->setPixelColor(i, c, &cp);
-        } else {
-            _busPtr->setPixelColor(i, c);
-          }
+      if (hasCCT() && _cctDataPtr) {
+            _cctDataPtr[i].ww = wwcw & 0xFF;
+            _cctDataPtr[i].cw = wwcw >> 8;
+        }
+      if (_pixelDataPtr) {
+          _pixelDataPtr[i] = c;
+      }
     }
   }
 
@@ -259,7 +260,7 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 void BusDigital::show() {
   if (!_valid) return;
   _NPBbri = (_NPBbri * _bri) / 255;      // total applied brightness for use in restoreColorLossy (see applyBriLimit())
-  _busPtr->show(); 
+  _busPtr->show();
 }
 
 bool BusDigital::canShow() const {
@@ -315,14 +316,13 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  if (hasCCT()) {
-      WLEDpixelBus::CctPixel cp;
-      cp.ww = wwcw & 0xFF;
-      cp.cw = wwcw >> 8;
-      _busPtr->setPixelColor(pix, c, &cp);
-    } else {
-      _busPtr->setPixelColor(pix, c);
-    }
+  if (hasCCT() && _cctDataPtr) {
+      _cctDataPtr[pix].ww = wwcw & 0xFF;
+      _cctDataPtr[pix].cw = wwcw >> 8;
+  }
+  if (_pixelDataPtr) {
+      _pixelDataPtr[pix] = c;
+  }
 }
 
 // returns lossly restored color from bus
@@ -330,8 +330,8 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (!_valid) return 0;
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
-  const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
-  uint32_t rawC = _busPtr->getPixelColor((_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix);
+  const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder); // TODO: do we need the color order? where is getpixelcolor used?
+  uint32_t rawC = _busPtr->getPixelColor((_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix); // TODO: check if this is correct
   uint32_t c = restoreColorLossy(rawC, _NPBbri);
   if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
     uint8_t r = R(c);
@@ -412,6 +412,8 @@ void BusDigital::cleanup() {
   }
   _valid = false;
   _busPtr = nullptr;
+  _pixelDataPtr = nullptr;
+  _cctDataPtr = nullptr;
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
 }
@@ -1351,9 +1353,17 @@ void BusManager::show() {
 }
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
+  static Bus* lastBus = nullptr;
+  if (lastBus && lastBus->containsPixel(pix)) {
+    lastBus->setPixelColor(pix - lastBus->getStart(), c);
+    return;
+  }
   for (auto &bus : busses) {
-    if (!bus->containsPixel(pix)) continue;
-    bus->setPixelColor(pix - bus->getStart(), c);
+    if (bus->containsPixel(pix)) {
+      bus->setPixelColor(pix - bus->getStart(), c);
+      lastBus = bus.get();
+      return;
+    }
   }
 }
 

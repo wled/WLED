@@ -33,48 +33,111 @@ namespace WLEDpixelBus {
 // Color Encoder Implementation
 //==============================================================================
 
-void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const {
-    uint8_t r = getR(pixel);
-    uint8_t g = getG(pixel);
-    uint8_t b = getB(pixel);
-    uint8_t w = getW(pixel);
+ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getChannelCount(order))
+{
+    _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
+//TODO: is there a better way to define color orders indices than just this dumb list? it also does not cover all possibilities I think (swapping white and color channels)
+    switch(order)
+    {
+        case ColorOrder::RGB:
+            _idxR=0; _idxG=1; _idxB=2;
+            break;
 
-    // For CCT strips, use CCT data instead of W channel
-    uint8_t ww = cct ? cct->ww : w;
-    uint8_t cw = cct ? cct->cw : 0;
+        case ColorOrder::GRB:
+            _idxG=0; _idxR=1; _idxB=2;
+            break;
 
-    switch (_order) {
-        // RGB variants
-        case ColorOrder::RGB: out[0]=r; out[1]=g; out[2]=b; break;
-        case ColorOrder::GRB: out[0]=g; out[1]=r; out[2]=b; break;
-        case ColorOrder::BRG: out[0]=b; out[1]=r; out[2]=g; break;
-        case ColorOrder::RBG: out[0]=r; out[1]=b; out[2]=g; break;
-        case ColorOrder::GBR: out[0]=g; out[1]=b; out[2]=r; break;
-        case ColorOrder::BGR: out[0]=b; out[1]=g; out[2]=r; break;
+        case ColorOrder::BRG:
+            _idxB=0; _idxR=1; _idxG=2;
+            break;
 
-        // RGBW variants
-        case ColorOrder::RGBW: out[0]=r; out[1]=g; out[2]=b; out[3]=w; break;
-        case ColorOrder::GRBW: out[0]=g; out[1]=r; out[2]=b; out[3]=w; break;
-        case ColorOrder::BRGW: out[0]=b; out[1]=r; out[2]=g; out[3]=w; break;
-        case ColorOrder::RBGW: out[0]=r; out[1]=b; out[2]=g; out[3]=w; break;
-        case ColorOrder::GBRW: out[0]=g; out[1]=b; out[2]=r; out[3]=w; break;
-        case ColorOrder::BGRW: out[0]=b; out[1]=g; out[2]=r; out[3]=w; break;
-        case ColorOrder::WRGB: out[0]=w; out[1]=r; out[2]=g; out[3]=b; break;
-        case ColorOrder::WGRB: out[0]=w; out[1]=g; out[2]=r; out[3]=b; break;
-        case ColorOrder::WBRG: out[0]=w; out[1]=b; out[2]=r; out[3]=g; break;
-        case ColorOrder::WRBG: out[0]=w; out[1]=r; out[2]=b; out[3]=g; break;
-        case ColorOrder::WGBR: out[0]=w; out[1]=g; out[2]=b; out[3]=r; break;
-        case ColorOrder::WBGR: out[0]=w; out[1]=b; out[2]=g; out[3]=r; break;
+        case ColorOrder::RBG:
+            _idxR=0; _idxB=1; _idxG=2;
+            break;
 
-        // RGBWC variants
-        case ColorOrder::RGBWC: out[0]=r; out[1]=g; out[2]=b; out[3]=ww; out[4]=cw; break;
-        case ColorOrder::GRBWC: out[0]=g; out[1]=r; out[2]=b; out[3]=ww; out[4]=cw; break;
-        case ColorOrder::BRGWC: out[0]=b; out[1]=r; out[2]=g; out[3]=ww; out[4]=cw; break;
-        case ColorOrder::RBGWC: out[0]=r; out[1]=b; out[2]=g; out[3]=ww; out[4]=cw; break;
-        case ColorOrder::GBRWC: out[0]=g; out[1]=b; out[2]=r; out[3]=ww; out[4]=cw; break;
-        case ColorOrder::BGRWC: out[0]=b; out[1]=g; out[2]=r; out[3]=ww; out[4]=cw; break;
+        case ColorOrder::GBR:
+            _idxG=0; _idxB=1; _idxR=2;
+            break;
 
-        default: out[0]=g; out[1]=r; out[2]=b; break;
+        case ColorOrder::BGR:
+            _idxB=0; _idxG=1; _idxR=2;
+            break;
+
+        case ColorOrder::RGBW:
+            _idxR=0; _idxG=1; _idxB=2; _idxW=3;
+            break;
+
+        case ColorOrder::GRBW:
+            _idxG=0; _idxR=1; _idxB=2; _idxW=3;
+            break;
+
+        case ColorOrder::BRGW:
+            _idxB=0; _idxR=1; _idxG=2; _idxW=3;
+            break;
+
+        case ColorOrder::RBGW:
+            _idxR=0; _idxB=1; _idxG=2; _idxW=3;
+            break;
+
+        case ColorOrder::GBRW:
+            _idxG=0; _idxB=1; _idxR=2; _idxW=3;
+            break;
+
+        case ColorOrder::BGRW:
+            _idxB=0; _idxG=1; _idxR=2; _idxW=3;
+            break;
+
+        case ColorOrder::WRGB:
+            _idxW=0; _idxR=1; _idxG=2; _idxB=3;
+            break;
+
+        case ColorOrder::WGRB:
+            _idxW=0; _idxG=1; _idxR=2; _idxB=3;
+            break;
+
+        case ColorOrder::WBRG:
+            _idxW=0; _idxB=1; _idxR=2; _idxG=3;
+            break;
+
+        case ColorOrder::WRBG:
+            _idxW=0; _idxR=1; _idxB=2; _idxG=3;
+            break;
+
+        case ColorOrder::WGBR:
+            _idxW=0; _idxG=1; _idxB=2; _idxR=3;
+            break;
+
+        case ColorOrder::WBGR:
+            _idxW=0; _idxB=1; _idxG=2; _idxR=3;
+            break;
+
+        case ColorOrder::RGBWC:
+            _idxR=0; _idxG=1; _idxB=2; _idxWW=3; _idxCW=4;
+            break;
+
+        case ColorOrder::GRBWC:
+            _idxG=0; _idxR=1; _idxB=2; _idxWW=3; _idxCW=4;
+            break;
+
+        case ColorOrder::BRGWC:
+            _idxB=0; _idxR=1; _idxG=2; _idxWW=3; _idxCW=4;
+            break;
+
+        case ColorOrder::RBGWC:
+            _idxR=0; _idxB=1; _idxG=2; _idxWW=3; _idxCW=4;
+            break;
+
+        case ColorOrder::GBRWC:
+            _idxG=0; _idxB=1; _idxR=2; _idxWW=3; _idxCW=4;
+            break;
+
+        case ColorOrder::BGRWC:
+            _idxB=0; _idxG=1; _idxR=2; _idxWW=3; _idxCW=4;
+            break;
+
+        default:
+            _idxG=0; _idxR=1; _idxB=2;
+            break;
     }
 }
 
