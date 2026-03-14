@@ -719,8 +719,8 @@ void WLED::initConnection()
     DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
 
     // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-    char hostname[25];
-    prepareHostname(hostname);
+    char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
+    getWLEDhostname(hostname, sizeof(hostname));
 
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
