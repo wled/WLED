@@ -571,8 +571,8 @@ class PhilipsHueV2Usermod : public Usermod {
 
       DEBUG_PRINTF("[%s] SSE: connecting to %s:%u (free heap: %u)\n", _name, host, port, ESP.getFreeHeap());
 
-      // clean up any previous connection
-      sseDisconnect();
+      // clean up any previous connection (no reconnect schedule — we're connecting now)
+      sseDisconnect(false);
 
       // --- create the appropriate client ---
       if (usePlainHttp) {
@@ -646,8 +646,11 @@ class PhilipsHueV2Usermod : public Usermod {
 
     /*
      * Cleanly tear down the SSE connection and free TLS memory.
+     * scheduleReconnect=true (default) arms the backoff timer so loop() will
+     * reconnect after sseReconnectInterval ms.  Pass false when intentionally
+     * shutting down (e.g. config change, WiFi lost) to suppress auto-reconnect.
      */
-    void sseDisconnect() {
+    void sseDisconnect(bool scheduleReconnect = true) {
       if (sseClient) {
         sseClient->stop();
         sseClient = nullptr;
@@ -656,11 +659,23 @@ class PhilipsHueV2Usermod : public Usermod {
       sseTransportOwner.reset();
       ssePlainClient.stop();
       sseLineBuf = "";
-      if (sseState == SSE_STREAMING || sseState == SSE_READING_HEADERS) {
-        DEBUG_PRINTF("[%s] SSE: disconnected\n", _name);
-      }
+      bool wasConnected = (sseState == SSE_STREAMING || sseState == SSE_READING_HEADERS);
       sseState = SSE_DISCONNECTED;
       sseInitialPollDone = false;
+
+      if (scheduleReconnect) {
+        sseReconnectTime = millis() + sseReconnectInterval;
+        // increase backoff for next failure, capped at 60s
+        sseReconnectInterval = min(sseReconnectInterval * 2, 60000UL);
+        if (wasConnected) {
+          DEBUG_PRINTF("[%s] SSE: disconnected, reconnecting in %lums\n", _name, sseReconnectInterval);
+        } else {
+          DEBUG_PRINTF("[%s] SSE: connect failed, retry in %lums\n", _name, sseReconnectInterval);
+        }
+      } else {
+        sseReconnectTime = ULONG_MAX;  // never auto-reconnect
+        DEBUG_PRINTF("[%s] SSE: shut down\n", _name);
+      }
     }
 
     /*
@@ -868,7 +883,7 @@ class PhilipsHueV2Usermod : public Usermod {
     void loop() override {
       if (!enabled || !initDone || strip.isUpdating()) return;
       if (!WLED_CONNECTED) {
-        if (sseState != SSE_DISCONNECTED) sseDisconnect();
+        if (sseState != SSE_DISCONNECTED) sseDisconnect(false);
         return;
       }
       if (strlen(bridgeIp) == 0) {
@@ -895,16 +910,16 @@ class PhilipsHueV2Usermod : public Usermod {
           }
         }
 
-        // if SSE is disconnected, try to (re)connect on a timer
+        // if SSE is disconnected, try to (re)connect when the backoff timer fires
         if (sseState == SSE_DISCONNECTED && strlen(apiKey) > 0 && strlen(lightId) > 0) {
           unsigned long now = millis();
           if (now >= sseReconnectTime) {
             sseConnect();
             if (sseState == SSE_DISCONNECTED) {
-              // connect failed — back off
-              sseReconnectInterval = min(sseReconnectInterval * 2, 60000UL);
-              sseReconnectTime = now + sseReconnectInterval;
-              DEBUG_PRINTF("[%s] SSE: next reconnect in %lums\n", _name, sseReconnectInterval);
+              // sseConnect failed — sseDisconnect() already scheduled next retry
+            } else {
+              // connected — reset interval for any future disconnection
+              sseReconnectInterval = 5000;
             }
           }
         }
@@ -999,7 +1014,9 @@ class PhilipsHueV2Usermod : public Usermod {
 
       // disconnect SSE on config change so it reconnects with new settings
       if (initDone) {
-        sseDisconnect();
+        sseDisconnect(false);
+        sseReconnectTime = 0;   // reconnect immediately with new settings
+        sseReconnectInterval = 5000;  // reset backoff
         loadLightsFromFS();
       }
 
