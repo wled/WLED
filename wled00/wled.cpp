@@ -704,7 +704,6 @@ void WLED::initConnection()
   WiFi.mode(WIFI_MODE_NULL);
   delay(5);                   // give the WiFi stack time to complete the mode transition
   WiFi.setHostname(hostname);
-  DEBUG_PRINTF("\ninitConnection setHostname(%s)\n\n", hostname);
 #endif
 
   if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
