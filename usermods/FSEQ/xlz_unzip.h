@@ -3,12 +3,7 @@
 #include "wled.h"
 #include <unzipLIB.h>
 
-#ifdef WLED_USE_SD_SPI
-  #include <SD.h>
-  #include <SPI.h>
-#elif defined(WLED_USE_SD_MMC)
-  #include <SD_MMC.h>
-#endif
+#include "sd_adapter_compat.h"
 
 class XLZUnzip {
 public:

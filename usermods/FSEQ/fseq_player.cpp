@@ -3,12 +3,7 @@
 #include "wled.h"
 #include <Arduino.h>
 
-#ifdef WLED_USE_SD_SPI
-#include <SD.h>
-#include <SPI.h>
-#elif defined(WLED_USE_SD_MMC)
-#include "SD_MMC.h"
-#endif
+#include "sd_adapter_compat.h"
 
 // Static member definitions moved from header to avoid multiple definition
 // errors
@@ -153,9 +148,11 @@ void FSEQPlayer::handlePlayRecording() {
 void FSEQPlayer::loadRecording(const char *filepath,
                                uint16_t startLed,
                                uint16_t stopLed,
-                               float secondsElapsed,
+                               float startSecondsElapsed,
                                bool loop)
 {
+  FSEQPlayer::secondsElapsed = startSecondsElapsed;
+
   if (recordingFile.available()) {
     clearLastPlayback();
   }
@@ -176,7 +173,7 @@ void FSEQPlayer::loadRecording(const char *filepath,
       currentFileName = currentFileName.substring(1);
   } else if (fileOnFS(filepath)) {
     DEBUG_PRINTF("Read file from FS: %s\n", filepath);
-	recordingFile = WLED_FS.open(filepath, "rb");
+    recordingFile = WLED_FS.open(filepath, "rb");
     currentFileName = String(filepath);
     if (currentFileName.startsWith("/"))
       currentFileName = currentFileName.substring(1);
@@ -225,17 +222,16 @@ void FSEQPlayer::loadRecording(const char *filepath,
   if (realtimeOverride == REALTIME_OVERRIDE_ONCE) {
     realtimeOverride = REALTIME_OVERRIDE_NONE;
   }
-  frame = (uint32_t)((secondsElapsed * 1000.0f) / file_header.step_time);
+  frame = (uint32_t)((startSecondsElapsed * 1000.0f) / file_header.step_time);
   if (frame >= file_header.frame_count) {
     frame = file_header.frame_count - 1;
   }
-  // Set loop mode if secondsElapsed is exactly 1.0f
+
   recordingRepeats = loop
     ? RECORDING_REPEAT_LOOP
     : RECORDING_REPEAT_DEFAULT;
-	
+
   playNextRecordingFrame();
-  //playNextRecordingFrame();
 }
 
 void FSEQPlayer::clearLastPlayback() {
@@ -263,7 +259,10 @@ float FSEQPlayer::getElapsedSeconds() {
   return (float)frame * (float)file_header.step_time / 1000.0f;
 }
 
-void FSEQPlayer::syncPlayback(float secondsElapsed) {
+void FSEQPlayer::syncPlayback(float targetSecondsElapsed) {
+
+  // Optional: store last known elapsed time
+  FSEQPlayer::secondsElapsed = targetSecondsElapsed;
 
   if (!isPlaying()) {
     DEBUG_PRINTLN("[FSEQ] Sync: Playback not active, cannot sync.");
@@ -271,7 +270,7 @@ void FSEQPlayer::syncPlayback(float secondsElapsed) {
   }
 
   uint32_t expectedFrame =
-      (uint32_t)((secondsElapsed * 1000.0f) / file_header.step_time);
+      (uint32_t)((targetSecondsElapsed * 1000.0f) / file_header.step_time);
 
   int32_t diff = (int32_t)expectedFrame - (int32_t)frame;
 
@@ -301,10 +300,10 @@ void FSEQPlayer::syncPlayback(float secondsElapsed) {
   // -----------------------------------------
   if (abs(diff) > 1) {
 
-    // Proportionaler Faktor wächst mit Drift
+    // proportional correction depending on drift
     float correctionFactor = 0.05f * abs(diff);
 
-    // Begrenzen damit es nicht aggressiv wird
+    // limit to avoid aggressive jumps
     correctionFactor = constrain(correctionFactor, 0.05f, 0.4f);
 
     int32_t timeAdjustment =
@@ -313,7 +312,7 @@ void FSEQPlayer::syncPlayback(float secondsElapsed) {
     next_time -= timeAdjustment;
 
     DEBUG_PRINTF(
-        "[FSEQ] Soft Sync diff=%ld factor=%.3f adjust=%ldus\n",
+        "[FSEQ] Soft Sync diff=%ld factor=%.3f adjust=%ldms\n",
         diff,
         correctionFactor,
         timeAdjustment
