@@ -66,63 +66,64 @@ class PhilipsHueV2Usermod : public Usermod {
     float lastY = 0.0f;
     uint16_t lastCt = 0;
     String statusStr = "Idle";
+    uint8_t failCount = 0;          // consecutive connection failures for backoff
 
-    // discovered lights for dropdown
-    static constexpr size_t MAX_LIGHTS = 16;
-    struct HueLight {
-      char id[40];    // UUID
-      char name[40];  // display name
-    };
-    HueLight discoveredLights[MAX_LIGHTS] = {};
-    size_t numDiscoveredLights = 0;
+    // discovered lights for dropdown — persisted to /hue_lights.json, not kept in RAM
+    bool lightsDiscovered = false;  // true once a successful fetch has been saved
+    char lightName[40] = "";        // display name of the currently monitored light
 
     // PROGMEM strings
     static const char _name[];
     static const char _enabled[];
 
     /*
-     * Save discovered lights to a dedicated file so they persist across reboots
-     * without polluting the main config (which would show them as editable form fields).
+     * Save discovered lights to /hue_lights.json for use in the settings dropdown.
+     * Takes JsonArray already populated from the discovery response.
      */
-    void saveLightsToFS() {
+    void saveLightsToFS(JsonArray data) {
       StaticJsonDocument<2048> doc;
       JsonArray arr = doc.to<JsonArray>();
-      for (size_t i = 0; i < numDiscoveredLights; i++) {
+      uint8_t count = 0;
+      for (JsonObject light : data) {
+        if (count >= 16) break;
+        const char* id   = light["id"];
+        const char* name = light["metadata"]["name"];
+        if (!id) continue;
         JsonObject l = arr.createNestedObject();
-        l[F("id")] = discoveredLights[i].id;
-        l[F("name")] = discoveredLights[i].name;
+        l[F("id")]   = id;
+        l[F("name")] = name ? name : "?";
+        count++;
       }
       File f = WLED_FS.open(F("/hue_lights.json"), "w");
-      if (f) {
-        serializeJson(doc, f);
-        f.close();
-        DEBUG_PRINTF("[%s] Saved %u light(s) to /hue_lights.json\n", _name, numDiscoveredLights);
-      }
+      if (f) { serializeJson(doc, f); f.close(); }
+      lightsDiscovered = (count > 0);
+      DEBUG_PRINTF("[%s] Saved %u light(s) to /hue_lights.json\n", _name, count);
     }
 
     /*
-     * Load discovered lights from the dedicated file.
+     * Check whether /hue_lights.json exists and set the lightsDiscovered flag.
      */
     void loadLightsFromFS() {
       File f = WLED_FS.open(F("/hue_lights.json"), "r");
-      if (!f) return;
-      StaticJsonDocument<2048> doc;
-      DeserializationError err = deserializeJson(doc, f);
-      f.close();
-      if (err) return;
-      JsonArray arr = doc.as<JsonArray>();
-      numDiscoveredLights = 0;
-      for (JsonObject l : arr) {
-        if (numDiscoveredLights >= MAX_LIGHTS) break;
-        const char* id = l[F("id")];
-        const char* name = l[F("name")];
-        if (id) {
-          strlcpy(discoveredLights[numDiscoveredLights].id, id, sizeof(discoveredLights[0].id));
-          strlcpy(discoveredLights[numDiscoveredLights].name, name ? name : "?", sizeof(discoveredLights[0].name));
-          numDiscoveredLights++;
+      lightsDiscovered = (bool)f;
+      if (!f) { DEBUG_PRINTF("[%s] lightsDiscovered=false\n", _name); return; }
+      // also cache the name of the currently configured light
+      lightName[0] = '\0';
+      if (strlen(lightId) > 0) {
+        StaticJsonDocument<2048> doc;
+        if (!deserializeJson(doc, f)) {
+          for (JsonObject l : doc.as<JsonArray>()) {
+            const char* id = l[F("id")];
+            if (id && strcmp(id, lightId) == 0) {
+              const char* name = l[F("name")];
+              if (name) strlcpy(lightName, name, sizeof(lightName));
+              break;
+            }
+          }
         }
       }
-      DEBUG_PRINTF("[%s] Loaded %u light(s) from /hue_lights.json\n", _name, numDiscoveredLights);
+      f.close();
+      DEBUG_PRINTF("[%s] lightsDiscovered=true lightName=%s\n", _name, lightName);
     }
 
     /*
@@ -191,6 +192,7 @@ class PhilipsHueV2Usermod : public Usermod {
       if (usePlainHttp) {
         client.reset(new WiFiClient);
         if (!client) { DEBUG_PRINTF("[%s] WiFiClient alloc failed\n", _name); statusStr = F("Alloc failed"); return ""; }
+        client->setTimeout(2);  // 2s TCP timeout
       }
 #ifdef HUE_TLS_BACKEND_NATIVE
       else {
@@ -226,6 +228,7 @@ class PhilipsHueV2Usermod : public Usermod {
         DEBUG_PRINTF("[%s] Connection to %s:%u failed (errno %d, free heap: %u)\n",
                      _name, host, port, errno, ESP.getFreeHeap());
         statusStr = F("Connection failed");
+        failCount = min((int)failCount + 4, 16);  // back off up to 16 intervals (~40s at 2.5s poll)
         return "";
       }
       DEBUG_PRINTF("[%s] Connected to %s:%u\n", _name, host, port);
@@ -247,16 +250,19 @@ class PhilipsHueV2Usermod : public Usermod {
 
       client->print(request);
 
-      // read response
+      // read response — stop after 500ms of no new data to avoid blocking the loop
       String rawResponse = "";
-      unsigned long timeout = millis() + 4000;
-      while (client->connected() && millis() < timeout) {
+      unsigned long idleStart = millis();
+      while (client->connected()) {
         if (client->available()) {
           String line = client->readStringUntil('\n');
           rawResponse += line + "\n";
           if (rawResponse.length() > RESPONSE_BUF_SIZE) break;
+          idleStart = millis();  // reset idle timer on data received
+        } else {
+          if (millis() - idleStart > 500) break;  // no data for 500ms — done
+          yield();
         }
-        yield();
       }
       client->stop();
 
@@ -372,29 +378,20 @@ class PhilipsHueV2Usermod : public Usermod {
       if (!data || data.size() == 0) {
         DEBUG_PRINTF("[%s] Discover: no lights found\n", _name);
         statusStr = F("No lights found");
-        numDiscoveredLights = 0;
         return;
       }
 
-      numDiscoveredLights = 0;
       DEBUG_PRINTF("[%s] === Discovered %d light(s) ===\n", _name, data.size());
       for (JsonObject light : data) {
-        const char* id = light["id"];
-        // V2 API: name is inside metadata.name
+        const char* id   = light["id"];
         const char* name = light["metadata"]["name"];
-
-        if (id && numDiscoveredLights < MAX_LIGHTS) {
-          DEBUG_PRINTF("[%s]   %s - \"%s\"\n", _name, id, name ? name : "?");
-          strlcpy(discoveredLights[numDiscoveredLights].id, id, sizeof(discoveredLights[0].id));
-          strlcpy(discoveredLights[numDiscoveredLights].name, name ? name : "?", sizeof(discoveredLights[0].name));
-          numDiscoveredLights++;
-        }
+        if (id) DEBUG_PRINTF("[%s]   %s - \"%s\"\n", _name, id, name ? name : "?");
       }
       DEBUG_PRINTF("[%s] === End of light list ===\n", _name);
 
       fetchLights = false;
       statusStr = "Found " + String(data.size()) + " light(s)";
-      saveLightsToFS();
+      saveLightsToFS(data);
       serializeConfigToFS();  // persist fetchLights=false
     }
 
@@ -525,6 +522,7 @@ class PhilipsHueV2Usermod : public Usermod {
         colorUpdated(CALL_MODE_DIRECT_CHANGE);
       }
 
+      failCount = 0;  // successful poll — clear backoff
       statusStr = F("OK");
     }
 
@@ -550,6 +548,12 @@ class PhilipsHueV2Usermod : public Usermod {
       } else if (fetchLights) {
         discoverLights();
       } else {
+        if (failCount > 0) {
+          // back off — skip this interval and decrement counter
+          DEBUG_PRINTF("[%s] Backing off, %u interval(s) remaining\n", _name, failCount);
+          failCount--;
+          return;
+        }
         pollLight();
       }
     }
@@ -563,11 +567,9 @@ class PhilipsHueV2Usermod : public Usermod {
       JsonArray status = user.createNestedArray(F("Hue V2"));
       status.add(statusStr);
 
-      if (numDiscoveredLights > 0) {
-        for (size_t i = 0; i < numDiscoveredLights; i++) {
-          JsonArray row = user.createNestedArray(F("Hue Light"));
-          row.add(String(discoveredLights[i].name));
-        }
+      if (strlen(lightName) > 0) {
+        JsonArray row = user.createNestedArray(F("Hue Light"));
+        row.add(lightName);
       }
     }
 
@@ -603,6 +605,8 @@ class PhilipsHueV2Usermod : public Usermod {
       if (!(s = top[F("apiKey")])) configComplete = false; else strlcpy(apiKey, s, sizeof(apiKey));
       if (!(s = top[F("lightId")])) configComplete = false; else strlcpy(lightId, s, sizeof(lightId));
 
+      if (initDone) loadLightsFromFS();  // refresh lightName if config updated at runtime
+
 
       DEBUG_PRINTF("[%s] Config %s: enabled=%s bridgeIp=%s pollInterval=%lu\n",
                    _name, configComplete ? "loaded" : "incomplete",
@@ -612,23 +616,32 @@ class PhilipsHueV2Usermod : public Usermod {
     }
 
     void appendConfigData() override {
-      DEBUG_PRINTF("[%s] appendConfigData: numDiscoveredLights=%u\n", _name, numDiscoveredLights);
+      DEBUG_PRINTF("[%s] appendConfigData: lightsDiscovered=%s\n", _name, lightsDiscovered ? "true" : "false");
       oappend(F("addInfo('Philips Hue V2:bridgeIp',1,'IP or http://IP for plain HTTP');"));
       oappend(F("addInfo('Philips Hue V2:apiKey',1,'API key (auto-filled after auth)');"));
 
       // build dropdown for lightId if lights have been discovered
-      if (numDiscoveredLights > 0) {
-        oappend(F("dd=addDropdown('Philips Hue V2','lightId');"));
-        oappend(F("addOption(dd,'(select a light)','');"));
-        for (size_t i = 0; i < numDiscoveredLights; i++) {
-          oappend(F("addOption(dd,'"));
-          // escape single quotes in light name
-          String safeName = String(discoveredLights[i].name);
-          safeName.replace("'", "\\'");
-          oappend(safeName.c_str());
-          oappend(F("','"));
-          oappend(discoveredLights[i].id);
-          oappend(F("');"));
+      if (lightsDiscovered) {
+        File f = WLED_FS.open(F("/hue_lights.json"), "r");
+        if (f) {
+          StaticJsonDocument<2048> doc;
+          if (!deserializeJson(doc, f)) {
+            oappend(F("dd=addDropdown('Philips Hue V2','lightId');"));
+            oappend(F("addOption(dd,'(select a light)','');"));
+            for (JsonObject l : doc.as<JsonArray>()) {
+              const char* id   = l[F("id")];
+              const char* name = l[F("name")];
+              if (!id) continue;
+              oappend(F("addOption(dd,'"));
+              String safeName = String(name ? name : "?");
+              safeName.replace("'", "\\'");
+              oappend(safeName.c_str());
+              oappend(F("','"));
+              oappend(id);
+              oappend(F("');"));
+            }
+          }
+          f.close();
         }
       } else {
         oappend(F("addInfo('Philips Hue V2:lightId',1,'Use Fetch Lights to populate list');"));
