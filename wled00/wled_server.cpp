@@ -221,6 +221,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
     }
     cacheInvalidate++;
+    updateFSInfo(); // refresh memory usage info
   }
 }
 
@@ -310,6 +311,7 @@ static void createEditHandler() {
         request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
       else
         request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      updateFSInfo(); // refresh memory usage info
       return;
     }
 
