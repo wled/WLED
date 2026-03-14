@@ -702,6 +702,7 @@ void WLED::initConnection()
   // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
   // This is required on reconnects when mode is already WIFI_STA.
   WiFi.mode(WIFI_MODE_NULL);
+  apActive = false;           // the AP is physically torn down by WIFI_MODE_NULL
   delay(5);                   // give the WiFi stack time to complete the mode transition
   WiFi.setHostname(hostname);
 #endif
