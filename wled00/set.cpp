@@ -615,19 +615,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       doReboot = true; // may reboot immediately on dual-core system (race condition) which is desireable in this case
     }
 
-    if (request->hasArg(F("PIN"))) {
-      const char *pin = request->arg(F("PIN")).c_str();
-      unsigned pinLen = strlen(pin);
-      if (pinLen == 4 || pinLen == 0) {
-        unsigned numZeros = 0;
-        for (unsigned i = 0; i < pinLen; i++) numZeros += (pin[i] == '0');
-        if (numZeros < pinLen || pinLen == 0) { // ignore 0000 input (placeholder)
-          strlcpy(settingsPIN, pin, 5);
-        }
-        settingsPIN[4] = 0;
-      }
-    }
-
+    // Check OTA password validation FIRST before processing any other changes
     bool pwdCorrect = !otaLock; //always allow access if ota not locked
     if (request->hasArg(F("OP")))
     {
@@ -639,6 +627,35 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       if (!otaLock && request->arg(F("OP")).length() > 0)
       {
         strlcpy(otaPass,request->arg(F("OP")).c_str(), 33); // set new OTA password
+      }
+    }
+
+    // Check if any OTA-related settings are being changed
+    bool otaSettingsChanged = (request->hasArg(F("NO")) != otaLock) ||
+                               (request->hasArg(F("OW")) != wifiLock) ||
+                               #ifndef WLED_DISABLE_OTA
+                               (request->hasArg(F("AO")) != aOtaEnabled) ||
+                               #endif
+                               (request->hasArg(F("SU")) != otaSameSubnet);
+
+    // If OTA is locked and password is incorrect AND user tried to change OTA settings, return error immediately
+    // This must be checked BEFORE any other operations to avoid partial saves
+    if (otaLock && !pwdCorrect && otaSettingsChanged) {
+      serveMessage(request, 401, F("Error"), F("Password incorrect"), 254);
+      return;
+    }
+
+    // Now process other settings changes
+    if (request->hasArg(F("PIN"))) {
+      const char *pin = request->arg(F("PIN")).c_str();
+      unsigned pinLen = strlen(pin);
+      if (pinLen == 4 || pinLen == 0) {
+        unsigned numZeros = 0;
+        for (unsigned i = 0; i < pinLen; i++) numZeros += (pin[i] == '0');
+        if (numZeros < pinLen || pinLen == 0) { // ignore 0000 input (placeholder)
+          strlcpy(settingsPIN, pin, 5);
+        }
+        settingsPIN[4] = 0;
       }
     }
 
