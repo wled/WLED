@@ -11,6 +11,13 @@ class UMBattery
 {
     private:
 
+    public:
+        /**
+         * Lookup table entry for voltage-to-percentage mapping.
+         * Table must be sorted descending by voltage.
+         */
+        struct LutEntry { float voltage; float percent; };
+
     protected:
         float minVoltage;
         float maxVoltage;
@@ -18,10 +25,36 @@ class UMBattery
         int8_t level = 100;
         float calibration; // offset or calibration value to fine tune the calculated voltage
         float voltageMultiplier; // ratio for the voltage divider
-        
+
         float linearMapping(float v, float min, float max, float oMin = 0.0f, float oMax = 100.0f)
         {
             return (v-min) * (oMax-oMin) / (max-min) + oMin;
+        }
+
+        float lutInterpolate(float v, const LutEntry* lut, uint8_t size)
+        {
+            if (size == 0) return 0.0f;
+
+            LutEntry first, last;
+            memcpy_P(&first, &lut[0], sizeof(LutEntry));
+            memcpy_P(&last, &lut[size-1], sizeof(LutEntry));
+
+            if (v >= first.voltage) return first.percent;
+            if (v <= last.voltage) return last.percent;
+
+            for (uint8_t i = 0; i < size - 1; i++) {
+                LutEntry hi, lo;
+                memcpy_P(&hi, &lut[i], sizeof(LutEntry));
+                memcpy_P(&lo, &lut[i+1], sizeof(LutEntry));
+
+                if (v >= lo.voltage) {
+                    float span = hi.voltage - lo.voltage;
+                    if (fabsf(span) < 1e-6f) return hi.percent;
+                    float ratio = (v - lo.voltage) / span;
+                    return lo.percent + ratio * (hi.percent - lo.percent);
+                }
+            }
+            return last.percent;
         }
 
     public:
@@ -30,6 +63,8 @@ class UMBattery
             this->setVoltageMultiplier(USERMOD_BATTERY_VOLTAGE_MULTIPLIER);
             this->setCalibration(USERMOD_BATTERY_CALIBRATION);
         }
+
+        virtual ~UMBattery() = default;
 
         virtual void update(batteryConfig cfg)
         {
@@ -42,15 +77,14 @@ class UMBattery
 
         /**
          * Corresponding battery curves
-         * calculates the level in % (0-100) with given voltage and possible voltage range
+         * calculates the level in % (0-100) with given voltage
          */
-        virtual float mapVoltage(float v, float min, float max) = 0;
-        // { 
-        //     example implementation, linear mapping
-        //     return (v-min) * 100 / (max-min);
-        // };
+        virtual float mapVoltage(float v) = 0;
 
-        virtual void calculateAndSetLevel(float voltage) = 0;
+        void calculateAndSetLevel(float voltage)
+        {
+            this->setLevel(this->mapVoltage(voltage));
+        }
 
 
 
@@ -110,14 +144,14 @@ class UMBattery
             this->voltage = voltage;
         }
 
-        float getLevel()
+        int8_t getLevel()
         {
             return this->level;
         }
 
         void setLevel(float level)
         {
-            this->level = constrain(level, 0.0f, 110.0f);
+            this->level = (int8_t)constrain(level, 0.0f, 110.0f);
         }
 
         /*

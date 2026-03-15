@@ -69,6 +69,7 @@ private:
 
     unsigned long _lastLoopCheck = 0;
     unsigned long _lastTriggerTime = 0;
+    bool _hasValidReading = false;
 
     bool _settingEnabled : 1;                  // Enable the usermod
     bool _mqttPublish : 1;                     // Publish MQTT values
@@ -169,6 +170,7 @@ private:
         _lastPower = power;
         _lastShuntVoltage = shuntVoltage;
         _lastOverflow = overflow;
+        _hasValidReading = true;
     }
 
     void handleTriggeredMode(unsigned long currentTime)
@@ -328,6 +330,27 @@ public:
     void setup()
     {
         initializeINA226();
+
+        // expose current, voltage, power for other usermods via getUMData()
+        if (!um_data) {
+            um_data = new um_data_t;
+            um_data->u_size = 3;
+            um_data->u_type = new um_types_t[3];
+            um_data->u_data = new void*[3];
+            um_data->u_data[0] = &_lastCurrent;   // float, Amps
+            um_data->u_type[0] = UMT_FLOAT;
+            um_data->u_data[1] = &_lastVoltage;    // float, Volts
+            um_data->u_type[1] = UMT_FLOAT;
+            um_data->u_data[2] = &_lastPower;      // float, Watts
+            um_data->u_type[2] = UMT_FLOAT;
+        }
+    }
+
+    bool getUMData(um_data_t **data) override
+    {
+        if (!data || !_settingEnabled || !_hasValidReading) return false;
+        *data = um_data;
+        return true;
     }
 
     void loop()
