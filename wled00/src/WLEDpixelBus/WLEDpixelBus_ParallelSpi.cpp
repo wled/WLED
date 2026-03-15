@@ -1,5 +1,5 @@
 #include "WLEDpixelBus.h"
-#ifdef WLEDPB_SPI_SUPPORT
+#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
 #include "WLEDpixelBus_ParallelSpi.h"
 
 #undef FLAG_ATTR
@@ -640,4 +640,4 @@ void ParallelSpiBus::setColorOrder(ColorOrder order) {
 
 
 } // namespace WLEDpixelBus
-#endif // WLEDPB_SPI_SUPPORT
+#endif // WLEDPB_PARALLEL_SPI_SUPPORT

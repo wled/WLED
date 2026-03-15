@@ -52,10 +52,10 @@ Features:
 
 // SPI parallel support (C3 - uses SPI quad mode with GDMA)
 #if defined(WLEDPB_ESP32C3)
-  #define WLEDPB_SPI_SUPPORT
+  #define WLEDPB_PARALLEL_SPI_SUPPORT 
 #endif
 
-#ifdef WLEDPB_SPI_SUPPORT
+#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
 #include "soc/spi_struct.h"
 #include "soc/gdma_struct.h"
 #include "hal/gdma_ll.h"

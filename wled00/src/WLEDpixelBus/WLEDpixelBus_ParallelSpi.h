@@ -1,7 +1,7 @@
 #pragma once
 
 #include "WLEDpixelBus.h"
-#ifdef WLEDPB_SPI_SUPPORT
+#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
 namespace WLEDpixelBus {
 
 //==============================================================================
@@ -119,4 +119,4 @@ private:
 
 } // namespace WLEDpixelBus
 
-#endif // WLEDPB_SPI_SUPPORT
+#endif // WLEDPB_PARALLEL_SPI_SUPPORT
