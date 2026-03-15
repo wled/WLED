@@ -447,6 +447,11 @@
 					drvsel.style.display = "none"; // hide by default
 					drvsel.style.color = "#fff"; // reset color
 				}
+				let bsfsel = gId("bsfsel"+n);
+				if (bsfsel) {
+					bsfsel.style.display = "none";
+					bsfsel.style.color = "#fff";
+				}
 				s.style.color = "#fff"; // reset
 
 				if (isDig(t) && !isD2P(t)) {
@@ -458,6 +463,10 @@
 							d.Sf["LD"+n].value = d.Sf["LD"+n].value | 0; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
 						}
+					}
+					// Show bus speed selector when advanced settings enabled
+					if (bsfsel) {
+						if (d.Sf.AS.checked) bsfsel.style.display = "inline";
 					}
 				}
 			});
@@ -573,6 +582,13 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 Driver: <select name="LD${s}" onchange="UI()">
 <option value="0">RMT</option>
 <option value="1">I2S</option>
+</select>
+</div>
+<div id="bsfsel${s}" style="display:none">
+Timing: <select name="SF${s}">
+<option value="80">Fast (-20%)</option>
+<option value="100" selected>Default</option>
+<option value="120">Slow (+20%)</option>
 </select>
 </div>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
@@ -765,6 +781,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
 							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
 							d.getElementsByName("SP"+i)[0].value   = v.freq;
+							d.getElementsByName("SF"+i)[0].value   = v.bsf | 100;
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});

@@ -179,7 +179,7 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
       break;
 #endif
 
-#ifdef WLEDPB_SPI_SUPPORT
+#ifdef WLEDPB_PARALLEL_SPI_SUPPORT
     case BusType::SPI:
       bus = new ParallelSpiBus(pin, timing, order);
       break;
@@ -211,7 +211,7 @@ BusType getRecommendedBusType() {
   return BusType::LCD;  // S3 has LCD support
 #elif defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2)
   return BusType::I2S;  // Original and S2 have I2S parallel
-#elif defined(WLEDPB_SPI_SUPPORT)
+#elif defined(WLEDPB_PARALLEL_SPI_SUPPORT)
   return BusType::SPI;  // C3 uses SPI quad mode
   */
 #if defined(WLEDPB_ESP8266)

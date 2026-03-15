@@ -90,11 +90,27 @@ inline uint32_t calcClockDiv(const LedTiming& timing, uint8_t cadenceSteps, uint
  * @param cadenceSteps Number of cadence steps
  * @return Number of zero-bytes needed for reset period
  */
+
+//TODO: currently unused, check if this is useful, remove otherwise.
 inline uint32_t calcResetBytes(const LedTiming& timing, uint8_t cadenceSteps) {
   uint32_t bitPeriodNs = timing.bitPeriod(cadenceSteps);
   uint32_t clockPeriodNs = bitPeriodNs / cadenceSteps;
   uint32_t bytesPerUs = (clockPeriodNs > 0) ? (1000 / clockPeriodNs) : 1;
   return timing.reset_us * bytesPerUs;
+}
+
+/**
+ * Scale LED timing parameters by a floating point factor (percent expressed as factor, e.g. 1.2 for +20%)
+ * Only t* timings (ns) are scaled; reset_us is preserved.
+ */
+inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
+  auto s = [&](uint32_t v)->uint16_t {
+    uint32_t r = (uint32_t)(v * factor + 0.5f);
+    if (r < 1) r = 1;
+    if (r > 0xFFFF) r = 0xFFFF;
+    return (uint16_t)r;
+  };
+  return LedTiming(s(timing.t0h_ns), s(timing.t0l_ns), s(timing.t1h_ns), s(timing.t1l_ns), timing.reset_us);
 }
 
 } // namespace WLEDpixelBus

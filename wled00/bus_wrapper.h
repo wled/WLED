@@ -141,7 +141,7 @@ class PolyBus {
     return true;
   }
 
-static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0) {
+static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
@@ -151,6 +151,12 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     #endif
 
     ProtocolDef proto = getProtocol(busType);
+    // Apply optional bus speed factor (percent)
+    WLEDpixelBus::LedTiming timing = proto.timing;
+    if (busSpeedFactor != 100) {
+      float factor = (float)busSpeedFactor / 100.0f;
+      timing = WLEDpixelBus::scaleTiming(proto.timing, factor);
+    }
 
     // Map WLED Order
     uint8_t wledOrder = (uint8_t)colorOrder & 0x0F;
@@ -195,7 +201,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       #else
       if (_2PchannelsAssigned == 1) isHSPI = true;
       #endif
-      return new WLEDpixelBus::SpiBus(pins[0], pins[1], proto.timing, finalOrder, isHSPI);
+      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, finalOrder, isHSPI);
     }
 
     auto btype = WLEDpixelBus::BusType::Auto;
@@ -236,7 +242,7 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
-    return WLEDpixelBus::createBus(btype, pins[0], proto.timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
+    return WLEDpixelBus::createBus(btype, pins[0], timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
   }
 
   static unsigned memUsage(uint8_t busType, unsigned count, const uint8_t* pins, unsigned driverType = 0) {

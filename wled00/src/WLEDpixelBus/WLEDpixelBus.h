@@ -72,16 +72,6 @@ Features:
 #endif
 
 #include "WLEDpixelBus_Timings.h"
-#include "WLEDpixelBus_SPI.h"
-
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
-#include "WLEDpixelBus_RMT.h"
-#include "WLEDpixelBus_I2S.h"
-#include "WLEDpixelBus_LCD.h"
-#include "WLEDpixelBus_ParallelSpi.h"
-#elif defined(WLEDPB_ESP8266)
-#include "WLEDpixelBus_ESP8266.h"
-#endif
 
 namespace WLEDpixelBus {
 
@@ -444,3 +434,13 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
 
 } // namespace WLEDpixelBus
 
+#include "WLEDpixelBus_SPI.h"
+
+#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+#include "WLEDpixelBus_RMT.h"
+#include "WLEDpixelBus_I2S.h"
+#include "WLEDpixelBus_LCD.h"
+#include "WLEDpixelBus_ParallelSpi.h"
+#elif defined(WLEDPB_ESP8266)
+#include "WLEDpixelBus_ESP8266.h"
+#endif

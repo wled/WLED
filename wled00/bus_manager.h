@@ -167,6 +167,7 @@ class Bus {
     inline  bool     isReversed() const                         { return _reversed; }
     inline  bool     isOffRefreshRequired() const               { return _needsRefresh; }
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
+    inline  uint8_t  getBusSpeedFactor() const                  { return _busSpeedFactor; }
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
     static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
@@ -239,6 +240,8 @@ class Bus {
     //   63 - semi additive/nonlinear (CCT 127 => 66% warm, 66% cold)
     //  127 - additive CCT blending (CCT 127 => 100% warm, 100% cold)
     static int8_t _cctBlend;
+
+    uint8_t _busSpeedFactor = 100; // percent, default 100 = default timings
 
     uint32_t autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const;
 };
@@ -466,8 +469,9 @@ struct BusConfig {
   uint16_t milliAmpsMax;
   uint8_t driverType; // 0=RMT (default), 1=I2S
   String text;
+  uint8_t busSpeedFactor; // percent (100 = default)
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "", uint8_t bsf = 100)
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -479,6 +483,7 @@ struct BusConfig {
   , milliAmpsMax(maMax)
   , driverType(driver)
   , text(sometext)
+  , busSpeedFactor(bsf)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)

@@ -135,6 +135,7 @@ BusDigital::BusDigital(const BusConfig &bc)
 , _driverType(bc.driverType) // Store driver preference (0=RMT, 1=I2S)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
+  _busSpeedFactor = bc.busSpeedFactor;
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
   if (!PinManager::allocatePin(bc.pins[0], true, PinOwner::BusDigital)) { DEBUGBUS_PRINTLN(F("Pin 0 allocated!")); return; }
   _frequencykHz = 0U;
@@ -157,7 +158,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
 
   // create bus via PolyBus wrapper which will return a WLEDpixelBus::IBus
-  _busPtr = PolyBus::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType);
+  _busPtr = PolyBus::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType, bc.busSpeedFactor);
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759

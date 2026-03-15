@@ -246,7 +246,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=I2S note: polybus may override this if driver is not available
 
       String host = elm[F("text")] | String();
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host);
+      uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host, (uint8_t)bsf);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -1000,6 +1001,7 @@ void serializeConfig(JsonObject root) {
     ins[F("ledma")]  = bus->getLEDCurrent();
     ins[F("drv")]    = bus->getDriverType();
     ins[F("text")]   = bus->getCustomText();
+    ins[F("bsf")]    = bus->getBusSpeedFactor();
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));
