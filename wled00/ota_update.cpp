@@ -1,5 +1,6 @@
 #include "ota_update.h"
 #include "wled.h"
+#include "safe_boot_functions.h"
 
 #ifdef ESP32
 #include <esp_app_format.h>
@@ -95,6 +96,9 @@ static void endOTA(AsyncWebServerRequest *request) {
         // Update successful!
         #ifndef ESP8266
         bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
+        #endif
+        #ifdef  WLED_ENABLE_SAFE_BOOT
+          update_ota_crc(); 
         #endif
         doReboot = true;
         context->needsRestart = false;

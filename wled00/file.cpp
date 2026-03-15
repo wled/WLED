@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "safe_boot_functions.h"
 
 /*
  * Utility for SPIFFS filesystem
@@ -40,6 +41,9 @@ void closeFile() {
   #endif
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
+  #ifdef  WLED_ENABLE_SAFE_BOOT
+    update_spiffs_crc();
+  #endif
   doCloseFile = false;
 }
 
@@ -478,6 +482,9 @@ bool copyFile(const char* src_path, const char* dst_path) {
     DEBUG_PRINTLN(F("copy failed"));
     WLED_FS.remove(dst_path); // delete incomplete file
   }
+  #ifdef  WLED_ENABLE_SAFE_BOOT
+    else {update_spiffs_crc();}
+  #endif
   return success;
 }
 
