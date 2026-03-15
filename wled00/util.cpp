@@ -182,9 +182,9 @@ void prepareHostname(char* hostname, size_t maxLen)
   hostname[maxLen -1] = '\0';                             // ensure string termination
 
   size_t sanOffset = hostname[4] != '-' ? 4 : 5;            // ensure that "WLED foo" and "WLED!foo" get sanitized
-  sanitizeHostname(hostname+sanOffset, maxLen-sanOffset); // sanitize name, keep "wled-" intact
-  if (strlen(hostname) <= 5)
-    snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6); // fallback to wled-MAC
+  sanitizeHostname(hostname+sanOffset, maxLen-sanOffset);   // sanitize name, keep "wled-" intact
+  if (strlen(hostname) <= sanOffset)
+    snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6); // fallback to wled-MAC if sanitization cleaned everything
 }
 
 
