@@ -12,6 +12,5 @@
 #include <esp_ota_ops.h>
 
 bool update_spiffs_crc();
-void update_ota_crc();
 
 #endif
