@@ -12,69 +12,69 @@ namespace WLEDpixelBus {
 
 class RmtBus : public IBus {
 public:
-    /**
-     * Create RMT bus
-     * @param pin GPIO pin
-     * @param timing LED timing
-     * @param order Color order
-     * @param channel RMT channel (-1 for auto)
-     */
-    RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order,
-           int8_t channel = -1);
-    ~RmtBus() override;
+  /**
+   * Create RMT bus
+   * @param pin GPIO pin
+   * @param timing LED timing
+   * @param order Color order
+   * @param channel RMT channel (-1 for auto)
+   */
+  RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+       int8_t channel = -1);
+  ~RmtBus() override;
 
-    bool begin() override;
-    void end() override;
+  bool begin() override;
+  void end() override;
 
-    bool show(const uint32_t* pixels, uint16_t numPixels,
-              const CctPixel* cct = nullptr) override;
-    bool canShow() const override;
-    void waitComplete() override;
-    const char* getType() const override { return "RMT"; }
+  bool show(const uint32_t* pixels, uint16_t numPixels,
+        const CctPixel* cct = nullptr) override;
+  bool canShow() const override;
+  void waitComplete() override;
+  const char* getType() const override { return "RMT"; }
 
-    // Configuration
-    void setInverted(bool inv) { _inverted = inv; }
-    void setTiming(const LedTiming& timing);
-    void setColorOrder(ColorOrder order);
+  // Configuration
+  void setInverted(bool inv) { _inverted = inv; }
+  void setTiming(const LedTiming& timing);
+  void setColorOrder(ColorOrder order);
 
-    // Reset the auto-allocation counter (call before re-creating buses)
-    static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
-    static void resetAutoChannel() {
-        s_allocatedCount = 0;
-        s_currentChannelIndex = 0;
-        s_usedBlocks = 0;
-    }
+  // Reset the auto-allocation counter (call before re-creating buses)
+  static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
+  static void resetAutoChannel() {
+    s_allocatedCount = 0;
+    s_currentChannelIndex = 0;
+    s_usedBlocks = 0;
+  }
 
 private:
-    int8_t _pin;
-    int8_t _channel;
-    LedTiming _timing;
-    ColorOrder _order;
-    bool _inverted;
-    bool _initialized;
-    
-    rmt_channel_t _rmtChannel;
-    uint32_t _rmtBit0;
-    uint32_t _rmtBit1;
-    uint16_t _rmtResetTicks;
+  int8_t _pin;
+  int8_t _channel;
+  LedTiming _timing;
+  ColorOrder _order;
+  bool _inverted;
+  bool _initialized;
+  
+  rmt_channel_t _rmtChannel;
+  uint32_t _rmtBit0;
+  uint32_t _rmtBit1;
+  uint16_t _rmtResetTicks;
 
-    // Encode buffer
-    uint8_t* _encodeBuffer;
-    size_t _encodeBufferSize;
+  // Encode buffer
+  uint8_t* _encodeBuffer;
+  size_t _encodeBufferSize;
 
-    static uint8_t s_expectedChannels;
-    static uint8_t s_allocatedCount;
-    static uint8_t s_currentChannelIndex;
-    static uint8_t s_usedBlocks;
-    static uint8_t s_activeChannelMask; // bitmask of initialized channels
+  static uint8_t s_expectedChannels;
+  static uint8_t s_allocatedCount;
+  static uint8_t s_currentChannelIndex;
+  static uint8_t s_usedBlocks;
+  static uint8_t s_activeChannelMask; // bitmask of initialized channels
 
-    void updateRmtTiming();
-    bool allocateBuffer(uint16_t numPixels);
+  void updateRmtTiming();
+  bool allocateBuffer(uint16_t numPixels);
 
-    // Static translate callback
-    static void IRAM_ATTR translateCB(const void* src, rmt_item32_t* dest,
-                                       size_t src_size, size_t wanted_num,
-                                       size_t* translated_size, size_t* item_num);
+  // Static translate callback
+  static void IRAM_ATTR translateCB(const void* src, rmt_item32_t* dest,
+                     size_t src_size, size_t wanted_num,
+                     size_t* translated_size, size_t* item_num);
 };
 
 } // namespace WLEDpixelBus

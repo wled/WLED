@@ -21,65 +21,65 @@ class ParallelSpiBus;
  */
 class SpiBusContext {
 public:
-    static SpiBusContext* get();
-    static void release();
+  static SpiBusContext* get();
+  static void release();
 
-    bool init(const LedTiming& timing);
-    void deinit();
+  bool init(const LedTiming& timing);
+  void deinit();
 
-    int8_t registerChannel(int8_t pin, ParallelSpiBus* bus);
-    void unregisterChannel(int8_t channelIdx);
-    uint8_t getChannelCount() const { return _channelCount; }
+  int8_t registerChannel(int8_t pin, ParallelSpiBus* bus);
+  void unregisterChannel(int8_t channelIdx);
+  uint8_t getChannelCount() const { return _channelCount; }
 
-    bool startTransmit();
-    bool isIdle() const { return !_sending; }
-    bool isSpiDone();
-    void forceIdle();
+  bool startTransmit();
+  bool isIdle() const { return !_sending; }
+  bool isSpiDone();
+  void forceIdle();
 
-    void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
+  void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
 private:
-    SpiBusContext();
-    ~SpiBusContext();
+  SpiBusContext();
+  ~SpiBusContext();
 
-    void encodeSpiChunk(uint8_t bufIdx);
+  void encodeSpiChunk(uint8_t bufIdx);
 
-    static void IRAM_ATTR gdmaISR(void* arg);
-    static void IRAM_ATTR spiISR(void* arg);
+  static void IRAM_ATTR gdmaISR(void* arg);
+  static void IRAM_ATTR spiISR(void* arg);
 
-    volatile bool _sending;
-    bool _initialized;
-    bool _hasStarted;
-    volatile uint8_t _currentBuffer;
+  volatile bool _sending;
+  bool _initialized;
+  bool _hasStarted;
+  volatile uint8_t _currentBuffer;
 
-    // DMA
-    uint8_t* _dmaBuffer[2];
-    lldesc_t _dmaDesc[2];
-    intr_handle_t _isrHandle;
-    intr_handle_t _spiIsrHandle;
+  // DMA
+  uint8_t* _dmaBuffer[2];
+  lldesc_t _dmaDesc[2];
+  intr_handle_t _isrHandle;
+  intr_handle_t _spiIsrHandle;
 
-    // SPI device
-    spi_dev_t* _hw;
+  // SPI device
+  spi_dev_t* _hw;
 
-    // Source data per channel
-    struct ChannelData {
-        ParallelSpiBus* bus;
-        int8_t pin;
-        const uint8_t* srcData;
-        size_t srcLen;
-        bool active;
-    };
-    ChannelData _channels[WLEDPB_SPI_MAX_CHANNELS];
-    uint8_t _channelCount;
-    size_t _framePos;   // current source byte position
-    size_t _numBytes;   // total source bytes to send
-    mutable uint32_t _lastTransmitMs;
+  // Source data per channel
+  struct ChannelData {
+    ParallelSpiBus* bus;
+    int8_t pin;
+    const uint8_t* srcData;
+    size_t srcLen;
+    bool active;
+  };
+  ChannelData _channels[WLEDPB_SPI_MAX_CHANNELS];
+  uint8_t _channelCount;
+  size_t _framePos;   // current source byte position
+  size_t _numBytes;   // total source bytes to send
+  mutable uint32_t _lastTransmitMs;
 
-    uint8_t _stagedMask;
-    uint8_t _channelMask;
+  uint8_t _stagedMask;
+  uint8_t _channelMask;
 
-    static SpiBusContext* _instance;
-    static uint8_t _refCount;
+  static SpiBusContext* _instance;
+  static uint8_t _refCount;
 };
 
 /**
@@ -87,34 +87,34 @@ private:
  */
 class ParallelSpiBus : public IBus {
 public:
-    ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
-    ~ParallelSpiBus() override;
+  ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+  ~ParallelSpiBus() override;
 
-    bool begin() override;
-    void end() override;
+  bool begin() override;
+  void end() override;
 
-    bool show(const uint32_t* pixels, uint16_t numPixels,
-              const CctPixel* cct = nullptr) override;
-    bool canShow() const override;
-    void waitComplete() override;
-    const char* getType() const override { return "SPI"; }
+  bool show(const uint32_t* pixels, uint16_t numPixels,
+        const CctPixel* cct = nullptr) override;
+  bool canShow() const override;
+  void waitComplete() override;
+  const char* getType() const override { return "SPI"; }
 
-    void setTiming(const LedTiming& timing) { _timing = timing; }
-    void setColorOrder(ColorOrder order);
+  void setTiming(const LedTiming& timing) { _timing = timing; }
+  void setColorOrder(ColorOrder order);
 
 private:
-    bool allocateBuffer(uint16_t numPixels);
+  bool allocateBuffer(uint16_t numPixels);
 
-    int8_t _pin;
-    LedTiming _timing;
-    ColorOrder _order;
-    bool _initialized;
+  int8_t _pin;
+  LedTiming _timing;
+  ColorOrder _order;
+  bool _initialized;
 
-    int8_t _channelIdx;
-    SpiBusContext* _ctx;
+  int8_t _channelIdx;
+  SpiBusContext* _ctx;
 
-    uint8_t* _encodeBuffer;
-    size_t _encodeBufferSize;
+  uint8_t* _encodeBuffer;
+  size_t _encodeBufferSize;
 };
 
 } // namespace WLEDpixelBus

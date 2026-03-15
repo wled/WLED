@@ -21,13 +21,13 @@ namespace WLEDpixelBus {
 // low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
 static inline void spi_ll_apply_config(spi_dev_t *hw)
 {
-    hw->cmd.update = 1;
-    //while (hw->cmd.update);    //waiting config applied
+  hw->cmd.update = 1;
+  //while (hw->cmd.update);    //waiting config applied
 }
 
 static inline void spi_ll_user_start(spi_dev_t *hw)
 {
-    hw->cmd.usr = 1;
+  hw->cmd.usr = 1;
 }
 
 
@@ -44,130 +44,130 @@ SpiBusContext* SpiBusContext::_instance = nullptr;
 uint8_t SpiBusContext::_refCount = 0;
 
 SpiBusContext* SpiBusContext::get() {
-    if (_instance == nullptr) {
-        _instance = new SpiBusContext();
-    }
-    _refCount++;
-    return _instance;
+  if (_instance == nullptr) {
+    _instance = new SpiBusContext();
+  }
+  _refCount++;
+  return _instance;
 }
 
 void SpiBusContext::release() {
-    if (_refCount == 0) return;
-    _refCount--;
-    if (_refCount == 0 && _instance) {
-        delete _instance;
-        _instance = nullptr;
-    }
+  if (_refCount == 0) return;
+  _refCount--;
+  if (_refCount == 0 && _instance) {
+    delete _instance;
+    _instance = nullptr;
+  }
 }
 
 SpiBusContext::SpiBusContext()
-    : _sending(false)
-    , _initialized(false)
-    , _hasStarted(false)
-    , _currentBuffer(0)
-    , _isrHandle(nullptr)
-    , _spiIsrHandle(nullptr)
-    , _hw(&GPSPI2)
-    , _channelCount(0)
-    , _framePos(0)
-    , _numBytes(0)
-    , _lastTransmitMs(0)
-    , _stagedMask(0)
-    , _channelMask(0)
+  : _sending(false)
+  , _initialized(false)
+  , _hasStarted(false)
+  , _currentBuffer(0)
+  , _isrHandle(nullptr)
+  , _spiIsrHandle(nullptr)
+  , _hw(&GPSPI2)
+  , _channelCount(0)
+  , _framePos(0)
+  , _numBytes(0)
+  , _lastTransmitMs(0)
+  , _stagedMask(0)
+  , _channelMask(0)
 {
-    _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
-    for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
-        _channels[i] = {nullptr, -1, nullptr, 0, false};
-    }
+  _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
+  for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
+    _channels[i] = {nullptr, -1, nullptr, 0, false};
+  }
 }
 
 SpiBusContext::~SpiBusContext() {
-    deinit();
+  deinit();
 }
 
 bool SpiBusContext::isSpiDone() {
-    if (!_hasStarted) return true;  // no transfer ever started
-    //return txdone;
-    // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
-    if (!_sending) {
-      //delay(10); // wait for finish sending !!! this is a hacky test, to check if this locks stuff up. remove again -> seems to fix the glitching and stalls, need a better solution though
-      return txdone;
-    }
+  if (!_hasStarted) return true;  // no transfer ever started
+  //return txdone;
+  // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
+  if (!_sending) {
+    //delay(10); // wait for finish sending !!! this is a hacky test, to check if this locks stuff up. remove again -> seems to fix the glitching and stalls, need a better solution though
+    return txdone;
+  }
 
-    // Fail-safe watchdog: if stuck for > 500ms, recover it
-    if (millis() - _lastTransmitMs > 50) {
-        forceIdle();
-        return true;
-    }
-    
-    return false;
+  // Fail-safe watchdog: if stuck for > 500ms, recover it
+  if (millis() - _lastTransmitMs > 50) {
+    forceIdle();
+    return true;
+  }
+  
+  return false;
 }
 
 void SpiBusContext::forceIdle() {
-    _sending = false;
-    isSending = false; // TODO: integrate this into driver, i.e. non global
-    _stagedMask = 0;
+  _sending = false;
+  isSending = false; // TODO: integrate this into driver, i.e. non global
+  _stagedMask = 0;
 
-    spi_ll_dma_tx_fifo_reset(_hw);
-    spi_ll_outfifo_empty_clr(_hw);
+  spi_ll_dma_tx_fifo_reset(_hw);
+  spi_ll_outfifo_empty_clr(_hw);
 
-    // Stop DMA immediately
-    gdma_dev_t* dma = &GDMA;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
-    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  // Stop DMA immediately
+  gdma_dev_t* dma = &GDMA;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
+  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
-    if (_hw) {
-        _hw->cmd.usr = 0; // stop SPI user transfer (will output a fast clock, so detach pins from spi before)
-        _hw->dma_int_clr.val = 0xFFFFFFFF; //
-    }
+  if (_hw) {
+    _hw->cmd.usr = 0; // stop SPI user transfer (will output a fast clock, so detach pins from spi before)
+    _hw->dma_int_clr.val = 0xFFFFFFFF; //
+  }
 }
 
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
-    uint8_t* dst = _dmaBuffer[bufIdx];
-    memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
+  uint8_t* dst = _dmaBuffer[bufIdx];
+  memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
 
-    if (!_sending) {
-        return;
+  if (!_sending) {
+    return;
+  }
+
+  size_t maxSrcThisChunk = WLEDPB_SPI_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
+  size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
+  size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
+
+  if (srcThisChunk == 0) {
+    _sending = false;
+    isSending = false; // TODO: integrate this into driver, i.e. non global
+    _framePos = 0;
+    return;
+  }
+
+  for (uint8_t lane = 0; lane < WLEDPB_SPI_MAX_CHANNELS; lane++) {
+    if (!_channels[lane].active || !_channels[lane].srcData) continue;
+
+    size_t srcLen = _channels[lane].srcLen;
+    if (_framePos >= srcLen) continue; // Past the end of this lane's data, leave buffer 0 (low/no pulse)
+
+    size_t validBytes = srcLen - _framePos;
+    if (validBytes > srcThisChunk) validBytes = srcThisChunk;
+
+    const uint16_t zerobit = SPI_ZERO_BIT << lane;
+    const uint16_t onebit  = SPI_ONE_BIT << lane;
+    const uint8_t* src = _channels[lane].srcData;
+    uint16_t* pOut = reinterpret_cast<uint16_t*>(dst);
+
+    for (size_t i = 0; i < validBytes; i++) {
+      uint8_t v = src[_framePos + i];
+      *pOut++ |= (v & 0x80) ? onebit : zerobit;
+      *pOut++ |= (v & 0x40) ? onebit : zerobit;
+      *pOut++ |= (v & 0x20) ? onebit : zerobit;
+      *pOut++ |= (v & 0x10) ? onebit : zerobit;
+      *pOut++ |= (v & 0x08) ? onebit : zerobit;
+      *pOut++ |= (v & 0x04) ? onebit : zerobit;
+      *pOut++ |= (v & 0x02) ? onebit : zerobit;
+      *pOut++ |= (v & 0x01) ? onebit : zerobit;
     }
-
-    size_t maxSrcThisChunk = WLEDPB_SPI_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
-    size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
-    size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
-
-    if (srcThisChunk == 0) {
-        _sending = false;
-        isSending = false; // TODO: integrate this into driver, i.e. non global
-        _framePos = 0;
-        return;
-    }
-
-    for (uint8_t lane = 0; lane < WLEDPB_SPI_MAX_CHANNELS; lane++) {
-        if (!_channels[lane].active || !_channels[lane].srcData) continue;
-
-        size_t srcLen = _channels[lane].srcLen;
-        if (_framePos >= srcLen) continue; // Past the end of this lane's data, leave buffer 0 (low/no pulse)
-
-        size_t validBytes = srcLen - _framePos;
-        if (validBytes > srcThisChunk) validBytes = srcThisChunk;
-
-        const uint16_t zerobit = SPI_ZERO_BIT << lane;
-        const uint16_t onebit  = SPI_ONE_BIT << lane;
-        const uint8_t* src = _channels[lane].srcData;
-        uint16_t* pOut = reinterpret_cast<uint16_t*>(dst);
-
-        for (size_t i = 0; i < validBytes; i++) {
-            uint8_t v = src[_framePos + i];
-            *pOut++ |= (v & 0x80) ? onebit : zerobit;
-            *pOut++ |= (v & 0x40) ? onebit : zerobit;
-            *pOut++ |= (v & 0x20) ? onebit : zerobit;
-            *pOut++ |= (v & 0x10) ? onebit : zerobit;
-            *pOut++ |= (v & 0x08) ? onebit : zerobit;
-            *pOut++ |= (v & 0x04) ? onebit : zerobit;
-            *pOut++ |= (v & 0x02) ? onebit : zerobit;
-            *pOut++ |= (v & 0x01) ? onebit : zerobit;
-        }
-    }
-    _framePos += srcThisChunk;
+  }
+  _framePos += srcThisChunk;
 }
 
 // SPI ISR: handles trans_done (restart SPI bit counter) and outfifo_empty_err
@@ -179,23 +179,23 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   ctx->_hw->dma_int_clr.val = raw;  // Clear all SPI interrupt flags
 
   if (raw & SPI_TRANS_DONE_INT_ST) {
-    txdone = true; // transfer finished
+  txdone = true; // transfer finished
   //  Serial.print("b");
   }
   else {
   //  Serial.println(raw, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
-    // this may be some SPI error, stop SPI and DMA to prevent lockup
-    // detach pins from spi and force low to prevent any output when cmd.user is stopped (which outputs a fast pattern)
-    for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
-        if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
-            gpio_matrix_out(ctx->_channels[i].pin, SIG_GPIO_OUT_IDX, false, false);
-            gpio_set_level((gpio_num_t)ctx->_channels[i].pin, 0);
-        }
+  // this may be some SPI error, stop SPI and DMA to prevent lockup
+  // detach pins from spi and force low to prevent any output when cmd.user is stopped (which outputs a fast pattern)
+  for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
+    if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
+      gpio_matrix_out(ctx->_channels[i].pin, SIG_GPIO_OUT_IDX, false, false);
+      gpio_set_level((gpio_num_t)ctx->_channels[i].pin, 0);
     }
-    //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this cauuses a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
-    //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
-    ctx->forceIdle();
-    txdone = true; // still mark it as done
+  }
+  //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this cauuses a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
+  //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
+  ctx->forceIdle();
+  txdone = true; // still mark it as done
   }
 
   
@@ -204,220 +204,220 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 }
 
 void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
-    SpiBusContext* ctx = (SpiBusContext*)arg;
-    gdma_dev_t* dma = &GDMA;
+  SpiBusContext* ctx = (SpiBusContext*)arg;
+  gdma_dev_t* dma = &GDMA;
   //  Serial.print("*");
-    // toggle gpio0
+  // toggle gpio0
   //    digitalWrite(0, HIGH);
 
-    if (dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
-        uint8_t completedBuf = ctx->_currentBuffer;
-        ctx->encodeSpiChunk(completedBuf);
-      //  if (isSending) {
+  if (dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
+    uint8_t completedBuf = ctx->_currentBuffer;
+    ctx->encodeSpiChunk(completedBuf);
+    //  if (isSending) {
 
-        // CRITICAL: Give ownership of the descriptor back to DMA so it can keep feeding SPI
-      //  ctx->_dmaDesc[completedBuf].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
-      //  ctx->_dmaDesc[completedBuf].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
-        //ctx->_dmaDesc[completedBuf].eof = 1; // TODO: it works perfectly fine without setting these flags again, does this help with stability?
-        //ctx->_dmaDesc[completedBuf].owner = 1;
-    //    }
-        ctx->_currentBuffer = completedBuf ? 0 : 1; // toggle DMA buffer
-    }
+    // CRITICAL: Give ownership of the descriptor back to DMA so it can keep feeding SPI
+    //  ctx->_dmaDesc[completedBuf].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    //  ctx->_dmaDesc[completedBuf].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    //ctx->_dmaDesc[completedBuf].eof = 1; // TODO: it works perfectly fine without setting these flags again, does this help with stability?
+    //ctx->_dmaDesc[completedBuf].owner = 1;
+  //    }
+    ctx->_currentBuffer = completedBuf ? 0 : 1; // toggle DMA buffer
+  }
 //    digitalWrite(0, LOW);
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].raw.val; // clear all GDMA interrupt flags for this channel
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].raw.val; // clear all GDMA interrupt flags for this channel
 }
 
 bool SpiBusContext::init(const LedTiming& timing) {
-    if (_initialized) return true;
+  if (_initialized) return true;
 
-    //pinMode(0, OUTPUT);
-    //digitalWrite(0, LOW); //!!!
+  //pinMode(0, OUTPUT);
+  //digitalWrite(0, LOW); //!!!
 
-    // Allocate DMA buffers
-    for (int i = 0; i < 2; i++) {
-        _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE,
-                                                           MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-        if (!_dmaBuffer[i]) {
-            Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
-            deinit();
-            return false;
-        }
-        memset(_dmaBuffer[i], 0, WLEDPB_SPI_DMA_BUFFER_SIZE);
+  // Allocate DMA buffers
+  for (int i = 0; i < 2; i++) {
+    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE,
+                               MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    if (!_dmaBuffer[i]) {
+      Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
+      deinit();
+      return false;
     }
+    memset(_dmaBuffer[i], 0, WLEDPB_SPI_DMA_BUFFER_SIZE);
+  }
 
-    // Setup DMA descriptors - circular linked list
-    for (int i = 0; i < 2; i++) {
-        _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
-        _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
-        _dmaDesc[i].owner = 1;
-        _dmaDesc[i].sosf = 0;
-        _dmaDesc[i].eof = 1;
-        _dmaDesc[i].buf = _dmaBuffer[i];
-    }
-    _dmaDesc[0].qe.stqe_next = &_dmaDesc[1];
-    _dmaDesc[1].qe.stqe_next = &_dmaDesc[0];
+  // Setup DMA descriptors - circular linked list
+  for (int i = 0; i < 2; i++) {
+    _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    _dmaDesc[i].owner = 1;
+    _dmaDesc[i].sosf = 0;
+    _dmaDesc[i].eof = 1;
+    _dmaDesc[i].buf = _dmaBuffer[i];
+  }
+  _dmaDesc[0].qe.stqe_next = &_dmaDesc[1];
+  _dmaDesc[1].qe.stqe_next = &_dmaDesc[0];
 
-    // Enable peripheral clocks and force-reset (SPI2 + DMA)
-    // periph_module_enable() uses ref counting and may be a no-op if the
-    // peripheral was already enabled. Explicit reset ensures clean state.
-    periph_module_enable(PERIPH_SPI2_MODULE);
-    periph_module_reset(PERIPH_SPI2_MODULE);
-    periph_module_enable(PERIPH_GDMA_MODULE);
-    periph_module_reset(PERIPH_GDMA_MODULE);
+  // Enable peripheral clocks and force-reset (SPI2 + DMA)
+  // periph_module_enable() uses ref counting and may be a no-op if the
+  // peripheral was already enabled. Explicit reset ensures clean state.
+  periph_module_enable(PERIPH_SPI2_MODULE);
+  periph_module_reset(PERIPH_SPI2_MODULE);
+  periph_module_enable(PERIPH_GDMA_MODULE);
+  periph_module_reset(PERIPH_GDMA_MODULE);
 
-    // Configure SPI2 master
-    spi_ll_master_init(_hw);
-    spi_ll_master_set_mode(_hw, 0);
-    spi_ll_set_tx_lsbfirst(_hw, true);
+  // Configure SPI2 master
+  spi_ll_master_init(_hw);
+  spi_ll_master_set_mode(_hw, 0);
+  spi_ll_set_tx_lsbfirst(_hw, true);
 
-    // skip all SPI phases and jump directly to user mosi phase
-    _hw->user.usr_command = 0;
-    _hw->user.usr_addr = 0;
-    _hw->user.usr_dummy = 0;
-    _hw->user.usr_miso = 0;
-    _hw->user.usr_mosi = 1;
+  // skip all SPI phases and jump directly to user mosi phase
+  _hw->user.usr_command = 0;
+  _hw->user.usr_addr = 0;
+  _hw->user.usr_dummy = 0;
+  _hw->user.usr_miso = 0;
+  _hw->user.usr_mosi = 1;
 
-    // Clear idle output polarities for D2/D3
-    _hw->ctrl.q_pol = 0;
-    _hw->ctrl.d_pol = 0;
-    _hw->ctrl.hold_pol = 0;
-    _hw->ctrl.wp_pol = 0;
+  // Clear idle output polarities for D2/D3
+  _hw->ctrl.q_pol = 0;
+  _hw->ctrl.d_pol = 0;
+  _hw->ctrl.hold_pol = 0;
+  _hw->ctrl.wp_pol = 0;
 
-    spi_line_mode_t linemode = {};
-    linemode.data_lines = 4;  // quad mode
-    spi_ll_master_set_line_mode(_hw, linemode);
+  spi_line_mode_t linemode = {};
+  linemode.data_lines = 4;  // quad mode
+  spi_ll_master_set_line_mode(_hw, linemode);
 
-    // Clock: target ~2.6MHz for ~390ns per step, matching user's tested config
-    // 4 steps per bit → ~1560ns per bit (within WS2812 tolerance)
-    // Clock: 4 steps per bit → 4 SPI clock cycles per bit period.
-    // targetFreq = 4 / (bitPeriod_ns * 1e-9) = 4,000,000,000 / bitPeriod_ns
-    uint32_t bitPeriodNs = timing.bitPeriod();
-    uint32_t targetFreq = 4000000000UL / bitPeriodNs;
-    if (targetFreq < 2000000) targetFreq = 2000000;
-    if (targetFreq > 5000000) targetFreq = 5000000;
+  // Clock: target ~2.6MHz for ~390ns per step, matching user's tested config
+  // 4 steps per bit → ~1560ns per bit (within WS2812 tolerance)
+  // Clock: 4 steps per bit → 4 SPI clock cycles per bit period.
+  // targetFreq = 4 / (bitPeriod_ns * 1e-9) = 4,000,000,000 / bitPeriod_ns
+  uint32_t bitPeriodNs = timing.bitPeriod();
+  uint32_t targetFreq = 4000000000UL / bitPeriodNs;
+  if (targetFreq < 2000000) targetFreq = 2000000;
+  if (targetFreq > 5000000) targetFreq = 5000000;
 
-    spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
+  spi_ll_master_set_clock(_hw, 80000000, targetFreq, 128);
 
-    // Route SPI clock to a dummy pin (needed for DMA to work) -> seems to work fine without this (maybe an IDF V5 issue?)
-    //pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
+  // Route SPI clock to a dummy pin (needed for DMA to work) -> seems to work fine without this (maybe an IDF V5 issue?)
+  //pinMatrixOutAttach(11, FSPICLK_OUT_IDX, false, false);
 
   //  spi_ll_set_mosi_bitlen(_hw, 16384); // dummy init value, not required (set properly when transfer starts)
-    spi_ll_enable_mosi(_hw, true);
+  spi_ll_enable_mosi(_hw, true);
 
-    spi_ll_dma_tx_enable(_hw, true);
-    spi_ll_dma_tx_fifo_reset(_hw);
-    spi_ll_outfifo_empty_clr(_hw);
-    spi_ll_apply_config(_hw);
+  spi_ll_dma_tx_enable(_hw, true);
+  spi_ll_dma_tx_fifo_reset(_hw);
+  spi_ll_outfifo_empty_clr(_hw);
+  spi_ll_apply_config(_hw);
 
-    // Configure GDMA
-    gdma_dev_t* dma = &GDMA;
-    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-    gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
-    gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
+  // Configure GDMA
+  gdma_dev_t* dma = &GDMA;
+  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+  gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
   //  gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-    esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE,
-                                    ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2,
-                                    gdmaISR, this, &_isrHandle);
-    if (err != ESP_OK) {
-        Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
-        deinit();
-        return false;
-    }
+  esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE,
+                  ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2,
+                  gdmaISR, this, &_isrHandle);
+  if (err != ESP_OK) {
+    Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
+    deinit();
+    return false;
+  }
 
-    // Install SPI ISR for trans_done and outfifo_empty_err recovery
-    _hw->dma_int_clr.val = 0xFFFFFFFF;
-    _hw->dma_int_ena.trans_done = 1;
-    _hw->dma_int_ena.outfifo_empty_err = 1;
-    err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE,
-                         ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2,
-                         spiISR, this, &_spiIsrHandle);
-    if (err != ESP_OK) {
-        Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
-        deinit();
-        return false;
-    }
+  // Install SPI ISR for trans_done and outfifo_empty_err recovery
+  _hw->dma_int_clr.val = 0xFFFFFFFF;
+  _hw->dma_int_ena.trans_done = 1;
+  _hw->dma_int_ena.outfifo_empty_err = 1;
+  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE,
+             ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2,
+             spiISR, this, &_spiIsrHandle);
+  if (err != ESP_OK) {
+    Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
+    deinit();
+    return false;
+  }
 
-    _initialized = true;
-    return true;
+  _initialized = true;
+  return true;
 }
 
 void SpiBusContext::deinit() {
-    _sending = false;
-    isSending = false; // TODO: integrate this into driver, i.e. non global
+  _sending = false;
+  isSending = false; // TODO: integrate this into driver, i.e. non global
 
-    // Stop SPI and DMA before freeing resources
-    if (_hw) {
-        _hw->cmd.usr = 0;  // Stop SPI transfer
+  // Stop SPI and DMA before freeing resources
+  if (_hw) {
+    _hw->cmd.usr = 0;  // Stop SPI transfer
+  }
+
+  gdma_dev_t* dma = &GDMA;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;  // Disable interrupt
+  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+
+  if (_hw) {
+    _hw->dma_int_ena.trans_done = 0;  // Disable SPI trans_done interrupt
+  }
+
+  if (_spiIsrHandle) {
+    esp_intr_free(_spiIsrHandle);
+    _spiIsrHandle = nullptr;
+  }
+
+  if (_isrHandle) {
+    esp_intr_free(_isrHandle);
+    _isrHandle = nullptr;
+  }
+
+  for (int i = 0; i < 2; i++) {
+    if (_dmaBuffer[i]) {
+      heap_caps_free(_dmaBuffer[i]);
+      _dmaBuffer[i] = nullptr;
     }
+  }
 
-    gdma_dev_t* dma = &GDMA;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;  // Disable interrupt
-    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-
-    if (_hw) {
-        _hw->dma_int_ena.trans_done = 0;  // Disable SPI trans_done interrupt
-    }
-
-    if (_spiIsrHandle) {
-        esp_intr_free(_spiIsrHandle);
-        _spiIsrHandle = nullptr;
-    }
-
-    if (_isrHandle) {
-        esp_intr_free(_isrHandle);
-        _isrHandle = nullptr;
-    }
-
-    for (int i = 0; i < 2; i++) {
-        if (_dmaBuffer[i]) {
-            heap_caps_free(_dmaBuffer[i]);
-            _dmaBuffer[i] = nullptr;
-        }
-    }
-
-    periph_module_disable(PERIPH_SPI2_MODULE);
-    periph_module_disable(PERIPH_GDMA_MODULE);
-    _initialized = false;
+  periph_module_disable(PERIPH_SPI2_MODULE);
+  periph_module_disable(PERIPH_GDMA_MODULE);
+  _initialized = false;
 }
 
 int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
-    int8_t idx = -1;
-    for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
-        if (!_channels[i].active) {
-            idx = i;
-            break;
-        }
+  int8_t idx = -1;
+  for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
+    if (!_channels[i].active) {
+      idx = i;
+      break;
     }
-    if (idx < 0) return -1;
+  }
+  if (idx < 0) return -1;
 
-    _channels[idx].bus = bus;
-    _channels[idx].pin = pin;
-    _channels[idx].active = true;
-    _channelCount++;
-    _channelMask |= (1 << idx);
+  _channels[idx].bus = bus;
+  _channels[idx].pin = pin;
+  _channels[idx].active = true;
+  _channelCount++;
+  _channelMask |= (1 << idx);
 
-    // Route SPI data signal to GPIO
-    pinMode(pin, OUTPUT);
-    pinMatrixOutAttach(pin, SPI_SIGNAL_INDICES[idx], false, false);
+  // Route SPI data signal to GPIO
+  pinMode(pin, OUTPUT);
+  pinMatrixOutAttach(pin, SPI_SIGNAL_INDICES[idx], false, false);
 
-    return idx;
+  return idx;
 }
 
 void SpiBusContext::unregisterChannel(int8_t channelIdx) {
-    if (channelIdx < 0 || channelIdx >= WLEDPB_SPI_MAX_CHANNELS) return;
-    if (!_channels[channelIdx].active) return;
+  if (channelIdx < 0 || channelIdx >= WLEDPB_SPI_MAX_CHANNELS) return;
+  if (!_channels[channelIdx].active) return;
 
-    if (_channels[channelIdx].pin >= 0) {
-        gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
-    }
+  if (_channels[channelIdx].pin >= 0) {
+    gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
+  }
 
-    _channels[channelIdx] = {nullptr, -1, nullptr, 0, false};
-    _channelCount--;
-    _channelMask &= ~(1 << channelIdx);
+  _channels[channelIdx] = {nullptr, -1, nullptr, 0, false};
+  _channelCount--;
+  _channelMask &= ~(1 << channelIdx);
 }
 
 void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_t len) {
@@ -442,9 +442,9 @@ bool SpiBusContext::startTransmit() {
   _lastTransmitMs = millis();
   size_t newBytes = 0;
   for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
-      newBytes = _channels[ch].srcLen;
-    }
+  if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
+    newBytes = _channels[ch].srcLen;
+  }
   }
 
   _framePos = 0;
@@ -476,9 +476,9 @@ bool SpiBusContext::startTransmit() {
 
   // re-attach pins to SPI signals 
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
-      if (_channels[i].active && _channels[i].pin >= 0) {
-          pinMatrixOutAttach(_channels[i].pin, SPI_SIGNAL_INDICES[i], false, false); // TODO: should this trick also be used to force outputs low during reset pulse?
-      }
+    if (_channels[i].active && _channels[i].pin >= 0) {
+      pinMatrixOutAttach(_channels[i].pin, SPI_SIGNAL_INDICES[i], false, false); // TODO: should this trick also be used to force outputs low during reset pulse?
+    }
   }
 
   gdma_dev_t* dma = &GDMA;
@@ -502,140 +502,140 @@ bool SpiBusContext::startTransmit() {
 // SpiBus implementation
 
 ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-    : _pin(pin)
-    , _timing(timing)
-    , _order(order)
-    , _initialized(false)
-    , _channelIdx(-1)
-    , _ctx(nullptr)
-    , _encodeBuffer(nullptr)
-    , _encodeBufferSize(0)
+  : _pin(pin)
+  , _timing(timing)
+  , _order(order)
+  , _initialized(false)
+  , _channelIdx(-1)
+  , _ctx(nullptr)
+  , _encodeBuffer(nullptr)
+  , _encodeBufferSize(0)
 {
 }
 
 ParallelSpiBus::~ParallelSpiBus() {
-    end();
+  end();
 }
 
 bool ParallelSpiBus::begin() {
-    if (_initialized) return true;
+  if (_initialized) return true;
 
-    _ctx = SpiBusContext::get();
-    if (!_ctx) return false;
+  _ctx = SpiBusContext::get();
+  if (!_ctx) return false;
 
-    if (!_ctx->init(_timing)) {
-        SpiBusContext::release();
-        _ctx = nullptr;
-        return false;
-    }
+  if (!_ctx->init(_timing)) {
+    SpiBusContext::release();
+    _ctx = nullptr;
+    return false;
+  }
 
-    _channelIdx = _ctx->registerChannel(_pin, this);
-    if (_channelIdx < 0) {
-        Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
-        SpiBusContext::release();
-        _ctx = nullptr;
-        return false;
-    }
+  _channelIdx = _ctx->registerChannel(_pin, this);
+  if (_channelIdx < 0) {
+    Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
+    SpiBusContext::release();
+    _ctx = nullptr;
+    return false;
+  }
 
-    _initialized = true;
-    return true;
+  _initialized = true;
+  return true;
 }
 
 void ParallelSpiBus::end() {
-    if (!_initialized) return;
+  if (!_initialized) return;
 
-    if (_ctx) {
-        uint32_t startWait = millis();
-        while (!_ctx->isIdle()) {
-            if (millis() - startWait > 100) {
-                break;
-            }
-            vTaskDelay(1);
-        }
-        _ctx->unregisterChannel(_channelIdx);
-        SpiBusContext::release();
-        _ctx = nullptr;
+  if (_ctx) {
+    uint32_t startWait = millis();
+    while (!_ctx->isIdle()) {
+      if (millis() - startWait > 100) {
+        break;
+      }
+      vTaskDelay(1);
     }
+    _ctx->unregisterChannel(_channelIdx);
+    SpiBusContext::release();
+    _ctx = nullptr;
+  }
 
-    if (_encodeBuffer) {
-        heap_caps_free(_encodeBuffer);
-        _encodeBuffer = nullptr;
-        _encodeBufferSize = 0;
-    }
+  if (_encodeBuffer) {
+    heap_caps_free(_encodeBuffer);
+    _encodeBuffer = nullptr;
+    _encodeBufferSize = 0;
+  }
 
-    _initialized = false;
+  _initialized = false;
 }
 
 bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
-    size_t needed = numPixels * getChannelCount(_order);
-    if (_encodeBuffer && _encodeBufferSize >= needed) return true;
+  size_t needed = numPixels * getChannelCount(_order);
+  if (_encodeBuffer && _encodeBufferSize >= needed) return true;
 
-    if (_encodeBuffer) heap_caps_free(_encodeBuffer);
+  if (_encodeBuffer) heap_caps_free(_encodeBuffer);
 
-    _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_INTERNAL);
-    if (!_encodeBuffer) {
-        _encodeBufferSize = 0;
-        return false;
-    }
-    _encodeBufferSize = needed;
-    return true;
+  _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_INTERNAL);
+  if (!_encodeBuffer) {
+    _encodeBufferSize = 0;
+    return false;
+  }
+  _encodeBufferSize = needed;
+  return true;
 }
 
 // TODO: this actually only uses internal buffer, could get rid of the parameters that are now unused.
 bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-    if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
+  if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
 
-    // Wait for previous transmission
-    /*
-    uint32_t startWait = millis();
-    while (!_ctx->isIdle()) {
-        if (millis() - startWait > 500) {
-            _ctx->forceIdle();
-            return false;
-        }
-        vTaskDelay(1);
-    }*/
-
-    // Wait for SPI to finish any remaining transfer
-    /*
-    startWait = millis();
-    while (!_ctx->isSpiDone()) {
-        if (millis() - startWait > 500) {
-            _ctx->forceIdle();
-            return false;
-        }
-        vTaskDelay(1);
-    }*/
-
-    if (!allocateBuffer(_numPixels)) return false;
-
-    ColorEncoder encoder(_order);
-    uint8_t* dst = _encodeBuffer;
-    uint8_t numCh = encoder.getNumChannels();
-
-    for (uint16_t i = 0; i < _numPixels; i++) {
-        encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
-        dst += numCh;
+  // Wait for previous transmission
+  /*
+  uint32_t startWait = millis();
+  while (!_ctx->isIdle()) {
+    if (millis() - startWait > 500) {
+      _ctx->forceIdle();
+      return false;
     }
+    vTaskDelay(1);
+  }*/
 
-    _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
+  // Wait for SPI to finish any remaining transfer
+  /*
+  startWait = millis();
+  while (!_ctx->isSpiDone()) {
+    if (millis() - startWait > 500) {
+      _ctx->forceIdle();
+      return false;
+    }
+    vTaskDelay(1);
+  }*/
 
-    return _ctx->startTransmit();
+  if (!allocateBuffer(_numPixels)) return false;
+
+  ColorEncoder encoder(_order);
+  uint8_t* dst = _encodeBuffer;
+  uint8_t numCh = encoder.getNumChannels();
+
+  for (uint16_t i = 0; i < _numPixels; i++) {
+    encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
+    dst += numCh;
+  }
+
+  _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
+
+  return _ctx->startTransmit();
 }
 
 bool ParallelSpiBus::canShow() const {
-    if (!_ctx) return true;
-    return _ctx->isSpiDone();
+  if (!_ctx) return true;
+  return _ctx->isSpiDone();
 }
 
 void ParallelSpiBus::waitComplete() {
   //  while (_ctx && !_ctx->isIdle()) {
-        vTaskDelay(1);
+    vTaskDelay(1);
   //  }
 }
 
 void ParallelSpiBus::setColorOrder(ColorOrder order) {
-    _order = order;
+  _order = order;
 }
 
 

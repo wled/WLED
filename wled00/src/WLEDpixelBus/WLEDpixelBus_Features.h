@@ -14,57 +14,57 @@ namespace WLEDpixelBus {
  */
 class FeaturePadder {
 public:
-    FeaturePadder() : _prefixLen(0) {}
+  FeaturePadder() : _prefixLen(0) {}
 
-    /**
-     * Set up the prefix for TM1814
-     * Format is: 4 bytes of config + 4 bytes of inverted config
-     * Data: R_mA, G_mA, B_mA, W_mA (typically 225 = 0xE1 each for 22.5mA)
-     */
-    void setupTM1814(uint8_t r_mA = 225, uint8_t g_mA = 225, uint8_t b_mA = 225, uint8_t w_mA = 225) {
-        _prefix[0] = r_mA;
-        _prefix[1] = g_mA;
-        _prefix[2] = b_mA;
-        _prefix[3] = w_mA;
-        _prefix[4] = ~r_mA;
-        _prefix[5] = ~g_mA;
-        _prefix[6] = ~b_mA;
-        _prefix[7] = ~w_mA;
-        _prefixLen = 8;
-    }
+  /**
+   * Set up the prefix for TM1814
+   * Format is: 4 bytes of config + 4 bytes of inverted config
+   * Data: R_mA, G_mA, B_mA, W_mA (typically 225 = 0xE1 each for 22.5mA)
+   */
+  void setupTM1814(uint8_t r_mA = 225, uint8_t g_mA = 225, uint8_t b_mA = 225, uint8_t w_mA = 225) {
+    _prefix[0] = r_mA;
+    _prefix[1] = g_mA;
+    _prefix[2] = b_mA;
+    _prefix[3] = w_mA;
+    _prefix[4] = ~r_mA;
+    _prefix[5] = ~g_mA;
+    _prefix[6] = ~b_mA;
+    _prefix[7] = ~w_mA;
+    _prefixLen = 8;
+  }
 
-    /**
-     * Set up the prefix for TM1914
-     * Mode settings configuration.
-     * Mode 1: DIN/FDIN auto-switch (Default WLED setup)
-     * Format is typically 14 bytes (7 normal, 7 inverted)
-     */
-    void setupTM1914() {
-        // Mode: DinFdinAutoSwitch
-        uint8_t modeData = 0x01; 
-        
-        for (int i = 0; i < 7; i++) {
-            _prefix[i] = modeData;
-            _prefix[i + 7] = ~modeData;
-        }
-        _prefixLen = 14;
+  /**
+   * Set up the prefix for TM1914
+   * Mode settings configuration.
+   * Mode 1: DIN/FDIN auto-switch (Default WLED setup)
+   * Format is typically 14 bytes (7 normal, 7 inverted)
+   */
+  void setupTM1914() {
+    // Mode: DinFdinAutoSwitch
+    uint8_t modeData = 0x01; 
+    
+    for (int i = 0; i < 7; i++) {
+      _prefix[i] = modeData;
+      _prefix[i + 7] = ~modeData;
     }
+    _prefixLen = 14;
+  }
 
-    bool hasPrefix() const {
-        return _prefixLen > 0;
-    }
+  bool hasPrefix() const {
+    return _prefixLen > 0;
+  }
 
-    uint8_t getPrefixLen() const {
-        return _prefixLen;
-    }
+  uint8_t getPrefixLen() const {
+    return _prefixLen;
+  }
 
-    const uint8_t* getPrefixData() const {
-        return _prefix;
-    }
+  const uint8_t* getPrefixData() const {
+    return _prefix;
+  }
 
 private:
-    uint8_t _prefix[16];
-    uint8_t _prefixLen;
+  uint8_t _prefix[16];
+  uint8_t _prefixLen;
 };
 
 } // namespace WLEDpixelBus
