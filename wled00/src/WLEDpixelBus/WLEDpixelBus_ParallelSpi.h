@@ -10,7 +10,7 @@ namespace WLEDpixelBus {
 
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
-#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024 // must be a multiple of 16 (16 DMA bytes per source byte)
+#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024 // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (1k per buffer means about 0.5ms interrupt intervals)
 #define WLEDPB_SPI_GDMA_CHANNEL 0
 
 class ParallelSpiBus;
@@ -43,7 +43,6 @@ private:
     ~SpiBusContext();
 
     void encodeSpiChunk(uint8_t bufIdx);
-    void resetAndStart();
 
     static void IRAM_ATTR gdmaISR(void* arg);
     static void IRAM_ATTR spiISR(void* arg);
