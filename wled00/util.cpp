@@ -155,7 +155,7 @@ static void sanitizeHostname(char* hostname, size_t maxLen) {
  */
 void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
   if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
-  if (preferMDNS && strlen(cmDNS) > 0) {
+  if (preferMDNS && (strlen(cmDNS) > 0) && (strcmp_P(cmDNS, PSTR(DEFAULT_MDNS_NAME)) != 0)) {     // avoid "x" = not set (use wled-MAC)
     strlcpy(hostname, cmDNS, maxLen);
     sanitizeHostname(hostname, maxLen);  // sanitize cmDNS name
     if (strlen(hostname) < 1) {          // if result is empty -> fall back to wled-MAC
@@ -165,6 +165,7 @@ void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
   } else {
     prepareHostname(hostname, maxLen); // use legacy hostname based on "server description" - already sanitized
   }
+  DEBUG_PRINTF_P(PSTR("getWLEDHostname: '%s'\n"), hostname);
 }
 
 /* Legacy hostname construction:
