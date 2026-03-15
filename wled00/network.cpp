@@ -414,8 +414,8 @@ void WiFiEvent(WiFiEvent_t event)
         WiFi.disconnect(true); // disable WiFi entirely
       }
       // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[64];
-      prepareHostname(hostname);
+      char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
+      getWLEDhostname(hostname, sizeof(hostname));
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;
