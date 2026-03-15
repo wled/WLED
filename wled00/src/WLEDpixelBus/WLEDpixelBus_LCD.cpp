@@ -359,6 +359,66 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   // Rest of buffer remains zero (reset signal) from memset
 }
 
+
+void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
+  // 3-step cadence encoding for parallel output
+  // Each source bit becomes 3 DMA words (one bit per channel in each 16-bit word)
+  // Desired output: [HIGH][data][LOW] for each bit
+  // Buffer is always filled completely (zeros = LOW = reset signal)
+
+  memset(dest, 0, destLen);
+  size_t pos = 0;
+
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) maxCh = ch + 1;
+  }
+
+  while (pos + 48 <= destLen) {  // 8 bits * 3 steps * 2 bytes = 48 bytes per source byte
+    bool hasData = false;
+
+    for (int ch = 0; ch < maxCh; ch++) {
+      if (!_channels[ch].active) continue;
+      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
+
+      hasData = true;
+      uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
+      uint16_t chMask = (1 << ch);
+
+      uint16_t* p = (uint16_t*)(dest + pos);
+
+      // Unrolled loop for 8 bits
+      // [HIGH][data][LOW] — step 0 always high, step 1 = data bit, step 2 always low (zero from memset)
+      // bit 7
+      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; } p += 3;
+      // bit 6
+      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; } p += 3;
+      // bit 5
+      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; } p += 3;
+      // bit 4
+      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; } p += 3;
+      // bit 3
+      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; } p += 3;
+      // bit 2
+      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; } p += 3;
+      // bit 1
+      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; } p += 3;
+      // bit 0
+      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; } p += 3;
+    }
+
+    if (!hasData) break;
+
+    for (int ch = 0; ch < maxCh; ch++) {
+      if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
+        _channels[ch].srcPos++;
+      }
+    }
+
+    pos += 48;
+  }
+}
+
 void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
   encode4Step(_dmaBuffer[bufIdx], _bufferSize);
 }
