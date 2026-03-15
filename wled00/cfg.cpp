@@ -1,5 +1,6 @@
 #include "wled.h"
 #include "wled_ethernet.h"
+#include "safe_boot_functions.h"
 
 /*
  * Serializes and parses the cfg.json and wsec.json settings files, stored in internal FS.
@@ -832,6 +833,9 @@ void serializeConfigToFS() {
   if (f) serializeJson(root, f);
   f.close();
   releaseJSONBufferLock();
+  #ifdef  WLED_ENABLE_SAFE_BOOT
+    update_spiffs_crc();
+  #endif
 
   configNeedsWrite = false;
 }

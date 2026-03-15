@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "safe_boot_functions.h"
 
 /*
  * Methods to handle saving and loading presets to/from the filesystem
@@ -114,6 +115,9 @@ void initPresetsFile()
   }
   serializeJson(doc, f);
   f.close();
+  #ifdef  WLED_ENABLE_SAFE_BOOT
+    update_spiffs_crc();
+  #endif
 }
 
 bool applyPresetFromPlaylist(byte index)
