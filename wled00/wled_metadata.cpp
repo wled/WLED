@@ -128,30 +128,37 @@ static String normalizeReleaseName(const String& name) {
   return name;
 }
 
+template<size_t len>
+static inline String bufToString(const char (&buf)[len]) {
+  char sbuf[len+1];
+  size_t real_len = strnlen(buf, len);
+  memcpy(sbuf, buf, real_len);
+  sbuf[len] = '\0';
+  return sbuf;
+}
+
+/**
+ * Check if OTA should be allowed based on release compatibility using custom description
+ * @param firmwareDescription Description object from proposed new firmware
+ * @param errorMessage Buffer to store error message if validation fails 
+ * @param errorMessageLen Maximum length of error message buffer
+ * @return true if OTA should proceed, false if it should be blocked
+ */
 bool shouldAllowOTA(const wled_metadata_t& firmwareDescription, char* errorMessage, size_t errorMessageLen) {
   // Clear error message
   if (errorMessage && errorMessageLen > 0) {
     errorMessage[0] = '\0';
   }
 
-  const String uploadedRelease(firmwareDescription.release_name);
-  const String currentRelease(releaseString);
-
-  if (uploadedRelease.isEmpty()) {
-    return false;
-  }
-
-  if (uploadedRelease != currentRelease) {
-    // Exact match failed - check if the names are compatible after normalizing the "_V4" suffix.
-    // This allows upgrading between e.g. "ESP32_V4" (IDF v4 build) and "ESP32" (newer IDF build).
-    if (normalizeReleaseName(uploadedRelease) != normalizeReleaseName(currentRelease)) {
-      if (errorMessage && errorMessageLen > 0) {
-        snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware release name mismatch: current='%s', uploaded='%s'."),
-                 currentRelease.c_str(), uploadedRelease.c_str());
-        errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
-      }
-      return false;
+  const String uploadedRelease = bufToString(firmwareDescription.release_name);
+  
+  if (normalizeReleaseName(uploadedRelease) != normalizeReleaseName(releaseString)) {
+    if (errorMessage && errorMessageLen > 0) {
+      snprintf_P(errorMessage, errorMessageLen, PSTR("Firmware release name mismatch: current='%s', uploaded='%s'."),
+                releaseString, uploadedRelease.c_str());
+      errorMessage[errorMessageLen - 1] = '\0'; // Ensure null termination
     }
+    return false;
   }
 
   if (firmwareDescription.desc_version > 1) {
