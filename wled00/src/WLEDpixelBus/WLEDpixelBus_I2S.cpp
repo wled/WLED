@@ -220,7 +220,15 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   // Set clock (with fractional divider for accurate timing)
   _i2sDev->clkm_conf.val = 0;
-  _i2sDev->clkm_conf.clk_en = 1;
+
+  #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
+    _i2sDev->clkm_conf.clk_sel = 2; // APPL = 1 APB = 2
+    _i2sDev->clkm_conf.clk_en = 1; // examples of i2s show this being set if sel is set to 2
+  #else
+      _i2sDev->clkm_conf.clk_en = 1;
+      _i2sDev->clkm_conf.clka_en = 0;
+  #endif
+
   _i2sDev->clkm_conf.clkm_div_a = divA;
   _i2sDev->clkm_conf.clkm_div_b = divB;
   _i2sDev->clkm_conf.clkm_div_num = clkmInteger;
