@@ -319,7 +319,8 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
 #if defined(WLEDPB_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
 #elif defined(WLEDPB_ESP32S2)
-  sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
+  //sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
+  sigIdx = I2S0O_DATA_OUT8_IDX; // !!! just a test to see if this works
 #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
 #endif
