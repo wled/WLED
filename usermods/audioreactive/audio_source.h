@@ -624,7 +624,7 @@ class I2SAdcSource : public I2SSource {
       }
 
       // see example in https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/I2S/HiFreq_ADC/HiFreq_ADC.ino
-      adc1_config_channel_atten(adc1_channel_t(channel), ADC_ATTEN_DB_11);   // configure ADC input amplification
+      adc1_config_channel_atten(adc1_channel_t(channel), ADC_ATTEN_DB_12);   // configure ADC input amplification
 
       #if defined(I2S_GRAB_ADC1_COMPLETELY)
       // according to docs from espressif, the ADC needs to be started explicitly
