@@ -63,6 +63,7 @@ The build has two main phases:
 ### Code Validation
 - **No automated linting configured** - follow existing code style in files you edit
 - **Code style**: Use tabs for web files (.html/.css/.js), spaces (2 per level) for C++ files
+- **Language**: The repository language is English (british, american, canadian, or australian). If you find other lnguages, suggest a translation into English.
 - **C++ formatting available**: `clang-format` is installed but not in CI
 - **Always run tests before finishing**: `npm test`
 - **MANDATORY: Always run a hardware build before finishing** (see "Before Finishing Work" section below)
