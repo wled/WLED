@@ -146,12 +146,11 @@ ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getCh
 // Bus Factory Implementation
 //==============================================================================
 
-IBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
-        ColorOrder order, size_t bufferSize, int8_t channel) {
+IBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder order, size_t bufferSize, int8_t channel) {
   
   Serial.printf("[WPB] createBus type=%u pin=%d bufSize=%u ch=%d\n", (unsigned)type, pin, bufferSize, channel);
   if (type == BusType::Auto) {
-    type = getRecommendedBusType(); // TODO: when is "auto" used? should auto default to RMT? it currently defaults to I2S
+    type = getRecommendedBusType(); // TODO: when is "auto" used? should auto default to RMT? -> uses RMT for now but check if this fallback is needed or even useful
     Serial.printf("[WPB] Auto resolved to type=%u\n", (unsigned)type);
   }
 

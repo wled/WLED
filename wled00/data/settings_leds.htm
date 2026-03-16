@@ -50,6 +50,17 @@
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
 				pinDropdowns();
+				// Populate per-bus Bus Speed Factor (bsf) from server config if present
+				try {
+					if (d && d.hw && d.hw.led && Array.isArray(d.hw.led.ins)) {
+						d.hw.led.ins.forEach((v,i)=>{
+							let el = d.getElementsByName("SF"+i)[0];
+							if (el) el.value = (typeof v.bsf !== 'undefined') ? (v.bsf | 100) : 100;
+						});
+					}
+				} catch(e) {}
+				// initialize UI after populating values
+				UI();
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
@@ -151,6 +162,7 @@
 				if (!d.Sf.ABL.checked || d.Sf.PPL.checked) d.Sf.MA.value = 0; // submit 0 as ABL (PPL will handle it)
 				if (d.Sf.checkValidity()) {
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{s.disabled=false;}); // just in case
+					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach((s)=>{s.disabled=false;}); // ensure SF values are submitted even if some are disabled
 					d.Sf.submit(); //https://stackoverflow.com/q/37323914
 				}
 			}
@@ -471,6 +483,8 @@
 				}
 			});
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
+			// enforce I2S bus speed selector rules (only first I2S bus editable; others mirror/disabled)
+			syncI2SBusSpeedSelectors();
 			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 
 			// Show channel usage warning
@@ -585,10 +599,14 @@ Driver: <select name="LD${s}" onchange="UI()">
 </select>
 </div>
 <div id="bsfsel${s}" style="display:none">
-Timing: <select name="SF${s}">
-<option value="80">Fast (-20%)</option>
+LED Timing: <select name="SF${s}">
+<option value="70">Fastest (-30%)</option>
+<option value="80">Faster (-20%)</option>
+<option value="90">Fast (-10%)</option>
 <option value="100" selected>Default</option>
-<option value="120">Slow (+20%)</option>
+<option value="110">Slow (+10%)</option>
+<option value="120">Slower (+20%)</option>
+<option value="130">Slowest (+30%)</option>
 </select>
 </div>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
@@ -1029,8 +1047,46 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 				}
 			});
-		}
-	</script>
+			}
+
+			// Ensure I2S bus speed selectors are synchronized: only the first I2S bus is editable
+			function syncI2SBusSpeedSelectors() {
+				try {
+					// First, enable all SF selects by default (re-enable any that stopped being I2S)
+					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
+					let i2sIndices = [];
+					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+						let n = sel.name.substring(2,3);
+						let t = parseInt(sel.value);
+						let drv = d.Sf["LD"+n]?.value | 0;
+						if (isDig(t) && !isD2P(t) && drv === 1) i2sIndices.push(n);
+					});
+					if (i2sIndices.length === 0) return;
+					i2sIndices.sort((a,b)=> toNum(a) - toNum(b));
+					const first = i2sIndices[0];
+					for (const n of i2sIndices) {
+						let sf = d.getElementsByName("SF"+n)[0];
+						if (!sf) continue;
+						if (n === first) {
+							sf.disabled = false;
+							sf.style.opacity = 1;
+						} else {
+							sf.disabled = true;
+							sf.style.opacity = 0.6;
+							let fv = d.getElementsByName("SF"+first)[0];
+							if (fv && sf.value !== fv.value) sf.value = fv.value;
+						}
+					}
+					let firstEl = d.getElementsByName("SF"+first)[0];
+					if (firstEl) firstEl.onchange = function() {
+						let v = this.value;
+						for (const n of i2sIndices) if (n !== first) {
+							let sf = d.getElementsByName("SF"+n)[0]; if (sf) sf.value = v;
+						}
+					};
+				} catch(e) {}
+			}
+		</script>
 </head>
 <body>
 <form id="form_s" name="Sf" method="post">

@@ -361,6 +361,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
+      char sf[4] = "SF"; sf[2] = offset+s; sf[3] = 0; //bus speed factor (percent)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
@@ -402,6 +403,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         }
       }
       printSetFormValue(settingsScript,sp,speed);
+      printSetFormValue(settingsScript,sf,bus->getBusSpeedFactor());
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
