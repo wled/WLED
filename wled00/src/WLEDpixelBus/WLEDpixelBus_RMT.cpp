@@ -8,12 +8,34 @@ namespace WLEDpixelBus {
 // RMT Bus Implementation
 //==============================================================================
 
-// Context for RMT translate callback - must be in DRAM for IRAM ISR access
-static DRAM_ATTR struct {
-  uint32_t bit0;
-  uint32_t bit1;
-  uint16_t resetDuration;
-} s_rmtCtx;
+// Per-channel context table - stored in DRAM for ISR access
+DRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[8] = {};
+
+// Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
+// TODO: only define the ones actually needed based on available RMT channels, is there an IDF define for this?
+void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
+void IRAM_ATTR RmtBus::translator_ch1(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(1, s, d, ss, w, ts, in); }
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
+void IRAM_ATTR RmtBus::translator_ch2(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(2, s, d, ss, w, ts, in); }
+void IRAM_ATTR RmtBus::translator_ch3(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(3, s, d, ss, w, ts, in); }
+#endif
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4
+void IRAM_ATTR RmtBus::translator_ch4(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(4, s, d, ss, w, ts, in); }
+void IRAM_ATTR RmtBus::translator_ch5(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(5, s, d, ss, w, ts, in); }
+void IRAM_ATTR RmtBus::translator_ch6(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(6, s, d, ss, w, ts, in); }
+void IRAM_ATTR RmtBus::translator_ch7(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(7, s, d, ss, w, ts, in); }
+#endif
+// Jump table stored in DRAM so ISR code can quickly find the correct wrapper
+DRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[8] = {
+  RmtBus::translator_ch0, RmtBus::translator_ch1
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
+  ,RmtBus::translator_ch2, RmtBus::translator_ch3
+#endif
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4
+  ,RmtBus::translator_ch4, RmtBus::translator_ch5,
+  RmtBus::translator_ch6, RmtBus::translator_ch7
+#endif
+};
 
 // Static auto-channel counter for RmtBus
 uint8_t RmtBus::s_expectedChannels = 1;
@@ -57,6 +79,8 @@ void RmtBus::updateRmtTiming() {
   uint16_t t1h = nsToTicks(_timing.t1h_ns);
   uint16_t t1l = nsToTicks(_timing.t1l_ns);
 
+  Serial.printf("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
+
   rmt_item32_t bit0, bit1;
 
   if (_inverted) {
@@ -74,6 +98,13 @@ void RmtBus::updateRmtTiming() {
   _rmtBit0 = bit0.val;
   _rmtBit1 = bit1.val;
   _rmtResetTicks = nsToTicks(_timing.reset_us * 1000);
+
+  // If already initialized, update the shared DRAM context for this channel
+  if (_initialized) {
+    s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
+    s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
+    s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
+  }
 }
 
 bool RmtBus::begin() {
@@ -134,6 +165,11 @@ bool RmtBus::begin() {
 
   updateRmtTiming();
 
+  // Store initial timing into the shared DRAM context for this channel
+  s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
+  s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
+  s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
+
   rmt_config_t config = {};
 
   config.rmt_mode = RMT_MODE_TX;
@@ -153,27 +189,13 @@ bool RmtBus::begin() {
     return false;
   }
 
-  // Prioritize RMT over I2S/SPI DMA interrupts (which use LEVEL1) to prevent starvation.
-  // Try LEVEL3 first, fallback to LEVEL2, then LEVEL1.
-  int flags = ESP_INTR_FLAG_IRAM;
-#ifdef ESP_INTR_FLAG_LEVEL3
-  err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL3);
-  if (err != ESP_OK)
-#endif
-  {
-#ifdef ESP_INTR_FLAG_LEVEL2
-    err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL2);
-    if (err != ESP_OK)
-#endif
-    {
-      err = rmt_driver_install(_rmtChannel, 0, flags | ESP_INTR_FLAG_LEVEL1);
-    }
-  }
+  // install driver at high priority  TODO: need to raise priority just like in RMT high priority driver
+  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3));
   if (err != ESP_OK) {
     return false;
   }
 
-  // Register hack for memory blocks normally assigned to RX
+  // Register hack for memory blocks normally assigned to RX  TODO: is this also needed for S2 / classic ESP32?
 #if defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
   #if defined(WLEDPB_ESP32S3)
   for (int i = 4; i < 8; i++) {
@@ -186,7 +208,7 @@ bool RmtBus::begin() {
   #endif
 #endif
 
-  err = rmt_translator_init(_rmtChannel, translateCB);
+  err = rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
   if (err != ESP_OK) {
     rmt_driver_uninstall(_rmtChannel);
     return false;
@@ -259,10 +281,10 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
     dst += numCh;
   }
 
-  // Update context for ISR
-  s_rmtCtx.bit0 = _rmtBit0;
-  s_rmtCtx.bit1 = _rmtBit1;
-  s_rmtCtx.resetDuration = _rmtResetTicks;
+  // Update per-channel context for translator (ensure latest timings are visible to ISR)
+  s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
+  s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
+  s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
 
   // Start transmission
   size_t dataLen = numPixels * numCh;
@@ -284,6 +306,7 @@ void RmtBus::waitComplete() {
 }
 
 void RmtBus::setTiming(const LedTiming& timing) {
+  Serial.printf("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
   _timing = timing;
   if (_initialized) {
     updateRmtTiming();
@@ -294,9 +317,9 @@ void RmtBus::setColorOrder(ColorOrder order) {
   _order = order;
 }
 
-void IRAM_ATTR RmtBus::translateCB(const void* src, rmt_item32_t* dest,
-                  size_t src_size, size_t wanted_num,
-                  size_t* translated_size, size_t* item_num) {
+void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
+                                         size_t src_size, size_t wanted_num,
+                                         size_t* translated_size, size_t* item_num) {
   if (src == nullptr || dest == nullptr) {
     *translated_size = 0;
     *item_num = 0;
@@ -305,46 +328,59 @@ void IRAM_ATTR RmtBus::translateCB(const void* src, rmt_item32_t* dest,
 
   const uint8_t* psrc = (const uint8_t*)src;
   rmt_item32_t* pdest = dest;
-  size_t size = 0;
-  size_t num = 0;
+  
+  // Cache instance timings in registers for maximum ISR speed
+  const uint32_t bit0 = s_contexts[channel].bit0; 
+  const uint32_t bit1 = s_contexts[channel].bit1;
+  const uint16_t resetDuration = s_contexts[channel].resetDuration;
 
-  uint32_t bit0 = s_rmtCtx.bit0;
-  uint32_t bit1 = s_rmtCtx.bit1;
-  uint16_t resetDuration = s_rmtCtx.resetDuration;
+  // Calculate how many full bytes we can translate based on RMT buffer space (wanted_num)
+  size_t bytes_to_process = src_size;
+  size_t items_limit = wanted_num / 8;
+  if (bytes_to_process > items_limit) bytes_to_process = items_limit;
 
-  // Each byte produces 8 RMT items
-  for (;;)
-  {
-    uint8_t data = *psrc;
+  // Process all but the last byte in a tight loop without reset checks -> no branching in the loop for maximum speed
+  size_t i = 0;
+  size_t fast_limit = (bytes_to_process > 0) ? (bytes_to_process - 1) : 0;
 
-    for (uint8_t bit = 0; bit < 8; bit++)
-    {
-      pdest->val = (data & 0x80) ? bit1 : bit0;
-      pdest++;
-      data <<= 1;
-    }
-    num += 8;
-    size++;
+  for (; i < fast_limit; i++) {
+    const uint8_t data = psrc[i];
 
-    // If this is the last byte, extend the last bit's LOW duration
-    // to include the full reset signal length
-    if (size >= src_size)
-    {
-      pdest--;
-      pdest->duration1 = resetDuration;
-      break;
-    }
+    // using loop unrolling makes this faster avoiding bit shifts, loop overhead and lets the compiler optimize more
+    pdest[0].val = (data & 0x80) ? bit1 : bit0;
+    pdest[1].val = (data & 0x40) ? bit1 : bit0;
+    pdest[2].val = (data & 0x20) ? bit1 : bit0;
+    pdest[3].val = (data & 0x10) ? bit1 : bit0;
+    pdest[4].val = (data & 0x08) ? bit1 : bit0;
+    pdest[5].val = (data & 0x04) ? bit1 : bit0;
+    pdest[6].val = (data & 0x02) ? bit1 : bit0;
+    pdest[7].val = (data & 0x01) ? bit1 : bit0;
 
-    if (num >= wanted_num)
-    {
-      break;
-    }
-
-    psrc++;
+    pdest += 8;
   }
 
-  *translated_size = size;
-  *item_num = num;
+  // process the final byte separately to handle the reset duration (otherwise a check for "last byte" is needed in the loop above)
+  // i.e. prioritize speed over code simplicity as this ISR runs per RMT channel and at very high frequency (hundreds of times per second per channel)
+  if (i < src_size && (i * 8) < wanted_num) {
+    const uint8_t data = psrc[i];
+    pdest[0].val = (data & 0x80) ? bit1 : bit0;
+    pdest[1].val = (data & 0x40) ? bit1 : bit0;
+    pdest[2].val = (data & 0x20) ? bit1 : bit0;
+    pdest[3].val = (data & 0x10) ? bit1 : bit0;
+    pdest[4].val = (data & 0x08) ? bit1 : bit0;
+    pdest[5].val = (data & 0x04) ? bit1 : bit0;
+    pdest[6].val = (data & 0x02) ? bit1 : bit0;
+    pdest[7].val = (data & 0x01) ? bit1 : bit0;
+
+    i++;
+    // If this byte is the end of the source data, inject the Reset Signal
+    if (i == src_size) {
+      pdest[7].duration1 = resetDuration;
+    }
+  }
+
+  *translated_size = i;
+  *item_num = i * 8;
 }
 
 } // namespace WLEDpixelBus

@@ -71,10 +71,36 @@ private:
   void updateRmtTiming();
   bool allocateBuffer(uint16_t numPixels);
 
-  // Static translate callback
-  static void IRAM_ATTR translateCB(const void* src, rmt_item32_t* dest,
-                     size_t src_size, size_t wanted_num,
-                     size_t* translated_size, size_t* item_num);
+  // Per-channel translator context and helpers
+  struct RmtContext {
+    uint32_t bit0;
+    uint32_t bit1;
+    uint16_t resetDuration;
+  };
+
+  // Static lookup table for ISR speed (max 8 channels)
+  static RmtContext s_contexts[8];
+
+  // Explicit wrappers: implemented in .cpp file to ensure they are placed in IRAM
+  static void IRAM_ATTR translator_ch0(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  static void IRAM_ATTR translator_ch1(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
+  static void IRAM_ATTR translator_ch2(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  static void IRAM_ATTR translator_ch3(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  #endif
+  #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4
+  static void IRAM_ATTR translator_ch4(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  static void IRAM_ATTR translator_ch5(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  static void IRAM_ATTR translator_ch6(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  static void IRAM_ATTR translator_ch7(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
+  #endif
+  // Actual translator implementation (defined in .cpp)
+  static void IRAM_ATTR translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
+                                          size_t src_size, size_t wanted_num,
+                                          size_t* translated_size, size_t* item_num);
+
+  // Jump table of callbacks (defined in .cpp). Use 8 entries to match max RMT channels.
+  static const sample_to_rmt_t s_callbacks[8];
 };
 
 } // namespace WLEDpixelBus
