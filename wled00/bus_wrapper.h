@@ -201,13 +201,13 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       #else
       if (_2PchannelsAssigned == 1) isHSPI = true;
       #endif
-      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, finalOrder, isHSPI);
+      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, finalOrder, isHSPI); // TODO: move this into createbus function?
     }
 
-    auto btype = WLEDpixelBus::BusType::Auto;
-    
+    auto btype = WLEDpixelBus::BusType::Auto; // TODO: there is the get preferred bus type function but below we set default to RMT
+
     #ifdef ESP8266
-  //  uint8_t offset = pins[0] - 1; 
+  //  uint8_t offset = pins[0] - 1;
   //  if (pins[0] == 1 || pins[0] == 2) btype = WLEDpixelBus::BusType::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
     //else if (offset == 2) btype = WLEDpixelBus::BusType::DMA; // DMA method uses a lot of RAM!
     //else btype = WLEDpixelBus::BusType::BitBang;
@@ -217,11 +217,11 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
       case 0:  btype = WLEDpixelBus::BusType::RMT; break;
       case 1:
         #if defined(CONFIG_IDF_TARGET_ESP32S3)
-        btype = WLEDpixelBus::BusType::LCD;
+        btype = WLEDpixelBus::BusType::LCD; // S3 has LCD peripheral with 16 channels, very similar to I2S
         #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
         btype = WLEDpixelBus::BusType::I2S;
         #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-        btype = WLEDpixelBus::BusType::SPI;
+        btype = WLEDpixelBus::BusType::SPI; // parallel SPI
         #else
         btype = WLEDpixelBus::BusType::RMT;
         #endif
@@ -230,12 +230,15 @@ static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, 
     }
     #endif
 
-    int8_t rmtCh = -1; // -1 means auto select by RMT driver
+    int8_t rmtCh = -1; // -1 means auto select by RMT driver and optimize memory block use, if RMT RX is needed, define RMT_USE_SINGLE_MEM_BLOCK
     #ifndef ESP8266
     if (btype == WLEDpixelBus::BusType::RMT) {
       if (_rmtChannel < WLED_MAX_RMT_CHANNELS) {
-        //rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
+        #ifdef RMT_USE_SINGLE_MEM_BLOCK
+        rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
+        #else
         _rmtChannel++; // increment channel count for tracking, but use auto-channel  to optimize memory block allocation
+        #endif
       } else {
         return nullptr;
       }
