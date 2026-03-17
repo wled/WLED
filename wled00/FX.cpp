@@ -12,6 +12,7 @@
 
 #include "wled.h"
 #include "FX.h"
+#include "fontmanager.h"
 #include "fcn_declare.h"
 
 #define FX_FALLBACK_STATIC { mode_static(); return; }
