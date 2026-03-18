@@ -327,10 +327,9 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
   }
 
   const uint8_t* psrc = (const uint8_t*)src;
-  rmt_item32_t* pdest = dest;
 
   // Cache instance timings in registers for maximum ISR speed
-  const uint32_t bit0 = s_contexts[channel].bit0; 
+  const uint32_t bit0 = s_contexts[channel].bit0;
   const uint32_t bit1 = s_contexts[channel].bit1;
   const uint16_t resetDuration = s_contexts[channel].resetDuration;
 
@@ -338,12 +337,9 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
   const uint32_t items_limit = wanted_num / 8;
   const uint32_t bytes_to_process = (src_size > items_limit) ? items_limit : src_size;
 
-  // Process all but the last byte in a tight loop without reset checks -> no branching in the loop for maximum speed
-  const uint32_t fast_limit = (bytes_to_process > 0) ? (bytes_to_process - 1) : 0;
-
-  uint32_t i;
-  for (i = 0; i < fast_limit; i++) {
+  for (uint32_t i = 0; i < bytes_to_process; i++) {
     const uint8_t data = psrc[i];
+    rmt_item32_t* pdest = &dest[i * 8];
 
     // using loop unrolling makes this faster avoiding bit shifts, loop overhead and lets the compiler optimize more
     pdest[0].val = (data & 0x80) ? bit1 : bit0;
@@ -354,32 +350,15 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
     pdest[5].val = (data & 0x04) ? bit1 : bit0;
     pdest[6].val = (data & 0x02) ? bit1 : bit0;
     pdest[7].val = (data & 0x01) ? bit1 : bit0;
-
-    pdest += 8;
   }
 
-  // process the final byte separately to handle the reset duration (otherwise a check for "last byte" is needed in the loop above)
-  // i.e. prioritize speed over code simplicity as this ISR runs per RMT channel and at very high frequency (hundreds of times per second per channel)
-  if (i < src_size && (i * 8) < wanted_num) {
-    const uint8_t data = psrc[i];
-    pdest[0].val = (data & 0x80) ? bit1 : bit0;
-    pdest[1].val = (data & 0x40) ? bit1 : bit0;
-    pdest[2].val = (data & 0x20) ? bit1 : bit0;
-    pdest[3].val = (data & 0x10) ? bit1 : bit0;
-    pdest[4].val = (data & 0x08) ? bit1 : bit0;
-    pdest[5].val = (data & 0x04) ? bit1 : bit0;
-    pdest[6].val = (data & 0x02) ? bit1 : bit0;
-    pdest[7].val = (data & 0x01) ? bit1 : bit0;
-
-    i++;
-    // If this byte is the end of the source data, inject the Reset Signal
-    if (i == src_size) {
-      pdest[7].duration1 = resetDuration;
-    }
+  // If max_bytes == src_size, it means we've reached the end of the LED strip.
+  if (bytes_to_process == src_size) {
+      dest[(bytes_to_process * 8) - 1].duration1 = resetDuration;
   }
 
-  *translated_size = i;
-  *item_num = i * 8;
+  *translated_size = bytes_to_process;
+  *item_num = bytes_to_process * 8;
 }
 
 } // namespace WLEDpixelBus
