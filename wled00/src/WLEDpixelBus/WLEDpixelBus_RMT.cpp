@@ -51,6 +51,7 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t cha
   , _order(order)
   , _inverted(false)
   , _initialized(false)
+  , _usingRmtHi(false)
   , _rmtChannel(RMT_CHANNEL_0)
   , _rmtBit0(0)
   , _rmtBit1(0)
@@ -66,7 +67,6 @@ RmtBus::~RmtBus() {
 
 void RmtBus::updateRmtTiming() {
   // RMT clock:  80MHz with div=2 -> 40MHz -> 25ns per tick
-  const uint8_t clockDiv = 2;
   const float tickNs = 25.0f;
 
   auto nsToTicks = [tickNs](uint16_t ns) -> uint16_t {
@@ -99,11 +99,31 @@ void RmtBus::updateRmtTiming() {
   _rmtBit1 = bit1.val;
   _rmtResetTicks = nsToTicks(_timing.reset_us * 1000);
 
-  // If already initialized, update the shared DRAM context for this channel
+  // If already initialized, update hardware state for this channel
   if (_initialized) {
-    s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
-    s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
-    s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
+    // Update shared DRAM context used by the IDF translator (not needed for rmtHi)
+    if (!_usingRmtHi) {
+      s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
+      s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
+      s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
+    }
+    // If using rmtHi, reinstall the driver with new timing templates
+    if (_usingRmtHi) {
+      // wait for any in-flight transfer, then reinstall the hi driver
+      NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, 1000 / portTICK_PERIOD_MS);
+      NeoEsp32RmtHiMethodDriver::Uninstall(_rmtChannel);
+      esp_err_t instErr = NeoEsp32RmtHiMethodDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+      if (instErr != ESP_OK) {
+        Serial.printf("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
+        // Try to fall back to IDF driver
+        if (rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)) == ESP_OK) {
+          rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
+          _usingRmtHi = false;
+        }
+      } else {
+        _usingRmtHi = true;
+      }
+    }
   }
 }
 
@@ -188,14 +208,7 @@ bool RmtBus::begin() {
   if (err != ESP_OK) {
     return false;
   }
-
-  // install driver at high priority  TODO: need to raise priority just like in RMT high priority driver
-  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3));
-  if (err != ESP_OK) {
-    return false;
-  }
-
-  // Register hack for memory blocks normally assigned to RX  TODO: is this also needed for S2 / classic ESP32?
+  // Register hack for memory blocks normally assigned to RX (S3 / C3)
 #if defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
   #if defined(WLEDPB_ESP32S3)
   for (int i = 4; i < 8; i++) {
@@ -207,6 +220,25 @@ bool RmtBus::begin() {
   }
   #endif
 #endif
+
+  // Try to use the High Priority RMT driver (Neo rmtHi)
+  {
+    esp_err_t hiErr = NeoEsp32RmtHiMethodDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+    if (hiErr == ESP_OK) {
+      _usingRmtHi = true;
+      _initialized = true;
+      s_activeChannelMask |= (1 << _channel);
+      return true;
+    } else {
+      Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
+    }
+  }
+
+  // Fallback to IDF rmt driver + translator
+  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3));
+  if (err != ESP_OK) {
+    return false;
+  }
 
   err = rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
   if (err != ESP_OK) {
@@ -223,7 +255,11 @@ void RmtBus::end() {
   if (!_initialized) return;
 
   s_activeChannelMask &= ~(1 << _channel);
-  rmt_driver_uninstall(_rmtChannel);
+  if (_usingRmtHi) {
+    NeoEsp32RmtHiMethodDriver::Uninstall(_rmtChannel);
+  } else {
+    rmt_driver_uninstall(_rmtChannel);
+  }
 
   if (_encodeBuffer) {
     free(_encodeBuffer);
@@ -232,6 +268,7 @@ void RmtBus::end() {
   }
 
   _initialized = false;
+  _usingRmtHi = false;
 }
 
 bool RmtBus::allocateBuffer(uint16_t numPixels) {
@@ -266,7 +303,26 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
     return false;
   }
 
-  // Wait for previous transmission on THIS channel to complete
+  // If using Neo rmtHi driver, use its APIs
+  if (_usingRmtHi) {
+    if (!allocateBuffer(numPixels)) return false;
+
+    // Encode pixels to byte stream
+    ColorEncoder encoder(_order);
+    uint8_t* dst = _encodeBuffer;
+    uint8_t numCh = encoder.getNumChannels();
+
+    for (uint16_t i = 0; i < numPixels; i++) {
+      encoder.encode(pixels[i], cct ?  &cct[i] : nullptr, dst);
+      dst += numCh;
+    }
+
+    // Write() waits for any in-flight transfer internally before starting the new one
+    size_t dataLen = numPixels * numCh;
+    return NeoEsp32RmtHiMethodDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK;
+  }
+
+  // Wait for previous transmission on THIS channel to complete (IDF driver)
   rmt_wait_tx_done((rmt_channel_t)_rmtChannel, portMAX_DELAY);
 
   if (!allocateBuffer(numPixels)) return false;
@@ -286,7 +342,7 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
   s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
   s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
 
-  // Start transmission
+  // Start transmission (IDF driver)
   size_t dataLen = numPixels * numCh;
   esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
 
@@ -296,12 +352,17 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 bool RmtBus::canShow() const {
   if (!_initialized) return true;
   // Use rmt_wait_tx_done with 0 timeout to check if TX is done (matching NeoPixelBus)
+  if (_usingRmtHi) return (ESP_OK == NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, 0));
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 
 void RmtBus::waitComplete() {
   if (_initialized) {
-    rmt_wait_tx_done(_rmtChannel, portMAX_DELAY);
+    if (_usingRmtHi) {
+      NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, portMAX_DELAY);
+    } else {
+      rmt_wait_tx_done(_rmtChannel, portMAX_DELAY);
+    }
   }
 }
 

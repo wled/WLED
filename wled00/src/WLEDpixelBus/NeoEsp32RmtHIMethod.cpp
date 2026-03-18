@@ -1,37 +1,13 @@
 /*-------------------------------------------------------------------------
-NeoPixel library helper functions for Esp32.
-
-A BIG thanks to Andreas Merkle for the investigation and implementation of
-a workaround to the GCC bug that drops method attributes from template methods
-
-Written by Michael C. Miller.
-
-I invest time and resources providing this open source code,
-please support me by donating (see https://github.com/Makuna/NeoPixelBus)
-
--------------------------------------------------------------------------
-This file is part of the Makuna/NeoPixelBus library.
-
-NeoPixelBus is free software: you can redistribute it and/or modify
-it under the terms of the GNU Lesser General Public License as
-published by the Free Software Foundation, either version 3 of
-the License, or (at your option) any later version.
-
-NeoPixelBus is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Lesser General Public License for more details.
-
-You should have received a copy of the GNU Lesser General Public
-License along with NeoPixel.  If not, see
-<http://www.gnu.org/licenses/>.
+WLEDpixelBus - high priority RMT interrupts for ESP32
+by @willmmiles, 2026
 -------------------------------------------------------------------------*/
 
 #include <Arduino.h>
 
 #if defined(ARDUINO_ARCH_ESP32)
 
-#include <algorithm>  
+#include <algorithm>
 #include "esp_idf_version.h"
 #include "NeoEsp32RmtHIMethod.h"
 #include "soc/soc.h"
@@ -309,8 +285,8 @@ extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
     // Tx threshold interrupt
     uint32_t status = rmt_ll_get_tx_thres_interrupt_status(&RMT);
     while (status) {
-        uint8_t channel = __builtin_ffs(status) - 1;                
-        if (driverState[channel]) {            
+        uint8_t channel = __builtin_ffs(status) - 1;
+        if (driverState[channel]) {
             // Normal case
             NeoEsp32RmtHIChannelState& state = *driverState[channel];
             RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0);
@@ -328,7 +304,7 @@ extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
 static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t status) {
     uint32_t v;
     switch(channel) {
-#ifdef RMT_STATE_CH0        
+#ifdef RMT_STATE_CH0
         case 0: v = (status >> RMT_STATE_CH0_S) & RMT_STATE_CH0_V; break;
 #endif
 #ifdef RMT_STATE_CH1
@@ -337,9 +313,9 @@ static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t stat
 #ifdef RMT_STATE_CH2
         case 2: v = (status >> RMT_STATE_CH2_S) & RMT_STATE_CH2_V; break;
 #endif
-#ifdef RMT_STATE_CH3        
+#ifdef RMT_STATE_CH3
         case 3: v = (status >> RMT_STATE_CH3_S) & RMT_STATE_CH3_V; break;
-#endif        
+#endif
 #ifdef RMT_STATE_CH4
         case 4: v = (status >> RMT_STATE_CH4_S) & RMT_STATE_CH4_V; break;
 #endif

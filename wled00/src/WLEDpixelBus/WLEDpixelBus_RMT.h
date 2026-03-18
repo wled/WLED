@@ -2,13 +2,15 @@
 
 #include "WLEDpixelBus.h"
 
+#include "driver/rmt.h"
+
+#include "NeoEsp32RmtHIMethod.h"
+
 namespace WLEDpixelBus {
 
 //==============================================================================
 // RMT Bus - Works on all ESP32 variants
 //==============================================================================
-
-#include "driver/rmt.h"
 
 class RmtBus : public IBus {
 public:
@@ -52,6 +54,7 @@ private:
   ColorOrder _order;
   bool _inverted;
   bool _initialized;
+  bool _usingRmtHi;
   
   rmt_channel_t _rmtChannel;
   uint32_t _rmtBit0;

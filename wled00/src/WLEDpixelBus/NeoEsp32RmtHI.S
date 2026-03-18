@@ -2,7 +2,7 @@
  * Bridges from a high-level interrupt to the C++ code.
  *
  * This code is largely derived from Espressif's 'hli_vector.S' Bluetooth ISR.
- *
+ * implemented by @willmmiles
  */
 
 #if defined(__XTENSA__) && defined(ESP32) && !defined(CONFIG_BTDM_CTRL_HLI)
