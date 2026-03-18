@@ -222,6 +222,9 @@ bool RmtBus::begin() {
 #endif
 
   // Try to use the High Priority RMT driver (Neo rmtHi)
+  // NOTE: rmtHi can deadlock on some cores (notably ESP32-C3). By default we disable it
+  // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
+#if !defined(WLEDPB_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
   {
     esp_err_t hiErr = NeoEsp32RmtHiMethodDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
     if (hiErr == ESP_OK) {
@@ -233,6 +236,7 @@ bool RmtBus::begin() {
       Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
     }
   }
+#endif
 
   // Fallback to IDF rmt driver + translator
   err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3));
