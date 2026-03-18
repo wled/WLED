@@ -5,15 +5,18 @@
  */
 #ifdef WLED_ENABLE_WEBSOCKETS
 
+// forward declarations
+static bool sendLiveLedsWs(uint32_t wsClient);
+
 // define some constants for binary protocols, dont use defines but C++ style constexpr
 constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
 constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
 constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
 constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
 
-uint16_t wsLiveClientId = 0;
-unsigned long wsLastLiveTime = 0;
-//uint8_t* wsFrameBuffer = nullptr;
+static uint16_t wsLiveClientId = 0;
+static unsigned long wsLastLiveTime = 0;
+//static uint8_t* wsFrameBuffer = nullptr;
 
 #define WS_LIVE_INTERVAL 40
 
@@ -42,7 +45,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
         }
 
         bool verboseResponse = false;
-        if (!requestJSONBufferLock(11)) {
+        if (!requestJSONBufferLock(JSON_LOCK_WS_RECEIVE)) {
           client->text(F("{\"error\":3}")); // ERR_NOBUF
           return;
         }
@@ -77,10 +80,11 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           // force broadcast in 500ms after updating client
           //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
-      }else if (info->opcode == WS_BINARY) {
+      } else if (info->opcode == WS_BINARY) {
         // first byte determines protocol. Note: since e131_packet_t is "packed", the compiler handles alignment issues
         //DEBUG_PRINTF_P(PSTR("WS binary message: len %u, byte0: %u\n"), len, data[0]);
-        int offset = 1; // offset to skip protocol byte
+        constexpr int offset = 1; // offset to skip protocol byte
+        if (!data || len < offset+1) return; // catch invalid / single-byte payload
         switch (data[0]) {
           case BINARY_PROTOCOL_E131:
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_E131);
@@ -136,7 +140,7 @@ void sendDataWs(AsyncWebSocketClient * client)
 {
   if (!ws.count()) return;
 
-  if (!requestJSONBufferLock(12)) {
+  if (!requestJSONBufferLock(JSON_LOCK_WS_SEND)) {
     const char* error = PSTR("{\"error\":3}");
     if (client) {
       client->text(FPSTR(error)); // ERR_NOBUF
@@ -157,12 +161,6 @@ void sendDataWs(AsyncWebSocketClient * client)
   // the following may no longer be necessary as heap management has been fixed by @willmmiles in AWS
   size_t heap1 = getFreeHeapSize();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
-  #ifdef ESP8266
-  if (len>heap1) {
-    DEBUG_PRINTLN(F("Out of memory (WS)!"));
-    return;
-  }
-  #endif
   AsyncWebSocketBuffer buffer(len);
   #ifdef ESP8266
   size_t heap2 = getFreeHeapSize();
@@ -191,7 +189,7 @@ void sendDataWs(AsyncWebSocketClient * client)
   releaseJSONBufferLock();
 }
 
-bool sendLiveLedsWs(uint32_t wsClient)
+static bool sendLiveLedsWs(uint32_t wsClient)
 {
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
@@ -236,7 +234,7 @@ bool sendLiveLedsWs(uint32_t wsClient)
 #ifndef WLED_DISABLE_2D
     if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
 #endif
-    uint32_t c = strip.getPixelColor(i);
+    uint32_t c = strip.getPixelColor(i); // note: LEDs mapped outside of valid range are set to black
     uint8_t r = R(c);
     uint8_t g = G(c);
     uint8_t b = B(c);

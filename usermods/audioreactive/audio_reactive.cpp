@@ -6,10 +6,6 @@
 #include <driver/i2s.h>
 #include <driver/adc.h>
 
-#ifdef WLED_ENABLE_DMX
-  #error This audio reactive usermod is not compatible with DMX Out.
-#endif
-
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
@@ -1416,7 +1412,7 @@ class AudioReactive : public Usermod {
           break;
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         case 5:
-          DEBUGSR_PRINT(F("AR: I2S PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
+          DEBUGSR_PRINT(F("AR: Generic PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/4.0f);
           useBandPassFilter = true;  // this reduces the noise floor on SPM1423 from 5% Vpp (~380) down to 0.05% Vpp (~5)
           delay(100);
@@ -1434,7 +1430,6 @@ class AudioReactive : public Usermod {
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
         case 0:
-        default:
           DEBUGSR_PRINTLN(F("AR: Analog Microphone (left channel only)."));
           audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE);
           delay(100);
@@ -1442,10 +1437,25 @@ class AudioReactive : public Usermod {
           if (audioSource) audioSource->initialize(audioPin);
           break;
         #endif
+
+        case 254: // dummy "network receive only" mode
+          if (audioSource) delete audioSource; audioSource = nullptr;
+          disableSoundProcessing = true;
+          audioSyncEnabled = 2; // force udp sound receive mode
+          enabled = true;
+          break;
+
+        case 255: // 255 = -1 = no audio source
+          // falls through to default
+        default:
+          if (audioSource) delete audioSource; audioSource = nullptr;
+          disableSoundProcessing = true;
+          enabled = false;
+        break;
       }
       delay(250); // give microphone enough time to initialise
 
-      if (!audioSource) enabled = false;                 // audio failed to initialise
+      if (!audioSource && (dmType != 254)) enabled = false;// audio failed to initialise
 #endif
       if (enabled) onUpdateBegin(false);                 // create FFT task, and initialize network
 
@@ -1528,7 +1538,7 @@ class AudioReactive : public Usermod {
         disableSoundProcessing = true;
       } else {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
-        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource->isInitialized()) {    // we just switched to "enabled"
+        if ((disableSoundProcessing == true) && (audioSyncEnabled == 0) && audioSource && audioSource->isInitialized()) {    // we just switched to "enabled"
           DEBUG_PRINTLN(F("[AR userLoop]  realtime mode ended - audio processing resumed."));
           DEBUG_PRINTF_P(PSTR("               RealtimeMode = %d; RealtimeOverride = %d\n"), int(realtimeMode), int(realtimeOverride));
         }
@@ -1540,7 +1550,7 @@ class AudioReactive : public Usermod {
       if (audioSyncEnabled & 0x02) disableSoundProcessing = true;   // make sure everything is disabled IF in audio Receive mode
       if (audioSyncEnabled & 0x01) disableSoundProcessing = false;  // keep running audio IF we're in audio Transmit mode
 #ifdef ARDUINO_ARCH_ESP32
-      if (!audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
+      if (!audioSource || !audioSource->isInitialized()) disableSoundProcessing = true;  // no audio source
 
 
       // Only run the sampling code IF we're not in Receive mode or realtime mode
@@ -1737,7 +1747,7 @@ class AudioReactive : public Usermod {
       // better would be for AudioSource to implement getType()
       if (enabled
           && dmType == 0 && audioPin>=0
-          && (buttonType[b] == BTN_TYPE_ANALOG || buttonType[b] == BTN_TYPE_ANALOG_INVERTED)
+          && (buttons[b].type == BTN_TYPE_ANALOG || buttons[b].type == BTN_TYPE_ANALOG_INVERTED)
          ) {
         return true;
       }
@@ -1821,7 +1831,8 @@ class AudioReactive : public Usermod {
             if (audioSource->getType() == AudioSource::Type_I2SAdc) {
               infoArr.add(F("ADC analog"));
             } else {
-              infoArr.add(F("I2S digital"));
+              if (dmType == 5) infoArr.add(F("PDM digital")); // dmType 5 => generic PDM microphone
+              else infoArr.add(F("I2S digital"));
             }
             // input level or "silence"
             if (maxSample5sec > 1.0f) {
@@ -1939,14 +1950,14 @@ class AudioReactive : public Usermod {
         }
 #endif
       }
-      if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
+      if (palettes > 0 && root.containsKey(F("rmcpal"))) {
         // handle removal of custom palettes from JSON call so we don't break things
         removeAudioPalettes();
       }
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<10) {
+      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<WLED_MAX_CUSTOM_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -2108,7 +2119,7 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'SPH0654',3);"));
       uiScript.print(F("addOption(dd,'Generic I2S with Mclk',4);"));
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      uiScript.print(F("addOption(dd,'Generic I2S PDM',5);"));
+      uiScript.print(F("addOption(dd,'Generic PDM',5);"));
     #endif
     uiScript.print(F("addOption(dd,'ES8388',6);"));
     

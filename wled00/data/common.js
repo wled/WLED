@@ -51,6 +51,38 @@ function tooltip(cont=null) {
 		});
 	});
 };
+// sequential loading of external resources (JS or CSS) with retry, calls init() when done
+function loadResources(files, init) {
+	let i = 0;
+	const loadNext = () => {
+		if (i >= files.length) {
+			if (init) {
+				d.documentElement.style.visibility = 'visible'; // make page visible after all files are loaded if it was hidden (prevent ugly display)
+				d.readyState === 'complete' ? init() : window.addEventListener('load', init);
+			}
+			return;
+		}
+		const file = files[i++];
+		const isCSS = file.endsWith('.css');
+		const el = d.createElement(isCSS ? 'link' : 'script');
+		if (isCSS) {
+			el.rel = 'stylesheet';
+			el.href = file;
+			const st = d.head.querySelector('style');
+			if (st) d.head.insertBefore(el, st); // insert before any <style> to allow overrides
+			else d.head.appendChild(el);
+		} else {
+			el.src = file;
+			d.head.appendChild(el);
+		}
+		el.onload = () => {	loadNext(); };
+		el.onerror = () => {
+			i--; // load this file again
+			setTimeout(loadNext, 100);
+		};
+	};
+	loadNext();
+}
 // https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
 function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefined) {
 	let scE = d.createElement("script");
@@ -105,32 +137,43 @@ function showToast(text, error = false) {
 	x.style.animation = 'none';
 	timeout = setTimeout(function(){ x.className = x.className.replace("show", ""); }, 2900);
 }
-function uploadFile(fileObj, name) {
+async function uploadFile(fileObj, name, callback) {
+	let file = fileObj.files?.[0]; // get first file, "?"" = optional chaining in case no file is selected
+  if (!file) { callback?.(false); return; }
+	if (/\.json$/i.test(name)) { // same as name.toLowerCase().endsWith('.json')
+    try {
+      const minified = JSON.stringify(JSON.parse(await file.text())); // validate and minify JSON
+      file = new Blob([minified], { type: file.type || "application/json" });
+    } catch (err) {
+      if (!confirm("JSON invalid. Continue?")) { callback?.(false); return; }
+      // proceed with original file if invalid but user confirms
+    }
+  }
 	var req = new XMLHttpRequest();
-	req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400)});
-	req.addEventListener('error', function(e){showToast(e.stack,true);});
+	req.addEventListener('load', function(){showToast(this.responseText,this.status >= 400); if(callback) callback(this.status < 400);});
+	req.addEventListener('error', function(e){showToast("Upload failed",true); if(callback) callback(false);});
 	req.open("POST", "/upload");
 	var formData = new FormData();
-	formData.append("data", fileObj.files[0], name);
+	formData.append("data", file, name);
 	req.send(formData);
 	fileObj.value = '';
-	return false;
 }
-// connect to WebSocket, use parent WS or open new
+// connect to WebSocket, use parent WS or open new, callback function gets passed the new WS object
 function connectWs(onOpen) {
-	try {
-		if (top.window.ws && top.window.ws.readyState === WebSocket.OPEN) {
-			if (onOpen) onOpen();
-			return top.window.ws;
-		}
-	} catch (e) {}
-
-	getLoc(); // ensure globals (loc, locip, locproto) are up to date
-	let url = loc ? getURL('/ws').replace("http","ws") : "ws://"+window.location.hostname+"/ws";
-	let ws = new WebSocket(url);
-	ws.binaryType = "arraybuffer";
-	if (onOpen) { ws.onopen = onOpen; }
-	try { top.window.ws = ws; } catch (e) {} // store in parent for reuse
+	let ws;
+	try {	ws = top.window.ws;} catch (e) {}
+	// reuse if open
+	if (ws && ws.readyState === WebSocket.OPEN) {
+		if (onOpen) onOpen(ws);
+	} else {
+		// create new ws connection
+		getLoc(); // ensure globals are up to date
+		let url = loc ? getURL('/ws').replace("http", "ws")
+									: "ws://" + window.location.hostname + "/ws";
+		ws = new WebSocket(url);
+		ws.binaryType = "arraybuffer";
+		if (onOpen) ws.onopen = () => onOpen(ws);
+	}
 	return ws;
 }
 

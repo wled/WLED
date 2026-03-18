@@ -63,8 +63,8 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
  * if using "video" method the resulting color will never become black unless it is already black
  */
 uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
-  if (c1 == 0 || amount == 0) return 0; // black or no change
-  if (amount == 255) return c1;
+  if (c1 == BLACK || amount == 0) return 0; // black or full fade
+  if (amount == 255) return c1;             // no change
   uint32_t addRemains = 0;
 
   if (!video) amount++; // add one for correct scaling using bitshifts
@@ -249,12 +249,13 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
+  StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers -> TODO: current format uses 214 bytes max per palette, why is this buffer so large?
+  unsigned emptyPaletteGap = 0; // count gaps in palette files to stop looking for more (each exists() call takes ~5ms)
   for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
-
-    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
     if (WLED_FS.exists(fileName)) {
+      emptyPaletteGap = 0; // reset gap counter if file exists
       DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -288,7 +289,8 @@ void loadCustomPalettes() {
         }
       }
     } else {
-      break;
+      emptyPaletteGap++;
+      if (emptyPaletteGap > WLED_MAX_CUSTOM_PALETTE_GAP) break; // stop looking for more palettes
     }
   }
 }

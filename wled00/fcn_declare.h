@@ -1,6 +1,7 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
 
 /*
  * All globally accessible functions are declared here
@@ -20,6 +21,7 @@ void longPressAction(uint8_t b=0);
 void doublePressAction(uint8_t b=0);
 bool isButtonPressed(uint8_t b=0);
 void handleButton();
+void handleOnOff(bool forceOff = false);
 void handleIO();
 void IRAM_ATTR touchButtonISR();
 
@@ -63,13 +65,26 @@ typedef struct WiFiConfig {
   IPAddress staticIP;
   IPAddress staticGW;
   IPAddress staticSN;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+  byte encryptionType;
+  char enterpriseAnonIdentity[65];
+  char enterpriseIdentity[65];
+  WiFiConfig(const char *ssid="", const char *pass="", uint32_t ip=0, uint32_t gw=0, uint32_t subnet=0x00FFFFFF // little endian
+    , byte enc_type=WIFI_ENCRYPTION_TYPE_PSK, const char *ent_anon="", const char *ent_iden="")
+#else
   WiFiConfig(const char *ssid="", const char *pass="", uint32_t ip=0, uint32_t gw=0, uint32_t subnet=0x00FFFFFF) // little endian
+#endif
   : staticIP(ip)
   , staticGW(gw)
   , staticSN(subnet)
   {
     strncpy(clientSSID, ssid, 32); clientSSID[32] = 0;
     strncpy(clientPass, pass, 64); clientPass[64] = 0;
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+    encryptionType = enc_type;
+    strncpy(enterpriseAnonIdentity, ent_anon, 64); enterpriseAnonIdentity[64] = 0;
+    strncpy(enterpriseIdentity, ent_iden, 64); enterpriseIdentity[64] = 0;
+#endif
     memset(bssid, 0, sizeof(bssid));
   }
 } wifi_config;
@@ -85,9 +100,9 @@ void handleDMXInput();
 //e131.cpp
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
-void handleArtnetPollReply(IPAddress ipAddress);
-void prepareArtnetPollReply(ArtPollReply* reply);
-void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t portAddress);
+// void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
+// void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp
+// void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t portAddress); // local function, only used in e131.cpp
 
 //file.cpp
 bool handleFileRead(AsyncWebServerRequest*, String path);
@@ -160,6 +175,7 @@ void serializeState(JsonObject root, bool forPreset = false, bool includeBri = t
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
 void serializeModeData(JsonArray fxdata);
+void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
@@ -193,21 +209,22 @@ void publishMqtt();
 //ntp.cpp
 void handleTime();
 void handleNetworkTime();
-void sendNTPPacket();
-bool checkNTPResponse();
+// void sendNTPPacket();    // local function, only used in ntp.cpp
+// bool checkNTPResponse(); // local function, only used in ntp.cpp
 void updateLocalTime();
 void getTimeString(char* out);
 bool checkCountdown();
 void setCountdown();
 byte weekdayMondayFirst();
+bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayEnd);
 void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
 //overlay.cpp
 void handleOverlayDraw();
-void _overlayAnalogCountdown();
-void _overlayAnalogClock();
+// void _overlayAnalogCountdown();  // local function, only used in overlay.cpp
+// void _overlayAnalogClock();      // local function, only used in overlay.cpp
 
 //playlist.cpp
 void shufflePlaylist();
@@ -365,7 +382,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
@@ -394,13 +411,15 @@ size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
 void prepareHostname(char* hostname);
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
-bool requestJSONBufferLock(uint8_t moduleID=255);
+bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
 uint8_t extractModeSlider(uint8_t mode, uint8_t slider, char *dest, uint8_t maxLen, uint8_t *var = nullptr);
 int16_t extractModeDefaults(uint8_t mode, const char *segVar);
 void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
+String computeSHA1(const String& input);
+String getDeviceId();
 uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
 uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
 uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
@@ -484,7 +503,7 @@ void bootloopCheckOTA(); // swap boot image if bootloop is detected instead of r
 class JSONBufferGuard {
   bool holding_lock;
   public:
-    inline JSONBufferGuard(uint8_t module=255) : holding_lock(requestJSONBufferLock(module)) {};
+    inline JSONBufferGuard(uint8_t module=JSON_LOCK_UNKNOWN) : holding_lock(requestJSONBufferLock(module)) {};
     inline ~JSONBufferGuard() { if (holding_lock) releaseJSONBufferLock(); };
     inline JSONBufferGuard(const JSONBufferGuard&) = delete; // Noncopyable
     inline JSONBufferGuard& operator=(const JSONBufferGuard&) = delete;
@@ -494,14 +513,6 @@ class JSONBufferGuard {
     explicit inline operator bool() const { return owns_lock(); };
     inline void release() { if (holding_lock) releaseJSONBufferLock(); holding_lock = false; }
 };
-
-#ifdef WLED_ADD_EEPROM_SUPPORT
-//wled_eeprom.cpp
-void applyMacro(byte index);
-void deEEP();
-void deEEPSettings();
-void clearEEPROM();
-#endif
 
 //wled_math.cpp
 //float cos_t(float phi); // use float math
@@ -541,7 +552,6 @@ void handleSerial();
 void updateBaudRate(uint32_t rate);
 
 //wled_server.cpp
-void createEditHandler(bool enable);
 void initServer();
 void serveMessage(AsyncWebServerRequest* request, uint16_t code, const String& headl, const String& subl="", byte optionT=255);
 void serveJsonError(AsyncWebServerRequest* request, uint16_t code, uint16_t error);

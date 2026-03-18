@@ -4,10 +4,19 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
 	<title>Time Settings</title>
-	<script src="common.js" type="text/javascript"></script>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var el=false;
 	var ms=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
 	function S() {
 		getLoc();
 		loadJS(getURL('/settings/s.js?p=5'), false, ()=>{BTa();}, ()=>{
@@ -119,15 +128,15 @@
 		if (parseFloat(d.Sf.LN.value)<0) { d.Sf.LNR.value = "W"; d.Sf.LN.value = -1*parseFloat(d.Sf.LN.value); } else d.Sf.LNR.value = "E";
 	}
 	</script>
-	<style>@import url("style.css");</style>
 </head>
-<body onload="S()">
-	<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
-		<div class="toprow">
-		<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
-		</div>
-		<h2>Time setup</h2>
+<body>
+<form id="form_s" name="Sf" method="post" onsubmit="Wd()">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#time-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+	</div>
+	<h2>Time setup</h2>
+	<div class="sec">
 		Get time from NTP server: <input type="checkbox" name="NT"><br>
 		<input type="text" name="NS" maxlength="32"><br>
 		Use 24h format: <input type="checkbox" name="CF"><br>
@@ -157,6 +166,7 @@
 			<option value="21">MX-CST</option>
 			<option value="22">PKT (Pakistan)</option>
 			<option value="23">BRT (Brasília)</option>
+			<option value="24">AWST (Perth)</option>
 		</select><br>
 		UTC offset: <input name="UO" type="number" min="-65500" max="65500" required> seconds (max. 18 hours)<br>
 		Current local time is <span class="times">unknown</span>.<br>
@@ -165,6 +175,8 @@
 		<button type="button" id="locbtn" onclick="getLatLon()">Get location</button>
 		<div><i>(opens new tab, only works in browser)</i></div>
 		<div id="sun" class="times"></div>
+	</div>
+	<div class="sec">
 		<h3>Clock</h3>
 		Analog Clock overlay: <input type="checkbox" name="OL" onchange="Cs()"><br>
 		<div id="cac">
@@ -178,15 +190,22 @@
 		Countdown Goal:<br>
 		Date:&nbsp;<nowrap>20<input name="CY" class="xs" type="number" min="0" max="99" required>-<input name="CI" class="xs" type="number" min="1" max="12" required>-<input name="CD" class="xs" type="number" min="1" max="31" required></nowrap><br>
 		Time:&nbsp;<nowrap><input name="CH" class="xs" type="number" min="0" max="23" required>:<input name="CM" class="xs" type="number" min="0" max="59" required>:<input name="CS" class="xs" type="number" min="0" max="59" required></nowrap><br>
-		<h3>Macro presets</h3>
-		<b>Macros have moved!</b><br>
-		<i>Presets now also can be used as macros to save both JSON and HTTP API commands.<br>
-		Just enter the preset ID below!</i>
-		<i>Use 0 for the default action instead of a preset</i><br>
-		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
+	</div>
+	<hr>
+	<h2>Macro Presets</h2>
+	<i>Presets can be used as macros for both JSON and HTTP API commands.<br>
+	Enter the preset ID below.</i>
+	<i>Use 0 for the default action instead of a preset</i><br>
+	<a href="https://kno.wled.ge/interfaces/json-api/" target="_blank">JSON API</a><br>
+	<a href="https://kno.wled.ge/interfaces/http-api/" target="_blank">HTTP API</a><br>
+	<div class="sec">
+		<h3>Timer & Alexa Presets</h3>
 		Countdown-Over Preset: <input name="MC" class="m" type="number" min="0" max="250" required><br>
 		Timed-Light-Over Presets: <input name="MN" class="m" type="number" min="0" max="250" required><br>
-		<h3>Button actions</h3>
+		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
+	</div>
+	<div class="sec">
+		<h3>Button Action Presets</h3>
 		<table style="margin: 0 auto;" id="macros">
 			<thead>
 				<tr>
@@ -200,12 +219,15 @@
 			</tbody>
 		</table>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
-		<h3>Time-controlled presets</h3>
+	</div>
+	<div class="sec">
+		<h3>Time-Controlled Presets</h3>
 		<div style="display: inline-block">
 		<table id="TMT" style="min-width:330px;"></table>
 		</div>
-		<hr>
-		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
-	</form>
+	</div>
+	<hr>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+</form>
 </body>
 </html>

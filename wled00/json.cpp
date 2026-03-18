@@ -1,5 +1,6 @@
 #include "wled.h"
 
+
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -51,6 +52,9 @@ namespace {
     if (a.custom1 != b.custom1)     d |= SEG_DIFFERS_FX;
     if (a.custom2 != b.custom2)     d |= SEG_DIFFERS_FX;
     if (a.custom3 != b.custom3)     d |= SEG_DIFFERS_FX;
+    if (a.check1 != b.check1)       d |= SEG_DIFFERS_FX;
+    if (a.check2 != b.check2)       d |= SEG_DIFFERS_FX;
+    if (a.check3 != b.check3)       d |= SEG_DIFFERS_FX;
     if (a.startY != b.startY)       d |= SEG_DIFFERS_BOUNDS;
     if (a.stopY != b.stopY)         d |= SEG_DIFFERS_BOUNDS;
 
@@ -205,7 +209,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         // JSON "col" array can contain the following values for each of segment's colors (primary, background, custom):
         // "col":[int|string|object|array, int|string|object|array, int|string|object|array]
         //   int = Kelvin temperature or 0 for black
-        //   string = hex representation of [WW]RRGGBB
+        //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
         int rgbw[] = {0,0,0,0};
@@ -228,6 +232,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
               if (kelvin <  0) continue;
               if (kelvin == 0) seg.setColor(i, 0);
               if (kelvin >  0) colorKtoRGB(kelvin, brgbw);
+              colValid = true;
+            } else if (hexCol[0] == 'r' && hexCol[1] == '\0') { // Random colors via JSON API in Segment object like col=["r","r","r"] · Issue #4996
+              setRandomColor(brgbw);
               colValid = true;
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
@@ -528,17 +535,15 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     else callMode = CALL_MODE_DIRECT_CHANGE;  // possible bugfix for playlist only containing HTTP API preset FX=~
   }
 
-  if (root.containsKey(F("rmcpal")) && root[F("rmcpal")].as<bool>()) {
-    if (customPalettes.size()) {
-      char fileName[32];
-      sprintf_P(fileName, PSTR("/palette%d.json"), customPalettes.size()-1);
-      if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
-      loadCustomPalettes();
-    }
+  if (root.containsKey(F("rmcpal"))) {
+    char fileName[32];
+    sprintf_P(fileName, PSTR("/palette%d.json"), root[F("rmcpal")].as<uint8_t>());
+    if (WLED_FS.exists(fileName)) WLED_FS.remove(fileName);
+    loadCustomPalettes();
   }
 
   doAdvancePlaylist = root[F("np")] | doAdvancePlaylist; //advances to next preset in playlist when true
-  
+
   JsonObject wifi = root[F("wifi")];
   if (!wifi.isNull()) {
     bool apMode = getBoolVal(wifi[F("ap")], apActive);
@@ -687,6 +692,7 @@ void serializeState(JsonObject root, bool forPreset, bool includeBri, bool segme
   }
 }
 
+
 void serializeInfo(JsonObject root)
 {
   root[F("ver")] = versionString;
@@ -694,6 +700,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+  root[F("deviceId")] = getDeviceId();
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -739,7 +746,7 @@ void serializeInfo(JsonObject root)
   spi.add(spi_miso);
   #endif
 
-  root[F("str")] = false; //syncToggleReceive;
+  root[F("str")] = false; // sync toggle receive
 
   root[F("name")] = serverDescription;
   root[F("udpport")] = udpPort;
@@ -803,7 +810,7 @@ void serializeInfo(JsonObject root)
     wifi_info[F("txPower")] = (int) WiFi.getTxPower();
     wifi_info[F("sleep")] = (bool) WiFi.getSleep();
   #endif
-  #if !defined(CONFIG_IDF_TARGET_ESP32C2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // classic esp32 only: report "esp32" without package details
     root[F("arch")] = "esp32";
   #else
     root[F("arch")] = ESP.getChipModel();
@@ -817,6 +824,9 @@ void serializeInfo(JsonObject root)
   root[F("resetReason1")] = (int)rtc_get_reset_reason(1);
   #endif
   root[F("lwip")] = 0; //deprecated
+  #ifndef WLED_DISABLE_OTA
+  root[F("bootloaderSHA256")] = getBootloaderSHA256Hex();
+  #endif
 #else
   root[F("arch")] = "esp8266";
   root[F("core")] = ESP.getCoreVersion();
@@ -830,8 +840,12 @@ void serializeInfo(JsonObject root)
 #endif
 
   root[F("freeheap")] = getFreeHeapSize();
-  #if defined(BOARD_HAS_PSRAM)
-  root[F("psram")] = ESP.getFreePsram();
+  #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
+  // Report PSRAM information
+  // Free PSRAM in bytes (backward compatibility)
+  root[F("psram")] = ESP.getFreePsram(); 
+  // Total PSRAM size in MB, round up to correct for allocator overhead
+  root[F("psrSz")] = (ESP.getPsramSize() + (1024U * 1024U - 1)) / (1024U * 1024U); 
   #endif
   root[F("uptime")] = millis()/1000 + rolloverMillis*4294967;
 
@@ -884,7 +898,7 @@ void serializeInfo(JsonObject root)
   root["ip"] = s;
 }
 
-void setPaletteColors(JsonArray json, CRGBPalette16 palette)
+static void setPaletteColors(JsonArray json, CRGBPalette16 palette)
 {
     for (int i = 0; i < 16; i++) {
       JsonArray colors =  json.createNestedArray();
@@ -896,7 +910,7 @@ void setPaletteColors(JsonArray json, CRGBPalette16 palette)
     }
 }
 
-void setPaletteColors(JsonArray json, byte* tcp)
+static void setPaletteColors(JsonArray json, byte* tcp)
 {
     TRGBGradientPaletteEntryUnion* ent = (TRGBGradientPaletteEntryUnion*)(tcp);
     TRGBGradientPaletteEntryUnion u;
@@ -928,26 +942,25 @@ void serializePalettes(JsonObject root, int page)
 {
   byte tcp[72];
   #ifdef ESP8266
-  int itemPerPage = 5;
+  constexpr int itemPerPage = 5;
   #else
-  int itemPerPage = 8;
+  constexpr int itemPerPage = 8;
   #endif
 
-  int customPalettesCount = customPalettes.size();
-  int palettesCount = getPaletteCount() - customPalettesCount; // palettesCount is number of palettes, not palette index
+  const int customPalettesCount = customPalettes.size();
+  const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  int maxPage = (palettesCount + customPalettesCount -1) / itemPerPage;
+  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
-  int start = itemPerPage * page;
-  int end = start + itemPerPage;
-  if (end > palettesCount + customPalettesCount) end = palettesCount + customPalettesCount;
+  const int start = itemPerPage * page;
+  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
-  for (int i = start; i <= end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i<=palettesCount ? i : 255 - (i - (palettesCount + 1))));
+  for (int i = start; i < end; i++) {
+    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_p);
@@ -976,12 +989,12 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i > palettesCount)
-          setPaletteColors(curPalette, customPalettes[i - (palettesCount + 1)]);
-        else if (i < 13) // palette 6 - 12, fastled palettes
-          setPaletteColors(curPalette, *fastledPalettes[i-6]);
+        if (i >= palettesCount) // custom palettes
+          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
+        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+          setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
-          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - 13])), 72);
+          memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));
           setPaletteColors(curPalette, tcp);
         }
         break;
@@ -1032,6 +1045,120 @@ void serializeNodes(JsonObject root)
       node["ip"]      = it->second.ip.toString();
       node[F("age")]  = it->second.age;
       node[F("vid")]  = it->second.build;
+    }
+  }
+}
+
+void serializePins(JsonObject root)
+{
+  JsonArray pins = root.createNestedArray(F("pins"));
+  #ifdef ESP8266
+  constexpr int ENUM_PINS = WLED_NUM_PINS; // GPIO0-16 (A0 (17) is analog input only and always assigned to any analog input, even if set "unused") TODO: can currently not be handled
+  #else
+  constexpr int ENUM_PINS = WLED_NUM_PINS;
+  #endif
+  for (int gpio = 0; gpio < ENUM_PINS; gpio++) {
+    bool canInput = PinManager::isPinOk(gpio, false);
+    bool canOutput = PinManager::isPinOk(gpio, true);
+    bool isAllocated = PinManager::isPinAllocated(gpio);
+    // Skip pins that are neither usable nor allocated (truly unusable pins)
+    if (!canInput && !canOutput && !isAllocated) continue;
+
+    JsonObject pinObj = pins.createNestedObject();
+    pinObj["p"] = gpio;  // pin number
+
+    // Pin capabilities
+    // Touch capability is provided by appendGPIOinfo() via d.touch
+    uint8_t caps = 0;
+
+    #ifdef ARDUINO_ARCH_ESP32
+    if (PinManager::isAnalogPin(gpio)) caps |= PIN_CAP_ADC;
+
+    // PWM on all ESP32 variants: all output pins can use ledc PWM so this is redundant
+    //if (canOutput) caps |= PIN_CAP_PWM;
+
+    // Input-only pins (ESP32 classic: GPIO34-39)
+    if (canInput && !canOutput) caps |= PIN_CAP_INPUT_ONLY;
+
+    // Bootloader/strapping pins
+    #if defined(CONFIG_IDF_TARGET_ESP32S3)
+    if (gpio == 0) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
+    #elif defined(CONFIG_IDF_TARGET_ESP32S2)
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 45 || gpio == 46) caps |= PIN_CAP_BOOTSTRAP; // IO46 must be low to enter bootloader mode, IO45 controls flash voltage, keep low for 3.3V flash
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    if (gpio == 9) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // both GPIO2 and GPIO8 must be high to enter bootloader mode
+    #elif defined(CONFIG_IDF_TARGET_ESP32) // ESP32 classic
+    if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
+    if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
+    #endif
+    #else
+    // ESP8266: GPIO 0-16 + GPIO17=A0
+    // if (gpio < 16) caps |= PIN_CAP_PWM;  // software PWM available on all GPIO except GPIO16
+    // ESP8266 strapping pins
+    if (gpio == 0) caps |= PIN_CAP_BOOT;
+    if (gpio == 2 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // GPIO2 must be high, GPIO15 low to boot normally
+    if (gpio == 17) caps = PIN_CAP_INPUT_ONLY | PIN_CAP_ADC; // TODO: display as A0 pin
+    #endif
+
+    pinObj["c"] = caps;  // capabilities
+
+    // Add allocated status and owner
+    pinObj["a"] = isAllocated;  // allocated status
+
+    // check if this pin is used as a button (need to get button type for owner name)
+    int buttonIndex = PinManager::getButtonIndex(gpio); // returns -1 if not a button pin, otherwise returns index in buttons array
+
+    // Add owner ID and name
+    PinOwner owner = PinManager::getPinOwner(gpio);
+    if (isAllocated) {
+      pinObj["o"] = static_cast<uint8_t>(owner);  // owner ID (can be used for UI lookup)
+      pinObj["n"] = PinManager::getPinOwnerName(gpio);  // owner name (string)
+
+      // Relay pin
+      if (owner == PinOwner::Relay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(rlyPin); // read state from hardware (digitalRead returns output state for output pins)
+      }
+      // Button pins, get type and state using isButtonPressed()
+      else if (buttonIndex >= 0) {
+        pinObj["m"] = 0;  // mode: input
+        pinObj["t"] = buttons[buttonIndex].type; // button type
+        pinObj["s"] = isButtonPressed(buttonIndex) ? 1 : 0;  // state
+
+        // for touch buttons, get raw reading value (useful for debugging threshold)
+        #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+        if (buttons[buttonIndex].type == BTN_TYPE_TOUCH || buttons[buttonIndex].type == BTN_TYPE_TOUCH_SWITCH) {
+          if (digitalPinToTouchChannel(gpio) >= 0) {
+            #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3
+            pinObj["r"] = touchRead(gpio) >> 4; // Touch V2 returns larger values, right shift by 4 to match threshold range, see set.cpp
+            #else
+            pinObj["r"] = touchRead(gpio); // send raw value
+            #endif
+          }
+        }
+        #endif
+        // for analog buttons, get raw reading value
+        if (buttons[buttonIndex].type == BTN_TYPE_ANALOG || buttons[buttonIndex].type == BTN_TYPE_ANALOG_INVERTED) {
+          int analogRaw = 0;
+          #ifdef ESP8266
+          analogRaw = analogRead(A0) >> 2;   // convert 10bit read to 8bit, ESP8266 only has one analog pin
+          #else
+          if (digitalPinToAnalogChannel(gpio) >= 0) {
+            analogRaw = (analogRead(gpio)>>4); // right shift to match button value (8bit) see button.cpp
+          }
+          #endif
+          if (buttons[buttonIndex].type == BTN_TYPE_ANALOG_INVERTED) analogRaw = 255 - analogRaw;
+          pinObj["r"] = analogRaw; // send raw value
+        }
+      }
+      // other allocated output pins that are simple GPIO (BusOnOff, Multi Relay, etc.) TODO: expand for other pin owners as needed
+      else if (owner == PinOwner::BusOnOff || owner == PinOwner::UM_MultiRelay) {
+        pinObj["m"] = 1;  // mode: output
+        pinObj["s"] = digitalRead(gpio);  // read state from hardware (digitalRead returns output state for output pins)
+      }
     }
   }
 }
@@ -1094,7 +1221,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
 void serveJson(AsyncWebServerRequest* request)
 {
   enum class json_target {
-    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config
+    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config, pins
   };
   json_target subJson = json_target::all;
 
@@ -1108,6 +1235,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
+  else if (url.indexOf(F("pins"))  > 0) subJson = json_target::pins;
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
@@ -1123,7 +1251,7 @@ void serveJson(AsyncWebServerRequest* request)
     return;
   }
 
-  if (!requestJSONBufferLock(17)) {
+  if (!requestJSONBufferLock(JSON_LOCK_SERVEJSON)) {
     request->deferResponse();    
     return;
   }
@@ -1151,6 +1279,8 @@ void serveJson(AsyncWebServerRequest* request)
       serializeNetworks(lDoc); break;
     case json_target::config:
       serializeConfig(lDoc); break;
+    case json_target::pins:
+      serializePins(lDoc); break;
     case json_target::state_info:
     case json_target::all:
       JsonObject state = lDoc.createNestedObject("state");
