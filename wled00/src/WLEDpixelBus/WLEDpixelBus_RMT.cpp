@@ -328,22 +328,21 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
 
   const uint8_t* psrc = (const uint8_t*)src;
   rmt_item32_t* pdest = dest;
-  
+
   // Cache instance timings in registers for maximum ISR speed
   const uint32_t bit0 = s_contexts[channel].bit0; 
   const uint32_t bit1 = s_contexts[channel].bit1;
   const uint16_t resetDuration = s_contexts[channel].resetDuration;
 
   // Calculate how many full bytes we can translate based on RMT buffer space (wanted_num)
-  size_t bytes_to_process = src_size;
-  size_t items_limit = wanted_num / 8;
-  if (bytes_to_process > items_limit) bytes_to_process = items_limit;
+  const uint32_t items_limit = wanted_num / 8;
+  const uint32_t bytes_to_process = (src_size > items_limit) ? items_limit : src_size;
 
   // Process all but the last byte in a tight loop without reset checks -> no branching in the loop for maximum speed
-  size_t i = 0;
-  size_t fast_limit = (bytes_to_process > 0) ? (bytes_to_process - 1) : 0;
+  const uint32_t fast_limit = (bytes_to_process > 0) ? (bytes_to_process - 1) : 0;
 
-  for (; i < fast_limit; i++) {
+  uint32_t i;
+  for (i = 0; i < fast_limit; i++) {
     const uint8_t data = psrc[i];
 
     // using loop unrolling makes this faster avoiding bit shifts, loop overhead and lets the compiler optimize more

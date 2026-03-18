@@ -80,7 +80,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     }
     memset(_dmaBuffer[i], 0, _bufferSize);
 
-    _dmaDesc[i] = (lldesc_t*)heap_caps_malloc(sizeof(lldesc_t), MALLOC_CAP_DMA);
+    _dmaDesc[i] = (lldesc_t*)heap_caps_aligned_alloc(4, sizeof(lldesc_t), MALLOC_CAP_DMA);
     if (!_dmaDesc[i]) {
       Serial.println("I2S DMA desc alloc failed");
       deinit();
@@ -97,7 +97,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     _dmaDesc[i]->sosf = 0;
     _dmaDesc[i]->owner = 1;
   }
-  _dmaDesc[0]->qe.stqe_next = _dmaDesc[1];
+  _dmaDesc[0]->qe.stqe_next = _dmaDesc[1]; // create circular list
   _dmaDesc[1]->qe.stqe_next = _dmaDesc[0];
 
   // Enable I2S peripheral
@@ -211,22 +211,20 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   _clockDiv = clkmInteger;
 
-  Serial.printf("[I2S] Clock: bitPeriod=%uns, clkm_div=%u+%u/%u, bck_div=%u\n",
-          bitPeriodNs, clkmInteger, divB, divA, bckDiv);
+  Serial.printf("[I2S] Clock: bitPeriod=%uns, clkm_div=%u+%u/%u, bck_div=%u\n", bitPeriodNs, clkmInteger, divB, divA, bckDiv);
   double actualStepNs = (double)clkmInteger * bckDiv / baseClockMhz * 1000.0;
   if (divA > 0) actualStepNs = ((double)clkmInteger + (double)divB / divA) * bckDiv / baseClockMhz * 1000.0;
-  Serial.printf("[I2S] Step time: %.1fns (target: %.1fns), bit period: %.1fns\n",
-          actualStepNs, (double)bitPeriodNs / 4.0, actualStepNs * 4.0);
+  Serial.printf("[I2S] Step time: %.1fns (target: %.1fns), bit period: %.1fns\n", actualStepNs, (double)bitPeriodNs / 4.0, actualStepNs * 4.0);
 
   // Set clock (with fractional divider for accurate timing)
   _i2sDev->clkm_conf.val = 0;
 
   #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    _i2sDev->clkm_conf.clk_sel = 2; // APPL = 1 APB = 2
-    _i2sDev->clkm_conf.clk_en = 1; // examples of i2s show this being set if sel is set to 2
+  _i2sDev->clkm_conf.clk_sel = 2; // APPL = 1 APB = 2
+  _i2sDev->clkm_conf.clk_en = 1;  // examples of i2s show this being set if sel is set to 2
   #else
-      _i2sDev->clkm_conf.clk_en = 1;
-      _i2sDev->clkm_conf.clka_en = 0;
+  _i2sDev->clkm_conf.clk_en = 1;
+  _i2sDev->clkm_conf.clka_en = 0;
   #endif
 
   _i2sDev->clkm_conf.clkm_div_a = divA;
@@ -248,15 +246,13 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   // Install ISR
   int intSource;
-#if defined(WLEDPB_ESP32)
+  #if defined(WLEDPB_ESP32)
   intSource = (_busNum == 0) ? ETS_I2S0_INTR_SOURCE : ETS_I2S1_INTR_SOURCE;
-#else
+  #else
   intSource = ETS_I2S0_INTR_SOURCE;
-#endif
+  #endif
 
-  esp_err_t err = esp_intr_alloc(intSource, 
-                  ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL1,
-                  dmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2, dmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
     Serial.printf("I2S ISR alloc failed: %d", err);
     deinit();
@@ -324,14 +320,13 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
 
   // Route I2S output to GPIO
   int sigIdx;
-#if defined(WLEDPB_ESP32)
+  #if defined(WLEDPB_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
-#elif defined(WLEDPB_ESP32S2)
-  //sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
-  sigIdx = I2S0O_DATA_OUT8_IDX; // !!! just a test to see if this works
-#else
+  #elif defined(WLEDPB_ESP32S2)
+  sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
+  #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
-#endif
+  #endif
   sigIdx += idx;
 
   gpio_matrix_out(pin, sigIdx, false, false);
@@ -405,44 +400,27 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
       uint8_t* p = dest + pos;
 
-#if defined(WLEDPB_ESP32S2)
+      #if defined(WLEDPB_ESP32S2)
       // ESP32-S2 does NOT swap half-words (memory layout [step0, step1, step2, step3])
-      // bit 7
-      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 6
-      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 5
-      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 4
-      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 3
-      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 2
-      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 1
-      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 0
-      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-#else
-      // Half-word swapped: memory layout [step2, step3, step0, step1]
-      // bit 7
-      p[2] |= chMask; if (srcByte & 0x80) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 6
-      p[2] |= chMask; if (srcByte & 0x40) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 5
-      p[2] |= chMask; if (srcByte & 0x20) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 4
-      p[2] |= chMask; if (srcByte & 0x10) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 3
-      p[2] |= chMask; if (srcByte & 0x08) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 2
-      p[2] |= chMask; if (srcByte & 0x04) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 1
-      p[2] |= chMask; if (srcByte & 0x02) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-      // bit 0
-      p[2] |= chMask; if (srcByte & 0x01) { p[3] |= chMask; p[0] |= chMask; } p += 4;
-#endif
-
+      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 7
+      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 6
+      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 5
+      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 4
+      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 3
+      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 2
+      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 1
+      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 0
+      #else
+      // ESP32 classic: Half-word swapped: memory layout [step2, step3, step0, step1]
+      p[2] |= chMask; if (srcByte & 0x80) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 7
+      p[2] |= chMask; if (srcByte & 0x40) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 6
+      p[2] |= chMask; if (srcByte & 0x20) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 5
+      p[2] |= chMask; if (srcByte & 0x10) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 4
+      p[2] |= chMask; if (srcByte & 0x08) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 3
+      p[2] |= chMask; if (srcByte & 0x04) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 2
+      p[2] |= chMask; if (srcByte & 0x02) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 1
+      p[2] |= chMask; if (srcByte & 0x01) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 0
+      #endif
     }
 
     if (!hasData) break;
