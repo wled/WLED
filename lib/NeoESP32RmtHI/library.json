@@ -1,0 +1,12 @@
+{
+  "name": "NeoESP32RmtHI",
+  "build": { "libArchive": false },
+  "platforms": ["espressif32"],
+  "dependencies": [
+    {
+      "owner": "makuna",      
+      "name": "NeoPixelBus",
+      "version": "^2.8.3"
+    }
+  ]
+}  

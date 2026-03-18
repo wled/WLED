@@ -88,23 +88,26 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #endif
 #define FPS_CALC_SHIFT 7 // bit shift for fixed point math
 
-/* each segment uses 82 bytes of SRAM memory, so if you're application fails because of
-  insufficient memory, decreasing MAX_NUM_SEGMENTS may help */
+// heap memory limit for effects data, pixel buffers try to reserve it if PSRAM is available
 #ifdef ESP8266
   #define MAX_NUM_SEGMENTS  16
   /* How much data bytes all segments combined may allocate */
-  #define MAX_SEGMENT_DATA  5120
+  #define MAX_SEGMENT_DATA  (6*1024) // 6k by default
 #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  #define MAX_NUM_SEGMENTS  20
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*512)  // 10k by default (S2 is short on free RAM)
+  #define MAX_NUM_SEGMENTS  32
+  #define MAX_SEGMENT_DATA  (20*1024) // 20k by default (S2 is short on free RAM), limit does not apply if PSRAM is available
 #else
-  #define MAX_NUM_SEGMENTS  32  // warning: going beyond 32 may consume too much RAM for stable operation
-  #define MAX_SEGMENT_DATA  (MAX_NUM_SEGMENTS*1280) // 40k by default
+  #ifdef BOARD_HAS_PSRAM
+    #define MAX_NUM_SEGMENTS  64
+  #else
+    #define MAX_NUM_SEGMENTS  32
+  #endif
+  #define MAX_SEGMENT_DATA  (64*1024) // 64k by default, limit does not apply if PSRAM is available
 #endif
 
 /* How much data bytes each segment should max allocate to leave enough space for other segments,
   assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
-#define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / WS2812FX::getMaxSegments())
+#define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
 #define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
 
@@ -228,6 +231,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_LAKE                    75
 #define FX_MODE_METEOR                  76
 //#define FX_MODE_METEOR_SMOOTH           77  // replaced by Meteor
+#define FX_MODE_COPY                    77
 #define FX_MODE_RAILWAY                 78
 #define FX_MODE_RIPPLE                  79
 #define FX_MODE_TWINKLEFOX              80
@@ -306,6 +310,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_2DFIRENOISE            149
 #define FX_MODE_2DSQUAREDSWIRL         150
 // #define FX_MODE_2DFIRE2012             151
+#define FX_MODE_PACMAN                 151 // gap fill (non-SR). Do NOT renumber; SR-ID range must remain stable.
 #define FX_MODE_2DDNA                  152
 #define FX_MODE_2DMATRIX               153
 #define FX_MODE_2DMETABALLS            154
@@ -316,6 +321,7 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_DJLIGHT                159
 #define FX_MODE_2DFUNKYPLANK           160
 //#define FX_MODE_2DCENTERBARS           161
+#define FX_MODE_SHIMMER                161  // gap fill, non SR 1D effect
 #define FX_MODE_2DPULSER               162
 #define FX_MODE_BLURZ                  163
 #define FX_MODE_2DDRIFT                164
@@ -373,7 +379,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
-#define MODE_COUNT                     218
+#define FX_MODE_COLORCLOUDS            218
+#define MODE_COUNT                     219
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -460,7 +467,6 @@ class Segment {
     char     *name;               // segment name
 
     // runtime data
-    mutable unsigned long next_time;  // millis() of next update
     mutable uint32_t step;  // custom "step" var
     mutable uint32_t call;  // call counter
     mutable uint16_t aux0;  // custom var
@@ -532,7 +538,6 @@ class Segment {
 
   protected:
 
-    inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
 
     inline uint32_t *getPixels() const                              { return pixels; }
@@ -587,7 +592,6 @@ class Segment {
     , check3(false)
     , blendMode(0)
     , name(nullptr)
-    , next_time(0)
     , step(0)
     , call(0)
     , aux0(0)
@@ -599,8 +603,8 @@ class Segment {
     , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
-      // allocate render buffer (always entire segment)
-      pixels = static_cast<uint32_t*>(d_calloc(sizeof(uint32_t), length())); // error handling is also done in isActive()
+      // allocate render buffer (always entire segment), prefer PSRAM if DRAM is running low. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM)
+      pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
       if (!pixels) {
         DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
         extern byte errorFlag;
@@ -621,8 +625,11 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      #ifdef WLED_ENABLE_GIF
+      endImagePlayback(this);
+      #endif
       deallocateData();
-      d_free(pixels);
+      p_free(pixels);
     }
 
     Segment& operator= (const Segment &orig); // copy assignment
@@ -645,7 +652,7 @@ class Segment {
     inline uint16_t groupLength()          const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities() const { return _capabilities; }
     inline void     deactivate()                 { setGeometry(0,0); }
-    inline Segment &clearName()                  { d_free(name); name = nullptr; return *this; }
+    inline Segment &clearName()                  { p_free(name); name = nullptr; return *this; }
     inline Segment &setName(const String &name)  { return setName(name.c_str()); }
 
     inline static unsigned vLength()                       { return Segment::_vLength; }
@@ -671,6 +678,7 @@ class Segment {
     inline uint16_t dataSize() const { return _dataLen; }
     bool allocateData(size_t len);  // allocates effect data buffer in heap and clears it
     void deallocateData();          // deallocates (frees) effect data buffer from heap
+    inline static unsigned getUsedSegmentData()            { return Segment::_usedSegmentData; }
     /**
       * Flags that before the next effect is calculated,
       * the internal segment state should be reset.
@@ -685,6 +693,7 @@ class Segment {
 
     // 1D strip
     uint16_t virtualLength() const;
+    uint16_t maxMappingLength() const;
     [[gnu::hot]] void setPixelColor(int n, uint32_t c) const; // set relative pixel within segment with color
     inline void setPixelColor(unsigned n, uint32_t c) const                    { setPixelColor(int(n), c); }
     inline void setPixelColor(int n, byte r, byte g, byte b, byte w = 0) const { setPixelColor(n, RGBW32(r,g,b,w)); }
@@ -723,6 +732,13 @@ class Segment {
       return 1;
     #endif
     }
+    inline unsigned rawLength() const {   // returns length of used raw pixel buffer (eg. get/setPixelColorRaw())
+    #ifndef WLED_DISABLE_2D
+      if (is2D()) return virtualWidth() * virtualHeight();
+    #endif
+      return virtualLength();    
+    }
+
   #ifndef WLED_DISABLE_2D
     inline bool is2D() const                                                            { return (width()>1 && height()>1); }
     [[gnu::hot]] void setPixelColorXY(int x, int y, uint32_t c) const; // set relative pixel within segment with color
@@ -800,23 +816,24 @@ class Segment {
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
+  friend class ParticleSystem2D;
+  friend class ParticleSystem1D;
 };
 
 // main "strip" class (108 bytes)
 class WS2812FX {
-  typedef uint16_t (*mode_ptr)(); // pointer to mode function
+  typedef void (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
   typedef struct ModeData {
     uint8_t     _id;   // mode (effect) id
     mode_ptr    _fcn;  // mode (effect) function
     const char *_data; // mode (effect) name and its UI control data
-    ModeData(uint8_t id, uint16_t (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
+    ModeData(uint8_t id, void (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
   } mode_data_t;
 
   public:
 
     WS2812FX() :
-      paletteBlend(0),
       now(millis()),
       timebase(0),
       isMatrix(false),
@@ -857,8 +874,8 @@ class WS2812FX {
     }
 
     ~WS2812FX() {
-      d_free(_pixels);
-      d_free(_pixelCCT); // just in case
+      p_free(_pixels);
+      p_free(_pixelCCT); // just in case
       d_free(customMappingTable);
       _mode.clear();
       _modeData.clear();
@@ -918,7 +935,7 @@ class WS2812FX {
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
-    uint8_t paletteBlend;
+    // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;
@@ -947,7 +964,8 @@ class WS2812FX {
     };
 
     unsigned long now, timebase;
-    inline uint32_t getPixelColor(unsigned n) const { return (n < getLengthTotal()) ? _pixels[n] : 0; } // returns color of pixel n
+    inline uint32_t getPixelColor(unsigned n) const { return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0; } // returns color of pixel n, black if out of (mapped) bounds
+    inline uint32_t getPixelColorNoMap(unsigned n) const { return (n < getLengthTotal()) ? _pixels[n] : 0; } // ignores mapping table
     inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 
     const char *getModeData(unsigned id = 0) const  { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }
