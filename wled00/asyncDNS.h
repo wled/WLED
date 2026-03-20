@@ -1,7 +1,7 @@
 #pragma once
 /*
   asyncDNS.h - wrapper class for asynchronous DNS lookups using lwIP
-  by @dedehai
+  by @dedehai, C++ improvements & hardening by @willmmiles
 */
 
 #include <Arduino.h>
@@ -9,7 +9,6 @@
 #include <memory>
 #include <lwip/dns.h>
 #include <lwip/err.h>
-
 
 class AsyncDNS {
 
@@ -30,7 +29,7 @@ class AsyncDNS {
   enum class result { Idle, Busy, Success, Error };
 
   // non-blocking query function to start DNS lookup
-  static std::shared_ptr<AsyncDNS> query(const char* hostname, std::shared_ptr<AsyncDNS> current = {}) {    
+  static std::shared_ptr<AsyncDNS> query(const char* hostname, std::shared_ptr<AsyncDNS> current = {}) {
     if (!current || (current->_status == result::Busy)) {
       current.reset(new AsyncDNS());
     }
@@ -49,7 +48,6 @@ class AsyncDNS {
     } else if (err == ERR_INPROGRESS) {
       callback_state.release(); // belongs to the callback now
     } else {
-      Serial.printf("DNS fail: %d\n", err);
       current->_status = result::Error;
       current->_errorcount++;
     }
