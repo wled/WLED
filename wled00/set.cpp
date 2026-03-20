@@ -408,7 +408,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
-    //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();

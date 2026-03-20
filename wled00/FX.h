@@ -379,8 +379,9 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
-#define FX_MODE_SLOW_TRANSITION        218
-#define MODE_COUNT                     219
+#define FX_MODE_COLORCLOUDS            218
+#define FX_MODE_SLOW_TRANSITION        219
+#define MODE_COUNT                     220
 
 
 #define BLEND_STYLE_FADE            0x00  // universal
@@ -834,7 +835,6 @@ class WS2812FX {
   public:
 
     WS2812FX() :
-      paletteBlend(0),
       now(millis()),
       timebase(0),
       isMatrix(false),
@@ -936,7 +936,7 @@ class WS2812FX {
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
-    uint8_t paletteBlend;
+    // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;

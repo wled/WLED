@@ -176,7 +176,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(cctICused, hw_led[F("ic")]);
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
-  strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
+  unsigned targetFPS = hw_led["fps"] | WLED_FPS;
+  strip.setTargetFps(targetFPS); //unlimited if 0, default 42 FPS
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings

@@ -1,6 +1,7 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
 
 /*
  * All globally accessible functions are declared here
@@ -174,6 +175,7 @@ void serializeState(JsonObject root, bool forPreset = false, bool includeBri = t
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
 void serializeModeData(JsonArray fxdata);
+void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
@@ -380,7 +382,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
