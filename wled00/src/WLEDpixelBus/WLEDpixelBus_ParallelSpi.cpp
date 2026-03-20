@@ -240,7 +240,7 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
     ctx->_dmaDesc[completedBuf].eof = 1; // TODO: it works perfectly fine without setting these flags again, does this help with stability?
     ctx->_dmaDesc[completedBuf].owner = 1; // give ownership back to DMA: it works without this but just make sure its not passed back to CPU
 
-    ctx->_currentBuffer = (completedBuf + 1) % WLEDPB_SPI_DMA_DESC_COUNT;
+    ctx->_currentBuffer = (completedBuf + 1) % WLEDPB_SPI_DMA_DESC_COUNT; // TODO: reduce again to 2 buffers once it is clear that two are enough (probably is)
   }
   //    digitalWrite(0, LOW);
   //dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].raw.val; // clear all GDMA interrupt flags for this channel  
