@@ -134,14 +134,6 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
   // }
 #endif
 
-  if (inputPortNum <= (SOC_UART_NUM - 1) && inputPortNum > 0) {
-    this->inputPortNum = inputPortNum;
-  }
-  else {
-    DEBUG_PRINTF("DMXInput: Error: invalid inputPortNum: %d\n", inputPortNum);
-    return;
-  }
-
   if (rxPin > 0 && enPin > 0 && txPin > 0) {
 
     const managed_pin_type pins[] = {
@@ -156,6 +148,15 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
       DEBUG_PRINTF("en in use by: %s\n", PinManager::getPinOwner(enPin));
       return;
     }
+    if (inputPortNum <= (SOC_UART_NUM - 1) && inputPortNum > 0) {
+      this->inputPortNum = inputPortNum;
+    }
+    else {
+      DEBUG_PRINTF("DMXInput: Error: invalid inputPortNum: %d, default to 1\n", inputPortNum);
+      this->inputPortNum = 1;
+      return;
+    }
+
 
     this->rxPin = rxPin;
     this->txPin = txPin;
