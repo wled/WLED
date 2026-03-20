@@ -185,10 +185,10 @@ constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 
 //==============================================================================
-// Base Bus Interface
+// Base Pixel Bus Interface
 //==============================================================================
 
-class IBus {
+class PixelBus {
 protected:
   uint32_t* _pixelData = nullptr;
   CctPixel* _cctData = nullptr;
@@ -196,7 +196,7 @@ protected:
   uint8_t _brightness = 255;
 
 public:
-  virtual ~IBus() {
+  virtual ~PixelBus() {
     if (_pixelData) free(_pixelData);
     if (_cctData) free(_cctData);
   }
@@ -271,6 +271,8 @@ public:
   virtual uint32_t* getPixelData() { return _pixelData; }
   virtual CctPixel* getCctData() { return _cctData; }
 };
+
+using IBus = PixelBus;
 
 //==============================================================================
 // Forward Declarations
@@ -380,7 +382,7 @@ constexpr uint8_t getRmtMaxChannels() {
  * @param channel RMT channel to use (-1 for auto-allocate)
  * @return Bus instance (caller owns, delete when done)
  */
-IBus* createBus(BusType type, int8_t pin, const LedTiming& timing, 
+PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, 
         ColorOrder order, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
         int8_t channel = -1);
 

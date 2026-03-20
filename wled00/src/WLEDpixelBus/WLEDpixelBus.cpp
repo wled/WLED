@@ -146,7 +146,7 @@ ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getCh
 // Bus Factory Implementation
 //==============================================================================
 
-IBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder order, size_t bufferSize, int8_t channel) {
+PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder order, size_t bufferSize, int8_t channel) {
   
   Serial.printf("[WPB] createBus type=%u pin=%d bufSize=%u ch=%d\n", (unsigned)type, pin, bufferSize, channel);
   if (type == BusType::Auto) {
@@ -154,7 +154,7 @@ IBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder or
     Serial.printf("[WPB] Auto resolved to type=%u\n", (unsigned)type);
   }
 
-  IBus* bus = nullptr;
+  PixelBus* bus = nullptr;
 
   switch (type) {
 #if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)

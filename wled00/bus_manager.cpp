@@ -157,8 +157,8 @@ BusDigital::BusDigital(const BusConfig &bc)
   uint16_t lenToCreate = bc.count;
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
 
-  // create bus via PolyBus wrapper which will return a WLEDpixelBus::IBus
-  _busPtr = PolyBus::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType, bc.busSpeedFactor);
+  // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
+  _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType, bc.busSpeedFactor);
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759
@@ -1197,7 +1197,7 @@ size_t BusConfig::memUsage() const {
     mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
   } else if (Bus::isDigital(type)) {
     // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    mem += sizeof(BusDigital) + PolyBus::memUsage(type, count + skipAmount, pins, driverType);
+    mem += sizeof(BusDigital) + PixelBusAllocator::memUsage(type, count + skipAmount, pins, driverType);
   } else if (Bus::isOnOff(type)) {
     mem += sizeof(BusOnOff);
   } else {
@@ -1267,7 +1267,7 @@ String BusManager::getLEDTypesJSONString() {
 }
 
 bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
-  return PolyBus::allocateHardware(busType, pins, driverType);
+  return PixelBusAllocator::allocateHardware(busType, pins, driverType);
 }
 // Module-level cache for setPixelColor() fast path - must be reset in removeAll()
 static Bus* _lastBusCache = nullptr;
@@ -1281,7 +1281,7 @@ void BusManager::removeAll() {
   busses.clear();
   #ifndef ESP8266
   // Reset channel tracking for fresh allocation
-  PolyBus::resetChannelTracking();
+  PixelBusAllocator::resetChannelTracking();
   #endif
 }
 
@@ -1481,12 +1481,12 @@ void BusManager::applyABL() {
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
 #ifndef ESP8266
-// PolyBus channel tracking for dynamic allocation
-uint8_t PolyBus::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
-uint8_t PolyBus::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
-uint8_t PolyBus::_i2sChannelsAssigned = 0;
-uint8_t PolyBus::_2PchannelsAssigned = 0;
-uint8_t PolyBus::_parallelI2sBusType = 0;
+// PixelBusAllocator channel tracking for dynamic allocation
+uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
+uint8_t PixelBusAllocator::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
+uint8_t PixelBusAllocator::_i2sChannelsAssigned = 0;
+uint8_t PixelBusAllocator::_2PchannelsAssigned = 0;
+uint8_t PixelBusAllocator::_parallelI2sBusType = 0;
 #endif
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()

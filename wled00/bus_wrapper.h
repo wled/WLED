@@ -65,40 +65,40 @@ inline ProtocolDef getProtocol(uint8_t wledType) {
   }
 }
 
-class PolyBus {
+class PixelBusAllocator {
   private:
   #ifndef ESP8266
     static uint8_t _rmtChannelsAssigned;
-    static uint8_t _rmtChannel;           
+    static uint8_t _rmtChannel;
     static uint8_t _i2sChannelsAssigned;
-    static uint8_t _2PchannelsAssigned;  
+    static uint8_t _2PchannelsAssigned;
     static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
   #endif
   public:
 
   template <class T>
-  static void begin(void* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz) {
-    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->begin();
+  static void begin(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint8_t* pins, uint16_t clock_kHz) {
+    if (busPtr) busPtr->begin();
   }
-  static void* cleanup(void* busPtr, uint8_t busType) {
-    if (busPtr) delete static_cast<WLEDpixelBus::IBus*>(busPtr);
+  static WLEDpixelBus::PixelBus* cleanup(WLEDpixelBus::PixelBus* busPtr, uint8_t busType) {
+    if (busPtr) delete busPtr;
     return nullptr;
   }
-  static void show(void* busPtr, uint8_t busType, bool isI2s = false) {
-    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->show();
+  static void show(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, bool isI2s = false) {
+    if (busPtr) busPtr->show();
   }
-  static bool canShow(void* busPtr, uint8_t busType) {
-    if (busPtr) return static_cast<WLEDpixelBus::IBus*>(busPtr)->canShow();
+  static bool canShow(WLEDpixelBus::PixelBus* busPtr, uint8_t busType) {
+    if (busPtr) return busPtr->canShow();
     return true;
   }
 //  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint32_t cW) {
 //    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setPixelColor(pix, c);
 //  }
-  static void setBrightness(void* busPtr, uint8_t busType, uint8_t b) {
-    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setBrightness(b);
+  static void setBrightness(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint8_t b) {
+    if (busPtr) busPtr->setBrightness(b);
   }
-  static uint32_t getPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t cW) {
-    if (busPtr) return static_cast<WLEDpixelBus::IBus*>(busPtr)->getPixelColor(pix);
+  static uint32_t getPixelColor(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint16_t pix, uint32_t cW) {
+    if (busPtr) return busPtr->getPixelColor(pix);
     return 0;
   }
 
@@ -141,7 +141,7 @@ class PolyBus {
     return true;
   }
 
-static WLEDpixelBus::IBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
+static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
