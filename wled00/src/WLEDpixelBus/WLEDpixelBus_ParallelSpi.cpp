@@ -75,7 +75,9 @@ SpiBusContext::SpiBusContext()
   , _stagedMask(0)
   , _channelMask(0)
 {
-  _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
+    _dmaBuffer[i] = nullptr;
+  }
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
     _channels[i] = {nullptr, -1, nullptr, 0, false};
   }
@@ -88,17 +90,19 @@ SpiBusContext::~SpiBusContext() {
 bool SpiBusContext::isSpiDone() {
   if (!_hasStarted) return true;  // no transfer ever started
   //return txdone;
-  // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
-  if (!_sending) {
-    //delay(10); // wait for finish sending !!! this is a hacky test, to check if this locks stuff up. remove again -> seems to fix the glitching and stalls, need a better solution though
-    return txdone;
-  }
 
-  // Fail-safe watchdog: if stuck for > 500ms, recover it
+  // Fail-safe watchdog: if stuck for > 50ms, recover it  TODO: find a better way to make sure the transmission finishes, the timeout fixes the deadlock
   if (millis() - _lastTransmitMs > 50) {
     forceIdle();
     return true;
   }
+
+  // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
+  if (!_sending) {
+    //delay(10); // wait for finish sending !!! this is a hacky test, to check if this locks stuff up. remove again -> seems to fix the glitching and stalls, need a better solution though
+    return txdone; // if txdone is enforced without a timout, it also seems to cause a deadlock so it is some kind of race condition
+  }
+
   
   return false;
 }
@@ -131,20 +135,24 @@ void SpiBusContext::forceIdle() {
 
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   uint8_t* dst = _dmaBuffer[bufIdx];
-  memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE);
-
+  uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
+  for (size_t i = 0; i < (WLEDPB_SPI_DMA_BUFFER_SIZE / 4); i++) {
+    dst32[i] = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned
+  }
+  //memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE); // TODO: memset is not ISR IRAM safe?
+/*
   if (!_sending) {
     return;
-  }
+  }*/
 
   size_t maxSrcThisChunk = WLEDPB_SPI_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
   size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
   size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
 
   if (srcThisChunk == 0) {
-    _sending = false;
-    isSending = false; // TODO: integrate this into driver, i.e. non global
-    _framePos = 0;
+    //_sending = false;
+    //isSending = false; // TODO: integrate this into driver, i.e. non global
+    //_framePos = 0;
     return;
   }
 
@@ -187,22 +195,25 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 
   if (raw & SPI_TRANS_DONE_INT_ST) {
     txdone = true; // transfer finished
+    ctx->_sending = false;
+    isSending = false; // TODO: integrate this into driver, i.e. non global
     //  digitalWrite(0, LOW);//!!!
     //  Serial.print("b");
   }
   else {
     //  Serial.println(raw, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
-    // this may be some SPI error, stop SPI and DMA to prevent lockup
+
     // detach pins from spi and force low to prevent any output when cmd.user is stopped (which outputs a fast pattern)
 
     //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this causes a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
     //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
-    //ctx->forceIdle(); // -> seems to cause the glitches
+    ctx->forceIdle(); // -> seems to cause glitches
     //txdone = true; // still mark it as done
-    // error, just mark it as done (might not be the best idea... but an attempt to prevent deadlocks))
-    txdone = true; 
-    ctx->_sending = false;
-    isSending = false;
+    // error, just mark it as done (might not be the best idea... but an attempt to prevent deadlocks)) -> does not prevent deadlocks but seems to prevents glitches
+    // TODO: need a better solution to handle this isr error
+    //txdone = true; 
+    //ctx->_sending = false;
+    //isSending = false;
   }
 
   
@@ -213,7 +224,7 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
   SpiBusContext* ctx = (SpiBusContext*)arg;
   gdma_dev_t* dma = &GDMA;
-  
+
   //  Serial.print("*");
   // toggle gpio0
   //    digitalWrite(0, HIGH);
@@ -224,16 +235,15 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
     dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
     uint8_t completedBuf = ctx->_currentBuffer;
     ctx->encodeSpiChunk(completedBuf);
-    //  if (isSending) {
 
     // Give ownership of the descriptor back to DMA so it can keep feeding SPI
     ctx->_dmaDesc[completedBuf].eof = 1; // TODO: it works perfectly fine without setting these flags again, does this help with stability?
     ctx->_dmaDesc[completedBuf].owner = 1; // give ownership back to DMA: it works without this but just make sure its not passed back to CPU
-  //    }
-    ctx->_currentBuffer = completedBuf ? 0 : 1; // toggle DMA buffer
+
+    ctx->_currentBuffer = (completedBuf + 1) % WLEDPB_SPI_DMA_DESC_COUNT;
   }
-//    digitalWrite(0, LOW);
-dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].raw.val; // clear all GDMA interrupt flags for this channel  
+  //    digitalWrite(0, LOW);
+  //dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.val = dma->intr[WLEDPB_SPI_GDMA_CHANNEL].raw.val; // clear all GDMA interrupt flags for this channel  
 }
 
 bool SpiBusContext::init(const LedTiming& timing) {
@@ -243,7 +253,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   digitalWrite(0, LOW); //!!!
 
   // Allocate DMA buffers
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE,
                                MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_dmaBuffer[i]) {
@@ -255,7 +265,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   }
 
   // Setup DMA descriptors - circular linked list
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
     _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
     _dmaDesc[i].owner = 1;
@@ -263,8 +273,9 @@ bool SpiBusContext::init(const LedTiming& timing) {
     _dmaDesc[i].eof = 1;
     _dmaDesc[i].buf = _dmaBuffer[i];
   }
-  _dmaDesc[0].qe.stqe_next = &_dmaDesc[1];
-  _dmaDesc[1].qe.stqe_next = &_dmaDesc[0];
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
+    _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_SPI_DMA_DESC_COUNT];
+  }
 
   // Enable peripheral clocks and force-reset (SPI2 + DMA)
   // periph_module_enable() uses ref counting and may be a no-op if the
@@ -328,7 +339,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-  esp_err_t err = esp_intr_alloc(ETS_DMA_CH0_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, gdmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, gdmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
@@ -377,7 +388,7 @@ void SpiBusContext::deinit() {
     _isrHandle = nullptr;
   }
 
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     if (_dmaBuffer[i]) {
       heap_caps_free(_dmaBuffer[i]);
       _dmaBuffer[i] = nullptr;
@@ -453,6 +464,10 @@ bool SpiBusContext::startTransmit() {
   _framePos = 0;
   _numBytes = newBytes;
   txdone = false;//!!!
+  _sending = true;
+  isSending = true; // TODO: integrate this into driver, i.e. non global
+  _currentBuffer = 0;
+
 
   // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
   // Plus reset: extra zero bits at the end
@@ -463,20 +478,17 @@ bool SpiBusContext::startTransmit() {
   spi_ll_set_mosi_bitlen(_hw, totalBits);
   spi_ll_clear_int_stat(_hw);
 
-  _sending = true;
-  isSending = true; // TODO: integrate this into driver, i.e. non global
-  _currentBuffer = 0;
-  encodeSpiChunk(0);
-  encodeSpiChunk(1);
-
-  _dmaDesc[0].owner = 1; // make sure the DMA owns the descriptor
-  _dmaDesc[1].owner = 1;
+  // Pre-fill all descriptors once to reduce the likelihood of DMA starvation
+  for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
+    encodeSpiChunk(i);
+    _dmaDesc[i].owner = 1; // make sure DMA owns the descriptor
+  }
 
   digitalWrite(0, HIGH);//!!!
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
-  //spi_ll_dma_tx_enable(_hw, true);
-  //spi_ll_apply_config(_hw);
+  spi_ll_dma_tx_enable(_hw, true);
+  //spi_ll_apply_config(_hw); 
 
   // re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -494,7 +506,7 @@ bool SpiBusContext::startTransmit() {
   spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync
 
   // Short hardware handshake sync
-  delayMicroseconds(20); // Short delay to ensure DMA has time to fill SPI buffer: if DMA did not start, SPI will immediately stall with "outfifo_empty_err", short delay makes it less prone (this may be yet another IDF V4 bug)
+  //delayMicroseconds(20); // Short delay to ensure DMA has time to fill SPI buffer: if DMA did not start, SPI will immediately stall with "outfifo_empty_err", short delay makes it less prone (this may be yet another IDF V4 bug)
   //  Serial.print("a");
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
@@ -607,7 +619,7 @@ bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
   // Wait for SPI to finish any remaining transfer
 uint32_t  startWait = millis();
   while (!_ctx->isSpiDone()) {
-    if (millis() - startWait > 500) {
+    if (millis() - startWait > 100) {
       _ctx->forceIdle();
       return false;
     }

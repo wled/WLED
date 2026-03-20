@@ -10,8 +10,10 @@ namespace WLEDpixelBus {
 
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
-#define WLEDPB_SPI_DMA_BUFFER_SIZE 2048 // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)
-#define WLEDPB_SPI_GDMA_CHANNEL 0
+#define WLEDPB_SPI_DMA_BUFFER_SIZE 1024 // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)
+#define WLEDPB_SPI_DMA_DESC_COUNT 2   // number of DMA buffers, 3 = tripple buffering to avoid SPI starvation under heavy load (TODO: 2 is probably more than enough, currently debugging issues...)
+#define WLEDPB_SPI_GDMA_CHANNEL 2 // TODO: how to manage the DMA channels to avoid conflicts with other peripherals? for now we just assume channel 1 is free and used exclusively by this driver
+#define WLEDPB_SPI_GDMA_INTR_SOURCE ETS_DMA_CH2_INTR_SOURCE // must match dma channel (otherwise it just loops the two DMA descriptors and will eventually time-out)
 
 class ParallelSpiBus;
 
@@ -42,7 +44,7 @@ private:
   SpiBusContext();
   ~SpiBusContext();
 
-  void encodeSpiChunk(uint8_t bufIdx);
+  void IRAM_ATTR encodeSpiChunk(uint8_t bufIdx);
 
   static void IRAM_ATTR gdmaISR(void* arg);
   static void IRAM_ATTR spiISR(void* arg);
@@ -53,8 +55,8 @@ private:
   volatile uint8_t _currentBuffer;
 
   // DMA
-  uint8_t* _dmaBuffer[2];
-  lldesc_t _dmaDesc[2];
+  uint8_t* _dmaBuffer[WLEDPB_SPI_DMA_DESC_COUNT];
+  lldesc_t _dmaDesc[WLEDPB_SPI_DMA_DESC_COUNT];
   intr_handle_t _isrHandle;
   intr_handle_t _spiIsrHandle;
 
