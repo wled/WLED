@@ -68,20 +68,29 @@ void handleDMXOutput()
 
 void initDMXOutput(int outputPin) {
   if (outputPin < 1) return;
-  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
+  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX);
   if (!pinAllocated) {
     DEBUG_PRINTF("DMXOutput: Error: Failed to allocate pin for DMX_OUTPUT. Pin already in use:\n");
     DEBUG_PRINTF("In use by: %s\n", PinManager::getPinOwner(outputPin));
     return;
   }
+  DEBUG_PRINTF("DMXOutput: init: pin %d\n", outputPin);
   dmx.init(outputPin);        // set output pin and initialize DMX output
 }
 
 #if !defined(ESP8266)
 void DMXOutput::init(uint8_t outputPin) {
   dmx_config_t config = DMX_CONFIG_DEFAULT;
-  dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
-  dmx_set_pin(dmxPort, outputPin, -1, -1);
+  const bool installOk = dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
+    if (!installOk) {
+      DEBUG_PRINTF("DMXOutput: Error: Failed to install dmx driver\n");
+      return;
+    }
+  const bool setPin = dmx_set_pin(dmxPort, outputPin, -1, -1);
+  if (!setPin) {
+    DEBUG_PRINTF("DMXOutput: Error: Failed to set DMX output pin\n");
+    return;
+  }
 }
 void DMXOutput::write(uint8_t channel, uint8_t value) {
   dmxdata[channel] = value;
