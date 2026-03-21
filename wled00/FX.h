@@ -818,6 +818,7 @@ class WS2812FX {  // 96 bytes
     inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and cancel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
+    inline bool isSuspended()                                 { return _suspend; }    // true id strip.service() execution is suspended
 
     bool
       paletteFade,

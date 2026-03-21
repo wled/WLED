@@ -42,13 +42,16 @@ void closeFile() {
 
   // f.close() flushes to flash and briefly disables cache-related interrupts on ESP8266,
   // which can corrupt WS281x LED timing (bit-bang / UART) if it coincides with strip.service().
+  bool haveSuspended = false;
   #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+  if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }// prevent that a new strip.show() starts after waiting
   strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
   #endif
 
   // In 8266 async webserver / lwIP interrupt context can_yield() is false and we cannot wait,
   // so we proceed immediately — the close is still required to prevent file corruption.
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
+  if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   DEBUGFS_PRINTF("took %d ms\n", millis() - s);
   doCloseFile = false;
 }

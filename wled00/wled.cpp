@@ -165,7 +165,7 @@ void WLED::loop()
   if (millis() - heapTime > 15000) {
     #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
     // calling ESP.getFreeHeap() during led update causes glitches on C3 and possibly on 8266, too
-    strip.waitForLEDs(15); // wait up to 15ms for LEDs sendout to complete
+    strip.waitForLEDs(15); // wait up to 15ms for LEDs sendout to complete - we are in the main loop, so a new strip.show() cannot start while waiting
     #endif
 
     uint32_t heap = ESP.getFreeHeap();
