@@ -214,12 +214,12 @@ void nblendPaletteTowardPalette(CRGBPalette16& current, CRGBPalette16& target, u
   }
 }
 
-// cubic ease function (S-curve: 3x^2 - 2x^3)
+// cubic ease function (S-curve: 3x^2 - 2x^3 = x^2*(3-2x))
 // 8-bit
 uint8_t ease8InOutCubic(uint8_t i) {
-  uint32_t ii = ((uint32_t)i * i) >> 8;
+  uint32_t ii = ((uint32_t)i * i);
   uint32_t factor = (3 << 8) - (((uint32_t)i << 1)); // 3 - 2i
-  return (ii * factor) >> 8;
+  return (ii * factor) >> 16;
 }
 // 16-bit
 uint16_t ease16InOutCubic(uint16_t i) {
@@ -228,7 +228,7 @@ uint16_t ease16InOutCubic(uint16_t i) {
   return (ii * factor) >> 16;
 }
 
-// quadradic ease function (S-curve: x^2)
+// quadratic ease function (S-curve: x^2)
 uint8_t ease8InOutQuad(uint8_t i)
 {
   uint32_t j = i;
