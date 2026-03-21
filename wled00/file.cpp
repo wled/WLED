@@ -46,6 +46,8 @@ void closeFile() {
   strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
   #endif
 
+  // In 8266 async webserver / lwIP interrupt context can_yield() is false and we cannot wait,
+  // so we proceed immediately — the close is still required to prevent file corruption.
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %d ms\n", millis() - s);
   doCloseFile = false;
