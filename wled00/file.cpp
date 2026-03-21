@@ -34,10 +34,32 @@ static File f; // don't export to other cpp files
 
 //wrapper to find out how long closing takes
 void closeFile() {
+  if (!doCloseFile || !f) return;  // file not open, or no request to close -> nothing to do, nothing to wait
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
+
+  #ifdef ARDUINO_ARCH_ESP32
+    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv)
+    // wait until LEDs were sent out - only neeed if we don't have the RMTHI driver
+    unsigned long waitStart = millis();
+    while (strip.isUpdating() && (millis() - waitStart < 25)) delay(1);    // be nice, but not too nice. Waits up to 25ms
+    #endif
+  #else
+  // f.close() flushes to flash and briefly disables cache-related interrupts on ESP8266,
+  // which can corrupt WS281x LED timing (bit-bang / UART) if it coincides with strip.service().
+  if (can_yield()) {
+    // If we are in a yieldable context (main loop), wait until the current render frame finishes.
+    yield();
+    unsigned long waitStart = millis();
+    while (strip.isUpdating() && (millis() - waitStart < 25)) delay(1);    // be nice, but not too nice. Waits up to 25ms
+    yield();
+  }
+  // In async webserver / lwIP interrupt context can_yield() is false and we cannot wait,
+  // so we proceed immediately — the close is still required to prevent file corruption.
+  #endif
+
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %d ms\n", millis() - s);
   doCloseFile = false;
