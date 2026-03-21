@@ -818,7 +818,7 @@ class WS2812FX {  // 96 bytes
     inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and cancel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
-    inline bool isSuspended()                                 { return _suspend; }    // true id strip.service() execution is suspended
+    inline bool isSuspended()                                 { return _suspend; }    // true if strip.service() execution is suspended
 
     bool
       paletteFade,
@@ -828,9 +828,9 @@ class WS2812FX {  // 96 bytes
       isUpdating() const, // return true if the strip is being sent pixel updates
       deserializeMap(uint8_t n=0);
 
-    // be nice, but not too nice - wait util LEDs are idle, or maxWaitMS have passed
+    // be nice, but not too nice - wait until LEDs are idle, or maxWaitMS have passed
     // on 8266 this call will _not_ wait outside of the main loop context
-    // returns isUpdating()
+    // returns isUpdating() status after waiting
     bool waitForLEDs(unsigned maxWaitMS) const;
   
     inline bool isServicing() const          { return _isServicing; }           // returns true if strip.service() is executing
