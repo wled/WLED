@@ -1478,7 +1478,7 @@ bool WS2812FX::isUpdating() const {
 
 /**
  * Be nice, but not too nice - wait util LEDs are idle, or maxWaitMS milliseconds have passed
- * On 8266 this call will _not_ wait is outside the main loop context
+ * On 8266 this call will _not_ wait outside the main loop context
  *   Function returns isUpdating() status after waiting
  */
 bool WS2812FX::waitForLEDs(unsigned maxWaitMS) const {
