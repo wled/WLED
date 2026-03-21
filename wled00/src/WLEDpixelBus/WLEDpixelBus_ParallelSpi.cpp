@@ -207,13 +207,13 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 
     //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this causes a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
     //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
-    ctx->forceIdle(); // -> seems to cause glitches
+    // ctx->forceIdle(); // -> seems to cause glitches  -> there are some none iram safe functions in forceIdle!
     //txdone = true; // still mark it as done
     // error, just mark it as done (might not be the best idea... but an attempt to prevent deadlocks)) -> does not prevent deadlocks but seems to prevents glitches
     // TODO: need a better solution to handle this isr error
-    //txdone = true; 
-    //ctx->_sending = false;
-    //isSending = false;
+    //txdone = true; -> do not set txdone, let the timeout handle it to not cause immediate conflicts
+    ctx->_sending = false;
+    isSending = false;
   }
 
   
@@ -450,24 +450,23 @@ void SpiBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 bool SpiBusContext::startTransmit() {
   if (_sending || _channelCount == 0) return false;
 
-  if (_stagedMask != _channelMask) return false; // not all channels ready yet
+  if (_stagedMask != _channelMask) return true; // not all channels ready yet
   _stagedMask = 0;
-
-  _lastTransmitMs = millis();
-  size_t newBytes = 0;
-  for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
-  if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
-    newBytes = _channels[ch].srcLen;
-  }
-  }
-
   _framePos = 0;
-  _numBytes = newBytes;
   txdone = false;//!!!
   _sending = true;
   isSending = true; // TODO: integrate this into driver, i.e. non global
   _currentBuffer = 0;
 
+  _lastTransmitMs = millis();
+  size_t newBytes = 0;
+  for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
+      newBytes = _channels[ch].srcLen;
+    }
+  }
+
+  _numBytes = newBytes;
 
   // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
   // Plus reset: extra zero bits at the end
@@ -514,7 +513,6 @@ bool SpiBusContext::startTransmit() {
   spi_ll_user_start(_hw); // start SPI user transfer
   // TODO: there are still some glitches/stalls due to tx_fifo underruns but it is unclear why, it may even be an IDF V4 bug (I read about some timing issue with buffer handover or a missing nop)
   // even when not accessing the UI there seems to be some dead-lock halting the system until the WDT kicks...
-
 
   return true;
 }
@@ -603,7 +601,7 @@ bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
 
 // TODO: this actually only uses internal buffer, could get rid of the parameters that are now unused.
 bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
+  if (!_initialized || !_ctx) return false;
 
   // Wait for previous transmission
 /*
@@ -621,7 +619,7 @@ uint32_t  startWait = millis();
   while (!_ctx->isSpiDone()) {
     if (millis() - startWait > 100) {
       _ctx->forceIdle();
-      return false;
+      break;
     }
     vTaskDelay(1);
   }
