@@ -827,6 +827,11 @@ class WS2812FX {  // 96 bytes
       isUpdating() const, // return true if the strip is being sent pixel updates
       deserializeMap(uint8_t n=0);
 
+    // be nice, but not too nice - wait util LEDs are idle, or maxWaitMS have passed
+    // on 8266 this call will _not_ wait is outside the main loop context
+    // returns isUpdating()
+    bool waitForLEDs(unsigned maxWaitMS) const;
+  
     inline bool isServicing() const          { return _isServicing; }           // returns true if strip.service() is executing
     inline bool hasWhiteChannel() const      { return _hasWhiteChannel; }       // returns true if strip contains separate white chanel
     inline bool isOffRefreshRequired() const { return _isOffRefreshRequired; }  // returns true if strip requires regular updates (i.e. TM1814 chipset)

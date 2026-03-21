@@ -1477,6 +1477,27 @@ bool WS2812FX::isUpdating() const {
 }
 
 /**
+ * be nice, but not too nice - wait util LEDs are idle, or maxWaitMS have passed
+ * on 8266 this call will _not_ wait is outside the main loop context
+ *   returns isUpdating()
+ */
+bool WS2812FX::waitForLEDs(unsigned maxWaitMS) const {
+  #ifdef ARDUINO_ARCH_ESP32
+    unsigned long waitStart = millis();
+    while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+  #else
+    if (can_yield()) {
+      // If we are in a yieldable context (main loop), wait until the LEDs output finishes
+      yield();
+      unsigned long waitStart = millis();
+      while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+      yield();
+    }
+  #endif
+  return isUpdating();
+}
+
+/**
  * Returns the refresh rate of the LED strip. Useful for finding out whether a given setup is fast enough.
  * Only updates on show() or is set to 0 fps if last show is more than 2 secs ago, so accuracy varies
  */
