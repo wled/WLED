@@ -2658,6 +2658,7 @@ static void twinklefox_base(bool cat)
   } else {
     bg = color_fade(bg, 86, true); // dim, scale to 1/3rd.
   }
+  bg = gamma32inv(bg); // need to invert gamma as the FX was written without any gamma correction and it will dim down too much otherwise
 
   unsigned backgroundBrightness = bg.getAverageLight();
 

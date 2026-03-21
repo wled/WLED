@@ -675,10 +675,8 @@ void WLED_O2_ATTR ParticleSystem2D::renderParticle(const uint32_t particleindex,
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total
-  if (gammaCorrectCol) {
-    for (uint32_t i = 0; i < 4; i++) {
-      pxlbrightness[i] = gamma8inv(pxlbrightness[i]); // use look-up-table for invers gamma
-    }
+  for (uint32_t i = 0; i < 4; i++) {
+    pxlbrightness[i] = gamma8inv(pxlbrightness[i]); // use look-up-table for invers gamma
   }
 
   // standard rendering (2x2 pixels)
@@ -800,9 +798,7 @@ void WLED_O2_ATTR ParticleSystem2D::renderLargeParticle(const uint32_t size, con
       if (pixel_brightness == 0) continue; // skip black pixels
 
       // apply inverse gamma correction if needed, if this is skipped, particles flicker due to changing total brightness
-      if (gammaCorrectCol) {
-        pixel_brightness = gamma8inv(pixel_brightness); // invert brigthess so brightness distribution is linear after gamma correction
-      }
+      pixel_brightness = gamma8inv(pixel_brightness); // invert brigthess so brightness distribution is linear after gamma correction
 
       // Render pixel
       uint32_t idx = render_x + (maxYpixel - render_y) * matrixX; // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
@@ -1530,10 +1526,8 @@ void WLED_O2_ATTR ParticleSystem1D::renderParticle(const uint32_t particleindex,
   // - scale brigthness with gamma correction (done in render())
   // - apply inverse gamma correction to brightness values
   // - gamma is applied again in show() -> the resulting brightness distribution is linear but gamma corrected in total -> fixes brightness fluctuations
-  if (gammaCorrectCol) {
-    pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
-    pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
-  }
+  pxlbrightness[0] = gamma8inv(pxlbrightness[0]); // use look-up-table for invers gamma
+  pxlbrightness[1] = gamma8inv(pxlbrightness[1]);
 
   // check if any pixels are out of frame
   if (pixco[0] < 0) { // left pixels out of frame
