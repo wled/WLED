@@ -176,10 +176,10 @@ void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
 void prepareHostname(char* hostname, size_t maxLen)
 {
   if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
-  if (strncasecmp_P(serverDescription, PSTR("wled"), 4) == 0)     // avoid wled-WLED-... as a hostname
-    strlcpy(hostname, serverDescription, maxLen);
-  else
-    snprintf_P(hostname, maxLen, PSTR("wled-%s"), serverDescription);
+  // if (strncasecmp_P(serverDescription, PSTR("wled"), 4) == 0)     // avoid wled-WLED-... as a hostname
+  //   strlcpy(hostname, serverDescription, maxLen);
+  // else
+  snprintf_P(hostname, maxLen, PSTR("wled-%s"), serverDescription);
   hostname[maxLen -1] = '\0';                             // ensure string termination
 
   size_t sanOffset = hostname[4] != '-' ? 4 : 5;            // ensure that "WLED foo" and "WLED!foo" get sanitized

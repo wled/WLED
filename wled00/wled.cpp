@@ -783,9 +783,10 @@ void WLED::initConnection()
 #ifdef ESP8266
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
+
   // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
   char hostname[64] = {'\0'};
-  getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
+  getWLEDhostname(hostname, sizeof(hostname), false); // create DNS name based on standard WLED server name
 
 #ifdef ARDUINO_ARCH_ESP32
   // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
