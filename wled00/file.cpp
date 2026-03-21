@@ -34,11 +34,12 @@ static File f; // don't export to other cpp files
 
 //wrapper to find out how long closing takes
 void closeFile() {
-  if (!doCloseFile || !f) return;  // file not open, or no request to close -> nothing to do, nothing to wait
+  if (!doCloseFile || !f) { doCloseFile = false; return; }  // file not open, or no request to close -> nothing to do, nothing to wait
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
+  doCloseFile = false; // consume flag early, to reduce the time window for concurrent closing attempts from several tasks.
 
   // f.close() flushes to flash and briefly disables cache-related interrupts on ESP8266,
   // which can corrupt WS281x LED timing (bit-bang / UART) if it coincides with strip.service().
@@ -53,7 +54,6 @@ void closeFile() {
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   DEBUGFS_PRINTF("took %d ms\n", millis() - s);
-  doCloseFile = false;
 }
 
 //find() that reads and buffers data from file stream in 256-byte blocks.
