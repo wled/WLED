@@ -685,27 +685,87 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
 
 /*
  * Dissolve function
+ *   Modifications by Bob Loeffler
+ *   slider 1 is for the delay interval between dissolving and filling
+ *   slider 2 is for the dissolving speed
+ *   slider 3 is for the filling speed
+ *   slider 4 is for the delay when only one LED is lit and when in lastOne mode (not used if Last One checkbox is not selected)
+ *     If set to max value (255), the effect will not redraw any LEDs, so this can be used with a playlist and physical button to,
+ *     for example, restart the animation by unchecking checkbox 3 in a preset and then checking it again with another preset.
+ *     This was requested in https://github.com/wled/WLED/issues/1044
+ *   checkbox 1 is to select random colors
+ *   checkbox 2 is to force it to wait until all LEDs have been completely filled or dissolved
+ *   checkbox 3 is to select whether one last LED will stay lit (like a "last one standing" or "sole survivor")
+ *   aux0: 2 packed values: phase/stage of dissolve/refill process, and whether done dissolving/refilling
+ *   aux1: 2 packed values: random survivor pixel index, and previous value of lastOneMode
  */
+#define DISSOLVE_PHASE          (SEGENV.aux0 & 0xFF)
+#define DISSOLVE_DONE           ((SEGENV.aux0 >> 8) & 0x01)
+#define DISSOLVE_PREV_LAST_ONE  ((SEGENV.aux0 >> 9) & 0x01)
+#define SET_PHASE(p)            (SEGENV.aux0 = (SEGENV.aux0 & 0xFF00) | (p))
+#define SET_DONE(d)             (SEGENV.aux0 = (SEGENV.aux0 & 0xFEFF) | ((d) << 8))
+#define SET_PREV_LAST_ONE(d)    (SEGENV.aux0 = (SEGENV.aux0 & 0xFDFF) | ((d) << 9))
+
 void dissolve(uint32_t color) {
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
 
+  bool lastOneMode = SEGMENT.check3;
+
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
-    SEGENV.aux0 = 1;
+    SET_PHASE(1);
+    SEGENV.aux1 = hw_random16(SEGLEN);
+    SET_DONE(0);
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
   }
 
+  // Restart if lastOneMode changed to true
+  if ((bool)DISSOLVE_PREV_LAST_ONE != lastOneMode) {
+    if (lastOneMode) {
+      for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
+      SET_PHASE(1);
+      SEGENV.aux1 = hw_random16(SEGLEN);
+      SET_DONE(0);
+      SEGENV.step = 0;
+    }
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  }
+
+  // Phase 4: pause and keep only one pixel lit
+  if (DISSOLVE_PHASE == 4) {
+    uint16_t lastOneDelay = SEGMENT.custom2 << 1;
+    if (lastOneDelay < 1) lastOneDelay = 1;
+    bool freezeForever = lastOneMode && SEGMENT.custom2 == 255;
+    if (SEGENV.step >= lastOneDelay && !freezeForever) {
+      SEGENV.step = 0;
+      SET_PHASE(2);
+      SET_DONE(0);
+      SEGENV.aux1 = hw_random16(SEGLEN);
+    } else {
+      SEGENV.step++;
+    }
+    for (unsigned i = 0; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, pixels[i]);
+    return;
+  }
+
+  bool filling = (DISSOLVE_PHASE == 0 || DISSOLVE_PHASE == 2);
+  bool forceComplete = lastOneMode && (DISSOLVE_PHASE == 2 || DISSOLVE_PHASE == 3);
+
   for (unsigned j = 0; j <= SEGLEN / 15; j++) {
-    if (hw_random8() <= SEGMENT.intensity) {
+    if (hw_random8() <= (filling ? SEGMENT.custom1 : SEGMENT.intensity)) { // set the fill or dissolve speed
       for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
         unsigned i = hw_random16(SEGLEN);
-        if (SEGENV.aux0) { //dissolve to primary/palette
+        if (lastOneMode && DISSOLVE_PHASE == 3 && i == SEGENV.aux1) continue;
+
+        if (filling) { // fill with primary/palette color
           if (pixels[i] == SEGCOLOR(1)) {
             pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
-            break; //only spawn 1 new pixel per frame
+            break;
           }
-        } else { //dissolve to secondary
+        } else {  //dissolve to secondary/background color
           if (pixels[i] != SEGCOLOR(1)) {
             pixels[i] = SEGCOLOR(1);
             break;
@@ -714,11 +774,19 @@ void dissolve(uint32_t color) {
       }
     }
   }
+
+  if (lastOneMode && (DISSOLVE_PHASE == 2 || DISSOLVE_PHASE == 3)) {
+    if (pixels[SEGENV.aux1] == SEGCOLOR(1)) {
+      pixels[SEGENV.aux1] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(SEGENV.aux1, true, PALETTE_SOLID_WRAP, 0) : color;
+    }
+  }
+
   unsigned incompletePixels = 0;
   for (unsigned i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, pixels[i]); // fix for #4401
-    if (SEGMENT.check2) {
-      if (SEGENV.aux0) {
+    if (SEGMENT.check2 || forceComplete) {
+      if (lastOneMode && DISSOLVE_PHASE == 3 && i == SEGENV.aux1) continue;
+      if (filling) {
         if (pixels[i] == SEGCOLOR(1)) incompletePixels++;
       } else {
         if (pixels[i] != SEGCOLOR(1)) incompletePixels++;
@@ -726,26 +794,46 @@ void dissolve(uint32_t color) {
     }
   }
 
-  if (SEGENV.step > (255 - SEGMENT.speed) + 15U) {
-    SEGENV.aux0 = !SEGENV.aux0;
+  if ((SEGMENT.check2 || forceComplete) && incompletePixels == 0 && !DISSOLVE_DONE) {
+    SET_DONE(1);
     SEGENV.step = 0;
+  }
+
+  bool stepReady = (DISSOLVE_DONE || (!SEGMENT.check2 && !forceComplete)) && SEGENV.step > (255 - SEGMENT.speed) + 15U;
+
+  if (stepReady) {
+    SEGENV.step = 0;
+    SET_DONE(0);
+    if (!lastOneMode) {
+      SET_PHASE(DISSOLVE_PHASE == 0 ? 1 : 0);
+    } else {
+      switch (DISSOLVE_PHASE) {
+        case 0: SET_PHASE(1); break;
+        case 1: SET_PHASE(2); break;
+        case 2: SET_PHASE(3); break;
+        case 3: SET_PHASE(4); break;
+        case 4: SET_PHASE(2); break;
+      }
+    }
   } else {
-    if (SEGMENT.check2) {
-      if (incompletePixels == 0)
-        SEGENV.step++; // only advance step once all pixels have changed
-    } else
-      SEGENV.step++;
+    SEGENV.step++;
   }
 }
+#undef DISSOLVE_PHASE
+#undef DISSOLVE_DONE
+#undef DISSOLVE_PREV_LAST_ONE
+#undef SET_PHASE
+#undef SET_DONE
+#undef SET_PREV_LAST_ONE
 
 
 /*
- * Blink several LEDs on and then off
+ * Blink LEDs on and then off
  */
 void mode_dissolve(void) {
   dissolve(SEGMENT.check1 ? SEGMENT.color_wheel(hw_random8()) : SEGCOLOR(0));
 }
-static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,,,,Random,Complete;!,!;!";
+static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Dissolve speed,Fill speed,Last one delay,,Random,Complete,Last one;!,!;!";
 
 
 /*
