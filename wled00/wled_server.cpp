@@ -175,6 +175,9 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.write(data,len);
   }
   if (final) {
+    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+      strip.waitForLEDs(25); // calling file.close() during LEDs sendout can cause glitches on C3 and on 8266
+    #endif
     request->_tempFile.close();
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
