@@ -828,7 +828,7 @@ class WS2812FX {  // 96 bytes
       deserializeMap(uint8_t n=0);
 
     // be nice, but not too nice - wait util LEDs are idle, or maxWaitMS have passed
-    // on 8266 this call will _not_ wait is outside the main loop context
+    // on 8266 this call will _not_ wait outside of the main loop context
     // returns isUpdating()
     bool waitForLEDs(unsigned maxWaitMS) const;
   
