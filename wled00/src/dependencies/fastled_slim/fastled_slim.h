@@ -1,5 +1,4 @@
-#ifndef FASTLED_FCN_H
-#define FASTLED_FCN_H
+#pragma once
 
 #include <stdint.h>
 #include <cstring> // for mem operations
@@ -780,5 +779,3 @@ public:
     return *this;
   }
 };
-
-#endif

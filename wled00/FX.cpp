@@ -5007,7 +5007,7 @@ void mode_ColorClouds()
 
     uint32_t pixel;
     if (SEGMENT.palette) { pixel = SEGMENT.color_from_palette(hue, false, true, 0, vol); }
-    else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
+    else { pixel = CRGBW(CHSV32(hue, 255, vol)); }
 
     // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
     if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
@@ -6130,7 +6130,7 @@ void mode_2Dcrazybees(void) {
     uint8_t posX, posY, aimX, aimY, hue;
     int8_t deltaX, deltaY, signX, signY, error;
     void aimed(uint16_t w, uint16_t h) {
-      //random16_set_seed(millis());
+      //prng.setSeed(millis());
       aimX   = prng.random8(0, w);
       aimY   = prng.random8(0, h);
       hue    = prng.random8();

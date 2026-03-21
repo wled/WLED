@@ -1,5 +1,5 @@
 #include "wled.h"
-#include "src/dependencies/fastled/fastled_fcn.h"
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 
 /*
  * WLED Color palettes

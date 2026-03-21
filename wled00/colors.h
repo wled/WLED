@@ -1,7 +1,7 @@
 #pragma once
 #ifndef WLED_COLORS_H
 #define WLED_COLORS_H
-#include "src/dependencies/fastled/fastled_fcn.h"
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 /*
  * Color structs and color utility functions
  */
@@ -25,7 +25,7 @@
 #define B(c) (byte(c))
 #define W(c) (byte((c) >> 24))
 
-struct CRGBW;
+struct CRGBW; // forward declations
 struct CHSV32;
 
 extern bool gammaCorrectCol;
@@ -196,4 +196,10 @@ inline CHSV32& CHSV32::operator= (const CRGBW& rgb) { // assignment from 32bit r
   rgb2hsv(rgb, *this);
   return *this;
 }
+
+// explicit hsv2rgb conversions for compatibility
+inline CRGBW hsv2rgb(const CHSV32& hsv) { return CRGBW(hsv); }
+inline void  hsv2rgb(const CHSV32& hsv, CRGBW& rgb) { rgb = CRGBW(hsv); }
+inline void  hsv2rgb(const CHSV32& hsv, uint32_t& rgb) { rgb = CRGBW(hsv).color32; }
+
 #endif

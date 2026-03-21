@@ -1,4 +1,4 @@
-#include "fastled_fcn.h"
+#include "fastled_slim.h"
 
 // Code originally from FastLED version 3.6.0. Optimized for WLED use by @dedehai
 // Licensed unter MIT license, see LICENSE.txt for details
