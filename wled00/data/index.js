@@ -1661,12 +1661,10 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
-		gId("editPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
-		gId("editPal").classList.add("hide");
 		// Close palette dialog if not available
 		if (palw.lastElementChild.tagName == "DIALOG") {
 			palw.lastElementChild.close();

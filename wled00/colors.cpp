@@ -74,21 +74,24 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
   if (c1 == BLACK || amount == 0) return 0; // black or full fade
   if (amount == 255) return c1;             // no change
   uint32_t addRemains = 0;
-
-  if (!video) amount++; // add one for correct scaling using bitshifts
-  else {
-    // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
-    uint8_t r = byte(c1>>16), g = byte(c1>>8), b = byte(c1), w = byte(c1>>24); // extract r, g, b, w channels
-    uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // determine dominant channel for hue preservation
-    addRemains  = r && (r<<5) > maxc ? 0x00010000 : 0; // note: setting color preservation threshold too high results in flickering and
-    addRemains |= g && (g<<5) > maxc ? 0x00000100 : 0; // jumping colors in low brightness gradients. Multiplying the color preserves
-    addRemains |= b && (b<<5) > maxc ? 0x00000001 : 0; // better accuracy than dividing the maxc. Shifting by 5 is a good compromise 
-    addRemains |= w ? 0x01000000 : 0;                  // i.e. remove color channel if <13% of max
-  }
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
-  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * amount) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
-  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * amount) & ~TWO_CHANNEL_MASK; // scale white and green
-  return (rb | wg) + addRemains;
+  uint32_t rb = c1 & TWO_CHANNEL_MASK; // extract R and B channels
+  uint32_t wg = (c1 >> 8) & TWO_CHANNEL_MASK; // extract W and G channels (shifted for multiplication)
+  uint32_t rb_scaled = ((rb * amount + 0x007F007F) >> 8) & TWO_CHANNEL_MASK; // scale red and blue, add 0.5 for rounding
+  uint32_t wg_scaled = (wg* amount + 0x007F007F) & ~TWO_CHANNEL_MASK; // scale white and green, add 0.5 for rounding
+
+  // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
+  if (video) {
+    uint8_t r = byte(rb>>16), g = byte(wg), b = byte(rb), w = byte(wg>>16); // extract r, g, b, w channels from original color (wg is shifted)
+    uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // determine dominant channel for hue preservation
+    maxc = (maxc>>2) + 1; // divide by 4 to get ~25% threshold for hue preservation, add 1 to prevent "washout" of very dark colors (prevents them becoming gray)
+    rb_scaled |= r > maxc ? 0x00010000 : 0;
+    wg_scaled |= g > maxc ? 0x00000100 : 0;
+    rb_scaled |= b > maxc ? 0x00000001 : 0;
+    wg_scaled |= w ? 0x01000000 : 0; // preserve white if it is present
+  }
+
+  return (rb_scaled | wg_scaled);
 }
 
 /*

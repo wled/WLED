@@ -1,10 +1,9 @@
 @font-face {
   font-family: 'wled122';
   src:
-    url('fonts/wled122.woff2?e3eban') format('woff2'),
-    url('fonts/wled122.ttf?e3eban') format('truetype'),
-    url('fonts/wled122.woff?e3eban') format('woff'),
-    url('fonts/wled122.svg?e3eban#wled122') format('svg');
+    url('fonts/wled122.ttf?yzxblb') format('truetype'),
+    url('fonts/wled122.woff?yzxblb') format('woff'),
+    url('fonts/wled122.svg?yzxblb#wled122') format('svg');
   font-weight: normal;
   font-style: normal;
   font-display: block;
@@ -25,6 +24,12 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+.i-pixelforge:before {
+  content: "\e900";
+}
+.i-editor:before {
+  content: "\e901";
+}
 .i-pattern:before {
   content: "\e23d";
 }
