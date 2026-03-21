@@ -1337,9 +1337,9 @@ void WS2812FX::service() {
 }
 
 // https://en.wikipedia.org/wiki/Blend_modes but using a for top layer & b for bottom layer
-static uint8_t _top       (uint8_t a, uint8_t b) { return a; } // function currently unused
-static uint8_t _bottom    (uint8_t a, uint8_t b) { return b; } // function currently unused
-static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t > 255 ? 255 : t; } // function currently unused
+static uint8_t _top       (uint8_t a, uint8_t b) { return a; } // function unused
+static uint8_t _bottom    (uint8_t a, uint8_t b) { return b; } // function unused
+static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t > 255 ? 255 : t; } // function unused
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
@@ -1361,39 +1361,37 @@ static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a)
 #endif
 static uint8_t _dodge     (uint8_t a, uint8_t b) { return _divide(~a,b); }
 static uint8_t _burn      (uint8_t a, uint8_t b) { return ~_divide(a,~b); }
+static uint8_t _stencil   (uint8_t a, uint8_t b) { return a ? a : b; } // function unused
+static uint8_t _dummy     (uint8_t a, uint8_t b) { return a; } // dummy (same as _top) to fill the function list and make it safe from OOB access
 
-#define APPLY_BLEND(op) c.r = op(tC.r, bC.r); c.g = op(tC.g, bC.g); c.b = op(tC.b, bC.b); c.w = op(tC.w, bC.w)
-
-static uint32_t segblend(CRGBW tcol, CRGBW bcol, CRGBW bgcol, uint8_t blendMode) {
-  CRGBW tC(tcol); CRGBW bC(bcol); CRGBW c; // note: using aliases shrinks code size for some weird compiler reasons, no speed difference in tests
-                                           // note2: using CRGBW instead of uint32_t improves speed as well as code size
-  switch (blendMode) {
-    case 0:  return tcol.color32;                 // Top
-    case 1:  return bcol.color32;                 // Bottom
-    case 2:  return color_add(tcol, bcol, false); // Add
-    case 3:  APPLY_BLEND(_subtract);    break;    // Subtract
-    case 4:  APPLY_BLEND(_difference);  break;    // Difference
-    case 5:  APPLY_BLEND(_average);     break;    // Average
-    case 6:  APPLY_BLEND(_multiply);    break;    // Multiply
-    case 7:  APPLY_BLEND(_divide);      break;    // Divide
-    case 8:  APPLY_BLEND(_lighten);     break;    // Lighten
-    case 9:  APPLY_BLEND(_darken);      break;    // Darken
-    case 10: APPLY_BLEND(_screen);      break;    // Screen
-    case 11: APPLY_BLEND(_overlay);     break;    // Overlay
-    case 12: APPLY_BLEND(_hardlight);   break;    // Hardlight
-    case 13: APPLY_BLEND(_softlight);   break;    // Softlight
-    case 14: APPLY_BLEND(_dodge);       break;    // Dodge
-    case 15: APPLY_BLEND(_burn);        break;    // Burn
-    case 32: return tcol.color32 == bgcol.color32 ? bcol.color32 : tcol.color32; // Stencil: backgroundcolor -> transparent, use top color otherwise
-    // note: stencil mode is a special case: it works only on full color comparison and wont work correctly on a colorchannel base
-    // enumerate to 32 to allow future additions above in case a function array will be used again
-    default: return tcol.color32; // fallback to Top
-  }
-  return c.color32;
-};
+#define BLENDMODES  17 // number of blend modes must match "bm" in index.js, all cases must be handled in segblend() @ blendSegment()
 
 void WS2812FX::blendSegment(const Segment &topSegment) const {
-  const uint8_t blendMode  = topSegment.blendMode;
+  typedef uint8_t(*FuncType)(uint8_t, uint8_t);
+  // function pointer array: fill with _dummy if using special case: avoid OOB access and always provide a valid path
+  FuncType funcs[] = {
+    _dummy,      _dummy,     _dummy,    _subtract,
+    _difference, _average,   _dummy,    _divide,
+    _lighten,    _darken,    _screen,   _overlay,
+    _hardlight,  _softlight, _dodge,    _burn,
+    _dummy
+  };
+
+  const size_t blendMode = topSegment.blendMode < BLENDMODES ? topSegment.blendMode : 0; // default to top if unsupported mode
+  const auto segblend = [&](uint32_t t, uint32_t b){
+    // use direct calculations/returns for simple/frequent modes (faster)
+    switch (blendMode) {
+      case 0 : return t;                   // top
+      case 1 : return b;                   // bottom
+      case 2 : return color_add(t,b,true); // add with preserve color ratio to avoid color clipping
+      case 6 : return RGBW32(_multiply(R(t),R(b)), _multiply(G(t),G(b)), _multiply(B(t),B(b)), _multiply(W(t),W(b))); // multiply (7% faster than lambda at 100bytes flash cost)
+      case 16: return t ? t : b;           // stencil (use top layer if not black, else bottom)
+    }
+    // default: use function pointer from array
+    const auto func = funcs[blendMode];
+    return RGBW32(func(R(t),R(b)), func(G(t),G(b)), func(B(t),B(b)), func(W(t),W(b)));
+  };
+
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();
   const int     height     = topSegment.height();
@@ -1478,7 +1476,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
-      _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx], bgColor, blendMode), o);
+      _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
       // Apply mirroring if enabled
       if (topSegment.mirror || topSegment.mirror_y) {
@@ -1487,9 +1485,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
-        if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], segblend(c, _pixels[idxMX], bgColor, blendMode), o);
-        if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], segblend(c, _pixels[idxMY], bgColor, blendMode), o);
-        if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], segblend(c, _pixels[idxMM], bgColor, blendMode), o);
+        if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], segblend(c, _pixels[idxMX]), o);
+        if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], segblend(c, _pixels[idxMY]), o);
+        if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], segblend(c, _pixels[idxMM]), o);
         if (_pixelCCT) {
           if (topSegment.mirror)                        _pixelCCT[idxMX] = cct;
           if (topSegment.mirror_y)                      _pixelCCT[idxMY] = cct;
@@ -1573,12 +1571,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         unsigned indxM = topSegment.stop - i - 1;
         indxM += topSegment.offset; // offset/phase
         if (indxM >= topSegment.stop) indxM -= length; // wrap
-        _pixels[indxM] = color_blend(_pixels[indxM], segblend(c, _pixels[indxM], bgColor, blendMode), o);
+        _pixels[indxM] = color_blend(_pixels[indxM], segblend(c, _pixels[indxM]), o);
         if (_pixelCCT) _pixelCCT[indxM] = cct;
       }
       indx += topSegment.offset; // offset/phase
       if (indx >= topSegment.stop) indx -= length; // wrap
-      _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx], bgColor, blendMode), o);
+      _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
     };
 
