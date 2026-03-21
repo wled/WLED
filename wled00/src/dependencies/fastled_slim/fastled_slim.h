@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <cstring> // for mem operations
+#include <pgmspace.h>
 
 // Code originally from FastLED version 3.6.0. Optimized for WLED use by @dedehai
 // Licensed unter MIT license, see LICENSE.txt for details
@@ -608,14 +609,14 @@ public:
   // Create palette from palette stored in PROGMEM
   CRGBPalette16(const TProgmemRGBPalette16& rhs) {
     for (int i = 0; i < 16; ++i) {
-      entries[i] = *(const uint32_t*)(rhs + i);
+      entries[i] = pgm_read_dword(rhs + i);
     }
   }
 
   // Copy assignment operator for PROGMEM palette
   CRGBPalette16& operator=(const TProgmemRGBPalette16& rhs) {
     for (int i = 0; i < 16; ++i) {
-      entries[i] = *(const uint32_t*)(rhs + i);
+      entries[i] = pgm_read_dword(rhs + i);
     }
     return *this;
   }

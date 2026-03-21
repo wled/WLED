@@ -15,7 +15,7 @@
   - to manipulate an RGB color in HSV space, use the adjust_color function or the CRGBW.adjust_hue method
 
   Some functions in this file are derived from FastLED (https://github.com/FastLED/FastLED) licensed under the MIT license.
-  See /src/dependencies/fastled/LICENSE.txt for details.
+  See /src/dependencies/fastled_slim/LICENSE.txt for details.
 */
 
 // 32bit color mangling macros

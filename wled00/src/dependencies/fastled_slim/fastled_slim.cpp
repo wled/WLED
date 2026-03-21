@@ -10,7 +10,7 @@ __attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint
   uint8_t hue = h>>8;
   uint8_t sat = s;
   uint32_t val = v;
-  uint32_t offset = h & 0x1FFF; // 0..31
+  uint32_t offset = h & 0x1FFF; // 0..31, shifted
   uint32_t third16 = (offset * 21846); // offset16 = offset * 1/3<<16
   uint8_t third = third16 >> 21; // max = 85
   uint8_t r, g, b; // note: making these 32bit is significantly slower

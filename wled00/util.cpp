@@ -392,7 +392,7 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
 // FastLED Reference
 // -----------------
 // The following beat functions derived from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
-// See /src/dependencies/fastled/LICENSE.txt for details
+// See /src/dependencies/fastled_slim/LICENSE.txt for details
 
 // Generates a 16-bit "sawtooth" wave at a given BPM, with BPM specified in Q8.8 fixed-point format:
 // for 120 BPM it would be 120*256 = 30720. If you just want to specify "120", use beat16() or beat8().

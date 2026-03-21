@@ -13,7 +13,7 @@
 // FastLED Palettes
 // ----------------
 // Palettes imported from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
-// See /src/dependencies/fastled/LICENSE.txt for details
+// See /src/dependencies/fastled_slim/LICENSE.txt for details
 
 // Cloudy color palette
 const TProgmemRGBPalette16 CloudColors_p PROGMEM = {

@@ -10,7 +10,7 @@
  * FastLED Reference
  * -----------------
  * functions in this file derived from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are marked with a comment containing "derived from FastLED"
- * those functions are therefore licensed under the MIT license See /src/dependencies/fastled/LICENSE.txt for details.
+ * those functions are therefore licensed under the MIT license See /src/dependencies/fastled_slim/LICENSE.txt for details.
  */
 
 /*
