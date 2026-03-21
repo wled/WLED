@@ -1427,7 +1427,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     const Segment *segO = topSegment.getOldSegment();
     const int oCols = segO ? segO->virtualWidth() : nCols;
     const int oRows = segO ? segO->virtualHeight() : nRows;
-    bool applyMirror = topSegment.mirror || topSegment.mirror_y;
 
     const auto setMirroredPixel = [&](int x, int y, uint32_t c, uint8_t o) {
       const int baseX = topSegment.start  + x;
@@ -1435,8 +1434,8 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       size_t indx = XY(baseX, baseY); // absolute address on strip
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx], bgColor, blendMode), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
-      // Apply mirroring
-      if (applyMirror) {
+      // Apply mirroring if enabled
+      if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
         const int mirrorY = topSegment.startY + height - y - 1;
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
