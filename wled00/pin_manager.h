@@ -10,6 +10,13 @@
 #define WLED_NUM_PINS (GPIO_PIN_COUNT)
 #endif
 
+// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
+#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
+#define PIN_CAP_BOOT         0x08   // bootloader pin
+#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
+#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
+
 typedef struct PinManagerPinType {
   int8_t pin;
   bool   isOutput;
@@ -40,6 +47,7 @@ enum struct PinOwner : uint8_t {
   HW_I2C        = 0x8B,   // 'I2C'       == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
   HW_SPI        = 0x8C,   // 'SPI'       == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
   DMX_INPUT     = 0x8D,   // 'DMX_INPUT' == DMX input via serial
+  HUB75         = 0x8E,   // 'Hub75' == Hub75 driver
   // Use UserMod IDs from const.h here
   UM_Unspecified       = USERMOD_ID_UNSPECIFIED,        // 0x01
   UM_Example           = USERMOD_ID_EXAMPLE,            // 0x02 // Usermod "usermod_v2_example.h"
@@ -86,6 +94,7 @@ namespace PinManager {
   // using more than one pin, such as I2C, SPI, rotary encoders,
   // ethernet, etc..
   bool allocateMultiplePins(const managed_pin_type * mptArray, byte arrayElementCount, PinOwner tag );
+  bool allocateMultiplePins(const int8_t * mptArray, byte arrayElementCount, PinOwner tag, boolean output);
 
   [[deprecated("Replaced by three-parameter allocatePin(gpio, output, ownerTag), for improved debugging")]]
   inline bool allocatePin(byte gpio, bool output = true) { return allocatePin(gpio, output, PinOwner::None); }
@@ -96,10 +105,13 @@ namespace PinManager {
   bool isPinAllocated(byte gpio, PinOwner tag = PinOwner::None);
   // will return false for reserved pins
   bool isPinOk(byte gpio, bool output = true);
-  
+
   bool isReadOnlyPin(byte gpio);
+  int getButtonIndex(byte gpio); // returns button index if pin is used for button, otherwise -1
+  bool isAnalogPin(byte gpio); // returns true if pin has ADC capability, otherwise false
 
   PinOwner getPinOwner(byte gpio);
+  const char* getPinOwnerName(uint8_t gpio);
 
   #ifdef ARDUINO_ARCH_ESP32
   byte allocateLedc(byte channels);

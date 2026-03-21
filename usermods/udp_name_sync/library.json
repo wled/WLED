@@ -1,0 +1,5 @@
+{
+  "name": "udp_name_sync",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}

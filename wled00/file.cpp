@@ -38,7 +38,7 @@ void closeFile() {
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
-  f.close();
+  f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
   doCloseFile = false;
 }
@@ -271,6 +271,8 @@ bool writeObjectToFile(const char* file, const char* key, const JsonDocument* co
     s = millis();
   #endif
 
+  if (doCloseFile) closeFile(); // This prevents the loss of file data that is still cached in the File object.
+
   size_t pos = 0;
   char fileName[129]; strncpy_P(fileName, file, 128); fileName[128] = 0; //use PROGMEM safe copy as FS.open() does not
   f = WLED_FS.open(fileName, WLED_FS.exists(fileName) ? "r+" : "w+");
@@ -394,6 +396,7 @@ static const uint8_t *getPresetCache(size_t &size) {
     if (presetsCached) {
       p_free(presetsCached);
       presetsCached = nullptr;
+      presetsCachedSize = 0;
     }
   }
 
@@ -422,8 +425,8 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   DEBUGFS_PRINT(F("WS FileRead: ")); DEBUGFS_PRINTLN(path);
   if(path.endsWith("/")) path += "index.htm";
   if(path.indexOf(F("sec")) > -1) return false;
-  #ifdef ARDUINO_ARCH_ESP32
-  if (psramSafe && psramFound() && path.endsWith(FPSTR(getPresetsFileName()))) {
+  #ifdef BOARD_HAS_PSRAM
+  if (path.endsWith(FPSTR(getPresetsFileName()))) {
     size_t psize;
     const uint8_t *presets = getPresetCache(psize);
     if (presets) {
@@ -555,6 +558,12 @@ bool restoreFile(const char* filename) {
   }
   DEBUG_PRINTLN(F("restore failed"));
   return false;
+}
+
+bool checkBackupExists(const char* filename) {
+  char backupname[32];
+  snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
+  return WLED_FS.exists(backupname);
 }
 
 bool validateJsonFile(const char* filename) {

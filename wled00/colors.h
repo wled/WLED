@@ -117,13 +117,14 @@ class NeoGammaWLEDMethod {
 [[gnu::hot, gnu::pure]] uint32_t color_blend(uint32_t c1, uint32_t c2 , uint8_t blend);
 inline uint32_t color_blend16(uint32_t c1, uint32_t c2, uint16_t b) { return color_blend(c1, c2, b >> 8); };
 [[gnu::hot, gnu::pure]] uint32_t color_add(uint32_t, uint32_t, bool preserveCR = false);
+[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video = false);
 [[gnu::hot, gnu::pure]] uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten);
 [[gnu::hot, gnu::pure]] uint32_t ColorFromPaletteWLED(const CRGBPalette16 &pal, unsigned index, uint8_t brightness = (uint8_t)255U, TBlendType blendType = LINEARBLEND);
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 void loadCustomPalettes();
 extern std::vector<CRGBPalette16> customPalettes;
-inline size_t getPaletteCount() { return 13 + GRADIENT_PALETTE_COUNT + customPalettes.size(); }
+inline size_t getPaletteCount() { return FIXED_PALETTE_COUNT + customPalettes.size(); }
 inline uint32_t colorFromRgbw(byte* rgbw) { return uint32_t((byte(rgbw[3]) << 24) | (byte(rgbw[0]) << 16) | (byte(rgbw[1]) << 8) | (byte(rgbw[2]))); }
 void hsv2rgb(const CHSV32& hsv, uint32_t& rgb);
 void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
@@ -139,6 +140,16 @@ uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
 void setRandomColor(byte* rgb);
 
-[[gnu::hot, gnu::pure]] uint32_t color_fade(uint32_t c1, uint8_t amount, bool video = false);
+// fast scaling function for colors, performs color*scale/256 for all four channels, speed over accuracy
+// note: inlining uses less code than actual function calls
+static inline uint32_t fast_color_scale(const uint32_t c, const uint8_t scale) {
+  uint32_t rb = (((c     & 0x00FF00FF) * scale) >> 8) &  0x00FF00FF;
+  uint32_t wg = (((c>>8) & 0x00FF00FF) * scale)       & ~0x00FF00FF;
+  return rb | wg;
+}
 
+// palettes
+extern const TProgmemRGBPalette16* const fastledPalettes[];
+extern const uint8_t* const gGradientPalettes[];
 #endif
+
