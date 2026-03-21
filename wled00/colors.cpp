@@ -50,6 +50,7 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR)
       uint32_t w = wg >> 16;
       uint32_t g = wg & 0xFFFF;
       uint32_t maxval = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // find max value. note: faster than using max() function or on par
+      maxval = (w > maxval) ? w : maxval; // check white channel as well to avoid division by zero in pure white input
       const uint32_t scale = (uint32_t(255)<<8) / maxval; // division of two 8bit (shifted) values does not work -> use bit shifts and multiplaction instead
       rb = ((rb * scale) >> 8) &  TWO_CHANNEL_MASK;
       wg =  (wg * scale)       & ~TWO_CHANNEL_MASK;
@@ -360,24 +361,30 @@ void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb) {
 
 // convert RGB to HSV (16bit hue), not 100% color accurate. note: using "O3" makes it ~5% faster at minimal flash cost (~20 bytes)
 WLED_O3_ATTR void rgb2hsv(const CRGBW& rgb, CHSV32& hsv) {
-    int32_t r = rgb.r; // note: using 32bit variables tested faster than 8bit
-    int32_t g = rgb.g;
-    int32_t b = rgb.b;
-    int32_t minval, maxval, delta;
-    // find min/max value. note: faster than using min/max functions (lets compiler optimize more when using "O3"), other variants (nested ifs, xor) tested slower
-    maxval = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
-    if (maxval == 0) {
-      hsv.hsv32 = 0;
-      return; // black, avoids division by zero
-    }
-    minval = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
-    hsv.v = maxval;
-    delta = maxval - minval;
-    hsv.s = delta == maxval ? 255 : (255 * delta) / maxval; // faster on fully saturated colors, slightly slower otherwise
+  int32_t r = rgb.r; // note: using 32bit variables tested faster than 8bit
+  int32_t g = rgb.g;
+  int32_t b = rgb.b;
+  uint32_t minval, maxval;
+  int32_t delta;
+  // find min/max value. note: faster than using min/max functions (lets compiler optimize more when using "O3"), other variants (nested ifs, xor) tested slower
+  maxval = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
+  if (maxval == 0) {
+    hsv.hsv32 = 0;
+    return; // black, avoids division by zero
+  }
+  minval = (r < g) ? ((r < b) ? r : b) : ((g < b) ? g : b);
+  hsv.v = maxval;
+  delta = maxval - minval;
+  if (delta != 0) {
+    hsv.s = (255 * delta) / maxval;
     // note: early return if s==0 is omitted here to increase speed as gray values are rarely used
-    if (maxval == r) hsv.h = (10923 * (g - b)) / delta;
-    else if (maxval == g)  hsv.h = 21845 + (10923 * (b - r)) / delta;
-    else hsv.h = 43690 + (10923 * (r - g)) / delta;
+    if (maxval == r)       hsv.h = (uint16_t)((10923 * (g - b)) / delta);
+    else if (maxval == g)  hsv.h = (uint16_t)(21845 + (10923 * (b - r)) / delta);
+    else                   hsv.h = (uint16_t)(43690 + (10923 * (r - g)) / delta);
+  } else {
+    hsv.s = 0;
+    hsv.h = 0; // gray, hue is undefined but set to 0 for consistency
+  }
 }
 
 CHSV rgb2hsv(const CRGB c) {  // CRGB to CHSV

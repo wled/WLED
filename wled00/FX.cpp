@@ -162,7 +162,7 @@ void mode_copy_segment(void) {
             sourcesegment.setDrawDimensions(); // set to source segment dimensions
             color = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
           }
-          adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2); // hue shif, sat change, value change
           SEGMENT.setDrawDimensions(); // reset to current segment dimensions
           SEGMENT.setPixelColorXY(x, y, color);
         }
@@ -176,7 +176,7 @@ void mode_copy_segment(void) {
           sourcesegment.setDrawDimensions(); // set to source segment dimensions
           color = sourcesegment.getPixelColor(i);
         }
-        adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2); // hue shif, sat change, value change
         SEGMENT.setDrawDimensions(); // reset to current segment dimensions
         SEGMENT.setPixelColor(i, color);
       }

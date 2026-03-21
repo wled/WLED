@@ -702,13 +702,13 @@ public:
     // Count entries
     int count = 0;
     do {
-      u.dword = *(const uint32_t*)(progent + count);
+      u.dword = pgm_read_dword(progent + count);
       ++count;
     } while (u.index != 255);
 
     int lastSlotUsed = -1;
 
-    u.dword = *(const uint32_t*)(progent);
+    u.dword = pgm_read_dword(progent);
     CRGB rgbstart(u.r, u.g, u.b);
 
     int indexstart = 0;
@@ -716,7 +716,7 @@ public:
     int iend8 = 0;
     while (indexstart < 255) {
       ++progent;
-      u.dword = *(const uint32_t*)(progent);
+      u.dword = pgm_read_dword(progent);
       int indexend = u.index;
       CRGB rgbend(u.r, u.g, u.b);
       istart8 = indexstart / 16;
