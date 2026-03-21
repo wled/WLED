@@ -2323,14 +2323,13 @@ void mode_colortwinkle() {
         bitWrite(SEGENV.data[index], bitNum, false);
       }
 
-      if (cur == prev) {  //fix "stuck" pixels
+      if (col == cur) {  // color_add did nothing, fix "stuck" pixels by adding the color to itself
         col = color_add(col, col);
-        SEGMENT.setPixelColor(i, col);
       }
-      else SEGMENT.setPixelColor(i, col);
+      SEGMENT.setPixelColor(i, col);
     }
     else {
-      col = color_fade(cur, 255 - fadeDownAmount);
+      col = color_fade(cur, 255 - fadeDownAmount, false);
       SEGMENT.setPixelColor(i, col);
     }
   }
