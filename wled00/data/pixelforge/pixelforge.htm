@@ -641,7 +641,7 @@ function renderTools() {
 				<h3>${esc(t.name)} <small style="font-size:10px">v${t.ver}</small></h3>
 				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${esc(t.file)}')">✕</button>` : ''}
 			</div>
-			${esc(t.desc)}
+			${t.desc}
 			<div style="font-size:10px; color:#888;">
 				by ${esc(t.author)} | <a href="${safeUrl(t.source)}" target="_blank">${safeUrl(t.source)}</a>
 			</div>
@@ -653,7 +653,7 @@ function renderTools() {
 							: `<button class="btn" onclick="insT('${esc(t.id)}')">Install</button>`
 						}
 						${t.pending && installed ?
-							  `<button class="btn" style="color:#fb2" onclick="insT('${esc(t.id)}')">Update v${t.pending.ver}</button>`
+							  `<button class="btn" style="color:#fb2" onclick="insT('${esc(t.id)}')">Update v${esc(t.pending.ver)}</button>`
 							: ''
 						}
 				   </div>`
