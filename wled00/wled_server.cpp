@@ -387,21 +387,23 @@ void initServer()
 
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->_tempObject) {
-      strip.suspend();       // prevents random LEDs flashing during OTA
+      // prevent random LEDs flashing during OTA
+      bool haveSuspended = false;
+      if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }
       strip.waitForLEDs(25); // wait max 25 ms for LED transmissions to finish
       auto ota_result = getOTAResult(request);
       if (ota_result.first) {
         if (ota_result.second.length() > 0) {
           serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
-          strip.resume();    // resume effects
+           if (haveSuspended) strip.resume(); // resume effects if update failed
         } else {
           serveMessage(request, 200, F("Update successful!"), FPSTR(s_rebooting), 131);
+          // keep suspended on success until reboot
         }
       }
     } else {
       // No context structure - something's gone horribly wrong
       serveMessage(request, 500, F("Update failed!"), F("Internal server fault"), 254);
-      strip.resume();        // resume effects
     }
   },[](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool isFinal){
     if (index == 0) { 
