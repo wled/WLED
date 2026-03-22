@@ -842,7 +842,7 @@ static const char _data_FX_MODE_DISSOLVE[] PROGMEM = "Dissolve@Repeat speed,Diss
 void mode_dissolve_random(void) {
   dissolve(SEGMENT.color_wheel(hw_random8()));
 }
-static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat speed,Dissolve speed;,!;!";
+static const char _data_FX_MODE_DISSOLVE_RANDOM[] PROGMEM = "Dissolve Rnd@Repeat speed,Dissolve speed,Fill speed,Last one delay,,Random,Complete,Last one;!,!;!;!;o1=1";
 
 /*
  * Blinks one LED at a time.
