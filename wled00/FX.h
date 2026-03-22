@@ -536,7 +536,7 @@ typedef struct Segment {
     inline Segment &setName(const String &name) { return setName(name.c_str()); }
 
     inline static uint16_t getUsedSegmentData()    { return _usedSegmentData; }
-    inline static void addUsedSegmentData(int len) { _usedSegmentData += len; }
+    inline static void addUsedSegmentData(int len) { _usedSegmentData = max(0, int(_usedSegmentData) + len); }  // clamp negative results to 0
     #ifndef WLED_DISABLE_MODE_BLEND
     inline static void modeBlend(bool blend)       { _modeBlend = blend; }
     #endif
