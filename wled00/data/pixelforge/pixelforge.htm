@@ -422,6 +422,7 @@ let iL=[]; // image list
 let gF=null,gI=null,aT=null;
 let fL; // file list
 let pT = []; // local tools list from JSON
+let wv = [0, 0]; // wled version [major, minor], updated in fsMem(), used to check tool compatibility
 const remoteURL = 'https://dedehai.github.io/pftools.json'; // Change to your actual repo
 const toolsjson = 'pftools.json';
 // note: the pftools.json must use major.minor for tool versions (e.g. 0.95 or 1.1), otherwise the update check won't work
@@ -448,8 +449,8 @@ async function init() {
 	tabSw(localStorage.tab||'img'); // switch to last open tab or image tab by default
 	await segLoad(); // load available segments
 	await flU(); // update file list
+	await fsMem(); // update & show file system memory info, also updates wled version (wv)
 	await loadTools(); // load additional tools list from pftools.json
-	await fsMem(); // show file system memory info
 }
 
 /* update file list */
@@ -579,6 +580,14 @@ function imgRm(nm){
 	//}
 }
 
+// check for tool compatibility with current wled version (wled_min requirement in pftools.json)
+function compTool(t) {
+	if (!t.wled_min || !wv) return true;
+	const m = t.wled_min.match(/\d+/g);
+	const a = wv, b = [m[0]|0, m[1]|0];
+	return a[0] > b[0] || (a[0] === b[0] && a[1] >= b[1]);
+}
+
 /* additional tools: loaded from pftools.json, store json locally for offline use*/
 async function loadTools() {
 	try {
@@ -625,20 +634,31 @@ function isNewer(vN, vO) {
 function renderTools() {
 	let h = '';
 	pT.forEach(t => {
+		const compatible = compTool(t); // check if compatible with current wled version
 		const installed = fL.some(f => f.name.includes(t.file)); // check if tool file exists (either .htm or .htm.gz)
 		h += `<div class="ed active" style="margin-bottom:10px; border-radius:20px; text-align:left;">
 			<div style="display:flex; justify-content:space-between;">
 				<h3>${esc(t.name)} <small style="font-size:10px">v${t.ver}</small></h3>
 				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${esc(t.file)}')">✕</button>` : ''}
 			</div>
-			${t.desc}
+			${esc(t.desc)}
 			<div style="font-size:10px; color:#888;">
 				by ${esc(t.author)} | <a href="${safeUrl(t.source)}" target="_blank">${safeUrl(t.source)}</a>
 			</div>
-			<div class="crw">
-				${installed ? `<button class="btn" onclick="window.location.href=getURL('/${esc(t.file)}')">Open</button>` : `<button class="btn" onclick="insT('${esc(t.id)}')">Install</button>`}
-				${t.pending && installed ? `<button class="btn" style="color:#fb2" onclick="insT('${esc(t.id)}')">Update v${t.pending.ver}</button>` : ''}
-			</div>
+			${
+				compatible ?
+					`<div class="crw">
+						${installed ?
+							  `<button class="btn" onclick="window.location.href=getURL('/${esc(t.file)}')">Open</button>`
+							: `<button class="btn" onclick="insT('${esc(t.id)}')">Install</button>`
+						}
+						${t.pending && installed ?
+							  `<button class="btn" style="color:#fb2" onclick="insT('${esc(t.id)}')">Update v${t.pending.ver}</button>`
+							: ''
+						}
+				   </div>`
+				: `<div style="color:#f44;font-size:12px;"> Requires WLED ${t.wled_min} </div>`
+			}
 		</div>`;
 	});
 	getId('tools').innerHTML = h || 'No tools found (offline?).';
@@ -672,14 +692,20 @@ async function insT(id) {
 	ovHide();
 }
 
-/* fs/mem info */
+/* fs/mem info & wled version */
 async function fsMem(){
 	try{
 		const r=await fetch(getURL('/json/info'));
 		const info=await r.json();
-		if(info&&info.fs){
-			getId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
-			getId("mem").style.display="block";
+		if (info){
+			if (info.fs) {
+				getId("mem").textContent=`by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB`;
+				getId("mem").style.display="block";
+			}
+			if (info.ver) {
+				const m = info.ver.match(/\d+/g); // extract all numbers from version string (e.g. "16.1.0-beta" → [16, 1])
+				wv = [parseInt(m[0]) || 0, parseInt(m[1]) || 0];
+			}
 		}
 	}catch(e){console.error(e);}
 }
