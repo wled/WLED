@@ -696,8 +696,8 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
  *   checkbox 1 is to select random colors
  *   checkbox 2 is to force it to wait until all LEDs have been completely filled or dissolved
  *   checkbox 3 is to select whether one last LED will stay lit (like a "last one standing" or "sole survivor")
- *   aux0: 2 packed values: phase/stage of dissolve/refill process, and whether done dissolving/refilling
- *   aux1: 2 packed values: random survivor pixel index, and previous value of lastOneMode
+ *   aux0: 3 packed values: phase/stage of dissolve/refill process, whether done dissolving/refilling, and previous value of lastOneMode
+ *   aux1: random survivor pixel index
  */
 #define DISSOLVE_PHASE          (SEGENV.aux0 & 0xFF)
 #define DISSOLVE_DONE           ((SEGENV.aux0 >> 8) & 0x01)
@@ -742,7 +742,6 @@ void dissolve(uint32_t color) {
       SEGENV.step = 0;
       SET_PHASE(2);
       SET_DONE(0);
-      SEGENV.aux1 = hw_random16(SEGLEN);
     } else {
       SEGENV.step++;
     }
@@ -810,7 +809,7 @@ void dissolve(uint32_t color) {
       switch (DISSOLVE_PHASE) {
         case 0: SET_PHASE(1); break;
         case 1: SET_PHASE(2); break;
-        case 2: SET_PHASE(3); break;
+        case 2: SEGENV.aux1 = hw_random16(SEGLEN); SET_PHASE(3); break;
         case 3: SET_PHASE(4); break;
         case 4: SET_PHASE(2); break;
       }
