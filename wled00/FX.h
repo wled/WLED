@@ -538,7 +538,7 @@ class Segment {
 
   protected:
 
-    inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
+    inline static void addUsedSegmentData(int len) { Segment::_usedSegmentData = max(0, int(Segment::_usedSegmentData) + len); }  // clamp negative results to 0
 
     inline uint32_t *getPixels() const                              { return pixels; }
     inline void     setPixelColorRaw(unsigned i, uint32_t c) const  { pixels[i] = c; }
