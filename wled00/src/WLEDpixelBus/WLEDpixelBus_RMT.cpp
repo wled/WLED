@@ -153,8 +153,6 @@ bool RmtBus::begin() {
     totalBlocks = 4; // default to 4 if unknown, should be safe
 #endif
 
-
-
     int left_channels = s_expectedChannels - s_allocatedCount - 1;
 
     if (left_channels == 0) {
@@ -239,7 +237,7 @@ bool RmtBus::begin() {
 #endif
 
   // Fallback to IDF rmt driver + translator
-  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3));
+  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)); // note: rmt+parallelspi even deadlocks at level1
   if (err != ESP_OK) {
     return false;
   }

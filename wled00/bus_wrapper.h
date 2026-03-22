@@ -130,7 +130,7 @@ class PixelBusAllocator {
     if (driverType == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
       _rmtChannelsAssigned++;
     } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
-      driverType = 1; 
+      driverType = 1;
       // If first I2S channel request, lock the type to ensure parallel timings match
       if (_i2sChannelsAssigned == 0) {
         _parallelI2sBusType = busType;

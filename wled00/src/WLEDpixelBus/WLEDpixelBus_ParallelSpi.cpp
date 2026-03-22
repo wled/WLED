@@ -107,8 +107,8 @@ bool SpiBusContext::isSpiDone() {
       }
       return false; // Still waiting for the cooldown
     }
-    else
-      forceIdle(); // just a test if this is better to recover fast from spi fifo error
+    //else
+    //  forceIdle(); // just a test if this is better to recover fast from spi fifo error -> this can break the whole driver and it it can stop working with multiple channels
     return true; // _sending is false and _txdone is true
   }
 
@@ -192,11 +192,12 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   }
   _framePos += srcThisChunk;
 }
-
+volatile uint8_t isrerror = 0;
 // SPI ISR: handles trans_done (restart SPI bit counter) and outfifo_empty_err
 // (FIFO underrun recovery). outfifo_empty_err is temporarily disabled after
 // handling to prevent infinite ISR loops; trans_done re-enables it.
 void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
+
   SpiBusContext* ctx = (SpiBusContext*)arg;
   uint32_t raw = ctx->_hw->dma_int_raw.val;
   
@@ -205,32 +206,28 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     ctx->_txdone = true; // transfer finished
     ctx->_sending = false;
     ctx->_hw->dma_int_clr.val = SPI_TRANS_DONE_INT_ST;  // clear flag
+    if(isrerror)
+      isrerror++;
     //  digitalWrite(0, LOW);//!!!
     //  Serial.print("b");
   }
   else {
-    //  Serial.println(raw, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
+    //Serial.println(raw, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
     ctx->_hw->dma_int_clr.val = raw;  // Clear all SPI interrupt flags
-    // detach pins from spi and force low to prevent any output when cmd.user is stopped (which outputs a fast pattern)
-
-    //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this causes a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
-    //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
-    // ctx->forceIdle(); // -> seems to cause glitches  -> there are some none iram safe functions in forceIdle!
-    //_txdone = true; // still mark it as done
-    // error, just mark it as done (might not be the best idea... but an attempt to prevent deadlocks)) -> does not prevent deadlocks but seems to prevents glitches
-    // TODO: need a better solution to handle this isr error
-    //_txdone = true; -> do not set _txdone, let the timeout handle it to not cause immediate conflicts
-  //  #include "soc/gpio_periph.h"
-  //#include "soc/gpio_struct.h"
     // SPI FIFO starved, immediately pull the plug or it will output garbage that causes glithces and white flashes
+    /*
     for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++){
       if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
           GPIO.func_out_sel_cfg[ctx->_channels[i].pin].func_sel = SIG_GPIO_OUT_IDX; // disconnect from SPI using direct register write (ISR safe)
           GPIO.out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches note: if implementing this for other ESPs: need to also set the high register for pins >31
       }
-    }
-    ctx->_sending = false;
-    ctx->_txdone = true; // set to tx done, need to reset the spi when checking if spi idle
+    }*/
+    // now that pins are disconnected, we can stop the user transfer which is causing the fast clock output that leads to glitches
+  //  ctx->_hw->cmd.usr = 0; // stop SPI user transfer TODO: will this result in a tx done or some other interrupt?
+  //  ctx->_sending = false;
+    isrerror = 1; // TODO: now it does not seem to happen 
+    
+  //  ctx->_txdone = true; // set to tx done, need to reset the spi when checking if spi idle
   }
 
 //digitalWrite(0, HIGH); //!!!  note: setting pins inside ISRs can cause crashes
@@ -355,7 +352,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, gdmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, gdmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
@@ -366,7 +363,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   _hw->dma_int_clr.val = 0xFFFFFFFF;
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
-  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, spiISR, this, &_spiIsrHandle);
+  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
     deinit();
@@ -480,7 +477,8 @@ bool SpiBusContext::startTransmit() {
       newBytes = _channels[ch].srcLen;
     }
   }
-
+  if(isrerror) Serial.printf("SPI error: %d\n", isrerror);
+  isrerror = 0;
   _numBytes = newBytes;
 
   // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
@@ -618,26 +616,10 @@ bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
 bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
   if (!_initialized || !_ctx) return false;
 
-  // Wait for previous transmission
-/*
-  uint32_t startWait = millis();
-  while (!_ctx->isIdle()) {
-    if (millis() - startWait > 500) {
-      _ctx->forceIdle();
-      return false;
-    }
-    vTaskDelay(1);
-  }*/
-
-  // Wait for SPI to finish any remaining transfer
-uint32_t  startWait = millis();
-  while (!_ctx->isSpiDone()) {
-    if (millis() - startWait > 100) {
-      _ctx->forceIdle();
-      break;
-    }
-    vTaskDelay(1);
-  }
+  // If a previous SPI transfer is still in progress, defer this update to avoid
+  // overlapping transmissions. Multi-channel parallel SPI keeps all lanes in sync
+  // from one final startTransmit() call once all channels have been staged.
+  if (!_ctx->isSpiDone()) return false;
 
   if (!allocateBuffer(_numPixels)) return false;
 
