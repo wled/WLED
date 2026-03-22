@@ -492,6 +492,7 @@ function segLoad(){
 		}
 		if(v1) s1.value=v1; if(v2) s2.value=v2;
 		s2.onchange(); // trigger on load to toggle show/hide of text tool
+		txtSegLoad();  // load settings for currently selected segment
 		const o=s1.options[s1.selectedIndex];
 		if(o){ gId('w').value=o.dataset.w||16; gId('h').value=o.dataset.h||16; }
 	}).catch(console.error);
@@ -518,6 +519,7 @@ gId('segT').onchange = () => {
 	const is2D = (gId('segT').selectedOptions[0].dataset.h || 1) > 1;
 	gId('ti').style.display = is2D ? 'block' : 'none';
 	gId('ti1D').style.display = is2D ? 'none' : 'block';
+	txtSegLoad(); // update controls to match selected segment
 };
 
 /* image list */
