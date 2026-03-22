@@ -50,6 +50,7 @@ private:
   static void IRAM_ATTR spiISR(void* arg);
 
   volatile bool _sending;
+  volatile bool _txdone;
   bool _initialized;
   bool _hasStarted;
   volatile uint8_t _currentBuffer;

@@ -8,9 +8,6 @@
 #include "driver/periph_ctrl.h"
 #include "esp_private/gdma.h"
 #include "esp_rom_gpio.h"
-
-volatile bool txdone = false; // TODO: integrate this into driver, i.e. non global
-volatile bool isSending = false; // TODO: integrate this into driver, i.e. non global
 namespace WLEDpixelBus {
 
 //==============================================================================
@@ -62,6 +59,7 @@ void SpiBusContext::release() {
 
 SpiBusContext::SpiBusContext()
   : _sending(false)
+  , _txdone(true)
   , _initialized(false)
   , _hasStarted(false)
   , _currentBuffer(0)
@@ -89,27 +87,34 @@ SpiBusContext::~SpiBusContext() {
 
 bool SpiBusContext::isSpiDone() {
   if (!_hasStarted) return true;  // no transfer ever started
-  //return txdone;
 
-  // Fail-safe watchdog: if stuck for > 50ms, recover it  TODO: find a better way to make sure the transmission finishes, the timeout fixes the deadlock
-  if (millis() - _lastTransmitMs > 50) {
-    forceIdle();
-    return true;
+  if (_sending) {
+    // Fail-safe watchdog: if stuck actively sending for > 50ms, recover it
+    if (millis() - _lastTransmitMs > 50) {
+      forceIdle();
+      _txdone = true;
+      return true;
+    }
+  } else {
+    // Not actively sending
+    if (!_txdone) {
+      // Stopped sending but not marked done (probably due to error)
+      // Enforce the 50ms wait from the start of the transmission
+      if (millis() - _lastTransmitMs > 50) {
+        _txdone = true;
+        return true;
+      }
+      return false; // Still waiting for the cooldown
+    }
+    return true; // _sending is false and _txdone is true
   }
 
-  // We are logically done once all real data is encoded  TODO: should add a timeout here for more accurate end of frame timing
-  if (!_sending) {
-    //delay(10); // wait for finish sending !!! this is a hacky test, to check if this locks stuff up. remove again -> seems to fix the glitching and stalls, need a better solution though
-    return txdone; // if txdone is enforced without a timout, it also seems to cause a deadlock so it is some kind of race condition
-  }
-
-  
   return false;
 }
 
 void SpiBusContext::forceIdle() {
   _sending = false;
-  isSending = false; // TODO: integrate this into driver, i.e. non global
+  _txdone = true;
   _stagedMask = 0;
 
   // disconnect pins from SPI and set low
@@ -194,9 +199,8 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   ctx->_hw->dma_int_clr.val = raw;  // Clear all SPI interrupt flags
 
   if (raw & SPI_TRANS_DONE_INT_ST) {
-    txdone = true; // transfer finished
+    ctx->_txdone = true; // transfer finished
     ctx->_sending = false;
-    isSending = false; // TODO: integrate this into driver, i.e. non global
     //  digitalWrite(0, LOW);//!!!
     //  Serial.print("b");
   }
@@ -208,12 +212,11 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     //ctx->_hw->cmd.usr = 0;  // Stop SPI -> this causes a white flash, can be used to check how often this happens (quite a lot actually, like every few seconds)
     //spi_ll_dma_tx_enable(ctx->_hw, false); // detacht spi from dma -> does not help with glitches or deadlocks
     // ctx->forceIdle(); // -> seems to cause glitches  -> there are some none iram safe functions in forceIdle!
-    //txdone = true; // still mark it as done
+    //_txdone = true; // still mark it as done
     // error, just mark it as done (might not be the best idea... but an attempt to prevent deadlocks)) -> does not prevent deadlocks but seems to prevents glitches
     // TODO: need a better solution to handle this isr error
-    //txdone = true; -> do not set txdone, let the timeout handle it to not cause immediate conflicts
+    //_txdone = true; -> do not set _txdone, let the timeout handle it to not cause immediate conflicts
     ctx->_sending = false;
-    isSending = false;
   }
 
   
@@ -339,7 +342,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, gdmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, gdmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
@@ -350,7 +353,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   _hw->dma_int_clr.val = 0xFFFFFFFF;
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
-  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3, spiISR, this, &_spiIsrHandle);
+  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
     deinit();
@@ -363,7 +366,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
 
 void SpiBusContext::deinit() {
   _sending = false;
-  isSending = false; // TODO: integrate this into driver, i.e. non global
+  _txdone = true;
 
   // Stop SPI and DMA before freeing resources
   if (_hw) {
@@ -453,9 +456,8 @@ bool SpiBusContext::startTransmit() {
   if (_stagedMask != _channelMask) return true; // not all channels ready yet
   _stagedMask = 0;
   _framePos = 0;
-  txdone = false;//!!!
+  _txdone = false;//!!!
   _sending = true;
-  isSending = true; // TODO: integrate this into driver, i.e. non global
   _currentBuffer = 0;
 
   _lastTransmitMs = millis();
