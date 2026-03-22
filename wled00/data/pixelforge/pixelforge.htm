@@ -96,7 +96,7 @@ h3 {
 	background: #555;
 }
 .cm button.danger {
-	color: #f44;
+	color: #b21;
 }
 
 /* Editor styles */
@@ -335,28 +335,23 @@ button, .btn {
 			<button class="btn" id="aTxt">✓</button>
 		</div>
 
+		<canvas id="tpv" width="100" height="50" style="background:#000;display:block;margin:10px auto;border-radius:8px;width:300px;height:150px;"></canvas>
+
 		<h3>Settings</h3>
 		<div class="cs">
-			<div class="fr">
-				Speed	<input type="range" id="sx" min="0" max="255">
-			</div>
-			<div class="fr">
-				Y Offset	<input type="range" id="ix" min="0" max="255">
-			</div>
-			<div class="fr">
-				Trail	<input type="range" id="c1" min="0" max="255">
-			</div>
-			<div class="fr">
-				Font Size	<input type="range" id="c2" min="0" max="255">
-			</div>
-			<div class="fr">
-				Rotate <input type="range" id="c3" min="0" max="31">
-			</div>
+				<div class="fr">Speed <input type="range" id="sx" min="0" max="255"></div>
+				<div class="fr">Y Offset <input type="range" id="ix" min="0" max="255"></div>
+				<div class="fr">Trail <input type="range" id="c1" min="0" max="255"></div>
+				<div class="fr">Font <input type="range" id="c2" min="3" max="255" step="63"></div>
+				<div class="fr">Rotate <input type="range" id="c3" min="3" max="31" step="7"></div>
 		</div>
 
 		<div class="col" style="display:flex;gap:20px;justify-content:center;">
 			<label style="display:flex;align-items:center;gap:5px">
 				<input type="checkbox" id="o1"> Gradient
+			</label>
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o2"> Custom Font
 			</label>
 			<label style="display:flex;align-items:center;gap:5px">
 				<input type="checkbox" id="o3"> Reverse
@@ -383,7 +378,7 @@ button, .btn {
 				<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
 				<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
 			</div>
-			<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+			<div style="margin:10px;">
 				<strong>Tips:</strong></small><br>
 				• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
 				• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
@@ -452,6 +447,7 @@ let fL; // file list
 
 	await segLoad(); // load available segments
 	await flU(); // update file list
+	tabSw(localStorage.tab||'img'); // restore last active tab
 	toolChk('pixelpaint.htm','t1'); // update buttons of additional tools
 	toolChk('videolab.htm','t2');
 	toolChk('pxmagic.htm','t3');
@@ -550,7 +546,7 @@ async function imgLoad(){
 	}catch(e){console.error(e);}
 }
 
-/* load images into grid TODO: when switching tabs, it can throw 503 and have unloaded images, tried to fix it but all my attempts failed*/
+/* load images into grid */
 async function imgLoad2(imgs){
 	const grid=gId('gr');
 	for(const f of imgs){
@@ -1174,7 +1170,6 @@ function tabSw(tab) {
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	gId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
 });
-tabSw(localStorage.tab||'img');
 
 /* tokens insert */
 function txtIns(el,t){
@@ -1234,6 +1229,51 @@ gId('aTxt').onclick=async()=>{
 	}catch(e){ msg(`Error: ${e.message}`,'err'); }
 	finally{ ovHide(); }
 };
+
+/* preview canvas (not "accurate", just a simulation)*/
+const tpv = gId('tpv'), tpx = tpv.getContext('2d');
+function draw() {
+	// fade out to simulate "trail"
+	let tr = 1 - (gId('c1').value / 280); // c1 controls trail length
+	//tpx.fillStyle = `rgba(0,0,0,${tr.toFixed(2)})`;
+	tpx.fillStyle = `rgba(0,0,0,${tr})`;
+	tpx.fillRect(0,0,100,50);
+
+	let txt = gId('txt').value || 'WLED'; // note: decoding tokens is not implemented as it just takes a lot of code for little benefit
+	let sx = gId('sx').value;
+	let ix = gId('ix').value, c2 = gId('c2').value, c3 = gId('c3').value;
+
+	let fzs = [8, 12, 14, 20, 28][Math.floor(c2/52)] || 8; // Font sizes 1-5
+	let rot = -(Math.round((c3)/7.5)-2) * Math.PI/2; // -2 to 2 maps to 180 to -180
+	let t = (Date.now() * (0.02 + (sx / 255) * 0.1)) % (100 + txt.length * fzs);
+	let x = gId('o3').checked ? (t - (txt.length * fzs)) : 100 - t;
+	let y = 25 + (ix - 128) / 5;
+
+	// draw char-by-char just like the FX
+	tpx.fillStyle = "#fff";
+	tpx.font = fzs + "px monospace";
+	tpx.textAlign = "center";
+	tpx.textBaseline = "middle";
+
+	for(let i=0; i<txt.length; i++) {
+			let charX = x + (i * fzs); // simple letter spacing
+			if(charX < -20 || charX > 120) continue;
+			tpx.save();
+			tpx.translate(charX, y);
+			tpx.rotate(rot);
+			tpx.fillStyle = "#fff";
+			if (gId('o1').checked) { // gradient color
+					let g = tpx.createLinearGradient(0, -fzs/2, 0, fzs/2);
+					g.addColorStop(0, "#f5f"); g.addColorStop(1, "#8cf");
+					tpx.fillStyle = g;
+			}
+			tpx.fillText(txt[i], 0, 0);
+			tpx.restore();
+	}
+	requestAnimationFrame(draw);
+}
+draw();
+
 </script>
 </body>
 </html>
