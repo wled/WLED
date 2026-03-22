@@ -1420,7 +1420,7 @@ void WS2812FX::service() {
   }
   _virtualSegmentLength = 0;
   _isServicing = false;
-  _triggered = false;
+  if (!_suspend) _triggered = false; // avoid losing "trigger" events if suspend requested during effect service()
 
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
