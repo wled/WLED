@@ -1279,10 +1279,8 @@ void BusManager::removeAll() {
   while (!canAllShow()) yield();
   _lastBusCache = nullptr; // Reset cache before destroying buses to avoid dangling pointer UB
   busses.clear();
-  #ifndef ESP8266
   // Reset channel tracking for fresh allocation
   PixelBusAllocator::resetChannelTracking();
-  #endif
 }
 
 #ifdef ESP32_DATA_IDLE_HIGH
@@ -1480,14 +1478,16 @@ void BusManager::applyABL() {
 
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
-#ifndef ESP8266
 // PixelBusAllocator channel tracking for dynamic allocation
+uint16_t PixelBusAllocator::_memTrackedDrivers = 0; // bitmask of driver types that have already accounted for shared memory overhead
+#ifndef ESP8266
 uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
 uint8_t PixelBusAllocator::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
 uint8_t PixelBusAllocator::_i2sChannelsAssigned = 0;
 uint8_t PixelBusAllocator::_2PchannelsAssigned = 0;
 uint8_t PixelBusAllocator::_parallelI2sBusType = 0;
 #endif
+
 // Bus static member definition
 int16_t Bus::_cct = -1;     // -1 means use approximateKelvinFromRGB(), 0-255 is standard, >1900 use colorBalanceFromKelvin()
 int8_t  Bus::_cctBlend = 0; // -128 to +127

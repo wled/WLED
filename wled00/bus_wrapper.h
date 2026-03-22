@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
@@ -67,6 +67,8 @@ inline ProtocolDef getProtocol(uint8_t wledType) {
 
 class PixelBusAllocator {
   private:
+  private:
+    static uint16_t _memTrackedDrivers; // track which driver types have already accounted for shared memory overhead
   #ifndef ESP8266
     static uint8_t _rmtChannelsAssigned;
     static uint8_t _rmtChannel;
@@ -103,6 +105,7 @@ class PixelBusAllocator {
   }
 
   static void resetChannelTracking() {
+    _memTrackedDrivers = 0; // reset memory tracking
     #ifndef ESP8266
     _rmtChannelsAssigned = 0;
     _rmtChannel = 0;
@@ -256,25 +259,42 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       busType = _parallelI2sBusType; // Ensure memory matches the hardware configuration
     }
     #endif
-
     ProtocolDef proto = getProtocol(busType);
+
+    // base PixelBus allocates a 4-byte _pixelData array per pixel
+    unsigned mem = count * 4;
+    // and a 2-byte _cctData array per pixel if CCT is enabled
+    if (Bus::hasCCT(busType)) mem += count * 2;
 
     if (Bus::is2Pin(busType)) {
       // Basic buffer overhead for SPI
-      return WLEDpixelBus::estimateMemory(WLEDpixelBus::BusType::Auto, count, proto.channels);
+      bool isFirst = !(_memTrackedDrivers & (1 << (uint8_t)WLEDpixelBus::BusType::SPI));
+      _memTrackedDrivers |= (1 << (uint8_t)WLEDpixelBus::BusType::SPI);
+      
+      #if defined(CONFIG_IDF_TARGET_ESP32C3) && defined(WLEDPB_PARALLEL_SPI_SUPPORT)
+      return mem + WLEDpixelBus::ParallelSpiBus::estimateMemory(count, proto.channels, isFirst);
+      #else
+      return mem + WLEDpixelBus::estimateMemory(WLEDpixelBus::BusType::SPI, count, proto.channels); // fallback to base estimate
+      #endif
     }
 
     auto btype = WLEDpixelBus::BusType::Auto;
 
     #ifdef ESP8266
-      // Determine the actual bus type from pin number (must mirror the logic in create())
-      // Pin 1 → UART0, Pin 2 → UART1, Pin 3 → DMA (I2S), all others → BitBang
+      btype = WLEDpixelBus::BusType::BitBang;
       //uint8_t offset = (pins && pins[0] >= 1) ? (pins[0] - 1) : 255;
-      //if (pins[0] == 1 || pins[0] == 2)  btype = WLEDpixelBus::BusType::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled
-      //else if (offset == 2)            btype = WLEDpixelBus::BusType::DMA; -> DMA method uses too much RAM (it is also not working right currently)
+      //if (pins[0] == 1 || pins[0] == 2)  btype = WLEDpixelBus::BusType::UART;
+      //else if (offset == 2)            btype = WLEDpixelBus::BusType::DMA;
       //else                             btype = WLEDpixelBus::BusType::BitBang;
 
-      btype = WLEDpixelBus::BusType::BitBang;
+      bool isFirst = !(_memTrackedDrivers & (1 << (uint8_t)btype));
+      _memTrackedDrivers |= (1 << (uint8_t)btype);
+
+      switch (btype) {
+        case WLEDpixelBus::BusType::UART: return mem + WLEDpixelBus::Esp8266UartBus::estimateMemory(count, proto.channels, isFirst);
+        case WLEDpixelBus::BusType::DMA:  return mem + WLEDpixelBus::Esp8266DmaBus::estimateMemory(count, proto.channels, isFirst);
+        default:                          return mem + WLEDpixelBus::Esp8266BitBangBus::estimateMemory(count, proto.channels, isFirst);
+      }
     #else
       switch (driverType) {
         case 0: btype = WLEDpixelBus::BusType::RMT; break;
@@ -291,9 +311,23 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
           break;
         default: btype = WLEDpixelBus::BusType::RMT; break;
       }
-    #endif
 
-    return WLEDpixelBus::estimateMemory(btype, count, proto.channels);
+      bool isFirst = !(_memTrackedDrivers & (1 << (uint8_t)btype));
+      _memTrackedDrivers |= (1 << (uint8_t)btype);
+
+      switch (btype) {
+        #ifdef WLEDPB_LCD_SUPPORT
+        case WLEDpixelBus::BusType::LCD: return mem + WLEDpixelBus::LcdBus::estimateMemory(count, proto.channels, isFirst);
+        #endif
+        #ifdef WLEDPB_I2S_SUPPORT
+        case WLEDpixelBus::BusType::I2S: return mem + WLEDpixelBus::I2sBus::estimateMemory(count, proto.channels, isFirst);
+        #endif
+        #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
+        case WLEDpixelBus::BusType::SPI: return mem + WLEDpixelBus::ParallelSpiBus::estimateMemory(count, proto.channels, isFirst);
+        #endif
+        default: return mem + WLEDpixelBus::RmtBus::estimateMemory(count, proto.channels, isFirst);
+      }
+    #endif
   }
 };
 #endif

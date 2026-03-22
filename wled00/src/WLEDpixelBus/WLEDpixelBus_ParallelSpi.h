@@ -104,6 +104,13 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order);
 
+  // Memory estimation: per-bus encode buffer + shared SPI DMA context (on first bus)
+  static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool isFirstBus = true) {
+    size_t mem = numPixels * channelCount;  // per-bus encode buffer
+    if (isFirstBus) mem += WLEDPB_SPI_DMA_BUFFER_SIZE * 2;  // shared: 2× DMA buffers
+    return mem;
+  }
+
 private:
   bool allocateBuffer(uint16_t numPixels);
 

@@ -6,7 +6,8 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
+
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -64,7 +65,7 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(c,p,m,l,o,di,r,i,a,n) {
+		function bLimits(c,p,m,l,o,di,r,i,a,n, dd, dl, ds) {
 			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
@@ -75,6 +76,9 @@
 			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n;		// maxBT - max buttons
+			dmaDef = dd;	// default DMA buffer size
+			dmaLcd = dl;	// DMA buffer size for LCD types ("parallel I2S")
+			dmaSpi = ds;  // DMA buffer size for SPI types (non-2pin digital)
 		}
 		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
 		function isC3()   { return chipID == 1; }
@@ -242,29 +246,37 @@
 		//returns mem usage for buses including two pixel buffers (segment buffer + global buffer)
 		function getMem(t, n) {
 			if (isAna(t)) return 5;	// analog
-			let len = parseInt(d.Sf["LC"+n].value);
-			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
-			let dma = 0; // DMA memory for this bus (only for I2S)
-			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
+			let len = parseInt(d.Sf["LC"+n].value) + parseInt(d.Sf["SL"+n].value);
+			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
-			let mul = 1;
+			if (is16b(t)) ch *= 2; // 16 bit LEDs use 2 bytes per channel
+
+			let mem = 0;
 			if (isDig(t)) {
-				if (is16b(t)) len *= 2; // 16 bit LEDs
-				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
-					mul = 5;
-				}
-				if (!is8266() && !isD2P(t)) {
-					mul = 2; // default to double buffer (RMT, 2-pin digital)
-					let driverPref = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
-					if (driverPref == 1) { // I2S to be used
-						mul = 1; // NPB uses single pixel buffer for I2S, DMA buffer serves as second buffer
-						let usage = getDuse();
-						dma = usage.I2Smem; // DMA buffer for I2S/LCD, getDuse() returns the average per I2S bus so it can be distributed and summed
+				mem = len * 4; // base PixelBus `_pixelData` buffer
+				if (hasCCT(t)) mem += len * 2; // base `_cctData` buffer
+
+				if (is8266()) {
+					// BitBang uses no driver memory, UART uses 4x + 1024
+					let pin = parseInt(d.Sf["L0"+n].value);
+					if (pin === 1 || pin === 2) {
+						mem += len * ch * 4 + 1024; // UART
+					} else if (pin === 3) {
+						mem += len * ch * 4 + 40; // DMA
+					}
+				} else {
+					if (isD2P(t)) {
+						mem += len * ch + getDuse().SPImem;
+					} else {
+						mem += len * ch; // encode buffer
+						let driverPref = d.Sf["LD"+n]?.value | 0; // 0=RMT, 1=I2S
+						if (driverPref == 1) {
+							mem += getDuse().I2Smem; // DMA shared buffer averaged
+						}
 					}
 				}
-				//console.log(`LED mem for bus ${n} (NPB buffers, DMA buffer per bus, WLED pixel buffers): ${len * ch * mul} + ${dma} + ${pbfr}`);
 			}
-			return len * ch * mul + dma + pbfr;
+			return mem + pbfr;
 		}
 
 		// check if bus configuration is valid
@@ -937,36 +949,39 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		// calculate channel usage across all buses
 		function getDuse() {
-			let rmtUsed = 0, i2sUsed = 0;
+			let rmtUsed = 0, i2sUsed = 0, spiUsed = 0;
 			let I2SType = null;
-			let I2Smem = 0; // DMA memory usage for I2S buses: 3x LED count for single I2S bus, 24x LED count for parallel I2S
-			let maxLEDs = 0; // max number of LEDs for DMA buffer calc
+			let I2Smem = 0, SPImem = 0;
 			if (!is8266()) {
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
 					let driverPref = d.Sf["LD"+n]?.value | 0;
-					let ledCount = (parseInt(d.Sf["LC"+n].value) || 0) + (parseInt(d.Sf["SL"+n].value) || 0);
 
 					if (isDig(t) && !isD2P(t)) {
 						if (driverPref === 1) {
 							i2sUsed++;
-							maxLEDs = maxLEDs > ledCount ? maxLEDs : ledCount; // for parallel I2S the memory buffer is shared, largest bus determines total memory usage
-							if (!I2SType) I2SType = t; // first I2S bus determines allowed type for all subsequent I2S buses (parallel I2S limitation)
+							if (!I2SType) I2SType = t;
 						} else {
 							rmtUsed++;
 						}
 					}
+					if (isDig(t) && isD2P(t)) {
+						spiUsed++;
+					}
 				});
-				// calculate I2S memory usage
-				if (I2SType) {
-					let ch = 3*hasRGB(I2SType) + hasW(I2SType) + hasCCT(I2SType); // byte channel count per LED
-					if (is16b(I2SType)) maxLEDs *= 2; // 16 bit LEDs use 2 bytes per channel
-					I2Smem = maxLEDs * ch * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED byte for single I2S, 24 bytes per LED byte for parallel I2S (S3 always uses parallel), assumes 3-step cadence
-					I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
+				// calculate I2S shared memory usage (DMA double buffers + descriptors)
+				if (i2sUsed > 0) {
+					I2Smem = (isS3() ? dmaLcd : dmaDef) * 2 + 64;
+					I2Smem = Math.round(I2Smem / i2sUsed); // average so it can be distributed
+				}
+				// calculate SPI shared memory usage
+				if (spiUsed > 0 && isC3()) {
+					SPImem = dmaSpi * 2;
+					SPImem = Math.round(SPImem / spiUsed);
 				}
 			}
-			return { rmtUsed, i2sUsed, I2SType, I2Smem };
+			return { rmtUsed, i2sUsed, I2SType, I2Smem, SPImem };
 		}
 
 		// dynamically enforce bus type availability based on current usage

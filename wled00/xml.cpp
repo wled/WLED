@@ -322,8 +322,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
+    #ifndef WLEDPB_LCD_DMA_BUFFER_SIZE
+      #define WLEDPB_LCD_DMA_BUFFER_SIZE 2048
+    #endif
+    #ifndef WLEDPB_SPI_DMA_BUFFER_SIZE
+      #define WLEDPB_SPI_DMA_BUFFER_SIZE 1024
+    #endif
+
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
       WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
@@ -333,7 +340,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       WLED_MAX_RMT_CHANNELS,
       WLED_MAX_I2S_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
-      WLED_MAX_BUTTONS
+      WLED_MAX_BUTTONS,
+      WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE,
+      WLEDPB_LCD_DMA_BUFFER_SIZE,
+      WLEDPB_SPI_DMA_BUFFER_SIZE
     );
 
     printSetFormCheckbox(settingsScript,PSTR("MS"),strip.autoSegments);
