@@ -239,7 +239,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
-    DEBUG_PRINTLN(F("initC: ETH.begin() failed"));
+    DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
       PinManager::deallocatePin(mpt.pin, PinOwner::Ethernet);
@@ -247,8 +247,15 @@ bool initEthernet()
     return false;
   }
 
+  // https://github.com/wled/WLED/issues/5247
+  if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+    ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
+  } else {
+    ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  }
+
   successfullyConfiguredEthernet = true;
-  DEBUG_PRINTLN(F("initC: *** Ethernet successfully configured! ***"));
+  DEBUG_PRINTLN(F("initE: *** Ethernet successfully configured! ***"));
   return true;
 }
 #endif
@@ -294,7 +301,7 @@ void fillStr2MAC(uint8_t *mac, const char *str) {
 // returns configured WiFi ID with the strongest signal (or default if no configured networks available)
 int findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\n"), multiWiFi[0].clientSSID);
+    DEBUG_PRINTF_P(PSTR("WiFi: Default SSID (%s) used.\n"), multiWiFi[0].clientSSID);
     return 0;
   }
 
@@ -406,14 +413,8 @@ void WiFiEvent(WiFiEvent_t event)
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
-      if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
-        ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
-      } else {
-        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-      }
-      // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[64];
-      prepareHostname(hostname);
+      char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
+      getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;

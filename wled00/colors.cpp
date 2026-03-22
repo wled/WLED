@@ -60,33 +60,40 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
 
 /*
  * fades color toward black
- * if using "video" method the resulting color will never become black unless it is already black
+ * if using "video" method the resulting color will not become black unless it is already black or distorts the hue
  */
 uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
-  if (c1 == 0 || amount == 0) return 0; // black or no change
-  if (amount == 255) return c1;
-  uint32_t addRemains = 0;
-
-  if (!video) amount++; // add one for correct scaling using bitshifts
-  else {
-    // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
-    uint8_t r = byte(c1>>16), g = byte(c1>>8), b = byte(c1), w = byte(c1>>24); // extract r, g, b, w channels
-    uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // determine dominant channel for hue preservation
-    addRemains  = r && (r<<5) > maxc ? 0x00010000 : 0; // note: setting color preservation threshold too high results in flickering and
-    addRemains |= g && (g<<5) > maxc ? 0x00000100 : 0; // jumping colors in low brightness gradients. Multiplying the color preserves
-    addRemains |= b && (b<<5) > maxc ? 0x00000001 : 0; // better accuracy than dividing the maxc. Shifting by 5 is a good compromise 
-    addRemains |= w ? 0x01000000 : 0;                  // i.e. remove color channel if <13% of max
-  }
+  if (c1 == BLACK || amount == 0) return 0; // black or full fade
+  if (amount == 255) return c1;             // no change
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
-  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * amount) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
-  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * amount) & ~TWO_CHANNEL_MASK; // scale white and green
-  return (rb | wg) + addRemains;
+  uint32_t rb = c1 & TWO_CHANNEL_MASK; // extract R and B channels
+  uint32_t wg = (c1 >> 8) & TWO_CHANNEL_MASK; // extract W and G channels (shifted for multiplication)
+  uint32_t rb_scaled;
+  uint32_t wg_scaled;
+
+  // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
+  if (video) {
+    rb_scaled = ((rb * amount + 0x007F007F) >> 8) & TWO_CHANNEL_MASK; // scale red and blue, add 0.5 for rounding
+    wg_scaled = (wg * amount + 0x007F007F) & ~TWO_CHANNEL_MASK; // scale white and green, add 0.5 for rounding
+    uint8_t r = byte(rb>>16), g = byte(wg), b = byte(rb), w = byte(wg>>16); // extract r, g, b, w channels from original color (wg is shifted)
+    uint8_t maxc = (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b); // determine dominant channel for hue preservation
+    maxc = (maxc>>2) + 1; // divide by 4 to get ~25% threshold for hue preservation, add 1 to prevent "washout" of very dark colors (prevents them becoming gray)
+    rb_scaled |= r > maxc ? 0x00010000 : 0;
+    wg_scaled |= g > maxc ? 0x00000100 : 0;
+    rb_scaled |= b > maxc ? 0x00000001 : 0;
+    wg_scaled |= w ? 0x01000000 : 0; // preserve white if it is present
+  } else {
+    rb_scaled = ((rb * (amount + 1)) >> 8) & TWO_CHANNEL_MASK; // scale red and blue
+    wg_scaled = ((wg * (amount + 1)) & ~TWO_CHANNEL_MASK); // scale white and green
+  }
+
+  return (rb_scaled | wg_scaled);
 }
 
 /*
  * color adjustment in HSV color space (converts RGB to HSV and back), color conversions are not 100% accurate!
-   shifts hue, increase brightness, decreases saturation (if not black)
-   note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
+ * shifts hue, increase brightness, decreases saturation (if not black)
+ * note: inputs are 32bit to speed up the function, useful input value ranges are 0-255
  */
 uint32_t adjust_color(uint32_t rgb, uint32_t hueShift, uint32_t lighten, uint32_t brighten) {
   if (rgb == 0 || hueShift + lighten + brighten == 0) return rgb; // black or no change
@@ -249,12 +256,13 @@ void loadCustomPalettes() {
   byte tcp[72]; //support gradient palettes with up to 18 entries
   CRGBPalette16 targetPalette;
   customPalettes.clear(); // start fresh
+  StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers -> TODO: current format uses 214 bytes max per palette, why is this buffer so large?
+  unsigned emptyPaletteGap = 0; // count gaps in palette files to stop looking for more (each exists() call takes ~5ms)
   for (int index = 0; index < WLED_MAX_CUSTOM_PALETTES; index++) {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
-
-    StaticJsonDocument<1536> pDoc; // barely enough to fit 72 numbers
     if (WLED_FS.exists(fileName)) {
+      emptyPaletteGap = 0; // reset gap counter if file exists
       DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
@@ -288,7 +296,8 @@ void loadCustomPalettes() {
         }
       }
     } else {
-      break;
+      emptyPaletteGap++;
+      if (emptyPaletteGap > WLED_MAX_CUSTOM_PALETTE_GAP) break; // stop looking for more palettes
     }
   }
 }

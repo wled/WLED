@@ -367,24 +367,29 @@ void handleIO()
 
   // if we want to control on-board LED (ESP8266) or relay we have to do it here as the final show() may not happen until
   // next loop() cycle
-  if (strip.getBrightness()) {
+  handleOnOff();
+}
+
+void handleOnOff(bool forceOff)
+{
+  if (strip.getBrightness() && !forceOff) {
     lastOnTime = millis();
     if (offMode) {
       BusManager::on();
       if (rlyPin>=0) {
-        pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
-        digitalWrite(rlyPin, rlyMde);
-        delay(50); // wait for relay to switch and power to stabilize
+        // note: pinMode is set in first call to handleOnOff(true) in beginStrip()
+        digitalWrite(rlyPin, rlyMde); // set to on state
+        delay(RELAY_DELAY); // let power stabilize before sending LED data (#346 #812 #3581 #3955)
       }
       offMode = false;
     }
-  } else if (millis() - lastOnTime > 600 && !strip.needsUpdate()) {
+  } else if ((millis() - lastOnTime > 600 && !strip.needsUpdate()) || forceOff) {
     // for turning LED or relay off we need to wait until strip no longer needs updates (strip.trigger())
     if (!offMode) {
       BusManager::off();
       if (rlyPin>=0) {
+        digitalWrite(rlyPin, !rlyMde); // set output before disabling high-z state to avoid output glitches
         pinMode(rlyPin, rlyOpenDrain ? OUTPUT_OPEN_DRAIN : OUTPUT);
-        digitalWrite(rlyPin, !rlyMde);
       }
       offMode = true;
     }

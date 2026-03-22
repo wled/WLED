@@ -1,6 +1,13 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include "asyncDNS.h"
+#include <memory>
+
+// forward declarations
+static void sendNTPPacket();
+static bool checkNTPResponse();
+
 
 // WARNING: may cause errors in sunset calculations on ESP8266, see #3400
 // building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
@@ -11,7 +18,7 @@
 //#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
-Timezone* tz;
+static Timezone* tz;
 
 #define TZ_UTC                  0
 #define TZ_UK                   1
@@ -37,11 +44,12 @@ Timezone* tz;
 #define TZ_MX_CENTRAL          21
 #define TZ_PAKISTAN            22
 #define TZ_BRASILIA            23
+#define TZ_AUSTRALIA_WESTERN   24
 
-#define TZ_COUNT               24
+#define TZ_COUNT               25
 #define TZ_INIT               255
 
-byte tzCurrent = TZ_INIT; //uninitialized
+static byte tzCurrent = TZ_INIT; //uninitialized
 
 /* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
@@ -140,6 +148,10 @@ static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
     /* TZ_BRASILIA */ {
       {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
       {Last, Sun, Mar, 1, -180}
+    },
+    /* TZ_AUSTRALIA_WESTERN */ {
+      {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
+      {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
     }
 };
 
@@ -175,8 +187,11 @@ void handleTime() {
   }
 }
 
+
 void handleNetworkTime()
 {
+  static std::shared_ptr<AsyncDNS> ntpDNSlookup;
+  
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
   {
     if (millis() - ntpPacketSentTime > 10000)
@@ -184,8 +199,41 @@ void handleNetworkTime()
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
       while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
       #endif
-      sendNTPPacket();
-      ntpPacketSentTime = millis();
+      if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
+      {
+        AsyncDNS::result res = ntpDNSlookup ? ntpDNSlookup->status() : AsyncDNS::result::Idle;
+        switch (res) {
+          case AsyncDNS::result::Idle:
+            //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup); // start dnslookup asynchronously
+            return;
+
+          case AsyncDNS::result::Busy:
+            return; // still in progress
+
+          case AsyncDNS::result::Success:
+            ntpServerIP = ntpDNSlookup->getIP();
+            DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+            sendNTPPacket();
+            ntpDNSlookup.reset();
+            break;
+
+          case AsyncDNS::result::Error:
+            DEBUG_PRINTLN(F("NTP DNS failed"));
+            if (ntpDNSlookup->getErrorCount() > 6) {
+              // after 6 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
+              if (offMode) forceReconnect = true; // do not disturb while LEDs are running
+              ntpDNSlookup.reset();
+            } else {
+              // Retry
+              ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup);
+            }
+            ntpLastSyncTime = millis() - (1000*NTP_SYNC_INTERVAL - 300000); // pause for 5 minutes
+            break;
+        }
+      }
+      else
+        sendNTPPacket();
     }
     if (checkNTPResponse())
     {
@@ -194,16 +242,8 @@ void handleNetworkTime()
   }
 }
 
-void sendNTPPacket()
+static void sendNTPPacket()
 {
-  if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
-  {
-    #ifdef ESP8266
-    WiFi.hostByName(ntpServerName, ntpServerIP, 750);
-    #else
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-    #endif
-  }
 
   DEBUG_PRINTLN(F("send NTP"));
   byte pbuf[NTP_PACKET_SIZE];
@@ -222,6 +262,7 @@ void sendNTPPacket()
   ntpUdp.beginPacket(ntpServerIP, 123); //NTP requests are to port 123
   ntpUdp.write(pbuf, NTP_PACKET_SIZE);
   ntpUdp.endPacket();
+  ntpPacketSentTime = millis();
 }
 
 static bool isValidNtpResponse(const byte* ntpPacket) {
@@ -240,7 +281,7 @@ static bool isValidNtpResponse(const byte* ntpPacket) {
   return true;
 }
 
-bool checkNTPResponse()
+static bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {

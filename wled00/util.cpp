@@ -127,28 +127,65 @@ size_t printSetClassElementHTML(Print& settingsScript, const char* key, const in
 }
 
 
+// in-place hostname sanitizer, extracted from prepareHostname()
+static void sanitizeHostname(char* hostname, size_t maxLen) {
+  if (hostname == nullptr || maxLen < 1 || strlen(hostname) < 1) return;
 
-void prepareHostname(char* hostname)
-{
-  sprintf_P(hostname, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
-  const char *pC = serverDescription;
-  unsigned pos = 5;          // keep "wled-"
-  while (*pC && pos < 24) { // while !null and not over length
-    if (isalnum(*pC)) {     // if the current char is alpha-numeric append it to the hostname
-      hostname[pos] = *pC;
-      pos++;
-    } else if (*pC == ' ' || *pC == '_' || *pC == '-' || *pC == '+' || *pC == '!' || *pC == '?' || *pC == '*') {
-      hostname[pos] = '-';
-      pos++;
+  char *pC = hostname;
+  unsigned pos = 0;
+  while (*pC && pos < maxLen) {
+    char c = *pC;
+    if (isalnum((unsigned char)c)) {
+      hostname[pos++] = c;
+    } else if (c == ' ' || c == '_' || c == '-' || c == '+' || c == '!' || c == '?' || c == '*') { // convert certain characters to hyphens
+      if (pos > 0 && hostname[pos -1] != '-') hostname[pos++] = '-'; // keep single non-leading hyphens only
     }
-    // else do nothing - no leading hyphens and do not include hyphens for all other characters.
+    // else: drop any character not valid in a DNS hostname label
     pC++;
   }
-  //last character must not be hyphen
-  if (pos > 5) {
-    while (pos > 4 && hostname[pos -1] == '-') pos--;
-    hostname[pos] = '\0'; // terminate string (leave at least "wled")
+  // Hostname must not end with a hyphen.
+  while (pos > 0 && hostname[pos -1] == '-') pos--;
+  hostname[min(pos, maxLen-1)] = '\0'; // terminate string
+}
+
+/*
+ * Stores sanitized hostname into buffer provided by caller
+ *   maxLen = hostname buffer size including \0
+ *   preferMDNSname -> use mDNS name if set, otherwise fall back to WLED "server description" name (legacy behaviour)
+ */
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  if (preferMDNS && (strlen(cmDNS) > 0) && (strcmp_P(cmDNS, PSTR(DEFAULT_MDNS_NAME)) != 0)) {     // avoid "x" = not set (use wled-MAC)
+    strlcpy(hostname, cmDNS, maxLen);
+    sanitizeHostname(hostname, maxLen);  // sanitize cmDNS name
+    if (strlen(hostname) < 1) {          // if result is empty -> fall back to wled-MAC
+      snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+      hostname[maxLen -1] = '\0';        // ensure string termination
+    }
+  } else {
+    prepareHostname(hostname, maxLen); // use legacy hostname based on "server description" - already sanitized
   }
+  DEBUG_PRINTF_P(PSTR("getWLEDHostname: '%s'\n"), hostname);
+}
+
+/* Legacy hostname construction:
+ *   Start with "wled-" + serverDescription as suffix.
+ *   Sanitize only the suffix (always keep wled- prefix intact).
+ *   If the sanitized suffix ends up empty, fall back to wled-<mac>.
+ */
+void prepareHostname(char* hostname, size_t maxLen)
+{
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  if (strncasecmp_P(serverDescription, PSTR("wled"), 4) == 0)     // avoid wled-WLED-... as a hostname
+    strlcpy(hostname, serverDescription, maxLen);
+  else
+    snprintf_P(hostname, maxLen, PSTR("wled-%s"), serverDescription);
+  hostname[maxLen -1] = '\0';                             // ensure string termination
+
+  size_t sanOffset = hostname[4] != '-' ? 4 : 5;            // ensure that "WLED foo" and "WLED!foo" get sanitized
+  sanitizeHostname(hostname+sanOffset, maxLen-sanOffset);   // sanitize name, keep "wled-" intact
+  if (strlen(hostname) <= sanOffset)
+    snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6); // fallback to wled-MAC if sanitization cleaned everything
 }
 
 
@@ -370,7 +407,7 @@ int16_t extractModeDefaults(uint8_t mode, const char *segVar)
 void checkSettingsPIN(const char* pin) {
   if (!pin) return;
   if (!correctPIN && millis() - lastEditTime < PIN_RETRY_COOLDOWN) return; // guard against PIN brute force
-  bool correctBefore = correctPIN;
+  //bool correctBefore = correctPIN; // unused
   correctPIN = (strlen(settingsPIN) == 0 || strncmp(settingsPIN, pin, 4) == 0);
   lastEditTime = millis();
 }
@@ -561,7 +598,7 @@ void enumerateLedmaps() {
       ledMaps |= 1 << i;
 
       #ifndef ESP8266
-      if (requestJSONBufferLock(21)) {
+      if (requestJSONBufferLock(JSON_LOCK_LEDMAP_ENUM)) {
         if (readObjectFromFile(fileName, nullptr, pDoc, &filter)) {
           size_t len = 0;
           JsonObject root = pDoc->as<JsonObject>();
@@ -692,15 +729,21 @@ static void *validateFreeHeap(void *buffer) {
   return buffer;
 }
 
+#ifdef BOARD_HAS_PSRAM
+#define RTC_RAM_THRESHOLD 1024 // use RTC RAM for allocations smaller than this size
+#else
+#define RTC_RAM_THRESHOLD 65535 // without PSRAM, allow any size into RTC RAM (useful especially on S2 without PSRAM)
+#endif
+
 void *d_malloc(size_t size) {
-  void *buffer;
+  void *buffer = nullptr;
   #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
-  // use RTC RAM for small allocations to improve fragmentation or if DRAM is running low
-  if (size < 256 || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
+  // use RTC RAM for small allocations or if DRAM is running low to improve fragmentation
+  if (size <= RTC_RAM_THRESHOLD || getContiguousFreeHeap() < 2*MIN_HEAP_SIZE + size)
     buffer = heap_caps_malloc_prefer(size, 2, MALLOC_CAP_RTCRAM, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
-  else
+  if (buffer == nullptr) // no RTC RAM allocation: use DRAM
   #endif
   buffer = heap_caps_malloc(size, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // allocate in any available heap memory
   buffer = validateFreeHeap(buffer); // make sure there is enough free heap left
@@ -1174,7 +1217,7 @@ String generateDeviceFingerprint() {
   #else
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
   #endif
-  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_11, myBIT_WIDTH, 1100, &ch);
+  esp_adc_cal_characterize(ADC_UNIT_1, ADC_ATTEN_DB_12, myBIT_WIDTH, 1100, &ch);
   fp[0] ^= ch.coeff_a;
   fp[1] ^= ch.coeff_b;
   if (ch.low_curve) {
