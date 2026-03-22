@@ -1395,7 +1395,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const int     length     = topSegment.length();     // physical segment length (counts all pixels in 2D segment)
   const int     width      = topSegment.width();
   const int     height     = topSegment.height();
-  const uint32_t bgColor   = topSegment.colors[1]; // background color for blend modes that need it (e.g. stencil)
+  //const uint32_t bgColor   = topSegment.colors[1]; // background color (unused, could add it to stencil mode if requested)
   const auto    XY         = [](int x, int y){ return x + y*Segment::maxWidth; };
   const size_t  matrixSize = Segment::maxWidth * Segment::maxHeight;
   const size_t  startIndx  = XY(topSegment.start, topSegment.startY);
