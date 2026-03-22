@@ -374,18 +374,17 @@ bool isWiFiConfigured() {
 // References:
 // https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/lwip.html (see the "Note" block under "Adapted APIs" -- though it very much undersells the problem.)
 // https://github.com/espressif/arduino-esp32/discussions/9988 - links to older discussions
-static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb,
-                     struct pbuf* p, const ip_addr_t* addr) {
-    // ICMPv6 type is the first byte of the payload, so we skip the header
-    if (p->len > 0 && (pbuf_get_at(p, sizeof(struct ip6_hdr)) == ICMP6_TYPE_RA)) {
-        return 1; // claim the packet — lwIP will not pass it further
-    }
-    return 0; // not consumed, pass it on
+static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb, struct pbuf* p, const ip_addr_t* addr) {
+  // ICMPv6 type is the first byte of the payload, so we skip the header
+  if (p->len > 0 && (pbuf_get_at(p, sizeof(struct ip6_hdr)) == ICMP6_TYPE_RA)) {
+    return 1; // claim the packet — lwIP will not pass it further
+  }
+  return 0; // not consumed, pass it on
 }
 
 void installIPv6RABlocker() {
-    static struct raw_pcb* ra_blocker = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
-    raw_recv(ra_blocker, blockRouterAdvertisements, NULL);
+  struct raw_pcb* ra_blocker = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
+  raw_recv(ra_blocker, blockRouterAdvertisements, NULL);
 }
 #endif
 
