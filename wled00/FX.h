@@ -818,7 +818,7 @@ class WS2812FX {  // 96 bytes
     inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and cancel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
-    inline bool isSuspended()                                 { return _suspend; }    // true if strip.service() execution is suspended
+    inline bool isSuspended() const                           { return _suspend; }    // true if strip.service() execution is suspended
 
     bool
       paletteFade,
@@ -836,7 +836,6 @@ class WS2812FX {  // 96 bytes
     inline bool isServicing() const          { return _isServicing; }           // returns true if strip.service() is executing
     inline bool hasWhiteChannel() const      { return _hasWhiteChannel; }       // returns true if strip contains separate white chanel
     inline bool isOffRefreshRequired() const { return _isOffRefreshRequired; }  // returns true if strip requires regular updates (i.e. TM1814 chipset)
-    inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
     uint8_t
