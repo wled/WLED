@@ -1309,7 +1309,11 @@ static void mode_dissolveplus(void) {
     if (lastOneMode) {
       for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
       SET_PHASE(PHASE_DISSOLVE);
-      SEGENV.aux1 = hw_random16(SEGLEN);
+      unsigned attempts = 0;
+      do {
+        SEGENV.aux1 = hw_random16(SEGLEN);
+        attempts++;
+      } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
       SET_DONE(0);
       SEGENV.step = 0;
     }
@@ -1321,7 +1325,11 @@ static void mode_dissolveplus(void) {
     uint16_t lastOneDelay = SEGMENT.custom2 << 1;
     if (lastOneDelay < 1) lastOneDelay = 1;
     bool freezeForever = lastOneMode && SEGMENT.custom2 == 255;
-    if (SEGENV.step >= lastOneDelay && !freezeForever) {
+    if (freezeForever) {
+      SEGENV.step++;
+      return;
+    }
+    if (SEGENV.step >= lastOneDelay) {
       SEGENV.step = 0;
       SET_PHASE(PHASE_FILL_SURVIVOR);
       SET_DONE(0);
@@ -1345,7 +1353,7 @@ static void mode_dissolveplus(void) {
         if (filling) { // fill with primary/palette color
           if (pixels[i] == SEGCOLOR(1)) {
             if (SEGMENT.check1) {
-              uint8_t pId = strip.getMainSegment().palette;
+              uint8_t pId = SEGMENT.palette;
               uint32_t c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
               if (c == SEGCOLOR(1)) c ^= 0x00000001;  // flip the last bit to make sure it is slightly different than the background color
               pixels[i] = c;            }
@@ -1403,7 +1411,15 @@ static void mode_dissolveplus(void) {
       switch (DISSOLVE_PHASE) {
         case PHASE_FILL: SET_PHASE(PHASE_DISSOLVE); break;
         case PHASE_DISSOLVE: SET_PHASE(PHASE_FILL_SURVIVOR); break;
-        case PHASE_FILL_SURVIVOR: SEGENV.aux1 = hw_random16(SEGLEN); SET_PHASE(PHASE_DISSOLVE_SURVIVOR); break;
+        case PHASE_FILL_SURVIVOR: {
+          unsigned attempts = 0;
+          do {
+            SEGENV.aux1 = hw_random16(SEGLEN);
+            attempts++;
+          } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
+          SET_PHASE(PHASE_DISSOLVE_SURVIVOR);
+          break;
+        }
         case PHASE_DISSOLVE_SURVIVOR: SET_PHASE(PHASE_PAUSE_SURVIVOR); break;
         case PHASE_PAUSE_SURVIVOR: SET_PHASE(PHASE_FILL_SURVIVOR); break;
       }
