@@ -454,6 +454,19 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
         Bus::calculateCCT(c, _data[0], _data[1]);
       }
       break;
+    case TYPE_ANALOG_2CH_HBRIDGE: //warm white + cold white, relies on auto white calculation, uses H-bridge for better dimming performance at low brightness
+    {
+      uint8_t level = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
+      uint8_t brightness = w;
+
+      if (level <= 127) {
+        _data[0] = (map(level, 0, 127, 255, 0) * brightness) / 255;
+        _data[1] = 0;
+      } else {
+        _data[0] = 0;
+        _data[1] = (map(level, 128, 255, 0, 255) * brightness) / 255;
+      }
+    }
     case TYPE_ANALOG_5CH: //RGB + warm white + cold white
       if (cctICused)
         _data[4] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
@@ -475,6 +488,7 @@ uint32_t BusPwm::getPixelColor(unsigned pix) const {
     case TYPE_ANALOG_1CH: //one channel (white), relies on auto white calculation
       return RGBW32(0, 0, 0, _data[0]);
     case TYPE_ANALOG_2CH: //warm white + cold white
+    case TYPE_ANALOG_2CH_HBRIDGE: //warm white + cold white, relies on auto white calculation, uses H-bridge for better dimming performance at low brightness 
       if (cctICused) return RGBW32(0, 0, 0, _data[0]);
       else           return RGBW32(0, 0, 0, _data[0] + _data[1]);
     case TYPE_ANALOG_5CH: //RGB + warm white + cold white
@@ -525,7 +539,7 @@ void BusPwm::show() {
     unsigned duty = (_data[i] * pwmBri) / 255;
     unsigned deadTime = 0;
 
-    if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend == 0) {
+    if ((_type == TYPE_ANALOG_2CH || _type == TYPE_ANALOG_2CH_HBRIDGE) && Bus::_cctBlend == 0) {
       // add dead time between signals (when using dithering, two full 8bit pulses are required)
       deadTime = (1+dithering) << bitShift;
       // we only need to take care of shortening the signal at (almost) full brightness otherwise pulses may overlap
@@ -579,6 +593,7 @@ std::vector<LEDType> BusPwm::getLEDTypes() {
   return {
     {TYPE_ANALOG_1CH, "A",      PSTR("PWM White")},
     {TYPE_ANALOG_2CH, "AA",     PSTR("PWM CCT")},
+    {TYPE_ANALOG_2CH_HBRIDGE, "AA", PSTR("PWM CCT (H-bridge)")},
     {TYPE_ANALOG_3CH, "AAA",    PSTR("PWM RGB")},
     {TYPE_ANALOG_4CH, "AAAA",   PSTR("PWM RGBW")},
     {TYPE_ANALOG_5CH, "AAAAA",  PSTR("PWM RGB+CCT")},

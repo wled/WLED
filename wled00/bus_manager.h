@@ -181,7 +181,8 @@ class Bus {
     }
     static constexpr bool hasCCT(uint8_t type) {
       return  type == TYPE_WS2812_2CH_X3 || type == TYPE_WS2812_WWA ||
-              type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_5CH ||
+              type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_2CH_HBRIDGE ||
+              type == TYPE_ANALOG_5CH ||
               type == TYPE_FW1906        || type == TYPE_WS2805     ||
               type == TYPE_SM16825;
     }
