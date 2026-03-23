@@ -14,7 +14,6 @@ namespace WLEDpixelBus {
 // SPI Parallel Bus Implementation (ESP32-C3)
 //==============================================================================
 volatile uint32_t spierror = 0;
-volatile uint8_t dmacalls = 0;
 
 // low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
 static inline void spi_ll_apply_config(spi_dev_t *hw)
@@ -94,8 +93,8 @@ bool SpiBusContext::isSpiDone() {
     // Not actively sending
     if (!_txdone) {
       // Stopped sending but not marked done (probably due to error)
-      // Enforce the 200ms wait from the start of the transmission
-      if (millis() - _lastTransmitMs > 500) {
+      // Enforce the 100ms wait from the start of the transmission
+      if (millis() - _lastTransmitMs > 100) {
         forceIdle(); // shut down the SPI
         return true;
       }
@@ -107,9 +106,10 @@ bool SpiBusContext::isSpiDone() {
 
 }
 
+// Force SPI idle is a dirty hack to guard against some SPI error/race condition that is really hard to track down, it happens randomly and only if UI refresh plus RMT is involved
 void SpiBusContext::forceIdle() {
   Serial.println("Timeout - Forcing SPI idle...");
-  if(spierror) Serial.printf("SPI error: %d\n", spierror);
+  //if(spierror) Serial.printf("SPI error: %d\n", spierror);
   _sending = false;
   _txdone = true;
   _stagedMask = 0;
@@ -234,7 +234,7 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
   SpiBusContext* ctx = (SpiBusContext*)arg;
   gdma_dev_t* dma = &GDMA;
 
-dmacalls++;
+
   //  Serial.print("*");
   // toggle gpio0
   //    digitalWrite(0, HIGH);
@@ -359,7 +359,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   _hw->dma_int_clr.val = 0xFFFFFFFF;
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
-  _hw->dma_int_ena.val = 0xFFFFFFFF; // enable all SPI interrupts for debugging
+  // _hw->dma_int_ena.val = 0xFFFFFFFF; // REMOVED: Do not enable all interrupts, they trigger false aborts!
   err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
@@ -467,7 +467,6 @@ bool SpiBusContext::startTransmit() {
   _sending = true;
   _currentBuffer = 0;
 
-  _lastTransmitMs = millis();
   size_t newBytes = 0;
   for (int ch = 0; ch < WLEDPB_SPI_MAX_CHANNELS; ch++) {
     if (_channels[ch].active && _channels[ch].srcLen > newBytes) {
@@ -475,8 +474,6 @@ bool SpiBusContext::startTransmit() {
     }
   }
   if(spierror) Serial.printf("start: SPI error: %d\n", spierror);
-  Serial.printf(" %d", dmacalls);
-  dmacalls = 0;
   spierror = 0;
   _numBytes = newBytes;
 
@@ -500,7 +497,7 @@ bool SpiBusContext::startTransmit() {
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
   spi_ll_dma_tx_enable(_hw, true);
-  spi_ll_apply_config(_hw);
+  //spi_ll_apply_config(_hw);
 
   // re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -514,16 +511,15 @@ bool SpiBusContext::startTransmit() {
   gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, SOC_GDMA_TRIG_PERIPH_SPI2);
   gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
   gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  //spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync TODO: not too sure this is correct... but there are less issues (spi stalls) if doing it this way
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+  spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync TODO: not too sure this is correct... but there are less issues (spi stalls) if doing it this way
 
   // Short hardware handshake sync: adding a few nops is enough to ensure there is DMA data in the SPI buffer (without this, SPI can immediately quit its duty due to FIFO unterrun)
   asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
-    asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
-      asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
+  _lastTransmitMs = millis();
   //delayMicroseconds(20); // Short delay to ensure DMA has time to fill SPI buffer: if DMA did not start, SPI will immediately stall with "outfifo_empty_err", short delay makes it less prone (this may be yet another IDF V4 bug)
   //  Serial.print("a");
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   _hasStarted = true;
 
   spi_ll_user_start(_hw); // start SPI user transfer

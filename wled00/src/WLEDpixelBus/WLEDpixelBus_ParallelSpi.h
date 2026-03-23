@@ -74,8 +74,8 @@ private:
   };
   ChannelData _channels[WLEDPB_SPI_MAX_CHANNELS];
   uint8_t _channelCount;
-  size_t _framePos;   // current source byte position
-  size_t _numBytes;   // total source bytes to send
+  volatile size_t _framePos;   // current source byte position
+  volatile size_t _numBytes;   // total source bytes to send
   mutable uint32_t _lastTransmitMs;
 
   uint8_t _stagedMask;
