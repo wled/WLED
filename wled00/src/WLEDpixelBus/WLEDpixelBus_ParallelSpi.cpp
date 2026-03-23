@@ -13,13 +13,14 @@ namespace WLEDpixelBus {
 //==============================================================================
 // SPI Parallel Bus Implementation (ESP32-C3)
 //==============================================================================
-
+volatile uint32_t spierror = 0;
+volatile uint8_t dmacalls = 0;
 
 // low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
 static inline void spi_ll_apply_config(spi_dev_t *hw)
 {
   hw->cmd.update = 1;
-  //while (hw->cmd.update);    //waiting config applied
+  while (hw->cmd.update);    //waiting config applied -> causes immediate wdt crash(?)
 }
 
 static inline void spi_ll_user_start(spi_dev_t *hw)
@@ -63,7 +64,7 @@ SpiBusContext::SpiBusContext()
   , _initialized(false)
   , _hasStarted(false)
   , _currentBuffer(0)
-  , _isrHandle(nullptr)
+  , _gdmaIsrHandle(nullptr)
   , _spiIsrHandle(nullptr)
   , _hw(&GPSPI2)
   , _channelCount(0)
@@ -87,22 +88,15 @@ SpiBusContext::~SpiBusContext() {
 
 bool SpiBusContext::isSpiDone() {
   if (!_hasStarted) return true;  // no transfer ever started
+//   Serial.print(".");
+  //return _txdone;
 
-  if (_sending) {
-    // Fail-safe watchdog: if stuck actively sending for > 200ms, recover it
-    if (millis() - _lastTransmitMs > 200) {
-      forceIdle();
-      _txdone = true;
-      return true;
-    }
-  } else {
     // Not actively sending
     if (!_txdone) {
       // Stopped sending but not marked done (probably due to error)
       // Enforce the 200ms wait from the start of the transmission
-      if (millis() - _lastTransmitMs > 200) {
+      if (millis() - _lastTransmitMs > 500) {
         forceIdle(); // shut down the SPI
-        _txdone = true;
         return true;
       }
       return false; // Still waiting for the cooldown
@@ -110,12 +104,12 @@ bool SpiBusContext::isSpiDone() {
     //else
     //  forceIdle(); // just a test if this is better to recover fast from spi fifo error -> this can break the whole driver and it it can stop working with multiple channels
     return true; // _sending is false and _txdone is true
-  }
 
-  return false;
 }
 
 void SpiBusContext::forceIdle() {
+  Serial.println("Timeout - Forcing SPI idle...");
+  if(spierror) Serial.printf("SPI error: %d\n", spierror);
   _sending = false;
   _txdone = true;
   _stagedMask = 0;
@@ -140,6 +134,8 @@ void SpiBusContext::forceIdle() {
     _hw->dma_int_clr.val = 0xFFFFFFFF; //
   }
 }
+
+
 
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   uint8_t* dst = _dmaBuffer[bufIdx];
@@ -192,40 +188,40 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   }
   _framePos += srcThisChunk;
 }
-volatile uint8_t isrerror = 0;
+
 // SPI ISR: handles trans_done (restart SPI bit counter) and outfifo_empty_err
 // (FIFO underrun recovery). outfifo_empty_err is temporarily disabled after
 // handling to prevent infinite ISR loops; trans_done re-enables it.
 void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 
   SpiBusContext* ctx = (SpiBusContext*)arg;
-  uint32_t raw = ctx->_hw->dma_int_raw.val;
-  
+  uint32_t status = ctx->_hw->dma_int_st.val;
+  spierror = status;
 
-  if (raw & SPI_TRANS_DONE_INT_ST) {
+  if (status & SPI_TRANS_DONE_INT_ST) {
     ctx->_txdone = true; // transfer finished
     ctx->_sending = false;
     ctx->_hw->dma_int_clr.val = SPI_TRANS_DONE_INT_ST;  // clear flag
-    if(isrerror)
-      isrerror++;
+    spierror=0;
+    //if(spierror)
+    //  spierror++;
     //  digitalWrite(0, LOW);//!!!
-    //  Serial.print("b");
+      //Serial.print("b");
   }
   else {
-    //Serial.println(raw, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
-    ctx->_hw->dma_int_clr.val = raw;  // Clear all SPI interrupt flags
+  //  Serial.println(status, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
+    ctx->_hw->dma_int_clr.val = status;  // Clear all SPI interrupt flags
     // SPI FIFO starved, immediately pull the plug or it will output garbage that causes glithces and white flashes
-    /*
     for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++){
       if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
           GPIO.func_out_sel_cfg[ctx->_channels[i].pin].func_sel = SIG_GPIO_OUT_IDX; // disconnect from SPI using direct register write (ISR safe)
           GPIO.out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches note: if implementing this for other ESPs: need to also set the high register for pins >31
       }
-    }*/
+    }
     // now that pins are disconnected, we can stop the user transfer which is causing the fast clock output that leads to glitches
   //  ctx->_hw->cmd.usr = 0; // stop SPI user transfer TODO: will this result in a tx done or some other interrupt?
   //  ctx->_sending = false;
-    isrerror = 1; // TODO: now it does not seem to happen 
+  //  spierror = 1; // TODO: now it does not seem to happen 
     
   //  ctx->_txdone = true; // set to tx done, need to reset the spi when checking if spi idle
   }
@@ -238,10 +234,10 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
   SpiBusContext* ctx = (SpiBusContext*)arg;
   gdma_dev_t* dma = &GDMA;
 
+dmacalls++;
   //  Serial.print("*");
   // toggle gpio0
   //    digitalWrite(0, HIGH);
-
 
   if (dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
     //Clear interrupt immediately
@@ -262,8 +258,8 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
 bool SpiBusContext::init(const LedTiming& timing) {
   if (_initialized) return true;
 
-  pinMode(0, OUTPUT);
-  digitalWrite(0, LOW); //!!!
+  //pinMode(0, OUTPUT);
+  //digitalWrite(0, LOW); //!!!
 
   // Allocate DMA buffers
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
@@ -345,14 +341,14 @@ bool SpiBusContext::init(const LedTiming& timing) {
   // Configure GDMA
   gdma_dev_t* dma = &GDMA;
   gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, SOC_GDMA_TRIG_PERIPH_SPI2);
   gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
   //  gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, gdmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, gdmaISR, this, &_gdmaIsrHandle); // note: saw no flickering even when using level1
   if (err != ESP_OK) {
     Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
@@ -363,6 +359,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   _hw->dma_int_clr.val = 0xFFFFFFFF;
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
+  _hw->dma_int_ena.val = 0xFFFFFFFF; // enable all SPI interrupts for debugging
   err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL1, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
@@ -396,9 +393,9 @@ void SpiBusContext::deinit() {
     _spiIsrHandle = nullptr;
   }
 
-  if (_isrHandle) {
-    esp_intr_free(_isrHandle);
-    _isrHandle = nullptr;
+  if (_gdmaIsrHandle) {
+    esp_intr_free(_gdmaIsrHandle);
+    _gdmaIsrHandle = nullptr;
   }
 
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
@@ -477,8 +474,10 @@ bool SpiBusContext::startTransmit() {
       newBytes = _channels[ch].srcLen;
     }
   }
-  if(isrerror) Serial.printf("SPI error: %d\n", isrerror);
-  isrerror = 0;
+  if(spierror) Serial.printf("start: SPI error: %d\n", spierror);
+  Serial.printf(" %d", dmacalls);
+  dmacalls = 0;
+  spierror = 0;
   _numBytes = newBytes;
 
   // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
@@ -494,13 +493,14 @@ bool SpiBusContext::startTransmit() {
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     encodeSpiChunk(i);
     _dmaDesc[i].owner = 1; // make sure DMA owns the descriptor
+    _dmaDesc[i].eof = 1; // enable eof flag
   }
 
-  digitalWrite(0, HIGH);//!!!
+  //digitalWrite(0, HIGH);//!!!
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
   spi_ll_dma_tx_enable(_hw, true);
-  //spi_ll_apply_config(_hw); 
+  spi_ll_apply_config(_hw);
 
   // re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -511,18 +511,21 @@ bool SpiBusContext::startTransmit() {
 
   gdma_dev_t* dma = &GDMA;
   gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, 0);
+  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, SOC_GDMA_TRIG_PERIPH_SPI2);
   gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
   gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync
+  //spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync TODO: not too sure this is correct... but there are less issues (spi stalls) if doing it this way
 
   // Short hardware handshake sync: adding a few nops is enough to ensure there is DMA data in the SPI buffer (without this, SPI can immediately quit its duty due to FIFO unterrun)
-  asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n");
+  asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
+    asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
+      asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // probably not needed, just await the config done flag
   //delayMicroseconds(20); // Short delay to ensure DMA has time to fill SPI buffer: if DMA did not start, SPI will immediately stall with "outfifo_empty_err", short delay makes it less prone (this may be yet another IDF V4 bug)
   //  Serial.print("a");
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   _hasStarted = true;
+
   spi_ll_user_start(_hw); // start SPI user transfer
   // TODO: there are still some glitches/stalls due to tx_fifo underruns but it is unclear why, it may even be an IDF V4 bug (I read about some timing issue with buffer handover or a missing nop)
   // even when not accessing the UI there seems to be some dead-lock halting the system until the WDT kicks...

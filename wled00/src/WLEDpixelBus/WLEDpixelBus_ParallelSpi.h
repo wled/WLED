@@ -58,7 +58,7 @@ private:
   // DMA
   uint8_t* _dmaBuffer[WLEDPB_SPI_DMA_DESC_COUNT];
   lldesc_t _dmaDesc[WLEDPB_SPI_DMA_DESC_COUNT];
-  intr_handle_t _isrHandle;
+  intr_handle_t _gdmaIsrHandle;
   intr_handle_t _spiIsrHandle;
 
   // SPI device
