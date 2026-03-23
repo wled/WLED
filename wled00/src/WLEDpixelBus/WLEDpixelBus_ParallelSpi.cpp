@@ -481,7 +481,7 @@ bool SpiBusContext::startTransmit() {
   // Plus reset: extra zero bits at the end
   uint32_t resetBits = 0; //TODO: works better with this set to 0, find a better way for the reset pulse //4096;//5000;  // ~300us reset at ~2.6MHz TODO: calculate from actual reset pulse, make sure its 4 byte aligned (just in case)
   uint32_t totalBits = (_numBytes * 16 * 8) + resetBits;
-  if (totalBits > 262143) totalBits = 262143;  // SPI max 18 bits for length register
+  if (totalBits > 262143) totalBits = 262143;  // SPI: max 18 bits for length register  TODO: need to handle this in the UI to not allow more LEDs (restarting a transfer may cause some LED strips to latch, it takes up to 60us)
 
   spi_ll_set_mosi_bitlen(_hw, totalBits);
   spi_ll_clear_int_stat(_hw);
