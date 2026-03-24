@@ -136,10 +136,10 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->conf.rx_fifo_reset = 1;
   _i2sDev->conf.rx_fifo_reset = 0;
 
-  // Configure for 8-bit parallel LCD mode (matching NeoPixelBus)
+  // Configure for 16-bit parallel LCD mode (16 channels)
   _i2sDev->conf2.val = 0;
   _i2sDev->conf2.lcd_en = 1;
-  _i2sDev->conf2.lcd_tx_wrx2_en = 1;  // Required for 8-bit parallel output
+  _i2sDev->conf2.lcd_tx_wrx2_en = 0;  // disable 8-bit double-write swap path
   _i2sDev->conf2.lcd_tx_sdx2_en = 0;
 
   // DMA config
@@ -155,7 +155,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   // FIFO configuration
   _i2sDev->fifo_conf.val = 0;
   _i2sDev->fifo_conf.tx_fifo_mod_force_en = 1;
-  _i2sDev->fifo_conf.tx_fifo_mod = 1;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single)
+  _i2sDev->fifo_conf.tx_fifo_mod = 3;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single (32-bit linked for 16-bit samples)
   _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
 
   // PCM bypass
@@ -234,7 +234,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   // Sample rate - bck must be >= 2 (NeoPixelBus uses 4)
   _i2sDev->sample_rate_conf.val = 0;
   _i2sDev->sample_rate_conf.tx_bck_div_num = bckDiv;
-  _i2sDev->sample_rate_conf.tx_bits_mod = 8;  // TODO: try 16 bit mode an bump up outputs to 16 parallel channels, just like LCD driver does now
+  _i2sDev->sample_rate_conf.tx_bits_mod = 16;  // 16-bit samples for 16 parallel channels
 
   // Final reset before ISR install
   _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
@@ -323,7 +323,8 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
   #if defined(WLEDPB_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
   #elif defined(WLEDPB_ESP32S2)
-  sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes, note: in 16bit mode, it starts at I2S0O_DATA_OUT8_IDX, in 24bit mode at I2S0O_DATA_OUT0_IDX
+  // For 16-bit mode on S2, mapping starts at DATA_OUT8_IDX for the wide 16-bit window
+  sigIdx = I2S0O_DATA_OUT8_IDX;
   #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
   #endif
@@ -366,15 +367,9 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 }
 
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  // 4-step cadence encoding for parallel output
-  // Each source bit becomes 4 DMA bytes (one bit per channel in each byte)
-  // Desired output: [HIGH][data][data][LOW] for each bit
-  //
-  // ESP32 I2S LCD mode with lcd_tx_wrx2_en=1 swaps half-words within 32-bit values:
-  //   Memory [b0,b1,b2,b3] outputs as [b2,b3,b0,b1]
-  //   (NeoPixelBus documents this as "bytes within the words are swapped")
-  //   So we write: p[0]=step2, p[1]=step3, p[2]=step0, p[3]=step1
-  //
+  // 4-step cadence encoding for parallel output with 16-bit sample words
+  // Each source bit becomes 4 DMA words (one bit per channel in each 16-bit word)
+  // Desired output (per bit): [HIGH][data][data][LOW]
   // Buffer is always filled completely (zeros = LOW = reset signal)
 
   memset(dest, 0, destLen);
@@ -387,7 +382,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 
   // Process each source byte position across all channels
-  while (pos + 32 <= destLen) {  // 8 bits * 4 steps = 32 bytes per source byte
+  while (pos + 64 <= destLen) {  // 8 bits * 4 steps * 2 bytes = 64 bytes per source byte
     bool hasData = false;
 
     for (int ch = 0; ch < maxCh; ch++) {
@@ -396,9 +391,9 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
       hasData = true;
       uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
-      uint8_t chMask = (1 << ch);
+      uint16_t chMask = (1 << ch);
 
-      uint8_t* p = dest + pos;
+      uint16_t* p = (uint16_t*)(dest + pos);
 
       #if defined(WLEDPB_ESP32S2)
       // ESP32-S2 does NOT swap half-words (memory layout [step0, step1, step2, step3])
@@ -432,7 +427,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
       }
     }
 
-    pos += 32;
+    pos += 64; // move to next source byte position
   }
   // Rest of buffer remains zero (reset signal) from memset
 }
