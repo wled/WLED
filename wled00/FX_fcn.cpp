@@ -1275,7 +1275,7 @@ void WS2812FX::service() {
   if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
 
   _isServicing = true;
-  bool doShow = false;    // true if ≥1 active segment was processed (and strip was not suspended mid-loop) → triggers show()
+  bool doShow = _triggered;    // true if ≥1 active segment was processed (and strip was not suspended mid-loop), or trigger received → triggers show()
   for (size_t i = 0; i < _segments.size(); i++) {
     Segment &seg = _segments[i];
     _segment_index = i;
