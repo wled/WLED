@@ -1270,14 +1270,15 @@ void WS2812FX::service() {
   bool timeToShow = (elapsed >= _frametime);                        // all segments are running at the same speed
   if (_triggered || _targetFps == FPS_UNLIMITED) timeToShow = true; // unlimited mode = no frametime; strip.trigger() can overrule timing
 
-  now = nowUp + timebase; // common time base for all effects
+  now = nowUp + timebase;                               // common time base for all effects
   if (!timeToShow) return;                              // too early for service
   if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
 
   _isServicing = true;
   bool doShow = false;    // true if ≥1 active segment was processed (and strip was not suspended mid-loop) → triggers show()
-  _segment_index = 0;     // current segment index for getCurrSegmentId()
-  for (Segment &seg : _segments) {
+  for (int i = 0; i < _segments.size(); i++) {
+    Segment &seg = _segments[i];
+   _segment_index = i;
     if (_suspend) break; // abort processing segments if suspend requested during service()
 
     // process transition (also pre-calculates progress value)
@@ -1311,9 +1312,9 @@ void WS2812FX::service() {
           Segment::modeBlend(false);        // unset flag
         }
       }
-      _segment_index++;
     }
   }
+  _segment_index = 0;     // segment index is only valid while effects are serviced
 
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
