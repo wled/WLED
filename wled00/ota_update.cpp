@@ -138,9 +138,9 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   
   strip.suspend();
   strip.waitForLEDs(25);  // wait max 25 ms for LED transmissions to finish
-  strip.resetSegments();  // free as much memory as you can
   context->needsRestart = true;
   backupConfig(); // backup current config in case the update ends badly
+  strip.resetSegments();  // free as much memory as you can
 
   DEBUG_PRINTF_P(PSTR("OTA Update Start, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
 
