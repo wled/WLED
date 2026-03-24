@@ -455,7 +455,6 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
       }
       break;
     case TYPE_ANALOG_2CH_HBRIDGE: //warm white + cold white, relies on auto white calculation, uses H-bridge for better dimming performance at low brightness
-    {
       uint8_t level = (Bus::_cct < 0 || Bus::_cct > 255) ? 127 : Bus::_cct;
       uint8_t brightness = w;
 
@@ -466,7 +465,7 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
         _data[0] = 0;
         _data[1] = (map(level, 128, 255, 0, 255) * brightness) / 255;
       }
-    }
+      break;
     case TYPE_ANALOG_5CH: //RGB + warm white + cold white
       if (cctICused)
         _data[4] = Bus::_cct < 0 || Bus::_cct > 255 ? 127 : Bus::_cct;
