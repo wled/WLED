@@ -1268,16 +1268,16 @@ void WS2812FX::service() {
   unsigned long nowUp = millis(); // Be aware, millis() rolls over every 49 days
   now = nowUp + timebase;
   unsigned long elapsed = nowUp - _lastServiceShow;
-  bool timeToShow = (elapsed >= _frametime) || _triggered; // all segments are running at the same speed, but strip.trigger() can overrule timing
+  bool timeToShow = (elapsed >= _frametime);                        // all segments are running at the same speed
+  if (_triggered || _targetFps == FPS_UNLIMITED) timeToShow = true; // unlimited mode = no frametime; strip.trigger() can overrule timing
 
+  if (!timeToShow) return;                              // too early for service
   if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
-  if (!_triggered && (_targetFps != FPS_UNLIMITED)) {   // unlimited mode = no frametime
-    if (elapsed < _frametime) return;                   // too early for service
-  }
 
   _isServicing = true;
-  bool doShow = false;
-  _segment_index = 0; // current segment index for getCurrSegmentId()
+
+  bool doShow = false;    // book keeping: if at least one effect was run, we need to call show()
+  _segment_index = 0;     // current segment index for getCurrSegmentId()
   for (Segment &seg : _segments) {
     if (_suspend) break; // abort processing segments if suspend requested during service()
 
@@ -1288,8 +1288,9 @@ void WS2812FX::service() {
 
     if (!seg.isActive()) continue;
 
-    // current segment is active -> re-run effect if _frametime has passed or update was triggered externally
-    if (timeToShow) {
+    // current segment is active -> re-run effect, and remember that show() call is necessary
+    //if (timeToShow) // removed - if we arrive here, its always showtime
+    {
       doShow = true;
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
