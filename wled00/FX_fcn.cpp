@@ -1285,11 +1285,9 @@ void WS2812FX::service() {
     // reset the segment runtime data if needed
     seg.resetIfRequired();
 
-    if (!seg.isActive()) continue;
-
-    // current segment is active -> re-run effect, and remember that show() call is necessary
-    //if (timeToShow) // removed - if we arrive here, its always showtime
-    {
+    if (seg.isActive()) {
+      // current segment is active -> re-run effect, and remember that show() call is necessary
+      //if (timeToShow) // removed - if we arrive here, its always showtime
       doShow = true;
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
@@ -1313,8 +1311,8 @@ void WS2812FX::service() {
           Segment::modeBlend(false);        // unset flag
         }
       }
+      _segment_index++;
     }
-    _segment_index++;
   }
 
   #ifdef WLED_DEBUG
