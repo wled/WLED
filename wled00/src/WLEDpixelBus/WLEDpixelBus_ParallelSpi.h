@@ -34,8 +34,8 @@ public:
   uint8_t getChannelCount() const { return _channelCount; }
 
   bool startTransmit();
-  bool isIdle() const { return !_sending; }
   bool isSpiDone();
+  bool isIdle() { return isSpiDone(); }
   void forceIdle();
 
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
@@ -49,10 +49,9 @@ private:
   static void IRAM_ATTR gdmaISR(void* arg);
   static void IRAM_ATTR spiISR(void* arg);
 
-  volatile bool _sending;
   volatile bool _txdone;
   bool _initialized;
-  bool _hasStarted;
+  //bool _hasStarted;
   volatile uint8_t _currentBuffer;
 
   // DMA
