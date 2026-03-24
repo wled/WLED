@@ -307,9 +307,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.check2 = getBoolVal(elem["o2"], seg.check2);
   seg.check3 = getBoolVal(elem["o3"], seg.check3);
 
-  uint8_t blend = seg.blendMode;
-  getVal(elem["bm"], blend, 0, 15); // we can't pass reference to bitfield
-  seg.blendMode = constrain(blend, 0, 15);
+  getVal(elem["bm"], seg.blendMode);
 
   JsonArray iarr = elem[F("i")]; //set individual LEDs
   if (!iarr.isNull()) {
@@ -810,7 +808,7 @@ void serializeInfo(JsonObject root)
     wifi_info[F("txPower")] = (int) WiFi.getTxPower();
     wifi_info[F("sleep")] = (bool) WiFi.getSleep();
   #endif
-  #if !defined(CONFIG_IDF_TARGET_ESP32C2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // classic esp32 only: report "esp32" without package details
     root[F("arch")] = "esp32";
   #else
     root[F("arch")] = ESP.getChipModel();

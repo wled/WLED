@@ -65,8 +65,8 @@
 
 #define IBN 5100
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
+#define PALETTE_MOVING_WRAP !(paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0))
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
@@ -3398,7 +3398,7 @@ void mode_glitter()
       counter = counter >> 8;
     }
 
-    bool noWrap = (strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0));
+    bool noWrap = (paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0));
     for (unsigned i = 0; i < SEGLEN; i++) {
       unsigned colorIndex = (i * 255 / SEGLEN) - counter;
       if (noWrap) colorIndex = map(colorIndex, 0, 255, 0, 240); //cut off blend at palette "end"
@@ -4944,8 +4944,82 @@ void mode_aurora(void) {
     SEGMENT.setPixelColor(i, mixedRgb);
   }
 }
-
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
+
+
+/** Softly floating colorful clouds.
+ * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
+ * It was initially intended for rather unobtrusive ambient lights (with very slow speed settings).
+ * Nevertheless, it appears completely different and quite vibrant when the sliders are moved near
+ * to their limits. No matter in which direction or in which combination...
+ * Ported to WLED from https://github.com/JoaDick/EyeCandy/blob/master/ColorClouds.h
+ */
+void mode_ColorClouds()
+{
+  // Set random start points for clouds and color.
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16();
+    SEGENV.aux1 = hw_random16();
+  }
+  const uint32_t volX0 = SEGENV.aux0;
+  const uint32_t hueX0 = SEGENV.aux1;
+  const uint8_t hueOffset0 = volX0 + hueX0; // derive a 3rd random number
+
+  // Makes a very soft wraparound of the color palette by putting more emphasis on the begin & end
+  // of the palette (or on the red'ish colors in case of a rainbow spectrum).
+  // This gives the effect oftentimes an even more calm perception.
+  const bool cozy = SEGMENT.check3;
+
+  // Higher values make the clouds move faster.
+  const uint32_t volSpeed = 1 + SEGMENT.speed;
+  
+  // Higher values make the color change faster.
+  const uint32_t hueSpeed = 1 + SEGMENT.intensity;
+  
+  // Higher values make more clouds (but smaller ones).
+  const uint32_t volSqueeze = 8 + SEGMENT.custom1;
+  
+  // Higher values make the clouds more colorful.
+  const uint32_t hueSqueeze = SEGMENT.custom2;
+
+  // Higher values make larger gaps between the clouds.
+  const int32_t volCutoff   = 12500 + SEGMENT.custom3 * 900;
+  const int32_t volSaturate = 52000;
+  // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
+
+  const uint32_t now = strip.now;
+  const uint32_t volT = now * volSpeed / 8;
+  const uint32_t hueT = now * hueSpeed / 8;
+  const uint8_t hueOffset = beat88(64) >> 8;
+
+  for (int i = 0; i < SEGLEN; i++) {
+    const uint32_t volX = i * volSqueeze * 64;
+    int32_t vol = perlin16(volX0 + volX, volT);
+    vol = map(vol, volCutoff, volSaturate, 0, 255);
+    vol = constrain(vol, 0, 255);
+
+    const uint32_t hueX = i * hueSqueeze * 8;
+    uint8_t hue = perlin16(hueX0 + hueX, hueT) >> 7;
+    hue += hueOffset0;
+    hue += hueOffset;
+    if (cozy) {
+      hue = cos8_t(128 + hue / 2);
+    }
+
+    uint32_t pixel;
+    if (SEGMENT.palette) { pixel = SEGMENT.color_from_palette(hue, false, true, 0, vol); }
+    else { hsv2rgb(CHSV32(hue, 255, vol), pixel); }
+
+    // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
+    if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
+      pixel = 0;
+    }
+
+    SEGMENT.setPixelColor(i, pixel);
+  }
+}
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@!,!,Clouds,Colors,Distance,,,Cozy;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+
 
 // WLED-SR effects
 
@@ -8376,7 +8450,6 @@ void mode_particlepit(void) {
           PartSys->perParticleSize = true;
           PartSys->advPartProps[i].size = hw_random16(SEGMENT.custom1); // set each particle to random size
         } else {
-          PartSys->perParticleSize = false;
           PartSys->setParticleSize(SEGMENT.custom1); // set global size
           PartSys->advPartProps[i].size = SEGMENT.custom1; // also set individual size for consistency
         }
@@ -9649,6 +9722,7 @@ void mode_particleFireworks1D(void) {
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   int32_t gravity = (1 + (SEGMENT.speed >> 3)); // gravity value used for rocket speed calculation
   PartSys->setGravity(SEGMENT.speed ? gravity : 0); // set gravity
+  PartSys->setParticleSize(SEGMENT.check3); // 1 or 2 pixel rendering (global size, disables per particle size)
 
   if (PartSys->sources[0].sourceFlags.custom1 == 1) { // rocket is on standby
     PartSys->sources[0].source.ttl--;
@@ -9670,7 +9744,6 @@ void mode_particleFireworks1D(void) {
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
       PartSys->sources[0].sat = 30; // low saturation exhaust
-      PartSys->sources[0].size = SEGMENT.check3; // single or double pixel rendering
       PartSys->sources[0].sourceFlags.reversegrav = false ; // normal gravity
 
       if (SEGENV.aux0) { // inverted rockets launch from end
@@ -9770,6 +9843,7 @@ void mode_particleSparkler(void) {
   numSparklers = PartSys->numSources;
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur/overlay
   //PartSys->setSmearBlur(SEGMENT.custom2); // anable smearing blur
+  PartSys->setParticleSize( SEGMENT.check3 ? 60 : 0); // single pixel or large particle rendering
 
   for (uint32_t i = 0; i < numSparklers; i++) {
     PartSys->sources[i].source.hue = hw_random16();
@@ -9782,7 +9856,6 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
-    PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
     if (SEGMENT.speed == 255) // random position at highest speed setting
       PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
     else
@@ -10156,7 +10229,6 @@ void mode_particleChase(void) {
     }
   }
 
-  PartSys->setParticleSize(SEGMENT.custom1); // if custom1 == 0 this sets rendering size to one pixel
   PartSys->update(); // update and render
 }
 static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,Playful,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
@@ -10174,7 +10246,7 @@ void mode_particleStarburst(void) {
       FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
-    PartSys->sources[0].source.ttl = 1; // set initial stanby time
+    PartSys->sources[0].source.ttl = 1; // set initial standby time
     PartSys->sources[0].sat = 0; // emitted particles start out white
   }
   else
@@ -10191,12 +10263,11 @@ void mode_particleStarburst(void) {
     uint32_t explosionsize = 4 + hw_random16(SEGMENT.intensity >> 2);
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].var = 10 + (explosionsize << 1);
-    PartSys->sources[0].minLife = 250;
+    PartSys->sources[0].minLife = 150;
     PartSys->sources[0].maxLife = 300;
     PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
     PartSys->sources[0].source.ttl = 10 + hw_random16(255 - SEGMENT.speed);
     PartSys->sources[0].size = SEGMENT.custom1; // Fragment size
-    PartSys->setParticleSize(SEGMENT.custom1); // enable advanced size rendering
     PartSys->sources[0].sourceFlags.collide = SEGMENT.check3;
     for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
       if (SEGMENT.check2)
@@ -10207,9 +10278,9 @@ void mode_particleStarburst(void) {
   //shrink all particles
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->advPartProps[i].size)
-      PartSys->advPartProps[i].size--;
-    if (PartSys->advPartProps[i].sat < 251)
-      PartSys->advPartProps[i].sat += 1 + (SEGMENT.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+      PartSys->advPartProps[i].size --;
+    if (PartSys->advPartProps[i].sat < 250)
+      PartSys->advPartProps[i].sat += 2 + (SEGMENT.custom3 >> 3);
   }
 
   if (SEGMENT.call % 5 == 0) {
@@ -10533,7 +10604,6 @@ void mode_particle1DsonicBoom(void) {
     PartSys->sources[0].minLife = 200;
     PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
     PartSys->sources[0].source.hue = SEGMENT.aux0;
-    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
     uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
     explosionsize = hw_random16((explosionsize * loudness) >> 10);
     for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
@@ -10793,6 +10863,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
+  addEffect(FX_MODE_COLORCLOUDS, &mode_ColorClouds, _data_FX_MODE_COLORCLOUDS);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);

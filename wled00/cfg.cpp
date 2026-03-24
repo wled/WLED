@@ -142,7 +142,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   getStringFromJson(apPass, ap["psk"] , 65); //normally not present due to security
   //int ap_pskl = ap[F("pskl")];
   CJSON(apChannel, ap[F("chan")]);
-  if (apChannel > 13 || apChannel < 1) apChannel = 1;
+  if (apChannel > 13 || apChannel < 1) apChannel = 6; // reset to default if invalid
   CJSON(apHide, ap[F("hide")]);
   if (apHide > 1) apHide = 1;
   CJSON(apBehavior, ap[F("behav")]);
@@ -176,7 +176,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(cctICused, hw_led[F("ic")]);
   uint8_t cctBlending = hw_led[F("cb")] | Bus::getCCTBlend();
   Bus::setCCTBlend(cctBlending);
-  strip.setTargetFps(hw_led["fps"]); //NOP if 0, default 42 FPS
+  unsigned targetFPS = hw_led["fps"] | WLED_FPS;
+  strip.setTargetFps(targetFPS); //unlimited if 0, default 42 FPS
 
   #ifndef WLED_DISABLE_2D
   // 2D Matrix Settings
