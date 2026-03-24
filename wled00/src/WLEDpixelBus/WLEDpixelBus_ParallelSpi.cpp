@@ -88,24 +88,21 @@ SpiBusContext::~SpiBusContext() {
 
 //TODO: rename to isIdle()
 bool SpiBusContext::isSpiDone() {
-  //if (!_hasStarted) return true;  // no transfer ever started
-//   Serial.print(".");
-  //return _txdone;
-
-    // Not actively sending
-    if (!_txdone) {
-      // Stopped sending but not marked done (probably due to error)
-      // Enforce the 100ms wait from the start of the transmission
-      if (millis() - _lastTransmitMs > 1000) {
-        forceIdle(); // shut down the SPI
-        return true;
+  if (!_txdone) {
+    // safety timeout in case of SPI error
+    if (millis() - _lastTransmitMs > 100) {
+      _txdone = true;
+      _hw->cmd.usr = 0;
+      forceIdle();
+      uint32_t timeout = 10;
+      while (_hw->cmd.usr && timeout--) { // wait for SPI to actually stop (should be very fast, just in case)
+        delay(1);
       }
-      return false; // Still waiting for the cooldown
+      return true;
     }
-    //else
-    //  forceIdle(); // just a test if this is better to recover fast from spi fifo error -> this can break the whole driver and it it can stop working with multiple channels
-    return true; // _sending is false and _txdone is true
-
+    return false; // Still waiting for the cooldown
+  }
+  return true;
 }
 
 // Force SPI idle is a dirty hack to guard against some SPI error/race condition that is really hard to track down, it happens randomly and only if UI refresh plus RMT is involved
@@ -124,6 +121,11 @@ void SpiBusContext::forceIdle() {
       gpio_set_level((gpio_num_t)_channels[i].pin, 0);
     }
   }
+  if (_hw) {
+    _hw->cmd.usr = 0; // stop SPI user transfer (will output a fast clock, so detach pins from spi before this to avoid glitches)
+    _hw->dma_int_clr.val = 0xFFFFFFFF; // clear all SPI interrupt flags
+  }
+  
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
 
@@ -131,11 +133,6 @@ void SpiBusContext::forceIdle() {
   gdma_dev_t* dma = &GDMA;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0; // disable interrupt
   gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL); // reset DMA channel
-
-  if (_hw) {
-    _hw->cmd.usr = 0; // stop SPI user transfer (will output a fast clock, so detach pins from spi before)
-    _hw->dma_int_clr.val = 0xFFFFFFFF; //
-  }
 }
 
 
@@ -223,7 +220,7 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     // now that pins are disconnected, we can stop the user transfer which is causing the fast clock output that leads to glitches
     ctx->_hw->cmd.usr = 0; // stop SPI user transfer TODO: will this result in a tx done or some other interrupt? -> txdone fires
   //  ctx->_sending = false;
-    spierror++; // TODO: now it does not seem to happen 
+    spierror++; // TODO: does not seem to happen ... ever - even if trans done is not firing.
     ctx->_txdone = true; // set to tx done, need to reset the spi when checking if spi idle
   }
 
@@ -464,17 +461,21 @@ bool SpiBusContext::startTransmit() {
   if (_stagedMask != _channelMask) return true; // not all channels ready yet
   _stagedMask = 0;
   _txdone = false;
-  _lastTransmitMs = millis();
   dmacount = 0;
 
+  // debug hack: make sure rmt is not running during critical init
+  //rmt_channel_t rmtChannel = (rmt_channel_t)0; // TODO: need to track this if using RMT for other purposes, or better, use a separate timer-based approach for WS2812 reset pulse timing
+  //rmt_wait_tx_done(rmtChannel, portMAX_DELAY);
+  //rmtChannel= (rmt_channel_t)1;
+  //rmt_wait_tx_done(rmtChannel, portMAX_DELAY);
   // CRITICAL SECTION START: Prevent ISRs from interfering with buffer init
-  // note: DMA SPI init is VERY timing and sequence sensitive, under load, this sequence is not guaranteed and it leads to stalls and the driver not starting correctly
+  // note: DMA SPI init is VERY timing and sequence sensitive, under load, this sequence is not guaranteed and it leads to stalls and the driver not re-starting correctly
   portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
   portENTER_CRITICAL(&mux);
   // Stop SPI and DMA before reconfiguring for new transfer
-  //_hw->cmd.usr = 0; // stop SPI user transfer
-  while (_hw->cmd.usr); // wait for SPI to actually stop
-  spi_ll_clear_int_stat(_hw);
+  //_hw->cmd.usr = 0; // stop SPI user transfer -> this leads to errors, need to let it "cool down by itself"
+  while (_hw->cmd.usr); // wait for SPI to actually stop (this step is crucial for stability)
+  spi_ll_clear_int_stat(_hw); // the order of these three commands is important
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
 
@@ -532,12 +533,12 @@ bool SpiBusContext::startTransmit() {
   spi_ll_apply_config(_hw);  // apply SPI config AFTER starting DMA to make sure they are in sync
 
   // Short hardware handshake sync: adding a few nops is enough to ensure there is DMA data in the SPI buffer (without this, SPI can immediately quit its duty due to FIFO unterrun)
-  asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // might not be needed but just in case
+  //asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\n"); // might not be needed but just in case
 
   spi_ll_user_start(_hw); // start SPI user transfer
-  // TODO: there are still some glitches/stalls due to tx_fifo underruns but it is unclear why, it may even be an IDF V4 bug (I read about some timing issue with buffer handover or a missing nop)
-  // even when not accessing the UI there seems to be some dead-lock halting the system until the WDT kicks...
-   portEXIT_CRITICAL(&mux);
+
+  _lastTransmitMs = millis();
+  portEXIT_CRITICAL(&mux);
 //Serial.print("-");
   return true;
 }
