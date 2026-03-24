@@ -559,7 +559,7 @@ class Segment {
     inline uint16_t progress() const          { return isInTransition() ? _t->_progress : 0xFFFFU; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
     inline Segment *getOldSegment() const     { return isInTransition() ? _t->_oldSegment : nullptr; }
 
-    inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }
+    inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }  // for isPreviousMode()
     inline static void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
     inline static bool isPreviousMode()       { return Segment::_modeBlend; }    // needed for determining CCT/opacity during non-TRANSITION_FADE transition
 
