@@ -1362,8 +1362,8 @@ static void mode_dissolveplus(void) {
               uint8_t pId = SEGMENT.palette;
               uint32_t c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
               if (c == SEGCOLOR(1)) c ^= 0x00000001;  // flip the last bit to make sure it is slightly different than the background color
-              pixels[i] = c;            }
-            else {
+              pixels[i] = c;
+            } else {
               uint32_t c = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
               if (c == SEGCOLOR(1)) c ^= 0x00000001;
               pixels[i] = c;
