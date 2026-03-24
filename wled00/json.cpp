@@ -771,11 +771,9 @@ void serializeInfo(JsonObject root)
   root[F("lwip")] = LWIP_VERSION_MAJOR;
 #endif
 
-  bool haveSuspended = false;
 #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
   // calling ESP.getFreeHeap() during led update causes glitches on C3 and possibly on 8266, too
-  if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; } // prevent that a new strip.show() starts after waiting
-  strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
+  strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms. No need to suspend effects - ESP.getFreeHeap() will not need much time
 #endif
 
   root[F("freeheap")] = ESP.getFreeHeap();
@@ -788,7 +786,6 @@ void serializeInfo(JsonObject root)
   getTimeString(time);
   root[F("time")] = time;
 
-  if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   UsermodManager::addToJsonInfo(root);
 
   uint16_t os = 0;
