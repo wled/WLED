@@ -1268,7 +1268,7 @@ void WS2812FX::service() {
   unsigned long nowUp = millis(); // Be aware, millis() rolls over every 49 days
   now = nowUp + timebase;
   unsigned long elapsed = nowUp - _lastServiceShow;
-  bool timeToShow = (nowUp > _lastServiceShow + _frametime) || _triggered; // all segment are running at the same speed, but strip.trigger() can overrule timing
+  bool timeToShow = (elapsed >= _frametime) || _triggered; // all segments are running at the same speed, but strip.trigger() can overrule timing
 
   if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
   if (!_triggered && (_targetFps != FPS_UNLIMITED)) {   // unlimited mode = no frametime
