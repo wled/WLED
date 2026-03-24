@@ -1314,9 +1314,15 @@ static void mode_dissolveplus(void) {
         SEGENV.aux1 = hw_random16(SEGLEN);
         attempts++;
       } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
-      SET_DONE(0);
-      SEGENV.step = 0;
+    } else {
+      if (DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR) {
+        SET_PHASE(PHASE_DISSOLVE);
+      } else if (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR) {
+        SET_PHASE(PHASE_FILL);      
+      }
     }
+    SET_DONE(0);
+    SEGENV.step = 0;
     SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
   }
 
