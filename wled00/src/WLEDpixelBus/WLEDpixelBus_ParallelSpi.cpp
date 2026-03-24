@@ -136,7 +136,7 @@ void SpiBusContext::forceIdle() {
 }
 
 
-
+//note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
 encodecalls++;
   uint8_t* dst = _dmaBuffer[bufIdx];

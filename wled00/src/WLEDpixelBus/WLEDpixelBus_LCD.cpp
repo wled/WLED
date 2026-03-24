@@ -303,7 +303,7 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   // Desired output: [HIGH][data][data][LOW] for each bit
   // Buffer is always filled completely (zeros = LOW = reset signal)
 
-  memset(dest, 0, destLen); // TODO: memset is probably not ISR safe
+  memset(dest, 0, destLen); // TODO: memset may not be ISR safe (?)
   size_t pos = 0;
 
   // Pre-calculate max channels to speed up loop

@@ -380,6 +380,7 @@ void RmtBus::setColorOrder(ColorOrder order) {
   _order = order;
 }
 
+//note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
                                          size_t src_size, size_t wanted_num,
                                          size_t* translated_size, size_t* item_num) {
