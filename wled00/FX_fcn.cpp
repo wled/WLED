@@ -1360,9 +1360,9 @@ void WS2812FX::service() {
   bool doShow = false;
 
   _isServicing = true;
-  _segment_index = 0;
-
-  for (segment &seg : _segments) {
+  for (size_t i = 0; i < _segments.size(); i++) {
+    Segment &seg = _segments[i];
+    _segment_index = i;
     if (_suspend) break; // immediately stop processing segments if suspend requested during service()
 
     // process transition (mode changes in the middle of transition)
@@ -1416,11 +1416,11 @@ void WS2812FX::service() {
 
       seg.next_time = nowUp + frameDelay;
     }
-    _segment_index++;
   }
   _virtualSegmentLength = 0;
   _isServicing = false;
   _triggered = false;
+  _segment_index = 0;     // segment index is only valid while effects are serviced
 
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
