@@ -1276,10 +1276,10 @@ void WS2812FX::service() {
   bool doShow = false;
 
   _isServicing = true;
-  _segment_index = 0;
-
-  for (Segment &seg : _segments) {
-    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
+  for (size_t i = 0; i < _segments.size(); i++) {
+    Segment &seg = _segments[i];
+    _segment_index = i;
+    if (_suspend) break; // abort processing segments if suspend requested during service()
 
     // process transition (also pre-calculates progress value)
     seg.handleTransition();
@@ -1306,18 +1306,18 @@ void WS2812FX::service() {
         Segment *segO = seg.getOldSegment();
         if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != TRANSITION_FADE ||
             (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
-          Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
+          Segment::modeBlend(true);         // set flag for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
           _mode[segO->mode]();              // run old mode (needed for bri workaround; semaphore!!)
           segO->call++;                     // increment old mode run counter
-          Segment::modeBlend(false);        // unset semaphore
+          Segment::modeBlend(false);        // unset flag
         }
       }
     }
-    _segment_index++;
   }
+  _segment_index = 0;     // segment index is only valid while effects are serviced
 
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
@@ -1332,7 +1332,7 @@ void WS2812FX::service() {
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
 
-  _triggered = false;
+  if (!_suspend) _triggered = false; // avoid losing "trigger" events if suspend requested during effect service()
   _isServicing = false;
 }
 
