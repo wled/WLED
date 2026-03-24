@@ -1266,17 +1266,16 @@ void WS2812FX::finalizeInit() {
 
 void WS2812FX::service() {
   unsigned long nowUp = millis(); // Be aware, millis() rolls over every 49 days
-  now = nowUp + timebase;
   unsigned long elapsed = nowUp - _lastServiceShow;
   bool timeToShow = (elapsed >= _frametime);                        // all segments are running at the same speed
   if (_triggered || _targetFps == FPS_UNLIMITED) timeToShow = true; // unlimited mode = no frametime; strip.trigger() can overrule timing
-
   if (!timeToShow) return;                              // too early for service
   if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
 
   _isServicing = true;
-
+  now = nowUp + timebase; // common time base for all effects
   bool doShow = false;    // book keeping: if at least one effect was run, we need to call show()
+
   _segment_index = 0;     // current segment index for getCurrSegmentId()
   for (Segment &seg : _segments) {
     if (_suspend) break; // abort processing segments if suspend requested during service()
