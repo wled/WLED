@@ -45,10 +45,15 @@ Create or edit `platformio_override.ini` in the project root:
 ```ini
 ; platformio_override.ini  –  Zigbee RGB Light on ESP32-C6
 [env:esp32c6_zigbee]
-env:esp32c6dev_4MB
-board = esp32-c6-devkitm-1
-build_flags = ${esp32c6.build_flags}
-  -D WLED_RELEASE_NAME=\"ESP32C6_Zigbee\"
+extends = env:esp32c6dev_8MB
+platform = https://github.com/pioarduino/platform-espressif32/releases/download/55.03.37/platform-espressif32.zip
+platform_packages =
+board_build.partitions = ${esp32.large_partitions_min_fs}
+build_unflags =
+   -D WLED_RELEASE_NAME=\"ESP32-C6_8MB\"
+build_flags = ${env:esp32c6dev_8MB.build_flags}
+              -D WLED_RELEASE_NAME=\"ESP32C6_Zigbee\"
+              -DZIGBEE_MODE_ED=1
 custom_usermods = zigbee_rgb_light
 ```
 

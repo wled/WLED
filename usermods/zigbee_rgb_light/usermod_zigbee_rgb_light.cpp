@@ -94,7 +94,7 @@ private:
                                      const void *message)
   {
     if (!instance) return ESP_ERR_INVALID_STATE;
-    if (callback_id == ESP_ZB_CORE_SET_ATTR_VALUE_CB) {
+    if (callback_id == ESP_ZB_CORE_SET_ATTR_VALUE_CB_ID) {
       return instance->handleAttributeSet(
         static_cast<const esp_zb_zcl_set_attr_value_message_t *>(message));
     }
@@ -179,10 +179,10 @@ private:
       byte rgb[3];
       colorHStoRGB(wledHue, wledSat, rgb);
 
-      col[0] = rgb[0];
-      col[1] = rgb[1];
-      col[2] = rgb[2];
-      col[3] = 0; // no white channel
+      colPri[0] = rgb[0];
+      colPri[1] = rgb[1];
+      colPri[2] = rgb[2];
+      colPri[3] = 0; // no white channel
     }
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
@@ -199,7 +199,11 @@ private:
     ESP_ERROR_CHECK(esp_zb_platform_config(&platform_cfg));
 
     // Initialise the Zigbee stack as an End Device
-    esp_zb_cfg_t zb_nwk_cfg = ESP_ZB_ZED_CONFIG();
+    esp_zb_cfg_t zb_nwk_cfg = {};
+    zb_nwk_cfg.esp_zb_role        = ESP_ZB_DEVICE_TYPE_ED;
+    zb_nwk_cfg.install_code_policy = false;
+    zb_nwk_cfg.nwk_cfg.zed_cfg.ed_timeout = ESP_ZB_ED_AGING_TIMEOUT_64MIN;
+    zb_nwk_cfg.nwk_cfg.zed_cfg.keep_alive = 3000;
     esp_zb_init(&zb_nwk_cfg);
 
     // Create HA Color Dimmable Light endpoint (On/Off + Level + Color)
@@ -212,7 +216,7 @@ private:
     esp_zb_core_action_handler_register(zb_action_handler);
 
     // Set the primary channel mask (all standard Zigbee channels)
-    esp_zb_set_primary_network_channel_set(ESP_ZB_PRIMARY_CHANNEL_MASK);
+    esp_zb_set_primary_network_channel_set(ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK);
 
     // Start the stack (false = not coordinator)
     ESP_ERROR_CHECK(esp_zb_start(false));
