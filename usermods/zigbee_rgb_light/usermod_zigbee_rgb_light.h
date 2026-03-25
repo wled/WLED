@@ -22,6 +22,7 @@
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/semphr.h"
 
 // Default Zigbee endpoint number for the light
 #ifndef ZIGBEE_RGB_LIGHT_ENDPOINT
@@ -71,6 +72,9 @@ private:
   bool initDone = false;
   TaskHandle_t zbTaskHandle = nullptr;
 
+  // Mutex protecting shared state between the Zigbee task and loop()
+  SemaphoreHandle_t zbStateMutex = nullptr;
+
   // Zigbee state — written from the Zigbee task, read in loop()
   volatile bool    stateChanged  = false;
   volatile bool    powerOn       = true;
@@ -111,34 +115,37 @@ private:
     uint16_t cluster = message->info.cluster;
     uint16_t attrId  = message->attribute.id;
 
-    switch (cluster) {
+    if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      switch (cluster) {
 
-      case ESP_ZB_ZCL_CLUSTER_ID_ON_OFF:
-        if (attrId == ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID) {
-          powerOn = *(const bool *)message->attribute.data.value;
-          stateChanged = true;
-        }
-        break;
+        case ESP_ZB_ZCL_CLUSTER_ID_ON_OFF:
+          if (attrId == ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID) {
+            powerOn = *(const bool *)message->attribute.data.value;
+            stateChanged = true;
+          }
+          break;
 
-      case ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL:
-        if (attrId == ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID) {
-          zbBrightness = *(const uint8_t *)message->attribute.data.value;
-          stateChanged = true;
-        }
-        break;
+        case ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL:
+          if (attrId == ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID) {
+            zbBrightness = *(const uint8_t *)message->attribute.data.value;
+            stateChanged = true;
+          }
+          break;
 
-      case ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL:
-        if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_HUE_ID) {
-          zbHue = *(const uint8_t *)message->attribute.data.value;
-          stateChanged = true;
-        } else if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_SATURATION_ID) {
-          zbSaturation = *(const uint8_t *)message->attribute.data.value;
-          stateChanged = true;
-        }
-        break;
+        case ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL:
+          if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_HUE_ID) {
+            zbHue = *(const uint8_t *)message->attribute.data.value;
+            stateChanged = true;
+          } else if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_SATURATION_ID) {
+            zbSaturation = *(const uint8_t *)message->attribute.data.value;
+            stateChanged = true;
+          }
+          break;
 
-      default:
-        break;
+        default:
+          break;
+      }
+      xSemaphoreGive(zbStateMutex);
     }
     return ESP_OK;
   }
@@ -148,15 +155,28 @@ private:
    * ---------------------------------------------------------------------*/
   void applyState()
   {
-    if (!powerOn) {
+    // Snapshot shared state under the mutex
+    bool    localPower;
+    uint8_t localBri, localHue, localSat;
+    if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      localPower = powerOn;
+      localBri   = zbBrightness;
+      localHue   = zbHue;
+      localSat   = zbSaturation;
+      xSemaphoreGive(zbStateMutex);
+    } else {
+      return; // could not acquire mutex, try again next loop
+    }
+
+    if (!localPower) {
       bri = 0;
     } else {
-      bri = zbBrightness;
+      bri = localBri;
 
       // Zigbee hue is 0-254 → WLED hue is 0-65535
-      uint16_t wledHue = static_cast<uint16_t>((static_cast<uint32_t>(zbHue) * 65535U) / 254U);
+      uint16_t wledHue = static_cast<uint16_t>((static_cast<uint32_t>(localHue) * 65535U) / 254U);
       // Zigbee saturation is 0-254 → WLED saturation is 0-255
-      uint8_t  wledSat = static_cast<uint8_t>((static_cast<uint16_t>(zbSaturation) * 255U) / 254U);
+      uint8_t  wledSat = static_cast<uint8_t>((static_cast<uint16_t>(localSat) * 255U) / 254U);
 
       byte rgb[3];
       colorHStoRGB(wledHue, wledSat, rgb);
@@ -215,6 +235,8 @@ public:
   {
     if (!enabled) return;
 
+    zbStateMutex = xSemaphoreCreateMutex();
+
     xTaskCreate(
       zigbeeTask,
       "zigbee_rgb",
@@ -231,8 +253,13 @@ public:
   {
     if (!enabled || !initDone || strip.isUpdating()) return;
 
-    if (stateChanged) {
+    bool pending = false;
+    if (zbStateMutex && xSemaphoreTake(zbStateMutex, 0) == pdTRUE) {
+      pending = stateChanged;
       stateChanged = false;
+      xSemaphoreGive(zbStateMutex);
+    }
+    if (pending) {
       applyState();
     }
   }
