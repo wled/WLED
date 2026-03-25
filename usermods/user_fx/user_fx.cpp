@@ -1260,6 +1260,213 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+
+/**
+ * BrushWalker 
+ * Uses palette for the trails and background color as fade target.
+ * Walkers spawn randomly from the edges and move in straight lines across the matrix, changing color as they go.
+ * leaving fading trails of "painted" color behind them.
+ * Tries to avoid spawning new walkers too close to existing ones to prevent overcrowding and create a more visually appealing distribution.
+ * Inspired by the concept of "Matrix", but with a more vivid, undirected and colorful twist.
+ * First implementation 2019 with FastLED, but without WLED framework.
+ * Redesigned and adapted for WLED in 2026, with support from claude.ai and chatGPT.
+ * Controls: Speed, Spawn Chance, Palette Step, Max Walkers (up to 32)
+ * 
+ * @author suromark 2019,2026
+ * 
+ * 
+ */
+struct BrushWalker {
+  bool    active;
+  int16_t x;
+  int16_t y;
+  int8_t  dx;
+  int8_t  dy;
+  uint8_t colorIndex;
+};
+
+static void BrushWalkerReset(BrushWalker* walkers, uint8_t maxCount) {
+  for (uint8_t i = 0; i < maxCount; i++) {
+    walkers[i].active = false;
+    walkers[i].x = 0;
+    walkers[i].y = 0;
+    walkers[i].dx = 0;
+    walkers[i].dy = 0;
+    walkers[i].colorIndex = 0;
+  }
+}
+
+static uint8_t BrushWalkerCountActive(const BrushWalker* walkers, uint8_t maxCount) {
+  uint8_t n = 0;
+  for (uint8_t i = 0; i < maxCount; i++) {
+    if (walkers[i].active) n++;
+  }
+  return n;
+}
+
+static bool BrushWalkerInBounds(int16_t x, int16_t y, uint16_t cols, uint16_t rows) {
+  return x >= 0 && y >= 0 && x < (int16_t)cols && y < (int16_t)rows;
+}
+
+static void BrushWalkerMakeCandidate(BrushWalker &w, uint16_t cols, uint16_t rows) {
+  uint8_t side = hw_random8(4);
+
+  switch (side) {
+    case 0: // top -> down
+      w.x = hw_random16(cols);
+      w.y = 0;
+      w.dx = 0;
+      w.dy = 1;
+      break;
+
+    case 1: // bottom -> up
+      w.x = hw_random16(cols);
+      w.y = rows - 1;
+      w.dx = 0;
+      w.dy = -1;
+      break;
+
+    case 2: // left -> right
+      w.x = 0;
+      w.y = hw_random16(rows);
+      w.dx = 1;
+      w.dy = 0;
+      break;
+
+    default: // right -> left
+      w.x = cols - 1;
+      w.y = hw_random16(rows);
+      w.dx = -1;
+      w.dy = 0;
+      break;
+  }
+
+  w.colorIndex = hw_random8();
+  w.active = true;
+}
+
+static bool BrushWalkerConflicts(const BrushWalker* walkers, uint8_t maxCount, const BrushWalker &cand, uint8_t minGap) {
+  for (uint8_t i = 0; i < maxCount; i++) {
+    const BrushWalker &w = walkers[i];
+    if (!w.active) continue;
+    if (w.dx != cand.dx || w.dy != cand.dy) continue;
+
+    // horizontal: gleiche Zeile
+    if (cand.dy == 0 && w.y == cand.y) {
+      if (abs(w.x - cand.x) < minGap) return true;
+    }
+
+    // vertical: gleiche Spalte
+    if (cand.dx == 0 && w.x == cand.x) {
+      if (abs(w.y - cand.y) < minGap) return true;
+    }
+  }
+  return false;
+}
+
+static bool BrushWalkerTrySpawn(BrushWalker* walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
+  int freeSlot = -1;
+  for (uint8_t i = 0; i < maxCount; i++) {
+    if (!walkers[i].active) {
+      freeSlot = i;
+      break;
+    }
+  }
+  if (freeSlot < 0) return false;
+
+  const uint8_t minGap = 8;
+  BrushWalker cand;
+
+  BrushWalkerMakeCandidate(cand, cols, rows);
+  if (!BrushWalkerConflicts(walkers, maxCount, cand, minGap)) {
+    walkers[freeSlot] = cand;
+    return true;
+  }
+
+  // One retry if collision happened before. If also not successful, just give up and skip this.
+  BrushWalkerMakeCandidate(cand, cols, rows);
+  if (!BrushWalkerConflicts(walkers, maxCount, cand, minGap)) {
+    walkers[freeSlot] = cand;
+    return true;
+  }
+
+  return false;
+}
+
+static void mode_brushwalker(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) {
+    SEGMENT.fill(SEGCOLOR(0));
+    return;
+  }
+
+  const uint16_t cols = SEG_W;
+  const uint16_t rows = SEG_H;
+  if (cols < 2 || rows < 2) {
+    SEGMENT.fill(SEGCOLOR(0));
+    return;
+  }
+
+  // Allocate per-segment storage for walkers
+  if (!SEGENV.allocateData(sizeof(BrushWalker) * 32)) {
+    SEGMENT.fill(SEGCOLOR(0));
+    return;
+  }
+  BrushWalker* walkers = reinterpret_cast<BrushWalker*>(SEGENV.data);
+
+  const uint8_t spawnChance = SEGMENT.intensity;
+  const uint8_t fadeRate    = SEGMENT.custom1 >> 1; // 0-63 based on slider, higher is faster fading
+  const uint8_t palStep     = SEGMENT.custom2 >> 4; //
+  const uint8_t maxWalkers  = 1 + SEGMENT.custom3; // Custom3 slider ranges from 0-31 only
+
+  const uint16_t interval = 8 + ( SEGMENT.speed >> 1 ); // base 8ms interval + up to 127ms based on speed slider
+
+  if (SEGENV.call == 0) {
+    BrushWalkerReset(walkers, 32);
+    SEGMENT.fill(SEGCOLOR(1));
+    SEGENV.step = strip.now;
+  }
+
+  if ((strip.now - SEGENV.step) < interval) return;
+  SEGENV.step = strip.now;
+
+  // Fade using the background color (secondary color)
+  SEGMENT.fadeToSecondaryBy(fadeRate);
+
+  if (BrushWalkerCountActive(walkers, 32) < maxWalkers) {
+    if (hw_random8() < spawnChance) {
+      BrushWalkerTrySpawn(walkers, 32, cols, rows);
+    }
+  }
+
+  for (uint8_t i = 0; i < 32; i++) {
+    BrushWalker &w = walkers[i];
+    if (!w.active) continue;
+
+    // Use WLED's palette mechanism if a palette is selected, otherwise use primary color
+    uint32_t c;
+    if (SEGMENT.palette > 0) {
+      c = SEGMENT.color_from_palette(w.colorIndex, false, PALETTE_SOLID_WRAP, 0);
+    } else {
+      c = SEGCOLOR(0);
+    }
+    SEGMENT.setPixelColorXY(w.x, w.y, c);
+
+    w.x += w.dx;
+    w.y += w.dy;
+    w.colorIndex += palStep;
+
+    if (!BrushWalkerInBounds(w.x, w.y, cols, rows)) {
+      w.active = false;
+    }
+  }
+}
+
+// The metadata string consists of up to five sections, separated by semicolons: 
+// <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
+static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
+  "Brush Walker@!,Spawn,Fade,Palette Step,Max Walkers;,!;!;2;pal=11,sx=54,ix=64,c1=48,c2=24,c3=16";
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1274,14 +1481,14 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
-
+	
     ////////////////////////////////////////
     //  add your effect function(s) here  //
     ////////////////////////////////////////
 
     // use id=255 for all custom user FX (the final id is assigned when adding the effect)
 
-    // strip.addEffect(255, &mode_your_effect, _data_FX_MODE_YOUR_EFFECT);
+    strip.addEffect(255, &mode_brushwalker, _data_FX_MODE_BRUSHWALKER);
     // strip.addEffect(255, &mode_your_effect2, _data_FX_MODE_YOUR_EFFECT2);
     // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
