@@ -196,7 +196,11 @@ void handlePresets()
     if (!fdo["seg"].isNull() || !fdo["on"].isNull() || !fdo["bri"].isNull() || !fdo["nl"].isNull() || !fdo["ps"].isNull() || !fdo[F("playlist")].isNull()) changePreset = true;
     if (!(tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~')))
       fdo.remove("ps"); // remove load request for presets to prevent recursive crash (if not called by button and contains preset cycling string "1~5~")
-    deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset()
+    deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset(
+    for (uint8_t i = 0; i < strip.getSegmentsNum(); i++) {
+       strip.getSegment(i).uptime = strip.now; // Setzt die Effekt-Zeit exakt auf "jetzt" (0)
+       strip.getSegment(i).markForReset();     // Zwingt die Animation zum Neustart
+    }
   }
   if (!errorFlag && tmpPreset < 255 && changePreset) currentPreset = tmpPreset;
 
