@@ -234,15 +234,16 @@ public:
     if (!enabled) return;
 
     zbStateMutex = xSemaphoreCreateMutex();
+    if (!zbStateMutex) return;
 
-    xTaskCreate(
-      zigbeeTask,
-      "zigbee_rgb",
-      ZIGBEE_TASK_STACK_SIZE,
-      nullptr,
-      ZIGBEE_TASK_PRIORITY,
-      &zbTaskHandle
-    );
+    if (xTaskCreate(
+          zigbeeTask,
+          "zigbee_rgb",
+          ZIGBEE_TASK_STACK_SIZE,
+          nullptr,
+          ZIGBEE_TASK_PRIORITY,
+          &zbTaskHandle
+        ) != pdPASS) return;
 
     initDone = true;
   }
