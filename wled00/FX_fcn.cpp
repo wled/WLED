@@ -1288,7 +1288,7 @@ void WS2812FX::service() {
 
     if (seg.isActive()) {
       // current segment is active -> re-run effect, and remember that show() call is necessary
-      //if (timeToShow) // removed - if we arrive here, its always showtime
+      // if we arrive here, its always showtime (timeToShow == true)
       doShow = true;
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
