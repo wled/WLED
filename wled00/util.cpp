@@ -127,28 +127,65 @@ size_t printSetClassElementHTML(Print& settingsScript, const char* key, const in
 }
 
 
+// in-place hostname sanitizer, extracted from prepareHostname()
+static void sanitizeHostname(char* hostname, size_t maxLen) {
+  if (hostname == nullptr || maxLen < 1 || strlen(hostname) < 1) return;
 
-void prepareHostname(char* hostname)
-{
-  sprintf_P(hostname, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
-  const char *pC = serverDescription;
-  unsigned pos = 5;          // keep "wled-"
-  while (*pC && pos < 24) { // while !null and not over length
-    if (isalnum(*pC)) {     // if the current char is alpha-numeric append it to the hostname
-      hostname[pos] = *pC;
-      pos++;
-    } else if (*pC == ' ' || *pC == '_' || *pC == '-' || *pC == '+' || *pC == '!' || *pC == '?' || *pC == '*') {
-      hostname[pos] = '-';
-      pos++;
+  char *pC = hostname;
+  unsigned pos = 0;
+  while (*pC && pos < maxLen) {
+    char c = *pC;
+    if (isalnum((unsigned char)c)) {
+      hostname[pos++] = c;
+    } else if (c == ' ' || c == '_' || c == '-' || c == '+' || c == '!' || c == '?' || c == '*') { // convert certain characters to hyphens
+      if (pos > 0 && hostname[pos -1] != '-') hostname[pos++] = '-'; // keep single non-leading hyphens only
     }
-    // else do nothing - no leading hyphens and do not include hyphens for all other characters.
+    // else: drop any character not valid in a DNS hostname label
     pC++;
   }
-  //last character must not be hyphen
-  if (pos > 5) {
-    while (pos > 4 && hostname[pos -1] == '-') pos--;
-    hostname[pos] = '\0'; // terminate string (leave at least "wled")
+  // Hostname must not end with a hyphen.
+  while (pos > 0 && hostname[pos -1] == '-') pos--;
+  hostname[min(pos, maxLen-1)] = '\0'; // terminate string
+}
+
+/*
+ * Stores sanitized hostname into buffer provided by caller
+ *   maxLen = hostname buffer size including \0
+ *   preferMDNSname -> use mDNS name if set, otherwise fall back to WLED "server description" name (legacy behaviour)
+ */
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  if (preferMDNS && (strlen(cmDNS) > 0) && (strcmp_P(cmDNS, PSTR(DEFAULT_MDNS_NAME)) != 0)) {     // avoid "x" = not set (use wled-MAC)
+    strlcpy(hostname, cmDNS, maxLen);
+    sanitizeHostname(hostname, maxLen);  // sanitize cmDNS name
+    if (strlen(hostname) < 1) {          // if result is empty -> fall back to wled-MAC
+      snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+      hostname[maxLen -1] = '\0';        // ensure string termination
+    }
+  } else {
+    prepareHostname(hostname, maxLen); // use legacy hostname based on "server description" - already sanitized
   }
+  DEBUG_PRINTF_P(PSTR("getWLEDHostname: '%s'\n"), hostname);
+}
+
+/* Legacy hostname construction:
+ *   Start with "wled-" + serverDescription as suffix.
+ *   Sanitize only the suffix (always keep wled- prefix intact).
+ *   If the sanitized suffix ends up empty, fall back to wled-<mac>.
+ */
+void prepareHostname(char* hostname, size_t maxLen)
+{
+  if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
+  // if (strncasecmp_P(serverDescription, PSTR("wled"), 4) == 0)     // avoid wled-WLED-... as a hostname
+  //   strlcpy(hostname, serverDescription, maxLen);
+  // else
+  snprintf_P(hostname, maxLen, PSTR("wled-%s"), serverDescription);
+  hostname[maxLen -1] = '\0';                             // ensure string termination
+
+  size_t sanOffset = hostname[4] != '-' ? 4 : 5;            // ensure that "WLED foo" and "WLED!foo" get sanitized
+  sanitizeHostname(hostname+sanOffset, maxLen-sanOffset);   // sanitize name, keep "wled-" intact
+  if (strlen(hostname) <= sanOffset)
+    snprintf_P(hostname, maxLen, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6); // fallback to wled-MAC if sanitization cleaned everything
 }
 
 
