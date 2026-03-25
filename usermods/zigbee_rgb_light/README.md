@@ -17,14 +17,15 @@ This usermod exposes WLED as a **Zigbee Home Automation (HA) Color Dimmable Ligh
 
 ## Enabling the Usermod
 
-Add the following build flag to your PlatformIO environment:
+Add `zigbee_rgb_light` to the `custom_usermods` option in your PlatformIO environment:
 
 ```ini
-build_flags =
-  -D USERMOD_ZIGBEE_RGB_LIGHT
+custom_usermods = zigbee_rgb_light
 ```
 
-The usermod source is compiled into the firmware via `wled00/usermods_list.cpp`, which conditionally includes the header when `USERMOD_ZIGBEE_RGB_LIGHT` is defined. The entire implementation is additionally guarded by `#ifdef CONFIG_IDF_TARGET_ESP32C6`, so accidentally defining the flag for a non-C6 target is harmless (the code is simply excluded).
+The usermod's `library.json` declares the required Zigbee library dependencies (`esp-zigbee-lib` and `esp-zboss-lib`), which PlatformIO will resolve automatically.
+
+The entire implementation is guarded by `#ifdef CONFIG_IDF_TARGET_ESP32C6`, so including the usermod on a non-C6 target is harmless (the code is simply excluded).
 
 ## WiFi / Zigbee Coexistence
 
@@ -47,14 +48,9 @@ Create or edit `platformio_override.ini` in the project root:
 extends = esp32c6
 board = esp32-c6-devkitm-1
 build_flags = ${esp32c6.build_flags}
-  -D USERMOD_ZIGBEE_RGB_LIGHT
   -D WLED_RELEASE_NAME=\"ESP32C6_Zigbee\"
-lib_deps = ${esp32c6.lib_deps}
-  espressif/esp-zigbee-lib@~1.0
-  espressif/esp-zboss-lib@~1.0
+custom_usermods = zigbee_rgb_light
 ```
-
-> **Important:** The `esp-zigbee-lib` and `esp-zboss-lib` libraries are required for the Zigbee stack. Make sure they are listed in `lib_deps`.
 
 ## Configuration
 
@@ -91,7 +87,6 @@ Override them in `build_flags` if needed:
 
 ```ini
 build_flags =
-  -D USERMOD_ZIGBEE_RGB_LIGHT
   -D ZIGBEE_RGB_LIGHT_ENDPOINT=1
   -D ZIGBEE_TASK_STACK_SIZE=8192
 ```

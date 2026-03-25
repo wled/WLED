@@ -1,5 +1,3 @@
-#pragma once
-
 /*
  * Zigbee RGB Light Usermod for ESP32-C6
  *
@@ -9,8 +7,8 @@
  *
  * Requires:
  *   - ESP32-C6 target (native 802.15.4 radio)
- *   - esp-zigbee-lib and esp-zboss-lib components
- *   - Build flag -D USERMOD_ZIGBEE_RGB_LIGHT
+ *   - esp-zigbee-lib and esp-zboss-lib (declared in library.json)
+ *   - Add zigbee_rgb_light to custom_usermods in your platformio env
  */
 
 #ifdef CONFIG_IDF_TARGET_ESP32C6
