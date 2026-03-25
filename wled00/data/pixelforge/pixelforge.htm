@@ -381,6 +381,10 @@ button, .btn {
 				• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
 				• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
 			</div>
+			<hr>
+			<h3>Custom Fonts</h3>
+			<div id="fList" style="display:flex; flex-wrap:wrap; gap:8px; padding:10px; justify-content:center;"></div>
+			<button class="btn sml" id="dcf" style="margin:5px auto; display:block; font-size:11px;">Download Classic WLED Fonts</button>
 		</div>
 	</div>
 	<div id="ti1D" style="display:none;">Not available in 1D</div>
@@ -437,6 +441,7 @@ let pan=false,psX=0,psY=0,poX=0,poY=0;
 let iL=[]; // image list
 let gF=null,gI=null,aT=null;
 let fL; // file list
+const classics=['console_font_4x6.wbf','console_font_5x12.wbf','console_font_5x8.wbf','console_font_6x8.wbf','console_font_7x9.wbf']; // classic WLED fonts list
 
 // load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
 (function loadFiles() {
@@ -1179,7 +1184,7 @@ function tabSw(tab) {
 		getId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
-	({txt:txtSegLoad,img:imgLoad}[tab]||(()=>{}))(); // functions to execute on tab switch (currently none for oth)
+	({txt:()=>{txtSegLoad(); scanFonts();}, img:imgLoad}[tab]||(()=>{}))(); // on tab switch, load images and available fonts
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
@@ -1219,12 +1224,12 @@ async function txtSegLoad(){
 }
 
 /* auto apply on change */
-['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ getId(id).onchange=txtUp; });
+['sx','ix','c1','c2','c3','o1','o2','o3'].forEach(id=>{ getId(id).onchange=txtUp; });
 
 /* send text settings */
 function txtUp(){
 	const id=+getId('segT').value,txt=getId('txt').value.trim().slice(0,64);
-	const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o3:getId('o3').checked}};
+	const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o2:getId('o2').checked,o3:getId('o3').checked}};
 	fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)})
 		.then(r => { if(r.ok) segLoad(); })
 		.catch(console.error);
@@ -1242,6 +1247,40 @@ getId('aTxt').onclick=async()=>{
 		else msg('Failed to apply','err');
 	}catch(e){ msg(`Error: ${e.message}`,'err'); }
 	finally{ ovHide(); }
+};
+
+// load available fonts (files ending with .wbf) and display in list
+function scanFonts(){
+    const wbf=(fL||[]).filter(f=>f.name.endsWith('.wbf'));
+    getId('fList').innerHTML=wbf.map(f=>
+        `<span>${f.name} <b onclick="delFont('${f.name}')" style="cursor:pointer;color:#8cf;padding:0 3px">✖</b></span>`
+    ).join('')||'<span style="color:#888">None</span>';
+		getId('dcf').style.display=classics.every(fn=>wbf.some(f=>f.name===fn))?'none':'block'; // hide "Download classic fonts" button if all are present
+}
+
+// delete font file
+async function delFont(name){
+    if(!confirm(`Delete ${name}?`))return;
+    const r=await fetch(getURL(`/edit?func=delete&path=/${name}`));
+    r.ok?msg('Deleted'):msg('Delete failed','err');
+    await flU(); scanFonts();
+}
+
+// download classic WLED fonts from github and upload to FS
+getId('dcf').onclick=async()=>{
+    if(!confirm('Download classic WLED fonts?'))return;
+    ovShow(); let ok=0,fail=0;
+    for(const fn of classics){
+        try{
+            const r=await fetch(`https://dedehai.github.io/wbfFonts/${fn}`);
+            if(!r.ok){fail++;continue;}
+            const fd=new FormData();
+            fd.append('data',await r.blob(),fn);
+            (await fetch(getURL('/upload'),{method:'POST',body:fd})).ok?ok++:fail++;
+        }catch(e){msg(`Failed ${fn}: ${e.message}`,'err');}
+    }
+    ovHide(); msg('Fonts installed');
+    await flU(); scanFonts();
 };
 
 /* preview canvas (not "accurate", just a simulation)*/
