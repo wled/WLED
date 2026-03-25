@@ -798,6 +798,7 @@ function populateSegments(s)
 							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
 							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
 							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+							`<option value="16" ${inst.bm==16?' selected':''}>Stencil</option>`+
 						`</select></div>`+
 					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
@@ -1661,12 +1662,10 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
-		gId("editPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
-		gId("editPal").classList.add("hide");
 		// Close palette dialog if not available
 		if (palw.lastElementChild.tagName == "DIALOG") {
 			palw.lastElementChild.close();
@@ -2323,7 +2322,7 @@ function setSi(s)
 
 function setBm(s)
 {
-	var value = gId(`seg${s}bm`).selectedIndex;
+	var value = gId(`seg${s}bm`).value;
 	var obj = {"seg": {"id": s, "bm": value}};
 	requestJson(obj);
 }

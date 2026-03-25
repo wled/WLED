@@ -65,8 +65,8 @@
 
 #define IBN 5100
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
+#define PALETTE_MOVING_WRAP !(paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0))
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
@@ -3398,7 +3398,7 @@ void mode_glitter()
       counter = counter >> 8;
     }
 
-    bool noWrap = (strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0));
+    bool noWrap = (paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0));
     for (unsigned i = 0; i < SEGLEN; i++) {
       unsigned colorIndex = (i * 255 / SEGLEN) - counter;
       if (noWrap) colorIndex = map(colorIndex, 0, 255, 0, 240); //cut off blend at palette "end"
