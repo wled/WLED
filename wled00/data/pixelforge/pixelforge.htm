@@ -608,7 +608,7 @@ async function loadTools() {
 			} else {
 				// check version
 				if (isNewer(rt.ver, lt.ver)) {
-					lt.pending = { ver: rt.ver, url: rt.url, file: rt.file, desc: rt.desc }; // add pending update info
+					lt.pending = rt; // mark update as pending, keep old info until user clicks update button
 					changed = true;
 				}
 			}
@@ -634,11 +634,12 @@ function isNewer(vN, vO) {
 function renderTools() {
 	let h = '';
 	pT.forEach(t => {
-		const compatible = compTool(t); // check if compatible with current wled version
 		const installed = fL.some(f => f.name.includes(t.file)); // check if tool file exists (either .htm or .htm.gz)
+		const target = (installed && t.pending) ? t.pending : t; // if update pending and tool is installed, show update info
+		const compatible = compTool(target); // check if compatible with current wled version
 		h += `<div class="ed active" style="margin-bottom:10px; border-radius:20px; text-align:left;">
 			<div style="display:flex; justify-content:space-between;">
-				<h3>${esc(t.name)} <small style="font-size:10px">v${t.ver}</small></h3>
+				<h3>${esc(t.name)} <small style="font-size:10px">v${esc(t.ver)}</small></h3>
 				${installed ? `<button class="sml" style="height:40px;" onclick="deleteFile('${esc(t.file)}')">✕</button>` : ''}
 			</div>
 			${t.desc}
@@ -657,7 +658,7 @@ function renderTools() {
 							: ''
 						}
 				   </div>`
-				: `<div style="color:#f44;font-size:12px;"> Requires WLED ${t.wled_min} </div>`
+				: `<div style="color:#f44;font-size:12px;"> Requires WLED ${esc(target.wled_min)} </div>`
 			}
 		</div>`;
 	});
@@ -678,11 +679,8 @@ async function insT(id) {
 		alert(u.ok ? "Tool installed!" : "Install failed");
 		if (u.ok && t.pending) {
 			// save and remove update info after successful update
-			t.ver = t.pending.ver;
-			t.url = t.pending.url;
-			t.file = t.pending.file;
-			t.desc = t.pending.desc;
-			delete t.pending;
+			Object.assign(t, t.pending);
+    	delete t.pending;
 		}
 		await saveToolsjson();
 		await flU(); // refresh file list
