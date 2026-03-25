@@ -206,8 +206,8 @@ bool RmtBus::begin() {
   if (err != ESP_OK) {
     return false;
   }
-  // Register hack for memory blocks normally assigned to RX (S3 / C3)
-#if defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+  // Register hack for memory blocks normally assigned to RX (S2 / S3 / C3)   TODO: need this for ESP32 as well?
+#ifndef RMT_USE_SINGLE_MEM_BLOCK
   #if defined(WLEDPB_ESP32S3)
   for (int i = 4; i < 8; i++) {
     rmt_set_memory_owner((rmt_channel_t)i, RMT_MEM_OWNER_TX);
