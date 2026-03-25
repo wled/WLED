@@ -1284,9 +1284,11 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 #define SET_PREV_LAST_ONE(d)    (SEGENV.aux0 = (SEGENV.aux0 & 0xFDFF) | ((d) << 9))
 
 static void mode_dissolveplus(void) {
-  unsigned dataSize = sizeof(uint32_t) * SEGLEN;
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
+  unsigned dataSize = sizeof(uint32_t) * (SEGLEN + 1);
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint32_t& storedBg = pixels[SEGLEN];
 
   constexpr unsigned PHASE_FILL = 0;
   constexpr unsigned PHASE_DISSOLVE = 1;
@@ -1298,10 +1300,16 @@ static void mode_dissolveplus(void) {
 
   if (SEGENV.call == 0) {
     for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
+    storedBg = SEGCOLOR(1);
     SET_PHASE(PHASE_DISSOLVE);
     SEGENV.aux1 = hw_random16(SEGLEN);
     SET_DONE(0);
     SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  } else if (storedBg != SEGCOLOR(1)) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
+      if (pixels[i] == storedBg) pixels[i] = SEGCOLOR(1);
+    }
+    storedBg = SEGCOLOR(1);
   }
 
   // Restart if lastOneMode changed to true
@@ -1356,7 +1364,8 @@ static void mode_dissolveplus(void) {
         if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
 
         if (filling) { // fill with primary/palette color
-          if (pixels[i] == SEGCOLOR(1)) {
+          //if (pixels[i] == SEGCOLOR(1)) {
+          if (pixels[i] == storedBg) {
             uint32_t c;
             if (SEGMENT.check1) {
               uint8_t pId = SEGMENT.palette;
@@ -1371,8 +1380,10 @@ static void mode_dissolveplus(void) {
             break;
           }
         } else {  //dissolve to secondary/background color
-          if (pixels[i] != SEGCOLOR(1)) {
-            pixels[i] = SEGCOLOR(1);
+//          if (pixels[i] != SEGCOLOR(1)) {
+//            pixels[i] = SEGCOLOR(1);
+          if (pixels[i] != storedBg) {
+            pixels[i] = storedBg;
             break;
           }
         }
@@ -1400,9 +1411,9 @@ static void mode_dissolveplus(void) {
     if (SEGMENT.check2 || forceComplete) {
       if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
       if (filling) {
-        if (pixels[i] == SEGCOLOR(1)) incompletePixels++;
+        if (pixels[i] == storedBg) incompletePixels++;
       } else {
-        if (pixels[i] != SEGCOLOR(1)) incompletePixels++;
+        if (pixels[i] != storedBg) incompletePixels++;
       }
     }
   }
