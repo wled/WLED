@@ -45,7 +45,7 @@ Create or edit `platformio_override.ini` in the project root:
 ```ini
 ; platformio_override.ini  –  Zigbee RGB Light on ESP32-C6
 [env:esp32c6_zigbee]
-extends = esp32c6
+env:esp32c6dev_4MB
 board = esp32-c6-devkitm-1
 build_flags = ${esp32c6.build_flags}
   -D WLED_RELEASE_NAME=\"ESP32C6_Zigbee\"
