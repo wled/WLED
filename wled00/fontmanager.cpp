@@ -14,7 +14,7 @@
 #include "src/font/font_TinyUnicode_8px.h"
 #include "src/font/font_5x12.h"
 #include "src/font/console_font_6x8.h"
-#include "src/font/console_font_7x9.h"
+#include "src/font/c64esque_9px.h"
 
 // get metadata pointer
 SegmentFontMetadata* FontManager::getMetadata() {
@@ -201,7 +201,7 @@ void FontManager::rebuildCache(const char* text) {
     case 0: flashFont = font_tom_thumb_6px;    break;
     case 1: flashFont = font_TinyUnicode_8px;  break;
     case 2: flashFont = console_font_6x8;      break;
-    case 3: flashFont = console_font_7x9;      break;
+    case 3: flashFont = c64esque_9px;          break;
     case 4: flashFont = font_5x12;             break;
   }
 

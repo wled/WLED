@@ -1,6 +1,6 @@
 // code points 0-31 and 127-255 are commented out to save memory, they contain extra characters (CP437),
 // which could be used with an UTF-8 to CP437 conversion
-// source font 6x13.bdf is public domain, source: https://github.com/IT-Studio-Rech/bdf-fonts modified by @dedehai (cleaner dots)
+// source font "6x13.bdf" is public domain, source: https://github.com/IT-Studio-Rech/bdf-fonts modified by @dedehai (cleaner dots)
 
 /*
  * WBF (WLED Bitmap Font) Packed Fixed-Width Format
