@@ -687,6 +687,7 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
  * Dissolve function
  */
 void dissolve(uint32_t color) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
@@ -702,7 +703,9 @@ void dissolve(uint32_t color) {
         unsigned i = hw_random16(SEGLEN);
         if (SEGENV.aux0) { //dissolve to primary/palette
           if (pixels[i] == SEGCOLOR(1)) {
-            pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
+            uint32_t c = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
+            if (c == SEGCOLOR(1)) c ^= 0x00000001;  // change the color slightly so the effect doesn't get stuck in Complete mode if color is same as bkg color
+            pixels[i] = c;
             break; //only spawn 1 new pixel per frame
           }
         } else { //dissolve to secondary
