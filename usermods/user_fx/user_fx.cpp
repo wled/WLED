@@ -1286,19 +1286,7 @@ struct BrushWalker
   uint8_t colorIndex;
 };
 
-static void BrushWalkerReset(BrushWalker *walkers, uint8_t maxCount)
-{
-  for (uint8_t i = 0; i < maxCount; i++)
-  {
-    walkers[i].active = false;
-    walkers[i].x = 0;
-    walkers[i].y = 0;
-    walkers[i].dx = 0;
-    walkers[i].dy = 0;
-    walkers[i].colorIndex = 0;
-  }
-}
-
+// a helper function to count active walkers, to decide if spawning is permitted based on maxWalkers setting
 static uint8_t BrushWalkerCountActive(const BrushWalker *walkers, uint8_t maxCount)
 {
   uint8_t n = 0;
@@ -1309,12 +1297,7 @@ static uint8_t BrushWalkerCountActive(const BrushWalker *walkers, uint8_t maxCou
   }
   return n;
 }
-
-static bool BrushWalkerInBounds(int16_t x, int16_t y, uint16_t cols, uint16_t rows)
-{
-  return x >= 0 && y >= 0 && x < (int16_t)cols && y < (int16_t)rows;
-}
-
+// a helper function to create a start position for spawning a new walker, starting from a random edge and moving inward
 static void BrushWalkerMakeCandidate(BrushWalker &w, uint16_t cols, uint16_t rows)
 {
   uint8_t side = hw_random8(4);
@@ -1354,6 +1337,7 @@ static void BrushWalkerMakeCandidate(BrushWalker &w, uint16_t cols, uint16_t row
   w.active = true;
 }
 
+// a helper function to check if a candidate walker spawns too close to existing active walkers with the same direction, based on a minimum gap distance
 static bool BrushWalkerConflicts(const BrushWalker *walkers, uint8_t maxCount, const BrushWalker &cand, uint8_t minGap)
 {
   for (uint8_t i = 0; i < maxCount; i++)
@@ -1416,6 +1400,7 @@ static bool BrushWalkerTrySpawn(BrushWalker *walkers, uint8_t maxCount, uint16_t
   return false;
 }
 
+// the actual main loop for the brushwalker effect
 static void mode_brushwalker(void)
 {
   if (!strip.isMatrix || !SEGMENT.is2D())
@@ -1449,7 +1434,15 @@ static void mode_brushwalker(void)
 
   if (SEGENV.call == 0)
   {
-    BrushWalkerReset(walkers, 32);
+    for (uint8_t i = 0; i < 32; i++)
+      {
+      walkers[i].active = false;
+      walkers[i].x = 0;
+      walkers[i].y = 0;
+      walkers[i].dx = 0;
+      walkers[i].dy = 0;
+      walkers[i].colorIndex = 0;
+     }
     SEGMENT.fill(SEGCOLOR(1));
     SEGENV.step = strip.now;
   }
@@ -1491,7 +1484,7 @@ static void mode_brushwalker(void)
     w.y += w.dy;
     w.colorIndex += palStep;
 
-    if (!BrushWalkerInBounds(w.x, w.y, cols, rows))
+    if (! (w.x >= 0 && w.y >= 0 && w.x < (int16_t)cols && w.y < (int16_t)rows ))
     {
       w.active = false;
     }
@@ -1542,7 +1535,15 @@ static void mode_brushwalker_ar(void)
 
   if (SEGENV.call == 0)
   {
-    BrushWalkerReset(walkers, 32);
+    for (uint8_t i = 0; i < 32; i++)
+      {
+      walkers[i].active = false;
+      walkers[i].x = 0;
+      walkers[i].y = 0;
+      walkers[i].dx = 0;
+      walkers[i].dy = 0;
+      walkers[i].colorIndex = 0;
+     }
     SEGMENT.fill(SEGCOLOR(1));
     SEGENV.step = strip.now;
   }
@@ -1599,7 +1600,7 @@ static void mode_brushwalker_ar(void)
     w.y += w.dy;
     w.colorIndex += palStep;
 
-    if (!BrushWalkerInBounds(w.x, w.y, cols, rows))
+    if (! (w.x >= 0 && w.y >= 0 && w.x < (int16_t)cols && w.y < (int16_t)rows ))
     {
       w.active = false;
     }
