@@ -12,7 +12,7 @@
 typedef struct {
     uint32_t magic;
     uint32_t crc_spiffs;    // CRC SPIFFS / Backup
-    uint32_t size_spiffs;   // Größe SPIFFS / Backup
+    uint32_t size_spiffs;   // Size of SPIFFS / Backup
 } crc_group_t;
 
 uint32_t calc_crc(const esp_partition_t* part)
@@ -62,12 +62,12 @@ bool update_spiffs_crc()
     crc_group_t stored = {};
     esp_partition_read(crcpart, 0, &stored, sizeof(stored));
 
-    // prüfen ob identisch
+    // check if magic/crc/size are equal
     if (stored.magic == SPIFFS_CRC_MAGIC &&
         stored.crc_spiffs == crc &&
         stored.size_spiffs == spiffs->size)
     {
-        // nichts zu tun
+        // nothing to do
         DEBUG_PRINTLN(F("SPIFFS CRC matches stored value, no update needed."));
         return true;
     }
