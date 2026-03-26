@@ -1270,10 +1270,9 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
  * Inspired by the concept of "Matrix", but with a more vivid, undirected and colorful twist.
  * First implementation 2019 with FastLED, but without WLED framework.
  * Redesigned and adapted for WLED in 2026, with support from claude.ai and chatGPT.
- * Controls: Speed, Spawn Chance, Palette Step, Max Walkers (up to 32)
+ * Controls: Speed, Spawn Chance, Fade Rate, Palette Step, Max Walkers (up to 32)
  *
  * @author suromark 2019,2026
- *
  *
  */
 struct BrushWalker
