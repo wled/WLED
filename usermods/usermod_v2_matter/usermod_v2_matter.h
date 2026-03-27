@@ -143,7 +143,7 @@ class MatterUsermod : public Usermod {
     if (!mPending) return;
     mPending = false;
 
-    // On / Off
+    // On / Off — when turning on with no explicit level, restore last brightness
     if (mPendingOn) {
       bri = (mPendingBri > 0) ? mPendingBri : briLast;
     } else {
@@ -216,7 +216,8 @@ class MatterUsermod : public Usermod {
       else if (g == maxC) hf = ((float)(b - r) / delta) + 2.0f;
       else                hf = ((float)(r - g) / delta) + 4.0f;
       if (hf < 0.0f) hf += 6.0f;
-      matterHue = (uint8_t)((hf / 6.0f) * 254.0f);
+      uint16_t raw = (uint16_t)((hf / 6.0f) * 254.0f + 0.5f);
+      matterHue = (raw > 254) ? 254 : (uint8_t)raw;
     }
 
     val = esp_matter_nullable_uint8(matterHue);
