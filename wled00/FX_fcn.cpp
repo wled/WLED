@@ -28,9 +28,7 @@
   19, 18, 17, 16, 15, 20, 21, 22, 23, 24, 29, 28, 27, 26, 25]}
 */
 
-#if MAX_NUM_SEGMENTS < WLED_MAX_BUSSES
-  #error "Max segments must be at least max number of busses!"
-#endif
+static_assert(MAX_NUM_SEGMENTS >= WLED_MAX_BUSSES, "Max segments must be at least max number of busses!");
 
 
 ///////////////////////////////////////////////////////////////////////////////
