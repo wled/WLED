@@ -103,12 +103,19 @@ private:
   // Mutex protecting shared state between the Zigbee task and loop()
   SemaphoreHandle_t zbStateMutex = nullptr;
 
-  // Zigbee state — written from the Zigbee task, read in loop()
+  // Zigbee→WLED state — written from the Zigbee task, read in loop()
   volatile bool    stateChanged  = false;
   volatile bool    powerOn       = true;
   volatile uint8_t zbBrightness  = 254;
   volatile uint8_t zbHue         = 0;
   volatile uint8_t zbSaturation  = 254;
+
+  // WLED→Zigbee state — written from onStateChange(), read by Zigbee task callback
+  volatile bool    reportPending  = false;
+  volatile bool    reportPowerOn  = true;
+  volatile uint8_t reportBri      = 254;
+  volatile uint8_t reportHue      = 0;
+  volatile uint8_t reportSat      = 254;
 
   // Flash-string keys
   static const char _name[];
@@ -129,6 +136,75 @@ private:
         static_cast<const esp_zb_zcl_set_attr_value_message_t *>(message));
     }
     return ESP_OK;
+  }
+
+  /* -----------------------------------------------------------------------
+   *  Zigbee scheduler callback — runs in the Zigbee task context.
+   *  Reports WLED state changes back to the coordinator by updating the
+   *  local Zigbee attribute cache, which triggers attribute reporting.
+   * ---------------------------------------------------------------------*/
+  static void zbReportStateCallback(uint8_t /*unused*/)
+  {
+    if (!instance) return;
+    auto *self = instance;
+
+    bool    rPower;
+    uint8_t rBri, rHue, rSat;
+
+    if (self->zbStateMutex && xSemaphoreTake(self->zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      if (!self->reportPending) {
+        xSemaphoreGive(self->zbStateMutex);
+        return;
+      }
+      rPower = self->reportPowerOn;
+      rBri   = self->reportBri;
+      rHue   = self->reportHue;
+      rSat   = self->reportSat;
+      self->reportPending = false;
+      xSemaphoreGive(self->zbStateMutex);
+    } else {
+      // Could not acquire mutex — schedule a retry
+      esp_zb_scheduler_alarm(zbReportStateCallback, 0, 50);
+      return;
+    }
+
+    // Update the Zigbee attribute cache — the stack will report these to the
+    // coordinator if attribute reporting is configured.
+    bool onOff = rPower;
+    esp_zb_zcl_set_attribute_val(
+      ZIGBEE_RGB_LIGHT_ENDPOINT,
+      ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+      ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID,
+      &onOff,
+      false);
+
+    esp_zb_zcl_set_attribute_val(
+      ZIGBEE_RGB_LIGHT_ENDPOINT,
+      ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL,
+      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+      ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID,
+      &rBri,
+      false);
+
+    esp_zb_zcl_set_attribute_val(
+      ZIGBEE_RGB_LIGHT_ENDPOINT,
+      ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
+      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+      ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_HUE_ID,
+      &rHue,
+      false);
+
+    esp_zb_zcl_set_attribute_val(
+      ZIGBEE_RGB_LIGHT_ENDPOINT,
+      ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
+      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+      ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_SATURATION_ID,
+      &rSat,
+      false);
+
+    ESP_LOGI("ZigbeeRGB", "Reported to coordinator: power=%d bri=%d hue=%d sat=%d",
+             rPower, rBri, rHue, rSat);
   }
 
   /* -----------------------------------------------------------------------
@@ -214,7 +290,7 @@ private:
       colPri[2] = rgb[2];
       colPri[3] = 0; // no white channel
     }
-    stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    stateUpdated(CALL_MODE_ZIGBEE);
   }
 
   /* -----------------------------------------------------------------------
@@ -342,6 +418,41 @@ public:
     if (pending) {
       applyState();
     }
+  }
+
+  /* ---- State change notification -------------------------------------- */
+
+  // Called by WLED when state changes from any source (web UI, MQTT, buttons, etc.)
+  void onStateChange(uint8_t mode) override
+  {
+    if (!enabled || !zbStarted) return;
+
+    // Avoid echo loops — don't report back changes that came from Zigbee
+    if (mode == CALL_MODE_ZIGBEE) return;
+
+    // Convert current WLED state to Zigbee attribute values
+    bool    newPower = (bri > 0);
+    uint8_t newBri   = bri;
+    // Convert RGB to HS for Zigbee using WLED's rgb2hsv()
+    uint32_t rgb32 = (uint32_t(colPri[0]) << 16) | (uint32_t(colPri[1]) << 8) | uint32_t(colPri[2]);
+    CHSV32 hsv;
+    rgb2hsv(rgb32, hsv);
+    // CHSV32 hue is 0-65535 → Zigbee hue is 0-254
+    uint8_t newHue = static_cast<uint8_t>((static_cast<uint32_t>(hsv.h) * 254U) / 65535U);
+    // CHSV32 saturation is 0-255 → Zigbee saturation is 0-254
+    uint8_t newSat = static_cast<uint8_t>((static_cast<uint16_t>(hsv.s) * 254U) / 255U);
+
+    if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+      reportPowerOn = newPower;
+      reportBri     = newBri;
+      reportHue     = newHue;
+      reportSat     = newSat;
+      reportPending = true;
+      xSemaphoreGive(zbStateMutex);
+    }
+
+    // Schedule the report to run on the Zigbee task (Zigbee APIs are not thread-safe)
+    esp_zb_scheduler_alarm(zbReportStateCallback, 0, 10);
   }
 
   /* ---- Config persistence --------------------------------------------- */

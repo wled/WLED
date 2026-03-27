@@ -263,6 +263,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define CALL_MODE_ALEXA         10
 #define CALL_MODE_WS_SEND       11     //special call mode, not for notifier, updates websocket only
 #define CALL_MODE_BUTTON_PRESET 12     //button/IR JSON preset/macro
+#define CALL_MODE_ZIGBEE        13     //Zigbee state change
 
 //RGB to RGBW conversion mode
 #define RGBW_MODE_MANUAL_ONLY     0    // No automatic white channel calculation. Manual white channel slider
