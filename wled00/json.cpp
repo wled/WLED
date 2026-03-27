@@ -1110,6 +1110,21 @@ void serializePins(JsonObject root)
     #elif defined(CONFIG_IDF_TARGET_ESP32) // ESP32 classic
     if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
     if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
+    #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    if (gpio == 28) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 27) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO28 is low for download mode
+    if (gpio == 2 || gpio == 3 || gpio == 7 || gpio == 25 || gpio == 26) caps |= PIN_CAP_BOOTSTRAP; // additional C5 strapping pins per Espressif boot configuration docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 4 || gpio == 5 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // additional C6 strapping pins per Espressif strapping-pin docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C61)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 7) caps |= PIN_CAP_BOOTSTRAP; // additional C61 strapping pin per Espressif boot-configuration docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32P4)
+    if (gpio == 35) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 36) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO35 is low for download mode    
     #endif
     #else
     // ESP8266: GPIO 0-16 + GPIO17=A0

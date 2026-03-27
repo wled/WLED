@@ -412,11 +412,20 @@ bool PinManager::isAnalogPin(byte gpio) {
   #elif CONFIG_IDF_TARGET_ESP32S3
   // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
   int adc_channel = digitalPinToAnalogChannel(gpio);
-  if (adc_channel >= 0 && adc_channel <= 9) return true;
+  if (adc_channel >= 0 && adc_channel <= 9) return true; // ADC-1
+  // ESP32-S3: ADC2 channels 0-9
+  if ((adc_channel >= SOC_ADC_CHANNEL_NUM(0)) && ((adc_channel - SOC_ADC_CHANNEL_NUM(0)) < SOC_ADC_CHANNEL_NUM(1))) return true; // ADC-2
   #elif CONFIG_IDF_TARGET_ESP32C3
   // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
   int adc_channel = digitalPinToAnalogChannel(gpio);
   if (adc_channel >= 0 && adc_channel <= 4) return true;
+  #else // C5, C6, C61, P4 - use generic SOC capability macros
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if ((adc_channel < 0) || (adc_channel >= (SOC_ADC_PERIPH_NUM * SOC_ADC_MAX_CHANNEL_NUM))) return false; // out of range
+  if (adc_channel < SOC_ADC_CHANNEL_NUM(0)) return true;                                                  // ADC-1
+  #if SOC_ADC_PERIPH_NUM > 1
+  if ((adc_channel >= SOC_ADC_CHANNEL_NUM(0)) && ((adc_channel - SOC_ADC_CHANNEL_NUM(0)) < SOC_ADC_CHANNEL_NUM(1))) return true; // ADC-2
+  #endif 
   #endif
   #endif
   return false; // not an analog pin if it doesn't have ADC capability, ESP8266 has only one ADC pin (A0) which is handled separately in button.cpp, so return false for all pins here
