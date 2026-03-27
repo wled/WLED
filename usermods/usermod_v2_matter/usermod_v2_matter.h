@@ -102,6 +102,8 @@ class MatterUsermod : public Usermod {
   uint16_t getId()     override;
 
   void addToJsonInfo(JsonObject &obj)    override;
+  void addToJsonState(JsonObject &obj)   override;
+  void readFromJsonState(JsonObject &obj) override;
   void addToConfig(JsonObject &obj)      override;
   bool readFromConfig(JsonObject &obj)   override;
 };

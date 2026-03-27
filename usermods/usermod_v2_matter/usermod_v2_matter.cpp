@@ -54,6 +54,9 @@ extern void colorUpdated(byte callMode);
 
 #include <esp_matter.h>
 #include <esp_matter_core.h>
+#include <nvs.h>
+#include <nvs_flash.h>
+#include <esp_system.h>
 
 // ── Matter cluster IDs (from the Matter Application Cluster Specification) ──
 static constexpr uint32_t MATTER_CL_ON_OFF       = 0x0006;
@@ -111,6 +114,9 @@ struct MatterUsermod::Impl {
   // ── Commissioning configuration ─────────────────────────────────────────
   uint32_t mPasscode      = 20202021;  // Matter test passcode
   uint16_t mDiscriminator = 3840;      // Matter default discriminator
+
+  // ── Pending actions set from JSON state callbacks ────────────────────────
+  volatile bool mFactoryResetPending = false;
 
   // ── QR code payload (Matter Core Spec §5.1.3) ───────────────────────────
   // Encodes onboarding info into the "MT:XXXXXX" base-38 string.
@@ -364,6 +370,58 @@ static void syncToMatter(MatterUsermod::Impl *d)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Matter-only NVS factory reset
+//
+// Erases the five NVS namespaces owned by the Matter stack without touching
+// any WLED namespaces (WiFi credentials, settings, presets etc. are preserved).
+//
+// Namespaces cleared:
+//   chip-config    — commissioning state, fabric info
+//   chip-counters  — boot/reboot counters
+//   CHIP_KVS       — fabric keys, ACLs, group keys (KeyValueStoreMgrImpl)
+//   esp_matter_kvs — persisted cluster attribute values
+//   node           — endpoint ID counter
+//
+// chip-factory is intentionally NOT erased — it holds the device attestation
+// certificates and the passcode/discriminator, which survive recommissioning.
+//
+// After clearing, the device restarts.  Because WiFi credentials remain intact
+// WLED will reconnect to the network and Matter will start in un-commissioned
+// state, ready to pair again with a new (or the same) controller.
+// ─────────────────────────────────────────────────────────────────────────────
+
+static void matterFactoryReset()
+{
+  static const char * const kNamespaces[] = {
+    "chip-config",
+    "chip-counters",
+    "CHIP_KVS",
+    "esp_matter_kvs",
+    "node",
+  };
+
+  DEBUG_PRINTLN(F("Matter: factory reset — erasing Matter NVS namespaces"));
+
+  for (const char *ns : kNamespaces) {
+    nvs_handle_t handle;
+    esp_err_t err = nvs_open(ns, NVS_READWRITE, &handle);
+    if (err == ESP_OK) {
+      nvs_erase_all(handle);
+      nvs_commit(handle);
+      nvs_close(handle);
+      DEBUG_PRINTF("Matter: cleared namespace '%s'\n", ns);
+    } else if (err == ESP_ERR_NVS_NOT_FOUND) {
+      DEBUG_PRINTF("Matter: namespace '%s' not found (skipping)\n", ns);
+    } else {
+      DEBUG_PRINTF("Matter: failed to open namespace '%s' (0x%x)\n", ns, err);
+    }
+  }
+
+  DEBUG_PRINTLN(F("Matter: restarting..."));
+  esp_restart();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MatterUsermod public interface
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -454,6 +512,10 @@ void MatterUsermod::setup()
 void MatterUsermod::loop()
 {
   if (!pImpl->mStarted) return;
+  if (pImpl->mFactoryResetPending) {
+    pImpl->mFactoryResetPending = false;
+    matterFactoryReset();  // does not return — calls esp_restart()
+  }
   applyPending(pImpl);
   syncToMatter(pImpl);
 }
@@ -513,8 +575,26 @@ void MatterUsermod::addToJsonInfo(JsonObject &obj)
   qrArr.add(link);
 }
 
-void MatterUsermod::addToConfig(JsonObject &obj)
+void MatterUsermod::addToJsonState(JsonObject &obj)
 {
+  // Report whether a factory reset is pending (for polling clients).
+  JsonObject top = obj.createNestedObject(F("Matter"));
+  top[F("factoryReset")] = false;  // always false in report; set to true to trigger
+}
+
+void MatterUsermod::readFromJsonState(JsonObject &obj)
+{
+  // Trigger a Matter-only factory reset (preserves WLED WiFi credentials):
+  //   POST /json/state  {"Matter":{"factoryReset":true}}
+  JsonObject top = obj[F("Matter")];
+  if (top.isNull()) return;
+  if (top[F("factoryReset")] | false) {
+    DEBUG_PRINTLN(F("Matter: factory reset requested via JSON state"));
+    pImpl->mFactoryResetPending = true;
+  }
+}
+
+void MatterUsermod::addToConfig(JsonObject &obj){
   JsonObject top = obj.createNestedObject(F("Matter"));
   top[F("passcode")]      = pImpl->mPasscode;
   top[F("discriminator")] = pImpl->mDiscriminator;
