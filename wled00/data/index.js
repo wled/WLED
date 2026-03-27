@@ -310,7 +310,7 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
-	// limter for all number inputs: limit inputs instantly
+	// limiter for all number inputs: limit inputs instantly
 	d.addEventListener("input", function(e) {
 		const t = e.target;
 		if (t.tagName === "INPUT" && t.type === "number") {
