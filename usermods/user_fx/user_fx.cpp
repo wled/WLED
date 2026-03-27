@@ -1373,17 +1373,15 @@ static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t 
 
 static void mode_brushwalker_core(uint8_t triggerMode) {
   const uint8_t absoluteMaxWalkers = 32;
-  if (!strip.isMatrix || !SEGMENT.is2D()) {
-    SEGMENT.fill(SEGCOLOR(1));
-    return;
-  }
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
 
+  uint32_t triggerGate = 0;
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
   Walker* walkers = reinterpret_cast<Walker*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
-    if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) return;
+    if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) FX_FALLBACK_STATIC;
     for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
     SEGMENT.fill(SEGCOLOR(1));
     SEGENV.step = strip.now;
@@ -1406,14 +1404,18 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
     um_data_t* um_data;
     if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
       um_data = simulateSound(SEGMENT.soundSim);
-    if (um_data &&
-        (*(uint8_t*)um_data->u_data[2] || hw_random8() < sensitivity))
+    if ( ( um_data && *(uint8_t*)um_data->u_data[3] ) || hw_random8() < sensitivity )
       shouldSpawn = true;
   } else {
     if (hw_random8() < sensitivity) shouldSpawn = true;
   }
 
-  if (shouldSpawn) trySpawn(walkers, maxWalkers, cols, rows);
+  if (shouldSpawn) {
+    if( SEGENV.step < triggerGate ) {
+      triggerGate = SEGENV.step + 150; // de-clogging, avoid immediate respawn
+      trySpawn(walkers, maxWalkers, cols, rows);
+    }
+  }
 
   // Object-Oriented Update Loop
   for (uint8_t i = 0; i < maxWalkers; i++) {
