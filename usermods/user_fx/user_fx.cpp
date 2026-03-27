@@ -1318,7 +1318,7 @@ struct Walker {
         break;  // right
     }
     colorIndex = hw_random8();
-    active = true;
+    active = false;
   }
 
   // Logic to prevent overcrowding
@@ -1366,9 +1366,10 @@ static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t 
   const uint8_t minGap = 8;
   for (uint8_t retry = 0; retry < 2; retry++) {
     walkers[freeSlot].makeCandidate(cols, rows);
-    if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) return;
+    if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) {
+      walkers[freeSlot].active = true;
+    }
   }
-  walkers[freeSlot].active = false;
 }
 
 static void mode_brushwalker_core(uint8_t triggerMode) {
@@ -1378,15 +1379,19 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
   uint32_t triggerGate = 0;
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
-  Walker* walkers = reinterpret_cast<Walker*>(SEGENV.data);
-
-  if (SEGENV.call == 0) {
+  if (SEGENV.call == 0) { // request status memory on first call
     if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) FX_FALLBACK_STATIC;
-    for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
-    SEGMENT.fill(SEGCOLOR(1));
-    SEGENV.step = strip.now;
   }
 
+  Walker* walkers = reinterpret_cast<Walker*>(SEGENV.data);
+
+  if (SEGENV.call == 0) { // init values on first call
+      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
+      SEGMENT.fill(SEGCOLOR(1));
+      SEGENV.step = strip.now;
+    }
+
+  // timing
   uint16_t interval = 8 + ((255 - SEGMENT.speed) >> 1);
   if (strip.now - SEGENV.step < interval) return;
   SEGENV.step = strip.now;
@@ -1411,10 +1416,11 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
   }
 
   if (shouldSpawn) {
-    if( SEGENV.step < triggerGate ) {
-      triggerGate = SEGENV.step + 150; // de-clogging, avoid immediate respawn
+    if( SEGENV.step > triggerGate ) {
+      triggerGate = SEGENV.step + 150 + 255 - sensitivity; // de-clogging, avoid immediate respawn
       trySpawn(walkers, maxWalkers, cols, rows);
     }
+    shouldSpawn = false;
   }
 
   // Object-Oriented Update Loop
@@ -1435,7 +1441,7 @@ static void mode_brushwalker(void) { BrushWalkerFX::mode_brushwalker_core(0); }
 // <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
 static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
     "Brush Walker@!,Spawn,Fade,Palette Step,Max "
-    "Walkers;,!;!;2;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
+    "Walkers;,!;!;2;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
 
 /**
  * @brief Brushwalker mode with audioreactive triggering - if a peak is
@@ -1448,7 +1454,7 @@ static void mode_brushwalker_ar(void) {
 
 static const char _data_FX_MODE_BRUSHWALKER_AR[] PROGMEM =
     "Brush Walker AR@!,Sensitivity,Fade,Palette Step,Max "
-    "Walkers;,!;!;2v;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
+    "Walkers;,!;!;2v;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // END BrushWalker
