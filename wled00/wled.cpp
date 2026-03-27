@@ -691,6 +691,16 @@ void WLED::initAP(bool resetAP)
   }
   DEBUG_PRINT(F("Opening access point "));
   DEBUG_PRINTLN(apSSID);
+
+  #ifdef ARDUINO_ARCH_ESP32
+  // reset band mode to "auto" before starting AP
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2)
+  if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {
+    DEBUG_PRINTLN(F("initAP(): Wifi band configuration failed!\n"));
+  }
+  #endif
+  #endif
+
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
   #ifdef ARDUINO_ARCH_ESP32
