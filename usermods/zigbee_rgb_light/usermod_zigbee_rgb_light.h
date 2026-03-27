@@ -7,8 +7,8 @@
  *
  * Requires:
  *   - ESP32-C6 target (native 802.15.4 radio)
- *   - esp-zigbee-lib and esp-zboss-lib (declared in library.json)
- *   - Add zigbee_rgb_light to custom_usermods in your platformio env
+ *   - esp-zigbee-lib and esp-zboss-lib (bundled in arduino-esp32 framework)
+ *   - Define USERMOD_ZIGBEE_RGB_LIGHT in build_flags; included via usermods_list.cpp
  */
 
 #ifdef CONFIG_IDF_TARGET_ESP32C6
@@ -17,6 +17,7 @@
 
 #include "esp_zigbee_core.h"
 #include "ha/esp_zigbee_ha_standard.h"
+#include "esp_coexist.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -27,9 +28,12 @@
   #define ZIGBEE_RGB_LIGHT_ENDPOINT 10
 #endif
 
-// Stack size for the Zigbee FreeRTOS task (in bytes)
+// Stack size for the Zigbee FreeRTOS task (in bytes).
+// The WiFi+Zigbee gateway example from Espressif uses 8192; 4096 is enough for
+// a pure light but the coexistence init path (esp_coex_wifi_i154_enable) adds
+// several hundred bytes of additional stack usage.
 #ifndef ZIGBEE_TASK_STACK_SIZE
-  #define ZIGBEE_TASK_STACK_SIZE 4096
+  #define ZIGBEE_TASK_STACK_SIZE 8192
 #endif
 
 // Priority for the Zigbee FreeRTOS task
@@ -47,16 +51,41 @@ extern "C" void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
   esp_zb_app_signal_type_t sig_type = (esp_zb_app_signal_type_t)*p_sg_p;
 
   switch (sig_type) {
+    case ESP_ZB_ZDO_SIGNAL_PRODUCTION_CONFIG_READY:
+      // Fires during early startup; ESP_OK = production config loaded from NVS,
+      // any other status = no production config found (normal on new devices).
+      ESP_LOGI("ZigbeeRGB", "Production config: %s",
+               (err_status == ESP_OK) ? "loaded" : "not found (normal)");
+      break;
     case ESP_ZB_ZDO_SIGNAL_SKIP_STARTUP:
+      ESP_LOGI("ZigbeeRGB", "Zigbee stack started (SKIP_STARTUP)");
       esp_zb_bdb_start_top_level_commissioning(ESP_ZB_BDB_MODE_INITIALIZATION);
       break;
     case ESP_ZB_BDB_SIGNAL_DEVICE_FIRST_START:
     case ESP_ZB_BDB_SIGNAL_DEVICE_REBOOT:
       if (err_status == ESP_OK) {
+        ESP_LOGI("ZigbeeRGB", "Zigbee BDB init OK, starting network steering");
         esp_zb_bdb_start_top_level_commissioning(ESP_ZB_BDB_MODE_NETWORK_STEERING);
+      } else {
+        ESP_LOGE("ZigbeeRGB", "Zigbee BDB init failed: 0x%x", err_status);
       }
       break;
+    case ESP_ZB_BDB_SIGNAL_STEERING:
+      // Fires when network steering scan completes.  ESP_OK = joined a network;
+      // any other status = no coordinator found (normal when not yet paired).
+      ESP_LOGI("ZigbeeRGB", "Network steering complete, status: 0x%x%s",
+               err_status, (err_status == ESP_OK) ? " (joined)" : " (no network, will retry)");
+      if (err_status != ESP_OK) {
+        // Retry steering after a short pause so we do not busy-loop the RF.
+        esp_zb_scheduler_alarm((esp_zb_callback_t)esp_zb_bdb_start_top_level_commissioning,
+                               ESP_ZB_BDB_MODE_NETWORK_STEERING, 5000);
+      }
+      break;
+    case ESP_ZB_NWK_SIGNAL_PERMIT_JOIN_STATUS:
+      ESP_LOGI("ZigbeeRGB", "Network steering: permit join status");
+      break;
     default:
+      ESP_LOGI("ZigbeeRGB", "Zigbee signal: 0x%x, status: 0x%x", sig_type, err_status);
       break;
   }
 }
@@ -66,8 +95,9 @@ extern "C" void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
  * -------------------------------------------------------------------------*/
 class ZigbeeRGBLightUsermod : public Usermod {
 private:
-  bool enabled  = true;
-  bool initDone = false;
+  bool enabled      = true;
+  bool initDone     = false;
+  bool zbStarted    = false;  // true once the Zigbee task has been launched
   TaskHandle_t zbTaskHandle = nullptr;
 
   // Mutex protecting shared state between the Zigbee task and loop()
@@ -189,15 +219,11 @@ private:
 
   /* -----------------------------------------------------------------------
    *  FreeRTOS task — runs the Zigbee stack
+   *  Note: esp_zb_platform_config() is called in setup() before this task
+   *  is created, matching the pattern in Espressif's IDF examples.
    * ---------------------------------------------------------------------*/
   static void zigbeeTask(void *pvParameters)
   {
-    // Platform configuration — native 802.15.4 radio on the C6
-    esp_zb_platform_config_t platform_cfg = {};
-    platform_cfg.radio_config.radio_mode             = ZB_RADIO_MODE_NATIVE;
-    platform_cfg.host_config.host_connection_mode     = ZB_HOST_CONNECTION_MODE_NONE;
-    ESP_ERROR_CHECK(esp_zb_platform_config(&platform_cfg));
-
     // Initialise the Zigbee stack as an End Device
     esp_zb_cfg_t zb_nwk_cfg = {};
     zb_nwk_cfg.esp_zb_role        = ESP_ZB_DEVICE_TYPE_ED;
@@ -215,21 +241,42 @@ private:
     // Register the attribute-write callback
     esp_zb_core_action_handler_register(zb_action_handler);
 
-    // Set the primary channel mask (all standard Zigbee channels)
-    esp_zb_set_primary_network_channel_set(ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK);
+    // Set the primary channel mask.
+    // Channel 26 (2480 MHz) has ZERO spectral overlap with any WiFi channel —
+    // the 802.11 spectrum ends at ~2472 MHz (ch13).  This is the safest choice
+    // for WiFi AP coexistence.  Channel 25 (2475 MHz) still has partial overlap
+    // with WiFi ch13/14; channel 26 does not.
+    // Channel 26 bit in the mask = (1 << (26 - 11)) = bit 15 = 0x00008000.
+    esp_zb_set_primary_network_channel_set(1 << (26 - 11));
 
     // Start the stack (false = not coordinator)
     ESP_ERROR_CHECK(esp_zb_start(false));
 
-    // Run the Zigbee main loop (one iteration at a time)
-    for (;;) {
-      esp_zb_main_loop_iteration();
-    }
-    // Task never returns; handle is cleaned up if the usermod is disabled
+    // Run the Zigbee main loop — never returns
+    esp_zb_stack_main_loop();
+    vTaskDelete(nullptr);
   }
 
 public:
-  ZigbeeRGBLightUsermod() { instance = this; }
+  ZigbeeRGBLightUsermod() {
+    instance = this;
+
+    // Enable 802.15.4 / WiFi coexistence arbitration as the very first thing,
+    // before esp_wifi_init() is called.  WLED calls WiFi.mode() only after
+    // UsermodManager::setup() returns, so the constructor is the earliest safe
+    // point.  Calling this AFTER esp_wifi_init() (e.g. in setup()) forces the
+    // WiFi driver to internally stop/restart, which tears down the AP netif and
+    // races the DHCP server — causing clients to see the SSID but fail to
+    // obtain an IP address.
+#if defined(CONFIG_ESP_COEX_SW_COEXIST_ENABLE) || defined(CONFIG_ESP_COEX_ENABLED)
+    esp_err_t coex_err = esp_coex_wifi_i154_enable();
+    if (coex_err == ESP_OK) {
+      ESP_LOGI("ZigbeeRGB", "WiFi/802.15.4 coexistence pre-armed in constructor (ret=0x0)");
+    } else {
+      ESP_LOGE("ZigbeeRGB", "esp_coex_wifi_i154_enable in constructor failed: 0x%x", coex_err);
+    }
+#endif
+  }
 
   /* ---- Lifecycle ------------------------------------------------------ */
 
@@ -240,6 +287,38 @@ public:
     zbStateMutex = xSemaphoreCreateMutex();
     if (!zbStateMutex) return;
 
+    // Note: esp_coex_wifi_i154_enable() was already called in the constructor,
+    // before esp_wifi_init().  Do NOT call it here again — calling it after
+    // WiFi is initialised forces an internal WiFi stop/restart that races the
+    // DHCP server and breaks AP client connections.
+
+    // Configure the Zigbee platform now (before any task is created), matching
+    // the pattern in Espressif's IDF examples where esp_zb_platform_config()
+    // is called in app_main before RTOS tasks start.
+    esp_zb_platform_config_t platform_cfg = {};
+    platform_cfg.radio_config.radio_mode          = ZB_RADIO_MODE_NATIVE;
+    platform_cfg.host_config.host_connection_mode = ZB_HOST_CONNECTION_MODE_NONE;
+    if (esp_zb_platform_config(&platform_cfg) != ESP_OK) {
+      DEBUG_PRINTLN(F("ZigbeeRGBLight: esp_zb_platform_config failed"));
+      return;
+    }
+
+    initDone = true;
+    // The Zigbee task is NOT started here.  It will be started by
+    // connected() once the device has a WiFi client (STA) IP address.
+    // This avoids the 802.15.4 radio interfering with the WiFi AP before
+    // a home network connection is established.
+    DEBUG_PRINTLN(F("ZigbeeRGBLight: ready, waiting for WiFi STA connection"));
+  }
+
+  // Called by WLED when the STA interface gets an IP address (i.e. we are
+  // connected to a home WiFi network).  This is the trigger to start Zigbee.
+  void connected() override
+  {
+    if (!enabled || !initDone || zbStarted) return;
+
+    ESP_LOGI("ZigbeeRGB", "WiFi STA connected — starting Zigbee task");
+
     if (xTaskCreate(
           zigbeeTask,
           "zigbee_rgb",
@@ -247,14 +326,18 @@ public:
           nullptr,
           ZIGBEE_TASK_PRIORITY,
           &zbTaskHandle
-        ) != pdPASS) return;
+        ) != pdPASS) {
+      ESP_LOGE("ZigbeeRGB", "Failed to create Zigbee task");
+      return;
+    }
 
-    initDone = true;
+    zbStarted = true;
+    DEBUG_PRINTLN(F("ZigbeeRGBLight: Zigbee task created"));
   }
 
   void loop() override
   {
-    if (!enabled || !initDone || strip.isUpdating()) return;
+    if (!enabled || !zbStarted || strip.isUpdating()) return;
 
     bool pending = false;
     if (zbStateMutex && xSemaphoreTake(zbStateMutex, 0) == pdTRUE) {
@@ -303,9 +386,5 @@ public:
 ZigbeeRGBLightUsermod *ZigbeeRGBLightUsermod::instance   = nullptr;
 const char ZigbeeRGBLightUsermod::_name[]    PROGMEM = "ZigbeeRGBLight";
 const char ZigbeeRGBLightUsermod::_enabled[] PROGMEM = "enabled";
-
-/* -- Registration ------------------------------------------------------- */
-static ZigbeeRGBLightUsermod zigbee_rgb_light_mod;
-REGISTER_USERMOD(zigbee_rgb_light_mod);
 
 #endif // CONFIG_IDF_TARGET_ESP32C6

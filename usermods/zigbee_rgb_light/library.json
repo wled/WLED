@@ -1,8 +1,0 @@
-{
-  "name": "zigbee_rgb_light",
-  "build": { "libArchive": false },
-  "dependencies": {
-    "espressif/esp-zigbee-lib": "~1.0",
-    "espressif/esp-zboss-lib": "~1.0"
-  }
-}
