@@ -1259,171 +1259,194 @@ static void mode_morsecode(void) {
 }
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
-
-
 /**********************************************************************************************
  * BrushWalker
  * Uses palette for the trails and background color as fade target.
- * Walkers spawn randomly from the edges and move in straight lines across the matrix,
- * changing color as they go, leaving (fading) trails of "painted" color behind them.
- * Tries to avoid spawning new walkers too close to existing ones 
+ * Walkers spawn randomly from the edges and move in straight lines across the
+ * matrix, changing color as they go, leaving (fading) trails of "painted" color
+ * behind them. Tries to avoid spawning new walkers too close to existing ones
  * to prevent overcrowding and create a more visually appealing distribution.
- * Inspired by the concept of "Matrix", but with a more vivid, undirected and colorful twist.
- * First implementation 2019 with FastLED, but without WLED framework.
- * Redesigned and adapted for WLED in 2026, with parts from claude.ai, Gemini, chatGPT, Grok.
- * Controls: Speed, Spawn Chance, Fade Rate, Palette Step, Max Walkers (up to 32)
+ * Inspired by the concept of "Matrix", but with a more vivid, undirected and
+ * colorful twist. First implementation 2019 with FastLED, but without WLED
+ * framework. Redesigned and adapted for WLED in 2026, with parts from
+ * claude.ai, Gemini, chatGPT, Grok. Controls: Speed, Spawn Chance, Fade Rate,
+ * Palette Step, Max Walkers (up to 32)
  *
  * @author suromark 2019,2026
  *
  */
 namespace BrushWalkerFX {
 
-  struct Walker {
-    bool active;
-    int16_t x, y;
-    int8_t dx, dy;
-    uint8_t colorIndex;
+struct Walker {
+  bool active;
+  int16_t x, y;
+  int8_t dx, dy;
+  uint8_t colorIndex;
 
-    void reset() {
-      active = false;
-      x = y = dx = dy = colorIndex = 0;
+  void reset() {
+    active = false;
+    x = y = dx = dy = colorIndex = 0;
+  }
+
+  // Generates a starting position and direction
+  void makeCandidate(uint16_t cols, uint16_t rows) {
+    uint8_t side = hw_random8(4);
+    switch (side) {
+      case 0:
+        x = hw_random16(cols);
+        y = 0;
+        dx = 0;
+        dy = 1;
+        break;  // top
+      case 1:
+        x = hw_random16(cols);
+        y = rows - 1;
+        dx = 0;
+        dy = -1;
+        break;  // bottom
+      case 2:
+        x = 0;
+        y = hw_random16(rows);
+        dx = 1;
+        dy = 0;
+        break;  // left
+      default:
+        x = cols - 1;
+        y = hw_random16(rows);
+        dx = -1;
+        dy = 0;
+        break;  // right
     }
+    colorIndex = hw_random8();
+    active = true;
+  }
 
-    // Generates a starting position and direction
-    void makeCandidate(uint16_t cols, uint16_t rows) {
-      uint8_t side = hw_random8(4);
-      switch (side) {
-        case 0: x = hw_random16(cols); y = 0; dx = 0; dy = 1; break;          // top
-        case 1: x = hw_random16(cols); y = rows - 1; dx = 0; dy = -1; break;     // bottom
-        case 2: x = 0; y = hw_random16(rows); dx = 1; dy = 0; break;         // left
-        default: x = cols - 1; y = hw_random16(rows); dx = -1; dy = 0; break;    // right
-      }
-      colorIndex = hw_random8();
-      active = true;
-    }
-
-    // Logic to prevent overcrowding
-    bool hasConflict(const Walker *walkers, uint8_t maxCount, uint8_t minGap) {
-      for (uint8_t i = 0; i < maxCount; i++) {
-        const Walker &other = walkers[i];
-        if (!other.active || &other == this) continue; 
-        if (other.dx != dx || other.dy != dy) continue;
-        if (dy == 0 && other.y == y && abs(other.x - x) < minGap) return true;
-        if (dx == 0 && other.x == x && abs(other.y - y) < minGap) return true;
-      }
-      return false;
-    }
-
-    // Moves the walker and paints the pixel
-    void update(uint16_t cols, uint16_t rows, uint8_t palStep) {
-      if (!active) return;
-      
-      uint32_t c = (SEGMENT.palette > 0) 
-                  ? SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0) 
-                  : SEGCOLOR(0);
-                  
-      SEGMENT.setPixelColorXY(x, y, c);
-
-      x += dx;
-      y += dy;
-      colorIndex += palStep;
-
-      if (x < 0 || y < 0 || x >= (int16_t)cols || y >= (int16_t)rows) {
-        active = false;
-      }
-    }
-  };
-
-  static void trySpawn(Walker *walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
-    int freeSlot = -1;
+  // Logic to prevent overcrowding
+  bool hasConflict(const Walker* walkers, uint8_t maxCount, uint8_t minGap) {
     for (uint8_t i = 0; i < maxCount; i++) {
-      if (!walkers[i].active) { freeSlot = i; break; }
+      const Walker& other = walkers[i];
+      if (!other.active || &other == this) continue;
+      if (other.dx != dx || other.dy != dy) continue;
+      if (dy == 0 && other.y == y && abs(other.x - x) < minGap) return true;
+      if (dx == 0 && other.x == x && abs(other.y - y) < minGap) return true;
     }
-    if (freeSlot < 0) return;
-
-    const uint8_t minGap = 8;
-    for (uint8_t retry = 0; retry < 2; retry++) {
-      walkers[freeSlot].makeCandidate(cols, rows);
-      if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) return;
-    }
-    walkers[freeSlot].active = false; 
+    return false;
   }
 
-  static void mode_brushwalker_core(uint8_t triggerMode) {
-    const uint8_t absoluteMaxWalkers = 32;
-    if (!strip.isMatrix || !SEGMENT.is2D()) {
-      SEGMENT.fill(SEGCOLOR(1));
-      return;
+  // Moves the walker and paints the pixel
+  void update(uint16_t cols, uint16_t rows, uint8_t palStep) {
+    if (!active) return;
+
+    uint32_t c = (SEGMENT.palette > 0)
+                     ? SEGMENT.color_from_palette(colorIndex, false, PALETTE_SOLID_WRAP, 0)
+                     : SEGCOLOR(0);
+
+    SEGMENT.setPixelColorXY(x, y, c);
+
+    x += dx;
+    y += dy;
+    colorIndex += palStep;
+
+    if (x < 0 || y < 0 || x >= (int16_t)cols || y >= (int16_t)rows) {
+      active = false;
     }
+  }
+};
 
-    const uint16_t cols = SEG_W;
-    const uint16_t rows = SEG_H;
-    Walker *walkers = reinterpret_cast<Walker *>(SEGENV.data);
-
-    if (SEGENV.call == 0) {
-      if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) return;
-      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
-      SEGMENT.fill(SEGCOLOR(1));
-      SEGENV.step = strip.now;
+static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
+  int freeSlot = -1;
+  for (uint8_t i = 0; i < maxCount; i++) {
+    if (!walkers[i].active) {
+      freeSlot = i;
+      break;
     }
+  }
+  if (freeSlot < 0) return;
 
-    uint16_t interval = 8 + ((255 - SEGMENT.speed) >> 1);
-    if (strip.now - SEGENV.step < interval) return;
+  const uint8_t minGap = 8;
+  for (uint8_t retry = 0; retry < 2; retry++) {
+    walkers[freeSlot].makeCandidate(cols, rows);
+    if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) return;
+  }
+  walkers[freeSlot].active = false;
+}
+
+static void mode_brushwalker_core(uint8_t triggerMode) {
+  const uint8_t absoluteMaxWalkers = 32;
+  if (!strip.isMatrix || !SEGMENT.is2D()) {
+    SEGMENT.fill(SEGCOLOR(1));
+    return;
+  }
+
+  const uint16_t cols = SEG_W;
+  const uint16_t rows = SEG_H;
+  Walker* walkers = reinterpret_cast<Walker*>(SEGENV.data);
+
+  if (SEGENV.call == 0) {
+    if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) return;
+    for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
+    SEGMENT.fill(SEGCOLOR(1));
     SEGENV.step = strip.now;
-
-    uint8_t sensitivity = SEGMENT.intensity;
-    uint8_t fadeRate = SEGMENT.custom1 >> 1;
-    uint8_t palStep = SEGMENT.custom2 >> 4;
-    uint8_t maxWalkers = min((int)(1 + SEGMENT.custom3), (int)absoluteMaxWalkers);
-
-    SEGMENT.fadeToSecondaryBy(fadeRate);
-
-    // Trigger Logic
-    bool shouldSpawn = false;
-    if (triggerMode == 1) {
-      um_data_t *um_data;
-      if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
-        um_data = simulateSound(SEGMENT.soundSim);
-      if (um_data && (*(uint8_t *)um_data->u_data[2] || hw_random8() < sensitivity)) 
-        shouldSpawn = true;
-    } else {
-      if (hw_random8() < sensitivity) shouldSpawn = true;
-    }
-
-    if (shouldSpawn) trySpawn(walkers, maxWalkers, cols, rows);
-
-    // Object-Oriented Update Loop
-    for (uint8_t i = 0; i < maxWalkers; i++) {
-      walkers[i].update(cols, rows, palStep);
-    }
   }
 
-} // end namespace BrushWalkerFX
+  uint16_t interval = 8 + ((255 - SEGMENT.speed) >> 1);
+  if (strip.now - SEGENV.step < interval) return;
+  SEGENV.step = strip.now;
 
+  uint8_t sensitivity = SEGMENT.intensity;
+  uint8_t fadeRate = SEGMENT.custom1 >> 1;
+  uint8_t palStep = SEGMENT.custom2 >> 4;
+  uint8_t maxWalkers = min((int)(1 + SEGMENT.custom3), (int)absoluteMaxWalkers);
+
+  SEGMENT.fadeToSecondaryBy(fadeRate);
+
+  // Trigger Logic
+  bool shouldSpawn = false;
+  if (triggerMode == 1) {
+    um_data_t* um_data;
+    if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
+      um_data = simulateSound(SEGMENT.soundSim);
+    if (um_data &&
+        (*(uint8_t*)um_data->u_data[2] || hw_random8() < sensitivity))
+      shouldSpawn = true;
+  } else {
+    if (hw_random8() < sensitivity) shouldSpawn = true;
+  }
+
+  if (shouldSpawn) trySpawn(walkers, maxWalkers, cols, rows);
+
+  // Object-Oriented Update Loop
+  for (uint8_t i = 0; i < maxWalkers; i++) {
+    walkers[i].update(cols, rows, palStep);
+  }
+}
+
+}  // end namespace BrushWalkerFX
 
 /**
- * @brief Brushwalker mode with random spawning only - if random chance based on sensitivity slider hits, a new walker will spawn
- * 
+ * @brief Brushwalker mode with random spawning only - if random chance based on
+ * sensitivity slider hits, a new walker will spawn
+ *
  */
-static void mode_brushwalker(void)
-{
-  BrushWalkerFX::mode_brushwalker_core(0);
-}
+static void mode_brushwalker(void) { BrushWalkerFX::mode_brushwalker_core(0); }
 // The metadata string consists of up to five sections, separated by semicolons:
 // <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
 static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
-    "Brush Walker@!,Spawn,Fade,Palette Step,Max Walkers;,!;!;2;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
+    "Brush Walker@!,Spawn,Fade,Palette Step,Max "
+    "Walkers;,!;!;2;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
 
-/** 
- * @brief Brushwalker mode with audioreactive triggering - if a peak is detected, or if random chance based on sensitivity slider hits, a new walker will spawn
-*/
-static void mode_brushwalker_ar(void) 
-{
+/**
+ * @brief Brushwalker mode with audioreactive triggering - if a peak is
+ * detected, or if random chance based on sensitivity slider hits, a new walker
+ * will spawn
+ */
+static void mode_brushwalker_ar(void) {
   BrushWalkerFX::mode_brushwalker_core(1);
 }
 
 static const char _data_FX_MODE_BRUSHWALKER_AR[] PROGMEM =
-    "Brush Walker AR@!,Sensitivity,Fade,Palette Step,Max Walkers;,!;!;2v;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
+    "Brush Walker AR@!,Sensitivity,Fade,Palette Step,Max "
+    "Walkers;,!;!;2v;pal=11,sx=200,ix=64,c1=48,c2=24,c3=16";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // END BrushWalker
