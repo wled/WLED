@@ -99,7 +99,9 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
       #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
     #endif
   #endif
+#ifndef WLED_MAX_DIGITAL_CHANNELS
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+#endif
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time
