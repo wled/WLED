@@ -22,13 +22,20 @@ def inject_before_marker(path, marker):
 
 
 if env.get("PIOPLATFORM") == "espressif32":
-    # Find sections.ld on the linker search path (LIBPATH).
+    # Find sections.ld on the linker search path (LIBPATH), or fall back to
+    # BUILD_DIR (the dual-framework espidf+arduino build generates sections.ld
+    # directly in BUILD_DIR and passes it as a bare filename in LINKFLAGS).
     sections_ld_path = None
     for ld_dir in env.get("LIBPATH", []):
         candidate = Path(str(ld_dir)) / "sections.ld"
         if candidate.exists():
             sections_ld_path = candidate
             break
+    if sections_ld_path is None:
+        build_dir = Path(env.subst("$BUILD_DIR"))
+        candidate = build_dir / "sections.ld"
+        if candidate.exists():
+            sections_ld_path = candidate
 
     if sections_ld_path is not None:
         # Inject inside the existing .flash.rodata output section, just before
