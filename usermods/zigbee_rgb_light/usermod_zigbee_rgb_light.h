@@ -260,22 +260,6 @@ private:
 public:
   ZigbeeRGBLightUsermod() {
     instance = this;
-
-    // Enable 802.15.4 / WiFi coexistence arbitration as the very first thing,
-    // before esp_wifi_init() is called.  WLED calls WiFi.mode() only after
-    // UsermodManager::setup() returns, so the constructor is the earliest safe
-    // point.  Calling this AFTER esp_wifi_init() (e.g. in setup()) forces the
-    // WiFi driver to internally stop/restart, which tears down the AP netif and
-    // races the DHCP server — causing clients to see the SSID but fail to
-    // obtain an IP address.
-#if defined(CONFIG_ESP_COEX_SW_COEXIST_ENABLE) || defined(CONFIG_ESP_COEX_ENABLED)
-    esp_err_t coex_err = esp_coex_wifi_i154_enable();
-    if (coex_err == ESP_OK) {
-      ESP_LOGI("ZigbeeRGB", "WiFi/802.15.4 coexistence pre-armed in constructor (ret=0x0)");
-    } else {
-      ESP_LOGE("ZigbeeRGB", "esp_coex_wifi_i154_enable in constructor failed: 0x%x", coex_err);
-    }
-#endif
   }
 
   /* ---- Lifecycle ------------------------------------------------------ */
@@ -284,13 +268,23 @@ public:
   {
     if (!enabled) return;
 
+    // Enable 802.15.4 / WiFi coexistence arbitration before esp_wifi_init().
+    // WLED calls WiFi.mode() (which triggers esp_wifi_init()) only AFTER
+    // UsermodManager::setup() returns, so this is the correct place.
+    // NOTE: this must NOT be in the constructor — with REGISTER_USERMOD the
+    // static instance is constructed during do_global_ctors, before the IDF
+    // coexistence subsystem is initialised, causing a Load access fault.
+#if defined(CONFIG_ESP_COEX_SW_COEXIST_ENABLE) || defined(CONFIG_ESP_COEX_ENABLED)
+    esp_err_t coex_err = esp_coex_wifi_i154_enable();
+    if (coex_err == ESP_OK) {
+      ESP_LOGI("ZigbeeRGB", "WiFi/802.15.4 coexistence enabled (before WiFi.mode)");
+    } else {
+      ESP_LOGE("ZigbeeRGB", "esp_coex_wifi_i154_enable failed: 0x%x", coex_err);
+    }
+#endif
+
     zbStateMutex = xSemaphoreCreateMutex();
     if (!zbStateMutex) return;
-
-    // Note: esp_coex_wifi_i154_enable() was already called in the constructor,
-    // before esp_wifi_init().  Do NOT call it here again — calling it after
-    // WiFi is initialised forces an internal WiFi stop/restart that races the
-    // DHCP server and breaks AP client connections.
 
     // Configure the Zigbee platform now (before any task is created), matching
     // the pattern in Espressif's IDF examples where esp_zb_platform_config()
