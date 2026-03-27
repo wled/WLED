@@ -169,6 +169,22 @@ static void appendGPIOinfo(Print& settingsScript)
 
   // add info about max. # of pins
   settingsScript.printf_P(PSTR("d.max_gpio=%d;"),WLED_NUM_PINS);
+
+  // add info about touch-capable GPIO (ESP32 only, not on C3)
+  #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  settingsScript.print(F("d.touch=["));
+  firstPin = true;
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (digitalPinToTouchChannel(i) >= 0) {
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
+  settingsScript.print(F("];"));
+  #else
+  settingsScript.print(F("d.touch=[];"));
+  #endif
 }
 
 //get values for settings form in javascript
@@ -177,7 +193,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
-  if (subPage <0 || subPage >10) return;
+  if (subPage <0 || subPage >SUBPAGE_LAST) return;
   char nS[32];
 
   if (subPage == SUBPAGE_MENU)
@@ -312,9 +328,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
-      WLED_MAX_BUSSES,
-      WLED_MIN_VIRTUAL_BUSSES, // irrelevant, but kept to distinguish S2/S3 in UI
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+      WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
       MAX_LEDS,
@@ -324,6 +339,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       2, 6, 
 #else
       WLED_MAX_DIGITAL_CHANNELS,
+      WLED_MAX_RMT_CHANNELS,
+      WLED_MAX_I2S_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
 #endif
 		WLED_MAX_BUTTONS
@@ -336,7 +353,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("CB"),Bus::getCCTBlend());
     printSetFormValue(settingsScript,PSTR("FR"),strip.getTargetFps());
     printSetFormValue(settingsScript,PSTR("AW"),Bus::getGlobalAWMode());
-    printSetFormCheckbox(settingsScript,PSTR("PR"),BusManager::hasParallelOutput());  // get it from bus manager not global variable
 
     unsigned sumMa = 0;
     for (size_t s = 0; s < BusManager::getNumBusses(); s++) {
@@ -347,6 +363,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char lc[4] = "LC"; lc[2] = offset+s; lc[3] = 0; //strip length
       char co[4] = "CO"; co[2] = offset+s; co[3] = 0; //strip color order
       char lt[4] = "LT"; lt[2] = offset+s; lt[3] = 0; //strip type
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char ls[4] = "LS"; ls[2] = offset+s; ls[3] = 0; //strip start LED
       char cv[4] = "CV"; cv[2] = offset+s; cv[3] = 0; //strip reverse
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
@@ -366,6 +383,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       }
       printSetFormValue(settingsScript,lc,bus->getLength());
       printSetFormValue(settingsScript,lt,bus->getType());
+      printSetFormValue(settingsScript,ld,bus->getDriverType());
       printSetFormValue(settingsScript,co,bus->getColorOrder() & 0x0F);
       printSetFormValue(settingsScript,ls,bus->getStart());
       printSetFormCheckbox(settingsScript,cv,bus->isReversed());
@@ -730,5 +748,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #else
     settingsScript.print(F("gId(\"somp\").remove(1);")); // remove 2D option from dropdown
     #endif
+  }
+
+  if (subPage == SUBPAGE_PINS) // pins info
+  {
+    appendGPIOinfo(settingsScript);
   }
 }
