@@ -1,6 +1,7 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
 
 // dummy macro for 8266
 #ifndef ARDUINO_ARCH_ESP32
@@ -183,6 +184,7 @@ void serializeState(JsonObject root, bool forPreset = false, bool includeBri = t
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
 void serializeModeData(JsonArray fxdata);
+void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
@@ -284,6 +286,7 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+void installIPv6RABlocker();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -389,7 +392,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dynarray.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
@@ -416,7 +419,8 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS=false); // maxLen = hostname buffer size including \0; if preferMDNSname=true, use mdns name (sanitized)
+void prepareHostname(char* hostname, size_t maxLen);                        // legacy function - not recommended for new code
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();

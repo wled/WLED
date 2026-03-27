@@ -48,6 +48,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
+  perParticleSize = isadvanced; // enable per particle size by default if using advanced properties (FX can disable if needed)
 
 }
 
@@ -1159,7 +1160,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
-
+  perParticleSize = isadvanced; // enable per particle size by default so FX do not need to set this explicitly. FX can disable by setting global size.
   if (isadvanced) {
     for (uint32_t i = 0; i < numParticles; i++) {
       advPartProps[i].sat = 255; // set full saturation

@@ -60,8 +60,8 @@ class RgbRotaryEncoderUsermod : public Usermod
       // …then set only the LED pin
       _pins[0] = static_cast<byte>(ledIo);
       BusConfig busCfg = BusConfig(TYPE_WS2812_RGB, _pins, 0, numLeds, COL_ORDER_GRB, false, 0);
-
-      ledBus = new BusDigital(busCfg, WLED_MAX_BUSSES - 1);
+      busCfg.iType = BusManager::getI(busCfg.type, busCfg.pins, busCfg.driverType); // assign internal bus type and output driver
+      ledBus = new BusDigital(busCfg);
       if (!ledBus->isOk()) {
         cleanup();
         return;
