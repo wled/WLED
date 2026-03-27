@@ -548,6 +548,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_TIME)
   {
     ntpEnabled = request->hasArg(F("NT"));
+#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests: assert failed: udp_new_ip_type udp.c:1278 (Required to lock TCPIP core functionality!)
+    if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
+    ntpEnabled = false;
+    #warning "enabling NTP lead to crashes on -C5. NTP disabled"
+#endif
     strlcpy(ntpServerName, request->arg(F("NS")).c_str(), 33);
     useAMPM = !request->hasArg(F("CF"));
     currentTimezone = request->arg(F("TZ")).toInt();
