@@ -325,7 +325,6 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_ANALOG_MIN          41            // first usable analog type
 #define TYPE_ANALOG_1CH          41            //single channel PWM. Uses value of brightest RGBW channel
 #define TYPE_ANALOG_2CH          42            //analog WW + CW
-#define TYPE_ANALOG_2CH_HBRIDGE  96            //analog WW + CW, relies on auto white calculation, uses H-bridge for better dimming performance at low brightness
 #define TYPE_ANALOG_3CH          43            //analog RGB
 #define TYPE_ANALOG_4CH          44            //analog RGBW
 #define TYPE_ANALOG_5CH          45            //analog RGB + WW + CW
