@@ -327,3 +327,5 @@ class MatterUsermod : public Usermod {
 };
 
 MatterUsermod *MatterUsermod::_instance = nullptr;
+static MatterUsermod usermod_matter("Project CHIP (Matter)", true);
+REGISTER_USERMOD(usermod_matter);
