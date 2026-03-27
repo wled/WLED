@@ -13,10 +13,11 @@
 #endif
 #include "mbedtls/sha1.h"   // for SHA1 on ESP32
 #include "esp_efuse.h"
-  #include "esp_chip_info.h"
-  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    #include <esp_mac.h>      // V5 requirement
-  #endif
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #include "SHA1Builder.h"
+  #include <esp_mac.h>      // V5 requirement
+#endif
 #endif
 
 
@@ -1179,7 +1180,7 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)    // ToDO: find a solution to make this work in V5
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0))    // ToDO: validate behaviour in V5
 
 // Platform-agnostic SHA1 computation from String input
 String computeSHA1(const String& input) {
@@ -1190,11 +1191,19 @@ String computeSHA1(const String& input) {
     unsigned char shaResult[20]; // SHA1 produces 20 bytes
     mbedtls_sha1_context ctx;
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     mbedtls_sha1_init(&ctx);
     mbedtls_sha1_starts_ret(&ctx);
     mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
     mbedtls_sha1_finish_ret(&ctx, shaResult);
     mbedtls_sha1_free(&ctx);
+#else
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts(&ctx);
+    mbedtls_sha1_update(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+#endif
 
     // Convert to hexadecimal string
     char hexString[41];
@@ -1208,17 +1217,29 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "esp_adc_cal.h"       //  depricated API
+//#include "esp_adc/adc_cali.h"        // new API
+//#include "esp_adc/adc_cali_scheme.h" // new API
+#else
 #include "esp_adc_cal.h"
+#endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
-  // mix in ADC calibration data:
+#else
+  fp[0] ^= chip_info.revision | (chip_info.model << 16);
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
+  // mix in ADC calibration data - legacy adc calibration API is not supported on new MCUs (-C5, -C6, -C61, -P4)
   esp_adc_cal_characteristics_t ch;
-  #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
+  #if (SOC_ADC_MAX_BITWIDTH == 13) || (CONFIG_SOC_ADC_RTC_MAX_BITWIDTH == 13) // S2 has 13 bit ADC
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
   #else
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
@@ -1236,6 +1257,11 @@ String generateDeviceFingerprint() {
       fp[1] ^= ch.high_curve[i];
     }
   }
+#else
+  // some extra salt, instead of ADC calibration
+  fp[0] ^= chip_info.features | chip_info.cores << 16;
+  fp[1] ^= ESP.getFlashSourceFrequencyMHz() | ESP.getFlashClockDivider() << 8 ;
+#endif
   char fp_string[17];  // 16 hex chars + null terminator
   sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
   return String(fp_string);
@@ -1273,5 +1299,5 @@ String getDeviceId() {
 
   return cachedDeviceId;
 }
-#endif // V5 workaround
+#endif // V5/V6 workaround
 
