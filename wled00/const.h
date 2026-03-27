@@ -69,21 +69,29 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 
   #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
                                            // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
+    #ifndef WLED_MAX_DIGITAL_CHANNELS
     #define WLED_MAX_DIGITAL_CHANNELS 2
+    #endif
     //#define WLED_MAX_ANALOG_CHANNELS 6
     #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
     // the 5th bus (I2S) will prevent Audioreactive usermod from functioning (it is last used though)
+    #ifndef WLED_MAX_DIGITAL_CHANNELS
     #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x1/x8 I2S0
+    #endif
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 4       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
+    #ifndef WLED_MAX_DIGITAL_CHANNELS
     #define WLED_MAX_DIGITAL_CHANNELS 12    // x4 RMT + x8 I2S-LCD
+    #endif
     //#define WLED_MAX_ANALOG_CHANNELS 8
     #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #else
     // the last digital bus (I2S0) will prevent Audioreactive usermod from functioning
+    #ifndef WLED_MAX_DIGITAL_CHANNELS
     #define WLED_MAX_DIGITAL_CHANNELS 16    // x1/x8 I2S1 + x8 RMT
+    #endif
     //#define WLED_MAX_ANALOG_CHANNELS 16
     #define WLED_MIN_VIRTUAL_BUSSES 6       // no longer used for bus creation but used to distinguish S2/S3 in UI
   #endif
