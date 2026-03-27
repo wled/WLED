@@ -94,7 +94,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
       #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
       //#define WLED_MAX_ANALOG_CHANNELS 6
       #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
-    #endif      
+    #endif
   #endif
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
 #endif
@@ -225,7 +225,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 #define USERMOD_ID_USER_FX               58     //Usermod "user_fx"
-
+#define USERMOD_ID_MATTER                59     Usermod "usermod_v2_matter.h" – Matter (CHIP) WiFi-only
 //Wifi encryption type
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
   #define WIFI_ENCRYPTION_TYPE_PSK          0     //None/WPA/WPA2
