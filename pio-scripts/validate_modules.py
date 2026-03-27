@@ -13,69 +13,84 @@ def read_lines(p: Path):
         return f.readlines()
 
 
-def _get_nm_path(env) -> str:
-    """ Derive the nm tool path from the build environment """
-    if "NM" in env:
-        return env.subst("$NM")
-    # Derive from the C compiler: xtensa-esp32-elf-gcc → xtensa-esp32-elf-nm
+def _get_readelf_path(env) -> str:
+    """ Derive the readelf tool path from the build environment """
+    # Derive from the C compiler: xtensa-esp32-elf-gcc → xtensa-esp32-elf-readelf
     cc = env.subst("$CC")
-    nm = re.sub(r'(gcc|g\+\+)$', 'nm', os.path.basename(cc))
-    return os.path.join(os.path.dirname(cc), nm)
+    readelf = re.sub(r'(gcc|g\+\+)$', 'readelf', os.path.basename(cc))
+    return os.path.join(os.path.dirname(cc), readelf)
 
 
 def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
-    """ Check which modules have at least one defined symbol placed in the ELF.
+    """ Check which modules have at least one compilation unit in the ELF.
 
         The map file is not a reliable source for this: with LTO, original object
         file paths are replaced by temporary ltrans.o partitions in all output
         sections, making per-module attribution impossible from the map alone.
-        Instead we invoke nm --defined-only -l on the ELF, which uses DWARF debug
-        info to attribute each placed symbol to its original source file.
-
-        Requires usermod libraries to be compiled with -g so that DWARF sections
-        are present in the ELF.  load_usermods.py injects -g for all WLED modules
-        via dep.env.AppendUnique(CCFLAGS=["-g"]).
+        Instead we invoke readelf --debug-dump=info --dwarf-depth=1 on the ELF,
+        which reads only the top-level compilation-unit DIEs from .debug_info.
+        Each CU corresponds to one source file; matching DW_AT_comp_dir +
+        DW_AT_name against the module src_dirs is sufficient to confirm a module
+        was compiled into the ELF.  The output volume is proportional to the
+        number of source files, not the number of symbols.
 
         Returns the set of build_dir basenames for confirmed modules.
     """
-    nm_path = _get_nm_path(env)
+    readelf_path = _get_readelf_path(env)
+    secho(f"INFO: Checking for usermod compilation units...")
+
     try:
         result = subprocess.run(
-            [nm_path, "--defined-only", "-l", str(elf_path)],
+            [readelf_path, "--debug-dump=info", "--dwarf-depth=1", str(elf_path)],
             capture_output=True, text=True, errors="ignore", timeout=120,
         )
-        nm_output = result.stdout
+        output = result.stdout
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
-        secho(f"WARNING: nm failed ({e}); skipping per-module validation", fg="yellow", err=True)
+        secho(f"WARNING: readelf failed ({e}); skipping per-module validation", fg="yellow", err=True)
         return {Path(b.build_dir).name for b in module_lib_builders}  # conservative pass
 
-    # Match placed symbols against builders as we parse nm output, exiting early
-    # once all builders are accounted for.
-    # nm --defined-only still includes debugging symbols (type 'N') such as the
-    # per-CU markers GCC emits in .debug_info (e.g. "usermod_example_cpp_6734d48d").
-    # These live at address 0x00000000 in their debug section — not in any load
-    # segment — so filtering them out leaves only genuinely placed symbols.
-    # nm -l appends a tab-separated "file:lineno" location to each symbol line.
     remaining = {Path(str(b.src_dir)): Path(b.build_dir).name for b in module_lib_builders}
     found = set()
 
-    for line in nm_output.splitlines():
-        if not remaining:
-            break  # all builders matched
-        addr, _, _ = line.partition(' ')
-        if not addr.lstrip('0'):
-            continue  # zero address — skip debug-section marker
-        if '\t' not in line:
-            continue
-        loc = line.rsplit('\t', 1)[1]
-        # Strip trailing :lineno  (e.g. "/path/to/foo.cpp:42" → "/path/to/foo.cpp")
-        src_path = Path(loc.rsplit(':', 1)[0])
-        # Path.is_relative_to() handles OS-specific separators correctly without
-        # any regex, avoiding Windows path escaping issues.
+    def _flush_cu(comp_dir: str | None, name: str | None) -> None:
+        """Match one completed CU against remaining builders."""
+        if not name or not remaining:
+            return
+        p = Path(name)
+        src_path = (Path(comp_dir) / p) if (comp_dir and not p.is_absolute()) else p
         for src_dir in list(remaining):
             if src_path.is_relative_to(src_dir):
                 found.add(remaining.pop(src_dir))
                 break
+
+    # readelf emits one DW_TAG_compile_unit DIE per source file.  Attributes
+    # of interest:
+    #   DW_AT_name     — source file (absolute, or relative to comp_dir)
+    #   DW_AT_comp_dir — compile working directory
+    # Both appear as either a direct string or an indirect string:
+    #   DW_AT_name     : foo.cpp
+    #   DW_AT_name     : (indirect string, offset: 0x…): foo.cpp
+    # Taking the portion after the *last* ": " on the line handles both forms.
+    _CU_HEADER = re.compile(r'Compilation Unit @')
+    _ATTR      = re.compile(r'\bDW_AT_(name|comp_dir)\b')
+
+    comp_dir = name = None
+    for line in output.splitlines():
+        if _CU_HEADER.search(line):
+            _flush_cu(comp_dir, name)
+            comp_dir = name = None
+            continue
+        if not remaining:
+            break  # all builders matched
+        m = _ATTR.search(line)
+        if m:
+            _, _, val = line.rpartition(': ')
+            val = val.strip()
+            if m.group(1) == 'name':
+                name = val
+            else:
+                comp_dir = val
+    _flush_cu(comp_dir, name)  # flush the last CU
 
     return found
 
@@ -133,6 +148,7 @@ def validate_map_file(source, target, env):
     secho(f"INFO: {usermod_object_count} usermod object entries")
 
     elf_path = build_dir / env.subst("${PROGNAME}.elf")
+
     confirmed_modules = check_elf_modules(elf_path, env, module_lib_builders)
 
     missing_modules = [modname for mdir, modname in modules.items() if mdir not in confirmed_modules]
