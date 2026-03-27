@@ -1417,7 +1417,7 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
 
   if (shouldSpawn) {
     if( SEGENV.step > triggerGate ) {
-      triggerGate = SEGENV.step + 150 + 255 - sensitivity; // de-clogging, avoid immediate respawn
+      triggerGate = SEGENV.step + 64 + 255 - sensitivity; // de-clogging, avoid immediate respawn
       trySpawn(walkers, maxWalkers, cols, rows);
     }
     shouldSpawn = false;
