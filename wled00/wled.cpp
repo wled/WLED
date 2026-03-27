@@ -582,7 +582,9 @@ void WLED::setup()
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
+#if ESP_IDF_VERSION_MAJOR < 5   // ToDO: clarify if esp-idf v5.x still needs this patch
   installIPv6RABlocker();  // Work around unsolicited RA overwriting IPv4 DNS servers
+#endif
 #endif  
 
   // Seed FastLED random functions with an esp random value, which already works properly at this point.
