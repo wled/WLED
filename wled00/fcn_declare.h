@@ -284,6 +284,7 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+void installIPv6RABlocker();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
