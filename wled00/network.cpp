@@ -410,6 +410,15 @@ void WiFiEvent(WiFiEvent_t event)
       break;
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
+      #if defined(ARDUINO_ARCH_ESP32)
+      // Flush any ghost associations left over from a previous AP session.
+      // On ESP32-C6 with Zigbee coexistence the AP goes through a stop/start
+      // cycle during WiFi mode initialisation.  The IDF station list is NOT
+      // fully cleared by that cycle, so prior partial-association entries can
+      // persist and fill the max_connection table — causing new clients to be
+      // rejected with 802.11 status code 16 (ASSOCIATION_DENIED_NO_MORE_STA).
+      esp_wifi_deauth_sta(0);  // 0 = deauth ALL stations (aid=0 means broadcast)
+      #endif
       break;
     case ARDUINO_EVENT_WIFI_AP_STOP:
       DEBUG_PRINTLN(F("WiFi-E: AP Stopped"));
