@@ -246,6 +246,14 @@ bool PinManager::isPinOk(byte gpio, bool output)
     #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
     if (gpio == 12 || gpio == 13) return false;   // 12-13 USB-JTAG
     #endif
+  #elif defined(CONFIG_IDF_TARGET_ESP32C61) // prelim. entry for C61. ToDO: Validate pins
+    // strapping pins: MTMS, MTDI, GPIO7, GPIO8, GPIO9
+    // SPI flash/PSRAM interface: GPIO14-17 and GPIO19-21 (GPIO18 is free)
+    if (gpio > 13 && gpio < 18) return false;            // 14-17 SPI FLASH
+    if (gpio > 18 && gpio < 22) return false;            // 19-21 SPI FLASH
+    #if ARDUINO_USB_CDC_ON_BOOT == 1 || ARDUINO_USB_DFU_ON_BOOT == 1
+    if (gpio == 12 || gpio == 13) return false;          // 12-13 USB-JTAG
+    #endif
   #elif defined(CONFIG_IDF_TARGET_ESP32P4)
     // based on P4 port by troyhacks https://github.com/troyhacks/WLED/tree/P4_experimental
     // strapping pins: 34,35,36,37,38
