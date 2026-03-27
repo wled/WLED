@@ -404,13 +404,13 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, VERSION);
   DEBUG_PRINTLN();
 #ifdef ARDUINO_ARCH_ESP32
-  DEBUG_PRINTF_P(PSTR("esp32 %s\n"), ESP.getSdkVersion());
+  DEBUG_PRINTF_P(PSTR("esp-idf %s\n"), ESP.getSdkVersion());
   #if defined(ESP_ARDUINO_VERSION)
     DEBUG_PRINTF_P(PSTR("arduino-esp32 v%d.%d.%d\n"), int(ESP_ARDUINO_VERSION_MAJOR), int(ESP_ARDUINO_VERSION_MINOR), int(ESP_ARDUINO_VERSION_PATCH));  // available since v2.0.0
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-  DEBUG_PRINTF_P(PSTR("CPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
   switch (ESP.getFlashChipMode()) {
