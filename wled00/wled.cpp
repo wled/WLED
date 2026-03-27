@@ -699,11 +699,15 @@ void WLED::initConnection()
   getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
 
 #ifdef ARDUINO_ARCH_ESP32
-  // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
-  // This is required on reconnects when mode is already WIFI_STA.
-  WiFi.mode(WIFI_MODE_NULL);
-  apActive = false;           // the AP is physically torn down by WIFI_MODE_NULL
-  delay(5);                   // give the WiFi stack time to complete the mode transition
+  if (!externalWiFiManager) {
+    // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
+    // This is required on reconnects when mode is already WIFI_STA.
+    // Skipped when an external stack (e.g. Matter) owns the WiFi netif, as
+    // WIFI_MODE_NULL destroys all esp_netif interfaces including Matter's.
+    WiFi.mode(WIFI_MODE_NULL);
+    apActive = false;           // the AP is physically torn down by WIFI_MODE_NULL
+    delay(5);                   // give the WiFi stack time to complete the mode transition
+  }
   WiFi.setHostname(hostname);
 #endif
 
