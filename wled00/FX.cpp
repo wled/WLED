@@ -10790,8 +10790,6 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
  * Slow Transition effect
  * Displays the currently selected palette/color with a very slow transition
  * speed slider controls the number of minutes for the transition (0 = 10s)
- * after transition completes, applies preset set by intensity slider (if any)
- * allows for chains of slow transitions just like a playlist
  * by DedeHai
  */
 typedef struct SlowTransitionData {
@@ -10815,7 +10813,6 @@ void mode_slow_transition(void) {
   // (re) init
   if (changed || SEGMENT.call == 0) {
     if (SEGMENT.call == 0) {
-      //data->presetapplied = false;
       data->startPalette = SEGPALETTE;
       data->currentPalette = SEGPALETTE;
       data->endPalette = SEGPALETTE;
@@ -10827,12 +10824,12 @@ void mode_slow_transition(void) {
       *stepsDone = 0; // reset counter
     }
     *startSpeed = SEGMENT.speed;
-    *startTime = strip.now; // set start time
+    *startTime = millis(); // set start time note: intentionally not using strip.now as this is based on real time
   }
 
   uint32_t totalSteps = SEGMENT.check2 ? 16 * 255 : 255;
   uint32_t duration = (SEGMENT.speed == 0) ? 10000 : (uint32_t)SEGMENT.speed * 60000; // 10s if zero (good for testing), otherwise map 1-255 to 1-255 minutes
-  uint32_t elapsed = strip.now - *startTime; // note: will overflow after ~50 days if just left alone (edge case unhandled)
+  uint32_t elapsed = millis() - *startTime; // note: will overflow after ~50 days if just left alone (edge case unhandled)
   uint32_t expectedSteps = (uint64_t)elapsed * totalSteps / duration;
   expectedSteps = min(expectedSteps, totalSteps); // limit to total steps
 
@@ -10854,12 +10851,8 @@ void mode_slow_transition(void) {
       }
     }
     if (*stepsDone >= totalSteps) {
-      // transition complete, apply preset set by intensity slider (if any)
+      // transition complete, apply end palette
       data->currentPalette = data->endPalette; // set to end palette (sweep may not have set all entries)
-      if (SEGMENT.intensity > 0) {
-        uint8_t targetPreset = SEGMENT.intensity;
-        applyPreset(targetPreset, CALL_MODE_DIRECT_CHANGE); // apply preset (if it exists)
-      }
     }
   }
   // display current palette over segment
@@ -10869,7 +10862,7 @@ void mode_slow_transition(void) {
     SEGMENT.setPixelColor(i, palcol.color32);
   }
 }
-static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min), End reset,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0";
+static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0";
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
