@@ -100,16 +100,15 @@ def add_wled_metadata_flags(env, node):
     if not has_def(cdefs, "WLED_REPO"):
         repo = get_github_repo()
         if repo:
-            print(f"repo = {repo}")
             cdefs.append(("WLED_REPO", f"\\\"{repo}\\\""))
 
     cdefs.append(("WLED_VERSION", WLED_VERSION))
 
-    # Return the node unmodified - middleware should not create new build targets
-    print(f"version = {WLED_VERSION}")
-    # Instead, modify the environment's CPPDEFINES before the file is compiled
-    env["CPPDEFINES"] = cdefs
-    return node
+    # This transforms the node in to a Builder; it cannot be modified again
+    return env.Object(
+        node,
+        CPPDEFINES=cdefs
+    )
    
 env.AddBuildMiddleware(
     add_wled_metadata_flags,
