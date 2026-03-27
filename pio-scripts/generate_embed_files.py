@@ -8,6 +8,15 @@ from pathlib import Path
 # expect to be embedded via CMake's target_add_binary_data().
 # PlatformIO's SCons build doesn't execute those CMake commands,
 # so we replicate the output here.
+#
+# The .S files are generated at BUILD_DIR/<name>.S – exactly the path that
+# CMake's project_description.json records as the source path for these
+# generated files.  espidf.py's compile_source_files() will then find and
+# compile them correctly.
+#
+# DO NOT place them in a sub-directory: the CMake code model records relative
+# paths (e.g. ".pio/build/esp32s3_matter_wifi/https_server.crt.S") and
+# espidf.py resolves those relative to BUILD_DIR.
 # ─────────────────────────────────────────────────────────────────────────────
 
 project_dir = Path(env["PROJECT_DIR"]).resolve()
@@ -45,7 +54,7 @@ def generate_asm(src_path: Path, symbol: str, out_dir: Path):
     format produced by ESP-IDF's ``target_add_binary_data()``."""
     if not src_path.exists():
         print(f"  [embed] WARNING: {src_path} not found – skipping")
-        return
+        return None
 
     out_file = out_dir / f"{src_path.name}.S"
     data = src_path.read_bytes()
@@ -79,6 +88,7 @@ def generate_asm(src_path: Path, symbol: str, out_dir: Path):
     out_dir.mkdir(parents=True, exist_ok=True)
     out_file.write_text("\n".join(lines) + "\n")
     print(f"  [embed] Generated {out_file} ({len(data)} bytes)")
+    return str(out_file)
 
 
 for src_path, symbol in EMBED_FILES:
