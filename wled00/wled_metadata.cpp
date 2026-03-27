@@ -4,7 +4,8 @@
 
 #ifndef WLED_VERSION
   #warning WLED_VERSION was not set - using default value of 'dev'
-  #define WLED_VERSION dev
+  //#define WLED_VERSION dev
+  #define WLED_VERSION 16.0.0-alphaV5  // ToDO: remove once that set_metadata.py is fixed
 #endif
 #ifndef WLED_RELEASE_NAME
   #warning WLED_RELEASE_NAME was not set - using default value of 'Custom'
