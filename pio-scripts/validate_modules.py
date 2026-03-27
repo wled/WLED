@@ -80,12 +80,35 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
     return found
 
 
-USERMODS_SECTION = f".dynarray.usermods.1"
-
 def count_usermod_objects(map_file: list[str]) -> int:
-    """ Returns the number of usermod objects in the usermod list """
-    # Count the number of entries in the usermods table section
-    return len([x for x in map_file if USERMODS_SECTION in x])
+    """ Returns the number of usermod objects in the usermod list.
+
+    Computes the count from the address span between the .dynarray.usermods.0
+    and .dynarray.usermods.99999 sentinel sections.  This mirrors the
+    DYNARRAY_LENGTH macro and is reliable under LTO, where all entries are
+    merged into a single ltrans partition so counting section occurrences
+    always yields 1 regardless of the true count.
+    """
+    ENTRY_SIZE = 4  # sizeof(Usermod*) on 32-bit targets
+    addr_begin = None
+    addr_end = None
+
+    for i, line in enumerate(map_file):
+        stripped = line.strip()
+        if stripped == '.dynarray.usermods.0':
+            if i + 1 < len(map_file):
+                m = re.search(r'0x([0-9a-fA-F]+)', map_file[i + 1])
+                if m:
+                    addr_begin = int(m.group(1), 16)
+        elif stripped == '.dynarray.usermods.99999':
+            if i + 1 < len(map_file):
+                m = re.search(r'0x([0-9a-fA-F]+)', map_file[i + 1])
+                if m:
+                    addr_end = int(m.group(1), 16)
+
+    if addr_begin is None or addr_end is None:
+        return 0
+    return (addr_end - addr_begin) // ENTRY_SIZE
 
 
 def validate_map_file(source, target, env):
