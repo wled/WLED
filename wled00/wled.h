@@ -131,6 +131,9 @@
 #include <SPI.h>
 
 #include "src/dependencies/network/Network.h"
+#ifdef CONFIG_RENDEZVOUS_MODE_WIFI
+#include "../usermods/usermod_v2_matter/usermod_v2_matter.cpp"
+#endif
 
 #ifdef WLED_USE_MY_CONFIG
   #include "my_config.h"
