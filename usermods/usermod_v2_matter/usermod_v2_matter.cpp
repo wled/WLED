@@ -19,6 +19,38 @@
  * Enable with -D USERMOD_MATTER in your build environment.
  */
 
+// ── WLED global state / helpers needed by this compilation unit ──────────────
+// Declared here (extern) to avoid pulling in wled.h (which would cascade into
+// AsyncTCP.h and other Arduino libraries not on the library include path).
+// Keep in sync with wled00/wled.h and wled00/const.h declarations.
+typedef uint8_t byte;
+
+extern byte bri;        // wled.h: global brightness (set)
+extern byte briLast;    // wled.h: brightness before turned off
+extern byte colPri[4];  // wled.h: current RGB(W) primary colour
+extern bool externalWiFiManager; // wled.h: suppresses WiFi.mode(NULL) in initConnection()
+
+// Colour helper functions (wled00/colors.cpp)
+extern void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
+extern void colorCTtoRGB(uint16_t mired, byte* rgb);
+
+// Trigger a WLED state update after changing bri/colour
+extern void colorUpdated(byte callMode);
+
+// Constants from wled00/const.h
+#define CALL_MODE_DIRECT_CHANGE  1
+#define USERMOD_ID_MATTER        59
+
+// Debug macros — mirror wled.h's WLED_DEBUG section
+#ifdef WLED_DEBUG
+  #define DEBUGOUT Serial
+  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
+  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
+#else
+  #define DEBUG_PRINTLN(x)
+  #define DEBUG_PRINTF(x...)
+#endif
+
 #include <esp_matter.h>
 #include <esp_matter_core.h>
 
@@ -73,6 +105,53 @@ struct MatterUsermod::Impl {
   // ── Commissioning configuration ─────────────────────────────────────────
   uint32_t mPasscode      = 20202021;  // Matter test passcode
   uint16_t mDiscriminator = 3840;      // Matter default discriminator
+
+  // ── QR code payload (Matter Core Spec §5.1.3) ───────────────────────────
+  // Encodes onboarding info into the "MT:XXXXXX" base-38 string.
+  // vendor_id=0xFFF1 (test), product_id=0x8000, flow=0, rendezvous=4 (OnNetwork)
+  void buildQRPayload(char *out, size_t outLen) const {
+    static const char kBase38[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-.";
+    // Build 88-bit little-endian payload
+    // [0:2]   version (0)
+    // [3:18]  vendor_id
+    // [19:34] product_id
+    // [35:36] commissioning_flow (0=Standard)
+    // [37:48] rendezvous_info (4=OnNetwork)
+    // [49:60] discriminator (12 bits)
+    // [61:87] passcode (27 bits)
+    const uint16_t vendor_id   = 0xFFF1;
+    const uint16_t product_id  = 0x8000;
+    const uint8_t  flow        = 0;
+    const uint16_t rendezvous  = 4; // OnNetwork
+    // Assemble as a 96-bit (12-byte) little-endian integer
+    uint8_t buf[12] = {};
+    // Use 64-bit chunks to avoid ULL arithmetic on 32-bit MCU
+    uint64_t lo = 0, hi = 0;
+    lo |= ((uint64_t)(vendor_id)  & 0xFFFF) << 3;
+    lo |= ((uint64_t)(product_id) & 0xFFFF) << 19;
+    lo |= ((uint64_t)(flow)       & 0x3)    << 35;
+    lo |= ((uint64_t)(rendezvous) & 0xFFF)  << 37;
+    lo |= ((uint64_t)(mDiscriminator & 0xFFF)) << 49;
+    // passcode spans bits 61-87: 3 bits go into lo (bits 61-63), 24 into hi
+    lo |= ((uint64_t)(mPasscode & 0x7)) << 61;
+    hi  = (uint64_t)(mPasscode >> 3) & 0xFFFFFF;
+    for (int i = 0; i < 8; i++) buf[i] = (lo >> (8*i)) & 0xFF;
+    for (int i = 0; i < 3; i++) buf[8+i] = (hi >> (8*i)) & 0xFF;
+
+    // Base-38 encode: 3 bytes → 5 chars, then remaining 2 bytes → 3 chars
+    char encoded[16] = {};
+    int pos = 0;
+    for (int i = 0; i < 9; i += 3) {
+      uint32_t val = buf[i] | ((uint32_t)buf[i+1] << 8) | ((uint32_t)buf[i+2] << 16);
+      for (int j = 0; j < 5; j++) { encoded[pos++] = kBase38[val % 38]; val /= 38; }
+    }
+    // Last 2 bytes → 3 chars
+    uint32_t val = buf[9] | ((uint32_t)buf[10] << 8);
+    for (int j = 0; j < 3; j++) { encoded[pos++] = kBase38[val % 38]; val /= 38; }
+    encoded[pos] = '\0';
+
+    snprintf(out, outLen, "MT:%s", encoded);
+  }
 };
 
 // Singleton pointer – needed because Matter SDK uses C-style static callbacks.
@@ -248,6 +327,9 @@ MatterUsermod::~MatterUsermod()
 
 void MatterUsermod::setup()
 {
+  // Tell WLED not to call WiFi.mode(WIFI_MODE_NULL) in initConnection();
+  // the Matter stack owns the WiFi netif and that call would destroy it.
+  externalWiFiManager = true;
 
   // Create Matter node
   esp_matter::node::config_t nodeCfg;
@@ -315,6 +397,16 @@ void MatterUsermod::addToJsonInfo(JsonObject &obj)
   matter[F("Endpoint")]      = pImpl->mEndpointId;
   matter[F("Passcode")]      = pImpl->mPasscode;
   matter[F("Discriminator")] = pImpl->mDiscriminator;
+
+  char qr[24];
+  pImpl->buildQRPayload(qr, sizeof(qr));
+  matter[F("QRCode")] = qr;
+
+  // Convenience URL so users can open the QR image directly in a browser
+  char url[128];
+  snprintf(url, sizeof(url),
+           "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=%s", qr);
+  matter[F("QRURL")] = url;
 }
 
 void MatterUsermod::addToConfig(JsonObject &obj)

@@ -1,4 +1,7 @@
 {
   "name": "usermod_v2_matter",
-  "build": { "libArchive": false }
+  "build": {
+    "libArchive": false,
+    "flags": ["-I${platformio.src_dir}"]
+  }
 }

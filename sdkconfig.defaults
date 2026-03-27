@@ -1,0 +1,17 @@
+# sdkconfig defaults for the esp32s3_matter_wifi environment
+# Arduino requires FreeRTOS tick rate of 1000 Hz
+CONFIG_FREERTOS_HZ=1000
+# Enable Arduino autostart so the framework provides app_main
+CONFIG_AUTOSTART_ARDUINO=y
+# WLED + Matter needs more than 8KB default stack for the Arduino loop task
+CONFIG_ARDUINO_LOOP_STACK_SIZE=16384
+# Enable stack overflow detection
+CONFIG_COMPILER_STACK_CHECK_MODE_STRONG=y
+# loopTask runs on CPU1 at priority 1, starving the IDLE1 task;
+# disable WDT check for IDLE1 to avoid spurious watchdog triggers.
+# CONFIG_ESP_TASK_WDT_CHECK_IDLE_TASK_CPU1 is not set
+# Matter (CHIP SDK) CHIPCryptoPALmbedTLS requires mbedtls_hkdf
+CONFIG_MBEDTLS_HKDF_C=y
+# Board has 8MB flash; match the partition table (tools/WLED_ESP32_8MB.csv)
+CONFIG_ESPTOOLPY_FLASHSIZE_8MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="8MB"
