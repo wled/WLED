@@ -1364,7 +1364,6 @@ static void mode_dissolveplus(void) {
         if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
 
         if (filling) { // fill with primary/palette color
-          //if (pixels[i] == SEGCOLOR(1)) {
           if (pixels[i] == storedBg) {
             uint32_t c;
             if (SEGMENT.check1) {
@@ -1380,8 +1379,6 @@ static void mode_dissolveplus(void) {
             break;
           }
         } else {  //dissolve to secondary/background color
-//          if (pixels[i] != SEGCOLOR(1)) {
-//            pixels[i] = SEGCOLOR(1);
           if (pixels[i] != storedBg) {
             pixels[i] = storedBg;
             break;
