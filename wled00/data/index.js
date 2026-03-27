@@ -310,6 +310,21 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
+	// limter for all number inputs: limit inputs instantly
+	d.addEventListener("input", function(e) {
+		const t = e.target;
+		if (t.tagName === "INPUT" && t.type === "number") {
+			let val = parseFloat(t.value);
+			const max = parseFloat(t.max);
+			const min = parseFloat(t.min);
+
+			if (!isNaN(val)) {
+				if (val > max) t.value = max;
+				if (val < min) t.value = min;
+				if (t.oninput) t.oninput(); // refresh UI labels
+			}
+		}
+	}, false);
 }
 
 function updateTablinks(tabI)
