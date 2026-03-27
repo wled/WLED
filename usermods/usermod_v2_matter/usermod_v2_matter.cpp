@@ -57,6 +57,12 @@ extern void colorUpdated(byte callMode);
 #include <nvs.h>
 #include <nvs_flash.h>
 #include <esp_system.h>
+// dynarray.h is standalone (no Arduino/AsyncTCP deps) and provides
+// DYNARRAY_MEMBER, which REGISTER_USERMOD expands to.
+#include <dynarray.h>
+#ifndef REGISTER_USERMOD
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
+#endif
 
 // ── Matter cluster IDs (from the Matter Application Cluster Specification) ──
 static constexpr uint32_t MATTER_CL_ON_OFF       = 0x0006;
@@ -609,6 +615,6 @@ bool MatterUsermod::readFromConfig(JsonObject &obj)
   return !top.isNull();
 }
 
-// Instance and registration are handled in wled00/usermods_list.cpp
-// so they live in the always-linked wled00 translation unit.
+static MatterUsermod matter_usermod;
+REGISTER_USERMOD(matter_usermod);
 
