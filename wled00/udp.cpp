@@ -720,27 +720,7 @@ void sendSysInfoUDP()
     data[x + 2] = ip[x];
   }
   memcpy((byte *)data + 6, serverDescription, 32);
-  #ifdef ESP8266
-  data[38] = NODE_TYPE_ID_ESP8266;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C5)
-  data[38] = NODE_TYPE_ID_ESP32C5;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
-  data[38] = NODE_TYPE_ID_ESP32C6;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C61)
-  data[38] = NODE_TYPE_ID_ESP32C61;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  data[38] = NODE_TYPE_ID_ESP32C3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  data[38] = NODE_TYPE_ID_ESP32S3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  data[38] = NODE_TYPE_ID_ESP32S2;
-  #elif defined(CONFIG_IDF_TARGET_ESP32P4)
-  data[38] = NODE_TYPE_ID_ESP32P4;
-  #elif defined(ARDUINO_ARCH_ESP32)
-  data[38] = NODE_TYPE_ID_ESP32;
-  #else
-  data[38] = NODE_TYPE_ID_UNDEFINED;
-  #endif
+  data[38] = uint8_t(WLED_BOARD); // see wled_boards.h
   if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 
