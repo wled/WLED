@@ -14,22 +14,23 @@
 #include "EspDmxOutput.h"
 #include <esp_dmx.h>
 
+#include "wled.h"
+
 #define dmxMaxChannel 512
 #define defaultMax 32
 
 // Some new MCUs (-S2, -C3) don't have HardwareSerial(2)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
-  #if SOC_UART_NUM < 3
-  #error DMX output is not possible on your MCU, as it does not have HardwareSerial(2)
+  #if SOC_UART_NUM < 2
+  #error DMX output is not possible on your MCU, as it does not have HardwareSerial(1)
   #endif
 #endif
 
+#if SOC_UART_NUM > 2
 static constexpr dmx_port_t dmxPort = DMX_NUM_2;
-
-// Pin defaults. Change these if needed for your hardware.
-static const int txPin = 2;                  // transmit DMX data over this pin (default is GPIO2)
-static const int rxPin = DMX_PIN_NO_CHANGE;  // RX unused for DMX output
-static const int rtsPin = DMX_PIN_NO_CHANGE; // RS485 DE/RE pin (UART RTS). Set to a GPIO to control transceiver direction.
+#else
+static constexpr dmx_port_t dmxPort = DMX_NUM_1;
+#endif
 
 // DMX value array and size. Entry 0 holds start code, so we need 512+1 elements.
 static uint8_t dmxData[DMX_PACKET_SIZE] = {0};
@@ -39,7 +40,7 @@ static size_t maxSize = 0;
 static size_t txSize = 1;
 static bool dmxInstalled = false;
 
-void EspDmxOutput::initWrite(int chanQuant) {
+void EspDmxOutput::initWrite(int txPin, int chanQuant) {
   if (chanQuant > dmxMaxChannel || chanQuant <= 0) chanQuant = defaultMax;
   maxSize = static_cast<size_t>(chanQuant) + 1; // +1 for start code
   txSize = 1;                                   // start with just start code
@@ -48,17 +49,24 @@ void EspDmxOutput::initWrite(int chanQuant) {
   if (!dmx_driver_is_installed(dmxPort)) {
     dmx_config_t config = DMX_CONFIG_DEFAULT;
     dmxInstalled = dmx_driver_install(dmxPort, &config, DMX_INTR_FLAGS_DEFAULT);
+    if (!dmxInstalled) {
+      DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to install dmx driver\n"));
+      return;
+    }
   } else {
     dmxInstalled = true;
   }
 
-  if (dmxInstalled) {
-    dmx_set_pin(dmxPort, txPin, rxPin, rtsPin);
+    const bool setPin = dmx_set_pin(dmxPort, txPin, DMX_PIN_NO_CHANGE, DMX_PIN_NO_CHANGE);
+    if (!setPin) {
+      DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to set DMX output pin\n"));
+      return;
+    }
 
     // Ensure NULL start code (slot 0).
     dmxData[0] = DMX_SC;
     dmx_write_slot(dmxPort, 0, DMX_SC);
-  }
+
 }
 
 void EspDmxOutput::write(int Channel, uint8_t value) {

@@ -9,7 +9,7 @@
 
 class EspDmxOutput {
 public:
-  void initWrite(int maxChan);
+  void initWrite(int txPin, int chanQuant);
   void write(int channel, uint8_t value);
   void update();
 };
