@@ -239,7 +239,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
-    DEBUG_PRINTLN(F("initC: ETH.begin() failed"));
+    DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
       PinManager::deallocatePin(mpt.pin, PinOwner::Ethernet);
@@ -247,8 +247,15 @@ bool initEthernet()
     return false;
   }
 
+  // https://github.com/wled/WLED/issues/5247
+  if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+    ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
+  } else {
+    ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  }
+
   successfullyConfiguredEthernet = true;
-  DEBUG_PRINTLN(F("initC: *** Ethernet successfully configured! ***"));
+  DEBUG_PRINTLN(F("initE: *** Ethernet successfully configured! ***"));
   return true;
 }
 #endif
@@ -294,7 +301,7 @@ void fillStr2MAC(uint8_t *mac, const char *str) {
 // returns configured WiFi ID with the strongest signal (or default if no configured networks available)
 int findWiFi(bool doScan) {
   if (multiWiFi.size() <= 1) {
-    DEBUG_PRINTF_P(PSTR("WiFi: Defaulf SSID (%s) used.\n"), multiWiFi[0].clientSSID);
+    DEBUG_PRINTF_P(PSTR("WiFi: Default SSID (%s) used.\n"), multiWiFi[0].clientSSID);
     return 0;
   }
 
@@ -353,6 +360,34 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
 #endif
 
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
+#include "lwip/raw.h"
+#include "lwip/icmp6.h"
+// This is a terrible workaround for a terrible bug: on ESP32 platforms, unsolicited IPv6 router
+// advertisements will cause LwIP to overwrite the IPv4 DNS servers with the IPv6 DNS servers
+// mentioned in the RA packet.  As a workaround, we just blackhole those packets using the raw
+// callback, since we don't yet support IPv6.
+//
+// This may have been improved in IDF v5 -- Espressif has added a feature to store DNS servers
+// on a per interface basis in their LwIP fork.
+//
+// References:
+// https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/lwip.html (see the "Note" block under "Adapted APIs" -- though it very much undersells the problem.)
+// https://github.com/espressif/arduino-esp32/discussions/9988 - links to older discussions
+static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb, struct pbuf* p, const ip_addr_t* addr) {
+  // ICMPv6 type is the first byte of the payload, so we skip the header
+  if (p->len > 0 && (pbuf_get_at(p, sizeof(struct ip6_hdr)) == ICMP6_TYPE_RA)) {
+    return 1; // claim the packet — lwIP will not pass it further
+  }
+  return 0; // not consumed, pass it on
+}
+
+void installIPv6RABlocker() {
+  struct raw_pcb* ra_blocker = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
+  raw_recv(ra_blocker, blockRouterAdvertisements, NULL);
+}
+#endif
+
 //handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
 {
@@ -406,14 +441,8 @@ void WiFiEvent(WiFiEvent_t event)
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
-      if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
-        ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
-      } else {
-        ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-      }
-      // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-      char hostname[64];
-      prepareHostname(hostname);
+      char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
+      getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;

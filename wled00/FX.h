@@ -379,36 +379,38 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSONICBOOM          215
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
-#define MODE_COUNT                     218
+#define FX_MODE_COLORCLOUDS            218
+#define FX_MODE_SLOW_TRANSITION        219
+#define MODE_COUNT                     220
 
 
-#define BLEND_STYLE_FADE            0x00  // universal
-#define BLEND_STYLE_FAIRY_DUST      0x01  // universal
-#define BLEND_STYLE_SWIPE_RIGHT     0x02  // 1D or 2D
-#define BLEND_STYLE_SWIPE_LEFT      0x03  // 1D or 2D
-#define BLEND_STYLE_OUTSIDE_IN      0x04  // 1D or 2D
-#define BLEND_STYLE_INSIDE_OUT      0x05  // 1D or 2D
-#define BLEND_STYLE_SWIPE_UP        0x06  // 2D
-#define BLEND_STYLE_SWIPE_DOWN      0x07  // 2D
-#define BLEND_STYLE_OPEN_H          0x08  // 2D
-#define BLEND_STYLE_OPEN_V          0x09  // 2D
-#define BLEND_STYLE_SWIPE_TL        0x0A  // 2D
-#define BLEND_STYLE_SWIPE_TR        0x0B  // 2D
-#define BLEND_STYLE_SWIPE_BR        0x0C  // 2D
-#define BLEND_STYLE_SWIPE_BL        0x0D  // 2D
-#define BLEND_STYLE_CIRCULAR_OUT    0x0E  // 2D
-#define BLEND_STYLE_CIRCULAR_IN     0x0F  // 2D
+#define TRANSITION_FADE            0x00  // universal
+#define TRANSITION_FAIRY_DUST      0x01  // universal
+#define TRANSITION_SWIPE_RIGHT     0x02  // 1D or 2D
+#define TRANSITION_SWIPE_LEFT      0x03  // 1D or 2D
+#define TRANSITION_OUTSIDE_IN      0x04  // 1D or 2D
+#define TRANSITION_INSIDE_OUT      0x05  // 1D or 2D
+#define TRANSITION_SWIPE_UP        0x06  // 2D
+#define TRANSITION_SWIPE_DOWN      0x07  // 2D
+#define TRANSITION_OPEN_H          0x08  // 2D
+#define TRANSITION_OPEN_V          0x09  // 2D
+#define TRANSITION_SWIPE_TL        0x0A  // 2D
+#define TRANSITION_SWIPE_TR        0x0B  // 2D
+#define TRANSITION_SWIPE_BR        0x0C  // 2D
+#define TRANSITION_SWIPE_BL        0x0D  // 2D
+#define TRANSITION_CIRCULAR_OUT    0x0E  // 2D
+#define TRANSITION_CIRCULAR_IN     0x0F  // 2D
 // as there are many push variants to optimise if statements they are groupped together
-#define BLEND_STYLE_PUSH_RIGHT      0x10  // 1D or 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_LEFT       0x11  // 1D or 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_UP         0x12  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_DOWN       0x13  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_TL         0x14  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_TR         0x15  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_BR         0x16  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_BL         0x17  // 2D (& 0b00010000)
-#define BLEND_STYLE_PUSH_MASK       0x10
-#define BLEND_STYLE_COUNT           18
+#define TRANSITION_PUSH_RIGHT      0x10  // 1D or 2D (& 0b00010000)
+#define TRANSITION_PUSH_LEFT       0x11  // 1D or 2D (& 0b00010000)
+#define TRANSITION_PUSH_UP         0x12  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_DOWN       0x13  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_TL         0x14  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_TR         0x15  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_BR         0x16  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_BL         0x17  // 2D (& 0b00010000)
+#define TRANSITION_PUSH_MASK       0x10
+#define TRANSITION_COUNT           18
 
 
 typedef enum mapping1D2D {
@@ -460,13 +462,11 @@ class Segment {
       bool    check1  : 1;        // checkmark 1
       bool    check2  : 1;        // checkmark 2
       bool    check3  : 1;        // checkmark 3
-      //uint8_t blendMode : 4;      // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
     };
-    uint8_t   blendMode;          // segment blending modes: top, bottom, add, subtract, difference, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn
+    uint8_t   blendMode;          // segment blending modes: top, bottom, add, subtract, difference, average, multiply, divide, lighten, darken, screen, overlay, hardlight, softlight, dodge, burn, stencil
     char     *name;               // segment name
 
     // runtime data
-    mutable unsigned long next_time;  // millis() of next update
     mutable uint32_t step;  // custom "step" var
     mutable uint32_t call;  // call counter
     mutable uint16_t aux0;  // custom var
@@ -538,7 +538,7 @@ class Segment {
 
   protected:
 
-    inline static void     addUsedSegmentData(int len)     { Segment::_usedSegmentData += len; }
+    inline static void addUsedSegmentData(int len) { Segment::_usedSegmentData = max(0, int(Segment::_usedSegmentData) + len); }  // clamp negative results to 0
 
     inline uint32_t *getPixels() const                              { return pixels; }
     inline void     setPixelColorRaw(unsigned i, uint32_t c) const  { pixels[i] = c; }
@@ -548,7 +548,7 @@ class Segment {
     inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned X, unsigned Y){ return X + Y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
   #endif
     void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
-    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
@@ -560,9 +560,9 @@ class Segment {
     inline uint16_t progress() const          { return isInTransition() ? _t->_progress : 0xFFFFU; } // relies on handleTransition()/updateTransitionProgress() to update progression variable
     inline Segment *getOldSegment() const     { return isInTransition() ? _t->_oldSegment : nullptr; }
 
-    inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }
+    inline static void modeBlend(bool blend)  { Segment::_modeBlend = blend; }  // for isPreviousMode()
     inline static void setClippingRect(int startX, int stopX, int startY = 0, int stopY = 1) { _clipStart = startX; _clipStop = stopX; _clipStartY = startY; _clipStopY = stopY; };
-    inline static bool isPreviousMode()       { return Segment::_modeBlend; }    // needed for determining CCT/opacity during non-BLEND_STYLE_FADE transition
+    inline static bool isPreviousMode()       { return Segment::_modeBlend; }    // needed for determining CCT/opacity during non-TRANSITION_FADE transition
 
     static void handleRandomPalette();
 
@@ -592,7 +592,6 @@ class Segment {
     , check3(false)
     , blendMode(0)
     , name(nullptr)
-    , next_time(0)
     , step(0)
     , call(0)
     , aux0(0)
@@ -823,19 +822,18 @@ class Segment {
 
 // main "strip" class (108 bytes)
 class WS2812FX {
-  typedef uint16_t (*mode_ptr)(); // pointer to mode function
+  typedef void (*mode_ptr)(); // pointer to mode function
   typedef void (*show_callback)(); // pre show callback
   typedef struct ModeData {
     uint8_t     _id;   // mode (effect) id
     mode_ptr    _fcn;  // mode (effect) function
     const char *_data; // mode (effect) name and its UI control data
-    ModeData(uint8_t id, uint16_t (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
+    ModeData(uint8_t id, void (*fcn)(void), const char *data) : _id(id), _fcn(fcn), _data(data) {}
   } mode_data_t;
 
   public:
 
     WS2812FX() :
-      paletteBlend(0),
       now(millis()),
       timebase(0),
       isMatrix(false),
@@ -937,7 +935,7 @@ class WS2812FX {
     inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
-    uint8_t paletteBlend;
+    // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend
     uint8_t getActiveSegmentsNum() const;
     uint8_t getFirstSelectedSegId() const;
     uint8_t getLastActiveSegmentId() const;
