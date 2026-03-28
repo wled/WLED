@@ -1160,21 +1160,6 @@ void serializePins(JsonObject root)
   }
 }
 
-// deserializes mode data string into JsonArray
-void serializeModeData(JsonArray fxdata)
-{
-  char lineBuffer[256];
-  for (size_t i = 0; i < strip.getModeCount(); i++) {
-    strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
-    lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-    if (lineBuffer[0] != 0) {
-      char* dataPtr = strchr(lineBuffer,'@');
-      if (dataPtr) fxdata.add(dataPtr+1);
-      else         fxdata.add("");
-    }
-  }
-}
-
 // deserializes mode names string into JsonArray
 // also removes effect data extensions (@...) from deserialised names
 void serializeModeNames(JsonArray arr)
@@ -1189,6 +1174,48 @@ void serializeModeNames(JsonArray arr)
       arr.add(lineBuffer);
     }
   }
+}
+
+// Generate a streamed JSON response for the mode data
+// This uses sendChunked to send the reply in blocks based on how much fit in the outbound
+// packet buffer, minimizing the required state (ie. just the next index to send).  This
+// allows us to send an arbitrarily large response without using any significant amount of
+// memory (so no worries about buffer limits).
+void respondModeData(AsyncWebServerRequest* request) {
+  size_t fx_index = 0;
+  request->sendChunked(FPSTR(CONTENT_TYPE_JSON),
+    [fx_index](uint8_t* data, size_t len, size_t) mutable {
+      size_t bytes_written = 0;
+      char lineBuffer[256];
+      while (fx_index < strip.getModeCount() && (len > 5)) {
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)/sizeof(char)-1); // Copy to stack buffer for strchr
+        if (lineBuffer[0] != 0) {
+          lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
+          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
+          size_t mode_bytes;
+          if (dataPtr) {
+            mode_bytes = snprintf_P((char*) data, len, PSTR(",\"%s\""), dataPtr + 1);
+            if (mode_bytes > len) break;  // didn't fit; break loop and try again next packet          
+          } else {
+            strncpy_P((char*)data, PSTR(",\"\""), len);
+            mode_bytes = 3;
+          }
+          if (fx_index == 0) *data = '[';
+          data += mode_bytes;
+          len -= mode_bytes;
+          bytes_written += mode_bytes;
+        }
+        ++fx_index;        
+      }
+
+      if ((fx_index == strip.getModeCount()) && (len >= 1)) {
+        *data = ']';
+        ++bytes_written;
+        ++fx_index; // we're really done
+      }
+
+      return bytes_written;
+  });
 }
 
 // Global buffer locking response helper class (to make sure lock is released when AsyncJsonResponse is destroyed)
@@ -1218,7 +1245,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
 void serveJson(AsyncWebServerRequest* request)
 {
   enum class json_target {
-    all, state, info, state_info, nodes, effects, palettes, fxdata, networks, config, pins
+    all, state, info, state_info, nodes, effects, palettes, networks, config, pins
   };
   json_target subJson = json_target::all;
 
@@ -1229,7 +1256,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("nodes")) > 0) subJson = json_target::nodes;
   else if (url.indexOf(F("eff"))   > 0) subJson = json_target::effects;
   else if (url.indexOf(F("palx"))  > 0) subJson = json_target::palettes;
-  else if (url.indexOf(F("fxda"))  > 0) subJson = json_target::fxdata;
+  else if (url.indexOf(F("fxda"))  > 0) { respondModeData(request); return; }
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
   else if (url.indexOf(F("pins"))  > 0) subJson = json_target::pins;
@@ -1254,7 +1281,7 @@ void serveJson(AsyncWebServerRequest* request)
   }
   // releaseJSONBufferLock() will be called when "response" is destroyed (from AsyncWebServer)
   // make sure you delete "response" if no "request->send(response);" is made
-  LockedJsonResponse *response = new LockedJsonResponse(pDoc, subJson==json_target::fxdata || subJson==json_target::effects); // will clear and convert JsonDocument into JsonArray if necessary
+  LockedJsonResponse *response = new LockedJsonResponse(pDoc, subJson==json_target::effects); // will clear and convert JsonDocument into JsonArray if necessary
 
   JsonVariant lDoc = response->getRoot();
 
@@ -1270,8 +1297,6 @@ void serveJson(AsyncWebServerRequest* request)
       serializePalettes(lDoc, request->hasParam(F("page")) ? request->getParam(F("page"))->value().toInt() : 0); break;
     case json_target::effects:
       serializeModeNames(lDoc); break;
-    case json_target::fxdata:
-      serializeModeData(lDoc); break;
     case json_target::networks:
       serializeNetworks(lDoc); break;
     case json_target::config:
