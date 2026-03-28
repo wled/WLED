@@ -48,7 +48,7 @@ void UsermodManager::addToJsonInfo(JsonObject& obj)     {
 void UsermodManager::readFromJsonState(JsonObject& obj) { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->readFromJsonState(obj); }
 void UsermodManager::addToConfig(JsonObject& obj)       { for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) (*mod)->addToConfig(obj); }
 bool UsermodManager::readFromConfig(JsonObject& obj)    {
-  bool allComplete = true;  
+  bool allComplete = true;
   for (auto mod = DYNARRAY_BEGIN(usermods); mod < DYNARRAY_END(usermods); ++mod) {
     if (!(*mod)->readFromConfig(obj)) allComplete = false;
   }

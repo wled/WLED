@@ -97,9 +97,11 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
       #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
       //#define WLED_MAX_ANALOG_CHANNELS 6
       #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
-    #endif      
+    #endif
   #endif
+#ifndef WLED_MAX_DIGITAL_CHANNELS
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+#endif
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time
@@ -229,6 +231,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define USERMOD_ID_RF433                 56     //Usermod "usermod_v2_RF433.h"
 #define USERMOD_ID_BRIGHTNESS_FOLLOW_SUN 57     //Usermod "usermod_v2_brightness_follow_sun.h"
 #define USERMOD_ID_USER_FX               58     //Usermod "user_fx"
+#define USERMOD_ID_ZIGBEE_RGB_LIGHT      59     //Usermod "usermod_zigbee_rgb_light.h"
 
 //Wifi encryption type
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
@@ -260,6 +263,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define CALL_MODE_ALEXA         10
 #define CALL_MODE_WS_SEND       11     //special call mode, not for notifier, updates websocket only
 #define CALL_MODE_BUTTON_PRESET 12     //button/IR JSON preset/macro
+#define CALL_MODE_ZIGBEE        13     //Zigbee state change
 
 //RGB to RGBW conversion mode
 #define RGBW_MODE_MANUAL_ONLY     0    // No automatic white channel calculation. Manual white channel slider

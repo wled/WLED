@@ -1,0 +1,11 @@
+# WLED ESP32-C6 8MB partition table with Zigbee storage
+# 3MB OTA slots, 256KB filesystem, Zigbee NVS, coredump
+# Name,     Type, SubType, Offset,   Size,    Flags
+nvs,        data, nvs,     0x9000,   0x5000,
+otadata,    data, ota,     0xe000,   0x2000,
+app0,       app,  ota_0,   0x10000,  0x300000,
+app1,       app,  ota_1,   0x310000, 0x300000,
+spiffs,     data, spiffs,  0x610000, 0x3B000,
+coredump,   data, coredump,0x64B000, 0x10000,
+zb_storage, data, fat,     0x65B000, 0x4000,
+zb_fct,     data, fat,     0x65F000, 0x1000,
