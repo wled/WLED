@@ -1,24 +1,19 @@
 # Research: ESP32-C6 Zigbee Pairing with Philips Hue Bridge v2
 
-## TL;DR -- The Solution
+## TL;DR -- Pairing an ESP32-C6 with Philips Hue Bridge v2
 
-**Pairing an ESP32-C6 with a Philips Hue Bridge v2 requires THREE non-obvious fixes.**
-Without all three, the device will never join or will join but not be recognised.
+**Three non-obvious fixes are required.** Without all three, the device will never
+join or will be rejected immediately.
 
 ### 1. Distributed security (the main blocker)
 
-The Hue bridge uses **distributed security**, NOT the centralized Trust Center model
-that most Zigbee documentation describes. Without enabling distributed join support,
-the device attempts a centralized TC key exchange that the bridge never responds to,
-causing `"Have not got nwk key - authentication failed"`.
+The Hue bridge uses **distributed security**, NOT the centralized Trust Center model.
+Without this, the device tries centralized TC key exchange, causing
+`"Have not got nwk key - authentication failed"`.
 
 ```c
 esp_zb_enable_joining_to_distributed(true);
-```
 
-You also need to set the **ZLL (Zigbee Light Link) distributed link key**:
-
-```c
 static uint8_t zll_distributed_key[] = {
     0x81, 0x42, 0x86, 0x86, 0x5D, 0xC1, 0xC8, 0xB2,
     0xC8, 0xCB, 0xC5, 0x2E, 0x5D, 0x65, 0xD1, 0xB8
@@ -29,8 +24,7 @@ esp_zb_secur_TC_standard_distributed_key_set(zll_distributed_key);
 ### 2. Minimum join LQI = 0
 
 The ESP32-C6 DevKitC-1 PCB antenna produces very low LQI values (0-30) even at 1m.
-The ZBOSS stack's default minimum LQI threshold silently rejects all beacons from the
-bridge as `"low lqi"`. Set it to zero:
+The ZBOSS stack silently rejects all beacons as `"low lqi"`.
 
 ```c
 esp_zb_secur_network_min_join_lqi_set(0);
@@ -39,7 +33,7 @@ esp_zb_secur_network_min_join_lqi_set(0);
 ### 3. app_device_version = 1
 
 The Hue bridge requires `app_device_version = 1` in the endpoint descriptor. The
-default Espressif helper functions set this to 0. You must create the endpoint manually:
+default Espressif helper functions set this to 0. Create the endpoint manually:
 
 ```c
 esp_zb_endpoint_config_t endpoint_config = {
@@ -52,7 +46,7 @@ esp_zb_ep_list_t *ep_list = esp_zb_ep_list_create();
 esp_zb_ep_list_add_ep(ep_list, cluster_list, endpoint_config);
 ```
 
-### Additional requirements
+### Additional pairing requirements
 
 - **End Device mode** (`ESP_ZB_DEVICE_TYPE_ED`): Hue bridge rejects Router joins
 - **rx_on_when_idle = true**: `esp_zb_set_rx_on_when_idle(true)` (mains-powered light)
@@ -60,20 +54,31 @@ esp_zb_ep_list_add_ep(ep_list, cluster_list, endpoint_config);
   to the on/off cluster for Hue compatibility
 - **NVRAM erase at start** during development: `esp_zb_nvram_erase_at_start(true)`
 
+### Post-pairing: Hue-specific quirks requiring workarounds
+
+Once paired, two Hue-specific behaviours require a **raw ZCL command handler**
+(`esp_zb_raw_command_handler_register()`):
+
+- **`off_with_effect` (0x40)**: Hue sends this instead of plain `off`. ZBOSS silently
+  ignores it ([issue #519](https://github.com/espressif/esp-zigbee-sdk/issues/519)) --
+  must handle manually.
+- **Manufacturer-specific scene commands** (cluster 0x0005, manufacturer 0x100b):
+  These **crash** the ZBOSS stack ([issue #681](https://github.com/espressif/esp-zigbee-sdk/issues/681)) --
+  must intercept and respond FAIL.
+
 ### Result
 
-With these fixes, the ESP32-C6 joins the Hue bridge network in ~3 seconds, appears as
-a controllable light in the Hue app, and responds to on/off commands via the Hue API.
-Confirmed working with esp-zigbee-lib v1.6.8 on ESP-IDF v5.5.2.
+With these fixes, the ESP32-C6 joins the Hue bridge in ~3-10 seconds and appears as a
+controllable Color Light. Confirmed with esp-zigbee-lib v1.6.8 on ESP-IDF v5.5.2.
 
 ### Key references
 
-- GitHub issue [#358](https://github.com/espressif/esp-zigbee-sdk/issues/358) --
-  confirmed working distributed security config from users `wejn` and `m4nu-el`
-- GitHub issue [#519](https://github.com/espressif/esp-zigbee-sdk/issues/519) --
-  `Off with effect` ZCL command silently ignored by ZBOSS
-- GitHub issue [#681](https://github.com/espressif/esp-zigbee-sdk/issues/681) --
-  manufacturer-specific scene commands from Hue can crash ZBOSS
+- [espressif/esp-zigbee-sdk#358](https://github.com/espressif/esp-zigbee-sdk/issues/358) --
+  confirmed working distributed security config
+- [espressif/esp-zigbee-sdk#519](https://github.com/espressif/esp-zigbee-sdk/issues/519) --
+  `Off with effect` silently ignored
+- [espressif/esp-zigbee-sdk#681](https://github.com/espressif/esp-zigbee-sdk/issues/681) --
+  Hue scene commands crash ZBOSS
 
 ---
 
@@ -86,8 +91,10 @@ Zigbee light with a **Philips Hue Bridge v2 (square model)**. The bridge operate
 The goal is to have the ESP32-C6 join the Hue bridge's Zigbee network as an HA Color
 Dimmable Light, with full bidirectional state sync between WLED and Zigbee.
 
-**Current status: PAIRING WORKS. The device joins the bridge, is discovered as a light,
-and responds to on/off commands. See TL;DR above for the solution.**
+**Current status: FULLY WORKING. The device pairs with the bridge as Light #23 (Color
+light), responds to on/off, brightness, and color commands (both XY and HS color modes).
+Bidirectional state sync between WLED and Zigbee is implemented. See TL;DR above for
+the critical fixes required.**
 
 ---
 
@@ -510,21 +517,26 @@ internally. Worth trying if the single-key API doesn't work.
 
 ## WLED Usermod Architecture Notes
 
-The WLED usermod (`usermods/zigbee_rgb_light/`) is ~747 lines and implements:
+The WLED usermod (`usermods/zigbee_rgb_light/`) is ~1230 lines and implements:
 
 - **HA Color Dimmable Light endpoint** (on/off + level + color control clusters)
+- **Raw ZCL command handler**: Parses command payloads directly (move_to_color,
+  move_to_level, on/off, off_with_effect, move_to_hue_saturation, etc.) because
+  SET_ATTR_VALUE_CB does NOT fire for ZCL commands, only attribute writes.
+- **Manufacturer-specific command interception**: Prevents ZBOSS crashes from Hue's
+  proprietary scene commands (cluster 0x0005, manufacturer 0x100b).
 - **Bidirectional state sync**: Zigbee -> WLED via `stateChanged` flag + `applyState()`;
-  WLED -> Zigbee via `onStateChange()` + `esp_zb_scheduler_alarm()` callback
+  WLED -> Zigbee via `onStateChange()` + `esp_zb_scheduler_alarm()` callback that
+  updates the ZCL attribute cache.
 - **CIE 1931 XY <-> RGB conversion** (Hue uses XY colour space)
 - **Thread safety**: Mutex (`zbStateMutex`) for shared state between Zigbee task and
   WLED loop; `esp_zb_scheduler_alarm()` to run Zigbee API calls in Zigbee task context
 - **Singleton pattern**: `s_zb_instance`, `s_zb_paired_flag`, `s_zb_eui64_str` for
   `extern "C"` signal handler access
 - **`CALL_MODE_ZIGBEE = 13`** in `wled00/const.h` to prevent echo loops
-- **WiFi kill during pairing**: Disables WiFi while Zigbee is unjoined, re-enables
-  after join
-- **Zigbee task started from `setup()`** (before WiFi) to give 802.15.4 radio early
-  access
+- **WiFi/802.15.4 coexistence**: `esp_coex_wifi_i154_enable()` called in setup()
+- **Zigbee task started from `connected()`** (after WiFi STA gets IP) to preserve
+  WLED-AP functionality for initial WiFi configuration on fresh devices
 
 ---
 

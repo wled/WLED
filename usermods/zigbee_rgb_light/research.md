@@ -4,7 +4,9 @@ Development notes and lessons learned for future work on the Zigbee RGB Light us
 
 ## Architecture Overview
 
-The usermod exposes WLED as a Zigbee HA Color Dimmable Light (On/Off + Level Control + Color Control clusters). It runs as a Zigbee End Device and allows pairing with coordinators such as Zigbee2MQTT or ZHA.
+The usermod exposes WLED as a Zigbee HA Color Dimmable Light (On/Off + Level Control + Color Control clusters). It runs as a Zigbee End Device and has been confirmed working with the **Philips Hue Bridge v2** (square model) and should work with Zigbee2MQTT, ZHA, deCONZ, etc.
+
+See `research-phillips-hue.md` for the detailed research log and critical fixes required for Hue bridge pairing.
 
 ### Key Components
 
@@ -19,12 +21,15 @@ The usermod exposes WLED as a Zigbee HA Color Dimmable Light (On/Off + Level Con
 The Zigbee stack runs in its own FreeRTOS task (`zigbeeTask`, 8KB stack, priority 5). The WLED main loop runs on the Arduino core. Communication between the two is via shared `volatile` state variables protected by a FreeRTOS mutex (`zbStateMutex`).
 
 ```
-Zigbee task (zigbeeTask)          WLED main loop (loop())
-  esp_zb_stack_main_loop()          checks stateChanged flag
-  -> attribute write callback       -> applyState()
-  -> updates zbHue/zbSat/zbBri     -> writes to WLED colPri/bri
-  -> sets stateChanged = true       -> calls stateUpdated()
+Zigbee task (zigbeeTask)              WLED main loop (loop())
+  esp_zb_stack_main_loop()              checks stateChanged flag
+  -> raw ZCL command handler            -> applyState()
+  -> parses on/off, level, color       -> writes to WLED colPri/bri
+  -> updates shared state via mutex    -> calls colorUpdated(CALL_MODE_ZIGBEE)
+  -> sets stateChanged = true
 ```
+
+Note: `colorUpdated()` must be used instead of `stateUpdated()`, because `stateUpdated()` reads segment colors BACK into `colPri[]` before applying, overwriting what we just set.
 
 ### Startup Sequence
 
@@ -67,11 +72,7 @@ These are defined in `tools/WLED_ESP32_8MB_Zigbee.csv`. If you flash firmware bu
 
 ### 4. Zigbee Channel Selection
 
-The usermod pins Zigbee to channel 26 (2480 MHz) via `esp_zb_set_primary_network_channel_set()`. Channel 26 has zero spectral overlap with any WiFi channel (the 802.11 2.4GHz spectrum ends at ~2472 MHz). This minimises coexistence interference.
-
-If your coordinator uses a different channel, you'll need to either:
-- Reconfigure the coordinator to use channel 26, or
-- Change the channel mask in `zigbeeTask()` to match your coordinator's channel
+The usermod pins Zigbee to all channels (11-26) via `ESP_ZB_TRANSCEIVER_ALL_CHANNELS_MASK`, so it will find the coordinator regardless of which channel it operates on. Channel 26 (2480 MHz) has zero spectral overlap with any WiFi channel.
 
 ### 5. `Error: no _pixels!` Debug Spam
 
@@ -105,8 +106,27 @@ Currently pinned to `pioarduino/platform-espressif32` release `55.03.37`. This b
 ### Endpoint Configuration
 
 - Endpoint number: 10 (configurable via `ZIGBEE_RGB_LIGHT_ENDPOINT`)
-- Device type: HA Color Dimmable Light (`ESP_ZB_DEFAULT_COLOR_DIMMABLE_LIGHT_CONFIG`)
-- Clusters: On/Off, Level Control, Color Control (hue/saturation mode)
+- Device type: HA Color Dimmable Light (`ESP_ZB_HA_COLOR_DIMMABLE_LIGHT_DEVICE_ID`)
+- app_device_version: 1 (required by Hue bridge)
+- Clusters: On/Off, Level Control, Color Control (XY + hue/saturation modes)
+
+### Command Handling
+
+The Hue bridge sends ZCL **commands**, NOT direct attribute writes. The `SET_ATTR_VALUE_CB` does NOT fire for these. A **raw command handler** (`esp_zb_raw_command_handler_register()`) is used to intercept and parse:
+
+| ZCL Command | Cluster | Cmd ID | Notes |
+|------------|---------|--------|-------|
+| On | On/Off (0x0006) | 0x01 | Parsed, ZBOSS also handles |
+| Off | On/Off (0x0006) | 0x00 | Parsed, ZBOSS also handles |
+| Off with effect | On/Off (0x0006) | 0x40 | **Fully handled** (ZBOSS ignores it) |
+| Toggle | On/Off (0x0006) | 0x02 | Parsed, ZBOSS also handles |
+| Move to level | Level (0x0008) | 0x00 | Parsed, ZBOSS also handles |
+| Move to level (on/off) | Level (0x0008) | 0x04 | Parsed, ZBOSS also handles |
+| Move to color (XY) | Color (0x0300) | 0x07 | Parsed, ZBOSS also handles |
+| Move to hue/sat | Color (0x0300) | 0x06 | Parsed, ZBOSS also handles |
+| Move to hue | Color (0x0300) | 0x00 | Parsed, ZBOSS also handles |
+| Move to saturation | Color (0x0300) | 0x03 | Parsed, ZBOSS also handles |
+| Hue scene (manuf.) | Scenes (0x0005) | any | **Intercepted**, responds FAIL (prevents crash) |
 
 ### Attribute Mapping
 
@@ -114,6 +134,8 @@ Currently pinned to `pioarduino/platform-espressif32` release `55.03.37`. This b
 |----------------|-----------------|-------|--------------|
 | On/Off | `ON_OFF_ID` | bool | `bri = 0` when off |
 | Level Control | `CURRENT_LEVEL_ID` | 0-254 | `bri` (direct) |
+| Color Control | `CURRENT_X_ID` | 0-0xFEFF | CIE XY -> sRGB via `xyYtoRGB()` |
+| Color Control | `CURRENT_Y_ID` | 0-0xFEFF | CIE XY -> sRGB via `xyYtoRGB()` |
 | Color Control | `CURRENT_HUE_ID` | 0-254 | Scaled to 0-65535, converted via `colorHStoRGB()` |
 | Color Control | `CURRENT_SATURATION_ID` | 0-254 | Scaled to 0-255, converted via `colorHStoRGB()` |
 
