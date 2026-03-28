@@ -174,11 +174,10 @@ void WLED::loop()
     #ifdef ESP8266
     uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
     #else
-    #ifdef CONFIG_IDF_TARGET_ESP32C3
+    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv)
     // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
-    unsigned t0 = millis();
-    while (strip.isUpdating() && (millis() - t0 < 150)) delay(1);    // be nice, but not too nice. Waits up to 150ms
+    strip.waitForLEDs(150); // be nice, but not too nice. Waits up to 150ms - we are in the main loop, so a new strip.show() cannot start while waiting
     #endif
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif

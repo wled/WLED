@@ -910,6 +910,11 @@ class WS2812FX {
                                                               { if (_segments.size() < getMaxSegments()) _segments.emplace_back(sStart,sStop,sStartY,sStopY); }
     inline void suspend()                                     { _suspend = true; }    // will suspend (and canacel) strip.service() execution
     inline void resume()                                      { _suspend = false; }   // will resume strip.service() execution
+    inline bool isSuspended() const                           { return _suspend; }    // true if strip.service() execution is suspended
+    // be nice, but not too nice - wait until LEDs are idle, or maxWaitMS have passed
+    // on 8266 this call will _not_ wait outside of the main loop context
+    // returns isUpdating() status after waiting
+    bool waitForLEDs(unsigned maxWaitMS) const;
 
     void restartRuntime();
     void setTransitionMode(bool t);
@@ -923,7 +928,6 @@ class WS2812FX {
     inline bool isServicing() const          { return _isServicing; }           // returns true if strip.service() is executing
     inline bool hasWhiteChannel() const      { return _hasWhiteChannel; }       // returns true if strip contains separate white chanel
     inline bool isOffRefreshRequired() const { return _isOffRefreshRequired; }  // returns true if strip requires regular updates (i.e. TM1814 chipset)
-    inline bool isSuspended() const          { return _suspend; }               // returns true if strip.service() execution is suspended
     inline bool needsUpdate() const          { return _triggered; }             // returns true if strip received a trigger() request
 
     // uint8_t paletteBlend;  // obsolete - use global paletteBlend instead of strip.paletteBlend

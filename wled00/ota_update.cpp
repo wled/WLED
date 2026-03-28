@@ -239,6 +239,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
 
   strip.suspend();
+  strip.waitForLEDs(25);  // wait max 25 ms for LED transmissions to finish
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can
   context->needsRestart = true;
@@ -759,6 +760,7 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
   #endif
   lastEditTime = millis(); // make sure PIN does not lock during update
   strip.suspend();
+  strip.waitForLEDs(25);   // wait max 25 ms for LED transmissions to finish
   strip.resetSegments();
 
   // Check available heap before attempting allocation
