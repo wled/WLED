@@ -22,47 +22,100 @@ namespace WLEDpixelBus {
 // ESP8266 UART Bus
 //==============================================================================
 
+// Global static tracking for the shared UART ISR
+Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _initialized(false), _encodeLut(nullptr), _encodeBuffer(nullptr), _encodeBufferSize(0) {}
+  : _pin(pin), _timing(timing), _order(order), _initialized(false), 
+    _encodeBuffer(nullptr), _encodeBufferSize(0), 
+    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {}
 
 Esp8266UartBus::~Esp8266UartBus() {
   end();
-  if (_encodeLut) free(_encodeLut);
   if (_encodeBuffer) free(_encodeBuffer);
 }
 
-void Esp8266UartBus::buildLut() {
-  if (!_encodeLut) _encodeLut = (uint8_t*)malloc(256 * 4); // TODO: this is really bad memory management! should only have a pixel buffer and do encoding on the fly
-  if (!_encodeLut) return;
-  const uint8_t uartData[4] = {0b110111, 0b000111, 0b110100, 0b000100};
-  for (int i=0; i<256; i++) {
-    _encodeLut[i*4 + 0] = uartData[(i >> 6) & 0x03];
-    _encodeLut[i*4 + 1] = uartData[(i >> 4) & 0x03];
-    _encodeLut[i*4 + 2] = uartData[(i >> 2) & 0x03];
-    _encodeLut[i*4 + 3] = uartData[i & 0x03];
-  }
-}
-
-bool Esp8266UartBus::allocateBuffer(size_t encodedDataLen) {
-  if (_encodeBufferSize >= encodedDataLen) return true;
+// 1x Buffer allocation (only storing raw bytes, not UART bit-patterns)
+bool Esp8266UartBus::allocateBuffer(size_t rawDataLen) {
+  if (_encodeBufferSize >= rawDataLen) return true;
   if (_encodeBuffer) free(_encodeBuffer);
-  _encodeBuffer = (uint8_t*)malloc(encodedDataLen);
+  _encodeBuffer = (uint8_t*)malloc(rawDataLen);
   if (!_encodeBuffer) return false;
-  _encodeBufferSize = encodedDataLen;
+  _encodeBufferSize = rawDataLen;
   return true;
+}
+
+// Shared Interrupt Service Routine (must be in IRAM)
+void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg) {
+  for (uint8_t uartNum = 0; uartNum < 2; uartNum++) {
+    Esp8266UartBus* instance = s_instances[uartNum];
+    
+    // Check if this UART triggered a TX FIFO Empty interrupt
+    if (instance && (USIS(uartNum) & (1 << UIFE))) {
+      // Logic for bit expansion (Replaces the LUT)
+      const uint8_t uartData[4] = {0b110111, 0b000111, 0b110100, 0b000100};
+      
+      // Calculate remaining space in the 128-byte hardware FIFO
+      uint8_t avail = (128 - ((USS(uartNum) >> USTXC) & 0xff)) / 4;
+
+      while (avail > 0 && instance->_asyncBuf < instance->_asyncBufEnd) {
+        uint8_t v = *instance->_asyncBuf++;
+        USF(uartNum) = uartData[(v >> 6) & 0x03];
+        USF(uartNum) = uartData[(v >> 4) & 0x03];
+        USF(uartNum) = uartData[(v >> 2) & 0x03];
+        USF(uartNum) = uartData[v & 0x03];
+        avail--;
+      }
+
+      // If finished, disable interrupt for this UART
+      if (instance->_asyncBuf >= instance->_asyncBufEnd) {
+        USIE(uartNum) &= ~(1 << UIFE);
+      }
+      
+      // Clear all interrupt flags for this UART
+      USIC(uartNum) = 0xffff;
+    }
+  }
 }
 
 bool Esp8266UartBus::begin() {
   if (_initialized) return true;
   if (_pin != 1 && _pin != 2) return false; 
-  buildLut();
+  
+  uint8_t uartNum = (_pin == 2) ? 1 : 0;
+  s_instances[uartNum] = this;
+
   updateUartTiming();
+
+  ETS_UART_INTR_DISABLE();
+  // Attach the shared ISR
+  ETS_UART_INTR_ATTACH(UartIsr, nullptr);
+
+  // Set threshold: Interrupt when FIFO drops below 80 bytes
+  USC1(uartNum) = (80 << UCFET); 
+  
+  USIC(uartNum) = 0xffff; // Clear pending
+  USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE)); // Start with interrupts off
+  ETS_UART_INTR_ENABLE();
+
   _initialized = true;
   return true;
 }
 
 void Esp8266UartBus::end() {
   if (!_initialized) return;
+  uint8_t uartNum = (_pin == 2) ? 1 : 0;
+  
+  ETS_UART_INTR_DISABLE();
+  USIE(uartNum) = 0;
+  s_instances[uartNum] = nullptr;
+  
+  // If no buses are left, detach ISR
+  if (s_instances[0] == nullptr && s_instances[1] == nullptr) {
+    ETS_UART_INTR_ATTACH(nullptr, nullptr);
+  } else {
+    ETS_UART_INTR_ENABLE();
+  }
+
   if (_pin == 2) Serial1.end();
   else Serial.end();
   _initialized = false;
@@ -80,59 +133,44 @@ void Esp8266UartBus::updateUartTiming() {
     Serial.begin(baud, SERIAL_6N1, SERIAL_TX_ONLY);
   }
   
-  // Clear the RX & TX FIFOS
   const uint32_t fifoResetFlags = (1 << UCTXRST) | (1 << UCRXRST);
   USC0(uartNum) |= fifoResetFlags;
   USC0(uartNum) &= ~(fifoResetFlags);
-
-  // clear all invert bits
-  USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI) |  (1 << UCTXI));
-
-  // Disable RX & TX interrupts that might have been enabled by Arduino Core Serial -> needed? 
-  //USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE));
+  USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI));
 }
 
 bool Esp8266UartBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
   if (!pixels) { pixels = _pixelData; numPixels = _numPixels; cct = _cctData; }
   if (!_initialized || !pixels || numPixels == 0) return false;
+  if (!canShow()) return false; // Ensure previous transfer is done
 
   size_t bpp = (_order >= ColorOrder::RGBWC) ? 5 : ((_order >= ColorOrder::RGBW) ? 4 : 3);
-  size_t outLen = numPixels * bpp * 4; // TODO: should not be *4, we can encode on the fly if done right.
-  if (!allocateBuffer(outLen)) return false;
+  size_t rawLen = numPixels * bpp;
+  
+  if (!allocateBuffer(rawLen)) return false;
 
+  // Encode pixels to a flat raw byte buffer (1x size)
   ColorEncoder encoder(_order);
   uint8_t* out = _encodeBuffer;
-  uint8_t pData[5];
-
   for (size_t i = 0; i < numPixels; i++) {
-    encoder.encode(pixels[i], cct ? &cct[i] : nullptr, pData);
-    for (size_t b = 0; b < bpp; b++) {
-      uint8_t v = pData[b];
-      *out++ = _encodeLut[v * 4 + 0];
-      *out++ = _encodeLut[v * 4 + 1];
-      *out++ = _encodeLut[v * 4 + 2];
-      *out++ = _encodeLut[v * 4 + 3];
-    }
+    encoder.encode(pixels[i], cct ? &cct[i] : nullptr, out);
+    out += bpp;
   }
 
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  out = _encodeBuffer;
-  size_t len = outLen;
+  _asyncBuf = _encodeBuffer;
+  _asyncBufEnd = _encodeBuffer + rawLen;
+
+  // Enable the "TX FIFO Empty" interrupt to trigger the ISR
+  USIE(uartNum) |= (1 << UIFE);
   
-  // Busy wait UART filling to ensure stable rendering (OS interrupts intact but tight timing loop)
-  while(len > 0) {
-    if (((USS(uartNum) >> USTXC) & 0xff) < 127) {
-      USF(uartNum) = *out++;
-      len--;
-    }
-  }
   return true;
 }
 
 bool Esp8266UartBus::canShow() const {
   if (!_initialized) return false;
-  uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  return (((USS(uartNum) >> USTXC) & 0xff) == 0); // ready when FIFO empty
+  // Ready if we have no more data to send
+  return (_asyncBuf >= _asyncBufEnd);
 }
 
 void Esp8266UartBus::waitComplete() {
