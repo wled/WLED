@@ -56,8 +56,10 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
     _channels[i] = {nullptr, -1, nullptr, 0, 0, false};
   }
 
-  _dmaDesc[0] = _dmaDesc[1] = nullptr;
-  _dmaBuffer[0] = _dmaBuffer[1] = nullptr;
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    _dmaDesc[i] = nullptr;
+    _dmaBuffer[i] = nullptr;
+  }
 }
 
 I2sBusContext:: ~I2sBusContext() {
@@ -71,7 +73,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _bufferSize = (bufferSize + 3) & ~3;  // align to 4 bytes
 
   // Allocate DMA buffers (4-byte aligned for DMA)
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
     if (!_dmaBuffer[i]) {
       Serial.println("I2S DMA buffer alloc failed");
@@ -88,17 +90,16 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
     }
   }
 
-  // Setup DMA descriptors - circular chain for gapless ping-pong
-  for (int i = 0; i < 2; i++) {
+  // Setup DMA descriptors - circular chain
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     _dmaDesc[i]->size = _bufferSize;
     _dmaDesc[i]->length = _bufferSize;
     _dmaDesc[i]->buf = _dmaBuffer[i];
     _dmaDesc[i]->eof = 1;  // Generate interrupt on completion
     _dmaDesc[i]->sosf = 0;
     _dmaDesc[i]->owner = 1;
+    _dmaDesc[i]->qe.stqe_next = _dmaDesc[(i + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT];
   }
-  _dmaDesc[0]->qe.stqe_next = _dmaDesc[1]; // create circular list
-  _dmaDesc[1]->qe.stqe_next = _dmaDesc[0];
 
   // Enable I2S peripheral
 #if defined(WLEDPB_ESP32)
@@ -285,7 +286,7 @@ void I2sBusContext::deinit() {
     _isrHandle = nullptr;
   }
 
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     if (_dmaBuffer[i]) {
       heap_caps_free(_dmaBuffer[i]);
       _dmaBuffer[i] = nullptr;
@@ -381,7 +382,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   // Desired output (per bit): [HIGH][data][data][LOW]
   // Buffer is always filled completely (zeros = LOW = reset signal)
 
-  memset(dest, 0, destLen);
+  //memset(dest, 0, destLen);
   size_t pos = 0;
 
   // Pre-calculate max channels to speed up loop
@@ -470,13 +471,11 @@ bool I2sBusContext::startTransmit() {
     }
   }
 
-  // Fill both buffers initially
-  fillBuffer(0);
-  fillBuffer(1);
-
-  // Restore DMA descriptor ownership (DMA clears owner to 0 after processing)
-  _dmaDesc[0]->owner = 1;
-  _dmaDesc[1]->owner = 1;
+  // Fill all buffers initially
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    fillBuffer(i);
+    _dmaDesc[i]->owner = 1;  // Restore ownership after descriptor init
+  }
 
   _activeBuffer = 0;
   _state = DriverState::Sending;
@@ -535,14 +534,12 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
 
   if (!(status & I2S_OUT_EOF_INT_ST)) return;
 
-  s_i2sIsrCount++; // debug, remove
-
-  // The completed buffer just finished playing; DMA is now on the other buffer
+  // The completed buffer just finished playing; DMA is now on the next buffer
   uint8_t completedBuf = ctx->_activeBuffer;
-  ctx->_activeBuffer ^= 1;
+  ctx->_activeBuffer = (ctx->_activeBuffer + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
+  memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize); // clear the buffer, will be filled or left blank as reset signal
 
   if (ctx->_state == DriverState::Sending) {
-    s_i2sIsrSending++; // debug, remove
     // Encode next chunk into the completed buffer
     // encode4Step always fills the full buffer (zeros for any remainder)
     ctx->encode4Step(ctx->_dmaBuffer[completedBuf], ctx->_bufferSize);
@@ -558,23 +555,20 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     }
     if (!moreData) {
       // Last data chunk was just encoded into completedBuf.
-      // DMA is currently playing the OTHER buffer. We need to wait
+      // DMA is currently playing the next buffer. We need to wait
       // for that to finish so the last-data buffer gets played.
       ctx->_state = DriverState::SendingLast;
     }
 
-    // Restore DMA ownership so hardware can replay this buffer
+    // Restore DMA ownership so DMA can use this buffer
     ctx->_dmaDesc[completedBuf]->owner = 1;
   } else if (ctx->_state == DriverState::SendingLast) {
     // The other buffer just finished. DMA is now playing the last-data buffer.
     // Fill completed buffer with zeros (reset signal) so it plays after.
-    memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize);
     ctx->_dmaDesc[completedBuf]->owner = 1;
-    s_i2sIsrReset++; // debug, remove
     ctx->_state = DriverState::WaitingReset;
   } else {
     // WaitingReset - last data played, zero buffer sent as reset. Stop DMA.
-    s_i2sIsrIdle++; // debug, remove
     dev->int_ena.out_eof = 0;
     dev->conf.tx_start = 0;
     dev->out_link.start = 0;

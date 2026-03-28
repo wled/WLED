@@ -16,15 +16,20 @@ namespace WLEDpixelBus {
 
 #if defined(WLEDPB_ESP32)
   #define WLEDPB_I2S_BUS_COUNT 2 // TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
-  #define WLEDPB_I2S_MAX_CHANNELS 16 // if using both I2S, 32 would be possible but that is probably way overkill to implement, 16 I2S + 8RMT is good enough
 #else // S2 (C3 & S3 do not support parallel I2S output, S3 uses LCD peripheral instead, C3 has parallel SPI as an alternative)
   #define WLEDPB_I2S_BUS_COUNT 1
-  #define WLEDPB_I2S_MAX_CHANNELS 16
 #endif
+
+// I2S DMA buffer count for circular linked list. Default is double-buffering (2); can be increased for deeper pipelining.
+#ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
+  #define WLEDPB_I2S_DMA_BUFFER_COUNT 4
+#endif
+
+#define WLEDPB_I2S_MAX_CHANNELS 16 // if using both I2S, 32 would be possible but that is probably way overkill to implement, 16 I2S + 8RMT is good enough
 
 /**
  * I2S bus context - manages shared I2S peripheral for parallel output
- * Uses double-buffered DMA with ISR-driven buffer refill
+ * Uses circular DMA buffers with ISR-driven buffer refill
  */
 class I2sBusContext {
 public: 
@@ -58,9 +63,9 @@ private:
   volatile DriverState _state;
   bool _initialized;
 
-  // DMA double buffer
-  lldesc_t* _dmaDesc[2];
-  uint8_t* _dmaBuffer[2];
+  // DMA circular buffer chain
+  lldesc_t* _dmaDesc[WLEDPB_I2S_DMA_BUFFER_COUNT];
+  uint8_t* _dmaBuffer[WLEDPB_I2S_DMA_BUFFER_COUNT];
   size_t _bufferSize;
   volatile uint8_t _activeBuffer;
 
@@ -126,7 +131,7 @@ public:
   // Memory estimation: per-bus encode buffer + shared I2S DMA context (on first bus)
   static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool isFirstBus = true) {
     size_t mem = numPixels * channelCount;  // per-bus encode buffer
-    if (isFirstBus) mem += DEFAULT_DMA_BUFFER_SIZE * 4 + 64;  // shared: 2× DMA buffers (doubled for 16-bit output) + 2× descriptors
+    if (isFirstBus) mem += DEFAULT_DMA_BUFFER_SIZE * WLEDPB_I2S_DMA_BUFFER_COUNT + (sizeof(lldesc_t) * WLEDPB_I2S_DMA_BUFFER_COUNT);
     return mem;
   }
 
