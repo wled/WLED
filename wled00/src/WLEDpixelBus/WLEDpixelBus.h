@@ -230,7 +230,7 @@ public:
     }
     _numPixels = numPixels;
     if (numPixels == 0) return true;
-    // TODO: use WLED alloc functions that are min-heap safe
+    // TODO: use WLED alloc functions that are min-heap safe Better yet: remove the buffer and encode pixels directly.
     _pixelData = (uint32_t*)malloc(numPixels * sizeof(uint32_t));
     if (!_pixelData) return false;
     memset(_pixelData, 0, numPixels * sizeof(uint32_t));
@@ -248,13 +248,6 @@ public:
     return true;
   }
 
-  // TODO: can be removed, pixels are now written to the buffer directly in busDigital::setPixelColor()
-  //  virtual void IRAM_ATTR setPixelColor(uint16_t pix, uint32_t c, const CctPixel* cp = nullptr) {
-  //      if (pix >= _numPixels) return; // TODO: can this be removed safely? busmanager already checks? its in the hot path.
-  //      _pixelData[pix] = c;
-  //      if (cp && _cctData) _cctData[pix] = *cp; // TODO: make set cct a seperate function? might speed things up by removing this check
-  //  }
-
   virtual uint32_t getPixelColor(uint16_t pix) const {
     if (pix >= _numPixels) return 0;
     return _pixelData[pix];
@@ -271,8 +264,6 @@ public:
   virtual uint32_t* getPixelData() { return _pixelData; }
   virtual CctPixel* getCctData() { return _cctData; }
 };
-
-using IBus = PixelBus;
 
 //==============================================================================
 // Forward Declarations
@@ -400,7 +391,7 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
   size_t mem = 0;
 
   // Bus instance overhead
-  mem += 128; // Approximate C++ object size + IBus data structures
+  mem += 128; // Approximate C++ object size + PixelBus data structures
   // TODO: check if this is correct
   switch (type) {
     case BusType::UART:
@@ -446,3 +437,4 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
 #elif defined(WLEDPB_ESP8266)
 #include "WLEDpixelBus_ESP8266.h"
 #endif
+

@@ -10,7 +10,7 @@ namespace WLEDpixelBus {
 // RMT Bus - Works on all ESP32 variants
 //==============================================================================
 
-class RmtBus : public IBus {
+class RmtBus : public PixelBus {
 public:
   /**
    * Create RMT bus
@@ -110,3 +110,4 @@ private:
 };
 
 } // namespace WLEDpixelBus
+

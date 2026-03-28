@@ -10,7 +10,7 @@ namespace WLEDpixelBus {
 // ESP8266 UART Bus (Asynchronous via UART1/UART0)
 //==============================================================================
 
-class Esp8266UartBus : public IBus {
+class Esp8266UartBus : public PixelBus {
 public:
   Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order);
   ~Esp8266UartBus() override;
@@ -52,7 +52,7 @@ private:
 // ESP8266 DMA Bus (Via I2S)
 //==============================================================================
 
-class Esp8266DmaBus : public IBus {
+class Esp8266DmaBus : public PixelBus {
 public:
   Esp8266DmaBus(int8_t pin, const LedTiming& timing, ColorOrder order);
   ~Esp8266DmaBus() override;
@@ -90,7 +90,7 @@ private:
 // ESP8266 BitBang Bus
 //==============================================================================
 
-class Esp8266BitBangBus : public IBus {
+class Esp8266BitBangBus : public PixelBus {
 public:
   Esp8266BitBangBus(int8_t pin, const LedTiming& timing, ColorOrder order);
   ~Esp8266BitBangBus() override;
@@ -124,3 +124,4 @@ private:
 } // namespace WLEDpixelBus
 
 #endif // WLEDPB_ESP8266
+

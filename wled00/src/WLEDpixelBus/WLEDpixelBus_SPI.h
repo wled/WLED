@@ -9,7 +9,7 @@ namespace WLEDpixelBus {
 // SPI Bus (Hardware and Software SPI for 2-wire LEDs like APA102, WS2801)
 //==============================================================================
 
-class SpiBus : public IBus {
+class SpiBus : public PixelBus {
 public:
   /**
    * Create SPI bus
@@ -47,3 +47,4 @@ private:
 };
 
 } // namespace WLEDpixelBus
+

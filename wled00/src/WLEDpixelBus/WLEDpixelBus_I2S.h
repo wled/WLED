@@ -97,7 +97,7 @@ private:
 /**
  * I2S parallel output bus
  */
-class I2sBus : public IBus {
+class I2sBus : public PixelBus {
 public:
   /**
    * Create I2S bus
@@ -149,3 +149,4 @@ private:
 
 } // namespace WLEDpixelBus
 #endif // WLEDPB_I2S_SUPPORT
+

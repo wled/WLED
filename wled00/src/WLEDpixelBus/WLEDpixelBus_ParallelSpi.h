@@ -87,7 +87,7 @@ private:
 /**
  * SPI parallel output bus (for ESP32-C3)
  */
-class ParallelSpiBus : public IBus {
+class ParallelSpiBus : public PixelBus {
 public:
   ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
   ~ParallelSpiBus() override;
@@ -129,3 +129,4 @@ private:
 } // namespace WLEDpixelBus
 
 #endif // WLEDPB_PARALLEL_SPI_SUPPORT
+

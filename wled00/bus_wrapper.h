@@ -94,7 +94,7 @@ class PixelBusAllocator {
     return true;
   }
 //  static void setPixelColor(void* busPtr, uint8_t busType, uint16_t pix, uint32_t c, uint32_t cW) {
-//    if (busPtr) static_cast<WLEDpixelBus::IBus*>(busPtr)->setPixelColor(pix, c);
+//    if (busPtr) static_cast<WLEDpixelBus::PixelBus*>(busPtr)->setPixelColor(pix, c);
 //  }
   static void setBrightness(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint8_t b) {
     if (busPtr) busPtr->setBrightness(b);
@@ -331,3 +331,4 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
   }
 };
 #endif
+

@@ -108,7 +108,7 @@ private:
   friend class LcdBus;
 };
 
-class LcdBus :  public IBus {
+class LcdBus :  public PixelBus {
 public: 
   LcdBus(int8_t pin, const LedTiming& timing, ColorOrder order,
        size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, bool use16Bit = false);
