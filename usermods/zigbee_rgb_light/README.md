@@ -271,7 +271,7 @@ Tips:
 
 ## Integration Testing
 
-A Python integration test script is provided at `test_zigbee_hue.py` with 18 tests covering:
+A Python integration test script is provided at `test_zigbee_hue.py` covering:
 
 - **Hue -> WLED:** on/off, brightness (full range + min), 6 named colors (red, green, blue, white, yellow, cyan, magenta), combined commands
 - **WiFi/Zigbee coexistence:** HTTP connectivity before, during, and after Zigbee traffic
@@ -299,7 +299,7 @@ usermods/zigbee_rgb_light/
   README.md                    -- This file
   research.md                  -- Architecture notes and pitfalls
   research-phillips-hue.md     -- Detailed Hue pairing research log
-  test_zigbee_hue.py           -- Integration test script (18 tests, Hue + WLED APIs)
+  test_zigbee_hue.py           -- Integration test script (Hue + WLED APIs)
 
 wled00/const.h                 -- CALL_MODE_ZIGBEE = 13 added
 tools/WLED_ESP32_8MB_Zigbee.csv -- Partition table with zb_storage/zb_fct

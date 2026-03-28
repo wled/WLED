@@ -288,40 +288,11 @@ class TestRunner:
         assert abs(b - expected_b) <= tolerance, \
             f"Blue: got {b}, expected ~{expected_b}"
 
-    def assert_hue_on(self, result: TestResult, expected: bool):
-        """Assert that the Hue light's 'on' state matches expected."""
-        state = self.hue.get_light_state(self.cfg.light_id)
-        actual = state.get("on", None)
-        result.add_detail(f"Hue on={actual}, expected={expected}")
-        assert actual == expected, f"Hue on={actual}, expected {expected}"
-
-    def assert_hue_bri_approx(self, result: TestResult, expected: int, tolerance: int = 10):
-        """Assert Hue brightness is approximately expected."""
-        state = self.hue.get_light_state(self.cfg.light_id)
-        actual = state.get("bri", -1)
-        result.add_detail(f"Hue bri={actual}, expected~={expected} (+/-{tolerance})")
-        assert abs(actual - expected) <= tolerance, \
-            f"Hue bri={actual}, expected ~{expected} (+/-{tolerance})"
-
     def assert_hue_reachable(self, result: TestResult):
         state = self.hue.get_light_state(self.cfg.light_id)
         reachable = state.get("reachable", False)
         result.add_detail(f"Hue reachable={reachable}")
         assert reachable, "Hue light is not reachable"
-
-    def assert_hue_xy_approx(self, result: TestResult,
-                              expected_x: float, expected_y: float,
-                              tolerance: float = 0.12):
-        """Assert Hue XY color is approximately expected."""
-        state = self.hue.get_light_state(self.cfg.light_id)
-        xy = state.get("xy", [0, 0])
-        result.add_detail(
-            f"Hue XY=({xy[0]:.4f},{xy[1]:.4f}), "
-            f"expected~=({expected_x:.4f},{expected_y:.4f}) +/-{tolerance}")
-        assert abs(xy[0] - expected_x) <= tolerance, \
-            f"Hue X: got {xy[0]:.4f}, expected ~{expected_x:.4f}"
-        assert abs(xy[1] - expected_y) <= tolerance, \
-            f"Hue Y: got {xy[1]:.4f}, expected ~{expected_y:.4f}"
 
     # ------------------------------------------------------------------
     #  Test methods
