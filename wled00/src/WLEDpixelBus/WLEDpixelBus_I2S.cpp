@@ -38,6 +38,7 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
   , _initialized(false)
   , _bufferSize(0)
   , _activeBuffer(0)
+  , _remainingDataBuffers(0)
   , _timing{0, 0, 0, 0, 0}
   , _clockDiv(1)
   , _isrHandle(nullptr)
@@ -68,6 +69,8 @@ I2sBusContext:: ~I2sBusContext() {
 
 bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   if (_initialized) return true;
+
+  //pinMode(33, OUTPUT); // debug pin for timing analysis
 
   _timing = timing;
   _bufferSize = (bufferSize + 3) & ~3;  // align to 4 bytes
@@ -261,7 +264,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   intSource = ETS_I2S0_INTR_SOURCE;
   #endif
 
-  esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL2, dmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, dmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
     Serial.printf("I2S ISR alloc failed: %d", err);
     deinit();
@@ -274,12 +277,14 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 }
 
 void I2sBusContext::deinit() {
+  // wait for finish sending before deinit (just in case)
+  while (!isIdle()) { vTaskDelay(1); }
+
   if (_i2sDev) {
     _i2sDev->int_ena.val = 0;      // Disable interrupts first
     _i2sDev->conf.tx_start = 0;
     _i2sDev->out_link.start = 0;
   }
-  _state = DriverState::Idle;
 
   if (_isrHandle) {
     esp_intr_free(_isrHandle);
@@ -376,7 +381,10 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
   _stagedMask |= (1 << channelIdx);
 }
 
+// 426us to fill 16 channels with 2048 bytes buffer
+/*
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
+REG_WRITE(GPIO_OUT1_W1TS_REG, (1u << (33-32))); // pin33 high
   // 4-step cadence encoding for parallel output with 16-bit sample words
   // Each source bit becomes 4 DMA words (one bit per channel in each 16-bit word)
   // Desired output (per bit): [HIGH][data][data][LOW]
@@ -440,6 +448,89 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     pos += 64; // move to next source byte position
   }
   // Rest of buffer remains zero (reset signal) from memset
+  REG_WRITE(GPIO_OUT1_W1TC_REG, (1u << (33-32))); // pin33 low
+}*/
+
+// 237us to fill 16 channels with 2048 bytes buffer
+void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
+
+//REG_WRITE(GPIO_OUT1_W1TS_REG, (1u << (33-32))); // pin33 high
+  // Pre-calculate max active channel
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) maxCh = ch + 1;
+  }
+
+  for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
+
+    // ── Phase 1: Gather ───────────────────────────────────────────────────────
+    // Pure register work — no DMA memory touched.
+    // bitMask[i]: which channels have bit (7-i) set in their current src byte
+    // alwaysMask: which channels have active data at all (the HIGH step)
+    uint16_t alwaysMask = 0;
+    uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler keeps in regs
+    uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
+
+    for (int ch = 0; ch < maxCh; ch++) {
+      if (!_channels[ch].active) continue;
+      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
+
+      const uint16_t m = (uint16_t)(1u << ch);
+      alwaysMask |= m;
+
+      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++]; // advance here
+
+      // Branchless: (0u - bit) is 0x0000 or 0xFFFF
+      b0 |= m & (uint16_t)(0u - ((b >> 7) & 1u));
+      b1 |= m & (uint16_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint16_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint16_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint16_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint16_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint16_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint16_t)(0u - ((b >> 0) & 1u));
+    }
+
+    if (!alwaysMask) break;  // no active channels produced data
+
+    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
+    // Fully unrolled. Plain assignment (=) not OR: all channels are already
+    // merged into the masks, and the buffer is zero-initialized before this call.
+    // 16 x 32-bit stores total, no loop, no branches.
+    uint32_t* p = (uint32_t*)(dest + pos);
+
+#if defined(WLEDPB_ESP32S2)
+    // S2 layout in memory: [step0, step1, step2, step3]  (no half-word swap)
+    // step0 = HIGH (always),  step1 = data,  step2 = data,  step3 = LOW
+    // As 32-bit pairs: p[0] = (step1<<16)|step0,  p[1] = (step3<<16)|step2
+    //                       = (bN    <<16)|alwaysMask,  p[1] = bN
+    #define EMIT(bN, OFF) \
+      p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
+      p[OFF+1] = (bN);
+
+#else
+    // Classic ESP32 layout in memory: [S1, S0, S3, S2]  (half-words swapped)
+    // I2S output order:  S0=HIGH(always), S1=data, S2=data, S3=LOW
+    // As 32-bit pairs: p[0] = (S0<<16)|S1 = (alwaysMask<<16)|bN
+    //                  p[1] = (S2<<16)|S3 = (bN<<16)|0
+    // Precompute the constant high half once:
+    const uint32_t AH = (uint32_t)alwaysMask << 16;
+    #define EMIT(bN, OFF) \
+      p[OFF]   = AH | (bN); \
+      p[OFF+1] = (uint32_t)(bN) << 16;
+#endif
+
+    EMIT(b0, 0)
+    EMIT(b1, 2)
+    EMIT(b2, 4)
+    EMIT(b3, 6)
+    EMIT(b4, 8)
+    EMIT(b5, 10)
+    EMIT(b6, 12)
+    EMIT(b7, 14)
+    #undef EMIT
+  }
+//REG_WRITE(GPIO_OUT1_W1TC_REG, (1u << (33-32))); // pin33 low
 }
 
 void I2sBusContext::fillBuffer(uint8_t bufIdx) {
@@ -478,6 +569,7 @@ bool I2sBusContext::startTransmit() {
   }
 
   _activeBuffer = 0;
+  _remainingDataBuffers = WLEDPB_I2S_DMA_BUFFER_COUNT;
   _state = DriverState::Sending;
 
   // Reset DMA and FIFO before starting
@@ -555,18 +647,28 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     }
     if (!moreData) {
       // Last data chunk was just encoded into completedBuf.
-      // DMA is currently playing the next buffer. We need to wait
-      // for that to finish so the last-data buffer gets played.
+      // DMA is currently playing the next buffer and remaining data buffers are pending.
+      ctx->_remainingDataBuffers = WLEDPB_I2S_DMA_BUFFER_COUNT;
       ctx->_state = DriverState::SendingLast;
     }
 
     // Restore DMA ownership so DMA can use this buffer
     ctx->_dmaDesc[completedBuf]->owner = 1;
   } else if (ctx->_state == DriverState::SendingLast) {
-    // The other buffer just finished. DMA is now playing the last-data buffer.
-    // Fill completed buffer with zeros (reset signal) so it plays after.
+    // One data buffer has just finished; convert it to reset data.
+    if (ctx->_remainingDataBuffers > 0) {
+      ctx->_remainingDataBuffers--;
+    }
+
     ctx->_dmaDesc[completedBuf]->owner = 1;
-    ctx->_state = DriverState::WaitingReset;
+
+    if (ctx->_remainingDataBuffers == 0) {
+      // We have cycled through all pending data buffers and have zeroed the last one.
+      // The next buffer to play will be reset data. Wait for that one finish then stop.
+      ctx->_state = DriverState::WaitingReset;
+    } else {
+      ctx->_state = DriverState::SendingLast;
+    }
   } else {
     // WaitingReset - last data played, zero buffer sent as reset. Stop DMA.
     dev->int_ena.out_eof = 0;

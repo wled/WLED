@@ -180,7 +180,8 @@ enum class DriverState : uint8_t {
 // DMA Buffer Configuration
 //==============================================================================
 
-constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024+512);
+
+constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
 constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 

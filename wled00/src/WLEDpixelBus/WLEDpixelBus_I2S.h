@@ -20,9 +20,16 @@ namespace WLEDpixelBus {
   #define WLEDPB_I2S_BUS_COUNT 1
 #endif
 
+// note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
+// TODO: 16 parallel channels does not make much sense to use as a default. should enable both 8 and 16 parallel channels.
+//
+// on ESP32, 8*768 works with 8RMT, 8*512 does not. 6*768 also flickers, 6*1024 works
+// with improved DMA ISR: works with 3x2k buffer
+
+
 // I2S DMA buffer count for circular linked list. Default is double-buffering (2); can be increased for deeper pipelining.
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
-  #define WLEDPB_I2S_DMA_BUFFER_COUNT 4
+  #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
 #endif
 
 #define WLEDPB_I2S_MAX_CHANNELS 16 // if using both I2S, 32 would be possible but that is probably way overkill to implement, 16 I2S + 8RMT is good enough
@@ -68,6 +75,7 @@ private:
   uint8_t* _dmaBuffer[WLEDPB_I2S_DMA_BUFFER_COUNT];
   size_t _bufferSize;
   volatile uint8_t _activeBuffer;
+  volatile uint8_t _remainingDataBuffers;
 
   // Timing
   LedTiming _timing;

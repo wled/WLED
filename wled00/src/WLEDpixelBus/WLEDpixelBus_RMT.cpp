@@ -384,22 +384,25 @@ void RmtBus::setColorOrder(ColorOrder order) {
 void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
                                          size_t src_size, size_t wanted_num,
                                          size_t* translated_size, size_t* item_num) {
+/* 
+  // safety check - should never happen
   if (src == nullptr || dest == nullptr) {
     *translated_size = 0;
     *item_num = 0;
     return;
-  }
+  }*/
 
   const uint8_t* psrc = (const uint8_t*)src;
 
   // Cache instance timings in registers for maximum ISR speed
   const uint32_t bit0 = s_contexts[channel].bit0;
   const uint32_t bit1 = s_contexts[channel].bit1;
-  const uint16_t resetDuration = s_contexts[channel].resetDuration;
 
   // Calculate how many full bytes we can translate based on RMT buffer space (wanted_num)
   const uint32_t items_limit = wanted_num / 8;
   const uint32_t bytes_to_process = (src_size > items_limit) ? items_limit : src_size;
+  *translated_size = bytes_to_process;
+  *item_num = bytes_to_process * 8;
 
   for (uint32_t i = 0; i < bytes_to_process; i++) {
     const uint8_t data = psrc[i];
@@ -418,11 +421,11 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
 
   // If max_bytes == src_size, it means we've reached the end of the LED strip.
   if (bytes_to_process == src_size) {
-      dest[(bytes_to_process * 8) - 1].duration1 = resetDuration;
+      dest[(bytes_to_process * 8) - 1].duration1 = s_contexts[channel].resetDuration;
   }
 
-  *translated_size = bytes_to_process;
-  *item_num = bytes_to_process * 8;
+//  *translated_size = bytes_to_process;
+//  *item_num = bytes_to_process * 8;
 }
 
 } // namespace WLEDpixelBus
