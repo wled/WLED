@@ -33,16 +33,20 @@ public:
     return mem;
   }
 
+  static void UartIsr(void* arg);
+  static Esp8266UartBus* s_instances[2];
+
 private:
   int8_t _pin;
   LedTiming _timing;
   ColorOrder _order;
   bool _initialized;
-  uint8_t* _encodeLut;
+
+  uint8_t* _asyncBuf = nullptr;
+  uint8_t* _asyncBufEnd = nullptr;
 
   void updateUartTiming();
   bool allocateBuffer(size_t encodedDataLen);
-  void buildLut();
 
   uint8_t* _encodeBuffer = nullptr;
   size_t _encodeBufferSize = 0;

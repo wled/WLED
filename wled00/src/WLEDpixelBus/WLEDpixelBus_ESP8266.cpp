@@ -24,10 +24,11 @@ namespace WLEDpixelBus {
 
 // Global static tracking for the shared UART ISR
 Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
+
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order)
   : _pin(pin), _timing(timing), _order(order), _initialized(false), 
-    _encodeBuffer(nullptr), _encodeBufferSize(0), 
-    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {}
+    _asyncBuf(nullptr), _asyncBufEnd(nullptr),
+    _encodeBuffer(nullptr), _encodeBufferSize(0) {}
 
 Esp8266UartBus::~Esp8266UartBus() {
   end();
@@ -48,12 +49,12 @@ bool Esp8266UartBus::allocateBuffer(size_t rawDataLen) {
 void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg) {
   for (uint8_t uartNum = 0; uartNum < 2; uartNum++) {
     Esp8266UartBus* instance = s_instances[uartNum];
-    
+
     // Check if this UART triggered a TX FIFO Empty interrupt
     if (instance && (USIS(uartNum) & (1 << UIFE))) {
       // Logic for bit expansion (Replaces the LUT)
       const uint8_t uartData[4] = {0b110111, 0b000111, 0b110100, 0b000100};
-      
+
       // Calculate remaining space in the 128-byte hardware FIFO
       uint8_t avail = (128 - ((USS(uartNum) >> USTXC) & 0xff)) / 4;
 
