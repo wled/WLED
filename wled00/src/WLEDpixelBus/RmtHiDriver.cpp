@@ -9,7 +9,7 @@ by @willmmiles, 2026
 
 #include <algorithm>
 #include "esp_idf_version.h"
-#include "NeoEsp32RmtHIMethod.h"
+#include "RmtHiDriver.h"
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
 
@@ -335,7 +335,7 @@ static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t stat
 }
 
 
-esp_err_t NeoEsp32RmtHiMethodDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t reset) {
+esp_err_t RmtHiDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t reset) {
     // Validate channel number
     if (channel >= RMT_CHANNEL_MAX) {
         return ESP_ERR_INVALID_ARG;
@@ -413,7 +413,7 @@ esp_err_t NeoEsp32RmtHiMethodDriver::Install(rmt_channel_t channel, uint32_t rmt
     return err;
 }
 
-esp_err_t  NeoEsp32RmtHiMethodDriver::Uninstall(rmt_channel_t channel) {
+esp_err_t  RmtHiDriver::Uninstall(rmt_channel_t channel) {
     if ((channel >= RMT_CHANNEL_MAX) || !driverState || !driverState[channel]) return ESP_ERR_INVALID_ARG;
 
     NeoEsp32RmtHIChannelState* state = driverState[channel];
@@ -445,7 +445,7 @@ esp_err_t  NeoEsp32RmtHiMethodDriver::Uninstall(rmt_channel_t channel) {
     return ESP_OK;
 }
 
-esp_err_t  NeoEsp32RmtHiMethodDriver::Write(rmt_channel_t channel, const uint8_t *src, size_t src_size) {
+esp_err_t  RmtHiDriver::Write(rmt_channel_t channel, const uint8_t *src, size_t src_size) {
     if ((channel >= RMT_CHANNEL_MAX) || !driverState || !driverState[channel]) return ESP_ERR_INVALID_ARG;
 
     NeoEsp32RmtHIChannelState& state = *driverState[channel];
@@ -460,7 +460,7 @@ esp_err_t  NeoEsp32RmtHiMethodDriver::Write(rmt_channel_t channel, const uint8_t
     return result;
 }
 
-esp_err_t NeoEsp32RmtHiMethodDriver::WaitForTxDone(rmt_channel_t channel, TickType_t wait_time) {
+esp_err_t RmtHiDriver::WaitForTxDone(rmt_channel_t channel, TickType_t wait_time) {
     if ((channel >= RMT_CHANNEL_MAX) || !driverState || !driverState[channel]) return ESP_ERR_INVALID_ARG;
 
     NeoEsp32RmtHIChannelState& state = *driverState[channel];

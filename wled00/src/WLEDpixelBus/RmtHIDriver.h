@@ -12,7 +12,7 @@ by @willmmiles, 2026
 #include <stddef.h>
 #include <stdint.h>
 
-namespace NeoEsp32RmtHiMethodDriver {
+namespace RmtHiDriver {
     // Install the driver for a specific channel, specifying timing properties
     esp_err_t Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t resetDuration);
 

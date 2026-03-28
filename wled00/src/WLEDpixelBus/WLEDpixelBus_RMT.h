@@ -1,10 +1,8 @@
 #pragma once
 
 #include "WLEDpixelBus.h"
-
 #include "driver/rmt.h"
-
-#include "NeoEsp32RmtHIMethod.h"
+#include "RmtHiDriver.h"
 
 namespace WLEDpixelBus {
 

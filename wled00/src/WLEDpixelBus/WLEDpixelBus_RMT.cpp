@@ -110,9 +110,9 @@ void RmtBus::updateRmtTiming() {
     // If using rmtHi, reinstall the driver with new timing templates
     if (_usingRmtHi) {
       // wait for any in-flight transfer, then reinstall the hi driver
-      NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, 1000 / portTICK_PERIOD_MS);
-      NeoEsp32RmtHiMethodDriver::Uninstall(_rmtChannel);
-      esp_err_t instErr = NeoEsp32RmtHiMethodDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+      RmtHiDriver::WaitForTxDone(_rmtChannel, 1000 / portTICK_PERIOD_MS);
+      RmtHiDriver::Uninstall(_rmtChannel);
+      esp_err_t instErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
       if (instErr != ESP_OK) {
         Serial.printf("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
         // Try to fall back to IDF driver
@@ -224,7 +224,7 @@ bool RmtBus::begin() {
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
 #if !defined(WLEDPB_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
   {
-    esp_err_t hiErr = NeoEsp32RmtHiMethodDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+    esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
     if (hiErr == ESP_OK) {
       _usingRmtHi = true;
       _initialized = true;
@@ -258,7 +258,7 @@ void RmtBus::end() {
 
   s_activeChannelMask &= ~(1 << _channel);
   if (_usingRmtHi) {
-    NeoEsp32RmtHiMethodDriver::Uninstall(_rmtChannel);
+    RmtHiDriver::Uninstall(_rmtChannel);
   } else {
     rmt_driver_uninstall(_rmtChannel);
   }
@@ -321,7 +321,7 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 
     // Write() waits for any in-flight transfer internally before starting the new one
     size_t dataLen = numPixels * numCh;
-    return NeoEsp32RmtHiMethodDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK;
+    return RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK;
   }
 
   // Wait for previous transmission on THIS channel to complete (IDF driver)
@@ -354,14 +354,14 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 bool RmtBus::canShow() const {
   if (!_initialized) return true;
   // Use rmt_wait_tx_done with 0 timeout to check if TX is done (matching NeoPixelBus)
-  if (_usingRmtHi) return (ESP_OK == NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, 0));
+  if (_usingRmtHi) return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0));
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 
 void RmtBus::waitComplete() {
   if (_initialized) {
     if (_usingRmtHi) {
-      NeoEsp32RmtHiMethodDriver::WaitForTxDone(_rmtChannel, portMAX_DELAY);
+      RmtHiDriver::WaitForTxDone(_rmtChannel, portMAX_DELAY);
     } else {
       rmt_wait_tx_done(_rmtChannel, portMAX_DELAY);
     }
