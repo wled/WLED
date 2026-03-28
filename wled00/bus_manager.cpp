@@ -132,7 +132,9 @@ BusDigital::BusDigital(const BusConfig &bc)
 , _colorOrder(bc.colorOrder)
 , _milliAmpsPerLed(bc.milliAmpsPerLed)
 , _milliAmpsMax(bc.milliAmpsMax)
+, _milliAmpsLimit(0)
 , _driverType(bc.driverType) // Store driver preference (0=RMT, 1=I2S)
+, _busPtr(nullptr)
 {
   DEBUGBUS_PRINTLN(F("Bus: Creating digital bus."));
   _busSpeedFactor = bc.busSpeedFactor;

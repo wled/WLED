@@ -286,7 +286,7 @@ class BusDigital : public Bus {
     uint8_t  _milliAmpsPerLed;
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
-    WLEDpixelBus::PixelBus* _busPtr;
+    WLEDpixelBus::PixelBus* _busPtr = nullptr;
     uint32_t* _pixelDataPtr = nullptr;
     WLEDpixelBus::CctPixel* _cctDataPtr = nullptr;
 
@@ -348,8 +348,8 @@ class BusOnOff : public Bus {
     static std::vector<LEDType> getLEDTypes();
 
   private:
-    uint8_t _pin;
-    uint8_t _data;
+    uint8_t _pin = 255;
+    uint8_t _data = 0;
 };
 
 

@@ -393,7 +393,7 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
 
   // Bus instance overhead
   mem += 128; // Approximate C++ object size + PixelBus data structures
-  // TODO: check if this is correct
+  // TODO: check if this is correct -> it is not, dma buffers are not correct, only longest bus counts.
   switch (type) {
     case BusType::UART:
       // UART encode buffer: 4 encoded bytes per LED byte (no DMA)
@@ -416,7 +416,7 @@ static inline size_t estimateMemory(BusType type, uint16_t numPixels, uint8_t ch
       // DMA buffers and descriptors for I2S/LCD
       // They are double-buffered and mapped via heap_caps_malloc
       if (type == BusType::I2S || type == BusType::LCD || type == BusType::Auto) {
-        mem += dmaBufferSize * 2;
+        //mem += dmaBufferSize * 2;  // TODO: need to estimate this correctly! or: do not estimate at all and just create buses until we run out of allowed memory?
         // Include minimal descriptor memory estimates (~64 bytes per context)
         mem += 64;
       }
