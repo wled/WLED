@@ -9429,20 +9429,28 @@ void mode_particleDrip(void) {
     PartSys->sprayEmit(PartSys->sources[0]);
   }
 
-  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { //check all particles
-    if (PartSys->particles[i].ttl && PartSys->particleFlags[i].collide == false) { // use collision flag to identify splash particles
-      if (SEGMENT.custom1 > 0 && PartSys->particles[i].x < (PS_P_RADIUS_1D << 1)) { //splash enabled and reached bottom
-        PartSys->particles[i].ttl = 0; //kill origin particle
-        PartSys->sources[0].maxLife = 80;
-        PartSys->sources[0].minLife = 20;
-        PartSys->sources[0].var = 10 + (SEGMENT.custom1 >> 3);
-        PartSys->sources[0].v = 0;
-        PartSys->sources[0].source.hue = PartSys->particles[i].hue;
-        PartSys->sources[0].source.x = PS_P_RADIUS_1D;
-        PartSys->sources[0].sourceFlags.collide = true; //splashes do collide if enabled
-        for (int j = 0; j < 2 + (SEGMENT.custom1 >> 2); j++) {
-          PartSys->sprayEmit(PartSys->sources[0]);
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check all particles
+    if (PartSys->particles[i].ttl) {
+      if (PartSys->particleFlags[i].collide == false) { // use collision flag to identify splash particles
+        if (PartSys->particles[i].x < (PS_P_RADIUS_1D << 1)) { // reached bottom
+          if (PartSys->particles[i].ttl > 120) // short life: make drop particle fade out and die
+            PartSys->particles[i].ttl = 120;
+          if (SEGMENT.custom1 > 0) { // splash enabled
+            PartSys->particles[i].ttl = 0; // kill drop particle, replace with splash
+            PartSys->sources[0].maxLife = 160;
+            PartSys->sources[0].minLife = 40;
+            PartSys->sources[0].var = 10 + (SEGMENT.custom1 >> 3);
+            PartSys->sources[0].v = 0;
+            PartSys->sources[0].source.hue = PartSys->particles[i].hue;
+            PartSys->sources[0].source.x = PS_P_RADIUS_1D;
+            PartSys->sources[0].sourceFlags.collide = true; //splashes do collide if enabled
+            for (int j = 0; j < 2 + (SEGMENT.custom1 >> 2); j++) {
+              PartSys->sprayEmit(PartSys->sources[0]);
+            }
+          }
         }
+      } else {
+        PartSys->particles[i].ttl--; // age splash particles faster (allows for higher splash brightness)
       }
     }
 
@@ -10795,6 +10803,12 @@ typedef struct SlowTransitionData {
   CRGBPalette16 startPalette;        // initial palette
   CRGBPalette16 currentPalette;      // blended palette for current frame, need permanent storage so we can start from this if target changes mid transition
   CRGBPalette16 endPalette;          // target palette
+  uint8_t startWhite;
+  uint8_t currentWhite;
+  uint8_t endWhite;
+  uint8_t startCCT;
+  uint8_t currentCCT;
+  uint8_t endCCT;
 } slow_transition_data;
 
 void mode_slow_transition(void) {
@@ -10807,7 +10821,7 @@ void mode_slow_transition(void) {
   if (!SEGMENT.allocateData(dataSize)) FX_FALLBACK_STATIC;
   slow_transition_data* data = reinterpret_cast<slow_transition_data*>(SEGMENT.data);
 
-  bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed); // detect changes in target palette or speed setting
+  bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed || data->endWhite != W(SEGCOLOR(0)) || data->currentCCT != SEGMENT.cct); // detect changes in target color or speed setting
 
   // (re) init
   if (changed || SEGMENT.call == 0) {
@@ -10815,11 +10829,17 @@ void mode_slow_transition(void) {
       data->startPalette = SEGPALETTE;
       data->currentPalette = SEGPALETTE;
       data->endPalette = SEGPALETTE;
+      data->startWhite = data->currentWhite = data->endWhite = W(SEGCOLOR(0));
+      data->startCCT = data->currentCCT = data->endCCT = SEGMENT.cct;
       *stepsDone = 0xFFFF; // set to max, fading will start once a change is detected
     }
     else {
       data->startPalette = data->currentPalette;
       data->endPalette = SEGPALETTE;
+      data->startWhite = data->currentWhite;
+      data->endWhite = W(SEGCOLOR(0));
+      data->startCCT = data->currentCCT;
+      data->endCCT = SEGMENT.cct;
       *stepsDone = 0; // reset counter
     }
     *startSpeed = SEGMENT.speed;
@@ -10837,31 +10857,38 @@ void mode_slow_transition(void) {
 
   if (*stepsDone < expectedSteps) {
     *stepsDone = expectedSteps; // jump to expected steps to make sure timing is correct (need up to 4080 frames, at 20fps that is ~200 seconds)
+    uint8_t blendAmount;
     if (SEGMENT.check2) {
-        // sweep: one palette entry at a time
-        uint8_t i = *stepsDone % 16;
-        uint8_t blendAmount  = *stepsDone / 16;
-        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+      // sweep: one palette entry at a time
+      uint8_t i = *stepsDone % 16;
+      blendAmount  = *stepsDone / 16;
+      data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
     } else {
       // full palette at once
-      uint8_t blendAmount = (uint8_t)*stepsDone;
+      blendAmount = (uint8_t)*stepsDone;
       for (uint8_t i = 0; i < 16; i++) {
         data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
       }
     }
+    data->currentWhite = (data->startWhite * (255 - blendAmount) + data->endWhite * blendAmount) / 255;
+    data->currentCCT = (data->startCCT * (255 - blendAmount) + data->endCCT * blendAmount) / 255;
     if (*stepsDone >= totalSteps) {
       // transition complete, apply end palette
       data->currentPalette = data->endPalette; // set to end palette (sweep may not have set all entries)
+      data->currentWhite = data->endWhite;
+      data->currentCCT = data->endCCT;
     }
   }
   // display current palette over segment
   for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t paletteIndex = (i * 255) / SEGLEN;
-    CRGBW palcol = ColorFromPaletteWLED(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
+    CRGBW palcol = ColorFromPalette(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
+    palcol.w = data->currentWhite;
+    SEGMENT.cct = data->currentCCT; //setCCT(data->currentCCT);
     SEGMENT.setPixelColor(i, palcol.color32);
   }
 }
-static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;3;!;0;pal=2,sx=0,ix=0";
+static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;!;!;1;pal=2,sx=0,ix=0";
 
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
