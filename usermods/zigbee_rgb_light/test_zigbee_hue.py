@@ -2,19 +2,24 @@
 """
 Integration test suite for the WLED Zigbee RGB Light usermod.
 
-Tests bidirectional control between a Philips Hue Bridge v2 and WLED
-via the Hue REST API and WLED JSON API.  Covers:
+Tests control from a Philips Hue Bridge v2 to WLED via the Hue REST API
+and WLED JSON API, plus WiFi/Zigbee coexistence verification.  Covers:
 
   - Hue -> WLED: on/off, brightness (full range), 6 named colors, combined commands
-  - WLED -> Hue: on/off, brightness, 4 named colors (via /win endpoint)
-  - Echo suppression: WLED state persists after Hue HTTP sync echo
+  - WiFi/Zigbee coexistence: HTTP connectivity before, during, and after Zigbee traffic
   - Rapid color change stress test
   - WLED info JSON Zigbee debug fields
+
+Note: WLED->coordinator state sync uses Zigbee attribute reports (via
+esp_zb_zcl_set_attribute_val from a scheduler_alarm callback).  This works
+with Home Assistant (ZHA), Zigbee2MQTT, and other standards-compliant
+coordinators, but the Philips Hue Bridge ignores unsolicited attribute
+reports from non-certified devices.  Therefore there are no WLED->Hue
+direction tests in this suite.
 
 Prerequisites:
   - WLED device flashed with the zigbee_rgb_light usermod and paired with
     the Hue bridge (appears as a light in the Hue app).
-  - Hue HTTP sync configured in WLED (hueBridgeIp, hueApiKey, hueLightId).
   - The Hue bridge API key (obtain via:
     curl -sk -X POST https://<bridge>/api -d '{"devicetype":"test"}')
   - Both the Hue bridge and WLED device reachable on the local network.
@@ -32,9 +37,6 @@ Usage:
 
   # Increase settle time for slow networks:
   python3 test_zigbee_hue.py ... --settle 5
-
-  # Skip WLED->Hue tests (if Hue HTTP sync is not yet configured):
-  python3 test_zigbee_hue.py ... --skip-wled-to-hue
 """
 
 import argparse
@@ -68,7 +70,6 @@ class Config:
     light_id: str
     wled_ip: str
     settle_time: float  # seconds to wait after sending a command
-    skip_wled_to_hue: bool
     verbose: bool
 
 
@@ -200,16 +201,6 @@ class TestRunner:
             self.test_hue_combined_on_bri_color,
             # --- HTTP after Zigbee traffic ---
             self.test_wled_http_after_zigbee_traffic,
-            # --- WLED -> Hue: on/off & brightness ---
-            self.test_wled_to_hue_on_off,
-            self.test_wled_to_hue_brightness,
-            # --- WLED -> Hue: colors ---
-            self.test_wled_to_hue_color_red,
-            self.test_wled_to_hue_color_green,
-            self.test_wled_to_hue_color_blue,
-            self.test_wled_to_hue_color_white,
-            # --- Echo suppression ---
-            self.test_echo_suppression,
             # --- Stress / rapid changes ---
             self.test_rapid_color_changes,
             # --- HTTP sustained (last, after all Zigbee activity) ---
@@ -452,23 +443,17 @@ class TestRunner:
             f"ZigbeeRGBLight not in user info. Keys: {list(user.keys())}"
         result.add_detail(f"ZigbeeRGBLight: {user['ZigbeeRGBLight']}")
 
-        # Should have ZB Raw debug counter
-        assert "ZB Raw" in user, "ZB Raw debug field not found"
-        result.add_detail(f"ZB Raw: {user['ZB Raw']}")
+        # Should have ZB Parent (short address of parent node)
+        assert "ZB Parent" in user, "ZB Parent debug field not found"
+        result.add_detail(f"ZB Parent: {user['ZB Parent']}")
 
-        # Should have ZB State debug field
-        assert "ZB State" in user, "ZB State debug field not found"
-        result.add_detail(f"ZB State: {user['ZB State']}")
+        # Should have ZB Binds (N/3 binding count)
+        assert "ZB Binds" in user, "ZB Binds debug field not found"
+        result.add_detail(f"ZB Binds: {user['ZB Binds']}")
 
-        # Should have ZB Bind debug field
-        assert "ZB Bind" in user, "ZB Bind debug field not found"
-        result.add_detail(f"ZB Bind: {user['ZB Bind']}")
-
-        # Should have ZB HueHTTP if Hue sync is enabled
-        if "ZB HueHTTP" in user:
-            result.add_detail(f"ZB HueHTTP: {user['ZB HueHTTP']}")
-        else:
-            result.add_detail("ZB HueHTTP: not present (Hue sync may be disabled)")
+        # Should have ZB Reports T/S (trigger/scheduler counters)
+        assert "ZB Reports T/S" in user, "ZB Reports T/S debug field not found"
+        result.add_detail(f"ZB Reports T/S: {user['ZB Reports T/S']}")
 
     def test_hue_on(self, result: TestResult):
         """Send ON via Hue API, verify WLED turns on."""
@@ -670,136 +655,6 @@ class TestRunner:
         except Exception as e:
             raise AssertionError(f"POST /json/state failed after Zigbee traffic: {e}")
 
-    def test_wled_to_hue_on_off(self, result: TestResult):
-        """Change on/off in WLED, verify Hue reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        # Turn on via WLED
-        self.wled.set_state({"on": True, "bri": 200})
-        self.settle(2.0)  # attribute reporting may be slower
-        self.assert_hue_on(result, True)
-        result.add_detail("WLED on=True -> Hue on=True -- OK")
-
-        # Turn off via WLED
-        self.wled.set_state({"on": False})
-        self.settle(2.0)
-        self.assert_hue_on(result, False)
-        result.add_detail("WLED on=False -> Hue on=False -- OK")
-
-    def test_wled_to_hue_brightness(self, result: TestResult):
-        """Change brightness in WLED, verify Hue reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        self.wled.set_state({"on": True, "bri": 150})
-        self.settle(2.0)
-        self.assert_hue_bri_approx(result, 150, tolerance=20)
-
-    def test_wled_to_hue_color_red(self, result: TestResult):
-        """Change color to red in WLED, verify Hue XY reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        # Set WLED to bright red via /win endpoint (more reliable on 0-LED devices)
-        requests.get(f"http://{self.cfg.wled_ip}/win&R=255&G=0&B=0&A=254&T=1",
-                     timeout=5)
-        self.settle(3.0)
-
-        # Hue XY for red should be near (0.64, 0.33)
-        self.assert_hue_on(result, True)
-        self.assert_hue_xy_approx(result, 0.64, 0.33, tolerance=0.12)
-        result.add_detail("WLED red -> Hue XY -- OK")
-
-    def test_wled_to_hue_color_green(self, result: TestResult):
-        """Change color to green in WLED, verify Hue XY reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        requests.get(f"http://{self.cfg.wled_ip}/win&R=0&G=255&B=0&A=254&T=1",
-                     timeout=5)
-        self.settle(3.0)
-
-        # Hue XY for green should be near (0.30, 0.60)
-        self.assert_hue_on(result, True)
-        self.assert_hue_xy_approx(result, 0.30, 0.60, tolerance=0.15)
-        result.add_detail("WLED green -> Hue XY -- OK")
-
-    def test_wled_to_hue_color_blue(self, result: TestResult):
-        """Change color to blue in WLED, verify Hue XY reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        requests.get(f"http://{self.cfg.wled_ip}/win&R=0&G=0&B=255&A=254&T=1",
-                     timeout=5)
-        self.settle(3.0)
-
-        # Hue XY for blue should be near (0.15, 0.06)
-        self.assert_hue_on(result, True)
-        self.assert_hue_xy_approx(result, 0.15, 0.06, tolerance=0.10)
-        result.add_detail("WLED blue -> Hue XY -- OK")
-
-    def test_wled_to_hue_color_white(self, result: TestResult):
-        """Change color to white in WLED, verify Hue XY reflects it."""
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        requests.get(f"http://{self.cfg.wled_ip}/win&R=255&G=255&B=255&A=254&T=1",
-                     timeout=5)
-        self.settle(3.0)
-
-        # Hue XY for D65 white should be near (0.3127, 0.3290)
-        self.assert_hue_on(result, True)
-        self.assert_hue_xy_approx(result, 0.3127, 0.3290, tolerance=0.06)
-        result.add_detail("WLED white -> Hue XY -- OK")
-
-    def test_echo_suppression(self, result: TestResult):
-        """Verify echo suppression: WLED state sticks after Hue HTTP sync.
-
-        When WLED pushes state to Hue via HTTP, the Hue bridge echoes back
-        Zigbee commands. Echo suppression should prevent these from overwriting
-        the WLED state. We verify by setting WLED to a specific color, waiting
-        for sync + echo, then checking WLED still has the color we set.
-        """
-        if self.cfg.skip_wled_to_hue:
-            result.skipped = True
-            result.add_detail("Skipped (--skip-wled-to-hue)")
-            return
-
-        # Set a distinctive color via WLED (bright cyan)
-        requests.get(f"http://{self.cfg.wled_ip}/win&R=0&G=255&B=255&A=200&T=1",
-                     timeout=5)
-        # Wait for HTTP sync to Hue + echo to arrive + echo window to close
-        self.settle(3.0)
-
-        # Verify WLED still has the color we set (not overwritten by echo)
-        state = self.wled.get_state()
-        bri = state.get("bri", 0)
-        result.add_detail(f"WLED bri after echo window: {bri}")
-        assert bri == 200, f"WLED bri was overwritten by echo: got {bri}, expected 200"
-
-        segs = state.get("seg", [])
-        if segs:
-            col = segs[0].get("col", [[0, 0, 0]])[0]
-            r, g, b = col[0], col[1], col[2]
-            result.add_detail(f"WLED RGB after echo window: ({r},{g},{b})")
-            # Cyan = low R, high G, high B
-            assert r < 50, f"Red overwritten by echo: {r}"
-            assert g > 200, f"Green overwritten by echo: {g}"
-            assert b > 200, f"Blue overwritten by echo: {b}"
-
     def test_rapid_color_changes(self, result: TestResult):
         """Send rapid color changes via Hue, verify WLED ends at final color.
 
@@ -895,8 +750,6 @@ def main():
                         help="WLED device IP address")
     parser.add_argument("--settle", type=float, default=3.0,
                         help="Seconds to wait after commands (default: 3.0)")
-    parser.add_argument("--skip-wled-to-hue", action="store_true",
-                        help="Skip WLED->Hue direction tests")
     parser.add_argument("-k", "--filter",
                         help="Only run tests whose name contains this string")
     parser.add_argument("-v", "--verbose", action="store_true",
@@ -910,7 +763,6 @@ def main():
         light_id=args.light_id,
         wled_ip=args.wled_ip,
         settle_time=args.settle,
-        skip_wled_to_hue=args.skip_wled_to_hue,
         verbose=args.verbose,
     )
 

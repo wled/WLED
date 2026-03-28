@@ -102,8 +102,8 @@ Zigbee task (FreeRTOS)                 WLED main loop
                                         -> colorUpdated(CALL_MODE_ZIGBEE)
 
 
-                    WLED -> Hue (HTTP API push)
-                    ───────────────────────────
+                    WLED -> Coordinator (Zigbee attribute reports)
+                    ─────────────────────────────────────────────
 
   WLED state change (web UI, MQTT, button, etc.)
     |
@@ -111,30 +111,33 @@ Zigbee task (FreeRTOS)                 WLED main loop
   onStateChange(mode)
     |  (skip if mode == CALL_MODE_ZIGBEE to prevent echo)
     |
-    +---> prepareReport()          Zigbee attribute reports
-    |     -> sendPendingReports()  (via esp_zb_lock + binding table)
-    |
-    +---> hueHttpPending = true    Hue bridge HTTP API sync
-          -> sendHueHttpSync()     (HTTPS PUT to /api/.../lights/.../state)
-          -> echo suppression      (1.5s window ignores Hue echo-back)
+    +---> prepareReport()                stores pending state under mutex
+    +---> esp_zb_scheduler_alarm()       schedules Zigbee task callback
+            |
+            v
+          zbReportStateViaScheduler()    runs in Zigbee task context
+            -> esp_zb_zcl_set_attribute_val()  updates attribute cache
+            -> ZBOSS reporting engine          sends reports to bound coordinators
 ```
+
+> **Note:** The Philips Hue Bridge does NOT update its internal state model
+> from unsolicited Zigbee attribute reports sent by non-certified devices.
+> WLED→coordinator state sync works with Home Assistant (ZHA), Zigbee2MQTT,
+> and other standards-compliant coordinators, but NOT with the Hue bridge.
+> The Hue bridge only tracks state from commands it sends itself.
 
 ### Startup sequence
 
 1. **`setup()`** -- enables WiFi/802.15.4 coexistence (`esp_coex_wifi_i154_enable()`), sets 802.15.4 coex priority to MIDDLE, creates the mutex, configures the Zigbee platform. Does NOT start the Zigbee task yet.
 2. **`connected()`** -- called when WiFi STA gets an IP. Creates the Zigbee FreeRTOS task.
 3. **`zigbeeTask()`** -- initializes the Zigbee stack as an End Device with distributed security, registers clusters and the raw command handler, configures ED polling (1s long poll + turbo poll retry), starts network steering.
-4. **`loop()`** -- checks the `stateChanged` flag and applies Zigbee state to WLED. Sends pending Zigbee attribute reports and Hue HTTP sync requests.
+4. **`loop()`** -- checks the `stateChanged` flag and applies Zigbee state to WLED.
 
 ### Bidirectional state sync
 
-**Zigbee -> WLED (Hue commands):** The raw ZCL command handler intercepts incoming commands (on/off, off_with_effect, level, move_to_color, move_to_hue/saturation), parses payloads directly, and sets shared state variables under a mutex. The WLED `loop()` picks up changes and calls `colorUpdated(CALL_MODE_ZIGBEE)`.
+**Zigbee -> WLED (coordinator commands):** The raw ZCL command handler intercepts incoming commands (on/off, off_with_effect, level, move_to_color, move_to_hue/saturation), parses payloads directly, and sets shared state variables under a mutex. The WLED `loop()` picks up changes and calls `colorUpdated(CALL_MODE_ZIGBEE)`.
 
-**WLED -> Zigbee (attribute reports):** `onStateChange()` converts the current WLED RGB to CIE XY and stores a pending report. `loop()` calls `sendPendingReports()` which acquires the Zigbee lock, updates the ZCL attribute cache, and sends attribute reports via APS bindings.
-
-**WLED -> Hue (HTTP API push):** The Hue bridge ignores unsolicited Zigbee attribute reports from lights (it tracks state from the commands it sends). To work around this, `onStateChange()` also queues an HTTP sync. `loop()` calls `sendHueHttpSync()` which makes an HTTPS PUT request to the Hue bridge REST API (`/api/{key}/lights/{id}/state`). This requires configuring `hueBridgeIp`, `hueApiKey`, and `hueLightId` in the usermod settings.
-
-**Echo suppression:** When WLED pushes state to Hue via HTTP, the bridge echoes it back as Zigbee commands within ~200-500ms. A 1.5-second suppression window after each HTTP send causes incoming Zigbee commands to be ignored if they arrive within that window, preventing the echo from overwriting WLED's state.
+**WLED -> Coordinator (attribute reports):** `onStateChange()` converts the current WLED RGB to CIE XY and stores a pending report under a mutex. It then calls `esp_zb_scheduler_alarm()` to schedule `zbReportStateViaScheduler()`, which runs in the Zigbee task context and calls `esp_zb_zcl_set_attribute_val()` for each attribute. The ZBOSS reporting engine automatically sends reports to bound coordinators.
 
 `CALL_MODE_ZIGBEE` (value 13, defined in `wled00/const.h`) prevents echo loops -- changes originating from Zigbee are not reported back.
 
@@ -219,10 +222,7 @@ The usermod adds a **ZigbeeRGBLight** section to the WLED settings:
 ```json
 {
   "ZigbeeRGBLight": {
-    "enabled": true,
-    "hueBridgeIp": "192.168.178.216",
-    "hueApiKey": "your-hue-api-key-here",
-    "hueLightId": "23"
+    "enabled": true
   }
 }
 ```
@@ -230,11 +230,6 @@ The usermod adds a **ZigbeeRGBLight** section to the WLED settings:
 | Field | Description |
 |---|---|
 | `enabled` | Enable/disable the usermod |
-| `hueBridgeIp` | Philips Hue Bridge IP address (for WLED->Hue HTTP sync) |
-| `hueApiKey` | Hue Bridge REST API key ([how to obtain](https://developers.meethue.com/develop/get-started-2/)) |
-| `hueLightId` | Light ID on the Hue bridge (visible in the API at `/api/{key}/lights`) |
-
-When all three Hue fields are set, WLED->Hue HTTP sync is automatically enabled. Without them, only Hue->WLED (Zigbee) direction works.
 
 ### Compile-time defines
 
@@ -276,11 +271,10 @@ Tips:
 
 ## Integration Testing
 
-A Python integration test script is provided at `test_zigbee_hue.py` with 25 tests covering:
+A Python integration test script is provided at `test_zigbee_hue.py` with 18 tests covering:
 
 - **Hue -> WLED:** on/off, brightness (full range + min), 6 named colors (red, green, blue, white, yellow, cyan, magenta), combined commands
-- **WLED -> Hue:** on/off, brightness, 4 named colors (red, green, blue, white) via HTTP API sync
-- **Echo suppression:** verifies WLED state persists after Hue echo-back
+- **WiFi/Zigbee coexistence:** HTTP connectivity before, during, and after Zigbee traffic
 - **Rapid changes:** stress test with 5 colors in quick succession
 - **Info fields:** verifies Zigbee debug fields appear in WLED info JSON
 
@@ -299,13 +293,13 @@ See `test_zigbee_hue.py --help` for all options.
 
 ```
 usermods/zigbee_rgb_light/
-  usermod_zigbee_rgb_light.h   -- Main implementation (~1770 lines)
+  usermod_zigbee_rgb_light.h   -- Main implementation (~1550 lines)
   zigbee_rgb_light.cpp         -- Static instance + REGISTER_USERMOD()
   library.json                 -- PlatformIO library descriptor
   README.md                    -- This file
   research.md                  -- Architecture notes and pitfalls
   research-phillips-hue.md     -- Detailed Hue pairing research log
-  test_zigbee_hue.py           -- Integration test script (25 tests, Hue + WLED APIs)
+  test_zigbee_hue.py           -- Integration test script (18 tests, Hue + WLED APIs)
 
 wled00/const.h                 -- CALL_MODE_ZIGBEE = 13 added
 tools/WLED_ESP32_8MB_Zigbee.csv -- Partition table with zb_storage/zb_fct
@@ -318,5 +312,3 @@ tools/WLED_ESP32_8MB_Zigbee.csv -- Partition table with zb_storage/zb_fct
 - OTA firmware update via Zigbee OTA cluster
 - Multiple endpoints for individual WLED segments
 - Configurable Zigbee channel via usermod settings UI
-- Auto-discovery of Hue bridge (mDNS / N-UPnP) and light ID
-- Persistent HTTP connections or HTTP/1.1 keep-alive for lower sync latency

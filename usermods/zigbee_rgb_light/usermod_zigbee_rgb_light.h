@@ -6,8 +6,8 @@
  * to control power, brightness, and color (CIE XY and Hue/Saturation).
  *
  * Bidirectional state sync:
- *   - Hue -> WLED: raw ZCL command parsing (on/off, level, color XY/HS)
- *   - WLED -> Hue: HTTP API push with echo suppression
+ *   - Coordinator -> WLED: raw ZCL command parsing (on/off, level, color XY/HS)
+ *   - WLED -> Coordinator: Zigbee attribute reporting (cache update via scheduler_alarm)
  *
  * Requires:
  *   - ESP32-C6 target (native 802.15.4 radio)
@@ -58,9 +58,6 @@ extern "C" {
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
-// For Hue bridge HTTP API state sync (WLED→Hue direction)
-#include <WiFiClientSecure.h>
-
 // Default Zigbee endpoint number for the light
 #ifndef ZIGBEE_RGB_LIGHT_ENDPOINT
   #define ZIGBEE_RGB_LIGHT_ENDPOINT 10
@@ -110,6 +107,7 @@ void zbUpdateState(bool power, uint8_t bri, uint16_t colorX, uint16_t colorY, bo
 void zbConfigureAllReporting(uint8_t unused);
 void zbReadCurrentOnOffLevel(bool &power, uint8_t &level);
 void zbReadCurrentColorXY(uint16_t &colorX, uint16_t &colorY);
+void zbReportStateViaScheduler(uint8_t unused);
 
 extern "C" void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
 {
@@ -119,7 +117,7 @@ extern "C" void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
 
   switch (sig_type) {
     case ESP_ZB_ZDO_SIGNAL_PRODUCTION_CONFIG_READY:
-      ESP_LOGI("ZigbeeRGB", "Production config: %s",
+      ESP_LOGD("ZigbeeRGB", "Production config: %s",
                (err_status == ESP_OK) ? "loaded" : "not found (normal)");
       break;
     case ESP_ZB_ZDO_SIGNAL_SKIP_STARTUP:
@@ -180,16 +178,16 @@ extern "C" void esp_zb_app_signal_handler(esp_zb_app_signal_t *signal_struct)
       if (err_status == ESP_OK) {
         uint8_t *permit_duration = (uint8_t *)esp_zb_app_signal_get_params(p_sg_p);
         if (permit_duration && *permit_duration) {
-          ESP_LOGI("ZigbeeRGB", "Network(0x%04hx) open for joining (%d seconds)",
+          ESP_LOGD("ZigbeeRGB", "Network(0x%04hx) open for joining (%d seconds)",
                    esp_zb_get_pan_id(), *permit_duration);
         } else {
-          ESP_LOGI("ZigbeeRGB", "Network(0x%04hx) closed for joining",
+          ESP_LOGD("ZigbeeRGB", "Network(0x%04hx) closed for joining",
                    esp_zb_get_pan_id());
         }
       }
       break;
     default:
-      ESP_LOGI("ZigbeeRGB", "Zigbee signal: 0x%x, status: 0x%x", sig_type, err_status);
+      ESP_LOGD("ZigbeeRGB", "Zigbee signal: 0x%x, status: 0x%x", sig_type, err_status);
       break;
   }
 }
@@ -208,18 +206,9 @@ private:
   // EUI64 — populated after esp_zb_start() in the Zigbee task
   char eui64Str[24]    = {};  // EUI64 as XX:XX:XX:XX:XX:XX:XX:XX
 
-  // Debug: last raw command info (visible via WLED info JSON)
-  volatile uint16_t dbgLastCluster = 0;
-  volatile uint8_t  dbgLastCmd     = 0;
-  volatile uint32_t dbgRawCount    = 0;
-  volatile uint16_t dbgLastColorX  = 0;
-  volatile uint16_t dbgLastColorY  = 0;
-  volatile uint8_t  dbgApplyR      = 0;
-  volatile uint8_t  dbgApplyG      = 0;
-  volatile uint8_t  dbgApplyB      = 0;
-  volatile uint32_t dbgApplyCount  = 0;
-  volatile uint32_t dbgReportCount = 0;   // onStateChange calls
-  volatile uint32_t dbgReportCBCount = 0; // zbReportStateCallback calls
+  // Diagnostic counters for WLED→Zigbee reporting (visible in /json/info)
+  volatile uint32_t reportTriggerCount  = 0;  // onStateChange calls (non-Zigbee)
+  volatile uint32_t reportSchedulerCount = 0; // scheduler callback invocations
 
   // Mutex protecting shared state between the Zigbee task and loop()
   SemaphoreHandle_t zbStateMutex = nullptr;
@@ -242,36 +231,6 @@ private:
   volatile uint16_t reportColorX   = 0x616B;
   volatile uint16_t reportColorY   = 0x607D;
 
-  // Hue bridge HTTP API sync (WLED→Hue direction)
-  // When the user changes state via WLED web UI, we push it to the Hue bridge
-  // over HTTP because the Hue bridge ignores unsolicited Zigbee attribute reports.
-  String hueBridgeIp;       // e.g. "192.168.178.216"
-  String hueApiKey;         // e.g. "XBfT0n000WWp2FV6DxcOnbhcxV5X7SFlKpB53Bix"
-  String hueLightId;        // e.g. "23"
-  bool   hueHttpSyncEnabled = false;  // true when all 3 fields are non-empty
-
-  // Pending HTTP sync state
-  volatile bool     hueHttpPending  = false;
-  volatile bool     hueHttpPower    = true;
-  volatile uint8_t  hueHttpBri      = 254;
-  volatile float    hueHttpX        = 0.3127f;
-  volatile float    hueHttpY        = 0.3290f;
-  unsigned long     hueHttpLastSend = 0;       // rate limit
-  static const unsigned long HUE_HTTP_MIN_INTERVAL = 400;  // ms between sends
-
-  // Echo suppression: after we push state to Hue via HTTP, the Hue bridge
-  // sends Zigbee commands back. We compare incoming Zigbee state against
-  // what we last sent to determine if it's an echo or a new user command.
-  volatile bool     hueLastSentValid  = false;
-  volatile bool     hueLastSentPower  = true;
-  volatile uint8_t  hueLastSentBri    = 254;
-  volatile uint16_t hueLastSentX      = 0x4FBE;
-  volatile uint16_t hueLastSentY      = 0x5300;
-  volatile unsigned long hueLastSentTime = 0;
-  static const unsigned long HUE_ECHO_WINDOW_MS = 1500;  // only suppress within 1.5s of send
-  static const uint16_t HUE_XY_TOLERANCE = 1500;  // ~2.3% tolerance for XY comparison
-  static const uint8_t  HUE_BRI_TOLERANCE = 5;    // tolerance for brightness
-
   // Flash-string keys
   static const char _name[];
   static const char _enabled[];
@@ -282,6 +241,7 @@ private:
   friend void zbReadCurrentColorXY(uint16_t &, uint16_t &);
   friend void zbPollAttributesCallback(uint8_t);
   friend void zbConfigureAllReporting(uint8_t);
+  friend void zbReportStateViaScheduler(uint8_t);
   friend bool zb_raw_command_handler(uint8_t);
 
   /* -----------------------------------------------------------------------
@@ -299,40 +259,27 @@ private:
   }
 
   /* -----------------------------------------------------------------------
-   *  Zigbee attribute reporting.
+   *  Zigbee attribute reporting (WLED→coordinator).
    *
-   *  CRITICAL: esp_zb_zcl_report_attr_cmd_req() CRASHES when called from
-   *  esp_zb_scheduler_alarm callbacks. It also crashes from esp_zb_aps_data_request().
+   *  When WLED state changes from a non-Zigbee source (web UI, MQTT, etc.),
+   *  onStateChange() stores the new state and schedules a callback via
+   *  esp_zb_scheduler_alarm().  The callback (zbReportStateViaScheduler)
+   *  runs inside the Zigbee task and calls esp_zb_zcl_set_attribute_val()
+   *  to update the attribute cache.  The ZBOSS reporting engine then
+   *  automatically sends attribute reports to bound coordinators.
    *
-   *  NEW APPROACH: Call report_attr_cmd_req from the WLED main loop (loop()),
-   *  protected by esp_zb_lock_acquire/release. The lock is the official way
-   *  to call Zigbee APIs from non-Zigbee-task contexts.
+   *  This works with Home Assistant (ZHA), Zigbee2MQTT, and other
+   *  standards-compliant coordinators.
+   *
+   *  NOTE: The Philips Hue Bridge does NOT update its internal state from
+   *  unsolicited attribute reports (tested with both ZBOSS auto-reporting
+   *  and explicit report_attr_cmd_req).  The Hue bridge only tracks state
+   *  from commands it sends.  This is a known Hue limitation for
+   *  non-certified devices — WLED→Hue state sync is not possible via
+   *  Zigbee alone.
    * ---------------------------------------------------------------------*/
 
-  static void zbSendOneReport(uint16_t clusterID, uint16_t attrID)
-  {
-    esp_zb_zcl_report_attr_cmd_t cmd;
-    memset(&cmd, 0, sizeof(cmd));
-    // Use binding table mode — let ZBOSS look up the destination from our
-    // APS bindings (created by zbConfigureAllReporting). This is more
-    // correct than hardcoding the parent short address, especially in a
-    // distributed network where parent != coordinator.
-    cmd.address_mode = ESP_ZB_APS_ADDR_MODE_DST_ADDR_ENDP_NOT_PRESENT;
-    cmd.zcl_basic_cmd.src_endpoint = ZIGBEE_RGB_LIGHT_ENDPOINT;
-    cmd.clusterID    = clusterID;
-    cmd.attributeID  = attrID;
-    cmd.direction     = ESP_ZB_ZCL_CMD_DIRECTION_TO_CLI;
-    cmd.dis_default_resp = 1;
-    cmd.manuf_code    = 0;
-    cmd.manuf_specific = 0;
-
-    esp_err_t err = esp_zb_zcl_report_attr_cmd_req(&cmd);
-    ESP_LOGI("ZigbeeRGB", "Report attr cl=0x%04x attr=0x%04x mode=BINDING rc=0x%x",
-             clusterID, attrID, err);
-  }
-
-  // Called from onStateChange — just sets the pending flag and stores state.
-  // The actual Zigbee API calls happen in loop() with lock protection.
+  // Called from onStateChange — stores pending state for the scheduler callback
   void prepareReport(bool power, uint8_t bri, uint16_t x, uint16_t y)
   {
     if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -343,190 +290,6 @@ private:
       reportPending = true;
       xSemaphoreGive(zbStateMutex);
     }
-  }
-
-  // Called from loop() — sends attribute reports using esp_zb_lock for thread safety
-  void sendPendingReports()
-  {
-    // Don't send reports in the first 30 seconds after boot to avoid crash loop
-    // (on boot, WLED restores state which triggers onStateChange before Zigbee is fully ready)
-    if (millis() < 30000) return;
-
-    // Safety: don't send if we don't know the parent address yet
-    if (s_zb_parent_short == 0) return;
-
-    bool     rPower;
-    uint8_t  rBri;
-    uint16_t rX, rY;
-
-    if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
-      if (!reportPending) {
-        xSemaphoreGive(zbStateMutex);
-        return;
-      }
-      rPower = reportPowerOn;
-      rBri   = reportBri;
-      rX     = reportColorX;
-      rY     = reportColorY;
-      reportPending = false;
-      xSemaphoreGive(zbStateMutex);
-    } else {
-      return;
-    }
-
-    // Acquire the Zigbee lock to safely call APIs from non-Zigbee-task
-    if (!esp_zb_lock_acquire(pdMS_TO_TICKS(100))) {
-      ESP_LOGW("ZigbeeRGB", "Could not acquire Zigbee lock for reporting");
-      // Re-set pending so we retry next loop iteration
-      if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
-        reportPending = true;
-        xSemaphoreGive(zbStateMutex);
-      }
-      return;
-    }
-
-    // Update attribute cache
-    bool onOff = rPower;
-    esp_zb_zcl_set_attribute_val(
-      ZIGBEE_RGB_LIGHT_ENDPOINT,
-      ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-      ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID,
-      &onOff, false);
-
-    esp_zb_zcl_set_attribute_val(
-      ZIGBEE_RGB_LIGHT_ENDPOINT,
-      ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL,
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-      ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID,
-      &rBri, false);
-
-    esp_zb_zcl_set_attribute_val(
-      ZIGBEE_RGB_LIGHT_ENDPOINT,
-      ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-      ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_X_ID,
-      &rX, false);
-
-    esp_zb_zcl_set_attribute_val(
-      ZIGBEE_RGB_LIGHT_ENDPOINT,
-      ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
-      ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
-      ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_Y_ID,
-      &rY, false);
-
-    ESP_LOGI("ZigbeeRGB", "Sending reports via lock: power=%d bri=%d x=0x%04x y=0x%04x dst=0x%04x",
-             rPower, rBri, rX, rY, s_zb_parent_short);
-
-    // Send one-shot reports
-    zbSendOneReport(ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
-                    ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID);
-    zbSendOneReport(ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL,
-                    ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID);
-    zbSendOneReport(ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
-                    ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_X_ID);
-    zbSendOneReport(ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
-                    ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_Y_ID);
-
-    esp_zb_lock_release();
-
-    dbgReportCBCount++;
-    ESP_LOGI("ZigbeeRGB", "Reports sent successfully");
-  }
-
-  /* -----------------------------------------------------------------------
-   *  Hue bridge HTTP API sync (WLED→Hue direction).
-   *
-   *  The Hue bridge ignores unsolicited Zigbee attribute reports from lights.
-   *  Instead, we push state changes over HTTP using the Hue REST API.
-   *  This fires when onStateChange() is called from a non-Zigbee source
-   *  (e.g. WLED web UI, MQTT, button press).
-   * ---------------------------------------------------------------------*/
-  void sendHueHttpSync()
-  {
-    if (!hueHttpSyncEnabled || !hueHttpPending) return;
-
-    // Rate limit
-    unsigned long now = millis();
-    if (now - hueHttpLastSend < HUE_HTTP_MIN_INTERVAL) return;
-
-    // Snapshot pending state
-    bool     hPower;
-    uint8_t  hBri;
-    float    hX, hY;
-    if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(5)) == pdTRUE) {
-      if (!hueHttpPending) {
-        xSemaphoreGive(zbStateMutex);
-        return;
-      }
-      hPower = hueHttpPower;
-      hBri   = hueHttpBri;
-      hX     = hueHttpX;
-      hY     = hueHttpY;
-      hueHttpPending = false;
-      xSemaphoreGive(zbStateMutex);
-    } else {
-      return;
-    }
-
-    hueHttpLastSend = now;
-
-    // Build JSON body — Hue API uses {"on":bool,"bri":1-254,"xy":[x,y]}
-    // Hue bri range is 1-254 (0 is not valid, use on:false instead)
-    char body[128];
-    if (!hPower) {
-      snprintf(body, sizeof(body), "{\"on\":false}");
-    } else {
-      uint8_t hueBri = hBri < 1 ? 1 : hBri;  // clamp to Hue min
-      snprintf(body, sizeof(body), "{\"on\":true,\"bri\":%d,\"xy\":[%.4f,%.4f]}",
-               hueBri, hX, hY);
-    }
-
-    // Build URL: https://{ip}/api/{key}/lights/{id}/state
-    String url = "https://" + hueBridgeIp + "/api/" + hueApiKey + "/lights/" + hueLightId + "/state";
-
-    ESP_LOGI("ZigbeeRGB", "Hue HTTP sync: PUT %s body=%s", url.c_str(), body);
-
-    // Use WiFiClientSecure with no cert verification (Hue bridge uses self-signed cert)
-    WiFiClientSecure client;
-    client.setInsecure();  // Skip certificate verification
-    client.setTimeout(2);  // 2 second timeout
-
-    // Parse host and path from URL
-    if (!client.connect(hueBridgeIp.c_str(), 443)) {
-      ESP_LOGW("ZigbeeRGB", "Hue HTTP: connect failed");
-      return;
-    }
-
-    String path = "/api/" + hueApiKey + "/lights/" + hueLightId + "/state";
-    client.print(String("PUT ") + path + " HTTP/1.1\r\n" +
-                 "Host: " + hueBridgeIp + "\r\n" +
-                 "Content-Type: application/json\r\n" +
-                 "Content-Length: " + strlen(body) + "\r\n" +
-                 "Connection: close\r\n\r\n" +
-                 body);
-
-    // Read response (just check status line, don't need full body)
-    unsigned long timeout = millis() + 2000;
-    while (!client.available() && millis() < timeout) {
-      delay(10);
-    }
-    if (client.available()) {
-      String status = client.readStringUntil('\n');
-      ESP_LOGI("ZigbeeRGB", "Hue HTTP response: %s", status.c_str());
-    }
-    client.stop();
-
-    // Record what we sent so echo suppression can compare
-    // Convert float XY back to uint16_t for comparison with incoming Zigbee values
-    hueLastSentPower = hPower;
-    hueLastSentBri   = hBri;
-    hueLastSentX     = static_cast<uint16_t>(hX * 65535.0f + 0.5f);
-    hueLastSentY     = static_cast<uint16_t>(hY * 65535.0f + 0.5f);
-    hueLastSentTime  = millis();
-    hueLastSentValid = true;
-    ESP_LOGI("ZigbeeRGB", "Echo suppression: recorded sent state pwr=%d bri=%d x=0x%04x y=0x%04x",
-             hPower, hBri, hueLastSentX, hueLastSentY);
   }
 
   /* -----------------------------------------------------------------------
@@ -541,7 +304,7 @@ private:
     uint16_t cluster = message->info.cluster;
     uint16_t attrId  = message->attribute.id;
 
-    ESP_LOGI("ZigbeeRGB", "Attr set: endpoint(%d) cluster(0x%04x) attr(0x%04x) size(%d)",
+    ESP_LOGD("ZigbeeRGB", "Attr set: endpoint(%d) cluster(0x%04x) attr(0x%04x) size(%d)",
              message->info.dst_endpoint, cluster, attrId, message->attribute.data.size);
 
     if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -550,7 +313,7 @@ private:
         case ESP_ZB_ZCL_CLUSTER_ID_ON_OFF:
           if (attrId == ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID) {
             powerOn = *(const bool *)message->attribute.data.value;
-            ESP_LOGI("ZigbeeRGB", "Power: %s", powerOn ? "ON" : "OFF");
+            ESP_LOGD("ZigbeeRGB", "Power: %s", powerOn ? "ON" : "OFF");
             stateChanged = true;
           }
           break;
@@ -558,7 +321,7 @@ private:
         case ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL:
           if (attrId == ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID) {
             zbBrightness = *(const uint8_t *)message->attribute.data.value;
-            ESP_LOGI("ZigbeeRGB", "Level: %d", zbBrightness);
+            ESP_LOGD("ZigbeeRGB", "Level: %d", zbBrightness);
             stateChanged = true;
           }
           break;
@@ -567,22 +330,22 @@ private:
           if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_HUE_ID) {
             zbHue = *(const uint8_t *)message->attribute.data.value;
             zbUseXY = false;
-            ESP_LOGI("ZigbeeRGB", "Hue: %d", zbHue);
+            ESP_LOGD("ZigbeeRGB", "Hue: %d", zbHue);
             stateChanged = true;
           } else if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_SATURATION_ID) {
             zbSaturation = *(const uint8_t *)message->attribute.data.value;
             zbUseXY = false;
-            ESP_LOGI("ZigbeeRGB", "Saturation: %d", zbSaturation);
+            ESP_LOGD("ZigbeeRGB", "Saturation: %d", zbSaturation);
             stateChanged = true;
           } else if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_X_ID) {
             zbColorX = *(const uint16_t *)message->attribute.data.value;
             zbUseXY = true;
-            ESP_LOGI("ZigbeeRGB", "Color X: 0x%04x", (unsigned)zbColorX);
+            ESP_LOGD("ZigbeeRGB", "Color X: 0x%04x", (unsigned)zbColorX);
             stateChanged = true;
           } else if (attrId == ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_Y_ID) {
             zbColorY = *(const uint16_t *)message->attribute.data.value;
             zbUseXY = true;
-            ESP_LOGI("ZigbeeRGB", "Color Y: 0x%04x", (unsigned)zbColorY);
+            ESP_LOGD("ZigbeeRGB", "Color Y: 0x%04x", (unsigned)zbColorY);
             stateChanged = true;
           }
           break;
@@ -723,11 +486,6 @@ private:
         colPri[1] = g;
         colPri[2] = b;
         colPri[3] = 0;
-        // Debug
-        dbgApplyR = r;
-        dbgApplyG = g;
-        dbgApplyB = b;
-        dbgApplyCount++;
       } else {
         // HS color mode
         // Zigbee hue is 0-254 → WLED hue is 0-65535
@@ -780,7 +538,7 @@ private:
     // under WiFi coexistence pressure.  Must be called BEFORE esp_zb_init().
     esp_zb_io_buffer_size_set(128);        // default 80
     esp_zb_scheduler_queue_size_set(128);  // default 80
-    ESP_LOGI("ZigbeeRGB", "IO buffer pool and scheduler queue set to 128");
+    ESP_LOGD("ZigbeeRGB", "IO buffer pool and scheduler queue set to 128");
 
     // Initialise the Zigbee stack as End Device
     // (Hue bridge rejects Router joins with ZDO Leave)
@@ -796,20 +554,20 @@ private:
     // Without this, the device tries centralized TC key exchange which
     // will never work, causing "Have not got nwk key - authentication failed".
     esp_zb_enable_joining_to_distributed(true);
-    ESP_LOGI("ZigbeeRGB", "Enabled joining to distributed security networks");
+    ESP_LOGD("ZigbeeRGB", "Enabled joining to distributed security networks");
 
     // Set the ZLL distributed link key (well-known key used by Hue bridge)
     esp_zb_secur_TC_standard_distributed_key_set(const_cast<uint8_t *>(zll_distributed_key));
-    ESP_LOGI("ZigbeeRGB", "Set ZLL distributed link key");
+    ESP_LOGD("ZigbeeRGB", "Set ZLL distributed link key");
 
     // Set rx_on_when_idle = true (non-sleepy, mains-powered light)
     esp_zb_set_rx_on_when_idle(true);
-    ESP_LOGI("ZigbeeRGB", "Set rx_on_when_idle = true (non-sleepy ED)");
+    ESP_LOGD("ZigbeeRGB", "Set rx_on_when_idle = true (non-sleepy ED)");
 
     // Set minimum LQI to 0 -- the PCB antenna produces very low LQI values
     // (0-30) even at 1m distance, causing all beacons to be rejected.
     esp_zb_secur_network_min_join_lqi_set(0);
-    ESP_LOGI("ZigbeeRGB", "Set minimum join LQI to 0");
+    ESP_LOGD("ZigbeeRGB", "Set minimum join LQI to 0");
 
     // --- Create the Color Dimmable Light endpoint ---
     // Use the color_dimmable_light helper for cluster creation, then manually
@@ -836,7 +594,7 @@ private:
         ESP_ZB_ZCL_ATTR_ON_OFF_ON_TIME, &on_time);
       esp_zb_on_off_cluster_add_attr(on_off_cluster,
         ESP_ZB_ZCL_ATTR_ON_OFF_OFF_WAIT_TIME, &off_wait_time);
-      ESP_LOGI("ZigbeeRGB", "Added extra on_off attributes");
+      ESP_LOGD("ZigbeeRGB", "Added extra on_off attributes");
     }
 
     // --- Add manufacturer info to Basic cluster ---
@@ -876,7 +634,7 @@ private:
       .app_device_version = 1,  // Hue bridge requires version 1
     };
     esp_zb_ep_list_add_ep(ep_list, cluster_list, endpoint_config);
-    ESP_LOGI("ZigbeeRGB", "Created endpoint %d with app_device_version=1, device_id=0x%04x",
+    ESP_LOGD("ZigbeeRGB", "Created endpoint %d with app_device_version=1, device_id=0x%04x",
              ZIGBEE_RGB_LIGHT_ENDPOINT, ESP_ZB_HA_COLOR_DIMMABLE_LIGHT_DEVICE_ID);
 
     esp_zb_device_register(ep_list);
@@ -901,7 +659,7 @@ private:
         if (a) {
           uint8_t old_access = a->access;
           a->access |= ESP_ZB_ZCL_ATTR_ACCESS_REPORTING;
-          ESP_LOGI("ZigbeeRGB", "Attr cl=0x%04x id=0x%04x access 0x%02x -> 0x%02x",
+          ESP_LOGD("ZigbeeRGB", "Attr cl=0x%04x id=0x%04x access 0x%02x -> 0x%02x",
                    ra.cluster, ra.attr, old_access, a->access);
         } else {
           ESP_LOGW("ZigbeeRGB", "Attr cl=0x%04x id=0x%04x NOT FOUND for reporting flag!",
@@ -941,12 +699,12 @@ private:
     // will send a MAC Data Request to its parent when not in turbo poll mode.
     // For a mains-powered device the power cost is irrelevant.
     zb_zdo_pim_set_long_poll_interval(1000);
-    ESP_LOGI("ZigbeeRGB", "Set long poll interval to 1000ms");
+    ESP_LOGD("ZigbeeRGB", "Set long poll interval to 1000ms");
 
     // Enable turbo poll retry — if we get an ACK with pending bit set but
     // no data frame follows, retry the poll a few more times.
     zb_zdo_pim_toggle_turbo_poll_retry_feature(ZB_TRUE);
-    ESP_LOGI("ZigbeeRGB", "Enabled turbo poll retry feature");
+    ESP_LOGD("ZigbeeRGB", "Enabled turbo poll retry feature");
 
     // Run the Zigbee main loop — never returns
     esp_zb_stack_main_loop();
@@ -975,7 +733,7 @@ public:
 #if defined(CONFIG_ESP_COEX_SW_COEXIST_ENABLE) || defined(CONFIG_ESP_COEX_ENABLED)
     esp_err_t coex_err = esp_coex_wifi_i154_enable();
     if (coex_err == ESP_OK) {
-      ESP_LOGI("ZigbeeRGB", "WiFi/802.15.4 coexistence enabled (before WiFi.mode)");
+      ESP_LOGD("ZigbeeRGB", "WiFi/802.15.4 coexistence enabled (before WiFi.mode)");
     } else {
       ESP_LOGE("ZigbeeRGB", "esp_coex_wifi_i154_enable failed: 0x%x", coex_err);
     }
@@ -992,7 +750,7 @@ public:
       .txrx_at = IEEE802154_MIDDLE,   // was IEEE802154_MIDDLE (unchanged)
     };
     esp_ieee802154_set_coex_config(coex_cfg);
-    ESP_LOGI("ZigbeeRGB", "802.15.4 coexistence priority set to MIDDLE");
+    ESP_LOGD("ZigbeeRGB", "802.15.4 coexistence priority set to MIDDLE");
 #endif
 
     zbStateMutex = xSemaphoreCreateMutex();
@@ -1010,7 +768,7 @@ public:
     }
 
     initDone = true;
-    ESP_LOGI("ZigbeeRGB", "Platform configured, Zigbee will start after WiFi STA connects");
+    ESP_LOGD("ZigbeeRGB", "Platform configured, Zigbee will start after WiFi STA connects");
   }
 
   // Called by WLED when the STA interface gets an IP address.
@@ -1038,11 +796,11 @@ public:
       .txrx_at = IEEE802154_MIDDLE,
     };
     esp_ieee802154_set_coex_config(coex_cfg);
-    ESP_LOGI("ZigbeeRGB", "802.15.4 coex re-applied (enable + MIDDLE priority) after WiFi reconnect");
+    ESP_LOGD("ZigbeeRGB", "802.15.4 coex re-applied (enable + MIDDLE priority) after WiFi reconnect");
 #endif
 
     if (zbStarted) {
-      ESP_LOGI("ZigbeeRGB", "WiFi STA connected (Zigbee already running)");
+      ESP_LOGD("ZigbeeRGB", "WiFi STA connected (Zigbee already running)");
       return;
     }
 
@@ -1075,16 +833,6 @@ public:
     if (pending) {
       applyState();
     }
-
-    // Send WLED→Zigbee reports (if any pending)
-    if (zbPaired && reportPending) {
-      sendPendingReports();
-    }
-
-    // Send WLED→Hue HTTP API sync (if any pending)
-    if (hueHttpPending) {
-      sendHueHttpSync();
-    }
   }
 
   /* ---- State change notification -------------------------------------- */
@@ -1104,27 +852,22 @@ public:
     uint16_t newX, newY;
     rgbToXY(colPri[0], colPri[1], colPri[2], newX, newY);
 
-    ESP_LOGI("ZigbeeRGB", "onStateChange mode=%d power=%d bri=%d rgb=(%d,%d,%d) xy=(0x%04x,0x%04x)",
+    ESP_LOGD("ZigbeeRGB", "onStateChange mode=%d power=%d bri=%d rgb=(%d,%d,%d) xy=(0x%04x,0x%04x)",
              mode, newPower, newBri, colPri[0], colPri[1], colPri[2], newX, newY);
 
-    dbgReportCount++;
+    reportTriggerCount++;
 
     // Store pending Zigbee report
     prepareReport(newPower, newBri, newX, newY);
 
-    // Store pending Hue HTTP sync (if enabled)
-    if (hueHttpSyncEnabled) {
-      float fX = (float)newX / 65535.0f;
-      float fY = (float)newY / 65535.0f;
-      if (zbStateMutex && xSemaphoreTake(zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
-        hueHttpPower   = newPower;
-        hueHttpBri     = newBri;
-        hueHttpX       = fX;
-        hueHttpY       = fY;
-        hueHttpPending = true;
-        xSemaphoreGive(zbStateMutex);
-      }
-    }
+    // Schedule attribute cache update in the Zigbee task context.
+    // This is critical: esp_zb_zcl_set_attribute_val() called from within
+    // the Zigbee task triggers the ZBOSS internal reporting engine, which
+    // is what makes coordinators like ZHA/Home Assistant see the changes.
+    // The explicit report_attr_cmd_req approach in sendPendingReports()
+    // runs from loop() via esp_zb_lock but may not trigger the same
+    // internal reporting path.
+    esp_zb_scheduler_alarm(zbReportStateViaScheduler, 0, 10);
   }
 
   /* ---- Config persistence --------------------------------------------- */
@@ -1133,9 +876,6 @@ public:
   {
     JsonObject top = root.createNestedObject(FPSTR(_name));
     top[FPSTR(_enabled)] = enabled;
-    top["hueBridgeIp"]   = hueBridgeIp;
-    top["hueApiKey"]     = hueApiKey;
-    top["hueLightId"]    = hueLightId;
   }
 
   bool readFromConfig(JsonObject &root) override
@@ -1143,14 +883,6 @@ public:
     JsonObject top = root[FPSTR(_name)];
     bool configComplete = !top.isNull();
     configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
-    configComplete &= getJsonValue(top["hueBridgeIp"], hueBridgeIp);
-    configComplete &= getJsonValue(top["hueApiKey"], hueApiKey);
-    configComplete &= getJsonValue(top["hueLightId"], hueLightId);
-    // Enable HTTP sync when all 3 fields are non-empty
-    hueHttpSyncEnabled = hueBridgeIp.length() > 0 && hueApiKey.length() > 0 && hueLightId.length() > 0;
-    if (hueHttpSyncEnabled) {
-      ESP_LOGI("ZigbeeRGB", "Hue HTTP sync enabled: %s light %s", hueBridgeIp.c_str(), hueLightId.c_str());
-    }
     return configComplete;
   }
 
@@ -1170,6 +902,24 @@ public:
     if (zbPaired) {
       JsonArray arr = user.createNestedArray(FPSTR(_name));
       arr.add(F("paired"));
+
+      // Diagnostic info for Zigbee state
+      char parentBuf[12];
+      snprintf(parentBuf, sizeof(parentBuf), "0x%04X", s_zb_parent_short);
+      JsonArray parent_arr = user.createNestedArray(F("ZB Parent"));
+      parent_arr.add(parentBuf);
+
+      char bindBuf[16];
+      snprintf(bindBuf, sizeof(bindBuf), "%d/%d", s_zb_binds_completed, s_zb_binds_needed);
+      JsonArray bind_arr = user.createNestedArray(F("ZB Binds"));
+      bind_arr.add(bindBuf);
+
+      char countBuf[24];
+      snprintf(countBuf, sizeof(countBuf), "%lu/%lu",
+               (unsigned long)reportTriggerCount,
+               (unsigned long)reportSchedulerCount);
+      JsonArray cnt_arr = user.createNestedArray(F("ZB Reports T/S"));
+      cnt_arr.add(countBuf);
     } else {
       // Show EUI64 so the user can identify this device.
       // EUI64 is populated after esp_zb_start() fires in the Zigbee task.
@@ -1180,43 +930,6 @@ public:
 
       JsonArray status_arr = user.createNestedArray(FPSTR(_name));
       status_arr.add(zbStarted ? F("searching...") : F("waiting for WiFi"));
-    }
-
-    // Debug info — raw command handler diagnostics
-    char dbgBuf[64];
-    snprintf(dbgBuf, sizeof(dbgBuf), "cnt=%lu cl=0x%04x cmd=0x%02x cx=0x%04x cy=0x%04x",
-             (unsigned long)dbgRawCount, (unsigned)dbgLastCluster,
-             (unsigned)dbgLastCmd, (unsigned)dbgLastColorX, (unsigned)dbgLastColorY);
-    JsonArray dbg_arr = user.createNestedArray(F("ZB Raw"));
-    dbg_arr.add(dbgBuf);
-
-    // Debug: internal state
-    char dbgState[128];
-    snprintf(dbgState, sizeof(dbgState), "pwr=%d bri=%d x=0x%04x y=0x%04x xy=%d chg=%d apply=%lu rpt=%lu/%lu rgb=(%d,%d,%d)",
-             (int)powerOn, (int)zbBrightness,
-             (unsigned)zbColorX, (unsigned)zbColorY,
-             (int)zbUseXY, (int)stateChanged,
-             (unsigned long)dbgApplyCount,
-             (unsigned long)dbgReportCount, (unsigned long)dbgReportCBCount,
-             (int)dbgApplyR, (int)dbgApplyG, (int)dbgApplyB);
-    JsonArray dbgSt_arr = user.createNestedArray(F("ZB State"));
-    dbgSt_arr.add(dbgState);
-
-    // Debug: parent/binding info (for HTTP-based debugging since serial causes reset)
-    char dbgBind[80];
-    snprintf(dbgBind, sizeof(dbgBind), "parent=0x%04x binds=%d/%d myAddr=0x%04x",
-             (unsigned)s_zb_parent_short,
-             (int)s_zb_binds_completed, (int)s_zb_binds_needed,
-             (unsigned)s_zb_my_short);
-    JsonArray dbgBind_arr = user.createNestedArray(F("ZB Bind"));
-    dbgBind_arr.add(dbgBind);
-
-    // Debug: Hue HTTP sync status
-    if (hueHttpSyncEnabled) {
-      JsonArray hueArr = user.createNestedArray(F("ZB HueHTTP"));
-      char hueBuf[48];
-      snprintf(hueBuf, sizeof(hueBuf), "light=%s pending=%d", hueLightId.c_str(), (int)hueHttpPending);
-      hueArr.add(hueBuf);
     }
   }
 
@@ -1231,6 +944,76 @@ const char ZigbeeRGBLightUsermod::_name[]    PROGMEM = "ZigbeeRGBLight";
 const char ZigbeeRGBLightUsermod::_enabled[] PROGMEM = "enabled";
 
 /* ---------------------------------------------------------------------------
+ *  Scheduler callback: update the Zigbee attribute cache from within the
+ *  Zigbee task context.  This is the approach that worked with Home Assistant
+ *  (ZHA) — calling esp_zb_zcl_set_attribute_val() from the Zigbee task
+ *  triggers the ZBOSS internal reporting engine, which sends attribute
+ *  reports to bound coordinators.
+ * -------------------------------------------------------------------------*/
+void zbReportStateViaScheduler(uint8_t /*unused*/)
+{
+  if (!s_zb_instance) return;
+  auto *self = s_zb_instance;
+  self->reportSchedulerCount++;
+
+  bool     rPower;
+  uint8_t  rBri;
+  uint16_t rX, rY;
+
+  if (self->zbStateMutex && xSemaphoreTake(self->zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
+    if (!self->reportPending) {
+      xSemaphoreGive(self->zbStateMutex);
+      return;
+    }
+    rPower = self->reportPowerOn;
+    rBri   = self->reportBri;
+    rX     = self->reportColorX;
+    rY     = self->reportColorY;
+    self->reportPending = false;
+    xSemaphoreGive(self->zbStateMutex);
+  } else {
+    // Could not acquire mutex — retry shortly
+    esp_zb_scheduler_alarm(zbReportStateViaScheduler, 0, 50);
+    return;
+  }
+
+  // Update the Zigbee attribute cache from within the Zigbee task.
+  // The ZBOSS reporting engine detects value changes and automatically
+  // sends attribute reports to bound coordinators.
+  bool onOff = rPower;
+  esp_zb_zcl_set_attribute_val(
+    ZIGBEE_RGB_LIGHT_ENDPOINT,
+    ESP_ZB_ZCL_CLUSTER_ID_ON_OFF,
+    ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+    ESP_ZB_ZCL_ATTR_ON_OFF_ON_OFF_ID,
+    &onOff, false);
+
+  esp_zb_zcl_set_attribute_val(
+    ZIGBEE_RGB_LIGHT_ENDPOINT,
+    ESP_ZB_ZCL_CLUSTER_ID_LEVEL_CONTROL,
+    ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+    ESP_ZB_ZCL_ATTR_LEVEL_CONTROL_CURRENT_LEVEL_ID,
+    &rBri, false);
+
+  esp_zb_zcl_set_attribute_val(
+    ZIGBEE_RGB_LIGHT_ENDPOINT,
+    ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
+    ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+    ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_X_ID,
+    &rX, false);
+
+  esp_zb_zcl_set_attribute_val(
+    ZIGBEE_RGB_LIGHT_ENDPOINT,
+    ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
+    ESP_ZB_ZCL_CLUSTER_SERVER_ROLE,
+    ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_Y_ID,
+    &rY, false);
+
+  ESP_LOGI("ZigbeeRGB", "Attribute cache updated (scheduler): power=%d bri=%d x=0x%04x y=0x%04x",
+           rPower, rBri, rX, rY);
+}
+
+/* ---------------------------------------------------------------------------
  *  Helper: update usermod shared state under the mutex, setting stateChanged.
  *  Call from the Zigbee task context only.
  * -------------------------------------------------------------------------*/
@@ -1238,22 +1021,6 @@ void zbUpdateState(bool power, uint8_t bri, uint16_t colorX, uint16_t colorY, bo
 {
   if (!s_zb_instance) return;
   auto *self = s_zb_instance;
-
-  // Echo suppression: if we recently pushed state to Hue via HTTP,
-  // suppress incoming Zigbee commands for a short window. The Hue bridge
-  // echoes our HTTP PUT as Zigbee commands within ~200-500ms. Using a
-  // 1.5s window to catch all echoes while keeping it short enough to
-  // not block genuine new commands from Hue.
-  if (self->hueHttpSyncEnabled && self->hueLastSentValid &&
-      (millis() - self->hueLastSentTime) < ZigbeeRGBLightUsermod::HUE_ECHO_WINDOW_MS) {
-    ESP_LOGI("ZigbeeRGB", "Echo suppressed (within %lums): pwr=%d bri=%d x=0x%04x y=0x%04x",
-             ZigbeeRGBLightUsermod::HUE_ECHO_WINDOW_MS, power, bri, colorX, colorY);
-    return;
-  }
-  // Clear echo tracking once the window expires
-  if (self->hueLastSentValid && (millis() - self->hueLastSentTime) >= ZigbeeRGBLightUsermod::HUE_ECHO_WINDOW_MS) {
-    self->hueLastSentValid = false;
-  }
 
   if (self->zbStateMutex && xSemaphoreTake(self->zbStateMutex, pdMS_TO_TICKS(10)) == pdTRUE) {
     self->powerOn      = power;
@@ -1294,11 +1061,11 @@ static void zbSetupReportingConfig(uint8_t unused);
 static void zbBindCallback(esp_zb_zdp_status_t status, void *user_ctx)
 {
   uint16_t cluster = (uint16_t)(uintptr_t)user_ctx;
-  ESP_LOGI("ZigbeeRGB", "Bind response for cluster 0x%04x: status=0x%02x", cluster, status);
+  ESP_LOGD("ZigbeeRGB", "Bind response for cluster 0x%04x: status=0x%02x", cluster, status);
 
   s_zb_binds_completed++;
   if (s_zb_binds_completed >= s_zb_binds_needed) {
-    ESP_LOGI("ZigbeeRGB", "All %d bindings completed, configuring reporting...",
+    ESP_LOGD("ZigbeeRGB", "All %d bindings completed, configuring reporting...",
              s_zb_binds_needed);
     // Schedule reporting config in Zigbee task context
     esp_zb_scheduler_alarm(zbSetupReportingConfig, 0, 100);
@@ -1321,7 +1088,7 @@ static void zbCreateOneBinding(uint16_t clusterID,
   bind_req.dst_endp     = 1;   // Hue bridge endpoint
   bind_req.req_dst_addr = myShortAddr;  // send bind req to ourselves (local binding)
 
-  ESP_LOGI("ZigbeeRGB", "Creating local binding for cluster 0x%04x → dst endpoint 1",
+  ESP_LOGD("ZigbeeRGB", "Creating local binding for cluster 0x%04x → dst endpoint 1",
            clusterID);
   esp_zb_zdo_device_bind_req(&bind_req, zbBindCallback,
                               (void *)(uintptr_t)clusterID);
@@ -1351,7 +1118,7 @@ static void zbConfigureOneReport(uint16_t clusterID, uint16_t attrID,
   info.manuf_code     = 0;
 
   esp_err_t err = esp_zb_zcl_update_reporting_info(&info);
-  ESP_LOGI("ZigbeeRGB", "Configure report cl=0x%04x attr=0x%04x dst=0x%04x rc=0x%x",
+  ESP_LOGD("ZigbeeRGB", "Configure report cl=0x%04x attr=0x%04x dst=0x%04x rc=0x%x",
            clusterID, attrID, dstShortAddr, err);
 
   if (err == ESP_OK) {
@@ -1363,7 +1130,7 @@ static void zbConfigureOneReport(uint16_t clusterID, uint16_t attrID,
     loc.attr_id      = attrID;
     loc.manuf_code   = 0;
     esp_err_t start_err = esp_zb_zcl_start_attr_reporting(loc);
-    ESP_LOGI("ZigbeeRGB", "Start report cl=0x%04x attr=0x%04x rc=0x%x",
+    ESP_LOGD("ZigbeeRGB", "Start report cl=0x%04x attr=0x%04x rc=0x%x",
              clusterID, attrID, start_err);
   }
 }
@@ -1371,7 +1138,7 @@ static void zbConfigureOneReport(uint16_t clusterID, uint16_t attrID,
 // Called after all bindings are created — configures and starts reporting
 static void zbSetupReportingConfig(uint8_t /*unused*/)
 {
-  ESP_LOGI("ZigbeeRGB", "Setting up reporting configuration (dst=0x%04x)...",
+  ESP_LOGD("ZigbeeRGB", "Setting up reporting configuration (dst=0x%04x)...",
            s_zb_parent_short);
 
   uint16_t dstShortAddr = s_zb_parent_short;
@@ -1384,12 +1151,12 @@ static void zbSetupReportingConfig(uint8_t /*unused*/)
                        ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_X_ID, 1, 60, dstShortAddr);
   zbConfigureOneReport(ESP_ZB_ZCL_CLUSTER_ID_COLOR_CONTROL,
                        ESP_ZB_ZCL_ATTR_COLOR_CONTROL_CURRENT_Y_ID, 1, 60, dstShortAddr);
-  ESP_LOGI("ZigbeeRGB", "Attribute reporting configured");
+  ESP_LOGD("ZigbeeRGB", "Attribute reporting configured");
 }
 
 void zbConfigureAllReporting(uint8_t /*unused*/)
 {
-  ESP_LOGI("ZigbeeRGB", "Setting up bindings and attribute reporting...");
+  ESP_LOGD("ZigbeeRGB", "Setting up bindings and attribute reporting...");
 
   // Reset bind counter
   s_zb_binds_completed = 0;
@@ -1416,14 +1183,14 @@ void zbConfigureAllReporting(uint8_t /*unused*/)
     esp_zb_nwk_neighbor_info_t nbr;
     bool found = false;
     while (esp_zb_nwk_get_next_neighbor(&iter, &nbr) == ESP_OK) {
-      ESP_LOGI("ZigbeeRGB", "Neighbor: short=0x%04x, relationship=%d, ieee=%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
+      ESP_LOGD("ZigbeeRGB", "Neighbor: short=0x%04x, relationship=%d, ieee=%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
                nbr.short_addr, nbr.relationship,
                nbr.ieee_addr[7], nbr.ieee_addr[6], nbr.ieee_addr[5], nbr.ieee_addr[4],
                nbr.ieee_addr[3], nbr.ieee_addr[2], nbr.ieee_addr[1], nbr.ieee_addr[0]);
       if (nbr.relationship == ESP_ZB_NWK_RELATIONSHIP_PARENT) {
         memcpy(parentIeee, nbr.ieee_addr, sizeof(esp_zb_ieee_addr_t));
         parentShort = nbr.short_addr;
-        ESP_LOGI("ZigbeeRGB", "Found parent at short=0x%04x", nbr.short_addr);
+        ESP_LOGD("ZigbeeRGB", "Found parent at short=0x%04x", nbr.short_addr);
         found = true;
         break;
       }
@@ -1434,10 +1201,10 @@ void zbConfigureAllReporting(uint8_t /*unused*/)
     }
   }
 
-  ESP_LOGI("ZigbeeRGB", "Parent IEEE: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x, short=0x%04x",
+  ESP_LOGD("ZigbeeRGB", "Parent IEEE: %02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x, short=0x%04x",
            parentIeee[7], parentIeee[6], parentIeee[5], parentIeee[4],
            parentIeee[3], parentIeee[2], parentIeee[1], parentIeee[0], parentShort);
-  ESP_LOGI("ZigbeeRGB", "My short addr: 0x%04x", myShortAddr);
+  ESP_LOGD("ZigbeeRGB", "My short addr: 0x%04x", myShortAddr);
 
   // Store parent short address for reporting destination
   s_zb_parent_short = parentShort;
@@ -1522,18 +1289,11 @@ bool zb_raw_command_handler(uint8_t bufid)
 {
   zb_zcl_parsed_hdr_t *cmd_info = ZB_BUF_GET_PARAM(bufid, zb_zcl_parsed_hdr_t);
 
-  // Update debug fields
-  if (s_zb_instance) {
-    s_zb_instance->dbgLastCluster = cmd_info->cluster_id;
-    s_zb_instance->dbgLastCmd     = cmd_info->cmd_id;
-    s_zb_instance->dbgRawCount++;
-  }
-
   // --- Issue #681: Hue manufacturer-specific scene commands ---
   if (cmd_info->cluster_id == ESP_ZB_ZCL_CLUSTER_ID_SCENES &&
       cmd_info->is_manuf_specific &&
       cmd_info->manuf_specific == 0x100b) {
-    ESP_LOGI("ZigbeeRGB", "Intercepted Hue manuf-specific scene cmd 0x%02x, responding FAIL",
+    ESP_LOGD("ZigbeeRGB", "Intercepted Hue manuf-specific scene cmd 0x%02x, responding FAIL",
              cmd_info->cmd_id);
     zb_zcl_send_default_handler(bufid, cmd_info, ZB_ZCL_STATUS_FAIL);
     return true;
@@ -1566,7 +1326,7 @@ bool zb_raw_command_handler(uint8_t bufid)
       return false;
     }
 
-    ESP_LOGI("ZigbeeRGB", "On/Off cmd 0x%02x → power=%d (handled=%d)",
+    ESP_LOGD("ZigbeeRGB", "On/Off cmd 0x%02x → power=%d (handled=%d)",
              cmd_info->cmd_id, newPower, handled);
 
     // Read current level and color to carry forward
@@ -1612,7 +1372,7 @@ bool zb_raw_command_handler(uint8_t bufid)
 
     uint8_t level = payload[0];
 
-    ESP_LOGI("ZigbeeRGB", "Level cmd 0x%02x → level=%d", cmd_info->cmd_id, level);
+    ESP_LOGD("ZigbeeRGB", "Level cmd 0x%02x → level=%d", cmd_info->cmd_id, level);
 
     // For move_to_level_with_on_off (0x04): level > 0 means ON, level == 0 means OFF
     bool newPower;
@@ -1648,13 +1408,7 @@ bool zb_raw_command_handler(uint8_t bufid)
     uint16_t colorX = payload[0] | (payload[1] << 8);
     uint16_t colorY = payload[2] | (payload[3] << 8);
 
-    ESP_LOGI("ZigbeeRGB", "move_to_color → x=0x%04x y=0x%04x", colorX, colorY);
-
-    // Debug
-    if (s_zb_instance) {
-      s_zb_instance->dbgLastColorX = colorX;
-      s_zb_instance->dbgLastColorY = colorY;
-    }
+    ESP_LOGD("ZigbeeRGB", "move_to_color → x=0x%04x y=0x%04x", colorX, colorY);
 
     bool curPower; uint8_t curLevel;
     zbReadCurrentOnOffLevel(curPower, curLevel);
@@ -1680,7 +1434,7 @@ bool zb_raw_command_handler(uint8_t bufid)
     uint8_t hue = payload[0];
     uint8_t sat = payload[1];
 
-    ESP_LOGI("ZigbeeRGB", "move_to_hue_saturation → hue=%d sat=%d", hue, sat);
+    ESP_LOGD("ZigbeeRGB", "move_to_hue_saturation → hue=%d sat=%d", hue, sat);
 
     bool curPower; uint8_t curLevel;
     zbReadCurrentOnOffLevel(curPower, curLevel);
@@ -1716,7 +1470,7 @@ bool zb_raw_command_handler(uint8_t bufid)
 
     uint8_t hue = payload[0];
 
-    ESP_LOGI("ZigbeeRGB", "move_to_hue → hue=%d", hue);
+    ESP_LOGD("ZigbeeRGB", "move_to_hue → hue=%d", hue);
 
     bool curPower; uint8_t curLevel;
     zbReadCurrentOnOffLevel(curPower, curLevel);
@@ -1758,7 +1512,7 @@ bool zb_raw_command_handler(uint8_t bufid)
 
     uint8_t sat = payload[0];
 
-    ESP_LOGI("ZigbeeRGB", "move_to_saturation → sat=%d", sat);
+    ESP_LOGD("ZigbeeRGB", "move_to_saturation → sat=%d", sat);
 
     bool curPower; uint8_t curLevel;
     zbReadCurrentOnOffLevel(curPower, curLevel);
@@ -1789,7 +1543,7 @@ bool zb_raw_command_handler(uint8_t bufid)
   // Unrecognized commands — let ZBOSS handle them
   // =====================================================================
   if (!cmd_info->is_common_command) {
-    ESP_LOGI("ZigbeeRGB", "Unhandled cluster 0x%04x cmd 0x%02x, passing to ZBOSS",
+    ESP_LOGD("ZigbeeRGB", "Unhandled cluster 0x%04x cmd 0x%02x, passing to ZBOSS",
              cmd_info->cluster_id, cmd_info->cmd_id);
   }
 
