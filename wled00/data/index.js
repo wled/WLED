@@ -3466,8 +3466,8 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 		})
 		.catch(e => {
 			console.log('Failed to report upgrade', e);
-			showToast('Report failed. Please try again later.', true);
-			// Do NOT update version info on error - user will be prompted again
+			showToast('Report failed', true);
+			updateVersionInfo(info.ver, false, !!alwaysReport);
 		});
 }
 
