@@ -1277,18 +1277,30 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
  */
 namespace BrushWalkerFX {
 
+const uint8_t absoluteMaxWalkers = 32;
+
 struct Walker {
   bool active;
   int16_t x, y;
   int8_t dx, dy;
   uint8_t colorIndex;
 
+  /**
+   * @brief Helper; clears internal state of a Walker
+   * 
+   */
   void reset() {
     active = false;
     x = y = dx = dy = colorIndex = 0;
   }
 
-  // Generates a starting position and direction
+  /**
+   * @brief Generates a random start position and direction
+   * 
+   * @param cols 
+   * @param rows 
+   * @return 
+   */
   void makeCandidate(uint16_t cols, uint16_t rows) {
     uint8_t side = hw_random8(4);
     switch (side) {
@@ -1321,7 +1333,15 @@ struct Walker {
     active = false;
   }
 
-  // Logic to prevent overcrowding
+  /**
+   * @brief Helper to check if the current Walker's new route is too close to an existing one
+   * 
+   * @param walkers 
+   * @param maxCount 
+   * @param minGap 
+   * @return true 
+   * @return false 
+   */
   bool hasConflict(const Walker* walkers, uint8_t maxCount, uint8_t minGap) {
     for (uint8_t i = 0; i < maxCount; i++) {
       const Walker& other = walkers[i];
@@ -1333,7 +1353,13 @@ struct Walker {
     return false;
   }
 
-  // Moves the walker and paints the pixel
+  /**
+   * @brief  Moves the walker and paints the pixel
+   * 
+   * @param cols 
+   * @param rows 
+   * @param palStep 
+   */
   void update(uint16_t cols, uint16_t rows, uint8_t palStep) {
     if (!active) return;
 
@@ -1353,6 +1379,23 @@ struct Walker {
   }
 };
 
+/**
+ * @brief Container data structure, walkers plus other persistent data
+ * 
+ */
+struct SegmentData {
+  Walker walkers[absoluteMaxWalkers];
+  uint32_t triggerGate; 
+};
+
+/**
+ * @brief Helper: search a free Walker slot; if found, try up to 2 times to find valid random start coordinates 
+ * 
+ * @param walkers 
+ * @param maxCount 
+ * @param cols 
+ * @param rows 
+ */
 static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
   int freeSlot = -1;
   for (uint8_t i = 0; i < maxCount; i++) {
@@ -1368,25 +1411,30 @@ static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t 
     walkers[freeSlot].makeCandidate(cols, rows);
     if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) {
       walkers[freeSlot].active = true;
+      break;
     }
   }
-}
 
+  return;
+}
+/**
+ * @brief The main processing loop, supports two trigger modes: 0 = fully random, 1 = plus considering audioreactive peak signal
+ * 
+ * @param triggerMode 
+ */
 static void mode_brushwalker_core(uint8_t triggerMode) {
-  const uint8_t absoluteMaxWalkers = 32;
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
 
-  uint32_t triggerGate = 0;
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
-  if (SEGENV.call == 0) { // request status memory on first call
-    if (!SEGENV.allocateData(sizeof(Walker) * absoluteMaxWalkers)) FX_FALLBACK_STATIC;
-  }
-
-  Walker* walkers = reinterpret_cast<Walker*>(SEGENV.data);
+  
+  if (!SEGENV.allocateData(sizeof(SegmentData) ) ) FX_FALLBACK_STATIC; 
+  
+  SegmentData* data = reinterpret_cast<SegmentData*>(SEGENV.data);
 
   if (SEGENV.call == 0) { // init values on first call
-      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) walkers[i].reset();
+      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) data->walkers[i].reset();
+      data->triggerGate = strip.now;
       SEGMENT.fill(SEGCOLOR(1));
       SEGENV.step = strip.now;
     }
@@ -1416,16 +1464,16 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
   }
 
   if (shouldSpawn) {
-    if( SEGENV.step > triggerGate ) {
-      triggerGate = SEGENV.step + 64 + 255 - sensitivity; // de-clogging, avoid immediate respawn
-      trySpawn(walkers, maxWalkers, cols, rows);
+    if( SEGENV.step > data->triggerGate ) {
+      data->triggerGate = SEGENV.step + 32; // de-clogging, avoid immediate respawn
+      trySpawn(data->walkers, maxWalkers, cols, rows);
     }
     shouldSpawn = false;
   }
 
   // Object-Oriented Update Loop
   for (uint8_t i = 0; i < maxWalkers; i++) {
-    walkers[i].update(cols, rows, palStep);
+    data->walkers[i].update(cols, rows, palStep);
   }
 }
 
