@@ -507,8 +507,12 @@ void WLED::setup()
   #ifndef ESP8266
   WiFi.setScanMethod(WIFI_ALL_CHANNEL_SCAN);
   WiFi.persistent(true); // storing credentials in NVM fixes boot-up pause as connection is much faster, is disabled after first connection
+  // ESP32 DNS name must be set before the first connection to the DHCP server; otherwise, the default ESP name (such as "esp32s3-267D0C") will be used.
+  char hostname[64] = {'\0'};
+  getWLEDhostname(hostname, sizeof(hostname), true);   // create DNS name based on mDNS name if set, or fall back to standard WLED server name
+  WiFi.setHostname(hostname);
   #else
-  WiFi.persistent(false); // on ES8266 using NVM for wifi config has no benefit of faster connection
+  WiFi.persistent(false); // on ESP8266 using NVM for wifi config has no benefit of faster connection
   #endif
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
@@ -575,6 +579,10 @@ void WLED::setup()
   DEBUG_PRINTLN(F("initIR"));
   initIR();
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
+#endif
+
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
+  installIPv6RABlocker();  // Work around unsolicited RA overwriting IPv4 DNS servers
 #endif
 
   #if WLED_WATCHDOG_TIMEOUT > 0
@@ -687,6 +695,18 @@ void WLED::initConnection()
   WiFi.setPhyMode(force802_3g ? WIFI_PHY_MODE_11G : WIFI_PHY_MODE_11N);
 #endif
 
+  char hostname[64] = {'\0'};
+  getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
+
+#ifdef ARDUINO_ARCH_ESP32
+  // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
+  // This is required on reconnects when mode is already WIFI_STA.
+  WiFi.mode(WIFI_MODE_NULL);
+  apActive = false;           // the AP is physically torn down by WIFI_MODE_NULL
+  delay(5);                   // give the WiFi stack time to complete the mode transition
+  WiFi.setHostname(hostname);
+#endif
+
   if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
     WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
   } else {
@@ -713,10 +733,6 @@ void WLED::initConnection()
     showWelcomePage = false;
     
     DEBUG_PRINTF_P(PSTR("Connecting to %s...\n"), multiWiFi[selectedWiFi].clientSSID);
-
-    // convert the "serverDescription" into a valid DNS hostname (alphanumeric)
-    char hostname[25];
-    prepareHostname(hostname);
 
 #ifdef WLED_ENABLE_WPA_ENTERPRISE
     if (multiWiFi[selectedWiFi].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
@@ -770,8 +786,7 @@ void WLED::initConnection()
 #ifdef ARDUINO_ARCH_ESP32
     WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
-    WiFi.setHostname(hostname);
-#else
+#else // ESP8266 accepts a hostname set after WiFi interface initialization
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
 #endif
