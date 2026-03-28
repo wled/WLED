@@ -1419,7 +1419,7 @@ void WS2812FX::service() {
   }
   _virtualSegmentLength = 0;
   _isServicing = false;
-  _triggered = false;
+  if (!_suspend) _triggered = false; // avoid losing "trigger" events if suspend requested during effect service()
   _segment_index = 0;     // segment index is only valid while effects are serviced
 
   #ifdef WLED_DEBUG
@@ -1474,6 +1474,27 @@ void WS2812FX::show() {
  */
 bool WS2812FX::isUpdating() const {
   return !BusManager::canAllShow();
+}
+
+/**
+ * Be nice, but not too nice - wait until LEDs are idle, or maxWaitMS milliseconds have passed
+ * On 8266 this call will _not_ wait outside the main loop context
+ *   Function returns isUpdating() status after waiting
+ */
+bool WS2812FX::waitForLEDs(unsigned maxWaitMS) const {
+  #ifdef ARDUINO_ARCH_ESP32
+    unsigned long waitStart = millis();
+    while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+  #else
+    if (can_yield()) {
+      // If we are in a yieldable context (main loop), wait until the LEDs output finishes
+      yield();
+      unsigned long waitStart = millis();
+      while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+      yield();
+    }
+  #endif
+  return isUpdating();
 }
 
 /**

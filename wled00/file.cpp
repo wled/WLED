@@ -34,13 +34,24 @@ static File f; // don't export to other cpp files
 
 //wrapper to find out how long closing takes
 void closeFile() {
+  if (!doCloseFile || !f) { doCloseFile = false; return; }  // file not open, or no request to close -> nothing to do, nothing to wait
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
+  doCloseFile = false; // consume flag early, to reduce the time window for concurrent closing attempts from several tasks.
+
+  // f.close() may enter flash critical sections (interrupts/cache paused), so we wait for LED transmission to finish first to avoid WS281x glitches
+  // This is most relevant on ESP32-C3/C5/C6, where the RMT driver is very sensitive to interrupt timing.
+  bool haveSuspended = false;
+  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+    if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }// prevent that a new strip.show() starts after waiting
+    strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
+  #endif
+
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
+  if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   DEBUGFS_PRINTF("took %d ms\n", millis() - s);
-  doCloseFile = false;
 }
 
 //find() that reads and buffers data from file stream in 256-byte blocks.
@@ -435,6 +446,9 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   }
   #endif
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
+    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+      strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
+    #endif
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
   }
@@ -449,6 +463,9 @@ bool copyFile(const char* src_path, const char* dst_path) {
    return false;
   }
 
+  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+    strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
+  #endif
   bool success = true; // is set to false on error
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
@@ -487,6 +504,9 @@ bool compareFiles(const char* path1, const char* path2) {
     return false;
   }
 
+  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+    strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
+  #endif
   bool identical = true; // set to false on mismatch
   File f1 = WLED_FS.open(path1, "r");
   File f2 = WLED_FS.open(path2, "r");
