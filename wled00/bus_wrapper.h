@@ -233,6 +233,10 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
+    #ifndef CONFIG_IDF_TARGET_ESP32C3
+    #define RMT_USE_SINGLE_MEM_BLOCK // TODO: hi priority RMT driver does not yet support multi-memory block
+    #endif
+
     int8_t rmtCh = -1; // -1 means auto select by RMT driver and optimize memory block use, if RMT RX is needed, define RMT_USE_SINGLE_MEM_BLOCK
     #ifndef ESP8266
     if (btype == WLEDpixelBus::BusType::RMT) {
@@ -240,7 +244,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         #ifdef RMT_USE_SINGLE_MEM_BLOCK
         rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
         #else
-        _rmtChannel++; // increment channel count for tracking, but use auto-channel  to optimize memory block allocation
+        _rmtChannel++; // increment channel count for tracking, but use auto-channel to optimize memory block allocation
         #endif
       } else {
         return nullptr;
