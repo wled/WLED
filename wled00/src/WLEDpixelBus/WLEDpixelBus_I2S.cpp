@@ -155,7 +155,15 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   // FIFO configuration
   _i2sDev->fifo_conf.val = 0;
   _i2sDev->fifo_conf.tx_fifo_mod_force_en = 1;
-  _i2sDev->fifo_conf.tx_fifo_mod = 3;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single (32-bit linked for 16-bit samples)
+  //_i2sDev->fifo_conf.tx_fifo_mod = 3;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single (32-bit linked for 16-bit samples)
+  // For ESP32 Classic, use 16-bit FIFO mode
+#if !defined(WLEDPB_ESP32S2)
+  _i2sDev->fifo_conf.tx_fifo_mod = 1;
+  //_i2sDev->conf_chan.tx_chan_mod = 0; // Standard mode
+#else
+  _i2sDev->fifo_conf.tx_fifo_mod = 3; 
+  //_i2sDev->conf_chan.tx_chan_mod = 1; 
+#endif
   _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
 
   // PCM bypass
@@ -186,7 +194,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   uint32_t bitPeriodNs = timing.bitPeriod();
 
 #if defined(WLEDPB_ESP32)
-  const double baseClockMhz = 160.0;
+  const double baseClockMhz = 80.0; // ESP32 has 80MHz I2S base clock when not using PLL (APB clock)
 #else
   const double baseClockMhz = 80.0; // S2 has 80MHz I2S base clock
 #endif
@@ -321,7 +329,8 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
   // Route I2S output to GPIO
   int sigIdx;
   #if defined(WLEDPB_ESP32)
-  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
+  //sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
+  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX; // 16 bit mode, mapping starts at DATA_OUT8_IDX for the wide 16-bit window
   #elif defined(WLEDPB_ESP32S2)
   // For 16-bit mode on S2, mapping starts at DATA_OUT8_IDX for the wide 16-bit window
   sigIdx = I2S0O_DATA_OUT8_IDX;
@@ -406,15 +415,15 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
       p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 1
       p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 0
       #else
-      // ESP32 classic: Half-word swapped: memory layout [step2, step3, step0, step1]
-      p[2] |= chMask; if (srcByte & 0x80) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 7
-      p[2] |= chMask; if (srcByte & 0x40) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 6
-      p[2] |= chMask; if (srcByte & 0x20) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 5
-      p[2] |= chMask; if (srcByte & 0x10) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 4
-      p[2] |= chMask; if (srcByte & 0x08) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 3
-      p[2] |= chMask; if (srcByte & 0x04) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 2
-      p[2] |= chMask; if (srcByte & 0x02) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 1
-      p[2] |= chMask; if (srcByte & 0x01) { p[3] |= chMask; p[0] |= chMask; } p += 4; // bit 0
+      // ESP32 classic: sequence for 16-bit samples [S1, S0, S3, S2]
+      p[1] |= chMask; if (srcByte & 0x80) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 7
+      p[1] |= chMask; if (srcByte & 0x40) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 6
+      p[1] |= chMask; if (srcByte & 0x20) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 5
+      p[1] |= chMask; if (srcByte & 0x10) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 4
+      p[1] |= chMask; if (srcByte & 0x08) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 3
+      p[1] |= chMask; if (srcByte & 0x04) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 2
+      p[1] |= chMask; if (srcByte & 0x02) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 1
+      p[1] |= chMask; if (srcByte & 0x01) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 0
       #endif
     }
 
