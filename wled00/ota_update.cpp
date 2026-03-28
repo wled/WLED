@@ -446,9 +446,9 @@ String getBootloaderSHA256Hex() {
   String result;
   result.reserve(65);
   for (int i = 0; i < 32; i++) {
-    unsigned char b1 = bootloaderSHA256Cache[i];
-    unsigned char b2 = b1 >> 4;
-    b1 &= 0x0F;
+    char b1 = bootloaderSHA256Cache[i];
+    char b2 = b1 >> 4;
+    b1 &= 0x0F; b2 &= 0x0F;
     b1 += '0'; b2 += '0';
     if (b1 > '9') b1 += 39;
     if (b2 > '9') b2 += 39;
