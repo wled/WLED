@@ -58,7 +58,15 @@ if env.get("PIOPLATFORM") == "espressif32":
             else:
                 new_flags.append(flag.replace("sections.ld", patched_str))
         env.Replace(LINKFLAGS=new_flags)
-
+    else:
+        # Assume sections.ld will be built (ESP-IDF format); add a post-action to patch it
+        # TODO: consider using ESP-IDF linker fragment (https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/linker-script-generation.html)
+        # For now, patch after building
+        sections_ld = Path(env.subst("$BUILD_DIR")) / "sections.ld"
+        def patch_sections_ld(target, source, env):
+            inject_before_marker(sections_ld, "_rodata_end = ABSOLUTE(.);")
+        env.AddPostAction(str(sections_ld), patch_sections_ld)
+    
 elif env.get("PIOPLATFORM") == "espressif8266":
     # The ESP8266 framework preprocesses eagle.app.v6.common.ld.h into
     # local.eagle.app.v6.common.ld in $BUILD_DIR/ld/ at build time.  Register
