@@ -18,7 +18,7 @@
 
 #include <vector>
 #include "wled.h"
-
+#include "colors.h"
 #ifdef WLED_DEBUG
   // enable additional debug output
   #if defined(WLED_DEBUG_HOST)
@@ -38,10 +38,6 @@
   #define DEBUGFX_PRINTF_P(x...)
 #endif
 
-#define FASTLED_INTERNAL //remove annoying pragma messages
-#define USE_GET_MILLISECOND_TIMER
-#include "FastLED.h"
-
 #define DEFAULT_BRIGHTNESS (uint8_t)127
 #define DEFAULT_MODE       (uint8_t)0
 #define DEFAULT_SPEED      (uint8_t)128
@@ -56,11 +52,6 @@
 #endif
 #ifndef MAX
 #define MAX(a,b) ((a)>(b)?(a):(b))
-#endif
-
-//color mangling macros
-#ifndef RGBW32
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
 #endif
 
 extern bool realtimeRespectLedMaps; // used in getMappedPixelIndex()
@@ -382,7 +373,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PS1DSPRINGY            216
 #define FX_MODE_PARTICLEGALAXY         217
 #define FX_MODE_COLORCLOUDS            218
-#define MODE_COUNT                     219
+#define FX_MODE_SLOW_TRANSITION        219
+#define MODE_COUNT                     220
 
 
 #define TRANSITION_FADE            0x00  // universal
@@ -423,10 +415,12 @@ typedef enum mapping1D2D {
 } mapping1D2D_t;
 
 class WS2812FX;
+class FontManager;
 
 // segment, 76 bytes
 class Segment {
   public:
+    friend class FontManager; // Allow FontManager to access protected members
     uint32_t colors[NUM_COLORS];
     uint16_t start;   // start index / start X coordinate 2D (left)
     uint16_t stop;    // stop index / stop X coordinate 2D (right); segment is invalid if stop == 0
@@ -522,7 +516,7 @@ class Segment {
       , _start(millis())
       , _colors{0,0,0}
       #ifndef WLED_SAVE_RAM
-      , _palT(CRGBPalette16(CRGB::Black))
+      , _palT(CRGBPalette16())
       #endif
       , _dur(dur)
       , _progress(0)
@@ -549,7 +543,7 @@ class Segment {
     inline uint32_t getPixelColorXYRaw(unsigned x, unsigned y) const              { auto XY = [](unsigned X, unsigned Y){ return X + Y*Segment::vWidth(); }; return pixels[XY(x,y)]; };
   #endif
     void resetIfRequired();         // sets all SEGENV variables to 0 and clears data buffer
-    CRGBPalette16 &loadPalette(CRGBPalette16 &tgt, uint8_t pal);
+    void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
@@ -762,8 +756,8 @@ class Segment {
                                                                                                { addPixelColorXY(x, y, RGBW32(r,g,b,w), preserveCR); }
     inline void addPixelColorXY(int x, int y, CRGB c, bool preserveCR = true) const            { addPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0), preserveCR); }
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) const                   { setPixelColorXY(x, y, color_fade(getPixelColorXY(x,y), fade, true)); }
-    inline void blurCols(fract8 blur_amount, bool smear = false) const                         { blur2D(0, blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
-    inline void blurRows(fract8 blur_amount, bool smear = false) const                         { blur2D(blur_amount, 0, smear); } // blur all rows (50% faster than full 2D blur)
+    inline void blurCols(uint8_t blur_amount, bool smear = false) const                         { blur2D(0, blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
+    inline void blurRows(uint8_t blur_amount, bool smear = false) const                         { blur2D(blur_amount, 0, smear); } // blur all rows (50% faster than full 2D blur)
     //void box_blur(unsigned r = 1U, bool smear = false); // 2D box blur
     void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) const;
     void moveX(int delta, bool wrap = false) const;
@@ -772,12 +766,10 @@ class Segment {
     void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, uint32_t c, bool soft = false) const;
     void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) const;
-    void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2 = 0, int8_t rotate = 0) const;
     void wu_pixel(uint32_t x, uint32_t y, CRGB c) const;
     inline void drawCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { drawCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) const { fillCircle(cx, cy, radius, RGBW32(c.r,c.g,c.b,0), soft); }
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) const { drawLine(x0, y0, x1, y1, RGBW32(c.r,c.g,c.b,0), soft); } // automatic inline
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2 = CRGB::Black, int8_t rotate = 0) const { drawCharacter(chr, x, y, w, h, RGBW32(c.r,c.g,c.b,0), RGBW32(c2.r,c2.g,c2.b,0), rotate); } // automatic inline
     inline void fill_solid(CRGB c) const { fill(RGBW32(c.r,c.g,c.b,0)); }
   #else
     inline bool is2D() const                                                      { return false; }
@@ -791,18 +783,18 @@ class Segment {
     inline void setPixelColorXY(float x, float y, byte r, byte g, byte b, byte w = 0, bool aa = true) { setPixelColor(x, RGBW32(r,g,b,w), aa); }
     inline void setPixelColorXY(float x, float y, CRGB c, bool aa = true) const     { setPixelColor(x, RGBW32(c.r,c.g,c.b,0), aa); }
     #endif
-    inline bool isPixelXYClipped(int x, int y) const                                       { return isPixelClipped(x); }
-    inline uint32_t getPixelColorXY(int x, int y) const                                    { return getPixelColor(x); }
-    inline void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t c, uint8_t blend) const { blendPixelColor(x, c, blend); }
-    inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend) const     { blendPixelColor(x, RGBW32(c.r,c.g,c.b,0), blend); }
-    inline void addPixelColorXY(int x, int y, uint32_t color, bool saturate = false) const { addPixelColor(x, color, saturate); }
-    inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool saturate = false) const { addPixelColor(x, RGBW32(r,g,b,w), saturate); }
-    inline void addPixelColorXY(int x, int y, CRGB c, bool saturate = false) const         { addPixelColor(x, RGBW32(c.r,c.g,c.b,0), saturate); }
-    inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade) const               { fadePixelColor(x, fade); }
-    //inline void box_blur(unsigned i, bool vertical, fract8 blur_amount) {}
+    inline bool isPixelXYClipped(int x, int y)                                    { return isPixelClipped(x); }
+    inline uint32_t getPixelColorXY(int x, int y)                                 { return getPixelColor(x); }
+    inline void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t c, uint8_t blend) { blendPixelColor(x, c, blend); }
+    inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend)  { blendPixelColor(x, RGBW32(c.r,c.g,c.b,0), blend); }
+    inline void addPixelColorXY(int x, int y, uint32_t color, bool preserveCR = true) { addPixelColor(x, color, preserveCR); }
+    inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool preserveCR = true) { addPixelColor(x, RGBW32(r,g,b,w), preserveCR); }
+    inline void addPixelColorXY(int x, int y, CRGB c, bool preserveCR = true)         { addPixelColor(x, RGBW32(c.r,c.g,c.b,0), preserveCR); }
+    inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade)            { fadePixelColor(x, fade); }
+    //inline void box_blur(unsigned i, bool vertical, uint8_t blur_amount) {}
     inline void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) {}
-    inline void blurCols(fract8 blur_amount, bool smear = false) { blur(blur_amount, smear); } // blur all columns (50% faster than full 2D blur)
-    inline void blurRows(fract8 blur_amount, bool smear = false) {}
+    inline void blurRows(uint8_t blur_amount, bool smear = false) {}
+    inline void blurCols(uint8_t blur_amount, bool smear = false) {}
     inline void moveX(int delta, bool wrap = false) {}
     inline void moveY(int delta, bool wrap = false) {}
     inline void move(uint8_t dir, uint8_t delta, bool wrap = false) {}
@@ -812,8 +804,6 @@ class Segment {
     inline void fillCircle(uint16_t cx, uint16_t cy, uint8_t radius, CRGB c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint32_t c, bool soft = false) {}
     inline void drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, CRGB c, bool soft = false) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t = 0, int8_t = 0) {}
-    inline void drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, CRGB c, CRGB c2, int8_t rotate = 0) {}
     inline void wu_pixel(uint32_t x, uint32_t y, CRGB c) {}
   #endif
   friend class WS2812FX;
