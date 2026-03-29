@@ -2,12 +2,17 @@ Import("env")
 from pathlib import Path
 
 # ── generate_embed_files.py ───────────────────────────────────────────────────
-# Pre-build script for the esp32s3_matter_wifi environment.
+# Post-build script for the esp32s3_matter_wifi environment.
 #
 # Generates .S assembly files for binary data that ESP-IDF components
 # expect to be embedded via CMake's target_add_binary_data().
 # PlatformIO's SCons build doesn't execute those CMake commands,
 # so we replicate the output here.
+#
+# This script MUST run as a post: script (not pre:) so that the IDF
+# Component Manager has already downloaded managed_components/ during the
+# CMake configuration phase.  The .S files are generated before SCons
+# begins actual compilation, so they are available when needed.
 #
 # The .S files are generated at BUILD_DIR/<name>.S – exactly the path that
 # CMake's project_description.json records as the source path for these
@@ -53,8 +58,12 @@ def generate_asm(src_path: Path, symbol: str, out_dir: Path):
     """Generate an assembly .S file that embeds binary data, matching the
     format produced by ESP-IDF's ``target_add_binary_data()``."""
     if not src_path.exists():
-        print(f"  [embed] WARNING: {src_path} not found – skipping")
-        return None
+        from SCons.Script import Exit
+        print(f"  [embed] ERROR: {src_path} not found.")
+        print("  [embed] The IDF Component Manager should have downloaded this file")
+        print("  [embed] during the CMake configuration phase.  Make sure this script")
+        print("  [embed] runs as a post: script (not pre:) in platformio.ini.")
+        Exit(1)
 
     out_file = out_dir / f"{src_path.name}.S"
     data = src_path.read_bytes()
