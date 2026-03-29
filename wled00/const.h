@@ -108,7 +108,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #ifdef WLED_MAX_BUSSES
   #undef WLED_MAX_BUSSES
 #endif
-// define -> constexpr to align with defintion of WLED_MAX_ANALOG_CHANNELS
+// define -> constexpr to align with definition of WLED_MAX_ANALOG_CHANNELS
 constexpr size_t WLED_MAX_BUSSES = WLED_MAX_DIGITAL_CHANNELS + WLED_MAX_ANALOG_CHANNELS;
 static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
