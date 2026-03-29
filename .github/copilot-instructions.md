@@ -156,7 +156,7 @@ package.json           # Node.js dependencies and scripts
 - **Test web interface manually after any web UI changes**
 - When reviewing a PR: the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
 - **If you are not sure about something, just answer that you are not sure.** Gather more information instead of continuing with a wild guess.
-- If asked for an analysis, assessment or web research, **always provide references** to justify your conclusions.
+- If asked for an analysis, assessment or web research, **provide relevant references** to justify your conclusions. Ensure your recommendations are based on the correct source code branch or PR.
 - If updating Web UI files in `wled00/data/`, make use of common functions availeable in `wled00/data/common.js` where possible.
 - **Use VS Code with PlatformIO extension for best development experience**
 - **Hardware builds require appropriate ESP32/ESP8266 development board**
