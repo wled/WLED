@@ -3,6 +3,8 @@
 #define WLED_FCN_DECLARE_H
 #include <dynarray.h>
 
+#include "colors.h"
+
 /*
  * All globally accessible functions are declared here
  */
@@ -422,9 +424,13 @@ void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
 String computeSHA1(const String& input);
 String getDeviceId();
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+
 um_data_t* simulateSound(uint8_t simulationId);
 void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
@@ -517,6 +523,9 @@ class JSONBufferGuard {
 };
 
 //wled_math.cpp
+#define sin_t sin_approx
+#define cos_t cos_approx
+#define tan_t tan_approx
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
 //float tan_t(float x);
@@ -534,9 +543,6 @@ template <typename T> T atan_t(T x);
 float floor_t(float x);
 float fmod_t(float num, float denom);
 uint32_t sqrt32_bw(uint32_t x);
-#define sin_t sin_approx
-#define cos_t cos_approx
-#define tan_t tan_approx
 
 /*
 #include <math.h>  // standard math functions. use a lot of flash
@@ -549,6 +555,7 @@ uint32_t sqrt32_bw(uint32_t x);
 #define fmod_t fmodf
 #define floor_t floorf
 */
+
 //wled_serial.cpp
 void handleSerial();
 void updateBaudRate(uint32_t rate);
