@@ -1,11 +1,57 @@
-name: WLED CI
+name: WLED compile
 
 on:
-  push:
-    branches:
-      - '*'
-  pull_request:
+    workflow_dispatch:
 
 jobs:
-  wled_build:
-    uses: ./.github/workflows/build.yml
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.9
+
+    - name: Install PlatformIO
+      run: |
+        python -m pip install --upgrade pip
+        pip install --upgrade platformio
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+    - name: Run PlatformIO
+      run: |
+        rm -rf /tmp/WLEDtemp/* || true
+        mkdir -p /tmp/WLEDtemp
+        wget https://github.com/mrpbear98/WLEDmv/archive/refs/heads/0_15_x.zip -O /tmp/WLEDtemp/mm.zip
+        unzip /tmp/WLEDtemp/mm.zip -d /tmp/WLEDtemp
+        find /tmp/WLEDtemp -maxdepth 1 -mindepth 1 -name "*" -type d >> /tmp/WLEDtemp/wledfoldername
+        cd `cat /tmp/WLEDtemp/wledfoldername`
+        npm install
+        echo '[env:custom_build]' >>platformio.ini
+        echo 'extends = env:esp32dev' >>platformio.ini
+        echo 'build_flags = ${env:esp32dev.build_flags} -D USERMOD_AUTO_SAVE -D USERMOD_ROTARY_ENCODER_UI_ALT -D USERMOD_FOUR_LINE_DISPLAY' >>platformio.ini
+        echo 'lib_deps = ' >>platformio.ini
+        echo '  ${env:esp32dev.lib_deps}' >>platformio.ini
+        echo '  olikraus/U8g2@~2.34.4' >>platformio.ini
+        echo '  Wire' >>platformio.ini
+        
+        echo 'build_unflags= -D WLED_RELEASE_NAME' >>platformio.ini
+        pio run -e custom_build || pio run -e custom_build
+    - name: Copy Files
+      run: |
+        cd $GITHUB_WORKSPACE
+        git rm -r $GITHUB_WORKSPACE/*.bin || true
+        WLEDFOLDERNAME=`cat /tmp/WLEDtemp/wledfoldername`
+        cp ${WLEDFOLDERNAME}/build_output/firmware/custom_build.bin $GITHUB_WORKSPACE/
+        date -I | tr -d '\n' >$GITHUB_WORKSPACE/last_update_date.txt
+    - name: Commit Files
+      run: |
+        cd $GITHUB_WORKSPACE
+        git config user.name "GitHub Actions Bot"
+        git config user.email "<>"
+        git add $GITHUB_WORKSPACE/custom_build.bin
+        git add $GITHUB_WORKSPACE/last_update_date.txt
+        git commit -m "Commit Custom Build"
+        git push origin main
