@@ -158,7 +158,7 @@ static float* vImag = nullptr; // imaginary part of FFT results
 #endif
 
 // pre-computed window function
-FFTsampleType* windowFFT;
+static FFTsampleType* windowFFT = nullptr;
 
 // use audio source class (ESP32 specific)
 #include "audio_source.h"
@@ -168,14 +168,14 @@ constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
 // globals
 static uint8_t inputLevel = 128;              // UI slider value
 #ifndef SR_SQUELCH
-  uint8_t soundSquelch = 10;                  // squelch value for volume reactive routines (config value)
+  static uint8_t soundSquelch = 10;                  // squelch value for volume reactive routines (config value)
 #else
-  uint8_t soundSquelch = SR_SQUELCH;          // squelch value for volume reactive routines (config value)
+  static uint8_t soundSquelch = SR_SQUELCH;          // squelch value for volume reactive routines (config value)
 #endif
 #ifndef SR_GAIN
-  uint8_t sampleGain = 60;                    // sample gain (config value)
+  static uint8_t sampleGain = 60;                    // sample gain (config value)
 #else
-  uint8_t sampleGain = SR_GAIN;               // sample gain (config value)
+  static uint8_t sampleGain = SR_GAIN;               // sample gain (config value)
 #endif
 // user settable options for FFTResult scaling
 static uint8_t FFTScalingMode = 3;            // 0 none; 1 optimized logarithmic; 2 optimized linear; 3 optimized square root
@@ -461,11 +461,12 @@ void FFTcode(void * parameter)
         int32_t imag_part = valFFT[i * 2 + 1];
         valFFT[i] = sqrt32_bw(real_part * real_part + imag_part * imag_part); // note: this should never overflow as Re and Im form a vector of maximum length 32767
         if (valFFT[i] > FFT_Magnitude_int) {
-          FFT_Magnitude_int = valFFT[i] * 512; // scale to match raw float value
+          FFT_Magnitude_int = valFFT[i]; 
           FFT_MajorPeak_int = ((i * SAMPLE_RATE)/samplesFFT);
         }
         // note: scaling is done in fftAddAvg(), so we don't scale here
       }
+      FFT_Magnitude = FFT_Magnitude_int * 512; // scale to match raw float value
       FFT_MajorPeak = FFT_MajorPeak_int;
       FFT_Magnitude = FFT_Magnitude_int;
 #endif
