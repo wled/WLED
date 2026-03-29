@@ -808,6 +808,8 @@ void serializeInfo(JsonObject root)
     #else
       wifi_info[F("band")] = F("2.4GHz");
     #endif
+  } else {
+    wifi_info[F("band")] = F("not connected");
   }
   wifi_info[F("ap")] = apActive;
 
