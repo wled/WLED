@@ -86,7 +86,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 16_x                # current beta (feature freeze) for next release 16.x.y
 0_15_x              # maintainance (bugfixes only) for current release 0.15.x
 (tag) v0.14.4       # previous version 0.14.4 (no maintainance)
-(tag) v0.13.3       # old version 0.13.4 (no maintainance)
+(tag) v0.13.3       # old version 0.13.3 (no maintainance)
 (tag) v0. ... . ... # historical versions 0.12.x and before
 ```
 
