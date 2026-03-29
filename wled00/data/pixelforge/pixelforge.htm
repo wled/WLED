@@ -339,7 +339,7 @@ button, .btn {
 		<div class="cs">
 				<div class="fr">Speed <input type="range" id="sx" min="0" max="255"></div>
 				<div class="fr">Y Offset <input type="range" id="ix" min="0" max="255"></div>
-				<div class="fr">Trail <input type="range" id="c1" min="0" max="255"></div>
+				<div class="fr">Trail <input type="range" id="c1" min="0" max="255" value="0"></div>
 				<div class="fr">Font <input type="range" id="c2" min="3" max="255" step="63"></div>
 				<div class="fr">Rotate <input type="range" id="c3" min="3" max="31" step="7"></div>
 		</div>
@@ -383,6 +383,7 @@ button, .btn {
 			</div>
 			<hr>
 			<h3>Custom Fonts</h3>
+			<small>FX uses first 5 fonts only</small><br>
 			<div id="fList" style="display:flex; flex-wrap:wrap; gap:8px; padding:10px; justify-content:center;"></div>
 			<button class="btn sml" id="dcf" style="margin:5px auto; display:block; font-size:11px;">Download Classic WLED Fonts</button>
 		</div>
@@ -446,9 +447,9 @@ async function init() {
 	rv = cE('canvas');
 	rvc = rv.getContext('2d',{willReadFrequently:true});
 	rv.width = cv.width; rv.height = cv.height;
+	await flU(); // update file list
 	tabSw(localStorage.tab||'img'); // switch to last open tab or image tab by default
 	await segLoad(); // load available segments
-	await flU(); // update file list
 	await fsMem(); // update & show file system memory info, also updates wled version (wv)
 	await loadTools(); // load additional tools list from pftools.json
 }
@@ -1289,12 +1290,13 @@ async function txtSegLoad(){
 		const r=await fetch(getURL('/json/state')),j=await r.json();
 		if(j.seg&&j.seg[id]){
 			const s=j.seg[id];
+			if(s.fx!==txtFX) return; // only update when this segment uses scrolling text effect
 			getId('txt').value=s.n||'';
 			getId('sx').value=s.sx||128;
 			getId('ix').value=s.ix||128;
 			getId('c1').value=s.c1||0;
-			getId('c2').value=s.c2||0;
-			getId('c3').value=s.c3||0;
+			getId('c2').value=s.c2||128;
+			getId('c3').value=s.c3||16;
 			getId('o1').checked=!(!s.o1);
 			getId('o3').checked=!(!s.o3);
 		}
