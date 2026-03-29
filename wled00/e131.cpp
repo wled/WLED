@@ -21,9 +21,8 @@ static void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
 
-  // reject unsupported color data types (only RGB and RGBW are supported)  note: not checking bit depth and assuming 8bits per color
-  uint8_t colorDataType = p->dataType & 0b00111000;
-  if (colorDataType != DDP_TYPE_RGB24 && colorDataType != DDP_TYPE_RGBW32) return;
+  // reject unsupported color data types (only RGB and RGBW are supported)
+  if (p->dataType != DDP_TYPE_RGB24 && p->dataType != DDP_TYPE_RGBW32) return;
 
   // reject status and config packets (not implemented)
   if (p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
@@ -40,7 +39,7 @@ static void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  unsigned ddpChannelsPerLed = colorDataType == DDP_TYPE_RGBW32 ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
+  unsigned ddpChannelsPerLed = ((p->dataType & 0b00111000)>>3 == 0b011) ? 4 : 3; // data type 0x1B (formerly 0x1A) is RGBW (type 3, 8 bit/channel)
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
