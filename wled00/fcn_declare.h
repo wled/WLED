@@ -415,6 +415,8 @@ size_t printSetClassElementHTML(Print& settingsScript, const char* key, const in
 void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS=false); // maxLen = hostname buffer size including \0; if preferMDNSname=true, use mdns name (sanitized)
 void prepareHostname(char* hostname, size_t maxLen);                        // legacy function - not recommended for new code
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
+uint32_t utf8_decode(const char *s, uint8_t *len);
+size_t utf8_strlen(const char *s);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
