@@ -1,6 +1,7 @@
 #include "wled.h"
 #include "fcn_declare.h"
 #include "const.h"
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 #ifdef ESP8266
 #include "user_interface.h" // for bootloop detection
 #include <Hash.h>            // for SHA1 on ESP8266
@@ -204,6 +205,52 @@ bool isAsterisksOnly(const char* str, byte maxLen)
   return (str[0] != 0); //false on empty string
 }
 
+/*
+  UTF-8 to unicode conversion:
+  1 byte:  0xxxxxxx: U+0000 - U+007F
+  2 bytes: 110xxxxx 10xxxxxx: U+0080 - U+07FF
+  3 bytes: 1110xxxx 10xxxxxx 10xxxxxx: U+0800 - U+FFFF
+  4 bytes: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx: U+10000 - U+10FFFF
+*/
+#define UTF8_LEN(c) ((c) < 0x80 ? 1 : ((c) < 0xE0 ? 2 : ((c) < 0xF0 ? 3 : 4))) // determine UTF-8 sequence length from first byte
+
+uint32_t utf8_decode(const char *s, uint8_t *len)
+{
+  uint8_t c = (uint8_t)s[0];
+  if (c == '\0') {
+    return 0;
+  }
+  uint8_t n = UTF8_LEN(c);   // number of bytes in this UTF-8 sequence
+  uint32_t cp = c;
+  *len = n; // return byte count to caller
+  if (n > 1) {
+    // check if there are enough continuation bytes
+    for (uint8_t i = 1; i < n; i++) {
+      if ((s[i] & 0xC0) != 0x80) { // not a valid continuation byte (also catches '\0')
+        *len = 1; // invalid sequence, return default char
+        return '?';
+      }
+    }
+    cp &= (1U << (8 - n)) - 1; // mask off the UTF-8 prefix bits (110, 1110, 11110)
+    for (uint8_t i = 1; i < n; i++)
+      cp = (cp << 6) | (s[i] & 0x3F); // Each continuation byte has the form: 10xxxxxx, the lower 6 bits are appended to the code point.
+  }
+  return cp;
+}
+
+// Count the number of UTF-8 characters in a string
+size_t utf8_strlen(const char *s)
+{
+  size_t len = 0;
+  while (*s != '\0') {
+    uint8_t charLen;
+    uint32_t unicode = utf8_decode(s, &charLen); // decode the UTF-8 character to get its length
+    if (!unicode) break; // stop at null terminator (just in case, should not happen but to avoid infinite loop on malformed strings)
+    s += charLen; // advance by the length of the current UTF-8 character
+    len++;
+  }
+  return len;
+}
 
 //threading/network callback details: https://github.com/wled-dev/WLED/pull/2336#discussion_r762276994
 bool requestJSONBufferLock(uint8_t moduleID)
@@ -430,39 +477,59 @@ uint16_t crc16(const unsigned char* data_p, size_t length) {
   return crc;
 }
 
-// fastled beatsin: 1:1 replacements to remove the use of fastled sin16()
-// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
-{
-    uint16_t beat = beat88( beats_per_minute_88, timebase);
-    uint16_t beatsin (sin16_t( beat + phase_offset) + 32768);
-    uint16_t rangewidth = highest - lowest;
-    uint16_t scaledbeat = scale16( beatsin, rangewidth);
-    uint16_t result = lowest + scaledbeat;
-    return result;
+// FastLED Reference
+// -----------------
+// The following beat functions derived from FastLED @ 3.6.0 (https://github.com/FastLED/FastLED) are licensed under the MIT license
+// See /src/dependencies/fastled_slim/LICENSE.txt for details
+
+// Generates a 16-bit "sawtooth" wave at a given BPM, with BPM specified in Q8.8 fixed-point format:
+// for 120 BPM it would be 120*256 = 30720. If you just want to specify "120", use beat16() or beat8().
+// timebase is the time offset of the wave from the millis() timer
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase) {
+  return ((millis() - timebase) * beats_per_minute_88 * 280) >> 16;
+}
+
+// Generates a 16-bit "sawtooth" wave at a given BPM
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase) {
+  if (beats_per_minute < 256) beats_per_minute <<= 8;
+  return beat88(beats_per_minute, timebase);
+}
+
+/// Generates an 8-bit "sawtooth" wave at a given BPM
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase) {
+  return beat16(beats_per_minute, timebase) >> 8;
 }
 
 // Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset)
-{
-    uint16_t beat = beat16( beats_per_minute, timebase);
-    uint16_t beatsin = (sin16_t( beat + phase_offset) + 32768);
-    uint16_t rangewidth = highest - lowest;
-    uint16_t scaledbeat = scale16( beatsin, rangewidth);
-    uint16_t result = lowest + scaledbeat;
-    return result;
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset) {
+  uint16_t beat = beat88(beats_per_minute_88, timebase);
+  uint16_t beatsin = (sin16_t( beat + phase_offset) + 32768);
+  uint16_t rangewidth = highest - lowest;
+  uint16_t scaledbeat = scale16(beatsin, rangewidth);
+  uint16_t result = lowest + scaledbeat;
+  return result;
+}
+
+// Generates a 16-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest, uint16_t highest, uint32_t timebase, uint16_t phase_offset) {
+  uint16_t beat = beat16(beats_per_minute, timebase);
+  uint16_t beatsin = sin16_t(beat + phase_offset) + 32768;
+  uint16_t rangewidth = highest - lowest;
+  uint16_t scaledbeat = scale16(beatsin, rangewidth);
+  uint16_t result = lowest + scaledbeat;
+  return result;
 }
 
 // Generates an 8-bit sine wave at a given BPM that oscillates within a given range. see fastled for details.
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest, uint8_t highest, uint32_t timebase, uint8_t phase_offset)
-{
-    uint8_t beat = beat8( beats_per_minute, timebase);
-    uint8_t beatsin = sin8_t( beat + phase_offset);
-    uint8_t rangewidth = highest - lowest;
-    uint8_t scaledbeat = scale8( beatsin, rangewidth);
-    uint8_t result = lowest + scaledbeat;
-    return result;
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest, uint8_t highest, uint32_t timebase, uint8_t phase_offset) {
+  uint8_t beat = beat8(beats_per_minute, timebase);
+  uint8_t beatsin = sin8_t(beat + phase_offset);
+  uint8_t rangewidth = highest - lowest;
+  uint8_t scaledbeat = scale8(beatsin, rangewidth);
+  uint8_t result = lowest + scaledbeat;
+  return result;
 }
+// end of FastLED functions
 
 ///////////////////////////////////////////////////////////////////////////////
 // Begin simulateSound (to enable audio enhanced effects to display something)
