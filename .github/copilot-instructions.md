@@ -95,6 +95,17 @@ package.json           # Node.js dependencies and scripts
 .github/workflows/     # CI/CD pipelines
 ```
 
+### Project Branch / Release Structure
+```
+main                 # Main development source (daily/nightly 17.0.x)
+  ├── V5             # special branch: code rework for esp-idf 5.5.x (unstable)
+      ├── V5-C6      # special branch for integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+16_x                 # current beta (feature freeze) for next release 16.x.y
+0_15_x               # maintainance (bugfixes only) for current release 0.15.x
+(tag) v0.14.4        # previous version 0.14.4 (no maintainance)
+```
+
+
 ### Key Files and Their Purpose
 - `wled00/data/index.htm` - Main web interface
 - `wled00/data/settings*.htm` - Configuration pages  
