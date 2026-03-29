@@ -14,7 +14,7 @@ from SCons.Script import Exit
 # ─────────────────────────────────────────────────────────────────────────────
 
 project_dir = Path(env["PROJECT_DIR"]).resolve()
-src_yml     = project_dir / "usermods" / "usermod_v2_matter" / "idf_component.yml"
+src_yml     = project_dir / "usermods" / "matter_over_wifi" / "idf_component.yml"
 dst_yml     = project_dir / "wled00"   / "idf_component.yml"
 
 if not src_yml.exists():

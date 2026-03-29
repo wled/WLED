@@ -1,4 +1,4 @@
-#include "usermod_v2_matter.h"
+#include "usermod_matter.h"
 
 /*
  * Matter (Project CHIP) WiFi-only usermod for WLED

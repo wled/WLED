@@ -7,7 +7,7 @@ include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 #   using to_underlying = std::to_underlying;  (type alias to function template)
 # Downgrade from gnu++2b to gnu++20 so the correct #else polyfill is used.
 # Guard: only apply when the Matter usermod is present.
-if(EXISTS "${CMAKE_SOURCE_DIR}/usermods/usermod_v2_matter")
+if(EXISTS "${CMAKE_SOURCE_DIR}/usermods/matter_over_wifi")
   idf_build_replace_option_from_property(CXX_COMPILE_OPTIONS
     "-std=gnu++2b" "-std=gnu++20")
 endif()
