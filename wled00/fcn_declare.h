@@ -463,6 +463,7 @@ uint16_t crc16(const unsigned char* data_p, size_t length);
 #if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
 String computeSHA1(const String& input);
 String getDeviceId();
+#endif
 
 uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
 uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);

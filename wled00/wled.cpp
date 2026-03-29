@@ -585,6 +585,7 @@ void WLED::setup()
 #if ESP_IDF_VERSION_MAJOR < 5   // ToDO: clarify if esp-idf v5.x still needs this patch
   installIPv6RABlocker();  // Work around unsolicited RA overwriting IPv4 DNS servers
 #endif
+#endif
 
   #if WLED_WATCHDOG_TIMEOUT > 0
   enableWatchdog();
