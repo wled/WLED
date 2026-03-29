@@ -90,7 +90,7 @@ function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefine
 	scE.setAttribute("type", "text/javascript");
 	scE.setAttribute("async", async);
 	d.body.appendChild(scE);
-	// success event 
+	// success event
 	scE.addEventListener("load", () => {
 		//console.log("File loaded");
 		if (preGetV) preGetV();
@@ -126,6 +126,10 @@ function getLoc() {
 	}
 }
 function getURL(path) { return (loc ? locproto + "//" + locip : "") + path; }
+// HTML entity escaper – use on any remote/user-supplied text inserted into innerHTML
+function esc(s)     { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// URL sanitizer – blocks javascript: and data: URIs, use for externally supplied URLs for some basic safety
+function safeUrl(u) { return /^https?:\/\//.test(u) ? u : '#'; }
 function B()          { window.open(getURL("/settings"),"_self"); }
 var timeout;
 function showToast(text, error = false) {

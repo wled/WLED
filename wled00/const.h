@@ -59,6 +59,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
   #define WLED_MAX_I2S_CHANNELS 0
   #define WLED_MAX_ANALOG_CHANNELS 5
+  #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
   #define WLED_PLATFORM_ID 0         // used in UI to distinguish ESP types, needs a proper fix!
 #else
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
@@ -66,6 +67,9 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #endif
 
   // define -> constexpr to avoid preprocessor errors and enum arithmetic warnings from newer compilers
+  #ifdef WLED_MAX_ANALOG_CHANNELS
+    #undef WLED_MAX_ANALOG_CHANNELS   // avoid clash between macro name and constexpr constant
+  #endif
   constexpr size_t WLED_MAX_ANALOG_CHANNELS = static_cast<size_t>(LEDC_CHANNEL_MAX) * static_cast<size_t>(LEDC_SPEED_MODE_MAX);
 
   #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
@@ -96,6 +100,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
       #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
     #endif
   #endif
+  #define WLED_MAX_TIMERS 64                // maximum number of timers
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
@@ -103,7 +108,8 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #ifdef WLED_MAX_BUSSES
   #undef WLED_MAX_BUSSES
 #endif
-#define WLED_MAX_BUSSES (WLED_MAX_DIGITAL_CHANNELS+WLED_MAX_ANALOG_CHANNELS)
+// define -> constexpr to align with definition of WLED_MAX_ANALOG_CHANNELS
+constexpr size_t WLED_MAX_BUSSES = WLED_MAX_DIGITAL_CHANNELS + WLED_MAX_ANALOG_CHANNELS;
 static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 // Maximum number of pins per output. 5 for RGBCCT analog LEDs.
@@ -746,5 +752,6 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #endif
 
 #define WLED_O2_ATTR __attribute__((optimize("O2")))
+#define WLED_O3_ATTR __attribute__((optimize("O3")))
 
 #endif
