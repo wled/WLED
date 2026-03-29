@@ -785,14 +785,14 @@ class Segment {
     inline uint32_t getPixelColorXY(int x, int y)                                 { return getPixelColor(x); }
     inline void blendPixelColorXY(uint16_t x, uint16_t y, uint32_t c, uint8_t blend) { blendPixelColor(x, c, blend); }
     inline void blendPixelColorXY(uint16_t x, uint16_t y, CRGB c, uint8_t blend)  { blendPixelColor(x, RGBW32(c.r,c.g,c.b,0), blend); }
-    inline void addPixelColorXY(int x, int y, uint32_t color, bool saturate = false) { addPixelColor(x, color, saturate); }
-    inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool saturate = false) { addPixelColor(x, RGBW32(r,g,b,w), saturate); }
-    inline void addPixelColorXY(int x, int y, CRGB c, bool saturate = false)         { addPixelColor(x, RGBW32(c.r,c.g,c.b,0), saturate); }
+    inline void addPixelColorXY(int x, int y, uint32_t color, bool preserveCR = true) { addPixelColor(x, color, preserveCR); }
+    inline void addPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0, bool preserveCR = true) { addPixelColor(x, RGBW32(r,g,b,w), preserveCR); }
+    inline void addPixelColorXY(int x, int y, CRGB c, bool preserveCR = true)         { addPixelColor(x, RGBW32(c.r,c.g,c.b,0), preserveCR); }
     inline void fadePixelColorXY(uint16_t x, uint16_t y, uint8_t fade)            { fadePixelColor(x, fade); }
     //inline void box_blur(unsigned i, bool vertical, uint8_t blur_amount) {}
     inline void blur2D(uint8_t blur_x, uint8_t blur_y, bool smear = false) {}
-    inline void blurRow(int row, uint8_t blur_amount, bool smear = false) {}
-    inline void blurCol(int col, uint8_t blur_amount, bool smear = false) {}
+    inline void blurRows(uint8_t blur_amount, bool smear = false) {}
+    inline void blurCols(uint8_t blur_amount, bool smear = false) {}
     inline void moveX(int delta, bool wrap = false) {}
     inline void moveY(int delta, bool wrap = false) {}
     inline void move(uint8_t dir, uint8_t delta, bool wrap = false) {}

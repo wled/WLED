@@ -244,4 +244,3 @@ uint32_t sqrt32_bw(uint32_t x) {
   }
   return res;
 }
-

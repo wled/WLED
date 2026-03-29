@@ -10465,7 +10465,8 @@ void mode_particle1DsonicStream(void) {
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
 
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
-  int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
+  int mids = 0;
+  if (SEGMENT.check1) mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
 
@@ -10489,7 +10490,6 @@ void mode_particle1DsonicStream(void) {
       else PartSys->particles[i].ttl = 0;
     }
     if (SEGMENT.check1) { // modulate colors by mid frequencies
-      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
     }
   }
@@ -10563,6 +10563,8 @@ void mode_particle1DsonicBoom(void) {
   uint32_t loudness;
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+  int mids = 0;
+  if (SEGMENT.check1) mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
 
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
@@ -10575,7 +10577,6 @@ void mode_particle1DsonicBoom(void) {
   // particle manipulation
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (SEGMENT.check1) { // modulate colors by mid frequencies
-      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
     }
     if (PartSys->particles[i].ttl > 16) {
@@ -10820,7 +10821,7 @@ void mode_slow_transition(void) {
   size_t dataSize = sizeof(slow_transition_data);
   if (!SEGMENT.allocateData(dataSize)) FX_FALLBACK_STATIC;
   slow_transition_data* data = reinterpret_cast<slow_transition_data*>(SEGMENT.data);
-
+  // Note: compare currentCCT (not endCCT). SEGMENT.cct is set to currentCCT at the end of each call, if they differ, it was changed externally
   bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed || data->endWhite != W(SEGCOLOR(0)) || data->currentCCT != SEGMENT.cct); // detect changes in target color or speed setting
 
   // (re) init
@@ -10879,14 +10880,14 @@ void mode_slow_transition(void) {
       data->currentCCT = data->endCCT;
     }
   }
-  // display current palette over segment
+  // display current palette (plus white) over segment
   for (unsigned i = 0; i < SEGLEN; i++) {
     uint8_t paletteIndex = (i * 255) / SEGLEN;
     CRGBW palcol = ColorFromPalette(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
-    palcol.w = data->currentWhite;
-    SEGMENT.cct = data->currentCCT; //setCCT(data->currentCCT);
+    palcol.w = data->currentWhite; // TODO: currently "sweep mode" does not support white sweep
     SEGMENT.setPixelColor(i, palcol.color32);
   }
+  SEGMENT.cct = data->currentCCT;
 }
 static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;!;!;1;pal=2,sx=0,ix=0";
 

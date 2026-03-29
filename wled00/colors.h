@@ -1,6 +1,7 @@
 #pragma once
 #ifndef WLED_COLORS_H
 #define WLED_COLORS_H
+#include <vector>
 #include "src/dependencies/fastled_slim/fastled_slim.h"
 /*
  * Color structs and color utility functions

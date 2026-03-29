@@ -1037,7 +1037,7 @@ static inline __attribute__((always_inline)) int32_t hashToGradient(uint32_t h) 
 }
 
 // Gradient functions for 1D, 2D and 3D Perlin noise  note: forcing inline produces smaller code and makes it 3x faster!
-static int32_t gradient1D(uint32_t x0, int32_t dx) {
+static inline __attribute__((always_inline)) int32_t gradient1D(uint32_t x0, int32_t dx) {
   uint32_t h = x0 * 0x27D4EB2D;
   h ^= h >> 15;
   h *= 0x92C3412B;

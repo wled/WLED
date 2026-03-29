@@ -97,7 +97,7 @@ struct CHSV {
   }
 
   // default constructor
-  // @warning default values are UNITIALIZED!
+  // @warning default values are UNINITIALIZED!
   inline CHSV() __attribute__((always_inline)) = default;
 
   // allow construction from hue, saturation, and value
