@@ -1,6 +1,5 @@
 #include "wled.h"
 
-
 #define JSON_PATH_STATE      1
 #define JSON_PATH_INFO       2
 #define JSON_PATH_STATE_INFO 3
@@ -307,9 +306,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
   seg.check2 = getBoolVal(elem["o2"], seg.check2);
   seg.check3 = getBoolVal(elem["o3"], seg.check3);
 
-  uint8_t blend = seg.blendMode;
-  getVal(elem["bm"], blend, 0, 15); // we can't pass reference to bitfield
-  seg.blendMode = constrain(blend, 0, 15);
+  getVal(elem["bm"], seg.blendMode);
 
   JsonArray iarr = elem[F("i")]; //set individual LEDs
   if (!iarr.isNull()) {
@@ -963,7 +960,7 @@ void serializePalettes(JsonObject root, int page)
     JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
     switch (i) {
       case 0: //default palette
-        setPaletteColors(curPalette, PartyColors_p);
+        setPaletteColors(curPalette, PartyColors_gc22);
         break;
       case 1: //random
            for (int j = 0; j < 4; j++) curPalette.add("r");
