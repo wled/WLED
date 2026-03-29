@@ -296,11 +296,12 @@ void WLED::loop()
     DEBUG_PRINTF_P(PSTR("PSRAM:        Free: %7u bytes | Largest block: %6u bytes\n"), psram_free, psram_largest);
     #endif
     #if defined(CONFIG_IDF_TARGET_ESP32)
-    // 32-bit DRAM (not byte accessible, only available on ESP32)
+    // 32-bit DRAM aka IRAM (not byte accessible, only available on ESP32)
     size_t dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL) - dram_free; // returns all 32bit DRAM, subtract 8bit DRAM
     //size_t dram32_largest = heap_caps_get_largest_free_block(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL); // returns largest DRAM block -> not useful
     DEBUG_PRINTF_P(PSTR("DRAM 32-bit:  Free: %7u bytes | Largest block: N/A\n"), dram32_free);
-    #else
+    #endif
+    #if defined(WLED_HAVE_RTC_MEMORY_HEAP)
     // Fast RTC Memory (not available on ESP32)
     size_t rtcram_free = heap_caps_get_free_size(MALLOC_CAP_RTCRAM);
     size_t rtcram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_RTCRAM);

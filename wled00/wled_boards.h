@@ -78,7 +78,7 @@ constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP8266;
   #define WLED_HAVE_RTC_MEMORY_HEAP 1 // has byte-accessible fast RTC memory that can be used as heap
   // no 4byte-accessible IRAM heap
 
-  #define WLED_HAS_PARALLEL_I2S 1    // esp32-S3 supports I2S parallel leds driver (NeoPixelBus)
+  #define WLED_HAS_PARALLEL_I2S 1    // esp32-S2 supports I2S parallel leds driver (NeoPixelBus)
 
   constexpr unsigned WLED_BOARD = NODE_TYPE_ID_ESP32S2;
 #endif
