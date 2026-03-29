@@ -1206,7 +1206,7 @@ class AudioReactive : public Usermod {
           break;
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
         case 5:
-          DEBUGSR_PRINT(F("AR: I2S PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
+          DEBUGSR_PRINT(F("AR: Generic PDM Microphone - ")); DEBUGSR_PRINTLN(F(I2S_PDM_MIC_CHANNEL_TEXT));
           audioSource = new I2SSource(SAMPLE_RATE, BLOCK_SIZE, 1.0f/4.0f);
           useBandPassFilter = true;  // this reduces the noise floor on SPM1423 from 5% Vpp (~380) down to 0.05% Vpp (~5)
           delay(100);
@@ -1624,7 +1624,8 @@ class AudioReactive : public Usermod {
             if (audioSource->getType() == AudioSource::Type_I2SAdc) {
               infoArr.add(F("ADC analog"));
             } else {
-              infoArr.add(F("I2S digital"));
+              if (dmType == 5) infoArr.add(F("PDM digital")); // dmType 5 => generic PDM microphone
+              else infoArr.add(F("I2S digital"));
             }
             // input level or "silence"
             if (maxSample5sec > 1.0f) {
@@ -1911,7 +1912,7 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'SPH0654',3);"));
       uiScript.print(F("addOption(dd,'Generic I2S with Mclk',4);"));
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      uiScript.print(F("addOption(dd,'Generic I2S PDM',5);"));
+      uiScript.print(F("addOption(dd,'Generic PDM',5);"));
     #endif
     uiScript.print(F("addOption(dd,'ES8388',6);"));
     
@@ -2007,12 +2008,12 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
     case 2:
       b = map(x, 0, 255, 0, NUM_GEQ_CHANNELS/2); // convert palette position to lower half of freq band
       hsv = CHSV(fftResult[b], 255, x);
-      hsv2rgb_rainbow(hsv, value);  // convert to R,G,B
+      value = hsv;  // convert to R,G,B
       break;
     case 1:
       b = map(x, 1, 255, 0, 10); // convert palette position to lower half of freq band
       hsv = CHSV(fftResult[b], 255, map(fftResult[b], 0, 255, 30, 255));  // pick hue
-      hsv2rgb_rainbow(hsv, value);  // convert to R,G,B
+      value = hsv;  // convert to R,G,B
       break;
     default:
       if (x == 1) {

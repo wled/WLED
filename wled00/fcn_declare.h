@@ -1,6 +1,9 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
+
+#include "colors.h"
 
 /*
  * All globally accessible functions are declared here
@@ -276,6 +279,7 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+void installIPv6RABlocker();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -381,7 +385,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
@@ -408,7 +412,8 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS=false); // maxLen = hostname buffer size including \0; if preferMDNSname=true, use mdns name (sanitized)
+void prepareHostname(char* hostname, size_t maxLen);                        // legacy function - not recommended for new code
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
@@ -419,9 +424,13 @@ void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
 String computeSHA1(const String& input);
 String getDeviceId();
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+
 um_data_t* simulateSound(uint8_t simulationId);
 void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
@@ -514,6 +523,9 @@ class JSONBufferGuard {
 };
 
 //wled_math.cpp
+#define sin_t sin_approx
+#define cos_t cos_approx
+#define tan_t tan_approx
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
 //float tan_t(float x);
@@ -531,9 +543,6 @@ template <typename T> T atan_t(T x);
 float floor_t(float x);
 float fmod_t(float num, float denom);
 uint32_t sqrt32_bw(uint32_t x);
-#define sin_t sin_approx
-#define cos_t cos_approx
-#define tan_t tan_approx
 
 /*
 #include <math.h>  // standard math functions. use a lot of flash
@@ -546,6 +555,7 @@ uint32_t sqrt32_bw(uint32_t x);
 #define fmod_t fmodf
 #define floor_t floorf
 */
+
 //wled_serial.cpp
 void handleSerial();
 void updateBaudRate(uint32_t rate);

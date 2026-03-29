@@ -13,6 +13,8 @@
 #include "wled.h"
 #include "FX.h"
 #include "fcn_declare.h"
+#include "colors.h"
+#include "prng.h"
 
 #define FX_FALLBACK_STATIC { mode_static(); return; }
 
@@ -65,8 +67,8 @@
 
 #define IBN 5100
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
-#define PALETTE_MOVING_WRAP !(strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0))
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
+#define PALETTE_MOVING_WRAP !(paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0))
 
 #define indexToVStrip(index, stripNr) ((index) | (int((stripNr)+1)<<16))
 
@@ -81,15 +83,12 @@
 //#define MAX_FREQUENCY   5120
 //#define MAX_FREQ_LOG10  3.71f
 
+static PRNG prng(hw_random()); // pseudo-random number generator class, seed = hardware random number
+
 // effect utility functions
 static uint8_t sin_gap(uint16_t in) {
   if (in & 0x100) return 0;
   return sin8_t(in + 192); // correct phase shift of sine so that it starts and stops at 0
-}
-
-static uint16_t triwave16(uint16_t in) {
-  if (in < 0x8000) return in *2;
-  return 0xFFFF - (in - 0x8000)*2;
 }
 
 /*
@@ -149,8 +148,7 @@ void mode_copy_segment(void) {
   Segment& sourcesegment = strip.getSegment(sourceid);
 
   if (sourcesegment.isActive()) {
-    uint32_t sourcecolor;
-    uint32_t destcolor;
+    CRGBW color;
     if(sourcesegment.is2D()) { // 2D source, note: 2D to 1D just copies the first row (or first column if 'Switch axis' is checked in FX)
       for (unsigned y = 0; y < SEGMENT.vHeight(); y++) {
         for (unsigned x = 0; x < SEGMENT.vWidth(); x++) {
@@ -158,29 +156,29 @@ void mode_copy_segment(void) {
           unsigned sy = y;
           if(SEGMENT.check1) std::swap(sx, sy); // flip axis
           if(SEGMENT.check2) {
-            sourcecolor = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
+            color = strip.getPixelColorXY(sx + sourcesegment.start, sy + sourcesegment.startY); // read from global buffer (reads the last rendered frame)
           }
           else {
             sourcesegment.setDrawDimensions(); // set to source segment dimensions
-            sourcecolor = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
+            color = sourcesegment.getPixelColorXY(sx, sy); // read from segment buffer
           }
-          destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+          adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2); // hue shif, sat change, value change
           SEGMENT.setDrawDimensions(); // reset to current segment dimensions
-          SEGMENT.setPixelColorXY(x, y, destcolor);
+          SEGMENT.setPixelColorXY(x, y, color);
         }
       }
     } else { // 1D source, source can be expanded into 2D
       for (unsigned i = 0; i < SEGMENT.vLength(); i++) {
         if(SEGMENT.check2) {
-          sourcecolor = strip.getPixelColorNoMap(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
+          color = strip.getPixelColorNoMap(i + sourcesegment.start); // read from global buffer (reads the last rendered frame)
         }
         else {
           sourcesegment.setDrawDimensions(); // set to source segment dimensions
-          sourcecolor = sourcesegment.getPixelColor(i);
+          color = sourcesegment.getPixelColor(i);
         }
-        destcolor = adjust_color(sourcecolor, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2);
+        adjust_color(color, SEGMENT.intensity, SEGMENT.custom1, SEGMENT.custom2); // hue shif, sat change, value change
         SEGMENT.setDrawDimensions(); // reset to current segment dimensions
-        SEGMENT.setPixelColor(i, destcolor);
+        SEGMENT.setPixelColor(i, color);
       }
     }
   }
@@ -1813,30 +1811,30 @@ static const char _data_FX_MODE_MULTI_COMET[] PROGMEM = "Multi Comet@!,Fade;!,!;
  */
 void mode_random_chase(void) {
   if (SEGENV.call == 0) {
-    SEGENV.step = RGBW32(random8(), random8(), random8(), 0);
-    SEGENV.aux0 = random16();
+    SEGENV.step = RGBW32(prng.random8(), prng.random8(), prng.random8(), 0);
+    SEGENV.aux0 = prng.random16();
   }
-  unsigned prevSeed = random16_get_seed(); // save seed so we can restore it at the end of the function
+  unsigned prevSeed = prng.getSeed(); // save seed so we can restore it at the end of the function
   uint32_t cycleTime = 25 + (3 * (uint32_t)(255 - SEGMENT.speed));
   uint32_t it = strip.now / cycleTime;
   uint32_t color = SEGENV.step;
-  random16_set_seed(SEGENV.aux0);
+  prng.setSeed(SEGENV.aux0);
 
   for (int i = SEGLEN -1; i >= 0; i--) {
-    uint8_t r = random8(6) != 0 ? (color >> 16 & 0xFF) : random8();
-    uint8_t g = random8(6) != 0 ? (color >> 8  & 0xFF) : random8();
-    uint8_t b = random8(6) != 0 ? (color       & 0xFF) : random8();
+    uint8_t r = prng.random8(6) != 0 ? (color >> 16 & 0xFF) : prng.random8();
+    uint8_t g = prng.random8(6) != 0 ? (color >> 8  & 0xFF) : prng.random8();
+    uint8_t b = prng.random8(6) != 0 ? (color       & 0xFF) : prng.random8();
     color = RGBW32(r, g, b, 0);
     SEGMENT.setPixelColor(i, color);
     if (i == SEGLEN -1U && SEGENV.aux1 != (it & 0xFFFFU)) { //new first color in next frame
       SEGENV.step = color;
-      SEGENV.aux0 = random16_get_seed();
+      SEGENV.aux0 = prng.getSeed();
     }
   }
 
   SEGENV.aux1 = it & 0xFFFF;
 
-  random16_set_seed(prevSeed); // restore original seed so other effects can use "random" PRNG
+  prng.setSeed(prevSeed); // restore original seed so other effects can use "random" PRNG
 }
 static const char _data_FX_MODE_RANDOM_CHASE[] PROGMEM = "Stream 2@!;;";
 
@@ -2308,8 +2306,8 @@ void mode_colortwinkle() {
   SEGENV.step = strip.now;
 
   CRGBW col, prev;
-  fract8 fadeUpAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>2) : 68-strip.getBrightness();
-  fract8 fadeDownAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>3) : 68-strip.getBrightness();
+  uint8_t fadeUpAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>2) : 68-strip.getBrightness();
+  uint8_t fadeDownAmount = strip.getBrightness()>28 ? 8 + (SEGMENT.speed>>3) : 68-strip.getBrightness();
   for (unsigned i = 0; i < SEGLEN; i++) {
     CRGBW cur = SEGMENT.getPixelColor(i);
     prev = cur;
@@ -2325,14 +2323,13 @@ void mode_colortwinkle() {
         bitWrite(SEGENV.data[index], bitNum, false);
       }
 
-      if (cur == prev) {  //fix "stuck" pixels
+      if (col == cur) {  // color_add did nothing, fix "stuck" pixels by adding the color to itself
         col = color_add(col, col);
-        SEGMENT.setPixelColor(i, col);
       }
-      else SEGMENT.setPixelColor(i, col);
+      SEGMENT.setPixelColor(i, col);
     }
     else {
-      col = color_fade(cur, 255 - fadeDownAmount);
+      col = color_fade(cur, 255 - fadeDownAmount, false);
       SEGMENT.setPixelColor(i, col);
     }
   }
@@ -2577,7 +2574,7 @@ static const char _data_FX_MODE_RIPPLE_RAINBOW[] PROGMEM = "Ripple Rainbow@!,Wav
 //
 //  TwinkleFOX: Twinkling 'holiday' lights that fade in and out.
 //  Colors are chosen from a palette. Read more about this effect using the link above!
-static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
+static CRGBW twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
 {
   // Overall twinkle speed (changed)
   unsigned ticks = ms / SEGENV.aux0;
@@ -2614,7 +2611,7 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
   }
 
   unsigned hue = slowcycle8 - salt;
-  CRGB c;
+  CRGBW c;
   if (bright > 0) {
     c = ColorFromPalette(SEGPALETTE, hue, bright, NOBLEND);
     if (!SEGMENT.check1) {
@@ -2629,7 +2626,7 @@ static CRGB twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
       }
     }
   } else {
-    c = CRGB::Black;
+    c = 0; // black
   }
   return c;
 }
@@ -2652,15 +2649,16 @@ static void twinklefox_base(bool cat)
   else SEGENV.aux0 = 22 + ((100 - SEGMENT.speed) >> 1);
 
   // Set up the background color, "bg".
-  CRGB bg = CRGB(SEGCOLOR(1));
+  CRGBW bg = SEGCOLOR(1);
   unsigned bglight = bg.getAverageLight();
   if (bglight > 64) {
-    bg.nscale8_video(16); // very bright, so scale to 1/16th
+    bg = color_fade(bg, 16, true); // very bright, so scale to 1/16th
   } else if (bglight > 16) {
-    bg.nscale8_video(64); // not that bright, so scale to 1/4th
+    bg = color_fade(bg, 64, true); // not that bright, so scale to 1/4th
   } else {
-    bg.nscale8_video(86); // dim, scale to 1/3rd.
+    bg = color_fade(bg, 86, true); // dim, scale to 1/3rd.
   }
+  bg = gamma32inv(bg); // need to invert gamma as the FX was written without any gamma correction and it will dim down too much otherwise
 
   unsigned backgroundBrightness = bg.getAverageLight();
 
@@ -2677,18 +2675,18 @@ static void twinklefox_base(bool cat)
     // We now have the adjusted 'clock' for this pixel, now we call
     // the function that computes what color the pixel should be based
     // on the "brightness = f( time )" idea.
-    CRGB c = twinklefox_one_twinkle(myclock30, myunique8, cat);
+    CRGBW c = twinklefox_one_twinkle(myclock30, myunique8, cat);
 
     unsigned cbright = c.getAverageLight();
     int deltabright = cbright - backgroundBrightness;
-    if (deltabright >= 32 || (!bg)) {
+    if (deltabright >= 32 || (bg==0)) {
       // If the new pixel is significantly brighter than the background color,
       // use the new color.
       SEGMENT.setPixelColor(i, c);
     } else if (deltabright > 0) {
       // If the new pixel is just slightly brighter than the background color,
       // mix a blend of the new color and the background color
-      SEGMENT.setPixelColor(i, color_blend(RGBW32(bg.r,bg.g,bg.b,0), RGBW32(c.r,c.g,c.b,0), uint8_t(deltabright * 8)));
+      SEGMENT.setPixelColor(i, color_blend(bg, c, uint8_t(deltabright * 8)));
     } else {
       // if the new pixel is not at all brighter than the background color,
       // just use the background color.
@@ -3398,7 +3396,7 @@ void mode_glitter()
       counter = counter >> 8;
     }
 
-    bool noWrap = (strip.paletteBlend == 2 || (strip.paletteBlend == 0 && SEGMENT.speed == 0));
+    bool noWrap = (paletteBlend == 2 || (paletteBlend == 0 && SEGMENT.speed == 0));
     for (unsigned i = 0; i < SEGLEN; i++) {
       unsigned colorIndex = (i * 255 / SEGLEN) - counter;
       if (noWrap) colorIndex = map(colorIndex, 0, 255, 0, 240); //cut off blend at palette "end"
@@ -4338,18 +4336,18 @@ void mode_phased_noise(void) {
 static const char _data_FX_MODE_PHASEDNOISE[] PROGMEM = "Phased Noise@!,!;!,!;!";
 
 
-void mode_twinkleup(void) {                 // A very short twinkle routine with fade-in and dual controls. By Andrew Tuline.
-  unsigned prevSeed = random16_get_seed();      // save seed so we can restore it at the end of the function
-  random16_set_seed(535);                       // The randomizer needs to be re-set each time through the loop in order for the same 'random' numbers to be the same each time through.
+void mode_twinkleup(void) {                     // A very short twinkle routine with fade-in and dual controls. By Andrew Tuline.
+  unsigned prevSeed = prng.getSeed();           // save seed so we can restore it at the end of the function
+  prng.setSeed(535);                            // The randomizer needs to be re-set each time through the loop in order for the same 'random' numbers to be the same each time through.
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    unsigned ranstart = random8();               // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
+    unsigned ranstart = prng.random8();         // The starting value (aka brightness) for each pixel. Must be consistent each time through the loop for this to work.
     unsigned pixBri = sin8_t(ranstart + 16 * strip.now/(256-SEGMENT.speed));
-    if (random8() > SEGMENT.intensity) pixBri = 0;
-    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(random8()+strip.now/100, false, PALETTE_SOLID_WRAP, 0), pixBri));
+    if (prng.random8() > SEGMENT.intensity) pixBri = 0;
+    SEGMENT.setPixelColor(i, color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(prng.random8()+strip.now/100, false, PALETTE_SOLID_WRAP, 0), pixBri));
   }
 
-  random16_set_seed(prevSeed); // restore original seed so other effects can use "random" PRNG
+  prng.setSeed(prevSeed);                       // restore original seed so other effects can use "random" PRNG
 }
 static const char _data_FX_MODE_TWINKLEUP[] PROGMEM = "Twinkleup@!,Intensity;!,!;!;;m12=0";
 
@@ -4370,6 +4368,7 @@ void mode_noisepal(void) {                                    // Slow noise pale
     SEGENV.step = strip.now;
 
     unsigned baseI = hw_random8();
+    //palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
     palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
   }
 
@@ -4421,21 +4420,20 @@ void mode_flow(void)
   }
 
   unsigned maxZones = SEGLEN / 6; //only looks good if each zone has at least 6 LEDs
-  unsigned zones = (SEGMENT.intensity * maxZones) >> 8;
+  int zones = (SEGMENT.intensity * maxZones) >> 8;
   if (zones & 0x01) zones++; //zones must be even
   if (zones < 2) zones = 2;
-  unsigned zoneLen = SEGLEN / zones;
-  unsigned offset = (SEGLEN - zones * zoneLen) >> 1;
+  int zoneLen = SEGLEN / zones;
+  zones += 2; //add two extra zones to cover beginning and end of segment (compensate integer truncation)
+  int offset = ((int)SEGLEN - (zones * zoneLen)) / 2; // center the zones on the segment (can not use bit shift on negative number)
 
-  SEGMENT.fill(SEGMENT.color_from_palette(-counter, false, true, 255));
-
-  for (unsigned z = 0; z < zones; z++)
+  for (int z = 0; z < zones; z++)
   {
-    unsigned pos = offset + z * zoneLen;
-    for (unsigned i = 0; i < zoneLen; i++)
+    int pos = offset + z * zoneLen;
+    for (int i = 0; i < zoneLen; i++)
     {
       unsigned colorIndex = (i * 255 / zoneLen) - counter;
-      unsigned led = (z & 0x01) ? i : (zoneLen -1) -i;
+      int led = (z & 0x01) ? i : (zoneLen -1) -i;
       if (SEGMENT.reverse) led = (zoneLen -1) -led;
       SEGMENT.setPixelColor(pos + led, SEGMENT.color_from_palette(colorIndex, false, true, 255));
     }
@@ -4945,8 +4943,82 @@ void mode_aurora(void) {
     SEGMENT.setPixelColor(i, mixedRgb);
   }
 }
-
 static const char _data_FX_MODE_AURORA[] PROGMEM = "Aurora@!,!;1,2,3;!;;sx=24,pal=50";
+
+
+/** Softly floating colorful clouds.
+ * This is a very smooth effect that moves colorful clouds randomly around the LED strip.
+ * It was initially intended for rather unobtrusive ambient lights (with very slow speed settings).
+ * Nevertheless, it appears completely different and quite vibrant when the sliders are moved near
+ * to their limits. No matter in which direction or in which combination...
+ * Ported to WLED from https://github.com/JoaDick/EyeCandy/blob/master/ColorClouds.h
+ */
+void mode_ColorClouds()
+{
+  // Set random start points for clouds and color.
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16();
+    SEGENV.aux1 = hw_random16();
+  }
+  const uint32_t volX0 = SEGENV.aux0;
+  const uint32_t hueX0 = SEGENV.aux1;
+  const uint8_t hueOffset0 = volX0 + hueX0; // derive a 3rd random number
+
+  // Makes a very soft wraparound of the color palette by putting more emphasis on the begin & end
+  // of the palette (or on the red'ish colors in case of a rainbow spectrum).
+  // This gives the effect oftentimes an even more calm perception.
+  const bool cozy = SEGMENT.check3;
+
+  // Higher values make the clouds move faster.
+  const uint32_t volSpeed = 1 + SEGMENT.speed;
+  
+  // Higher values make the color change faster.
+  const uint32_t hueSpeed = 1 + SEGMENT.intensity;
+  
+  // Higher values make more clouds (but smaller ones).
+  const uint32_t volSqueeze = 8 + SEGMENT.custom1;
+  
+  // Higher values make the clouds more colorful.
+  const uint32_t hueSqueeze = SEGMENT.custom2;
+
+  // Higher values make larger gaps between the clouds.
+  const int32_t volCutoff   = 12500 + SEGMENT.custom3 * 900;
+  const int32_t volSaturate = 52000;
+  // Note: When adjusting these calculations, ensure that volCutoff is always smaller than volSaturate.
+
+  const uint32_t now = strip.now;
+  const uint32_t volT = now * volSpeed / 8;
+  const uint32_t hueT = now * hueSpeed / 8;
+  const uint8_t hueOffset = beat88(64) >> 8;
+
+  for (int i = 0; i < SEGLEN; i++) {
+    const uint32_t volX = i * volSqueeze * 64;
+    int32_t vol = perlin16(volX0 + volX, volT);
+    vol = map(vol, volCutoff, volSaturate, 0, 255);
+    vol = constrain(vol, 0, 255);
+
+    const uint32_t hueX = i * hueSqueeze * 8;
+    uint8_t hue = perlin16(hueX0 + hueX, hueT) >> 7;
+    hue += hueOffset0;
+    hue += hueOffset;
+    if (cozy) {
+      hue = cos8_t(128 + hue / 2);
+    }
+
+    uint32_t pixel;
+    if (SEGMENT.palette) { pixel = SEGMENT.color_from_palette(hue, false, true, 0, vol); }
+    else { pixel = CRGBW(CHSV32(hue, 255, vol)); }
+
+    // Suppress extremely dark pixels to avoid flickering of plain r/g/b.
+    if (int(R(pixel)) + G(pixel) + B(pixel) <= 2) {
+      pixel = 0;
+    }
+
+    SEGMENT.setPixelColor(i, pixel);
+  }
+}
+static const char _data_FX_MODE_COLORCLOUDS[] PROGMEM = "Color Clouds@!,!,Clouds,Colors,Distance,,,Cozy;;!;;sx=24,ix=32,c1=48,c2=64,c3=12,pal=0";
+
 
 // WLED-SR effects
 
@@ -5144,7 +5216,7 @@ void mode_2DColoredBursts() {              // By: ldirko   https://editor.soulma
       uint8_t rate = j * 255 / steps;
       byte dx = lerp8by8(x1, y1, rate);
       byte dy = lerp8by8(x2, y2, rate);
-      //SEGMENT.setPixelColorXY(dx, dy, grad ? color.nscale8_video(255-rate) : color); // use addPixelColorXY for different look
+      //SEGMENT.setPixelColorXY(dx, dy, grad ? color_fade(color, (255-rate), true) : color); // use addPixelColorXY for different look
       SEGMENT.addPixelColorXY(dx, dy, color); // use setPixelColorXY for different look
       if (grad) SEGMENT.fadePixelColorXY(dx, dy, rate);
     }
@@ -5268,7 +5340,6 @@ void mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline. Ye
   unsigned yscale = SEGMENT.speed*8;
   unsigned indexx = 0;
 
-  //CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : SEGMENT.loadPalette(pal, 35);  
   CRGBPalette16 pal = SEGMENT.check1 ? SEGPALETTE : CRGBPalette16(CRGB::Black,     CRGB::Black,      CRGB::Black,  CRGB::Black,
                                                                   CRGB::Red,       CRGB::Red,        CRGB::Red,    CRGB::DarkOrange,
                                                                   CRGB::DarkOrange,CRGB::DarkOrange, CRGB::Orange, CRGB::Orange,
@@ -5427,7 +5498,7 @@ void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://na
 
         if (aliveParents) {
           // Set color based on random neighbor
-          unsigned parentIndex = parentIdx[random8(aliveParents)];
+          unsigned parentIndex = parentIdx[hw_random8(aliveParents)];
           birthColor = SEGMENT.getPixelColor(parentIndex);
         }
         newColor = birthColor;
@@ -5938,8 +6009,7 @@ void mode_2DSunradiation(void) {                   // By: ldirko https://editor.
   uint8_t someVal = SEGMENT.speed/4;             // Was 25.
   for (int j = 0; j < (rows + 2); j++) {
     for (int i = 0; i < (cols + 2); i++) {
-      //byte col = (inoise8_raw(i * someVal, j * someVal, t)) / 2;
-      byte col = ((int16_t)perlin8(i * someVal, j * someVal, t) - 0x7F) / 3;
+      byte col = ((int16_t)perlin8(i * someVal, j * someVal, t) - 127) >> 2; // about +/- 32
       bump[index++] = col;
     }
   }
@@ -6059,10 +6129,10 @@ void mode_2Dcrazybees(void) {
     uint8_t posX, posY, aimX, aimY, hue;
     int8_t deltaX, deltaY, signX, signY, error;
     void aimed(uint16_t w, uint16_t h) {
-      //random16_set_seed(millis());
-      aimX   = random8(0, w);
-      aimY   = random8(0, h);
-      hue    = random8();
+      //prng.setSeed(millis());
+      aimX   = prng.random8(0, w);
+      aimY   = prng.random8(0, h);
+      hue    = prng.random8();
       deltaX = abs(aimX - posX);
       deltaY = abs(aimY - posY);
       signX  = posX < aimX ? 1 : -1;
@@ -6075,10 +6145,10 @@ void mode_2Dcrazybees(void) {
   bee_t *bee = reinterpret_cast<bee_t*>(SEGENV.data);
 
   if (SEGENV.call == 0) {
-    random16_set_seed(strip.now);
+    prng.setSeed(strip.now);
     for (size_t i = 0; i < n; i++) {
-      bee[i].posX = random8(0, cols);
-      bee[i].posY = random8(0, rows);
+      bee[i].posX = prng.random8(0, cols);
+      bee[i].posY = prng.random8(0, rows);
       bee[i].aimed(cols, rows);
     }
   }
@@ -6246,7 +6316,7 @@ void mode_2Dfloatingblobs(void) {
 
   // Bounce balls around
   for (size_t i = 0; i < Amount; i++) {
-    if (SEGENV.step < strip.now) blob->color[i] = add8(blob->color[i], 4); // slowly change color
+    if (SEGENV.step < strip.now) blob->color[i] += 4; // slowly change color
     // change radius if needed
     if (blob->grow[i]) {
       // enlarge radius until it is >= 4
@@ -7693,7 +7763,7 @@ void mode_2Ddistortionwaves() {
           SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP));
         } else {
           // color mapping: calculate hue from pixel color, map it to palette index
-          CHSV hsvclr = rgb2hsv_approximate(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
+          CHSV hsvclr = rgb2hsv(CRGB(valueR>>2, valueG>>2, valueB>>2)); // scale colors down to not saturate for better hue extraction
           SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, hsvclr.h, brightness));
         }
       }
@@ -7752,7 +7822,7 @@ static void soapPixels(bool isRow, uint8_t *noise3d, CRGB *pixels) {
       else                         PixelA = ColorFromPalette(SEGPALETTE, ~noise3d[indxA]*3);
       if ((zF >= 0) && (zF < tCR)) PixelB = pixels[indxB];
       else                         PixelB = ColorFromPalette(SEGPALETTE, ~noise3d[indxB]*3);
-      ledsbuff[j] = (PixelA.nscale8(ease8InOutApprox(255 - fraction))) + (PixelB.nscale8(ease8InOutApprox(fraction)));
+      ledsbuff[j] = (PixelA.nscale8(ease8InOutCubic(255 - fraction))) + (PixelB.nscale8(ease8InOutCubic(fraction)));
     }
     for (int j = 0; j < tCR; j++) {
       CRGB c = ledsbuff[j];
@@ -8100,7 +8170,7 @@ void mode_particlefireworks(void) {
       emitparticles = hw_random16(SEGMENT.intensity >> 2) + (SEGMENT.intensity >> 2) + 5; // defines the size of the explosion
       #endif
 
-      if (random16() & 1) { // 50% chance for circular explosion
+      if (hw_random() & 1) { // 50% chance for circular explosion
         circularexplosion = true;
         speed = 2 + hw_random16(3) + ((SEGMENT.intensity >> 6));
         currentspeed = speed;
@@ -8377,7 +8447,6 @@ void mode_particlepit(void) {
           PartSys->perParticleSize = true;
           PartSys->advPartProps[i].size = hw_random16(SEGMENT.custom1); // set each particle to random size
         } else {
-          PartSys->perParticleSize = false;
           PartSys->setParticleSize(SEGMENT.custom1); // set global size
           PartSys->advPartProps[i].size = SEGMENT.custom1; // also set individual size for consistency
         }
@@ -9360,20 +9429,28 @@ void mode_particleDrip(void) {
     PartSys->sprayEmit(PartSys->sources[0]);
   }
 
-  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { //check all particles
-    if (PartSys->particles[i].ttl && PartSys->particleFlags[i].collide == false) { // use collision flag to identify splash particles
-      if (SEGMENT.custom1 > 0 && PartSys->particles[i].x < (PS_P_RADIUS_1D << 1)) { //splash enabled and reached bottom
-        PartSys->particles[i].ttl = 0; //kill origin particle
-        PartSys->sources[0].maxLife = 80;
-        PartSys->sources[0].minLife = 20;
-        PartSys->sources[0].var = 10 + (SEGMENT.custom1 >> 3);
-        PartSys->sources[0].v = 0;
-        PartSys->sources[0].source.hue = PartSys->particles[i].hue;
-        PartSys->sources[0].source.x = PS_P_RADIUS_1D;
-        PartSys->sources[0].sourceFlags.collide = true; //splashes do collide if enabled
-        for (int j = 0; j < 2 + (SEGMENT.custom1 >> 2); j++) {
-          PartSys->sprayEmit(PartSys->sources[0]);
+  for (uint32_t i = 0; i < PartSys->usedParticles; i++) { // check all particles
+    if (PartSys->particles[i].ttl) {
+      if (PartSys->particleFlags[i].collide == false) { // use collision flag to identify splash particles
+        if (PartSys->particles[i].x < (PS_P_RADIUS_1D << 1)) { // reached bottom
+          if (PartSys->particles[i].ttl > 120) // short life: make drop particle fade out and die
+            PartSys->particles[i].ttl = 120;
+          if (SEGMENT.custom1 > 0) { // splash enabled
+            PartSys->particles[i].ttl = 0; // kill drop particle, replace with splash
+            PartSys->sources[0].maxLife = 160;
+            PartSys->sources[0].minLife = 40;
+            PartSys->sources[0].var = 10 + (SEGMENT.custom1 >> 3);
+            PartSys->sources[0].v = 0;
+            PartSys->sources[0].source.hue = PartSys->particles[i].hue;
+            PartSys->sources[0].source.x = PS_P_RADIUS_1D;
+            PartSys->sources[0].sourceFlags.collide = true; //splashes do collide if enabled
+            for (int j = 0; j < 2 + (SEGMENT.custom1 >> 2); j++) {
+              PartSys->sprayEmit(PartSys->sources[0]);
+            }
+          }
         }
+      } else {
+        PartSys->particles[i].ttl--; // age splash particles faster (allows for higher splash brightness)
       }
     }
 
@@ -9650,6 +9727,7 @@ void mode_particleFireworks1D(void) {
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur
   int32_t gravity = (1 + (SEGMENT.speed >> 3)); // gravity value used for rocket speed calculation
   PartSys->setGravity(SEGMENT.speed ? gravity : 0); // set gravity
+  PartSys->setParticleSize(SEGMENT.check3); // 1 or 2 pixel rendering (global size, disables per particle size)
 
   if (PartSys->sources[0].sourceFlags.custom1 == 1) { // rocket is on standby
     PartSys->sources[0].source.ttl--;
@@ -9671,7 +9749,6 @@ void mode_particleFireworks1D(void) {
       PartSys->sources[0].source.vx = min(speed, (uint32_t)127);
       PartSys->sources[0].source.ttl = 4000;
       PartSys->sources[0].sat = 30; // low saturation exhaust
-      PartSys->sources[0].size = SEGMENT.check3; // single or double pixel rendering
       PartSys->sources[0].sourceFlags.reversegrav = false ; // normal gravity
 
       if (SEGENV.aux0) { // inverted rockets launch from end
@@ -9771,6 +9848,7 @@ void mode_particleSparkler(void) {
   numSparklers = PartSys->numSources;
   PartSys->setMotionBlur(SEGMENT.custom2); // anable motion blur/overlay
   //PartSys->setSmearBlur(SEGMENT.custom2); // anable smearing blur
+  PartSys->setParticleSize( SEGMENT.check3 ? 60 : 0); // single pixel or large particle rendering
 
   for (uint32_t i = 0; i < numSparklers; i++) {
     PartSys->sources[i].source.hue = hw_random16();
@@ -9783,7 +9861,6 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.vx = PartSys->sources[i].source.vx > 0 ? speed : -speed; // update speed, do not change direction
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
-    PartSys->sources[i].size = SEGMENT.check3 ? 120 : 0;
     if (SEGMENT.speed == 255) // random position at highest speed setting
       PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
     else
@@ -10157,7 +10234,6 @@ void mode_particleChase(void) {
     }
   }
 
-  PartSys->setParticleSize(SEGMENT.custom1); // if custom1 == 0 this sets rendering size to one pixel
   PartSys->update(); // update and render
 }
 static const char _data_FX_MODE_PS_CHASE[] PROGMEM = "PS Chase@!,Density,Size,Hue,Blur,Playful,,Position Color;,!;!;1;pal=11,sx=50,c2=5,c3=0";
@@ -10175,7 +10251,7 @@ void mode_particleStarburst(void) {
       FX_FALLBACK_STATIC; // allocation failed or is single pixel
     PartSys->setKillOutOfBounds(true);
     PartSys->enableParticleCollisions(true, 200);
-    PartSys->sources[0].source.ttl = 1; // set initial stanby time
+    PartSys->sources[0].source.ttl = 1; // set initial standby time
     PartSys->sources[0].sat = 0; // emitted particles start out white
   }
   else
@@ -10192,12 +10268,11 @@ void mode_particleStarburst(void) {
     uint32_t explosionsize = 4 + hw_random16(SEGMENT.intensity >> 2);
     PartSys->sources[0].source.hue = hw_random16();
     PartSys->sources[0].var = 10 + (explosionsize << 1);
-    PartSys->sources[0].minLife = 250;
+    PartSys->sources[0].minLife = 150;
     PartSys->sources[0].maxLife = 300;
     PartSys->sources[0].source.x = hw_random(PartSys->maxX); //random explosion position
     PartSys->sources[0].source.ttl = 10 + hw_random16(255 - SEGMENT.speed);
     PartSys->sources[0].size = SEGMENT.custom1; // Fragment size
-    PartSys->setParticleSize(SEGMENT.custom1); // enable advanced size rendering
     PartSys->sources[0].sourceFlags.collide = SEGMENT.check3;
     for (uint32_t e = 0; e < explosionsize; e++) { // emit particles
       if (SEGMENT.check2)
@@ -10208,9 +10283,9 @@ void mode_particleStarburst(void) {
   //shrink all particles
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->advPartProps[i].size)
-      PartSys->advPartProps[i].size--;
-    if (PartSys->advPartProps[i].sat < 251)
-      PartSys->advPartProps[i].sat += 1 + (SEGMENT.custom3 >> 2); //note: it should be >> 3, the >> 2 creates overflows resulting in blinking if custom3 > 27, which is a bonus feature
+      PartSys->advPartProps[i].size --;
+    if (PartSys->advPartProps[i].sat < 250)
+      PartSys->advPartProps[i].sat += 2 + (SEGMENT.custom3 >> 3);
   }
 
   if (SEGMENT.call % 5 == 0) {
@@ -10390,6 +10465,8 @@ void mode_particle1DsonicStream(void) {
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
 
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+  int mids = 0;
+  if (SEGMENT.check1) mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
 
@@ -10413,7 +10490,6 @@ void mode_particle1DsonicStream(void) {
       else PartSys->particles[i].ttl = 0;
     }
     if (SEGMENT.check1) { // modulate colors by mid frequencies
-      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
     }
   }
@@ -10487,6 +10563,8 @@ void mode_particle1DsonicBoom(void) {
   uint32_t loudness;
   uint32_t baseBin = SEGMENT.custom3 >> 1; // 0 - 15 map(SEGMENT.custom3, 0, 31, 0, 14);
   loudness = fftResult[baseBin];// + fftResult[baseBin + 1];
+  int mids = 0;
+  if (SEGMENT.check1) mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
 
   if (baseBin > 12)
     loudness = loudness << 2; // double loudness for high frequencies (better detecion)
@@ -10499,7 +10577,6 @@ void mode_particle1DsonicBoom(void) {
   // particle manipulation
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (SEGMENT.check1) { // modulate colors by mid frequencies
-      int mids = sqrt32_bw((int)fftResult[5] + (int)fftResult[6] + (int)fftResult[7] + (int)fftResult[8] + (int)fftResult[9] + (int)fftResult[10]); // average the mids, bin 5 is ~500Hz, bin 10 is ~2kHz (see audio_reactive.h)
       PartSys->particles[i].hue += (mids * perlin8(PartSys->particles[i].x << 2, SEGMENT.step << 2)) >> 9; // color by perlin noise from mid frequencies
     }
     if (PartSys->particles[i].ttl > 16) {
@@ -10534,7 +10611,6 @@ void mode_particle1DsonicBoom(void) {
     PartSys->sources[0].minLife = 200;
     PartSys->sources[0].maxLife = PartSys->sources[0].minLife + (((unsigned)SEGMENT.intensity * loudness * loudness) >> 13);
     PartSys->sources[0].source.hue = SEGMENT.aux0;
-    PartSys->sources[0].size = 1; //SEGMENT.speed>>3;
     uint32_t explosionsize = 4 + (PartSys->maxXpixel >> 2);
     explosionsize = hw_random16((explosionsize * loudness) >> 10);
     for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
@@ -10718,6 +10794,103 @@ static const char _data_FX_MODE_PS_SPRINGY[] PROGMEM = "PS Springy@Stiffness,Dam
 
 #endif // WLED_DISABLE_PARTICLESYSTEM1D
 
+/*
+ * Slow Transition effect
+ * Displays the currently selected palette/color with a very slow transition
+ * speed slider controls the number of minutes for the transition (0 = 10s)
+ * by DedeHai
+ */
+typedef struct SlowTransitionData {
+  CRGBPalette16 startPalette;        // initial palette
+  CRGBPalette16 currentPalette;      // blended palette for current frame, need permanent storage so we can start from this if target changes mid transition
+  CRGBPalette16 endPalette;          // target palette
+  uint8_t startWhite;
+  uint8_t currentWhite;
+  uint8_t endWhite;
+  uint8_t startCCT;
+  uint8_t currentCCT;
+  uint8_t endCCT;
+} slow_transition_data;
+
+void mode_slow_transition(void) {
+  // aliases
+  uint32_t* startTime = &SEGMENT.step;  // use step to store start time of transition
+  uint16_t* stepsDone = &SEGMENT.aux0;
+  uint16_t* startSpeed = &SEGMENT.aux1; // speed setting at the start of the transition, used to detect changes
+
+  size_t dataSize = sizeof(slow_transition_data);
+  if (!SEGMENT.allocateData(dataSize)) FX_FALLBACK_STATIC;
+  slow_transition_data* data = reinterpret_cast<slow_transition_data*>(SEGMENT.data);
+  // Note: compare currentCCT (not endCCT). SEGMENT.cct is set to currentCCT at the end of each call, if they differ, it was changed externally
+  bool changed = (data->endPalette != SEGPALETTE || *startSpeed != SEGMENT.speed || data->endWhite != W(SEGCOLOR(0)) || data->currentCCT != SEGMENT.cct); // detect changes in target color or speed setting
+
+  // (re) init
+  if (changed || SEGMENT.call == 0) {
+    if (SEGMENT.call == 0) {
+      data->startPalette = SEGPALETTE;
+      data->currentPalette = SEGPALETTE;
+      data->endPalette = SEGPALETTE;
+      data->startWhite = data->currentWhite = data->endWhite = W(SEGCOLOR(0));
+      data->startCCT = data->currentCCT = data->endCCT = SEGMENT.cct;
+      *stepsDone = 0xFFFF; // set to max, fading will start once a change is detected
+    }
+    else {
+      data->startPalette = data->currentPalette;
+      data->endPalette = SEGPALETTE;
+      data->startWhite = data->currentWhite;
+      data->endWhite = W(SEGCOLOR(0));
+      data->startCCT = data->currentCCT;
+      data->endCCT = SEGMENT.cct;
+      *stepsDone = 0; // reset counter
+    }
+    *startSpeed = SEGMENT.speed;
+    *startTime = millis(); // set start time note: intentionally not using strip.now as this is based on real time
+  }
+
+  uint32_t totalSteps = SEGMENT.check2 ? 16 * 255 : 255;
+  uint32_t duration = (SEGMENT.speed == 0) ? 10000 : (uint32_t)SEGMENT.speed * 60000; // 10s if zero (good for testing), otherwise map 1-255 to 1-255 minutes
+  uint32_t elapsed = millis() - *startTime; // note: will overflow after ~50 days if just left alone (edge case unhandled)
+  uint32_t expectedSteps = (uint64_t)elapsed * totalSteps / duration;
+  expectedSteps = min(expectedSteps, totalSteps); // limit to total steps
+
+  if (*stepsDone > expectedSteps)
+    *stepsDone = expectedSteps;// in case sweep was disabled mid transition
+
+  if (*stepsDone < expectedSteps) {
+    *stepsDone = expectedSteps; // jump to expected steps to make sure timing is correct (need up to 4080 frames, at 20fps that is ~200 seconds)
+    uint8_t blendAmount;
+    if (SEGMENT.check2) {
+      // sweep: one palette entry at a time
+      uint8_t i = *stepsDone % 16;
+      blendAmount  = *stepsDone / 16;
+      data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+    } else {
+      // full palette at once
+      blendAmount = (uint8_t)*stepsDone;
+      for (uint8_t i = 0; i < 16; i++) {
+        data->currentPalette[i] = CRGB(color_blend(CRGBW(data->startPalette[i]), CRGBW(data->endPalette[i]), blendAmount));
+      }
+    }
+    data->currentWhite = (data->startWhite * (255 - blendAmount) + data->endWhite * blendAmount) / 255;
+    data->currentCCT = (data->startCCT * (255 - blendAmount) + data->endCCT * blendAmount) / 255;
+    if (*stepsDone >= totalSteps) {
+      // transition complete, apply end palette
+      data->currentPalette = data->endPalette; // set to end palette (sweep may not have set all entries)
+      data->currentWhite = data->endWhite;
+      data->currentCCT = data->endCCT;
+    }
+  }
+  // display current palette (plus white) over segment
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    uint8_t paletteIndex = (i * 255) / SEGLEN;
+    CRGBW palcol = ColorFromPalette(data->currentPalette, paletteIndex, 255, LINEARBLEND_NOWRAP);
+    palcol.w = data->currentWhite; // TODO: currently "sweep mode" does not support white sweep
+    SEGMENT.setPixelColor(i, palcol.color32);
+  }
+  SEGMENT.cct = data->currentCCT;
+}
+static const char _data_FX_MODE_SLOW_TRANSITION[] PROGMEM = "Slow Transition@Time (min),,,,,,Sweep;!;!;1;pal=2,sx=0,ix=0";
+
 //////////////////////////////////////////////////////////////////////////////////////////
 // mode data
 static const char _data_RESERVED[] PROGMEM = "RSVD";
@@ -10794,6 +10967,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLOR_SWEEP_RANDOM, &mode_color_sweep_random, _data_FX_MODE_COLOR_SWEEP_RANDOM);
   addEffect(FX_MODE_RUNNING_COLOR, &mode_running_color, _data_FX_MODE_RUNNING_COLOR);
   addEffect(FX_MODE_AURORA, &mode_aurora, _data_FX_MODE_AURORA);
+  addEffect(FX_MODE_COLORCLOUDS, &mode_ColorClouds, _data_FX_MODE_COLORCLOUDS);
   addEffect(FX_MODE_RUNNING_RANDOM, &mode_running_random, _data_FX_MODE_RUNNING_RANDOM);
   addEffect(FX_MODE_LARSON_SCANNER, &mode_larson_scanner, _data_FX_MODE_LARSON_SCANNER);
   addEffect(FX_MODE_RAIN, &mode_rain, _data_FX_MODE_RAIN);
@@ -10880,6 +11054,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
+  addEffect(FX_MODE_SLOW_TRANSITION, &mode_slow_transition, _data_FX_MODE_SLOW_TRANSITION);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
