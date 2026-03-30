@@ -1,10 +1,11 @@
-import os
 import re
 import subprocess
-from pathlib import Path   # For OS-agnostic path manipulation
+from pathlib import Path
 from click import secho
 from SCons.Script import Action, Exit
 Import("env")
+
+_ATTR = re.compile(r'\bDW_AT_(name|comp_dir)\b')
 
 
 def read_lines(p: Path):
@@ -16,9 +17,8 @@ def read_lines(p: Path):
 def _get_readelf_path(env) -> str:
     """ Derive the readelf tool path from the build environment """
     # Derive from the C compiler: xtensa-esp32-elf-gcc → xtensa-esp32-elf-readelf
-    cc = env.subst("$CC")
-    readelf = re.sub(r'(gcc|g\+\+)$', 'readelf', os.path.basename(cc))
-    return os.path.join(os.path.dirname(cc), readelf)
+    cc = Path(env.subst("$CC"))
+    return str(cc.with_name(re.sub(r'(gcc|g\+\+)$', 'readelf', cc.name)))
 
 
 def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
@@ -51,6 +51,7 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
 
     remaining = {Path(str(b.src_dir)): Path(b.build_dir).name for b in module_lib_builders}
     found = set()
+    project_dir = Path(env.subst("$PROJECT_DIR"))
 
     def _flush_cu(comp_dir: str | None, name: str | None) -> None:
         """Match one completed CU against remaining builders."""
@@ -58,10 +59,16 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
             return
         p = Path(name)
         src_path = (Path(comp_dir) / p) if (comp_dir and not p.is_absolute()) else p
+        # In arduino+espidf dual-framework builds the IDF toolchain sets DW_AT_comp_dir
+        # to the virtual path "/IDF_PROJECT" rather than the real project root, so
+        # src_path won't match.  Pre-compute a fallback using $PROJECT_DIR and check
+        # both candidates in a single pass.
+        use_fallback = not p.is_absolute() and comp_dir and Path(comp_dir) != project_dir
+        src_path_real = project_dir / p if use_fallback else None
         for src_dir in list(remaining):
-            if src_path.is_relative_to(src_dir):
+            if src_path.is_relative_to(src_dir) or (src_path_real and src_path_real.is_relative_to(src_dir)):
                 found.add(remaining.pop(src_dir))
-                break
+                return
 
     # readelf emits one DW_TAG_compile_unit DIE per source file.  Attributes
     # of interest:
@@ -71,12 +78,10 @@ def check_elf_modules(elf_path: Path, env, module_lib_builders) -> set[str]:
     #   DW_AT_name     : foo.cpp
     #   DW_AT_name     : (indirect string, offset: 0x…): foo.cpp
     # Taking the portion after the *last* ": " on the line handles both forms.
-    _CU_HEADER = re.compile(r'Compilation Unit @')
-    _ATTR      = re.compile(r'\bDW_AT_(name|comp_dir)\b')
 
     comp_dir = name = None
     for line in output.splitlines():
-        if _CU_HEADER.search(line):
+        if 'Compilation Unit @' in line:
             _flush_cu(comp_dir, name)
             comp_dir = name = None
             continue
@@ -120,6 +125,8 @@ def count_usermod_objects(map_file: list[str]) -> int:
                 m = re.search(r'0x([0-9a-fA-F]+)', map_file[i + 1])
                 if m:
                     addr_end = int(m.group(1), 16)
+        if addr_begin is not None and addr_end is not None:
+            break
 
     if addr_begin is None or addr_end is None:
         return 0
@@ -129,7 +136,7 @@ def count_usermod_objects(map_file: list[str]) -> int:
 def validate_map_file(source, target, env):
     """ Validate that all modules appear in the output build """
     build_dir = Path(env.subst("$BUILD_DIR"))
-    map_file_path = build_dir /  env.subst("${PROGNAME}.map")
+    map_file_path = build_dir / env.subst("${PROGNAME}.map")
 
     if not map_file_path.exists():
         secho(f"ERROR: Map file not found: {map_file_path}", fg="red", err=True)
@@ -158,7 +165,6 @@ def validate_map_file(source, target, env):
             fg="red",
             err=True)
         Exit(1)
-    return None
 
 env.Append(LINKFLAGS=[env.subst("-Wl,--Map=${BUILD_DIR}/${PROGNAME}.map")])
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", Action(validate_map_file, cmdstr='Checking linked optional modules (usermods) in map file'))
