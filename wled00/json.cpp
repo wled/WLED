@@ -1195,7 +1195,7 @@ void respondModeData(AsyncWebServerRequest* request) {
           size_t mode_bytes;
           if (dataPtr) {
             mode_bytes = snprintf_P((char*) data, len, PSTR(",\"%s\""), dataPtr + 1);
-            if (mode_bytes > len) break;  // didn't fit; break loop and try again next packet          
+            if (mode_bytes >= len) break;  // didn't fit; break loop and try again next packet          
           } else {
             strncpy_P((char*)data, PSTR(",\"\""), len);
             mode_bytes = 3;
