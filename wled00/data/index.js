@@ -3413,13 +3413,25 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 	showToast('Reporting upgrade...');
+	const IR_TYPES = {
+		0: null,           // not configured — omit field entirely
+		1: "3-key",
+		2: "24-key",
+		3: "24-key-v2",
+		4: "40-key",
+		5: "44-key",
+		6: "21-key",
+		7: "6-key",
+		8: "9-key",
+		9: "json-remote",
+	};
 
-	// Fetch fresh data from /json/info endpoint as requested
-	fetch(getURL('/json/info'), {
-		method: 'get'
-	})
-		.then(res => res.json())
-		.then(infoData => {
+	// Fetch fresh data from /json/info and /json/cfg endpoints
+	Promise.all([
+		fetch(getURL('/json/info'), {method: 'get'}).then(res => res.json()),
+		fetch(getURL('/json/cfg'), {method: 'get'}).then(res => res.json())
+	])
+		.then(([infoData, cfgData]) => {
 			// Map to UpgradeEventRequest structure per OpenAPI spec
 			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 			const upgradeData = {
@@ -3434,13 +3446,54 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 				brand: infoData.brand,                           // Device brand (always present)
 				product: infoData.product,                       // Product name (always present)
 				flashSize: infoData.flash,                       // Flash size (always present)
-				repo: infoData.repo                              // GitHub repository (always present)
-			};
+				repo: infoData.repo,                             // GitHub repository (always present)
+				fsUsed: infoData.fs?.u,                          // Filesystem used space in kB
+				fsTotal: infoData.fs?.t,                         // Filesystem total space in kB
+
+				// LED hardware
+				busCount:              cfgData.hw?.led?.ins?.length ?? 1,
+				busTypes:              (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
+				matrixWidth:           infoData.leds?.matrix?.w,
+				matrixHeight:          infoData.leds?.matrix?.h,
+				hasRGBW:               !!(infoData.leds?.lc & 0x02),
+				hasCCT:                !!(infoData.leds?.lc & 0x04),
+				ablEnabled:            (infoData.leds?.maxpwr ?? 0) > 0,
+				cctFromRgb:            cfgData.hw?.led?.cr ?? false,
+				whiteBalanceCorrection: cfgData.hw?.led?.cct ?? false,
+				gammaCorrection:       (cfgData.light?.gc?.col ?? 1.0) > 1.0,
+				autoSegments:          cfgData.light?.aseg ?? false,
+				nightlightEnabled:     (cfgData.light?.nl?.mode ?? 0) > 0,
+
+				// peripherals
+				relayConfigured:   (cfgData.hw?.relay?.pin ?? -1) >= 0,
+				buttonCount:       (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
+				i2cConfigured:     (cfgData.hw?.if?.['i2c-pin']?.[0] ?? -1) >= 0,
+				spiConfigured:     (cfgData.hw?.if?.['spi-pin']?.[0] ?? -1) >= 0,
+				ethernetEnabled:   (cfgData.eth?.type ?? 0) > 0,
+
+				// integrations
+				hueEnabled:        cfgData.if?.hue?.en ?? false,
+				mqttEnabled:       cfgData.if?.mqtt?.en ?? false,
+				alexaEnabled:      cfgData.if?.va?.alexa ?? false,
+				wledSyncSend:      cfgData.if?.sync?.send?.en ?? false,
+				espNowEnabled:     cfgData.nw?.espnow ?? false,
+				espNowSync:        cfgData.if?.sync?.espnow ?? false,
+				espNowRemoteCount: Array.isArray(cfgData.nw?.linked_remote)
+						 ? cfgData.nw.linked_remote.length
+						 : (cfgData.nw?.linked_remote ? 1 : 0),
+
+				// usermods
+				usermods:    Object.keys(cfgData.um ?? {}),
+				usermodIds:  infoData.um ?? [],
+			  };
+
+			// IR remote — only include if configured
+			const irType = IR_TYPES[cfgData.hw?.ir?.type ?? 0];
+			if (irType) upgradeData.irRemoteType = irType;
 
 			// Add optional fields if available
 			if (infoData.psrSz !== undefined) upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB; can be 0
 
-			// Note: partitionSizes not currently available in /json/info endpoint
 
 			// Make AJAX call to postUpgradeEvent API
 			return fetch('https://usage.wled.me/api/usage/upgrade', {
@@ -3469,6 +3522,17 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 			showToast('Report failed', true);
 			updateVersionInfo(info.ver, false, !!alwaysReport);
 		});
+}
+
+function busTypeToString(t) {
+	if (t === 0)                       return "none";
+	if (t === 40)                      return "on-off";
+	if (t >= 16 && t <= 39)            return "digital";      // WS2812, SK6812, etc.
+	if (t >= 41 && t <= 47)            return "pwm";          // analog RGB/CCT/single
+	if (t >= 48 && t <= 63)            return "digital-spi";  // APA102, WS2801, etc.
+	if (t >= 64 && t <= 71)            return "hub75";        // HUB75 matrix panels
+	if (t >= 80 && t <= 95)            return "network";      // DDP, E1.31, ArtNet
+	return "unknown";
 }
 
 function updateVersionInfo(version, neverAsk, alwaysReport) {
