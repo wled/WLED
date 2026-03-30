@@ -1176,6 +1176,42 @@ void serializeModeNames(JsonArray arr)
   }
 }
 
+// Writes a JSON-escaped string (with surrounding quotes) into dest[0..maxLen-1].
+// Returns bytes written, or 0 if the buffer was too small.
+static size_t writeJSONString(uint8_t* dest, size_t maxLen, const char* src) {
+  size_t pos = 0;
+
+  auto emit = [&](char c) -> bool {
+    if (pos >= maxLen) return false;
+    dest[pos++] = (uint8_t)c;
+    return true;
+  };
+
+  if (!emit('"')) return 0;
+
+  for (const char* p = src; *p; ++p) {
+    char esc = ARDUINOJSON_NAMESPACE::EscapeSequence::escapeChar(*p);
+    if (esc) {
+      if (!emit('\\') || !emit(esc)) return 0;
+    } else {
+      if (!emit(*p)) return 0;
+    }
+  }
+
+  if (!emit('"')) return 0;
+  return pos;
+}
+
+// Writes ,"<escaped_src>" into dest[0..maxLen-1] (no null terminator).
+// Returns bytes written, or 0 if the buffer was too small.
+static size_t writeJSONStringElement(uint8_t* dest, size_t maxLen, const char* src) {
+  if (maxLen == 0) return 0;
+  dest[0] = ',';
+  size_t n = writeJSONString(dest + 1, maxLen - 1, src);
+  if (n == 0) return 0;
+  return 1 + n;
+}
+
 // Generate a streamed JSON response for the mode data
 // This uses sendChunked to send the reply in blocks based on how much fit in the outbound
 // packet buffer, minimizing the required state (ie. just the next index to send).  This
@@ -1187,19 +1223,13 @@ void respondModeData(AsyncWebServerRequest* request) {
     [fx_index](uint8_t* data, size_t len, size_t) mutable {
       size_t bytes_written = 0;
       char lineBuffer[256];
-      while (fx_index < strip.getModeCount() && (len > 5)) {
-        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)/sizeof(char)-1); // Copy to stack buffer for strchr
+      while (fx_index < strip.getModeCount()) {
+        strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
         if (lineBuffer[0] != 0) {
-          lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
-          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
-          size_t mode_bytes;
-          if (dataPtr) {
-            mode_bytes = snprintf_P((char*) data, len, PSTR(",\"%s\""), dataPtr + 1);
-            if (mode_bytes >= len) break;  // didn't fit; break loop and try again next packet          
-          } else {
-            strncpy_P((char*)data, PSTR(",\"\""), len);
-            mode_bytes = 3;
-          }
+          lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
+          const char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
+          size_t mode_bytes = writeJSONStringElement(data, len, dataPtr ? dataPtr + 1 : "");
+          if (mode_bytes == 0) break;  // didn't fit; break loop and try again next packet
           if (fx_index == 0) *data = '[';
           data += mode_bytes;
           len -= mode_bytes;
