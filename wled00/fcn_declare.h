@@ -103,13 +103,10 @@ void setRandomColor(byte* rgb);
 //dmx.cpp
 void initDMX();
 void handleDMX();
-<<<<<<< HEAD
-=======
 
 //dmx_input.cpp
 void initDMXInput();
 void handleDMXInput();
->>>>>>> b4bbf0a5 (Extract dmx_input from dmx.cpp into dmx_input.cpp.)
 
 //e131.cpp
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
