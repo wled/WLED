@@ -251,7 +251,10 @@ function makePinSelect(name, flags) {
 		if (j > -1 && (flags & 4) && (!d.adc || !d.adc.includes(j))) continue;
 		let txt = (j === -1) ? "unused" : `${j}`;
 		let used = j > -1 && d.um_p && d.um_p.includes(j) && j !== v;
-		if (used) txt += " used";
+		if (used) {
+			//txt += " used";
+			if (d.pin_names && d.pin_names[j]) txt += ` (${d.pin_names[j]})`;
+		}
 		if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)";
 		let opt = cE("option");
 		opt.value = j;

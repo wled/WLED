@@ -49,7 +49,22 @@
 				setABL();
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
-				pinDropdowns();
+				fetch(getURL('/json/pins')).then(r=>r.json()).then(j=>{
+					if (j && j.pins) {
+						let um = [];
+						d.pin_names = {};
+						j.pins.forEach(p => {
+							// 0x82=BusDigital, 0x83=BusOnOff, 0x84=BusPwm, 0x85=Button, 0x86=IR, 0x87=Relay, 0x8E=HUB75
+							let ledOwners = [0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x8E];
+							if (p.a && !ledOwners.includes(p.o)) um.push(p.p);
+							if (p.n) d.pin_names[p.p] = p.n;
+						});
+						d.um_p = um;
+					}
+					pinDropdowns();
+				}).catch(e=>{
+					pinDropdowns();
+				});
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
@@ -70,9 +85,10 @@
 		function isS2()   { return chipID == 2; }
 		function isS3()   { return chipID == 3; }
 		function is32()   { return chipID == 4; }
+
 		function pinsOK() {
 			var ok = true;
-			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
+			var nList = Array.from(d.Sf.querySelectorAll("#mLC input[name^=L], #mLC select.pin[name^=L]")); // include both input types (numeric & dropdown)
 			nList.forEach((LC,i)=>{
 				if (!ok) return; // prevent iteration after conflict
 				let nm = LC.name.substring(0,2);  // field name : /L./
@@ -87,17 +103,17 @@
 				//check for pin conflicts
 				if (LC.value!="" && LC.value!="-1") {
 					let p = d.rsvd.concat(d.um_p); // used pin array
-					d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
+					//d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
+					// only non-LED selects (buttons, IR, relay) — LED pins check against each other below
+					d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(!/^L[0-4]/.test(e.name) && e.value>-1)p.push(parseInt(e.value));})
 					if (p.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(p)} can't be used.`);
-						LC.value="";
-						LC.focus();
+						if (LC.tagName==="SELECT") LC.value="-1"; else { LC.value=""; LC.focus(); } // TODO: need to "focus" dropdowns too? if so how?
 						ok = false;
 						return;
 					} else if (d.ro_gpio.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(d.ro_gpio)} are input only.`);
-						LC.value="";
-						LC.focus();
+						if (LC.tagName==="SELECT") LC.value="-1"; else { LC.value=""; LC.focus(); }
 						ok = false;
 						return;
 					}
@@ -107,10 +123,9 @@
 							let m  = nList[j].name.substring(2,3); // bus number (0-Z)
 							let t2 = parseInt(gN("LT"+m).value, 10);
 							if (isVir(t2)) continue;
-							if (nList[j].value!="" && nList[i].value==nList[j].value) {
+							if (nList[j].value!="" && nList[j].value!="-1" && LC.value==nList[j].value) {
 								alert(`Pin conflict between ${LC.name}/${nList[j].name}!`);
-								nList[j].value="";
-								nList[j].focus();
+								if (nList[j].tagName==="SELECT") nList[j].value="-1"; else { nList[j].value=""; nList[j].focus(); }
 								ok = false;
 								return;
 								}
@@ -303,28 +318,28 @@
 				gId("p0d"+n).innerText = p0d;
 				gId("p1d"+n).innerText = p1d;
 				gId("off"+n).innerText = off;
-				// secondary pins show/hide (type string length is equivalent to number of pins used; except for network and on/off)
-				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 4*isHub75(t); // fixes network pins to 4
+				// convert pin fields so show/hide applies to the correct element type
+ 				for (let p=0; p<5; p++) {
+ 					let nm2 = "L"+p+n;
+ 					let el = d.Sf[nm2];
+ 					if (!el) continue;
+ 					if (isVir(t) || isHub75(t)) {
+ 						if (el.tagName === "SELECT") unmakePinSelect(nm2); // see common.js
+ 					} else {
+ 						if (el.tagName === "INPUT" && el.type === "number") {
+ 							makePinSelect(nm2, 1); // see common.js
+ 							d.pinUpdPending = true;
+ 						}
+ 					}
+ 				}
+				// show/hide secondary pins on whatever element type now exists
+				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 4*isHub75(t);
 				for (let p=1; p<5; p++) {
 					var LK = d.Sf["L"+p+n];
 					if (!LK) continue;
 					LK.style.display = (p < pins) ? "inline" : "none";
 					LK.required = (p < pins);
-					if (p >= pins) LK.value="";
-				}
-				// convert LED pin fields between dropdown and input based on bus type
-				for (let p=0; p<5; p++) {
-					let nm2 = "L"+p+n;
-					let el = d.Sf[nm2];
-					if (!el) continue;
-					if (isVir(t) || isHub75(t)) {
-						if (el.tagName === "SELECT") unmakePinSelect(nm2);
-					} else {
-						if (el.tagName === "INPUT" && el.type === "number") {
-							let s = makePinSelect(nm2, 1);
-							if (s) pinUpd(s);
-						}
-					}
+					if (p >= pins) LK.value = (LK.tagName === "SELECT") ? "-1" : "";
 				}
 			}
 
@@ -429,6 +444,7 @@
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
+				/*
 				// check for pin conflicts & color fields
 				if (nm.search(/^L[0-4]/) == 0) // pin fields
 					if (LC.value!="" && LC.value!="-1") {
@@ -448,6 +464,7 @@
 						if (p.some((e)=>e==parseInt(LC.value))) LC.style.color = "red";
 						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
 					} else LC.style.color = "#fff";
+				*/
 			});
 
 			// Use helper function to calculate channel usage
@@ -524,6 +541,11 @@
 			gId('fpsNone').style.display = (d.Sf.FR.value == 0) ? 'block':'none';
 			gId('fpsWarn').style.display = (d.Sf.FR.value == 0) || (d.Sf.FR.value >= 80) ? 'block':'none';
 			gId('fpsHigh').style.display = (d.Sf.FR.value >= 80) ? 'block':'none';
+
+			if (d.pinUpdPending) {
+				d.pinUpdPending = false;
+				d.Sf.querySelectorAll("select.pin").forEach((e) => { pinUpd(e); });
+			}
 		}
 
 		function lastEnd(i) {
