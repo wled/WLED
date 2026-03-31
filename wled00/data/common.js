@@ -222,14 +222,42 @@ function sendDDP(ws, start, len, colors) {
 	}
 	return true;
 }
+
+// Pin utilities
+function getOwnerName(o,t,n) {
+	// Use firmware-provided name if available
+	if(n) return n;
+	if(!o) return "System"; // no owner provided
+	if(o===0x85){ return getBtnTypeName(t); } // button pin
+	return "UM #"+o;
+}
+function getBtnTypeName(t) {
+	var n=["None","Reserved","Push","Push Inv","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
+	var label = n[t] || "?";
+	return 'Button <span style="font-size:10px;color:#888">'+label+'</span>';
+}
+function getCaps(p,c) {
+	var r=[];
+	// Use touch info from settings endpoint
+	if(d.touch && d.touch.includes(p)) r.push("Touch");
+	if(d.ro_gpio && d.ro_gpio.includes(p)) r.push("Input Only");
+	// Use other caps from JSON (Analog, Boot, Input Only)
+	if(c&0x02) r.push("Analog");
+	if(c&0x08) r.push("Flash Boot");
+	if(c&0x10) r.push("Bootstrap");
+	return r.length?r.join(", "):"-";
+}
+
 // Pin dropdown utilities
 // Create or rebuild a pin <select> from an <input> or existing <select>
-// name: form field name, flags: bitmask 1=output, 2=touch, 4=ADC
-function makePinSelect(name, flags) {
+// name: form field name, requirement flags bitmask: 1=output, 2=touch, 4=ADC
+// name: form field name, flags: bitmask 1=output, 2=touch, 4=ADC, pinsData: array from /json/pins
+function makePinSelect(name, flags, pinsData = null) {
 	let el = gN(name);
 	if (!el) return null;
 	let v = parseInt(el.value);
 	if (isNaN(v)) v = -1;
+
 	let sel;
 	if (el.tagName === "SELECT") {
 		sel = el;
@@ -243,26 +271,45 @@ function makePinSelect(name, flags) {
 		if (oc) sel.setAttribute("onchange", oc);
 		el.parentElement.replaceChild(sel, el);
 	}
+
 	let hasV = false;
 	for (let j = -1; j < (d.max_gpio||0); j++) {
 		if (j > -1 && d.rsvd && d.rsvd.includes(j)) continue;
 		if (j > -1 && (flags & 1) && d.ro_gpio && d.ro_gpio.includes(j)) continue;
 		if (j > -1 && (flags & 2) && (!d.touch || !d.touch.includes(j))) continue;
 		if (j > -1 && (flags & 4) && (!d.adc || !d.adc.includes(j))) continue;
+
 		let txt = (j === -1) ? "unused" : `${j}`;
-		let used = j > -1 && d.um_p && d.um_p.includes(j) && j !== v;
+		// Find pin info from the JSON data if provided
+		let pInfo = pinsData ? pinsData.find(p => p.p === j) : null;
+
+		// Logic: A pin is "used" if the API says it's active (p.a) 
+		// AND it's not the pin currently assigned to this field (j !== v)
+		let used = (pInfo && pInfo.a && j !== v) || (j > -1 && d.um_p && d.um_p.includes(j) && j !== v);
+
 		if (used) {
-			//txt += " used";
-			if (d.pin_names && d.pin_names[j]) txt += ` (${d.pin_names[j]})`;
+			if (pInfo) {
+				// Use the same owner naming logic as your info list
+				txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
+			} else if (d.pin_names && d.pin_names[j]) {
+				txt += ` (${d.pin_names[j]})`;
+			} else {
+				txt += " (used)";
+			}
 		}
+
 		if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)";
+
 		let opt = cE("option");
 		opt.value = j;
 		opt.text = txt;
 		sel.appendChild(opt);
+
 		if (j === v) { opt.selected = true; hasV = true; }
 		else if (used) opt.disabled = true;
 	}
+
+	// Safety for invalid pins currently saved
 	if (!hasV && v >= 0) {
 		let opt = cE("option");
 		opt.value = v; opt.text = v + " ⚠"; opt.selected = true;
@@ -271,6 +318,7 @@ function makePinSelect(name, flags) {
 	sel.dataset.val = v;
 	return sel;
 }
+
 // Convert pin <select> back to <input type="number">
 function unmakePinSelect(name) {
 	let sel = gN(name);
