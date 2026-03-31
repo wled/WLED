@@ -101,7 +101,11 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     #endif      
   #endif
   #define WLED_MAX_TIMERS 64                // maximum number of timers
-  #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+  #ifndef WLED_MAX_DIGITAL_CHANNELS
+    #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+  #else
+    #warning "buildenv overrides WLED_MAX_DIGITAL_CHANNELS - please check that the value is correct" 
+  #endif
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time
