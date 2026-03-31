@@ -222,3 +222,78 @@ function sendDDP(ws, start, len, colors) {
 	}
 	return true;
 }
+// Pin dropdown utilities
+// Create or rebuild a pin <select> from an <input> or existing <select>
+// name: form field name, flags: bitmask 1=output, 2=touch, 4=ADC
+function makePinSelect(name, flags) {
+	let el = gN(name);
+	if (!el) return null;
+	let v = parseInt(el.value);
+	if (isNaN(v)) v = -1;
+	let sel;
+	if (el.tagName === "SELECT") {
+		sel = el;
+		while (sel.lastChild) sel.lastChild.remove();
+	} else {
+		sel = cE('select');
+		sel.classList.add("pin");
+		sel.name = el.name;
+		if (el.required) sel.required = true;
+		let oc = el.getAttribute("onchange");
+		if (oc) sel.setAttribute("onchange", oc);
+		el.parentElement.replaceChild(sel, el);
+	}
+	let hasV = false;
+	for (let j = -1; j < (d.max_gpio||0); j++) {
+		if (j > -1 && d.rsvd && d.rsvd.includes(j)) continue;
+		if (j > -1 && (flags & 1) && d.ro_gpio && d.ro_gpio.includes(j)) continue;
+		if (j > -1 && (flags & 2) && (!d.touch || !d.touch.includes(j))) continue;
+		if (j > -1 && (flags & 4) && (!d.adc || !d.adc.includes(j))) continue;
+		let txt = (j === -1) ? "unused" : `${j}`;
+		let used = j > -1 && d.um_p && d.um_p.includes(j) && j !== v;
+		if (used) txt += " used";
+		if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)";
+		let opt = cE("option");
+		opt.value = j;
+		opt.text = txt;
+		sel.appendChild(opt);
+		if (j === v) { opt.selected = true; hasV = true; }
+		else if (used) opt.disabled = true;
+	}
+	if (!hasV && v >= 0) {
+		let opt = cE("option");
+		opt.value = v; opt.text = v + " ⚠"; opt.selected = true;
+		sel.insertBefore(opt, sel.options[1]);
+	}
+	sel.dataset.val = v;
+	return sel;
+}
+// Convert pin <select> back to <input type="number">
+function unmakePinSelect(name) {
+	let sel = gN(name);
+	if (!sel || sel.tagName !== "SELECT") return null;
+	let inp = cE('input');
+	inp.type = "number";
+	inp.name = sel.name;
+	inp.value = sel.value;
+	inp.className = "s";
+	if (sel.required) inp.required = true;
+	let oc = sel.getAttribute("onchange");
+	if (oc) inp.setAttribute("onchange", oc);
+	sel.parentElement.replaceChild(inp, sel);
+	return inp;
+}
+// Add option to select, auto-select matching data-val
+function addOption(sel, txt, val) {
+	if (!sel) return null;
+	let opt = cE("option");
+	opt.value = val;
+	opt.text = txt;
+	sel.appendChild(opt);
+	if (sel.dataset.val !== undefined) {
+		for (let i = 0; i < sel.options.length; i++) {
+			if (sel.options[i].value == sel.dataset.val) { sel.selectedIndex = i; break; }
+		}
+	}
+	return opt;
+}

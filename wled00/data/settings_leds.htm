@@ -312,6 +312,20 @@
 					LK.required = (p < pins);
 					if (p >= pins) LK.value="";
 				}
+				// convert LED pin fields between dropdown and input based on bus type
+				for (let p=0; p<5; p++) {
+					let nm2 = "L"+p+n;
+					let el = d.Sf[nm2];
+					if (!el) continue;
+					if (isVir(t) || isHub75(t)) {
+						if (el.tagName === "SELECT") unmakePinSelect(nm2);
+					} else {
+						if (el.tagName === "INPUT" && el.type === "number") {
+							let s = makePinSelect(nm2, 1);
+							if (s) pinUpd(s);
+						}
+					}
+				}
 			}
 
 			// enable/disable LED fields
@@ -671,11 +685,18 @@ Swap: <select id="xw${s}" name="XW${s}">
 			gId("com_rem").style.display = (i>0) ? "inline":"none";
 		}
 
+		// get pin dropdown flags for button type: touch=2, ADC=4, any=0
+		function btnPinFlags(t) { return (t==6||t==9) ? 2 : (t==7||t==8) ? 4 : 0; }
+		function btnPinDd(s) {
+			let t = parseInt(d.Sf["BE"+s].value);
+			makePinSelect("BT"+s, btnPinFlags(t));
+			d.Sf.querySelectorAll("select.pin").forEach(e => pinUpd(e));
+		}
 		function addBtn(i,p,t) {
 			var b = gId("btns");
 			var s = chrID(i);
 			var c = `<div id="btn${i}">#${i} GPIO: <input type="number" name="BT${s}" onchange="UI()" min="-1" max="${d.max_gpio}" class="xs" value="${p}">`;
-			c += `&nbsp;<select name="BE${s}">`
+			c += `&nbsp;<select name="BE${s}" onchange="btnPinDd('${s}')">`
 			c += `<option value="0" ${t==0?"selected":""}>Disabled</option>`;
 			c += `<option value="2" ${t==2?"selected":""}>Pushbutton</option>`;
 			c += `<option value="3" ${t==3?"selected":""}>Push inverted</option>`;
@@ -805,100 +826,56 @@ Swap: <select id="xw${s}" name="XW${s}">
 			}
 		}
 		function pinDropdowns() {
-			let fields = ["IR","RL"]; // IR & relay
-			gId("btns").querySelectorAll('input[type="number"]').forEach((e)=>{fields.push(e.name);}) // buttons
-			for (let i of d.Sf.elements) {
-				if (i.type === "number" && fields.includes(i.name)) { //select all pin select elements
-					let v = parseInt(i.value);
-					let sel = addDropdown(i.name,0);
-					for (var j = -1; j < d.max_gpio; j++) {
-						if (d.rsvd.includes(j)) continue;
-						let foundPin = d.um_p.indexOf(j);
-						let txt = (j === -1) ? "unused" : `${j}`;
-						if (foundPin >= 0 && j !== v) txt += ` used`; // already reserved pin
-						if (d.ro_gpio.includes(j)) txt += " (R/O)";
-						let opt = addOption(sel, txt, j);
-						if (j === v) opt.selected = true; // this is "our" pin
-						else if (d.um_p.includes(j) && j > -1) opt.disabled = true; // someone else's pin
-					}
-				}
-			}
-			// update select options
-			d.Sf.querySelectorAll("select.pin").forEach((e)=>{pinUpd(e);});
-			// add dataset values for LED GPIO pins
-			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i)=>{
-				if (i.value!=="" && i.value>=0)
+			// IR (any pin including input-only)
+			makePinSelect("IR", 0);
+			// Relay (output required)
+			makePinSelect("RL", 1);
+			// Buttons (flags depend on button type: touch=2, ADC=4)
+			gId("btns").querySelectorAll('input[type="number"]').forEach((e) => {
+				let s = e.name.substring(2);
+				let t = parseInt(d.Sf["BE"+s]?.value) || 0;
+				makePinSelect(e.name, btnPinFlags(t));
+			});
+			// cross-update all pin selects
+			d.Sf.querySelectorAll("select.pin").forEach((e) => { pinUpd(e); });
+			// add dataset values for remaining LED GPIO inputs (virtual/HUB75)
+			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i) => {
+				if (i.value !== "" && i.value >= 0)
 					i.dataset.val = i.value;
 			});
 		}
 		function pinUpd(e) {
-			// update changed select options across all usermods
+			// update changed select options across all pin selects
 			let oldV = parseInt(e.dataset.val);
 			e.dataset.val = e.value;
-			let txt = e.name;
+			let label = /^L[0-4].$/.test(e.name) ? 'LED' : e.name;
 			let pins = [];
-			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i)=>{
-				if (i.value!=="" && i.value>=0 && i.max<255)
+			// collect LED bus pin values from remaining inputs (virtual/HUB75)
+			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i) => {
+				if (i.value !== "" && parseInt(i.value) >= 0 && i.max < 255)
 					pins.push(i.value);
+			});
+			// collect LED bus pin values from selects
+			d.Sf.querySelectorAll(".iST select.pin[name^=L]").forEach((s) => {
+				if (s !== e && parseInt(s.value) >= 0)
+					pins.push(s.value);
 			});
 			let selects = d.Sf.querySelectorAll("select.pin");
 			for (let sel of selects) {
-				if (sel == e) continue
-				Array.from(sel.options).forEach((i)=>{
+				if (sel == e) continue;
+				Array.from(sel.options).forEach((i) => {
 					let led = pins.includes(i.value);
-					if (!(i.value==oldV || i.value==e.value || led)) return;
-					if (i.value == -1) {
-						i.text = "unused";
-						return
-					}
+					if (!(i.value == oldV || i.value == e.value || led)) return;
+					if (i.value == -1) { i.text = "unused"; return; }
 					i.text = i.value;
-					if (i.value==oldV) {
-						i.disabled = false;
-					}
-					if (i.value==e.value || led) {
+					if (i.value == oldV) { i.disabled = false; }
+					if (i.value == e.value || led) {
 						i.disabled = true;
-						i.text += ` ${led?'LED':txt}`;
+						i.text += ` ${led ? 'LED' : label}`;
 					}
 					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
 				});
 			}
-		}
-		// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
-		function addDropdown(field) {
-			let sel = cE('select');
-			sel.classList.add("pin");
-			let inp = d.getElementsByName(field)[0];
-			if (inp && inp.tagName === "INPUT" && (inp.type === "text" || inp.type === "number")) {  // may also use nodeName
-				let v = inp.value;
-				let n = inp.name;
-				// copy the existing input element's attributes to the new select element
-				for (var i = 0; i < inp.attributes.length; ++ i) {
-					var att = inp.attributes[i];
-					// type and value don't apply, so skip them
-					// ** you might also want to skip style, or others -- modify as needed **
-					if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style') {
-						sel.setAttribute(att.name, att.value);
-					}
-				}
-				sel.setAttribute("data-val", v);
-				sel.setAttribute("onchange", "pinUpd(this)");
-				// finally, replace the old input element with the new select element
-				inp.parentElement.replaceChild(sel, inp);
-				return sel;
-			}
-			return null;
-		}
-		function addOption(sel,txt,val) {
-			if (sel===null) return; // select object missing
-			let opt = cE("option");
-			opt.value = val;
-			opt.text = txt;
-			sel.appendChild(opt);
-			for (let i=0; i<sel.childNodes.length; i++) {
-				let c = sel.childNodes[i];
-				if (c.value == sel.dataset.val) sel.selectedIndex = i;
-			}
-			return opt;
 		}
 		// calculate channel usage across all buses
 		function getDuse() {
