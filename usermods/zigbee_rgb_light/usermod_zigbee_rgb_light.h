@@ -10,12 +10,12 @@
  *   - WLED -> Coordinator: Zigbee attribute reporting (cache update via scheduler_alarm)
  *
  * Requires:
- *   - ESP32-C6 target (native 802.15.4 radio)
+ *   - ESP32-C6 or -C5 target (native 802.15.4 radio)
  *   - esp-zigbee-lib and esp-zboss-lib (bundled in arduino-esp32 framework)
  *   - Define USERMOD_ZIGBEE_RGB_LIGHT in build_flags; included via usermods_list.cpp
  */
 
-#ifdef CONFIG_IDF_TARGET_ESP32C6
+#if defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_SOC_IEEE802154_SUPPORTED)
 
 #include "wled.h"
 
