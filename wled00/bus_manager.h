@@ -515,8 +515,6 @@ struct BusConfig {
     if (start + count > total) total = start + count;
     return true;
   }
-
-  size_t memUsage() const;
 };
 
 

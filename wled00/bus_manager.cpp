@@ -1181,6 +1181,7 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 , _milliAmpsMax(bc.milliAmpsMax)
 , _text(bc.text)
 {
+  _busSpeedFactor = bc.busSpeedFactor; // preserve so config is restored faithfully on reboot
   memcpy(_pins, bc.pins, sizeof(_pins));
   PinOwner pinOwner = PinOwner::None;
   if (Bus::isDigital(bc.type) && bc.type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
@@ -1219,22 +1220,6 @@ size_t BusPlaceholder::getPins(uint8_t* pinArray) const {
   return nPins;
 }
 
-//utility to get the approx. memory usage of a given BusConfig inclduding segmentbuffer and global buffer (4 bytes per pixel)
-size_t BusConfig::memUsage() const {
-  size_t mem = (count + skipAmount) * 8; // 8 bytes per pixel for segment + global buffer
-  if (Bus::isVirtual(type)) {
-    mem += sizeof(BusNetwork) + (count * Bus::getNumberOfChannels(type)); // note: getNumberOfChannels() includes CCT channel if applicable but virtual buses do not use CCT channel buffer
-  } else if (Bus::isDigital(type)) {
-    // if any of digital buses uses I2S, there is additional common I2S DMA buffer not accounted for here
-    mem += sizeof(BusDigital) + PixelBusAllocator::memUsage(type, count + skipAmount, pins, driverType);
-  } else if (Bus::isOnOff(type)) {
-    mem += sizeof(BusOnOff);
-  } else {
-    mem += sizeof(BusPwm);
-  }
-  return mem;
-}
-
 int BusManager::add(const BusConfig &bc, bool placeholder) {
   DEBUGBUS_PRINTF_P(PSTR("Bus: Adding bus (p:%d v:%d)\n"), getNumBusses(), getNumVirtualBusses());
   unsigned digital = 0;
@@ -1247,7 +1232,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
   }
   digital += (Bus::isDigital(bc.type) && !Bus::is2Pin(bc.type));
   analog  += (Bus::isPWM(bc.type) ? Bus::numPWMPins(bc.type) : 0);
-  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true; // TODO: add errorFlag here
+  if (digital > WLED_MAX_DIGITAL_CHANNELS || analog > WLED_MAX_ANALOG_CHANNELS) placeholder = true;
   if (placeholder) {
     busses.push_back(make_unique<BusPlaceholder>(bc));
   } else if (Bus::isVirtual(bc.type)) {
@@ -1262,6 +1247,14 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     busses.push_back(make_unique<BusOnOff>(bc));
   } else {
     busses.push_back(make_unique<BusPwm>(bc));
+  }
+  // If the newly constructed bus failed to acquire resources (OOM, DMA failure, pin conflict, etc.)
+  // replace it with a BusPlaceholder so the configuration is preserved for the next reboot,
+  // where memory may be available and the bus can initialize successfully.
+  if (!placeholder && !busses.back()->isOk()) {
+    DEBUG_PRINTF_P(PSTR("Bus %u (type %u) failed initialization; replacing with placeholder.\n"), (unsigned)busses.size(), (unsigned)bc.type);
+    errorFlag = ERR_NORAM;
+    busses.back() = make_unique<BusPlaceholder>(bc);
   }
   return busses.size();
 }

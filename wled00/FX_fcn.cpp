@@ -1197,31 +1197,20 @@ void WS2812FX::finalizeInit() {
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
-  // create buses/outputs
-  unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
+  // Pass 1: assign driver types (RMT/I2S channels) for all buses before any are constructed,
+  // because parallel I2S buses interact during channel assignment.
   for (auto &bus : busConfigs) {
-    //TODO: this comment needs updating once the driver is finished
-    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels  
-    // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
-    // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
     BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
   }
+  // Pass 2: construct each bus. BusManager::add() automatically falls back to a BusPlaceholder
+  // (and sets errorFlag) if a bus fails to initialize (OOM, DMA failure, pin conflict, etc.).
+  // The placeholder preserves the full config so the bus is retried on the next reboot.
   for (auto &bus : busConfigs) {
-    bool use_placeholder = false;
-    unsigned busMemUsage = bus.memUsage(); // includes pixel buffers (1x global, 1x segment) + driver memory (e.g. DMA)
-    mem += busMemUsage;
-
-    if (mem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
-      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
-      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
-      use_placeholder = true;
-    }
-    if (BusManager::add(bus, use_placeholder) != -1) {
-      mem += BusManager::busses.back()->getBusSize(); // TODO: check memory calculations
-      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
+    if (BusManager::add(bus, false) != -1) {
+      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder())
+        digitalCount--; // placeholder does not consume a digital channel slot
     }
   }
-  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
