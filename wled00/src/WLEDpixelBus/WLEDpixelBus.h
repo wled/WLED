@@ -216,7 +216,6 @@ public:
             const CctPixel* cct = nullptr) = 0;
 
   virtual bool canShow() const = 0;
-  virtual void waitComplete() = 0;
   virtual const char* getType() const = 0;
 
   virtual bool allocatePixelBuffer(uint16_t numPixels, bool hasCCT = false) {

@@ -112,7 +112,4 @@ bool SpiBus::canShow() const {
   return true;
 }
 
-void SpiBus::waitComplete() {
-}
-
 } // namespace WLEDpixelBus

@@ -27,7 +27,6 @@ public:
 
   bool show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  void waitComplete() override;
   const char* getType() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
 
   void setTiming(const LedTiming& timing) { _timing = timing; }

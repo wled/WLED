@@ -794,12 +794,6 @@ bool I2sBus::canShow() const {
   return _ctx->isIdle();
 }
 
-void I2sBus::waitComplete() {
-  while (_ctx && !_ctx->isIdle()) {
-    vTaskDelay(1);
-  }
-}
-
 void I2sBus::setColorOrder(ColorOrder order) {
   _order = order;
 }

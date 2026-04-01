@@ -20,7 +20,6 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  void waitComplete() override;
   const char* getType() const override { return "ESP8266_UART"; }
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
@@ -59,7 +58,6 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  void waitComplete() override;
   const char* getType() const override { return "ESP8266_DMA"; }
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
@@ -92,7 +90,6 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  void waitComplete() override;
   const char* getType() const override { return "ESP8266_BB"; }
 
   void setTiming(const LedTiming& timing);

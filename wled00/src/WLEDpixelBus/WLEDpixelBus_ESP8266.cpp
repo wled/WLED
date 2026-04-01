@@ -174,10 +174,6 @@ bool Esp8266UartBus::canShow() const {
   return (_asyncBuf >= _asyncBufEnd);
 }
 
-void Esp8266UartBus::waitComplete() {
-  while (!canShow()) { yield(); }
-}
-
 
 //==============================================================================
 // ESP8266 BitBang Bus
@@ -249,10 +245,6 @@ bool Esp8266BitBangBus::show(const uint32_t* pixels, uint16_t numPixels, const C
 
 bool Esp8266BitBangBus::canShow() const {
   return _initialized;
-}
-
-void Esp8266BitBangBus::waitComplete() {
-  // Blocking show, always complete upon return
 }
 
 
@@ -369,11 +361,6 @@ bool Esp8266DmaBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPi
 
 bool Esp8266DmaBus::canShow() const {
   return _initialized && !i2s_is_full();
-}
-
-void Esp8266DmaBus::waitComplete() {
-  // Not strictly supported blocking via I2S, wait for FIFO room
-  while (i2s_is_full()) { yield(); }
 }
 
 } // namespace WLEDpixelBus

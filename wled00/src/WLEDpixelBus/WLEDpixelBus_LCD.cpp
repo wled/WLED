@@ -634,17 +634,7 @@ bool LcdBus::canShow() const {
   return _ctx->isIdle();
 }
 
-void LcdBus::waitComplete() {
-  if (!_ctx) return;
-  uint32_t start = millis();
-  while (!_ctx->isIdle()) {
-    if (millis() - start > 1000) {
-      _ctx->forceIdle();
-      return;
-    }
-    yield();
-  }
-}
+
 
 void LcdBus::setColorOrder(ColorOrder order) {
   _order = order;

@@ -358,16 +358,6 @@ bool RmtBus::canShow() const {
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 
-void RmtBus::waitComplete() {
-  if (_initialized) {
-    if (_usingRmtHi) {
-      RmtHiDriver::WaitForTxDone(_rmtChannel, portMAX_DELAY);
-    } else {
-      rmt_wait_tx_done(_rmtChannel, portMAX_DELAY);
-    }
-  }
-}
-
 void RmtBus::setTiming(const LedTiming& timing) {
   Serial.printf("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
   _timing = timing;

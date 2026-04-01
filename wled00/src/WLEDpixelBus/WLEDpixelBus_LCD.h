@@ -120,7 +120,6 @@ public:
   bool show(const uint32_t* pixels, uint16_t numPixels,
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  void waitComplete() override;
   const char* getType() const override { return "LCD"; }
 
   void setTiming(const LedTiming& timing) { _timing = timing; }

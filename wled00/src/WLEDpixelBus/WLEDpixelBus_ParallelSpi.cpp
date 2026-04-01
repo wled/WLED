@@ -629,10 +629,11 @@ bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
 bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
   if (!_initialized || !_ctx) return false;
 
-  // If a previous SPI transfer is still in progress, defer this update to avoid
-  // overlapping transmissions. Multi-channel parallel SPI keeps all lanes in sync
-  // from one final startTransmit() call once all channels have been staged.
-  if (!_ctx->isSpiDone()) return false;
+  // Wait for the previous transfer to finish before encoding new data.
+  // At unlimited FPS the next frame can arrive before the SPI transfer completes;
+  // returning early would silently drop the frame. The transfer is always nearly
+  // done at this point (only a handful of DMA chunks remain), so a short spin is fine.
+  while (!_ctx->isSpiDone()) taskYIELD();
 
   if (!allocateBuffer(_numPixels)) return false; // TODO: naming is confusing, it does not allocate each time, should this be moved to init()?
 
@@ -653,12 +654,6 @@ bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctP
 bool ParallelSpiBus::canShow() const {
   if (!_ctx) return true;
   return _ctx->isSpiDone();
-}
-
-void ParallelSpiBus::waitComplete() {
-  while (_ctx && !_ctx->isIdle()) {
-    vTaskDelay(1);
-  }
 }
 
 void ParallelSpiBus::setColorOrder(ColorOrder order) {
