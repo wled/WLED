@@ -145,7 +145,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
    - New custom effects can be added into the user_fx usermod. Read the [user_fx documentation](https://github.com/wled/WLED/blob/main/usermods/user_fx/README.md) for guidance.
    - Other usermods may be based on the [EXAMPLE usermod](https://github.com/wled/WLED/tree/main/usermods/EXAMPLE). Never edit the example, always create a copy!
    - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/746df240119b585d8c8fa85e6aac7ed707947ea0/wled00/const.h#L160).
-   - to activate a usermod, a custom build configurations should be used. Add the usermod name to ``custom_usermods``.
+   - to activate a usermod, a custom build configuration should be used. Add the usermod name to ``custom_usermods``.
 
 ## Build Timing and Timeouts
 
