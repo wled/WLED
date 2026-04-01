@@ -71,7 +71,7 @@
   #define PLOT_PRINTF(x...)
 #endif
 
-#define MAX_PALETTES 3
+#define MAX_PALETTES 5
 
 static volatile bool disableSoundProcessing = false;      // if true, sound processing (FFT, filters, AGC) will be suspended. "volatile" as its shared between tasks.
 static uint8_t audioSyncEnabled = 0;          // bit field: bit 0 - send, bit 1 - receive (config value)
@@ -226,6 +226,7 @@ static uint64_t sampleTime = 0;
 // FFT Task variables (filtering and post-processing)
 static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f};                    // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256.
 static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};                     // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
+static float   paletteBandAvg[NUM_GEQ_CHANNELS] = {0.0f};             // Slowly smoothed band averages for audio palettes (EMA, ~400ms time constant)
 #ifdef SR_DEBUG
 static float   fftResultMax[NUM_GEQ_CHANNELS] = {0.0f};               // A table used for testing to determine how our post-processing is working.
 #endif
@@ -1683,6 +1684,7 @@ class AudioReactive : public Usermod {
       memset(fftCalc, 0, sizeof(fftCalc)); 
       memset(fftAvg, 0, sizeof(fftAvg)); 
       memset(fftResult, 0, sizeof(fftResult)); 
+      memset(paletteBandAvg, 0, sizeof(paletteBandAvg));
       for(int i=(init?0:1); i<NUM_GEQ_CHANNELS; i+=2) fftResult[i] = 16; // make a tiny pattern
       inputLevel = 128;                                    // reset level slider to default
       autoResetPeak();
@@ -2232,6 +2234,51 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
         value = CRGB(fftResult[0]/2, fftResult[4]/2, fftResult[10]/2);
       }
       break;
+    case 3: {
+      // "Track Character" palette - smoothed spectral centroid drives hue
+      static const float bandFreq[NUM_GEQ_CHANNELS] = {
+        65, 107, 172, 258, 365, 495, 689, 969,
+        1270, 1658, 2153, 2713, 3359, 4091, 5792, 8182
+      };
+      float wSum = 0, tEnergy = 0;
+      for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
+        wSum += paletteBandAvg[i] * bandFreq[i];
+        tEnergy += paletteBandAvg[i];
+      }
+      float centroid = (tEnergy > 1.0f) ? (wSum / tEnergy) : 500.0f;
+      float logC = log2f(constrain(centroid, 60.0f, 8000.0f));
+      // log2(60)≈5.9, log2(8000)≈13.0 → map to hue 0..200
+      uint8_t baseHue = (uint8_t)mapf(logC, 5.9f, 13.0f, 0.0f, 200.0f);
+      // Spread palette positions around centroid hue
+      int8_t hueSpread = map(x, 0, 255, -30, 30);
+      uint8_t saturation = (uint8_t)constrain((int)(tEnergy / 6.0f) + 180, 180, 255);
+      hsv = CHSV(baseHue + hueSpread, saturation, (uint8_t)constrain(x, 30, 255));
+      value = hsv;
+      break;
+    }
+    case 4: {
+      // "Spectral Balance" palette - bass vs mid vs high energy balance
+      float bassEnergy = 0, midEnergy = 0, highEnergy = 0;
+      for (int i = 0;  i < 4;  i++) bassEnergy += paletteBandAvg[i];
+      for (int i = 4;  i < 10; i++) midEnergy  += paletteBandAvg[i];
+      for (int i = 10; i < 16; i++) highEnergy += paletteBandAvg[i];
+      float total = bassEnergy + midEnergy + highEnergy;
+      if (total < 1.0f) total = 1.0f;
+      float bassRatio = bassEnergy / total;
+      float midRatio  = midEnergy  / total;
+      float highRatio = highEnergy / total;
+      // Weighted hue: bass→warm(20), mid→green(110), high→cool(190)
+      uint8_t hue = (uint8_t)(bassRatio * 20.0f + midRatio * 110.0f + highRatio * 190.0f);
+      // More concentrated spectrum = more saturated
+      float maxRatio = fmaxf(bassRatio, fmaxf(midRatio, highRatio));
+      uint8_t sat = (uint8_t)constrain((int)(maxRatio * 255.0f * 1.5f), 180, 255);
+      // Spread across palette position
+      int8_t hueOffset = map(x, 0, 255, -25, 25);
+      uint8_t val = (uint8_t)constrain((int)(total / 8.0f) + (int)map(x, 0, 255, 30, 255), 30, 255);
+      hsv = CHSV(hue + hueOffset, sat, val);
+      value = hsv;
+      break;
+    }
   }
   return value;
 }
@@ -2240,6 +2287,13 @@ void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
   size_t lastCustPalette = customPalettes.size();
   if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
+
+  // Update smoothed band averages for palettes 3 and 4 (EMA, ~400ms time constant at 20ms cycle)
+  static constexpr float PALETTE_SMOOTHING = 0.05f;
+  for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
+    paletteBandAvg[i] += PALETTE_SMOOTHING * ((float)fftResult[i] - paletteBandAvg[i]);
+  }
+
   for (int pal=0; pal<palettes; pal++) {
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.
                       // 3 colors = 12, 4 colors = 16, etc.
