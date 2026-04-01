@@ -1182,6 +1182,33 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 , _text(bc.text)
 {
   memcpy(_pins, bc.pins, sizeof(_pins));
+  PinOwner pinOwner = PinOwner::None;
+  if (Bus::isDigital(bc.type) && bc.type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
+  else if (Bus::isOnOff(bc.type)) pinOwner = PinOwner::BusOnOff;
+  else if (Bus::isPWM(bc.type)) pinOwner = PinOwner::BusPwm;
+  #ifdef WLED_ENABLE_HUB75MATRIX
+  else if (Bus::isHub75(bc.type)) pinOwner = PinOwner::HUB75;
+  #endif
+
+  size_t nPins = Bus::getNumberOfPins(bc.type);
+  for (size_t i = 0; i < nPins; i++) {
+    if (_pins[i] != 255) PinManager::allocatePin(_pins[i], true, pinOwner);
+  }
+}
+
+void BusPlaceholder::cleanup() {
+  PinOwner pinOwner = PinOwner::None;
+  if (Bus::isDigital(_type) && _type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
+  else if (Bus::isOnOff(_type)) pinOwner = PinOwner::BusOnOff;
+  else if (Bus::isPWM(_type)) pinOwner = PinOwner::BusPwm;
+  #ifdef WLED_ENABLE_HUB75MATRIX
+  else if (Bus::isHub75(_type)) pinOwner = PinOwner::HUB75;
+  #endif
+
+  size_t nPins = Bus::getNumberOfPins(_type);
+  for (size_t i = 0; i < nPins; i++) {
+    if (_pins[i] != 255) PinManager::deallocatePin(_pins[i], pinOwner);
+  }
 }
 
 size_t BusPlaceholder::getPins(uint8_t* pinArray) const {

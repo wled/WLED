@@ -389,6 +389,8 @@ class BusNetwork : public Bus {
 class BusPlaceholder : public Bus {
   public:
     BusPlaceholder(const BusConfig &bc);
+    ~BusPlaceholder() { cleanup(); }
+    void cleanup();
 
     // Actual calls are stubbed out
     void setPixelColor(unsigned pix, uint32_t c) override {};
