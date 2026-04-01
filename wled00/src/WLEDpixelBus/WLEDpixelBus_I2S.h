@@ -136,13 +136,6 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order);
 
-  // Memory estimation: per-bus encode buffer + shared I2S DMA context (on first bus)
-  static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool isFirstBus = true) {
-    size_t mem = numPixels * channelCount;  // per-bus encode buffer
-    if (isFirstBus) mem += DEFAULT_DMA_BUFFER_SIZE * WLEDPB_I2S_DMA_BUFFER_COUNT + (sizeof(lldesc_t) * WLEDPB_I2S_DMA_BUFFER_COUNT);
-    return mem;
-  }
-
 private:
   int8_t _pin;
   uint8_t _busNum;

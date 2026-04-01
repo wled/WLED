@@ -26,13 +26,6 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order) { _order = order; }
 
-  // Memory estimation: 4× UART encode buffer + LUT (per bus)
-  static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool /*isFirstBus*/ = true) {
-    size_t mem = numPixels * channelCount * 4;  // 4× UART encode buffer
-    mem += 1024;  // 256×4 byte LUT table allocated per instance
-    return mem;
-  }
-
   static void UartIsr(void* arg);
   static Esp8266UartBus* s_instances[2];
 
@@ -72,11 +65,6 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order) { _order = order; }
 
-  // Memory estimation: 4× DMA encode buffer + reset padding
-  static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool /*isFirstBus*/ = true) {
-    return numPixels * channelCount * 4 + 40;  // 4× I2S DMA encode + reset bytes
-  }
-
 private:
   int8_t _pin; // Only RX pin (GPIO3) supported for I2S DMA on ESP8266
   LedTiming _timing;
@@ -109,11 +97,6 @@ public:
 
   void setTiming(const LedTiming& timing);
   void setColorOrder(ColorOrder order) { _order = order; }
-
-  // Memory estimation: BitBang encodes on-the-fly, no buffers needed
-  static size_t estimateMemory(uint16_t /*numPixels*/, uint8_t /*channelCount*/, bool /*isFirstBus*/ = true) {
-    return 0;
-  }
 
 private:
   int8_t _pin;

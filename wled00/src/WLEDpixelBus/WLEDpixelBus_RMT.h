@@ -37,11 +37,6 @@ public:
   void setTiming(const LedTiming& timing);
   void setColorOrder(ColorOrder order);
 
-  // Memory estimation: encode buffer only, RMT uses hardware SRAM
-  static size_t estimateMemory(uint16_t numPixels, uint8_t channelCount, bool /*isFirstBus*/ = true) {
-    return numPixels * channelCount;
-  }
-
   // Reset the auto-allocation counter (call before re-creating buses)
   static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
   static void resetAutoChannel() {
