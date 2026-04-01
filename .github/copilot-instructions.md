@@ -92,19 +92,26 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 
 ### Repository Structure
 ```
-wled00/                 # Main firmware source (C++)
-  ├── data/            # Web interface files 
-  │   ├── index.htm    # Main UI
+wled00/                 # Main firmware source (C++) "WLED core"
+  ├── data/             # Web interface files 
+  │   ├── index.htm     # Main UI
   │   ├── settings*.htm # Settings pages
-  │   └── *.js/*.css   # Frontend resources
-  ├── *.cpp/*.h        # Firmware source files
-  └── html_*.h         # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
-tools/                 # Build tools (Node.js)
-  ├── cdata.js         # Web UI build script
-  └── cdata-test.js    # Test suite
+  │   └── *.js/*.css    # Frontend resources
+  ├── *.cpp/*.h         # Firmware source files
+  ├── html_*.h          # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
+  ├── src/              # generic modules used by the WLED core
+  │   ├── fonts/        # Font libraries for scrolling text effect
+  └   └── dependencies/ # generic utility functions - some of them have their own licensing terms
+lib/                    # project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
+
+usermods/              # User-contributed addons to the WLED core, maintained by individual contributors
 platformio.ini         # Hardware build configuration
 package.json           # Node.js dependencies and scripts
 .github/workflows/     # CI/CD pipelines
+pio-scripts/           # Build tools (platformio)
+tools/                 # Build tools (Node.js), partition files, and generic utilities
+  ├── cdata.js         # Web UI build script
+  └── cdata-test.js    # Test suite
 ```
 
 ### Key Files and Their Purpose
