@@ -27,10 +27,10 @@ Prerequisites:
 
 Usage:
   python3 test_zigbee_hue.py \\
-      --bridge-ip 192.168.178.216 \\
-      --api-key XBfT0n000WWp2FV6DxcOnbhcxV5X7SFlKpB53Bix \\
-      --light-id 23 \\
-      --wled-ip 192.168.178.107
+      --bridge-ip <bridge-ip> \\
+      --api-key <api-key> \\
+      --light-id <light-id> \\
+      --wled-ip <wled-ip>
 
   # Run a single test:
   python3 test_zigbee_hue.py ... -k test_hue_on_off
