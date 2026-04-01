@@ -22,9 +22,9 @@ struct LedTiming {
   constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
     : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}
 
-  // Calculate bit period in ns  TODO: drop 3 step cadence support?
-  constexpr uint32_t bitPeriod(uint8_t cadenceSteps = 0) const {
-  return (cadenceSteps == 4) ? (t0h_ns * cadenceSteps) : ((t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2);
+  // Calculate bit period in ns as the average of all four pulse timings
+  constexpr uint32_t bitPeriod() const {
+    return (t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2;
   }
 };
 
@@ -66,37 +66,6 @@ namespace Timing {
   constexpr LedTiming LPD8806 {250, 250, 250, 250, 0};     // LPD8806 (latch = 0-bits)
   constexpr LedTiming LPD6803 {250, 250, 250, 250, 0};     // LPD6803
   constexpr LedTiming P9813   {250, 250, 250, 250, 0};     // P9813 (Total Control Lighting)
-}
-
-// ---- I2S / LCD Clock Calculation Helpers ----
-
-/**
- * Calculate the I2S/LCD clock divider from LED timing and cadence steps
- * @param timing LED timing parameters
- * @param cadenceSteps Number of cadence steps (3 or 4)
- * @param baseClockMHz Base clock in MHz (160 for ESP32, 80 for S2, 240 for S3 LCD)
- * @return Clock divider value
- */
-inline uint32_t calcClockDiv(const LedTiming& timing, uint8_t cadenceSteps, uint32_t baseClockMHz) {
-  uint32_t bitPeriodNs = timing.bitPeriod(cadenceSteps);
-  uint32_t stepPeriodNs = bitPeriodNs / cadenceSteps;
-  uint32_t div = (baseClockMHz * stepPeriodNs) / 1000;
-  return (div < 2) ? 2 : (div > 255) ? 255 : div;
-}
-
-/**
- * Calculate reset bytes needed for I2S/LCD DMA
- * @param timing LED timing parameters
- * @param cadenceSteps Number of cadence steps
- * @return Number of zero-bytes needed for reset period
- */
-
-//TODO: currently unused, check if this is useful, remove otherwise.
-inline uint32_t calcResetBytes(const LedTiming& timing, uint8_t cadenceSteps) {
-  uint32_t bitPeriodNs = timing.bitPeriod(cadenceSteps);
-  uint32_t clockPeriodNs = bitPeriodNs / cadenceSteps;
-  uint32_t bytesPerUs = (clockPeriodNs > 0) ? (1000 / clockPeriodNs) : 1;
-  return timing.reset_us * bytesPerUs;
 }
 
 /**

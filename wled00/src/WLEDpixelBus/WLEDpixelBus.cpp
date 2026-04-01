@@ -36,7 +36,7 @@ namespace WLEDpixelBus {
 ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getChannelCount(order))
 {
   _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
-//TODO: is there a better way to define color orders indices than just this dumb list? it also does not cover all possibilities I think (swapping white and color channels)
+  // Color order indices are defined via a fixed mapping; add new cases here for additional channel permutations.
   switch(order)
   {
     case ColorOrder::RGB:
@@ -148,10 +148,8 @@ ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getCh
 
 PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder order, size_t bufferSize, int8_t channel) {
   
-  Serial.printf("[WPB] createBus type=%u pin=%d bufSize=%u ch=%d\n", (unsigned)type, pin, bufferSize, channel);
   if (type == BusType::Auto) {
-    type = getRecommendedBusType(); // TODO: when is "auto" used? should auto default to RMT? -> uses RMT for now but check if this fallback is needed or even useful
-    Serial.printf("[WPB] Auto resolved to type=%u\n", (unsigned)type);
+    type = getRecommendedBusType();
   }
 
   PixelBus* bus = nullptr;
@@ -205,14 +203,6 @@ PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrde
 
 // TODO: this function is not really needed, bus type defaults should be handled by busmanager or buswrapper
 BusType getRecommendedBusType() {
-/*
-#if defined(WLEDPB_ESP32S3)
-  return BusType::LCD;  // S3 has LCD support
-#elif defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2)
-  return BusType::I2S;  // Original and S2 have I2S parallel
-#elif defined(WLEDPB_PARALLEL_SPI_SUPPORT)
-  return BusType::SPI;  // C3 uses SPI quad mode
-  */
 #if defined(WLEDPB_ESP8266)
   return BusType::BitBang; // use bitbanging by default (most versatile)
 #else

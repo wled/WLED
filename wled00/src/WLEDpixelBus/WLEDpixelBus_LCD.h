@@ -141,7 +141,7 @@ private:
 
   uint8_t* _encodeBuffer;
   size_t _encodeBufferSize;
-  size_t _encodedLen;
+  size_t _encodedLen;  // valid byte count in _encodeBuffer; needed by the LCD DMA descriptor (unique to LcdBus)
 };
 
 } // namespace WLEDpixelBus

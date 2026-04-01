@@ -1,5 +1,9 @@
 #pragma once
 
+// FeaturePadder is consumed by bus_wrapper.h (via PixelBusAllocator) to inject
+// protocol-specific byte prefixes (e.g. TM1814 current config) before pixel data.
+// It is not used directly by any WLEDpixelBus driver.
+
 #include <stdint.h>
 #include <string.h>
 

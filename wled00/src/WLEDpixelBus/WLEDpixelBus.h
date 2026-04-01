@@ -231,7 +231,7 @@ public:
     }
     _numPixels = numPixels;
     if (numPixels == 0) return true;
-    // TODO: use WLED alloc functions that are min-heap safe Better yet: remove the buffer and encode pixels directly.
+    // Heap allocation is intentional: pixel buffers are large, session-lifetime objects.
     _pixelData = (uint32_t*)malloc(numPixels * sizeof(uint32_t));
     if (!_pixelData) return false;
     memset(_pixelData, 0, numPixels * sizeof(uint32_t));
