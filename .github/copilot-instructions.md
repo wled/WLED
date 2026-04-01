@@ -99,19 +99,20 @@ wled00/                 # Main firmware source (C++) "WLED core"
   │   └── *.js/*.css    # Frontend resources
   ├── *.cpp/*.h         # Firmware source files
   ├── html_*.h          # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
-  ├── src/              # generic modules used by the WLED core
+  ├── src/              # Modules used by the WLED core (C++)
   │   ├── fonts/        # Font libraries for scrolling text effect
-  └   └── dependencies/ # generic utility functions - some of them have their own licensing terms
-lib/                    # project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
-
-usermods/              # User-contributed addons to the WLED core, maintained by individual contributors
-platformio.ini         # Hardware build configuration
-package.json           # Node.js dependencies and scripts
-.github/workflows/     # CI/CD pipelines
+  └   └── dependencies/ # Utility functions - some of them have their own licensing terms
+lib/                    # Project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
+platformio.ini          # Hardware build configuration
+platformio_override.sample.ini # examples for custom build configurations - entries must be copied into platformio_override.ini to use them.
+                               # platformio_override.ini is _not_ stored in the WLED repository!
+usermods/              # User-contributed addons to the WLED core, maintained by individual contributors  (C++, with individual library.json)
+package.json           # Node.js dependencies and scripts, release identification
 pio-scripts/           # Build tools (platformio)
 tools/                 # Build tools (Node.js), partition files, and generic utilities
   ├── cdata.js         # Web UI build script
   └── cdata-test.js    # Test suite
+.github/workflows/     # CI/CD pipelines
 ```
 
 ### Key Files and Their Purpose
