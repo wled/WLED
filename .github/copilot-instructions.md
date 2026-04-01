@@ -123,7 +123,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 - `wled00/wled.h` - Main firmware configuration
 - `platformio.ini` - Hardware build targets and settings
 
-### Development Workflow (applies to agent mode only)
+### Development Workflow (instructions for agent mode)
 1. **For web UI changes**:
    - Edit files in `wled00/data/`
    - Run `npm run build` to regenerate headers
