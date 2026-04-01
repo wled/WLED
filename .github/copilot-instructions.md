@@ -104,6 +104,7 @@ wled00/                 # Main firmware source (C++) "WLED core"
   └   └── dependencies/ # Utility functions - some of them have their own licensing terms
 lib/                    # Project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
 platformio.ini          # Hardware build configuration
+
 platformio_override.sample.ini # examples for custom build configurations - entries must be copied into platformio_override.ini to use them.
                                # platformio_override.ini is _not_ stored in the WLED repository!
 usermods/              # User-contributed addons to the WLED core, maintained by individual contributors  (C++, with individual library.json)
