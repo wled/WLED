@@ -92,18 +92,27 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 
 ### Repository Structure
 ```
-wled00/                 # Main firmware source (C++)
-  ├── data/            # Web interface files 
-  │   ├── index.htm    # Main UI
+wled00/                 # Main firmware source (C++) "WLED core"
+  ├── data/             # Web interface files 
+  │   ├── index.htm     # Main UI
   │   ├── settings*.htm # Settings pages
-  │   └── *.js/*.css   # Frontend resources
-  ├── *.cpp/*.h        # Firmware source files
-  └── html_*.h         # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
-tools/                 # Build tools (Node.js)
+  │   └── *.js/*.css    # Frontend resources
+  ├── *.cpp/*.h         # Firmware source files
+  ├── html_*.h          # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
+  ├── src/              # Modules used by the WLED core (C++)
+  │   ├── fonts/        # Font libraries for scrolling text effect
+  └   └── dependencies/ # Utility functions - some of them have their own licensing terms
+lib/                    # Project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
+platformio.ini          # Hardware build configuration
+
+platformio_override.sample.ini # examples for custom build configurations - entries must be copied into platformio_override.ini to use them.
+                               # platformio_override.ini is _not_ stored in the WLED repository!
+usermods/              # User-contributed addons to the WLED core, maintained by individual contributors  (C++, with individual library.json)
+package.json           # Node.js dependencies and scripts, release identification
+pio-scripts/           # Build tools (platformio)
+tools/                 # Build tools (Node.js), partition files, and generic utilities
   ├── cdata.js         # Web UI build script
   └── cdata-test.js    # Test suite
-platformio.ini         # Hardware build configuration
-package.json           # Node.js dependencies and scripts
 .github/workflows/     # CI/CD pipelines
 ```
 
@@ -114,7 +123,7 @@ package.json           # Node.js dependencies and scripts
 - `wled00/wled.h` - Main firmware configuration
 - `platformio.ini` - Hardware build targets and settings
 
-### Development Workflow (applies to agent mode only)
+### Development Workflow (instructions for agent mode)
 1. **For web UI changes**:
    - Edit files in `wled00/data/`
    - Run `npm run build` to regenerate headers
@@ -131,6 +140,12 @@ package.json           # Node.js dependencies and scripts
    - Always build web UI first
    - Test web interface manually
    - Build and test firmware if making firmware changes
+
+#### Adding a new usermod
+   - New custom effects can be added into the user_fx usermod. Read the [user_fx documentation](https://github.com/wled/WLED/blob/main/usermods/user_fx/README.md) for guidance.
+   - Other usermods may be based on the [EXAMPLE usermod](https://github.com/wled/WLED/tree/main/usermods/EXAMPLE). Never edit the example, always create a copy!
+   - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/746df240119b585d8c8fa85e6aac7ed707947ea0/wled00/const.h#L160).
+   - to activate a usermod, a custom build configuration should be used. Add the usermod name to ``custom_usermods``.
 
 ## Build Timing and Timeouts
 
