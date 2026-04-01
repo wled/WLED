@@ -9,6 +9,13 @@ We'll work with you to refine your contribution, but we'll also push back if som
 
 Here are a few suggestions to make it easier for you to contribute:
 
+### Important Developer Infos
+* [Project Structure, Files and Directories](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#project-branch--release-structure)
+* [Instructions for creating usermods](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#adding-a-new-usermod)
+* KB: [Compiling WLED](https://kno.wled.ge/advanced/compiling-wled/) - slightly outdated but still helpful :-)
+* [Compiling in VSCode/Platformio](https://github.com/wled/WLED-Docs/issues/161) - modern way without command line or platformio.ini changes.
+* If you add a new feature, consider making a PR to [``wled-docs``](https://github.com/wled/WLED-Docs) for updating our official documentation.
+
 ### PR from a branch in your own fork
 Start your pull request (PR) in a branch of your own fork. Don't make a PR directly from your main branch.
 This lets you update your PR if needed, while you can work on other tasks in 'main' or in other branches.
@@ -19,7 +26,6 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 >   When you choose to 'Commit changes', GitHub will automatically create a PR from your fork.
 >   
 >   <img width="295" height="134" alt="image: fork and edit" src="https://github.com/user-attachments/assets/f0dc7567-edcb-4409-a530-cd621ae9661f" />
-
 
 ### Target branch for pull requests
 
