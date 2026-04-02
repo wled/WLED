@@ -165,9 +165,7 @@ BusDigital::BusDigital(const BusConfig &bc)
 
   // fix for wled#4759
   if (_valid) {
-    _valid = _busPtr->allocatePixelBuffer(lenToCreate + _skip, _hasCCT); // returns false if allocation fails
-    _pixelDataPtr = _busPtr->getPixelData(); // can be null if allocation failed
-    _cctDataPtr = _busPtr->getCctData();
+    _busPtr->setNumPixels(lenToCreate + _skip);
   }
 
   if (!_valid)
@@ -217,43 +215,19 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
     if (_milliAmpsLimit == 0 || _milliAmpsTotal == 0) return; // ABL not used for this bus
     newBri = 255;
 
-    if (_milliAmpsLimit > getLength()) { // each LED uses about 1mA in standby
-      if (_milliAmpsTotal > _milliAmpsLimit) {
+    if (_milliAmpsTotal > _milliAmpsLimit) {
         // scale brightness down to stay in current limit
         newBri = ((uint32_t)_milliAmpsLimit * 255) / _milliAmpsTotal + 1; // +1 to avoid 0 brightness
+        if (newBri == 0) newBri = 1; // safety clamp
         _milliAmpsTotal = _milliAmpsLimit;
       }
-    } else {
-      newBri = 1; // limit too low, set brightness to 1, this will dim down all colors to minimum since we use video scaling
-      _milliAmpsTotal = getLength(); // estimate bus current as minimum
-    }
   }
 
   if (newBri < 255) {
     _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
-    uint16_t wwcw = 0;
-    unsigned hwLen = _len;
-    if (_type == TYPE_WS2812_1CH_X3) hwLen = NUM_ICS_WS2812_1CH_3X(_len); // only needs a third of "RGB" LEDs for NeoPixelBus
-    for (unsigned i = 0; i < hwLen; i++) {
-      uint8_t co = _colorOrderMap.getPixelColorOrder(i+_start, _colorOrder); // need to revert color order for correct color scaling and CCT calc in case white is swapped
-      uint32_t c = 0;
-      c = _busPtr->getPixelColor(i); // Note: if ABL would be calculated as a seperate loop (as it was before) it is slower but could use original color, making it more color-accurate
-      if (hasCCT()) {
-        uint8_t cctWW, cctCW;
-        Bus::calculateCCT(c, cctWW, cctCW); // calculate CCT before fade (more accurate) | Note: if using "accurate" white calculation mode, approximateKelvinFromRGB can be very inaccurate (white is subtracted)
-        wwcw = ((cctCW + 1) * newBri) & 0xFF00; // apply brightness to CCT (leave it in upper byte for 16bit NeoPixelBus value)
-        wwcw |= ((cctWW + 1) * newBri) >> 8;
-      }
-      c = color_fade(c, newBri, true); // apply additional dimming  note: using inline version is a bit faster but overhead of getPixelColor() dominates the speed impact by far
-
-      if (hasCCT() && _cctDataPtr) {
-            _cctDataPtr[i].ww = wwcw & 0xFF;
-            _cctDataPtr[i].cw = wwcw >> 8;
-        }
-      if (_pixelDataPtr) {
-          _pixelDataPtr[i] = c;
-      }
-    }
+    // scaleAll() simply scales every channel byte proportionally, i.e. RGB and if available W (WW and CW)
+    // in order to enforce the brightness limit, this does not use video scaling and can scale to black if ABL limit is set too low
+    _busPtr->scaleAll(newBri);
   }
 
   _colorSum = 0; // reset for next frame
@@ -274,7 +248,7 @@ bool BusDigital::canShow() const {
 //TODO only show if no new show due in the next 50ms
 void BusDigital::setStatusPixel(uint32_t c) {
   if (_valid && _skip) {
-    _pixelDataPtr[0] = c;
+    _busPtr->setPixel(0, c, 0, 0);
     if (canShow()) _busPtr->show();
   }
 }
@@ -314,7 +288,6 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
   if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs  TODO: move this to bus level? would make sense to have a bus type for this.
     unsigned pOld = pix;
     pix = IC_INDEX_WS2812_1CH_3X(pix);
@@ -326,12 +299,8 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  // set pixels directly, note: if pointers are invalid, _valid is set to false in alloc function. TODO: need to check for out of bounds or is this safe by design?
-  if (hasCCT()) {
-      _cctDataPtr[pix].ww = wwcw & 0xFF; // TODO: check hasCCT() above and directly set this after autowhitecalc.
-      _cctDataPtr[pix].cw = wwcw >> 8;
-  }
-  _pixelDataPtr[pix] = c;
+  // set pixels directly into encode buffer via bus
+  _busPtr->setPixel(pix, c, wwcw & 0xFF, wwcw >> 8);
 }
 
 // returns lossly restored color from bus
@@ -366,7 +335,7 @@ size_t BusDigital::getPins(uint8_t* pinArray) const {
 }
 
 size_t BusDigital::getBusSize() const {
-  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getNumPixels() * sizeof(uint32_t) : 0);  // does not include common I2S DMA buffer
+  return sizeof(BusDigital) + (isOk() && _busPtr ? _busPtr->getEncodeBufferSize() : 0);  // does not include common I2S DMA buffer
 }
 
 void BusDigital::setColorOrder(uint8_t colorOrder) {
@@ -409,7 +378,7 @@ bool BusDigital::isI2S() {
 
 void BusDigital::begin() {
   if (!_valid) return;
-  _busPtr->begin();
+  if (!_busPtr->begin()) { cleanup(); return; }
 }
 
 void BusDigital::cleanup() {
@@ -421,8 +390,6 @@ void BusDigital::cleanup() {
   }
   _valid = false;
   _busPtr = nullptr;
-  _pixelDataPtr = nullptr;
-  _cctDataPtr = nullptr;
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
 }
@@ -1473,14 +1440,10 @@ void BusManager::applyABL() {
     if (_gMilliAmpsMax > 0) {
       uint8_t  newBri = 255;
       uint32_t globalMax = _gMilliAmpsMax > MA_FOR_ESP ? _gMilliAmpsMax - MA_FOR_ESP : 1; // subtract ESP current consumption, fully limit if too low
-      if (globalMax > totalLEDs) { // check if budget is larger than standby current
-        if (milliAmpsSum > globalMax) {
-          newBri = globalMax * 255 / milliAmpsSum + 1; // scale brightness down to stay in current limit, +1 to avoid 0 brightness
-          milliAmpsSum = globalMax; // update total used current
-        }
-      } else {
-        newBri = 1; // limit too low, set brightness to minimum
-        milliAmpsSum = totalLEDs; // estimate total used current as minimum
+      if (milliAmpsSum > globalMax) { // check if global current limit is exceeded
+        newBri = globalMax * 255 / milliAmpsSum + 1; // scale brightness down to stay in current limit, +1 to avoid 0 brightness
+        if (newBri == 0) newBri = 1; // safety clamp
+        milliAmpsSum = globalMax; // update total used current
       }
 
       // apply brightness limit to each bus, if its 255 it will only reset _colorSum

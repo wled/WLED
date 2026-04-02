@@ -191,26 +191,24 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 
 class PixelBus {
 protected:
-  uint32_t* _pixelData = nullptr;
-  CctPixel* _cctData = nullptr;
+  uint8_t* _encodeBuffer = nullptr;   // encoded pixel data ready for hardware transmission
+  size_t   _encodeBufferSize = 0;     // allocated size in bytes
   uint16_t _numPixels = 0;
-  uint8_t _brightness = 255;
 
 public:
   virtual ~PixelBus() {
-    if (_pixelData) free(_pixelData);
-    if (_cctData) free(_cctData);
+    // Subclass end() should free _encodeBuffer with the correct allocator and
+    // set it to nullptr before the base destructor runs. This is a safety net.
+    if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
   }
 
   virtual bool begin() = 0;
   virtual void end() = 0;
 
   /**
-   * Show pixels
-   * @param pixels RGBW pixel data (uint32_t per pixel, WLED format)
-   * @param numPixels Number of pixels
-   * @param cct Optional CCT data (2 bytes per pixel:  WW, CW)
-   * @return true if transmission started successfully
+   * Show pixels — sends the pre-encoded _encodeBuffer to hardware.
+   * The pixel/numPixels/cct parameters are ignored; encoding is done
+   * per-pixel by setPixel() before show() is called.
    */
   virtual bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0,
             const CctPixel* cct = nullptr) = 0;
@@ -218,51 +216,55 @@ public:
   virtual bool canShow() const = 0;
   virtual const char* getType() const = 0;
 
-  virtual bool allocatePixelBuffer(uint16_t numPixels, bool hasCCT = false) {
-    if (_pixelData) {
-      if (_numPixels == numPixels) return true;
-      free(_pixelData);
-      _pixelData = nullptr;
-    }
-    if (_cctData) {
-      free(_cctData);
-      _cctData = nullptr;
-    }
-    _numPixels = numPixels;
-    if (numPixels == 0) return true;
-    // Heap allocation is intentional: pixel buffers are large, session-lifetime objects.
-    _pixelData = (uint32_t*)malloc(numPixels * sizeof(uint32_t));
-    if (!_pixelData) return false;
-    memset(_pixelData, 0, numPixels * sizeof(uint32_t));
+  /**
+   * Encode one pre-processed pixel into _encodeBuffer at position pos.
+   * @param pos  pixel index (0-based, hardware index including skip)
+   * @param c    RGBW color, already brightness-scaled by BusDigital
+   * @param ww   warm-white value (from CCT calculation), 0 for non-CCT buses
+   * @param cw   cool-white value (from CCT calculation), 0 for non-CCT buses
+   * @return false if pos out of range or buffer not yet allocated
+   */
+  virtual bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) = 0;
 
-    if (hasCCT) {
-      _cctData = (CctPixel*)malloc(numPixels * sizeof(CctPixel));
-      if (!_cctData) {
-        free(_pixelData);
-        _pixelData = nullptr;
-        return false;
-      }
-      if (_cctData) memset(_cctData, 0, numPixels * sizeof(CctPixel));
-    }
+  /**
+   * Decode one pixel back from _encodeBuffer (used for read-modify-write and getPixelColor).
+   * Returns RGBW32 color. WW/CW are NOT encoded separately so CCT round-trips are lossy.
+   */
+  virtual uint32_t getPixelColor(uint16_t pix) const = 0;
 
+  /**
+   * Proportionally scale all encoded channel bytes by scale/256 (video scale).
+   * Used by BusDigital::applyBriLimit() for ABL. No-op if scale == 255.
+   * Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.
+   */
+  virtual void scaleAll(uint8_t scale) {
+    if (scale == 255 || !_encodeBuffer || _encodeBufferSize == 0) return;
+    for (size_t i = 0; i < _encodeBufferSize; i++) {
+      _encodeBuffer[i] = ((uint16_t)(_encodeBuffer[i] + 1) * scale) >> 8;
+    }
+  }
+
+  /**
+   * Allocate encode buffer. Called from begin() after hardware init.
+   * Default uses plain malloc; DMA buses override to use heap_caps_malloc.
+   * @param numPixels  hardware pixel count (may include skipped pixels)
+   * @param numChannels bytes per pixel in the encoded stream
+   */
+  virtual bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
+    size_t needed = (size_t)numPixels * numChannels;
+    if (_encodeBuffer && _encodeBufferSize >= needed) return true;
+    if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
+    if (needed == 0) return true;
+    _encodeBuffer = (uint8_t*)malloc(needed);
+    if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
+    memset(_encodeBuffer, 0, needed);
+    _encodeBufferSize = needed;
     return true;
   }
 
-  virtual uint32_t getPixelColor(uint16_t pix) const {
-    if (pix >= _numPixels) return 0;
-    return _pixelData[pix];
-  }
-  
-  virtual uint16_t getNumPixels() const {
-    return _numPixels;
-  }
-
-  virtual void setBrightness(uint8_t b) {
-    _brightness = b;
-  }
-  
-  virtual uint32_t* getPixelData() { return _pixelData; }
-  virtual CctPixel* getCctData() { return _cctData; }
+  size_t   getEncodeBufferSize() const { return _encodeBufferSize; }
+  virtual uint16_t getNumPixels() const { return _numPixels; }
+  void setNumPixels(uint16_t n) { _numPixels = n; }
 };
 
 //==============================================================================
@@ -300,6 +302,13 @@ public:
    */
   inline void encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const;
 
+  /**
+   * Decode a previously encoded pixel back to RGBW uint32.
+   * Lossy for CCT buses (WW/CW are not individually recoverable).
+   * @param in  pointer to encoded bytes for one pixel (getNumChannels() bytes)
+   */
+  inline uint32_t decode(const uint8_t* in) const;
+
   uint8_t getNumChannels() const { return _numChannels; }
   ColorOrder getOrder() const { return _order; }
 
@@ -331,6 +340,20 @@ inline void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* o
   }
 }
 
+/**
+ * Decode a previously encoded pixel back to RGBW uint32. Lossy for CCT (WW/CW not recovered).
+ * @param in  pointer to encoded bytes for one pixel (must be getNumChannels() bytes)
+ */
+inline uint32_t ColorEncoder::decode(const uint8_t* in) const {
+  uint8_t r = (_idxR != 0xFF) ? in[_idxR] : 0;
+  uint8_t g = (_idxG != 0xFF) ? in[_idxG] : 0;
+  uint8_t b = (_idxB != 0xFF) ? in[_idxB] : 0;
+  // W: prefer W channel; for CCT buses use WW channel as the W approximation
+  uint8_t w = 0;
+  if (_idxW  != 0xFF) w = in[_idxW];
+  else if (_idxWW != 0xFF) w = in[_idxWW];
+  return makeColor(r, g, b, w);
+}
 
 
 //==============================================================================

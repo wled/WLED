@@ -3,8 +3,8 @@
 namespace WLEDpixelBus {
 
 SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, ColorOrder order, bool useHardwareSpi)
-  : _dataPin(dataPin), _clockPin(clockPin), _timing(timing), _order(order), 
-    _useHardware(useHardwareSpi), _initialized(false) {
+  : _dataPin(dataPin), _clockPin(clockPin), _timing(timing), _order(order),
+    _encoder(order), _useHardware(useHardwareSpi), _initialized(false) {
 }
 
 SpiBus::~SpiBus() {
@@ -27,6 +27,7 @@ bool SpiBus::begin() {
   }
   
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
@@ -38,6 +39,7 @@ void SpiBus::end() {
     pinMode(_dataPin, INPUT);
     pinMode(_clockPin, INPUT);
   }
+  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
   _initialized = false;
 }
 
@@ -72,40 +74,37 @@ void SpiBus::sendEndFrame() {
   }
 }
 
-bool SpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!pixels) pixels = _pixelData;
-  if (numPixels == 0) numPixels = _numPixels;
-  if (!_initialized || !pixels || _numPixels == 0) return false;
+bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  // Output generic APA102/DotStar format
+  uint8_t numCh = _encoder.getNumChannels();
+
   sendStartFrame();
-
   for (uint16_t i = 0; i < _numPixels; i++) {
-    uint32_t c = pixels[i];
-    
-    // For APA102: Global brightness + RGB (0xFF is max brightness)
-    uint8_t r = getR(c);
-    uint8_t g = getG(c);
-    uint8_t b = getB(c);
-    
-    // Start byte contains 3 bits of 1 and 5 bits of global brightness (could be dynamic)
-    sendByte(0xFF); 
-    
-    // Output according to ColorOrder
-    switch (_order) {
-      case ColorOrder::RGB: sendByte(r); sendByte(g); sendByte(b); break;
-      case ColorOrder::GRB: sendByte(g); sendByte(r); sendByte(b); break;
-      case ColorOrder::BRG: sendByte(b); sendByte(r); sendByte(g); break;
-      case ColorOrder::RBG: sendByte(r); sendByte(b); sendByte(g); break;
-      case ColorOrder::GBR: sendByte(g); sendByte(b); sendByte(r); break;
-      case ColorOrder::BGR: sendByte(b); sendByte(g); sendByte(r); break;
-      default: sendByte(b); sendByte(g); sendByte(r); break; // Default APA102 BGR
-    }
+    sendByte(0xFF); // APA102 global brightness byte
+    const uint8_t* src = _encodeBuffer + i * numCh;
+    for (uint8_t ch = 0; ch < numCh; ch++) sendByte(src[ch]);
   }
-
   sendEndFrame();
 
   return true;
+}
+
+bool SpiBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  return true;
+}
+
+uint32_t SpiBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+void SpiBus::setColorOrder(ColorOrder order) {
+  _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 bool SpiBus::canShow() const {

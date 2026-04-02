@@ -100,22 +100,22 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "SPI"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
+
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order);
 
 private:
-  bool allocateBuffer(uint16_t numPixels);
-
   int8_t _pin;
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;
   bool _initialized;
 
   int8_t _channelIdx;
   SpiBusContext* _ctx;
-
-  uint8_t* _encodeBuffer;
-  size_t _encodeBufferSize;
 };
 
 } // namespace WLEDpixelBus

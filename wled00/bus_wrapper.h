@@ -97,7 +97,7 @@ class PixelBusAllocator {
 //    if (busPtr) static_cast<WLEDpixelBus::PixelBus*>(busPtr)->setPixelColor(pix, c);
 //  }
   static void setBrightness(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint8_t b) {
-    if (busPtr) busPtr->setBrightness(b);
+    // brightness is now applied per-pixel by BusDigital before calling setPixel(); this is a no-op
   }
   static uint32_t getPixelColor(WLEDpixelBus::PixelBus* busPtr, uint8_t busType, uint16_t pix, uint32_t cW) {
     if (busPtr) return busPtr->getPixelColor(pix);

@@ -287,8 +287,6 @@ class BusDigital : public Bus {
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
     WLEDpixelBus::PixelBus* _busPtr = nullptr;
-    uint32_t* _pixelDataPtr = nullptr;
-    WLEDpixelBus::CctPixel* _cctDataPtr = nullptr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 

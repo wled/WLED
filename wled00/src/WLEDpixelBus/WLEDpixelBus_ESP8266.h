@@ -22,8 +22,11 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_UART"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order) { _order = order; }
+  void setColorOrder(ColorOrder order);
 
   static void UartIsr(void* arg);
   static Esp8266UartBus* s_instances[2];
@@ -32,16 +35,13 @@ private:
   int8_t _pin;
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;
   bool _initialized;
 
   uint8_t* _asyncBuf = nullptr;
   uint8_t* _asyncBufEnd = nullptr;
 
   void updateUartTiming();
-  bool allocateBuffer(size_t encodedDataLen);
-
-  uint8_t* _encodeBuffer = nullptr;
-  size_t _encodeBufferSize = 0;
 };
 
 //==============================================================================
@@ -60,20 +60,22 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_DMA"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
+  void scaleAll(uint8_t scale) override;
+
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order) { _order = order; }
+  void setColorOrder(ColorOrder order);
 
 private:
   int8_t _pin; // Only RX pin (GPIO3) supported for I2S DMA on ESP8266
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;
   bool _initialized;
 
   void updateI2sTiming();
-  bool allocateBuffer(size_t numPixels);
-
-  uint8_t* _encodeBuffer = nullptr;
-  size_t _encodeBufferSize = 0;
 };
 
 //==============================================================================
@@ -92,13 +94,17 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_BB"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+
   void setTiming(const LedTiming& timing);
-  void setColorOrder(ColorOrder order) { _order = order; }
+  void setColorOrder(ColorOrder order);
 
 private:
   int8_t _pin;
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;
   bool _initialized;
   
   // Cycle counts

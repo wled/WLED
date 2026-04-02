@@ -549,11 +549,10 @@ ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder o
   : _pin(pin)
   , _timing(timing)
   , _order(order)
+  , _encoder(order)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
-  , _encodeBuffer(nullptr)
-  , _encodeBufferSize(0)
 {
 }
 
@@ -582,6 +581,7 @@ bool ParallelSpiBus::begin() {
   }
 
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
@@ -610,44 +610,36 @@ void ParallelSpiBus::end() {
   _initialized = false;
 }
 
-bool ParallelSpiBus::allocateBuffer(uint16_t numPixels) {
-  size_t needed = numPixels * getChannelCount(_order);
+bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
+  size_t needed = (size_t)numPixels * numChannels;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
-
-  if (_encodeBuffer) heap_caps_free(_encodeBuffer);
-
+  if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
+  if (needed == 0) return true;
   _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_INTERNAL);
-  if (!_encodeBuffer) {
-    _encodeBufferSize = 0;
-    return false;
-  }
+  if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
+  memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   return true;
 }
 
-// TODO: this actually only uses internal buffer, could get rid of the parameters that are now unused.
-bool ParallelSpiBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!_initialized || !_ctx) return false;
+bool ParallelSpiBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  return true;
+}
 
-  // Wait for the previous transfer to finish before encoding new data.
-  // At unlimited FPS the next frame can arrive before the SPI transfer completes;
-  // returning early would silently drop the frame. The transfer is always nearly
-  // done at this point (only a handful of DMA chunks remain), so a short spin is fine.
+uint32_t ParallelSpiBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+bool ParallelSpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_ctx || !_encodeBuffer) return false;
+
   while (!_ctx->isSpiDone()) taskYIELD();
 
-  if (!allocateBuffer(_numPixels)) return false; // TODO: naming is confusing, it does not allocate each time, should this be moved to init()?
-
-  ColorEncoder encoder(_order);
-  uint8_t* dst = _encodeBuffer;
-  uint8_t numCh = encoder.getNumChannels();
-
-  for (uint16_t i = 0; i < _numPixels; i++) {
-    encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
-    dst += numCh;
-  }
-
-  _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
-
+  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
   return _ctx->startTransmit();
 }
 
@@ -658,6 +650,7 @@ bool ParallelSpiBus::canShow() const {
 
 void ParallelSpiBus::setColorOrder(ColorOrder order) {
   _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 

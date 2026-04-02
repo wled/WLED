@@ -26,23 +26,11 @@ namespace WLEDpixelBus {
 Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _initialized(false), 
-    _asyncBuf(nullptr), _asyncBufEnd(nullptr),
-    _encodeBuffer(nullptr), _encodeBufferSize(0) {}
+  : _pin(pin), _timing(timing), _order(order), _encoder(order), _initialized(false),
+    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {}
 
 Esp8266UartBus::~Esp8266UartBus() {
   end();
-  if (_encodeBuffer) free(_encodeBuffer);
-}
-
-// 1x Buffer allocation (only storing raw bytes, not UART bit-patterns)
-bool Esp8266UartBus::allocateBuffer(size_t rawDataLen) {
-  if (_encodeBufferSize >= rawDataLen) return true;
-  if (_encodeBuffer) free(_encodeBuffer);
-  _encodeBuffer = (uint8_t*)malloc(rawDataLen);
-  if (!_encodeBuffer) return false;
-  _encodeBufferSize = rawDataLen;
-  return true;
 }
 
 // Shared Interrupt Service Routine (must be in IRAM)
@@ -80,8 +68,7 @@ void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg) {
 
 bool Esp8266UartBus::begin() {
   if (_initialized) return true;
-  if (_pin != 1 && _pin != 2) return false; 
-  
+  if (_pin != 1 && _pin != 2) return false;
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   s_instances[uartNum] = this;
 
@@ -99,6 +86,7 @@ bool Esp8266UartBus::begin() {
   ETS_UART_INTR_ENABLE();
 
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
@@ -140,32 +128,35 @@ void Esp8266UartBus::updateUartTiming() {
   USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI));
 }
 
-bool Esp8266UartBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!pixels) { pixels = _pixelData; numPixels = _numPixels; cct = _cctData; }
-  if (!_initialized || !pixels || numPixels == 0) return false;
-  if (!canShow()) return false; // Ensure previous transfer is done
-
-  size_t bpp = (_order >= ColorOrder::RGBWC) ? 5 : ((_order >= ColorOrder::RGBW) ? 4 : 3);
-  size_t rawLen = numPixels * bpp;
-  
-  if (!allocateBuffer(rawLen)) return false;
-
-  // Encode pixels to a flat raw byte buffer (1x size)
-  ColorEncoder encoder(_order);
-  uint8_t* out = _encodeBuffer;
-  for (size_t i = 0; i < numPixels; i++) {
-    encoder.encode(pixels[i], cct ? &cct[i] : nullptr, out);
-    out += bpp;
-  }
+bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
+  if (!canShow()) return false;
 
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   _asyncBuf = _encodeBuffer;
-  _asyncBufEnd = _encodeBuffer + rawLen;
+  _asyncBufEnd = _encodeBuffer + _encodeBufferSize;
 
   // Enable the "TX FIFO Empty" interrupt to trigger the ISR
   USIE(uartNum) |= (1 << UIFE);
   
   return true;
+}
+
+bool Esp8266UartBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  return true;
+}
+
+uint32_t Esp8266UartBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+void Esp8266UartBus::setColorOrder(ColorOrder order) {
+  _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 bool Esp8266UartBus::canShow() const {
@@ -180,7 +171,7 @@ bool Esp8266UartBus::canShow() const {
 //==============================================================================
 
 Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _initialized(false) {}
+  : _pin(pin), _timing(timing), _order(order), _encoder(order), _initialized(false) {}
 
 Esp8266BitBangBus::~Esp8266BitBangBus() {
   end();
@@ -192,6 +183,7 @@ bool Esp8266BitBangBus::begin() {
   digitalWrite(_pin, LOW);
   setTiming(_timing);
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
@@ -209,20 +201,17 @@ void Esp8266BitBangBus::setTiming(const LedTiming& timing) {
   _t1l = (timing.t1l_ns * cpuFreq) / 1000;
 }
 
-bool Esp8266BitBangBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!pixels) { pixels = _pixelData; numPixels = _numPixels; cct = _cctData; }
-  if (!_initialized || !pixels || numPixels == 0) return false;
+bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  size_t bpp = (_order >= ColorOrder::RGBWC) ? 5 : ((_order >= ColorOrder::RGBW) ? 4 : 3);
-  ColorEncoder encoder(_order);
+  uint8_t numCh = _encoder.getNumChannels();
   uint32_t mask = 1 << _pin;
-  uint8_t pData[5];
 
   os_intr_lock();
-  for (size_t i = 0; i < numPixels; i++) {
-    encoder.encode(pixels[i], cct ? &cct[i] : nullptr, pData);
-    for (size_t b = 0; b < bpp; b++) {
-      uint8_t v = pData[b];
+  for (uint16_t i = 0; i < _numPixels; i++) {
+    const uint8_t* src = _encodeBuffer + i * numCh;
+    for (uint8_t b = 0; b < numCh; b++) {
+      uint8_t v = src[b];
       for (int bit = 7; bit >= 0; bit--) {
         uint32_t t = ESP.getCycleCount();
         if (v & (1 << bit)) {
@@ -243,6 +232,23 @@ bool Esp8266BitBangBus::show(const uint32_t* pixels, uint16_t numPixels, const C
   return true;
 }
 
+bool Esp8266BitBangBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  return true;
+}
+
+uint32_t Esp8266BitBangBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+void Esp8266BitBangBus::setColorOrder(ColorOrder order) {
+  _order = order;
+  _encoder = ColorEncoder(order);
+}
+
 bool Esp8266BitBangBus::canShow() const {
   return _initialized;
 }
@@ -253,22 +259,22 @@ bool Esp8266BitBangBus::canShow() const {
 //==============================================================================
 
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _initialized(false), _encodeBuffer(nullptr), _encodeBufferSize(0) {}
+  : _pin(pin), _timing(timing), _order(order), _encoder(order), _initialized(false) {}
 
 Esp8266DmaBus::~Esp8266DmaBus() {
   end();
-  if (_encodeBuffer) {
-    free(_encodeBuffer);
-    _encodeBuffer = nullptr;
-  }
 }
 
-bool Esp8266DmaBus::allocateBuffer(size_t len) {
-  if (_encodeBufferSize >= len) return true;
-  if (_encodeBuffer) free(_encodeBuffer);
-  _encodeBuffer = (uint8_t*)malloc(len);
-  if (!_encodeBuffer) return false;
-  _encodeBufferSize = len;
+bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
+  // 4-step I2S encoding: each source byte → 4 bytes; 40 extra bytes for reset latch
+  size_t needed = (size_t)numPixels * numChannels * 4 + 40;
+  if (_encodeBuffer && _encodeBufferSize >= needed) return true;
+  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
+  if (needed == 0) return true;
+  _encodeBuffer = (uint8_t*)malloc(needed);
+  if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
+  memset(_encodeBuffer, 0, needed);
+  _encodeBufferSize = needed;
   return true;
 }
 
@@ -301,61 +307,91 @@ bool Esp8266DmaBus::begin() {
   updateI2sTiming();
 
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
 void Esp8266DmaBus::end() {
   if (!_initialized) return;
   i2s_end();
+  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
   pinMode(_pin, INPUT);
   _initialized = false;
 }
 
-bool Esp8266DmaBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!pixels) { pixels = _pixelData; numPixels = _numPixels; cct = _cctData; }
-  if (!_initialized || !pixels || numPixels == 0) return false;
-
-  size_t bpp = (_order >= ColorOrder::RGBWC) ? 5 : ((_order >= ColorOrder::RGBW) ? 4 : 3);
-  
-  // 4 step cadence per LED bit. 
-  // 1 LED bit = 4 I2S bits (half-byte / nibble).
-  // 1 LED byte (8 bits) = 32 I2S bits (4 bytes).
-  size_t outLen = numPixels * bpp * 4 + 40; // + 40 zero bytes for reset (latch)
-  if (!allocateBuffer(outLen)) return false;
-
-  memset(_encodeBuffer, 0, outLen);
-
-  ColorEncoder encoder(_order);
-  uint32_t* out32 = (uint32_t*)_encodeBuffer;
-  uint8_t pData[5];
-
-  // Using inverted 4-step cadence:
-  // Normally:
-  // 1 = 0b1110 (0xE)
-  // 0 = 0b1000 (0x8)
-  for (size_t i = 0; i < numPixels; i++) {
-    encoder.encode(pixels[i], cct ? &cct[i] : nullptr, pData);
-    for (size_t b = 0; b < bpp; b++) {
-      uint32_t i2sData = 0;
-      uint8_t v = pData[b];
-      for (int bit = 7; bit >= 0; bit--) {
-        i2sData <<= 4;
-        if (v & (1 << bit)) {
-          i2sData |= 0xE; // 1110
-        } else {
-          i2sData |= 0x8; // 1000
-        }
-      }
-      *out32++ = i2sData;
+bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  uint8_t numCh = _encoder.getNumChannels();
+  uint8_t src[5];
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, src);
+  uint32_t* dst = (uint32_t*)(_encodeBuffer + (size_t)pos * numCh * 4);
+  for (uint8_t b = 0; b < numCh; b++) {
+    uint32_t word = 0;
+    uint8_t v = src[b];
+    for (int bit = 7; bit >= 0; bit--) {
+      word <<= 4;
+      word |= (v & (1 << bit)) ? 0xEu : 0x8u;
     }
+    dst[b] = word;
   }
+  return true;
+}
 
-  // Write using Core I2S: It processes full `uint32` buffer natively over I2S
-  uint32_t* buf32 = (uint32_t*)_encodeBuffer;
-  for (size_t i = 0; i < outLen / 4; i++) {
+uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  uint8_t numCh = _encoder.getNumChannels();
+  const uint32_t* src = (const uint32_t*)(_encodeBuffer + (size_t)pix * numCh * 4);
+  uint8_t decoded[5];
+  for (uint8_t b = 0; b < numCh; b++) {
+    uint32_t word = src[b];
+    uint8_t v = 0;
+    for (int nib = 7; nib >= 0; nib--) {
+      v <<= 1;
+      if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+    }
+    decoded[b] = v;
+  }
+  return _encoder.decode(decoded);
+}
+
+// since the colors are laready 4-step encoded, we need to decode first, scale then reencode.
+void Esp8266DmaBus::scaleAll(uint8_t scale) {
+  if (!_encodeBuffer || scale == 255) return;
+  uint8_t numCh = _encoder.getNumChannels();
+  uint32_t* buf = (uint32_t*)_encodeBuffer;
+  size_t numWords = (size_t)_numPixels * numCh; // the reset bytes at the end are zero, scaling 0 stays 0
+  for (size_t w = 0; w < numWords; w++) {
+    uint32_t word = buf[w];
+    uint8_t v = 0;
+    for (int nib = 7; nib >= 0; nib--) {
+      v <<= 1;
+      if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+    }
+    v = ((uint16_t)(v + 1) * scale) >> 8;
+    uint32_t newWord = 0;
+    for (int bit = 7; bit >= 0; bit--) {
+      newWord <<= 4;
+      newWord |= (v & (1 << bit)) ? 0xEu : 0x8u;
+    }
+    buf[w] = newWord;
+  }
+}
+
+void Esp8266DmaBus::setColorOrder(ColorOrder order) {
+  _order = order;
+  _encoder = ColorEncoder(order);
+}
+
+bool Esp8266DmaBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
+
+  // Write the already-4-step-encoded buffer via Core I2S
+  const uint32_t* buf32 = (const uint32_t*)_encodeBuffer;
+  size_t numWords = _encodeBufferSize / 4;
+  for (size_t i = 0; i < numWords; i++) {
     i2s_write_sample(buf32[i]);
   }
-
   return true;
 }
 

@@ -49,6 +49,7 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t cha
   , _channel(channel)
   , _timing(timing)
   , _order(order)
+  , _encoder(order)
   , _inverted(false)
   , _initialized(false)
   , _usingRmtHi(false)
@@ -56,8 +57,6 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t cha
   , _rmtBit0(0)
   , _rmtBit1(0)
   , _rmtResetTicks(0)
-  , _encodeBuffer(nullptr)
-  , _encodeBufferSize(0)
 {
 }
 
@@ -229,6 +228,7 @@ bool RmtBus::begin() {
       _usingRmtHi = true;
       _initialized = true;
       s_activeChannelMask |= (1 << _channel);
+      if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
       return true;
     } else {
       Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
@@ -250,6 +250,7 @@ bool RmtBus::begin() {
 
   _initialized = true;
   s_activeChannelMask |= (1 << _channel);
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
 }
 
@@ -263,89 +264,44 @@ void RmtBus::end() {
     rmt_driver_uninstall(_rmtChannel);
   }
 
-  if (_encodeBuffer) {
-    free(_encodeBuffer);
-    _encodeBuffer = nullptr;
-    _encodeBufferSize = 0;
-  }
+  // Free encode buffer with the same allocator used in allocateEncodeBuffer() (plain malloc)
+  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
 
   _initialized = false;
   _usingRmtHi = false;
 }
 
-bool RmtBus::allocateBuffer(uint16_t numPixels) {
-  size_t needed = numPixels * getChannelCount(_order);
-  if (_encodeBuffer && _encodeBufferSize >= needed) {
-    return true;
-  }
-
-  if (_encodeBuffer) {
-    free(_encodeBuffer);
-  }
-
-  _encodeBuffer = (uint8_t*)malloc(needed);
-  if (!_encodeBuffer) {
-    _encodeBufferSize = 0;
-    return false;
-  }
-  _encodeBufferSize = needed;
+bool RmtBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
   return true;
 }
 
-bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  if (!pixels) {
-    pixels = _pixelData;
-    numPixels = _numPixels;
-    cct = _cctData;
-  }
-  if (numPixels == 0) numPixels = _numPixels;
-  if (!cct) cct = _cctData;
+uint32_t RmtBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
 
-  if (!_initialized || !pixels || numPixels == 0) {
-    return false;
-  }
+bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  // Encoding is done per-pixel in setPixel(); _encodeBuffer is ready to ship.
+  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  // If using Neo rmtHi driver, use its APIs
+  const size_t dataLen = _encodeBufferSize;
+
   if (_usingRmtHi) {
-    if (!allocateBuffer(numPixels)) return false;
-
-    // Encode pixels to byte stream
-    ColorEncoder encoder(_order);
-    uint8_t* dst = _encodeBuffer;
-    uint8_t numCh = encoder.getNumChannels();
-
-    for (uint16_t i = 0; i < numPixels; i++) {
-      encoder.encode(pixels[i], cct ?  &cct[i] : nullptr, dst);
-      dst += numCh;
-    }
-
     // Write() waits for any in-flight transfer internally before starting the new one
-    size_t dataLen = numPixels * numCh;
     return RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK;
   }
 
   // Wait for previous transmission on THIS channel to complete (IDF driver)
   rmt_wait_tx_done((rmt_channel_t)_rmtChannel, portMAX_DELAY);
 
-  if (!allocateBuffer(numPixels)) return false;
-
-  // Encode pixels to byte stream
-  ColorEncoder encoder(_order);
-  uint8_t* dst = _encodeBuffer;
-  uint8_t numCh = encoder.getNumChannels();
-
-  for (uint16_t i = 0; i < numPixels; i++) {
-    encoder.encode(pixels[i], cct ?  &cct[i] : nullptr, dst);
-    dst += numCh;
-  }
-
   // Update per-channel context for translator (ensure latest timings are visible to ISR)
   s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
   s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
   s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
 
-  // Start transmission (IDF driver)
-  size_t dataLen = numPixels * numCh;
   esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
 
   return err == ESP_OK;
@@ -368,6 +324,7 @@ void RmtBus::setTiming(const LedTiming& timing) {
 
 void RmtBus::setColorOrder(ColorOrder order) {
   _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 //note: using O2 optimization has little to no effect on FPS

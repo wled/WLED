@@ -31,6 +31,9 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "RMT"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+
   // Configuration
   void setInverted(bool inv) { _inverted = inv; }
   void setTiming(const LedTiming& timing);
@@ -49,6 +52,7 @@ private:
   int8_t _channel;
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;  // persistent encoder, initialized from _order in constructor
   bool _inverted;
   bool _initialized;
   bool _usingRmtHi;
@@ -58,9 +62,7 @@ private:
   uint32_t _rmtBit1;
   uint16_t _rmtResetTicks;
 
-  // Encode buffer
-  uint8_t* _encodeBuffer;
-  size_t _encodeBufferSize;
+  // _encodeBuffer and _encodeBufferSize are in PixelBus base
 
   static uint8_t s_expectedChannels;
   static uint8_t s_allocatedCount;
@@ -69,7 +71,6 @@ private:
   static uint8_t s_activeChannelMask; // bitmask of initialized channels
 
   void updateRmtTiming();
-  bool allocateBuffer(uint16_t numPixels);
 
   // Per-channel translator context and helpers
   struct RmtContext {

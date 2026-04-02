@@ -525,12 +525,10 @@ LcdBus::LcdBus(int8_t pin, const LedTiming& timing, ColorOrder order,
   , _use16Bit(use16Bit)
   , _timing(timing)
   , _order(order)
+  , _encoder(order)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
-  , _encodeBuffer(nullptr)
-  , _encodeBufferSize(0)
-  , _encodedLen(0)
 {
 }
 
@@ -558,6 +556,10 @@ bool LcdBus::begin() {
   }
 
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) {
+    end();
+    return false;
+  }
   LCD_LOG("LcdBus: ch=%d pin=%d", _channelIdx, _pin);
   return true;
 }
@@ -580,26 +582,20 @@ void LcdBus::end() {
   _initialized = false;
 }
 
-bool LcdBus::allocateBuffer(uint16_t numPixels) {
-  size_t needed = numPixels * getChannelCount(_order);
-  if (_encodeBuffer && _encodeBufferSize >= needed) {
-    return true;
-  }
-
-  if (_encodeBuffer) free(_encodeBuffer);
-
-  _encodeBuffer = (uint8_t*)malloc(needed);
-  if (!_encodeBuffer) {
-    _encodeBufferSize = 0;
-    return false;
-  }
-  _encodeBufferSize = needed;
+bool LcdBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
   return true;
 }
 
-bool LcdBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  // Always use internal pixel buffer (WLED always calls show() without args)
-  if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
+uint32_t LcdBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+bool LcdBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete
   uint32_t start = millis();
@@ -611,21 +607,8 @@ bool LcdBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
     yield();
   }
 
-  if (!allocateBuffer(_numPixels)) return false;
-
-  // Encode pixels to byte stream
-  ColorEncoder encoder(_order);
-  uint8_t* dst = _encodeBuffer;
-  uint8_t numCh = encoder.getNumChannels();
-
-  for (uint16_t i = 0; i < _numPixels; i++) {
-    encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
-    dst += numCh;
-  }
-  _encodedLen = _numPixels * numCh;
-
-  // Set data for our channel and start transmission
-  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodedLen);
+  // Send already-encoded buffer directly
+  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
   return _ctx->startTransmit();
 }
 
@@ -638,6 +621,7 @@ bool LcdBus::canShow() const {
 
 void LcdBus::setColorOrder(ColorOrder order) {
   _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 } // namespace WLEDpixelBus

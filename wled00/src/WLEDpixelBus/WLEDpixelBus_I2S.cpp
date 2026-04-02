@@ -687,11 +687,10 @@ I2sBus::I2sBus(int8_t pin, const LedTiming& timing, ColorOrder order,
   , _bufferSize(bufferSize)
   , _timing(timing)
   , _order(order)
+  , _encoder(order)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
-  , _encodeBuffer(nullptr)
-  , _encodeBufferSize(0)
 {
 }
 
@@ -720,6 +719,7 @@ bool I2sBus::begin() {
   }
 
   _initialized = true;
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   Serial.printf("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n", _pin, _busNum, _channelIdx);
   return true;
 }
@@ -744,48 +744,40 @@ void I2sBus::end() {
   _initialized = false;
 }
 
-bool I2sBus::allocateBuffer(uint16_t numPixels) {
-  size_t needed = numPixels * getChannelCount(_order);
-  if (_encodeBuffer && _encodeBufferSize >= needed) {
-    return true;
-  }
-
-  if (_encodeBuffer) {
-    heap_caps_free(_encodeBuffer);
-  }
-
+bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
+  size_t needed = (size_t)numPixels * numChannels;
+  if (_encodeBuffer && _encodeBufferSize >= needed) return true;
+  if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
+  if (needed == 0) return true;
   _encodeBuffer = (uint8_t*)heap_caps_malloc(needed, MALLOC_CAP_DMA);
-  if (!_encodeBuffer) {
-    _encodeBufferSize = 0;
-    return false;
-  }
+  if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
+  memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   return true;
 }
 
-bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  // Always use internal pixel buffer (WLED always calls show() without args)
-  if (!_initialized || !_ctx || !_pixelData || _numPixels == 0) return false;
+bool I2sBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  if (!_encodeBuffer || pos >= _numPixels) return false;
+  CctPixel cct{ww, cw};
+  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  return true;
+}
+
+uint32_t I2sBus::getPixelColor(uint16_t pix) const {
+  if (!_encodeBuffer || pix >= _numPixels) return 0;
+  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+}
+
+bool I2sBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+  if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete
   while (!_ctx->isIdle()) {
     vTaskDelay(1);
   }
 
-  if (!allocateBuffer(_numPixels)) return false;
-
-  // Encode pixels to byte stream
-  ColorEncoder encoder(_order);
-  uint8_t* dst = _encodeBuffer;
-  uint8_t numCh = encoder.getNumChannels();
-
-  for (uint16_t i = 0; i < _numPixels; i++) {
-    encoder.encode(_pixelData[i], _cctData ? &_cctData[i] : nullptr, dst);
-    dst += numCh;
-  }
-
-  // Set data for our channel and start
-  _ctx->setChannelData(_channelIdx, _encodeBuffer, _numPixels * numCh);
+  // Send already-encoded buffer directly
+  _ctx->setChannelData(_channelIdx, _encodeBuffer, _encodeBufferSize);
   return _ctx->startTransmit();
 }
 
@@ -796,6 +788,7 @@ bool I2sBus::canShow() const {
 
 void I2sBus::setColorOrder(ColorOrder order) {
   _order = order;
+  _encoder = ColorEncoder(order);
 }
 
 

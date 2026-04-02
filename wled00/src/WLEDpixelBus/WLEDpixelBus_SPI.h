@@ -29,14 +29,18 @@ public:
   bool canShow() const override;
   const char* getType() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
 
+  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  uint32_t getPixelColor(uint16_t pix) const override;
+
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order) { _order = order; }
+  void setColorOrder(ColorOrder order);
 
 private:
   int8_t _dataPin;
   int8_t _clockPin;
   LedTiming _timing;
   ColorOrder _order;
+  ColorEncoder _encoder;
   bool _useHardware;
   bool _initialized;
 
