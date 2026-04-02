@@ -22,47 +22,75 @@
 #define P_32_VS_MOSI   23
 #define P_32_VS_CLK    18
 
-struct ProtocolDef {
-  WLEDpixelBus::LedTiming timing;
-  uint8_t channels;
-  bool is16bit;
+// LED timing lookup table in flash (PROGMEM on ESP8266, .rodata on ESP32).
+//
+// WHY PROGMEM: On ESP8266 the linker only sends specific .rodata.* patterns to flash
+// (vtables, string literals, RTTI). All other .rodata — including named namespace-scope
+// constexpr variables — lands in DRAM. PROGMEM (__attribute__((section(".irom.text"))))
+// is the only escape. This table is read once at bus-creation time; the bus stores its own
+// copy. Zero permanent DRAM cost.
+//
+// On ESP32 PROGMEM is a no-op; const data naturally goes to flash via the SPI cache.
+//
+// Indexed by getTimingIndex() below. The switch returns uint8_t (not a struct) so the
+// compiler generates code-based selection, not a DRAM struct-copy table.
+//
+// Entries with identical timing values are shared: TM1814≡TM1914, UCS8903≡UCS8904,
+// APA102≡LPD8806≡P9813≡LPD6803.
+static const PROGMEM WLEDpixelBus::LedTiming s_ledTimings[] = {
+//            t0h   t0l   t1h   t1l  reset_us
+/* 0 WS2812 */ { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
+/* 1 WS281xF*/ { 330,  670,  660,  340,  100 },  // WS281x_FAST (1MHz)
+/* 2 400KHz */ { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
+/* 3 TM1829 */ { 300,  900,  800,  400,  200 },  // TM1829
+/* 4 UCS8x03*/ { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
+/* 5 APA106 */ { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
+/* 6 TM1x14 */ { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
+/* 7 SK6812 */ { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
+/* 8 TM1815 */ { 740, 1780, 1440, 1060,  200 },  // TM1815
+/* 9 FW1906 */ { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
+/*10 WS2805 */ { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
+/*11 SM16825*/ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
+/*12 SPI    */ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803
+/*13 WS2801 */ { 500,  500,  500,  500, 1000 },  // WS2801
 };
 
-// Maps WLED's internal TYPE_ to actual timings and capabilities
-inline ProtocolDef getProtocol(uint8_t wledType) {
+// Maps WLED TYPE_ to an index into s_ledTimings.
+// Returns uint8_t — the compiler generates code-based selection, not a 12-byte-per-entry
+// DRAM struct table.
+// channels/is16bit are derived via Bus::getNumberOfChannels() / Bus::is16bit() at call site.
+static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
-    // 3 channels
     case TYPE_WS2812_1CH_X3:
     case TYPE_WS2812_2CH_X3:
     case TYPE_WS2812_RGB:
-    case TYPE_WS2812_WWA:   return { WLEDpixelBus::Timing::WS2812, 3, false };
-    case TYPE_WS281X_FAST:  return { WLEDpixelBus::Timing::WS281x_FAST, 3, false };
-    case TYPE_WS2811_400KHZ:return { WLEDpixelBus::Timing::Generic400Kbps, 3, false };
-    case TYPE_TM1829:       return { WLEDpixelBus::Timing::TM1829, 3, false };
-    case TYPE_UCS8903:      return { WLEDpixelBus::Timing::UCS8903, 3, true }; // 16bit
-    case TYPE_APA106:       return { WLEDpixelBus::Timing::APA106, 3, false };
-    case TYPE_TM1914:       return { WLEDpixelBus::Timing::TM1914, 3, false };
-
-    // 4 channels
-    case TYPE_SK6812_RGBW:  return { WLEDpixelBus::Timing::SK6812, 4, false };
-    case TYPE_TM1814:       return { WLEDpixelBus::Timing::TM1814, 4, false };
-    case TYPE_UCS8904:      return { WLEDpixelBus::Timing::UCS8904, 4, true }; // 16bit
-    case TYPE_TM1815:       return { WLEDpixelBus::Timing::TM1815, 4, false };
-
-    // 5 channels
-    case TYPE_FW1906:       return { WLEDpixelBus::Timing::FW1906, 5, false };
-    case TYPE_WS2805:       return { WLEDpixelBus::Timing::WS2805, 5, false };
-    case TYPE_SM16825:      return { WLEDpixelBus::Timing::SM16825, 5, true }; // 16bit
-    
-    // SPI specific
-    case TYPE_APA102:       return { WLEDpixelBus::Timing::APA102, 3, false };
-    case TYPE_LPD8806:      return { WLEDpixelBus::Timing::LPD8806, 3, false };
-    case TYPE_WS2801:       return { WLEDpixelBus::Timing::WS2801, 3, false };
-    case TYPE_P9813:        return { WLEDpixelBus::Timing::P9813, 3, false };
-    case TYPE_LPD6803:      return { WLEDpixelBus::Timing::LPD6803, 3, false };
-
-    default:                return { WLEDpixelBus::Timing::WS2812, 3, false };
+    case TYPE_WS2812_WWA:    return  0;
+    case TYPE_WS281X_FAST:   return  1;
+    case TYPE_WS2811_400KHZ: return  2;
+    case TYPE_TM1829:        return  3;
+    case TYPE_UCS8903:
+    case TYPE_UCS8904:       return  4; // identical timing
+    case TYPE_APA106:        return  5;
+    case TYPE_TM1914:
+    case TYPE_TM1814:        return  6; // identical timing
+    case TYPE_SK6812_RGBW:   return  7;
+    case TYPE_TM1815:        return  8;
+    case TYPE_FW1906:        return  9;
+    case TYPE_WS2805:        return 10;
+    case TYPE_SM16825:       return 11;
+    case TYPE_APA102:
+    case TYPE_LPD8806:
+    case TYPE_P9813:
+    case TYPE_LPD6803:       return 12; // identical timing
+    case TYPE_WS2801:        return 13;
+    default:                 return  0; // WS2812 fallback
   }
+}
+
+// Returns the LED timing for the given WLED bus type, read from flash.
+// This is a one-time read at bus-creation; the bus constructor stores its own copy.
+inline WLEDpixelBus::LedTiming getProtocol(uint8_t wledType) {
+  return s_ledTimings[getTimingIndex(wledType)];
 }
 
 class PixelBusAllocator {
@@ -153,19 +181,20 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
-    ProtocolDef proto = getProtocol(busType);
-    // Apply optional bus speed factor (percent)
-    WLEDpixelBus::LedTiming timing = proto.timing;
+    // getProtocol() reads from a PROGMEM table (flash on ESP8266, .rodata on ESP32).
+    // The timing is a one-time read at bus creation; scale to a local if needed.
+    WLEDpixelBus::LedTiming timing = getProtocol(busType);
     if (busSpeedFactor != 100) {
       float factor = (float)busSpeedFactor / 100.0f;
-      timing = WLEDpixelBus::scaleTiming(proto.timing, factor);
+      timing = WLEDpixelBus::scaleTiming(timing, factor);
     }
 
     // Map WLED Order
     uint8_t wledOrder = (uint8_t)colorOrder & 0x0F;
     WLEDpixelBus::ColorOrder finalOrder = WLEDpixelBus::ColorOrder::GRB;
-    
-    if (proto.channels >= 5) {
+    const size_t numChannels = Bus::getNumberOfChannels(busType);
+
+    if (numChannels >= 5) {
       switch (wledOrder) {
         case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
         case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBWC; break;
@@ -175,7 +204,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         case 5: finalOrder = WLEDpixelBus::ColorOrder::GBRWC; break;
         default: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
       }
-    } else if (proto.channels == 4) {
+    } else if (numChannels == 4) {
       switch (wledOrder) {
         case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
         case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBW; break;
