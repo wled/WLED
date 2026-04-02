@@ -253,16 +253,12 @@
 
 			let mem = 0;
 			if (isDig(t)) {
-				mem = len * 4; // base PixelBus `_pixelData` buffer
-				if (hasCCT(t)) mem += len * 2; // base `_cctData` buffer
-
 				if (is8266()) {
-					// BitBang uses no driver memory, UART uses 4x + 1024
 					let pin = parseInt(d.Sf["L0"+n].value);
-					if (pin === 1 || pin === 2) {
-						mem += len * ch * 4 + 1024; // UART
-					} else if (pin === 3) {
-						mem += len * ch * 4 + 40; // DMA
+					if (pin === 3) {
+						mem += len * ch * 4 + 40; // DMA: 4-step I2S pre-expanded encode buffer + 40 byte reset latch
+					} else {
+						mem += len * ch; // UART (pin 1,2) and BitBang: plain encode buffer, ISR expands UART on-the-fly
 					}
 				} else {
 					if (isD2P(t)) {
