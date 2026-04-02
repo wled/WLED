@@ -233,6 +233,15 @@ public:
   virtual uint32_t getPixelColor(uint16_t pix) const = 0;
 
   /**
+   * Zero the encode buffer (set all pixels to black).
+   * Derived classes may override if their encoding is non-trivial (e.g. I2S 4-step).
+   * For all standard RGB/RGBW protocols, all-zero bytes encode as black.
+   */
+  virtual void clearEncodeBuffer() {
+    if (_encodeBuffer && _encodeBufferSize > 0) memset(_encodeBuffer, 0, _encodeBufferSize);
+  }
+
+  /**
    * Proportionally scale all encoded channel bytes by scale/256 (video scale).
    * Used by BusDigital::applyBriLimit() for ABL. No-op if scale == 255.
    * Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.

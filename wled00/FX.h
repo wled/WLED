@@ -902,7 +902,12 @@ class WS2812FX {
       waitForIt();                                // wait until frame is over (service() has finished or time for 1 frame has passed)
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
-    inline void setPixelColor(unsigned n, uint32_t c) const   { if (n < getLengthTotal()) _pixels[n] = c; }  // paints absolute strip pixel with index n and color c
+    inline void setPixelColor(unsigned n, uint32_t c) const   {
+      #ifdef ESP8266
+      if (!_pixels) return; // direct-to-bus mode: use Segment::setPixelColor() for effect output
+      #endif
+      if (n < getLengthTotal()) _pixels[n] = c;
+    }  // paints absolute strip pixel with index n and color c
     inline void resetTimebase()                               { timebase = 0UL - millis(); }
     inline void setPixelColor(unsigned n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) const
                                                               { setPixelColor(n, RGBW32(r,g,b,w)); }
@@ -960,8 +965,18 @@ class WS2812FX {
     };
 
     unsigned long now, timebase;
-    inline uint32_t getPixelColor(unsigned n) const { return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0; } // returns color of pixel n, black if out of (mapped) bounds
-    inline uint32_t getPixelColorNoMap(unsigned n) const { return (n < getLengthTotal()) ? _pixels[n] : 0; } // ignores mapping table
+    inline uint32_t getPixelColor(unsigned n) const {
+      #ifdef ESP8266
+      if (!_pixels) return (getMappedPixelIndex(n) < getLengthTotal()) ? BusManager::getPixelColor(getMappedPixelIndex(n)) : 0;
+      #endif
+      return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0;
+    } // returns color of pixel n, black if out of (mapped) bounds
+    inline uint32_t getPixelColorNoMap(unsigned n) const {
+      #ifdef ESP8266
+      if (!_pixels) return (n < getLengthTotal()) ? BusManager::getPixelColor(n) : 0;
+      #endif
+      return (n < getLengthTotal()) ? _pixels[n] : 0;
+    } // ignores mapping table
     inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 
     const char *getModeData(unsigned id = 0) const  { return (id && id < _modeCount) ? _modeData[id] : PSTR("Solid"); }

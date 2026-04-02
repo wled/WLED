@@ -254,6 +254,7 @@
 			let mem = 0;
 			if (isDig(t)) {
 				if (is8266()) {
+					pbfr = len * 4; // no global buffer on ESP8266
 					let pin = parseInt(d.Sf["L0"+n].value);
 					if (pin === 3) {
 						mem += len * ch * 4 + 40; // DMA: 4-step I2S pre-expanded encode buffer + 40 byte reset latch

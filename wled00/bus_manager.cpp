@@ -244,6 +244,10 @@ bool BusDigital::canShow() const {
   return _busPtr->canShow();
 }
 
+void BusDigital::clearPixels() {
+  if (_valid && _busPtr) _busPtr->clearEncodeBuffer();
+}
+
 //If LEDs are skipped, it is possible to use the first as a status LED.
 //TODO only show if no new show due in the next 50ms
 void BusDigital::setStatusPixel(uint32_t c) {
@@ -1379,6 +1383,17 @@ uint32_t BusManager::getPixelColor(unsigned pix) {
     return bus->getPixelColor(pix - bus->getStart());
   }
   return 0;
+}
+
+void BusManager::clearPixels(size_t n) {
+  // memset each bus encode buffer directly — vastly faster than N encode calls.
+  // All-zero bytes encode as black for all supported LED protocols (RGB, RGBW, GRB, I2S 4-step, etc).
+  unsigned covered = 0;
+  for (auto &bus : busses) {
+    if (covered >= n) break;
+    bus->clearPixels();
+    covered += bus->getLength();
+  }
 }
 
 bool BusManager::canAllShow() {

@@ -128,6 +128,7 @@ class Bus {
     virtual void     begin()                                    {};
     virtual void     show()                                     = 0;
     virtual bool     canShow() const                            { return true; }
+    virtual void     clearPixels()                              {} // zero encode buffer to black (no-op for non-digital buses)
     virtual void     setStatusPixel(uint32_t c)                 {}
     virtual void     setPixelColor(unsigned pix, uint32_t c)    = 0;
     virtual void     setBrightness(uint8_t b)                   { _bri = b; };
@@ -254,6 +255,7 @@ class BusDigital : public Bus {
 
     void show() override;
     bool canShow() const override;
+    void clearPixels() override;
     void setStatusPixel(uint32_t c) override;
     [[gnu::hot]] void setPixelColor(unsigned pix, uint32_t c) override;
     void setColorOrder(uint8_t colorOrder) override;
@@ -561,6 +563,7 @@ namespace BusManager {
 
   [[gnu::hot]] void     setPixelColor(unsigned pix, uint32_t c);
   [[gnu::hot]] uint32_t getPixelColor(unsigned pix);
+  void        clearPixels(size_t n); // zero all bus encode buffers for first n physical pixels
   void        show();
   bool        canAllShow();
   inline void setStatusPixel(uint32_t c) { for (auto &bus : busses) bus->setStatusPixel(c);}

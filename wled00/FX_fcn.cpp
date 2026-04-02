@@ -1242,9 +1242,16 @@ void WS2812FX::finalizeInit() {
 
   // allocate frame buffer after matrix has been set up (gaps!)
   p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  #ifdef ESP8266
+  // On ESP8266, skip the global framebuffer: blendSegment() encodes directly into bus encode buffers.
+  // This saves N*4 bytes of heap (e.g. 1200B for 300 LEDs, 2000B for 500 LEDs).
+  _pixels = nullptr;
+  DEBUG_PRINTF_P(PSTR("ESP8266 direct-bus mode: saved %uB\n"), getLengthTotal() * sizeof(uint32_t));
+  #else
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
+  #endif
   DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
 }
 
@@ -1392,6 +1399,28 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const Segment *segO = topSegment.getOldSegment();
   const bool hasGrouping = topSegment.groupLength() != 1;
 
+  #ifdef ESP8266
+  // Direct-to-bus mode: read/write pixels through the bus encode buffer instead of _pixels[].
+  // CCT is set per-segment (not per-pixel) — acceptable trade-off for the RAM saved.
+  // Gamma is applied inline when writing; multi-segment blending occurs in gamma-compressed space.
+  if (!cctFromRgb) BusManager::setSegmentCCT(cct, correctWB);
+  const auto blendPixelIntoFrame = [&](size_t idx, uint32_t newC, uint8_t o) {
+    unsigned physIdx = getMappedPixelIndex(idx);
+    uint32_t result;
+    // Fast path: fully-opaque top layer — result is just newC, no readback needed.
+    // This covers the dominant case (single segment, full brightness, default blend mode)
+    // and avoids an expensive bus decode call per pixel for fast effects like Palette.
+    if (o == 255 && blendMode == 0) {
+      result = newC;
+    } else {
+      uint32_t existing = BusManager::getPixelColor(physIdx);
+      result = color_blend(existing, segblend(newC, existing), o);
+    }
+    if (result > 0 && !(realtimeMode && arlsDisableGammaCorrection)) result = gamma32(result);
+    BusManager::setPixelColor(physIdx, result);
+  };
+  #endif
+
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
   if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
     if (isMatrix && width * height <= (int)matrixSize && !_pixelCCT) {
@@ -1408,11 +1437,17 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if (topSegment.reverse_y) { start_offset += (height - 1) * Segment::maxWidth; y_inc = -Segment::maxWidth; }
 
         for (int y = 0; y < height; y++) {
+          #ifndef ESP8266
           uint32_t* pRow = &_pixels[start_offset + y * y_inc];
+          #endif
           for (int x = 0; x < width; x++) {
-            uint32_t* p = pRow + x * x_inc;
             uint32_t c_a = topSegment.getPixelColorRaw(x + y * width);
+            #ifdef ESP8266
+            blendPixelIntoFrame((size_t)(start_offset + y * y_inc + x * x_inc), c_a, opacity);
+            #else
+            uint32_t* p = pRow + x * x_inc;
             *p = color_blend(*p, segblend(c_a, *p), opacity);
+            #endif
           }
         }
       } else { // transposed
@@ -1421,7 +1456,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
             int px = topSegment.reverse   ? (width - x - 1)  : x;
             int py = topSegment.reverse_y ? (height - y - 1) : y;
             size_t idx = XY(topSegment.start + py, topSegment.startY + px); // Swapped X/Y
+            #ifdef ESP8266
+            blendPixelIntoFrame(idx, topSegment.getPixelColorRaw(x + y * width), opacity);
+            #else
             _pixels[idx] = color_blend(_pixels[idx], segblend(topSegment.getPixelColorRaw(x + y * width), _pixels[idx]), opacity);
+            #endif
           }
         }
       }
@@ -1429,7 +1468,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 #endif
     } else if (!isMatrix) {
       // 1D fast path, include CCT as it is more common on 1D setups
-      uint32_t* strip = _pixels;
       int start = topSegment.start;
       int off   = topSegment.offset;
       for (int i = 0; i < length; i++) {
@@ -1437,8 +1475,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         int p = topSegment.reverse ? (length - i - 1) : i;
         int idx = start + p + off;
         if (idx >= topSegment.stop) idx -= length;
-        strip[idx] = color_blend(strip[idx], segblend(c_a, strip[idx]), opacity);
+        #ifdef ESP8266
+        blendPixelIntoFrame((size_t)idx, c_a, opacity);
+        #else
+        _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
         if (_pixelCCT) _pixelCCT[idx] = cct;
+        #endif
       }
       return;
     }
@@ -1515,8 +1557,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
+      #ifdef ESP8266
+      blendPixelIntoFrame(indx, c, o);
+      #else
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
+      #endif
       // Apply mirroring if enabled
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1524,6 +1570,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
+        #ifdef ESP8266
+        if (topSegment.mirror)                        blendPixelIntoFrame(idxMX, c, o);
+        if (topSegment.mirror_y)                      blendPixelIntoFrame(idxMY, c, o);
+        if (topSegment.mirror && topSegment.mirror_y) blendPixelIntoFrame(idxMM, c, o);
+        #else
         if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], segblend(c, _pixels[idxMX]), o);
         if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], segblend(c, _pixels[idxMY]), o);
         if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], segblend(c, _pixels[idxMM]), o);
@@ -1532,6 +1583,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
           if (topSegment.mirror_y)                      _pixelCCT[idxMY] = cct;
           if (topSegment.mirror && topSegment.mirror_y) _pixelCCT[idxMM] = cct;
         }
+        #endif
       }
     };
 
@@ -1609,6 +1661,18 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
     const auto setMirroredPixel = [&](int i, uint32_t c, uint8_t o) {
       int indx = topSegment.start + i;
+      #ifdef ESP8266
+      // direct-to-bus: apply mirroring then encode
+      if (topSegment.mirror) {
+        unsigned indxM = topSegment.stop - i - 1;
+        indxM += topSegment.offset; // offset/phase
+        if (indxM >= topSegment.stop) indxM -= length; // wrap
+        blendPixelIntoFrame(indxM, c, o);
+      }
+      indx += topSegment.offset; // offset/phase
+      if (indx >= topSegment.stop) indx -= length; // wrap
+      blendPixelIntoFrame((size_t)indx, c, o);
+      #else
       // Apply mirroring
       if (topSegment.mirror) {
         unsigned indxM = topSegment.stop - i - 1;
@@ -1621,6 +1685,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       if (indx >= topSegment.stop) indx -= length; // wrap
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
+      #endif
     };
 
     // if we blend using "push" style we need to "shift" canvas to left/right/
@@ -1665,11 +1730,13 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 }
 
 void WS2812FX::show() {
+  #ifndef ESP8266
   if (!_pixels) {
     DEBUGFX_PRINTLN(F("Error: no _pixels!"));
     errorFlag = ERR_NORAM;
     return; // no pixels allocated, nothing to show
   }
+  #endif
 
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
@@ -1678,23 +1745,36 @@ void WS2812FX::show() {
   // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
   // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
   // and then set appropriate CCT from that pixel during paint (see below).
+  #ifndef ESP8266
   if ((hasCCTBus() || correctWB) && !cctFromRgb)
     _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
   if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+  #endif
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
+    #ifdef ESP8266
+    // Direct-to-bus mode: clear bus encode buffers then blend segments directly into them.
+    // Per-pixel CCT tracking is not supported; CCT is set per-segment in blendSegment().
+    if (cctFromRgb) BusManager::setSegmentCCT(-1); // set once; blendSegment skips CCT if cctFromRgb
+    BusManager::clearPixels(totalLen);
+    for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
+      blendSegment(seg);
+    }
+    #else
     // clear frame buffer
     for (size_t i = 0; i < totalLen; i++) _pixels[i] = BLACK; // memset(_pixels, 0, sizeof(uint32_t) * getLengthTotal());
     // blend all segments into (cleared) buffer
     for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
+    #endif
   }
 
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
   if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
+  #ifndef ESP8266
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
@@ -1715,6 +1795,7 @@ void WS2812FX::show() {
 
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
+  #endif
 
   // some buses send asynchronously and this method will return before
   // all of the data has been sent.
