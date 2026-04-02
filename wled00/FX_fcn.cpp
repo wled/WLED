@@ -1797,9 +1797,7 @@ void WS2812FX::show() {
   _pixelCCT = nullptr;
   #endif
 
-  // some buses send asynchronously and this method will return before
-  // all of the data has been sent.
-  // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
+  // pass the pixels on to the buses and start sending them out
   BusManager::show();
 
   if (diff > 0) { // skip calculation if no time has passed

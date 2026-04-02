@@ -113,7 +113,7 @@ class Bus {
     Bus(uint8_t type, uint16_t start, uint8_t aw, uint16_t len = 1, bool reversed = false, bool refresh = false)
     : _type(type)
     , _bri(255)
-    , _NPBbri(255)
+    , _totalBusBri(255)
     , _start(start)
     , _len(std::max(len,(uint16_t)1))
     , _reversed(reversed)
@@ -217,7 +217,7 @@ class Bus {
   protected:
     uint8_t  _type;
     uint8_t  _bri;    // bus brightness
-    uint8_t  _NPBbri; // total brightness applied to colors in NPB buffer (_bri + ABL)
+    uint8_t  _totalBusBri; // total brightness applied to colors in bus buffers (_bri + ABL)
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;

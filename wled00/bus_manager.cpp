@@ -157,7 +157,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
-  if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs for NeoPixelBus
+  if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs
 
   // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
   _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType, bc.busSpeedFactor);
@@ -210,7 +210,7 @@ void BusDigital::estimateCurrent() {
 
 void BusDigital::applyBriLimit(uint8_t newBri) {
   // a newBri of 0 means calculate per-bus brightness limit
-  _NPBbri = 255; // reset, intermediate value is set below, final value is calculated in bus::show()
+  _totalBusBri = 255; // reset, intermediate value is set below, final value is calculated in bus::show()
   if (newBri == 0) {
     if (_milliAmpsLimit == 0 || _milliAmpsTotal == 0) return; // ABL not used for this bus
     newBri = 255;
@@ -224,7 +224,7 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
   }
 
   if (newBri < 255) {
-    _NPBbri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
+    _totalBusBri = newBri; // store value so it can be updated in show() (must be updated even if ABL is not used)
     // scaleAll() simply scales every channel byte proportionally, i.e. RGB and if available W (WW and CW)
     // in order to enforce the brightness limit, this does not use video scaling and can scale to black if ABL limit is set too low
     _busPtr->scaleAll(newBri);
@@ -235,7 +235,10 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
 
 void BusDigital::show() {
   if (!_valid) return;
-  _NPBbri = (_NPBbri * _bri) / 255;      // total applied brightness for use in restoreColorLossy (see applyBriLimit())
+  if (BusManager::_useABL)
+    _totalBusBri = (_totalBusBri * _bri) / 255;      // total applied brightness for use in restoreColorLossy (see applyBriLimit())
+  else
+    _totalBusBri = _bri; // if not using ABL, total bus brightness is just the bus brightness
   _busPtr->show();
 }
 
@@ -314,7 +317,7 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   pix += _skip;
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder); // TODO: do we need the color order? where is getpixelcolor used?
   uint32_t rawC = _busPtr->getPixelColor((_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix); // TODO: check if this is correct
-  uint32_t c = restoreColorLossy(rawC, _NPBbri);
+  uint32_t c = restoreColorLossy(rawC, _totalBusBri);
   if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
     uint8_t r = R(c);
     uint8_t g = _reversed ? B(c) : G(c); // should G and B be switched if _reversed?
