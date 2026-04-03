@@ -307,7 +307,7 @@ function makePinSelect(name, flags) {
 		let used = j > -1 && pInfo && pInfo.a && j !== v;
 		let txt = j === -1 ? "unused" : `${j}`;
 		if (used) txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
-		if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)";
+		// if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)"; // read only pins  note: removed as pin is not shown for outputs
 
 		let opt = cE("option");
 		opt.value = j;

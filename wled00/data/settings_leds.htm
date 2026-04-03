@@ -893,7 +893,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						i.disabled = true;
 						i.text += ` ${led ? 'LED' : label}`;
 					}
-					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+					//if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)"; // read only pin note: removed as pin is not shown for outputs
 				});
 			}
 		}

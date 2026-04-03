@@ -143,7 +143,7 @@
 					let used = j > -1 && pInfo && pInfo.a && j !== v; // add owner info if used and not "our" pin
 					let txt = (j === -1) ? "unused" : `${j}`;
 					if (used) txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
-					if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)"; // read-only pin
+					if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (input only)"; // read-only pin
 					let opt = addO(sel, txt, j);
 					if (j === v) opt.selected = true; // this is "our" pin
 					else if (used) opt.disabled = true; // someone else's pin
@@ -181,7 +181,7 @@
 						i.disabled = true;
 						i.text += ` ${txt}`;
 					}
-					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (input only)"; // read-only pin
 				}
 			});
 		}
