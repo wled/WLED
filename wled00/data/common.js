@@ -248,11 +248,35 @@ function getCaps(p,c) {
 	return r.length?r.join(", "):"-";
 }
 
+// Fetch GPIO caps (/settings/s.js?p=11) then pin occupancy (/json/pins) with retry.
+// Caches result in d.pinsData. Calls cb() when ready (or on failure).
+// If page already loaded its own s.js (d.max_gpio set), skips caps load and goes straight to pins fetch.
+function fetchPinInfo(cb, retries=5) {
+	if (d.pinsData) { cb&&cb(); return; }
+	var done=false, fr=retries;
+	function doFetch() {
+		fetch(getURL('/json/pins'))
+			.then(r=>r.json())
+			.then(j=>{ if(!done){done=true; d.pinsData=j.pins||[]; cb&&cb();} })
+			.catch(()=>{ fr-->0 ? setTimeout(doFetch,100) : (!done&&(done=true,d.pinsData=[],cb&&cb())); });
+	}
+	if (d.max_gpio) { doFetch(); return; }
+	// Load GPIO caps from s.js?p=11 first (sets d.rsvd/ro_gpio/max_gpio/touch/adc/um_p)
+	d.max_gpio=50; d.rsvd=[]; d.ro_gpio=[]; d.touch=[]; d.adc=[]; d.um_p=[];
+	var cr=retries;
+	function tryCaps() {
+		var s=cE("script"); s.src=getURL('/settings/s.js?p=11');
+		d.body.appendChild(s);
+		s.onload=function(){ GetV(); doFetch(); };
+		s.onerror=function(){ cr-->0 ? setTimeout(tryCaps,100) : doFetch(); };
+	}
+	tryCaps();
+}
+
 // Pin dropdown utilities
 // Create or rebuild a pin <select> from an <input> or existing <select>
 // name: form field name, requirement flags bitmask: 1=output, 2=touch, 4=ADC
-// name: form field name, flags: bitmask 1=output, 2=touch, 4=ADC, pinsData: array from /json/pins
-function makePinSelect(name, flags, pinsData = null) {
+function makePinSelect(name, flags) {
 	let el = gN(name);
 	if (!el) return null;
 	let v = parseInt(el.value);
@@ -279,25 +303,10 @@ function makePinSelect(name, flags, pinsData = null) {
 		if (j > -1 && (flags & 2) && (!d.touch || !d.touch.includes(j))) continue;
 		if (j > -1 && (flags & 4) && (!d.adc || !d.adc.includes(j))) continue;
 
-		let txt = (j === -1) ? "unused" : `${j}`;
-		// Find pin info from the JSON data if provided
-		let pInfo = pinsData ? pinsData.find(p => p.p === j) : null;
-
-		// Logic: A pin is "used" if the API says it's active (p.a) 
-		// AND it's not the pin currently assigned to this field (j !== v)
-		let used = (pInfo && pInfo.a && j !== v) || (j > -1 && d.um_p && d.um_p.includes(j) && j !== v);
-
-		if (used) {
-			if (pInfo) {
-				// Use the same owner naming logic as your info list
-				txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
-			} else if (d.pin_names && d.pin_names[j]) {
-				txt += ` (${d.pin_names[j]})`;
-			} else {
-				txt += " (used)";
-			}
-		}
-
+		let pInfo = d.pinsData && d.pinsData.find(p => p.p === j);
+		let used = j > -1 && pInfo && pInfo.a && j !== v;
+		let txt = j === -1 ? "unused" : `${j}`;
+		if (used) txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
 		if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (R/O)";
 
 		let opt = cE("option");

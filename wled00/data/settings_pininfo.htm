@@ -16,17 +16,7 @@
 		var pinsTimer=null, gpioInfo={};
 		function S() {
 			getLoc();
-			loadJS(getURL('/settings/s.js?p=11'), false, ()=>{
-				d.um_p = [];
-				d.rsvd = [];
-				d.ro_gpio = [];
-				d.max_gpio = 50;
-				d.touch = [];
-			}, ()=>{
-				// Load extended GPIO info and start pin polling
-				loadPins();
-				pinsTimer = setInterval(loadPins, 250);
-			});
+			fetchPinInfo(()=>{ loadPins(); pinsTimer=setInterval(loadPins,250); });
 		}
 
 		function B(){window.open(getURL('/settings'),'_self');} // back button

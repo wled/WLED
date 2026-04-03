@@ -49,22 +49,7 @@
 				setABL();
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
-				fetch(getURL('/json/pins')).then(r=>r.json()).then(j=>{
-					if (j && j.pins) {
-						let um = [];
-						d.pin_names = {};
-						j.pins.forEach(p => {
-							// 0x82=BusDigital, 0x83=BusOnOff, 0x84=BusPwm, 0x85=Button, 0x86=IR, 0x87=Relay, 0x8E=HUB75
-							let ledOwners = [0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x8E];
-							if (p.a && !ledOwners.includes(p.o)) um.push(p.p);
-							if (p.n) d.pin_names[p.p] = p.n;
-						});
-						d.um_p = um;
-					}
-					pinDropdowns();
-				}).catch(e=>{
-					pinDropdowns();
-				});
+				fetchPinInfo(pinDropdowns);
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
@@ -849,14 +834,17 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		function pinDropdowns() {
 			// IR (any pin including input-only)
-			makePinSelect("IR", 0);
+			let irSel = makePinSelect("IR", 0);
+			if (irSel) irSel.onchange = function() { UI(); pinUpd(this); };
 			// Relay (output required)
-			makePinSelect("RL", 1);
+			let rlSel = makePinSelect("RL", 1);
+			if (rlSel) rlSel.onchange = function() { UI(); pinUpd(this); };
 			// Buttons (flags depend on button type: touch=2, ADC=4)
 			gId("btns").querySelectorAll('input[type="number"]').forEach((e) => {
 				let s = e.name.substring(2);
 				let t = parseInt(d.Sf["BE"+s]?.value) || 0;
-				makePinSelect(e.name, btnPinFlags(t));
+				let bSel = makePinSelect(e.name, btnPinFlags(t));
+				if (bSel) bSel.onchange = function() { UI(); pinUpd(this); };
 			});
 			// cross-update all pin selects
 			d.Sf.querySelectorAll("select.pin").forEach((e) => { pinUpd(e); });
@@ -886,6 +874,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			for (let sel of selects) {
 				if (sel == e) continue;
 				Array.from(sel.options).forEach((i) => {
+					if (i.value == sel.dataset.val) return; // skip sel's own selected pin
 					let led = pins.includes(i.value);
 					if (!(i.value == oldV || i.value == e.value || led)) return;
 					if (i.value == -1) { i.text = "unused"; return; }
