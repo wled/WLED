@@ -7,7 +7,7 @@
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var umCfg = {};
-	var owner;
+	var pins = [], pinO = [], owner;
 	var urows;
 	var numM = 0;
 	// load common.js with retry on error
@@ -32,6 +32,7 @@
 		})
 		.then(json => {
 			umCfg = json.um;
+			getPins(json);
 			urows="";
 			if (isO(umCfg)) {
 				for (const [k,o] of Object.entries(umCfg)) {
@@ -47,26 +48,13 @@
 				d.um_p = [];
 				d.rsvd = [];
 				d.ro_gpio = [];
-				d.touch = [];
-				d.adc = [];
 				d.extra = [];
 			}, ()=>{
+				for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
 				if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
-				fetch(getURL('/json/pins')).then(r=>r.json()).then(j=>{
-					if (j && j.pins) {
-						let um = [];
-						d.pin_names = {};
-						j.pins.forEach(p => {
-							// Usermods (< 0x80), HW I2C (0x8B), HW SPI (0x8C)
-							if (p.a && !(p.o < 0x80 || p.o === 0x8B || p.o === 0x8C)) um.push(p.p);
-							if (p.n) d.pin_names[p.p] = p.n;
-						});
-						d.um_p = um;
-					}
-					pinDD();
-				}).catch(e=>{
-					pinDD();
-				});
+				d.Sf.SDA.max = d.Sf.SCL.max = d.Sf.MOSI.max = d.Sf.SCLK.max = d.Sf.MISO.max = d.max_gpio;
+				//for (let i of d.getElementsByTagName("input")) if (i.type === "number" && i.name.replace("[]","").substr(-3) === "pin") i.max = d.max_gpio;
+				pinDD(); // convert INPUT to SELECT for pins
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 		})
 		.catch((error)=>{
@@ -101,6 +89,28 @@
 			}
 		}
 		*/
+	}
+	function getPins(o) {
+		if (isO(o)) {
+			for (const [k,v] of Object.entries(o)) {
+				if (isO(v)) {
+					let oldO = owner; // keep parent name
+					owner = k;
+					getPins(v);
+					owner = oldO;
+					continue;
+				}
+				if (k.replace("[]","").substr(-3)=="pin") {
+					if (Array.isArray(v)) {
+						for (var i=0; i<v.length; i++) if (v[i]>=0) { pins.push(v[i]); pinO.push(owner); }
+					} else {
+						if (v>=0) { pins.push(v); pinO.push(owner); }
+					}
+				} else if (Array.isArray(v)) {
+					for (var i=0; i<v.length; i++) getPins(v[i]);
+				}
+			}
+		}
 	}
 	function initCap(s) {
   		if (typeof s !== 'string') return '';
@@ -147,50 +157,110 @@
 		}
 	}
 	function pinDD() {
-		let hwPins = ["SDA","SCL","MOSI","MISO","SCLK"];
 		for (let i of d.Sf.elements) {
-			if (i.type !== "number") continue;
-			let isPin = i.name.replace("[]","").endsWith("pin") || hwPins.includes(i.name);
-			if (!isPin) continue;
-			// HW I2C/SPI pins need output capability; usermod pins allow any
-			let flags = hwPins.includes(i.name) ? 1 : 0;
-			let sel = makePinSelect(i.name, flags);
-			if (!sel) continue;
-			sel.setAttribute("onchange", "UI(this)");
-			// append d.extra special options (non-GPIO named pins)
-			let um = i.name.split(":")[0];
-			let v = parseInt(sel.dataset.val);
-			d.extra.forEach((o) => {
-				if (o[um] && o[um].pin) o[um].pin.forEach((e) => {
-					let opt = addOption(sel, e[0], e[1]);
-					if (e[1] == v) opt.selected = true;
+			if (i.type === "number" && (i.name.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(i.name))) { //select all pin select elements
+				let v = parseInt(i.value);
+				let sel = addDD(i.name,0);
+				for (var j = -1; j < d.max_gpio; j++) {
+					if (d.rsvd.includes(j)) continue;
+					let foundPin = pins.indexOf(j);
+					let txt = (j === -1) ? "unused" : `${j}`;
+					if (foundPin >= 0 && j !== v) txt += ` ${pinO[foundPin]=="if"?"global":pinO[foundPin]}`; // already reserved pin
+					if (d.ro_gpio.includes(j)) txt += " (R/O)";
+					let opt = addO(sel, txt, j);
+					if (j === v) opt.selected = true; // this is "our" pin
+					else if (pins.includes(j)) opt.disabled = true; // someone else's pin
+				}
+				let um = i.name.split(":")[0];
+				d.extra.forEach((o)=>{
+					if (o[um] && o[um].pin) o[um].pin.forEach((e)=>{
+						let opt = addO(sel,e[0],e[1]);
+						if (e[1]==v) opt.selected = true;
+					});
 				});
-			});
+			}
 		}
 	}
 	function UI(e) {
 		// update changed select options across all usermods
 		let oldV = parseInt(e.dataset.val);
 		e.dataset.val = e.value;
-		let label = e.name.split(":").slice(-2,-1)[0] || e.name;
-		let selects = d.Sf.querySelectorAll("select.pin");
+		let txt = e.name.split(":")[e.name.split(":").length-2];
+		let selects = d.Sf.querySelectorAll("select[class='pin']");
 		for (let sel of selects) {
-			if (sel == e) continue;
-			Array.from(sel.options).forEach((i) => {
-				if (!(i.value == oldV || i.value == e.value)) return;
-				if (i.value == -1) { i.text = "unused"; return; }
-				if (parseInt(i.value) < d.max_gpio) { // skip d.extra named pins
+			if (sel == e) continue
+			Array.from(sel.options).forEach((i)=>{
+				if (!(i.value==oldV || i.value==e.value)) return;
+				if (i.value == -1) {
+					i.text = "unused";
+					return
+				}
+				if (i.value<100) { // TODO remove this hack and use d.extra
 					i.text = i.value;
-					if (i.value == oldV) i.disabled = false;
-					if (i.value == e.value) { i.disabled = true; i.text += ` ${label}`; }
+					if (i.value==oldV) {
+						i.disabled = false;
+					}
+					if (i.value==e.value) {
+						i.disabled = true;
+						i.text += ` ${txt}`;
+					}
 					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
 				}
 			});
 		}
 	}
-	function addDropdown(name, flags) { return makePinSelect(name, flags); } // backwards compatibility
-	function addDD(name, flags) { return makePinSelect(name, flags); }       // backwards compatibility
-	function addO(sel, txt, val) { return addOption(sel, txt, val); }        // backwards compatibility
+	// https://stackoverflow.com/questions/39729741/javascript-change-input-text-to-select-option
+	function addDD(um,fld) {
+		let sel = cE('select');
+		if (typeof(fld) === "string") {	// parameter from usermod (field name)
+			if (fld.includes("pin")) sel.classList.add("pin");
+			um += ":"+fld;
+		} else if (typeof(fld) === "number") sel.classList.add("pin"); // a hack to add a class
+		let arr = d.getElementsByName(um);
+		let idx = arr[0].type==="hidden"?1:0; // ignore hidden field
+		if (arr.length > 1+idx) {
+			// we have array of values (usually pins)
+			for (let i of arr) {
+				if (i.nodeName === "INPUT" && i.type === "number") break;
+				idx++;
+			}
+		}
+		let inp = arr[idx];
+		if (inp && inp.tagName === "INPUT" && (inp.type === "text" || inp.type === "number")) {  // may also use nodeName
+			let v = inp.value;
+			let n = inp.name;
+			// copy the existing input element's attributes to the new select element
+			for (var i = 0; i < inp.attributes.length; ++ i) {
+				var att = inp.attributes[i];
+				// type and value don't apply, so skip them
+				// ** you might also want to skip style, or others -- modify as needed **
+				if (att.name != 'type' && att.name != 'value' && att.name != 'class' && att.name != 'style' && att.name != 'oninput' && att.name != 'max' && att.name != 'min') {
+					sel.setAttribute(att.name, att.value);
+				}
+			}
+			sel.setAttribute("data-val", v);
+			sel.setAttribute("onchange", "UI(this)");
+			// finally, replace the old input element with the new select element
+			inp.parentElement.replaceChild(sel, inp);
+			return sel;
+		}
+		return null;
+	}
+	var addDropdown = addDD; // backwards compatibility
+	function addO(sel,txt,val) {
+		if (sel===null) return; // select object missing
+		let opt = cE("option");
+		opt.value = val;
+		opt.text = txt;
+		sel.appendChild(opt);
+		for (let i=0; i<sel.childNodes.length; i++) {
+			let c = sel.childNodes[i];
+			if (c.value == sel.dataset.val) sel.selectedIndex = i;
+		}
+		return opt;
+	}
+	var addOption = addO; // backwards compatibility
+	// https://stackoverflow.com/questions/26440494/insert-text-after-this-input-element-with-javascript
 	function addI(name,el,txt, txt2="") {
 		let obj = d.getElementsByName(name);
 		if (!obj.length) return;
