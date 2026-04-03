@@ -457,58 +457,82 @@ void Segment::handleRandomPalette() {
   nblendPaletteTowardPalette(_randomPalette, _newRandomPalette, 48);
 }
 
-// segId is given when called from network callback, changes are queued if that segment is currently in its effect function
 void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
-  // return if neither bounds nor grouping have changed
-  bool boundsUnchanged = (start == i1 && stop == i2);
-  #ifndef WLED_DISABLE_2D
-  if (Segment::maxHeight>1) boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
-  #endif
-
-  m12 = constrain(m12, 0, 7);
-  if (stop) fill(BLACK); // turn off LEDs in segment before changing geometry
-  if (m12 != map1D2D) map1D2D = m12;
-/*
-  if (boundsUnchanged
-      && (!grp || (grouping == grp && spacing == spc))
-      && (m12 == map1D2D)
-     ) return;
-*/
-  stateChanged = true; // send UDP/WS broadcast
-
-  if (grp) { // prevent assignment of 0
-    grouping = grp;
-    spacing = spc;
+  // Sanitise inputs  
+  if (i2 < i1) { // For any values, this means "stop"; we do i2 before i1 for this case
+    i2 = 0;
   } else {
-    grouping = 1;
-    spacing = 0;
+    // Clamp i2 to maximum length
+    if (i2 > Segment::maxWidth*Segment::maxHeight) {
+      i2 = MIN(i2,strip.getLengthTotal());
+    } else if (i2 > Segment::maxWidth) {
+      i2 = Segment::maxWidth;
+    } else if (i2 < 1) {
+      i2 = 1;
+    }     
   }
-  if (ofs < UINT16_MAX) offset = ofs;
-
-  DEBUG_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y);
-  if (boundsUnchanged) return;
-  markForReset();
-
-  // apply change immediately
-  if (i2 <= i1) { //disable segment
-    stop = 0;
-    return;
+  // If i1 is invalid, use old value
+  // Valid range is inside maxWidth, or in trailing segment range
+  if ((i1 >= Segment::maxWidth) && (i1 < Segment::maxWidth*Segment::maxHeight || i1 >= strip.getLengthTotal())) {
+    i1 = start; 
   }
-  if (i1 < Segment::maxWidth || (i1 >= Segment::maxWidth*Segment::maxHeight && i1 < strip.getLengthTotal())) start = i1; // Segment::maxWidth equals strip.getLengthTotal() for 1D
-  stop = i2 > Segment::maxWidth*Segment::maxHeight ? MIN(i2,strip.getLengthTotal()) : (i2 > Segment::maxWidth ? Segment::maxWidth : MAX(1,i2));
-  startY = 0;
-  stopY  = 1;
+
   #ifndef WLED_DISABLE_2D
   if (Segment::maxHeight>1) { // 2D
-    if (i1Y < Segment::maxHeight) startY = i1Y;
-    stopY = i2Y > Segment::maxHeight ? Segment::maxHeight : MAX(1,i2Y);
-  }
+    if (i1Y >= Segment::maxHeight) i1Y = startY;
+    if (i2Y > Segment::maxHeight) {
+      i2Y = Segment::maxHeight;
+    } else if (i2Y < 1) {
+      i2Y = 1;
+    }
+    if (i2Y < i1Y) { 
+      i2 = 0; // stop
+    }
+  } else
   #endif
-  // safety check
-  if (start >= stop || startY >= stopY) {
-    stop = 0;
-    return;
+  { 
+    i1Y = 0;
+    i2Y = 1;
   }
+
+  if (grp == 0) { grp = 1; spc = 0; }  // prevent assignment of 0
+  if (ofs == UINT16_MAX) ofs = offset;
+  m12 = constrain(m12, 0, 7);
+
+  // Final safety check
+  if ((i1 >= i2) || (i1Y >= i2Y)) { 
+    i2 = 0;  // disable segment
+  }
+
+  // Inputs are ok, check if anything has changed
+  bool boundsUnchanged = (start == i1 && stop == i2)
+  #ifndef WLED_DISABLE_2D
+                       && ((Segment::maxHeight <= 1) || (startY == i1Y && stopY == i2Y))
+  #endif
+                       && (grouping == grp)
+                       && (spacing == spc)
+                       && (offset == ofs)
+                       && (m12 == map1D2D);
+
+  if (boundsUnchanged) return;
+
+  DEBUG_PRINTF_P(PSTR("Segment geometry: (%d,%d),(%d,%d) -> (%d,%d),(%d,%d)\n"), start, stop, startY, stopY, (int)i1, (int)i2, (int)i1Y, (int)i2Y);
+  
+  if (stop > 0) fill(BLACK); // turn off LEDs in segment before changing geometry
+
+  stateChanged = true; // send UDP/WS broadcast
+  markForReset();
+
+  // apply change
+  start = i1;
+  stop = i2;
+  startY = i1Y;
+  stopY = i2Y;
+  grouping = grp;
+  spacing = spc;
+  offset = ofs;
+  map1D2D = m12;  
+
   refreshLightCapabilities();
 }
 
@@ -532,7 +556,7 @@ Segment &Segment::setCCT(uint16_t k) {
     k = (k - 1900) >> 5;
   }
   if (cct != k) {
-    //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
+    DEBUG_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
     startTransition(strip.getTransition()); // start transition prior to change
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
@@ -542,7 +566,7 @@ Segment &Segment::setCCT(uint16_t k) {
 
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
-    //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
+    DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
     startTransition(strip.getTransition()); // start transition prior to change
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
