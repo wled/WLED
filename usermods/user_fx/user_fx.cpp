@@ -117,7 +117,7 @@ static const char _data_FX_MODE_DIFFUSIONFIRE[] PROGMEM = "Diffusion Fire@!,Spar
 
 static void mode_spinning_wheel(void) {
   if (SEGLEN < 1) FX_FALLBACK_STATIC;
-  
+
   unsigned strips = SEGMENT.nrOfVStrips();
   if (strips == 0) FX_FALLBACK_STATIC;
 
@@ -148,7 +148,6 @@ static void mode_spinning_wheel(void) {
 
   // Handle random seeding globally (outside the virtual strip)
   if (SEGENV.call == 0) {
-    random16_set_seed(hw_random16());
     SEGENV.aux1 = (255 << 8) / SEGLEN; // Cache the color scaling
   }
 
@@ -156,7 +155,6 @@ static void mode_spinning_wheel(void) {
   uint32_t settingssum = SEGMENT.speed + SEGMENT.intensity + SEGMENT.custom1 + SEGMENT.custom3 + SEGMENT.check1 + SEGMENT.check3;
   bool settingsChanged = (SEGENV.aux0 != settingssum);
   if (settingsChanged) {
-    random16_add_entropy(hw_random16());
     SEGENV.aux0 = settingssum;
   }
 
@@ -166,7 +164,7 @@ static void mode_spinning_wheel(void) {
     uint8_t spinnerSize = map(SEGMENT.custom1, 0, 255, 1, 10);
     uint16_t spin_delay = map(SEGMENT.custom3, 0, 31, 2000, 15000);
     uint32_t now = strip.now;
-    
+
     for (unsigned stripNr = 0; stripNr < strips; stripNr += spinnerSize) {
       uint32_t* stripState = &state[stripNr * stateVarsPerStrip];
       // Check if this spinner is stopped AND has waited its delay
@@ -181,7 +179,7 @@ static void mode_spinning_wheel(void) {
       }
     }
   }
- 
+
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, uint32_t* state, bool settingsChanged, bool allReadyToRestart, unsigned strips) {
       uint8_t phase = state[PHASE_IDX];
@@ -211,23 +209,23 @@ static void mode_spinning_wheel(void) {
       // Initialize or restart
       if (needsReset && SEGMENT.check1) {   // spin the spinner(s) only if the "Spin me!" checkbox is enabled
         state[CUR_POS_IDX] = 0;
-        
+
         // Set velocity
         uint16_t speed = map(SEGMENT.speed, 0, 255, 300, 800);
         if (speed == 300) {  // random speed (user selected 0 on speed slider)
-          state[VELOCITY_IDX] = random16(200, 900) * 655;   // fixed-point velocity scaling (approx. 65536/100) 
+          state[VELOCITY_IDX] = hw_random16(200, 900) * 655;   // fixed-point velocity scaling (approx. 65536/100) 
         } else {
-          state[VELOCITY_IDX] = random16(speed - 100, speed + 100) * 655;
+          state[VELOCITY_IDX] = hw_random16(speed - 100, speed + 100) * 655;
         }
-        
+
         // Set slowdown start time
         uint16_t slowdown = map(SEGMENT.intensity, 0, 255, 3000, 5000);
         if (slowdown == 3000) {  // random slowdown start time (user selected 0 on intensity slider)
-          state[SLOWDOWN_TIME_IDX] = now + random16(2000, 6000);
+          state[SLOWDOWN_TIME_IDX] = now + hw_random16(2000, 6000);
         } else {
-          state[SLOWDOWN_TIME_IDX] = now + random16(slowdown - 1000, slowdown + 1000);
+          state[SLOWDOWN_TIME_IDX] = now + hw_random16(slowdown - 1000, slowdown + 1000);
         }
-        
+
         state[PHASE_IDX] = 0;
         state[STOP_TIME_IDX] = 0;
         state[WOBBLE_STEP_IDX] = 0;
@@ -238,7 +236,7 @@ static void mode_spinning_wheel(void) {
 
       uint32_t pos_fixed = state[CUR_POS_IDX];
       uint32_t velocity = state[VELOCITY_IDX];
-      
+
       // Phase management
       if (phase == 0) {
         // Fast spinning phase
@@ -250,10 +248,10 @@ static void mode_spinning_wheel(void) {
         // Slowing phase - apply deceleration
         uint32_t decel = velocity / 80;
         if (decel < 100) decel = 100;
-        
+
         velocity = (velocity > decel) ? velocity - decel : 0;
         state[VELOCITY_IDX] = velocity;
-        
+
         // Check if stopped
         if (velocity < 2000) {
           velocity = 0;
@@ -270,7 +268,7 @@ static void mode_spinning_wheel(void) {
         uint32_t wobble_step = state[WOBBLE_STEP_IDX];
         uint16_t stop_pos = state[STOP_POS_IDX];
         uint32_t elapsed = now - state[WOBBLE_TIME_IDX];
-        
+
         if (wobble_step == 0 && elapsed >= 200) {
           // Move back one LED from stop position
           uint16_t back_pos = (stop_pos == 0) ? SEGLEN - 1 : stop_pos - 1;
@@ -291,13 +289,13 @@ static void mode_spinning_wheel(void) {
           state[STOP_TIME_IDX] = now;
         }
       }
-      
+
       // Update position (phases 0 and 1 only)
       if (phase == 0 || phase == 1) {
         pos_fixed += velocity;
         state[CUR_POS_IDX] = pos_fixed;
       }
-      
+
       // Draw LED for all phases
       uint16_t pos = (pos_fixed >> 16) % SEGLEN;
 
@@ -314,14 +312,14 @@ static void mode_spinning_wheel(void) {
         hue = (SEGENV.aux1 * pos) >> 8;
       }
 
-      uint32_t color = ColorFromPaletteWLED(SEGPALETTE, hue, 255, LINEARBLEND);
+      uint32_t color = ColorFromPalette(SEGPALETTE, hue, 255, LINEARBLEND);
 
       // Draw the spinner with configurable size (1-10 LEDs)
       for (int8_t x = 0; x < spinnerSize; x++) {
         for (uint8_t y = 0; y < spinnerSize; y++) {
           uint16_t drawPos = (pos + y) % SEGLEN;
           int16_t drawStrip = stripNr + x;
-          
+
           // Wrap horizontally if needed, or skip if out of bounds
           if (drawStrip >= 0 && drawStrip < strips) {
             SEGMENT.setPixelColor(indexToVStrip(drawPos, drawStrip), color);
