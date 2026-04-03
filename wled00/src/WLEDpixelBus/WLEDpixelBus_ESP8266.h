@@ -45,8 +45,20 @@ private:
 };
 
 //==============================================================================
-// ESP8266 DMA Bus (Via I2S)
+// ESP8266 DMA Bus (Via I2S + SLC linked-list DMA)
 //==============================================================================
+
+// SLC DMA descriptor (matches SDK slc_queue_item layout)
+struct SlcQueueItem {
+  uint32_t blocksize  : 12;
+  uint32_t datalen    : 12;
+  uint32_t unused     :  5;
+  uint32_t sub_sof    :  1;
+  uint32_t eof        :  1;
+  uint32_t owner      :  1;
+  uint8_t* buf_ptr;
+  struct SlcQueueItem* next_link_ptr;
+};
 
 class Esp8266DmaBus : public PixelBus {
 public:
@@ -68,14 +80,37 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(ColorOrder order);
 
+  static Esp8266DmaBus* s_this; // singleton for ISR
+
 private:
-  int8_t _pin; // Only RX pin (GPIO3) supported for I2S DMA on ESP8266
+  static const uint16_t c_maxDmaBlockSize = 4095;
+  static const uint8_t  c_stateBlockCount = 2;
+  static const uint16_t c_idleBufSize     = 256; // size of idle/reset zero buffer
+
+  int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
   ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
+  volatile bool _sending;
 
-  void updateI2sTiming();
+  // SLC DMA linked-list
+  SlcQueueItem* _dmaDesc;    // allocated array of all descriptors
+  uint16_t      _dmaDescCnt; // total count of descriptors
+  uint8_t*      _idleBuf;    // zero-filled buffer shared by state + reset descriptors
+  size_t        _idleBufSize;
+
+  void   buildDescriptorChain();
+  void   startI2s(uint8_t bckDiv, uint8_t clkDiv);
+  void   stopI2s();
+  static void IRAM_ATTR slcIsr();
+
+  // DmaItemInit helper
+  static void dmaItemInit(SlcQueueItem* item, uint8_t* data, size_t sz, SlcQueueItem* next) {
+    item->owner = 1; item->eof = 0; item->sub_sof = 0; item->unused = 0;
+    item->datalen = sz; item->blocksize = sz;
+    item->buf_ptr = data; item->next_link_ptr = next;
+  }
 };
 
 //==============================================================================
