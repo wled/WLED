@@ -386,6 +386,8 @@ void IRAM_ATTR Esp8266DmaBus::slcIsr() {
 // ---------------------------------------------------------------------------
 // startI2s  — configure SLC + I2S registers and kick off continuous DMA
 // ---------------------------------------------------------------------------
+
+// TODO: there is still an issue with this, the first byte is screwed up: first bit is too long (~10us), then there is a ~10us low pulse after the first byte giving the first LED a wrong color (green if GRB)
 void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
   // Reset SLC
   SLCC0 |= SLCRXLR | SLCTXLR;
@@ -424,6 +426,12 @@ void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
   I2SC &= ~(I2SRST);
   I2SC |= I2SRST;
   I2SC &= ~(I2SRST);
+
+  // Set RX/TX FIFO_MOD=0 (16-bit stereo) and re-enable DMA.
+  I2SFC &= ~(I2SDE | (I2STXFMM << I2STXFM) | (I2SRXFMM << I2SRXFM));
+  I2SFC |= I2SDE; // re-enable DMA
+  // Set RX/TX CHAN_MOD=0 (stereo, normal).
+  I2SCC &= ~((I2STXCMM << I2STXCM) | (I2SRXCMM << I2SRXCM));
 
   // I2S config: right-first, MSB-right, slave mode off
   I2SC &= ~(I2STSM | I2SRSM | (I2SBMM << I2SBM) | (I2SBDM << I2SBD) | (I2SCDM << I2SCD));
