@@ -78,20 +78,41 @@ After making changes to web UI, always test:
 
 ## Common Tasks
 
+### Project Branch / Release Structure
+```
+main                # Main development trunk (daily/nightly) 17.0.0-dev
+  ├── V5            # special branch: code rework for esp-idf 5.5.x (unstable)
+      ├── V5-C6     # special branch: integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+16_x                # current beta, preparations for next release 16.0.0
+0_15_x              # maintainance (bugfixes only) for current release 0.15.4
+(tag) v0.14.4       # previous version 0.14.4 (no maintainance)
+(tag) v0.13.3       # old version 0.13.3 (no maintainance)
+(tag) v0. ... . ... # historical versions 0.12.x and before
+```
+
 ### Repository Structure
 ```
-wled00/                 # Main firmware source (C++)
-  ├── data/            # Web interface files 
-  │   ├── index.htm    # Main UI
+wled00/                 # Main firmware source (C++) "WLED core"
+  ├── data/             # Web interface files 
+  │   ├── index.htm     # Main UI
   │   ├── settings*.htm # Settings pages
-  │   └── *.js/*.css   # Frontend resources
-  ├── *.cpp/*.h        # Firmware source files
-  └── html_*.h         # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
-tools/                 # Build tools (Node.js)
+  │   └── *.js/*.css    # Frontend resources
+  ├── *.cpp/*.h         # Firmware source files
+  ├── html_*.h          # Auto-generated embedded web files (DO NOT EDIT, DO NOT COMMIT)
+  ├── src/              # Modules used by the WLED core (C++)
+  │   ├── fonts/        # Font libraries for scrolling text effect
+  └   └── dependencies/ # Utility functions - some of them have their own licensing terms
+lib/                    # Project specific custom libraries. PlatformIO will compile them to separate static libraries and link them
+platformio.ini          # Hardware build configuration
+
+platformio_override.sample.ini # examples for custom build configurations - entries must be copied into platformio_override.ini to use them.
+                               # platformio_override.ini is _not_ stored in the WLED repository!
+usermods/              # User-contributed addons to the WLED core, maintained by individual contributors  (C++, with individual library.json)
+package.json           # Node.js dependencies and scripts, release identification
+pio-scripts/           # Build tools (platformio)
+tools/                 # Build tools (Node.js), partition files, and generic utilities
   ├── cdata.js         # Web UI build script
   └── cdata-test.js    # Test suite
-platformio.ini         # Hardware build configuration
-package.json           # Node.js dependencies and scripts
 .github/workflows/     # CI/CD pipelines
 ```
 
@@ -102,7 +123,7 @@ package.json           # Node.js dependencies and scripts
 - `wled00/wled.h` - Main firmware configuration
 - `platformio.ini` - Hardware build targets and settings
 
-### Development Workflow (applies to agent mode only)
+### Development Workflow (instructions for agent mode)
 1. **For web UI changes**:
    - Edit files in `wled00/data/`
    - Run `npm run build` to regenerate headers
@@ -119,6 +140,12 @@ package.json           # Node.js dependencies and scripts
    - Always build web UI first
    - Test web interface manually
    - Build and test firmware if making firmware changes
+
+#### Adding a new usermod
+   - New custom effects can be added into the user_fx usermod. Read the [user_fx documentation](https://github.com/wled/WLED/blob/main/usermods/user_fx/README.md) for guidance.
+   - Other usermods may be based on the [EXAMPLE usermod](https://github.com/wled/WLED/tree/main/usermods/EXAMPLE). Never edit the example, always create a copy!
+   - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/746df240119b585d8c8fa85e6aac7ed707947ea0/wled00/const.h#L160).
+   - to activate a usermod, a custom build configuration should be used. Add the usermod name to ``custom_usermods``.
 
 ## Build Timing and Timeouts
 
@@ -155,6 +182,8 @@ package.json           # Node.js dependencies and scripts
 - **DO NOT edit `wled00/html_*.h` files** - they are auto-generated. If needed, modify Web UI files in `wled00/data/`.
 - **Test web interface manually after any web UI changes**
 - When reviewing a PR: the PR author does not need to update/commit generated html_*.h files - these files will be auto-generated when building the firmware binary.
+- **If you are not sure about something, just answer that you are not sure.** Gather more information instead of continuing with a wild guess.
+- If asked for an analysis, assessment or web research, **provide relevant references** to justify your conclusions. Ensure your recommendations are based on the correct source code branch or PR.
 - If updating Web UI files in `wled00/data/`, make use of common functions availeable in `wled00/data/common.js` where possible.
 - **Use VS Code with PlatformIO extension for best development experience**
 - **Hardware builds require appropriate ESP32/ESP8266 development board**
