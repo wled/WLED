@@ -8,6 +8,7 @@ var segLmax = 0; // size (in pixels) of largest selected segment
 var selectedFx = 0;
 var selectedPal = 0;
 var csel = 0; // selected color slot (0-2)
+var cpick; // iro color picker
 var currentPreset = -1;
 var lastUpdate = 0;
 var segCount = 0, ledCount = 0, lowestUnused = 0, maxSeg = 0, lSeg = 0;
@@ -16,13 +17,12 @@ var simplifiedUI = false;
 var tr = 7;
 var d = document;
 const ranges = RangeTouch.setup('input[type="range"]', {});
-var retry = false;
 var palettesData;
 var fxdata = [];
 var pJson = {}, eJson = {}, lJson = {};
 var plJson = {}; // array of playlists
 var pN = "", pI = 0, pNum = 0;
-var pmt = 1, pmtLS = 0, pmtLast = 0;
+var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
 var ws, wsRpt=0;
@@ -43,16 +43,24 @@ var hol = [
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
 
-var cpick = new iro.ColorPicker("#picker", {
-	width: 260,
-	wheelLightness: false,
-	wheelAngle: 270,
-	wheelDirection: "clockwise",
-	layout: [{
-		component: iro.ui.Wheel,
-		options: {}
-	}]
-});
+// load iro.js sequentially to avoid 503 errors, retries until successful
+(function loadIro() {
+	const l = d.createElement('script');
+	l.src = 'iro.js';
+	l.onload = () => {
+		cpick = new iro.ColorPicker("#picker", {
+			width: 260,
+			wheelLightness: false,
+			wheelAngle: 270,
+			wheelDirection: "clockwise",
+			layout: [{component: iro.ui.Wheel, options: {}}]
+		});
+		d.readyState === 'complete' ? onLoad() : window.addEventListener('load', onLoad);
+	};
+	l.onerror = () => setTimeout(loadIro, 100);
+	document.head.appendChild(l);
+})();
+
 
 function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3000) requestJson();}
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
@@ -200,19 +208,17 @@ function loadBg() {
 	});
 }
 
-function loadSkinCSS(cId)
-{
-	if (!gId(cId))	// check if element exists
-	{
-		var h  = d.getElementsByTagName('head')[0];
-		var l  = d.createElement('link');
-		l.id   = cId;
-		l.rel  = 'stylesheet';
-		l.type = 'text/css';
+function loadSkinCSS(cId) {
+	return new Promise((resolve, reject) => {
+		if (gId(cId)) return resolve();
+		const l = d.createElement('link');
+		l.id = cId;
+		l.rel = 'stylesheet';
 		l.href = getURL('/skin.css');
-		l.media = 'all';
-		h.appendChild(l);
-	}
+		l.onload = resolve;
+		l.onerror = reject;
+		d.head.appendChild(l);
+	});
 }
 
 function getURL(path) {
@@ -278,19 +284,23 @@ function onLoad()
 	cpick.on("color:change", () => {updatePSliders()});
 	pmtLS = localStorage.getItem('wledPmt');
 
-	// Load initial data
-	loadPalettes(()=>{
-		// fill effect extra data array
-		loadFXData(()=>{
-			// load and populate effects
-			setTimeout(()=>{loadFX(()=>{
-				loadPalettesData(()=>{
-					requestJson();// will load presets and create WS
-					if (cfg.comp.css) setTimeout(()=>{loadSkinCSS('skinCss')},50);
-				});
-			})},50);
-		});
-	});
+	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
+	(async ()=>{
+		try {
+			await loadPalettes();        // loads base palettes and builds #pallist (safe first)
+			await loadFXData();          // loads fx data
+			await loadFX();              // populates effect list
+			await requestJson();         // updates info variables
+			await loadPalettesData();    // fills palettesData[] for previews
+			populatePalettes();          // repopulate with custom palettes now that cpalcount is known
+			if(pmt == pmtLS) populatePresets(true); // load presets from localStorage if signature matches (i.e. no device reboot)
+			else await loadPresets();    // load and populate presets
+			if (cfg.comp.css) await loadSkinCSS('skinCss');
+			if (!ws) makeWS();
+		} catch(e) {
+			showToast("Init failed: " + e, true);
+		}
+	})();
 	resetUtil();
 
 	d.addEventListener("visibilitychange", handleVisibilityChange, false);
@@ -300,6 +310,21 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
+	// limiter for all number inputs: limit inputs instantly
+	d.addEventListener("input", function(e) {
+		const t = e.target;
+		if (t.tagName === "INPUT" && t.type === "number") {
+			let val = parseFloat(t.value);
+			const max = parseFloat(t.max);
+			const min = parseFloat(t.min);
+
+			if (!isNaN(val)) {
+				if (val > max) t.value = max;
+				if (val < min) t.value = min;
+				if (t.oninput) t.oninput(); // refresh UI labels
+			}
+		}
+	}, false);
 }
 
 function updateTablinks(tabI)
@@ -448,7 +473,7 @@ function presetError(empty)
 		if (bckstr.length > 10) hasBackup = true;
 	} catch (e) {}
 
-	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="pmtLast=0;loadPresets();"'}>`;
+	var cn = `<div class="pres c" style="padding:8px;margin-bottom:8px;${empty?'':'cursor:pointer;'}" ${empty?'':'onclick="loadPresets();"'}>`;
 	if (empty)
 		cn += `You have no presets yet!`;
 	else
@@ -481,123 +506,81 @@ function restore(txt) {
 	return false;
 }
 
-function loadPresets(callback = null)
-{
-	// 1st boot (because there is a callback)
-	if (callback && pmt == pmtLS && pmt > 0) {
-		// we have a copy of the presets in local storage and don't need to fetch another one
-		populatePresets(true);
-		pmtLast = pmt;
-		callback();
-		return;
-	}
-
-	// afterwards
-	if (!callback && pmt == pmtLast) return;
-
-	fetch(getURL('/presets.json'), {
-		method: 'get'
-	})
-	.then(res => {
-		if (res.status=="404") return {"0":{}};
-		//if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then(json => {
-		pJson = json;
-		pmtLast = pmt;
-		populatePresets();
-	})
-	.catch((e)=>{
-		//showToast(e, true);
-		presetError(false);
-	})
-	.finally(()=>{
-		if (callback) setTimeout(callback,99);
+async function loadPresets() {
+	return new Promise((resolve) => {
+		fetch(getURL('/presets.json'), {method: 'get'})
+		.then(res => res.status=="404" ? {"0":{}} : res.json())
+		.then(json => {
+			pJson = json;
+			populatePresets();
+			resolve();
+		})
+		.catch(() => {
+			presetError(false);
+			resolve();
+		})
 	});
 }
 
-function loadPalettes(callback = null)
-{
-	fetch(getURL('/json/palettes'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		lJson = Object.entries(json);
-		populatePalettes();
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(loadPalettes, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadPalettes(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/palettes'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			lJson = Object.entries(json);
+			populatePalettes();
+			resolve();
+		})
+		.catch((e) => {
+			if (retry<5) {
+				setTimeout(() => loadPalettes(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
-function loadFX(callback = null)
-{
-	fetch(getURL('/json/effects'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		eJson = Object.entries(json);
-		populateEffects();
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(loadFX, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadFX(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/effects'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			eJson = Object.entries(json);
+			populateEffects();
+			resolve();
+		})
+		.catch((e) => {
+			if (retry<5) {
+				setTimeout(() => loadFX(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
-function loadFXData(callback = null)
-{
-	fetch(getURL('/json/fxdata'), {
-		method: 'get'
-	})
-	.then((res)=>{
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then((json)=>{
-		fxdata = json||[];
-		// add default value for Solid
-		fxdata.shift()
-		fxdata.unshift(";!;");
-		retry = false;
-	})
-	.catch((e)=>{
-		fxdata = [];
-		if (!retry) {
-			retry = true;
-			setTimeout(()=>{loadFXData(loadFX);}, 500); // retry
-		}
-		showToast(e, true);
-	})
-	.finally(()=>{
-		if (callback) callback();
-		updateUI();
+async function loadFXData(retry=0) {
+	return new Promise((resolve) => {
+		fetch(getURL('/json/fxdata'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject())
+		.then(json => {
+			fxdata = json||[];
+			fxdata.shift();
+			fxdata.unshift(";!;");
+			resolve();
+		})
+		.catch((e) => {
+			fxdata = [];
+			if (retry<5) {
+				setTimeout(() => loadFXData(retry+1).then(resolve), 100);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
@@ -619,7 +602,7 @@ function populateQL()
 function populatePresets(fromls)
 {
 	if (fromls) pJson = JSON.parse(localStorage.getItem("wledP"));
-	if (!pJson) {setTimeout(loadPresets,250); return;}
+	if (!pJson) {loadPresets(); return;} // note: no await as this is a fallback that should not be needed as init function fetches pJson
 	delete pJson["0"];
 	var cn = "";
 	var arr = Object.entries(pJson).sort(cmpP);
@@ -672,7 +655,6 @@ function parseInfo(i) {
 	//syncTglRecv   = i.str;
 	maxSeg       = i.leds.maxseg;
 	pmt          = i.fs.pmt;
-	if (pcMode && !i.wifi.ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('buttonNodes').style.display = lastinfo.ndc > 0 ? null:"none";
 	// do we have a matrix set-up
 	mw = i.leds.matrix ? i.leds.matrix.w : 0;
@@ -694,16 +676,18 @@ function parseInfo(i) {
 //		gId("filterVol").classList.add("hide"); hideModes(" ♪"); // hide volume reactive effects
 //		gId("filterFreq").classList.add("hide"); hideModes(" ♫"); // hide frequency reactive effects
 //	}
+	// Check for version upgrades on page load
+	checkVersionUpgrade(i);
 }
 
 //https://stackoverflow.com/questions/2592092/executing-script-elements-inserted-with-innerhtml
 //var setInnerHTML = function(elm, html) {
 //	elm.innerHTML = html;
 //	Array.from(elm.querySelectorAll("script")).forEach( oldScript => {
-//	  const newScript = document.createElement("script");
+//	  const newScript = d.createElement("script");
 //	  Array.from(oldScript.attributes)
 //		.forEach( attr => newScript.setAttribute(attr.name, attr.value) );
-//	  newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+//	  newScript.appendChild(d.createTextNode(oldScript.innerHTML));
 //	  oldScript.parentNode.replaceChild(newScript, oldScript);
 //	});
 //}
@@ -728,7 +712,7 @@ function populateInfo(i)
 	var vcn = "Kuuhaku";
 	if (i.cn) vcn = i.cn;
 
-	cn += `v${i.ver} "${vcn}"<br><br><table>
+	cn += `v${i.ver} <i>"${vcn}"</i>${i.release ? '<br>('+i.release+')' : ''}<br><br><table>
 ${urows}
 ${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:gray;background-color:gray"></td></tr>'}
 ${i.opt&0x100?inforow("Debug","<button class=\"btn btn-xs\" onclick=\"requestJson({'debug':"+(i.opt&0x0080?"false":"true")+"});\"><i class=\"icons "+(i.opt&0x0080?"on":"off")+"\">&#xe08f;</i></button>"):''}
@@ -738,13 +722,17 @@ ${inforow("Uptime",getRuntimeStr(i.uptime))}
 ${inforow("Time",i.time)}
 ${inforow("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
+<tr><td colspan=2><hr class="sml"></td></tr>
+${i.leds.count?inforow("Total LEDs",i.leds.count):""}
 ${inforow("Estimated current",pwru)}
 ${inforow("Average FPS",i.leds.fps)}
+<tr><td colspan=2><hr class="sml"></td></tr>
 ${inforow("MAC address",i.mac)}
 ${inforow("CPU clock",i.clock," MHz")}
 ${inforow("Flash size",i.flash," MB")}
 ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
-${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
+${inforow("Environment",i.arch + " " + i.core + ( i.lwip ? " (" + i.lwip + ")" : ""))}
+${i.repo?inforow("GitHub","<a href=\"https://github.com/"+i.repo+"\" target=\"_blank\" rel=\"noopener noreferrer\">" + i.repo + "</a>"):""}
 </table>`;
 	gId('kv').innerHTML = cn;
 	//  update all sliders in Info
@@ -825,6 +813,7 @@ function populateSegments(s)
 							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
 							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
 							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+							`<option value="16" ${inst.bm==16?' selected':''}>Stencil</option>`+
 						`</select></div>`+
 					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
@@ -905,6 +894,7 @@ function populateSegments(s)
 	gId("segcont").classList.remove("hide");
 	let noNewSegs = (lowestUnused >= maxSeg);
 	resetUtil(noNewSegs);
+	if (segCount === 0) return; // no segments to populate
 	for (var i = 0; i <= lSeg; i++) {
 		if (!gId(`seg${i}`)) continue;
 		updateLen(i);
@@ -1011,8 +1001,6 @@ function populatePalettes()
 			);
 		}
 	}
-	if (li.cpalcount>0) gId("rmPal").classList.remove("hide");
-	else                gId("rmPal").classList.add("hide");
 }
 
 function redrawPalPrev()
@@ -1095,6 +1083,11 @@ function btype(b)
 		case 34: return "ESP32-S3";
 		case 5:
 		case 35: return "ESP32-C3";
+		case 39: return "ESP32-C6";
+		case 40: return "ESP32-C61";
+		case 41: return "ESP32-C5";
+		case 42:
+		case 43: return "ESP32-P4";
 		case 1:
 		case 82: return "ESP8266";
 	}
@@ -1275,7 +1268,6 @@ function updateUI()
 	gId('buttonPower').className = (isOn) ? 'active':'';
 	gId('buttonNl').className = (nlA) ? 'active':'';
 	gId('buttonSync').className = (syncSend) ? 'active':'';
-	gId('pxmb').style.display = (isM) ? "inline-block" : "none";
 
 	updateSelectedFx();
 	updateSelectedPalette(selectedPal); // must be after updateSelectedFx() to un-hide color slots for * palettes
@@ -1323,7 +1315,8 @@ function updateSelectedPalette(s)
 	if (selElement) selElement.classList.remove('selected');
 
 	var selectedPalette = parent.querySelector(`.lstI[data-id="${s}"]`);
-	if (selectedPalette)  parent.querySelector(`.lstI[data-id="${s}"]`).classList.add('selected');
+	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
+	selectedPalette.classList.add('selected');
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
@@ -1437,7 +1430,7 @@ function makeWS() {
 	};
 	ws.onclose = (e)=>{
 		gId('connind').style.backgroundColor = "var(--c-r)";
-		if (wsRpt++ < 5) setTimeout(makeWS,1500); // retry WS connection
+		if (wsRpt++ < 10) setTimeout(makeWS,wsRpt * 200); // retry WS connection
 		ws = null;
 	}
 	ws.onopen = (e)=>{
@@ -1470,6 +1463,7 @@ function readState(s,command=false)
 
 	populateSegments(s);
 	hasRGB = hasWhite = hasCCT = has2D = false;
+	segLmax = 0; // reset max selected segment length
 	let i = {};
 	// determine light capabilities from selected segments
 	for (let seg of (s.seg||[])) {
@@ -1683,14 +1677,10 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
-		gId("adPal").classList.remove("hide");
-		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
-		gId("adPal").classList.add("hide");
-		gId("rmPal").classList.add("hide");
 		// Close palette dialog if not available
 		if (palw.lastElementChild.tagName == "DIALOG") {
 			palw.lastElementChild.close();
@@ -1709,77 +1699,68 @@ function setEffectParameters(idx)
 
 var jsonTimeout;
 var reqsLegal = false;
+async function requestJson(command=null, retry=0) {
+	return new Promise((resolve, reject) => {
+		gId('connind').style.backgroundColor = "var(--c-y)";
+		if (command && !reqsLegal) {resolve(); return;}
+		if (!jsonTimeout) jsonTimeout = setTimeout(()=>{if (ws) ws.close(); ws=null; showErrorToast()}, 3000);
 
-function requestJson(command=null)
-{
-	gId('connind').style.backgroundColor = "var(--c-y)";
-	if (command && !reqsLegal) return; // stop post requests from chrome onchange event on page restore
-	if (!jsonTimeout) jsonTimeout = setTimeout(()=>{if (ws) ws.close(); ws=null; showErrorToast()}, 3000);
-	var req = null;
-	var useWs = (ws && ws.readyState === WebSocket.OPEN);
-	var type = command ? 'post':'get';
-	if (command) {
-		command.v = true; // force complete /json/si API response
-		command.time = Math.floor(Date.now() / 1000);
-		var t = gId('tt');
-		if (t.validity.valid && command.transition==null) {
-			var tn = parseInt(t.value*10);
-			if (tn != tr) command.transition = tn;
+		var useWs = (ws && ws.readyState === WebSocket.OPEN);
+		var req = null;
+		if (command) {
+			command.v = true;
+			command.time = Math.floor(Date.now() / 1000);
+			var t = gId('tt');
+			if (t && t.validity.valid && command.transition==null) {
+				var tn = parseInt(t.value*10);
+				if (tn != tr) command.transition = tn;
+			}
+			req = JSON.stringify(command);
+			if (req.length > 1340) useWs = false;
+			if (req.length > 500 && lastinfo && lastinfo.arch == "esp8266") useWs = false;
 		}
-		//command.bs = parseInt(gId('bs').value);
-		req = JSON.stringify(command);
-		if (req.length > 1340) useWs = false; // do not send very long requests over websocket
-		if (req.length >  500 && lastinfo && lastinfo.arch == "esp8266") useWs = false; // esp8266 can only handle 500 bytes
-	};
 
-	if (useWs) {
-		ws.send(req?req:'{"v":true}');
-		return;
-	}
-
-	fetch(getURL('/json/si'), {
-		method: type,
-		headers: {"Content-Type": "application/json; charset=UTF-8"},
-		body: req
-	})
-	.then(res => {
-		clearTimeout(jsonTimeout);
-		jsonTimeout = null;
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
-	.then(json => {
-		lastUpdate = new Date();
-		clearErrorToast(3000);
-		gId('connind').style.backgroundColor = "var(--c-g)";
-		if (!json) { showToast('Empty response', true); return; }
-		if (json.success) return;
-		if (json.info) {
-			let i = json.info;
-			parseInfo(i);
-			populatePalettes(i);
-			if (isInfo) populateInfo(i);
-			if (simplifiedUI) simplifyUI();
+		if (useWs) {
+			ws.send(req?req:'{"v":true}');
+			resolve();
+			return;
 		}
-		var s = json.state ? json.state : json;
-		readState(s);
 
-		//load presets and open websocket sequentially
-		if (!pJson || isEmpty(pJson)) setTimeout(()=>{
-			loadPresets(()=>{
-				wsRpt = 0;
-				if (!(ws && ws.readyState === WebSocket.OPEN)) makeWS();
-			});
-		},25);
-		reqsLegal = true;
-		retry = false;
-	})
-	.catch((e)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(requestJson,500);
-		}
-		showToast(e, true);
+		fetch(getURL('/json/si'), {
+			method: command ? 'post' : 'get',
+			headers: {"Content-Type": "application/json; charset=UTF-8"},
+			body: req
+		})
+		.then(res => {
+			clearTimeout(jsonTimeout);
+			jsonTimeout = null;
+			return res.ok ? res.json() : Promise.reject();
+		})
+		.then(json => {
+			lastUpdate = new Date();
+			clearErrorToast(3000);
+			gId('connind').style.backgroundColor = "var(--c-g)";
+			if (!json) { showToast('Empty response', true); resolve(); return; }
+			if (json.success) {resolve(); return;}
+			if (json.info) {
+				parseInfo(json.info);
+				if (isInfo) populateInfo(json.info);
+				if (simplifiedUI) simplifyUI();
+			}
+			var s = json.state ? json.state : json;
+			readState(s);
+
+			reqsLegal = true;
+			resolve();
+		})
+		.catch((e)=>{
+			if (retry<10) {
+				setTimeout(() => requestJson(command,retry+1).then(resolve).catch(reject), retry*50);
+			} else {
+				showToast(e, true);
+				resolve();
+			}
+		});
 	});
 }
 
@@ -1990,12 +1971,12 @@ function pleDur(p,i,field)
 function pleTr(p,i,field)
 {
 	const du = gId(`pl${p}du${i}`);
-	const dv = parseFloat(du.value);
-	if (dv > 0) {
-		field.max = dv;
-		if (parseFloat(field.value) > dv)
-			field.value = du.value;
-	}
+	const dv = parseFloat(du.value); // duaration value in seconds
+	const max = parseFloat(field.max);
+	let val = parseFloat(field.value);
+	if (isNaN(val)) return;
+	val = Math.min(val, max, dv > 0 ? dv : max); // limit to max or duration, whichever is smaller
+	field.value = val;
 	if (field.validity.valid)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
@@ -2151,8 +2132,8 @@ function makePlEntry(p,i)
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:7ch" placeholder="Duration" max=4294967 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:4ch" placeholder="Transition" max=65.5 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}" id="pl${p}tr${i}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
 	</table>
@@ -2356,7 +2337,7 @@ function setSi(s)
 
 function setBm(s)
 {
-	var value = gId(`seg${s}bm`).selectedIndex;
+	var value = gId(`seg${s}bm`).value;
 	var obj = {"seg": {"id": s, "bm": value}};
 	requestJson(obj);
 }
@@ -2523,6 +2504,10 @@ function saveP(i,pl)
 		obj.o = true;
 	} else {
 		if (pl) {
+			plJson[i].ps.forEach((_,idx) => {
+				const trField = gId(`pl${i}tr${idx}`);
+				if (trField) pleTr(i, idx, trField); // make sure transition time is not longer than duration
+			});
 			obj.playlist = plJson[i];
 			obj.on = true;
 			obj.o = true;
@@ -2554,7 +2539,7 @@ function saveP(i,pl)
 	}
 	populatePresets();
 	resetPUtil();
-	setTimeout(()=>{pmtLast=0; loadPresets();}, 750); // force reloading of presets
+	setTimeout(()=>{loadPresets();}, 750); // force reloading of presets
 }
 
 function testPl(i,bt) {
@@ -2820,56 +2805,51 @@ function rSegs()
 	requestJson(obj);
 }
 
-function loadPalettesData(callback = null)
-{
-	if (palettesData) return;
-	const lsKey = "wledPalx";
-	var lsPalData = localStorage.getItem(lsKey);
-	if (lsPalData) {
-		try {
-			var d = JSON.parse(lsPalData);
-			if (d && d.vid == d.vid) {
-				palettesData = d.p;
-				if (callback) callback();
-				return;
-			}
-		} catch (e) {}
-	}
+function loadPalettesData() {
+	return new Promise((resolve) => {
+		if (palettesData) return resolve(); // already loaded
+		var lsPalData = localStorage.getItem("wledPalx");
+		if (lsPalData) {
+			try {
+				var d = JSON.parse(lsPalData);
+				if (d && d.vid == lastinfo.vid) {
+					palettesData = d.p;
+					redrawPalPrev();
+					return resolve();
+				}
+			} catch (e) {}
+		}
 
-	palettesData = {};
-	getPalettesData(0, ()=>{
-		localStorage.setItem(lsKey, JSON.stringify({
-			p: palettesData,
-			vid: lastinfo.vid
-		}));
-		redrawPalPrev();
-		if (callback) setTimeout(callback, 99);
+		palettesData = {};
+		getPalettesData(0, () => {
+			localStorage.setItem("wledPalx", JSON.stringify({
+				p: palettesData,
+				vid: lastinfo.vid
+			}));
+			redrawPalPrev();
+			setTimeout(resolve, 99); // delay optional
+		});
 	});
 }
 
-function getPalettesData(page, callback)
-{
-	fetch(getURL(`/json/palx?page=${page}`), {
-		method: 'get'
-	})
-	.then(res => {
-		if (!res.ok) showErrorToast();
-		return res.json();
-	})
+function getPalettesData(page, callback, retry=0) {
+	fetch(getURL(`/json/palx?page=${page}`), {method: 'get'})
+	.then(res => res.ok ? res.json() : Promise.reject())
 	.then(json => {
-		retry = false;
 		palettesData = Object.assign({}, palettesData, json.p);
 		if (page < json.m) setTimeout(()=>{ getPalettesData(page + 1, callback); }, 75);
 		else callback();
 	})
 	.catch((error)=>{
-		if (!retry) {
-			retry = true;
-			setTimeout(()=>{getPalettesData(page,callback);}, 500); // retry
+		if (retry<5) {
+			setTimeout(()=>{getPalettesData(page,callback,retry+1);}, 100);
+		} else {
+			showToast(error, true);
+			callback();
 		}
-		showToast(error, true);
 	});
 }
+
 /*
 function hideModes(txt)
 {
@@ -2971,7 +2951,7 @@ function filterFocus(e) {
 	}
 	if (e.type === "blur") {
 		setTimeout(() => {
-			if (e.target === document.activeElement && document.hasFocus()) return;
+			if (e.target === d.activeElement && d.hasFocus()) return;
 			// do not hide if filter is active
 			if (!c) {
 				// compute sticky top
@@ -3151,7 +3131,6 @@ function togglePcMode(fromB = false)
 	if (!fromB && ((wW < 1024 && lastw < 1024) || (wW >= 1024 && lastw >= 1024))) return; // no change in size and called from size()
 	if (pcMode) openTab(0, true);
 	gId('buttonPcm').className = (pcMode) ? "active":"";
-	if (pcMode && !ap) gId('edit').classList.remove("hide"); else gId('edit').classList.add("hide");
 	gId('bot').style.height = (pcMode && !cfg.comp.pcmbot) ? "0":"auto";
 	sCol('--bh', gId('bot').clientHeight + "px");
 	_C.style.width = (pcMode || simplifiedUI)?'100%':'400%';
@@ -3219,7 +3198,7 @@ function simplifyUI() {
 	// Create dropdown dialog
 	function createDropdown(id, buttonText, dialogElements = null) {
 		// Create dropdown dialog
-		const dialog = document.createElement("dialog");
+		const dialog = d.createElement("dialog");
 		// Move every dialogElement to the dropdown dialog or if none are given, move all children of the element with the given id
 		if (dialogElements) {
 			dialogElements.forEach((e) => {
@@ -3232,7 +3211,7 @@ function simplifyUI() {
 		}
 
 		// Create button for the dropdown
-		const btn = document.createElement("button");
+		const btn = d.createElement("button");
 		btn.id = id + "btn";
 		btn.classList.add("btn");
 		btn.innerText = buttonText;
@@ -3280,7 +3259,7 @@ function simplifyUI() {
 
 	// Hide palette label
 	gId("pall").style.display = "none";
-	gId("Colors").insertBefore(document.createElement("br"), gId("pall"));
+	gId("Colors").insertBefore(d.createElement("br"), gId("pall"));
 	// Hide effect label
 	gId("modeLabel").style.display = "none";
 
@@ -3292,7 +3271,7 @@ function simplifyUI() {
 
 	// Hide bottom bar 
 	gId("bot").style.display = "none";
-	document.documentElement.style.setProperty('--bh', '0px');
+	d.documentElement.style.setProperty('--bh', '0px');
 
 	// Hide other tabs
 	gId("Effects").style.display = "none";
@@ -3304,6 +3283,217 @@ function simplifyUI() {
 
 	// Hide buttons for pixel art and custom palettes (add / delete)
 	gId("btns").style.display = "none";
+}
+
+// Version reporting feature
+var versionCheckDone = false;
+
+function checkVersionUpgrade(info) {
+	// Only check once per page load
+	if (versionCheckDone) return;
+	versionCheckDone = true;
+
+	// Suppress feature if in AP mode (no internet connection available)
+	if (info.wifi && info.wifi.ap) return;
+
+	// Fetch version-info.json using existing /edit endpoint
+	fetch(getURL('/edit?func=edit&path=/version-info.json'), {
+		method: 'get'
+	})
+		.then(res => {
+			if (res.status === 404) {
+				// File doesn't exist - first install, show install prompt
+				showVersionUpgradePrompt(info, null, info.ver);
+				return null;
+			}
+			if (!res.ok) {
+				throw new Error('Failed to fetch version-info.json');
+			}
+			return res.json();
+		})
+		.then(versionInfo => {
+			if (!versionInfo) return; // 404 case already handled
+
+			// Check if user opted out
+			if (versionInfo.neverAsk) return;
+
+			// Check if version has changed
+			const currentVersion = info.ver;
+			const storedVersion = versionInfo.version || '';
+
+			if (storedVersion && storedVersion !== currentVersion) {
+				// Version has changed
+				if (versionInfo.alwaysReport) {
+					// Automatically report if user opted in for always reporting
+					reportUpgradeEvent(info, storedVersion, true);
+				} else {
+					// Show upgrade prompt
+					showVersionUpgradePrompt(info, storedVersion, currentVersion);
+				}
+			} else if (!storedVersion) {
+				// Empty version in file, show install prompt
+				showVersionUpgradePrompt(info, null, currentVersion);
+			}
+		})
+		.catch(e => {
+			console.log('Failed to load version-info.json', e);
+			// On error, save current version for next time
+			if (info && info.ver) {
+				updateVersionInfo(info.ver, false, false);
+			}
+		});
+}
+
+function showVersionUpgradePrompt(info, oldVersion, newVersion) {
+	// Determine if this is an install or upgrade
+	const isInstall = !oldVersion;
+
+	// Create overlay and dialog
+	const overlay = d.createElement('div');
+	overlay.id = 'versionUpgradeOverlay';
+	overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:10000;display:flex;align-items:center;justify-content:center;';
+
+	const dialog = d.createElement('div');
+	dialog.style.cssText = 'background:var(--c-1);border-radius:10px;padding:25px;max-width:500px;margin:20px;box-shadow:0 4px 6px rgba(0,0,0,0.3);';
+
+	// Build contextual message based on install vs upgrade
+	const title = isInstall
+		? '🎉 Thank you for installing WLED!'
+		: '🎉 WLED Upgrade Detected!';
+
+	const description = isInstall
+		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
+		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
+
+	const question = 'Help make WLED better by sharing hardware details like chip type and LED count? This helps us understand how WLED is used and prioritize features — we never collect personal data or your activities.'
+
+	dialog.innerHTML = `
+		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
+		<p style="color:var(--c-f);">${description}</p>
+		<p style="color:var(--c-f);">${question}</p>
+		<p style="color:var(--c-f);font-size:0.9em;">
+			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
+		</p>
+		<div style="margin-top:15px;margin-bottom:15px;">
+			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
+				<input type="checkbox" id="versionSaveChoice" style="cursor:pointer;">
+				<span>Save my choice for future updates</span>
+			</label>
+		</div>
+		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
+			<button id="versionReportYes" class="btn">Report update</button>
+			<button id="versionReportNo" class="btn">Skip reporting</button>
+		</div>
+	`;
+
+	overlay.appendChild(dialog);
+	d.body.appendChild(overlay);
+
+	// Add event listeners
+	gId('versionReportYes').addEventListener('click', () => {
+		const saveChoice = gId('versionSaveChoice').checked;
+		d.body.removeChild(overlay);
+		// Pass saveChoice as alwaysReport parameter
+		reportUpgradeEvent(info, oldVersion, saveChoice);
+	});
+
+	gId('versionReportNo').addEventListener('click', () => {
+		const saveChoice = gId('versionSaveChoice').checked;
+		d.body.removeChild(overlay);
+		if (saveChoice) {
+			// Save "never ask" preference
+			updateVersionInfo(newVersion, true, false);
+			showToast('You will not be asked again.');
+		} else {
+			// Save current version to prevent re-prompting until version changes
+			updateVersionInfo(newVersion, false, false);
+		}
+	});
+}
+
+function reportUpgradeEvent(info, oldVersion, alwaysReport) {
+	showToast('Reporting upgrade...');
+
+	// Fetch fresh data from /json/info endpoint as requested
+	fetch(getURL('/json/info'), {
+		method: 'get'
+	})
+		.then(res => res.json())
+		.then(infoData => {
+			// Map to UpgradeEventRequest structure per OpenAPI spec
+			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
+			const upgradeData = {
+				deviceId: infoData.deviceId,                     // Use anonymous unique device ID
+				version: infoData.ver || '',                     // Current version string
+				previousVersion: oldVersion || '',               // Previous version from version-info.json
+				releaseName: infoData.release || '',             // Release name (e.g., "WLED 0.15.0")
+				chip: infoData.arch || '',                       // Chip architecture (esp32, esp8266, etc)
+				ledCount: infoData.leds ? infoData.leds.count : 0,  // Number of LEDs
+				isMatrix: !!(infoData.leds && infoData.leds.matrix),  // Whether it's a 2D matrix setup
+				bootloaderSHA256: infoData.bootloaderSHA256 || '',   // Bootloader SHA256 hash
+				brand: infoData.brand,                           // Device brand (always present)
+				product: infoData.product,                       // Product name (always present)
+				flashSize: infoData.flash,                       // Flash size (always present)
+				repo: infoData.repo                              // GitHub repository (always present)
+			};
+
+			// Add optional fields if available
+			if (infoData.psrSz !== undefined) upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB; can be 0
+
+			// Note: partitionSizes not currently available in /json/info endpoint
+
+			// Make AJAX call to postUpgradeEvent API
+			return fetch('https://usage.wled.me/api/usage/upgrade', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(upgradeData)
+			});
+		})
+		.then(res => {
+			if (res.ok) {
+				if (alwaysReport) {
+					showToast('Thank you! Future upgrades will be reported automatically.');
+				} else {
+					showToast('Thank you for reporting!');
+				}
+				updateVersionInfo(info.ver, false, !!alwaysReport);
+			} else {
+				showToast('Report failed. Please try again later.', true);
+				// Do NOT update version info on failure - user will be prompted again
+			}
+		})
+		.catch(e => {
+			console.log('Failed to report upgrade', e);
+			showToast('Report failed', true);
+			updateVersionInfo(info.ver, false, !!alwaysReport);
+		});
+}
+
+function updateVersionInfo(version, neverAsk, alwaysReport) {
+	const versionInfo = {
+		version: version,
+		neverAsk: neverAsk,
+		alwaysReport: !!alwaysReport
+	};
+
+	// Create a Blob with JSON content and use /upload endpoint
+	const blob = new Blob([JSON.stringify(versionInfo)], {type: 'application/json'});
+	const formData = new FormData();
+	formData.append('data', blob, 'version-info.json');
+
+	fetch(getURL('/upload'), {
+		method: 'POST',
+		body: formData
+	})
+		.then(res => res.text())
+		.then(data => {
+			console.log('Version info updated', data);
+		})
+		.catch(e => {
+			console.log('Failed to update version-info.json', e);
+		});
 }
 
 size();

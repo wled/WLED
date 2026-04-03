@@ -27,13 +27,19 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ip[5] = "IP"; ip[2] = 48+n; ip[4] = 0; //IP address
       char gw[5] = "GW"; gw[2] = 48+n; gw[4] = 0; //GW address
       char sn[5] = "SN"; sn[2] = 48+n; sn[4] = 0; //subnet mask
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+      char et[4] = "ET"; et[2] = 48+n; et[3] = 0; //WiFi encryption type
+      char ea[4] = "EA"; ea[2] = 48+n; ea[3] = 0; //enterprise anonymous identity
+      char ei[4] = "EI"; ei[2] = 48+n; ei[3] = 0; //enterprise identity
+#endif
       if (request->hasArg(cs)) {
         if (n >= multiWiFi.size()) multiWiFi.emplace_back(); // expand vector by one
         char oldSSID[33]; strcpy(oldSSID, multiWiFi[n].clientSSID);
         char oldPass[65]; strcpy(oldPass, multiWiFi[n].clientPass);
+        uint8_t oldBSSID[6]; memcpy(oldBSSID, multiWiFi[n].bssid, 6);  // save old BSSID
 
         strlcpy(multiWiFi[n].clientSSID, request->arg(cs).c_str(), 33);
-        if (strlen(oldSSID) == 0 || !strncmp(multiWiFi[n].clientSSID, oldSSID, 32)) {
+        if (strlen(oldSSID) == 0 || strncmp(multiWiFi[n].clientSSID, oldSSID, 32) != 0) {
           forceReconnect = true;
         }
         if (!isAsterisksOnly(request->arg(pw).c_str(), 65)) {
@@ -41,6 +47,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           forceReconnect = true;
         }
         fillStr2MAC(multiWiFi[n].bssid, request->arg(bs).c_str());
+        if (memcmp(oldBSSID, multiWiFi[n].bssid, 6) != 0) {  // check if BSSID changed
+          forceReconnect = true;
+        }
         for (size_t i = 0; i < 4; i++) {
           ip[3] = 48+i;
           gw[3] = 48+i;
@@ -49,6 +58,34 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           multiWiFi[n].staticGW[i] = request->arg(gw).toInt();
           multiWiFi[n].staticSN[i] = request->arg(sn).toInt();
         }
+
+#ifdef WLED_ENABLE_WPA_ENTERPRISE
+        byte oldType = multiWiFi[n].encryptionType;
+        char oldAnon[65]; strcpy(oldAnon, multiWiFi[n].enterpriseAnonIdentity);
+        char oldIden[65]; strcpy(oldIden, multiWiFi[n].enterpriseIdentity);
+        if (request->hasArg(et) && request->hasArg(ea) && request->hasArg(ei)) {
+          multiWiFi[n].encryptionType = request->arg(et).toInt();
+          strlcpy(multiWiFi[n].enterpriseAnonIdentity, request->arg(ea).c_str(), 65);
+          strlcpy(multiWiFi[n].enterpriseIdentity, request->arg(ei).c_str(), 65);
+        } else {
+          // No enterprise settings provided, default to PSK
+          multiWiFi[n].encryptionType = WIFI_ENCRYPTION_TYPE_PSK;
+        }
+
+        if (multiWiFi[n].encryptionType == WIFI_ENCRYPTION_TYPE_PSK) {
+          // PSK - Clear the anonymous identity and identity fields
+          multiWiFi[n].enterpriseAnonIdentity[0] = '\0';
+          multiWiFi[n].enterpriseIdentity[0] = '\0';
+        }
+        forceReconnect |= oldType != multiWiFi[n].encryptionType;
+        if (strncmp(multiWiFi[n].enterpriseAnonIdentity, oldAnon, 64) != 0) {
+          forceReconnect = true;
+        }
+        if (strncmp(multiWiFi[n].enterpriseIdentity, oldIden, 64) != 0) {
+          forceReconnect = true;
+        }
+#endif
+
         cnt++;
       }
     }
@@ -128,17 +165,17 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       PinManager::deallocatePin(irPin, PinOwner::IR);
     }
     #endif
-    for (unsigned s=0; s<WLED_MAX_BUTTONS; s++) {
-      if (btnPin[s]>=0 && PinManager::isPinAllocated(btnPin[s], PinOwner::Button)) {
-        PinManager::deallocatePin(btnPin[s], PinOwner::Button);
+    for (const auto &button : buttons) {
+      if (button.pin >= 0 && PinManager::isPinAllocated(button.pin, PinOwner::Button)) {
+        PinManager::deallocatePin(button.pin, PinOwner::Button);
         #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state, detach interrupt
-        if (digitalPinToTouchChannel(btnPin[s]) >= 0) // if touch capable pin
-          touchDetachInterrupt(btnPin[s]);            // if not assigned previously, this will do nothing
+        if (digitalPinToTouchChannel(button.pin) >= 0) // if touch capable pin
+          touchDetachInterrupt(button.pin);            // if not assigned previously, this will do nothing
         #endif
       }
     }
 
-    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed;
+    unsigned colorOrder, type, skip, awmode, channelSwap, maPerLed, driverType;
     unsigned length, start, maMax;
     uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
     String text;
@@ -155,9 +192,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     Bus::setCCTBlend(cctBlending);
     Bus::setGlobalAWMode(request->arg(F("AW")).toInt());
     strip.setTargetFps(request->arg(F("FR")).toInt());
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    useParallelI2S = request->hasArg(F("PR"));
-    #endif
 
     bool busesChanged = false;
     for (int s = 0; s < 36; s++) { // theoretical limit is 36 : "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -175,6 +209,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
+      char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
         DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
@@ -226,10 +261,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         maMax = request->arg(ma).toInt() * request->hasArg(F("PPL")); // if PP-ABL is disabled maMax (per bus) must be 0
       }
       type |= request->hasArg(rf) << 7; // off refresh override
+      driverType = request->arg(ld).toInt(); // 0=RMT (default), 1=I2S
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, text);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
@@ -279,55 +315,57 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       int offset = i < 10 ? '0' : 'A' - 10;
       char bt[4] = "BT"; bt[2] = offset+i; bt[3] = 0; // button pin (use A,B,C,... if WLED_MAX_BUTTONS>10)
       char be[4] = "BE"; be[2] = offset+i; be[3] = 0; // button type (use A,B,C,... if WLED_MAX_BUTTONS>10)
-      int hw_btn_pin = request->arg(bt).toInt();
-      if (hw_btn_pin >= 0 && PinManager::allocatePin(hw_btn_pin,false,PinOwner::Button)) {
-        btnPin[i] = hw_btn_pin;
-        buttonType[i] = request->arg(be).toInt();
-      #ifdef ARDUINO_ARCH_ESP32
+      int hw_btn_pin = request->hasArg(bt) ? request->arg(bt).toInt() : -1;
+      if (i >= buttons.size()) buttons.emplace_back(hw_btn_pin, request->arg(be).toInt()); // add button to vector
+      else {
+        buttons[i].pin  = hw_btn_pin;
+        buttons[i].type = request->arg(be).toInt();
+      }
+      if (buttons[i].pin >= 0 && PinManager::allocatePin(buttons[i].pin, false, PinOwner::Button)) {
+        #ifdef ARDUINO_ARCH_ESP32
         // ESP32 only: check that button pin is a valid gpio
-        if ((buttonType[i] == BTN_TYPE_ANALOG) || (buttonType[i] == BTN_TYPE_ANALOG_INVERTED))
-        {
-          if (digitalPinToAnalogChannel(btnPin[i]) < 0) {
+        if ((buttons[i].type == BTN_TYPE_ANALOG) || (buttons[i].type == BTN_TYPE_ANALOG_INVERTED)) {
+          if (digitalPinToAnalogChannel(buttons[i].pin) < 0) {
             // not an ADC analog pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), btnPin[i], i);
-            btnPin[i] = -1;
-            PinManager::deallocatePin(hw_btn_pin,PinOwner::Button);
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for analog button #%d is not an analog pin!\n"), buttons[i].pin, i);
+            PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
+            buttons[i].type = BTN_TYPE_NONE;
           } else {
             analogReadResolution(12); // see #4040
           }
-        }
-        else if ((buttonType[i] == BTN_TYPE_TOUCH || buttonType[i] == BTN_TYPE_TOUCH_SWITCH))
-        {
-          if (digitalPinToTouchChannel(btnPin[i]) < 0)
-          {
+        } else if ((buttons[i].type == BTN_TYPE_TOUCH || buttons[i].type == BTN_TYPE_TOUCH_SWITCH)) {
+          if (digitalPinToTouchChannel(buttons[i].pin) < 0) {
             // not a touch pin
-            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), btnPin[i], i);
-            btnPin[i] = -1;
-            PinManager::deallocatePin(hw_btn_pin,PinOwner::Button);
-          }          
-          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
-          else                    
-          {
-            touchAttachInterrupt(btnPin[i], touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
+            DEBUG_PRINTF_P(PSTR("PIN ALLOC error: GPIO%d for touch button #%d is not an touch pin!\n"), buttons[i].pin, i);
+            PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
+            buttons[i].type = BTN_TYPE_NONE;
           }
-          #endif          
-        }
-        else
-      #endif
+          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
+          else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
+          #endif
+        } else
+        #endif
         {
+          // regular buttons and switches
           if (disablePullUp) {
-            pinMode(btnPin[i], INPUT);
+            pinMode(buttons[i].pin, INPUT);
           } else {
             #ifdef ESP32
-            pinMode(btnPin[i], buttonType[i]==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
+            pinMode(buttons[i].pin, buttons[i].type==BTN_TYPE_PUSH_ACT_HIGH ? INPUT_PULLDOWN : INPUT_PULLUP);
             #else
-            pinMode(btnPin[i], INPUT_PULLUP);
+            pinMode(buttons[i].pin, INPUT_PULLUP);
             #endif
           }
         }
       } else {
-        btnPin[i] = -1;
-        buttonType[i] = BTN_TYPE_NONE;
+        buttons[i].pin  = -1;
+        buttons[i].type = BTN_TYPE_NONE;
+      }
+    }
+    // we should remove all unused buttons from the vector
+    for (int i = buttons.size()-1; i > 0; i--) {
+      if (buttons[i].pin < 0 && buttons[i].type == BTN_TYPE_NONE) {
+        buttons.erase(buttons.begin() + i); // remove button from vector
       }
     }
 
@@ -339,7 +377,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     gammaCorrectBri = request->hasArg(F("GB"));
     gammaCorrectCol = request->hasArg(F("GC"));
     gammaCorrectVal = request->arg(F("GV")).toFloat();
-    if (gammaCorrectVal <= 1.0f || gammaCorrectVal > 3) {
+    if (gammaCorrectVal < 0.1f || gammaCorrectVal > 3) {
       gammaCorrectVal = 1.0f; // no gamma correction
       gammaCorrectBri = false;
       gammaCorrectCol = false;
@@ -370,7 +408,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_UI)
   {
     strlcpy(serverDescription, request->arg(F("DS")).c_str(), 33);
-    //syncToggleReceive = request->hasArg(F("ST"));
     simplifiedUI = request->hasArg(F("SU"));
     DEBUG_PRINTLN(F("Enumerating ledmaps"));
     enumerateLedmaps();
@@ -531,39 +568,58 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     macroAlexaOff = request->arg(F("A1")).toInt();
     macroCountdown = request->arg(F("MC")).toInt();
     macroNl = request->arg(F("MN")).toInt();
-    for (unsigned i=0; i<WLED_MAX_BUTTONS; i++) {
-      char mp[4] = "MP"; mp[2] = (i<10?48:55)+i; mp[3] = 0; // short
-      char ml[4] = "ML"; ml[2] = (i<10?48:55)+i; ml[3] = 0; // long
-      char md[4] = "MD"; md[2] = (i<10?48:55)+i; md[3] = 0; // double
+    int ii = 0;
+    for (auto &button : buttons) {
+      char mp[4] = "MP"; mp[2] = (ii<10?'0':'A'-10)+ii; mp[3] = 0; // short
+      char ml[4] = "ML"; ml[2] = (ii<10?'0':'A'-10)+ii; ml[3] = 0; // long
+      char md[4] = "MD"; md[2] = (ii<10?'0':'A'-10)+ii; md[3] = 0; // double
       //if (!request->hasArg(mp)) break;
-      macroButton[i] = request->arg(mp).toInt();      // these will default to 0 if not present
-      macroLongPress[i] = request->arg(ml).toInt();
-      macroDoublePress[i] = request->arg(md).toInt();
+      button.macroButton = request->arg(mp).toInt();      // these will default to 0 if not present
+      button.macroLongPress = request->arg(ml).toInt();
+      button.macroDoublePress = request->arg(md).toInt();
+      ii++;
     }
 
-    char k[3]; k[2] = 0;
-    for (int i = 0; i<10; i++) {
-      k[1] = i+48;//ascii 0,1,2,3,...
-      k[0] = 'H'; //timer hours
-      timerHours[i] = request->arg(k).toInt();
-      k[0] = 'N'; //minutes
-      timerMinutes[i] = request->arg(k).toInt();
-      k[0] = 'T'; //macros
-      timerMacro[i] = request->arg(k).toInt();
-      k[0] = 'W'; //weekdays
-      timerWeekday[i] = request->arg(k).toInt();
-      if (i<8) {
-        k[0] = 'M'; //start month
-        timerMonth[i] = request->arg(k).toInt() & 0x0F;
-        timerMonth[i] <<= 4;
-        k[0] = 'P'; //end month
-        timerMonth[i] += (request->arg(k).toInt() & 0x0F);
-        k[0] = 'D'; //start day
-        timerDay[i] = request->arg(k).toInt();
-        k[0] = 'E'; //end day
-        timerDayEnd[i] = request->arg(k).toInt();
+    clearTimers();
+    char k[5]; k[4] = 0;
+    for (int ti = 0; ti < (int)WLED_MAX_TIMERS; ti++) {
+      if (ti < 10) {
+        k[1] = ti + 48;
+        k[2] = 0;
+      } else {
+        k[1] = '0' + (ti / 10);
+        k[2] = '0' + (ti % 10);
+        k[3] = 0;
       }
+      k[0] = 'T';
+      if (!request->hasArg(k)) continue;
+      uint8_t p = request->arg(k).toInt();
+      k[0] = 'H';
+      uint8_t h = request->arg(k).toInt();
+      k[0] = 'N';
+      int minuteVal = request->arg(k).toInt();
+      if (minuteVal < -120) minuteVal = -120;
+      if (minuteVal > 120) minuteVal = 120;
+      int8_t m = (int8_t)minuteVal;
+      k[0] = 'W';
+      uint8_t wd = request->arg(k).toInt();
+      uint8_t ms = 1, me = 12, ds = 1, de = 31;
+      k[0] = 'M';
+      ms = request->arg(k).toInt();
+      if (ms == 0) ms = 1;
+      k[0] = 'P';
+      me = request->arg(k).toInt();
+      if (me == 0) me = 12;
+      k[0] = 'D';
+      ds = request->arg(k).toInt();
+      if (ds == 0) ds = 1;
+      k[0] = 'E';
+      de = request->arg(k).toInt();
+      if (de == 0) de = 31;
+      addTimer(p, h, m, wd, ms, me, ds, de);
     }
+    compactTimers();
+
   }
 
   //SECURITY
@@ -572,9 +628,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     if (request->hasArg(F("RS"))) //complete factory reset
     {
       WLED_FS.format();
-      #ifdef WLED_ADD_EEPROM_SUPPORT
-      clearEEPROM();
-      #endif
       serveMessage(request, 200, F("All Settings erased."), F("Connect to WLED-AP to setup again"),255);
       doReboot = true; // may reboot immediately on dual-core system (race condition) which is desireable in this case
     }
@@ -613,7 +666,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       #ifndef WLED_DISABLE_OTA
       aOtaEnabled = request->hasArg(F("AO"));
       #endif
-      //createEditHandler(correctPIN && !otaLock);
       otaSameSubnet = request->hasArg(F("SU"));
     }
   }
@@ -651,7 +703,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   //USERMODS
   if (subPage == SUBPAGE_UM)
   {
-    if (!requestJSONBufferLock(5)) {
+    if (!requestJSONBufferLock(JSON_LOCK_SETTINGS)) {
       request->deferResponse();
       return;
     }
@@ -815,8 +867,13 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
     }
     strip.panel.shrink_to_fit();  // release unused memory
+    // we are changing matrix/ledmap geometry which *will* affect existing segments
+    // since we are not in loop() context we must make sure that effects are not running. credit @blazonchek for properly fixing #4911
+    strip.suspend();
+    strip.waitForIt();
     strip.deserializeMap(); // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
     strip.makeAutoSegments(true); // force re-creation of segments
+    strip.resume();
   }
   #endif
 
@@ -947,7 +1004,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   pos = req.indexOf(F("NP")); //advances to next preset in a playlist
   if (pos > 0) doAdvancePlaylist = true;
-  
+
   //set brightness
   updateVal(req.c_str(), "&A=", bri);
 

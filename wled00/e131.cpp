@@ -4,15 +4,28 @@
 #define MAX_4_CH_LEDS_PER_UNIVERSE 128
 #define MAX_CHANNELS_PER_UNIVERSE 512
 
+// forward declarations
+static void handleDDPPacket(e131_packet_t* p);
+static void handleArtnetPollReply(IPAddress ipAddress);
+static void prepareArtnetPollReply(ArtPollReply *reply);
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress);
+
+
 /*
  * E1.31 handler
  */
 
 //DDP protocol support, called by handleE131Packet
 //handles RGB data only
-void handleDDPPacket(e131_packet_t* p) {
+static void handleDDPPacket(e131_packet_t* p) {
   static bool ddpSeenPush = false;  // have we seen a push yet?
   int lastPushSeq = e131LastSequenceNumber[0];
+
+  // reject unsupported color data types (only RGB and RGBW are supported)
+  if (p->dataType != DDP_TYPE_RGB24 && p->dataType != DDP_TYPE_RGBW32) return;
+
+  // reject status and config packets (not implemented)
+  if (p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
 
   //reject late packets belonging to previous frame (assuming 4 packets max. before push)
   if (e131SkipOutOfSequence && lastPushSeq) {
@@ -30,10 +43,18 @@ void handleDDPPacket(e131_packet_t* p) {
 
   uint32_t start =  htonl(p->channelOffset) / ddpChannelsPerLed;
   start += DMXAddress / ddpChannelsPerLed;
-  unsigned stop = start + htons(p->dataLen) / ddpChannelsPerLed;
+  uint16_t dataLen = htons(p->dataLen);
+  unsigned stop = start + dataLen / ddpChannelsPerLed;
   uint8_t* data = p->data;
   unsigned c = 0;
-  if (p->flags & DDP_TIMECODE_FLAG) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+  if (p->flags & DDP_FLAGS_TIME) c = 4; //packet has timecode flag, we do not support it, but data starts 4 bytes later
+
+  unsigned numLeds = stop - start; // stop >= start is guaranteed
+  unsigned maxDataIndex = c + numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
+  if (maxDataIndex > dataLen) {
+    DEBUG_PRINTLN(F("DDP packet data bounds exceeded, rejecting."));
+    return;
+  }
 
   if (realtimeMode != REALTIME_MODE_DDP) ddpSeenPush = false; // just starting, no push yet
   realtimeLock(realtimeTimeoutMs, REALTIME_MODE_DDP);
@@ -44,7 +65,7 @@ void handleDDPPacket(e131_packet_t* p) {
     }
   }
 
-  bool push = p->flags & DDP_PUSH_FLAG;
+  bool push = p->flags & DDP_FLAGS_PUSH;
   ddpSeenPush |= push;
   if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
     e131NewData = true;
@@ -328,7 +349,7 @@ void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8
   e131NewData = true;
 }
 
-void handleArtnetPollReply(IPAddress ipAddress) {
+static void handleArtnetPollReply(IPAddress ipAddress) {
   ArtPollReply artnetPollReply;
   prepareArtnetPollReply(&artnetPollReply);
 
@@ -394,7 +415,7 @@ void handleArtnetPollReply(IPAddress ipAddress) {
   #endif
 }
 
-void prepareArtnetPollReply(ArtPollReply *reply) {
+static void prepareArtnetPollReply(ArtPollReply *reply) {
   // Art-Net
   reply->reply_id[0] = 0x41;
   reply->reply_id[1] = 0x72;
@@ -414,7 +435,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
 
   reply->reply_port = ARTNET_DEFAULT_PORT;
 
-  char * numberEnd = versionString;
+  char * numberEnd = (char*) versionString; // strtol promises not to try to edit this.
   reply->reply_version_h = (uint8_t)strtol(numberEnd, &numberEnd, 10);
   numberEnd++;
   reply->reply_version_l = (uint8_t)strtol(numberEnd, &numberEnd, 10);
@@ -513,7 +534,7 @@ void prepareArtnetPollReply(ArtPollReply *reply) {
   }
 }
 
-void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
+static void sendArtnetPollReply(ArtPollReply *reply, IPAddress ipAddress, uint16_t portAddress) {
   reply->reply_net_sw = (uint8_t)((portAddress >> 8) & 0x007F);
   reply->reply_sub_sw = (uint8_t)((portAddress >> 4) & 0x000F);
   reply->reply_sw_out[0] = (uint8_t)(portAddress & 0x000F);

@@ -1,0 +1,14 @@
+To edit the current font, this is the workflow:
+
+go to https://icomoon.io/
+In the menu, go to manage projects and import the json file from this folder and load it
+Add new icons or exchange existing ones: if changing existing one, make sure the unicode stays the same (can be edited before exporting)
+Go to "Generate SVG & More" and check the size of new icons (clicking on icons brings up the editor) -> scale new icons to match the size of existing ones
+Go to "Generate font" tab, check unicodes are correct (can use any unicode, range > e900 is "custom range" and now preferred)
+Download the font package and replace the files in this folder with new files
+Using an online converter, convert the *.woff font into woff2 format (about half the file size)
+Using another online converter, convert the woff2 font to base64 encoding for CSS
+in index.css, replace the font string at the top, keep the "data:font/woff2;charset=utf-8;" and dont use octet-stream (browser compatibility).
+
+enjoy your new icons in the UI :)
+
