@@ -3451,36 +3451,41 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 				fsTotal: infoData.fs?.t,                         // Filesystem total space in kB
 
 				// LED hardware
-				busCount:              cfgData.hw?.led?.ins?.length ?? 1,
-				busTypes:              (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
-				matrixWidth:           infoData.leds?.matrix?.w,
-				matrixHeight:          infoData.leds?.matrix?.h,
-				hasRGBW:               !!(infoData.leds?.lc & 0x02),
-				hasCCT:                !!(infoData.leds?.lc & 0x04),
-				ablEnabled:            (infoData.leds?.maxpwr ?? 0) > 0,
-				cctFromRgb:            cfgData.hw?.led?.cr ?? false,
-				whiteBalanceCorrection: cfgData.hw?.led?.cct ?? false,
-				gammaCorrection:       (cfgData.light?.gc?.col ?? 1.0) > 1.0,
-				autoSegments:          cfgData.light?.aseg ?? false,
-				nightlightEnabled:     (cfgData.light?.nl?.mode ?? 0) > 0,
+				busCount:      cfgData.hw?.led?.ins?.length ?? 1,
+				busTypes:      (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
+				matrixWidth:   infoData.leds?.matrix?.w,
+				matrixHeight:  infoData.leds?.matrix?.h,
+				ledFeatures: [
+					...(infoData.leds?.lc & 0x02               ? ["rgbw"] : []),
+					...(infoData.leds?.lc & 0x04               ? ["cct"] : []),
+					...((infoData.leds?.maxpwr ?? 0) > 0       ? ["abl"] : []),
+					...(cfgData.hw?.led?.cr                    ? ["cct-from-rgb"] : []),
+					...(cfgData.hw?.led?.cct                   ? ["white-balance"] : []),
+					...((cfgData.light?.gc?.col ?? 1.0) > 1.0  ? ["gamma"] : []),
+					...(cfgData.light?.aseg                    ? ["auto-segments"] : []),
+					...((cfgData.light?.nl?.mode ?? 0) > 0     ? ["nightlight"] : []),
+				],
 
 				// peripherals
-				relayConfigured:   (cfgData.hw?.relay?.pin ?? -1) >= 0,
-				buttonCount:       (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
-				i2cConfigured:     (cfgData.hw?.if?.['i2c-pin']?.[0] ?? -1) >= 0,
-				spiConfigured:     (cfgData.hw?.if?.['spi-pin']?.[0] ?? -1) >= 0,
-				ethernetEnabled:   (cfgData.eth?.type ?? 0) > 0,
+				peripherals: [
+					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
+					...((cfgData.hw?.btn?.ins ?? []).some(b => b.type !== 0)          ? ["buttons"] : []),
+					...((cfgData.hw?.if?.['i2c-pin']?.[0] ?? -1) >= 0               ? ["i2c"] : []),
+					...((cfgData.hw?.if?.['spi-pin']?.[0] ?? -1) >= 0               ? ["spi"] : []),
+					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
+					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
+					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
+				],
 
 				// integrations
-				hueEnabled:        cfgData.if?.hue?.en ?? false,
-				mqttEnabled:       cfgData.if?.mqtt?.en ?? false,
-				alexaEnabled:      cfgData.if?.va?.alexa ?? false,
-				wledSyncSend:      cfgData.if?.sync?.send?.en ?? false,
-				espNowEnabled:     cfgData.nw?.espnow ?? false,
-				espNowSync:        cfgData.if?.sync?.espnow ?? false,
-				espNowRemoteCount: Array.isArray(cfgData.nw?.linked_remote)
-						 ? cfgData.nw.linked_remote.length
-						 : (cfgData.nw?.linked_remote ? 1 : 0),
+				integrations: [
+					...(cfgData.if?.hue?.en                    ? ["hue"] : []),
+					...(cfgData.if?.mqtt?.en                   ? ["mqtt"] : []),
+					...(cfgData.if?.va?.alexa                  ? ["alexa"] : []),
+					...(cfgData.if?.sync?.send?.en             ? ["wled-sync"] : []),
+					...(cfgData.nw?.espnow                     ? ["esp-now"] : []),
+					...(cfgData.if?.sync?.espnow               ? ["esp-now-sync"] : []),
+				],
 
 				// usermods
 				usermods:    Object.keys(cfgData.um ?? {}),
