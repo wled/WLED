@@ -3498,11 +3498,14 @@ void candle(bool multi)
 {
   if (multi && SEGLEN > 1) {
     //allocate segment data
-    unsigned dataSize = sizeof(uint32_t) + max(1, (int)SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
+    unsigned dataSize = sizeof(uint32_t) + max(1, (int)SEGLEN -1) *3;
     if (!SEGENV.allocateData(dataSize)) candle(false); //allocation failed
+  } else {
+    unsigned dataSize = sizeof(uint32_t); // for last call timestamp
+    if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   }
   uint32_t* lastcall = reinterpret_cast<uint32_t*>(SEGENV.data);
-  uint8_t*  candleData = reinterpret_cast<uint8_t*>(SEGENV.data + sizeof(uint32_t));
+  uint8_t*  candleData = reinterpret_cast<uint8_t*>(SEGENV.data + sizeof(uint32_t)); // only used for multi-candle
 
   //limit update rate
   if (strip.now - *lastcall < FRAMETIME_FIXED) return;
@@ -4425,7 +4428,8 @@ void mode_flow(void)
   if (zones & 0x01) zones++; //zones must be even
   if (zones < 2) zones = 2;
   int zoneLen = SEGLEN / zones;
-  zones += 2; //add two extra zones to cover beginning and end of segment (compensate integer truncation)
+  int requiredZones = (SEGLEN + zoneLen - 1) / zoneLen;
+  zones = requiredZones + 2; //add extra zones to cover beginning and end of segment (compensate integer truncation)
   int offset = ((int)SEGLEN - (zones * zoneLen)) / 2; // center the zones on the segment (can not use bit shift on negative number)
 
   for (int z = 0; z < zones; z++)
