@@ -85,6 +85,13 @@
 				}
 				// ignore IP address
 			  if (isNet(t)) return;
+				// LED pin(s) must be assigned for non-virtual types
+				let pIdx = parseInt(LC.name.charAt(1)); // determine pin index (0 for L0, 1 for L1, etc.)
+				if (pIdx < numPins(t) && !isVir(t) && (LC.value === "" || LC.value === "-1")) {
+						LC.focus();
+						ok = false;
+						return;
+				}
 				//check for pin conflicts
 				if (LC.value!="" && LC.value!="-1") {
 					let p = d.rsvd.concat(d.um_p); // used pin array
@@ -93,12 +100,14 @@
 					d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(!/^L[0-4]/.test(e.name) && e.value>-1)p.push(parseInt(e.value));})
 					if (p.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(p)} can't be used.`);
-						if (LC.tagName==="SELECT") LC.value="-1"; else { LC.value=""; LC.focus(); } // TODO: need to "focus" dropdowns too? if so how?
+						if (LC.tagName==="SELECT") LC.value="-1"; else LC.value="";
+						LC.focus();
 						ok = false;
 						return;
 					} else if (d.ro_gpio.some((e)=>e==parseInt(LC.value))) {
 						alert(`Sorry, pins ${JSON.stringify(d.ro_gpio)} are input only.`);
-						if (LC.tagName==="SELECT") LC.value="-1"; else { LC.value=""; LC.focus(); }
+						if (LC.tagName==="SELECT") LC.value="-1"; else LC.value="";
+						LC.focus();
 						ok = false;
 						return;
 					}
