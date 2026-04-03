@@ -459,7 +459,7 @@ void Segment::handleRandomPalette() {
 
 void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
   // Sanitise inputs  
-  if (i2 < i1) { // For any values, this means "stop"; we do i2 before i1 for this case
+  if (i2 <= i1) { // For any values, this means deactivate the segment; we check i2 before i1 for this case
     i2 = 0;
   } else {
     // Clamp i2 to maximum length
@@ -474,7 +474,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   // If i1 is invalid, use old value
   // Valid range is inside maxWidth, or in trailing segment range
   if ((i1 >= Segment::maxWidth) && (i1 < Segment::maxWidth*Segment::maxHeight || i1 >= strip.getLengthTotal())) {
-    i1 = start; 
+    i1 = start;
   }
 
   #ifndef WLED_DISABLE_2D
@@ -484,9 +484,6 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
       i2Y = Segment::maxHeight;
     } else if (i2Y < 1) {
       i2Y = 1;
-    }
-    if (i2Y < i1Y) { 
-      i2 = 0; // stop
     }
   } else
   #endif
@@ -499,7 +496,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
   if (ofs == UINT16_MAX) ofs = offset;
   m12 = constrain(m12, 0, 7);
 
-  // Final safety check
+  // Final safety check after all bounds adjustments
   if ((i1 >= i2) || (i1Y >= i2Y)) { 
     i2 = 0;  // disable segment
   }
