@@ -556,7 +556,7 @@ Segment &Segment::setCCT(uint16_t k) {
     k = (k - 1900) >> 5;
   }
   if (cct != k) {
-    DEBUG_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting CCT transition: %d\n"), k);
     startTransition(strip.getTransition()); // start transition prior to change
     cct = k;
     stateChanged = true; // send UDP/WS broadcast
@@ -566,7 +566,7 @@ Segment &Segment::setCCT(uint16_t k) {
 
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
-    DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
+    //DEBUGFX_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
     startTransition(strip.getTransition()); // start transition prior to change
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
