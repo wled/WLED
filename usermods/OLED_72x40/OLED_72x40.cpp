@@ -105,6 +105,7 @@ class UsermodOLED72x40 : public Usermod {
 
       if (!u8g2->begin()) {
         if (activeLedPin >= 0) {
+          pinMode(activeLedPin, INPUT);
           PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
           activeLedPin = -1;
         }
@@ -256,7 +257,10 @@ class UsermodOLED72x40 : public Usermod {
       int8_t oldLedPin = ledPin;
       configComplete &= getJsonValue(top[F("ledPin")], ledPin, (int8_t)8);
       if (initDone && oldLedPin != ledPin) {
-        if (activeLedPin >= 0) PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
+        if (activeLedPin >= 0) {
+          pinMode(activeLedPin, INPUT);
+          PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
+        }
         activeLedPin = -1;
         if (ledPin >= 0 && PinManager::allocatePin(ledPin, true, PinOwner::UM_Unspecified)) {
           activeLedPin = ledPin;
