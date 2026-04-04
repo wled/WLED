@@ -214,32 +214,32 @@ bool RmtBus::begin() {
   // Try to use the High Priority RMT driver (Neo rmtHi)
   // NOTE: rmtHi can deadlock on some cores (notably ESP32-C3). By default we disable it
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
+  _usingRmtHi = false;
 #if !defined(WLEDPB_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
-  {
-    esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
-    if (hiErr == ESP_OK) {
-      _usingRmtHi = true;
-      _initialized = true;
-      s_activeChannelMask |= (1 << _channel);
-      if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
-      return true;
-    } else {
-      Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
-    }
+  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+  if (hiErr == ESP_OK) {
+    _usingRmtHi = true;
+  } else {
+    Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
   }
 #endif
 
-  // Fallback to IDF rmt driver + translator
-  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)); // note: rmt+parallelspi even deadlocks at level1
-  if (err != ESP_OK) {
-    return false;
+  if (!_usingRmtHi) {
+    // Fallback to IDF rmt driver + translator
+    err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)); // note: rmt+parallelspi even deadlocks at level1
+    if (err != ESP_OK) {
+      return false;
+    }
+
+    err = rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
+    if (err != ESP_OK) {
+      rmt_driver_uninstall(_rmtChannel);
+      return false;
+    }
   }
 
-  err = rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
-  if (err != ESP_OK) {
-    rmt_driver_uninstall(_rmtChannel);
-    return false;
-  }
+  // use hardware signal inversion via GPIO matrix if _inverted
+  gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
 
   _initialized = true;
   s_activeChannelMask |= (1 << _channel);
