@@ -250,12 +250,13 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
 
     // TM1814/TM1815: inject the 8-byte current-config prefix (C1 + C2).
     // setPrefix() must be called before begin() so allocateEncodeBuffer() reserves space.
-
     if (bus && (busType == TYPE_TM1814 || busType == TYPE_TM1815)) {
       bus->setPrefixLen(8); // reserve 8-byte C1+C2 prefix; actual bytes written per-frame in BusDigital::show()
+      bus->setInverted(true); // invert the output signal
     }
     if (bus && busType == TYPE_TM1914) {
       bus->setPrefixLen(6); // reserve 6-byte mode prefix; bytes written once in BusDigital::begin()
+      bus->setInverted(true); // invert the output signal
     }
 
     return bus;

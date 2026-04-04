@@ -49,7 +49,7 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   , _channel(channel)
   , _timing(timing)
   , _encoder(colorOrder, numChannels)
-  , _inverted(true)
+  , _inverted(false)
   , _initialized(false)
   , _usingRmtHi(false)
   , _rmtChannel(RMT_CHANNEL_0)

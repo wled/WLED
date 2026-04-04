@@ -225,6 +225,12 @@ public:
     memcpy(_encodeBuffer, data, len);
   }
 
+  /**
+   * physical output signal inversion (polarity).
+   * must be implemented on bus driver level
+   */
+  virtual void setInverted(bool /*inv*/) { }
+
   bool hasPrefix() const { return _prefixLen > 0; }
   uint8_t getPrefixLen() const { return _prefixLen; }
 
