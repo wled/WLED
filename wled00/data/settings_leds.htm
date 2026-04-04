@@ -842,6 +842,12 @@ Swap: <select id="xw${s}" name="XW${s}">
 			}
 		}
 		function pinDropdowns() {
+			// Rebuild LED GPIO selects now that d.pinsData is available.
+			d.Sf.querySelectorAll(".iST input.s[name^=L], .iST select.pin[name^=L]").forEach((e) => {
+				let n = e.name.substring(2, 3);
+				let t = parseInt(d.Sf["LT"+n].value, 10);
+				if (!isVir(t) && !isHub75(t)) makePinSelect(e.name, 1);
+			});
 			// IR (any pin including input-only)
 			let irSel = makePinSelect("IR", 0);
 			if (irSel) irSel.onchange = function() { UI(); pinUpd(this); };
@@ -849,7 +855,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let rlSel = makePinSelect("RL", 1);
 			if (rlSel) rlSel.onchange = function() { UI(); pinUpd(this); };
 			// Buttons (flags depend on button type: touch=2, ADC=4)
-			gId("btns").querySelectorAll('input[type="number"]').forEach((e) => {
+			gId("btns").querySelectorAll('input[type="number"], select.pin[name^=BT]').forEach((e) => {
 				let s = e.name.substring(2);
 				let t = parseInt(d.Sf["BE"+s]?.value) || 0;
 				let bSel = makePinSelect(e.name, btnPinFlags(t));
@@ -871,8 +877,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let pins = [];
 			// collect LED bus pin values from remaining inputs (virtual/HUB75)
 			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i) => {
-				if (i.value !== "" && parseInt(i.value) >= 0 && i.max < 255)
-					pins.push(i.value);
+				let busN = i.name.substring(2, 3);
+				let t = parseInt(d.Sf["LT"+busN].value, 10);
+				let p = parseInt(i.name.charAt(1), 10);
+				if (isVir(t) || isHub75(t) || p >= numPins(t)) return;
+				if (i.value !== "" && parseInt(i.value, 10) >= 0) pins.push(i.value);
 			});
 			// collect LED bus pin values from selects
 			d.Sf.querySelectorAll(".iST select.pin[name^=L]").forEach((s) => {
