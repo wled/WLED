@@ -157,6 +157,7 @@ class UsermodOLED72x40 : public Usermod {
       if (displayState == SPLASH) {
         if (millis() - splashStartTime >= SPLASH_DURATION) {
           displayState = DASHBOARD;
+          lastInteraction = millis();
           lastUpdate = 0; // force immediate dashboard redraw
         }
         return;
@@ -245,6 +246,7 @@ class UsermodOLED72x40 : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
+      bool oldEnabled = enabled;
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled, true);
       configComplete &= getJsonValue(top[F("flipDisplay")], flipDisplay, false);
       configComplete &= getJsonValue(top[F("x-offset")], xOff, 28);
@@ -256,7 +258,20 @@ class UsermodOLED72x40 : public Usermod {
 
       int8_t oldLedPin = ledPin;
       configComplete &= getJsonValue(top[F("ledPin")], ledPin, (int8_t)8);
-      if (initDone && oldLedPin != ledPin) {
+
+      // Handle enabled -> disabled: tear down hardware
+      if (initDone && oldEnabled && !enabled) {
+        if (activeLedPin >= 0) {
+          pinMode(activeLedPin, INPUT);
+          PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
+          activeLedPin = -1;
+        }
+        if (u8g2) u8g2->setPowerSave(1);
+        displayState = OFF;
+      }
+
+      // Reallocate LED pin on config change (only when enabled)
+      if (enabled && initDone && oldLedPin != ledPin) {
         if (activeLedPin >= 0) {
           pinMode(activeLedPin, INPUT);
           PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
