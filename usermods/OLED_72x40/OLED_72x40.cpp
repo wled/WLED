@@ -189,7 +189,7 @@ class UsermodOLED72x40 : public Usermod {
 
         // Effect name
         u8g2->setFont(u8g2_font_5x7_tf);
-        char lineBuffer[17];
+        char lineBuffer[17] = "";
         extractModeName(effectCurrent, JSON_mode_names, lineBuffer, 16);
         u8g2->drawStr(currentX, currentY + 7, lineBuffer);
         u8g2->drawHLine(currentX, currentY + 9, 72);
