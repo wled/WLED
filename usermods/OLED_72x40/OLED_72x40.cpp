@@ -75,6 +75,7 @@ class UsermodOLED72x40 : public Usermod {
     bool flipDisplay = false;
     int8_t buttonIndex = 0;
     int8_t ledPin = 8;
+    int8_t activeLedPin = -1;
 
     enum DisplayState : uint8_t { SPLASH, DASHBOARD, OFF };
     DisplayState displayState = SPLASH;
@@ -95,20 +96,17 @@ class UsermodOLED72x40 : public Usermod {
       }
 
       // Allocate LED pin for heartbeat indicator
-      if (ledPin >= 0) {
-        if (!PinManager::allocatePin(ledPin, true, PinOwner::UM_Unspecified)) {
-          ledPin = -1;
-        } else {
-          pinMode(ledPin, OUTPUT);
-        }
+      if (ledPin >= 0 && PinManager::allocatePin(ledPin, true, PinOwner::UM_Unspecified)) {
+        activeLedPin = ledPin;
+        pinMode(activeLedPin, OUTPUT);
       }
 
       u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
 
       if (!u8g2->begin()) {
-        if (ledPin >= 0) {
-          PinManager::deallocatePin(ledPin, PinOwner::UM_Unspecified);
-          ledPin = -1;
+        if (activeLedPin >= 0) {
+          PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
+          activeLedPin = -1;
         }
         delete u8g2;
         u8g2 = nullptr;
@@ -141,16 +139,16 @@ class UsermodOLED72x40 : public Usermod {
       if (!enabled || setupFailed || !initDone || !u8g2) return;
 
       // LED heartbeat
-      if (ledPin >= 0) {
+      if (activeLedPin >= 0) {
         static unsigned long ledTimer = 0;
         if (!Network.isConnected()) {
           if (millis() - ledTimer > 200) {
             ledTimer = millis();
-            digitalWrite(ledPin, !digitalRead(ledPin));
+            digitalWrite(activeLedPin, !digitalRead(activeLedPin));
           }
         } else {
           float pulse = (sin(millis() / 2000.0 * PI) + 1) * 127.5;
-          analogWrite(ledPin, (int)pulse);
+          analogWrite(activeLedPin, (int)pulse);
         }
       }
 
@@ -258,13 +256,11 @@ class UsermodOLED72x40 : public Usermod {
       int8_t oldLedPin = ledPin;
       configComplete &= getJsonValue(top[F("ledPin")], ledPin, (int8_t)8);
       if (initDone && oldLedPin != ledPin) {
-        if (oldLedPin >= 0) PinManager::deallocatePin(oldLedPin, PinOwner::UM_Unspecified);
-        if (ledPin >= 0) {
-          if (!PinManager::allocatePin(ledPin, true, PinOwner::UM_Unspecified)) {
-            ledPin = -1;
-          } else {
-            pinMode(ledPin, OUTPUT);
-          }
+        if (activeLedPin >= 0) PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
+        activeLedPin = -1;
+        if (ledPin >= 0 && PinManager::allocatePin(ledPin, true, PinOwner::UM_Unspecified)) {
+          activeLedPin = ledPin;
+          pinMode(activeLedPin, OUTPUT);
         }
       }
 
