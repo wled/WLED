@@ -213,18 +213,20 @@ class UsermodOLED72x40 : public Usermod {
     }
 
     void onStateChange(uint8_t mode) override {
+      if (!enabled || setupFailed || !initDone || !u8g2) return;
       lastInteraction = millis();
       lastUpdate = 0;
-      if (displayState == OFF && u8g2) {
+      if (displayState == OFF) {
         u8g2->setPowerSave(0);
         displayState = DASHBOARD;
       }
     }
 
     bool handleButton(uint8_t b) override {
+      if (!enabled || setupFailed || !initDone || !u8g2) return false;
       if (b != buttonIndex) return false;
       lastInteraction = millis();
-      if (displayState == OFF && u8g2) {
+      if (displayState == OFF) {
         u8g2->setPowerSave(0);
         displayState = DASHBOARD;
       }
