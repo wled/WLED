@@ -64,6 +64,7 @@ class UsermodOLED72x40 : public Usermod {
   private:
     U8G2_SSD1306_128X64_NONAME_F_HW_I2C *u8g2 = nullptr;
     bool enabled = true;
+    bool setupFailed = false;
     bool initDone = false;
     unsigned long lastUpdate = 0;
     unsigned long lastInteraction = 0;
@@ -89,7 +90,7 @@ class UsermodOLED72x40 : public Usermod {
 
       // Use WLED's global I2C pins; user must configure them in LED Preferences
       if (i2c_sda < 0 || i2c_scl < 0) {
-        enabled = false;
+        setupFailed = true;
         return;
       }
 
@@ -105,9 +106,13 @@ class UsermodOLED72x40 : public Usermod {
       u8g2 = new U8G2_SSD1306_128X64_NONAME_F_HW_I2C(U8G2_R0, U8X8_PIN_NONE);
 
       if (!u8g2->begin()) {
+        if (ledPin >= 0) {
+          PinManager::deallocatePin(ledPin, PinOwner::UM_Unspecified);
+          ledPin = -1;
+        }
         delete u8g2;
         u8g2 = nullptr;
-        enabled = false;
+        setupFailed = true;
         return;
       }
 
@@ -133,7 +138,9 @@ class UsermodOLED72x40 : public Usermod {
     }
 
     void loop() override {
-      // LED heartbeat (always runs if pin allocated)
+      if (!enabled || setupFailed || !initDone || !u8g2) return;
+
+      // LED heartbeat
       if (ledPin >= 0) {
         static unsigned long ledTimer = 0;
         if (!Network.isConnected()) {
@@ -146,8 +153,6 @@ class UsermodOLED72x40 : public Usermod {
           analogWrite(ledPin, (int)pulse);
         }
       }
-
-      if (!enabled || !initDone || !u8g2) return;
 
       // Non-blocking splash: wait for duration, then switch to dashboard
       if (displayState == SPLASH) {

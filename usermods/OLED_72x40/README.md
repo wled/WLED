@@ -87,7 +87,7 @@ build_flags = ${env:esp32c3dev.build_flags}
   -D DATA_PINS=10         ; LED strip data output pin
   -D BTNPIN=9             ; Onboard boot button used as pushbutton
   -D BTNTYPE=BTN_TYPE_PUSH
-custom_usermods = audioreactive OLED_72x40
+custom_usermods = OLED_72x40
 ```
 
 Then build with:
