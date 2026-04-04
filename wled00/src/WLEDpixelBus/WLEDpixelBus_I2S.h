@@ -120,7 +120,7 @@ public:
    * @param busNum I2S bus number (0 or 1 on ESP32, 0 on S2)
    * @param bufferSize DMA buffer size
    */
-  I2sBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+  I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
        uint8_t busNum = 1, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
   ~I2sBus() override;
 
@@ -139,15 +139,14 @@ public:
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
 private:
   int8_t _pin;
   uint8_t _busNum;
   size_t _bufferSize;
   LedTiming _timing;
-  ColorOrder _order;
-  ColorEncoder _encoder;  // persistent encoder, initialized from _order in constructor
+  ColorEncoder _encoder;  // persistent encoder, initialized in constructor
   bool _initialized;
 
   int8_t _channelIdx;

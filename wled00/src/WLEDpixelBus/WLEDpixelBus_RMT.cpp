@@ -44,12 +44,11 @@ uint8_t RmtBus::s_currentChannelIndex = 0;
 uint8_t RmtBus::s_usedBlocks = 0;
 uint8_t RmtBus::s_activeChannelMask = 0;
 
-RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t channel)
+RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, int8_t channel)
   : _pin(pin)
   , _channel(channel)
   , _timing(timing)
-  , _order(order)
-  , _encoder(order)
+  , _encoder(colorOrder, numChannels)
   , _inverted(true)
   , _initialized(false)
   , _usingRmtHi(false)
@@ -322,9 +321,8 @@ void RmtBus::setTiming(const LedTiming& timing) {
   }
 }
 
-void RmtBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void RmtBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 //note: using O2 optimization has little to no effect on FPS

@@ -33,111 +33,33 @@ namespace WLEDpixelBus {
 // Color Encoder Implementation
 //==============================================================================
 
-ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getChannelCount(order))
+ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
 {
+  _numChannels = numChannels;
   _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
-  // Color order indices are defined via a fixed mapping; add new cases here for additional channel permutations.
-  switch(order)
-  {
-    case ColorOrder::RGB:
-      _idxR=0; _idxG=1; _idxB=2;
-      break;
 
-    case ColorOrder::GRB:
-      _idxG=0; _idxR=1; _idxB=2;
-      break;
+  // RGB position from lower nibble (0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=BGR, 5=GBR)
+  uint8_t pos[3];
+  switch (co & 0x0F) {
+    case 1:  pos[0]=0; pos[1]=1; pos[2]=2; break; // RGB
+    case 2:  pos[0]=1; pos[1]=2; pos[2]=0; break; // BRG
+    case 3:  pos[0]=0; pos[1]=2; pos[2]=1; break; // RBG
+    case 4:  pos[0]=2; pos[1]=1; pos[2]=0; break; // BGR
+    case 5:  pos[0]=2; pos[1]=0; pos[2]=1; break; // GBR
+    default: pos[0]=1; pos[1]=0; pos[2]=2; break; // GRB (case 0)
+  }
+  _idxR = pos[0]; _idxG = pos[1]; _idxB = pos[2];
 
-    case ColorOrder::BRG:
-      _idxB=0; _idxR=1; _idxG=2;
-      break;
-
-    case ColorOrder::RBG:
-      _idxR=0; _idxB=1; _idxG=2;
-      break;
-
-    case ColorOrder::GBR:
-      _idxG=0; _idxB=1; _idxR=2;
-      break;
-
-    case ColorOrder::BGR:
-      _idxB=0; _idxG=1; _idxR=2;
-      break;
-
-    case ColorOrder::RGBW:
-      _idxR=0; _idxG=1; _idxB=2; _idxW=3;
-      break;
-
-    case ColorOrder::GRBW:
-      _idxG=0; _idxR=1; _idxB=2; _idxW=3;
-      break;
-
-    case ColorOrder::BRGW:
-      _idxB=0; _idxR=1; _idxG=2; _idxW=3;
-      break;
-
-    case ColorOrder::RBGW:
-      _idxR=0; _idxB=1; _idxG=2; _idxW=3;
-      break;
-
-    case ColorOrder::GBRW:
-      _idxG=0; _idxB=1; _idxR=2; _idxW=3;
-      break;
-
-    case ColorOrder::BGRW:
-      _idxB=0; _idxG=1; _idxR=2; _idxW=3;
-      break;
-
-    case ColorOrder::WRGB:
-      _idxW=0; _idxR=1; _idxG=2; _idxB=3;
-      break;
-
-    case ColorOrder::WGRB:
-      _idxW=0; _idxG=1; _idxR=2; _idxB=3;
-      break;
-
-    case ColorOrder::WBRG:
-      _idxW=0; _idxB=1; _idxR=2; _idxG=3;
-      break;
-
-    case ColorOrder::WRBG:
-      _idxW=0; _idxR=1; _idxB=2; _idxG=3;
-      break;
-
-    case ColorOrder::WGBR:
-      _idxW=0; _idxG=1; _idxB=2; _idxR=3;
-      break;
-
-    case ColorOrder::WBGR:
-      _idxW=0; _idxB=1; _idxG=2; _idxR=3;
-      break;
-
-    case ColorOrder::RGBWC:
-      _idxR=0; _idxG=1; _idxB=2; _idxWW=3; _idxCW=4;
-      break;
-
-    case ColorOrder::GRBWC:
-      _idxG=0; _idxR=1; _idxB=2; _idxWW=3; _idxCW=4;
-      break;
-
-    case ColorOrder::BRGWC:
-      _idxB=0; _idxR=1; _idxG=2; _idxWW=3; _idxCW=4;
-      break;
-
-    case ColorOrder::RBGWC:
-      _idxR=0; _idxB=1; _idxG=2; _idxWW=3; _idxCW=4;
-      break;
-
-    case ColorOrder::GBRWC:
-      _idxG=0; _idxB=1; _idxR=2; _idxWW=3; _idxCW=4;
-      break;
-
-    case ColorOrder::BGRWC:
-      _idxB=0; _idxG=1; _idxR=2; _idxWW=3; _idxCW=4;
-      break;
-
-    default:
-      _idxG=0; _idxR=1; _idxB=2;
-      break;
+  // White/CCT channels: numChannels from bus type, W-swap from upper nibble
+  if (numChannels == 4) {
+    _idxW = 3; // default W after RGB
+    const uint8_t wSwap = co >> 4;
+    if (wSwap == 1) { uint8_t t = _idxW; _idxW = _idxB; _idxB = t; } // swap W & B
+    if (wSwap == 2) { uint8_t t = _idxW; _idxW = _idxG; _idxG = t; } // swap W & G
+    if (wSwap == 3) { uint8_t t = _idxW; _idxW = _idxR; _idxR = t; } // swap W & R
+  } else if (numChannels >= 5) {
+    _idxWW = 3;
+    _idxCW = 4;
   }
 }
 
@@ -146,7 +68,7 @@ ColorEncoder::ColorEncoder(ColorOrder order) : _order(order), _numChannels(getCh
 // Bus Factory Implementation
 //==============================================================================
 
-PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrder order, size_t bufferSize, int8_t channel) {
+PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel) {
   
   if (type == BusType::Auto) {
     type = getRecommendedBusType();
@@ -157,40 +79,40 @@ PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, ColorOrde
   switch (type) {
 #if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
     case BusType::RMT:
-      bus = new RmtBus(pin, timing, order, channel);
+      bus = new RmtBus(pin, timing, colorOrder, numChannels, channel);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
     case BusType::I2S:
 #if defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3)
-      bus = new I2sBus(pin, timing, order, 0, bufferSize);
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize);
 #else
-      bus = new I2sBus(pin, timing, order, 1, bufferSize);
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, bufferSize);
 #endif
       break;
 #endif
 
 #ifdef WLEDPB_LCD_SUPPORT
     case BusType::LCD:
-      bus = new LcdBus(pin, timing, order, bufferSize);
+      bus = new LcdBus(pin, timing, colorOrder, numChannels, bufferSize);
       break;
 #endif
 
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
     case BusType::SPI:
-      bus = new ParallelSpiBus(pin, timing, order);
+      bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels);
       break;
 #endif
 
 #elif defined(WLEDPB_ESP8266)
     case BusType::UART:
-      bus = new Esp8266UartBus(pin, timing, order);
+      bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels);
       break;
     case BusType::DMA:
-      bus = new Esp8266DmaBus(pin, timing, order);
+      bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels);
       break;
     case BusType::BitBang:
-      bus = new Esp8266BitBangBus(pin, timing, order);
+      bus = new Esp8266BitBangBus(pin, timing, colorOrder, numChannels);
       break;
 #endif
 

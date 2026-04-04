@@ -19,7 +19,7 @@ public:
    * @param order Color order
    * @param useHardwareSpi True to use hardware SPI peripheral (faster), false for bit-bang
    */
-  SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, ColorOrder order, bool useHardwareSpi = true);
+  SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi = true);
   ~SpiBus() override;
 
   bool begin() override;
@@ -33,13 +33,12 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
 private:
   int8_t _dataPin;
   int8_t _clockPin;
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _useHardware;
   bool _initialized;

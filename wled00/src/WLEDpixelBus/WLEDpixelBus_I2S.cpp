@@ -680,14 +680,13 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
 
 // I2sBus implementation
 
-I2sBus::I2sBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
          uint8_t busNum, size_t bufferSize)
   : _pin(pin)
   , _busNum(busNum)
   , _bufferSize(bufferSize)
   , _timing(timing)
-  , _order(order)
-  , _encoder(order)
+  , _encoder(colorOrder, numChannels)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
@@ -786,9 +785,8 @@ bool I2sBus::canShow() const {
   return _ctx->isIdle();
 }
 
-void I2sBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void I2sBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 

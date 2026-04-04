@@ -104,7 +104,7 @@ private:
 
 class LcdBus :  public PixelBus {
 public: 
-  LcdBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+  LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
        size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, bool use16Bit = false);
   ~LcdBus() override;
 
@@ -120,14 +120,13 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
 private:
   int8_t _pin;
   size_t _bufferSize;
   bool _use16Bit;
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
 

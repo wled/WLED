@@ -21,8 +21,8 @@ namespace WLEDpixelBus {
 // Global static tracking for the shared UART ISR
 Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 
-Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _encoder(order), _initialized(false),
+Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
+  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels), _initialized(false),
     _asyncBuf(nullptr), _asyncBufEnd(nullptr) {}
 
 Esp8266UartBus::~Esp8266UartBus() {
@@ -150,9 +150,8 @@ uint32_t Esp8266UartBus::getPixelColor(uint16_t pix) const {
   return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
-void Esp8266UartBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void Esp8266UartBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 bool Esp8266UartBus::canShow() const {
@@ -166,8 +165,8 @@ bool Esp8266UartBus::canShow() const {
 // ESP8266 BitBang Bus
 //==============================================================================
 
-Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _encoder(order), _initialized(false) {}
+Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
+  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels), _initialized(false) {}
 
 Esp8266BitBangBus::~Esp8266BitBangBus() {
   end();
@@ -240,9 +239,8 @@ uint32_t Esp8266BitBangBus::getPixelColor(uint16_t pix) const {
   return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
-void Esp8266BitBangBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void Esp8266BitBangBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 bool Esp8266BitBangBus::canShow() const {
@@ -272,8 +270,8 @@ bool Esp8266BitBangBus::canShow() const {
 // ISR singleton
 Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
 
-Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, ColorOrder order)
-  : _pin(pin), _timing(timing), _order(order), _encoder(order),
+Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
+  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels),
     _initialized(false), _sending(false),
     _dmaDesc(nullptr), _dmaDescCnt(0),
     _idleBuf(nullptr), _idleBufSize(0) {}
@@ -579,9 +577,8 @@ void Esp8266DmaBus::scaleAll(uint8_t scale) {
   }
 }
 
-void Esp8266DmaBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void Esp8266DmaBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 // ---------------------------------------------------------------------------

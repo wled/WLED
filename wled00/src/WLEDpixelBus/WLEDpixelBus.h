@@ -328,7 +328,7 @@ class LcdBusContext;
  */
 class ColorEncoder {
 public:
-  ColorEncoder(ColorOrder order);
+  ColorEncoder(uint8_t co, uint8_t numChannels);
 
   /**
    * Encode a single pixel to output buffer
@@ -346,10 +346,8 @@ public:
   inline uint32_t decode(const uint8_t* in) const;
 
   uint8_t getNumChannels() const { return _numChannels; }
-  ColorOrder getOrder() const { return _order; }
 
 private:
-  ColorOrder _order;
   uint8_t _numChannels;
   uint8_t _idxR;
   uint8_t _idxG;
@@ -427,8 +425,8 @@ constexpr uint8_t getRmtMaxChannels() {
  * @param channel RMT channel to use (-1 for auto-allocate)
  * @return Bus instance (caller owns, delete when done)
  */
-PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, 
-        ColorOrder order, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
+PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
+        uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
         int8_t channel = -1);
 
 /**

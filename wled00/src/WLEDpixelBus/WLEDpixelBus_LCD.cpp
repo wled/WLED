@@ -518,14 +518,13 @@ void LcdBusContext::printDebugStats() {
 // LcdBus Implementation
 // ============================================
 
-LcdBus::LcdBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+LcdBus::LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
          size_t bufferSize, bool use16Bit)
   : _pin(pin)
   , _bufferSize(bufferSize)
   , _use16Bit(use16Bit)
   , _timing(timing)
-  , _order(order)
-  , _encoder(order)
+  , _encoder(colorOrder, numChannels)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
@@ -619,9 +618,8 @@ bool LcdBus::canShow() const {
 
 
 
-void LcdBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void LcdBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 } // namespace WLEDpixelBus

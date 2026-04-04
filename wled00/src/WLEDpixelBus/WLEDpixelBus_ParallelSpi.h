@@ -89,7 +89,7 @@ private:
  */
 class ParallelSpiBus : public PixelBus {
 public:
-  ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+  ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
   ~ParallelSpiBus() override;
 
   bool begin() override;
@@ -105,12 +105,11 @@ public:
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
 

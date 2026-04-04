@@ -19,7 +19,7 @@ public:
    * @param order Color order
    * @param channel RMT channel (-1 for auto)
    */
-  RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order,
+  RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
        int8_t channel = -1);
   ~RmtBus() override;
 
@@ -37,7 +37,7 @@ public:
   // Configuration
   void setInverted(bool inv) { _inverted = inv; }
   void setTiming(const LedTiming& timing);
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
   // Reset the auto-allocation counter (call before re-creating buses)
   static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
@@ -51,8 +51,7 @@ private:
   int8_t _pin;
   int8_t _channel;
   LedTiming _timing;
-  ColorOrder _order;
-  ColorEncoder _encoder;  // persistent encoder, initialized from _order in constructor
+  ColorEncoder _encoder;  // persistent encoder, initialized in constructor
   bool _inverted;
   bool _initialized;
   bool _usingRmtHi;

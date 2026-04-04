@@ -160,7 +160,7 @@ BusDigital::BusDigital(const BusConfig &bc)
   if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs
 
   // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
-  _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, (WLEDpixelBus::ColorOrder)bc.colorOrder, _driverType, bc.busSpeedFactor);
+  _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor);
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759

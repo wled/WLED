@@ -545,11 +545,10 @@ bool SpiBusContext::startTransmit() {
 
 // SpiBus implementation
 
-ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, ColorOrder order)
+ParallelSpiBus::ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
   : _pin(pin)
   , _timing(timing)
-  , _order(order)
-  , _encoder(order)
+  , _encoder(colorOrder, numChannels)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
@@ -648,9 +647,8 @@ bool ParallelSpiBus::canShow() const {
   return _ctx->isSpiDone();
 }
 
-void ParallelSpiBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void ParallelSpiBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 

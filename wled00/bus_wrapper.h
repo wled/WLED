@@ -172,7 +172,7 @@ class PixelBusAllocator {
     return true;
   }
 
-static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, WLEDpixelBus::ColorOrder colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
+static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
@@ -189,42 +189,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       timing = WLEDpixelBus::scaleTiming(timing, factor);
     }
 
-    // Map WLED Order
-    uint8_t wledOrder = (uint8_t)colorOrder & 0x0F;
-    WLEDpixelBus::ColorOrder finalOrder = WLEDpixelBus::ColorOrder::GRB;
-    const size_t numChannels = Bus::getNumberOfChannels(busType);
-
-    if (numChannels >= 5) {
-      switch (wledOrder) {
-        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
-        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBWC; break;
-        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRGWC; break;
-        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBGWC; break;
-        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGRWC; break;
-        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBRWC; break;
-        default: finalOrder = WLEDpixelBus::ColorOrder::GRBWC; break;
-      }
-    } else if (numChannels == 4) {
-      switch (wledOrder) {
-        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
-        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGBW; break;
-        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRGW; break;
-        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBGW; break;
-        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGRW; break;
-        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBRW; break;
-        default: finalOrder = WLEDpixelBus::ColorOrder::GRBW; break;
-      }
-    } else {
-      switch (wledOrder) {
-        case 0: finalOrder = WLEDpixelBus::ColorOrder::GRB; break;
-        case 1: finalOrder = WLEDpixelBus::ColorOrder::RGB; break;
-        case 2: finalOrder = WLEDpixelBus::ColorOrder::BRG; break;
-        case 3: finalOrder = WLEDpixelBus::ColorOrder::RBG; break;
-        case 4: finalOrder = WLEDpixelBus::ColorOrder::BGR; break;
-        case 5: finalOrder = WLEDpixelBus::ColorOrder::GBR; break;
-        default: finalOrder = WLEDpixelBus::ColorOrder::GRB; break;
-      }
-    }
+    const uint8_t numChannels = (uint8_t)Bus::getNumberOfChannels(busType);
 
     if (Bus::is2Pin(busType)) {
       bool isHSPI = false;
@@ -233,7 +198,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       #else
       if (_2PchannelsAssigned == 1) isHSPI = true;
       #endif
-      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, finalOrder, isHSPI); // TODO: move this into createbus function?
+      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI); // TODO: move this into createbus function?
     }
 
     auto btype = WLEDpixelBus::BusType::Auto; // TODO: there is the get preferred bus type function but below we set default to RMT
@@ -281,7 +246,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
-    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(btype, pins[0], timing, finalOrder, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
+    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(btype, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
 
     // TM1814/TM1815: inject the 8-byte current-config prefix (C1 + C2).
     // setPrefix() must be called before begin() so allocateEncodeBuffer() reserves space.

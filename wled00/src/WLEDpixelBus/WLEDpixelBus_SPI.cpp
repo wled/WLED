@@ -2,9 +2,9 @@
 
 namespace WLEDpixelBus {
 
-SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, ColorOrder order, bool useHardwareSpi)
-  : _dataPin(dataPin), _clockPin(clockPin), _timing(timing), _order(order),
-    _encoder(order), _useHardware(useHardwareSpi), _initialized(false) {
+SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi)
+  : _dataPin(dataPin), _clockPin(clockPin), _timing(timing),
+    _encoder(colorOrder, numChannels), _useHardware(useHardwareSpi), _initialized(false) {
 }
 
 SpiBus::~SpiBus() {
@@ -102,9 +102,8 @@ uint32_t SpiBus::getPixelColor(uint16_t pix) const {
   return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
-void SpiBus::setColorOrder(ColorOrder order) {
-  _order = order;
-  _encoder = ColorEncoder(order);
+void SpiBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getNumChannels());
 }
 
 bool SpiBus::canShow() const {

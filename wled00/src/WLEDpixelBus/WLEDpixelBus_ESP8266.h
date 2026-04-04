@@ -12,7 +12,7 @@ namespace WLEDpixelBus {
 
 class Esp8266UartBus : public PixelBus {
 public:
-  Esp8266UartBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+  Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
   ~Esp8266UartBus() override;
 
   bool begin() override;
@@ -26,7 +26,7 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
   static void UartIsr(void* arg);
   static Esp8266UartBus* s_instances[2];
@@ -34,7 +34,6 @@ public:
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
 
@@ -62,7 +61,7 @@ struct SlcQueueItem {
 
 class Esp8266DmaBus : public PixelBus {
 public:
-  Esp8266DmaBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+  Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
   ~Esp8266DmaBus() override;
 
   bool begin() override;
@@ -78,7 +77,7 @@ public:
   void scaleAll(uint8_t scale) override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
   static Esp8266DmaBus* s_this; // singleton for ISR
 
@@ -89,7 +88,6 @@ private:
 
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
   volatile bool _sending;
@@ -119,7 +117,7 @@ private:
 
 class Esp8266BitBangBus : public PixelBus {
 public:
-  Esp8266BitBangBus(int8_t pin, const LedTiming& timing, ColorOrder order);
+  Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
   ~Esp8266BitBangBus() override;
 
   bool begin() override;
@@ -133,12 +131,11 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
 
   void setTiming(const LedTiming& timing);
-  void setColorOrder(ColorOrder order);
+  void setColorOrder(uint8_t co);
 
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorOrder _order;
   ColorEncoder _encoder;
   bool _initialized;
   
