@@ -269,6 +269,7 @@ class BusDigital : public Bus {
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
     uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
+    void     setBrightness(uint8_t b) override;
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
@@ -288,6 +289,7 @@ class BusDigital : public Bus {
     uint8_t  _milliAmpsPerLed;
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum; // total color value for the bus, updated in setPixelColor(), used to estimate current
+    uint8_t  _effectiveBri = 255;  // brightness passed to color_fade(): equals _bri for normal types, colorScale for TM1814/TM1815
     WLEDpixelBus::PixelBus* _busPtr = nullptr;
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()

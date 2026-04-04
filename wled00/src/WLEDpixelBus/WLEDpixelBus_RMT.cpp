@@ -50,7 +50,7 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, ColorOrder order, int8_t cha
   , _timing(timing)
   , _order(order)
   , _encoder(order)
-  , _inverted(false)
+  , _inverted(true)
   , _initialized(false)
   , _usingRmtHi(false)
   , _rmtChannel(RMT_CHANNEL_0)
@@ -274,13 +274,13 @@ void RmtBus::end() {
 bool RmtBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   if (!_encodeBuffer || pos >= _numPixels) return false;
   CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
   return true;
 }
 
 uint32_t RmtBus::getPixelColor(uint16_t pix) const {
   if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
 bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {

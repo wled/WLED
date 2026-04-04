@@ -611,7 +611,7 @@ void ParallelSpiBus::end() {
 }
 
 bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  size_t needed = (size_t)numPixels * numChannels;
+  size_t needed = _prefixLen + (size_t)numPixels * numChannels;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
   if (needed == 0) return true;
@@ -625,13 +625,13 @@ bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannel
 bool ParallelSpiBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   if (!_encodeBuffer || pos >= _numPixels) return false;
   CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
   return true;
 }
 
 uint32_t ParallelSpiBus::getPixelColor(uint16_t pix) const {
   if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
 bool ParallelSpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {

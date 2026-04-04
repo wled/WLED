@@ -585,13 +585,13 @@ void LcdBus::end() {
 bool LcdBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   if (!_encodeBuffer || pos >= _numPixels) return false;
   CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
   return true;
 }
 
 uint32_t LcdBus::getPixelColor(uint16_t pix) const {
   if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
 bool LcdBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {

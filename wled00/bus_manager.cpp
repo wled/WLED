@@ -196,12 +196,42 @@ BusDigital::BusDigital(const BusConfig &bc)
 // if limit is set too low, brightness is limited to 1 to at least show some light
 // to disable brightness limiter for a bus, set LED current to 0
 
+void BusDigital::setBrightness(uint8_t b) {
+  _bri = b;
+  if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
+    uint8_t currentStep;
+    WLEDpixelBus::mapBrightnessToCurrentStep(b, 64, 44, currentStep, _effectiveBri);
+
+    // TM1814/TM1815: encode brightness as drive current (64 steps: 6.5–38 mA).
+    // mapBrightnessToCurrentStep() picks the smallest step >= target; the residual colorScale
+    // was already applied per-pixel in setPixelColor(), so only the prefix needs updating here.
+    // TODO: need support other LED types?
+    if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
+      // Drive current is set from _bri, cached as _currentStep in setBrightness()
+      // ABL applies to pixel colors via scaleAll() in applyBriLimit(), not to the current step.
+      // set the LED current by writing the prefix
+      uint8_t prefix[8];
+      memset(prefix,     currentStep,  4);  // C1: W R G B
+      memset(prefix + 4, ~currentStep, 4);  // C2: ~W ~R ~G ~B
+      _busPtr->updatePrefix(prefix, 8); // note: the pre
+    }
+
+  } else {
+    _effectiveBri = b;
+  }
+}
+
 void BusDigital::estimateCurrent() {
   uint32_t actualMilliampsPerLed = _milliAmpsPerLed;
   if (_milliAmpsPerLed == 255) {
     // use wacky WS2815 power model, see WLED issue #549
     _colorSum *= 3; // sum is sum of max value for each color, need to multiply by three to account for clrUnitsPerChannel being 3*255
     actualMilliampsPerLed = 12; // from testing an actual strip
+  }
+  // TM1814/TM1815: colors were accumulated with _effectiveBri-scaled values (the sub-step residual).
+  // Scale _colorSum back to the full _bri level before estimating current so ABL works correctly.
+  if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
+    if (_effectiveBri > 0) _colorSum = ((uint64_t)_colorSum * _bri) / _effectiveBri;
   }
   // _colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
   uint32_t clrUnitsPerChannel = hasWhite() ? 4*255 : 3*255;
@@ -277,16 +307,18 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   //    _cctDataPtr[pix].cw = cctCW;
   //  }
   }
-  c = color_fade(c, _bri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
+  // Apply brightness via color_fade. For TM1814/TM1815 _effectiveBri is the sub-step residual pre-computed in setBrightness(); for all other types it equals _bri.
+  c = color_fade(c, _effectiveBri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
 
   if (hasCCT()) {
-    wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
-    wwcw |= ((cctWW + 1) * _bri) >> 8;
+    wwcw = ((cctCW + 1) * _effectiveBri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
+    wwcw |= ((cctWW + 1) * _effectiveBri) >> 8;
     if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
   }
 
   if (BusManager::_useABL) {
-    // if using ABL, sum all color channels to estimate current and limit brightness in show()
+    // sum all color channels to estimate current; colors are already effectiveBri-scaled.
+    // estimateCurrent() corrects for the TM1814/TM1815 colorScale factor before computing milliAmps.
     uint8_t r = R(c), g = G(c), b = B(c);
     if (_milliAmpsPerLed < 255) { // normal ABL
       _colorSum += r + g + b + W(c);
@@ -386,6 +418,9 @@ bool BusDigital::isI2S() {
 void BusDigital::begin() {
   if (!_valid) return;
   if (!_busPtr->begin()) { cleanup(); return; }
+  // TM1914: write the static mode-setting prefix once after the encode buffer is allocated.
+  if (_type == TYPE_TM1914)
+    _busPtr->updatePrefix(TM1914_PREFIX, sizeof(TM1914_PREFIX));
 }
 
 void BusDigital::cleanup() {

@@ -72,6 +72,7 @@ Features:
 #endif
 
 #include "WLEDpixelBus_Timings.h"
+#include "WLEDpixelBus_Features.h"
 
 namespace WLEDpixelBus {
 
@@ -194,6 +195,7 @@ protected:
   uint8_t* _encodeBuffer = nullptr;   // encoded pixel data ready for hardware transmission
   size_t   _encodeBufferSize = 0;     // allocated size in bytes
   uint16_t _numPixels = 0;
+  uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer
 
 public:
   virtual ~PixelBus() {
@@ -201,6 +203,30 @@ public:
     // set it to nullptr before the base destructor runs. This is a safety net.
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
   }
+
+  /**
+   * Reserve prefix bytes before pixel data. Must be called BEFORE begin().
+   * allocateEncodeBuffer() will zero the prefix region; updatePrefix() fills it per-frame.
+   * @param len  Number of prefix bytes to reserve
+   */
+  void setPrefixLen(uint8_t len) {
+    _prefixLen = len;
+  }
+
+  /**
+   * Overwrite the prefix bytes in _encodeBuffer at runtime (e.g. per-frame for current control).
+   * Must be called AFTER begin() (i.e. after allocateEncodeBuffer()). No-op if buffer not ready.
+   * @param data  New prefix bytes
+   * @param len   Must be <= _prefixLen (will be clamped)
+   */
+  void updatePrefix(const uint8_t* data, uint8_t len) {
+    if (!_encodeBuffer || len == 0) return;
+    if (len > _prefixLen) len = _prefixLen;
+    memcpy(_encodeBuffer, data, len);
+  }
+
+  bool hasPrefix() const { return _prefixLen > 0; }
+  uint8_t getPrefixLen() const { return _prefixLen; }
 
   virtual bool begin() = 0;
   virtual void end() = 0;
@@ -233,12 +259,13 @@ public:
   virtual uint32_t getPixelColor(uint16_t pix) const = 0;
 
   /**
-   * Zero the encode buffer (set all pixels to black).
+   * Zero the encode buffer (set all pixels to black), preserving the prefix.
    * Derived classes may override if their encoding is non-trivial (e.g. I2S 4-step).
    * For all standard RGB/RGBW protocols, all-zero bytes encode as black.
    */
   virtual void clearEncodeBuffer() {
-    if (_encodeBuffer && _encodeBufferSize > 0) memset(_encodeBuffer, 0, _encodeBufferSize);
+    if (_encodeBuffer && _encodeBufferSize > _prefixLen)
+      memset(_encodeBuffer + _prefixLen, 0, _encodeBufferSize - _prefixLen);
   }
 
   /**
@@ -247,8 +274,8 @@ public:
    * Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.
    */
   virtual void scaleAll(uint8_t scale) {
-    if (scale == 255 || !_encodeBuffer || _encodeBufferSize == 0) return;
-    for (size_t i = 0; i < _encodeBufferSize; i++) {
+    if (scale == 255 || !_encodeBuffer) return;
+    for (size_t i = _prefixLen; i < _encodeBufferSize; i++) {
       _encodeBuffer[i] = ((uint16_t)(_encodeBuffer[i] + 1) * scale) >> 8;
     }
   }
@@ -260,7 +287,7 @@ public:
    * @param numChannels bytes per pixel in the encoded stream
    */
   virtual bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-    size_t needed = (size_t)numPixels * numChannels;
+    size_t needed = _prefixLen + (size_t)numPixels * numChannels;
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
     if (needed == 0) return true;
@@ -333,18 +360,13 @@ private:
 };
 
 inline void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const {
-  uint8_t r = getR(pixel);
-  uint8_t g = getG(pixel);
-  uint8_t b = getB(pixel);
-  uint8_t w = getW(pixel);
-
-  out[_idxR] = r;
-  out[_idxG] = g;
-  out[_idxB] = b;
-  if (_idxW != 0xFF) out[_idxW] = w;
+  out[_idxR] = getR(pixel);
+  out[_idxG] = getG(pixel);
+  out[_idxB] = getB(pixel);
+  if (_idxW != 0xFF) out[_idxW] = getW(pixel);
 
   if (_idxWW != 0xFF) {
-    out[_idxWW] = cct ? cct->ww : w; // TODO: handle ww/cw more clever, there is not really a need to have this explicit, could save an if for RGB case
+    out[_idxWW] = cct ? cct->ww : getW(pixel); // TODO: handle ww/cw more cleverly? there is not really a need to have this explicit, could save an if for RGB case
     out[_idxCW] = cct ? cct->cw : 0;
   }
 }

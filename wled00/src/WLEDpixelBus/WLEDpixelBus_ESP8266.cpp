@@ -141,13 +141,13 @@ bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, co
 bool Esp8266UartBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   if (!_encodeBuffer || pos >= _numPixels) return false;
   CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
   return true;
 }
 
 uint32_t Esp8266UartBus::getPixelColor(uint16_t pix) const {
   if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
 void Esp8266UartBus::setColorOrder(ColorOrder order) {
@@ -231,13 +231,13 @@ bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/,
 bool Esp8266BitBangBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   if (!_encodeBuffer || pos >= _numPixels) return false;
   CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + pos * _encoder.getNumChannels());
+  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
   return true;
 }
 
 uint32_t Esp8266BitBangBus::getPixelColor(uint16_t pix) const {
   if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + pix * _encoder.getNumChannels());
+  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
 }
 
 void Esp8266BitBangBus::setColorOrder(ColorOrder order) {
