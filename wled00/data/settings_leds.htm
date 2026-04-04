@@ -313,19 +313,19 @@
 				gId("p1d"+n).innerText = p1d;
 				gId("off"+n).innerText = off;
 				// convert pin fields so show/hide applies to the correct element type
- 				for (let p=0; p<5; p++) {
- 					let nm2 = "L"+p+n;
- 					let el = d.Sf[nm2];
- 					if (!el) continue;
- 					if (isVir(t) || isHub75(t)) {
- 						if (el.tagName === "SELECT") unmakePinSelect(nm2); // see common.js
- 					} else {
- 						if (el.tagName === "INPUT" && el.type === "number") {
- 							makePinSelect(nm2, 1); // see common.js
- 							d.pinUpdPending = true;
- 						}
- 					}
- 				}
+				for (let p=0; p<5; p++) {
+					let nm2 = "L"+p+n;
+					let el = d.Sf[nm2];
+					if (!el) continue;
+					if (isVir(t) || isHub75(t)) {
+						if (el.tagName === "SELECT") unmakePinSelect(nm2); // see common.js
+					} else {
+						if (el.tagName === "INPUT" && el.type === "number") {
+							makePinSelect(nm2, 1); // see common.js
+							d.pinUpdPending = true;
+						}
+					}
+				}
 				// show/hide secondary pins on whatever element type now exists
 				let pins = Math.max(gT(t).t.length,1) + 3*isNet(t) + 4*isHub75(t);
 				for (let p=1; p<5; p++) {
@@ -438,27 +438,6 @@
 					LC.style.color="#fff";
 					return; // do not check conflicts
 				}
-				/*
-				// check for pin conflicts & color fields
-				if (nm.search(/^L[0-4]/) == 0) // pin fields
-					if (LC.value!="" && LC.value!="-1") {
-						let p = d.rsvd.concat(d.um_p); // used pin array
-						d.Sf.querySelectorAll("select.pin").forEach((e)=>{if(e.value>-1)p.push(parseInt(e.value));}) // buttons, IR & relay
-						for (j=0; j<nList.length; j++) {
-							if (i==j) continue;
-							let n2 = nList[j].name.substring(0,2); // field name : /L./
-							if (n2.search(/^L[0-4]/) == 0) { // pin fields
-								let m  = nList[j].name.substring(2,3); // bus number (0-Z)
-								let t2 = parseInt(gN("LT"+m).value, 10);
-								if (isVir(t2)) continue;
-								if (nList[j].value!="" && nList[j].value!="-1") p.push(parseInt(nList[j].value,10));  // add current pin
-							}
-						}
-						// now check for conflicts
-						if (p.some((e)=>e==parseInt(LC.value))) LC.style.color = "red";
-						else LC.style.color = d.ro_gpio.some((e)=>e==parseInt(LC.value)) ? "orange" : "#fff";
-					} else LC.style.color = "#fff";
-				*/
 			});
 
 			// Use helper function to calculate channel usage
@@ -865,7 +844,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			d.Sf.querySelectorAll("select.pin").forEach((e) => { pinUpd(e); });
 			// add dataset values for remaining LED GPIO inputs (virtual/HUB75)
 			d.Sf.querySelectorAll(".iST input.s[name^=L]").forEach((i) => {
-				if (i.value !== "" && i.value >= 0)
+				if (i.value !== "" && parseInt(i.value, 10) >= 0)
 					i.dataset.val = i.value;
 			});
 		}
