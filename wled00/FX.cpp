@@ -7849,39 +7849,44 @@ const uint8_t dsframe5[] = {
 uint16_t mode_custom_diamond_spin() {
   static uint32_t lastFrameTime = 0;
   static uint8_t currentFrame = 0;
+  static uint32_t lastStrobeTime = 0;
   static bool strobeState = true;
-
+  
   // Frame sequence for diamond spin effect
   const uint8_t *frameSequence[] = {
     dsframe0, dsframe1, dsframe2, dsframe3, dsframe4, dsframe5
   };
   const uint8_t frameCount = sizeof(frameSequence) / sizeof(frameSequence[0]);
-
+  
   // Reset on first call
   if (SEGENV.call == 0) {
     currentFrame = 0;
     lastFrameTime = 0;
+    lastStrobeTime = 0;
     strobeState = true;
   }
-
+  
   uint32_t currentTime = millis();
-
+  
   // Map speed slider to frame duration (100ms to 2000ms)
   uint32_t frameDuration = map(SEGMENT.speed, 0, 255, 2000, 100);
-
+  
   // Update frame index if needed
   if (currentTime - lastFrameTime > frameDuration) {
     lastFrameTime = currentTime;
     currentFrame = (currentFrame + 1) % frameCount;
   }
-
+  
   // Map intensity slider to pulse frequency (0-50 Hz)
   uint16_t pulseFrequency = map(SEGMENT.intensity, 0, 255, 0, 50);
-
-  // Compute strobe state from wall time — avoids frame-rate cap from edge-triggered toggle
+  
+  // Handle strobe timing
   if (pulseFrequency > 0) {
     uint32_t cycleTime = 1000 / pulseFrequency;
-    strobeState = (currentTime % cycleTime) < (cycleTime / 2);
+    if (currentTime - lastStrobeTime > cycleTime / 2) {
+      lastStrobeTime = currentTime;
+      strobeState = !strobeState;
+    }
   } else {
     strobeState = true; // Always on when intensity is 0
   }
@@ -8822,8 +8827,9 @@ static const char _data_FX_MODE_BLACK_HOLE_15[] PROGMEM = "Black Hole 15@Speed,!
 uint16_t mode_black_hole_custom() {
   static uint32_t lastFrameTime = 0;
   static uint8_t currentFrame = 0;
+  static uint32_t lastStrobeTime = 0;
   static bool strobeState = true;
-
+  
   // Frame sequence for black hole effect
   const uint8_t *frameSequence[] = {
     blackhole_frame0, blackhole_frame1, blackhole_frame2, blackhole_frame3,
@@ -8831,32 +8837,36 @@ uint16_t mode_black_hole_custom() {
     blackhole_frame4, blackhole_frame3, blackhole_frame2, blackhole_frame1
   };
   const uint8_t frameCount = sizeof(frameSequence) / sizeof(frameSequence[0]);
-
+  
   // Reset on first call
   if (SEGENV.call == 0) {
     currentFrame = 0;
     lastFrameTime = 0;
+    lastStrobeTime = 0;
     strobeState = true;
   }
-
+  
   uint32_t currentTime = millis();
-
+  
   // Map speed slider to frame duration (100ms to 2000ms)
   uint32_t frameDuration = map(SEGMENT.speed, 0, 255, 2000, 100);
-
+  
   // Update frame index if needed
   if (currentTime - lastFrameTime > frameDuration) {
     lastFrameTime = currentTime;
     currentFrame = (currentFrame + 1) % frameCount;
   }
-
+  
   // Map intensity slider to pulse frequency (0-50 Hz)
   uint16_t pulseFrequency = map(SEGMENT.intensity, 0, 255, 0, 50);
-
-  // Compute strobe state from wall time — avoids frame-rate cap from edge-triggered toggle
+  
+  // Handle strobe timing
   if (pulseFrequency > 0) {
     uint32_t cycleTime = 1000 / pulseFrequency;
-    strobeState = (currentTime % cycleTime) < (cycleTime / 2);
+    if (currentTime - lastStrobeTime > cycleTime / 2) {
+      lastStrobeTime = currentTime;
+      strobeState = !strobeState;
+    }
   } else {
     strobeState = true; // Always on when intensity is 0
   }
