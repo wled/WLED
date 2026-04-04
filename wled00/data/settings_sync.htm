@@ -49,9 +49,9 @@
 		return (loc ? locproto + "//" + locip : "") + path;
 	}
 	const dmxNs = ["IDMR","IDMT","IDME"];
-	let dmxOwnPins; // track dmx pins to update dropdowns
+	let dmxOwnPins; // track dmx pins to update dropdown restrictions on pin change
 	function pinDropdowns() {
-		dmxNs.forEach((n,i) => { const s = makePinSelect(n, i?1:0); if (s) s.onchange = dmxPinUpd; });
+		dmxNs.forEach((n,i) => { const s = makePinSelect(n, i?1:0); if (s) s.onchange = dmxPinUpd; }); // note on the i?1:0 -> RX pin is allowed input only but TX/EN pins must be GPIO
 		dmxOwnPins = dmxNs.map(n => parseInt(gN(n)?.value??-1));
 		dmxPinUpd();
 	}
