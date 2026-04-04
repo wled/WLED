@@ -78,7 +78,7 @@ SpiBusContext::SpiBusContext()
     _dmaBuffer[i] = nullptr;
   }
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
-    _channels[i] = {nullptr, -1, nullptr, 0, false};
+    _channels[i] = {nullptr, nullptr, 0, -1, false, false};
   }
 }
 
@@ -117,7 +117,7 @@ void SpiBusContext::forceIdle() {
   // disconnect pins from SPI and set low
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
     if (_channels[i].active && _channels[i].pin >= 0) {
-      gpio_matrix_out(_channels[i].pin, SIG_GPIO_OUT_IDX, false, false);
+      gpio_matrix_out(_channels[i].pin, SIG_GPIO_OUT_IDX, false, false); // disconnect from SPI and use as regular GPIO, non inverted
       gpio_set_level((gpio_num_t)_channels[i].pin, 0);
     }
   }
@@ -407,7 +407,7 @@ void SpiBusContext::deinit() {
   _initialized = false;
 }
 
-int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
+int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus, bool inverted) {
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
     if (!_channels[i].active) {
@@ -420,12 +420,13 @@ int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus) {
   _channels[idx].bus = bus;
   _channels[idx].pin = pin;
   _channels[idx].active = true;
+  _channels[idx].inverted = inverted;
   _channelCount++;
   _channelMask |= (1 << idx);
 
   // Route SPI data signal to GPIO
   pinMode(pin, OUTPUT);
-  pinMatrixOutAttach(pin, SPI_SIGNAL_INDICES[idx], false, false);
+  gpio_matrix_out(pin, SPI_SIGNAL_INDICES[idx], inverted, false);
 
   return idx;
 }
@@ -438,7 +439,7 @@ void SpiBusContext::unregisterChannel(int8_t channelIdx) {
     gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
   }
 
-  _channels[channelIdx] = {nullptr, -1, nullptr, 0, false};
+  _channels[channelIdx] = {nullptr, nullptr, 0, -1, false, false};
   _channelCount--;
   _channelMask &= ~(1 << channelIdx);
 }
@@ -525,7 +526,7 @@ bool SpiBusContext::startTransmit() {
   // re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
     if (_channels[i].active && _channels[i].pin >= 0) {
-      pinMatrixOutAttach(_channels[i].pin, SPI_SIGNAL_INDICES[i], false, false); // TODO: should this trick also be used to force outputs low during reset pulse?
+      pinMatrixOutAttach(_channels[i].pin, SPI_SIGNAL_INDICES[i], _channels[i].inverted, false); // TODO: should this "trick" also be used to force outputs low during reset pulse?
     }
   }
 
@@ -571,7 +572,7 @@ bool ParallelSpiBus::begin() {
     return false;
   }
 
-  _channelIdx = _ctx->registerChannel(_pin, this);
+  _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
     Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
     SpiBusContext::release();
@@ -582,6 +583,12 @@ bool ParallelSpiBus::begin() {
   _initialized = true;
   if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   return true;
+}
+
+void ParallelSpiBus::setInverted(bool inv) {
+  _inverted = inv;
+  if (!_initialized || _channelIdx < 0) return;
+  gpio_matrix_out(_pin, SPI_SIGNAL_INDICES[_channelIdx], inv, false);
 }
 
 void ParallelSpiBus::end() {

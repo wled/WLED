@@ -29,7 +29,7 @@ public:
   bool init(const LedTiming& timing);
   void deinit();
 
-  int8_t registerChannel(int8_t pin, ParallelSpiBus* bus);
+  int8_t registerChannel(int8_t pin, ParallelSpiBus* bus, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -66,10 +66,11 @@ private:
   // Source data per channel
   struct ChannelData {
     ParallelSpiBus* bus;
-    int8_t pin;
     const uint8_t* srcData;
     size_t srcLen;
+    int8_t pin;
     bool active;
+    bool inverted;
   };
   ChannelData _channels[WLEDPB_SPI_MAX_CHANNELS];
   uint8_t _channelCount;
@@ -104,6 +105,7 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
 
+  void setInverted(bool inv) override;
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
@@ -111,6 +113,7 @@ private:
   int8_t _pin;
   LedTiming _timing;
   ColorEncoder _encoder;
+  bool _inverted = false;
   bool _initialized;
 
   int8_t _channelIdx;

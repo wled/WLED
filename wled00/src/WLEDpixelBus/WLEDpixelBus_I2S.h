@@ -47,7 +47,7 @@ public:
   void deinit();
 
   // Channel management
-  int8_t registerChannel(int8_t pin, I2sBus* bus);
+  int8_t registerChannel(int8_t pin, I2sBus* bus, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -138,6 +138,7 @@ public:
   // Override to use DMA-capable allocator for I2S
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
 
+  void setInverted(bool inv) override;
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
@@ -147,6 +148,7 @@ private:
   size_t _bufferSize;
   LedTiming _timing;
   ColorEncoder _encoder;  // persistent encoder, initialized in constructor
+  bool _inverted = false;
   bool _initialized;
 
   int8_t _channelIdx;

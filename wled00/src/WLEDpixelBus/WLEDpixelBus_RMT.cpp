@@ -81,17 +81,10 @@ void RmtBus::updateRmtTiming() {
 
   rmt_item32_t bit0, bit1;
 
-  if (_inverted) {
-    bit0.level0 = 0; bit0.duration0 = t0h;
-    bit0.level1 = 1; bit0.duration1 = t0l;
-    bit1.level0 = 0; bit1.duration0 = t1h;
-    bit1.level1 = 1; bit1.duration1 = t1l;
-  } else {
-    bit0.level0 = 1; bit0.duration0 = t0h;
-    bit0.level1 = 0; bit0.duration1 = t0l;
-    bit1.level0 = 1; bit1.duration0 = t1h;
-    bit1.level1 = 0; bit1.duration1 = t1l;
-  }
+  bit0.level0 = 1; bit0.duration0 = t0h;
+  bit0.level1 = 0; bit0.duration1 = t0l;
+  bit1.level0 = 1; bit1.duration0 = t1h;
+  bit1.level1 = 0; bit1.duration1 = t1l;
 
   _rmtBit0 = bit0.val;
   _rmtBit1 = bit1.val;
@@ -197,13 +190,14 @@ bool RmtBus::begin() {
   config.tx_config.loop_en = false;
   config.tx_config.carrier_en = false;
   config.tx_config.idle_output_en = true;
-  config.tx_config.idle_level = _inverted ? RMT_IDLE_LEVEL_HIGH : RMT_IDLE_LEVEL_LOW;
-
+  config.tx_config.idle_level = RMT_IDLE_LEVEL_LOW;
 
   esp_err_t err = rmt_config(&config);
   if (err != ESP_OK) {
     return false;
   }
+  // Apply hardware signal inversion via GPIO Matrix (rmt_config routes the pin, then we set the invert bit)
+  gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
   // Register hack for memory blocks normally assigned to RX (S2 / S3 / C3)   TODO: need this for ESP32 as well?
 #ifndef RMT_USE_SINGLE_MEM_BLOCK
   #if defined(WLEDPB_ESP32S3)

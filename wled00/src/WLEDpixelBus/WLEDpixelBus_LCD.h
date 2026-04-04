@@ -40,7 +40,7 @@ public:
   bool init(const LedTiming& timing, size_t bufferSize, bool use16Bit = false);
   void deinit();
 
-  int8_t registerChannel(int8_t pin, LcdBus* bus);
+  int8_t registerChannel(int8_t pin, LcdBus* bus, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -119,6 +119,7 @@ public:
   bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
   uint32_t getPixelColor(uint16_t pix) const override;
 
+  void setInverted(bool inv) override;
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
@@ -128,6 +129,7 @@ private:
   bool _use16Bit;
   LedTiming _timing;
   ColorEncoder _encoder;
+  bool _inverted = false;
   bool _initialized;
 
   int8_t _channelIdx;

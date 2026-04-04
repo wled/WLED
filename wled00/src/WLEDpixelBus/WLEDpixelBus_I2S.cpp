@@ -311,7 +311,7 @@ void I2sBusContext::deinit() {
   _initialized = false;
 }
 
-int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
+int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
   // Find free slot
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
@@ -345,7 +345,7 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus) {
   #endif
   sigIdx += idx;
 
-  gpio_matrix_out(pin, sigIdx, false, false);
+  gpio_matrix_out(pin, sigIdx, inverted, false);
 
   return idx;
 }
@@ -709,7 +709,7 @@ bool I2sBus::begin() {
     return false;
   }
 
-  _channelIdx = _ctx->registerChannel(_pin, this);
+  _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
     Serial.printf("[I2S] registerChannel failed for pin %d\n", _pin);
     I2sBusContext::release(_busNum);
@@ -721,6 +721,21 @@ bool I2sBus::begin() {
   if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
   Serial.printf("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n", _pin, _busNum, _channelIdx);
   return true;
+}
+
+void I2sBus::setInverted(bool inv) {
+  _inverted = inv;
+  if (!_initialized || _channelIdx < 0) return;
+  int sigIdx;
+  #if defined(WLEDPB_ESP32)
+  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX;
+  #elif defined(WLEDPB_ESP32S2)
+  sigIdx = I2S0O_DATA_OUT8_IDX;
+  #else
+  sigIdx = I2S0O_DATA_OUT0_IDX;
+  #endif
+  sigIdx += _channelIdx;
+  gpio_matrix_out(_pin, sigIdx, inv, false);
 }
 
 void I2sBus::end() {

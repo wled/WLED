@@ -246,7 +246,7 @@ void LcdBusContext::deinit() {
   _initialized = false;
 }
 
-int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus) {
+int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus, bool inverted) {
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_LCD_MAX_CHANNELS; i++) {
     if (!_channels[i].active) {
@@ -262,7 +262,7 @@ int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus) {
   _channelCount++;
   _channelMask |= (1 << idx);
 
-  esp_rom_gpio_connect_out_signal(pin, LCD_DATA_OUT0_IDX + idx, false, false);
+  esp_rom_gpio_connect_out_signal(pin, LCD_DATA_OUT0_IDX + idx, inverted, false);
   gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
   gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);
 
@@ -547,7 +547,7 @@ bool LcdBus::begin() {
     return false;
   }
 
-  _channelIdx = _ctx->registerChannel(_pin, this);
+  _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
     LcdBusContext::release();
     _ctx = nullptr;
@@ -561,6 +561,12 @@ bool LcdBus::begin() {
   }
   LCD_LOG("LcdBus: ch=%d pin=%d", _channelIdx, _pin);
   return true;
+}
+
+void LcdBus::setInverted(bool inv) {
+  _inverted = inv;
+  if (!_initialized || _channelIdx < 0) return;
+  esp_rom_gpio_connect_out_signal(_pin, LCD_DATA_OUT0_IDX + _channelIdx, inv, false);
 }
 
 void LcdBus::end() {

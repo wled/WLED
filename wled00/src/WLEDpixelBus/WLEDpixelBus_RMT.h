@@ -35,7 +35,10 @@ public:
   uint32_t getPixelColor(uint16_t pix) const override;
 
   // Configuration
-  void setInverted(bool inv) { _inverted = inv; }
+  void setInverted(bool inv) override {
+    _inverted = inv;
+    if (_initialized) gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, inv, false);
+  }
   void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);
 
