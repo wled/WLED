@@ -93,7 +93,7 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
 }
 
 void SpiBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
 }
 
 bool SpiBus::canShow() const {

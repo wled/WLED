@@ -1,5 +1,13 @@
 #pragma once
 
+// LED type constants — must match the TYPE_* defines in wled00/const.h.
+// Duplicated here so WLEDpixelBus stays self-contained and does not depend on WLED internals.
+static constexpr uint8_t WLEDPB_TYPE_TM1814  = 31;
+static constexpr uint8_t WLEDPB_TYPE_TM1815  = 35;
+static constexpr uint8_t WLEDPB_TYPE_UCS8903 = 26;  // 16-bit RGB
+static constexpr uint8_t WLEDPB_TYPE_UCS8904 = 29;  // 16-bit RGBW
+static constexpr uint8_t WLEDPB_TYPE_SM16825 = 34;  // 16-bit RGB+WW+CW
+
 // mapBrightnessToCurrentStep() is used by BusDigital for current-based dimming of chips
 // with discrete current levels (e.g. TM1814/TM1815).
 

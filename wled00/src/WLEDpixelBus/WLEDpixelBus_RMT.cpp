@@ -305,7 +305,7 @@ void RmtBus::setTiming(const LedTiming& timing) {
 }
 
 void RmtBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
 }
 
 //note: using O2 optimization has little to no effect on FPS

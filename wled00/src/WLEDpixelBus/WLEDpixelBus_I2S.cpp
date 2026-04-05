@@ -768,6 +768,7 @@ bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
+  _pixelData = _encodeBuffer + _prefixLen;
   return true;
 }
 
@@ -790,7 +791,7 @@ bool I2sBus::canShow() const {
 }
 
 void I2sBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
 }
 
 

@@ -36,6 +36,7 @@ namespace WLEDpixelBus {
 ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 {
   _numChannels = numChannels;
+  _logCh = numChannels;  // save logical count before any 16-bit doubling
   _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
 
   // RGB position from lower nibble (0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=BGR, 5=GBR)
@@ -52,9 +53,9 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
   // White/CCT channels: numChannels from bus type, W-swap from upper nibble
   if (numChannels == 4) {
-    // LED-type-specific native wire order: TM1814 (31) and TM1815 (35) send W first.
+    // LED-type-specific native wire order: TM1814 and TM1815 send W first.
     // Shift RGB indices up by 1 and place W at index 0 before applying user wSwap.
-    if (ledType == 31 || ledType == 35) { // TYPE_TM1814 / TYPE_TM1815
+    if (ledType == WLEDPB_TYPE_TM1814 || ledType == WLEDPB_TYPE_TM1815) {
       _idxR++; _idxG++; _idxB++;
       _idxW = 0;
     } else {
@@ -69,6 +70,12 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
     _idxCW = 4;
     const uint8_t wSwap = co >> 4;
     if (wSwap == 4) { std::swap(_idxWW, _idxCW); } // swap WW & CW
+  }
+
+  // 16-bit chips: 2 wire bytes per logical channel.
+  // _logCh stays as the logical count; _numChannels becomes the wire count.
+  if (ledType == WLEDPB_TYPE_UCS8903 || ledType == WLEDPB_TYPE_UCS8904 || ledType == WLEDPB_TYPE_SM16825) {
+    _numChannels *= 2;
   }
 }
 

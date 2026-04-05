@@ -197,7 +197,7 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
  */
 class ColorEncoder {
 public:
-  ColorEncoder() : _numChannels(3), _idxR(0), _idxG(1), _idxB(2), _idxW(0xFF), _idxWW(0xFF), _idxCW(0xFF) {}
+  ColorEncoder() : _numChannels(3), _logCh(3), _idxR(0), _idxG(1), _idxB(2), _idxW(0xFF), _idxWW(0xFF), _idxCW(0xFF) {}
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
 
   // --- Branch-free encode functions (dispatch on numChannels before calling) ---
@@ -231,10 +231,42 @@ public:
     return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxWW]);
   }
 
+  // --- 16-bit encode/decode (UCS8903/UCS8904/SM16825 — numChannels=6/8/10) ---
+  // Wire format: (value, 0) — value in high byte, zero in low byte (NeoPixelBus convention).
+  inline void encodeRGB16(uint32_t pixel, uint8_t* out) const {
+    out[_idxR*2] = getR(pixel); out[_idxR*2+1] = 0;
+    out[_idxG*2] = getG(pixel); out[_idxG*2+1] = 0;
+    out[_idxB*2] = getB(pixel); out[_idxB*2+1] = 0;
+  }
+  inline void encodeRGBW16(uint32_t pixel, uint8_t* out) const {
+    out[_idxR*2] = getR(pixel); out[_idxR*2+1] = 0;
+    out[_idxG*2] = getG(pixel); out[_idxG*2+1] = 0;
+    out[_idxB*2] = getB(pixel); out[_idxB*2+1] = 0;
+    out[_idxW*2] = getW(pixel); out[_idxW*2+1] = 0;
+  }
+  inline void encodeCCT16(uint32_t pixel, const CctPixel& cct, uint8_t* out) const {
+    out[_idxR*2]  = getR(pixel); out[_idxR*2+1]  = 0;
+    out[_idxG*2]  = getG(pixel); out[_idxG*2+1]  = 0;
+    out[_idxB*2]  = getB(pixel); out[_idxB*2+1]  = 0;
+    out[_idxWW*2] = cct.ww;      out[_idxWW*2+1] = 0;
+    out[_idxCW*2] = cct.cw;      out[_idxCW*2+1] = 0;
+  }
+  inline uint32_t decodeRGB16(const uint8_t* in) const {
+    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2]);
+  }
+  inline uint32_t decodeRGBW16(const uint8_t* in) const {
+    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2], in[_idxW*2]);
+  }
+  inline uint32_t decodeCCT16(const uint8_t* in) const {
+    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2], in[_idxWW*2]);
+  }
+
   uint8_t getNumChannels() const { return _numChannels; }
+  uint8_t getLogicalChannels() const { return _logCh; }
 
 private:
   uint8_t _numChannels;
+  uint8_t _logCh;    // logical channel count (before 16-bit doubling)
   uint8_t _idxR;
   uint8_t _idxG;
   uint8_t _idxB;
@@ -255,6 +287,7 @@ protected:
   uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer
   ColorEncoder _encoder;              // color encoder, set by derived class constructors
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
+  uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
 
 public:
   virtual ~PixelBus() {
@@ -321,11 +354,15 @@ public:
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
   virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-    uint8_t* out = _encodeBuffer + _prefixLen + (size_t)pos * _encoder.getNumChannels();
-    switch (_encoder.getNumChannels()) {
-      case 3:  _encoder.encodeRGB(c, out); break;
-      case 4:  _encoder.encodeRGBW(c, out); break;
-      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out); break; }
+    const uint8_t nch = _encoder.getNumChannels();
+    uint8_t* out = _pixelData + (size_t)pos * nch;
+    switch (nch) {
+      case 3:  _encoder.encodeRGB(c, out);            break;
+      case 4:  _encoder.encodeRGBW(c, out);           break;
+      case 6:  _encoder.encodeRGB16(c, out);          break;
+      case 8:  _encoder.encodeRGBW16(c, out);         break;
+      case 10: { CctPixel cct{ww, cw}; _encoder.encodeCCT16(c, cct, out); break; }
+      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out);   break; }
     }
     return true;
   }
@@ -336,10 +373,14 @@ public:
    * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    */
   virtual IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const {
-    const uint8_t* in = _encodeBuffer + _prefixLen + (size_t)pix * _encoder.getNumChannels();
-    switch (_encoder.getNumChannels()) {
+    const uint8_t nch = _encoder.getNumChannels();
+    const uint8_t* in = _pixelData + (size_t)pix * nch;
+    switch (nch) {
       case 3:  return _encoder.decodeRGB(in);
       case 4:  return _encoder.decodeRGBW(in);
+      case 6:  return _encoder.decodeRGB16(in);
+      case 8:  return _encoder.decodeRGBW16(in);
+      case 10: return _encoder.decodeCCT16(in);
       default: return _encoder.decodeCCT(in);
     }
   }
@@ -350,8 +391,8 @@ public:
    * For all standard RGB/RGBW protocols, all-zero bytes encode as black.
    */
   virtual void clearEncodeBuffer() {
-    if (_encodeBuffer && _encodeBufferSize > _prefixLen)
-      memset(_encodeBuffer + _prefixLen, 0, _encodeBufferSize - _prefixLen);
+    if (_pixelData && _encodeBufferSize > _prefixLen)
+      memset(_pixelData, 0, _encodeBufferSize - _prefixLen);
   }
 
   /**
@@ -360,9 +401,10 @@ public:
    * Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.
    */
   virtual void scaleAll(uint8_t scale) {
-    if (scale == 255 || !_encodeBuffer) return;
-    for (size_t i = _prefixLen; i < _encodeBufferSize; i++) {
-      _encodeBuffer[i] = ((uint16_t)(_encodeBuffer[i] + 1) * scale) >> 8;
+    if (scale == 255 || !_pixelData) return;
+    const size_t pixelBytes = _encodeBufferSize - _prefixLen;
+    for (size_t i = 0; i < pixelBytes; i++) {
+      _pixelData[i] = ((uint16_t)(_pixelData[i] + 1) * scale) >> 8;
     }
   }
 
@@ -381,6 +423,7 @@ public:
     if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
     memset(_encodeBuffer, 0, needed);
     _encodeBufferSize = needed;
+    _pixelData = _encodeBuffer + _prefixLen;
     return true;
   }
 
