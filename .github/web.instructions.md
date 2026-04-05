@@ -21,6 +21,8 @@ applyTo: "wled00/data/**"
 - `*.css` — stylesheets (inlined during build)
 - `common.js` — helper functions 
 
+*Reuse shared helpers from `common.js` whenever possible** instead of duplicating utilities in page-local scripts.
+
 ## Build Integration
 
 Files in this directory are processed by `tools/cdata.js` into generated headers
