@@ -23,5 +23,6 @@ applyTo: "wled00/data/**"
 
 ## Build Integration
 
-Files in this directory are processed by `tools/cdata.js` into `wled00/html_*.h` headers.
-Run `npm run build` after any change. **Never edit the generated `html_*.h` files directly.**
+Files in this directory are processed by `tools/cdata.js` into generated headers
+(`wled00/html_*.h`, `wled00/js_*.h`).
+Run `npm run build` after any change. **Never edit generated headers directly.**
