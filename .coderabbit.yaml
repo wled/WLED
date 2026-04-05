@@ -45,7 +45,7 @@ reviews:
       instructions: >
         Usermods are community add-ons.
         Each usermod lives in its own directory under usermods/ and is implemented
-        as a .cpp file with a dedicated library.json file to manage dependancies. 
+        as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (.github/cpp.instructions.md).
 
     - path: ".github/workflows/*.{yml,yaml}"
