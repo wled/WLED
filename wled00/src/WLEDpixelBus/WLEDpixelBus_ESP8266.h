@@ -12,7 +12,7 @@ namespace WLEDpixelBus {
 
 class Esp8266UartBus : public PixelBus {
 public:
-  Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
+  Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
   ~Esp8266UartBus() override;
 
   bool begin() override;
@@ -21,9 +21,6 @@ public:
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_UART"; }
-
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
@@ -34,10 +31,8 @@ public:
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorEncoder _encoder;
   bool _initialized;
-
-  uint8_t* _asyncBuf = nullptr;
+  uint8_t* _asyncBuf    = nullptr;
   uint8_t* _asyncBufEnd = nullptr;
 
   void updateUartTiming();
@@ -61,7 +56,7 @@ struct SlcQueueItem {
 
 class Esp8266DmaBus : public PixelBus {
 public:
-  Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
+  Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
   ~Esp8266DmaBus() override;
 
   bool begin() override;
@@ -71,15 +66,15 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_DMA"; }
 
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
+  IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
+  IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void scaleAll(uint8_t scale) override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
-  static Esp8266DmaBus* s_this; // singleton for ISR
+  static Esp8266DmaBus* s_this;
 
 private:
   static const uint16_t c_maxDmaBlockSize = 4095;
@@ -88,7 +83,6 @@ private:
 
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
-  ColorEncoder _encoder;
   bool _initialized;
   volatile bool _sending;
 
@@ -117,7 +111,7 @@ private:
 
 class Esp8266BitBangBus : public PixelBus {
 public:
-  Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
+  Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
   ~Esp8266BitBangBus() override;
 
   bool begin() override;
@@ -127,16 +121,12 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "ESP8266_BB"; }
 
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
-
   void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);
 
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorEncoder _encoder;
   bool _initialized;
   
   // Cycle counts

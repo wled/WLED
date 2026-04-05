@@ -187,6 +187,63 @@ constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 
 //==============================================================================
+// Color Encoding Helpers
+//==============================================================================
+
+/**
+ * Pixel encoder: maps RGBW uint32 to per-LED byte stream according to color order.
+ * Three specialized encode/decode functions have zero conditionals; dispatch is done
+ * once per call in the caller based on numChannels.
+ */
+class ColorEncoder {
+public:
+  ColorEncoder() : _numChannels(3), _idxR(0), _idxG(1), _idxB(2), _idxW(0xFF), _idxWW(0xFF), _idxCW(0xFF) {}
+  ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
+
+  // --- Branch-free encode functions (dispatch on numChannels before calling) ---
+  inline void encodeRGB(uint32_t pixel, uint8_t* out) const {
+    out[_idxR] = getR(pixel);
+    out[_idxG] = getG(pixel);
+    out[_idxB] = getB(pixel);
+  }
+  inline void encodeRGBW(uint32_t pixel, uint8_t* out) const {
+    out[_idxR] = getR(pixel);
+    out[_idxG] = getG(pixel);
+    out[_idxB] = getB(pixel);
+    out[_idxW] = getW(pixel);
+  }
+  inline void encodeCCT(uint32_t pixel, const CctPixel& cct, uint8_t* out) const {
+    out[_idxR]  = getR(pixel);
+    out[_idxG]  = getG(pixel);
+    out[_idxB]  = getB(pixel);
+    out[_idxWW] = cct.ww;
+    out[_idxCW] = cct.cw;
+  }
+
+  // --- Branch-free decode functions (dispatch on numChannels before calling) ---
+  inline uint32_t decodeRGB(const uint8_t* in) const {
+    return makeColor(in[_idxR], in[_idxG], in[_idxB]);
+  }
+  inline uint32_t decodeRGBW(const uint8_t* in) const {
+    return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxW]);
+  }
+  inline uint32_t decodeCCT(const uint8_t* in) const {
+    return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxWW]);
+  }
+
+  uint8_t getNumChannels() const { return _numChannels; }
+
+private:
+  uint8_t _numChannels;
+  uint8_t _idxR;
+  uint8_t _idxG;
+  uint8_t _idxB;
+  uint8_t _idxW;
+  uint8_t _idxWW;
+  uint8_t _idxCW;
+};
+
+//==============================================================================
 // Base Pixel Bus Interface
 //==============================================================================
 
@@ -196,6 +253,8 @@ protected:
   size_t   _encodeBufferSize = 0;     // allocated size in bytes
   uint16_t _numPixels = 0;
   uint8_t  _prefixLen = 0;            // byte length of chip prefix at start of _encodeBuffer
+  ColorEncoder _encoder;              // color encoder, set by derived class constructors
+  uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
 
 public:
   virtual ~PixelBus() {
@@ -250,19 +309,40 @@ public:
 
   /**
    * Encode one pre-processed pixel into _encodeBuffer at position pos.
+   * Dispatches to branch-free encodeRGB/encodeRGBW/encodeCCT based on channel count.
+   * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    * @param pos  pixel index (0-based, hardware index including skip)
    * @param c    RGBW color, already brightness-scaled by BusDigital
    * @param ww   warm-white value (from CCT calculation), 0 for non-CCT buses
    * @param cw   cool-white value (from CCT calculation), 0 for non-CCT buses
    * @return false if pos out of range or buffer not yet allocated
    */
-  virtual bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) = 0;
+  // Preconditions (guaranteed by BusDigital calling path):
+  //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
+  //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
+  virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+    uint8_t* out = _encodeBuffer + _prefixLen + (size_t)pos * _encoder.getNumChannels();
+    switch (_encoder.getNumChannels()) {
+      case 3:  _encoder.encodeRGB(c, out); break;
+      case 4:  _encoder.encodeRGBW(c, out); break;
+      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out); break; }
+    }
+    return true;
+  }
 
   /**
    * Decode one pixel back from _encodeBuffer (used for read-modify-write and getPixelColor).
    * Returns RGBW32 color. WW/CW are NOT encoded separately so CCT round-trips are lossy.
+   * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    */
-  virtual uint32_t getPixelColor(uint16_t pix) const = 0;
+  virtual IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const {
+    const uint8_t* in = _encodeBuffer + _prefixLen + (size_t)pix * _encoder.getNumChannels();
+    switch (_encoder.getNumChannels()) {
+      case 3:  return _encoder.decodeRGB(in);
+      case 4:  return _encoder.decodeRGBW(in);
+      default: return _encoder.decodeCCT(in);
+    }
+  }
 
   /**
    * Zero the encode buffer (set all pixels to black), preserving the prefix.
@@ -326,72 +406,6 @@ class LcdBusContext;
 #endif
 
 //==============================================================================
-// Color Encoding Helpers
-//==============================================================================
-
-/**
- * Encode pixel to byte stream according to color order
- */
-class ColorEncoder {
-public:
-  ColorEncoder(uint8_t co, uint8_t numChannels);
-
-  /**
-   * Encode a single pixel to output buffer
-   * @param pixel RGBW color value
-   * @param cct Optional CCT data (for CCT strips, replaces W channel)
-   * @param out Output buffer (must have space for numChannels bytes)
-   */
-  inline void encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const;
-
-  /**
-   * Decode a previously encoded pixel back to RGBW uint32.
-   * Lossy for CCT buses (WW/CW are not individually recoverable).
-   * @param in  pointer to encoded bytes for one pixel (getNumChannels() bytes)
-   */
-  inline uint32_t decode(const uint8_t* in) const;
-
-  uint8_t getNumChannels() const { return _numChannels; }
-
-private:
-  uint8_t _numChannels;
-  uint8_t _idxR;
-  uint8_t _idxG;
-  uint8_t _idxB;
-  uint8_t _idxW;
-  uint8_t _idxWW;
-  uint8_t _idxCW;
-};
-
-inline void ColorEncoder::encode(uint32_t pixel, const CctPixel* cct, uint8_t* out) const {
-  out[_idxR] = getR(pixel);
-  out[_idxG] = getG(pixel);
-  out[_idxB] = getB(pixel);
-  if (_idxW != 0xFF) out[_idxW] = getW(pixel);
-
-  if (_idxWW != 0xFF) {
-    out[_idxWW] = cct ? cct->ww : getW(pixel); // TODO: handle ww/cw more cleverly? there is not really a need to have this explicit, could save an if for RGB case
-    out[_idxCW] = cct ? cct->cw : 0;
-  }
-}
-
-/**
- * Decode a previously encoded pixel back to RGBW uint32. Lossy for CCT (WW/CW not recovered).
- * @param in  pointer to encoded bytes for one pixel (must be getNumChannels() bytes)
- */
-inline uint32_t ColorEncoder::decode(const uint8_t* in) const {
-  uint8_t r = (_idxR != 0xFF) ? in[_idxR] : 0;
-  uint8_t g = (_idxG != 0xFF) ? in[_idxG] : 0;
-  uint8_t b = (_idxB != 0xFF) ? in[_idxB] : 0;
-  // W: prefer W channel; for CCT buses use WW channel as the W approximation
-  uint8_t w = 0;
-  if (_idxW  != 0xFF) w = in[_idxW];
-  else if (_idxWW != 0xFF) w = in[_idxWW];
-  return makeColor(r, g, b, w);
-}
-
-
-//==============================================================================
 // Bus Factory - Create appropriate bus for platform
 //==============================================================================
 
@@ -433,7 +447,7 @@ constexpr uint8_t getRmtMaxChannels() {
  */
 PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
   uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
-  int8_t channel = -1);
+  int8_t channel = -1, uint8_t ledType = 0);
 
 /**
  * Get recommended bus type for current platform

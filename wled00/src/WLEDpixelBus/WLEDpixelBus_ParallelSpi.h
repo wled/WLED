@@ -90,7 +90,7 @@ private:
  */
 class ParallelSpiBus : public PixelBus {
 public:
-  ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels);
+  ParallelSpiBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
   ~ParallelSpiBus() override;
 
   bool begin() override;
@@ -101,10 +101,7 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "SPI"; }
 
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
-
   void setInverted(bool inv) override;
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
@@ -112,7 +109,6 @@ public:
 private:
   int8_t _pin;
   LedTiming _timing;
-  ColorEncoder _encoder;
   bool _inverted = false;
   bool _initialized;
 

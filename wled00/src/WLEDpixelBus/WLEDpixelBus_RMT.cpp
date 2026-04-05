@@ -44,11 +44,10 @@ uint8_t RmtBus::s_currentChannelIndex = 0;
 uint8_t RmtBus::s_usedBlocks = 0;
 uint8_t RmtBus::s_activeChannelMask = 0;
 
-RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, int8_t channel)
+RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, int8_t channel, uint8_t ledType)
   : _pin(pin)
   , _channel(channel)
   , _timing(timing)
-  , _encoder(colorOrder, numChannels)
   , _inverted(false)
   , _initialized(false)
   , _usingRmtHi(false)
@@ -57,6 +56,8 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   , _rmtBit1(0)
   , _rmtResetTicks(0)
 {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
 }
 
 RmtBus::~RmtBus() {
@@ -264,18 +265,6 @@ void RmtBus::end() {
   _usingRmtHi = false;
 }
 
-bool RmtBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
-  return true;
-}
-
-uint32_t RmtBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
-}
-
 bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   // Encoding is done per-pixel in setPixel(); _encodeBuffer is ready to ship.
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
@@ -316,7 +305,7 @@ void RmtBus::setTiming(const LedTiming& timing) {
 }
 
 void RmtBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 //note: using O2 optimization has little to no effect on FPS

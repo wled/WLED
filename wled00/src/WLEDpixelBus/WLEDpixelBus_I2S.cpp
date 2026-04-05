@@ -681,16 +681,17 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
 // I2sBus implementation
 
 I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-         uint8_t busNum, size_t bufferSize)
+         uint8_t busNum, size_t bufferSize, uint8_t ledType)
   : _pin(pin)
   , _busNum(busNum)
   , _bufferSize(bufferSize)
   , _timing(timing)
-  , _encoder(colorOrder, numChannels)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)
 {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
 }
 
 I2sBus::~I2sBus() {
@@ -770,18 +771,6 @@ bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   return true;
 }
 
-bool I2sBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
-  return true;
-}
-
-uint32_t I2sBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
-}
-
 bool I2sBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
@@ -801,7 +790,7 @@ bool I2sBus::canShow() const {
 }
 
 void I2sBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 

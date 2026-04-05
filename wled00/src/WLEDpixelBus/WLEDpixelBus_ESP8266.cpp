@@ -21,9 +21,12 @@ namespace WLEDpixelBus {
 // Global static tracking for the shared UART ISR
 Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 
-Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
-  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels), _initialized(false),
-    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {}
+Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+  : _pin(pin), _timing(timing), _initialized(false),
+    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
+}
 
 Esp8266UartBus::~Esp8266UartBus() {
   end();
@@ -138,20 +141,8 @@ bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, co
   return true;
 }
 
-bool Esp8266UartBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
-  return true;
-}
-
-uint32_t Esp8266UartBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
-}
-
 void Esp8266UartBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 bool Esp8266UartBus::canShow() const {
@@ -165,8 +156,11 @@ bool Esp8266UartBus::canShow() const {
 // ESP8266 BitBang Bus
 //==============================================================================
 
-Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
-  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels), _initialized(false) {}
+Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+  : _pin(pin), _timing(timing), _initialized(false) {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
+}
 
 Esp8266BitBangBus::~Esp8266BitBangBus() {
   end();
@@ -227,20 +221,8 @@ bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/,
   return true;
 }
 
-bool Esp8266BitBangBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
-  return true;
-}
-
-uint32_t Esp8266BitBangBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
-}
-
 void Esp8266BitBangBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 bool Esp8266BitBangBus::canShow() const {
@@ -270,11 +252,14 @@ bool Esp8266BitBangBus::canShow() const {
 // ISR singleton
 Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
 
-Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels)
-  : _pin(pin), _timing(timing), _encoder(colorOrder, numChannels),
+Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+  : _pin(pin), _timing(timing),
     _initialized(false), _sending(false),
     _dmaDesc(nullptr), _dmaDescCnt(0),
-    _idleBuf(nullptr), _idleBufSize(0) {}
+    _idleBuf(nullptr), _idleBufSize(0) {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
+}
 
 Esp8266DmaBus::~Esp8266DmaBus() {
   end();
@@ -518,12 +503,14 @@ void Esp8266DmaBus::end() {
 //   Pixel data starts at offset 0 in _encodeBuffer (no lead-in needed;
 //   idle state ensures GPIO3 is LOW before the first pixel bit arrives).
 // ---------------------------------------------------------------------------
-bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
+IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   uint8_t numCh = _encoder.getNumChannels();
   uint8_t src[5];
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, src);
+  switch (numCh) {
+    case 3: _encoder.encodeRGB(c, src); break;
+    case 4: _encoder.encodeRGBW(c, src); break;
+    default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, src); break; }
+  }
   uint32_t* dst = (uint32_t*)(_encodeBuffer + (size_t)pos * numCh * 4);
   for (uint8_t b = 0; b < numCh; b++) {
     uint32_t word = 0;
@@ -537,8 +524,7 @@ bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
   return true;
 }
 
-uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
+IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
   uint8_t numCh = _encoder.getNumChannels();
   const uint32_t* src = (const uint32_t*)(_encodeBuffer + (size_t)pix * numCh * 4);
   uint8_t decoded[5];
@@ -551,7 +537,11 @@ uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
     }
     decoded[b] = v;
   }
-  return _encoder.decode(decoded);
+  switch (numCh) {
+    case 3: return _encoder.decodeRGB(decoded);
+    case 4: return _encoder.decodeRGBW(decoded);
+    default: return _encoder.decodeCCT(decoded);
+  }
 }
 
 // Since the colors are already 4-step encoded, we need to decode first, scale then re-encode.
@@ -578,7 +568,7 @@ void Esp8266DmaBus::scaleAll(uint8_t scale) {
 }
 
 void Esp8266DmaBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 // ---------------------------------------------------------------------------

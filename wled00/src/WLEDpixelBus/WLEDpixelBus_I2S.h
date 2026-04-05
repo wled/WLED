@@ -121,7 +121,7 @@ public:
    * @param bufferSize DMA buffer size
    */
   I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-       uint8_t busNum = 1, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
+       uint8_t busNum = 1, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, uint8_t ledType = 0);
   ~I2sBus() override;
 
   bool begin() override;
@@ -131,9 +131,6 @@ public:
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
   const char* getType() const override { return "I2S"; }
-
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
 
   // Override to use DMA-capable allocator for I2S
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
@@ -147,7 +144,6 @@ private:
   uint8_t _busNum;
   size_t _bufferSize;
   LedTiming _timing;
-  ColorEncoder _encoder;  // persistent encoder, initialized in constructor
   bool _inverted = false;
   bool _initialized;
 

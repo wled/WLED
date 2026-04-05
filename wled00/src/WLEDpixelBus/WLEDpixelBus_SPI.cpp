@@ -2,9 +2,11 @@
 
 namespace WLEDpixelBus {
 
-SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi)
+SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi, uint8_t ledType)
   : _dataPin(dataPin), _clockPin(clockPin), _timing(timing),
-    _encoder(colorOrder, numChannels), _useHardware(useHardwareSpi), _initialized(false) {
+    _useHardware(useHardwareSpi), _initialized(false) {
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
 }
 
 SpiBus::~SpiBus() {
@@ -90,20 +92,8 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
   return true;
 }
 
-bool SpiBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
-  if (!_encodeBuffer || pos >= _numPixels) return false;
-  CctPixel cct{ww, cw};
-  _encoder.encode(c, &cct, _encodeBuffer + _prefixLen + pos * _encoder.getNumChannels());
-  return true;
-}
-
-uint32_t SpiBus::getPixelColor(uint16_t pix) const {
-  if (!_encodeBuffer || pix >= _numPixels) return 0;
-  return _encoder.decode(_encodeBuffer + _prefixLen + pix * _encoder.getNumChannels());
-}
-
 void SpiBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getNumChannels());
+  _encoder = ColorEncoder(co, _encoder.getNumChannels(), _ledType);
 }
 
 bool SpiBus::canShow() const {

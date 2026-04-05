@@ -33,7 +33,7 @@ namespace WLEDpixelBus {
 // Color Encoder Implementation
 //==============================================================================
 
-ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
+ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 {
   _numChannels = numChannels;
   _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
@@ -52,7 +52,14 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
 
   // White/CCT channels: numChannels from bus type, W-swap from upper nibble
   if (numChannels == 4) {
-    _idxW = 3; // default W after RGB
+    // LED-type-specific native wire order: TM1814 (31) and TM1815 (35) send W first.
+    // Shift RGB indices up by 1 and place W at index 0 before applying user wSwap.
+    if (ledType == 31 || ledType == 35) { // TYPE_TM1814 / TYPE_TM1815
+      _idxR++; _idxG++; _idxB++;
+      _idxW = 0;
+    } else {
+      _idxW = 3; // standard: W after RGB
+    }
     const uint8_t wSwap = co >> 4;
     if (wSwap == 1) { std::swap(_idxW, _idxB); } // swap W & B
     if (wSwap == 2) { std::swap(_idxW, _idxG); } // swap W & G
@@ -70,7 +77,7 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
 // Bus Factory Implementation
 //==============================================================================
 
-PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel) {
+PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel, uint8_t ledType) {
   
   if (driver == BusDriver::Auto) {
     driver = getRecommendedBusDriver();
@@ -81,40 +88,40 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
   switch (driver) {
 #if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
     case BusDriver::RMT:
-      bus = new RmtBus(pin, timing, colorOrder, numChannels, channel);
+      bus = new RmtBus(pin, timing, colorOrder, numChannels, channel, ledType);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
         case BusDriver::I2S:
 #if defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3)
-      bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize);
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize, ledType);
 #else
-      bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, bufferSize);
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, bufferSize, ledType);
 #endif
       break;
 #endif
 
 #ifdef WLEDPB_LCD_SUPPORT
     case BusDriver::LCD:
-      bus = new LcdBus(pin, timing, colorOrder, numChannels, bufferSize);
+      bus = new LcdBus(pin, timing, colorOrder, numChannels, bufferSize, false, ledType);
       break;
 #endif
 
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
     case BusDriver::SPI:
-      bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels);
+      bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels, ledType);
       break;
 #endif
 
 #elif defined(WLEDPB_ESP8266)
     case BusDriver::UART:
-      bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels);
+      bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels, ledType);
       break;
     case BusDriver::DMA:
-      bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels);
+      bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels, ledType);
       break;
     case BusDriver::BitBang:
-      bus = new Esp8266BitBangBus(pin, timing, colorOrder, numChannels);
+      bus = new Esp8266BitBangBus(pin, timing, colorOrder, numChannels, ledType);
       break;
 #endif
 

@@ -20,7 +20,7 @@ public:
    * @param channel RMT channel (-1 for auto)
    */
   RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-       int8_t channel = -1);
+       int8_t channel = -1, uint8_t ledType = 0);
   ~RmtBus() override;
 
   bool begin() override;
@@ -30,9 +30,6 @@ public:
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
   const char* getType() const override { return "RMT"; }
-
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
 
   // Configuration
   void setInverted(bool inv) override {
@@ -54,7 +51,6 @@ private:
   int8_t _pin;
   int8_t _channel;
   LedTiming _timing;
-  ColorEncoder _encoder;  // persistent encoder, initialized in constructor
   bool _inverted;
   bool _initialized;
   bool _usingRmtHi;

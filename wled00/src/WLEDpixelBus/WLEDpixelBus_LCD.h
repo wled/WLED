@@ -105,7 +105,7 @@ private:
 class LcdBus :  public PixelBus {
 public: 
   LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-       size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, bool use16Bit = false);
+       size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, bool use16Bit = false, uint8_t ledType = 0);
   ~LcdBus() override;
 
   bool begin() override;
@@ -116,9 +116,6 @@ public:
   bool canShow() const override;
   const char* getType() const override { return "LCD"; }
 
-  bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
-  uint32_t getPixelColor(uint16_t pix) const override;
-
   void setInverted(bool inv) override;
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
@@ -128,7 +125,6 @@ private:
   size_t _bufferSize;
   bool _use16Bit;
   LedTiming _timing;
-  ColorEncoder _encoder;
   bool _inverted = false;
   bool _initialized;
 

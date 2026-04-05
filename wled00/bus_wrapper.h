@@ -198,7 +198,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       #else
       if (_2PchannelsAssigned == 1) isHSPI = true;
       #endif
-      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI); // TODO: move this into createbus function?
+      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI, busType); // TODO: move this into createbus function?
     }
 
     auto driver = WLEDpixelBus::BusDriver::Auto; // TODO: there is the get preferred bus type function but below we set default to RMT
@@ -246,7 +246,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
-    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
+    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh, busType);
 
     // TM1814/TM1815: inject the 8-byte current-config prefix (C1 + C2).
     // setPrefix() must be called before begin() so allocateEncodeBuffer() reserves space.
