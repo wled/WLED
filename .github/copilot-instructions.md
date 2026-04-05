@@ -58,7 +58,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 <!-- HUMAN_ONLY_END -->
 
 - ``main``: development trunk (daily/nightly) 17.0.0-dev
-- `` V5`` and ``V5-C6``: code rework for esp-idf 5.5.x (unstable) - branched from ``main``.
+- ``V5`` and ``V5-C6``: code rework for esp-idf 5.5.x (unstable) - branched from ``main``.
 - ``0_15_x``: bugfixing / maintenance for release 0.15.x
 
 ### Repository Structure
