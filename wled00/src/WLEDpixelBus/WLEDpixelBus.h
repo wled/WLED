@@ -288,6 +288,7 @@ protected:
   ColorEncoder _encoder;              // color encoder, set by derived class constructors
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
+  uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data
 
 public:
   virtual ~PixelBus() {
@@ -325,6 +326,30 @@ public:
 
   bool hasPrefix() const { return _prefixLen > 0; }
   uint8_t getPrefixLen() const { return _prefixLen; }
+
+  /**
+   * Reserve suffix bytes after pixel data. Must be called BEFORE begin().
+   * allocateEncodeBuffer() initialises the suffix region; updateSuffix() overwrites it.
+   * @param len  Number of suffix bytes to reserve
+   */
+  void setSuffixLen(uint8_t len) {
+    _suffixLen = len;
+  }
+
+  /**
+   * Overwrite the suffix bytes in _encodeBuffer.
+   * Must be called AFTER begin() (i.e. after allocateEncodeBuffer()). No-op if buffer not ready.
+   * @param data  New suffix bytes
+   * @param len   Must be <= _suffixLen (will be clamped)
+   */
+  virtual void updateSuffix(const uint8_t* data, uint8_t len) {
+    if (!_pixelData || _suffixLen == 0 || len == 0) return;
+    if (len > _suffixLen) len = _suffixLen;
+    memcpy(_pixelData + (size_t)_numPixels * _encoder.getNumChannels(), data, len);
+  }
+
+  bool hasSuffix() const { return _suffixLen > 0; }
+  uint8_t getSuffixLen() const { return _suffixLen; }
 
   virtual bool begin() = 0;
   virtual void end() = 0;
@@ -391,8 +416,10 @@ public:
    * For all standard RGB/RGBW protocols, all-zero bytes encode as black.
    */
   virtual void clearEncodeBuffer() {
-    if (_pixelData && _encodeBufferSize > _prefixLen)
-      memset(_pixelData, 0, _encodeBufferSize - _prefixLen);
+    if (_pixelData && _numPixels > 0) {
+      const size_t pixelBytes = (size_t)_numPixels * _encoder.getNumChannels();
+      memset(_pixelData, 0, pixelBytes);
+    }
   }
 
   /**
@@ -401,8 +428,8 @@ public:
    * Note: buses with non-linear encoding (e.g. Esp8266DmaBus 4-step) must override this.
    */
   virtual void scaleAll(uint8_t scale) {
-    if (scale == 255 || !_pixelData) return;
-    const size_t pixelBytes = _encodeBufferSize - _prefixLen;
+    if (scale == 255 || !_pixelData || _numPixels == 0) return;
+    const size_t pixelBytes = (size_t)_numPixels * _encoder.getNumChannels();
     for (size_t i = 0; i < pixelBytes; i++) {
       _pixelData[i] = ((uint16_t)(_pixelData[i] + 1) * scale) >> 8;
     }
@@ -415,7 +442,8 @@ public:
    * @param numChannels bytes per pixel in the encoded stream
    */
   virtual bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-    size_t needed = _prefixLen + (size_t)numPixels * numChannels;
+    const size_t pixelBytes = (size_t)numPixels * numChannels;
+    size_t needed = _prefixLen + pixelBytes + _suffixLen;
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
     if (needed == 0) return true;
@@ -424,6 +452,8 @@ public:
     memset(_encodeBuffer, 0, needed);
     _encodeBufferSize = needed;
     _pixelData = _encodeBuffer + _prefixLen;
+    if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == WLEDPB_TYPE_SM16825)
+      memcpy(_pixelData + pixelBytes, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
     return true;
   }
 

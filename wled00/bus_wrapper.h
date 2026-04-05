@@ -258,6 +258,9 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       bus->setPrefixLen(6); // reserve 6-byte mode prefix; bytes written once in BusDigital::begin()
       bus->setInverted(true); // invert the output signal
     }
+    if (bus && busType == TYPE_SM16825) {
+      bus->setSuffixLen(4); // reserve 4-byte per-frame configuration suffix; default written by allocateEncodeBuffer
+    }
 
     return bus;
   }

@@ -8,6 +8,13 @@ static constexpr uint8_t WLEDPB_TYPE_UCS8903 = 26;  // 16-bit RGB
 static constexpr uint8_t WLEDPB_TYPE_UCS8904 = 29;  // 16-bit RGBW
 static constexpr uint8_t WLEDPB_TYPE_SM16825 = 34;  // 16-bit RGB+WW+CW
 
+// SM16825E 32-bit per-frame suffix (appended once after all pixel data):
+//   bits 31..7  (25 bits): current gain OUT R,G,B,W,Y — 5 bits each, 0x1F = 310mA, 0x00 = 10.2mA, step ~10.1mA
+//   bits  6..5  ( 2 bits): standby enable — 0b00 = normal op (0b10 = standby)
+//   bits  4..0  ( 5 bits): reserved — all 1 recommended
+// static constexpr uint8_t SM16825_SUFFIX[4] = { 0xFF, 0xFF, 0xFF, 0x9F }; // set max current (not really safe)
+static constexpr uint8_t SM16825_SUFFIX[4] = { 0x08, 0x42, 0x10, 0x9F }; // 20.3mA for all channels as a safe default - TODO: make this configurable or use a safe default? also add standby mode support if off?
+
 // mapBrightnessToCurrentStep() is used by BusDigital for current-based dimming of chips
 // with discrete current levels (e.g. TM1814/TM1815).
 

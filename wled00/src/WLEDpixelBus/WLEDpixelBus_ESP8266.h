@@ -69,6 +69,7 @@ public:
   IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
+  void updateSuffix(const uint8_t* data, uint8_t len) override;
   void scaleAll(uint8_t scale) override;
 
   void setTiming(const LedTiming& timing) { _timing = timing; }

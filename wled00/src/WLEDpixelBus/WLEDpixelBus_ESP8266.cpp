@@ -272,7 +272,8 @@ Esp8266DmaBus::~Esp8266DmaBus() {
 // ---------------------------------------------------------------------------
 bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   // 4-step I2S encoding: each source byte → 4 encoded bytes
-  size_t needed = (size_t)numPixels * numChannels * 4;
+  const size_t pixelBytes = (size_t)numPixels * numChannels * 4;
+  size_t needed = _prefixLen + pixelBytes + _suffixLen * 4;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
   if (needed == 0) return true;
@@ -281,6 +282,15 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   _pixelData = _encodeBuffer + _prefixLen;
+  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == WLEDPB_TYPE_SM16825) {
+    uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes);
+    for (uint8_t i = 0; i < (uint8_t)sizeof(SM16825_SUFFIX); i++) {
+      uint32_t word = 0;
+      uint8_t v = SM16825_SUFFIX[i];
+      for (int bit = 7; bit >= 0; bit--) { word <<= 4; word |= (v & (1 << bit)) ? 0xEu : 0x8u; }
+      dst[i] = word;
+    }
+  }
   return true;
 }
 
@@ -571,6 +581,19 @@ void Esp8266DmaBus::scaleAll(uint8_t scale) {
       newWord |= (v & (1 << bit)) ? 0xEu : 0x8u;
     }
     buf[w] = newWord;
+  }
+}
+
+void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
+  if (!_pixelData || _suffixLen == 0 || len == 0) return;
+  if (len > _suffixLen) len = _suffixLen;
+  const size_t pixelWords = (size_t)_numPixels * _encoder.getNumChannels();
+  uint32_t* dst = (uint32_t*)(_pixelData + pixelWords * 4);
+  for (uint8_t i = 0; i < len; i++) {
+    uint32_t word = 0;
+    uint8_t v = data[i];
+    for (int bit = 7; bit >= 0; bit--) { word <<= 4; word |= (v & (1 << bit)) ? 0xEu : 0x8u; }
+    dst[i] = word;
   }
 }
 

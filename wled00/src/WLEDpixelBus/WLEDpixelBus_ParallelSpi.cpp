@@ -618,7 +618,8 @@ void ParallelSpiBus::end() {
 }
 
 bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  size_t needed = _prefixLen + (size_t)numPixels * numChannels;
+  const size_t pixelBytes = (size_t)numPixels * numChannels;
+  size_t needed = _prefixLen + pixelBytes + _suffixLen;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }
   if (needed == 0) return true;
@@ -626,7 +627,9 @@ bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannel
   if (!_encodeBuffer) { _encodeBufferSize = 0; return false; }
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
-  _pixelData = _encodeBuffer + _prefixLen;
+  _pixelData  = _encodeBuffer + _prefixLen;
+  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == WLEDPB_TYPE_SM16825)
+    memcpy(_pixelData + pixelBytes, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
   return true;
 }
 
