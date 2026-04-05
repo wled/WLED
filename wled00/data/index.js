@@ -310,6 +310,21 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
+	// limiter for all number inputs except segment inputs: limit inputs instantly  note: segment inputs are special if matrix is enabled, they allow for trailing strips, need a lot of special cases to handle that
+	d.addEventListener("input", function(e) {
+		const t = e.target;
+		if (t.tagName === "INPUT" && t.type === "number" && !(t.id && t.id.startsWith("seg"))) {
+			let val = parseFloat(t.value);
+			const max = parseFloat(t.max);
+			const min = parseFloat(t.min);
+
+			if (!isNaN(val)) {
+				if (val > max) t.value = max;
+				if (val < min) t.value = min;
+				if (t.oninput) t.oninput(); // refresh UI labels
+			}
+		}
+	}, false);
 }
 
 function updateTablinks(tabI)
@@ -1167,7 +1182,7 @@ function updateLen(s)
 	let mySD = gId("mkSYD");
 	if (isM) {
 		// do we have 1D segment *after* the matrix?
-		if (start >= mw*mh) {
+		if (start >= mw*mh && s > 0) {
 			if (sY) { sY.value = 0; sY.max = 0; sY.min = 0; }
 			if (eY) { eY.value = 1; eY.max = 1; eY.min = 0; }
 			sX.min = mw*mh; sX.max = ledCount-1;
@@ -1956,12 +1971,12 @@ function pleDur(p,i,field)
 function pleTr(p,i,field)
 {
 	const du = gId(`pl${p}du${i}`);
-	const dv = parseFloat(du.value);
-	if (dv > 0) {
-		field.max = dv;
-		if (parseFloat(field.value) > dv)
-			field.value = du.value;
-	}
+	const dv = parseFloat(du.value); // duaration value in seconds
+	const max = parseFloat(field.max);
+	let val = parseFloat(field.value);
+	if (isNaN(val)) return;
+	val = Math.min(val, max, dv > 0 ? dv : max); // limit to max or duration, whichever is smaller
+	field.value = val;
 	if (field.validity.valid)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
@@ -2117,8 +2132,8 @@ function makePlEntry(p,i)
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:7ch" placeholder="Duration" max=4294967 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:4ch" placeholder="Transition" max=65.5 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}" id="pl${p}tr${i}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
 	</table>
@@ -2489,6 +2504,10 @@ function saveP(i,pl)
 		obj.o = true;
 	} else {
 		if (pl) {
+			plJson[i].ps.forEach((_,idx) => {
+				const trField = gId(`pl${i}tr${idx}`);
+				if (trField) pleTr(i, idx, trField); // make sure transition time is not longer than duration
+			});
 			obj.playlist = plJson[i];
 			obj.on = true;
 			obj.o = true;
@@ -3447,8 +3466,8 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 		})
 		.catch(e => {
 			console.log('Failed to report upgrade', e);
-			showToast('Report failed. Please try again later.', true);
-			// Do NOT update version info on error - user will be prompted again
+			showToast('Report failed', true);
+			updateVersionInfo(info.ver, false, !!alwaysReport);
 		});
 }
 

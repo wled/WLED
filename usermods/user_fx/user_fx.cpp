@@ -368,7 +368,7 @@ typedef struct LavaParticle {
 
 static void mode_2D_lavalamp(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
-  
+
   const uint16_t cols = SEG_W;
   const uint16_t rows = SEG_H;
   constexpr float MAX_BLOB_RADIUS = 20.0f;  // cap to prevent frame rate drops on large matrices
@@ -403,7 +403,7 @@ static void mode_2D_lavalamp(void) {
 
   uint8_t size = currentSize;
   uint8_t numParticles = currentNumParticles;
-  
+
   // blob size based on matrix width
   const float minSize = cols * 0.15f; // Minimum 15% of width
   const float maxSize = cols * 0.4f;  // Maximum 40% of width
@@ -425,7 +425,7 @@ static void mode_2D_lavalamp(void) {
       lavaParticles[i].y = rows - 1;
       lavaParticles[i].vx = (hw_random16(7) - 3) / 250.0f;
       lavaParticles[i].vy = -(hw_random16(20) + 10) / 100.0f * 0.3f;
-      
+
       lavaParticles[i].size = minSize + (float)hw_random16(rangeInt);
       if (lavaParticles[i].size > MAX_BLOB_RADIUS) lavaParticles[i].size = MAX_BLOB_RADIUS;
 
@@ -442,7 +442,7 @@ static void mode_2D_lavalamp(void) {
 
   // Fade background slightly for trailing effect
   SEGMENT.fadeToBlackBy(40);
-  
+
   // Update and draw particles
   int activeCount = 0;
   unsigned long currentMillis = strip.now;
@@ -458,21 +458,21 @@ static void mode_2D_lavalamp(void) {
     }
 
     LavaParticle *p = &lavaParticles[i];
-    
+
     // Physics update
     p->x += p->vx;
     p->y += p->vy;
-    
+
     // Optional particle/blob attraction
     if (SEGMENT.check2) {
       for (int j = 0; j < MAX_LAVA_PARTICLES; j++) {
         if (i == j || !lavaParticles[j].active) continue;
-        
+
         LavaParticle *other = &lavaParticles[j];
-        
+
         // Skip attraction if moving in same vertical direction (both up or both down)
         if ((p->vy < 0 && other->vy < 0) || (p->vy > 0 && other->vy > 0)) continue;
-        
+
         float dx = other->x - p->x;
         float dy = other->y - p->y;
 
@@ -578,7 +578,7 @@ static void mode_2D_lavalamp(void) {
     // Get color
     uint32_t color;
     color = SEGMENT.color_from_palette(p->hue, true, PALETTE_SOLID_WRAP, 0);
-    
+
     // Extract RGB and apply life/opacity
     uint8_t w = (W(color) * 255) >> 8;
     uint8_t r = (R(color) * 255) >> 8;
@@ -598,7 +598,7 @@ static void mode_2D_lavalamp(void) {
       for (int dx = -(int)p->size - 1; dx <= (int)p->size + 1; dx++) {
         int px = centerX + dx;
         int py = centerY + dy;
-        
+
         if (px < 0 || px >= cols || py < 0 || py >= rows) continue;
 
         // Sub-pixel distance: measure from true float center to pixel center
@@ -665,23 +665,23 @@ static void drawMagma(const uint16_t width, const uint16_t height, float *ff_y, 
 static void drawLavaBombs(const uint16_t width, const uint16_t height, float *particleData, float gravity, uint8_t particleCount) {
   for (uint16_t i = 0; i < particleCount; i++) {
     uint16_t idx = i * 4;
-    
+
     particleData[idx + 3] -= gravity;
     particleData[idx + 0] += particleData[idx + 2];
     particleData[idx + 1] += particleData[idx + 3];
-    
+
     float posX = particleData[idx + 0];
     float posY = particleData[idx + 1];
-    
+
     if (posY > height + height / 4) {
       particleData[idx + 3] = -particleData[idx + 3] * 0.8f;
     }
-    
+
     if (posY < (float)(height / 8) - 1.0f || posX < 0 || posX >= width) {
       particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
       particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
       particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
-      
+
       float baseVelocity = hw_random(60, 120) / 100.0f;
       if (hw_random8() < 50) {
         baseVelocity *= 1.6f;
@@ -689,38 +689,38 @@ static void drawLavaBombs(const uint16_t width, const uint16_t height, float *pa
       particleData[idx + 3] = baseVelocity;
       continue;
     }
-    
+
     int16_t xi = (int16_t)posX;
     int16_t yi = (int16_t)posY;
-    
+
     if (xi >= 0 && xi < width && yi >= 0 && yi < height) {
       // Get a random color from the current palette
       uint8_t randomIndex = hw_random8(64, 128);
-      CRGB pcolor = ColorFromPaletteWLED(SEGPALETTE, randomIndex, 255, LINEARBLEND);
+      CRGB pcolor = ColorFromPalette(SEGPALETTE, randomIndex, 255, LINEARBLEND);
 
       // Pre-calculate anti-aliasing weights
       float xf = posX - xi;
       float yf = posY - yi;
       float ix = 1.0f - xf;
       float iy = 1.0f - yf;
-      
+
       uint8_t w0 = 255 * ix * iy;
       uint8_t w1 = 255 * xf * iy;
       uint8_t w2 = 255 * ix * yf;
       uint8_t w3 = 255 * xf * yf;
-      
+
       int16_t yFlipped = height - 1 - yi;  // Flip Y coordinate
-  
+
       SEGMENT.addPixelColorXY(xi, yFlipped, pcolor.scale8(w0));
       if (xi + 1 < width) 
         SEGMENT.addPixelColorXY(xi + 1, yFlipped, pcolor.scale8(w1));
       if (yFlipped - 1 >= 0)
         SEGMENT.addPixelColorXY(xi, yFlipped - 1, pcolor.scale8(w2));
-      if (xi + 1 < width && yFlipped - 1 >= 0) 
+      if (xi + 1 < width && yFlipped - 1 >= 0)
         SEGMENT.addPixelColorXY(xi + 1, yFlipped - 1, pcolor.scale8(w3));
     }
   }
-} 
+}
 
 static void mode_2D_magma(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
@@ -744,7 +744,7 @@ static void mode_2D_magma(void) {
   uint32_t settingsKey = (uint32_t)SEGMENT.speed | ((uint32_t)SEGMENT.intensity << 8) |
       ((uint32_t)SEGMENT.custom1 << 16) | ((uint32_t)SEGMENT.custom2 << 24);
   bool settingsChanged = (*settingsSumPtr != settingsKey);
- 
+
   if (SEGENV.call == 0 || settingsChanged) {
     // Intensity slider controls magma height
     uint16_t intensity = SEGMENT.intensity;
@@ -770,7 +770,7 @@ static void mode_2D_magma(void) {
       particleData[idx + 0] = hw_random(0, width * 100) / 100.0f;
       particleData[idx + 1] = hw_random(0, height * 25) / 100.0f;
       particleData[idx + 2] = hw_random(-75, 75) / 100.0f;
-      
+
       float baseVelocity = hw_random(60, 120) / 100.0f;
       if (hw_random8() < 50) {
         baseVelocity *= 1.6f;
@@ -791,7 +791,7 @@ static void mode_2D_magma(void) {
 
   // Gravity control
   float gravity = map(SEGMENT.custom2, 0, 255, 5, 20) / 100.0f;
-  
+
   // Number of particles (lava bombs)
   uint8_t particleCount = map(SEGMENT.custom1, 0, 255, 0, MAGMA_MAX_PARTICLES);
   particleCount = constrain(particleCount, 0, MAGMA_MAX_PARTICLES);
@@ -1033,7 +1033,7 @@ static const char _data_FX_MODE_ANTS[] PROGMEM = "Ants@Ant speed,# of ants,Ant s
 // Build morse code pattern into a buffer
 static void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, uint8_t *wordIndex, uint16_t &index, uint8_t currentWord, int maxSize) {
   const char *c = morse_code;
-  
+
   // Build the dots and dashes into pattern array
   while (*c != '\0') {
     // it's a dot which is 1 pixel
@@ -1080,7 +1080,7 @@ static void build_morsecode_pattern(const char *morse_code, uint8_t *pattern, ui
 
 static void mode_morsecode(void) {
   if (SEGLEN < 1) FX_FALLBACK_STATIC;
-  
+
   // A-Z in Morse Code
   static const char * letters[] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--",
                      "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--.."};
@@ -1284,7 +1284,7 @@ class UserFxUsermod : public Usermod {
     // strip.addEffect(255, &mode_your_effect3, _data_FX_MODE_YOUR_EFFECT3);
   }
 
-  
+
   ///////////////////////////////////////////////////////////////////////////////////////////////
   //  If you want configuration options in the usermod settings page, implement these methods  //
   ///////////////////////////////////////////////////////////////////////////////////////////////
