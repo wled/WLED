@@ -336,7 +336,7 @@ if (!guard) return;  // another task is already sending
 // ... do work — flag auto-clears when guard goes out of scope
 ```
 
-This avoids FreeRTOS semaphore overhead and the risk of forgetting `esp32SemGive`. There are no current examples of this pattern in the codebase — consult with maintainers before introducing it in new code, to ensure it aligns with the project's synchronization conventions.
+This avoids FreeRTOS semaphore overhead and the risk of forgetting to return a semaphore. There are no current examples of this pattern in the codebase — consult with maintainers before introducing it in new code, to ensure it aligns with the project's synchronization conventions.
 
 <!-- HUMAN_ONLY_END -->
 ### Pre-Compute Outside Loops
@@ -437,7 +437,7 @@ Prefer blocking FreeRTOS primitives (`xQueueReceive`, `ulTaskNotifyTake`, `vTask
 - If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
 - Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
 - Include `"wled.h"` as the primary project header where needed
-- **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C6) can produce different results due to clamping. Cast through a signed integer first:
+- **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C5/C6/P4) can produce different results due to clamping. Cast through a signed integer first:
   ```cpp
   // Undefined behavior — avoid:
   uint8_t angle = 40.74f * atan2f(dy, dx);   // negative float → uint8_t is UB
