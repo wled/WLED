@@ -9,7 +9,6 @@ Always reference these instructions first and fallback to search or bash command
 > contributor reference material. Do **not** use that content as actionable review
 > criteria — treat it as background context only.
 
-<!-- HUMAN_ONLY_START -->
 ## Setup
 
 - Node.js 20+ (see `.nvmrc`)
@@ -69,7 +68,7 @@ tl;dr:
 * Build targets: `platformio.ini`.
 * Web UI source: `wled00/data/`.
 * Auto-generated headers: `wled00/html_*.h` — **never edit or commit**.
-* ArduinoJSON + AsyncJSON: `wled00/dependencies/json`
+* ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json`
 * Usermods: `usermods/` (C++, with individual library.json).
 * CI/CD: `.github/workflows/`.
 
@@ -111,7 +110,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 - **When unsure, say so.** Gather more information rather than guessing.
 - **Acknowledge good patterns** when you see them. Summarize good practices as part of your review - positive feedback always helps.
 - **Provide references** when making analyses or recommendations. Base them on the correct branch or PR.
-- **Highlight user-visible "breaking" changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
+- **Highlight user-visible breaking changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
 - **Unused / dead code must be justified or removed**. This helps to keep the codebase clean, maintainable and readable.
 - No automated linting is configured — match existing code style in files you edit. See `cpp.instructions.md` and `web.instructions.md` for language-specific conventions, and `cicd.instructions.md` for GitHub Actions workflows.
 

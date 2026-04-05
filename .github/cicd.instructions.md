@@ -71,6 +71,8 @@ schedule:
 
 ## Security
 
+Important: Several current workflows still violate parts of the baseline below - migration is in progress. 
+
 ### Permissions — Least Privilege
 
 Declare explicit `permissions:` blocks. The default token permissions are broad; scope them to the minimum required:
