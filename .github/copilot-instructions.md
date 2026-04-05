@@ -37,7 +37,7 @@ For detailed build timeouts, development workflows, troubleshooting, and validat
 
    - New custom effects can be added into the user_fx usermod. Read the [user_fx documentation](https://github.com/wled/WLED/blob/main/usermods/user_fx/README.md) for guidance.
    - Other usermods may be based on the [EXAMPLE usermod](https://github.com/wled/WLED/tree/main/usermods/EXAMPLE). Never edit the example, always create a copy!
-   - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/746df240119b585d8c8fa85e6aac7ed707947ea0/wled00/const.h#L160).
+   - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/main/wled00/const.h#L160).
    - To activate a usermod, a custom build configuration should be used. Add the usermod name to ``custom_usermods``.
 
 ## Project Structure Overview
@@ -57,7 +57,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 ```
 <!-- HUMAN_ONLY_END -->
 
-- ``main``: development trunk (daily/nightly) 17.0.0-dev
+- ``main``: development trunk (daily/nightly)
 - ``V5`` and ``V5-C6``: code rework for esp-idf 5.5.x (unstable) - branched from ``main``.
 - ``0_15_x``: bugfixing / maintenance for release 0.15.x
 
