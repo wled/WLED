@@ -54,12 +54,14 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
   if (numChannels == 4) {
     _idxW = 3; // default W after RGB
     const uint8_t wSwap = co >> 4;
-    if (wSwap == 1) { uint8_t t = _idxW; _idxW = _idxB; _idxB = t; } // swap W & B
-    if (wSwap == 2) { uint8_t t = _idxW; _idxW = _idxG; _idxG = t; } // swap W & G
-    if (wSwap == 3) { uint8_t t = _idxW; _idxW = _idxR; _idxR = t; } // swap W & R
+    if (wSwap == 1) { std::swap(_idxW, _idxB); } // swap W & B
+    if (wSwap == 2) { std::swap(_idxW, _idxG); } // swap W & G
+    if (wSwap == 3) { std::swap(_idxW, _idxR); } // swap W & R
   } else if (numChannels >= 5) {
     _idxWW = 3;
     _idxCW = 4;
+    const uint8_t wSwap = co >> 4;
+    if (wSwap == 4) { std::swap(_idxWW, _idxCW); } // swap WW & CW
   }
 }
 
@@ -68,22 +70,22 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels)
 // Bus Factory Implementation
 //==============================================================================
 
-PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel) {
+PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel) {
   
-  if (type == BusType::Auto) {
-    type = getRecommendedBusType();
+  if (driver == BusDriver::Auto) {
+    driver = getRecommendedBusDriver();
   }
 
   PixelBus* bus = nullptr;
 
-  switch (type) {
+  switch (driver) {
 #if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
-    case BusType::RMT:
+    case BusDriver::RMT:
       bus = new RmtBus(pin, timing, colorOrder, numChannels, channel);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
-    case BusType::I2S:
+        case BusDriver::I2S:
 #if defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3)
       bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize);
 #else
@@ -93,25 +95,25 @@ PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, uint8_t c
 #endif
 
 #ifdef WLEDPB_LCD_SUPPORT
-    case BusType::LCD:
+    case BusDriver::LCD:
       bus = new LcdBus(pin, timing, colorOrder, numChannels, bufferSize);
       break;
 #endif
 
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
-    case BusType::SPI:
+    case BusDriver::SPI:
       bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels);
       break;
 #endif
 
 #elif defined(WLEDPB_ESP8266)
-    case BusType::UART:
+    case BusDriver::UART:
       bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels);
       break;
-    case BusType::DMA:
+    case BusDriver::DMA:
       bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels);
       break;
-    case BusType::BitBang:
+    case BusDriver::BitBang:
       bus = new Esp8266BitBangBus(pin, timing, colorOrder, numChannels);
       break;
 #endif
@@ -123,12 +125,12 @@ PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing, uint8_t c
   return bus;
 }
 
-// TODO: this function is not really needed, bus type defaults should be handled by busmanager or buswrapper
-BusType getRecommendedBusType() {
+// TODO: this function is not really needed, bus driver defaults should be handled by busmanager or buswrapper
+BusDriver getRecommendedBusDriver() {
 #if defined(WLEDPB_ESP8266)
-  return BusType::BitBang; // use bitbanging by default (most versatile)
+  return BusDriver::BitBang; // use bitbanging by default (most versatile)
 #else
-  return BusType::RMT;  // use RMT by default (most versatile)
+  return BusDriver::RMT;  // use RMT by default (most versatile)
 #endif
 }
 

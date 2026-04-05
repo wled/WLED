@@ -201,29 +201,29 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI); // TODO: move this into createbus function?
     }
 
-    auto btype = WLEDpixelBus::BusType::Auto; // TODO: there is the get preferred bus type function but below we set default to RMT
+    auto driver = WLEDpixelBus::BusDriver::Auto; // TODO: there is the get preferred bus type function but below we set default to RMT
 
     #ifdef ESP8266
   //  uint8_t offset = pins[0] - 1;
-  //  if (pins[0] == 1 || pins[0] == 2) btype = WLEDpixelBus::BusType::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
-    //else if (offset == 2) btype = WLEDpixelBus::BusType::DMA; // DMA method uses a lot of RAM!
-    //else btype = WLEDpixelBus::BusType::BitBang;
-    btype = WLEDpixelBus::BusType::BitBang; // bit banging works on all pins and uses less memory
+  //  if (pins[0] == 1 || pins[0] == 2) btype = WLEDpixelBus::BusDriver::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
+    //else if (offset == 2) btype = WLEDpixelBus::BusDriver::DMA; // DMA method uses a lot of RAM!
+    //else btype = WLEDpixelBus::BusDriver::BitBang;
+    driver = WLEDpixelBus::BusDriver::BitBang; // bit banging works on all pins and uses less memory
     #else
     switch (driverType) {
-      case 0:  btype = WLEDpixelBus::BusType::RMT; break;
+      case 0:  driver = WLEDpixelBus::BusDriver::RMT; break;
       case 1:
         #if defined(CONFIG_IDF_TARGET_ESP32S3)
-        btype = WLEDpixelBus::BusType::LCD; // S3 has LCD peripheral with 16 channels, very similar to I2S
+        driver = WLEDpixelBus::BusDriver::LCD; // S3 has LCD peripheral with 16 channels, very similar to I2S
         #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
-        btype = WLEDpixelBus::BusType::I2S;
+        driver = WLEDpixelBus::BusDriver::I2S;
         #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-        btype = WLEDpixelBus::BusType::SPI; // parallel SPI
+        driver = WLEDpixelBus::BusDriver::SPI; // parallel SPI
         #else
-        btype = WLEDpixelBus::BusType::RMT;
+        driver = WLEDpixelBus::BusDriver::RMT;
         #endif
         break;
-      default: btype = WLEDpixelBus::BusType::RMT; break;
+      default: driver = WLEDpixelBus::BusDriver::RMT; break;
     }
     #endif
 
@@ -233,7 +233,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
 
     int8_t rmtCh = -1; // -1 means auto select by RMT driver and optimize memory block use, if RMT RX is needed, define RMT_USE_SINGLE_MEM_BLOCK
     #ifndef ESP8266
-    if (btype == WLEDpixelBus::BusType::RMT) {
+    if (driver == WLEDpixelBus::BusDriver::RMT) {
       if (_rmtChannel < WLED_MAX_RMT_CHANNELS) {
         #ifdef RMT_USE_SINGLE_MEM_BLOCK
         rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
@@ -246,7 +246,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
-    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(btype, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
+    WLEDpixelBus::PixelBus* bus = WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh);
 
     // TM1814/TM1815: inject the 8-byte current-config prefix (C1 + C2).
     // setPrefix() must be called before begin() so allocateEncodeBuffer() reserves space.

@@ -395,7 +395,7 @@ inline uint32_t ColorEncoder::decode(const uint8_t* in) const {
 // Bus Factory - Create appropriate bus for platform
 //==============================================================================
 
-enum class BusType :  uint8_t {
+enum class BusDriver : uint8_t {
   RMT = 0,
   I2S = 1,
   LCD = 2,
@@ -431,14 +431,14 @@ constexpr uint8_t getRmtMaxChannels() {
  * @param channel RMT channel to use (-1 for auto-allocate)
  * @return Bus instance (caller owns, delete when done)
  */
-PixelBus* createBus(BusType type, int8_t pin, const LedTiming& timing,
-        uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
-        int8_t channel = -1);
+PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
+  uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
+  int8_t channel = -1);
 
 /**
  * Get recommended bus type for current platform
  */
-BusType getRecommendedBusType();
+BusDriver getRecommendedBusDriver();
 
 } // namespace WLEDpixelBus
 
