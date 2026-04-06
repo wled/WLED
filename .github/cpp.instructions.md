@@ -88,7 +88,7 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 
 ```cpp
   DEBUG_PRINTLN(F("WS client connected."));  // string stays in flash, not RAM
-  DEBUG_PRINTF_P(PSTR("initE: Ignoring attempt for invalid ethernetType (%d)\n"), ethernetType); // printf format string stays in flash
+  DEBUG_PRINTF_P(PSTR("initE: Ignoring attempt for invalid ethernetType (%d)\n"), ethernetType); // format string stays in flash
 ```
 
 ## Memory
@@ -104,7 +104,7 @@ GCC/Clang support VLAs as an extension (they are not part of the C++ standard), 
 
 Heap fragmentation is a concern:
 <!-- HUMAN_ONLY_START -->
-   - Fragmentation can lead to crashes, even when the overall amount of availeable heap is still good. The C++ runtime doesn't do any "garbage collection".
+   - Fragmentation can lead to crashes, even when the overall amount of available heap is still good. The C++ runtime doesn't do any "garbage collection".
 <!-- HUMAN_ONLY_END -->
    - Avoid frequent `d_malloc` and `d_free` inside a function, especially for small sizes.
    - Avoid frequent creation / destruction of objects.
@@ -123,8 +123,8 @@ Heap fragmentation is a concern:
 ```
 
 ```cpp
-  _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
-  _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size()
+  _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation - does not increase size()
+  _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation - does not increase size()
 ```
 <!-- HUMAN_ONLY_END -->
 
