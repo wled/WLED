@@ -21,7 +21,7 @@ applyTo: "wled00/data/**"
 - `*.css` — stylesheets (inlined during build)
 - `common.js` — helper functions 
 
-*Reuse shared helpers from `common.js` whenever possible** instead of duplicating utilities in page-local scripts.
+**Reuse shared helpers from `common.js` whenever possible** instead of duplicating utilities in page-local scripts.
 
 ## Build Integration
 
