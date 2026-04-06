@@ -216,6 +216,13 @@ void BusDigital::setBrightness(uint8_t b) {
       _busPtr->updatePrefix(prefix, 8); // note: the pre
     }
 
+  } else if (is16bit()) {
+    // 16-bit LED types (SM16825, UCS8903, UCS8904): skip color_fade brightness scaling.
+    // Brightness is applied directly in the 16-bit encoder as `channel * bri`, using the
+    // full 16-bit resolution instead of discarding the low byte.
+    _effectiveBri = 255;
+    _busPtr->setBusBri(b);
+
   } else {
     _effectiveBri = b;
   }

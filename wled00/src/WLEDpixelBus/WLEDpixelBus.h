@@ -161,10 +161,20 @@ inline uint32_t makeColor(uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) {
  * CCT data for a single pixel
  * Passed as separate buffer from main RGBW data
  */
+ /*
 struct CctPixel {
   uint8_t ww;  // Warm white
   uint8_t cw;  // Cool white
-};
+};*/
+struct CctPixel {
+  union {
+      struct {
+        uint8_t ww;  // Warm white
+        uint8_t cw;  // Cool white
+      };
+      uint16_t wwcw; // Access as a 16-bit value (0xWWCW)
+  };
+}
 
 //==============================================================================
 // Driver State
@@ -232,24 +242,29 @@ public:
   }
 
   // --- 16-bit encode/decode (UCS8903/UCS8904/SM16825 — numChannels=6/8/10) ---
-  // Wire format: (value, 0) — value in high byte, zero in low byte (NeoPixelBus convention).
-  inline void encodeRGB16(uint32_t pixel, uint8_t* out) const {
-    out[_idxR*2] = getR(pixel); out[_idxR*2+1] = 0;
-    out[_idxG*2] = getG(pixel); out[_idxG*2+1] = 0;
-    out[_idxB*2] = getB(pixel); out[_idxB*2+1] = 0;
+  // Wire format: full 16-bit value per channel = channel * bri, giving true sub-8-bit brightness
+  // resolution. When bri==255 the result equals (value<<8), matching the old behaviour at max.
+  inline void encodeRGB16(uint32_t pixel, uint8_t* out, uint8_t bri) const {
+    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri;
+    out[_idxR*2] = r >> 8; out[_idxR*2+1] = r & 0xFF;
+    out[_idxG*2] = g >> 8; out[_idxG*2+1] = g & 0xFF;
+    out[_idxB*2] = b >> 8; out[_idxB*2+1] = b & 0xFF;
   }
-  inline void encodeRGBW16(uint32_t pixel, uint8_t* out) const {
-    out[_idxR*2] = getR(pixel); out[_idxR*2+1] = 0;
-    out[_idxG*2] = getG(pixel); out[_idxG*2+1] = 0;
-    out[_idxB*2] = getB(pixel); out[_idxB*2+1] = 0;
-    out[_idxW*2] = getW(pixel); out[_idxW*2+1] = 0;
+  inline void encodeRGBW16(uint32_t pixel, uint8_t* out, uint8_t bri) const {
+    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri, w = (uint16_t)getW(pixel) * bri;
+    out[_idxR*2] = r >> 8; out[_idxR*2+1] = r & 0xFF;
+    out[_idxG*2] = g >> 8; out[_idxG*2+1] = g & 0xFF;
+    out[_idxB*2] = b >> 8; out[_idxB*2+1] = b & 0xFF;
+    out[_idxW*2] = w >> 8; out[_idxW*2+1] = w & 0xFF;
   }
-  inline void encodeCCT16(uint32_t pixel, const CctPixel& cct, uint8_t* out) const {
-    out[_idxR*2]  = getR(pixel); out[_idxR*2+1]  = 0;
-    out[_idxG*2]  = getG(pixel); out[_idxG*2+1]  = 0;
-    out[_idxB*2]  = getB(pixel); out[_idxB*2+1]  = 0;
-    out[_idxWW*2] = cct.ww;      out[_idxWW*2+1] = 0;
-    out[_idxCW*2] = cct.cw;      out[_idxCW*2+1] = 0;
+  inline void encodeCCT16(uint32_t pixel, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
+    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri;
+    uint16_t ww = (uint16_t)cct.ww * bri, cw = (uint16_t)cct.cw * bri;
+    out[_idxR*2]  = r  >> 8; out[_idxR*2+1]  = r  & 0xFF;
+    out[_idxG*2]  = g  >> 8; out[_idxG*2+1]  = g  & 0xFF;
+    out[_idxB*2]  = b  >> 8; out[_idxB*2+1]  = b  & 0xFF;
+    out[_idxWW*2] = ww >> 8; out[_idxWW*2+1] = ww & 0xFF;
+    out[_idxCW*2] = cw >> 8; out[_idxCW*2+1] = cw & 0xFF;
   }
   inline uint32_t decodeRGB16(const uint8_t* in) const {
     return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2]);
@@ -289,6 +304,7 @@ protected:
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
   uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data
+  uint8_t  _busBri   = 255;           // bus-level brightness applied during encoding (currently used for 16-bit LED types)
 
 public:
   virtual ~PixelBus() {
@@ -317,6 +333,14 @@ public:
     if (len > _prefixLen) len = _prefixLen;
     memcpy(_encodeBuffer, data, len);
   }
+
+  /**
+   * Set bus-level brightness applied during pixel encoding.
+   * For 16-bit LED types (SM16825, UCS8903, UCS8904) this replaces color_fade,
+   * encoding each channel as `channel * bri` to use the full 16-bit wire resolution.
+   * @param b  brightness 0–255
+   */
+  void setBusBri(uint8_t b) { _busBri = b; }
 
   /**
    * physical output signal inversion (polarity).
@@ -382,12 +406,12 @@ public:
     const uint8_t nch = _encoder.getNumChannels();
     uint8_t* out = _pixelData + (size_t)pos * nch;
     switch (nch) {
-      case 3:  _encoder.encodeRGB(c, out);            break;
-      case 4:  _encoder.encodeRGBW(c, out);           break;
-      case 6:  _encoder.encodeRGB16(c, out);          break;
-      case 8:  _encoder.encodeRGBW16(c, out);         break;
-      case 10: { CctPixel cct{ww, cw}; _encoder.encodeCCT16(c, cct, out); break; }
-      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out);   break; }
+      case 3:  _encoder.encodeRGB(c, out);                      break;
+      case 4:  _encoder.encodeRGBW(c, out);                     break;
+      case 6:  _encoder.encodeRGB16(c, out, _busBri);           break;
+      case 8:  _encoder.encodeRGBW16(c, out, _busBri);          break;
+      case 10: { CctPixel cct{ww, cw}; _encoder.encodeCCT16(c, cct, out, _busBri); break; }
+      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out);            break; }
     }
     return true;
   }
