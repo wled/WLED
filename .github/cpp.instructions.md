@@ -18,13 +18,13 @@ See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines tha
 - Space between keyword and parenthesis: `if (...)`, `for (...)`. No space between function name and parenthesis: `doStuff(a)`
 - No enforced line-length limit; wrap when a line exceeds your editor width
 
-<!-- HUMAN_ONLY_START -->
 ## Naming
 
 - **camelCase** for functions and variables: `setValuesFromMainSeg()`, `effectCurrent`
 - **PascalCase** for classes and structs: `PinManagerClass`, `BusConfig`
 - **UPPER_CASE** for macros and constants: `WLED_MAX_USERMODS`, `DEFAULT_CLIENT_SSID`
 
+<!-- HUMAN_ONLY_START -->
 ## Header Guards
 
 Most headers use `#ifndef` / `#define` guards. Some newer headers add `#pragma once` before the guard:
@@ -86,25 +86,47 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 - Use `const char*` for temporary/parsed strings
 - Avoid `String` (Arduino heap-allocated string) in hot paths; acceptable in config/setup code
 
+```cpp
+  DEBUG_PRINTLN(F("WS client connected."));  // string stays in flash, not RAM
+  DEBUG_PRINTF_P(PSTR("initE: Ignoring attempt for invalid ethernetType (%d)\n"), ethernetType); // printf format string stays in flash
+```
+
 ## Memory
 
 - **PSRAM-aware allocation**: use `d_malloc()` (prefer DRAM), `p_malloc()` (prefer PSRAM) from `fcn_declare.h`
 - **Avoid Variable Length Arrays (VLAs)**: FreeRTOS task stacks are typically 2–8 KB. A runtime-sized VLA can silently exhaust the stack. Use fixed-size arrays or heap allocation (`d_malloc` / `p_malloc`). Any VLA must be explicitly justified in source or PR.
 <!-- HUMAN_ONLY_START -->
-   GCC/Clang support VLAs as an extension (they are not part of the C++ standard), so they look like a legitimate feature — but they are allocated on the stack at runtime. On ESP32/ESP8266, a VLA whose size depends on a runtime parameter (segment dimensions, pixel counts, etc.) can silently exhaust the stack and cause the program to behave in unexpected ways or crash.
+  - GCC/Clang support VLAs as an extension (they are not part of the C++ standard), so they look like a legitimate feature — but they are allocated on the stack at runtime. On ESP32/ESP8266, a VLA whose size depends on a runtime parameter (segment dimensions, pixel counts, etc.) can silently exhaust the stack and cause the program to behave in unexpected ways or crash.
 <!-- HUMAN_ONLY_END -->
 - **Larger buffers** (LED data, JSON documents) should use PSRAM when available and technically feasible
 - **Hot-path**: some data should stay in DRAM or IRAM for performance reasons
-- Heap fragmentation is a concern
+- Heap fragmentation is a concern:
 <!-- HUMAN_ONLY_START -->
-  - Fragmentation can lead to crashes, even when the overall amount of availeable heap is still large.
+  - Fragmentation can lead to crashes, even when the overall amount of availeable heap is still good. (The C++ runtime doesn't do any "garbage collection")
+<!-- HUMAN_ONLY_END -->
   - Avoid frequent `d_malloc` and `d_free` inside a function, especially for small sizes.
   - Avoid frequent creation / destruction of objects.
-<!-- HUMAN_ONLY_END -->
   - Allocate buffers early, and try to re-use them.
   - Instead of incrementally appending to a `String`,  reserve the expected max buffer upfront by using the `reserve()` method.
 - Memory efficiency matters, but is less critical on boards with PSRAM
 
+<!-- HUMAN_ONLY_START -->
+```cpp
+  String result;
+  result.reserve(65);  // pre-allocate to avoid realloc fragmentation
+```
+
+```cpp
+  // prefer DRAM; falls back gracefully and enforces MIN_HEAP_SIZE guard
+  _ledsDirty = (byte*) d_malloc(getBitArrayBytes(_len));
+```
+
+```cpp
+  _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
+  _modeData.reserve(_modeCount); // allocate memory to prevent initial fragmentation (does not increase size()
+```
+
+<!-- HUMAN_ONLY_END -->
 ## `const` and `constexpr`
 Add `const` to cached locals in hot-path code (helps the compiler keep values in registers). Pass and store objects by `const&` to avoid copies in loops. 
 
@@ -167,6 +189,12 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #if (WLED_MAX_BUSSES > 32)
   #error "WLED_MAX_BUSSES exceeds hard limit"
 #endif
+```
+
+```cpp
+  // using static_assert() to validate enumerated types (zero cost at runtime)
+  static_assert(0u == static_cast<uint8_t>(PinOwner::None),
+               "PinOwner::None must be zero, so default array initialization works as expected");
 ```
 <!-- HUMAN_ONLY_END -->
 
