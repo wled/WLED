@@ -27,7 +27,8 @@ Always reference these instructions first and fallback to search or bash command
 
 <!-- HUMAN_ONLY_END -->
 
-- **Always run `npm ci; npm run build` before `pio run`.** The web UI build generates required `wled00/html_*.h` and `wled00/js_*.h` headers for firmware compilation.
+- **Always run `npm run build` before any `pio run`** (and run `npm ci` first on fresh clones or when lockfile/dependencies change).
+- The web UI build generates required `wled00/html_*.h` and `wled00/js_*.h` headers for firmware compilation.
 - **Build firmware to validate code changes**: `pio run -e esp32dev` — must succeed, never skip this step.
 - Common firmware environments: `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
 
