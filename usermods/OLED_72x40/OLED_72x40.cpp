@@ -273,7 +273,7 @@ class UsermodOLED72x40 : public Usermod {
       }
 
       // Reallocate LED pin on config change (only when enabled)
-      if (enabled && initDone && oldLedPin != ledPin) {
+      if (enabled && initDone && (oldLedPin != ledPin || (ledPin >= 0 && activeLedPin < 0))) {
         if (activeLedPin >= 0) {
           pinMode(activeLedPin, INPUT);
           PinManager::deallocatePin(activeLedPin, PinOwner::UM_Unspecified);
