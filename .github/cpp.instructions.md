@@ -95,7 +95,14 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 <!-- HUMAN_ONLY_END -->
 - **Larger buffers** (LED data, JSON documents) should use PSRAM when available and technically feasible
 - **Hot-path**: some data should stay in DRAM or IRAM for performance reasons
-- Heap fragmentation can lead to crashes, even when the overall amount of availeable heap is still large. Avoid frequent `d_malloc` and `d_free` inside a function, especially for small sizes. Allocate buffers early, and try to re-use them. Instead of incrementally appending to a `String`,  reserve the expected max buffer upfront by using the `reserve()` method.
+- Heap fragmentation is a concern
+<!-- HUMAN_ONLY_START -->
+  - Fragmentation can lead to crashes, even when the overall amount of availeable heap is still large.
+  - Avoid frequent `d_malloc` and `d_free` inside a function, especially for small sizes.
+  - Avoid frequent creation / destruction of objects.
+<!-- HUMAN_ONLY_END -->
+  - Allocate buffers early, and try to re-use them.
+  - Instead of incrementally appending to a `String`,  reserve the expected max buffer upfront by using the `reserve()` method.
 - Memory efficiency matters, but is less critical on boards with PSRAM
 
 ## `const` and `constexpr`
