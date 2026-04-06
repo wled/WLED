@@ -86,7 +86,7 @@ Test these scenarios after every web UI change:
 
 - **Force web UI rebuild**: `npm run build -- -f`
 - **Clear generated files**: `rm -f wled00/html_*.h wled00/js_*.h` then `npm run build`
-- **Clean PlatformIO cache**: `pio run --target clean`
+- **Clean PlatformIO build artifacts**: `pio run --target clean`
 - **Reinstall Node deps**: `rm -rf node_modules && npm ci`
 
 ## CI/CD Validation
