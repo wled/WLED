@@ -537,6 +537,7 @@ namespace BusManager {
   extern uint16_t _gMilliAmpsUsed;
   extern uint16_t _gMilliAmpsMax;
   extern bool     _useABL;
+  extern Bus*     _lastBusCache;
 
   #ifdef ESP32_DATA_IDLE_HIGH
   void    esp32RMTInvertIdle() ;

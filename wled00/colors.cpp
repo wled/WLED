@@ -62,12 +62,12 @@ uint32_t WLED_O2_ATTR color_add(uint32_t c1, uint32_t c2, bool preserveCR) //121
  * fades color toward black
  * if using "video" method the resulting color will never become black unless it is already black
  */
-uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
-  if (c1 == BLACK || amount == 0) return 0; // black or full fade
-  if (amount == 255) return c1;             // no change
+uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t brightness, bool video) {
+  if (brightness == 255) return c1;   // no change
+  if (brightness == 0) return 0;      // full fade
   uint32_t addRemains = 0;
 
-  if (!video) amount++; // add one for correct scaling using bitshifts
+  if (!video) brightness++; // add one for correct scaling using bitshifts
   else {
     // video scaling: make sure colors do not dim to zero if they started non-zero unless they distort the hue
     uint8_t r = byte(c1>>16), g = byte(c1>>8), b = byte(c1), w = byte(c1>>24); // extract r, g, b, w channels
@@ -78,8 +78,8 @@ uint32_t IRAM_ATTR color_fade(uint32_t c1, uint8_t amount, bool video) {
     addRemains |= w ? 0x01000000 : 0;                  // i.e. remove color channel if <13% of max
   }
   const uint32_t TWO_CHANNEL_MASK = 0x00FF00FF;
-  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * amount) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
-  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * amount) & ~TWO_CHANNEL_MASK; // scale white and green
+  uint32_t rb = (((c1 & TWO_CHANNEL_MASK) * brightness) >> 8) &  TWO_CHANNEL_MASK; // scale red and blue
+  uint32_t wg = (((c1 >> 8) & TWO_CHANNEL_MASK) * brightness) & ~TWO_CHANNEL_MASK; // scale white and green
   return (rb | wg) + addRemains;
 }
 

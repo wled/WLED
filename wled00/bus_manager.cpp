@@ -307,23 +307,25 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   //    _cctDataPtr[pix].cw = cctCW;
   //  }
   }
-  // Apply brightness via color_fade. For TM1814/TM1815 _effectiveBri is the sub-step residual pre-computed in setBrightness(); for all other types it equals _bri.
-  c = color_fade(c, _effectiveBri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
+  if (c > 0) {
+    // Apply brightness via color_fade. For TM1814/TM1815 _effectiveBri is the sub-step residual pre-computed in setBrightness(); for all other types it equals _bri.
+    c = color_fade(c, _effectiveBri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
 
-  if (hasCCT()) {
-    wwcw = ((cctCW + 1) * _effectiveBri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
-    wwcw |= ((cctWW + 1) * _effectiveBri) >> 8;
-    if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
-  }
+    if (hasCCT()) {
+      wwcw = ((cctCW + 1) * _effectiveBri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
+      wwcw |= ((cctWW + 1) * _effectiveBri) >> 8;
+      if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
+    }
 
-  if (BusManager::_useABL) {
-    // sum all color channels to estimate current; colors are already effectiveBri-scaled.
-    // estimateCurrent() corrects for the TM1814/TM1815 colorScale factor before computing milliAmps.
-    uint8_t r = R(c), g = G(c), b = B(c);
-    if (_milliAmpsPerLed < 255) { // normal ABL
-      _colorSum += r + g + b + W(c);
-    } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
-      _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
+    if (BusManager::_useABL) {
+      // sum all color channels to estimate current; colors are already effectiveBri-scaled.
+      // estimateCurrent() corrects for the TM1814/TM1815 colorScale factor before computing milliAmps.
+      uint8_t r = R(c), g = G(c), b = B(c);
+      if (_milliAmpsPerLed < 255) { // normal ABL
+        _colorSum += r + g + b + W(c);
+      } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
+        _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
+      }
     }
   }
 
@@ -1265,6 +1267,7 @@ int BusManager::add(const BusConfig &bc, bool placeholder) {
     errorFlag = ERR_NORAM;
     busses.back() = make_unique<BusPlaceholder>(bc);
   }
+  _lastBusCache = busses[0].get(); // set cache to first bus, can be a placeholder but pointer must be valid (saves us pointer checking in hot path)
   return busses.size();
 }
 
@@ -1300,8 +1303,6 @@ String BusManager::getLEDTypesJSONString() {
 bool BusManager::allocateHardware(uint8_t busType, const uint8_t* pins, uint8_t& driverType) {
   return PixelBusAllocator::allocateHardware(busType, pins, driverType);
 }
-// Module-level cache for setPixelColor() fast path - must be reset in removeAll()
-static Bus* _lastBusCache = nullptr;
 
 //do not call this method from system context (network callback)
 void BusManager::removeAll() {
@@ -1393,7 +1394,7 @@ void BusManager::show() {
 }
 
 void IRAM_ATTR BusManager::setPixelColor(unsigned pix, uint32_t c) {
-  if (_lastBusCache && _lastBusCache->containsPixel(pix)) {
+  if (_lastBusCache->containsPixel(pix)) {
     _lastBusCache->setPixelColor(pix - _lastBusCache->getStart(), c);
     return;
   }
@@ -1537,4 +1538,5 @@ std::vector<std::unique_ptr<Bus>> BusManager::busses;
 uint16_t BusManager::_gMilliAmpsUsed = 0;
 uint16_t BusManager::_gMilliAmpsMax = ABL_MILLIAMPS_DEFAULT;
 bool BusManager::_useABL = false;
+Bus* BusManager::_lastBusCache = nullptr; // cache for setPixelColor() fast path
 
