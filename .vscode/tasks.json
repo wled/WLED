@@ -9,8 +9,8 @@
       ],
       "dependsOrder": "sequence",
       "problemMatcher": [
-        "$platformio",
-      ],
+        "$platformio"
+      ]
     },
     {
       "type": "PlatformIO",
@@ -18,7 +18,7 @@
       "task": "Build",
       "group": {
         "kind": "build",
-        "isDefault": true,
+        "isDefault": true
       },
       "problemMatcher": [
         "$platformio"

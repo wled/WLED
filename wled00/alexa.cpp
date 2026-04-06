@@ -25,7 +25,7 @@ void alexaInit()
   // names are identical as the preset names, switching off can be done by switching off any of them
   if (alexaNumPresets) {
     String name = "";
-    for (byte presetIndex = 1; presetIndex <= alexaNumPresets; presetIndex++)
+    for (unsigned presetIndex = 1; presetIndex <= alexaNumPresets; presetIndex++)
     {
       if (!getPresetName(presetIndex, name)) break; // no more presets
       EspalexaDevice* dev = new EspalexaDevice(name.c_str(), onAlexaChange, EspalexaDeviceType::extendedcolor);
@@ -64,7 +64,7 @@ void onAlexaChange(EspalexaDevice* dev)
     } else // switch-on behavior for preset devices
     {
       // turn off other preset devices
-      for (byte i = 1; i < espalexa.getDeviceCount(); i++)
+      for (unsigned i = 1; i < espalexa.getDeviceCount(); i++)
       {
         if (i == dev->getId()) continue;
         espalexa.getDevice(i)->setValue(0); // turn off other presets
@@ -87,7 +87,7 @@ void onAlexaChange(EspalexaDevice* dev)
       applyPreset(macroAlexaOff, CALL_MODE_ALEXA);
       // below for loop stops Alexa from complaining if macroAlexaOff does not actually turn off
     }
-    for (byte i = 0; i < espalexa.getDeviceCount(); i++)
+    for (unsigned i = 0; i < espalexa.getDeviceCount(); i++)
     {
       espalexa.getDevice(i)->setValue(0);
     }
@@ -126,10 +126,10 @@ void onAlexaChange(EspalexaDevice* dev)
       } else {
         colorKtoRGB(k, rgbw);
       }
-      strip.setColor(0, RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]));
+      strip.getMainSegment().setColor(0, RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]));
     } else {
       uint32_t color = dev->getRGB();
-      strip.setColor(0, color);
+      strip.getMainSegment().setColor(0, color);
     }
     stateUpdated(CALL_MODE_ALEXA);
   }

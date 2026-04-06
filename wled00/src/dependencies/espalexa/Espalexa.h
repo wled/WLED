@@ -120,10 +120,8 @@ private:
   
   void encodeLightId(uint8_t idx, char* out)
   {
-    uint8_t mac[6];
-    WiFi.macAddress(mac);
-
-    sprintf_P(out, PSTR("%02X:%02X:%02X:%02X:%02X:%02X:00:11-%02X"), mac[0],mac[1],mac[2],mac[3],mac[4],mac[5], idx);
+    String mymac = WiFi.macAddress();
+	sprintf_P(out, PSTR("%02X:%s:AB-%02X"), idx, mymac.c_str(), idx);
   }
 
   // construct 'globally unique' Json dict key fitting into signed int

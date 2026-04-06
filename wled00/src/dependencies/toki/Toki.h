@@ -155,7 +155,7 @@ class Toki {
       return (tick == TickT::active);
     }
 
-    void printTime(const Time& t) {
-      Serial.printf_P(PSTR("%u,%03u\n"),t.sec,t.ms);
+    void printTime(const Time& t, Print &dest = Serial) {
+      dest.printf_P(PSTR("%u,%03u\n"),t.sec,t.ms);
     }
 };

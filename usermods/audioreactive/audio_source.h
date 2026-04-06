@@ -22,7 +22,7 @@
 
 // see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/hw-reference/chip-series-comparison.html#related-documents
 // and https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#overview-of-all-modes
-#if defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(ESP8266) || defined(ESP8265)
+#if defined(CONFIG_IDF_TARGET_ESP32C2) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(ESP8266) || defined(ESP8265)
   // there are two things in these MCUs that could lead to problems with audio processing:
   // * no floating point hardware (FPU) support - FFT uses float calculations. If done in software, a strong slow-down can be expected (between 8x and 20x)
   // * single core, so FFT task might slow down other things like LED updates
@@ -71,7 +71,7 @@
  * if you want to receive two channels, one is the actual data from microphone and another channel is suppose to receive 0, it's different data in two channels, you need to choose I2S_CHANNEL_FMT_RIGHT_LEFT in this case.
 */
 
-#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION <= ESP_IDF_VERSION_VAL(4, 4, 4))
+#if (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)) && (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4, 5, 0))
 // espressif bug: only_left has no sound, left and right are swapped 
 // https://github.com/espressif/esp-idf/issues/9635  I2S mic not working since 4.4 (IDFGH-8138)
 // https://github.com/espressif/esp-idf/issues/8538  I2S channel selection issue? (IDFGH-6918)
@@ -134,7 +134,7 @@ class AudioSource {
        Read num_samples from the microphone, and store them in the provided
        buffer
     */
-    virtual void getSamples(float *buffer, uint16_t num_samples) = 0;
+    virtual void getSamples(FFTsampleType *buffer, uint16_t num_samples) = 0;
 
     /* check if the audio source driver was initialized successfully */
     virtual bool isInitialized(void) {return(_initialized);}
@@ -192,10 +192,10 @@ class I2SSource : public AudioSource {
     }
 
     virtual void initialize(int8_t i2swsPin = I2S_PIN_NO_CHANGE, int8_t i2ssdPin = I2S_PIN_NO_CHANGE, int8_t i2sckPin = I2S_PIN_NO_CHANGE, int8_t mclkPin = I2S_PIN_NO_CHANGE) {
-      DEBUGSR_PRINTLN("I2SSource:: initialize().");
+      DEBUGSR_PRINTLN(F("I2SSource:: initialize()."));
       if (i2swsPin != I2S_PIN_NO_CHANGE && i2ssdPin != I2S_PIN_NO_CHANGE) {
-        if (!pinManager.allocatePin(i2swsPin, true, PinOwner::UM_Audioreactive) ||
-            !pinManager.allocatePin(i2ssdPin, false, PinOwner::UM_Audioreactive)) { // #206
+        if (!PinManager::allocatePin(i2swsPin, true, PinOwner::UM_Audioreactive) ||
+            !PinManager::allocatePin(i2ssdPin, false, PinOwner::UM_Audioreactive)) { // #206
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pins: ws=%d, sd=%d\n",  i2swsPin, i2ssdPin); 
           return;
         }
@@ -203,7 +203,7 @@ class I2SSource : public AudioSource {
 
       // i2ssckPin needs special treatment, since it might be unused on PDM mics
       if (i2sckPin != I2S_PIN_NO_CHANGE) {
-        if (!pinManager.allocatePin(i2sckPin, true, PinOwner::UM_Audioreactive)) {
+        if (!PinManager::allocatePin(i2sckPin, true, PinOwner::UM_Audioreactive)) {
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pins: sck=%d\n",  i2sckPin); 
           return;
         }
@@ -225,15 +225,17 @@ class I2SSource : public AudioSource {
 
         _config.mode = i2s_mode_t(I2S_MODE_MASTER | I2S_MODE_RX | I2S_MODE_PDM); // Change mode to pdm if clock pin not provided. PDM is not supported on ESP32-S2. PDM RX not supported on ESP32-C3
         _config.channel_format =I2S_PDM_MIC_CHANNEL;                             // seems that PDM mono mode always uses left channel.
-        _config.use_apll = true;                                                 // experimental - use aPLL clock source to improve sampling quality
+        _config.use_apll = false;                                                // don't use aPLL clock source (fix for #5391)
         #endif
       }
 
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 2, 0)
       if (mclkPin != I2S_PIN_NO_CHANGE) {
+        #if !defined(WLED_USE_ETHERNET)  // fix for #5391 aPLL resource conflict - aPLL is needed for ethernet boards with internal RMII clock
         _config.use_apll = true; // experimental - use aPLL clock source to improve sampling quality, and to avoid glitches.
         // //_config.fixed_mclk = 512 * _sampleRate;
         // //_config.fixed_mclk = 256 * _sampleRate;
+        #endif
       }
       
       #if !defined(SOC_I2S_SUPPORTS_APLL)
@@ -249,7 +251,7 @@ class I2SSource : public AudioSource {
       // Reserve the master clock pin if provided
       _mclkPin = mclkPin;
       if (mclkPin != I2S_PIN_NO_CHANGE) {
-        if(!pinManager.allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) { 
+        if(!PinManager::allocatePin(mclkPin, true, PinOwner::UM_Audioreactive)) { 
           DEBUGSR_PRINTF("\nAR: Failed to allocate I2S pin: MCLK=%d\n",  mclkPin); 
           return;
         } else
@@ -307,14 +309,14 @@ class I2SSource : public AudioSource {
         DEBUGSR_PRINTF("Failed to uninstall i2s driver: %d\n", err);
         return;
       }
-      if (_pinConfig.ws_io_num   != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.ws_io_num,   PinOwner::UM_Audioreactive);
-      if (_pinConfig.data_in_num != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.data_in_num, PinOwner::UM_Audioreactive);
-      if (_pinConfig.bck_io_num  != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_pinConfig.bck_io_num,  PinOwner::UM_Audioreactive);
+      if (_pinConfig.ws_io_num   != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.ws_io_num,   PinOwner::UM_Audioreactive);
+      if (_pinConfig.data_in_num != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.data_in_num, PinOwner::UM_Audioreactive);
+      if (_pinConfig.bck_io_num  != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_pinConfig.bck_io_num,  PinOwner::UM_Audioreactive);
       // Release the master clock pin
-      if (_mclkPin != I2S_PIN_NO_CHANGE) pinManager.deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
+      if (_mclkPin != I2S_PIN_NO_CHANGE) PinManager::deallocatePin(_mclkPin, PinOwner::UM_Audioreactive);
     }
 
-    virtual void getSamples(float *buffer, uint16_t num_samples) {
+    virtual void getSamples(FFTsampleType *buffer, uint16_t num_samples) {
       if (_initialized) {
         esp_err_t err;
         size_t bytes_read = 0;        /* Counter variable to check if we actually got enough data */
@@ -332,19 +334,36 @@ class I2SSource : public AudioSource {
           return;
         }
 
-        // Store samples in sample buffer and update DC offset
-        for (int i = 0; i < num_samples; i++) {
-
-          newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
-          
-          float currSample = 0.0f;
-#ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
-              currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
-#else
-              currSample = (float) newSamples[i];                 // 16bit input -> use as-is
+        // Store samples in sample buffer
+#if defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+        //constexpr int32_t FIXEDSHIFT = 8; // shift by 8 bits for fixed point math (no loss at 24bit input sample resolution)
+        //int32_t intSampleScale = _sampleScale * (1<<FIXEDSHIFT); // _sampleScale <= 1.0f, shift for fixed point math
 #endif
+
+        for (int i = 0; i < num_samples; i++) {
+          newSamples[i] = postProcessSample(newSamples[i]);  // perform postprocessing (needed for ADC samples)
+
+#if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
+  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
+          float currSample = (float) newSamples[i] / 65536.0f;      // 32bit input -> 16bit; keeping lower 16bits as decimal places
+  #else
+          float currSample = (float) newSamples[i];                 // 16bit input -> use as-is
+  #endif
           buffer[i] = currSample;
-          buffer[i] *= _sampleScale;                              // scale samples
+          buffer[i] *= _sampleScale;                               // scale samples
+#else
+  #ifdef I2S_SAMPLE_DOWNSCALE_TO_16BIT
+          // note on sample scaling: scaling is only used for inputs with master clock and those are better suited for ESP32 or S3
+          // execution speed is critical on single core MCUs
+          //int32_t currSample = newSamples[i] >> FIXEDSHIFT;   // shift to avoid overlow in multiplication
+          //currSample = (currSample * intSampleScale) >> 16;   // scale samples, shift down to 16bit
+          int16_t currSample = newSamples[i] >> 16;           // no sample scaling, just shift down to 16bit (not scaling saves ~0.4ms on C3)
+  #else
+          //int32_t currSample = (newSamples[i] * intSampleScale) >> FIXEDSHIFT;   // scale samples, shift back down to 16bit
+          int16_t currSample = newSamples[i];                 // 16bit input -> use as-is
+  #endif
+          buffer[i] = (int16_t)currSample;
+#endif
         }
       }
     }
@@ -413,7 +432,7 @@ public:
     };
 
     void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
-      DEBUGSR_PRINTLN("ES7243:: initialize();");
+      DEBUGSR_PRINTLN(F("ES7243:: initialize();"));
       if ((i2sckPin < 0) || (mclkPin < 0)) {
         DEBUGSR_PRINTF("\nAR: invalid I2S pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin); 
         return;
@@ -529,7 +548,7 @@ class ES8388Source : public I2SSource {
     };
 
     void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t mclkPin) {
-      DEBUGSR_PRINTLN("ES8388Source:: initialize();");
+      DEBUGSR_PRINTLN(F("ES8388Source:: initialize();"));
       if ((i2sckPin < 0) || (mclkPin < 0)) {
         DEBUGSR_PRINTF("\nAR: invalid I2S pin: SCK=%d, MCLK=%d\n", i2sckPin, mclkPin); 
         return;
@@ -587,9 +606,9 @@ class I2SAdcSource : public I2SSource {
     AudioSourceType getType(void) {return(Type_I2SAdc);}
 
     void initialize(int8_t audioPin, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE, int8_t = I2S_PIN_NO_CHANGE) {
-      DEBUGSR_PRINTLN("I2SAdcSource:: initialize().");
+      DEBUGSR_PRINTLN(F("I2SAdcSource:: initialize()."));
       _myADCchannel = 0x0F;
-      if(!pinManager.allocatePin(audioPin, false, PinOwner::UM_Audioreactive)) {
+      if(!PinManager::allocatePin(audioPin, false, PinOwner::UM_Audioreactive)) {
          DEBUGSR_PRINTF("failed to allocate GPIO for audio analog input: %d\n", audioPin);
         return;
       }
@@ -622,7 +641,7 @@ class I2SAdcSource : public I2SSource {
       }
 
       // see example in https://github.com/espressif/arduino-esp32/blob/master/libraries/ESP32/examples/I2S/HiFreq_ADC/HiFreq_ADC.ino
-      adc1_config_channel_atten(adc1_channel_t(channel), ADC_ATTEN_DB_11);   // configure ADC input amplification
+      adc1_config_channel_atten(adc1_channel_t(channel), ADC_ATTEN_DB_12);   // configure ADC input amplification
 
       #if defined(I2S_GRAB_ADC1_COMPLETELY)
       // according to docs from espressif, the ADC needs to be started explicitly
@@ -687,7 +706,7 @@ class I2SAdcSource : public I2SSource {
     }
 
 
-    void getSamples(float *buffer, uint16_t num_samples) {
+    void getSamples(FFTsampleType *buffer, uint16_t num_samples) {
       /* Enable ADC. This has to be enabled and disabled directly before and
        * after sampling, otherwise Wifi dies
        */
@@ -717,7 +736,7 @@ class I2SAdcSource : public I2SSource {
     }
 
     void deinitialize() {
-      pinManager.deallocatePin(_audioPin, PinOwner::UM_Audioreactive);
+      PinManager::deallocatePin(_audioPin, PinOwner::UM_Audioreactive);
       _initialized = false;
       _myADCchannel = 0x0F;
       
@@ -759,7 +778,7 @@ class SPH0654 : public I2SSource {
     {}
 
     void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t = I2S_PIN_NO_CHANGE) {
-      DEBUGSR_PRINTLN("SPH0654:: initialize();");
+      DEBUGSR_PRINTLN(F("SPH0654:: initialize();"));
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin);
 #if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
 // these registers are only existing in "classic" ESP32

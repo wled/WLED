@@ -5,56 +5,22 @@
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WLED Settings</title>
 	<script>
-		var d=document;
-		var loc = false, locip, locproto = "http:";
-		function gId(n){return d.getElementById(n);}
-		// https://www.educative.io/edpresso/how-to-dynamically-load-a-js-file-in-javascript
-		function loadJS(FILE_URL, async = true) {
-			let scE = d.createElement("script");
-			scE.setAttribute("src", FILE_URL);
-			scE.setAttribute("type", "text/javascript");
-			scE.setAttribute("async", async);
-			d.body.appendChild(scE);
-			// success event 
-			scE.addEventListener("load", () => {
-				//console.log("File loaded");
-				GetV();
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			// load style.css then initialize
+			l.onload = () => loadResources(['style.css'], () => {
+				getLoc();
+				loadJS(getURL('/settings/s.js?p=0'), false);
 			});
-			// error event
-			scE.addEventListener("error", (ev) => {
-				console.log("Error on loading file", ev);
-				alert("Loading of configuration script failed.\nIncomplete page data!");
-			});
-		}
-		function S() {
-			let l = window.location;
-			if (l.protocol == "file:") {
-				loc = true;
-				locip = localStorage.getItem('locIp');
-				if (!locip) {
-					locip = prompt("File Mode. Please enter WLED IP!");
-					localStorage.setItem('locIp', locip);
-				}
-			} else {
-				// detect reverse proxy
-				let path = l.pathname;
-				let paths = path.slice(1,path.endsWith('/')?-1:undefined).split("/");
-				if (paths.length > 1) {
-					locproto = l.protocol;
-					loc = true;
-					locip = l.hostname + (l.port ? ":" + l.port : "") + "/" + paths[0];
-				}
-			}
-			loadJS(getURL('/settings/s.js?p=0'), false);	// If we set async false, file is loaded and executed, then next statement is processed
-		}
-		function getURL(path) {
-			return (loc ? locproto + "//" + locip : "") + path;
-		}
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
 	</script>
 	<style>
+	  @import url("style.css");
 		body {
-			text-align: center;
-			background: #222;
 			height: 100px;
 			margin: 0;
 		}
@@ -62,24 +28,21 @@
 			--h: 9vh;
 		}
 		button {
-			background: #333;
-			color: #fff;
-			font-family: Verdana, Helvetica, sans-serif;
 			display: block;
-			border: 1px solid #333;
 			border-radius: var(--h);
 			font-size: 6vmin;
 			height: var(--h);
 			width: calc(100% - 40px);
 			margin: 2vh auto 0;
-			cursor: pointer;
+			padding: 0;
 		}
 	</style>
 </head>
-<body onload="S()">
+<body>
 <button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
-<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi Setup</button>
-<button type="submit" onclick="window.location=getURL('/settings/leds')">LED Preferences</button>
+<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi & Network</button>
+<button type="submit" onclick="window.location=getURL('/settings/leds')">LED & Hardware</button>
+<button type="submit" onclick="window.location=getURL('/settings/pins')">Pin Info</button>
 <button id="2dbtn" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
 <button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
 <button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>

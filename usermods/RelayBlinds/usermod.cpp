@@ -43,12 +43,12 @@ void handleRelay()
       digitalWrite(PIN_UP_RELAY, LOW);
       upActiveBefore = true;
       upStartTime = millis();
-      DEBUG_PRINTLN("UPA");
+      DEBUG_PRINTLN(F("UPA"));
     }
     if (millis()- upStartTime > PIN_ON_TIME)
     {
       upActive = false;
-      DEBUG_PRINTLN("UPN");
+      DEBUG_PRINTLN(F("UPN"));
     }
   } else if (upActiveBefore)
   {

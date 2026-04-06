@@ -1,0 +1,34 @@
+{
+  "13985576": {
+    "cmnt": "Toggle Power using HTTP API",
+    "cmd": "T=2"
+  },
+  "3670817": {
+    "cmnt": "Force Power ON using HTTP API",
+    "cmd": "T=1"
+  },
+  "13985572": {
+    "cmnt": "Set brightness to 200 using JSON API",
+    "cmd": {"bri":200}
+  },
+  "3670818": {
+    "cmnt": "Run Preset 1 using JSON API",
+    "cmd": {"ps":1}
+  },
+  "13985570": {
+    "cmnt": "Increase brightness by 40 using HTTP API",
+    "cmd": "A=~40"
+  },
+  "13985569": {
+    "cmnt": "Decrease brightness by 40 using HTTP API",
+    "cmd": "A=~-40"
+  },
+  "7608836": {
+    "cmnt": "Start 1min timer using JSON API",
+    "cmd": {"nl":{"on":true,"dur":1,"mode":0}}
+  },
+  "7608840": {
+    "cmnt": "Select random effect on all segments using JSON API",
+    "cmd": {"seg":{"fx":"r"}}
+  }
+}

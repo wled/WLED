@@ -7,6 +7,7 @@ This Usermod is designed to read a `BME280` or `BMP280` sensor and output the fo
 - Dew Point (`BME280` only)
 
 Configuration is performed via the Usermod menu.  There are no parameters to set in code!  The following settings can be configured in the Usermod Menu:
+- The i2c address in decimal. Set it to either 118 (0x76, the default) or 119 (0x77).
 - Temperature Decimals (number of decimal places to output)
 - Humidity Decimals
 - Pressure Decimals
@@ -21,7 +22,6 @@ Dependencies
 - Libraries
   - `BME280@~3.0.0` (by [finitespace](https://github.com/finitespace/BME280))
   - `Wire`
-  - These must be added under `lib_deps` in your `platform.ini` (or `platform_override.ini`).
 - Data is published over MQTT - make sure you've enabled the MQTT sync interface.
 - This usermod also writes to serial (GPIO1 on ESP8266). Please make sure nothing else is listening to the serial TX pin or your board will get confused by log messages!
 
@@ -39,17 +39,11 @@ Methods also exist to read the read/calculated values from other WLED modules th
 
 # Compiling
 
-To enable, compile with `USERMOD_BME280` defined  (e.g. in `platformio_override.ini`)
+To enable, add `BME280_v2` to your `custom_usermods`  (e.g. in `platformio_override.ini`)
 ```ini
 [env:usermod_bme280_d1_mini]
 extends = env:d1_mini
-build_flags =
-  ${common.build_flags_esp8266}
-  -D USERMOD_BME280
-lib_deps = 
-  ${esp8266.lib_deps}
-  BME280@~3.0.0
-  Wire
+custom_usermods = ${env:d1_mini.custom_usermods} BME280_v2
 ```
 
 

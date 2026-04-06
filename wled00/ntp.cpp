@@ -1,21 +1,16 @@
 #include "src/dependencies/timezone/Timezone.h"
 #include "wled.h"
 #include "fcn_declare.h"
+#include "asyncDNS.h"
+#include <memory>
 
-// on esp8266, building with `-D WLED_USE_UNREAL_MATH` saves around 7Kb flash and 1KB RAM
-//  warning: causes errors in sunset calculations, see #3400
-#if defined(WLED_USE_UNREAL_MATH)
-#define sinf sin_t
-#define asinf asin_t
-#define cosf cos_t
-#define acosf acos_t
-#define tanf tan_t
-#define atanf atan_t
-#define fmodf fmod_t
-#define floorf floor_t
-#else
-#include <math.h>
-#endif
+// forward declarations
+static void sendNTPPacket();
+static bool checkNTPResponse();
+
+
+// WARNING: may cause errors in sunset calculations on ESP8266, see #3400
+// building with `-D WLED_USE_REAL_MATH` will prevent those errors at the expense of flash and RAM
 
 /*
  * Acquires time from NTP server
@@ -23,7 +18,7 @@
 //#define WLED_DEBUG_NTP
 #define NTP_SYNC_INTERVAL 42000UL //Get fresh NTP time about twice per day
 
-Timezone* tz;
+static Timezone* tz;
 
 #define TZ_UTC                  0
 #define TZ_UK                   1
@@ -48,11 +43,13 @@ Timezone* tz;
 #define TZ_ANCHORAGE           20
 #define TZ_MX_CENTRAL          21
 #define TZ_PAKISTAN            22
+#define TZ_BRASILIA            23
+#define TZ_AUSTRALIA_WESTERN   24
 
-#define TZ_COUNT               23
+#define TZ_COUNT               25
 #define TZ_INIT               255
 
-byte tzCurrent = TZ_INIT; //uninitialized
+static byte tzCurrent = TZ_INIT; //uninitialized
 
 /* C++11 form -- static std::array<std::pair<TimeChangeRule, TimeChangeRule>, TZ_COUNT> TZ_TABLE PROGMEM = {{ */
 static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
@@ -147,6 +144,14 @@ static const std::pair<TimeChangeRule, TimeChangeRule> TZ_TABLE[] PROGMEM = {
     /* TZ_PAKISTAN */ {
       {Last, Sun, Mar, 1, 300},     //Pakistan Standard Time = UTC + 5 hours
       {Last, Sun, Mar, 1, 300}
+    },
+    /* TZ_BRASILIA */ {
+      {Last, Sun, Mar, 1, -180},    //Brasília Standard Time = UTC - 3 hours
+      {Last, Sun, Mar, 1, -180}
+    },
+    /* TZ_AUSTRALIA_WESTERN */ {
+      {Last, Sun, Mar, 1, 480},     //AWST = UTC + 8 hours
+      {Last, Sun, Mar, 1, 480}      //AWST = UTC + 8 hours (no DST)
     }
 };
 
@@ -182,8 +187,11 @@ void handleTime() {
   }
 }
 
+
 void handleNetworkTime()
 {
+  static std::shared_ptr<AsyncDNS> ntpDNSlookup;
+  
   if (ntpEnabled && ntpConnected && millis() - ntpLastSyncTime > (1000*NTP_SYNC_INTERVAL) && WLED_CONNECTED)
   {
     if (millis() - ntpPacketSentTime > 10000)
@@ -191,8 +199,41 @@ void handleNetworkTime()
       #ifdef ARDUINO_ARCH_ESP32   // I had problems using udp.flush() on 8266
       while (ntpUdp.parsePacket() > 0) ntpUdp.flush(); // flush any existing packets
       #endif
-      sendNTPPacket();
-      ntpPacketSentTime = millis();
+      if (!ntpServerIP.fromString(ntpServerName)) // check if server is IP or domain
+      {
+        AsyncDNS::result res = ntpDNSlookup ? ntpDNSlookup->status() : AsyncDNS::result::Idle;
+        switch (res) {
+          case AsyncDNS::result::Idle:
+            //DEBUG_PRINTF_P(PSTR("Resolving NTP server name: %s\n"), ntpServerName);
+            ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup); // start dnslookup asynchronously
+            return;
+
+          case AsyncDNS::result::Busy:
+            return; // still in progress
+
+          case AsyncDNS::result::Success:
+            ntpServerIP = ntpDNSlookup->getIP();
+            DEBUG_PRINTF_P(PSTR("NTP IP resolved: %s\n"), ntpServerIP.toString().c_str());
+            sendNTPPacket();
+            ntpDNSlookup.reset();
+            break;
+
+          case AsyncDNS::result::Error:
+            DEBUG_PRINTLN(F("NTP DNS failed"));
+            if (ntpDNSlookup->getErrorCount() > 6) {
+              // after 6 failed attempts (30min), reset network connection as dns is probably stuck (TODO: IDF bug, should be fixed in V5)
+              if (offMode) forceReconnect = true; // do not disturb while LEDs are running
+              ntpDNSlookup.reset();
+            } else {
+              // Retry
+              ntpDNSlookup = AsyncDNS::query(ntpServerName, ntpDNSlookup);
+            }
+            ntpLastSyncTime = millis() - (1000*NTP_SYNC_INTERVAL - 300000); // pause for 5 minutes
+            break;
+        }
+      }
+      else
+        sendNTPPacket();
     }
     if (checkNTPResponse())
     {
@@ -201,16 +242,8 @@ void handleNetworkTime()
   }
 }
 
-void sendNTPPacket()
+static void sendNTPPacket()
 {
-  if (!ntpServerIP.fromString(ntpServerName)) //see if server is IP or domain
-  {
-    #ifdef ESP8266
-    WiFi.hostByName(ntpServerName, ntpServerIP, 750);
-    #else
-    WiFi.hostByName(ntpServerName, ntpServerIP);
-    #endif
-  }
 
   DEBUG_PRINTLN(F("send NTP"));
   byte pbuf[NTP_PACKET_SIZE];
@@ -229,16 +262,17 @@ void sendNTPPacket()
   ntpUdp.beginPacket(ntpServerIP, 123); //NTP requests are to port 123
   ntpUdp.write(pbuf, NTP_PACKET_SIZE);
   ntpUdp.endPacket();
+  ntpPacketSentTime = millis();
 }
 
-static bool isValidNtpResponse(byte * ntpPacket) {
+static bool isValidNtpResponse(const byte* ntpPacket) {
   // Perform a few validity checks on the packet
   //   based on https://github.com/taranais/NTPClient/blob/master/NTPClient.cpp
   if((ntpPacket[0] & 0b11000000) == 0b11000000) return false; //reject LI=UNSYNC
   // if((ntpPacket[0] & 0b00111000) >> 3 < 0b100) return false; //reject Version < 4
   if((ntpPacket[0] & 0b00000111) != 0b100)      return false; //reject Mode != Server
   if((ntpPacket[1] < 1) || (ntpPacket[1] > 15)) return false; //reject invalid Stratum
-  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 && 
+  if( ntpPacket[16] == 0 && ntpPacket[17] == 0 &&
       ntpPacket[18] == 0 && ntpPacket[19] == 0 &&
       ntpPacket[20] == 0 && ntpPacket[21] == 0 &&
       ntpPacket[22] == 0 && ntpPacket[23] == 0)               //reject ReferenceTimestamp == 0
@@ -247,7 +281,7 @@ static bool isValidNtpResponse(byte * ntpPacket) {
   return true;
 }
 
-bool checkNTPResponse()
+static bool checkNTPResponse()
 {
   int cb = ntpUdp.parsePacket();
   if (cb < NTP_MIN_PACKET_SIZE) {
@@ -258,8 +292,7 @@ bool checkNTPResponse()
   }
 
   uint32_t ntpPacketReceivedTime = millis();
-  DEBUG_PRINT(F("NTP recv, l="));
-  DEBUG_PRINTLN(cb);
+  DEBUG_PRINTF_P(PSTR("NTP recv, l=%d\n"), cb);
   byte pbuf[NTP_PACKET_SIZE];
   ntpUdp.read(pbuf, NTP_PACKET_SIZE); // read the packet into the buffer
   if (!isValidNtpResponse(pbuf)) return false;  // verify we have a valid response to client
@@ -317,7 +350,8 @@ void getTimeString(char* out)
   sprintf_P(out,PSTR("%i-%i-%i, %02d:%02d:%02d"),year(localTime), month(localTime), day(localTime), hr, minute(localTime), second(localTime));
   if (useAMPM)
   {
-    strcat(out,(hour(localTime) > 11)? " PM":" AM");
+    strcat_P(out,PSTR(" "));
+    strcat(out,(hour(localTime) > 11)? "PM":"AM");
   }
 }
 
@@ -380,56 +414,40 @@ bool isTodayInDateRange(byte monthStart, byte dayStart, byte monthEnd, byte dayE
 
 void checkTimers()
 {
-  if (lastTimerMinute != minute(localTime)) //only check once a new minute begins
-  {
+  if (lastTimerMinute != minute(localTime)) {
     lastTimerMinute = minute(localTime);
-
-    // re-calculate sunrise and sunset just after midnight
     if (!hour(localTime) && minute(localTime)==1) calculateSunriseAndSunset();
-
-    DEBUG_PRINTF("Local time: %02d:%02d\n", hour(localTime), minute(localTime));
-    for (uint8_t i = 0; i < 8; i++)
-    {
-      if (timerMacro[i] != 0
-          && (timerWeekday[i] & 0x01) //timer is enabled
-          && (timerHours[i] == hour(localTime) || timerHours[i] == 24) //if hour is set to 24, activate every hour
-          && timerMinutes[i] == minute(localTime)
-          && ((timerWeekday[i] >> weekdayMondayFirst()) & 0x01) //timer should activate at current day of week
-          && isTodayInDateRange(((timerMonth[i] >> 4) & 0x0F), timerDay[i], timerMonth[i] & 0x0F, timerDayEnd[i])
-         )
-      {
-        unloadPlaylist();
-        applyPreset(timerMacro[i]);
+    DEBUG_PRINTF_P(PSTR("Local time: %02d:%02d\n"), hour(localTime), minute(localTime));
+    for (size_t i = 0; i < timers.size(); i++) {
+      const Timer& t = timers[i];
+      if (!t.isEnabled()) continue;
+      time_t tt = 0;
+      if (t.isSunrise()) {
+        if (!sunrise) continue;
+        tt = sunrise + t.minute * 60;
+      } else if (t.isSunset()) {
+        if (!sunset) continue;
+        tt = sunset + t.minute * 60;
+      } else {
+        struct tm tim = {};
+        tim.tm_year = year(localTime) - 1900;
+        tim.tm_mon = month(localTime) - 1;
+        tim.tm_mday = day(localTime);
+        tim.tm_hour = t.hour;
+        tim.tm_min = t.minute;
+        tim.tm_sec = 0;
+        tim.tm_isdst = -1;
+        tt = mktime(&tim);
       }
-    }
-    // sunrise macro
-    if (sunrise) {
-      time_t tmp = sunrise + timerMinutes[8]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF("Trigger time: %02d:%02d\n", hour(tmp), minute(tmp));
-      if (timerMacro[8] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[8] & 0x01) //timer is enabled
-          && ((timerWeekday[8] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        unloadPlaylist();
-        applyPreset(timerMacro[8]);
-        DEBUG_PRINTF("Sunrise macro %d triggered.",timerMacro[8]);
-      }
-    }
-    // sunset macro
-    if (sunset) {
-      time_t tmp = sunset + timerMinutes[9]*60;  // NOTE: may not be ok
-      DEBUG_PRINTF("Trigger time: %02d:%02d\n", hour(tmp), minute(tmp));
-      if (timerMacro[9] != 0
-          && hour(tmp) == hour(localTime)
-          && minute(tmp) == minute(localTime)
-          && (timerWeekday[9] & 0x01) //timer is enabled
-          && ((timerWeekday[9] >> weekdayMondayFirst()) & 0x01)) //timer should activate at current day of week
-      {
-        unloadPlaylist();
-        applyPreset(timerMacro[9]);
-        DEBUG_PRINTF("Sunset macro %d triggered.",timerMacro[9]);
+      if ((hour(tt) == hour(localTime) && minute(tt) == minute(localTime)) || (t.hour == 24 && t.minute == minute(localTime))) {
+        if (!((t.weekdays >> weekdayMondayFirst()) & 0x01)) continue;
+        if (!isTodayInDateRange(t.monthStart, t.dayStart, t.monthEnd, t.dayEnd)) continue;
+        applyPreset(t.preset);
+        #ifdef WLED_DEBUG
+        if (t.isSunrise()) DEBUG_PRINTF_P(PSTR("Sunrise timer %d offset %d\n"), t.preset, t.minute);
+        else if (t.isSunset()) DEBUG_PRINTF_P(PSTR("Sunset timer %d offset %d\n"), t.preset, t.minute);
+        else DEBUG_PRINTF_P(PSTR("Timer %d: preset %d\n"), i, t.preset);
+        #endif
       }
     }
   }
@@ -441,7 +459,7 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
   //1. first calculate the day of the year
   float N1 = 275 * month / 9;
   float N2 = (month + 9) / 12;
-  float N3 = (1.0f + floorf((year - 4 * floorf(year / 4) + 2.0f) / 3.0f));
+  float N3 = (1.0f + floor_t((year - 4 * floor_t(year / 4) + 2.0f) / 3.0f));
   float N = N1 - (N2 * N3) + day - 30.0f;
 
   //2. convert the longitude to hour value and calculate an approximate time
@@ -452,43 +470,43 @@ static int getSunriseUTC(int year, int month, int day, float lat, float lon, boo
   float M = (0.9856f * t) - 3.289f;
 
   //4. calculate the Sun's true longitude
-  float L = fmodf(M + (1.916f * sinf(DEG_TO_RAD*M)) + (0.02f * sinf(2*DEG_TO_RAD*M)) + 282.634f, 360.0f);
+  float L = fmod_t(M + (1.916f * sin_t(DEG_TO_RAD*M)) + (0.02f * sin_t(2*DEG_TO_RAD*M)) + 282.634f, 360.0f);
 
   //5a. calculate the Sun's right ascension
-  float RA = fmodf(RAD_TO_DEG*atanf(0.91764f * tanf(DEG_TO_RAD*L)), 360.0f);
+  float RA = fmod_t(RAD_TO_DEG*atan_t(0.91764f * tan_t(DEG_TO_RAD*L)), 360.0f);
 
   //5b. right ascension value needs to be in the same quadrant as L
-  float Lquadrant  = floorf( L/90) * 90;
-  float RAquadrant = floorf(RA/90) * 90;
+  float Lquadrant  = floor_t( L/90) * 90;
+  float RAquadrant = floor_t(RA/90) * 90;
   RA = RA + (Lquadrant - RAquadrant);
 
   //5c. right ascension value needs to be converted into hours
   RA /= 15.0f;
 
   //6. calculate the Sun's declination
-  float sinDec = 0.39782f * sinf(DEG_TO_RAD*L);
-  float cosDec = cosf(asinf(sinDec));
+  float sinDec = 0.39782f * sin_t(DEG_TO_RAD*L);
+  float cosDec = cos_t(asin_t(sinDec));
 
   //7a. calculate the Sun's local hour angle
-  float cosH = (sinf(DEG_TO_RAD*ZENITH) - (sinDec * sinf(DEG_TO_RAD*lat))) / (cosDec * cosf(DEG_TO_RAD*lat));
+  float cosH = (sin_t(DEG_TO_RAD*ZENITH) - (sinDec * sin_t(DEG_TO_RAD*lat))) / (cosDec * cos_t(DEG_TO_RAD*lat));
   if ((cosH > 1.0f) && !sunset) return INT16_MAX;  // the sun never rises on this location (on the specified date)
   if ((cosH < -1.0f) && sunset) return INT16_MAX;  // the sun never sets on this location (on the specified date)
 
   //7b. finish calculating H and convert into hours
-  float H = sunset ? RAD_TO_DEG*acosf(cosH) : 360 - RAD_TO_DEG*acosf(cosH);
+  float H = sunset ? RAD_TO_DEG*acos_t(cosH) : 360 - RAD_TO_DEG*acos_t(cosH);
   H /= 15.0f;
 
   //8. calculate local mean time of rising/setting
   float T = H + RA - (0.06571f * t) - 6.622f;
 
   //9. adjust back to UTC
-  float UT = fmodf(T - lngHour, 24.0f);
+  float UT = fmod_t(T - lngHour, 24.0f);
 
   // return in minutes from midnight
 	return UT*60;
 }
 
-#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes 
+#define SUNSET_MAX (24*60) // 1day = max expected absolute value for sun offset in minutes
 // calculate sunrise and sunset (if longitude and latitude are set)
 void calculateSunriseAndSunset() {
   if ((int)(longitude*10.) || (int)(latitude*10.)) {
@@ -507,7 +525,7 @@ void calculateSunriseAndSunset() {
     do {
       time_t theDay = localTime - retryCount * 86400; // one day back = 86400 seconds
       minUTC = getSunriseUTC(year(theDay), month(theDay), day(theDay), latitude, longitude, false);
-      DEBUG_PRINT(F("* sunrise (minutes from UTC) = ")); DEBUG_PRINTLN(minUTC);
+      DEBUG_PRINTF_P(PSTR("* sunrise (minutes from UTC) = %d\n"), minUTC);
       retryCount ++;
     } while ((abs(minUTC) > SUNSET_MAX)  && (retryCount <= 3));
 
@@ -517,7 +535,7 @@ void calculateSunriseAndSunset() {
       tim_0.tm_hour = minUTC / 60;
       tim_0.tm_min = minUTC % 60;
       sunrise = tz->toLocal(mktime(&tim_0) + utcOffsetSecs);
-      DEBUG_PRINTF("Sunrise: %02d:%02d\n", hour(sunrise), minute(sunrise));
+      DEBUG_PRINTF_P(PSTR("Sunrise: %02d:%02d\n"), hour(sunrise), minute(sunrise));
     } else {
       sunrise = 0;
     }
@@ -526,7 +544,7 @@ void calculateSunriseAndSunset() {
     do {
       time_t theDay = localTime - retryCount * 86400; // one day back = 86400 seconds
       minUTC = getSunriseUTC(year(theDay), month(theDay), day(theDay), latitude, longitude, true);
-      DEBUG_PRINT(F("* sunset  (minutes from UTC) = ")); DEBUG_PRINTLN(minUTC);
+      DEBUG_PRINTF_P(PSTR("* sunset  (minutes from UTC) = %d\n"), minUTC);
       retryCount ++;
     } while ((abs(minUTC) > SUNSET_MAX)  && (retryCount <= 3));
 
@@ -536,7 +554,7 @@ void calculateSunriseAndSunset() {
       tim_0.tm_hour = minUTC / 60;
       tim_0.tm_min = minUTC % 60;
       sunset = tz->toLocal(mktime(&tim_0) + utcOffsetSecs);
-      DEBUG_PRINTF("Sunset: %02d:%02d\n", hour(sunset), minute(sunset));
+      DEBUG_PRINTF_P(PSTR("Sunset: %02d:%02d\n"), hour(sunset), minute(sunset));
     } else {
       sunset = 0;
     }
@@ -558,3 +576,69 @@ void setTimeFromAPI(uint32_t timein) {
   }
   if (presetsModifiedTime == 0) presetsModifiedTime = timein;
 }
+
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart, uint8_t monthEnd, uint8_t dayStart, uint8_t dayEnd) {
+  if (hour > 24 && hour != TH_SUNSET && hour != TH_SUNRISE) {
+    DEBUG_PRINTLN(F("Timer: Invalid hour value"));
+    return;
+  }
+  if (hour == TH_SUNRISE || hour == TH_SUNSET) {
+    if (minute < -120 || minute > 120) {
+      DEBUG_PRINTLN(F("Timer: Clamping sunrise/sunset offset to [-120,120]"));
+      if (minute < -120) minute = -120;
+      else if (minute > 120) minute = 120;
+    }
+  } else {
+    if (minute < 0 || minute > 59) {
+      DEBUG_PRINTLN(F("Timer: Invalid minute value"));
+      return;
+    }
+  }
+  if ((monthStart != 0 && monthStart > 12) ||
+      (monthEnd != 0 && monthEnd > 12)) {
+    DEBUG_PRINTLN(F("Timer: Invalid month range"));
+    return;
+  }
+  if ((dayStart != 0 && dayStart > 31) ||
+      (dayEnd != 0 && dayEnd > 31)) {
+    DEBUG_PRINTLN(F("Timer: Invalid day range"));
+    return;
+  }
+  if (timers.size() >= WLED_MAX_TIMERS) {
+    DEBUG_PRINTLN(F("Timer: Maximum number of timers reached"));
+    return;
+  }
+  Timer t(preset, hour, minute, weekdays, monthStart, monthEnd, dayStart, dayEnd);
+  timers.push_back(t);
+  DEBUG_PRINTF("Timer added: preset=%d, hour=%d, minute=%d, count=%d\n", preset, hour, minute, timers.size());
+}
+
+void removeTimer(size_t index) {
+  if (index < timers.size()) {
+    timers.erase(timers.begin() + index);
+    DEBUG_PRINTF("Timer removed at index %d, count=%d\n", index, timers.size());
+  }
+}
+
+void clearTimers() {
+  timers.clear();
+  DEBUG_PRINTLN(F("All timers cleared"));
+}
+
+size_t getTimerCount() {
+  return timers.size();
+}
+
+void compactTimers() {
+  for (size_t i = 0; i < timers.size();) {
+    const Timer& t = timers[i];
+    if (t.preset == 0) {
+      timers.erase(timers.begin() + i);
+    } else {
+      ++i;
+    }
+  }
+  timers.shrink_to_fit();
+}
+

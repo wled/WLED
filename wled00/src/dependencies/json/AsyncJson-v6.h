@@ -21,8 +21,6 @@
   #define DYNAMIC_JSON_DOCUMENT_SIZE 16384
 #endif
 
-constexpr const char* JSON_MIMETYPE = "application/json";
-
 /*
  * Json Response
  * */
@@ -66,7 +64,7 @@ class AsyncJsonResponse: public AsyncAbstractResponse {
 
     AsyncJsonResponse(JsonDocument *ref, bool isArray=false) : _jsonBuffer(1), _isValid{false} {
       _code = 200;
-      _contentType = JSON_MIMETYPE;
+      _contentType = FPSTR(CONTENT_TYPE_JSON);
       if(isArray)
         _root = ref->to<JsonArray>();
       else
@@ -75,7 +73,7 @@ class AsyncJsonResponse: public AsyncAbstractResponse {
 
     AsyncJsonResponse(size_t maxJsonBufferSize = DYNAMIC_JSON_DOCUMENT_SIZE, bool isArray=false) : _jsonBuffer(maxJsonBufferSize), _isValid{false} {
       _code = 200;
-      _contentType = JSON_MIMETYPE;
+      _contentType = FPSTR(CONTENT_TYPE_JSON);
       if(isArray)
         _root = _jsonBuffer.createNestedArray();
       else

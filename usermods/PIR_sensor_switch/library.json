@@ -1,0 +1,4 @@
+{
+  "name": "PIR_sensor_switch",
+  "build": { "libArchive": false }
+}
