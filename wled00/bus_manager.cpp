@@ -296,19 +296,19 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
-
-  if (c > 0) c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
-  if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
-  if (hasWhite()) {
-    c = autoWhiteCalc(c, cctWW, cctCW);
-  //  if (hasCCT()) {
-  //    _cctDataPtr[pix].ww = cctWW;  // TODO: uncomment after brightness scaling has been moved to bus level.
-  //    _cctDataPtr[pix].cw = cctCW;
-  //  }
-  }
   if (c > 0) {
+    c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
+    if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+    if (hasWhite()) {
+      c = autoWhiteCalc(c, cctWW, cctCW);
+    //  if (hasCCT()) {
+    //    _cctDataPtr[pix].ww = cctWW;  // TODO: uncomment after brightness scaling has been moved to bus level.
+    //    _cctDataPtr[pix].cw = cctCW;
+    //  }
+    }
+
     // Apply brightness via color_fade. For TM1814/TM1815 _effectiveBri is the sub-step residual pre-computed in setBrightness(); for all other types it equals _bri.
     c = color_fade(c, _effectiveBri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
 
