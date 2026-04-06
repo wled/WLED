@@ -1394,7 +1394,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  stopIndx   = startIndx + length;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
-  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+  opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
 
   const Segment *segO = topSegment.getOldSegment();
   const bool hasGrouping = topSegment.groupLength() != 1;
@@ -1416,7 +1416,6 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       uint32_t existing = BusManager::getPixelColor(physIdx);
       result = color_blend(existing, segblend(newC, existing), o);
     }
-    if (result > 0 && !(realtimeMode && arlsDisableGammaCorrection)) result = gamma32(result);
     BusManager::setPixelColor(physIdx, result);
   };
   #endif
@@ -1787,8 +1786,6 @@ void WS2812FX::show() {
     }
 
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
-    if(c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
-        c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
@@ -1863,7 +1860,10 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
-  if (gammaCorrectBri) b = gamma8(b);
+  if (gammaCorrectBri && b > 0) {
+    (int)(powf((float)b / 255.0f, gammaCorrectVal) * 255.0f + 0.5f); // use gamma formula instead of gamma table: gamma table is only for color correction (has unity mapping if color correction is diabled)
+    if (b == 0) b = 1; // dont go to 0 brigthness if input was non zero
+  }
   if (_brightness == b) return;
   _brightness = b;
   if (_brightness == 0) { //unfreeze all segments on power off

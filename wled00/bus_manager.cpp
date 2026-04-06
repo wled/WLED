@@ -297,6 +297,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
 
+  if (c > 0) c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
@@ -520,6 +521,7 @@ void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   }
   uint8_t cctWW, cctCW;
   if (_type != TYPE_ANALOG_3CH) c = autoWhiteCalc(c, cctWW, cctCW);
+  if (c > 0) c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
   uint8_t r = R(c), g = G(c), b = B(c), w = W(c);
   // note: no color scaling, brightness is applied in show()
 
@@ -762,6 +764,7 @@ void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   uint8_t ww, cw; // dummy, unused
   if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  if (c > 0) c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
   unsigned offset = pix * _UDPchannels;
   _data[offset]   = R(c);
   _data[offset+1] = G(c);
@@ -1075,6 +1078,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return; // note: no need to check pix >= _len as that is checked in containsPixel()
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
+  if (c > 0) c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
 
   if (_ledBuffer) {
     CRGB fastled_col = CRGB(c);

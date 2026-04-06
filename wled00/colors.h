@@ -101,9 +101,8 @@ class NeoGammaWLEDMethod {
     static inline uint8_t rawGamma8(uint8_t val) { return gammaT[val]; }  // get value from Gamma table (WLED specific, not used by NPB)
     static inline uint8_t rawInverseGamma8(uint8_t val) { return gammaT_inv[val]; }  // get value from inverse Gamma table (WLED specific, not used by NPB)
     static inline uint32_t Correct32(uint32_t color) { // apply Gamma to RGBW32 color (WLED specific, not used by NPB)
-      if (!gammaCorrectCol) return color; // no gamma correction
       uint8_t  w = byte(color>>24), r = byte(color>>16), g = byte(color>>8), b = byte(color); // extract r, g, b, w channels
-      w = gammaT[w]; r = gammaT[r]; g = gammaT[g]; b = gammaT[b];
+      w = gammaT[w]; r = gammaT[r]; g = gammaT[g]; b = gammaT[b]; // gammaT[] uses unity mapping if gammaCorrectCol is false
       return (uint32_t(w) << 24) | (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
     }
   private:

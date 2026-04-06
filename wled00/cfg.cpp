@@ -528,7 +528,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     gammaCorrectBri = false;
     gammaCorrectCol = false;
   }
-  NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
+  NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables (can be unity mapped if gamma=1.0)
 
   JsonObject light_tr = light["tr"];
   int tdd = light_tr["dur"] | -1;
