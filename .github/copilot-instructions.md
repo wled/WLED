@@ -39,7 +39,7 @@ For detailed build timeouts, development workflows, troubleshooting, and validat
    - New custom effects can be added into the user_fx usermod. Read the [user_fx documentation](https://github.com/wled/WLED/blob/main/usermods/user_fx/README.md) for guidance.
    - Other usermods may be based on the [EXAMPLE usermod](https://github.com/wled/WLED/tree/main/usermods/EXAMPLE). Never edit the example, always create a copy!
    - New usermod IDs can be added into [wled00/const.h](https://github.com/wled/WLED/blob/main/wled00/const.h#L160).
-   - To activate a usermod, a custom build configuration should be used. Add the usermod name to ``custom_usermods``.
+   - To activate a usermod, a custom build configuration should be used. Add the usermod name to `custom_usermods`.
 
 ## Project Structure Overview
 
@@ -67,7 +67,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 tl;dr: 
 * Firmware source: `wled00/` (C++). Web UI source: `wled00/data/`. Build targets: `platformio.ini`.
 * Auto-generated headers: `wled00/html_*.h` and `wled00/js_*.h` — **never edit or commit**.
-* ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json`. CI/CD: `.github/workflows/`.
+* ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json` (included via `wled.h`). CI/CD: `.github/workflows/`.
 * Usermods: `usermods/` (C++, with individual library.json).
 
 <!-- HUMAN_ONLY_START -->
