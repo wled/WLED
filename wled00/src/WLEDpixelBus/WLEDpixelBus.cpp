@@ -55,7 +55,7 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
   if (numChannels == 4) {
     // LED-type-specific native wire order: TM1814 and TM1815 send W first.
     // Shift RGB indices up by 1 and place W at index 0 before applying user wSwap.
-    if (ledType == WLEDPB_TYPE_TM1814 || ledType == WLEDPB_TYPE_TM1815) {
+    if (ledType == TYPE_TM1814 || ledType == TYPE_TM1815) {
       _idxR++; _idxG++; _idxB++;
       _idxW = 0;
     } else {
@@ -74,7 +74,7 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
   // 16-bit chips: 2 wire bytes per logical channel.
   // _logCh stays as the logical count; _numChannels becomes the wire count.
-  if (ledType == WLEDPB_TYPE_UCS8903 || ledType == WLEDPB_TYPE_UCS8904 || ledType == WLEDPB_TYPE_SM16825) {
+  if (ledType == TYPE_UCS8903 || ledType == TYPE_UCS8904 || ledType == TYPE_SM16825) {
     _numChannels *= 2;
   }
 }

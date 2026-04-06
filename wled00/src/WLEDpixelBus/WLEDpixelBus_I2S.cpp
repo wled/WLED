@@ -770,7 +770,7 @@ bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   _pixelData  = _encodeBuffer + _prefixLen;
-  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == WLEDPB_TYPE_SM16825)
+  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == TYPE_SM16825)
     memcpy(_pixelData + pixelBytes, SM16825_SUFFIX, sizeof(SM16825_SUFFIX));
   return true;
 }

@@ -282,7 +282,7 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels
   memset(_encodeBuffer, 0, needed);
   _encodeBufferSize = needed;
   _pixelData = _encodeBuffer + _prefixLen;
-  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == WLEDPB_TYPE_SM16825) {
+  if (_suffixLen == sizeof(SM16825_SUFFIX) && _ledType == TYPE_SM16825) {
     uint32_t* dst = (uint32_t*)(_pixelData + pixelBytes);
     for (uint8_t i = 0; i < (uint8_t)sizeof(SM16825_SUFFIX); i++) {
       uint32_t word = 0;

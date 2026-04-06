@@ -1,12 +1,6 @@
 #pragma once
 
-// LED type constants — must match the TYPE_* defines in wled00/const.h.
-// Duplicated here so WLEDpixelBus stays self-contained and does not depend on WLED internals.
-static constexpr uint8_t WLEDPB_TYPE_TM1814  = 31;
-static constexpr uint8_t WLEDPB_TYPE_TM1815  = 35;
-static constexpr uint8_t WLEDPB_TYPE_UCS8903 = 26;  // 16-bit RGB
-static constexpr uint8_t WLEDPB_TYPE_UCS8904 = 29;  // 16-bit RGBW
-static constexpr uint8_t WLEDPB_TYPE_SM16825 = 34;  // 16-bit RGB+WW+CW
+#include "../../const.h"
 
 // SM16825E 32-bit per-frame suffix (appended once after all pixel data):
 //   bits 31..7  (25 bits): current gain OUT R,G,B,W,Y — 5 bits each, 0x1F = 310mA, 0x00 = 10.2mA, step ~10.1mA
