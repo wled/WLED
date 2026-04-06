@@ -102,7 +102,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 
 - **Repository language is English.** Suggest translations for non-English content.
 - **Use VS Code with PlatformIO extension** for best development experience.
-- **Never edit or commit** `wled00/html_*.h` — auto-generated from `wled00/data/`.
+- **Never edit or commit** `wled00/html_*.h` and `wled00/js_*.h` — auto-generated from `wled00/data/`.
 - If updating Web UI files in `wled00/data/`, **make use of common functions in `wled00/data/common.js` whenever possible**.
 - **When unsure, say so.** Gather more information rather than guessing.
 - **Acknowledge good patterns** when you see them. Summarize good practices as part of your review - positive feedback always helps.
