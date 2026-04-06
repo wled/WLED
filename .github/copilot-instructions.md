@@ -27,7 +27,7 @@ Always reference these instructions first and fallback to search or bash command
 
 <!-- HUMAN_ONLY_END -->
 
-**Always run `npm ci; npm run build` before `pio run`.** The web UI build generates `wled00/html_*.h` header files required by firmware compilation.
+**Always run `npm ci; npm run build` before `pio run`.** The web UI build generates required `wled00/html_*.h` and `wled00/js_*.h` headers for firmware compilation.
 **Build firmware to validate code changes**: `pio run -e esp32dev` — must succeed, never skip this step.
 Common firmware environments: `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
 
@@ -112,6 +112,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 - **Provide references** when making analyses or recommendations. Base them on the correct branch or PR.
 - **Highlight user-visible breaking changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
 - **Unused / dead code must be justified or removed**. This helps to keep the codebase clean, maintainable and readable.
+- **C++ formatting available**: `clang-format` is installed but not in CI
 - No automated linting is configured — match existing code style in files you edit. See `cpp.instructions.md` and `web.instructions.md` for language-specific conventions, and `cicd.instructions.md` for GitHub Actions workflows.
 
 ### Attribution for AI-generated code
