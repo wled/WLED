@@ -11,7 +11,7 @@ Use these timeout values when running builds:
 
 | Command | Typical Time | Minimum Timeout | Notes |
 |---|---|---|---|
-| `npm run build` | ~3 s | 30 s | Web UI → `wled00/html_*.h` headers |
+| `npm run build` | ~3 s | 30 s | Web UI → `wled00/html_*.h` `wled00/js_*.h` headers |
 | `npm test` | ~40 s | 2 min | Validates build system |
 | `npm run dev` | continuous | — | Watch mode, auto-rebuilds on changes |
 | `pio run -e <env>` | 15–20 min | 30 min | First build downloads toolchains; subsequent builds are faster |
@@ -23,13 +23,13 @@ Use these timeout values when running builds:
 ### Web UI Changes
 
 1. Edit files in `wled00/data/`
-2. Run `npm run build` to regenerate `wled00/html_*.h` headers
+2. Run `npm run build` to regenerate `wled00/html_*.h` `wled00/js_*.h` headers
 3. Test with local HTTP server (see Manual Testing below)
 4. Run `npm test` to validate
 
 ### Firmware Changes
 
-1. Edit files in `wled00/` (but **never** `html_*.h` files)
+1. Edit files in `wled00/` (but **never** `html_*.h` and `js_*.h` files)
 2. Ensure web UI is built first: `npm run build`
 3. Build firmware: `pio run -e esp32dev` (set timeout ≥ 30 min)
 4. Flash to device: `pio run -e [target] --target upload`
@@ -85,7 +85,7 @@ Test these scenarios after every web UI change:
 ### Recovery Steps
 
 - **Force web UI rebuild**: `npm run build -- -f`
-- **Clear generated files**: `rm -f wled00/html_*.h` then `npm run build`
+- **Clear generated files**: `rm -f wled00/html_*.h wled00/js_*.h` then `npm run build`
 - **Clean PlatformIO cache**: `pio run --target clean`
 - **Reinstall Node deps**: `rm -rf node_modules && npm ci`
 
@@ -106,7 +106,8 @@ Match this workflow in local development to catch failures before pushing.
 
 ## Important Reminders
 
-- **Never edit or commit** `wled00/html_*.h` — auto-generated from `wled00/data/`
+- Always **commit source code**
+- **Never edit or commit** `wled00/html_*.h` and  `wled00/js_*.h` — auto-generated from `wled00/data/`
 - Web UI rebuild is part of the PlatformIO firmware compilation pipeline
 - Common environments:  `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
 - List all PlatformIO targets: `pio run --list-targets`
