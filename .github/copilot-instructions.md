@@ -27,9 +27,9 @@ Always reference these instructions first and fallback to search or bash command
 
 <!-- HUMAN_ONLY_END -->
 
-**Always run `npm ci; npm run build` before `pio run`.** The web UI build generates required `wled00/html_*.h` and `wled00/js_*.h` headers for firmware compilation.
-**Build firmware to validate code changes**: `pio run -e esp32dev` — must succeed, never skip this step.
-Common firmware environments: `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
+- **Always run `npm ci; npm run build` before `pio run`.** The web UI build generates required `wled00/html_*.h` and `wled00/js_*.h` headers for firmware compilation.
+- **Build firmware to validate code changes**: `pio run -e esp32dev` — must succeed, never skip this step.
+- Common firmware environments: `nodemcuv2`, `esp32dev`, `esp8266_2m`, `esp32c3dev`, `esp32s3dev_8MB_opi`
 
 For detailed build timeouts, development workflows, troubleshooting, and validation steps, see [agent-build.instructions.md](agent-build.instructions.md).
 
@@ -64,13 +64,10 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 ### Repository Structure
 
 tl;dr: 
-* Firmware source: `wled00/` (C++).
-* Build targets: `platformio.ini`.
-* Web UI source: `wled00/data/`.
-* Auto-generated headers: `wled00/html_*.h` — **never edit or commit**.
-* ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json`
+* Firmware source: `wled00/` (C++). Web UI source: `wled00/data/`. Build targets: `platformio.ini`.
+* Auto-generated headers: `wled00/html_*.h` and `wled00/js_*.h` — **never edit or commit**.
+* ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json`. CI/CD: `.github/workflows/`.
 * Usermods: `usermods/` (C++, with individual library.json).
-* CI/CD: `.github/workflows/`.
 
 <!-- HUMAN_ONLY_START -->
 Detailed overview:
@@ -113,7 +110,9 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 - **Highlight user-visible breaking changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
 - **Unused / dead code must be justified or removed**. This helps to keep the codebase clean, maintainable and readable.
 - **C++ formatting available**: `clang-format` is installed but not in CI
-- No automated linting is configured — match existing code style in files you edit. See `cpp.instructions.md` and `web.instructions.md` for language-specific conventions, and `cicd.instructions.md` for GitHub Actions workflows.
+- No automated linting is configured — match existing code style in files you edit. 
+
+See `cpp.instructions.md` and `web.instructions.md` for language-specific conventions, and `cicd.instructions.md` for GitHub Actions workflows.
 
 ### Attribution for AI-generated code
 Using AI-generated code can hide the source of the inspiration / knowledge / sources it used. 
