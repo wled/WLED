@@ -168,13 +168,13 @@ struct CctPixel {
 };*/
 struct CctPixel {
   union {
+      uint16_t wwcw; // Access as a 16-bit value (0xWWCW), default when setting 16-bit CCT types
       struct {
         uint8_t ww;  // Warm white
         uint8_t cw;  // Cool white
       };
-      uint16_t wwcw; // Access as a 16-bit value (0xWWCW)
   };
-}
+};
 
 //==============================================================================
 // Driver State
@@ -304,7 +304,10 @@ protected:
   uint8_t  _ledType   = 0;            // LED chip type (e.g. 31=TM1814); 0 = generic
   uint8_t* _pixelData = nullptr;      // _encodeBuffer + _prefixLen, cached to avoid per-call addition
   uint8_t  _suffixLen = 0;            // byte length of chip suffix appended after pixel data
-  uint8_t  _busBri   = 255;           // bus-level brightness applied during encoding (currently used for 16-bit LED types)
+  uint8_t  _busBri = 255;  // brightness for color_fade() in setPixelColor(): _bri for 8-bit types,
+                           // fine residual for TM1814/TM1815, 255 (no-op) for 16-bit types
+  uint8_t  _encBri = 255;  // encoder brightness for 16-bit types (SM16825/UCS8903/UCS8904):
+                           // applied as channel*_encBri for full 16-bit wire precision; 255 for 8-bit
 
 public:
   virtual ~PixelBus() {
@@ -335,12 +338,15 @@ public:
   }
 
   /**
-   * Set bus-level brightness applied during pixel encoding.
-   * For 16-bit LED types (SM16825, UCS8903, UCS8904) this replaces color_fade,
-   * encoding each channel as `channel * bri` to use the full 16-bit wire resolution.
+   * Set bus-level brightness applied during pixel encoding for all LED types.
+   * For 8-bit types: applied as video-scale fade on the full uint32_t pixel (hue-preserving).
+   * For 16-bit types (SM16825, UCS8903, UCS8904): applied as `channel * bri` → full 16-bit value.
+   * For TM1814/TM1815: set to the fine residual scale after hardware current-step selection.
    * @param b  brightness 0–255
    */
-  void setBusBri(uint8_t b) { _busBri = b; }
+  void setBusBri(uint8_t b) { _busBri = b; } // TODO: brightness scaling/parameters may need some refinement or moving
+  void setEncBri(uint8_t b) { _encBri = b; }
+  inline uint8_t getBusBri() const { return _busBri; }
 
   /**
    * physical output signal inversion (polarity).
@@ -390,28 +396,27 @@ public:
   virtual const char* getType() const = 0;
 
   /**
-   * Encode one pre-processed pixel into _encodeBuffer at position pos.
-   * Dispatches to branch-free encodeRGB/encodeRGBW/encodeCCT based on channel count.
-   * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
+   * Encode one pixel into _encodeBuffer at pos.
+   * c and ww/cw must already be brightness-scaled by the caller (BusDigital::setPixelColor
+   * applies color_fade() via _busBri before calling here). For 16-bit LED types the encoder
+   * multiplies each channel by _encBri for full 16-bit wire precision.
    * @param pos  pixel index (0-based, hardware index including skip)
-   * @param c    RGBW color, already brightness-scaled by BusDigital
-   * @param ww   warm-white value (from CCT calculation), 0 for non-CCT buses
-   * @param cw   cool-white value (from CCT calculation), 0 for non-CCT buses
-   * @return false if pos out of range or buffer not yet allocated
+   * @param c    RGBW color (brightness-scaled for 8-bit types; raw for 16-bit)
+   * @param wwcw  warm-white/cool-white combined (CCT calculation result, brightness-scaled)
    */
   // Preconditions (guaranteed by BusDigital calling path):
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
-  virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+  virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
     const uint8_t nch = _encoder.getNumChannels();
     uint8_t* out = _pixelData + (size_t)pos * nch;
     switch (nch) {
-      case 3:  _encoder.encodeRGB(c, out);                      break;
-      case 4:  _encoder.encodeRGBW(c, out);                     break;
-      case 6:  _encoder.encodeRGB16(c, out, _busBri);           break;
-      case 8:  _encoder.encodeRGBW16(c, out, _busBri);          break;
-      case 10: { CctPixel cct{ww, cw}; _encoder.encodeCCT16(c, cct, out, _busBri); break; }
-      default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, out);            break; }
+      case 3:  _encoder.encodeRGB(c, out);                                          break;
+      case 4:  _encoder.encodeRGBW(c, out);                                         break;
+      case 6:  _encoder.encodeRGB16(c, out, _encBri);                               break;
+      case 8:  _encoder.encodeRGBW16(c, out, _encBri);                              break;
+      case 10: { CctPixel cct{wwcw}; _encoder.encodeCCT16(c, cct, out, _encBri); break; }
+      default: { CctPixel cct{wwcw}; _encoder.encodeCCT(c, cct, out);             break; }
     }
     return true;
   }

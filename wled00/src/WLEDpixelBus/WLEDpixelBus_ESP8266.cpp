@@ -514,16 +514,16 @@ void Esp8266DmaBus::end() {
 //   Pixel data starts at offset 0 in _encodeBuffer (no lead-in needed;
 //   idle state ensures GPIO3 is LOW before the first pixel bit arrives).
 // ---------------------------------------------------------------------------
-IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint8_t ww, uint8_t cw) {
+IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
   uint8_t numCh = _encoder.getNumChannels();
   uint8_t src[10];
   switch (numCh) {
     case 3:  _encoder.encodeRGB(c, src);            break;
     case 4:  _encoder.encodeRGBW(c, src);           break;
-    case 6:  _encoder.encodeRGB16(c, src);          break;
-    case 8:  _encoder.encodeRGBW16(c, src);         break;
-    case 10: { CctPixel cct{ww, cw}; _encoder.encodeCCT16(c, cct, src); break; }
-    default: { CctPixel cct{ww, cw}; _encoder.encodeCCT(c, cct, src);   break; }
+    case 6:  _encoder.encodeRGB16(c, src, _encBri);                        break;
+    case 8:  _encoder.encodeRGBW16(c, src, _encBri);                       break;
+    case 10: { CctPixel cct{wwcw}; _encoder.encodeCCT16(c, cct, src, _encBri); break; }
+    default: { CctPixel cct{wwcw}; _encoder.encodeCCT(c, cct, src);   break; }
   }
   uint32_t* dst = (uint32_t*)(_pixelData + (size_t)pos * numCh * 4);
   for (uint8_t b = 0; b < numCh; b++) {

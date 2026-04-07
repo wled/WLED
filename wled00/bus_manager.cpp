@@ -141,7 +141,6 @@ BusDigital::BusDigital(const BusConfig &bc)
   if (!isDigital(bc.type) || !bc.count) { DEBUGBUS_PRINTLN(F("Not digial or empty bus!")); return; }
   if (!PinManager::allocatePin(bc.pins[0], true, PinOwner::BusDigital)) { DEBUGBUS_PRINTLN(F("Pin 0 allocated!")); return; }
   _frequencykHz = 0U;
-  _colorSum = 0;
   _pins[0] = bc.pins[0];
   if (is2Pin(bc.type)) {
     if (!PinManager::allocatePin(bc.pins[1], true, PinOwner::BusDigital)) {
@@ -198,51 +197,45 @@ BusDigital::BusDigital(const BusConfig &bc)
 
 void BusDigital::setBrightness(uint8_t b) {
   _bri = b;
+  if (!_busPtr) return;
   if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
-    uint8_t currentStep;
-    WLEDpixelBus::mapBrightnessToCurrentStep(b, 64, 44, currentStep, _effectiveBri);
-
-    // TM1814/TM1815: encode brightness as drive current (64 steps: 6.5–38 mA).
-    // mapBrightnessToCurrentStep() picks the smallest step >= target; the residual colorScale
-    // was already applied per-pixel in setPixelColor(), so only the prefix needs updating here.
-    // TODO: need support other LED types?
-    if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
-      // Drive current is set from _bri, cached as _currentStep in setBrightness()
-      // ABL applies to pixel colors via scaleAll() in applyBriLimit(), not to the current step.
-      // set the LED current by writing the prefix
-      uint8_t prefix[8];
-      memset(prefix,     currentStep,  4);  // C1: W R G B
-      memset(prefix + 4, ~currentStep, 4);  // C2: ~W ~R ~G ~B
-      _busPtr->updatePrefix(prefix, 8); // note: the pre
-    }
-
+    // TM1814/TM1815: coarse brightness via hardware drive current (64 steps),
+    // fine residual applied via color_fade() in setPixelColor().
+    uint8_t currentStep, residualBri;
+    WLEDpixelBus::mapBrightnessToCurrentStep(b, 64, 44, currentStep, residualBri);
+    uint8_t prefix[8];
+    memset(prefix,     currentStep,  4);  // C1: W R G B
+    memset(prefix + 4, ~currentStep, 4);  // C2: ~W ~R ~G ~B
+    _busPtr->updatePrefix(prefix, 8);
+    _busPtr->setBusBri(residualBri);      // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
-    // 16-bit LED types (SM16825, UCS8903, UCS8904): skip color_fade brightness scaling.
-    // Brightness is applied directly in the 16-bit encoder as `channel * bri`, using the
-    // full 16-bit resolution instead of discarding the low byte.
-    _effectiveBri = 255;
-    _busPtr->setBusBri(b);
-
+    // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
+    // encoder applies full 16-bit precision via channel*_encBri.
+    _busPtr->setBusBri(255);
+    _busPtr->setEncBri(b);
   } else {
-    _effectiveBri = b;
+    _busPtr->setBusBri(b);                // used by color_fade() in setPixelColor()
   }
 }
 
 void BusDigital::estimateCurrent() {
+  uint32_t colorSum = _colorSum;
   uint32_t actualMilliampsPerLed = _milliAmpsPerLed;
   if (_milliAmpsPerLed == 255) {
     // use wacky WS2815 power model, see WLED issue #549
-    _colorSum *= 3; // sum is sum of max value for each color, need to multiply by three to account for clrUnitsPerChannel being 3*255
+    // WS2815 power model: _colorSum accumulated max(R,G,B) per pixel; multiply by 3 to match clrUnitsPerChannel
+    colorSum *= 3;
     actualMilliampsPerLed = 12; // from testing an actual strip
   }
-  // TM1814/TM1815: colors were accumulated with _effectiveBri-scaled values (the sub-step residual).
-  // Scale _colorSum back to the full _bri level before estimating current so ABL works correctly.
+  // TM1814/TM1815: colors were accumulated with the fine residual brightness (getBusBri()).
+  // Scale colorSum back to the full _bri level so ABL sees the correct hardware power draw.
   if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
-    if (_effectiveBri > 0) _colorSum = ((uint64_t)_colorSum * _bri) / _effectiveBri;
+    const uint8_t busBri = _busPtr->getBusBri();
+    if (busBri > 0) colorSum = ((uint64_t)colorSum * _bri) / busBri;
   }
-  // _colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
+  // colorSum has all the values of color channels summed, max would be getLength()*(3*255 + (255 if hasWhite()): convert to milliAmps
   uint32_t clrUnitsPerChannel = hasWhite() ? 4*255 : 3*255;
-  _milliAmpsTotal = ((uint64_t)_colorSum * actualMilliampsPerLed) / clrUnitsPerChannel + getLength(); // add 1mA standby current per LED to total (WS2812: ~0.7mA, WS2815: ~2mA)
+  _milliAmpsTotal = ((uint64_t)colorSum * actualMilliampsPerLed) / clrUnitsPerChannel + getLength(); // add 1mA standby current per LED
 }
 
 void BusDigital::applyBriLimit(uint8_t newBri) {
@@ -292,7 +285,7 @@ void BusDigital::clearPixels() {
 //TODO only show if no new show due in the next 50ms
 void BusDigital::setStatusPixel(uint32_t c) {
   if (_valid && _skip) {
-    _busPtr->setPixel(0, c, 0, 0);
+    _busPtr->setPixel(0, c, 0);
     if (canShow()) _busPtr->show();
   }
 }
@@ -310,24 +303,20 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
     if (hasWhite()) {
       c = autoWhiteCalc(c, cctWW, cctCW);
-    //  if (hasCCT()) {
-    //    _cctDataPtr[pix].ww = cctWW;  // TODO: uncomment after brightness scaling has been moved to bus level.
-    //    _cctDataPtr[pix].cw = cctCW;
-    //  }
     }
-
-    // Apply brightness via color_fade. For TM1814/TM1815 _effectiveBri is the sub-step residual pre-computed in setBrightness(); for all other types it equals _bri.
-    c = color_fade(c, _effectiveBri, true); // apply brightness  TODO: move this to bus level? requires the ABL to also be on bus level (which for per bus ABL makes sense) and we can do some trickery: sum up unscaled pixels brightness, then apply the factor for global ABL.
-
+    // Apply brightness via color_fade() on the full uint32_t — hue-preserving video scale.
+    // _busBri is the correct value for each type:
+    //   normal 8-bit: _bri    | TM1814/15: fine residual    | 16-bit: 255 (no-op, encoder uses _encBri)
+    const uint8_t bri = _busPtr->getBusBri();
+    c = color_fade(c, bri, true);
     if (hasCCT()) {
-      wwcw = ((cctCW + 1) * _effectiveBri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
-      wwcw |= ((cctWW + 1) * _effectiveBri) >> 8;
-      if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
+      wwcw  = ((uint16_t)(cctCW + 1) * bri) & 0xFF00; // scale CW, store in high byte
+      wwcw |= ((uint16_t)(cctWW + 1) * bri) >> 8;     // scale WW, store in low byte
+      if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww, cw, 0, w
     }
-
     if (BusManager::_useABL) {
-      // sum all color channels to estimate current; colors are already effectiveBri-scaled.
-      // estimateCurrent() corrects for the TM1814/TM1815 colorScale factor before computing milliAmps.
+      // Accumulate brightness-scaled channel values for current estimation.
+      // For 16-bit types c is unscaled (bri=255 above); ABL slightly over-estimates at low brightness.
       uint8_t r = R(c), g = G(c), b = B(c);
       if (_milliAmpsPerLed < 255) { // normal ABL
         _colorSum += r + g + b + W(c);
@@ -337,7 +326,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs  TODO: move this to bus level? would make sense to have a bus type for this.
+  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
     unsigned pOld = pix;
     pix = IC_INDEX_WS2812_1CH_3X(pix);
     uint32_t cOld = _busPtr->getPixelColor(pix);
@@ -348,8 +337,7 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  // set pixels directly into encode buffer via bus
-  _busPtr->setPixel(pix, c, wwcw & 0xFF, wwcw >> 8);
+  _busPtr->setPixel(pix, c, wwcw);
 }
 
 // returns lossly restored color from bus
@@ -1511,7 +1499,7 @@ void BusManager::applyABL() {
         milliAmpsSum = globalMax; // update total used current
       }
 
-      // apply brightness limit to each bus, if its 255 it will only reset _colorSum
+      // apply brightness limit to each bus; resets bus _colorSum for next frame
       for (auto &bus : busses) {
         if (bus->isDigital() && bus->isOk()) {
           BusDigital &busd = static_cast<BusDigital&>(*bus);
