@@ -82,7 +82,7 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 
 ## Strings
 
-- Use `F("string")` for string constants (stores in PROGMEM, saves RAM)
+- Use `F("string")` for string constants (saves RAM on 8266)
 - Use `const char*` for temporary/parsed strings
 - Avoid `String` (Arduino heap-allocated string) in hot paths; acceptable in config/setup code
 
