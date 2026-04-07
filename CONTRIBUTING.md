@@ -11,7 +11,7 @@ Here are a few suggestions to make it easier for you to contribute:
 
 ### Important Developer Infos
 * [Project Structure, Files and Directories](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#project-branch--release-structure) (in our AI instructions)
-* [Instructions for creating usermods](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#adding-a-new-usermod) (in our AI instructions)
+* [Instructions for creating usermods](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#usermod-guidelines) (in our AI instructions)
 * KB: [Compiling WLED](https://kno.wled.ge/advanced/compiling-wled/) - slightly outdated but still helpful :-)
 * Arduino IDE is not supported any more. Use VSCode with the PlatformIO extension. 
 * [Compiling in VSCode/Platformio](https://github.com/wled/WLED-Docs/issues/161) - modern way without command line or platformio.ini changes.
