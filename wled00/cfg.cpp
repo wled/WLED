@@ -801,9 +801,8 @@ bool deserializeConfigFromFS() {
   if (!success || (pDoc->overflowed())) pDoc->clear(); // corrupted/too-large → same as missing: seed defaults
   // NOTE: This routine deserializes *and* applies the configuration
   //       Therefore, must also initialize ethernet from this function
-  bool needsSave = false;
   JsonObject root = pDoc->as<JsonObject>();
-  needsSave = deserializeConfig(root, true);
+  bool needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
 
   return needsSave;
