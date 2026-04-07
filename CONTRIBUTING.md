@@ -179,7 +179,7 @@ If you are curious, these are the detailed guides:
 * [C++ Coding](https://github.com/wled/WLED/blob/main/docs/cpp.instructions.md)
 * [WebUi: HTML, JS, CSS](https://github.com/wled/WLED/blob/main/docs/web.instructions.md)
 
-Below are the main rules used the WLED repository:
+Below are the main rules used in the WLED repository:
 
 #### Indentation
 
