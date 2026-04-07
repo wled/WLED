@@ -791,7 +791,7 @@ void resetConfig() {
 }
 
 bool deserializeConfigFromFS() {
-   (void) deserializeConfigSec(); // success/failure is ignored intentionally. We need to read cfg.json even when wsec.json has errors.
+  (void) deserializeConfigSec(); // success/failure is ignored intentionally. We need to read cfg.json even when wsec.json has errors.
 
   if (!requestJSONBufferLock(JSON_LOCK_CFG_DES)) return false;
 
