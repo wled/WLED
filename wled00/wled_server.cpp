@@ -204,6 +204,11 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
       finalname = '/' + finalname; // prepend slash if missing
     }
 
+    if (finalname.indexOf(FPSTR(s_wsec)) >= 0) {
+      request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // skip wsec.json
+      return;
+    }
+
     request->_tempFile = WLED_FS.open(finalname, "w");
     DEBUG_PRINTF_P(PSTR("Uploading %s\n"), finalname.c_str());
     if (finalname.equals(FPSTR(getPresetsFileName()))) presetsModifiedTime = toki.second();
