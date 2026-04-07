@@ -23,7 +23,7 @@ Use these timeout values when running builds:
 ### Code Style Summary
 - **C++** files in `wled00/` and `usermods/`: 2-space indentation (no tabs), camelCase functions/variables, PascalCase classes, UPPER_CASE macros. No C++ exceptions — use return codes and debug macros.
 - **Web UI** files in `wled00/data`: indent HTML and JavaScript with tabs, CSS with tabs.
-- **CI/CD workflows** in `.github/workflows`: 2-space indentation, descriptive `name:` on every workflow/job/step. Third-party actions must be pinned to a specific version tag — branch pins such as @main or @master are not allowed. SHA pinning recommended.
+- **CI/CD workflows** in `.github/workflows`: 2-space indentation, descriptive `name:` on every workflow/job/step. Third-party actions must be pinned to a specific version tag — branch pins such as `@main` or `@master` are not allowed. SHA pinning recommended.
 
 ### Web UI Changes
 
