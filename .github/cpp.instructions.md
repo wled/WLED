@@ -129,24 +129,28 @@ Heap fragmentation is a concern:
 <!-- HUMAN_ONLY_END -->
 
 ## `const` and `constexpr`
-Add `const` to cached locals in hot-path code (helps the compiler keep values in registers). Pass and store objects by `const&` to avoid copies in loops. 
-
 <!-- HUMAN_ONLY_START -->
 `const` is a promise to the compiler that a value (or object) will not change - a function declared with a `const char* message` parameter is not allowed to modify the content of `message`.
 This pattern enables optimizations and makes intent clear to reviewers.
 
-### `const` locals
+`constexpr` allows to define constants that are *guaranteed* to be evaluated by the compiler (zero run-time costs).
 
+<!-- HUMAN_ONLY_END -->
+- For function parameters that are read-only, prefer `const &` or `const`.
+
+### `const` locals
+<!-- HUMAN_ONLY_START -->
 * Adding `const` to a local variable that is only assigned once is optional, but *not* strictly necessary.
-* In hot-path code, `const` on cached locals may help the compiler keep values in registers:
+<!-- HUMAN_ONLY_END -->
+* In hot-path code, `const` on cached locals may help the compiler keep values in registers.
   ```cpp
   const uint_fast16_t cols = vWidth();
   const uint_fast16_t rows = vHeight();
   ```
-<!-- HUMAN_ONLY_END -->
-### `const` references to avoid copies
 
-Pass and store objects by `const &` (or `&`) instead of copying them implicitly. This avoids constructing temporary objects on every access — especially important in loops.
+### `const` references to avoid copies
+- Pass objects by `const &` (or `&`) instead of copying them implicitly.
+- Use `const &` (or `&`)  inside loops - This avoids constructing temporary objects on every access.
 
 <!-- HUMAN_ONLY_START -->
 ```cpp
@@ -155,11 +159,13 @@ Segment& sourcesegment = strip.getSegment(sourceid); // alias — avoids creatin
 ```
 
 For function parameters that are read-only, prefer `const &`:
-
 ```cpp
 BusManager::add(const BusConfig &bc, bool placeholder) {
 ```
+
 <!-- HUMAN_ONLY_END -->
+- Class **Data Members:** Avoid reference data members (`T&` or `const T&`) in a class. 
+  A reference member can outlive the object it refers to, causing **dangling reference** bugs that are hard to diagnose. Prefer value storage or use a pointer and document the expected lifetime.
 
 ### `constexpr` over `#define`
 <!-- HUMAN_ONLY_START -->
@@ -444,7 +450,7 @@ if (lastKelvin != kelvin) {
 - On ESP32, `delay()` is generally allowed, as it helps to efficiently manage CPU usage of all tasks.
 - On ESP8266, only use `delay()` and `yield()` in the main `loop()` context. If not sure, protect with `if (can_yield()) ...`.
 - Do *not* use `delay()` in effects (FX.cpp) or in the hot pixel path.
-- `delay()` on ``busses`` level is allowed, it might be needed to achieve exact timing in LED drivers.
+- `delay()` on the bus level is allowed, it might be needed to achieve exact timing in LED drivers.
 
 #### IDLE Watchdog and Custom Tasks on ESP32
 
