@@ -82,9 +82,14 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 
 ## Strings
 
-- Use `F("string")` for string constants (saves RAM on 8266)
 - Use `const char*` for temporary/parsed strings
 - Avoid `String` (Arduino heap-allocated string) in hot paths; acceptable in config/setup code
+- Use `F("string")` for string constants (saves RAM on 8266)
+<!-- HUMAN_ONLY_START -->
+
+  On **ESP8266** this explicitly stores the string in flash (PROGMEM), saving precious RAM — every byte counts on that platform. 
+  On **ESP32**, `PROGMEM` is a no-op and string literals already reside in flash/rodata, so `F()` yields little RAM benefit but remains harmless (it satisfies `__FlashStringHelper*` overloads that some APIs expect).
+<!-- HUMAN_ONLY_END -->
 
 ```cpp
   DEBUG_PRINTLN(F("WS client connected."));  // string stays in flash, not RAM
