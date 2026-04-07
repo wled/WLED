@@ -389,7 +389,7 @@ Move invariant calculations before the loop. Pre-compute reciprocals to replace 
 ```cpp
 const uint_fast16_t cols = virtualWidth();
 const uint_fast16_t rows = virtualHeight();
-uint_fast8_t fadeRate = (255 - rate) >> 1;
+uint_fast8_t fadeRate = (255U - rate) >> 1;
 float mappedRate_r = 1.0f / (float(fadeRate) + 1.1f);  // reciprocal — avoid division inside loop
 ```
 
@@ -408,7 +408,7 @@ return rb | wg;
 ### Bit Shifts Over Division (mainly for RISC-V boards)
 
 ESP32 and ESP32-S3 (Xtensa core) have a fast "integer divide" instruction, so manual shifts rarely help. 
-On RISC-V targets (ESP32-C3/C6/P4), prefer explicit bit-shifts for power-of-two arithmetic — the compiler does **not** always convert divisions to shifts on RISC-V at `-O2`. Always use unsigned operands; signed right-shift is implementation-defined.
+On RISC-V targets (ESP32-C3/C6/P4) and ESP8266, prefer explicit bit-shifts for power-of-two arithmetic — the compiler does **not** always convert divisions to shifts on RISC-V at `-O2`. Always use unsigned operands for right shifts; signed right-shift is implementation-defined.
 
 <!-- HUMAN_ONLY_START -->
 On RISC-V-based boards (ESP32-C3, ESP32-C6, ESP32-C5) explicit shifts can be beneficial.
