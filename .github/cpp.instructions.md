@@ -137,12 +137,12 @@ This pattern enables optimizations and makes intent clear to reviewers.
 
 ### `const` locals
 
-Adding `const` to a local variable that is only assigned once is not necessary — but it **is** required when the variable is passed to a function that takes a `const` parameter (pointer or reference). In hot-path code, `const` on cached locals helps the compiler keep values in registers:
-
-```cpp
-const uint_fast16_t cols = vWidth();
-const uint_fast16_t rows = vHeight();
-```
+* Adding `const` to a local variable that is only assigned once is optional, but *not* strictly necessary.
+* In hot-path code, `const` on cached locals may help the compiler keep values in registers:
+  ```cpp
+  const uint_fast16_t cols = vWidth();
+  const uint_fast16_t rows = vHeight();
+  ```
 <!-- HUMAN_ONLY_END -->
 ### `const` references to avoid copies
 

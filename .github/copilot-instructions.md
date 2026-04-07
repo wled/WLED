@@ -20,7 +20,7 @@ Always reference these instructions first and fallback to search or bash command
 
 | Command | Purpose | Typical Time |
 |---|---|---|
-| `npm run build` | Build web UI → generates `wled00/html_*.h` headers | ~3 s |
+| `npm run build` | Build web UI → generates `wled00/html_*.h` and `wled00/js_*.h` headers | ~3 s |
 | `npm test` | Run test suite | ~40 s |
 | `npm run dev` | Watch mode — auto-rebuilds web UI on file changes | — |
 | `pio run -e <env>` | Build firmware for a hardware target | 15–20 min |
