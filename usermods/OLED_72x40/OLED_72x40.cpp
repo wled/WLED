@@ -148,7 +148,7 @@ class UsermodOLED72x40 : public Usermod {
             digitalWrite(activeLedPin, !digitalRead(activeLedPin));
           }
         } else {
-          float pulse = (sin(millis() / 2000.0 * PI) + 1) * 127.5;
+          float pulse = (sin_approx(millis() / 2000.0f * PI) + 1.0f) * 127.5f;
           analogWrite(activeLedPin, (int)pulse);
         }
       }
