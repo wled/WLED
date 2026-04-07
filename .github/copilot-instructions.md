@@ -69,6 +69,7 @@ tl;dr:
 * Auto-generated headers: `wled00/html_*.h` and `wled00/js_*.h` — **never edit or commit**.
 * ArduinoJSON + AsyncJSON: `wled00/src/dependencies/json` (included via `wled.h`). CI/CD: `.github/workflows/`.
 * Usermods: `usermods/` (C++, with individual library.json).
+* Contributor docs: `docs/` (coding guidelines, etc).
 
 <!-- HUMAN_ONLY_START -->
 Detailed overview:
@@ -95,6 +96,7 @@ pio-scripts/           # Build tools (PlatformIO)
 tools/                 # Build tools (Node.js), partition files, and generic utilities
   ├── cdata.js         # Web UI build script
   └── cdata-test.js    # Test suite
+docs/                  # Contributor docs, coding guidelines
 .github/workflows/     # CI/CD pipelines
 ```
 
@@ -113,7 +115,7 @@ tools/                 # Build tools (Node.js), partition files, and generic uti
 - **C++ formatting available**: `clang-format` is installed but not in CI
 - No automated linting is configured — match existing code style in files you edit. 
 
-See `cpp.instructions.md` and `web.instructions.md` for language-specific conventions, and `cicd.instructions.md` for GitHub Actions workflows.
+Refer to `docs/cpp.instructions.md` and `docs/web.instructions.md` for language-specific conventions, and `docs/cicd.instructions.md` for GitHub Actions workflows.
 
 ### Attribution for AI-generated code
 Using AI-generated code can hide the source of the inspiration / knowledge / sources it used. 

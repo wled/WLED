@@ -174,7 +174,12 @@ AI tools are powerful but "often wrong" - your judgment is essential! 😊
 
 Don't stress too much about style! When in doubt, just match the style in the files you're editing. 😊
 
-Here are our main guidelines:
+Our review bot (coderabbit) has learned lots of detailed guides and hints - it will suggest them automatically when you submit a PR for review.
+If you are curious, these are the detailed guides:
+* [C++ Coding](https://github.com/wled/WLED/blob/main/docs/cpp.instructions.md)
+* [WebUi: HTML, JS, CSS](https://github.com/wled/WLED/blob/main/docs/web.instructions.md)
+
+Below are the main rules used the WLED repository:
 
 #### Indentation
 
