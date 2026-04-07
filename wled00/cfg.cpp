@@ -798,15 +798,12 @@ bool deserializeConfigFromFS() {
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
   bool success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
-  if (pDoc->overflowed()) success = false; // treat overflowed / noMemory as read error - cfg.json is expected to be small (a few Kb)
-
+  if (!success || (pDoc->overflowed())) pDoc->clear(); // corrupted/too-large → same as missing: seed defaults
   // NOTE: This routine deserializes *and* applies the configuration
   //       Therefore, must also initialize ethernet from this function
   bool needsSave = false;
-  if (success) {
-    JsonObject root = pDoc->as<JsonObject>();
-    needsSave = deserializeConfig(root, true);
-  }
+  JsonObject root = pDoc->as<JsonObject>();
+  needsSave = deserializeConfig(root, true);
   releaseJSONBufferLock();
 
   return needsSave;
