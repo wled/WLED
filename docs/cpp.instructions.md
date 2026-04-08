@@ -24,6 +24,13 @@ See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines tha
 - **PascalCase** for classes and structs: `PinManagerClass`, `BusConfig`
 - **UPPER_CASE** for macros and constants: `WLED_MAX_USERMODS`, `DEFAULT_CLIENT_SSID`
 
+## General
+
+- Follow the existing style in the file you are editing
+- If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
+- Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
+- Include `"wled.h"` as the primary project header where needed
+
 <!-- HUMAN_ONLY_START -->
 ## Header Guards
 
@@ -412,7 +419,8 @@ return rb | wg;
 ### Bit Shifts Over Division (mainly for RISC-V boards)
 
 ESP32 and ESP32-S3 (Xtensa core) have a fast "integer divide" instruction, so manual shifts rarely help. 
-On RISC-V targets (ESP32-C3/C6/P4) and ESP8266, prefer explicit bit-shifts for power-of-two arithmetic — the compiler does **not** always convert divisions to shifts on RISC-V at `-O2`. Always use unsigned operands for right shifts; signed right-shift is implementation-defined.
+On RISC-V targets (ESP32-C3/C6/P4) and ESP8266, prefer explicit bit-shifts for power-of-two arithmetic — the compiler does **not** always convert divisions to shifts. 
+Always use unsigned operands for right shifts; signed right-shift is implementation-defined.
 
 <!-- HUMAN_ONLY_START -->
 On RISC-V-based boards (ESP32-C3, ESP32-C6, ESP32-C5) explicit shifts can be beneficial.
@@ -443,7 +451,6 @@ if (lastKelvin != kelvin) {
 - Move frequently-called small functions to headers for inlining (e.g. `Segment::setPixelColorRaw` is in `FX.h`)
 - Use `static inline` for file-local helpers
 
-
 ### `delay()` vs `yield()` in ESP32 Tasks
 <!-- HUMAN_ONLY_START -->
 * On ESP32, `delay(ms)` calls `vTaskDelay(ms / portTICK_PERIOD_MS)`, which **suspends only the calling task**. The FreeRTOS scheduler immediately runs all other ready tasks. 
@@ -454,7 +461,7 @@ if (lastKelvin != kelvin) {
 - On ESP32, `delay()` is generally allowed, as it helps to efficiently manage CPU usage of all tasks.
 - On ESP8266, only use `delay()` and `yield()` in the main `loop()` context. If not sure, protect with `if (can_yield()) ...`.
 - Do *not* use `delay()` in effects (FX.cpp) or in the hot pixel path.
-- `delay()` on the bus level is allowed, it might be needed to achieve exact timing in LED drivers.
+- `delay()` on the bus-level is allowed, it might be needed to achieve exact timing in LED drivers.
 
 #### IDLE Watchdog and Custom Tasks on ESP32
 
@@ -482,13 +489,7 @@ void myTask(void*) {
 - Prefer blocking FreeRTOS primitives (`xQueueReceive`, `ulTaskNotifyTake`, `vTaskDelayUntil`) over `delay(1)` polling where precise timing or event-driven behaviour is needed.
 - **Watchdog note.** WLED disables the Task Watchdog by default (`WLED_WATCHDOG_TIMEOUT 0` in `wled.h`). When enabled, `esp_task_wdt_reset()` is called at the end of each `loop()` iteration. Long blocking operations inside `loop()` — such as OTA downloads or slow file I/O — must call `esp_task_wdt_reset()` periodically, or be restructured so the main loop is not blocked for longer than the configured timeout.
 
-## General
-
-- Follow the existing style in the file you are editing
-- If possible, use `static` for local (C-style) variables and functions (keeps the global namespace clean)
-- Avoid unexplained "magic numbers". Prefer named constants (`constexpr`) or C-style `#define` constants for repeated numbers that have the same meaning
-- Include `"wled.h"` as the primary project header where needed
-
+## Caveats and Pitfalls
 - **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C5/C6/P4) can produce different results due to clamping. Cast through a signed integer first:
   ```cpp
   // Undefined behavior — avoid:
