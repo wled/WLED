@@ -490,6 +490,9 @@ void myTask(void*) {
 - **Watchdog note.** WLED disables the Task Watchdog by default (`WLED_WATCHDOG_TIMEOUT 0` in `wled.h`). When enabled, `esp_task_wdt_reset()` is called at the end of each `loop()` iteration. Long blocking operations inside `loop()` — such as OTA downloads or slow file I/O — must call `esp_task_wdt_reset()` periodically, or be restructured so the main loop is not blocked for longer than the configured timeout.
 
 ## Caveats and Pitfalls
+
+- **LittleFS filenames**: File paths passed to `file.open()` must not exceed 255 bytes (`LFS_NAME_MAX`). Validate constructed paths (e.g., `/presets/` + segment name + `.json`) stay within this limit (assume standard configurations, like WLED_MAX_SEGNAME_LEN = 64).
+
 - **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C5/C6/P4) can produce different results due to clamping. Cast through a signed integer first:
   ```cpp
   // Undefined behavior — avoid:
