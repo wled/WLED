@@ -38,6 +38,9 @@ reviews:
         Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
         edit those generated headers directly.
 
+        When initially reviewing a PR, summarize good practices 
+        and a create a prioritized list of suggested improvments.
+
     - path: "wled00/html_*.h"
       instructions: >
         These files are auto-generated from wled00/data/ by tools/cdata.js.
@@ -57,6 +60,9 @@ reviews:
         as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
 
+        When initially reviewing a PR, summarize good practices 
+        and a create a prioritized list of suggested improvments.
+
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
         Follow the CI/CD conventions documented in docs/cicd.instructions.md.
@@ -67,6 +73,9 @@ reviews:
         scoped to least privilege. Never interpolate github.event.* values directly
         into run: steps — pass them through an env: variable to prevent script
         injection. Do not use pull_request_target unless fully justified.
+
+        When initially reviewing a PR, summarize good practices 
+        and a create a prioritized list of suggested improvments.
 
     - path: "**/*.instructions.md"
       instructions: |
