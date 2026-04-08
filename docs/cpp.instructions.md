@@ -480,7 +480,7 @@ if (lastKelvin != kelvin) {
 - Do *not* use `delay()` in effects (FX.cpp) or in the hot pixel path.
 - `delay()` on the bus-level is allowed, it might be needed to achieve exact timing in LED drivers.
 
-#### IDLE Watchdog and Custom Tasks on ESP32
+### IDLE Watchdog and Custom Tasks on ESP32
 
 - In arduino-esp32, `yield()` calls `vTaskDelay(0)`, which only switches to tasks at equal or higher priority — the IDLE task (priority 0) is never reached. 
 - **Do not use `yield()` to pace ESP32 tasks or assume it feeds any watchdog**.
