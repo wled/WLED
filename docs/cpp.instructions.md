@@ -172,10 +172,11 @@ BusManager::add(const BusConfig &bc, bool placeholder) {
 - Class **Data Members:** Avoid reference data members (`T&` or `const T&`) in a class. 
   A reference member can outlive the object it refers to, causing **dangling reference** bugs that are hard to diagnose. Prefer value storage or use a pointer and document the expected lifetime.
 
-### `constexpr` over `#define`
 <!-- HUMAN_ONLY_START -->
+<!-- hidden from AI for now - codebase is not compliant to this rule (slowly migrating) -->
+### `constexpr` over `#define`
 
-Prefer `constexpr` for compile-time constants. Unlike `#define`, `constexpr` respects scope and type safety, keeping the global namespace clean:
+- Prefer `constexpr` for compile-time constants. Unlike `#define`, `constexpr` respects scope and type safety, keeping the global namespace clean.
 
 ```cpp
 // Prefer:
@@ -185,13 +186,14 @@ constexpr int WLED_MAX_BUSSES = WLED_MAX_DIGITAL_CHANNELS + WLED_MAX_ANALOG_CHAN
 // Avoid (when possible):
 #define TWO_CHANNEL_MASK 0x00FF00FF
 ```
-
-Note: `#define` is still needed for conditional compilation guards (`#ifdef`), platform macros, and values that must be overridable from build flags.
+<!-- HUMAN_ONLY_END -->
 
 ### `static_assert` over `#error`
 
-Use `static_assert` instead of the C-style `#if … #error … #endif` pattern when validating compile-time constants. It provides a clear message and works with `constexpr` values:
+- Use `static_assert` instead of the C-style `#if … #error … #endif` pattern when validating compile-time constants. It provides a clear message and works with `constexpr` values.
+- `#define` and `#if ... #else ... #end` is still needed for conditional-compilation guards and build-flag-overridable values.
 
+<!-- HUMAN_ONLY_START -->
 ```cpp
 // Prefer:
 constexpr int WLED_MAX_BUSSES = WLED_MAX_DIGITAL_CHANNELS + WLED_MAX_ANALOG_CHANNELS;
@@ -208,11 +210,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   static_assert(0u == static_cast<uint8_t>(PinOwner::None),
                "PinOwner::None must be zero, so default array initialization works as expected");
 ```
+
 <!-- HUMAN_ONLY_END -->
-
-Prefer `constexpr` over `#define` for typed constants (scope-safe, debuggable). Use `static_assert` instead of `#if … #error` for compile-time validation.
-Exception: `#define` is required for conditional-compilation guards and build-flag-overridable values.
-
 ### `static` and `const` class methods
 
 #### `const` member functions
