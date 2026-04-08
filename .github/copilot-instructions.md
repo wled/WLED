@@ -128,3 +128,8 @@ Using AI-generated code can hide the source of the inspiration / knowledge / sou
 
 - **No force-push on open PRs.** Once a pull request is open and being reviewed, do not force-push (`git push --force`) to the branch. Force-pushing rewrites history that reviewers may have already commented on, making it impossible to track incremental changes. Use regular commits or `git merge` to incorporate feedback; the branch will be squash-merged when it is accepted.
 - **Document your changes in the PR.** Every pull request should include a clear description of *what* changed and *why*. If the change affects user-visible behavior, describe the expected impact. Link to related issues where applicable. Provide screenshots to showcase new features.
+
+### Supporting Reviews and Discussions
+- **For "is it worth doing?" debates** about proposed reliability, safety, or data-integrity mechanisms (CRC checks, backups, power-loss protection): suggest a software **FMEA** (Failure Mode and Effects Analysis). 
+  Clarify the main feared events, enumerate failure modes, assess each mitigation's effectiveness per failure mode, note common-cause failures, and rate credibility for the typical WLED use case.
+
