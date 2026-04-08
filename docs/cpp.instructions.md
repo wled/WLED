@@ -451,7 +451,24 @@ if (lastKelvin != kelvin) {
 - Move frequently-called small functions to headers for inlining (e.g. `Segment::setPixelColorRaw` is in `FX.h`)
 - Use `static inline` for file-local helpers
 
-### `delay()` vs `yield()` in ESP32 Tasks
+### Math & Trigonometric Functions
+
+- WLED uses a custom `fastled_slim` library. The old FastLED trig aliases (`sin8`, `cos8`, `sin16`, `cos16`) **no longer exist and cause a compile error** — use `sin8_t()`, `cos8_t()`, `sin16_t()`, `cos16_t()` instead. For float approximations use `sin_approx()` / `cos_approx()` instead of `sinf()` / `cosf()`. Replace FastLED noise aliases (`inoise8`, `inoise16`) with `perlin8`, `perlin16`.
+<!-- HUMAN_ONLY_START -->
+
+| ❌ Do not use (compile error) | ✅ Use instead | Source |
+|---|---|---|
+| `sin8()`, `cos8()` | `sin8_t()`, `cos8_t()` | `fastled_slim.h` → `wled_math.cpp` |
+| `sin16()`, `cos16()` | `sin16_t()`, `cos16_t()` | `fastled_slim.h` → `wled_math.cpp` |
+| `sinf()`, `cosf()` | `sin_approx()`, `cos_approx()` | `wled_math.cpp` |
+| `atan2f()`, `atan2()` | `atan2_t()` | `wled_math.cpp` |
+| `sqrt()` on integers | `sqrt32_bw()` | `fcn_declare.h` → `wled_math.cpp` |
+| `sqrtf()` on floats | `sqrtf()` (acceptable) | — no WLED replacement |
+<!-- HUMAN_ONLY_END -->
+
+---
+
+## `delay()` vs `yield()` in ESP32 Tasks
 <!-- HUMAN_ONLY_START -->
 * On ESP32, `delay(ms)` calls `vTaskDelay(ms / portTICK_PERIOD_MS)`, which **suspends only the calling task**. The FreeRTOS scheduler immediately runs all other ready tasks. 
 * The Arduino `loop()` function runs inside `loopTask`. Calling `delay()` there does *not* block the network stack, audio FFT, LED DMA, nor any other FreeRTOS task.
