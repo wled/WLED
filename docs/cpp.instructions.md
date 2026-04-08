@@ -191,7 +191,7 @@ constexpr int WLED_MAX_BUSSES = WLED_MAX_DIGITAL_CHANNELS + WLED_MAX_ANALOG_CHAN
 ### `static_assert` over `#error`
 
 - Use `static_assert` instead of the C-style `#if … #error … #endif` pattern when validating compile-time constants. It provides a clear message and works with `constexpr` values.
-- `#define` and `#if ... #else ... #end` is still needed for conditional-compilation guards and build-flag-overridable values.
+- `#define` and `#if ... #else ... #endif` is still needed for conditional-compilation guards and build-flag-overridable values.
 
 <!-- HUMAN_ONLY_START -->
 ```cpp
