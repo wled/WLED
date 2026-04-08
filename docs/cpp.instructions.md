@@ -8,7 +8,10 @@ applyTo: "**/*.cpp,**/*.h,**/*.hpp,**/*.ino"
 > contributor reference material. Do **not** use that content as actionable review
 > criteria — treat it as background context only.
 
+<!-- HUMAN_ONLY_START -->
+<!-- hiding this reference, to avoid cyclic "include" loops -->
 See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines that apply to all contributors.
+<!-- HUMAN_ONLY_END -->
 
 ## Formatting
 
