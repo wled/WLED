@@ -28,7 +28,7 @@ reviews:
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
 
         When initially reviewing a PR, summarize good practices 
-        and a create a prioritized list of suggested improvments.
+        and a create a prioritized list of suggested improvments. Limit both lists to show the "Top 5".
 
     - path: "wled00/data/**"
       instructions: >
@@ -39,7 +39,7 @@ reviews:
         edit those generated headers directly.
 
         When initially reviewing a PR, summarize good practices 
-        and a create a prioritized list of suggested improvments.
+        and a create a prioritized list of suggested improvments. Limit both lists to "Top 5".
 
     - path: "wled00/html_*.h"
       instructions: >
@@ -61,7 +61,7 @@ reviews:
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
 
         When initially reviewing a PR, summarize good practices 
-        and a create a prioritized list of suggested improvments.
+        and a create a prioritized list of suggested improvments. Limit both lists to "Top 6".
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
