@@ -1195,7 +1195,7 @@ async function imgPlay(url,name){
 			on:true,
 			seg: cur!==null && cur!==tgt
 				? [{id:cur,fx:0,n:""},{id:tgt,fx:53,frz:false,sx:128,n:name}]
-				: {id:tgt,fx:53,frz:false,sx:128,n:name}
+				: {id:tgt,fx:53,frz:false,sx:128,ix:0,n:name}
 		};
 		const r=await fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)});
 		const out=await r.json();

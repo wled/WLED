@@ -10,8 +10,8 @@ We'll work with you to refine your contribution, but we'll also push back if som
 Here are a few suggestions to make it easier for you to contribute:
 
 ### Important Developer Infos
-* [Project Structure, Files and Directories](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#project-branch--release-structure) (in our AI instructions)
-* [Instructions for creating usermods](https://github.com/wled/WLED/blob/main/.github/copilot-instructions.md#adding-a-new-usermod) (in our AI instructions)
+* [Project Structure, Files and Directories](.github/copilot-instructions.md#project-structure-overview) (in our AI instructions)
+* [Instructions for creating usermods](.github/copilot-instructions.md#usermod-guidelines) (in our AI instructions)
 * KB: [Compiling WLED](https://kno.wled.ge/advanced/compiling-wled/) - slightly outdated but still helpful :-)
 * Arduino IDE is not supported any more. Use VSCode with the PlatformIO extension. 
 * [Compiling in VSCode/Platformio](https://github.com/wled/WLED-Docs/issues/161) - modern way without command line or platformio.ini changes.
@@ -174,7 +174,12 @@ AI tools are powerful but "often wrong" - your judgment is essential! 😊
 
 Don't stress too much about style! When in doubt, just match the style in the files you're editing. 😊
 
-Here are our main guidelines:
+Our review bot (coderabbit) has learned lots of detailed guides and hints - it will suggest them automatically when you submit a PR for review.
+If you are curious, these are the detailed guides:
+* [C++ Coding](docs/cpp.instructions.md)
+* [WebUi: HTML, JS, CSS](docs/web.instructions.md)
+
+Below are the main rules used in the WLED repository:
 
 #### Indentation
 
