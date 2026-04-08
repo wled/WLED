@@ -1408,7 +1408,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
   if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
-    if (isMatrix && stopIndx <= (int)matrixSize && !_pixelCCT) {
+    if (isMatrix && stopIndx <= matrixSize && !_pixelCCT) {
 #ifndef WLED_DISABLE_2D
       // Calculate pointer steps to avoid 'if' and 'XY()' inside loops
       int x_inc = 1;
