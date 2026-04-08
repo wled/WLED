@@ -27,6 +27,9 @@ reviews:
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
 
+        When initially reviewing a PR, summarize good practices 
+        and a create a prioritized list of suggested improvments.
+
     - path: "wled00/data/**"
       instructions: >
         Follow the web UI conventions documented in docs/web.instructions.md.
