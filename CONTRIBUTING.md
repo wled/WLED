@@ -176,8 +176,8 @@ Don't stress too much about style! When in doubt, just match the style in the fi
 
 Our review bot (coderabbit) has learned lots of detailed guides and hints - it will suggest them automatically when you submit a PR for review.
 If you are curious, these are the detailed guides:
-* [C++ Coding](https://github.com/wled/WLED/blob/main/docs/cpp.instructions.md)
-* [WebUi: HTML, JS, CSS](https://github.com/wled/WLED/blob/main/docs/web.instructions.md)
+* [C++ Coding](docs/cpp.instructions.md)
+* [WebUi: HTML, JS, CSS](docs/web.instructions.md)
 
 Below are the main rules used in the WLED repository:
 
