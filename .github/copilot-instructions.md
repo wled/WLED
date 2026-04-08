@@ -112,7 +112,7 @@ docs/                  # Contributor docs, coding guidelines
 - **Provide references** when making analyses or recommendations. Base them on the correct branch or PR.
 - **Highlight user-visible breaking changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
 - **Unused / dead code must be justified or removed**. This helps to keep the codebase clean, maintainable and readable.
-- **Verify feature-flag names against the canonical list.** Any `WLED_ENABLE_xxx` or `WLED_DISABLE_yyy` flag used or introduced in code must exactly match one of the names below. Mis-spelled flags are silently ignored by the preprocessor (e.g. `WLED_IR_DISABLE` instead of the correct `WLED_DISABLE_INFRARED`), causing hard-to-debug build variations. If you see an unrecognised flag, flag it as a likely typo and suggest the correct name.
+- **Verify feature-flag names.** Every `WLED_ENABLE_*` / `WLED_DISABLE_*` flag must exactly match one of the names below — misspellings are silently ignored by the preprocessor (e.g. `WLED_IR_DISABLE` instead of `WLED_DISABLE_INFRARED`), causing silent build variations. Flag unrecognised names as likely typos and suggest the correct spelling.
   <br>**`WLED_DISABLE_*`**: `ADALIGHT`, `ALEXA`, `BROWNOUT_DET`, `ESPNOW`, `FILESYSTEM`, `HUESYNC`, `IMPROV_WIFISCAN`, `INFRARED`, `LOXONE`, `MQTT`, `OTA`, `PARTICLESYSTEM`, `PIXELFORGE`, `SOUND`, `WEBSOCKETS`
   <br>**`WLED_ENABLE_*`**: `ADALIGHT`, `AOTA`, `DMX`, `DMX_INPUT`, `DMX_OUTPUT`, `FS_EDITOR`, `GIF`, `HUB`, `JSONLIVE`, `LOXONE`, `MQTT`, `PIXART`, `PXMAGIC`, `USERMOD_PAGE`, `WEBSOCKETS`, `WPA_ENTERPRISE`
 - **C++ formatting available**: `clang-format` is installed but not in CI
