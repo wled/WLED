@@ -108,7 +108,7 @@ docs/                  # Contributor docs, coding guidelines
 - **Never edit or commit** `wled00/html_*.h` and `wled00/js_*.h` — auto-generated from `wled00/data/`.
 - If updating Web UI files in `wled00/data/`, **make use of common functions in `wled00/data/common.js` whenever possible**.
 - **When unsure, say so.** Gather more information rather than guessing.
-- **Acknowledge good patterns** when you see them. Summarize good practices as part of your review - positive feedback always helps.
+- **Acknowledge good patterns** when you see them. Positive feedback always helps.
 - **Provide references** when making analyses or recommendations. Base them on the correct branch or PR.
 - **Highlight user-visible breaking changes and ripple effects**. Ask for confirmation that these were introduced intentionally.
 - **Unused / dead code must be justified or removed**. This helps to keep the codebase clean, maintainable and readable.
