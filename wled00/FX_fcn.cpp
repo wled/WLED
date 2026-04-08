@@ -1408,7 +1408,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
   if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
-    if (isMatrix && width * height <= (int)matrixSize && !_pixelCCT) {
+    if (isMatrix && stopIndx <= (int)matrixSize && !_pixelCCT) {
 #ifndef WLED_DISABLE_2D
       // Calculate pointer steps to avoid 'if' and 'XY()' inside loops
       int x_inc = 1;
@@ -1416,26 +1416,28 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       int start_offset = XY(topSegment.start, topSegment.startY);
 
       // adjust starting position and steps based on Reverse/Transpose
-      // note: transpose is handled in seperate loop so it is still fast and no branching is needed in default path
+      // note: transpose is handled in separate loop so it is still fast and no branching is needed in default path
       if (!topSegment.transpose) {
         if (topSegment.reverse)   { start_offset += (width - 1); x_inc = -1; }
         if (topSegment.reverse_y) { start_offset += (height - 1) * Segment::maxWidth; y_inc = -Segment::maxWidth; }
 
         for (int y = 0; y < height; y++) {
           uint32_t* pRow = &_pixels[start_offset + y * y_inc];
+          const int y_width = y * width;
           for (int x = 0; x < width; x++) {
             uint32_t* p = pRow + x * x_inc;
-            uint32_t c_a = topSegment.getPixelColorRaw(x + y * width);
+            uint32_t c_a = topSegment.getPixelColorRaw(x + y_width);
             *p = color_blend(*p, segblend(c_a, *p), opacity);
           }
         }
       } else { // transposed
         for (int y = 0; y < height; y++) {
+          const int px = topSegment.reverse ? (height - y - 1) : y;  // source pixel: swap y into x, reverse if needed
           for (int x = 0; x < width; x++) {
-            int px = topSegment.reverse   ? (width - x - 1)  : x;
-            int py = topSegment.reverse_y ? (height - y - 1) : y;
-            size_t idx = XY(topSegment.start + py, topSegment.startY + px); // Swapped X/Y
-            _pixels[idx] = color_blend(_pixels[idx], segblend(topSegment.getPixelColorRaw(x + y * width), _pixels[idx]), opacity);
+            const int py = topSegment.reverse_y ? (width  - x - 1) : x;  // source pixel: swap x into y, reverse if needed
+            const uint32_t c_a = topSegment.getPixelColorRaw(px + py * height); // height = virtual width
+            const size_t idx = XY(topSegment.start + x, topSegment.startY + y); // write logical (non swapped) pixel coordinate
+            _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
           }
         }
       }
