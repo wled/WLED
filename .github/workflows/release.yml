@@ -26,7 +26,7 @@ jobs:
           sinceTag: v0.15.0
           maxIssues: 500
           # Exclude issues that were closed without resolution from changelog
-          excludeLabels: 'stale,wontfix,duplicate,invalid,question,use-as-is,not_planned'       
+          excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'       
     - name: Create draft release
       uses: softprops/action-gh-release@v1
       with:

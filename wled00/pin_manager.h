@@ -10,6 +10,13 @@
 #define WLED_NUM_PINS (GPIO_PIN_COUNT)
 #endif
 
+// Pin capability flags - only "special" capabilities useful for debugging (note: touch capability is provided by appendGPIOinfo() via d.touch)
+#define PIN_CAP_ADC          0x02   // has ADC capability (analog input)
+#define PIN_CAP_PWM          0x04   // can be used for PWM (analog LED output) -> unused, all pins can use ledc PWM
+#define PIN_CAP_BOOT         0x08   // bootloader pin
+#define PIN_CAP_BOOTSTRAP    0x10   // bootstrap pin (strapping pin affecting boot mode)
+#define PIN_CAP_INPUT_ONLY   0x20   // input only pin (cannot be used as output)
+
 typedef struct PinManagerPinType {
   int8_t pin;
   bool   isOutput;
@@ -100,8 +107,11 @@ namespace PinManager {
   bool isPinOk(byte gpio, bool output = true);
 
   bool isReadOnlyPin(byte gpio);
+  int getButtonIndex(byte gpio); // returns button index if pin is used for button, otherwise -1
+  bool isAnalogPin(byte gpio); // returns true if pin has ADC capability, otherwise false
 
   PinOwner getPinOwner(byte gpio);
+  const char* getPinOwnerName(uint8_t gpio);
 
   #ifdef ARDUINO_ARCH_ESP32
   byte allocateLedc(byte channels);

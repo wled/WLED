@@ -48,6 +48,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
+  perParticleSize = isadvanced; // enable per particle size by default if using advanced properties (FX can disable if needed)
 
 }
 
@@ -79,9 +80,8 @@ void ParticleSystem2D::update(void) {
 }
 
 // update function for fire animation
-void ParticleSystem2D::updateFire(const uint8_t intensity,const bool renderonly) {
-  if (!renderonly)
-    fireParticleupdate();
+void ParticleSystem2D::updateFire(const uint8_t intensity) {
+  fireParticleupdate();
   fireIntesity = intensity > 0 ? intensity : 1; // minimum of 1, zero checking is used in render function
   render();
 }
@@ -595,16 +595,15 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
+      baseRGB = ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
+      baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -805,7 +804,6 @@ void WLED_O2_ATTR ParticleSystem2D::renderLargeParticle(const uint32_t size, con
       if (gammaCorrectCol) {
         pixel_brightness = gamma8inv(pixel_brightness); // invert brigthess so brightness distribution is linear after gamma correction
       }
-
       // Render pixel
       uint32_t idx = render_x + (maxYpixel - render_y) * matrixX; // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
       framebuffer[idx] = fast_color_scaleAdd(framebuffer[idx], color, pixel_brightness);
@@ -1096,7 +1094,11 @@ bool allocateParticleSystemMemory2D(uint32_t numparticles, uint32_t numsources, 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 bool initParticleSystem2D(ParticleSystem2D *&PartSys, uint32_t requestedsources, uint32_t additionalbytes, bool advanced, bool sizecontrol) {
   PSPRINT("PS 2D init ");
-  if (!strip.isMatrix) return false; // only for 2D
+  if (!strip.isMatrix) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // only for 2D
+  }
   uint32_t cols = SEGMENT.virtualWidth();
   uint32_t rows = SEGMENT.virtualHeight();
   uint32_t pixels = cols * rows;
@@ -1156,7 +1158,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
-
+  perParticleSize = isadvanced; // enable per particle size by default so FX do not need to set this explicitly. FX can disable by setting global size.
   if (isadvanced) {
     for (uint32_t i = 0; i < numParticles; i++) {
       advPartProps[i].sat = 255; // set full saturation
@@ -1453,14 +1455,12 @@ void ParticleSystem1D::render() {
 
     // generate RGB values for particle
     brightness = min(particles[i].ttl << 1, (int)255);
-    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
-
+    baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
     if (advPartProps != nullptr) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
-        baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        CHSV32 baseHSV = baseRGB;
+        baseHSV.s = advPartProps[i].sat; // set the saturation
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -1844,7 +1844,11 @@ bool allocateParticleSystemMemory1D(const uint32_t numparticles, const uint32_t 
 // initialize Particle System, allocate additional bytes if needed (pointer to those bytes can be read from particle system class: PSdataEnd)
 // note: percentofparticles is in uint8_t, for example 191 means 75%, (deafaults to 255 or 100% meaning one particle per pixel), can be more than 100% (but not recommended, can cause out of memory)
 bool initParticleSystem1D(ParticleSystem1D *&PartSys, const uint32_t requestedsources, const uint8_t fractionofparticles, const uint32_t additionalbytes, const bool advanced) {
-  if (SEGLEN == 1) return false; // single pixel not supported
+  if (SEGLEN == 1) {
+    errorFlag = ERR_NOT_IMPL; // TODO: need a better error code if more codes are added
+    SEGMENT.deallocateData(); // deallocate any data to make sure data is null (there is no valid PS in data and data can only be checked for null)
+    return false; // single pixel not supported
+  }
   uint32_t numparticles = calculateNumberOfParticles1D(fractionofparticles, advanced);
   uint32_t numsources = calculateNumberOfSources1D(requestedsources);
   bool allocsuccess = false;

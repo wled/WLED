@@ -188,6 +188,7 @@ static bool appendObjectToFile(const char* key, const JsonDocument* content, uin
   if (f.size() < 3) {
     char init[10];
     strcpy_P(init, PSTR("{\"0\":{}}"));
+    f.seek(0, SeekSet);           // rewind to ensure we overwrite from the start, instead of appending
     f.print(init);
   }
 
@@ -396,6 +397,7 @@ static const uint8_t *getPresetCache(size_t &size) {
     if (presetsCached) {
       p_free(presetsCached);
       presetsCached = nullptr;
+      presetsCachedSize = 0;
     }
   }
 
