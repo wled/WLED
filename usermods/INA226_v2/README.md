@@ -86,7 +86,6 @@ Example for a board with a 2.888 mΩ effective shunt, 10 A range, -118 mA offset
 extends = env:esp32dev
 custom_usermods = ${env:esp32dev.custom_usermods} INA226
 build_flags = ${env:esp32dev.build_flags}
-  -D USERMOD_INA226
   -D INA226_ENABLED_DEFAULT=true
   -D INA226_SHUNT_MICRO_OHMS=2888
   -D INA226_DEFAULT_CURRENT_RANGE=10000
