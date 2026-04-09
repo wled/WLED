@@ -310,10 +310,10 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
-	// limiter for all number inputs: limit inputs instantly
+	// limiter for all number inputs except segment inputs: limit inputs instantly  note: segment inputs are special if matrix is enabled, they allow for trailing strips, need a lot of special cases to handle that
 	d.addEventListener("input", function(e) {
 		const t = e.target;
-		if (t.tagName === "INPUT" && t.type === "number") {
+		if (t.tagName === "INPUT" && t.type === "number" && !(t.id && t.id.startsWith("seg"))) {
 			let val = parseFloat(t.value);
 			const max = parseFloat(t.max);
 			const min = parseFloat(t.min);
@@ -1182,7 +1182,7 @@ function updateLen(s)
 	let mySD = gId("mkSYD");
 	if (isM) {
 		// do we have 1D segment *after* the matrix?
-		if (start >= mw*mh) {
+		if (start >= mw*mh && s > 0) {
 			if (sY) { sY.value = 0; sY.max = 0; sY.min = 0; }
 			if (eY) { eY.value = 1; eY.max = 1; eY.min = 0; }
 			sX.min = mw*mh; sX.max = ledCount-1;
