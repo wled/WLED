@@ -1727,6 +1727,7 @@ class AudioReactive : public Usermod {
       // reset sound data
       volumeRaw = 0; volumeSmth = 0;
       for(int i=(init?0:1); i<NUM_GEQ_CHANNELS; i+=2) fftResult[i] = 16; // make a tiny pattern
+      memset(paletteBandAvg, 0, sizeof(paletteBandAvg));
       autoResetPeak();
       if (init) {
         if (udpSyncConnected) {   // close UDP sync connection (if open)
@@ -2250,7 +2251,7 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
       // Map centroid to hue on a log scale (human pitch perception is logarithmic).
       // log2(60 Hz) ≈ 5.9,  log2(8000 Hz) ≈ 13.0  →  hue range 0..200 (red → blue-purple)
       float logC = log2f(constrain(centroid, 60.0f, 8000.0f));   // softhack007 ToDO: use logf() instead of log2f()
-      uint8_t baseHue = (uint8_t)mapf(logC, 5.9f, 13.0f, 0.0f, 200.0f);
+      uint8_t baseHue = (uint8_t)mapf(logC, 5.9f, 13.0f, 0.0f, 200.0f); // mapf() cannot produce negative results due to previous constrain() --> safe to directly cast to uint8_t
       int8_t  hueSpread  = map(x, 0, 255, -30, 30);            // spread palette positions ±30 hue units // softhack007 ToDO: use CHSV32 with 16bit HUE
       uint8_t saturation = (uint8_t)constrain((int)(tEnergy / 6.0f) + 180, 180, 255);  // louder = more saturated  // softhack007 WTF dude?
       hsv = CHSV(baseHue + hueSpread, saturation, (uint8_t)constrain(x, 30, 255));
@@ -2277,7 +2278,8 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
       float midRatio  = midEnergy  / total;
       float highRatio = highEnergy / total;
       // Weighted hue: pure bass→20, pure mid→110, pure high→190
-      uint8_t hue     = (uint8_t)(bassRatio * 20.0f + midRatio * 110.0f + highRatio * 190.0f);
+      int weightedHue = roundf(bassRatio * 20.0f + midRatio * 110.0f + highRatio * 190.0f);
+      uint8_t hue     = min(255, max(0, weightedHue));     // clamp to [0...255]
       // Saturation: dominated spectrum (one band clearly wins) → high sat; balanced → lower sat
       float   maxRatio = max(bassRatio, max(midRatio, highRatio));
       uint8_t sat      = (uint8_t)constrain((int)(maxRatio * 255.0f * 1.5f), 180, 255); // softhack007 OMG,  WTF?
