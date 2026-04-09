@@ -251,19 +251,23 @@ private:
             return;
 
         char topic[128];
-        snprintf_P(topic, 127, "%s/current", mqttDeviceTopic);
+        auto buildTopic = [&](const char *suffix) {
+            snprintf_P(topic, sizeof(topic), PSTR("%s/%s"), mqttDeviceTopic, suffix);
+        };
+
+        buildTopic("current");
         mqttCreateHassSensor(F("Current"), topic, F("current"), F("A"));
 
-        snprintf_P(topic, 127, "%s/voltage", mqttDeviceTopic);
+        buildTopic("voltage");
         mqttCreateHassSensor(F("Voltage"), topic, F("voltage"), F("V"));
 
-        snprintf_P(topic, 127, "%s/power", mqttDeviceTopic);
+        buildTopic("power");
         mqttCreateHassSensor(F("Power"), topic, F("power"), F("W"));
 
-        snprintf_P(topic, 127, "%s/shunt_voltage", mqttDeviceTopic);
+        buildTopic("shunt_voltage");
         mqttCreateHassSensor(F("Shunt Voltage"), topic, F("voltage"), F("V"));
 
-        snprintf_P(topic, 127, "%s/overflow", mqttDeviceTopic);
+        buildTopic("overflow");
         mqttCreateHassBinarySensor(F("Overflow"), topic);
     }
 
@@ -581,7 +585,7 @@ public:
 
         if (getJsonValue(top[F("CurrentRange")], _currentRangeMa))
         {
-            if (_currentRangeMa == 0)
+            if (_currentRangeMa == 0 || _currentRangeMa > 20000)
                 _currentRangeMa = INA226_DEFAULT_CURRENT_RANGE;
         }
         else
