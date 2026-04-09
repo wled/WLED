@@ -298,12 +298,12 @@ private:
 
     snprintf_P(buf, sizeof(buf), PSTR("HTTP/1.1 200 OK\r\n"
       "EXT:\r\n"
-      "CACHE-CONTROL: max-age=86400\r\n"
+      "CACHE-CONTROL: max-age=86400\r\n" // SSDP_INTERVAL
       "LOCATION: http://%s:80/description.xml\r\n"
       "SERVER: FreeRTOS/6.0.5, UPnP/1.0, IpBridge/1.17.0\r\n" // _modelName, _modelNumber
       "hue-bridgeid: %s\r\n"
       "ST: urn:schemas-upnp-org:device:Basic:1\r\n"  // _deviceType
-      "USN: uuid:2f402f80-da50-11e1-9b23-%s::urn:schemas-upnp-org:device:Basic:1\r\n"
+      "USN: uuid:2f402f80-da50-11e1-9b23-%s::urn:schemas-upnp-org:device:Basic:1\r\n" // _uuid::_deviceType
       "\r\n"),s,bridgeId.c_str(),escapedMac.c_str());
 
     espalexaUdp.beginPacket(espalexaUdp.remoteIP(), espalexaUdp.remotePort());
