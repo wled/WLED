@@ -334,7 +334,8 @@ public:
     escapedMac.replace(":", "");
     escapedMac.toLowerCase();
 
-    // Compute EUI-64 bridge ID: insert FFFE between OUI and NIC, uppercase
+    // Compute EUI-64 bridge ID from MAC-48: insert standard "FFFE" padding between
+    // the first 6 hex chars (OUI/manufacturer) and last 6 hex chars (device), then uppercase
     bridgeId = escapedMac.substring(0, 6) + "fffe" + escapedMac.substring(6);
     bridgeId.toUpperCase();
 
