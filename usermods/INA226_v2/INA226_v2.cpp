@@ -118,7 +118,7 @@ private:
     float _lastShuntVoltage = 0;
     bool _lastOverflow = false;
 
-#ifndef WLED_MQTT_DISABLE
+#ifndef WLED_DISABLE_MQTT
     float _lastCurrentSent = 0;
     float _lastVoltageSent = 0;
     float _lastPowerSent = 0;
