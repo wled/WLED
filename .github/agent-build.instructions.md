@@ -112,6 +112,7 @@ Match this workflow in local development to catch failures before pushing.
 ## Important Reminders
 
 - Always **commit source code**
+-  Every pull request MUST include a clear description of *what* changed and *why*.
 - **Never edit or commit** `wled00/html_*.h` and  `wled00/js_*.h` — auto-generated from `wled00/data/`
 - After modifying source code files, check that any **previous comments have been preserved** or updated to reflect the new behaviour.
 - Web UI rebuild is part of the PlatformIO firmware compilation pipeline
