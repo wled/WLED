@@ -76,9 +76,10 @@ Several parameters can be overridden at compile time via `-D` build flags. This 
 | `INA226_SHUNT_MICRO_OHMS` | `1000000` | μΩ | Shunt resistor value (1 000 000 μΩ = 1 Ω) |
 | `INA226_DEFAULT_CURRENT_RANGE` | `1000` | mA | Expected maximum current (1000 mA = 1 A) |
 | `INA226_CURRENT_OFFSET_MA` | `0` | mA | Current offset subtracted from readings |
+| `INA226_CHECK_INTERVAL_MS` | `60000` | ms | Default interval between readings on first boot |
 | `INA226_ENABLED_DEFAULT` | `false` | — | Enable the usermod on first boot |
 
-Example for a board with a 2.888 mΩ effective shunt, 10 A range, -118 mA offset, and enabled by default:
+Example for a board with a 2.888 mΩ effective shunt, 10 A range, -118 mA offset, 1 second polling, and enabled by default:
 
 ```ini
 [env:my_board]
@@ -90,6 +91,7 @@ build_flags = ${env:esp32dev.build_flags}
   -D INA226_SHUNT_MICRO_OHMS=2888
   -D INA226_DEFAULT_CURRENT_RANGE=10000
   -D INA226_CURRENT_OFFSET_MA=-118
+  -D INA226_CHECK_INTERVAL_MS=1000
 ```
 
 All compile-time defaults can still be changed at runtime through the Usermod settings page.
