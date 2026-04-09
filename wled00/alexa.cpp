@@ -15,6 +15,19 @@ void onAlexaChange(EspalexaDevice* dev);
 // index of the first segment device in the Espalexa device list (0 = no segment devices)
 static unsigned alexaSegmentDeviceStart = 0;
 
+// map a segment device offset to an actual segment index, skipping inactive segments
+// returns -1 if the offset is out of range
+static int mapSegDevToSegIndex(unsigned segDevIdx)
+{
+  unsigned activeCount = 0;
+  for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+    if (!strip.getSegment(i).isActive()) continue;
+    if (activeCount == segDevIdx) return i;
+    activeCount++;
+  }
+  return -1;
+}
+
 void alexaInit()
 {
   if (!alexaEnabled || !WLED_CONNECTED) return;
@@ -45,7 +58,8 @@ void alexaInit()
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
-      String segName = seg.name ? String(seg.name) : (String(F("Segment ")) + String(i));
+      String segName(seg.name ? seg.name : "");
+      if (!segName.length()) segName = String(F("Segment ")) + String(i);
       EspalexaDevice* dev = new EspalexaDevice(segName.c_str(), onAlexaChange, EspalexaDeviceType::extendedcolor);
       espalexa.addDevice(dev);
     }
@@ -70,21 +84,14 @@ void onAlexaChange(EspalexaDevice* dev)
 
   if (isSegmentDevice)
   {
-    // map device index to segment index (skipping inactive segments, same order as in alexaInit)
-    unsigned segDevIdx = devId - alexaSegmentDeviceStart;
-    unsigned segIdx = 0;
-    unsigned activeCount = 0;
-    for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-      if (!strip.getSegment(i).isActive()) continue;
-      if (activeCount == segDevIdx) { segIdx = i; break; }
-      activeCount++;
-    }
+    int segIdx = mapSegDevToSegIndex(devId - alexaSegmentDeviceStart);
+    if (segIdx < 0) return; // segment was deactivated after discovery
     Segment& seg = strip.getSegment(segIdx);
 
     if (m == EspalexaDeviceProperty::on)
     {
       seg.setOption(SEG_OPTION_ON, true);
-      seg.setOpacity(seg.opacity ? seg.opacity : 255);
+      if (!seg.opacity) seg.setOpacity(255); // ensure segment is visible when turned on
       stateUpdated(CALL_MODE_ALEXA);
     }
     else if (m == EspalexaDeviceProperty::off)
@@ -137,6 +144,9 @@ void onAlexaChange(EspalexaDevice* dev)
     return;
   }
 
+  // boundary for preset device range (excludes segment devices)
+  unsigned presetEnd = alexaSegmentDeviceStart ? alexaSegmentDeviceStart : espalexa.getDeviceCount();
+
   // original behavior: main device and preset devices
   if (m == EspalexaDeviceProperty::on)
   {
@@ -157,7 +167,6 @@ void onAlexaChange(EspalexaDevice* dev)
     } else // switch-on behavior for preset devices
     {
       // turn off other preset devices
-      unsigned presetEnd = alexaSegmentDeviceStart ? alexaSegmentDeviceStart : espalexa.getDeviceCount();
       for (unsigned i = 1; i < presetEnd; i++)
       {
         if (i == devId) continue;
@@ -182,7 +191,6 @@ void onAlexaChange(EspalexaDevice* dev)
       // below for loop stops Alexa from complaining if macroAlexaOff does not actually turn off
     }
     // set main and preset devices to off, but not segment devices
-    unsigned presetEnd = alexaSegmentDeviceStart ? alexaSegmentDeviceStart : espalexa.getDeviceCount();
     for (unsigned i = 0; i < presetEnd; i++)
     {
       espalexa.getDevice(i)->setValue(0);

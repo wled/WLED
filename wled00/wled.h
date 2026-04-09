@@ -135,7 +135,7 @@
 #ifndef WLED_DISABLE_ALEXA
   #define ESPALEXA_ASYNC
   #define ESPALEXA_NO_SUBPAGE
-  #define ESPALEXA_MAXDEVICES 20
+  #define ESPALEXA_MAXDEVICES 20 // 1 main + up to 9 presets + up to 10 segment devices
   // #define ESPALEXA_DEBUG
   #include "src/dependencies/espalexa/Espalexa.h"
   #include "src/dependencies/espalexa/EspalexaDevice.h"
