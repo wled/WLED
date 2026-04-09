@@ -517,6 +517,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("AI"),alexaInvocationName);
     printSetFormCheckbox(settingsScript,PSTR("SA"),notifyAlexa);
     printSetFormValue(settingsScript,PSTR("AP"),alexaNumPresets);
+    printSetFormCheckbox(settingsScript,PSTR("AS"),alexaExposeSegments);
     #else
     settingsScript.print(F("toggle('Alexa');"));  // hide Alexa settings
     #endif
