@@ -1954,7 +1954,7 @@ void mode_colorwaves_pride_base(bool isPride2015) {
   unsigned msmultiplier = beatsin88_t(147, 23, 60);
 
   unsigned hue16 = sHue16;
-  unsigned hueinc16 = isPride2015 ? beatsin88_t(113, 1, 3000) : 
+  unsigned hueinc16 = isPride2015 ? beatsin88_t(113, 1, 3000) :
                                      beatsin88_t(113, 60, 300) * SEGMENT.intensity * 10 / 255;
 
   sPseudotime += duration * msmultiplier;
@@ -3763,7 +3763,7 @@ void mode_exploding_fireworks(void)
     if (SEGENV.aux0 == 0) { //init flare
       flare->pos = 0;
       flare->posX = SEGMENT.is2D() ? hw_random16(2,cols-3) : (SEGMENT.intensity > hw_random8()); // will enable random firing side on 1D
-      unsigned peakHeight = 75 + hw_random8(180); //0-255
+      unsigned peakHeight = 84 + hw_random8(146); // 33% to 90% of 256
       peakHeight = (peakHeight * (rows -1)) >> 8;
       flare->vel = sqrtf(-2.0f * gravity * peakHeight);
       flare->velX = SEGMENT.is2D() ? (hw_random8(9)-4)/64.0f : 0; // no X velocity on 1D
@@ -3800,6 +3800,7 @@ void mode_exploding_fireworks(void)
 
     // initialize sparks
     if (SEGENV.aux0 == 2) {
+      int colIndex = hw_random8();
       for (unsigned i = 1; i < nSparks; i++) {
         sparks[i].pos  = flare->pos;
         sparks[i].posX = flare->posX;
@@ -3808,7 +3809,7 @@ void mode_exploding_fireworks(void)
         sparks[i].velX = SEGMENT.is2D() ? (float(hw_random16(20001)) / 10000.0f) - 1.0f : 0; // from -1 to 1
         sparks[i].col  = 345;//abs(sparks[i].vel * 750.0); // set colors before scaling velocity to keep them bright
         //sparks[i].col = constrain(sparks[i].col, 0, 345);
-        sparks[i].colIndex = hw_random8();
+        sparks[i].colIndex = colIndex;
         sparks[i].vel  *= flare->pos/rows; // proportional to height
         sparks[i].velX *= SEGMENT.is2D() ? flare->posX/cols : 0; // proportional to width
         sparks[i].vel  *= -gravity *50;
@@ -3835,9 +3836,6 @@ void mode_exploding_fireworks(void)
             c = color_blend(spColor, WHITE, uint8_t((prog - 300)*5));
           } else if (prog > 45) { //fade from spark color to black
             c = color_blend(BLACK, spColor, uint8_t(prog - 45));
-            unsigned cooling = (300 - prog) >> 5;
-            c.g = qsub8(c.g, cooling);
-            c.b = qsub8(c.b, cooling * 2);
           }
           if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(int(sparks[i].posX), rows - int(sparks[i].pos) - 1, c);
           else                SEGMENT.setPixelColor(int(sparks[i].posX) ? rows - int(sparks[i].pos) - 1 : int(sparks[i].pos), c);
@@ -4285,7 +4283,7 @@ void mode_sunrise() {
 
   for (unsigned i = 0; i <= SEGLEN/2; i++)
   {
-    //default palette is Fire    
+    //default palette is Fire
     unsigned wave = triwave16((i * stage) / SEGLEN);
     wave = (wave >> 8) + ((wave * SEGMENT.intensity) >> 15);
     uint32_t c;
@@ -4976,13 +4974,13 @@ void mode_ColorClouds()
 
   // Higher values make the clouds move faster.
   const uint32_t volSpeed = 1 + SEGMENT.speed;
-  
+
   // Higher values make the color change faster.
   const uint32_t hueSpeed = 1 + SEGMENT.intensity;
-  
+
   // Higher values make more clouds (but smaller ones).
   const uint32_t volSqueeze = 8 + SEGMENT.custom1;
-  
+
   // Higher values make the clouds more colorful.
   const uint32_t hueSqueeze = SEGMENT.custom2;
 
@@ -5352,7 +5350,7 @@ void mode_2Dfirenoise(void) {               // firenoise2d. By Andrew Tuline. Ye
   for (int j=0; j < cols; j++) {
     for (int i=0; i < rows; i++) {
       indexx = perlin8(j*yscale*rows/255, i*xscale+strip.now/4);                                               // We're moving along our Perlin map.
-      SEGMENT.setPixelColorXY(j, i, ColorFromPalette(pal, min(i*indexx/11, 225U), i*255/rows, LINEARBLEND));   // With that value, look up the 8 bit colour palette value and assign it to the current LED.    
+      SEGMENT.setPixelColorXY(j, i, ColorFromPalette(pal, min(i*indexx/11, 225U), i*255/rows, LINEARBLEND));   // With that value, look up the 8 bit colour palette value and assign it to the current LED.
     } // for i
   } // for j
 } // mode_2Dfirenoise()
@@ -5386,7 +5384,7 @@ typedef struct Cell {
     uint8_t alive : 1, faded : 1, toggleStatus : 1, edgeCell: 1, oscillatorCheck : 1, spaceshipCheck : 1, unused : 2;
 } Cell;
 
-void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/ 
+void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://natureofcode.com/book/chapter-7-cellular-automata/
                                    // and https://github.com/DougHaber/nlife-color , Modified By: Brandon Butler
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC; // not a 2D set-up
   const int cols = SEG_W, rows = SEG_H;
@@ -6606,7 +6604,7 @@ void mode_2Dplasmarotozoom() {
   float *a = reinterpret_cast<float*>(SEGENV.data);
   byte *plasma = reinterpret_cast<byte*>(SEGENV.data+sizeof(float));
 
-  unsigned ms = strip.now/15;  
+  unsigned ms = strip.now/15;
 
   // plasma
   for (int j = 0; j < rows; j++) {
@@ -6836,7 +6834,7 @@ void mode_gravcenter_base(unsigned mode) {
   if(mode == 2) offset = 0;  // Gravimeter
   if (tempsamp >= gravcen->topLED) gravcen->topLED = tempsamp-offset;
   else if (gravcen->gravityCounter % gravity == 0) gravcen->topLED--;
-  
+
   if(mode == 1) {  //Gravcentric
     for (int i=0; i<tempsamp; i++) {
       uint8_t index = segmentSampleAvg*24+strip.now/200;
@@ -6880,7 +6878,7 @@ void mode_gravcenter_base(unsigned mode) {
       SEGMENT.setPixelColor(gravcen->topLED+SEGLEN/2, SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0));
       SEGMENT.setPixelColor(SEGLEN/2-1-gravcen->topLED, SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0));
     }
-  } 
+  }
   gravcen->gravityCounter = (gravcen->gravityCounter + 1) % gravity;
 }
 
@@ -7142,13 +7140,13 @@ void mode_puddles_base(bool peakdetect) {
       if (pos+size>= SEGLEN) size = SEGLEN - pos;
     }
   }
-  else {                                                    // puddles  
+  else {                                                    // puddles
     if (volumeRaw > 1) {
       size = volumeRaw * SEGMENT.intensity /256 /8 + 1;     // Determine size of the flash based on the volume.
       if (pos+size >= SEGLEN) size = SEGLEN - pos;
-    } 
+    }
   }
-  
+
   for (unsigned i=0; i<size; i++) {                          // Flash the LED's.
     SEGMENT.setPixelColor(pos+i, SEGMENT.color_from_palette(strip.now, false, PALETTE_SOLID_WRAP, 0));
   }
@@ -7156,12 +7154,12 @@ void mode_puddles_base(bool peakdetect) {
 
 void mode_puddlepeak(void) {                // Puddlepeak. By Andrew Tuline.
   mode_puddles_base(true);
-} 
+}
 static const char _data_FX_MODE_PUDDLEPEAK[] PROGMEM = "Puddlepeak@Fade rate,Puddle size,Select bin,Volume (min);!,!;!;1v;c2=0,m12=0,si=0"; // Pixels, Beatsin
 
 void mode_puddles(void) {                   // Puddles. By Andrew Tuline.
   mode_puddles_base(false);
-} 
+}
 static const char _data_FX_MODE_PUDDLES[] PROGMEM = "Puddles@Fade rate,Puddle size;!,!;!;1v;m12=0,si=0"; // Pixels, Beatsin
 
 
@@ -9860,7 +9858,7 @@ void mode_particleFireworks1D(void) {
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-  
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
@@ -11052,7 +11050,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_COLORTWINKLE, &mode_colortwinkle, _data_FX_MODE_COLORTWINKLE);
   addEffect(FX_MODE_LAKE, &mode_lake, _data_FX_MODE_LAKE);
   addEffect(FX_MODE_METEOR, &mode_meteor, _data_FX_MODE_METEOR);
-  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor 
+  //addEffect(FX_MODE_METEOR_SMOOTH, &mode_meteor_smooth, _data_FX_MODE_METEOR_SMOOTH); // merged with mode_meteor
   addEffect(FX_MODE_RAILWAY, &mode_railway, _data_FX_MODE_RAILWAY);
   addEffect(FX_MODE_RIPPLE, &mode_ripple, _data_FX_MODE_RIPPLE);
   addEffect(FX_MODE_TWINKLEFOX, &mode_twinklefox, _data_FX_MODE_TWINKLEFOX);
@@ -11070,7 +11068,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SPARKLE, &mode_sparkle, _data_FX_MODE_SPARKLE);
   addEffect(FX_MODE_GLITTER, &mode_glitter, _data_FX_MODE_GLITTER);
   addEffect(FX_MODE_SOLID_GLITTER, &mode_solid_glitter, _data_FX_MODE_SOLID_GLITTER);
-  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);  
+  addEffect(FX_MODE_MULTI_COMET, &mode_multi_comet, _data_FX_MODE_MULTI_COMET);
   #ifdef WLED_PS_DONT_REPLACE_1D_FX
   addEffect(FX_MODE_ROLLINGBALLS, &mode_rolling_balls, _data_FX_MODE_ROLLINGBALLS);
   addEffect(FX_MODE_STARBURST, &mode_starburst, _data_FX_MODE_STARBURST);
@@ -11096,7 +11094,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_SINEWAVE, &mode_sinewave, _data_FX_MODE_SINEWAVE);
   addEffect(FX_MODE_PHASEDNOISE, &mode_phased_noise, _data_FX_MODE_PHASEDNOISE);
   addEffect(FX_MODE_FLOW, &mode_flow, _data_FX_MODE_FLOW);
-  addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);  
+  addEffect(FX_MODE_CHUNCHUN, &mode_chunchun, _data_FX_MODE_CHUNCHUN);
   addEffect(FX_MODE_WASHING_MACHINE, &mode_washing_machine, _data_FX_MODE_WASHING_MACHINE);
   addEffect(FX_MODE_BLENDS, &mode_blends, _data_FX_MODE_BLENDS);
   addEffect(FX_MODE_TV_SIMULATOR, &mode_tv_simulator, _data_FX_MODE_TV_SIMULATOR);
