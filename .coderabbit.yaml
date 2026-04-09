@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit configuration — references existing guideline files to avoid
+# duplicating conventions.  See:
+#   .github/copilot-instructions.md   — project overview & general rules
+#   docs/cpp.instructions.md          — C++ coding conventions
+#   docs/web.instructions.md          — Web UI coding conventions
+#   docs/cicd.instructions.md         — GitHub Actions / CI-CD conventions
+#
+# NOTE: This file must be committed (tracked by git) for CodeRabbit to read
+# it from the repository.  If it is listed in .gitignore, CodeRabbit will
+# not see it and these settings will have no effect.
+
+language: en-US
+
+reviews:
+  path_instructions:
+    - path: "**/*.{cpp,h,hpp,ino}"
+      instructions: >
+        Follow the C++ coding conventions documented in docs/cpp.instructions.md
+        and the general project guidelines in .github/copilot-instructions.md.
+
+        Key rules: 2-space indentation (no tabs), camelCase functions/variables,
+        PascalCase classes, UPPER_CASE macros. No C++ exceptions — use return codes and debug macros.
+
+        Hot-path optimization guidelines (attributes, uint_fast types, caching,
+        unsigned range checks) apply from pixel set/get operations and strip.show() downward —
+        NOT to effect functions in FX.cpp, which have diverse contributor styles.
+
+        When initially reviewing a PR, summarize good practices (top 5)
+        and create a prioritized list of suggested improvements (focus on major ones).
+
+    - path: "wled00/data/**"
+      instructions: >
+        Follow the web UI conventions documented in docs/web.instructions.md.
+
+        Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
+        Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
+        edit those generated headers directly.
+
+        When initially reviewing a PR, summarize good practices (top 5)
+        and create a prioritized list of suggested improvements (focus on major ones).
+
+    - path: "wled00/html_*.h"
+      instructions: >
+        These files are auto-generated from wled00/data/ by tools/cdata.js.
+        They must never be manually edited or committed. Flag any PR that
+        includes changes to these files.
+
+    - path: "wled00/js_*.h"
+      instructions: >
+        These files are auto-generated from wled00/data/ by tools/cdata.js.
+        They must never be manually edited or committed. Flag any PR that
+        includes changes to these files.
+
+    - path: "usermods/**"
+      instructions: >
+        Usermods are community add-ons.
+        Each usermod lives in its own directory under usermods/ and is implemented
+        as a .cpp file with a dedicated library.json file to manage dependencies. 
+        Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
+
+        When initially reviewing a PR, summarize good practices (top 6)
+        and create a prioritized list of suggested improvements (skip minor ones).
+
+    - path: ".github/workflows/*.{yml,yaml}"
+      instructions: >
+        Follow the CI/CD conventions documented in docs/cicd.instructions.md.
+
+        Key rules: 2-space indentation, descriptive name: on every workflow/job/step.
+        Third-party actions must be pinned to a specific version tag — branch pins
+        such as @main or @master are not allowed. Declare explicit permissions: blocks
+        scoped to least privilege. Never interpolate github.event.* values directly
+        into run: steps — pass them through an env: variable to prevent script
+        injection. Do not use pull_request_target unless fully justified.
+
+        When initially reviewing a PR, summarize good practices (top 6)
+        and create a prioritized list of suggested improvements.
+
+    - path: "**/*.instructions.md"
+      instructions: |
+        This file contains both AI-facing rules and human-only reference sections.
+        Human-only sections are enclosed in `<!-- HUMAN_ONLY_START -->` /
+        `<!-- HUMAN_ONLY_END -->` HTML comment markers and should not be used as
+        actionable review criteria.
+
+        When this file is modified in a PR, perform the following alignment check:
+        1. For each `<!-- HUMAN_ONLY_START --> ... <!-- HUMAN_ONLY_END -->` block,
+           verify that its examples and guidance are consistent with (and do not
+           contradict) the AI-facing rules stated in the same file.
+        2. Flag any HUMAN_ONLY section whose content has drifted from the surrounding
+           AI-facing rules due to edits introduced in this PR.
+        3. If new AI-facing rules were added without updating a related HUMAN_ONLY
+           reference section, note this as a suggestion (not a required fix).

@@ -90,7 +90,7 @@ function loadJS(FILE_URL, async = true, preGetV = undefined, postGetV = undefine
 	scE.setAttribute("type", "text/javascript");
 	scE.setAttribute("async", async);
 	d.body.appendChild(scE);
-	// success event 
+	// success event
 	scE.addEventListener("load", () => {
 		//console.log("File loaded");
 		if (preGetV) preGetV();
@@ -126,6 +126,10 @@ function getLoc() {
 	}
 }
 function getURL(path) { return (loc ? locproto + "//" + locip : "") + path; }
+// HTML entity escaper – use on any remote/user-supplied text inserted into innerHTML
+function esc(s)     { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// URL sanitizer – blocks javascript: and data: URIs, use for externally supplied URLs for some basic safety
+function safeUrl(u) { return /^https?:\/\//.test(u) ? u : '#'; }
 function B()          { window.open(getURL("/settings"),"_self"); }
 var timeout;
 function showToast(text, error = false) {
@@ -197,7 +201,7 @@ function sendDDP(ws, start, len, colors) {
 		pkt[0] = 0x02; // DDP protocol indicator for WLED websocket. Note: below DDP protocol bytes are offset by 1
 		pkt[1] = 0x40; // flags: 0x40 = no push, 0x41 = push (i.e. render), note: this is DDP protocol byte 0
 		pkt[2] = 0x00; // reserved
-		pkt[3] = 0x01; // 1 = RGB (currently only supported mode)
+		pkt[3] = 0x0B; // RGB, 8bit per channel
 		pkt[4] = 0x01; // destination id (not used but 0x01 is default output)
 		pkt[5] = (off >> 24) & 255; // DDP protocol 4-7 is offset
 		pkt[6] = (off >> 16) & 255;
