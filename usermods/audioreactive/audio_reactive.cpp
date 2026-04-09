@@ -226,7 +226,8 @@ static uint64_t sampleTime = 0;
 // FFT Task variables (filtering and post-processing)
 static float   fftCalc[NUM_GEQ_CHANNELS] = {0.0f};                    // Try and normalize fftBin values to a max of 4096, so that 4096/16 = 256.
 static float   fftAvg[NUM_GEQ_CHANNELS] = {0.0f};                     // Calculated frequency channel results, with smoothing (used if dynamics limiter is ON)
-static float   paletteBandAvg[NUM_GEQ_CHANNELS] = {0.0f};             // Slowly smoothed band averages for audio palettes (EMA, ~400ms time constant)
+static float   paletteBandAvg[NUM_GEQ_CHANNELS] = {0.0f};             // Slowly smoothed band averages used only by audio palettes 3 & 4 (EMA, alpha=0.05 → ~400ms time constant at 20ms cycle)
+static constexpr float PALETTE_SMOOTHING = 0.05f;                     // EMA smoothing factor for paletteBandAvg: 0.05 gives ~400ms time constant; increase for faster response, decrease for slower
 #ifdef SR_DEBUG
 static float   fftResultMax[NUM_GEQ_CHANNELS] = {0.0f};               // A table used for testing to determine how our post-processing is working.
 #endif
@@ -2235,45 +2236,58 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
       }
       break;
     case 3: {
-      // "Track Character" palette - smoothed spectral centroid drives hue
-      static const float bandFreq[NUM_GEQ_CHANNELS] = {
+      // "Track Character" palette (palette index 3)
+      // Uses the spectral centroid of paletteBandAvg[] to derive a single hue that
+      // reflects the tonal balance of the music over the past ~400ms:
+      //   low centroid  (bass-heavy drop)     → warm red/orange  (hue ≈ 0)
+      //   mid centroid  (vocals/melody)        → green/cyan       (hue ≈ 80-120)
+      //   high centroid (cymbals/bright synth) → blue/purple      (hue ≈ 200)
+      // x (0-255) spreads palette positions ±30 hue units around that base hue.
+      static const float bandFreq[NUM_GEQ_CHANNELS] = {       // approximate centre frequency (Hz) of each GEQ channel
         65, 107, 172, 258, 365, 495, 689, 969,
         1270, 1658, 2153, 2713, 3359, 4091, 5792, 8182
       };
       float wSum = 0, tEnergy = 0;
       for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
-        wSum += paletteBandAvg[i] * bandFreq[i];
-        tEnergy += paletteBandAvg[i];
+        wSum += paletteBandAvg[i] * bandFreq[i];               // frequency-weighted energy
+        tEnergy += paletteBandAvg[i];                          // total energy
       }
+      // centroid = energy-weighted average frequency; default to 500 Hz when signal is silent
       float centroid = (tEnergy > 1.0f) ? (wSum / tEnergy) : 500.0f;
+      // Map centroid to hue on a log scale (human pitch perception is logarithmic).
+      // log2(60 Hz) ≈ 5.9,  log2(8000 Hz) ≈ 13.0  →  hue range 0..200 (red → blue-purple)
       float logC = log2f(constrain(centroid, 60.0f, 8000.0f));
-      // log2(60)≈5.9, log2(8000)≈13.0 → map to hue 0..200
       uint8_t baseHue = (uint8_t)mapf(logC, 5.9f, 13.0f, 0.0f, 200.0f);
-      // Spread palette positions around centroid hue
-      int8_t hueSpread = map(x, 0, 255, -30, 30);
-      uint8_t saturation = (uint8_t)constrain((int)(tEnergy / 6.0f) + 180, 180, 255);
+      int8_t  hueSpread  = map(x, 0, 255, -30, 30);            // spread palette positions ±30 hue units
+      uint8_t saturation = (uint8_t)constrain((int)(tEnergy / 6.0f) + 180, 180, 255);  // louder = more saturated
       hsv = CHSV(baseHue + hueSpread, saturation, (uint8_t)constrain(x, 30, 255));
       value = hsv;
       break;
     }
     case 4: {
-      // "Spectral Balance" palette - bass vs mid vs high energy balance
+      // "Spectral Balance" palette (palette index 4)
+      // Divides the spectrum into three broad bands and uses their energy ratio to derive hue:
+      //   bass dominant  (channels  0-3,  ~43-301 Hz)  → warm hue  ≈ 20  (red/orange)
+      //   mid dominant   (channels  4-9,  ~301-1895 Hz) → green hue ≈ 110 (green/cyan)
+      //   high dominant  (channels 10-15, ~1895-9259 Hz)→ cool hue  ≈ 190 (blue/violet)
+      // x (0-255) spreads palette positions ±25 hue units around that weighted hue,
+      // giving a smooth colour band rather than a single flat colour.
       float bassEnergy = 0, midEnergy = 0, highEnergy = 0;
-      for (int i = 0;  i < 4;  i++) bassEnergy += paletteBandAvg[i];
-      for (int i = 4;  i < 10; i++) midEnergy  += paletteBandAvg[i];
-      for (int i = 10; i < 16; i++) highEnergy += paletteBandAvg[i];
+      for (int i = 0;  i < 4;  i++) bassEnergy += paletteBandAvg[i];  // sub-bass + bass
+      for (int i = 4;  i < 10; i++) midEnergy  += paletteBandAvg[i];  // midrange
+      for (int i = 10; i < 16; i++) highEnergy += paletteBandAvg[i];  // high-mid + high
       float total = bassEnergy + midEnergy + highEnergy;
-      if (total < 1.0f) total = 1.0f;
-      float bassRatio = bassEnergy / total;
+      if (total < 1.0f) total = 1.0f;                          // avoid division by zero when silent
+      float bassRatio = bassEnergy / total;                     // fraction of energy in bass band
       float midRatio  = midEnergy  / total;
       float highRatio = highEnergy / total;
-      // Weighted hue: bass→warm(20), mid→green(110), high→cool(190)
-      uint8_t hue = (uint8_t)(bassRatio * 20.0f + midRatio * 110.0f + highRatio * 190.0f);
-      // More concentrated spectrum = more saturated
-      float maxRatio = fmaxf(bassRatio, fmaxf(midRatio, highRatio));
-      uint8_t sat = (uint8_t)constrain((int)(maxRatio * 255.0f * 1.5f), 180, 255);
-      // Spread across palette position
-      int8_t hueOffset = map(x, 0, 255, -25, 25);
+      // Weighted hue: pure bass→20, pure mid→110, pure high→190
+      uint8_t hue     = (uint8_t)(bassRatio * 20.0f + midRatio * 110.0f + highRatio * 190.0f);
+      // Saturation: dominated spectrum (one band clearly wins) → high sat; balanced → lower sat
+      float   maxRatio = fmaxf(bassRatio, fmaxf(midRatio, highRatio));
+      uint8_t sat      = (uint8_t)constrain((int)(maxRatio * 255.0f * 1.5f), 180, 255);
+      int8_t  hueOffset = map(x, 0, 255, -25, 25);             // spread palette positions ±25 hue units
+      // brightness: minimum 30, boosted by overall loudness and palette position
       uint8_t val = (uint8_t)constrain((int)(total / 8.0f) + (int)map(x, 0, 255, 30, 255), 30, 255);
       hsv = CHSV(hue + hueOffset, sat, val);
       value = hsv;
@@ -2288,8 +2302,10 @@ void AudioReactive::fillAudioPalettes() {
   size_t lastCustPalette = customPalettes.size();
   if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
 
-  // Update smoothed band averages for palettes 3 and 4 (EMA, ~400ms time constant at 20ms cycle)
-  static constexpr float PALETTE_SMOOTHING = 0.05f;
+  // Update slowly-smoothed band averages used by palettes 3 & 4.
+  // Alpha=PALETTE_SMOOTHING gives ~400ms time constant at a 20ms update cycle,
+  // so palette colours reflect the overall tonal character of the music rather than
+  // reacting to individual beats (which would appear "twitchy").
   for (int i = 0; i < NUM_GEQ_CHANNELS; i++) {
     paletteBandAvg[i] += PALETTE_SMOOTHING * ((float)fftResult[i] - paletteBandAvg[i]);
   }
