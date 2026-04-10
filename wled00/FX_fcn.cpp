@@ -1741,13 +1741,27 @@ void WS2812FX::show() {
   size_t diff = showNow - _lastShow;
 
   size_t totalLen = getLengthTotal();
-  // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
-  // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
-  // and then set appropriate CCT from that pixel during paint (see below).
+  // CCT per-pixel tracking: only needed when multiple active segments have *different* CCT values.
+  // When all segments share the same CCT we skip the allocation entirely and set Bus::_cct once
+  // before the paint loop — identical to the original per-pixel-change path but without the buffer.
   #ifndef ESP8266
-  if ((hasCCTBus() || correctWB) && !cctFromRgb)
-    _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
-  if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+  uint8_t uniformCCT = 127; // neutral 50:50 CCT; used when no buffer is allocated
+  if ((hasCCTBus() || correctWB) && !cctFromRgb) {
+    int16_t firstCCT = -1; // -1 = "no active segment seen yet"
+    for (const Segment &seg : _segments) {
+      if (!seg.isActive() || (!seg.on && !seg.isInTransition())) continue;
+      uint8_t segCCT = seg.currentCCT();
+      if (firstCCT < 0) {
+        firstCCT = segCCT;
+        uniformCCT = segCCT;
+      } else if ((uint8_t)firstCCT != segCCT) {
+        // segments have different CCT values — need per-pixel buffer
+        _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM));
+        if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+        break;
+      }
+    }
+  }
   #endif
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
@@ -1778,10 +1792,11 @@ void WS2812FX::show() {
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
+  else if (!_pixelCCT) BusManager::setSegmentCCT(uniformCCT, correctWB); // uniform CCT: set once before loop
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
-    if (_pixelCCT) { // cctFromRgb already exluded at allocation
+    if (_pixelCCT) { // cctFromRgb already excluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
 

@@ -87,7 +87,7 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel, uint8_t ledType) {
   
   if (driver == BusDriver::Auto) {
-    driver = getRecommendedBusDriver();
+    driver = getRecommendedBusDriver(); // TODO: currently not used properly, is it even a good idea? maybe implement as a fallback if driver request fails?
   }
 
   PixelBus* bus = nullptr;
