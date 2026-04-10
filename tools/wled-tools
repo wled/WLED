@@ -135,11 +135,11 @@ EOF
 }
 
 # Discover devices using mDNS
-discover_devices() {
-    if ! command -v avahi-browse &> /dev/null; then
+discover_devices() {  
+    if ! command -v avahi-browse &> /dev/null; then  
         log "ERROR" "$RED" "'avahi-browse' is required but not installed, please install avahi-utils using your preferred package manager."
-        exit 1
-    fi
+        exit 1  
+    fi  
 
     # Map avahi responses to strings separated by 0x1F (unit separator), deduplicated
     mapfile -t raw_devices < <(
@@ -152,15 +152,14 @@ discover_devices() {
         '
     )
 
-    local devices_array=()
-    local hostname address port
-    for device in "${raw_devices[@]}"; do
-        IFS=$'\x1F' read -r hostname address port <<< "$device"
-        devices_array+=("$hostname" "$address" "$port")
-    done
+    local devices_array=()  
+    for device in "${raw_devices[@]}"; do  
+        IFS=$'\x1F' read -r hostname address port <<< "$device"  
+        devices_array+=("$hostname" "$address" "$port")  
+    done  
 
-    echo "${devices_array[@]}"
-}
+    echo "${devices_array[@]}"  
+}  
 
 # Backup one device
 backup_one() {
