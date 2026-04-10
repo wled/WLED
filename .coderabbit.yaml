@@ -14,6 +14,19 @@
 language: en-US
 
 reviews:
+  # generic review setting, see https://docs.coderabbit.ai/reference/configuration#reference
+  auto_apply_labels: true
+  # abort_on_close: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  poem: false
+  # sequence_diagrams: false
+  auto_review:
+    enabled: true
+    ignore_title_keywords:
+      - WIP
+
   path_instructions:
     - path: "**/*.{cpp,h,hpp,ino}"
       instructions: >
@@ -26,9 +39,8 @@ reviews:
         Hot-path optimization guidelines (attributes, uint_fast types, caching,
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
-
-        When initially reviewing a PR, summarize good practices (top 5)
-        and create a prioritized list of suggested improvements (focus on major ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
 
     - path: "wled00/data/**"
       instructions: >
@@ -37,9 +49,8 @@ reviews:
         Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
         Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
         edit those generated headers directly.
-
-        When initially reviewing a PR, summarize good practices (top 5)
-        and create a prioritized list of suggested improvements (focus on major ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
 
     - path: "wled00/html_*.h"
       instructions: >
@@ -59,9 +70,8 @@ reviews:
         Each usermod lives in its own directory under usermods/ and is implemented
         as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
-
-        When initially reviewing a PR, summarize good practices (top 6)
-        and create a prioritized list of suggested improvements (skip minor ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements (skip minor ones).
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
@@ -73,9 +83,8 @@ reviews:
         scoped to least privilege. Never interpolate github.event.* values directly
         into run: steps — pass them through an env: variable to prevent script
         injection. Do not use pull_request_target unless fully justified.
-
-        When initially reviewing a PR, summarize good practices (top 6)
-        and create a prioritized list of suggested improvements.
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements.
 
     - path: "**/*.instructions.md"
       instructions: |
@@ -92,3 +101,10 @@ reviews:
            AI-facing rules due to edits introduced in this PR.
         3. If new AI-facing rules were added without updating a related HUMAN_ONLY
            reference section, note this as a suggestion (not a required fix).
+
+  finishing_touches:
+    # Docstrings | Options for generating Docstrings for your PRs/MRs.
+    docstrings:
+      # Docstrings | Allow CodeRabbit to generate docstrings for PRs/MRs.
+      # default: true - disabled in WLED: has caused confusion in the past
+      enabled: false
