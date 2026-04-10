@@ -26,9 +26,8 @@ reviews:
         Hot-path optimization guidelines (attributes, uint_fast types, caching,
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
-
-        When initially reviewing a PR, summarize good practices (top 5)
-        and create a prioritized list of suggested improvements (focus on major ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
 
     - path: "wled00/data/**"
       instructions: >
@@ -37,9 +36,8 @@ reviews:
         Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
         Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
         edit those generated headers directly.
-
-        When initially reviewing a PR, summarize good practices (top 5)
-        and create a prioritized list of suggested improvements (focus on major ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
 
     - path: "wled00/html_*.h"
       instructions: >
@@ -59,9 +57,8 @@ reviews:
         Each usermod lives in its own directory under usermods/ and is implemented
         as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
-
-        When initially reviewing a PR, summarize good practices (top 6)
-        and create a prioritized list of suggested improvements (skip minor ones).
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements (skip minor ones).
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
@@ -73,9 +70,8 @@ reviews:
         scoped to least privilege. Never interpolate github.event.* values directly
         into run: steps — pass them through an env: variable to prevent script
         injection. Do not use pull_request_target unless fully justified.
-
-        When initially reviewing a PR, summarize good practices (top 6)
-        and create a prioritized list of suggested improvements.
+# disabled - the below instruction has no effect
+# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements.
 
     - path: "**/*.instructions.md"
       instructions: |
