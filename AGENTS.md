@@ -94,7 +94,7 @@ docs/                # Coding convention docs
 ### Error Handling
 - **No C++ exceptions** — some builds disable them
 - Use return codes (`false`, `-1`) and global flags (`errorFlag = ERR_LOW_MEM`)
-- Use early returns as guard clauses: `if (!enabled || strip.isUpdating()) return;`
+- Use early returns as guard clauses: `if (!enabled || (strip.isUpdating() && (millis() - last_time < MAX_USERMOD_DELAY))) return;`
 - Debug output: `DEBUG_PRINTF()` / `DEBUG_PRINTLN()` (compiled out unless `-D WLED_DEBUG`)
 
 ### Strings and Memory
