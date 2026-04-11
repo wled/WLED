@@ -40,19 +40,18 @@
 static const PROGMEM WLEDpixelBus::LedTiming s_ledTimings[] = {
 //            t0h   t0l   t1h   t1l  reset_us
 /* 0 WS2812 */ { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
-/* 1 WS281xF*/ { 330,  670,  660,  340,  100 },  // WS281x_FAST (1MHz)
-/* 2 400KHz */ { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
-/* 3 TM1829 */ { 300,  900,  800,  400,  200 },  // TM1829
-/* 4 UCS8x03*/ { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
-/* 5 APA106 */ { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
-/* 6 TM1x14 */ { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
-/* 7 SK6812 */ { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
-/* 8 TM1815 */ { 740, 1780, 1440, 1060,  200 },  // TM1815
-/* 9 FW1906 */ { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
-/*10 WS2805 */ { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
-/*11 SM16825*/ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
-/*12 SPI    */ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803
-/*13 WS2801 */ { 500,  500,  500,  500, 1000 },  // WS2801
+/* 1 400KHz */ { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
+/* 2 TM1829 */ { 300,  900,  800,  400,  200 },  // TM1829
+/* 3 UCS8x03*/ { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
+/* 4 APA106 */ { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
+/* 5 TM1x14 */ { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
+/* 6 SK6812 */ { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
+/* 7 TM1815 */ { 740, 1780, 1440, 1060,  200 },  // TM1815
+/* 8 FW1906 */ { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
+/* 9 WS2805 */ { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
+/*10 SM16825*/ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
+/*11 SPI    */ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803
+/*12 WS2801 */ { 500,  500,  500,  500, 1000 },  // WS2801
 };
 
 // Maps WLED TYPE_ to an index into s_ledTimings.
@@ -66,25 +65,24 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_WS2812_RGB:
     case TYPE_WS2812_WWA:    return  0;
     case TYPE_WS2811_RGB_W:
-    case TYPE_WS2811_RGB_CCT: return  0; // WS2812 timing (2×WS2811 per pixel)
-    case TYPE_WS281X_FAST:   return  1;
-    case TYPE_WS2811_400KHZ: return  2;
-    case TYPE_TM1829:        return  3;
+    case TYPE_WS2811_RGB_CCT: return 0; // WS2812 timing (2×WS2811 per pixel)
+    case TYPE_WS2811_400KHZ: return  1;
+    case TYPE_TM1829:        return  2;
     case TYPE_UCS8903:
-    case TYPE_UCS8904:       return  4; // identical timing
-    case TYPE_APA106:        return  5;
+    case TYPE_UCS8904:       return  3; // identical timing
+    case TYPE_APA106:        return  4;
     case TYPE_TM1914:
-    case TYPE_TM1814:        return  6; // identical timing
-    case TYPE_SK6812_RGBW:   return  7;
-    case TYPE_TM1815:        return  8;
-    case TYPE_FW1906:        return  9;
-    case TYPE_WS2805:        return 10;
-    case TYPE_SM16825:       return 11;
+    case TYPE_TM1814:        return  5; // identical timing
+    case TYPE_SK6812_RGBW:   return  6;
+    case TYPE_TM1815:        return  7;
+    case TYPE_FW1906:        return  8;
+    case TYPE_WS2805:        return  9;
+    case TYPE_SM16825:       return 10;
     case TYPE_APA102:
     case TYPE_LPD8806:
     case TYPE_P9813:
-    case TYPE_LPD6803:       return 12; // identical timing
-    case TYPE_WS2801:        return 13;
+    case TYPE_LPD6803:       return 11; // TODO: SPI types need testing
+    case TYPE_WS2801:        return 12;
     default:                 return  0; // WS2812 fallback
   }
 }
