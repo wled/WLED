@@ -61,13 +61,6 @@ uint16_t approximateKelvinFromRGB(uint32_t rgb);
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
 #define UNSET_BIT(var,bit)  ((var)&=(~(uint16_t)(0x0001<<(bit))))
 
-#define NUM_ICS_WS2812_1CH_3X(len) (((len)+2)/3)   // 1 WS2811 IC controls 3 zones (each zone has 1 LED, W)
-#define IC_INDEX_WS2812_1CH_3X(i)  ((i)/3)
-
-#define NUM_ICS_WS2812_2CH_3X(len) (((len)+1)*2/3) // 2 WS2811 ICs control 3 zones (each zone has 2 LEDs, CW and WW)
-#define IC_INDEX_WS2812_2CH_3X(i)  ((i)*2/3)
-#define WS2812_2CH_3X_SPANS_2_ICS(i) ((i)&0x01)    // every other LED zone is on two different ICs
-
 struct BusConfig; // forward declaration
 
 // Defines an LED Strip and its color ordering.
@@ -172,7 +165,7 @@ class Bus {
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
     static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
-    static constexpr size_t   getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
+    static constexpr size_t   getNumberOfChannels(uint8_t type) { return (type == TYPE_WS2811_RGB_W || type == TYPE_WS2811_RGB_CCT) ? 6 : (hasWhite(type) + 3*hasRGB(type) + hasCCT(type)); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
     }
@@ -180,6 +173,7 @@ class Bus {
       return  (type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) ||
               type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_TM1815 || type == TYPE_UCS8904 ||
               type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||        // digital types with white channel
+              type == TYPE_WS2811_RGB_W || type == TYPE_WS2811_RGB_CCT ||                  // 6-channel types
               (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) || // analog types with white channel
               type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
     }
@@ -187,7 +181,7 @@ class Bus {
       return  type == TYPE_WS2812_2CH_X3 || type == TYPE_WS2812_WWA ||
               type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_5CH ||
               type == TYPE_FW1906        || type == TYPE_WS2805     ||
-              type == TYPE_SM16825;
+              type == TYPE_SM16825       || type == TYPE_WS2811_RGB_CCT;
     }
     static constexpr bool  isTypeValid(uint8_t type)  { return (type > 15 && type < 128); }
     static constexpr bool  isDigital(uint8_t type)    { return (type >= TYPE_DIGITAL_MIN && type <= TYPE_DIGITAL_MAX) || is2Pin(type); }

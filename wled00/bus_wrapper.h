@@ -65,6 +65,8 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_WS2812_2CH_X3:
     case TYPE_WS2812_RGB:
     case TYPE_WS2812_WWA:    return  0;
+    case TYPE_WS2811_RGB_W:
+    case TYPE_WS2811_RGB_CCT: return  0; // WS2812 timing (2×WS2811 per pixel)
     case TYPE_WS281X_FAST:   return  1;
     case TYPE_WS2811_400KHZ: return  2;
     case TYPE_TM1829:        return  3;

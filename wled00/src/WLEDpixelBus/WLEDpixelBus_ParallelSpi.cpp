@@ -582,7 +582,7 @@ bool ParallelSpiBus::begin() {
   }
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
@@ -648,7 +648,7 @@ bool ParallelSpiBus::canShow() const {
 }
 
 void ParallelSpiBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 

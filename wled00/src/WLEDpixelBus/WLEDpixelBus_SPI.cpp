@@ -29,7 +29,7 @@ bool SpiBus::begin() {
   }
   
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
@@ -79,13 +79,13 @@ void SpiBus::sendEndFrame() {
 bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  uint8_t numCh = _encoder.getNumChannels();
+  uint8_t pixelBytes = _encoder.getPixelBytes();
 
   sendStartFrame();
   for (uint16_t i = 0; i < _numPixels; i++) {
     sendByte(0xFF); // APA102 global brightness byte
-    const uint8_t* src = _encodeBuffer + i * numCh;
-    for (uint8_t ch = 0; ch < numCh; ch++) sendByte(src[ch]);
+    const uint8_t* src = _encodeBuffer + i * pixelBytes;
+    for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
   }
   sendEndFrame();
 
@@ -93,7 +93,7 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
 }
 
 void SpiBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 bool SpiBus::canShow() const {

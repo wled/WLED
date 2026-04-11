@@ -35,21 +35,45 @@ namespace WLEDpixelBus {
 
 ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 {
-  _numChannels = numChannels;
-  _logCh = numChannels;  // save logical count before any 16-bit doubling
-  _idxR = _idxG = _idxB = _idxW = _idxWW = _idxCW = 0xFF;
+  _invertMask = 0;
 
-  // RGB position from lower nibble (0=GRB, 1=RGB, 2=BRG, 3=RBG, 4=BGR, 5=GBR)
-  uint8_t pos[3];
-  switch (co & 0x0F) {
-    case 1:  pos[0]=0; pos[1]=1; pos[2]=2; break; // RGB
-    case 2:  pos[0]=1; pos[1]=2; pos[2]=0; break; // BRG
-    case 3:  pos[0]=0; pos[1]=2; pos[2]=1; break; // RBG
-    case 4:  pos[0]=2; pos[1]=1; pos[2]=0; break; // BGR
-    case 5:  pos[0]=2; pos[1]=0; pos[2]=1; break; // GBR
-    default: pos[0]=1; pos[1]=0; pos[2]=2; break; // GRB (case 0)
+  // --- Special LED types: packed _pixelFormat with NCHF_SPEC flags, fixed wire layout ---
+
+  if (ledType == TYPE_WS2812_1CH_X3) {
+    // 1 wire byte per pixel = white channel only
+    _pixelFormat = 1 | NCHF_SPEC1;  // packed: 0x41
+    _idxR = _idxG = _idxB = _idxCW = 0; _idxW = 0;
+    return;
   }
-  _idxR = pos[0]; _idxG = pos[1]; _idxB = pos[2];
+  if (ledType == TYPE_WS2811_RGB_W) {
+    // 6 wire bytes: R G B W W W
+    _pixelFormat = 6 | NCHF_SPEC1;  // packed: 0x46
+    _idxR=0; _idxG=1; _idxB=2; _idxW=3; _idxCW=4;
+    return;
+  }
+  if (ledType == TYPE_WS2811_RGB_CCT) {
+    // 6 wire bytes: R G B WW CW 0
+    _pixelFormat = 6 | NCHF_SPEC2;  // packed: 0x86
+    _idxR=0; _idxG=1; _idxB=2; _idxW=3; _idxCW=4;
+    return;
+  }
+
+  // --- Standard types: fast path via _idxR/_idxG/_idxB/_idxW/_idxCW ---
+
+  uint8_t flags = 0;
+
+  // Decode RGB wire positions from color order lower nibble (0=GRB,1=RGB,2=BRG,3=RBG,4=BGR,5=GBR)
+  uint8_t rPos, gPos, bPos;
+  switch (co & 0x0F) {
+    case 1:  rPos=0; gPos=1; bPos=2; break; // RGB
+    case 2:  rPos=1; gPos=2; bPos=0; break; // BRG
+    case 3:  rPos=0; gPos=2; bPos=1; break; // RBG
+    case 4:  rPos=2; gPos=1; bPos=0; break; // BGR
+    case 5:  rPos=2; gPos=0; bPos=1; break; // GBR
+    default: rPos=1; gPos=0; bPos=2; break; // GRB (case 0)
+  }
+  _idxR = rPos; _idxG = gPos; _idxB = bPos;
+  _idxW = 3; _idxCW = 4; // defaults, overridden below as needed
 
   // White/CCT channels: numChannels from bus type, W-swap from upper nibble
   if (numChannels == 4) {
@@ -58,25 +82,96 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
     if (ledType == TYPE_TM1814 || ledType == TYPE_TM1815) {
       _idxR++; _idxG++; _idxB++;
       _idxW = 0;
-    } else {
-      _idxW = 3; // standard: W after RGB
     }
     const uint8_t wSwap = co >> 4;
     if (wSwap == 1) { std::swap(_idxW, _idxB); } // swap W & B
     if (wSwap == 2) { std::swap(_idxW, _idxG); } // swap W & G
     if (wSwap == 3) { std::swap(_idxW, _idxR); } // swap W & R
   } else if (numChannels >= 5) {
-    _idxWW = 3;
-    _idxCW = 4;
     const uint8_t wSwap = co >> 4;
-    if (wSwap == 4) { std::swap(_idxWW, _idxCW); } // swap WW & CW
+    if (wSwap == 4) { std::swap(_idxW, _idxCW); } // swap WW & CW
   }
 
-  // 16-bit chips: 2 wire bytes per logical channel.
-  // _logCh stays as the logical count; _numChannels becomes the wire count.
+  // 16-bit chips: two wire bytes per logical channel; lower nibble stores wire bytes.
   if (ledType == TYPE_UCS8903 || ledType == TYPE_UCS8904 || ledType == TYPE_SM16825) {
-    _numChannels *= 2;
+    flags |= NCHF_16BIT;
+    numChannels *= 2; // 16bit buses use two bytes per color channel
   }
+  _pixelFormat  = numChannels | flags;
+
+}
+
+// TODO: generic encoder should take flags instead of hard-coding the SPEC1/2 cases that currently exist
+
+// Generic encoder for non-fast-path cases: NCHF_INVERT, NCHF_SPEC1, NCHF_SPEC2,
+// and any 16-bit + invert combination.
+void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
+  const uint8_t flags = _pixelFormat & 0xF0;
+  const uint8_t logCh = _pixelFormat & 0x0F;
+
+  if (flags & NCHF_SPEC1) {
+    if (logCh == 1) { out[0] = getW(c); }                         // TYPE_WS2812_1CH_X3
+    else { out[0]=getR(c); out[1]=getG(c); out[2]=getB(c);        // TYPE_WS2811_RGB_W
+           out[3]=out[4]=out[5]=getW(c); }
+    return;
+  }
+  if (flags & NCHF_SPEC2) {                                       // TYPE_WS2811_RGB_CCT
+    out[0]=getR(c); out[1]=getG(c); out[2]=getB(c);
+    out[3]=cct.ww;  out[4]=cct.cw;  out[5]=0;
+    return;
+  }
+
+  // NCHF_INVERT, optionally combined with NCHF_16BIT
+  // logCh is wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit
+  if (flags & NCHF_16BIT) {
+    switch (logCh) {
+      case 6:  encodeRGB16(c, out, bri);       break;
+      case 8:  encodeRGBW16(c, out, bri);      break;
+      default: encodeCCT16(c, cct, out, bri);  break; // 10
+    }
+  } else {
+    switch (logCh) {
+      case 3: encodeRGB(c, out);        break;
+      case 4: encodeRGBW(c, out);       break;
+      default: encodeCCT(c, cct, out);  break; // 5
+    }
+  }
+  // Apply invert mask; logCh already equals wire bytes
+  for (uint8_t i = 0; i < logCh; i++) {
+    if (_invertMask & (1u << i)) out[i] ^= 0xFF;
+  }
+}
+
+uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
+  const uint8_t flags = _pixelFormat & 0xF0;
+  const uint8_t logCh = _pixelFormat & 0x0F;
+
+  if (flags & NCHF_SPEC1) {
+    if (logCh == 1) return makeColor(0, 0, 0, in[0]);                // 1CH_X3
+    return makeColor(in[0], in[1], in[2], in[3]);                    // RGB_W
+  }
+  if (flags & NCHF_SPEC2) {
+    return makeColor(in[0], in[1], in[2], in[3]);                    // RGB_CCT: WW→W, CW dropped
+  }
+
+  // NCHF_INVERT, optionally combined with NCHF_16BIT
+  // logCh is wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit
+  uint8_t r, g, b, w = 0;
+  if (flags & NCHF_16BIT) {
+    r = readU16Hi(in, _idxR); g = readU16Hi(in, _idxG); b = readU16Hi(in, _idxB);
+    if (logCh >= 8) w = readU16Hi(in, _idxW);   // 8=RGBW16, 10=CCT16
+  } else {
+    r = in[_idxR]; g = in[_idxG]; b = in[_idxB];
+    if (logCh >= 4) w = in[_idxW];              // 4=RGBW, 5=CCT
+  }
+  if (flags & NCHF_INVERT) {
+    if (_invertMask & (1u << _idxR)) r ^= 0xFF;
+    if (_invertMask & (1u << _idxG)) g ^= 0xFF;
+    if (_invertMask & (1u << _idxB)) b ^= 0xFF;
+    const bool hasW = (flags & NCHF_16BIT) ? (logCh >= 8) : (logCh >= 4);
+    if (hasW && (_invertMask & (1u << _idxW))) w ^= 0xFF;
+  }
+  return makeColor(r, g, b, w);
 }
 
 
@@ -85,7 +180,7 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 //==============================================================================
 
 PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel, uint8_t ledType) {
-  
+
   if (driver == BusDriver::Auto) {
     driver = getRecommendedBusDriver(); // TODO: currently not used properly, is it even a good idea? maybe implement as a fallback if driver request fails?
   }

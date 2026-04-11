@@ -719,7 +719,7 @@ bool I2sBus::begin() {
   }
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   Serial.printf("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n", _pin, _busNum, _channelIdx);
   return true;
 }
@@ -794,7 +794,7 @@ bool I2sBus::canShow() const {
 }
 
 void I2sBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 

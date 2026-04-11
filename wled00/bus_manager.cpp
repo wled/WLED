@@ -156,7 +156,6 @@ BusDigital::BusDigital(const BusConfig &bc)
   _hasWhite = hasWhite(bc.type);
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
-  if (bc.type == TYPE_WS2812_1CH_X3) lenToCreate = NUM_ICS_WS2812_1CH_3X(bc.count); // only needs a third of "RGB" LEDs
 
   // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
   _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor);
@@ -326,17 +325,6 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
-    unsigned pOld = pix;
-    pix = IC_INDEX_WS2812_1CH_3X(pix);
-    uint32_t cOld = _busPtr->getPixelColor(pix);
-    switch (pOld % 3) { // change only the single channel
-      case 0: c = RGBW32(R(cOld), W(c)   , B(cOld), 0); break;
-      case 1: c = RGBW32(W(c)   , G(cOld), B(cOld), 0); break;
-      case 2: c = RGBW32(R(cOld), G(cOld), W(c)   , 0); break;
-    }
-  }
-
   _busPtr->setPixel(pix, c, wwcw);
 }
 
@@ -346,18 +334,8 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder); // TODO: do we need the color order? where is getpixelcolor used?
-  uint32_t rawC = _busPtr->getPixelColor((_type==TYPE_WS2812_1CH_X3) ? IC_INDEX_WS2812_1CH_3X(pix) : pix); // TODO: check if this is correct
+  uint32_t rawC = _busPtr->getPixelColor(pix);
   uint32_t c = restoreColorLossy(rawC, _totalBusBri);
-  if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
-    uint8_t r = R(c);
-    uint8_t g = _reversed ? B(c) : G(c); // should G and B be switched if _reversed?
-    uint8_t b = _reversed ? G(c) : B(c);
-    switch (pix % 3) { // get only the single channel
-      case 0: c = RGBW32(g, g, g, g); break;
-      case 1: c = RGBW32(r, r, r, r); break;
-      case 2: c = RGBW32(b, b, b, b); break;
-    }
-  }
   if (_type == TYPE_WS2812_WWA) {
     uint8_t w = R(c) | G(c);
     c = RGBW32(w, w, 0, w);
@@ -401,6 +379,8 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
     //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
+    {TYPE_WS2811_RGB_W,  "D",  PSTR("WS2811 RGB+W (2-IC)")},
+    {TYPE_WS2811_RGB_CCT,"D",  PSTR("WS2811 RGB+CCT (2-IC)")},
     {TYPE_WS2801,        "2P", PSTR("WS2801")},
     {TYPE_APA102,        "2P", PSTR("APA102")},
     {TYPE_LPD8806,       "2P", PSTR("LPD8806")},

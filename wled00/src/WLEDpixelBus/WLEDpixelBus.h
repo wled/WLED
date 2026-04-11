@@ -200,37 +200,76 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 // Color Encoding Helpers
 //==============================================================================
 
+// Upper-nibble flags packed into ColorEncoder::_pixelFormat.
+// Lower nibble = logical channel count.  Upper nibble = combination of these flags.
+static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit chip (UCS8903/8904/SM16825): wire bytes = logCh * 2
+static constexpr uint8_t NCHF_INVERT = 0x20; // one or more channels polarity-inverted (_invertMask applies)
+static constexpr uint8_t NCHF_SPEC1  = 0x40; // special layout A: 1CH_X3 (logCh=1) or WS2811_RGB_W (logCh=6)
+static constexpr uint8_t NCHF_SPEC2  = 0x80; // special layout B: WS2811_RGB_CCT (logCh=6)
+
 /**
- * Pixel encoder: maps RGBW uint32 to per-LED byte stream according to color order.
- * Three specialized encode/decode functions have zero conditionals; dispatch is done
- * once per call in the caller based on numChannels.
+ * Pixel encoder: maps RGBW uint32_t to a per-LED byte stream according to color order.
+ *
+ * _pixelFormat packs two things:
+ *   bits[3:0]  wire bytes per pixel (= logical channels for 8-bit; logical channels * 2 for 16-bit)
+ *   bits[7:4]  NCHF_* flags (16BIT | INVERT | SPEC1 | SPEC2)
+ *
+ * setPixel / getPixelColor switch on _pixelFormat directly → single branch-free dispatch.
+ *   0x03/04/05          fast 8-bit RGB / RGBW / CCT paths (no inversion)
+ *   3|NCHF_16BIT etc.   fast 16-bit paths (no inversion)
+ *   all other values    encodeGeneric / decodeGeneric (inverted, special chips)
+ *
+ * getPixelBytes() returns wire bytes: logCh * 2 for 16-bit types, logCh otherwise.
  */
 class ColorEncoder {
 public:
-  ColorEncoder() : _numChannels(3), _logCh(3), _idxR(0), _idxG(1), _idxB(2), _idxW(0xFF), _idxWW(0xFF), _idxCW(0xFF) {}
+  ColorEncoder() : _pixelFormat(0x03), _invertMask(0),
+                   _idxR(0), _idxG(1), _idxB(2),
+                   _idxW(3), _idxCW(4) {}
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
 
-  // --- Branch-free encode functions (dispatch on numChannels before calling) ---
-  inline void encodeRGB(uint32_t pixel, uint8_t* out) const {
-    out[_idxR] = getR(pixel);
-    out[_idxG] = getG(pixel);
-    out[_idxB] = getB(pixel);
+  // -------------------------------------------------------------------------
+  // Fast encode — standard 8-bit types (no invert)
+  // -------------------------------------------------------------------------
+
+  inline void encodeRGB(uint32_t c, uint8_t* out) const {
+    out[_idxR] = getR(c); out[_idxG] = getG(c); out[_idxB] = getB(c);
   }
-  inline void encodeRGBW(uint32_t pixel, uint8_t* out) const {
-    out[_idxR] = getR(pixel);
-    out[_idxG] = getG(pixel);
-    out[_idxB] = getB(pixel);
-    out[_idxW] = getW(pixel);
+  inline void encodeRGBW(uint32_t c, uint8_t* out) const {
+    out[_idxR] = getR(c); out[_idxG] = getG(c); out[_idxB] = getB(c); out[_idxW] = getW(c);
   }
-  inline void encodeCCT(uint32_t pixel, const CctPixel& cct, uint8_t* out) const {
-    out[_idxR]  = getR(pixel);
-    out[_idxG]  = getG(pixel);
-    out[_idxB]  = getB(pixel);
-    out[_idxWW] = cct.ww;
-    out[_idxCW] = cct.cw;
+  inline void encodeCCT(uint32_t c, const CctPixel& cct, uint8_t* out) const {
+    out[_idxR] = getR(c); out[_idxG] = getG(c); out[_idxB] = getB(c);
+    out[_idxW] = cct.ww; out[_idxCW] = cct.cw;
   }
 
-  // --- Branch-free decode functions (dispatch on numChannels before calling) ---
+  // -------------------------------------------------------------------------
+  // Fast encode — 16-bit types (UCS8903 / UCS8904 / SM16825)
+  // -------------------------------------------------------------------------
+
+  inline void encodeRGB16(uint32_t c, uint8_t* out, uint8_t bri) const {
+    writeU16(out, _idxR, getR(c), bri);
+    writeU16(out, _idxG, getG(c), bri);
+    writeU16(out, _idxB, getB(c), bri);
+  }
+  inline void encodeRGBW16(uint32_t c, uint8_t* out, uint8_t bri) const {
+    writeU16(out, _idxR, getR(c), bri);
+    writeU16(out, _idxG, getG(c), bri);
+    writeU16(out, _idxB, getB(c), bri);
+    writeU16(out, _idxW, getW(c), bri);
+  }
+  inline void encodeCCT16(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
+    writeU16(out, _idxR,  getR(c), bri);
+    writeU16(out, _idxG,  getG(c), bri);
+    writeU16(out, _idxB,  getB(c), bri);
+    writeU16(out, _idxW,  cct.ww,  bri);
+    writeU16(out, _idxCW, cct.cw,  bri);
+  }
+
+  // -------------------------------------------------------------------------
+  // Fast decode — standard 8-bit types (no invert)
+  // -------------------------------------------------------------------------
+
   inline uint32_t decodeRGB(const uint8_t* in) const {
     return makeColor(in[_idxR], in[_idxG], in[_idxB]);
   }
@@ -238,56 +277,50 @@ public:
     return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxW]);
   }
   inline uint32_t decodeCCT(const uint8_t* in) const {
-    return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxWW]);
+    return makeColor(in[_idxR], in[_idxG], in[_idxB], in[_idxW]); // WW→W, CW dropped (lossy)
   }
 
-  // --- 16-bit encode/decode (UCS8903/UCS8904/SM16825 — numChannels=6/8/10) ---
-  // Wire format: full 16-bit value per channel = channel * bri, giving true sub-8-bit brightness
-  // resolution. When bri==255 the result equals (value<<8), matching the old behaviour at max.
-  inline void encodeRGB16(uint32_t pixel, uint8_t* out, uint8_t bri) const {
-    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri;
-    out[_idxR*2] = r >> 8; out[_idxR*2+1] = r & 0xFF;
-    out[_idxG*2] = g >> 8; out[_idxG*2+1] = g & 0xFF;
-    out[_idxB*2] = b >> 8; out[_idxB*2+1] = b & 0xFF;
-  }
-  inline void encodeRGBW16(uint32_t pixel, uint8_t* out, uint8_t bri) const {
-    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri, w = (uint16_t)getW(pixel) * bri;
-    out[_idxR*2] = r >> 8; out[_idxR*2+1] = r & 0xFF;
-    out[_idxG*2] = g >> 8; out[_idxG*2+1] = g & 0xFF;
-    out[_idxB*2] = b >> 8; out[_idxB*2+1] = b & 0xFF;
-    out[_idxW*2] = w >> 8; out[_idxW*2+1] = w & 0xFF;
-  }
-  inline void encodeCCT16(uint32_t pixel, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
-    uint16_t r = (uint16_t)getR(pixel) * bri, g = (uint16_t)getG(pixel) * bri, b = (uint16_t)getB(pixel) * bri;
-    uint16_t ww = (uint16_t)cct.ww * bri, cw = (uint16_t)cct.cw * bri;
-    out[_idxR*2]  = r  >> 8; out[_idxR*2+1]  = r  & 0xFF;
-    out[_idxG*2]  = g  >> 8; out[_idxG*2+1]  = g  & 0xFF;
-    out[_idxB*2]  = b  >> 8; out[_idxB*2+1]  = b  & 0xFF;
-    out[_idxWW*2] = ww >> 8; out[_idxWW*2+1] = ww & 0xFF;
-    out[_idxCW*2] = cw >> 8; out[_idxCW*2+1] = cw & 0xFF;
-  }
+  // -------------------------------------------------------------------------
+  // Fast decode — 16-bit types
+  // -------------------------------------------------------------------------
+
   inline uint32_t decodeRGB16(const uint8_t* in) const {
-    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2]);
+    return makeColor(readU16Hi(in, _idxR), readU16Hi(in, _idxG), readU16Hi(in, _idxB));
   }
   inline uint32_t decodeRGBW16(const uint8_t* in) const {
-    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2], in[_idxW*2]);
+    return makeColor(readU16Hi(in, _idxR), readU16Hi(in, _idxG), readU16Hi(in, _idxB), readU16Hi(in, _idxW));
   }
   inline uint32_t decodeCCT16(const uint8_t* in) const {
-    return makeColor(in[_idxR*2], in[_idxG*2], in[_idxB*2], in[_idxWW*2]);
+    return makeColor(readU16Hi(in, _idxR), readU16Hi(in, _idxG), readU16Hi(in, _idxB), readU16Hi(in, _idxW));
   }
 
-  uint8_t getNumChannels() const { return _numChannels; }
-  uint8_t getLogicalChannels() const { return _logCh; }
+  // -------------------------------------------------------------------------
+  // Generic slow encode/decode — handles NCHF_INVERT, NCHF_SPEC1, NCHF_SPEC2
+  // (and any 16-bit + invert combination); defined in WLEDpixelBus.cpp
+  // -------------------------------------------------------------------------
+
+  void     encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const;
+  uint32_t decodeGeneric(const uint8_t* in) const;
+
+  // Accessors
+  uint8_t getPixelFormat()     const { return _pixelFormat; }   // packed dispatch key: lower nibble=wire bytes, upper=NCHF_*
+  uint8_t getColorChannels()   const { return (_pixelFormat & NCHF_16BIT) ? (_pixelFormat & 0x0F) / 2 : (_pixelFormat & 0x0F); } // logical color channels
+  uint8_t getPixelBytes()      const { return _pixelFormat & 0x0F; } // wire bytes per pixel (branch-free)
+  bool    is16bit()            const { return (_pixelFormat & NCHF_16BIT) != 0; } // true for UCS8903/8904/SM16825
 
 private:
-  uint8_t _numChannels;
-  uint8_t _logCh;    // logical channel count (before 16-bit doubling)
-  uint8_t _idxR;
-  uint8_t _idxG;
-  uint8_t _idxB;
-  uint8_t _idxW;
-  uint8_t _idxWW;
-  uint8_t _idxCW;
+  uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (invert, 16-bit, special layout)
+  uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT set)
+  uint8_t _idxR, _idxG, _idxB;  // wire byte index for R, G, B
+  uint8_t _idxW, _idxCW;       // wire byte index for W (or WW) and CW (CCT types)
+
+  // Helpers
+  static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {
+    const uint16_t v = (uint16_t)val8 * bri;
+    out[idx*2]   = v >> 8;
+    out[idx*2+1] = v & 0xFF;
+  }
+  static inline uint8_t readU16Hi(const uint8_t* in, uint8_t idx) { return in[idx*2]; }
 };
 
 //==============================================================================
@@ -375,7 +408,7 @@ public:
   virtual void updateSuffix(const uint8_t* data, uint8_t len) {
     if (!_pixelData || _suffixLen == 0 || len == 0) return;
     if (len > _suffixLen) len = _suffixLen;
-    memcpy(_pixelData + (size_t)_numPixels * _encoder.getNumChannels(), data, len);
+    memcpy(_pixelData + (size_t)_numPixels * _encoder.getPixelBytes(), data, len);
   }
 
   bool hasSuffix() const { return _suffixLen > 0; }
@@ -407,16 +440,19 @@ public:
   // Preconditions (guaranteed by BusDigital calling path):
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
+  // note: using O2 optimization seems to make it slower
   virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
-    const uint8_t nch = _encoder.getNumChannels();
-    uint8_t* out = _pixelData + (size_t)pos * nch;
-    switch (nch) {
-      case 3:  _encoder.encodeRGB(c, out);                                          break;
-      case 4:  _encoder.encodeRGBW(c, out);                                         break;
-      case 6:  _encoder.encodeRGB16(c, out, _encBri);                               break;
-      case 8:  _encoder.encodeRGBW16(c, out, _encBri);                              break;
-      case 10: { CctPixel cct{wwcw}; _encoder.encodeCCT16(c, cct, out, _encBri); break; }
-      default: { CctPixel cct{wwcw}; _encoder.encodeCCT(c, cct, out);             break; }
+    const uint8_t pixelFormat = _encoder.getPixelFormat();
+    uint8_t* out = _pixelData + (size_t)pos * _encoder.getPixelBytes();
+    const CctPixel cct{wwcw};
+    switch (pixelFormat) {
+      case 3:                    _encoder.encodeRGB(c, out);                   break; // 3ch RGB
+      case 4:                    _encoder.encodeRGBW(c, out);                  break; // 4ch RGBW
+      case 5:                    _encoder.encodeCCT(c, cct, out);              break; // 5ch CCT
+      case (3*2) | NCHF_16BIT:   _encoder.encodeRGB16(c, out, _encBri);        break; // 16-bit RGB
+      case (4*2) | NCHF_16BIT:   _encoder.encodeRGBW16(c, out, _encBri);       break; // 16-bit RGBW
+      case (5*2) | NCHF_16BIT:   _encoder.encodeCCT16(c, cct, out, _encBri);   break; // 16-bit CCT
+      default:                   _encoder.encodeGeneric(c, cct, out, _encBri); break; // inverted / special cases
     }
     return true;
   }
@@ -427,15 +463,16 @@ public:
    * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    */
   virtual IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const {
-    const uint8_t nch = _encoder.getNumChannels();
-    const uint8_t* in = _pixelData + (size_t)pix * nch;
-    switch (nch) {
-      case 3:  return _encoder.decodeRGB(in);
-      case 4:  return _encoder.decodeRGBW(in);
-      case 6:  return _encoder.decodeRGB16(in);
-      case 8:  return _encoder.decodeRGBW16(in);
-      case 10: return _encoder.decodeCCT16(in);
-      default: return _encoder.decodeCCT(in);
+    const uint8_t pixelFormat = _encoder.getPixelFormat();
+    const uint8_t* in = _pixelData + (size_t)pix * _encoder.getPixelBytes();
+    switch (pixelFormat) {
+      case 3:                    return _encoder.decodeRGB(in);
+      case 4:                    return _encoder.decodeRGBW(in);
+      case 5:                    return _encoder.decodeCCT(in);
+      case (3*2) | NCHF_16BIT:   return _encoder.decodeRGB16(in);
+      case (4*2) | NCHF_16BIT:   return _encoder.decodeRGBW16(in);
+      case (5*2) | NCHF_16BIT:   return _encoder.decodeCCT16(in);
+      default:                   return _encoder.decodeGeneric(in);
     }
   }
 
@@ -446,7 +483,7 @@ public:
    */
   virtual void clearEncodeBuffer() {
     if (_pixelData && _numPixels > 0) {
-      const size_t pixelBytes = (size_t)_numPixels * _encoder.getNumChannels();
+      const size_t pixelBytes = (size_t)_numPixels * _encoder.getPixelBytes();
       memset(_pixelData, 0, pixelBytes);
     }
   }
@@ -458,7 +495,7 @@ public:
    */
   virtual void scaleAll(uint8_t scale) {
     if (scale == 255 || !_pixelData || _numPixels == 0) return;
-    const size_t pixelBytes = (size_t)_numPixels * _encoder.getNumChannels();
+    const size_t pixelBytes = (size_t)_numPixels * _encoder.getPixelBytes();
     for (size_t i = 0; i < pixelBytes; i++) {
       _pixelData[i] = ((uint16_t)(_pixelData[i] + 1) * scale) >> 8;
     }

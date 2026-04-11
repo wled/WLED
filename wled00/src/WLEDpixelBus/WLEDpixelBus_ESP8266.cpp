@@ -85,7 +85,7 @@ bool Esp8266UartBus::begin() {
   ETS_UART_INTR_ENABLE();
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
@@ -142,7 +142,7 @@ bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, co
 }
 
 void Esp8266UartBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 bool Esp8266UartBus::canShow() const {
@@ -172,7 +172,7 @@ bool Esp8266BitBangBus::begin() {
   digitalWrite(_pin, LOW);
   setTiming(_timing);
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
@@ -193,13 +193,13 @@ void Esp8266BitBangBus::setTiming(const LedTiming& timing) {
 bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
-  uint8_t numCh = _encoder.getNumChannels();
+  uint8_t pixelBytes = _encoder.getPixelBytes();
   uint32_t mask = 1 << _pin;
 
   os_intr_lock();
   for (uint16_t i = 0; i < _numPixels; i++) {
-    const uint8_t* src = _encodeBuffer + i * numCh;
-    for (uint8_t b = 0; b < numCh; b++) {
+    const uint8_t* src = _encodeBuffer + i * pixelBytes;
+    for (uint8_t b = 0; b < pixelBytes; b++) {
       uint8_t v = src[b];
       for (int bit = 7; bit >= 0; bit--) {
         uint32_t t = ESP.getCycleCount();
@@ -222,7 +222,7 @@ bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/,
 }
 
 void Esp8266BitBangBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 bool Esp8266BitBangBus::canShow() const {
@@ -477,7 +477,7 @@ bool Esp8266DmaBus::begin() {
   memset(_idleBuf, 0, _idleBufSize);
 
   // Allocate pixel encode buffer and build initial descriptor chain
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   buildDescriptorChain();
   if (!_dmaDesc) { end(); return false; }
 
@@ -515,18 +515,20 @@ void Esp8266DmaBus::end() {
 //   idle state ensures GPIO3 is LOW before the first pixel bit arrives).
 // ---------------------------------------------------------------------------
 IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
-  uint8_t numCh = _encoder.getNumChannels();
-  uint8_t src[10];
-  switch (numCh) {
-    case 3:  _encoder.encodeRGB(c, src);            break;
-    case 4:  _encoder.encodeRGBW(c, src);           break;
-    case 6:  _encoder.encodeRGB16(c, src, _encBri);                        break;
-    case 8:  _encoder.encodeRGBW16(c, src, _encBri);                       break;
-    case 10: { CctPixel cct{wwcw}; _encoder.encodeCCT16(c, cct, src, _encBri); break; }
-    default: { CctPixel cct{wwcw}; _encoder.encodeCCT(c, cct, src);   break; }
+  const uint8_t pixelBytes = _encoder.getPixelBytes();
+  uint8_t src[12];
+  const CctPixel cct{wwcw};
+  switch (_encoder.getPixelFormat()) {
+    case 3:                    _encoder.encodeRGB(c, src);                    break;
+    case 4:                    _encoder.encodeRGBW(c, src);                   break;
+    case 5:                    _encoder.encodeCCT(c, cct, src);               break;
+    case (3*2) | NCHF_16BIT:   _encoder.encodeRGB16(c, src, _encBri);         break;
+    case (4*2) | NCHF_16BIT:   _encoder.encodeRGBW16(c, src, _encBri);        break;
+    case (5*2) | NCHF_16BIT:   _encoder.encodeCCT16(c, cct, src, _encBri);    break;
+    default:                   _encoder.encodeGeneric(c, cct, src, _encBri);  break;
   }
-  uint32_t* dst = (uint32_t*)(_pixelData + (size_t)pos * numCh * 4);
-  for (uint8_t b = 0; b < numCh; b++) {
+  uint32_t* dst = (uint32_t*)(_pixelData + (size_t)pos * pixelBytes * 4);
+  for (uint8_t b = 0; b < pixelBytes; b++) {
     uint32_t word = 0;
     uint8_t v = src[b];
     for (int bit = 7; bit >= 0; bit--) {
@@ -539,10 +541,10 @@ IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) 
 }
 
 IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
-  uint8_t numCh = _encoder.getNumChannels();
-  const uint32_t* src = (const uint32_t*)(_pixelData + (size_t)pix * numCh * 4);
-  uint8_t decoded[10];
-  for (uint8_t b = 0; b < numCh; b++) {
+  const uint8_t pixelBytes = _encoder.getPixelBytes();
+  const uint32_t* src = (const uint32_t*)(_pixelData + (size_t)pix * pixelBytes * 4);
+  uint8_t decoded[12];
+  for (uint8_t b = 0; b < pixelBytes; b++) {
     uint32_t word = src[b];
     uint8_t v = 0;
     for (int nib = 7; nib >= 0; nib--) {
@@ -551,22 +553,23 @@ IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
     }
     decoded[b] = v;
   }
-  switch (numCh) {
-    case 3:  return _encoder.decodeRGB(decoded);
-    case 4:  return _encoder.decodeRGBW(decoded);
-    case 6:  return _encoder.decodeRGB16(decoded);
-    case 8:  return _encoder.decodeRGBW16(decoded);
-    case 10: return _encoder.decodeCCT16(decoded);
-    default: return _encoder.decodeCCT(decoded);
+  switch (_encoder.getPixelFormat()) {
+    case 3:                    return _encoder.decodeRGB(decoded);
+    case 4:                    return _encoder.decodeRGBW(decoded);
+    case 5:                    return _encoder.decodeCCT(decoded);
+    case (3*2) | NCHF_16BIT:   return _encoder.decodeRGB16(decoded);
+    case (4*2) | NCHF_16BIT:   return _encoder.decodeRGBW16(decoded);
+    case (5*2) | NCHF_16BIT:   return _encoder.decodeCCT16(decoded);
+    default:                   return _encoder.decodeGeneric(decoded);
   }
 }
 
 // Since the colors are already 4-step encoded, we need to decode first, scale then re-encode.
 void Esp8266DmaBus::scaleAll(uint8_t scale) {
   if (!_pixelData || scale == 255) return;
-  uint8_t numCh = _encoder.getNumChannels();
+  uint8_t pixelBytes = _encoder.getPixelBytes();
   uint32_t* buf = (uint32_t*)_pixelData;
-  size_t numWords = (size_t)_numPixels * numCh;
+  size_t numWords = (size_t)_numPixels * pixelBytes;
   for (size_t w = 0; w < numWords; w++) {
     uint32_t word = buf[w];
     uint8_t v = 0;
@@ -587,7 +590,7 @@ void Esp8266DmaBus::scaleAll(uint8_t scale) {
 void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
   if (!_pixelData || _suffixLen == 0 || len == 0) return;
   if (len > _suffixLen) len = _suffixLen;
-  const size_t pixelWords = (size_t)_numPixels * _encoder.getNumChannels();
+  const size_t pixelWords = (size_t)_numPixels * _encoder.getPixelBytes();
   uint32_t* dst = (uint32_t*)(_pixelData + pixelWords * 4);
   for (uint8_t i = 0; i < len; i++) {
     uint32_t word = 0;
@@ -598,7 +601,7 @@ void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
 }
 
 void Esp8266DmaBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 // ---------------------------------------------------------------------------

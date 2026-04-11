@@ -556,7 +556,7 @@ bool LcdBus::begin() {
   }
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) {
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) {
     end();
     return false;
   }
@@ -614,7 +614,7 @@ bool LcdBus::canShow() const {
 
 
 void LcdBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 } // namespace WLEDpixelBus

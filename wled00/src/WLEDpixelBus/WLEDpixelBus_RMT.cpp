@@ -244,7 +244,7 @@ bool RmtBus::begin() {
 
   _initialized = true;
   s_activeChannelMask |= (1 << _channel);
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getNumChannels())) { end(); return false; }
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
@@ -305,7 +305,7 @@ void RmtBus::setTiming(const LedTiming& timing) {
 }
 
 void RmtBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getLogicalChannels(), _ledType);
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
 //note: using O2 optimization has little to no effect on FPS

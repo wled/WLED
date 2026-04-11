@@ -320,6 +320,8 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #define TYPE_SM16825             34            //RGB + WW + CW
 #define TYPE_TM1815              35            //RGBW (half speed TM1814)
 #define TYPE_WS281X_FAST         36            //high-speed WS281x (1MHz)
+#define TYPE_WS2811_RGB_W        37            //two WS2811 ICs per pixel: IC0=R,G,B  IC1=W,W,W
+#define TYPE_WS2811_RGB_CCT      38            //two WS2811 ICs per pixel: IC0=R,G,B  IC1=WW,CW,unused
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
 #define TYPE_ONOFF               40            //binary output (relays etc.; NOT PWM)
