@@ -3415,23 +3415,21 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 	showToast('Reporting upgrade...');
 	const IR_TYPES = {
 		0: null,           // not configured — omit field entirely
-		1: "3-key",
-		2: "24-key",
-		3: "24-key-v2",
-		4: "40-key",
-		5: "44-key",
-		6: "21-key",
-		7: "6-key",
-		8: "9-key",
-		9: "json-remote",
+		1: "24-key",       // white 24-key remote
+		2: "24-key-ct",    // white 24-key with CW, WW, CT+, CT- keys
+		3: "40-key",       // blue 40-key remote
+		4: "44-key",       // white 44-key remote
+		5: "21-key",       // white 21-key remote
+		6: "6-key",        // black 6-key learning remote
+		7: "9-key",        // 9-key remote
+		8: "json-remote",  // ir.json configurable remote
 	};
 
-	// Fetch fresh data from /json/info and /json/cfg endpoints
-	Promise.all([
-		fetch(getURL('/json/info'), {method: 'get'}).then(res => res.json()),
-		fetch(getURL('/json/cfg'), {method: 'get'}).then(res => res.json())
-	])
-		.then(([infoData, cfgData]) => {
+	// Reuse the info argument and fetch only /json/cfg (serialize requests to avoid 503s on low-heap devices)
+	const infoData = info;
+	fetch(getURL('/json/cfg'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to fetch /json/cfg')))
+		.then(cfgData => {
 			// Map to UpgradeEventRequest structure per OpenAPI spec
 			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 			const upgradeData = {
@@ -3461,21 +3459,22 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 					...((infoData.leds?.maxpwr ?? 0) > 0       ? ["abl"] : []),
 					...(cfgData.hw?.led?.cr                    ? ["cct-from-rgb"] : []),
 					...(cfgData.hw?.led?.cct                   ? ["white-balance"] : []),
-					...((cfgData.light?.gc?.col ?? 1.0) > 1.0  ? ["gamma"] : []),
+					...((cfgData.light?.gc?.col ?? 1.0) > 1.0 || (cfgData.light?.gc?.bri ?? 1.0) > 1.0 ? ["gamma"] : []),
 					...(cfgData.light?.aseg                    ? ["auto-segments"] : []),
 					...((cfgData.light?.nl?.mode ?? 0) > 0     ? ["nightlight"] : []),
 				],
 
-				// peripherals
+				// peripherals (note: i2c/spi may reflect board defaults, not user-configured hardware)
 				peripherals: [
 					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
-					...((cfgData.hw?.btn?.ins ?? []).some(b => b.type !== 0)          ? ["buttons"] : []),
+					...((cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length > 0 ? ["buttons"] : []),
 					...((cfgData.hw?.if?.['i2c-pin']?.[0] ?? -1) >= 0               ? ["i2c"] : []),
 					...((cfgData.hw?.if?.['spi-pin']?.[0] ?? -1) >= 0               ? ["spi"] : []),
 					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
 					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
 					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
 				],
+				buttonCount: (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
 
 				// integrations
 				integrations: [
