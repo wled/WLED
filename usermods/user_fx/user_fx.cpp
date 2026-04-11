@@ -1264,11 +1264,12 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
  * matrix, changing color as they go, leaving (fading) trails of "painted" color
  * behind them. Tries to avoid spawning new walkers too close to existing ones
  * to prevent overcrowding and create a more visually appealing distribution.
- * Inspired by the concept of "Matrix", but with a more vivid, undirected and
- * colorful twist. First implementation 2019 with FastLED, but without WLED
+ * Inspired by the concept of "Matrix", but designed to be much more vivid, 
+ * non-directional and colorful. 
+ * First implementation 2019 with FastLED, but without WLED
  * framework. Redesigned and adapted for WLED in 2026, with parts from
- * claude.ai, Gemini, chatGPT, Grok. Controls: Speed, Spawn Chance, Fade Rate,
- * Palette Step, Max Walkers (up to 32)
+ * claude.ai, Gemini, chatGPT, Grok. 
+ * Controls: Speed, Spawn Chance, Fade Rate, Palette Step, Max Walkers (up to 32)
  *
  * @author suromark 2019,2026
  *
@@ -1395,6 +1396,13 @@ struct SegmentData {
  * @param rows 
  */
 static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t rows) {
+  /* 
+   The minGap distance is intentionally set high to keep even small grids (less than 6 pixels) from "filling up",
+   it's better to be sparse and skip a walker even if the trigger criteria are met,
+   than to draw two walkers on the same trajectory immediately after the other
+   */
+  const uint8_t minGap = 6;
+  
   int freeSlot = -1;
   for (uint8_t i = 0; i < maxCount; i++) {
     if (!walkers[i].active) {
@@ -1404,17 +1412,15 @@ static void trySpawn(Walker* walkers, uint8_t maxCount, uint16_t cols, uint16_t 
   }
   if (freeSlot < 0) return;
 
-  const uint8_t minGap = 8;
-  for (uint8_t retry = 0; retry < 2; retry++) {
+  for (uint8_t retry = 0; retry < 4; retry++) {
     walkers[freeSlot].makeCandidate(cols, rows);
     if (!walkers[freeSlot].hasConflict(walkers, maxCount, minGap)) {
       walkers[freeSlot].active = true;
       break;
     }
   }
-
-  return;
 }
+
 /**
  * @brief The main processing loop, supports two trigger modes: 0 = fully random, 1 = plus considering audioreactive peak signal
  * 
@@ -1431,7 +1437,9 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
   SegmentData* data = reinterpret_cast<SegmentData*>(SEGENV.data);
 
   if (SEGENV.call == 0) { // init values on first call
-      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) data->walkers[i].reset();
+      for (uint8_t i = 0; i < absoluteMaxWalkers; i++) { 
+        data->walkers[i].reset();
+      }
       data->triggerGate = strip.now;
       SEGMENT.fill(SEGCOLOR(1));
       SEGENV.step = strip.now;
@@ -1445,7 +1453,7 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
   uint8_t sensitivity = SEGMENT.intensity;
   uint8_t fadeRate = SEGMENT.custom1 >> 1;
   uint8_t palStep = SEGMENT.custom2 >> 4;
-  uint8_t maxWalkers = min((int)(1 + SEGMENT.custom3), (int)absoluteMaxWalkers);
+  uint8_t maxWalkers = (uint8_t) min( (uint8_t) (1u + SEGMENT.custom3), (uint8_t)absoluteMaxWalkers);
 
   SEGMENT.fadeToSecondaryBy(fadeRate);
 
@@ -1455,18 +1463,19 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
     um_data_t* um_data;
     if (!UsermodManager::getUMData(&um_data, USERMOD_ID_AUDIOREACTIVE))
       um_data = simulateSound(SEGMENT.soundSim);
-    if ( ( um_data && *(uint8_t*)um_data->u_data[3] ) || hw_random8() < sensitivity )
+    if ( ( um_data && um_data->u_size > 3 && *(uint8_t*)um_data->u_data[3] ) || hw_random8() < sensitivity )
       shouldSpawn = true;
   } else {
     if (hw_random8() < sensitivity) shouldSpawn = true;
   }
 
   if (shouldSpawn) {
-    if( SEGENV.step > data->triggerGate ) {
-      data->triggerGate = SEGENV.step + 32; // de-clogging, avoid immediate respawn
+    if (strip.now - data->triggerGate < 32) { // uint32 overflow safe
+      // nope, we're still within deadtime zone
+    } else {
+      data->triggerGate = SEGENV.step; // de-clogging, avoid immediate respawn
       trySpawn(data->walkers, maxWalkers, cols, rows);
     }
-    shouldSpawn = false;
   }
 
   // Object-Oriented Update Loop
@@ -1486,7 +1495,7 @@ static void mode_brushwalker(void) { BrushWalkerFX::mode_brushwalker_core(0); }
 // The metadata string consists of up to five sections, separated by semicolons:
 // <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
 static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
-    "Brush Walker@!,Spawn,Fade,Palette Step,Max "
+    "Brush Walker@!,Spawn,Fade (0=off),Palette Step (0=fixed),Max "
     "Walkers;,!;!;2;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
 
 /**
