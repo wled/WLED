@@ -25,6 +25,7 @@ See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines tha
 
 - **camelCase** for functions and variables: `setValuesFromMainSeg()`, `effectCurrent`
 - **PascalCase** for classes and structs: `PinManagerClass`, `BusConfig`
+- **PascalCase** for enum values: `PinOwner::BusDigital`
 - **UPPER_CASE** for macros and constants: `WLED_MAX_USERMODS`, `DEFAULT_CLIENT_SSID`
 
 ## General
