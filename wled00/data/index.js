@@ -3468,8 +3468,6 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 				peripherals: [
 					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
 					...((cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length > 0 ? ["buttons"] : []),
-					...((cfgData.hw?.if?.['i2c-pin']?.[0] ?? -1) >= 0               ? ["i2c"] : []),
-					...((cfgData.hw?.if?.['spi-pin']?.[0] ?? -1) >= 0               ? ["spi"] : []),
 					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
 					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
 					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
