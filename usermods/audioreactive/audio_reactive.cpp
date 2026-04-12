@@ -296,17 +296,17 @@ void FFTcode(void * parameter)
   ArduinoFFT<float> FFT = ArduinoFFT<float>(valFFT, vImag, samplesFFT, SAMPLE_RATE, true);
 #elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
   // allocate and initialize FFT buffers on first call
-  // note: free() is never used on these pointers. If it ever is implemented, this implementation can cause memory leaks (need to free raw pointers)
   if (valFFT == nullptr) {
-    float* raw_buffer = (float*)heap_caps_malloc((2 * samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
-    if ((raw_buffer == nullptr)) return; // something went wrong
-    valFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    valFFT = (float*)heap_caps_aligned_calloc(16, 2 * samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    if ((valFFT == nullptr)) return; // something went wrong
   }
   // create window
   if (windowFFT == nullptr) {
-    float* raw_buffer = (float*)heap_caps_malloc((samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
-    if ((raw_buffer == nullptr)) return; // something went wrong
-    windowFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary
+    windowFFT = (float*)heap_caps_aligned_calloc(16, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    if ((windowFFT == nullptr)) {
+      heap_caps_free(valFFT); valFFT = nullptr;
+      return; // something went wrong
+    }
   }
   if (dsps_fft2r_init_fc32(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
   // create window function for FFT
@@ -316,16 +316,20 @@ void FFTcode(void * parameter)
   dsps_wind_flat_top_f32(windowFFT, samplesFFT);
 #endif
 #else
-  // allocate and initialize integer FFT buffers on first call
-  if (valFFT == nullptr) valFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT * 2);
-  if ((valFFT == nullptr)) return; // something went wrong
+  // use integer FFT - allocate and initialize integer FFT buffers on first call, 4 bytes aligned (just in case, even if not strictly needed for int16_t)
+  if (valFFT == nullptr) valFFT = (int16_t*) heap_caps_aligned_calloc(4, samplesFFT * 2, sizeof(int16_t), MALLOC_CAP_8BIT); 
   // create window
-  if (windowFFT == nullptr) windowFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT);
-  if ((windowFFT == nullptr)) return; // something went wrong
-  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+  if (windowFFT == nullptr) windowFFT = (int16_t*) heap_caps_aligned_calloc(4, samplesFFT, sizeof(int16_t), MALLOC_CAP_8BIT);
   // create window function for FFT
-  float *windowFloat = (float*) calloc(sizeof(float), samplesFFT); // temporary buffer for window function
-  if ((windowFloat == nullptr)) return; // something went wrong
+  float *windowFloat = (float*) heap_caps_aligned_calloc(4, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // temporary buffer for window function
+  if (windowFloat == nullptr || windowFFT == nullptr || valFFT == nullptr) { // something went wrong
+    if (windowFloat) heap_caps_free(windowFloat);
+    if (windowFFT) heap_caps_free(windowFFT); windowFFT = nullptr;
+    if (valFFT) heap_caps_free(valFFT); valFFT = nullptr;
+    return;
+  }
+  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+
 #ifdef FFT_PREFER_EXACT_PEAKS
   dsps_wind_blackman_harris_f32(windowFloat, samplesFFT);
 #else
@@ -335,7 +339,7 @@ void FFTcode(void * parameter)
   for (int i = 0; i < samplesFFT; i++) {
     windowFFT[i] = (int16_t)(windowFloat[i] * 32767.0f);
   }
-  free(windowFloat); // free temporary buffer
+  heap_caps_free(windowFloat); // free temporary buffer
 #endif
 
   // see https://www.freertos.org/vtaskdelayuntil.html
@@ -468,7 +472,6 @@ void FFTcode(void * parameter)
       }
       FFT_Magnitude = FFT_Magnitude_int * 512; // scale to match raw float value
       FFT_MajorPeak = FFT_MajorPeak_int;
-      FFT_Magnitude = FFT_Magnitude_int;
 #endif
 #endif
       FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
