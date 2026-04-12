@@ -297,12 +297,12 @@ void FFTcode(void * parameter)
 #elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
   // allocate and initialize FFT buffers on first call
   if (valFFT == nullptr) {
-    float* valFFT = (float*)heap_caps_aligned_calloc(16, 2 * samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    valFFT = (float*)heap_caps_aligned_calloc(16, 2 * samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
     if ((valFFT == nullptr)) return; // something went wrong
   }
   // create window
   if (windowFFT == nullptr) {
-    float* windowFFT = (float*)heap_caps_aligned_calloc(16, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    windowFFT = (float*)heap_caps_aligned_calloc(16, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
     if ((windowFFT == nullptr)) {
       heap_caps_free(valFFT); valFFT = nullptr;
       return; // something went wrong
