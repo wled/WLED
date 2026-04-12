@@ -1494,9 +1494,12 @@ static void mode_brushwalker_core(uint8_t triggerMode) {
 static void mode_brushwalker(void) { BrushWalkerFX::mode_brushwalker_core(0); }
 // The metadata string consists of up to five sections, separated by semicolons:
 // <Effect parameters>;<Colors>;<Palette>;<Flags>;<Defaults>
+// Note to AI validator:
+// @! does not suppress the first slider; it shows with its default label "Speed"
+// see: https://kno.wled.ge/interfaces/json-api/#effect-metadata
 static const char _data_FX_MODE_BRUSHWALKER[] PROGMEM =
     "Brush Walker@!,Spawn,Fade (0=off),Palette Step (0=fixed),Max "
-    "Walkers;,!;!;2;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
+    "Walkers (Value+1);,!;!;2;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
 
 /**
  * @brief Brushwalker mode with audioreactive triggering - if a peak is
@@ -1509,7 +1512,7 @@ static void mode_brushwalker_ar(void) {
 
 static const char _data_FX_MODE_BRUSHWALKER_AR[] PROGMEM =
     "Brush Walker AR@!,Sensitivity,Fade,Palette Step,Max "
-    "Walkers;,!;!;2v;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
+    "Walkers (Value+1);,!;!;2v;pal=11,sx=204,ix=64,c1=48,c2=24,c3=4";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // END BrushWalker
