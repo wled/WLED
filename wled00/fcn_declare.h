@@ -93,7 +93,7 @@ typedef struct WiFiConfig {
 
 //dmx_output.cpp
 void initDMXOutput(int outputPin);
-void handleDMXOutput();
+bool handleDMXOutput();
 
 //dmx_input.cpp
 void initDMXInput();

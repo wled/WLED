@@ -3,6 +3,7 @@ SparkFunDMX.h
 Arduino Library for the SparkFun ESP32 LED to DMX Shield
 Andy England @ SparkFun Electronics
 7/22/2019
+modified version 2026-04-12
 
 Development environment specifics:
 Arduino IDE 1.6.4
@@ -37,6 +38,7 @@ static const int txPin = 2;        // transmit DMX data over this pin (default i
 //DMX value array and size. Entry 0 will hold startbyte, so we need 512+1 elements
 static uint8_t dmxData[dmxMaxChannel+1] = { 0 };
 static int chanSize = 0;
+static uint16_t hwTxBufSize;    // size of the combined TX buffer we requested plus the ESP32 hardware FIFO
 #if !defined(DMX_SEND_ONLY)
 static int currentChannel = 0;
 #endif
@@ -111,7 +113,10 @@ void SparkFunDMX::initWrite (int chanQuant) {
 
   chanSize = chanQuant + 1; //Add 1 for start code
 
+  // chanSize + SOC_UART_FIFO_LEN is the minimum that leads to full async operation. Don't ask me why.
+  DMXSerial.setTxBufferSize(chanSize + SOC_UART_FIFO_LEN); //  //641 = 1ms, 600 = 6ms, 514 = 10ms, 513-SOC_UART_FIFO_LEN=385 = 10ms, 185 = 17ms
   DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);
+  hwTxBufSize = DMXSerial.availableForWrite();    // safest way to check initial TXbufSize IMO, in case ESP lib changes
   if (enablePin >= 0) {
     pinMode(enablePin, OUTPUT);
     digitalWrite(enablePin, HIGH);
@@ -136,45 +141,47 @@ void SparkFunDMX::write(int Channel, uint8_t value) {
 
 
 
-void SparkFunDMX::update() {
+bool SparkFunDMX::update() {
   if (_READWRITE == _WRITE)
   {
-    //Send DMX break
-    digitalWrite(txPin, HIGH);
-    DMXSerial.begin(BREAKSPEED, BREAKFORMAT, rxPin, txPin);//Begin the Serial port
-    DMXSerial.write(0);
-    DMXSerial.flush();
-    delay(1);
-    DMXSerial.end();
-    
-    //Send DMX data
-    DMXSerial.begin(DMXSPEED, DMXFORMAT, rxPin, txPin);//Begin the Serial port
-    DMXSerial.write(dmxData, chanSize);
-    DMXSerial.flush();
-    DMXSerial.end();//clear our DMX array, end the Hardware Serial port
+    if (DMXSerial.availableForWrite() >= hwTxBufSize)    // only send dmx frame if no other frame is just ongoing i.e. TXbuf is empty
+    {
+      //Send DMX break
+      DMXSerial.updateBaudRate(BREAKSPEED); //change to DMX break settings
+      DMXSerial.write(0);
+      DMXSerial.flush();
+
+      //Send DMX data
+      DMXSerial.updateBaudRate(DMXSPEED);   //change to regular DMX speed
+      DMXSerial.write(dmxData, chanSize);
+
+      return true;
+    }
+    return false;
   }
 #if !defined(DMX_SEND_ONLY)
   else if (_READWRITE == _READ)//In a perfect world, this function ends serial communication upon packet completion and attaches RX to a CHANGE interrupt so the start code can be read again
   { 
-	if (_startCodeDetected == true)
-	{
-		while (DMXSerial.available())
-		{
-			dmxData[currentChannel++] = DMXSerial.read();
-		}
-	if (currentChannel > chanSize) //Set the channel counter back to 0 if we reach the known end size of our packet
-	{
-		
-      portENTER_CRITICAL(&timerMux);
-	  _startCodeDetected = false;
-	  DMXSerial.flush();
-	  DMXSerial.end();
-      portEXIT_CRITICAL(&timerMux);
-	  currentChannel = 0;
-	}
-	}
+    if (_startCodeDetected == true)
+    {
+      while (DMXSerial.available())
+      {
+        dmxData[currentChannel++] = DMXSerial.read();
+      }
+      if (currentChannel > chanSize) //Set the channel counter back to 0 if we reach the known end size of our packet
+      {
+          portENTER_CRITICAL(&timerMux);
+        _startCodeDetected = false;
+        DMXSerial.flush();
+        DMXSerial.end();
+          portEXIT_CRITICAL(&timerMux);
+        currentChannel = 0;
+      }
+      return true;
+    }
   }
 #endif
+  return false;
 }
 
 // Function to update the DMX bus

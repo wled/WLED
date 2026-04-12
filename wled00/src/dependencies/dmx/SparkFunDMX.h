@@ -31,7 +31,7 @@ public:
   uint8_t read(int Channel);
 #endif
   void write(int channel, uint8_t value);
-  void update();
+  bool update();
 private:
   const uint8_t _startCodeValue = 0xFF;
   const bool _READ = true;

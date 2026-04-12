@@ -10,10 +10,10 @@
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
 
-void handleDMXOutput()
+bool handleDMXOutput()
 {
   // don't act, when in DMX Proxy mode
-  if (e131ProxyUniverse != 0) return;
+  if (e131ProxyUniverse != 0) return 0;
 
   uint8_t brightness = strip.getBrightness();
 
@@ -66,7 +66,12 @@ void handleDMXOutput()
     }
   }
 
+  #if defined(ESP8266)
   dmx.update();        // update the DMX bus
+  return true;
+  #else
+  return dmx.update();        // update the DMX bus, if available
+  #endif
 }
 
 void initDMXOutput(int outputPin) {
@@ -93,5 +98,5 @@ void DMXOutput::update() {
 }
 #else
 void initDMXOutput(int){}
-void handleDMXOutput() {}
+bool handleDMXOutput() {}
 #endif
