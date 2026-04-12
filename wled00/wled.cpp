@@ -55,6 +55,8 @@ void WLED::loop()
   static unsigned long maxStripMillis = 0;
   static size_t        avgStripMillis = 0;
   unsigned long        stripMillis;
+  static unsigned long maxDmxMillis = 0;
+  static unsigned long avgDmxMillis = 0;
 #endif
 
   handleTime();
@@ -69,8 +71,16 @@ void WLED::loop()
   handleNotifications();
   handleTransitions();
   #ifdef WLED_ENABLE_DMX_OUTPUT
-  handleDMXOutput();
+  #ifdef WLED_DEBUG
+  unsigned long dmxMillis = millis();
   #endif
+  handleDMXOutput();
+  #ifdef WLED_DEBUG
+  dmxMillis = millis() - dmxMillis;
+  maxDmxMillis = dmxMillis > maxDmxMillis ? dmxMillis : maxDmxMillis;
+  avgDmxMillis += dmxMillis;
+  #endif //WLED_DEBUG
+  #endif //WLED_ENABLE_DMX_OUTPUT
   #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.update();
   #endif
@@ -318,6 +328,7 @@ void WLED::loop()
       DEBUG_PRINTF_P(PSTR("Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
       DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
       DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
+      DEBUG_PRINTF_P(PSTR("DMX time[ms]:%u/%lu\n"),   avgDmxMillis/loops,     maxDmxMillis);
     }
     strip.printSize();
     server.printStatus(DEBUGOUT);
@@ -328,6 +339,8 @@ void WLED::loop()
     avgLoopMillis = 0;
     avgUsermodMillis = 0;
     avgStripMillis = 0;
+    maxDmxMillis = 0;
+    avgDmxMillis = 0;
     debugTime = millis();
   }
   loops++;
