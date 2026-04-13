@@ -1,0 +1,47 @@
+{
+    "build": {
+      "arduino": {
+        "ldscript": "esp32s3_out.ld",
+        "memory_type": "qio_qspi"
+      },
+      "core": "esp32",
+      "extra_flags": [
+        "-DBOARD_HAS_PSRAM",
+        "-DARDUINO_LOLIN_S3_MINI",
+        "-DARDUINO_USB_MODE=1"
+      ],
+      "f_cpu": "240000000L",
+      "f_flash": "80000000L",
+      "flash_mode": "qio",
+      "hwids": [
+        [
+          "0x303A",
+          "0x8167"
+        ]
+      ],
+      "mcu": "esp32s3",
+      "variant": "lolin_s3_mini"
+    },
+    "connectivity": [
+      "bluetooth",
+      "wifi"
+    ],
+    "debug": {
+      "openocd_target": "esp32s3.cfg"
+    },
+    "frameworks": [
+      "arduino",
+      "espidf"
+    ],
+    "name": "WEMOS LOLIN S3 Mini",
+    "upload": {
+      "flash_size": "4MB",
+      "maximum_ram_size": 327680,
+      "maximum_size": 4194304,
+      "require_upload_port": true,
+      "speed": 460800
+    },
+    "url": "https://www.wemos.cc/en/latest/s3/index.html",
+    "vendor": "WEMOS"
+}
+  

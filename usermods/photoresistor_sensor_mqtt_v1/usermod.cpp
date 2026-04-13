@@ -1,7 +1,7 @@
 #include "wled.h"
 /*
  * This v1 usermod file allows you to add own functionality to WLED more easily
- * See: https://github.com/Aircoookie/WLED/wiki/Add-own-functionality
+ * See: https://github.com/wled-dev/WLED/wiki/Add-own-functionality
  * EEPROM bytes 2750+ are reserved for your custom use case. (if you extend #define EEPSIZE in const.h)
  * If you just need 8 bytes, use 2551-2559 (you do not need to increase EEPSIZE)
  * 

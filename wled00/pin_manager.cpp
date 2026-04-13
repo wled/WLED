@@ -1,5 +1,5 @@
-#include "pin_manager.h"
 #include "wled.h"
+#include "pin_manager.h"
 
 #ifdef ARDUINO_ARCH_ESP32
   #ifdef bitRead
@@ -13,6 +13,16 @@
   #endif
 #endif
 
+// Pin management state variables
+#ifdef ESP8266
+static uint32_t pinAlloc = 0UL;     // 1 bit per pin, we use first 17bits
+#else
+static uint64_t pinAlloc = 0ULL;     // 1 bit per pin, we use 50 bits on ESP32-S3
+static uint16_t ledcAlloc = 0;    // up to 16 LEDC channels (WLED_MAX_ANALOG_CHANNELS)
+#endif
+static uint8_t i2cAllocCount = 0; // allow multiple allocation of I2C bus pins but keep track of allocations
+static uint8_t spiAllocCount = 0; // allow multiple allocation of SPI bus pins but keep track of allocations
+static PinOwner ownerTag[WLED_NUM_PINS] = { PinOwner::None };
 
 /// Actual allocation/deallocation routines
 bool PinManager::deallocatePin(byte gpio, PinOwner tag)
@@ -90,7 +100,8 @@ bool PinManager::allocateMultiplePins(const managed_pin_type * mptArray, byte ar
       // as this can greatly simplify configuration arrays
       continue;
     }
-    if (!isPinOk(gpio, mptArray[i].isOutput)) {
+    // allow any GPIO for Ethernet (compile time assigned)
+    if (!(isPinOk(gpio, mptArray[i].isOutput) || tag==PinOwner::Ethernet)) {
       DEBUG_PRINTF_P(PSTR("PIN ALLOC: FAIL Invalid pin attempted to be allocated: GPIO %d as %s\n."), gpio, mptArray[i].isOutput ? PSTR("output"): PSTR("input"));
       shouldFail = true;
     }
@@ -128,10 +139,18 @@ bool PinManager::allocateMultiplePins(const managed_pin_type * mptArray, byte ar
   return true;
 }
 
+bool PinManager::allocateMultiplePins(const int8_t * mptArray, byte arrayElementCount, PinOwner tag, boolean output) {
+  PinManagerPinType pins[arrayElementCount];
+  for (int i=0; i<arrayElementCount; i++) pins[i] = {mptArray[i], output};
+  return allocateMultiplePins(pins, arrayElementCount, tag);
+}
+
 bool PinManager::allocatePin(byte gpio, bool output, PinOwner tag)
 {
   // HW I2C & SPI pins have to be allocated using allocateMultiplePins variant since there is always SCL/SDA pair
-  if (!isPinOk(gpio, output) || (gpio >= WLED_NUM_PINS) || tag==PinOwner::HW_I2C || tag==PinOwner::HW_SPI) {
+  // DMX_INPUT pins have to be allocated using allocateMultiplePins variant since there is always RX/TX/EN triple
+  if (!isPinOk(gpio, output) || (gpio >= WLED_NUM_PINS) || tag==PinOwner::HW_I2C || tag==PinOwner::HW_SPI
+      || tag==PinOwner::DMX_INPUT) {
     #ifdef WLED_DEBUG
     if (gpio < 255) {  // 255 (-1) is the "not defined GPIO"
       if (!isPinOk(gpio, output)) {
@@ -201,7 +220,12 @@ bool PinManager::isPinOk(byte gpio, bool output)
     if (gpio > 18 && gpio < 21) return false;     // 19 + 20 = USB-JTAG. Not recommended for other uses.
     #endif
     if (gpio > 21 && gpio < 33) return false;     // 22 to 32: not connected + SPI FLASH
-    if (gpio > 32 && gpio < 38) return !psramFound(); // 33 to 37: not available if using _octal_ SPI Flash or _octal_ PSRAM
+    #if CONFIG_ESPTOOLPY_FLASHMODE_OPI            // 33-37: never available if using _octal_ Flash (opi_opi)
+    if (gpio > 32 && gpio < 38) return false;
+    #endif
+    #if CONFIG_SPIRAM_MODE_OCT                    // 33-37: not available if using _octal_ PSRAM (qio_opi), but free to use on _quad_ PSRAM (qio_qspi)
+    if (gpio > 32 && gpio < 38) return !psramFound();
+    #endif
     // 38 to 48 are for general use. Be careful about straping pins GPIO45 and GPIO46 - these may be pull-up or pulled-down on your board.
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     // strapping pins: 0, 45 & 46
@@ -209,9 +233,27 @@ bool PinManager::isPinOk(byte gpio, bool output)
     // JTAG: GPIO39-42 are usually used for inline debugging
     // GPIO46 is input only and pulled down
   #else
-    if (gpio > 5 && gpio < 12) return false;      //SPI flash pins
-    if (strncmp_P(PSTR("ESP32-PICO"), ESP.getChipModel(), 10) == 0 && (gpio == 16 || gpio == 17)) return false; // PICO-D4: gpio16+17 are in use for onboard SPI FLASH
-    if (gpio == 16 || gpio == 17) return !psramFound(); //PSRAM pins on ESP32 (these are IO)
+
+    if ((strncmp_P(PSTR("ESP32-U4WDH"), ESP.getChipModel(), 11) == 0) ||    // this is the correct identifier, but....
+        (strncmp_P(PSTR("ESP32-PICO-D"), ESP.getChipModel(), 12) == 0)) {   // https://github.com/espressif/arduino-esp32/issues/10683
+      // this chip has 4 MB of internal Flash and different packaging, so available pins are different!
+      if ((gpio > 5 && gpio < 9) || gpio == 11) return false;               // U4WDH/PICO-D2 & PICO-D4: GPIO 6, 7, 8, 11 are used for SPI flash; 9 & 10 are free
+      if (gpio == 16 || gpio == 17) return false;                           // U4WDH/PICO-D?: GPIO 16 and 17 are used for PSRAM
+    } else if (strncmp_P(PSTR("ESP32-PICO-V3"), ESP.getChipModel(), 13) == 0) {
+      if (gpio == 6 || gpio == 11) return false;                            // PICO-V3: uses GPIO 6 and 11 for flash
+      if (strstr_P(ESP.getChipModel(), PSTR("V3-02")) != nullptr && (gpio == 9 || gpio == 10)) return false; // PICO-V3-02: uses GPIO 9 and 10 for PSRAM; 7, 8 are free
+    } else {
+      // for classic ESP32 (non-mini) modules, these are the SPI flash pins
+      if (gpio > 5 && gpio < 12) return false;      //SPI flash pins
+    }
+    if (gpio == 16) return !psramFound(); // PSRAM pins on modules with off-package or in-package PSRAM
+    if (gpio == 17) {
+      if (strncmp_P(PSTR("ESP32-D0WDR2-V3"), ESP.getChipModel(), 15) == 0) {
+        return true;
+      } else {
+        return !psramFound(); // PSRAM pins on modules with in-package PSRAM
+      }
+    }    
   #endif
     if (output) return digitalPinCanOutput(gpio);
     else        return true;
@@ -274,12 +316,65 @@ void PinManager::deallocateLedc(byte pos, byte channels)
 }
 #endif
 
-#ifdef ESP8266
-uint32_t PinManager::pinAlloc = 0UL;
-#else
-uint64_t PinManager::pinAlloc = 0ULL;
-uint16_t PinManager::ledcAlloc = 0;
-#endif
-uint8_t PinManager::i2cAllocCount = 0;
-uint8_t PinManager::spiAllocCount = 0;
-PinOwner PinManager::ownerTag[WLED_NUM_PINS] = { PinOwner::None };
+// Convert PinOwner enum to string for allocated pins
+const char* PinManager::getPinOwnerName(uint8_t gpio) {
+  PinOwner owner = PinManager::getPinOwner(gpio); // returns "none" if allocated by system, unallocated or unavailable
+  switch (owner) {
+    case PinOwner::None:          return PinManager::isPinAllocated(gpio) ? "System" : "Unknown";
+    case PinOwner::Ethernet:      return "Ethernet";
+    case PinOwner::BusDigital:    return "LED Digital";
+    case PinOwner::BusOnOff:      return "LED On/Off";
+    case PinOwner::BusPwm:        return "LED PWM";
+    case PinOwner::Button:        return "Button";
+    case PinOwner::IR:            return "IR Receiver";
+    case PinOwner::Relay:         return "Relay";
+    case PinOwner::SPI_RAM:       return "SPI RAM";
+    case PinOwner::DebugOut:      return "Debug";
+    case PinOwner::DMX:           return "DMX Output";
+    case PinOwner::HW_I2C:        return "I2C";
+    case PinOwner::HW_SPI:        return "SPI";
+    case PinOwner::DMX_INPUT:     return "DMX Input";
+    case PinOwner::HUB75:         return "HUB75";
+    // Usermods - return generic name for now
+    // TODO: Get actual usermod name from UsermodManager
+    default:
+      // Check if it's a usermod (high bit not set)
+      if (static_cast<uint8_t>(owner) > 0 && !(static_cast<uint8_t>(owner) & 0x80)) {
+        return "Usermod";
+      }
+      return "Unknown";
+  }
+}
+
+int PinManager::getButtonIndex(byte gpio) {
+  for (size_t b = 0; b < buttons.size(); b++) {
+    if (buttons[b].pin == gpio && buttons[b].type != BTN_TYPE_NONE) {
+      return b;
+    }
+  }
+  return -1;
+}
+
+bool PinManager::isAnalogPin(byte gpio) {
+  #ifdef ARDUINO_ARCH_ESP32
+  // Check ADC capability: only ADC1 channels can be used (ADC2 channels are not usable when WiFi is active)
+  #if CONFIG_IDF_TARGET_ESP32
+  // ESP32: ADC1 channels 0-7 (GPIO 36, 37, 38, 39, 32, 33, 34, 35)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 7) return true;
+  #elif CONFIG_IDF_TARGET_ESP32S2
+  // ESP32-S2: ADC1 channels 0-9 (GPIO 1-10)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 9) return true;
+  #elif CONFIG_IDF_TARGET_ESP32S3
+  // ESP32-S3: ADC1 channels 0-9 (GPIO 1-10)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 9) return true;
+  #elif CONFIG_IDF_TARGET_ESP32C3
+  // ESP32-C3: ADC1 channels 0-4 (GPIO 0-4)
+  int adc_channel = digitalPinToAnalogChannel(gpio);
+  if (adc_channel >= 0 && adc_channel <= 4) return true;
+  #endif
+  #endif
+  return false; // not an analog pin if it doesn't have ADC capability, ESP8266 has only one ADC pin (A0) which is handled separately in button.cpp, so return false for all pins here
+}

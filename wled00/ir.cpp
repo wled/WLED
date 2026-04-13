@@ -2,19 +2,20 @@
 
 #ifndef WLED_DISABLE_INFRARED
 #include "ir_codes.h"
+#include "colors.h"
 
 /*
  * Infrared sensor support for several generic RGB remotes and custom JSON remote
  */
 
-IRrecv* irrecv;
-decode_results results;
-unsigned long irCheckedTime = 0;
-uint32_t lastValidCode = 0;
-byte lastRepeatableAction = ACTION_NONE;
-uint8_t lastRepeatableValue = 0;
-uint16_t irTimesRepeated = 0;
-uint8_t lastIR6ColourIdx = 0;
+static IRrecv* irrecv;
+static decode_results results;
+static unsigned long irCheckedTime = 0;
+static uint32_t lastValidCode = 0;
+static byte lastRepeatableAction = ACTION_NONE;
+static uint8_t lastRepeatableValue = 0;
+static uint16_t irTimesRepeated = 0;
+static uint8_t lastIR6ColourIdx = 0;
 
 
 // brightnessSteps: a static array of brightness levels following a geometric
@@ -128,22 +129,18 @@ static void changeEffectSpeed(int8_t amount)
     }
   } else { // if Effect == "solid Color", change the hue of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
-    CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv_approximate(fastled_col);
-    int16_t new_val = (int16_t)prim_hsv.h + amount;
-    if (new_val > 255) new_val -= 255;  // roll-over if  bigger than 255
-    if (new_val < 0) new_val += 255;    // roll-over if smaller than 0
-    prim_hsv.h = (byte)new_val;
-    hsv2rgb_rainbow(prim_hsv, fastled_col);
+    CRGBW newcolor = CRGBW(sseg.colors[0]);
+    newcolor.adjust_hue(amount);
+    newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment& seg = strip.getSegment(i);
         if (!seg.isActive() || !seg.isSelected()) continue;
-        seg.colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+        seg.colors[0] = newcolor.color32;
       }
       setValuesFromFirstSelectedSeg();
     } else {
-      strip.getMainSegment().colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+      strip.getMainSegment().colors[0] = newcolor.color32;
       setValuesFromMainSeg();
     }
   }
@@ -172,20 +169,21 @@ static void changeEffectIntensity(int8_t amount)
     }
   } else { // if Effect == "solid Color", change the saturation of the primary color
     Segment& sseg = irApplyToAllSelected ? strip.getFirstSelectedSeg() : strip.getMainSegment();
-    CRGB fastled_col = CRGB(sseg.colors[0]);
-    CHSV prim_hsv = rgb2hsv_approximate(fastled_col);
-    int16_t new_val = (int16_t) prim_hsv.s + amount;
+
+    CHSV32 prim_hsv = CRGBW(sseg.colors[0]);
+    int32_t new_val = (int32_t)prim_hsv.s + amount;
     prim_hsv.s = (byte)constrain(new_val,0,255);  // constrain to 0-255
-    hsv2rgb_rainbow(prim_hsv, fastled_col);
+    CRGBW newcolor = prim_hsv;
+    newcolor.w = W(sseg.colors[0]);
     if (irApplyToAllSelected) {
       for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
         Segment& seg = strip.getSegment(i);
         if (!seg.isActive() || !seg.isSelected()) continue;
-        seg.colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+        seg.colors[0] = newcolor;
       }
       setValuesFromFirstSelectedSeg();
     } else {
-      strip.getMainSegment().colors[0] = RGBW32(fastled_col.red, fastled_col.green, fastled_col.blue, W(sseg.colors[0]));
+      strip.getMainSegment().colors[0] = newcolor;
       setValuesFromMainSeg();
     }
   }
@@ -425,8 +423,8 @@ static void decodeIR44(uint32_t code)
     case IR44_COLDWHITE2  : changeColor(COLOR_COLDWHITE2,   255); changeEffect(FX_MODE_STATIC);  break;
     case IR44_REDPLUS     : changeEffect(relativeChange(effectCurrent,  1, 0, strip.getModeCount() -1));               break;
     case IR44_REDMINUS    : changeEffect(relativeChange(effectCurrent, -1, 0, strip.getModeCount() -1));               break;
-    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, strip.getPaletteCount() -1)); break;
-    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, strip.getPaletteCount() -1)); break;
+    case IR44_GREENPLUS   : changePalette(relativeChange(effectPalette,  1, 0, getPaletteCount() -1)); break;
+    case IR44_GREENMINUS  : changePalette(relativeChange(effectPalette, -1, 0, getPaletteCount() -1)); break;
     case IR44_BLUEPLUS    : changeEffectIntensity( 16);                  break;
     case IR44_BLUEMINUS   : changeEffectIntensity(-16);                  break;
     case IR44_QUICK       : changeEffectSpeed( 16);                      break;
@@ -435,7 +433,7 @@ static void decodeIR44(uint32_t code)
     case IR44_DIY2        : presetFallback(2, FX_MODE_BREATH,        0); break;
     case IR44_DIY3        : presetFallback(3, FX_MODE_FIRE_FLICKER,  0); break;
     case IR44_DIY4        : presetFallback(4, FX_MODE_RAINBOW,       0); break;
-    case IR44_DIY5        : presetFallback(5, FX_MODE_METEOR_SMOOTH, 0); break;
+    case IR44_DIY5        : presetFallback(5, FX_MODE_METEOR,        0); break;
     case IR44_DIY6        : presetFallback(6, FX_MODE_RAIN,          0); break;
     case IR44_AUTO        : changeEffect(FX_MODE_STATIC);                break;
     case IR44_FLASH       : changeEffect(FX_MODE_PALETTE);               break;
@@ -484,7 +482,7 @@ static void decodeIR6(uint32_t code)
     case IR6_CHANNEL_UP:   incBrightness();                                                  break;
     case IR6_CHANNEL_DOWN: decBrightness();                                                  break;
     case IR6_VOLUME_UP:    changeEffect(relativeChange(effectCurrent, 1, 0, strip.getModeCount() -1)); break;
-    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, strip.getPaletteCount() -1));
+    case IR6_VOLUME_DOWN:  changePalette(relativeChange(effectPalette, 1, 0, getPaletteCount() -1));
       switch(lastIR6ColourIdx) {
         case 0: changeColor(COLOR_RED);       break;
         case 1: changeColor(COLOR_REDDISH);   break;
@@ -530,7 +528,7 @@ static void decodeIR9(uint32_t code)
 
 /*
 This allows users to customize IR actions without the need to edit C code and compile.
-From the https://github.com/Aircoookie/WLED/wiki/Infrared-Control page, download the starter
+From the https://github.com/wled/WLED/wiki/Infrared-Control page, download the starter
 ir.json file that corresponds to the number of buttons on your remote.
 Many of the remotes with the same number of buttons emit the same codes, but will have
 different labels or colors. Once you edit the ir.json file, upload it to your controller
@@ -559,7 +557,7 @@ static void decodeIRJson(uint32_t code)
   JsonObject fdo;
   JsonObject jsonCmdObj;
 
-  if (!requestJSONBufferLock(13)) return;
+  if (!requestJSONBufferLock(JSON_LOCK_IR)) return;
 
   sprintf_P(objKey, PSTR("\"0x%lX\":"), (unsigned long)code);
   strcpy_P(fileName, PSTR("/ir.json")); // for FS.exists()
@@ -593,7 +591,7 @@ static void decodeIRJson(uint32_t code)
         decBrightness();
       } else if (cmdStr.startsWith(F("!presetF"))) { //!presetFallback
         uint8_t p1 = fdo["PL"] | 1;
-        uint8_t p2 = fdo["FX"] | random8(strip.getModeCount() -1);
+        uint8_t p2 = fdo["FX"] | hw_random8(strip.getModeCount() -1);
         uint8_t p3 = fdo["FP"] | 0;
         presetFallback(p1, p2, p3);
       }
@@ -611,9 +609,15 @@ static void decodeIRJson(uint32_t code)
       handleSet(nullptr, cmdStr, false);                           // no stateUpdated() call here
     }
   } else {
-    // command is JSON object (TODO: currently will not handle irApplyToAllSelected correctly)
-    if (jsonCmdObj[F("psave")].isNull()) deserializeState(jsonCmdObj, CALL_MODE_BUTTON_PRESET);
-    else {
+    // command is JSON object
+    if (jsonCmdObj[F("psave")].isNull()) {
+      if (irApplyToAllSelected && jsonCmdObj["seg"].is<JsonArray>()) {
+        JsonObject seg = jsonCmdObj["seg"][0];                    // take 1st segment from array and use it to apply to all selected segments
+        seg.remove("id");                                         // remove segment ID if it exists
+        jsonCmdObj["seg"] = seg;                                  // replace array with object
+      }
+      deserializeState(jsonCmdObj, CALL_MODE_BUTTON_PRESET);      // **will call stateUpdated() with correct CALL_MODE**
+    } else {
       uint8_t psave = jsonCmdObj[F("psave")].as<int>();
       char pname[33];
       sprintf_P(pname, PSTR("IR Preset %d"), psave);
@@ -628,6 +632,7 @@ static void applyRepeatActions()
 {
   if (irEnabled == 8) {
     decodeIRJson(lastValidCode);
+    stateUpdated(CALL_MODE_BUTTON_PRESET);
     return;
   } else switch (lastRepeatableAction) {
     case ACTION_BRIGHT_UP :      incBrightness();                            stateUpdated(CALL_MODE_BUTTON); return;
@@ -664,7 +669,7 @@ static void decodeIR(uint32_t code)
 
   if (irEnabled == 8) { // any remote configurable with ir.json file
     decodeIRJson(code);
-    stateUpdated(CALL_MODE_BUTTON);
+    stateUpdated(CALL_MODE_BUTTON_PRESET);
     return;
   }
   if (code > 0xFFFFFF) return; //invalid code

@@ -20,8 +20,7 @@ The LEDs should be wired in a clockwise orientation starting in the middle of bo
 
 ## Installation 
 
-Add `-D USERMOD_BOBLIGHT` to your PlatformIO environment.
-If you are not using PlatformIO (which you should) try adding `#define USERMOD_BOBLIGHT` to *my_config.h*.
+Add `boblight` to `custom_usermods` in your PlatformIO environment.
 
 ## Configuration
 

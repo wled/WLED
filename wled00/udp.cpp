@@ -6,7 +6,7 @@
 
 #define UDP_SEG_SIZE 36
 #define SEG_OFFSET (41)
-#define WLEDPACKETSIZE (41+(MAX_NUM_SEGMENTS*UDP_SEG_SIZE)+0)
+#define WLEDPACKETSIZE (41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE)+0)
 #define UDP_IN_MAXSIZE 1472
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
 
@@ -55,7 +55,7 @@ void notify(byte callMode, bool followUp)
   //0: old 1: supports white 2: supports secondary color
   //3: supports FX intensity, 24 byte packet 4: supports transitionDelay 5: sup palette
   //6: supports timebase syncing, 29 byte packet 7: supports tertiary color 8: supports sys time sync, 36 byte packet
-  //9: supports sync groups, 37 byte packet 10: supports CCT, 39 byte packet 11: per segment options, variable packet length (40+MAX_NUM_SEGMENTS*3)
+  //9: supports sync groups, 37 byte packet 10: supports CCT, 39 byte packet 11: per segment options, variable packet length (40+WS2812FX::getMaxSegments()*3)
   //12: enhanced effect sliders, 2D & mapping options
   udpOut[11] = 12;
   col = mainseg.colors[1];
@@ -104,7 +104,7 @@ void notify(byte callMode, bool followUp)
   udpOut[40] = UDP_SEG_SIZE; //size of each loop iteration (one segment)
   size_t s = 0, nsegs = strip.getSegmentsNum();
   for (size_t i = 0; i < nsegs; i++) {
-    Segment &selseg = strip.getSegment(i);
+    const Segment &selseg = strip.getSegment(i);
     if (!selseg.isActive()) continue;
     unsigned ofs = 41 + s*UDP_SEG_SIZE; //start of segment offset byte
     udpOut[0 +ofs] = s;
@@ -177,7 +177,7 @@ void notify(byte callMode, bool followUp)
         memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
         if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
-        DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
+        DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
         err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
         buffer.packet++;
         packetSize = 0;
@@ -206,7 +206,7 @@ void notify(byte callMode, bool followUp)
   notificationCount = followUp ? notificationCount + 1 : 0;
 }
 
-void parseNotifyPacket(uint8_t *udpIn) {
+static void parseNotifyPacket(const uint8_t *udpIn) {
   //ignore notification if received within a second after sending a notification ourselves
   if (millis() - notificationSentTime < 1000) return;
   if (udpIn[1] > 199) return; //do not receive custom versions
@@ -225,21 +225,19 @@ void parseNotifyPacket(uint8_t *udpIn) {
 
   // set transition time before making any segment changes
   if (version > 3) {
-    if (fadeTransition) {
-      jsonTransitionOnce = true;
-      strip.setTransition(((udpIn[17] << 0) & 0xFF) + ((udpIn[18] << 8) & 0xFF00));
-    }
+    jsonTransitionOnce = true;
+    strip.setTransition(((udpIn[17] << 0) & 0xFF) + ((udpIn[18] << 8) & 0xFF00));
   }
 
   //apply colors from notification to main segment, only if not syncing full segments
   if ((receiveNotificationColor || !someSel) && (version < 11 || !receiveSegmentOptions)) {
     // primary color, only apply white if intented (version > 0)
-    strip.setColor(0, RGBW32(udpIn[3], udpIn[4], udpIn[5], (version > 0) ? udpIn[10] : 0));
+    strip.getMainSegment().setColor(0, RGBW32(udpIn[3], udpIn[4], udpIn[5], (version > 0) ? udpIn[10] : 0));
     if (version > 1) {
-      strip.setColor(1, RGBW32(udpIn[12], udpIn[13], udpIn[14], udpIn[15])); // secondary color
+      strip.getMainSegment().setColor(1, RGBW32(udpIn[12], udpIn[13], udpIn[14], udpIn[15])); // secondary color
     }
     if (version > 6) {
-      strip.setColor(2, RGBW32(udpIn[20], udpIn[21], udpIn[22], udpIn[23])); // tertiary color
+      strip.getMainSegment().setColor(2, RGBW32(udpIn[20], udpIn[21], udpIn[22], udpIn[23])); // tertiary color
       if (version > 9 && udpIn[37] < 255) { // valid CCT/Kelvin value
         unsigned cct = udpIn[38];
         if (udpIn[37] > 0) { //Kelvin
@@ -260,20 +258,21 @@ void parseNotifyPacket(uint8_t *udpIn) {
     // are we syncing bounds and slave has more active segments than master?
     if (receiveSegmentBounds && numSrcSegs < strip.getActiveSegmentsNum()) {
       DEBUG_PRINTLN(F("Removing excessive segments."));
-      for (size_t i=strip.getSegmentsNum(); i>numSrcSegs; i--) {
-        if (strip.getSegment(i).isActive()) {
-          strip.setSegment(i-1,0,0); // delete segment
-        }
+      strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
+      for (size_t i=strip.getSegmentsNum(); i>numSrcSegs && i>0; i--) {
+        Segment &seg = strip.getSegment(i-1);
+        if (seg.isActive()) seg.deactivate(); // delete segment
       }
+      strip.resume();
     }
     size_t inactiveSegs = 0;
-    for (size_t i = 0; i < numSrcSegs && i < strip.getMaxSegments(); i++) {
+    for (size_t i = 0; i < numSrcSegs && i < WS2812FX::getMaxSegments(); i++) {
       unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
       else if (id == strip.getSegmentsNum()) {
-        if (receiveSegmentBounds && id < strip.getMaxSegments()) strip.appendSegment();
+        if (receiveSegmentBounds && id < WS2812FX::getMaxSegments()) strip.appendSegment();
         else break;
       }
       DEBUG_PRINTF_P(PSTR("UDP segment check: %u\n"), id);
@@ -300,7 +299,7 @@ void parseNotifyPacket(uint8_t *udpIn) {
       if (!receiveSegmentOptions) {
         DEBUG_PRINTF_P(PSTR("Set segment w/o options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(start, stop, selseg.grouping, selseg.spacing, offset, startY, stopY);
+        selseg.setGeometry(start, stop, selseg.grouping, selseg.spacing, offset, startY, stopY, selseg.map1D2D);
         strip.resume();
         continue; // we do receive bounds, but not options
       }
@@ -328,26 +327,26 @@ void parseNotifyPacket(uint8_t *udpIn) {
         // freeze, reset should never be synced
         // LSB to MSB: select, reverse, on, mirror, freeze, reset, reverse_y, mirror_y, transpose, map1d2d (3), ssim (2), set (2)
         DEBUG_PRINTF_P(PSTR("Apply options: %u\n"), id);
-        selseg.options = (selseg.options & 0b0000000000110001U) | (udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
+        selseg.options = (selseg.options & 0b0000000000110001U) | ((uint16_t)udpIn[28+ofs]<<8) | (udpIn[9 +ofs] & 0b11001110U); // ignore selected, freeze, reset
         if (applyEffects) {
           DEBUG_PRINTF_P(PSTR("Apply sliders: %u\n"), id);
           selseg.custom1 = udpIn[29+ofs];
           selseg.custom2 = udpIn[30+ofs];
           selseg.custom3 = udpIn[31+ofs] & 0x1F;
           selseg.check1  = (udpIn[31+ofs]>>5) & 0x1;
-          selseg.check1  = (udpIn[31+ofs]>>6) & 0x1;
-          selseg.check1  = (udpIn[31+ofs]>>7) & 0x1;
+          selseg.check2  = (udpIn[31+ofs]>>6) & 0x1;
+          selseg.check3  = (udpIn[31+ofs]>>7) & 0x1;
         }
       }
       if (receiveSegmentBounds) {
         DEBUG_PRINTF_P(PSTR("Set segment w/ options: %d [%d,%d;%d,%d]\n"), id, (int)start, (int)stop, (int)startY, (int)stopY);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(start, stop, udpIn[5+ofs], udpIn[6+ofs], offset, startY, stopY);
+        selseg.setGeometry(start, stop, udpIn[5+ofs], udpIn[6+ofs], offset, startY, stopY, selseg.map1D2D);
         strip.resume();
       } else {
         DEBUG_PRINTF_P(PSTR("Set segment grouping: %d [%d,%d]\n"), id, (int)udpIn[5+ofs], (int)udpIn[6+ofs]);
         strip.suspend(); //should not be needed as UDP handling is not done in ISR callbacks but still added "just in case"
-        selseg.setUp(selseg.start, selseg.stop, udpIn[5+ofs], udpIn[6+ofs], selseg.offset, selseg.startY, selseg.stopY);
+        selseg.setGeometry(selseg.start, selseg.stop, udpIn[5+ofs], udpIn[6+ofs], selseg.offset, selseg.startY, selseg.stopY, selseg.map1D2D);
         strip.resume();
       }
     }
@@ -407,31 +406,26 @@ void parseNotifyPacket(uint8_t *udpIn) {
   stateUpdated(CALL_MODE_NOTIFICATION);
 }
 
+// realtimeLock() is called from UDP notifications, JSON API or serial Ada
 void realtimeLock(uint32_t timeoutMs, byte md)
 {
   if (!realtimeMode && !realtimeOverride) {
-    unsigned stop, start;
     if (useMainSegmentOnly) {
       Segment& mainseg = strip.getMainSegment();
-      start = mainseg.start;
-      stop  = mainseg.stop;
+      mainseg.clear(); // clear entire segment (in case sender transmits less pixels)
       mainseg.freeze = true;
-    } else {
-      start = 0;
-      stop  = strip.getLengthTotal();
-    }
-    // clear strip/segment
-    for (size_t i = start; i < stop; i++) strip.setPixelColor(i,BLACK);
-    // if WLED was off and using main segment only, freeze non-main segments so they stay off
-    if (useMainSegmentOnly && bri == 0) {
-      for (size_t s=0; s < strip.getSegmentsNum(); s++) {
-        strip.getSegment(s).freeze = true;
+      // if WLED was off and using main segment only, freeze non-main segments so they stay off
+      if (bri == 0) {
+        for (size_t s = 0; s < strip.getSegmentsNum(); s++) strip.getSegment(s).freeze = true;
       }
+    } else {
+      // clear entire strip
+      strip.fill(BLACK);
     }
-  }
-  // if strip is off (bri==0) and not already in RTM
-  if (briT == 0 && !realtimeMode && !realtimeOverride) {
-    strip.setBrightness(scaledBri(briLast), true);
+    // if strip is off (bri==0) and not already in RTM
+    if (briT == 0) {
+      strip.setBrightness(briLast, true);
+    }
   }
 
   if (realtimeTimeout != UINT32_MAX) {
@@ -440,19 +434,20 @@ void realtimeLock(uint32_t timeoutMs, byte md)
   realtimeMode = md;
 
   if (realtimeOverride) return;
-  if (arlsForceMaxBri) strip.setBrightness(scaledBri(255), true);
+  if (arlsForceMaxBri) strip.setBrightness(255, true);
   if (briT > 0 && md == REALTIME_MODE_GENERIC) strip.show();
 }
 
 void exitRealtime() {
   if (!realtimeMode) return;
   if (realtimeOverride == REALTIME_OVERRIDE_ONCE) realtimeOverride = REALTIME_OVERRIDE_NONE;
-  strip.setBrightness(scaledBri(bri), true);
+  strip.setBrightness(bri, true);
   realtimeTimeout = 0; // cancel realtime mode immediately
   realtimeMode = REALTIME_MODE_INACTIVE; // inform UI immediately
   realtimeIP[0] = 0;
   if (useMainSegmentOnly) { // unfreeze live segment again
     strip.getMainSegment().freeze = false;
+    strip.trigger();
   } else {
     strip.show(); // possible fix for #3589
   }
@@ -462,7 +457,7 @@ void exitRealtime() {
 
 #define TMP2NET_OUT_PORT 65442
 
-void sendTPM2Ack() {
+static void sendTPM2Ack() {
   notifierUdp.beginPacket(notifierUdp.remoteIP(), TMP2NET_OUT_PORT);
   uint8_t response_ack = 0xac;
   notifierUdp.write(&response_ack, 1);
@@ -482,7 +477,8 @@ void handleNotifications()
   if (e131NewData && millis() - strip.getLastShow() > 15)
   {
     e131NewData = false;
-    strip.show();
+    if (useMainSegmentOnly) strip.trigger();
+    else                    strip.show();
   }
 
   //unlock strip when realtime UDP times out
@@ -509,15 +505,13 @@ void handleNotifications()
       uint8_t lbuf[packetSize];
       rgbUdp.read(lbuf, packetSize);
       realtimeLock(realtimeTimeoutMs, REALTIME_MODE_HYPERION);
-      if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
-      unsigned id = 0;
+      if (realtimeOverride) return;
       unsigned totalLen = strip.getLengthTotal();
-      for (size_t i = 0; i < packetSize -2; i += 3)
-      {
+      for (size_t i = 0, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, lbuf[i], lbuf[i+1], lbuf[i+2], 0);
-        id++; if (id >= totalLen) break;
       }
-      if (!(realtimeMode && useMainSegmentOnly)) strip.show();
+      if (useMainSegmentOnly) strip.trigger();
+      else                    strip.show();
       return;
     }
   }
@@ -571,115 +565,88 @@ void handleNotifications()
     return;
   }
 
-  if (!receiveDirect) return;
-
-  //TPM2.NET
-  if (udpIn[0] == 0x9c)
-  {
-    //WARNING: this code assumes that the final TMP2.NET payload is evenly distributed if using multiple packets (ie. frame size is constant)
-    //if the number of LEDs in your installation doesn't allow that, please include padding bytes at the end of the last packet
-    byte tpmType = udpIn[1];
-    if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
-      sendTPM2Ack(); return;
-    }
-    if (tpmType != 0xda) return; //return if notTPM2.NET data
-
-    realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
-    realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
-    if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
-
-    tpmPacketCount++; //increment the packet count
-    if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
-    byte packetNum = udpIn[4]; //starts with 1!
-    byte numPackets = udpIn[5];
-
-    unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
-    unsigned totalLen = strip.getLengthTotal();
-    for (size_t i = 6; i < tpmPayloadFrameSize + 4U; i += 3)
-    {
-      if (id < totalLen)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
-        id++;
+  if (receiveDirect) {
+    //TPM2.NET
+    if (udpIn[0] == 0x9c) {
+      //WARNING: this code assumes that the final TMP2.NET payload is evenly distributed if using multiple packets (ie. frame size is constant)
+      //if the number of LEDs in your installation doesn't allow that, please include padding bytes at the end of the last packet
+      byte tpmType = udpIn[1];
+      if (tpmType == 0xaa) { //TPM2.NET polling, expect answer
+        sendTPM2Ack(); return;
       }
-      else break;
-    }
-    if (tpmPacketCount == numPackets) //reset packet count and show if all packets were received
-    {
-      tpmPacketCount = 0;
-      strip.show();
-    }
-    return;
-  }
+      if (tpmType != 0xda) return; //return if notTPM2.NET data
 
-  //UDP realtime: 1 warls 2 drgb 3 drgbw
-  if (udpIn[0] > 0 && udpIn[0] < 5)
-  {
-    realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
-    DEBUG_PRINTLN(realtimeIP);
-    if (packetSize < 2) return;
+      realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
+      realtimeLock(realtimeTimeoutMs, REALTIME_MODE_TPM2NET);
+      if (realtimeOverride) return;
 
-    if (udpIn[1] == 0)
-    {
-      realtimeTimeout = 0;
+      tpmPacketCount++; //increment the packet count
+      if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
+      byte packetNum = udpIn[4]; //starts with 1!
+      byte numPackets = udpIn[5];
+
+      unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
+      unsigned totalLen = strip.getLengthTotal();
+      for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
+        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+      }
+      if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
+        tpmPacketCount = 0;
+        if (useMainSegmentOnly) strip.trigger();
+        else                    strip.show();
+      }
       return;
-    } else {
-      realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
     }
-    if (realtimeOverride && !(realtimeMode && useMainSegmentOnly)) return;
 
-    unsigned totalLen = strip.getLengthTotal();
-    if (udpIn[0] == 1 && packetSize > 5) //warls
-    {
-      for (size_t i = 2; i < packetSize -3; i += 4)
-      {
-        setRealtimePixel(udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3], 0);
-      }
-    } else if (udpIn[0] == 2 && packetSize > 4) //drgb
-    {
-      unsigned id = 0;
-      for (size_t i = 2; i < packetSize -2; i += 3)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+    //UDP realtime: 1 warls 2 drgb 3 drgbw 4 dnrgb 5 dnrgbw
+    if (udpIn[0] > 0 && udpIn[0] < 6) {
+      realtimeIP = (isSupp) ? notifier2Udp.remoteIP() : notifierUdp.remoteIP();
+      DEBUG_PRINTLN(realtimeIP);
+      if (packetSize < 2) return;
 
-        id++; if (id >= totalLen) break;
+      if (udpIn[1] == 0) {
+        realtimeTimeout = 0; // cancel realtime mode immediately
+        return;
+      } else {
+        realtimeLock(udpIn[1]*1000 +1, REALTIME_MODE_UDP);
       }
-    } else if (udpIn[0] == 3 && packetSize > 6) //drgbw
-    {
-      unsigned id = 0;
-      for (size_t i = 2; i < packetSize -3; i += 4)
-      {
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
+      if (realtimeOverride) return;
 
-        id++; if (id >= totalLen) break;
+      unsigned totalLen = strip.getLengthTotal();
+      if (udpIn[0] == 1 && packetSize > 5) { //warls
+        for (size_t i = 2; i < packetSize -3; i += 4) {
+          setRealtimePixel(udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3], 0);
+        }
+      } else if (udpIn[0] == 2 && packetSize > 4) { //drgb
+        for (size_t i = 2, id = 0; i < packetSize -2 && id < totalLen; i += 3, id++)
+          {
+            setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+          }
+      } else if (udpIn[0] == 3 && packetSize > 6) { //drgbw
+          for (size_t i = 2, id = 0; i < packetSize -3 && id < totalLen; i += 4, id++) {
+            setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
+          }
+      } else if (udpIn[0] == 4 && packetSize > 7) { //dnrgb
+        unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
+        for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 3, id++) {
+          setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
+        }
+      } else if (udpIn[0] == 5 && packetSize > 8) { //dnrgbw
+        unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
+        for (size_t i = 4; i < packetSize -2 && id < totalLen; i += 4, id++) {
+          setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
+        }
       }
-    } else if (udpIn[0] == 4 && packetSize > 7) //dnrgb
-    {
-      unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
-      for (size_t i = 4; i < packetSize -2; i += 3)
-      {
-        if (id >= totalLen) break;
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
-        id++;
-      }
-    } else if (udpIn[0] == 5 && packetSize > 8) //dnrgbw
-    {
-      unsigned id = ((udpIn[3] << 0) & 0xFF) + ((udpIn[2] << 8) & 0xFF00);
-      for (size_t i = 4; i < packetSize -2; i += 4)
-      {
-        if (id >= totalLen) break;
-        setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], udpIn[i+3]);
-        id++;
-      }
+      if (useMainSegmentOnly) strip.trigger();
+      else                    strip.show();
+      return;
     }
-    strip.show();
-    return;
   }
 
   // API over UDP
   udpIn[packetSize] = '\0';
 
-  if (requestJSONBufferLock(18)) {
+  if (requestJSONBufferLock(JSON_LOCK_NOTIFY)) {
     if (udpIn[0] >= 'A' && udpIn[0] <= 'Z') { //HTTP API
       String apireq = "win"; apireq += '&'; // reduce flash string usage
       apireq += (char*)udpIn;
@@ -691,26 +658,15 @@ void handleNotifications()
     }
     releaseJSONBufferLock();
   }
+
+  UsermodManager::onUdpPacket(udpIn, packetSize);
 }
 
 
 void setRealtimePixel(uint16_t i, byte r, byte g, byte b, byte w)
 {
   unsigned pix = i + arlsOffset;
-  if (pix < strip.getLengthTotal()) {
-    if (!arlsDisableGammaCorrection && gammaCorrectCol) {
-      r = gamma8(r);
-      g = gamma8(g);
-      b = gamma8(b);
-      w = gamma8(w);
-    }
-    if (useMainSegmentOnly) {
-      Segment &seg = strip.getMainSegment();
-      if (pix<seg.length()) seg.setPixelColor(pix, r, g, b, w);
-    } else {
-      strip.setPixelColor(pix, r, g, b, w);
-    }
-  }
+  strip.setRealtimePixelColor(pix, RGBW32(r,g,b,w));
 }
 
 /*********************************************************************************************\
@@ -795,24 +751,6 @@ void sendSysInfoUDP()
  * Art-Net, DDP, E131 output - work in progress
 \*********************************************************************************************/
 
-#define DDP_HEADER_LEN 10
-#define DDP_SYNCPACKET_LEN 10
-
-#define DDP_FLAGS1_VER 0xc0  // version mask
-#define DDP_FLAGS1_VER1 0x40 // version=1
-#define DDP_FLAGS1_PUSH 0x01
-#define DDP_FLAGS1_QUERY 0x02
-#define DDP_FLAGS1_REPLY 0x04
-#define DDP_FLAGS1_STORAGE 0x08
-#define DDP_FLAGS1_TIME 0x10
-
-#define DDP_ID_DISPLAY 1
-#define DDP_ID_CONFIG 250
-#define DDP_ID_STATUS 251
-
-// 1440 channels per packet
-#define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
-
 //
 // Send real time UDP updates to the specified client
 //
@@ -826,7 +764,7 @@ static       size_t sequenceNumber = 0; // this needs to be shared across all ou
 static const size_t ART_NET_HEADER_SIZE = 12;
 static const byte   ART_NET_HEADER[] PROGMEM = {0x41,0x72,0x74,0x2d,0x4e,0x65,0x74,0x00,0x00,0x50,0x00,0x0e};
 
-uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, uint8_t *buffer, uint8_t bri, bool isRGBW)  {
+uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const uint8_t *buffer, uint8_t bri, bool isRGBW)  {
   if (!(apActive || interfacesInited) || !client[0] || !length) return 1;  // network not initialised or dummy/unset IP address  031522 ajn added check for ap
 
   WiFiUDP ddpUdp;
@@ -854,11 +792,11 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, uint8
         // the amount of data is AFTER the header in the current packet
         size_t packetSize = DDP_CHANNELS_PER_PACKET;
 
-        uint8_t flags = DDP_FLAGS1_VER1;
+        uint8_t flags = DDP_FLAGS_VER1;
         if (currentPacket == (packetCount - 1U)) {
           // last packet, set the push flag
           // TODO: determine if we want to send an empty push packet to each destination after sending the pixel data
-          flags = DDP_FLAGS1_VER1 | DDP_FLAGS1_PUSH;
+          flags = DDP_FLAGS_VER1 | DDP_FLAGS_PUSH;
           if (channelCount % DDP_CHANNELS_PER_PACKET) {
             packetSize = channelCount % DDP_CHANNELS_PER_PACKET;
           }
@@ -977,14 +915,22 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   // usermods hook can override processing
   if (UsermodManager::onEspNowMessage(address, data, len)) return;
 
-  // handle WiZ Mote data
-  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
-    handleRemote(data, len);
+  bool knownRemote = false;
+  for (const auto& mac : linked_remotes) {
+    if (strlen(mac.data()) == 12 && strcmp(last_signal_src, mac.data()) == 0) {
+      knownRemote = true;
+      break;
+    }
+  }
+  if (!knownRemote) {
+    DEBUG_PRINT(F("ESP Now Message Received from Unlinked Sender: "));
+    DEBUG_PRINTLN(last_signal_src);
     return;
   }
 
-  if (strlen(linked_remote) == 12 && strcmp(last_signal_src, linked_remote) != 0) {
-    DEBUG_PRINTLN(F("ESP-NOW unpaired remote sender."));
+  // handle WiZ Mote data
+  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) {
+    handleWiZdata(data, len);
     return;
   }
 
