@@ -108,3 +108,6 @@ reviews:
       # Docstrings | Allow CodeRabbit to generate docstrings for PRs/MRs.
       # default: true - disabled in WLED: has caused confusion in the past
       enabled: false
+    unit_tests:
+      # default: true - disabled in WLED: we don't have a unit test framework, this option just confuses contributors
+      enabled: false
