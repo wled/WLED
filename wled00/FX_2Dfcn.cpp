@@ -74,7 +74,7 @@ void WS2812FX::setUpMatrix() {
       size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
 
-      if (isFile && requestJSONBufferLock(20)) {
+      if (isFile && requestJSONBufferLock(JSON_LOCK_LEDGAP)) {
         DEBUG_PRINT(F("Reading LED gap from "));
         DEBUG_PRINTLN(fileName);
         // read the array into global JSON buffer
@@ -120,6 +120,9 @@ void WS2812FX::setUpMatrix() {
       for (unsigned i=0; i<customMappingSize; i++) {
         if (!(i%Segment::maxWidth)) DEBUG_PRINTLN();
         DEBUG_PRINTF_P(PSTR("%4d,"), customMappingTable[i]);
+        #if defined(CONFIG_IDF_TARGET_ESP32S2)
+        delay(1); // on S2 the CDC output can crash without a delay
+        #endif
       }
       DEBUG_PRINTLN();
       #endif
@@ -146,14 +149,14 @@ void WS2812FX::setUpMatrix() {
 // pixel is clipped if it falls outside clipping range
 // if clipping start > stop the clipping range is inverted
 bool Segment::isPixelXYClipped(int x, int y) const {
-  if (blendingStyle != BLEND_STYLE_FADE && isInTransition() && _clipStart != _clipStop) {
+  if (blendingStyle != TRANSITION_FADE && isInTransition() && _clipStart != _clipStop) {
     const bool invertX = _clipStart  > _clipStop;
     const bool invertY = _clipStartY > _clipStopY;
     const int  cStartX = invertX ? _clipStop   : _clipStart;
     const int  cStopX  = invertX ? _clipStart  : _clipStop;
     const int  cStartY = invertY ? _clipStopY  : _clipStartY;
     const int  cStopY  = invertY ? _clipStartY : _clipStopY;
-    if (blendingStyle == BLEND_STYLE_FAIRY_DUST) {
+    if (blendingStyle == TRANSITION_FAIRY_DUST) {
       const unsigned width = cStopX - cStartX;          // assumes full segment width (faster than virtualWidth())
       const unsigned len = width * (cStopY - cStartY);  // assumes full segment height (faster than virtualHeight())
       if (len < 2) return false;
@@ -161,10 +164,10 @@ bool Segment::isPixelXYClipped(int x, int y) const {
       const unsigned pos = (shuffled * 0xFFFFU) / len;
       return progress() <= pos;
     }
-    if (blendingStyle == BLEND_STYLE_CIRCULAR_IN || blendingStyle == BLEND_STYLE_CIRCULAR_OUT) {
+    if (blendingStyle == TRANSITION_CIRCULAR_IN || blendingStyle == TRANSITION_CIRCULAR_OUT) {
       const int cx   = (cStopX-cStartX+1) / 2;
       const int cy   = (cStopY-cStartY+1) / 2;
-      const bool out = (blendingStyle == BLEND_STYLE_CIRCULAR_OUT);
+      const bool out = (blendingStyle == TRANSITION_CIRCULAR_OUT);
       const unsigned prog = out ? progress() : 0xFFFFU - progress();
       int radius2    = max(cx, cy) * prog / 0xFFFF;
       radius2 = 2 * radius2 * radius2;
@@ -176,7 +179,7 @@ bool Segment::isPixelXYClipped(int x, int y) const {
     }
     bool xInside = (x >= cStartX && x < cStopX); if (invertX) xInside = !xInside;
     bool yInside = (y >= cStartY && y < cStopY); if (invertY) yInside = !yInside;
-    const bool clip = blendingStyle == BLEND_STYLE_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
+    const bool clip = blendingStyle == TRANSITION_OUTSIDE_IN ? xInside || yInside : xInside && yInside;
     return !clip;
   }
   return false;
@@ -559,51 +562,6 @@ void Segment::drawLine(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint3
   }
 }
 
-#include "src/font/console_font_4x6.h"
-#include "src/font/console_font_5x8.h"
-#include "src/font/console_font_5x12.h"
-#include "src/font/console_font_6x8.h"
-#include "src/font/console_font_7x9.h"
-
-// draws a raster font character on canvas
-// only supports: 4x6=24, 5x8=40, 5x12=60, 6x8=48 and 7x9=63 fonts ATM
-void Segment::drawCharacter(unsigned char chr, int16_t x, int16_t y, uint8_t w, uint8_t h, uint32_t color, uint32_t col2, int8_t rotate) const {
-  if (!isActive()) return; // not active
-  if (chr < 32 || chr > 126) return; // only ASCII 32-126 supported
-  chr -= 32; // align with font table entries
-  const int font = w*h;
-
-  // if col2 == BLACK then use currently selected palette for gradient otherwise create gradient from color and col2
-  CRGBPalette16 grad = col2 ? CRGBPalette16(CRGB(color), CRGB(col2)) : SEGPALETTE; // selected palette as gradient
-
-  for (int i = 0; i<h; i++) { // character height
-    uint8_t bits = 0;
-    switch (font) {
-      case 24: bits = pgm_read_byte_near(&console_font_4x6[(chr * h) + i]); break;  // 4x6 font
-      case 40: bits = pgm_read_byte_near(&console_font_5x8[(chr * h) + i]); break;  // 5x8 font
-      case 48: bits = pgm_read_byte_near(&console_font_6x8[(chr * h) + i]); break;  // 6x8 font
-      case 63: bits = pgm_read_byte_near(&console_font_7x9[(chr * h) + i]); break;  // 7x9 font
-      case 60: bits = pgm_read_byte_near(&console_font_5x12[(chr * h) + i]); break; // 5x12 font
-      default: return;
-    }
-    CRGBW c = ColorFromPalette(grad, (i+1)*255/h, 255, LINEARBLEND_NOWRAP); // NOBLEND is faster
-    for (int j = 0; j<w; j++) { // character width
-      int x0, y0;
-      switch (rotate) {
-        case -1: x0 = x + (h-1) - i; y0 = y + (w-1) - j; break; // -90 deg
-        case -2:
-        case  2: x0 = x + j;         y0 = y + (h-1) - i; break; // 180 deg
-        case  1: x0 = x + i;         y0 = y + j;         break; // +90 deg
-        default: x0 = x + (w-1) - j; y0 = y + i;         break; // no rotation
-      }
-      if (x0 < 0 || x0 >= (int)vWidth() || y0 < 0 || y0 >= (int)vHeight()) continue; // drawing off-screen
-      if (((bits>>(j+(8-w))) & 0x01)) { // bit set
-        setPixelColorXYRaw(x0, y0, c.color32);
-      }
-    }
-  }
-}
-
 #define WU_WEIGHT(a,b) ((uint8_t) (((a)*(b)+(a)+(b))>>8))
 void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu_pixel procedure by reddit u/sutaburosu
   if (!isActive()) return; // not active
@@ -625,5 +583,7 @@ void Segment::wu_pixel(uint32_t x, uint32_t y, CRGB c) const {      //awesome wu
   }
 }
 #undef WU_WEIGHT
+
+ 
 
 #endif // WLED_DISABLE_2D

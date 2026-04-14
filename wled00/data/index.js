@@ -8,6 +8,7 @@ var segLmax = 0; // size (in pixels) of largest selected segment
 var selectedFx = 0;
 var selectedPal = 0;
 var csel = 0; // selected color slot (0-2)
+var cpick; // iro color picker
 var currentPreset = -1;
 var lastUpdate = 0;
 var segCount = 0, ledCount = 0, lowestUnused = 0, maxSeg = 0, lSeg = 0;
@@ -42,16 +43,24 @@ var hol = [
 	[0, 0, 1, 1, "https://images.alphacoders.com/119/1198800.jpg"]	// new year
 ];
 
-var cpick = new iro.ColorPicker("#picker", {
-	width: 260,
-	wheelLightness: false,
-	wheelAngle: 270,
-	wheelDirection: "clockwise",
-	layout: [{
-		component: iro.ui.Wheel,
-		options: {}
-	}]
-});
+// load iro.js sequentially to avoid 503 errors, retries until successful
+(function loadIro() {
+	const l = d.createElement('script');
+	l.src = 'iro.js';
+	l.onload = () => {
+		cpick = new iro.ColorPicker("#picker", {
+			width: 260,
+			wheelLightness: false,
+			wheelAngle: 270,
+			wheelDirection: "clockwise",
+			layout: [{component: iro.ui.Wheel, options: {}}]
+		});
+		d.readyState === 'complete' ? onLoad() : window.addEventListener('load', onLoad);
+	};
+	l.onerror = () => setTimeout(loadIro, 100);
+	document.head.appendChild(l);
+})();
+
 
 function handleVisibilityChange() {if (!d.hidden && new Date () - lastUpdate > 3000) requestJson();}
 function sCol(na, col) {d.documentElement.style.setProperty(na, col);}
@@ -301,6 +310,21 @@ function onLoad()
 		sl.addEventListener('touchstart', toggleBubble);
 		sl.addEventListener('touchend', toggleBubble);
 	});
+	// limiter for all number inputs except segment inputs: limit inputs instantly  note: segment inputs are special if matrix is enabled, they allow for trailing strips, need a lot of special cases to handle that
+	d.addEventListener("input", function(e) {
+		const t = e.target;
+		if (t.tagName === "INPUT" && t.type === "number" && !(t.id && t.id.startsWith("seg"))) {
+			let val = parseFloat(t.value);
+			const max = parseFloat(t.max);
+			const min = parseFloat(t.min);
+
+			if (!isNaN(val)) {
+				if (val > max) t.value = max;
+				if (val < min) t.value = min;
+				if (t.oninput) t.oninput(); // refresh UI labels
+			}
+		}
+	}, false);
 }
 
 function updateTablinks(tabI)
@@ -688,7 +712,7 @@ function populateInfo(i)
 	var vcn = "Kuuhaku";
 	if (i.cn) vcn = i.cn;
 
-	cn += `v${i.ver} "${vcn}"<br><br><table>
+	cn += `v${i.ver} <i>"${vcn}"</i>${i.release ? '<br>('+i.release+')' : ''}<br><br><table>
 ${urows}
 ${urows===""?'':'<tr><td colspan=2><hr style="height:1px;border-width:0;color:gray;background-color:gray"></td></tr>'}
 ${i.opt&0x100?inforow("Debug","<button class=\"btn btn-xs\" onclick=\"requestJson({'debug':"+(i.opt&0x0080?"false":"true")+"});\"><i class=\"icons "+(i.opt&0x0080?"on":"off")+"\">&#xe08f;</i></button>"):''}
@@ -698,13 +722,17 @@ ${inforow("Uptime",getRuntimeStr(i.uptime))}
 ${inforow("Time",i.time)}
 ${inforow("Free heap",(i.freeheap/1024).toFixed(1)," kB")}
 ${i.psram?inforow("Free PSRAM",(i.psram/1024).toFixed(1)," kB"):""}
+<tr><td colspan=2><hr class="sml"></td></tr>
+${i.leds.count?inforow("Total LEDs",i.leds.count):""}
 ${inforow("Estimated current",pwru)}
 ${inforow("Average FPS",i.leds.fps)}
+<tr><td colspan=2><hr class="sml"></td></tr>
 ${inforow("MAC address",i.mac)}
 ${inforow("CPU clock",i.clock," MHz")}
 ${inforow("Flash size",i.flash," MB")}
 ${inforow("Filesystem",i.fs.u + "/" + i.fs.t + " kB (" +Math.round(i.fs.u*100/i.fs.t) + "%)")}
-${inforow("Environment",i.arch + " " + i.core + " (" + i.lwip + ")")}
+${inforow("Environment",i.arch + " " + i.core + ( i.lwip ? " (" + i.lwip + ")" : ""))}
+${i.repo?inforow("GitHub","<a href=\"https://github.com/"+i.repo+"\" target=\"_blank\" rel=\"noopener noreferrer\">" + i.repo + "</a>"):""}
 </table>`;
 	gId('kv').innerHTML = cn;
 	//  update all sliders in Info
@@ -785,6 +813,7 @@ function populateSegments(s)
 							`<option value="13" ${inst.bm==13?' selected':''}>Soft Light</option>`+
 							`<option value="14" ${inst.bm==14?' selected':''}>Dodge</option>`+
 							`<option value="15" ${inst.bm==15?' selected':''}>Burn</option>`+
+							`<option value="16" ${inst.bm==16?' selected':''}>Stencil</option>`+
 						`</select></div>`+
 					`</div>`;
 		let sndSim = `<div data-snd="si" class="lbl-s hide">Sound sim<br>`+
@@ -972,8 +1001,6 @@ function populatePalettes()
 			);
 		}
 	}
-	if (li.cpalcount>0) gId("rmPal").classList.remove("hide");
-	else                gId("rmPal").classList.add("hide");
 }
 
 function redrawPalPrev()
@@ -1056,6 +1083,11 @@ function btype(b)
 		case 34: return "ESP32-S3";
 		case 5:
 		case 35: return "ESP32-C3";
+		case 39: return "ESP32-C6";
+		case 40: return "ESP32-C61";
+		case 41: return "ESP32-C5";
+		case 42:
+		case 43: return "ESP32-P4";
 		case 1:
 		case 82: return "ESP8266";
 	}
@@ -1150,7 +1182,7 @@ function updateLen(s)
 	let mySD = gId("mkSYD");
 	if (isM) {
 		// do we have 1D segment *after* the matrix?
-		if (start >= mw*mh) {
+		if (start >= mw*mh && s > 0) {
 			if (sY) { sY.value = 0; sY.max = 0; sY.min = 0; }
 			if (eY) { eY.value = 1; eY.max = 1; eY.min = 0; }
 			sX.min = mw*mh; sX.max = ledCount-1;
@@ -1283,7 +1315,8 @@ function updateSelectedPalette(s)
 	if (selElement) selElement.classList.remove('selected');
 
 	var selectedPalette = parent.querySelector(`.lstI[data-id="${s}"]`);
-	if (selectedPalette)  parent.querySelector(`.lstI[data-id="${s}"]`).classList.add('selected');
+	if (!selectedPalette) return; // palette not yet loaded (custom palette on initial load)
+	selectedPalette.classList.add('selected');
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
@@ -1644,14 +1677,10 @@ function setEffectParameters(idx)
 			paOnOff[0] = paOnOff[0].substring(0,dPos);
 		}
 		if (paOnOff.length>0 && paOnOff[0] != "!") text = paOnOff[0];
-		gId("adPal").classList.remove("hide");
-		if (lastinfo.cpalcount>0) gId("rmPal").classList.remove("hide");
 	} else {
 		// disable palette list
 		text += ' not used';
 		palw.style.display = "none";
-		gId("adPal").classList.add("hide");
-		gId("rmPal").classList.add("hide");
 		// Close palette dialog if not available
 		if (palw.lastElementChild.tagName == "DIALOG") {
 			palw.lastElementChild.close();
@@ -1942,12 +1971,12 @@ function pleDur(p,i,field)
 function pleTr(p,i,field)
 {
 	const du = gId(`pl${p}du${i}`);
-	const dv = parseFloat(du.value);
-	if (dv > 0) {
-		field.max = dv;
-		if (parseFloat(field.value) > dv)
-			field.value = du.value;
-	}
+	const dv = parseFloat(du.value); // duaration value in seconds
+	const max = parseFloat(field.max);
+	let val = parseFloat(field.value);
+	if (isNaN(val)) return;
+	val = Math.min(val, max, dv > 0 ? dv : max); // limit to max or duration, whichever is smaller
+	field.value = val;
 	if (field.validity.valid)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
@@ -2103,8 +2132,8 @@ function makePlEntry(p,i)
 		<td class="c">#${i+1}</td>
 	</tr>
 	<tr>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Duration" max=6553.0 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
-		<td class="c" width="40%"><input class="segn" type="number" placeholder="Transition" max=65.0 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}">s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:7ch" placeholder="Duration" max=4294967 min=0.0 step=0.1 oninput="pleDur(${p},${i},this)" value="${plJson[p].dur[i]/10.0}" id="pl${p}du${i}" ${man?"readonly":""}>s</td>
+		<td class="c" width="40%"><input class="segn" type="number" style="width:4ch" placeholder="Transition" max=65.5 min=0.0 step=0.1 oninput="pleTr(${p},${i},this)" onfocus="pleTr(${p},${i},this)" value="${plJson[p].transition[i]/10.0}" id="pl${p}tr${i}">s</td>
 		<td class="c"><button class="btn btn-pl-del" onclick="delPl(${p},${i})"><i class="icons btn-icon">&#xe037;</i></button></div></td>
 	</tr>
 	</table>
@@ -2308,7 +2337,7 @@ function setSi(s)
 
 function setBm(s)
 {
-	var value = gId(`seg${s}bm`).selectedIndex;
+	var value = gId(`seg${s}bm`).value;
 	var obj = {"seg": {"id": s, "bm": value}};
 	requestJson(obj);
 }
@@ -2475,6 +2504,10 @@ function saveP(i,pl)
 		obj.o = true;
 	} else {
 		if (pl) {
+			plJson[i].ps.forEach((_,idx) => {
+				const trField = gId(`pl${i}tr${idx}`);
+				if (trField) pleTr(i, idx, trField); // make sure transition time is not longer than duration
+			});
 			obj.playlist = plJson[i];
 			obj.on = true;
 			obj.o = true;
@@ -3289,8 +3322,14 @@ function checkVersionUpgrade(info) {
 			const storedVersion = versionInfo.version || '';
 
 			if (storedVersion && storedVersion !== currentVersion) {
-				// Version has changed, show upgrade prompt
-				showVersionUpgradePrompt(info, storedVersion, currentVersion);
+				// Version has changed
+				if (versionInfo.alwaysReport) {
+					// Automatically report if user opted in for always reporting
+					reportUpgradeEvent(info, storedVersion, true);
+				} else {
+					// Show upgrade prompt
+					showVersionUpgradePrompt(info, storedVersion, currentVersion);
+				}
 			} else if (!storedVersion) {
 				// Empty version in file, show install prompt
 				showVersionUpgradePrompt(info, null, currentVersion);
@@ -3300,7 +3339,7 @@ function checkVersionUpgrade(info) {
 			console.log('Failed to load version-info.json', e);
 			// On error, save current version for next time
 			if (info && info.ver) {
-				updateVersionInfo(info.ver, false);
+				updateVersionInfo(info.ver, false, false);
 			}
 		});
 }
@@ -3326,7 +3365,7 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		? `You are now running WLED <strong style="text-wrap: nowrap">${newVersion}</strong>.`
 		: `Your WLED has been upgraded from <strong style="text-wrap: nowrap">${oldVersion}</strong> to <strong style="text-wrap: nowrap">${newVersion}</strong>.`;
 
-	const question = 'Help make WLED better with a one-time hardware report? It includes only device details like chip type, LED count, etc. — never personal data or your activities.'
+	const question = 'Help make WLED better by sharing hardware details like chip type and LED count? This helps us understand how WLED is used and prioritize features — we never collect personal data or your activities.'
 
 	dialog.innerHTML = `
 		<h2 style="margin-top:0;color:var(--c-f);">${title}</h2>
@@ -3335,10 +3374,15 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 		<p style="color:var(--c-f);font-size:0.9em;">
 			<a href="https://kno.wled.ge/about/privacy-policy/" target="_blank" style="color:var(--c-6);">Learn more about what data is collected and why</a>
 		</p>
-		<div style="margin-top:20px;">
-			<button id="versionReportYes" class="btn">Yes</button>
-			<button id="versionReportNo" class="btn">Not Now</button>
-			<button id="versionReportNever" class="btn">Never Ask</button>
+		<div style="margin-top:15px;margin-bottom:15px;">
+			<label style="display:flex;align-items:center;gap:8px;color:var(--c-f);cursor:pointer;">
+				<input type="checkbox" id="versionSaveChoice" style="cursor:pointer;">
+				<span>Save my choice for future updates</span>
+			</label>
+		</div>
+		<div style="margin-top:20px;display:flex;flex-wrap:wrap;gap:8px;">
+			<button id="versionReportYes" class="btn">Report update</button>
+			<button id="versionReportNo" class="btn">Skip reporting</button>
 		</div>
 	`;
 
@@ -3347,31 +3391,45 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 	// Add event listeners
 	gId('versionReportYes').addEventListener('click', () => {
-		reportUpgradeEvent(info, oldVersion);
+		const saveChoice = gId('versionSaveChoice').checked;
 		d.body.removeChild(overlay);
+		// Pass saveChoice as alwaysReport parameter
+		reportUpgradeEvent(info, oldVersion, saveChoice);
 	});
 
 	gId('versionReportNo').addEventListener('click', () => {
-		// Don't update version, will ask again on next load
+		const saveChoice = gId('versionSaveChoice').checked;
 		d.body.removeChild(overlay);
-	});
-
-	gId('versionReportNever').addEventListener('click', () => {
-		updateVersionInfo(newVersion, true);
-		d.body.removeChild(overlay);
-		showToast('You will not be asked again.');
+		if (saveChoice) {
+			// Save "never ask" preference
+			updateVersionInfo(newVersion, true, false);
+			showToast('You will not be asked again.');
+		} else {
+			// Save current version to prevent re-prompting until version changes
+			updateVersionInfo(newVersion, false, false);
+		}
 	});
 }
 
-function reportUpgradeEvent(info, oldVersion) {
+function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 	showToast('Reporting upgrade...');
+	const IR_TYPES = {
+		0: null,           // not configured — omit field entirely
+		1: "24-key",       // white 24-key remote
+		2: "24-key-ct",    // white 24-key with CW, WW, CT+, CT- keys
+		3: "40-key",       // blue 40-key remote
+		4: "44-key",       // white 44-key remote
+		5: "21-key",       // white 21-key remote
+		6: "6-key",        // black 6-key learning remote
+		7: "9-key",        // 9-key remote
+		8: "json-remote",  // ir.json configurable remote
+	};
 
-	// Fetch fresh data from /json/info endpoint as requested
-	fetch(getURL('/json/info'), {
-		method: 'get'
-	})
-		.then(res => res.json())
-		.then(infoData => {
+	// Reuse the info argument and fetch only /json/cfg (serialize requests to avoid 503s on low-heap devices)
+	const infoData = info;
+	fetch(getURL('/json/cfg'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to fetch /json/cfg')))
+		.then(cfgData => {
 			// Map to UpgradeEventRequest structure per OpenAPI spec
 			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 			const upgradeData = {
@@ -3386,13 +3444,58 @@ function reportUpgradeEvent(info, oldVersion) {
 				brand: infoData.brand,                           // Device brand (always present)
 				product: infoData.product,                       // Product name (always present)
 				flashSize: infoData.flash,                       // Flash size (always present)
-				repo: infoData.repo                              // GitHub repository (always present)
-			};
+				repo: infoData.repo,                             // GitHub repository (always present)
+				fsUsed: infoData.fs?.u,                          // Filesystem used space in kB
+				fsTotal: infoData.fs?.t,                         // Filesystem total space in kB
+
+				// LED hardware
+				busCount:      cfgData.hw?.led?.ins?.length ?? 1,
+				busTypes:      (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
+				matrixWidth:   infoData.leds?.matrix?.w,
+				matrixHeight:  infoData.leds?.matrix?.h,
+				ledFeatures: [
+					...(infoData.leds?.lc & 0x02               ? ["rgbw"] : []),
+					...(infoData.leds?.lc & 0x04               ? ["cct"] : []),
+					...((infoData.leds?.maxpwr ?? 0) > 0       ? ["abl"] : []),
+					...(cfgData.hw?.led?.cr                    ? ["cct-from-rgb"] : []),
+					...(cfgData.hw?.led?.cct                   ? ["white-balance"] : []),
+					...((cfgData.light?.gc?.col ?? 1.0) > 1.0 || (cfgData.light?.gc?.bri ?? 1.0) > 1.0 ? ["gamma"] : []),
+					...(cfgData.light?.aseg                    ? ["auto-segments"] : []),
+					...((cfgData.light?.nl?.mode ?? 0) > 0     ? ["nightlight"] : []),
+				],
+
+				// peripherals (note: i2c/spi may reflect board defaults, not user-configured hardware)
+				peripherals: [
+					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
+					...((cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length > 0 ? ["buttons"] : []),
+					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
+					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
+					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
+				],
+				buttonCount: (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
+
+				// integrations
+				integrations: [
+					...(cfgData.if?.hue?.en                    ? ["hue"] : []),
+					...(cfgData.if?.mqtt?.en                   ? ["mqtt"] : []),
+					...(cfgData.if?.va?.alexa                  ? ["alexa"] : []),
+					...(cfgData.if?.sync?.send?.en             ? ["wled-sync"] : []),
+					...(cfgData.nw?.espnow                     ? ["esp-now"] : []),
+					...(cfgData.if?.sync?.espnow               ? ["esp-now-sync"] : []),
+				],
+
+				// usermods
+				usermods:    Object.keys(cfgData.um ?? {}),
+				usermodIds:  infoData.um ?? [],
+			  };
+
+			// IR remote — only include if configured
+			const irType = IR_TYPES[cfgData.hw?.ir?.type ?? 0];
+			if (irType) upgradeData.irRemoteType = irType;
 
 			// Add optional fields if available
-			if (infoData.psramPresent !== undefined) upgradeData.psramPresent = infoData.psramPresent;  // Whether device has PSRAM
-			if (infoData.psramSize !== undefined) upgradeData.psramSize = infoData.psramSize;  // Total PSRAM size in MB
-			// Note: partitionSizes not currently available in /json/info endpoint
+			if (infoData.psrSz !== undefined) upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB; can be 0
+
 
 			// Make AJAX call to postUpgradeEvent API
 			return fetch('https://usage.wled.me/api/usage/upgrade', {
@@ -3405,8 +3508,12 @@ function reportUpgradeEvent(info, oldVersion) {
 		})
 		.then(res => {
 			if (res.ok) {
-				showToast('Thank you for reporting!');
-				updateVersionInfo(info.ver, false);
+				if (alwaysReport) {
+					showToast('Thank you! Future upgrades will be reported automatically.');
+				} else {
+					showToast('Thank you for reporting!');
+				}
+				updateVersionInfo(info.ver, false, !!alwaysReport);
 			} else {
 				showToast('Report failed. Please try again later.', true);
 				// Do NOT update version info on failure - user will be prompted again
@@ -3414,15 +3521,27 @@ function reportUpgradeEvent(info, oldVersion) {
 		})
 		.catch(e => {
 			console.log('Failed to report upgrade', e);
-			showToast('Report failed. Please try again later.', true);
-			// Do NOT update version info on error - user will be prompted again
+			showToast('Report failed', true);
+			updateVersionInfo(info.ver, false, !!alwaysReport);
 		});
 }
 
-function updateVersionInfo(version, neverAsk) {
+function busTypeToString(t) {
+	if (t === 0)                       return "none";
+	if (t === 40)                      return "on-off";
+	if (t >= 16 && t <= 39)            return "digital";      // WS2812, SK6812, etc.
+	if (t >= 41 && t <= 47)            return "pwm";          // analog RGB/CCT/single
+	if (t >= 48 && t <= 63)            return "digital-spi";  // APA102, WS2801, etc.
+	if (t >= 64 && t <= 71)            return "hub75";        // HUB75 matrix panels
+	if (t >= 80 && t <= 95)            return "network";      // DDP, E1.31, ArtNet
+	return "unknown";
+}
+
+function updateVersionInfo(version, neverAsk, alwaysReport) {
 	const versionInfo = {
 		version: version,
-		neverAsk: neverAsk
+		neverAsk: neverAsk,
+		alwaysReport: !!alwaysReport
 	};
 
 	// Create a Blob with JSON content and use /upload endpoint
