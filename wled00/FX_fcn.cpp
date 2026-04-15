@@ -1766,6 +1766,7 @@ void WS2812FX::show() {
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
     #ifdef ESP8266
+    while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
     // Direct-to-bus mode: clear bus encode buffers then blend segments directly into them.
     // Per-pixel CCT tracking is not supported; CCT is set per-segment in blendSegment().
     if (cctFromRgb) BusManager::setSegmentCCT(-1); // set once; blendSegment skips CCT if cctFromRgb
@@ -1788,6 +1789,7 @@ void WS2812FX::show() {
   if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
   #ifndef ESP8266
+  while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
