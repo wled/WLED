@@ -544,6 +544,8 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
  * Alternating pixels running function.
  */
 static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip, int width) {
+  if (width < 1) width = 1;
+  if (skip < 0) skip = 0;
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
   uint32_t it = strip.now / cycleTime;
   bool usePalette = color1 == SEGCOLOR(0);
