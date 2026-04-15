@@ -209,6 +209,8 @@ void blink(uint32_t color1, uint32_t color2, bool strobe, bool do_palette) {
   SEGENV.step = it; //save previous iteration
 
   uint32_t color = on ? color1 : color2;
+  // Overlay mode: draw only active pulse and keep background untouched during off-time.
+  if (SEGMENT.check2 && !on) return;
   if (color == color1 && do_palette)
   {
     for (unsigned i = 0; i < SEGLEN; i++) {
@@ -224,7 +226,7 @@ void blink(uint32_t color1, uint32_t color2, bool strobe, bool do_palette) {
 void mode_blink(void) {
   blink(SEGCOLOR(0), SEGCOLOR(1), false, true);
 }
-static const char _data_FX_MODE_BLINK[] PROGMEM = "Blink@!,Duty cycle;!,!;!;01";
+static const char _data_FX_MODE_BLINK[] PROGMEM = "Blink@!,Duty cycle,,,,,Overlay;!,!;!;01";
 
 
 /*
@@ -242,7 +244,7 @@ static const char _data_FX_MODE_BLINK_RAINBOW[] PROGMEM = "Blink Rainbow@Frequen
 void mode_strobe(void) {
   return blink(SEGCOLOR(0), SEGCOLOR(1), true, true);
 }
-static const char _data_FX_MODE_STROBE[] PROGMEM = "Strobe@!;!,!;!;01";
+static const char _data_FX_MODE_STROBE[] PROGMEM = "Strobe@!,,,,,Overlay;!,!;!;01";
 
 
 /*
@@ -251,7 +253,7 @@ static const char _data_FX_MODE_STROBE[] PROGMEM = "Strobe@!;!,!;!;01";
 void mode_strobe_rainbow(void) {
   return blink(SEGMENT.color_wheel(SEGENV.call & 0xFF), SEGCOLOR(1), true, false);
 }
-static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!;,!;!;01";
+static const char _data_FX_MODE_STROBE_RAINBOW[] PROGMEM = "Strobe Rainbow@!,,,,,Overlay;,!;!;01";
 
 
 /*
@@ -822,8 +824,10 @@ static const char _data_FX_MODE_HYPER_SPARKLE[] PROGMEM = "Sparkle+@!,!,,,,,Over
  * Strobe effect with different strobe count and pause, controlled by speed.
  */
 void mode_multi_strobe(void) {
-  for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+  if (!SEGMENT.check2) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
+      SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
+    }
   }
 
   SEGENV.aux0 = 50 + 20*(uint16_t)(255-SEGMENT.speed);
@@ -843,7 +847,7 @@ void mode_multi_strobe(void) {
     SEGENV.step = strip.now;
   }
 }
-static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!;!,!;!;01";
+static const char _data_FX_MODE_MULTI_STROBE[] PROGMEM = "Strobe Mega@!,!,,,,,Overlay;!,!;!;01";
 
 
 /*
