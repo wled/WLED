@@ -546,10 +546,13 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip, int width) {
   if (width < 1) width = 1;
   if (skip < 0) skip = 0;
-  int pitch = skip + 1;
+  uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
+  uint32_t it = strip.now / cycleTime;  int pitch = skip + 1;
   int stripe_len = width * pitch - skip;
   int period = 2 * width * pitch;
   int phase = SEGENV.aux0 % period;
+  bool usePalette = color1 == SEGCOLOR(0);
+  bool usePalette2 = usePalette && color2 == color1;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
     int col = color3;
