@@ -558,7 +558,7 @@ static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip,
   int period = 2 * width * pitch;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    int col = color3;
+    uint32_t col = color3;
     int pos = ((int)(i % period) - (int)SEGENV.aux0 + period) % period;
     if (pos < stripe_len && (pos % pitch == 0)) {
       if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
