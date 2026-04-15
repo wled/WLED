@@ -547,7 +547,8 @@ static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip,
   if (width < 1) width = 1;
   if (skip < 0) skip = 0;
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
-  uint32_t it = strip.now / cycleTime;  int pitch = skip + 1;
+  uint32_t it = strip.now / cycleTime;
+  int pitch = skip + 1;
   int stripe_len = width * pitch - skip;
   int period = 2 * width * pitch;
   int phase = SEGENV.aux0 % period;
