@@ -546,20 +546,14 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip, int width) {
   if (width < 1) width = 1;
   if (skip < 0) skip = 0;
-  uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
-  uint32_t it = strip.now / cycleTime;
-  bool usePalette = color1 == SEGCOLOR(0);
-  bool usePalette2 = usePalette && color2 == color1;
-
-  // skip>0: each stripe has (width) lit LEDs with (skip) blacks between them, plus a (skip)-wide
-  // black gap at each color transition. stripe_len = width*pitch - skip; period = 2*width*pitch.
   int pitch = skip + 1;
   int stripe_len = width * pitch - skip;
   int period = 2 * width * pitch;
+  int phase = SEGENV.aux0 % period;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    uint32_t col = color3;
-    int pos = ((int)(i % period) - (int)SEGENV.aux0 + period) % period;
+    int col = color3;
+    int pos = ((int)(i % period) - phase + period) % period;
     if (pos < stripe_len && (pos % pitch == 0)) {
       if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
       col = color1;                       // foreground stripe
@@ -575,7 +569,7 @@ static void running(uint32_t color1, uint32_t color2, uint32_t color3, int skip,
   }
 
   if (it != SEGENV.step) {
-    SEGENV.aux0 = (SEGENV.aux0 + 1) % period;
+    SEGENV.aux0 = (phase + 1) % period;
     SEGENV.step = it;
   }
 }
