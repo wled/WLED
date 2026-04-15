@@ -883,11 +883,11 @@ void mode_android(void) {
   for (unsigned i = 0; i < SEGLEN; i++) {
     if ((start < end && i >= start && i < end) || (start >= end && (i >= start || i < end)))
       SEGMENT.setPixelColor(i, SEGCOLOR(0));
-    else
+    else if (!SEGMENT.check2)
       SEGMENT.setPixelColor(i, SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 1));
   }
 }
-static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width;!,!;!;;m12=1"; //vertical
+static const char _data_FX_MODE_ANDROID[] PROGMEM = "Android@!,Width,,,,,Overlay;!,!;!;;m12=1"; //vertical
 
 /*
  * color chase function.
@@ -1298,7 +1298,7 @@ void mode_fireworks() {
     SEGENV.aux0 = UINT16_MAX;
     SEGENV.aux1 = UINT16_MAX;
   }
-  SEGMENT.fade_out(128);
+  if (!SEGMENT.check2) SEGMENT.fade_out(128);
 
   uint8_t x = SEGENV.aux0%width, y = SEGENV.aux0/width; // 2D coordinates stored in upper and lower byte
   if (!SEGENV.step) {
@@ -1308,7 +1308,7 @@ void mode_fireworks() {
     uint32_t sv1 = 0, sv2 = 0;
     if (valid1) sv1 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux0); // get spark color
     if (valid2) sv2 = SEGMENT.is2D() ? SEGMENT.getPixelColorXY(x, y) : SEGMENT.getPixelColor(SEGENV.aux1);
-    SEGMENT.blur(16); // used in mode_rain()
+    if (!SEGMENT.check2) SEGMENT.blur(16); // used in mode_rain()
     if (valid1) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv1); else SEGMENT.setPixelColor(SEGENV.aux0, sv1); } // restore spark color after blur
     if (valid2) { if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(x, y, sv2); else SEGMENT.setPixelColor(SEGENV.aux1, sv2); } // restore old spark color after blur
   }
@@ -1334,7 +1334,7 @@ void mode_rain() {
   const unsigned width  = SEG_W;
   const unsigned height = SEG_H;
   SEGENV.step += FRAMETIME;
-  if (SEGENV.call && SEGENV.step > SPEED_FORMULA_L) {
+  if (!SEGMENT.check2 && SEGENV.call && SEGENV.step > SPEED_FORMULA_L) {
     SEGENV.step = 1;
     if (SEGMENT.is2D()) {
       //uint32_t ctemp[width];
@@ -1360,7 +1360,7 @@ void mode_rain() {
   }
   mode_fireworks();
 }
-static const char _data_FX_MODE_RAIN[] PROGMEM = "Rain@!,Spawning rate;!,!;!;12;ix=128,pal=0";
+static const char _data_FX_MODE_RAIN[] PROGMEM = "Rain@!,Spawning rate,,,,,Overlay;!,!;!;12;ix=128,pal=0";
 
 /*
  * Fire flicker function
@@ -4134,10 +4134,15 @@ void mode_heartbeat(void) {
   }
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, color_blend(SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), uint8_t(255 - (SEGENV.aux1 >> 8))));
+    uint8_t blendAmount = uint8_t(255 - (SEGENV.aux1 >> 8));
+    if (SEGMENT.check2) {
+      SEGMENT.setPixelColor(i, color_blend(SEGMENT.getPixelColor(i), SEGCOLOR(1), blendAmount));
+    } else {
+      SEGMENT.setPixelColor(i, color_blend(SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0), SEGCOLOR(1), blendAmount));
+    }
   }
 }
-static const char _data_FX_MODE_HEARTBEAT[] PROGMEM = "Heartbeat@!,!;!,!;!;01;m12=1";
+static const char _data_FX_MODE_HEARTBEAT[] PROGMEM = "Heartbeat@!,!,,,,,Overlay;!,!;!;01;m12=1";
 
 
 //  "Pacifica"
