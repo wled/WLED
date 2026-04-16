@@ -186,15 +186,15 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 
 #define FASTLED_INTERNAL //remove annoying pragma messages
 #define USE_GET_MILLISECOND_TIMER
-#include "FastLED.h"
+
 #include "const.h"
+#include "colors.h"
 #include "fcn_declare.h"
 #ifndef WLED_DISABLE_OTA
   #include "ota_update.h"
 #endif
 #include "NodeStruct.h"
 #include "pin_manager.h"
-#include "colors.h"
 #include "bus_manager.h"
 #include "FX.h"
 #include "wled_metadata.h"
@@ -813,17 +813,8 @@ WLED_GLOBAL bool hueStoreAllowed _INIT(false), hueNewKey _INIT(false);
 WLED_GLOBAL unsigned long countdownTime _INIT(1514764800L);
 WLED_GLOBAL bool countdownOverTriggered _INIT(true);
 
-//timer
 WLED_GLOBAL byte lastTimerMinute  _INIT(0);
-WLED_GLOBAL byte timerHours[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-WLED_GLOBAL int8_t timerMinutes[] _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-WLED_GLOBAL byte timerMacro[]     _INIT_N(({ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }));
-//weekdays to activate on, bit pattern of arr elem: 0b11111111: sun,sat,fri,thu,wed,tue,mon,validity
-WLED_GLOBAL byte timerWeekday[]   _INIT_N(({ 254, 254, 254, 254, 254, 254, 254, 254, 254, 254 }));
-//upper 4 bits start, lower 4 bits end month (default 28: start month 1 and end month 12)
-WLED_GLOBAL byte timerMonth[]     _INIT_N(({28,28,28,28,28,28,28,28}));
-WLED_GLOBAL byte timerDay[]       _INIT_N(({1,1,1,1,1,1,1,1}));
-WLED_GLOBAL byte timerDayEnd[]		_INIT_N(({31,31,31,31,31,31,31,31}));
+WLED_GLOBAL std::vector<Timer> timers;
 WLED_GLOBAL bool doAdvancePlaylist _INIT(false);
 
 //improv
@@ -1051,13 +1042,6 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
 //macro to convert F to const
 #define SET_F(x)  (const char*)F(x)
-
-//color mangling macros
-#define RGBW32(r,g,b,w) (uint32_t((byte(w) << 24) | (byte(r) << 16) | (byte(g) << 8) | (byte(b))))
-#define R(c) (byte((c) >> 16))
-#define G(c) (byte((c) >> 8))
-#define B(c) (byte(c))
-#define W(c) (byte((c) >> 24))
 
 class WLED {
 public:
