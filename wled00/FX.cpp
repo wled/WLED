@@ -1179,7 +1179,7 @@ void mode_running_color(void) {
   int width = 1+(SEGMENT.intensity >> 4);
   running(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2), gap, width);
 }
-static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width,Gap;!,!,!;!;;c1=0";
+static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width,Skip;!,!,G;!;;c1=0";
 
 
 /*
