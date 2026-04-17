@@ -662,10 +662,9 @@ function parseInfo(i) {
 	mh = i.leds.matrix ? i.leds.matrix.h : 0;
 	isM = mw>0 && mh>0;
 	if (!bsOpts) bsOpts = Array.from(gId('bs').options).map(o => o.cloneNode(true)); // snapshot all options on first call
-	const bsSel = gId('bs'), bsCur = bsSel.value;
+	const bsSel = gId('bs');
 	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
 	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
-	if (!bsSel.value) bsSel.value = 0; // fall back to Fade if mode is no longer available
 	if (!isM) {
 			gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
@@ -1461,7 +1460,9 @@ function readState(s,command=false)
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
-	gId('bs').value = s.bs || 0;
+	const bsSel = gId('bs');
+	bsSel.value = s.bs || 0; // assign blending style
+	if (!bsSel.value) bsSel.value = 0; // fall back to Fade if option does not exist
 	if (tr===0) gId('bsp').classList.add('hide')
 	else gId('bsp').classList.remove('hide')
 
