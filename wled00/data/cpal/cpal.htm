@@ -664,7 +664,9 @@
 			if (!palCache.length) return;
 			const seq = ++_applySeq;
 			// discard pending HTTP chunks from any previous preview so stale data doesn't drain slowly
-			if (window._httpQueue) _httpQueue.length = 0;
+			if (window._httpQueue) {
+				while (_httpQueue.length) _httpQueue.shift().resolve(-1); // resolve dropped entries so their awaiters can observe the seq change and exit
+			}
 			try {
 				let st = await (await fetch(getURL('/json/state'), { cache: 'no-store' })).json();
 				if (seq !== _applySeq) return; // superseded by a newer preview request
