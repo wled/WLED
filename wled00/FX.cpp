@@ -1175,11 +1175,11 @@ static const char _data_FX_MODE_CHASE_FLASH_RANDOM[] PROGMEM = "Chase Flash Rnd@
  * Alternating color/sec pixels running.
  */
 void mode_running_color(void) {
-  int gap = SEGMENT.custom1 >> 4;
+  int gap = SEGMENT.check2 ? SEGMENT.custom1 >> 4 : 0;
   int width = 1+(SEGMENT.intensity >> 4);
   running(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2), gap, width);
 }
-static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width,Skip;!,!,G;!;;c1=0";
+static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width,Gap,,,,Gap;!,!,G;!;;c1=0";
 
 
 /*
