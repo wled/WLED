@@ -71,6 +71,7 @@
 		let copyColor = '#000';
 		let ws = null;
 		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
+		let _applySeq = 0; // incremented each time applyLED fires; used to cancel stale in-flight previews
 
 		// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
 		(function loadFiles() {
@@ -621,21 +622,20 @@
 
 		async function requestJson(cmd)
 		{
-			if (ws && ws.readyState == 1) {
+			if (ws && ws.readyState == 1 && ws.bufferedAmount < 32768) {
 				try {
 					ws.send(JSON.stringify(cmd));
+					await new Promise(r => setTimeout(r, 15)); // short delay to give ESP time to process (fewer packets dropped)
 					return 1;
 				} catch (e) {}
 			}
 
+			// HTTP fallback
 			if (!window._httpQueue) {
 				window._httpQueue = [];
 				window._httpRun = 0;
 			}
-			if (_httpQueue.length >= 5) {
-				return Promise.resolve(-1); // reject if too many queued requests
-			}
-
+			if (_httpQueue.length >= 5) return -1; // queue full; applyLED cancels stale queues before sending
 			return new Promise(resolve => {
 				_httpQueue.push({ cmd, resolve });
 				(async function run() {
@@ -650,7 +650,7 @@
 								cache: 'no-store'
 							});
 						} catch (e) {}
-						await new Promise(r => setTimeout(r, 120));
+						await new Promise(r => setTimeout(r, 120)); // delay between requests (go slow, this is the http fallback if WS fails)
 						q.resolve(0);
 					}
 					_httpRun = 0;
@@ -662,8 +662,12 @@
 		async function applyLED()
 		{
 			if (!palCache.length) return;
+			const seq = ++_applySeq;
+			// discard pending HTTP chunks from any previous preview so stale data doesn't drain slowly
+			if (window._httpQueue) _httpQueue.length = 0;
 			try {
 				let st = await (await fetch(getURL('/json/state'), { cache: 'no-store' })).json();
+				if (seq !== _applySeq) return; // superseded by a newer preview request
 				if (!st.seg || !st.seg.length) return;
 
 				// get selected segments, use main segment if none selected
@@ -680,6 +684,7 @@
 						arr.push(palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0]);
 					// send colors in chunks
 					for (let j = 0; j < arr.length; j += maxCol) {
+						if (seq !== _applySeq) return; // superseded mid-send
 						let chunk = [s.start + j, ...arr.slice(j, j + maxCol)];
 						await requestJson({ seg: { id: s.id, i: chunk } });
 					}
