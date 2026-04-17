@@ -287,7 +287,7 @@ class BusDigital : public Bus {
     bool isI2S(); // true if this bus uses I2S driver
     void begin() override;
     void cleanup();
-    const CustomBusConfig& getCustomBusConfig() const override { return _customConfig; } // valid only when getType() == TYPE_CUSTOM_BUS
+    const CustomBusConfig& getCustomBusConfig() const override { return *_pCustomConfig; } // valid only when getType() == TYPE_CUSTOM_BUS
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -302,7 +302,7 @@ class BusDigital : public Bus {
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum = 0;           // sum of brightness-scaled channel bytes; updated in setPixelColor() when ABL active
     WLEDpixelBus::PixelBus* _busPtr = nullptr;
-    CustomBusConfig _customConfig;    // stored copy, valid when _type == TYPE_CUSTOM_BUS
+    CustomBusConfig* _pCustomConfig = nullptr; // heap-allocated only when _type == TYPE_CUSTOM_BUS
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 
@@ -420,7 +420,7 @@ class BusPlaceholder : public Bus {
     uint8_t  getDriverType() const override  { return _driverType; }
     const String getCustomText() const override { return _text; }
     bool     isPlaceholder() const override  { return true; }
-    const CustomBusConfig& getCustomBusConfig() const override { return _customConfig; }
+    const CustomBusConfig& getCustomBusConfig() const override { return *_pCustomConfig; }
 
     size_t   getBusSize() const override   { return sizeof(BusPlaceholder); }
 
@@ -433,7 +433,7 @@ class BusPlaceholder : public Bus {
     uint8_t _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
     String _text;
-    CustomBusConfig _customConfig; // valid when type == TYPE_CUSTOM_BUS
+    CustomBusConfig* _pCustomConfig = nullptr; // heap-allocated only when type == TYPE_CUSTOM_BUS
 };
 
 #ifdef WLED_ENABLE_HUB75MATRIX

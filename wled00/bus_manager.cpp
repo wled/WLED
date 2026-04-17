@@ -165,7 +165,7 @@ BusDigital::BusDigital(const BusConfig &bc)
 
   // For TYPE_CUSTOM_BUS: store custom config, use per-instance numChannels and timing
   if (bc.type == TYPE_CUSTOM_BUS) {
-    _customConfig = bc.custom;
+    _pCustomConfig = new CustomBusConfig(bc.custom);
     const uint8_t nch = bc.custom.is16bit ? bc.custom.numChannels * 2 : bc.custom.numChannels;
     const WLEDpixelBus::LedTiming customTiming(bc.custom.t0h, bc.custom.t0l, bc.custom.t1h, bc.custom.t1l, bc.custom.trst);
     _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, nch, &customTiming);
@@ -424,6 +424,8 @@ void BusDigital::begin() {
 
 void BusDigital::cleanup() {
   DEBUGBUS_PRINTLN(F("Digital Cleanup."));
+  delete _pCustomConfig;
+  _pCustomConfig = nullptr;
   if (_busPtr) {
     _busPtr->end();
     delete _busPtr;
@@ -1193,7 +1195,7 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 , _text(bc.text)
 {
   _busSpeedFactor = bc.busSpeedFactor; // preserve so config is restored faithfully on reboot
-  if (bc.type == TYPE_CUSTOM_BUS) _customConfig = bc.custom;
+  if (bc.type == TYPE_CUSTOM_BUS) _pCustomConfig = new CustomBusConfig(bc.custom);
   memcpy(_pins, bc.pins, sizeof(_pins));
   PinOwner pinOwner = PinOwner::None;
   if (Bus::isDigital(bc.type) && bc.type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
@@ -1210,6 +1212,8 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 }
 
 void BusPlaceholder::cleanup() {
+  delete _pCustomConfig;
+  _pCustomConfig = nullptr;
   PinOwner pinOwner = PinOwner::None;
   if (Bus::isDigital(_type) && _type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;
   else if (Bus::isOnOff(_type)) pinOwner = PinOwner::BusOnOff;
