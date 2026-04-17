@@ -397,7 +397,7 @@ public:
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
   // note: using O2 optimization seems to make it slower
   // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM
-  virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
+  virtual bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     uint8_t* out = _pixelData + (size_t)pos * _encoder.getPixelBytes();
     const CctPixel cct{wwcw};

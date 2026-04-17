@@ -57,7 +57,7 @@ bool ColorOrderMap::add(uint16_t start, uint16_t len, uint8_t colorOrder) {
   return true;
 }
 
-uint8_t IRAM_ATTR ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaultColorOrder) const {
+uint8_t ColorOrderMap::getPixelColorOrder(uint16_t pix, uint8_t defaultColorOrder) const {
   // upper nibble contains W swap information
   // when ColorOrderMap's upper nibble contains value >0 then swap information is used from it, otherwise global swap is used
   for (const auto& map : _mappings) {
@@ -321,8 +321,9 @@ void BusDigital::setStatusPixel(uint32_t c) {
 }
 
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
-// TODO: this function needs some optimization, making better use of the new bus architecture
-void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
+// TODO: this function may still need some optimization, making better use of the new bus architecture
+// TODO: is there any benefit of putting this in IRAM on ESP32?  in IRAM: 34.2fps, no IRAM: 34.3fps -> no benefit. removed IRAM_ATTR for now
+void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   if (_reversed) pix = _len - pix -1;
   pix += _skip;
