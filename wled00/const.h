@@ -301,10 +301,8 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #define TYPE_RESERVED             1            //unused. Might indicate a "virtual" light
 //Digital types (data pin only) (16-39)
 #define TYPE_DIGITAL_MIN         16            // first usable digital type
-#define TYPE_WS2812_1CH          18            //white-only chips (1 channel per IC) (unused)
-#define TYPE_WS2812_1CH_X3       19            //white-only chips (3 channels per IC)
-#define TYPE_WS2812_2CH_X3       20            //CCT chips (1st IC controls WW + CW of 1st zone and CW of 2nd zone, 2nd IC controls WW of 2nd zone and WW + CW of 3rd zone)
-#define TYPE_WS2812_WWA          21            //amber + warm + cold white
+#define TYPE_WS2812_1CH_X3       19            // (migration only: old configs auto-migrate to TYPE_CUSTOM_BUS)
+#define TYPE_WS2812_WWA          21            // (migration only: old configs auto-migrate to TYPE_CUSTOM_BUS)
 #define TYPE_WS2812_RGB          22
 #define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
 #define TYPE_WS2811_400KHZ       24            //half-speed WS2812 protocol, used by very old WS2811 units
@@ -319,9 +317,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
 #define TYPE_TM1914              33            //RGB
 #define TYPE_SM16825             34            //RGB + WW + CW
 #define TYPE_TM1815              35            //RGBW (half speed TM1814)
-#define TYPE_WS281X_FAST         36            //high-speed WS281x (1MHz)
-#define TYPE_WS2811_RGB_W        37            //two WS2811 ICs per pixel: IC0=R,G,B  IC1=W,W,W
-#define TYPE_WS2811_RGB_CCT      38            //two WS2811 ICs per pixel: IC0=R,G,B  IC1=WW,CW,unused
+#define TYPE_CUSTOM_BUS          36            // fully configurable single-wire digital type (1-6 channels, custom per-channel color mapping)
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
 #define TYPE_ONOFF               40            //binary output (relays etc.; NOT PWM)

@@ -231,6 +231,24 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t start = elm["start"] | 0;
       if (length==0 || start + length > MAX_LEDS) continue; // zero length or we reached max. number of LEDs, just stop
       uint8_t ledType = elm["type"] | TYPE_WS2812_RGB;
+      // Migrate legacy types to TYPE_CUSTOM_BUS
+      CustomBusConfig migratedCustom;
+      bool isMigrated = false;
+      if (ledType == TYPE_WS2812_1CH_X3) {
+        ledType = TYPE_CUSTOM_BUS;
+        isMigrated = true;
+        migratedCustom.numChannels = 3;
+        migratedCustom.channelColors[0] = migratedCustom.channelColors[1] = migratedCustom.channelColors[2] = 4; // W,W,W
+        // timing left at struct defaults (800kHz WS2812)
+      } else if (ledType == TYPE_WS2812_WWA) {
+        ledType = TYPE_CUSTOM_BUS;
+        isMigrated = true;
+        migratedCustom.numChannels = 3;
+        migratedCustom.channelColors[0] = 0; // Unused (was amber)
+        migratedCustom.channelColors[1] = 5; // WW
+        migratedCustom.channelColors[2] = 6; // CW
+        // timing left at struct defaults (800kHz WS2812)
+      }
       bool reversed = elm["rev"];
       bool refresh = elm["ref"] | false;
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
@@ -248,6 +266,27 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       String host = elm[F("text")] | String();
       uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);
       busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host, (uint8_t)bsf);
+      // Apply custom bus config (migration or loaded from JSON)
+      BusConfig& bc_back = busConfigs.back();
+      if (bc_back.type == TYPE_CUSTOM_BUS) {
+        if (isMigrated) {
+          bc_back.custom = migratedCustom;
+        } else {
+          bc_back.custom.numChannels = elm["cch"] | 3;
+          JsonArrayConst cmap = elm["cmap"];
+          if (!cmap.isNull()) {
+            for (uint8_t ci = 0; ci < 6 && ci < cmap.size(); ci++) bc_back.custom.channelColors[ci] = (uint8_t)(int)cmap[ci];
+          }
+          bc_back.custom.invertMask   = elm["cinv"] | 0;
+          bc_back.custom.is16bit      = elm["c16"] | false;
+          bc_back.custom.invertOutput = elm["cio"] | false;
+          bc_back.custom.t0h  = elm["ct0h"] | 300;
+          bc_back.custom.t0l  = elm["ct0l"] | 900;
+          bc_back.custom.t1h  = elm["ct1h"] | 700;
+          bc_back.custom.t1l  = elm["ct1l"] | 500;
+          bc_back.custom.trst = elm["crst"]  | 300;
+        }
+      }
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -1002,6 +1041,21 @@ void serializeConfig(JsonObject root) {
     ins[F("drv")]    = bus->getDriverType();
     ins[F("text")]   = bus->getCustomText();
     ins[F("bsf")]    = bus->getBusSpeedFactor();
+    // Custom bus extra config
+    if ((bus->getType() & 0x7F) == TYPE_CUSTOM_BUS) {
+      const CustomBusConfig& cb = bus->getCustomBusConfig();
+      ins["cch"]  = cb.numChannels;
+      JsonArray cmap = ins.createNestedArray("cmap");
+      for (uint8_t i = 0; i < cb.numChannels; i++) cmap.add(cb.channelColors[i]); // emit only active channels; deserializer guards with cmap.size()
+      ins["cinv"] = cb.invertMask;
+      ins["c16"]  = cb.is16bit;
+      ins["cio"]  = cb.invertOutput;
+      ins["ct0h"] = cb.t0h;
+      ins["ct0l"] = cb.t0l;
+      ins["ct1h"] = cb.t1h;
+      ins["ct1l"] = cb.t1l;
+      ins["crst"] = cb.trst;
+    }
   }
 
   JsonArray hw_com = hw.createNestedArray(F("com"));

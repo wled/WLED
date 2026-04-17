@@ -76,62 +76,6 @@ Features:
 
 namespace WLEDpixelBus {
 
-//==============================================================================
-// LED Timing Configuration - Runtime configurable
-//==============================================================================
-
-/**
- * LED timing parameters in nanoseconds
- */
-
-
-//==============================================================================
-// Color Order Configuration
-//==============================================================================
-
-enum class ColorOrder :  uint8_t {
-  // RGB variants (3 bytes)
-  GRB = 0,
-  RGB = 1,
-  BRG = 2,
-  RBG = 3,
-  BGR = 4,
-  GBR = 5,
-  // RGBW variants (4 bytes)
-  GRBW = 10,
-  RGBW = 11,
-  BRGW = 12,
-  RBGW = 13,
-  BGRW = 14,
-  GBRW = 15,
-  WRGB = 16,
-  WGRB = 17,
-  WBRG = 18,
-  WRBG = 19,
-  WGBR = 20,
-  WBGR = 21,
-  // RGBCWCW variants (5 bytes)
-  GRBWC = 30,
-  RGBWC = 31,
-  BRGWC = 32,
-  RBGWC = 33,
-  BGRWC = 34,
-  GBRWC = 35,
-};
-
-/**
- * Get byte count per pixel for a color order
- */
-inline constexpr uint8_t getChannelCount(ColorOrder order) {
-  return (static_cast<uint8_t>(order) >= 30) ? 5 : ((static_cast<uint8_t>(order) >= 10) ? 4 : 3);
-}
-
-/**
- * Check if color order includes white channel
- */
-inline constexpr bool hasWhiteChannel(ColorOrder order) {
-  return static_cast<uint8_t>(order) >= 10;
-}
 
 //==============================================================================
 // WLED Pixel Format - uint32_t RGBW
@@ -204,20 +148,20 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 // Lower nibble = logical channel count.  Upper nibble = combination of these flags.
 static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit chip (UCS8903/8904/SM16825): wire bytes = logCh * 2
 static constexpr uint8_t NCHF_INVERT = 0x20; // one or more channels polarity-inverted (_invertMask applies)
-static constexpr uint8_t NCHF_SPEC1  = 0x40; // special layout A: 1CH_X3 (logCh=1) or WS2811_RGB_W (logCh=6)
-static constexpr uint8_t NCHF_SPEC2  = 0x80; // special layout B: WS2811_RGB_CCT (logCh=6)
+static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map (TYPE_CUSTOM_BUS): _channelMap[] drives encoding
+// 0x80 reserved
 
 /**
  * Pixel encoder: maps RGBW uint32_t to a per-LED byte stream according to color order.
  *
  * _pixelFormat packs two things:
  *   bits[3:0]  wire bytes per pixel (= logical channels for 8-bit; logical channels * 2 for 16-bit)
- *   bits[7:4]  NCHF_* flags (16BIT | INVERT | SPEC1 | SPEC2)
+ *   bits[7:4]  NCHF_* flags (16BIT | INVERT | CUSTOM)
  *
  * setPixel / getPixelColor switch on _pixelFormat directly → single branch-free dispatch.
  *   0x03/04/05          fast 8-bit RGB / RGBW / CCT paths (no inversion)
  *   3|NCHF_16BIT etc.   fast 16-bit paths (no inversion)
- *   all other values    encodeGeneric / decodeGeneric (inverted, special chips)
+ *   all other values    encodeGeneric / decodeGeneric (inverted, custom, special chips)
  *
  * getPixelBytes() returns wire bytes: logCh * 2 for 16-bit types, logCh otherwise.
  */
@@ -225,8 +169,11 @@ class ColorEncoder {
 public:
   ColorEncoder() : _pixelFormat(0x03), _invertMask(0),
                    _idxR(0), _idxG(1), _idxB(2),
-                   _idxW(3), _idxCW(4) {}
+                   _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
+  // Custom channel map constructor for TYPE_CUSTOM_BUS
+  // channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
+  ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit);
 
   // -------------------------------------------------------------------------
   // Fast encode — standard 8-bit types (no invert)
@@ -309,10 +256,12 @@ public:
   bool    is16bit()            const { return (_pixelFormat & NCHF_16BIT) != 0; } // true for UCS8903/8904/SM16825
 
 private:
-  uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (invert, 16-bit, special layout)
-  uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT set)
+  uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (invert, 16-bit, custom)
+  uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT or NCHF_CUSTOM set)
   uint8_t _idxR, _idxG, _idxB;  // wire byte index for R, G, B
   uint8_t _idxW, _idxCW;       // wire byte index for W (or WW) and CW (CCT types)
+  uint8_t _channelMap[6]; // custom channel map (TYPE_CUSTOM_BUS): _channelMap[i] = color source for wire byte i
+                          // MUST remain last — keeps _idxR/_idxG/_idxB at same offsets as before, preserving IRAM code size
 
   // Helpers
   static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {
@@ -387,6 +336,12 @@ public:
    */
   virtual void setInverted(bool /*inv*/) { }
 
+  /**
+   * Replace the color encoder (e.g. for TYPE_CUSTOM_BUS after bus creation).
+   * Must be called after construction but before begin().
+   */
+  void setEncoder(const ColorEncoder& enc) { _encoder = enc; }
+
   bool hasPrefix() const { return _prefixLen > 0; }
   uint8_t getPrefixLen() const { return _prefixLen; }
 
@@ -441,6 +396,7 @@ public:
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
   // note: using O2 optimization seems to make it slower
+  // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM
   virtual IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     uint8_t* out = _pixelData + (size_t)pos * _encoder.getPixelBytes();
@@ -462,7 +418,8 @@ public:
    * Returns RGBW32 color. WW/CW are NOT encoded separately so CCT round-trips are lossy.
    * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    */
-  virtual IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const {
+   // TODO: on ESP32, do not put this in IRAM
+  virtual uint32_t getPixelColor(uint16_t pix) const {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     const uint8_t* in = _pixelData + (size_t)pix * _encoder.getPixelBytes();
     switch (pixelFormat) {

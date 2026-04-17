@@ -417,6 +417,32 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
+      // Custom bus: send per-channel config fields
+      if ((bus->getType() & 0x7F) == TYPE_CUSTOM_BUS) {
+        const CustomBusConfig& cb = bus->getCustomBusConfig();
+        char cbch[7] = "CBch"; cbch[4] = offset+s; cbch[5] = 0; // channel count
+        char cbio[7] = "CBio"; cbio[4] = offset+s; cbio[5] = 0; // invert output
+        char cbb[6]  = "CBb";  cbb[3]  = offset+s; cbb[4]  = 0; // is16bit
+        char cbt0h[7] = "CBt0h"; cbt0h[5] = offset+s; cbt0h[6] = 0;
+        char cbt0l[7] = "CBt0l"; cbt0l[5] = offset+s; cbt0l[6] = 0;
+        char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
+        char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
+        char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
+        printSetFormValue(settingsScript, cbch, cb.numChannels);
+        printSetFormCheckbox(settingsScript, cbio, cb.invertOutput);
+        printSetFormCheckbox(settingsScript, cbb,  cb.is16bit);
+        printSetFormValue(settingsScript, cbt0h, cb.t0h);
+        printSetFormValue(settingsScript, cbt0l, cb.t0l);
+        printSetFormValue(settingsScript, cbt1h, cb.t1h);
+        printSetFormValue(settingsScript, cbt1l, cb.t1l);
+        printSetFormValue(settingsScript, cbrst,  cb.trst);
+        for (uint8_t ci = 0; ci < 6; ci++) {
+          char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0; // channel color
+          char cbi[7] = "CBi"; cbi[3] = '0'+ci; cbi[4] = offset+s; cbi[5] = 0; // invert bit
+          printSetFormValue(settingsScript, cbc, cb.channelColors[ci]);
+          printSetFormCheckbox(settingsScript, cbi, (cb.invertMask >> ci) & 1);
+        }
+      }
       sumMa += bus->getMaxCurrent();
     }
     printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);

@@ -36,27 +36,7 @@ namespace WLEDpixelBus {
 ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 {
   _invertMask = 0;
-
-  // --- Special LED types: packed _pixelFormat with NCHF_SPEC flags, fixed wire layout ---
-
-  if (ledType == TYPE_WS2812_1CH_X3) {
-    // 1 wire byte per pixel = white channel only
-    _pixelFormat = 1 | NCHF_SPEC1;  // packed: 0x41
-    _idxR = _idxG = _idxB = _idxCW = 0; _idxW = 0;
-    return;
-  }
-  if (ledType == TYPE_WS2811_RGB_W) {
-    // 6 wire bytes: R G B W W W
-    _pixelFormat = 6 | NCHF_SPEC1;  // packed: 0x46
-    _idxR=0; _idxG=1; _idxB=2; _idxW=3; _idxCW=4;
-    return;
-  }
-  if (ledType == TYPE_WS2811_RGB_CCT) {
-    // 6 wire bytes: R G B WW CW 0
-    _pixelFormat = 6 | NCHF_SPEC2;  // packed: 0x86
-    _idxR=0; _idxG=1; _idxB=2; _idxW=3; _idxCW=4;
-    return;
-  }
+  memset(_channelMap, 0, sizeof(_channelMap));
 
   // --- Standard types: fast path via _idxR/_idxG/_idxB/_idxW/_idxCW ---
 
@@ -101,23 +81,53 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
 }
 
-// TODO: generic encoder should take flags instead of hard-coding the SPEC1/2 cases that currently exist
+// Custom channel map constructor for TYPE_CUSTOM_BUS.
+// channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
+ColorEncoder::ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit)
+{
+  memcpy(_channelMap, channelMap, 6);
+  _invertMask = invertMask;
+  _idxR = _idxG = _idxB = _idxW = _idxCW = 0; // unused in custom path
+  uint8_t flags = NCHF_CUSTOM;
+  if (is16bit) {
+    flags |= NCHF_16BIT;
+    numChannels *= 2; // 2 wire bytes per logical channel in 16-bit mode
+  }
+  if (invertMask) flags |= NCHF_INVERT; // set invert flag so encodeGeneric is always called for custom
+  _pixelFormat = numChannels | flags;
+}
 
-// Generic encoder for non-fast-path cases: NCHF_INVERT, NCHF_SPEC1, NCHF_SPEC2,
+// Generic encoder for non-fast-path cases: NCHF_INVERT, NCHF_CUSTOM,
 // and any 16-bit + invert combination.
 void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, uint8_t bri) const {
   const uint8_t flags = _pixelFormat & 0xF0;
   const uint8_t logCh = _pixelFormat & 0x0F;
 
-  if (flags & NCHF_SPEC1) {
-    if (logCh == 1) { out[0] = getW(c); }                         // TYPE_WS2812_1CH_X3
-    else { out[0]=getR(c); out[1]=getG(c); out[2]=getB(c);        // TYPE_WS2811_RGB_W
-           out[3]=out[4]=out[5]=getW(c); }
-    return;
-  }
-  if (flags & NCHF_SPEC2) {                                       // TYPE_WS2811_RGB_CCT
-    out[0]=getR(c); out[1]=getG(c); out[2]=getB(c);
-    out[3]=cct.ww;  out[4]=cct.cw;  out[5]=0;
+  if (flags & NCHF_CUSTOM) {
+    // Custom channel map: each wire byte is assigned a color source from _channelMap
+    // logCh is wire bytes (numChannels * 2 for 16-bit, numChannels otherwise)
+    const bool b16 = (flags & NCHF_16BIT) != 0;
+    const uint8_t numLogi = b16 ? logCh / 2 : logCh;
+    for (uint8_t i = 0; i < numLogi; i++) {
+      uint8_t val;
+      switch (_channelMap[i]) {
+        case 1: val = getR(c); break;
+        case 2: val = getG(c); break;
+        case 3: val = getB(c); break;
+        case 4: val = getW(c); break;
+        case 5: val = cct.ww;  break;
+        case 6: val = cct.cw;  break;
+        default: val = 0;      break; // Unused
+      }
+      if (_invertMask & (1u << i)) val ^= 0xFF;
+      if (b16) {
+        const uint16_t v16 = (uint16_t)val * bri;
+        out[i*2]   = v16 >> 8;
+        out[i*2+1] = v16 & 0xFF;
+      } else {
+        out[i] = val;
+      }
+    }
     return;
   }
 
@@ -146,12 +156,23 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
   const uint8_t flags = _pixelFormat & 0xF0;
   const uint8_t logCh = _pixelFormat & 0x0F;
 
-  if (flags & NCHF_SPEC1) {
-    if (logCh == 1) return makeColor(0, 0, 0, in[0]);                // 1CH_X3
-    return makeColor(in[0], in[1], in[2], in[3]);                    // RGB_W
-  }
-  if (flags & NCHF_SPEC2) {
-    return makeColor(in[0], in[1], in[2], in[3]);                    // RGB_CCT: WW→W, CW dropped
+  if (flags & NCHF_CUSTOM) {
+    // Custom channel map decode: reconstruct RGBW from wire bytes
+    const bool b16 = (flags & NCHF_16BIT) != 0;
+    const uint8_t numLogi = b16 ? logCh / 2 : logCh;
+    uint8_t r = 0, g = 0, b_ = 0, w = 0;
+    for (uint8_t i = 0; i < numLogi; i++) {
+      uint8_t val = b16 ? in[i*2] : in[i]; // take high byte for 16-bit
+      if (_invertMask & (1u << i)) val ^= 0xFF;
+      switch (_channelMap[i]) {
+        case 1: r  = val; break;
+        case 2: g  = val; break;
+        case 3: b_ = val; break;
+        case 4: case 5: case 6: // W, WW, CW → map to W (lossy)
+          if (val > w) w = val; break;
+      }
+    }
+    return makeColor(r, g, b_, w);
   }
 
   // NCHF_INVERT, optionally combined with NCHF_16BIT

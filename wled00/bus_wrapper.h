@@ -52,6 +52,7 @@ static const PROGMEM WLEDpixelBus::LedTiming s_ledTimings[] = {
 /*10 SM16825*/ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
 /*11 SPI    */ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803
 /*12 WS2801 */ { 500,  500,  500,  500, 1000 },  // WS2801
+// TYPE_CUSTOM_BUS timing is passed directly as a LedTiming struct; no fixed entries here.
 };
 
 // Maps WLED TYPE_ to an index into s_ledTimings.
@@ -60,12 +61,8 @@ static const PROGMEM WLEDpixelBus::LedTiming s_ledTimings[] = {
 // channels/is16bit are derived via Bus::getNumberOfChannels() / Bus::is16bit() at call site.
 static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
-    case TYPE_WS2812_1CH_X3:
-    case TYPE_WS2812_2CH_X3:
     case TYPE_WS2812_RGB:
-    case TYPE_WS2812_WWA:    return  0;
-    case TYPE_WS2811_RGB_W:
-    case TYPE_WS2811_RGB_CCT: return 0; // WS2812 timing (2×WS2811 per pixel)
+    case TYPE_WS2812_WWA:    return  0; // migration: WWA kept for timing selection only
     case TYPE_WS2811_400KHZ: return  1;
     case TYPE_TM1829:        return  2;
     case TYPE_UCS8903:
@@ -83,6 +80,7 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_P9813:
     case TYPE_LPD6803:       return 11; // TODO: SPI types need testing
     case TYPE_WS2801:        return 12;
+    // TYPE_CUSTOM_BUS (36) timing is provided directly as a LedTiming* to create().
     default:                 return  0; // WS2812 fallback
   }
 }
@@ -172,7 +170,7 @@ class PixelBusAllocator {
     return true;
   }
 
-static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100) {
+static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100, uint8_t customNumChannels = 0, const WLEDpixelBus::LedTiming* customTiming = nullptr) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
@@ -183,13 +181,13 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
 
     // getProtocol() reads from a PROGMEM table (flash on ESP8266, .rodata on ESP32).
     // The timing is a one-time read at bus creation; scale to a local if needed.
-    WLEDpixelBus::LedTiming timing = getProtocol(busType);
+    WLEDpixelBus::LedTiming timing = customTiming ? *customTiming : getProtocol(busType);
     if (busSpeedFactor != 100) {
       float factor = (float)busSpeedFactor / 100.0f;
       timing = WLEDpixelBus::scaleTiming(timing, factor);
     }
 
-    const uint8_t numChannels = (uint8_t)Bus::getNumberOfChannels(busType);
+    const uint8_t numChannels = customNumChannels ? customNumChannels : (uint8_t)Bus::getNumberOfChannels(busType);
 
     if (Bus::is2Pin(busType)) {
       bool isHSPI = false;

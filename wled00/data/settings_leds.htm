@@ -353,10 +353,20 @@
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";       // hide color order for PWM
-				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
+				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || t==36) ? "none":"inline";       // hide color order for PWM / custom bus
+				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && t!=36) ? "inline":"none";   // show swap channels dropdown (not for custom bus)
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
+				// show/hide custom bus panel and update visible channel rows
+				const isCustBus = (t === 36);
+				gId("custbus"+n).style.display = isCustBus ? "inline":"none";
+				if (isCustBus) {
+					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
+					for (let ci=0; ci<6; ci++) {
+						let row = gId("CBrow"+n+"_"+ci);
+						if (row) row.style.display = (ci < nch) ? "" : "none";
+					}
+				}
 				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
 				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
@@ -487,7 +497,7 @@
 					}
 					// Show bus speed selector when advanced settings enabled
 					if (bsfsel) {
-						if (d.Sf.AS.checked) bsfsel.style.display = "inline";
+						if (d.Sf.AS.checked) bsfsel.style.display = "block";
 					}
 				}
 			});
@@ -623,6 +633,33 @@ LED Timing: <select name="SF${s}">
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
 <div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select>&nbsp;</div>
+<div id="custbus${s}" style="display:none">
+<br>Custom Bus: channels: <select name="CBch${s}" onchange="UI()">
+<option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+</select>
+<br>16-bit: <input type="checkbox" name="CBb${s}" onchange="UI()">
+<br>Invert Out: <input type="checkbox" name="CBio${s}">
+<br>Timing (ns/µs):
+<table style="font-size:0.85em;margin:0 auto">
+<tr><th>T0H</th><th>T0L</th><th>T1H</th><th>T1L</th><th>Reset(µs)</th></tr>
+<tr>
+<td><input type="number" name="CBt0h${s}" min="50" max="9999" value="300" style="width:4.5em"></td>
+<td><input type="number" name="CBt0l${s}" min="50" max="9999" value="900" style="width:4.5em"></td>
+<td><input type="number" name="CBt1h${s}" min="50" max="9999" value="700" style="width:4.5em"></td>
+<td><input type="number" name="CBt1l${s}" min="50" max="9999" value="500" style="width:4.5em"></td>
+<td><input type="number" name="CBrst${s}" min="1"  max="9999" value="300" style="width:4.5em"></td>
+</tr>
+</table>
+<table style="font-size:0.85em;margin:0 auto">
+<tr><th></th><th>Color</th><th>Invert</th></tr>
+<tr id="CBrow${s}_0"><td>Ch1</td><td><select name="CBc0${s}"><option value="0">Unused</option><option value="1">R</option><option value="2" selected>G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi0${s}"></td></tr>
+<tr id="CBrow${s}_1"><td>Ch2</td><td><select name="CBc1${s}"><option value="0">Unused</option><option value="1" selected>R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi1${s}"></td></tr>
+<tr id="CBrow${s}_2"><td>Ch3</td><td><select name="CBc2${s}"><option value="0">Unused</option><option value="1">R</option><option value="2">G</option><option value="3" selected>B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi2${s}"></td></tr>
+<tr id="CBrow${s}_3" style="display:none"><td>Ch4</td><td><select name="CBc3${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi3${s}"></td></tr>
+<tr id="CBrow${s}_4" style="display:none"><td>Ch5</td><td><select name="CBc4${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi4${s}"></td></tr>
+<tr id="CBrow${s}_5" style="display:none"><td>Ch6</td><td><select name="CBc5${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi5${s}"></td></tr>
+</table>
+</div>
 </div>`;
 				f.insertAdjacentHTML("beforeend", cn);
 				// fill led types (credit @netmindz)

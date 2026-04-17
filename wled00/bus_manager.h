@@ -99,6 +99,23 @@ typedef struct {
   const char *name;
 } LEDType;
 
+// Configuration for TYPE_CUSTOM_BUS: per-channel color source mapping and timing.
+// Must be defined before Bus so BusDigital and BusPlaceholder can use it as a member field.
+struct CustomBusConfig {
+  // channelColors[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW  (7 reserved for amber)
+  uint8_t  numChannels  = 3;
+  uint8_t  channelColors[6] = {2, 1, 3, 0, 0, 0}; // default GRB (matches UI default)
+  uint8_t  invertMask   = 0;     // bitmask: bit i = invert channel i output level
+  bool     is16bit      = false; // true = 2 wire bytes per channel (like SM16825)
+  bool     invertOutput = false; // invert the hardware output signal polarity
+  // Per-instance signal timing. Defaults match WS2812 800kHz with a 300µs reset.
+  uint16_t t0h = 300;  // '0' bit high time, ns
+  uint16_t t0l = 900;  // '0' bit low  time, ns
+  uint16_t t1h = 700;  // '1' bit high time, ns
+  uint16_t t1l = 500;  // '1' bit low  time, ns
+  uint16_t trst = 300; // reset/latch time, µs
+};
+
 
 //parent class of BusDigital, BusPwm, and BusNetwork
 class Bus {
@@ -156,32 +173,32 @@ class Bus {
     inline  uint8_t  getAutoWhiteMode() const                   { return _autoWhiteMode; }
     inline  size_t   getNumberOfChannels() const                { return hasWhite() + 3*hasRGB() + hasCCT(); }
     inline  uint16_t getStart() const                           { return _start; }
-    inline  uint8_t  getType() const                            { return _type; }
+    inline  uint8_t  getType() const                            { return _type; } // 7-bit bus index, highest bit is "off refresh"
     inline  bool     isOk() const                               { return _valid; }
     inline  bool     isReversed() const                         { return _reversed; }
     inline  bool     isOffRefreshRequired() const               { return _needsRefresh; }
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
     inline  uint8_t  getBusSpeedFactor() const                  { return _busSpeedFactor; }
+    virtual const CustomBusConfig& getCustomBusConfig() const;  // valid when getType() == TYPE_CUSTOM_BUS; returns a static default otherwise
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
     static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
-    static constexpr size_t   getNumberOfChannels(uint8_t type) { return (type == TYPE_WS2811_RGB_W || type == TYPE_WS2811_RGB_CCT) ? 6 : (hasWhite(type) + 3*hasRGB(type) + hasCCT(type)); }
+    static constexpr size_t   getNumberOfChannels(uint8_t type) { return (hasWhite(type) + 3*hasRGB(type) + hasCCT(type)); }
     static constexpr bool hasRGB(uint8_t type) {
-      return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
+      return !((type >= TYPE_WS2812_1CH_X3 && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
     }
     static constexpr bool hasWhite(uint8_t type) {
-      return  (type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) ||
+      return  (type >= TYPE_WS2812_1CH_X3 && type <= TYPE_WS2812_WWA) ||
               type == TYPE_SK6812_RGBW || type == TYPE_TM1814 || type == TYPE_TM1815 || type == TYPE_UCS8904 ||
               type == TYPE_FW1906 || type == TYPE_WS2805 || type == TYPE_SM16825 ||        // digital types with white channel
-              type == TYPE_WS2811_RGB_W || type == TYPE_WS2811_RGB_CCT ||                  // 6-channel types
               (type > TYPE_ONOFF && type <= TYPE_ANALOG_5CH && type != TYPE_ANALOG_3CH) || // analog types with white channel
               type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
     }
     static constexpr bool hasCCT(uint8_t type) {
-      return  type == TYPE_WS2812_2CH_X3 || type == TYPE_WS2812_WWA ||
+      return  type == TYPE_WS2812_WWA ||
               type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_5CH ||
               type == TYPE_FW1906        || type == TYPE_WS2805     ||
-              type == TYPE_SM16825       || type == TYPE_WS2811_RGB_CCT;
+              type == TYPE_SM16825;
     }
     static constexpr bool  isTypeValid(uint8_t type)  { return (type > 15 && type < 128); }
     static constexpr bool  isDigital(uint8_t type)    { return (type >= TYPE_DIGITAL_MIN && type <= TYPE_DIGITAL_MAX) || is2Pin(type); }
@@ -270,6 +287,7 @@ class BusDigital : public Bus {
     bool isI2S(); // true if this bus uses I2S driver
     void begin() override;
     void cleanup();
+    const CustomBusConfig& getCustomBusConfig() const override { return _customConfig; } // valid only when getType() == TYPE_CUSTOM_BUS
 
     static std::vector<LEDType> getLEDTypes();
 
@@ -284,6 +302,7 @@ class BusDigital : public Bus {
     uint16_t _milliAmpsLimit;
     uint32_t _colorSum = 0;           // sum of brightness-scaled channel bytes; updated in setPixelColor() when ABL active
     WLEDpixelBus::PixelBus* _busPtr = nullptr;
+    CustomBusConfig _customConfig;    // stored copy, valid when _type == TYPE_CUSTOM_BUS
 
     static uint16_t _milliAmpsTotal; // is overwitten/recalculated on each show()
 
@@ -401,6 +420,7 @@ class BusPlaceholder : public Bus {
     uint8_t  getDriverType() const override  { return _driverType; }
     const String getCustomText() const override { return _text; }
     bool     isPlaceholder() const override  { return true; }
+    const CustomBusConfig& getCustomBusConfig() const override { return _customConfig; }
 
     size_t   getBusSize() const override   { return sizeof(BusPlaceholder); }
 
@@ -413,6 +433,7 @@ class BusPlaceholder : public Bus {
     uint8_t _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
     String _text;
+    CustomBusConfig _customConfig; // valid when type == TYPE_CUSTOM_BUS
 };
 
 #ifdef WLED_ENABLE_HUB75MATRIX
@@ -467,6 +488,7 @@ struct BusConfig {
   uint8_t driverType; // 0=RMT (default), 1=I2S
   String text;
   uint8_t busSpeedFactor; // percent (100 = default)
+  CustomBusConfig custom; // used only when type == TYPE_CUSTOM_BUS
 
   BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "", uint8_t bsf = 100)
   : count(std::max(len,(uint16_t)1))

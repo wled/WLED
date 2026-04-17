@@ -125,6 +125,12 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
   return c;
 }
 
+// Default implementation for Bus::getCustomBusConfig() — returns a static default.
+// BusDigital and BusPlaceholder override this when type == TYPE_CUSTOM_BUS.
+const CustomBusConfig& Bus::getCustomBusConfig() const {
+  static const CustomBusConfig _defaultCustom;
+  return _defaultCustom;
+}
 
 BusDigital::BusDigital(const BusConfig &bc)
 : Bus(bc.type, bc.start, bc.autoWhite, bc.count, bc.reversed, (bc.refreshReq || bc.type == TYPE_TM1814 || bc.type == TYPE_TM1815))
@@ -157,8 +163,33 @@ BusDigital::BusDigital(const BusConfig &bc)
   _hasCCT = hasCCT(bc.type);
   uint16_t lenToCreate = bc.count;
 
-  // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
-  _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor);
+  // For TYPE_CUSTOM_BUS: store custom config, use per-instance numChannels and timing
+  if (bc.type == TYPE_CUSTOM_BUS) {
+    _customConfig = bc.custom;
+    const uint8_t nch = bc.custom.is16bit ? bc.custom.numChannels * 2 : bc.custom.numChannels;
+    const WLEDpixelBus::LedTiming customTiming(bc.custom.t0h, bc.custom.t0l, bc.custom.t1h, bc.custom.t1l, bc.custom.trst);
+    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, nch, &customTiming);
+    if (_busPtr) {
+      _busPtr->setEncoder(WLEDpixelBus::ColorEncoder(bc.custom.channelColors, bc.custom.numChannels, bc.custom.invertMask, bc.custom.is16bit));
+      if (bc.custom.invertOutput) _busPtr->setInverted(true);
+    }
+    // Derive instance capabilities from actual channel map
+    _hasRgb = false; _hasWhite = false; _hasCCT = false;
+    bool hasWW = false, hasCW = false;
+    for (uint8_t i = 0; i < bc.custom.numChannels; i++) {
+      switch (bc.custom.channelColors[i]) {
+        case 1: case 2: case 3: _hasRgb = true; break;
+        case 4: _hasWhite = true; break;
+        case 5: hasWW = true; break;
+        case 6: hasCW = true; break;
+      }
+    }
+    if (hasWW || hasCW) _hasWhite = true;
+    if (hasWW && hasCW) _hasCCT = true;
+  } else {
+    // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
+    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor);
+  }
   _valid = (_busPtr != nullptr) && bc.count > 0;
 
   // fix for wled#4759
@@ -311,7 +342,6 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     if (hasCCT()) {
       wwcw  = ((uint16_t)(cctCW + 1) * bri) & 0xFF00; // scale CW, store in high byte
       wwcw |= ((uint16_t)(cctWW + 1) * bri) >> 8;     // scale WW, store in low byte
-      if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww, cw, 0, w
     }
     if (BusManager::_useABL) {
       // Accumulate brightness-scaled channel values for current estimation.
@@ -336,10 +366,6 @@ uint32_t IRAM_ATTR BusDigital::getPixelColor(unsigned pix) const {
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder); // TODO: do we need the color order? where is getpixelcolor used?
   uint32_t rawC = _busPtr->getPixelColor(pix);
   uint32_t c = restoreColorLossy(rawC, _totalBusBri);
-  if (_type == TYPE_WS2812_WWA) {
-    uint8_t w = R(c) | G(c);
-    c = RGBW32(w, w, 0, w);
-  }
   return c;
 }
 
@@ -363,7 +389,6 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
     {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
-    {TYPE_WS281X_FAST,   "D",  PSTR("WS281x Fast")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
     {TYPE_TM1814,        "D",  PSTR("TM1814")},
     {TYPE_TM1815,        "D",  PSTR("TM1815")},
@@ -376,11 +401,7 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
     {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCW")},
     {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCW")},
-    {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
-    //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
-    {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
-    {TYPE_WS2811_RGB_W,  "D",  PSTR("WS2811 RGB+W (2-IC)")},
-    {TYPE_WS2811_RGB_CCT,"D",  PSTR("WS2811 RGB+CCT (2-IC)")},
+    {TYPE_CUSTOM_BUS,    "D",  PSTR("Custom Digital")}, // fully configurable channel map
     {TYPE_WS2801,        "2P", PSTR("WS2801")},
     {TYPE_APA102,        "2P", PSTR("APA102")},
     {TYPE_LPD8806,       "2P", PSTR("LPD8806")},
@@ -1172,6 +1193,7 @@ BusPlaceholder::BusPlaceholder(const BusConfig &bc)
 , _text(bc.text)
 {
   _busSpeedFactor = bc.busSpeedFactor; // preserve so config is restored faithfully on reboot
+  if (bc.type == TYPE_CUSTOM_BUS) _customConfig = bc.custom;
   memcpy(_pins, bc.pins, sizeof(_pins));
   PinOwner pinOwner = PinOwner::None;
   if (Bus::isDigital(bc.type) && bc.type != TYPE_ONOFF) pinOwner = PinOwner::BusDigital;

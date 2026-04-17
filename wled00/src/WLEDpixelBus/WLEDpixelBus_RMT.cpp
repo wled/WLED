@@ -291,8 +291,7 @@ bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
 
 bool RmtBus::canShow() const {
   if (!_initialized) return true;
-  // Use rmt_wait_tx_done with 0 timeout to check if TX is done (matching NeoPixelBus)
-  if (_usingRmtHi) return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0));
+  if (_usingRmtHi) return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0)); // 0 timout means "poll and return immediately"
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 

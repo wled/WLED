@@ -268,6 +268,33 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       uint8_t bsf = request->hasArg(sf) ? (uint8_t)request->arg(sf).toInt() : 100;
       busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text, (uint8_t)bsf);
+      // For TYPE_CUSTOM_BUS: parse per-channel custom config from the submitted form
+      if ((type & 0x7F) == TYPE_CUSTOM_BUS) { // type still has bit 7 set here (off-refresh flag); strip before comparing
+        BusConfig& bc_back = busConfigs.back();
+        char cbch[7]  = "CBch";  cbch[4]  = offset+s; cbch[5]  = 0;
+        char cbio[7]  = "CBio";  cbio[4]  = offset+s; cbio[5]  = 0;
+        char cbb[6]   = "CBb";   cbb[3]   = offset+s; cbb[4]   = 0;
+        char cbt0h[7] = "CBt0h"; cbt0h[5] = offset+s; cbt0h[6] = 0;
+        char cbt0l[7] = "CBt0l"; cbt0l[5] = offset+s; cbt0l[6] = 0;
+        char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
+        char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
+        char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
+        bc_back.custom.numChannels  = (uint8_t)constrain(request->arg(cbch).toInt(), 1, 6);
+        bc_back.custom.invertOutput = request->hasArg(cbio);
+        bc_back.custom.is16bit      = request->hasArg(cbb);
+        bc_back.custom.t0h  = (uint16_t)constrain(request->arg(cbt0h).toInt(), 50, 9999);
+        bc_back.custom.t0l  = (uint16_t)constrain(request->arg(cbt0l).toInt(), 50, 9999);
+        bc_back.custom.t1h  = (uint16_t)constrain(request->arg(cbt1h).toInt(), 50, 9999);
+        bc_back.custom.t1l  = (uint16_t)constrain(request->arg(cbt1l).toInt(), 50, 9999);
+        bc_back.custom.trst = (uint16_t)constrain(request->arg(cbrst).toInt(),  1, 9999);
+        bc_back.custom.invertMask   = 0;
+        for (uint8_t ci = 0; ci < 6; ci++) {
+          char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0;
+          char cbi[7] = "CBi"; cbi[3] = '0'+ci; cbi[4] = offset+s; cbi[5] = 0;
+          bc_back.custom.channelColors[ci] = (uint8_t)constrain(request->arg(cbc).toInt(), 0, 6);
+          if (request->hasArg(cbi)) bc_back.custom.invertMask |= (1u << ci);
+        }
+      }
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
