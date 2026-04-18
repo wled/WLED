@@ -450,7 +450,10 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
   WLED_GLOBAL DMXOutput dmx;
-  WLED_GLOBAL int dmxOutputPin _INIT(-1);                         // DMX output pin (use -1 for disabled)
+  #ifndef DMX_TXPIN_DEFAULT
+    #define DMX_TXPIN_DEFAULT -1
+  #endif
+  WLED_GLOBAL int dmxOutputPin _INIT(DMX_TXPIN_DEFAULT);            // DMX output pin (use -1 for disabled)
   WLED_GLOBAL uint16_t e131ProxyUniverse _INIT(0);                  // output this E1.31 (sACN) / ArtNet universe via MAX485 (0 = disabled)
   // dmx CONFIG
   WLED_GLOBAL byte DMXChannels _INIT(7);        // number of channels per fixture
