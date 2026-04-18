@@ -94,7 +94,7 @@ h3 {
 	background: #555;
 }
 .cm button.danger {
-	color: #f44;
+	color: #b21;
 }
 
 /* Editor styles */
@@ -332,29 +332,24 @@ button, .btn {
 			<input type="text" id="txt" placeholder="Enter text" maxlength="64"  style="margin-left:15px;flex:1;min-width:300px;">
 			<button class="btn" id="aTxt">✓</button>
 		</div>
+		<small style="display:block;text-align:center;">Preview - actual display may differ</small>
+		<canvas id="tpv" width="100" height="50" style="background:#000;display:block;margin:10px auto;border-radius:8px;width:300px;height:150px;"></canvas>
 
 		<h3>Settings</h3>
 		<div class="cs">
-			<div class="fr">
-				Speed	<input type="range" id="sx" min="0" max="255">
-			</div>
-			<div class="fr">
-				Y Offset	<input type="range" id="ix" min="0" max="255">
-			</div>
-			<div class="fr">
-				Trail	<input type="range" id="c1" min="0" max="255">
-			</div>
-			<div class="fr">
-				Font Size	<input type="range" id="c2" min="0" max="255">
-			</div>
-			<div class="fr">
-				Rotate <input type="range" id="c3" min="0" max="31">
-			</div>
+				<div class="fr">Speed <input type="range" id="sx" min="0" max="255"></div>
+				<div class="fr">Y Offset <input type="range" id="ix" min="0" max="255"></div>
+				<div class="fr">Trail <input type="range" id="c1" min="0" max="255" value="0"></div>
+				<div class="fr">Font <input type="range" id="c2" min="3" max="255" step="63"></div>
+				<div class="fr">Rotate <input type="range" id="c3" min="3" max="31" step="7"></div>
 		</div>
 
 		<div class="col" style="display:flex;gap:20px;justify-content:center;">
 			<label style="display:flex;align-items:center;gap:5px">
 				<input type="checkbox" id="o1"> Gradient
+			</label>
+			<label style="display:flex;align-items:center;gap:5px">
+				<input type="checkbox" id="o2"> Custom Font
 			</label>
 			<label style="display:flex;align-items:center;gap:5px">
 				<input type="checkbox" id="o3"> Reverse
@@ -381,11 +376,16 @@ button, .btn {
 				<div><a href="#" class="tk" data-t="#DAY">#DAY</a> - Weekday (Mon)</div>
 				<div><a href="#" class="tk" data-t="#DDDD">#DDDD</a> - Weekday (Monday)</div>
 			</div>
-			<div style="margin:10px;padding-top:10px;border-top:1px solid #444">
+			<div style="margin:10px;">
 				<strong>Tips:</strong></small><br>
 				• Mix text and tokens: "It's #HHMM O'Clock" or "#HH:#MM:#SS"<br>
 				• Add '0' suffix for leading zeros: #TIME0, #HH0, etc.
 			</div>
+			<hr>
+			<h3>Custom Fonts</h3>
+			<small>FX uses first 5 fonts only</small><br>
+			<div id="fList" style="display:flex; flex-wrap:wrap; gap:8px; padding:10px; justify-content:center;"></div>
+			<button class="btn sml" id="dcf" style="margin:5px auto; display:block; font-size:11px;">Download Classic WLED Fonts</button>
 		</div>
 	</div>
 	<div id="ti1D" style="display:none;">Not available in 1D</div>
@@ -421,6 +421,7 @@ let pan=false,psX=0,psY=0,poX=0,poY=0;
 let iL=[]; // image list
 let gF=null,gI=null,aT=null;
 let fL; // file list
+const classics=['console_font_4x6.wbf','console_font_5x12.wbf','console_font_5x8.wbf','console_font_6x8.wbf','console_font_7x9.wbf']; // classic WLED fonts list
 let pT = []; // local tools list from JSON
 let wv = [0, 0]; // wled version [major, minor], updated in fsMem(), used to check tool compatibility
 const remoteURL = 'https://dedehai.github.io/pftools.json'; // Change to your actual repo
@@ -446,9 +447,9 @@ async function init() {
 	rv = cE('canvas');
 	rvc = rv.getContext('2d',{willReadFrequently:true});
 	rv.width = cv.width; rv.height = cv.height;
+	await flU(); // update file list
 	tabSw(localStorage.tab||'img'); // switch to last open tab or image tab by default
 	await segLoad(); // load available segments
-	await flU(); // update file list
 	await fsMem(); // update & show file system memory info, also updates wled version (wv)
 	await loadTools(); // load additional tools list from pftools.json
 }
@@ -491,6 +492,7 @@ function segLoad(){
 		}
 		if(v1) s1.value=v1; if(v2) s2.value=v2;
 		s2.onchange(); // trigger on load to toggle show/hide of text tool
+		txtSegLoad();  // load settings for currently selected segment
 		const o=s1.options[s1.selectedIndex];
 		if(o){ getId('w').value=o.dataset.w||16; getId('h').value=o.dataset.h||16; }
 	}).catch(console.error);
@@ -517,6 +519,7 @@ getId('segT').onchange = () => {
 	const is2D = (getId('segT').selectedOptions[0].dataset.h || 1) > 1;
 	getId('ti').style.display = is2D ? 'block' : 'none';
 	getId('ti1D').style.display = is2D ? 'none' : 'block';
+	txtSegLoad(); // update controls to match selected segment
 };
 
 /* image list */
@@ -545,7 +548,7 @@ async function imgLoad(){
 	}catch(e){console.error(e);}
 }
 
-/* load images into grid TODO: when switching tabs, it can throw 503 and have unloaded images, tried to fix it but all my attempts failed*/
+/* load images into grid */
 async function imgLoad2(imgs){
 	const grid=getId('gr');
 	for(const f of imgs){
@@ -1192,7 +1195,7 @@ async function imgPlay(url,name){
 			on:true,
 			seg: cur!==null && cur!==tgt
 				? [{id:cur,fx:0,n:""},{id:tgt,fx:53,frz:false,sx:128,n:name}]
-				: {id:tgt,fx:53,frz:false,sx:128,n:name}
+				: {id:tgt,fx:53,frz:false,sx:128,ix:0,n:name}
 		};
 		const r=await fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)});
 		const out=await r.json();
@@ -1260,7 +1263,7 @@ function tabSw(tab) {
 		getId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
-	({txt:txtSegLoad,img:imgLoad}[tab]||(()=>{}))(); // functions to execute on tab switch (currently none for oth)
+	({txt:()=>{txtSegLoad(); scanFonts();}, img:imgLoad}[tab]||(()=>{}))(); // on tab switch, load images and available fonts
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
@@ -1287,12 +1290,13 @@ async function txtSegLoad(){
 		const r=await fetch(getURL('/json/state')),j=await r.json();
 		if(j.seg&&j.seg[id]){
 			const s=j.seg[id];
+			if(s.fx!==txtFX) return; // only update when this segment uses scrolling text effect
 			getId('txt').value=s.n||'';
 			getId('sx').value=s.sx||128;
 			getId('ix').value=s.ix||128;
 			getId('c1').value=s.c1||0;
-			getId('c2').value=s.c2||0;
-			getId('c3').value=s.c3||0;
+			getId('c2').value=s.c2||128;
+			getId('c3').value=s.c3||16;
 			getId('o1').checked=!(!s.o1);
 			getId('o3').checked=!(!s.o3);
 		}
@@ -1300,12 +1304,12 @@ async function txtSegLoad(){
 }
 
 /* auto apply on change */
-['sx','ix','c1','c2','c3','o1','o3'].forEach(id=>{ getId(id).onchange=txtUp; });
+['sx','ix','c1','c2','c3','o1','o2','o3'].forEach(id=>{ getId(id).onchange=txtUp; });
 
 /* send text settings */
 function txtUp(){
 	const id=+getId('segT').value,txt=getId('txt').value.trim().slice(0,64);
-	const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o3:getId('o3').checked}};
+	const j={on:true,seg:{id,fx:122,n:txt,sx:+getId('sx').value,ix:+getId('ix').value,c1:+getId('c1').value,c2:+getId('c2').value,c3:+getId('c3').value,o1:getId('o1').checked,o2:getId('o2').checked,o3:getId('o3').checked}};
 	fetch(getURL('/json/state'),{method:'POST',body:JSON.stringify(j)})
 		.then(r => { if(r.ok) segLoad(); })
 		.catch(console.error);
@@ -1324,6 +1328,85 @@ getId('aTxt').onclick=async()=>{
 	}catch(e){ msg(`Error: ${e.message}`,'err'); }
 	finally{ ovHide(); }
 };
+
+// load available fonts (files ending with .wbf) and display in list
+function scanFonts(){
+    const wbf=(fL||[]).filter(f=>f.name.endsWith('.wbf'));
+    getId('fList').innerHTML=wbf.map(f=>
+        `<span>${f.name} <b onclick="delFont('${f.name}')" style="cursor:pointer;color:#8cf;padding:0 3px">✖</b></span>`
+    ).join('')||'<span style="color:#888">None</span>';
+		getId('dcf').style.display=classics.every(fn=>wbf.some(f=>f.name===fn))?'none':'block'; // hide "Download classic fonts" button if all are present
+}
+
+// delete font file
+async function delFont(name){
+    if(!confirm(`Delete ${name}?`))return;
+    const r=await fetch(getURL(`/edit?func=delete&path=/${name}`));
+    r.ok?msg('Deleted'):msg('Delete failed','err');
+    await flU(); scanFonts();
+}
+
+// download classic WLED fonts from github and upload to FS
+getId('dcf').onclick=async()=>{
+    if(!confirm('Download classic WLED fonts?'))return;
+    ovShow(); let ok=0,fail=0;
+    for(const fn of classics){
+        try{
+            const r=await fetch(`https://dedehai.github.io/wbfFonts/${fn}`);
+            if(!r.ok){fail++;continue;}
+            const fd=new FormData();
+            fd.append('data',await r.blob(),fn);
+            (await fetch(getURL('/upload'),{method:'POST',body:fd})).ok?ok++:fail++;
+        }catch(e){msg(`Failed ${fn}: ${e.message}`,'err');}
+    }
+    ovHide(); msg('Fonts installed');
+    await flU(); scanFonts();
+};
+
+/* preview canvas - actual display may differ */
+const tpv = getId('tpv'), tpx = tpv.getContext('2d');
+function draw() {
+	// fade out to simulate "trail"
+	let tr = 1 - (getId('c1').value / 280); // c1 controls trail length
+	//tpx.fillStyle = `rgba(0,0,0,${tr.toFixed(2)})`;
+	tpx.fillStyle = `rgba(0,0,0,${tr})`;
+	tpx.fillRect(0,0,100,50);
+
+	let txt = getId('txt').value || 'WLED'; // note: decoding tokens is not implemented as it just takes a lot of code for little benefit
+	let sx = getId('sx').value;
+	let ix = getId('ix').value, c2 = getId('c2').value, c3 = getId('c3').value;
+
+	let fzs = [8, 12, 14, 20, 28][Math.floor(c2/52)] || 8; // Font sizes 1-5
+	let rot = -(Math.round((c3)/7.5)-2) * Math.PI/2; // -2 to 2 maps to 180 to -180
+	let t = (Date.now() * (0.02 + (sx / 255) * 0.1)) % (100 + txt.length * fzs);
+	let x = getId('o3').checked ? (t - (txt.length * fzs)) : 100 - t;
+	let y = 25 + (ix - 128) / 5;
+
+	// draw char-by-char just like the FX
+	tpx.fillStyle = "#fff";
+	tpx.font = fzs + "px monospace";
+	tpx.textAlign = "center";
+	tpx.textBaseline = "middle";
+
+	for(let i=0; i<txt.length; i++) {
+			let charX = x + (i * fzs); // simple letter spacing
+			if(charX < -20 || charX > 120) continue;
+			tpx.save();
+			tpx.translate(charX, y);
+			tpx.rotate(rot);
+			tpx.fillStyle = "#fff";
+			if (getId('o1').checked) { // gradient color
+					let g = tpx.createLinearGradient(0, -fzs/2, 0, fzs/2);
+					g.addColorStop(0, "#f5f"); g.addColorStop(1, "#8cf");
+					tpx.fillStyle = g;
+			}
+			tpx.fillText(txt[i], 0, 0);
+			tpx.restore();
+	}
+	requestAnimationFrame(draw);
+}
+draw();
+
 </script>
 </body>
 </html>

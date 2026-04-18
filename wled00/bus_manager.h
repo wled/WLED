@@ -6,7 +6,7 @@
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
-#include <FastLED.h>
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 
 #endif
 /*
