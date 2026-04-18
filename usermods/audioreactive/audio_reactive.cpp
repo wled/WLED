@@ -140,6 +140,7 @@ static uint8_t binNum = 8;           // Used to select the bin for FFT based bea
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
 #endif
+#endif // UM_AUDIOREACTIVE_USE_ARDUINO_FFT
 
 #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
 using FFTsampleType = float;
@@ -163,7 +164,6 @@ static FFTsampleType* windowFFT = nullptr;
 #include "audio_source.h"
 constexpr i2s_port_t I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change !)
 constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
-#endif // ARDUINO_ARCH_ESP32
 
 // globals
 static uint8_t inputLevel = 128;              // UI slider value
