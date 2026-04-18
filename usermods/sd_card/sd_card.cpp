@@ -13,9 +13,12 @@
   #include "SPI.h"
 #endif
 
-#ifdef WLED_USE_SD_MMC
-#elif defined(WLED_USE_SD_SPI)
-  SPIClass spiPort = SPIClass(VSPI);
+#if defined(WLED_USE_SD_SPI)
+  #if CONFIG_IDF_TARGET_ESP32
+    SPIClass spiPort = SPIClass(VSPI);
+  #else
+    SPIClass spiPort = SPI;
+  #endif
 #endif
 
 void listDir( const char * dirname, uint8_t levels);
