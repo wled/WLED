@@ -72,6 +72,7 @@
 		let ws = null;
 		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
 		let _applySeq = 0; // incremented each time applyLED fires; used to cancel stale in-flight previews
+		let _httpQueue = [], _httpRun = 0;
 
 		// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
 		(function loadFiles() {
@@ -631,10 +632,6 @@
 			}
 
 			// HTTP fallback
-			if (!window._httpQueue) {
-				window._httpQueue = [];
-				window._httpRun = 0;
-			}
 			if (_httpQueue.length >= 5) return -1; // queue full; applyLED cancels stale queues before sending
 			return new Promise(resolve => {
 				_httpQueue.push({ cmd, resolve });
@@ -664,9 +661,7 @@
 			if (!palCache.length) return;
 			const seq = ++_applySeq;
 			// discard pending HTTP chunks from any previous preview so stale data doesn't drain slowly
-			if (window._httpQueue) {
-				while (_httpQueue.length) _httpQueue.shift().resolve(-1); // resolve dropped entries so their awaiters can observe the seq change and exit
-			}
+			while (_httpQueue.length) _httpQueue.shift().resolve(-1); // resolve dropped entries so their awaiters can observe the seq change and exit
 			try {
 				let st = await (await fetch(getURL('/json/state'), { cache: 'no-store' })).json();
 				if (seq !== _applySeq) return; // superseded by a newer preview request
