@@ -140,7 +140,6 @@ static uint8_t binNum = 8;           // Used to select the bin for FFT based bea
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
 #endif
-#endif
 
 #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
 using FFTsampleType = float;
@@ -164,6 +163,7 @@ static FFTsampleType* windowFFT = nullptr;
 #include "audio_source.h"
 constexpr i2s_port_t I2S_PORT = I2S_NUM_0;       // I2S port to use (do not change !)
 constexpr int BLOCK_SIZE = 128;                  // I2S buffer size (samples)
+#endif // ARDUINO_ARCH_ESP32
 
 // globals
 static uint8_t inputLevel = 128;              // UI slider value
@@ -1465,13 +1465,17 @@ class AudioReactive : public Usermod {
 
 
 #ifdef ARDUINO_ARCH_ESP32
-      if (FFT_Task == nullptr) enabled = false;          // FFT task creation failed
+      if (audioSource && FFT_Task == nullptr) enabled = false;          // FFT task creation failed
       if((!audioSource) || (!audioSource->isInitialized())) {  // audio source failed to initialize. Still stay "enabled", as there might be input arriving via UDP Sound Sync 
-      #ifdef WLED_DEBUG
-        DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #else
-        DEBUGSR_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #endif
+        if (dmType < 254) {
+        #ifdef WLED_DEBUG
+          DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
+        #else
+          DEBUGSR_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
+        #endif
+        } else {
+          DEBUG_PRINTLN(F("AR: No sound input driver configured - network receive only."));
+        }
         disableSoundProcessing = true;
       }
 #endif
@@ -2126,6 +2130,7 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'Generic PDM',5);"));
     #endif
     uiScript.print(F("addOption(dd,'ES8388',6);"));
+      uiScript.print(F("addOption(dd,'None - network receive only',254);"));
     
       uiScript.print(F("dd=addDropdown(ux,'config:AGC');"));
       uiScript.print(F("addOption(dd,'Off',0);"));
