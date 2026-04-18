@@ -136,7 +136,7 @@ static void handleStaticContent(AsyncWebServerRequest *request, const String &pa
   request->send(response);
 }
 
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
 static String dmxProcessor(const String& var)
 {
   String mapJS;
@@ -601,7 +601,7 @@ void initServer()
   });
 #endif
 
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
   server.on(F("/dmxmap"), HTTP_GET, [](AsyncWebServerRequest *request){
     request->send_P(200, FPSTR(CONTENT_TYPE_HTML), PAGE_dmxmap, dmxProcessor);
   });
@@ -742,7 +742,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     else if (url.indexOf(  "sync")  > 0) subPage = SUBPAGE_SYNC;
     else if (url.indexOf(  "time")  > 0) subPage = SUBPAGE_TIME;
     else if (url.indexOf(F("sec"))  > 0) subPage = SUBPAGE_SEC;
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
     else if (url.indexOf(  "dmx")   > 0) subPage = SUBPAGE_DMX;
 #endif
     else if (url.indexOf(  "um")    > 0) subPage = SUBPAGE_UM;
@@ -786,7 +786,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       case SUBPAGE_SYNC   : strcpy_P(s, PSTR("Sync")); break;
       case SUBPAGE_TIME   : strcpy_P(s, PSTR("Time")); break;
       case SUBPAGE_SEC    : strcpy_P(s, PSTR("Security")); if (doReboot) strcpy_P(s2, PSTR("Rebooting, please wait ~10 seconds...")); break;
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
       case SUBPAGE_DMX    : strcpy_P(s, PSTR("DMX")); break;
 #endif
       case SUBPAGE_UM     : strcpy_P(s, PSTR("Usermods")); break;
@@ -821,7 +821,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_SYNC    :  content = PAGE_settings_sync; len = PAGE_settings_sync_length; break;
     case SUBPAGE_TIME    :  content = PAGE_settings_time; len = PAGE_settings_time_length; break;
     case SUBPAGE_SEC     :  content = PAGE_settings_sec;  len = PAGE_settings_sec_length;  break;
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
     case SUBPAGE_DMX     :  content = PAGE_settings_dmx;  len = PAGE_settings_dmx_length;  break;
 #endif
     case SUBPAGE_UM      :  content = PAGE_settings_um;   len = PAGE_settings_um_length;   break;

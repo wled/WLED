@@ -121,7 +121,7 @@ static void appendGPIOinfo(Print& settingsScript)
       firstPin = false;
     }
   }
-  #ifdef WLED_ENABLE_DMX
+  #ifdef WLED_ENABLE_DMX_OUTPUT
   if (dmxOutputPin > 0) {
     if (!firstPin) settingsScript.print(',');
     settingsScript.print(dmxOutputPin); // DMX output pin
@@ -203,7 +203,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   #ifdef WLED_DISABLE_2D // include only if 2D is not compiled in
     settingsScript.print(F("gId('2dbtn').style.display='none';"));
   #endif
-  #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
+  #ifdef WLED_ENABLE_DMX_OUTPUT // include only if DMX is enabled
     settingsScript.print(F("gId('dmxbtn').style.display='';"));
   #endif
   }
@@ -494,7 +494,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("ES"),e131SkipOutOfSequence);
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
     settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message, show output pin field
     printSetFormValue(settingsScript,SET_F("IDMO"), dmxOutputPin);
 #endif
@@ -659,7 +659,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #endif
   }
 
-  #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
+  #ifdef WLED_ENABLE_DMX_OUTPUT // include only if DMX is enabled
   if (subPage == SUBPAGE_DMX)
   {
     printSetFormValue(settingsScript,PSTR("PU"),e131ProxyUniverse);

@@ -474,7 +474,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("WO")).toInt();
     if (t >= -255  && t <= 255) arlsOffset = t;
 
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
     dmxOutputPin = request->arg(F("IDMO")).toInt();
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
@@ -673,7 +673,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
   }
 
-  #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
+  #ifdef WLED_ENABLE_DMX_OUTPUT // include only if DMX is enabled
   if (subPage == SUBPAGE_DMX)
   {
     int t = request->arg(F("PU")).toInt();

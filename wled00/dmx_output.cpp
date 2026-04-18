@@ -8,7 +8,7 @@
  * https://github.com/sparkfun/SparkFunDMX
  */
 
-#ifdef WLED_ENABLE_DMX
+#ifdef WLED_ENABLE_DMX_OUTPUT
 
 void handleDMXOutput()
 {
