@@ -32,11 +32,7 @@ public:
     void write(int channel, uint8_t value);
     void update();
 private:
-    byte dmxdata[DMX_PACKET_SIZE];
-    /* The ESP32 has either 2 or 3 UART ports.
-       Port 0 is typically used for Serial Monitor,
-       so we use port 1. */
-    dmx_port_t dmxPort = 1;
+    EspDmxOutput _dmx;
 };
 
 #endif // ESP8266 / ESP32
