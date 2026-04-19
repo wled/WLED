@@ -8730,7 +8730,7 @@ void mode_particleperlin(void) {
 
   PartSys->update(); // update and render
 }
-static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5,o3=1";
+static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5";
 
 /*
   Particle smashing down like meteors and exploding as they hit the ground, has many parameters to play with
@@ -9836,6 +9836,7 @@ void mode_particleFireworks1D(void) {
       PartSys->setColorByPosition(false); // disable
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
         int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+        if (idx < 0) break; // no more particles available
         if(SEGMENT.custom3 > 23) {
           if(SEGMENT.custom3 == 31) { // highest slider value
             PartSys->setColorByAge(SEGMENT.check1); // color by age if colorful mode is enabled
@@ -9860,7 +9861,7 @@ void mode_particleFireworks1D(void) {
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-  
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
@@ -9910,7 +9911,7 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     if (SEGMENT.speed == 255) // random position at highest speed setting
-      PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
+      PartSys->sources[i].source.x = hw_random(PartSys->maxX);
     else
       PartSys->particleMoveUpdate(PartSys->sources[i].source, PartSys->sources[i].sourceFlags, &sparklersettings); //move sparkler
   }
