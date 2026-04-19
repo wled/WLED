@@ -80,16 +80,26 @@ void WS2812FX::setUpMatrix() {
         if (gapTable) {
           // read entries directly from the file, one number at a time
           // (no JSON buffer / pDoc needed — the file is a plain JSON array)
+          // follows the same parsing pattern used by deserializeMap() for ledmap.json
           size_t gapIdx = 0;
           File f = WLED_FS.open(fileName, "r");
           if (f) {
             f.find('['); // skip to start of array
             while (f.available() && gapIdx < matrixSize) {
               char number[8];
-              size_t numRead = f.readBytesUntil(',', number, sizeof(number) - 1);
+              size_t numRead = f.readBytesUntil(',', number, sizeof(number) - 1); // last entry reads up to ']' (no trailing comma)
               number[numRead] = 0;
               if (numRead > 0) {
-                if (strchr(number, ']') && !strchr(number, '-') && !isdigit((unsigned char)number[0])) break; // end of array without a number
+                char *end = strchr(number, ']'); // check for end-of-array marker
+                bool foundDigit = (end == nullptr); // no ']' means the whole token is a number
+                if (end != nullptr) {
+                  // ']' present — only accept if a digit (or '-') appears before it
+                  for (int k = 0; &number[k] != end; k++) {
+                    if (number[k] >= '0' && number[k] <= '9') { foundDigit = true; break; }
+                    if (number[k] == '-') { foundDigit = true; break; }
+                  }
+                }
+                if (!foundDigit) break; // ']' with no number — array ended
                 gapTable[gapIdx++] = constrain(atoi(number), -1, 1);
               } else break;
             }

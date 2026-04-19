@@ -1228,7 +1228,7 @@ void respondModeData(AsyncWebServerRequest* request, bool namesOnly = false) {
         strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
         if (lineBuffer[0] != 0) {
           lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
-          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one; non-const to allow truncation
+          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one; non-const so namesOnly mode can truncate lineBuffer here
           const char* value;
           // namesOnly=true  → emit the display name (everything before '@')
           // namesOnly=false → emit the fx-data string (everything after '@')
