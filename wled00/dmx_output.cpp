@@ -26,6 +26,9 @@ void handleDMXOutput()
    }
 
   uint16_t len = strip.getLengthTotal();
+  uint16_t maxLen = (DMX_CHANNEL_TOP - DMXStart) / DMXGap;     // maximum LEDs that fit into one physical DMX512 universe
+  if (len > maxLen) len = maxLen;
+
   for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
 
     uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462

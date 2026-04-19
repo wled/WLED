@@ -8,6 +8,8 @@
  * On ESP32:   uses the esp_dmx library
  */
 
+#define DMX_CHANNEL_TOP 512
+
 #if defined(ESP8266)
 #include "src/dependencies/dmx/ESPDMX.h"
 
