@@ -478,7 +478,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_SERVEJSON       17
 #define JSON_LOCK_NOTIFY          18
 #define JSON_LOCK_PRESET_NAME     19
-#define JSON_LOCK_LEDGAP          20
+// JSON_LOCK 20 formerly used for LEDGAP (now parsed without JSON buffer)
 #define JSON_LOCK_LEDMAP_ENUM     21
 #define JSON_LOCK_REMOTE          22
 

@@ -71,29 +71,36 @@ void WS2812FX::setUpMatrix() {
       // allowed values are: -1 (missing pixel/no LED attached), 0 (inactive/unused pixel), 1 (active/used pixel)
       char    fileName[32]; strcpy_P(fileName, PSTR("/2d-gaps.json"));
       bool    isFile = WLED_FS.exists(fileName);
-      size_t  gapSize = 0;
       int8_t *gapTable = nullptr;
 
-      if (isFile && requestJSONBufferLock(JSON_LOCK_LEDGAP)) {
+      if (isFile) {
         DEBUG_PRINT(F("Reading LED gap from "));
         DEBUG_PRINTLN(fileName);
-        // read the array into global JSON buffer
-        if (readObjectFromFile(fileName, nullptr, pDoc)) {
-          // the array is similar to ledmap, except it has only 3 values:
-          // -1 ... missing pixel (do not increase pixel count)
-          //  0 ... inactive pixel (it does count, but should be mapped out (-1))
-          //  1 ... active pixel (it will count and will be mapped)
-          JsonArray map = pDoc->as<JsonArray>();
-          gapSize = map.size();
-          if (!map.isNull() && gapSize >= matrixSize) { // not an empty map
-            gapTable = static_cast<int8_t*>(p_malloc(gapSize));
-            if (gapTable) for (size_t i = 0; i < gapSize; i++) {
-              gapTable[i] = constrain(map[i], -1, 1);
+        gapTable = static_cast<int8_t*>(p_malloc(matrixSize));
+        if (gapTable) {
+          // read entries directly from the file, one number at a time
+          // (no JSON buffer / pDoc needed — the file is a plain JSON array)
+          size_t gapIdx = 0;
+          File f = WLED_FS.open(fileName, "r");
+          if (f) {
+            f.find('['); // skip to start of array
+            while (f.available() && gapIdx < matrixSize) {
+              char number[8];
+              size_t numRead = f.readBytesUntil(',', number, sizeof(number) - 1);
+              number[numRead] = 0;
+              if (numRead > 0) {
+                if (strchr(number, ']') && !strchr(number, '-') && !isdigit((unsigned char)number[0])) break; // end of array without a number
+                gapTable[gapIdx++] = constrain(atoi(number), -1, 1);
+              } else break;
             }
+            f.close();
+          }
+          if (gapIdx < matrixSize) { // file was too short or could not be read — discard
+            p_free(gapTable);
+            gapTable = nullptr;
           }
         }
         DEBUG_PRINTLN(F("Gaps loaded."));
-        releaseJSONBufferLock();
       }
 
       unsigned x, y, pix=0; //pixel
