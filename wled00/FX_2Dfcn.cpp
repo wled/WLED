@@ -78,6 +78,10 @@ void WS2812FX::setUpMatrix() {
         DEBUG_PRINTLN(fileName);
         gapTable = static_cast<int8_t*>(p_malloc(matrixSize));
         if (gapTable) {
+          // the array is similar to ledmap, except it has only 3 values:
+          // -1 ... missing pixel (do not increase pixel count)
+          //  0 ... inactive pixel (it does count, but should be mapped out (-1))
+          //  1 ... active pixel (it will count and will be mapped)
           // read entries directly from the file, one number at a time
           // (no JSON buffer / pDoc needed — the file is a plain JSON array)
           // follows the same parsing pattern used by deserializeMap() for ledmap.json
