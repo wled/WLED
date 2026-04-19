@@ -1213,23 +1213,30 @@ static size_t writeJSONStringElement(uint8_t* dest, size_t maxLen, const char* s
   return 1 + n;
 }
 
-// Generate a streamed JSON response for the mode data
-// This uses sendChunked to send the reply in blocks based on how much fit in the outbound
-// packet buffer, minimizing the required state (ie. just the next index to send).  This
-// allows us to send an arbitrarily large response without using any significant amount of
-// memory (so no worries about buffer limits).
-void respondModeData(AsyncWebServerRequest* request) {
+// Generate a streamed JSON response for the mode data (namesOnly=false) or mode names
+// (namesOnly=true).  This uses sendChunked to send the reply in blocks based on how much
+// fit in the outbound packet buffer, minimizing the required state (ie. just the next index
+// to send).  This allows us to send an arbitrarily large response without using any
+// significant amount of memory (so no worries about buffer limits).
+void respondModeData(AsyncWebServerRequest* request, bool namesOnly = false) {
   size_t fx_index = 0;
   request->sendChunked(FPSTR(CONTENT_TYPE_JSON),
-    [fx_index](uint8_t* data, size_t len, size_t) mutable {
+    [fx_index, namesOnly](uint8_t* data, size_t len, size_t) mutable {
       size_t bytes_written = 0;
       char lineBuffer[256];
       while (fx_index < strip.getModeCount()) {
         strncpy_P(lineBuffer, strip.getModeData(fx_index), sizeof(lineBuffer)-1); // Copy to stack buffer for strchr
         if (lineBuffer[0] != 0) {
           lineBuffer[sizeof(lineBuffer)-1] = '\0'; // terminate string (only needed if strncpy filled the buffer)
-          const char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
-          size_t mode_bytes = writeJSONStringElement(data, len, dataPtr ? dataPtr + 1 : "");
+          char* dataPtr = strchr(lineBuffer,'@'); // Find '@', if there is one
+          const char* value;
+          if (namesOnly) {
+            if (dataPtr) *dataPtr = '\0'; // truncate at '@' to get name only
+            value = lineBuffer;
+          } else {
+            value = dataPtr ? dataPtr + 1 : ""; // everything after '@' is the fx data
+          }
+          size_t mode_bytes = writeJSONStringElement(data, len, value);
           if (mode_bytes == 0) break;  // didn't fit; break loop and try again next packet
           if (fx_index == 0) *data = '[';
           data += mode_bytes;
@@ -1276,7 +1283,7 @@ class LockedJsonResponse: public AsyncJsonResponse {
 void serveJson(AsyncWebServerRequest* request)
 {
   enum class json_target {
-    all, state, info, state_info, nodes, effects, palettes, networks, config, pins
+    all, state, info, state_info, nodes, palettes, networks, config, pins
   };
   json_target subJson = json_target::all;
 
@@ -1285,7 +1292,7 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf("info")     > 0) subJson = json_target::info;
   else if (url.indexOf("si")       > 0) subJson = json_target::state_info;
   else if (url.indexOf(F("nodes")) > 0) subJson = json_target::nodes;
-  else if (url.indexOf(F("eff"))   > 0) subJson = json_target::effects;
+  else if (url.indexOf(F("eff"))   > 0) { respondModeData(request, true); return; }
   else if (url.indexOf(F("palx"))  > 0) subJson = json_target::palettes;
   else if (url.indexOf(F("fxda"))  > 0) { respondModeData(request); return; }
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
@@ -1312,7 +1319,7 @@ void serveJson(AsyncWebServerRequest* request)
   }
   // releaseJSONBufferLock() will be called when "response" is destroyed (from AsyncWebServer)
   // make sure you delete "response" if no "request->send(response);" is made
-  LockedJsonResponse *response = new LockedJsonResponse(pDoc, subJson==json_target::effects); // will clear and convert JsonDocument into JsonArray if necessary
+  LockedJsonResponse *response = new LockedJsonResponse(pDoc, false); // will clear JsonDocument
 
   JsonVariant lDoc = response->getRoot();
 
@@ -1326,8 +1333,6 @@ void serveJson(AsyncWebServerRequest* request)
       serializeNodes(lDoc); break;
     case json_target::palettes:
       serializePalettes(lDoc, request->hasParam(F("page")) ? request->getParam(F("page"))->value().toInt() : 0); break;
-    case json_target::effects:
-      serializeModeNames(lDoc); break;
     case json_target::networks:
       serializeNetworks(lDoc); break;
     case json_target::config:
