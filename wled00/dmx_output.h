@@ -10,6 +10,10 @@
 
 #define DMX_CHANNEL_TOP 512
 
+void initDMXOutput(int outputPin);
+bool handleDMXOutput();
+
+
 #if defined(ESP8266)
 #include "src/dependencies/dmx/ESPDMX.h"
 
