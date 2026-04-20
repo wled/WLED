@@ -18,18 +18,6 @@ A good description helps us to review and understand your proposed changes. For 
 > Please make all PRs against the `main` branch.
 > If a bugfix is *not* relevant for `main`, make your PR against `0_15_x`.
 
-### Describing your PR
-
-Please add a description of your proposed code changes. 
-A PR with no description or just a few words might not get accepted, simply because very basic information is missing.
-No need to write an essay!
-
-A good description helps us to review and understand your proposed changes. For example, you could say a few words about
-* What you try to achieve (new feature, fixing a bug, refactoring, security enhancements, etc.)
-* How your code works (short technical summary - focus on important aspects that might not be obvious when reading the code)
-* Testing you performed, known limitations, anything you couldn't quite solve.
-* Let us know if you'd like guidance from a maintainer (WLED is a big project 😉)
-
 ### Testing Your Changes
 
 Before submitting:
