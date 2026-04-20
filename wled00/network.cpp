@@ -388,6 +388,7 @@ bool isWiFiConfigured() {
 static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb, struct pbuf* p, const ip_addr_t* addr) {
   // ICMPv6 type is the first byte of the payload, so we skip the header
   if (p->len > 0 && (pbuf_get_at(p, sizeof(struct ip6_hdr)) == ICMP6_TYPE_RA)) {
+    pbuf_free(p);
     return 1; // claim the packet — lwIP will not pass it further
   }
   return 0; // not consumed, pass it on
