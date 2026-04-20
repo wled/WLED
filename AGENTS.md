@@ -177,6 +177,7 @@ No automated linting is configured. Match existing code style in files you edit.
 
 - Repository language is English
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`
+- When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
 - No force-push on open PRs
 - Changes to `platformio.ini` require maintainer approval
 - Remove dead/unused code — justify or delete it
