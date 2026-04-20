@@ -1159,7 +1159,7 @@ void WS2812FX::finalizeInit() {
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
   unsigned digitalCount = 0;
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
+  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_HAS_PARALLEL_I2S)
   // validate the bus config: count I2S buses and check if they meet requirements
   unsigned i2sBusCount = 0;
 
@@ -1201,7 +1201,7 @@ void WS2812FX::finalizeInit() {
     unsigned busMemUsage = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
     mem += busMemUsage;
     // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
-    #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
+    #if defined(WLED_HAS_PARALLEL_I2S)
     bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
       #ifdef NPB_CONF_4STEP_CADENCE
@@ -1339,8 +1339,8 @@ static uint8_t _add       (uint8_t a, uint8_t b) { unsigned t = a + b; return t 
 static uint8_t _subtract  (uint8_t a, uint8_t b) { return b > a ? (b - a) : 0; }
 static uint8_t _difference(uint8_t a, uint8_t b) { return b > a ? (b - a) : (a - b); }
 static uint8_t _average   (uint8_t a, uint8_t b) { return (a + b) >> 1; }
-#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
-static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3 but slightly less accurate
+#if !defined(WLED_HAVE_FAST_int_DIVIDE)
+static uint8_t _multiply  (uint8_t a, uint8_t b) { return ((a * b) + 255) >> 8; } // faster than division on C3/C5 but slightly less accurate
 #else
 static uint8_t _multiply  (uint8_t a, uint8_t b) { return (a * b) / 255; } // origianl uses a & b in range [0,1]
 #endif
@@ -1350,7 +1350,7 @@ static uint8_t _darken    (uint8_t a, uint8_t b) { return a < b ? a : b; }
 static uint8_t _screen    (uint8_t a, uint8_t b) { return 255 - _multiply(~a,~b); } // 255 - (255-a)*(255-b)/255
 static uint8_t _overlay   (uint8_t a, uint8_t b) { return b < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
 static uint8_t _hardlight (uint8_t a, uint8_t b) { return a < 128 ? 2 * _multiply(a,b) : (255 - 2 * _multiply(~a,~b)); }
-#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#if !defined(WLED_HAVE_FAST_int_DIVIDE)
 static uint8_t _softlight (uint8_t a, uint8_t b) { return (((b * b * (255 - 2 * a))) + ((2 * a * b + 256) << 8)) >> 16; } // Pegtop's formula (1 - 2a)b^2
 #else
 static uint8_t _softlight (uint8_t a, uint8_t b) { return (b * b * (255 - 2 * a) + 255 * 2 * a * b) / (255 * 255); } // Pegtop's formula (1 - 2a)b^2 + 2ab

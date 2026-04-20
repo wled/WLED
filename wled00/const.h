@@ -72,7 +72,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #endif
   constexpr size_t WLED_MAX_ANALOG_CHANNELS = static_cast<size_t>(LEDC_CHANNEL_MAX) * static_cast<size_t>(LEDC_SPEED_MODE_MAX);
 
-  #if defined(CONFIG_IDF_TARGET_ESP32C3)    // 2 RMT, 6 LEDC, only has 1 I2S but NPB does not support it ATM
+  #if defined(CONFIG_IDF_TARGET_ESP32C3)
     #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
     #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
     //#define WLED_MAX_ANALOG_CHANNELS 6
@@ -101,7 +101,11 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     #endif      
   #endif
   #define WLED_MAX_TIMERS 64                // maximum number of timers
-  #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+  #ifndef WLED_MAX_DIGITAL_CHANNELS
+    #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+  #else
+    #warning "buildenv overrides WLED_MAX_DIGITAL_CHANNELS - please check that the value is correct" 
+  #endif
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time
@@ -531,8 +535,10 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
     #define MAX_LEDS 1536 //can't rely on memory limit to limit this to 1536 LEDs
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     #define MAX_LEDS 2048 //due to memory constraints S2
+  #elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61)
+    #define MAX_LEDS 4096
   #else
-    #define MAX_LEDS 16384
+    #define MAX_LEDS 16384 // classic esp32, S3 and P4 can take more
   #endif
 #endif
 
@@ -541,15 +547,15 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #ifdef ESP8266
     #define MAX_LED_MEMORY (8*1024)
   #else
-    #if defined(CONFIG_IDF_TARGET_ESP32S2)
+    #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61)
       #ifndef BOARD_HAS_PSRAM
         #define MAX_LED_MEMORY (28*1024)  // S2 has ~170k of free heap after boot, using 28k is the absolute limit to keep WLED functional
       #else
         #define MAX_LED_MEMORY (48*1024)  // with PSRAM there is more wiggle room as buffers get moved to PSRAM when needed (prioritize functionality over speed)
       #endif
-    #elif defined(CONFIG_IDF_TARGET_ESP32S3)
+    #elif defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32P4)
       #define MAX_LED_MEMORY (192*1024) // S3 has ~330k of free heap after boot
-    #elif defined(CONFIG_IDF_TARGET_ESP32C3)
+    #elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
       #define MAX_LED_MEMORY (100*1024) // C3 has ~240k of free heap after boot, even with 8000 LEDs configured (2D) there is 30k of contiguous heap left
     #else
       #define MAX_LED_MEMORY (85*1024) // ESP32 has ~160k of free heap after boot and an additional 64k of 32bit access memory that is used for pixel buffers
@@ -665,7 +671,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #endif
 
 // Defaults pins, type and counts to configure LED output
-#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
   #ifdef WLED_ENABLE_DMX
     #define DEFAULT_LED_PIN 1
     #warning "Compiling with DMX. The default LED pin has been changed to pin 1."

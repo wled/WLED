@@ -32,7 +32,9 @@ bool isButtonPressed(uint8_t b=0);
 void handleButton();
 void handleOnOff(bool forceOff = false);
 void handleIO();
+#ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
 void IRAM_ATTR touchButtonISR();
+#endif
 
 //cfg.cpp
 bool backupConfig();

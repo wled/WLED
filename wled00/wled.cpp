@@ -1,6 +1,13 @@
 #define WLED_DEFINE_GLOBAL_VARS //only in one source file, wled.cpp!
 #include "wled.h"
 #include "wled_ethernet.h"
+#ifdef ARDUINO_ARCH_ESP32
+#include "esp_efuse.h"
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "esp_mac.h"
+#endif
+#endif
 #include "ota_update.h"
 #ifdef WLED_ENABLE_AOTA
   #define NO_OTA_PORT
@@ -12,6 +19,10 @@
 #include "soc/rtc_cntl_reg.h"
 #endif
 
+#if defined(CONFIG_IDF_TARGET_ESP32P4)
+#include "WiFi.h"           // WiFi library for network connectivity
+#include "ESP_HostedOTA.h"  // ESP-Hosted OTA update functionality
+#endif
 extern "C" void usePWMFixedNMI();
 
 /*
@@ -47,7 +58,11 @@ void WLED::loop()
   unsigned long        loopMillis = millis();
   size_t               loopDelay = loopMillis - lastRun;
   if (lastRun == 0) loopDelay=0; // startup - don't have valid data from last run.
-  if (loopDelay > 2) DEBUG_PRINTF_P(PSTR("Loop delayed more than %ums.\n"), loopDelay);
+  #if defined(ESP8266) || (SOC_CPU_CORES_NUM < 2)
+    if (loopDelay > 4) DEBUG_PRINTF_P(PSTR("Loop delayed more than %ums.\n"), loopDelay);  // be a bit more relaxed on single-core MCUs
+  #else
+    if (loopDelay > 2) DEBUG_PRINTF_P(PSTR("Loop delayed more than %ums.\n"), loopDelay);
+  #endif
   static unsigned long maxLoopMillis = 0;
   static size_t        avgLoopMillis = 0;
   static unsigned long maxUsermodMillis = 0;
@@ -281,11 +296,12 @@ void WLED::loop()
     DEBUG_PRINTF_P(PSTR("PSRAM:        Free: %7u bytes | Largest block: %6u bytes\n"), psram_free, psram_largest);
     #endif
     #if defined(CONFIG_IDF_TARGET_ESP32)
-    // 32-bit DRAM (not byte accessible, only available on ESP32)
+    // 32-bit DRAM aka IRAM (not byte accessible, only available on ESP32)
     size_t dram32_free = heap_caps_get_free_size(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL) - dram_free; // returns all 32bit DRAM, subtract 8bit DRAM
     //size_t dram32_largest = heap_caps_get_largest_free_block(MALLOC_CAP_32BIT | MALLOC_CAP_INTERNAL); // returns largest DRAM block -> not useful
     DEBUG_PRINTF_P(PSTR("DRAM 32-bit:  Free: %7u bytes | Largest block: N/A\n"), dram32_free);
-    #else
+    #endif
+    #if defined(WLED_HAVE_RTC_MEMORY_HEAP)
     // Fast RTC Memory (not available on ESP32)
     size_t rtcram_free = heap_caps_get_free_size(MALLOC_CAP_RTCRAM);
     size_t rtcram_largest = heap_caps_get_largest_free_block(MALLOC_CAP_RTCRAM);
@@ -379,7 +395,7 @@ void WLED::setup()
   Serial.setTimeout(50);  // this causes troubles on new MCUs that have a "virtual" USB Serial (HWCDC)
   #else
   #endif
-  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
+  #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && ARDUINO_USB_CDC_ON_BOOT
   delay(2500);  // allow CDC USB serial to initialise
   #endif
   #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
@@ -389,13 +405,13 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("---WLED %s %u INIT---\n"), versionString, VERSION);
   DEBUG_PRINTLN();
 #ifdef ARDUINO_ARCH_ESP32
-  DEBUG_PRINTF_P(PSTR("esp32 %s\n"), ESP.getSdkVersion());
+  DEBUG_PRINTF_P(PSTR("esp-idf %s\n"), ESP.getSdkVersion());
   #if defined(ESP_ARDUINO_VERSION)
     DEBUG_PRINTF_P(PSTR("arduino-esp32 v%d.%d.%d\n"), int(ESP_ARDUINO_VERSION_MAJOR), int(ESP_ARDUINO_VERSION_MINOR), int(ESP_ARDUINO_VERSION_PATCH));  // available since v2.0.0
   #else
     DEBUG_PRINTLN(F("arduino-esp32 v1.0.x\n"));  // we can't say in more detail.
   #endif
-  DEBUG_PRINTF_P(PSTR("CPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
+  DEBUG_PRINTF_P(PSTR("\nCPU:   %s rev.%d, %d core(s), %d MHz.\n"), ESP.getChipModel(), (int)ESP.getChipRevision(), ESP.getChipCores(), ESP.getCpuFreqMHz());
   DEBUG_PRINTF_P(PSTR("FLASH: %d MB, Mode %d "), (ESP.getFlashChipSize()/1024)/1024, (int)ESP.getFlashChipMode());
   #ifdef WLED_DEBUG
   switch (ESP.getFlashChipMode()) {
@@ -419,7 +435,7 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("esp8266 @ %u MHz.\nCore: %s\n"), ESP.getCpuFreqMHz(), ESP.getCoreVersion());
   DEBUG_PRINTF_P(PSTR("FLASH: %u MB\n"), (ESP.getFlashChipSize()/1024)/1024);
 #endif
-  DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
+  DEBUG_PRINTF_P(PSTR("\nheap %u\n"), getFreeHeapSize());
 
 #if defined(BOARD_HAS_PSRAM)
   // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
@@ -469,6 +485,22 @@ void WLED::setup()
   escapedMac = WiFi.macAddress();
   escapedMac.replace(":", "");
   escapedMac.toLowerCase();
+#ifdef ARDUINO_ARCH_ESP32
+  // WiFi.macAddress() may return all zeros if the WiFi netif is not yet created
+  // (e.g. on ESP32-C5 where WiFi.mode() hasn't been called yet). Fall back to
+  // reading the base MAC directly from eFuse.
+  if (escapedMac == "000000000000") {
+    uint8_t mac[6] = {0};
+    #if defined(CONFIG_IDF_TARGET_ESP32P4)  // P4 does not have on-chip WIFI, use ethernet MAC
+      esp_read_mac(mac, ESP_MAC_ETH);
+    #else
+      esp_read_mac(mac, ESP_MAC_WIFI_STA);
+    #endif
+    char buf[13];
+    sprintf(buf, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    escapedMac = buf;
+  }
+#endif
 
   WLED_SET_AP_SSID(); // otherwise it is empty on first boot until config is saved
   multiWiFi.push_back(WiFiConfig(CLIENT_SSID,CLIENT_PASS)); // initialise vector with default WiFi
@@ -516,6 +548,14 @@ void WLED::setup()
   #endif
   WiFi.onEvent(WiFiEvent);
   WiFi.mode(WIFI_STA); // enable scanning
+
+#if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+  // WiFi.setBandMode(WIFI_BAND_MODE_AUTO) can also be used without SOC_WIFI_SUPPORT_5G
+  if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {   // WIFI_BAND_MODE_AUTO = 5GHz+2.4GHz; WIFI_BAND_MODE_5G_ONLY, WIFI_BAND_MODE_2G_ONLY
+    DEBUG_PRINTLN(F("setup(): Wifi band configuration failed!\n"));
+  }
+#endif
+
   findWiFi(true);      // start scanning for available WiFi-s
 
   // all GPIOs are allocated at this point
@@ -648,6 +688,16 @@ void WLED::initAP(bool resetAP)
   }
   DEBUG_PRINT(F("Opening access point "));
   DEBUG_PRINTLN(apSSID);
+
+  #ifdef ARDUINO_ARCH_ESP32
+  // reset band mode to "auto" before starting AP
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2)
+  if (!WiFi.setBandMode(WIFI_BAND_MODE_AUTO)) {
+    DEBUG_PRINTLN(F("initAP(): Wifi band configuration failed!\n"));
+  }
+  #endif
+  #endif
+
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
   #ifdef ARDUINO_ARCH_ESP32
@@ -734,6 +784,11 @@ void WLED::initConnection()
       DEBUG_PRINTLN(F("Access point disabled (init)."));
       WiFi.softAPdisconnect(true);
       WiFi.mode(WIFI_STA);
+      #if defined(SOC_WIFI_SUPPORT_5G) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      if (!WiFi.setBandMode((wifi_band_mode_t)wifiBandMode)) {
+        DEBUG_PRINTLN(F("initConnection(): WiFi band configuration failed!"));
+      }
+      #endif
     }
   }
 
@@ -965,9 +1020,36 @@ void WLED::handleConnection()
     DEBUG_PRINTLN();
     DEBUG_PRINT(F("Connected! IP address: "));
     DEBUG_PRINTLN(WLEDNetwork.localIP());
+
     #ifdef ARDUINO_ARCH_ESP32
     esp_wifi_set_storage(WIFI_STORAGE_RAM); // disable further updates of NVM credentials to prevent wear on flash (same as WiFi.persistent(false) but updates immediately, arduino wifi deficiency workaround)
     #endif
+
+    DEBUG_PRINT(F("Channel: ")); DEBUG_PRINT(WiFi.channel());
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      DEBUG_PRINT(wifiBand == WIFI_BAND_2G ? F(" (2.4GHz)") : (wifiBand == WIFI_BAND_5G ? F("  (5GHz)"): F(" (other)")));
+    #else
+      DEBUG_PRINT(F(" (2.4GHz)"));
+    #endif
+    DEBUG_PRINTLN();
+
+  #if defined(CONFIG_IDF_TARGET_ESP32P4)
+    // directly after connection, attempt to update the ESP-Hosted Wi-Fi co-processor firmware
+    if (!apActive && !improvActive) {
+      // This function will:
+      // - Check if ESP-Hosted is initialized
+      // - Verify if an update is available
+      // - Download and install the firmware update if needed
+      if (updateEspHostedSlave()) {
+        // Restart the host ESP32 after successful update
+        // This is currently required to properly activate the new firmware on the ESP-Hosted co-processor
+        // ESP.restart();
+        doReboot = true; // schedule reboot
+      }
+    }
+  #endif
+
     if (improvActive) {
       if (improvError == 3) sendImprovStateResponse(0x00, true);
       sendImprovStateResponse(0x04);

@@ -157,9 +157,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   noWifiSleep = !(wifi[F("sleep")] | !noWifiSleep); // inverted
   //noWifiSleep = !noWifiSleep;
   CJSON(force802_3g, wifi[F("phy")]); //force phy mode g?
+#ifdef SOC_WIFI_SUPPORT_5G
+  CJSON(wifiBandMode, wifi[F("band")]);
+  if (wifiBandMode < WIFI_BAND_MODE_2G_ONLY || wifiBandMode > WIFI_BAND_MODE_AUTO) wifiBandMode = WIFI_BAND_MODE_AUTO;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   CJSON(txPower, wifi[F("txpwr")]);
-  txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #if defined(ARDUINO_ARCH_ESP32) && (ESP_IDF_VERSION_MAJOR > 4)
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+  #else
+    txPower = min(max((int)txPower, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+  #endif
 #endif
 
   JsonObject hw = doc[F("hw")];
@@ -659,6 +667,12 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject if_ntp = interfaces[F("ntp")];
   CJSON(ntpEnabled, if_ntp["en"]);
+#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests
+  if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
+                                 // assert failed: udp_new_ip_type /IDF/components/lwip/lwip/src/core/udp.c:1278 (Required to lock TCPIP core functionality!)
+  ntpEnabled = false;            // --> disable NTP support, until the crash is resolved
+  #warning "enabling NTP lead to crashes on -C5. NTP disabled"
+#endif
   getStringFromJson(ntpServerName, if_ntp[F("host")], 33); // "1.wled.pool.ntp.org"
   CJSON(currentTimezone, if_ntp[F("tz")]);
   CJSON(utcOffsetSecs, if_ntp[F("offset")]);
@@ -897,6 +911,9 @@ void serializeConfig(JsonObject root) {
   JsonObject wifi = root.createNestedObject(F("wifi"));
   wifi[F("sleep")] = !noWifiSleep;
   wifi[F("phy")] = force802_3g;
+#ifdef SOC_WIFI_SUPPORT_5G
+  wifi[F("band")] = wifiBandMode;
+#endif
 #ifdef ARDUINO_ARCH_ESP32
   wifi[F("txpwr")] = txPower;
 #endif
