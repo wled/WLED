@@ -2,6 +2,7 @@
 # This is implemented as a pio post-script to ensure that we can
 # place our linker script at the correct point in the command arguments.
 Import("env")
+import shutil
 from pathlib import Path
 
 # Linker script fragment injected into the rodata output section of whichever
@@ -18,7 +19,13 @@ DYNARRAY_INJECTION = (
 def inject_before_marker(path, marker):
     """Patch a linker script file in-place, inserting DYNARRAY_INJECTION before marker."""
     original = path.read_text()
-    path.write_text(original.replace(marker, DYNARRAY_INJECTION + marker, 1))
+    marker_pos = original.find(marker)
+    if marker_pos < 0:
+        raise RuntimeError(
+            f"DYNARRAY injection marker not found in linker script: path={path}, marker={marker!r}"
+        )
+    patched = original[:marker_pos] + DYNARRAY_INJECTION + original[marker_pos:]
+    path.write_text(patched)
 
 
 if env.get("PIOPLATFORM") == "espressif32":
@@ -38,7 +45,6 @@ if env.get("PIOPLATFORM") == "espressif32":
         # leaves the ASSERTs satisfied.
         build_dir = Path(env.subst("$BUILD_DIR"))
         patched_path = build_dir / "dynarray_sections.ld"
-        import shutil
         shutil.copy(sections_ld_path, patched_path)
         inject_before_marker(patched_path, "_rodata_end = ABSOLUTE(.);")
 
@@ -58,7 +64,15 @@ if env.get("PIOPLATFORM") == "espressif32":
             else:
                 new_flags.append(flag.replace("sections.ld", patched_str))
         env.Replace(LINKFLAGS=new_flags)
-
+    else:
+        # Assume sections.ld will be built (ESP-IDF format); add a post-action to patch it
+        # TODO: consider using ESP-IDF linker fragment (https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/linker-script-generation.html)
+        # For now, patch after building
+        sections_ld = Path(env.subst("$BUILD_DIR")) / "sections.ld"
+        def patch_sections_ld(target, source, env):
+            inject_before_marker(sections_ld, "_rodata_end = ABSOLUTE(.);")
+        env.AddPostAction(str(sections_ld), patch_sections_ld)
+    
 elif env.get("PIOPLATFORM") == "espressif8266":
     # The ESP8266 framework preprocesses eagle.app.v6.common.ld.h into
     # local.eagle.app.v6.common.ld in $BUILD_DIR/ld/ at build time.  Register

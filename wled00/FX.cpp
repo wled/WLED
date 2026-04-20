@@ -3498,11 +3498,14 @@ void candle(bool multi)
 {
   if (multi && SEGLEN > 1) {
     //allocate segment data
-    unsigned dataSize = sizeof(uint32_t) + max(1, (int)SEGLEN -1) *3; //max. 1365 pixels (ESP8266)
+    unsigned dataSize = sizeof(uint32_t) + max(1, (int)SEGLEN -1) *3;
     if (!SEGENV.allocateData(dataSize)) candle(false); //allocation failed
+  } else {
+    unsigned dataSize = sizeof(uint32_t); // for last call timestamp
+    if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   }
   uint32_t* lastcall = reinterpret_cast<uint32_t*>(SEGENV.data);
-  uint8_t*  candleData = reinterpret_cast<uint8_t*>(SEGENV.data + sizeof(uint32_t));
+  uint8_t*  candleData = reinterpret_cast<uint8_t*>(SEGENV.data + sizeof(uint32_t)); // only used for multi-candle
 
   //limit update rate
   if (strip.now - *lastcall < FRAMETIME_FIXED) return;
@@ -4425,7 +4428,8 @@ void mode_flow(void)
   if (zones & 0x01) zones++; //zones must be even
   if (zones < 2) zones = 2;
   int zoneLen = SEGLEN / zones;
-  zones += 2; //add two extra zones to cover beginning and end of segment (compensate integer truncation)
+  int requiredZones = (SEGLEN + zoneLen - 1) / zoneLen;
+  zones = requiredZones + 2; //add extra zones to cover beginning and end of segment (compensate integer truncation)
   int offset = ((int)SEGLEN - (zones * zoneLen)) / 2; // center the zones on the segment (can not use bit shift on negative number)
 
   for (int z = 0; z < zones; z++)
@@ -8726,7 +8730,7 @@ void mode_particleperlin(void) {
 
   PartSys->update(); // update and render
 }
-static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5,o3=1";
+static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5";
 
 /*
   Particle smashing down like meteors and exploding as they hit the ground, has many parameters to play with
@@ -9832,6 +9836,7 @@ void mode_particleFireworks1D(void) {
       PartSys->setColorByPosition(false); // disable
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
         int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+        if (idx < 0) break; // no more particles available
         if(SEGMENT.custom3 > 23) {
           if(SEGMENT.custom3 == 31) { // highest slider value
             PartSys->setColorByAge(SEGMENT.check1); // color by age if colorful mode is enabled
@@ -9856,7 +9861,7 @@ void mode_particleFireworks1D(void) {
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-  
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
@@ -9906,7 +9911,7 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     if (SEGMENT.speed == 255) // random position at highest speed setting
-      PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
+      PartSys->sources[i].source.x = hw_random(PartSys->maxX);
     else
       PartSys->particleMoveUpdate(PartSys->sources[i].source, PartSys->sources[i].sourceFlags, &sparklersettings); //move sparkler
   }

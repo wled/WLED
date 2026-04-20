@@ -22,7 +22,8 @@ static void handleDDPPacket(e131_packet_t* p) {
   int lastPushSeq = e131LastSequenceNumber[0];
 
   // reject unsupported color data types (only RGB and RGBW are supported)
-  if (p->dataType != DDP_TYPE_RGB24 && p->dataType != DDP_TYPE_RGBW32) return;
+  uint8_t maskedType = p->dataType & 0x3F; // mask out custom and reserved flags, only type bits are relevant
+  if (maskedType != DDP_TYPE_RGB24 && maskedType != DDP_TYPE_RGBW32) return;
 
   // reject status and config packets (not implemented)
   if (p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
