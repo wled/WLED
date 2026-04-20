@@ -16,7 +16,7 @@ A good description helps us to review and understand your proposed changes. For 
 
 > [!IMPORTANT]
 > Please make all PRs against the `main` branch.
-> If a bugfix is *not* relevant for `main``, make your PR against `0_15_x`.
+> If a bugfix is *not* relevant for `main`, make your PR against `0_15_x`.
 
 ### Describing your PR
 
