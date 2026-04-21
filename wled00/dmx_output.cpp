@@ -2,6 +2,9 @@
 
 #include "wled.h"
 #include "dmx_output.h"
+#ifndef ESP8266
+#include "hal/uart_ll.h"
+#endif
 /*
  * Support for DMX output via serial (e.g. MAX485).
  * ESP8266 Library from:
@@ -9,7 +12,7 @@
  */
 
 
-#if defined(ESP8266)
+#ifdef ESP8266
 
 bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   if(uartNo == -1) {
@@ -19,6 +22,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
     return false;
   }
   _dmx.init(DMX_CHANNEL_TOP);
+  _uartNo = uartNo;
   _updateRate = updateRate;
   return true;
 }
@@ -61,6 +65,7 @@ bool DMXOutput::busy() {
 
 DMXOutput::~DMXOutput() {
   _dmx.end();
+  _uartNo = -1;
 }
 #else
 
@@ -79,6 +84,10 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   if(uartNo == -1) {
     uartNo = SOC_UART_NUM - 1;    // use last UART as default
   }
+  if(uartNo == 0) {
+    DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Cannot run on chips with <=1 hardware UART, or with UART0."));
+    return false;
+  }
 
   if(outputPin < 1) return false;
   const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
@@ -93,6 +102,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   _outputPin = outputPin;
   _updateRate = updateRate;
   _dmxSerial = new HardwareSerial(uartNo);
+  _uartNo = uartNo;
 
   // DMX_CHANNELS + SOC_UART_FIFO_LEN is the minimum that leads to full async operation. Don't ask me why.
   _dmxSerial->setTxBufferSize(DMX_CHANNELS + SOC_UART_FIFO_LEN);  //641 = 1ms, 600 = 6ms, 514 = 10ms, 513-SOC_UART_FIFO_LEN=385 = 10ms, 185 = 17ms
@@ -103,8 +113,11 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
 }
 
 DMXOutput::~DMXOutput() {
-  delete _dmxSerial;    // end() is implied in delete
-  pinMode(_outputPin, INPUT);
+  if(_uartNo >= 0) {
+    delete _dmxSerial;    // end() is implied in delete
+    pinMode(_outputPin, INPUT);
+    _uartNo = -1;
+  }
 }
 
 /**
@@ -150,16 +163,28 @@ bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len)
  * Send a new DMX frame of _dmxData out.
  */
 bool DMXOutput::update() {
+  // false if not properly initialized
+  if(_uartNo < 0) return false;
+
   // Rate limiting & only send dmx frame if no other frame is just ongoing i.e. TXbuf is empty
   if((timeToNextUpdate() <= 0) && (_dmxSerial->availableForWrite() >= _halTxBufSize)) {
+    // NOTE: availableForWrite() is not doing what I expect it to do. It may happen, when _updateRate ist too fast,
+    // that ongoing DMX transmissions are throttled to BREAKSPEED and the whole update() call takes more time,
+    // because data form a previous run is still in the ring buffer or FIFO. That's why we add an additional flush()
+    // here which is unnecessary if we had a proper API.
+    // This flush adds some unnecessary delay (of couple 100 us?!). You can remove it if you guarantee that _updateRate
+    // is never too high.
+    //_dmxSerial->flush();
+
     _lastDmxOutMillis = millis();
 
-    //Send DMX break
+    // Send DMX break
+    // Cannot change UART format while running. End and reinit takes much longer than the additional stopbit here.
     _dmxSerial->updateBaudRate(BREAKSPEED); //change to DMX break settings
     _dmxSerial->write(0);
     _dmxSerial->flush();
 
-    //Send DMX data
+    // Send DMX data
     _dmxSerial->updateBaudRate(DMXSPEED);   //change to regular DMX speed
     _dmxSerial->write(_dmxData, DMX_CHANNELS);
 
@@ -172,8 +197,9 @@ bool DMXOutput::update() {
  * Whether the UART is busy sending data.
  */
 bool DMXOutput::busy() {
+  if(_uartNo < 0) return true;   // not initialized
   // not busy, if FIFO/ring buffer is empty
-  return _dmxSerial->availableForWrite() != _halTxBufSize;
+  return _dmxSerial->availableForWrite() < _halTxBufSize;
 }
 #endif
 
@@ -198,6 +224,7 @@ void DMXOutput::setUpdateRate(uint8_t updateRate) {
  * Returns negative numbers if the time has passed already.
  */
 int DMXOutput::timeToNextUpdate() {
+  if(_uartNo < 0) return INT_MAX;   // not initialized
   if(_updateRate == 0) return -1;   // if refresh rate set to 0, refresh rate is max.
 
   // treat _updateRate as maximum, so round up the refresh delay

@@ -18,7 +18,7 @@
 #define DMXSPEED       250000
 #define DMXFORMAT      SERIAL_8N2
 #define BREAKSPEED     83000
-#define BREAKFORMAT    SERIAL_8N1
+#define BREAKFORMAT    SERIAL_8N1   // unused, instead, DMXFORMAT is used
 
 
 class DMXOutput {
@@ -44,6 +44,7 @@ class DMXOutput {
     uint8_t _dmxData[DMX_CHANNELS] = {0};
     unsigned int _halTxBufSize;
     #endif
+    int8_t _uartNo = -1;
     uint8_t _updateRate;
     unsigned long _lastDmxOutMillis = 0;
 };
