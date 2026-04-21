@@ -7,17 +7,12 @@
 #else
 #include "hal/uart_ll.h"
 #endif
-/*
- * Support for DMX output via serial (e.g. MAX485).
- */
 
- /**
-  * Initialize DMXOutput.
-  * Use _outputPin_ for TX.
-  * _updateRate_ specifies update rate in Hz. Use 0 for max.
-  * Use Serial _uartNo_. Specify -1 for default, which is the highest one available.
-  */
 bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
+
+  // If already initialized, users have to call end() first. We won't do it for them.
+  if(_uartNo > 0)
+    return false;
 
   #ifdef ESP8266
   if(uartNo == -1) uartNo = 1;
@@ -66,7 +61,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   return true;
 }
 
-DMXOutput::~DMXOutput() {
+void DMXOutput::end() {
   if(_uartNo >= 0) {
     #ifdef ESP8266
     _dmxSerial->end();
@@ -77,18 +72,15 @@ DMXOutput::~DMXOutput() {
   }
 }
 
-/**
- * Write one DMX _channel_ to _value_
- */
+DMXOutput::~DMXOutput() {
+  end();
+}
+
 void DMXOutput::write(uint16_t channel, uint8_t value) {
   if(channel > DMX_CHANNEL_TOP) return; // out of bounds
   _dmxData[channel] = value;
 }
 
-/**
- * Write _len_ Bytes to DMX channels starting at _channelStart_.
- * channelStart must be 1 or more. Use write() if you need to access channel 0.
- */
 void DMXOutput::writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
   if(channelStart == 0) return;     // channel 0 is no valid start channel, because it is special function
   for(int i = 0; i < len; i++) {
@@ -97,18 +89,11 @@ void DMXOutput::writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len
   }
 }
 
-/**
- * Read one DMX _channel_ from output buffer
- */
 uint8_t DMXOutput::read(uint16_t channel) {
   if(channel > DMX_CHANNEL_TOP) return 0;   // out of bounds
   return _dmxData[channel];
 }
 
-/**
- * Read _len_ Bytes from DMX channels output buffer data starting at _channelStart_.
- * Returns an array[len].
- */
 bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
   if(channelStart + len > DMX_CHANNELS) return false;   // out of bounds
 
@@ -116,9 +101,6 @@ bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len)
   return true;
 }
 
-/**
- * Send a new DMX frame of _dmxData out.
- */
 bool DMXOutput::update() {
   // false if not properly initialized
   if(_uartNo < 0) return false;
@@ -142,9 +124,6 @@ bool DMXOutput::update() {
   return false;
 }
 
-/**
- * Whether the DMX is busy sending a frame.
- */
 bool DMXOutput::busy() {
   if(_uartNo < 0) return true;   // not initialized
 
@@ -161,28 +140,18 @@ bool DMXOutput::busy() {
   return !uart_ll_is_tx_idle(UART_LL_GET_HW(_uartNo));
   #endif
 }
-#endif
 
-/**
- * Get last time DMX Output was started in ms.
- */
 unsigned long DMXOutput::getLastDmxOut() {
   return _lastDmxOutMillis;
 }
 
-/**
- * Change update rate to _updateRate_.
- */
 void DMXOutput::setUpdateRate(uint8_t updateRate) {
   _updateRate = updateRate;
 }
+uint8_t DMXOutput::getUpdateRate() {
+  return _updateRate;
+}
 
-/**
- * Returns time in ms to next update to reach a maximum of _updateRate.
- * Pay attention that when the last update was at let's say 100.9ms, at 122.0ms this reports as if 22ms had passed.
- * To get a definitive max refresh rate, trigger update only on a result of -1.
- * Returns negative numbers if the time has passed already.
- */
 int DMXOutput::timeToNextUpdate() {
   if(_uartNo < 0) return INT_MAX;   // not initialized
   if(_updateRate == 0) return -1;   // if refresh rate set to 0, refresh rate is max.
@@ -195,9 +164,6 @@ int DMXOutput::timeToNextUpdate() {
   return dmxFrameTime - (millis() - _lastDmxOutMillis);
 }
 
-/**
- * Write LED data to DMX output buffer and send out.
- */
 bool DMXOutput::handleDMXOutput() {
   // don't act, when in DMX Proxy mode
   if (e131ProxyUniverse != 0) return false;
@@ -254,3 +220,5 @@ bool DMXOutput::handleDMXOutput() {
 
   return update();        // update the DMX bus, if available
 }
+
+#endif
