@@ -1466,19 +1466,17 @@ class AudioReactive : public Usermod {
 #ifdef ARDUINO_ARCH_ESP32
       if (audioSource && FFT_Task == nullptr) enabled = false;          // FFT task creation failed
       if((!audioSource) || (!audioSource->isInitialized())) {  // audio source failed to initialize. Still stay "enabled", as there might be input arriving via UDP Sound Sync 
+#ifdef WLED_DEBUG
+        #define AR_INIT_DEBUG_PRINT DEBUG_PRINTLN
+#else
+        #define AR_INIT_DEBUG_PRINT DEBUGSR_PRINTLN
+#endif
         if (dmType == SR_DMTYPE_NETWORK_ONLY) {
-        #ifdef WLED_DEBUG
-          DEBUG_PRINTLN(F("AR: No sound input driver configured - network receive only."));
-        #else
-          DEBUGSR_PRINTLN(F("AR: No sound input driver configured - network receive only."));
-        #endif
+          AR_INIT_DEBUG_PRINT(F("AR: No sound input driver configured - network receive only."));
         } else {
-        #ifdef WLED_DEBUG
-          DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-        #else
-          DEBUGSR_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-        #endif
+          AR_INIT_DEBUG_PRINT(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
         }
+        #undef AR_INIT_DEBUG_PRINT
         disableSoundProcessing = true;
       }
 #endif
