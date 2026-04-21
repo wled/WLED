@@ -449,7 +449,7 @@ WLED_GLOBAL bool arlsDisableGammaCorrection _INIT(true);          // activate if
 WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to force max brightness if source has very dark colors that would be black
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
-  WLED_GLOBAL DMXOutput dmx;
+  WLED_GLOBAL DMXOutput dmxOutput;
   #ifndef DMX_TXPIN_DEFAULT
     #define DMX_TXPIN_DEFAULT -1
   #endif

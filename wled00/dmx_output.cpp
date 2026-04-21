@@ -1,32 +1,231 @@
+#ifdef WLED_ENABLE_DMX_OUTPUT
+
 #include "wled.h"
 #include "dmx_output.h"
 /*
  * Support for DMX output via serial (e.g. MAX485).
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
- * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
  */
 
-#ifdef WLED_ENABLE_DMX_OUTPUT
 
-bool handleDMXOutput()
-{
+#if defined(ESP8266)
+
+bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
+  if(uartNo == -1) {
+    uartNo = 1;   // only one available on ESP8266
+  }
+  if(uartNo != 1) {
+    return false;
+  }
+  _dmx.init(DMX_CHANNEL_TOP);
+  _updateRate = updateRate;
+  return true;
+}
+
+void DMXOutput::write(uint16_t channel, uint8_t value) {
+  _dmx.write(channel, value);
+}
+void DMXOutput::writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
+  if(channelStart == 0) return;     // channel 0 is no valid start channel, because it is special function
+  for(int i = 0; i < len; i++) {
+    if(channelStart + i > DMX_CHANNEL_TOP) break;   // finish when we reached the DMX channel 512
+    write(channelStart + i, values[i]);
+  }
+}
+
+uint8_t DMXOutput::read(uint16_t channel) {
+  return _dmx.read(channel);
+}
+bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
+  if(channelStart + len > DMX_CHANNELS) return false;   // out of bounds
+
+  for(int i = 0; i < len; i++) {
+    values[i] = _dmx.read(i);
+  }
+  return true;
+}
+
+bool DMXOutput::update() {
+  if(timeToNextUpdate() <= 0) {
+    _lastDmxOutMillis = millis();
+    _dmx.update();
+    return true;
+  }
+  return false;
+}
+
+bool DMXOutput::busy() {
+  return false;
+}
+
+DMXOutput::~DMXOutput() {
+  _dmx.end();
+}
+#else
+
+ /**
+  * Initialize DMXOutput.
+  * Use _outputPin_ for TX.
+  * _updateRate_ specifies update rate in Hz. Use 0 for max.
+  * Use Serial _uartNo_. Specify -1 for default, which is the highest one available.
+  */
+bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
+
+  #if SOC_UART_NUM <= 1
+  #error DMX output is not possible on your MCU, as it does not have HardwareSerial(1)
+  #endif
+
+  if(uartNo == -1) {
+    uartNo = SOC_UART_NUM - 1;    // use last UART as default
+  }
+
+  if(outputPin < 1) return false;
+  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
+  if(!pinAllocated) {
+    DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to allocate pin %d for DMX output\n"), outputPin);
+    return false;
+  }
+  DEBUG_PRINTF_P(PSTR("DMXOutput: init: pin %d\n"), outputPin);
+
+  digitalWrite(outputPin, 1);
+  pinMode(outputPin, OUTPUT);
+  _outputPin = outputPin;
+  _updateRate = updateRate;
+  _dmxSerial = new HardwareSerial(uartNo);
+
+  // DMX_CHANNELS + SOC_UART_FIFO_LEN is the minimum that leads to full async operation. Don't ask me why.
+  _dmxSerial->setTxBufferSize(DMX_CHANNELS + SOC_UART_FIFO_LEN);  //641 = 1ms, 600 = 6ms, 514 = 10ms, 513-SOC_UART_FIFO_LEN=385 = 10ms, 185 = 17ms
+  _dmxSerial->begin(DMXSPEED, DMXFORMAT, -1, outputPin);
+  _halTxBufSize = _dmxSerial->availableForWrite();    // safest way to check initial TXbufSize IMO, in case ESP lib changes
+
+  return true;
+}
+
+DMXOutput::~DMXOutput() {
+  delete _dmxSerial;    // end() is implied in delete
+  pinMode(_outputPin, INPUT);
+}
+
+/**
+ * Write one DMX _channel_ to _value_
+ */
+void DMXOutput::write(uint16_t channel, uint8_t value) {
+  if(channel > DMX_CHANNEL_TOP) return; // out of bounds
+  _dmxData[channel] = value;
+}
+
+/**
+ * Write _len_ Bytes to DMX channels starting at _channelStart_.
+ * channelStart must be 1 or more. Use write() if you need to access channel 0.
+ */
+void DMXOutput::writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
+  if(channelStart == 0) return;     // channel 0 is no valid start channel, because it is special function
+  for(int i = 0; i < len; i++) {
+    if(channelStart + i > DMX_CHANNEL_TOP) break;   // finish when we reached the DMX channel 512
+    write(channelStart + i, values[i]);
+  }
+}
+
+/**
+ * Read one DMX _channel_ from output buffer
+ */
+uint8_t DMXOutput::read(uint16_t channel) {
+  if(channel > DMX_CHANNEL_TOP) return 0;   // out of bounds
+  return _dmxData[channel];
+}
+
+/**
+ * Read _len_ Bytes from DMX channels output buffer data starting at _channelStart_.
+ * Returns an array[len].
+ */
+bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
+  if(channelStart + len > DMX_CHANNELS) return false;   // out of bounds
+
+  memcpy(values, &_dmxData[channelStart], len);
+  return true;
+}
+
+/**
+ * Send a new DMX frame of _dmxData out.
+ */
+bool DMXOutput::update() {
+  // Rate limiting & only send dmx frame if no other frame is just ongoing i.e. TXbuf is empty
+  if((timeToNextUpdate() <= 0) && (_dmxSerial->availableForWrite() >= _halTxBufSize)) {
+    _lastDmxOutMillis = millis();
+
+    //Send DMX break
+    _dmxSerial->updateBaudRate(BREAKSPEED); //change to DMX break settings
+    _dmxSerial->write(0);
+    _dmxSerial->flush();
+
+    //Send DMX data
+    _dmxSerial->updateBaudRate(DMXSPEED);   //change to regular DMX speed
+    _dmxSerial->write(_dmxData, DMX_CHANNELS);
+
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Whether the UART is busy sending data.
+ */
+bool DMXOutput::busy() {
+  // not busy, if FIFO/ring buffer is empty
+  return _dmxSerial->availableForWrite() != _halTxBufSize;
+}
+#endif
+
+/**
+ * Get last time DMX Output was started in ms.
+ */
+unsigned long DMXOutput::getLastDmxOut() {
+  return _lastDmxOutMillis;
+}
+
+/**
+ * Change update rate to _updateRate_.
+ */
+void DMXOutput::setUpdateRate(uint8_t updateRate) {
+  _updateRate = updateRate;
+}
+
+/**
+ * Returns time in ms to next update to reach a maximum of _updateRate.
+ * Pay attention that when the last update was at let's say 100.9ms, at 122.0ms this reports as if 22ms had passed.
+ * To get a definitive max refresh rate, trigger update only on a result of -1.
+ * Returns negative numbers if the time has passed already.
+ */
+int DMXOutput::timeToNextUpdate() {
+  if(_updateRate == 0) return -1;   // if refresh rate set to 0, refresh rate is max.
+
+  // treat _updateRate as maximum, so round up the refresh delay
+  float fdmxFrameTime = 1000.0 / _updateRate;
+  int dmxFrameTime = (uint16_t)fdmxFrameTime;
+  if(fdmxFrameTime - dmxFrameTime > 0.0) dmxFrameTime += 1;   // if fractional part > 0, add one
+
+  return dmxFrameTime - (millis() - _lastDmxOutMillis);
+}
+
+/**
+ * Write LED data to DMX output buffer and send out.
+ */
+bool DMXOutput::handleDMXOutput() {
   // don't act, when in DMX Proxy mode
-  if (e131ProxyUniverse != 0) return 0;
+  if (e131ProxyUniverse != 0) return false;
 
   uint8_t brightness = strip.getBrightness();
 
   bool calc_brightness = true;
 
    // check if no shutter channel is set
-   for (unsigned i = 0; i < DMXChannels; i++)
-   {
+   for (unsigned i = 0; i < DMXChannels; i++) {
      if (DMXFixtureMap[i] == 5) calc_brightness = false;
    }
 
   uint16_t len = strip.getLengthTotal();
-  uint16_t maxLen = (DMX_CHANNEL_TOP - DMXStart) / DMXGap;     // maximum LEDs that fit into one physical DMX512 universe
+  uint16_t maxLen = (DMX_CHANNELS - DMXStart) / DMXGap;     // maximum LEDs that fit into one physical DMX512 universe
   if (len > maxLen) len = maxLen;
 
   for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
@@ -41,62 +240,32 @@ bool handleDMXOutput()
     for (int j = 0; j < DMXChannels; j++) {
       int DMXAddr = DMXFixtureStart + j;
       switch (DMXFixtureMap[j]) {
-        case 0:        // Set this channel to 0. Good way to tell strobe- and fade-functions to fuck right off.
-          dmx.write(DMXAddr, 0);
+        case 0:        // Set this channel to 0
+          write(DMXAddr, 0);
           break;
         case 1:        // Red
-          dmx.write(DMXAddr, calc_brightness ? (r * brightness) / 255 : r);
+          write(DMXAddr, calc_brightness ? (r * brightness) / 255 : r);
           break;
         case 2:        // Green
-          dmx.write(DMXAddr, calc_brightness ? (g * brightness) / 255 : g);
+          write(DMXAddr, calc_brightness ? (g * brightness) / 255 : g);
           break;
         case 3:        // Blue
-          dmx.write(DMXAddr, calc_brightness ? (b * brightness) / 255 : b);
+          write(DMXAddr, calc_brightness ? (b * brightness) / 255 : b);
           break;
         case 4:        // White
-          dmx.write(DMXAddr, calc_brightness ? (w * brightness) / 255 : w);
+          write(DMXAddr, calc_brightness ? (w * brightness) / 255 : w);
           break;
         case 5:        // Shutter channel. Controls the brightness.
-          dmx.write(DMXAddr, brightness);
+          write(DMXAddr, brightness);
           break;
         case 6:        // Sets this channel to 255. Like 0, but more wholesome.
-          dmx.write(DMXAddr, 255);
+          write(DMXAddr, 255);
           break;
       }
     }
   }
 
-  #if defined(ESP8266)
-  dmx.update();        // update the DMX bus
-  return true;
-  #else
-  return dmx.update();        // update the DMX bus, if available
-  #endif
+  return update();        // update the DMX bus, if available
 }
 
-void initDMXOutput(int outputPin) {
-  if (outputPin < 1) return;
-  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX);
-  if (!pinAllocated) {
-    DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to allocate pin %d for DMX output\n"), outputPin);
-    return;
-  }
-  DEBUG_PRINTF_P(PSTR("DMXOutput: init: pin %d\n"), outputPin);
-  dmx.init(outputPin);        // set output pin and initialize DMX output
-}
-
-void DMXOutput::init(uint8_t outputPin) {
-  _dmx.initWrite(outputPin, 512);
-}
-
-void DMXOutput::write(int channel, uint8_t value) {
-  _dmx.write(channel, value);
-}
-
-void DMXOutput::update() {
-  _dmx.update();
-}
-#else
-void initDMXOutput(int){}
-bool handleDMXOutput() {}
 #endif

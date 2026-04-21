@@ -74,7 +74,7 @@ void WLED::loop()
   #ifdef WLED_DEBUG
   unsigned long dmxMillis = millis();
   #endif
-  handleDMXOutput();
+  dmxOutput.handleDMXOutput();
   #ifdef WLED_DEBUG
   dmxMillis = millis() - dmxMillis;
   maxDmxMillis = dmxMillis > maxDmxMillis ? dmxMillis : maxDmxMillis;
@@ -569,7 +569,7 @@ void WLED::setup()
   }
 #endif
 #ifdef WLED_ENABLE_DMX_OUTPUT
-  initDMXOutput(dmxOutputPin);
+  dmxOutput.init(dmxOutputPin);
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);
