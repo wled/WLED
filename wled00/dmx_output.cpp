@@ -2,72 +2,14 @@
 
 #include "wled.h"
 #include "dmx_output.h"
-#ifndef ESP8266
+#ifdef ESP8266
+#include "uart.cpp"
+#else
 #include "hal/uart_ll.h"
 #endif
 /*
  * Support for DMX output via serial (e.g. MAX485).
- * ESP8266 Library from:
- * https://github.com/Rickgg/ESP-Dmx
  */
-
-
-#ifdef ESP8266
-
-bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
-  if(uartNo == -1) {
-    uartNo = 1;   // only one available on ESP8266
-  }
-  if(uartNo != 1) {
-    return false;
-  }
-  _dmx.init(DMX_CHANNEL_TOP);
-  _uartNo = uartNo;
-  _updateRate = updateRate;
-  return true;
-}
-
-void DMXOutput::write(uint16_t channel, uint8_t value) {
-  _dmx.write(channel, value);
-}
-void DMXOutput::writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
-  if(channelStart == 0) return;     // channel 0 is no valid start channel, because it is special function
-  for(int i = 0; i < len; i++) {
-    if(channelStart + i > DMX_CHANNEL_TOP) break;   // finish when we reached the DMX channel 512
-    write(channelStart + i, values[i]);
-  }
-}
-
-uint8_t DMXOutput::read(uint16_t channel) {
-  return _dmx.read(channel);
-}
-bool DMXOutput::readBytes(uint16_t channelStart, uint8_t values[], uint16_t len) {
-  if(channelStart + len > DMX_CHANNELS) return false;   // out of bounds
-
-  for(int i = 0; i < len; i++) {
-    values[i] = _dmx.read(i);
-  }
-  return true;
-}
-
-bool DMXOutput::update() {
-  if(timeToNextUpdate() <= 0) {
-    _lastDmxOutMillis = millis();
-    _dmx.update();
-    return true;
-  }
-  return false;
-}
-
-bool DMXOutput::busy() {
-  return false;
-}
-
-DMXOutput::~DMXOutput() {
-  _dmx.end();
-  _uartNo = -1;
-}
-#else
 
  /**
   * Initialize DMXOutput.
@@ -77,6 +19,13 @@ DMXOutput::~DMXOutput() {
   */
 bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
 
+  #ifdef ESP8266
+  if(uartNo == -1) uartNo = 1;
+  if((uartNo != 1) || (outputPin != 2)) {
+    DEBUG_PRINTF_P(PSTR("DMXOutput: Can only run with UART1, TX pin 2 on ESP8266."));
+    return false;
+  }
+  #else //not ESP8266
   #if SOC_UART_NUM <= 1
   #error DMX output is not possible on your MCU, as it does not have HardwareSerial(1)
   #endif
@@ -88,6 +37,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
     DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Cannot run on chips with <=1 hardware UART, or with UART0."));
     return false;
   }
+  #endif //ESP8266 or ESP32
 
   if(outputPin < 1) return false;
   const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
@@ -104,15 +54,23 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   _dmxSerial = new HardwareSerial(uartNo);
   _uartNo = uartNo;
 
+  #ifdef ESP8266
+  // Sadly no TX buffer. But at least still a TX FIFO.
+  _dmxSerial->begin(DMXSPEED, DMXFORMAT, SERIAL_TX_ONLY, outputPin);
+  #else
   // DMX_CHANNELS + SOC_UART_FIFO_LEN is the minimum that leads to full async operation. Don't ask me why.
   _dmxSerial->setTxBufferSize(DMX_CHANNELS + SOC_UART_FIFO_LEN);  //641 = 1ms, 600 = 6ms, 514 = 10ms, 513-SOC_UART_FIFO_LEN=385 = 10ms, 185 = 17ms
   _dmxSerial->begin(DMXSPEED, DMXFORMAT, -1, outputPin);
+  #endif
 
   return true;
 }
 
 DMXOutput::~DMXOutput() {
   if(_uartNo >= 0) {
+    #ifdef ESP8266
+    _dmxSerial->end();
+    #endif
     delete _dmxSerial;    // end() is implied in delete
     pinMode(_outputPin, INPUT);
     _uartNo = -1;
@@ -189,8 +147,19 @@ bool DMXOutput::update() {
  */
 bool DMXOutput::busy() {
   if(_uartNo < 0) return true;   // not initialized
-  // not busy, if FIFO/ring buffer is empty
+
+  #ifdef ESP8266
+  if(uart_tx_fifo_available(_uartNo) == 0) {
+    // according to uart.cpp this is buggy and actually we have to wait for one transmission (11 baud) after this
+    // indicates TX is free. This makes every call take 45us which seems acceptable.
+    delayMicroseconds(11 * 1000000 / DMXSPEED + 1);
+    return false;
+  } else
+    return true;
+  #else
+  // not busy if tx idle. HardwareSerial.availableForWrite() didn't work reliable.
   return !uart_ll_is_tx_idle(UART_LL_GET_HW(_uartNo));
+  #endif
 }
 #endif
 
@@ -285,5 +254,3 @@ bool DMXOutput::handleDMXOutput() {
 
   return update();        // update the DMX bus, if available
 }
-
-#endif
