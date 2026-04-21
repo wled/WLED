@@ -63,6 +63,7 @@ class AutoSaveUsermod : public Usermod {
     uint8_t knownEffectIntensity = 0;
     uint8_t knownMode = 0;
     uint8_t knownPalette = 0;
+    uint8_t lastPreset = 0;
 
     #ifdef USERMOD_FOUR_LINE_DISPLAY
     FourLineDisplayUsermod* display;
@@ -117,6 +118,7 @@ class AutoSaveUsermod : public Usermod {
       knownEffectIntensity = effectIntensity;
       knownMode = strip.getMainSegment().mode;
       knownPalette = strip.getMainSegment().palette;
+      lastPreset = currentPreset;
     }
 
     // gets called every time WiFi is (re-)connected. Initialize own network
@@ -133,8 +135,14 @@ class AutoSaveUsermod : public Usermod {
       lastRun = now;
       uint8_t currentMode = strip.getMainSegment().mode;
       uint8_t currentPalette = strip.getMainSegment().palette;
-
       unsigned long wouldAutoSaveAfter = now + autoSaveAfterSec*1000;
+
+      // Trigger on preset recall
+      if (lastPreset != currentPreset) {
+        lastPreset = currentPreset;
+        autoSaveAfter = wouldAutoSaveAfter;
+      }
+      
       if (knownBrightness != bri) {
         knownBrightness = bri;
         autoSaveAfter = wouldAutoSaveAfter;
