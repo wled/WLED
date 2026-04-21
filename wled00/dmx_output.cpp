@@ -107,7 +107,6 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   // DMX_CHANNELS + SOC_UART_FIFO_LEN is the minimum that leads to full async operation. Don't ask me why.
   _dmxSerial->setTxBufferSize(DMX_CHANNELS + SOC_UART_FIFO_LEN);  //641 = 1ms, 600 = 6ms, 514 = 10ms, 513-SOC_UART_FIFO_LEN=385 = 10ms, 185 = 17ms
   _dmxSerial->begin(DMXSPEED, DMXFORMAT, -1, outputPin);
-  _halTxBufSize = _dmxSerial->availableForWrite();    // safest way to check initial TXbufSize IMO, in case ESP lib changes
 
   return true;
 }
@@ -167,15 +166,7 @@ bool DMXOutput::update() {
   if(_uartNo < 0) return false;
 
   // Rate limiting & only send dmx frame if no other frame is just ongoing i.e. TXbuf is empty
-  if((timeToNextUpdate() <= 0) && (_dmxSerial->availableForWrite() >= _halTxBufSize)) {
-    // NOTE: availableForWrite() is not doing what I expect it to do. It may happen, when _updateRate ist too fast,
-    // that ongoing DMX transmissions are throttled to BREAKSPEED and the whole update() call takes more time,
-    // because data form a previous run is still in the ring buffer or FIFO. That's why we add an additional flush()
-    // here which is unnecessary if we had a proper API.
-    // This flush adds some unnecessary delay (of couple 100 us?!). You can remove it if you guarantee that _updateRate
-    // is never too high.
-    //_dmxSerial->flush();
-
+  if((timeToNextUpdate() <= 0) && !busy()) {
     _lastDmxOutMillis = millis();
 
     // Send DMX break
@@ -194,12 +185,12 @@ bool DMXOutput::update() {
 }
 
 /**
- * Whether the UART is busy sending data.
+ * Whether the DMX is busy sending a frame.
  */
 bool DMXOutput::busy() {
   if(_uartNo < 0) return true;   // not initialized
   // not busy, if FIFO/ring buffer is empty
-  return _dmxSerial->availableForWrite() < _halTxBufSize;
+  return !uart_ll_is_tx_idle(UART_LL_GET_HW(_uartNo));
 }
 #endif
 

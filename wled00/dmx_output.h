@@ -42,7 +42,6 @@ class DMXOutput {
     HardwareSerial* _dmxSerial;
     uint8_t _outputPin;     // DMX TX pin
     uint8_t _dmxData[DMX_CHANNELS] = {0};
-    unsigned int _halTxBufSize;
     #endif
     int8_t _uartNo = -1;
     uint8_t _updateRate;

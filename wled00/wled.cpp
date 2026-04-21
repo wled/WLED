@@ -569,7 +569,7 @@ void WLED::setup()
   }
 #endif
 #ifdef WLED_ENABLE_DMX_OUTPUT
-  dmxOutput.init(dmxOutputPin);
+  dmxOutput.init(dmxOutputPin, 43);
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);
