@@ -128,17 +128,10 @@ void stateUpdated(byte callMode) {
     applyFinalBri();
     strip.trigger();
   } else {
-    if (transitionActive) {
-      briOld = briT;
-/*    } else if (bri != briOld || stateChanged)
-      strip.setTransitionMode(true); // force all segments to transition mode
-    transitionActive = true;
-    transitionStartTime = now;*/
-
-    } else if (bri != briOld)
-      strip.setTransitionMode(true); // force all segments to transition mode on global brightness change
     if (bri != briOld) {
-      transitionActive = true; // global brightness changed, (re)start global transition
+      if (transitionActive) briOld = briT; // re-targeting mid-transition: start interpolation from current in-flight value
+      strip.setTransitionMode(true); // force all segments to transition mode
+      transitionActive = true;
       transitionStartTime = now;
     } else if (jsonTransitionOnce) {
       strip.setTransition(transitionDelay);

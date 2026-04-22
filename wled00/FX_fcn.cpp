@@ -287,17 +287,19 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     return;
   }
   if (isInTransition()) {
+    const uint8_t visibleBri = currentBri();
     if (segmentCopy && !_t->_oldSegment) {
       if (blendingStyle != TRANSITION_FADE) {
         // transition without a copy means we are in a segment brightness transition
-        // need to cancel the transition to not interfere with the next one (or global brightness change)
+        // need to cancel the transition to not interfere with the new one (or global brightness change)
         stopTransition();
       } else {
-        // already in FADE transition but segment copy requested  and not yet created (for example color change during brightness transition)
+        // already in FADE transition but segment copy requested  and not yet created (for example a SWIPE color change during brightness transition)
         // create segment copy and restart timer so currentBri() can interpolate correctly
         _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
         _t->_start = millis();                              // restart countdown
         _t->_dur   = dur;
+        _t->_bri   = visibleBri;
         _t->_prevPaletteBlends = 0;
         if (_t->_oldSegment) {
           _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
@@ -308,7 +310,11 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
         return;
       }
     } else {
-      // already in transition and no segment copy requested, just continue
+      // already in transition; restart from the currently visible brightness
+      _t->_start = millis();
+      _t->_dur   = dur;
+      _t->_bri   = visibleBri;
+      _t->_prevPaletteBlends = 0;
       return;
     }
   }
