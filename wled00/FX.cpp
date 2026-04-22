@@ -7750,6 +7750,8 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 //  Xmas Twinkle       //
 /////////////////////////
 
+// Originally by Nick Pisarro, Jr. This version by DedeHai.
+
 // We need to keep data for each twinkle light. 8 bytes/light
 typedef struct {
   uint8_t colorIdx;
@@ -7857,6 +7859,12 @@ int32_t skewedRandom( uint8_t rand100,
         cumulativePercentage += pArray[index];
         index++;
     }
+
+    // Calculate linear interpolation
+    int32_t t = ((rand100 - cumulativePercentage) << RAND_PREC_SHIFT) / pArray[index];
+    int32_t result = ((index << RAND_PREC_SHIFT) + t) * 100 / pArraySize >> RAND_PREC_SHIFT;
+
+    return result;
   }
 
 // --- Portable countLeadingZeros64 for faster SQRT ---
