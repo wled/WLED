@@ -5451,6 +5451,7 @@ void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://na
         }
       }
     }
+    return;
   }
 
   // Repeat detection
