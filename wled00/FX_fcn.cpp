@@ -370,8 +370,9 @@ uint8_t Segment::currentBri() const {
   unsigned prog = progress();
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU) {
-  // this will blend opacity in new mode if style is FADE (single effect call)
-    if (blendingStyle == TRANSITION_FADE  || !_t->_oldSegment)
+    // this will blend opacity in new mode if style is FADE (single effect call)
+    const bool onOffTransition = _t->_oldSegment && (_t->_oldSegment->on != on);
+    if (blendingStyle == TRANSITION_FADE || !_t->_oldSegment || !onOffTransition)
       curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
     else
       curBri = std::max((unsigned)curBri, (unsigned)_t->_bri); // non-FADE on/off transition: use the higher of old and new brightness so it is correct for both turn-on and turn-off
