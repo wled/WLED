@@ -7757,18 +7757,18 @@ typedef struct {
   uint8_t colorIdx;
   struct {
     uint32_t isOn : 1;
-    uint32_t nextEvent : 16;    // Time to next state change (centiseconds)
+    uint32_t nextEvent : 16;    // Time left to next state change (ms.)
     uint32_t unused : 15;       // Reserved for future use
   } timing;
 } TwinkleLight;
 
-// Simple exponential distribution favoring shorter times
-uint16_t skewedTime(uint8_t maxTime) {
+// Simple exponential distribution favoring shorter times.
+uint16_t skewedTime(uint16_t maxTime) {
   uint8_t r = hw_random16();
   // Square the normalized value to skew toward smaller numbers
   float normalized = (r / 255.0f);
   normalized = normalized * normalized;
-  return (uint16_t)(20 + normalized * (maxTime - 20));
+  return (uint16_t)(200 + normalized * (maxTime - 200));
 }
 
 void mode_XmasTwinkle(void) {
@@ -7792,16 +7792,16 @@ void mode_XmasTwinkle(void) {
     lastTime = 0;
   
   // The interval may be zero if the refresh rate is fast enough.
-  uint32_t interval = (currTime - lastTime) / 10;   // In centiseconds
+  uint32_t interval = currTime - lastTime;
   
-  uint16_t maxCycleTime = 100 + (255 - SEGMENT.speed) * 3; // 100-865 centiseconds
+  uint16_t maxCycleTime = 1000 + (255 - SEGMENT.speed) * 30; // 1000-8,650 ms.
   
   // Initialize on first run
   if (SEGMENT.aux0 != numLights) {
     for (int i = 0; i < numLights; i++) {
       lights[i].colorIdx = hw_random8();
-      lights[i].timing.isOn = 0;
-      lights[i].timing.nextEvent = random(20, 200);
+      lights[i].timing.isOn = false;
+      lights[i].timing.nextEvent = skewedTime(maxCycleTime);
     }
     SEGMENT.aux0 = numLights; // Mark as initialized
   }
@@ -7840,8 +7840,8 @@ void mode_XmasTwinkle(void) {
   }
 
   // Remember the last time as ms.
-  SEGMENT.step += interval * 10;  // Back to ms.
-  SEGMENT.aux1 = SEGMENT.speed;   // Se we know if this change.
+  SEGMENT.step += interval;
+  SEGMENT.aux1 = SEGMENT.speed;   // So we know if this change.
   
   return;
 }		// mode_XmasTwinkle
