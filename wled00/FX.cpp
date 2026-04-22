@@ -7751,181 +7751,77 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 /////////////////////////
 
 // We need to keep data for each twinkle light. 8 bytes/light
-typedef struct XTwinkleLight {
-  int16_t timeToEvent;
-  int16_t maxCycle;
-  int16_t retwnkleTime;
+typedef struct {
   uint8_t colorIdx;
+  struct {
+    uint32_t isOn : 1;
+    uint32_t nextEvent : 16;    // Time to next state change (centiseconds)
+    uint32_t unused : 15;       // Reserved for future use
+  } timing;
+} TwinkleLight;
 
-  uint8_t flags;
-#define TWINKLE_ON   0x01
-} XTwinkleLight;
-
-// For creating skewed random numbers toward the shorter end.
-// The sum of percentages must = 100%
-const uint8_t pSize = 20;
-const uint8_t percentages[pSize] = {12, 11, 10, 10, 6, 6, 5, 5, 3, 3, 1, 1, 1, 1, 1, 1, 2, 3, 3, 15}; // PROGMEM?
-const uint8_t slowPercentages[pSize] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 6, 7, 7, 7, 10, 12, 12, 15, 19}; // PROGMEM?
-
-// Input is 0-100, Ouput is skewed 0-100.
-// PArray may be any size, but elements must add up to 100.
-#define RAND_PREC_SHIFT 10              // Vertual binary point from the right
-int32_t skewedRandom( uint8_t rand100,
-                      const uint8_t pArraySize,
-                      const uint8_t *pArray)
-{
-    int32_t index = 0;
-    int32_t cumulativePercentage = 0;
-
-    // Find the range in the table based on randomValue.
-    while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
-        cumulativePercentage += pArray[index];
-        index++;
-    }
-
-    // Calculate linear interpolation
-    int32_t t = ((rand100 - cumulativePercentage) << RAND_PREC_SHIFT) / pArray[index];
-    int32_t result = ((index << RAND_PREC_SHIFT) + t) * 100 / pArraySize >> RAND_PREC_SHIFT;
-
-    return result;
+// Simple exponential distribution favoring shorter times
+uint16_t skewedTime(uint8_t maxTime) {
+  uint8_t r = hw_random16();
+  // Square the normalized value to skew toward smaller numbers
+  float normalized = (r / 255.0f);
+  normalized = normalized * normalized;
+  return (uint16_t)(20 + normalized * (maxTime - 20));
 }
 
-// Take two percentage tables and average them using the weighting factor.
-// Both tables and the result must be the same size.
-void weightPercentages(const uint8_t *arg1,
-                       const uint8_t *arg2,
-                       const int cnt,
-                       const uint32_t factor,   // 0.0-1.0 weight given to arg2 << RAND_PREC_SHIFT
-                       uint8_t *result)
-{
-	uint32_t arg1Factor = (1 << RAND_PREC_SHIFT) - factor;
-	for (int i = 0; i < cnt; ++i)
-		result[i] = arg1[i] * arg1Factor + arg2[i] * factor >> RAND_PREC_SHIFT;
-}
-
-void mode_XmasTwinkle(void) {              // by Nicholas Pisarro, Jr.
-  /* SEGMENT usage:
-   *   aux0   number of twinklers
-   *   aux1   previous SEGMENT.speed
-   *   step   last time stamp
-   *   data   array of XTwinkleLight structure
-   */
-  uint16_t numTwiklers = SEGLEN * SEGMENT.intensity / 255;
-  if (numTwiklers <= 0)
-    numTwiklers = 1;        // Divide checks are not cool.
-
-  // Reinitialize evertying if the number of twinklers has changed.
-  if (numTwiklers != SEGMENT.aux0 || SEGMENT.call == 0)
-    SEGMENT.aux0 = 0;
+void mode_XmasTwinkle(void) {
+  uint16_t numLights = max(1, (int)SEGLEN * SEGMENT.intensity / 255);
+  uint16_t dataSize = sizeof(TwinkleLight) * numLights;
   
-  // The maximum twinkle time varies based on the time slider
-  int32_t slowWeight = (255 - SEGMENT.speed << RAND_PREC_SHIFT) / 255;    // 0.0 - 1.0 shifted
-  int32_t maximumTime = (slowWeight * 9000) + 1000 >> RAND_PREC_SHIFT;  // Between 1000 & 10000 milliseconds
-
-  // We have two tables, one of 'normal' weights, 1 of slow weights.
-  // use more of the slow percentages in he last quarter of the segment times.
-  uint8_t wkgPercentages[pSize];
-  slowWeight = (slowWeight - /* 0.75 */ 768) * 4;     // (0.75 << RAND_PREC_SHIFT)
-  if (slowWeight < 0)
-    slowWeight = 0;
-  weightPercentages(percentages, slowPercentages, pSize, slowWeight, wkgPercentages);
-
-  uint16_t dataSize = sizeof(XTwinkleLight) * numTwiklers;
-  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
-  XTwinkleLight* twinklers = reinterpret_cast<XTwinkleLight*>(SEGENV.data);
-
-  // Initialize the twinkle lights.
-  if (SEGMENT.aux0 == 0)
-  {
-    for (int i = 0; i < numTwiklers; ++i)
-    {
-      XTwinkleLight *light = &twinklers[i];
-
-      light->colorIdx = hw_random8();
-      light->flags = 0;
-      int32_t cycleTime = skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
-
-      light->maxCycle = cycleTime;
-      light->timeToEvent = random(500, cycleTime);
-      light->retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
-    }
-
-    SEGMENT.step = millis();
-    SEGMENT.aux0 = numTwiklers;     // Initialized.
-    SEGMENT.aux1 = SEGMENT.speed;   // So we don't recalculate reTwinkle time.
-  }
-
-  // Get the current time,  handling overflows.
-  uint32_t lastTime = SEGMENT.step;
-  uint32_t currTime = millis();
-  if (currTime < lastTime)
-    lastTime = 0;
+  if (!SEGENV.allocateData(dataSize)) return mode_static();
+  TwinkleLight* lights = (TwinkleLight*)SEGENV.data;
   
-  // The interval may be zero if the refresh rate is fast enought.
-  uint32_t interval = currTime - lastTime;
-
-  // Note the time passed to the LEDs, and process any events that occured.
-  for (int i = 0; i < numTwiklers; ++i)
-  {
-    XTwinkleLight *light = &twinklers[i];
-    
-    // See if we are at the end of twinkle on o off cycle.
-    int16_t eventTime = light->timeToEvent - interval;
-    if (eventTime <= 0)
-    {
-      // Twinkle on cycles are 1/3 length of twinkle off cycles. We're' twinkling after all.
-      if (light->flags & TWINKLE_ON)
-        eventTime += random(500, light->maxCycle);     // turn OFF
-      else
-      {
-        // Based on the check box, either use a constant palette index or a new one each time it turns on.
-        if (SEGMENT.check1)
-          light->colorIdx = hw_random8();
-        eventTime += random(100, light->maxCycle / 3); // turn ON
-      }
-      
-      light->flags ^= TWINKLE_ON;
+  uint32_t now = millis() / 10; // centiseconds
+  uint16_t maxCycleTime = 100 + (255 - SEGMENT.speed) * 3; // 100-865 centiseconds
+  
+  // Initialize on first run
+  if (SEGMENT.aux0 == 0) {
+    for (int i = 0; i < numLights; i++) {
+      lights[i].colorIdx = hw_random8();
+      lights[i].timing.isOn = 0;
+      lights[i].timing.nextEvent = now + random(20, 200);
     }
-    // Put the updated event time back.
-    light->timeToEvent = eventTime;
-
-    // If we are at the end of a major cycle or the speed has changed, recalculate the max cycle time.
-    int16_t cycleTime = light->retwnkleTime - interval;
-    if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
-    {
-      int maxTime =  skewedRandom(random(100), pSize, wkgPercentages) * maximumTime / 100 + 200;
-      light->maxCycle = maxTime;
-      cycleTime += 20000;                        // 20 seconds
-    }
-    light->retwnkleTime = cycleTime;
+    SEGMENT.aux0 = 1; // Mark as initialized
   }
-
-  // Remember the last time as ms.
-  SEGMENT.step += interval;
-  SEGMENT.aux1 = SEGMENT.speed;   // Se we know if this change.
-
-  // Turm off all the LEDS.
-  for (int i = 0; i < SEGLEN; ++i)
+  
+  // Clear all LEDs
+  for (int i = 0; i < SEGLEN; i++) {
     SEGMENT.setPixelColor(i, CRGB::Black);
-  
-  // Turn on only those leds that should be.
- for (int i = 0; i < numTwiklers; ++i)
-  {
-    XTwinkleLight *light = &twinklers[i];
-
-    if ((light->flags & TWINKLE_ON) == 0)
-      continue;
-    
-    // Compute the offset of the light in the string.
-    short inset = i * SEGLEN / numTwiklers;
-    if (inset > SEGLEN)       // Safety
-      break;
-
-    SEGMENT.setPixelColor(inset, ColorFromPalette(SEGPALETTE,light->colorIdx));
   }
-
+  
+  // Update each twinkle light
+  for (int i = 0; i < numLights; i++) {
+    TwinkleLight* light = &lights[i];
+    
+    // Check if it's time for state change
+    if (now >= light->timing.nextEvent) {
+      light->timing.isOn = !light->timing.isOn;
+      
+      if (light->timing.isOn) {
+        // Turning ON - short duration (1/3 of off time)
+        light->timing.nextEvent = now + skewedTime(maxCycleTime / 3);
+        if (SEGMENT.check1) light->colorIdx = hw_random8(); // New color each time
+      } else {
+        // Turning OFF - longer duration
+        light->timing.nextEvent = now + skewedTime(maxCycleTime);
+      }
+    }
+    
+    // Light the LED if on
+    if (light->timing.isOn) {
+      uint16_t pos = (i * SEGLEN) / numLights;
+      SEGMENT.setPixelColor(pos, ColorFromPalette(SEGPALETTE, light->colorIdx));
+    }
+  }
+  
   return;
-} // mode_XmasTwinkle
+}		// mode_XmasTwinkle
+
 static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,,,,Color indices vary;;!;012;m12=0";
 
 ////////////////////////////
@@ -7945,6 +7841,23 @@ typedef int32_t                  nfixed;        // These represent fixed point f
 #define BOUNCE_CYCLE_TIME     50                // ms.
 #define RESET_CYCLE_TIME      1200              // Number of cycles (60 * 1000 / 50) 
 #define WALL_COLLAPSE_INTR    125               // Cycles left till regen.
+
+// Input is 0-100, Ouput is skewed 0-100.
+// PArray may be any size, but elements must add up to 100.
+#define RAND_PREC_SHIFT 10              // Vertual binary point from the right
+int32_t skewedRandom( uint8_t rand100,
+                      const uint8_t pArraySize,
+                      const uint8_t *pArray)
+{
+    int32_t index = 0;
+    int32_t cumulativePercentage = 0;
+
+    // Find the range in the table based on randomValue.
+    while (index < pArraySize - 1 && rand100 >= cumulativePercentage + pArray[index]) {
+        cumulativePercentage += pArray[index];
+        index++;
+    }
+  }
 
 // --- Portable countLeadingZeros64 for faster SQRT ---
 int countLeadingZeros64(uint64_t x)
