@@ -1,0 +1,17 @@
+## ESP-IDF Component Manager manifest for the Matter (Project CHIP) usermod.
+##
+## This file is copied to wled00/ by pio-scripts/setup_matter_component.py
+## during builds of the esp32s3_matter_wifi environment.  It is NOT committed
+## to wled00/ – that generated copy is listed in .gitignore.
+##
+## Component registry: https://components.espressif.com/components/espressif/esp_matter
+
+dependencies:
+  ## ESP-IDF minimum version required by esp_matter
+  idf:
+    version: ">=5.1.0"
+
+  ## Matter (Project CHIP) component – provides esp_matter.h and all CHIP SDK headers
+  espressif/esp_matter:
+    version: ">=1.3.0"
+

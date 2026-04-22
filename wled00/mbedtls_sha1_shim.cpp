@@ -1,6 +1,6 @@
 #include "wled.h"
 #ifdef ESP32
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0)
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 2, 0) && !CONFIG_MBEDTLS_SHA1_C
 #include "mbedtls/sha1.h"
 #include "SHA1Builder.h"
 

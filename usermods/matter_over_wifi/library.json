@@ -1,0 +1,7 @@
+{
+  "name": "matter_over_wifi",
+  "build": {
+    "libArchive": false,
+    "flags": ["-I${platformio.src_dir}"]
+  }
+}

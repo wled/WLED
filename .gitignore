@@ -14,6 +14,8 @@ __pycache__/
 /dependencies.lock
 /managed_components
 
+/sdkconfig.esp32s3_matter_wifi
+
 esp01-update.sh
 platformio_override.ini
 replace_fs.py
@@ -30,3 +32,4 @@ wled-update.sh
 /wled00/wled00.ino.cpp
 /wled00/html_*.h
 /wled00/js_*.h
+/wled00/idf_component.yml

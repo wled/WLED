@@ -608,6 +608,9 @@ WLED_GLOBAL bool forceReconnect _INIT(false);
 WLED_GLOBAL unsigned long lastReconnectAttempt _INIT(0);
 WLED_GLOBAL bool interfacesInited _INIT(false);
 WLED_GLOBAL bool wasConnected _INIT(false);
+// When true, an external stack (e.g. Matter) owns the WiFi netif; WLED must not
+// call WiFi.mode(WIFI_MODE_NULL) in initConnection() as that would destroy it.
+WLED_GLOBAL bool externalWiFiManager _INIT(false);
 
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
