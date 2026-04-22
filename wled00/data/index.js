@@ -666,9 +666,9 @@ function parseInfo(i) {
 	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
 	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
 	if (!isM) {
-			gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
+		gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
-			gId("filter2D").classList.remove('hide');
+		gId("filter2D").classList.remove('hide');
 	}
 	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
