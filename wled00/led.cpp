@@ -130,10 +130,20 @@ void stateUpdated(byte callMode) {
   } else {
     if (transitionActive) {
       briOld = briT;
-    } else if (bri != briOld || stateChanged)
+/*    } else if (bri != briOld || stateChanged)
       strip.setTransitionMode(true); // force all segments to transition mode
     transitionActive = true;
-    transitionStartTime = now;
+    transitionStartTime = now;*/
+
+    } else if (bri != briOld)
+      strip.setTransitionMode(true); // force all segments to transition mode on global brightness change
+    if (bri != briOld) {
+      transitionActive = true; // global brightness changed, (re)start global transition
+      transitionStartTime = now;
+    } else if (jsonTransitionOnce) {
+      strip.setTransition(transitionDelay);
+      jsonTransitionOnce = false;
+    }
   }
   stateChanged = false;
 }
