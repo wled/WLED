@@ -223,7 +223,11 @@ class UsermodBattery : public Usermod
         pinMode(batteryPin, INPUT);
       #endif
 
-      if (!initDone) {
+      // Export snapshot for um_data is allocated only once.
+      // setup() may be called again after a pin change via readFromConfig(),
+      // but the exported pointers remain valid because they still point to
+      // the same member variables of this usermod instance.
+      if (!this->um_data) {
         this->um_data = new um_data_t;
         this->um_data->u_size = 2;
         this->um_data->u_type = new um_types_t[this->um_data->u_size];
@@ -277,10 +281,10 @@ class UsermodBattery : public Usermod
       // Make the first voltage reading after the initial delay has elapsed
       if (isFirstVoltageReading)
         {
-          batteryVoltage = readVoltage();
-          bat->setVoltage(batteryVoltage);
-          bat->calculateAndSetLevel(batteryVoltage);
-          batteryLevel = bat->getLevel();
+          float firstVoltage = readVoltage();
+          bat->setVoltage(firstVoltage);
+          bat->calculateAndSetLevel(firstVoltage);
+          refreshExportedBatteryData();
           isFirstVoltageReading = false;
         }
 
@@ -493,7 +497,9 @@ class UsermodBattery : public Usermod
       addBatteryToJsonObject(battery, false);
 
       // read voltage in case calibration or voltage multiplier changed to see immediate effect
-      bat->setVoltage(readVoltage());
+      float configVoltage = readVoltage();
+      bat->setVoltage(configVoltage);
+      bat->calculateAndSetLevel(configVoltage);
       refreshExportedBatteryData();
 
       DEBUG_PRINTLN(F("Battery config saved."));
@@ -693,18 +699,18 @@ class UsermodBattery : public Usermod
      * Get the calculated voltage
      * formula: (adc pin value / adc precision * max voltage) + calibration
      */
-    float getVoltage() const
+    float getVoltage()
     {
-      return batteryVoltage;
+      return bat->getVoltage();
     }
 
     /**
      * Get the mapped battery level (0 - 100) based on voltage
      * important: voltage can drop when a load is applied, so its only an estimate
      */
-    int8_t getBatteryLevel() const
+    int8_t getBatteryLevel()
     {
-      return batteryLevel;
+      return bat->getLevel();
     }
 
     /**
