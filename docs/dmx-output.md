@@ -17,5 +17,7 @@ ESP32-S3 Zero instead.
 
 ## Additional Hardware
 
-DMX output requires an RS485 transceiver such as the MAX485 chip
-connected between your ESP board and your DMX fixtures.
+DMX output requires an RS485 transceiver connected between your ESP 
+board and your DMX fixtures. The MAX485 is a commonly used example, 
+but other DMX-capable RS485 transceivers such as SN75176-class parts 
+are also valid when wired correctly.
