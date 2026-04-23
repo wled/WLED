@@ -43,7 +43,7 @@ enum struct PinOwner : uint8_t {
   Relay         = 0x87,   // 'Rly'       == Relay pin from configuration
   SPI_RAM       = 0x88,   // 'SpiR'      == SPI RAM
   DebugOut      = 0x89,   // 'Dbg'       == debug output always IO1
-  DMX           = 0x8A,   // 'DMX'       == hard-coded to IO2
+  DMX_OUTPUT    = 0x8A,   // 'DMX_OUTPUT'== DMX output via serial
   HW_I2C        = 0x8B,   // 'I2C'       == hardware I2C pins (4&5 on ESP8266, 21&22 on ESP32)
   HW_SPI        = 0x8C,   // 'SPI'       == hardware (V)SPI pins (13,14&15 on ESP8266, 5,18&23 on ESP32)
   DMX_INPUT     = 0x8D,   // 'DMX_INPUT' == DMX input via serial

@@ -117,9 +117,8 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
   #ifdef WLED_ENABLE_DMX
   // does not act on out-of-order packets yet
   if (e131ProxyUniverse > 0 && uni == e131ProxyUniverse) {
-    for (uint16_t i = 1; i <= dmxChannels; i++)
-      dmx.write(i, e131_data[i]);
-    dmx.update();
+    dmxOutput.writeBytes(1, &e131_data[1], dmxChannels);
+    dmxOutput.update();
   }
   #endif
 

@@ -55,6 +55,8 @@ void WLED::loop()
   static unsigned long maxStripMillis = 0;
   static size_t        avgStripMillis = 0;
   unsigned long        stripMillis;
+  static unsigned long maxDmxMillis = 0;
+  static unsigned long avgDmxMillis = 0;
 #endif
 
   handleTime();
@@ -69,8 +71,16 @@ void WLED::loop()
   handleNotifications();
   handleTransitions();
   #ifdef WLED_ENABLE_DMX
-  handleDMXOutput();
+  #ifdef WLED_DEBUG
+  unsigned long dmxMillis = millis();
   #endif
+  dmxOutput.handleDMXOutput();
+  #ifdef WLED_DEBUG
+  dmxMillis = millis() - dmxMillis;
+  maxDmxMillis = dmxMillis > maxDmxMillis ? dmxMillis : maxDmxMillis;
+  avgDmxMillis += dmxMillis;
+  #endif //WLED_DEBUG
+  #endif //WLED_ENABLE_DMX
   #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.update();
   #endif
@@ -318,6 +328,7 @@ void WLED::loop()
       DEBUG_PRINTF_P(PSTR("Loop time[ms]: %u/%lu\n"), avgLoopMillis/loops,    maxLoopMillis);
       DEBUG_PRINTF_P(PSTR("UM time[ms]: %u/%lu\n"),   avgUsermodMillis/loops, maxUsermodMillis);
       DEBUG_PRINTF_P(PSTR("Strip time[ms]:%u/%lu\n"), avgStripMillis/loops,   maxStripMillis);
+      DEBUG_PRINTF_P(PSTR("DMX time[ms]:%u/%lu\n"),   avgDmxMillis/loops,     maxDmxMillis);
     }
     strip.printSize();
     server.printStatus(DEBUGOUT);
@@ -328,6 +339,8 @@ void WLED::loop()
     avgLoopMillis = 0;
     avgUsermodMillis = 0;
     avgStripMillis = 0;
+    maxDmxMillis = 0;
+    avgDmxMillis = 0;
     debugTime = millis();
   }
   loops++;
@@ -443,9 +456,6 @@ void WLED::setup()
 #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
-#ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
-  PinManager::allocatePin(2, true, PinOwner::DMX);
-#endif
 
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
@@ -559,7 +569,7 @@ void WLED::setup()
   }
 #endif
 #ifdef WLED_ENABLE_DMX
-  initDMXOutput();
+  dmxOutput.init(dmxOutputPin, 43);
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);

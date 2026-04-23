@@ -125,7 +125,7 @@ bool DMXInput::installDriver()
 void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
 {
 
-#ifdef WLED_ENABLE_DMX_OUTPUT
+#ifdef WLED_ENABLE_DMX
   //TODO add again once dmx output has been merged
   // if(inputPortNum == dmxOutputPort)
   // {
