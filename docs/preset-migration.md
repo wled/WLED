@@ -27,3 +27,12 @@ In 0.13.x a preset segment entry looks like this:
 
 In 0.14.x the same segment looks like this:
 {"id":0,"start":0,"stop":50,...}
+
+## Caution: Do Not Manually Edit Segment IDs
+
+Segment IDs in WLED are ordinal and not stable identifiers. 
+Do not manually edit segment IDs in your saved preset JSON files.
+The order of segments in `strip.segments` can change at runtime,
+and manual ID edits can cause presets to break after segment 
+reorder, add, or remove events. Always re-save presets through 
+the UI instead of editing JSON directly.
