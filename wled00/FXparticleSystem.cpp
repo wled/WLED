@@ -185,16 +185,8 @@ int32_t ParticleSystem2D::sprayEmit(const PSsource &emitter) {
       emitIndex = 0;
     if (particles[emitIndex].ttl == 0) { // find a dead particle
       success = true;
-      int32_t dx = hw_random16(emitter.var << 1) - emitter.var;
-      int32_t dy = hw_random16(emitter.var << 1) - emitter.var;
-      if (emitter.var > 5) { // use circular random distribution for large variance to generate nicer "explosions"
-        while (dx*dx + dy*dy > emitter.var*emitter.var) { // reject points outside circle
-            dx = hw_random16(emitter.var << 1) - emitter.var;
-            dy = hw_random16(emitter.var << 1) - emitter.var;
-        }
-      }
-      particles[emitIndex].vx = emitter.vx + dx;
-      particles[emitIndex].vy = emitter.vy + dy;
+      particles[emitIndex].vx = emitter.vx + hw_random16(emitter.var << 1) - emitter.var; // random(-var, var)
+      particles[emitIndex].vy = emitter.vy + hw_random16(emitter.var << 1) - emitter.var; // random(-var, var)
       particles[emitIndex].x = emitter.source.x;
       particles[emitIndex].y = emitter.source.y;
       particles[emitIndex].hue = emitter.source.hue;
