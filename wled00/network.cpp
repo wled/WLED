@@ -2,6 +2,25 @@
 #include "fcn_declare.h"
 #include "wled_ethernet.h"
 
+namespace {
+
+bool restartWiFiScanIfEnabled(bool requireMultiWiFi)
+{
+#ifdef WLED_FORCE_WIFI_OFF
+  (void)requireMultiWiFi;
+  return false;
+#else
+  if (!interfacesInited) return false;
+  if (requireMultiWiFi && multiWiFi.size() <= 1) return false;
+  const int scanStatus = WiFi.scanComplete();
+  if (scanStatus == WIFI_SCAN_RUNNING) return false; // do not restart while scan is active
+  findWiFi(true); // reinit WiFi scan
+  return true;
+#endif
+}
+
+} // namespace
+
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
 // The following six pins are neither configurable nor
@@ -414,8 +433,7 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
         DEBUG_PRINTF_P(PSTR("WiFi-E: Disconnected! @ %lus\n"), millis()/1000);
-        if (interfacesInited && multiWiFi.size() > 1 && WiFi.scanComplete() >= 0) {
-          findWiFi(true); // reinit WiFi scan
+        if (restartWiFiScanIfEnabled(true)) {
           forceReconnect = true;
         }
         interfacesInited = false;
@@ -455,7 +473,7 @@ void WiFiEvent(WiFiEvent_t event)
       // may be necessary to reconnect the WiFi when
       // ethernet disconnects, as a way to provide
       // alternative access to the device.
-      if (interfacesInited && WiFi.scanComplete() >= 0) findWiFi(true); // reinit WiFi scan
+      restartWiFiScanIfEnabled(false);
       forceReconnect = true;
       break;
     #endif
