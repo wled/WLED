@@ -474,6 +474,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("WO")).toInt();
     if (t >= -255  && t <= 255) arlsOffset = t;
 
+#ifdef WLED_ENABLE_DMX
+    dmxOutputPin = request->arg(F("IDMO")).toInt();
+#endif
 #ifdef WLED_ENABLE_DMX_INPUT
     dmxInputTransmitPin = request->arg(F("IDMT")).toInt();
     dmxInputReceivePin = request->arg(F("IDMR")).toInt();
@@ -691,6 +694,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     t = request->arg(F("SL")).toInt();
     if (t>=0 && t < MAX_LEDS) {
       DMXStartLED = t;
+    }
+    t = request->arg(F("NF")).toInt();
+    if (t>0 && t<=512) {
+      DMXNumFixtures = t;
     }
     for (int i=0; i<15; i++) {
       String argname = "CH" + String((i+1));

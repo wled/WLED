@@ -607,6 +607,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   tdd = if_live[F("timeout")] | -1;
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
 
+  #ifdef WLED_ENABLE_DMX
+    CJSON(dmxOutputPin, if_live_dmx[F("dmxOutputPin")]);
+  #endif
   #ifdef WLED_ENABLE_DMX_INPUT
     CJSON(dmxInputTransmitPin, if_live_dmx[F("inputRxPin")]);
     CJSON(dmxInputReceivePin, if_live_dmx[F("inputTxPin")]);
@@ -736,6 +739,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   CJSON(DMXGap,dmx[F("gap")]);
   CJSON(DMXStart, dmx["start"]);
   CJSON(DMXStartLED,dmx[F("start-led")]);
+  CJSON(DMXNumFixtures, dmx[F("num-fixtures")]);
 
   JsonArray dmx_fixmap = dmx[F("fixmap")];
   for (int i = 0; i < dmx_fixmap.size(); i++) {
@@ -1124,6 +1128,9 @@ void serializeConfig(JsonObject root) {
   if_live_dmx[F("addr")] = DMXAddress;
   if_live_dmx[F("dss")] = DMXSegmentSpacing;
   if_live_dmx["mode"] = DMXMode;
+  #ifdef WLED_ENABLE_DMX
+    if_live_dmx[F("dmxOutputPin")] = dmxOutputPin;
+  #endif
   #ifdef WLED_ENABLE_DMX_INPUT
     if_live_dmx[F("inputRxPin")] = dmxInputTransmitPin;
     if_live_dmx[F("inputTxPin")] = dmxInputReceivePin;
@@ -1240,6 +1247,7 @@ void serializeConfig(JsonObject root) {
   dmx[F("gap")] = DMXGap;
   dmx["start"] = DMXStart;
   dmx[F("start-led")] = DMXStartLED;
+  dmx[F("num-fixtures")] = DMXNumFixtures;
 
   JsonArray dmx_fixmap = dmx.createNestedArray(F("fixmap"));
   for (unsigned i = 0; i < 15; i++) {

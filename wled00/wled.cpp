@@ -443,9 +443,6 @@ void WLED::setup()
 #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
-#ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
-  PinManager::allocatePin(2, true, PinOwner::DMX);
-#endif
 
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
@@ -559,7 +556,7 @@ void WLED::setup()
   }
 #endif
 #ifdef WLED_ENABLE_DMX
-  initDMXOutput();
+  initDMXOutput(dmxOutputPin);
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPort);

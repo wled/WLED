@@ -1,23 +1,36 @@
 #include "wled.h"
-
+#include "dmx_output.h"
 /*
- * Support for DMX  output via serial (e.g. MAX485).
- * Change the output pin in src/dependencies/ESPDMX.cpp, if needed (ESP8266)
- * Change the output pin in src/dependencies/SparkFunDMX.cpp, if needed (ESP32)
+ * Support for DMX output via serial (e.g. MAX485).
  * ESP8266 Library from:
  * https://github.com/Rickgg/ESP-Dmx
  * ESP32 Library from:
- * https://github.com/sparkfun/SparkFunDMX
+ * https://github.com/someweisguy/esp_dmx
  */
 
 #ifdef WLED_ENABLE_DMX
+
+#define MAX_DMX_RATE 44 // max DMX update rate in Hz
 
 void handleDMXOutput()
 {
   // don't act, when in DMX Proxy mode
   if (e131ProxyUniverse != 0) return;
 
+  // Ensure segments exist before accessing strip data
+  if (strip.getSegmentsNum() == 0) return;
+
+  // Rate limiting
+  static unsigned long last_dmx_time = 0;
+  constexpr unsigned long dmxFrameTime = (1000UL + MAX_DMX_RATE - 1) / MAX_DMX_RATE; // Ceiling division to round up
+  if (millis() - last_dmx_time < dmxFrameTime) return;
+
   uint8_t brightness = strip.getBrightness();
+  
+  // Skip DMX entirely if strip is off
+  if (brightness == 0) return;
+
+  last_dmx_time = millis();
 
   bool calc_brightness = true;
 
@@ -28,9 +41,15 @@ void handleDMXOutput()
    }
 
   uint16_t len = strip.getLengthTotal();
-  for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count
-
-    uint32_t in = strip.getPixelColor(i);     // get the colors for the individual fixtures as suggested by Aircoookie in issue #462
+  if (len == 0) return;
+  
+  // OPTIMIZATION: Only process the LEDs that actually need DMX output
+  // Limit to configured number of fixtures instead of processing all LEDs
+  uint16_t dmxEndLED = DMXStartLED + DMXNumFixtures;
+  if (dmxEndLED > len) dmxEndLED = len;
+  
+  for (int i = DMXStartLED; i < dmxEndLED; i++) {
+    uint32_t in = strip.getPixelColor(i);
     byte w = W(in);
     byte r = R(in);
     byte g = G(in);
@@ -68,14 +87,29 @@ void handleDMXOutput()
   dmx.update();        // update the DMX bus
 }
 
-void initDMXOutput() {
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
-  dmx.init(512);        // initialize with bus length
- #else
-  dmx.initWrite(512);  // initialize with bus length
- #endif
+void initDMXOutput(int outputPin) {
+  if (outputPin < 1) return;
+  const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX);
+  if (!pinAllocated) {
+    DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to allocate pin %d for DMX output\n"), outputPin);
+    return;
+  }
+  DEBUG_PRINTF_P(PSTR("DMXOutput: init: pin %d\n"), outputPin);
+  dmx.init(outputPin);        // set output pin and initialize DMX output
+}
+
+void DMXOutput::init(uint8_t outputPin) {
+  _dmx.initWrite(outputPin, 512);
+}
+
+void DMXOutput::write(int channel, uint8_t value) {
+  _dmx.write(channel, value);
+}
+
+void DMXOutput::update() {
+  _dmx.update();
 }
 #else
-void initDMXOutput(){}
+void initDMXOutput(int){}
 void handleDMXOutput() {}
 #endif
