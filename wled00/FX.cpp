@@ -543,26 +543,37 @@ static const char _data_FX_MODE_RAINBOW_CYCLE[] PROGMEM = "Rainbow@!,Size;;!";
 /*
  * Alternating pixels running function.
  */
-static void running(uint32_t color1, uint32_t color2, bool theatre = false) {
-  int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
+static void running(uint32_t color1, uint32_t color2, uint32_t color3, int gap, int width) {
+  if (width < 1) width = 1;
+  if (gap < 0) gap = 0;
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);
   uint32_t it = strip.now / cycleTime;
+  int pitch = gap + 1;
+  int stripe_len = width * pitch - gap;
+  int period = 2 * width * pitch;
+  SEGENV.aux0 %= period;
   bool usePalette = color1 == SEGCOLOR(0);
+  bool usePalette2 = usePalette && color2 == color1;
 
   for (unsigned i = 0; i < SEGLEN; i++) {
-    uint32_t col = color2;
-    if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
-    if (theatre) {
-      if ((i % width) == SEGENV.aux0) col = color1;
+    int col = color3;
+    int pos = ((int)(i % period) - (int)SEGENV.aux0 + period) % period;
+    if (pos < stripe_len && (pos % pitch == 0)) {
+      if (usePalette) color1 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+      col = color1;                       // foreground stripe
+    } else if (pos < stripe_len + gap) {
+      // col already set
+    } else if (pos < 2 * stripe_len + gap && (pos % pitch == 0)) {
+      if (usePalette2) color2 = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+      col = color2;      // background stripe
     } else {
-      int pos = (i % (width<<1));
-      if ((pos < SEGENV.aux0-width) || ((pos >= SEGENV.aux0) && (pos < SEGENV.aux0+width))) col = color1;
+      // col already set
     }
     SEGMENT.setPixelColor(i,col);
   }
 
   if (it != SEGENV.step) {
-    SEGENV.aux0 = (SEGENV.aux0 +1) % (theatre ? width : (width<<1));
+    ++SEGENV.aux0;
     SEGENV.step = it;
   }
 }
@@ -573,7 +584,9 @@ static void running(uint32_t color1, uint32_t color2, bool theatre = false) {
  * Inspired by the Adafruit examples.
  */
 void mode_theater_chase(void) {
-  running(SEGCOLOR(0), SEGCOLOR(1), true);
+  uint32_t color = SEGCOLOR(0);
+  int gap = 2+(SEGMENT.intensity >> 4);
+  running(color, color, SEGCOLOR(1), gap, 1);
 }
 static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size;!,!;!";
 
@@ -583,7 +596,9 @@ static const char _data_FX_MODE_THEATER_CHASE[] PROGMEM = "Theater@!,Gap size;!,
  * Inspired by the Adafruit examples.
  */
 void mode_theater_chase_rainbow(void) {
-  running(SEGMENT.color_wheel(SEGENV.step), SEGCOLOR(1), true);
+  uint32_t color = SEGMENT.color_wheel(SEGENV.step);  
+  int gap = 2+(SEGMENT.intensity >> 4);
+  running(color, color, SEGCOLOR(1), gap, 1);
 }
 static const char _data_FX_MODE_THEATER_CHASE_RAINBOW[] PROGMEM = "Theater Rainbow@!,Gap size;,!;!";
 
@@ -1160,9 +1175,11 @@ static const char _data_FX_MODE_CHASE_FLASH_RANDOM[] PROGMEM = "Chase Flash Rnd@
  * Alternating color/sec pixels running.
  */
 void mode_running_color(void) {
-  running(SEGCOLOR(0), SEGCOLOR(1));
+  int gap = SEGMENT.check2 ? SEGMENT.custom1 >> 4 : 0;
+  int width = 1+(SEGMENT.intensity >> 4);
+  running(SEGCOLOR(0), SEGCOLOR(1), SEGCOLOR(2), gap, width);
 }
-static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width;!,!;!";
+static const char _data_FX_MODE_RUNNING_COLOR[] PROGMEM = "Chase 2@!,Width,Gap,,,,Gap;!,!,G;!;;c1=0";
 
 
 /*
