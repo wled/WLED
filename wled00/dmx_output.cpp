@@ -1,4 +1,4 @@
-#ifdef WLED_ENABLE_DMX_OUTPUT
+#ifdef WLED_ENABLE_DMX
 
 #include "wled.h"
 #include "dmx_output.h"

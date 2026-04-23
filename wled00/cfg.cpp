@@ -607,7 +607,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   tdd = if_live[F("timeout")] | -1;
   if (tdd >= 0) realtimeTimeoutMs = tdd * 100;
 
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
     CJSON(dmxOutputPin, if_live_dmx[F("dmxOutputPin")]);
   #endif
   #ifdef WLED_ENABLE_DMX_INPUT
@@ -733,7 +733,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(otaSameSubnet, ota[F("same-subnet")]);
   }
 
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
   JsonObject dmx = doc["dmx"];
   CJSON(DMXChannels, dmx[F("chan")]);
   CJSON(DMXGap,dmx[F("gap")]);
@@ -1127,7 +1127,7 @@ void serializeConfig(JsonObject root) {
   if_live_dmx[F("addr")] = DMXAddress;
   if_live_dmx[F("dss")] = DMXSegmentSpacing;
   if_live_dmx["mode"] = DMXMode;
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
     if_live_dmx[F("dmxOutputPin")] = dmxOutputPin;
   #endif
   #ifdef WLED_ENABLE_DMX_INPUT
@@ -1240,7 +1240,7 @@ void serializeConfig(JsonObject root) {
   #endif
   ota[F("same-subnet")] = otaSameSubnet;
 
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
   JsonObject dmx = root.createNestedObject("dmx");
   dmx[F("chan")] = DMXChannels;
   dmx[F("gap")] = DMXGap;

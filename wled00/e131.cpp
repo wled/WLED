@@ -114,7 +114,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol){
     return;
   }
 
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
   // does not act on out-of-order packets yet
   if (e131ProxyUniverse > 0 && uni == e131ProxyUniverse) {
     dmxOutput.writeBytes(1, &e131_data[1], dmxChannels);
@@ -408,7 +408,7 @@ static void handleArtnetPollReply(IPAddress ipAddress) {
     }
   }
 
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
     if (e131ProxyUniverse > 0 && (DMXMode == DMX_MODE_DISABLED || (e131ProxyUniverse < startUniverse || e131ProxyUniverse > endUniverse))) {
       sendArtnetPollReply(&artnetPollReply, ipAddress, e131ProxyUniverse);
     }

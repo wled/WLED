@@ -70,7 +70,7 @@ void WLED::loop()
   handleImprovWifiScan();
   handleNotifications();
   handleTransitions();
-  #ifdef WLED_ENABLE_DMX_OUTPUT
+  #ifdef WLED_ENABLE_DMX
   #ifdef WLED_DEBUG
   unsigned long dmxMillis = millis();
   #endif
@@ -80,7 +80,7 @@ void WLED::loop()
   maxDmxMillis = dmxMillis > maxDmxMillis ? dmxMillis : maxDmxMillis;
   avgDmxMillis += dmxMillis;
   #endif //WLED_DEBUG
-  #endif //WLED_ENABLE_DMX_OUTPUT
+  #endif //WLED_ENABLE_DMX
   #ifdef WLED_ENABLE_DMX_INPUT
   dmxInput.update();
   #endif
@@ -568,7 +568,7 @@ void WLED::setup()
       ArduinoOTA.setHostname(cmDNS);
   }
 #endif
-#ifdef WLED_ENABLE_DMX_OUTPUT
+#ifdef WLED_ENABLE_DMX
   dmxOutput.init(dmxOutputPin, 43);
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT

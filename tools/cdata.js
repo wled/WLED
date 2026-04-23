@@ -433,7 +433,7 @@ writeChunks(
       method: "plaintext",
       filter: "html-minify",
       mangle: (str) => `
-#ifdef WLED_ENABLE_DMX_OUTPUT
+#ifdef WLED_ENABLE_DMX
 ${str.replace(/function FM\(\)[ ]?\{/gms, "function FM() {%DMXVARS%\n")}
 #else
 const char PAGE_dmxmap[] PROGMEM = R"=====()=====";
