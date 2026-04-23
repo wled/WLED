@@ -33,7 +33,7 @@ Esp8266UartBus::~Esp8266UartBus() {
 }
 
 // Shared Interrupt Service Routine (must be in IRAM)
-void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg) {
+void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg, void* exceptionFrame) {
   for (uint8_t uartNum = 0; uartNum < 2; uartNum++) {
     Esp8266UartBus* instance = s_instances[uartNum];
 
@@ -58,7 +58,7 @@ void IRAM_ATTR Esp8266UartBus::UartIsr(void* arg) {
       if (instance->_asyncBuf >= instance->_asyncBufEnd) {
         USIE(uartNum) &= ~(1 << UIFE);
       }
-      
+
       // Clear all interrupt flags for this UART
       USIC(uartNum) = 0xffff;
     }
@@ -71,6 +71,11 @@ bool Esp8266UartBus::begin() {
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   s_instances[uartNum] = this;
 
+  // end any pre-existing Serial instance on this UART to free it for our use (just in case)
+  if (uartNum == 1) Serial1.end();
+  else Serial.end();
+
+  // set LED timing and init the serial
   updateUartTiming();
 
   ETS_UART_INTR_DISABLE();
@@ -78,8 +83,7 @@ bool Esp8266UartBus::begin() {
   ETS_UART_INTR_ATTACH(UartIsr, nullptr);
 
   // Set threshold: Interrupt when FIFO drops below 80 bytes
-  USC1(uartNum) = (80 << UCFET); 
-  
+  USC1(uartNum) = (80 << UCFET);
   USIC(uartNum) = 0xffff; // Clear pending
   USIE(uartNum) &= ~((1 << UIFF) | (1 << UIFE)); // Start with interrupts off
   ETS_UART_INTR_ENABLE();
@@ -92,11 +96,11 @@ bool Esp8266UartBus::begin() {
 void Esp8266UartBus::end() {
   if (!_initialized) return;
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
-  
+
   ETS_UART_INTR_DISABLE();
   USIE(uartNum) = 0;
   s_instances[uartNum] = nullptr;
-  
+
   // If no buses are left, detach ISR
   if (s_instances[0] == nullptr && s_instances[1] == nullptr) {
     ETS_UART_INTR_ATTACH(nullptr, nullptr);
@@ -113,7 +117,7 @@ void Esp8266UartBus::updateUartTiming() {
   uint32_t periodNs = _timing.bitPeriod(); 
   if (periodNs < 200) periodNs = 1250;
   uint32_t baud = 4000000000ULL / periodNs;
-  
+
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   if (uartNum == 1) {
     Serial1.begin(baud, SERIAL_6N1, SERIAL_TX_ONLY);
@@ -124,20 +128,22 @@ void Esp8266UartBus::updateUartTiming() {
   const uint32_t fifoResetFlags = (1 << UCTXRST) | (1 << UCRXRST);
   USC0(uartNum) |= fifoResetFlags;
   USC0(uartNum) &= ~(fifoResetFlags);
-  USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI));
+  USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI)); // clear invert bits
+  USC0(uartNum) |= (1 << UCTXI); // invert TX -> idle low   TODO: need to handle inverted LED output for custom bus
 }
 
 bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
-  if (!canShow()) return false;
+  if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait?
 
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   _asyncBuf = _encodeBuffer;
   _asyncBufEnd = _encodeBuffer + _encodeBufferSize;
 
+  // note: no initial fill required, the ISR will fire and fill the FIFO
   // Enable the "TX FIFO Empty" interrupt to trigger the ISR
   USIE(uartNum) |= (1 << UIFE);
-  
+
   return true;
 }
 
@@ -148,7 +154,11 @@ void Esp8266UartBus::setColorOrder(uint8_t co) {
 bool Esp8266UartBus::canShow() const {
   if (!_initialized) return false;
   // Ready if we have no more data to send
-  return (_asyncBuf >= _asyncBufEnd);
+  if (_asyncBuf < _asyncBufEnd) return false;
+  // also FIFO must have physically drained
+  uint8_t uartNum = (_pin == 2) ? 1 : 0;
+  if (((USS(uartNum) >> USTXC) & 0xff) > 0) return false;
+  return true;
 }
 
 
@@ -190,7 +200,7 @@ void Esp8266BitBangBus::setTiming(const LedTiming& timing) {
   _t1l = (timing.t1l_ns * cpuFreq) / 1000;
 }
 
-bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+IRAM_ATTR bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
   uint8_t pixelBytes = _encoder.getPixelBytes();
@@ -203,13 +213,12 @@ bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/,
       uint8_t v = src[b];
       for (int bit = 7; bit >= 0; bit--) {
         uint32_t t = ESP.getCycleCount();
+        GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, mask);
         if (v & (1 << bit)) {
-          GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, mask);
           while((ESP.getCycleCount() - t) < _t1h);
           GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, mask);
           while((ESP.getCycleCount() - t) < (_t1h + _t1l));
         } else {
-          GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, mask);
           while((ESP.getCycleCount() - t) < _t0h);
           GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, mask);
           while((ESP.getCycleCount() - t) < (_t0h + _t0l));

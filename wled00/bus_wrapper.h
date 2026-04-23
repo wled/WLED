@@ -203,10 +203,10 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
 
     #ifdef ESP8266
   //  uint8_t offset = pins[0] - 1;
-  //  if (pins[0] == 1 || pins[0] == 2) btype = WLEDpixelBus::BusDriver::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
-    //else if (offset == 2) btype = WLEDpixelBus::BusDriver::DMA; // DMA method uses a lot of RAM!
-    //else btype = WLEDpixelBus::BusDriver::BitBang;
-    driver = WLEDpixelBus::BusDriver::BitBang; // bit banging works on all pins and uses less memory
+    if (pins[0] == 1 || pins[0] == 2) driver = WLEDpixelBus::BusDriver::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled  TODO: there is a bug, TX1 only works after saving, not after reboot, needs investigation, use bitbanging for now
+    else if (pins[0] == 3) driver = WLEDpixelBus::BusDriver::DMA; // DMA method uses a lot of RAM!
+    else driver = WLEDpixelBus::BusDriver::BitBang;
+    //driver = WLEDpixelBus::BusDriver::BitBang; // bit banging works on all pins (debug)
     #else
     switch (driverType) {
       case 0:  driver = WLEDpixelBus::BusDriver::RMT; break;

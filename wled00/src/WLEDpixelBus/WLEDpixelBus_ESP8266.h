@@ -25,15 +25,15 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
-  static void UartIsr(void* arg);
+  static void UartIsr(void* arg, void* exceptionFrame);
   static Esp8266UartBus* s_instances[2];
 
 private:
   int8_t _pin;
   LedTiming _timing;
   bool _initialized;
-  uint8_t* _asyncBuf    = nullptr;
-  uint8_t* _asyncBufEnd = nullptr;
+  volatile uint8_t* _asyncBuf    = nullptr;
+  volatile uint8_t* _asyncBufEnd = nullptr;
 
   void updateUartTiming();
 };
