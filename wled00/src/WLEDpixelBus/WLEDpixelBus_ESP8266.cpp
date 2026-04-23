@@ -71,11 +71,7 @@ bool Esp8266UartBus::begin() {
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   s_instances[uartNum] = this;
 
-  // end any pre-existing Serial instance on this UART to free it for our use (just in case)
-  if (uartNum == 1) Serial1.end();
-  else Serial.end();
-
-  // set LED timing and init the serial
+  // set LED timing and (re)init the serial
   updateUartTiming();
 
   ETS_UART_INTR_DISABLE();
@@ -135,7 +131,7 @@ void Esp8266UartBus::updateUartTiming() {
 bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait?
-
+  pinMode(_pin, SPECIAL); // this is a workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   _asyncBuf = _encodeBuffer;
   _asyncBufEnd = _encodeBuffer + _encodeBufferSize;
@@ -225,6 +221,7 @@ IRAM_ATTR bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*nu
         }
       }
     }
+    // note: no need for a "reset" delay, the main loop takes several milliseconds even with a single LED (min delay by design to not starve wifi)
   }
   os_intr_unlock();
   return true;
