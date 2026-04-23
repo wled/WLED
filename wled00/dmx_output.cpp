@@ -68,6 +68,8 @@ void DMXOutput::end() {
     delete _dmxSerial;    // end() is implied in delete
     pinMode(_outputPin, INPUT);
     _uartNo = -1;
+
+    PinManager::deallocatePin(_outputPin, PinOwner::DMX_OUTPUT);
   }
 }
 
@@ -128,7 +130,7 @@ bool DMXOutput::busy() {
 
   #ifdef ESP8266
   // uart_tx_fifo_available is inline-only in uart.cpp, reproduce it here:
-  size_t uart_tx_fifo_available = (USS(_uartNo) >> USTXC) & 0xff
+  size_t uart_tx_fifo_available = (USS(_uartNo) >> USTXC) & 0xff;
 
   if(uart_tx_fifo_available == 0) {
     // according to uart.cpp there can be one more transmission (11 baud) after tx_fifo is empty, so we'll wait just
