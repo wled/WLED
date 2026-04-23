@@ -52,7 +52,7 @@
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
 	function hideNoDMXOutput(){
 		gId("dmxOutputOff").style.display="none";
-		gId("dmxOutput").style.display="inline";
+		gId("dmxOutput").style.display="block";
 	}
 	</script>
 </head>
@@ -177,14 +177,14 @@ Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
 <div id="dmxInput">
-	<h4>Wired DMX Input Pins</h4>
+	<h3>Wired DMX Input Pins</h3>
 	DMX RX: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
 	DMX TX: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
 	DMX Enable: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
 	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
 </div> 
 <div id="dmxOutput" style="display: none">
-	<h4>Wired DMX Output Pin</h4>
+	<h3>Wired DMX Output Pin</h3>
 	DMX TX: <input name="IDMO" type="number" min="-1" max="99"><br/>
 </div>
 <div id="dmxInputOff">

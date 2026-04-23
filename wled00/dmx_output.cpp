@@ -3,15 +3,16 @@
 #include "wled.h"
 #include "dmx_output.h"
 #ifdef ESP8266
-#include "uart.cpp"
+#include "uart.h"
+#include "esp8266_peri.h"
 #else
 #include "hal/uart_ll.h"
 #endif
 
-bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
+bool DMXOutput::init(int8_t outputPin, uint8_t updateRate, int8_t uartNo) {
 
   // If already initialized, users have to call end() first. We won't do it for them.
-  if(_uartNo > 0)
+  if(_uartNo >= 0)
     return false;
 
   #ifdef ESP8266
@@ -21,9 +22,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
     return false;
   }
   #else //not ESP8266
-  #if SOC_UART_NUM <= 1
-  #error DMX output is not possible on your MCU, as it does not have HardwareSerial(1)
-  #endif
+  static_assert(SOC_UART_NUM > 1, "DMX output is not possible on your MCU, as it does not have HardwareSerial(1)");
 
   if(uartNo == -1) {
     uartNo = SOC_UART_NUM - 1;    // use last UART as default
@@ -34,7 +33,7 @@ bool DMXOutput::init(uint8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   }
   #endif //ESP8266 or ESP32
 
-  if(outputPin < 1) return false;
+  if(outputPin < 0) return false;
   const bool pinAllocated = PinManager::allocatePin(outputPin, true, PinOwner::DMX_OUTPUT);
   if(!pinAllocated) {
     DEBUG_PRINTF_P(PSTR("DMXOutput: Error: Failed to allocate pin %d for DMX output\n"), outputPin);
@@ -128,9 +127,12 @@ bool DMXOutput::busy() {
   if(_uartNo < 0) return true;   // not initialized
 
   #ifdef ESP8266
-  if(uart_tx_fifo_available(_uartNo) == 0) {
-    // according to uart.cpp this is buggy and actually we have to wait for one transmission (11 baud) after this
-    // indicates TX is free. This makes every call take 45us which seems acceptable.
+  // uart_tx_fifo_available is inline-only in uart.cpp, reproduce it here:
+  size_t uart_tx_fifo_available = (USS(_uartNo) >> USTXC) & 0xff
+
+  if(uart_tx_fifo_available == 0) {
+    // according to uart.cpp there can be one more transmission (11 baud) after tx_fifo is empty, so we'll wait just
+    // in case. This makes every call take 45us which seems acceptable.
     delayMicroseconds(11 * 1000000 / DMXSPEED + 1);
     return false;
   } else
@@ -178,7 +180,8 @@ bool DMXOutput::handleDMXOutput() {
    }
 
   uint16_t len = strip.getLengthTotal();
-  uint16_t maxLen = (DMX_CHANNELS - DMXStart) / DMXGap;     // maximum LEDs that fit into one physical DMX512 universe
+  if(DMXGap < 1) DMXGap = 1;                              // failsafe
+  uint16_t maxLen = (DMX_CHANNELS - DMXStart) / DMXGap;   // maximum LEDs that fit into one physical DMX512 universe
   if (len > maxLen) len = maxLen;
 
   for (int i = DMXStartLED; i < len; i++) {        // uses the amount of LEDs as fixture count

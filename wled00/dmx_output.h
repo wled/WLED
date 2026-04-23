@@ -1,5 +1,6 @@
 /**
  * Unified DMX Output class for all platforms.
+ * Maximum update rate is 43Hz for 512 DMX channels.
  *
  * ESP8266 uses the hw FIFO for sending frames. This is apparently 128 Bytes in size -> the 513 Bytes DMX frame will
  * still take a big chunk of processor time.
@@ -18,8 +19,10 @@
 #ifndef DMX_OUTPUT_H
 #define DMX_OUTPUT_H
 
+#include <Arduino.h>
+
 #define DMX_CHANNEL_TOP 512
-#define DMX_CHANNELS DMX_CHANNEL_TOP + 1
+#define DMX_CHANNELS (DMX_CHANNEL_TOP + 1)
 
 #define DMXSPEED       250000
 #define DMXFORMAT      SERIAL_8N2
@@ -36,7 +39,7 @@ class DMXOutput {
     * _updateRate_ specifies update rate in Hz. Use 0 for max.
     * Use Serial _uartNo_. Specify -1 for default, which is the highest one available.
     */
-    bool init(uint8_t outputPin, uint8_t updateRate = 44, int8_t uartNo = -1);
+    bool init(int8_t outputPin, uint8_t updateRate = 43, int8_t uartNo = -1);
     void end();
     /**
      * Write one DMX _channel_ to _value_
