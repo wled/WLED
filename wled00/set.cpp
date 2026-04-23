@@ -453,6 +453,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     receiveDirect = request->hasArg(F("RD")); // UDP realtime
     useMainSegmentOnly = request->hasArg(F("MO"));
     realtimeRespectLedMaps = request->hasArg(F("RLM"));
+    realtimeAllowPresets = request->hasArg(F("ROP"));
     e131SkipOutOfSequence = request->hasArg(F("ES"));
     e131Multicast = request->hasArg(F("EM"));
     t = request->arg(F("EP")).toInt();
