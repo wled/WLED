@@ -312,7 +312,7 @@ class UsermodBattery : public Usermod
         turnOff();
 
 #ifndef WLED_DISABLE_MQTT
-      publishMqtt("battery", String(static_cast<int>(bat->getLevel())).c_str());
+      publishMqtt("battery", String(bat->getLevel()).c_str());
       publishMqtt("voltage", String(bat->getVoltage()).c_str());
 #endif
 
