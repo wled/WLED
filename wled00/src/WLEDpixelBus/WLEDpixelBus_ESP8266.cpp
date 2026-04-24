@@ -387,8 +387,10 @@ void IRAM_ATTR Esp8266DmaBus::slcIsr() {
 // startI2s  — configure SLC + I2S registers and kick off continuous DMA
 // ---------------------------------------------------------------------------
 
-// TODO: there is still an issue with this, the first byte is screwed up: first bit is too long (~10us), then there is a ~10us low pulse after the first byte giving the first LED a wrong color (green if GRB)
+// TODO: just like in uart, the output pin matrix is somehow overwritten, maybe by pinmanager?
 void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
+  
+  ETS_SLC_INTR_DISABLE(); // disable ISR while configuring (just in case)
   // Reset SLC
   SLCC0 |= SLCRXLR | SLCTXLR;
   SLCC0 &= ~(SLCRXLR | SLCTXLR);
@@ -464,17 +466,34 @@ bool Esp8266DmaBus::begin() {
   digitalWrite(3, LOW);
 
   // Compute I2S clock divisors for 4-step cadence
-  // I2S base clock = 160 MHz / 2 = 80 MHz
+  // I2S base clock = 160 MHz (even with 80 MHz CPU freq, tested)
+  // I2S clock is baseclk / bckDiv / clkDiv. We want to get as close as possible to 4 / bitPeriod
+  uint8_t best_clkdiv = 1;
+  uint8_t best_baseclkdiv = 1;
+  uint64_t best_error = UINT64_MAX;
   // target I2S bit clock = 4 / bitPeriod_ns * 1e9  Hz
   // divisor = I2SBASEFREQ / rate = I2SBASEFREQ * bitPeriod / 4e9
-  uint32_t bitPeriod = _timing.bitPeriod();
-  if (bitPeriod == 0) bitPeriod = 1250;
-  float divisor = 80000000.0f * (float)bitPeriod / 4000000000.0f;
-  // Choose bck_div = 4 (minimum even value; NeoPixelBus uses 4)
-  uint8_t bckDiv = 4;
-  uint8_t clkDiv = (uint8_t)(divisor / bckDiv + 0.5f);
-  if (clkDiv < 1) clkDiv = 1;
-  if (clkDiv > 63) clkDiv = 63;
+  uint32_t bitPeriod = _timing.bitPeriod(); // in nanoseconds, for example 1250=1.25us for WS2812
+  uint64_t target = (uint64_t)I2SBASEFREQ * bitPeriod;
+
+  for (uint8_t bck = 2; bck <= 64; bck += 2) {
+      uint64_t den = (uint64_t)4000000000ULL * bck; // denominator of clkdiv = I2SBASEFREQ * bitPeriod / (4e9 * baseclkdiv)
+
+      uint64_t clk = (target + den / 2) / den;
+      if (clk < 1 || clk > 63) continue;
+
+      uint64_t actual = clk * den;
+      uint64_t error = (actual > target) ? (actual - target) : (target - actual);
+
+      if (error < best_error) {
+          best_error = error;
+          best_clkdiv = clk;
+          best_baseclkdiv = bck;
+      }
+  }
+
+  uint8_t bckDiv = best_baseclkdiv;
+  uint8_t clkDiv = best_clkdiv;
 
   // Allocate idle/reset zero buffer
   _idleBufSize = c_idleBufSize;
