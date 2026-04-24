@@ -131,7 +131,10 @@ void Esp8266UartBus::updateUartTiming() {
 bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait?
-  pinMode(_pin, SPECIAL); // this is a workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
+  // workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
+  // since pinMode() is computationally cheap, it is an acceptable fix
+  pinMode(_pin, SPECIAL); 
+
   uint8_t uartNum = (_pin == 2) ? 1 : 0;
   _asyncBuf = _encodeBuffer;
   _asyncBufEnd = _encodeBuffer + _encodeBufferSize;
@@ -389,7 +392,6 @@ void IRAM_ATTR Esp8266DmaBus::slcIsr() {
 
 // TODO: just like in uart, the output pin matrix is somehow overwritten, maybe by pinmanager?
 void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
-  
   ETS_SLC_INTR_DISABLE(); // disable ISR while configuring (just in case)
   // Reset SLC
   SLCC0 |= SLCRXLR | SLCTXLR;
@@ -448,6 +450,7 @@ void Esp8266DmaBus::startI2s(uint8_t bckDiv, uint8_t clkDiv) {
 // ---------------------------------------------------------------------------
 void Esp8266DmaBus::stopI2s() {
   ETS_SLC_INTR_DISABLE();
+  SLCIC = 0xFFFFFFFF; // clear pending interrupt flags
   I2SC &= ~(I2STXS | I2SRXS);
   I2SC &= ~I2SRST;
   I2SC |= I2SRST;
@@ -638,9 +641,10 @@ bool Esp8266DmaBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, con
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   if (_sending) return false; // previous frame still running
 
-  _sending = true;
   // Break the idle loop: state[1] now points to first pixel descriptor
   _dmaDesc[1].next_link_ptr = &_dmaDesc[c_stateBlockCount];
+  _sending = true;
+
   return true;
 }
 
