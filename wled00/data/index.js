@@ -25,6 +25,7 @@ var pN = "", pI = 0, pNum = 0;
 var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
+var bsOpts = null; // blending style options snapshot, used for dynamic filtering based on matrix mode (iOS compatibility)
 var ws, wsRpt=0;
 var cfg = {
 	theme:{base:"dark", bg:{url:"", rnd: false, rndGrayscale: false, rndBlur: false}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
@@ -660,12 +661,14 @@ function parseInfo(i) {
 	mw = i.leds.matrix ? i.leds.matrix.w : 0;
 	mh = i.leds.matrix ? i.leds.matrix.h : 0;
 	isM = mw>0 && mh>0;
+	if (!bsOpts) bsOpts = Array.from(gId('bs').options).map(o => o.cloneNode(true)); // snapshot all options on first call
+	const bsSel = gId('bs');
+	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
+	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
 	if (!isM) {
-		gId("filter2D").classList.add('hide');
-		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='none';});
+		gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
 		gId("filter2D").classList.remove('hide');
-		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
 	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
@@ -1457,7 +1460,9 @@ function readState(s,command=false)
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
-	gId('bs').value = s.bs || 0;
+	const bsSel = gId('bs');
+	bsSel.value = s.bs || 0; // assign blending style
+	if (!bsSel.value) bsSel.value = 0; // fall back to Fade if option does not exist
 	if (tr===0) gId('bsp').classList.add('hide')
 	else gId('bsp').classList.remove('hide')
 
@@ -3413,13 +3418,23 @@ function showVersionUpgradePrompt(info, oldVersion, newVersion) {
 
 function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 	showToast('Reporting upgrade...');
+	const IR_TYPES = {
+		0: null,           // not configured — omit field entirely
+		1: "24-key",       // white 24-key remote
+		2: "24-key-ct",    // white 24-key with CW, WW, CT+, CT- keys
+		3: "40-key",       // blue 40-key remote
+		4: "44-key",       // white 44-key remote
+		5: "21-key",       // white 21-key remote
+		6: "6-key",        // black 6-key learning remote
+		7: "9-key",        // 9-key remote
+		8: "json-remote",  // ir.json configurable remote
+	};
 
-	// Fetch fresh data from /json/info endpoint as requested
-	fetch(getURL('/json/info'), {
-		method: 'get'
-	})
-		.then(res => res.json())
-		.then(infoData => {
+	// Reuse the info argument and fetch only /json/cfg (serialize requests to avoid 503s on low-heap devices)
+	const infoData = info;
+	fetch(getURL('/json/cfg'), {method: 'get'})
+		.then(res => res.ok ? res.json() : Promise.reject(new Error('Failed to fetch /json/cfg')))
+		.then(cfgData => {
 			// Map to UpgradeEventRequest structure per OpenAPI spec
 			// Required fields: deviceId, version, previousVersion, releaseName, chip, ledCount, isMatrix, bootloaderSHA256
 			const upgradeData = {
@@ -3434,13 +3449,58 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 				brand: infoData.brand,                           // Device brand (always present)
 				product: infoData.product,                       // Product name (always present)
 				flashSize: infoData.flash,                       // Flash size (always present)
-				repo: infoData.repo                              // GitHub repository (always present)
-			};
+				repo: infoData.repo,                             // GitHub repository (always present)
+				fsUsed: infoData.fs?.u,                          // Filesystem used space in kB
+				fsTotal: infoData.fs?.t,                         // Filesystem total space in kB
+
+				// LED hardware
+				busCount:      cfgData.hw?.led?.ins?.length ?? 1,
+				busTypes:      (cfgData.hw?.led?.ins ?? []).map(b => busTypeToString(b.type)),
+				matrixWidth:   infoData.leds?.matrix?.w,
+				matrixHeight:  infoData.leds?.matrix?.h,
+				ledFeatures: [
+					...(infoData.leds?.lc & 0x02               ? ["rgbw"] : []),
+					...(infoData.leds?.lc & 0x04               ? ["cct"] : []),
+					...((infoData.leds?.maxpwr ?? 0) > 0       ? ["abl"] : []),
+					...(cfgData.hw?.led?.cr                    ? ["cct-from-rgb"] : []),
+					...(cfgData.hw?.led?.cct                   ? ["white-balance"] : []),
+					...((cfgData.light?.gc?.col ?? 1.0) > 1.0 || (cfgData.light?.gc?.bri ?? 1.0) > 1.0 ? ["gamma"] : []),
+					...(cfgData.light?.aseg                    ? ["auto-segments"] : []),
+					...((cfgData.light?.nl?.mode ?? 0) > 0     ? ["nightlight"] : []),
+				],
+
+				// peripherals (note: i2c/spi may reflect board defaults, not user-configured hardware)
+				peripherals: [
+					...((cfgData.hw?.relay?.pin ?? -1) >= 0                          ? ["relay"] : []),
+					...((cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length > 0 ? ["buttons"] : []),
+					...((cfgData.eth?.type ?? 0) > 0                                 ? ["ethernet"] : []),
+					...((cfgData.if?.live?.dmx?.inputRxPin ?? 0) > 0                 ? ["dmx-input"] : []),
+					...((cfgData.hw?.ir?.type ?? 0) > 0                              ? ["ir-remote"] : []),
+				],
+				buttonCount: (cfgData.hw?.btn?.ins ?? []).filter(b => b.type !== 0).length,
+
+				// integrations
+				integrations: [
+					...(cfgData.if?.hue?.en                    ? ["hue"] : []),
+					...(cfgData.if?.mqtt?.en                   ? ["mqtt"] : []),
+					...(cfgData.if?.va?.alexa                  ? ["alexa"] : []),
+					...(cfgData.if?.sync?.send?.en             ? ["wled-sync"] : []),
+					...(cfgData.nw?.espnow                     ? ["esp-now"] : []),
+					...(cfgData.if?.sync?.espnow               ? ["esp-now-sync"] : []),
+				],
+
+				// usermods
+				usermods:    Object.keys(cfgData.um ?? {}),
+				usermodIds:  infoData.um ?? [],
+			  };
+
+			// IR remote — only include if configured
+			const irType = IR_TYPES[cfgData.hw?.ir?.type ?? 0];
+			if (irType) upgradeData.irRemoteType = irType;
 
 			// Add optional fields if available
 			if (infoData.psrSz !== undefined) upgradeData.psramSize = infoData.psrSz;  // Total PSRAM size in MB; can be 0
 
-			// Note: partitionSizes not currently available in /json/info endpoint
 
 			// Make AJAX call to postUpgradeEvent API
 			return fetch('https://usage.wled.me/api/usage/upgrade', {
@@ -3469,6 +3529,17 @@ function reportUpgradeEvent(info, oldVersion, alwaysReport) {
 			showToast('Report failed', true);
 			updateVersionInfo(info.ver, false, !!alwaysReport);
 		});
+}
+
+function busTypeToString(t) {
+	if (t === 0)                       return "none";
+	if (t === 40)                      return "on-off";
+	if (t >= 16 && t <= 39)            return "digital";      // WS2812, SK6812, etc.
+	if (t >= 41 && t <= 47)            return "pwm";          // analog RGB/CCT/single
+	if (t >= 48 && t <= 63)            return "digital-spi";  // APA102, WS2801, etc.
+	if (t >= 64 && t <= 71)            return "hub75";        // HUB75 matrix panels
+	if (t >= 80 && t <= 95)            return "network";      // DDP, E1.31, ArtNet
+	return "unknown";
 }
 
 function updateVersionInfo(version, neverAsk, alwaysReport) {
