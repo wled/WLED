@@ -16,44 +16,11 @@
 		var pinsTimer=null, gpioInfo={};
 		function S() {
 			getLoc();
-			loadJS(getURL('/settings/s.js?p=11'), false, ()=>{
-				d.um_p = [];
-				d.rsvd = [];
-				d.ro_gpio = [];
-				d.max_gpio = 50;
-				d.touch = [];
-			}, ()=>{
-				// Load extended GPIO info and start pin polling
-				loadPins();
-				pinsTimer = setInterval(loadPins, 250);
-			});
+			fetchPinInfo(()=>{ loadPins(); pinsTimer=setInterval(loadPins,250); });
 		}
 
 		function B(){window.open(getURL('/settings'),'_self');} // back button
 
-		function getOwnerName(o,t,n) {
-			// Use firmware-provided name if available
-			if(n) return n;
-			if(!o) return "System"; // no owner provided
-			if(o===0x85){ return getBtnTypeName(t); } // button pin
-			return "UM #"+o;
-		}
-		function getBtnTypeName(t) {
-			var n=["None","Reserved","Push","Push Inv","Switch","PIR","Touch","Analog","Analog Inv","Touch Switch"];
-			var label = n[t] || "?";
-			return 'Button <span style="font-size:10px;color:#888">'+label+'</span>';
-		}
-		function getCaps(p,c) {
-			var r=[];
-			// Use touch info from settings endpoint
-			if(d.touch && d.touch.includes(p)) r.push("Touch");
-			if(d.ro_gpio && d.ro_gpio.includes(p)) r.push("Input Only");
-			// Use other caps from JSON (Analog, Boot, Input Only)
-			if(c&0x02) r.push("Analog");
-			if(c&0x08) r.push("Flash Boot");
-			if(c&0x10) r.push("Bootstrap");
-			return r.length?r.join(", "):"-";
-		}
 		function loadPins() {
 			fetch(getURL('/json/pins'),{method:'get'})
 			.then(r=>r.json())
