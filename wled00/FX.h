@@ -652,7 +652,6 @@ class Segment {
     inline static unsigned vHeight()                       { return Segment::_vHeight; }
     inline static uint32_t getCurrentColor(unsigned i)     { return Segment::_currentColors[i<NUM_COLORS?i:0]; }
     inline static const CRGBPalette16 &getCurrentPalette() { return Segment::_currentPalette; }
-
     void loadPalette(CRGBPalette16 &tgt, uint8_t pal);
 
     inline void setDrawDimensions() const { Segment::_vWidth = virtualWidth(); Segment::_vHeight = virtualHeight(); Segment::_vLength = virtualLength(); }
