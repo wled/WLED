@@ -212,7 +212,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
       if (!request->hasArg(lp)) {
-        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s+1);
+        DEBUG_PRINTF_P(PSTR("# of buses: %d\n"), s);
         break;
       }
       for (int i = 0; i < 5; i++) {
