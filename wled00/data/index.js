@@ -993,6 +993,8 @@ function populatePalettes()
 	let li = lastinfo;
 	if (!isEmpty(li) && li.cpalcount) {
 		for (let j = 0; j<li.cpalcount; j++) {
+			const pd = palettesData[255-j];
+			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip all gray gap-placeholder entries
 			let div = d.createElement("div");
 			gId('pallist').appendChild(div);
 			div.outerHTML = generateListItemHtml(
