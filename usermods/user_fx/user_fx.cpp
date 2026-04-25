@@ -179,7 +179,7 @@ static void mode_spinning_wheel(void) {
       }
     }
   }
-
+ 
   struct virtualStrip {
     static void runStrip(uint16_t stripNr, uint32_t* state, bool settingsChanged, bool allReadyToRestart, unsigned strips) {
       uint8_t phase = state[PHASE_IDX];
@@ -236,7 +236,7 @@ static void mode_spinning_wheel(void) {
 
       uint32_t pos_fixed = state[CUR_POS_IDX];
       uint32_t velocity = state[VELOCITY_IDX];
-
+      
       // Phase management
       if (phase == 0) {
         // Fast spinning phase
