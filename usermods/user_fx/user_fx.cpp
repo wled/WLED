@@ -1258,6 +1258,212 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+/*
+ * Dissolve Plus
+ *   Modifications to original Dissolve effect by Bob Loeffler
+ *   slider 1 is for the delay interval between dissolving and filling
+ *   slider 2 is for the dissolving speed
+ *   slider 3 is for the filling speed
+ *   slider 4 is for the delay when only one LED is lit and when in lastOne mode (not used if Last One checkbox is not selected)
+ *     If set to max value (255), the effect will not redraw any LEDs, so this can be used with a playlist and physical button to,
+ *     for example, restart the animation by unchecking checkbox 3 in a preset and then checking it again with another preset.
+ *     This was requested in https://github.com/wled/WLED/issues/1044
+ *   slider 5 is for the rate at which the LEDs will fade away (if set to 0, they will immediately change to the background color; this is the original Dissolve FX rate)
+ *   checkbox 1 is to select random colors
+ *   checkbox 2 is to force it to wait until all LEDs have been completely filled or dissolved
+ *   checkbox 3 is to select whether one last LED will stay lit (like a "last one standing" or "sole survivor")
+ *   aux0: 3 packed values: phase/stage of dissolve/refill process, whether done dissolving/refilling, and previous value of lastOneMode
+ *   aux1: random survivor pixel index
+ */
+#define DISSOLVE_PHASE          (SEGENV.aux0 & 0xFF)
+#define DISSOLVE_DONE           ((SEGENV.aux0 >> 8) & 0x01)
+#define DISSOLVE_PREV_LAST_ONE  ((SEGENV.aux0 >> 9) & 0x01)
+#define SET_PHASE(p)            (SEGENV.aux0 = (SEGENV.aux0 & 0xFF00) | (p))
+#define SET_DONE(d)             (SEGENV.aux0 = (SEGENV.aux0 & 0xFEFF) | ((d) << 8))
+#define SET_PREV_LAST_ONE(d)    (SEGENV.aux0 = (SEGENV.aux0 & 0xFDFF) | ((d) << 9))
+
+static void mode_dissolveplus(void) {
+  if (SEGLEN < 1) FX_FALLBACK_STATIC;
+  unsigned dataSize = sizeof(uint32_t) * (SEGLEN + 1);
+  if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
+  uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
+  uint32_t& storedBg = pixels[SEGLEN];
+
+  constexpr unsigned PHASE_FILL = 0;
+  constexpr unsigned PHASE_DISSOLVE = 1;
+  constexpr unsigned PHASE_FILL_SURVIVOR = 2;
+  constexpr unsigned PHASE_DISSOLVE_SURVIVOR = 3;
+  constexpr unsigned PHASE_PAUSE_SURVIVOR = 4;
+
+  bool lastOneMode = SEGMENT.check3;
+
+  if (SEGENV.call == 0) {
+    for (unsigned i = 0; i < SEGLEN; i++) pixels[i] = SEGCOLOR(1);
+    storedBg = SEGCOLOR(1);
+    SET_PHASE(PHASE_DISSOLVE);
+    SEGENV.aux1 = hw_random16(SEGLEN);
+    SET_DONE(0);
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  } else if (storedBg != SEGCOLOR(1)) {
+    for (unsigned i = 0; i < SEGLEN; i++) {
+      if (pixels[i] == storedBg) pixels[i] = SEGCOLOR(1);
+    }
+    storedBg = SEGCOLOR(1);
+  }
+
+  // Restart if lastOneMode changed to true
+  if ((bool)DISSOLVE_PREV_LAST_ONE != lastOneMode) {
+    if (lastOneMode) {
+      SET_PHASE(PHASE_DISSOLVE);
+      unsigned attempts = 0;
+      do {
+        SEGENV.aux1 = hw_random16(SEGLEN);
+        attempts++;
+      } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
+    } else {
+      if (DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR) {
+        SET_PHASE(PHASE_DISSOLVE);
+      } else if (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR) {
+        SET_PHASE(PHASE_FILL);      
+      }
+    }
+    SET_DONE(0);
+    SEGENV.step = 0;
+    SET_PREV_LAST_ONE(lastOneMode ? 1 : 0);
+  }
+
+  // Phase 4: pause and keep only one pixel lit
+  if (DISSOLVE_PHASE == PHASE_PAUSE_SURVIVOR) {
+    uint16_t lastOneDelay = SEGMENT.custom2 << 1;
+    if (lastOneDelay < 1) lastOneDelay = 1;
+    bool freezeForever = lastOneMode && SEGMENT.custom2 == 255;
+    if (freezeForever) {
+      SEGENV.step++;
+      return;
+    }
+    if (SEGENV.step >= lastOneDelay) {
+      SEGENV.step = 0;
+      SET_PHASE(PHASE_FILL_SURVIVOR);
+      SET_DONE(0);
+    } else {
+      SEGENV.step++;
+    }
+    for (unsigned i = 0; i < SEGLEN; i++)
+      SEGMENT.setPixelColor(i, pixels[i]);
+    return;
+  }
+
+  bool filling = (DISSOLVE_PHASE == PHASE_FILL || DISSOLVE_PHASE == PHASE_FILL_SURVIVOR);
+  bool forceComplete = lastOneMode && (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR || DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR);
+
+  for (unsigned j = 0; j <= SEGLEN / 15; j++) {
+    if (hw_random8() <= (filling ? SEGMENT.custom1 : SEGMENT.intensity)) { // set the fill or dissolve speed
+      for (size_t times = 0; times < 10; times++) { //attempt to spawn a new pixel 10 times
+        unsigned i = hw_random16(SEGLEN);
+        if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
+
+        if (filling) { // fill with primary/palette color
+          if (pixels[i] == storedBg) {
+            uint32_t c;
+            if (SEGMENT.check1) {
+              uint8_t pId = SEGMENT.palette;
+              c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
+              if (c == SEGCOLOR(1)) c ^= 0x00000001;  // flip the last bit to make sure it is slightly different than the background color
+              pixels[i] = c;
+            } else {
+              c = SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0);
+              if (c == SEGCOLOR(1)) c ^= 0x00000001;
+              pixels[i] = c;
+            }
+            break;
+          }
+        } else {  //dissolve to secondary/background color
+          if (pixels[i] != storedBg) {
+            uint8_t fadeRate = SEGENV.custom3;  // (slider values are 0 -> 31)
+            if (fadeRate > 0) {  // fade progressively towards the background color by the fadeRate value
+              uint32_t c = color_blend(pixels[i], SEGCOLOR(1), fadeRate << 2);
+              pixels[i] = c;
+            } else {  // quickly fade to the background color if 0 is selected on custom3 slider)
+              pixels[i] = storedBg;
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if (lastOneMode && (DISSOLVE_PHASE == PHASE_FILL_SURVIVOR || DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR)) {
+    if (pixels[SEGENV.aux1] == SEGCOLOR(1)) {
+      uint32_t c;
+      if (SEGMENT.check1) {
+        uint8_t pId = SEGMENT.palette;
+        c = (pId == 0) ? SEGMENT.color_wheel(hw_random8()) : SEGMENT.color_from_palette(hw_random16(SEGLEN), true, PALETTE_SOLID_WRAP, 0);
+      } else {
+        c = SEGMENT.color_from_palette(SEGENV.aux1, true, PALETTE_SOLID_WRAP, 0);
+      }
+      if (c == SEGCOLOR(1)) c ^= 0x00000001;
+      pixels[SEGENV.aux1] = c;
+    }
+  }
+
+  unsigned incompletePixels = 0;
+  for (unsigned i = 0; i < SEGLEN; i++) {
+    SEGMENT.setPixelColor(i, pixels[i]); // fix for #4401
+    if (SEGMENT.check2 || forceComplete) {
+      if (lastOneMode && DISSOLVE_PHASE == PHASE_DISSOLVE_SURVIVOR && i == SEGENV.aux1) continue;
+      if (filling) {
+        if (pixels[i] == storedBg) incompletePixels++;
+      } else {
+        if (pixels[i] != storedBg) incompletePixels++;
+      }
+    }
+  }
+
+  if ((SEGMENT.check2 || forceComplete) && incompletePixels == 0 && !DISSOLVE_DONE) {
+    SET_DONE(1);
+    SEGENV.step = 0;
+  }
+
+  bool stepReady = (DISSOLVE_DONE || (!SEGMENT.check2 && !forceComplete)) && SEGENV.step > (255 - SEGMENT.speed) + 15U;
+
+  if (stepReady) {
+    SEGENV.step = 0;
+    SET_DONE(0);
+    if (!lastOneMode) {
+      SET_PHASE(DISSOLVE_PHASE == PHASE_FILL ? PHASE_DISSOLVE : PHASE_FILL);
+    } else {
+      switch (DISSOLVE_PHASE) {
+        case PHASE_FILL: SET_PHASE(PHASE_DISSOLVE); break;
+        case PHASE_DISSOLVE: SET_PHASE(PHASE_FILL_SURVIVOR); break;
+        case PHASE_FILL_SURVIVOR: {
+          unsigned attempts = 0;
+          do {
+            SEGENV.aux1 = hw_random16(SEGLEN);
+            attempts++;
+          } while (pixels[SEGENV.aux1] == SEGCOLOR(1) && attempts < SEGLEN);
+          SET_PHASE(PHASE_DISSOLVE_SURVIVOR);
+          break;
+        }
+        case PHASE_DISSOLVE_SURVIVOR: SET_PHASE(PHASE_PAUSE_SURVIVOR); break;
+        case PHASE_PAUSE_SURVIVOR: SET_PHASE(PHASE_FILL_SURVIVOR); break;
+      }
+    }
+  } else {
+    SEGENV.step++;
+  }
+}
+#undef DISSOLVE_PHASE
+#undef DISSOLVE_DONE
+#undef DISSOLVE_PREV_LAST_ONE
+#undef SET_PHASE
+#undef SET_DONE
+#undef SET_PREV_LAST_ONE
+
+static const char _data_FX_MODE_DISSOLVEPLUS[] PROGMEM = "Dissolve Plus@Repeat speed,Dissolve speed,Fill speed,Last one delay,Fade rate,Random,Complete,Last one;!,!;!;;o2=1";
+
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1272,6 +1478,7 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
+    strip.addEffect(255, &mode_dissolveplus, _data_FX_MODE_DISSOLVEPLUS);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
