@@ -269,7 +269,10 @@ void loadCustomPalettes() {
     char fileName[32];
     sprintf_P(fileName, PSTR("/palette%d.json"), index);
     if (WLED_FS.exists(fileName)) {
-      emptyPaletteGap = 0; // reset gap counter if file exists
+      // add gray placeholders to preserve palette IDs for subsequent slots (is omitted in UI but shown in cpal.htm)
+      for (unsigned g = 0; g < emptyPaletteGap; g++)
+        customPalettes.push_back(CRGBPalette16(CRGB(128, 128, 128)));
+      emptyPaletteGap = 0;  // reset gap counter if file exists
       DEBUGFX_PRINTF_P(PSTR("Reading palette from %s\n"), fileName);
       if (readObjectFromFile(fileName, nullptr, &pDoc)) {
         JsonArray pal = pDoc[F("palette")];
