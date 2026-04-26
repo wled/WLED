@@ -231,6 +231,7 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   // then come user custom palettes (IDs <=200) and usermod palettes (IDs 201-255), both growing downward from their respective base IDs
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
   // instructed in color_from_palette()
+  if (pal == 0) pal = _default_palette; // _default_palette is set in setMode(), differs depending on effect
   const int umCount   = usermodPalettes.size();
   const int custCount = customPalettes.size();
   if (pal >= FIXED_PALETTE_COUNT) {
@@ -240,8 +241,6 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       if ((WLED_CUSTOM_PALETTE_ID_BASE - pal) >= custCount) pal = 0;
     }
   }
-  //default palette. Differs depending on effect
-  if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_gc22;
