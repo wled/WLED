@@ -600,7 +600,7 @@ WLED_GLOBAL bool wasConnected _INIT(false);
 // color
 WLED_GLOBAL byte lastRandomIndex _INIT(0);        // used to save last random color so the new one is not the same
 WLED_GLOBAL std::vector<CRGBPalette16> customPalettes;  // custom palettes (file-based, IDs grow downwards starting at 200)
-WLED_GLOBAL std::vector<UsermodnPalette> usermodPalettes; // usermod-registered palettes (IDs 255, 254, 253...)
+WLED_GLOBAL std::vector<UsermodPalette> usermodPalettes; // usermod-registered palettes (IDs 255, 254, 253...)
 WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wrapping of palette: 0: blend, wrap if moving (SEGMENT.speed>0); 1: blend, always wrap; 2: blend, never wrap; 3: don't blend or wrap
 
 // transitions
