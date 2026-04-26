@@ -64,12 +64,12 @@ CRGBPalette16 generateRandomPalette();
 // Palette registered by a usermod at fixed IDs (255, 254, 253... 201), palette name will be name + index (e.g. "AudioReactive 1"), see util.cpp
 struct UsermodnPalette {
   CRGBPalette16 palette;
-  const char   *name;      // PROGMEM base name string (must not be nullptr), this name is used in removeusermodPalettes()
+  const char   *name;      // PROGMEM base name string (must not be nullptr), this name is used in removeUsermodPalettes()
   uint8_t       palIndex;  // index of the palette for a usermod
 };
 
 void loadCustomPalettes();
-size_t removeusermodPalettes(const char *name); // remove all entries from usermodPalettes whose name pointer matches 'name'
+size_t removeUsermodPalettes(const char *name); // remove all entries from usermodPalettes whose name pointer matches 'name'
 extern std::vector<CRGBPalette16> customPalettes;
 extern std::vector<UsermodnPalette> usermodPalettes;
 inline size_t getPaletteCount() { return FIXED_PALETTE_COUNT + usermodPalettes.size() + customPalettes.size(); }

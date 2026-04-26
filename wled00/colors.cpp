@@ -312,7 +312,7 @@ void loadCustomPalettes() {
   }
 }
 
-size_t removeusermodPalettes(const char *name) {
+size_t removeUsermodPalettes(const char *name) {
   size_t before = usermodPalettes.size();
   for (int i = usermodPalettes.size() - 1; i >= 0; i--) {
     if (usermodPalettes[i].name == name)
