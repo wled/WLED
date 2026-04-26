@@ -1,6 +1,9 @@
 #pragma once
 #ifndef WLED_FCN_DECLARE_H
 #define WLED_FCN_DECLARE_H
+#include <dynarray.h>
+
+#include "colors.h"
 
 /*
  * All globally accessible functions are declared here
@@ -99,9 +102,9 @@ void handleDMXInput();
 //e131.cpp
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
-void handleArtnetPollReply(IPAddress ipAddress);
-void prepareArtnetPollReply(ArtPollReply* reply);
-void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t portAddress);
+// void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
+// void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp
+// void sendArtnetPollReply(ArtPollReply* reply, IPAddress ipAddress, uint16_t portAddress); // local function, only used in e131.cpp
 
 //file.cpp
 bool handleFileRead(AsyncWebServerRequest*, String path);
@@ -173,7 +176,7 @@ void serializeSegment(const JsonObject& root, const Segment& seg, byte id, bool 
 void serializeState(JsonObject root, bool forPreset = false, bool includeBri = true, bool segmentBounds = true, bool selectedSegmentsOnly = false);
 void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
-void serializeModeData(JsonArray fxdata);
+void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
@@ -207,8 +210,8 @@ void publishMqtt();
 //ntp.cpp
 void handleTime();
 void handleNetworkTime();
-void sendNTPPacket();
-bool checkNTPResponse();
+// void sendNTPPacket();    // local function, only used in ntp.cpp
+// bool checkNTPResponse(); // local function, only used in ntp.cpp
 void updateLocalTime();
 void getTimeString(char* out);
 bool checkCountdown();
@@ -219,10 +222,38 @@ void checkTimers();
 void calculateSunriseAndSunset();
 void setTimeFromAPI(uint32_t timein);
 
+const uint8_t TH_SUNRISE = 255;
+const uint8_t TH_SUNSET = 254;
+
+struct Timer {
+  uint8_t preset;
+  uint8_t hour;
+  int8_t minute;
+  uint8_t weekdays;
+  uint8_t monthStart;
+  uint8_t monthEnd;
+  uint8_t dayStart;
+  uint8_t dayEnd;
+  inline bool isEnabled() const { return (weekdays & 0x01) && (preset != 0); }
+  inline bool isSunrise() const { return hour == TH_SUNRISE; }
+  inline bool isSunset() const { return hour == TH_SUNSET; }
+  inline bool isRegular() const { return hour < TH_SUNSET; }
+  Timer() : preset(0), hour(0), minute(0), weekdays(255), monthStart(1), monthEnd(12), dayStart(1), dayEnd(31) {}
+  Timer(uint8_t p, uint8_t h, int8_t m, uint8_t wd, uint8_t ms = 1, uint8_t me = 12, uint8_t ds = 1, uint8_t de = 31)
+    : preset(p), hour(h), minute(m), weekdays(wd), monthStart(ms), monthEnd(me), dayStart(ds), dayEnd(de) {}
+};
+
+void addTimer(uint8_t preset, uint8_t hour, int8_t minute, uint8_t weekdays,
+              uint8_t monthStart = 1, uint8_t monthEnd = 12, uint8_t dayStart = 1, uint8_t dayEnd = 31);
+void removeTimer(size_t index);
+void clearTimers();
+size_t getTimerCount();
+void compactTimers();
+
 //overlay.cpp
 void handleOverlayDraw();
-void _overlayAnalogCountdown();
-void _overlayAnalogClock();
+// void _overlayAnalogCountdown();  // local function, only used in overlay.cpp
+// void _overlayAnalogClock();      // local function, only used in overlay.cpp
 
 //playlist.cpp
 void shufflePlaylist();
@@ -275,6 +306,7 @@ void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
 int  findWiFi(bool doScan = false);
 bool isWiFiConfigured();
+void installIPv6RABlocker();
 void WiFiEvent(WiFiEvent_t event);
 
 //um_manager.cpp
@@ -380,7 +412,7 @@ namespace UsermodManager {
 };
 
 // Register usermods by building a static list via a linker section
-#define REGISTER_USERMOD(x) Usermod* const um_##x __attribute__((__section__(".dtors.tbl.usermods.1"), used)) = &x
+#define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
 //usermod.cpp
 void userSetup();
@@ -407,8 +439,11 @@ size_t printSetFormValue(Print& settingsScript, const char* key, int val);
 size_t printSetFormValue(Print& settingsScript, const char* key, const char* val);
 size_t printSetFormIndex(Print& settingsScript, const char* key, int index);
 size_t printSetClassElementHTML(Print& settingsScript, const char* key, const int index, const char* val);
-void prepareHostname(char* hostname);
+void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS=false); // maxLen = hostname buffer size including \0; if preferMDNSname=true, use mdns name (sanitized)
+void prepareHostname(char* hostname, size_t maxLen);                        // legacy function - not recommended for new code
 [[gnu::pure]] bool isAsterisksOnly(const char* str, byte maxLen);
+uint32_t utf8_decode(const char *s, uint8_t *len);
+size_t utf8_strlen(const char *s);
 bool requestJSONBufferLock(uint8_t moduleID=JSON_LOCK_UNKNOWN);
 void releaseJSONBufferLock();
 uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLen);
@@ -418,9 +453,13 @@ void checkSettingsPIN(const char *pin);
 uint16_t crc16(const unsigned char* data_p, size_t length);
 String computeSHA1(const String& input);
 String getDeviceId();
-uint16_t beatsin88_t(accum88 beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint16_t beatsin16_t(accum88 beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
-uint8_t beatsin8_t(accum88 beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+uint16_t beat88(uint16_t beats_per_minute_88, uint32_t timebase = 0);
+uint16_t beat16(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint8_t beat8(uint16_t beats_per_minute, uint32_t timebase = 0);
+uint16_t beatsin88_t(uint16_t beats_per_minute_88, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint16_t beatsin16_t(uint16_t beats_per_minute, uint16_t lowest = 0, uint16_t highest = 65535, uint32_t timebase = 0, uint16_t phase_offset = 0);
+uint8_t beatsin8_t(uint16_t beats_per_minute, uint8_t lowest = 0, uint8_t highest = 255, uint32_t timebase = 0, uint8_t phase_offset = 0);
+
 um_data_t* simulateSound(uint8_t simulationId);
 void enumerateLedmaps();
 [[gnu::hot]] uint8_t get_random_wheel_index(uint8_t pos);
@@ -513,6 +552,9 @@ class JSONBufferGuard {
 };
 
 //wled_math.cpp
+#define sin_t sin_approx
+#define cos_t cos_approx
+#define tan_t tan_approx
 //float cos_t(float phi); // use float math
 //float sin_t(float phi);
 //float tan_t(float x);
@@ -530,9 +572,6 @@ template <typename T> T atan_t(T x);
 float floor_t(float x);
 float fmod_t(float num, float denom);
 uint32_t sqrt32_bw(uint32_t x);
-#define sin_t sin_approx
-#define cos_t cos_approx
-#define tan_t tan_approx
 
 /*
 #include <math.h>  // standard math functions. use a lot of flash
@@ -545,6 +584,7 @@ uint32_t sqrt32_bw(uint32_t x);
 #define fmod_t fmodf
 #define floor_t floorf
 */
+
 //wled_serial.cpp
 void handleSerial();
 void updateBaudRate(uint32_t rate);

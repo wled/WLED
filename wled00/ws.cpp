@@ -5,15 +5,18 @@
  */
 #ifdef WLED_ENABLE_WEBSOCKETS
 
+// forward declarations
+static bool sendLiveLedsWs(uint32_t wsClient);
+
 // define some constants for binary protocols, dont use defines but C++ style constexpr
 constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT IMPLEMENTED
 constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
 constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
 constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
 
-uint16_t wsLiveClientId = 0;
-unsigned long wsLastLiveTime = 0;
-//uint8_t* wsFrameBuffer = nullptr;
+static uint16_t wsLiveClientId = 0;
+static unsigned long wsLastLiveTime = 0;
+//static uint8_t* wsFrameBuffer = nullptr;
 
 #define WS_LIVE_INTERVAL 40
 
@@ -77,10 +80,11 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
           // force broadcast in 500ms after updating client
           //lastInterfaceUpdate = millis() - (INTERFACE_UPDATE_COOLDOWN -500); // ESP8266 does not like this
         }
-      }else if (info->opcode == WS_BINARY) {
+      } else if (info->opcode == WS_BINARY) {
         // first byte determines protocol. Note: since e131_packet_t is "packed", the compiler handles alignment issues
         //DEBUG_PRINTF_P(PSTR("WS binary message: len %u, byte0: %u\n"), len, data[0]);
-        int offset = 1; // offset to skip protocol byte
+        constexpr int offset = 1; // offset to skip protocol byte
+        if (!data || len < offset+1) return; // catch invalid / single-byte payload
         switch (data[0]) {
           case BINARY_PROTOCOL_E131:
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_E131);
@@ -92,7 +96,7 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
             if (len < 10 + offset) return; // DDP header is 10 bytes (+1 protocol byte)
             size_t ddpDataLen = (data[8+offset] << 8) | data[9+offset]; // data length in bytes from DDP header
             uint8_t flags = data[0+offset];
-            if ((flags & DDP_TIMECODE_FLAG) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
+            if ((flags & DDP_FLAGS_TIME) ) ddpDataLen += 4; // timecode flag adds 4 bytes to data length
             if (len < (10 + offset + ddpDataLen)) return; // not enough data, prevent out of bounds read
             // could be a valid DDP packet, forward to handler
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_DDP);
@@ -185,7 +189,7 @@ void sendDataWs(AsyncWebSocketClient * client)
   releaseJSONBufferLock();
 }
 
-bool sendLiveLedsWs(uint32_t wsClient)
+static bool sendLiveLedsWs(uint32_t wsClient)
 {
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free

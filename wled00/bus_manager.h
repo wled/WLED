@@ -6,7 +6,7 @@
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
-#include <FastLED.h>
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 
 #endif
 /*
@@ -17,6 +17,9 @@
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
+#ifdef ARDUINO_ARCH_ESP32
+#include "asyncDNS.h"
+#endif
 
 #if __cplusplus >= 201402L
 using std::make_unique;
@@ -140,7 +143,8 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
-    virtual size_t   getBusSize() const                         { return sizeof(Bus); }
+    virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
+    virtual size_t   getBusSize() const                         { return sizeof(Bus); } // currently unused
     virtual const String getCustomText() const                  { return String(); }
 
     inline  bool     hasRGB() const                             { return _hasRgb; }
@@ -200,9 +204,9 @@ class Bus {
     static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
-    static inline uint8_t  getCCTBlend()              { return (_cctBlend * 100 + 64) / 127; } // returns 0-100, 100% = 127. +64 for rounding
-    static inline void     setCCTBlend(uint8_t b) {        // input is 0-100
-      _cctBlend = (std::min((int)b,100) * 127 + 50) / 100; // +50 for rounding, b=100% -> 127
+    static inline int8_t   getCCTBlend()              { return (_cctBlend * 100 + (_cctBlend >= 0 ? 64 : -64)) / 127; } // returns -100 to +100, +/-100% = +/-127. +/-64 for rounding 
+    static inline void     setCCTBlend(int8_t b) {    // input is -100 to +100
+      _cctBlend = (std::max(-100, std::min(100, (int)b)) * 127 + (b >= 0 ? 50 : -50)) / 100; // +/-50 for rounding, b=+/-100% -> +/-127
       //compile-time limiter for hardware that can't power both white channels at max
       #ifdef WLED_MAX_CCT_BLEND
         if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
@@ -231,19 +235,20 @@ class Bus {
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
     static int16_t _cct;
-    // _cctBlend determines WW/CW blending:
+    // _cctBlend determines WW/CW blending, see calculateCCT()
+    //  < 0 - linear blending in center, single white at both ends, single white zone extends with decreased value (-127 min)
     //    0 - linear (CCT 127 => 50% warm, 50% cold)
     //   63 - semi additive/nonlinear (CCT 127 => 66% warm, 66% cold)
     //  127 - additive CCT blending (CCT 127 => 100% warm, 100% cold)
-    static uint8_t _cctBlend;
+    static int8_t _cctBlend;
 
-    uint32_t autoWhiteCalc(uint32_t c) const;
+    uint32_t autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const;
 };
 
 
 class BusDigital : public Bus {
   public:
-    BusDigital(const BusConfig &bc, uint8_t nr);
+    BusDigital(const BusConfig &bc);
     ~BusDigital() { cleanup(); }
 
     void show() override;
@@ -259,10 +264,12 @@ class BusDigital : public Bus {
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getUsedCurrent() const override { return _milliAmpsTotal; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    uint8_t  getDriverType() const override  { return _driverType; }
     void     setCurrentLimit(uint16_t milliAmps) { _milliAmpsLimit = milliAmps; }
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
+    bool isI2S(); // true if this bus uses I2S driver
     void begin() override;
     void cleanup();
 
@@ -273,6 +280,7 @@ class BusDigital : public Bus {
     uint8_t  _colorOrder;
     uint8_t  _pins[2];
     uint8_t  _iType;
+    uint8_t  _driverType; // 0=RMT (default), 1=I2S
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
     uint8_t  _milliAmpsPerLed;
@@ -391,6 +399,7 @@ class BusPlaceholder : public Bus {
     uint16_t getFrequency() const override   { return _frequency; }
     uint16_t getLEDCurrent() const override  { return _milliAmpsPerLed; }
     uint16_t getMaxCurrent() const override  { return _milliAmpsMax; }
+    uint8_t  getDriverType() const override  { return _driverType; }
     const String getCustomText() const override { return _text; }
     bool     isPlaceholder() const override  { return true; }
 
@@ -400,6 +409,7 @@ class BusPlaceholder : public Bus {
     uint8_t _colorOrder;
     uint8_t _skipAmount;
     uint8_t _pins[OUTPUT_MAX_PINS];
+    uint8_t _driverType;
     uint16_t _frequency;
     uint8_t _milliAmpsPerLed;
     uint16_t _milliAmpsMax;
@@ -455,9 +465,11 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
+  uint8_t driverType; // 0=RMT (default), 1=I2S
+  uint8_t iType; // internal bus type (I_*) determined during memory estimation, used for bus creation
   String text;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, String sometext = "")
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -467,13 +479,15 @@ struct BusConfig {
   , frequency(clock_kHz)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
+  , driverType(driver)
+  , iType(0) // default to I_NONE
   , text(sometext)
   {
     refreshReq = (bool) GET_BIT(busType,7);
     type = busType & 0x7F;  // bit 7 may be/is hacked to include refresh info (1=refresh in off state, 0=no refresh)
     size_t nPins = Bus::getNumberOfPins(type);
     for (size_t i = 0; i < nPins; i++) pins[i] = ppins[i];
-    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d)\n"),
+    DEBUGBUS_PRINTF_P(PSTR("Bus: Config (%d-%d, type:%d, CO:%d, rev:%d, skip:%d, AW:%d kHz:%d, mA:%d/%d, driver:%s)\n"),
       (int)start, (int)(start+len),
       (int)type,
       (int)colorOrder,
@@ -481,7 +495,8 @@ struct BusConfig {
       (int)skipAmount,
       (int)autoWhite,
       (int)frequency,
-      (int)milliAmpsPerLed, (int)milliAmpsMax
+      (int)milliAmpsPerLed, (int)milliAmpsMax,
+      driverType == 0 ? "RMT" : "I2S"
     );
   }
 
@@ -497,7 +512,7 @@ struct BusConfig {
     return true;
   }
 
-  size_t memUsage(unsigned nr = 0) const;
+  size_t memUsage() const;
 };
 
 
@@ -528,7 +543,6 @@ namespace BusManager {
     return j;
   }
 
-  size_t          memUsage();
   inline uint16_t currentMilliamps()            { return _gMilliAmpsUsed + MA_FOR_ESP; }
   //inline uint16_t ablMilliampsMax()             { unsigned sum = 0; for (auto &bus : busses) sum += bus->getMaxCurrent(); return sum; }
   inline uint16_t ablMilliampsMax()             { return _gMilliAmpsMax; }  // used for compatibility reasons (and enabling virtual global ABL)
@@ -536,8 +550,7 @@ namespace BusManager {
   void            initializeABL();              // setup automatic brightness limiter parameters, call once after buses are initialized
   void            applyABL();                   // apply automatic brightness limiter, global or per bus
 
-  void useParallelOutput(); // workaround for inaccessible PolyBus
-  bool hasParallelOutput(); // workaround for inaccessible PolyBus
+  uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference); // workaround for access to PolyBus function from FX_fcn.cpp
 
   //do not call this method from system context (network callback)
   void removeAll();

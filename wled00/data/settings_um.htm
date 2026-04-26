@@ -7,7 +7,6 @@
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var umCfg = {};
-	var pins = [], pinO = [], owner;
 	var urows;
 	var numM = 0;
 	// load common.js with retry on error
@@ -32,12 +31,12 @@
 		})
 		.then(json => {
 			umCfg = json.um;
-			getPins(json);
 			urows="";
 			if (isO(umCfg)) {
 				for (const [k,o] of Object.entries(umCfg)) {
-					urows += `<hr><h3>${k}</h3>`;
+					urows += `<div class="sec"><h3>${k}</h3>`;
 					addField(k,'unknown',o);
+					urows += `</div>`;
 				}
 			}
 			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
@@ -49,11 +48,9 @@
 				d.ro_gpio = [];
 				d.extra = [];
 			}, ()=>{
-				for (let r of d.rsvd) { pins.push(r); pinO.push("rsvd"); } // reserved pins
 				if (d.um_p[0]==-1) d.um_p.shift();	// remove filler
 				d.Sf.SDA.max = d.Sf.SCL.max = d.Sf.MOSI.max = d.Sf.SCLK.max = d.Sf.MISO.max = d.max_gpio;
-				//for (let i of d.getElementsByTagName("input")) if (i.type === "number" && i.name.replace("[]","").substr(-3) === "pin") i.max = d.max_gpio;
-				pinDD(); // convert INPUT to SELECT for pins
+				fetchPinInfo(pinDD); // load pin occupancy, then convert INPUT to SELECT for pins
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 		})
 		.catch((error)=>{
@@ -89,28 +86,7 @@
 		}
 		*/
 	}
-	function getPins(o) {
-		if (isO(o)) {
-			for (const [k,v] of Object.entries(o)) {
-				if (isO(v)) {
-					let oldO = owner; // keep parent name
-					owner = k;
-					getPins(v);
-					owner = oldO;
-					continue;
-				}
-				if (k.replace("[]","").substr(-3)=="pin") {
-					if (Array.isArray(v)) {
-						for (var i=0; i<v.length; i++) if (v[i]>=0) { pins.push(v[i]); pinO.push(owner); }
-					} else {
-						if (v>=0) { pins.push(v); pinO.push(owner); }
-					}
-				} else if (Array.isArray(v)) {
-					for (var i=0; i<v.length; i++) getPins(v[i]);
-				}
-			}
-		}
-	}
+
 	function initCap(s) {
   		if (typeof s !== 'string') return '';
 		// https://www.freecodecamp.org/news/how-to-capitalize-words-in-javascript/
@@ -160,15 +136,17 @@
 			if (i.type === "number" && (i.name.includes("pin") || ["SDA","SCL","MOSI","MISO","SCLK"].includes(i.name))) { //select all pin select elements
 				let v = parseInt(i.value);
 				let sel = addDD(i.name,0);
+				if (!sel) continue;
 				for (var j = -1; j < d.max_gpio; j++) {
-					if (d.rsvd.includes(j)) continue;
-					let foundPin = pins.indexOf(j);
+					if (j > -1 && d.rsvd && d.rsvd.includes(j)) continue;
+					let pInfo = d.pinsData && d.pinsData.find(p => p.p === j);
+					let used = j > -1 && pInfo && pInfo.a && j !== v; // add owner info if used and not "our" pin
 					let txt = (j === -1) ? "unused" : `${j}`;
-					if (foundPin >= 0 && j !== v) txt += ` ${pinO[foundPin]=="if"?"global":pinO[foundPin]}`; // already reserved pin
-					if (d.ro_gpio.includes(j)) txt += " (R/O)";
+					if (used) txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
+					if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (input only)"; // read-only pin
 					let opt = addO(sel, txt, j);
 					if (j === v) opt.selected = true; // this is "our" pin
-					else if (pins.includes(j)) opt.disabled = true; // someone else's pin
+					else if (used) opt.disabled = true; // someone else's pin
 				}
 				let um = i.name.split(":")[0];
 				d.extra.forEach((o)=>{
@@ -203,7 +181,7 @@
 						i.disabled = true;
 						i.text += ` ${txt}`;
 					}
-					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (R/O)";
+					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (input only)"; // read-only pin
 				}
 			});
 		}
@@ -290,18 +268,20 @@
 		<span id="lserr" style="color:red; display:none">&#9888; Could not load configuration.</span><hr>
 		</div>
 		<h2>Usermod Setup</h2>
-		Global I<sup>2</sup>C GPIOs (HW)<br>
-		<i class="warn">(change requires reboot!)</i><br>
-		SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
-		SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL">
-		<hr class="sml">
-		Global SPI GPIOs (HW)<br>
-		<i class="warn">(only changable on ESP32, change requires reboot!)</i><br>
-		MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
-		MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
-		SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK">
-		<hr class="sml">
-		Reboot after save? <input type="checkbox" name="RBT"><br>
+		<div class="sec">
+			<h3>Global I<sup>2</sup>C & SPI</h3>
+			
+			<b>I<sup>2</sup>C GPIOs (HW)</b><br>
+			SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
+			SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL"><br>
+			<br><b>SPI GPIOs (HW)</b><br>
+			<i class="warn">only changable on ESP32</i><br>
+			MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
+			MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
+			SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK"><br>
+			<br><i class="warn">change requires reboot!</i><br>
+			Reboot after save? <input type="checkbox" name="RBT">
+		</div>
 		<div id="um">Loading settings...</div>
 		<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
