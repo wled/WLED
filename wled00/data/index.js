@@ -989,20 +989,35 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// append custom palettes (when loading for the 1st time)
+	// append usermod palettes (fixed ID space: 255 down to 201)
 	let li = lastinfo;
-	if (!isEmpty(li) && li.cpalcount) {
-		for (let j = 0; j<li.cpalcount; j++) {
-			const pd = palettesData[255-j];
-			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip all gray gap-placeholder entries
+	if (!isEmpty(li) && li.umpalcount && li.umpalnames) {
+		for (let j = 0; j < li.umpalcount; j++) {
 			let div = d.createElement("div");
 			gId('pallist').appendChild(div);
 			div.outerHTML = generateListItemHtml(
 				'palette',
 				255-j,
-				'~ Custom '+j+' ~',
+				li.umpalnames[j],
 				'setPalette',
 				`<div class="lstIprev" style="${genPalPrevCss(255-j)}"></div>`
+			);
+		}
+	}
+	// append user custom palettes (fixed ID space: 200 down to FIXED_PALETTE_COUNT+1)
+	if (!isEmpty(li) && li.cpalcount) {
+		for (let j = 0; j < li.cpalcount; j++) {
+			const id = 200 - j;
+			const pd = palettesData[id];
+			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip gray gap-placeholder entries
+			let div = d.createElement("div");
+			gId('pallist').appendChild(div);
+			div.outerHTML = generateListItemHtml(
+				'palette',
+				id,
+				'~ Custom '+j+' ~',
+				'setPalette',
+				`<div class="lstIprev" style="${genPalPrevCss(id)}"></div>`
 			);
 		}
 	}

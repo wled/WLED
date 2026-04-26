@@ -774,8 +774,18 @@ void serializeInfo(JsonObject root)
 
   root[F("fxcount")] = strip.getModeCount();
   root[F("palcount")] = getPaletteCount();
-  root[F("cpalcount")] = customPalettes.size();   // number of custom palettes (includes gray placeholders)
+  root[F("cpalcount")] = customPalettes.size();   // number of user custom palettes (includes gray placeholders)
+  root[F("umpalcount")] = usermodnPalettes.size(); // number of usermod-registered palettes
   root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
+  // send usermod palette names so the UI can label them correctly
+  if (usermodnPalettes.size() > 0) {
+    JsonArray umpalnames = root.createNestedArray(F("umpalnames"));
+    for (size_t j = 0; j < usermodnPalettes.size(); j++) {
+      char buf[34];
+      extractModeName(WLED_USERMOD_PALETTE_ID_BASE - j, JSON_palette_names, buf, sizeof(buf) - 1);
+      umpalnames.add(buf);
+    }
+  }
 
   JsonArray ledmaps = root.createNestedArray(F("maps"));
   for (size_t i=0; i<WLED_MAX_LEDMAPS; i++) {
@@ -946,19 +956,28 @@ void serializePalettes(JsonObject root, int page)
   #endif
 
   const int customPalettesCount = customPalettes.size();
+  const int umPalettesCount     = usermodnPalettes.size();
   const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
-  const int maxPage = (palettesCount + customPalettesCount) / itemPerPage;
+  const int maxPage = (palettesCount + umPalettesCount + customPalettesCount) / itemPerPage;
   if (page > maxPage) page = maxPage;
 
   const int start = itemPerPage * page;
-  int end = min(start + itemPerPage, palettesCount + customPalettesCount);
+  int end = min(start + itemPerPage, palettesCount + umPalettesCount + customPalettesCount);
 
   root[F("m")] = maxPage; // inform caller how many pages there are
   JsonObject palettes  = root.createNestedObject("p");
 
   for (int i = start; i < end; i++) {
-    JsonArray curPalette = palettes.createNestedArray(String(i >= palettesCount ? 255 - i + palettesCount : i));
+    // compute the palette ID for this sequential index
+    int paletteId;
+    if (i >= palettesCount + umPalettesCount) // user custom palette (IDs 200, 199, ...)
+      paletteId = WLED_CUSTOM_PALETTE_ID_BASE - (i - palettesCount - umPalettesCount);
+    else if (i >= palettesCount)              // usermod palette (IDs 255, 254, ...)
+      paletteId = WLED_USERMOD_PALETTE_ID_BASE - (i - palettesCount);
+    else
+      paletteId = i;                          // fixed palette
+    JsonArray curPalette = palettes.createNestedArray(String(paletteId));
     switch (i) {
       case 0: //default palette
         setPaletteColors(curPalette, PartyColors_gc22);
@@ -987,9 +1006,13 @@ void serializePalettes(JsonObject root, int page)
         curPalette.add("c1");
         break;
       default:
-        if (i >= palettesCount) // custom palettes
-          setPaletteColors(curPalette, customPalettes[i - palettesCount]);
-        else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
+        if (i >= palettesCount + umPalettesCount) { // user custom palettes (lowest IDs in the custom range)
+          int custIdx = i - palettesCount - umPalettesCount;
+          setPaletteColors(curPalette, customPalettes[custIdx]);
+        } else if (i >= palettesCount) { // usermod palettes (IDs 255, 254, ...)
+          int umIdx = i - palettesCount;
+          setPaletteColors(curPalette, usermodnPalettes[umIdx].palette);
+        } else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
           memcpy_P(tcp, (byte*)pgm_read_dword(&(gGradientPalettes[i - (DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT)])), sizeof(tcp));

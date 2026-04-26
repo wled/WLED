@@ -1951,14 +1951,11 @@ class AudioReactive : public Usermod {
         }
 #endif
       }
-      if (palettes > 0 && root.containsKey(F("rmcpal"))) {
-        // handle removal of custom palettes from JSON call so we don't break things
-        removeAudioPalettes();
-      }
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0 && customPalettes.size()<WLED_MAX_CUSTOM_PALETTES) {
+      if (initDone && enabled && addPalettes && palettes==0
+          && (int)(usermodnPalettes.size() + MAX_PALETTES) <= WLED_MAX_USERMOD_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -2187,24 +2184,23 @@ class AudioReactive : public Usermod {
 
 void AudioReactive::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
-  while (palettes>0) {
-    customPalettes.pop_back();
-    DEBUG_PRINTLN(palettes);
-    palettes--;
-  }
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
+  palettes -= (int8_t)removeUsermodnPalettes(_name);
+  if (palettes < 0) palettes = 0; // safeguard
+  DEBUG_PRINT(F("Total # of usermod palettes: ")); DEBUG_PRINTLN(usermodnPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUG_PRINT(F("Total # of palettes: ")); DEBUG_PRINTLN(customPalettes.size());
+  DEBUG_PRINT(F("Total # of usermod palettes: ")); DEBUG_PRINTLN(usermodnPalettes.size());
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
-  for (int i=0; i<MAX_PALETTES; i++)
-    if (customPalettes.size() < WLED_MAX_CUSTOM_PALETTES) {
-      customPalettes.push_back(CRGBPalette16(CRGB(BLACK)));
+  for (int i=0; i<MAX_PALETTES; i++) {
+    if ((int)usermodnPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
+      // reuse _name ("AudioReactive") as base; palIndex 0/1/2... builds "AudioReactive 1" etc.
+      usermodnPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i}); // start black, filled each loop by fillAudioPalettes()
       palettes++;
       DEBUG_PRINTLN(palettes);
     } else break;
+  }
 }
 
 // credit @netmindz ar palette, adapted for usermod @blazoncek
@@ -2238,9 +2234,10 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
 
 void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
-  size_t lastCustPalette = customPalettes.size();
-  if (int(lastCustPalette) >= palettes) lastCustPalette -= palettes;
-  for (int pal=0; pal<palettes; pal++) {
+  // Scan by name pointer identity to find the palettes we added, palIndex = 0/1/2... selects the getCRGBForBand variant, matching how the entries were created.
+  for (auto &ump : usermodnPalettes) {
+    if (ump.name != _name) continue;
+    const int pal = ump.palIndex;
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.
                       // 3 colors = 12, 4 colors = 16, etc.
 
@@ -2248,26 +2245,26 @@ void AudioReactive::fillAudioPalettes() {
     tcp[1] = 0;
     tcp[2] = 0;
     tcp[3] = 0;
-    
+
     CRGB rgb = getCRGBForBand(1, pal);
     tcp[4] = 1;  // anchor of first color
     tcp[5] = rgb.r;
     tcp[6] = rgb.g;
     tcp[7] = rgb.b;
-    
+
     rgb = getCRGBForBand(128, pal);
     tcp[8] = 128;
     tcp[9] = rgb.r;
     tcp[10] = rgb.g;
     tcp[11] = rgb.b;
-    
+
     rgb = getCRGBForBand(255, pal);
     tcp[12] = 255;  // anchor of last color - must be 255
     tcp[13] = rgb.r;
     tcp[14] = rgb.g;
     tcp[15] = rgb.b;
 
-    customPalettes[lastCustPalette+pal].loadDynamicGradientPalette(tcp);
+    ump.palette.loadDynamicGradientPalette(tcp);
   }
 }
 
