@@ -231,7 +231,7 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
   // then come user custom palettes (IDs <=200) and usermod palettes (IDs 201-255), both growing downward from their respective base IDs
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
   // instructed in color_from_palette()
-  const int umCount   = usermodnPalettes.size();
+  const int umCount   = usermodPalettes.size();
   const int custCount = customPalettes.size();
   if (pal >= FIXED_PALETTE_COUNT) {
     if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod range (IDs 201-255)
@@ -276,7 +276,7 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       break;}
     default: //progmem palettes
       if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod palette
-        targetPalette = usermodnPalettes[WLED_USERMOD_PALETTE_ID_BASE - pal].palette;
+        targetPalette = usermodPalettes[WLED_USERMOD_PALETTE_ID_BASE - pal].palette;
       } else if (pal >= FIXED_PALETTE_COUNT) { // user custom palette
         targetPalette = customPalettes[WLED_CUSTOM_PALETTE_ID_BASE - pal];
       } else if (pal < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) { // palette 6 - 12, fastled palettes
@@ -597,7 +597,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
 Segment &Segment::setPalette(uint8_t pal) {
   if (pal >= FIXED_PALETTE_COUNT) {
     if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod range
-      if ((WLED_USERMOD_PALETTE_ID_BASE - pal) >= (int)usermodnPalettes.size()) pal = 0;
+      if ((WLED_USERMOD_PALETTE_ID_BASE - pal) >= (int)usermodPalettes.size()) pal = 0;
     } else { // custom range
       if ((WLED_CUSTOM_PALETTE_ID_BASE - pal) >= (int)customPalettes.size()) pal = 0;
     }

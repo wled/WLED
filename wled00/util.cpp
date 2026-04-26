@@ -321,7 +321,11 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     if (mode > WLED_CUSTOM_PALETTE_ID_BASE) {
       // usermod palette (IDs 201-255)
       uint8_t umIdx = WLED_USERMOD_PALETTE_ID_BASE - mode;
-      const UsermodnPalette &ump = usermodnPalettes[umIdx];
+      if (umIdx >= usermodPalettes.size()) {
+        dest[0] = '\0'; // empty string if requested index is out of bounds
+        return 0;
+      }
+      const UsermodnPalette &ump = usermodPalettes[umIdx];
       char base[33];
       strncpy_P(base, ump.name, sizeof(base) - 1);
       base[sizeof(base) - 1] = '\0';

@@ -312,13 +312,13 @@ void loadCustomPalettes() {
   }
 }
 
-size_t removeUsermodnPalettes(const char *name) {
-  size_t before = usermodnPalettes.size();
-  for (int i = usermodnPalettes.size() - 1; i >= 0; i--) {
-    if (usermodnPalettes[i].name == name)
-      usermodnPalettes.erase(usermodnPalettes.begin() + i);
+size_t removeusermodPalettes(const char *name) {
+  size_t before = usermodPalettes.size();
+  for (int i = usermodPalettes.size() - 1; i >= 0; i--) {
+    if (usermodPalettes[i].name == name)
+      usermodPalettes.erase(usermodPalettes.begin() + i);
   }
-  return before - usermodnPalettes.size();
+  return before - usermodPalettes.size();
 }
 
 // convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
