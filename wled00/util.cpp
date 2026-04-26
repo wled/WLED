@@ -325,7 +325,7 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
         dest[0] = '\0'; // empty string if requested index is out of bounds
         return 0;
       }
-      const UsermodnPalette &ump = usermodPalettes[umIdx];
+      const UsermodPalette &ump = usermodPalettes[umIdx];
       char base[33];
       strncpy_P(base, ump.name, sizeof(base) - 1);
       base[sizeof(base) - 1] = '\0';
