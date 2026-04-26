@@ -21,10 +21,10 @@
 #include "../network/Network.h"
 #include <string.h>
 
-// E1.17 ACN Packet Identifier
+// E1.17 ACN Packet Identifier "ASC-E1.17"
 const byte ESPAsyncE131::ACN_ID[12] = { 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00 };
 
-// Art-Net Packet Identifier
+// Art-Net Packet Identifier "Art-Net"
 const byte ESPAsyncE131::ART_ID[8]  = { 0x41, 0x72, 0x74, 0x2d, 0x4e, 0x65, 0x74, 0x00 };
 
 // Constructor
@@ -103,7 +103,7 @@ void ESPAsyncE131::parsePacket(AsyncUDPPacket _packet) {
   const size_t pktLen = _packet.length();
 
   e131_packet_t *sbuff = reinterpret_cast<e131_packet_t *>(_packet.data());
-  // E1.31 packet identifier ("ACS-E1.17"), need at least 16 bytes to safely read acn_id (offset 4, length 12).
+  // E1.31 packet identifier (ACN_ID = "ASC-E1.17"), need at least 16 bytes to safely read acn_id (offset 4, length 12).
   if (pktLen >= 16) {
     if (memcmp(sbuff->acn_id, ESPAsyncE131::ACN_ID, sizeof(sbuff->acn_id)))
       protocol = P_ARTNET;
@@ -111,7 +111,7 @@ void ESPAsyncE131::parsePacket(AsyncUDPPacket _packet) {
 
   if (protocol == P_ARTNET) {
     if (memcmp(sbuff->art_id, ESPAsyncE131::ART_ID, sizeof(sbuff->art_id)))
-      error = true; //not "Art-Net"
+      error = true; //not ART_ID = "Art-Net"
     if (sbuff->art_opcode != ARTNET_OPCODE_OPDMX && sbuff->art_opcode != ARTNET_OPCODE_OPPOLL)
       error = true; //not a DMX or poll packet
   } else { //E1.31 error handling
