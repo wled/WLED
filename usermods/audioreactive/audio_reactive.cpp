@@ -1954,8 +1954,7 @@ class AudioReactive : public Usermod {
     }
 
     void onStateChange(uint8_t callMode) override {
-      if (initDone && enabled && addPalettes && palettes==0
-          && (int)(usermodPalettes.size() + MAX_PALETTES) <= WLED_MAX_USERMOD_PALETTES) {
+      if (initDone && enabled && addPalettes && palettes==0) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -2192,7 +2191,7 @@ void AudioReactive::createAudioPalettes(void) {
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++) {
-    if ((int)usermodPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
+    if (usermodPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
       // reuse _name ("AudioReactive") as base; palIndex 0/1/2... builds "AudioReactive 0" etc.
       usermodPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i}); // start black, filled each loop by fillAudioPalettes()
       palettes++;
