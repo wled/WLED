@@ -14,8 +14,8 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 | `npm run build` | Build web UI into `wled00/html_*.h` / `wled00/js_*.h` | 30s |
 | `npm test` | Run test suite (Node.js built-in `node --test`) | 2 min |
 | `npm run dev` | Watch mode — auto-rebuilds web UI on changes | continuous |
-| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 30 min |
-| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 30 min |
+| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 5 min |
+| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 5 min |
 
 **Always run `npm ci && npm run build` before `pio run`.** The web UI build generates
 required C headers for firmware compilation.
