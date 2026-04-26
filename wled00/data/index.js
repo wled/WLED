@@ -2819,7 +2819,7 @@ function loadPalettesData() {
 		if (lsPalData) {
 			try {
 				var d = JSON.parse(lsPalData);
-				if (d && d.vid == lastinfo.vid) {
+				if (d && d.vid == lastinfo.vid && d.pcount == lastinfo.palcount) {
 					palettesData = d.p;
 					redrawPalPrev();
 					return resolve();
@@ -2831,7 +2831,8 @@ function loadPalettesData() {
 		getPalettesData(0, () => {
 			localStorage.setItem("wledPalx", JSON.stringify({
 				p: palettesData,
-				vid: lastinfo.vid
+				vid: lastinfo.vid,
+				pcount: lastinfo.palcount // total palette count, refresh cache if it changes
 			}));
 			redrawPalPrev();
 			setTimeout(resolve, 99); // delay optional
