@@ -1021,6 +1021,7 @@ function populatePalettes()
 			);
 		}
 	}
+	updateSelectedPalette(selectedPal); // update selection after adding usermod and custom palettes
 }
 
 function redrawPalPrev()

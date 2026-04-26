@@ -1955,7 +1955,7 @@ class AudioReactive : public Usermod {
 
     void onStateChange(uint8_t callMode) override {
       if (initDone && enabled && addPalettes && palettes==0
-          && (int)(usermodnPalettes.size() + MAX_PALETTES) <= WLED_MAX_USERMOD_PALETTES) {
+          && (int)(usermodPalettes.size() + MAX_PALETTES) <= WLED_MAX_USERMOD_PALETTES) {
         // if palettes were removed during JSON call re-add them
         createAudioPalettes();
       }
@@ -2184,19 +2184,17 @@ class AudioReactive : public Usermod {
 
 void AudioReactive::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
-  palettes -= (int8_t)removeUsermodnPalettes(_name);
+  palettes -= (int8_t)removeusermodPalettes(_name);
   if (palettes < 0) palettes = 0; // safeguard
-  DEBUG_PRINT(F("Total # of usermod palettes: ")); DEBUG_PRINTLN(usermodnPalettes.size());
 }
 
 void AudioReactive::createAudioPalettes(void) {
-  DEBUG_PRINT(F("Total # of usermod palettes: ")); DEBUG_PRINTLN(usermodnPalettes.size());
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
   for (int i=0; i<MAX_PALETTES; i++) {
-    if ((int)usermodnPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
-      // reuse _name ("AudioReactive") as base; palIndex 0/1/2... builds "AudioReactive 1" etc.
-      usermodnPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i}); // start black, filled each loop by fillAudioPalettes()
+    if ((int)usermodPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
+      // reuse _name ("AudioReactive") as base; palIndex 0/1/2... builds "AudioReactive 0" etc.
+      usermodPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i}); // start black, filled each loop by fillAudioPalettes()
       palettes++;
       DEBUG_PRINTLN(palettes);
     } else break;
@@ -2235,7 +2233,7 @@ CRGB AudioReactive::getCRGBForBand(int x, int pal) {
 void AudioReactive::fillAudioPalettes() {
   if (!palettes) return;
   // Scan by name pointer identity to find the palettes we added, palIndex = 0/1/2... selects the getCRGBForBand variant, matching how the entries were created.
-  for (auto &ump : usermodnPalettes) {
+  for (auto &ump : usermodPalettes) {
     if (ump.name != _name) continue;
     const int pal = ump.palIndex;
     uint8_t tcp[16];  // Needs to be 4 times however many colors are being used.

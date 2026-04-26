@@ -775,12 +775,12 @@ void serializeInfo(JsonObject root)
   root[F("fxcount")] = strip.getModeCount();
   root[F("palcount")] = getPaletteCount();
   root[F("cpalcount")] = customPalettes.size();   // number of user custom palettes (includes gray placeholders)
-  root[F("umpalcount")] = usermodnPalettes.size(); // number of usermod-registered palettes
+  root[F("umpalcount")] = usermodPalettes.size(); // number of usermod-registered palettes
   root[F("cpalmax")] = WLED_MAX_CUSTOM_PALETTES;  // maximum number of custom palettes
   // send usermod palette names so the UI can label them correctly
-  if (usermodnPalettes.size() > 0) {
+  if (usermodPalettes.size() > 0) {
     JsonArray umpalnames = root.createNestedArray(F("umpalnames"));
-    for (size_t j = 0; j < usermodnPalettes.size(); j++) {
+    for (size_t j = 0; j < usermodPalettes.size(); j++) {
       char buf[34];
       extractModeName(WLED_USERMOD_PALETTE_ID_BASE - j, JSON_palette_names, buf, sizeof(buf) - 1);
       umpalnames.add(buf);
@@ -956,7 +956,7 @@ void serializePalettes(JsonObject root, int page)
   #endif
 
   const int customPalettesCount = customPalettes.size();
-  const int umPalettesCount     = usermodnPalettes.size();
+  const int umPalettesCount     = usermodPalettes.size();
   const int palettesCount = FIXED_PALETTE_COUNT; // palettesCount is number of palettes, not palette index
 
   const int maxPage = (palettesCount + umPalettesCount + customPalettesCount) / itemPerPage;
@@ -1011,7 +1011,7 @@ void serializePalettes(JsonObject root, int page)
           setPaletteColors(curPalette, customPalettes[custIdx]);
         } else if (i >= palettesCount) { // usermod palettes (IDs 255, 254, ...)
           int umIdx = i - palettesCount;
-          setPaletteColors(curPalette, usermodnPalettes[umIdx].palette);
+          setPaletteColors(curPalette, usermodPalettes[umIdx].palette);
         } else if (i < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) // palette 6 - 12, fastled palettes
           setPaletteColors(curPalette, *fastledPalettes[i - DYNAMIC_PALETTE_COUNT]);
         else {
