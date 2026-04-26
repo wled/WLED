@@ -70,7 +70,7 @@ jobs:
         if [ -n "$bin" ]; then
           # Strip WLED_<version>_ prefix from WLED_<version>_<RELEASE_NAME>.bin
           base=$(basename "$bin" .bin)
-          release_name=$(echo "$base" | sed 's/^WLED_[^_]*_//')
+          release_name=$(echo "$base" | sed 's/^[^_]*_[^_]*_//')
           echo "name=firmware-$release_name" >> $GITHUB_OUTPUT
         else
           echo "name=firmware-${{ matrix.environment }}" >> $GITHUB_OUTPUT
