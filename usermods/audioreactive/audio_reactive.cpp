@@ -2198,7 +2198,7 @@ class AudioReactive : public Usermod {
 
 void AudioReactive::removeAudioPalettes(void) {
   DEBUG_PRINTLN(F("Removing audio palettes."));
-  palettes -= (int8_t)removeusermodPalettes(_name);
+  palettes -= (int8_t)removeUsermodPalettes(_name);
   if (palettes < 0) palettes = 0; // safeguard
 }
 
