@@ -804,7 +804,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
         // write the header
         /*0*/ddpUdp.write(flags);
-        // TODO: sequence number should be 1-15 as 0 means "unused", it has not bad consequences other than out of sequence packet may be accepted
+        // TODO: sequence number should be 1-15 as 0 means "unused", it has no bad consequences other than out of sequence packet may be accepted
         /*1*/ddpUdp.write(sequenceNumber++ & 0x0F); // sequence may be unnecessary unless we are sending twice (as requested in Sync settings)
         /*2*/ddpUdp.write(isRGBW ?  DDP_TYPE_RGBW32 : DDP_TYPE_RGB24);
         /*3*/ddpUdp.write(DDP_ID_DISPLAY);
