@@ -33,6 +33,12 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   // reject control, status and config packets (not implemented)
   if (p->destination == DDP_ID_CONTROL || p->destination == DDP_ID_STATUS || p->destination == DDP_ID_CONFIG) return;
 
+  // reject query and response packets (not implemented)
+  if (p->flags & (DDP_FLAGS_QUERY | DDP_FLAGS_REPLY)) return;
+
+  bool push = p->flags & DDP_FLAGS_PUSH; // push flag means "render now"
+  if (!push && (p->flags & DDP_FLAGS_STORAGE)) return; // reject "from storage" flag but still let the push flag pass if set along with it
+
   //reject late packets belonging to previous frame (assuming 4 packets max. before push, if more are used and packets are very late, they are still accepted)
   if (e131SkipOutOfSequence && lastPushSeq) {
     int sn = p->sequenceNum & 0xF; // sequence number is 4 bits, 1-15, 0 means unused
@@ -78,7 +84,6 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
     }
   }
 
-  bool push = p->flags & DDP_FLAGS_PUSH;
   ddpSeenPush |= push;
   if (!ddpSeenPush || push) { // if we've never seen a push, or this is one, render display
     e131NewData = true;

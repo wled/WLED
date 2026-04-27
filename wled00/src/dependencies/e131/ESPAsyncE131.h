@@ -55,9 +55,9 @@ typedef struct ip_addr ip4_addr_t;
 #define DDP_FLAGS_VER     0xc0    // version mask
 #define DDP_FLAGS_VER1    0x40    // version=1
 #define DDP_FLAGS_PUSH    0x01
-#define DDP_FLAGS_QUERY   0x02
-#define DDP_FLAGS_REPLY   0x04
-#define DDP_FLAGS_STORAGE 0x08
+#define DDP_FLAGS_QUERY   0x02    // unsupported - used by XLights for auto-discovery
+#define DDP_FLAGS_REPLY   0x04    // unsupported - response packet from another display
+#define DDP_FLAGS_STORAGE 0x08    // unsupported - show data from a storage unit instead of from packet data field. Data field defines storage unit (by name, number, URL or whatever mechanism wanted).
 #define DDP_FLAGS_TIME    0x10
 
 #define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
