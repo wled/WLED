@@ -65,6 +65,7 @@ typedef struct ip_addr ip4_addr_t;
 #define DDP_TYPE_RGB24  0x0B // 00 001 011 (RGB , 8 bits per channel, 3 channels)
 #define DDP_TYPE_RGBW32 0x1B // 00 011 011 (RGBW, 8 bits per channel, 4 channels)
 #define DDP_TYPE_LEGACY 0x01 // 00 000 001 legacy RGB 8bit definition
+#define DDP_TYPE_UNDEF  0x00 // type and bit depth undefined
 
 // DDP Source or Destination ID (header byte 3)
 #define DDP_ID_DISPLAY  1    // default output device
