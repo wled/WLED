@@ -31,8 +31,11 @@ static void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
 static void parseMQTTBriPayload(char* payload)
 {
   if (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {
-    // Пытаемся применить пресет 100, если он существует
-    if (!applyPreset(101)) {
+    // Проверяем существование пресета 101 перед применением
+    String presetName;
+    if (getPresetName(101, presetName)) {
+      applyPreset(101, CALL_MODE_DIRECT_CHANGE);
+    } else {
       // Пресета нет — обычное включение
       bri = briLast;
       stateUpdated(CALL_MODE_DIRECT_CHANGE);
