@@ -312,6 +312,15 @@ void loadCustomPalettes() {
   }
 }
 
+size_t removeUsermodPalettes(const char *name) {
+  size_t before = usermodPalettes.size();
+  for (int i = usermodPalettes.size() - 1; i >= 0; i--) {
+    if (usermodPalettes[i].name == name)
+      usermodPalettes.erase(usermodPalettes.begin() + i);
+  }
+  return before - usermodPalettes.size();
+}
+
 // convert HSV (16bit hue) to RGB (32bit with white = 0), optimized for speed
 WLED_O2_ATTR void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb) {
   unsigned p, q, t;
