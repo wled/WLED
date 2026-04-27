@@ -28,10 +28,16 @@ static void onMqttDisconnect(AsyncMqttClientDisconnectReason reason)
   mqttReconnectTimer.once_ms(MQTT_RECONNECT_DELAY_MS, mqttReconnectNow);
 }
 
-
 static void parseMQTTBriPayload(char* payload)
 {
-  if      (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {bri = briLast; stateUpdated(CALL_MODE_DIRECT_CHANGE);}
+  if (strstr(payload, "ON") || strstr(payload, "on") || strstr(payload, "true")) {
+    // Пытаемся применить пресет 100, если он существует
+    if (!applyPreset(101)) {
+      // Пресета нет — обычное включение
+      bri = briLast;
+      stateUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
+  }
   else if (strstr(payload, "T" ) || strstr(payload, "t" )) {toggleOnOff(); stateUpdated(CALL_MODE_DIRECT_CHANGE);}
   else {
     uint8_t in = strtoul(payload, NULL, 10);
@@ -40,7 +46,6 @@ static void parseMQTTBriPayload(char* payload)
     stateUpdated(CALL_MODE_DIRECT_CHANGE);
   }
 }
-
 
 static void onMqttConnect(bool sessionPresent)
 {
