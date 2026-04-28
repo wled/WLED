@@ -481,6 +481,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_LEDGAP          20
 #define JSON_LOCK_LEDMAP_ENUM     21
 #define JSON_LOCK_REMOTE          22
+#define JSON_LOCK_OTA             23
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
