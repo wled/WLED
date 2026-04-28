@@ -287,20 +287,36 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     return;
   }
   if (isInTransition()) {
+    const uint8_t visibleBri = currentBri();
     if (segmentCopy && !_t->_oldSegment) {
-      // already in transition but segment copy requested and not yet created
-      _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-      _t->_start = millis();                              // restart countdown
-      _t->_dur   = dur;
-      _t->_prevPaletteBlends = 0;
-      if (_t->_oldSegment) {
-        _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
-        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
-        DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
-        if (!_t->_oldSegment->isActive()) stopTransition();
+      if (blendingStyle != TRANSITION_FADE) {
+        // transition without a copy means we are in a segment brightness transition
+        // need to cancel the transition to not interfere with the new one (or global brightness change)
+        stopTransition();
+      } else {
+        // already in FADE transition but segment copy requested  and not yet created (for example a SWIPE color change during brightness transition)
+        // create segment copy and restart timer so currentBri() can interpolate correctly
+        _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
+        _t->_start = millis();                              // restart countdown
+        _t->_dur   = dur;
+        _t->_bri   = visibleBri;
+        _t->_prevPaletteBlends = 0;
+        if (_t->_oldSegment) {
+          _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+          DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
+          if (!_t->_oldSegment->isActive()) stopTransition();
+        }
+        return;
       }
+    } else {
+      // already in transition; restart from the currently visible brightness
+      _t->_start = millis();
+      _t->_dur   = dur;
+      _t->_bri   = visibleBri;
+      _t->_prevPaletteBlends = 0;
+      return;
     }
-    return;
   }
 
   // no previous transition running, start by allocating memory for segment copy
@@ -355,8 +371,11 @@ uint8_t Segment::currentBri() const {
   unsigned curBri = on ? opacity : 0;
   if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
-    if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else                                   curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    const bool onOffTransition = _t->_oldSegment && (_t->_oldSegment->on != on);
+    if (blendingStyle == TRANSITION_FADE || !_t->_oldSegment || !onOffTransition)
+      curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
+    else
+      curBri = std::max((unsigned)curBri, (unsigned)_t->_bri); // non-FADE on/off transition: use the higher of old and new brightness so it is correct for both turn-on and turn-off
   }
   return curBri;
 }
@@ -530,7 +549,7 @@ Segment &Segment::setCCT(uint16_t k) {
 Segment &Segment::setOpacity(uint8_t o) {
   if (opacity != o) {
     //DEBUG_PRINTF_P(PSTR("- Starting opacity transition: %d\n"), o);
-    startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change
+    startTransition(strip.getTransition(), false); // opacity change always fades (no segment copy needed)
     opacity = o;
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -1588,10 +1607,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(x + y*oCols), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
-        // workaround for On/Off transition
+        // workaround for global On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
         if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        // per-segment on/off: the area belonging to the off-state segment must be black
+        if (segO && !seg->on) c_a = BLACK;
       }
       // map it into frame buffer
       x = c;  // restore coordiates if we were PUSHing
@@ -1660,10 +1681,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         c_a = color_blend16(c_a, segO->getPixelColorRaw(i), progInv);
       } else if (blendingStyle != TRANSITION_FADE) {
         // if we have global brightness change (not On/Off change) we will ignore transition style and just fade brightness (see led.cpp)
-        // workaround for On/Off transition
+        // workaround for global On/Off transition
         // (bri != briT) && !bri => from On to Off
         // (bri != briT) &&  bri => from Off to On
         if ((briOld == 0 || bri == 0) && ((!clipped && (bri != briT) && !bri) || (clipped && (bri != briT) && bri))) c_a = BLACK;
+        // per-segment on/off: the area belonging to the off-state segment must be black
+        if (segO && !seg->on) c_a = BLACK;
       }
       // map into frame buffer
       i = k; // restore index if we were PUSHing
