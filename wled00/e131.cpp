@@ -143,7 +143,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
   if (e131ProxyUniverse > 0 && uni == e131ProxyUniverse) {
     // Art-Net: art_data is 0-indexed (channel 1 at index 0)
     // E1.31: property_values[0] is start code, (channel 1 at index 1)
-    for (uint16_t i = 1; i < dmxChannels; i++)
+    for (uint16_t i = 1; i <= dmxChannels; i++)
       dmx.write(i, mde == REALTIME_MODE_ARTNET ? e131_data[i-1] : e131_data[i]);
     dmx.update();
   }
