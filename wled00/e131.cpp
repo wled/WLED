@@ -109,7 +109,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
     if (packetLen < 18) return; // need art_length (offset 16, 2 bytes) for DMX data
     uni = p->art_universe;
     dmxChannels = htons(p->art_length);
-    const int artNetMaxData = (packetLen > 19) ? (int)(packetLen - 19) : 0; // art_data at offset 18; clamp so e131_data[dmxChannels] stays in bounds
+    const int artNetMaxData = (packetLen >= 18) ? (int)(packetLen - 18) : 0; // art_data at offset 18; clamp so e131_data[dmxChannels] stays in bounds
     if (dmxChannels > artNetMaxData) dmxChannels = artNetMaxData;
     e131_data = p->art_data;
     seq = p->art_sequence_number;
@@ -141,8 +141,10 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
   #ifdef WLED_ENABLE_DMX
   // does not act on out-of-order packets yet
   if (e131ProxyUniverse > 0 && uni == e131ProxyUniverse) {
-    for (uint16_t i = 1; i <= dmxChannels; i++)
-      dmx.write(i, e131_data[i]);
+    // Art-Net: art_data is 0-indexed (channel 1 at index 0)
+    // E1.31: property_values[0] is start code, (channel 1 at index 1)
+    for (uint16_t i = 1; i < dmxChannels; i++)
+      dmx.write(i, mde == REALTIME_MODE_ARTNET ? e131_data[i-1] : e131_data[i]);
     dmx.update();
   }
   #endif
