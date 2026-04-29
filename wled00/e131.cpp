@@ -111,6 +111,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
     dmxChannels = htons(p->art_length);
     const int artNetMaxData = (packetLen >= 18) ? (int)(packetLen - 18) : 0; // art_data at offset 18; clamp so e131_data[dmxChannels] stays in bounds
     if (dmxChannels > artNetMaxData) dmxChannels = artNetMaxData;
+    if (dmxChannels > MAX_CHANNELS_PER_UNIVERSE) dmxChannels = MAX_CHANNELS_PER_UNIVERSE;
     e131_data = p->art_data;
     seq = p->art_sequence_number;
     mde = REALTIME_MODE_ARTNET;
@@ -126,6 +127,7 @@ void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_
     seq = p->sequence_number;
     const int e131MaxData = (packetLen > 126) ? (int)(packetLen - 126) : 0; // property_values at offset 125; clamp so e131_data[dmxChannels] stays in bounds
     if (dmxChannels > e131MaxData) dmxChannels = e131MaxData;
+    if (dmxChannels > MAX_CHANNELS_PER_UNIVERSE) dmxChannels = MAX_CHANNELS_PER_UNIVERSE;
     if (e131Priority != 0) {
       if (p->priority < e131Priority ) return;
       // track highest priority & skip all lower priorities
