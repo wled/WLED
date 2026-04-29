@@ -34,7 +34,15 @@ public:
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
+  /**
+   * Set the APA102 per-pixel 5-bit hardware brightness step (0–31).
+   * Stored and sent in the brightness byte: 0xE0 | step.
+   * Overrides the PixelBus no-op base implementation.
+   */
+  void setApa102HwBri(uint8_t v) override { _apa102HwBri = v & 0x1F; }
+
 private:
+  uint8_t  _apa102HwBri = 31; // APA102 5-bit hardware brightness step (0–31); 31 = max (default)
   int8_t   _dataPin;
   int8_t   _clockPin;
   LedTiming _timing;

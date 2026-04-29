@@ -238,6 +238,14 @@ void BusDigital::setBrightness(uint8_t b) {
     memset(prefix + 4, ~currentStep, 4);  // C2: ~W ~R ~G ~B
     _busPtr->updatePrefix(prefix, 8);
     _busPtr->setBusBri(residualBri);      // used by color_fade() in setPixelColor()
+  } else if (_type == TYPE_APA102) {
+    // APA102: two-stage brightness. Hardware 5-bit brightness byte (0..31) for coarse
+    // control, color_fade() residual for fine interpolation between steps.
+    // minBri=8 reflects step-0 = 1/31 of max current (~3.2% of full brightness).
+    uint8_t hwStep, residualBri;
+    WLEDpixelBus::mapBrightnessToCurrentStep(b, 32, 8, hwStep, residualBri);
+    _busPtr->setApa102HwBri(hwStep);
+    _busPtr->setBusBri(residualBri);      // used by color_fade() in setPixelColor()
   } else if (is16bit()) {
     // 16-bit LED types (SM16825, UCS8903, UCS8904): color_fade() is a no-op (_busBri=255);
     // encoder applies full 16-bit precision via channel*_encBri.
@@ -257,9 +265,9 @@ void BusDigital::estimateCurrent() {
     colorSum *= 3;
     actualMilliampsPerLed = 12; // from testing an actual strip
   }
-  // TM1814/TM1815: colors were accumulated with the fine residual brightness (getBusBri()).
+  // TM1814/TM1815/APA102: colors were accumulated with the fine residual brightness (getBusBri()).
   // Scale colorSum back to the full _bri level so ABL sees the correct hardware power draw.
-  if (_type == TYPE_TM1814 || _type == TYPE_TM1815) {
+  if (_type == TYPE_TM1814 || _type == TYPE_TM1815 || _type == TYPE_APA102) {
     const uint8_t busBri = _busPtr->getBusBri();
     if (busBri > 0) colorSum = ((uint64_t)colorSum * _bri) / busBri;
   }

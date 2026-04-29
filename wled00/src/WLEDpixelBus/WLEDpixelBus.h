@@ -331,6 +331,14 @@ public:
   inline uint8_t getBusBri() const { return _busBri; }
 
   /**
+   * Set the APA102 5-bit per-pixel hardware brightness step (0–31).
+   * Default implementation is a no-op; overridden by SpiBus for TYPE_APA102.
+   * Called by BusDigital::setBrightness() as part of the two-stage brightness scheme:
+   * coarse control via hardware current step, fine control via color_fade() residual.
+   */
+  virtual void setApa102HwBri(uint8_t /*v*/) {}
+
+  /**
    * physical output signal inversion (polarity).
    * must be implemented on bus driver level
    */

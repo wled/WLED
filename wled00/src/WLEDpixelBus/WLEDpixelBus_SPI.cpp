@@ -15,7 +15,7 @@ static uint32_t timingToClockHz(const LedTiming& t) {
   if (periodNs == 0) return 2000000;
   uint32_t hz = 1000000000UL / periodNs;
   if (hz < 1000000)  hz = 1000000;   // minimum 1 MHz
-  if (hz > 20000000) hz = 20000000;  // maximum 20 MHz
+  if (hz > 20000000) hz = 20000000;  // maximum 20 MHz  // TODO: make this a define and check if ESP8266 can do 40 MHz
   return hz;
 }
 
@@ -140,7 +140,7 @@ void SpiBus::sendStartFrame(uint16_t numPixels) {
 }
 
 void SpiBus::sendEndFrame(uint16_t numPixels) {
-  // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame
+  // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame 
   //   Each APA102 delays the clock by one half-cycle; N LEDs need N/2 extra
   //   clock pulses to ensure the last pixel latches. One byte = 8 clocks,
   //   so ceil(N/16) bytes provide the required ceil(N/2) pulses.
@@ -182,7 +182,7 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
     // APA102 per-pixel wire format: [0xE0|brightness5bit, byte0, byte1, byte2]
     // 0xE0|0x1F == 0xFF == full hardware brightness (5-bit field, 0x1F = max)
     for (uint16_t i = 0; i < _numPixels; i++) {
-      sendByte(0xE0 | 0x1F);
+      sendByte(0xE0 | _apa102HwBri);
       const uint8_t* src = _encodeBuffer + (size_t)i * pixelBytes;
       for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
     }
