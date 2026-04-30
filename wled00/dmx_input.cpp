@@ -122,7 +122,7 @@ bool DMXInput::installDriver()
   return true;
 }
 
-void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
+void DMXInput::init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortNum)
 {
 
 #ifdef WLED_ENABLE_DMX
@@ -142,7 +142,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     return;
   }
 
-  if (rxPin > 0 && enPin > 0 && txPin > 0) {
+  if (rxPin >= 0 && enPin >= 0 && txPin >= 0) {
 
     const managed_pin_type pins[] = {
         {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.
