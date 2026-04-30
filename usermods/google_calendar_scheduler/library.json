@@ -1,0 +1,6 @@
+{
+  "name": "google_calendar_scheduler",
+  "build": {
+    "libArchive": false
+  }
+}
