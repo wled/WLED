@@ -47,6 +47,7 @@ bool DMXOutput::init(int8_t outputPin, uint8_t updateRate, int8_t uartNo) {
   _updateRate = updateRate;
   _dmxSerial = new HardwareSerial(uartNo);
   _uartNo = uartNo;
+  _dmxData[0] = 0;    // make sure start code is 0
 
   #ifdef ESP8266
   // Sadly no TX buffer. But at least still a TX FIFO.
@@ -120,6 +121,7 @@ bool DMXOutput::update() {
     _dmxSerial->updateBaudRate(DMXSPEED);   //change to regular DMX speed
     _dmxSerial->write(_dmxData, DMX_CHANNELS);
 
+    _dmxData[0] = 0;    // reset DMX start code to default
     return true;
   }
   return false;

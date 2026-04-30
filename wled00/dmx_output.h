@@ -42,12 +42,14 @@ class DMXOutput {
     bool init(int8_t outputPin, uint8_t updateRate = 43, int8_t uartNo = -1);
     void end();
     /**
-     * Write one DMX _channel_ to _value_
+     * Write one DMX _channel_ to _value_.
+     * Pay attention about channel 0. This is the DMX start code and does not carry light data. Leave at 0 if unsure.
+     * Channel 0 will be reset to 0 after every successful update().
      */
     void write(uint16_t channel, uint8_t value);
     /**
      * Write _len_ Bytes to DMX channels starting at _channelStart_.
-     * channelStart must be 1 or more. Use write() if you need to access channel 0.
+     * channelStart must be 1 or more. Use write() if you need to access channel 0 (start code).
      */
     void writeBytes(uint16_t channelStart, uint8_t values[], uint16_t len);
     /**
@@ -55,8 +57,8 @@ class DMXOutput {
      */
     uint8_t read(uint16_t channel);
     /**
-     * Read _len_ Bytes from DMX channels output buffer data starting at _channelStart_.
-     * Returns an array[len].
+     * Read _len_ Bytes from DMX channels output buffer data starting at _channelStart_ (this may include 0).
+     * Returns true if read was successful (within bounds).
      */
     bool readBytes(uint16_t channelStart, uint8_t values[], uint16_t len);
     /**
@@ -65,6 +67,7 @@ class DMXOutput {
     bool update();
     /**
      * Write LED data to DMX output buffer and send out.
+     * _dmxData[0] will be reset to 0 after every successful run.
      */
     bool handleDMXOutput();
     /**
