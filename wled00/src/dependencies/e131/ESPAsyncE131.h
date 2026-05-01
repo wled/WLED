@@ -55,19 +55,24 @@ typedef struct ip_addr ip4_addr_t;
 #define DDP_FLAGS_VER     0xc0    // version mask
 #define DDP_FLAGS_VER1    0x40    // version=1
 #define DDP_FLAGS_PUSH    0x01
-#define DDP_FLAGS_QUERY   0x02
-#define DDP_FLAGS_REPLY   0x04
-#define DDP_FLAGS_STORAGE 0x08
+#define DDP_FLAGS_QUERY   0x02    // unsupported - used by XLights for auto-discovery
+#define DDP_FLAGS_REPLY   0x04    // unsupported - response packet from another display
+#define DDP_FLAGS_STORAGE 0x08    // unsupported - show data from a storage unit instead of from packet data field. Data field defines storage unit (by name, number, URL or whatever mechanism wanted).
 #define DDP_FLAGS_TIME    0x10
 
 #define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
 
 #define DDP_TYPE_RGB24  0x0B // 00 001 011 (RGB , 8 bits per channel, 3 channels)
 #define DDP_TYPE_RGBW32 0x1B // 00 011 011 (RGBW, 8 bits per channel, 4 channels)
+#define DDP_TYPE_LEGACY 0x01 // 00 000 001 legacy RGB 8bit definition
+#define DDP_TYPE_UNDEF  0x00 // type and bit depth undefined
 
-#define DDP_ID_DISPLAY  1
-#define DDP_ID_CONFIG   250
-#define DDP_ID_STATUS   251
+// DDP Source or Destination ID (header byte 3)
+#define DDP_ID_DISPLAY  1    // default output device
+#define DDP_ID_CONTROL  246  // JSON control (not implemented)
+#define DDP_ID_CONFIG   250  // JSON config (not implemented)
+#define DDP_ID_STATUS   251  // JSON status (not implemented)
+#define DDP_ID_ALL      255  // all devices
 
 #define ARTNET_OPCODE_OPDMX 0x5000
 #define ARTNET_OPCODE_OPPOLL 0x2000
@@ -212,7 +217,7 @@ typedef union {
 } ArtPollReply;
 
 // new packet callback
-typedef void (*e131_packet_callback_function) (e131_packet_t* p, IPAddress clientIP, byte protocol);
+typedef void (*e131_packet_callback_function) (e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen);
 
 class ESPAsyncE131 {
  private:
