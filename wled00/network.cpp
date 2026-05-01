@@ -175,9 +175,6 @@ const ethernet_settings ethernetBoards[] = {
     ETH_PHY_LAN8720,     // eth_type
     ETH_CLOCK_GPIO0_IN   // eth_clk_mode
   },
-
-
-
 };
 
 bool initEthernet()
