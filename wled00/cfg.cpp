@@ -47,7 +47,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   //int rev_major = doc["rev"][0]; // 1
   //int rev_minor = doc["rev"][1]; // 0
 
-  long vid = doc[F("vid")]; // 2605010 note: "vid" can be used to detect an update from older versions but only on first call, it is written to the new VID after buses are initialized
+  long vid = doc[F("vid")] | VERSION; // 2605010 note: "vid" can be used to detect an update from older versions but only on first call, it is written to the new VID after buses are initialized
 
   JsonObject id = doc["id"];
   getStringFromJson(cmDNS, id[F("mdns")], 33);
