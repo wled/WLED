@@ -7762,13 +7762,13 @@ typedef struct {
   } timing;
 } TwinkleLight;
 
-// Simple exponential distribution favoring shorter times.
-uint16_t skewedTime(uint16_t maxTime) {
-  uint8_t r = hw_random16();
-  // Square the normalized value to skew toward smaller numbers
-  float normalized = (r / 255.0f);
-  normalized = normalized * normalized;
-  return (uint16_t)(200 + normalized * (maxTime - 200));
+// Square a normalized value to skew toward smaller numbers
+int16_t skewedTime(uint16_t maxTime) {
+  // Do things in the proper order so fixed arithmatic works.
+  uint32_t rSqrd = hw_random8();              // 0-255
+  rSqrd *= rSqrd;                             // 0-65,025
+  uint32_t normalized = rSqrd >> 8;           // 0-254, i.e. (0.0-1.0 << 8)
+  return (uint16_t)(200 + (normalized * (maxTime - 200) >> 8));
 }
 
 void mode_XmasTwinkle(void) {
