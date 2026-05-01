@@ -69,7 +69,7 @@ static void handleDDPPacket(e131_packet_t* p, size_t packetLen) {
   }
 
   unsigned numLeds = stop - start; // stop >= start is guaranteed
-  unsigned maxDataIndex = c + numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
+  unsigned maxDataIndex = numLeds * ddpChannelsPerLed; // validate bounds before accessing data array
   if (maxDataIndex > dataLen) {
     DEBUG_PRINTLN(F("DDP packet data bounds exceeded, rejecting."));
     return;
