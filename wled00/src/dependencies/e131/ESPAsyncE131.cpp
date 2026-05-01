@@ -21,10 +21,10 @@
 #include "../network/Network.h"
 #include <string.h>
 
-// E1.17 ACN Packet Identifier
+// E1.17 ACN Packet Identifier "ASC-E1.17"
 const byte ESPAsyncE131::ACN_ID[12] = { 0x41, 0x53, 0x43, 0x2d, 0x45, 0x31, 0x2e, 0x31, 0x37, 0x00, 0x00, 0x00 };
 
-// Art-Net Packet Identifier
+// Art-Net Packet Identifier "Art-Net"
 const byte ESPAsyncE131::ART_ID[8]  = { 0x41, 0x72, 0x74, 0x2d, 0x4e, 0x65, 0x74, 0x00 };
 
 // Constructor
@@ -100,13 +100,16 @@ bool ESPAsyncE131::initMulticast(uint16_t port, uint16_t universe, uint8_t n) {
 void ESPAsyncE131::parsePacket(AsyncUDPPacket _packet) {
   bool error = false;
   uint8_t protocol = P_E131;
+  const size_t pktLen = _packet.length();
 
   e131_packet_t *sbuff = reinterpret_cast<e131_packet_t *>(_packet.data());
-	
-	//E1.31 packet identifier ("ACS-E1.17")
-  if (memcmp(sbuff->acn_id, ESPAsyncE131::ACN_ID, sizeof(sbuff->acn_id)))
-    protocol = P_ARTNET;
-	
+
+  // E1.31 packet identifier (ACN_ID = "ASC-E1.17"), need at least 16 bytes to safely read acn_id (offset 4, length 12).
+  if (pktLen >= 16) {
+    if (memcmp(sbuff->acn_id, ESPAsyncE131::ACN_ID, sizeof(sbuff->acn_id)))
+      protocol = P_ARTNET;
+  }
+
 	if (protocol == P_ARTNET) {
 		if (memcmp(sbuff->art_id, ESPAsyncE131::ART_ID, sizeof(sbuff->art_id)))
 			error = true; //not "Art-Net"
@@ -129,6 +132,6 @@ void ESPAsyncE131::parsePacket(AsyncUDPPacket _packet) {
   }
 
   if (!error) {
-    _callback(sbuff, _packet.remoteIP(), protocol);
+    _callback(sbuff, _packet.remoteIP(), protocol, pktLen);
   }
 }
