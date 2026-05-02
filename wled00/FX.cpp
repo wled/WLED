@@ -7750,25 +7750,24 @@ static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Hea
 //  Xmas Twinkle       //
 /////////////////////////
 
-// Originally by Nick Pisarro, Jr. This version by DedeHai, but updatged by Nick.
+// Originally by Nick Pisarro, Jr. This version by DedeHai, and updatged by Nick.
 
 // We need to keep data for each twinkle light. 8 bytes/light
 typedef struct {
-  uint8_t colorIdx;
-  struct {
-    uint32_t isOn : 1;
-    uint32_t nextEvent : 16;    // Time left to next state change (ms.)
-    uint32_t unused : 15;       // Reserved for future use
-  } timing;
+  uint32_t nextEvent : 16;      // Time left to next state change (ms.)
+  uint32_t maxCycle : 16;       // Working maximum cycle time
+  uint32_t retwnkleTime : 16;   // Time left til we recalculate 'maxCycle'
+  uint32_t colorIdx : 8;        // May be fixed or change with each flash
+  uint32_t isOn : 1;
 } TwinkleLight;
 
 // Square a normalized value to skew toward smaller numbers
-int16_t skewedTime(uint16_t maxTime) {
+int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
   // Do things in the proper order so fixed arithmatic works.
   uint32_t rSqrd = hw_random8();              // 0-255
   rSqrd *= rSqrd;                             // 0-65,025
   uint32_t normalized = rSqrd >> 8;           // 0-254, i.e. (0.0-1.0 << 8)
-  return (uint16_t)(200 + (normalized * (maxTime - 200) >> 8));
+  return (uint16_t)(minTime + (normalized * (maxTime - minTime) >> 8));
 }
 
 void mode_XmasTwinkle(void) {
@@ -7800,10 +7799,17 @@ void mode_XmasTwinkle(void) {
   if (SEGMENT.aux0 != numLights) {
     for (int i = 0; i < numLights; i++) {
       lights[i].colorIdx = hw_random8();
-      lights[i].timing.isOn = false;
-      lights[i].timing.nextEvent = skewedTime(maxCycleTime);
+      lights[i].isOn = false;
+      lights[i].nextEvent = skewedTime(maxCycleTime);
+      lights[i].maxCycle = maxCycleTime;
     }
     SEGMENT.aux0 = numLights; // Mark as initialized
+  }
+
+  // Otherwise, update maxCylce for all the lights to reflect a new speed.
+  else if (SEGMENT.speed != SEGMENT.aux1) {
+    for (int i = 0; i < numLights; i++)
+      lights[i].maxCycle = maxCycleTime;
   }
   
   // Clear all LEDs
@@ -7816,24 +7822,24 @@ void mode_XmasTwinkle(void) {
     TwinkleLight* light = &lights[i];
     
     // Check if it's time for state change
-    int16_t eventTime = light->timing.nextEvent - interval;
+    int16_t eventTime = light->nextEvent - interval;
     if (eventTime <= 0) {
-      light->timing.isOn = !light->timing.isOn;
+      light->isOn = !light->isOn;
       
-      if (light->timing.isOn) {
+      if (light->isOn) {
         // Turning ON - short duration (1/3 of off time)
-        eventTime = skewedTime(maxCycleTime / 3);
+        eventTime = skewedTime(lights[i].maxCycle / 3);
         if (SEGMENT.check1) light->colorIdx = hw_random8(); // New color each time
       } else {
         // Turning OFF - longer duration
-        eventTime = skewedTime(maxCycleTime);
+        eventTime = skewedTime(lights[i].maxCycle);
       }
     }
     // Put the updated event time back.
-    light->timing.nextEvent = eventTime;
+    light->nextEvent = eventTime;
     
     // Light the LED if on
-    if (light->timing.isOn) {
+    if (light->isOn) {
       uint16_t pos = (i * SEGLEN) / numLights;
       SEGMENT.setPixelColor(pos, ColorFromPalette(SEGPALETTE, light->colorIdx));
     }
