@@ -39,7 +39,10 @@
 		function S() {
 			getLoc();
 			if(localStorage.getItem('ASc')==='true') d.Sf.AS.checked=true;
-			fetch(getURL('/json/info')).then(r=>r.json()).then(info=>{ hasPSRAM = (info.psram > 0); }).catch(()=>{});
+			fetch(getURL('/json/info'))
+				.then(r => r.ok ? r.json() : {})
+				.then(info => { hasPSRAM = Number(info.psrSz ?? 0) > 0 || Number(info.psram ?? 0) > 0; })
+				.catch(() => {});
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
 				d.ledTypes = [/*{i:22,c:1,t:"D",n:"WS2812"},{i:42,c:6,t:"AA",n:"PWM CCT"}*/]; // filled from GetV()
 				d.um_p = [];
