@@ -126,7 +126,7 @@ static void appendGPIOinfo(Print& settingsScript)
   settingsScript.print(2); // DMX hardcoded pin
   firstPin = false;
   #endif
-  #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+  #if defined(WLED_DEBUG) && !defined(WLED_ENABLE_NET_DEBUG)
   if (!firstPin) settingsScript.print(',');
   settingsScript.print(hardwareTX); // debug output (TX) pin
   firstPin = false;
@@ -588,7 +588,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #endif
 
     //WLEDMM: add netdebug variables
-    #ifdef WLED_DEBUG_HOST
+    #ifdef WLED_ENABLE_NET_DEBUG
       sappend('v',SET_F("N0"),netDebugPrintIP[0]);
       sappend('v',SET_F("N1"),netDebugPrintIP[1]);
       sappend('v',SET_F("N2"),netDebugPrintIP[2]);

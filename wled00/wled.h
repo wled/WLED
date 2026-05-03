@@ -973,12 +973,17 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
 WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
+// enable net debug output over UDP; use -D WLED_ENABLE_NET_DEBUG to activate.
+// Legacy: defining WLED_DEBUG_HOST='"ip_or_host"' also enables net debug and
+// pre-seeds the target IP at compile time.
+#if defined(WLED_DEBUG_HOST) && !defined(WLED_ENABLE_NET_DEBUG)
+  #define WLED_ENABLE_NET_DEBUG
+#endif
+
 // enable additional debug output
-//WLEDMM: switch between netdebug and serial
-#if defined(WLED_DEBUG_HOST)
+#if defined(WLED_ENABLE_NET_DEBUG)
   #include "net_debug.h"
   // On the host side, use netcat to receive the log statements: nc -l 7868 -u
-  // use -D WLED_DEBUG_HOST='"192.168.xxx.xxx"' or FQDN within quotes
   WLED_GLOBAL bool netDebugEnabled _INIT(false);
   WLED_GLOBAL int netDebugPrintPort _INIT(0);
   WLED_GLOBAL IPAddress netDebugPrintIP _INIT_N(((0, 0, 0, 0))); // IP address of the bridge
@@ -1008,26 +1013,25 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #define DEBUG_PRINTF_P(x...)
 #endif
 
-// WLEDMM: macros to print "user messages" to Serial
+// macros to print "user messages" to Serial
 // cannot do this on -S2, due to buggy USBCDC serial driver
-#if defined(WLED_DEBUG) || defined(WLED_DEBUG_HOST)
+#if defined(WLED_DEBUG) || defined(WLED_ENABLE_NET_DEBUG)
   // use DEBUG_PRINT
   #define USER_PRINT(x) DEBUG_PRINT(x)
   #define USER_PRINTLN(x) DEBUG_PRINTLN(x)
   #define USER_PRINTF(x...) DEBUG_PRINTF(x)
-  #ifdef WLED_DEBUG_HOST
+  #ifdef WLED_ENABLE_NET_DEBUG
     #define USER_FLUSH() {}
   #else
     #define USER_FLUSH() {DEBUGOUTFlush();}
   #endif
 #else
-  // if serial is availeable, we use Serial.print directly
+  // if serial is available, we use Serial.print directly
   #define USER_PRINT(x)      { if (canUseSerial()) DEBUGOUT(x); }
   #define USER_PRINTLN(x)    { if (canUseSerial()) DEBUGOUTLN(x); }
   #define USER_PRINTF(x...)  { if (canUseSerial()) DEBUGOUTF(x); }
   #define USER_FLUSH()       {DEBUGOUTFlush();}
 #endif
-// WLEDMM end
 
 
 #ifdef WLED_DEBUG_FS

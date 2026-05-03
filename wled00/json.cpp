@@ -368,7 +368,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
 {
   bool stateResponse = root[F("v")] | false;
 
-  #if defined(WLED_DEBUG) && defined(WLED_DEBUG_HOST)
+  #if defined(WLED_DEBUG) && defined(WLED_ENABLE_NET_DEBUG)
   netDebugEnabled = root[F("debug")] | netDebugEnabled;
   #endif
 
@@ -856,7 +856,7 @@ void serializeInfo(JsonObject root)
   uint16_t os = 0;
   #ifdef WLED_DEBUG
   os  = 0x80;
-    #ifdef WLED_DEBUG_HOST
+    #ifdef WLED_ENABLE_NET_DEBUG
     os |= 0x0100;
     if (!netDebugEnabled) os &= ~0x0080;
     #endif

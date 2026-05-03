@@ -524,7 +524,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     #endif
 
     //WLEDMM: add netdebug variables
-    #ifdef WLED_DEBUG_HOST
+    #ifdef WLED_ENABLE_NET_DEBUG
       for (int i=0;i<4;i++){
         String a = "N"+String(i);
         netDebugPrintIP[i] = request->arg(a).toInt();

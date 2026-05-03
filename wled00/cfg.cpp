@@ -658,7 +658,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #endif
 
 //WLEDMM: add netdebug variables
-#ifdef WLED_DEBUG_HOST
+#ifdef WLED_ENABLE_NET_DEBUG
   JsonObject if_ndb = interfaces["ndb"];
   JsonArray if_ndb_ip = if_ndb["ip"];
   for (byte i = 0; i < 4; i++)
@@ -1189,7 +1189,7 @@ void serializeConfig(JsonObject root) {
 #endif
 
 //WLEDMM: add netdebug variables
-#ifdef WLED_DEBUG_HOST
+#ifdef WLED_ENABLE_NET_DEBUG
   JsonObject if_ndb = interfaces.createNestedObject("ndb");
   JsonArray if_ndb_ip = if_ndb.createNestedArray("ip");
   for (byte i = 0; i < 4; i++) {
