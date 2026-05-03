@@ -140,7 +140,7 @@ static uint8_t binNum = 8;           // Used to select the bin for FFT based bea
 #if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #define UM_AUDIOREACTIVE_USE_INTEGER_FFT // always use integer FFT on ESP32-S2 and ESP32-C3
 #endif
-#endif
+#endif // UM_AUDIOREACTIVE_USE_ARDUINO_FFT
 
 #if !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
 using FFTsampleType = float;
@@ -757,6 +757,8 @@ class AudioReactive : public Usermod {
 
   private:
 #ifdef ARDUINO_ARCH_ESP32
+
+    static constexpr uint8_t SR_DMTYPE_NETWORK_ONLY = 254;
 
     #ifndef AUDIOPIN
     int8_t audioPin = -1;
@@ -1439,7 +1441,7 @@ class AudioReactive : public Usermod {
           break;
         #endif
 
-        case 254: // dummy "network receive only" mode
+        case SR_DMTYPE_NETWORK_ONLY: // dummy "network receive only" mode
           if (audioSource) delete audioSource; audioSource = nullptr;
           disableSoundProcessing = true;
           audioSyncEnabled = 2; // force udp sound receive mode
@@ -1456,19 +1458,25 @@ class AudioReactive : public Usermod {
       }
       delay(250); // give microphone enough time to initialise
 
-      if (!audioSource && (dmType != 254)) enabled = false;// audio failed to initialise
+      if (!audioSource && (dmType != SR_DMTYPE_NETWORK_ONLY)) enabled = false;// audio failed to initialise
 #endif
       if (enabled) onUpdateBegin(false);                 // create FFT task, and initialize network
 
 
 #ifdef ARDUINO_ARCH_ESP32
-      if (FFT_Task == nullptr) enabled = false;          // FFT task creation failed
+      if (audioSource && FFT_Task == nullptr) enabled = false;          // FFT task creation failed
       if((!audioSource) || (!audioSource->isInitialized())) {  // audio source failed to initialize. Still stay "enabled", as there might be input arriving via UDP Sound Sync 
-      #ifdef WLED_DEBUG
-        DEBUG_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #else
-        DEBUGSR_PRINTLN(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
-      #endif
+#ifdef WLED_DEBUG
+        #define AR_INIT_DEBUG_PRINT DEBUG_PRINTLN
+#else
+        #define AR_INIT_DEBUG_PRINT DEBUGSR_PRINTLN
+#endif
+        if (dmType == SR_DMTYPE_NETWORK_ONLY) {
+          AR_INIT_DEBUG_PRINT(F("AR: No sound input driver configured - network receive only."));
+        } else {
+          AR_INIT_DEBUG_PRINT(F("AR: Failed to initialize sound input driver. Please check input PIN settings."));
+        }
+        #undef AR_INIT_DEBUG_PRINT
         disableSoundProcessing = true;
       }
 #endif
@@ -2123,6 +2131,9 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'Generic PDM',5);"));
     #endif
     uiScript.print(F("addOption(dd,'ES8388',6);"));
+      uiScript.print(F("addOption(dd,'None - network receive only',"));
+      uiScript.print(SR_DMTYPE_NETWORK_ONLY);
+      uiScript.print(F(");"));
     
       uiScript.print(F("dd=addDropdown(ux,'config:AGC');"));
       uiScript.print(F("addOption(dd,'Off',0);"));
