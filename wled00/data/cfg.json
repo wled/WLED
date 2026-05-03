@@ -1,0 +1,52 @@
+{
+  "rev": [1, 0],
+  "id": {
+    "name": ""
+  },
+  "ap": {
+    "ssid": "LiquidLightDesign",
+    "pskl": 0,
+    "chan": 6,
+    "hide": 0,
+    "behav": 2
+  },
+  "hw": {
+    "led": {
+      "total": 93,
+      "maxpwr": 0,
+      "ins": [
+        {
+          "start": 0,
+          "len": 93,
+          "pin": [40],
+          "order": 0,
+          "rev": false,
+          "skip": 0,
+          "type": 22,
+          "ref": false,
+          "freq": 0,
+          "maxpwr": 0,
+          "ledma": 55
+        }
+      ]
+    },
+    "btn": {
+      "max": 4,
+      "pull": true,
+      "ins": [
+        {"type": 2, "pin": [16], "macros": [0, 0, 0]},
+        {"type": 2, "pin": [18], "macros": [0, 0, 0]}
+      ]
+    }
+  },
+  "light": {
+    "tr": {
+      "dur": 7
+    }
+  },
+  "def": {
+    "ps": 101,
+    "on": true,
+    "bri": 128
+  }
+}
