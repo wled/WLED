@@ -281,6 +281,10 @@ function onLoad()
 	selectSlot(0);
 	updateTablinks(0);
 	handleLocationHash();
+	var tabParam = new URLSearchParams(window.location.search).get('tab');
+	if      (tabParam === 'segments') openTab(2, true);
+	else if (tabParam === 'presets')  openTab(3, true);
+	else if (tabParam === 'info')     toggleInfo();
 	cpick.on("input:end", () => {setColor(1);});
 	cpick.on("color:change", () => {updatePSliders()});
 	pmtLS = localStorage.getItem('wledPmt');
