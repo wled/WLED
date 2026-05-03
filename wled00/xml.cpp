@@ -587,7 +587,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.print(F("toggle('Serial');"));
     #endif
 
-    //WLEDMM: add netdebug variables
     #ifdef WLED_ENABLE_NET_DEBUG
       sappend('v',SET_F("N0"),netDebugPrintIP[0]);
       sappend('v',SET_F("N1"),netDebugPrintIP[1]);

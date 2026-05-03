@@ -827,10 +827,8 @@ void WLED::initInterfaces()
   }
 #endif
 
-//WLEDMM: add netdebug variables
 #ifdef WLED_ENABLE_NET_DEBUG
   if (netDebugPrintIP[0] == 0) {
-    //WLEDMM: this code moved from net_debug.cpp as we store IP as IPAddress type
     if (!netDebugPrintIP && !netDebugPrintIP.fromString(WLED_DEBUG_HOST)) {
       #ifdef ESP8266
         WiFi.hostByName(WLED_DEBUG_HOST, netDebugPrintIP, 750);

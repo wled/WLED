@@ -523,7 +523,6 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     reconnectHue();
     #endif
 
-    //WLEDMM: add netdebug variables
     #ifdef WLED_ENABLE_NET_DEBUG
       for (int i=0;i<4;i++){
         String a = "N"+String(i);
