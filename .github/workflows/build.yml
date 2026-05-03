@@ -3,6 +3,11 @@ name: WLED Build
 # Only included into other workflows
 on:
   workflow_call:
+    inputs:
+      release:
+        description: 'Build the release env matrix (uses .github/platformio_release.ini.template)'
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -14,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Apply release config
+      if: inputs.release
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -38,6 +46,9 @@ jobs:
         environment: ${{ fromJSON(needs.get_default_envs.outputs.environments) }}
     steps:
     - uses: actions/checkout@v4
+    - name: Apply release config
+      if: inputs.release
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -54,8 +65,8 @@ jobs:
               ~/.platformio/.cache
               ~/.buildcache
               build_output
-        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
-        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
