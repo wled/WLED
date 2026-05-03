@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       release:
-        description: 'Build the release env matrix (uses platformio_release.ini.template)'
+        description: 'Build the release env matrix (uses .github/platformio_release.ini.template)'
         type: boolean
         default: false
 
@@ -21,7 +21,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Apply release config
       if: inputs.release
-      run: cp platformio_release.ini.template platformio_release.ini
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -48,7 +48,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Apply release config
       if: inputs.release
-      run: cp platformio_release.ini.template platformio_release.ini
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -65,8 +65,8 @@ jobs:
               ~/.platformio/.cache
               ~/.buildcache
               build_output
-        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
-        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-
+        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
