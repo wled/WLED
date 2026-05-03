@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - usermods/**
-    
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   get_usermod_envs:
