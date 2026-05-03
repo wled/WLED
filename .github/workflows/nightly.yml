@@ -7,6 +7,9 @@ on:
   # This can be used to allow manually triggering nightlies from the web interface
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   wled_build:
     uses: ./.github/workflows/build.yml
@@ -23,10 +26,13 @@ jobs:
         run: ls -la
       - name: "✏️ Generate release changelog"
         id: changelog
-        uses: janheinrichmerker/action-github-changelog-generator@v2.3
+        uses: janheinrichmerker/action-github-changelog-generator@v2.4
         with:
           token: ${{ secrets.GITHUB_TOKEN }} 
           sinceTag: v0.15.0
+          output: CHANGELOG_NIGHTLY.md
+          # Exclude issues that were closed without resolution from changelog
+          excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'
       - name: Update Nightly Release
         uses: andelf/nightly-release@main
         env:
@@ -35,7 +41,7 @@ jobs:
           tag_name: nightly
           name: 'Nightly Release $$'
           prerelease: true
-          body: ${{ steps.changelog.outputs.changelog }}
+          body_path: CHANGELOG_NIGHTLY.md
           files: |
             *.bin
             *.bin.gz

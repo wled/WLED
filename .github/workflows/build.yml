@@ -3,7 +3,10 @@ name: WLED Build
 # Only included into other workflows
 on:
   workflow_call:
-  
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   get_default_envs:
@@ -40,7 +43,10 @@ jobs:
       with:
         node-version-file: '.nvmrc'
         cache: 'npm'
-    - run: npm ci
+    - run: |
+        npm ci
+        VERSION=`date +%y%m%d0`
+        sed -i -r -e "s/define VERSION .+/define VERSION $VERSION/" wled00/wled.h
     - name: Cache PlatformIO
       uses: actions/cache@v4
       with:
@@ -60,9 +66,21 @@ jobs:
 
     - name: Build firmware
       run: pio run -e ${{ matrix.environment }}
+    - name: Get artifact name from bin filename
+      id: artifact_name
+      run: |
+        bin=$(ls build_output/release/*.bin 2>/dev/null | head -1)
+        if [ -n "$bin" ]; then
+          # Strip WLED_<version>_ prefix from WLED_<version>_<RELEASE_NAME>.bin
+          base=$(basename "$bin" .bin)
+          release_name=$(echo "$base" | sed 's/^[^_]*_[^_]*_//')
+          echo "name=firmware-$release_name" >> $GITHUB_OUTPUT
+        else
+          echo "name=firmware-${{ matrix.environment }}" >> $GITHUB_OUTPUT
+        fi
     - uses: actions/upload-artifact@v4
       with:
-        name: firmware-${{ matrix.environment }}
+        name: ${{ steps.artifact_name.outputs.name }}
         path: |
           build_output/release/*.bin
           build_output/release/*_ESP02*.bin.gz

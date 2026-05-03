@@ -16,8 +16,8 @@
 #endif
 
 #define IMPROV_VERSION 1
-
-void parseWiFiCommand(char *rpcData);
+// forward declarations
+static void parseWiFiCommand(char* rpcData);
 
 enum ImprovPacketType {
   Current_State = 0x01,
@@ -252,7 +252,7 @@ void startImprovWifiScan() {}
 void handleImprovWifiScan() {}
 #endif
 
-void parseWiFiCommand(char* rpcData) {
+static void parseWiFiCommand(char* rpcData) {
   unsigned len = rpcData[0];
   if (!len || len > 126) return;
 
