@@ -786,9 +786,15 @@ input[type=range]::-moz-range-thumb {
 }
 
 #briwrap {
-	min-width: 300px;
+	min-width: 161px;
 	float: right;
-	margin-top: var(--bmt);
+	margin-top: -6px;
+	padding-right: 8px;
+}
+
+#briwrap .sliderwrap {
+	width: 161px;
+	max-width: 161px;
 }
 
 #picker {
@@ -1572,9 +1578,8 @@ dialog {
 		padding: 8px 0 4px 0;
 	}
 	#briwrap {
-		margin: 0 auto !important;
-		float: none;
-		display: inline-block;
+		float: right;
+		margin-top: var(--bmt);
 	}
 	.hd {
 		display: none !important;
