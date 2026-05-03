@@ -3763,7 +3763,7 @@ void mode_exploding_fireworks(void)
     if (SEGENV.aux0 == 0) { //init flare
       flare->pos = 0;
       flare->posX = SEGMENT.is2D() ? hw_random16(2,cols-3) : (SEGMENT.intensity > hw_random8()); // will enable random firing side on 1D
-      unsigned peakHeight = 75 + hw_random8(180); //0-255
+      unsigned peakHeight = 84 + hw_random8(146); // 33% to 90% of 256
       peakHeight = (peakHeight * (rows -1)) >> 8;
       flare->vel = sqrtf(-2.0f * gravity * peakHeight);
       flare->velX = SEGMENT.is2D() ? (hw_random8(9)-4)/64.0f : 0; // no X velocity on 1D
@@ -3800,6 +3800,7 @@ void mode_exploding_fireworks(void)
 
     // initialize sparks
     if (SEGENV.aux0 == 2) {
+      int colIndex = hw_random8(); // single color: one index shared by all sparks
       for (unsigned i = 1; i < nSparks; i++) {
         sparks[i].pos  = flare->pos;
         sparks[i].posX = flare->posX;
@@ -3808,7 +3809,7 @@ void mode_exploding_fireworks(void)
         sparks[i].velX = SEGMENT.is2D() ? (float(hw_random16(20001)) / 10000.0f) - 1.0f : 0; // from -1 to 1
         sparks[i].col  = 345;//abs(sparks[i].vel * 750.0); // set colors before scaling velocity to keep them bright
         //sparks[i].col = constrain(sparks[i].col, 0, 345);
-        sparks[i].colIndex = hw_random8();
+        sparks[i].colIndex = SEGMENT.check1 ? colIndex : hw_random8(); // single color: share one index; otherwise random per spark
         sparks[i].vel  *= flare->pos/rows; // proportional to height
         sparks[i].velX *= SEGMENT.is2D() ? flare->posX/cols : 0; // proportional to width
         sparks[i].vel  *= -gravity *50;
@@ -3835,9 +3836,11 @@ void mode_exploding_fireworks(void)
             c = color_blend(spColor, WHITE, uint8_t((prog - 300)*5));
           } else if (prog > 45) { //fade from spark color to black
             c = color_blend(BLACK, spColor, uint8_t(prog - 45));
-            unsigned cooling = (300 - prog) >> 5;
-            c.g = qsub8(c.g, cooling);
-            c.b = qsub8(c.b, cooling * 2);
+            if (!SEGMENT.check1) { // without single color, shift toward red/orange as sparks cool
+              unsigned cooling = (300 - prog) >> 5;
+              c.g = qsub8(c.g, cooling);
+              c.b = qsub8(c.b, cooling * 2);
+            }
           }
           if (SEGMENT.is2D()) SEGMENT.setPixelColorXY(int(sparks[i].posX), rows - int(sparks[i].pos) - 1, c);
           else                SEGMENT.setPixelColor(int(sparks[i].posX) ? rows - int(sparks[i].pos) - 1 : int(sparks[i].pos), c);
@@ -3856,7 +3859,7 @@ void mode_exploding_fireworks(void)
   }
 }
 #undef MAX_SPARKS
-static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gravity,Firing side;!,!;!;12;pal=11,ix=128";
+static const char _data_FX_MODE_EXPLODING_FIREWORKS[] PROGMEM = "Fireworks 1D@Gravity,Firing side,,,,Single Color;!,!;!;12;pal=11,ix=128";
 #endif // WLED_PS_DONT_REPLACE_x_FX
 
 /*

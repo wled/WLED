@@ -759,6 +759,24 @@ const byte trafficlight_gp[] PROGMEM = {
   170, 255, 255, 0,   //yellow
   255, 255,   0, 0};  //red
 
+// Fireworks palette: colors sized by real-world frequency
+// red/blue ~22%, green ~18%, violet ~15%, orange ~11%, white ~7%, yellow ~5%
+const byte fireworks_gp[] PROGMEM = {
+    0, 255,   0,   0,   // red (start)
+   55, 255,   0,   0,   // red (end)
+   56,   0,   0, 220,   // blue (start)
+  112,   0,   0, 220,   // blue (end)
+  113,   0, 210,   0,   // green (start)
+  158,   0, 210,   0,   // green (end)
+  159, 148,   0, 211,   // violet (start)
+  197, 148,   0, 211,   // violet (end)
+  198, 255,  80,   0,   // orange (start)
+  224, 255,  80,   0,   // orange (end)
+  225, 255, 255, 255,   // white (start)
+  243, 255, 255, 255,   // white (end)
+  244, 255, 210,   0,   // yellow (start)
+  255, 255, 210,   0};  // yellow (end)
+
 const byte Aurora2_gp[] PROGMEM = {
     0,  17, 177,  13,    //Greenish
    64, 121, 242,   5,    //Greenish
@@ -863,5 +881,6 @@ const uint8_t* const gGradientPalettes[] PROGMEM = {
   red_shift_gp,                 //68-55 Red Shift
   red_tide_gp,                  //69-56 Red Tide
   candy2_gp,                    //70-57 Candy2
-  trafficlight_gp               //71-58 Traffic Light
+  trafficlight_gp,              //71-58 Traffic Light
+  fireworks_gp                  //72-59 Fireworks
 };
