@@ -7770,6 +7770,14 @@ int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
   return (uint16_t)(minTime + (normalized * (maxTime - minTime) >> 8));
 }
 
+// Based on the speed, bias the maxtime toward faster or slower times.
+int16_t skewedMax()
+{
+  int32_t slowWeight = SEGMENT.speed;    // 0.0 - 1.0 as fixed Q24.8
+  // ">> 9, below divides by 2 and converts Q24.8 to Q32.0.
+  return (skewedTime(8800, 0) * slowWeight + (8800 - skewedTime(8800, 0)) * (256 - slowWeight) >> 9) + 200;
+}
+
 void mode_XmasTwinkle(void) {
   /* SEGMENT usage:
    *   aux0   number of twinklers
@@ -7793,23 +7801,16 @@ void mode_XmasTwinkle(void) {
   // The interval may be zero if the refresh rate is fast enough.
   uint32_t interval = currTime - lastTime;
   
-  uint16_t maxCycleTime = 1000 + (255 - SEGMENT.speed) * 30; // 1000-8,650 ms.
-  
   // Initialize on first run
   if (SEGMENT.aux0 != numLights) {
     for (int i = 0; i < numLights; i++) {
       lights[i].colorIdx = hw_random8();
       lights[i].isOn = false;
-      lights[i].nextEvent = skewedTime(maxCycleTime);
-      lights[i].maxCycle = maxCycleTime;
+      lights[i].maxCycle = skewedMax();
+      lights[i].nextEvent = skewedTime(lights[i].maxCycle);
+      lights[i].retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
     }
     SEGMENT.aux0 = numLights; // Mark as initialized
-  }
-
-  // Otherwise, update maxCylce for all the lights to reflect a new speed.
-  else if (SEGMENT.speed != SEGMENT.aux1) {
-    for (int i = 0; i < numLights; i++)
-      lights[i].maxCycle = maxCycleTime;
   }
   
   // Clear all LEDs
@@ -7843,6 +7844,16 @@ void mode_XmasTwinkle(void) {
       uint16_t pos = (i * SEGLEN) / numLights;
       SEGMENT.setPixelColor(pos, ColorFromPalette(SEGPALETTE, light->colorIdx));
     }
+
+    // If we are at the end of a major cycle or the speed has changed, recalculate the max cycle time.
+    int16_t cycleTime = light->retwnkleTime - interval;
+    if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
+    {
+      light->maxCycle = skewedMax();
+      if (cycleTime <= 0)
+        cycleTime += 20000;     // +20 seconds
+    }
+    light->retwnkleTime = cycleTime;
   }
 
   // Remember the last time as ms.
