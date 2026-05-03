@@ -460,7 +460,11 @@
 				rm.className = 'sml';
 				rm.title = 'Delete palette';
 				rm.innerHTML = '&#10006;';
-				rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 500); };
+				rm.onclick = () => { 
+					requestJson({rmcpal:i}); // send remove command
+					setTimeout(refr, 500);   // slight delay to allow ESP to process deletion before fetching updated list
+					localStorage.removeItem('wledPalx'); // invalidate main UI cache
+				};
 
 				const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
 				const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
