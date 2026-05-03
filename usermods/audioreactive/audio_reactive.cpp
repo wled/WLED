@@ -879,6 +879,9 @@ class AudioReactive : public Usermod {
 #endif
     static const char _digitalmic[];
     static const char _addPalettes[];
+    static const char _palName0[];
+    static const char _palName1[];
+    static const char _palName2[];
     static const char UDP_SYNC_HEADER[];
     static const char UDP_SYNC_HEADER_v1[];
 
@@ -2190,10 +2193,10 @@ void AudioReactive::removeAudioPalettes(void) {
 void AudioReactive::createAudioPalettes(void) {
   if (palettes) return;
   DEBUG_PRINTLN(F("Adding audio palettes."));
+  static const char *const palNames[MAX_PALETTES] PROGMEM = {_palName0, _palName1, _palName2};
   for (int i=0; i<MAX_PALETTES; i++) {
     if (usermodPalettes.size() < WLED_MAX_USERMOD_PALETTES) {
-      // reuse _name ("AudioReactive") as base; palIndex 0/1/2... builds "AudioReactive 0" etc.
-      usermodPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i}); // start black, filled each loop by fillAudioPalettes()
+      usermodPalettes.push_back({CRGBPalette16(CRGB(BLACK)), _name, (uint8_t)i, palNames[i]}); // start black, filled each loop by fillAudioPalettes()
       palettes++;
       DEBUG_PRINTLN(palettes);
     } else break;
@@ -2276,7 +2279,10 @@ const char AudioReactive::_inputLvl[]   PROGMEM = "inputLevel";
 const char AudioReactive::_analogmic[]  PROGMEM = "analogmic";
 #endif
 const char AudioReactive::_digitalmic[] PROGMEM = "digitalmic";
-const char AudioReactive::_addPalettes[]       PROGMEM = "add-palettes";
+const char AudioReactive::_addPalettes[]          PROGMEM = "add-palettes";
+const char AudioReactive::_palName0[]              PROGMEM = "Ratio";
+const char AudioReactive::_palName1[]              PROGMEM = "Hue";
+const char AudioReactive::_palName2[]              PROGMEM = "Spectrum";
 const char AudioReactive::UDP_SYNC_HEADER[]    PROGMEM = "00002"; // new sync header version, as format no longer compatible with previous structure
 const char AudioReactive::UDP_SYNC_HEADER_v1[] PROGMEM = "00001"; // old sync header version - need to add backwards-compatibility feature
 
