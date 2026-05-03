@@ -326,10 +326,17 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
         return 0;
       }
       const UsermodPalette &ump = usermodPalettes[umIdx];
-      char base[33];
-      strncpy_P(base, ump.name, sizeof(base) - 1);
-      base[sizeof(base) - 1] = '\0';
-      snprintf(dest, maxLen + 1, "%s %u", base, (unsigned)ump.palIndex); // palette name is um name + index (e.g. "AudioReactive 1")
+      if (ump.palName) {
+        // usermod supplied a specific display name for this palette
+        strncpy_P(dest, ump.palName, maxLen);
+        dest[maxLen] = '\0';
+      } else {
+        // fallback: "UMName index" (e.g. "AudioReactive 1")
+        char base[33];
+        strncpy_P(base, ump.name, sizeof(base) - 1);
+        base[sizeof(base) - 1] = '\0';
+        snprintf(dest, maxLen + 1, "%s %u", base, (unsigned)ump.palIndex);
+      }
       return strlen(dest);
     }
     if (mode >= FIXED_PALETTE_COUNT && mode <= WLED_CUSTOM_PALETTE_ID_BASE) {
