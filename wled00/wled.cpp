@@ -369,8 +369,10 @@ void WLED::setup()
   #endif
 
   #ifdef ARDUINO_ARCH_ESP32
-  pinMode(hardwareRX, INPUT_PULLDOWN); delay(1);        // suppress noise in case RX pin is floating (at low noise energy) - see issue #3128
+  gpio_pulldown_en((gpio_num_t)hardwareRX); delay(1); // suppress noise in case RX pin is floating (at low noise energy) - see issue #3128
+  // note: can not use pinMode(): it routes GPIO through the GPIO matrix and detaches UART0 RX
   #endif
+
   #ifdef WLED_BOOTUPDELAY
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
   #endif
