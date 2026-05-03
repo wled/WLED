@@ -1275,8 +1275,6 @@ function updatePA()
 function updateUI()
 {
 	gId('buttonPower').className = (isOn) ? 'active':'';
-	gId('buttonNl').className = (nlA) ? 'active':'';
-	gId('buttonSync').className = (syncSend) ? 'active':'';
 
 	updateSelectedFx();
 	updateSelectedPalette(selectedPal); // must be after updateSelectedFx() to un-hide color slots for * palettes
@@ -1828,7 +1826,6 @@ function toggleLiveview()
 
 	gId(lvID).style.display = (isLv) ? "block":"none";
 	gId(lvID).src = (isLv) ? getURL("/" + lvID + ((wsOn) ? "?ws":"")):"about:blank";
-	gId('buttonSr').classList.toggle("active");
 	if (!isLv && wsOn) ws.send('{"lv":false}');
 	size();
 }
@@ -1840,7 +1837,6 @@ function toggleInfo()
 	isInfo = !isInfo;
 	if (isInfo) requestJson();
 	gId('info').style.transform = (isInfo) ? "translateY(0px)":"translateY(100%)";
-	gId('buttonI').className = (isInfo) ? "active":"";
 }
 
 function toggleNodes()
@@ -3275,9 +3271,6 @@ function simplifyUI() {
 	gId("modeLabel").style.display = "none";
 
 	// Hide buttons in top bar
-	gId("buttonNl").style.display = "none";
-	gId("buttonSync").style.display = "none";
-	gId("buttonSr").style.display = "none";
 	gId("buttonPcm").style.display = "none";
 
 	// Hide bottom bar 
