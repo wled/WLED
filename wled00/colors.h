@@ -62,12 +62,12 @@ void adjust_color(CRGBW& rgb, int32_t hueShift, int32_t satChange,int32_t valueC
 CRGBPalette16 generateHarmonicRandomPalette(const CRGBPalette16 &basepalette);
 CRGBPalette16 generateRandomPalette();
 // Palette registered by a usermod at fixed IDs (255, 254, 253... 201).
-// Display name is palName (if non-null) or falls back to name + index (e.g. "AudioReactive 1"), see util.cpp
+// Display name is "name: palName" (if palName non-null) or falls back to "name index" (e.g. "AudioReactive 1"), see util.cpp
 struct UsermodPalette {
   CRGBPalette16 palette;
   const char   *name;      // PROGMEM base name string (must not be nullptr), this name is used in removeUsermodPalettes()
   uint8_t       palIndex;  // index of the palette for a usermod
-  const char   *palName;   // optional PROGMEM display name for this palette; if nullptr, falls back to "name index"
+  const char   *palName;   // optional PROGMEM display name; if set, shown as "name: palName" (e.g. "AudioReactive: Audio Responsive Hue"), otherwise falls back to "name index"
 };
 
 void loadCustomPalettes();
