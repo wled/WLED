@@ -687,7 +687,6 @@ static const char _data_FX_MODE_TWINKLE[] PROGMEM = "Twinkle@!,!;!,!;!;;m12=0"; 
  * Dissolve function
  */
 void dissolve(uint32_t color) {
-  if (SEGLEN < 1) FX_FALLBACK_STATIC;
   unsigned dataSize = sizeof(uint32_t) * SEGLEN;
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
