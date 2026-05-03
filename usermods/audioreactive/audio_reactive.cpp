@@ -2280,9 +2280,9 @@ const char AudioReactive::_analogmic[]  PROGMEM = "analogmic";
 #endif
 const char AudioReactive::_digitalmic[] PROGMEM = "digitalmic";
 const char AudioReactive::_addPalettes[]          PROGMEM = "add-palettes";
-const char AudioReactive::_palName0[]              PROGMEM = "Audio Responsive Ratio";
-const char AudioReactive::_palName1[]              PROGMEM = "Audio Responsive Hue";
-const char AudioReactive::_palName2[]              PROGMEM = "Audio Responsive Spectrum";
+const char AudioReactive::_palName0[]              PROGMEM = "Ratio";
+const char AudioReactive::_palName1[]              PROGMEM = "Hue";
+const char AudioReactive::_palName2[]              PROGMEM = "Spectrum";
 const char AudioReactive::UDP_SYNC_HEADER[]    PROGMEM = "00002"; // new sync header version, as format no longer compatible with previous structure
 const char AudioReactive::UDP_SYNC_HEADER_v1[] PROGMEM = "00001"; // old sync header version - need to add backwards-compatibility feature
 
