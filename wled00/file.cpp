@@ -355,12 +355,17 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
     return false;
   }
 
-  if (filter) deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
-  else        deserializeJson(*dest, f);
+  DeserializationError jsonErr = DeserializationError::Ok;
+  if (filter) jsonErr = deserializeJson(*dest, f, DeserializationOption::Filter(*filter));
+  else        jsonErr = deserializeJson(*dest, f);
 
   f.close();
   DEBUGFS_PRINTF("Read, took %lu ms\n", millis() - s);
-  return true;
+
+  if (jsonErr) {   // EmptyInput, IncompleteInput, InvalidInput, NoMemory, TooDeep
+    DEBUG_PRINTF_P(PSTR("readObjectFromFile(%s): JSON %s !\n"), fileName, jsonErr.c_str());
+    return jsonErr == DeserializationError::NoMemory || jsonErr == DeserializationError::EmptyInput; // NoMemory => data is partial but usable; empty => handled by caller
+  } else return true;
 }
 
 void updateFSInfo() {

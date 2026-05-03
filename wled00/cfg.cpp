@@ -84,7 +84,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray nw_ins = nw["ins"];
   if (!nw_ins.isNull()) {
     // as password are stored separately in wsec.json when reading configuration vector resize happens there, but for dynamic config we need to resize if necessary
-    if (nw_ins.size() > 1 && nw_ins.size() > multiWiFi.size()) multiWiFi.resize(nw_ins.size()); // resize constructs objects while resizing
+    size_t newSize = min((size_t)WLED_MAX_WIFI_COUNT, nw_ins.size());               // cap at WLED_MAX_WIFI_COUNT (prevent oversizing when too many Wi-Fi entries)
+    if (nw_ins.size() > 1 && newSize > multiWiFi.size()) multiWiFi.resize(newSize); // resize constructs objects while resizing
     for (JsonObject wifi : nw_ins) {
       JsonArray ip = wifi["ip"];
       JsonArray gw = wifi["gw"];
@@ -800,14 +801,14 @@ void resetConfig() {
 }
 
 bool deserializeConfigFromFS() {
-  [[maybe_unused]] bool success = deserializeConfigSec();
+  (void) deserializeConfigSec(); // success/failure is ignored intentionally. We need to read cfg.json even when wsec.json has errors.
 
   if (!requestJSONBufferLock(JSON_LOCK_CFG_DES)) return false;
 
   DEBUG_PRINTLN(F("Reading settings from /cfg.json..."));
 
-  success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
-
+  bool success = readObjectFromFile(s_cfg_json, nullptr, pDoc);
+  if (!success || (pDoc->overflowed())) pDoc->clear(); // corrupted/too-large → same as missing: seed defaults
   // NOTE: This routine deserializes *and* applies the configuration
   //       Therefore, must also initialize ethernet from this function
   JsonObject root = pDoc->as<JsonObject>();
@@ -1273,7 +1274,7 @@ bool deserializeConfigSec() {
   if (!requestJSONBufferLock(JSON_LOCK_CFG_SEC_DES)) return false;
 
   bool success = readObjectFromFile(s_wsec_json, nullptr, pDoc);
-  if (!success) {
+  if (!success || pDoc->overflowed() || pDoc->size() < 1) { // reject if overflowed (noMemory) or empty
     releaseJSONBufferLock();
     return false;
   }
@@ -1283,7 +1284,8 @@ bool deserializeConfigSec() {
   size_t n = 0;
   JsonArray nw_ins = root["nw"]["ins"];
   if (!nw_ins.isNull()) {
-    if (nw_ins.size() > 1 && nw_ins.size() > multiWiFi.size()) multiWiFi.resize(nw_ins.size()); // resize constructs objects while resizing
+    size_t newSize = min((size_t)WLED_MAX_WIFI_COUNT, nw_ins.size());               // cap at WLED_MAX_WIFI_COUNT (prevent oversizing when too many Wi-Fi entries)
+    if (nw_ins.size() > 1 && newSize > multiWiFi.size()) multiWiFi.resize(newSize); // resize constructs objects while resizing
     for (JsonObject wifi : nw_ins) {
       char pw[65] = "";
       getStringFromJson(pw, wifi["psk"], 65);
