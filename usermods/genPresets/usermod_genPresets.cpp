@@ -197,8 +197,8 @@ class GenPresetsUsermod : public Usermod {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
 
-      JsonArray arr = user.createNestedArray(F("Generate Presets"));
-      arr.add(F("<a href=\"/genpresets\" target=\"_blank\">Open tool</a>"));
+      JsonArray arr = user.createNestedArray(F(""));
+      arr.add(F("<a class=\"btn sml\" href=\"/genpresets\" target=\"_blank\">Generate Presets</a>"));
     }
 
     uint16_t getId() override { return USERMOD_ID_UNSPECIFIED; }
