@@ -58,6 +58,7 @@ make_unique(Args&&... args)
 
 //colors.cpp
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
+void colorKtoRGB(uint16_t kelvin, byte* rgb);
 
 #define GET_BIT(var,bit)    (((var)>>(bit))&0x01)
 #define SET_BIT(var,bit)    ((var)|=(uint16_t)(0x0001<<(bit)))
@@ -121,6 +122,10 @@ class Bus {
     , _reversed(reversed)
     , _valid(false)
     , _needsRefresh(refresh)
+    , _whiteKelvin(0)
+    , _wR(255)
+    , _wG(255)
+    , _wB(255)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
@@ -162,6 +167,8 @@ class Bus {
     inline  void     setStart(uint16_t start)                   { _start = start; }
     inline  void     setAutoWhiteMode(uint8_t m)                { if (m < 5) _autoWhiteMode = m; }
     inline  uint8_t  getAutoWhiteMode() const                   { return _autoWhiteMode; }
+    inline  uint16_t getWhiteKelvin() const                     { return _whiteKelvin; }
+    void             setWhiteKelvin(uint16_t k);
     inline  size_t   getNumberOfChannels() const                { return hasWhite() + 3*hasRGB() + hasCCT(); }
     inline  uint16_t getStart() const                           { return _start; }
     inline  uint8_t  getType() const                            { return _type; }
@@ -221,6 +228,10 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
+    uint16_t _whiteKelvin; // physical W-channel CCT in Kelvin (0 = neutral/legacy behavior)
+    uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
+    uint8_t  _wG;
+    uint8_t  _wB;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;
@@ -461,6 +472,7 @@ struct BusConfig {
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t autoWhite;
+  uint16_t whiteKelvin; // physical W-channel CCT in Kelvin (0 = neutral/legacy behavior)
   uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
@@ -469,13 +481,14 @@ struct BusConfig {
   uint8_t iType; // internal bus type (I_*) determined during memory estimation, used for bus creation
   String text;
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "")
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "", uint16_t whiteK=0)
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
   , reversed(rev)
   , skipAmount(skip)
   , autoWhite(aw)
+  , whiteKelvin(whiteK)
   , frequency(clock_kHz)
   , milliAmpsPerLed(maPerLed)
   , milliAmpsMax(maMax)
