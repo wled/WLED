@@ -22,7 +22,7 @@
 			<button id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons">&#xe08f;</i><p class="tab-label">Power</p></button>
 			<button onclick="window.location.href=getURL('/')"><i class="icons">&#8962;</i><p class="tab-label">Home</p></button>
 			<button id="buttonNodes" onclick="toggleNodes()"><i class="icons">&#xe22d;</i><p class="tab-label">Nodes</p></button>
-			<button onclick="window.location.href=getURL('/settings');"><i class="icons">&#xe0a2;</i><p class="tab-label">Config</p></button>
+			<button onclick="showPinKeypad()"><i class="icons">&#xe0a2;</i><p class="tab-label">Config</p></button>
 			<button id="buttonPcm" onclick="togglePcMode(true)"><i class="icons">&#xe23d;</i><p class="tab-label">PC Mode</p></button>
 		</div>
 		<div id="briwrap">
@@ -39,7 +39,7 @@
 	</div>
 </div>
 
-<div id="buildtime">Built: ##BUILD_TIME##</div>
+<div id="demoBanner">Limited app functionality in demo model</div>
 
 <div class ="container">
 	<div id="Colors" class="tabcontent">
@@ -347,5 +347,34 @@
 <!--  <script src="iro.js"></script> NOTE: iro.js is loaded at the beginning of index.js -->
 <script src="rangetouch.js"></script>
 <script src="index.js"></script>
+
+<div id="pinModal" class="pin-overlay">
+	<div class="pin-box">
+		<p class="pin-title">Enter PIN</p>
+		<div id="pinDisplay" class="pin-display">_ _ _ _</div>
+		<div id="pinError" class="pin-error"></div>
+		<div class="pin-pad">
+			<button class="pin-btn" onclick="pinInput('1')">1</button>
+			<button class="pin-btn" onclick="pinInput('2')">2</button>
+			<button class="pin-btn" onclick="pinInput('3')">3</button>
+			<button class="pin-btn" onclick="pinInput('4')">4</button>
+			<button class="pin-btn" onclick="pinInput('5')">5</button>
+			<button class="pin-btn" onclick="pinInput('6')">6</button>
+			<button class="pin-btn" onclick="pinInput('7')">7</button>
+			<button class="pin-btn" onclick="pinInput('8')">8</button>
+			<button class="pin-btn" onclick="pinInput('9')">9</button>
+			<button class="pin-btn pin-back" onclick="pinBack()">&#9003;</button>
+			<button class="pin-btn" onclick="pinInput('0')">0</button>
+			<button class="pin-btn pin-cancel" onclick="pinCancel()">&#10005;</button>
+		</div>
+	</div>
+</div>
+<script>
+var _pin='';
+function showPinKeypad(){_pin='';gId('pinDisplay').textContent='_ _ _ _';gId('pinError').textContent='';gId('pinModal').style.display='flex';}
+function pinInput(d){if(_pin.length>=4)return;_pin+=d;var s=_pin.split('').map(function(){return'●';});while(s.length<4)s.push('_');gId('pinDisplay').textContent=s.join(' ');if(_pin.length===4){if(_pin==='3865'){gId('pinModal').style.display='none';window.location.href=getURL('/settings');}else{gId('pinError').textContent='Incorrect PIN';setTimeout(function(){_pin='';gId('pinDisplay').textContent='_ _ _ _';gId('pinError').textContent='';},1200);}}}
+function pinBack(){_pin=_pin.slice(0,-1);var s=_pin.split('').map(function(){return'●';});while(s.length<4)s.push('_');gId('pinDisplay').textContent=s.join(' ');}
+function pinCancel(){gId('pinModal').style.display='none';}
+</script>
 </body>
 </html>

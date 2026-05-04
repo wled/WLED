@@ -32,6 +32,10 @@ Bottom nav bar:
 
 Remove functionality to allow user to side swipe on mobile to get to the next window.
 
+1 - remove build time. you never go this right.
+2- Add a small alert panel under the top nav bar saying 'Limited app functionality in demo model' Make the background #eb8634 with white text.
+3 - 
+
 
 
 
