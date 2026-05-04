@@ -4,7 +4,7 @@
 ; Copied to platformio_release.ini by the release CI workflow
 ; (.github/workflows/release.yml -> build.yml with `release: true`)
 ; in order to extend the matrix of `default_envs` built and published
-; for tagged releases.
+; for tagged releases and remove the debugging usersmods env
 ;
 ; This file overrides `[platformio].default_envs` from platformio.ini via
 ; `extra_configs`. It MUST list every env that should be released - including
@@ -35,7 +35,6 @@ default_envs = nodemcuv2
                esp32s3dev_8MB_opi
                esp32s3dev_8MB_qspi
                esp32s3_4M_qspi
-               usermods
                ; HUB75 release-only envs
                esp32dev_hub75
                esp32dev_hub75_forum_pinout
