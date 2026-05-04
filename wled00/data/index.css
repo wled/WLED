@@ -1647,4 +1647,8 @@ dialog {
 #hwrap, #swrap, #vwrap, #kwrap, #rgbwrap, #wwrap, #wbal { display: none !important; }
 #palw { width: 100%; margin: 0 auto; }
 #buildtime { color: white; text-align: center; font-size: 0.75em; padding: 2px 0; }
+.bot { display: flex; justify-content: space-evenly; align-items: center; background-color: #0c0d0d !important; }
+.bot button { width: auto; float: none; color: white; font-size: 18px; font-weight: 500; text-transform: uppercase; padding: 14px 10px 12px 10px; }
+.bot button:nth-child(3), .bot button:nth-child(4) { display: none !important; }
+#fxFind { display: none !important; }
 /* AI: end */

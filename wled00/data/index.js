@@ -3565,9 +3565,9 @@ _C.style.setProperty('--n', N);
 window.addEventListener('resize', size, true);
 window.addEventListener('hashchange', handleLocationHash);
 
-_C.addEventListener('mousedown', lock, false);
-_C.addEventListener('touchstart', lock, false);
+//_C.addEventListener('mousedown', lock, false);
+//_C.addEventListener('touchstart', lock, false);
 
-_C.addEventListener('mouseout', move, false);
-_C.addEventListener('mouseup', move, false);
-_C.addEventListener('touchend', move, false);
+//_C.addEventListener('mouseout', move, false);
+//_C.addEventListener('mouseup', move, false);
+//_C.addEventListener('touchend', move, false);
