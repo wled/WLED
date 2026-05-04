@@ -532,8 +532,10 @@ void WLED::setup()
   }
   #endif
 
-  // fill in unique mdns default
-  if (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
+  // fill in unique mdns default; remember whether we did so the hostname
+  // logic can distinguish auto-filled vs. user-set values
+  cmDNSisDefault = (strcmp(cmDNS, DEFAULT_MDNS_NAME) == 0);
+  if (cmDNSisDefault) sprintf_P(cmDNS, PSTR("wled-%*s"), 6, escapedMac.c_str() + 6);
 #ifndef WLED_DISABLE_MQTT
   if (mqttDeviceTopic[0] == 0) sprintf_P(mqttDeviceTopic, PSTR("wled/%*s"), 6, escapedMac.c_str() + 6);
   if (mqttClientID[0] == 0)    sprintf_P(mqttClientID, PSTR("WLED-%*s"), 6, escapedMac.c_str() + 6);

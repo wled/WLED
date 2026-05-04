@@ -331,6 +331,7 @@ WLED_GLOBAL char ntpServerName[33] _INIT("0.wled.pool.ntp.org");   // NTP server
 WLED_GLOBAL std::vector<WiFiConfig> multiWiFi;
 WLED_GLOBAL IPAddress dnsAddress _INIT_N(((  8,   8,  8,  8)));   // Google's DNS
 WLED_GLOBAL char cmDNS[33]       _INIT(MDNS_NAME);                // mDNS address (*.local, replaced by wledXXXXXX if default is used)
+WLED_GLOBAL bool cmDNSisDefault  _INIT(true);                     // true while cmDNS still holds the auto-filled wled-<MAC> default (user has not customized it)
 WLED_GLOBAL char apSSID[33]      _INIT("");                       // AP off by default (unless setup)
 #ifdef WLED_SAVE_RAM
 typedef class WiFiOptions {

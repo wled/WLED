@@ -156,7 +156,7 @@ static void sanitizeHostname(char* hostname, size_t maxLen) {
  */
 void getWLEDhostname(char* hostname, size_t maxLen, bool preferMDNS) {
   if (maxLen <= 6) { strlcpy(hostname, "wled", maxLen); return; } // buffer too small (should not happen)
-  if (preferMDNS && (strlen(cmDNS) > 0) && (strcmp_P(cmDNS, PSTR(DEFAULT_MDNS_NAME)) != 0)) {     // avoid "x" = not set (use wled-MAC)
+  if (preferMDNS && (strlen(cmDNS) > 0) && !cmDNSisDefault) {     // user-customized mDNS name -> use as hostname; otherwise fall back to legacy "wled-<DeviceName>"
     strlcpy(hostname, cmDNS, maxLen);
     sanitizeHostname(hostname, maxLen);  // sanitize cmDNS name
     if (strlen(hostname) < 1) {          // if result is empty -> fall back to wled-MAC

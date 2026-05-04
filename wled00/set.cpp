@@ -101,6 +101,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     }
 
     strlcpy(cmDNS, request->arg(F("CM")).c_str(), 33);
+    cmDNSisDefault = false; // any explicit save means user-set (form has no way to re-enter the "x" sentinel)
 
     apBehavior = request->arg(F("AB")).toInt();
     char oldSSID[33]; strcpy(oldSSID, apSSID);
