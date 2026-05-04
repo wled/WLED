@@ -1,0 +1,11 @@
+{
+    "name": "boot_lor",
+    "version": "1.0.0",
+    "description": "Set WLED realtime override at boot",
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "build": {
+        "libArchive": false,
+        "srcDir": "."
+    }
+}
