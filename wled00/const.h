@@ -10,8 +10,16 @@ constexpr size_t FASTLED_PALETTE_COUNT = 7;   //  6-12 = sizeof(fastledPalettes)
 constexpr size_t GRADIENT_PALETTE_COUNT = 59; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
 constexpr size_t DYNAMIC_PALETTE_COUNT = 6;   //  0- 5 = dynamic palettes (0=default(virtual),1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
 constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
+
+// Palette ID space layout (palette IDs are uint8_t, 0-255):
+//   0  .. FIXED_PALETTE_COUNT-1            : fixed built-in palettes
+//   72 .. WLED_CUSTOM_PALETTE_ID_BASE(200) : user custom palettes (index 0 = ID 200, growing downward)
+//   201.. WLED_USERMOD_PALETTE_ID_BASE(255): usermod-registered palettes (index 0 = ID 255, growing downward)
+constexpr uint8_t WLED_USERMOD_PALETTE_ID_BASE = 255; // highest ID for usermod palettes
+constexpr uint8_t WLED_CUSTOM_PALETTE_ID_BASE  = 200; // highest ID for user custom palettes
+constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE - WLED_CUSTOM_PALETTE_ID_BASE; // 55 slots (IDs 201-255)
 #ifndef ESP8266
-  #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
+  #define WLED_MAX_CUSTOM_PALETTES (WLED_CUSTOM_PALETTE_ID_BASE - FIXED_PALETTE_COUNT + 1) // 129 slots (IDs 72-200)
 #else
   #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
 #endif
@@ -382,7 +390,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define BTN_TYPE_TOUCH_SWITCH     9
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES        14
+#define WLED_NUM_ETH_TYPES        16
 
 
 #define WLED_ETH_NONE              0
@@ -399,6 +407,9 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define WLED_ETH_ESP32_POE_WROVER 11
 #define WLED_ETH_LILYGO_T_POE_PRO 12
 #define WLED_ETH_GLEDOPTO         13
+#define WLED_ETH_QUINLED_V4_UNOQUAD  14
+#define WLED_ETH_QUINLED_V4_OCTA     15
+
 
 //Hue error codes
 #define HUE_ERROR_INACTIVE        0
@@ -481,6 +492,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_LEDGAP          20
 #define JSON_LOCK_LEDMAP_ENUM     21
 #define JSON_LOCK_REMOTE          22
+#define JSON_LOCK_OTA             23
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness

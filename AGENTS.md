@@ -176,6 +176,7 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Repository language is English
+- The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
 - No force-push on open PRs
