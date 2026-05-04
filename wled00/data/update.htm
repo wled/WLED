@@ -25,14 +25,28 @@
 				.then(data => {
 					deviceInfo = data;
 					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
+					const repoUrl = data.repo && data.repo !== "unknown" ? "https://github.com/" + data.repo + "/releases/latest" : null;
 					document.querySelector('.release-name').textContent = data.release;
 					// assemble update URL and update release badge
-					if (data.repo && data.repo !== "unknown") {
-						const repoUrl = "https://github.com/" + data.repo + "/releases/latest";
+					if (repoUrl) {
 						const badgeUrl = "https://img.shields.io/github/release/" + data.repo + ".svg?style=flat-square";
 						document.querySelector('.release-repo').href = repoUrl;
 						document.querySelector('.release-badge').src = badgeUrl;
 						toggle('release-download'); // only show release download item after receiving a valid data.repo
+						// fetch latest release from GitHub to build direct bin download link
+						fetch(`https://api.github.com/repos/${data.repo}/releases/latest`)
+							.then(r => r.json())
+							.then(gh => {
+								const ver = gh.tag_name.replace(/^v/, '');
+								const suffix = `_${ver}_${data.release}.bin`;
+								const asset = gh.assets.find(a => a.name.endsWith(suffix));
+								if (asset) {
+									const binUrl = asset.browser_download_url.replace(/^https?:\/\/[^/]+/, 'https://download.wled.me');
+									const el = document.querySelector('.release-name');
+									el.innerHTML = `<a href="${binUrl}">${data.release}</a>`;
+								}
+							})
+							.catch(() => {}); // silently ignore if GitHub API unavailable
 					} else {
 						gId('Norelease-download').classList.add("hide"); // repo invalid -> hide everything
 					}
@@ -121,20 +135,22 @@
 		<p>
 		Installed version: <span class="sip installed-version">Loading...</span><br>
 		Release: <span class="sip release-name">Loading...</span><br>
-		<span id="Norelease-download">Latest binary: Checking...<br></span>
+		<span id="Norelease-download">Latest release: Checking...<br></span>
 		<span id="release-download" class="hide">
-		Download the latest binary: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
+		Latest release: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
-		<img class="release-badge" alt="badge"></a><br> <!-- start with an empty placeholder, src will be filled after fetching /json/info -->
-		<button type="button" id="autoUpdBtn" onclick="autoUpdate()">Auto-update from GitHub</button>
+		<img class="release-badge" alt="View latest"></a><br>
+		<button type="button" id="autoUpdBtn" onclick="autoUpdate()">Auto update</button>
 		<span id="autoUpdStatus" style="display:block;margin-top:4px;font-size:13px;"></span>
 		</span>
 		</p>
+		<hr class="sml">
+		<h3>Manual upload</h3>
 		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
 		<label for='skipValidation'>Ignore firmware validation</label><br>
-		<button type="submit">Update WLED!</button><br>
+		<button type="submit">Upload</button><br>
 		<span id="rev">
 			<hr class="sml">
 			<button type="button" onclick="cR()">Revert update</button><br>
