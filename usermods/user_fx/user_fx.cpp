@@ -1285,7 +1285,6 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 #define SET_PREV_LAST_ONE(d)    (SEGENV.aux0 = (SEGENV.aux0 & 0xFDFF) | ((d) << 9))
 
 static void mode_dissolveplus(void) {
-  if (SEGLEN < 1) FX_FALLBACK_STATIC;
   unsigned dataSize = sizeof(uint32_t) * (SEGLEN + 1);
   if (!SEGENV.allocateData(dataSize)) FX_FALLBACK_STATIC; //allocation failed
   uint32_t* pixels = reinterpret_cast<uint32_t*>(SEGENV.data);
