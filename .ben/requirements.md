@@ -51,3 +51,7 @@ Rules:
 - Where possible put configurations into a centralised file for easy changes by me in the future
 - Document all requirements, business rules as you go.
 - Update your memory after every commit or half hour so that you can load it into context when our next session starts.
+
+Add Puzzle? Razzle? Pride 2015 to presets. NoisePal
+
+Time & Macros > Button Action Presets > Button 1 > Push/Switch: Set as preset position 101 (z_cycle_preset)
