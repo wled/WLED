@@ -1295,15 +1295,8 @@ function updateUI()
 	if (hasWhite) updateTrail(gId('sliderW'));
 
 	var ccfg = cfg.comp.colors;
-	gId('wwrap').style.display   = (hasWhite) ? "block":"none";               // white channel
-	gId('wbal').style.display    = (hasCCT) ? "block":"none";                 // white balance
 	gId('hexw').style.display    = (ccfg.hex) ? "block":"none";               // HEX input
 	gId('picker').style.display  = (hasRGB && ccfg.picker) ? "block":"none";  // color picker wheel
-	gId('hwrap').style.display   = (hasRGB && !ccfg.picker) ? "block":"none"; // hue slider
-	gId('swrap').style.display   = (hasRGB && !ccfg.picker) ? "block":"none"; // saturation slider
-	gId('vwrap').style.display   = (hasRGB) ? "block":"none";                 // brightness (value) slider
-	gId('kwrap').style.display   = (hasRGB && !hasCCT) ? "block":"none";      // Kelvin slider
-	gId('rgbwrap').style.display = (hasRGB && ccfg.rgb) ? "block":"none";     // RGB sliders
 	gId('qcs-w').style.display   = (hasRGB && ccfg.quick) ? "block":"none";   // quick selection
 	//gId('csl').style.display     = (hasRGB || hasWhite) ? "block":"none";     // color selectors (hide for On/Off bus)
 	//gId('palw').style.display    = (hasRGB) ? "inline-block":"none";          // palettes are shown/hidden in setEffectParameters()
@@ -1327,7 +1320,7 @@ function updateSelectedPalette(s)
 
 	// Display selected palette name on button in simplified UI
 	let selectedName = selectedPalette.querySelector(".lstIname").innerText;
-	if (simplifiedUI) {
+	if (simplifiedUI && gId("palwbtn")) {
 		gId("palwbtn").innerText = "Palette: " + selectedName;
 	}
 
@@ -2414,7 +2407,7 @@ function setPalette(paletteId = null)
 	}
 
 	// Close palette dialog in simplified UI
-	if (simplifiedUI) {
+	if (simplifiedUI && gId("palw").lastElementChild.tagName === "DIALOG") {
 		gId("palw").lastElementChild.close();
 	}
 
@@ -3261,7 +3254,7 @@ function simplifyUI() {
 	gId("Colors").insertBefore(gId("pql"), gId("pall"));
 
 	// Create dropdown for palette list
-	createDropdown("palw", "Change palette");
+	//createDropdown("palw", "Change palette"); // AI: keep palette list always visible inline
 	createDropdown("fx", "Change effect", [gId("fxFind"), gId("fxlist")]);
 
 	// Hide palette label

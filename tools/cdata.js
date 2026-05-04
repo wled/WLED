@@ -43,6 +43,11 @@ function generateBuildTime() {
   return Math.floor(Date.now() / 1000);
 }
 
+// Generate human-readable build datetime string (UTC)
+function generateBuildDateTime() {
+  return new Date().toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+}
+
 const singleHeader = `/*
  * Binary array for the Web UI.
  * gzip is used for smaller size and improved speeds.
@@ -103,6 +108,7 @@ function adoptVersionAndRepo(html) {
   if (version) {
     html = html.replaceAll("##VERSION##", version);
   }
+  html = html.replaceAll("##BUILD_TIME##", generateBuildDateTime());
   return html;
 }
 

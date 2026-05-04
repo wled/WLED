@@ -39,6 +39,8 @@
 	</div>
 </div>
 
+<div id="buildtime">Built: ##BUILD_TIME##</div>
+
 <div class ="container">
 	<div id="Colors" class="tabcontent">
 		<div id="picker" class="noslide"></div>
@@ -111,57 +113,21 @@
 			<div class="qcs" onclick="pC('#08ff00');" style="background-color:#08ff00;"></div>
 			<div class="qcs" onclick="pC('rnd');" title="Random" style="background:linear-gradient(to right, red, orange, yellow, green, blue, purple);transform: translateY(-11px);">R</div>
 		</div>
-		<div id="csl">
+		<div id="csl" style="display:none">
 			<button id="csl0" title="Select slot" class="btn" onclick="selectSlot(0);" data-r="0" data-g="0" data-b="0" data-w="0">1</button>
 			<button id="csl1" title="Select slot" class="btn" onclick="selectSlot(1);" data-r="0" data-g="0" data-b="0" data-w="0">2</button>
 			<button id="csl2" title="Select slot" class="btn" onclick="selectSlot(2);" data-r="0" data-g="0" data-b="0" data-w="0">3</button>
 		</div>
-		<p class="labels h" id="cslLabel"></p>
-		<div id="hexw">
+		<p class="labels h" id="cslLabel" style="display:none"></p>
+		<div id="hexw" style="display:none">
 			<i class="icons sel-icon" onclick="tglRgb()">&#xe22d;</i>
 			<input id="hexc" title="Hex RGB" type="text" class="noslide" onkeydown="hexEnter()" autocomplete="off" maxlength="8" />
 			<button id="hexcnf" class="btn btn-xs" onclick="fromHex();"><i class="icons btn-icon">&#xe390;</i></button>
 		</div>
-
-		<div style="padding: 12px 0; display:flex; justify-content:center; gap:16px;" id="btns">
-			<div>
-				<button class="btn btn-xs" title="File editor" type="button" onclick="window.location.href=getURL('/edit')">
-				<i class="icons btn-icon">&#xe901;</i>
-				</button>
-				<div class="iconlabel">Files</div>
-			</div>
-			<div>
-				<button class="btn btn-xs" title="PixelForge" type="button" onclick="window.location.href=getURL('/pixelforge.htm')">
-				<i class="icons btn-icon">&#xe900;</i>
-				</button>
-				<div class="iconlabel">PixelForge</div>
-			</div>
-			<div>
-				<button class="btn btn-xs" title="Custom palettes" type="button" onclick="window.location.href=getURL('/cpal.htm')">
-				<i class="icons btn-icon">&#xe2b3;</i>
-				</button>
-				<div class="iconlabel">Palettes</div>
-			</div>
-		</div>
-
-		<p class="labels hd" id="pall"><i class="icons sel-icon" onclick="tglHex()">&#xe2b3;</i> Color palette</p>
-		<div id="palw" class="il">
-			<div class="staytop fnd">
-				<input type="text" placeholder="Search" oninput="search(this,'pallist')" onfocus="search(this,'pallist')" />
-				<i class="icons clear-icon" onclick="clean(this)">&#xe38f;</i>
-				<i class="icons search-icon">&#xe0a1;</i>
-			</div>
-			<div id="pallist" class="list">
-				<div class="lstI">
-					<label class="radio schkl" onclick="loadPalettes()">
-						<div class="lstIcontent">
-							<span class="lstIname">
-								Loading...
-							</span>
-						</div>
-					</label>
-				</div>
-			</div>
+		<div id="btns" style="display:none"></div>
+		<p id="pall" style="display:none"></p>
+		<div id="palw" style="display:none">
+			<div id="pallist"></div>
 		</div>
 	</div>
 

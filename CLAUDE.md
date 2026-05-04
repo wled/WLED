@@ -6,6 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Do not make any changes until you have 95% confidence in what you need to build. Ask follow-up questions until you reach that confidence.
 
+When you are done with a change, start and end with the word 'DONE' so that I know you are finished.
+
+When I need to update the esp32 device, you must tell me which IDs I need to run, so that I don't waste my time.
+1 = npm run build
+2 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target upload 
+3 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target uploadfs
+
+## Skills
+
+Skills are located in `.claude/skills/`. Read the relevant skill file before starting any task that matches its description.
+
+- `session-handoff` — end of session handoff document generator. Trigger on /session-handoff or when wrapping up a session.
+
 ## Setup and Build
 
 - Node.js 20+ required (see `.nvmrc`). Install deps: `npm ci`

@@ -1,0 +1,72 @@
+WLED CONFIG DEPLOYMENT — HOW IT WORKS
+======================================
+
+There are TWO separate deployment steps. Firmware flash alone is NOT enough.
+
+
+STEP 1 — BUILD
+--------------
+npm run build
+  → Compiles web UI (index.htm, settings.htm, index.js, etc.) into C headers (html_*.h, js_*.h).
+  → Must run this before flashing whenever web UI files change.
+
+
+STEP 2 — FLASH FIRMWARE
+------------------------
+pio run -e lolin_s2_mini --target upload
+  → Compiles and flashes the firmware binary.
+  → Includes: AP name/password (const.h), welcome page skip (wled_server.cpp),
+    all web UI changes (buttons, icons, sliders, settings page pills).
+  → Does NOT include cfg.json or presets.json — those are on a separate filesystem.
+  → Correct env name: lolin_s2_mini  (NOT lolin_s2_mini_demo)
+
+
+STEP 3 — UPLOAD FILESYSTEM (easy to forget!)
+---------------------------------------------
+pio run -e lolin_s2_mini --target uploadfs
+  → Uploads everything in wled00/data/ to the device's LittleFS filesystem.
+  → This is how cfg.json, presets.json, and wsec.json reach the device.
+  → Without this step, the device uses hardcoded firmware defaults for all hardware config.
+  → platformio.ini sets: data_dir = ./wled00/data
+
+  Files uploaded:
+    wled00/data/cfg.json      — LED output, buttons, AP, transitions, boot preset, device name
+    wled00/data/presets.json  — effect presets and playlist preset
+    wled00/data/wsec.json     — AP password (stored separately for security)
+
+
+WHERE EACH SETTING LIVES
+-------------------------
+
+  Firmware (const.h / wled.h / .cpp files) — applied on flash:
+    - AP SSID:          const.h  DEFAULT_AP_SSID
+    - AP password:      const.h  DEFAULT_AP_PASS
+    - Skip welcome:     wled_server.cpp  root "/" handler
+
+  Filesystem cfg.json — applied after uploadfs:
+    - LED GPIO & length:  hw.led.ins[].pin / len
+    - LED type:           hw.led.ins[].type  (22 = WS2812_RGB)
+    - ABL off:            hw.led.maxpwr = 0  AND  hw.led.ins[].maxpwr = 0
+    - Buttons:            hw.btn.ins[]  (type 2 = pushbutton)
+    - Transition delay:   light.tr.dur  (value in units of 100ms, e.g. 7 = 700ms)
+    - Boot preset:        def.ps
+    - Device name:        id.name
+    - AP always-on:       ap.behav = 2  (AP_BEHAVIOR_ALWAYS)
+
+  Filesystem presets.json — applied after uploadfs:
+    - Effect presets:   keys "1" through "5" with seg[].fx and seg[].grp
+    - Playlist preset:  key "101" with "win": "P1=1&P2=5&PL=~"
+
+  Browser localStorage (client-side only):
+    - Colour wheel, RGB sliders, quick selectors, HEX input, dark mode
+    - Changed via index.js  cfg.comp.colors  defaults
+    - Only takes effect on new/cleared browser sessions
+
+
+FULL REDEPLOY SEQUENCE
+----------------------
+npm run build
+pio run -e lolin_s2_mini --target upload
+pio run -e lolin_s2_mini --target uploadfs
+
+Steps 2 and 3 are independent — uploadfs can be run without re-flashing firmware.
