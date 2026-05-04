@@ -7829,11 +7829,17 @@ void mode_XmasTwinkle(void) {
       
       if (light->isOn) {
         // Turning ON - short duration (1/3 of off time)
-        eventTime = skewedTime(lights[i].maxCycle / 3);
+        uint32_t wkgMaxCycle = light->maxCycle;
+        if (SEGMENT.custom1 < 128)            // If the Duty Cycle < 50%.
+          wkgMaxCycle = wkgMaxCycle * SEGMENT.custom1 >> 7;   // Q24.8 -> Q32.0 * 2
+        eventTime = skewedTime(wkgMaxCycle);
         if (SEGMENT.check1) light->colorIdx = hw_random8(); // New color each time
       } else {
         // Turning OFF - longer duration
-        eventTime = skewedTime(lights[i].maxCycle);
+        uint32_t wkgMaxCycle = light->maxCycle;
+        if (SEGMENT.custom1 >= 128)            // If the Duty Cycle < 50%.
+          wkgMaxCycle = wkgMaxCycle * (256 - (uint16_t)SEGMENT.custom1) >> 7;   // Q24.8 -> Q32.0 * 2
+        eventTime = skewedTime(wkgMaxCycle);
       }
     }
     // Put the updated event time back.
@@ -7863,7 +7869,7 @@ void mode_XmasTwinkle(void) {
   return;
 }		// mode_XmasTwinkle
 
-static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,,,,Color indices vary;;!;012;m12=0";
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,Avg. Duty Cycle,,,Color indices vary;;!;012;c1=43,m12=0";
 
 
 // Distortion waves - ldirko
