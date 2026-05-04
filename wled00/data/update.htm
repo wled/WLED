@@ -7,6 +7,7 @@
 	<script>
 		function B() { window.history.back(); }
 		var cnfr = false;
+		var deviceInfo = null;
 		function cR() {
 			if (!cnfr) {
 				var bt = gId('rev');
@@ -22,6 +23,7 @@
 			fetch(getURL('/json/info'))
 				.then(response => response.json())
 				.then(data => {
+					deviceInfo = data;
 					document.querySelector('.installed-version').textContent = `${data.brand} ${data.ver} (${data.vid})`;
 					document.querySelector('.release-name').textContent = data.release;
 					// assemble update URL and update release badge
@@ -60,6 +62,48 @@
 			gId('bootupd').classList.add("hide");
 			toggle('upd');			
 		}
+		async function autoUpdate() {
+			const btn = gId('autoUpdBtn');
+			const status = gId('autoUpdStatus');
+			btn.disabled = true;
+			status.textContent = '';
+			try {
+				const info = deviceInfo;
+				if (!info || !info.repo || info.repo === 'unknown') {
+					status.textContent = 'No release repository available for this build.';
+					btn.disabled = false;
+					return;
+				}
+				status.textContent = 'Checking GitHub for latest release...';
+				const ghResp = await fetch(`https://api.github.com/repos/${info.repo}/releases/latest`);
+				if (!ghResp.ok) throw new Error(`GitHub API error: ${ghResp.status}`);
+				const ghRelease = await ghResp.json();
+				const releaseVer = ghRelease.tag_name.replace(/^v/, '');
+				const assetSuffix = `_${releaseVer}_${info.release}.bin`;
+				const asset = ghRelease.assets.find(a => a.name.endsWith(assetSuffix));
+				if (!asset) {
+					const available = ghRelease.assets.map(a => a.name).join(', ');
+					status.textContent = `Firmware not found (*${assetSuffix}). Available: ${available}`;
+					btn.disabled = false;
+					return;
+				}
+				status.textContent = `Downloading ${asset.name} (${Math.round(asset.size/1024)} KB)...`;
+				const fwUrl = asset.browser_download_url.replace(/^https?:\/\/[^/]+/, 'https://download.wled.me');
+				const fwResp = await fetch(fwUrl);
+				if (!fwResp.ok) throw new Error(`Download failed: ${fwResp.status}`);
+				const blob = await fwResp.blob();
+				const file = new File([blob], asset.name, {type: 'application/octet-stream'});
+				const dt = new DataTransfer();
+				dt.items.add(file);
+				document.querySelector('input[name="update"]').files = dt.files;
+				status.textContent = `Downloaded ${asset.name}. Uploading to device...`;
+				hideforms();
+				gId('upd').submit();
+			} catch(e) {
+				status.textContent = 'Auto-update failed: ' + e.message;
+				btn.disabled = false;
+			}
+		}
 	</script>
 	<style>
 		@import url("style.css");
@@ -82,6 +126,8 @@
 		Download the latest binary: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img class="release-badge" alt="badge"></a><br> <!-- start with an empty placeholder, src will be filled after fetching /json/info -->
+		<button type="button" id="autoUpdBtn" onclick="autoUpdate()">Auto-update from GitHub</button>
+		<span id="autoUpdStatus" style="display:block;margin-top:4px;font-size:13px;"></span>
 		</span>
 		</p>
 		<input type="hidden" name="skipValidation" value="" id="sV">
