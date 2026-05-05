@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DepartStrip — Explainer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @page { size: 8.5in 11in; margin: 0.15in; }
+    @media print { .noprint { display: none !important; } }
+
+    :root {
+      --text: #0f172a;
+      --muted: #52616c;
+      --rule: #d8dee6;
+      --bg: #ffffff;
+      --card: #f7f9fc;
+      --chip-radius: 12px;
+      --swatch-size: 28px;
+      --font: "Space Grotesk", "DM Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font); }
+    .page { max-width: 8.45in; min-height: 10.9in; box-sizing: border-box; padding: 0.5in 0.1in 0.24in; display: flex; flex-direction: column; gap: 12px; margin: 0 auto; width: 100%; }
+    .header { border-bottom: 1px solid var(--rule); padding-bottom: 10px; display: flex; flex-direction: column; gap: 6px; }
+    .title { font-weight: 800; letter-spacing: 0.3px; font-size: 1.7rem; }
+    .subtitle { color: var(--muted); font-size: 1rem; }
+    .hint { color: var(--muted); font-size: 0.92rem; }
+
+    .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 54px; align-items: start; margin-top: 24px; }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    @media print {
+      .layout { grid-template-columns: 1fr 1fr !important; gap: 54px !important; }
+    }
+
+    .faq-panel { display: flex; flex-direction: column; gap: 10px; break-inside: avoid; }
+    .faq-panel h2 { margin: 0; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase; }
+    .faq { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .qa { border: 1px solid var(--rule); border-radius: var(--chip-radius); padding: 8px 10px; background: #fff; break-inside: avoid; }
+    .q { font-weight: 700; margin-bottom: 5px; font-size: 0.98rem; }
+    .a { color: var(--text); font-size: 0.93rem; line-height: 1.36; }
+
+    .directions { display: flex; flex-direction: column; gap: 14px; }
+    .direction { display: flex; flex-direction: column; gap: 10px; break-inside: avoid; page-break-inside: avoid; }
+    .direction + .direction { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); }
+    .direction-heading { display: flex; align-items: baseline; gap: 8px; }
+    .direction-label { font-size: 1.1rem; letter-spacing: 0.6px; font-weight: 800; text-transform: uppercase; }
+
+    .stop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(3.8in, 1fr)); gap: 8px; }
+    .stop-card { border: 1px solid var(--rule); border-radius: var(--chip-radius); background: var(--card); padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; break-inside: avoid; page-break-inside: avoid; }
+    .stop-header { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+    .stop-name { font-weight: 700; font-size: 0.95rem; letter-spacing: 0.05px; }
+    .stop-id { color: var(--muted); font-size: 0.93rem; white-space: nowrap; }
+
+    .route-list { display: grid; grid-template-columns: 1fr; gap: 6px; }
+    .route { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 10px; background: rgba(0,0,0,0.02); border: 1px solid rgba(0,0,0,0.04); }
+    .swatch { width: var(--swatch-size); height: var(--swatch-size); border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
+    .route-body { display: flex; flex-direction: column; gap: 2px; }
+    .route-label { font-weight: 700; font-size: 0.98rem; letter-spacing: 0.2px; }
+    .route-desc { color: var(--muted); font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <section class="page" aria-label="DepartStrip Explainer">
+    <header class="header">
+      <div>
+        <div class="title">{{TITLE}}</div>
+        <div class="subtitle">{{SUBTITLE}}</div>
+      </div>
+      <div class="hint">Southbound stops are listed first to match the strip orientation.</div>
+    </header>
+
+    <div class="layout">
+      <section class="faq-panel" aria-labelledby="faq-heading">
+        <h2 id="faq-heading">Quick FAQ</h2>
+        <div class="faq">
+{{FAQ_BLOCKS}}
+        </div>
+      </section>
+
+      <div class="directions" aria-label="Stops and routes">
+{{DIRECTIONS}}
+      </div>
+    </div>
+  </section>
+</body>
+</html>
