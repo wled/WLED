@@ -384,7 +384,7 @@ void WLED::setup()
   #if defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && (defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || ARDUINO_USB_CDC_ON_BOOT)
   delay(2500);  // allow CDC USB serial to initialise
   #endif
-  #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DEBUG_HOST) && ARDUINO_USB_CDC_ON_BOOT
+  #if !defined(WLED_DEBUG) && defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ENABLE_NET_DEBUG) && ARDUINO_USB_CDC_ON_BOOT
   Serial.setDebugOutput(false); // switch off kernel messages when using USBCDC
   #endif
   DEBUG_PRINTLN();
@@ -442,7 +442,7 @@ void WLED::setup()
   usePWMFixedNMI(); // link the NMI fix
 #endif
 
-#if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
+#if defined(WLED_DEBUG) && !defined(WLED_ENABLE_NET_DEBUG)
   PinManager::allocatePin(hardwareTX, true, PinOwner::DebugOut); // TX (GPIO1 on ESP32) reserved for debug output
 #endif
 #ifdef WLED_ENABLE_DMX //reserve GPIO2 as hardcoded DMX pin
@@ -825,6 +825,33 @@ void WLED::initInterfaces()
     hueIP[1] = ipAddress[1];
     hueIP[2] = ipAddress[2];
   }
+#endif
+
+#ifdef WLED_ENABLE_NET_DEBUG
+  if (netDebugPrintIP[0] == 0) {
+    if (!netDebugPrintIP && !netDebugPrintIP.fromString(WLED_DEBUG_HOST)) {
+      #ifdef ESP8266
+        WiFi.hostByName(WLED_DEBUG_HOST, netDebugPrintIP, 750);
+      #else
+        #ifdef WLED_USE_ETHERNET
+          ETH.hostByName(WLED_DEBUG_HOST, netDebugPrintIP);
+        #else
+          WiFi.hostByName(WLED_DEBUG_HOST, netDebugPrintIP);
+        #endif
+      #endif
+    } else {
+      IPAddress ipAddress = Network.localIP();
+      netDebugPrintIP[0] = ipAddress[0];
+      netDebugPrintIP[1] = ipAddress[1];
+      netDebugPrintIP[2] = ipAddress[2];
+    }
+  }
+  if (netDebugPrintPort == 0) 
+    #ifdef WLED_DEBUG_PORT
+      netDebugPrintPort = WLED_DEBUG_PORT;
+    #else
+      netDebugPrintPort = 7868; //Default value
+    #endif
 #endif
 
 #ifndef WLED_DISABLE_ALEXA

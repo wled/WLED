@@ -20,17 +20,10 @@
 #include "wled.h"
 #include "colors.h"
 #ifdef WLED_DEBUG
-  // enable additional debug output
-  #if defined(WLED_DEBUG_HOST)
-    #include "net_debug.h"
-    #define DEBUGOUT NetDebug
-  #else
-    #define DEBUGOUT Serial
-  #endif
-  #define DEBUGFX_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUGFX_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUGFX_PRINTF(x...) DEBUGOUT.printf(x)
-  #define DEBUGFX_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+  #define DEBUGFX_PRINT(x) DEBUGOUT(x)
+  #define DEBUGFX_PRINTLN(x) DEBUGOUTLN(x)
+  #define DEBUGFX_PRINTF(x...) DEBUGOUTF(x)
+  #define DEBUGFX_PRINTF_P(x...) DEBUGOUTF(x)
 #else
   #define DEBUGFX_PRINT(x)
   #define DEBUGFX_PRINTLN(x)

@@ -659,6 +659,14 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     CJSON(hueIP[i], if_hue_ip[i]);
 #endif
 
+#ifdef WLED_ENABLE_NET_DEBUG
+  JsonObject if_ndb = interfaces["ndb"];
+  JsonArray if_ndb_ip = if_ndb["ip"];
+  for (byte i = 0; i < 4; i++)
+    CJSON(netDebugPrintIP[i], if_ndb_ip[i]);
+  CJSON(netDebugPrintPort, if_ndb["port"]);
+#endif
+
   JsonObject if_ntp = interfaces[F("ntp")];
   CJSON(ntpEnabled, if_ntp["en"]);
   getStringFromJson(ntpServerName, if_ntp[F("host")], 33); // "1.wled.pool.ntp.org"
@@ -1189,6 +1197,15 @@ void serializeConfig(JsonObject root) {
   for (unsigned i = 0; i < 4; i++) {
     if_hue_ip.add(hueIP[i]);
   }
+#endif
+
+#ifdef WLED_ENABLE_NET_DEBUG
+  JsonObject if_ndb = interfaces.createNestedObject("ndb");
+  JsonArray if_ndb_ip = if_ndb.createNestedArray("ip");
+  for (byte i = 0; i < 4; i++) {
+    if_ndb_ip.add(netDebugPrintIP[i]);
+  }
+  if_ndb["port"] = netDebugPrintPort;
 #endif
 
   JsonObject if_ntp = interfaces.createNestedObject("ntp");

@@ -974,30 +974,39 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
 WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
+// enable net debug output over UDP; use -D WLED_ENABLE_NET_DEBUG to activate.
+// Legacy: defining WLED_DEBUG_HOST='"ip_or_host"' also enables net debug and
+// pre-seeds the target IP at compile time.
+#if defined(WLED_DEBUG_HOST) && !defined(WLED_ENABLE_NET_DEBUG)
+  #define WLED_ENABLE_NET_DEBUG
+#endif
+
 // enable additional debug output
-#if defined(WLED_DEBUG_HOST)
+#if defined(WLED_ENABLE_NET_DEBUG)
   #include "net_debug.h"
   // On the host side, use netcat to receive the log statements: nc -l 7868 -u
-  // use -D WLED_DEBUG_HOST='"192.168.xxx.xxx"' or FQDN within quotes
-  #define DEBUGOUT NetDebug
-  WLED_GLOBAL bool netDebugEnabled _INIT(true);
-  WLED_GLOBAL char netDebugPrintHost[33] _INIT(WLED_DEBUG_HOST);
-  #ifndef WLED_DEBUG_PORT
-    #define WLED_DEBUG_PORT 7868
-  #endif
-  WLED_GLOBAL int netDebugPrintPort _INIT(WLED_DEBUG_PORT);
+  WLED_GLOBAL bool netDebugEnabled _INIT(false);
+  WLED_GLOBAL int netDebugPrintPort _INIT(0);
+  WLED_GLOBAL IPAddress netDebugPrintIP _INIT_N(((0, 0, 0, 0))); // IP address of the bridge
+  #define DEBUGOUT(x) netDebugEnabled?NetDebug.print(x):Serial.print(x)
+  #define DEBUGOUTLN(x) netDebugEnabled?NetDebug.println(x):Serial.println(x)
+  #define DEBUGOUTF(x...) netDebugEnabled?NetDebug.printf(x):Serial.printf(x)
+  #define DEBUGOUTFlush() netDebugEnabled?NetDebug.flush():Serial.flush()
 #else
-  #define DEBUGOUT Serial
+  #define DEBUGOUT(x) Serial.print(x)
+  #define DEBUGOUTLN(x) Serial.println(x)
+  #define DEBUGOUTF(x...) Serial.printf(x)
+  #define DEBUGOUTFlush() Serial.flush()
 #endif
 
 #ifdef WLED_DEBUG
   #ifndef ESP8266
   #include <rom/rtc.h>
   #endif
-  #define DEBUG_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
-  #define DEBUG_PRINTF_P(x...) DEBUGOUT.printf_P(x)
+  #define DEBUG_PRINT(x) DEBUGOUT(x)
+  #define DEBUG_PRINTLN(x) DEBUGOUTLN(x)
+  #define DEBUG_PRINTF(x...) DEBUGOUTF(x)
+  #define DEBUG_PRINTF_P(x...) DEBUGOUTF(x)
 #else
   #define DEBUG_PRINT(x)
   #define DEBUG_PRINTLN(x)
@@ -1005,10 +1014,31 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #define DEBUG_PRINTF_P(x...)
 #endif
 
+// macros to print "user messages" to Serial
+// cannot do this on -S2, due to buggy USBCDC serial driver
+#if defined(WLED_DEBUG) || defined(WLED_ENABLE_NET_DEBUG)
+  // use DEBUG_PRINT
+  #define USER_PRINT(x) DEBUG_PRINT(x)
+  #define USER_PRINTLN(x) DEBUG_PRINTLN(x)
+  #define USER_PRINTF(x...) DEBUG_PRINTF(x)
+  #ifdef WLED_ENABLE_NET_DEBUG
+    #define USER_FLUSH() {}
+  #else
+    #define USER_FLUSH() {DEBUGOUTFlush();}
+  #endif
+#else
+  // if serial is available, we use Serial.print directly
+  #define USER_PRINT(x)      { if (canUseSerial()) DEBUGOUT(x); }
+  #define USER_PRINTLN(x)    { if (canUseSerial()) DEBUGOUTLN(x); }
+  #define USER_PRINTF(x...)  { if (canUseSerial()) DEBUGOUTF(x); }
+  #define USER_FLUSH()       {DEBUGOUTFlush();}
+#endif
+
+
 #ifdef WLED_DEBUG_FS
-  #define DEBUGFS_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUGFS_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUGFS_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUGFS_PRINT(x) DEBUGOUT(x)
+  #define DEBUGFS_PRINTLN(x) DEBUGOUTLN(x)
+  #define DEBUGFS_PRINTF(x...) DEBUGOUTF(x)
 #else
   #define DEBUGFS_PRINT(x)
   #define DEBUGFS_PRINTLN(x)
