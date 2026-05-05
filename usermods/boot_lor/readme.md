@@ -100,7 +100,7 @@ This ensures:
 
 ## Notes
 
-- It does **not** interfere with realtime streaming once `lor` is manually changed
+- It does **not** interfere with realtime streaming once the assertion period is over (default 10 seconds after network)
 - It simply ensures a predictable startup state
 
 ---
