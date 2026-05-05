@@ -30,7 +30,7 @@ This usermod is intended for environments where:
 
 **Problem:**  
 - At boot, realtime communication may take control as soon as packets arrive, overriding API-based control unexpectedly.
-- Using JSON or HTTP API in a boot preset does not relaibly set lor
+- Using JSON or HTTP API in a boot preset does not reliably set lor
 
 **Solution:**  
 Set `lor:2` at boot to disable realtime takeover by default.  
@@ -44,9 +44,9 @@ The usermod applies the configured `lor` value during startup using the followin
 
 ### Default behavior
 
-```
+
 WiFi connected → first UDP packet received → (optional delay) → apply lor → assert for N seconds → stop
-```
+
 
 - Waits for network connectivity
 - Optionally waits for the first UDP packet (recommended for DDP setups)
