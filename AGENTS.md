@@ -182,3 +182,4 @@ No automated linting is configured. Match existing code style in files you edit.
 - Changes to `platformio.ini` require maintainer approval
 - Remove dead/unused code — justify or delete it
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor)
+- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
