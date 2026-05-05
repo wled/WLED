@@ -44,9 +44,9 @@ The usermod applies the configured `lor` value during startup using the followin
 
 ### Default behavior
 
-
-WiFi connected → first UDP packet received → (optional delay) → apply lor → assert for N seconds → stop
-
+```text
+WiFi connected → (optional delay) → apply lor → assert for N seconds → stop
+```
 
 - Waits for network connectivity
 - Optionally waits for the first UDP packet (recommended for DDP setups)
@@ -120,7 +120,7 @@ After completion, the usermod stops running and has no ongoing impact on system 
 
 The current state is exposed under `info -> u`:
 
-```
+```text
 Boot LOR: [bootLor, state, realtimeOverride]
 ```
 
