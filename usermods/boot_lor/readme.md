@@ -49,7 +49,6 @@ WiFi connected → (optional delay) → apply lor → assert for N seconds → s
 ```
 
 - Waits for network connectivity
-- Optionally waits for the first UDP packet (recommended for DDP setups)
 - Waits an additional configurable delay (if set)
 - Applies the configured `lor` value
 - Reasserts it for a short period to allow system "settling"
@@ -64,7 +63,6 @@ The following options are available under `"boot_lor"` in the WLED config:
 ```json
 "boot_lor": {
   "bootLor": 2,
-  "waitForUdpPacket": true,
   "additionalWaitSec": 0,
   "assertForSec": 10
 }
@@ -75,8 +73,7 @@ The following options are available under `"boot_lor"` in the WLED config:
 | Name                | Type | Default | Description |
 |---------------------|------|---------|-------------|
 | `bootLor`           | int  | `2`     | Realtime override mode to apply. Valid values: `-1` (disabled), `0`, `1`, `2` |
-| `waitForUdpPacket`  | bool | `true`  | Wait for first UDP packet before starting the delay timer |
-| `additionalWaitSec` | int  | `0`     | Additional delay (in seconds) after trigger (connection or UDP) before applying |
+| `additionalWaitSec` | int  | `0`     | Additional delay (in seconds) after trigger (connection) before applying |
 | `assertForSec`      | int  | `10`    | Duration (in seconds) to reassert the value after first application |
 
 ---
@@ -88,7 +85,6 @@ For most DDP / API-first setups:
 ```json
 {
   "bootLor": 2,
-  "waitForUdpPacket": true,
   "additionalWaitSec": 0,
   "assertForSec": 10
 }
@@ -104,7 +100,6 @@ This ensures:
 
 ## Notes
 
-- This usermod does **not** block or modify UDP traffic
 - It does **not** interfere with realtime streaming once `lor` is manually changed
 - It simply ensures a predictable startup state
 

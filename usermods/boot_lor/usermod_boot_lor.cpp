@@ -9,7 +9,7 @@
  */
 class BootLorUsermod : public Usermod {
 private:
-  static constexpr const char* _name = "boot_lor"; ///< JSON configuration key for this usermod.
+  static const char _name[] PROGMEM; ///< JSON configuration key for this usermod.
   
   int8_t bootLor = 2;                ///< Realtime override mode to apply; -1 disables the usermod.
   uint8_t additionalWaitSec = 0;     ///< Additional delay, in seconds, after network connection.
@@ -104,8 +104,7 @@ public:
   /**
    * @brief Initializes the usermod.
    */
-  void setup() override {
-  }
+  void setup() override {}
   
   /**
    * @brief Starts the wait timer when networking becomes available.
@@ -129,12 +128,12 @@ public:
    * @param root Root configuration JSON object.
    */
   void addToConfig(JsonObject& root) override {
-    JsonObject top = root[_name];
-    if (top.isNull()) top = root.createNestedObject(_name);
+    JsonObject top = root[FPSTR(_name)];
+    if (top.isNull()) top = root.createNestedObject(FPSTR(_name));
     
-    top["bootLor"] = bootLor;
-    top["additionalWaitSec"] = additionalWaitSec;
-    top["assertForSec"] = assertForSec;
+    top[F("bootLor")] = bootLor;
+    top[F("additionalWaitSec")] = additionalWaitSec;
+    top[F("assertForSec")] = assertForSec;
   }
   
   /**
@@ -144,14 +143,14 @@ public:
    * @return true if this usermod's configuration object exists.
    */
   bool readFromConfig(JsonObject& root) override {
-    JsonObject top = root[_name];
+    JsonObject top = root[FPSTR(_name)];
     if (top.isNull()) return false;
     
-    int8_t newBootLor = top["bootLor"] | bootLor;
+    int8_t newBootLor = top[F("bootLor")] | bootLor;
     if (isValidLor(newBootLor)) bootLor = newBootLor;
     
-    additionalWaitSec = top["additionalWaitSec"] | additionalWaitSec;
-    assertForSec = top["assertForSec"] | assertForSec;
+    additionalWaitSec = top[F("additionalWaitSec")] | additionalWaitSec;
+    assertForSec = top[F("assertForSec")] | assertForSec;
     
     return true;
   }
@@ -162,12 +161,12 @@ public:
    * @param root Root info JSON object.
    */
   void addToJsonInfo(JsonObject& root) override {
-    JsonObject user = root["u"];
-    if (user.isNull()) user = root.createNestedObject("u");
+    JsonObject user = root[F("u")];
+    if (user.isNull()) user = root.createNestedObject(F("u"));
     
-    JsonArray infoArr = user.createNestedArray("Boot LOR");
+    JsonArray infoArr = user.createNestedArray(F("Boot LOR"));
     infoArr.add(bootLor);
-    infoArr.add(finished ? "finished" : applied ? "applied" : "waiting");
+    infoArr.add(finished ? F("finished") : applied ? F("applied") : F("waiting"));
     infoArr.add(realtimeOverride);
   }
   
@@ -180,6 +179,8 @@ public:
     return USERMOD_ID_BOOT_LOR;
   }
 };
+
+const char BootLorUsermod::_name[] PROGMEM = "boot_lor";
 
 static BootLorUsermod boot_lor_usermod;
 REGISTER_USERMOD(boot_lor_usermod);
