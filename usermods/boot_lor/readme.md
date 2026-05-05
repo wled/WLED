@@ -100,7 +100,7 @@ This ensures:
 
 ## Notes
 
-- It does **not** interfere with realtime streaming once the assertion period is over (default 10 seconds after network)
+- It does **not** interfere with realtime streaming once the assertion period is over (see startup sequence)
 - It simply ensures a predictable startup state
 
 ---
