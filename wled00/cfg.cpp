@@ -30,8 +30,10 @@ static constexpr bool validatePinsAndTypes(const unsigned* types, unsigned numTy
   // Pins provided < pins required -> always invalid
   // Pins provided = pins required -> always valid
   // Pins provided > pins required -> valid if excess pins are a product of last type pins since it will be repeated
-  return (sumPinsRequired(types, numTypes) > numPins) ? false :
-          (numPins - sumPinsRequired(types, numTypes)) % Bus::getNumberOfPins(types[numTypes-1]) == 0;
+  // HUB75 types use their pin slots for config params, not GPIO - skip GPIO pin validation for them
+  return Bus::isHub75(types[numTypes-1]) ? true :
+         (sumPinsRequired(types, numTypes) > numPins) ? false :
+         (numPins - sumPinsRequired(types, numTypes)) % Bus::getNumberOfPins(types[numTypes-1]) == 0;
 }
 
 
@@ -47,7 +49,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   //int rev_major = doc["rev"][0]; // 1
   //int rev_minor = doc["rev"][1]; // 0
 
-  //long vid = doc[F("vid")]; // 2010020
+  long vid = doc[F("vid")] | VERSION; // 2605010 note: "vid" can be used to detect an update from older versions but only on first call, it is written to the new VID after buses are initialized
 
   JsonObject id = doc["id"];
   getStringFromJson(cmDNS, id[F("mdns")], 33);
@@ -701,8 +703,18 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonArray timersArray = tm["ins"];
   if (!timersArray.isNull()) {
     clearTimers();
+    bool legacySunriseLoaded = false;  // migration flag: pre 16.0 used hour=255 for both sunrise & sunset (type determined by array position)
     for (JsonObject timer : timersArray) {
       uint8_t h = timer[F("hour")] | 0;
+      // legacy migration for pre 16.0 (vid < 2605010): first occurrence = sunrise, second occurrence = sunset
+      if (vid < 2605010 && h == 255) {
+        if (legacySunriseLoaded) {
+          h = TH_SUNSET;   // second "255" entry is actually sunset
+        } else {
+          legacySunriseLoaded = true;
+        }
+      }
+
       int8_t m = timer[F("min")] | 0;
       uint8_t p = timer[F("macro")] | 0;
       uint8_t dow = timer[F("dow")] | 127;
