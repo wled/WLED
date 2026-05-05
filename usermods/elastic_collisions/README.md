@@ -29,7 +29,7 @@ When you save an effect in *Presets*, it is saved as an ordinal effect number ca
 
 ## Parameters
 
-1. **Speed** The average initial velocity of balls over a wide ranage.
+1. **Speed** The average initial velocity of balls over a wide range.
 2. **Count** 1-30 balls
 3. **Uniformity** 0-100%. 100% uniformity is special as discussed above.
-4. **Lifetime** Regenration time from 15 seconds to 1 hour. 
+4. **Lifetime** Regeneration time from 15 seconds to 1 hour. 

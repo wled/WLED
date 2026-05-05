@@ -145,7 +145,7 @@ public:
     // Normalize direction
     if (length << 1 == 0) {
       // handle gracefully, but this shouldn't happen.
-      Serial.println("At 0 #1");
+      DEBUG_PRINTLN("At 0 #1");
       return;
     }
     nfixed scale = fixedDiv(dist - length, length << 1);
@@ -170,7 +170,7 @@ public:
     nfixed dist = fixedDist(nx, ny);
     while (dist == 0) {
       // handle gracefully
-      // Serial.println("Two objects on top of each other!");
+      // DEBUG_PRINTLN("Two objects on top of each other!");
 
       x += 1 << (SPHERE_PREC_SHIFT -2);
       nx += 1 << (SPHERE_PREC_SHIFT -2);
@@ -272,6 +272,7 @@ public:
     {
         vx = 0;
         vy = 0;
+        return;
     }
 
     // Don't calculate beyond the edges of the LED array.
@@ -401,7 +402,7 @@ void mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
 
   // Radius distribution.
 	const int dmTableSize = 20;
-	const uint8_t PROGMEM dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
+	static const uint8_t PROGMEM dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
   
   // Reinitialize evertying if the number of spheres has changed.
   // (We need a separate counter for the number wanted, vs. the number actually initialized.)
@@ -424,8 +425,8 @@ void mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
       nfixed radius = (7 << 16) + ((((uint64_t)skewedRandom(random(100), dmTableSize, dmPercentages) * complementUniformity << 16) / 10000) * (23 << 16) >> 16);// 7-30
       // radius = 30 << SPHERE_PREC_SHIFT;
       nfixed massFactor = MBSphere::fixedDiv((11 << SPHERE_PREC_SHIFT), radius);           // Big things should move slower to keep momentum down.
-      nfixed vx = (-50.0 + random(100)) * massFactor / 5.0;                               // ±10
-      nfixed vy = (-50.0 + random(100)) * massFactor * complementUniformity / 500.0;    // ±10
+      nfixed vx = (-50 + (nfixed)hw_random(100)) * massFactor / 5;                             // ±10
+      nfixed vy = (-50 + (nfixed)hw_random(100)) * massFactor * complementUniformity / 500;    // ±10
       radius /= 10;
       vx /= 10;
       vy /= 10;
@@ -479,9 +480,8 @@ void mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
 
   // If it is time to do something.
   if (millis() > SEGMENT.step) {
-    // Turm off all the LEDS.
-    for (int i = 0; i < SEGLEN; ++i)
-      SEGMENT.setPixelColor(i, CRGB::Black);
+    // Turn off all the LEDS.
+    SEGMENT.fill(BLACK);
 
     // Draw the spheres.
     for (int i = 0; i < (SEGMENT.aux0 & SPHERES_ALLOCATED); ++i)
