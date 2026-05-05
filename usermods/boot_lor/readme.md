@@ -93,7 +93,7 @@ For most DDP / API-first setups:
 This ensures:
 
 - Realtime streaming does not take control unexpectedly at boot
-- The system waits for actual network activity before acting
+- The system waits for network connectivity before acting
 - The setting is reinforced briefly to avoid race conditions
 
 ---
