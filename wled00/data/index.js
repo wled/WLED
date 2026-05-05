@@ -25,6 +25,7 @@ var pN = "", pI = 0, pNum = 0;
 var pmt = 1, pmtLS = 0;
 var lastinfo = {};
 var isM = false, mw = 0, mh=0;
+var bsOpts = null; // blending style options snapshot, used for dynamic filtering based on matrix mode (iOS compatibility)
 var ws, wsRpt=0;
 var cfg = {
 	theme:{base:"dark", bg:{url:"", rnd: false, rndGrayscale: false, rndBlur: false}, alpha:{bg:0.6,tab:0.8}, color:{bg:""}},
@@ -660,12 +661,14 @@ function parseInfo(i) {
 	mw = i.leds.matrix ? i.leds.matrix.w : 0;
 	mh = i.leds.matrix ? i.leds.matrix.h : 0;
 	isM = mw>0 && mh>0;
+	if (!bsOpts) bsOpts = Array.from(gId('bs').options).map(o => o.cloneNode(true)); // snapshot all options on first call
+	const bsSel = gId('bs');
+	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
+	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
 	if (!isM) {
-		gId("filter2D").classList.add('hide');
-		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='none';});
+		gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
 		gId("filter2D").classList.remove('hide');
-		gId('bs').querySelectorAll('option[data-type="2D"]').forEach((o,i)=>{o.style.display='';});
 	}
 	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
@@ -986,21 +989,39 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// append custom palettes (when loading for the 1st time)
+	// append usermod palettes (fixed ID space: 255 down to 201)
 	let li = lastinfo;
-	if (!isEmpty(li) && li.cpalcount) {
-		for (let j = 0; j<li.cpalcount; j++) {
+	if (!isEmpty(li) && li.umpalcount && li.umpalnames) {
+		for (let j = 0; j < li.umpalcount; j++) {
 			let div = d.createElement("div");
 			gId('pallist').appendChild(div);
 			div.outerHTML = generateListItemHtml(
 				'palette',
 				255-j,
-				'~ Custom '+j+' ~',
+				li.umpalnames[j],
 				'setPalette',
 				`<div class="lstIprev" style="${genPalPrevCss(255-j)}"></div>`
 			);
 		}
 	}
+	// append user custom palettes (fixed ID space: 200 down to FIXED_PALETTE_COUNT+1)
+	if (!isEmpty(li) && li.cpalcount) {
+		for (let j = 0; j < li.cpalcount; j++) {
+			const id = 200 - j;
+			const pd = palettesData[id];
+			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip gray gap-placeholder entries
+			let div = d.createElement("div");
+			gId('pallist').appendChild(div);
+			div.outerHTML = generateListItemHtml(
+				'palette',
+				id,
+				'~ Custom '+j+' ~',
+				'setPalette',
+				`<div class="lstIprev" style="${genPalPrevCss(id)}"></div>`
+			);
+		}
+	}
+	updateSelectedPalette(selectedPal); // update selection after adding usermod and custom palettes
 }
 
 function redrawPalPrev()
@@ -1457,7 +1478,9 @@ function readState(s,command=false)
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
-	gId('bs').value = s.bs || 0;
+	const bsSel = gId('bs');
+	bsSel.value = s.bs || 0; // assign blending style
+	if (!bsSel.value) bsSel.value = 0; // fall back to Fade if option does not exist
 	if (tr===0) gId('bsp').classList.add('hide')
 	else gId('bsp').classList.remove('hide')
 
@@ -2812,7 +2835,7 @@ function loadPalettesData() {
 		if (lsPalData) {
 			try {
 				var d = JSON.parse(lsPalData);
-				if (d && d.vid == lastinfo.vid) {
+				if (d && d.vid == lastinfo.vid && d.pcount == lastinfo.palcount) {
 					palettesData = d.p;
 					redrawPalPrev();
 					return resolve();
@@ -2824,7 +2847,8 @@ function loadPalettesData() {
 		getPalettesData(0, () => {
 			localStorage.setItem("wledPalx", JSON.stringify({
 				p: palettesData,
-				vid: lastinfo.vid
+				vid: lastinfo.vid,
+				pcount: lastinfo.palcount // total palette count, refresh cache if it changes
 			}));
 			redrawPalPrev();
 			setTimeout(resolve, 99); // delay optional

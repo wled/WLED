@@ -30,7 +30,8 @@ This lets you update your PR if needed, while you can work on other tasks in 'ma
 
 ### Target branch for pull requests
 
-Please make all PRs against the `main` branch.
+> [!IMPORTANT]
+> Please make all PRs against the `main` branch.
 
 ### Describing your PR
 
