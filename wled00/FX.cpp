@@ -7817,9 +7817,7 @@ void mode_XmasTwinkle(void) {
   }
   
   // Clear all LEDs
-  for (int i = 0; i < SEGLEN; i++) {
-    SEGMENT.setPixelColor(i, CRGB::Black);
-  }
+  SEGMENT.fill(BLACK);
   
   // Update each twinkle light
   for (int i = 0; i < numLights; i++) {
