@@ -1186,10 +1186,15 @@ void serializePins(JsonObject root)
 
 // deserializes mode names string into JsonArray
 // also removes effect data extensions (@...) from deserialised names
-void serializeModeNames(JsonArray arr)
+// bypassHide=true returns real names for user-hidden effects (used by /settings/fx)
+void serializeModeNames(JsonArray arr, bool bypassHide)
 {
   char lineBuffer[256];
   for (size_t i = 0; i < strip.getModeCount(); i++) {
+    if (!bypassHide && isFxHidden((uint8_t)i)) {
+      arr.add("RSVD");
+      continue;
+    }
     strncpy_P(lineBuffer, strip.getModeData(i), sizeof(lineBuffer)/sizeof(char)-1);
     lineBuffer[sizeof(lineBuffer)/sizeof(char)-1] = '\0'; // terminate string
     if (lineBuffer[0] != 0) {
@@ -1350,7 +1355,7 @@ void serveJson(AsyncWebServerRequest* request)
     case json_target::palettes:
       serializePalettes(lDoc, request->hasParam(F("page")) ? request->getParam(F("page"))->value().toInt() : 0); break;
     case json_target::effects:
-      serializeModeNames(lDoc); break;
+      serializeModeNames(lDoc, request->hasParam(F("all"))); break;
     case json_target::networks:
       serializeNetworks(lDoc); break;
     case json_target::config:

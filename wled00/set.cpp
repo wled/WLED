@@ -877,6 +877,20 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   }
   #endif
 
+  if (subPage == SUBPAGE_FX)
+  {
+    for (size_t i = 0; i < 8; i++) hiddenFxMask[i] = 0;
+    String s = request->arg(F("FXH"));
+    int idx = 0;
+    while (idx < (int)s.length()) {
+      int comma = s.indexOf(',', idx);
+      int end = (comma < 0) ? s.length() : comma;
+      int id = s.substring(idx, end).toInt();
+      if (id > 0 && id < 256) setFxHidden((uint8_t)id, true);
+      idx = (comma < 0) ? s.length() : comma + 1;
+    }
+  }
+
   lastEditTime = millis();
   // do not save if factory reset or LED settings (which are saved after LED re-init)
   configNeedsWrite = subPage != SUBPAGE_LEDS && !(subPage == SUBPAGE_SEC && doReboot);

@@ -764,6 +764,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     needsSave = !UsermodManager::readFromConfig(usermods_settings);
   }
 
+  // hidden effects: load id list into bitmap
+  JsonObject fx = doc["fx"];
+  JsonArray fxHidden = fx["hidden"];
+  if (!fxHidden.isNull()) {
+    for (size_t i = 0; i < 8; i++) hiddenFxMask[i] = 0;
+    for (JsonVariant v : fxHidden) {
+      uint8_t id = v.as<uint8_t>();
+      if (id != 0) setFxHidden(id, true); // never hide Solid (id 0)
+    }
+  }
+
   if (fromFS) return needsSave;
   // if from /json/cfg
   doReboot = doc[F("rb")] | doReboot;
@@ -1260,6 +1271,12 @@ void serializeConfig(JsonObject root) {
 
   dmx[F("e131proxy")] = e131ProxyUniverse;
   #endif
+
+  JsonObject fx = root.createNestedObject("fx");
+  JsonArray fxHidden = fx.createNestedArray("hidden");
+  uint16_t maxId = strip.getModeCount();
+  if (maxId > 256) maxId = 256;
+  for (uint16_t id = 1; id < maxId; id++) if (isFxHidden(id)) fxHidden.add((uint8_t)id);
 
   JsonObject usermods_settings = root.createNestedObject("um");
   UsermodManager::addToConfig(usermods_settings);
