@@ -330,7 +330,7 @@ const char* PinManager::getPinOwnerName(uint8_t gpio) {
     case PinOwner::Relay:         return "Relay";
     case PinOwner::SPI_RAM:       return "SPI RAM";
     case PinOwner::DebugOut:      return "Debug";
-    case PinOwner::DMX:           return "DMX Output";
+    case PinOwner::DMX_OUTPUT:    return "DMX Output";
     case PinOwner::HW_I2C:        return "I2C";
     case PinOwner::HW_SPI:        return "SPI";
     case PinOwner::DMX_INPUT:     return "DMX Input";

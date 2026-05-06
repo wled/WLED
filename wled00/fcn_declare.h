@@ -91,14 +91,6 @@ typedef struct WiFiConfig {
   }
 } wifi_config;
 
-//dmx_output.cpp
-void initDMXOutput();
-void handleDMXOutput();
-
-//dmx_input.cpp
-void initDMXInput();
-void handleDMXInput();
-
 //e131.cpp
 void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);

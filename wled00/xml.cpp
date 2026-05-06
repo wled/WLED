@@ -122,9 +122,11 @@ static void appendGPIOinfo(Print& settingsScript)
     }
   }
   #ifdef WLED_ENABLE_DMX
-  if (!firstPin) settingsScript.print(',');
-  settingsScript.print(2); // DMX hardcoded pin
-  firstPin = false;
+  if (dmxOutputPin > 0) {
+    if (!firstPin) settingsScript.print(',');
+    settingsScript.print(dmxOutputPin); // DMX output pin
+    firstPin = false;
+  }
   #endif
   #if defined(WLED_DEBUG) && !defined(WLED_DEBUG_HOST)
   if (!firstPin) settingsScript.print(',');
@@ -505,7 +507,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormCheckbox(settingsScript,PSTR("EM"),e131Multicast);
     printSetFormValue(settingsScript,PSTR("EU"),e131Universe);
 #ifdef WLED_ENABLE_DMX
-    settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message
+    settingsScript.print(SET_F("hideNoDMXOutput();"));  // hide "not compiled in" message, show output pin field
+    printSetFormValue(settingsScript,SET_F("IDMO"), dmxOutputPin);
 #endif
 #ifndef WLED_ENABLE_DMX_INPUT
     settingsScript.print(SET_F("hideDMXInput();"));  // hide "dmx input" settings

@@ -68,7 +68,10 @@
 	}
 	function hideDMXInput(){gId("dmxInput").style.display="none";}
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
-	function hideNoDMXOutput(){gId("dmxOnOffOutput").style.display="none";}
+	function hideNoDMXOutput(){
+		gId("dmxOutputOff").style.display="none";
+		gId("dmxOutput").style.display="block";
+	}
 	</script>
 </head>
 <body>
@@ -192,19 +195,22 @@ Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
 <div id="dmxInput">
-	<br>
-	<h4>Wired DMX Input</h4>
+	<h3>Wired DMX Input</h4>
 	DMX RX Pin: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
 	DMX TX Pin: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
 	DMX Enable Pin: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
 	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
 	<i class="warn">Reboot required to apply changes.</i>
 </div>
+<div id="dmxOutput" style="display: none">
+	<h3>Wired DMX Output Pin</h3>
+	DMX TX: <input name="IDMO" type="number" min="-1" max="99"><br/>
+</div>
 <div id="dmxInputOff">
-	<br><i class="warn">This firmware build does not include DMX Input support. <br></i>
+	<br><i class="warn">This firmware build does not include DMX Input support.</i>
 </div> 
-<div id="dmxOnOffOutput">
-  <br><i class="warn">This firmware build does not include DMX output support. <br></i>
+<div id="dmxOutputOff">
+  <br><i class="warn">This firmware build does not include DMX output support.</i>
 </div> 
 </div>
 <div class="sec">
