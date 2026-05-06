@@ -7749,6 +7749,130 @@ void mode_2DAkemi(void) {
 static const char _data_FX_MODE_2DAKEMI[] PROGMEM = "Akemi@Color speed,Dance;Head palette,Arms & Legs,Eyes & Mouth;Face palette;2f;si=0"; //beatsin
 
 
+/////////////////////////
+//  Xmas Twinkle       //
+/////////////////////////
+
+// Originally by Nick Pisarro, Jr. This version by DedeHai, and updatged by Nick.
+
+// We need to keep data for each twinkle light. 8 bytes/light
+typedef struct {
+  uint32_t nextEvent : 16;      // Time left to next state change (ms.)
+  uint32_t maxCycle : 16;       // Working maximum cycle time
+  uint32_t retwnkleTime : 16;   // Time left til we recalculate 'maxCycle'
+  uint32_t colorIdx : 8;        // May be fixed or change with each flash
+  uint32_t isOn : 1;
+} TwinkleLight;
+
+// Square a normalized value to skew toward smaller numbers
+int16_t skewedTime(uint16_t maxTime, uint16_t minTime = 200) {
+  // Do things in the proper order so fixed arithmatic works.
+  uint32_t rSqrd = hw_random8();              // 0-255
+  rSqrd *= rSqrd;                             // 0-65,025
+  uint32_t normalized = rSqrd >> 8;           // 0-254, i.e. (0.0-1.0 << 8)
+  return (uint16_t)(minTime + (normalized * (maxTime - minTime) >> 8));
+}
+
+// Based on the speed, bias the maxtime toward faster or slower times.
+int16_t skewedMax()
+{
+  int32_t slowWeight = SEGMENT.speed;    // 0.0 - 1.0 as fixed Q24.8
+  // ">> 9, below divides by 2 and converts Q24.8 to Q32.0.
+  return (skewedTime(8800, 0) * slowWeight + (8800 - skewedTime(8800, 0)) * (256 - slowWeight) >> 9) + 200;
+}
+
+void mode_XmasTwinkle(void) {
+  /* SEGMENT usage:
+   *   aux0   number of twinklers
+   *   aux1   previous SEGMENT.speed
+   *   step   last time stamp
+   *   data   array of XTwinkleLight structure
+   */
+
+  uint16_t numLights = max(1, (int)SEGLEN * SEGMENT.intensity / 255);
+  uint16_t dataSize = sizeof(TwinkleLight) * numLights;
+  
+  if (!SEGENV.allocateData(dataSize)) return mode_static();
+  TwinkleLight* lights = (TwinkleLight*)SEGENV.data;
+
+  // Get the current time,  handling overflows.
+  uint32_t lastTime = SEGMENT.step;
+  uint32_t currTime = millis();
+  if (currTime < lastTime)
+    lastTime = 0;
+  
+  // The interval may be zero if the refresh rate is fast enough.
+  uint32_t interval = currTime - lastTime;
+  
+  // Initialize on first run
+  if (SEGMENT.aux0 != numLights) {
+    for (int i = 0; i < numLights; i++) {
+      lights[i].colorIdx = hw_random8();
+      lights[i].isOn = false;
+      lights[i].maxCycle = skewedMax();
+      lights[i].nextEvent = skewedTime(lights[i].maxCycle);
+      lights[i].retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
+    }
+    SEGMENT.aux0 = numLights; // Mark as initialized
+  }
+  
+  // Clear all LEDs
+  SEGMENT.fill(BLACK);
+  
+  // Update each twinkle light
+  for (int i = 0; i < numLights; i++) {
+    TwinkleLight* light = &lights[i];
+    
+    // Check if it's time for state change
+    int16_t eventTime = light->nextEvent - interval;
+    if (eventTime <= 0) {
+      light->isOn = !light->isOn;
+      
+      if (light->isOn) {
+        // Turning ON - short duration (1/3 of off time)
+        uint32_t wkgMaxCycle = light->maxCycle;
+        if (SEGMENT.custom1 < 128)            // If the Duty Cycle < 50%.
+          wkgMaxCycle = wkgMaxCycle * SEGMENT.custom1 >> 7;   // Q24.8 -> Q32.0 * 2
+        eventTime = skewedTime(wkgMaxCycle);
+        if (SEGMENT.check1) light->colorIdx = hw_random8(); // New color each time
+      } else {
+        // Turning OFF - longer duration
+        uint32_t wkgMaxCycle = light->maxCycle;
+        if (SEGMENT.custom1 >= 128)            // If the Duty Cycle < 50%.
+          wkgMaxCycle = wkgMaxCycle * (256 - (uint16_t)SEGMENT.custom1) >> 7;   // Q24.8 -> Q32.0 * 2
+        eventTime = skewedTime(wkgMaxCycle);
+      }
+    }
+    // Put the updated event time back.
+    light->nextEvent = eventTime;
+    
+    // Light the LED if on
+    if (light->isOn) {
+      uint16_t pos = (i * SEGLEN) / numLights;
+      SEGMENT.setPixelColor(pos, ColorFromPalette(SEGPALETTE, light->colorIdx));
+    }
+
+    // If we are at the end of a major cycle or the speed has changed, recalculate the max cycle time.
+    int16_t cycleTime = light->retwnkleTime - interval;
+    if (cycleTime <= 0 || SEGMENT.aux1 != SEGMENT.speed)
+    {
+      light->maxCycle = skewedMax();
+      if (cycleTime <= 0)
+        cycleTime += 20000;     // +20 seconds
+    }
+    light->retwnkleTime = cycleTime;
+  }
+
+  // Remember the last time as ms.
+  SEGMENT.step += interval;
+  SEGMENT.aux1 = SEGMENT.speed;   // So we know if this change.
+  
+  return;
+}		// mode_XmasTwinkle
+
+static const char _data_FX_MODE_XMASTWINKLE[] PROGMEM = "Xmas Twinkle@Twinkle speed,Density,Avg. Duty Cycle,,,Color indices vary;;!;012;c1=43,m12=0";
+
+
 // Distortion waves - ldirko
 // https://editor.soulmatelights.com/gallery/1089-distorsion-waves
 // adapted for WLED by @blazoncek, improvements by @dedehai
@@ -11107,6 +11231,7 @@ void WS2812FX::setupEffectData() {
   addEffect(FX_MODE_DYNAMIC_SMOOTH, &mode_dynamic_smooth, _data_FX_MODE_DYNAMIC_SMOOTH);
   addEffect(FX_MODE_PACMAN, &mode_pacman, _data_FX_MODE_PACMAN);
   addEffect(FX_MODE_SLOW_TRANSITION, &mode_slow_transition, _data_FX_MODE_SLOW_TRANSITION);
+  addEffect(FX_MODE_XMASTWINKLE, &mode_XmasTwinkle, _data_FX_MODE_XMASTWINKLE);
 
   // --- 1D audio effects ---
   addEffect(FX_MODE_PIXELS, &mode_pixels, _data_FX_MODE_PIXELS);
