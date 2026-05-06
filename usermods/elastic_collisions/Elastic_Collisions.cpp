@@ -141,7 +141,7 @@ public:
     nfixed dy = sp->y - y;
     nfixed length = fixedDist(dx, dy);
 
-    if (length >= dist || length == 0.0)
+    if (length >= dist || length == 0)
         return; // Already long enough, or degenerate point
 
     // Normalize direction
@@ -306,16 +306,14 @@ public:
         // alpha = 1 << SPHERE_PREC_SHIFT;
 	
 				// Store intensity in LED array (0-1 range)
-				if (draw)
-				{
+				if (draw) {
 					drawColor = sphereColor;
 					drawColor.nscale8(alpha * 255 >> SPHERE_PREC_SHIFT);
 				}
 				else
 					drawColor = CRGB::Black;
 	
-				if (alpha > 0.0)
-				{
+				if (alpha > 0) {
 					if (is2D)
 						seg.setPixelColorXY(lX, lY, drawColor);
 					else
