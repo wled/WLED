@@ -6,9 +6,9 @@ description: "WLED-focused security review guide based on OWASP Top 10 for embed
 # WLED Security Review Standards (Embedded + Web UI)
 
 Use this guide for AI-assisted code reviews in:
-- `/home/runner/work/WLED/WLED/wled00/`
-- `/home/runner/work/WLED/WLED/usermods/`
-- `/home/runner/work/WLED/WLED/.github/workflows/`
+- `wled00/`
+- `usermods/`
+- `.github/workflows/`
 
 Ignore sections wrapped in `<!-- HUMAN_ONLY_START --> ... <!-- HUMAN_ONLY_END -->` in repo docs when applying review criteria.
 
@@ -31,7 +31,7 @@ Prioritize:
 - C++ memory safety and input validation
 - Auth and access checks for state-changing HTTP/JSON APIs
 - XSS and DOM safety in `wled00/data/*`
-- Secrets handling and secure logging
+- Secrets handling (`wsec.json`) and secure logging
 - Dependency and GitHub Actions supply-chain hygiene
 - Fail-safe behavior on constrained devices
 
@@ -141,7 +141,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### SEC1: Hardcoded secrets and credentials
 - **Severity**: CRITICAL
-- Reject committed API keys, passwords, tokens, private keys, or test backdoors.
+- Reject committed API keys, passwords, tokens, private keys, or test backdoors with potential security impact.
 
 ### SEC2: Sensitive values in logs
 - **Severity**: CRITICAL
@@ -158,7 +158,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### SEC5: Credential exposure in API/config responses
 - **Severity**: IMPORTANT
-- Flag API/config serialization that exposes password-like fields (for example Wi-Fi/AP/MQTT passwords) to unauthenticated clients.
+- Flag API/config serialization that exposes password-like fields (for example Wi-Fi/AP/MQTT passwords) to unauthenticated or untrusted clients.
 
 ### SEC6: Security-relevant event logging coverage
 - **Severity**: SUGGESTION
