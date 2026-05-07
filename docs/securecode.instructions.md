@@ -56,6 +56,7 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW4: Unvalidated external input
 - **Severity**: CRITICAL
 - Validate and clamp external values from HTTP/JSON/UDP/serial before use as lengths, indices, IDs, or pin references.
+- In UDP handlers (`parsePacket()`, `recvfrom()`), validate `packetSize` before buffer writes and clamp protocol-specific universe/channel ranges to valid limits.
 
 ### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
 - **Severity**: CRITICAL
@@ -65,14 +66,17 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW6: Fail-open behavior after parse or allocation errors
 - **Severity**: IMPORTANT
 - On error, reject update and preserve safe previous state.
+- Explicitly check parse status (`deserializeJson()`/equivalent) and avoid silently applying unsafe zero/default values to safety-relevant fields (for example LED count and pin assignment).
 
 ### FW7: Heap churn in hot paths
 - **Severity**: IMPORTANT
 - Avoid repeated dynamic allocation in render/effect loops; prefer pre-allocation and reuse.
+- Flag allocation patterns in loop and ISR-adjacent paths that can trigger fragmentation or timing instability.
 
 ### FW8: Unsafe use of `String` in performance-critical paths
 - **Severity**: IMPORTANT
 - In hot paths, avoid repeated `String` growth; reserve or use fixed buffers.
+- Flag repeated `String` concatenation inside loop-heavy or ISR-adjacent code.
 
 ### FW9: Unsafe feature flag names
 - **Severity**: IMPORTANT
@@ -82,6 +86,25 @@ De-prioritize unless explicitly introduced by a PR:
 - **Severity**: IMPORTANT
 - OTA update flows should validate firmware integrity using the checksum/hash/signature mechanism available in the firmware/platform implementation.
 - Do not require TLS/certificate pinning as a mandatory review criterion.
+- In OTA paths (`Update.begin()`, `Update.write()`, and related flows), flag flashing without integrity verification.
+
+### FW11: FreeRTOS task stack and recursion safety
+- **Severity**: IMPORTANT
+- In `xTaskCreate`/`xTaskCreatePinnedToCore` tasks that process `String`/JSON-heavy data, verify stack-size sufficiency and avoid unbounded recursion.
+
+### FW12: mDNS and hostname sanitization
+- **Severity**: IMPORTANT
+- For `MDNS.begin()`, `MDNS.addService()`, and `ArduinoOTA.setHostname()`, ensure user-provided hostnames are restricted to RFC-compliant characters (`[a-zA-Z0-9-]`) and clamped to 63 characters.
+
+### FW13: Outbound URL validation (no HTTPS requirement)
+- **Severity**: SUGGESTION
+- When using user-provided URL strings with `HTTPClient.begin()`/equivalent, validate scheme/format and constrain host targets (allowlist or equivalent policy).
+- Do not require HTTPS/TLS as a baseline review rule.
+
+### FW14: Optional unicast UDP source filtering
+- **Severity**: SUGGESTION
+- For unicast UDP receive paths, prefer optional user-configurable source filtering.
+- Do not require this for multicast/broadcast protocol flows.
 
 ## Web UI Security (`wled00/data/*`, OWASP A01/A02/A05)
 
@@ -109,6 +132,10 @@ De-prioritize unless explicitly introduced by a PR:
 - **Severity**: IMPORTANT
 - Treat fetched and config-derived strings as untrusted unless proven otherwise.
 
+### WEB7: CSRF checks for state-changing HTTP routes (advisory)
+- **Severity**: SUGGESTION
+- For state-changing HTTP routes (for example `/json/state`, `/win`), prefer `Origin`/`Referer` validation as low-cost defense-in-depth in firewall-isolated deployments.
+
 ## Secrets and Logging (OWASP A04/A09/A10)
 
 ### SEC1: Hardcoded secrets and credentials
@@ -122,10 +149,19 @@ De-prioritize unless explicitly introduced by a PR:
 ### SEC3: Insecure defaults
 - **Severity**: IMPORTANT
 - Reject new default credentials or insecure auto-enable behavior for privileged functions.
+- For setup/onboarding flows, require first-change behavior for default credentials where applicable.
 
 ### SEC4: Overly detailed error responses
 - **Severity**: IMPORTANT
 - Avoid exposing stack traces or internal details to API/UI consumers.
+
+### SEC5: Credential exposure in API/config responses
+- **Severity**: IMPORTANT
+- Flag API/config serialization that exposes password-like fields (for example Wi-Fi/AP/MQTT passwords) to unauthenticated clients.
+
+### SEC6: Security-relevant event logging coverage
+- **Severity**: SUGGESTION
+- Prefer explicit logging for auth failures, OTA attempts, config resets, and AP activation events, without logging secret values.
 
 ## Supply Chain and CI/CD (OWASP A03/A08)
 
@@ -136,6 +172,8 @@ De-prioritize unless explicitly introduced by a PR:
 ### SC2: Workflow permission hardening regressions
 - **Severity**: IMPORTANT
 - Check for broad `permissions`, unpinned third-party actions, or unsafe secret exposure.
+- Flag mutable third-party action refs (`@main`, `@master`, broad tags) where SHA pinning is expected by project policy.
+- Flag overly broad permissions such as `write-all` without clear need.
 
 ### SC3: Script injection in workflows
 - **Severity**: IMPORTANT
@@ -146,6 +184,8 @@ De-prioritize unless explicitly introduced by a PR:
 - [ ] No new memory-safety hazards (bounds, overflow, unsafe copies/format strings)
 - [ ] External input is validated and range-clamped before use
 - [ ] State-changing API paths enforce auth policy
+- [ ] OTA paths enforce integrity verification (without requiring TLS baseline)
+- [ ] Suggested rule patterns are checked where relevant (UDP bounds, hostname sanitization, workflow pinning/permissions)
 - [ ] Web UI changes avoid unsafe DOM execution/injection patterns
 - [ ] No secrets added; no sensitive logging introduced
 - [ ] Error handling remains fail-safe and non-leaky
