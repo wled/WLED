@@ -56,7 +56,7 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW4: Unvalidated external input
 - **Severity**: CRITICAL
 - Validate and clamp external values from HTTP/JSON/UDP/serial before use as lengths, indices, IDs, or pin references.
-- In UDP handlers (`parsePacket()`, `recvfrom()`), validate `packetSize` before buffer writes and clamp protocol-specific universe/channel ranges to valid limits.
+- In UDP handlers (`parsePacket()`, `read()`, and any lower-level socket wrappers), validate `packetSize` before buffer writes and clamp protocol-specific universe/channel ranges to valid limits.
 
 ### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
 - **Severity**: CRITICAL
@@ -66,7 +66,7 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW6: Fail-open behavior after parse or allocation errors
 - **Severity**: IMPORTANT
 - On error, reject update and preserve safe previous state.
-- Explicitly check parse status (`deserializeJson()`/equivalent) and avoid silently applying unsafe zero/default values to safety-relevant fields (for example LED count and pin assignment).
+- Explicitly check parse status (`DeserializationError error = deserializeJson(...); if (error) return/reject;`) and avoid silently applying unsafe zero/default values to safety-relevant fields (for example LED count and pin assignment).
 
 ### FW7: Heap churn in hot paths
 - **Severity**: IMPORTANT
@@ -134,7 +134,8 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### WEB7: CSRF checks for state-changing HTTP routes (advisory)
 - **Severity**: SUGGESTION
-- For state-changing HTTP routes (for example `/json/state`, `/win`), prefer `Origin`/`Referer` header validation as low-cost defense-in-depth in firewall-isolated deployments.
+- For state-changing HTTP routes (for example `/json/state`, `/win`), prefer `Origin`/`Referer` header validation as low-cost defense-in-depth for deployments that are not directly internet-exposed.
+- Treat this as advisory only, since some legitimate clients may omit these headers.
 
 ## Secrets and Logging (OWASP A04/A09/A10)
 
