@@ -94,7 +94,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### FW12: mDNS and hostname sanitization
 - **Severity**: IMPORTANT
-- For `MDNS.begin()`, `MDNS.addService()`, and `ArduinoOTA.setHostname()`, ensure user-provided hostnames are restricted to RFC-compliant characters (`[a-zA-Z0-9-]`) and clamped to 63 characters.
+- For `MDNS.begin()`, `MDNS.addService()`, and `ArduinoOTA.setHostname()`, ensure user-provided hostnames are RFC-compliant (letters/digits/hyphen, no leading/trailing hyphen) and clamped to 63 characters.
 
 ### FW13: Outbound URL validation (no HTTPS requirement)
 - **Severity**: SUGGESTION
@@ -134,7 +134,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### WEB7: CSRF checks for state-changing HTTP routes (advisory)
 - **Severity**: SUGGESTION
-- For state-changing HTTP routes (for example `/json/state`, `/win`), prefer `Origin`/`Referer` validation as low-cost defense-in-depth in firewall-isolated deployments.
+- For state-changing HTTP routes (for example `/json/state`, `/win`), prefer `Origin`/`Referer` header validation as low-cost defense-in-depth in firewall-isolated deployments.
 
 ## Secrets and Logging (OWASP A04/A09/A10)
 
