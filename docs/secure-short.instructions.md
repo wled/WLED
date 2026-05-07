@@ -11,7 +11,7 @@ Use these 24 rules for automated reviews with minimal false positives.
 
 - Assume firewall/DMZ/VPN deployment; focus on realistic LAN-local and supply-chain risks.
 - Do **not** require TLS/HTTPS as a baseline control.
-- Do **not** require authentication for standards-based UDP multicast/broadcast channels where protocol specs do not define auth.
+- Do **not** require authentication for standards-based UDP multicast/broadcast paths where authentication is not defined in the protocol specification.
 
 ## CRITICAL Rules
 

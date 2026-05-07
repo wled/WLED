@@ -60,7 +60,7 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
 - **Severity**: CRITICAL
 - HTTP/JSON and other control paths that support auth must enforce configured auth policy.
-- Do not flag standards-based UDP multicast/broadcast paths solely for lacking authentication when protocol specs do not provide it.
+- Do not flag standards-based UDP multicast/broadcast paths solely for lacking authentication when authentication is not defined in the protocol specification.
 
 ### FW6: Fail-open behavior after parse or allocation errors
 - **Severity**: IMPORTANT
@@ -80,7 +80,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### FW10: OTA integrity verification (without TLS requirement)
 - **Severity**: IMPORTANT
-- OTA update flows should validate firmware integrity (checksum/hash/signature mechanism used by the implementation).
+- OTA update flows should validate firmware integrity using the checksum/hash/signature mechanism available in the firmware/platform implementation.
 - Do not require TLS/certificate pinning as a mandatory review criterion.
 
 ## Web UI Security (`wled00/data/*`, OWASP A01/A02/A05)
