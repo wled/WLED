@@ -3181,7 +3181,7 @@ function mergeDeep(target, ...sources)
 function tooltip(cont=null)
 {
 	d.querySelectorAll((cont?cont+" ":"")+"[title]").forEach((element)=>{
-		element.addEventListener("pointerover", ()=>{
+		element.addEventListener("pointerenter", ()=>{
 			// save title
 			element.setAttribute("data-title", element.getAttribute("title"));
 			const tooltip = d.createElement("span");
@@ -3206,7 +3206,7 @@ function tooltip(cont=null)
 			tooltip.classList.add("visible");
 		});
 
-		element.addEventListener("pointerout", ()=>{
+		element.addEventListener("pointerleave", ()=>{
 			d.querySelectorAll('.tooltip').forEach((tooltip)=>{
 				tooltip.classList.remove("visible");
 				d.body.removeChild(tooltip);
