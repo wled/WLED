@@ -503,6 +503,12 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
+  if (bootPreset > 0) {
+    handlePresets();
+    yield();
+    handlePresets(); // Allow a boot preset to chain to one numeric preset exactly once.
+  }
+  
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
 
