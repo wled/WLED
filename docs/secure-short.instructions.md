@@ -24,7 +24,7 @@ Use these compact rules for automated reviews with minimal false positives.
 7. **No dynamic code execution** (`eval`, `new Function`, string timers).
 8. **No hardcoded secrets/credentials/tokens/keys** in committed files.
 9. **No sensitive data in logs** (passwords, tokens, Wi-Fi secrets, auth headers).
-10. **No secret exposure in workflows/log output, or in LittleFS files other than ``wsec.json``**.
+10. **No secret exposure in workflows/log output, or in LittleFS files other than `wsec.json`**.
 11. **No unsafe third-party GitHub Action pinning** (`@main`/`@master` disallowed).
 12. **No untrusted expression interpolation in workflow shell commands**.
 
