@@ -504,9 +504,17 @@ void WLED::setup()
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
   if (bootPreset > 0) {
-    handlePresets();
+    if (!presetNeedsSaving()) {
+      handlePlaylist(); // handle boot playlist at setup
+      yield();
+    }
+    handlePresets(); // handle boot preset (including playlist) at setup
+    // Allow a boot preset to chain to one numeric preset exactly once (if it sets lor)
+    // Allow a boot playlist is able to apply the first preset (if it sets lor)
+    // In both cases, pre-existing protection against recursion is preserved
+    // See logic inside of handlePresets()
     yield();
-    handlePresets(); // Allow a boot preset to chain to one numeric preset exactly once.
+    handlePresets(); 
   }
   
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
