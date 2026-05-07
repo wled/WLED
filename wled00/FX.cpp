@@ -7799,13 +7799,13 @@ void mode_XmasTwinkle(void) {
   uint32_t lastTime = SEGMENT.step;
   uint32_t currTime = millis();
   if (currTime < lastTime)
-    lastTime = 0;
+    SEGMENT.step = lastTime = 0;
   
   // The interval may be zero if the refresh rate is fast enough.
   uint32_t interval = currTime - lastTime;
   
   // Initialize on first run
-  if (SEGMENT.aux0 != numLights) {
+  if (! SEGMENT.call || SEGMENT.aux0 != numLights) {
     for (int i = 0; i < numLights; i++) {
       lights[i].colorIdx = hw_random8();
       lights[i].isOn = false;
@@ -7814,6 +7814,8 @@ void mode_XmasTwinkle(void) {
       lights[i].retwnkleTime = random(2, 20) * 1000;  // 2 - 20 seconds 1st time around
     }
     SEGMENT.aux0 = numLights; // Mark as initialized
+    SEGMENT.step = currTime;
+    interval = 0;
   }
   
   // Clear all LEDs

@@ -408,7 +408,7 @@ void mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
   
   // Reinitialize evertying if the number of spheres has changed.
   // (We need a separate counter for the number wanted, vs. the number actually initialized.)
-  if (numSpheres != ((SEGMENT.aux0 & SPHERES_DESIRED) >> SPHERES_DESIRED_SHIFT))
+  if (! SEGMENT.call || numSpheres != ((SEGMENT.aux0 & SPHERES_DESIRED) >> SPHERES_DESIRED_SHIFT))
     SEGMENT.aux0 = 0;
 
   // Point to the sheres.
