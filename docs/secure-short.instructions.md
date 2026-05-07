@@ -1,11 +1,11 @@
 ---
 applyTo: "**/*.{cpp,h,hpp,ino,js,htm,html,css,yml,yaml}"
-description: "WLED strict-mode security review: low-noise 24-rule checklist."
+description: "WLED strict-mode security review: low-noise 26-rule checklist."
 ---
 
 # WLED Security Review — Strict Mode (Low Noise)
 
-Use these 24 rules for automated reviews with minimal false positives.
+Use these compact rules for automated reviews with minimal false positives.
 
 ## WLED Constraints (apply to all rules)
 
@@ -24,7 +24,7 @@ Use these 24 rules for automated reviews with minimal false positives.
 7. **No dynamic code execution** (`eval`, `new Function`, string timers).
 8. **No hardcoded secrets/credentials/tokens/keys** in committed files.
 9. **No sensitive data in logs** (passwords, tokens, Wi-Fi secrets, auth headers).
-10. **No secret exposure in workflows/log output**.
+10. **No secret exposure in workflows/log output, or in LittleFS files other than ``wsec.json``**.
 11. **No unsafe third-party GitHub Action pinning** (`@main`/`@master` disallowed).
 12. **No untrusted expression interpolation in workflow shell commands**.
 
@@ -40,11 +40,13 @@ Use these 24 rules for automated reviews with minimal false positives.
 20. Review new dependencies for typosquatting and known vulnerability risk.
 21. Keep workflow `permissions` least-privilege.
 22. Verify new `WLED_ENABLE_*` / `WLED_DISABLE_*` names are valid known flags.
-23. Ensure new privileged behavior is not enabled by insecure defaults.
-24. Preserve safe behavior under malformed inputs and low-memory conditions; OTA update paths should verify firmware integrity (checksum/hash), without requiring TLS.
+23. New privileged behavior must not be enabled by insecure defaults; first-use default-credential change required where applicable.
+24. OTA paths (Update.begin(), Update.write()) must verify firmware integrity (checksum/hash); TLS not required.
+25. Flag xTaskCreate/xTaskCreatePinnedToCore tasks with insufficient stack for String/JSON use; flag MDNS.begin() / ArduinoOTA.setHostname() with unsanitized hostnames.
+26. Flag API/config serialization that exposes Wi-Fi/AP/MQTT password fields to unauthenticated clients.
 
 ## Reviewer Output Format
 
-- Report only findings mapped to rules 1–24.
+- Report only findings mapped to rules 1–26.
 - Include severity, exact file and line, and one concrete fix direction.
 - Prioritize CRITICAL findings before IMPORTANT findings.
