@@ -7,12 +7,18 @@ description: "WLED strict-mode security review: low-noise 24-rule checklist."
 
 Use these 24 rules for automated reviews with minimal false positives.
 
+## WLED Constraints (apply to all rules)
+
+- Assume firewall/DMZ/VPN deployment; focus on realistic LAN-local and supply-chain risks.
+- Do **not** require TLS/HTTPS as a baseline control.
+- Do **not** require authentication for standards-based UDP multicast/broadcast channels where protocol specs do not define auth.
+
 ## CRITICAL Rules
 
 1. **No unchecked buffer copies** (`memcpy`, `strcpy`, `sprintf`) in firmware paths.
 2. **No user-controlled format strings** in `DEBUG_PRINTF*` and similar logging APIs.
 3. **Validate all external input** (HTTP/JSON/UDP/serial) before index/length/pin usage.
-4. **Auth required for every state-changing endpoint**.
+4. **Auth required for state-changing control endpoints where feasible** (for example HTTP/JSON); do not flag protocol-defined unauthenticated UDP multicast/broadcast channels solely for missing auth.
 5. **No fail-open on parse/allocation errors** for config/state updates.
 6. **No DOM XSS sinks with untrusted data** (`innerHTML`, unsafe HTML insertion).
 7. **No dynamic code execution** (`eval`, `new Function`, string timers).
@@ -35,7 +41,7 @@ Use these 24 rules for automated reviews with minimal false positives.
 21. Keep workflow `permissions` least-privilege.
 22. Verify new `WLED_ENABLE_*` / `WLED_DISABLE_*` names are valid known flags.
 23. Ensure new privileged behavior is not enabled by insecure defaults.
-24. Preserve safe behavior under malformed inputs and low-memory conditions.
+24. Preserve safe behavior under malformed inputs and low-memory conditions; OTA update paths should verify firmware integrity (checksum/hash), without requiring TLS.
 
 ## Reviewer Output Format
 

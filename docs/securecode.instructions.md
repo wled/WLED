@@ -12,6 +12,13 @@ Use this guide for AI-assisted code reviews in:
 
 Ignore sections wrapped in `<!-- HUMAN_ONLY_START --> ... <!-- HUMAN_ONLY_END -->` in repo docs when applying review criteria.
 
+## WLED Constraints and Threat Model Assumptions
+
+- Assume typical deployment behind a firewall/DMZ/VPN; prioritize LAN-local and supply-chain risks.
+- Do **not** require TLS/HTTPS as a baseline control for findings in this repo.
+- Do **not** require authentication for standards-based UDP multicast/broadcast protocols where auth is not part of the spec.
+- Do not propose mitigations that break protocol compliance just to add authentication.
+
 ## Severity
 
 - **CRITICAL** — exploitable vulnerability; block merge.
@@ -50,9 +57,10 @@ De-prioritize unless explicitly introduced by a PR:
 - **Severity**: CRITICAL
 - Validate and clamp external values from HTTP/JSON/UDP/serial before use as lengths, indices, IDs, or pin references.
 
-### FW5: Missing auth checks on state-changing endpoints
+### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
 - **Severity**: CRITICAL
-- Any endpoint that changes device state/config must enforce configured auth policy.
+- HTTP/JSON and other control paths that support auth must enforce configured auth policy.
+- Do not flag standards-based UDP multicast/broadcast paths solely for lacking authentication when protocol specs do not provide it.
 
 ### FW6: Fail-open behavior after parse or allocation errors
 - **Severity**: IMPORTANT
@@ -69,6 +77,11 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW9: Unsafe feature flag names
 - **Severity**: IMPORTANT
 - Verify all new `WLED_ENABLE_*`/`WLED_DISABLE_*` names are valid known flags; typos silently alter build behavior.
+
+### FW10: OTA integrity verification (without TLS requirement)
+- **Severity**: IMPORTANT
+- OTA update flows should validate firmware integrity (checksum/hash/signature mechanism used by the implementation).
+- Do not require TLS/certificate pinning as a mandatory review criterion.
 
 ## Web UI Security (`wled00/data/*`, OWASP A01/A02/A05)
 
