@@ -5,7 +5,7 @@ description: "WLED strict-mode security review: low-noise 26-rule checklist."
 
 # WLED Security Review — Strict Mode (Low Noise)
 
-Use these compact rules for automated reviews with minimal false positives.
+Use these code hardening rules for automated reviews with minimal false positives.
 
 ## WLED Constraints (apply to all rules)
 

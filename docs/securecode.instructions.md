@@ -10,8 +10,6 @@ Use this guide for AI-assisted code reviews in:
 - `usermods/`
 - `.github/workflows/`
 
-Ignore sections wrapped in `<!-- HUMAN_ONLY_START --> ... <!-- HUMAN_ONLY_END -->` in repo docs when applying review criteria.
-
 ## WLED Constraints and Threat Model Assumptions
 
 - Assume typical deployment behind a firewall/DMZ/VPN; prioritize LAN-local and supply-chain risks.
