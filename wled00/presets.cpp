@@ -195,6 +195,10 @@ void handlePresets()
   } else {
     if (!fdo["seg"].isNull() || !fdo["on"].isNull() || !fdo["bri"].isNull() || !fdo["nl"].isNull() || !fdo["ps"].isNull() || !fdo[F("playlist")].isNull()) changePreset = true;
 
+    // TODO:
+    // Scenario 1: boot preset (CALL_MODE_INIT AND sets lor>0) - do not strip ps, allowing boot preset to chain 1 single preset
+    // Scenario 2: boot playlist (CALL_MODE_DIRECT_CHANGE AND sets lor>0) - continue, else re-queue. is CALL_MODE_DIRECT_CHANGE correct or do I need to pass through CALL_MODE_INIT or create a new special-case call mode
+    
     if (!(tmpMode == CALL_MODE_INIT || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~')))) // exception for CALL_MODE_INIT and button preset
       fdo.remove("ps"); // remove load request for presets to prevent recursive crash (if not called by button and contains preset cycling string "1~5~")
     deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset()
