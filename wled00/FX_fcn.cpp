@@ -11,6 +11,7 @@
 */
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
+#include "colors.h"
 #if defined(ARDUINO_ARCH_ESP32)
 #include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
 #endif
@@ -46,7 +47,7 @@ unsigned      Segment::_vLength           = 0;
 unsigned      Segment::_vWidth            = 0;
 unsigned      Segment::_vHeight           = 0;
 uint32_t      Segment::_currentColors[NUM_COLORS] = {0,0,0};
-CRGBPalette16 Segment::_currentPalette    = CRGBPalette16(CRGB::Black);
+CRGBPalette16 Segment::_currentPalette    = CRGBPalette16();
 CRGBPalette16 Segment::_randomPalette     = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 CRGBPalette16 Segment::_newRandomPalette  = generateRandomPalette();  // was CRGBPalette16(DEFAULT_COLOR);
 uint16_t      Segment::_lastPaletteChange = 0; // in seconds; perhaps it should be per segment
@@ -227,18 +228,25 @@ void Segment::resetIfRequired() {
   #endif
 }
 
-CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
-  // there is one randomy generated palette (1) followed by 4 palettes created from segment colors (2-5)
+void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
+  // there is one randomly generated palette (1) followed by 4 palettes created from segment colors (2-5)
   // those are followed by 7 fastled palettes (6-12) and 59 gradient palettes (13-71)
-  // then come the custom palettes (255,254,...) growing downwards from 255 (255 being 1st custom palette)
+  // then come user custom palettes (IDs <=200) and usermod palettes (IDs 201-255), both growing downward from their respective base IDs
   // palette 0 is a varying palette depending on effect and may be replaced by segment's color if so
   // instructed in color_from_palette()
-  if (pal >= FIXED_PALETTE_COUNT && pal <= 255-customPalettes.size()) pal = 0; // out of bounds palette
-  //default palette. Differs depending on effect
-  if (pal == 0) pal = _default_palette; // _default_palette is set in setMode()
+  if (pal == 0) pal = _default_palette; // _default_palette is set in setMode(), differs depending on effect
+  const int umCount   = usermodPalettes.size();
+  const int custCount = customPalettes.size();
+  if (pal >= FIXED_PALETTE_COUNT) {
+    if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod range (IDs 201-255)
+      if ((WLED_USERMOD_PALETTE_ID_BASE - pal) >= umCount) pal = 0;
+    } else { // custom range
+      if ((WLED_CUSTOM_PALETTE_ID_BASE - pal) >= custCount) pal = 0;
+    }
+  }
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
-      targetPalette = PartyColors_p;
+      targetPalette = PartyColors_gc22;
       break;
     case 1: //randomly generated palette
       targetPalette = _randomPalette; //random palette is generated at intervals in handleRandomPalette()
@@ -269,8 +277,10 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       }
       break;}
     default: //progmem palettes
-      if (pal > 255 - customPalettes.size()) {
-        targetPalette = customPalettes[255-pal]; // we checked bounds above
+      if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod palette
+        targetPalette = usermodPalettes[WLED_USERMOD_PALETTE_ID_BASE - pal].palette;
+      } else if (pal >= FIXED_PALETTE_COUNT) { // user custom palette
+        targetPalette = customPalettes[WLED_CUSTOM_PALETTE_ID_BASE - pal];
       } else if (pal < DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT) { // palette 6 - 12, fastled palettes
         targetPalette = *fastledPalettes[pal - DYNAMIC_PALETTE_COUNT];
       } else {
@@ -280,7 +290,6 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
       }
       break;
   }
-  return targetPalette;
 }
 
 // starting a transition has to occur before change so we get current values 1st
@@ -382,7 +391,7 @@ void Segment::beginDraw(uint16_t prog) {
     // minimum blend time is 100ms maximum is 65535ms
     #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
-    if(noOfBlends > 255) noOfBlends = 255; // safety check
+    if (noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
     #else
@@ -580,7 +589,7 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
     sOpt = extractModeDefaults(fx, "pal"); // always extract 'pal' to set _default_palette
     if (sOpt >= 0 && loadDefaults) setPalette(sOpt);
     if (sOpt <= 0) sOpt = 6; // partycolors if zero or not set
-    _default_palette = sOpt; // _deault_palette is loaded into pal0 in loadPalette() (if selected)
+    _default_palette = sOpt; // _default_palette is loaded into pal0 in loadPalette() (if selected)
     markForReset();
     stateChanged = true; // send UDP/WS broadcast
   }
@@ -588,7 +597,13 @@ Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
 }
 
 Segment &Segment::setPalette(uint8_t pal) {
-  if (pal <= 255-customPalettes.size() && pal > FIXED_PALETTE_COUNT) pal = 0; // not built in palette or custom palette
+  if (pal >= FIXED_PALETTE_COUNT) {
+    if (pal > WLED_CUSTOM_PALETTE_ID_BASE) { // usermod range
+      if ((WLED_USERMOD_PALETTE_ID_BASE - pal) >= (int)usermodPalettes.size()) pal = 0;
+    } else { // custom range
+      if ((WLED_CUSTOM_PALETTE_ID_BASE - pal) >= (int)customPalettes.size()) pal = 0;
+    }
+  }
   if (pal != palette) {
     //DEBUG_PRINTF_P(PSTR("- Starting palette transition: %d\n"), pal);
     startTransition(strip.getTransition(), blendingStyle != TRANSITION_FADE); // start transition prior to change (no need to copy segment)
@@ -1107,9 +1122,9 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
 uint32_t Segment::color_wheel(uint8_t pos) const {
   if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
   uint8_t w = W(getCurrentColor(0));
-  uint32_t rgb;
-  hsv2rgb(CHSV32(static_cast<uint16_t>(pos << 8), 255, 255), rgb);
-  return rgb | (w << 24); // add white channel
+  CRGBW rgb;
+  rgb = CHSV32(static_cast<uint16_t>(pos << 8), 255, 255);
+  return rgb.color32 | (w << 24); // add white channel
 }
 
 /*
@@ -1258,33 +1273,30 @@ void WS2812FX::finalizeInit() {
 
 void WS2812FX::service() {
   unsigned long nowUp = millis(); // Be aware, millis() rolls over every 49 days
-  now = nowUp + timebase;
   unsigned long elapsed = nowUp - _lastServiceShow;
-  if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
-  if (!_triggered && (_targetFps != FPS_UNLIMITED)) {   // unlimited mode = no frametime
-    if (elapsed < _frametime) return;                   // too early for service
-  }
+  bool timeToShow = (elapsed >= _frametime);                        // all segments are running at the same speed
+  if (_triggered || _targetFps == FPS_UNLIMITED) timeToShow = true; // unlimited mode = no frametime; strip.trigger() can overrule timing
 
-  bool doShow = false;
+  now = nowUp + timebase;                               // common time base for all effects
+  if (!timeToShow) return;                              // too early for service
+  if (_suspend || elapsed <= MIN_FRAME_DELAY) return;   // keep wifi alive - no matter if triggered or unlimited
 
   _isServicing = true;
-  _segment_index = 0;
-
-  for (Segment &seg : _segments) {
-    if (_suspend) break; // immediately stop processing segments if suspend requested during service()
+  bool doShow = _triggered;    // true if ≥1 active segment was processed (and strip was not suspended mid-loop), or trigger received → triggers show()
+  for (size_t i = 0; i < _segments.size(); i++) {
+    Segment &seg = _segments[i];
+    _segment_index = i;
+    if (_suspend) break; // abort processing segments if suspend requested during service()
 
     // process transition (also pre-calculates progress value)
     seg.handleTransition();
     // reset the segment runtime data if needed
     seg.resetIfRequired();
 
-    if (!seg.isActive()) continue;
-
-    // last condition ensures all solid segments are updated at the same time
-    if (nowUp > _lastServiceShow + _frametime || _triggered || (doShow && seg.mode == FX_MODE_STATIC))
-    {
+    if (seg.isActive()) {
+      // current segment is active -> re-run effect, and remember that show() call is necessary
+      // if we arrive here, its always showtime (timeToShow == true)
       doShow = true;
-
       if (!seg.freeze) { //only run effect function if not frozen
         // Effect blending
         uint16_t prog = seg.progress();
@@ -1298,18 +1310,19 @@ void WS2812FX::service() {
         Segment *segO = seg.getOldSegment();
         if (segO && segO->isActive() && (seg.mode != segO->mode || blendingStyle != TRANSITION_FADE ||
             (segO->name != seg.name && segO->name && seg.name && strncmp(segO->name, seg.name, WLED_MAX_SEGNAME_LEN) != 0))) {
-          Segment::modeBlend(true);         // set semaphore for beginDraw() to blend colors and palette
+          Segment::modeBlend(true);         // set flag for beginDraw() to blend colors and palette
           segO->beginDraw(prog);            // set up palette & colors (also sets draw dimensions), parent segment has transition progress
           _currentSegment = segO;           // set current segment
           // workaround for on/off transition to respect blending style
           _mode[segO->mode]();              // run old mode (needed for bri workaround; semaphore!!)
           segO->call++;                     // increment old mode run counter
-          Segment::modeBlend(false);        // unset semaphore
+          Segment::modeBlend(false);        // unset flag
         }
       }
     }
-    _segment_index++;
   }
+  _segment_index = 0;     // segment index is only valid while effects are serviced
+  _currentSegment = &_segments[0]; // safe fallback to prevent stale pointer - SEGMENT/SEGENV should not be used outside of the service loop
 
   #ifdef WLED_DEBUG
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow effects %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
@@ -1324,7 +1337,7 @@ void WS2812FX::service() {
   if ((_targetFps != FPS_UNLIMITED) && (millis() - nowUp > _frametime)) DEBUG_PRINTF_P(PSTR("Slow strip %u/%d.\n"), (unsigned)(millis()-nowUp), (int)_frametime);
   #endif
 
-  _triggered = false;
+  if (!_suspend) _triggered = false; // avoid losing "trigger" events if suspend requested during effect service()
   _isServicing = false;
 }
 
@@ -1423,7 +1436,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
   if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
-    if (isMatrix && width * height <= (int)matrixSize && !_pixelCCT) {
+    if (isMatrix && stopIndx <= matrixSize && !_pixelCCT) {
 #ifndef WLED_DISABLE_2D
       // Calculate pointer steps to avoid 'if' and 'XY()' inside loops
       int x_inc = 1;
@@ -1431,7 +1444,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       int start_offset = XY(topSegment.start, topSegment.startY);
 
       // adjust starting position and steps based on Reverse/Transpose
-      // note: transpose is handled in seperate loop so it is still fast and no branching is needed in default path
+      // note: transpose is handled in separate loop so it is still fast and no branching is needed in default path
       if (!topSegment.transpose) {
         if (topSegment.reverse)   { start_offset += (width - 1); x_inc = -1; }
         if (topSegment.reverse_y) { start_offset += (height - 1) * Segment::maxWidth; y_inc = -Segment::maxWidth; }
@@ -1440,8 +1453,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
           #ifndef ESP8266
           uint32_t* pRow = &_pixels[start_offset + y * y_inc];
           #endif
+          const int y_width = y * width;
           for (int x = 0; x < width; x++) {
-            uint32_t c_a = topSegment.getPixelColorRaw(x + y * width);
+            uint32_t c_a = topSegment.getPixelColorRaw(x + y_width);
             #ifdef ESP8266
             blendPixelIntoFrame((size_t)(start_offset + y * y_inc + x * x_inc), c_a, opacity);
             #else
@@ -1452,14 +1466,15 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         }
       } else { // transposed
         for (int y = 0; y < height; y++) {
+          const int px = topSegment.reverse ? (height - y - 1) : y;  // source pixel: swap y into x, reverse if needed
           for (int x = 0; x < width; x++) {
-            int px = topSegment.reverse   ? (width - x - 1)  : x;
-            int py = topSegment.reverse_y ? (height - y - 1) : y;
-            size_t idx = XY(topSegment.start + py, topSegment.startY + px); // Swapped X/Y
+            const int py = topSegment.reverse_y ? (width  - x - 1) : x;  // source pixel: swap x into y, reverse if needed
+            const uint32_t c_a = topSegment.getPixelColorRaw(px + py * height); // height = virtual width
+            const size_t idx = XY(topSegment.start + x, topSegment.startY + y); // write logical (non swapped) pixel coordinate
             #ifdef ESP8266
-            blendPixelIntoFrame(idx, topSegment.getPixelColorRaw(x + y * width), opacity);
+            blendPixelIntoFrame(idx, c_a, opacity);
             #else
-            _pixels[idx] = color_blend(_pixels[idx], segblend(topSegment.getPixelColorRaw(x + y * width), _pixels[idx]), opacity);
+            _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
             #endif
           }
         }
@@ -1468,6 +1483,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 #endif
     } else if (!isMatrix) {
       // 1D fast path, include CCT as it is more common on 1D setups
+      #ifndef ESP8266
+      uint32_t* strip = _pixels;
+      #endif
       int start = topSegment.start;
       int off   = topSegment.offset;
       for (int i = 0; i < length; i++) {
@@ -1478,7 +1496,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         #ifdef ESP8266
         blendPixelIntoFrame((size_t)idx, c_a, opacity);
         #else
-        _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
+        strip[idx] = color_blend(strip[idx], segblend(c_a, strip[idx]), opacity);
         if (_pixelCCT) _pixelCCT[idx] = cct;
         #endif
       }
@@ -1890,7 +1908,7 @@ void WS2812FX::setBrightness(uint8_t b, bool direct) {
   BusManager::setBrightness(scaledBri(b));
   if (!direct) {
     unsigned long t = millis();
-    if (t - _lastShow > MIN_SHOW_DELAY) trigger(); //apply brightness change immediately if no refresh soon
+    if (t - _lastShow > min(_frametime, uint16_t(FRAMETIME_FIXED))) trigger(); //apply brightness change immediately if no refresh soon, but don't speed up above 42fps
   }
 }
 

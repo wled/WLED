@@ -6,7 +6,7 @@
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
-#include <FastLED.h>
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 
 #endif
 /*
@@ -18,6 +18,9 @@
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
+#ifdef ARDUINO_ARCH_ESP32
+#include "asyncDNS.h"
+#endif
 
 #if __cplusplus >= 201402L
 using std::make_unique;
@@ -182,7 +185,7 @@ class Bus {
     virtual const CustomBusConfig& getCustomBusConfig() const;  // valid when getType() == TYPE_CUSTOM_BUS; returns a static default otherwise
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
-    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
+    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK; for HUB75 the 5 slots store config params (panelW, panelH, chain, rows, cols), not GPIO pins
     static constexpr size_t   getNumberOfChannels(uint8_t type) { return (hasWhite(type) + 3*hasRGB(type) + hasCCT(type)); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH_X3 && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);

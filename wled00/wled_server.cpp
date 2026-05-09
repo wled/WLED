@@ -221,6 +221,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File Uploaded!"));
     }
     cacheInvalidate++;
+    updateFSInfo(); // refresh memory usage info
   }
 }
 
@@ -310,6 +311,7 @@ static void createEditHandler() {
         request->send(500, FPSTR(CONTENT_TYPE_PLAIN), F("Delete failed"));
       else
         request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("File deleted"));
+      updateFSInfo(); // refresh memory usage info
       return;
     }
 
@@ -504,7 +506,9 @@ void initServer()
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->_tempObject) {
       auto ota_result = getOTAResult(request);
-      if (ota_result.first) {
+      if (ota_result.first == OTAResultStatus::TryAgain) {
+        request->deferResponse();
+      } else if (ota_result.first == OTAResultStatus::Ready) {
         if (ota_result.second.length() > 0) {
           serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
         } else {
@@ -633,6 +637,14 @@ void initServer()
   static const char _pixelforge_htm[] PROGMEM = "/pixelforge.htm";
   server.on(_pixelforge_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
     handleStaticContent(request, FPSTR(_pixelforge_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_pixelforge, PAGE_pixelforge_length);
+  });
+  #else
+  server.on("/pixelforge.htm", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/html",
+      F("<!DOCTYPE html><html><head><title>PixelForge</title></head>"
+      "<style>body{background:#000;color:#fff;font-family:sans-serif;display:flex;justify-content:center;}</style>"
+      "<body><h2>Sorry, PixelForge is not supported in this build.</h2></body></html>")
+    );
   });
   #endif
 #endif

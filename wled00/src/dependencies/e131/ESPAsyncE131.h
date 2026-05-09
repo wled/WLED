@@ -49,12 +49,25 @@ typedef struct ip_addr ip4_addr_t;
 #define E131_DEFAULT_PORT   5568
 #define ARTNET_DEFAULT_PORT 6454
 #define DDP_DEFAULT_PORT    4048
+#define DDP_HEADER_LEN 10
+#define DDP_SYNCPACKET_LEN 10
 
-#define DDP_PUSH_FLAG 0x01
-#define DDP_TIMECODE_FLAG 0x10
+#define DDP_FLAGS_VER     0xc0    // version mask
+#define DDP_FLAGS_VER1    0x40    // version=1
+#define DDP_FLAGS_PUSH    0x01
+#define DDP_FLAGS_QUERY   0x02
+#define DDP_FLAGS_REPLY   0x04
+#define DDP_FLAGS_STORAGE 0x08
+#define DDP_FLAGS_TIME    0x10
+
+#define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
 
 #define DDP_TYPE_RGB24  0x0B // 00 001 011 (RGB , 8 bits per channel, 3 channels)
 #define DDP_TYPE_RGBW32 0x1B // 00 011 011 (RGBW, 8 bits per channel, 4 channels)
+
+#define DDP_ID_DISPLAY  1
+#define DDP_ID_CONFIG   250
+#define DDP_ID_STATUS   251
 
 #define ARTNET_OPCODE_OPDMX 0x5000
 #define ARTNET_OPCODE_OPPOLL 0x2000
