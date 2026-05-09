@@ -364,6 +364,7 @@ void WLED::disableWatchdog() {
 
 void WLED::setup()
 {
+  setupComplete = false; // flag to indicate setup is in progress
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detection
   #endif
@@ -504,17 +505,9 @@ void WLED::setup()
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
   if (bootPreset > 0) {
-    if (!presetNeedsSaving()) {
-      handlePlaylist(); // handle boot playlist at setup
-      yield();
-    }
-    handlePresets(); // handle boot preset (including playlist) at setup
-    // Allow a boot preset to chain to one numeric preset exactly once (if it sets lor)
-    // Allow a boot playlist is able to apply the first preset (if it sets lor)
-    // In both cases, pre-existing protection against recursion is preserved
-    // See logic inside of handlePresets()
-    yield();
-    handlePresets(); 
+    handlePresets();  // handle boot preset
+    handlePlaylist(); // handle playlist if preset queued one
+    handlePresets();  // handle presets again to give a chance for anything queued by the boot preset or playlist
   }
   
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
@@ -609,6 +602,8 @@ void WLED::setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
   markOTAvalid();
+  
+  setupComplete = true; // safety check setup function has completed
 }
 
 void WLED::beginStrip()
