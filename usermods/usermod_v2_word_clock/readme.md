@@ -7,6 +7,7 @@ There are 3 parameters that control behavior:
 active: enable/disable usermod
 diplayItIs: enable/disable display of "Es ist" on the clock
 ledOffset: number of LEDs before the wordclock LEDs
+meanderwiring: on/off
 
 ## Update for alternative wiring pattern
 
