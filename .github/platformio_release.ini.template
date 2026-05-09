@@ -16,6 +16,7 @@
 [platformio]
 default_envs = nodemcuv2
                esp8266_2m
+               esp8266_2m_min
                esp01_1m_full
                nodemcuv2_160
                esp8266_2m_160
