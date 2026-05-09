@@ -160,9 +160,6 @@ void handlePresets()
 
   JsonObject fdo;
 
-  presetToApply = 0; //clear request for preset
-  callModeToApply = 0;
-
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
   #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
@@ -186,14 +183,20 @@ void handlePresets()
   // is this the boot preset and will the preset set lor
   const bool isBootPreset = (tmpMode==CALL_MODE_INIT || tmpPreset==bootPreset);
   const bool presetWillSetLor = (!fdo["lor"].isNull() && fdo["lor"].as<int>() > REALTIME_OVERRIDE_NONE);
-  
+
   // During setup, only allow the boot preset itself or safe boot-preset chains.
   const bool shouldAllowPresetApply = (
                                        setupComplete || isBootPreset ||
                                        (currentPreset == bootPreset && realtimeOverride > REALTIME_OVERRIDE_NONE) ||
                                        (currentPreset == bootPreset && currentPlaylist > 0 && presetWillSetLor)
                                        );
-  if (!shouldAllowPresetApply) return;
+  if (shouldAllowPresetApply) {
+    presetToApply = 0; //clear request for preset
+    callModeToApply = 0;
+  } else {
+    releaseJSONBufferLock();
+    return;
+  }
 
   //HTTP API commands
   const char* httpwin = fdo["win"];
@@ -208,9 +211,8 @@ void handlePresets()
     if (!fdo["seg"].isNull() || !fdo["on"].isNull() || !fdo["bri"].isNull() || !fdo["nl"].isNull() || !fdo["ps"].isNull() || !fdo[F("playlist")].isNull()) changePreset = true;
     
     // only allow load requests from boot presets that set lor or button calls
-    const bool isButtonException = (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'))
-    
-    const bool shouldAllowLoadRequest = (isBootPreset && presetWillSetLor) || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'))
+    const bool isButtonException = (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'));
+    const bool shouldAllowLoadRequest = (isBootPreset && presetWillSetLor) || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'));
     if (!shouldAllowLoadRequest) fdo.remove("ps"); // remove load request for presets to prevent recursive crash
     deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset()
   }
