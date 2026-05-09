@@ -5,7 +5,7 @@ The visualisation is described by 4 masks with LED numbers (single dots for minu
 There are 3 parameters that control behavior:
 
 active: enable/disable usermod
-diplayItIs: enable/disable display of "Es ist" on the clock
+displayItIs: enable/disable display of "Es ist" on the clock
 ledOffset: number of LEDs before the wordclock LEDs
 meanderwiring: on/off
 
@@ -20,7 +20,7 @@ With this method, every other line was inverted and showed the wrong letter.
 I added a switch in usermod called "meanderwiring" to enable/disable the alternate wiring pattern and a switch for the 11x11 grid.
 
 ## 11x11 Grid
-I integreated the Grafics from https://github.com/panbachi/wordclock/blob/master/graphics/plate/de_DE_s1.svg  
+I integrated the grafics from https://github.com/panbachi/wordclock/blob/master/graphics/plate/de_DE_s1.svg  
 
 ## Installation
 
