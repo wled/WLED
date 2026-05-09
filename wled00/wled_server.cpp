@@ -20,6 +20,10 @@
 #include "html_cpal.h"
 #include "html_edit.h"
 
+#ifdef BOARD_HAS_PSRAM
+  #include "html_log.h"
+#endif
+
 // forward declarations
 static void createEditHandler();
 
@@ -617,6 +621,18 @@ void initServer()
       serveSettings(request);
     }
   });
+
+#ifdef BOARD_HAS_PSRAM
+  // Log viewer page — only meaningful on PSRAM devices where the ring buffer
+  // is available. Served from the compiled-in html_log.h header.
+  static const char _log_htm[] PROGMEM = "/log.htm";
+  server.on(_log_htm, HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_log_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_log, PAGE_log_length);
+  });
+  server.on(F("/log"), HTTP_GET, [](AsyncWebServerRequest *request) {
+    handleStaticContent(request, FPSTR(_log_htm), 200, FPSTR(CONTENT_TYPE_HTML), PAGE_log, PAGE_log_length);
+  });
+#endif
 
 #ifndef WLED_DISABLE_2D
   #ifdef WLED_ENABLE_PIXART

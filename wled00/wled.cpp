@@ -424,8 +424,13 @@ void WLED::setup()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
 #if defined(BOARD_HAS_PSRAM)
-  // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
+  // Initialise the PSRAM log ring buffer before the JSON document so the
+  // allocation is attempted first (it is non-critical if it fails).
   if (psramFound() && ESP.getPsramSize()) {
+    if (wledLogBuffer.init()) {
+      DEBUG_PRINTF_P(PSTR("WLED %s log buffer ready (%u KB)\n"), versionString, (unsigned)(LogBuffer::CAPACITY / 1024));
+    }
+    // if JSON buffer allocation fails requestJsonBufferLock() will always return false preventing crashes
     pDoc = new PSRAMDynamicJsonDocument(2 * JSON_BUFFER_SIZE);
     DEBUG_PRINTF_P(PSTR("JSON buffer size: %ubytes\n"), (2 * JSON_BUFFER_SIZE));
     DEBUG_PRINTF_P(PSTR("PSRAM: %dkB/%dkB\n"), ESP.getFreePsram()/1024, ESP.getPsramSize()/1024);
@@ -873,9 +878,7 @@ void WLED::handleConnection()
   static bool scanDone = true;
   static byte stacO = 0;
   const unsigned long now = millis();
-  #ifdef WLED_DEBUG
-  const unsigned long nowS = now/1000;
-  #endif
+  const unsigned long nowS = now/1000; // seconds since boot, used in debug messages
   const bool wifiConfigured = WLED_WIFI_CONFIGURED;
 
   // ignore connection handling if WiFi is configured and scan still running
