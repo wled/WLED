@@ -556,7 +556,10 @@ class WordClockUsermod : public Usermod
       configComplete &= getJsonValue(top[F("active")], usermodActive);
       configComplete &= getJsonValue(top[F("displayItIs")], displayItIs);
       configComplete &= getJsonValue(top[F("ledOffset")], ledOffset);
-      configComplete &= getJsonValue(top[F("meanderWiring")], meander);
+      if (!getJsonValue(top[F("meanderWiring")], meander)) {
+        getJsonValue(top[F("meander")], meander); // backward compatibility
+        configComplete = false;
+      }
       configComplete &= getJsonValue(top[F("wiring11x11")], eleven);
       configComplete &= getJsonValue(top[F("Norddeutsch")], nord);
 
