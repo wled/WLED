@@ -155,6 +155,26 @@ const ethernet_settings ethernetBoards[] = {
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
   },
+ 
+ // WLED_ETH_QUINLED_V4 (14) - QuinLED Dig-Uno/Quad v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    7,                   // eth_mdc
+    8,                   // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
+ 
+ // WLED_ETH_QUINLED_OCTA_V4 (15) - QuinLED Dig-Octa 32-8L v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    23,                  // eth_mdc
+    18,                  // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
 };
 
 bool initEthernet()
