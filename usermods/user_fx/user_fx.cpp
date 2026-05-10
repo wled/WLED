@@ -1274,8 +1274,8 @@ static void mode_2D_perlinscape(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
-  if (!SEGENV.allocateData(5 * sizeof(float) + width * height)) FX_FALLBACK_STATIC;
-  
+//  if (!SEGENV.allocateData(5 * sizeof(float) + width * height)) FX_FALLBACK_STATIC;
+  if (!SEGENV.allocateData(5 * sizeof(float))) FX_FALLBACK_STATIC;
   uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 20, 1);
   uint32_t t        = strip.now / speedDiv;
   uint8_t  Xmult    = map(SEGMENT.custom1, 0, 255, 0, 64);
@@ -1326,8 +1326,10 @@ static void mode_2D_perlinscape(void) {
 
   if (SEGMENT.check2) {
     float angle = strip.now / 5000.0f;
-    cosA = cosf(angle);
-    sinA = sinf(angle);
+//    cosA = cosf(angle);
+//    sinA = sinf(angle);
+    cosA = cos_approx(angle);
+    sinA = sin_approx(angle);
   }
 
   float scale = map(SEGMENT.intensity, 0, 255, 10, 200) / 100.0f;  // range 0.1 to 2.0
