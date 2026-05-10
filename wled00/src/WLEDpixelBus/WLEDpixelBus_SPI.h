@@ -29,7 +29,9 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return _useHardware ? "HW_SPI" : "SW_SPI"; }
+#endif
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);

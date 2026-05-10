@@ -20,7 +20,9 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "ESP8266_UART"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "ESP8266_UART"; }
+#endif
 
   void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
@@ -64,7 +66,9 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "ESP8266_DMA"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "ESP8266_DMA"; }
+#endif
 
   IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
@@ -120,7 +124,9 @@ public:
 
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "ESP8266_BB"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "ESP8266_BB"; }
+#endif
 
   void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);

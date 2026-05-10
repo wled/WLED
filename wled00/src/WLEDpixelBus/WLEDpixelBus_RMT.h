@@ -29,7 +29,9 @@ public:
   bool show(const uint32_t* pixels, uint16_t numPixels,
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "RMT"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "RMT"; }
+#endif
 
   // Configuration
   void setInverted(bool inv) override {

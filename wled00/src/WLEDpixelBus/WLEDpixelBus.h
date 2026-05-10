@@ -389,7 +389,9 @@ public:
             const CctPixel* cct = nullptr) = 0;
 
   virtual bool canShow() const = 0;
-  virtual const char* getType() const = 0;
+#ifdef WLED_DEBUG_BUS
+  virtual const char* getTypeStr() const = 0;
+#endif
 
   /**
    * Encode one pixel into _encodeBuffer at pos.
@@ -514,14 +516,13 @@ class LcdBusContext;
 //==============================================================================
 
 enum class BusDriver : uint8_t {
-  RMT = 0,
-  I2S = 1,
-  LCD = 2,
-  SPI = 3,
-  UART = 4,
-  DMA = 5,
-  BitBang = 6,
-  Auto = 255
+  RMT     = 0,
+  I2S     = 1,
+  LCD     = 2,
+  SPI     = 3,
+  UART    = 4,
+  DMA     = 5,
+  BitBang = 6
 };
 
 /**
@@ -541,22 +542,19 @@ constexpr uint8_t getRmtMaxChannels() {
 
 /**
  * Create a bus instance
- * @param type Bus type (Auto will select best for platform)
- * @param pin GPIO pin
- * @param timing LED timing
- * @param order Color order
- * @param bufferSize DMA buffer size (for I2S/LCD)
+ * @param type    Bus driver type
+ * @param pin     GPIO pin
+ * @param timing  LED timing
+ * @param colorOrder Color order byte
+ * @param numChannels Bytes per pixel in the encoded stream
+ * @param bufferSize  DMA buffer size (for I2S/LCD)
  * @param channel RMT channel to use (-1 for auto-allocate)
+ * @param ledType WLED LED type constant (TYPE_*), used for chip-specific init
  * @return Bus instance (caller owns, delete when done)
  */
 PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
   uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
   int8_t channel = -1, uint8_t ledType = 0);
-
-/**
- * Get recommended bus type for current platform
- */
-BusDriver getRecommendedBusDriver();
 
 } // namespace WLEDpixelBus
 

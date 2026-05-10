@@ -99,7 +99,9 @@ public:
   bool show(const uint32_t* pixels, uint16_t numPixels,
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "SPI"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "SPI"; }
+#endif
 
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void setInverted(bool inv) override;

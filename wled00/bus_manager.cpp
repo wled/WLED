@@ -205,7 +205,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     (int)bc.type,
     (int)_hasRgb, (int)_hasWhite, (int)_hasCCT,
     (unsigned)_pins[0], is2Pin(bc.type)?(unsigned)_pins[1]:255U,
-    isI2S() ? "I2S" : "RMT",
+    (_valid && _busPtr) ? _busPtr->getTypeStr() : "none",
     (int)_milliAmpsPerLed, (int)_milliAmpsMax,
     _valid ? " " : "FAILED"
   );
@@ -441,7 +441,6 @@ void BusDigital::cleanup() {
     _busPtr = nullptr;
   }
   _valid = false;
-  _busPtr = nullptr;
   PinManager::deallocatePin(_pins[1], PinOwner::BusDigital);
   PinManager::deallocatePin(_pins[0], PinOwner::BusDigital);
 }
@@ -1556,9 +1555,8 @@ void BusManager::applyABL() {
 ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 
 // PixelBusAllocator channel tracking for dynamic allocation
-uint16_t PixelBusAllocator::_memTrackedDrivers = 0; // bitmask of driver types that have already accounted for shared memory overhead
 #ifndef ESP8266
-uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned durig getI() check
+uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned during allocateHardware()
 uint8_t PixelBusAllocator::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
 uint8_t PixelBusAllocator::_i2sChannelsAssigned = 0;
 uint8_t PixelBusAllocator::_2PchannelsAssigned = 0;

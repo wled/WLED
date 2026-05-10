@@ -202,10 +202,6 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
 
 PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel, uint8_t ledType) {
 
-  if (driver == BusDriver::Auto) {
-    driver = getRecommendedBusDriver(); // TODO: currently not used properly, is it even a good idea? maybe implement as a fallback if driver request fails?
-  }
-
   PixelBus* bus = nullptr;
 
   switch (driver) {
@@ -252,17 +248,29 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       return nullptr;
   }
 
-  return bus;
-}
+  // Chip-specific post-creation configuration.
+  // Must be done before begin() so allocateEncodeBuffer() reserves the correct space.
+  if (bus) {
+    switch (ledType) {
+      case TYPE_TM1814:
+      case TYPE_TM1815:
+        bus->setPrefixLen(8); // 8-byte C1+C2 current-config prefix; updated per-frame in BusDigital::setBrightness()
+        bus->setInverted(true);
+        break;
+      case TYPE_TM1914:
+        bus->setPrefixLen(6); // 6-byte mode-setting prefix; written once in BusDigital::begin()
+        bus->setInverted(true);
+        break;
+      case TYPE_SM16825:
+        bus->setSuffixLen(4); // 4-byte per-frame configuration suffix; defaults written by allocateEncodeBuffer()
+        break;
+      default:
+        break;
+    }
+  }
 
-// TODO: this function is not really needed, bus driver defaults should be handled by busmanager or buswrapper
-BusDriver getRecommendedBusDriver() {
-#if defined(WLEDPB_ESP8266)
-  return BusDriver::BitBang; // use bitbanging by default (most versatile)
-#else
-  return BusDriver::RMT;  // use RMT by default (most versatile)
-#endif
-}
+  return bus;
+} // createBus
 
 } // namespace WLEDpixelBus
 

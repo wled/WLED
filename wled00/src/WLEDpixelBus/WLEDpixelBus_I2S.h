@@ -141,7 +141,9 @@ public:
   bool show(const uint32_t* pixels, uint16_t numPixels,
         const CctPixel* cct = nullptr) override;
   bool canShow() const override;
-  const char* getType() const override { return "I2S"; }
+#ifdef WLED_DEBUG_BUS
+  const char* getTypeStr() const override { return "I2S"; }
+#endif
 
   // Override to use DMA-capable allocator for I2S
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
