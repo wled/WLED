@@ -99,15 +99,15 @@ bool ESPAsyncE131::initMulticast(uint16_t port, uint16_t universe, uint8_t n) {
 
 void ESPAsyncE131::parsePacket(AsyncUDPPacket _packet) {
   bool error = false;
-  uint8_t protocol = P_E131;
+  uint8_t protocol = P_ARTNET;
   const size_t pktLen = _packet.length();
 
   e131_packet_t *sbuff = reinterpret_cast<e131_packet_t *>(_packet.data());
 
   // E1.31 packet identifier (ACN_ID = "ASC-E1.17"), need at least 16 bytes to safely read acn_id (offset 4, length 12).
   if (pktLen >= 16) {
-    if (memcmp(sbuff->acn_id, ESPAsyncE131::ACN_ID, sizeof(sbuff->acn_id)))
-      protocol = P_ARTNET;
+    if (!memcmp(sbuff->acn_id, ESPAsyncE131::ACN_ID, sizeof(sbuff->acn_id)))
+      protocol = P_E131;
   }
 
 	if (protocol == P_ARTNET) {
