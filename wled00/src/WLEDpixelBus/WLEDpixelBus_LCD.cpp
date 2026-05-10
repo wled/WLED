@@ -63,11 +63,12 @@ LcdBusContext::LcdBusContext()
   , _stagedMask(0)
   , _maxDataLen(0)
   , _activeBuffer(0)
+  , _remainingDataBuffers(0)
 {
   for (int i = 0; i < WLEDPB_LCD_MAX_CHANNELS; i++) {
     _channels[i] = {nullptr, -1, nullptr, 0, 0, false};
   }
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
     _dmaDesc[i] = nullptr;
     _dmaBuffer[i] = nullptr;
   }
@@ -80,8 +81,8 @@ LcdBusContext::~LcdBusContext() {
 bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16Bit) {
   if (_initialized) return true;
 
-  LCD_LOG("Init: buf=%u x2, cadence=%d, T0H=%u T1H=%u bitPeriod=%u",
-      WLEDPB_LCD_DMA_BUFFER_SIZE, WLEDPB_LCD_CADENCE_STEPS,
+  LCD_LOG("Init: buf=%u x%d, cadence=%d, T0H=%u T1H=%u bitPeriod=%u",
+      WLEDPB_LCD_DMA_BUFFER_SIZE, WLEDPB_LCD_DMA_BUFFER_COUNT, WLEDPB_LCD_CADENCE_STEPS,
       timing.t0h_ns, timing.t1h_ns, timing.bitPeriod());
 
   _timing = timing;
@@ -90,8 +91,8 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
 
   uint32_t bitPeriodNs = timing.bitPeriod();
 
-  // Allocate double DMA buffers
-  for (int i = 0; i < 2; i++) {
+  // Allocate DMA buffers
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_LCD_DMA_BUFFER_SIZE, MALLOC_CAP_DMA);
     if (!_dmaBuffer[i]) {
       LCD_LOG("ERROR: DMA buffer %d alloc failed", i);
@@ -110,14 +111,13 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
   }
 
   // Setup DMA descriptors in CIRCULAR mode (never changes during operation!)
-  // buf0 -> buf1 -> buf0 -> buf1 -> ...
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
     _dmaDesc[i]->dw0.size = WLEDPB_LCD_DMA_BUFFER_SIZE;
     _dmaDesc[i]->dw0.length = WLEDPB_LCD_DMA_BUFFER_SIZE;
     _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
     _dmaDesc[i]->dw0.suc_eof = 1;  // Always trigger EOF for ISR
     _dmaDesc[i]->buffer = _dmaBuffer[i];
-    _dmaDesc[i]->next = _dmaDesc[i ^ 1];  // Point to other buffer (circular)
+    _dmaDesc[i]->next = _dmaDesc[(i + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT];  // circular chain
   }
 
 
@@ -172,7 +172,11 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
   LCD_CAM.lcd_user.lcd_always_out_en = 1;
   LCD_CAM.lcd_user.lcd_8bits_order = 0;
   LCD_CAM.lcd_user.lcd_bit_order = 0;
-  LCD_CAM.lcd_user.lcd_2byte_en = 1; // Always use 16-bit output for 16 channels
+#ifdef WLED_PIXELBUS_16PARALLEL
+  LCD_CAM.lcd_user.lcd_2byte_en = 1; // 16-bit output for up to 16 channels
+#else
+  LCD_CAM.lcd_user.lcd_2byte_en = 0; // 8-bit output for up to 8 channels
+#endif
   LCD_CAM.lcd_user.lcd_dummy = 1;
   LCD_CAM.lcd_user.lcd_dummy_cyclelen = 0;
   LCD_CAM.lcd_user.lcd_cmd = 0;
@@ -228,7 +232,7 @@ void LcdBusContext::deinit() {
     _dmaChannel = nullptr;
   }
 
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
     if (_dmaBuffer[i]) {
       heap_caps_free(_dmaBuffer[i]);
       _dmaBuffer[i] = nullptr;
@@ -297,76 +301,104 @@ void LcdBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
   _stagedMask |= (1 << channelIdx);
 }
 
+#ifdef WLED_PIXELBUS_16PARALLEL
+// 16-bit parallel encode: branchless gather + scatter, 64 bytes per source byte (16 channels)
 void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  // 4-step cadence encoding for parallel output without byte swapping
-  // Each source bit becomes 4 DMA words (one bit per channel in each 16-bit word)
-  // Desired output: [HIGH][data][data][LOW] for each bit
-  // Buffer is always filled completely (zeros = LOW = reset signal)
-
-  memset(dest, 0, destLen); // TODO: memset may not be ISR safe (?)
-  size_t pos = 0;
-
-  // Pre-calculate max channels to speed up loop
   uint8_t maxCh = 0;
   for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
     if (_channels[ch].active) maxCh = ch + 1;
   }
 
-  // Process each source byte position across all channels
-  while (pos + 64 <= destLen) {  // 8 bits * 4 steps * 2 bytes = 64 bytes per source byte
-    bool hasData = false;
+  for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
+    // ── Phase 1: Gather ───────────────────────────────────────────────────────
+    uint16_t alwaysMask = 0;
+    uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
     for (int ch = 0; ch < maxCh; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
-
-      hasData = true;
-      uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
-      uint16_t chMask = (1 << ch);
-
-      uint16_t* p = (uint16_t*)(dest + pos);
-
-      // Unrolled loop for 8 bits
-      // bit 7
-      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 6
-      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 5
-      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 4
-      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 3
-      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 2
-      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 1
-      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4;
-      // bit 0
-      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4;
+      const uint16_t m = (uint16_t)(1u << ch);
+      alwaysMask |= m;
+      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
+      b0 |= m & (uint16_t)(0u - ((b >> 7) & 1u));
+      b1 |= m & (uint16_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint16_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint16_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint16_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint16_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint16_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint16_t)(0u - ((b >> 0) & 1u));
     }
+    if (!alwaysMask) break;
 
-    if (!hasData) break;
-
-    // Advance all channel positions
-    for (int ch = 0; ch < maxCh; ch++) {
-      if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
-        _channels[ch].srcPos++;
-      }
-    }
-
-    pos += 64;
+    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
+    // S3 LCD: no byte swapping.
+    // Output cadence [HIGH,data,data,LOW] -> as 32-bit pairs:
+    //   p[0] = (bN<<16)|alwaysMask,  p[1] = (0<<16)|bN
+    uint32_t* p = (uint32_t*)(dest + pos);
+    #define EMIT(bN, OFF) \
+      p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
+      p[OFF+1] = (uint32_t)(bN);
+    EMIT(b0, 0)  EMIT(b1, 2)  EMIT(b2, 4)  EMIT(b3, 6)
+    EMIT(b4, 8)  EMIT(b5, 10) EMIT(b6, 12) EMIT(b7, 14)
+    #undef EMIT
   }
-  // Rest of buffer remains zero (reset signal) from memset
 }
 
+#else // WLED_PIXELBUS_16PARALLEL
 
+// 8-bit parallel encode: branchless gather + scatter, 32 bytes per source byte (8 channels)
+void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) maxCh = ch + 1;
+  }
+
+  for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
+    // ── Phase 1: Gather ───────────────────────────────────────────────────────
+    uint8_t alwaysMask = 0;
+    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
+
+    for (int ch = 0; ch < maxCh; ch++) {
+      if (!_channels[ch].active) continue;
+      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
+      const uint8_t m = (uint8_t)(1u << ch);
+      alwaysMask |= m;
+      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
+      b0 |= m & (uint8_t)(0u - ((b >> 7) & 1u));
+      b1 |= m & (uint8_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint8_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint8_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint8_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint8_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
+    }
+    if (!alwaysMask) break;
+
+    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
+    // S3 LCD 8-bit mode (lcd_2byte_en=0): no byte swapping, output [S0,S1,S2,S3].
+    // Output cadence [HIGH,data,data,LOW]:
+    //   As 4 bytes: [alwaysMask, bN, bN, 0]
+    //   As uint32_t (LE): alwaysMask | (bN<<8) | (bN<<16) | 0
+    uint32_t* p = (uint32_t*)(dest + pos);
+    #define EMIT8(bN, OFF) \
+      p[OFF] = (uint32_t)(alwaysMask) | ((uint32_t)(bN) << 8) | ((uint32_t)(bN) << 16);
+    EMIT8(b0, 0)  EMIT8(b1, 1)  EMIT8(b2, 2)  EMIT8(b3, 3)
+    EMIT8(b4, 4)  EMIT8(b5, 5)  EMIT8(b6, 6)  EMIT8(b7, 7)
+    #undef EMIT8
+  }
+}
+
+#endif // WLED_PIXELBUS_16PARALLEL
+
+#ifdef WLED_PIXELBUS_16PARALLEL
 void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
-  // 3-step cadence encoding for parallel output
-  // Each source bit becomes 3 DMA words (one bit per channel in each 16-bit word)
-  // Desired output: [HIGH][data][LOW] for each bit
-  // Buffer is always filled completely (zeros = LOW = reset signal)
-
-  memset(dest, 0, destLen); // TODO: memset is probably not ISR safe
+  // 3-step cadence encoding for 16-bit parallel output
+  // Each source bit becomes 3 DMA words: [HIGH][data][LOW]
+  memset(dest, 0, destLen);
   size_t pos = 0;
 
   uint8_t maxCh = 0;
@@ -418,6 +450,7 @@ void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
     pos += 48;
   }
 }
+#endif // WLED_PIXELBUS_16PARALLEL (encode3Step)
 
 void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
   encode4Step(_dmaBuffer[bufIdx], _bufferSize);
@@ -440,14 +473,14 @@ bool LcdBusContext::startTransmit() {
   }
   if (_maxDataLen == 0) return false;
 
-  // Fill both buffers initially
-  fillBuffer(0);
-  fillBuffer(1);
-
-  _dmaDesc[0]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-  _dmaDesc[1]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+  // Fill all buffers initially
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
+    fillBuffer(i);
+    _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+  }
 
   _activeBuffer = 0;
+  _remainingDataBuffers = WLEDPB_LCD_DMA_BUFFER_COUNT;
   _state = DriverState::Sending;
 
   // Start DMA (circular mode - descriptors already linked)
@@ -470,15 +503,14 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
                       void* user_data) {
   LcdBusContext* ctx = (LcdBusContext*)user_data;
 
-  // The completed buffer just finished playing; DMA is now on the other buffer
+  // The completed buffer just finished playing; DMA is now on the next buffer
   uint8_t completedBuf = ctx->_activeBuffer;
-  ctx->_activeBuffer ^= 1;
+  ctx->_activeBuffer = (ctx->_activeBuffer + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT;
+  memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize); // pre-clear; will be refilled or left as reset signal
 
   if (ctx->_state == DriverState::Sending) {
-    // Encode next chunk into the completed buffer
     ctx->fillBuffer(completedBuf);
 
-    // Check if all source data has been consumed
     bool moreData = false;
     for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
       if (ctx->_channels[ch].active &&
@@ -487,21 +519,21 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
         break;
       }
     }
-
     if (!moreData) {
+      ctx->_remainingDataBuffers = WLEDPB_LCD_DMA_BUFFER_COUNT;
       ctx->_state = DriverState::SendingLast;
     }
-
     ctx->_dmaDesc[completedBuf]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
 
   } else if (ctx->_state == DriverState::SendingLast) {
-    // Fill completed buffer with zeros (reset signal)
-    memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize);
+    // completedBuf already zeroed above — acts as reset buffer
+    if (ctx->_remainingDataBuffers > 0) ctx->_remainingDataBuffers--;
     ctx->_dmaDesc[completedBuf]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-    ctx->_state = DriverState::WaitingReset;
-
+    if (ctx->_remainingDataBuffers == 0) {
+      ctx->_state = DriverState::WaitingReset;
+    }
   } else {
-    // WaitingReset complete - stop DMA
+    // WaitingReset complete — stop DMA
     LCD_CAM.lcd_user.lcd_start = 0;
     gdma_stop(ctx->_dmaChannel);
     ctx->_state = DriverState::Idle;

@@ -27,12 +27,23 @@ namespace WLEDpixelBus {
 // with improved DMA ISR: works with 3x2k buffer
 
 
-// I2S DMA buffer count for circular linked list. Default is double-buffering (2); can be increased for deeper pipelining.
+// I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering is required for 16-parallel output.
+// TODO: this requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
+// TODO2: the buffer count and size need to be checked agains memory usage fomulas, they may be incorrect
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
-  #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+  #ifdef WLED_PIXELBUS_16PARALLEL
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+  #else
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2
+  #endif
 #endif
 
-#define WLEDPB_I2S_MAX_CHANNELS 16 // if using both I2S, 32 would be possible but that is probably way overkill to implement, 16 I2S + 8RMT is good enough
+// 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
+#ifdef WLED_PIXELBUS_16PARALLEL
+  #define WLEDPB_I2S_MAX_CHANNELS 16
+#else
+  #define WLEDPB_I2S_MAX_CHANNELS 8
+#endif
 
 /**
  * I2S bus context - manages shared I2S peripheral for parallel output

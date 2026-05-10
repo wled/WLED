@@ -140,10 +140,14 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->conf.rx_fifo_reset = 1;
   _i2sDev->conf.rx_fifo_reset = 0;
 
-  // Configure for 16-bit parallel LCD mode (16 channels)
+  // Configure for parallel LCD mode
   _i2sDev->conf2.val = 0;
   _i2sDev->conf2.lcd_en = 1;
-  _i2sDev->conf2.lcd_tx_wrx2_en = 0;  // disable 8-bit double-write swap path
+#ifdef WLED_PIXELBUS_16PARALLEL
+  _i2sDev->conf2.lcd_tx_wrx2_en = 0;  // 16-bit mode: disable 8-bit double-write swap path
+#else
+  _i2sDev->conf2.lcd_tx_wrx2_en = 1;  // 8-bit mode: required for 8-bit parallel output
+#endif
   _i2sDev->conf2.lcd_tx_sdx2_en = 0;
 
   // DMA config
@@ -198,9 +202,16 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   uint32_t bitPeriodNs = timing.bitPeriod();
 
 #if defined(WLEDPB_ESP32)
-  const double baseClockMhz = 80.0; // ESP32 has 80MHz I2S base clock when not using PLL (APB clock)
+  #ifndef WLED_PIXELBUS_16PARALLEL
+  // 8-bit mode: lcd_tx_wrx2_en=1 halves the effective output rate (WR pulses at BCK/2).
+  // Use 2x clock constant so the divider is doubled, yielding the correct BCK after the factor-of-2.
+  // (NeoPixelBus uses the same 160MHz constant for parallel 8-bit on ESP32 classic.)
+  const double baseClockMhz = 160.0;
+  #else
+  const double baseClockMhz = 80.0; // 16-bit mode: APB clock, lcd_tx_wrx2_en=0 has no rate halving
+  #endif
 #else
-  const double baseClockMhz = 80.0; // S2 has 80MHz I2S base clock
+  const double baseClockMhz = 80.0; // S2: 80MHz I2S base clock (wrx2 on S2 does not halve the rate)
 #endif
 
   // NeoPixelBus formula: clkmdiv = nsBitSendTime / bytesPerSample / dmaBitPerDataBit / bck / 1000 * baseClkMhz
@@ -246,7 +257,11 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   // Sample rate - bck must be >= 2 (NeoPixelBus uses 4)
   _i2sDev->sample_rate_conf.val = 0;
   _i2sDev->sample_rate_conf.tx_bck_div_num = bckDiv;
-  _i2sDev->sample_rate_conf.tx_bits_mod = 16;  // 16-bit samples for 16 parallel channels
+#ifdef WLED_PIXELBUS_16PARALLEL
+  _i2sDev->sample_rate_conf.tx_bits_mod = 16;  // 16-bit samples for up to 16 parallel channels
+#else
+  _i2sDev->sample_rate_conf.tx_bits_mod = 8;   // 8-bit samples for up to 8 parallel channels
+#endif
 
   // Final reset before ISR install
   _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
@@ -334,15 +349,25 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
 
   // Route I2S output to GPIO
   int sigIdx;
+#ifdef WLED_PIXELBUS_16PARALLEL
+  // 16-bit mode: mapping starts at DATA_OUT8_IDX for the wide 16-bit window
   #if defined(WLEDPB_ESP32)
-  //sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
-  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX; // 16 bit mode, mapping starts at DATA_OUT8_IDX for the wide 16-bit window
+  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX;
   #elif defined(WLEDPB_ESP32S2)
-  // For 16-bit mode on S2, mapping starts at DATA_OUT8_IDX for the wide 16-bit window
   sigIdx = I2S0O_DATA_OUT8_IDX;
   #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
   #endif
+#else
+  // 8-bit mode: mapping starts at DATA_OUT0_IDX (S2: DATA_OUT16_IDX for upper byte)
+  #if defined(WLEDPB_ESP32)
+  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
+  #elif defined(WLEDPB_ESP32S2)
+  sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes on S2
+  #else
+  sigIdx = I2S0O_DATA_OUT0_IDX;
+  #endif
+#endif
   sigIdx += idx;
 
   gpio_matrix_out(pin, sigIdx, inverted, false);
@@ -381,92 +406,19 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
   _stagedMask |= (1 << channelIdx);
 }
 
-// 426us to fill 16 channels with 2048 bytes buffer
-/*
+// encode4Step: 4-step cadence, converts per-channel byte streams to parallel DMA words.
+
+#ifdef WLED_PIXELBUS_16PARALLEL
+// 16-bit parallel encode: branchless gather + scatter, 64 bytes per source byte (16 channels)
 void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-REG_WRITE(GPIO_OUT1_W1TS_REG, (1u << (33-32))); // pin33 high
-  // 4-step cadence encoding for parallel output with 16-bit sample words
-  // Each source bit becomes 4 DMA words (one bit per channel in each 16-bit word)
-  // Desired output (per bit): [HIGH][data][data][LOW]
-  // Buffer is always filled completely (zeros = LOW = reset signal)
-
-  //memset(dest, 0, destLen);
-  size_t pos = 0;
-
-  // Pre-calculate max channels to speed up loop
-  uint8_t maxCh = 0;
-  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
-  }
-
-  // Process each source byte position across all channels
-  while (pos + 64 <= destLen) {  // 8 bits * 4 steps * 2 bytes = 64 bytes per source byte
-    bool hasData = false;
-
-    for (int ch = 0; ch < maxCh; ch++) {
-      if (!_channels[ch].active) continue;
-      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
-
-      hasData = true;
-      uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
-      uint16_t chMask = (1 << ch);
-
-      uint16_t* p = (uint16_t*)(dest + pos);
-
-      #if defined(WLEDPB_ESP32S2)
-      // ESP32-S2 does NOT swap half-words (memory layout [step0, step1, step2, step3])
-      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 7
-      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 6
-      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 5
-      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 4
-      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 3
-      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 2
-      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 1
-      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; p[2] |= chMask; } p += 4; // bit 0
-      #else
-      // ESP32 classic: sequence for 16-bit samples [S1, S0, S3, S2]
-      p[1] |= chMask; if (srcByte & 0x80) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 7
-      p[1] |= chMask; if (srcByte & 0x40) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 6
-      p[1] |= chMask; if (srcByte & 0x20) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 5
-      p[1] |= chMask; if (srcByte & 0x10) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 4
-      p[1] |= chMask; if (srcByte & 0x08) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 3
-      p[1] |= chMask; if (srcByte & 0x04) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 2
-      p[1] |= chMask; if (srcByte & 0x02) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 1
-      p[1] |= chMask; if (srcByte & 0x01) { p[0] |= chMask; p[3] |= chMask; } p += 4; // bit 0
-      #endif
-    }
-
-    if (!hasData) break;
-
-    // Advance all channel positions
-    for (int ch = 0; ch < maxCh; ch++) {
-      if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
-        _channels[ch].srcPos++;
-      }
-    }
-
-    pos += 64; // move to next source byte position
-  }
-  // Rest of buffer remains zero (reset signal) from memset
-  REG_WRITE(GPIO_OUT1_W1TC_REG, (1u << (33-32))); // pin33 low
-}*/
-
-// 237us to fill 16 channels with 2048 bytes buffer
-void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-
-//REG_WRITE(GPIO_OUT1_W1TS_REG, (1u << (33-32))); // pin33 high
-  // Pre-calculate max active channel
   uint8_t maxCh = 0;
   for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
     if (_channels[ch].active) maxCh = ch + 1;
   }
 
   for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
-
     // ── Phase 1: Gather ───────────────────────────────────────────────────────
-    // Pure register work — no DMA memory touched.
-    // bitMask[i]: which channels have bit (7-i) set in their current src byte
-    // alwaysMask: which channels have active data at all (the HIGH step)
+    // alwaysMask: channels with active data (HIGH step); bN: channels with bit N set
     uint16_t alwaysMask = 0;
     uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler keeps in regs
     uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
@@ -474,13 +426,9 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     for (int ch = 0; ch < maxCh; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
-
       const uint16_t m = (uint16_t)(1u << ch);
       alwaysMask |= m;
-
-      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++]; // advance here
-
-      // Branchless: (0u - bit) is 0x0000 or 0xFFFF
+      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
       b0 |= m & (uint16_t)(0u - ((b >> 7) & 1u));
       b1 |= m & (uint16_t)(0u - ((b >> 6) & 1u));
       b2 |= m & (uint16_t)(0u - ((b >> 5) & 1u));
@@ -494,44 +442,93 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     if (!alwaysMask) break;  // no active channels produced data
 
     // ── Phase 2: Scatter ─────────────────────────────────────────────────────
-    // Fully unrolled. Plain assignment (=) not OR: all channels are already
-    // merged into the masks, and the buffer is zero-initialized before this call.
-    // 16 x 32-bit stores total, no loop, no branches.
+    // 16 x 32-bit stores, fully unrolled.
     uint32_t* p = (uint32_t*)(dest + pos);
-
 #if defined(WLEDPB_ESP32S2)
-    // S2 layout in memory: [step0, step1, step2, step3]  (no half-word swap)
-    // step0 = HIGH (always),  step1 = data,  step2 = data,  step3 = LOW
-    // As 32-bit pairs: p[0] = (step1<<16)|step0,  p[1] = (step3<<16)|step2
-    //                       = (bN    <<16)|alwaysMask,  p[1] = bN
+    // S2 layout: [step0, step1, step2, step3] (no half-word swap)
+    // step0=HIGH, step1=data, step2=data, step3=LOW
+    // 32-bit pair: p[0]=(bN<<16)|alwaysMask,  p[1]=(0<<16)|bN
     #define EMIT(bN, OFF) \
       p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
       p[OFF+1] = (bN);
-
 #else
-    // Classic ESP32 layout in memory: [S1, S0, S3, S2]  (half-words swapped)
-    // I2S output order:  S0=HIGH(always), S1=data, S2=data, S3=LOW
-    // As 32-bit pairs: p[0] = (S0<<16)|S1 = (alwaysMask<<16)|bN
-    //                  p[1] = (S2<<16)|S3 = (bN<<16)|0
-    // Precompute the constant high half once:
+    // Classic ESP32 layout: [S1, S0, S3, S2] (half-words swapped)
+    // Output order: S0=HIGH, S1=data, S2=data, S3=LOW
+    // 32-bit pair: p[0]=(alwaysMask<<16)|bN,  p[1]=(bN<<16)|0
     const uint32_t AH = (uint32_t)alwaysMask << 16;
     #define EMIT(bN, OFF) \
       p[OFF]   = AH | (bN); \
       p[OFF+1] = (uint32_t)(bN) << 16;
 #endif
-
-    EMIT(b0, 0)
-    EMIT(b1, 2)
-    EMIT(b2, 4)
-    EMIT(b3, 6)
-    EMIT(b4, 8)
-    EMIT(b5, 10)
-    EMIT(b6, 12)
-    EMIT(b7, 14)
+    EMIT(b0, 0)  EMIT(b1, 2)  EMIT(b2, 4)  EMIT(b3, 6)
+    EMIT(b4, 8)  EMIT(b5, 10) EMIT(b6, 12) EMIT(b7, 14)
     #undef EMIT
   }
-//REG_WRITE(GPIO_OUT1_W1TC_REG, (1u << (33-32))); // pin33 low
 }
+
+#else // WLED_PIXELBUS_16PARALLEL
+
+// 8-bit parallel encode: branchless gather + scatter, 32 bytes per source byte (8 channels)
+void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) maxCh = ch + 1;
+  }
+
+  for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
+    // ── Phase 1: Gather ───────────────────────────────────────────────────────
+    uint8_t alwaysMask = 0;
+    uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+    uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
+
+    for (int ch = 0; ch < maxCh; ch++) {
+      if (!_channels[ch].active) continue;
+      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
+      const uint8_t m = (uint8_t)(1u << ch);
+      alwaysMask |= m;
+      const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
+      b0 |= m & (uint8_t)(0u - ((b >> 7) & 1u));
+      b1 |= m & (uint8_t)(0u - ((b >> 6) & 1u));
+      b2 |= m & (uint8_t)(0u - ((b >> 5) & 1u));
+      b3 |= m & (uint8_t)(0u - ((b >> 4) & 1u));
+      b4 |= m & (uint8_t)(0u - ((b >> 3) & 1u));
+      b5 |= m & (uint8_t)(0u - ((b >> 2) & 1u));
+      b6 |= m & (uint8_t)(0u - ((b >> 1) & 1u));
+      b7 |= m & (uint8_t)(0u - ((b >> 0) & 1u));
+    }
+    if (!alwaysMask) break;
+
+    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
+    // 8-bit LCD mode with lcd_tx_wrx2_en=1 swaps bytes within 16-bit half-words:
+    //   Memory [b0,b1,b2,b3] outputs as [b2,b3,b0,b1] (half-word swap within 32-bit word)
+    // Output cadence: [HIGH][data][data][LOW] -> steps [S0,S1,S2,S3]
+    // Memory write order for ESP32 (half-word swapped): [S2,S3,S0,S1]
+    //   => as 32-bit: p[n] = (S0<<16)|S2 | upper, but since S3=LOW=0 and S1=data:
+    //   => p[0] = (S0<<24)|(S2<<16)|(S1<<8)|S3 in byte view
+    //   As single uint32_t (LE): byte0=S2=data, byte1=S3=0, byte2=S0=HIGH, byte3=S1=data
+    //   = bN | 0 | alwaysMask | bN => as uint32: bN | (alwaysMask<<16) | ((uint32_t)bN<<24)
+    //
+    // For S2 (no half-word swap): layout [S0,S1,S2,S3]
+    //   = alwaysMask | (bN<<8) | (bN<<16) | 0
+    //   As uint32: alwaysMask | ((uint32_t)bN<<8) | ((uint32_t)bN<<16)
+    uint32_t* p = (uint32_t*)(dest + pos);
+#if defined(WLEDPB_ESP32S2)
+    // S2: no swap, layout [S0,S1,S2,S3] = [HIGH,data,data,LOW]
+    #define EMIT8(bN, OFF) \
+      p[OFF] = (uint32_t)(alwaysMask) | ((uint32_t)(bN) << 8) | ((uint32_t)(bN) << 16);
+#else
+    // Classic ESP32: half-word swap, memory [S2,S3,S0,S1] = [data,0,HIGH,data]
+    const uint32_t AH8 = (uint32_t)alwaysMask << 16;
+    #define EMIT8(bN, OFF) \
+      p[OFF] = AH8 | (uint32_t)(bN) | ((uint32_t)(bN) << 24);
+#endif
+    EMIT8(b0, 0)  EMIT8(b1, 1)  EMIT8(b2, 2)  EMIT8(b3, 3)
+    EMIT8(b4, 4)  EMIT8(b5, 5)  EMIT8(b6, 6)  EMIT8(b7, 7)
+    #undef EMIT8
+  }
+}
+
+#endif // WLED_PIXELBUS_16PARALLEL
 
 void I2sBusContext::fillBuffer(uint8_t bufIdx) {
   encode4Step(_dmaBuffer[bufIdx], _bufferSize);
@@ -728,6 +725,7 @@ void I2sBus::setInverted(bool inv) {
   _inverted = inv;
   if (!_initialized || _channelIdx < 0) return;
   int sigIdx;
+#ifdef WLED_PIXELBUS_16PARALLEL
   #if defined(WLEDPB_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX;
   #elif defined(WLEDPB_ESP32S2)
@@ -735,6 +733,15 @@ void I2sBus::setInverted(bool inv) {
   #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
   #endif
+#else
+  #if defined(WLEDPB_ESP32)
+  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
+  #elif defined(WLEDPB_ESP32S2)
+  sigIdx = I2S0O_DATA_OUT16_IDX;
+  #else
+  sigIdx = I2S0O_DATA_OUT0_IDX;
+  #endif
+#endif
   sigIdx += _channelIdx;
   gpio_matrix_out(_pin, sigIdx, inv, false);
 }

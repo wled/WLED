@@ -21,8 +21,19 @@ namespace WLEDpixelBus {
 #define WLEDPB_LCD_DMA_BUFFER_SIZE 2048 //2048  -> 2048 works well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
 #endif
 
+// I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering may be required for 16-parallel output
+// TODO: this requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
+// TODO2: the buffer count and size need to be checked agains memory usage fomulas, they may be incorrect
+#ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
+  #ifdef WLED_PIXELBUS_16PARALLEL
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+  #else
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2
+  #endif
+#endif
+
 #ifndef WLEDPB_LCD_CADENCE_STEPS
-#define WLEDPB_LCD_CADENCE_STEPS 4
+#define WLEDPB_LCD_CADENCE_STEPS 4  // TODO: 3-step cadence was mostly abandoned, fully remove it? 4 step cadence is generally better to hit timing targets.
 #endif
 
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE >= 64, "DMA buffer too small");
@@ -30,7 +41,12 @@ static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE <= 4092, "DMA buffer too large");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE % 4 == 0, "DMA buffer must be multiple of 4");
 static_assert(WLEDPB_LCD_CADENCE_STEPS == 3 || WLEDPB_LCD_CADENCE_STEPS == 4, "Cadence must be 3 or 4");
 
-#define WLEDPB_LCD_MAX_CHANNELS 16
+// 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
+#ifdef WLED_PIXELBUS_16PARALLEL
+  #define WLEDPB_LCD_MAX_CHANNELS 16
+#else
+  #define WLEDPB_LCD_MAX_CHANNELS 8
+#endif
 
 class LcdBusContext {
 public:
@@ -73,9 +89,10 @@ private:
 
   // DMA (circular linked list - never modified during operation)
   gdma_channel_handle_t _dmaChannel;
-  dma_descriptor_t* _dmaDesc[2];
-  uint8_t* _dmaBuffer[2];
+  dma_descriptor_t* _dmaDesc[WLEDPB_LCD_DMA_BUFFER_COUNT];
+  uint8_t* _dmaBuffer[WLEDPB_LCD_DMA_BUFFER_COUNT];
   volatile uint8_t _activeBuffer;
+  volatile uint8_t _remainingDataBuffers;
 
   // Timing
   LedTiming _timing;
