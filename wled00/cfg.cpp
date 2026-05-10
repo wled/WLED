@@ -58,6 +58,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   getStringFromJson(alexaInvocationName, id[F("inv")], 33);
 #endif
   CJSON(simplifiedUI, id[F("sui")]);
+  CJSON(powerButtonOnPreset, id[F("pon")]);
+  CJSON(powerButtonOffPreset, id[F("pof")]);
 
   JsonObject nw = doc["nw"];
 #ifndef WLED_DISABLE_ESPNOW
@@ -853,6 +855,8 @@ void serializeConfig(JsonObject root) {
   id[F("inv")] = alexaInvocationName;
 #endif
   id[F("sui")] = simplifiedUI;
+  id[F("pon")] = powerButtonOnPreset;
+  id[F("pof")] = powerButtonOffPreset;
 
   JsonObject nw = root.createNestedObject("nw");
 #ifndef WLED_DISABLE_ESPNOW
