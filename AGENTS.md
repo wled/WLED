@@ -14,8 +14,8 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 | `npm run build` | Build web UI into `wled00/html_*.h` / `wled00/js_*.h` | 30s |
 | `npm test` | Run test suite (Node.js built-in `node --test`) | 2 min |
 | `npm run dev` | Watch mode — auto-rebuilds web UI on changes | continuous |
-| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 30 min |
-| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 30 min |
+| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 5 min |
+| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 5 min |
 
 **Always run `npm ci && npm run build` before `pio run`.** The web UI build generates
 required C headers for firmware compilation.
@@ -159,7 +159,17 @@ static MyUsermod myUsermod;
 REGISTER_USERMOD(myUsermod);
 ```
 
-- Add usermod IDs to `wled00/const.h`
+### Usermod IDs
+
+A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only required** when a usermod needs one or more of the following:
+
+1. **Inter-usermod communication** — another usermod or an FX effect calls `UsermodManager::lookup(mod_id)` or `UsermodManager::getUMData(..., mod_id)` to find or request data from this specific usermod.
+2. **Pin ownership via `pinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
+3. **Identification in JSON info** — `UsermodManager::addToJsonInfo` emits each mod's ID into the `"um"` array; a unique ID makes the mod identifiable in that output.
+
+If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
+
+- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see above)
 - Activate via `custom_usermods` in platformio build config
 - Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
 - Store repeated strings as `static const char[] PROGMEM`
@@ -176,9 +186,11 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Repository language is English
+- The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
 - No force-push on open PRs
 - Changes to `platformio.ini` require maintainer approval
 - Remove dead/unused code — justify or delete it
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor)
+- Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
