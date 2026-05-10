@@ -1258,6 +1258,103 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+/*
+/  Perlinscape effect - a Perlin noise Landscape
+*   Created by stepko as part of Stepko Land on soulmatelights.com
+*   Adapted to WLED by Bob Loeffler with additional features (and help from Claude)
+*   First slider is for speed
+*   Second slider is for zooming in/out (Perlin scaling)
+*   Third slider is the X multiplier
+*   Fourth slider is the Y multiplier
+*   First checkbox will use the selected palette
+*   Second checkbox will rotate the image
+*   Third checkbox will randomize the horizonal and vertical directions
+*/
+static void mode_2D_perlinscape(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
+  const uint16_t width = SEG_W;
+  const uint16_t height = SEG_H;
+  if (!SEGENV.allocateData(5 * sizeof(float) + width * height)) FX_FALLBACK_STATIC;
+  
+  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 20, 1);
+  uint32_t t        = strip.now / speedDiv;
+  uint8_t  Xmult    = map(SEGMENT.custom1, 0, 255, 0, 64);
+  uint8_t  Ymult    = map(SEGMENT.custom2, 0, 255, 0, 64);
+
+  float *offX  = reinterpret_cast<float*>(SEGENV.data) + 0;
+  float *offY  = reinterpret_cast<float*>(SEGENV.data) + 1;
+  float *stepX = reinterpret_cast<float*>(SEGENV.data) + 2;
+  float *stepY = reinterpret_cast<float*>(SEGENV.data) + 3;
+  float *prevT = reinterpret_cast<float*>(SEGENV.data) + 4;
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = 0b00;
+    *offX  = 0.0f;
+    *offY  = 0.0f;
+    *stepX = 1.0f;
+    *stepY = 1.0f;
+    *prevT = (float)t;
+  }
+
+  if (SEGMENT.check3 && (strip.now - SEGENV.step > SEGENV.aux0)) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = hw_random8(4);
+    SEGENV.step = strip.now;
+  }
+
+  bool flipX = SEGMENT.check3 ? (SEGENV.aux1 & 0x01) : false;
+  bool flipY = SEGMENT.check3 ? (SEGENV.aux1 & 0x02) : false;
+
+  float targetX = flipX ? -1.0f : 1.0f;
+  float targetY = flipY ? -1.0f : 1.0f;
+  *stepX += (targetX - *stepX) * 0.05f;
+  *stepY += (targetY - *stepY) * 0.05f;
+
+  float dt = (float)t - *prevT;
+  *offX += *stepX * dt;
+  *offY += *stepY * dt;
+  *prevT = (float)t;
+
+  int32_t tX = (int32_t)*offX;
+  int32_t tY = (int32_t)*offY;
+
+  // Rotation
+  float cosA = 1.0f, sinA = 0.0f;
+  float cx = width * 0.5f;
+  float cy = height * 0.5f;
+
+  if (SEGMENT.check2) {
+    float angle = strip.now / 5000.0f;
+    cosA = cosf(angle);
+    sinA = sinf(angle);
+  }
+
+  float scale = map(SEGMENT.intensity, 0, 255, 10, 200) / 100.0f;  // range 0.1 to 2.0
+
+  for (byte x = 0; x < width; x++) {
+    for (byte y = 0; y < height; y++) {
+      float rx = cosA * (x - cx) - sinA * (y - cy) + cx;
+      float ry = sinA * (x - cx) + cosA * (y - cy) + cy;
+
+      float scaled_x = rx * Xmult * scale;
+      float scaled_y = ry * Ymult * scale;
+
+      if (SEGMENT.check1) {
+        // Palette mode
+        uint8_t paletteIndex = perlin8(scaled_x, scaled_y, t);
+        uint8_t brightness   = perlin8(scaled_x + tX, scaled_y + tY);
+        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, brightness));
+      } else {
+        // Raw RGB mode
+        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x, scaled_y, t), perlin8(scaled_x, scaled_y + tY), perlin8(scaled_x + tX, scaled_y));
+      }
+    }
+  }
+}  
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (+/-),X multiplier,Y multiplier,,Palettes,Rotation,Random direction;;!;2;";
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1272,6 +1369,7 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
+    strip.addEffect(255, &mode_2D_perlinscape, _data_FX_MODE_2D_PERLINSCAPE);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
