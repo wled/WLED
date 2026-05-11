@@ -1300,7 +1300,12 @@ class AudioReactive : public Usermod {
 
       size_t packetSize = fftUdp.parsePacket();
 #ifdef ARDUINO_ARCH_ESP32
-      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET))) fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
+      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET)))
+        #if ESP_IDF_VERSION_MAJOR < 5
+        fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
+        #else
+        fftUdp.clear(); // function was renamed in newer frameworks
+        #endif
 #endif
       if ((packetSize > 5) && (packetSize <= UDPSOUND_MAX_PACKET)) {
         //DEBUGSR_PRINTLN("Received UDP Sync Packet");
@@ -1612,7 +1617,11 @@ class AudioReactive : public Usermod {
             have_new_sample = receiveAudioData();
             if (have_new_sample) last_UDPTime = millis();
 #ifdef ARDUINO_ARCH_ESP32
+            #if ESP_IDF_VERSION_MAJOR < 5
             else fftUdp.flush(); // Flush udp input buffers if we haven't read it - avoids hickups in receive mode. Does not work on 8266.
+            #else
+            else fftUdp.clear(); // function was remaned in newer framework versions
+            #endif
 #endif
             lastTime = millis();
           }
