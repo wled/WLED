@@ -1620,7 +1620,7 @@ class AudioReactive : public Usermod {
             #if ESP_IDF_VERSION_MAJOR < 5
             else fftUdp.flush(); // Flush udp input buffers if we haven't read it - avoids hickups in receive mode. Does not work on 8266.
             #else
-            else fftUdp.clear(); // function was remaned in newer framework versions
+            else fftUdp.clear(); // function was renamed in newer frameworks
             #endif
 #endif
             lastTime = millis();
