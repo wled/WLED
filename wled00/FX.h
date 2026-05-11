@@ -547,7 +547,7 @@ class Segment {
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
     void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
-    void _applyCubeWrapping(int &x, int &y) const;
+    void applyCubeWrapping(int &x, int &y) const;
     inline void handleTransition() {
       updateTransitionProgress();
       if (isInTransition() && progress() == 0xFFFFU) stopTransition();
