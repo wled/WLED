@@ -6837,7 +6837,7 @@ void mode_gravcenter_base(unsigned mode) {
   uint8_t gravity = 8 - SEGMENT.speed/32;
   int offset = 1;
   if(mode == 2) offset = 0;  // Gravimeter
-  if (tempsamp >= gravcen->topLED) gravcen->topLED = tempsamp-offset;
+  if (tempsamp >= gravcen->topLED+offset) gravcen->topLED = tempsamp-offset;
   else if (gravcen->gravityCounter % gravity == 0) gravcen->topLED--;
   
   if(mode == 1) {  //Gravcentric
