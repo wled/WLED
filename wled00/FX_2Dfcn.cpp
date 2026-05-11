@@ -185,9 +185,63 @@ bool Segment::isPixelXYClipped(int x, int y) const {
   return false;
 }
 
+void IRAM_ATTR_YN Segment::_applyCubeWrapping(int &x, int &y) const
+{
+  if (!strip.isCube || (vWidth() != (vHeight() / 3) * 4)) return;
+
+  int n = vHeight() / 3;
+  // Horizontal belt wrap (Left, Front, Right, Back)
+  if (y >= n && y < 2 * n) {
+    x %= (4 * n); if (x < 0) x += (4 * n);
+    return;
+  }
+
+  // Handle vertical transitions and corner gaps
+  int fx = (x >= 0) ? (x / n) : -1;
+  int fy = (y >= 0) ? (y / n) : -1;
+  int u = (x % n + n) % n;
+  int v = (y % n + n) % n;
+
+  // 1. Moving UP from Top face (Face 0) or belt faces into Top gap
+  if (y < n) {
+    if (fx == 1) { // On Top face
+      if (y < 0) { // Move UP to Back face (Face 4)
+        x = 4 * n - 1 - u; y = n + v; // Back face top meets Top face top (inverted)
+      }
+    } else { // In gaps or outside
+      if (fx == 0) { // Top-Left gap -> map to Top face left edge
+        x = n + v; y = u;
+      } else if (fx == 2) { // Top-Right gap -> map to Top face right edge
+        x = 2 * n - 1 - v; y = n - 1 - u;
+      } else { // Back face top part
+        x = (4 * n) - 1 - u; y = (n - 1) - v;
+      }
+    }
+  }
+  // 2. Moving DOWN from Bottom face (Face 5) or belt faces into Bottom gap
+  else if (y >= 2 * n) {
+    if (fx == 1) { // On Bottom face
+      if (y >= 3 * n) { // Move DOWN to Back face (Face 4)
+        x = 4 * n - 1 - u; y = 2 * n - 1 - (y - 3 * n);
+      }
+    } else { // In gaps
+      if (fx == 0) { // Bottom-Left gap -> map to Bottom face left edge
+        x = n + (n - 1 - v); y = 2 * n + u;
+      } else if (fx == 2) { // Bottom-Right gap -> map to Bottom face right edge
+        x = 2 * n - 1 - (n - 1 - v); y = 2 * n + (n - 1 - u);
+      }
+    }
+  }
+
+  // Final bounds check after wrapping
+  if (x < 0) x = 0; else if (x >= 4 * n) x = 4 * n - 1;
+  if (y < 0) y = 0; else if (y >= 3 * n) y = 3 * n - 1;
+}
+
 void IRAM_ATTR_YN Segment::setPixelColorXY(int x, int y, uint32_t col) const
 {
   if (!isActive()) return; // not active
+  _applyCubeWrapping(x, y);
   if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return;  // if pixel would fall out of virtual segment just exit
   setPixelColorXYRaw(x, y, col);
 }
@@ -238,6 +292,7 @@ void Segment::setPixelColorXY(float x, float y, uint32_t col, bool aa) const
 // returns RGBW values of pixel
 uint32_t IRAM_ATTR_YN Segment::getPixelColorXY(int x, int y) const {
   if (!isActive()) return 0; // not active
+  _applyCubeWrapping(x, y);
   if ((unsigned)x >= vWidth() || (unsigned)y >= vHeight()) return 0;  // if pixel would fall out of virtual segment just exit
   return getPixelColorXYRaw(x,y);
 }
