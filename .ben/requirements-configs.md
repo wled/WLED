@@ -35,3 +35,8 @@
             - API command: P1=1&P2=5&PL=~
                 - Do not add any other text to the entry above
             - Apply at boot: tick
+
+
+Add Puzzle? Razzle? Pride 2015 to presets. NoisePal
+
+Time & Macros > Button Action Presets > Button 1 > Push/Switch: Set as preset position 101 (z_cycle_preset)
