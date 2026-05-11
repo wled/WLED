@@ -1006,11 +1006,11 @@ class WS2812FX {
   // end 2D support
 
     bool isMatrix;
-    bool isCube;
     struct {
       bool autoSegments : 1;
       bool correctWB    : 1;
       bool cctFromRgb   : 1;
+      bool isCube       : 1;
     };
 
     Segment *_currentSegment;

@@ -123,22 +123,18 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 		resetPanels();
 		var pw = parseInt(Sf.PW.value);
 		var ph = parseInt(Sf.PH.value);
-		Sf.MPC.value = 6;
-		for (let i = 0; i < 6; i++) addPanel(i);
-		// Face 0: Top
-		Sf.P0X.value = pw; Sf.P0Y.value = 0;
-		// Face 1: Left
-		Sf.P1X.value = 0; Sf.P1Y.value = ph;
-		// Face 2: Front
-		Sf.P2X.value = pw; Sf.P2Y.value = ph;
-		// Face 3: Right
-		Sf.P3X.value = 2*pw; Sf.P3Y.value = ph;
-		// Face 4: Back
-		Sf.P4X.value = 3*pw; Sf.P4Y.value = ph;
-		// Face 5: Bottom
-		Sf.P5X.value = pw; Sf.P5Y.value = 2*ph;
+		let count = Math.min(6, maxPanels);
+		Sf.MPC.value = count;
+		for (let i = 0; i < count; i++) addPanel(i);
+		
+		if (count > 0) { Sf.P0X.value = pw; Sf.P0Y.value = 0; }
+		if (count > 1) { Sf.P1X.value = 0; Sf.P1Y.value = ph; }
+		if (count > 2) { Sf.P2X.value = pw; Sf.P2Y.value = ph; }
+		if (count > 3) { Sf.P3X.value = 2*pw; Sf.P3Y.value = ph; }
+		if (count > 4) { Sf.P4X.value = 3*pw; Sf.P4Y.value = ph; }
+		if (count > 5) { Sf.P5X.value = pw; Sf.P5Y.value = 2*ph; }
 
-		for (let i = 0; i < 6; i++) {
+		for (let i = 0; i < count; i++) {
 			Sf["P"+i+"W"].value = pw;
 			Sf["P"+i+"H"].value = ph;
 		}
