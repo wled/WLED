@@ -159,7 +159,17 @@ static MyUsermod myUsermod;
 REGISTER_USERMOD(myUsermod);
 ```
 
-- Add usermod IDs to `wled00/const.h`
+### Usermod IDs
+
+A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only required** when a usermod needs one or more of the following:
+
+1. **Inter-usermod communication** — another usermod or an FX effect calls `UsermodManager::lookup(mod_id)` or `UsermodManager::getUMData(..., mod_id)` to find or request data from this specific usermod.
+2. **Pin ownership via `pinManager`** — the usermod allocates GPIO pins through `pinManager`. Pin ownership is tracked by `PinOwner` enum values that map directly to `USERMOD_ID_*` constants (see `wled00/pin_manager.h`). This prevents pin-conflict bugs.
+3. **Identification in JSON info** — `UsermodManager::addToJsonInfo` emits each mod's ID into the `"um"` array; a unique ID makes the mod identifiable in that output.
+
+If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
+
+- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see above)
 - Activate via `custom_usermods` in platformio build config
 - Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
 - Store repeated strings as `static const char[] PROGMEM`
