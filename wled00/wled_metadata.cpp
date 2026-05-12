@@ -14,6 +14,9 @@
   // No warning for this one: integrators are not always on GitHub
   #define WLED_REPO "unknown"
 #endif
+#ifndef WLED_GIT_COMMIT
+  #define WLED_GIT_COMMIT "unknown"
+#endif
 
 constexpr uint32_t WLED_CUSTOM_DESC_MAGIC = 0x57535453;  // "WSTS" (WLED System Tag Structure)
 constexpr uint32_t WLED_CUSTOM_DESC_VERSION = 2;    // v1 - original PR; v2 - "safe to update from" version
@@ -68,6 +71,9 @@ const wled_metadata_t __attribute__((section(BUILD_METADATA_SECTION))) WLED_BUIL
 
 static const char repoString_s[] PROGMEM = WLED_REPO;
 const __FlashStringHelper* repoString = FPSTR(repoString_s);
+
+static const char gitCommitString_s[] PROGMEM = WLED_GIT_COMMIT;
+const __FlashStringHelper* gitCommitString = FPSTR(gitCommitString_s);
 
 static const char productString_s[] PROGMEM = WLED_PRODUCT_NAME;
 const __FlashStringHelper* productString = FPSTR(productString_s);

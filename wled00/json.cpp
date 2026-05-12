@@ -697,6 +697,7 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+  root[F("commit")] = gitCommitString;
   root[F("deviceId")] = getDeviceId();
 
   JsonObject leds = root.createNestedObject(F("leds"));

@@ -37,6 +37,7 @@ extern const wled_metadata_t WLED_BUILD_DESCRIPTION;
 #define versionString (WLED_BUILD_DESCRIPTION.wled_version)   // Build version, WLED_VERSION
 #define releaseString (WLED_BUILD_DESCRIPTION.release_name)   // Release name,  WLED_RELEASE_NAME
 extern const __FlashStringHelper* repoString;                       // Github repository (if available)
+extern const __FlashStringHelper* gitCommitString;                  // Git commit hash at build time
 extern const __FlashStringHelper* productString;                    // Product, WLED_PRODUCT_NAME -- deprecated, use WLED_RELEASE_NAME
 extern const __FlashStringHelper* brandString ;                     // Brand
 

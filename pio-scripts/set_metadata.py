@@ -3,6 +3,14 @@ import subprocess
 import json
 import re
 
+def get_git_commit():
+    try:
+        result = subprocess.run(['git', 'rev-parse', '--short', 'HEAD'],
+                                capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except Exception:
+        return None
+
 def get_github_repo():
     """Extract GitHub repository name from git remote URL.
     
@@ -101,6 +109,11 @@ def add_wled_metadata_flags(env, node):
         repo = get_github_repo()
         if repo:
             cdefs.append(("WLED_REPO", f"\\\"{repo}\\\""))
+
+    if not has_def(cdefs, "WLED_GIT_COMMIT"):
+        commit = get_git_commit()
+        if commit:
+            cdefs.append(("WLED_GIT_COMMIT", f"\\\"{commit}\\\""))
 
     cdefs.append(("WLED_VERSION", WLED_VERSION))
 
