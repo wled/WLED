@@ -109,18 +109,19 @@ class MQTT_Animated_Staircase : public Usermod {
     static const char _fadeTargetBrightness[];
 
 
-#ifndef WLED_DISABLE_MQTT
-
-
 void publishMqttToTopic(const char* topic, const char* message) 
 {
-  // Check if MQTT Connected, otherwise it will crash the 8266
+#ifndef WLED_DISABLE_MQTT
   if (WLED_MQTT_CONNECTED) 
   {
     char fullTopic[128]; 
     snprintf(fullTopic, sizeof(fullTopic), "%s/%s", mqttDeviceTopic, topic);
     mqtt->publish(fullTopic, 0, false, message);
   }
+#else
+  (void)topic;
+  (void)message;
+#endif
 }
 
 void applyPresetWithDebug(uint8_t presetId)
@@ -134,30 +135,26 @@ void applyPresetWithDebug(uint8_t presetId)
 
 void publishMqtt(bool bottom, const char* state) 
 {
-      //Check if MQTT Connected, otherwise it will crash the 8266
-      if (WLED_MQTT_CONNECTED)
-      {
-        char subuf[64];
-        sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)bottom);
-        mqtt->publish(subuf, 0, false, state);
-      }
- }
+#ifndef WLED_DISABLE_MQTT
+  //Check if MQTT Connected, otherwise it will crash the 8266
+  if (WLED_MQTT_CONNECTED)
+  {
+    char subuf[64];
+    sprintf_P(subuf, PSTR("%s/motion/%d"), mqttDeviceTopic, (int)bottom);
+    mqtt->publish(subuf, 0, false, state);
+  }
+#else
+  (void)bottom;
+  (void)state;
+#endif
+}
 
 
  void setIndex(String action) {
     minSegmentId = strip.getMainSegmentId();
     maxSegmentId = strip.getLastActiveSegmentId() + 1;
 
-    Serial.println(F("In Set Index..."));
-    Serial.print(F("minSegmentId: "));
-    Serial.print(minSegmentId);
-    Serial.print(F(" maxSegmentId: "));
-    Serial.println(maxSegmentId);
-
-    Serial.print(F("Action: "));
-    Serial.println(action);
-
-    if (action == "on-up") {
+   if (action == "on-up") {
         // Start with only the top segment on
         onIndex = maxSegmentId - 1;  // Last segment (top)
         offIndex = maxSegmentId;     // Boundary after the last segment
@@ -172,9 +169,6 @@ void publishMqtt(bool bottom, const char* state)
         offIndex = maxSegmentId;
         Serial.println(F("Set for OFF: onIndex=min, offIndex=max"));
     }
-    // Note: Removed distinct logic for "off-up" vs "off-down" here as they now
-    // both initialize to full ON state. The direction of OFF wipe is
-    // purely handled by swipeDirection in updateSwipe.
 }
  
 
@@ -183,8 +177,6 @@ void publishMqtt(bool bottom, const char* state)
 bool onMqttMessage(char* topic, char* payload) {
     if (strlen(topic) == 6 && strncmp_P(topic, PSTR("/swipe"), 6) == 0) {
         String action = payload;
-        Serial.print(F("MQTT swipe detected: "));
-        Serial.println(action);
 
         applyPresetWithDebug(3); // Apply the black preset
         delay(200);
@@ -225,24 +217,30 @@ bool onMqttMessage(char* topic, char* payload) {
     return false; // Assuming original intent, might be true if message handled
 }
 
-    void onMqttConnect(bool sessionPresent) 
-    {
-      //(re)subscribe to required topics
-      char subuf[64];
-      if (mqttDeviceTopic[0] != 0) 
-      {
-        strcpy(subuf, mqttDeviceTopic);
-        strcat_P(subuf, PSTR("/swipe"));
-        mqtt->subscribe(subuf, 0);
-      }
-      if (mqttDeviceTopic[0] != 0) 
-      {
-        strcpy(subuf, mqttDeviceTopic);
-        strcat_P(subuf, PSTR("/ha_light_state"));
-        mqtt->subscribe(subuf, 0);
-      }
-    }
+void onMqttConnect(bool sessionPresent) 
+{
+#ifndef WLED_DISABLE_MQTT
+
+  (void)sessionPresent;
+
+  // Check if the device topic is set
+  if (mqttDeviceTopic[0] != 0) 
+  {
+    char subuf[128];
+    
+    // Subscribe to /swipe
+    snprintf(subuf, sizeof(subuf), "%s/swipe", mqttDeviceTopic);
+    mqtt->subscribe(subuf, 0);
+
+    // Subscribe to /ha_light_state
+    snprintf(subuf, sizeof(subuf), "%s/ha_light_state", mqttDeviceTopic);
+    mqtt->subscribe(subuf, 0);
+  }
+#else
+  (void)sessionPresent;
 #endif
+}
+
 
 
 bool checkSensors() 
@@ -471,7 +469,7 @@ void enable(bool enable)
         };
 
         // Attempt to allocate pins
-        if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_MQTTAnimatedStaircase)) 
+        if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_AnimatedStaircase)) 
         {  // Fix array size from 4 to 2
             Serial.println(F("Pin allocation failed! Disabling sensors."));
             topPIRorTriggerPin = -1;
@@ -542,10 +540,7 @@ void enable(bool enable)
         updateSwipe();  // Runs continuously, handling active ON or OFF animations
     }
 
-
-
-
-uint16_t getId() { return 100; }
+uint16_t getId() { return USERMOD_ID_MQTT_ANIMATED_STAIRCASE; }
 
 void appendConfigData() 
 {
@@ -648,7 +643,7 @@ void addToConfig(JsonObject& root)
     * The function should return true if configuration was successfully loaded or false if there was no configuration.
     */
   bool readFromConfig(JsonObject& root) 
-  {
+{
     Serial.print(F("TopP Pin in readFromConfig: "));
     Serial.println(topPIRorTriggerPin);    
     
@@ -658,33 +653,32 @@ void addToConfig(JsonObject& root)
         return false;
     }
 
+    int8_t oldTopPin = topPIRorTriggerPin;
+    int8_t oldBottomPin = bottomPIRorTriggerPin;
+
+    // Load the new config from the WLED UI
+    // NOTE: This automatically overwrites topPIRorTriggerPin and bottomPIRorTriggerPin with the new UI values!
     getUsermodConfigFromJsonObject(staircase);
 
     int8_t newTopPin = topPIRorTriggerPin;
     int8_t newBottomPin = bottomPIRorTriggerPin;
 
     // Handle pin changes dynamically
-    if (initDone) 
-      {
-        if (newTopPin != topPIRorTriggerPin || newBottomPin != bottomPIRorTriggerPin) 
-        {
+    if (initDone) {
+        if (newTopPin != oldTopPin || newBottomPin != oldBottomPin) { // <-- ADDED OPENING BRACKET
             Serial.println(F("Pins have changed, reallocating..."));
 
-            // Deallocate old pins
-            PinManager::deallocatePin(topPIRorTriggerPin, PinOwner::UM_MQTTAnimatedStaircase);
-            PinManager::deallocatePin(bottomPIRorTriggerPin, PinOwner::UM_MQTTAnimatedStaircase);
+            // Deallocate OLD pins (Must use old variables here!)
+            PinManager::deallocatePin(oldTopPin, PinOwner::UM_AnimatedStaircase);
+            PinManager::deallocatePin(oldBottomPin, PinOwner::UM_AnimatedStaircase);
 
-            // Assign new pin values before reallocation
-            topPIRorTriggerPin = newTopPin;
-            bottomPIRorTriggerPin = newBottomPin;
-
-            // Attempt to reallocate pins
+            // Attempt to reallocate NEW pins
             PinManagerPinType pins[2] = {
-                { topPIRorTriggerPin },
-                { bottomPIRorTriggerPin },
+                { newTopPin },
+                { newBottomPin },
             };
 
-            if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_MQTTAnimatedStaircase)) {
+            if (!PinManager::allocateMultiplePins(pins, 2, PinOwner::UM_AnimatedStaircase)) {
                 Serial.println(F("Pin reallocation failed! Disabling sensors."));
                 topPIRorTriggerPin = -1;
                 bottomPIRorTriggerPin = -1;
@@ -692,18 +686,16 @@ void addToConfig(JsonObject& root)
                 return true;  // Exit early, don't call setup()
             }
 
-            // Now call setup() to apply the changes
             setup();
-        }
+        } 
     } else {
-      // First run, just assign values
-      topPIRorTriggerPin = newTopPin;
-      bottomPIRorTriggerPin = newBottomPin;
+        // First run, just assign values
+        topPIRorTriggerPin = newTopPin;
+        bottomPIRorTriggerPin = newBottomPin;
     }
 
     return !staircase[FPSTR(_togglePower)].isNull();
 }
-
 
 
     /*
@@ -718,10 +710,6 @@ void addToConfig(JsonObject& root)
       }
 
       JsonArray infoArr = user.createNestedArray(FPSTR(_name));  // name
-
-      // Add mqttOnlyTrigger to the info array
-      //String triggerState = mqttOnlyTrigger ? "Enabled" : "Disabled";
-      //infoArr.add("MQTT Only Trigger: " + triggerState);
 
       String uiDomString = F("<button class=\"btn btn-xs\" onclick=\"requestJson({");
       uiDomString += FPSTR(_name);
@@ -744,12 +732,8 @@ const char MQTT_Animated_Staircase::_topPIRorTrigger_pin[]       PROGMEM = "topP
 const char MQTT_Animated_Staircase::_bottomPIRorTrigger_pin[]    PROGMEM = "bottomPIRorTrigger_pin";
 const char MQTT_Animated_Staircase::_togglePower[]               PROGMEM = "toggle-on-off";
 const char MQTT_Animated_Staircase::_mqttOnly[]                  PROGMEM = "mqtt-only-trigger";
-//const char MQTT_Animated_Staircase::_fadeTime_ms[]               PROGMEM = "fade-time_ms";
-//const char MQTT_Animated_Staircase::_fadeTargetBrightness[]      PROGMEM = "fade_target-brightness";
-
 
 // 1. Create a living instance of your class (you can name this variable whatever you want)
 MQTT_Animated_Staircase myStaircaseMod;
 
-// 2. Register the INSTANCE (not the class name), and add a semicolon!
 REGISTER_USERMOD(myStaircaseMod);
