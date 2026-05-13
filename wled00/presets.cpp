@@ -282,4 +282,5 @@ void deletePreset(byte index) {
   writeObjectToFileUsingId(getPresetsFileName(), index, &empty);
   presetsModifiedTime = toki.second(); //unix time
   updateFSInfo();
-}w
+}
+

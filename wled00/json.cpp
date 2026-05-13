@@ -520,7 +520,7 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     if (root["win"].isNull() && getVal(root["ps"], presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
       DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
-      if (callMode == CALL_MODE_INIT) callMode = CALL_MODE_DIRECT_CHANGE // avoid propogating CALL_MODE_INIT, which may cause accidental recursion.
+      if (callMode == CALL_MODE_INIT) callMode = CALL_MODE_DIRECT_CHANGE; // avoid propogating CALL_MODE_INIT, which may cause accidental recursion.
       applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)
       return stateResponse;
     } else presetCycCurr = currentPreset; // restore presetCycCurr
