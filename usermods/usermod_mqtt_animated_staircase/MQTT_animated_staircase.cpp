@@ -25,17 +25,18 @@ class MQTT_Animated_Staircase : public Usermod {
     static constexpr bool SWIPE_UP = true;
     static constexpr bool SWIPE_DOWN = false;
 
-    bool pendingSolidPresetAfterBlack = false; // Flag to indicate preset 2 is pending
-    unsigned long timeToApplySolidPreset = 0;  // Timestamp for when to apply preset 2
-    const unsigned long delayForSolidPresetMs = 250; // Delay before applying preset 2 (e.g., 250ms)        
+    bool pendingSolidPresetAfterBlack = false; 
+    unsigned long timeToApplySolidPreset = 0;  
+    const unsigned long delayForSolidPresetMs = 250; 
+    
+    bool pendingMqttSwipe = false;
+    unsigned long timeToApplyMqttSwipe = 0;
+    char pendingMqttAction[16] = ""; // Safely holds the payload text for 250ms
 
     bool animationActive = false;
-
     bool autoPowerOffActive = false;  // Flag to indicate if auto power-off is active
-
     bool triggeredFromMQTT = false;  // Flag to indicate if the usermod was triggered from MQTT
 
-    /* runtime variables */
     bool initDone = false;
 
     // Time between checking of the sensors
@@ -44,19 +45,11 @@ class MQTT_Animated_Staircase : public Usermod {
     // Lights on or off.
     // Flipping this will start a transition.
     bool on = false;
+    bool swipe = swipeDirection;
 
-  
-
-    // Swipe direction for current transition
-  #define SWIPE_UP true
-  #define SWIPE_DOWN false
-  
-  bool swipe = SWIPE_UP;
-
-    // Indicates which Sensor was seen last (to determine
-    // the direction when swiping off)
-  #define LOWER false
-  #define UPPER true
+    // Indicates which Sensor was seen last (to determine the direction when swiping off)
+    #define LOWER false
+    #define UPPER true
     bool lastSensor = LOWER;
 
     // Time of the last transition action
@@ -175,46 +168,29 @@ void publishMqtt(bool bottom, const char* state)
 
     
 bool onMqttMessage(char* topic, char* payload) {
+#ifndef WLED_DISABLE_MQTT
     if (strlen(topic) == 6 && strncmp_P(topic, PSTR("/swipe"), 6) == 0) {
-        String action = payload;
+        Serial.print(F("MQTT swipe detected: "));
+        Serial.println(payload);
 
-        applyPresetWithDebug(3); // Apply the black preset
-        delay(200);
-        applyPresetWithDebug(1); // Apply the swipe preset
-        delay(200);              // Delay to allow the preset to apply
+        // 1. Save the payload text so it isn't deleted from memory
+        strncpy(pendingMqttAction, payload, sizeof(pendingMqttAction) - 1);
+        pendingMqttAction[sizeof(pendingMqttAction) - 1] = '\0';
 
-        setIndex(action);
-        triggeredFromMQTT = true;
+        // 2. Apply the Black preset instantly
+        applyPresetWithDebug(3); 
 
-        if (!animationActive || !on) { // If the animation is not active or the lights are off
-            if (action == "on-up") {
-                swipeDirection = SWIPE_UP;
-                lastSensor = UPPER;
-                on = true;
-                animationActive = true;
-            } else if (action == "on-down") {
-                swipeDirection = SWIPE_DOWN;
-                lastSensor = LOWER;
-                on = true;
-                animationActive = true;
-            } else if (action == "off-up") { // Manual OFF command
-                swipeDirection = SWIPE_UP;
-                on = false;
-                animationActive = true;
-            } else if (action == "off-down") { // Manual OFF command
-                swipeDirection = SWIPE_DOWN;
-                on = false;
-                animationActive = true;
-            }
-
-            if (action == "on-up" || action == "on-down") {
-                autoPowerOffActive = false; // Reset this flag when a new ON sequence starts
-            }
-            lastSwitchTime = millis(); // Timestamp for when the ON sequence (or manual OFF) began
-            lastTime = millis();       // Reset segment timer for updateSwipe
-        }
+        // 3. Start your non-blocking timer
+        pendingMqttSwipe = true;
+        timeToApplyMqttSwipe = millis(); 
+        
+        return true; // Message handled!
     }
-    return false; // Assuming original intent, might be true if message handled
+#else
+    (void)topic;
+    (void)payload;
+#endif
+    return false; 
 }
 
 void onMqttConnect(bool sessionPresent) 
@@ -386,20 +362,7 @@ void updateSegments()
 {
     // First, check if we need to turn everything off (final state)
     bool allOff = (onIndex >= offIndex);
-    /*
-    Serial.print(F("updateSegments - minSegmentId: "));
-    Serial.print(minSegmentId);
-    Serial.print(F(", maxSegmentId: "));
-    Serial.print(maxSegmentId);
-    Serial.print(F(", onIndex: "));
-    Serial.print(onIndex);
-    Serial.print(F(", offIndex: "));
-    Serial.print(offIndex);
-    Serial.print(F(", allOff: "));
-    Serial.println(allOff ? "true" : "false");
-    
-    Serial.print(F("Active segments: "));
-    */
+
     for (int i = minSegmentId; i < maxSegmentId; i++) 
     {
         Segment &seg = strip.getSegment(i);
@@ -411,12 +374,7 @@ void updateSegments()
         } else {
             segmentOn = (i >= onIndex && i < offIndex);
         }
-        /*
-        if (segmentOn) {
-            Serial.print(i);
-            Serial.print(F(" "));
-        }
-        */
+
         seg.setOption(SEG_OPTION_ON, segmentOn);
     }
     //Serial.println();
@@ -528,6 +486,43 @@ void enable(bool enable)
                 Serial.println(F("New animation started or lights turned on; cancelling pending solid preset (2)."));
             }
             pendingSolidPresetAfterBlack = false;
+        }
+
+        if (pendingMqttSwipe && (millis() - timeToApplyMqttSwipe >= delayForSolidPresetMs)) {
+        
+            pendingMqttSwipe = false; // Turn the timer off
+            
+            applyPresetWithDebug(1);  // Apply the actual swipe preset
+            
+            // Now run the logic using our saved string!
+            setIndex(pendingMqttAction);
+            triggeredFromMQTT = true;
+
+            if (!animationActive || !on) {
+                if (strcmp(pendingMqttAction, "on-up") == 0) {
+                    swipeDirection = SWIPE_UP;
+                    lastSensor = UPPER;
+                    on = true;
+                    animationActive = true;
+                    autoPowerOffActive = false;
+                } else if (strcmp(pendingMqttAction, "on-down") == 0) {
+                    swipeDirection = SWIPE_DOWN;
+                    lastSensor = LOWER;
+                    on = true;
+                    animationActive = true;
+                    autoPowerOffActive = false;
+                } else if (strcmp(pendingMqttAction, "off-up") == 0) {
+                    swipeDirection = SWIPE_UP;
+                    on = false;
+                    animationActive = true;
+                } else if (strcmp(pendingMqttAction, "off-down") == 0) {
+                    swipeDirection = SWIPE_DOWN;
+                    on = false;
+                    animationActive = true;
+                }
+                lastSwitchTime = millis();
+                lastTime = millis();
+            }
         }
     
         if (!enabled || strip.isUpdating()) return;
