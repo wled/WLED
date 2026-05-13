@@ -160,6 +160,9 @@ void handlePresets()
 
   JsonObject fdo;
 
+  presetToApply = 0; //clear request for preset
+  callModeToApply = 0;
+  
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
   #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
@@ -177,16 +180,8 @@ void handlePresets()
   }
   fdo = pDoc->as<JsonObject>();
 
-  // only reset error flag if previous error was preset-related
+  // only reset errorflag if previous error was preset-related
   if ((errorFlag == ERR_NONE) || (errorFlag == ERR_FS_PLOAD)) errorFlag = presetErrFlag;
-
-  // if preset is boot preset and does not explicitly set lor, hold in queue for main loop to process
-  // this preserves existing behavior - new behavior where boot preset is loaded by main loop
-  // lor:0 can be used to load boot preset before any realtime data is received, resulting in a fast and consistent power on, but may be overridden by realtime, as soon as realtime starts. lor:1 and lor:2 can be used to prevent realtime data from taking over at boot.
-  if (tmpMode==CALL_MODE_INIT && fdo["lor"].isNull()) { //} && fdo["lor"].as<int>() == REALTIME_OVERRIDE_NONE) {
-    releaseJSONBufferLock();
-    return;
-  }
 
   //HTTP API commands
   const char* httpwin = fdo["win"];
