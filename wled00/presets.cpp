@@ -283,4 +283,3 @@ void deletePreset(byte index) {
   presetsModifiedTime = toki.second(); //unix time
   updateFSInfo();
 }
-
