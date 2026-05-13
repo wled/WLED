@@ -162,7 +162,7 @@ void handlePresets()
 
   presetToApply = 0; //clear request for preset
   callModeToApply = 0;
-  
+
   DEBUG_PRINTF_P(PSTR("Applying preset: %u\n"), (unsigned)tmpPreset);
 
   #if defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32C3)
@@ -282,4 +282,4 @@ void deletePreset(byte index) {
   writeObjectToFileUsingId(getPresetsFileName(), index, &empty);
   presetsModifiedTime = toki.second(); //unix time
   updateFSInfo();
-}
+}w
