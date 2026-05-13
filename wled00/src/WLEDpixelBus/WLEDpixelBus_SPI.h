@@ -56,7 +56,7 @@ private:
 #if defined(ARDUINO_ARCH_ESP32)
   uint32_t _dataMask;  // GPIO set/clear mask for data pin
   uint32_t _clkMask;   // GPIO set/clear mask for clock pin
-  bool     _dataHigh;  // true when data pin >= 32 (use GPIO1 register)
+  bool     _dataHigh;  // true when data pin >= 32 (use GPIO1 register)  TODO: this is only for ESP32
   bool     _clkHigh;   // true when clock pin >= 32 (use GPIO1 register)
 #elif defined(ARDUINO_ARCH_ESP8266)
   uint32_t _dataMask;

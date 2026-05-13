@@ -58,8 +58,13 @@ bool SpiBus::begin() {
     _dataMask = 1UL << (_dataHigh ? (_dataPin - 32) : _dataPin);
     _clkMask  = 1UL << (_clkHigh  ? (_clockPin - 32) : _clockPin);
     // Drive both lines LOW initially
+#ifdef CONFIG_IDF_TARGET_ESP32
     if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
     if (_clkHigh)  REG_WRITE(GPIO_OUT1_W1TC_REG, _clkMask);  else REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
+#else
+    REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
+    REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
+#endif
 #elif defined(ARDUINO_ARCH_ESP8266)
     _dataMask = 1UL << _dataPin;
     _clkMask  = 1UL << _clockPin;
@@ -90,11 +95,19 @@ void SpiBus::end() {
 // race conditions and is faster than GPIO_OUT read-modify-write.
 inline void SpiBus::bbSetData(bool high) const {
 #if defined(ARDUINO_ARCH_ESP32)
+#ifdef CONFIG_IDF_TARGET_ESP32
   if (high) {
     if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask);
   } else {
     if (_dataHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _dataMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
   }
+#else
+  if (high) {
+    REG_WRITE(GPIO_OUT_W1TS_REG, _dataMask);
+  } else {
+    REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
+  }
+#endif
 #elif defined(ARDUINO_ARCH_ESP8266)
   if (high) GPOS = _dataMask; else GPOC = _dataMask;
 #endif
@@ -102,11 +115,19 @@ inline void SpiBus::bbSetData(bool high) const {
 
 inline void SpiBus::bbSetClk(bool high) const {
 #if defined(ARDUINO_ARCH_ESP32)
+#ifdef CONFIG_IDF_TARGET_ESP32
   if (high) {
     if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TS_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask);
   } else {
     if (_clkHigh) REG_WRITE(GPIO_OUT1_W1TC_REG, _clkMask); else REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
   }
+#else
+  if (high) {
+    REG_WRITE(GPIO_OUT_W1TS_REG, _clkMask);
+  } else {
+    REG_WRITE(GPIO_OUT_W1TC_REG, _clkMask);
+  }
+#endif
 #elif defined(ARDUINO_ARCH_ESP8266)
   if (high) GPOS = _clkMask; else GPOC = _clkMask;
 #endif
