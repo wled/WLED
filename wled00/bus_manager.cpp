@@ -359,10 +359,10 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
     {TYPE_UCS8903,       "D",  PSTR("UCS8903")},
     {TYPE_APA106,        "D",  PSTR("APA106/PL9823")},
     {TYPE_TM1914,        "D",  PSTR("TM1914")},
-    {TYPE_FW1906,        "D",  PSTR("FW1906 GRBCW")},
+    {TYPE_FW1906,        "D",  PSTR("RGBCCT FW1906/WS2811")},
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
-    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCW")},
-    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCW")},
+    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCCT")},
+    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCCT")},
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
     //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
