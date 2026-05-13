@@ -364,7 +364,6 @@ void WLED::disableWatchdog() {
 
 void WLED::setup()
 {
-  setupComplete = false; // flag to indicate setup is in progress
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); //disable brownout detection
   #endif
@@ -602,8 +601,6 @@ void WLED::setup()
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
   #endif
   markOTAvalid();
-  
-  setupComplete = true; // safety check setup function has completed
 }
 
 void WLED::beginStrip()

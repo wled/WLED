@@ -890,9 +890,6 @@ WLED_GLOBAL byte optionType;
 WLED_GLOBAL bool configNeedsWrite  _INIT(false);        // flag to initiate saving of config
 WLED_GLOBAL bool doReboot          _INIT(false);        // flag to initiate reboot from async handlers
 
-// setup status
-WLED_GLOBAL bool setupComplete _INIT(false); // flag for preset loading safety
-
 // status led
 #if defined(STATUSLED)
 WLED_GLOBAL unsigned long ledStatusLastMillis _INIT(0);

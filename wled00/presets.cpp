@@ -180,20 +180,10 @@ void handlePresets()
   // only reset error flag if previous error was preset-related
   if ((errorFlag == ERR_NONE) || (errorFlag == ERR_FS_PLOAD)) errorFlag = presetErrFlag;
 
-  // is this the boot preset and will the preset set lor
-  const bool isBootPreset = (tmpMode==CALL_MODE_INIT || tmpPreset==bootPreset);
-  const bool presetWillSetLor = (!fdo["lor"].isNull() && fdo["lor"].as<int>() > REALTIME_OVERRIDE_NONE);
-
-  // During setup, only allow the boot preset itself or safe boot-preset chains.
-  const bool shouldAllowPresetApply = (
-                                       setupComplete || isBootPreset ||
-                                       (currentPreset == bootPreset && realtimeOverride > REALTIME_OVERRIDE_NONE) ||
-                                       (currentPreset == bootPreset && currentPlaylist > 0 && presetWillSetLor)
-                                       );
-  if (shouldAllowPresetApply) {
-    presetToApply = 0; //clear request for preset
-    callModeToApply = 0;
-  } else {
+  // if preset is boot preset and does not explicitly set lor, hold in queue for main loop to process
+  // this preserves existing behavior - new behavior where boot preset is loaded by main loop
+  // lor:0 can be used to load boot preset before any realtime data is received, resulting in a fast and consistent power on, but may be overridden by realtime, as soon as realtime starts. lor:1 and lor:2 can be used to prevent realtime data from taking over at boot.
+  if (tmpMode==CALL_MODE_INIT && fdo["lor"].isNull()) { //} && fdo["lor"].as<int>() == REALTIME_OVERRIDE_NONE) {
     releaseJSONBufferLock();
     return;
   }
@@ -209,11 +199,8 @@ void handlePresets()
     changePreset = true;
   } else {
     if (!fdo["seg"].isNull() || !fdo["on"].isNull() || !fdo["bri"].isNull() || !fdo["nl"].isNull() || !fdo["ps"].isNull() || !fdo[F("playlist")].isNull()) changePreset = true;
-    
-    // only allow load requests from boot presets that set lor or button calls
-    const bool isButtonException = (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'));
-    const bool shouldAllowLoadRequest = (isBootPreset && presetWillSetLor) || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'));
-    if (!shouldAllowLoadRequest) fdo.remove("ps"); // remove load request for presets to prevent recursive crash
+    if (!(tmpMode == CALL_MODE_INIT || (tmpMode == CALL_MODE_BUTTON_PRESET && fdo["ps"].is<const char *>() && strchr(fdo["ps"].as<const char *>(),'~') != strrchr(fdo["ps"].as<const char *>(),'~'))))
+      fdo.remove("ps"); // remove load request for presets to prevent recursive crash (if not called by boot preset or button which contains preset cycling string "1~5~")
     deserializeState(fdo, CALL_MODE_NO_NOTIFY, tmpPreset); // may change presetToApply by calling applyPreset()
   }
   if (!errorFlag && tmpPreset < 255 && changePreset) currentPreset = tmpPreset;
