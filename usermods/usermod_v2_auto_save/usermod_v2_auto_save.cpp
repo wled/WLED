@@ -16,6 +16,10 @@
 // It can be configured to load auto saved preset at startup,
 // during the first `loop()`.
 //
+// By default it will not save the state if an unmodified preset
+// is selected (to not duplicate it). You can change this behaviour
+// by setting autoSaveIgnorePresets=false
+//
 // AutoSaveUsermod is standalone, but if FourLineDisplayUsermod 
 // is installed, it will notify the user of the saved changes.
 
@@ -49,6 +53,8 @@ class AutoSaveUsermod : public Usermod {
     bool applyAutoSaveOnBoot = false;     // do we load auto-saved preset on boot?
     #endif
 
+    bool autoSaveIgnorePresets = true;     // ignore by default to not duplicate presets
+
     // If we've detected the need to auto save, this will be non zero.
     unsigned long autoSaveAfter = 0;
 
@@ -68,6 +74,7 @@ class AutoSaveUsermod : public Usermod {
     static const char _autoSaveAfterSec[];
     static const char _autoSavePreset[];
     static const char _autoSaveApplyOnBoot[];
+    static const char _autoSaveIgnorePresets[];
 
     void inline saveSettings() {
       char presetNameBuffer[PRESET_NAME_BUFFER_SIZE];
@@ -122,7 +129,8 @@ class AutoSaveUsermod : public Usermod {
     void loop() {
       static unsigned long lastRun = 0;
       unsigned long now = millis();
-      if (!autoSaveAfterSec || !enabled || currentPreset>0 || (strip.isUpdating() && now - lastRun < 240)) return;  // setting 0 as autosave seconds disables autosave
+      if (!autoSaveAfterSec || !enabled || (autoSaveIgnorePresets && currentPreset>0) || (strip.isUpdating() && now - lastRun < 240)) return;  // setting 0 as autosave seconds disables autosave
+      lastRun = now;
       uint8_t currentMode = strip.getMainSegment().mode;
       uint8_t currentPalette = strip.getMainSegment().palette;
 
@@ -219,10 +227,11 @@ class AutoSaveUsermod : public Usermod {
     void addToConfig(JsonObject& root) {
       // we add JSON object: {"Autosave": {"autoSaveAfterSec": 10, "autoSavePreset": 99}}
       JsonObject top = root.createNestedObject(FPSTR(_name)); // usermodname
-      top[FPSTR(_autoSaveEnabled)]     = enabled;
-      top[FPSTR(_autoSaveAfterSec)]    = autoSaveAfterSec;  // usermodparam
-      top[FPSTR(_autoSavePreset)]      = autoSavePreset;    // usermodparam
-      top[FPSTR(_autoSaveApplyOnBoot)] = applyAutoSaveOnBoot;
+      top[FPSTR(_autoSaveEnabled)]       = enabled;
+      top[FPSTR(_autoSaveAfterSec)]      = autoSaveAfterSec;  // usermodparam
+      top[FPSTR(_autoSavePreset)]        = autoSavePreset;    // usermodparam
+      top[FPSTR(_autoSaveApplyOnBoot)]   = applyAutoSaveOnBoot;
+      top[FPSTR(_autoSaveIgnorePresets)] = autoSaveIgnorePresets;
       DEBUG_PRINTLN(F("Autosave config saved."));
     }
 
@@ -245,12 +254,13 @@ class AutoSaveUsermod : public Usermod {
         return false;
       }
 
-      enabled             = top[FPSTR(_autoSaveEnabled)] | enabled;
-      autoSaveAfterSec    = top[FPSTR(_autoSaveAfterSec)] | autoSaveAfterSec;
-      autoSaveAfterSec    = (uint16_t) min(3600,max(10,(int)autoSaveAfterSec)); // bounds checking
-      autoSavePreset      = top[FPSTR(_autoSavePreset)] | autoSavePreset;
-      autoSavePreset      = (uint8_t) min(250,max(100,(int)autoSavePreset)); // bounds checking
-      applyAutoSaveOnBoot = top[FPSTR(_autoSaveApplyOnBoot)] | applyAutoSaveOnBoot;
+      enabled               = top[FPSTR(_autoSaveEnabled)] | enabled;
+      autoSaveAfterSec      = top[FPSTR(_autoSaveAfterSec)] | autoSaveAfterSec;
+      autoSaveAfterSec      = (uint16_t) min(3600,max(10,(int)autoSaveAfterSec)); // bounds checking
+      autoSavePreset        = top[FPSTR(_autoSavePreset)] | autoSavePreset;
+      autoSavePreset        = (uint8_t) min(250,max(100,(int)autoSavePreset)); // bounds checking
+      applyAutoSaveOnBoot   = top[FPSTR(_autoSaveApplyOnBoot)] | applyAutoSaveOnBoot;
+      autoSaveIgnorePresets = top[FPSTR(_autoSaveIgnorePresets)] | autoSaveIgnorePresets;
       DEBUG_PRINT(FPSTR(_name));
       DEBUG_PRINTLN(F(" config (re)loaded."));
 
@@ -268,11 +278,12 @@ class AutoSaveUsermod : public Usermod {
 };
 
 // strings to reduce flash memory usage (used more than twice)
-const char AutoSaveUsermod::_name[]                PROGMEM = "Autosave";
-const char AutoSaveUsermod::_autoSaveEnabled[]     PROGMEM = "enabled";
-const char AutoSaveUsermod::_autoSaveAfterSec[]    PROGMEM = "autoSaveAfterSec";
-const char AutoSaveUsermod::_autoSavePreset[]      PROGMEM = "autoSavePreset";
-const char AutoSaveUsermod::_autoSaveApplyOnBoot[] PROGMEM = "autoSaveApplyOnBoot";
+const char AutoSaveUsermod::_name[]                  PROGMEM = "Autosave";
+const char AutoSaveUsermod::_autoSaveEnabled[]       PROGMEM = "enabled";
+const char AutoSaveUsermod::_autoSaveAfterSec[]      PROGMEM = "autoSaveAfterSec";
+const char AutoSaveUsermod::_autoSavePreset[]        PROGMEM = "autoSavePreset";
+const char AutoSaveUsermod::_autoSaveApplyOnBoot[]   PROGMEM = "autoSaveApplyOnBoot";
+const char AutoSaveUsermod::_autoSaveIgnorePresets[] PROGMEM = "autoSaveIgnorePresets";
 
 static AutoSaveUsermod autosave;
 REGISTER_USERMOD(autosave);
