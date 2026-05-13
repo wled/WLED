@@ -324,6 +324,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
       // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
       // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
+      // note: the disadvantage of _t->_oldSegment == nullptr check is that colors still jump in that case. It's a trade-off, fixing it would require deeper changes
       if (blendingStyle == TRANSITION_FADE && _t->_oldSegment == nullptr) {
         _t->_start = millis();
         _t->_dur   = dur;
