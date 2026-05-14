@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WBF ↔ C Header Bi-Directional Converter</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+        }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .card {
+            max-width: 900px;
+            margin: auto;
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 242, 255, .15);
+            border: 1px solid rgba(0, 242, 255, .1);
+        }
+        h1 {
+            color: #00f2ff;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 2rem;
+            text-shadow: 0 0 25px #ffffff;
+        }
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .mode-btn {
+            padding: 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            border: 2px solid rgba(0, 242, 255, .3);
+            background: rgba(0, 0, 0, .4);
+            color: #888;
+            transition: all .3s;
+        }
+        .mode-btn.active {
+            background: linear-gradient(135deg, #0095b3 0%, #00d4ff 100%);
+            border-color: #00f2ff;
+            color: #fff;
+            box-shadow: 0 0 14px rgba(0, 242, 255, .6);
+        }
+        .mode-btn:hover:not(.active) {
+            border-color: #00f2ff;
+            color: #00f2ff;
+        }
+        .controls {
+            background: rgba(255, 255, 255, .03);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 242, 255, .1);
+            display: none;
+        }
+        .controls.active {
+            display: block;
+        }
+        label {
+            display: block;
+            font-size: .85rem;
+            font-weight: 600;
+            color: #00d4ff;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .file-label {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 242, 255, .2);
+            background: rgba(0, 0, 0, .4);
+            color: #888;
+            cursor: pointer;
+            text-align: center;
+            transition: all .3s;
+            margin-bottom: 15px;
+        }
+        .file-label:hover {
+            border-color: #00f2ff;
+            color: #00f2ff;
+        }
+        .file-label.has-file {
+            color: #00f2ff;
+        }
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(0, 242, 255, .2);
+            background: rgba(0, 0, 0, .4);
+            color: #fff;
+            margin-bottom: 15px;
+            transition: all .3s;
+            font-family: 'Courier New', monospace;
+        }
+        textarea {
+            min-height: 300px;
+            resize: vertical;
+            font-size: .85rem;
+        }
+        input[type="text"]:focus, textarea:focus {
+            outline: none;
+            border-color: #00f2ff;
+            box-shadow: 0 0 8px rgba(0, 242, 255, .3);
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            border: none;
+            background: linear-gradient(135deg, #0095b3 0%, #00d4ff 100%);
+            box-shadow: 0 0 14px rgba(0, 242, 255, .6);
+            color: #fff;
+            transition: all .3s;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0 18px rgba(0, 242, 255, .9);
+        }
+        button:disabled {
+            opacity: .3;
+            cursor: not-allowed;
+        }
+        .info {
+            background: rgba(0, 242, 255, .05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 242, 255, .2);
+            font-size: .85rem;
+        }
+        .output {
+            background: rgba(0, 0, 0, .6);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 242, 255, .2);
+            max-height: 500px;
+            overflow-y: auto;
+            display: none;
+        }
+        .output.active {
+            display: block;
+        }
+        pre {
+            color: #00f2ff;
+            font-family: 'Courier New', monospace;
+            font-size: .85rem;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .copy-btn {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>WBF ↔ C Header Converter</h1>
+    
+    <div class="mode-selector">
+        <button class="mode-btn active" onclick="switchMode('wbf-to-header')">WBF → C Header</button>
+        <button class="mode-btn" onclick="switchMode('header-to-wbf')">C Header → WBF</button>
+    </div>
+    
+    <!-- WBF to Header Mode -->
+    <div id="wbf-to-header" class="controls active">
+        <div class="info">
+            Load a WLED Bitmap Font (.wbf) file and convert it to a C/C++ header file.
+        </div>
+
+        <label>Select WBF Font File</label>
+        <label for="wbfFile" class="file-label" id="wbfFileLabel">Choose .wbf file</label>
+        <input type="file" id="wbfFile" accept=".wbf">
+        
+        <label>Array Name</label>
+        <input type="text" id="arrayName" placeholder="console_font_4x6" value="console_font_4x6">
+        
+        <button id="convertToHeaderBtn" disabled>Convert to Header</button>
+    </div>
+
+    <!-- Header to WBF Mode -->
+    <div id="header-to-wbf" class="controls">
+        <div class="info">
+            Paste a C/C++ header file containing a WLED font array and convert it to a .wbf file.
+        </div>
+
+        <label>Paste C Header Code</label>
+        <textarea id="headerInput" placeholder="Paste your C header code here (e.g., static const unsigned char font[] PROGMEM = {...};)"></textarea>
+        
+        <label>Output Filename (without .wbf extension)</label>
+        <input type="text" id="wbfFilename" placeholder="console_font_4x6" value="console_font_4x6">
+        
+        <button id="convertToWbfBtn" disabled>Convert to WBF</button>
+    </div>
+
+    <div id="output" class="output">
+        <pre id="outputCode"></pre>
+        <button class="copy-btn" onclick="copyToClipboard(event)">Copy to Clipboard</button>
+    </div>
+</div>
+
+<script>
+    // Elements for WBF to Header
+    const wbfFileInput = document.getElementById('wbfFile');
+    const wbfFileLabel = document.getElementById('wbfFileLabel');
+    const arrayNameInput = document.getElementById('arrayName');
+    const convertToHeaderBtn = document.getElementById('convertToHeaderBtn');
+    
+    // Elements for Header to WBF
+    const headerInput = document.getElementById('headerInput');
+    const wbfFilenameInput = document.getElementById('wbfFilename');
+    const convertToWbfBtn = document.getElementById('convertToWbfBtn');
+    
+    // Output elements
+    const output = document.getElementById('output');
+    const outputCode = document.getElementById('outputCode');
+    
+    let wbfData = null;
+    let fileName = '';
+
+    // Mode switching
+    function switchMode(mode) {
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.controls').forEach(ctrl => ctrl.classList.remove('active'));
+        
+        event.target.classList.add('active');
+        document.getElementById(mode).classList.add('active');
+        output.classList.remove('active');
+    }
+
+    // ==================== WBF to Header ====================
+    wbfFileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            fileName = file.name.replace(/\.[^.]+$/, '');
+            wbfFileLabel.textContent = file.name;
+            wbfFileLabel.classList.add('has-file');
+            
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                wbfData = new Uint8Array(ev.target.result);
+                convertToHeaderBtn.disabled = false;
+            };
+            reader.readAsArrayBuffer(file);
+        }
+    });
+
+    convertToHeaderBtn.addEventListener('click', () => {
+        if (!wbfData) return;
+        
+        const header = parseWBF(wbfData);
+        if (header) {
+            generateHeader(header);
+        }
+    });
+
+    function parseWBF(data) {
+        if (data.length < 12) {
+            alert('Invalid WBF file: too short');
+            return null;
+        }
+        
+        // Parse header
+        if (data[0] !== 0x57) { // 'W'
+            alert('Invalid WBF file: missing magic byte');
+            return null;
+        }
+        
+        const height = data[1];
+        const maxWidth = data[2];
+        const spacing = data[3];
+        const flags = data[4];
+        const first = data[5];
+        const last = data[6];
+        const reserved = data[7];
+        
+        // Unicode offset is 32-bit little-endian
+        const unicodeOffset = data[8] | (data[9] << 8) | (data[10] << 16) | (data[11] << 24);
+        
+        const numChars = last - first + 1;
+        const isVariableWidth = (flags & 0x01) !== 0;
+        
+        let offset = 12; // Start after header
+        let widthTable = null;
+        
+        // If variable width, read width table
+        if (isVariableWidth) {
+            if (data.length < 12 + numChars) {
+                alert('Invalid WBF file: missing width table');
+                return null;
+            }
+            widthTable = Array.from(data.slice(12, 12 + numChars));
+            offset = 12 + numChars;
+        }
+        
+        // Calculate expected data size
+        let expectedDataSize = 0;
+        if (isVariableWidth) {
+            for (let w of widthTable) {
+                expectedDataSize += Math.ceil((w * height) / 8);
+            }
+        } else {
+            expectedDataSize = numChars * Math.ceil((maxWidth * height) / 8);
+        }
+        
+        if (data.length < offset + expectedDataSize) {
+            alert(`Invalid WBF file: expected ${offset + expectedDataSize} bytes, got ${data.length}`);
+            return null;
+        }
+        
+        return {
+            height,
+            maxWidth,
+            spacing,
+            flags,
+            first,
+            last,
+            reserved,
+            unicodeOffset,
+            data: data,
+            isVariableWidth,
+            widthTable,
+            dataOffset: offset
+        };
+    }
+
+    function generateHeader(header) {
+        const arrayName = arrayNameInput.value || 'console_font';
+        let code = '';
+        
+        // Header comment
+        code += `// Font: ${fileName}\n`;
+        code += `// Height: ${header.height}, Max Width: ${header.maxWidth}, Spacing: ${header.spacing}\n`;
+        code += `// Characters: ${header.first}-${header.last} (${header.last - header.first + 1} glyphs)\n`;
+        code += `// Unicode Offset: 0x${header.unicodeOffset.toString(16).padStart(8, '0').toUpperCase()}\n`;
+        code += `// Variable Width: ${header.isVariableWidth ? 'Yes' : 'No'}\n\n`;
+        
+        // Array declaration
+        code += `static const unsigned char ${arrayName}[] PROGMEM = {\n`;
+        
+        // Header bytes (12 bytes)
+        code += '    ';
+        code += `0x${header.data[0].toString(16).padStart(2, '0').toUpperCase()}, `; // Magic 'W'
+        code += `0x${header.height.toString(16).padStart(2, '0').toUpperCase()}, `; // Height
+        code += `0x${header.maxWidth.toString(16).padStart(2, '0').toUpperCase()}, `; // Max Width
+        code += `0x${header.spacing.toString(16).padStart(2, '0').toUpperCase()}, `; // Spacing
+        code += `0x${header.flags.toString(16).padStart(2, '0').toUpperCase()}, `; // Flags
+        code += `0x${header.first.toString(16).padStart(2, '0').toUpperCase()}, `; // First char
+        code += `0x${header.last.toString(16).padStart(2, '0').toUpperCase()}, `; // Last char
+        code += `0x${header.reserved.toString(16).padStart(2, '0').toUpperCase()}, `; // Reserved
+        
+        // Unicode offset (4 bytes, little-endian)
+        code += `0x${header.data[8].toString(16).padStart(2, '0').toUpperCase()}, `;
+        code += `0x${header.data[9].toString(16).padStart(2, '0').toUpperCase()}, `;
+        code += `0x${header.data[10].toString(16).padStart(2, '0').toUpperCase()}, `;
+        code += `0x${header.data[11].toString(16).padStart(2, '0').toUpperCase()}`;
+        
+        code += ',  // Header: \'W\', H, W, S, Flags, First, Last, Reserved, UnicodeOffset (32bit)\n\n';
+        
+        // Width table (if variable width)
+        if (header.isVariableWidth) {
+            code += '    // Width table\n';
+            const numChars = header.last - header.first + 1;
+            for (let i = 0; i < numChars; i++) {
+                if (i % 16 === 0) {
+                    if (i > 0) code += '\n';
+                    code += '    ';
+                }
+                code += `0x${header.widthTable[i].toString(16).padStart(2, '0').toUpperCase()}`;
+                if (i < numChars - 1) {
+                    code += ', ';
+                }
+            }
+            code += ',\n\n';
+        }
+
+        // Character data
+        const numChars = header.last - header.first + 1;
+        let offset = header.dataOffset;
+
+        // First pass: calculate max byte width for alignment
+        let maxByteWidth = 0;
+        let tempOffset = header.dataOffset;
+        for (let i = 0; i < numChars; i++) {
+            const charWidth = header.isVariableWidth ? header.widthTable[i] : header.maxWidth;
+            const bytesPerChar = Math.ceil((charWidth * header.height) / 8);
+            const byteStr = Array(bytesPerChar).fill('0x00').join(', ');
+            maxByteWidth = Math.max(maxByteWidth, byteStr.length);
+            tempOffset += bytesPerChar;
+        }
+
+        // Second pass: generate output with aligned comments
+        for (let i = 0; i < numChars; i++) {
+            const charCode = header.first + i;
+            const charStr = getAsciiString(charCode);
+
+            // Calculate bytes for this character
+            const charWidth = header.isVariableWidth ? header.widthTable[i] : header.maxWidth;
+            const bytesPerChar = Math.ceil((charWidth * header.height) / 8);
+
+            code += '    ';
+            let byteStr = '';
+            for (let b = 0; b < bytesPerChar; b++) {
+                const byte = header.data[offset++];
+                byteStr += `0x${byte.toString(16).padStart(2, '0').toUpperCase()}`;
+                if (b < bytesPerChar - 1) {
+                    byteStr += ', ';
+                }
+            }
+            code += byteStr;
+            code += ',';
+            
+            // Pad to align comments
+            const padding = ' '.repeat(maxByteWidth - byteStr.length + 5);
+            
+            const widthInfo = header.isVariableWidth ? `, w=${charWidth}` : '';
+            code += `${padding}/* code=${charCode}, hex=0x${charCode.toString(16).padStart(2, '0').toUpperCase()}, ascii="${charStr}"${widthInfo} */\n`;
+        }
+
+        code += '};\n';
+
+        // Display output
+        outputCode.textContent = code;
+        output.classList.add('active');
+    }
+
+    // ==================== Header to WBF ====================
+    headerInput.addEventListener('input', () => {
+        convertToWbfBtn.disabled = headerInput.value.trim().length === 0;
+    });
+
+    convertToWbfBtn.addEventListener('click', () => {
+        const headerText = headerInput.value.trim();
+        if (!headerText) return;
+        
+        const wbfData = parseHeaderToWBF(headerText);
+        if (wbfData) {
+            downloadWBF(wbfData);
+        }
+    });
+
+    function parseHeaderToWBF(headerText) {
+        try {
+            // Properly remove C-style comments
+            let cleanedText = removeComments(headerText);
+            
+            // Extract all hex values from the cleaned text
+            const hexPattern = /0x[0-9a-fA-F]{2}/g;
+            const hexValues = cleanedText.match(hexPattern);
+            
+            if (!hexValues || hexValues.length < 12) {
+                alert('Invalid header: Could not find enough hex values (need at least 12 for header)\nFound: ' + (hexValues ? hexValues.length : 0) + ' bytes');
+                return null;
+            }
+            
+            // Convert hex strings to bytes
+            const allBytes = hexValues.map(hex => parseInt(hex, 16));
+            
+            // Parse the header (first 12 bytes)
+            const height = allBytes[1];
+            const maxWidth = allBytes[2];
+            const spacing = allBytes[3];
+            const flags = allBytes[4];
+            const first = allBytes[5];
+            const last = allBytes[6];
+            const reserved = allBytes[7];
+            const unicodeOffset = allBytes[8] | (allBytes[9] << 8) | (allBytes[10] << 16) | (allBytes[11] << 24);
+            
+            // Validate magic byte
+            if (allBytes[0] !== 0x57) {
+                alert('Invalid header: First byte should be 0x57 (magic \'W\'), found 0x' + allBytes[0].toString(16).padStart(2, '0').toUpperCase());
+                return null;
+            }
+            
+            const numChars = last - first + 1;
+            const isVariableWidth = (flags & 0x01) !== 0;
+            
+            // Now we need to separate header, width table (if present), and bitmap data
+            let dataStartIndex = 12; // After the 12-byte header
+            let widthTable = null;
+            
+            if (isVariableWidth) {
+                // Extract width table
+                widthTable = allBytes.slice(dataStartIndex, dataStartIndex + numChars);
+                dataStartIndex += numChars;
+            }
+            
+            // Calculate expected bitmap data size
+            let expectedBitmapSize = 0;
+            if (isVariableWidth) {
+                for (let w of widthTable) {
+                    expectedBitmapSize += Math.ceil((w * height) / 8);
+                }
+            } else {
+                expectedBitmapSize = numChars * Math.ceil((maxWidth * height) / 8);
+            }
+            
+            // Extract bitmap data
+            const bitmapData = allBytes.slice(dataStartIndex, dataStartIndex + expectedBitmapSize);
+            
+            // Validate we have all the data
+            const totalExpected = dataStartIndex + expectedBitmapSize;
+            if (allBytes.length < totalExpected) {
+                alert(`Invalid header: Expected at least ${totalExpected} bytes, found ${allBytes.length}\n\n` +
+                      `Header shows: ${numChars} characters from ${first} to ${last}\n` +
+                      `${isVariableWidth ? 'Variable width font' : 'Fixed width font'}\n` +
+                      `Height: ${height}, Max Width: ${maxWidth}\n` +
+                      `Expected bitmap size: ${expectedBitmapSize} bytes`);
+                return null;
+            }
+            
+            // Reconstruct the WBF file
+            let wbfSize = 12; // Header
+            if (isVariableWidth) {
+                wbfSize += numChars; // Width table
+            }
+            wbfSize += expectedBitmapSize; // Bitmap data
+            
+            const wbfData = new Uint8Array(wbfSize);
+            let offset = 0;
+            
+            // Write header
+            wbfData[offset++] = 0x57; // Magic 'W'
+            wbfData[offset++] = height;
+            wbfData[offset++] = maxWidth;
+            wbfData[offset++] = spacing;
+            wbfData[offset++] = flags;
+            wbfData[offset++] = first;
+            wbfData[offset++] = last;
+            wbfData[offset++] = reserved;
+            wbfData[offset++] = unicodeOffset & 0xFF;
+            wbfData[offset++] = (unicodeOffset >> 8) & 0xFF;
+            wbfData[offset++] = (unicodeOffset >> 16) & 0xFF;
+            wbfData[offset++] = (unicodeOffset >> 24) & 0xFF;
+            
+            // Write width table if variable width
+            if (isVariableWidth) {
+                for (let w of widthTable) {
+                    wbfData[offset++] = w;
+                }
+            }
+            
+            // Write bitmap data
+            for (let byte of bitmapData) {
+                wbfData[offset++] = byte;
+            }
+            
+            // Show success message
+            outputCode.textContent = `Successfully parsed header!\n\n` +
+                `Height: ${height}\n` +
+                `Max Width: ${maxWidth}\n` +
+                `Spacing: ${spacing}\n` +
+                `Flags: 0x${flags.toString(16).padStart(2, '0').toUpperCase()} (${isVariableWidth ? 'Variable Width' : 'Fixed Width'})\n` +
+                `Characters: ${first}-${last} (${numChars} glyphs)\n` +
+                `Unicode Offset: 0x${unicodeOffset.toString(16).padStart(8, '0').toUpperCase()}\n` +
+                `Total Size: ${wbfData.length} bytes\n` +
+                `  Header: 12 bytes\n` +
+                (isVariableWidth ? `  Width table: ${numChars} bytes\n` : '') +
+                `  Bitmap data: ${expectedBitmapSize} bytes\n` +
+                `Parsed ${allBytes.length} total hex values\n\n` +
+                `Your .wbf file is ready to download!`;
+            output.classList.add('active');
+            
+            return wbfData;
+        } catch (error) {
+            alert('Error parsing header: ' + error.message);
+            console.error('Parse error:', error);
+            return null;
+        }
+    }
+
+    // Proper C-style comment removal
+    function removeComments(code) {
+        let result = '';
+        let i = 0;
+        
+        while (i < code.length) {
+            // Check for // comment (single-line)
+            if (code[i] === '/' && code[i + 1] === '/') {
+                // Skip until end of line
+                i += 2;
+                while (i < code.length && code[i] !== '\n') {
+                    i++;
+                }
+                // Keep the newline
+                if (i < code.length) {
+                    result += '\n';
+                    i++;
+                }
+            }
+            // Check for /* comment (multi-line)
+            else if (code[i] === '/' && code[i + 1] === '*') {
+                // Skip until we find */
+                i += 2;
+                while (i < code.length - 1) {
+                    if (code[i] === '*' && code[i + 1] === '/') {
+                        i += 2;
+                        break;
+                    }
+                    // Preserve newlines in multi-line comments (for line counting if needed)
+                    if (code[i] === '\n') {
+                        result += '\n';
+                    }
+                    i++;
+                }
+            }
+            // Regular character
+            else {
+                result += code[i];
+                i++;
+            }
+        }
+        
+        return result;
+    }
+
+    function downloadWBF(data) {
+        const filename = wbfFilenameInput.value.trim() || 'font';
+        const blob = new Blob([data], { type: 'application/octet-stream' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${filename}.wbf`;
+        a.click();
+    }
+
+    // ==================== Utility Functions ====================
+    function getAsciiString(code) {
+        if (code < 32) {
+            // Control characters
+            return '^' + String.fromCharCode(64 + code);
+        } else if (code === 127) {
+            return '^?';
+        } else if (code >= 32 && code <= 126) {
+            // Printable ASCII
+            return String.fromCharCode(code);
+        } else {
+            // Extended ASCII
+            return '\\x' + code.toString(16).padStart(2, '0');
+        }
+    }
+
+    function copyToClipboard(event) {
+        const text = outputCode.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = event.target;
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
+        }).catch(err => {
+            console.error('Clipboard error:', err);
+            // Fallback method for older browsers
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            } catch (e) {
+                alert('Failed to copy to clipboard: ' + e.message);
+            }
+            document.body.removeChild(textarea);
+        });
+    }
+</script>
+</body>
+</html>

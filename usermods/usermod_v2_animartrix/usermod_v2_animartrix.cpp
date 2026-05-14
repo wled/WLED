@@ -85,266 +85,214 @@ class ANIMartRIXMod:public ANIMartRIX {
 };
 ANIMartRIXMod anim;
 
-uint16_t mode_Module_Experiment10() {
+void mode_Module_Experiment10() {
 	anim.initEffect(); 
 	anim.Module_Experiment10();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment9() { 
+void mode_Module_Experiment9() { 
 	anim.initEffect(); 
 	anim.Module_Experiment9();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment8() { 
+void mode_Module_Experiment8() { 
 	anim.initEffect(); 
 	anim.Module_Experiment8();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment7() { 
+void mode_Module_Experiment7() { 
 	anim.initEffect(); 
 	anim.Module_Experiment7();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment6() { 
+void mode_Module_Experiment6() { 
 	anim.initEffect(); 
 	anim.Module_Experiment6();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment5() { 
+void mode_Module_Experiment5() { 
 	anim.initEffect(); 
 	anim.Module_Experiment5();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment4() { 
+void mode_Module_Experiment4() { 
 	anim.initEffect(); 
 	anim.Module_Experiment4();
-	return FRAMETIME;
 }
-uint16_t mode_Zoom2() { 
+void mode_Zoom2() { 
 	anim.initEffect(); 
 	anim.Zoom2();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment3() { 
+void mode_Module_Experiment3() { 
 	anim.initEffect(); 
 	anim.Module_Experiment3();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment2() { 
+void mode_Module_Experiment2() { 
 	anim.initEffect(); 
 	anim.Module_Experiment2();
-	return FRAMETIME;
 }
-uint16_t mode_Module_Experiment1() { 
+void mode_Module_Experiment1() { 
 	anim.initEffect(); 
 	anim.Module_Experiment1();
-	return FRAMETIME;
 }
-uint16_t mode_Parametric_Water() { 
+void mode_Parametric_Water() { 
 	anim.initEffect(); 
 	anim.Parametric_Water();
-	return FRAMETIME;
 }
-uint16_t mode_Water() { 
+void mode_Water() { 
 	anim.initEffect(); 
 	anim.Water();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido_6() { 
+void mode_Complex_Kaleido_6() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido_6();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido_5() { 
+void mode_Complex_Kaleido_5() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido_5();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido_4() { 
+void mode_Complex_Kaleido_4() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido_4();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido_3() { 
+void mode_Complex_Kaleido_3() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido_3();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido_2() { 
+void mode_Complex_Kaleido_2() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido_2();
-	return FRAMETIME;
 }
-uint16_t mode_Complex_Kaleido() { 
+void mode_Complex_Kaleido() { 
 	anim.initEffect(); 
 	anim.Complex_Kaleido();
-	return FRAMETIME;
 }
-uint16_t mode_SM10() { 
+void mode_SM10() { 
 	anim.initEffect(); 
 	anim.SM10();
-	return FRAMETIME;
 }
-uint16_t mode_SM9() { 
+void mode_SM9() { 
 	anim.initEffect(); 
 	anim.SM9();
-	return FRAMETIME;
 }
-uint16_t mode_SM8() { 
+void mode_SM8() { 
 	anim.initEffect(); 
 	anim.SM8();
-	return FRAMETIME;
 }
-// uint16_t mode_SM7() { 
+// void mode_SM7() { 
 //	anim.initEffect(); 
 // 	anim.SM7();
 //
-//	return FRAMETIME;
 // }
-uint16_t mode_SM6() { 
+void mode_SM6() { 
 	anim.initEffect(); 
 	anim.SM6();
-	return FRAMETIME;
 }
-uint16_t mode_SM5() { 
+void mode_SM5() { 
 	anim.initEffect(); 
 	anim.SM5();
-	return FRAMETIME;
 }
-uint16_t mode_SM4() { 
+void mode_SM4() { 
 	anim.initEffect(); 
 	anim.SM4();
-	return FRAMETIME;
 }
-uint16_t mode_SM3() { 
+void mode_SM3() { 
 	anim.initEffect(); 
 	anim.SM3();
-	return FRAMETIME;
 }
-uint16_t mode_SM2() { 
+void mode_SM2() { 
 	anim.initEffect(); 
 	anim.SM2();
-	return FRAMETIME;
 }
-uint16_t mode_SM1() { 
+void mode_SM1() { 
 	anim.initEffect(); 
 	anim.SM1();
-	return FRAMETIME;
 }
-uint16_t mode_Big_Caleido() { 
+void mode_Big_Caleido() { 
 	anim.initEffect(); 	
 	anim.Big_Caleido();
-	return FRAMETIME;
 }
-uint16_t mode_RGB_Blobs5() { 
+void mode_RGB_Blobs5() { 
 	anim.initEffect(); 	
 	anim.RGB_Blobs5();
-	return FRAMETIME;
 }
-uint16_t mode_RGB_Blobs4() { 
+void mode_RGB_Blobs4() { 
 	anim.initEffect(); 
 	anim.RGB_Blobs4();
-	return FRAMETIME;
 }
-uint16_t mode_RGB_Blobs3() { 
+void mode_RGB_Blobs3() { 
 	anim.initEffect(); 
 	anim.RGB_Blobs3();
-	return FRAMETIME;
 }
-uint16_t mode_RGB_Blobs2() { 
+void mode_RGB_Blobs2() { 
 	anim.initEffect(); 
 	anim.RGB_Blobs2();
-	return FRAMETIME;
 }
-uint16_t mode_RGB_Blobs() { 
+void mode_RGB_Blobs() { 
 	anim.initEffect(); 
 	anim.RGB_Blobs();
-	return FRAMETIME;
 }
-uint16_t mode_Polar_Waves() { 
+void mode_Polar_Waves() { 
 	anim.initEffect(); 
 	anim.Polar_Waves();
-	return FRAMETIME;
 }
-uint16_t mode_Slow_Fade() { 
+void mode_Slow_Fade() { 
 	anim.initEffect(); 
 	anim.Slow_Fade();
-	return FRAMETIME;
 }
-uint16_t mode_Zoom() { 
+void mode_Zoom() { 
 	anim.initEffect(); 
 	anim.Zoom();
-	return FRAMETIME;
 }
-uint16_t mode_Hot_Blob() { 
+void mode_Hot_Blob() { 
 	anim.initEffect(); 
 	anim.Hot_Blob();
-	return FRAMETIME;
 }
-uint16_t mode_Spiralus2() { 
+void mode_Spiralus2() { 
 	anim.initEffect(); 
 	anim.Spiralus2();
-	return FRAMETIME;
 }
-uint16_t mode_Spiralus() { 
+void mode_Spiralus() { 
 	anim.initEffect(); 
 	anim.Spiralus();
-	return FRAMETIME;
 }
-uint16_t mode_Yves() { 
+void mode_Yves() { 
 	anim.initEffect(); 
 	anim.Yves();
-	return FRAMETIME;
 }
-uint16_t mode_Scaledemo1() { 
+void mode_Scaledemo1() { 
 	anim.initEffect(); 
 	anim.Scaledemo1();
-	return FRAMETIME;
 }
-uint16_t mode_Lava1() { 
+void mode_Lava1() { 
 	anim.initEffect(); 
 	anim.Lava1();
-	return FRAMETIME;
 }
-uint16_t mode_Caleido3() { 
+void mode_Caleido3() { 
 	anim.initEffect(); 
 	anim.Caleido3();
-	return FRAMETIME;
 }
-uint16_t mode_Caleido2() { 
+void mode_Caleido2() { 
 	anim.initEffect(); 
 	anim.Caleido2();
-	return FRAMETIME;
 }
-uint16_t mode_Caleido1() { 
+void mode_Caleido1() { 
 	anim.initEffect(); 
 	anim.Caleido1();
-	return FRAMETIME;
 }
-uint16_t mode_Distance_Experiment() { 
+void mode_Distance_Experiment() { 
 	anim.initEffect(); 
 	anim.Distance_Experiment();
-	return FRAMETIME;
 }
-uint16_t mode_Center_Field() { 
+void mode_Center_Field() { 
 	anim.initEffect(); 
 	anim.Center_Field();
-	return FRAMETIME;
 }
-uint16_t mode_Waves() { 
+void mode_Waves() { 
 	anim.initEffect(); 
 	anim.Waves();
-	return FRAMETIME;
 }
-uint16_t mode_Chasing_Spirals() { 
+void mode_Chasing_Spirals() { 
 	anim.initEffect(); 
 	anim.Chasing_Spirals();
-	return FRAMETIME;
 }
-uint16_t mode_Rotating_Blob() { 
+void mode_Rotating_Blob() { 
 	anim.initEffect(); 
 	anim.Rotating_Blob();
-	return FRAMETIME;
 }
 
 

@@ -77,7 +77,7 @@ public:
     }
     if (m_updateConfig)
     {
-      serializeConfig();
+      serializeConfigToFS();
       m_updateConfig = false;
     }
   }
