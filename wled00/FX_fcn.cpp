@@ -319,13 +319,15 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       // _palT already holds the intermediate blended palette and will continue blending toward the new target (see beginDraw()), so no palette action needed.
       // initial version by @blazoncek (https://github.com/blazoncek/WLED/commit/40d9812)
       for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
-      _t->_palette = palette; // update "original" palette (reduces jump in SAVE_RAM builds)
       _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
       _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
       // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
       // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
-      // note: the disadvantage of _t->_oldSegment == nullptr check is that colors still jump in that case. It's a trade-off, fixing it would require deeper changes
-      if (blendingStyle == TRANSITION_FADE && _t->_oldSegment == nullptr) {
+      if (blendingStyle == TRANSITION_FADE) {
+        if (_t->_oldSegment != nullptr) {
+          if (_t->_oldSegment->mode != mode)
+            return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
+        }
         _t->_start = millis();
         _t->_dur   = dur;
         _t->_prevPaletteBlends = 0;
