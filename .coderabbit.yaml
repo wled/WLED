@@ -24,6 +24,12 @@ reviews:
   # sequence_diagrams: false
   auto_review:
     enabled: true
+    base_branches:
+      - main
+      - 16_x
+      - 0_15_x
+      - V5
+      - V5_C6
     ignore_title_keywords:
       - WIP
 
