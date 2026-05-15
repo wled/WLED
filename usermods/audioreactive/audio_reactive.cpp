@@ -1726,7 +1726,7 @@ class AudioReactive : public Usermod {
           );
       }
       micDataReal = 0.0f;                     // just to be sure
-      if (enabled) disableSoundProcessing = false;
+      if (enabled) disableSoundProcessing = false;  // allows FFT_Task to run at least once, even when loop() might disable again
       updateIsRunning = init;
     }
 
