@@ -284,6 +284,19 @@ Baud rate:
 </select><br>
 <i>Keep at 115200 to use Improv. Some boards may not support high rates.</i>
 </div>
+<div class="sec">
+<h3>Net Debug ☾</h3>
+<div id="NoNetDebug" class="hide">
+	<em style="color:#fa0;">This firmware build does not include Net Debug support.<br></em>
+</div>
+<div id="NetDebug">
+Netcat host IP:<br>
+<input name="N0" type="number" class="s" min="0" max="255" > .
+<input name="N1" type="number" class="s" min="0" max="255" > .
+<input name="N2" type="number" class="s" min="0" max="255" > .
+<input name="N3" type="number" class="s" min="0" max="255" ><br>
+Netcat host Port:<br>
+<input name="NP" type="number" min="0" max="99999" ><br>
 </div>
 <hr>
 <button type="button" onclick="B()">Back</button><button type="submit">Save</button>
