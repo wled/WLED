@@ -1,23 +1,38 @@
 #include "wled.h"
-
 /*
  * Lightweight ESP-NOW driver for WLED
- * note: currently supports only broadcast sending
+ * note: currently supports only broadcast sending, callback kept compatible with quickEspNow
  */
 
 #ifndef WLED_DISABLE_ESPNOW
 
-// -------------------------------------------------------------------------
-// Global instances (extern-declared in espnow_wled.h)
-// -------------------------------------------------------------------------
 WledEspNow          espNow;
 //WledEspNowBroadcast espnowBroadcast; // note: WledEspNowBroadcast was added using AI with the goal of enabling porting the WLEDtubes usermod but I did not investigate if this is viable or useful so commented out for now
 
-// -------------------------------------------------------------------------
-// Static broadcast MAC — used everywhere we need to address a peer.
-// -------------------------------------------------------------------------
-static const uint8_t BCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+static const uint8_t BCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // static broadcast MAC
 
+// =========================================================================
+// 802.11 Action frame layout for ESP-NOW — used to walk backwards from the payload pointer to reach the wifi_pkt_rx_ctrl_t (which carries RSSI).
+// Reference: https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/network/esp_now.html
+typedef struct {
+  uint16_t frame_head;
+  uint16_t duration;
+  uint8_t  destination_address[6];
+  uint8_t  source_address[6];
+  uint8_t  broadcast_address[6];
+  uint16_t sequence_control;
+  uint8_t  category_code;
+  uint8_t  organization_identifier[3]; // 0x18fe34
+  uint8_t  random_values[4];
+  struct {
+    uint8_t element_id;                 // 0xdd
+    uint8_t length;
+    uint8_t organization_identifier[3]; // 0x18fe34
+    uint8_t type;                       // 4
+    uint8_t version;
+    uint8_t body[0];
+  } vendor_specific_content;
+} __attribute__((packed)) espnow_frame_format_t;
 
 // =========================================================================
 // Platform-specific SDK callbacks
@@ -44,29 +59,68 @@ static void _espnowRecvCB(const esp_now_recv_info_t *info, const uint8_t *data, 
   // rx_ctrl is a pointer to wifi_pkt_rx_ctrl_t; cast to int8_t to get signed RSSI.
   int8_t rssi = (info->rx_ctrl) ? (int8_t)info->rx_ctrl->rssi : 0;
   // Broadcast when the destination address has all bits set.
-  bool isBroadcast = (info->des_addr &&
-                      memcmp(info->des_addr, BCAST, 6) == 0);
+  bool isBroadcast = (info->des_addr && memcmp(info->des_addr, BCAST, 6) == 0);
 
   //espnowBroadcast.dispatch(mac, data, (uint8_t)len, rssi);
   if (espNow._rcvdCB)
-    espNow._rcvdCB(const_cast<uint8_t*>(mac),
-                        const_cast<uint8_t*>(data),
-                        (uint8_t)len, (signed int)rssi, isBroadcast);
+    espNow._rcvdCB(const_cast<uint8_t*>(mac), const_cast<uint8_t*>(data), (uint8_t)len, (signed int)rssi, isBroadcast);
 }
 
 #else  // IDF < 5.0
 
 static void _espnowRecvCB(const uint8_t *mac, const uint8_t *data, int len) {
   if (!mac || !data || len <= 0) return;
-  // RSSI is not available in the IDF<5 callback; use 0.
-  //espnowBroadcast.dispatch(mac, data, (uint8_t)len, 0);
+  // Walk back through the WiFi frame buffer to reach wifi_pkt_rx_ctrl_t to get RSSI. Reference: https://github.com/gmag11/QuickESPNow
+  const espnow_frame_format_t *espnow_data = (const espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+  const wifi_promiscuous_pkt_t *promiscuous_pkt = (const wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+  const wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+  int8_t rssi = (int8_t)rx_ctrl->rssi;
+  bool isBroadcast = (memcmp(espnow_data->destination_address, BCAST, 6) == 0);
+  //espnowBroadcast.dispatch(mac, data, (uint8_t)len, rssi);
   if (espNow._rcvdCB)
-    espNow._rcvdCB(const_cast<uint8_t*>(mac), const_cast<uint8_t*>(data), (uint8_t)len, 0, true);
+    espNow._rcvdCB(const_cast<uint8_t*>(mac), const_cast<uint8_t*>(data), (uint8_t)len, (signed int)rssi, isBroadcast);
 }
 
 #endif // ESP_IDF_VERSION
 
 #else  // ESP8266
+
+// define wifi_pkt_rx_ctrl_t to match the hardware layout so we can extract RSSI
+// https://github.com/espressif/ESP8266_RTOS_SDK/blob/master/components/esp8266/include/esp_wifi_types.h
+
+typedef struct {
+    signed rssi: 8;           /**< signal intensity of packet */
+    unsigned rate: 4;         /**< data rate */
+    unsigned is_group: 1;     /**< usually not used */
+    unsigned : 1;             /**< reserve */
+    unsigned sig_mode: 2;     /**< 0:is not 11n packet; 1:is 11n packet */
+    unsigned legacy_length: 12; /**< Length of 11bg mode packet */
+    unsigned damatch0: 1;     /**< usually not used */
+    unsigned damatch1: 1;     /**< usually not used */
+    unsigned bssidmatch0: 1;  /**< usually not used */
+    unsigned bssidmatch1: 1;  /**< usually not used */
+    unsigned mcs: 7;          /**< if is 11n packet, shows the modulation(range from 0 to 76) */
+    unsigned cwb: 1;          /**< if is 11n packet, shows if is HT40 packet or not */
+    unsigned HT_length: 16;   /**< Length of 11n mode packet */
+    unsigned smoothing: 1;    /**< reserve */
+    unsigned not_sounding: 1; /**< reserve */
+    unsigned : 1;             /**< reserve */
+    unsigned aggregation: 1;  /**< Aggregation */
+    unsigned stbc: 2;         /**< STBC */
+    unsigned fec_coding: 1;   /**< Flag is set for 11n packets which are LDPC */
+    unsigned sgi: 1;          /**< SGI */
+    unsigned rxend_state: 8;  /**< usually not used */
+    unsigned ampdu_cnt: 8;    /**< ampdu cnt */
+    unsigned channel: 4;      /**< which channel this packet in */
+    unsigned : 4;             /**< reserve */
+    signed noise_floor: 8;    /**< usually not used */
+} wifi_pkt_rx_ctrl_t;
+
+typedef struct {
+    wifi_pkt_rx_ctrl_t rx_ctrl;
+    uint8_t payload[0]; /* ieee80211 packet buff */
+} wifi_promiscuous_pkt_t;
+
 
 // ----- ESP8266 sent callback ---------------------------------------------
 static void _espnowSentCB(uint8_t *mac, uint8_t status) {
@@ -78,9 +132,15 @@ static void _espnowSentCB(uint8_t *mac, uint8_t status) {
 // ----- ESP8266 recv callback ---------------------------------------------
 static void _espnowRecvCB(uint8_t *mac, uint8_t *data, uint8_t len) {
   if (!mac || !data || len == 0) return;
-  //espnowBroadcast.dispatch(mac, data, len, 0);
+  // Walk back through the WiFi frame buffer to reach the rx control header to get RSSI.
+  const espnow_frame_format_t *espnow_data = (const espnow_frame_format_t *)(data - sizeof(espnow_frame_format_t));
+  bool isBroadcast = (memcmp(espnow_data->destination_address, BCAST, 6) == 0);
+  const wifi_promiscuous_pkt_t *promiscuous_pkt = (const wifi_promiscuous_pkt_t *)(data - sizeof(wifi_pkt_rx_ctrl_t) - sizeof(espnow_frame_format_t));
+  const wifi_pkt_rx_ctrl_t *rx_ctrl = &promiscuous_pkt->rx_ctrl;
+  int8_t rssi = (int8_t)(rx_ctrl->rssi - 100); // ESP8266: raw RSSI is offset by ~+100 dBm vs actual signal strength
+  //espnowBroadcast.dispatch(mac, data, len, rssi);
   if (espNow._rcvdCB)
-    espNow._rcvdCB(mac, data, len, 0, true);
+    espNow._rcvdCB(mac, data, len, (signed int)rssi, isBroadcast);
 }
 
 #endif
