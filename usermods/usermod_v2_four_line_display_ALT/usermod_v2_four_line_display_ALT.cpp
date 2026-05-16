@@ -215,6 +215,10 @@ void FourLineDisplayUsermod::sleepOrClock(bool enabled) {
 // gets called once at boot. Do all initialization that doesn't depend on
 // network here
 void FourLineDisplayUsermod::setup() {
+#ifdef HELTEC_VEXT_PIN
+  pinMode(HELTEC_VEXT_PIN, OUTPUT);
+  digitalWrite(HELTEC_VEXT_PIN, LOW);
+#endif
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
   // check if pins are -1 and disable usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
