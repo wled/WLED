@@ -1266,7 +1266,7 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 *   Second slider is for zooming in/out (Perlin scaling)
 *   Third slider is the X multiplier
 *   Fourth slider is the Y multiplier
-*   First checkbox will rotate the image
+*   First checkbox will rotate the animation
 *   Second checkbox will randomize the horizonal and vertical directions
 */
 static void mode_2D_perlinscape(void) {
