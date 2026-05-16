@@ -1,4 +1,4 @@
-#include "wled.h"
+#include "wled.h" // includes espnow_wled.h
 /*
  * Lightweight ESP-NOW driver for WLED
  * note: currently supports only broadcast sending, callback kept compatible with quickEspNow
@@ -182,7 +182,7 @@ bool WledEspNow::begin(uint8_t channel, uint8_t iface) {
     DEBUG_PRINTLN(F("ESP-NOW esp_now_init() failed"));
     return false;
   }
-  esp_now_set_self_role(ESP_NOW_ROLE_COMBO); // TODO: found no official documentation on this... quickespnow ESP_NOW_ROLE_SLAVE in STA mode and ESP_NOW_ROLE_CONTROLLER in AP mode which seems wrong
+  esp_now_set_self_role(ESP_NOW_ROLE_COMBO); // TODO: found no official documentation on this... quickespnow ESP_NOW_ROLE_SLAVE in STA mode and ESP_NOW_ROLE_CONTROLLER in AP mode
   esp_now_register_recv_cb(_espnowRecvCB);
   esp_now_register_send_cb(_espnowSentCB);
   esp_now_add_peer(const_cast<uint8_t*>(BCAST), ESP_NOW_ROLE_COMBO, channel, nullptr, 0);
@@ -207,14 +207,29 @@ void WledEspNow::stop() {
 }
 
 uint8_t WledEspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t len) {
+  static bool isretransmit = false;
+  int err = 1; // default to error
   // addr is ignored — we only support broadcast.
   // len must be < ESP_NOW_MAX_DATA_LEN (250 bytes).
-  if (!_running || _inFlight >= ESPNOW_MAX_INFLIGHT) return 1;
+  if (!_running) return err;
   // ESP8266 SDK uses non-const uint8_t* parameters; const_cast is safe here.
-  int err = esp_now_send(const_cast<uint8_t*>(BCAST),
-                         const_cast<uint8_t*>(data), len);
+  if ( _inFlight < ESPNOW_MAX_INFLIGHT) {
+    err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);
+  }
   if (err == 0) _inFlight++; // ESP_OK == 0 on both platforms
-  return (err == 0) ? 0 : 1;
+  else if (_inFlight > 0 && !isretransmit) {
+    uint8_t lastInFlight = _inFlight;
+    delay(2); // wait for a queued message to be sent, found that 2ms is usually enough, dont want to be too cautios (burst send is currently an edge case)
+    // note: delay and general approach might need some tweaking for real world use, based on burst tests sending 16 messages
+    if (_inFlight < lastInFlight) {
+      isretransmit = true; // try once more
+      err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);  // A message was sent and the sent callback was called, so we can retry now.
+    }
+  }
+  if (err != 0 && isretransmit) Serial.printf("ESP-NOW send failed with error %d, inflight=%d\n", err, (int)espNow._inFlight);
+  // TODO: should monitor somehow if sending fails repeatedly and do something about it
+  isretransmit = false; // reset flag
+  return err;
 }
 
 #ifdef ARDUINO_ARCH_ESP32

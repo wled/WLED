@@ -11,8 +11,8 @@
 // Broadcast MAC address constant
 static const uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-// Maximum number of ESP-NOW frames that may be in-flight (queued in the driver), capped to prevent memory exhaustion
-#define ESPNOW_MAX_INFLIGHT 16
+// Maximum number of ESP-NOW frames that may be in-flight (queued by esp driver) note: might need some tweaking for real world use, based on burst tests
+#define ESPNOW_MAX_INFLIGHT 8 // note: ESP32 have a larger buffer (16 work no problem) but ESP8266 struggles receiving more than 6 without any pause, also depends on msg length (longer=better)
 
 #ifdef ESP8266
   // Map ESP32 wifi_interface_t names to ESP8266 SDK interface
