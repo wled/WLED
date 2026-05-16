@@ -1266,17 +1266,15 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 *   Second slider is for zooming in/out (Perlin scaling)
 *   Third slider is the X multiplier
 *   Fourth slider is the Y multiplier
-*   First checkbox will use the selected palette
-*   Second checkbox will rotate the image
-*   Third checkbox will randomize the horizonal and vertical directions
+*   First checkbox will rotate the image
+*   Second checkbox will randomize the horizonal and vertical directions
 */
 static void mode_2D_perlinscape(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
-//  if (!SEGENV.allocateData(5 * sizeof(float) + width * height)) FX_FALLBACK_STATIC;
   if (!SEGENV.allocateData(5 * sizeof(float))) FX_FALLBACK_STATIC;
-  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 20, 1);
+  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 30, 1);
   uint32_t t        = strip.now / speedDiv;
   uint8_t  Xmult    = map(SEGMENT.custom1, 0, 255, 0, 64);
   uint8_t  Ymult    = map(SEGMENT.custom2, 0, 255, 0, 64);
@@ -1326,8 +1324,6 @@ static void mode_2D_perlinscape(void) {
 
   if (SEGMENT.check2) {
     float angle = strip.now / 5000.0f;
-//    cosA = cosf(angle);
-//    sinA = sinf(angle);
     cosA = cos_approx(angle);
     sinA = sin_approx(angle);
   }
@@ -1342,19 +1338,19 @@ static void mode_2D_perlinscape(void) {
       float scaled_x = rx * Xmult * scale;
       float scaled_y = ry * Ymult * scale;
 
-      if (SEGMENT.check1) {
-        // Palette mode
+      if (SEGMENT.palette == 0) {
+        // Raw RGB mode (original perlin noise colors)
+        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x, scaled_y, t), perlin8(scaled_x, scaled_y + tY), perlin8(scaled_x + tX, scaled_y));
+      } else {
+        // Use the selected palette's colors
         uint8_t paletteIndex = perlin8(scaled_x, scaled_y, t);
         uint8_t brightness   = perlin8(scaled_x + tX, scaled_y + tY);
         SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, brightness));
-      } else {
-        // Raw RGB mode
-        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x, scaled_y, t), perlin8(scaled_x, scaled_y + tY), perlin8(scaled_x + tX, scaled_y));
       }
     }
   }
 }  
-static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (+/-),X multiplier,Y multiplier,,Palettes,Rotation,Random direction;;!;2;";
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (+/-),X multiplier,Y multiplier,,,Rotation,Random direction;;!;2;";
 
 
 /////////////////////
