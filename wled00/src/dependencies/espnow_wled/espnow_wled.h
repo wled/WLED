@@ -1,6 +1,7 @@
 #pragma once
 
 // ESPnow WLED: Lightweight ESP-NOW driver. Only the API surface actually used by WLED  is implemented.
+// by @dedehai (2026) licensed under EUPL 1.2 license (same as WLED)
 
 #ifndef WLED_DISABLE_ESPNOW
 #ifdef ESP8266
