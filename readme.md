@@ -18,49 +18,48 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 ## ⚙️ Features
 
 ### Effects & Visuals
-- **200+ built-in effects** including classic animations, audio-reactive, and 2D/matrix effects
-- 50+ color palettes plus a built-in **custom palette editor** (PixelForge)
-- **2D LED matrix support** with dedicated 2D effects and flexible panel mapping
-- **HUB75 RGB matrix panel support** (ESP32)
-- **AudioReactive** effects — included by default, responding to sound via microphone, line-in, or network audio source
+- [**200+ built-in effects**](https://kno.wled.ge/features/effects/) including classic animations, audio-reactive, and 2D/matrix effects
+- [50+ color palettes](https://kno.wled.ge/features/palettes/) plus a built-in **custom palette editor** (PixelForge)
+- [**2D LED matrix support**](https://kno.wled.ge/advanced/mapping/) with dedicated 2D effects and flexible panel mapping
+- [**HUB75 RGB matrix panel support**](https://kno.wled.ge/advanced/HUB75/) (ESP32)
+- [**AudioReactive**](https://kno.wled.ge/advanced/audio-reactive/) effects — included by default, responding to sound via microphone, line-in, or network audio source
 - Effect blending for smooth transitions between animations
 - Antialiased drawing functions for smooth graphics
 
 ### Segments & Control
-- **Segments** — apply different effects, colors and palettes to independent parts of your LED setup simultaneously
-- Up to **250 presets** to save and recall colors, effects and segment configurations
-- Preset playlists for automated cycling and sequencing
+- [**Segments**](https://kno.wled.ge/features/segments/) — apply different effects, colors and palettes to independent parts of your LED setup simultaneously
+- Up to **250 presets** to save and recall colors, effects and segment configurations — supports [playlists](https://kno.wled.ge/features/presets/) for automated cycling
 - Nightlight function with configurable dimming curve
 - Configurable **Auto Brightness Limiter** (per output) for safe operation
 
 ### Hardware Support
 - **ESP32** (all variants: original, S2, S3, C3)
-- **Up to 17 LED outputs** on ESP32 using parallel I2S + RMT
-- Addressable LED support: WS2812B, WS2811, WS2815, SK6812, WS2805, TM1914, APA102, WS2801, LPD8806, and many more
-- RGBW, RGB+CCT and white-only strips
+- [**Up to 17 LED outputs**](https://kno.wled.ge/features/multi-strip/) on ESP32 using parallel I2S + RMT
+- [Addressable LED support](https://kno.wled.ge/basics/compatible-led-strips/): WS2812B, WS2811, WS2815, SK6812, WS2805, TM1914, APA102, WS2801, LPD8806, and many more
+- RGBW, [RGB+CCT](https://kno.wled.ge/features/cct/) and white-only strips
 - PWM outputs for analog LEDs and dimmers
-- **Ethernet** support for a wide range of boards (QuinLED, LILYGO, Olimex, and more)
+- [**Ethernet** support](https://kno.wled.ge/features/ethernet-lan/) for a wide range of boards (QuinLED, LILYGO, Olimex, and more)
 - Filesystem-based config for easy backup and restore of presets and settings
 - Full OTA firmware updates (HTTP + ArduinoOTA), password-protectable
 
 ### Connectivity & Integrations
 - **WLED app** for [Android](https://play.google.com/store/apps/details?id=ca.cgagnier.wlednativeandroid) and [iOS](https://apps.apple.com/gb/app/wled-native/id6446207239)
-- JSON and HTTP request APIs
+- [JSON](https://kno.wled.ge/interfaces/json-api/) and [HTTP request](https://kno.wled.ge/interfaces/http-api/) APIs
 - **Multi-WiFi** — connect to up to 3 networks with automatic AP fallback
 - **ESP-NOW** wireless sync between devices (no WiFi router required)
-- **MQTT** with Home Assistant discovery
-- **E1.31, Art-Net, DDP and TPM2.net** for DMX/professional lighting control
-- UDP realtime sync across multiple WLED devices
+- [**MQTT**](https://kno.wled.ge/interfaces/mqtt/) with Home Assistant discovery
+- [**E1.31, Art-Net**](https://kno.wled.ge/interfaces/e1.31-dmx/), [DDP](https://kno.wled.ge/interfaces/ddp/) and [TPM2.net](https://kno.wled.ge/interfaces/udp-realtime/) for DMX/professional lighting control
+- [UDP realtime sync](https://kno.wled.ge/interfaces/udp-notifier/) across multiple WLED devices
 - Alexa voice control (on/off, brightness, color)
-- Philips Hue sync
+- [Philips Hue sync](https://kno.wled.ge/interfaces/philips-hue/)
 - [diyHue](https://github.com/diyhue/diyHue) and [Hyperion](https://github.com/hyperion-project/hyperion.ng) integration
-- Adalight / TPM2 (PC ambilight via serial)
-- Infrared remote control (24-key RGB, receiver required)
+- [Adalight / TPM2](https://kno.wled.ge/interfaces/serial/) (PC ambilight via serial)
+- [Infrared remote control](https://kno.wled.ge/interfaces/infrared/) (24-key RGB, receiver required)
 - Timers and schedules (NTP time sync, full timezone and DST support)
 
 ### Developer-Friendly
 - **Usermod system** — extend WLED with community or custom modules without modifying core code
-- Large and active [usermod library](https://github.com/wled-dev/WLED/tree/main/usermods) including AudioReactive, temperature sensors, rotary encoders, displays, and much more
+- Large and active [usermod library](https://kno.wled.ge/advanced/community-usermods/) including AudioReactive, temperature sensors, rotary encoders, displays, and much more
 - Well-documented [JSON API](https://kno.wled.ge/interfaces/json-api/)
 - Licensed under the **EUPL v1.2**
 
