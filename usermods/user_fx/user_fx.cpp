@@ -1262,95 +1262,118 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 /  Perlinscape effect - a Perlin noise Landscape
 *   Created by stepko as part of Stepko Land on soulmatelights.com
 *   Adapted to WLED by Bob Loeffler with additional features (and help from Claude)
-*   First slider is for speed
+*   First slider is for speed/movement
 *   Second slider is for zooming in/out (Perlin scaling)
 *   Third slider is the X multiplier
 *   Fourth slider is the Y multiplier
-*   First checkbox will rotate the animation
-*   Second checkbox will randomize the horizonal and vertical directions
+*   Fifth slider is the rotation speed (0 = do not rotate)
+*   Checkbox will randomize the horizontal and vertical directions
 */
 static void mode_2D_perlinscape(void) {
-  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;  // not a 2D set-up
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
-  if (!SEGENV.allocateData(5 * sizeof(float))) FX_FALLBACK_STATIC;
-  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 30, 1);
-  uint32_t t        = strip.now / speedDiv;
-  uint8_t  Xmult    = map(SEGMENT.custom1, 0, 255, 0, 64);
-  uint8_t  Ymult    = map(SEGMENT.custom2, 0, 255, 0, 64);
+  if (!SEGENV.allocateData(5 * sizeof(int32_t))) FX_FALLBACK_STATIC;
 
-  float *offX  = reinterpret_cast<float*>(SEGENV.data) + 0;
-  float *offY  = reinterpret_cast<float*>(SEGENV.data) + 1;
-  float *stepX = reinterpret_cast<float*>(SEGENV.data) + 2;
-  float *stepY = reinterpret_cast<float*>(SEGENV.data) + 3;
-  float *prevT = reinterpret_cast<float*>(SEGENV.data) + 4;
+  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 30, 1);
+  uint32_t t = strip.now / speedDiv;
+  uint8_t  Xmult = map(SEGMENT.custom1, 0, 255, 0, 64);
+  uint8_t  Ymult = map(SEGMENT.custom2, 0, 255, 0, 64);
+
+  int32_t &offX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 0);
+  int32_t &offY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 1);
+  int32_t &stepX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 2);
+  int32_t &stepY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 3);
+  int32_t &prevT = *(reinterpret_cast<int32_t*>(SEGENV.data) + 4);
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = hw_random16(5000, 10000);
     SEGENV.aux1 = 0b00;
-    *offX  = 0.0f;
-    *offY  = 0.0f;
-    *stepX = 1.0f;
-    *stepY = 1.0f;
-    *prevT = (float)t;
+    offX  = 0;
+    offY  = 0;
+    stepX = 256;   // 1.0 in Q8
+    stepY = 256;   // 1.0 in Q8
+    prevT = (int32_t)t;
   }
 
-  if (SEGMENT.check3 && (strip.now - SEGENV.step > SEGENV.aux0)) {
+  if (SEGMENT.check1 && (strip.now - SEGENV.step > SEGENV.aux0)) {
     SEGENV.aux0 = hw_random16(5000, 10000);
     SEGENV.aux1 = hw_random8(4);
     SEGENV.step = strip.now;
   }
 
-  bool flipX = SEGMENT.check3 ? (SEGENV.aux1 & 0x01) : false;
-  bool flipY = SEGMENT.check3 ? (SEGENV.aux1 & 0x02) : false;
+  bool flipX = SEGMENT.check1 ? (SEGENV.aux1 & 0x01) : false;
+  bool flipY = SEGMENT.check1 ? (SEGENV.aux1 & 0x02) : false;
 
-  float targetX = flipX ? -1.0f : 1.0f;
-  float targetY = flipY ? -1.0f : 1.0f;
-  *stepX += (targetX - *stepX) * 0.05f;
-  *stepY += (targetY - *stepY) * 0.05f;
+  // targetX/Y: +256 or -256 in Q8
+  int32_t targetX = flipX ? -256 : 256;
+  int32_t targetY = flipY ? -256 : 256;
 
-  float dt = (float)t - *prevT;
-  *offX += *stepX * dt;
-  *offY += *stepY * dt;
-  *prevT = (float)t;
+  stepX += ((targetX - stepX) * 13) >> 8;
+  stepY += ((targetY - stepY) * 13) >> 8;
 
-  int32_t tX = (int32_t)*offX;
-  int32_t tY = (int32_t)*offY;
+  // dt in milliseconds; offX/offY accumulate in Q8
+  int32_t dt = (int32_t)t - prevT;
+  if (dt < 0 || dt > 1000) dt = 0;
+  offX += (stepX * dt) >> 8;
+  offY += (stepY * dt) >> 8;
+  prevT = (int32_t)t;  // store t, not strip.now
 
-  // Rotation
-  float cosA = 1.0f, sinA = 0.0f;
-  float cx = width * 0.5f;
-  float cy = height * 0.5f;
+  // Integer pixel offsets — gradual drift motion (Q8 >> 8 = integer)
+  int32_t tX = offX >> 2;
+  int32_t tY = offY >> 2;
 
-  if (SEGMENT.check2) {
-    float angle = strip.now / 5000.0f;
-    cosA = cos_approx(angle);
-    sinA = sin_approx(angle);
+  // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
+  constexpr uint16_t colorOffX = 300;
+  constexpr uint16_t colorOffY = 300;
+
+  // Rotation — cos16/sin16 return Q15 (-32768..32767 = -1.0..1.0)
+  int32_t cosA = 1024;  // Q10: 1.0 = 1024
+  int32_t sinA = 0;
+
+  // Center in Q8 (avoids 0.5 fractions)
+  int32_t cx256 = (int32_t)width  * 128;  // width/2 * 256
+  int32_t cy256 = (int32_t)height * 128;  // height/2 * 256
+
+  // rotate if rotation speed is not 0
+  if (SEGMENT.custom3 > 0) {
+    uint32_t rotatePeriod = map(SEGMENT.custom3, 1, 31, 30000, 1000);
+    uint16_t angle = (uint64_t)strip.now * 65536u / rotatePeriod;  // uint64_t needed to prevent overflowing which causes a jump in the animation
+    cosA = cos16_t(angle) >> 5;
+    sinA = sin16_t(angle) >> 5;
   }
 
-  float scale = map(SEGMENT.intensity, 0, 255, 10, 200) / 100.0f;  // range 0.1 to 2.0
+  // scale: map intensity 0-255 -> 10-200, then store as Q8 (divide by 100 baked in)
+  // scale_q8 = map(...) * 256 / 100
+  int32_t scale_q8 = (int32_t)map(SEGMENT.intensity, 0, 255, 10, 200) * 256 / 100;
 
-  for (byte x = 0; x < width; x++) {
-    for (byte y = 0; y < height; y++) {
-      float rx = cosA * (x - cx) - sinA * (y - cy) + cx;
-      float ry = sinA * (x - cx) + cosA * (y - cy) + cy;
+  for (uint16_t x = 0; x < width; x++) {
+    for (uint16_t y = 0; y < height; y++) {
+      // (x - cx) and (y - cy) in Q8
+      int32_t dx256 = (int32_t)x * 256 - cx256;
+      int32_t dy256 = (int32_t)y * 256 - cy256;
 
-      float scaled_x = rx * Xmult * scale;
-      float scaled_y = ry * Ymult * scale;
+      // Rotation in Q8: cosA/sinA are Q10, dx/dy are Q8
+      // cosA*dx >> 10 = Q8 result; add cx256 to re-center
+      int32_t rx256 = ((cosA * dx256 - sinA * dy256) >> 10) + cx256;
+      int32_t ry256 = ((sinA * dx256 + cosA * dy256) >> 10) + cy256;
+
+      // scaled_x = rx * Xmult * scale
+      // rx256 is Q8, scale_q8 is Q8 => product is Q16, >> 16 gives integer
+      int32_t scaled_x = (rx256 * Xmult * scale_q8) >> 16;
+      int32_t scaled_y = (ry256 * Ymult * scale_q8) >> 16;
 
       if (SEGMENT.palette == 0) {
-        // Raw RGB mode (original perlin noise colors)
-        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x, scaled_y, t), perlin8(scaled_x, scaled_y + tY), perlin8(scaled_x + tX, scaled_y));
+        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x + tX, scaled_y + tY, t), perlin8(scaled_x + tX, scaled_y + tY + colorOffY), perlin8(scaled_x + tX + colorOffX, scaled_y + tY));
       } else {
-        // Use the selected palette's colors
-        uint8_t paletteIndex = perlin8(scaled_x, scaled_y, t);
-        uint8_t brightness   = perlin8(scaled_x + tX, scaled_y + tY);
+        uint8_t paletteIndex = perlin8(scaled_x + tX, scaled_y + tY, t);
+        uint8_t brightness = perlin8(scaled_x + tX + colorOffX, scaled_y + tY + colorOffY);
         SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, brightness));
       }
     }
   }
-}  
-static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (+/-),X multiplier,Y multiplier,,,Rotation,Random direction;;!;2;";
+}
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;";
 
 
 /////////////////////
