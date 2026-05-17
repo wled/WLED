@@ -284,7 +284,6 @@ void HttpPullLightControl::handleResponse(String& responseStr) {
   if (!requestJSONBufferLock(myLockId)) {
     DEBUG_PRINT(F("ERROR: Can not request JSON Buffer Lock, number: "));
       DEBUG_PRINTLN(myLockId);
-      releaseJSONBufferLock(); // Just release in any case, maybe there was already a buffer lock
     return;
   }
 
