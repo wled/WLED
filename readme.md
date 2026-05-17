@@ -11,7 +11,7 @@
 
 # Welcome to WLED! ✨
 
-A fast and feature-rich firmware for ESP32 and ESP8266 microcontrollers to control addressable LEDs — from simple strips to large 2D matrices and HUB75 panels.
+A fast and feature-rich firmware for ESP32 microcontrollers to control addressable LEDs — from simple strips to large 2D matrices and HUB75 panels.
 
 Originally created by [Aircoookie](https://github.com/Aircoookie), now maintained by a community of contributors.
 
@@ -34,7 +34,7 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 - Configurable **Auto Brightness Limiter** (per output) for safe operation
 
 ### Hardware Support
-- **ESP32** (all variants: original, S2, S3, C3), **ESP8266**
+- **ESP32** (all variants: original, S2, S3, C3)
 - **Up to 17 LED outputs** on ESP32 using parallel I2S + RMT
 - Addressable LED support: WS2812B, WS2811, WS2815, SK6812, WS2805, TM1914, APA102, WS2801, LPD8806, and many more
 - RGBW, RGB+CCT and white-only strips
