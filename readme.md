@@ -22,7 +22,7 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 - 50+ color palettes plus a built-in **custom palette editor** (PixelForge)
 - **2D LED matrix support** with dedicated 2D effects and flexible panel mapping
 - **HUB75 RGB matrix panel support** (ESP32)
-- **AudioReactive** effects — included by default, responding to sound via microphone or line-in
+- **AudioReactive** effects — included by default, responding to sound via microphone, line-in, or network audio source
 - Effect blending for smooth transitions between animations
 - Antialiased drawing functions for smooth graphics
 
