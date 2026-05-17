@@ -92,7 +92,7 @@ Check out the WLED [Discourse forum](https://wled.discourse.group)!
 
 If you'd like to reach the original creator privately: [dev.aircoookie@gmail.com](mailto:dev.aircoookie@gmail.com).
 
-If WLED brightens up your day, you can [![](https://img.shields.io/badge/send%20a%20gift-paypal-blue.svg?style=flat-square)](https://paypal.me/aircoookie)
+If WLED brightens up your day, you can [send a gift to Aircoookie via PayPal](https://paypal.me/aircoookie).
 
 ---
 
