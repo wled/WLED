@@ -1314,7 +1314,7 @@ static void mode_2D_perlinscape(void) {
   stepX += ((targetX - stepX) * 13) >> 8;
   stepY += ((targetY - stepY) * 13) >> 8;
 
-  // dt in milliseconds; offX/offY accumulate in Q8
+  // dt in raw milliseconds; offX/offY accumulate scaled by speedMult
   uint32_t udt = strip.now - prevT;
   int32_t dt = (udt > 500) ? 0 : (int32_t)udt;
   offX += (stepX * dt * speedMult) >> 13;
@@ -1339,8 +1339,7 @@ static void mode_2D_perlinscape(void) {
 
   // rotate if rotation speed is not 0
   if (SEGMENT.custom3 > 0) {
-    angle += (int32_t)SEGMENT.custom3 * dt * 2;
-    angle &= 0xFFFF;  // wrap to 16-bit
+    angle = ((angle + (int32_t)SEGMENT.custom3 * dt * 2) & 0xFFFF);
     cosA = cos16_t((uint16_t)angle) >> 5;
     sinA = sin16_t((uint16_t)angle) >> 5;
   }
