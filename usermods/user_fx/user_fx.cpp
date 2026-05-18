@@ -1273,10 +1273,10 @@ static void mode_2D_perlinscape(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
   const uint16_t width = SEG_W;
   const uint16_t height = SEG_H;
-  if (!SEGENV.allocateData(5 * sizeof(int32_t))) FX_FALLBACK_STATIC;
+  if (!SEGENV.allocateData(5 * sizeof(int32_t) + sizeof(uint32_t))) FX_FALLBACK_STATIC;
 
-  uint32_t speedDiv = map(SEGMENT.speed, 0, 255, 30, 1);
-  uint32_t t = strip.now / speedDiv;
+  uint32_t speedMult = map(SEGMENT.speed, 0, 255, 1, 30);
+  uint32_t t = strip.now / 10;
   uint8_t  Xmult = map(SEGMENT.custom1, 0, 255, 0, 64);
   uint8_t  Ymult = map(SEGMENT.custom2, 0, 255, 0, 64);
 
@@ -1284,7 +1284,8 @@ static void mode_2D_perlinscape(void) {
   int32_t &offY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 1);
   int32_t &stepX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 2);
   int32_t &stepY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 3);
-  int32_t &prevT = *(reinterpret_cast<int32_t*>(SEGENV.data) + 4);
+  int32_t &angle = *(reinterpret_cast<int32_t*>(SEGENV.data) + 4);
+  uint32_t &prevT = *(reinterpret_cast<uint32_t*>(reinterpret_cast<int32_t*>(SEGENV.data) + 5));
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = hw_random16(5000, 10000);
@@ -1293,7 +1294,8 @@ static void mode_2D_perlinscape(void) {
     offY  = 0;
     stepX = 256;   // 1.0 in Q8
     stepY = 256;   // 1.0 in Q8
-    prevT = (int32_t)t;
+    angle = 0;
+    prevT = t;
   }
 
   if (SEGMENT.check1 && (strip.now - SEGENV.step > SEGENV.aux0)) {
@@ -1313,15 +1315,15 @@ static void mode_2D_perlinscape(void) {
   stepY += ((targetY - stepY) * 13) >> 8;
 
   // dt in milliseconds; offX/offY accumulate in Q8
-  int32_t dt = (int32_t)t - prevT;
-  if (dt < 0 || dt > 1000) dt = 0;
-  offX += (stepX * dt) >> 8;
-  offY += (stepY * dt) >> 8;
-  prevT = (int32_t)t;  // store t, not strip.now
+  uint32_t udt = strip.now - prevT;
+  int32_t dt = (udt > 500) ? 0 : (int32_t)udt;
+  offX += (stepX * dt * speedMult) >> 13;
+  offY += (stepY * dt * speedMult) >> 13;
+  prevT = strip.now;
 
   // Integer pixel offsets — gradual drift motion (Q8 >> 8 = integer)
-  int32_t tX = offX >> 2;
-  int32_t tY = offY >> 2;
+  int32_t tX = offX << 1;
+  int32_t tY = offY << 1;
 
   // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
   constexpr uint16_t colorOffX = 300;
@@ -1332,15 +1334,15 @@ static void mode_2D_perlinscape(void) {
   int32_t sinA = 0;
 
   // Center in Q8 (avoids 0.5 fractions)
-  int32_t cx256 = (int32_t)width  * 128;  // width/2 * 256
-  int32_t cy256 = (int32_t)height * 128;  // height/2 * 256
+  int32_t cx256 = (int32_t)width  * 128;
+  int32_t cy256 = (int32_t)height * 128;
 
   // rotate if rotation speed is not 0
   if (SEGMENT.custom3 > 0) {
-    uint32_t rotatePeriod = map(SEGMENT.custom3, 1, 31, 30000, 1000);
-    uint16_t angle = (uint64_t)strip.now * 65536u / rotatePeriod;  // uint64_t needed to prevent overflowing which causes a jump in the animation
-    cosA = cos16_t(angle) >> 5;
-    sinA = sin16_t(angle) >> 5;
+    angle += (int32_t)SEGMENT.custom3 * dt * 2;
+    angle &= 0xFFFF;  // wrap to 16-bit
+    cosA = cos16_t((uint16_t)angle) >> 5;
+    sinA = sin16_t((uint16_t)angle) >> 5;
   }
 
   // scale: map intensity 0-255 -> 10-200, then store as Q8 (divide by 100 baked in)
@@ -1360,8 +1362,8 @@ static void mode_2D_perlinscape(void) {
 
       // scaled_x = rx * Xmult * scale
       // rx256 is Q8, scale_q8 is Q8 => product is Q16, >> 16 gives integer
-      int32_t scaled_x = (rx256 * Xmult * scale_q8) >> 16;
-      int32_t scaled_y = (ry256 * Ymult * scale_q8) >> 16;
+      int32_t scaled_x = int32_t((int64_t(rx256) * Xmult * scale_q8) >> 16);
+      int32_t scaled_y = int32_t((int64_t(ry256) * Ymult * scale_q8) >> 16);
 
       if (SEGMENT.palette == 0) {
         SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x + tX, scaled_y + tY, t), perlin8(scaled_x + tX, scaled_y + tY + colorOffY), perlin8(scaled_x + tX + colorOffX, scaled_y + tY));
@@ -1373,7 +1375,7 @@ static void mode_2D_perlinscape(void) {
     }
   }
 }
-static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;";
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;sx=64,c3=0,o1=1";
 
 
 /////////////////////
