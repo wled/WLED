@@ -225,17 +225,17 @@ void FourLineDisplayUsermod::setup() {
     delay(5);
   }
 #endif
-#ifdef FLD_PIN_RST
+#ifdef FLD_PIN_RESET
   // Some boards require a hardware reset pulse on the display RST pin before
-  // I2C init (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21). Set FLD_PIN_RST in
+  // I2C init (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21). Set FLD_PIN_RESET in
   // your platformio_override.ini to enable this.
-  if (PinManager::allocatePin(FLD_PIN_RST, true, PinOwner::UM_FourLineDisplay)) {
-    pinMode(FLD_PIN_RST, OUTPUT);
-    digitalWrite(FLD_PIN_RST, HIGH);
+  if (PinManager::allocatePin(FLD_PIN_RESET, true, PinOwner::UM_FourLineDisplay)) {
+    pinMode(FLD_PIN_RESET, OUTPUT);
+    digitalWrite(FLD_PIN_RESET, HIGH);
     delay(1);
-    digitalWrite(FLD_PIN_RST, LOW);
+    digitalWrite(FLD_PIN_RESET, LOW);
     delay(10);
-    digitalWrite(FLD_PIN_RST, HIGH);
+    digitalWrite(FLD_PIN_RESET, HIGH);
     delay(10);
   }
 #endif
