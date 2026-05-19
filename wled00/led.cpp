@@ -126,7 +126,6 @@ void stateUpdated(byte callMode) {
     jsonTransitionOnce = false;
     transitionActive = false;
     applyFinalBri();
-    strip.trigger();
   } else {
     if (transitionActive) {
       briOld = briT;
@@ -233,6 +232,7 @@ void handleNightlight() {
         for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
       }
       colorUpdated(CALL_MODE_NO_NOTIFY);
+      applyFinalBri(); // colorUpdated() re-starts transition (if enabled) every 100ms, preventing brightness from changing correctly (fix for #5620)
     }
     if (nper >= 1) //nightlight duration over
     {
