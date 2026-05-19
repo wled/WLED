@@ -11,6 +11,4 @@ COPY . .
 RUN npm ci
 RUN pip install --break-system-packages --ignore-installed -r requirements.txt
 
-ENV WLED_RELEASE=True
-
 CMD ["bash"]
