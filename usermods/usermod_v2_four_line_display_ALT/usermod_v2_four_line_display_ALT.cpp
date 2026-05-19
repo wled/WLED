@@ -219,21 +219,25 @@ void FourLineDisplayUsermod::setup() {
   // Pull the Vext power rail enable pin LOW before display init.
   // Required on boards like the Heltec WiFi LoRa 32 V3 where the OLED is
   // powered via a switchable rail (GPIO36) rather than always-on VCC.
-  pinMode(HELTEC_VEXT_PIN, OUTPUT);
-  digitalWrite(HELTEC_VEXT_PIN, LOW);
-  delay(5); // brief settle time for the power rail
+  if (PinManager::allocatePin(HELTEC_VEXT_PIN, true, PinOwner::UM_FourLineDisplay)) {
+    pinMode(HELTEC_VEXT_PIN, OUTPUT);
+    digitalWrite(HELTEC_VEXT_PIN, LOW);
+    delay(5);
+  }
 #endif
 #ifdef FLD_PIN_RST
   // Some boards require a hardware reset pulse on the display RST pin before
   // I2C init (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21). Set FLD_PIN_RST in
   // your platformio_override.ini to enable this.
-  pinMode(FLD_PIN_RST, OUTPUT);
-  digitalWrite(FLD_PIN_RST, HIGH);
-  delay(1);
-  digitalWrite(FLD_PIN_RST, LOW);
-  delay(10);
-  digitalWrite(FLD_PIN_RST, HIGH);
-  delay(10);
+  if (PinManager::allocatePin(FLD_PIN_RST, true, PinOwner::UM_FourLineDisplay)) {
+    pinMode(FLD_PIN_RST, OUTPUT);
+    digitalWrite(FLD_PIN_RST, HIGH);
+    delay(1);
+    digitalWrite(FLD_PIN_RST, LOW);
+    delay(10);
+    digitalWrite(FLD_PIN_RST, HIGH);
+    delay(10);
+  }
 #endif
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
