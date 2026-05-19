@@ -8,7 +8,7 @@ WORKDIR /workdir
 
 COPY . .
 
-RUN npm ci || npm install
+RUN npm ci
 RUN pip install --break-system-packages --ignore-installed -r requirements.txt
 
 ENV WLED_RELEASE=True
