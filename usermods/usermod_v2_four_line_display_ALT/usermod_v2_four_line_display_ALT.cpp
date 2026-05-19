@@ -225,20 +225,6 @@ void FourLineDisplayUsermod::setup() {
     delay(5);
   }
 #endif
-#ifdef FLD_PIN_RESET
-  // Some boards require a hardware reset pulse on the display RST pin before
-  // I2C init (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21). Set FLD_PIN_RESET in
-  // your platformio_override.ini to enable this.
-  if (PinManager::allocatePin(FLD_PIN_RESET, true, PinOwner::UM_FourLineDisplay)) {
-    pinMode(FLD_PIN_RESET, OUTPUT);
-    digitalWrite(FLD_PIN_RESET, HIGH);
-    delay(1);
-    digitalWrite(FLD_PIN_RESET, LOW);
-    delay(10);
-    digitalWrite(FLD_PIN_RESET, HIGH);
-    delay(10);
-  }
-#endif
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
   // check if pins are -1 and disable usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
@@ -251,17 +237,22 @@ void FourLineDisplayUsermod::setup() {
     }
   } else {
     if (i2c_scl<0 || i2c_sda<0) { type=NONE; }
+#if FLD_PIN_RESET != U8X8_PIN_NONE
+    // Reserve the display reset pin (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21).
+    // The U8x8 driver performs the actual reset pulse during init.
+    else if (!PinManager::allocatePin(FLD_PIN_RESET, true, PinOwner::UM_FourLineDisplay)) { type=NONE; }
+#endif
   }
 
   DEBUG_PRINTLN(F("Allocating display."));
   switch (type) {
     // U8X8 uses Wire (or Wire1 with 2ND constructor) and will use existing Wire properties (calls Wire.begin() though)
-    case SSD1306:       u8x8 = (U8X8 *) new U8X8_SSD1306_128X32_UNIVISION_HW_I2C(); break;
-    case SH1106:        u8x8 = (U8X8 *) new U8X8_SH1106_128X64_WINSTAR_HW_I2C();    break;
-    case SSD1306_64:    u8x8 = (U8X8 *) new U8X8_SSD1306_128X64_NONAME_HW_I2C();    break;
-    case SSD1305:       u8x8 = (U8X8 *) new U8X8_SSD1305_128X32_ADAFRUIT_HW_I2C();  break;
-    case SSD1305_64:    u8x8 = (U8X8 *) new U8X8_SSD1305_128X64_ADAFRUIT_HW_I2C();  break;
-    case SSD1309_64:    u8x8 = (U8X8 *) new U8X8_SSD1309_128X64_NONAME0_HW_I2C();   break;
+    case SSD1306:       u8x8 = (U8X8 *) new U8X8_SSD1306_128X32_UNIVISION_HW_I2C(FLD_PIN_RESET); break;
+    case SH1106:        u8x8 = (U8X8 *) new U8X8_SH1106_128X64_WINSTAR_HW_I2C(FLD_PIN_RESET);    break;
+    case SSD1306_64:    u8x8 = (U8X8 *) new U8X8_SSD1306_128X64_NONAME_HW_I2C(FLD_PIN_RESET);    break;
+    case SSD1305:       u8x8 = (U8X8 *) new U8X8_SSD1305_128X32_ADAFRUIT_HW_I2C(FLD_PIN_RESET);  break;
+    case SSD1305_64:    u8x8 = (U8X8 *) new U8X8_SSD1305_128X64_ADAFRUIT_HW_I2C(FLD_PIN_RESET);  break;
+    case SSD1309_64:    u8x8 = (U8X8 *) new U8X8_SSD1309_128X64_NONAME0_HW_I2C(FLD_PIN_RESET);   break;
     // U8X8 uses global SPI variable that is attached to VSPI bus on ESP32
     case SSD1306_SPI:   u8x8 = (U8X8 *) new U8X8_SSD1306_128X32_UNIVISION_4W_HW_SPI(ioPin[0], ioPin[1], ioPin[2]); break; // Pins are cs, dc, reset
     case SSD1306_SPI64: u8x8 = (U8X8 *) new U8X8_SSD1306_128X64_NONAME_4W_HW_SPI(ioPin[0], ioPin[1], ioPin[2]);    break; // Pins are cs, dc, reset
