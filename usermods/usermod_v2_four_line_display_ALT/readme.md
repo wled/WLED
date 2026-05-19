@@ -58,6 +58,22 @@ These options are configurable in Config > Usermods
 
 Note: the Four Line Display usermod requires the libraries `U8g2` and `Wire`.
 
+### Board-specific Build Flags
+
+Some boards require special initialization for I2C displays:
+
+* `FLD_PIN_RST` - GPIO pin for display hardware reset (optional)
+  * Set in your `platformio.ini` or `platformio_override.ini`: `-D FLD_PIN_RST=<pin>`
+  * Performs a reset pulse before I2C initialization
+  * Required on boards like Heltec WiFi LoRa 32 V3 (GPIO21)
+  * Example: `-D FLD_PIN_RST=21`
+
+* `HELTEC_VEXT_PIN` - GPIO pin to enable switchable OLED power rail (optional)
+  * Set in your `platformio.ini`: `-D HELTEC_VEXT_PIN=<pin>`
+  * Pulls the pin LOW before display init to enable power
+  * Required on boards where the OLED is powered via a switchable rail rather than always-on VCC
+  * Example: `-D HELTEC_VEXT_PIN=36` for Heltec WiFi LoRa 32 V3
+
 ## Change Log
 
 2021-10
