@@ -216,21 +216,13 @@ void FourLineDisplayUsermod::sleepOrClock(bool enabled) {
 // network here
 void FourLineDisplayUsermod::setup() {
 #ifdef HELTEC_VEXT_PIN
+  // Pull the Vext power rail enable pin LOW before display init.
+  // Required on boards like the Heltec WiFi LoRa 32 V3 where the OLED is
+  // powered via a switchable rail (GPIO36) rather than always-on VCC.
   pinMode(HELTEC_VEXT_PIN, OUTPUT);
-  digitalWrite(HELTEC_VEXT_PIN, LOW);  // Enable Vext power
-  delay(100);  // Wait for power to stabilize
-  DEBUG_PRINTLN(F("GPIO36 Vext power enabled."));
+  digitalWrite(HELTEC_VEXT_PIN, LOW);
+  delay(5); // brief settle time for the power rail
 #endif
-  // Reset display on GPIO21 (Heltec-specific)
-  const int RST_PIN = 21;
-  pinMode(RST_PIN, OUTPUT);
-  digitalWrite(RST_PIN, HIGH);
-  delay(50);
-  digitalWrite(RST_PIN, LOW);
-  delay(50);
-  digitalWrite(RST_PIN, HIGH);
-  delay(100);
-
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
   // check if pins are -1 and disable usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
