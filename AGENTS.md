@@ -105,6 +105,17 @@ docs/                # Coding convention docs
 - No VLAs — use fixed arrays or heap allocation
 - Call `reserve()` on strings/vectors to pre-allocate and avoid fragmentation
 
+#### PSRAM guidelines
+
+- **Check availability**: Test chip availability with `psramFound()` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
+- **DMA compatibility**: on ESP32 (classic), PSRAM buffers are **not DMA-capable**. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
+- **Fragmentation**: PSRAM allocations fragment less than DRAM because the region is larger. But avoid mixing small and large allocations in PSRAM — small allocations waste the MMU page granularity.
+- **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated.
+
+Background Info:
+- PSRAM access is up to 18× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- Consider that ESP32 often crashes when the largest DRAM chunk gets below 10 KB.
+
 ### Preprocessor / Feature Flags
 - Feature toggling: `WLED_DISABLE_*` and `WLED_ENABLE_*` flags (exact names matter!)
 - `WLED_DISABLE_*`: `2D`, `ADALIGHT`, `ALEXA`, `MQTT`, `OTA`, `INFRARED`, `WEBSOCKETS`, etc.
