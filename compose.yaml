@@ -1,0 +1,7 @@
+services:
+  wled-build:
+    image: wled-build
+    build: .
+    volumes:
+      - ./build_output:/workdir/build_output
+    command: ["bash", "-c", "npm run build && pio run -e $PIO_ENV"]
