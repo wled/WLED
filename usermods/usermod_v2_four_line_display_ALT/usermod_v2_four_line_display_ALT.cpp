@@ -223,6 +223,18 @@ void FourLineDisplayUsermod::setup() {
   digitalWrite(HELTEC_VEXT_PIN, LOW);
   delay(5); // brief settle time for the power rail
 #endif
+#ifdef FLD_PIN_RST
+  // Some boards require a hardware reset pulse on the display RST pin before
+  // I2C init (e.g. Heltec WiFi LoRa 32 V3 uses GPIO21). Set FLD_PIN_RST in
+  // your platformio_override.ini to enable this.
+  pinMode(FLD_PIN_RST, OUTPUT);
+  digitalWrite(FLD_PIN_RST, HIGH);
+  delay(1);
+  digitalWrite(FLD_PIN_RST, LOW);
+  delay(10);
+  digitalWrite(FLD_PIN_RST, HIGH);
+  delay(10);
+#endif
   bool isSPI = (type == SSD1306_SPI || type == SSD1306_SPI64 || type == SSD1309_SPI64);
 
   // check if pins are -1 and disable usermod as PinManager::allocateMultiplePins() will accept -1 as a valid pin
