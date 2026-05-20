@@ -178,6 +178,7 @@ void serializeInfo(JsonObject root);
 void serializeModeNames(JsonArray arr);
 void serializePins(JsonObject root);
 void serveJson(AsyncWebServerRequest* request);
+void serveLog(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
