@@ -153,7 +153,8 @@ class Animated_Staircase : public Usermod {
       digitalWrite(signalPin, HIGH);
       delayMicroseconds(10);
       digitalWrite(signalPin, LOW);
-      return pulseIn(echoPin, HIGH, maxTimeUs) > 0;
+      unsigned long duration = pulseIn(echoPin, HIGH, 30000);
+      return (duration > 0 && duration < maxTimeUs);
     }
 
     bool checkSensors() {
