@@ -2651,19 +2651,18 @@ static void twinklefox_base(bool cat)
   if (SEGMENT.speed > 100) SEGENV.aux0 = 3 + ((255 - SEGMENT.speed) >> 3);
   else SEGENV.aux0 = 22 + ((100 - SEGMENT.speed) >> 1);
 
-  // Set up the background color, "bg".
+  // Set up the background color, "bg". Note: using gamma invert for brightness as the FX was written without any gamma correction, it will dim down too much now
   CRGBW bg = SEGCOLOR(1);
-  unsigned bglight = bg.getAverageLight();
+  unsigned bglight = bg.getRGBaverage();
   if (bglight > 64) {
-    bg = color_fade(bg, 16, true); // very bright, so scale to 1/16th
+    bg = color_fade(bg, gamma8inv(16), true); // very bright, so scale to 1/16th
   } else if (bglight > 16) {
-    bg = color_fade(bg, 64, true); // not that bright, so scale to 1/4th
+    bg = color_fade(bg, gamma8inv(64), true); // not that bright, so scale to 1/4
   } else {
-    bg = color_fade(bg, 86, true); // dim, scale to 1/3rd.
+    bg = color_fade(bg, gamma8inv(86), true); // dim, scale to 1/3rd
   }
-  bg = gamma32inv(bg); // need to invert gamma as the FX was written without any gamma correction and it will dim down too much otherwise
 
-  unsigned backgroundBrightness = bg.getAverageLight();
+  bglight = bg.getRGBaverage(); // update after scaling
 
   for (unsigned i = 0; i < SEGLEN; i++) {
 
@@ -2680,8 +2679,8 @@ static void twinklefox_base(bool cat)
     // on the "brightness = f( time )" idea.
     CRGBW c = twinklefox_one_twinkle(myclock30, myunique8, cat);
 
-    unsigned cbright = c.getAverageLight();
-    int deltabright = cbright - backgroundBrightness;
+    unsigned cbright = c.getRGBaverage();
+    int deltabright = cbright - bglight;
     if (deltabright >= 32 || (bg==0)) {
       // If the new pixel is significantly brighter than the background color,
       // use the new color.
