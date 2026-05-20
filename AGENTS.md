@@ -107,7 +107,7 @@ docs/                # Coding convention docs
 
 #### PSRAM guidelines
 
-- **Check availability**: Test chip availability with `psramFound()` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
+- **Check availability**: Test chip availability with `psramFound() && ESP.getPsramSize() > 0` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
 - **DMA compatibility**: on ESP32 (classic), PSRAM buffers are **not DMA-capable**. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
 - **Fragmentation**: PSRAM allocations fragment less than DRAM because the region is larger. But avoid mixing small and large allocations in PSRAM — small allocations waste the MMU page granularity.
 - **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated.
