@@ -1,0 +1,8 @@
+.git
+.github
+.vscode
+.devcontainer
+*.log
+*.tmp
+node_modules/
+build_output/
