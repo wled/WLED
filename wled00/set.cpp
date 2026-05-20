@@ -13,8 +13,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     return;
   }
 
-  //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec 7: DMX 8: usermods 9: N/A 10: 2D
-  if (subPage < 1 || subPage > 10 || !correctPIN) return;
+  // see SUBPAGE_* in const.h
+  if (subPage < 1 || subPage > SUBPAGE_LAST || !correctPIN) return;
 
   //WIFI SETTINGS
   if (subPage == SUBPAGE_WIFI)
@@ -876,6 +876,20 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     strip.resume();
   }
   #endif
+
+  if (subPage == SUBPAGE_FX)
+  {
+    for (size_t i = 0; i < 8; i++) hiddenFxMask[i] = 0;
+    String s = request->arg(F("FXH"));
+    int idx = 0;
+    while (idx < (int)s.length()) {
+      int comma = s.indexOf(',', idx);
+      int end = (comma < 0) ? s.length() : comma;
+      int id = s.substring(idx, end).toInt();
+      if (id > 0 && id < 256) setFxHidden((uint8_t)id, true);
+      idx = (comma < 0) ? s.length() : comma + 1;
+    }
+  }
 
   lastEditTime = millis();
   // do not save if factory reset or LED settings (which are saved after LED re-init)

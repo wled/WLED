@@ -430,6 +430,10 @@ WLED_GLOBAL char serverDescription[33] _INIT(SERVERNAME);  // use predefined nam
 #endif
 WLED_GLOBAL bool simplifiedUI          _INIT(false);   // enable simplified UI
 WLED_GLOBAL byte cacheInvalidate       _INIT(0);       // used to invalidate browser cache
+WLED_GLOBAL uint32_t hiddenFxMask[8]   _INIT_N(({0,0,0,0,0,0,0,0})); // bitmap, 1 bit per effect id (0..255); 1 = user-hidden
+inline bool isFxHidden(uint8_t id)             { return (hiddenFxMask[id >> 5] >> (id & 31)) & 1u; }
+inline void setFxHidden(uint8_t id, bool hide) { if (hide) hiddenFxMask[id >> 5] |=  (1u << (id & 31));
+                                                 else      hiddenFxMask[id >> 5] &= ~(1u << (id & 31)); }
 
 // Sync CONFIG
 WLED_GLOBAL NodesMap Nodes;
