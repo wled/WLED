@@ -11,6 +11,8 @@
 #if defined(ARDUINO_ARCH_ESP32) && (defined(WLED_DEBUG) || defined(SR_DEBUG))
 #include <esp_timer.h>
 #endif
+#define ESPNOW_AUDIO_SYNC_SKIP_PACKET_DECL  // audio_reactive.cpp already declares audioSyncPacket
+#include "espnow_audio_sync.h"
 
 /*
  * Usermods allow you to add own functionality to WLED more easily
@@ -296,17 +298,17 @@ void FFTcode(void * parameter)
   ArduinoFFT<float> FFT = ArduinoFFT<float>(valFFT, vImag, samplesFFT, SAMPLE_RATE, true);
 #elif !defined(UM_AUDIOREACTIVE_USE_INTEGER_FFT)
   // allocate and initialize FFT buffers on first call
-  // note: free() is never used on these pointers. If it ever is implemented, this implementation can cause memory leaks (need to free raw pointers)
   if (valFFT == nullptr) {
-    float* raw_buffer = (float*)heap_caps_malloc((2 * samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
-    if ((raw_buffer == nullptr)) return; // something went wrong
-    valFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    valFFT = (float*)heap_caps_aligned_calloc(16, 2 * samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    if ((valFFT == nullptr)) return; // something went wrong
   }
   // create window
   if (windowFFT == nullptr) {
-    float* raw_buffer = (float*)heap_caps_malloc((samplesFFT * sizeof(float)) + 16, MALLOC_CAP_8BIT);
-    if ((raw_buffer == nullptr)) return; // something went wrong
-    windowFFT = (float*)(((uintptr_t)raw_buffer + 15) & ~15);  // SIMD requires aligned memory to 16-byte boundary
+    windowFFT = (float*)heap_caps_aligned_calloc(16, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // SIMD requires aligned memory to 16-byte boundary. note in IDF5 there is MALLOC_CAP_SIMD available
+    if ((windowFFT == nullptr)) {
+      heap_caps_free(valFFT); valFFT = nullptr;
+      return; // something went wrong
+    }
   }
   if (dsps_fft2r_init_fc32(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
   // create window function for FFT
@@ -316,16 +318,20 @@ void FFTcode(void * parameter)
   dsps_wind_flat_top_f32(windowFFT, samplesFFT);
 #endif
 #else
-  // allocate and initialize integer FFT buffers on first call
-  if (valFFT == nullptr) valFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT * 2);
-  if ((valFFT == nullptr)) return; // something went wrong
+  // use integer FFT - allocate and initialize integer FFT buffers on first call, 4 bytes aligned (just in case, even if not strictly needed for int16_t)
+  if (valFFT == nullptr) valFFT = (int16_t*) heap_caps_aligned_calloc(4, samplesFFT * 2, sizeof(int16_t), MALLOC_CAP_8BIT); 
   // create window
-  if (windowFFT == nullptr) windowFFT = (int16_t*) calloc(sizeof(int16_t), samplesFFT);
-  if ((windowFFT == nullptr)) return; // something went wrong
-  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+  if (windowFFT == nullptr) windowFFT = (int16_t*) heap_caps_aligned_calloc(4, samplesFFT, sizeof(int16_t), MALLOC_CAP_8BIT);
   // create window function for FFT
-  float *windowFloat = (float*) calloc(sizeof(float), samplesFFT); // temporary buffer for window function
-  if ((windowFloat == nullptr)) return; // something went wrong
+  float *windowFloat = (float*) heap_caps_aligned_calloc(4, samplesFFT, sizeof(float), MALLOC_CAP_8BIT); // temporary buffer for window function
+  if (windowFloat == nullptr || windowFFT == nullptr || valFFT == nullptr) { // something went wrong
+    if (windowFloat) heap_caps_free(windowFloat);
+    if (windowFFT) heap_caps_free(windowFFT); windowFFT = nullptr;
+    if (valFFT) heap_caps_free(valFFT); valFFT = nullptr;
+    return;
+  }
+  if (dsps_fft2r_init_sc16(NULL, samplesFFT) != ESP_OK) return; // initialize FFT tables
+
 #ifdef FFT_PREFER_EXACT_PEAKS
   dsps_wind_blackman_harris_f32(windowFloat, samplesFFT);
 #else
@@ -335,7 +341,7 @@ void FFTcode(void * parameter)
   for (int i = 0; i < samplesFFT; i++) {
     windowFFT[i] = (int16_t)(windowFloat[i] * 32767.0f);
   }
-  free(windowFloat); // free temporary buffer
+  heap_caps_free(windowFloat); // free temporary buffer
 #endif
 
   // see https://www.freertos.org/vtaskdelayuntil.html
@@ -468,7 +474,6 @@ void FFTcode(void * parameter)
       }
       FFT_Magnitude = FFT_Magnitude_int * 512; // scale to match raw float value
       FFT_MajorPeak = FFT_MajorPeak_int;
-      FFT_Magnitude = FFT_Magnitude_int;
 #endif
 #endif
       FFT_MajorPeak = constrain(FFT_MajorPeak, 1.0f, 11025.0f);   // restrict value to range expected by effects
@@ -838,6 +843,7 @@ class AudioReactive : public Usermod {
     unsigned long lastTime = 0;   // last time of running UDP Microphone Sync
     const uint16_t delayMs = 10;  // I don't want to sample too often and overload WLED
     uint16_t audioSyncPort= 11988;// default port for UDP sound sync
+    uint8_t  audioSyncTransport = 0;  // NEW: 0 = UDP (stock), 1 = ESP-NOW (low-latency)
 
     bool updateIsRunning = false; // true during OTA.
 
@@ -886,6 +892,7 @@ class AudioReactive : public Usermod {
     static const char _palName2[];
     static const char UDP_SYNC_HEADER[];
     static const char UDP_SYNC_HEADER_v1[];
+    static const char _syncTransport[];
 
     // private methods
     void removeAudioPalettes(void);
@@ -1218,9 +1225,15 @@ class AudioReactive : public Usermod {
       transmitData.FFT_Magnitude = my_magnitude;
       transmitData.FFT_MajorPeak = FFT_MajorPeak;
 
-      if (fftUdp.beginMulticastPacket() != 0) { // beginMulticastPacket returns 0 in case of error
-        fftUdp.write(reinterpret_cast<uint8_t *>(&transmitData), sizeof(transmitData));
-        fftUdp.endPacket();
+      if (audioSyncTransport == 1) {
+        // NEW: ESP-NOW transport
+        espnowAudioSync::send(&transmitData, sizeof(transmitData));
+      } else {
+        // UDP transport (stock behaviour)
+        if (fftUdp.beginMulticastPacket() != 0) { // beginMulticastPacket returns 0 in case of error
+          fftUdp.write(reinterpret_cast<uint8_t *>(&transmitData), sizeof(transmitData));
+          fftUdp.endPacket();
+        }
       }
       return;
     } // transmitAudioData()
@@ -1295,17 +1308,24 @@ class AudioReactive : public Usermod {
 
     bool receiveAudioData()   // check & process new data. return TRUE in case that new audio data was received. 
     {
+      if (audioSyncTransport == 1) {
+        // NEW: ESP-NOW transport
+        audioSyncPacket enFrame;
+        uint32_t        enDeadline = 0;
+        if (espnowAudioSync::poll(&enFrame, sizeof(enFrame), &enDeadline, /*renderDelayUs=*/15000)) {
+          decodeAudioData(sizeof(enFrame), reinterpret_cast<uint8_t*>(&enFrame));
+          receivedFormat = 2;
+          last_UDPTime   = millis();
+          return true;
+        }
+        return false;
+      }
       if (!udpSyncConnected) return false;
       bool haveFreshData = false;
 
       size_t packetSize = fftUdp.parsePacket();
 #ifdef ARDUINO_ARCH_ESP32
-      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET)))
-        #if ESP_IDF_VERSION_MAJOR < 5
-        fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
-        #else
-        fftUdp.clear(); // function was renamed in newer frameworks
-        #endif
+      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET))) fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
 #endif
       if ((packetSize > 5) && (packetSize <= UDPSOUND_MAX_PACKET)) {
         //DEBUGSR_PRINTLN("Received UDP Sync Packet");
@@ -1513,6 +1533,12 @@ class AudioReactive : public Usermod {
         udpSyncConnected = fftUdp.beginMulticast(WiFi.localIP(), IPAddress(239, 0, 0, 1), audioSyncPort);
       #endif
       }
+      // NEW: bring up ESP-NOW transport (auto-detects hosted vs standalone)
+      const uint8_t syncChannel = WiFi.channel();
+      const bool    amSender    = (audioSyncEnabled & 0x01) != 0;
+      if (!espnowAudioSync::begin(syncChannel, amSender)) {
+        DEBUG_PRINTLN(F("[ENaudio] espnowAudioSync::begin() failed - falling back to UDP."));
+      }
     }
 
 
@@ -1538,9 +1564,14 @@ class AudioReactive : public Usermod {
       // We cannot wait indefinitely before processing audio data
       if (strip.isUpdating() && (millis() - lastUMRun < 2)) return;   // be nice, but not too nice
 
-      // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET, DDP, DMX)
-      //  exception: sound input is still needed when useMainSegmentOnly - other segments are still running with local input.
-      if (realtimeMode && !realtimeOverride && !useMainSegmentOnly) {
+      // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET)
+      if (  (realtimeOverride == REALTIME_OVERRIDE_NONE)  // please add other overrides here if needed
+          &&( (realtimeMode == REALTIME_MODE_GENERIC)
+            ||(realtimeMode == REALTIME_MODE_E131)
+            ||(realtimeMode == REALTIME_MODE_UDP)
+            ||(realtimeMode == REALTIME_MODE_ADALIGHT)
+            ||(realtimeMode == REALTIME_MODE_ARTNET) ) )  // please add other modes here if needed
+      {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
         if ((disableSoundProcessing == false) && (audioSyncEnabled == 0)) {  // we just switched to "disabled"
           DEBUG_PRINTLN(F("[AR userLoop]  realtime mode active - audio processing suspended."));
@@ -1617,11 +1648,7 @@ class AudioReactive : public Usermod {
             have_new_sample = receiveAudioData();
             if (have_new_sample) last_UDPTime = millis();
 #ifdef ARDUINO_ARCH_ESP32
-            #if ESP_IDF_VERSION_MAJOR < 5
             else fftUdp.flush(); // Flush udp input buffers if we haven't read it - avoids hickups in receive mode. Does not work on 8266.
-            #else
-            else fftUdp.clear(); // function was renamed in newer frameworks
-            #endif
 #endif
             lastTime = millis();
           }
@@ -1726,7 +1753,7 @@ class AudioReactive : public Usermod {
           );
       }
       micDataReal = 0.0f;                     // just to be sure
-      if (enabled) disableSoundProcessing = false;  // allows FFT_Task to run at least once, even when loop() might disable again
+      if (enabled) disableSoundProcessing = false;
       updateIsRunning = init;
     }
 
@@ -1903,6 +1930,37 @@ class AudioReactive : public Usermod {
             if (receivedFormat == 2) infoArr.add(F(" v2"));
         }
 
+        // NEW: ESP-NOW audio sync stats (only shown when transport is set to ESP-NOW)
+        if (audioSyncTransport == 1) {
+          auto s = espnowAudioSync::stats();
+
+          infoArr = user.createNestedArray(F("ESP-NOW Audio RX"));
+          infoArr.add(s.rx);
+          infoArr.add(F(" frames"));
+
+          infoArr = user.createNestedArray(F("ESP-NOW Frame Loss"));
+          uint32_t denom = s.rx + s.gaps;
+          if (denom > 0) {
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.2f %%", 100.0f * (float)s.gaps / (float)denom);
+            infoArr.add(buf);
+          } else {
+            infoArr.add(F("--"));
+          }
+
+          infoArr = user.createNestedArray(F("ESP-NOW Audio TX"));
+          infoArr.add(s.tx);
+          infoArr.add(F(" packets"));
+
+          if (s.tx_err > 0) {
+            infoArr = user.createNestedArray(F("ESP-NOW TX Errors"));
+            infoArr.add(s.tx_err);
+          }
+
+          infoArr = user.createNestedArray(F("ESP-NOW Mode"));
+          infoArr.add(espnowAudioSync::isHosted() ? F("hosted (sharing WLED stack)") : F("standalone"));
+        }
+
         #if defined(WLED_DEBUG) || defined(SR_DEBUG)
         #ifdef ARDUINO_ARCH_ESP32
         infoArr = user.createNestedArray(F("Sampling time"));
@@ -1974,6 +2032,19 @@ class AudioReactive : public Usermod {
         createAudioPalettes();
       }
     }
+
+#ifndef WLED_DISABLE_ESPNOW
+    // NEW: ESP-NOW audio-sync coexistence hook.
+    // WLED's core ESP-NOW dispatcher (espNowReceiveCB in wled00/udp.cpp)
+    // calls this on every received packet BEFORE its own WiZmote/state-sync
+    // handling. We grab audio-sync packets (magic bytes match) and return
+    // true; WLED then skips the rest of its dispatch. Any other packet =>
+    // we return false and WLED proceeds normally. This is what lets WiZmote
+    // remotes and ESP-NOW state-sync keep working alongside audio sync.
+    bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) override {
+      return espnowAudioSync::handleIncomingPacket(data, len);
+    }
+#endif
 
     /*
      * addToConfig() can be used to add custom persistent settings to the cfg.json file in the "um" (usermod) object.
@@ -2047,6 +2118,7 @@ class AudioReactive : public Usermod {
       JsonObject sync = top.createNestedObject("sync");
       sync["port"] = audioSyncPort;
       sync["mode"] = audioSyncEnabled;
+      sync[FPSTR(_syncTransport)] = audioSyncTransport;
     }
 
 
@@ -2107,6 +2179,7 @@ class AudioReactive : public Usermod {
 #endif
       configComplete &= getJsonValue(top["sync"]["port"], audioSyncPort);
       configComplete &= getJsonValue(top["sync"]["mode"], audioSyncEnabled);
+      configComplete &= getJsonValue(top["sync"][FPSTR(_syncTransport)], audioSyncTransport, (uint8_t)0);
 
       if (initDone) {
         // add/remove custom/audioreactive palettes
@@ -2164,6 +2237,10 @@ class AudioReactive : public Usermod {
       uiScript.print(F("addOption(dd,'Send',1);"));
 #endif
       uiScript.print(F("addOption(dd,'Receive',2);"));
+      // NEW: Audio Sync Transport selector (UDP vs ESP-NOW)
+      uiScript.print(F("dd=addDropdown(ux,'sync:transport');"));
+      uiScript.print(F("addOption(dd,'UDP (default)',0);"));
+      uiScript.print(F("addOption(dd,'ESP-NOW (low-latency)',1);"));
 #ifdef ARDUINO_ARCH_ESP32
       uiScript.print(F("addInfo(ux+':digitalmic:type',1,'<i>requires reboot!</i>');"));  // 0 is field type, 1 is actual field
       uiScript.print(F("addInfo(uxp,0,'<i>sd/data/dout</i>','I2S SD');"));
@@ -2300,6 +2377,7 @@ const char AudioReactive::_palName1[]              PROGMEM = "Hue";
 const char AudioReactive::_palName2[]              PROGMEM = "Spectrum";
 const char AudioReactive::UDP_SYNC_HEADER[]    PROGMEM = "00002"; // new sync header version, as format no longer compatible with previous structure
 const char AudioReactive::UDP_SYNC_HEADER_v1[] PROGMEM = "00001"; // old sync header version - need to add backwards-compatibility feature
+const char AudioReactive::_syncTransport[]     PROGMEM = "transport";
 
 static AudioReactive ar_module;
 REGISTER_USERMOD(ar_module);
