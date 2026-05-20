@@ -238,3 +238,38 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 **Approach:** Five-file chain: `set_metadata.py` calls `get_git_commit()` and injects `WLED_GIT_COMMIT` as a compiler define scoped only to `wled_metadata.cpp`. `wled_metadata.cpp` defines `gitCommitString` from that flag. `wled_metadata.h` declares it. `json.cpp` serialises it into `/json/info` as the `commit` field. `index.js` reads `i.commit` in `parseInfo()` and renders it as an info row: `${i.commit ? inforow("Commit", i.commit) : ""}`.
 **Gotcha:** If `get_git_commit()` fails silently in `set_metadata.py` (e.g. git not available in the build environment), `WLED_GIT_COMMIT` is undefined and the Info page shows "unknown" with no build error surfaced.
 **Deploy:** Requires cmd 2 (C++ change — no web UI source change needed beyond index.js which is a cmd 1 + cmd 2).
+
+---
+
+## REQ 3.17 / 3.17.1 — Factory Settings page with PIN
+
+**Files:** `wled00/data/settings.htm`, `wled00/data/factory.htm` (new)
+**Approach:** `factory.htm` is a new file in `wled00/data/`, served automatically by WLED's LittleFS file handler at `/factory.htm` — no C++ route change needed. It mirrors the `settings.htm` structure (same `common.js` + `style.css` load pattern and button CSS). The "Factory Settings" button in `settings.htm` calls `showFactoryPin()`, which shows an inline PIN modal with its own IDs (`fpinModal`, `fpinDisplay`, `fpinError`) to avoid any clash with removed index.htm PIN elements. On correct PIN (3865), navigates to `getURL('/factory.htm')`. PIN logic uses `document.getElementById` directly (not `gId`) to avoid any timing dependency on common.js loading.
+**Gotchas:** The factory.htm PIN modal buttons have `width:auto; margin:0; height:auto;` inline styles — without these, the settings.htm button CSS (which sets `width: calc(100% - 40px)`) bleeds into the PIN keypad buttons and breaks the grid layout.
+**Deploy:** Requires cmd 3 (uploadfs).
+
+---
+
+## REQ 3.18 — Remove PIN from Config/Settings cog
+
+**Files:** `wled00/data/index.htm`
+**Approach:** Removed the Config button (`onclick="showPinKeypad()"`) from the top nav `btnwrap` entirely. Removed the `#pinModal` overlay div and its `<script>` block from `index.htm`. The bottom-nav settings cog navigates directly to `/settings` with no PIN.
+**Gotchas:** None — the Config button had no ID so no JS references it.
+**Deploy:** Requires cmd 3 (uploadfs).
+
+---
+
+## REQ 3.19 / 3.19.1 — Top nav restructure; Settings cog in bottom nav
+
+**Files:** `wled00/data/index.htm`, `wled00/data/index.css`
+**Approach:** `buttonNodes` and `buttonPcm` kept in the HTML DOM (JS references them by ID for active-class toggling and display-state changes) but hidden via `display:none !important` on their element IDs in the AI CSS block. The Config button was removed from the HTML entirely (no ID, no JS reference). A new `<button class="bot-settings">` added as the 5th child of `.tab.bot` — it does NOT have class `tablinks`, so it never enters the `tablinks[]` array and does not shift `tablinks[2]` (Segments) or `tablinks[3]` (Presets).
+**Gotchas:** Never give the settings cog button the `tablinks` class — that would shift the hidden Segments/Presets indices and break tab switching. The existing `.bot button:nth-child(3)` and `:nth-child(4)` CSS rules still correctly target the hidden Segments and Presets buttons.
+**Deploy:** Requires cmd 3 (uploadfs).
+
+---
+
+## REQ 3.20 — Brightness slider shrunk 30% with dim icon on left
+
+**Files:** `wled00/data/index.htm`, `wled00/data/index.css`
+**Approach:** Added `<span class="bri-dim-icon">&#x1F505;</span>` (🔅 U+1F505 low-brightness symbol) as first child of `#briwrap`, before the `.slider` div. In the AI CSS block: set `#briwrap` to `display:flex; align-items:center; gap:4px; min-width:140px` so the icon and slider sit side-by-side. Reduced `#briwrap .sliderwrap` from 161px to 113px (70% of original) with `!important` to override the main CSS rule. `.bri-dim-icon` gets `font-size:20px; line-height:1; flex-shrink:0`.
+**Gotchas:** The `#briwrap .sliderwrap` width is set in the main CSS at line 795 — the override must use `!important`. The `<p class="hd">Brightness</p>` stays in the HTML but is already `display:none` via the `.hd` CSS variable (`--bhd: none`), so it does not appear as a flex child in the layout.

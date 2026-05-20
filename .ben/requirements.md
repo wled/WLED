@@ -38,7 +38,7 @@
 
 ## 3. UI
 
-**3.1** `deff283f` [2026-05-03 17:29] — Add Segments, Presets, and Info navigation buttons to the Config page so removed nav items remain accessible.
+~~**3.1** `deff283f` [2026-05-03 17:29] — Add Segments, Presets, and Info navigation buttons to the Config page so removed nav items remain accessible.~~ *(superseded by REQ 3.22)*
   **3.1.1** `deff283f` [2026-05-03 17:29] — Pill buttons styled as dark gold: background #4a4a00, text #ffd700, border-radius 20px, touch-friendly sizing (3.5vmin font size).
   **3.1.2** `deff283f` [2026-05-03 17:29] — Default tab on UI load must be Effects (tab index 1), not Colors.
 **3.2** `54f70d1e` [2026-05-03 17:58] — Remove icon buttons from the top navigation bar.
@@ -58,6 +58,19 @@
 ~~**3.14** `e118703a` [2026-05-04 21:07] — Add a demo mode alert message under the top nav bar with background #eb8634 and white text reading 'Limited app functionality in demo model'.~~ *(superseded by REQ 3.16)*
 **3.16** `pending` [2026-05-20] — Remove the demo mode alert banner entirely from the UI.
 **3.15** `233c6081` [2026-05-12 22:13] — Display the current Git commit ID on the WLED Info page.
+~~**3.5** `54f70d1e` [2026-05-03 17:58] — Top navigation bar must contain exactly these buttons: Power, Home, Nodes, Config, and PC Mode.~~ *(superseded by REQ 3.19)*
+~~**3.13** `e118703a` [2026-05-04 21:07] — Apply a keypad/PIN lock to the Config button to restrict access.~~ *(superseded by REQ 3.18)*
+~~**3.13.1** `e118703a` [2026-05-04 21:07] — The PIN code for the Config button keypad lock is 3865.~~ *(superseded by REQ 3.18)*
+**3.17** `pending` [2026-05-20 21:00] — Add a PIN-protected "Factory Settings" pill button at the bottom of the settings page (PIN: 3865).
+  **3.17.1** `pending` [2026-05-20 21:00] — Factory Settings page contains: Segments, LED & Hardware, Pin Info, 2D Configuration, User Interface (moved from settings page).
+  **3.17.2** `pending` [2026-05-20] — Factory Settings page also contains: Sync Interfaces, Time & Macros, Usermods, Security & Updates (moved from settings page).
+**3.18** `pending` [2026-05-20 21:00] — Remove the PIN lock from the Config/Settings cog; navigates directly to /settings with no PIN.
+**3.19** `pending` [2026-05-20 21:00] — Top navigation bar contains Power, Home, and brightness slider only (Nodes, Config, PC Mode removed from top nav).
+  **3.19.1** `pending` [2026-05-20 21:00] — Bottom navigation bar contains Colours, Effects, and a Settings cog (gear icon navigating directly to /settings).
+**3.20** `pending` [2026-05-20 21:00] — Brightness slider shrunk to 70% of original width with a 🔅 (low brightness) icon on the left side only.
+~~**3.21** `pending` [2026-05-20] — Remove all navigation pill buttons (Presets, Info) from the settings page; settings page shows functional settings and Factory Settings only.~~ *(superseded by REQ 3.22)*
+~~**3.17.2** `pending` [2026-05-20] — Factory Settings page also contains: Sync Interfaces, Time & Macros, Usermods, Security & Updates (moved from settings page).~~ *(superseded by REQ 3.22)*
+**3.22** `pending` [2026-05-20] — Settings page shows: Presets, WiFi & Network, Info, Sync Interfaces, and Factory Settings only. All other buttons (Segments, LED & Hardware, Pin Info, 2D Configuration, User Interface, Time & Macros, Usermods, Security & Updates) are on the Factory Settings page.
 
 ---
 
