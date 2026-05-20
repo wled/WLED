@@ -13,11 +13,13 @@ When I need to update the esp32 device, you must tell me which IDs I need to run
 2 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target upload 
 3 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target uploadfs
 
-## Skills
+## Agents
 
-Skills are located in `.claude/skills/`. Read the relevant skill file before starting any task that matches its description.
+Agents are located in `.claude/agents/`. Read the relevant agent file before starting any task that matches its description.
 
 - `session-handoff` — end of session handoff document generator. Trigger on /session-handoff or when wrapping up a session.
+- `log-requirement` — always-on requirements logger. Monitors every user message and maintains `.ben/requirements.md`. No slash command needed — runs automatically.
+- `requirement-review` — pre-coding gate. Runs automatically before any implementation begins. Sanity checks new requirements against existing ones, checks for clashes and ambiguity, and must confirm all-clear in chat before any code is written.
 
 ## Setup and Build
 
