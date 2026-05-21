@@ -290,6 +290,8 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 }
 
 // starting a transition has to occur before change so we get current values 1st
+// note: _t is the temporary segment that holds the values transitioned from (palette, colors, brightness,...) and the current segment holds the "to" values
+//       if this is a non FADE transition or an FX change, the _oldSegment is created which is a full copy of the segment before the change
 void Segment::startTransition(uint16_t dur, bool segmentCopy) {
   if (dur == 0 || !isActive()) {
     if (isInTransition()) _t->_dur = 0;
@@ -299,14 +301,36 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     if (segmentCopy && !_t->_oldSegment) {
       // already in transition but segment copy requested and not yet created
       _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-      _t->_start = millis();                              // restart countdown
+      _t->_start = millis(); // restart transition timer
       _t->_dur   = dur;
-      _t->_prevPaletteBlends = 0;
+      _t->_prevPaletteBlends = 0; // reset palette blends
       if (_t->_oldSegment) {
         _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
-        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        // if already partway through a FADE transition, set old segment's colors to current blend to avoid jumping back to original colors
+        if (_t->_progress > 0)
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+        else
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
         DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
         if (!_t->_oldSegment->isActive()) stopTransition();
+      }
+    } else if (_t->_progress > 0) {
+      // already in a transition: capture the current visual blend as the new "from" state so the incoming change does not cause a visible jump.
+      // _palT already holds the intermediate blended palette and will continue blending toward the new target (see beginDraw()), so no palette action needed.
+      // initial version by @blazoncek (https://github.com/blazoncek/WLED/commit/40d9812)
+      for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+      _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+      _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
+      // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
+      // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
+      if (blendingStyle == TRANSITION_FADE) {
+        if (_t->_oldSegment != nullptr) {
+          if (_t->_oldSegment->mode != mode)
+            return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
+        }
+        _t->_start = millis();
+        _t->_dur   = dur;
+        _t->_prevPaletteBlends = 0;
       }
     }
     return;
@@ -365,7 +389,7 @@ uint8_t Segment::currentBri() const {
   if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
     if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else                                   curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    else                                  curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
