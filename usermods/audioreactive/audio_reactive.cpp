@@ -1533,15 +1533,18 @@ class AudioReactive : public Usermod {
         udpSyncConnected = fftUdp.beginMulticast(WiFi.localIP(), IPAddress(239, 0, 0, 1), audioSyncPort);
       #endif
       }
-      // NEW: bring up ESP-NOW transport (auto-detects hosted vs standalone)
-      const uint8_t syncChannel = WiFi.channel();
-      const bool    amSender    = (audioSyncEnabled & 0x01) != 0;
-      if (!espnowAudioSync::begin(syncChannel, amSender)) {
-        DEBUG_PRINTLN(F("[ENaudio] espnowAudioSync::begin() failed - falling back to UDP."));
+      // NEW: bring up ESP-NOW transport only when the user has actually
+      // selected it. Saves resources in UDP mode and avoids touching the
+      // ESP-NOW radio unnecessarily. NOTE: changing the audioSyncTransport
+      // setting at runtime requires a reboot to take effect, since
+      // connected() does not re-run on a config save.
+      if (audioSyncTransport == 1) {
+        const uint8_t syncChannel = WiFi.channel();
+        const bool    amSender    = (audioSyncEnabled & 0x01) != 0;
+        if (!espnowAudioSync::begin(syncChannel, amSender)) {
+          DEBUG_PRINTLN(F("[ENaudio] espnowAudioSync::begin() failed - falling back to UDP."));
+        }
       }
-    }
-
-
     /*
      * loop() is called continuously. Here you can check for events, read sensors, etc.
      * 
