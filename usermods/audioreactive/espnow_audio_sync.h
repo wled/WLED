@@ -1,36 +1,37 @@
-// espnow_audio_sync.h
-//
-// Drop-in ESP-NOW transport for WLED audioreactive sync (v16.0.0 mainline).
-// Designed to replace the WiFiUDP "fftUdp" path while keeping the exact same
-// V2 audioSyncPacket wire-payload (44 bytes), so receivers process audio
-// identically to before.
-//
-// Adds:
-//   - ESP-NOW broadcast (~2-5 ms one-way vs ~8-30 ms UDP/Wi-Fi)
-//   - 16-bit sequence number + receiver-side dedup
-//   - Each packet sent twice back-to-back (cheap packet-loss insurance)
-//   - Sender timestamp + deadline-based rendering for frame-accurate sync
-//   - Wi-Fi power-save disabled, channel pinned, max TX power
-//   - Auto-detects HOSTED mode (when WLED's QuickEspNow has the radio)
-//     vs STANDALONE mode (when nothing else has it)
-//
-// Targets ESP32 / ESP32-S3 (Arduino-ESP32 v2.x / IDF v4.4+).
-//
-// API is RAW BYTES on purpose -- this header does not declare a
-// `audioSyncPacket` type, so it never collides with WLED's nested
-// `AudioReactive::audioSyncPacket` definition. Just pass `&pkt, sizeof(pkt)`
-// from the call site.
-//
-// Wire-up (4 calls from audio_reactive.cpp):
-//   1. begin(channel, isSender) - in connected() after fftUdp.beginMulticast
-//   2. send(&pkt, sizeof(pkt))  - in transmitAudioData(), as alternative to
-//                                  fftUdp.write(...)
-//   3. poll(&pkt, sizeof(pkt))  - in receiveAudioData(), as alternative to
-//                                  fftUdp.parsePacket() / fftUdp.read()
-//   4. handleIncomingPacket(data, len) - inside AudioReactive's
-//                                  onEspNowMessage() override (coexistence)
-//
-// See EDITS_FOR_YOUR_FILE.md for the exact edits.
+/**
+ * @file    espnow_audio_sync.h
+ * @brief   Low-latency ESP-NOW transport for WLED audioreactive sync.
+ *
+ * Drop-in replacement for the UDP multicast path used by WLED's
+ * audioreactive usermod. Keeps the exact same V2 audioSyncPacket
+ * wire-payload (44 bytes), so receivers process audio identically to
+ * before.
+ *
+ * Features:
+ *   - ESP-NOW broadcast (~2-5 ms one-way vs ~8-30 ms UDP/Wi-Fi)
+ *   - 16-bit sequence number + receiver-side dedup
+ *   - Each packet sent twice back-to-back (cheap packet-loss insurance)
+ *   - Sender timestamp + deadline-based rendering for frame-accurate sync
+ *   - Wi-Fi power-save disabled, channel pinned, max TX power
+ *   - Auto-detects HOSTED mode (alongside WLED's QuickEspNow) vs
+ *     STANDALONE mode (own the radio)
+ *
+ * @note Targets ESP32 / ESP32-S3 (Arduino-ESP32 v2.x / IDF v4.4+).
+ * @note API is intentionally raw bytes (void* + size_t) so this header
+ *       does not require visibility of WLED's nested
+ *       `AudioReactive::audioSyncPacket` type.
+ *
+ * Wire-up (4 calls from audio_reactive.cpp):
+ *   1. begin(channel, isSender) - in connected() after fftUdp.beginMulticast
+ *   2. send(&pkt, sizeof(pkt))  - in transmitAudioData(), as an
+ *                                  alternative to fftUdp.write(...)
+ *   3. poll(&pkt, sizeof(pkt))  - in receiveAudioData(), as an
+ *                                  alternative to fftUdp.parsePacket()
+ *   4. handleIncomingPacket(data, len) - inside AudioReactive's
+ *                                  onEspNowMessage() override
+ *
+ * @see EDITS_COMPLETE.md for the precise call-site changes.
+ */
 
 #pragma once
 
@@ -42,82 +43,151 @@
 #include <esp_idf_version.h>
 #include <string.h>
 
+/**
+ * @namespace espnowAudioSync
+ * @brief    Encapsulates all ESP-NOW audio-sync transport state and API.
+ *
+ * The namespace is meant to be included from exactly one .cpp per
+ * firmware image, since it uses file-scope statics for its state.
+ */
 namespace espnowAudioSync {
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
+/** @brief Magic number identifying audio-sync packets on the wire. */
 static constexpr uint16_t EN_MAGIC      = 0xA53E;
+
+/** @brief On-the-wire protocol version. Bump on incompatible changes. */
 static constexpr uint8_t  EN_VERSION    = 1;
-static constexpr size_t   EN_PAYLOAD    = 44;   // V2 audioSyncPacket wire size
-static constexpr size_t   EN_PREAMBLE   = 12;   // magic + version + flags + seq + pad + send_us
-static constexpr size_t   EN_PACKET     = EN_PREAMBLE + EN_PAYLOAD;  // 56 bytes
+
+/** @brief Raw payload size in bytes (= sizeof V2 audioSyncPacket). */
+static constexpr size_t   EN_PAYLOAD    = 44;
+
+/** @brief Preamble size in bytes (magic + version + flags + seq + pad + send_us). */
+static constexpr size_t   EN_PREAMBLE   = 12;
+
+/** @brief Total on-the-wire packet size (preamble + payload). */
+static constexpr size_t   EN_PACKET     = EN_PREAMBLE + EN_PAYLOAD;
+
+/** @brief ESP-NOW broadcast destination MAC (FF:FF:FF:FF:FF:FF). */
 static const     uint8_t  BROADCAST_MAC[6] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-// ---------------------------------------------------------------------------
-// On-the-wire packet layout (preamble + raw payload), no audioSyncPacket
-// dependency. Packed.
-// ---------------------------------------------------------------------------
+/**
+ * @brief  On-the-wire ESP-NOW packet layout.
+ *
+ * Packed to ensure byte-identical layout across senders/receivers.
+ * Carries a 12-byte preamble followed by the raw 44-byte
+ * audioSyncPacket payload from WLED's audioreactive usermod.
+ */
 struct __attribute__((packed)) ENPacket {
-    uint16_t magic;       // 0xA53E
-    uint8_t  version;     // 1
-    uint8_t  flags;       // bit0: this is the duplicate copy
-    uint16_t seq;         // monotonically increasing per sender
-    uint16_t pad;         // alignment
-    uint32_t send_us;     // sender esp_timer_get_time() low 32 bits
-    uint8_t  payload[EN_PAYLOAD];   // raw bytes of the V2 audioSyncPacket
+    uint16_t magic;                ///< Equals EN_MAGIC (0xA53E).
+    uint8_t  version;              ///< Equals EN_VERSION (1).
+    uint8_t  flags;                ///< Bit 0: this is the duplicate copy.
+    uint16_t seq;                  ///< Monotonically increasing per sender.
+    uint16_t pad;                  ///< Alignment pad (set to 0).
+    uint32_t send_us;              ///< Sender esp_timer_get_time() low 32 bits.
+    uint8_t  payload[EN_PAYLOAD];  ///< Raw bytes of the V2 audioSyncPacket.
 };
 static_assert(sizeof(ENPacket) == EN_PACKET, "ENPacket layout drift");
 
-// ---------------------------------------------------------------------------
-// State (file-scope statics; include this header from exactly one .cpp).
-// ---------------------------------------------------------------------------
+/** @brief Wi-Fi channel ESP-NOW is pinned to. */
 static uint8_t   _channel = 1;
+
+/** @brief True on the master (FFT source), false on slaves. */
 static bool      _isSender = false;
+
+/** @brief True once begin() has succeeded. Subsequent begin() calls no-op. */
 static bool      _initialised = false;
-static bool      _hosted = false;       // true: WLED's ESP-NOW owns the radio;
-                                        // false: standalone (we own it)
+
+/**
+ * @brief True when WLED's QuickEspNow already owned ESP-NOW at begin()
+ *        time (HOSTED mode); false when this module owns the radio
+ *        (STANDALONE mode).
+ */
+static bool      _hosted = false;
+
+/** @brief Sender's transmit sequence counter (wraps at 65535). */
 static uint16_t  _txSeq = 0;
 
-// Receiver state
+/** @brief Set to true by handleIncomingPacket() when a fresh frame is latched. */
 static volatile bool _rxReady = false;
-static uint8_t       _rxPayload[EN_PAYLOAD];      // last good frame
-static uint32_t      _rxSendUs = 0;
-static uint32_t      _rxArrivedLocalUs = 0;
-static uint16_t      _lastRxSeq = 0;
-static bool          _hasLastRxSeq = false;
+
+/** @brief Latched copy of the most recent audio frame's raw bytes. */
+static uint8_t   _rxPayload[EN_PAYLOAD];
+
+/** @brief Sender's send_us timestamp for the latched frame. */
+static uint32_t  _rxSendUs = 0;
+
+/** @brief Local micros() at which the latched frame was received. */
+static uint32_t  _rxArrivedLocalUs = 0;
+
+/** @brief Sequence number of the most recently accepted frame (for dedup). */
+static uint16_t  _lastRxSeq = 0;
+
+/** @brief False until the first frame has been received post-boot. */
+static bool      _hasLastRxSeq = false;
+
+/** @brief Critical-section mutex protecting the receiver's latched state. */
 static portMUX_TYPE  _rxMux = portMUX_INITIALIZER_UNLOCKED;
 
-// Stats
+/** @brief Counter: unique frames delivered to poll(). */
 static uint32_t _stat_rx = 0;
+
+/** @brief Counter: duplicate copies discarded by the dedup logic. */
 static uint32_t _stat_dupes = 0;
+
+/** @brief Counter: sequence-number gaps observed (i.e. lost frames). */
 static uint32_t _stat_gaps = 0;
+
+/** @brief Counter: packets successfully queued for TX. */
 static uint32_t _stat_tx = 0;
+
+/** @brief Counter: TX attempts where both duplicate copies failed to queue. */
 static uint32_t _stat_tx_err = 0;
 
-// ESP-NOW receive callback signature changed between Arduino-ESP32 v2.x and
-// v3.x (IDF 4.x vs 5.x).
+// ESP-NOW receive callback signature changed between Arduino-ESP32 v2.x
+// and v3.x (IDF 4.x vs 5.x). Branch on the IDF version.
 #if ESP_IDF_VERSION_MAJOR >= 5
+  /** @brief Receive callback signature for IDF 5.x. */
   #define ESPNOW_RECV_CB_SIG const esp_now_recv_info_t * info, const uint8_t * data, int len
+  /** @brief Stub to suppress "unused parameter" warnings for IDF 5.x. */
   #define ESPNOW_RECV_CB_ARGS_UNUSED (void)info;
 #else
+  /** @brief Receive callback signature for IDF 4.x. */
   #define ESPNOW_RECV_CB_SIG const uint8_t * mac, const uint8_t * data, int len
+  /** @brief Stub to suppress "unused parameter" warnings for IDF 4.x. */
   #define ESPNOW_RECV_CB_ARGS_UNUSED (void)mac;
 #endif
 
-// Forward decl
+/**
+ * @brief  Internal ESP-NOW receive callback used in STANDALONE mode.
+ *
+ * Forwarded to handleIncomingPacket(). Declared up front so begin() can
+ * register it without ordering issues.
+ */
 static void _onRecv(ESPNOW_RECV_CB_SIG);
 
-// ---------------------------------------------------------------------------
-// begin() - call once from usermod connected() after Wi-Fi is up.
-//   channel  : Wi-Fi channel (e.g. WiFi.channel()). Ignored in hosted mode.
-//   isSender : true on the master, false on slaves. Use bit 0 of audioSyncEnabled.
-//
-// Auto-detects mode: HOSTED (WLED's QuickEspNow has already initialised
-// ESP-NOW) or STANDALONE (we init it ourselves).
-//
-// Returns true on success, false otherwise.
-// ---------------------------------------------------------------------------
+/**
+ * @brief  Initialise the ESP-NOW transport layer.
+ *
+ * Call once from the usermod's `connected()` callback after Wi-Fi is up.
+ *
+ * Auto-detects between two modes:
+ *   - **HOSTED**: WLED's QuickEspNow already initialised ESP-NOW (e.g.
+ *     `enableESPNow=true` for WiZmote or state-sync). We don't re-init
+ *     and don't register our own receive callback. The caller is
+ *     expected to forward incoming packets to handleIncomingPacket()
+ *     via the AudioReactive::onEspNowMessage() override.
+ *   - **STANDALONE**: Nothing else owns ESP-NOW. We init it, register
+ *     our own receive callback, and own the radio.
+ *
+ * Both modes are byte-compatible on the wire.
+ *
+ * @param channel   Wi-Fi channel to pin to (e.g. WiFi.channel()).
+ *                  Ignored in HOSTED mode (QuickEspNow sets the channel).
+ * @param isSender  true on the FFT-producing master; false on receivers.
+ *                  Use bit 0 of WLED's `audioSyncEnabled`.
+ * @return true on success (radio ready to send/receive), false on
+ *         initialisation or peer-registration failure.
+ */
 inline bool begin(uint8_t channel, bool isSender) {
     if (_initialised) return true;
     _channel  = channel;
@@ -161,11 +231,22 @@ inline bool begin(uint8_t channel, bool isSender) {
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// send() - call from transmitAudioData() on the master.
-// Sends two back-to-back copies for loss resilience; receivers dedup on seq.
-// Caller passes the raw 44-byte V2 audioSyncPacket via void* + size.
-// ---------------------------------------------------------------------------
+/**
+ * @brief  Broadcast one audio-sync frame from the master.
+ *
+ * Sends two back-to-back copies of the same packet for packet-loss
+ * resilience; receivers dedup on the sequence number. Caller passes the
+ * raw 44-byte V2 audioSyncPacket via `payload` + `payloadLen`.
+ *
+ * @param payload     Pointer to a buffer containing the V2 audio sync
+ *                    packet (typically `&transmitData`).
+ * @param payloadLen  Must equal `EN_PAYLOAD` (44). Other values are
+ *                    rejected.
+ * @return true if at least one of the two copies was successfully
+ *         queued for transmit; false otherwise (also true if the caller
+ *         is not the sender or begin() has not been called, but no
+ *         packet is sent in those cases).
+ */
 inline bool send(const void * payload, size_t payloadLen) {
     if (!_initialised || !_isSender) return false;
     if (payloadLen != EN_PAYLOAD) return false;
@@ -189,14 +270,29 @@ inline bool send(const void * payload, size_t payloadLen) {
     return false;
 }
 
-// ---------------------------------------------------------------------------
-// poll() - call from receiveAudioData() on a slave. Returns true once per
-// new frame. Fills `out` with the raw 44-byte payload (drop into the
-// existing decodeAudioData() path).
-//
-//   deadline_us : optional. Currently arrival-time + renderDelayUs/2. Pass
-//                 nullptr if you don't care.
-// ---------------------------------------------------------------------------
+/**
+ * @brief  Retrieve the most-recent received audio frame, if any.
+ *
+ * Returns true exactly once per arriving frame; subsequent calls
+ * return false until another frame arrives. The raw 44-byte payload is
+ * copied into `out`, suitable for passing directly to WLED's
+ * `decodeAudioData()` cast as `uint8_t*`.
+ *
+ * Optionally returns a render deadline so the caller can synchronise
+ * rendering to a shared time across slaves.
+ *
+ * @param[out] out             Buffer to fill with the V2 audioSyncPacket
+ *                             payload (must be at least 44 bytes).
+ * @param      outLen          Capacity of `out` in bytes (must be >=
+ *                             EN_PAYLOAD).
+ * @param[out] deadline_us     Optional. If non-null, filled with the
+ *                             absolute local micros() at which this
+ *                             frame should be rendered.
+ * @param      renderDelayUs   Render budget in microseconds.
+ *                             Recommended 10000-20000 (default 15000).
+ * @return true if a fresh frame was returned in `out`; false if no new
+ *         frame is available since the last call.
+ */
 inline bool poll(void * out, size_t outLen,
                  uint32_t * deadline_us = nullptr,
                  uint32_t renderDelayUs = 15000) {
@@ -216,17 +312,31 @@ inline bool poll(void * out, size_t outLen,
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// handleIncomingPacket() - call from the audioreactive usermod's
-// onEspNowMessage() override:
-//
-//   bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) override {
-//       return espnowAudioSync::handleIncomingPacket(data, len);
-//   }
-//
-// Returns true if this was an audio-sync packet (so WLED skips its own
-// WiZmote / state-sync dispatch). Returns false otherwise.
-// ---------------------------------------------------------------------------
+/**
+ * @brief  Inspect and consume an incoming ESP-NOW packet (HOSTED mode).
+ *
+ * Call from the audioreactive usermod's `onEspNowMessage()` override:
+ * @code
+ *   bool onEspNowMessage(uint8_t* sender, uint8_t* data, uint8_t len) override {
+ *       return espnowAudioSync::handleIncomingPacket(data, len);
+ *   }
+ * @endcode
+ *
+ * If the packet matches the audio-sync magic bytes it is dedup'd and
+ * latched for later retrieval by poll(); the function returns true,
+ * signalling WLED's core dispatcher to skip its own WiZmote /
+ * state-sync handling for this packet. Otherwise returns false and the
+ * packet is left for WLED to process normally.
+ *
+ * In STANDALONE mode this is called automatically from the registered
+ * ESP-NOW receive callback (_onRecv); the caller does not need to wire
+ * it up.
+ *
+ * @param data  Raw bytes received from ESP-NOW.
+ * @param len   Length of `data` in bytes.
+ * @return true if the packet was an audio-sync frame (consumed);
+ *         false otherwise (caller should handle it).
+ */
 inline bool handleIncomingPacket(const uint8_t * data, int len) {
     if (len != (int)sizeof(ENPacket)) return false;
     const ENPacket * ep = reinterpret_cast<const ENPacket *>(data);
@@ -251,26 +361,51 @@ inline bool handleIncomingPacket(const uint8_t * data, int len) {
     return true;
 }
 
-// ---------------------------------------------------------------------------
-// Diagnostics
-// ---------------------------------------------------------------------------
+/**
+ * @brief  Query which integration mode begin() ended up in.
+ *
+ * @return true if running in HOSTED mode (alongside WLED's
+ *         QuickEspNow); false if STANDALONE (owns the radio outright).
+ */
 inline bool isHosted() { return _hosted; }
 
+/**
+ * @brief Diagnostic snapshot of transport-layer counters.
+ *
+ * Exposed for surfacing on the WLED Info pane via addToJsonInfo().
+ */
 struct Stats {
-    uint32_t rx;
-    uint32_t dupes;
-    uint32_t gaps;
-    uint32_t tx;
-    uint32_t tx_err;
+    uint32_t rx;       ///< Unique frames delivered to poll().
+    uint32_t dupes;    ///< Duplicate copies dropped by dedup.
+    uint32_t gaps;     ///< Sequence gaps observed (lost frames).
+    uint32_t tx;       ///< Packets successfully queued for TX.
+    uint32_t tx_err;   ///< TX attempts where both copies failed.
 };
+
+/**
+ * @brief  Snapshot the diagnostic counters.
+ *
+ * Cheap (a copy of five uint32_t). Safe to call from any task; counters
+ * are read without locking because tearing between fields is harmless
+ * for display purposes.
+ *
+ * @return Stats struct containing the current counter values.
+ */
 inline Stats stats() {
     return Stats{_stat_rx, _stat_dupes, _stat_gaps, _stat_tx, _stat_tx_err};
 }
 
-// ---------------------------------------------------------------------------
-// Internal: STANDALONE-mode receive callback. Forwards to
-// handleIncomingPacket().
-// ---------------------------------------------------------------------------
+/**
+ * @brief  STANDALONE-mode ESP-NOW receive callback.
+ *
+ * Runs in the Wi-Fi task (not an ISR). Forwards every incoming packet
+ * straight to handleIncomingPacket().
+ *
+ * @note In HOSTED mode this function is never registered; WLED's
+ *       QuickEspNow owns the receive callback and the usermod's
+ *       onEspNowMessage() override is what invokes
+ *       handleIncomingPacket() instead.
+ */
 static void _onRecv(ESPNOW_RECV_CB_SIG) {
     ESPNOW_RECV_CB_ARGS_UNUSED
     handleIncomingPacket(data, len);
