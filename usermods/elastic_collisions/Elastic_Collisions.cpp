@@ -87,6 +87,8 @@ public:
   }
 
   static nfixed fixedDiv(nfixed a, nfixed b) {
+    if (a == b)           // (unlikely) safety
+      return 0;
     return ((int64_t)a << SPHERE_PREC_SHIFT) / b;
   }
 
@@ -247,6 +249,8 @@ public:
     edge0 >>= 8;
     edge1 >>= 8;
     x >>= 8;
+    if (edge1 == edge0)
+      return (x >= edge1) ? (1 << 16) : 0; // (unlikely) degenerate case: hard edge
     int t = clamp((x - edge0 << 8) / (edge1 - edge0), 0, 1 << 8);   // Q24.8
     return (t * t >> 8) * ((3 << 8) - 2 * t);        // Result of cubing is Q16.16.
   }
