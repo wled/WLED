@@ -1545,6 +1545,7 @@ class AudioReactive : public Usermod {
           DEBUG_PRINTLN(F("[ENaudio] espnowAudioSync::begin() failed - falling back to UDP."));
         }
       }
+    }
     /*
      * loop() is called continuously. Here you can check for events, read sensors, etc.
      * 
