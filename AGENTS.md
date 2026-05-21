@@ -196,11 +196,13 @@ No automated linting is configured. Match existing code style in files you edit.
 
 ## General Rules
 
-- Repository language is English
-- Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`
+- Repository language is English.
+- The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
+- Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
-- No force-push on open PRs
-- Changes to `platformio.ini` require maintainer approval
-- Remove dead/unused code — justify or delete it
-- Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor)
+- No force-push on open PRs!
+- Important: **Changes to `platformio.ini` require maintainer approval**!
+- PRs should respect `.gitignore` and not upload files like  `platformio_override.ini`. PR authors may add buildenv examples for custom boards into `platformio_override.ini.sample`.
+- Remove dead/unused code — justify or delete it.
+- Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
 - Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
