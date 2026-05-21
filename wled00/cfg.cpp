@@ -135,7 +135,22 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc[F("eth")];
   CJSON(ethernetType, ethernet["type"]);
-  // NOTE: Ethernet configuration takes priority over other use of pins
+  // AI: deserialize ethernet static IP configuration.
+  // Each address is stored as a 4-element JSON array, one byte per octet,
+  // matching the same pattern used for WiFi static IP (nw.ins[n].ip/gw/sn).
+  JsonArray eth_ip = ethernet[F("eip")];
+  JsonArray eth_gw = ethernet[F("egw")];
+  JsonArray eth_sn = ethernet[F("esn")];
+  if (!eth_ip.isNull()) {
+    for (size_t i = 0; i < 4; i++) {
+      CJSON(ethStaticIP[i],  eth_ip[i]);
+      CJSON(ethStaticGW[i],  eth_gw[i]);
+      CJSON(ethStaticSN[i],  eth_sn[i]);
+    }
+  }
+  // AI: deserialize primary network interface selection.
+  // false = WiFi is default gateway (default), true = Ethernet is default gateway.
+  CJSON(ethPrimaryInterface, ethernet[F("epi")]);
   initEthernet();
 #endif
 
@@ -935,6 +950,21 @@ void serializeConfig(JsonObject root) {
         break;
     }
   }
+  // AI: serialize ethernet static IP configuration.
+  // Stored as 4-element JSON arrays, one byte per octet, consistent
+  // with the WiFi static IP serialisation pattern in nw.ins[n].ip/gw/sn.
+  // Only written when an ethernet board type is configured.
+  JsonArray eth_ip = ethernet.createNestedArray(F("eip"));
+  JsonArray eth_gw = ethernet.createNestedArray(F("egw"));
+  JsonArray eth_sn = ethernet.createNestedArray(F("esn"));
+  for (size_t i = 0; i < 4; i++) {
+    eth_ip.add(ethStaticIP[i]);
+    eth_gw.add(ethStaticGW[i]);
+    eth_sn.add(ethStaticSN[i]);
+  }
+  // AI: serialize primary network interface selection.
+  // false = WiFi is primary, true = Ethernet is primary.
+  ethernet[F("epi")] = ethPrimaryInterface;
 #endif
 
   JsonObject hw = root.createNestedObject(F("hw"));

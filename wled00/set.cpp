@@ -147,6 +147,25 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
     ethernetType = request->arg(F("ETH")).toInt();
+    // AI: read ethernet static IP configuration from form POST.
+    // Each IP address is submitted as four separate octet fields (0-255),
+    // reassembled here into IPAddress objects matching the same pattern
+    // used for WiFi static IP fields (IP{n}0-3, GW{n}0-3, SN{n}0-3).
+    if (request->hasArg(F("EIP0"))) {
+      for (int i = 0; i < 4; i++) {
+        char eip[6], egw[6], esn[6];
+        snprintf_P(eip, sizeof(eip), PSTR("EIP%d"), i);
+        snprintf_P(egw, sizeof(egw), PSTR("EGW%d"), i);
+        snprintf_P(esn, sizeof(esn), PSTR("ESN%d"), i);
+        ethStaticIP[i]  = request->arg(eip).toInt();
+        ethStaticGW[i]  = request->arg(egw).toInt();
+        ethStaticSN[i]  = request->arg(esn).toInt();
+      }
+    }
+    // AI: read primary network interface selection.
+    // PNI field value 0 = WiFi is primary interface, 1 = Ethernet is primary interface.
+    // Radio buttons only submit when selected so use hasArg with value check.
+    ethPrimaryInterface = (request->arg(F("EPI")).toInt() == 1);
     initEthernet();
     #endif
   }
