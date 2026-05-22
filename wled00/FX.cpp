@@ -2345,7 +2345,7 @@ void mode_colortwinkle() {
           unsigned index = i >> 3;
           unsigned  bitNum = i & 0x07;
           bitWrite(SEGENV.data[index], bitNum, true);
-          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, hw_random8(), 64, NOBLEND));
+          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, hw_random8(), gamma8inv(64), NOBLEND));  // note on gamma8inv: inverting results in non-linear brightness fade as originally designed
           break; //only spawn 1 new pixel per frame per 50 LEDs
         }
       }
@@ -2616,7 +2616,7 @@ static CRGBW twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
   unsigned hue = slowcycle8 - salt;
   CRGBW c;
   if (bright > 0) {
-    c = ColorFromPalette(SEGPALETTE, hue, bright, NOBLEND);
+    c = ColorFromPalette(SEGPALETTE, hue, gamma8inv(bright), NOBLEND); // note on gamma8inv: inverting results in non-linear brightness fade as originally designed
     if (!SEGMENT.check1) {
       // This code takes a pixel, and if its in the 'fading down'
       // part of the cycle, it adjusts the color a little bit like the
