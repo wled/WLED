@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
+		var maxD=1,maxI2S=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
 		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
@@ -58,7 +58,7 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(c,p,m,l,o,di,r,i,a,n, dd, dl, ds) {
+		function bLimits(c,p,m,l,o,di,r,i,a,n,dd,dl,ds,bb) {
 			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
@@ -72,6 +72,7 @@
 			dmaDef = dd;	// default DMA buffer size
 			dmaLcd = dl;	// DMA buffer size for LCD types ("parallel I2S")
 			dmaSpi = ds;  // DMA buffer size for SPI types (non-2pin digital)
+			maxBB = bb;		// maxBB - max parallel BitBang channels (GPIO 0-31): 8 - ESP32 variants, 0 - ESP8266
 		}
 		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
 		function isC3()   { return chipID == 1; }
@@ -283,10 +284,12 @@
 			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
-			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
+			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
 			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
+			if (drv==2 && usage.bbType!==null && t!==usage.bbType) return false; // mismatched type in parallel BitBang
 			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
 			if (drv==1 && usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			if (drv==2 && usage.bbUsed > maxBB) return false; // too many BitBang buses
 			return true;
 		}
 
@@ -509,8 +512,8 @@
 			if (chanuse && channelMsg && !is8266()) {
 				chanuse.style.display = 'inline';
 				chanuse.style.color = '#ccc';
-				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}`;
-				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S) {
+				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
+				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S || usage.bbUsed > maxBB) {
 					chanuse.style.color = 'red';
 				}
 			}
@@ -617,6 +620,7 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 Driver: <select name="LD${s}" onchange="UI()">
 <option value="0">RMT</option>
 <option value="1">I2S</option>
+<option value="2">BitBang</option>
 </select>
 </div>
 <div id="bsfsel${s}" style="display:none">
@@ -963,6 +967,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function getDuse() {
 			let rmtUsed = 0, i2sUsed = 0, spiUsed = 0;
 			let I2SType = null;
+			let bbUsed = 0, bbType = null;
 			let I2Smem = 0, SPImem = 0;
 			if (!is8266()) {
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
@@ -974,6 +979,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 						if (driverPref === 1) {
 							i2sUsed++;
 							if (!I2SType) I2SType = t;
+						} else if (driverPref === 2) {
+							bbUsed++;
+							if (!bbType) bbType = t;
 						} else {
 							rmtUsed++;
 						}
@@ -993,7 +1001,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					SPImem = Math.round(SPImem / spiUsed);
 				}
 			}
-			return { rmtUsed, i2sUsed, I2SType, I2Smem, SPImem };
+			return { rmtUsed, i2sUsed, I2SType, I2Smem, SPImem, bbUsed, bbType };
 		}
 
 		// dynamically enforce bus type availability based on current usage
@@ -1017,6 +1025,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			// update each LED-type and driver dropdown with appropriate constraints
 			let RMTcount = 0;
 			let I2Scount = 0;
+			let BBcount  = 0;
 			LTs.forEach(sel => {
 				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
@@ -1054,8 +1063,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (drvsel && isDig(curType) && !isD2P(curType)) {
 					let rmtOpt = drvsel.querySelector('option[value="0"]');
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
+					let bbOpt  = drvsel.querySelector('option[value="2"]');
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
+					if (bbOpt) bbOpt.disabled = false;
 					if (curDriver === 0) {
 						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
 						RMTcount++;
@@ -1064,7 +1075,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.Sf["LD"+n].value = "1"; // switch to I2S (if no I2S available, digital type is disabled above)
 						}
 					}
-					else {
+					else if (curDriver === 1) {
 						if ((usage.rmtUsed >= maxRMT))	rmtOpt.disabled = true; // disable RMT selection on I2S buses if full
 						I2Scount++;
 						if (I2Scount > maxI2S) {
@@ -1072,6 +1083,14 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.Sf["LD"+n].value = "0"; // switch to RMT (if no RMT available, digital type is disabled above)
 						}
 					}
+					else if (curDriver === 2 && bbOpt) {
+						BBcount++;
+						if (BBcount > maxBB) {
+							bbOpt.disabled = true; // disable BitBang if limit reached
+							d.Sf["LD"+n].value = "0"; // fall back to RMT
+						}
+					}
+					// else: unknown driver, leave as-is
 				}
 			});
 			}
@@ -1283,4 +1302,4 @@ Swap: <select id="xw${s}" name="XW${s}">
 </form>
 <div id="toast"></div>
 </body>
-</html>
+</html>  

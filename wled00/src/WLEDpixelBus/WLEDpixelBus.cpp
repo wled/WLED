@@ -232,6 +232,10 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       break;
 #endif
 
+    case BusDriver::BitBang:
+      bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
+      break;
+
 #elif defined(WLEDPB_ESP8266)
     case BusDriver::UART:
       bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels, ledType);

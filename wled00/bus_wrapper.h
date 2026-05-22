@@ -32,6 +32,8 @@ class PixelBusAllocator {
     static uint8_t _i2sChannelsAssigned;
     static uint8_t _2PchannelsAssigned;
     static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
+    static uint8_t _bitBangChannelsAssigned;
+    static uint8_t _bitBangBusType;    // Track first BitBang type to enforce parallel timing
   #endif
   public:
 
@@ -42,7 +44,10 @@ class PixelBusAllocator {
     _i2sChannelsAssigned = 0;
     _2PchannelsAssigned = 0;
     _parallelI2sBusType = 0; // TYPE_NONE
+    _bitBangChannelsAssigned = 0;
+    _bitBangBusType = 0; // TYPE_NONE
     WLEDpixelBus::RmtBus::resetAutoChannel();
+    WLEDpixelBus::BitBangBus::resetChannels();
     #endif
   }
 
@@ -59,6 +64,14 @@ class PixelBusAllocator {
     #ifndef ESP8266
     if (driverType == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
       _rmtChannelsAssigned++;
+    } else if (driverType == 2) {
+      // BitBang: no hardware channel limit, but enforce single LED type for parallel output
+      if (_bitBangBusType == 0) {
+        _bitBangBusType = busType; // lock LED type to first BitBang channel
+      } else if (_bitBangBusType != busType) {
+        return false; // mismatched LED type — all BitBang channels must share timing
+      }
+      _bitBangChannelsAssigned++;
     } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
       driverType = 1;
       // If first I2S channel request, lock the type to ensure parallel timings match
@@ -80,6 +93,9 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     #ifndef ESP8266
     if (driverType == 1 && _parallelI2sBusType != 0) {
       busType = _parallelI2sBusType; // Lock type for hardware timing sync
+    }
+    if (driverType == 2 && _bitBangBusType != 0) {
+      busType = _bitBangBusType; // Lock type for BitBang parallel timing
     }
     #endif
 
@@ -125,6 +141,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         driver = WLEDpixelBus::BusDriver::RMT;
         #endif
         break;
+      case 2:  driver = WLEDpixelBus::BusDriver::BitBang; break;
       default: driver = WLEDpixelBus::BusDriver::RMT; break;
     }
     #endif

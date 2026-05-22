@@ -66,6 +66,7 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
   #define WLED_MAX_DIGITAL_CHANNELS 3
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
   #define WLED_MAX_I2S_CHANNELS 0
+  #define WLED_MAX_BB_CHANNELS  0           // ESP8266 has its own BitBang driver, not the ESP32 parallel one
   #define WLED_MAX_ANALOG_CHANNELS 5
   #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
   #define WLED_PLATFORM_ID 0         // used in UI to distinguish ESP types, needs a proper fix!
@@ -109,6 +110,7 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
   #endif
   #define WLED_MAX_TIMERS 64                // maximum number of timers
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+  #define WLED_MAX_BB_CHANNELS 8           // max parallel BitBang channels (GPIO 0-31 only)
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
 // instead it will help determine max number of buses that can be defined at compile time

@@ -565,6 +565,7 @@ PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
+#include "WLEDpixelBus_BitBang.h"
 #elif defined(WLEDPB_ESP8266)
 #include "WLEDpixelBus_ESP8266.h"
 #endif
