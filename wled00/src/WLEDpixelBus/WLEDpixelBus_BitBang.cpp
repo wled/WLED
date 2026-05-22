@@ -273,6 +273,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     // ── Step 2: Pixel boundary — release ISR lock, check latch ───────────
     // On every pixel boundary (except the very first bit) give ISRs a chance
     // to run, then verify the idle gap has not caused an accidental LED latch.
+    /*
     if (bitIndex > 0 && (bitIndex % bitsPerPixel) == 0) {
       portEXIT_CRITICAL(&s_mux);
       portENTER_CRITICAL(&s_mux);
@@ -280,7 +281,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
         portEXIT_CRITICAL(&s_mux);
         return false;  // ISR latency caused accidental LED latch — frame aborted
       }
-    }
+    }*/
 
     // ── Step 3: Wait for the full bit period since the last HIGH edge ──────
     while ((getCycleCount() - cyclesStart) < period);
