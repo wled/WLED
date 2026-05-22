@@ -196,7 +196,7 @@ Current behavior:
 The extractor currently:
 
 - scans the **SD root only**
-- extracts **only the first file** from the archive
+- extracts **just the first file** from the archive
 - normalizes names and rejects simple path traversal entries like `../...`
 - checks available SD space before extracting
 
@@ -296,7 +296,7 @@ This package uses `sd_adapter_compat.h` so it can talk to the available SD backe
 - Local effect selection is effectively best for the **first 32 indexed files**.
 - The internal FSEQ index cache can hold up to **128** filenames.
 - FPP realtime playback temporarily overrides local segmented playback.
-- Browser upload and FPP upload do **not** behave exactly the same for `.xlz` files.
+- Browser upload and FPP upload behave differently for `.xlz` files.
 - Sequence rendering maps FSEQ data as **RGB triplets** across LEDs. Extra channel data is ignored once the target segment/strip is full; missing data is cleared to black.
 
 ---

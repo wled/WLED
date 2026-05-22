@@ -12,7 +12,7 @@ bool FPP_sendEffectSyncMessage(uint8_t action, const String &fileName,
 
 static uint16_t _fseq_lastIndex[MAX_NUM_SEGMENTS];
 static bool _fseq_lastLoop[MAX_NUM_SEGMENTS];
-static uint16_t _fseq_lastFileCount[MAX_NUM_SEGMENTS];
+static String _fseq_lastFileName[MAX_NUM_SEGMENTS];
 static bool _fseq_stateInit = false;
 static uint32_t _fseq_syncStartMs[MAX_NUM_SEGMENTS];
 static uint32_t _fseq_lastSyncMs[MAX_NUM_SEGMENTS];
@@ -46,7 +46,7 @@ static void mode_fseq_player(void) {
     for (uint8_t i = 0; i < MAX_NUM_SEGMENTS; i++) {
       _fseq_lastIndex[i] = 0xFFFF;
       _fseq_lastLoop[i] = false;
-      _fseq_lastFileCount[i] = 0xFFFF;
+      _fseq_lastFileName[i] = String();
       resetFseqSyncState(i);
     }
     _fseq_stateInit = true;
@@ -89,16 +89,13 @@ static void mode_fseq_player(void) {
     SEGMENT.fill(BLACK);
     _fseq_lastIndex[segId] = selectedIndex;
     _fseq_lastLoop[segId] = loop;
-    _fseq_lastFileCount[segId] = fileCount;
+    _fseq_lastFileName[segId] = String();
     return;
   }
 
-  const bool selectionChanged =
-      (_fseq_lastIndex[segId] != selectedIndex) ||
-      (_fseq_lastLoop[segId] != loop) ||
-      (_fseq_lastFileCount[segId] != fileCount);
+  const bool fileChanged = !_fseq_lastFileName[segId].equals(currentFileName);
 
-  if (selectionChanged) {
+  if (fileChanged) {
     char path[256];
     currentFileName.toCharArray(path, sizeof(path));
     FSEQPlayer::loadRecordingForSegment(segId, path, 0.0f, loop);
@@ -108,7 +105,7 @@ static void mode_fseq_player(void) {
 
   _fseq_lastIndex[segId] = selectedIndex;
   _fseq_lastLoop[segId] = loop;
-  _fseq_lastFileCount[segId] = fileCount;
+  _fseq_lastFileName[segId] = currentFileName;
 
   FSEQPlayer::setSegmentLooping(segId, loop);
 
@@ -131,12 +128,19 @@ static void mode_fseq_player(void) {
   } else {
     const float secondsElapsed =
         (float)(now - _fseq_syncStartMs[segId]) / 1000.0f;
-    const bool needsStart = selectionChanged || !_fseq_wasPlaying[segId] ||
+    const bool needsStart = fileChanged || !_fseq_wasPlaying[segId] ||
                             !_fseq_wasSyncing[segId] ||
                             (_fseq_lastSendMulticast[segId] != sendSyncMulticast) ||
                             (_fseq_lastSendBroadcast[segId] != sendSyncBroadcast);
 
     if (needsStart) {
+	  if (_fseq_wasSyncing[segId] &&
+          ((_fseq_lastSendMulticast[segId] != sendSyncMulticast) ||
+           (_fseq_lastSendBroadcast[segId] != sendSyncBroadcast))) {
+        FPP_sendEffectSyncMessage(1, currentFileName, 0, 0.0f,
+                                  _fseq_lastSendMulticast[segId],
+                                  _fseq_lastSendBroadcast[segId]);
+      }
       FPP_sendEffectSyncMessage(0, currentFileName, 0, secondsElapsed,
                                 sendSyncMulticast, sendSyncBroadcast);
       _fseq_lastSyncMs[segId] = now;

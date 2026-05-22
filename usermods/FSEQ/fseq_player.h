@@ -1,12 +1,8 @@
 #ifndef FSEQ_PLAYER_H
 #define FSEQ_PLAYER_H
 
-#ifndef RECORDING_REPEAT_LOOP
-#define RECORDING_REPEAT_LOOP -1
-#endif
-#ifndef RECORDING_REPEAT_DEFAULT
-#define RECORDING_REPEAT_DEFAULT 0
-#endif
+static constexpr int16_t RECORDING_REPEAT_LOOP = -1;
+static constexpr int16_t RECORDING_REPEAT_DEFAULT = 0;
 
 #include "wled.h"
 #include "sd_adapter_compat.h"

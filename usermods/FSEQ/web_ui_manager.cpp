@@ -7,8 +7,31 @@ void FSEQ_invalidateFileIndexCache();
 
 struct UploadContext {
   File* file;
+  String path;
   bool error;
+  int statusCode;
+  const char* message;
+
+  UploadContext()
+    : file(nullptr),
+      path(),
+      error(false),
+      statusCode(500),
+      message("Failed to open file for writing") {}
 };
+
+static bool isUnsafeSdPath(const String& path) {
+  if (path.length() == 0) return true;
+  if (path.indexOf("..") >= 0) return true;
+  if (path.indexOf('\\') >= 0) return true;
+  return false;
+}
+
+static String normalizeSdPath(String path) {
+  path.trim();
+  if (!path.startsWith("/")) path = "/" + path;
+  return path;
+}
 
 static const char PAGE_HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
@@ -129,7 +152,11 @@ function loadSDList(){
         data.fseqFiles.forEach(f=>{
           const li=document.createElement('li');
           const title=document.createElement('div');
-          title.innerHTML='<span class="code">#'+f.index+'</span> '+f.name;
+          const code=document.createElement('span');
+          code.className='code';
+          code.textContent='#'+f.index;
+          title.appendChild(code);
+          title.appendChild(document.createTextNode(' '+f.name));
           li.appendChild(title);
 
           const meta=document.createElement('div');
@@ -366,7 +393,9 @@ void WebUIManager::registerEndpoints() {
       UploadContext* ctx = static_cast<UploadContext*>(request->_tempObject);
 
       if (!ctx || ctx->error || !ctx->file || !*(ctx->file)) {
-        request->send(500, "text/plain", "Failed to open file for writing");
+        const int statusCode = ctx ? ctx->statusCode : 500;
+        const char* message = ctx ? ctx->message : "Failed to open file for writing";
+        request->send(statusCode, "text/plain", message);
       } else {
         request->send(200, "text/plain", "Upload complete");
       }
@@ -376,26 +405,51 @@ void WebUIManager::registerEndpoints() {
         if (ctx->file) {
           if (*(ctx->file)) ctx->file->close();
           delete ctx->file;
+          ctx->file = nullptr;
         }
+
+        if (ctx->error && !ctx->path.isEmpty()) {
+          SD_ADAPTER.remove(ctx->path.c_str());
+        }
+
         delete ctx;
         request->_tempObject = nullptr;
       }
     },
     [](AsyncWebServerRequest *request, String filename, size_t index,
        uint8_t *data, size_t len, bool final) {
-      UploadContext* ctx;
+      UploadContext* ctx = static_cast<UploadContext*>(request->_tempObject);
 
       if (index == 0) {
-        if (!filename.startsWith("/"))
-          filename = "/" + filename;
-
         ctx = new UploadContext();
-        ctx->error = false;
+
+        if (isUnsafeSdPath(filename)) {
+          ctx->error = true;
+          ctx->statusCode = 400;
+          ctx->message = "Invalid path";
+          request->_tempObject = ctx;
+          return;
+        }
+
+        filename = normalizeSdPath(filename);
+
+        if (filename == "/") {
+          ctx->error = true;
+          ctx->statusCode = 400;
+          ctx->message = "Invalid filename";
+          request->_tempObject = ctx;
+          return;
+        }
+
+        ctx->path = filename;
+
         if (SD_ADAPTER.exists(filename.c_str())) SD_ADAPTER.remove(filename.c_str());
         ctx->file = new File(SD_ADAPTER.open(filename.c_str(), FILE_WRITE));
 
-        if (!*(ctx->file)) {
+        if (!ctx->file || !*(ctx->file)) {
           ctx->error = true;
+          ctx->statusCode = 500;
+          ctx->message = "Failed to open file for writing";
         }
 
         request->_tempObject = ctx;
@@ -406,7 +460,12 @@ void WebUIManager::registerEndpoints() {
       if (!ctx || ctx->error || !ctx->file || !*(ctx->file))
         return;
 
-      ctx->file->write(data, len);
+      const size_t written = ctx->file->write(data, len);
+      if (written != len) {
+        ctx->error = true;
+        ctx->statusCode = 500;
+        ctx->message = "Failed to write upload data";
+      }
     }
   );
 
@@ -415,11 +474,28 @@ void WebUIManager::registerEndpoints() {
       request->send(400, "text/plain", "Missing path");
       return;
     }
+
     String path = request->arg("path");
-    if (!path.startsWith("/"))
-      path = "/" + path;
+
+    if (isUnsafeSdPath(path)) {
+      request->send(400, "text/plain", "Invalid path");
+      return;
+    }
+
+    path = normalizeSdPath(path);
+
+    if (path == "/") {
+      request->send(400, "text/plain", "Invalid path");
+      return;
+    }
+
+    if (!SD_ADAPTER.exists(path.c_str())) {
+      request->send(404, "text/plain", "File not found");
+      return;
+    }
+
     bool res = SD_ADAPTER.remove(path.c_str());
     if (res) FSEQ_invalidateFileIndexCache();
-    request->send(200, "text/plain", res ? "File deleted" : "Delete failed");
+    request->send(res ? 200 : 500, "text/plain", res ? "File deleted" : "Delete failed");
   });
 }

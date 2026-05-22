@@ -138,7 +138,7 @@ bool XLZUnzip::unpackCurrentFile(UNZIP& zip, const String& outputPath, uint32_t 
     return false;
   }
 
-  uint8_t* buffer = static_cast<uint8_t*>(malloc(XLZ_BUFFER_SIZE));
+  uint8_t* buffer = static_cast<uint8_t*>(d_malloc(XLZ_BUFFER_SIZE));
   if (!buffer) {
     DEBUG_PRINTLN(F("[XLZ] Failed to allocate unzip buffer"));
     out.close();

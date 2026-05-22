@@ -1,6 +1,6 @@
+#include "wled.h"
 #include "fseq_player.h"
 #include "usermod_fseq.h"
-#include "wled.h"
 #include "sd_adapter_compat.h"
 #include <Arduino.h>
 

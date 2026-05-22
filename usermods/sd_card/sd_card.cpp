@@ -157,10 +157,10 @@ class UsermodSdCard : public Usermod {
           return false;
         }
 
-        uint8_t oldPinSourceSelect  = configPinSourceSelect;
-        uint8_t oldPinSourceClock = configPinSourceClock;
-        uint8_t oldPinPoci = configPinPoci;
-        uint8_t oldPinPico = configPinPico;
+        int8_t oldPinSourceSelect  = configPinSourceSelect;
+        int8_t oldPinSourceClock = configPinSourceClock;
+        int8_t oldPinPoci = configPinPoci;
+        int8_t oldPinPico = configPinPico;
         bool    oldSdEnabled = configSdEnabled;
 
         getJsonValue(top["pinSourceSelect"], configPinSourceSelect);

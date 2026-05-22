@@ -53,8 +53,10 @@ public:
     flush();
     if (_buffer) free(_buffer);
   }
+
   size_t write(const uint8_t *buffer, size_t size) override {
-    if (!_buffer) return 0;
+    if (!_buffer || _writeError) return 0;
+
     size_t total = 0;
     while (size > 0) {
       size_t space = _capacity - _offset;
@@ -64,27 +66,52 @@ public:
       buffer += toCopy;
       size -= toCopy;
       total += toCopy;
-      if (_offset == _capacity) flush();
+
+      if (_offset == _capacity && !flushBuffer()) {
+        _writeError = true;
+        break;
+      }
     }
+
     return total;
   }
+
   size_t write(uint8_t b) override { return write(&b, 1); }
+
   void flush() override {
-    if (_offset > 0) {
-      _upstream.write(_buffer, _offset);
-      _offset = 0;
+    if (!flushBuffer()) {
+      _writeError = true;
     }
     _upstream.flush();
   }
+
+  bool hasWriteError() const { return _writeError; }
+
   int available() override { return _upstream.available(); }
   int read() override { return _upstream.read(); }
   int peek() override { return _upstream.peek(); }
 
 private:
+  bool flushBuffer() {
+    if (_offset == 0) return true;
+
+    const size_t written = _upstream.write(_buffer, _offset);
+    if (written != _offset) {
+      DEBUG_PRINTF("[WBS] ERROR: Short SD write: %u/%u\n",
+                   (unsigned)written, (unsigned)_offset);
+      _offset = 0;
+      return false;
+    }
+
+    _offset = 0;
+    return true;
+  }
+
   Stream &_upstream;
   uint8_t *_buffer = nullptr;
   size_t _capacity = 0;
   size_t _offset = 0;
+  bool _writeError = false;
 };
 
 #define FILE_UPLOAD_BUFFER_SIZE 8192
@@ -116,6 +143,7 @@ private:
   String currentUploadFileName = "";
   unsigned long uploadStartTime = 0;
   WriteBufferingStream *uploadStream = nullptr;
+  const unsigned long uploadInactivityTimeout = 60000;
 
   bool xlzChecked = false;
   unsigned long xlzStartTime = 0;
@@ -147,27 +175,42 @@ private:
   uint32_t lastStatusElapsedMillis = 0;
   char lastSequenceName[65] = {0};
 
+  struct FppStatusSnapshot {
+    bool playbackActive = false;
+    char sequenceName[65] = {0};
+    float elapsedSeconds = 0.0f;
+    uint32_t updatedMillis = 0;
+  };
+
+  FppStatusSnapshot statusSnapshot;
+
   String getDeviceName() { return String(serverDescription); }
 
-  void cacheSequenceName(const char *fileName) {
-    memset(lastSequenceName, 0, sizeof(lastSequenceName));
+  void copyNormalizedSequenceName(const char *fileName, char *dest, size_t destSize) {
+    if (!dest || destSize == 0) return;
+    memset(dest, 0, destSize);
     if (!fileName || fileName[0] == '\0') return;
 
     const char *normalized = (fileName[0] == '/') ? fileName + 1 : fileName;
-    const size_t len = strnlen(normalized, sizeof(lastSequenceName) - 1);
-    memcpy(lastSequenceName, normalized, len);
+    const size_t len = strnlen(normalized, destSize - 1);
+    memcpy(dest, normalized, len);
   }
 
-  void rememberSyncProgress(const char *fileName, float secondsElapsed) {
+  void cacheSequenceNameLoopOnly(const char *fileName) {
+    copyNormalizedSequenceName(fileName, lastSequenceName, sizeof(lastSequenceName));
+  }
+
+  void rememberSyncProgressLoopOnly(const char *fileName, float secondsElapsed) {
     if (fileName && fileName[0] != '\0') {
-      cacheSequenceName(fileName);
+      cacheSequenceNameLoopOnly(fileName);
     }
+
     lastFppSyncSeconds = secondsElapsed;
     if (lastFppSyncSeconds < 0.0f) lastFppSyncSeconds = 0.0f;
     lastFppSyncMillis = millis();
   }
 
-  void clearPlaybackStatusCache(bool clearSequenceName = false) {
+  void clearPlaybackStatusCacheLoopOnly(bool clearSequenceName = false) {
     lastFppSyncSeconds = 0.0f;
     lastFppSyncMillis = 0;
     lastStatusElapsedSeconds = 0.0f;
@@ -177,7 +220,7 @@ private:
     }
   }
 
-  float getStableStatusElapsedSeconds() {
+  float getStableStatusElapsedSecondsLoopOnly() {
     const uint32_t now = millis();
     float elapsed = FSEQPlayer::getElapsedSeconds();
 
@@ -199,6 +242,56 @@ private:
     }
 
     return (elapsed > 0.0f) ? elapsed : 0.0f;
+  }
+
+  void publishStatusSnapshotLoopOnly(bool playbackActive,
+                                     const char *fileName,
+                                     float elapsedSeconds) {
+    FppStatusSnapshot next;
+    next.playbackActive = playbackActive;
+    copyNormalizedSequenceName(fileName, next.sequenceName, sizeof(next.sequenceName));
+    next.elapsedSeconds = elapsedSeconds > 0.0f ? elapsedSeconds : 0.0f;
+    next.updatedMillis = millis();
+
+    portENTER_CRITICAL(&fppMux);
+    statusSnapshot = next;
+    portEXIT_CRITICAL(&fppMux);
+  }
+
+  FppStatusSnapshot getStatusSnapshot() {
+    FppStatusSnapshot copy;
+    portENTER_CRITICAL(&fppMux);
+    copy = statusSnapshot;
+    portEXIT_CRITICAL(&fppMux);
+    return copy;
+  }
+
+  IPAddress getLastFppSenderIPSnapshot() {
+    IPAddress copy;
+    portENTER_CRITICAL(&fppMux);
+    copy = lastFppSenderIP;
+    portEXIT_CRITICAL(&fppMux);
+    return copy;
+  }
+
+  void updatePlaybackStatusSnapshotLoopOnly() {
+    const bool playbackActive = FSEQPlayer::isPlaying() ||
+                                FSEQ_isFppOverrideActive() ||
+                                (realtimeMode == REALTIME_MODE_FSEQ &&
+                                 lastSequenceName[0] != '\0');
+
+    if (!playbackActive) {
+      publishStatusSnapshotLoopOnly(false, nullptr, 0.0f);
+      return;
+    }
+
+    const String activeFileName = FSEQPlayer::getFileName();
+    if (activeFileName.length() > 0) {
+      cacheSequenceNameLoopOnly(activeFileName.c_str());
+    }
+
+    const float elapsed = getStableStatusElapsedSecondsLoopOnly();
+    publishStatusSnapshotLoopOnly(true, lastSequenceName, elapsed);
   }
 
   String buildSystemInfoJSON() {
@@ -257,21 +350,11 @@ private:
     doc["fppd"] = "running";
     doc["current_song"] = "";
 
-    const bool playbackActive = FSEQPlayer::isPlaying() ||
-                                FSEQ_isFppOverrideActive() ||
-                                (realtimeMode == REALTIME_MODE_FSEQ &&
-                                 lastSequenceName[0] != '\0');
+    const FppStatusSnapshot snapshot = getStatusSnapshot();
 
-    if (playbackActive) {
-      String fileName = FSEQPlayer::getFileName();
-      if (fileName.length() == 0 && lastSequenceName[0] != '\0') {
-        fileName = String(lastSequenceName);
-      } else if (fileName.length() > 0) {
-        cacheSequenceName(fileName.c_str());
-      }
-
-      float elapsedF = getStableStatusElapsedSeconds();
-      uint32_t elapsed = (uint32_t)elapsedF;
+    if (snapshot.playbackActive) {
+      String fileName = String(snapshot.sequenceName);
+      const uint32_t elapsed = (uint32_t)snapshot.elapsedSeconds;
       doc["current_sequence"] = fileName;
       doc["playlist"] = "";
       doc["seconds_elapsed"] = String(elapsed);
@@ -583,6 +666,72 @@ private:
     portEXIT_CRITICAL(&fppMux);
   }
 
+  bool isUnsafeUploadPath(const String &path) {
+    if (path.length() == 0) return true;
+    if (path.indexOf("..") >= 0) return true;
+    if (path.indexOf('\\') >= 0) return true;
+    return false;
+  }
+
+  String normalizeUploadPath(String path) {
+    path.trim();
+    if (!path.startsWith("/")) path = "/" + path;
+    return path;
+  }
+
+  void cleanupFppUploadState(bool removePartialFile) {
+    const String partialFile = currentUploadFileName;
+
+    if (uploadStream) {
+      delete uploadStream;
+      uploadStream = nullptr;
+    }
+
+    if (currentUploadFile) {
+      currentUploadFile.close();
+    }
+
+    if (removePartialFile && partialFile.length() > 0) {
+      SD_ADAPTER.remove(partialFile.c_str());
+      DEBUG_PRINTF("[FPP] Removed partial upload: %s\n", partialFile.c_str());
+    }
+
+    currentUploadFile = File();
+    currentUploadFileName = "";
+    uploadStartTime = 0;
+    lastUploadActivity = 0;
+    uploadSessionActive = false;
+    xlzPendingScan = false;
+  }
+
+  void cleanupStaleFppUploadIfNeeded() {
+    if (!uploadStream && !currentUploadFile) return;
+    if (lastUploadActivity == 0) return;
+    if (millis() - lastUploadActivity < uploadInactivityTimeout) return;
+
+    DEBUG_PRINTLN(F("[FPP] Upload timed out; cleaning partial state"));
+    cleanupFppUploadState(true);
+  }
+
+  void finishSuccessfulFppUpload(const String &uploadedFile) {
+    String lowerName = uploadedFile;
+    lowerName.toLowerCase();
+
+    lastUploadFinished = millis();
+    lastUploadActivity = lastUploadFinished;
+    currentUploadFileName = "";
+    currentUploadFile = File();
+    uploadStartTime = 0;
+
+    if (lowerName.endsWith(".xlz")) {
+      xlzPendingScan = true;
+      uploadSessionActive = true;
+    } else {
+      FSEQ_invalidateFileIndexCache();
+      uploadSessionActive = false;
+    }
+  }
+
   void processUdpPacket(AsyncUDPPacket packet) {
     if (packet.length() < 7) return;
     if (WiFi.status() == WL_CONNECTED && packet.remoteIP() == WiFi.localIP()) return;
@@ -629,14 +778,12 @@ private:
 
       switch (syncAction) {
         case 0:
-          rememberSyncProgress(safeFilename, secondsElapsed);
           queuePendingCommand(PENDING_START, safeFilename, secondsElapsed, packet.remoteIP());
           break;
         case 1:
           queuePendingCommand(PENDING_STOP, nullptr, 0.0f, packet.remoteIP());
           break;
         case 2:
-          rememberSyncProgress(safeFilename, secondsElapsed);
           queuePendingCommand(PENDING_SYNC, safeFilename, secondsElapsed, packet.remoteIP());
           break;
         default:
@@ -677,7 +824,7 @@ private:
     DEBUG_PRINTF("[FPP] Start realtime playback: %s @ %.3fs\n",
                  normalized.c_str(), secondsElapsed);
 
-    rememberSyncProgress(normalized.c_str(), secondsElapsed);
+    rememberSyncProgressLoopOnly(normalized.c_str(), secondsElapsed);
     FSEQ_markFppControlActivity();
     realtimeIP = senderIP;
     useMainSegmentOnly = false;
@@ -696,7 +843,7 @@ private:
   void stopRealtimeFppPlayback() {
     FSEQ_clearFppOverride();
     FSEQPlayer::clearLastPlayback();
-    clearPlaybackStatusCache(false);
+    clearPlaybackStatusCacheLoopOnly(false);
     exitRealtime();
   }
 
@@ -752,7 +899,7 @@ private:
           break;
         }
 
-        rememberSyncProgress(normalized.c_str(), seconds);
+        rememberSyncProgressLoopOnly(normalized.c_str(), seconds);
         FSEQ_markFppControlActivity();
         realtimeIP = senderIP;
         useMainSegmentOnly = false;
@@ -783,44 +930,82 @@ public:
 
     server.on("/fpp", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL,
       [this](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
-        uploadSessionActive = true;
-        lastUploadActivity = millis();
+        const unsigned long now = millis();
+        lastUploadActivity = now;
 
         if (index == 0) {
+          cleanupStaleFppUploadIfNeeded();
+
           if (uploadStream || currentUploadFile) {
             request->send(409, "text/plain", "Upload already in progress");
             return;
           }
+
           String fileParam = "";
           if (request->hasParam("filename")) fileParam = request->arg("filename");
-          currentUploadFileName = (fileParam != "") ? (fileParam.startsWith("/") ? fileParam : "/" + fileParam) : "/default.fseq";
-          if (SD_ADAPTER.exists(currentUploadFileName.c_str())) SD_ADAPTER.remove(currentUploadFileName.c_str());
+          currentUploadFileName = normalizeUploadPath(fileParam.length() > 0 ? fileParam : "default.fseq");
+
+          if (isUnsafeUploadPath(currentUploadFileName) || currentUploadFileName == "/") {
+            currentUploadFileName = "";
+            request->send(400, "text/plain", "Invalid filename");
+            return;
+          }
+
+          if (SD_ADAPTER.exists(currentUploadFileName.c_str())) {
+            SD_ADAPTER.remove(currentUploadFileName.c_str());
+          }
+
           currentUploadFile = SD_ADAPTER.open(currentUploadFileName.c_str(), FILE_WRITE);
           if (!currentUploadFile) {
+            cleanupFppUploadState(false);
             request->send(500, "text/plain", "File open failed");
             return;
           }
+
           uploadStream = new WriteBufferingStream(currentUploadFile, FILE_UPLOAD_BUFFER_SIZE);
-          uploadStartTime = millis();
+          if (!uploadStream) {
+            cleanupFppUploadState(true);
+            request->send(500, "text/plain", "Upload buffer allocation failed");
+            return;
+          }
+
+          uploadStartTime = now;
+          uploadSessionActive = true;
         }
 
-        if (uploadStream) uploadStream->write(data, len);
+        if (!uploadStream) {
+          request->send(500, "text/plain", "Upload stream missing");
+          return;
+        }
+
+        const size_t written = uploadStream->write(data, len);
+        if (written != len || uploadStream->hasWriteError()) {
+          cleanupFppUploadState(true);
+          request->send(500, "text/plain", "Upload write failed");
+          return;
+        }
 
         if (index + len == total) {
-          if (uploadStream) {
-            uploadStream->flush();
-            delete uploadStream;
-            uploadStream = nullptr;
-          }
+          uploadStream->flush();
+          const bool writeOk = !uploadStream->hasWriteError();
+          delete uploadStream;
+          uploadStream = nullptr;
+
           String uploadedFile = currentUploadFileName;
-          if (currentUploadFile) currentUploadFile.close();
-          String lowerName = uploadedFile;
-          lowerName.toLowerCase();
-          if (lowerName.endsWith(".xlz")) xlzPendingScan = true;
-          else FSEQ_invalidateFileIndexCache();
-          lastUploadFinished = millis();
-          lastUploadActivity = lastUploadFinished;
-          currentUploadFileName = "";
+          if (currentUploadFile) {
+            currentUploadFile.close();
+          }
+
+          if (!writeOk) {
+            if (uploadedFile.length() > 0) {
+              SD_ADAPTER.remove(uploadedFile.c_str());
+            }
+            cleanupFppUploadState(false);
+            request->send(500, "text/plain", "Upload flush failed");
+            return;
+          }
+
+          finishSuccessfulFppUpload(uploadedFile);
           request->send(200, "text/plain", "Upload complete");
         }
       });
@@ -874,8 +1059,9 @@ public:
     }
 
     startUdpIfNeeded();
+    cleanupStaleFppUploadIfNeeded();
     processPendingFppCommand();
-	
+
     bool doPingReply = false;
     IPAddress pingReplyIP;
 
@@ -913,14 +1099,16 @@ public:
     }
 
     if (FSEQ_isFppOverrideActive()) {
-      realtimeIP = lastFppSenderIP;
+      realtimeIP = getLastFppSenderIPSnapshot();
       realtimeLock(3000, REALTIME_MODE_FSEQ);
       FSEQPlayer::renderRealtimeFrame();
     } else if (realtimeMode == REALTIME_MODE_FSEQ && FSEQPlayer::isPlaying()) {
       stopRealtimeFppPlayback();
     } else if (!FSEQPlayer::isPlaying() && !FSEQ_isFppOverrideActive()) {
-      clearPlaybackStatusCache(false);
+      clearPlaybackStatusCacheLoopOnly(false);
     }
+
+    updatePlaybackStatusSnapshotLoopOnly();
 
     if (xlzStartTime == 0) xlzStartTime = millis();
     if (!xlzChecked && (millis() - xlzStartTime >= 2000)) {
