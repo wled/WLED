@@ -15,7 +15,11 @@
 
 #ifdef WLED_USE_SD_MMC
 #elif defined(WLED_USE_SD_SPI)
+  #if CONFIG_IDF_TARGET_ESP32
   SPIClass spiPort = SPIClass(VSPI);
+  #else
+  SPIClass spiPort = SPI;
+  #endif
 #endif
 
 void listDir( const char * dirname, uint8_t levels);
@@ -25,10 +29,10 @@ class UsermodSdCard : public Usermod {
     bool sdInitDone = false;
 
     #ifdef WLED_USE_SD_SPI
-      int8_t configPinSourceSelect = 16;
-      int8_t configPinSourceClock = 14;
-      int8_t configPinPoci = 36; // confusing names? Then have a look :)
-      int8_t configPinPico = 15; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
+      int8_t configPinSourceSelect = -1;
+      int8_t configPinSourceClock = -1;
+      int8_t configPinPoci = -1; // confusing names? Then have a look :)
+      int8_t configPinPico = -1; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
 
       //acquired and initialize the SPI port
       void init_SD_SPI()
