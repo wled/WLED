@@ -82,9 +82,13 @@ BitBangBus::~BitBangBus() {
 bool BitBangBus::begin() {
   if (_initialized) return true;
 
-  // GPIO pin range check using IDF's SOC_GPIO_IN_RANGE_MAX (soc/soc_caps.h).
+  // GPIO pin range check using IDF macros from soc/soc_caps.h:
+  // SOC_GPIO_PIN_COUNT — total GPIO count for this target (40/ESP32, 47/S2, 49/S3, 22/C3, ...).
+  // SOC_GPIO_VALID_OUTPUT_GPIO_MASK — 64-bit bitmask of GPIOs usable as outputs
+  //   (excludes input-only pins such as GPIO 34-39 on ESP32).
   // High bank (GPIO_OUT1) is needed for pins > 31 on ESP32/S2/S3.
-  if (_pin < 0 || _pin > SOC_GPIO_IN_RANGE_MAX) return false;
+  if (_pin < 0 || _pin >= SOC_GPIO_PIN_COUNT ||
+      !((SOC_GPIO_VALID_OUTPUT_GPIO_MASK >> _pin) & 1ULL)) return false;
 
   // Configure GPIO as output, drive LOW (idle state for non-inverted LEDs)
   gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);

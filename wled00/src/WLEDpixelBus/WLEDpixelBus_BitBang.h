@@ -42,7 +42,7 @@ class BitBangBus : public PixelBus {
 public:
   /**
    * Construct a BitBang bus for one GPIO pin.
-   * @param pin         GPIO pin number (0–SOC_GPIO_IN_RANGE_MAX for this target)
+   * @param pin         GPIO pin number (must be set in SOC_GPIO_VALID_OUTPUT_GPIO_MASK for this target)
    * @param timing      LED protocol timing (from WLEDpixelBus_Timings)
    * @param colorOrder  WLED colour-order byte
    * @param numChannels Number of colour channels per LED (3 or 4)
