@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Working Style
 
-Do not make any changes until you have 95% confidence in what you need to build. Ask follow-up questions until you reach that confidence.
+Do not make any changes until you have 100% confidence in what you need to build. Ask follow-up questions until you reach that confidence.
 
-When you are done with a change, start and end with the word 'DONE' so that I know you are finished.
+When you are done with a change, end with the word 'DONE' so that I know you are finished.
 
 When I need to update the esp32 device, you must tell me which IDs I need to run, so that I don't waste my time.
 1 = npm run build
@@ -20,6 +20,8 @@ Agents are located in `.claude/agents/`. Read the relevant agent file before sta
 - `session-handoff` — end of session handoff document generator. Trigger on /session-handoff or when wrapping up a session.
 - `log-requirement` — always-on requirements logger. Monitors every user message and maintains `.ben/requirements.md`. No slash command needed — runs automatically.
 - `requirement-review` — pre-coding gate. Runs automatically before any implementation begins. Sanity checks new requirements against existing ones, checks for clashes and ambiguity, and must confirm all-clear in chat before any code is written.
+- `playwright-test-writer` — always-on test authoring agent. After any UI requirement is identified or implemented, writes Playwright tests in `tests/e2e/` that cover it. Runs automatically alongside development — no slash command needed.
+- `playwright-test-runner` — post-coding gate. Runs `npm run test:e2e` after every implementation that touches `wled00/data/`. Never say DONE unless all tests pass. Loops back to development on failure.
 
 ## Setup and Build
 

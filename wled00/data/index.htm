@@ -20,7 +20,8 @@
 	<div class="tab top">
 		<div class="btnwrap">
 			<button id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons">&#xe08f;</i><p class="tab-label">Power</p></button>
-			<button onclick="window.location.href=getURL('/')"><i class="icons">&#8962;</i><p class="tab-label">Home</p></button>
+			<button id="buttonHome" onclick="window.location.href=getURL('/')"><span class="home-icon">&#x2302;</span><p class="tab-label">Home</p></button>
+			<button id="buttonSettings" onclick="window.location.href=getURL('/settings')"><i class="icons">&#xe0a2;</i></button>
 			<button id="buttonNodes" onclick="toggleNodes()" style="display:none;"><i class="icons">&#xe22d;</i><p class="tab-label">Nodes</p></button>
 			<button id="buttonPcm" onclick="togglePcMode(true)" style="display:none;"><i class="icons">&#xe23d;</i><p class="tab-label">PC Mode</p></button>
 		</div>
@@ -289,8 +290,7 @@
 	<button class="tablinks" onclick="openTab(0)">Colours</button>
 	<button class="tablinks" onclick="openTab(1)">Effects</button>
 	<button class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
-	<button class="tablinks" onclick="openTab(3)"><i class="icons">&#xe04c;</i><p class="tab-label">Presets</p></button>
-	<button class="bot-settings" onclick="window.location.href=getURL('/settings')"><i class="icons">&#xe0a2;</i></button>
+	<button class="tablinks" onclick="openTab(3)">Favourites</button>
 </div>
 
 <div id="connind"></div>

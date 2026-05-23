@@ -71,6 +71,7 @@
 ~~**3.21** `pending` [2026-05-20] — Remove all navigation pill buttons (Presets, Info) from the settings page; settings page shows functional settings and Factory Settings only.~~ *(superseded by REQ 3.22)*
 ~~**3.17.2** `pending` [2026-05-20] — Factory Settings page also contains: Sync Interfaces, Time & Macros, Usermods, Security & Updates (moved from settings page).~~ *(superseded by REQ 3.22)*
 **3.22** `pending` [2026-05-20] — Settings page shows: Presets, WiFi & Network, Info, Sync Interfaces, and Factory Settings only. All other buttons (Segments, LED & Hardware, Pin Info, 2D Configuration, User Interface, Time & Macros, Usermods, Security & Updates) are on the Factory Settings page.
+**3.23** `pending` [2026-05-20] — Effects tab pill buttons show plain text only (no palette/type icons). Each pill has a + button (green) to add the effect as a cycling preset; once added, a × button (red) replaces it to remove the preset. Toast message confirms each action. Preset IDs are assigned sequentially from 6; preset 101 (z_cycle_preset) P2 value is updated automatically to reflect the total count. User-added presets persist in localStorage (key: wled_user_fx_presets).
 
 ---
 

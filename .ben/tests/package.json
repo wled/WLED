@@ -1,0 +1,13 @@
+{
+  "name": "wled-ui-tests",
+  "version": "1.0.0",
+  "description": "Playwright UI tests for WLED custom firmware",
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

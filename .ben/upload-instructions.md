@@ -11,7 +11,7 @@ cd "WLED-Main-2026-04-29"
 ## What to run and when
 
 ### Web UI change (edited anything in wled00/data/)
-Run both, in order:
+Run all three, in order (LittleFS takes priority over embedded firmware — skipping uploadfs means the device silently serves the old version):
 
 ```
 npm run build
@@ -19,6 +19,10 @@ npm run build
 
 ```
 & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target upload
+```
+
+```
+& "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target uploadfs
 ```
 
 ---
