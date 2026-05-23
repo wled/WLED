@@ -8,8 +8,12 @@ writes and a uint32_t bitmask.
 
 Constraints / design notes:
   • ESP32 only (not ESP8266 — that already has its own BitBangBus).
-  • Only GPIO pins 0–31 are supported on all variants.  Classic ESP32 additionally
-    supports GPIO 32–39 via a second register bank (GPIO_OUT1_W1TS/TC_REG).
+  • GPIO pin ranges per variant:
+      Classic ESP32: 0–39 (low bank 0–31 via GPIO_OUT_W1TS/TC_REG;
+                           high bank 32–39 via GPIO_OUT1_W1TS/TC_REG)
+      ESP32-S2:      0–46 (same dual-bank split at pin 32)
+      ESP32-S3:      0–48 (same dual-bank split at pin 32)
+      All others (C3/C6/H2): 0–31 (low bank only)
   • All BitBang channels MUST use the same LED type / timing (enforced by
     PixelBusAllocator when driverType == 2).
   • The ISR lock is released and re-acquired after every output bit so that
@@ -38,7 +42,7 @@ class BitBangBus : public PixelBus {
 public:
   /**
    * Construct a BitBang bus for one GPIO pin.
-   * @param pin         GPIO pin number (0–31 on all variants; 0–39 on classic ESP32)
+   * @param pin         GPIO pin number (0–SOC_GPIO_IN_RANGE_MAX for this target)
    * @param timing      LED protocol timing (from WLEDpixelBus_Timings)
    * @param colorOrder  WLED colour-order byte
    * @param numChannels Number of colour channels per LED (3 or 4)
@@ -82,8 +86,8 @@ private:
   static uint8_t*      s_pixelData[WLED_MAX_BB_CHANNELS];  // encoded data pointer per channel
   static uint8_t       s_channelCount;
   static uint32_t      s_allMask;      // GPIO bitmask of registered pins 0–31
-#ifdef CONFIG_IDF_TARGET_ESP32
-  static uint32_t      s_allMaskHigh;  // GPIO bitmask of registered pins 32–39 (classic ESP32 only)
+#ifdef ESP_HAS_HIGH_GPIO_BANK
+  static uint32_t      s_allMaskHigh;  // GPIO bitmask of registered pins 32+ (ESP32/S2/S3)
 #endif
   static uint8_t       s_stagedCount;  // how many channels have called show() this frame
   static portMUX_TYPE  s_mux;          // critical-section lock used inside outputParallel()
