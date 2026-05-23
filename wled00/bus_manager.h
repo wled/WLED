@@ -120,6 +120,13 @@ struct CustomBusConfig {
 };
 
 
+// Driver preference for digital LED buses: stored in BusConfig::driverType and BusDigital::_driverType
+enum BusDriverType : uint8_t {
+  BUSDRV_RMT     = 0, // RMT peripheral (default on most ESP32 variants)
+  BUSDRV_I2S     = 1, // I2S / LCD / parallel-SPI (chip-dependent)
+  BUSDRV_BITBANG = 2, // parallel bit-bang GPIO (ESP32 only)
+};
+
 //parent class of BusDigital, BusPwm, and BusNetwork
 class Bus {
   public:
@@ -155,7 +162,7 @@ class Bus {
     virtual uint16_t getLEDCurrent() const                      { return 0; }
     virtual uint16_t getUsedCurrent() const                     { return 0; }
     virtual uint16_t getMaxCurrent() const                      { return 0; }
-    virtual uint8_t  getDriverType() const                      { return 0; } // Default to RMT (0) for non-digital buses
+    virtual uint8_t  getDriverType() const                      { return BUSDRV_RMT; }  // default to RMT (overridden by BusDigital)
     virtual size_t   getBusSize() const                         { return sizeof(Bus); } // currently unused
     virtual const String getCustomText() const                  { return String(); }
 
@@ -298,7 +305,7 @@ class BusDigital : public Bus {
     uint8_t  _skip;
     uint8_t  _colorOrder;
     uint8_t  _pins[2] = {255, 255};
-    uint8_t  _driverType; // 0=RMT (default), 1=I2S
+    uint8_t  _driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_I2S / BUSDRV_BITBANG
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
     uint8_t  _milliAmpsPerLed;
@@ -488,12 +495,12 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
-  uint8_t driverType; // 0=RMT (default), 1=I2S
+  uint8_t driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_I2S / BUSDRV_BITBANG
   String text;
   uint8_t busSpeedFactor; // percent (100 = default)
   CustomBusConfig custom; // used only when type == TYPE_CUSTOM_BUS
 
-  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=0, String sometext = "", uint8_t bsf = 100)
+  BusConfig(uint8_t busType, uint8_t* ppins, uint16_t pstart, uint16_t len = 1, uint8_t pcolorOrder = COL_ORDER_GRB, bool rev = false, uint8_t skip = 0, byte aw=RGBW_MODE_MANUAL_ONLY, uint16_t clock_kHz=0U, uint8_t maPerLed=LED_MILLIAMPS_DEFAULT, uint16_t maMax=ABL_MILLIAMPS_DEFAULT, uint8_t driver=BUSDRV_RMT, String sometext = "", uint8_t bsf = 100)
   : count(std::max(len,(uint16_t)1))
   , start(pstart)
   , colorOrder(pcolorOrder)
@@ -520,7 +527,7 @@ struct BusConfig {
       (int)autoWhite,
       (int)frequency,
       (int)milliAmpsPerLed, (int)milliAmpsMax,
-      driverType == 0 ? "RMT" : "I2S"
+      driverType == BUSDRV_RMT ? "RMT" : driverType == BUSDRV_I2S ? "I2S" : "BitBang"
     );
   }
 

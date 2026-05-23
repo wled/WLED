@@ -62,9 +62,9 @@ class PixelBusAllocator {
     }
 
     #ifndef ESP8266
-    if (driverType == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
+    if (driverType == BUSDRV_RMT && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
       _rmtChannelsAssigned++;
-    } else if (driverType == 2) {
+    } else if (driverType == BUSDRV_BITBANG) {
       // BitBang: no hardware channel limit, but enforce single LED type for parallel output
       if (_bitBangBusType == 0) {
         _bitBangBusType = busType; // lock LED type to first BitBang channel
@@ -73,7 +73,7 @@ class PixelBusAllocator {
       }
       _bitBangChannelsAssigned++;
     } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
-      driverType = 1;
+      driverType = BUSDRV_I2S;
       // If first I2S channel request, lock the type to ensure parallel timings match
       if (_i2sChannelsAssigned == 0) {
         _parallelI2sBusType = busType;
@@ -87,14 +87,14 @@ class PixelBusAllocator {
     return true;
   }
 
-static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = 0, uint8_t busSpeedFactor = 100, uint8_t customNumChannels = 0, const WLEDpixelBus::LedTiming* customTiming = nullptr) {
+static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = BUSDRV_RMT, uint8_t busSpeedFactor = 100, uint8_t customNumChannels = 0, const WLEDpixelBus::LedTiming* customTiming = nullptr) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
-    if (driverType == 1 && _parallelI2sBusType != 0) {
+    if (driverType == BUSDRV_I2S && _parallelI2sBusType != 0) {
       busType = _parallelI2sBusType; // Lock type for hardware timing sync
     }
-    if (driverType == 2 && _bitBangBusType != 0) {
+    if (driverType == BUSDRV_BITBANG && _bitBangBusType != 0) {
       busType = _bitBangBusType; // Lock type for BitBang parallel timing
     }
     #endif
@@ -129,8 +129,8 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     //driver = WLEDpixelBus::BusDriver::BitBang; // bit banging works on all pins (debug)
     #else
     switch (driverType) {
-      case 0:  driver = WLEDpixelBus::BusDriver::RMT; break;
-      case 1:
+      case BUSDRV_RMT:     driver = WLEDpixelBus::BusDriver::RMT; break;
+      case BUSDRV_I2S:
         #if defined(CONFIG_IDF_TARGET_ESP32S3)
         driver = WLEDpixelBus::BusDriver::LCD; // S3 has LCD peripheral with 16 channels, very similar to I2S
         #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
@@ -141,8 +141,8 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         driver = WLEDpixelBus::BusDriver::RMT;
         #endif
         break;
-      case 2:  driver = WLEDpixelBus::BusDriver::BitBang; break;
-      default: driver = WLEDpixelBus::BusDriver::RMT; break;
+      case BUSDRV_BITBANG: driver = WLEDpixelBus::BusDriver::BitBang; break;
+      default:             driver = WLEDpixelBus::BusDriver::RMT; break;
     }
     #endif
 

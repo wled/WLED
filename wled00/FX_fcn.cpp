@@ -1191,7 +1191,7 @@ void WS2812FX::finalizeInit() {
       digitalCount++;
       //#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       #if defined(ARDUINO_ARCH_ESP32)
-      if (bus.driverType == 1)
+      if (bus.driverType == BUSDRV_I2S)
         i2sBusCount++;
       else
         rmtBusCount++;
