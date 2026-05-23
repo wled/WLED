@@ -14,11 +14,10 @@ namespace WLEDpixelBus {
 #include "rom/lldesc.h"
 #include "esp_intr_alloc.h"
 
-#if defined(WLEDPB_ESP32)
-  #define WLEDPB_I2S_BUS_COUNT 2 // TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
-#else // S2 (C3 & S3 do not support parallel I2S output, S3 uses LCD peripheral instead, C3 has parallel SPI as an alternative)
-  #define WLEDPB_I2S_BUS_COUNT 1
-#endif
+// SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080
+// mode. 2 on ESP32 (I2S0 + I2S1), 1 on ESP32-S2 (I2S0 only).
+// TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
+#define WLEDPB_I2S_BUS_COUNT SOC_LCD_I80_BUSES
 
 // note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
 // TODO: 16 parallel channels does not make much sense to use as a default. should enable both 8 and 16 parallel channels.

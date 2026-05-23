@@ -40,6 +40,10 @@ static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE >= 64, "DMA buffer too small");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE <= 4092, "DMA buffer too large");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE % 4 == 0, "DMA buffer must be multiple of 4");
 static_assert(WLEDPB_LCD_CADENCE_STEPS == 3 || WLEDPB_LCD_CADENCE_STEPS == 4, "Cadence must be 3 or 4");
+// SOC_LCD_I80_BUS_WIDTH is the physical output width of the LCD I80 peripheral.
+// On ESP32-S3 this is 16, so 16-parallel is the hardware maximum.
+static_assert(WLEDPB_LCD_MAX_CHANNELS <= SOC_LCD_I80_BUS_WIDTH,
+  "WLEDPB_LCD_MAX_CHANNELS exceeds hardware LCD bus width (SOC_LCD_I80_BUS_WIDTH)");
 
 // 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
 #ifdef WLED_PIXELBUS_16PARALLEL

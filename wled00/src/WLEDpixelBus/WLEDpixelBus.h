@@ -40,13 +40,16 @@ Features:
   #define WLEDPB_ESP32C3
 #endif
 
-// I2S support (ESP32 and S2 only for parallel mode)
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2)
+// I2S support: targets where the I2S peripheral has the LCD Intel 8080 mode
+// used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and
+// ESP32-S2; absent on S3 (which has a dedicated LCD CAM) and C3.
+#if SOC_I2S_LCD_I80_VARIANT
   #define WLEDPB_I2S_SUPPORT
 #endif
 
-// LCD support (S3 only)
-#if defined(WLEDPB_ESP32S3)
+// LCD support: targets with a dedicated LCD CAM peripheral.
+// SOC_LCDCAM_SUPPORTED is defined on ESP32-S3 only.
+#if SOC_LCDCAM_SUPPORTED
   #define WLEDPB_LCD_SUPPORT
 #endif
 
