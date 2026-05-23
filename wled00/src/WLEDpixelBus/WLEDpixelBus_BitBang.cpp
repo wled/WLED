@@ -19,6 +19,9 @@ uint16_t     BitBangBus::s_numPixels[WLED_MAX_BB_CHANNELS] = {};
 uint8_t*     BitBangBus::s_pixelData[WLED_MAX_BB_CHANNELS] = {};
 uint8_t      BitBangBus::s_channelCount  = 0;
 uint32_t     BitBangBus::s_allMask       = 0;
+#ifdef CONFIG_IDF_TARGET_ESP32
+uint32_t     BitBangBus::s_allMaskHigh   = 0;
+#endif
 uint8_t      BitBangBus::s_stagedCount   = 0;
 portMUX_TYPE BitBangBus::s_mux           = portMUX_INITIALIZER_UNLOCKED;
 uint32_t     BitBangBus::s_t0h           = 0;
@@ -79,8 +82,13 @@ BitBangBus::~BitBangBus() {
 bool BitBangBus::begin() {
   if (_initialized) return true;
 
-  // GPIO pin 0–31 only (uint32_t mask limitation)
+  // GPIO pin range: 0-31 on all variants; additionally 32-39 on classic ESP32
+  // (GPIO_OUT_W1TC/TS_REG covers pins 0-31; GPIO_OUT1_W1TC/TS_REG covers 32-39 on ESP32 classic)
+#ifdef CONFIG_IDF_TARGET_ESP32
+  if (_pin < 0 || _pin >= 40) return false;
+#else
   if (_pin < 0 || _pin >= 32) return false;
+#endif
 
   // Configure GPIO as output, drive LOW (idle state for non-inverted LEDs)
   gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);
@@ -105,13 +113,23 @@ bool BitBangBus::begin() {
   if (s_channelCount >= WLED_MAX_BB_CHANNELS) return false;
   const uint8_t idx  = s_channelCount;
   s_pins[idx]        = _pin;
+#ifdef CONFIG_IDF_TARGET_ESP32
+  if (_pin >= 32) s_allMaskHigh |= (1u << (_pin - 32));
+  else            s_allMask     |= (1u << _pin);
+#else
   s_allMask         |= (1u << _pin);
+#endif
   s_channelCount++;
 
   // Allocate the per-pixel encode buffer (via PixelBus helper)
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) {
     s_channelCount--;
+#ifdef CONFIG_IDF_TARGET_ESP32
+    if (_pin >= 32) s_allMaskHigh &= ~(1u << (_pin - 32));
+    else            s_allMask     &= ~(1u << _pin);
+#else
     s_allMask &= ~(1u << _pin);
+#endif
     return false;
   }
 
@@ -148,7 +166,15 @@ void BitBangBus::end() {
       }
       s_channelCount--;
       s_allMask = 0;
+#ifdef CONFIG_IDF_TARGET_ESP32
+      s_allMaskHigh = 0;
+      for (uint8_t i = 0; i < s_channelCount; i++) {
+        if (s_pins[i] >= 32) s_allMaskHigh |= (1u << (s_pins[i] - 32));
+        else                  s_allMask     |= (1u << s_pins[i]);
+      }
+#else
       for (uint8_t i = 0; i < s_channelCount; i++) s_allMask |= (1u << s_pins[i]);
+#endif
       s_stagedCount = 0;
     }
   }
@@ -187,6 +213,9 @@ bool BitBangBus::show(const uint32_t*, uint16_t, const CctPixel*) {
 void BitBangBus::resetChannels() {
   s_channelCount = 0;
   s_allMask      = 0;
+#ifdef CONFIG_IDF_TARGET_ESP32
+  s_allMaskHigh  = 0;
+#endif
   s_stagedCount  = 0;
   s_t0h          = 0;
   s_t1h          = 0;
@@ -224,7 +253,14 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
   const uint32_t latchCycles  = s_latchCycles;
   const uint8_t  pixelBytes   = s_pixelBytes;
   const uint8_t  nCh          = s_channelCount;
-  uint32_t setOutputMask = s_allMask;  // GPIO bitmask of all active output pins
+  // GPIO output masks — split into low bank (pins 0–31, all variants) and
+  // high bank (pins 32–39, classic ESP32 only via GPIO_OUT1_W1TS/TC_REG).
+#ifdef CONFIG_IDF_TARGET_ESP32
+  const uint32_t setOutputMaskLow  = s_allMask;      // pins 0–31
+  const uint32_t setOutputMaskHigh = s_allMaskHigh;  // pins 32–39
+#else
+  const uint32_t setOutputMask = s_allMask;  // GPIO bitmask of all active output pins (0–31)
+#endif
 
   // Find the maximum pixel count across all channels (drives total loop length).
   uint16_t maxPixels = 0;
@@ -237,16 +273,44 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
   const uint32_t bitsPerPixel = (uint32_t)pixelBytes * 8u;
 
   // Per-channel pin masks and data extents — pre-computed for fast inner-loop access.
+  // On classic ESP32, pins ≥32 go into the high-bank mask; others into the low-bank mask.
   uint32_t chanPinMask[nCh];
+#ifdef CONFIG_IDF_TARGET_ESP32
+  uint32_t chanPinMaskHigh[nCh];
+#endif
   uint32_t chanTotalBytes[nCh];
   for (uint8_t ch = 0; ch < nCh; ch++) {
+#ifdef CONFIG_IDF_TARGET_ESP32
+    if (s_pins[ch] >= 32) {
+      chanPinMask[ch]     = 0;
+      chanPinMaskHigh[ch] = 1u << (s_pins[ch] - 32);
+    } else {
+      chanPinMask[ch]     = 1u << s_pins[ch];
+      chanPinMaskHigh[ch] = 0;
+    }
+#else
     chanPinMask[ch]    = 1u << s_pins[ch];
+#endif
     chanTotalBytes[ch] = (uint32_t)s_numPixels[ch] * pixelBytes;
   }
 
-  // Returns the GPIO mask of all channels that should output a logical '0' for
+  // Returns the GPIO mask(s) of all channels that should output a logical '0' for
   // the given bit index.  Channels that have exhausted their pixel data also
   // output '0'.  Bit order is MSB-first within each byte.
+#ifdef CONFIG_IDF_TARGET_ESP32
+  auto computeZeroMasks = [&](uint32_t bitIndex, uint32_t& zmLow, uint32_t& zmHigh) {
+    const uint32_t byteIndex = bitIndex >> 3;
+    const uint8_t  bitPos    = 7u - (uint8_t)(bitIndex & 7u);  // MSB first
+    zmLow = 0; zmHigh = 0;
+    for (uint8_t ch = 0; ch < nCh; ch++) {
+      if (byteIndex >= chanTotalBytes[ch] ||
+          !(s_pixelData[ch][byteIndex] & (1u << bitPos))) {
+        zmLow  |= chanPinMask[ch];
+        zmHigh |= chanPinMaskHigh[ch];
+      }
+    }
+  };
+#else
   auto computeZeroMask = [&](uint32_t bitIndex) -> uint32_t {
     const uint32_t byteIndex = bitIndex >> 3;
     const uint8_t  bitPos    = 7u - (uint8_t)(bitIndex & 7u);  // MSB first
@@ -259,6 +323,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     }
     return zm;
   };
+#endif
 
   // Period reference: initialise as already expired so the first pulse fires immediately.
   uint32_t cyclesStart = getCycleCount() - period;
@@ -267,8 +332,13 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 
   for (uint32_t bitIndex = 0; bitIndex < totalBits; bitIndex++) {
 
-    // ── Step 1: Compute zero mask for this bit ────────────────────────────
+    // ── Step 1: Compute zero mask(s) for this bit ────────────────────────
+#ifdef CONFIG_IDF_TARGET_ESP32
+    uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
+    computeZeroMasks(bitIndex, zeroMaskLow, zeroMaskHigh);
+#else
     uint32_t zeroMask = computeZeroMask(bitIndex);
+#endif
 
     // ── Step 2: Pixel boundary — release ISR lock, check latch ───────────
     // On every pixel boundary (except the very first bit) give ISRs a chance
@@ -287,16 +357,31 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     while ((getCycleCount() - cyclesStart) < period);
 
     // ── Step 4: Set all outputs HIGH simultaneously ───────────────────────
+#ifdef CONFIG_IDF_TARGET_ESP32
+    REG_WRITE(GPIO_OUT_W1TS_REG,  setOutputMaskLow);
+    REG_WRITE(GPIO_OUT1_W1TS_REG, setOutputMaskHigh);
+#else
     REG_WRITE(GPIO_OUT_W1TS_REG, setOutputMask);
-    cyclesStart   = getCycleCount();
+#endif
+    cyclesStart = getCycleCount();
 
     // ── Step 5: After T0H — pull '0' outputs LOW ─────────────────────────
     while ((getCycleCount() - cyclesStart) < t0h);
+#ifdef CONFIG_IDF_TARGET_ESP32
+    REG_WRITE(GPIO_OUT_W1TC_REG,  zeroMaskLow);
+    REG_WRITE(GPIO_OUT1_W1TC_REG, zeroMaskHigh);
+#else
     REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
+#endif
 
     // ── Step 6: After T1H — pull all remaining outputs LOW ───────────────
     while ((getCycleCount() - cyclesStart) < t1h);
+#ifdef CONFIG_IDF_TARGET_ESP32
+    REG_WRITE(GPIO_OUT_W1TC_REG,  setOutputMaskLow);
+    REG_WRITE(GPIO_OUT1_W1TC_REG, setOutputMaskHigh);
+#else
     REG_WRITE(GPIO_OUT_W1TC_REG, setOutputMask);
+#endif
   }
 
   portEXIT_CRITICAL(&s_mux);

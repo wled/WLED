@@ -64,7 +64,7 @@
 			maxM  = m;		// maxM - max LED memory
 			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o;		// maxCO - max Color Order mappings
-			maxD  = di;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxD  = di;		// maxD - max digital channels (RMT + I2S/LCD/SPI + BB): 24 - ESP32, 20 - S3/S2, 14 - C3, 3 - 8266
 			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
 			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
@@ -502,8 +502,8 @@
 				}
 			});
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
-			// enforce I2S bus speed selector rules (only first I2S bus editable; others mirror/disabled)
-			syncI2SBusSpeedSelectors();
+			// enforce parallel-output bus speed selector rules (only first parallel bus editable; I2S/LCD/SPI and BitBang buses all share one timing)
+			syncParallelBusSpeedSelectors();
 			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 
 			// Show channel usage warning
@@ -1095,22 +1095,25 @@ Swap: <select id="xw${s}" name="XW${s}">
 			});
 			}
 
-			// Ensure I2S bus speed selectors are synchronized: only the first I2S bus is editable
-			function syncI2SBusSpeedSelectors() {
+			// Ensure parallel-output bus speed selectors are synchronized: only the first parallel bus
+			// (I2S/LCD/SPI or BitBang) is editable; all others mirror its value and are disabled.
+			// This reflects the hardware constraint: I2S, LCD, SPI, and BitBang all use the same
+			// shared timing and cannot have independent speed factors.
+			function syncParallelBusSpeedSelectors() {
 				try {
-					// First, enable all SF selects by default (re-enable any that stopped being I2S)
+					// First, enable all SF selects by default (re-enable any that stopped being parallel)
 					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
-					let i2sIndices = [];
+					let parIndices = [];
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 						let n = sel.name.substring(2,3);
 						let t = parseInt(sel.value);
 						let drv = d.Sf["LD"+n]?.value | 0;
-						if (isDig(t) && !isD2P(t) && drv === 1) i2sIndices.push(n);
+						if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2)) parIndices.push(n);
 					});
-					if (i2sIndices.length === 0) return;
-					i2sIndices.sort((a,b)=> toNum(a) - toNum(b));
-					const first = i2sIndices[0];
-					for (const n of i2sIndices) {
+					if (parIndices.length === 0) return;
+					parIndices.sort((a,b)=> toNum(a) - toNum(b));
+					const first = parIndices[0];
+					for (const n of parIndices) {
 						let sf = d.getElementsByName("SF"+n)[0];
 						if (!sf) continue;
 						if (n === first) {
@@ -1126,7 +1129,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					let firstEl = d.getElementsByName("SF"+first)[0];
 					if (firstEl) firstEl.onchange = function() {
 						let v = this.value;
-						for (const n of i2sIndices) if (n !== first) {
+						for (const n of parIndices) if (n !== first) {
 							let sf = d.getElementsByName("SF"+n)[0]; if (sf) sf.value = v;
 						}
 					};
@@ -1302,4 +1305,4 @@ Swap: <select id="xw${s}" name="XW${s}">
 </form>
 <div id="toast"></div>
 </body>
-</html>  
+</html>   
