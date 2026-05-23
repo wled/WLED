@@ -6,6 +6,8 @@
 #   docs/cpp.instructions.md          — C++ coding conventions
 #   docs/web.instructions.md          — Web UI coding conventions
 #   docs/cicd.instructions.md         — GitHub Actions / CI-CD conventions
+#   docs/hardening.instructions.md    — basic rules for code hardening and robustness
+#   docs/securecode.instructions.md   — more detailed checklists for common vulnerabities
 #
 # NOTE: This file must be committed (tracked by git) for CodeRabbit to read
 # it from the repository.  If it is listed in .gitignore, CodeRabbit will
@@ -44,8 +46,27 @@ reviews:
         Hot-path optimization guidelines (attributes, uint_fast types, caching,
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
+
+    # ── Security hardening — firmware (trust-boundary-aware) ────────────────
+    - path: "wled00/**/*.{cpp,h,hpp,ino}"
+      instructions: >
+        Apply the WLED security hardening rules from docs/hardening.instructions.md, 
+        and consult docs/securecode.instructions.md when more details are needed for actionable recommendations.
+
+        Trust Boundary Model — enforce input-validation and bounds-checking rules
+        ONLY at the first untrusted ingress point. Untrusted ingress points are:
+          - HTTP/JSON API request bodies and query parameters (/json/*, /win, etc.)
+          - WebSocket message payloads
+          - UDP datagrams (parsePacket() / recvfrom() and protocol wrappers for
+            E1.31, DDP, Art-Net, TPM2.net)
+          - TCP socket reads
+          - Serial/UART command input
+
+        A value that has been validated and range-clamped at its ingress handler is
+        considered TRUSTED for all subsequent WLED core processing. Do NOT flag or suggest
+        repeated bounds/range checks or internal uses of already-sanitized data.
+        When it is unclear whether a value has been sanitized upstream, prefer
+        requesting clarification over raising a false-positive finding.
 
     - path: "wled00/data/**"
       instructions: >
@@ -54,8 +75,21 @@ reviews:
         Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
         Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
         edit those generated headers directly.
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
+
+    # ── Security hardening — WebUI (always an ingress/output surface) ────────
+    - path: "wled00/data/**"
+      instructions: >
+        Apply the WLED web UI security rules from docs/securecode.instructions.md
+        (sections WEB1-WEB7).
+
+        The Trust Boundary Model does NOT reduce scope here: the WebUI is both
+        an ingress point (user input, postMessage, fetched config data) and an
+        output/rendering surface. Always flag DOM XSS risks, unsafe
+        innerHTML / document.write / insertAdjacentHTML / outerHTML assignments,
+        postMessage handlers without origin validation, eval() / new Function(),
+        unsafe location.href or location.replace() assignments, and DOM insertion
+        from fetched or config-derived data — regardless of where the data
+        originates.
 
     - path: "wled00/html_*.h"
       instructions: >
@@ -75,8 +109,28 @@ reviews:
         Each usermod lives in its own directory under usermods/ and is implemented
         as a .cpp file with a dedicated library.json file to manage dependencies. 
         Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements (skip minor ones).
+
+    # ── Security hardening — usermods (trust-boundary-aware, narrow scope) ───
+    - path: "usermods/**/*.{cpp,h,hpp}"
+      instructions: >
+        For usermods, the only untrusted ingress points are readFromConfig(JsonObject& root)
+        and calls to getJsonValue(). Values retrieved there are considered trusted after
+        successful retrieval.
+
+        Flag ONLY downstream uses of config-derived values where an out-of-range or
+        unexpected value can cause misbehaviour that is not already guarded, for example:
+          - switch statements on a config-derived integer with no default: branch
+            (missing default: case or missing break where fall-through is unintentional)
+          - array or buffer indexing with a config-derived value where the index is not
+            clamped before use
+          - arithmetic with a config-derived value that can overflow or produce a
+            negative result used as a size or count
+
+        Do NOT flag:
+          - getJsonValue() call sites themselves (type coercion is handled by ArduinoJson)
+          - Internal logic that operates on values already confirmed safe at ingress
+          - Repeated range checks on values that have already been clamped
+          - General memory-safety patterns unrelated to config-derived data flow
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
@@ -88,8 +142,6 @@ reviews:
         scoped to least privilege. Never interpolate github.event.* values directly
         into run: steps — pass them through an env: variable to prevent script
         injection. Do not use pull_request_target unless fully justified.
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 6) and create a prioritized list of suggested improvements.
 
     - path: "**/*.instructions.md"
       instructions: |
