@@ -63,6 +63,19 @@ docs/                # Coding convention docs
 .github/workflows/   # CI/CD (GitHub Actions)
 ```
 
+### Branch / Release Structure
+
+```text
+main                # Main development trunk (daily/nightly) 17.0.0-dev. Target branch for PRs.
+  ├── V5            # special branch: code rework for esp-idf 5.5.x (unstable)
+      ├── V5-C6     # special branch: integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+16_x                # maintenance for release 16.0.x
+0_15_x              # maintenance (bugfixes only) for previous release 0.15.x
+(tag) v0.14.4       # old version 0.14.4 (no maintenance)
+(tag) v0.13.3       # old version 0.13.3 (no maintenance)
+(tag) v0. ... . ... # historical versions 0.12.x and before
+```
+
 ## C++ Code Style (wled00/, usermods/)
 
 ### Formatting
