@@ -143,7 +143,7 @@ public:
   ParticleSystem2D(const uint32_t width, const uint32_t height, const uint32_t numberofparticles, const uint32_t numberofsources, const bool isadvanced = false,  const bool sizecontrol = false); // constructor
   // note: memory is allcated in the FX function, no deconstructor needed
   void update(void); //update the particles according to set options and render to the matrix
-  void updateFire(const uint8_t intensity, const bool renderonly); // update function for fire, if renderonly is set, particles are not updated (required to fix transitions with frameskips)
+  void updateFire(const uint8_t intensity); // update function for fire
   void updateSystem(void); // call at the beginning of every FX, updates pointers and dimensions
   void particleMoveUpdate(PSparticle &part, PSparticleFlags &partFlags, PSsettings2D *options = NULL, PSadvancedParticle *advancedproperties = NULL); // move function
   // particle emitters

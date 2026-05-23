@@ -10,8 +10,13 @@
 compile_commands.json
 __pycache__/
 
+/.dummy
+/dependencies.lock
+/managed_components
+
 esp01-update.sh
 platformio_override.ini
+platformio_release.ini
 replace_fs.py
 wled-update.sh
 

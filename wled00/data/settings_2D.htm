@@ -49,7 +49,7 @@
 		if (p.children.length >= maxPanels) return;
 		var pw = parseInt(d.Sf.PW.value);
 		var ph = parseInt(d.Sf.PH.value);
-		let b = `<div id="pnl${i}"><hr class="sml">Panel ${i}<br>
+		let b = `<div id="pnl${i}"><b>Panel ${i}</b><br>
 1<sup>st</sup> LED: <select name="P${i}B" oninput="UI()">
 	<option value="0">Top</option>
 	<option value="1">Bottom</option>
@@ -65,7 +65,7 @@ Serpentine: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
 Dimensions (WxH): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
 Offset X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
 Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
-</div>`;
+<br><br></div>`;
 		p.insertAdjacentHTML("beforeend", b);
 	}
 
@@ -255,13 +255,15 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 		<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button><hr>
 	</div>
 	<h2>2D setup</h2>
+	<div class="sec">
 	Strip or panel:
 	<select id="somp" name="SOMP" onchange="resetPanels();addPanels();UI();" >
 		<option value="0">1D Strip</option>
 		<option value="1">2D Matrix</option>
-	</select><br>
+	</select>
+	</div>
 	<div id="mpdiv" style="display:none;">
-		<hr class="sml">
+	<div class="sec">
 		<h3>Matrix Generator <button type="button" id="expGen" onclick="expand(this,gId('mxGen'));">&gt;</button></h3>
 		<div id="mxGen" style="display:none;">
 			Panel dimensions (WxH): <input name="PW" type="number" min="1" max="128" value="8"> x <input name="PH" type="number" min="1" max="128" value="8"><br>
@@ -283,20 +285,25 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 				WARNING: You may need to update each panel parameters after they are generated.</i><br>
 			<button type="button" onclick="gen();expand(gId('expGen'),gId('mxGen'));">Populate</button>
 		</div>
-		<hr class="sml">
+	</div>
+	<div class="sec">
 		<h3>Panel set-up</h3>
 		Number of panels: <input name="MPC" type="number" min="1" max="64" value="1" oninput="addPanels();UI();"><br>
 		<i>A matrix is made of 1 or more physical LED panels.<br>
 		Each panel can be of different size and/or have different LED orientation and/or starting point and/or layout.</i><br>
+	</div>
+	<div class="sec">
 		<h3>LED panel layout</h3>
 		<div id="panels">
 		</div>
-		<hr class="sml">
-		<div id="MD"></div>
-		<canvas id="canvas"></canvas>
+	</div>
+	<div id="MD"></div>
+	<canvas id="canvas"></canvas>
+	<div class="sec">
 		<div id="json" >Gap file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/2d-gaps.json')">Upload</button></div>
 		<i>Note: Gap file is a <b>.json</b> file containing an array with number of elements equal to the matrix size.<br>
 			A value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.</i>
+	</div>
 	</div>
 	<hr>
 	<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button>
