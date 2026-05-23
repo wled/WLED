@@ -1,6 +1,6 @@
 ---
 applyTo: "**/*.{cpp,h,hpp,ino,js,htm,html,css,yml,yaml}"
-description: "WLED strict-mode security review: low-noise 26-rule checklist."
+description: "WLED strict-mode security review: low-noise 27-rule checklist."
 ---
 
 # WLED Security Review — Low Noise Mode
