@@ -1,10 +1,12 @@
-# AGENTS.md — WLED Coding Agent Reference
+# AGENTS.md — WLED AI Coding Agent & AI Code Review Reference
 
 WLED is C++ firmware for ESP32/ESP8266 microcontrollers controlling addressable LEDs,
 with a web UI (HTML/JS/CSS). Built with PlatformIO (Arduino framework) and Node.js tooling.
 
 See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.md`,
 `docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`.
+
+Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
 ## Build Commands
 
