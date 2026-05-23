@@ -3,7 +3,7 @@ applyTo: "**/*.{cpp,h,hpp,ino,js,htm,html,css,yml,yaml}"
 description: "WLED strict-mode security review: low-noise 26-rule checklist."
 ---
 
-# WLED Security Review — Strict Mode (Low Noise)
+# WLED Security Review — Low Noise Mode
 
 Use these code hardening rules for automated reviews with minimal false positives.
 
@@ -13,11 +13,16 @@ Use these code hardening rules for automated reviews with minimal false positive
 - Do **not** require TLS/HTTPS as a baseline control.
 - Do **not** require authentication for standards-based UDP multicast/broadcast paths where authentication is not defined in the protocol specification.
 
+> **Trust boundary model**: Apply input-validation rules **only at the first untrusted ingress point**
+> (HTTP/JSON API body or query string, WebSocket payload, UDP datagram, TCP read, serial command).
+> Values that have been validated and range-clamped at ingress are **trusted** for internal WLED
+> processing. Do not flag subsequent uses or internal copies of already-sanitized data.
+
 ## CRITICAL Rules
 
-1. **No unchecked buffer copies** (`memcpy`, `strcpy`, `sprintf`) in firmware paths.
+1. **No unchecked buffer copies** (`memcpy`, `memmove`, `strcpy`, `strcmp`, `strlen`, `sprintf`, `printf`) in firmware paths; prefer bounded alternatives (`strnlen`, `strlcmp`, `strlcpy`).
 2. **No user-controlled format strings** in `DEBUG_PRINTF*` and similar logging APIs.
-3. **Validate all external input** (HTTP/JSON/UDP/serial) before index/length/pin usage.
+3. **Validate all untrusted external input** (HTTP/JSON/UDP/serial) before index/length/pin usage.
 4. **Auth required for state-changing control endpoints where feasible** (for example HTTP/JSON); do not flag protocol-defined unauthenticated UDP multicast/broadcast channels solely for missing auth.
 5. **No fail-open on parse/allocation errors** for config/state updates.
 6. **No DOM XSS sinks with untrusted data** (`innerHTML`, unsafe HTML insertion).
@@ -44,9 +49,9 @@ Use these code hardening rules for automated reviews with minimal false positive
 24. OTA paths (Update.begin(), Update.write()) must verify firmware integrity (checksum/hash); TLS not required.
 25. Flag xTaskCreate/xTaskCreatePinnedToCore tasks with insufficient stack for String/JSON use; flag MDNS.begin() / ArduinoOTA.setHostname() with unsanitized hostnames.
 26. Flag API/config serialization that exposes Wi-Fi/AP/MQTT password fields to unauthenticated clients.
+27. Treat fetched and config-derived strings as untrusted when inserting into the DOM; explicit sanitization required for HTML contexts.
 
 ## Reviewer Output Format
 
-- Report only findings mapped to rules 1–26.
 - Include severity, exact file and line, and one concrete fix direction.
 - Prioritize CRITICAL findings before IMPORTANT findings.

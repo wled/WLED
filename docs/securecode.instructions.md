@@ -17,6 +17,23 @@ Use this guide for AI-assisted code reviews in:
 - Do **not** require authentication for standards-based UDP multicast/broadcast protocols where auth is not part of the spec.
 - Do not propose mitigations that break protocol compliance just to add authentication.
 
+### Trust Boundary Model
+
+**Untrusted data** enters WLED only at the following explicit ingress points:
+- HTTP/JSON API request bodies and query parameters (e.g., `/json/*`, `/win`)
+- WebSocket message payloads
+- UDP datagrams (`parsePacket()` / `recvfrom()` and higher-level protocol wrappers)
+- TCP socket reads
+- Serial/UART input used as commands
+
+**Validation and range-clamping applied at the ingress point renders data trusted** for all subsequent use within the WLED core.
+
+**Do not flag:**
+- Repeated bounds or range checks on a value that has already been validated and clamped at its ingress handler.
+- Internal WLED core logic that operates on values confirmed safe by the ingress layer.
+
+If it is unclear whether a value has been sanitized upstream (e.g., passed through multiple function calls without a clear annotation), prefer asking for clarification over raising a false-positive finding.
+
 ## Severity
 
 - **CRITICAL** — exploitable vulnerability; block merge.
@@ -40,8 +57,9 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### FW1: Unsafe buffer operations
 - **Severity**: CRITICAL
-- Flag `strcpy`, `sprintf`, unchecked `memcpy`, unchecked pointer arithmetic.
+- Flag `strcpy`, `sprintf`, unchecked memory access (`memcpy`, `memmove`, `memcmp`, `strcmp`, `strlen`, `strcmp`), unchecked pointer arithmetic.
 - Require explicit bounds checks and length validation.
+- Prefer bounded alternatives for string operations (`strnlen`, `strlcmp`, `strlcpy`).
 
 ### FW2: Format-string injection
 - **Severity**: CRITICAL
@@ -53,7 +71,8 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### FW4: Unvalidated external input
 - **Severity**: CRITICAL
-- Validate and clamp external values from HTTP/JSON/UDP/serial before use as lengths, indices, IDs, or pin references.
+- At each **untrusted ingress point** (see Trust Boundary Model above), validate and clamp values from HTTP/JSON/UDP/serial before use as lengths, indices, IDs, or pin references.
+- Do not flag repeated range checks on values that have already been validated at their ingress point.
 - In UDP handlers (`parsePacket()`, `read()`, and any lower-level socket wrappers), validate `packetSize` before buffer writes and clamp protocol-specific universe/channel ranges to valid limits.
 
 ### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
