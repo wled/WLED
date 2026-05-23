@@ -159,6 +159,77 @@ reviews:
         3. If new AI-facing rules were added without updating a related HUMAN_ONLY
            reference section, note this as a suggestion (not a required fix).
 
+    # ── Secrets / sensitive information scanning ────────────────────────────
+
+    - path: "platformio*.ini*"
+      instructions: >
+        Scan for secrets, passwords, and other sensitive information accidentally
+        committed to PlatformIO configuration files (platformio.ini,
+        platformio_override.ini, platformio_override.ini.sample).
+
+        Flag any of the following:
+          - build_flags entries that define credentials as literal values, e.g.:
+              -DWIFI_SSID=\"MyNetwork\" -DWIFI_PASS=\"secret123\"
+              -DOTA_PASS=\"adminpass\" -DMQTT_PASS=\"mqttpassword\"
+            Flag only when the value is not a recognisable placeholder (see below).
+          - upload_flags or upload_port values that embed a password or auth token
+            (e.g., --auth=somepassword or http://user:pass@host).
+          - Any key = <value> pair whose key name contains "pass", "password",
+            "secret", "token", "key", "credential", or "auth" where the value is
+            a non-empty, non-placeholder literal string.
+          - Hardcoded IP addresses or hostnames paired with credentials in the
+            same environment section.
+          - API keys or access tokens as literal strings in any field.
+
+        Do NOT flag:
+          - Values that are clearly template placeholders (e.g., YOUR_SSID,
+            <YOUR_PASSWORD>, changeme, example_token, your_password_here).
+          - Values that use PlatformIO environment variable substitution
+            (${sysenv.WIFI_PASS} or ${env:WIFI_PASS}).
+          - Comments that only explain what a field should contain.
+          - platformio_override.ini.sample entries that contain only
+            placeholder/example values.
+
+    - path: "usermods/**/library.json"
+      instructions: >
+        Scan for secrets and sensitive information in usermod dependency manifests.
+
+        Flag any of the following:
+          - Dependency URLs that embed credentials in the URL itself
+            (e.g., "https://user:ghp_token@github.com/...").
+          - Personal access tokens, OAuth tokens, or API keys as literal strings
+            anywhere in the file.
+          - Values matching well-known secret patterns: GitHub PATs (ghp_...,
+            github_pat_...), AWS access keys (AKIA...), or similarly structured
+            high-entropy tokens.
+
+        Do NOT flag:
+          - Plain HTTPS or SSH URLs without embedded credentials.
+          - Version specifiers, semver ranges, or commit SHA references that
+            contain no credential prefix.
+          - Repository owner/name path segments (not credential material).
+
+    - path: "usermods/**/{readme,README,Readme}.md"
+      instructions: >
+        Scan for secrets, passwords, and sensitive information in usermod
+        documentation files, including inside code blocks, inline code, and prose.
+
+        Flag any of the following:
+          - Hardcoded Wi-Fi SSID or password values that appear to be real
+            (non-placeholder) strings in configuration or installation examples.
+          - Hardcoded OTA, AP, or MQTT passwords in code snippets or step-by-step
+            instructions.
+          - API keys, bearer tokens, or access tokens shown as literal values.
+          - Example platformio_override.ini snippets that contain real-looking
+            credential values instead of placeholders.
+          - Hardcoded IP addresses combined with credentials in the same example.
+
+        Do NOT flag:
+          - Values that are clearly template placeholders (e.g., YOUR_SSID,
+            <password>, my_secret, changeme, ****).
+          - Generic prose describing what a field means without supplying a value.
+          - Asterisk-masked values (e.g., ******, ••••••).
+
   finishing_touches:
     # Docstrings | Options for generating Docstrings for your PRs/MRs.
     docstrings:
