@@ -165,9 +165,14 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define WLED_MAX_PANELS 18                      // must not be more than 32
 
-//Usermod IDs
-#define USERMOD_ID_RESERVED               0     //Unused. Might indicate no usermod present
-#define USERMOD_ID_UNSPECIFIED            1     //Default value for a general user mod that does not specify a custom ID
+// Usermod IDs
+// A unique ID is only required when a usermod needs one or more of:
+//   1. Inter-usermod communication: UsermodManager::lookup(mod_id) or getUMData(..., mod_id)
+//   2. Pin ownership via pinManager: PinOwner enum entries map to these IDs (see pin_manager.h)
+//   3. Identification in JSON info: addToJsonInfo emits each mod's ID into the "um" array
+// If none of the above apply, omit getId() (or return USERMOD_ID_UNSPECIFIED) and do NOT add an entry here.
+#define USERMOD_ID_RESERVED               0     //Unused. Reserved; may indicate no usermod present
+#define USERMOD_ID_UNSPECIFIED            1     //Default for usermods that do not require a unique ID
 #define USERMOD_ID_EXAMPLE                2     //Usermod "usermod_v2_example.h"
 #define USERMOD_ID_TEMPERATURE            3     //Usermod "usermod_temperature.h"
 #define USERMOD_ID_FIXNETSERVICES         4     //Usermod "usermod_Fix_unreachable_netservices.h"
