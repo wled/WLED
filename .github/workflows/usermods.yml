@@ -122,6 +122,8 @@ jobs:
         result='[]'
         for sample in $samples; do
           usermod=$(dirname "$sample" | xargs basename)
+          # Skip usermods known to be incompatible (same list as get_usermod_envs)
+          case "$usermod" in PWM_fan|BME68X_v2|pixels_dice_tray) continue ;; esac
           envs=$(grep -E '^\[env:[^]]+\]' "$sample" | sed 's/^\[env:\(.*\)\]$/\1/')
           for env in $envs; do
             result=$(echo "$result" | jq --arg u "$usermod" --arg e "$env" '. + [{usermod: $u, env: $e}]')

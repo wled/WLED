@@ -11,6 +11,6 @@
 extends = env:esp8266_2m
 custom_usermods = ${env:esp8266_2m.custom_usermods} SN_Photoresistor
 build_flags =
-    ${common.build_flags_esp8266}
+    ${env:esp8266_2m.build_flags}
     -D USERMOD_SN_PHOTORESISTOR_MEASUREMENT_INTERVAL=60
-lib_deps = ${env.lib_deps}
+lib_deps = ${env:esp8266_2m.lib_deps}

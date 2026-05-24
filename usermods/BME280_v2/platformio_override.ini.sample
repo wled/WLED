@@ -2,7 +2,7 @@
 # Copy to platformio_override.ini in the WLED root to use.
 
 [platformio]
-default_envs = usermod_bme280_esp8266_2m
+default_envs = usermod_esp8266_2m
 
 [env:usermod_esp8266_2m]
 extends = env:esp8266_2m
