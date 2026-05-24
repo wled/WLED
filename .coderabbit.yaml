@@ -7,7 +7,7 @@
 #   docs/web.instructions.md          — Web UI coding conventions
 #   docs/cicd.instructions.md         — GitHub Actions / CI-CD conventions
 #   docs/hardening.instructions.md    — basic rules for code hardening and robustness
-#   docs/securecode.instructions.md   — more detailed checklists for common vulnerabities
+#   docs/securecode.instructions.md   — more detailed checklists for common vulnerabilities
 #
 # NOTE: This file must be committed (tracked by git) for CodeRabbit to read
 # it from the repository.  If it is listed in .gitignore, CodeRabbit will
@@ -50,7 +50,7 @@ reviews:
     # ── Security hardening — firmware (trust-boundary-aware) ────────────────
     - path: "wled00/**/*.{cpp,h,hpp,ino}"
       instructions: >
-        Apply the WLED security hardening rules from docs/hardening.instructions.md, 
+        Apply the WLED security hardening rules from docs/hardening.instructions.md,
         and consult docs/securecode.instructions.md when more details are needed for actionable recommendations.
 
         Trust Boundary Model — enforce input-validation and bounds-checking rules

@@ -57,7 +57,7 @@ De-prioritize unless explicitly introduced by a PR:
 
 ### FW1: Unsafe buffer operations
 - **Severity**: CRITICAL
-- Flag `strcpy`, `sprintf`, unchecked memory access (`memcpy`, `memmove`, `memcmp`, `strcmp`, `strlen`, `strcmp`), unchecked pointer arithmetic.
+- Flag `strcpy`, `sprintf`, unchecked memory access (`memcpy`, `memmove`, `memcmp`, `strcmp`, `strlen`), unchecked pointer arithmetic.
 - Require explicit bounds checks and length validation.
 - Prefer bounded alternatives for string operations (`strnlen`, `strlcmp`, `strlcpy`).
 
