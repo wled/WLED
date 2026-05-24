@@ -177,7 +177,7 @@ reviews:
               -DWIFI_SSID=\"<YOUR_SSID>\" -DWIFI_PASS=\"<YOUR_PASSWORD>\"
               -DOTA_PASS=\"<OTA_PASSWORD>\" -DMQTT_PASS=\"<MQTT_PASSWORD>\"
             Flag only when the value is not a recognisable placeholder (see below).
-          - upload_flags or upload_port values that embed a password or auth token (e.g., --auth=<PASSWORD> or http://user:<PASSWORD>`@host`).
+          - upload_flags or upload_port values that embed a password or auth token (e.g., --auth=<PASSWORD> or any URL using credential-bearing userinfo).
           - Any key = <value> pair whose key name contains "pass", "password",
             "secret", "token", "key", "credential", or "auth" where the value is
             a non-empty, non-placeholder literal string.
@@ -199,7 +199,7 @@ reviews:
         Scan for secrets and sensitive information in usermod dependency manifests.
 
         Flag any of the following:
-          - Dependency URLs that embed credentials in the URL itself (e.g., "https://user:<TOKEN>`@github.com/`...").
+          - Dependency URLs that embed credentials in the URL itself (e.g., any URL containing credential-bearing userinfo).
           - Personal access tokens, OAuth tokens, or API keys as literal strings
             anywhere in the file.
           - Values matching well-known secret patterns: GitHub PATs (ghp_...,
