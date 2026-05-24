@@ -6,4 +6,4 @@ default_envs = aht10_example
 
 [env:aht10_example]
 extends = env:esp32dev
-custom_usermods = ${env:esp32dev.custom_usermods} AHT10
+custom_usermods = ${env:esp32dev.custom_usermods} AHT10_v2
