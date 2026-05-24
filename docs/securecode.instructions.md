@@ -34,6 +34,11 @@ Use this guide for AI-assisted code reviews in:
 
 If it is unclear whether a value has been sanitized upstream (e.g., passed through multiple function calls without a clear annotation), prefer asking for clarification over raising a false-positive finding.
 
+### Locally-Stored Configuration Files (Robustness, not a primary trust boundary)
+
+Files read from LittleFS (`presets.json`, `cfg.json`, `ledmap.json`, `ir.json`, etc.) are written only via privileged access (`/edit`) and are considered trusted in the threat model. 
+However, parse them defensively (validate structure, clamp array sizes, handle missing keys gracefully) to avoid bootloops from filesystem corruption or accidental malformation.
+
 ## Severity
 
 - **CRITICAL** — exploitable vulnerability; block merge.
