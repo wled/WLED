@@ -174,11 +174,11 @@ reviews:
 
         Flag any of the following:
           - build_flags entries that define credentials as literal values, e.g.:
-              -DWIFI_SSID=\"MyNetwork\" -DWIFI_PASS=\"secret123\"
-              -DOTA_PASS=\"adminpass\" -DMQTT_PASS=\"mqttpassword\"
+              -DWIFI_SSID=\"<YOUR_SSID>\" -DWIFI_PASS=\"<YOUR_PASSWORD>\"
+              -DOTA_PASS=\"<OTA_PASSWORD>\" -DMQTT_PASS=\"<MQTT_PASSWORD>\"
             Flag only when the value is not a recognisable placeholder (see below).
           - upload_flags or upload_port values that embed a password or auth token
-            (e.g., --auth=somepassword or http://user:pass@host).
+            (e.g., --auth=<PASSWORD> or http://user:<PASSWORD>`@host`).
           - Any key = <value> pair whose key name contains "pass", "password",
             "secret", "token", "key", "credential", or "auth" where the value is
             a non-empty, non-placeholder literal string.
@@ -201,7 +201,7 @@ reviews:
 
         Flag any of the following:
           - Dependency URLs that embed credentials in the URL itself
-            (e.g., "https://user:ghp_token@github.com/...").
+            (e.g., "https://user:<TOKEN>`@github.com/`...").
           - Personal access tokens, OAuth tokens, or API keys as literal strings
             anywhere in the file.
           - Values matching well-known secret patterns: GitHub PATs (ghp_...,
