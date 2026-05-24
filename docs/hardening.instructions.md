@@ -1,6 +1,6 @@
 ---
 applyTo: "**/*.{cpp,h,hpp,ino,js,htm,html,css,yml,yaml}"
-description: "WLED strict-mode security review: low-noise 27-rule checklist."
+description: "WLED strict-mode security review: low-noise checklist."
 ---
 
 # WLED Security Review — Low Noise Mode
@@ -20,12 +20,12 @@ Use these code hardening rules for automated reviews with minimal false positive
 
 ## CRITICAL Rules
 
-1. **No unchecked buffer copies** (`memcpy`, `memmove`, `strcpy`, `strcmp`, `strlen`, `sprintf`, `printf`) in firmware paths; prefer bounded alternatives (`strnlen`, `strlcmp`, `strlcpy`).
+1. **No unchecked buffer copies** (`memcpy`, `memmove`, `strcpy`) in firmware paths; prefer bounded alternatives (`strncpy`, `strlcpy`); require length validation before copying.
 2. **No user-controlled format strings** in `DEBUG_PRINTF*` and similar logging APIs.
 3. **Validate all untrusted external input** (HTTP/JSON/UDP/serial) before index/length/pin usage.
 4. **Auth required for state-changing control endpoints where feasible** (for example HTTP/JSON); do not flag protocol-defined unauthenticated UDP multicast/broadcast channels solely for missing auth.
 5. **No fail-open on parse/allocation errors** for config/state updates.
-6. **No DOM XSS sinks with untrusted data** (`innerHTML`, unsafe HTML insertion).
+6. **No DOM XSS sinks with untrusted data** (`innerHTML`, unsafe HTML insertion). Server-side generation of JavaScript property-assignment statements (as used in WLED's printSetForm* helpers) is exempt.
 7. **No dynamic code execution** (`eval`, `new Function`, string timers).
 8. **No hardcoded secrets/credentials/tokens/keys** in committed files.
 9. **No sensitive data in logs** (passwords, tokens, Wi-Fi secrets, auth headers).
@@ -35,21 +35,22 @@ Use these code hardening rules for automated reviews with minimal false positive
 
 ## IMPORTANT Rules
 
-13. Check integer overflow risks in size/index arithmetic.
-14. Reject repeated heap allocation churn in hot render/effect loops.
-15. Avoid repeated `String` growth in hot paths; prefer bounded/pre-allocated buffers.
-16. Ensure UI validation is mirrored by firmware-side validation.
-17. Require strict origin checks for `postMessage` listeners.
-18. Disallow untrusted redirect/navigation targets.
-19. Prevent verbose error responses that leak internals.
-20. Review new dependencies for typosquatting and known vulnerability risk.
-21. Keep workflow `permissions` least-privilege.
-22. Verify new `WLED_ENABLE_*` / `WLED_DISABLE_*` names are valid known flags.
-23. New privileged behavior must not be enabled by insecure defaults; first-use default-credential change required where applicable.
-24. OTA paths (Update.begin(), Update.write()) must verify firmware integrity (checksum/hash); TLS not required.
-25. Flag xTaskCreate/xTaskCreatePinnedToCore tasks with insufficient stack for String/JSON use; flag MDNS.begin() / ArduinoOTA.setHostname() with unsanitized hostnames.
-26. Flag API/config serialization that exposes Wi-Fi/AP/MQTT password fields to unauthenticated clients.
-27. Treat fetched and config-derived strings as untrusted when inserting into the DOM; explicit sanitization required for HTML contexts.
+13. Avoid potentially unbounded string/memory operations (`strcmp`, `strchr`, `strlen`, `sprintf`) in firmware paths; prefer bounded alternatives (`strnlen`, `strncmp`, `strlcmp`, `snprintf`).
+14. Check integer overflow risks in size/index arithmetic.
+15. Reject repeated heap allocation churn in hot render/effect loops.
+16. Avoid repeated `String` growth in hot paths; prefer bounded/pre-allocated buffers.
+17. Ensure UI validation is mirrored by firmware-side validation.
+18. Require strict origin checks for `postMessage` listeners.
+19. Disallow untrusted redirect/navigation targets.
+20. Prevent verbose error responses that leak internals.
+21. Review new dependencies for typosquatting and known vulnerability risk.
+22. Keep workflow `permissions` least-privilege.
+23. Verify new `WLED_ENABLE_*` / `WLED_DISABLE_*` names are valid known flags.
+24. New privileged behavior must not be enabled by insecure defaults; first-use default-credential change required where applicable.
+25. OTA paths (Update.begin(), Update.write()) must verify firmware integrity (checksum/hash); TLS not required.
+26. Flag xTaskCreate/xTaskCreatePinnedToCore tasks with insufficient stack for String/JSON use; flag MDNS.begin() / ArduinoOTA.setHostname() with unsanitized hostnames.
+27. Flag API/config serialization that exposes Wi-Fi/AP/MQTT password fields to unauthenticated clients.
+28. Treat fetched and config-derived strings as untrusted when inserting into the DOM; explicit sanitization required for HTML contexts.
 
 ## Reviewer Output Format
 

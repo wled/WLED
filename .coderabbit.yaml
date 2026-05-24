@@ -113,9 +113,14 @@ reviews:
     # ── Security hardening — usermods (trust-boundary-aware, narrow scope) ───
     - path: "usermods/**/*.{cpp,h,hpp}"
       instructions: >
-        For usermods, the only untrusted ingress points are readFromConfig(JsonObject& root)
-        and calls to getJsonValue(). Values retrieved there are considered trusted after
-        successful retrieval.
+        For usermods, the untrusted ingress points are:
+          - readFromConfig(JsonObject& root) and calls to getJsonValue()
+          - readFromJsonState(JsonObject& obj)  — JSON is parsed, but values are client-supplied
+          - onMqttMessage(char* topic, char* payload)  — raw network strings, no core sanitization
+          - onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len)  — raw radio bytes
+          - onUdpPacket(uint8_t* payload, size_t len)  — raw UDP buffer, no core filtering
+        Values retrieved at these ingress points are considered trusted only after the
+        usermod itself has validated and range-clamped them.
 
         Flag ONLY downstream uses of config-derived values where an out-of-range or
         unexpected value can cause misbehaviour that is not already guarded, for example:
