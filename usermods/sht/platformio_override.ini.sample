@@ -10,4 +10,4 @@ custom_usermods = ${env:esp32dev.custom_usermods} sht
 
 [env:custom_esp8266_2m_usermod_sht]
 extends = env:esp8266_2m
-custom_usermods = ${env:d1_mini.custom_usermods} sht
+custom_usermods = ${env:esp8266_2m.custom_usermods} sht
