@@ -9,7 +9,8 @@
 // Phase 2: DT8 colour temperature (IEC 62386-209). Handles SET DTR0/DTR1
 // special commands, ENABLE DEVICE TYPE 8, SET TEMPORARY COLOUR TEMPERATURE,
 // ACTIVATE to map DALI Tc (mireds) → WLED CCT (Kelvin), and backward frame
-// response to QUERY COLOUR TYPE (0xe7) to declare Tc support to the master.
+// responses to QUERY STATUS, QUERY CONTROL GEAR PRESENT, QUERY ACTUAL LEVEL,
+// and QUERY COLOUR TYPE (0xF7 per spec; also 0xE7 for non-standard masters).
 //
 // Hardware: requires a DALI bus interface circuit (see readme.md).
 // ESP32 only — uses hardware timer API not available on ESP8266.
@@ -36,7 +37,7 @@ static bool daliAddressedToMe(uint8_t addrByte, int8_t daliAddr) {
     uint8_t frameAddr = (addrByte >> 1) & 0x3F;
     return frameAddr == (uint8_t)daliAddr;
   }
-  // Group address: 100A AAA x — not handled in phase 1
+  // Group address: 100A AAA x — not handled
   return false;
 }
 
@@ -48,6 +49,12 @@ static uint8_t daliLevelToWledBri(uint8_t level) {
   if (level == 0) return 0;
   // level 1–254 → bri 1–255
   return (uint8_t)(((uint16_t)level * 255u + 127u) / 254u);
+}
+
+// Map WLED bri (1–255) back to a DALI arc level (1–254), for QUERY ACTUAL LEVEL.
+static uint8_t wledBriToDaliLevel(uint8_t b) {
+  if (b == 0) return 0;
+  return (uint8_t)(((uint16_t)b * 254u + 127u) / 255u);
 }
 
 // ---------------------------------------------------------------------------
@@ -71,6 +78,10 @@ class DaliGearUsermod : public Usermod {
     bool     _initDone      = false;
     int8_t   _rxPin         = 14;  // default: Waveshare Pico-DALI2 RX
     int8_t   _txPin         = 17;  // default: Waveshare Pico-DALI2 TX
+    bool     _txInverted    = false; // true for circuits with a single-stage inverting TX driver
+                                     // (e.g. qqqDALI DIY PNP circuit).
+                                     // false (default) for the Waveshare Pico-DALI2 and other
+                                     // boards with double-inversion (NPN + opto-isolator).
     int8_t   _daliAddr      = -1;   // -1 = respond to broadcast only
     uint8_t  _lastDaliLevel = 0;    // last DALI arc level received (for info panel)
 
@@ -90,21 +101,29 @@ class DaliGearUsermod : public Usermod {
     static const char _enabled_key[];
 
     // ---------------------------------------------------------------------------
-    // Bus HAL callbacks (static so they can be passed as function pointers)
+    // Bus HAL callbacks (static so they can be passed as function pointers).
+    // TX polarity depends on interface hardware:
+    //   _txInverted = false (default): GPIO HIGH = bus idle, GPIO LOW = assert bus.
+    //     Used by Waveshare Pico-DALI2 (NPN + opto-isolator = double inversion).
+    //   _txInverted = true: GPIO LOW = bus idle, GPIO HIGH = assert bus.
+    //     Used by the qqqDALI DIY PNP circuit (single inversion via PNP transistor).
     // ---------------------------------------------------------------------------
     static uint8_t busIsHigh() {
       return digitalRead(_rxPinStatic);
     }
     static void busSetLow() {
-      digitalWrite(_txPinStatic, LOW);
+      // "set bus low" = assert the DALI bus
+      digitalWrite(_txPinStatic, _txInvertedStatic ? HIGH : LOW);
     }
     static void busSetHigh() {
-      digitalWrite(_txPinStatic, HIGH);
+      // "set bus high" = release the DALI bus (idle)
+      digitalWrite(_txPinStatic, _txInvertedStatic ? LOW : HIGH);
     }
 
-    // Static copies of pins needed by the HAL callbacks
+    // Static copies of pins/config needed by the HAL callbacks
     static int8_t _rxPinStatic;
     static int8_t _txPinStatic;
+    static bool   _txInvertedStatic;
 
     // ---------------------------------------------------------------------------
     // Schedule a DALI backward frame to be sent after the mandatory settling time.
@@ -195,14 +214,48 @@ class DaliGearUsermod : public Usermod {
           stateUpdated(CALL_MODE_DIRECT_CHANGE);
           break;
 
+        // IEC 62386-102 §11.2 query commands — backward frame responses.
+        // These allow a DALI master to detect gear presence and read basic status
+        // before sending DT8 or other application commands.
+
+        case 0x90: {
+          // QUERY STATUS — respond with status byte.
+          // Bit 2 = lamp arc power on (1 if bri > 0).
+          // Bit 6 = missing short address (1 if no address configured).
+          // All other status/fault bits = 0 (no failures to report).
+          uint8_t status = ((bri > 0) ? 0x04u : 0x00u)
+                         | ((_daliAddr < 0) ? 0x40u : 0x00u);
+          DEBUG_PRINTF("[DALI] QUERY STATUS → 0x%02x\n", status);
+          scheduleBF(status);
+          break;
+        }
+
+        case 0x91:
+          // QUERY CONTROL GEAR PRESENT — respond 0xFF ("Yes").
+          // Many masters send this first to detect whether any gear is on the bus;
+          // silence here causes the master to skip all subsequent commands.
+          DEBUG_PRINTLN(F("[DALI] QUERY CONTROL GEAR PRESENT → 0xFF"));
+          scheduleBF(0xFF);
+          break;
+
+        case 0xA0:
+          // QUERY ACTUAL LEVEL — respond with current arc level (0–254).
+          // Derived from the current WLED brightness so it stays accurate even if
+          // bri was changed via the WLED UI rather than a DALI command.
+          DEBUG_PRINTF("[DALI] QUERY ACTUAL LEVEL → %u\n", wledBriToDaliLevel(bri));
+          scheduleBF(wledBriToDaliLevel(bri));
+          break;
+
         // DT8 (IEC 62386-209) application extended commands.
         // These are only valid when preceded by ENABLE DEVICE TYPE 8 (addr=0xC1, cmd=8).
         // 0xE1 = SET TEMPORARY COLOUR TEMPERATURE — loads DTR0+DTR1 into temp register.
         // 0xE2 = ACTIVATE — applies the temporary colour temperature.
-        // 0xE7 = QUERY COLOUR TYPE — master asks which DT8 colour modes are supported.
-        //        Response bitmask (IEC 62386-209 §11.3.4.2):
-        //          bit 0 = XY colour, bit 1 = Tc colour temperature, bit 2 = Primary N,
-        //          bit 3 = RGBWAF.  We support Tc only → respond 0x02.
+        // 0xF7 = QUERY COLOUR TYPE (IEC 62386-209 §11.3.4.2) — master asks which DT8
+        //        colour modes are supported. Response bitmask:
+        //          bit 0 = XY colour, bit 1 = Tc colour temperature,
+        //          bit 2 = Primary N, bit 3 = RGBWAF.  We support Tc only → 0x02.
+        //        Note: some non-standard masters send this as 0xE7 instead. Both are
+        //        handled here to maximise interoperability.
         case 0xE1:
           if (_dt8Active) {
             _tempCCT = ((uint16_t)_dtr1 << 8) | _dtr0;
@@ -222,9 +275,10 @@ class DaliGearUsermod : public Usermod {
           _dt8Active = false;
           break;
 
-        case 0xE7:
-          // QUERY COLOUR TYPE — respond regardless of _dt8Active state
-          // (master needs to know our capabilities before enabling DT8)
+        case 0xE7: // non-standard masters send QUERY COLOUR TYPE here (spec says 0xF7)
+        case 0xF7: // QUERY COLOUR TYPE — IEC 62386-209 §11.3.4.2
+          // Respond regardless of _dt8Active state; master needs to know our
+          // capabilities before it will send ENABLE DEVICE TYPE 8.
           DEBUG_PRINTLN(F("[DALI] QUERY COLOUR TYPE → scheduling backward frame 0x02 (Tc supported)"));
           scheduleBF(0x02);
           break;
@@ -261,11 +315,13 @@ class DaliGearUsermod : public Usermod {
       // Configure GPIO
       pinMode(_rxPin, INPUT);
       pinMode(_txPin, OUTPUT);
-      digitalWrite(_txPin, HIGH); // idle bus state (not asserting bus)
+      // Idle state: bus not asserted. Polarity depends on interface circuit.
+      digitalWrite(_txPin, _txInverted ? LOW : HIGH);
 
       // Store static copies for HAL callbacks
-      _rxPinStatic = _rxPin;
-      _txPinStatic = _txPin;
+      _rxPinStatic      = _rxPin;
+      _txPinStatic      = _txPin;
+      _txInvertedStatic = _txInverted;
 
       _dali.begin(busIsHigh, busSetLow, busSetHigh);
 
@@ -277,8 +333,8 @@ class DaliGearUsermod : public Usermod {
       timerAlarmWrite(_daliTimer, 104, true);
       timerAlarmEnable(_daliTimer);
 
-      DEBUG_PRINTF("[DALI] Gear usermod initialised (RX=%d TX=%d addr=%d)\n",
-                   _rxPin, _txPin, _daliAddr);
+      DEBUG_PRINTF("[DALI] Gear usermod initialised (RX=%d TX=%d txInv=%d addr=%d)\n",
+                   _rxPin, _txPin, (int)_txInverted, _daliAddr);
       _initDone = true;
     }
 
@@ -397,9 +453,10 @@ class DaliGearUsermod : public Usermod {
     void addToConfig(JsonObject& root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
       top[FPSTR(_enabled_key)] = _enabled;
-      top["pin_rx"] = _rxPin;
-      top["pin_tx"] = _txPin;
-      top["daliAddr"] = _daliAddr;
+      top["pin_rx"]     = _rxPin;
+      top["pin_tx"]     = _txPin;
+      top["tx_inverted"] = _txInverted;
+      top["daliAddr"]   = _daliAddr;
     }
 
 
@@ -407,10 +464,11 @@ class DaliGearUsermod : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
 
-      configComplete &= getJsonValue(top[FPSTR(_enabled_key)], _enabled, false);
-      configComplete &= getJsonValue(top["pin_rx"], _rxPin, (int8_t)14);
-      configComplete &= getJsonValue(top["pin_tx"], _txPin, (int8_t)17);
-      configComplete &= getJsonValue(top["daliAddr"],  _daliAddr, (int8_t)-1);
+      configComplete &= getJsonValue(top[FPSTR(_enabled_key)], _enabled,     false);
+      configComplete &= getJsonValue(top["pin_rx"],             _rxPin,       (int8_t)14);
+      configComplete &= getJsonValue(top["pin_tx"],             _txPin,       (int8_t)17);
+      configComplete &= getJsonValue(top["tx_inverted"],        _txInverted,  false);
+      configComplete &= getJsonValue(top["daliAddr"],           _daliAddr,    (int8_t)-1);
 
       return configComplete;
     }
@@ -425,6 +483,9 @@ class DaliGearUsermod : public Usermod {
       oappend(F(":pin_tx',1,'DALI TX pin');"));
       oappend(F("addInfo('"));
       oappend(String(FPSTR(_name)).c_str());
+      oappend(F(":tx_inverted',1,'Invert TX — enable for single-stage inverting circuits (e.g. DIY PNP). Leave off for Waveshare Pico-DALI2 and NPN+opto boards.');"));
+      oappend(F("addInfo('"));
+      oappend(String(FPSTR(_name)).c_str());
       oappend(F(":daliAddr',1,'Short address (0\u201363) or -1 for broadcast only');"));
     }
 
@@ -433,8 +494,9 @@ class DaliGearUsermod : public Usermod {
 };
 
 // Static member definitions
-int8_t DaliGearUsermod::_rxPinStatic = -1;
-int8_t DaliGearUsermod::_txPinStatic = -1;
+int8_t DaliGearUsermod::_rxPinStatic      = -1;
+int8_t DaliGearUsermod::_txPinStatic      = -1;
+bool   DaliGearUsermod::_txInvertedStatic = false;
 
 const char DaliGearUsermod::_name[]        PROGMEM = "DALIGear";
 const char DaliGearUsermod::_enabled_key[] PROGMEM = "enabled";

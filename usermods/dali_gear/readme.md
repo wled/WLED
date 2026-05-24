@@ -26,9 +26,9 @@ RX ---+-----|___|---|>|----------+------------- DALI+
 GND --+---------------------------+------------- DALI-
 ```
 
-> **Note:** For this circuit the TX polarity must be inverted. The transistor pulls the bus low when the GPIO is HIGH. Configure your TX pin accordingly and invert the output in hardware or adjust the HAL callbacks in the source.
+> **⚠️ Warning:** This is a conceptual schematic for experimentation — it is **not isolated** and exposes the ESP32 GPIO to DALI bus voltages through a resistor divider only. Do not use it in a production installation. The PNP transistor produces a **single inversion**: GPIO HIGH drives the bus LOW (asserted). Enable **TX Inverted** in the usermod settings when using this circuit.
 
-Commercial DALI interface modules (e.g. Waveshare Pico-DALI2, Mikroe DALI Click) are a simpler alternative.
+Commercial DALI interface modules with proper isolation (e.g. Waveshare Pico-DALI2, Mikroe DALI Click) are strongly recommended for any real installation.
 
 ### Pin assignment
 
@@ -48,6 +48,7 @@ Configure both pins in the WLED usermod settings page.
 | Enabled | false | Enable/disable the usermod |
 | pin_rx | 14 | GPIO for DALI bus RX |
 | pin_tx | 17 | GPIO for DALI bus TX |
+| tx_inverted | false | Invert TX polarity. Enable for single-stage inverting circuits (e.g. DIY PNP). Leave off for Waveshare Pico-DALI2 and other NPN+opto-isolated boards. |
 | daliAddr | -1 | Short address (0–63) to respond to, or -1 to respond to broadcast only |
 
 ## DALI commands handled
@@ -77,6 +78,16 @@ When the master sends a DAPC frame, the arc level (0–254) is mapped linearly t
 | ON AND STEP UP | 8 | Turn on if off, then increase by 10 |
 | GO TO LAST ACTIVE LEVEL | 10 | Restore last brightness before turn-off |
 
+### Query commands (backward frame responses)
+
+These allow a DALI master to detect gear presence and read basic status. Responses are sent as DALI backward frames 4 ms after the query, within the IEC 62386-102 required window of 7Te–22Te (≈2.9–9.2 ms).
+
+| Command | Byte | Response |
+|---|---|---|
+| QUERY STATUS | 0x90 | Status byte: bit 2 = lamp on, bit 6 = no short address |
+| QUERY CONTROL GEAR PRESENT | 0x91 | `0xFF` (Yes, I am here) |
+| QUERY ACTUAL LEVEL | 0xA0 | Current arc level (0–254) derived from WLED brightness |
+
 ### DT8 colour temperature (IEC 62386-209)
 
 Colour temperature commands from a DALI master are mapped to WLED's CCT value via `strip.setCCT()`. The mired value is converted to Kelvin (`K = 1,000,000 / mireds`). WLED's accepted range is 1900–10091 K; values outside this range are clamped.
@@ -95,9 +106,9 @@ Two CCT application flows are supported:
 
 Some DALI masters skip the `0xE1` + `0xE2` sequence and instead apply the colour temperature implicitly alongside the subsequent DAPC command. The usermod detects this: if DTR0/DTR1 are set and DT8 is active when a DAPC frame arrives, the CCT is applied at the same time as the brightness change.
 
-**QUERY COLOUR TYPE (0xE7):**
+**QUERY COLOUR TYPE (0xF7 / 0xE7):**
 
-Some masters query the gear's colour capabilities before sending CCT commands. The usermod responds with a backward frame value of `0x02` (bit 1 = Tc colour temperature supported), sent 4 ms after the query frame to meet the DALI spec requirement (7Te–22Te ≈ 2.9–9.2 ms settling window).
+Some masters query the gear's colour capabilities before sending CCT commands. Per IEC 62386-209 §11.3.4.2, this command is `0xF7`. Some non-standard masters send `0xE7` instead; both are handled. The usermod responds with `0x02` (bit 1 = Tc colour temperature supported), sent 4 ms after the query frame to meet the DALI spec requirement (7Te–22Te ≈ 2.9–9.2 ms settling window).
 
 `SET DTR0`, `SET DTR1`, and `ENABLE DEVICE TYPE 8` are sniffed as broadcast-level frames regardless of the configured `daliAddr`.
 
