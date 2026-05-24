@@ -12,7 +12,7 @@ You need a DALI bus interface circuit to convert between the DALI bus voltage (9
 
 ### Minimal DIY circuit (from [qqqlab/DALI-Lighting-Interface](https://github.com/qqqlab/DALI-Lighting-Interface))
 
-```
+```text
 3.3V ESP32         5.6V               ___
                    Zener        +----|___|---- 12V Power Supply
             ___    Diode        |     220 Ω
