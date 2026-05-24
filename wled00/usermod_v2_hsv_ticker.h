@@ -1,29 +1,13 @@
 #pragma once
 /*
  * UsermodHSVTicker - WLED Usermod v2
- * Fußball-Liveticker mit OpenLigaDB API
+ * Fussball-Liveticker mit football-data.org API
  * ESP32 DevKit v1 Type C, WLED 0.15.3
  *
- * Preset-Konzept:
- *  < 149  → Code pausiert, Farben bleiben
- *  149    → Manueller Refresh (sofortiger Neu-Abruf)
- *  150    → Offline (statisch, kein Polling)
- *  151    → Tor! (Solid Grün, 60s)
- *  152    → Gegentor (Solid Rot, 60s)
- *  153    → Deutschland (dfb → wm → em)
- *  154-189→ Bundesliga (auto bl1 → bl2 → bl3)
- *  200-223→ Premier League (auto pl → championship)
- *  230-231→ La Liga
- *  240-241→ Ligue 1
- *
- * Zeitplanung:
- *  - Täglich 06:00 UTC: Spielzeiten des Tages laden
- *  - 5 Min vor Spielbeginn: Polling startet (alle 30s)
- *  - Nach Spielende: Polling stoppt
- *  - Preset 149: sofortiger Refresh
- *
- * Zeitvergleich immer in UTC (OpenLigaDB liefert UTC)
- * WLED NTP muss aktiviert sein (Standard: pool.ntp.org)
+ * Rate-Limit-Schutz:
+ *  - Mindestens 7s zwischen jedem Request
+ *  - 30s Boot-Delay
+ *  - Bei 429: 2 Minuten warten
  */
 
 #include "wled.h"
@@ -33,536 +17,431 @@
   #include <freertos/semphr.h>
 #endif
 
-// ============================================================
-// Preset-IDs
-// ============================================================
-#define PRESET_MIN_ACTIVE     149   // ab hier ist Code aktiv
 #define PRESET_REFRESH        149
 #define PRESET_OFFLINE        150
 #define PRESET_GOAL_MINE      151
 #define PRESET_GOAL_OPPONENT  152
 #define PRESET_GERMANY        153
 #define PRESET_BL_START       154
-#define PRESET_BL_END         189
+#define PRESET_BL_END         190
 #define PRESET_PL_START       200
 #define PRESET_PL_END         223
 #define PRESET_LALIGA_START   230
 #define PRESET_LALIGA_END     231
 #define PRESET_LIGUE1_START   240
 #define PRESET_LIGUE1_END     241
+#define PRESET_SERIEA_START   250
+#define PRESET_SERIEA_END     256
 
-// ============================================================
-// Liga-Kürzel pro Preset-Range
-// Jede Liga hat eine Fallback-Kette
-// ============================================================
-struct LeagueChain {
-  const char* leagues[4];  // bis zu 4 Fallback-Ligen, "" = Ende
-  int         season;      // Saison-Jahr
-};
+#define FD_BL1   2002
+#define FD_BL2   2004
+#define FD_BL3   2140
+#define FD_PL    2021
+#define FD_ELC   2016
+#define FD_PD    2014
+#define FD_SD    2077
+#define FD_FL1   2015
+#define FD_FL2   2142
+#define FD_SA    2019
+#define FD_SB    2121
+#define FD_WC    2000
+#define FD_EC    2018
+#define FD_DFB   2011
 
-// Gibt die Liga-Kette für ein Preset zurück
-static LeagueChain getLeagueChain(uint8_t presetId) {
-  if (presetId == PRESET_GERMANY)
-    return {{"dfb", "wm", "em", ""}, 2025};
-  if (presetId >= PRESET_BL_START && presetId <= PRESET_BL_END)
-    return {{"bl1", "bl2", "bl3", ""}, 2025};
-  if (presetId >= PRESET_PL_START && presetId <= PRESET_PL_END)
-    return {{"pl", "championship", "", ""}, 2025};
-  if (presetId >= PRESET_LALIGA_START && presetId <= PRESET_LALIGA_END)
-    return {{"laliga", "laliga2", "", ""}, 2025};
-  if (presetId >= PRESET_LIGUE1_START && presetId <= PRESET_LIGUE1_END)
-    return {{"ligue1", "ligue2", "", ""}, 2025};
-  return {{"", "", "", ""}, 2025};
+static int calcSeason(bool isWM=false, bool isEM=false) {
+  time_t n=time(nullptr);
+  if (n<100000) return 2025;
+  struct tm* t=gmtime(&n);
+  int year=t->tm_year+1900, month=t->tm_mon+1;
+  if (isWM) return (year<=2026)?2026:year+((4-(year-2026)%4)%4);
+  if (isEM) return (year<=2024)?2024:(year<=2028)?2028:year+((4-(year-2028)%4)%4);
+  return (month>=8)?year:year-1;
 }
 
-// ============================================================
-// Vereinsdatenbank (PROGMEM)
-// Suchstring → Preset-ID
-// ============================================================
-struct ClubEntry {
-  char    key[22];
-  uint8_t presetId;
-};
+struct LeagueChain { int ids[4]; int seasons[4]; };
+
+static LeagueChain getLeagueChain(uint16_t pid) {
+  int ls=calcSeason(), wm=calcSeason(true), em=calcSeason(false,true);
+  if (pid==PRESET_GERMANY)                                  return {{FD_WC,FD_EC,FD_DFB,0},{wm,em,ls,0}};
+  if (pid>=PRESET_BL_START    && pid<=PRESET_BL_END)       return {{FD_BL1,FD_BL2,FD_BL3,0},{ls,ls,ls,0}};
+  if (pid>=PRESET_PL_START    && pid<=PRESET_PL_END)       return {{FD_PL,FD_ELC,0,0},{ls,ls,0,0}};
+  if (pid>=PRESET_LALIGA_START && pid<=PRESET_LALIGA_END)  return {{FD_PD,FD_SD,0,0},{ls,ls,0,0}};
+  if (pid>=PRESET_LIGUE1_START && pid<=PRESET_LIGUE1_END)  return {{FD_FL1,FD_FL2,0,0},{ls,ls,0,0}};
+  if (pid>=PRESET_SERIEA_START && pid<=PRESET_SERIEA_END)  return {{FD_SA,FD_SB,0,0},{ls,ls,0,0}};
+  return {{0,0,0,0},{0,0,0,0}};
+}
+
+struct ClubEntry { char key[22]; uint16_t presetId; };
 
 static const ClubEntry ALL_CLUBS[] PROGMEM = {
-  // Bundesliga 154-189
-  {"hamburg",       154},
-  {"fuerth",        155}, {"greuther",    155}, {"greuter",     155},
-  {"bayern",        156},
-  {"dortmund",      157},
-  {"leverkusen",    158},
-  {"leipzig",       159},
-  {"frankfurt",     160},
-  {"wolfsburg",     161},
-  {"freiburg",      162},
-  {"augsburg",      163},
-  {"mainz",         164},
-  {"hoffenheim",    165},
-  {"gladbach",      166},
-  {"koeln",         167},
-  {"union",         168},
-  {"bochum",        169},
-  {"heidenheim",    170},
-  {"pauli",         171},
-  {"kiel",          172},
-  {"hertha",        173},
-  {"schalke",       174},
-  {"kaisers",       175},
-  {"nuernberg",     176},
-  {"darmstadt",     177},
-  {"hannover",      178},
-  {"duesseldorf",   179},
-  {"magdeburg",     180},
-  {"braunschweig",  181},
-  {"karlsruhe",     182},
-  {"dresden",       183},
-  {"paderborn",     184},
-  {"elversberg",    185},
-  {"regensburg",    186},
-  {"bielefeld",     187},
-  {"saarb",         188},
-  {"ulm",           189},
-  // Premier League 200-223
-  {"arsenal",       200},
-  {"chelsea",       201},
-  {"liverpool",     202},
-  {"man city",      203}, {"manchester c", 203},
-  {"man utd",       204}, {"manchester u", 204},
-  {"tottenham",     205}, {"hotspur",      205},
-  {"newcastle",     206},
-  {"aston villa",   207},
-  {"brighton",      208},
-  {"west ham",      209},
-  {"brentford",     210},
-  {"fulham",        211},
-  {"everton",       212},
-  {"nottingham",    213},
-  {"wolves",        214}, {"wolverhampton",214},
-  {"crystal",       215},
-  {"bournemouth",   216},
-  {"leicester",     217},
-  {"ipswich",       218},
-  {"southampton",   219},
-  {"leeds",         220},
-  {"sunderland",    221},
-  {"burnley",       222},
-  {"sheffield",     223},
-  // La Liga 230-231
-  {"barcelona",     230},
-  {"real madrid",   231}, {"madrid",       231},
-  // Ligue 1 240-241
-  {"paris",         240}, {"psg",          240},
-  {"toulouse",      241},
+  {"hamburg",154},
+  {"fuerth",155},{"greuther",155},{"greuter",155},
+  {"bayern",156},{"dortmund",157},{"leverkusen",158},{"leipzig",159},
+  {"frankfurt",160},{"wolfsburg",161},{"freiburg",162},{"augsburg",163},
+  {"mainz",164},{"hoffenheim",165},{"gladbach",166},{"koeln",167},
+  {"union berlin",168},{"union",168},{"bochum",169},{"heidenheim",170},
+  {"pauli",171},{"kiel",172},{"hertha",173},{"schalke",174},
+  {"kaisers",175},{"nuernberg",176},{"darmstadt",177},{"hannover",178},
+  {"duesseldorf",179},{"magdeburg",180},{"braunschweig",181},
+  {"karlsruhe",182},{"dresden",183},{"paderborn",184},{"elversberg",185},
+  {"regensburg",186},{"bielefeld",187},{"saarb",188},{"ulm",189},
+  {"werder",190},{"bremen",190},
+  {"arsenal",200},{"chelsea",201},{"liverpool",202},
+  {"manchester c",203},{"man city",203},
+  {"manchester u",204},{"man utd",204},{"man united",204},
+  {"tottenham",205},{"hotspur",205},{"spurs",205},
+  {"newcastle",206},{"aston villa",207},{"brighton",208},
+  {"west ham",209},{"brentford",210},{"fulham",211},{"everton",212},
+  {"nottingham",213},{"wolves",214},{"wolverhampton",214},
+  {"crystal",215},{"bournemouth",216},{"leicester",217},
+  {"ipswich",218},{"southampton",219},{"leeds",220},
+  {"sunderland",221},{"burnley",222},{"sheffield",223},
+  {"barcelona",230},{"real madrid",231},{"madrid",231},
+  {"paris",240},{"psg",240},{"toulouse",241},
+  {"milan",250},{"ac milan",250},
+  {"internazionale",251},{"inter",251},
+  {"juventus",252},
+  {"as roma",253},{"roma",253},
+  {"lazio",254},{"napoli",255},
+  {"torino",256},{"toro",256},
 };
-static const int ALL_CLUBS_SIZE = sizeof(ALL_CLUBS) / sizeof(ClubEntry);
+static const int ALL_CLUBS_SIZE=sizeof(ALL_CLUBS)/sizeof(ClubEntry);
 
-// Teamname → Preset-ID
-static uint8_t findPresetForTeam(const String& name) {
-  String lower = name; lower.toLowerCase();
-  ClubEntry e;
-  for (int i = 0; i < ALL_CLUBS_SIZE; i++) {
-    memcpy_P(&e, &ALL_CLUBS[i], sizeof(ClubEntry));
-    if (lower.indexOf(e.key) >= 0) return e.presetId;
-  }
-  return 0;
-}
-
-// ============================================================
-// Spielzustand
-// ============================================================
 enum class MatchState : uint8_t { IDLE=0, SCHEDULED, LIVE, FINISHED };
 
 struct MatchInfo {
-  bool     valid        = false;
-  bool     isLive       = false;
-  bool     isFinished   = false;
-  uint8_t  homeScore    = 0;
-  uint8_t  awayScore    = 0;
-  uint32_t kickoffUTC   = 0;   // Unix-Timestamp UTC
-  char     homeTeam[48] = "";
-  char     awayTeam[48] = "";
-  char     league[16]   = "";  // in welcher Liga gefunden
+  bool valid=false,isLive=false,isFinished=false;
+  uint8_t homeScore=0,awayScore=0;
+  uint32_t kickoffUTC=0;
+  char homeTeam[48]="",awayTeam[48]="";
 };
 
-// ============================================================
-// Hauptklasse
-// ============================================================
 class UsermodHSVTicker : public Usermod {
 private:
+  bool _enabled=true;
+  char _token[48]="";
+  bool _tokenLoaded=false;
 
-  // ---------- Konfiguration ----------
-  bool _enabled        = true;
-
-  // ---------- Zustand ----------
-  uint8_t    _activePreset   = 0;     // aktuell gewähltes Preset
-  uint8_t    _prevPreset     = 0;     // letztes Preset vor Refresh
-  uint8_t    _teamPreset     = 0;     // Preset des eigenen Vereins
-  MatchState _matchState     = MatchState::IDLE;
+  uint16_t   _activePreset=0,_prevPreset=0;
+  MatchState _matchState=MatchState::IDLE;
   MatchInfo  _matchInfo;
+  bool       _myTeamIsHome=true;
+  uint8_t    _lastGoals=0,_homeScore=0,_awayScore=0;
+  int        _leagueIndex=0,_foundLeagueId=0,_currentMatchday=-1;
+  bool       _scheduleFetched=false;
+  unsigned long _lastScheduleFetch=0;
+  uint32_t   _nextKickoffUTC=0;
+  bool       _pollingActive=false;
+  bool       _goalActive=false,_goalMyTeam=false;
+  unsigned long _goalStart=0,_lastPoll=0;
+  int        _lastHttpCode=0;
+  unsigned long _taskStarted=0;
 
-  // Tagesplan
-  bool          _scheduleFetched   = false;
-  unsigned long _lastScheduleFetch = 0;   // millis()
-  uint32_t      _nextKickoffUTC    = 0;   // wann spielt mein Team heute
-  bool          _pollingActive     = false;
+  // Rate-Limit-Schutz: letzter Request-Zeitpunkt
+  unsigned long _lastRequestTime=0;
 
-  // Tor-Event
-  bool          _goalActive    = false;
-  bool          _goalMyTeam    = false;
-  unsigned long _goalStart     = 0;
-  static const  unsigned long GOAL_DURATION = 60000UL;
+  static const unsigned long GOAL_DURATION   = 60000UL;
+  static const unsigned long POLL_INTERVAL   = 30000UL;
+  static const unsigned long SCHED_INTERVAL  = 86400000UL;
+  static const unsigned long BOOT_DELAY      = 30000UL;
+  // Mindestabstand zwischen Requests (7s = 8 Req/Min, sicher unter 10)
+  static const unsigned long MIN_REQUEST_GAP = 7000UL;
+  // Wartezeit bei 429
+  static const unsigned long RATE_LIMIT_WAIT = 120000UL;
 
-  // Liga-Suche: Fallback-Index
-  int  _leagueIndex    = 0;   // aktueller Index in LeagueChain
-  bool _myTeamIsHome   = true;
-  uint8_t _lastGoals   = 0;
-  uint8_t _homeScore   = 0;
-  uint8_t _awayScore   = 0;
-
-  // ---------- FreeRTOS ----------
 #ifdef ARDUINO_ARCH_ESP32
-  SemaphoreHandle_t _mutex       = nullptr;
-  volatile bool     _taskRunning = false;
-  volatile bool     _taskDone    = false;
+  SemaphoreHandle_t _mutex=nullptr;
+  volatile bool _taskRunning=false,_taskDone=false;
 
-  enum class FetchType : uint8_t {
-    SCHEDULE,     // Tagesplan: alle Spiele des Spieltags
-    MATCH_LIVE    // Live-Daten: aktuelles Spiel
-  };
+  enum class FetchType : uint8_t { SCHEDULE, LIVE };
 
   struct TaskResult {
-    bool      success   = false;
-    FetchType type      = FetchType::SCHEDULE;
+    bool success=false,teamFound=false,matchIsLiveNow=false;
+    FetchType type=FetchType::SCHEDULE;
     MatchInfo match;
-    // Für Schedule: nächster Kickoff UTC
-    uint32_t  nextKickoffUTC = 0;
+    uint32_t nextKickoffUTC=0;
+    int currentMatchday=-1;
+    int httpCode=0;
   };
   TaskResult _taskResult;
 
   struct TaskParam {
-    char              url[192];
-    char              searchKey[32];   // Vereins-Suchstring
-    FetchType         type;
+    char url[256],token[48],searchKey[32];
+    FetchType type;
     UsermodHSVTicker* self;
   };
 
-  // ---- Fetch-Task ----
+  static uint32_t parseUTC(const char* s) {
+    if (!s||strlen(s)<19) return 0;
+    int yr=0,mo=0,dy=0,hr=0,mn=0,sc=0;
+    sscanf(s,"%d-%d-%dT%d:%d:%d",&yr,&mo,&dy,&hr,&mn,&sc);
+    if (yr<2020) return 0;
+    static const int md[]={0,31,59,90,120,151,181,212,243,273,304,334};
+    int y=yr-1970;
+    long days=(long)y*365+(y+1)/4+md[mo-1]+dy-1;
+    if (mo>2&&(yr%4==0&&(yr%100!=0||yr%400==0))) days++;
+    return (uint32_t)(days*86400L+hr*3600+mn*60+sc);
+  }
+
+  static int extractMatchday(const char* buf) {
+    const char* p=buf;
+    while ((p=strstr(p,"currentMatchday"))!=nullptr) {
+      const char* q=p+15;
+      while (*q&&(*q=='"'||*q==':')) q++;
+      if (*q>='0'&&*q<='9') {
+        int val=atoi(q);
+        if (val>0&&val<=50) return val;
+      }
+      p++;
+    }
+    return -1;
+  }
+
   static void fetchTask(void* pv) {
-    TaskParam* p = (TaskParam*)pv;
-    UsermodHSVTicker* self = p->self;
+    TaskParam* p=(TaskParam*)pv;
+    UsermodHSVTicker* self=p->self;
+    char* buf=(char*)malloc(8192);
+    bool ok=false;
+    int httpCode=0;
 
-    char* buf = (char*)malloc(6144);
-    bool ok = false;
-
-    if (buf && WiFi.status() == WL_CONNECTED) {
+    if (buf&&WiFi.status()==WL_CONNECTED&&p->token[0]) {
       WiFiClient client;
       HTTPClient http;
       http.setConnectTimeout(8000);
       http.setTimeout(12000);
       http.setReuse(false);
-      if (http.begin(client, p->url)) {
-        if (http.GET() == HTTP_CODE_OK) {
-          WiFiClient* s = http.getStreamPtr();
-          int r = 0;
-          unsigned long t = millis();
-          while (r < 6143 && (millis()-t) < 10000) {
-            if (s->available()) buf[r++] = (char)s->read();
-            else delay(1);
+      if (http.begin(client,p->url)) {
+        http.addHeader("X-Auth-Token",p->token);
+        http.addHeader("Accept","application/json");
+        httpCode=http.GET();
+        if (httpCode==HTTP_CODE_OK) {
+          String body=http.getString();
+          size_t len=body.length();
+          if (len>0&&len<8191) {
+            memcpy(buf,body.c_str(),len+1);
+            ok=(len>10);
           }
-          buf[r] = '\0';
-          ok = (r > 10);
         }
         http.end();
       }
     }
 
-    xSemaphoreTake(self->_mutex, portMAX_DELAY);
+    xSemaphoreTake(self->_mutex,portMAX_DELAY);
+    self->_taskResult.httpCode=httpCode;
 
     if (ok) {
-      // Filter
-      StaticJsonDocument<192> filter;
-      JsonArray fa = filter.to<JsonArray>();
-      JsonObject fo = fa.createNestedObject();
-      fo["Team1"]["TeamName"]              = true;
-      fo["Team2"]["TeamName"]              = true;
-      fo["MatchIsFinished"]                = true;
-      fo["MatchDateTime"]                  = true;
-      fo["MatchResults"][0]["ResultName"]  = true;
-      fo["MatchResults"][0]["PointsTeam1"] = true;
-      fo["MatchResults"][0]["PointsTeam2"] = true;
+      self->_taskResult.currentMatchday=extractMatchday(buf);
 
-      DynamicJsonDocument* doc = new DynamicJsonDocument(6144);
+      StaticJsonDocument<200> filter;
+      filter["matches"][0]["utcDate"]                   =true;
+      filter["matches"][0]["status"]                    =true;
+      filter["matches"][0]["homeTeam"]["name"]          =true;
+      filter["matches"][0]["awayTeam"]["name"]          =true;
+      filter["matches"][0]["score"]["fullTime"]["home"] =true;
+      filter["matches"][0]["score"]["fullTime"]["away"] =true;
+
+      DynamicJsonDocument* doc=new DynamicJsonDocument(8192);
       if (doc) {
-        DeserializationError err = deserializeJson(*doc, buf,
-          DeserializationOption::Filter(filter));
-        if (!err) {
-          String search = String(p->searchKey);
-          search.toLowerCase();
-          uint32_t nowUTC = (uint32_t)time(nullptr);
-          uint32_t bestKickoff = 0;
+        if (!deserializeJson(*doc,buf,DeserializationOption::Filter(filter))) {
+          String search=String(p->searchKey); search.toLowerCase();
+          uint32_t nowUTC=(uint32_t)time(nullptr);
+          uint32_t bestKickoff=0;
+          bool liveNow=false;
 
-          for (JsonObject m : doc->as<JsonArray>()) {
-            String home = m["Team1"]["TeamName"] | "";
-            String away = m["Team2"]["TeamName"] | "";
-            String hLow = home; hLow.toLowerCase();
-            String aLow = away; aLow.toLowerCase();
+          for (JsonObject m : (*doc)["matches"].as<JsonArray>()) {
+            String home=m["homeTeam"]["name"]|"";
+            String away=m["awayTeam"]["name"]|"";
+            String status=m["status"]|"";
+            const char* utcDate=m["utcDate"]|"";
+            uint32_t kickoff=parseUTC(utcDate);
+            String hLow=home; hLow.toLowerCase();
+            String aLow=away; aLow.toLowerCase();
+            bool myTeam=(hLow.indexOf(search)>=0||aLow.indexOf(search)>=0);
 
-            // Kickoff-Zeit parsen (ISO 8601: "2025-05-24T15:30:00")
-            String dtStr = m["MatchDateTime"] | "";
-            uint32_t kickoffUTC = parseISO8601toUTC(dtStr);
-
-            if (p->type == FetchType::SCHEDULE) {
-              // Suche nächstes Spiel des eigenen Teams heute
-              bool isMyTeam = (hLow.indexOf(search)>=0 || aLow.indexOf(search)>=0);
-              if (isMyTeam && kickoffUTC > nowUTC) {
-                if (bestKickoff == 0 || kickoffUTC < bestKickoff)
-                  bestKickoff = kickoffUTC;
+            if (p->type==FetchType::SCHEDULE) {
+              if (!myTeam) continue;
+              if (status=="IN_PLAY"||status=="PAUSED") {
+                bestKickoff=(kickoff>0)?kickoff:nowUTC-3600;
+                liveNow=true; break;
+              }
+              if (kickoff>nowUTC&&kickoff<nowUTC+86400) {
+                if (!bestKickoff||kickoff<bestKickoff) bestKickoff=kickoff;
               }
             } else {
-              // Live-Daten: nur eigenes Team
-              if (hLow.indexOf(search) < 0 && aLow.indexOf(search) < 0) continue;
-
-              MatchInfo& mi = self->_taskResult.match;
-              mi.valid      = true;
-              mi.isFinished = m["MatchIsFinished"] | false;
-              mi.kickoffUTC = kickoffUTC;
-              strncpy(mi.homeTeam, home.c_str(), sizeof(mi.homeTeam)-1);
-              strncpy(mi.awayTeam, away.c_str(), sizeof(mi.awayTeam)-1);
-
-              bool found = false;
-              for (JsonObject res : m["MatchResults"].as<JsonArray>()) {
-                if (String(res["ResultName"]|"") == "Aktuelles Ergebnis") {
-                  mi.homeScore = res["PointsTeam1"] | 0;
-                  mi.awayScore = res["PointsTeam2"] | 0;
-                  mi.isLive    = !mi.isFinished;
-                  found = true; break;
-                }
-              }
-              if (!found) {
-                for (JsonObject res : m["MatchResults"].as<JsonArray>()) {
-                  mi.homeScore = res["PointsTeam1"] | mi.homeScore;
-                  mi.awayScore = res["PointsTeam2"] | mi.awayScore;
-                }
-                // Spiel läuft wenn Kickoff < jetzt und nicht fertig
-                mi.isLive = (!mi.isFinished && kickoffUTC > 0 && kickoffUTC < nowUTC);
-              }
-              self->_taskResult.success = true;
+              if (!myTeam) continue;
+              MatchInfo& mi=self->_taskResult.match;
+              mi.valid=true; mi.kickoffUTC=kickoff;
+              strncpy(mi.homeTeam,home.c_str(),sizeof(mi.homeTeam)-1);
+              strncpy(mi.awayTeam,away.c_str(),sizeof(mi.awayTeam)-1);
+              mi.isLive=(status=="IN_PLAY"||status=="PAUSED");
+              mi.isFinished=(status=="FINISHED");
+              int sh=m["score"]["fullTime"]["home"]|-1;
+              int sa=m["score"]["fullTime"]["away"]|-1;
+              if (sh>=0) mi.homeScore=(uint8_t)sh;
+              if (sa>=0) mi.awayScore=(uint8_t)sa;
+              self->_taskResult.teamFound=true;
+              self->_taskResult.success=true;
               break;
             }
           }
-
-          if (p->type == FetchType::SCHEDULE) {
-            self->_taskResult.nextKickoffUTC = bestKickoff;
-            self->_taskResult.success        = true;
+          if (p->type==FetchType::SCHEDULE) {
+            self->_taskResult.nextKickoffUTC=bestKickoff;
+            self->_taskResult.teamFound=(bestKickoff>0);
+            self->_taskResult.matchIsLiveNow=liveNow;
+            self->_taskResult.success=true;
           }
         }
         delete doc;
       }
     }
 
-    self->_taskResult.type = p->type;
-    self->_taskDone        = true;
-    self->_taskRunning     = false;
+    self->_taskResult.type=p->type;
+    self->_taskDone=true;
+    self->_taskRunning=false;
     xSemaphoreGive(self->_mutex);
-    free(buf);
-    free(p);
+    free(buf); free(p);
     vTaskDelete(NULL);
   }
 
-  // ISO 8601 → UTC Unix-Timestamp (simpel, ohne DST)
-  // Format: "2025-05-24T15:30:00"
-  // OpenLigaDB liefert Ortszeit Deutschland → wir subtrahieren UTC-Offset
-  // Sommer: UTC+2 → -7200, Winter: UTC+1 → -3600
-  // WLED kennt den UTC-Offset via Timezone-Config
-  static uint32_t parseISO8601toUTC(const String& s) {
-    if (s.length() < 19) return 0;
-    int yr  = s.substring(0,4).toInt();
-    int mo  = s.substring(5,7).toInt();
-    int dy  = s.substring(8,10).toInt();
-    int hr  = s.substring(11,13).toInt();
-    int mn  = s.substring(14,16).toInt();
-    int sc  = s.substring(17,19).toInt();
-    // Einfache Unix-Timestamp-Berechnung
-    // Tage seit 1970-01-01
-    int y = yr - 1970;
-    static const int mdays[] = {0,31,59,90,120,151,181,212,243,273,304,334};
-    long days = y*365 + (y+1)/4 + mdays[mo-1] + dy - 1;
-    if (mo > 2 && (yr%4==0 && (yr%100!=0 || yr%400==0))) days++;
-    uint32_t ts = (uint32_t)(days*86400L + hr*3600 + mn*60 + sc);
-    // OpenLigaDB: Zeiten sind in lokaler Zeit Deutschland
-    // Sommerzeit (März letzter So - Oktober letzter So): UTC+2
-    // Winterzeit: UTC+1
-    // Vereinfacht: wenn Monat 4-9 → Sommer → -7200, sonst -3600
-    int offset = (mo >= 4 && mo <= 9) ? 7200 : 3600;
-    return (ts > (uint32_t)offset) ? ts - offset : 0;
+  enum class Phase : uint8_t { IDLE, WAITING } _phase=Phase::IDLE;
+
+  // Prueft ob ein neuer Request erlaubt ist (Rate-Limit-Schutz)
+  bool canRequest() {
+    unsigned long now=millis();
+    // Bei 429: 2 Minuten warten
+    if (_lastHttpCode==429 && (now-_lastRequestTime)<RATE_LIMIT_WAIT) return false;
+    // Sonst: mindestens 7s zwischen Requests
+    if ((now-_lastRequestTime)<MIN_REQUEST_GAP) return false;
+    return true;
   }
 
-  // ---------- Fetch starten ----------
-  enum class Phase : uint8_t {
-    IDLE,
-    FETCH_SCHEDULE,
-    FETCH_LIVE,
-    WAITING
-  } _phase = Phase::IDLE;
+  void startFetch(FetchType type, int compId) {
+    if (_taskRunning||!_token[0]) return;
+    if (!canRequest()) return;  // Rate-Limit-Schutz
 
-  void startFetch(FetchType type, const char* url, const char* searchKey) {
-    if (_taskRunning) return;
-    TaskParam* p = (TaskParam*)malloc(sizeof(TaskParam));
+    TaskParam* p=(TaskParam*)malloc(sizeof(TaskParam));
     if (!p) return;
-    strncpy(p->url,       url,       sizeof(p->url)-1);       p->url[sizeof(p->url)-1]       = '\0';
-    strncpy(p->searchKey, searchKey, sizeof(p->searchKey)-1); p->searchKey[sizeof(p->searchKey)-1] = '\0';
-    p->type    = type;
-    p->self    = this;
-    _taskDone    = false;
-    _taskRunning = true;
-    _taskResult  = TaskResult{};
-    if (xTaskCreatePinnedToCore(fetchTask,"hsv_fetch",8192,p,1,nullptr,0) != pdPASS) {
-      _taskRunning = false;
-      free(p);
-    }
-  }
 
-  // ---------- URL-Builder ----------
-  String buildGroupUrl(const char* league) {
-    char url[128];
-    snprintf(url, sizeof(url),
-      "http://api.openligadb.de/getcurrentgroup/%s", league);
-    return String(url);
-  }
+    LeagueChain chain=getLeagueChain(_activePreset);
+    int season=2025;
+    for (int i=0;i<4;i++) if (chain.ids[i]==compId){season=chain.seasons[i];break;}
 
-  // Wir nutzen getmatchdata ohne Gruppe → aktueller Spieltag
-  // Format: /getmatchdata/{league}/{season}
-  String buildMatchdayUrl(const char* league, int season) {
-    char url[192];
-    snprintf(url, sizeof(url),
-      "http://api.openligadb.de/getmatchdata/%s/%d", league, season);
-    return String(url);
-  }
-
-  // ---------- Suchstring für aktives Preset ----------
-  String getSearchKey() {
-    // Aus Preset-ID den besten Suchstring finden
-    ClubEntry e;
-    for (int i = 0; i < ALL_CLUBS_SIZE; i++) {
-      memcpy_P(&e, &ALL_CLUBS[i], sizeof(ClubEntry));
-      if (e.presetId == _activePreset) return String(e.key);
-    }
-    if (_activePreset == PRESET_GERMANY) return "deutschland";
-    return "";
-  }
-
-  // ---------- Schedule verarbeiten ----------
-  void processScheduleResult() {
-    _scheduleFetched   = true;
-    _lastScheduleFetch = millis();
-
-    if (_taskResult.nextKickoffUTC > 0) {
-      _nextKickoffUTC = _taskResult.nextKickoffUTC;
-      DEBUG_PRINTF("HSVTicker: Naechstes Spiel UTC %u\n", _nextKickoffUTC);
+    char url[256];
+    if (type==FetchType::LIVE&&_currentMatchday>0) {
+      snprintf(url,sizeof(url),
+        "http://api.football-data.org/v4/competitions/%d/matches?season=%d&matchday=%d",
+        compId,season,_currentMatchday);
+    } else if (type==FetchType::LIVE) {
+      snprintf(url,sizeof(url),
+        "http://api.football-data.org/v4/competitions/%d/matches?season=%d&status=IN_PLAY,PAUSED,FINISHED",
+        compId,season);
     } else {
-      // Kein Spiel in dieser Liga gefunden → nächste Liga versuchen
-      _leagueIndex++;
-      LeagueChain chain = getLeagueChain(_activePreset);
-      if (_leagueIndex < 4 && chain.leagues[_leagueIndex][0] != '\0') {
-        _scheduleFetched = false; // nochmal versuchen
-      } else {
-        _leagueIndex    = 0;
-        _nextKickoffUTC = 0;
-        DEBUG_PRINTLN(F("HSVTicker: Kein Spiel heute gefunden"));
-      }
+      snprintf(url,sizeof(url),
+        "http://api.football-data.org/v4/competitions/%d/matches?season=%d&status=SCHEDULED,IN_PLAY,PAUSED",
+        compId,season);
     }
-    _phase = Phase::IDLE;
+
+    strncpy(p->url,url,sizeof(p->url)-1);       p->url[sizeof(p->url)-1]='\0';
+    strncpy(p->token,_token,sizeof(p->token)-1); p->token[sizeof(p->token)-1]='\0';
+    String sk=getSearchKey();
+    strncpy(p->searchKey,sk.c_str(),sizeof(p->searchKey)-1);
+    p->searchKey[sizeof(p->searchKey)-1]='\0';
+    p->type=type; p->self=this;
+    _taskDone=false; _taskRunning=true; _taskResult=TaskResult{};
+    _taskStarted=millis();
+    _lastRequestTime=millis(); // Zeitstempel setzen
+
+    if (xTaskCreatePinnedToCore(fetchTask,"hsv_fetch",12288,p,1,nullptr,0)!=pdPASS) {
+      _taskRunning=false; free(p);
+    }
   }
 
-  // ---------- Live-Daten verarbeiten ----------
-  void processLiveResult() {
-    if (!_taskResult.success || !_taskResult.match.valid) {
-      // Nicht in dieser Liga → nächste Liga
+  void processScheduleResult(TaskResult& res) {
+    _scheduleFetched=true;
+    _lastScheduleFetch=millis();
+    _lastHttpCode=res.httpCode;
+    if (res.currentMatchday>0) _currentMatchday=res.currentMatchday;
+
+    if (res.teamFound&&res.nextKickoffUTC>0) {
+      _nextKickoffUTC=res.nextKickoffUTC;
+      _foundLeagueId=getCurrentLeagueId();
+      _leagueIndex=0;
+      if (res.matchIsLiveNow) { _pollingActive=true; _lastPoll=0; }
+    } else {
       _leagueIndex++;
-      LeagueChain chain = getLeagueChain(_activePreset);
-      if (_leagueIndex < 4 && chain.leagues[_leagueIndex][0] != '\0') {
-        _phase = Phase::FETCH_LIVE;
+      LeagueChain chain=getLeagueChain(_activePreset);
+      if (_leagueIndex<4&&chain.ids[_leagueIndex]!=0) {
+        _scheduleFetched=false;
+        _lastScheduleFetch=millis()-(SCHED_INTERVAL-6000);
       } else {
-        _leagueIndex = 0;
-        _phase       = Phase::IDLE;
+        _leagueIndex=0; _nextKickoffUTC=0; _foundLeagueId=0;
       }
-      return;
     }
+    _phase=Phase::IDLE;
+  }
 
-    _leagueIndex = 0; // Liga gefunden, Reset
-    _matchInfo   = _taskResult.match;
-
-    String search = getSearchKey();
-    String hLow   = String(_matchInfo.homeTeam); hLow.toLowerCase();
-    _myTeamIsHome = (hLow.indexOf(search) >= 0);
-
-    uint8_t totalGoals = _matchInfo.homeScore + _matchInfo.awayScore;
+  void processLiveResult(TaskResult& res) {
+    _lastHttpCode=res.httpCode;
+    if (res.currentMatchday>0) _currentMatchday=res.currentMatchday;
+    if (!res.teamFound||!res.match.valid) {
+      _leagueIndex++;
+      LeagueChain chain=getLeagueChain(_activePreset);
+      if (_leagueIndex>=4||chain.ids[_leagueIndex]==0) _leagueIndex=0;
+      _lastPoll=0; _phase=Phase::IDLE; return;
+    }
+    _leagueIndex=0; _matchInfo=res.match;
+    String search=getSearchKey(); search.toLowerCase();
+    String hLow=String(_matchInfo.homeTeam); hLow.toLowerCase();
+    _myTeamIsHome=(hLow.indexOf(search)>=0);
+    uint8_t totalGoals=_matchInfo.homeScore+_matchInfo.awayScore;
 
     if (_matchInfo.isFinished) {
-      if (_matchState != MatchState::FINISHED) {
-        _matchState  = MatchState::FINISHED;
-        _pollingActive = false;
-        // Farben bleiben (Preset nicht wechseln)
+      if (_matchState!=MatchState::FINISHED) {
+        _matchState=MatchState::FINISHED; _pollingActive=false;
       }
     } else if (_matchInfo.isLive) {
-      if (_matchState != MatchState::LIVE && !_goalActive) {
-        _matchState = MatchState::LIVE;
-        _homeScore  = _matchInfo.homeScore;
-        _awayScore  = _matchInfo.awayScore;
-        _lastGoals  = totalGoals;
-        applyPreset(_activePreset); // Vereinsfarben aktivieren + Sync
-      } else if (!_goalActive && totalGoals > _lastGoals) {
-        bool homeScored = (_matchInfo.homeScore > _homeScore);
-        _homeScore  = _matchInfo.homeScore;
-        _awayScore  = _matchInfo.awayScore;
-        _lastGoals  = totalGoals;
-        bool myGoal = (_myTeamIsHome && homeScored) || (!_myTeamIsHome && !homeScored);
-        triggerGoal(myGoal);
+      if (_matchState!=MatchState::LIVE&&!_goalActive) {
+        _matchState=MatchState::LIVE;
+        _homeScore=_matchInfo.homeScore; _awayScore=_matchInfo.awayScore;
+        _lastGoals=totalGoals;
+        applyPreset(_activePreset);
+      } else if (!_goalActive&&totalGoals>_lastGoals) {
+        bool homeScored=(_matchInfo.homeScore>_homeScore);
+        _homeScore=_matchInfo.homeScore; _awayScore=_matchInfo.awayScore;
+        _lastGoals=totalGoals;
+        bool myGoal=(_myTeamIsHome&&homeScored)||(!_myTeamIsHome&&!homeScored);
+        _goalActive=true; _goalMyTeam=myGoal; _goalStart=millis();
+        applyPreset(myGoal?PRESET_GOAL_MINE:PRESET_GOAL_OPPONENT);
       }
-    } else {
-      _matchState = MatchState::SCHEDULED;
+    } else { _matchState=MatchState::SCHEDULED; }
+    _phase=Phase::IDLE;
+  }
+
+  String getSearchKey() {
+    ClubEntry e;
+    for (int i=0;i<ALL_CLUBS_SIZE;i++) {
+      memcpy_P(&e,&ALL_CLUBS[i],sizeof(ClubEntry));
+      if (e.presetId==_activePreset) return String(e.key);
     }
-    _phase = Phase::IDLE;
+    return (_activePreset==PRESET_GERMANY)?"germany":"";
   }
 
-  // ---------- Tor ----------
-  void triggerGoal(bool myTeam) {
-    _goalActive = true;
-    _goalMyTeam = myTeam;
-    _goalStart  = millis();
-    applyPreset(myTeam ? PRESET_GOAL_MINE : PRESET_GOAL_OPPONENT);
+  int getCurrentLeagueId() {
+    LeagueChain c=getLeagueChain(_activePreset);
+    return (_leagueIndex<4)?c.ids[_leagueIndex]:0;
   }
 
-  // ---------- Polling-Timer ----------
-  unsigned long _lastPoll = 0;
-  static const  unsigned long POLL_INTERVAL = 30000UL;   // 30s live
-  static const  unsigned long SCHED_INTERVAL = 86400000UL; // 24h
-
-  bool shouldPoll() {
-    if (!_pollingActive) return false;
-    return (millis() - _lastPoll > POLL_INTERVAL);
-  }
-
-  bool shouldFetchSchedule() {
-    if (!_scheduleFetched) return true;
-    return (millis() - _lastScheduleFetch > SCHED_INTERVAL);
-  }
-
-  // Ist Spielzeit in 5 Minuten oder läuft gerade?
   bool isMatchTime() {
-    if (_nextKickoffUTC == 0) return false;
-    uint32_t nowUTC = (uint32_t)time(nullptr);
-    // Spiel startet in weniger als 5 Min oder läuft (max. 120 Min)
-    return (nowUTC >= _nextKickoffUTC - 300 &&
-            nowUTC <= _nextKickoffUTC + 7200);
+    if (!_nextKickoffUTC) return false;
+    uint32_t n=(uint32_t)time(nullptr);
+    return (n>=_nextKickoffUTC-300&&n<=_nextKickoffUTC+9000);
   }
-#endif // ARDUINO_ARCH_ESP32
+#endif
 
 public:
-
   void setup() override {
 #ifdef ARDUINO_ARCH_ESP32
-    _mutex = xSemaphoreCreateMutex();
+    _mutex=xSemaphoreCreateMutex();
 #endif
   }
 
@@ -570,179 +449,160 @@ public:
 #ifndef ARDUINO_ARCH_ESP32
     return;
 #else
-    if (!_enabled || !WLED_CONNECTED) return;
+    if (millis()<BOOT_DELAY) return;
 
-    unsigned long now = millis();
+    // Token-Fix: cfg.json direkt lesen
+    if (!_tokenLoaded) {
+      if (WLED_FS.exists("/cfg.json")) {
+        File f=WLED_FS.open("/cfg.json","r");
+        if (f) {
+          DynamicJsonDocument* doc=new DynamicJsonDocument(4096);
+          if (doc) {
+            if (!deserializeJson(*doc,f)) {
+              JsonObject ht=(*doc)["um"]["HSVTicker"];
+              if (!ht.isNull()) {
+                const char* t=ht["token"]|"";
+                if (t&&strlen(t)>0) strlcpy(_token,t,sizeof(_token));
+                _enabled=ht["enabled"]|_enabled;
+              }
+            }
+            delete doc;
+          }
+          f.close();
+        }
+      }
+      _tokenLoaded=true;
+    }
 
-    // ── Aktives Preset lesen ──────────────────────────────────
-    uint8_t cp = currentPreset; // WLED globale Variable
+    if (!_enabled||!WLED_CONNECTED||!_token[0]) return;
 
-    // Preset geändert?
-    if (cp != _prevPreset) {
-      _prevPreset = cp;
+    unsigned long now=millis();
+    uint16_t cp=currentPreset;
 
-      if (cp == PRESET_REFRESH) {
-        // Manueller Refresh: Schedule neu laden
-        _scheduleFetched = false;
-        _leagueIndex     = 0;
-        _nextKickoffUTC  = 0;
-        _pollingActive   = false;
-        _matchState      = MatchState::IDLE;
-        // Zurück zum vorherigen aktiven Preset
-        if (_activePreset >= PRESET_MIN_ACTIVE && _activePreset != PRESET_REFRESH)
+    if (cp!=_prevPreset) {
+      _prevPreset=cp;
+      if (cp==PRESET_REFRESH) {
+        _scheduleFetched=false; _leagueIndex=0; _nextKickoffUTC=0;
+        _pollingActive=false; _matchState=MatchState::IDLE;
+        _goalActive=false; _currentMatchday=-1; _foundLeagueId=0;
+        _lastHttpCode=0; // Reset Rate-Limit-Status
+        if (_activePreset>=PRESET_REFRESH&&_activePreset!=PRESET_REFRESH)
           applyPreset(_activePreset);
         return;
       }
-
-      if (cp < PRESET_MIN_ACTIVE) {
-        // Unter 149 → pausieren
-        _pollingActive = false;
-        return;
-      }
-
-      if (cp == PRESET_OFFLINE || cp == PRESET_GOAL_MINE || cp == PRESET_GOAL_OPPONENT) {
-        // Spezial-Presets: nicht als aktives Team-Preset setzen
-        return;
-      }
-
-      // Neues Team-Preset gewählt
-      if (cp != _activePreset) {
-        _activePreset    = cp;
-        _scheduleFetched = false;
-        _leagueIndex     = 0;
-        _nextKickoffUTC  = 0;
-        _pollingActive   = false;
-        _matchState      = MatchState::IDLE;
-        _goalActive      = false;
-        _phase           = Phase::IDLE;
-        DEBUG_PRINTF("HSVTicker: Preset %d aktiv\n", cp);
+      if (cp==PRESET_GOAL_MINE||cp==PRESET_GOAL_OPPONENT||cp==PRESET_OFFLINE) return;
+      if (cp<PRESET_REFRESH) { _pollingActive=false; return; }
+      if (cp!=_activePreset) {
+        _activePreset=cp; _scheduleFetched=false; _leagueIndex=0;
+        _nextKickoffUTC=0; _foundLeagueId=0; _pollingActive=false;
+        _matchState=MatchState::IDLE; _goalActive=false;
+        _phase=Phase::IDLE; _currentMatchday=-1;
+        _lastHttpCode=0; // Reset bei Preset-Wechsel
       }
     }
+    if (_activePreset<PRESET_REFRESH||_activePreset==PRESET_OFFLINE) return;
 
-    // Unter 149 → nichts tun
-    if (_activePreset < PRESET_MIN_ACTIVE) return;
-    if (_activePreset == PRESET_OFFLINE)   return;
-
-    // ── Tor-Event beenden ─────────────────────────────────────
-    if (_goalActive && (now - _goalStart >= GOAL_DURATION)) {
-      _goalActive = false;
-      applyPreset(_activePreset); // zurück zu Vereinsfarben + Sync
+    // Tor-Event beenden
+    if (_goalActive&&(now-_goalStart>=GOAL_DURATION)) {
+      _goalActive=false; applyPreset(_activePreset);
     }
 
-    // ── Task-Ergebnis verarbeiten ─────────────────────────────
+    // Task-Timeout nach 20s
+    if (_taskRunning&&(now-_taskStarted>20000)) {
+      _taskRunning=false; _taskDone=false; _phase=Phase::IDLE;
+    }
+
+    // Task-Ergebnis verarbeiten
     if (_taskDone) {
-      xSemaphoreTake(_mutex, portMAX_DELAY);
-      TaskResult res = _taskResult;
-      _taskDone = false;
+      xSemaphoreTake(_mutex,portMAX_DELAY);
+      TaskResult res=_taskResult; _taskDone=false;
       xSemaphoreGive(_mutex);
+      if (res.type==FetchType::SCHEDULE) processScheduleResult(res);
+      else processLiveResult(res);
+    }
+    if (_taskRunning||_phase==Phase::WAITING) return;
 
-      if (res.type == FetchType::SCHEDULE) {
-        // nextKickoffUTC in Ergebnis übernehmen
-        _taskResult = res;
-        processScheduleResult();
-      } else {
-        _taskResult = res;
-        processLiveResult();
+    // Schedule laden (Rate-Limit-Schutz beachten)
+    if (!_scheduleFetched||(now-_lastScheduleFetch>SCHED_INTERVAL)) {
+      int lid=getCurrentLeagueId();
+      if (lid&&canRequest()) {
+        startFetch(FetchType::SCHEDULE,lid);
+        _phase=Phase::WAITING;
+        return;
       }
     }
 
-    if (_taskRunning) return;
-
-    // ── Schedule täglich 06:00 UTC laden ─────────────────────
-    if (shouldFetchSchedule()) {
-      uint32_t nowUTC = (uint32_t)time(nullptr);
-      // Nach 06:00 UTC laden (aber nur einmal pro Tag)
-      uint32_t secondsToday = nowUTC % 86400;
-      bool afterSix = (secondsToday >= 6*3600);
-      if (afterSix || !_scheduleFetched) {
-        LeagueChain chain = getLeagueChain(_activePreset);
-        if (chain.leagues[_leagueIndex][0] != '\0') {
-          String url = buildMatchdayUrl(chain.leagues[_leagueIndex], chain.season);
-          startFetch(FetchType::SCHEDULE, url.c_str(), getSearchKey().c_str());
-          _phase = Phase::WAITING;
-          return;
-        }
-      }
+    // Polling aktivieren wenn Spielzeit naht
+    if (!_pollingActive&&_scheduleFetched&&isMatchTime()) {
+      _pollingActive=true; _lastPoll=0;
     }
 
-    // ── Polling aktivieren wenn Spielzeit naht ────────────────
-    if (!_pollingActive && isMatchTime()) {
-      _pollingActive = true;
-      _lastPoll      = 0; // sofort pollen
-      DEBUG_PRINTLN(F("HSVTicker: Polling gestartet"));
-    }
-
-    // ── Live-Polling ──────────────────────────────────────────
-    if (shouldPoll() && _phase == Phase::IDLE) {
-      _lastPoll = now;
-      LeagueChain chain = getLeagueChain(_activePreset);
-      if (chain.leagues[_leagueIndex][0] != '\0') {
-        String url = buildMatchdayUrl(chain.leagues[_leagueIndex], chain.season);
-        startFetch(FetchType::MATCH_LIVE, url.c_str(), getSearchKey().c_str());
-        _phase = Phase::WAITING;
-      }
+    // Live-Polling (Rate-Limit-Schutz beachten)
+    if (_pollingActive&&(now-_lastPoll>POLL_INTERVAL)&&canRequest()) {
+      _lastPoll=now;
+      int lid=_foundLeagueId?_foundLeagueId:getCurrentLeagueId();
+      if (lid) { startFetch(FetchType::LIVE,lid); _phase=Phase::WAITING; }
     }
 #endif
   }
 
-  // ---------- Persistenz ----------
   void addToConfig(JsonObject& root) override {
-    JsonObject top = root.createNestedObject(F("HSVTicker"));
-    top[F("enabled")] = _enabled;
+    JsonObject top=root.createNestedObject(F("HSVTicker"));
+    top[F("enabled")]=_enabled; top[F("token")]=_token;
   }
 
   bool readFromConfig(JsonObject& root) override {
-    JsonObject top = root[F("HSVTicker")];
+    JsonObject top=root[F("HSVTicker")];
     if (top.isNull()) return false;
-    _enabled = top[F("enabled")] | _enabled;
+    _enabled=top[F("enabled")]|_enabled;
+    const char* t=top[F("token")]|"";
+    if (t&&strlen(t)>0) strlcpy(_token,t,sizeof(_token));
     return true;
   }
 
   void appendConfigData() override {
     oappend(SET_F("addInfo('HSVTicker:enabled',1,'Liveticker ein/aus');"));
+    oappend(SET_F("addInfo('HSVTicker:token',1,'football-data.org API Token');"));
   }
 
-  // ---------- Info-Panel ----------
   void addToJsonInfo(JsonObject& root) override {
-    JsonObject u = root[F("u")];
-    if (u.isNull()) u = root.createNestedObject(F("u"));
+    JsonObject u=root[F("u")];
+    if (u.isNull()) u=root.createNestedObject(F("u"));
 
-    if (!_enabled) {
-      u.createNestedArray(F("Liveticker")).add("Deaktiviert");
-      return;
-    }
-    if (_activePreset < PRESET_MIN_ACTIVE) {
-      u.createNestedArray(F("Liveticker")).add("Pausiert");
-      return;
-    }
+    if (!_enabled)                    { u.createNestedArray(F("Ticker")).add("Deaktiviert"); return; }
+    if (!_token[0])                   { u.createNestedArray(F("Ticker")).add("Kein Token!"); return; }
+    if (_activePreset<PRESET_REFRESH) { u.createNestedArray(F("Ticker")).add("Pausiert"); return; }
 
-    const char* st = "Bereit";
-    switch (_matchState) {
-      case MatchState::SCHEDULED: st = "Spiel heute"; break;
-      case MatchState::LIVE:      st = "LIVE";        break;
-      case MatchState::FINISHED:  st = "Abpfiff";     break;
+    const char* st="Bereit";
+    switch(_matchState) {
+      case MatchState::SCHEDULED: st="Spiel heute"; break;
+      case MatchState::LIVE:      st="LIVE";        break;
+      case MatchState::FINISHED:  st="Abpfiff";     break;
       default: break;
     }
-    if (_goalActive) st = _goalMyTeam ? "TOR! (60s)" : "Gegentor (60s)";
+    if (_goalActive) st=_goalMyTeam?"TOR! (60s)":"Gegentor (60s)";
+    u.createNestedArray(F("Ticker")).add(st);
 
-    u.createNestedArray(F("Liveticker")).add(st);
-
-    if (_matchState == MatchState::LIVE || _matchState == MatchState::FINISHED) {
+    if (_matchState==MatchState::LIVE||_matchState==MatchState::FINISHED) {
       char s[64];
-      snprintf(s, sizeof(s), "%s %u:%u %s",
-        _matchInfo.homeTeam, _homeScore, _awayScore, _matchInfo.awayTeam);
+      snprintf(s,sizeof(s),"%s %u:%u %s",
+        _matchInfo.homeTeam,_homeScore,_awayScore,_matchInfo.awayTeam);
       u.createNestedArray(F("Spiel")).add(s);
     }
-
-    if (_nextKickoffUTC > 0 && _matchState == MatchState::SCHEDULED) {
-      uint32_t nowUTC  = (uint32_t)time(nullptr);
-      int32_t  minLeft = ((int32_t)_nextKickoffUTC - (int32_t)nowUTC) / 60;
-      if (minLeft > 0) {
-        char s[32];
-        snprintf(s, sizeof(s), "in %d Min", minLeft);
+    if (_nextKickoffUTC&&_matchState==MatchState::SCHEDULED) {
+      int32_t ml=((int32_t)_nextKickoffUTC-(int32_t)time(nullptr))/60;
+      if (ml>0&&ml<1440) {
+        char s[32]; snprintf(s,sizeof(s),"in %d Min",ml);
         u.createNestedArray(F("Anpfiff")).add(s);
       }
     }
+    // Debug-Info
+    unsigned long gap=(millis()-_lastRequestTime)/1000;
+    char dbg[56];
+    snprintf(dbg,sizeof(dbg),"P%d MD%d HTTP%d %s gap%lus",
+      _activePreset,_currentMatchday,_lastHttpCode,
+      _pollingActive?"Poll":"Warte",gap);
+    u.createNestedArray(F("Debug")).add(dbg);
   }
 
   uint16_t getId() override { return USERMOD_ID_UNSPECIFIED; }
