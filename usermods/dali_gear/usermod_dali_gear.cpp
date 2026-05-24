@@ -9,7 +9,8 @@
 // Phase 2: DT8 colour temperature (IEC 62386-209). Handles SET DTR0/DTR1
 // special commands, ENABLE DEVICE TYPE 8, SET TEMPORARY COLOUR TEMPERATURE,
 // ACTIVATE to map DALI Tc (mireds) → WLED CCT (Kelvin), and backward frame
-// responses to QUERY STATUS, QUERY CONTROL GEAR PRESENT, QUERY ACTUAL LEVEL,
+// responses to QUERY STATUS (0x90), QUERY CONTROL GEAR PRESENT (0x91),
+// QUERY DEVICE TYPE (0x18), QUERY ACTUAL LEVEL (0xA0),
 // and QUERY COLOUR TYPE (0xF7 per IEC 62386-209).
 //
 // Hardware: requires a DALI bus interface circuit (see readme.md).
@@ -236,6 +237,14 @@ class DaliGearUsermod : public Usermod {
           // silence here causes the master to skip all subsequent commands.
           DEBUG_PRINTLN(F("[DALI] QUERY CONTROL GEAR PRESENT → 0xFF"));
           scheduleBF(0xFF);
+          break;
+
+        case 0x18:
+          // QUERY DEVICE TYPE — respond 0x08 (device type 8 = colour control, IEC 62386-209).
+          // Conformant DALI-2 masters send this before issuing ENABLE DEVICE TYPE 8 or any
+          // DT8 application extended commands. Silence causes such masters to skip CCT control.
+          DEBUG_PRINTLN(F("[DALI] QUERY DEVICE TYPE → 0x08"));
+          scheduleBF(0x08);
           break;
 
         case 0xA0:
