@@ -76,7 +76,9 @@ enum struct PinOwner : uint8_t {
   UM_LDR_DUSK_DAWN     = USERMOD_ID_LDR_DUSK_DAWN,      // 0x2B // Usermod "usermod_LDR_Dusk_Dawn_v2.h"
   UM_MAX17048          = USERMOD_ID_MAX17048,           // 0x2F // Usermod "usermod_max17048.h"
   UM_BME68X            = USERMOD_ID_BME68X,             // 0x31 // Usermod "usermod_bme68x.h -- Uses "standard" HW_I2C pins
-  UM_PIXELS_DICE_TRAY  = USERMOD_ID_PIXELS_DICE_TRAY    // 0x35 // Usermod "pixels_dice_tray.h" -- Needs compile time specified 6 pins for display including SPI.
+  UM_PIXELS_DICE_TRAY  = USERMOD_ID_PIXELS_DICE_TRAY,   // 0x35 // Usermod "pixels_dice_tray.h" -- Needs compile time specified 6 pins for display including SPI.
+  UM_I2CEncoderUI      = USERMOD_ID_I2C_ENCODER_UI,     // 0x3B // Usermod "usermod_v2_i2c_encoder_ui"
+  UM_GC9A01Display     = USERMOD_ID_GC9A01_DISPLAY      // 0x3C // Usermod "usermod_v2_gc9a01_display" -- Needs compile time SPI pins
 };
 static_assert(0u == static_cast<uint8_t>(PinOwner::None), "PinOwner::None must be zero, so default array initialization works as expected");
 
