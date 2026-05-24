@@ -86,6 +86,7 @@ These allow a DALI master to detect gear presence and read basic status. Respons
 |---|---|---|
 | QUERY STATUS | 0x90 | Status byte: bit 2 = lamp on, bit 6 = no short address |
 | QUERY CONTROL GEAR PRESENT | 0x91 | `0xFF` (Yes, I am here) |
+| QUERY DEVICE TYPE | 0x18 | `0x08` (device type 8 = colour control) |
 | QUERY ACTUAL LEVEL | 0xA0 | Current arc level (0–254) derived from WLED brightness |
 
 ### DT8 colour temperature (IEC 62386-209)
