@@ -97,11 +97,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     - name: Find usermods with custom build environments
       id: custom_envs
       run: |
+        # On PRs: only scan usermods whose directories changed.
+        # On push: scan all usermods (validates the full set on merge).
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD \
+            | grep '^usermods/' | cut -d/ -f2 | sort -u || true)
+          if [ -z "$changed" ]; then
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          samples=$(for mod in $changed; do
+            f="usermods/$mod/platformio_override.ini.sample"
+            [ -f "$f" ] && echo "$f"
+          done | sort)
+        else
+          samples=$(find usermods/ -name "platformio_override.ini.sample" | sort)
+        fi
+
         result='[]'
-        for sample in $(find usermods/ -name "platformio_override.ini.sample" | sort); do
+        for sample in $samples; do
           usermod=$(dirname "$sample" | xargs basename)
           envs=$(grep -E '^\[env:[^]]+\]' "$sample" | sed 's/^\[env:\(.*\)\]$/\1/')
           for env in $envs; do
