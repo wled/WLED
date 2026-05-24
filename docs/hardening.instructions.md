@@ -35,7 +35,7 @@ Use these code hardening rules for automated reviews with minimal false positive
 
 ## IMPORTANT Rules
 
-13. Avoid potentially unbounded string/memory operations (`strcmp`, `strchr`, `strlen`, `sprintf`) in firmware paths; prefer bounded alternatives (`strnlen`, `strncmp`, `strlcmp`, `snprintf`).
+13. Avoid potentially unbounded string/memory operations (`strcmp`, `strchr`, `strlen`, `sprintf`) in firmware paths; prefer bounded alternatives (`strnlen`, `strncmp`, `snprintf`).
 14. Check integer overflow risks in size/index arithmetic.
 15. Reject repeated heap allocation churn in hot render/effect loops.
 16. Avoid repeated `String` growth in hot paths; prefer bounded/pre-allocated buffers.
