@@ -8,6 +8,6 @@ default_envs = custom_esp32dev_usermod_sht
 extends = env:esp32dev
 custom_usermods = ${env:esp32dev.custom_usermods} sht
 
-[env:custom_d1_mini_usermod_sht]
-extends = env:d1_mini
+[env:custom_esp8266_2m_usermod_sht]
+extends = env:esp8266_2m
 custom_usermods = ${env:d1_mini.custom_usermods} sht

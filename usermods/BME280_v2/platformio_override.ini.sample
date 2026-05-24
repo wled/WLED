@@ -4,6 +4,6 @@
 [platformio]
 default_envs = usermod_bme280_d1_mini
 
-[env:usermod_bme280_d1_mini]
-extends = env:d1_mini
+[env:usermod_esp8266_2m]
+extends = env:esp8266_2m
 custom_usermods = ${env:d1_mini.custom_usermods} BME280_v2
