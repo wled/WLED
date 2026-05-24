@@ -10,7 +10,7 @@
 // special commands, ENABLE DEVICE TYPE 8, SET TEMPORARY COLOUR TEMPERATURE,
 // ACTIVATE to map DALI Tc (mireds) → WLED CCT (Kelvin), and backward frame
 // responses to QUERY STATUS, QUERY CONTROL GEAR PRESENT, QUERY ACTUAL LEVEL,
-// and QUERY COLOUR TYPE (0xF7 per spec; also 0xE7 for non-standard masters).
+// and QUERY COLOUR TYPE (0xF7 per IEC 62386-209).
 //
 // Hardware: requires a DALI bus interface circuit (see readme.md).
 // ESP32 only — uses hardware timer API not available on ESP8266.
@@ -275,11 +275,18 @@ class DaliGearUsermod : public Usermod {
           _dt8Active = false;
           break;
 
-        case 0xE7: // non-standard masters send QUERY COLOUR TYPE here (spec says 0xF7)
+        case 0xE7:
+          // 0xE7 is not QUERY COLOUR TYPE per IEC 62386-209 — do not respond.
+          // (QUERY COLOUR TYPE is 0xF7; some non-standard masters mistakenly use
+          // 0xE7, but sending a backward frame here would violate the spec.)
+          DEBUG_PRINTLN(F("[DALI] cmd 0xE7 (not a query — no response)"));
+          break;
+
         case 0xF7: // QUERY COLOUR TYPE — IEC 62386-209 §11.3.4.2
           // Respond regardless of _dt8Active state; master needs to know our
           // capabilities before it will send ENABLE DEVICE TYPE 8.
-          DEBUG_PRINTLN(F("[DALI] QUERY COLOUR TYPE → scheduling backward frame 0x02 (Tc supported)"));
+          // Response bitmask: bit 1 = Tc colour temperature supported → 0x02.
+          DEBUG_PRINTLN(F("[DALI] QUERY COLOUR TYPE (0xF7) → scheduling backward frame 0x02 (Tc supported)"));
           scheduleBF(0x02);
           break;
 

@@ -106,9 +106,9 @@ Two CCT application flows are supported:
 
 Some DALI masters skip the `0xE1` + `0xE2` sequence and instead apply the colour temperature implicitly alongside the subsequent DAPC command. The usermod detects this: if DTR0/DTR1 are set and DT8 is active when a DAPC frame arrives, the CCT is applied at the same time as the brightness change.
 
-**QUERY COLOUR TYPE (0xF7 / 0xE7):**
+**QUERY COLOUR TYPE (0xF7):**
 
-Some masters query the gear's colour capabilities before sending CCT commands. Per IEC 62386-209 §11.3.4.2, this command is `0xF7`. Some non-standard masters send `0xE7` instead; both are handled. The usermod responds with `0x02` (bit 1 = Tc colour temperature supported), sent 4 ms after the query frame to meet the DALI spec requirement (7Te–22Te ≈ 2.9–9.2 ms settling window).
+Some masters query the gear's colour capabilities before sending CCT commands. Per IEC 62386-209 §11.3.4.2, this command is `0xF7`. The usermod responds with `0x02` (bit 1 = Tc colour temperature supported), sent 4 ms after the query frame to meet the DALI spec requirement (7Te–22Te ≈ 2.9–9.2 ms settling window). Command `0xE7` does not generate a backward frame response (it is not a query command per the spec).
 
 `SET DTR0`, `SET DTR1`, and `ENABLE DEVICE TYPE 8` are sniffed as broadcast-level frames regardless of the configured `daliAddr`.
 
