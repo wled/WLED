@@ -1,0 +1,10 @@
+# Temperature (DS18B20) usermod build environment
+# Copy to platformio_override.ini in the WLED root to use.
+
+[platformio]
+default_envs = usermod_temperature_esp32dev
+
+[env:usermod_temperature_esp32dev]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods}
+  Temperature

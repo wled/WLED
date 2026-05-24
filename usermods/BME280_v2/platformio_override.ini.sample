@@ -1,0 +1,9 @@
+# BME280_v2 usermod build environment
+# Copy to platformio_override.ini in the WLED root to use.
+
+[platformio]
+default_envs = usermod_bme280_d1_mini
+
+[env:usermod_bme280_d1_mini]
+extends = env:d1_mini
+custom_usermods = ${env:d1_mini.custom_usermods} BME280_v2

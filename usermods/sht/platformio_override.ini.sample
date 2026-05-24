@@ -1,0 +1,13 @@
+# SHT temperature/humidity sensor usermod build environments
+# Copy to platformio_override.ini in the WLED root to use.
+
+[platformio]
+default_envs = custom_esp32dev_usermod_sht
+
+[env:custom_esp32dev_usermod_sht]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} sht
+
+[env:custom_d1_mini_usermod_sht]
+extends = env:d1_mini
+custom_usermods = ${env:d1_mini.custom_usermods} sht
