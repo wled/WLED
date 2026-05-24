@@ -124,11 +124,11 @@ reviews:
 
         Flag ONLY downstream uses of ingress-derived values where an out-of-range or
         unexpected value can cause misbehaviour that is not already guarded, for example:
-          - switch statements on a ingress-derived integer with no default: branch
-            (missing default: case or missing break where fall-through is unintentional)
-          - array or buffer indexing with a ingress-derived value where the index is not
-            clamped before use
-          - arithmetic with a ingress-derived value that can overflow or produce a
+          - `switch` statements on an ingress-derived value with no `default` branch,
+            or with a missing `break` where fall-through is unintentional
+          - array or buffer indexing with an ingress-derived value where the index is
+            not clamped before use
+          - arithmetic with an ingress-derived value that can overflow or produce a
             negative result used as a size or count
 
         Do NOT flag:
@@ -188,8 +188,7 @@ reviews:
         Do NOT flag:
           - Values that are clearly template placeholders (e.g., YOUR_SSID,
             <YOUR_PASSWORD>, changeme, example_token, your_password_here).
-          - Values that use PlatformIO environment variable substitution
-            (${sysenv.WIFI_PASS} or ${env:WIFI_PASS}).
+          - Values that use PlatformIO environment variable substitution (${sysenv.WIFI_PASS} or ${env:WIFI_PASS}).
           - Comments that only explain what a field should contain.
           - platformio_override.ini.sample entries that contain only
             placeholder/example values.
@@ -218,8 +217,8 @@ reviews:
         documentation files, including inside code blocks, inline code, and prose.
 
         Flag any of the following:
-          - Hardcoded Wi-Fi SSID or password values that appear to be real
-            (non-placeholder) strings in configuration or installation examples.
+          - Hardcoded Wi-Fi SSID or password values that appear to be real (non-placeholder) 
+            strings in configuration or installation examples.
           - Hardcoded OTA, AP, or MQTT passwords in code snippets or step-by-step
             instructions.
           - API keys, bearer tokens, or access tokens shown as literal values.
