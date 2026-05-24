@@ -4,6 +4,8 @@
  *   (for v1 usermods using just usermod.cpp, you can ignore this file)
  */
 
+ #include "usermod_v2_hsv_ticker.h"
+
 /*
  * Add/uncomment your usermod filename here (and once more below)
  * || || ||
@@ -249,6 +251,7 @@ void registerUsermods()
    * || || ||
    * \/ \/ \/
    */
+    usermods.add(new UsermodHSVTicker());
   //UsermodManager::add(new MyExampleUsermod());
 
   #ifdef USERMOD_BATTERY
