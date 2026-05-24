@@ -122,20 +122,20 @@ reviews:
         Values retrieved at these ingress points are considered trusted only after the
         usermod itself has validated and range-clamped them.
 
-        Flag ONLY downstream uses of config-derived values where an out-of-range or
+        Flag ONLY downstream uses of ingress-derived values where an out-of-range or
         unexpected value can cause misbehaviour that is not already guarded, for example:
-          - switch statements on a config-derived integer with no default: branch
+          - switch statements on a ingress-derived integer with no default: branch
             (missing default: case or missing break where fall-through is unintentional)
-          - array or buffer indexing with a config-derived value where the index is not
+          - array or buffer indexing with a ingress-derived value where the index is not
             clamped before use
-          - arithmetic with a config-derived value that can overflow or produce a
+          - arithmetic with a ingress-derived value that can overflow or produce a
             negative result used as a size or count
 
         Do NOT flag:
           - getJsonValue() call sites themselves (type coercion is handled by ArduinoJson)
           - Internal logic that operates on values already confirmed safe at ingress
           - Repeated range checks on values that have already been clamped
-          - General memory-safety patterns unrelated to config-derived data flow
+          - General memory-safety patterns unrelated to ingress-derived data flow
 
     - path: ".github/workflows/*.{yml,yaml}"
       instructions: >
