@@ -244,9 +244,15 @@ class DaliGearUsermod : public Usermod {
       }
 
       // Claim pins via WLED pin manager
-      if (!PinManager::allocatePin(_rxPin, false, PinOwner::UM_DALI_GEAR) ||
-          !PinManager::allocatePin(_txPin, true,  PinOwner::UM_DALI_GEAR)) {
-        DEBUG_PRINTLN(F("[DALI] Pin allocation failed"));
+      if (!PinManager::allocatePin(_rxPin, false, PinOwner::UM_DALI_GEAR)) {
+        DEBUG_PRINTLN(F("[DALI] RX pin allocation failed"));
+        _enabled = false;
+        _initDone = true;
+        return;
+      }
+      if (!PinManager::allocatePin(_txPin, true, PinOwner::UM_DALI_GEAR)) {
+        DEBUG_PRINTLN(F("[DALI] TX pin allocation failed"));
+        PinManager::deallocatePin(_rxPin, PinOwner::UM_DALI_GEAR);
         _enabled = false;
         _initDone = true;
         return;
