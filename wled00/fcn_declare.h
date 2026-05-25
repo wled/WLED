@@ -100,7 +100,7 @@ void initDMXInput();
 void handleDMXInput();
 
 //e131.cpp
-void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol);
+void handleE131Packet(e131_packet_t* p, IPAddress clientIP, byte protocol, size_t packetLen);
 void handleDMXData(uint16_t uni, uint16_t dmxChannels, uint8_t* e131_data, uint8_t mde, uint8_t previousUniverses);
 // void handleArtnetPollReply(IPAddress ipAddress);                                          // local function, only used in e131.cpp
 // void prepareArtnetPollReply(ArtPollReply* reply);                                         // local function, only used in e131.cpp
@@ -524,10 +524,10 @@ inline size_t getFreeHeapSize() { return ESP.getFreeHeap(); } // returns free he
 inline size_t getContiguousFreeHeap() { return ESP.getMaxFreeBlockSize(); } // returns largest contiguous free block
 #endif
 #define BFRALLOC_NOBYTEACCESS    (1 << 0) // ESP32 has 32bit accessible DRAM (usually ~50kB free) that must not be byte-accessed
-#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM
-#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM
-#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM
-#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, otherwise uses DRAM
+#define BFRALLOC_PREFER_DRAM     (1 << 1) // prefer DRAM over PSRAM (can still use PSRAM for larger allocations if DRAM is starting to run low)
+#define BFRALLOC_ENFORCE_DRAM    (1 << 2) // use DRAM only, no PSRAM allowed
+#define BFRALLOC_PREFER_PSRAM    (1 << 3) // prefer PSRAM over DRAM (can still use DRAM if there is loads of free DRAM to optimize speed)
+#define BFRALLOC_ENFORCE_PSRAM   (1 << 4) // use PSRAM if available, falls back to DRAM if PSRAM fails
 #define BFRALLOC_CLEAR           (1 << 5) // clear allocated buffer after allocation
 void *allocate_buffer(size_t size, uint32_t type);
 

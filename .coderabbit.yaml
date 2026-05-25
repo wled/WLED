@@ -24,6 +24,11 @@ reviews:
   # sequence_diagrams: false
   auto_review:
     enabled: true
+    base_branches:
+      - main
+      - 16_x
+      - 0_15_x
+      - V5
     ignore_title_keywords:
       - WIP
 
@@ -31,7 +36,7 @@ reviews:
     - path: "**/*.{cpp,h,hpp,ino}"
       instructions: >
         Follow the C++ coding conventions documented in docs/cpp.instructions.md
-        and the general project guidelines in .github/copilot-instructions.md.
+        and the general project guidelines in AGENTS.md and .github/copilot-instructions.md.
 
         Key rules: 2-space indentation (no tabs), camelCase functions/variables,
         PascalCase classes, UPPER_CASE macros. No C++ exceptions — use return codes and debug macros.
@@ -39,8 +44,14 @@ reviews:
         Hot-path optimization guidelines (attributes, uint_fast types, caching,
         unsigned range checks) apply from pixel set/get operations and strip.show() downward —
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
-# disabled - the below instruction has no effect
-# When initially reviewing a PR, summarize good practices (top 5) and create a prioritized list of suggested improvements (focus on major ones).
+
+        When reviewing PRs labeled "AI" or when source code appears to be AI-generated, perform these additional checks:
+        1. VERIFY all referenced constants, flags, and functions exist by searching the codebase - do not trust the AI's claims about what exists.
+        2. CHECK for reinvention: search for existing functions/patterns that already solve the same problem.
+        3. CHECK for singleton data (defined but never used) and for dead/disabled code, and suggest to remove them.
+        4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.
+        5. VERIFY numerical stability / accuracy of fixed-point arithmetic.
+        6. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
 
     - path: "wled00/data/**"
       instructions: >

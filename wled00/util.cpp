@@ -920,7 +920,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
       buffer = p_malloc(size); // prefer PSRAM
   }
   else if (type & BFRALLOC_ENFORCE_PSRAM)
-    buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
+    buffer = p_malloc(size); // use PSRAM if available, fall back to DRAM if not (safeguard for boards without PSRAM #5629)
   buffer = validateFreeHeap(buffer);
   #endif
   if (buffer && (type & BFRALLOC_CLEAR))
