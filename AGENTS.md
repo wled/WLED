@@ -181,16 +181,25 @@ class MyUsermod : public Usermod {
     bool enabled = false;
     static const char _name[];
   public:
-    void setup() override { /* ... */ }
-    void loop() override { /* ... */ }
-    void addToConfig(JsonObject& root) override { /* ... */ }
-    bool readFromConfig(JsonObject& root) override { /* ... */ }
+    void setup() override { /* ... */ }                          // runs once at start-up
+    void loop() override { /* ... */ }                           // runs once per main loop iteration
+    void addToConfig(JsonObject& root) override { /* ... */ }    // create/add persistent settings (usermod settings)
+    bool readFromConfig(JsonObject& root) override { /* ... */ } // read from persistent settings (usermod settings UI)
     uint16_t getId() override { return USERMOD_ID_MYMOD; }
+    void addToJsonInfo(JsonObject& root) override { /* ... */ }  // Add custom items to the "info" page and to /json/info
+    void appendConfigData() override { /* ... */ }               // Customize the settings page: dropdowns, checkboxes, extra text, etc. Buffer size is limited!
 };
 const char MyUsermod::_name[] PROGMEM = "MyUsermod";
 static MyUsermod myUsermod;
 REGISTER_USERMOD(myUsermod);
 ```
+
+refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in the user documentation for custom features](https://kno.wled.ge/advanced/custom-features/).
+
+### Usermod `loop()`
+
+- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
+- Frequency of calls varies with system load - up to 2000 times/sec with few LEDs and little background activity, down to 1-3 times/sec during FS activity or during high workload from effects and other usermods.
 
 ### Usermod IDs
 
