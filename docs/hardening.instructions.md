@@ -20,7 +20,7 @@ Use these code hardening rules for automated reviews with minimal false positive
 
 ## CRITICAL Rules
 
-1. **No unchecked buffer copies** (`memcpy`, `memmove`, `strcpy`) in firmware paths; prefer bounded alternatives (`strncpy`, `strlcpy`); require length validation before copying.
+1. **No unchecked buffer copies** (`memcpy`, `memmove`, `strcpy`) in firmware paths when source buffer or size comes from an untrusted origin; prefer bounded alternatives (`strncpy`, `strlcpy`); require length validation before copying.
 2. **No user-controlled format strings** in `DEBUG_PRINTF*` and similar logging APIs.
 3. **Validate all untrusted external input** (HTTP/JSON/UDP/serial) before index/length/pin usage.
 4. **Auth required for state-changing control endpoints where feasible** (for example HTTP/JSON); do not flag protocol-defined unauthenticated UDP multicast/broadcast channels solely for missing auth.
