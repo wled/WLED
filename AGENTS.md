@@ -4,7 +4,8 @@ WLED is C++ firmware for ESP32/ESP8266 microcontrollers controlling addressable 
 with a web UI (HTML/JS/CSS). Built with PlatformIO (Arduino framework) and Node.js tooling.
 
 See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.md`,
-`docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`.
+`docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`,
+`docs/hardening.instructions.md`, `docs/securecode.instructions.md`.
 
 Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
@@ -240,6 +241,13 @@ No automated linting is configured. Match existing code style in files you edit.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
 - Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
 - **Highlight user-visible breaking changes and ripple effects** during reviews. Ask for confirmation that these were introduced intentionally.
+
+### Security Hardening
+
+When writing or reviewing code in `wled00/`, `usermods/`, `wled00/data/`, or `.github/workflows/`,
+consult `docs/hardening.instructions.md` (concise checklist) and `docs/securecode.instructions.md` (detailed rules with examples).
+These files define WLED's threat model, trust boundary model, and WLED-specific constraints (no TLS baseline, no UDP authentication for protocol-defined
+multicast/broadcast, firewall-isolated deployment assumed).
 
 ### Attribution for AI-generated code
 
