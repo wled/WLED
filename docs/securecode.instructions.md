@@ -65,6 +65,7 @@ De-prioritize unless explicitly introduced by a PR:
 - Flag `strcpy`, `sprintf`, unchecked memory access (`memcpy`, `memmove`, `memcmp`, `strcmp`, `strlen`), unchecked pointer arithmetic.
 - Require explicit bounds checks and length validation.
 - Prefer bounded alternatives for string operations (`strnlen`, `strncmp`, `strncpy`, `strlcpy`, `snprintf`).
+ - Treat a finding against FW1 as **suggestion** when buffer size and source buffer are trusted internal values.
 
 ### FW2: Format-string injection
 - **Severity**: CRITICAL
