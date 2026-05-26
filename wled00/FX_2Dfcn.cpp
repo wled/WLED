@@ -194,29 +194,59 @@ void Segment::applyCubeWrapping(int &x, int &y) const
   if (vH % 3 != 0 || vW != (vH / 3) * 4) return;
 
   int n = vH / 3;
-  int fx = (x >= 0) ? (x / n) : -1;
+
+  // Horizontal wrapping first to ensure x is always in [0, 4n-1]
+  x = (x % vW + vW) % vW;
+
+  int fx = x / n;
   int fy = (y >= 0) ? (y / n) : -1;
-  int u = (x % n + n) % n;
+  int u = x % n;
   int v = (y % n + n) % n;
 
   if (fy < 0 || fy > 2) { // Above Top or Below Bottom
     x = 4 * n - 1 - u;
     y = 2 * n - 1 - v;
   } else if (fy == 0) {
-    if (fx == 0) { // Top-Left gap -> maps to Top face left edge
-      x = n + (n - 1 - v); y = u;
-    } else if (fx == 2) { // Top-Right gap -> maps to Top face right edge
-      x = n + v; y = n - 1 - u;
-    } else if (fx != 1) { // fx == 3 (Top-Back gap) -> maps to Top face top edge
-      x = 2 * n - 1 - u; y = n - 1 - v;
+    if (fx == 0) { // Top-Left gap
+      if (u >= v) { // Closer to T -> maps to L top edge
+        x = v;
+        y = n + n - 1 - u;
+      } else { // Closer to L -> maps to T left edge
+        x = n + (n - 1 - v);
+        y = u;
+      }
+    } else if (fx == 2) { // Top-Right gap
+      if (u + v < n) { // Closer to T -> maps to R top edge
+        x = 3 * n - 1 - v;
+        y = n + u;
+      } else { // Closer to R -> maps to T right edge
+        x = n + v;
+        y = n - 1 - u;
+      }
+    } else if (fx != 1) { // fx == 3 (Top-Back gap) -> maps to T top edge
+      x = 2 * n - 1 - u;
+      y = n - 1 - v;
     }
   } else if (fy == 2) {
-    if (fx == 0) { // Bottom-Left gap -> maps to Bottom face left edge
-      x = n + v; y = 3 * n - 1 - u;
-    } else if (fx == 2) { // Bottom-Right gap -> maps to Bottom face right edge
-      x = 2 * n - 1 - v; y = 2 * n + u;
-    } else if (fx != 1) { // fx == 3 (Bottom-Back gap) -> maps to Bottom face bottom edge
-      x = 2 * n - 1 - u; y = 3 * n - 1 - v;
+    if (fx == 0) { // Bottom-Left gap
+      if (u >= v) { // Closer to D -> maps to L bottom edge
+        x = v;
+        y = n + u;
+      } else { // Closer to L -> maps to D left edge
+        x = n + v;
+        y = 3 * n - 1 - u;
+      }
+    } else if (fx == 2) { // Bottom-Right gap
+      if (u + v < n) { // Closer to D -> maps to R bottom edge
+        x = 3 * n - 1 - v;
+        y = 2 * n - 1 - u;
+      } else { // Closer to R -> maps to D right edge
+        x = 2 * n - 1 - v;
+        y = 2 * n + u;
+      }
+    } else if (fx != 1) { // fx == 3 (Bottom-Back gap) -> maps to D bottom edge
+      x = 2 * n - 1 - u;
+      y = 3 * n - 1 - v;
     }
   }
   // AI: end
