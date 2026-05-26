@@ -14,7 +14,7 @@ Use these code hardening rules for automated reviews with minimal false positive
 - Do **not** require authentication for standards-based UDP multicast/broadcast paths where authentication is not defined in the protocol specification.
 
 > **Trust boundary model**: Apply input-validation rules **only at the first untrusted ingress point**
-> (HTTP/JSON API body or query string, WebSocket payload, UDP datagram, TCP read, serial command).
+> (HTTP/JSON API body or query string, WebSocket payload, UDP datagram, TCP read, serial command, ESP-NOW raw messages).
 > Values that have been validated and range-clamped at ingress are **trusted** for internal WLED
 > processing. Do not flag subsequent uses or internal copies of already-sanitized data.
 

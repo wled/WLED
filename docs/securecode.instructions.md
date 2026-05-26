@@ -25,6 +25,7 @@ Use this guide for AI-assisted code reviews in:
 - UDP datagrams (`parsePacket()` / `recvfrom()` and higher-level protocol wrappers)
 - TCP socket reads
 - Serial/UART input used as commands
+- ESP-NOW raw messages input
 
 **Validation and range-clamping applied at the ingress point renders data trusted** for all subsequent use within the WLED core.
 
@@ -207,7 +208,7 @@ De-prioritize unless explicitly introduced by a PR:
 ## Reviewer Checklist
 
 - [ ] No new memory-safety hazards (bounds, overflow, unsafe copies/format strings)
-- [ ] External input is validated and range-clamped at ingress points (HTTP/JSON/UDP/serial)
+- [ ] External input is validated and range-clamped at ingress points (HTTP/JSON/UDP/serial,ESP-NOW)
 - [ ] State-changing API paths enforce auth policy
 - [ ] OTA paths enforce integrity verification (without requiring TLS baseline)
 - [ ] Suggested rule patterns are checked where relevant (UDP bounds, hostname sanitization, workflow pinning/permissions)

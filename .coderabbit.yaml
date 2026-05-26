@@ -69,6 +69,7 @@ reviews:
             E1.31, DDP, Art-Net, TPM2.net)
           - TCP socket reads
           - Serial/UART command input
+          - ESP-NOW raw messages input
 
         A value that has been validated and range-clamped at its ingress handler is
         considered TRUSTED for all subsequent WLED core processing. Do NOT flag or suggest
@@ -173,7 +174,6 @@ reviews:
            reference section, note this as a suggestion (not a required fix).
 
     # ── Secrets / sensitive information scanning ────────────────────────────
-
     - path: "platformio*.ini*"
       instructions: >
         Scan for secrets, passwords, and other sensitive information accidentally
