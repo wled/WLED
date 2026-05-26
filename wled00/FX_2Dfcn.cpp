@@ -223,7 +223,7 @@ void Segment::applyCubeWrapping(int &x, int &y) const
         x = n + v;
         y = n - 1 - u;
       }
-    } else if (fx != 1) { // fx == 3 (Top-Back gap) -> maps to T top edge
+    } else if (fx == 3) { // Top-Back gap -> maps to T top edge
       x = 2 * n - 1 - u;
       y = n - 1 - v;
     }
@@ -244,7 +244,7 @@ void Segment::applyCubeWrapping(int &x, int &y) const
         x = 2 * n - 1 - v;
         y = 2 * n + u;
       }
-    } else if (fx != 1) { // fx == 3 (Bottom-Back gap) -> maps to D bottom edge
+    } else if (fx == 3) { // Bottom-Back gap -> maps to D bottom edge
       x = 2 * n - 1 - u;
       y = 3 * n - 1 - v;
     }
