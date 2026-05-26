@@ -209,7 +209,7 @@ De-prioritize unless explicitly introduced by a PR:
 ## Reviewer Checklist
 
 - [ ] No new memory-safety hazards (bounds, overflow, unsafe copies/format strings)
-- [ ] External input is validated and range-clamped at ingress points (HTTP/JSON/UDP/serial,ESP-NOW)
+- [ ] External input is validated and range-clamped at ingress points (HTTP/JSON, WebSocket, UDP, TCP, serial, ESP-NOW)
 - [ ] State-changing API paths enforce auth policy
 - [ ] OTA paths enforce integrity verification (without requiring TLS baseline)
 - [ ] Suggested rule patterns are checked where relevant (UDP bounds, hostname sanitization, workflow pinning/permissions)
