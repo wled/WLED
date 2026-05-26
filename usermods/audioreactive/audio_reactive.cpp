@@ -1300,7 +1300,12 @@ class AudioReactive : public Usermod {
 
       size_t packetSize = fftUdp.parsePacket();
 #ifdef ARDUINO_ARCH_ESP32
-      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET))) fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
+      if ((packetSize > 0) && ((packetSize < 5) || (packetSize > UDPSOUND_MAX_PACKET)))
+        #if ESP_IDF_VERSION_MAJOR < 5
+        fftUdp.flush(); // discard invalid packets (too small or too big) - only works on esp32
+        #else
+        fftUdp.clear(); // function was renamed in newer frameworks
+        #endif
 #endif
       if ((packetSize > 5) && (packetSize <= UDPSOUND_MAX_PACKET)) {
         //DEBUGSR_PRINTLN("Received UDP Sync Packet");
@@ -1533,14 +1538,9 @@ class AudioReactive : public Usermod {
       // We cannot wait indefinitely before processing audio data
       if (strip.isUpdating() && (millis() - lastUMRun < 2)) return;   // be nice, but not too nice
 
-      // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET)
-      if (  (realtimeOverride == REALTIME_OVERRIDE_NONE)  // please add other overrides here if needed
-          &&( (realtimeMode == REALTIME_MODE_GENERIC)
-            ||(realtimeMode == REALTIME_MODE_E131)
-            ||(realtimeMode == REALTIME_MODE_UDP)
-            ||(realtimeMode == REALTIME_MODE_ADALIGHT)
-            ||(realtimeMode == REALTIME_MODE_ARTNET) ) )  // please add other modes here if needed
-      {
+      // suspend local sound processing when "real time mode" is active (E131, UDP, ADALIGHT, ARTNET, DDP, DMX)
+      //  exception: sound input is still needed when useMainSegmentOnly - other segments are still running with local input.
+      if (realtimeMode && !realtimeOverride && !useMainSegmentOnly) {
         #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DEBUG)
         if ((disableSoundProcessing == false) && (audioSyncEnabled == 0)) {  // we just switched to "disabled"
           DEBUG_PRINTLN(F("[AR userLoop]  realtime mode active - audio processing suspended."));
@@ -1617,7 +1617,11 @@ class AudioReactive : public Usermod {
             have_new_sample = receiveAudioData();
             if (have_new_sample) last_UDPTime = millis();
 #ifdef ARDUINO_ARCH_ESP32
+            #if ESP_IDF_VERSION_MAJOR < 5
             else fftUdp.flush(); // Flush udp input buffers if we haven't read it - avoids hickups in receive mode. Does not work on 8266.
+            #else
+            else fftUdp.clear(); // function was renamed in newer frameworks
+            #endif
 #endif
             lastTime = millis();
           }
@@ -1722,7 +1726,7 @@ class AudioReactive : public Usermod {
           );
       }
       micDataReal = 0.0f;                     // just to be sure
-      if (enabled) disableSoundProcessing = false;
+      if (enabled) disableSoundProcessing = false;  // allows FFT_Task to run at least once, even when loop() might disable again
       updateIsRunning = init;
     }
 
