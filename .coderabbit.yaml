@@ -52,6 +52,7 @@ reviews:
         4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.
         5. VERIFY numerical stability / accuracy of fixed-point arithmetic.
         6. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
+        7. FLAG changes that appear unrelated: deleted comments, unnecessary re-formatting or re-factoring, and modifications in files that seem unrelated to the PR description.
 
     - path: "wled00/data/**"
       instructions: >
