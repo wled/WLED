@@ -135,9 +135,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc[F("eth")];
   CJSON(ethernetType, ethernet["type"]);
+  #if defined(ARDUINO_ARCH_ESP32)
   // AI: deserialize ethernet static IP configuration.
-  // Each address is stored as a 4-element JSON array, one byte per octet,
-  // matching the same pattern used for WiFi static IP (nw.ins[n].ip/gw/sn).
   JsonArray eth_ip = ethernet[F("eip")];
   JsonArray eth_gw = ethernet[F("egw")];
   JsonArray eth_sn = ethernet[F("esn")];
@@ -149,8 +148,8 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     }
   }
   // AI: deserialize primary network interface selection.
-  // false = WiFi is default gateway (default), true = Ethernet is default gateway.
   CJSON(ethPrimaryInterface, ethernet[F("epi")]);
+  #endif
   initEthernet();
 #endif
 
