@@ -232,8 +232,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       }
       awmode = request->arg(aw).toInt();
       uint16_t whiteK = request->hasArg(wk) ? (uint16_t)request->arg(wk).toInt() : 0;
-      // Reject out-of-range or sub-1900K Kelvin values; 0 means "neutral/legacy"
-      if (whiteK != 0 && (whiteK < 1900 || whiteK > 10000)) whiteK = 0;
+      // Reject out-of-range or sub-1000K Kelvin values; 0 means "neutral/legacy"
+      if (whiteK != 0 && (whiteK < 1000 || whiteK > 10000)) whiteK = 0;
       uint16_t freq = request->arg(sp).toInt();
       if (Bus::isPWM(type)) {
         switch (freq) {

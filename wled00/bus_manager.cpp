@@ -142,7 +142,8 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       // underflow when subtracting the W LED's RGB contribution. Floor
       // division composes back through the subtract — i.e.
       // floor((r*255)/_wR) * _wR <= r*255 — so the subtraction is safe.
-      // _wB can be 0 near 1900 K, hence the zero guards.
+      // _wB is 0 at/below 1900 K (and _wG could reach 0 at extreme lows),
+      // hence the per-channel zero guards.
       unsigned wMaxR = _wR ? (r * 255U) / _wR : 255U;
       unsigned wMaxG = _wG ? (g * 255U) / _wG : 255U;
       unsigned wMaxB = _wB ? (b * 255U) / _wB : 255U;

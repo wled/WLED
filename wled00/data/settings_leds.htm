@@ -217,7 +217,7 @@
 		{
 			const wke = d.Sf["WKE"+n], wk = d.Sf["WK"+n];
 			if (!wke || !wk) return;
-			if (wke.checked && parseInt(wk.value)<1900) wk.value = 6500;
+			if (wke.checked && parseInt(wk.value)<1000) wk.value = 6500;
 			UI();
 		}
 		// AI: end
@@ -630,7 +630,7 @@ Driver: <select name="LD${s}" onchange="UI()">
 <div id="dig${s}r" style="display:inline"><br><span id="rev${s}">Reversed</span>: <input type="checkbox" name="CV${s}"></div>
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
-<div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}" onchange="UI()"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select><div id="dig${s}wk" style="display:none"><br>Tune RGB to W channel color temperature: <input type="checkbox" name="WKE${s}" onchange="wkChk('${s}')"><div id="dig${s}wkv" style="display:none"><br>W channel color temperature: <input type="number" name="WK${s}" min="1900" max="10000" step="50" class="l" value="6500" disabled> K</div></div></div>
+<div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}" onchange="UI()"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select><div id="dig${s}wk" style="display:none"><br>Tune RGB to W channel color temperature: <input type="checkbox" name="WKE${s}" onchange="wkChk('${s}')"><div id="dig${s}wkv" style="display:none"><br>W channel color temperature: <input type="number" name="WK${s}" min="1000" max="10000" step="50" class="l" value="6500" disabled> K</div></div></div>
 </div>`;
 				f.insertAdjacentHTML("beforeend", cn);
 				// fill led types (credit @netmindz)
