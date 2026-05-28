@@ -332,12 +332,15 @@ void getSettingsJS(byte subPage, Print& settingsScript)
           wifiIP[0], wifiIP[1], wifiIP[2], wifiIP[3]);
       } else {
         IPAddress localIP = Network.localIP();
-        sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
-        if (Network.isEthernet()) strcat_P(s, PSTR(" (Ethernet)"));
+        if (Network.isEthernet()) {
+          snprintf_P(s, sizeof(s), PSTR("%d.%d.%d.%d (Ethernet)"), localIP[0], localIP[1], localIP[2], localIP[3]);
+        } else {
+          snprintf_P(s, sizeof(s), PSTR("%d.%d.%d.%d"), localIP[0], localIP[1], localIP[2], localIP[3]);
+        }
       }
       #else
       IPAddress localIP = Network.localIP();
-      sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
+      snprintf_P(s, sizeof(s), PSTR("%d.%d.%d.%d"), localIP[0], localIP[1], localIP[2], localIP[3]);
       #endif
       printSetClassElementHTML(settingsScript, PSTR("sip"), 0, s);
     } else
