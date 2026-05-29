@@ -57,7 +57,7 @@ void toggleOnOff()
 //scales the brightness with the briMultiplier factor
 byte scaledBri(byte in)
 {
-  unsigned val = ((uint16_t)in*briMultiplier)/100;
+  unsigned val = ((unsigned)in*briMultiplier)/100;
   if (val > 255) val = 255;
   return (byte)val;
 }
@@ -68,7 +68,7 @@ void applyBri() {
   if (realtimeOverride || !(realtimeMode && arlsForceMaxBri))
   {
     //DEBUG_PRINTF_P(PSTR("Applying strip brightness: %d (%d,%d)\n"), (int)briT, (int)bri, (int)briOld);
-    strip.setBrightness(scaledBri(briT));
+    strip.setBrightness(briT);
   }
 }
 
