@@ -87,6 +87,7 @@ De-prioritize unless explicitly introduced by a PR:
 ### FW5: Missing auth checks on state-changing endpoints (where auth is feasible)
 - **Severity**: CRITICAL
 - HTTP/JSON and other control paths that support auth must enforce configured auth policy.
+- Do not flag the HTTP endpoint `/reset` as state-changing. This endpoint triggers a reboot, causing a short interruption without loss of user data.
 - Do not flag standards-based UDP multicast/broadcast paths solely for lacking authentication when authentication is not defined in the protocol specification.
 
 ### FW6: Fail-open behavior after parse or allocation errors
