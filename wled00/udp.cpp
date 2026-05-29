@@ -751,24 +751,6 @@ void sendSysInfoUDP()
  * Art-Net, DDP, E131 output - work in progress
 \*********************************************************************************************/
 
-#define DDP_HEADER_LEN 10
-#define DDP_SYNCPACKET_LEN 10
-
-#define DDP_FLAGS1_VER 0xc0  // version mask
-#define DDP_FLAGS1_VER1 0x40 // version=1
-#define DDP_FLAGS1_PUSH 0x01
-#define DDP_FLAGS1_QUERY 0x02
-#define DDP_FLAGS1_REPLY 0x04
-#define DDP_FLAGS1_STORAGE 0x08
-#define DDP_FLAGS1_TIME 0x10
-
-#define DDP_ID_DISPLAY 1
-#define DDP_ID_CONFIG 250
-#define DDP_ID_STATUS 251
-
-// 1440 channels per packet
-#define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
-
 //
 // Send real time UDP updates to the specified client
 //
@@ -810,11 +792,11 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
         // the amount of data is AFTER the header in the current packet
         size_t packetSize = DDP_CHANNELS_PER_PACKET;
 
-        uint8_t flags = DDP_FLAGS1_VER1;
+        uint8_t flags = DDP_FLAGS_VER1;
         if (currentPacket == (packetCount - 1U)) {
           // last packet, set the push flag
           // TODO: determine if we want to send an empty push packet to each destination after sending the pixel data
-          flags = DDP_FLAGS1_VER1 | DDP_FLAGS1_PUSH;
+          flags = DDP_FLAGS_VER1 | DDP_FLAGS_PUSH;
           if (channelCount % DDP_CHANNELS_PER_PACKET) {
             packetSize = channelCount % DDP_CHANNELS_PER_PACKET;
           }
@@ -822,6 +804,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
         // write the header
         /*0*/ddpUdp.write(flags);
+        // TODO: sequence number should be 1-15 as 0 means "unused", it has no bad consequences other than out of sequence packet may be accepted
         /*1*/ddpUdp.write(sequenceNumber++ & 0x0F); // sequence may be unnecessary unless we are sending twice (as requested in Sync settings)
         /*2*/ddpUdp.write(isRGBW ?  DDP_TYPE_RGBW32 : DDP_TYPE_RGB24);
         /*3*/ddpUdp.write(DDP_ID_DISPLAY);

@@ -6,8 +6,8 @@
 
 typedef struct PlaylistEntry {
   uint8_t preset; //ID of the preset to apply
-  uint16_t dur;   //Duration of the entry (in tenths of seconds)
   uint16_t tr;    //Duration of the transition TO this entry (in tenths of seconds)
+  uint32_t dur;   //Duration of the entry (in milliseconds)
 } ple;
 
 static byte           playlistRepeat = 1;        //how many times to repeat the playlist (0 = infinitely)
@@ -17,7 +17,7 @@ static byte           playlistOptions = 0;       //bit 0: shuffle playlist after
 static PlaylistEntry *playlistEntries = nullptr;
 static byte           playlistLen;               //number of playlist entries
 static int8_t         playlistIndex = -1;
-static uint16_t       playlistEntryDur = 0;      //duration of the current entry in tenths of seconds
+static uint32_t       playlistEntryDur = 0;      //duration of the current entry in milliseconds
 
 //values we need to keep about the parent playlist while inside sub-playlist
 static int16_t        parentPlaylistIndex = -1;
@@ -48,7 +48,9 @@ void unloadPlaylist() {
     playlistEntries = nullptr;
   }
   currentPlaylist = playlistIndex = -1;
-  playlistLen = playlistEntryDur = playlistOptions = 0;
+  playlistLen = 0;
+  playlistOptions = 0;
+  playlistEntryDur = 0;
   DEBUG_PRINTLN(F("Playlist unloaded."));
 }
 
@@ -80,12 +82,15 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
   it = 0;
   JsonArray durations = playlistObj["dur"];
   if (durations.isNull()) {
-    playlistEntries[0].dur = playlistObj["dur"] | 100; //10 seconds as fallback
+    uint32_t durMs = playlistObj["dur"] | 100; // 10 seconds as fallback (tenths)
+    durMs = constrain(durMs, 0L, 42949670L) * 100UL; // limit to max value and convert to ms
+    playlistEntries[0].dur = (uint32_t)durMs;
     it = 1;
   } else {
     for (int dur : durations) {
       if (it >= playlistLen) break;
-      playlistEntries[it].dur = constrain(dur, 0, 65530);
+      uint32_t durMs = constrain(dur, 0L, 42949670L) * 100UL; // limit to max value and convert to ms
+      playlistEntries[it].dur = (uint32_t)durMs;
       it++;
     }
   }
@@ -147,7 +152,7 @@ void handlePlaylist() {
   static unsigned long presetCycledTime = 0;
   if (currentPlaylist < 0 || playlistEntries == nullptr) return;
 
-  if ((playlistEntryDur < UINT16_MAX && millis() - presetCycledTime > 100 * playlistEntryDur) || doAdvancePlaylist) {
+  if ((playlistEntryDur < UINT32_MAX && millis() - presetCycledTime > playlistEntryDur) || doAdvancePlaylist) {
     presetCycledTime = millis();
     if (bri == 0 || nightlightActive) return;
 
@@ -170,7 +175,7 @@ void handlePlaylist() {
 
     jsonTransitionOnce = true;
     strip.setTransition(playlistEntries[playlistIndex].tr * 100);
-    playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT16_MAX;
+    playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX; // UINT32_MAX means infinite
     applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
     doAdvancePlaylist = false;
   }
@@ -187,7 +192,7 @@ void serializePlaylist(JsonObject sObj) {
   playlist["r"] = playlistOptions & PL_OPTION_SHUFFLE;
   for (int i=0; i<playlistLen; i++) {
     ps.add(playlistEntries[i].preset);
-    dur.add(playlistEntries[i].dur);
+    dur.add((playlistEntries[i].dur) / 100); // convert ms back to tenths of seconds (backwards compatibility)
     transition.add(playlistEntries[i].tr);
   }
 }
