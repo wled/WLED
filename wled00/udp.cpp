@@ -583,14 +583,14 @@ void handleNotifications()
 
       tpmPacketCount++; //increment the packet count
       if (tpmPacketCount == 1) tpmPayloadFrameSize = (udpIn[2] << 8) + udpIn[3]; //save frame size for the whole payload if this is the first packet
-      // Clamp to prevent buffer overread: loop accesses up to udpIn[tpmPayloadFrameSize + 5]
-      tpmPayloadFrameSize = (packetSize >= 5) ? min(tpmPayloadFrameSize, uint16_t(packetSize - 5)) : 0;
       byte packetNum = udpIn[4]; //starts with 1!
       byte numPackets = udpIn[5];
 
       unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
       unsigned totalLen = strip.getLengthTotal();
-      for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
+      // Clamp to prevent buffer overread: loop accesses up to udpIn[tpmPayloadFrameSize + 5]
+      size_t currentPayloadFrameSize = (packetSize >= 5) ? min(tpmPayloadFrameSize, uint16_t(packetSize - 5)) : 0;
+      for (size_t i = 6; i < currentPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
       }
       if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
