@@ -4,7 +4,8 @@ WLED is C++ firmware for ESP32/ESP8266 microcontrollers controlling addressable 
 with a web UI (HTML/JS/CSS). Built with PlatformIO (Arduino framework) and Node.js tooling.
 
 See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.md`,
-`docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`.
+`docs/cpp.instructions.md`, `docs/web.instructions.md`, `docs/cicd.instructions.md`,
+`docs/hardening.instructions.md`, `docs/securecode.instructions.md`.
 
 Always reference these instructions - including coding guidelines in `docs/` - first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.
 
@@ -27,7 +28,7 @@ required C headers for firmware compilation.
 Tests use Node.js built-in test runner (`node:test`). The single test file is
 `tools/cdata-test.js`. Run it with:
 
-```sh
+```bash
 npm test                   # runs all tests via `node --test`
 node --test tools/cdata-test.js  # run just that file directly
 ```
@@ -41,7 +42,7 @@ target environments. Always build after code changes: `pio run -e esp32dev`.
 
 ### Recovery / Troubleshooting
 
-```sh
+```bash
 npm run build -- -f              # force web UI rebuild
 rm -f wled00/html_*.h wled00/js_*.h && npm run build  # clean + rebuild UI
 pio run --target clean           # clean PlatformIO build artifacts
@@ -50,7 +51,7 @@ rm -rf node_modules && npm ci    # reinstall Node.js deps
 
 ## Project Structure
 
-```
+```text
 wled00/              # Main firmware source (C++)
   data/              # Web UI source (HTML/JS/CSS) — tabs for indentation
   html_*.h, js_*.h   # Auto-generated (NEVER edit or commit)
@@ -132,6 +133,7 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 - **Performance**: Prefer DRAM (or IRAM) for hot-path data that is *frequently* used. Prefer PSRAM for capacity-oriented buffers where slightly slower access times can be tolerated.
 
 Background Info:
+
 - PSRAM access is up to 18× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
 - Consider that ESP32 often crashes when the largest DRAM chunk gets below 10 KB.
 
@@ -158,10 +160,10 @@ Background Info:
 
 #### ESP32 Task Synchronization
 
-* Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
-* **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
-* **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
-* Consider RAII as an alternative to  mutexes or semaphores.
+- Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
+- **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
+- **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
+- Consider RAII as an alternative to  mutexes or semaphores.
 
 ## Web UI Code Style (wled00/data/)
 
@@ -181,16 +183,25 @@ class MyUsermod : public Usermod {
     bool enabled = false;
     static const char _name[];
   public:
-    void setup() override { /* ... */ }
-    void loop() override { /* ... */ }
-    void addToConfig(JsonObject& root) override { /* ... */ }
-    bool readFromConfig(JsonObject& root) override { /* ... */ }
+    void setup() override { /* ... */ }                          // runs once at start-up
+    void loop() override { /* ... */ }                           // runs once per main loop iteration
+    void addToConfig(JsonObject& root) override { /* ... */ }    // create/add persistent settings (usermod settings)
+    bool readFromConfig(JsonObject& root) override { /* ... */ } // read from persistent settings (usermod settings UI)
     uint16_t getId() override { return USERMOD_ID_MYMOD; }
+    void addToJsonInfo(JsonObject& root) override { /* ... */ }  // Add custom items to the "info" page and to /json/info
+    void appendConfigData() override { /* ... */ }               // Customize the settings page: dropdowns, checkboxes, extra text, etc. Buffer size is limited!
 };
 const char MyUsermod::_name[] PROGMEM = "MyUsermod";
 static MyUsermod myUsermod;
 REGISTER_USERMOD(myUsermod);
 ```
+
+refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in the user documentation for custom features](https://kno.wled.ge/advanced/custom-features/).
+
+### Usermod `loop()`
+
+- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
+- Frequency of calls varies with system load - up to 2000 times/sec with few LEDs and little background activity, down to 1-3 times/sec during FS activity or during high workload from effects and other usermods.
 
 ### Usermod IDs
 
@@ -210,6 +221,7 @@ If none of the above apply, the usermod may omit `getId()` (or return the defaul
 ## CI/CD
 
 CI runs on every push/PR via GitHub Actions (`.github/workflows/wled-ci.yml`):
+
 1. `npm test` (web UI build validation)
 2. Firmware compilation for all default environments (~22 targets)
 3. Post-link validation of usermod linkage (`validate_modules.py`)
@@ -228,3 +240,25 @@ No automated linting is configured. Match existing code style in files you edit.
 - Remove dead/unused code — justify or delete it.
 - Verify feature-flag spelling exactly (misspellings are silently ignored by preprocessor).
 - Provide references when making analyses or recommendations. Support factual claims with verifiable citations, references or concrete evidence; **never fabricate citations**.
+- **Highlight user-visible breaking changes and ripple effects** during reviews. Ask for confirmation that these were introduced intentionally.
+
+### Security Hardening
+
+When writing or reviewing code in `wled00/`, `usermods/`, `wled00/data/`, or `.github/workflows/`,
+consult `docs/hardening.instructions.md` (concise checklist) and `docs/securecode.instructions.md` (detailed rules with examples).
+These files define WLED's threat model, trust boundary model, and WLED-specific constraints (no TLS baseline, no UDP authentication for protocol-defined
+multicast/broadcast, firewall-isolated deployment assumed).
+
+### Attribution for AI-generated code
+
+Using AI-generated code can hide the source of the inspiration / knowledge / sources it used.
+
+- Document attribution of inspiration / knowledge / sources used in the code, e.g. link to GitHub repositories or other websites describing the principles / algorithms used.
+- When a larger block of code is generated by an AI tool, embed it into `// AI: below section was generated by an AI` ... `// AI: end` comments (see Comments section).
+- Every non-trivial AI-generated function should have a brief comment describing what it does. Explain parameters when their names alone are not self-explanatory.
+- AI-generated code must be well documented with meaningful comments that explain intent, assumptions, and non-obvious logic. Do not rephrase source code; explain concepts and reasoning.
+
+### Supporting Reviews and Discussions
+
+- **For "is it worth doing?" debates** about proposed reliability, safety, or data-integrity mechanisms (CRC checks, backups, power-loss protection): suggest a software **FMEA** (Failure Mode and Effects Analysis).
+  Clarify the main feared events, enumerate failure modes, assess each mitigation's effectiveness per failure mode, note common-cause failures, and rate credibility for the typical WLED use case.
