@@ -52,7 +52,7 @@ reviews:
         2. CHECK for reinvention: search for existing functions/patterns that already solve the same problem.
         3. CHECK for singleton data (defined but never used) and for dead/disabled code, and suggest to remove them.
         4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.
-        5. VERIFY numerical stability / accuracy of arithmetic expressions. AI is often wrong when it comes to numbers.
+        5. VERIFY numerical stability / accuracy of arithmetic expressions. AI is often wrong when it comes to math and numbers.
         6. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
         7. FLAG changes that appear unrelated: deleted comments, unnecessary re-formatting or re-factoring, and modifications in files that seem unrelated to the PR description.
 
