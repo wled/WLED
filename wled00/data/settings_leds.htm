@@ -217,7 +217,7 @@
 		{
 			const wke = d.Sf["WKE"+n], wk = d.Sf["WK"+n];
 			if (!wke || !wk) return;
-			if (wke.checked && parseInt(wk.value)<1000) wk.value = 6500;
+			if (wke.checked && !(parseInt(wk.value, 10) >= 1000)) wk.value = 6500;
 			UI();
 		}
 		// AI: end
