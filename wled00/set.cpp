@@ -166,7 +166,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     // AI: read primary network interface selection.
     // PNI field value 0 = WiFi is primary interface, 1 = Ethernet is primary interface.
     // Radio buttons only submit when selected so use hasArg with value check.
+    bool prevPrimaryInterface = ethPrimaryInterface;
     ethPrimaryInterface = (request->arg(F("EPI")).toInt() == 1);
+    bool ethPNIChanged = (ethPrimaryInterface != prevPrimaryInterface);
     // AI: apply ethernet IP config changes immediately without reboot,
     // bringing ethernet IP configuration to parity with WiFi live-update
     // behaviour. Only calls ETH.config() if values actually changed,
@@ -189,6 +191,8 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
           ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
           DEBUG_PRINTLN(F("ETH: Switched to DHCP from settings"));
         }
+      }
+      if (ethIPChanged || ethPNIChanged) {
         setPrimaryNetworkInterface();
       }
     }
