@@ -339,11 +339,17 @@
 //handles pointer type conversion for all possible bus types
 class PolyBus {
   private:
-    static bool _useParallelI2S;
-
+  #ifndef ESP8266
+    static bool _useParallelI2S;          // use parallel I2S/LCD (8 channels)
+    static uint8_t _rmtChannelsAssigned;  // RMT channel tracking for dynamic allocation
+    static uint8_t _rmtChannel;           // physical RMT channel to use during bus creation
+    static uint8_t _i2sChannelsAssigned;  // I2S channel tracking for dynamic allocation
+    static uint8_t _parallelBusItype;     // parallel output does not allow mixed LED types, track I_Type
+    static uint8_t _2PchannelsAssigned;  // 2-Pin (SPI) channel assigned: first one gets the hardware SPI, others use bit-banged SPI
+    // note on 2-Pin Types: all supported types except WS2801 use start/stop or latch frames, speed is not critical. WS2801 uses a 500us timeout and is prone to flickering if bit-banged too slow.
+    // TODO: according to #4863 using more than one bit-banged output can cause glitches even in APA102. This needs investigation as from a hardware perspective all but WS2801 should be immune to timing issues.
+  #endif
   public:
-    static inline void setParallelI2S1Output(bool b = true) { _useParallelI2S = b; }
-    static inline bool isParallelI2S1Output(void) { return _useParallelI2S; }
 
   // initialize SPI bus speed for DotStar methods
   template <class T>
@@ -476,21 +482,7 @@ class PolyBus {
     }
   }
 
-  static void* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t channel) {
-    // NOTE: "channel" is only used on ESP32 (and its variants) for RMT channel allocation
-
-    #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (_useParallelI2S && (channel >= 8)) {
-        // Parallel I2S channels are to be used first, so subtract 8 to get the RMT channel number
-        channel -= 8;
-    }
-    #endif
-
-    #if defined(ARDUINO_ARCH_ESP32) && !(defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3))
-    // since 0.15.0-b3 I2S1 is favoured for classic ESP32 and moved to position 0 (channel 0) so we need to subtract 1 for correct RMT allocation
-    if (!_useParallelI2S && channel > 0) channel--; // accommodate I2S1 which is used as 1st bus on classic ESP32
-    #endif
-
+  static void* create(uint8_t busType, uint8_t* pins, uint16_t len) {
     void* busPtr = nullptr;
     switch (busType) {
       case I_NONE: break;
@@ -546,18 +538,18 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses
-      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_TM2_3: busPtr = new B_32_RN_TM2_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_UCS_3: busPtr = new B_32_RN_UCS_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_UCS_4: busPtr = new B_32_RN_UCS_4(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_APA106_3: busPtr = new B_32_RN_APA106_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_FW6_5: busPtr = new B_32_RN_FW6_5(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_2805_5: busPtr = new B_32_RN_2805_5(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_TM1914_3: busPtr = new B_32_RN_TM1914_3(len, pins[0], (NeoBusChannel)channel); break;
-      case I_32_RN_SM16825_5: busPtr = new B_32_RN_SM16825_5(len, pins[0], (NeoBusChannel)channel); break;
+      case I_32_RN_NEO_3: busPtr = new B_32_RN_NEO_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_NEO_4: busPtr = new B_32_RN_NEO_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_400_3: busPtr = new B_32_RN_400_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM1_4: busPtr = new B_32_RN_TM1_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM2_3: busPtr = new B_32_RN_TM2_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_UCS_3: busPtr = new B_32_RN_UCS_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_UCS_4: busPtr = new B_32_RN_UCS_4(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_APA106_3: busPtr = new B_32_RN_APA106_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_FW6_5: busPtr = new B_32_RN_FW6_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_2805_5: busPtr = new B_32_RN_2805_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_TM1914_3: busPtr = new B_32_RN_TM1914_3(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
+      case I_32_RN_SM16825_5: busPtr = new B_32_RN_SM16825_5(len, pins[0], (NeoBusChannel)_rmtChannel++); break;
       // I2S1 bus or paralell buses
       #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I2_NEO_3: if (_useParallelI2S) busPtr = new B_32_IP_NEO_3(len, pins[0]); else busPtr = new B_32_I2_NEO_3(len, pins[0]); break;
@@ -1118,6 +1110,9 @@ class PolyBus {
 
   static unsigned getDataSize(void* busPtr, uint8_t busType) {
     unsigned size = 0;
+    #ifdef ARDUINO_ARCH_ESP32
+    size = 100; // ~100bytes for NPB internal structures (measured for both I2S and RMT, much smaller and more variable on ESP8266)
+    #endif
     switch (busType) {
       case I_NONE: break;
     #ifdef ESP8266
@@ -1172,32 +1167,32 @@ class PolyBus {
     #endif
     #ifdef ARDUINO_ARCH_ESP32
       // RMT buses (front + back + small system managed RMT)
-      case I_32_RN_NEO_3: size = (static_cast<B_32_RN_NEO_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_NEO_4: size = (static_cast<B_32_RN_NEO_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_400_3: size = (static_cast<B_32_RN_400_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM1_4: size = (static_cast<B_32_RN_TM1_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM2_3: size = (static_cast<B_32_RN_TM2_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_UCS_3: size = (static_cast<B_32_RN_UCS_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_UCS_4: size = (static_cast<B_32_RN_UCS_4*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_APA106_3: size = (static_cast<B_32_RN_APA106_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_FW6_5: size = (static_cast<B_32_RN_FW6_5*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_2805_5: size = (static_cast<B_32_RN_2805_5*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_TM1914_3: size = (static_cast<B_32_RN_TM1914_3*>(busPtr))->PixelsSize()*2; break;
-      case I_32_RN_SM16825_5: size = (static_cast<B_32_RN_SM16825_5*>(busPtr))->PixelsSize()*2; break;
-      // I2S1 bus or paralell buses (front + DMA; DMA = front * cadence, aligned to 4 bytes)
+      case I_32_RN_NEO_3: size += (static_cast<B_32_RN_NEO_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_NEO_4: size += (static_cast<B_32_RN_NEO_4*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_400_3: size += (static_cast<B_32_RN_400_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_TM1_4: size += (static_cast<B_32_RN_TM1_4*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_TM2_3: size += (static_cast<B_32_RN_TM2_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_UCS_3: size += (static_cast<B_32_RN_UCS_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_UCS_4: size += (static_cast<B_32_RN_UCS_4*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_APA106_3: size += (static_cast<B_32_RN_APA106_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_FW6_5: size += (static_cast<B_32_RN_FW6_5*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_2805_5: size += (static_cast<B_32_RN_2805_5*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_TM1914_3: size += (static_cast<B_32_RN_TM1914_3*>(busPtr))->PixelsSize()*2; break;
+      case I_32_RN_SM16825_5: size += (static_cast<B_32_RN_SM16825_5*>(busPtr))->PixelsSize()*2; break;
+      // I2S1 bus or paralell buses (front + DMA; DMA = front * cadence, aligned to 4 bytes) not: for parallel I2S only the largest bus counts for DMA memory, this is not done correctly here, also assumes 3-step cadence
       #ifndef CONFIG_IDF_TARGET_ESP32C3
-      case I_32_I2_NEO_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_NEO_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_400_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_400_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM1_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM2_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM2_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_UCS_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_UCS_4: size = (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_4*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_APA106_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_APA106_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_FW6_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_FW6_5*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_2805_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_2805_5*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_TM1914_3: size = (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1914_3*>(busPtr))->PixelsSize()*4; break;
-      case I_32_I2_SM16825_5: size = (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_SM16825_5*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_NEO_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_NEO_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_NEO_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_NEO_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_NEO_4*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_400_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_400_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_400_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_TM1_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM1_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1_4*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_TM2_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM2_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM2_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_UCS_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_UCS_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_UCS_4: size += (_useParallelI2S) ? (static_cast<B_32_IP_UCS_4*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_UCS_4*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_APA106_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_APA106_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_APA106_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_FW6_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_FW6_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_FW6_5*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_2805_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_2805_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_2805_5*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_TM1914_3: size += (_useParallelI2S) ? (static_cast<B_32_IP_TM1914_3*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_TM1914_3*>(busPtr))->PixelsSize()*4; break;
+      case I_32_I2_SM16825_5: size += (_useParallelI2S) ? (static_cast<B_32_IP_SM16825_5*>(busPtr))->PixelsSize()*4 : (static_cast<B_32_I2_SM16825_5*>(busPtr))->PixelsSize()*4; break;
       #endif
     #endif
       case I_HS_DOT_3: size = (static_cast<B_HS_DOT_3*>(busPtr))->PixelsSize()*2; break;
@@ -1255,6 +1250,7 @@ class PolyBus {
       case I_8266_DM_2805_5   : size = (size + 2*count)*5;   break;
       case I_8266_DM_SM16825_5: size = (size + 2*count)*2*5; break;
     #else
+      // note: RMT and I2S buses use ~100 bytes of internal NPB memory each, not included here for simplicity
       // RMT buses (1x front and 1x back buffer, does not include small RMT buffer)
       case I_32_RN_NEO_4    : // fallthrough
       case I_32_RN_TM1_4    : size = (size + count)*2;     break; // 4 channels
@@ -1263,7 +1259,7 @@ class PolyBus {
       case I_32_RN_FW6_5    : // fallthrough
       case I_32_RN_2805_5   : size = (size + 2*count)*2;   break; // 5 channels
       case I_32_RN_SM16825_5: size = (size + 2*count)*2*2; break; // 16bit, 5 channels
-      // I2S1 bus or paralell I2S1 buses (1x front, does not include DMA buffer which is front*cadence, a bit(?) more for LCD)
+      // I2S bus or paralell I2S buses (1x front, does not include DMA buffer which is front*cadence, a bit(?) more for LCD)
       #ifndef CONFIG_IDF_TARGET_ESP32C3
       case I_32_I2_NEO_3    : // fallthrough
       case I_32_I2_400_3    : // fallthrough
@@ -1282,30 +1278,37 @@ class PolyBus {
     }
     return size;
   }
-
-  //gives back the internal type index (I_XX_XXX_X above) for the input
-  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t num = 0) {
+#ifndef ESP8266
+  // Reset channel tracking (call before adding buses)
+  static void resetChannelTracking() {
+    _useParallelI2S = false;
+    _rmtChannelsAssigned = 0;
+    _rmtChannel = 0;
+    _i2sChannelsAssigned = 0;
+    _parallelBusItype = I_NONE;
+    _2PchannelsAssigned = 0;
+  }
+#endif
+  // reserves and gives back the internal type index (I_XX_XXX_X above) for the input based on bus type and pins
+  static uint8_t getI(uint8_t busType, const uint8_t* pins, uint8_t driverPreference) {
     if (!Bus::isDigital(busType)) return I_NONE;
+    uint8_t t = I_NONE;
     if (Bus::is2Pin(busType)) { //SPI LED chips
       bool isHSPI = false;
       #ifdef ESP8266
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
-      // temporary hack to limit use of hardware SPI to a single SPI peripheral (HSPI): only allow ESP32 hardware serial on segment 0
-      // SPI global variable is normally linked to VSPI on ESP32 (or FSPI C3, S3)
-      if (!num) isHSPI = true;
+      if (_2PchannelsAssigned == 0) isHSPI = true; // first 2-pin channel uses hardware SPI
+      _2PchannelsAssigned++;
       #endif
-      uint8_t t = I_NONE;
       switch (busType) {
         case TYPE_APA102:  t = I_SS_DOT_3; break;
         case TYPE_LPD8806: t = I_SS_LPD_3; break;
         case TYPE_LPD6803: t = I_SS_LPO_3; break;
         case TYPE_WS2801:  t = I_SS_WS1_3; break;
         case TYPE_P9813:   t = I_SS_P98_3; break;
-        default: t=I_NONE;
       }
       if (t > I_NONE && isHSPI) t--; //hardware SPI has one smaller ID than software
-      return t;
     } else {
       #ifdef ESP8266
       uint8_t offset = pins[0] -1; //for driver: 0 = uart0, 1 = uart1, 2 = dma, 3 = bitbang
@@ -1315,96 +1318,87 @@ class PolyBus {
         case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
-          return I_8266_U0_NEO_3 + offset;
+          t = I_8266_U0_NEO_3 + offset; break;
         case TYPE_SK6812_RGBW:
-          return I_8266_U0_NEO_4 + offset;
+          t = I_8266_U0_NEO_4 + offset; break;
         case TYPE_WS2811_400KHZ:
-          return I_8266_U0_400_3 + offset;
+          t = I_8266_U0_400_3 + offset; break;
         case TYPE_TM1814:
-          return I_8266_U0_TM1_4 + offset;
+          t = I_8266_U0_TM1_4 + offset; break;
         case TYPE_TM1829:
-          return I_8266_U0_TM2_3 + offset;
+          t = I_8266_U0_TM2_3 + offset; break;
         case TYPE_UCS8903:
-          return I_8266_U0_UCS_3 + offset;
+          t = I_8266_U0_UCS_3 + offset; break;
         case TYPE_UCS8904:
-          return I_8266_U0_UCS_4 + offset;
+          t = I_8266_U0_UCS_4 + offset; break;
         case TYPE_APA106:
-          return I_8266_U0_APA106_3 + offset;
+          t = I_8266_U0_APA106_3 + offset; break;
         case TYPE_FW1906:
-          return I_8266_U0_FW6_5 + offset;
+          t = I_8266_U0_FW6_5 + offset; break;
         case TYPE_WS2805:
-          return I_8266_U0_2805_5 + offset;
+          t = I_8266_U0_2805_5 + offset; break;
         case TYPE_TM1914:
-          return I_8266_U0_TM1914_3 + offset;
+          t = I_8266_U0_TM1914_3 + offset; break;
         case TYPE_SM16825:
-          return I_8266_U0_SM16825_5 + offset;
+          t = I_8266_U0_SM16825_5 + offset; break;
       }
       #else //ESP32
-      uint8_t offset = 0; // 0 = RMT (num 1-8), 1 = I2S1 [I2S0 is used by Audioreactive]
-      #if defined(CONFIG_IDF_TARGET_ESP32S2)
-      // ESP32-S2 only has 4 RMT channels
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S0 channels followed by RMT
-                                    // Note: conflicts with AudioReactive if enabled
+      // dynamic channel allocation based on driver preference
+      // determine which driver to use based on preference and availability. First I2S bus locks the I2S type, all subsequent I2S buses are assigned the same type (hardware restriction)
+      uint8_t offset = 0; // 0 = RMT, 1 = I2S/LCD
+      if (driverPreference == 0 && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
+        _rmtChannelsAssigned++;
+      } else if (_i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
+        offset = 1; // I2S requested or RMT full
+        _i2sChannelsAssigned++;
       } else {
-        if (num > 4) return I_NONE;
-        if (num > 3) offset = 1;  // only one I2S0 (use last to allow Audioreactive)
+        return I_NONE; // No channels available
       }
-      #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-      // On ESP32-C3 only the first 2 RMT channels are usable for transmitting
-      if (num > 1) return I_NONE;
-      //if (num > 1) offset = 1; // I2S not supported yet (only 1 I2S)
-      #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-      // On ESP32-S3 only the first 4 RMT channels are usable for transmitting
-      if (_useParallelI2S) {
-        if (num > 11) return I_NONE;
-        if (num < 8) offset = 1;    // use x8 parallel I2S LCD channels, followed by RMT
-      } else {
-        if (num > 3) return I_NONE; // do not use single I2S (as it is not supported)
-      }
-      #else
-      // standard ESP32 has 8 RMT and x1/x8 I2S1 channels
-      if (_useParallelI2S) {
-        if (num > 15) return I_NONE;
-        if (num < 8) offset = 1;  // 8 I2S followed by 8 RMT
-      } else {
-        if (num > 9) return I_NONE;
-        if (num == 0) offset = 1; // prefer I2S1 for 1st bus (less flickering but more RAM needed)
-      }
-      #endif
+
+      // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
         case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
-          return I_32_RN_NEO_3 + offset;
+          t = I_32_RN_NEO_3 + offset; break;
         case TYPE_SK6812_RGBW:
-          return I_32_RN_NEO_4 + offset;
+          t = I_32_RN_NEO_4 + offset; break;
         case TYPE_WS2811_400KHZ:
-          return I_32_RN_400_3 + offset;
+          t = I_32_RN_400_3 + offset; break;
         case TYPE_TM1814:
-          return I_32_RN_TM1_4 + offset;
+          t = I_32_RN_TM1_4 + offset; break;
         case TYPE_TM1829:
-          return I_32_RN_TM2_3 + offset;
+          t = I_32_RN_TM2_3 + offset; break;
         case TYPE_UCS8903:
-          return I_32_RN_UCS_3 + offset;
+          t = I_32_RN_UCS_3 + offset; break;
         case TYPE_UCS8904:
-          return I_32_RN_UCS_4 + offset;
+          t = I_32_RN_UCS_4 + offset; break;
         case TYPE_APA106:
-          return I_32_RN_APA106_3 + offset;
+          t = I_32_RN_APA106_3 + offset; break;
         case TYPE_FW1906:
-          return I_32_RN_FW6_5 + offset;
+          t = I_32_RN_FW6_5 + offset; break;
         case TYPE_WS2805:
-          return I_32_RN_2805_5 + offset;
+          t = I_32_RN_2805_5 + offset; break;
         case TYPE_TM1914:
-          return I_32_RN_TM1914_3 + offset;
+          t = I_32_RN_TM1914_3 + offset; break;
         case TYPE_SM16825:
-          return I_32_RN_SM16825_5 + offset;
+          t = I_32_RN_SM16825_5 + offset; break;
+      }
+      // If using parallel I2S, set the type accordingly
+      if (_i2sChannelsAssigned == 1 && offset == 1) { // first I2S channel request, lock the type
+        _parallelBusItype = t;
+        #ifdef CONFIG_IDF_TARGET_ESP32S3
+        _useParallelI2S = true; // ESP32-S3 always uses parallel I2S (LCD method)
+        #endif
+      }
+      else if (offset == 1) { // not first I2S channel, use locked type and enable parallel flag
+        _useParallelI2S = true;
+        t = _parallelBusItype;
       }
       #endif
     }
-    return I_NONE;
+    return t;
   }
 };
 #endif

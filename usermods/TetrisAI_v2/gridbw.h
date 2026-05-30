@@ -25,11 +25,18 @@ public:
     uint8_t width;
     uint8_t height;
     std::vector<uint32_t> pixels;
+    // When a row fills, we mark it here first so it can flash before being
+    // fully removed.
+    std::vector<bool> clearingRows;
+    // True when a line clearing flashing effect is over and we're ready to
+    // fully clean up the lines
+    bool clearedLinesReadyForRemoval = false;
 
     GridBW(uint8_t width, uint8_t height):
         width(width),
         height(height),
-        pixels(height)
+        pixels(height),
+        clearingRows(height)
     {
         if (width > 32)
         {
@@ -84,9 +91,26 @@ public:
         piece->landingY = piece->landingY > 0 ? piece->landingY - 1 : 0;
     }
 
+    bool hasClearingRows()
+    {
+        for (bool rowClearing : clearingRows)
+        {
+            if (rowClearing)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void cleanupFullLines()
     {
+        // Skip cleanup if there are rows clearing
+        if (hasClearingRows() && !clearedLinesReadyForRemoval) {
+            return;
+        }
         uint8_t offset = 0;
+        bool doneRemovingClearedLines = false;
 
         //from "height - 1" to "0", so from bottom row to top
         for (uint8_t row = height; row-- > 0; )
@@ -94,8 +118,13 @@ public:
             //full line?
             if (isLineFull(row))
             {
-                offset++;
-                pixels[row] = 0x0;
+                if (clearedLinesReadyForRemoval) {
+                    offset++;
+                    pixels[row] = 0x0;
+                    doneRemovingClearedLines = true;
+                } else {
+                    clearingRows[row] = true;
+                }
                 continue;
             }
 
@@ -105,11 +134,20 @@ public:
                 pixels[row] = 0x0;
             }
         }
+        if (doneRemovingClearedLines) {
+            clearingRows.assign(height, false);
+            clearedLinesReadyForRemoval = false;
+        }
     }
 
     bool isLineFull(uint8_t y)
     {
-        return pixels[y] == (uint32_t)((1 << width) - 1);
+        return pixels[y] == (width >= 32 ? UINT32_MAX : (1U << width) - 1);
+    }
+
+    bool isLineReadyForRemoval(uint8_t y)
+    {
+        return clearedLinesReadyForRemoval && isLineFull(y);
     }
 
     void reset()
@@ -121,6 +159,8 @@ public:
 
         pixels.clear();
         pixels.resize(height);
+        clearingRows.assign(height, false);
+        clearedLinesReadyForRemoval = false;
     }
 };
 
