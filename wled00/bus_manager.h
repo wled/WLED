@@ -232,6 +232,9 @@ class Bus {
     uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
     uint8_t  _wG;
     uint8_t  _wB;
+    uint32_t _rwR;         // Q15 reciprocal of _wR (floor((255<<15)/_wR), 0 if _wR==0) for autoWhiteCalc hot path
+    uint32_t _rwG;
+    uint32_t _rwB;
     //struct { //using bitfield struct adds abour 250 bytes to binary size
       bool _reversed;//     : 1;
       bool _valid;//        : 1;

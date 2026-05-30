@@ -111,6 +111,16 @@ void Bus::setWhiteKelvin(uint16_t k) {
     colorKtoRGB(k, rgb);
     _wR = rgb[0]; _wG = rgb[1]; _wB = rgb[2];
   }
+  // Precompute fixed-point reciprocals (Q15) so autoWhiteCalc's hot path can
+  // replace the per-pixel division (channel*255)/_wX with (channel*_rwX)>>15.
+  // floor() here under-estimates the reciprocal, so the derived w cap can only
+  // come out <= the true floor value — never larger — keeping the subtraction
+  // underflow-safe (verified exact across all channel/_wX combinations: max
+  // error 1, no over-estimate; max product 255*_rwX fits uint32). _rwX==0 is the
+  // "channel does not constrain w" sentinel, matching the _wX==0 guard below.
+  _rwR = _wR ? ((255U << 15) / _wR) : 0;
+  _rwG = _wG ? ((255U << 15) / _wG) : 0;
+  _rwB = _wB ? ((255U << 15) / _wB) : 0;
 }
 // AI: end
 
@@ -145,11 +155,17 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       // underflow when subtracting the W LED's RGB contribution. Floor
       // division composes back through the subtract — i.e.
       // floor((r*255)/_wR) * _wR <= r*255 — so the subtraction is safe.
-      // _wB is 0 at/below 1900 K (and _wG could reach 0 at extreme lows),
-      // hence the per-channel zero guards.
-      unsigned wMaxR = _wR ? (r * 255U) / _wR : 255U;
-      unsigned wMaxG = _wG ? (g * 255U) / _wG : 255U;
-      unsigned wMaxB = _wB ? (b * 255U) / _wB : 255U;
+      // Hot path: the (channel*255)/_wX divisions are replaced by the Q15
+      // reciprocals precomputed in setWhiteKelvin (multiply + shift, no
+      // per-pixel divide). _rwX is floor-biased so wMax never over-estimates,
+      // keeping the cap underflow-safe. _rwX==0 means _wX==0 (channel doesn't
+      // constrain w — _wB is 0 at/below 1900 K, _wG only at extreme lows),
+      // matching the previous per-channel zero guards. The /255 in the
+      // subtraction stays: 255 is a compile-time constant the compiler already
+      // strength-reduces, so it isn't an actual division.
+      unsigned wMaxR = _rwR ? (r * _rwR) >> 15 : 255U;
+      unsigned wMaxG = _rwG ? (g * _rwG) >> 15 : 255U;
+      unsigned wMaxB = _rwB ? (b * _rwB) >> 15 : 255U;
       unsigned wCap = wMaxR < wMaxG ? (wMaxR < wMaxB ? wMaxR : wMaxB) : (wMaxG < wMaxB ? wMaxG : wMaxB);
       if (wCap > 255U) wCap = 255U;
       w = wCap;
