@@ -87,7 +87,7 @@ const ethernet_settings ethernetBoards[] = {
 
   // ESP32-ETHERNET-KIT-VE
   {
-    0,                    // eth_address,
+    1,                    // eth_address,
     5,                    // eth_power,
     23,                   // eth_mdc,
     18,                   // eth_mdio,
@@ -155,7 +155,33 @@ const ethernet_settings ethernetBoards[] = {
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
   },
+ 
+ // WLED_ETH_QUINLED_V4 (14) - QuinLED Dig-Uno/Quad v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    7,                   // eth_mdc
+    8,                   // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
+ 
+ // WLED_ETH_QUINLED_OCTA_V4 (15) - QuinLED Dig-Octa 32-8L v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    23,                  // eth_mdc
+    18,                  // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
 };
+
+// sanity checks for ethernet config table and WLED_ETH_DEFAULT
+static_assert((sizeof(ethernetBoards)/sizeof(ethernetBoards[0])) == WLED_NUM_ETH_TYPES, "WLED_NUM_ETH_TYPES does not match size of ethernetBoards[] table.");
+#ifdef WLED_ETH_DEFAULT
+  static_assert(((WLED_ETH_DEFAULT) >= WLED_ETH_NONE) && ((WLED_ETH_DEFAULT) < WLED_NUM_ETH_TYPES), "WLED_ETH_DEFAULT is out of range.");
+#endif
 
 bool initEthernet()
 {
@@ -360,6 +386,35 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
 #endif
 
+#if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
+#include "lwip/raw.h"
+#include "lwip/icmp6.h"
+// This is a terrible workaround for a terrible bug: on ESP32 platforms, unsolicited IPv6 router
+// advertisements will cause LwIP to overwrite the IPv4 DNS servers with the IPv6 DNS servers
+// mentioned in the RA packet.  As a workaround, we just blackhole those packets using the raw
+// callback, since we don't yet support IPv6.
+//
+// This may have been improved in IDF v5 -- Espressif has added a feature to store DNS servers
+// on a per interface basis in their LwIP fork.
+//
+// References:
+// https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/lwip.html (see the "Note" block under "Adapted APIs" -- though it very much undersells the problem.)
+// https://github.com/espressif/arduino-esp32/discussions/9988 - links to older discussions
+static u8_t blockRouterAdvertisements(void* arg, struct raw_pcb* pcb, struct pbuf* p, const ip_addr_t* addr) {
+  // ICMPv6 type is the first byte of the payload, so we skip the header
+  if (p->len > 0 && (pbuf_get_at(p, sizeof(struct ip6_hdr)) == ICMP6_TYPE_RA)) {
+    pbuf_free(p);
+    return 1; // claim the packet — lwIP will not pass it further
+  }
+  return 0; // not consumed, pass it on
+}
+
+void installIPv6RABlocker() {
+  struct raw_pcb* ra_blocker = raw_new_ip_type(IPADDR_TYPE_V6, IP6_NEXTH_ICMP6);
+  raw_recv(ra_blocker, blockRouterAdvertisements, NULL);
+}
+#endif
+
 //handle Ethernet connection event
 void WiFiEvent(WiFiEvent_t event)
 {
@@ -393,10 +448,26 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_READY:
+      DEBUG_PRINTLN(F("WiFi-E: driver ready."));
+      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
+    case ARDUINO_EVENT_WIFI_STA_START:
+      DEBUG_PRINTLN(F("WiFi-E: STA Started"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+      DEBUG_PRINTLN(F("WiFi-E: STA authentication mode change."));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      DEBUG_PRINTLN(F("WiFi-E: IP address lost."));
+      break;
+
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;

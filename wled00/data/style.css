@@ -99,9 +99,9 @@ input[type="text"],
 input[type="number"],
 input[type="password"],
 select {
-    font-size: medium;
-    margin: 2px;
-  }
+  font-size: medium;
+  margin: 2px;
+}
 input[type="number"] {
   width: 4em;
 }

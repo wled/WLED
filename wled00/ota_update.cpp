@@ -6,10 +6,8 @@
 #include <esp_ota_ops.h>
 #include <esp_flash.h>
 #include <mbedtls/sha256.h>
-#endif
 
 // Platform-specific metadata locations
-#ifdef ESP32
 constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
 
@@ -31,16 +29,43 @@ constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
+#define SUPPORT_GZIPPED_OTA
+#endif
+
+#ifdef SUPPORT_GZIPPED_OTA
+#include <uzlib.h>  // ArduinoUZlib library: gzipped firmware uploads are decoded by eboot at boot,
+                    // so the upload stream itself can arrive compressed; we decompress just enough
+                    // to find the metadata for OTA validation.
 #endif
 
 constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
+// State structure for update process
+namespace {
+  struct UpdateContext {
+    // State flags
+    // FUTURE: the flags could be replaced by a state machine
+    bool replySent = false;
+    bool needsRestart = false;
+    bool updateStarted = false;
+    bool uploadComplete = false;
+    bool releaseCheckPassed = false;
+    String errorMessage;
+
+    // Buffer to hold block data across posts, if needed
+    std::vector<uint8_t> releaseMetadataBuffer;
+
+    #ifdef SUPPORT_GZIPPED_OTA
+    bool gzipDetected         = false;  // upload is a gzip stream (eboot will decompress at boot)
+    #endif
+  };
+}
 
 /**
  * Check if OTA should be allowed based on release compatibility using custom description
  * @param binaryData Pointer to binary file data (not modified)
  * @param dataSize Size of binary data in bytes
- * @param errorMessage Buffer to store error message if validation fails 
+ * @param errorMessage Buffer to store error message if validation fails
  * @param errorMessageLen Maximum length of error message buffer
  * @return true if OTA should proceed, false if it should be blocked
  */
@@ -67,20 +92,104 @@ static bool validateOTA(const uint8_t* binaryData, size_t dataSize, char* errorM
   }
 }
 
-struct UpdateContext {
-  // State flags
-  // FUTURE: the flags could be replaced by a state machine
-  bool replySent = false;
-  bool needsRestart = false;
-  bool updateStarted = false;
-  bool uploadComplete = false;
-  bool releaseCheckPassed = false;
-  String errorMessage;
+#ifdef SUPPORT_GZIPPED_OTA
+constexpr size_t GZIP_DECOMPRESSED_SIZE = METADATA_OFFSET + METADATA_SEARCH_RANGE;
+// We use the JSON buffer to hold the decompressed metadata, so we need to ensure it's large enough
+static_assert(JSON_BUFFER_SIZE >= GZIP_DECOMPRESSED_SIZE, "JSON_BUFFER_SIZE must be at least GZIP_DECOMPRESSED_SIZE to support gzipped OTA updates");
 
-  // Buffer to hold block data across posts, if needed
-  std::vector<uint8_t> releaseMetadataBuffer;  
-};
+// File-static flash source context for the uzlib source_read_cb.
+// The 256-byte read buffer must be 4-byte aligned for ESP.flashRead().
+static struct {
+  uint32_t flashBase;
+  uint32_t flashOffset;
+  uint8_t  buf[256] __attribute__((aligned(4)));
+} s_gzipFlashSrc;
 
+static int gzip_flash_read_cb(struct uzlib_uncomp* d)
+{
+  if (!ESP.flashRead(s_gzipFlashSrc.flashBase + s_gzipFlashSrc.flashOffset,
+                     reinterpret_cast<uint32_t*>(s_gzipFlashSrc.buf),
+                     sizeof(s_gzipFlashSrc.buf))) {
+    return -1;
+  }
+  s_gzipFlashSrc.flashOffset += sizeof(s_gzipFlashSrc.buf);
+  d->source       = s_gzipFlashSrc.buf;
+  d->source_limit = s_gzipFlashSrc.buf + sizeof(s_gzipFlashSrc.buf);
+  return *d->source++;
+}
+
+static bool unzipFlash(uint32_t flashBase, uint8_t* outBuf, char* errorMessage, size_t errorMessageLen)
+{
+  uzlib_uncomp uncomp_ctx;  // large, but we can get away with this since we're on the system stack
+
+  s_gzipFlashSrc.flashBase   = flashBase;
+  s_gzipFlashSrc.flashOffset = 0;
+  uncomp_ctx.source         = s_gzipFlashSrc.buf;
+  uncomp_ctx.source_limit   = s_gzipFlashSrc.buf;   // empty: first byte triggers callback
+  uncomp_ctx.source_read_cb = gzip_flash_read_cb;
+  uzlib_uncompress_init(&uncomp_ctx, nullptr, 0);
+
+  bool ok = false;
+  if (uzlib_gzip_parse_header(&uncomp_ctx) != TINF_OK) {
+    strncpy_P(errorMessage, PSTR("Invalid gzip header in OTA firmware"), errorMessageLen - 1);
+    errorMessage[errorMessageLen - 1] = '\0';
+  } else {
+    uncomp_ctx.dest_start = uncomp_ctx.dest = outBuf;
+    uncomp_ctx.dest_limit = outBuf + GZIP_DECOMPRESSED_SIZE;
+    int res = TINF_OK;
+    while (res == TINF_OK && uncomp_ctx.dest < uncomp_ctx.dest_limit) res = uzlib_uncompress(&uncomp_ctx);
+    if (uncomp_ctx.dest >= uncomp_ctx.dest_limit) {
+      ok = true;
+    } else {
+      strncpy_P(errorMessage, PSTR("Not enough decompressed data for validation"), errorMessageLen - 1);
+      errorMessage[errorMessageLen - 1] = '\0';
+    }
+  }
+
+  return ok;
+}
+
+static void validateGzippedOTA(UpdateContext* context) {
+  // Compute the flash address to read from based on the expected update size and the location of the FS partition, and then decompress just enough of the firmware to find the metadata for validation.
+  extern uint32_t _FS_start;
+  const size_t updateSize = Update.size();
+  // Logic borrowed from ESP8266 Updater.cpp
+  const size_t roundedSize = (updateSize + FLASH_SECTOR_SIZE - 1) & ~(FLASH_SECTOR_SIZE - 1);
+  const uintptr_t fsPhysAddr = (uintptr_t)&_FS_start - 0x40200000;
+  const uint32_t flashBase = (fsPhysAddr > roundedSize) ? (fsPhysAddr - roundedSize) : 0;
+  uint8_t* compressionBuf = static_cast<uint8_t*>(pDoc->memoryPool().buffer()); // borrow JSON buffer
+
+  char errorMessage[128];
+  bool ok = unzipFlash(flashBase, compressionBuf, errorMessage, sizeof(errorMessage));
+  if (!ok) {
+    DEBUG_PRINTF_P(PSTR("OTA unzip failed: %s\n"), errorMessage);
+    context->errorMessage = errorMessage;
+    return;
+  }
+
+  ok = validateOTA(compressionBuf, GZIP_DECOMPRESSED_SIZE, errorMessage, sizeof(errorMessage));
+  if (!ok) {
+    DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+    context->errorMessage = errorMessage;
+    context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
+    return;
+  }
+
+  DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed (gzipped)"));
+  context->releaseCheckPassed = true;
+
+  // Write the final block
+  if (!Update.hasError()) {
+    const auto& buf = context->releaseMetadataBuffer;
+    if (Update.write(const_cast<uint8_t*>(buf.data()), buf.size()) != buf.size()) {
+      DEBUG_PRINTF_P(PSTR("OTA write failed on final chunk: %s\n"), Update.UPDATE_ERROR());
+    }
+  }
+
+  DEBUG_PRINTLN(F("OTA Update End")); // for symmetry with the non-gzip path
+  context->uploadComplete = true;   // Final block was passed to Update.write()
+}
+#endif
 
 static void endOTA(AsyncWebServerRequest *request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
@@ -116,7 +225,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 {
   #ifdef ESP8266
   Update.runAsync(true);
-  #endif  
+  #endif
 
   if (Update.isRunning()) {
       request->send(503);
@@ -128,7 +237,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   WLED::instance().disableWatchdog();
   #endif
   UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-  
+
   strip.suspend();
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can
@@ -141,15 +250,15 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
     context->releaseCheckPassed = true;
     DEBUG_PRINTLN(F("OTA validation skipped by user"));
   }
-  
+
   // Begin update with the firmware size from content length
   size_t updateSize = request->contentLength() > 0 ? request->contentLength() : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-  if (!Update.begin(updateSize)) {    
+  if (!Update.begin(updateSize)) {
     context->errorMessage = Update.UPDATE_ERROR();
     DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), context->errorMessage.c_str());
     return false;
   }
-  
+
   context->updateStarted = true;
   return true;
 }
@@ -158,7 +267,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 // Returns true if successful, false on failure.
 bool initOTA(AsyncWebServerRequest *request) {
   // Allocate update context
-  UpdateContext* context = new (std::nothrow) UpdateContext {};  
+  UpdateContext* context = new (std::nothrow) UpdateContext {};
   if (context) {
     request->_tempObject = context;
     request->onDisconnect([=]() { endOTA(request); });  // ensures we restart on failure
@@ -174,26 +283,40 @@ void setOTAReplied(AsyncWebServerRequest *request) {
   context->replySent = true;
 };
 
-// Returns pointer to error message, or nullptr if OTA was successful.
-std::pair<bool, String> getOTAResult(AsyncWebServerRequest* request) {
+// Returns the OTA outcome as an OTAResultStatus plus an optional error string.
+// TryAgain: JSON lock busy; caller must call deferResponse() and retry.
+// Replied:  response already sent; no action needed.
+// Ready:    result available; empty string = success (200), non-empty = failure (500).
+std::pair<OTAResultStatus, String> getOTAResult(AsyncWebServerRequest* request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
-  if (!context) return { true, F("OTA context unexpectedly missing") };
-  if (context->replySent) return { false, {} };
-  if (context->errorMessage.length()) return { true, context->errorMessage };
+  if (!context) return { OTAResultStatus::Ready, F("OTA context unexpectedly missing") };
+  if (context->replySent) return { OTAResultStatus::Replied, {} };
+
+  #ifdef SUPPORT_GZIPPED_OTA
+  if (context->gzipDetected && !context->errorMessage.length()) {
+    JSONBufferGuard jsonGuard(JSON_LOCK_OTA);
+    if (!jsonGuard) return { OTAResultStatus::TryAgain, {} };  // busy — caller will deferResponse()
+    validateGzippedOTA(context); // Stores error in context->errorMessage if there's a problem
+    context->gzipDetected = false;  // all done
+  }
+  #endif
+
+  if (context->errorMessage.length()) return { OTAResultStatus::Ready, context->errorMessage };
 
   if (context->updateStarted) {
     // Release the OTA context now.
     endOTA(request);
     if (Update.hasError()) {
-      return { true, Update.UPDATE_ERROR() };
+      return { OTAResultStatus::Ready, Update.UPDATE_ERROR() };
     } else {
-      return { true, {} };
+      return { OTAResultStatus::Ready, {} };
     }
   }
 
   // Should never happen
-  return { true, F("Internal software failure") };
+  return { OTAResultStatus::Ready, F("Internal software failure") };
 }
+
 
 
 
@@ -208,69 +331,89 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
 
   if (index == 0) {
     if (!beginOTA(request, context)) return;
+
+    #ifdef SUPPORT_GZIPPED_OTA
+    if (len >= 2 && data[0] == 0x1F && data[1] == 0x8B) {
+      DEBUG_PRINTLN(F("OTA: gzipped firmware detected"));
+      context->gzipDetected = true;
+    }
+    #endif
   }
 
-  // Perform validation if we haven't done it yet and we have reached the metadata offset
-  if (!context->releaseCheckPassed && (index+len) > METADATA_OFFSET) {
-    // Current chunk contains the metadata offset
-    size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
+  // Perform plain-firmware validation as data arrives.
+  // Gzip validation is deferred to the end of the upload; skip this path for gzip.
+  if (!context->releaseCheckPassed
+      #ifdef SUPPORT_GZIPPED_OTA
+      && !context->gzipDetected
+      #endif
+  ) {
+    if ((index+len) > METADATA_OFFSET) {
+      // Current chunk contains the metadata offset
+      size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
 
-    DEBUG_PRINTF_P(PSTR("OTA metadata check: %d in buffer, %d received, %d available\n"), context->releaseMetadataBuffer.size(), len, availableDataAfterOffset);
+      DEBUG_PRINTF_P(PSTR("OTA metadata check: %d in buffer, %d received, %d available\n"), context->releaseMetadataBuffer.size(), len, availableDataAfterOffset);
 
-    if (availableDataAfterOffset >= METADATA_SEARCH_RANGE) {
-      // We have enough data to validate, one way or another
-      const uint8_t* search_data = data;
-      size_t search_len = len;
-      
-      // If we have saved data, use that instead
-      if (context->releaseMetadataBuffer.size()) {
-        // Add this data
-        context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
-        search_data = context->releaseMetadataBuffer.data();
-        search_len = context->releaseMetadataBuffer.size();
-      }
+      if (availableDataAfterOffset >= METADATA_SEARCH_RANGE) {
+        // We have enough data to validate, one way or another
+        const uint8_t* search_data = data;
+        size_t search_len = len;
 
-      // Do the checking
-      char errorMessage[128];
-      bool OTA_ok = validateOTA(search_data, search_len, errorMessage, sizeof(errorMessage));
-      
-      // Release buffer if there was one
-      context->releaseMetadataBuffer = decltype(context->releaseMetadataBuffer){};
-      
-      if (!OTA_ok) {
-        DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-        context->errorMessage = errorMessage;
-        context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
-        return;
+        // If we have saved data, use that instead
+        if (context->releaseMetadataBuffer.size()) {
+          // Add this data
+          context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+          search_data = context->releaseMetadataBuffer.data();
+          search_len = context->releaseMetadataBuffer.size();
+        }
+
+        // Do the checking
+        char errorMessage[128];
+        bool OTA_ok = validateOTA(search_data, search_len, errorMessage, sizeof(errorMessage));
+
+        // Release buffer if there was one
+        context->releaseMetadataBuffer = decltype(context->releaseMetadataBuffer){};
+
+        if (!OTA_ok) {
+          DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+          context->errorMessage = errorMessage;
+          context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
+          return;
+        } else {
+          DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
+          context->releaseCheckPassed = true;
+        }
       } else {
-        DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-        context->releaseCheckPassed = true;
-      }        
-    } else {
-      // Store the data we just got for next pass
-      context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+        // Store the data we just got for next pass
+        context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+      }
     }
   }
 
+#ifdef SUPPORT_GZIPPED_OTA
+  // Gzip: stash the final chunk and defer validation to getOTAResult(), where
+  // deferResponse() can be used if the JSON lock is not yet available.
+  if (isFinal && context->gzipDetected && !context->releaseCheckPassed) {
+    context->releaseMetadataBuffer.assign(data, data + len);
+    return;  // getOTAResult() will validate, write this chunk, and complete the update
+  }
+#endif
+
   // Check if validation was still pending (shouldn't happen normally)
-  // This is done before writing the last chunk, so endOTA can abort 
+  // This is done before writing the last chunk, so endOTA can abort
   if (isFinal && !context->releaseCheckPassed) {
     DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
-    // Don't write the last chunk to the updater: this will trip an error later
     context->errorMessage = F("Release check data never arrived?");
     return;
   }
 
-  // Write chunk data to OTA update (only if release check passed or still pending)
   if (!Update.hasError()) {
     if (Update.write(data, len) != len) {
       DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.UPDATE_ERROR());
     }
   }
 
-  if(isFinal) {
+  if (isFinal) {
     DEBUG_PRINTLN(F("OTA Update End"));
-    // Upload complete
     context->uploadComplete = true;
   }
 }
@@ -331,7 +474,7 @@ public:
           return true;  // needs more bytes for the header
         }
 
-        //DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);        
+        //DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);
 
         // Validate segment size
         if (segmentHeader.data_len > BOOTLOADER_SIZE) {
@@ -345,16 +488,16 @@ public:
         --segmentsLeft;
         if (segmentsLeft == 0) {
           // all done, actually; we don't need to read any more
- 
+
           // Round up to nearest 16 bytes.
           // Always add 1 to account for the checksum byte.
           imageSize = ((imageSize/ 16) + 1) * 16;
 
-          //DEBUG_PRINTF("BLS complete, is %d\n", imageSize);        
+          //DEBUG_PRINTF("BLS complete, is %d\n", imageSize);
           return false;
-        }        
+        }
       }
-      
+
       // If we don't have enough bytes ...
       if (len < segmentHeader.data_len) {
         //DEBUG_PRINTF("Needs more bytes\n");
@@ -393,12 +536,12 @@ static uint8_t bootloaderSHA256Cache[32];
 /**
  * Calculate and cache the bootloader SHA256 digest
  * Reads the bootloader from flash and computes SHA256 hash
- * 
- * Strictly speaking, most bootloader images already contain a hash at the end of the image; 
+ *
+ * Strictly speaking, most bootloader images already contain a hash at the end of the image;
  * we could in theory just read it.  The trouble is that we have to parse the structure anyways
  * to find the actual endpoint, so we might as well always calculate it ourselves rather than
  * handle a special case if the hash isn't stored.
- * 
+ *
  */
 static void calculateBootloaderSHA256() {
   // Calculate SHA256
@@ -537,7 +680,7 @@ static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& b
   if (imageHeader.hash_appended == 1) {
     actualBootloaderSize += 32;
   }
- 
+
   if (actualBootloaderSize > len) {
     // Same as above
     bootloaderErrorMsg = "Too small";
@@ -635,7 +778,7 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
 
   context->bytesBuffered = 0;
   return true;
-#endif  
+#endif
 }
 
 // Set bootloader OTA replied flag
