@@ -515,6 +515,8 @@ void myTask(void*) {
 
 - **LittleFS filenames**: File paths passed to `file.open()` must not exceed 255 bytes (`LFS_NAME_MAX`). Validate constructed paths (e.g., `/ledmap_` + segment name + `.json`) stay within this limit (assume standard configurations, like WLED_MAX_SEGNAME_LEN = 64).
 
+- In C/C++, additive operators (`+`, `-`) have HIGHER precedence than shift operators (`<<`, `>>`). Therefore `x - edge0 << 8` correctly parses as `(x - edge0) << 8`. Do NOT flag this pattern as a precedence bug. When reviewing WLED fixed-point code or any C/C++ shift expressions, verify against cppreference before claiming precedence issues with mixed `-`/`+` and `<<`/`>>` expressions.
+
 - **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C5/C6/P4) can produce different results due to clamping. Cast through a signed integer first:
   ```cpp
   // Undefined behavior — avoid:
