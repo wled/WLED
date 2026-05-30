@@ -237,11 +237,7 @@ private:
   void ensureTask() {
     if (taskHandle != nullptr) return;
 
-<<<<<<< HEAD
-    xTaskCreate(
-=======
-    BaseType_t taskCreated = xTaskCreatePinnedToCore(
->>>>>>> origin/codex/fix-thread-safety-in-animatedstaircase-usermod
+    BaseType_t taskCreated = xTaskCreate(
       [](void* param) {
         const TickType_t xFrequency = 250 / portTICK_PERIOD_MS;
         TickType_t xLastWakeTime = xTaskGetTickCount();
