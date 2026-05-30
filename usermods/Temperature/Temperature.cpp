@@ -165,11 +165,15 @@ void UsermodTemperature::loop() {
   if (now - lastTemperaturesRequest >= 750 /* 93.75ms per the datasheet but can be up to 750ms */) {
     readTemperature();
     if (getTemperatureC() < -100.0f) {
-      if (++errorCount > 10) sensorFound = 0;
+      if (++errorCount > 10) {
+        sensorFound = 0;
+        temperatureSensor.suspendSensor();
+      }
       lastMeasurement = now - readingInterval + 300; // force new measurement in 300ms
       return;
     }
     errorCount = 0;
+    temperatureSensor = temperature;
 
 #ifndef WLED_DISABLE_MQTT
     if (WLED_MQTT_CONNECTED) {
