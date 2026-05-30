@@ -558,10 +558,11 @@ Segment &Segment::setOption(uint8_t n, bool val) {
 }
 
 Segment &Segment::setMode(uint8_t fx, bool loadDefaults) {
-  // skip reserved
-  while (fx < strip.getModeCount() && strncmp_P("RSVD", strip.getModeData(fx), 4) == 0) fx++;
+  // skip reserved or user-hidden effects
+  while (fx < strip.getModeCount() &&
+         (strncmp_P("RSVD", strip.getModeData(fx), 4) == 0 || isFxHidden(fx))) fx++;
   if (fx >= strip.getModeCount()) fx = 0; // set solid mode
-  // if we have a valid mode & is not reserved
+  // if we have a valid mode
   if (fx != mode) {
     startTransition(strip.getTransition(), true); // set effect transitions (must create segment copy)
     mode = fx;
