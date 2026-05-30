@@ -1,0 +1,9 @@
+# AHT10/AHT15/AHT20 temperature/humidity usermod build environment
+# Copy to platformio_override.ini in the WLED root to use.
+
+[platformio]
+default_envs = aht10_example
+
+[env:aht10_example]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} AHT10_v2
