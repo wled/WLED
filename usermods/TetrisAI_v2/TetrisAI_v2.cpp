@@ -5,9 +5,12 @@
 #include "tetrisaigame.h"
 // By: muebau
 
+bool noFlashOnClear = false;
+
 typedef struct TetrisAI_data
 {
   unsigned long lastTime = 0;
+  unsigned long clearingStartTime = 0;
   TetrisAIGame tetris;
   uint8_t   intelligence;
   uint8_t   rotate;
@@ -31,16 +34,27 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
   //GRID
   for (auto index_y = 4; index_y < tetris->grid.height; index_y++)
   {
+    bool isRowClearing = tetris->grid.gridBW.clearingRows[index_y];
     for (auto index_x = 0; index_x < tetris->grid.width; index_x++)
     {
       CRGB color;
-      if (*tetris->grid.getPixel(index_x, index_y) == 0)
-      {
+      uint8_t gridPixel = *tetris->grid.getPixel(index_x, index_y);
+      if (isRowClearing) {
+        if (noFlashOnClear) {
+          color = CRGB::Gray; 
+        } else {
+          //flash color white and black every 200ms
+          color = (strip.now % 200) < 150
+            ? CRGB::Gray
+            : CRGB::Black;
+        }
+      }
+      else if (gridPixel == 0) {
         //BG color
         color = SEGCOLOR(1);
       }
       //game over animation
-      else if(*tetris->grid.getPixel(index_x, index_y) == 254)
+      else if (gridPixel == 254)
       {
         //use fg
         color = SEGCOLOR(0);
@@ -48,7 +62,7 @@ void drawGrid(TetrisAIGame* tetris, TetrisAI_data* tetrisai_data)
       else
       {
         //spread the color over the whole palette
-        uint8_t colorIndex = *tetris->grid.getPixel(index_x, index_y) * 32;
+        uint8_t colorIndex = gridPixel * 32;
         colorIndex += tetrisai_data->colorOffset;
         color = ColorFromPalette(SEGPALETTE, colorIndex, 255, NOBLEND);
       }
@@ -170,6 +184,7 @@ void mode_2DTetrisAI()
 
     tetrisai_data->tetris = TetrisAIGame(gridWidth, gridHeight, nLookAhead, piecesData, numPieces);
     tetrisai_data->tetris.state = TetrisAIGame::States::INIT;
+    tetrisai_data->clearingStartTime = 0;
     SEGMENT.fill(SEGCOLOR(1));
   }
 
@@ -184,7 +199,21 @@ void mode_2DTetrisAI()
     tetrisai_data->tetris.ai.bumpiness = -0.184483f + dui;
   }
 
-  if (tetrisai_data->tetris.state == TetrisAIGame::ANIMATE_MOVE)
+  //end line clearing flashing effect if needed
+  if (tetrisai_data->tetris.grid.gridBW.hasClearingRows())
+  {
+    if (tetrisai_data->clearingStartTime == 0) {
+      tetrisai_data->clearingStartTime = strip.now;
+    }
+    if (strip.now - tetrisai_data->clearingStartTime > 750)
+    {
+      tetrisai_data->tetris.grid.gridBW.clearedLinesReadyForRemoval = true;
+      tetrisai_data->tetris.grid.cleanupFullLines();
+      tetrisai_data->clearingStartTime = 0;
+    }
+    drawGrid(&tetrisai_data->tetris, tetrisai_data);
+  }
+  else if (tetrisai_data->tetris.state == TetrisAIGame::ANIMATE_MOVE)
   {
     
     if (strip.now - tetrisai_data->lastTime > msDelayMove)
@@ -229,11 +258,26 @@ class TetrisAIUsermod : public Usermod
 {
 
 private:
+  static const char _name[];
 
 public:
   void setup()
   {
     strip.addEffect(255, &mode_2DTetrisAI, _data_FX_MODE_2DTETRISAI);
+  }
+
+  void addToConfig(JsonObject& root) override
+  {
+    JsonObject top = root.createNestedObject(FPSTR(_name));
+    top["noFlashOnClear"] = noFlashOnClear;
+  }
+
+  bool readFromConfig(JsonObject& root) override
+  {
+    JsonObject top = root[FPSTR(_name)];
+    bool configComplete = !top.isNull();
+    configComplete &= getJsonValue(top["noFlashOnClear"], noFlashOnClear);
+    return configComplete;
   }
 
   void loop()
@@ -247,6 +291,7 @@ public:
   }
 };
 
+const char TetrisAIUsermod::_name[] PROGMEM = "TetrisAI_v2";
 
 static TetrisAIUsermod tetrisai_v2;
 REGISTER_USERMOD(tetrisai_v2);

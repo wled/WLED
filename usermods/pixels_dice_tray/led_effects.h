@@ -40,7 +40,7 @@ static pixels::RollEvent GetLastRollForSegment() {
  * Alternating pixels running function (copied static function).
  */
 // paletteBlend: 0 - wrap when moving, 1 - always wrap, 2 - never wrap, 3 - none (undefined)
-#define PALETTE_SOLID_WRAP   (strip.paletteBlend == 1 || strip.paletteBlend == 3)
+#define PALETTE_SOLID_WRAP   (paletteBlend == 1 || paletteBlend == 3)
 static void running_copy(uint32_t color1, uint32_t color2, bool theatre = false) {
   int width = (theatre ? 3 : 1) + (SEGMENT.intensity >> 4);  // window
   uint32_t cycleTime = 50 + (255 - SEGMENT.speed);

@@ -48,6 +48,7 @@ ParticleSystem2D::ParticleSystem2D(uint32_t width, uint32_t height, uint32_t num
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
+  perParticleSize = isadvanced; // enable per particle size by default if using advanced properties (FX can disable if needed)
 
 }
 
@@ -594,16 +595,15 @@ void ParticleSystem2D::render() {
     if (fireIntesity) { // fire mode
       brightness = (uint32_t)particles[i].ttl * (3 + (fireIntesity >> 5)) + 5;
       brightness = min(brightness, (uint32_t)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP); // map hue to brightness for fire effect
+      baseRGB = ColorFromPalette(SEGPALETTE, brightness, 255, LINEARBLEND_NOWRAP);
     }
     else {
       brightness = min((particles[i].ttl << 1), (int)255);
-      baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
+      baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
       if (particles[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
+        CHSV32 baseHSV = baseRGB;
         baseHSV.s = min(baseHSV.s, particles[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution
@@ -804,7 +804,6 @@ void WLED_O2_ATTR ParticleSystem2D::renderLargeParticle(const uint32_t size, con
       if (gammaCorrectCol) {
         pixel_brightness = gamma8inv(pixel_brightness); // invert brigthess so brightness distribution is linear after gamma correction
       }
-
       // Render pixel
       uint32_t idx = render_x + (maxYpixel - render_y) * matrixX; // flip y coordinate (0,0 is bottom left in PS but top left in framebuffer)
       framebuffer[idx] = fast_color_scaleAdd(framebuffer[idx], color, pixel_brightness);
@@ -1159,7 +1158,7 @@ ParticleSystem1D::ParticleSystem1D(uint32_t length, uint32_t numberofparticles, 
     sources[i].source.ttl = 1; //set source alive
     sources[i].sourceFlags.asByte = 0; // all flags disabled
   }
-
+  perParticleSize = isadvanced; // enable per particle size by default so FX do not need to set this explicitly. FX can disable by setting global size.
   if (isadvanced) {
     for (uint32_t i = 0; i < numParticles; i++) {
       advPartProps[i].sat = 255; // set full saturation
@@ -1456,14 +1455,12 @@ void ParticleSystem1D::render() {
 
     // generate RGB values for particle
     brightness = min(particles[i].ttl << 1, (int)255);
-    baseRGB = ColorFromPaletteWLED(SEGPALETTE, particles[i].hue, 255, blend);
-
+    baseRGB = ColorFromPalette(SEGPALETTE, particles[i].hue, 255, blend);
     if (advPartProps != nullptr) { //saturation is advanced property in 1D system
       if (advPartProps[i].sat < 255) {
-        CHSV32 baseHSV;
-        rgb2hsv(baseRGB.color32, baseHSV); // convert to HSV
-        baseHSV.s = min(baseHSV.s, advPartProps[i].sat); // set the saturation but don't increase it
-        hsv2rgb(baseHSV, baseRGB.color32); // convert back to RGB
+        CHSV32 baseHSV = baseRGB;
+        baseHSV.s = advPartProps[i].sat; // set the saturation
+        hsv2rgb_spectrum(baseHSV, baseRGB); // convert back to RGB
       }
     }
     if (gammaCorrectCol) brightness = gamma8(brightness); // apply gamma correction, used for gamma-inverted brightness distribution

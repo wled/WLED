@@ -6,7 +6,7 @@
 
 #define UDP_SEG_SIZE 36
 #define SEG_OFFSET (41)
-#define WLEDPACKETSIZE (41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE)+0)
+static constexpr size_t WLEDPACKETSIZE = 41+(WS2812FX::getMaxSegments()*UDP_SEG_SIZE);  // make sure this is known at compile-time
 #define UDP_IN_MAXSIZE 1472
 #define PRESUMED_NETWORK_DELAY 3 //how many ms could it take on avg to reach the receiver? This will be added to transmitted times
 
@@ -268,6 +268,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
     size_t inactiveSegs = 0;
     for (size_t i = 0; i < numSrcSegs && i < WS2812FX::getMaxSegments(); i++) {
       unsigned ofs = 41 + i*udpIn[40]; //start of segment offset byte
+      if (ofs + 36 > UDP_IN_MAXSIZE) break; // avoid reading outside of array
       unsigned id = udpIn[0 +ofs];
       DEBUG_PRINTF_P(PSTR("UDP segment received: %u\n"), id);
       if      (id >  strip.getSegmentsNum()) break;
@@ -499,7 +500,7 @@ void handleNotifications()
     packetSize = rgbUdp.parsePacket();
     if (packetSize) {
       if (!receiveDirect) return;
-      if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;
+      if (packetSize > UDP_IN_MAXSIZE || packetSize < 3) return;  // packetSize must not exceed buffersize (UDP_IN_MAXSIZE)
       realtimeIP = rgbUdp.remoteIP();
       DEBUG_PRINTLN(rgbUdp.remoteIP());
       uint8_t lbuf[packetSize];
@@ -587,7 +588,9 @@ void handleNotifications()
 
       unsigned id = (tpmPayloadFrameSize/3)*(packetNum-1); //start LED
       unsigned totalLen = strip.getLengthTotal();
-      for (size_t i = 6; i < tpmPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
+      // Clamp to prevent buffer overread: loop accesses up to udpIn[tpmPayloadFrameSize + 5]
+      size_t currentPayloadFrameSize = (packetSize >= 5) ? min(tpmPayloadFrameSize, uint16_t(packetSize - 5)) : 0;
+      for (size_t i = 6; i < currentPayloadFrameSize + 4U && id < totalLen; i += 3, id++) {
         setRealtimePixel(id, udpIn[i], udpIn[i+1], udpIn[i+2], 0);
       }
       if (tpmPacketCount == numPackets) { //reset packet count and show if all packets were received
@@ -751,24 +754,6 @@ void sendSysInfoUDP()
  * Art-Net, DDP, E131 output - work in progress
 \*********************************************************************************************/
 
-#define DDP_HEADER_LEN 10
-#define DDP_SYNCPACKET_LEN 10
-
-#define DDP_FLAGS1_VER 0xc0  // version mask
-#define DDP_FLAGS1_VER1 0x40 // version=1
-#define DDP_FLAGS1_PUSH 0x01
-#define DDP_FLAGS1_QUERY 0x02
-#define DDP_FLAGS1_REPLY 0x04
-#define DDP_FLAGS1_STORAGE 0x08
-#define DDP_FLAGS1_TIME 0x10
-
-#define DDP_ID_DISPLAY 1
-#define DDP_ID_CONFIG 250
-#define DDP_ID_STATUS 251
-
-// 1440 channels per packet
-#define DDP_CHANNELS_PER_PACKET 1440 // 480 leds
-
 //
 // Send real time UDP updates to the specified client
 //
@@ -810,11 +795,11 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
         // the amount of data is AFTER the header in the current packet
         size_t packetSize = DDP_CHANNELS_PER_PACKET;
 
-        uint8_t flags = DDP_FLAGS1_VER1;
+        uint8_t flags = DDP_FLAGS_VER1;
         if (currentPacket == (packetCount - 1U)) {
           // last packet, set the push flag
           // TODO: determine if we want to send an empty push packet to each destination after sending the pixel data
-          flags = DDP_FLAGS1_VER1 | DDP_FLAGS1_PUSH;
+          flags = DDP_FLAGS_VER1 | DDP_FLAGS_PUSH;
           if (channelCount % DDP_CHANNELS_PER_PACKET) {
             packetSize = channelCount % DDP_CHANNELS_PER_PACKET;
           }
@@ -822,6 +807,7 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 
         // write the header
         /*0*/ddpUdp.write(flags);
+        // TODO: sequence number should be 1-15 as 0 means "unused", it has no bad consequences other than out of sequence packet may be accepted
         /*1*/ddpUdp.write(sequenceNumber++ & 0x0F); // sequence may be unnecessary unless we are sending twice (as requested in Sync settings)
         /*2*/ddpUdp.write(isRGBW ?  DDP_TYPE_RGBW32 : DDP_TYPE_RGB24);
         /*3*/ddpUdp.write(DDP_ID_DISPLAY);

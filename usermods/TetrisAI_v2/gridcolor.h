@@ -82,7 +82,7 @@ public:
         //from "height - 1" to "0", so from bottom row to top
         for (uint8_t y = height; y-- > 0; )
         {
-            if (gridBW.isLineFull(y))
+            if (gridBW.isLineReadyForRemoval(y))
             {
                 offset++;
                 for (uint8_t x = 0; x < width; x++)
