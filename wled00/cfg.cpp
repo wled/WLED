@@ -238,6 +238,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       bool refresh = elm["ref"] | false;
       uint16_t freqkHz = elm[F("freq")] | 0;  // will be in kHz for DotStar and Hz for PWM
       uint8_t AWmode = elm[F("rgbwm")] | RGBW_MODE_MANUAL_ONLY;
+      uint16_t whiteK = elm[F("wk")] | 0; // physical W channel color temperature in K (0 = neutral/legacy)
       uint8_t maPerLed = elm[F("ledma")] | LED_MILLIAMPS_DEFAULT;
       uint16_t maMax = elm[F("maxpwr")] | (ablMilliampsMax * length) / total; // rough (incorrect?) per strip ABL calculation when no config exists
       // To disable brightness limiter we either set output max current to 0 or single LED current to 0 (we choose output max current)
@@ -249,7 +250,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=I2S note: polybus may override this if driver is not available
 
       String host = elm[F("text")] | String();
-      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host);
+      busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host, whiteK);
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want
     }
@@ -999,6 +1000,7 @@ void serializeConfig(JsonObject root) {
     ins["type"]      = bus->getType() & 0x7F;
     ins["ref"]       = bus->isOffRefreshRequired();
     ins[F("rgbwm")]  = bus->getAutoWhiteMode();
+    ins[F("wk")]     = bus->getWhiteKelvin();
     ins[F("freq")]   = bus->getFrequency();
     ins[F("maxpwr")] = bus->getMaxCurrent();
     ins[F("ledma")]  = bus->getLEDCurrent();
