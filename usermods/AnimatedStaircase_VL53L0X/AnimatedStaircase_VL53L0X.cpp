@@ -3,6 +3,8 @@
 
 class AnimatedStaircase_VL53L0X : public Usermod {
   TaskHandle_t taskHandle = nullptr;
+  volatile bool loopRequested = true;
+  volatile bool pendingColorUpdated = false;
 
 private:
   bool enabled = false;
@@ -22,7 +24,8 @@ private:
   VL53L0X bottomVL53;
 
   bool initDone = false;
-  const unsigned int scanDelay = 100;
+  static constexpr uint16_t VL53L0X_MAX_DISTANCE_MM = 2000;
+  const unsigned int scanDelay = 250;
   bool on = false;
 
 #define SWIPE_UP true
@@ -111,6 +114,19 @@ private:
   }
 #endif
 
+  void resetRuntimeState() {
+    on = false;
+    swipe = SWIPE_UP;
+    lastSensor = LOWER;
+    lastTime = 0;
+    lastScanTime = 0;
+    lastSwitchTime = 0;
+    onIndex = 0;
+    offIndex = 0;
+    minSegmentId = 0;
+    maxSegmentId = 1;
+  }
+
   void resetSensorState() {
     sensorsInitialised = false;
     initDone = false;
@@ -122,6 +138,16 @@ private:
     bottomSensorRead = false;
     bottomSensorWrite = false;
     bottomSensorState = false;
+  }
+
+  uint16_t readThreshold(JsonObject& top, const __FlashStringHelper* key, uint16_t currentValue) {
+    JsonVariant value = top[key];
+    if (value.isNull()) return currentValue;
+
+    if (!value.is<long>()) return currentValue;
+
+    long threshold = value.as<long>();
+    return constrain(threshold, 0L, (long)VL53L0X_MAX_DISTANCE_MM);
   }
 
   bool initialiseSensors() {
@@ -211,35 +237,20 @@ private:
   void ensureTask() {
     if (taskHandle != nullptr) return;
 
+<<<<<<< HEAD
     xTaskCreate(
+=======
+    BaseType_t taskCreated = xTaskCreatePinnedToCore(
+>>>>>>> origin/codex/fix-thread-safety-in-animatedstaircase-usermod
       [](void* param) {
-        const TickType_t xFrequency = 10 / portTICK_PERIOD_MS;
+        const TickType_t xFrequency = 250 / portTICK_PERIOD_MS;
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
         auto* self = static_cast<AnimatedStaircase_VL53L0X*>(param);
 
         while (true) {
           vTaskDelayUntil(&xLastWakeTime, xFrequency);
-
-          if (!self || !self->enabled) continue;
-          if (!self->configLoaded) continue;
-
-          if (!self->sensorsInitialised) {
-            self->initialiseSensors();
-            continue;
-          }
-
-          if (!self->initDone || strip.getMaxSegments() == 0) continue;
-          if (strip.getSegment(0).stop == 0) continue;
-
-          self->minSegmentId = strip.getMainSegmentId();
-          self->maxSegmentId = strip.getLastActiveSegmentId() + 1;
-
-          self->checkSensors();
-
-          if (self->on) self->autoPowerOff();
-
-          self->updateSwipe();
+          if (self) self->loopRequested = true;
         }
       },
       "StairVL53Task",
@@ -248,6 +259,12 @@ private:
       1,
       &taskHandle
     );
+
+    if (taskCreated != pdPASS) {
+      DEBUG_PRINTLN(F("[StaircaseVL53] Failed to create background task"));
+      taskHandle = nullptr;
+      enabled = false;
+    }
   }
 
   void updateSegments() {
@@ -262,7 +279,7 @@ private:
 
     strip.trigger();
     stateChanged = true;
-    colorUpdated(CALL_MODE_DIRECT_CHANGE);
+    pendingColorUpdated = true;
   }
 
   bool checkSensors() {
@@ -364,6 +381,8 @@ private:
 
   void enable(bool enable) {
     enabled = enable;
+    resetRuntimeState();
+    resetSensorState();
 
     if (!configLoaded) return;
 
@@ -392,7 +411,7 @@ private:
 
       strip.trigger();
       stateChanged = true;
-      colorUpdated(CALL_MODE_DIRECT_CHANGE);
+      pendingColorUpdated = true;
     }
   }
 
@@ -416,6 +435,32 @@ public:
   }
 
   void loop() {
+    if (pendingColorUpdated) {
+      pendingColorUpdated = false;
+      colorUpdated(CALL_MODE_DIRECT_CHANGE);
+    }
+
+    if (!loopRequested) return;
+    loopRequested = false;
+
+    if (!enabled || !configLoaded) return;
+
+    if (!sensorsInitialised) {
+      initialiseSensors();
+      return;
+    }
+
+    if (!initDone || strip.getMaxSegments() == 0) return;
+    if (strip.getSegment(0).stop == 0) return;
+
+    minSegmentId = strip.getMainSegmentId();
+    maxSegmentId = strip.getLastActiveSegmentId() + 1;
+
+    checkSensors();
+
+    if (on) autoPowerOff();
+
+    updateSwipe();
   }
 
   void cleanup() {
@@ -425,10 +470,12 @@ public:
     }
 
     if (xshutTopPin >= 0) {
+      digitalWrite(xshutTopPin, LOW);
       PinManager::deallocatePin(xshutTopPin, PinOwner::UM_AnimatedStaircase);
     }
 
     if (xshutBottomPin >= 0) {
+      digitalWrite(xshutBottomPin, LOW);
       PinManager::deallocatePin(xshutBottomPin, PinOwner::UM_AnimatedStaircase);
     }
 
@@ -470,8 +517,8 @@ public:
     togglePower = top[FPSTR(_togglePower)] | togglePower;
     xshutTopPin = top[FPSTR(_xshutTopPin)] | xshutTopPin;
     xshutBottomPin = top[FPSTR(_xshutBottomPin)] | xshutBottomPin;
-    topThresholdMM = top[FPSTR(_topThreshold)] | topThresholdMM;
-    bottomThresholdMM = top[FPSTR(_bottomThreshold)] | bottomThresholdMM;
+    topThresholdMM = readThreshold(top, FPSTR(_topThreshold), topThresholdMM);
+    bottomThresholdMM = readThreshold(top, FPSTR(_bottomThreshold), bottomThresholdMM);
 
     configLoaded = true;
 
@@ -488,10 +535,12 @@ public:
 
     if (pinsChanged) {
       if (oldXshutTop >= 0) {
+        digitalWrite(oldXshutTop, LOW);
         PinManager::deallocatePin(oldXshutTop, PinOwner::UM_AnimatedStaircase);
       }
 
       if (oldXshutBottom >= 0) {
+        digitalWrite(oldXshutBottom, LOW);
         PinManager::deallocatePin(oldXshutBottom, PinOwner::UM_AnimatedStaircase);
       }
 
