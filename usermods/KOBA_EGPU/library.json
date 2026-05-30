@@ -1,0 +1,6 @@
+{
+  "name": "KOBA_EGPU",
+  "build": {
+    "libArchive": false
+  }
+}
