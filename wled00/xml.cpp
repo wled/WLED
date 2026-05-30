@@ -1,5 +1,14 @@
 #include "wled.h"
 #include "wled_ethernet.h"
+// AI: required for real-time default netif query in settings page response
+// esp_netif_next/esp_netif_get_desc identify interface by description string
+// esp_netif_get_netif_impl bridges esp-netif handle to lwIP struct netif*
+// netif_default is the lwIP global pointer to the current default interface
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+  #include "esp_netif.h"            // AI: required for esp_netif_next() and esp_netif_get_desc()
+  #include "esp_netif_net_stack.h"  // AI: required for esp_netif_get_netif_impl()
+  #include "lwip/netif.h"           // AI: required for netif_default
+#endif
 
 /*
  * Sending XML status files to client
@@ -308,6 +317,26 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       // EPI value 0 = WiFi , 1 = Ethernet.
       // printSetFormValue on a radio button sets the checked state by value match.
       printSetFormValue(settingsScript, PSTR("EPI"), ethPrimaryInterface ? 1 : 0);
+      // AI: serve active primary interface state by checking actual lwIP default
+      // netif at request time rather than cached variable, ensuring accuracy
+      // even when setPrimaryNetworkInterface() hasn't been called this session
+      #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+      struct netif *defaultNetif = netif_default;
+      bool ethIsActive = false;
+      if (defaultNetif != nullptr) {
+        esp_netif_t *esp_netif = esp_netif_next(NULL);
+        while (esp_netif != NULL) {
+          if (esp_netif_get_netif_impl(esp_netif) == defaultNetif) {
+            const char *desc = esp_netif_get_desc(esp_netif);
+            ethIsActive = (desc && strcmp(desc, "eth") == 0);
+            break;
+          }
+          esp_netif = esp_netif_next(esp_netif);
+        }
+      }
+      printSetClassElementHTML(settingsScript, PSTR("pnia"), 0,
+        ethIsActive ? (char*)"Ethernet" : (char*)"WiFi");
+      #endif
     #else
       // AI: hide ethernet section entirely if ethernet support not compiled in
       settingsScript.print(F("gId('ethd').style.display='none';"));

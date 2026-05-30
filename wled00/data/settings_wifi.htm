@@ -170,6 +170,8 @@ Static subnet mask:<br>
 			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
 			// AI: also refresh ethernet IP section visibility on page init
 			toggleEthIP();
+			// AI: update primary network interface warning
+			updatePNIWarning();
 		}
 		// reset remotes: initialize empty list (called from xml.cpp)
 		function rstR() {
@@ -221,6 +223,21 @@ Static subnet mask:<br>
 			if (!ethIpSection) return;
 			// AI: value "0" means "None" - no ethernet board selected, hide IP config
 			ethIpSection.style.display = (ethSelect.value !== "0") ? 'block' : 'none';
+		}
+		// AI: updatePNIWarning() compares the configured primary network interface
+		// (EPI radio button selection) against the currently active interface
+		// (served via pnia class element from setPrimaryNetworkInterface() runtime state).
+		// Shows an orange warning when fallback is active — i.e. the configured
+		// preferred interface is unavailable and WLED is using the other interface instead.
+		// Called on page load and when EPI radio buttons change.
+		function updatePNIWarning() {
+			var epi = document.querySelector('input[name="EPI"]:checked');
+			var configured = epi ? (epi.value === "1" ? "Ethernet" : "WiFi") : "WiFi";
+			var pnia = document.querySelector('.pnia');
+			var active = pnia ? pnia.textContent : "-";
+			var warning = gId('pniw');
+			if (warning) warning.style.display =
+				(active !== "-" && active !== configured) ? "block" : "none";
 		}
 
 	</script>
@@ -277,10 +294,14 @@ Static subnet mask:<br>
 
 			<!-- AI: primary network interface selector shown when ethernet board is selected -->
 			<h3>Primary Network Interface</h3>
+			<i style="font-size:0.85em;color:#aaa;display:block;margin-top:-25px;">(Only applicable when both interfaces have a gateway configured.)</i>
 			Select the primary network WLED should use for internet and for access to network services like NTP, MQTT, etc.<br>
 			<input type="radio" name="EPI" value="0" checked> WiFi
 			&nbsp;&lt;--&gt;&nbsp;
-			<input type="radio" name="EPI" value="1"> Ethernet<br><br>
+			<input type="radio" name="EPI" value="1" > Ethernet<br>
+			<i>Active: <span class="pnia">-</span></i><br>
+			<div id="pniw" style="display:none;color:orange;">
+			&#9888; Configured interface unavailable &mdash; fallback active<br><br>
 		<!-- AI: end -->
 		</div>
 		</div>
