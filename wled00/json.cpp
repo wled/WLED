@@ -1316,6 +1316,9 @@ void serveJson(AsyncWebServerRequest* request)
   else if (url.indexOf(F("net"))   > 0) subJson = json_target::networks;
   else if (url.indexOf(F("cfg"))   > 0) subJson = json_target::config;
   else if (url.indexOf(F("pins"))  > 0) subJson = json_target::pins;
+  #ifdef BOARD_HAS_PSRAM
+  else if (url.indexOf(F("log"))   > 0) { serveLog(request); return; }
+  #endif
   #ifdef WLED_ENABLE_JSONLIVE
   else if (url.indexOf("live")     > 0) {
     serveLiveLeds(request);
@@ -1381,6 +1384,34 @@ void serveJson(AsyncWebServerRequest* request)
 
   request->send(response);
 }
+
+// Serve the PSRAM log ring buffer as plain text over HTTP.
+// Available only on BOARD_HAS_PSRAM builds; returns 501 otherwise.
+void serveLog(AsyncWebServerRequest* request)
+{
+#ifdef BOARD_HAS_PSRAM
+  if (!wledLogBuffer.available()) {
+    // PSRAM detected at compile time but not found / not initialised at runtime
+    request->send(503, FPSTR(CONTENT_TYPE_PLAIN), F("Log buffer unavailable (no PSRAM detected)"));
+    return;
+  }
+
+  // Check for ?clear query parameter to wipe the buffer
+  if (request->hasParam(F("clear"))) {
+    wledLogBuffer.clear();
+    request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Log buffer cleared."));
+    return;
+  }
+
+  AsyncResponseStream* response = request->beginResponseStream(FPSTR(CONTENT_TYPE_PLAIN));
+  response->addHeader(F("Cache-Control"), F("no-store"));
+  wledLogBuffer.printTo(*response);
+  request->send(response);
+#else
+  serveJsonError(request, 501, ERR_NOT_IMPL);
+#endif
+}
+
 
 #ifdef WLED_ENABLE_JSONLIVE
 #define MAX_LIVE_LEDS 256
