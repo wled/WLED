@@ -327,6 +327,9 @@ void setPrimaryNetworkInterface() {
 
   // AI: iterate esp_netif handles using official API, identify interface
   // type via description string, get lwIP netif pointer via impl handle
+    // TODO: migrate to esp_netif_next_unsafe() when IDF 5.x is minimum target
+    // esp_netif_next() is deprecated in IDF v5.x in favour of the unsafe variant
+    // which requires holding esp_netif's own list lock separately from LOCK_TCPIP_CORE
   esp_netif_t *esp_netif = esp_netif_next(NULL);
   while (esp_netif != NULL) {
     const char *desc = esp_netif_get_desc(esp_netif);
