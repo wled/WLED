@@ -32,7 +32,7 @@ To include this usermod in your WLED setup, you have to be able to [compile WLED
 
 Before compiling, you have to make the following modifications:
 
-Copy platformio_override.ini to the same folder as platformio.ini
+Copy platformio_override_example.ini to the same folder as platformio.ini
 
 ## 🔌 Wiring
 
