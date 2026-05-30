@@ -211,7 +211,7 @@ private:
   void ensureTask() {
     if (taskHandle != nullptr) return;
 
-    xTaskCreatePinnedToCore(
+    xTaskCreate(
       [](void* param) {
         const TickType_t xFrequency = 10 / portTICK_PERIOD_MS;
         TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -246,8 +246,7 @@ private:
       4096,
       this,
       1,
-      &taskHandle,
-      1
+      &taskHandle
     );
   }
 
