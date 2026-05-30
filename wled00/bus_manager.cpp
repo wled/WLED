@@ -129,7 +129,7 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
     } else if (aWM == RGBW_MODE_MAX) {
       w = r > g ? (r > b ? r : b) : (g > b ? g : b); // brightest RGB channel
     } else if (_whiteKelvin == 0 || _hasCCT || !_hasRgb) {
-      // Fast path: per-bus W-LED CCT feature is off, OR the bus type can't
+      // Fast path: per-bus W channel color temperature feature is off, OR the bus type can't
       // use it — dual-white CCT buses have a variable white point set via
       // the CCT control (not a single fixed Kelvin), and non-RGB buses have
       // nothing to derive the correction from. Identical to the pre-feature

@@ -205,7 +205,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip first N LEDs
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //refresh required
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
-      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W-channel CCT (Kelvin)
+      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W channel color temperature (Kelvin)
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA

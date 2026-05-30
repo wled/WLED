@@ -371,8 +371,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip 1st LED
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //off refresh
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
-      char wke[5] = "WKE"; wke[3] = offset+s; wke[4] = 0; //W-channel CCT enabled (UI checkbox)
-      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W-channel CCT (Kelvin)
+      char wke[5] = "WKE"; wke[3] = offset+s; wke[4] = 0; //W channel color temperature enabled (UI checkbox)
+      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W channel color temperature (Kelvin)
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current

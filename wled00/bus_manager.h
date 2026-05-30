@@ -228,7 +228,7 @@ class Bus {
     uint8_t  _autoWhiteMode; // global Auto White Calculation override
     uint16_t _start;
     uint16_t _len;
-    uint16_t _whiteKelvin; // physical W-channel CCT in Kelvin (0 = neutral/legacy behavior)
+    uint16_t _whiteKelvin; // physical W channel color temperature in Kelvin (0 = neutral/legacy behavior)
     uint8_t  _wR;          // cached W LED RGB equivalent (255,255,255 when _whiteKelvin==0)
     uint8_t  _wG;
     uint8_t  _wB;
@@ -472,7 +472,7 @@ struct BusConfig {
   uint8_t skipAmount;
   bool refreshReq;
   uint8_t autoWhite;
-  uint16_t whiteKelvin; // physical W-channel CCT in Kelvin (0 = neutral/legacy behavior)
+  uint16_t whiteKelvin; // physical W channel color temperature in Kelvin (0 = neutral/legacy behavior)
   uint8_t pins[OUTPUT_MAX_PINS] = {255, 255, 255, 255, 255};
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
