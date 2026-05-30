@@ -34,7 +34,7 @@ jobs:
           # Exclude issues that were closed without resolution from changelog
           excludeLabels: 'stale,wontfix,duplicate,invalid,external,question,use-as-is,not_planned'
       - name: Update Nightly Release
-        uses: andelf/nightly-release@v1
+        uses: andelf/nightly-release@5834076edc55cc05975561c9722043f072ac5c26
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
