@@ -50,7 +50,7 @@ class UsermodGC9A01Display : public Usermod {
     bool showingClock = false; // Track if currently showing clock (for rotary encoder state reset)
     unsigned long welcomeScreenStartTime = 0;
     uint8_t backlight = 75; // Backlight brightness percentage (0-100%, default 75%)
-    uint16_t displayTimeout = 60000; // 60 seconds default
+    uint32_t displayTimeout = 60000; // 60 seconds default
     bool sleepMode = true; // Enable sleep mode by default
     bool clockMode = false; // Show clock only when idle
     bool flip = false; // Display rotation (0 or 2)

@@ -747,6 +747,7 @@ void UsermodGC9A01Display::sleepDisplay() {
 // Rotary encoder integration methods - removed unused methods
 
 bool UsermodGC9A01Display::wakeDisplayFromSleep() {
+  if (!displayEnabled) return false;
   if (displayTurnedOff) {
     setBacklight(backlight); // Restore configured backlight level
     displayTurnedOff = false;
@@ -817,7 +818,7 @@ void UsermodGC9A01Display::overlay(const char* line1, long showHowLong, byte gly
   // Activate overlay mode and store the text
   activeOverlayMode = overlayMode;
   overlayText = String(line1 ? line1 : ""); // Store the text for display
-  overlayUntil = millis() + overlayInactivityTimeout; // Use longer timeout for user interaction
+  overlayUntil = millis() + (showHowLong > 0 ? showHowLong : overlayInactivityTimeout);
   lastRedraw = millis(); // Start/reset sleep timer on user interaction
   
   // Draw the overlay interface immediately

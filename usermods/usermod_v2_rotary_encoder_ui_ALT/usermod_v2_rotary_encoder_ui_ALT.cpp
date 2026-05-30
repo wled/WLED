@@ -641,6 +641,7 @@ void RotaryEncoderUIUsermod::loop()
       } while (!changedState);
       // Support both Four Line Display and GC9A01 display
       if (display != nullptr || gc9a01Display != nullptr) {
+#ifdef USERMOD_GC9A01_DISPLAY
         // Special handling for state 0 (Brightness) with GC9A01 - no overlay needed
         if (newState == 0 && gc9a01Display != nullptr && display == nullptr) {
           // For GC9A01 only (no four line display), just update main screen for brightness
@@ -651,7 +652,9 @@ void RotaryEncoderUIUsermod::loop()
             gc9a01Display->redraw(false); // Update main screen directly
             changedState = true;
           }
-        } else {
+        } else
+#endif
+        {
           // Normal overlay handling for all other states and for Four Line Display
           switch (newState) {
             case  0: changedState = changeState(lineBuffer,   1,   0,  1); break; //1  = sun
