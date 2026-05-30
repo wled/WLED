@@ -7,7 +7,7 @@
 class NetworkDebugPrinter : public Print {
   private:
     WiFiUDP debugUdp; // needs to be here otherwise UDP messages get truncated upon destruction
-    IPAddress debugPrintHostIP;
+    // IPAddress debugPrintHostIP;
   public:
     virtual size_t write(uint8_t c);
     virtual size_t write(const uint8_t *buf, size_t s);

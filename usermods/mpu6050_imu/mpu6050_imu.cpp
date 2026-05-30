@@ -49,9 +49,9 @@
 #undef DEBUG_PRINTLN
 #undef DEBUG_PRINTF
 #ifdef WLED_DEBUG
-  #define DEBUG_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUG_PRINT(x) DEBUGOUT(x)
+  #define DEBUG_PRINTLN(x) DEBUGOUTLN(x)
+  #define DEBUG_PRINTF(x...) DEBUGOUTF(x)
 #else
   #define DEBUG_PRINT(x)
   #define DEBUG_PRINTLN(x)
