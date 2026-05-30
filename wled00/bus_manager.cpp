@@ -128,11 +128,14 @@ uint32_t Bus::autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const {
       //ignore auto-white calculation if w>0 and mode DUAL (DUAL behaves as BRIGHTER if w==0)
     } else if (aWM == RGBW_MODE_MAX) {
       w = r > g ? (r > b ? r : b) : (g > b ? g : b); // brightest RGB channel
-    } else if (_whiteKelvin == 0) {
-      // Fast path: per-bus W-LED CCT feature is off. Identical to the
-      // pre-feature behavior — pick darkest RGB channel as W and (for
-      // ACCURATE) subtract it equally. Avoids three divisions per pixel
-      // in the default case, since most strips never enable the feature.
+    } else if (_whiteKelvin == 0 || _hasCCT || !_hasRgb) {
+      // Fast path: per-bus W-LED CCT feature is off, OR the bus type can't
+      // use it — dual-white CCT buses have a variable white point set via
+      // the CCT control (not a single fixed Kelvin), and non-RGB buses have
+      // nothing to derive the correction from. Identical to the pre-feature
+      // behavior: pick darkest RGB channel as W and (for ACCURATE) subtract
+      // it equally. Also avoids three divisions per pixel in the common
+      // default case, since most strips never enable the feature.
       w = r < g ? (r < b ? r : b) : (g < b ? g : b);
       if (aWM == RGBW_MODE_AUTO_ACCURATE) { r -= w; g -= w; b -= w; }
     } else {
