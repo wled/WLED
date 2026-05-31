@@ -701,7 +701,9 @@ void dissolve(uint32_t color) {
         unsigned i = hw_random16(SEGLEN);
         if (SEGENV.aux0) { //dissolve to primary/palette
           if (pixels[i] == SEGCOLOR(1)) {
-            pixels[i] = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
+            uint32_t c = color == SEGCOLOR(0) ? SEGMENT.color_from_palette(i, true, PALETTE_SOLID_WRAP, 0) : color;
+            if (SEGMENT.check2 && c == SEGCOLOR(1)) c ^= 0x00000001;  // change the color slightly so the effect doesn't get stuck in Complete mode if color is same as bkg color
+            pixels[i] = c;
             break; //only spawn 1 new pixel per frame
           }
         } else { //dissolve to secondary
@@ -2343,7 +2345,7 @@ void mode_colortwinkle() {
           unsigned index = i >> 3;
           unsigned  bitNum = i & 0x07;
           bitWrite(SEGENV.data[index], bitNum, true);
-          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, hw_random8(), 64, NOBLEND));
+          SEGMENT.setPixelColor(i, ColorFromPalette(SEGPALETTE, hw_random8(), gamma8inv(64), NOBLEND));  // note on gamma8inv: inverting results in non-linear brightness fade as originally designed
           break; //only spawn 1 new pixel per frame per 50 LEDs
         }
       }
@@ -2614,7 +2616,7 @@ static CRGBW twinklefox_one_twinkle(uint32_t ms, uint8_t salt, bool cat)
   unsigned hue = slowcycle8 - salt;
   CRGBW c;
   if (bright > 0) {
-    c = ColorFromPalette(SEGPALETTE, hue, bright, NOBLEND);
+    c = ColorFromPalette(SEGPALETTE, hue, gamma8inv(bright), NOBLEND); // note on gamma8inv: inverting results in non-linear brightness fade as originally designed
     if (!SEGMENT.check1) {
       // This code takes a pixel, and if its in the 'fading down'
       // part of the cycle, it adjusts the color a little bit like the
@@ -2649,19 +2651,18 @@ static void twinklefox_base(bool cat)
   if (SEGMENT.speed > 100) SEGENV.aux0 = 3 + ((255 - SEGMENT.speed) >> 3);
   else SEGENV.aux0 = 22 + ((100 - SEGMENT.speed) >> 1);
 
-  // Set up the background color, "bg".
+  // Set up the background color, "bg". Note: using gamma invert for brightness as the FX was written without any gamma correction, it will dim down too much now
   CRGBW bg = SEGCOLOR(1);
-  unsigned bglight = bg.getAverageLight();
+  unsigned bglight = bg.getRGBaverage();
   if (bglight > 64) {
-    bg = color_fade(bg, 16, true); // very bright, so scale to 1/16th
+    bg = color_fade(bg, gamma8inv(16), true); // very bright, so scale to 1/16th
   } else if (bglight > 16) {
-    bg = color_fade(bg, 64, true); // not that bright, so scale to 1/4th
+    bg = color_fade(bg, gamma8inv(64), true); // not that bright, so scale to 1/4
   } else {
-    bg = color_fade(bg, 86, true); // dim, scale to 1/3rd.
+    bg = color_fade(bg, gamma8inv(86), true); // dim, scale to 1/3rd
   }
-  bg = gamma32inv(bg); // need to invert gamma as the FX was written without any gamma correction and it will dim down too much otherwise
 
-  unsigned backgroundBrightness = bg.getAverageLight();
+  bglight = bg.getRGBaverage(); // update after scaling
 
   for (unsigned i = 0; i < SEGLEN; i++) {
 
@@ -2678,8 +2679,8 @@ static void twinklefox_base(bool cat)
     // on the "brightness = f( time )" idea.
     CRGBW c = twinklefox_one_twinkle(myclock30, myunique8, cat);
 
-    unsigned cbright = c.getAverageLight();
-    int deltabright = cbright - backgroundBrightness;
+    unsigned cbright = c.getRGBaverage();
+    int deltabright = cbright - bglight;
     if (deltabright >= 32 || (bg==0)) {
       // If the new pixel is significantly brighter than the background color,
       // use the new color.
@@ -5451,6 +5452,7 @@ void mode_2Dgameoflife(void) { // Written by Ewoud Wijma, inspired by https://na
         }
       }
     }
+    return;
   }
 
   // Repeat detection
@@ -6834,7 +6836,7 @@ void mode_gravcenter_base(unsigned mode) {
   uint8_t gravity = 8 - SEGMENT.speed/32;
   int offset = 1;
   if(mode == 2) offset = 0;  // Gravimeter
-  if (tempsamp >= gravcen->topLED) gravcen->topLED = tempsamp-offset;
+  if (tempsamp >= gravcen->topLED + offset) gravcen->topLED = tempsamp-offset;
   else if (gravcen->gravityCounter % gravity == 0) gravcen->topLED--;
   
   if(mode == 1) {  //Gravcentric
@@ -8730,7 +8732,7 @@ void mode_particleperlin(void) {
 
   PartSys->update(); // update and render
 }
-static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5,o3=1";
+static const char _data_FX_MODE_PARTICLEPERLIN[] PROGMEM = "PS Fuzzy Noise@Speed,Particles,Bounce,Friction,Scale,Cylinder,Smear,Collide;;!;2;pal=64,sx=50,ix=200,c1=130,c2=30,c3=5";
 
 /*
   Particle smashing down like meteors and exploding as they hit the ground, has many parameters to play with
@@ -9836,6 +9838,7 @@ void mode_particleFireworks1D(void) {
       PartSys->setColorByPosition(false); // disable
       for (uint32_t e = 0; e < explosionsize; e++) { // emit explosion particles
         int idx = PartSys->sprayEmit(PartSys->sources[0]); // emit a particle
+        if (idx < 0) break; // no more particles available
         if(SEGMENT.custom3 > 23) {
           if(SEGMENT.custom3 == 31) { // highest slider value
             PartSys->setColorByAge(SEGMENT.check1); // color by age if colorful mode is enabled
@@ -9860,7 +9863,7 @@ void mode_particleFireworks1D(void) {
     PartSys->applyFriction(1); // apply friction to all particles
 
   PartSys->update(); // update and render
-  
+
   for (uint32_t i = 0; i < PartSys->usedParticles; i++) {
     if (PartSys->particles[i].ttl > 20) PartSys->particles[i].ttl -= 20; //ttl is linked to brightness, this allows to use higher brightness but still a short spark lifespan
     else PartSys->particles[i].ttl = 0;
@@ -9910,7 +9913,7 @@ void mode_particleSparkler(void) {
     PartSys->sources[i].source.ttl = 400; // replenish its life (setting it perpetual uses more code)
     PartSys->sources[i].sat = SEGMENT.custom1; // color saturation
     if (SEGMENT.speed == 255) // random position at highest speed setting
-      PartSys->sources[i].source.x = hw_random16(PartSys->maxX);
+      PartSys->sources[i].source.x = hw_random(PartSys->maxX);
     else
       PartSys->particleMoveUpdate(PartSys->sources[i].source, PartSys->sources[i].sourceFlags, &sparklersettings); //move sparkler
   }

@@ -369,8 +369,10 @@ void WLED::setup()
   #endif
 
   #ifdef ARDUINO_ARCH_ESP32
-  pinMode(hardwareRX, INPUT_PULLDOWN); delay(1);        // suppress noise in case RX pin is floating (at low noise energy) - see issue #3128
+  gpio_pulldown_en((gpio_num_t)hardwareRX); delay(1); // suppress noise in case RX pin is floating (at low noise energy) - see issue #3128
+  // note: can not use pinMode(): it routes GPIO through the GPIO matrix and detaches UART0 RX
   #endif
+
   #ifdef WLED_BOOTUPDELAY
   delay(WLED_BOOTUPDELAY); // delay to let voltage stabilize, helps with boot issues on some setups
   #endif
@@ -501,6 +503,12 @@ void WLED::setup()
 
   if (needsCfgSave) serializeConfigToFS(); // usermods required new parameters; need to wait for strip to be initialised #4752
 
+  if (bootPreset > 0) {
+    handlePresets();  // handle boot preset
+    handlePlaylist(); // handle playlist if preset queued one
+    handlePresets();  // handle presets again to give a chance for anything queued by the boot preset or playlist
+  }
+  
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
     showWelcomePage = true;
 
@@ -649,6 +657,7 @@ void WLED::initAP(bool resetAP)
   WiFi.softAPConfig(IPAddress(4, 3, 2, 1), IPAddress(4, 3, 2, 1), IPAddress(255, 255, 255, 0));
   WiFi.softAP(apSSID, apPass, apChannel, apHide);
   #ifdef ARDUINO_ARCH_ESP32
+  DEBUG_PRINT(F("access point maxTxPower set to ")); DEBUG_PRINTLN(txPower);
   WiFi.setTxPower(wifi_power_t(txPower));
   #endif
 
@@ -689,6 +698,7 @@ void WLED::initConnection()
   }
 #endif
 
+  DEBUG_PRINTLN(F("WiFi disconnect."));
   WiFi.disconnect(true); // close old connections
   delay(5);              // wait for hardware to be ready
 #ifdef ESP8266
@@ -701,6 +711,7 @@ void WLED::initConnection()
 #ifdef ARDUINO_ARCH_ESP32
   // Reset mode to NULL to force a full STA mode transition, so that WiFi.mode(WIFI_STA) below actually applies the hostname (and TX power, etc.).
   // This is required on reconnects when mode is already WIFI_STA.
+  DEBUG_PRINTLN(F("WiFi mode_null: driver teardown / re-init."));
   WiFi.mode(WIFI_MODE_NULL);
   apActive = false;           // the AP is physically torn down by WIFI_MODE_NULL
   delay(5);                   // give the WiFi stack time to complete the mode transition
@@ -784,9 +795,12 @@ void WLED::initConnection()
 #endif // WLED_ENABLE_WPA_ENTERPRISE
 
 #ifdef ARDUINO_ARCH_ESP32
+    DEBUG_PRINT(F("WiFi maxTxPower set to ")); DEBUG_PRINT(txPower);
+    DEBUG_PRINT(F("; WiFi sleep ")); DEBUG_PRINTLN(noWifiSleep ? F("disabled."):F("enabled."));
     WiFi.setTxPower(wifi_power_t(txPower));
     WiFi.setSleep(!noWifiSleep);
 #else // ESP8266 accepts a hostname set after WiFi interface initialization
+    DEBUG_PRINT(F("WiFi sleep ")); DEBUG_PRINTLN(noWifiSleep ? F("disabled."):F("enabled."));
     wifi_set_sleep_type((noWifiSleep) ? NONE_SLEEP_T : MODEM_SLEEP_T);
     WiFi.hostname(hostname);
 #endif
