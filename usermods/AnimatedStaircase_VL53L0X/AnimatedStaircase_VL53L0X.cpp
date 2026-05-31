@@ -203,7 +203,7 @@ private:
 
     if (!bottomVL53.init()) {
       DEBUG_PRINTLN(F("[StaircaseVL53] Bottom VL53L0X init failed"));
-      resetSensorState();
+      shutdownSensors();
       return false;
     }
 
@@ -215,7 +215,7 @@ private:
 
     if (!topVL53.init()) {
       DEBUG_PRINTLN(F("[StaircaseVL53] Top VL53L0X init failed"));
-      resetSensorState();
+      shutdownSensors();
       return false;
     }
 
@@ -232,6 +232,24 @@ private:
     );
 
     return true;
+  }
+
+  void shutdownSensorPins(int8_t topPin, int8_t bottomPin) {
+    if (topPin >= 0) {
+      digitalWrite(topPin, LOW);
+      PinManager::deallocatePin(topPin, PinOwner::UM_AnimatedStaircase);
+    }
+
+    if (bottomPin >= 0) {
+      digitalWrite(bottomPin, LOW);
+      PinManager::deallocatePin(bottomPin, PinOwner::UM_AnimatedStaircase);
+    }
+
+    resetSensorState();
+  }
+
+  void shutdownSensors() {
+    shutdownSensorPins(xshutTopPin, xshutBottomPin);
   }
 
   void ensureTask() {
@@ -465,17 +483,7 @@ public:
       taskHandle = nullptr;
     }
 
-    if (xshutTopPin >= 0) {
-      digitalWrite(xshutTopPin, LOW);
-      PinManager::deallocatePin(xshutTopPin, PinOwner::UM_AnimatedStaircase);
-    }
-
-    if (xshutBottomPin >= 0) {
-      digitalWrite(xshutBottomPin, LOW);
-      PinManager::deallocatePin(xshutBottomPin, PinOwner::UM_AnimatedStaircase);
-    }
-
-    resetSensorState();
+    shutdownSensors();
   }
 
   uint16_t getId() {
@@ -530,17 +538,7 @@ public:
       oldXshutBottom != xshutBottomPin;
 
     if (pinsChanged) {
-      if (oldXshutTop >= 0) {
-        digitalWrite(oldXshutTop, LOW);
-        PinManager::deallocatePin(oldXshutTop, PinOwner::UM_AnimatedStaircase);
-      }
-
-      if (oldXshutBottom >= 0) {
-        digitalWrite(oldXshutBottom, LOW);
-        PinManager::deallocatePin(oldXshutBottom, PinOwner::UM_AnimatedStaircase);
-      }
-
-      resetSensorState();
+      shutdownSensorPins(oldXshutTop, oldXshutBottom);
     }
 
     setup();
