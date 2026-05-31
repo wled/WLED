@@ -32,7 +32,7 @@ To include this usermod in your WLED setup, you have to be able to [compile WLED
 
 Before compiling, you have to make the following modifications:
 
-Copy platformio_override_example.ini to the same folder as platformio.ini
+Add the AnimatedStaircase_VL53L03X usermod to custom_usermods in the build config or just platformio_override.ini.sample to the same folder as platformio.ini
 
 ## 🔌 Wiring
 
