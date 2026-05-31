@@ -239,7 +239,7 @@ private:
 
     BaseType_t taskCreated = xTaskCreate(
       [](void* param) {
-        const TickType_t xFrequency = 250 / portTICK_PERIOD_MS;
+        const TickType_t xFrequency = 10 / portTICK_PERIOD_MS;
         TickType_t xLastWakeTime = xTaskGetTickCount();
 
         auto* self = static_cast<AnimatedStaircase_VL53L0X*>(param);
