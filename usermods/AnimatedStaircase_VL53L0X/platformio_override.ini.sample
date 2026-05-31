@@ -1,0 +1,8 @@
+[platformio]
+default_envs = esp32dev_usermod_AnimatedStaircase_VL53L0X
+
+# Animated Staircase VL53L0X sensors
+[env:esp32dev_usermod_AnimatedStaircase_VL53L0X]
+extends = env:esp32dev
+custom_usermods =
+  AnimatedStaircase_VL53L0X
