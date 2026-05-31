@@ -37,7 +37,7 @@ Add the AnimatedStaircase_VL53L03X usermod to custom_usermods in the build confi
 ## 🔌 Wiring
 
 - **VL53L0X** sensors share the I²C bus (SDA, SCL).
-- Use optional `XSHUT` GPIOs to assign unique I²C addresses (0x30 and 0x31).
+- Use required `XSHUT` GPIOs to assign unique I²C addresses (0x30 and 0x31).
 - Wire your LEDs and segments the same as the original mod.
 - Example VL53L0X wiring:
   - SDA → GPIO 21 (or 4)
