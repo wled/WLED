@@ -190,7 +190,7 @@
 		}
 	}
 	function pMP() { // populateMacroPresets
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
 		var fields = ['A0','A1','MC','MN'];
 		for (var f of fields) {
 			var inp = gN(f);
@@ -220,12 +220,15 @@
 		}
 	}
 	function rBPO() { // refreshButtonPresetOptions
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
+		var analogOpts = '<optgroup label="Analog Functions"><option value="250">Global brightness (250)</option><option value="249">Effect speed (249)</option><option value="248">Effect intensity (248)</option><option value="247">Palette (247)</option><option value="200">Primary color hue (200)</option></optgroup><optgroup label="Analog Segment Opacity">';
+		for (var j=1; j<=32; j++) analogOpts += `<option value="${j}">Segment ${j} (${j})</option>`;
+		analogOpts += '</optgroup>';
 		var container = gId("macros");
 		if (!container) return;
 		var sels = container.querySelectorAll('select[name^="MP"],select[name^="ML"],select[name^="MD"]');
 		for (var sel of sels) {
-			rPS(sel, presetOpts, "data-preset");
+			rPS(sel, presetOpts + (sel.name.startsWith("MD") ? analogOpts : ''), "data-preset");
 		}
 	}
 	function Wd()
@@ -248,7 +251,10 @@
 	}
 	function addRow(i,p,l,d) {
 		var b = String.fromCharCode((i<10?48:55)+i);
-		var presetOpts = '<option value="0">Default Action</option>' + sortedPresetOptions;
+		var presetOpts = '<option value="0">Default Action (0)</option>' + sortedPresetOptions;
+		var analogOpts = '<optgroup label="Analog Functions"><option value="250">Global brightness (250)</option><option value="249">Effect speed (249)</option><option value="248">Effect intensity (248)</option><option value="247">Palette (247)</option><option value="200">Primary color hue (200)</option></optgroup><optgroup label="Analog Segment Opacity">';
+		for (var j=1; j<=32; j++) analogOpts += `<option value="${j}">Segment ${j} (${j})</option>`;
+		analogOpts += '</optgroup>';
 		var buttonBlock = document.createElement('div');
 		buttonBlock.className = 'bb';
 		buttonBlock.innerHTML = `
@@ -264,7 +270,7 @@
 				</div>
 				<div class="ba">
 					<label>Double press (n/a)</label>
-					<select name="MD${b}" class="s" required>${presetOpts}</select>
+					<select name="MD${b}" class="s" required>${presetOpts + analogOpts}</select>
 				</div>
 			</div>
 			<hr style="width:100%;margin:8px 0 0 0;">
