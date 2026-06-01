@@ -119,6 +119,29 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 		UI(); // Update the preview after generating panels
 	}
 
+	function genCube() {
+		resetPanels();
+		var pw = parseInt(Sf.PW.value);
+		var ph = parseInt(Sf.PH.value);
+		let count = Math.min(6, maxPanels);
+		Sf.MPC.value = count;
+		for (let i = 0; i < count; i++) addPanel(i);
+		
+		if (count > 0) { Sf.P0X.value = pw; Sf.P0Y.value = 0; }
+		if (count > 1) { Sf.P1X.value = 0; Sf.P1Y.value = ph; }
+		if (count > 2) { Sf.P2X.value = pw; Sf.P2Y.value = ph; }
+		if (count > 3) { Sf.P3X.value = 2*pw; Sf.P3Y.value = ph; }
+		if (count > 4) { Sf.P4X.value = 3*pw; Sf.P4Y.value = ph; }
+		if (count > 5) { Sf.P5X.value = pw; Sf.P5Y.value = 2*ph; }
+
+		for (let i = 0; i < count; i++) {
+			Sf["P"+i+"W"].value = pw;
+			Sf["P"+i+"H"].value = ph;
+		}
+		Sf.ISCB.checked = true;
+		UI();
+	}
+
 	function expand(o,i)
 	{
 		i.style.display = i.style.display!=="none" ? "none" : "";
@@ -260,7 +283,8 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 	<select id="somp" name="SOMP" onchange="resetPanels();addPanels();UI();" >
 		<option value="0">1D Strip</option>
 		<option value="1">2D Matrix</option>
-	</select>
+	</select><br>
+	3D Cube: <input type="checkbox" name="ISCB" onchange="UI()">
 	</div>
 	<div id="mpdiv" style="display:none;">
 	<div class="sec">
@@ -284,6 +308,7 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 			<i  class="warn">Pressing Populate will create LED panel layout with pre-arranged matrix.<br>Values above <i>will not</i> affect final layout.<br>
 				WARNING: You may need to update each panel parameters after they are generated.</i><br>
 			<button type="button" onclick="gen();expand(gId('expGen'),gId('mxGen'));">Populate</button>
+			<button type="button" onclick="genCube();expand(gId('expGen'),gId('mxGen'));">Populate Cube</button>
 		</div>
 	</div>
 	<div class="sec">

@@ -409,7 +409,8 @@ typedef enum mapping1D2D {
   M12_pBar = 1,
   M12_pArc = 2,
   M12_pCorner = 3,
-  M12_sPinwheel = 4
+  M12_sPinwheel = 4,
+  M12_Cube = 5
 } mapping1D2D_t;
 
 class WS2812FX;
@@ -546,6 +547,7 @@ class Segment {
     // transition functions
     void stopTransition();                  // ends transition mode by destroying transition structure (does nothing if not in transition)
     void updateTransitionProgress() const;  // sets transition progress (0-65535) based on time passed since transition start
+    void applyCubeWrapping(int &x, int &y) const;
     inline void handleTransition() {
       updateTransitionProgress();
       if (isInTransition() && progress() == 0xFFFFU) stopTransition();
@@ -826,6 +828,7 @@ class WS2812FX {
       now(millis()),
       timebase(0),
       isMatrix(false),
+      isCube(false),
 #ifdef WLED_AUTOSEGMENTS
       autoSegments(true),
 #else
@@ -1007,6 +1010,7 @@ class WS2812FX {
       bool autoSegments : 1;
       bool correctWB    : 1;
       bool cctFromRgb   : 1;
+      bool isCube       : 1;
     };
 
     Segment *_currentSegment;

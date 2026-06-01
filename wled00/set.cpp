@@ -843,6 +843,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_2D)
   {
     strip.isMatrix = request->arg(F("SOMP")).toInt();
+    strip.isCube = request->hasArg(F("ISCB"));
     strip.panel.clear();
     if (strip.isMatrix) {
       unsigned panels = constrain(request->arg(F("MPC")).toInt(), 1, WLED_MAX_PANELS);

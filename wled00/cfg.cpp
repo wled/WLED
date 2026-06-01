@@ -186,6 +186,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject matrix = hw_led[F("matrix")];
   if (!matrix.isNull()) {
     strip.isMatrix = true;
+    CJSON(strip.isCube, matrix["isCube"]);
     unsigned numPanels = matrix[F("mpc")] | 1;
     numPanels = constrain(numPanels, 1, WLED_MAX_PANELS);
     strip.panel.clear();
@@ -954,6 +955,7 @@ void serializeConfig(JsonObject root) {
   // 2D Matrix Settings
   if (strip.isMatrix) {
     JsonObject matrix = hw_led.createNestedObject(F("matrix"));
+    matrix["isCube"] = strip.isCube;
     matrix[F("mpc")] = strip.panel.size();
     JsonArray panels = matrix.createNestedArray(F("panels"));
     for (size_t i = 0; i < strip.panel.size(); i++) {
