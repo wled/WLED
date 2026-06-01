@@ -1,0 +1,4 @@
+{
+  "name": "dmx_lora_comms",
+  "build": { "libArchive": false }
+}
