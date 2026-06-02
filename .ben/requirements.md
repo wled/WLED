@@ -33,6 +33,7 @@
 **2.5** `pending` [2026-05-13] — On WiFi connection, the device must send a GET request to a WordPress REST endpoint (wp-json/wled/v1/ping) carrying the device MAC address, WLED base version, commit hash, device name, and IP-based geolocation for tracking purposes.
   **2.5.1** `pending` [2026-05-13] — The WordPress plugin must expose the REST endpoint, log incoming data to a database, and display results in a WP Admin dashboard table.
   **2.5.2** `pending` [2026-05-13] — The tracking request must include both the WLED base version and the custom build commit hash so the WordPress dashboard can identify which build is running.
+**2.6** `pending` [2026-06-01 00:00] — When a preset is selected, any change to the Speed, Intensity, or Custom 1/2/3 sliders must automatically update (save) that preset's settings, debounced 500ms after the last slider interaction, with no toast shown.
 
 ---
 
@@ -71,7 +72,17 @@
 ~~**3.21** `pending` [2026-05-20] — Remove all navigation pill buttons (Presets, Info) from the settings page; settings page shows functional settings and Factory Settings only.~~ *(superseded by REQ 3.22)*
 ~~**3.17.2** `pending` [2026-05-20] — Factory Settings page also contains: Sync Interfaces, Time & Macros, Usermods, Security & Updates (moved from settings page).~~ *(superseded by REQ 3.22)*
 **3.22** `pending` [2026-05-20] — Settings page shows: Presets, WiFi & Network, Info, Sync Interfaces, and Factory Settings only. All other buttons (Segments, LED & Hardware, Pin Info, 2D Configuration, User Interface, Time & Macros, Usermods, Security & Updates) are on the Factory Settings page.
-**3.23** `pending` [2026-05-20] — Effects tab pill buttons show plain text only (no palette/type icons). Each pill has a + button (green) to add the effect as a cycling preset; once added, a × button (red) replaces it to remove the preset. Toast message confirms each action. Preset IDs are assigned sequentially from 6; preset 101 (z_cycle_preset) P2 value is updated automatically to reflect the total count. User-added presets persist in localStorage (key: wled_user_fx_presets).
+~~**3.23** `pending` [2026-05-20] — Effects tab pill buttons show plain text only (no palette/type icons). Each pill has a + button (green) to add the effect as a cycling preset; once added, a × button (red) replaces it to remove the preset. Toast message confirms each action. Preset IDs are assigned sequentially from 6; preset 101 (z_cycle_preset) P2 value is updated automatically to reflect the total count. User-added presets persist in localStorage (key: wled_user_fx_presets).~~ *(superseded by REQ 3.26)*
+~~**3.24** `done` [2026-05-23] — Favourites tab UI: search field removed; z_cycle_preset pill (preset 101) hidden; preset number hidden from all pills; dropdown expand arrow hidden from all pills; user fx preset pills show a red − remove button on the right (matching Effects tab style). Clicking − removes the effect from the cycle playlist.~~ *(superseded by REQ 3.26)*
+**3.25** `done` [2026-05-23] — Bug fix: removing the last user fx preset must not trigger an "Error 12: Preset not found" error. The device must not attempt to switch to the z_cycle_preset playlist when zero user presets remain (empty playlist range is invalid firmware-side).
+**3.26** `pending` [2026-05-31 00:00] — On the Effects page and Favourites page, each effect/preset pill displays a heart icon positioned outside and to the right of the pill, with pill text centre-aligned.
+  **3.26.1** `pending` [2026-05-31 00:00] — Outline heart (&#x2661;) indicates the effect/preset is NOT in the cycle; solid red heart (&#x2665;) indicates it IS in the cycle; clicking either heart toggles the add/remove action.
+  ~~**3.26.2** `pending` [2026-05-31 00:00] — On the Favourites page the outline heart is non-clickable (cursor: default, opacity 0.4); on the Effects page the outline heart is clickable and adds the effect to the cycle.~~ *(superseded by REQ 3.26.2a and REQ 3.26.2b)*
+  **3.26.2a** `pending` [2026-06-01 00:00] — On the Effects page, the outline heart (add to cycle) is hidden using CSS visibility:hidden when the effect is not currently selected/active; it becomes visible only when the effect is the currently playing one, ensuring a user can only add an effect once it is playing.
+  **3.26.2b** `pending` [2026-06-01 00:00] — On the Favourites page the outline heart remains non-clickable (cursor: default, opacity 0.4).
+  **3.26.3** `pending` [2026-05-31 00:00] — The Solid effect pill (id=0) on the Effects page does not display a heart icon.
+  **3.26.4** `pending` [2026-06-01 00:00] — Clicking either heart icon (add or remove) on the Effects page must not change the currently playing effect; the previous behaviour of switching the device to the z_cycle_preset playlist (preset 101) on heart click is removed.
+  **3.26.5** `pending` [2026-06-01 00:00] — On page load, the localStorage entry for user fx presets (key: wled_user_fx_presets) is rebuilt from the device's presets.json, so the heart icons in the UI always reflect actual device state.
 
 ---
 

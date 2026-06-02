@@ -67,8 +67,23 @@ async function loadPage(page, capturedUpload = []) {
   // Click the Effects tab to ensure the fxlist is visible.
   // The tab is a bottom-nav link whose text contains "Effects".
   await page.locator('.tablinks', { hasText: 'Effects' }).click();
-  // Effects list must have at least one + button before we proceed
-  await page.waitForSelector('#fxlist .fx-preset-add', { timeout: 10_000 });
+  // Hearts exist in the DOM but are visibility:hidden until an effect is selected.
+  await page.waitForSelector('#fxlist .fx-preset-add', { timeout: 10_000, state: 'attached' });
+}
+
+/**
+ * Simulate selecting an effect (setting selectedFx + adding .selected class) without
+ * triggering a real device request.  This makes the outline heart visible so it can be clicked.
+ */
+async function selectEffect(page, effectId) {
+  await page.evaluate((id) => {
+    window.selectedFx = id;
+    const parent = document.getElementById('fxlist');
+    const prev = parent && parent.querySelector('.lstI.selected');
+    if (prev) prev.classList.remove('selected');
+    const el = parent && parent.querySelector(`.lstI[data-id="${id}"]`);
+    if (el) el.classList.add('selected');
+  }, effectId);
 }
 
 // ---------------------------------------------------------------------------
@@ -93,8 +108,9 @@ test.describe('fx-preset feature', () => {
     const uploaded = [];
     await loadPage(page, uploaded);
 
-    const effectItem = page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"]`);
-    const addBtn = effectItem.locator('.fx-preset-add');
+    const effectRow = page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"])`);
+    await selectEffect(page, TEST_EFFECT_ID);
+    const addBtn = effectRow.locator('.fx-preset-add');
     await expect(addBtn).toBeVisible();
     await addBtn.click();
 
@@ -102,14 +118,15 @@ test.describe('fx-preset feature', () => {
     await expect(page.locator('#toast')).toContainText('Effect added to favorites!');
 
     // Button must switch to the remove variant immediately (DOM update is synchronous)
-    await expect(effectItem.locator('.fx-preset-rm')).toBeVisible();
-    await expect(effectItem.locator('.fx-preset-add')).toHaveCount(0);
+    await expect(effectRow.locator('.fx-preset-rm')).toBeVisible();
+    await expect(effectRow.locator('.fx-preset-add')).toHaveCount(0);
   });
 
   test('adding a preset saves the correct entry to localStorage', async ({ page }) => {
     await loadPage(page);
 
-    await page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"] .fx-preset-add`).click();
+    await selectEffect(page, TEST_EFFECT_ID);
+    await page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"]) .fx-preset-add`).click();
 
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('wled_user_fx_presets') || '[]')
@@ -124,7 +141,8 @@ test.describe('fx-preset feature', () => {
     const uploaded = [];
     await loadPage(page, uploaded);
 
-    await page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"] .fx-preset-add`).click();
+    await selectEffect(page, TEST_EFFECT_ID);
+    await page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"]) .fx-preset-add`).click();
 
     // Wait for the async upload to complete (page.route fulfills instantly so this is fast)
     await page.waitForTimeout(300);
@@ -148,25 +166,27 @@ test.describe('fx-preset feature', () => {
   test('clicking − shows toast "Effect removed from favorites!" and button switches back to +', async ({ page }) => {
     await loadPage(page);
 
-    const effectItem = page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"]`);
+    const effectRow = page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"])`);
 
-    // Add first
-    await effectItem.locator('.fx-preset-add').click();
-    await expect(effectItem.locator('.fx-preset-rm')).toBeVisible();
+    // Add first (heart only visible while effect is selected)
+    await selectEffect(page, TEST_EFFECT_ID);
+    await effectRow.locator('.fx-preset-add').click();
+    await expect(effectRow.locator('.fx-preset-rm')).toBeVisible();
 
     // Now remove
-    await effectItem.locator('.fx-preset-rm').click();
+    await effectRow.locator('.fx-preset-rm').click();
     await expect(page.locator('#toast')).toContainText('Effect removed from favorites!');
-    await expect(effectItem.locator('.fx-preset-add')).toBeVisible();
-    await expect(effectItem.locator('.fx-preset-rm')).toHaveCount(0);
+    await expect(effectRow.locator('.fx-preset-add')).toBeVisible();
+    await expect(effectRow.locator('.fx-preset-rm')).toHaveCount(0);
   });
 
   test('removing a preset clears it from localStorage', async ({ page }) => {
     await loadPage(page);
 
-    const effectItem = page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"]`);
-    await effectItem.locator('.fx-preset-add').click();
-    await effectItem.locator('.fx-preset-rm').click();
+    const effectRow = page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"])`);
+    await selectEffect(page, TEST_EFFECT_ID);
+    await effectRow.locator('.fx-preset-add').click();
+    await effectRow.locator('.fx-preset-rm').click();
 
     const stored = await page.evaluate(() =>
       JSON.parse(localStorage.getItem('wled_user_fx_presets') || '[]')
@@ -177,8 +197,9 @@ test.describe('fx-preset feature', () => {
   test('page reload restores − button for a previously added preset', async ({ page }) => {
     await loadPage(page);
 
-    // Add the preset
-    await page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"] .fx-preset-add`).click();
+    // Add the preset (heart only visible while effect is selected)
+    await selectEffect(page, TEST_EFFECT_ID);
+    await page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"]) .fx-preset-add`).click();
 
     // Reload — mocks are re-registered before reload so they apply to the new navigation.
     // After reload the app defaults to the first tab; click Effects to make fxlist visible.
@@ -187,9 +208,9 @@ test.describe('fx-preset feature', () => {
     await page.locator('.tablinks', { hasText: 'Effects' }).click();
     await page.waitForSelector('#fxlist .fx-preset-rm', { timeout: 10_000 });
 
-    const effectItem = page.locator(`#fxlist .lstI[data-id="${TEST_EFFECT_ID}"]`);
-    await expect(effectItem.locator('.fx-preset-rm')).toBeVisible();
-    await expect(effectItem.locator('.fx-preset-add')).toHaveCount(0);
+    const effectRow = page.locator(`#fxlist .fx-pill-row:has(.lstI[data-id="${TEST_EFFECT_ID}"])`);
+    await expect(effectRow.locator('.fx-preset-rm')).toBeVisible();
+    await expect(effectRow.locator('.fx-preset-add')).toHaveCount(0);
   });
 
 });

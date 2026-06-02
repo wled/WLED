@@ -13,6 +13,18 @@ When I need to update the esp32 device, you must tell me which IDs I need to run
 2 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target upload 
 3 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target uploadfs
 
+### When to run each command
+
+This device serves the web UI from its LittleFS filesystem (WLED checks filesystem first — see `handleStaticContent()` in `wled_server.cpp`). Filesystem files always override the compiled-in firmware versions.
+
+| Change type | Commands to run |
+|---|---|
+| Web UI only (`.htm`, `.js`, `.css`) | 1 → 2 → 3 |
+| C++ firmware only (no web file changes) | 2 only |
+| Both web UI and C++ | 1 → 2 → 3 |
+
+Never tell the user to run only 1 or only 1+2 for web UI changes — command 3 is always required for web changes to appear on this device.
+
 ## Agents
 
 Agents are located in `.claude/agents/`. Read the relevant agent file before starting any task that matches its description.

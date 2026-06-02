@@ -19,8 +19,8 @@
 <div class="wrapper" id="top">
 	<div class="tab top">
 		<div class="btnwrap">
-			<button id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons">&#xe08f;</i><p class="tab-label">Power</p></button>
-			<button id="buttonHome" onclick="window.location.href=getURL('/')"><span class="home-icon">&#x2302;</span><p class="tab-label">Home</p></button>
+			<button id="buttonPower" onclick="togglePower()" class="tgl"><i class="icons">&#xe08f;</i></button>
+			<button id="buttonHome" onclick="window.location.href=getURL('/')"><span class="home-icon">&#x2302;</span></button>
 			<button id="buttonSettings" onclick="window.location.href=getURL('/settings')"><i class="icons">&#xe0a2;</i></button>
 			<button id="buttonNodes" onclick="toggleNodes()" style="display:none;"><i class="icons">&#xe22d;</i><p class="tab-label">Nodes</p></button>
 			<button id="buttonPcm" onclick="togglePcMode(true)" style="display:none;"><i class="icons">&#xe23d;</i><p class="tab-label">PC Mode</p></button>
@@ -216,20 +216,6 @@
 				</div>
 				<output class="sliderbubble"></output>
 			</div>
-			<div id="fxopt" class="option fade">
-				<label id="opt0" title="Check 1" class="check ochkl hide"><i class="icons">&#xe2b3;</i>
-					<input id="checkO1" type="checkbox" onchange="setOption(1, this.checked)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="opt1" title="Check 2" class="check ochkl hide"><i class="icons">&#xe34b;</i>
-					<input id="checkO2" type="checkbox" onchange="setOption(2, this.checked)">
-					<span class="checkmark"></span>
-				</label>
-				<label id="opt2" title="Check 3" class="check ochkl hide"><i class="icons">&#xe04c;</i>
-					<input id="checkO3" type="checkbox" onchange="setOption(3, this.checked)">
-					<span class="checkmark"></span>
-				</label>
-			</div>
 		</div>
 	</div>
 
@@ -273,7 +259,7 @@
 		<div id="pql">
 		</div>
 		<p class="labels hd">Presets</p>
-		<div class="staytop fnd" id="psFind">
+		<div class="staytop fnd" id="psFind" style="display:none">
 			<input type="text" placeholder="Search" oninput="search(this,'pcont')" onfocus="search(this,'pcont')" />
 			<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
 			<i class="icons search-icon">&#xe0a1;</i>

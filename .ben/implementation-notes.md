@@ -273,3 +273,63 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 **Files:** `wled00/data/index.htm`, `wled00/data/index.css`
 **Approach:** Added `<span class="bri-dim-icon">&#x1F505;</span>` (🔅 U+1F505 low-brightness symbol) as first child of `#briwrap`, before the `.slider` div. In the AI CSS block: set `#briwrap` to `display:flex; align-items:center; gap:4px; min-width:140px` so the icon and slider sit side-by-side. Reduced `#briwrap .sliderwrap` from 161px to 113px (70% of original) with `!important` to override the main CSS rule. `.bri-dim-icon` gets `font-size:20px; line-height:1; flex-shrink:0`.
 **Gotchas:** The `#briwrap .sliderwrap` width is set in the main CSS at line 795 — the override must use `!important`. The `<p class="hd">Brightness</p>` stays in the HTML but is already `display:none` via the `.hd` CSS variable (`--bhd: none`), so it does not appear as a flex child in the layout.
+
+---
+
+## REQ 3.26 — Heart icon outside pill for Effects and Favourites tabs *(supersedes REQ 3.23, 3.24)*
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.1 — Outline/solid heart toggles add/remove from cycle
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.2a — Effects page outline heart hidden unless effect is currently active
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.2b — Favourites page outline heart non-clickable
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.3 — Solid effect pill (id=0) has no heart icon
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.4 — Heart click on Effects page must not change the currently playing effect
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+## REQ 3.26.5 — Rebuild wled_user_fx_presets from presets.json on page load
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
+
+---
+
+## REQ 2.6 — Auto-save preset on slider change (debounced 500ms, no toast)
+
+**Files:** TBD
+**Approach:** TBD
+**Gotchas:** TBD
+**Deploy:** TBD
