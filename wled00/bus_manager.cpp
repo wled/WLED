@@ -836,7 +836,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   if (bc.type == TYPE_HUB75MATRIX_HS) {
-      mxconfig.mx_width = min(128U, panelWidth); // TODO: UI limit is 128, this limits to 64
+      mxconfig.mx_width = min(128U, panelWidth); // UI limit is 128
       mxconfig.mx_height = min(64U, panelHeight);
   } else if (bc.type == TYPE_HUB75MATRIX_QS) {
       _isVirtual = true;
