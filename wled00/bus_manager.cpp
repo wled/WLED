@@ -802,6 +802,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   _hasRgb = true;
   _hasWhite = false;
   virtualDisp = nullptr; // todo: this should be solved properly, can cause memory leak (if omitted here, nothing seems to work)
+  _isVirtual = false;
   // aliases for easier reading
   uint8_t panelWidth  = bc.pins[0];
   uint8_t panelHeight = bc.pins[1];
@@ -1017,15 +1018,15 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   // chained panels with cols and rows define need the virtual display driver, so do quarter-scan panels
   if (chainLength > 1 && (_rows > 1 || _cols > 1) || bc.type == TYPE_HUB75MATRIX_QS) {
     _isVirtual = true;
-    chainType = CHAIN_BOTTOM_LEFT_UP; // TODO: is there any need to support other chaining types?
-    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, mxconfig.mx_width, mxconfig.mx_height);
+    if (chainLength > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the display is upside-down
+    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, mxconfig.mx_width/2, mxconfig.mx_height*2);
   }
   else {
     _isVirtual = false;
   }
 
   if (_isVirtual) {
-    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width, mxconfig.mx_height, chainType);
+    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width/2, mxconfig.mx_height*2, chainType);
     virtualDisp->setRotation(0);
     if (bc.type == TYPE_HUB75MATRIX_QS) {
       switch(panelHeight) {
@@ -1161,8 +1162,8 @@ std::vector<LEDType> BusHub75Matrix::getLEDTypes() {
 
 size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
   if (pinArray) {
-    pinArray[0] = mxconfig.mx_width;
-    pinArray[1] = mxconfig.mx_height;
+    pinArray[0] = _isVirtual ? mxconfig.mx_width  /2 : mxconfig.mx_width;
+    pinArray[1] = _isVirtual ? mxconfig.mx_height *2 : mxconfig.mx_height;
     pinArray[2] = mxconfig.chain_length;
     pinArray[3] = _rows;
     pinArray[4] = _cols;
