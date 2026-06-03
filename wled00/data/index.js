@@ -641,7 +641,7 @@ function populatePresets(fromls)
 	{
 		if (!isObj(key[1])) continue;
 		let i = parseInt(key[0]);
-		if (i === _FX_PLAYLIST_ID) continue;
+		if (i === _FX_PLAYLIST_ID || i === _LIGHTS_OFF_PRESET_ID) continue;
 		var qll = key[1].ql;
 		if (qll) pQL.push([i, qll, pName(i)]);
 		is.push(i);
@@ -3630,6 +3630,7 @@ function updateVersionInfo(version, neverAsk, alwaysReport) {
 // _FX_PRESETS_KEY is declared at the top of the file (var) so it's available during init
 const _FX_PRESETS_BASE = 5;  // fixed presets occupy IDs 1–5; user presets start at 6
 const _FX_PLAYLIST_ID = 101; // preset 101 is z_cycle_preset
+const _LIGHTS_OFF_PRESET_ID = 100; // reserved by simple_timer.htm for the daily OFF action
 
 function getFxPresets() {
 	try { return JSON.parse(localStorage.getItem(_FX_PRESETS_KEY) || '[]'); } catch(e) { return []; }
@@ -3695,7 +3696,7 @@ async function addEffectAsPreset(effectId, effectName) {
 		delete presets["0"]; // strip the backup sentinel that populatePresets() adds
 		presets[String(nextId)] = {"n": effectName, "on": true, "bri": 128, "seg": [{"id": 0, "grp": 3, "fx": parseInt(effectId),
 			"sx": sx, "ix": ix, "c1": c1, "c2": c2, "c3": c3}]};
-		const userCount = Object.keys(presets).filter(k => k !== "101").length;
+		const userCount = Object.keys(presets).filter(k => k !== "101" && k !== "100").length;
 		presets["101"] = {"n": "z_cycle_preset", "win": "P1=" + (_FX_PRESETS_BASE + 1) + "&P2=" + (_FX_PRESETS_BASE + userCount) + "&PL=~"};
 		await _uploadPresetsJson(presets);
 		pJson = presets;
@@ -3737,7 +3738,7 @@ async function removeEffectPreset(effectId) {
 			presets[String(entry.presetId)] = presets[String(lastEntry.presetId)];
 		}
 		delete presets[String(swapOccurs ? lastEntry.presetId : entry.presetId)];
-		const userCount = Object.keys(presets).filter(k => k !== "101").length;
+		const userCount = Object.keys(presets).filter(k => k !== "101" && k !== "100").length;
 		presets["101"] = {"n": "z_cycle_preset", "win": "P1=" + (_FX_PRESETS_BASE + 1) + "&P2=" + (_FX_PRESETS_BASE + userCount) + "&PL=~"};
 		await _uploadPresetsJson(presets);
 		pJson = presets;
@@ -3753,7 +3754,7 @@ function syncFxPresetsFromDevice() {
 	const synced = [];
 	for (const [key, preset] of Object.entries(pJson)) {
 		const numId = parseInt(key);
-		if (numId <= _FX_PRESETS_BASE || numId === _FX_PLAYLIST_ID) continue;
+		if (numId <= _FX_PRESETS_BASE || numId === _FX_PLAYLIST_ID || numId === _LIGHTS_OFF_PRESET_ID) continue;
 		if (!isObj(preset) || !preset.seg || !preset.seg[0]) continue;
 		const effectId = preset.seg[0].fx;
 		if (effectId === undefined || effectId === null) continue;

@@ -8,6 +8,8 @@ Do not make any changes until you have 100% confidence in what you need to build
 
 When you are done with a change, end with the word 'DONE' so that I know you are finished.
 
+Before saying DONE on any implementation task, update `.ben/implementation-notes.md` for every requirement that was implemented. Fill in Files, Approach, Gotchas, and Deploy. Never leave TBD fields for completed work.
+
 When I need to update the esp32 device, you must tell me which IDs I need to run, so that I don't waste my time.
 1 = npm run build
 2 = & "$env:USERPROFILE\.platformio\penv\Scripts\pio.exe" run -e lolin_s2_mini --target upload 

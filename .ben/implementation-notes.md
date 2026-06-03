@@ -278,47 +278,105 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 
 ## REQ 3.26 — Heart icon outside pill for Effects and Favourites tabs *(supersedes REQ 3.23, 3.24)*
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`, `wled00/data/index.htm`
+
+**Approach:** A `.fx-pill-row` flex wrapper (`display:flex; align-items:flex-start; gap:8px`) holds the `lstI` pill on the left and a `<span class="fx-preset-btn">` heart icon on the right. `generateListItemHtml()` returns the plain pill when `extraHtml` is empty, or wraps it in `.fx-pill-row` with the heart as a sibling when `extraHtml` is provided. The "Presets" tab label in the bottom nav was renamed to "Favourites" in `index.htm`. Solid (&#x2605;) and outline (&#x2606;) Unicode hearts are used directly — no icon font dependency.
+
+**Gotchas:** The heart must be a sibling of the pill div (outside it), not a child — otherwise click events on the heart could still bubble to the pill's `onClick` handler.
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.1 — Outline/solid heart toggles add/remove from cycle
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.js` — `addEffectAsPreset()`, `removeEffectPreset()`, `_uploadPresetsJson()`
+
+**Approach:** `addEffectAsPreset(effectId, effectName)` and `removeEffectPreset(effectId)` are async functions that: (1) update `localStorage` (`_FX_PRESETS_KEY`) optimistically, (2) fetch `presets.json`, (3) add or remove the preset entry, (4) recalculate the `z_cycle_preset` (ID 101) playlist range as `P1=6&P2=(_FX_PRESETS_BASE + userCount)&PL=~`, (5) upload via `POST /upload` (FormData with a `data` field set to the JSON blob), (6) sync `pJson` in-memory and call `populatePresets()` + `requestJson({ps:101})` to update the device. `removeEffectPreset` uses a swap-with-last-then-pop strategy to avoid ID gaps: the removed preset's slot is filled with the last preset's data before deleting the last slot.
+
+**Gotchas:**
+- The swap strategy is critical — without it, removing a middle preset leaves a gap in the `P1–P2` range that causes the device to try loading a missing preset ID and hang the cycle.
+- `P2` must equal `_FX_PRESETS_BASE + userCount` after the mutation. Off-by-one means the last or newest preset is skipped from cycling.
+- In commit bf0cad774, `addEffectAsPreset` and `removeEffectPreset` were updated to use `pJson` as the source of truth instead of re-fetching `presets.json`, to avoid a race with `loadPresets()` running concurrently during page init.
+
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.2a — Effects page outline heart hidden unless effect is currently active
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.css`
+
+**Approach:** Default rule `.fx-preset-add { visibility: hidden }` hides the outline heart for all unselected effects. A `:has()` CSS rule `#fxlist .fx-pill-row:has(.lstI.selected) > .fx-preset-add { visibility: visible }` reveals it only when the sibling pill carries the `selected` class (i.e. the effect is currently playing).
+
+**Gotchas:** `:has()` requires a modern browser (2022+). The device's browser (Chromium-based Android tablet) supports it — not a concern for this deployment.
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.2b — Favourites page outline heart non-clickable
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`
+
+**Approach:** In `populatePresets()`, each preset entry is cross-referenced against `getFxPresets()`. Presets that are in the fx-presets list get a solid star (`<span class="fx-preset-btn fx-preset-rm" onclick="removeEffectPreset(...)">&#x2605;</span>`). All other presets get an inactive outline star (`<span class="fx-preset-btn fx-preset-no-action">&#x2606;</span>`) with no `onclick`. CSS: `.fx-preset-no-action { cursor: default; opacity: 0.4 }`.
+
+**Gotchas:** The `no-action` class is assigned at render time — no runtime JS guard is needed. The `z_cycle_preset` preset (ID 101) is skipped entirely from the Favourites list via `if (i === _FX_PLAYLIST_ID) continue` in `populatePresets()`.
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.3 — Solid effect pill (id=0) has no heart icon
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`
+
+**Approach:** Solid (id=0) can never match an entry in `_fxPresetList`, so it always gets the outline heart (`fx-preset-add`). The default `.fx-preset-add { visibility: hidden }` hides it, and the `:has(.lstI.selected)` rule only shows it when Solid is the active effect. In practice Solid being selected-and-playing is rare; the heart remains hidden for the vast majority of usage.
+
+**Gotchas:** There is no hard `id !== 0` guard in the current code — the hiding relies entirely on the `visibility: hidden` default. If Solid is selected (actively playing) the outline heart becomes visible and clickable; `addEffectAsPreset(0, 'Solid')` would run. This is an accepted edge case for this deployment.
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.4 — Heart click on Effects page must not change the currently playing effect
 
-**Files:** TBD
-**Approach:** TBD
-**Gotchas:** TBD
-**Deploy:** TBD
+**Files:** `wled00/data/index.js`
+
+**Approach:** All heart `<span>` onclick handlers begin with `event.stopPropagation()`. Since the heart is a sibling of the pill (not inside it) in `.fx-pill-row`, clicks on the heart don't naturally bubble to the pill's `onClick="setFX(id)"`. The `stopPropagation()` is a defensive belt-and-suspenders call in case the event model changes.
+
+**Gotchas:** None — the sibling layout means no bubbling to the pill. `stopPropagation()` is cheap and harmless to keep.
+**Deploy:** 1 → 3
+
+---
 
 ## REQ 3.26.5 — Rebuild wled_user_fx_presets from presets.json on page load
+
+**Files:** `wled00/data/index.js` — `syncFxPresetsFromDevice()`, `loadPresets()`
+
+**Approach:** `syncFxPresetsFromDevice()` scans `pJson` for entries with `presetId > _FX_PRESETS_BASE` (> 5) and `presetId !== 101`, extracting `effectId` from `preset.seg[0].fx`. The result fully replaces `_FX_PRESETS_KEY` in localStorage. It is called inside `loadPresets()` immediately after `pJson` is assigned, and again triggers `populateEffects()` so heart icons reflect the freshly synced state. The old `if (pmt == pmtLS) populatePresets(true)` localStorage shortcut was removed — presets always load fresh from the device so `syncFxPresetsFromDevice()` always runs.
+
+**Gotchas:**
+- The localStorage shortcut had to be removed. If it were kept, a returning browser session would skip `loadPresets()` entirely and the fx-presets list would never sync from the device, leaving stale localStorage from a previous session.
+- In commit bf0cad774, `syncFxPresetsFromDevice()` was given a guard: it only writes to localStorage if the device returns ≥1 fx-preset OR localStorage is already empty. This prevents a race where an empty server response (upload not yet propagated) wipes a preset that was just added in the same session.
+
+**Deploy:** 1 → 3
+
+---
+
+## REQ 2.6 — Auto-save preset on slider change (debounced 500ms, no toast)
+
+**Files:** `wled00/data/index.js` — `_schedulePresetAutoSave()`
+
+**Approach:** `_schedulePresetAutoSave()` is called on every slider change. It resolves the target preset ID: first tries `currentPreset`, skipping WIN-macro presets (e.g. `z_cycle_preset` ID 101); falls back to the starred fx-preset for the currently-selected effect. Slider values (`sx`, `ix`, `c1–c3`) are captured at schedule time (not at fire time) to guard against the cycling preset resetting the DOM before the 500ms fires. The timer sends two sequential `requestJson` calls — first to re-apply the captured values, then `{psave: pid}` — and updates `pJson` in-memory so the same session re-applies correct values if the preset is loaded again.
+
+**Gotchas:**
+- WIN-macro presets must be skipped — saving raw effect data over them would overwrite the cycling playlist.
+- Slider values must be captured at `setTimeout` schedule time, not inside the callback, because `z_cycle_preset` continuously resets the DOM sliders via `readState()` before the 500ms elapses.
+- Two sequential `await requestJson()` calls are needed: the device processes WebSocket messages in order, so the re-apply lands before the save.
+- `pJson` is patched in-memory after save so subsequent `setPreset()` calls in the same session send the updated slider values without requiring a full reload.
+
+**Deploy:** 1 → 3 (web UI only)
+
+---
+
+## REQ 2.7 — Timer macro slots (slot 0 = ON, slot 1 = OFF; all others cleared)
 
 **Files:** TBD
 **Approach:** TBD
@@ -327,9 +385,88 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 
 ---
 
-## REQ 2.6 — Auto-save preset on slider change (debounced 500ms, no toast)
+## REQ 2.8 — ON timer fires every day (no day-of-week selection)
 
 **Files:** TBD
 **Approach:** TBD
 **Gotchas:** TBD
 **Deploy:** TBD
+
+---
+
+## REQ 3.27 — Rename "Factory Settings" pill to "Developer Zone"
+
+**Files:** `wled00/data/settings.htm`
+**Approach:** Changed the button label text from `Factory Settings` to `Developer Zone`. The `onclick` handler (`showFactoryPin()`), PIN logic, and JS function names are unchanged — only the visible label changed.
+**Gotchas:** None.
+**Deploy:** 1 → 3
+
+---
+
+## REQ — Move Sync Interfaces to Developer Zone
+
+**Files:** `wled00/data/settings.htm`, `wled00/data/factory.htm`
+**Approach:** Removed the "Sync Interfaces" button from `settings.htm` and added it to `factory.htm` (inside the PIN-gated Developer Zone). No JS changes needed — both buttons navigate directly to `/settings/sync`.
+**Gotchas:** None.
+**Deploy:** 1 → 3
+
+---
+
+## REQ 3.28 — "Timer" pill in settings.htm outside Developer Zone
+
+**Files:** `wled00/data/settings.htm`
+**Approach:** Added `<button type="submit" onclick="window.location=getURL('/simple_timer.htm')">Timer</button>` immediately before the Developer Zone button. Placed outside the PIN-gated section so any user can reach it without a PIN.
+**Gotchas:** None — the button uses the same styling as all other settings buttons (global `button` rule in settings.htm's inline style).
+**Deploy:** 1 → 3
+
+---
+
+## REQ 3.29 / 3.29.1–3.29.6 / REQ 2.7 / REQ 2.8 — Simple Timer page
+
+**Files:** `wled00/data/simple_timer.htm` (new), `wled00/data/index.js`
+
+**Approach:**
+`simple_timer.htm` is a standalone page served by WLED's LittleFS handler at `/simple_timer.htm`. It loads `common.js` + `style.css` using the same retry-on-error pattern as `factory.htm`. All page logic is inline JS with a `st` prefix to avoid collisions.
+
+**On page load (`stInit`):**
+- Pre-populates "Set current time" with `new Date()` browser local time.
+- Reads `localStorage['wled_user_fx_presets']` and populates the effect dropdown. If the array is empty, the select is hidden, a warning is shown, and the SAVE button is disabled.
+- Restores previous ON/OFF times, preset selection, and enabled state from `localStorage['wled_simple_timer']`.
+
+**On SAVE (`stSave`):**
+1. Calculates UTC offset: `UO = entered_local_seconds - browser_UTC_seconds`, then clamps to ±12 h to handle midnight boundary.
+2. Calls `stEnsureLightsOffPreset()` — fetches `/presets.json`, adds `{"n":"z_lights_off","on":false}` at ID 100 if absent, and re-uploads via `POST /upload` (FormData, same pattern as `addEffectAsPreset`).
+3. POSTs to `/settings/time` (`application/x-www-form-urlencoded`) with all required time-settings params (NT, NS, CF, TZ, UO, OL, CE, countdown fields, macro presets, lat/lon) plus timer slots:
+   - Slot 0: ON — user's chosen preset, `W0=255` (all days) when enabled, `W0=0` when disabled.
+   - Slot 1: OFF — preset 100 (`z_lights_off`), same weekday mask.
+   - Slots 2–15: explicitly zeroed (`T{i}=0, W{i}=0`) to clear any previously-set timers.
+4. Persists settings to `localStorage['wled_simple_timer']` for restore on next visit.
+
+**REQ 3.29.5 — time wheel:** All three time inputs use `<input type="time">` which renders as a native time-picker wheel on mobile browsers. No JS needed.
+
+**REQ 3.29.6 — no presets warning:** If `wled_user_fx_presets` is empty on page load, the effect `<select>` is hidden, a `⚠` warning div is shown, and `stSaveBtn.disabled = true`.
+
+**UI layout (revised):** "Timer enabled" checkbox sits at the top of the page (above the form sections). All form sections are wrapped in `#stFormBody`; `stUpdateFormState()` toggles class `st-disabled` (`opacity:0.4; pointer-events:none`) when unchecked. SAVE button is outside `#stFormBody` and always clickable (sends `W0=0, W1=0` when disabled). Back button is styled as a pill (`border-radius:var(--h); height:9vh; width:calc(100%-40px)`) matching settings.htm. Playwright tests: `simple_timer.spec.js` (16 tests covering structure, greying, localStorage restore, POST body correctness, and preset 100 upload behaviour).
+
+**`index.js` changes for preset 100 isolation:**
+- Added `const _LIGHTS_OFF_PRESET_ID = 100`.
+- `populatePresets()`: added `|| i === _LIGHTS_OFF_PRESET_ID` to the skip guard so preset 100 never appears in the Favourites tab.
+- `addEffectAsPreset()` and `removeEffectPreset()`: `userCount` filter now excludes both `"101"` and `"100"` so the cycling playlist range (`P1=6&P2=N`) is not thrown off by the presence of preset 100.
+- `syncFxPresetsFromDevice()`: added `|| numId === _LIGHTS_OFF_PRESET_ID` so preset 100 is never treated as a user fx preset in localStorage.
+
+**Gotchas:**
+- UTC offset approach only works correctly when the device has an active NTP sync. In AP mode (no internet), the device clock has no reference so timers won't fire regardless of the UO setting — the page shows a note: "Requires internet connection for accurate timing."
+- The "current time" field uses the browser's UTC clock, not the device's time. If the browser clock is wrong, the computed UO will be wrong.
+- Slots 2–15 are explicitly zeroed on every SAVE. This clears any timers previously configured through WLED's full Time & Macros settings page — intentional for this device.
+- Preset 100 must be excluded from `userCount` in `addEffectAsPreset`/`removeEffectPreset`, otherwise the `P2` playlist end-marker would be miscounted when preset 100 exists alongside fx presets.
+
+**Deploy:** 1 → 3
+
+---
+
+## REQ 3.30 — "TIMER" button in bottom nav
+
+**Files:** `wled00/data/index.htm`
+**Approach:** Added `<button onclick="window.location.href=getURL('/simple_timer.htm')">TIMER</button>` as the 5th child of `.tab.bot`, after the Favourites button. No `tablinks` class — it is a navigation link, not a tab, so it is excluded from the `tablinks[]` array and does not shift `tablinks[2]` (hidden Segments) or `tablinks[3]` (Favourites). Styling comes automatically from the existing `.bot button` rule (uppercase, white, 18px, correct padding).
+**Gotchas:** Do not add `tablinks` class — that would shift the hidden-Segments `nth-child(3)` rule and break tab switching.
+**Deploy:** 1 → 3

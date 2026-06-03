@@ -34,6 +34,8 @@
   **2.5.1** `pending` [2026-05-13] — The WordPress plugin must expose the REST endpoint, log incoming data to a database, and display results in a WP Admin dashboard table.
   **2.5.2** `pending` [2026-05-13] — The tracking request must include both the WLED base version and the custom build commit hash so the WordPress dashboard can identify which build is running.
 **2.6** `pending` [2026-06-01 00:00] — When a preset is selected, any change to the Speed, Intensity, or Custom 1/2/3 sliders must automatically update (save) that preset's settings, debounced 500ms after the last slider interaction, with no toast shown.
+**2.7** `pending` [2026-06-03 00:00] — The Simple Timer must use WLED macro slots 0 (ON event, user's chosen preset) and 1 (OFF event, reserved preset ID 100 "z_lights_off"); all other macro slots must be cleared on save.
+**2.8** `pending` [2026-06-03 00:00] — The Simple Timer ON event fires every day with no day-of-week selection available.
 
 ---
 
@@ -83,6 +85,16 @@
   **3.26.3** `pending` [2026-05-31 00:00] — The Solid effect pill (id=0) on the Effects page does not display a heart icon.
   **3.26.4** `pending` [2026-06-01 00:00] — Clicking either heart icon (add or remove) on the Effects page must not change the currently playing effect; the previous behaviour of switching the device to the z_cycle_preset playlist (preset 101) on heart click is removed.
   **3.26.5** `pending` [2026-06-01 00:00] — On page load, the localStorage entry for user fx presets (key: wled_user_fx_presets) is rebuilt from the device's presets.json, so the heart icons in the UI always reflect actual device state.
+**3.27** `pending` [2026-06-03 00:00] — Rename the "Factory Settings" pill button in settings.htm to "Developer Zone".
+**3.28** `pending` [2026-06-03 00:00] — Add a "Simple Timer" pill button to settings.htm outside and above the Developer Zone section.
+**3.29** `pending` [2026-06-03 00:00] — Create a new page simple_timer.htm served at /simple_timer.htm containing the Simple Timer configuration UI.
+  **3.29.1** `pending` [2026-06-03 00:00] — Simple Timer page includes a "Set current time" field using native `<input type="time">` that sets the device clock by computing the UTC offset from the entered local time.
+  **3.29.2** `pending` [2026-06-03 00:00] — Simple Timer page includes a "Lights ON" section with a time picker and an effect dropdown populated from the user's starred presets (localStorage key: wled_user_fx_presets).
+  **3.29.3** `pending` [2026-06-03 00:00] — Simple Timer page includes a "Lights OFF" section with a time picker only; the device turns off at the specified time.
+  **3.29.4** `pending` [2026-06-03 00:00] — Simple Timer page includes a "Timer enabled" checkbox.
+  **3.29.5** `pending` [2026-06-03 00:00] — Simple Timer page SAVE button uses native `<input type="time">` elements for all time fields to enable the mobile time-wheel picker.
+  **3.29.6** `pending` [2026-06-03 00:00] — If no starred presets exist in wled_user_fx_presets, the Simple Timer page shows a warning and the SAVE button is disabled.
+**3.30** `pending` [2026-06-03 00:00] — Add a "TIMER" text button to the bottom footer nav bar, positioned between the Favourites button and the Settings cog.
 
 ---
 
