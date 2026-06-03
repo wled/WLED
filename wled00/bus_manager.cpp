@@ -804,9 +804,9 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   virtualDisp = nullptr; // todo: this should be solved properly, can cause memory leak (if omitted here, nothing seems to work)
   _isVirtual = false;
   // aliases for easier reading
-  uint8_t panelWidth  = bc.pins[0];
-  uint8_t panelHeight = bc.pins[1];
-  uint8_t chainLength = bc.pins[2];
+  unsigned panelWidth  = bc.pins[0];
+  unsigned panelHeight = bc.pins[1];
+  unsigned chainLength = bc.pins[2];
   _rows = bc.pins[3];
   _cols = bc.pins[4];
 
@@ -823,7 +823,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
   mxconfig.clkphase = bc.reversed;
   // allow chain length up to 4, limit to prevent bad data from preventing boot due to low memory
-  mxconfig.chain_length = max((uint8_t) 1, min(chainLength, (uint8_t) 4));
+  mxconfig.chain_length = max(1U, min(chainLength, 4U));
 
   if (mxconfig.mx_height >= 64 && (mxconfig.chain_length > 1)) {
   #if defined(BOARD_HAS_PSRAM)                    // limitation to one panel only applies to boards without PSRAM
@@ -836,12 +836,12 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   if (bc.type == TYPE_HUB75MATRIX_HS) {
-      mxconfig.mx_width = min((uint8_t) 128, panelWidth); // TODO: UI limit is 128, this limits to 64
-      mxconfig.mx_height = min((uint8_t) 64, panelHeight);
+      mxconfig.mx_width = min(128U, panelWidth); // TODO: UI limit is 128, this limits to 64
+      mxconfig.mx_height = min(64U, panelHeight);
   } else if (bc.type == TYPE_HUB75MATRIX_QS) {
       _isVirtual = true;
-      mxconfig.mx_width = min((uint8_t) 128, panelWidth) * 2;
-      mxconfig.mx_height = min((uint8_t) 64, panelHeight) / 2;
+      mxconfig.mx_width = min(128U, panelWidth) * 2;
+      mxconfig.mx_height = min(64U, panelHeight) / 2;
       mxconfig.driver = HUB75_I2S_CFG::FM6124;  // use FM6124 for "outdoor" 4-scan panels - workaround until we can make the driver user-configurable
   } else {
     DEBUGBUS_PRINTLN("Unknown type");
