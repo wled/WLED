@@ -2007,9 +2007,16 @@ function pleTr(p,i,field)
 function plR(p)
 {
 	var pl = plJson[p];
+	const clocked = gId(`pl${p}clocked`);
+	const manual = gId(`pl${p}manual`);
+	const repeat = gId(`pl${p}rptgl`);
+	if (clocked.checked && !repeat.checked) {
+		clocked.checked = false;
+		manual.disabled = false;
+	}
 	pl.r = gId(`pl${p}rtgl`).checked;
-	pl.clocked = gId(`pl${p}clocked`).checked;
-	if (gId(`pl${p}rptgl`).checked) { // infinite
+	pl.clocked = clocked.checked;
+	if (repeat.checked) { // infinite
 		pl.repeat = 0;
 		delete pl.end;
 		gId(`pl${p}o1`).style.display = "none";
@@ -2024,6 +2031,7 @@ function plClock(p)
 {
 	const clocked = gId(`pl${p}clocked`).checked;
 	const manual = gId(`pl${p}manual`);
+	const repeat = gId(`pl${p}rptgl`);
 	if (clocked && manual.checked) {
 		manual.checked = false;
 		plM(p);
@@ -2035,6 +2043,7 @@ function plClock(p)
 			if (d) d.value = 10;
 		});
 	}
+	if (clocked && repeat) repeat.checked = true;
 	manual.disabled = clocked;
 	plR(p);
 }
@@ -2064,16 +2073,20 @@ function makeP(i,pl)
 			clocked: false,
 			end: 0
 		};
-		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
 		const clocked = !!plJson[i].clocked;
-		if (clocked) plJson[i].dur = plJson[i].dur.map(d => d > 0 ? d : 100);
+		if (clocked) {
+			plJson[i].repeat = 0;
+			delete plJson[i].end;
+			plJson[i].dur = plJson[i].dur.map(d => d > 0 ? d : 100);
+		}
+		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
 		const man = !clocked && plJson[i].dur.every(d => d == 0);
 		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
 	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
 	<span class="checkmark"></span>
 </label>
-<label class="check revchkl">Clock sync
+<label class="check revchkl" title="Uses synced time; repeats indefinitely">Clock sync
 	<input type="checkbox" id="pl${i}clocked" onchange="plClock(${i})" ${clocked?"checked":""}>
 	<span class="checkmark"></span>
 </label>
