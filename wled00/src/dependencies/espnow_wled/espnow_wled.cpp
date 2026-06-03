@@ -183,7 +183,7 @@ bool WledEspNow::begin(uint8_t channel, uint8_t iface) {
     DEBUG_PRINTLN(F("ESP-NOW esp_now_init() failed"));
     return false;
   }
-  esp_now_set_self_role(ESP_NOW_ROLE_COMBO); // TODO: found no official documentation on this... quickespnow ESP_NOW_ROLE_SLAVE in STA mode and ESP_NOW_ROLE_CONTROLLER in AP mode
+  esp_now_set_self_role(ESP_NOW_ROLE_COMBO); // TODO: found no official documentation on this... quickespnow uses ESP_NOW_ROLE_SLAVE in STA mode and ESP_NOW_ROLE_CONTROLLER in AP mode
   esp_now_register_recv_cb(_espnowRecvCB);
   esp_now_register_send_cb(_espnowSentCB);
   esp_now_add_peer(const_cast<uint8_t*>(BCAST), ESP_NOW_ROLE_COMBO, channel, nullptr, 0);
@@ -217,7 +217,7 @@ uint8_t WledEspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t 
   if ( _inFlight < ESPNOW_MAX_INFLIGHT) {
     err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);
   }
-  if (err == 0) _inFlight++; // ESP_OK == 0 on both platforms
+  if (err == 0) _inFlight++; // 0 is ESP_OK but is not defined on ESP8266
   else if (_inFlight > 0 && !isretransmit) {
     uint8_t lastInFlight = _inFlight;
     delay(2); // wait for a queued message to be sent, found that 2ms is usually enough, dont want to be too cautios (burst send is currently an edge case)
@@ -225,9 +225,11 @@ uint8_t WledEspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t 
     if (_inFlight < lastInFlight) {
       isretransmit = true; // try once more
       err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);  // A message was sent and the sent callback was called, so we can retry now.
+      if (err == 0) _inFlight++; // 0 is ESP_OK but is not defined on ESP8266
+      else DEBUG_PRINTF("ESP-NOW send failed with error %d, inflight=%d\n", err, (int)espNow._inFlight);
+      return err;
     }
   }
-  if (err != 0 && isretransmit) Serial.printf("ESP-NOW send failed with error %d, inflight=%d\n", err, (int)espNow._inFlight);
   // TODO: should monitor somehow if sending fails repeatedly and do something about it
   isretransmit = false; // reset flag
   return err;
