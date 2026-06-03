@@ -835,11 +835,11 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   if (bc.type == TYPE_HUB75MATRIX_HS) {
-      mxconfig.mx_width = min((uint8_t) 64, panelWidth); // TODO: UI limit is 128, this limits to 64
+      mxconfig.mx_width = min((uint8_t) 128, panelWidth); // TODO: UI limit is 128, this limits to 64
       mxconfig.mx_height = min((uint8_t) 64, panelHeight);
   } else if (bc.type == TYPE_HUB75MATRIX_QS) {
       _isVirtual = true;
-      mxconfig.mx_width = min((uint8_t) 64, panelWidth) * 2;
+      mxconfig.mx_width = min((uint8_t) 128, panelWidth) * 2;
       mxconfig.mx_height = min((uint8_t) 64, panelHeight) / 2;
       mxconfig.driver = HUB75_I2S_CFG::FM6124;  // use FM6124 for "outdoor" 4-scan panels - workaround until we can make the driver user-configurable
   } else {
