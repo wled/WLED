@@ -448,6 +448,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 //Playlist option byte
 #define PL_OPTION_SHUFFLE      0x01
 #define PL_OPTION_RESTORE      0x02
+#define PL_OPTION_CLOCKED      0x04
 
 // Segment capability byte
 #define SEG_CAPABILITY_RGB     0x01

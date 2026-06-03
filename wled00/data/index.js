@@ -2008,6 +2008,7 @@ function plR(p)
 {
 	var pl = plJson[p];
 	pl.r = gId(`pl${p}rtgl`).checked;
+	pl.clocked = gId(`pl${p}clocked`).checked;
 	if (gId(`pl${p}rptgl`).checked) { // infinite
 		pl.repeat = 0;
 		delete pl.end;
@@ -2017,6 +2018,25 @@ function plR(p)
 		pl.end = parseInt(gId(`pl${p}selEnd`).value);
 		gId(`pl${p}o1`).style.display = "block";
 	}
+}
+
+function plClock(p)
+{
+	const clocked = gId(`pl${p}clocked`).checked;
+	const manual = gId(`pl${p}manual`);
+	if (clocked && manual.checked) {
+		manual.checked = false;
+		plM(p);
+	} else if (clocked) {
+		plJson[p].dur.forEach((e,i)=>{
+			if (e > 0) return;
+			plJson[p].dur[i] = 100;
+			const d = gId(`pl${p}du${i}`);
+			if (d) d.value = 10;
+		});
+	}
+	manual.disabled = clocked;
+	plR(p);
 }
 
 function plM(p)
@@ -2041,17 +2061,24 @@ function makeP(i,pl)
 			transition: [tr],
 			repeat: 0,
 			r: false,
+			clocked: false,
 			end: 0
 		};
 		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
-		const man = plJson[i].dur == 0;
+		const clocked = !!plJson[i].clocked;
+		if (clocked) plJson[i].dur = plJson[i].dur.map(d => d > 0 ? d : 100);
+		const man = !clocked && plJson[i].dur.every(d => d == 0);
 		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
 	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
 	<span class="checkmark"></span>
 </label>
+<label class="check revchkl">Clock sync
+	<input type="checkbox" id="pl${i}clocked" onchange="plClock(${i})" ${clocked?"checked":""}>
+	<span class="checkmark"></span>
+</label>
 <label class="check revchkl">Manual advance
-	<input type="checkbox" id="pl${i}manual" onchange="plM(${i})" ${man?"checked":""}>
+	<input type="checkbox" id="pl${i}manual" onchange="plM(${i})" ${man?"checked":""} ${clocked?"disabled":""}>
 	<span class="checkmark"></span>
 </label>
 <label class="check revchkl">Repeat indefinitely
@@ -3050,6 +3077,7 @@ function expand(i)
 				formatArr(plJson[p]);
 				if (isNaN(plJson[p].repeat)) plJson[p].repeat = 0;
 				if (!plJson[p].r) plJson[p].r = false;
+				if (!plJson[p].clocked) plJson[p].clocked = false;
 				if (isNaN(plJson[p].end)) plJson[p].end = 0;
 				gId('seg' +i).innerHTML = makeP(p,true);
 				refreshPlE(p);
