@@ -1730,6 +1730,9 @@ void WS2812FX::show() {
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
+  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
+  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
@@ -1738,8 +1741,8 @@ void WS2812FX::show() {
     }
 
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
-    if (c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
-        c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+    if (c > 0 && useGammaCorrection)
+      c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments
