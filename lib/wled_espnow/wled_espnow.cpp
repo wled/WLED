@@ -1,4 +1,4 @@
-#include "wled.h" // includes espnow_wled.h
+#include "wled.h" // includes wled_espnow.h
 /*
  * Lightweight ESP-NOW driver for WLED
  * by @dedehai (2026) licensed under EUPL 1.2 license (same as WLED)
@@ -7,8 +7,10 @@
 
 #ifndef WLED_DISABLE_ESPNOW
 
-WledEspNow          espNow;
-//WledEspNowBroadcast espnowBroadcast; // note: WledEspNowBroadcast was added using AI with the goal of enabling porting the WLEDtubes usermod but I did not investigate if this is viable or useful so commented out for now
+namespace wled {
+
+EspNow espNow;
+//EspNowBroadcast espnowBroadcast; // note: EspNowBroadcast was added using AI with the goal of enabling porting the WLEDtubes usermod but I did not investigate if this is viable or useful so commented out for now
 
 static const uint8_t BCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF}; // static broadcast MAC
 
@@ -146,7 +148,7 @@ static void _espnowRecvCB(uint8_t *mac, uint8_t *data, uint8_t len) {
 
 #endif
 
-bool WledEspNow::begin(uint8_t channel, uint8_t iface) {
+bool EspNow::begin(uint8_t channel, uint8_t iface) {
   if (_running) stop(); // clean up before re-init
 
 // note: channel must be 0-14 (14: used in Japan only), channel = 0 means "use current WiFi channel" (both on ESP8266 and ESP32, in AP and STA mode)
@@ -193,11 +195,11 @@ bool WledEspNow::begin(uint8_t channel, uint8_t iface) {
 }
 
 // STA mode: derives the channel from the current WiFi connection (channel 0 means "use current channel" for both ESP32 and ESP8266).
-bool WledEspNow::begin() {
+bool EspNow::begin() {
   return begin(0, WIFI_IF_STA);
 }
 
-void WledEspNow::stop() {
+void EspNow::stop() {
   if (!_running) return;
   _running = false;
   esp_now_unregister_recv_cb();
@@ -207,7 +209,7 @@ void WledEspNow::stop() {
   esp_now_deinit(); // esp_now_deinit() frees any pending TX buffers
 }
 
-uint8_t WledEspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t len) {
+uint8_t EspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t len) {
   static bool isretransmit = false;
   int err = 1; // default to error
   // addr is ignored — we only support broadcast.
@@ -236,7 +238,7 @@ uint8_t WledEspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t 
 }
 
 #ifdef ARDUINO_ARCH_ESP32
-void WledEspNow::setWiFiBandwidth(uint8_t iface, uint8_t bw) {
+void EspNow::setWiFiBandwidth(uint8_t iface, uint8_t bw) {
   esp_wifi_set_bandwidth((wifi_interface_t)iface, (wifi_bandwidth_t)bw);
 }
 #endif
@@ -244,15 +246,15 @@ void WledEspNow::setWiFiBandwidth(uint8_t iface, uint8_t bw) {
 /*
 // start AI code, unreviewed, untested
 // =========================================================================
-// WledEspNowBroadcast — implementation
+// EspNowBroadcast — implementation
 // =========================================================================
 
-bool WledEspNowBroadcast::send(const uint8_t *msg, size_t len) {
+bool EspNowBroadcast::send(const uint8_t *msg, size_t len) {
   if (len > 250) return false; // ESP-NOW max payload
   return espNow.send(BCAST, msg, (uint8_t)len) == 0;
 }
 
-WledEspNowBroadcast::STATE WledEspNowBroadcast::getState() const {
+EspNowBroadcast::STATE EspNowBroadcast::getState() const {
   switch (statusESPNow) {
     case ESP_NOW_STATE_ON:    return STARTED;
     case ESP_NOW_STATE_UNINIT: // fall through
@@ -261,7 +263,7 @@ WledEspNowBroadcast::STATE WledEspNowBroadcast::getState() const {
   }
 }
 
-bool WledEspNowBroadcast::registerCallback(receive_callback_t cb) {
+bool EspNowBroadcast::registerCallback(receive_callback_t cb) {
   for (size_t i = 0; i < WLED_ESPNOW_MAX_REGISTERED_CALLBACKS - 1; i++) {
     if (_callbacks[i] == cb)   return true;  // already registered
     if (_callbacks[i] == nullptr) {
@@ -272,7 +274,7 @@ bool WledEspNowBroadcast::registerCallback(receive_callback_t cb) {
   return false; // array full
 }
 
-bool WledEspNowBroadcast::removeCallback(receive_callback_t cb) {
+bool EspNowBroadcast::removeCallback(receive_callback_t cb) {
   size_t found = WLED_ESPNOW_MAX_REGISTERED_CALLBACKS;
   for (size_t i = 0; i < WLED_ESPNOW_MAX_REGISTERED_CALLBACKS - 1; i++) {
     if (_callbacks[i] == cb) { found = i; break; }
@@ -285,14 +287,14 @@ bool WledEspNowBroadcast::removeCallback(receive_callback_t cb) {
   return true;
 }
 
-WledEspNowBroadcast::receive_filter_t
-WledEspNowBroadcast::registerFilter(receive_filter_t filter) {
+EspNowBroadcast::receive_filter_t
+EspNowBroadcast::registerFilter(receive_filter_t filter) {
   receive_filter_t old = _filter;
   _filter = filter;
   return old;
 }
 
-void WledEspNowBroadcast::dispatch(const uint8_t *mac, const uint8_t *data,
+void EspNowBroadcast::dispatch(const uint8_t *mac, const uint8_t *data,
                                    uint8_t len, int8_t rssi) {
   if (_filter && !_filter(mac, data, len, rssi)) return;
   for (size_t i = 0; i < WLED_ESPNOW_MAX_REGISTERED_CALLBACKS - 1; i++) {
@@ -301,5 +303,7 @@ void WledEspNowBroadcast::dispatch(const uint8_t *mac, const uint8_t *data,
 }
 // end AI code, unreviewed, untested
 */
+
+} // namespace wled
 
 #endif // WLED_DISABLE_ESPNOW

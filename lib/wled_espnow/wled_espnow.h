@@ -25,7 +25,9 @@ static const uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF
   #endif
 #endif
 
-class WledEspNow {
+namespace wled {
+
+class EspNow {
 public:
   // Callback types
   typedef void (*sent_cb_t)(uint8_t *address, uint8_t status);
@@ -52,7 +54,7 @@ public:
   void setWiFiBandwidth(uint8_t iface, uint8_t bw);
 #endif
 
-  // Accessible from file-static SDK callbacks in espnow.cpp:
+  // Accessible from file-static SDK callbacks in wled_espnow.cpp:
   sent_cb_t _sentCB = nullptr;
   rcvd_cb_t _rcvdCB = nullptr;
   volatile int8_t _inFlight {0}; // frames queued in driver, not yet confirmed
@@ -63,7 +65,7 @@ private:
 
 /*
 // start AI code, unreviewed, untested
-// --- WledEspNowBroadcast -----------------------------------------------
+// --- EspNowBroadcast -----------------------------------------------
 // Thin facade matching the ESPNOWBroadcast interface from WLEDtubes so the
 // Tubes usermod can be ported upstream with minimal modifications.
 // Delegates actual sending to espNow; state is derived from statusESPNow.
@@ -79,7 +81,7 @@ private:
   #define WLED_ESPNOW_MAX_REGISTERED_CALLBACKS (WLED_MAX_USERMODS + 1)
 #endif
 
-class WledEspNowBroadcast {
+class EspNowBroadcast {
 public:
   enum STATE { STOPPED = 0, STARTING, STARTED, MAX };
 
@@ -116,8 +118,10 @@ private:
 };
 // end AI code, unreviewed, untested
 */
-// Global instances (defined in espnow.cpp)
-extern WledEspNow           espNow;
-//extern WledEspNowBroadcast  espnowBroadcast;
+// Global instances (defined in wled_espnow.cpp)
+extern EspNow espNow;
+//extern EspNowBroadcast espnowBroadcast;
+
+} // namespace wled
 
 #endif // WLED_DISABLE_ESPNOW

@@ -692,7 +692,7 @@ void WLED::initConnection()
 #ifndef WLED_DISABLE_ESPNOW
   if (statusESPNow == ESP_NOW_STATE_ON) {
     DEBUG_PRINTLN(F("ESP-NOW stopping."));
-    espNow.stop();
+    wled::espNow.stop();
     statusESPNow = ESP_NOW_STATE_UNINIT;
   }
 #endif
@@ -802,18 +802,18 @@ void WLED::initConnection()
 
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow) {
-    espNow.onDataSent(espNowSentCB);     // see udp.cpp
-    espNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
+    wled::espNow.onDataSent(espNowSentCB);     // see udp.cpp
+    wled::espNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
     bool espNowOK;
     if (apActive) {
       DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
       #ifdef ESP32
-      espNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
+      wled::espNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
       #endif //ESP32
-      espNowOK = espNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW note: could also pass channel 0, which means "use current WiFi channel" (both on ESP8266 and ESP32)
+      espNowOK = wled::espNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW note: could also pass channel 0, which means "use current WiFi channel" (both on ESP8266 and ESP32)
     } else {
       DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
-      espNowOK = espNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
+      espNowOK = wled::espNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
     }
     statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
   }
