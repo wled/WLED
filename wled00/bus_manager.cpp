@@ -1097,7 +1097,7 @@ void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
 uint32_t BusHub75Matrix::getPixelColor(unsigned pix) const {
   if (!_valid) return IS_BLACK; // note: no need to check pix >= _len as that is checked in containsPixel()
   if (_ledBuffer)
-    return uint32_t(_ledBuffer[pix]);
+    return uint32_t(_ledBuffer[pix]) & 0x00FFFFFF;  // FastLED 32bit is RGBA, we need RGBW
   else
     return getBitFromArray(_ledsDirty, pix) ? IS_DARKGREY: IS_BLACK;   // just a hack - we only know if the pixel is black or not
 }
