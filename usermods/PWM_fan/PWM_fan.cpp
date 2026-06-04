@@ -103,8 +103,8 @@ class PWMFanUsermod : public Usermod {
       // detach interrupt while calculating rpm
       detachInterrupt(digitalPinToInterrupt(tachoPin)); 
       // calculate rpm
-      last_rpm = (counter_rpm * 60) / numberOfInterrupsInOneSingleRotation;
-      last_rpm = (last_rpm * 1000) / msInterval;
+      last_rpm = (unsigned long)(counter_rpm * 60000UL) / numberOfInterrupsInOneSingleRotation / msInterval;
+
       // reset counter
       counter_rpm = 0; 
       // attach interrupt again
@@ -168,6 +168,11 @@ class PWMFanUsermod : public Usermod {
 
       int pwmMinValue = minPWMValuePct * _pwmMaxValue / 100;
       int pwmMaxValue = maxPWMValuePct * _pwmMaxValue / 100;
+
+      if (temp <= 0.0f) {
+        updateFanSpeed(_pwmMaxValue); // fail safe: no sensor reading
+        return;
+      }
 
       if (pwmMaxValue <= pwmMinValue) {
         updateFanSpeed(_pwmMaxValue); // fail safe: invalid config, run at max speed
@@ -295,6 +300,7 @@ class PWMFanUsermod : public Usermod {
           pwmValuePct = usermod[FPSTR(_speed)].as<int>();
           updateFanSpeed((constrain(pwmValuePct,0,100) * 255) / 100);
           if (pwmValuePct) lockFan = true;
+          else  lockFan = false;
         }
         if (enabled && !usermod[FPSTR(_lock)].isNull() && usermod[FPSTR(_lock)].is<bool>()) {
           lockFan = usermod[FPSTR(_lock)].as<bool>();
