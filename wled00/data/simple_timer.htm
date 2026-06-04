@@ -249,7 +249,8 @@ async function stSave() {
 		var cp = currentTimeVal.split(':');
 		var enteredSec = parseInt(cp[0], 10) * 3600 + parseInt(cp[1], 10) * 60;
 		var utcNow = new Date();
-		var utcSec = utcNow.getUTCHours() * 3600 + utcNow.getUTCMinutes() * 60 + utcNow.getUTCSeconds();
+		// Truncate to whole minutes — the user enters HH:MM so sub-minute seconds must not bias the offset
+		var utcSec = utcNow.getUTCHours() * 3600 + utcNow.getUTCMinutes() * 60;
 		var UO = enteredSec - utcSec;
 		// Clamp to ±12 h to handle midnight boundary
 		if (UO > 43200) UO -= 86400;

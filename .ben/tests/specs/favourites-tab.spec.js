@@ -136,6 +136,85 @@ test.describe('Favourites tab UI (REQ 3.24)', () => {
 
 });
 
+test.describe('Empty Favourites state (no fx presets)', () => {
+
+  test('shows "You have no favorites saved" when Favourites tab is empty', async ({ page }) => {
+    await loadPage(page);
+    await goToFavourites(page);
+    await expect(page.locator('#noFavsMsg')).toBeVisible();
+    await expect(page.locator('#noFavsMsg')).toHaveText('You have no favorites saved');
+  });
+
+  test('shows Restore default favourites pill when Favourites tab is empty', async ({ page }) => {
+    await loadPage(page);
+    await goToFavourites(page);
+    const pill = page.locator('#restoreDefaultBtn .lstIname');
+    await expect(pill).toBeVisible();
+    await expect(pill).toHaveText('Restore default favourites');
+  });
+
+  test('Presets heading is hidden when Favourites tab is empty', async ({ page }) => {
+    await loadPage(page);
+    await goToFavourites(page);
+    await expect(page.locator('#presetsHeading')).not.toBeVisible();
+  });
+
+  test('pql quick-links are hidden when Favourites tab is empty', async ({ page }) => {
+    await loadPage(page);
+    await goToFavourites(page);
+    await expect(page.locator('#pql')).not.toBeVisible();
+  });
+
+  test('Restore default favourites button uploads cleaned presets and clears fx presets', async ({ page }) => {
+    const capturedUploads = [];
+    await mockDeviceApi(page, []);
+    // Override upload to capture body
+    await page.route('**/upload', async r => {
+      capturedUploads.push(r.request().postData() || '');
+      r.fulfill({ status: 200, body: 'OK' });
+    });
+    await page.addInitScript(() => { localStorage.setItem('pcm', 'false'); });
+    // Pre-seed an fx preset so there is something to restore from
+    await page.addInitScript(() => {
+      localStorage.setItem('wled_user_fx_presets', JSON.stringify([
+        { effectId: 1, presetId: 6, effectName: 'Blink' }
+      ]));
+    });
+    await page.goto('/index.htm');
+    await goToFavourites(page);
+    await page.locator('#restoreDefaultBtn .lstIname').click();
+    await page.waitForTimeout(600);
+
+    // After restore, localStorage fx presets must be empty
+    const stored = await page.evaluate(() => localStorage.getItem('wled_user_fx_presets'));
+    expect(JSON.parse(stored || '[]')).toHaveLength(0);
+
+    // An upload must have been made
+    expect(capturedUploads.length).toBeGreaterThan(0);
+    // The upload body must contain z_cycle_preset reset to P1=1&P2=5
+    const body = capturedUploads.join('');
+    expect(body).toContain('z_cycle_preset');
+    expect(body).toContain('P1=1');
+  });
+
+  test('after restore, "You have no favorites saved" message is still shown', async ({ page }) => {
+    await mockDeviceApi(page, []);
+    await page.route('**/upload', r => r.fulfill({ status: 200, body: 'OK' }));
+    await page.addInitScript(() => {
+      localStorage.setItem('pcm', 'false');
+      localStorage.setItem('wled_user_fx_presets', JSON.stringify([
+        { effectId: 1, presetId: 6, effectName: 'Blink' }
+      ]));
+    });
+    await page.goto('/index.htm');
+    await goToFavourites(page);
+    await page.locator('#restoreDefaultBtn .lstIname').click();
+    await page.waitForTimeout(600);
+    await expect(page.locator('#noFavsMsg')).toBeVisible();
+  });
+
+});
+
 test.describe('REQ 3.25 — no error after removing last user preset', () => {
 
   test('removing last preset does not send ps:101 to device', async ({ page }) => {

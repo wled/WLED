@@ -219,6 +219,28 @@ test('SAVE sends W0=0 and W1=0 when timer is disabled', async ({ page }) => {
 	expect(p.get('W1')).toBe('0');
 });
 
+test('UO in POST body is always a whole-minute multiple (no sub-minute seconds bias)', async ({ page }) => {
+	await mockApi(page);
+	await withFxPresets(page);
+
+	let capturedBody = '';
+	await page.route('**/settings/time', r => {
+		if (r.request().method() === 'POST') capturedBody = r.request().postData() || '';
+		r.fulfill({ status: 200, body: 'OK' });
+	});
+
+	await loadTimer(page);
+	await page.locator('#stEnabled').check();
+	await page.locator('#stOnTime').fill('07:00');
+	await page.locator('#stOffTime').fill('22:00');
+	await page.locator('#stSaveBtn').click();
+	await page.waitForResponse('**/settings/time');
+
+	const p = new URLSearchParams(capturedBody);
+	const UO = parseInt(p.get('UO') || '0', 10);
+	expect(UO % 60).toBe(0);
+});
+
 test('SAVE clears slots 2-15 in the POST body', async ({ page }) => {
 	await mockApi(page);
 	await withFxPresets(page);

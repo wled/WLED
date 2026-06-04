@@ -454,6 +454,21 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 - `addEffectAsPreset()` and `removeEffectPreset()`: `userCount` filter now excludes both `"101"` and `"100"` so the cycling playlist range (`P1=6&P2=N`) is not thrown off by the presence of preset 100.
 - `syncFxPresetsFromDevice()`: added `|| numId === _LIGHTS_OFF_PRESET_ID` so preset 100 is never treated as a user fx preset in localStorage.
 
+---
+
+## REQ — Disable pull-to-refresh globally
+
+**Files:** `wled00/data/style.css`, `wled00/data/common.js`, `wled00/data/index.js`
+
+**Approach:** Three-layer defence:
+1. **CSS (`style.css`):** `overscroll-behavior: none` on both `html` and `body`. Covers all pages that use `style.css` (settings pages, `simple_timer.htm`, `factory.htm`, etc.) in Chrome 63+ and Safari 16+.
+2. **JS (`common.js`):** An IIFE at the end of the file adds `touchmove` prevention on the document. On each downward drag (`dy > 0`), it walks up the DOM from the touch target looking for the nearest element with computed `overflowY: auto|scroll`. If that element's `scrollTop > 0` (user is in the middle of scrolling up through content), the event is allowed. If at the top of any scroll container — or touching a non-scrollable area — `e.preventDefault()` blocks the browser's pull-to-refresh. Falls back to checking `document.documentElement.scrollTop` for pages where the body itself scrolls.
+3. **JS (`index.js`):** The existing AI section was updated to use the same computed `overflowY` check (replacing the old `scrollHeight > clientHeight` heuristic which could produce false positives on non-scrollable overflow-hidden elements) and added an early exit when `dy <= 0` to skip unnecessary DOM walking on upward drags.
+
+**Gotcha:** When `touch-action: pan-y` is set on a scrollable container (as on `.tabcontent` in `index.htm`), Chrome marks `touchmove` events as non-cancelable — the JS guard `if (!e.cancelable) return` exits without calling `preventDefault`. For those elements, CSS `overscroll-behavior: none` (already on `.tabcontent` in `index.css`) is the sole pull-to-refresh barrier. These layers complement each other: CSS handles pan-y containers, JS handles everything else.
+
+**Deploy:** 1 → 3
+
 **Gotchas:**
 - UTC offset approach only works correctly when the device has an active NTP sync. In AP mode (no internet), the device clock has no reference so timers won't fire regardless of the UO setting — the page shows a note: "Requires internet connection for accurate timing."
 - The "current time" field uses the browser's UTC clock, not the device's time. If the browser clock is wrong, the computed UO will be wrong.
@@ -469,4 +484,56 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 **Files:** `wled00/data/index.htm`
 **Approach:** Added `<button onclick="window.location.href=getURL('/simple_timer.htm')">TIMER</button>` as the 5th child of `.tab.bot`, after the Favourites button. No `tablinks` class — it is a navigation link, not a tab, so it is excluded from the `tablinks[]` array and does not shift `tablinks[2]` (hidden Segments) or `tablinks[3]` (Favourites). Styling comes automatically from the existing `.bot button` rule (uppercase, white, 18px, correct padding).
 **Gotchas:** Do not add `tablinks` class — that would shift the hidden-Segments `nth-child(3)` rule and break tab switching.
+**Deploy:** 1 → 3
+
+---
+
+## Empty Favourites state — "You have no favorites saved"
+
+**Files:** `wled00/data/index.htm`, `wled00/data/index.js`
+
+**Approach:** When `populatePresets()` counts `pNum === 0` (all presets are filtered — only preset 100 and 101 remain), instead of calling `presetError()`:
+- `#pcont` is filled with `<p id="noFavsMsg">You have no favorites saved</p>`
+- `#pql` (quick links) is set to `display:none`
+- `#presetsHeading` (the "Presets" `<p>` element, now given an ID) is set to `display:none`
+- `#putil` is replaced with a single `<button>Restore default favourites</button>`
+- Function returns early (skips `updatePA()`, `populateQL()`, localStorage write)
+
+When `pNum > 0`, the heading and `#pql` visibility are restored before normal rendering.
+
+`restoreDefaultFavourites()` (async, in the AI fx-preset block of index.js):
+- Iterates `pJson` and keeps only presets with IDs 1–5 (fixed factory presets) and ID 100 (z_lights_off)
+- Resets preset 101 to `{"n":"z_cycle_preset","win":"P1=1&P2=5&PL=~"}` (original factory cycling range)
+- Uploads the cleaned object via `_uploadPresetsJson()`
+- Calls `saveFxPresets([])` to clear localStorage
+- Calls `populatePresets()` and `populateEffects()` to refresh UI
+- Applies the cycling playlist on device via `requestJson({ps: 101})`
+- Shows green toast on success, error toast on failure
+
+**Gotchas:**
+- The `<p class="labels hd">Presets</p>` element in index.htm had no ID — added `id="presetsHeading"` so the empty-state logic can hide/restore it. Never remove this ID.
+- `pNum` only reaches 0 when all entries in `pJson` are ID 100 or 101 (both filtered). Fixed presets 1–5, if present in `pJson`, would increment `pNum` and prevent the empty state from showing — this is correct because those presets would appear as normal Favourites pills.
+- After `restoreDefaultFavourites()` runs, the Favourites tab shows the empty state again (since the restored presets 1–5 are excluded from the fx-presets system by `_FX_PRESETS_BASE`). The device's cycling playlist is repaired and the device reverts to factory behaviour.
+
+**Deploy:** 1 → 3
+
+---
+
+## Favourites tab — drag-to-reorder pills
+
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`
+
+**Approach:** Each `fx-pill-row` in `populatePresets()` gets a `data-pid` attribute (preset ID) and a `<span class="drag-handle">⠿</span>` as its first child. After setting `#pcont.innerHTML`, `initFavsReorder()` is called to wire drag events.
+
+- **Order storage:** `localStorage` key `wledFavsOrder` holds a JSON array of preset IDs in display order. No device upload is needed for reordering.
+- **Applying order:** In `populatePresets()`, after `arr.sort(cmpP)`, a second sort is applied using `getFavsOrder()`. Presets not in the saved order append at the end in default `cmpP` order. New presets automatically appear at the bottom.
+- **Desktop drag (HTML5):** Each row gets `draggable="true"`. `dragstart`/`dragend` on the row toggle `.dragging` (opacity 0.4). `dragover` on `#pcont` live-moves the dragged row so the user sees immediate feedback; `saveFavsOrderFromDom()` is called on `dragend`.
+- **Touch drag (mobile):** `touchstart` on `.drag-handle` creates a fixed ghost clone; `touchmove` moves the ghost and live-inserts the source row; `touchend` removes the ghost and saves order. Both touch handlers use `passive: false` to allow `e.preventDefault()` (stops page scroll during drag).
+- **Saving order:** `saveFavsOrderFromDom()` reads `data-pid` from all current `.fx-pill-row[data-pid]` in DOM order and writes to `wledFavsOrder`.
+
+**Gotchas:**
+- Stale IDs in `wledFavsOrder` (deleted presets) are harmless — they have no matching entry in `arr` so they never appear.
+- `touch-action: none` on `.drag-handle` is required; without it, the browser intercepts touchmove for scrolling before our handler fires.
+- `dragover` must call `e.preventDefault()` for the `drop` event to fire on desktop.
+
 **Deploy:** 1 → 3

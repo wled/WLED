@@ -1700,6 +1700,17 @@ dialog {
 .fx-preset-rm {
 	color: var(--c-y);
 }
+.drag-handle {
+	flex-shrink: 0;
+	cursor: grab;
+	color: var(--c-6);
+	font-size: 20px;
+	padding-top: 8px;
+	user-select: none;
+	touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; }
+.fx-pill-row.dragging { opacity: 0.4; }
 /* AI: end */
 
 /* Hide radio indicator dot in effects list */

@@ -1,7 +1,9 @@
 html {
 	touch-action: manipulation;
+	overscroll-behavior: none;
 }
 body {
+  overscroll-behavior: none;
   font-family: Verdana, sans-serif;
   font-size: 1rem;
   text-align: center;
