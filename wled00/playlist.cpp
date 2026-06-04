@@ -65,6 +65,14 @@ static uint32_t clockedPlaylistSeed(uint32_t cycle) {
   if (seed == 0) seed = 2166136261UL;
   return seed;
 }
+
+static void applyPlaylistEntry(uint8_t index, uint32_t durMs) {
+  playlistIndex = index;
+  jsonTransitionOnce = true;
+  strip.setTransition(playlistEntries[index].tr * 100);
+  playlistEntryDur = durMs;
+  applyPresetFromPlaylist(playlistEntries[index].preset);
+}
 // AI: end
 
 
@@ -126,6 +134,30 @@ static bool getClockedPlaylistState(uint8_t &entryIndex, uint32_t &entryOffset) 
   entryIndex = order[playlistLen - 1];
   entryOffset = playlistEntries[entryIndex].dur - 1;
   return true;
+}
+
+static void handleClockedPlaylist() {
+  if (toki.getTimeSource() == TOKI_TS_NONE) {
+    if (playlistIndex < 0 && !nightlightActive) {
+      strip.resetTimebase();
+      uint32_t durMs = playlistEntries[0].dur > 0 ? playlistEntries[0].dur : UINT32_MAX;
+      applyPlaylistEntry(0, durMs);
+    }
+    return;
+  }
+
+  uint8_t derivedIndex = 0;
+  uint32_t entryOffset = 0;
+  if (!getClockedPlaylistState(derivedIndex, entryOffset)) return;
+  if (nightlightActive) return;
+
+  strip.timebase = (unsigned long)entryOffset - millis();
+
+  if (!clockedPlaylistSynced || playlistIndex != (int8_t)derivedIndex) {
+    applyPlaylistEntry(derivedIndex, playlistEntries[derivedIndex].dur);
+  }
+  clockedPlaylistSynced = true;
+  doAdvancePlaylist = false;
 }
 // AI: end
 
@@ -234,35 +266,7 @@ void handlePlaylist() {
   if (currentPlaylist < 0 || playlistEntries == nullptr) return;
 
   if (playlistOptions & PL_OPTION_CLOCKED) {
-    if (toki.getTimeSource() == TOKI_TS_NONE) {
-      if (playlistIndex < 0 && !nightlightActive) {
-        playlistIndex = 0;
-        jsonTransitionOnce = true;
-        strip.setTransition(playlistEntries[playlistIndex].tr * 100);
-        playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX;
-        strip.resetTimebase();
-        applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
-      }
-      return;
-    }
-
-    uint8_t derivedIndex = 0;
-    uint32_t entryOffset = 0;
-    if (!getClockedPlaylistState(derivedIndex, entryOffset)) return;
-
-    if (nightlightActive) return;
-
-    strip.timebase = (unsigned long)entryOffset - millis();
-
-    if (!clockedPlaylistSynced || playlistIndex != (int8_t)derivedIndex) {
-      playlistIndex = derivedIndex;
-      jsonTransitionOnce = true;
-      strip.setTransition(playlistEntries[playlistIndex].tr * 100);
-      playlistEntryDur = playlistEntries[playlistIndex].dur;
-      applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
-    }
-    clockedPlaylistSynced = true;
-    doAdvancePlaylist = false;
+    handleClockedPlaylist();
     return;
   }
 
@@ -287,10 +291,8 @@ void handlePlaylist() {
       if (playlistOptions & PL_OPTION_SHUFFLE) shufflePlaylist(); // shuffle playlist and start over
     }
 
-    jsonTransitionOnce = true;
-    strip.setTransition(playlistEntries[playlistIndex].tr * 100);
-    playlistEntryDur = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX; // UINT32_MAX means infinite
-    applyPresetFromPlaylist(playlistEntries[playlistIndex].preset);
+    uint32_t durMs = playlistEntries[playlistIndex].dur > 0 ? playlistEntries[playlistIndex].dur : UINT32_MAX; // UINT32_MAX means infinite
+    applyPlaylistEntry(playlistIndex, durMs);
     doAdvancePlaylist = false;
   }
 }
