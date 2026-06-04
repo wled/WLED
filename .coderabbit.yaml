@@ -17,7 +17,7 @@ language: en-US
 
 reviews:
   # generic review setting, see https://docs.coderabbit.ai/reference/configuration#reference
-  auto_apply_labels: true
+  auto_apply_labels: false
   # abort_on_close: false
   high_level_summary: true
   review_status: true
