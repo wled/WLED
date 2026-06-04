@@ -16,8 +16,8 @@ class ACS712 : public Usermod {
 
     bool enabled = false;
     int8_t pin = -1;
-    uint8_t currentRatio = 100.0;
-    uint16_t resolution = 4095.0;
+    uint8_t currentRatio = 100;
+    uint16_t resolution = 4095;
     int16_t offset = 0;
 
     static const char _name[];
@@ -71,8 +71,8 @@ class ACS712 : public Usermod {
         sumCurrent += current;
       }
 
-      current = sumCurrent/100;
-      if (initMQTT) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0).c_str());
+      current = sumCurrent/100.0f;
+      if (initMQTT) mqtt->publish(currentTopic.c_str(), 0, true, String((current+lastCurrent)/2.0f).c_str());
 
       lastCurrent = current;
       lastTime = millis();
@@ -108,9 +108,9 @@ class ACS712 : public Usermod {
       oappend(F("','"));
       oappend(String(FPSTR(_current)).c_str());
       oappend(F("');"));
-      oappend(F("addOption(dd,'5A',185.0);"));
-      oappend(F("addOption(dd,'20A',100.0);"));
-      oappend(F("addOption(dd,'30A',66.0);"));
+      oappend(F("addOption(dd,'5A',185);"));
+      oappend(F("addOption(dd,'20A',100);"));
+      oappend(F("addOption(dd,'30A',66);"));
       oappend(F("addInfo('"));
       oappend(String(FPSTR(_name)).c_str());
       oappend(F(":"));
