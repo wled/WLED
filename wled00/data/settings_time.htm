@@ -252,18 +252,18 @@
 		var buttonBlock = document.createElement('div');
 		buttonBlock.className = 'bb';
 		buttonBlock.innerHTML = `
-			<div class="bh">Button ${i}</div>
+			<div class="bh">Button (switch) ${i}</div>
 			<div class="bs">
 				<div class="ba">
-					<label>Push/Switch</label>
+					<label>Short (on → off)</label>
 					<select name="MP${b}" class="s" required>${presetOpts}</select>
 				</div>
 				<div class="ba">
-					<label>Short (on→off)</label>
+					<label>Long (off → on)</label>
 					<select name="ML${b}" class="s" required>${presetOpts}</select>
 				</div>
 				<div class="ba">
-					<label>Long (off→on)</label>
+					<label>Double press (n/a)</label>
 					<select name="MD${b}" class="s" required>${presetOpts}</select>
 				</div>
 			</div>
@@ -372,7 +372,7 @@
 		Alexa On/Off Preset: <input name="A0" class="m" type="number" min="0" max="250" required> <input name="A1" class="m" type="number" min="0" max="250" required><br>
 	</div>
 	<div class="sec">
-		<h3>Button Action Presets</h3>
+		<h3>Button (switch) Action Presets</h3>
 		<div id="macros"></div>
 		<a href="https://kno.wled.ge/features/macros/#analog-button" target="_blank">Analog Button setup</a>
 	</div>
