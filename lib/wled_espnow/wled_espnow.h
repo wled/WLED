@@ -14,7 +14,7 @@
 static const uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 // Maximum number of ESP-NOW frames that may be in-flight (queued by esp driver) note: might need some tweaking for real world use, based on burst tests
-#define ESPNOW_MAX_INFLIGHT 6 // note: ESP32 have a larger buffer (16 work no problem) but ESP8266 struggles receiving more than 6 without any pause, also depends on msg length (longer=better)
+#define ESPNOW_MAX_INFLIGHT 6 // note: ESP32 have a larger buffer (16 work no problem) but ESP8266 struggles receiving more than 6 without any pause, also depends on msg length (longer=better as it reduces burst cadence)
 
 #ifdef ESP8266
   // Map ESP32 wifi_interface_t names to ESP8266 SDK interface
@@ -57,7 +57,11 @@ public:
 
   sent_cb_t _sentCB = nullptr; // callback when a message was sent out
   rcvd_cb_t _rcvdCB = nullptr; // callback when a message was received
+#ifdef ESP8266
+  volatile int8_t _inFlight {0}; // ESP8266 does not support atomic
+#else
   std::atomic<int8_t> _inFlight {0}; // incremented after send() returns success, decremented from sent callback
+#endif
 
 private:
   bool _running = false;

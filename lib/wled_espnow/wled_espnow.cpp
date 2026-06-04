@@ -209,30 +209,33 @@ void EspNow::stop() {
 }
 
 uint8_t EspNow::send(const uint8_t * /*addr*/, const uint8_t *data, uint8_t len) {
-  static bool isretransmit = false;
   int err = 1; // default to error
   // addr is ignored — we only support broadcast.
   // len must be < ESP_NOW_MAX_DATA_LEN (250 bytes).
   if (!_running) return err;
   // ESP8266 SDK uses non-const uint8_t* parameters; const_cast is safe here.
-  if ( _inFlight < ESPNOW_MAX_INFLIGHT) {
+  if ( _inFlight < ESPNOW_MAX_INFLIGHT)
     err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);
-  }
-  if (err == 0) _inFlight++; // 0 is ESP_OK but is not defined on ESP8266
-  else if (_inFlight > 0 && !isretransmit) {
-    uint8_t lastInFlight = _inFlight;
+
+  if (err) {
+    // try once more after a short delay in hope the queue frees up / resources become available
     delay(2); // wait for a queued message to be sent, found that 2ms is usually enough, dont want to be too cautios (burst send is currently an edge case)
     // note: delay and general approach might need some tweaking for real world use, based on burst tests sending 16 messages
-    if (_inFlight < lastInFlight) {
-      isretransmit = true; // try once more
+    if ( _inFlight < ESPNOW_MAX_INFLIGHT) {
       err = esp_now_send(const_cast<uint8_t*>(BCAST), const_cast<uint8_t*>(data), len);  // A message was sent and the sent callback was called, so we can retry now.
-      if (err == 0) _inFlight++; // 0 is ESP_OK but is not defined on ESP8266
-      else DEBUG_PRINTF("ESP-NOW send failed with error %d, inflight=%d\n", err, (int)espNow._inFlight);
-      return err;
     }
   }
+  #ifdef ESP8266
+  if (err == 0) {
+    noInterrupts(); // workaround for unavailable atomic
+    _inFlight++;
+    interrupts();
+  }
+  #else
+  if (err == ESP_OK) _inFlight++;
+  #endif
+
   // TODO: should monitor somehow if sending fails repeatedly and do something about it
-  isretransmit = false; // reset flag
   return err;
 }
 
