@@ -10,7 +10,6 @@ const char _name[] PROGMEM = "DmxLoRaComms";
 
 class DmxLoRaComms : public Usermod {
     private:
-        // bool startupDone = false;
         int dmxChannel = 0;
         int currentPreset = -1;
 
@@ -35,7 +34,6 @@ class DmxLoRaComms : public Usermod {
             Serial.println("SF response: " + LORA_SERIAL.readString());
         }
 
-
         LORA_SERIAL.println("AT+HELP");
         delay(500);
         if (LORA_SERIAL.available()) {
@@ -53,37 +51,43 @@ class DmxLoRaComms : public Usermod {
 
     void setup() {
         Serial.begin(115200);
+        if (!PinManager::allocatePin(LORA_RX_PIN, true, PinOwner::UM_Unspecified)) {
+            Serial.println("WARNING: LORA_RX_PIN (16) allocation failed! Check WLED UI pin configs.");
+        }
+        if (!PinManager::allocatePin(LORA_TX_PIN, true, PinOwner::UM_Unspecified)) {
+            Serial.println("WARNING: LORA_TX_PIN (17) allocation failed! Check WLED UI pin configs.");
+        }
         LORA_SERIAL.begin(9600, SERIAL_8N1, LORA_RX_PIN, LORA_TX_PIN);
-        LORA_SERIAL.setTimeout(100);
+        LORA_SERIAL.setRxBufferSize(1024);
         setLoRaConfig();
+        
         Serial.println("=== LR02 RECEIVER READY ===");
-        // startupDone = true;
     }
 
     void loop() override {
         if (LORA_SERIAL.available()) {
             String incoming = LORA_SERIAL.readStringUntil('\n');
+            Serial.println("Incoming: " + incoming);
             incoming.trim();
 
-            DynamicJsonDocument doc(524);
+            DynamicJsonDocument doc(768);
             DeserializationError err = deserializeJson(doc, incoming);
-            if (err || !doc.is<JsonArray>()) {
+            if (err) {
                 Serial.println("Invalid JSON: " + incoming);
+                Serial.println("Deserialization error: " + String(err.c_str()));
                 return;
             }
 
             Serial.println("Received LoRa message: " + incoming);
-            for (JsonObject item : doc.as<JsonArray>()) {
-                for (JsonPair kv : item) {
-                    if (String(kv.key().c_str()).toInt() == dmxChannel) {
-                        uint8_t presetId = kv.value().as<uint8_t>();
-                        if (presetId > 0 && presetId != currentPreset) {
-                            Serial.println("Applying preset " + String(presetId) + " for DMX channel " + String(dmxChannel));
-                            applyPreset(presetId, CALL_MODE_BUTTON_PRESET);
-                            currentPreset = presetId;
-                        }
-                        break;
-                    }
+            JsonObject obj = doc.as<JsonObject>();
+            String channelKey = String(dmxChannel);
+            Serial.println("Looking for key: " + channelKey);
+            if (obj.containsKey(channelKey)) {
+                uint8_t presetId = obj[channelKey].as<uint8_t>();
+                if (presetId > 0 && presetId != currentPreset) {
+                    Serial.println("Applying preset " + String(presetId) + " for DMX channel " + String(dmxChannel));
+                    applyPreset(presetId, CALL_MODE_BUTTON_PRESET);
+                    currentPreset = presetId;
                 }
             }
 
