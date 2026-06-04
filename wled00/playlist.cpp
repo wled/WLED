@@ -1,4 +1,5 @@
 #include "wled.h"
+#include "prng.h"
 
 /*
  * Handles playlists, timed sequences of presets
@@ -50,20 +51,13 @@ static uint32_t normalizeClockedPlaylistDuration(uint32_t durMs, uint32_t fallba
   return fallbackDur > 0 ? fallbackDur : CLOCKED_PLAYLIST_DEFAULT_DUR;
 }
 
-static uint32_t playlistShuffleRand(uint32_t &state) {
-  state ^= state << 13;
-  state ^= state >> 17;
-  state ^= state << 5;
-  return state;
-}
-
-static uint32_t clockedPlaylistSeed(uint32_t cycle) {
+static uint16_t clockedPlaylistSeed(uint32_t cycle) {
   uint32_t seed = 2166136261UL;
   seed = (seed ^ (uint32_t)currentPlaylist) * 16777619UL;
   seed = (seed ^ cycle) * 16777619UL;
   seed = (seed ^ playlistLen) * 16777619UL;
   if (seed == 0) seed = 2166136261UL;
-  return seed;
+  return (uint16_t)((seed >> 16) ^ seed);
 }
 
 static void applyPlaylistEntry(uint8_t index, uint32_t durMs) {
@@ -111,9 +105,9 @@ static bool getClockedPlaylistState(uint8_t &entryIndex, uint32_t &entryOffset) 
   for (byte i = 0; i < playlistLen; i++) order[i] = i;
   if (playlistOptions & PL_OPTION_SHUFFLE) {
     // Keep shuffle deterministic for all controllers within the same wall-clock cycle.
-    uint32_t seed = clockedPlaylistSeed(cycle);
+    PRNG prng(clockedPlaylistSeed(cycle));
     for (int i = playlistLen - 1; i > 0; i--) {
-      int j = playlistShuffleRand(seed) % (i + 1);
+      int j = prng.random16(i + 1);
       uint8_t tmp = order[i];
       order[i] = order[j];
       order[j] = tmp;
