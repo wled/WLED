@@ -1,12 +1,11 @@
-#include "wled.h" // includes wled_espnow.h
 /*
  * Lightweight ESP-NOW driver for WLED
  * by @dedehai (2026) licensed under EUPL 1.2 license (same as WLED)
- * note: currently supports only broadcast sending, callback kept compatible with quickEspNow
+ * note: currently supports only broadcast sending
  */
 
 #ifndef WLED_DISABLE_ESPNOW
-
+#include "wled.h" // includes wled_espnow.h
 namespace wled {
 
 EspNow espNow;
