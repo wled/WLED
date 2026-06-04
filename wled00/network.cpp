@@ -45,7 +45,7 @@ const ethernet_settings ethernetBoards[] = {
     ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
-   // WESP32
+   // WESP32 rev 6 and earlier
   {
     0,			              // eth_address,
     -1,			              // eth_power,
@@ -173,6 +173,16 @@ const ethernet_settings ethernetBoards[] = {
     23,                  // eth_mdc
     18,                  // eth_mdio
     ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
+
+ // WLED_ETH_WESP32_RTL8201 (16) - WESP32 rev 7 and later
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    16,                  // eth_mdc
+    17,                  // eth_mdio
+    ETH_PHY_RTL8201,     // eth_type
     ETH_CLOCK_GPIO0_IN   // eth_clk_mode
   },
 };
