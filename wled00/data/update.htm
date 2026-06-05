@@ -97,7 +97,7 @@
 				const asset = ghRelease.assets.find(a => a.name.endsWith(assetSuffix));
 				if (!asset) {
 					const available = ghRelease.assets.map(a => a.name).join(', ');
-					status.textContent = `Firmware not found (*${assetSuffix}). Available: ${available}`;
+					status.textContent = `未找到固件 (*${assetSuffix})。可用版本: ${available}`;
 					btn.disabled = false;
 					return;
 				}
@@ -133,9 +133,9 @@
 	<div class="sec">
 		<h2>WLED 固件更新</h2>
 		<p>
-		已安装版本: <span class="sip installed-version">Loading...</span><br>
-		发行版: <span class="sip release-name">Loading...</span><br>
-		<span id="Norelease-download">最新发行版: Checking...<br></span>
+		已安装版本: <span class="sip installed-version">加载中...</span><br>
+		发行版: <span class="sip release-name">加载中...</span><br>
+		<span id="Norelease-download">最新发行版: 检查中...<br></span>
 		<span id="release-download" class="hide">
 		最新版本: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
