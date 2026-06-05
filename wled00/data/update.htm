@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 	<meta content='width=device-width' name='viewport'>
-	<title>WLED Update</title>
+	<title>WLED 更新</title>
 	<script src="common.js" type="text/javascript"></script>
 	<script>
 		function B() { window.history.back(); }
@@ -12,7 +12,7 @@
 			if (!cnfr) {
 				var bt = gId('rev');
 				bt.style.color = "red";
-				bt.innerText = "Revert!";
+				bt.innerText = "回退!";
 				cnfr = true;
 				return;
 			}
@@ -84,11 +84,11 @@
 			try {
 				const info = deviceInfo;
 				if (!info || !info.repo || info.repo === 'unknown') {
-					status.textContent = 'No release repository available for this build.';
+					status.textContent = '此构建没有可用的发布仓库。';
 					btn.disabled = false;
 					return;
 				}
-				status.textContent = 'Checking GitHub for latest release...';
+				status.textContent = '正在检查 GitHub 最新版本...';
 				const ghResp = await fetch(`https://api.github.com/repos/${info.repo}/releases/latest`);
 				if (!ghResp.ok) throw new Error(`GitHub API error: ${ghResp.status}`);
 				const ghRelease = await ghResp.json();
@@ -101,7 +101,7 @@
 					btn.disabled = false;
 					return;
 				}
-				status.textContent = `Downloading ${asset.name} (${Math.round(asset.size/1024)} KB)...`;
+				status.textContent = `正在下载 ${asset.name} (${Math.round(asset.size/1024)} KB)...`;
 				const fwUrl = asset.browser_download_url.replace(/^https?:\/\/[^/]+/, 'https://download.wled.me');
 				const fwResp = await fetch(fwUrl);
 				if (!fwResp.ok) throw new Error(`Download failed: ${fwResp.status}`);
@@ -110,11 +110,11 @@
 				const dt = new DataTransfer();
 				dt.items.add(file);
 				document.querySelector('input[name="update"]').files = dt.files;
-				status.textContent = `Downloaded ${asset.name}. Uploading to device...`;
+				status.textContent = `已下载 ${asset.name}。正在上传到设备...`;
 				hideforms();
 				gId('upd').submit();
 			} catch(e) {
-				status.textContent = 'Auto-update failed: ' + e.message;
+				status.textContent = '自动更新失败: ' + e.message;
 				btn.disabled = false;
 			}
 		}
@@ -125,48 +125,48 @@
 </head>
 <body onload="GetV();">
 	<div id="toprow" class="toprow">
-	<div class="helpB"><button type="button" aria-label="Help" title="Help" onclick="H('basics/getting-started/#software-update-procedure')">?</button></div>
-	<button type="button" onclick="B()">Back</button>
+	<div class="helpB"><button type="button" aria-label="帮助" title="帮助" onclick="H('basics/getting-started/#software-update-procedure')">?</button></div>
+	<button type="button" onclick="B()">返回</button>
 	</div>
 	<br>
 	<form method='POST' action='./update' id='upd' enctype='multipart/form-data' onsubmit="hideforms()">
 	<div class="sec">
-		<h2>WLED Software Update</h2>
+		<h2>WLED 固件更新</h2>
 		<p>
-		Installed version: <span class="sip installed-version">Loading...</span><br>
-		Release: <span class="sip release-name">Loading...</span><br>
-		<span id="Norelease-download">Latest release: Checking...<br></span>
+		已安装版本: <span class="sip installed-version">Loading...</span><br>
+		发行版: <span class="sip release-name">Loading...</span><br>
+		<span id="Norelease-download">最新发行版: Checking...<br></span>
 		<span id="release-download" class="hide">
-		Latest version: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
+		最新版本: <a class="release-repo" href="https://github.com/wled/WLED/releases/latest" target="_blank" rel="noopener noreferrer"
 		style="vertical-align: text-bottom; display: inline-flex;">
 		<img class="release-badge" alt="View latest"></a><br>
-		<button type="button" id="autoUpdBtn" onclick="autoUpdate()">Auto update</button>
+		<button type="button" id="autoUpdBtn" onclick="autoUpdate()">自动更新</button>
 		<span id="autoUpdStatus" style="display:block;margin-top:4px;font-size:13px;"></span>
 		</span>
 		</p>
 		<hr class="sml">
-		<h3>Manual upload</h3>
+		<h3>手动上传</h3>
 		<input type="hidden" name="skipValidation" value="" id="sV">
 		<input type='file' name='update' required><br> <!--should have accept='.bin', but it prevents file upload from android app-->
 		<input type='checkbox' onchange="sV.value=checked?1:''" id="skipValidation">
-		<label for='skipValidation'>Ignore firmware validation</label><br>
-		<button type="submit">Upload</button><br>
+		<label for='skipValidation'>忽略固件验证</label><br>
+		<button type="submit">上传</button><br>
 		<span>
 			<hr class="sml">
-			<button id="rev" type="button" onclick="cR()">Revert update</button><br>
+			<button id="rev" type="button" onclick="cR()">回退更新</button><br>
 		</span>
 	</div>
 	</form>
 	<div id="bootupd" class="hide sec">
-		<h2>Bootloader Update</h2>
+		<h2>引导加载程序更新</h2>
 		<div id="bootloader-hash" class="sip" style="margin-bottom:8px;font-size:15px;white-space:pre-wrap;word-break:break-all;"></div>
 		<form method='POST' action='./updatebootloader' enctype='multipart/form-data' onsubmit="hideforms()">
-			<b>Warning:</b> Only upload verified ESP32 bootloader files!<br><br>
+			<b>警告：</b>仅上传经过验证的 ESP32 引导加载程序文件!<br><br>
 			<input type='file' name='update' required><br>
-			<button type="submit">Update Bootloader</button>
+			<button type="submit">更新引导加载程序</button>
 		</form>
 	</div>
-	<div id="Noupd" class="hide sec"><b>Updating...</b><br>Please do not close or refresh the page :)</div>
-	<p><button id="backbtn" type="button" onclick="B()">Back</button></p>
+	<div id="Noupd" class="hide sec"><b>更新中...</b><br>请不要关闭或刷新页面 :)</div>
+	<p><button id="backbtn" type="button" onclick="B()">返回</button></p>
 </body>
 </html>

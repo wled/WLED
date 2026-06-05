@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-	<title>WiFi Settings</title>
+	<title>WiFi 设置</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		// load common.js with retry on error
@@ -20,7 +20,7 @@
 		function N() {
 			const button = gId("scan");
 			button.disabled = true;
-			button.textContent = "Scanning...";
+			button.textContent = "扫描中...";
 
 			fetch(getURL("/json/net")).then((response) => {
 				return response.json();
@@ -85,7 +85,7 @@
 						const option = cE("option");
 
 						option.setAttribute("value", "!Cs");
-						option.textContent = "Other network...";
+						option.textContent = "其他网络...";
 						select.appendChild(option);
 
 						if (input.value === "" || input.value === "Your_Network" || found) input.replaceWith(select);
@@ -94,7 +94,7 @@
 				}
 
 				button.disabled = false;
-				button.textContent = "Scan";
+				button.textContent = "扫描";
 			});
 		}
 		// replace WiFi select with custom SSID input field again
@@ -123,26 +123,26 @@
 			if (i >= maxNetworks) return;
 			var encryptionTypeField = "";
 			if (type >=0 && type < 2) {
-				encryptionTypeField = `WiFi encryption type:<br>
+				encryptionTypeField = `WiFi 加密类型:<br>
 <select id="ET${i}" name="ET${i}" onchange="E(${i})">
 <option value="0"${(type==0) ? ' selected':''}>None/WPA/WPA2</option>
 <option value="1"${(type==1) ? ' selected':''}>WPA/WPA2-Enterprise</option>
 </select><br>
 <div id="IDS${i}" style="${(type==0) ? 'display:none;':''}">
-Anonymous identity:<br><input type="text" id="EA${i}" name="EA${i}" maxlength="64" value="${anon}"><br>
-Identity:<br><input type="text" id="EI${i}" name="EI${i}" maxlength="64" value="${ident}"><br>
+匿名身份:<br><input type="text" id="EA${i}" name="EA${i}" maxlength="64" value="${anon}"><br>
+身份:<br><input type="text" id="EI${i}" name="EI${i}" maxlength="64" value="${ident}"><br>
 </div>`;
 			}
 			var b = `<div id="net${i}"><hr class="sml">
-Network name (SSID${i==0?", empty to not connect":""}):<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
+网络名称（SSID${i==0?",留空则不连接":""}）:<br><input type="text" id="CS${i}" name="CS${i}" maxlength="32" value="${ssid}" ${i>0?"required":""}><br>
 ${encryptionTypeField}
-Network password:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
-BSSID (optional):<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
-Static IP (leave at 0.0.0.0 for DHCP)${i==0?"<br>Also used by Ethernet":""}:<br>
+网络密码:<br><input type="password" name="PW${i}" maxlength="64" value="${pass}"><br>
+BSSID（可选）:<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12" value="${bssid}"><br>
+静态 IP（保持 0.0.0.0 使用 DHCP）${i==0?"<br>同时用于以太网":""}:<br>
 <input name="IP${i}0" type="number" class="s" min="0" max="255" value="${ip&0xFF}" required>.<input name="IP${i}1" type="number" class="s" min="0" max="255" value="${(ip>>8)&0xFF}" required>.<input name="IP${i}2" type="number" class="s" min="0" max="255" value="${(ip>>16)&0xFF}" required>.<input name="IP${i}3" type="number" class="s" min="0" max="255" value="${(ip>>24)&0xFF}" required><br>
-Static gateway:<br>
+静态网关:<br>
 <input name="GW${i}0" type="number" class="s" min="0" max="255" value="${gw&0xFF}" required>.<input name="GW${i}1" type="number" class="s" min="0" max="255" value="${(gw>>8)&0xFF}" required>.<input name="GW${i}2" type="number" class="s" min="0" max="255" value="${(gw>>16)&0xFF}" required>.<input name="GW${i}3" type="number" class="s" min="0" max="255" value="${(gw>>24)&0xFF}" required><br>
-Static subnet mask:<br>
+静态子网掩码:<br>
 <input name="SN${i}0" type="number" class="s" min="0" max="255" value="${sn&0xFF}" required>.<input name="SN${i}1" type="number" class="s" min="0" max="255" value="${(sn>>8)&0xFF}" required>.<input name="SN${i}2" type="number" class="s" min="0" max="255" value="${(sn>>16)&0xFF}" required>.<input name="SN${i}3" type="number" class="s" min="0" max="255" value="${(sn>>24)&0xFF}" required></div>`;
 			gId("wifi_entries").insertAdjacentHTML("beforeend", b);
 			btnWiFi(i+1);
@@ -213,12 +213,12 @@ Static subnet mask:<br>
 <form id="form_s" name="Sf" method="post">
 	<div class="toprow">
 	<div class="helpB"><button type="button" onclick="H('features/settings/#wifi-settings')">?</button></div>
-	<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button><hr>
+	<button type="button" onclick="B()">返回</button><button type="submit">保存并连接</button><hr>
 	</div>
-	<h2>WiFi & Network Settings</h2>
+	<h2>WiFi 和网络设置</h2>
 	<div class="sec">
-		<h3>Wireless network</h3>
-		<button type="button" id="scan" onclick="N()">Scan</button><br>
+		<h3>无线网络</h3>
+		<button type="button" id="scan" onclick="N()">扫描</button><br>
 		<div id="wifi">
 			<div id="wifi_entries"></div>
 			<hr class="sml">
@@ -227,9 +227,9 @@ Static subnet mask:<br>
 		</div>
 	</div>
 	<div class="sec" id="ethd">
-		<h3>Ethernet Type</h3>
+		<h3>以太网类型</h3>
 		<select name="ETH">
-			<option value="0">None</option>
+			<option value="0">无</option>
 			<option value="6">IoTorero/ESP32Deux/RGB2Go</option>
 			<option value="9">ABC! WLED V43 & compatible</option>
 			<option value="2">ESP32-POE</option>
@@ -248,37 +248,37 @@ Static subnet mask:<br>
 		</select><br><br>
 	</div>
 	<div class="sec">
-		<h3>DNS & mDNS</h3>
-		DNS server address:<br>
+		<h3>DNS 和 mDNS</h3>
+		DNS 服务器地址:<br>
 		<input name="D0" type="number" class="s" min="0" max="255" required>.<input name="D1" type="number" class="s" min="0" max="255" required>.<input name="D2" type="number" class="s" min="0" max="255" required>.<input name="D3" type="number" class="s" min="0" max="255" required><br>
 		<br>
-		mDNS address (leave empty for no mDNS):<br>
+		mDNS 地址（留空则不启用 mDNS）:<br>
 		http:// <input type="text" name="CM" maxlength="32"> .local<br>
-		Client IP: <span class="sip"> Not connected </span> <br>
+		客户端 IP: <span class="sip"> 未连接 </span> <br>
 	</div>
 	<div class="sec">
-		<h3>Configure Access Point</h3>
-		AP SSID (leave empty for no AP):<br> <input type="text" name="AS" maxlength="32"><br>
-		Hide AP name: <input type="checkbox" name="AH"><br>
-		AP password (leave empty for open):<br> <input type="password" name="AP" maxlength="63" pattern="(.{8,63})|()" title="Empty or min. 8 characters"><br>
-		Access Point WiFi channel: <input name="AC" type="number" class="xs" min="1" max="13" required><br>
-		AP opens:
+		<h3>配置接入点</h3>
+		AP SSID（留空则不启用 AP）:<br> <input type="text" name="AS" maxlength="32"><br>
+		隐藏 AP 名称: <input type="checkbox" name="AH"><br>
+		AP 密码（留空则开放）:<br> <input type="password" name="AP" maxlength="63" pattern="(.{8,63})|()" title="Empty or min. 8 characters"><br>
+		接入点 WiFi 信道: <input name="AC" type="number" class="xs" min="1" max="13" required><br>
+		AP 开启方式:
 		<select name="AB">
-			<option value="0">No connection after boot</option>
-			<option value="1">Disconnected</option>
-			<option value="2">Always</option>
-			<option value="3">Never (not recommended)</option>
-			<option value="4">Temporary (no connection after boot)</option>
+			<option value="0">启动后无连接时</option>
+			<option value="1">断开连接时</option>
+			<option value="2">始终</option>
+			<option value="3">从不（不推荐）</option>
+			<option value="4">临时（启动后无连接时）</option>
 		</select><br>
-		AP IP: <span class="sip"> Not active </span><br>
+		AP IP: <span class="sip"> 未激活 </span><br>
 	</div>
 	<div class="sec">
-		<h3>WiFi Power</h3>
-		Force 802.11g mode (ESP8266 only): <input type="checkbox" name="FG"><br>
-		Disable WiFi sleep: <input type="checkbox" name="WS"><br>
-		<i>Disabling WiFi sleep increases power consumption<br>
-		but can help with connectivity issues and sync.</i><br><br>
-		<div id="tx">Max. TX power: <select name="TX">
+		<h3>WiFi 功率</h3>
+		强制 802.11g 模式（仅 ESP8266）: <input type="checkbox" name="FG"><br>
+		禁用 WiFi 休眠: <input type="checkbox" name="WS"><br>
+		<i>禁用 WiFi 休眠会增加功耗<br>
+		但有助于解决连接问题和同步。</i><br><br>
+		<div id="tx">最大发射功率: <select name="TX">
 			<option value="78">19.5 dBm</option>
 			<option value="76">19 dBm</option>
 			<option value="74">18.5 dBm</option>
@@ -291,29 +291,29 @@ Static subnet mask:<br>
 			<option value="20">5 dBm</option>
 			<option value="8">2 dBm</option>
 		</select><br>
-		<i class="warn">WARNING: Modifying TX power may render device unreachable.</i>
+		<i class="warn">警告：修改发射功率可能导致设备无法访问。</i>
 		</div>
 	</div>
 	<div class="sec">
-		<h3>ESP-NOW Wireless</h3>
+		<h3>ESP-NOW 无线</h3>
 		<div id="NoESPNOW" class="hide">
-			<i class="warn">This firmware build does not include ESP-NOW support.<br></i>
+			<i class="warn">此固件构建不包含 ESP-NOW 支持。<br></i>
 		</div>
 		<div id="ESPNOW">
-			Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
-			<i>Listen for events over ESP-NOW<br>
-			Keep disabled if not using a remote or ESP-NOW sync, increases power consumption.<br></i>
+			启用 ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
+			<i>通过 ESP-NOW 监听事件<br>
+					如果不使用遥控器或 ESP-NOW 同步，请保持禁用，否则会增加功耗。<br></i>
 			<div id="rlc">
-				Last device seen: <span class="rlid" id="ld">None</span>
+				最后发现的设备: <span class="rlid" id="ld">无</span>
 				<button type="button" class="sml" id="+" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
-				Linked MACs (10 max):<br>
+				已链接 MAC（最多 10 个）:<br>
 				<div id="rml">
 				</div>
 			</div>
 		</div>
 	</div>
 	<hr>
-	<button type="button" onclick="B()">Back</button><button type="submit">Save & Connect</button>
+	<button type="button" onclick="B()">返回</button><button type="submit">保存并连接</button>
 </form>
 </body>
 </html>

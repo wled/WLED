@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
-	<title>DMX Settings</title>
+	<title>DMX 设置</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	// load common.js with retry on error
@@ -18,7 +18,7 @@
 	function GCH(num) {
 		gId('dmxchannels').innerHTML += "";
 		for (i=0;i<num;i++) {
-			gId('dmxchannels').innerHTML += "<span id=CH" + (i+1) + "s >Channel " + (i+1) + ": <select name=CH" + (i+1) + " id=\"CH" + (i+1) + "\"><option value=0>Set to 0</option><option value=1>Red</option><option value=2>Green</option><option value=3>Blue</option><option value=4>White</option><option value=5>Shutter (Brightness)</option><option value=6>Set to 255</option></select></span><br />\n";
+			gId('dmxchannels').innerHTML += "<span id=CH" + (i+1) + "s >通道 " + (i+1) + ": <select name=CH" + (i+1) + " id=\"CH" + (i+1) + "\"><option value=0>设置为 0</option><option value=1>红</option><option value=2>绿</option><option value=3>蓝</option><option value=4>白</option><option value=5>快门（亮度）</option><option value=6>设置为 255</option></select></span><br />\n";
 		}
 	}
 	function mMap(){
@@ -51,23 +51,23 @@
 <form id="form_s" name="Sf" method="post">
 <div class="toprow">
 <div class="helpB"><button type="button" onclick="HW()">?</button></div>
-<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+<button type="button" onclick="B()">返回</button><button type="submit">保存</button><hr>
 </div>
-<h2>Imma firin ma lazer (if it has DMX support)</h2><!-- TODO: Change to something less-meme-related //-->
+<h2>DMX 输出设置</h2><!-- TODO: Change to something less-meme-related //-->
 
-Proxy Universe <input name=PU type=number min=0 max=63999 required> from E1.31 to DMX (0=disabled)<br>
-<i>This will disable the LED data output to DMX configurable below</i><br><br>
-<i>Number of fixtures is taken from LED config page</i><br>
+代理 Universe <input name=PU type=number min=0 max=63999 required> 从 E1.31 到 DMX（0=禁用）<br>
+<i>这将禁用下方可配置的 LED 数据 DMX 输出</i><br><br>
+<i>灯具数量取自 LED 配置页面</i><br>
 
-Channels per fixture (15 max): <input type="number" min="1" max="15" name="CN" maxlength="2" onchange="mMap();"><br />
-Start channel: <input type="number" min="1" max="512" name="CS" maxlength="2"><br />
-Spacing between start channels: <input type="number" min="1" max="512" name="CG" maxlength="2" onchange="mMap();"> [ <a href="javascript:alert('if set to 10, first fixture will start at 10,\nsecond will start at 20 etc.\nRegardless of the channel count.\nMakes memorizing channel numbers easier.');">info</a> ]<br>
-<div id="gapwarning" style="color: orange; display: none;">WARNING: Channel gap is lower than channels per fixture.<br />This will cause overlap.</div>
-<button type="button" onclick="location.href='/dmxmap';">DMX Map</button><br>
-DMX fixtures start LED: <input type="number" min="0" max="1500" name="SL">
-<h3>Channel functions</h3>
+每灯具通道数（最多 15）：<input type="number" min="1" max="15" name="CN" maxlength="2" onchange="mMap();"><br />
+起始通道：<input type="number" min="1" max="512" name="CS" maxlength="2"><br />
+起始通道间距：<input type="number" min="1" max="512" name="CG" maxlength="2" onchange="mMap();"> [ <a href="javascript:alert('如果设置为 10，第一个灯具从 10 开始，\n第二个从 20 开始，以此类推。\n与通道数量无关。\n便于记忆通道编号。');">信息</a> ]<br>
+<div id="gapwarning" style="color: orange; display: none;">警告：通道间距小于每灯具通道数。<br />这将导致重叠。</div>
+<button type="button" onclick="location.href='/dmxmap';">DMX 映射</button><br>
+DMX 灯具起始 LED：<input type="number" min="0" max="1500" name="SL">
+<h3>通道功能</h3>
 <div id="dmxchannels"></div>
-<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+<hr><button type="button" onclick="B()">返回</button><button type="submit">保存</button>
 </form>
 </body>
 </html>

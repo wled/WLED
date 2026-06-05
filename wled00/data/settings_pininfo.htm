@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-	<title>Pin Info</title>
+	<title>引脚信息</title>
 	<script>
 		// load common.js with retry on error
 		(function loadFiles() {
@@ -27,17 +27,17 @@
 			.then(j=>{
 				var cn="",pins=j.pins||[];
 				if(!pins.length) {
-					cn="No pins available.";
+					cn="没有可用的引脚。";
 				}else{
-					cn='<table><tr><th>Pin</th><th>Used by</th><th>Pin Notes</th></tr>';
+					cn='<table><tr><th>引脚</th><th>使用者</th><th>引脚说明</th></tr>';
 					for(var p of pins){
 						var st=""; // button state indicator
 						var rv=""; // raw value (touch / analog)
 						if(typeof p.s!=='undefined'){
-							st='<span class="bs" style="background:'+(p.s?'#0B4':'#666')+'"></span> ';	// button state dot, gray=off, green=on
-							if(typeof p.r!=='undefined') rv=' <span class="rv">'+p.r+'</span>';					// add raw touch reading if available
+							st='<span class="bs" style="background:'+(p.s?'#0B4':'#666')+'"></span> ';// button state dot, gray=off, green=on
+							if(typeof p.r!=='undefined') rv=' <span class="rv">'+p.r+'</span>';// add raw touch reading if available
 						}
-						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "Usermod":'<span style="color:#08d">Available</span>';
+						var ow=p.a?getOwnerName(p.o, p.t, p.n):(d.um_p && d.um_p.includes(p.p)) ? "用户模块":'<span style="color:#08d">可用</span>';
 						//if(typeof p.u!=='undefined')ow+=p.u?' (PU)':' (No PU)';
 						cn+='<tr><td>GPIO'+p.p+'</td><td>'+st+ow+rv+'</td><td>'+getCaps(p.p,p.c||0)+'</td></tr>';
 					}
@@ -45,7 +45,7 @@
 				}
 				gId('pins').innerHTML=cn;
 			})
-			.catch(e=>{gId('pins').innerHTML='Error loading pin info';});
+			.catch(e=>{gId('pins').innerHTML='加载引脚信息时出错';});
 		}
 	</script>
 	<style>
@@ -60,9 +60,9 @@
 	</style>
 </head>
 <body>
-	<button type="button" onclick="B()">Back</button>
-	<h2>Pin Info</h2>
-	<div id="pins">Loading...</div>
-	<button type="button" onclick="B()">Back</button>
+	<button type="button" onclick="B()">返回</button>
+	<h2>引脚信息</h2>
+	<div id="pins">加载中...</div>
+	<button type="button" onclick="B()">返回</button>
 </body>
 </html>

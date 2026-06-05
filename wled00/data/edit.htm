@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
-<title>WLED File Editor</title>
+<title>WLED 文件编辑器</title>
 <meta name="author" content="DedeHai, based on editor by Me-No-Dev">
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"><!-- prevent too much scaling on mobile -->
 <link rel="shortcut icon" href="favicon.ico">
@@ -211,17 +211,17 @@ function createTop(element, editor){
 	path.type = "text";
 	path.maxLength = "31"; // limit filename length
 
-	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "Upload File";
-	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "Clear";
-	var saveBtn = cE("button"); saveBtn.className = "sml"; saveBtn.innerHTML = "Save";
-	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "Back to the controls"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
+	var uploadBtn = cE("button"); uploadBtn.className = "sml"; uploadBtn.innerHTML = "上传文件";
+	var clearBtn = cE("button"); clearBtn.className = "sml"; clearBtn.innerHTML = "清除";
+	var saveBtn = cE("button"); saveBtn.className = "sml"; saveBtn.innerHTML = "保存";
+	var backBtn = cE("button"); backBtn.className = "sml"; backBtn.innerHTML = "返回控制"; backBtn.onclick = function(){ window.location.href = getURL("/"); };
 
 	// Add elements to Top
 	leftDiv.appendChild(path);
 	leftDiv.appendChild(clearBtn);
 	leftDiv.appendChild(saveBtn);
 	leftDiv.appendChild(uploadBtn);
-	centerDiv.innerHTML = "WLED File Editor";
+	centerDiv.innerHTML = "WLED 文件编辑器";
 	rightDiv.appendChild(backBtn);
 	gId(element).appendChild(input);
 	gId(element).appendChild(leftDiv);
@@ -235,7 +235,7 @@ function createTop(element, editor){
 	function httpPostCb(st,resp){
 		if (st!=200) alert("ERROR "+st+": "+resp);
 		else {
-			showToast("Upload successful!");
+			showToast("上传成功！");
 			refreshTree();
 		}
 	}
@@ -273,7 +273,7 @@ function createTree(element, editor){
 	}
 
 	function deleteFile(p) {
-		if (!confirm("Delete " + p + "?")) return;
+		if (!confirm("删除 " + p + "？")) return;
 		req.add("GET", getURL("/edit"), { func:"delete", path:p }, function(st, resp) {
 			if (st != 200) alert("ERROR " + st + ": " + resp);
 			else refreshTree();
@@ -311,8 +311,8 @@ function createTree(element, editor){
 				return opt;
 			}
 
-			menu.appendChild(createOption("Download", "#fff", function(){ downloadFile(path); }));
-			menu.appendChild(createOption("Delete", "#f66", function(){ deleteFile(path); }));
+			menu.appendChild(createOption("下载", "#fff", function(){ downloadFile(path); }));
+			menu.appendChild(createOption("删除", "#f66", function(){ deleteFile(path); }));
 			d.body.appendChild(menu);
 
 			function cleanup() {
@@ -505,7 +505,7 @@ function createEditor(element,file){
 			try {
 				outdata = JSON.stringify(JSON.parse(data)); // validate and minify
 			} catch(e) {
-				alert("Invalid JSON! Please fix.");
+				alert("无效JSON！请修正。");
 				return;
 			}
 		}
@@ -547,7 +547,7 @@ function createEditor(element,file){
 			var pathField = gId("filepath");
 			var fn = pathField ? pathField.value : "";
 			if (!fn) {
-				alert("Please enter a filename!");
+				alert("请输入文件名！");
 				return;
 			}
 			if (!fn.startsWith("/")) fn = "/" + fn;
@@ -569,7 +569,7 @@ function createEditor(element,file){
 			setContent("");
 			var pathField = gId("filepath");
 			pathField.value = "";
-			pathField.placeholder = "Filename to save";
+			pathField.placeholder = "保存文件名";
 			updateEditorMode();
 		}
 	};
