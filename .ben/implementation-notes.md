@@ -465,7 +465,11 @@ Two new cases added to `handleLocationHash()`: `#Timer` → `openTab(0, true)` a
 2. **JS (`common.js`):** An IIFE at the end of the file adds `touchmove` prevention on the document. On each downward drag (`dy > 0`), it walks up the DOM from the touch target looking for the nearest element with computed `overflowY: auto|scroll`. If that element's `scrollTop > 0` (user is in the middle of scrolling up through content), the event is allowed. If at the top of any scroll container — or touching a non-scrollable area — `e.preventDefault()` blocks the browser's pull-to-refresh. Falls back to checking `document.documentElement.scrollTop` for pages where the body itself scrolls.
 3. **JS (`index.js`):** The existing AI section was updated to use the same computed `overflowY` check (replacing the old `scrollHeight > clientHeight` heuristic which could produce false positives on non-scrollable overflow-hidden elements) and added an early exit when `dy <= 0` to skip unnecessary DOM walking on upward drags.
 
-**Gotcha:** When `touch-action: pan-y` is set on a scrollable container (as on `.tabcontent` in `index.htm`), Chrome marks `touchmove` events as non-cancelable — the JS guard `if (!e.cancelable) return` exits without calling `preventDefault`. For those elements, CSS `overscroll-behavior: none` (already on `.tabcontent` in `index.css`) is the sole pull-to-refresh barrier. These layers complement each other: CSS handles pan-y containers, JS handles everything else.
+**Root cause**: `touch-action: manipulation` on the `html` element was the culprit. `manipulation` equals `pan-x pan-y pinch-zoom` — it explicitly tells Chrome to allow panning gestures at the browser level, which includes the pull-to-refresh gesture. Chrome uses the root element's `touch-action` for browser-chrome-level gesture decisions, and `manipulation` there was overriding `overscroll-behavior: none` on every other element. All other fixes (CSS, JS) were futile as long as this remained.
+
+**Fix**: removed the `html { touch-action: manipulation; }` rule from `index.css` entirely. Also: `touch-action: pan-y` restored on `.tabcontent` (native scroll momentum). JS belt-and-suspenders listener retained for non-pan-y areas (nav bar etc.) where events are cancelable; `overscroll-behavior: none` (now effective) handles pan-y areas.
+
+**Gotcha for future**: never set `touch-action: manipulation` (or `auto`) on `html` or `body` if you want `overscroll-behavior: none` to block pull-to-refresh — manipulation explicitly re-enables the panning gestures that cause it.
 
 **Deploy:** 1 → 3
 
@@ -535,5 +539,36 @@ When `pNum > 0`, the heading and `#pql` visibility are restored before normal re
 - Stale IDs in `wledFavsOrder` (deleted presets) are harmless — they have no matching entry in `arr` so they never appear.
 - `touch-action: none` on `.drag-handle` is required; without it, the browser intercepts touchmove for scrolling before our handler fires.
 - `dragover` must call `e.preventDefault()` for the `drop` event to fire on desktop.
+
+**Deploy:** 1 → 3
+
+---
+
+## Simple Timer Page — Layout Redesign
+
+**Files:** `wled00/data/simple_timer.htm`
+
+**Approach:**
+1. **Remove header:** Deleted the `<h1>Simple Timer</h1>` line entirely.
+2. **Center-align "Timer enabled":** Updated `.st-enable-row` to add `justify-content: center` and `margin: 0 20px 16px` — centered text with no background styling.
+3. **Vertical ON/OFF layout:** Wrapped the "Lights ON", "Lights OFF", and "Display effect" sections in a `.st-on-off-container` flex container with `flex-direction: column` and `gap: 14px`. Sections stack vertically in order: Lights ON (top), Lights OFF (middle), Display effect (bottom). Changed label from `<p class="st-section-title">Play effect</p>` to `<p class="st-label">Display effect</p>` for consistency.
+
+**CSS changes:**
+- `.st-enable-row`: removed background/border/padding; updated `margin: 10px 20px 16px` (10px top spacing)
+- `.st-on-off-container`: `flex-direction: column` for vertical stacking
+- **NEW: `.st-row-title`**: non-bold titles (`font-weight: 400`, `font-size: 16px`, white, normal case)
+- **NEW: `.st-on-section`**: flex row layout, time input `margin: 0 0 0 auto` (right-aligned)
+- **NEW: `.st-off-section`**: flex row layout, time input right-aligned
+- **NEW: `.st-time-section`**: flex row layout, time input right-aligned
+- **Unified label styling**: `.st-time-section > .st-label` and `.st-effect-section > .st-label` override default `.st-label` to match `.st-row-title` style (white, 16px, non-bold, normal case). Helper labels like "AT" remain unchanged (small, uppercase).
+- All time inputs right-aligned within containers using `margin-left: auto`
+- All time inputs fixed width 150px
+
+**HTML changes:** 
+- Label renamed "Set current time on device" → "Current time"
+- "Lights ON" title changed to `.st-row-title` (non-bold)
+- "Lights OFF" title changed to `.st-row-title` (non-bold)
+
+**Layout result:** All four section labels (Current time, Lights ON, Lights OFF, Display effect) now have unified styling (white, 16px, non-bold, normal case). All time inputs right-aligned and fixed-width. Clean, consistent visual hierarchy across the page.
 
 **Deploy:** 1 → 3

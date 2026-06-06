@@ -38,10 +38,6 @@
 	--stp: 42px;
 }
 
-html {
-	touch-action: manipulation;
-}
-
 body {
 	margin: 0;
 	background-color: var(--c-1);
@@ -581,6 +577,7 @@ button {
 	font-size: 20px;
 	overflow: auto;
 	touch-action: pan-y;
+	overscroll-behavior: none;
 }
 
 .close {

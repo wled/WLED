@@ -37,8 +37,9 @@
 	.st-enable-row {
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 12px;
-		margin: 0 20px 16px;
+		margin: 10px 20px 16px;
 		color: white;
 		font-size: 16px;
 		cursor: pointer;
@@ -106,6 +107,104 @@
 		border-radius: 8px;
 	}
 	.st-divider { border: none; border-top: 1px solid #333; margin: 0 0 10px; }
+	/* On/Off sections container */
+	.st-on-off-container {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	.st-on-off-container .st-section {
+		margin: 0 20px;
+	}
+	.st-effect-section {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+	}
+	.st-effect-section > .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+	/* Row section title — not bold, normal case */
+	.st-row-title {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+	}
+	/* Lights ON section — single row layout */
+	.st-on-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px;
+	}
+	.st-on-section .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: #aaa;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.7px;
+	}
+	.st-on-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
+	/* Lights OFF section — single row layout */
+	.st-off-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px;
+	}
+	.st-off-section .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: #aaa;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.7px;
+	}
+	.st-off-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
+	/* Set current time section — single row layout */
+	.st-time-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px 14px;
+	}
+	.st-time-section > .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+	.st-time-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
 	/* Save button — pill style */
 	.st-save {
 		display: block;
@@ -133,8 +232,6 @@
 
 <button class="st-back" onclick="window.location=getURL('/')">Back</button>
 
-<h1>Simple Timer</h1>
-
 <label class="st-enable-row">
 	<input type="checkbox" id="stEnabled" onchange="stUpdateFormState()">
 	Timer enabled
@@ -142,28 +239,31 @@
 
 <div id="stFormBody" class="st-disabled">
 
-	<div class="st-section">
-		<p class="st-label">Set current time on device</p>
+	<div class="st-time-section">
+		<p class="st-label">Current time</p>
 		<input type="time" id="stCurrentTime" class="st-time">
 	</div>
 
-	<div class="st-section">
-		<p class="st-section-title">Lights ON</p>
-		<hr class="st-divider">
-		<p class="st-label">At</p>
-		<input type="time" id="stOnTime" class="st-time">
-		<p class="st-label st-label-gap">Play effect</p>
-		<select id="stEffectSelect" class="st-select"></select>
-		<div id="stNoPresetsWarn" class="st-warn" style="display:none">
-			&#9888; Add favourite effects first before using the timer.
+	<div class="st-on-off-container">
+		<div class="st-on-section">
+			<p class="st-row-title">Lights ON</p>
+			<p class="st-label">At</p>
+			<input type="time" id="stOnTime" class="st-time">
 		</div>
-	</div>
 
-	<div class="st-section">
-		<p class="st-section-title">Lights OFF</p>
-		<hr class="st-divider">
-		<p class="st-label">At</p>
-		<input type="time" id="stOffTime" class="st-time">
+		<div class="st-off-section">
+			<p class="st-row-title">Lights OFF</p>
+			<p class="st-label">At</p>
+			<input type="time" id="stOffTime" class="st-time">
+		</div>
+
+		<div class="st-section st-effect-section">
+			<p class="st-label">Display effect</p>
+			<select id="stEffectSelect" class="st-select"></select>
+			<div id="stNoPresetsWarn" class="st-warn" style="display:none">
+				&#9888; Add favourite effects first before using the timer.
+			</div>
+		</div>
 	</div>
 
 </div>
