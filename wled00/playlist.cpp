@@ -16,22 +16,18 @@ static byte           playlistEndPreset = 0;     //what preset to apply after pl
 static byte           playlistOptions = 0;       //PL_OPTION_*
 
 static PlaylistEntry *playlistEntries = nullptr;
-static byte          *playlistOrder = nullptr;
 static byte           playlistLen;               //number of playlist entries
 static int8_t         playlistIndex = -1;
 static uint32_t       playlistEntryDur = 0;      //duration of the current entry in milliseconds
 static uint64_t       playlistTotalDur = 0;      //sum of all entry durations in milliseconds
 static uint32_t       playlistCycleNum = 0;      //current playlist cycle for deterministic shuffle
+static PRNG           prng;
+static bool           playlistEntriesAreShuffled = false;
 
 //values we need to keep about the parent playlist while inside sub-playlist
 static int16_t        parentPlaylistIndex = -1;
 static byte           parentPlaylistRepeat = 0;
 static byte           parentPlaylistPresetId = 0; //for re-loading
-
-static void resetPlaylistOrder() {
-  if (playlistOrder == nullptr) return;
-  for (byte i = 0; i < playlistLen; i++) playlistOrder[i] = i;
-}
 
 static uint16_t deterministicShuffleSeed() {
   uint32_t seed = 2166136261UL;
@@ -41,22 +37,36 @@ static uint16_t deterministicShuffleSeed() {
   return (uint16_t)((seed >> 16) ^ seed);
 }
 
-static void shufflePlaylist() {
-  if (playlistOrder == nullptr || playlistLen < 2) return;
-  resetPlaylistOrder();
-  bool deterministic = playlistOptions & PL_OPTION_DETERMINISTIC_SHUFFLE;
-  PRNG prng(deterministic ? deterministicShuffleSeed() : 0);
+static void unShufflePlaylist() {
+  if (playlistEntries == nullptr || playlistLen < 2 || !playlistEntriesAreShuffled || !(playlistOptions & PL_OPTION_DETERMINISTIC_SHUFFLE)) return;
 
-  // While there remain elements to shuffle...
-  for (int currentIndex = playlistLen - 1; currentIndex > 0; currentIndex--) {
-    // Pick a random element...
-    int randomIndex = deterministic ? prng.random16(currentIndex + 1) : random(0, currentIndex + 1);
-    // And swap it with the current element.
-    byte temporaryValue = playlistOrder[currentIndex];
-    playlistOrder[currentIndex] = playlistOrder[randomIndex];
-    playlistOrder[randomIndex] = temporaryValue;
+  PlaylistEntry temp;
+  for (int currentIndex = 1; currentIndex < playlistLen; currentIndex++) {
+    int randomIndex = prng.random16Backwards(currentIndex + 1);
+    temp = playlistEntries[currentIndex];
+    playlistEntries[currentIndex] = playlistEntries[randomIndex];
+    playlistEntries[randomIndex] = temp;
   }
-  DEBUG_PRINTLN(F("Playlist shuffle."));
+  playlistEntriesAreShuffled = false;
+}
+
+static void shufflePlaylist() {
+  if (playlistEntries == nullptr || playlistLen < 2) return;
+
+  bool deterministic = playlistOptions & PL_OPTION_DETERMINISTIC_SHUFFLE;
+  if (deterministic) {
+    unShufflePlaylist();
+    prng.setSeed(deterministicShuffleSeed());
+  }
+
+  PlaylistEntry temp;
+  for (int currentIndex = playlistLen - 1; currentIndex > 0; currentIndex--) {
+    int randomIndex = deterministic ? prng.random16(currentIndex + 1) : random(0, currentIndex + 1);
+    temp = playlistEntries[currentIndex];
+    playlistEntries[currentIndex] = playlistEntries[randomIndex];
+    playlistEntries[randomIndex] = temp;
+  }
+  playlistEntriesAreShuffled = true;
 }
 
 void unloadPlaylist() {
@@ -64,16 +74,13 @@ void unloadPlaylist() {
     delete[] playlistEntries;
     playlistEntries = nullptr;
   }
-  if (playlistOrder != nullptr) {
-    delete[] playlistOrder;
-    playlistOrder = nullptr;
-  }
   currentPlaylist = playlistIndex = -1;
   playlistLen = 0;
   playlistOptions = 0;
   playlistEntryDur = 0;
   playlistTotalDur = 0;
   playlistCycleNum = 0;
+  playlistEntriesAreShuffled = false;
   DEBUG_PRINTLN(F("Playlist unloaded."));
 }
 
@@ -89,13 +96,13 @@ static bool getClockSyncPlaylistCycle(uint32_t &cycleNum, uint64_t &cycleTime) {
   return true;
 }
 
-// Map elapsed time inside the current wall-clock cycleNum to a slot in playlistOrder
+// Map elapsed time inside the current wall-clock cycleNum to a slot in playlistEntries
 // and the elapsed time inside that slot
 static bool mapCycleTimeToPlaylistSlot(uint64_t cycleTime, int8_t &entrySlot, uint32_t &entryOffset) {
-  if (playlistLen == 0 || playlistEntries == nullptr || playlistOrder == nullptr) return false;
+  if (playlistLen == 0 || playlistEntries == nullptr) return false;
 
   for (byte i = 0; i < playlistLen; i++) {
-    uint32_t dur = playlistEntries[playlistOrder[i]].dur;
+    uint32_t dur = playlistEntries[i].dur;
     if (cycleTime < dur) {
       entrySlot = i;
       entryOffset = (uint32_t)cycleTime;
@@ -123,13 +130,6 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
 
   playlistEntries = new(std::nothrow) PlaylistEntry[playlistLen];
   if (playlistEntries == nullptr) return -1;
-  playlistOrder = new(std::nothrow) byte[playlistLen];
-  if (playlistOrder == nullptr) {
-    delete[] playlistEntries;
-    playlistEntries = nullptr;
-    return -1;
-  }
-  resetPlaylistOrder();
 
   byte it = 0;
   for (int ps : presets) {
@@ -137,6 +137,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
     playlistEntries[it].preset = ps;
     it++;
   }
+  playlistEntriesAreShuffled = false;
 
   it = 0;
   JsonArray durations = playlistObj["dur"];
@@ -217,7 +218,7 @@ int16_t loadPlaylist(JsonObject playlistObj, byte presetId) {
 
 void handlePlaylist() {
   static unsigned long presetCycledTime = 0;
-  if (currentPlaylist < 0 || playlistEntries == nullptr || playlistOrder == nullptr) return;
+  if (currentPlaylist < 0 || playlistEntries == nullptr) return;
 
   unsigned long now = millis();
   uint64_t clockSyncCycleTime = 0;
@@ -285,7 +286,7 @@ void handlePlaylist() {
   if (shouldApplyEntry) {
     playlistIndex = targetPlaylistIndex;
     jsonTransitionOnce = true;
-    PlaylistEntry &entry = playlistEntries[playlistOrder[playlistIndex]];
+    PlaylistEntry &entry = playlistEntries[playlistIndex];
     strip.setTransition(entry.tr * 100);
     playlistEntryDur = entry.dur > 0 ? entry.dur : UINT32_MAX; // UINT32_MAX means infinite
     applyPresetFromPlaylist(entry.preset);
