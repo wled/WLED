@@ -1120,7 +1120,7 @@ void Segment::blur(uint8_t blur_amount, bool smear) const {
  * Rotates the color in HSV space, where pos is H. (0=0deg, 256=360deg)
  */
 uint32_t Segment::color_wheel(uint8_t pos) const {
-  if (palette) return color_from_palette(pos, false, false, 0); // only wrap if "always wrap" is set
+  if (palette) return color_from_palette(pos, false, true, 0); // color_wheel is a continuous (moving) wheel, so wrap end->start (restores pre-0.16 behaviour)
   uint8_t w = W(getCurrentColor(0));
   CRGBW rgb;
   rgb = CHSV32(static_cast<uint16_t>(pos << 8), 255, 255);

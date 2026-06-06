@@ -197,6 +197,11 @@ struct CRGBW {
   uint8_t getAverageLight() const {
     return (r + g + b + w) >> 2;
   }
+
+  // get the average of the R, G, B values
+  uint8_t getRGBaverage() const {
+    return ((r + g + b) * 21846) >> 16; // x*21846>>16 is equal to "divide by 3"
+  }
 };
 
 inline CHSV32::CHSV32(const CRGBW& rgb) {
