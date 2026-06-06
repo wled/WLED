@@ -3651,6 +3651,15 @@ const _FX_PRESETS_BASE = 5;  // fixed presets occupy IDs 1–5; user presets sta
 const _FX_PLAYLIST_ID = 101; // preset 101 is z_cycle_preset
 const _LIGHTS_OFF_PRESET_ID = 100; // reserved by simple_timer.htm for the daily OFF action
 
+function _getPresetMinMax(presets) {
+	const presetIds = Object.keys(presets)
+		.filter(k => k !== "101" && k !== "100" && k !== "0")
+		.map(k => parseInt(k))
+		.filter(id => !isNaN(id));
+	if (presetIds.length === 0) return null;
+	return {min: Math.min(...presetIds), max: Math.max(...presetIds)};
+}
+
 function getFxPresets() {
 	try { return JSON.parse(localStorage.getItem(_FX_PRESETS_KEY) || '[]'); } catch(e) { return []; }
 }
@@ -3797,8 +3806,8 @@ async function addEffectAsPreset(effectId, effectName) {
 		delete presets["0"]; // strip the backup sentinel that populatePresets() adds
 		presets[String(nextId)] = {"n": effectName, "on": true, "bri": 128, "seg": [{"id": 0, "grp": 3, "fx": parseInt(effectId),
 			"pal": pal, "sx": sx, "ix": ix, "c1": c1, "c2": c2, "c3": c3}]};
-		const userCount = Object.keys(presets).filter(k => k !== "101" && k !== "100").length;
-		presets["101"] = {"n": "z_cycle_preset", "win": "P1=" + (_FX_PRESETS_BASE + 1) + "&P2=" + (_FX_PRESETS_BASE + userCount) + "&PL=~"};
+		const range = _getPresetMinMax(presets);
+		presets["101"] = {"n": "z_cycle_preset", "win": range ? ("P1=" + range.min + "&P2=" + range.max + "&PL=~") : "P1=1&P2=0&PL=~"};
 		await _uploadPresetsJson(presets);
 		pJson = presets;
 		populatePresets();
@@ -3839,8 +3848,8 @@ async function removeEffectPreset(effectId) {
 			presets[String(entry.presetId)] = presets[String(lastEntry.presetId)];
 		}
 		delete presets[String(swapOccurs ? lastEntry.presetId : entry.presetId)];
-		const userCount = Object.keys(presets).filter(k => k !== "101" && k !== "100").length;
-		presets["101"] = {"n": "z_cycle_preset", "win": "P1=" + (_FX_PRESETS_BASE + 1) + "&P2=" + (_FX_PRESETS_BASE + userCount) + "&PL=~"};
+		const range = _getPresetMinMax(presets);
+		presets["101"] = {"n": "z_cycle_preset", "win": range ? ("P1=" + range.min + "&P2=" + range.max + "&PL=~") : "P1=1&P2=0&PL=~"};
 		await _uploadPresetsJson(presets);
 		pJson = presets;
 		populatePresets();
