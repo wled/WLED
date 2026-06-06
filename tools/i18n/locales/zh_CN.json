@@ -96,12 +96,12 @@
     },
     "js:edit.htm:240:5bf50a54": {
       "en": "by @dedehai",
-      "translation": "",
+      "translation": "由 @dedehai 制作",
       "context": "edit.htm:240 (js_textContent)"
     },
     "js:edit.htm:242:4b53c174": {
       "en": "by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB",
-      "translation": "",
+      "translation": "由 @dedehai 制作 | 内存：${info.fs.u} KB / ${info.fs.t} KB",
       "context": "edit.htm:242 (js_textContent)"
     },
     "js:edit.htm:400:087111d9": {
@@ -253,12 +253,12 @@
     },
     "html:div#btns > div:nth-of-type(2) > button:title": {
       "en": "PixelForge",
-      "translation": "",
+      "translation": "PixelForge",
       "context": "index.htm: (html_title)"
     },
     "html:div#btns > div:nth-of-type(2) > div:text": {
       "en": "PixelForge",
-      "translation": "",
+      "translation": "PixelForge",
       "context": "index.htm: (html_text)"
     },
     "html:div#btns > div:nth-of-type(3) > button:title": {
@@ -308,12 +308,12 @@
     },
     "html:label#filter1D:title": {
       "en": "1D",
-      "translation": "",
+      "translation": "1D",
       "context": "index.htm: (html_title)"
     },
     "html:label#filter2D:title": {
       "en": "2D",
-      "translation": "",
+      "translation": "2D",
       "context": "index.htm: (html_title)"
     },
     "html:label#filterVol:title": {
@@ -403,7 +403,7 @@
     },
     "html:input#tt:value": {
       "en": "0.7",
-      "translation": "",
+      "translation": "0.7",
       "context": "index.htm: (html_value)"
     },
     "html:select#bs > option:nth-of-type(1):text": {
@@ -568,17 +568,17 @@
     },
     "html:div#info > span:text": {
       "en": "Made with  by  and the",
-      "translation": "",
+      "translation": "由  和  精心打造，以及",
       "context": "index.htm: (html_text)"
     },
     "html:div#info > span > a:nth-of-type(1):text": {
       "en": "Aircoookie",
-      "translation": "",
+      "translation": "Aircoookie",
       "context": "index.htm: (html_text)"
     },
     "html:div#info > span > a:nth-of-type(2):text": {
       "en": "WLED community",
-      "translation": "",
+      "translation": "WLED 社区",
       "context": "index.htm: (html_text)"
     },
     "html:div#ndlt:text": {
@@ -836,77 +836,77 @@
     },
     "html:div#ethd > select > option:nth-of-type(2):text": {
       "en": "IoTorero/ESP32Deux/RGB2Go",
-      "translation": "",
+      "translation": "IoTorero/ESP32Deux/RGB2Go",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(3):text": {
       "en": "ABC! WLED V43 & compatible",
-      "translation": "",
+      "translation": "ABC! WLED V43 及兼容型号",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(4):text": {
       "en": "ESP32-POE",
-      "translation": "",
+      "translation": "ESP32-POE",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(5):text": {
       "en": "ESP32-POE-WROVER",
-      "translation": "",
+      "translation": "ESP32-POE-WROVER",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(6):text": {
       "en": "KIT-VE",
-      "translation": "",
+      "translation": "KIT-VE",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(7):text": {
       "en": "LILYGO T-POE Pro",
-      "translation": "",
+      "translation": "LILYGO T-POE Pro",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(8):text": {
       "en": "QuinLED Uno/Quad",
-      "translation": "",
+      "translation": "QuinLED Uno/Quad",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(9):text": {
       "en": "QuinLED Octa & T-ETH-POE",
-      "translation": "",
+      "translation": "QuinLED Octa 及 T-ETH-POE",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(10):text": {
       "en": "QuinLED v4 Uno/Quad",
-      "translation": "",
+      "translation": "QuinLED v4 Uno/Quad",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(11):text": {
       "en": "QuinLED v4 Octa",
-      "translation": "",
+      "translation": "QuinLED v4 Octa",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(12):text": {
       "en": "Serg74-ETH32",
-      "translation": "",
+      "translation": "Serg74-ETH32",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(13):text": {
       "en": "TwilightLord-ESP32",
-      "translation": "",
+      "translation": "TwilightLord-ESP32",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(14):text": {
       "en": "WESP32",
-      "translation": "",
+      "translation": "WESP32",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(15):text": {
       "en": "WT32-ETH01",
-      "translation": "",
+      "translation": "WT32-ETH01",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#ethd > select > option:nth-of-type(16):text": {
       "en": "Gledopto",
-      "translation": "",
+      "translation": "Gledopto",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(4) > span:text": {
@@ -926,57 +926,57 @@
     },
     "html:div#tx > select > option:nth-of-type(1):text": {
       "en": "19.5 dBm",
-      "translation": "",
+      "translation": "19.5 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(2):text": {
       "en": "19 dBm",
-      "translation": "",
+      "translation": "19 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(3):text": {
       "en": "18.5 dBm",
-      "translation": "",
+      "translation": "18.5 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(4):text": {
       "en": "17 dBm",
-      "translation": "",
+      "translation": "17 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(5):text": {
       "en": "15 dBm",
-      "translation": "",
+      "translation": "15 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(6):text": {
       "en": "13 dBm",
-      "translation": "",
+      "translation": "13 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(7):text": {
       "en": "11 dBm",
-      "translation": "",
+      "translation": "11 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(8):text": {
       "en": "8.5 dBm",
-      "translation": "",
+      "translation": "8.5 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(9):text": {
       "en": "7 dBm",
-      "translation": "",
+      "translation": "7 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(10):text": {
       "en": "5 dBm",
-      "translation": "",
+      "translation": "5 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > select > option:nth-of-type(11):text": {
       "en": "2 dBm",
-      "translation": "",
+      "translation": "2 dBm",
       "context": "settings_wifi.htm: (html_text)"
     },
     "html:div#tx > i:text": {
@@ -1033,12 +1033,12 @@
     },
     "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(1):placeholder": {
       "en": "SDA",
-      "translation": "",
+      "translation": "SDA",
       "context": "settings_um.htm: (html_placeholder)"
     },
     "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(2):placeholder": {
       "en": "SCL",
-      "translation": "",
+      "translation": "SCL",
       "context": "settings_um.htm: (html_placeholder)"
     },
     "html:form#form_s > div:nth-of-type(2) > b:nth-of-type(2):text": {
@@ -1053,17 +1053,17 @@
     },
     "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(3):placeholder": {
       "en": "MOSI",
-      "translation": "",
+      "translation": "MOSI",
       "context": "settings_um.htm: (html_placeholder)"
     },
     "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(4):placeholder": {
       "en": "MISO",
-      "translation": "",
+      "translation": "MISO",
       "context": "settings_um.htm: (html_placeholder)"
     },
     "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(5):placeholder": {
       "en": "SCLK",
-      "translation": "",
+      "translation": "SCLK",
       "context": "settings_um.htm: (html_placeholder)"
     },
     "html:form#form_s > div:nth-of-type(2) > i:nth-of-type(2):text": {
@@ -1105,7 +1105,7 @@
     },
     "html:div#mxGen > sup:text": {
       "en": "st",
-      "translation": "",
+      "translation": "第",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > select:nth-of-type(1) > option:nth-of-type(1):text": {
@@ -1115,7 +1115,7 @@
     },
     "html:div#mxGen > select:nth-of-type(1) > option:nth-of-type(2):text": {
       "en": "Bottom",
-      "translation": "",
+      "translation": "底部",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > select:nth-of-type(2) > option:nth-of-type(1):text": {
@@ -1125,7 +1125,7 @@
     },
     "html:div#mxGen > select:nth-of-type(2) > option:nth-of-type(2):text": {
       "en": "Right",
-      "translation": "",
+      "translation": "右侧",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > select:nth-of-type(3) > option:nth-of-type(1):text": {
@@ -1135,64 +1135,64 @@
     },
     "html:div#mxGen > select:nth-of-type(3) > option:nth-of-type(2):text": {
       "en": "Vertical",
-      "translation": "",
+      "translation": "垂直",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > i:text": {
       "en": "Pressing Populate will create LED panel layout with pre-arranged matrix.Values above  affect final layout.\n\t\t\t\tWARNING: You may need to update each panel parameters after they are generated.",
-      "translation": "",
+      "translation": "点击“生成”将创建 LED 面板布局，预先排列矩阵。上方的值会影响最终布局。\n\t\t\t\t警告：",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > i > i:text": {
       "en": "will not",
-      "translation": "",
+      "translation": "不会",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mxGen > button:text": {
       "en": "Populate",
-      "translation": "",
+      "translation": "生成",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(2):text": {
       "en": "Number of panels:",
-      "translation": "",
+      "translation": "面板数量：",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(2) > h3:text": {
       "en": "Panel set-up",
-      "translation": "",
+      "translation": "面板设置",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(2) > i:text": {
       "en": "A matrix is made of 1 or more physical LED panels.\n\t\tEach panel can be of different size and/or have different LED orientation and/or starting point and/or layout.",
-      "translation": "",
+      "translation": "矩阵由 1 个或多个物理 LED 面板组成。\n\t\t每个面板可以有不同的尺寸和/或不同的 LED 方向。",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(3) > h3:text": {
       "en": "LED panel layout",
-      "translation": "",
+      "translation": "LED 面板布局",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(5) > i:text": {
       "en": "Note: Gap file is a  file containing an array with number of elements equal to the matrix size.\n\t\t\tA value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.",
-      "translation": "",
+      "translation": "注意：间隙文件是一个包含数组的文件，数组元素数量等于矩阵大小。\n\t\t\t值为 -1 表示该位置没有 LED。",
       "context": "settings_2D.htm: (html_text)"
     },
     "html:div#mpdiv > div:nth-of-type(5) > i > b:text": {
       "en": ".json",
-      "translation": "",
+      "translation": ".json",
       "context": "settings_2D.htm: (html_text)"
     },
     "js:settings_2D.htm:240:9833976c": {
       "en": "Matrix Dimensions (W*H=LC):",
-      "translation": "",
+      "translation": "矩阵尺寸 (宽*高=LED数)：",
       "context": "settings_2D.htm:240 (js_innerHTML)"
     }
   },
   "settings_leds.htm": {
     "html:div#json:text": {
       "en": "JSON file:",
-      "translation": "",
+      "translation": "JSON 文件：",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#json > button:text": {
@@ -1212,47 +1212,47 @@
     },
     "html:div#psuMA:text": {
       "en": "Maximum PSU Current:  mA",
-      "translation": "",
+      "translation": "电源最大电流：  mA",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#ppldis > i:text": {
       "en": "Make sure you enter correct value for each LED output.\n\t\t\t\tIf using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.",
-      "translation": "",
+      "translation": "请确保为每个 LED 输出输入正确的值。\n\t\t\t\t如果使用多个输出但只有一个电源，请将电流值合理分配到各输出。",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#ampwarning:text": {
       "en": "⚠ Your power supply provides high current.\n\t\t\t\tTo improve the safety of your setup,\n\t\t\t\tplease use thick cables,\n\t\t\t\tmultiple power injection points and a fuse!",
-      "translation": "",
+      "translation": "⚠ 您的电源提供较大电流。\n\t\t\t\t为了提高安全性，\n\t\t\t\t请使用粗电缆、\n\t\t\t\t多路输出和保险丝。",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#mLC > h4:text": {
       "en": "LED outputs:",
-      "translation": "",
+      "translation": "LED 输出：",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#ledwarning:text": {
       "en": "⚠ You might run into stability or lag issues.\n\t\t\tUse less than  for the best experience!",
-      "translation": "",
+      "translation": "⚠ 您可能会遇到稳定性或延迟问题。\n\t\t\t少于  个 LED 可获得最佳体验！",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:span#wreason:text": {
       "en": "800 LEDs per output",
-      "translation": "",
+      "translation": "每个输出最多 800 个 LED",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#color_order_mapping:text": {
       "en": "Color Order Override:",
-      "translation": "",
+      "translation": "颜色顺序覆盖：",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(3) > input:nth-of-type(3):placeholder": {
       "en": "2.2",
-      "translation": "",
+      "translation": "2.2",
       "context": "settings_leds.htm: (html_placeholder)"
     },
     "html:div#wc:text": {
       "en": "Global override for Auto-calculate white:\n\t\t\t\n\n\t\t\tCalculate CCT from RGB: \n\t\t\tCCT IC used (Athom 15W): \n\t\t\tCCT blending (±100%):  %",
-      "translation": "",
+      "translation": "全局覆盖自动计算白色通道：\n\t\t\t\n\n\t\t\t从 RGB 计算 CCT：\n\t\t\t使用的 CCT IC（Athom 15W）：\n\t\t\tCCT 混合",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#wc > select > option:nth-of-type(1):text": {
@@ -1267,27 +1267,27 @@
     },
     "html:div#wc > select > option:nth-of-type(4):text": {
       "en": "Accurate",
-      "translation": "",
+      "translation": "精确",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#wc > select > option:nth-of-type(5):text": {
       "en": "Dual",
-      "translation": "",
+      "translation": "双路",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#wc > select > option:nth-of-type(6):text": {
       "en": "Max",
-      "translation": "",
+      "translation": "最大",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#wc > small:text": {
       "en": "Positive: additive blend, Negative: exclusive blend",
-      "translation": "",
+      "translation": "正值：叠加混合，负值：排他混合",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#wc > i:text": {
       "en": "Set to 0 when using 2-wire (reverse polarity) CCT strips",
-      "translation": "",
+      "translation": "使用双线（反极性）CCT 灯带时设为 0",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(6):text": {
@@ -1297,32 +1297,32 @@
     },
     "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(7):text": {
       "en": "6-key black",
-      "translation": "",
+      "translation": "6键黑色遥控器",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(8):text": {
       "en": "9-key red",
-      "translation": "",
+      "translation": "9键红色遥控器",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(9):text": {
       "en": "JSON remote",
-      "translation": "",
+      "translation": "JSON 遥控器",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > h2:nth-of-type(3):text": {
       "en": "General settings",
-      "translation": "",
+      "translation": "常规设置",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(7) > i:text": {
       "en": "(disable if using boot preset to turn LEDs on)",
-      "translation": "",
+      "translation": "（如果使用启动预设点亮 LED，请禁用此项）",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(9):text": {
       "en": "Use harmonic colors in : \n Cycle Time:  s",
-      "translation": "",
+      "translation": "在  中使用谐波颜色：\n 周期时间：  秒",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(9) > i:nth-of-type(1):text": {
@@ -1332,17 +1332,17 @@
     },
     "html:form#form_s > div:nth-of-type(9) > i:nth-of-type(2):text": {
       "en": "Random Palette",
-      "translation": "",
+      "translation": "随机调色板",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(10):text": {
       "en": "Default duration:  min\n\t\tDefault target brightness: \n\t\tMode:",
-      "translation": "",
+      "translation": "默认时长：  分钟\n\t\t默认目标亮度：\n\t\t模式：",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(10) > h3:text": {
       "en": "Timed light",
-      "translation": "",
+      "translation": "定时灯光",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(1):text": {
@@ -1357,17 +1357,17 @@
     },
     "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(3):text": {
       "en": "Fade Color",
-      "translation": "",
+      "translation": "渐变颜色",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(4):text": {
       "en": "Sunrise",
-      "translation": "",
+      "translation": "日出",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(11):text": {
       "en": "Palette wrapping:\n\t\t\n\t\tTarget refresh rate:  FPS",
-      "translation": "",
+      "translation": "调色板循环：\n\t\t\n\t\t目标刷新率：  FPS",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(1):text": {
@@ -1377,42 +1377,42 @@
     },
     "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(2):text": {
       "en": "Linear (always wrap)",
-      "translation": "",
+      "translation": "线性（始终循环）",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(3):text": {
       "en": "Linear (never wrap)",
-      "translation": "",
+      "translation": "线性（从不循环）",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(4):text": {
       "en": "None (not recommended)",
-      "translation": "",
+      "translation": "无（不推荐）",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#fpsNone:text": {
       "en": "⚠ Unlimited FPS Mode is experimental ⚠",
-      "translation": "",
+      "translation": "⚠ 无限制 FPS 模式为实验性功能 ⚠",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#fpsHigh:text": {
       "en": "⚠ High FPS Mode is experimental.",
-      "translation": "",
+      "translation": "⚠ 高 FPS 模式为实验性功能。",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#fpsWarn:text": {
       "en": "Please  WLED configuration and presets first!",
-      "translation": "",
+      "translation": "请先  WLED 配置和预设！",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#fpsWarn > a:text": {
       "en": "backup",
-      "translation": "",
+      "translation": "备份",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#cfg:text": {
       "en": "Config template:",
-      "translation": "",
+      "translation": "配置模板：",
       "context": "settings_leds.htm: (html_text)"
     },
     "html:div#cfg > button:text": {
@@ -1422,32 +1422,32 @@
     },
     "js:settings_leds.htm:106:8ed1c671": {
       "en": "Sorry, pins ${JSON.stringify(d.ro_gpio)} are input only.",
-      "translation": "",
+      "translation": "抱歉，引脚 ${JSON.stringify(d.ro_gpio)} 仅支持输入。",
       "context": "settings_leds.htm:106 (js_alert)"
     },
     "js:settings_leds.htm:119:2659be93": {
       "en": "Pin conflict between ${LC.name}/${nList[j].name}!",
-      "translation": "",
+      "translation": "引脚冲突：${LC.name} 与 ${nList[j].name}！",
       "context": "settings_leds.htm:119 (js_alert)"
     },
     "js:settings_leds.htm:139:ddf259ef": {
       "en": "Invalid Bus-config",
-      "translation": "",
+      "translation": "无效的总线配置",
       "context": "settings_leds.htm:139 (js_alert)"
     },
     "js:settings_leds.htm:147:d9c0df1b": {
       "en": "HUB75 error: panels≠rows×cols",
-      "translation": "",
+      "translation": "HUB75 错误：面板数 ≠ 行×列",
       "context": "settings_leds.htm:147 (js_alert)"
     },
     "js:settings_leds.htm:148:315a9b99": {
       "en": "HUB75 error: height >= 64, only single panel allowed",
-      "translation": "",
+      "translation": "HUB75 错误：高度 >= 64，仅允许单面板",
       "context": "settings_leds.htm:148 (js_alert)"
     },
     "js:settings_leds.htm:150:26a7ab01": {
       "en": "HUB75 changes require a reboot",
-      "translation": "",
+      "translation": "HUB75 更改需要重启",
       "context": "settings_leds.htm:150 (js_alert)"
     },
     "js:settings_leds.htm:306:a0b9c645": {
@@ -1467,8 +1467,18 @@
     },
     "js:settings_leds.htm:751:02258034": {
       "en": "Please select a JSON file first!",
-      "translation": "",
+      "translation": "请先选择 JSON 文件！",
       "context": "settings_leds.htm:751 (js_alert)"
+    },
+    "js:settings_leds.htm:501:complex": {
+      "en": "80% of max LED memory",
+      "translation": "80% 的最大 LED 内存",
+      "context": "settings_leds.htm:501 (js_innerHTML_complex)"
+    },
+    "js:settings_leds.htm:501:complex2": {
+      "en": "WARNING: using over",
+      "translation": "警告：使用超过",
+      "context": "settings_leds.htm:501 (js_template_literal)"
     }
   },
   "settings_sync.htm": {
@@ -1499,7 +1509,7 @@
     },
     "html:form#form_s > div:nth-of-type(11) > h3:text": {
       "en": "MQTT",
-      "translation": "",
+      "translation": "MQTT",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(4) > table > tr:nth-of-type(2) > td:nth-of-type(1):text": {
@@ -1539,12 +1549,12 @@
     },
     "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(1):text": {
       "en": "E1.31 (sACN)",
-      "translation": "",
+      "translation": "E1.31 (sACN)",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(2):text": {
       "en": "Art-Net",
-      "translation": "",
+      "translation": "Art-Net",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(3):text": {
@@ -1564,7 +1574,7 @@
     },
     "html:form#form_s > div:nth-of-type(8) > a:nth-of-type(1):text": {
       "en": "LedFx",
-      "translation": "",
+      "translation": "LedFx",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(1):text": {
@@ -1624,7 +1634,7 @@
     },
     "html:form#form_s > div:nth-of-type(8) > a:nth-of-type(2):text": {
       "en": "E1.31 info",
-      "translation": "",
+      "translation": "E1.31 信息",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:div#dmxInput:text": {
@@ -1704,12 +1714,12 @@
     },
     "html:div#MQTT > a:text": {
       "en": "MQTT info",
-      "translation": "",
+      "translation": "MQTT 信息",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(12) > h3:text": {
       "en": "Philips Hue",
-      "translation": "",
+      "translation": "Philips Hue",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:div#NoHue > em:text": {
@@ -1739,7 +1749,7 @@
     },
     "html:form#form_s > div:nth-of-type(13) > h3:text": {
       "en": "Serial",
-      "translation": "",
+      "translation": "串口",
       "context": "settings_sync.htm: (html_text)"
     },
     "html:div#NoSerial > em:text": {
@@ -1808,127 +1818,127 @@
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(1):text": {
       "en": "GMT(UTC)",
-      "translation": "",
+      "translation": "GMT(UTC)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(2):text": {
       "en": "GMT/BST",
-      "translation": "",
+      "translation": "GMT/BST",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(3):text": {
       "en": "CET/CEST",
-      "translation": "",
+      "translation": "CET/CEST",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(4):text": {
       "en": "EET/EEST",
-      "translation": "",
+      "translation": "EET/EEST",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(5):text": {
       "en": "US-EST/EDT",
-      "translation": "",
+      "translation": "US-EST/EDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(6):text": {
       "en": "US-CST/CDT",
-      "translation": "",
+      "translation": "US-CST/CDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(7):text": {
       "en": "US-MST/MDT",
-      "translation": "",
+      "translation": "US-MST/MDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(8):text": {
       "en": "US-AZ",
-      "translation": "",
+      "translation": "US-AZ",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(9):text": {
       "en": "US-PST/PDT",
-      "translation": "",
+      "translation": "US-PST/PDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(10):text": {
       "en": "CST (AWST, PHST)",
-      "translation": "",
+      "translation": "CST (AWST, PHST)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(11):text": {
       "en": "JST (KST)",
-      "translation": "",
+      "translation": "JST (KST)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(12):text": {
       "en": "AEST/AEDT",
-      "translation": "",
+      "translation": "AEST/AEDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(13):text": {
       "en": "NZST/NZDT",
-      "translation": "",
+      "translation": "NZST/NZDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(14):text": {
       "en": "North Korea",
-      "translation": "",
+      "translation": "朝鲜",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(15):text": {
       "en": "IST (India)",
-      "translation": "",
+      "translation": "IST (印度)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(16):text": {
       "en": "CA-Saskatchewan",
-      "translation": "",
+      "translation": "CA-萨斯卡切温",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(17):text": {
       "en": "ACST",
-      "translation": "",
+      "translation": "ACST",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(18):text": {
       "en": "ACST/ACDT",
-      "translation": "",
+      "translation": "ACST/ACDT",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(19):text": {
       "en": "HST (Hawaii)",
-      "translation": "",
+      "translation": "HST (夏威夷)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(20):text": {
       "en": "NOVT (Novosibirsk)",
-      "translation": "",
+      "translation": "NOVT (新西伯利亚)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(21):text": {
       "en": "AKST/AKDT (Anchorage)",
-      "translation": "",
+      "translation": "AKST/AKDT (安克雷奇)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(22):text": {
       "en": "MX-CST",
-      "translation": "",
+      "translation": "MX-CST",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(23):text": {
       "en": "PKT (Pakistan)",
-      "translation": "",
+      "translation": "PKT (巴基斯坦)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(24):text": {
       "en": "BRT (Brasília)",
-      "translation": "",
+      "translation": "BRT (巴西利亚)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(25):text": {
       "en": "AWST (Perth)",
-      "translation": "",
+      "translation": "AWST (珀斯)",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(2) > span:text": {
@@ -1953,17 +1963,17 @@
     },
     "html:form#form_s > div:nth-of-type(3) > nowrap:nth-of-type(1):text": {
       "en": "20--",
-      "translation": "",
+      "translation": "20--",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > a:nth-of-type(1):text": {
       "en": "JSON API",
-      "translation": "",
+      "translation": "JSON API",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > a:nth-of-type(2):text": {
       "en": "HTTP API",
-      "translation": "",
+      "translation": "HTTP API",
       "context": "settings_time.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(6) > div > button:text": {
@@ -2122,7 +2132,7 @@
     },
     "html:form#form_s > div:nth-of-type(5) > a:nth-of-type(1):text": {
       "en": "WLED",
-      "translation": "",
+      "translation": "WLED",
       "context": "settings_sec.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(5) > a:nth-of-type(2):text": {
@@ -2132,12 +2142,12 @@
     },
     "html:form#form_s > div:nth-of-type(5) > i:text": {
       "en": "Licensed under the",
-      "translation": "",
+      "translation": "基于以下协议授权",
       "context": "settings_sec.htm: (html_text)"
     },
     "html:form#form_s > div:nth-of-type(5) > i > a:text": {
       "en": "EUPL v1.2 license",
-      "translation": "",
+      "translation": "EUPL v1.2 许可证",
       "context": "settings_sec.htm: (html_text)"
     }
   },
@@ -2184,12 +2194,12 @@
     },
     "html:form#form_s > div:nth-of-type(3) > input:nth-of-type(17):value": {
       "en": "Remove",
-      "translation": "",
+      "translation": "移除",
       "context": "settings_ui.htm: (html_value)"
     },
     "html:div#NoImage:text": {
       "en": ": \n:",
-      "translation": "",
+      "translation": "：\n：",
       "context": "settings_ui.htm: (html_text)"
     },
     "html:div#NoImage > h4:text": {
@@ -2271,7 +2281,7 @@
     },
     "html:span#release-download > a > img:alt": {
       "en": "View latest",
-      "translation": "",
+      "translation": "查看最新版本",
       "context": "update.htm: (html_alt)"
     },
     "html:button#autoUpdBtn:text": {
@@ -2351,17 +2361,17 @@
     },
     "js:update.htm:55:4cdfbc6d": {
       "en": "Current bootloader SHA256: \\n",
-      "translation": "",
+      "translation": "当前引导加载程序 SHA256：\\n",
       "context": "update.htm:55 (js_innerText)"
     },
     "js:update.htm:62:6385f2b5": {
       "en": "Unknown",
-      "translation": "",
+      "translation": "未知",
       "context": "update.htm:62 (js_textContent)"
     },
     "js:update.htm:63:f922acff": {
       "en": "Unknown",
-      "translation": "",
+      "translation": "未知",
       "context": "update.htm:63 (js_textContent)"
     },
     "js:update.htm:81:c6663660": {
@@ -2391,7 +2401,7 @@
     },
     "js:update.htm:111:7b96534d": {
       "en": "Auto-update failed:",
-      "translation": "",
+      "translation": "自动更新失败：",
       "context": "update.htm:111 (js_textContent)"
     }
   }
