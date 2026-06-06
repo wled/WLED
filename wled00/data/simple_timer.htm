@@ -377,6 +377,7 @@ async function stSave() {
 		params.append('CF', '1');
 		params.append('TZ', '0');
 		params.append('UO', String(UO));
+		params.append('UT', String(Math.floor(utcNow.getTime() / 1000)));
 		params.append('OL', '0');
 		params.append('CE', '0');
 		params.append('CY', '24'); params.append('CI', '1'); params.append('CD', '1');

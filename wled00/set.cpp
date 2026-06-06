@@ -537,6 +537,12 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     currentTimezone = request->arg(F("TZ")).toInt();
     utcOffsetSecs = request->arg(F("UO")).toInt();
 
+    // Set device time from browser if provided (UT = Unix Time)
+    if (request->hasArg(F("UT"))) {
+      uint32_t browserTime = request->arg(F("UT")).toInt();
+      setTimeFromAPI(browserTime);
+    }
+
     //start ntp if not already connected
     if (ntpEnabled && WLED_CONNECTED && !ntpConnected) ntpConnected = ntpUdp.begin(ntpLocalPort);
     ntpLastSyncTime = NTP_NEVER; // force new NTP query

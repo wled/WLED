@@ -572,3 +572,24 @@ When `pNum > 0`, the heading and `#pql` visibility are restored before normal re
 **Layout result:** All four section labels (Current time, Lights ON, Lights OFF, Display effect) now have unified styling (white, 16px, non-bold, normal case). All time inputs right-aligned and fixed-width. Clean, consistent visual hierarchy across the page.
 
 **Deploy:** 1 → 3
+
+---
+
+## Simple Timer — Fix Timer Not Firing
+
+**Root cause:** The timer was not firing because the device was not receiving the actual current UTC time. The JavaScript was only sending the UTC offset (`UO` parameter), but without knowing the actual current Unix timestamp, the device's internal clock could not be set correctly. At boot (without NTP), `toki.second()` starts at an invalid value or low timestamp, so all timer comparisons failed.
+
+**Files:** `wled00/data/simple_timer.htm`, `wled00/set.cpp`, `wled00/ntp.cpp` (read-only verification)
+
+**Approach:**
+1. **JavaScript (`simple_timer.htm`):** Added `params.append('UT', String(Math.floor(utcNow.getTime() / 1000)));` to send the current Unix timestamp (seconds since 1970-01-01 UTC) alongside the existing UTC offset.
+2. **Firmware (`set.cpp`):** Added code in the `SUBPAGE_TIME` handler to check for the `UT` parameter and call `setTimeFromAPI(browserTime)` to set the device's internal clock when the timer settings are saved.
+
+**How it works:**
+- When user saves timer settings, the browser sends both `UO` (UTC offset) and `UT` (Unix timestamp).
+- Firmware receives `UT` and calls `setTimeFromAPI(browserTime)`, which updates the device's internal clock (`toki`) to the correct Unix timestamp.
+- The `checkTimers()` function can now compare the device's accurate local time against timer trigger times and fire correctly.
+
+**Gotcha:** The `UT` parameter must be sent as a Unix timestamp (seconds since 1970-01-01 UTC). The device uses this to update `toki.second()`, not to directly set localTime—the UTC offset (`UO`) still applies to calculate the user's local time from the Unix timestamp.
+
+**Deploy:** 1 → 2 → 3
