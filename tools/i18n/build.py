@@ -276,10 +276,12 @@ def main():
 # PlatformIO pre-build integration
 def pre_build(source, target, env):
     """PlatformIO pre-build script entry point."""
+    import re as _re
     locale = None
     for flag in env.get('BUILD_FLAGS', []):
-        if '-D WLED_LOCALE=' in flag:
-            locale = flag.split('=')[1].strip()
+        m = _re.match(r'-D\s*WLED_LOCALE=(\S+)', flag)
+        if m:
+            locale = m.group(1).strip()
             break
 
     if not locale:
