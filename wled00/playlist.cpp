@@ -18,6 +18,7 @@ static byte           playlistOptions = 0;       //PL_OPTION_*
 static PlaylistEntry *playlistEntries = nullptr;
 static byte           playlistLen;               //number of playlist entries
 static int8_t         playlistIndex = -1;
+static uint64_t       clockSyncEntryStart = UINT64_MAX; //cycle time where playlistIndex starts
 static uint32_t       playlistEntryDur = 0;      //duration of the current entry in milliseconds
 static uint64_t       playlistTotalDur = 0;      //sum of all entry durations in milliseconds
 static uint32_t       playlistCycleNum = 0;      //current playlist cycle for deterministic shuffle
@@ -48,6 +49,8 @@ static void unShufflePlaylist() {
     playlistEntries[randomIndex] = temp;
   }
   playlistEntriesAreShuffled = false;
+  clockSyncEntryStart = UINT64_MAX;
+  DEBUG_PRINTLN(F("Playlist unshuffled."));
 }
 
 static void shufflePlaylist() {
@@ -67,6 +70,8 @@ static void shufflePlaylist() {
     playlistEntries[randomIndex] = temp;
   }
   playlistEntriesAreShuffled = true;
+  clockSyncEntryStart = UINT64_MAX;
+  DEBUG_PRINTLN(F("Playlist shuffled."));
 }
 
 void unloadPlaylist() {
@@ -81,6 +86,7 @@ void unloadPlaylist() {
   playlistTotalDur = 0;
   playlistCycleNum = 0;
   playlistEntriesAreShuffled = false;
+  clockSyncEntryStart = UINT64_MAX;
   DEBUG_PRINTLN(F("Playlist unloaded."));
 }
 
@@ -101,16 +107,26 @@ static bool getClockSyncPlaylistCycle(uint32_t &cycleNum, uint64_t &cycleTime) {
 static bool mapCycleTimeToPlaylistSlot(uint64_t cycleTime, int8_t &entrySlot, uint32_t &entryOffset) {
   if (playlistLen == 0 || playlistEntries == nullptr) return false;
 
-  for (byte i = 0; i < playlistLen; i++) {
+  byte startIndex = 0;
+  uint64_t entryStart = 0;
+  if (clockSyncEntryStart < playlistTotalDur && playlistIndex >= 0 && playlistIndex < playlistLen && cycleTime >= clockSyncEntryStart) {
+    startIndex = playlistIndex;
+    entryStart = clockSyncEntryStart;
+    cycleTime -= clockSyncEntryStart;
+  }
+
+  for (byte i = startIndex; i < playlistLen; i++) {
     uint32_t dur = playlistEntries[i].dur;
     if (cycleTime < dur) {
       entrySlot = i;
       entryOffset = (uint32_t)cycleTime;
+      clockSyncEntryStart = entryStart;
       return true;
     }
     cycleTime -= dur;
+    entryStart += dur;
   }
-
+  
   return false;
 }
 
@@ -285,6 +301,7 @@ void handlePlaylist() {
   // Apply the selected playlist entry
   if (shouldApplyEntry) {
     playlistIndex = targetPlaylistIndex;
+    if (!clockSyncTimeValid) clockSyncEntryStart = UINT64_MAX;
     jsonTransitionOnce = true;
     PlaylistEntry &entry = playlistEntries[playlistIndex];
     strip.setTransition(entry.tr * 100);
