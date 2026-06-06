@@ -63,7 +63,7 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
 #endif
 
 #ifdef ESP8266
-  #define WLED_MAX_DIGITAL_CHANNELS 3
+  #define WLED_MAX_DIGITAL_CHANNELS 8       // do not restrict multiple bit-bang channels, even if it is slow  TODO: could implement parallel bit-bang output to speed things up
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
   #define WLED_MAX_I2S_CHANNELS 0
   #define WLED_MAX_BB_CHANNELS  0           // ESP8266 has its own BitBang driver, not the ESP32 parallel one
