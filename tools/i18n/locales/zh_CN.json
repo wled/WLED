@@ -1,0 +1,2408 @@
+{
+  "welcome.htm": {
+    "html:html > head > title:text": {
+      "en": "Welcome!",
+      "translation": "欢迎！",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div:text": {
+      "en": "Connect to your local WiFi here!",
+      "translation": "在此连接您的本地 WiFi！",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > h1:text": {
+      "en": "Welcome to WLED!",
+      "translation": "欢迎使用 WLED！",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > h3:text": {
+      "en": "A versatile tool for controlling LEDs",
+      "translation": "一款多功能 LED 控制工具",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > h4:text": {
+      "en": "Find out more at wled.me",
+      "translation": "访问 wled.me 了解更多信息",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > b:text": {
+      "en": "Next steps:",
+      "translation": "后续步骤：",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > button:nth-of-type(1):text": {
+      "en": "WiFi settings",
+      "translation": "WiFi 设置",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > i:text": {
+      "en": "Just trying this out in AP mode?",
+      "translation": "只是想在 AP 模式下试试？",
+      "context": "welcome.htm: (html_text)"
+    },
+    "html:html > body > div > button:nth-of-type(2):text": {
+      "en": "To the controls!",
+      "translation": "进入控制界面！",
+      "context": "welcome.htm: (html_text)"
+    }
+  },
+  "404.htm": {
+    "html:html > body > h1:text": {
+      "en": "404 Not Found",
+      "translation": "404 未找到",
+      "context": "404.htm: (html_text)"
+    },
+    "html:html > body > b:text": {
+      "en": "Akemi does not know where you are headed...",
+      "translation": "Akemi 不知道你要去哪里...",
+      "context": "404.htm: (html_text)"
+    },
+    "html:html > body > button:text": {
+      "en": "Back to controls",
+      "translation": "返回控制界面",
+      "context": "404.htm: (html_text)"
+    }
+  },
+  "edit.htm": {
+    "js:edit.htm:77:ef93d8c8": {
+      "en": "<img src=",
+      "translation": "",
+      "context": "edit.htm:77 (js_innerHTML)"
+    },
+    "js:edit.htm:106:13ac279e": {
+      "en": "Upload File",
+      "translation": "上传文件",
+      "context": "edit.htm:106 (js_innerHTML)"
+    },
+    "js:edit.htm:107:d7d44f0b": {
+      "en": "Clear",
+      "translation": "清除",
+      "context": "edit.htm:107 (js_innerHTML)"
+    },
+    "js:edit.htm:108:7ab456d2": {
+      "en": "Save",
+      "translation": "保存",
+      "context": "edit.htm:108 (js_innerHTML)"
+    },
+    "js:edit.htm:109:3e318637": {
+      "en": "Back to the controls",
+      "translation": "返回控制",
+      "context": "edit.htm:109 (js_innerHTML)"
+    },
+    "js:edit.htm:116:316361cb": {
+      "en": "WLED File Editor",
+      "translation": "WLED 文件编辑器",
+      "context": "edit.htm:116 (js_innerHTML)"
+    },
+    "js:edit.htm:240:5bf50a54": {
+      "en": "by @dedehai",
+      "translation": "由 @dedehai 制作",
+      "context": "edit.htm:240 (js_textContent)"
+    },
+    "js:edit.htm:242:4b53c174": {
+      "en": "by @dedehai | Memory: ${info.fs.u} KB / ${info.fs.t} KB",
+      "translation": "由 @dedehai 制作 | 内存：${info.fs.u} KB / ${info.fs.t} KB",
+      "context": "edit.htm:242 (js_textContent)"
+    },
+    "js:edit.htm:400:087111d9": {
+      "en": "Invalid JSON! Please fix.",
+      "translation": "无效JSON！请修正。",
+      "context": "edit.htm:400 (js_alert)"
+    },
+    "js:edit.htm:442:dc20ccf3": {
+      "en": "Please enter a filename!",
+      "translation": "请输入文件名！",
+      "context": "edit.htm:442 (js_alert)"
+    }
+  },
+  "index.htm": {
+    "html:div#cv:text": {
+      "en": "Loading WLED UI...",
+      "translation": "正在加载 WLED 界面...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:html > body > noscript > div:text": {
+      "en": "Sorry, WLED UI needs JavaScript!",
+      "translation": "抱歉，WLED 界面需要 JavaScript！",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonPower > p:text": {
+      "en": "Power",
+      "translation": "电源",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonNl > p:text": {
+      "en": "Timer",
+      "translation": "定时",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonSync > p:text": {
+      "en": "Sync",
+      "translation": "同步",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonSr > p:text": {
+      "en": "Peek",
+      "translation": "预览",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonI > p:text": {
+      "en": "Info",
+      "translation": "信息",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonNodes > p:text": {
+      "en": "Nodes",
+      "translation": "节点",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#top > div > div:nth-of-type(1) > button:nth-of-type(7) > p:text": {
+      "en": "Config",
+      "translation": "配置",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#buttonPcm > p:text": {
+      "en": "PC Mode",
+      "translation": "PC 模式",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#briwrap > p:text": {
+      "en": "Brightness",
+      "translation": "亮度",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#hwrap > div:title": {
+      "en": "Hue",
+      "translation": "色相",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#swrap > div:title": {
+      "en": "Saturation",
+      "translation": "饱和度",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#vwrap > div:title": {
+      "en": "Value/Brightness",
+      "translation": "明度/亮度",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#kwrap > div:title": {
+      "en": "Kelvin/Temperature",
+      "translation": "色温",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#rwrap > div:title": {
+      "en": "Red channel",
+      "translation": "红色通道",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#gwrap > div:title": {
+      "en": "Green channel",
+      "translation": "绿色通道",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#bwrap > div:title": {
+      "en": "Blue channel",
+      "translation": "蓝色通道",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#whibri:title": {
+      "en": "White channel",
+      "translation": "白色通道",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#wbal > div:title": {
+      "en": "White balance",
+      "translation": "白平衡",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#qcs-w > div:nth-of-type(11):title": {
+      "en": "Random",
+      "translation": "随机",
+      "context": "index.htm: (html_title)"
+    },
+    "html:button#csl0:title": {
+      "en": "Select slot",
+      "translation": "选择槽位",
+      "context": "index.htm: (html_title)"
+    },
+    "html:button#csl1:title": {
+      "en": "Select slot",
+      "translation": "选择槽位",
+      "context": "index.htm: (html_title)"
+    },
+    "html:button#csl2:title": {
+      "en": "Select slot",
+      "translation": "选择槽位",
+      "context": "index.htm: (html_title)"
+    },
+    "html:input#hexc:title": {
+      "en": "Hex RGB",
+      "translation": "十六进制 RGB",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#btns > div:nth-of-type(1) > button:title": {
+      "en": "File editor",
+      "translation": "文件编辑器",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#btns > div:nth-of-type(1) > div:text": {
+      "en": "Files",
+      "translation": "文件",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#btns > div:nth-of-type(2) > button:title": {
+      "en": "PixelForge",
+      "translation": "PixelForge",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#btns > div:nth-of-type(2) > div:text": {
+      "en": "PixelForge",
+      "translation": "PixelForge",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#btns > div:nth-of-type(3) > button:title": {
+      "en": "Custom palettes",
+      "translation": "自定义调色板",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#btns > div:nth-of-type(3) > div:text": {
+      "en": "Palettes",
+      "translation": "调色板",
+      "context": "index.htm: (html_text)"
+    },
+    "html:p#pall:text": {
+      "en": "Color palette",
+      "translation": "调色板",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#palw > div:nth-of-type(1) > input:placeholder": {
+      "en": "Search",
+      "translation": "搜索",
+      "context": "index.htm: (html_placeholder)"
+    },
+    "html:div#pallist > div > label > div > span:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:p#modeLabel:text": {
+      "en": "Effect mode",
+      "translation": "特效模式",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#fxFind > input:placeholder": {
+      "en": "Search",
+      "translation": "搜索",
+      "context": "index.htm: (html_placeholder)"
+    },
+    "html:label#filterPal:title": {
+      "en": "Uses palette",
+      "translation": "使用调色板",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#filter0D:title": {
+      "en": "Single pixel",
+      "translation": "单像素",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#filter1D:title": {
+      "en": "1D",
+      "translation": "1D",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#filter2D:title": {
+      "en": "2D",
+      "translation": "2D",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#filterVol:title": {
+      "en": "Volume",
+      "translation": "音量",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#filterFreq:title": {
+      "en": "Frequency",
+      "translation": "频率",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#fxlist > div > label > div > span:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#slider0 > i:title": {
+      "en": "Freeze",
+      "translation": "冻结",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider0 > div:title": {
+      "en": "Effect speed",
+      "translation": "特效速度",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider1 > i:title": {
+      "en": "Toggle labels",
+      "translation": "切换标签",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider1 > div:title": {
+      "en": "Effect intensity",
+      "translation": "特效强度",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider2 > div:title": {
+      "en": "Custom 1",
+      "translation": "自定义 1",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider3 > div:title": {
+      "en": "Custom 2",
+      "translation": "自定义 2",
+      "context": "index.htm: (html_title)"
+    },
+    "html:div#slider4 > div:title": {
+      "en": "Custom 3",
+      "translation": "自定义 3",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#opt0:title": {
+      "en": "Check 1",
+      "translation": "选项 1",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#opt1:title": {
+      "en": "Check 2",
+      "translation": "选项 2",
+      "context": "index.htm: (html_title)"
+    },
+    "html:label#opt2:title": {
+      "en": "Check 3",
+      "translation": "选项 3",
+      "context": "index.htm: (html_title)"
+    },
+    "html:p#segLabel:text": {
+      "en": "Segments",
+      "translation": "段",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#segcont:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#rsbtn:text": {
+      "en": "Reset segments",
+      "translation": "重置段",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#Segments > p:nth-of-type(2):text": {
+      "en": "Transition:  s",
+      "translation": "过渡时间： s",
+      "context": "index.htm: (html_text)"
+    },
+    "html:input#tt:value": {
+      "en": "0.7",
+      "translation": "0.7",
+      "context": "index.htm: (html_value)"
+    },
+    "html:select#bs > option:nth-of-type(1):text": {
+      "en": "Fade",
+      "translation": "淡入淡出",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(2):text": {
+      "en": "Fairy Dust",
+      "translation": "仙尘",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(3):text": {
+      "en": "Swipe right",
+      "translation": "向右滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(4):text": {
+      "en": "Swipe left",
+      "translation": "向左滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(5):text": {
+      "en": "Push right",
+      "translation": "向右推移",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(6):text": {
+      "en": "Push left",
+      "translation": "向左推移",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(7):text": {
+      "en": "Outside-in",
+      "translation": "从外向内",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(8):text": {
+      "en": "Inside-out",
+      "translation": "从内向外",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(9):text": {
+      "en": "Swipe up",
+      "translation": "向上滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(10):text": {
+      "en": "Swipe down",
+      "translation": "向下滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(11):text": {
+      "en": "Open H",
+      "translation": "水平展开",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(12):text": {
+      "en": "Open V",
+      "translation": "垂直展开",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(13):text": {
+      "en": "Push up",
+      "translation": "向上推移",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(14):text": {
+      "en": "Push down",
+      "translation": "向下推移",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(15):text": {
+      "en": "Swipe TL",
+      "translation": "左上滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(16):text": {
+      "en": "Swipe TR",
+      "translation": "右上滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(17):text": {
+      "en": "Swipe BR",
+      "translation": "右下滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(18):text": {
+      "en": "Swipe BL",
+      "translation": "左下滑动",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(19):text": {
+      "en": "Circular Out",
+      "translation": "向外扩散",
+      "context": "index.htm: (html_text)"
+    },
+    "html:select#bs > option:nth-of-type(20):text": {
+      "en": "Circular In",
+      "translation": "向内收缩",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#Presets > p:text": {
+      "en": "Presets",
+      "translation": "预设",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#psFind > input:placeholder": {
+      "en": "Search",
+      "translation": "搜索",
+      "context": "index.htm: (html_placeholder)"
+    },
+    "html:div#pcont > span:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#bot > button:nth-of-type(1) > p:text": {
+      "en": "Colors",
+      "translation": "颜色",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#bot > button:nth-of-type(2) > p:text": {
+      "en": "Effects",
+      "translation": "特效",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#bot > button:nth-of-type(3) > p:text": {
+      "en": "Segments",
+      "translation": "段",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#bot > button:nth-of-type(4) > p:text": {
+      "en": "Presets",
+      "translation": "预设",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#kv:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#info > div:nth-of-type(3) > button:nth-of-type(1):text": {
+      "en": "Refresh",
+      "translation": "刷新",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#info > div:nth-of-type(3) > button:nth-of-type(2):text": {
+      "en": "Instance List",
+      "translation": "实例列表",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#updBt:text": {
+      "en": "Update WLED",
+      "translation": "更新 WLED",
+      "context": "index.htm: (html_text)"
+    },
+    "html:button#resetbtn:text": {
+      "en": "Reboot WLED",
+      "translation": "重启 WLED",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#info > span:text": {
+      "en": "Made with  by  and the",
+      "translation": "由  和  精心打造，以及",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#info > span > a:nth-of-type(1):text": {
+      "en": "Aircoookie",
+      "translation": "Aircoookie",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#info > span > a:nth-of-type(2):text": {
+      "en": "WLED community",
+      "translation": "WLED 社区",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#ndlt:text": {
+      "en": "WLED instances",
+      "translation": "WLED 实例",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#kn:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#nodes > div:nth-of-type(3) > button:text": {
+      "en": "Refresh",
+      "translation": "刷新",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#klv2D:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#rover:text": {
+      "en": "To use built-in effects, use an override button below.\n\tYou can return to realtime mode by pressing the star in the top left corner.",
+      "translation": "要使用内置特效，请使用下方的覆盖按钮。\n\t按左上角的星标可返回实时模式。",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#rover > button:nth-of-type(1):text": {
+      "en": "Override once",
+      "translation": "覆盖一次",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#rover > button:nth-of-type(2):text": {
+      "en": "Override until reboot",
+      "translation": "覆盖直到重启",
+      "context": "index.htm: (html_text)"
+    },
+    "html:div#rover > span:text": {
+      "en": "For best performance, it is recommended to turn off the streaming source when not in use.",
+      "translation": "为获得最佳性能，建议在不使用时关闭流媒体源。",
+      "context": "index.htm: (html_text)"
+    }
+  },
+  "usermod.htm": {
+    "html:html > body:text": {
+      "en": "No usermod custom web page set.",
+      "translation": "未设置用户模块自定义网页。",
+      "context": "usermod.htm: (html_text)"
+    }
+  },
+  "settings_pininfo.htm": {
+    "html:html > body > h2:text": {
+      "en": "Pin Info",
+      "translation": "引脚信息",
+      "context": "settings_pininfo.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(1):text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings_pininfo.htm: (html_text)"
+    },
+    "html:div#pins:text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "settings_pininfo.htm: (html_text)"
+    },
+    "js:settings_pininfo.htm:42:f84ade24": {
+      "en": "Error loading pin info",
+      "translation": "加载引脚信息时出错",
+      "context": "settings_pininfo.htm:42 (js_innerHTML)"
+    }
+  },
+  "settings.htm": {
+    "html:button#b:text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(2):text": {
+      "en": "WiFi & Network",
+      "translation": "WiFi 和网络",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(3):text": {
+      "en": "LED & Hardware",
+      "translation": "LED 和硬件",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(4):text": {
+      "en": "Pin Info",
+      "translation": "引脚信息",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:button#2dbtn:text": {
+      "en": "2D Configuration",
+      "translation": "2D 配置",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(6):text": {
+      "en": "User Interface",
+      "translation": "用户界面",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:button#dmxbtn:text": {
+      "en": "DMX Output",
+      "translation": "DMX 输出",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(8):text": {
+      "en": "Sync Interfaces",
+      "translation": "同步接口",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(9):text": {
+      "en": "Time & Macros",
+      "translation": "时间和宏",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(10):text": {
+      "en": "Usermods",
+      "translation": "用户模块",
+      "context": "settings.htm: (html_text)"
+    },
+    "html:html > body > button:nth-of-type(11):text": {
+      "en": "Security & Updates",
+      "translation": "安全和更新",
+      "context": "settings.htm: (html_text)"
+    }
+  },
+  "settings_wifi.htm": {
+    "html:form#form_s > div:nth-of-type(1) > button:nth-of-type(1):text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(1) > button:nth-of-type(2):text": {
+      "en": "Save & Connect",
+      "translation": "保存并连接",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > h2:text": {
+      "en": "WiFi & Network Settings",
+      "translation": "WiFi 和网络设置",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > button:nth-of-type(1):text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > button:nth-of-type(2):text": {
+      "en": "Save & Connect",
+      "translation": "保存并连接",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(4):text": {
+      "en": "DNS server address:\n...\n\n\t\tmDNS address (leave empty for no mDNS):\n\t\thttp://  .local\n\t\tClient IP:",
+      "translation": "DNS 服务器地址:\n...\n\n\t\tmDNS 地址（留空则不启用 mDNS）:\n\t\thttp://  .local\n\t\t客户端 IP:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(4) > h3:text": {
+      "en": "DNS & mDNS",
+      "translation": "DNS 和 mDNS",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5):text": {
+      "en": "AP SSID (leave empty for no AP): \n\t\tHide AP name: \n\t\tAP password (leave empty for open): \n\t\tAccess Point WiFi channel: \n\t\tAP opens:\n\t\t\n\t\tAP IP:",
+      "translation": "AP SSID（留空则不启用 AP）: \n\t\t隐藏 AP 名称: \n\t\tAP 密码（留空则开放）: \n\t\t接入点 WiFi 信道: \n\t\tAP 开启方式:\n\t\t\n\t\tAP IP:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > h3:text": {
+      "en": "Configure Access Point",
+      "translation": "配置接入点",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(1):text": {
+      "en": "No connection after boot",
+      "translation": "启动后无连接时",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(2):text": {
+      "en": "Disconnected",
+      "translation": "断开连接时",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(3):text": {
+      "en": "Always",
+      "translation": "始终",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(4):text": {
+      "en": "Never (not recommended)",
+      "translation": "从不（不推荐）",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(5):text": {
+      "en": "Temporary (no connection after boot)",
+      "translation": "临时（启动后无连接时）",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(6):text": {
+      "en": "Force 802.11g mode (ESP8266 only): \n\t\tDisable WiFi sleep:",
+      "translation": "强制 802.11g 模式（仅 ESP8266）: \n\t\t禁用 WiFi 休眠:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(6) > h3:text": {
+      "en": "WiFi Power",
+      "translation": "WiFi 功率",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(7) > h3:text": {
+      "en": "ESP-NOW Wireless",
+      "translation": "ESP-NOW 无线",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > span:text": {
+      "en": "Not active",
+      "translation": "未激活",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > h3:text": {
+      "en": "Wireless network",
+      "translation": "无线网络",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#NoESPNOW > i:text": {
+      "en": "This firmware build does not include ESP-NOW support.",
+      "translation": "此固件构建不包含 ESP-NOW 支持。",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ESPNOW:text": {
+      "en": "Enable ESP-NOW:",
+      "translation": "启用 ESP-NOW:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ESPNOW > i:text": {
+      "en": "Listen for events over ESP-NOW\n\t\t\tKeep disabled if not using a remote or ESP-NOW sync, increases power consumption.",
+      "translation": "通过 ESP-NOW 监听事件\n\t\t\t\t\t如果不使用遥控器或 ESP-NOW 同步，请保持禁用，否则会增加功耗。",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(6) > i:text": {
+      "en": "Disabling WiFi sleep increases power consumption\n\t\tbut can help with connectivity issues and sync.",
+      "translation": "禁用 WiFi 休眠会增加功耗\n\t\t但有助于解决连接问题和同步。",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:button#scan:text": {
+      "en": "Scan",
+      "translation": "扫描",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > h3:text": {
+      "en": "Ethernet Type",
+      "translation": "以太网类型",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(2):text": {
+      "en": "IoTorero/ESP32Deux/RGB2Go",
+      "translation": "IoTorero/ESP32Deux/RGB2Go",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(3):text": {
+      "en": "ABC! WLED V43 & compatible",
+      "translation": "ABC! WLED V43 及兼容型号",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(4):text": {
+      "en": "ESP32-POE",
+      "translation": "ESP32-POE",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(5):text": {
+      "en": "ESP32-POE-WROVER",
+      "translation": "ESP32-POE-WROVER",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(6):text": {
+      "en": "KIT-VE",
+      "translation": "KIT-VE",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(7):text": {
+      "en": "LILYGO T-POE Pro",
+      "translation": "LILYGO T-POE Pro",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(8):text": {
+      "en": "QuinLED Uno/Quad",
+      "translation": "QuinLED Uno/Quad",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(9):text": {
+      "en": "QuinLED Octa & T-ETH-POE",
+      "translation": "QuinLED Octa 及 T-ETH-POE",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(10):text": {
+      "en": "QuinLED v4 Uno/Quad",
+      "translation": "QuinLED v4 Uno/Quad",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(11):text": {
+      "en": "QuinLED v4 Octa",
+      "translation": "QuinLED v4 Octa",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(12):text": {
+      "en": "Serg74-ETH32",
+      "translation": "Serg74-ETH32",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(13):text": {
+      "en": "TwilightLord-ESP32",
+      "translation": "TwilightLord-ESP32",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(14):text": {
+      "en": "WESP32",
+      "translation": "WESP32",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(15):text": {
+      "en": "WT32-ETH01",
+      "translation": "WT32-ETH01",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#ethd > select > option:nth-of-type(16):text": {
+      "en": "Gledopto",
+      "translation": "Gledopto",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(4) > span:text": {
+      "en": "Not connected",
+      "translation": "未连接",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > input:nth-of-type(3):title": {
+      "en": "Empty or min. 8 characters",
+      "translation": "为空或至少8个字符",
+      "context": "settings_wifi.htm: (html_title)"
+    },
+    "html:div#tx:text": {
+      "en": "Max. TX power:",
+      "translation": "最大发射功率:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(1):text": {
+      "en": "19.5 dBm",
+      "translation": "19.5 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(2):text": {
+      "en": "19 dBm",
+      "translation": "19 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(3):text": {
+      "en": "18.5 dBm",
+      "translation": "18.5 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(4):text": {
+      "en": "17 dBm",
+      "translation": "17 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(5):text": {
+      "en": "15 dBm",
+      "translation": "15 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(6):text": {
+      "en": "13 dBm",
+      "translation": "13 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(7):text": {
+      "en": "11 dBm",
+      "translation": "11 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(8):text": {
+      "en": "8.5 dBm",
+      "translation": "8.5 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(9):text": {
+      "en": "7 dBm",
+      "translation": "7 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(10):text": {
+      "en": "5 dBm",
+      "translation": "5 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > select > option:nth-of-type(11):text": {
+      "en": "2 dBm",
+      "translation": "2 dBm",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#tx > i:text": {
+      "en": "WARNING: Modifying TX power may render device unreachable.",
+      "translation": "警告：修改发射功率可能导致设备无法访问。",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "html:div#rlc:text": {
+      "en": "Last device seen: \n\n\t\t\t\tLinked MACs (10 max):",
+      "translation": "最后发现的设备: \n\n\t\t\t\t已链接 MAC（最多 10 个）:",
+      "context": "settings_wifi.htm: (html_text)"
+    },
+    "js:settings_wifi.htm:16:16380ec4": {
+      "en": "Scanning...",
+      "translation": "扫描中...",
+      "context": "settings_wifi.htm:16 (js_textContent)"
+    },
+    "js:settings_wifi.htm:69:86273a5d": {
+      "en": "${networks[i].ssid} (${networks[i].rssi} dBm)",
+      "translation": "",
+      "context": "settings_wifi.htm:69 (js_textContent)"
+    },
+    "js:settings_wifi.htm:81:15feb6b3": {
+      "en": "Other network...",
+      "translation": "其他网络...",
+      "context": "settings_wifi.htm:81 (js_textContent)"
+    },
+    "js:settings_wifi.htm:90:77f25a22": {
+      "en": "Scan",
+      "translation": "扫描",
+      "context": "settings_wifi.htm:90 (js_textContent)"
+    }
+  },
+  "settings_um.htm": {
+    "html:form#form_s > div:nth-of-type(2):text": {
+      "en": "SDA:\n\t\t\tSCL:\n\n\n\t\t\tMOSI:\n\t\t\tMISO:\n\t\t\tSCLK:\n\n\t\t\tReboot after save?",
+      "translation": "SDA:\n\t\t\tSCL:\n\n\n\t\t\tMOSI:\n\t\t\tMISO:\n\t\t\tSCLK:\n\n\t\t\t保存后重启?",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:span#lssuc:text": {
+      "en": "✔ Configuration saved!",
+      "translation": "✔ 配置已保存！",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:span#lserr:text": {
+      "en": "⚠ Could not load configuration.",
+      "translation": "⚠ 无法加载配置。",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > b:nth-of-type(1):text": {
+      "en": "IC GPIOs (HW)",
+      "translation": "IC GPIO (硬件)",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(1):placeholder": {
+      "en": "SDA",
+      "translation": "SDA",
+      "context": "settings_um.htm: (html_placeholder)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(2):placeholder": {
+      "en": "SCL",
+      "translation": "SCL",
+      "context": "settings_um.htm: (html_placeholder)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > b:nth-of-type(2):text": {
+      "en": "SPI GPIOs (HW)",
+      "translation": "SPI GPIO (硬件)",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > i:nth-of-type(1):text": {
+      "en": "only changable on ESP32",
+      "translation": "仅在 ESP32 上可更改",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(3):placeholder": {
+      "en": "MOSI",
+      "translation": "MOSI",
+      "context": "settings_um.htm: (html_placeholder)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(4):placeholder": {
+      "en": "MISO",
+      "translation": "MISO",
+      "context": "settings_um.htm: (html_placeholder)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > input:nth-of-type(5):placeholder": {
+      "en": "SCLK",
+      "translation": "SCLK",
+      "context": "settings_um.htm: (html_placeholder)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > i:nth-of-type(2):text": {
+      "en": "change requires reboot!",
+      "translation": "更改需要重启！",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "html:div#um:text": {
+      "en": "Loading settings...",
+      "translation": "加载设置中...",
+      "context": "settings_um.htm: (html_text)"
+    },
+    "js:settings_um.htm:53:098d98aa": {
+      "en": "No Usermods installed.",
+      "translation": "未安装用户模块。",
+      "context": "settings_um.htm:53 (js_innerHTML)"
+    }
+  },
+  "settings_2D.htm": {
+    "html:select#somp > option:nth-of-type(1):text": {
+      "en": "1D Strip",
+      "translation": "1D 灯带",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:select#somp > option:nth-of-type(2):text": {
+      "en": "2D Matrix",
+      "translation": "2D 矩阵",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(1) > h3:text": {
+      "en": "Matrix Generator",
+      "translation": "矩阵生成器",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen:text": {
+      "en": "Panel dimensions (WxH):  x \n\t\t\tHorizontal panels: \n\t\t\tVertical panels: \n\t\t\t1 panel: \n\t\t\tOrientation: \n\t\t\tSerpentine:",
+      "translation": "面板尺寸 (宽x高):  x \n\t\t\t水平面板数: \n\t\t\t垂直面板数: \n\t\t\t第1个面板: \n\t\t\t方向: \n\t\t\t蛇形排列:",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > sup:text": {
+      "en": "st",
+      "translation": "第",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(1) > option:nth-of-type(1):text": {
+      "en": "Top",
+      "translation": "底部",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(1) > option:nth-of-type(2):text": {
+      "en": "Bottom",
+      "translation": "底部",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(2) > option:nth-of-type(1):text": {
+      "en": "Left",
+      "translation": "右侧",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(2) > option:nth-of-type(2):text": {
+      "en": "Right",
+      "translation": "右侧",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(3) > option:nth-of-type(1):text": {
+      "en": "Horizontal",
+      "translation": "垂直",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > select:nth-of-type(3) > option:nth-of-type(2):text": {
+      "en": "Vertical",
+      "translation": "垂直",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > i:text": {
+      "en": "Pressing Populate will create LED panel layout with pre-arranged matrix.Values above  affect final layout.\n\t\t\t\tWARNING: You may need to update each panel parameters after they are generated.",
+      "translation": "点击“生成”将创建 LED 面板布局，预先排列矩阵。上方的值会影响最终布局。\n\t\t\t\t警告：",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > i > i:text": {
+      "en": "will not",
+      "translation": "不会",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mxGen > button:text": {
+      "en": "Populate",
+      "translation": "生成",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(2):text": {
+      "en": "Number of panels:",
+      "translation": "面板数量：",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(2) > h3:text": {
+      "en": "Panel set-up",
+      "translation": "面板设置",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(2) > i:text": {
+      "en": "A matrix is made of 1 or more physical LED panels.\n\t\tEach panel can be of different size and/or have different LED orientation and/or starting point and/or layout.",
+      "translation": "矩阵由 1 个或多个物理 LED 面板组成。\n\t\t每个面板可以有不同的尺寸和/或不同的 LED 方向。",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(3) > h3:text": {
+      "en": "LED panel layout",
+      "translation": "LED 面板布局",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(5) > i:text": {
+      "en": "Note: Gap file is a  file containing an array with number of elements equal to the matrix size.\n\t\t\tA value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.",
+      "translation": "注意：间隙文件是一个包含数组的文件，数组元素数量等于矩阵大小。\n\t\t\t值为 -1 表示该位置没有 LED。",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "html:div#mpdiv > div:nth-of-type(5) > i > b:text": {
+      "en": ".json",
+      "translation": ".json",
+      "context": "settings_2D.htm: (html_text)"
+    },
+    "js:settings_2D.htm:240:9833976c": {
+      "en": "Matrix Dimensions (W*H=LC):",
+      "translation": "矩阵尺寸 (宽*高=LED数)：",
+      "context": "settings_2D.htm:240 (js_innerHTML)"
+    }
+  },
+  "settings_leds.htm": {
+    "html:div#json:text": {
+      "en": "JSON file:",
+      "translation": "JSON 文件：",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#json > button:text": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#abl:text": {
+      "en": "Use per-output limiter:",
+      "translation": "最大电源电流： mA",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#abl > i:text": {
+      "en": "Automatically limits brightness to stay close to the limit.\n\t\t\t\tKeep at <1A if powering LEDs directly from the ESP 5V pin!\n\t\t\t\tIf using multiple outputs it is recommended to use per-output limiter.\n\t\t\t\tAnalog (PWM) and virtual LEDs cannot use automatic brightness limiter.",
+      "translation": "自动限制亮度以保持在限制范围内。\n\t\t\t\t如果直接从 ESP 5V 引脚供电，保持在 <1A 以下！\n\t\t\t\t使用多个输出时建议使用单输出限制器。\n\t\t\t\t模拟（PWM）和虚拟 LED 不能使用自动亮度限制。",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#psuMA:text": {
+      "en": "Maximum PSU Current:  mA",
+      "translation": "电源最大电流：  mA",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#ppldis > i:text": {
+      "en": "Make sure you enter correct value for each LED output.\n\t\t\t\tIf using multiple outputs with only one PSU, distribute its power proportionally amongst outputs.",
+      "translation": "请确保为每个 LED 输出输入正确的值。\n\t\t\t\t如果使用多个输出但只有一个电源，请将电流值合理分配到各输出。",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#ampwarning:text": {
+      "en": "⚠ Your power supply provides high current.\n\t\t\t\tTo improve the safety of your setup,\n\t\t\t\tplease use thick cables,\n\t\t\t\tmultiple power injection points and a fuse!",
+      "translation": "⚠ 您的电源提供较大电流。\n\t\t\t\t为了提高安全性，\n\t\t\t\t请使用粗电缆、\n\t\t\t\t多路输出和保险丝。",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#mLC > h4:text": {
+      "en": "LED outputs:",
+      "translation": "LED 输出：",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#ledwarning:text": {
+      "en": "⚠ You might run into stability or lag issues.\n\t\t\tUse less than  for the best experience!",
+      "translation": "⚠ 您可能会遇到稳定性或延迟问题。\n\t\t\t少于  个 LED 可获得最佳体验！",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:span#wreason:text": {
+      "en": "800 LEDs per output",
+      "translation": "每个输出最多 800 个 LED",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#color_order_mapping:text": {
+      "en": "Color Order Override:",
+      "translation": "颜色顺序覆盖：",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > input:nth-of-type(3):placeholder": {
+      "en": "2.2",
+      "translation": "2.2",
+      "context": "settings_leds.htm: (html_placeholder)"
+    },
+    "html:div#wc:text": {
+      "en": "Global override for Auto-calculate white:\n\t\t\t\n\n\t\t\tCalculate CCT from RGB: \n\t\t\tCCT IC used (Athom 15W): \n\t\t\tCCT blending (±100%):  %",
+      "translation": "全局覆盖自动计算白色通道：\n\t\t\t\n\n\t\t\t从 RGB 计算 CCT：\n\t\t\t使用的 CCT IC（Athom 15W）：\n\t\t\tCCT 混合",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > select > option:nth-of-type(1):text": {
+      "en": "Disabled",
+      "translation": "精确",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > select > option:nth-of-type(3):text": {
+      "en": "Brighter",
+      "translation": "最大",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > select > option:nth-of-type(4):text": {
+      "en": "Accurate",
+      "translation": "精确",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > select > option:nth-of-type(5):text": {
+      "en": "Dual",
+      "translation": "双路",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > select > option:nth-of-type(6):text": {
+      "en": "Max",
+      "translation": "最大",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > small:text": {
+      "en": "Positive: additive blend, Negative: exclusive blend",
+      "translation": "正值：叠加混合，负值：排他混合",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#wc > i:text": {
+      "en": "Set to 0 when using 2-wire (reverse polarity) CCT strips",
+      "translation": "使用双线（反极性）CCT 灯带时设为 0",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(6):text": {
+      "en": "21-key RGB",
+      "translation": "JSON 遥控",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(7):text": {
+      "en": "6-key black",
+      "translation": "6键黑色遥控器",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(8):text": {
+      "en": "9-key red",
+      "translation": "9键红色遥控器",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > select > option:nth-of-type(9):text": {
+      "en": "JSON remote",
+      "translation": "JSON 遥控器",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > h2:nth-of-type(3):text": {
+      "en": "General settings",
+      "translation": "常规设置",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(7) > i:text": {
+      "en": "(disable if using boot preset to turn LEDs on)",
+      "translation": "（如果使用启动预设点亮 LED，请禁用此项）",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(9):text": {
+      "en": "Use harmonic colors in : \n Cycle Time:  s",
+      "translation": "在  中使用谐波颜色：\n 周期时间：  秒",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(9) > i:nth-of-type(1):text": {
+      "en": "Random palettes",
+      "translation": "随机调色板",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(9) > i:nth-of-type(2):text": {
+      "en": "Random Palette",
+      "translation": "随机调色板",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10):text": {
+      "en": "Default duration:  min\n\t\tDefault target brightness: \n\t\tMode:",
+      "translation": "默认时长：  分钟\n\t\t默认目标亮度：\n\t\t模式：",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > h3:text": {
+      "en": "Timed light",
+      "translation": "定时灯光",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(1):text": {
+      "en": "Wait and set",
+      "translation": "日出",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(2):text": {
+      "en": "Fade",
+      "translation": "淡入淡出",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(3):text": {
+      "en": "Fade Color",
+      "translation": "渐变颜色",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > select > option:nth-of-type(4):text": {
+      "en": "Sunrise",
+      "translation": "日出",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11):text": {
+      "en": "Palette wrapping:\n\t\t\n\t\tTarget refresh rate:  FPS",
+      "translation": "调色板循环：\n\t\t\n\t\t目标刷新率：  FPS",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(1):text": {
+      "en": "Linear (wrap if moving)",
+      "translation": "无（不推荐）",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(2):text": {
+      "en": "Linear (always wrap)",
+      "translation": "线性（始终循环）",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(3):text": {
+      "en": "Linear (never wrap)",
+      "translation": "线性（从不循环）",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11) > select > option:nth-of-type(4):text": {
+      "en": "None (not recommended)",
+      "translation": "无（不推荐）",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#fpsNone:text": {
+      "en": "⚠ Unlimited FPS Mode is experimental ⚠",
+      "translation": "⚠ 无限制 FPS 模式为实验性功能 ⚠",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#fpsHigh:text": {
+      "en": "⚠ High FPS Mode is experimental.",
+      "translation": "⚠ 高 FPS 模式为实验性功能。",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#fpsWarn:text": {
+      "en": "Please  WLED configuration and presets first!",
+      "translation": "请先  WLED 配置和预设！",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#fpsWarn > a:text": {
+      "en": "backup",
+      "translation": "备份",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#cfg:text": {
+      "en": "Config template:",
+      "translation": "配置模板：",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "html:div#cfg > button:text": {
+      "en": "Apply",
+      "translation": "返回",
+      "context": "settings_leds.htm: (html_text)"
+    },
+    "js:settings_leds.htm:106:8ed1c671": {
+      "en": "Sorry, pins ${JSON.stringify(d.ro_gpio)} are input only.",
+      "translation": "抱歉，引脚 ${JSON.stringify(d.ro_gpio)} 仅支持输入。",
+      "context": "settings_leds.htm:106 (js_alert)"
+    },
+    "js:settings_leds.htm:119:2659be93": {
+      "en": "Pin conflict between ${LC.name}/${nList[j].name}!",
+      "translation": "引脚冲突：${LC.name} 与 ${nList[j].name}！",
+      "context": "settings_leds.htm:119 (js_alert)"
+    },
+    "js:settings_leds.htm:139:ddf259ef": {
+      "en": "Invalid Bus-config",
+      "translation": "无效的总线配置",
+      "context": "settings_leds.htm:139 (js_alert)"
+    },
+    "js:settings_leds.htm:147:d9c0df1b": {
+      "en": "HUB75 error: panels≠rows×cols",
+      "translation": "HUB75 错误：面板数 ≠ 行×列",
+      "context": "settings_leds.htm:147 (js_alert)"
+    },
+    "js:settings_leds.htm:148:315a9b99": {
+      "en": "HUB75 error: height >= 64, only single panel allowed",
+      "translation": "HUB75 错误：高度 >= 64，仅允许单面板",
+      "context": "settings_leds.htm:148 (js_alert)"
+    },
+    "js:settings_leds.htm:150:26a7ab01": {
+      "en": "HUB75 changes require a reboot",
+      "translation": "HUB75 更改需要重启",
+      "context": "settings_leds.htm:150 (js_alert)"
+    },
+    "js:settings_leds.htm:306:a0b9c645": {
+      "en": "<br>No. of Panels:",
+      "translation": "<br>面板数量：",
+      "context": "settings_leds.htm:306 (js_innerHTML)"
+    },
+    "js:settings_leds.htm:307:0fbf6431": {
+      "en": "rows x cols:",
+      "translation": "行 x 列：",
+      "context": "settings_leds.htm:307 (js_innerText)"
+    },
+    "js:settings_leds.htm:475:c71afabe": {
+      "en": "Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}",
+      "translation": "已用硬件通道：RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}",
+      "context": "settings_leds.htm:475 (js_textContent)"
+    },
+    "js:settings_leds.htm:751:02258034": {
+      "en": "Please select a JSON file first!",
+      "translation": "请先选择 JSON 文件！",
+      "context": "settings_leds.htm:751 (js_alert)"
+    },
+    "js:settings_leds.htm:501:complex": {
+      "en": "80% of max LED memory",
+      "translation": "80% 的最大 LED 内存",
+      "context": "settings_leds.htm:501 (js_innerHTML_complex)"
+    },
+    "js:settings_leds.htm:501:complex2": {
+      "en": "WARNING: using over",
+      "translation": "警告：使用超过",
+      "context": "settings_leds.htm:501 (js_template_literal)"
+    }
+  },
+  "settings_sync.htm": {
+    "html:form#form_s:text": {
+      "en": "For best results, only use one of these services at a time.\n(alternatively, connect a second ESP to them and use the UDP sync)",
+      "translation": "为获得最佳效果，一次只使用其中一个服务。\n（或者，将第二个 ESP 连接到它们并使用 UDP 同步）",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(7):text": {
+      "en": "Enable instance list: \nMake this instance discoverable:",
+      "translation": "启用实例列表: \n使此实例可被发现:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8):text": {
+      "en": "Receive UDP realtime: \nUse main segment only: \nRespect LED Maps: \n\nType:\n\n\nMulticast: \nStart universe: \n Check out !\nSkip out-of-sequence packets: \nDMX start address: \nDMX segment spacing: \nE1.31 port priority: \nDMX mode:\n\n\nTimeout:  ms\nForce max brightness: \nDisable realtime gamma correction: \nRealtime LED offset:",
+      "translation": "接收 UDP 实时数据: \n仅使用主段: \n遵循 LED 映射: \n\n类型:\n\n\n组播: \n起始 Universe: \n 查看 !\n跳过乱序数据包: \nDMX 起始地址: \nDMX 段间距: \nE1.31 端口优先级: \nDMX 模式:\n\n\n超时:  ms\n强制最大亮度: \n禁用实时伽马校正: \n实时 LED 偏移:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > h3:text": {
+      "en": "Realtime",
+      "translation": "实时",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(9) > h3:text": {
+      "en": "Alexa Voice Assistant",
+      "translation": "Alexa 语音助手",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(11) > h3:text": {
+      "en": "MQTT",
+      "translation": "MQTT",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(4) > table > tr:nth-of-type(2) > td:nth-of-type(1):text": {
+      "en": "Send:",
+      "translation": "发送:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(4) > table > tr:nth-of-type(3) > td:nth-of-type(1):text": {
+      "en": "Receive:",
+      "translation": "接收:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > nowrap:nth-of-type(1):text": {
+      "en": "Brightness,",
+      "translation": "亮度,",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > nowrap:nth-of-type(2):text": {
+      "en": "Color,",
+      "translation": "颜色,",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > nowrap:nth-of-type(3):text": {
+      "en": "Effects,",
+      "translation": "效果,",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > nowrap:nth-of-type(4):text": {
+      "en": "and Palette",
+      "translation": "和 调色板",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > h4:text": {
+      "en": "Network DMX input",
+      "translation": "网络 DMX 输入",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(1):text": {
+      "en": "E1.31 (sACN)",
+      "translation": "E1.31 (sACN)",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(2):text": {
+      "en": "Art-Net",
+      "translation": "Art-Net",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(1) > option:nth-of-type(3):text": {
+      "en": "Custom port",
+      "translation": "自定义端口",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#xp:text": {
+      "en": "Port:",
+      "translation": "端口:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > i:text": {
+      "en": "Reboot required.",
+      "translation": "需要重启。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > a:nth-of-type(1):text": {
+      "en": "LedFx",
+      "translation": "LedFx",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(1):text": {
+      "en": "Disabled",
+      "translation": "精确",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(2):text": {
+      "en": "Single RGB",
+      "translation": "单 RGB",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(3):text": {
+      "en": "Single DRGB",
+      "translation": "单 DRGB",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(4):text": {
+      "en": "Effect",
+      "translation": "效果",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(5):text": {
+      "en": "Effect + White",
+      "translation": "效果 + 白",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(6):text": {
+      "en": "Effect Segment",
+      "translation": "效果段",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(7):text": {
+      "en": "Effect Segment + White",
+      "translation": "效果段 + 白",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(8):text": {
+      "en": "Multi RGB",
+      "translation": "多 RGB",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(9):text": {
+      "en": "Dimmer + Multi RGB",
+      "translation": "调光 + 多 RGB",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(10):text": {
+      "en": "Multi RGBW",
+      "translation": "多 RGBW",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > select:nth-of-type(2) > option:nth-of-type(11):text": {
+      "en": "Preset",
+      "translation": "预设",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(8) > a:nth-of-type(2):text": {
+      "en": "E1.31 info",
+      "translation": "E1.31 信息",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput:text": {
+      "en": "DMX RX Pin: RO",
+      "translation": "DMX RX 引脚: RO",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput > h4:text": {
+      "en": "Wired DMX Input",
+      "translation": "有线 DMX 输入",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput > br:nth-of-type(2):text": {
+      "en": "DMX TX Pin: DI",
+      "translation": "DMX TX 引脚: DI",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput > br:nth-of-type(2) > br:text": {
+      "en": "DMX Enable Pin: RE+DE",
+      "translation": "DMX 使能引脚: RE+DE",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput > br:nth-of-type(2) > br > br:text": {
+      "en": "DMX Port:",
+      "translation": "DMX 端口:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInput > br:nth-of-type(2) > br > br > br > i:text": {
+      "en": "Reboot required to apply changes.",
+      "translation": "需要重启才能生效。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxInputOff > i:text": {
+      "en": "This firmware build does not include DMX Input support.",
+      "translation": "此固件构建不包含 DMX 输入支持。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#dmxOnOffOutput > i:text": {
+      "en": "This firmware build does not include DMX output support.",
+      "translation": "此固件构建不包含 DMX 输出支持。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#NoAlexa > i:text": {
+      "en": "This firmware build does not include Alexa support.",
+      "translation": "此固件构建不包含 Alexa 支持。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Alexa:text": {
+      "en": "Emulate Alexa device: \nAlexa invocation name: \nAlso emulate devices to call the first  presets",
+      "translation": "模拟 Alexa 设备: \nAlexa 调用名称: \n同时模拟设备以调用前  个预设",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(10) > b:text": {
+      "en": "MQTT and Hue sync connect to external hosts!\nThis may impact the responsiveness of WLED.",
+      "translation": "MQTT 和 Hue 同步会连接到外部主机!\n这可能会影响 WLED 的响应速度。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#NoMQTT > i:text": {
+      "en": "This firmware build does not include MQTT support.",
+      "translation": "此固件构建不包含 MQTT 支持。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#MQTT:text": {
+      "en": "Enable MQTT: \nBroker: \nPort: \n\nUsername: \nPassword: \nClient ID: \nDevice Topic: \nGroup Topic: \nPublish on button press: \nRetain brightness & color messages:",
+      "translation": "启用 MQTT: \n代理: \n端口: \n\n用户名: \n密码: \n客户端 ID: \n设备主题: \n组主题: \n按钮按下时发布: \n保留亮度和颜色消息:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#MQTT > b:text": {
+      "en": "The MQTT credentials are sent over an unsecured connection.\nNever use the MQTT password for another service!",
+      "translation": "MQTT 凭据通过不安全的连接发送。\n切勿将 MQTT 密码用于其他服务!",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#MQTT > i:text": {
+      "en": "Reboot required to apply changes.",
+      "translation": "需要重启才能生效。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#MQTT > a:text": {
+      "en": "MQTT info",
+      "translation": "MQTT 信息",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(12) > h3:text": {
+      "en": "Philips Hue",
+      "translation": "Philips Hue",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#NoHue > em:text": {
+      "en": "This firmware build does not include Philips Hue support.",
+      "translation": "此固件构建不包含 Philips Hue 支持。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Hue:text": {
+      "en": "Poll Hue light  every  ms: \nThen, receive  On/Off,  Brightness, and  Color\nHue Bridge IP:\n .\n .\n .\n\n\n(when first connecting)\nHue status:",
+      "translation": "轮询 Hue 灯  每  ms: \n然后接收  开/关,  亮度, 和  颜色\nHue 桥接器 IP:\n .\n .\n .\n\n\n（首次连接时）\nHue 状态:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Hue > i:text": {
+      "en": "You can find the bridge IP and the light number in the 'About' section of the hue app.",
+      "translation": "您可以在 Hue 应用的\"关于\"部分找到桥接器 IP 和灯号。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Hue > b:text": {
+      "en": "Press the pushlink button on the bridge, after that save this page!",
+      "translation": "按下桥接器上的链接按钮，然后保存此页面!",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Hue > span:text": {
+      "en": "Disabled in this build",
+      "translation": "此构建中已禁用",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(13) > h3:text": {
+      "en": "Serial",
+      "translation": "串口",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#NoSerial > em:text": {
+      "en": "This firmware build does not support Serial interface.",
+      "translation": "此固件构建不支持串口接口。",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Serial:text": {
+      "en": "Baud rate:",
+      "translation": "波特率:",
+      "context": "settings_sync.htm: (html_text)"
+    },
+    "html:div#Serial > i:text": {
+      "en": "Keep at 115200 to use Improv. Some boards may not support high rates.",
+      "translation": "保持 115200 以使用 Improv。部分主板可能不支持高速率。",
+      "context": "settings_sync.htm: (html_text)"
+    }
+  },
+  "settings_pin.htm": {
+    "html:form#form_s > div > button:nth-of-type(1):text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings_pin.htm: (html_text)"
+    },
+    "html:form#form_s > div > button:nth-of-type(2):text": {
+      "en": "Submit",
+      "translation": "提交",
+      "context": "settings_pin.htm: (html_text)"
+    },
+    "html:form#form_s > div > h2:text": {
+      "en": "Please enter settings PIN code",
+      "translation": "请输入设置 PIN 码",
+      "context": "settings_pin.htm: (html_text)"
+    }
+  },
+  "settings_time.htm": {
+    "html:form#form_s > i:nth-of-type(1):text": {
+      "en": "Presets can be used as macros for both JSON and HTTP API commands.\n\tEnter the preset ID below.",
+      "translation": "预设可用作 JSON 和 HTTP API 命令的宏。\n\t在下方输入预设 ID。",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > i:nth-of-type(2):text": {
+      "en": "Use 0 for the default action instead of a preset",
+      "translation": "使用 0 表示默认操作而非预设",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > h2:nth-of-type(1):text": {
+      "en": "Time setup",
+      "translation": "时间设置",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > h3:text": {
+      "en": "Clock",
+      "translation": "时钟",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > h2:nth-of-type(2):text": {
+      "en": "Macro Presets",
+      "translation": "宏预设",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > a:text": {
+      "en": "Analog Button setup",
+      "translation": "模拟按钮设置",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(1):text": {
+      "en": "GMT(UTC)",
+      "translation": "GMT(UTC)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(2):text": {
+      "en": "GMT/BST",
+      "translation": "GMT/BST",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(3):text": {
+      "en": "CET/CEST",
+      "translation": "CET/CEST",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(4):text": {
+      "en": "EET/EEST",
+      "translation": "EET/EEST",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(5):text": {
+      "en": "US-EST/EDT",
+      "translation": "US-EST/EDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(6):text": {
+      "en": "US-CST/CDT",
+      "translation": "US-CST/CDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(7):text": {
+      "en": "US-MST/MDT",
+      "translation": "US-MST/MDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(8):text": {
+      "en": "US-AZ",
+      "translation": "US-AZ",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(9):text": {
+      "en": "US-PST/PDT",
+      "translation": "US-PST/PDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(10):text": {
+      "en": "CST (AWST, PHST)",
+      "translation": "CST (AWST, PHST)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(11):text": {
+      "en": "JST (KST)",
+      "translation": "JST (KST)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(12):text": {
+      "en": "AEST/AEDT",
+      "translation": "AEST/AEDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(13):text": {
+      "en": "NZST/NZDT",
+      "translation": "NZST/NZDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(14):text": {
+      "en": "North Korea",
+      "translation": "朝鲜",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(15):text": {
+      "en": "IST (India)",
+      "translation": "IST (印度)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(16):text": {
+      "en": "CA-Saskatchewan",
+      "translation": "CA-萨斯卡切温",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(17):text": {
+      "en": "ACST",
+      "translation": "ACST",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(18):text": {
+      "en": "ACST/ACDT",
+      "translation": "ACST/ACDT",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(19):text": {
+      "en": "HST (Hawaii)",
+      "translation": "HST (夏威夷)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(20):text": {
+      "en": "NOVT (Novosibirsk)",
+      "translation": "NOVT (新西伯利亚)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(21):text": {
+      "en": "AKST/AKDT (Anchorage)",
+      "translation": "AKST/AKDT (安克雷奇)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(22):text": {
+      "en": "MX-CST",
+      "translation": "MX-CST",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(23):text": {
+      "en": "PKT (Pakistan)",
+      "translation": "PKT (巴基斯坦)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(24):text": {
+      "en": "BRT (Brasília)",
+      "translation": "BRT (巴西利亚)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > select:nth-of-type(1) > option:nth-of-type(25):text": {
+      "en": "AWST (Perth)",
+      "translation": "AWST (珀斯)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > span:text": {
+      "en": "unknown",
+      "translation": "未知",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:button#locbtn:text": {
+      "en": "Get location",
+      "translation": "获取位置",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > div:nth-of-type(1) > i:text": {
+      "en": "(opens new tab, only works in browser)",
+      "translation": "(打开新标签页，仅在浏览器中有效)",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:div#cac:text": {
+      "en": "First LED:  Last LED: \n\t\t\t12h LED: \n\t\t\tShow 5min marks: \n\t\t\tSeconds (as trail): \n\t\t\tShow clock overlay only if all LEDs are solid black:",
+      "translation": "首个 LED:  末个 LED: \n\t\t\t12点位 LED: \n\t\t\t显示 5 分钟刻度: \n\t\t\t秒针 (拖尾): \n\t\t\t仅在所有 LED 为纯黑时显示时钟叠加:",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > nowrap:nth-of-type(1):text": {
+      "en": "20--",
+      "translation": "20--",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > a:nth-of-type(1):text": {
+      "en": "JSON API",
+      "translation": "JSON API",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > a:nth-of-type(2):text": {
+      "en": "HTTP API",
+      "translation": "HTTP API",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(6) > div > button:text": {
+      "en": "Add Timer",
+      "translation": "添加定时器",
+      "context": "settings_time.htm: (html_text)"
+    },
+    "js:settings_time.htm:89:bc9d682e": {
+      "en": "<thead><tr><th>En.</th><th>Type</th><th>Hour</th><th>Minute</th><th></th></tr></thead>",
+      "translation": "<thead><tr><th>启用</th><th>类型</th><th>时</th><th>分</th><th></th></tr></thead>",
+      "context": "settings_time.htm:89 (js_innerHTML)"
+    }
+  },
+  "settings_dmx.htm": {
+    "html:form#form_s > br:nth-of-type(5):text": {
+      "en": "Start channel:",
+      "translation": "起始通道：",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br:text": {
+      "en": "Spacing between start channels:  [  ]\n\n\nDMX fixtures start LED:",
+      "translation": "起始通道间距： [  ]\n\n\nDMX 灯具起始 LED：",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br > a:text": {
+      "en": "info",
+      "translation": "信息",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:div#gapwarning:text": {
+      "en": "WARNING: Channel gap is lower than channels per fixture.",
+      "translation": "警告：通道间距小于每灯具通道数。",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:div#gapwarning > br:text": {
+      "en": "This will cause overlap.",
+      "translation": "这将导致重叠。",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br > button:nth-of-type(1):text": {
+      "en": "DMX Map",
+      "translation": "DMX 映射",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br > h3:text": {
+      "en": "Channel functions",
+      "translation": "通道功能",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br > button:nth-of-type(2):text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "html:form#form_s > br:nth-of-type(5) > br > button:nth-of-type(3):text": {
+      "en": "Save",
+      "translation": "保存",
+      "context": "settings_dmx.htm: (html_text)"
+    },
+    "js:settings_dmx.htm:14:54aa4514": {
+      "en": "<span id=CH",
+      "translation": "",
+      "context": "settings_dmx.htm:14 (js_innerHTML)"
+    }
+  },
+  "settings_sec.htm": {
+    "html:form#form_s > div:nth-of-type(2) > i:text": {
+      "en": "Settings on this page are only changeable if OTA lock is disabled!",
+      "translation": "只有在禁用 OTA 锁定后才能更改此页面上的设置!",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:input#PIN:title": {
+      "en": "Please enter a 4 digit number",
+      "translation": "请输入4位数字",
+      "context": "settings_sec.htm: (html_title)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > div:nth-of-type(1):text": {
+      "en": "⚠ Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!",
+      "translation": "⚠ 未加密传输。选择 PIN 码时请谨慎，不要使用银行卡、门禁、SIM 卡等 PIN 码!",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > b:text": {
+      "en": "Disable OTA when not in use, otherwise an attacker can reflash device software!",
+      "translation": "不使用时请禁用 OTA，否则攻击者可以重新刷写设备固件!",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(2) > div:nth-of-type(2):text": {
+      "en": "⚠ Unencrypted transmission. An attacker on the same network can intercept form data!",
+      "translation": "⚠ 未加密传输。同一网络上的攻击者可以截获表单数据!",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#OTA:text": {
+      "en": "Only allow update from same network/WiFi:",
+      "translation": "仅允许同一网络/WiFi 更新:",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#OTA > h3:text": {
+      "en": "Software Update",
+      "translation": "固件更新",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#OTA > button:text": {
+      "en": "Update WLED",
+      "translation": "更新 WLED",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#aOTA:text": {
+      "en": "Enable ArduinoOTA:",
+      "translation": "启用 ArduinoOTA:",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#OTA > i:text": {
+      "en": "⚠ If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.\n\t\t\tDisabling this option will make your device less secure.",
+      "translation": "⚠ 如果使用多个 VLAN（如 IoT 或访客网络），请设置 PIN 码或禁用此选项。\n\t\t\t禁用此选项会降低设备安全性。",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > h3:text": {
+      "en": "Backup & Restore",
+      "translation": "备份和恢复",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > div:nth-of-type(1):text": {
+      "en": "⚠ Restoring presets/configuration will OVERWRITE your current presets/configuration.\n\t\tIncorrect upload or configuration may require a factory reset or re-flashing of your ESP.\n\t\tFor security reasons, passwords are not backed up.",
+      "translation": "⚠ 恢复预设/配置将覆盖当前的预设/配置。\n\t\t错误的上传或配置可能需要恢复出厂设置或重新刷写 ESP。\n\t\t出于安全考虑，密码不会被备份。",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:a#bckcfg:text": {
+      "en": "Backup presets",
+      "translation": "备份预设",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > div:nth-of-type(2):text": {
+      "en": "Restore presets",
+      "translation": "恢复预设",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > div:nth-of-type(2) > button:text": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:a#bckpresets:text": {
+      "en": "Backup configuration",
+      "translation": "备份配置",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > div:nth-of-type(3):text": {
+      "en": "Restore configuration",
+      "translation": "恢复配置",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:div#backup > div:nth-of-type(3) > button:text": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > a:nth-of-type(1):text": {
+      "en": "WLED",
+      "translation": "WLED",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > a:nth-of-type(2):text": {
+      "en": "Contributors, dependencies and special thanks",
+      "translation": "贡献者、依赖项和特别感谢",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > i:text": {
+      "en": "Licensed under the",
+      "translation": "基于以下协议授权",
+      "context": "settings_sec.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(5) > i > a:text": {
+      "en": "EUPL v1.2 license",
+      "translation": "EUPL v1.2 许可证",
+      "context": "settings_sec.htm: (html_text)"
+    }
+  },
+  "settings_ui.htm": {
+    "html:form#form_s > div:nth-of-type(3):text": {
+      "en": ": \n: \n: \n: \n: \n: \n: \n: \n: \n: \n\t\tI hate dark mode: \n\n: \n: \n\n\n: \n: \n\t\tBG image:  \n: \n\n\n\n:",
+      "translation": ": \n: \n: \n: \n: \n: \n: \n: \n: \n: \n\t\t讨厌深色模式: \n\n: \n: \n\n\n: \n: \n\t\t背景图片:  \n: \n\n\n\n:",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > i:text": {
+      "en": "The following UI customization settings are unique both to the WLED device and this browser.\n\t\tYou will need to set them again if using a different browser, device or WLED IP address.\n\t\tRefresh the main UI to apply changes.",
+      "translation": "以下界面自定义设置同时关联WLED设备和当前浏览器。\n\t\t使用不同浏览器、设备或WLED IP地址时需要重新设置。\n\t\t刷新主界面以应用更改。",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#gen:text": {
+      "en": "Loading settings...",
+      "translation": "加载设置中...",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > h3:nth-of-type(1):text": {
+      "en": "UI Appearance",
+      "translation": "界面外观",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:span#idonthateyou > i:text": {
+      "en": "Why would you?",
+      "translation": "为什么要这样呢？",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#skin:text": {
+      "en": "Custom CSS:",
+      "translation": "自定义CSS:",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#skin > input:nth-of-type(2):value": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "settings_ui.htm: (html_value)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > h3:nth-of-type(2):text": {
+      "en": "UI Background",
+      "translation": "界面背景",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:form#form_s > div:nth-of-type(3) > input:nth-of-type(17):value": {
+      "en": "Remove",
+      "translation": "移除",
+      "context": "settings_ui.htm: (html_value)"
+    },
+    "html:div#NoImage:text": {
+      "en": ": \n:",
+      "translation": "：\n：",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#NoImage > h4:text": {
+      "en": "Random BG image settings",
+      "translation": "随机背景图片设置",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#holidays:text": {
+      "en": "Holidays:",
+      "translation": "节假日:",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "html:div#holidays > input:nth-of-type(2):value": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "settings_ui.htm: (html_value)"
+    },
+    "html:form#form_s > button:nth-of-type(3):text": {
+      "en": "Save",
+      "translation": "保存",
+      "context": "settings_ui.htm: (html_text)"
+    },
+    "js:settings_ui.htm:125:fec84dc1": {
+      "en": "&#9888; Settings JSON parsing failed. (",
+      "translation": "&#9888; 设置JSON解析失败。(",
+      "context": "settings_ui.htm:125 (js_innerHTML)"
+    },
+    "js:settings_ui.htm:146:3cd0309a": {
+      "en": "&#9888; Settings JSON saving failed. (",
+      "translation": "&#9888; 设置JSON保存失败。(",
+      "context": "settings_ui.htm:146 (js_innerHTML)"
+    }
+  },
+  "update.htm": {
+    "html:div#toprow > div > button:title": {
+      "en": "Help",
+      "translation": "帮助",
+      "context": "update.htm: (html_title)"
+    },
+    "html:div#toprow > div > button:aria-label": {
+      "en": "Help",
+      "translation": "帮助",
+      "context": "update.htm: (html_aria-label)"
+    },
+    "html:div#toprow > button:text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > h2:text": {
+      "en": "WLED Software Update",
+      "translation": "WLED 固件更新",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > p:text": {
+      "en": "Installed version: \n\t\tRelease:",
+      "translation": "已安装版本: \n\t\t发行版:",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > p > span:nth-of-type(1):text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > p > span:nth-of-type(2):text": {
+      "en": "Loading...",
+      "translation": "加载中...",
+      "context": "update.htm: (html_text)"
+    },
+    "html:span#Norelease-download:text": {
+      "en": "Latest release: Checking...",
+      "translation": "最新发行版: 检查中...",
+      "context": "update.htm: (html_text)"
+    },
+    "html:span#release-download:text": {
+      "en": "Latest version:",
+      "translation": "最新版本:",
+      "context": "update.htm: (html_text)"
+    },
+    "html:span#release-download > a > img:alt": {
+      "en": "View latest",
+      "translation": "查看最新版本",
+      "context": "update.htm: (html_alt)"
+    },
+    "html:button#autoUpdBtn:text": {
+      "en": "Auto update",
+      "translation": "自动更新",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > h3:text": {
+      "en": "Manual upload",
+      "translation": "手动上传",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > label:text": {
+      "en": "Ignore firmware validation",
+      "translation": "忽略固件验证",
+      "context": "update.htm: (html_text)"
+    },
+    "html:form#upd > div > button:text": {
+      "en": "Upload",
+      "translation": "上传",
+      "context": "update.htm: (html_text)"
+    },
+    "html:button#rev:text": {
+      "en": "Revert update",
+      "translation": "回退更新",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#bootupd > h2:text": {
+      "en": "Bootloader Update",
+      "translation": "引导加载程序更新",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#bootupd > form:text": {
+      "en": "Only upload verified ESP32 bootloader files!",
+      "translation": "仅上传经过验证的 ESP32 引导加载程序文件!",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#bootupd > form > b:text": {
+      "en": "Warning:",
+      "translation": "警告：",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#bootupd > form > button:text": {
+      "en": "Update Bootloader",
+      "translation": "更新引导加载程序",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#Noupd:text": {
+      "en": "Please do not close or refresh the page :)",
+      "translation": "请不要关闭或刷新页面 :)",
+      "context": "update.htm: (html_text)"
+    },
+    "html:div#Noupd > b:text": {
+      "en": "Updating...",
+      "translation": "更新中...",
+      "context": "update.htm: (html_text)"
+    },
+    "html:button#backbtn:text": {
+      "en": "Back",
+      "translation": "返回",
+      "context": "update.htm: (html_text)"
+    },
+    "js:update.htm:9:89728d5f": {
+      "en": "Revert!",
+      "translation": "回退!",
+      "context": "update.htm:9 (js_innerText)"
+    },
+    "js:update.htm:21:8bbb50c5": {
+      "en": "${data.brand} ${data.ver} (${data.vid})",
+      "translation": "",
+      "context": "update.htm:21 (js_textContent)"
+    },
+    "js:update.htm:40:f270c08d": {
+      "en": "<a href=",
+      "translation": "",
+      "context": "update.htm:40 (js_innerHTML)"
+    },
+    "js:update.htm:55:4cdfbc6d": {
+      "en": "Current bootloader SHA256: \\n",
+      "translation": "当前引导加载程序 SHA256：\\n",
+      "context": "update.htm:55 (js_innerText)"
+    },
+    "js:update.htm:62:6385f2b5": {
+      "en": "Unknown",
+      "translation": "未知",
+      "context": "update.htm:62 (js_textContent)"
+    },
+    "js:update.htm:63:f922acff": {
+      "en": "Unknown",
+      "translation": "未知",
+      "context": "update.htm:63 (js_textContent)"
+    },
+    "js:update.htm:81:c6663660": {
+      "en": "No release repository available for this build.",
+      "translation": "此构建没有可用的发布仓库。",
+      "context": "update.htm:81 (js_textContent)"
+    },
+    "js:update.htm:85:d1becd1a": {
+      "en": "Checking GitHub for latest release...",
+      "translation": "正在检查 GitHub 最新版本...",
+      "context": "update.htm:85 (js_textContent)"
+    },
+    "js:update.htm:94:3e5b508d": {
+      "en": "Firmware not found (*${assetSuffix}). Available: ${available}",
+      "translation": "未找到固件 (*${assetSuffix})。可用版本: ${available}",
+      "context": "update.htm:94 (js_textContent)"
+    },
+    "js:update.htm:98:a0f84d1f": {
+      "en": "Downloading ${asset.name} (${Math.round(asset.size/1024)} KB)...",
+      "translation": "正在下载 ${asset.name} (${Math.round(asset.size/1024)} KB)...",
+      "context": "update.htm:98 (js_textContent)"
+    },
+    "js:update.htm:107:b23eb9ac": {
+      "en": "Downloaded ${asset.name}. Uploading to device...",
+      "translation": "已下载 ${asset.name}。正在上传到设备...",
+      "context": "update.htm:107 (js_textContent)"
+    },
+    "js:update.htm:111:7b96534d": {
+      "en": "Auto-update failed:",
+      "translation": "自动更新失败：",
+      "context": "update.htm:111 (js_textContent)"
+    }
+  }
+}
