@@ -36,7 +36,7 @@ TRANSLATABLE_TAGS = {
 }
 
 # Attributes that contain translatable text
-TRANSLATABLE_ATTRS = ['placeholder', 'title', 'alt', 'aria-label', 'value']
+TRANSLATABLE_ATTRS = ['placeholder', 'title', 'alt', 'aria-label']
 
 # JS patterns to extract (regex → group containing the string)
 JS_PATTERNS = [

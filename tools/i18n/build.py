@@ -194,7 +194,7 @@ def apply_translations(content, file_key, translations, lang_code):
                             segment_text, entry['original'], entry['translation']
                         )
                         total += count
-                    elif attr_name in ('placeholder', 'title', 'alt', 'aria-label', 'value'):
+                    elif attr_name in ('placeholder', 'title', 'alt', 'aria-label'):
                         segment_text, count = replace_html_attr(
                             segment_text, attr_name, entry['original'], entry['translation']
                         )
