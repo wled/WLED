@@ -227,12 +227,21 @@ private:
   }
 
   void _stopProcessing() {
-    if (!_useHardwareChip && s_swTaskHandle) {
-      // Signal the task to stop and wait up to 500 ms for graceful exit.
+    // Stop the SW task regardless of the current _useHardwareChip value:
+    // readFromConfig() updates _useHardwareChip BEFORE calling here, so
+    // checking it would silently skip teardown on a SW→HW mode switch.
+    if (s_swTaskHandle) {
       if (_swTaskParams) _swTaskParams->stop = true;
       uint32_t deadline = millis() + 500;
       while (s_swTaskHandle != nullptr && millis() < deadline) delay(10);
-      s_swTaskHandle = nullptr;
+      if (s_swTaskHandle != nullptr) {
+        // I2S stall: task didn't exit within 500 ms. Leak params and source
+        // rather than freeing memory the still-running task has a pointer to.
+        DEBUG_PRINTLN(F("MSGEQ7: SW task did not exit in 500ms; leaking params"));
+        _swTaskParams  = nullptr;
+        _audioSource   = nullptr;  // skip delete below
+        s_swTaskHandle = nullptr;
+      }
     }
     if (_swTaskParams) {
       delete _swTaskParams;
@@ -384,7 +393,11 @@ private:
      || !PinManager::allocatePin(_pinReset,  true,  PinOwner::UM_Audioreactive)
      || !PinManager::allocatePin(_pinOut,    false, PinOwner::UM_Audioreactive)) {
       DEBUG_PRINTLN(F("MSGEQ7: failed to allocate hw chip pins"));
-      _deinitHardwareChip();
+      // Explicitly deallocate each pin; deallocatePin is a no-op for any
+      // pin that was not successfully claimed by us, so this is always safe.
+      PinManager::deallocatePin(_pinStrobe, PinOwner::UM_Audioreactive);
+      PinManager::deallocatePin(_pinReset,  PinOwner::UM_Audioreactive);
+      PinManager::deallocatePin(_pinOut,    PinOwner::UM_Audioreactive);
       return;
     }
     msgeq7_hw_gpio_init(_pinStrobe, _pinReset);

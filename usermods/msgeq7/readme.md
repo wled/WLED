@@ -162,6 +162,25 @@ sequence (band 0 first, band 6 last) for a low-to-high frequency sweep.
 
 ---
 
+## Source layout
+
+```
+usermods/msgeq7/
+  msgeq7.cpp          — WLED usermod glue: AudioSource init, PinManager,
+                        um_data registration, JSON config, registration
+  msgeq7_engine.h     — Self-contained DSP engine: constants, shared state,
+                        biquad filter bank, FreeRTOS SW processing task,
+                        physical chip GPIO protocol
+  audio_source.h      — Copied verbatim from usermods/audioreactive/ (do not edit)
+  library.json        — PlatformIO library manifest
+```
+
+The engine header is designed to be included from `msgeq7.cpp` only. If the
+PoC proves successful and this code is merged into audioreactive, `msgeq7_engine.h`
+is the portable piece — it depends only on `wled.h` and `audio_source.h`.
+
+---
+
 ## Source attribution
 
 Biquad bandpass filter mathematics follow the Audio EQ Cookbook by Robert

@@ -20,6 +20,16 @@
 
 #pragma once
 
+// ── IMPORTANT: single-include header ─────────────────────────────────────────
+// All state variables and functions below are declared `static` (internal
+// linkage). This header is designed to be included from EXACTLY ONE translation
+// unit (msgeq7.cpp). Including it in a second TU would create independent
+// copies of all state, silently breaking the SW task's stop mechanism and the
+// band-envelope data that the usermod reads.
+// If this code is transplanted into a larger host, convert the definitions to
+// a proper .cpp file with `extern` declarations in the header.
+// ─────────────────────────────────────────────────────────────────────────────
+
 // AudioSource is defined in audio_source.h — include that before this header.
 class AudioSource;
 
@@ -202,6 +212,7 @@ static void IRAM_ATTR softwareProcessingTask(void *pvParams) {
   if (!inputBuf || !filteredBuf) {
     free(inputBuf);
     free(filteredBuf);
+    s_swTaskHandle = nullptr;  // signal _stopProcessing() we exited before looping
     vTaskDelete(nullptr);
     return;
   }
