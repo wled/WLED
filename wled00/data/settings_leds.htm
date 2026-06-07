@@ -72,9 +72,17 @@
 			dmaDef = dd;	// default DMA buffer size
 			dmaLcd = dl;	// DMA buffer size for LCD types ("parallel I2S")
 			dmaSpi = ds;  // DMA buffer size for SPI types (non-2pin digital)
-			maxBB = bb;		// maxBB - max parallel BitBang channels (GPIO 0-31): 8 - ESP32 variants, 0 - ESP8266
+			maxBB = bb;		// maxBB - max parallel BitBang channels: 8 - ESP32 variants and ESP8266 (GPIO 0-15), 0 on chipsets without BB support
 		}
 		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
+		// Returns true if bus n on ESP8266 uses parallel BitBang output (pin is not GPIO1/2/3 which use UART/DMA)
+		function is8266BB(n) {
+			if (!is8266()) return false;
+			let t = parseInt(d.Sf["LT"+n]?.value);
+			if (!isDig(t) || isD2P(t)) return false;
+			let pin = parseInt(d.Sf["L0"+n]?.value);
+			return pin !== 1 && pin !== 2 && pin !== 3;
+		}
 		function isC3()   { return chipID == 1; }
 		function isS2()   { return chipID == 2; }
 		function isS3()   { return chipID == 3; }
@@ -281,7 +289,14 @@
 
 		// check if bus configuration is valid
 		function isBCok(n, usage) {
-			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
+			if (is8266()) {
+				// Only BitBang buses have parallel constraints on ESP8266
+				if (!is8266BB(n)) return true;
+				let t = parseInt(d.Sf["LT"+n].value);
+				if (usage.bbType !== null && t !== usage.bbType) return false; // mismatched type in parallel BitBang
+				if (usage.bbUsed > maxBB) return false; // too many BitBang buses
+				return true;
+			}
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
 			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
@@ -494,6 +509,9 @@
 							d.Sf["LD"+n].value = d.Sf["LD"+n].value | 0; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
 						}
+					} else if (is8266BB(n)) {
+						// ESP8266 BitBang: color the LED type dropdown red on type mismatch
+						if (!isBCok(n, usage)) s.style.color = "red";
 					}
 					// Show bus speed selector when advanced settings enabled
 					if (bsfsel) {
@@ -509,7 +527,7 @@
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
 			let channelMsg = gId('chanusemsg');
-			if (chanuse && channelMsg && !is8266()) {
+			if (chanuse && channelMsg && (!is8266() || usage.bbUsed > 0)) {
 				chanuse.style.display = 'inline';
 				chanuse.style.color = '#ccc';
 				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
@@ -969,7 +987,16 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let I2SType = null;
 			let bbUsed = 0, bbType = null;
 			let I2Smem = 0, SPImem = 0;
-			if (!is8266()) {
+			if (is8266()) {
+				// ESP8266: track parallel BitBang channels (pins other than GPIO1/2 UART and GPIO3 DMA)
+				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+					let n = sel.name.substring(2,3);
+					if (is8266BB(n)) {
+						bbUsed++;
+						if (!bbType) bbType = parseInt(sel.value);
+					}
+				});
+			} else {
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
@@ -1012,8 +1039,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			// calculate channel usage
 			let usage = getDuse();
 			let firstI2SType = null;
-
 			// Count all bus types
+			let firstBBType  = null; // for ESP8266 parallel BitBang type enforcement
 			LTs.forEach(sel => {
 				let t = parseInt(sel.value);
 				if (isDig(t) && !isD2P(t)) digitalB++;
@@ -1041,6 +1068,15 @@ Swap: <select id="xw${s}" name="XW${s}">
 						else {
 							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
 								if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+							});
+						}
+					}
+					// ESP8266 BitBang: restrict all BB buses after the first to the same LED type
+					if (is8266BB(n)) {
+						if (firstBBType == null) firstBBType = curType;
+						else {
+							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+								if (parseInt(o.value) !== firstBBType) o.disabled = true;
 							});
 						}
 					}
@@ -1108,7 +1144,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						let n = sel.name.substring(2,3);
 						let t = parseInt(sel.value);
 						let drv = d.Sf["LD"+n]?.value | 0;
-						if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2)) parIndices.push(n);
+						if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) parIndices.push(n);
 					});
 					if (parIndices.length === 0) return;
 					parIndices.sort((a,b)=> toNum(a) - toNum(b));
@@ -1305,4 +1341,4 @@ Swap: <select id="xw${s}" name="XW${s}">
 </form>
 <div id="toast"></div>
 </body>
-</html>   
+</html>    
