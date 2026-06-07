@@ -239,6 +239,68 @@ def build_template(strings):
     return template
 
 
+def validate_locale(locale):
+    """Validate a locale translation file against extracted strings."""
+    locale_file = LOCALES_DIR / f"{locale}.json"
+    if not locale_file.exists():
+        print(f"Error: Locale file not found: {locale_file}", file=sys.stderr)
+        return None
+
+    with open(locale_file, 'r', encoding='utf-8') as f:
+        locale_data = json.load(f)
+
+    # Flatten all entries
+    all_entries = {}
+    for fname, entries in locale_data.items():
+        for key, entry in entries.items():
+            all_entries[key] = entry
+
+    print(f"Validating locale: {locale}")
+    print("=" * 40)
+    strings, _ = extract_all()
+
+    total = len(strings)
+    translated = 0
+    missing = []
+
+    for key, info in strings.items():
+        if key in all_entries:
+            trans = all_entries[key].get('translation', '').strip()
+            if trans:
+                translated += 1
+            else:
+                missing.append(key)
+        else:
+            missing.append(key)
+
+    coverage = (translated / total * 100) if total > 0 else 0
+    stale = [k for k in all_entries if k not in strings]
+
+    print(f"\nCoverage: {translated}/{total} ({coverage:.1f}%)")
+    if missing:
+        print(f"\nMissing translations ({len(missing)}):")
+        for key in missing[:20]:
+            ctx = strings.get(key, {}).get('context', '')
+            print(f"  - {key} ({ctx})")
+        if len(missing) > 20:
+            print(f"  ... and {len(missing) - 20} more")
+
+    if stale:
+        print(f"\nStale entries ({len(stale)}):")
+        for key in stale[:10]:
+            print(f"  - {key}")
+        if len(stale) > 10:
+            print(f"  ... and {len(stale) - 10} more")
+
+    return {
+        'total': total,
+        'translated': translated,
+        'missing': len(missing),
+        'stale': len(stale),
+        'coverage': coverage,
+    }
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Extract translatable strings from WLED Web UI')
@@ -248,7 +310,20 @@ def main():
                        help='Output file path (default: locales/<locale>.json)')
     parser.add_argument('--stats', action='store_true',
                        help='Print detailed statistics')
+    parser.add_argument('--validate', default=None,
+                       help='Validate a locale file (e.g. zh_CN). Returns 0 if coverage=100%')
     args = parser.parse_args()
+
+    # Validate mode
+    if args.validate:
+        result = validate_locale(args.validate)
+        if result is None:
+            sys.exit(1)
+        if result['coverage'] < 100:
+            print(f"\nFAILED: Coverage is {result['coverage']:.1f}%, expected 100%")
+            sys.exit(1)
+        print(f"\nPASSED: All strings translated")
+        sys.exit(0)
 
     print("WLED i18n String Extractor")
     print("=" * 40)

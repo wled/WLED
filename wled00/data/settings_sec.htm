@@ -47,7 +47,7 @@
 	</div>
 		<h2>安全和更新设置</h2>
 	<div class="sec">
-		设置 PIN 码: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="请输入4位数字"><br>
+		设置 PIN 码: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="Please enter a 4 digit number"><br>
 		<div class="warn">&#9888; 未加密传输。选择 PIN 码时请谨慎，不要使用银行卡、门禁、SIM 卡等 PIN 码!</div><br>
 		锁定无线 (OTA) 固件更新: <input type="checkbox" name="NO"><br>
 		密码: <input type="password" name="OP" maxlength="32"><br>
@@ -74,9 +74,9 @@
 		错误的上传或配置可能需要恢复出厂设置或重新刷写 ESP。<br>
 		出于安全考虑，密码不会被备份。</div>
 		<a class="btn lnk" id="bckcfg" href="/presets.json" download="presets">备份预设</a><br>
-		<div>恢复预设<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">上传</button><br></div><br>
+		<div>恢复预设<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
 		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">备份配置</a><br>
-		<div>恢复配置<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">上传</button><br></div>
+		<div>恢复配置<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
 	</div>
 	<div class="sec">
 		<h3>关于</h3>

@@ -1,62 +1,60 @@
 # WLED i18n Toolchain
 
-Build-time internationalization for WLED Web UI. Translates HTML/JS strings at compile time with **zero runtime overhead** and **zero flash overhead** (replaces, not adds).
+Build-time internationalization for WLED Web UI. Translates HTML/JS strings at compile time with **zero runtime overhead**.
 
-## How It Works
+## Architecture
 
 ```
-English HTM files (wled00/data/)
-        ↓
-   extract.py  →  locales/_template.json
-        ↓
-  Translator fills in locales/zh_CN.json
-        ↓
-    build.py   →  Translated HTM files
-        ↓
-  npm run build  →  html_*.h / js_*.h (C headers)
-        ↓
-    pio run      →  Firmware with translated UI
+WLED (core repo)                    WLED-translations (community repo)
+tools/i18n/                         <locale>/
+├── extract.py   ──────────────────→ static.json (Layer 1: HTML)
+├── build.py     ←─ applies ─────── js.json     (Layer 2: JS)
+├── ARCHITECTURE.md                 effects.json (Layer 3: PROGMEM)
+└── README.md                       palettes.json(Layer 4: PROGMEM)
 ```
 
-## Three-Layer Coverage
-
-| Layer | Content | Method | Coverage |
-|-------|---------|--------|----------|
-| HTML text | Labels, buttons, placeholders | DOM text matching | ~60% |
-| JS strings | `alert()`, `innerHTML`, `innerText` | Script block regex | ~30% |
-| Attributes | `placeholder`, `title`, `alt` | Attribute replacement | ~10% |
-
-**Not covered** (by design):
-- `settingsScript.print()` — server-side runtime injection (~12 status strings in C++ `xml.cpp`). These are error/status messages that would need `#ifdef WLED_LOCALE_*` in C++ source.
-- Template literals with `${...}` variables — partial strings can't be safely replaced.
-- Hardware/protocol names (WS281x, PWM CCT, etc.) — industry standard, not translated.
+**Key principle:** Translations are maintained **out-of-tree** by community contributors, similar to usermods. Users build translated firmware locally.
 
 ## Quick Start
 
-### 1. Extract strings (generate template)
+### 1. Clone both repos
 
 ```bash
-# Generate English template from upstream HTM files
-python3 tools/i18n/extract.py --stats
+git clone https://github.com/wled/WLED.git
+git clone https://github.com/wled/WLED-translations.git
+```
 
+### 2. Extract strings (optional, for translators)
+
+```bash
+cd WLED
+python3 tools/i18n/extract.py --stats
 # Output: tools/i18n/locales/_template.json
 ```
 
-### 2. Create translation
+### 3. Validate translations
 
 ```bash
-# Copy template to your locale
-cp tools/i18n/locales/_template.json tools/i18n/locales/zh_CN.json
+# Check coverage for a locale
+python3 tools/i18n/extract.py --validate zh_CN
 
-# Edit zh_CN.json — fill in "translation" fields
-# Each entry has: {"en": "English text", "translation": "", "context": "file:line (type)"}
+# Output:
+# Validating locale: zh_CN
+# ========================================
+# Coverage: 429/429 (100.0%)
+# PASSED: All strings translated
 ```
 
-### 3. Build translated firmware
+### 4. Build translated firmware
 
 ```bash
-# Build translated HTM files
-python3 tools/i18n/build.py --locale zh_CN --source-dir wled00/data --output-dir wled00/data
+cd WLED
+
+# Apply translations (Layer 1 + 2: HTML/JS)
+python3 tools/i18n/build.py --locale zh_CN \
+    --source-dir wled00/data \
+    --translation-dir ../WLED-translations/zh_CN \
+    --output-dir build/i18n/zh_CN
 
 # Build web UI headers
 npm ci && npm run build
@@ -65,7 +63,7 @@ npm ci && npm run build
 pio run -e esp32dev
 ```
 
-### 4. PlatformIO integration (automatic)
+### 5. PlatformIO integration (automatic)
 
 Add to `platformio.ini`:
 
@@ -78,48 +76,44 @@ extra_scripts = pre:tools/i18n/build.py
 
 Then just: `pio run -e esp32dev_zh_CN`
 
-## Translation JSON Format
+## Four-Layer Translation System
 
-```json
-{
-  "index.htm": {
-    "html:body > div#btns > a:nth-of-type(1):text": {
-      "en": "Power",
-      "translation": "电源",
-      "context": "index.htm: (html_text)"
-    },
-    "js:index.htm:45:a1b2c3d4": {
-      "en": "Loading...",
-      "translation": "加载中...",
-      "context": "index.htm:45 (js_innerHTML)"
-    }
-  }
-}
+| Layer | Content | Source | Method |
+|-------|---------|--------|--------|
+| **L1** | Static HTML | `static.json` | Regex replacement |
+| **L2** | JS strings | `js.json` | Script block regex |
+| **L3** | Effect names | `effects.json` | PROGMEM `#undef` + redefine |
+| **L4** | Palette names | `palettes.json` | PROGMEM array replacement |
+
+## For Translators
+
+1. Fork [WLED-translations](https://github.com/wled/WLED-translations)
+2. Copy `en_template/` to `<locale>/`
+3. Edit JSON files — fill in `"translation"` fields
+4. Validate: `python3 tools/i18n/extract.py --validate <locale>`
+5. Submit PR to WLED-translations repo
+
+## For Maintainers
+
+### Adding this toolchain to WLED core
+
+This PR adds only `tools/i18n/` — no changes to existing build pipeline. The tool is a pre-build step that runs before `npm run build`.
+
+### CI/CD integration
+
+```yaml
+# .github/workflows/i18n-validate.yml
+- name: Validate translations
+  run: |
+    git clone https://github.com/wled/WLED-translations.git
+    for locale in WLED-translations/*/; do
+      python3 tools/i18n/extract.py --validate $(basename $locale)
+    done
 ```
-
-## Adding a New Language
-
-1. Run `python3 tools/i18n/extract.py` to generate the template
-2. Copy `locales/_template.json` to `locales/<locale>.json` (e.g. `de_DE.json`)
-3. Fill in translations
-4. Add locale to `LOCALE_LANG` dict in `build.py`
-5. Add build env to `platformio.ini`
-
-## Current Status (zh_CN)
-
-- **380** translatable strings extracted from 22 HTM files
-- **259** translated (68% of total, ~88% of actually translatable content)
-- Remaining: brand names, version numbers, template literals with variables
 
 ## Limitations
 
 1. **No runtime language switching** — language is fixed at build time
-2. **BeautifulSoup not required at build time** — `build.py` uses pure regex for surgical string replacement, preserving original HTML formatting exactly
-3. **JS template literals with `${...}`** — partial strings can't be safely replaced
-4. **C++ server-side strings** — ~12 strings in `xml.cpp` need separate handling
-
-## Architecture Decisions
-
-- **Regex over DOM parsing for build**: BeautifulSoup changes HTML formatting (attribute order, self-closing tags, whitespace). For ESP32 firmware where every byte matters, we use exact string replacement to preserve the original HTML byte-for-byte (except for translated text).
-- **Stable keys**: HTML strings use CSS selector paths, JS strings use content hash. Keys are stable across minor HTML edits.
-- **External toolchain**: Zero changes to existing WLED build pipeline. The i18n tool is a pre-build step that generates files before `npm run build`.
+2. **External tools** (pixelforge, pixelmagic) — always English, downloaded on-the-fly
+3. **C++ server-side strings** — ~12 strings in `xml.cpp` need separate handling
+4. **User presets** — user-defined names are not translated (by design)

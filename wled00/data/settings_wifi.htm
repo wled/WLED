@@ -125,8 +125,8 @@
 			if (type >=0 && type < 2) {
 				encryptionTypeField = `WiFi 加密类型:<br>
 <select id="ET${i}" name="ET${i}" onchange="E(${i})">
-<option value="0"${(type==0) ? ' selected':''}>无/WPA/WPA2</option>
-<option value="1"${(type==1) ? ' selected':''}>WPA/WPA2-Enterprise（企业版）</option>
+<option value="0"${(type==0) ? ' selected':''}>None/WPA/WPA2</option>
+<option value="1"${(type==1) ? ' selected':''}>WPA/WPA2-Enterprise</option>
 </select><br>
 <div id="IDS${i}" style="${(type==0) ? 'display:none;':''}">
 匿名身份:<br><input type="text" id="EA${i}" name="EA${i}" maxlength="64" value="${anon}"><br>
@@ -260,7 +260,7 @@ BSSID（可选）:<br><input type="text" id="BS${i}" name="BS${i}" maxlength="12
 		<h3>配置接入点</h3>
 		AP SSID（留空则不启用 AP）:<br> <input type="text" name="AS" maxlength="32"><br>
 		隐藏 AP 名称: <input type="checkbox" name="AH"><br>
-		AP 密码（留空则开放）:<br> <input type="password" name="AP" maxlength="63" pattern="(.{8,63})|()" title="为空或至少8个字符"><br>
+		AP 密码（留空则开放）:<br> <input type="password" name="AP" maxlength="63" pattern="(.{8,63})|()" title="Empty or min. 8 characters"><br>
 		接入点 WiFi 信道: <input name="AC" type="number" class="xs" min="1" max="13" required><br>
 		AP 开启方式:
 		<select name="AB">
