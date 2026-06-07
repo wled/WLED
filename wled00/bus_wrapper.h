@@ -34,6 +34,8 @@ class PixelBusAllocator {
     static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
     static uint8_t _bitBangChannelsAssigned;
     static uint8_t _bitBangBusType;    // Track first BitBang type to enforce parallel timing
+  #else
+    static uint8_t _bitBangBusType;    // Track first ESP8266 BitBang type to enforce parallel timing
   #endif
   public:
 
@@ -48,6 +50,9 @@ class PixelBusAllocator {
     _bitBangBusType = 0; // TYPE_NONE
     WLEDpixelBus::RmtBus::resetAutoChannel();
     WLEDpixelBus::BitBangBus::resetChannels();
+    #else
+    _bitBangBusType = 0; // TYPE_NONE
+    WLEDpixelBus::Esp8266BitBangBus::resetChannels();
     #endif
   }
 
@@ -81,6 +86,24 @@ class PixelBusAllocator {
       _i2sChannelsAssigned++;
     } else {
       return false; // No channels available
+    }
+    #else
+    // ESP8266: assign driverType based on pin number so BusManager::show() can sequence correctly.
+    // GPIO1/2 → UART (async, fire-and-forget ISR)
+    // GPIO3   → DMA  (async, I2S SLC DMA)
+    // others  → BitBang (interrupt-blocking — must run before async buses)
+    if (pins[0] == 1 || pins[0] == 2) {
+      driverType = BUSDRV_RMT; // reuse BUSDRV_RMT as "async UART" sentinel on ESP8266
+    } else if (pins[0] == 3) {
+      driverType = BUSDRV_I2S; // async DMA
+    } else {
+      driverType = BUSDRV_BITBANG;
+      // Enforce single LED type for parallel timing
+      if (_bitBangBusType == 0) {
+        _bitBangBusType = busType;
+      } else if (_bitBangBusType != busType) {
+        return false; // mismatched LED type — all ESP8266 BitBang channels must share timing
+      }
     }
     #endif
 

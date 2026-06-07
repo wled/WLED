@@ -1577,6 +1577,8 @@ uint8_t PixelBusAllocator::_2PchannelsAssigned = 0;
 uint8_t PixelBusAllocator::_parallelI2sBusType = 0;
 uint8_t PixelBusAllocator::_bitBangChannelsAssigned = 0;
 uint8_t PixelBusAllocator::_bitBangBusType = 0;
+#else
+uint8_t PixelBusAllocator::_bitBangBusType = 0;
 #endif
 
 // Bus static member definition

@@ -111,7 +111,7 @@ private:
 };
 
 //==============================================================================
-// ESP8266 BitBang Bus
+// ESP8266 BitBang Bus (supports parallel output across multiple pins)
 //==============================================================================
 
 class Esp8266BitBangBus : public PixelBus {
@@ -122,8 +122,10 @@ public:
   bool begin() override;
   void end() override;
 
+  // Stage this channel's data. When all channels have staged, output all in parallel.
   bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
-  bool canShow() const override;
+  // BitBang output is synchronous — always ready once initialized.
+  bool canShow() const override { return _initialized; }
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_BB"; }
 #endif
@@ -131,13 +133,34 @@ public:
   void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);
 
+  // Reset the shared static channel registry (called when all buses are destroyed).
+  static void resetChannels();
+
 private:
   int8_t _pin;
   LedTiming _timing;
   bool _initialized;
-  
-  // Cycle counts
-  uint32_t _t0h, _t0l, _t1h, _t1l;
+
+  // -----------------------------------------------------------------------
+  // Shared static state (one context for ALL Esp8266BitBangBus instances)
+  // All timing fields are static because every BitBang bus must use the
+  // same LED type (enforced by PixelBusAllocator).
+  // ESP8266 has only one 32-bit GPIO output register (pins 0–15 usable as output).
+  // -----------------------------------------------------------------------
+  static int8_t    s_pins[WLED_MAX_BB_CHANNELS];
+  static uint16_t  s_numPixels[WLED_MAX_BB_CHANNELS];
+  static uint8_t*  s_pixelData[WLED_MAX_BB_CHANNELS];
+  static uint8_t   s_channelCount;
+  static uint32_t  s_allMask;       // GPIO bitmask of all registered output pins
+  static uint8_t   s_stagedCount;   // how many channels have called show() this frame
+  // Timing in CPU cycles — identical across all channels
+  static uint32_t  s_t0h;
+  static uint32_t  s_t1h;
+  static uint32_t  s_period;
+  static uint8_t   s_pixelBytes;    // bytes per encoded pixel
+
+  // Core output routine — must run from IRAM for timing accuracy
+  static bool IRAM_ATTR outputParallel();
 };
 
 } // namespace WLEDpixelBus

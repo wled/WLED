@@ -162,8 +162,20 @@ bool Esp8266UartBus::canShow() const {
 
 
 //==============================================================================
-// ESP8266 BitBang Bus
+// ESP8266 BitBang Bus (parallel output across multiple pins)
 //==============================================================================
+
+// Static member definitions
+int8_t   Esp8266BitBangBus::s_pins[WLED_MAX_BB_CHANNELS]      = {};
+uint16_t Esp8266BitBangBus::s_numPixels[WLED_MAX_BB_CHANNELS] = {};
+uint8_t* Esp8266BitBangBus::s_pixelData[WLED_MAX_BB_CHANNELS] = {};
+uint8_t  Esp8266BitBangBus::s_channelCount = 0;
+uint32_t Esp8266BitBangBus::s_allMask      = 0;
+uint8_t  Esp8266BitBangBus::s_stagedCount  = 0;
+uint32_t Esp8266BitBangBus::s_t0h          = 0;
+uint32_t Esp8266BitBangBus::s_t1h          = 0;
+uint32_t Esp8266BitBangBus::s_period       = 0;
+uint8_t  Esp8266BitBangBus::s_pixelBytes   = 0;
 
 Esp8266BitBangBus::Esp8266BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin), _timing(timing), _initialized(false) {
@@ -177,65 +189,212 @@ Esp8266BitBangBus::~Esp8266BitBangBus() {
 
 bool Esp8266BitBangBus::begin() {
   if (_initialized) return true;
+  if (_pin < 0 || _pin > 15) return false; // Only GPIO 0-15 are output-capable on ESP8266
+  if (s_channelCount >= WLED_MAX_BB_CHANNELS) return false;
+
   pinMode(_pin, OUTPUT);
   digitalWrite(_pin, LOW);
-  setTiming(_timing);
+
+  // Convert nanosecond timings to CPU cycles.
+  // Subtract 1 cycle for the while-loop test overhead (same correction as ESP32).
+  const uint32_t cpuMHz = ESP.getCpuFreqMHz(); // 80 or 160
+
+  uint32_t t0h    = (_timing.t0h_ns  * cpuMHz) / 1000u;
+  uint32_t t1h    = (_timing.t1h_ns  * cpuMHz) / 1000u;
+  t0h             = (t0h    > 1u) ? t0h    - 1u : 0u;
+  t1h             = (t1h    > 1u) ? t1h    - 1u : 0u;
+  uint32_t period = (_timing.bitPeriod() * cpuMHz) / 1000u;
+  period          = (period > 1u) ? period - 1u : 0u;
+
+  // Register in the shared static table
+  const uint8_t idx   = s_channelCount;
+  s_pins[idx]         = _pin;
+  s_allMask          |= (1u << _pin);
+  s_channelCount++;
+
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) {
+    s_channelCount--;
+    s_allMask &= ~(1u << _pin);
+    return false;
+  }
+
+  s_numPixels[idx] = _numPixels;
+  s_pixelData[idx] = _pixelData;
+  // Timing is shared — same for all channels (enforced by PixelBusAllocator).
+  s_t0h        = t0h;
+  s_t1h        = t1h;
+  s_period     = period;
+  s_pixelBytes = _encoder.getPixelBytes();
+
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
 
 void Esp8266BitBangBus::end() {
+  if (_initialized) {
+    uint8_t slot = s_channelCount; // sentinel
+    for (uint8_t i = 0; i < s_channelCount; i++) {
+      if (s_pins[i] == _pin) { slot = i; break; }
+    }
+    if (slot < s_channelCount) {
+      for (uint8_t i = slot; i + 1 < s_channelCount; i++) {
+        s_pins[i]      = s_pins[i + 1];
+        s_numPixels[i] = s_numPixels[i + 1];
+        s_pixelData[i] = s_pixelData[i + 1];
+      }
+      s_channelCount--;
+      s_allMask = 0;
+      for (uint8_t i = 0; i < s_channelCount; i++) s_allMask |= (1u << s_pins[i]);
+      s_stagedCount = 0;
+    }
+  }
   pinMode(_pin, INPUT);
   _initialized = false;
+
+  if (_encodeBuffer) {
+    free(_encodeBuffer);
+    _encodeBuffer = nullptr;
+    _pixelData    = nullptr;
+  }
 }
 
 void Esp8266BitBangBus::setTiming(const LedTiming& timing) {
   _timing = timing;
-  uint32_t cpuFreq = ESP.getCpuFreqMHz(); // usually 80 or 160
-  _t0h = (timing.t0h_ns * cpuFreq) / 1000;
-  _t0l = (timing.t0l_ns * cpuFreq) / 1000;
-  _t1h = (timing.t1h_ns * cpuFreq) / 1000;
-  _t1l = (timing.t1l_ns * cpuFreq) / 1000;
+  // Recompute cycle counts if already initialized
+  if (_initialized) {
+    const uint32_t cpuMHz = ESP.getCpuFreqMHz();
+    uint32_t t0h    = (_timing.t0h_ns  * cpuMHz) / 1000u;
+    uint32_t t1h    = (_timing.t1h_ns  * cpuMHz) / 1000u;
+    t0h             = (t0h    > 1u) ? t0h    - 1u : 0u;
+    t1h             = (t1h    > 1u) ? t1h    - 1u : 0u;
+    uint32_t period = (_timing.bitPeriod() * cpuMHz) / 1000u;
+    period          = (period > 1u) ? period - 1u : 0u;
+    s_t0h   = t0h;
+    s_t1h   = t1h;
+    s_period = period;
+  }
 }
 
+// Stage this channel's data. When all channels have staged, output all in parallel.
 IRAM_ATTR bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
-  if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
+  if (!_initialized || !_pixelData) return false;
 
-  uint8_t pixelBytes = _encoder.getPixelBytes();
-  uint32_t mask = 1 << _pin;
-
-  os_intr_lock();
-  for (uint16_t i = 0; i < _numPixels; i++) {
-    const uint8_t* src = _encodeBuffer + i * pixelBytes;
-    for (uint8_t b = 0; b < pixelBytes; b++) {
-      uint8_t v = src[b];
-      for (int bit = 7; bit >= 0; bit--) {
-        uint32_t t = ESP.getCycleCount();
-        GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, mask);
-        if (v & (1 << bit)) {
-          while((ESP.getCycleCount() - t) < _t1h);
-          GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, mask);
-          while((ESP.getCycleCount() - t) < (_t1h + _t1l));
-        } else {
-          while((ESP.getCycleCount() - t) < _t0h);
-          GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, mask);
-          while((ESP.getCycleCount() - t) < (_t0h + _t0l));
-        }
-      }
-    }
-    // note: no need for a "reset" delay, the main loop takes several milliseconds even with a single LED (min delay by design to not starve wifi)
+  s_stagedCount++;
+  if (s_stagedCount < s_channelCount) {
+    return true; // not all channels ready yet
   }
-  os_intr_unlock();
-  return true;
+
+  // Last channel staged — output all channels in parallel
+  s_stagedCount = 0;
+  return outputParallel();
 }
 
 void Esp8266BitBangBus::setColorOrder(uint8_t co) {
   _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
-bool Esp8266BitBangBus::canShow() const {
-  return _initialized;
+// ---------------------------------------------------------------------------
+// resetChannels() — called by PixelBusAllocator::resetChannelTracking()
+// ---------------------------------------------------------------------------
+void Esp8266BitBangBus::resetChannels() {
+  s_channelCount = 0;
+  s_allMask      = 0;
+  s_stagedCount  = 0;
+  s_t0h          = 0;
+  s_t1h          = 0;
+  s_period       = 0;
+  s_pixelBytes   = 0;
+  memset(s_pins,      0, sizeof(s_pins));
+  memset(s_numPixels, 0, sizeof(s_numPixels));
+  memset(s_pixelData, 0, sizeof(s_pixelData));
+}
+
+// ---------------------------------------------------------------------------
+// outputParallel() — the hot path, must live in IRAM.
+//
+// Per-bit sequence (identical to ESP32 BitBangBus, single GPIO bank):
+//   1. Compute zeroMask for the current bit across all channels.
+//   2. Wait for the full bit period since the previous HIGH edge.
+//   3. Set all output pins HIGH simultaneously.
+//   4. After T0H cycles: pull '0' outputs LOW.
+//   5. After T1H cycles: pull all remaining outputs LOW.
+//
+// Interrupts are locked for the full duration using os_intr_lock() /
+// os_intr_unlock() (the SDK equivalent of portENTER/EXIT_CRITICAL on ESP8266).
+// The total lock duration equals the previous sequential approach for a single
+// channel; for N channels it is identical (all clocked in parallel, same time).
+// ---------------------------------------------------------------------------
+bool IRAM_ATTR Esp8266BitBangBus::outputParallel() {
+  if (s_channelCount == 0) return true;
+
+  const uint32_t t0h        = s_t0h;
+  const uint32_t t1h        = s_t1h;
+  const uint32_t period     = s_period;
+  const uint32_t setAllMask = s_allMask;
+  const uint8_t  pixelBytes = s_pixelBytes;
+  const uint8_t  nCh        = s_channelCount;
+
+  // Find maximum pixel count across all channels
+  uint16_t maxPixels = 0;
+  for (uint8_t ch = 0; ch < nCh; ch++) {
+    if (s_numPixels[ch] > maxPixels) maxPixels = s_numPixels[ch];
+  }
+  if (maxPixels == 0) return true;
+
+  const uint32_t totalBits = (uint32_t)maxPixels * pixelBytes * 8u;
+
+  // Pre-compute per-channel pin masks and total byte extents
+  uint32_t chanPinMask[nCh];
+  uint32_t chanTotalBytes[nCh];
+  for (uint8_t ch = 0; ch < nCh; ch++) {
+    chanPinMask[ch]    = 1u << s_pins[ch];
+    chanTotalBytes[ch] = (uint32_t)s_numPixels[ch] * pixelBytes;
+  }
+
+  // Inline lambda equivalent: compute bitmask of channels outputting '0' for this bit
+  // (channels past their data end also output '0').
+  // MSB-first within each byte.
+  // TODO: there may be room to speed this up, it is quite slow and takes like 2us
+  auto computeZeroMask = [&](uint32_t bitIndex) -> uint32_t {
+    const uint32_t byteIndex = bitIndex >> 3;
+    const uint8_t bitMask = 0x80u >> (bitIndex & 7u);
+    uint32_t zm = 0;
+    for (uint8_t ch = 0; ch < nCh; ch++) {
+      if (byteIndex >= chanTotalBytes[ch] || !(s_pixelData[ch][byteIndex] & bitMask)) {
+        zm |= chanPinMask[ch];
+      }
+    }
+    return zm;
+  };
+
+  // Period reference: initialise as already expired so the first pulse fires immediately.
+  uint32_t cyclesStart = ESP.getCycleCount() - period;
+
+  os_intr_lock();
+
+  for (uint32_t bitIndex = 0; bitIndex < totalBits; bitIndex++) {
+
+    // ── Step 1: Compute zero mask for this bit ────────────────────────────
+    uint32_t zeroMask = computeZeroMask(bitIndex);
+
+    // ── Step 2: Wait for the full bit period since the last HIGH edge ──────
+    while ((ESP.getCycleCount() - cyclesStart) < period);
+
+    // ── Step 3: Set all outputs HIGH simultaneously ───────────────────────
+    GPIO_REG_WRITE(GPIO_OUT_W1TS_ADDRESS, setAllMask);
+    cyclesStart = ESP.getCycleCount();
+
+    // ── Step 4: After T0H — pull '0' outputs LOW ─────────────────────────
+    while ((ESP.getCycleCount() - cyclesStart) < t0h);
+    GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, zeroMask);
+
+    // ── Step 5: After T1H — pull all remaining outputs LOW ───────────────
+    while ((ESP.getCycleCount() - cyclesStart) < t1h);
+    GPIO_REG_WRITE(GPIO_OUT_W1TC_ADDRESS, setAllMask);
+  }
+
+  os_intr_unlock();
+  return true;
 }
 
 
