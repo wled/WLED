@@ -68,9 +68,12 @@ static constexpr float MSGEQ7_FREQS_HZ[NUM_BANDS] = {
   63.0f, 160.0f, 400.0f, 1000.0f, 2500.0f, 6250.0f, 16000.0f
 };
 
-// Default filter Q (quality factor). Q ≈ 1.4 gives ~one-octave 3dB bandwidth per
-// band, similar to the real MSGEQ7 chip's overlapping filter character.
-static constexpr float MSGEQ7_DEFAULT_Q = 1.4f;
+// Default filter Q (quality factor). Real MSGEQ7 bands are spaced by a factor
+// of 2.5 (≈1.32 octaves) and overlap noticeably; the corresponding Q for
+// non-overlapping bandpasses at this spacing is Q = sqrt(2^N)/(2^N − 1) ≈ 1.05
+// with N = 1.32 octaves. Q = 1.0 closely matches the chip's response — slightly
+// wider than 1.05 to give modest band overlap as the real chip exhibits.
+static constexpr float MSGEQ7_DEFAULT_Q = 1.0f;
 
 // Envelope detector time constants (seconds).
 // Approximate real MSGEQ7 peak-hold behaviour: fast attack, slow decay.
@@ -286,6 +289,8 @@ static void IRAM_ATTR softwareProcessingTask(void *pvParams) {
 #endif
 
       // Half-wave rectify (abs) then update peak-hold envelope.
+      // Note: NO squelch here — squelch is applied to the compressed output
+      // below, where the user-facing 0..255 scale lives.
       float attackC = p->attackCoeff;
       float decayC  = p->decayCoeff;
       float env = envelope[b];
@@ -297,26 +302,33 @@ static void IRAM_ATTR softwareProcessingTask(void *pvParams) {
           env += (absVal - env) * decayC;
         }
       }
-      // Apply squelch: silence very faint signals to avoid noise floor crawl.
-      if (env < p->squelch) env = 0.0f;
       envelope[b] = env;
     }
 
-    // --- Log-compress envelopes to 0..255 scale (matches real MSGEQ7 output) ---
-    // The compression function: out = 255 * log10(1 + 9*in/peak) / log10(10)
-    // where `in` is normalised against the current envelope peak.  A global
-    // normalisation factor avoids bands dominating purely due to mic sensitivity.
-    float envPeak = 0.0f;
-    for (int b = 0; b < NUM_BANDS; b++) {
-      if (envelope[b] > envPeak) envPeak = envelope[b];
-    }
-
+    // --- Log-compress envelopes to 0..255 ABSOLUTE scale ---
+    // The real MSGEQ7 chip outputs an analog voltage proportional to the
+    // peak-detected band amplitude — quiet sounds → small voltage, loud → large.
+    // We therefore normalise against the full int16 sample range (a fixed
+    // reference) — NOT against the per-frame band peak — so absolute amplitude
+    // is preserved. This is what audioreactive's fftResult[] does and what
+    // every WLED audio-reactive effect expects.
+    //
+    // Compression curve: out = 255 * log10(1 + 9*x) / log10(10), x = env/32768
+    // Maps linear 0..1 → 0..255 with greater resolution at low levels, similar
+    // to the chip's logarithmic output.
+    static constexpr float kFullScale  = 32768.0f;       // float-int16 full range
+    // Pre-computed log10(1 + MSGEQ7_LOG_SCALE) — used to normalise the curve so
+    // a unity input maps to 255. Stays correct if MSGEQ7_LOG_SCALE is changed.
+    const float kLogDivisor = log10f(1.0f + MSGEQ7_LOG_SCALE);
     float compressedEnv[NUM_BANDS];
     for (int b = 0; b < NUM_BANDS; b++) {
-      float normalised = (envPeak > 1e-6f) ? (envelope[b] / envPeak) : 0.0f;
-      // log10(1 + 9*x) / log10(10) maps [0,1] → [0,1] with log curve
-      compressedEnv[b] = 255.0f * (log10f(1.0f + MSGEQ7_LOG_SCALE * normalised)
-                                   / log10f(1.0f + MSGEQ7_LOG_SCALE));
+      float normalised = envelope[b] / kFullScale;       // 0..1+ (clamped below)
+      if (normalised < 0.0f) normalised = 0.0f;
+      if (normalised > 1.0f) normalised = 1.0f;
+      float c = 255.0f * (log10f(1.0f + MSGEQ7_LOG_SCALE * normalised) / kLogDivisor);
+      // Apply user-facing noise gate on the output 0..255 scale (matches UI).
+      if (c < p->squelch) c = 0.0f;
+      compressedEnv[b] = c;
     }
 
     // --- Beat / samplePeak detection ---
@@ -788,13 +800,15 @@ private:
 
     for (int b = 0; b < NUM_BANDS; b++) {
       digitalWrite(_pinStrobe, LOW);
-      delayMicroseconds(36);                          // strobe-to-output delay
+      delayMicroseconds(36);                          // strobe-to-output delay (Tso)
       uint16_t adcVal = analogRead(_pinOut);          // 12-bit ADC: 0..4095
       digitalWrite(_pinStrobe, HIGH);
-      delayMicroseconds(36);                          // hold before next strobe
+      delayMicroseconds(36);                          // hold before next strobe (Tsh ≥ 18µs)
 
-      // Scale 12-bit ADC value to 0..255.
-      float val = (adcVal >> 4) * linearGain;         // 12→8 bit, then gain
+      // Scale 12-bit ADC (0..4095) to 0..255 using the full ADC resolution
+      // before truncating, then apply user gain. Avoids the 4-bit precision
+      // loss of `>>4` — small differences near the noise floor stay visible.
+      float val = (adcVal * (255.0f / 4095.0f)) * linearGain;
       if (val < squelch)   val = 0.0f;
       if (val > 255.0f)    val = 255.0f;
       s_bandEnvelope[b] = val;
@@ -876,7 +890,7 @@ private:
   int8_t   _pinReset        = -1;
   int8_t   _pinOut          = -1;
   uint8_t  _gainPercent     = 128;       // 128 = unity gain
-  uint8_t  _squelchLevel    = 8;
+  uint8_t  _squelchLevel    = 10;        // noise gate on 0..255 output scale
   float    _filterQ         = MSGEQ7_DEFAULT_Q;
   uint16_t _attackMs        = 15;
   uint16_t _decayMs         = 80;

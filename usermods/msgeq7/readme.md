@@ -98,8 +98,8 @@ AUDIO IN → audio source via coupling capacitor (see MSGEQ7 datasheet)
 | pinSD / pinWS / pinSCK / pinMCLK | I2S pins | unset |
 | pinStrobe / pinReset / pinOut | Hardware chip pins | unset |
 | gain | Input amplification (128 = unity) | 128 |
-| squelch | Noise floor — signals below this level are zeroed | 8 |
-| filterQ | Biquad filter Q factor (software backend only) | 1.4 |
+| squelch | Noise floor on 0..255 output scale — signals below this are zeroed | 10 |
+| filterQ | Biquad filter Q factor (software backend only) | 1.0 |
 | attackMs | Envelope attack time in ms | 15 |
 | decayMs | Envelope decay time in ms | 80 |
 
