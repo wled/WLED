@@ -160,10 +160,6 @@ python3 usermods/msgeq7/tools/sweep_analyze.py sweep_log.txt
 The script plots band amplitudes vs. time and highlights the expected peak
 sequence (band 0 first, band 6 last) for a low-to-high frequency sweep.
 
-Alternatively, enable `MSGEQ7_DEBUG_SWEEP` in `msgeq7.cpp` (uncomment the
-`#define` near the top of `softwareProcessingTask`) to inject a software sine
-sweep instead of reading from the microphone.
-
 ---
 
 ## Source attribution
