@@ -41,6 +41,9 @@
 
 <div class ="container">
 	<div id="Colors" class="tabcontent">
+		<div id="colorsInfoPanel" style="background:#2a2a2a;border-radius:8px;padding:12px 16px;margin:16px 16px 10px 16px;border-left:4px solid #00a8ff;">
+			<p style="margin:0;color:#aaa;font-size:14px;">Apply colour changes, go back to effect and star it to save colour palette</p>
+		</div>
 		<div id="picker" class="noslide"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
@@ -132,6 +135,9 @@
 	<div id="Effects" class="tabcontent">
 		<div id="fx">
 			<p class="labels hd" id="modeLabel">Effect mode</p>
+			<div id="fxInfoPanel" style="background:#2a2a2a;border-radius:8px;padding:12px 16px;margin:16px 16px 10px 16px;border-left:4px solid #00a8ff;">
+				<p style="margin:0;color:#aaa;font-size:14px;">Click buttons below to change the effect.</p>
+			</div>
 			<div class="staytop fnd" id="fxFind" onmousedown="preventBlur(event);">
 				<input type="text" placeholder="Search" oninput="search(this,'fxlist')" onfocus="filterFocus(event);search(this,'fxlist');" onblur="filterFocus(event);">
 				<i class="icons clear-icon" onclick="clean(this);">&#xe38f;</i>
@@ -277,7 +283,6 @@
 	<button class="tablinks" onclick="openTab(1)">Effects</button>
 	<button class="tablinks" onclick="openTab(2)"><i class="icons">&#xe34b;</i><p class="tab-label">Segments</p></button>
 	<button class="tablinks" onclick="openTab(3)">Favourites</button>
-	<button onclick="window.location.href=getURL('/simple_timer.htm')">TIMER</button>
 </div>
 
 <div id="connind"></div>

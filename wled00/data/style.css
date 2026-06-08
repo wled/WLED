@@ -196,6 +196,17 @@ td {
 	animation: fadein 0.5s;
 }
 
+.sec > i {
+	display: block;
+	background: #2a2a2a;
+	border-radius: 8px;
+	padding: 12px 16px;
+	margin: 10px 16px 10px 16px;
+	border-left: 4px solid #00a8ff;
+	color: #aaa;
+	font-size: 14px;
+}
+
 @media screen and (max-width: 767px) {
   input[type="text"],
   input[type="file"],
