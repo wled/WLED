@@ -141,8 +141,6 @@ Sometimes you might hit merge conflicts with `main` that are harder to solve. He
 ### Additional Resources
 Want to know more? Check out:
 - 📚 [GitHub Desktop documentation](https://docs.github.com/en/desktop) - if you prefer GUI tools
-- 🎓 [How to properly submit a PR](https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR) - detailed tips and tricks
-
 
 ## After Approval
 Once approved, a maintainer will merge your PR (possibly squashing commits). 
