@@ -648,12 +648,18 @@ function populatePresets(fromls)
 	var is = [];
 	pNum = 0;
 	const fxList = getFxPresets();
+	const presetIds = [];
 	for (var key of (arr||[]))
 	{
 		if (!isObj(key[1])) continue;
 		let i = parseInt(key[0]);
 		if (i === _FX_PLAYLIST_ID || i === _LIGHTS_OFF_PRESET_ID) continue;
-		var qll = key[1].ql;
+		presetIds.push(i);
+	}
+	for (var idx = 0; idx < presetIds.length; idx++)
+	{
+		let i = presetIds[idx];
+		var qll = pJson[i].ql;
 		if (qll) pQL.push([i, qll, pName(i)]);
 		is.push(i);
 
@@ -662,7 +668,11 @@ function populatePresets(fromls)
 			? `<span class="fx-preset-btn fx-preset-rm" onclick="event.stopPropagation();removeEffectPreset(${fxEntry.effectId})" title="Remove from cycle">&#x2605;</span>`
 			: `<span class="fx-preset-btn fx-preset-no-action" title="Not in cycle">&#x2606;</span>`;
 
-		cn += `<div class="fx-pill-row" data-pid="${i}"><span class="drag-handle" title="Drag to reorder">&#x283f;</span><div class="pres lstI" id="p${i}o">`;
+		const upDisabled = idx === 0 ? ' disabled' : '';
+		const downDisabled = idx === presetIds.length - 1 ? ' disabled' : '';
+		const arrowsHtml = `<div class="fav-reorder-btns"><button class="fav-arrow-up" onclick="moveFavUp(${i})"${upDisabled} title="Move up">⬆</button><button class="fav-arrow-down" onclick="moveFavDown(${i})"${downDisabled} title="Move down">⬇</button></div>`;
+
+		cn += `<div class="fx-pill-row" data-pid="${i}">${arrowsHtml}<div class="pres lstI" id="p${i}o">`;
 		cn += `<div class="pname lstIname" onclick="setPreset(${i})">${i==lastinfo.leds.bootps?"<i class='icons btn-icon'>&#xe410;</i>":""}${isPlaylist(i)?"<i class='icons btn-icon'>&#xe139;</i>":""}${pName(i)}
 	<i class="icons edit-icon flr" id="p${i}nedit" onclick="tglSegn(${i+100})">&#xe2c6;</i></div>
 	<div class="presin lstIcontent" id="seg${i+100}"></div>
@@ -681,6 +691,7 @@ function populatePresets(fromls)
 	gId('pql').style.display = '';
 	gId('pcont').innerHTML = cn;
 	initFavsReorder();
+	updateFavArrowButtons();
 	if (pmtLS != pmt && pmt != 0) {
 		localStorage.setItem("wledPmt", pmt);
 		pJson["0"] = {};
@@ -3679,71 +3690,39 @@ function saveFavsOrderFromDom() {
 }
 
 function initFavsReorder() {
+	// Arrow-based reordering; no longer using drag
+}
+
+function moveFavUp(presetId) {
 	const pcont = gId('pcont');
 	if (!pcont) return;
-	let dragSrc = null;
+	const row = pcont.querySelector(`.fx-pill-row[data-pid="${presetId}"]`);
+	if (!row || !row.previousElementSibling) return;
+	pcont.insertBefore(row, row.previousElementSibling);
+	saveFavsOrderFromDom();
+	updateFavArrowButtons();
+}
 
-	for (const row of pcont.querySelectorAll('.fx-pill-row[data-pid]')) {
-		row.setAttribute('draggable', 'true');
-		row.addEventListener('dragstart', e => {
-			dragSrc = row;
-			row.classList.add('dragging');
-			e.dataTransfer.effectAllowed = 'move';
-		});
-		row.addEventListener('dragend', () => {
-			row.classList.remove('dragging');
-			dragSrc = null;
-			saveFavsOrderFromDom();
-		});
-	}
+function moveFavDown(presetId) {
+	const pcont = gId('pcont');
+	if (!pcont) return;
+	const row = pcont.querySelector(`.fx-pill-row[data-pid="${presetId}"]`);
+	if (!row || !row.nextElementSibling) return;
+	pcont.insertBefore(row.nextElementSibling, row);
+	saveFavsOrderFromDom();
+	updateFavArrowButtons();
+}
 
-	pcont.addEventListener('dragover', e => {
-		e.preventDefault();
-		if (!dragSrc) return;
-		const target = e.target.closest && e.target.closest('.fx-pill-row[data-pid]');
-		if (!target || target === dragSrc) return;
-		const rect = target.getBoundingClientRect();
-		if (e.clientY < rect.top + rect.height / 2) pcont.insertBefore(dragSrc, target);
-		else pcont.insertBefore(dragSrc, target.nextSibling);
+function updateFavArrowButtons() {
+	const pcont = gId('pcont');
+	if (!pcont) return;
+	const rows = pcont.querySelectorAll('.fx-pill-row[data-pid]');
+	rows.forEach((row, idx) => {
+		const upBtn = row.querySelector('.fav-arrow-up');
+		const downBtn = row.querySelector('.fav-arrow-down');
+		if (upBtn) upBtn.disabled = idx === 0;
+		if (downBtn) downBtn.disabled = idx === rows.length - 1;
 	});
-
-	let touchSrc = null, ghost = null;
-	for (const handle of pcont.querySelectorAll('.drag-handle')) {
-		handle.addEventListener('touchstart', e => {
-			e.preventDefault();
-			touchSrc = handle.closest('.fx-pill-row');
-			touchSrc.classList.add('dragging');
-			ghost = touchSrc.cloneNode(true);
-			Object.assign(ghost.style, {
-				position: 'fixed', opacity: '0.75', pointerEvents: 'none', zIndex: '9999',
-				width: touchSrc.offsetWidth + 'px', margin: '0',
-				left: touchSrc.getBoundingClientRect().left + 'px',
-				top: (e.touches[0].clientY - touchSrc.offsetHeight / 2) + 'px'
-			});
-			d.body.appendChild(ghost);
-		}, {passive: false});
-
-		handle.addEventListener('touchmove', e => {
-			e.preventDefault();
-			if (!ghost || !touchSrc) return;
-			const t = e.touches[0];
-			ghost.style.top = (t.clientY - touchSrc.offsetHeight / 2) + 'px';
-			ghost.style.display = 'none';
-			const el = d.elementFromPoint(t.clientX, t.clientY);
-			ghost.style.display = '';
-			const target = el && el.closest && el.closest('.fx-pill-row[data-pid]');
-			if (!target || target === touchSrc) return;
-			const rect = target.getBoundingClientRect();
-			if (t.clientY < rect.top + rect.height / 2) pcont.insertBefore(touchSrc, target);
-			else pcont.insertBefore(touchSrc, target.nextSibling);
-		}, {passive: false});
-
-		handle.addEventListener('touchend', () => {
-			if (ghost) { ghost.remove(); ghost = null; }
-			if (touchSrc) { touchSrc.classList.remove('dragging'); touchSrc = null; }
-			saveFavsOrderFromDom();
-		});
-	}
 }
 // AI: end
 
@@ -3865,7 +3844,7 @@ function syncFxPresetsFromDevice() {
 	const synced = [];
 	for (const [key, preset] of Object.entries(pJson)) {
 		const numId = parseInt(key);
-		if (numId <= _FX_PRESETS_BASE || numId === _FX_PLAYLIST_ID || numId === _LIGHTS_OFF_PRESET_ID) continue;
+		if (numId === _FX_PLAYLIST_ID || numId === _LIGHTS_OFF_PRESET_ID) continue;
 		if (!isObj(preset) || !preset.seg || !preset.seg[0]) continue;
 		const effectId = preset.seg[0].fx;
 		if (effectId === undefined || effectId === null) continue;

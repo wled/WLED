@@ -46,6 +46,10 @@
 <button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
 <button type="submit" onclick="window.location=getURL('/simple_timer.htm')">Timer</button>
 <button type="submit" onclick="showFactoryPin()">Developer Zone</button>
+<div style="background:#1e1e1e;padding:16px;margin:3vh auto;width:calc(100% - 40px);border-radius:12px;text-align:center;">
+	<p style="color:white;font-size:16px;margin:0 0 8px;font-weight:500;">Need help?</p>
+	<p id="helpText" style="color:#aaa;font-size:14px;margin:0;">www.liquidlightdesign.com/#contact</p>
+</div>
 <div id="fpinModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000;background:rgba(0,0,0,0.75);flex-direction:column;justify-content:center;align-items:center;">
 	<div style="background:#1c1c1e;border-radius:16px;padding:28px 24px;text-align:center;width:260px;box-sizing:border-box;">
 		<p style="color:white;font-size:16px;margin:0 0 16px;">Factory Settings PIN</p>
@@ -73,6 +77,14 @@ function showFactoryPin(){_fpin='';document.getElementById('fpinDisplay').textCo
 function fpIn(d){if(_fpin.length>=4)return;_fpin+=d;var s=_fpin.split('').map(function(){return'●';});while(s.length<4)s.push('_');document.getElementById('fpinDisplay').textContent=s.join(' ');if(_fpin.length===4){if(_fpin==='3865'){document.getElementById('fpinModal').style.display='none';window.location.href=getURL('/factory.htm');}else{document.getElementById('fpinError').textContent='Incorrect PIN';setTimeout(function(){_fpin='';document.getElementById('fpinDisplay').textContent='_ _ _ _';document.getElementById('fpinError').textContent='';},1200);}}}
 function fpBack(){_fpin=_fpin.slice(0,-1);var s=_fpin.split('').map(function(){return'●';});while(s.length<4)s.push('_');document.getElementById('fpinDisplay').textContent=s.join(' ');}
 function fpCancel(){document.getElementById('fpinModal').style.display='none';}
+
+// Check WiFi connection and update help link
+fetch('/json/info').then(r=>r.json()).then(i=>{
+	const helpEl = document.getElementById('helpText');
+	if(helpEl && i.wifi && i.wifi.sta && i.wifi.sta.rssi && i.wifi.sta.rssi<0){
+		helpEl.innerHTML = '<a href="https://www.liquidlightdesign.com/#contact" target="_blank" style="color:#aaa;text-decoration:none;">www.liquidlightdesign.com/#contact</a>';
+	}
+}).catch(()=>{});
 </script>
 </body>
 </html>

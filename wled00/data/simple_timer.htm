@@ -233,7 +233,7 @@
 <button class="st-back" onclick="window.location=getURL('/')">Back</button>
 
 <label class="st-enable-row">
-	<input type="checkbox" id="stEnabled" onchange="stUpdateFormState()">
+	<input type="checkbox" id="stEnabled" onchange="stToggleTimer()">
 	Timer enabled
 </label>
 
@@ -313,6 +313,14 @@ function stInit() {
 	if (saved.presetId && fxPresets.length > 0) sel.value = String(saved.presetId);
 	document.getElementById('stEnabled').checked = !!saved.enabled;
 	stUpdateFormState();
+}
+
+function stToggleTimer() {
+	var enabled = document.getElementById('stEnabled').checked;
+	stUpdateFormState();
+	if (!enabled) {
+		stSave();
+	}
 }
 
 function stUpdateFormState() {
