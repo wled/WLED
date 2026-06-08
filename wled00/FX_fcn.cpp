@@ -1278,7 +1278,6 @@ void WS2812FX::finalizeInit() {
 
 // update global _pixels[] buffer to match getLengthTotal() note: if allocation fails, WLED will not render anything
 void WS2812FX::updatePixelBuffer() {
-  //uint32_t currentMem = 0;
   uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
