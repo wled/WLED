@@ -398,11 +398,19 @@
 				{
 					const awEl = d.Sf["AW"+n];
 					const awv = awEl ? parseInt(awEl.value) : 0;
+					// The per-channel-cap path runs when the auto-white mode is Brighter/
+					// Accurate/Dual, which can be set per-bus (AW<n>) or via the global override
+					// (AW; 255=Disabled). The per-bus AW selector stays visible even under a
+					// global override, so keep this control consistent with it: show when EITHER
+					// the per-bus mode OR the global override is one of those modes.
+					const gAWel = d.Sf["AW"];
+					const gAW = gAWel ? parseInt(gAWel.value) : 255;
+					const isCap = (m) => (m === 1 || m === 2 || m === 3);
 					const wkBox = gId("dig"+n+"wk");
 					// only true single-white RGBW types: a fixed W-LED color temperature is
 					// meaningless for dual-white CCT buses (variable white point) and for
 					// non-RGB buses (nothing to derive the correction from)
-					if (wkBox) wkBox.style.display = (hasW(t) && hasRGB(t) && !hasCCT(t) && (awv === 1 || awv === 2 || awv === 3)) ? "inline" : "none";
+					if (wkBox) wkBox.style.display = (hasW(t) && hasRGB(t) && !hasCCT(t) && (isCap(awv) || isCap(gAW))) ? "inline" : "none";
 					const wke = d.Sf["WKE"+n], wk = d.Sf["WK"+n], wkv = gId("dig"+n+"wkv");
 					if (wke && wk) {
 						wk.disabled = !wke.checked;
@@ -1123,7 +1131,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		White Balance correction: <input type="checkbox" name="CCT"><br>
 		<div id="wc">
 			Global override for Auto-calculate white:
-			<select name="AW">
+			<select name="AW" onchange="UI()">
 				<option value=255>Disabled</option>
 				<option value=0>None</option>
 				<option value=1>Brighter</option>

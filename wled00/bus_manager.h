@@ -126,6 +126,9 @@ class Bus {
     , _wR(255)
     , _wG(255)
     , _wB(255)
+    , _rwR(1u << 15)   // Q15 reciprocal of _wR=255 (kept consistent though unused while _whiteKelvin==0)
+    , _rwG(1u << 15)
+    , _rwB(1u << 15)
     {
       _autoWhiteMode = Bus::hasWhite(type) ? aw : RGBW_MODE_MANUAL_ONLY;
     };
