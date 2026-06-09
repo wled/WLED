@@ -40,21 +40,23 @@ Two-repository architecture separating **build toolchain** (core repo) from **tr
 ### PlatformIO Configuration
 
 ```ini
-# platformio.ini
+# platformio_override.ini
 [env:esp32dev_zh_CN]
 extends = env:esp32dev
+custom_usermods = https://github.com/foxlesbiao/WLED-translations
 build_flags = ${env:esp32dev.build_flags} -D WLED_LOCALE=zh_CN
-extra_scripts = 
-    ${env:esp32dev.extra_scripts}
-    pre:tools/i18n/build.py
+extra_scripts = pre:tools/i18n/build.py
 ```
+
+PlatformIO automatically clones the translation repo to `.pio/libdeps/`.
 
 ### Build Steps
 
-1. `build.py` reads `wled00/data/*.htm` (English source)
-2. Applies L1/L2 translations via regex replacement
-3. Generates `i18n_effects.h` / `i18n_palettes.h` for L3/L4 (PROGMEM replacement)
-4. Output to `build/i18n/<locale>/`
+1. PlatformIO clones `WLED-translations` to `.pio/libdeps/<env>/WLED-translations/`
+2. `build.py` auto-detects translations in `.pio/libdeps/`
+3. Applies L1/L2 translations via regex replacement
+4. Generates `i18n_effects.h` / `i18n_palettes.h` for L3/L4 (PROGMEM replacement)
+5. Output to `build/i18n/<locale>/`
 
 ---
 
@@ -113,7 +115,8 @@ tools/i18n/
 ├── build.py         # Build-time translation applicator
 ├── ARCHITECTURE.md  # This file
 ├── README.md        # Usage documentation
-└── locales/         # Locale configs
+└── locales/
+    └── en_template.json  # English template for translators
 ```
 
 ### Translation repo (WLED-translations)

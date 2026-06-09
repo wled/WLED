@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
-WLED i18n Build Script (v3 - fixes from coderabbitai review)
-Generates translated HTML files from English source + locale JSON.
+WLED i18n Build Script (v4 - out-of-tree translation support)
 
-Uses raw string replacement instead of BeautifulSoup serialization
-to preserve original HTML formatting exactly (critical for ESP32 flash size).
-
-Fixes applied:
-1. File-scoped HTML replacement (no cross-file bleed)
-2. Script-block-aware HTML replacement (skip <script> content)
-3. Per-script-block JS replacement (no cross-block matching)
-4. Safe default output (never overwrites source)
+Generates translated HTML/JS files from English source + locale JSON.
+Translations are loaded from external repos (WLED-translations) via
+PlatformIO's custom_usermods mechanism, or from a local directory.
 
 Usage:
   python3 build.py --locale zh_CN --source-dir wled00/data --output-dir build/i18n/zh_CN
 
-PlatformIO integration:
-  extra_scripts = pre:tools/i18n/build.py
+PlatformIO integration (out-of-tree):
+  # In platformio_override.ini:
+  # [env:esp32dev_zh_CN]
+  # extends = env:esp32dev
+  # custom_usermods = https://github.com/foxlesbiao/WLED-translations
+  # build_flags = ${env:esp32dev.build_flags} -D WLED_LOCALE=zh_CN
+  # extra_scripts = pre:tools/i18n/build.py
 """
 
 import json
@@ -27,8 +26,8 @@ import tempfile
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-DATA_DIR = SCRIPT_DIR.parent.parent / "wled00" / "data"
-LOCALES_DIR = SCRIPT_DIR / "locales"
+PROJECT_DIR = SCRIPT_DIR.parent.parent  # WLED root
+DATA_DIR = PROJECT_DIR / "wled00" / "data"
 
 LOCALE_LANG = {
     'zh_CN': 'zh',
@@ -43,49 +42,112 @@ LOCALE_LANG = {
 }
 
 
-def load_translations(locale):
+def find_translations_dir(locale, translations_dir=None):
+    """Locate the translations directory for a locale.
+
+    Search order:
+    1. Explicit --translations-dir argument
+    2. PlatformIO libdeps (out-of-tree usermod: .pio/libdeps/<env>/WLED-translations/)
+    3. Local fallback (tools/i18n/locales/)
+    """
+    # 1. Explicit path
+    if translations_dir:
+        p = Path(translations_dir)
+        if p.exists():
+            return p
+        print(f"Warning: --translations-dir not found: {p}", file=sys.stderr)
+
+    # 2. PlatformIO libdeps (out-of-tree usermod)
+    pio_libdeps = PROJECT_DIR / ".pio" / "libdeps"
+    if pio_libdeps.exists():
+        for env_dir in pio_libdeps.iterdir():
+            if not env_dir.is_dir():
+                continue
+            candidate = env_dir / "WLED-translations"
+            if candidate.exists() and (candidate / locale).exists():
+                return candidate / locale
+            for subdir in env_dir.iterdir():
+                if not subdir.is_dir():
+                    continue
+                lib_json = subdir / "library.json"
+                if lib_json.exists():
+                    try:
+                        with open(lib_json) as f:
+                            meta = json.load(f)
+                        if meta.get("name") == "WLED-translations":
+                            if (subdir / locale).exists():
+                                return subdir / locale
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
+    # 3. Local fallback
+    local = SCRIPT_DIR / "locales"
+    if (local / f"{locale}.json").exists():
+        return local
+
+    return None
+
+
+def load_translations(locale, translations_dir=None):
     """Load translation JSON for the given locale, keyed by file."""
-    locale_file = LOCALES_DIR / f"{locale}.json"
-    if not locale_file.exists():
-        print(f"Error: Locale file not found: {locale_file}", file=sys.stderr)
+    tdir = find_translations_dir(locale, translations_dir)
+    if tdir is None:
+        print(f"Error: No translations found for locale '{locale}'.", file=sys.stderr)
+        print(f"  Searched:", file=sys.stderr)
+        print(f"    --translations-dir (if provided)", file=sys.stderr)
+        print(f"    .pio/libdeps/*/WLED-translations/{locale}/", file=sys.stderr)
+        print(f"    tools/i18n/locales/{locale}.json", file=sys.stderr)
         sys.exit(1)
 
-    with open(locale_file, 'r', encoding='utf-8') as f:
-        by_file = json.load(f)
+    tdir = Path(tdir)
+    merged = {}
 
-    # Build per-file translation dicts
-    # Result: {filename: {key: {original, translation}}}
-    file_translations = {}
-    for fname, entries in by_file.items():
-        file_translations[fname] = {}
-        for key, entry in entries.items():
-            trans = entry.get('translation', '').strip()
-            if trans:
-                file_translations[fname][key] = {
-                    'original': entry.get('en', ''),
-                    'translation': trans,
-                }
-    return file_translations
+    if tdir.is_file():
+        files_to_load = [tdir]
+    elif tdir.is_dir():
+        files_to_load = sorted(tdir.glob("*.json"))
+        single = tdir / f"{locale}.json"
+        if single.exists() and single not in files_to_load:
+            files_to_load = [single]
+    else:
+        print(f"Error: Translations path is neither file nor directory: {tdir}", file=sys.stderr)
+        sys.exit(1)
+
+    for jf in files_to_load:
+        if jf.name == "metadata.json":
+            continue
+        with open(jf, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for fname, entries in data.items():
+            if fname not in merged:
+                merged[fname] = {}
+            for key, entry in entries.items():
+                trans = entry.get('translation', '').strip()
+                if trans:
+                    merged[fname][key] = {
+                        'original': entry.get('en', ''),
+                        'translation': trans,
+                    }
+
+    if not merged:
+        print(f"Warning: No translations loaded for {locale} from {tdir}", file=sys.stderr)
+
+    return merged
 
 
 def split_script_blocks(content):
-    """Split content into (non_script, script) segments for safe processing.
-    Returns list of (text, is_script) tuples.
-    """
+    """Split content into (non_script, script) segments for safe processing."""
     segments = []
     pattern = re.compile(r'(<script[^>]*>)(.*?)(</script>)', re.DOTALL | re.IGNORECASE)
     last_end = 0
 
     for match in pattern.finditer(content):
-        # Non-script content before this script block
         before = content[last_end:match.start()]
         if before:
             segments.append((before, False))
-        # The script block itself (including tags)
         segments.append((match.group(0), True))
         last_end = match.end()
 
-    # Remaining non-script content after last script block
     after = content[last_end:]
     if after:
         segments.append((after, False))
@@ -94,28 +156,18 @@ def split_script_blocks(content):
 
 
 def replace_html_text(content, original, translated):
-    """Replace HTML text content using exact string matching.
-    Handles:
-    - >original< (direct child text)
-    - >  original  < (with whitespace)
-    - >...</child> original< (text after sibling element)
-
-    IMPORTANT: content must be non-script segments only.
-    """
+    """Replace HTML text content using exact string matching."""
     escaped = re.escape(original)
     total = 0
 
-    # Pattern 1: Text between > and </tag> or > and < (with optional whitespace)
     p1 = re.compile(r'(>)\s*(' + escaped + r')\s*(</?\w)')
     content, n = p1.subn(r'\g<1>' + translated + r'\g<3>', content)
     total += n
 
-    # Pattern 2: Text after a closing tag (e.g. </i> Color palette</p>)
     p2 = re.compile(r'(</\w+>)\s*(' + escaped + r')\s*(</?\w)')
     content, n = p2.subn(r'\g<1>' + translated + r'\g<3>', content)
     total += n
 
-    # Pattern 3: Standalone text line (with leading whitespace)
     p3 = re.compile(r'^(\s*)(' + escaped + r')(\s*)$', re.MULTILINE)
     content, n = p3.subn(r'\g<1>' + translated + r'\g<3>', content)
     total += n
@@ -134,12 +186,9 @@ def replace_html_attr(content, attr, original, translated):
 
 
 def replace_js_in_block(script_block, original, translated):
-    """Replace a JS string literal within a single <script>...</script> block.
-    Returns (new_block, count).
-    """
+    """Replace a JS string literal within a single <script>...</script> block."""
     for quote in ['"', "'", '`']:
         escaped = re.escape(original)
-        # Match quoted string within this single script block
         pattern = re.compile(
             r'([' + quote + r'])(' + escaped + r')([' + quote + r'])'
         )
@@ -154,28 +203,21 @@ def replace_js_in_block(script_block, original, translated):
 
 
 def apply_translations(content, file_key, translations, lang_code):
-    """Apply all translations to a file's content.
-    Uses script-block-aware processing to avoid cross-contamination.
-    """
+    """Apply all translations to a file's content."""
     total = 0
 
-    # 1. Update lang attribute
     content = re.sub(
         r'(<html\s[^>]*lang\s*=\s*")([^"]+)(")',
         r'\g<1>' + lang_code + r'\g<3>',
         content, count=1
     )
 
-    # 2. Split into script/non-script segments
     segments = split_script_blocks(content)
-
-    # 3. Apply translations per-segment
     file_translations = translations.get(file_key, {})
     new_segments = []
 
     for segment_text, is_script in segments:
         if is_script:
-            # Apply JS translations to script blocks
             for key, entry in file_translations.items():
                 if key.startswith('js:'):
                     segment_text, count = replace_js_in_block(
@@ -183,7 +225,6 @@ def apply_translations(content, file_key, translations, lang_code):
                     )
                     total += count
         else:
-            # Apply HTML translations to non-script content only
             for key, entry in file_translations.items():
                 if key.startswith('html:'):
                     parts = key.split(':')
@@ -205,9 +246,9 @@ def apply_translations(content, file_key, translations, lang_code):
     return ''.join(new_segments), total
 
 
-def build_locale(locale, source_dir=None, output_dir=None):
+def build_locale(locale, source_dir=None, output_dir=None, translations_dir=None):
     """Build translated HTM files for a given locale."""
-    file_translations = load_translations(locale)
+    file_translations = load_translations(locale, translations_dir)
     if not file_translations:
         print(f"Warning: No translations found for {locale}")
         return 0
@@ -220,7 +261,6 @@ def build_locale(locale, source_dir=None, output_dir=None):
         print(f"Error: No .htm files found in {src_dir}", file=sys.stderr)
         return 0
 
-    # BUG FIX #4: Never default to overwriting source files
     if output_dir:
         out_dir = Path(output_dir)
     else:
@@ -229,7 +269,6 @@ def build_locale(locale, source_dir=None, output_dir=None):
 
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Safety check: warn if output == source
     if out_dir.resolve() == src_dir.resolve():
         print(f"WARNING: Output dir equals source dir ({src_dir}).", file=sys.stderr)
         print(f"  English source files will be overwritten!", file=sys.stderr)
@@ -257,18 +296,51 @@ def build_locale(locale, source_dir=None, output_dir=None):
     return total_applied
 
 
+def validate_translations(locale, translations_dir=None):
+    """Validate translation completeness against English source files."""
+    file_translations = load_translations(locale, translations_dir)
+    if not file_translations:
+        print(f"No translations for {locale}")
+        return False
+
+    total_keys = 0
+    total_translated = 0
+
+    for fname, entries in file_translations.items():
+        translated = sum(1 for e in entries.values() if e.get('translation', '').strip())
+        total = len(entries)
+        total_keys += total
+        total_translated += translated
+        status = "OK" if translated == total else f"{total - translated} missing"
+        print(f"  {fname}: {translated}/{total} ({status})")
+
+    pct = (total_translated / total_keys * 100) if total_keys else 0
+    print(f"\nTotal: {total_translated}/{total_keys} ({pct:.1f}%)")
+    return total_translated == total_keys
+
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Build translated WLED Web UI files')
     parser.add_argument('--locale', required=True, help='Locale code (e.g. zh_CN)')
     parser.add_argument('--source-dir', default=None, help='Source directory (default: wled00/data/)')
     parser.add_argument('--output-dir', default=None, help='Output directory (default: temp dir)')
+    parser.add_argument('--translations-dir', default=None,
+                        help='Translations directory (default: auto-detect via PlatformIO libdeps)')
+    parser.add_argument('--validate', action='store_true',
+                        help='Validate translation completeness (no build)')
     args = parser.parse_args()
+
+    if args.validate:
+        print(f"Validating translations for {args.locale}")
+        print("=" * 40)
+        ok = validate_translations(args.locale, args.translations_dir)
+        sys.exit(0 if ok else 1)
 
     print(f"WLED i18n Build — {args.locale}")
     print("=" * 40)
 
-    count = build_locale(args.locale, args.source_dir, args.output_dir)
+    count = build_locale(args.locale, args.source_dir, args.output_dir, args.translations_dir)
     if count == 0:
         print("\nWarning: No translations applied!")
 
@@ -289,7 +361,6 @@ def pre_build(source, target, env):
         return
 
     print(f"[i18n] Building with locale: {locale}")
-    # Use build directory for output, not source directory
     build_dir = Path(env.subst('$BUILD_DIR')) / 'i18n' / locale
     build_locale(locale, output_dir=build_dir)
 
