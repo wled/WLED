@@ -1,0 +1,9 @@
+# LD2410 presence sensor usermod build environment
+# Copy to platformio_override.ini in the WLED root to use.
+
+[platformio]
+default_envs = usermod_LD2410_v2_esp32dev
+
+[env:usermod_LD2410_v2_esp32dev]
+extends = env:esp32dev
+custom_usermods = ${env:esp32dev.custom_usermods} LD2410_v2
