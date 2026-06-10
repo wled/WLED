@@ -1,6 +1,6 @@
 # WLED i18n Toolchain
 
-Build-time internationalization for WLED Web UI. Translates HTML/JS strings at compile time with **zero runtime overhead** and **zero flash overhead** (replaces, not adds).
+Build-time internationalization for WLED Web UI. Translates HTML/JS strings at compile time — replaces English text, does not add to it.
 
 ## How It Works
 
@@ -43,7 +43,7 @@ WLED-translations/
 ├── library.json           # PlatformIO dependency manifest
 ├── zh_CN/
 │   ├── static.json        # Layer 1: static HTML (429 entries)
-│   ├── js.json            # Layer 2: JS strings (45 entries)
+│   ├── js.json            # Layer 2: JS strings (716 entries)
 │   ├── effects.json       # Layer 3: effect names (216 entries)
 │   ├── palettes.json      # Layer 4: palette names (72 entries)
 │   └── metadata.json
@@ -61,7 +61,7 @@ cd WLED-translations
 
 # 2. Generate English template (from WLED source)
 python3 /path/to/WLED/tools/i18n/extract.py --stats
-cp /path/to/WLED/tools/i18n/locales/en_template.json en_template/
+cp -r /path/to/WLED/tools/i18n/locales/* en_template/
 
 # 3. Create your locale
 mkdir de_DE
@@ -98,6 +98,24 @@ npm ci && npm run build
 pio run -e esp32dev
 ```
 
+### Version updates (diff)
+
+When WLED releases a new version, compare templates to find changes:
+
+```bash
+# Generate old and new templates
+python3 tools/i18n/extract.py --stats  # on old version
+cp tools/i18n/locales/en_template.json en_template_old.json
+
+python3 tools/i18n/extract.py --stats  # on new version
+cp tools/i18n/locales/en_template.json en_template_new.json
+
+# Compare
+python3 tools/i18n/diff.py --old en_template_old.json --new en_template_new.json
+```
+
+Output shows added/removed/modified strings. Translators update only changed entries.
+
 ## Translation Search Order
 
 `build.py` searches for translations in this order:
@@ -106,37 +124,64 @@ pio run -e esp32dev
 2. `.pio/libdeps/*/WLED-translations/<locale>/` (PlatformIO out-of-tree)
 3. `tools/i18n/locales/<locale>.json` (local fallback)
 
-## Translation JSON Format
-
-```json
-{
-  "index.htm": {
-    "html:body > div#btns > a:nth-of-type(1):text": {
-      "en": "Power",
-      "translation": "电源",
-      "context": "index.htm: (html_text)"
-    },
-    "js:index.htm:45:a1b2c3d4": {
-      "en": "Loading...",
-      "translation": "加载中...",
-      "context": "index.htm:45 (js_innerHTML)"
-    }
-  }
-}
-```
-
 ## Coverage
 
 | Layer | Content | Method | Count |
 |-------|---------|--------|-------|
 | 1. Static HTML | Labels, buttons, placeholders | DOM text matching | 429 |
-| 2. JS strings | `alert()`, `innerHTML`, `innerText` | Script block regex | 45 |
-| 3. Effect names | FX names in `colors.cpp` | PROGMEM replacement | 216 |
-| 4. Palette names | Palette names in `colors.cpp` | PROGMEM replacement | 72 |
+| 2. JS strings | `alert()`, `innerHTML`, `innerText` | Script block regex | 716 |
+| 3. Effect names | FX names in `FX.cpp` | PROGMEM replacement | 216 |
+| 4. Palette names | Palette names in `FX_fcn.cpp` | PROGMEM replacement | 72 |
 
-## Limitations
+## Known Limitations
 
-1. **No runtime language switching** — language is fixed at build time
-2. **JS template literals with `${...}`** — partial strings can't be safely replaced
-3. **C++ server-side strings** — ~12 strings in `xml.cpp` need `#ifdef WLED_LOCALE_*`
-4. **External tools** (pixelforge, pixelmagic) — always English, downloaded on-the-fly
+### Cannot translate (technical)
+
+- **Dynamic runtime text** — OTA update errors, Info page content, usermod settings, Pin Info page
+- **External tools** — PixelForge add-ons (always English, downloaded on-the-fly)
+- **JavaScript template literals** — strings with `${...}` interpolation
+- **C++ server-side strings** — ~12 strings in `xml.cpp` need `#ifdef WLED_LOCALE_*`
+
+### Language-specific issues (acknowledged)
+
+- Word order differences (e.g., "X of Y" patterns)
+- Number formats (decimal point vs comma)
+- Grammar rules (singular/plural, countable/uncountable)
+- Date formats
+
+These are known limitations. The tool handles short labels and UI fragments, not full sentences.
+
+## Layer 3/4: Effect & Palette Names
+
+Effect names (216) and palette names (72) are translated via C++ PROGMEM replacement:
+
+```c
+// locale_effects.h (auto-generated)
+#pragma once
+#ifdef WLED_LOCALE
+#undef _data_FX_MODE_STATIC
+static const char _data_FX_MODE_STATIC[] PROGMEM = "常亮";
+// ...
+#endif
+```
+
+The `.h` files are generated in the translation repo. Users copy them to their local build.
+
+## Architecture
+
+```
+WLED (core repo)
+└── tools/i18n/
+    ├── extract.py        # Extract strings from HTML/JS
+    ├── build.py          # Apply translations (pre-build script)
+    ├── diff.py           # Compare template versions
+    └── README.md
+
+WLED-translations (community repo)
+├── zh_CN/
+│   ├── static.json       # Layer 1: HTML text
+│   ├── js.json           # Layer 2: JS strings
+│   ├── effects.json      # Layer 3: effect names
+│   └── palettes.json     # Layer 4: palette names
+└── en_template/          # English template
+```
