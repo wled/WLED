@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<meta charset="utf-8">
-	<title>安全和更新设置</title>
+	<title>Security & Update Setup</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		// load common.js with retry on error
@@ -43,50 +43,52 @@
 <form id="form_s" name="Sf" method="post">
 	<div class="toprow">
 	<div class="helpB"><button type="button" onclick="H('features/settings/#security-settings')">?</button></div>
-	<button type="button" onclick="B()">返回</button><button type="submit">保存</button><hr>
+	<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
 	</div>
-		<h2>安全和更新设置</h2>
+		<h2>Security & Update Setup</h2>
 	<div class="sec">
-		设置 PIN 码: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="Please enter a 4 digit number"><br>
-		<div class="warn">&#9888; 未加密传输。选择 PIN 码时请谨慎，不要使用银行卡、门禁、SIM 卡等 PIN 码!</div><br>
-		锁定无线 (OTA) 固件更新: <input type="checkbox" name="NO"><br>
-		密码: <input type="password" name="OP" maxlength="32"><br>
-		出于安全考虑，要启用 OTA 还需要输入正确的密码!<br>
-		启用 OTA 后应更改密码。<br>
-		<b>不使用时请禁用 OTA，否则攻击者可以重新刷写设备固件!</b><br>
-		<i>只有在禁用 OTA 锁定后才能更改此页面上的设置!</i><br>
-		锁定后拒绝访问 WiFi 设置: <input type="checkbox" name="OW"><br><br>
-		恢复出厂设置: <input type="checkbox" name="RS"><br>
-		所有设置和预设将被清除。<br><br>
-		<div class="warn">&#9888; 未加密传输。同一网络上的攻击者可以截获表单数据!</div>
+		Settings PIN: <input type="password" id="PIN" name="PIN" size="4" maxlength="4" minlength="4" onkeydown="checkNum(this)" pattern="[0-9]*" inputmode="numeric" title="Please enter a 4 digit number"><br>
+		<div class="warn">&#9888; Unencrypted transmission. Be prudent when selecting PIN, do NOT use your banking, door, SIM, etc. pin!</div><br>
+		Lock wireless (OTA) software update: <input type="checkbox" name="NO"><br>
+		Passphrase: <input type="password" name="OP" maxlength="32"><br>
+		To enable OTA, for security reasons you need to also enter the correct password!<br>
+		The password should be changed when OTA is enabled.<br>
+		<b>Disable OTA when not in use, otherwise an attacker can reflash device software!</b><br>
+		<i>Settings on this page are only changeable if OTA lock is disabled!</i><br>
+		Deny access to WiFi settings if locked: <input type="checkbox" name="OW"><br><br>
+		Factory reset: <input type="checkbox" name="RS"><br>
+		All settings and presets will be erased.<br><br>
+		<div class="warn">&#9888; Unencrypted transmission. An attacker on the same network can intercept form data!</div>
 	</div>
 	<div class="sec" id="OTA">
-		<h3>固件更新</h3>
-		<button type="button" onclick="U()">更新 WLED</button><br>
-		<div id="aOTA">启用 ArduinoOTA: <input type="checkbox" name="AO"></div>
-		仅允许同一网络/WiFi 更新: <input type="checkbox" name="SU"><br>
-		<i class="warn">&#9888; 如果使用多个 VLAN（如 IoT 或访客网络），请设置 PIN 码或禁用此选项。<br>
-			禁用此选项会降低设备安全性。</i><br></span>
+		<h3>Software Update</h3>
+		<button type="button" onclick="U()">Update WLED</button><br>
+		<div id="aOTA">Enable ArduinoOTA: <input type="checkbox" name="AO"></div>
+		Only allow update from same network/WiFi: <input type="checkbox" name="SU"><br>
+		<i class="warn">&#9888; If you are using multiple VLANs (i.e. IoT or guest network) either set PIN or disable this option.<br>
+			Disabling this option will make your device less secure.</i><br></span>
 	</div>
 	<div class="sec" id="backup">
-		<h3>备份和恢复</h3>
-		<div class="warn">&#9888; 恢复预设/配置将覆盖当前的预设/配置。<br>
-		错误的上传或配置可能需要恢复出厂设置或重新刷写 ESP。<br>
-		出于安全考虑，密码不会被备份。</div>
-		<a class="btn lnk" id="bckcfg" href="/presets.json" download="presets">备份预设</a><br>
-		<div>恢复预设<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
-		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">备份配置</a><br>
-		<div>恢复配置<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
+		<h3>Backup & Restore</h3>
+		<div class="warn">&#9888; Restoring presets/configuration will OVERWRITE your current presets/configuration.<br>
+		Incorrect upload or configuration may require a factory reset or re-flashing of your ESP.<br>
+		For security reasons, passwords are not backed up.</div>
+		<a class="btn lnk" id="bckcfg" href="/presets.json" download="presets">Backup presets</a><br>
+		<div>Restore presets<br><input type="file" name="data" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data,'/presets.json');">Upload</button><br></div><br>
+		<a class="btn lnk" id="bckpresets" href="/cfg.json" download="cfg">Backup configuration</a><br>
+		<div>Restore configuration<br><input type="file" name="data2" accept=".json"> <button type="button" onclick="uploadFile(d.Sf.data2,'/cfg.json');">Upload</button><br></div>
 	</div>
 	<div class="sec">
-		<h3>关于</h3>
+		<h3>About</h3>
 		<a href="https://github.com/wled-dev/WLED/" target="_blank">WLED</a>&#32;version ##VERSION##<!-- Autoreplaced from package.json --><br><br>
-		<a href="https://kno.wled.ge/about/contributors/" target="_blank">贡献者、依赖项和特别感谢</a><br>
-		非常感谢所有帮助我创建 WLED 的人!
+		<a href="https://kno.wled.ge/about/contributors/" target="_blank">Contributors, dependencies and special thanks</a><br>
+		A huge thank you to everyone who helped me create WLED!<br><br>
 		(c) 2016-2024 Christian Schwinne <br>
 		<i>Licensed under the <a href="https://github.com/wled-dev/WLED/blob/main/LICENSE" target="_blank">EUPL v1.2 license</a></i><br><br>
-		已安装版本: <span class="sip">WLED ##VERSION##</span>
+		Installed version: <span class="sip">WLED ##VERSION##</span>
 	</div>
-			<div id="toast"></div>
-			<button type="button" onclick="B()">返回</button><button type="submit">保存</button>
+		<div id="toast"></div>
+		<button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+	</form>
+</body>
 </html>

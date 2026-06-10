@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-	<title>2D 设置</title>
+	<title>2D Set-up</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var maxPanels=64;
@@ -49,22 +49,22 @@
 		if (p.children.length >= maxPanels) return;
 		var pw = parseInt(d.Sf.PW.value);
 		var ph = parseInt(d.Sf.PH.value);
-		let b = `<div id="pnl${i}"><b>面板 ${i}</b><br>
-第1个LED: <select name="P${i}B" oninput="UI()">
-	<option value="0">顶部</option>
-	<option value="1">底部</option>
+		let b = `<div id="pnl${i}"><b>Panel ${i}</b><br>
+1<sup>st</sup> LED: <select name="P${i}B" oninput="UI()">
+	<option value="0">Top</option>
+	<option value="1">Bottom</option>
 </select><select name="P${i}R" oninput="UI()">
-	<option value="0">左侧</option>
-	<option value="1">右侧</option>
+	<option value="0">Left</option>
+	<option value="1">Right</option>
 </select><br>
-方向: <select name="P${i}V" oninput="UI()">
-	<option value="0">水平</option>
-	<option value="1">垂直</option>
+Orientation: <select name="P${i}V" oninput="UI()">
+	<option value="0">Horizontal</option>
+	<option value="1">Vertical</option>
 </select><br>
-蛇形排列: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
-尺寸 (宽x高): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
-偏移 X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
-Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(相对于左上角的LED偏移数)</i>
+Serpentine: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
+Dimensions (WxH): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
+Offset X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
+Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
 <br><br></div>`;
 		p.insertAdjacentHTML("beforeend", b);
 	}
@@ -244,7 +244,7 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 			ctx.fillStyle = "orange";
 			ctx.fillText(p, topLeftX + pw/2*ppL - 10, topLeftY + ph/2*ppL + 10);
 		}
-		gId("MD").innerHTML = "矩阵尺寸 (宽*高=LED总数): " + maxWidth + " x " + maxHeight + " = " + maxWidth * maxHeight;
+		gId("MD").innerHTML = "Matrix Dimensions (W*H=LC): " + maxWidth + " x " + maxHeight + " = " + maxWidth * maxHeight;
 	}
 	</script>
 </head>
@@ -252,61 +252,61 @@ Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"
 	<form id="form_s" name="Sf" method="post">
 	<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H('features/2D')">?</button></div>
-		<button type="button" onclick="B()">返回</button><button type="button" onclick="fS()">保存</button><hr>
+		<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button><hr>
 	</div>
-	<h2>2D 设置</h2>
+	<h2>2D setup</h2>
 	<div class="sec">
-	灯带或面板:
+	Strip or panel:
 	<select id="somp" name="SOMP" onchange="resetPanels();addPanels();UI();" >
-		<option value="0">1D 灯带</option>
-		<option value="1">2D 矩阵</option>
+		<option value="0">1D Strip</option>
+		<option value="1">2D Matrix</option>
 	</select>
 	</div>
 	<div id="mpdiv" style="display:none;">
 	<div class="sec">
-		<h3>矩阵生成器 <button type="button" id="expGen" onclick="expand(this,gId('mxGen'));">&gt;</button></h3>
+		<h3>Matrix Generator <button type="button" id="expGen" onclick="expand(this,gId('mxGen'));">&gt;</button></h3>
 		<div id="mxGen" style="display:none;">
-			面板尺寸 (宽x高): <input name="PW" type="number" min="1" max="128" value="8"> x <input name="PH" type="number" min="1" max="128" value="8"><br>
-			水平面板数: <input name="MPH" type="number" min="1" max="8" value="1">
-			垂直面板数: <input name="MPV" type="number" min="1" max="8" value="1"><br>
-			第1个面板: <select name="PB">
-				<option value="0">顶部</option>
-				<option value="1">底部</option>
+			Panel dimensions (WxH): <input name="PW" type="number" min="1" max="128" value="8"> x <input name="PH" type="number" min="1" max="128" value="8"><br>
+			Horizontal panels: <input name="MPH" type="number" min="1" max="8" value="1">
+			Vertical panels: <input name="MPV" type="number" min="1" max="8" value="1"><br>
+			1<sup>st</sup> panel: <select name="PB">
+				<option value="0">Top</option>
+				<option value="1">Bottom</option>
 			</select><select name="PR">
-				<option value="0">左侧</option>
-				<option value="1">右侧</option>
+				<option value="0">Left</option>
+				<option value="1">Right</option>
 			</select><br>
-			方向: <select name="PV">
-				<option value="0">水平</option>
-				<option value="1">垂直</option>
+			Orientation: <select name="PV">
+				<option value="0">Horizontal</option>
+				<option value="1">Vertical</option>
 			</select><br>
-			蛇形排列: <input type="checkbox" name="PS"><br>
-			<i  class="warn">点击"生成"将创建预排列的LED面板布局。<br>以上值<i>不会</i>影响最终布局。<br>
-				警告：生成后可能需要更新每个面板的参数。</i><br>
-			<button type="button" onclick="gen();expand(gId('expGen'),gId('mxGen'));">生成</button>
+			Serpentine: <input type="checkbox" name="PS"><br>
+			<i  class="warn">Pressing Populate will create LED panel layout with pre-arranged matrix.<br>Values above <i>will not</i> affect final layout.<br>
+				WARNING: You may need to update each panel parameters after they are generated.</i><br>
+			<button type="button" onclick="gen();expand(gId('expGen'),gId('mxGen'));">Populate</button>
 		</div>
 	</div>
 	<div class="sec">
-		<h3>面板设置</h3>
-		面板数量: <input name="MPC" type="number" min="1" max="64" value="1" oninput="addPanels();UI();"><br>
-		<i>矩阵由一个或多个物理LED面板组成。<br>
-		每个面板可以有不同的尺寸、LED方向、起始点或布局。</i><br>
+		<h3>Panel set-up</h3>
+		Number of panels: <input name="MPC" type="number" min="1" max="64" value="1" oninput="addPanels();UI();"><br>
+		<i>A matrix is made of 1 or more physical LED panels.<br>
+		Each panel can be of different size and/or have different LED orientation and/or starting point and/or layout.</i><br>
 	</div>
 	<div class="sec">
-		<h3>LED 面板布局</h3>
+		<h3>LED panel layout</h3>
 		<div id="panels">
 		</div>
 	</div>
 	<div id="MD"></div>
 	<canvas id="canvas"></canvas>
 	<div class="sec">
-		<div id="json" >间隙文件: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/2d-gaps.json')">上传</button></div>
-		<i>说明：间隙文件是一个 <b>.json</b> 文件，包含元素数量等于矩阵大小的数组。<br>
-			值为 -1 表示该位置像素缺失，值为 0 表示不绘制该像素，值为 1 表示正常像素。</i>
+		<div id="json" >Gap file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/2d-gaps.json')">Upload</button></div>
+		<i>Note: Gap file is a <b>.json</b> file containing an array with number of elements equal to the matrix size.<br>
+			A value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.</i>
 	</div>
 	</div>
 	<hr>
-	<button type="button" onclick="B()">返回</button><button type="button" onclick="fS()">保存</button>
+	<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button>
 	</form>
 	<div id="toast"></div>
 </body>

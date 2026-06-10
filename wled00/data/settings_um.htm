@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 	<meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
-	<title>用户模块设置</title>
+	<title>Usermod Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 	var umCfg = {};
@@ -39,7 +39,7 @@
 					urows += `</div>`;
 				}
 			}
-			if (urows==="") urows = "未找到用户模块配置。<br>点击<i>保存</i>以初始化默认值。";
+			if (urows==="") urows = "Usermods configuration not found.<br>Press <i>Save</i> to initialize defaults.";
 			gId("um").innerHTML = urows;
 			loadJS(getURL('/settings/s.js?p=8'), false, ()=>{
 				d.max_gpio = 50;
@@ -57,7 +57,7 @@
 			gId('lserr').style.display = "inline";
 			console.log(error);
 		});
-		if (!numM) gId("um").innerHTML = "未安装用户模块。";
+		if (!numM) gId("um").innerHTML = "No Usermods installed.";
 		if (loc) d.Sf.action = getURL('/settings/um');
 	}
 	function check(o,k) {   // input object, pin owner key
@@ -141,9 +141,9 @@
 					if (j > -1 && d.rsvd && d.rsvd.includes(j)) continue;
 					let pInfo = d.pinsData && d.pinsData.find(p => p.p === j);
 					let used = j > -1 && pInfo && pInfo.a && j !== v; // add owner info if used and not "our" pin
-					let txt = (j === -1) ? "未使用" : `${j}`;
+					let txt = (j === -1) ? "unused" : `${j}`;
 					if (used) txt += ` (${getOwnerName(pInfo.o, pInfo.t, pInfo.n)})`;
-					if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (仅输入)"; // read-only pin
+					if (j > -1 && d.ro_gpio && d.ro_gpio.includes(j)) txt += " (input only)"; // read-only pin
 					let opt = addO(sel, txt, j);
 					if (j === v) opt.selected = true; // this is "our" pin
 					else if (used) opt.disabled = true; // someone else's pin
@@ -169,7 +169,7 @@
 			Array.from(sel.options).forEach((i)=>{
 				if (!(i.value==oldV || i.value==e.value)) return;
 				if (i.value == -1) {
-					i.text = "未使用";
+					i.text = "unused";
 					return
 				}
 				if (i.value<100) { // TODO remove this hack and use d.extra
@@ -181,7 +181,7 @@
 						i.disabled = true;
 						i.text += ` ${txt}`;
 					}
-					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (仅输入)"; // read-only pin
+					if (d.ro_gpio.includes(parseInt(i.value))) i.text += " (input only)"; // read-only pin
 				}
 			});
 		}
@@ -263,27 +263,27 @@
 	<form id="form_s" name="Sf" method="post" onsubmit="svS(event)">
 		<div class="toprow">
 		<div class="helpB"><button type="button" onclick="H()">?</button></div>
-		<button type="button" onclick="B()">返回</button><button type="submit">保存</button><br>
-		<span id="lssuc" style="color:green; display:none">&#10004; 配置已保存！</span>
-		<span id="lserr" style="color:red; display:none">&#9888; 无法加载配置。</span><hr>
+		<button type="button" onclick="B()">Back</button><button type="submit">Save</button><br>
+		<span id="lssuc" style="color:green; display:none">&#10004; Configuration saved!</span>
+		<span id="lserr" style="color:red; display:none">&#9888; Could not load configuration.</span><hr>
 		</div>
-		<h2>用户模块设置</h2>
+		<h2>Usermod Setup</h2>
 		<div class="sec">
-			<h3>全局 I<sup>2</sup>C 与 SPI</h3>
+			<h3>Global I<sup>2</sup>C & SPI</h3>
 			
-			<b>I<sup>2</sup>C GPIO (硬件)</b><br>
+			<b>I<sup>2</sup>C GPIOs (HW)</b><br>
 			SDA:<input type="number" min="-1" max="48" name="SDA" onchange="check(this,'if')" class="s" placeholder="SDA">
 			SCL:<input type="number" min="-1" max="48" name="SCL" onchange="check(this,'if')" class="s" placeholder="SCL"><br>
-			<br><b>SPI GPIO (硬件)</b><br>
-			<i class="warn">仅在 ESP32 上可更改</i><br>
+			<br><b>SPI GPIOs (HW)</b><br>
+			<i class="warn">only changable on ESP32</i><br>
 			MOSI:<input type="number" min="-1" max="48" name="MOSI" onchange="check(this,'if')" class="s" placeholder="MOSI">
 			MISO:<input type="number" min="-1" max="48" name="MISO" onchange="check(this,'if')" class="s" placeholder="MISO">
 			SCLK:<input type="number" min="-1" max="48" name="SCLK" onchange="check(this,'if')" class="s" placeholder="SCLK"><br>
-			<br><i class="warn">更改需要重启！</i><br>
-			保存后重启? <input type="checkbox" name="RBT">
+			<br><i class="warn">change requires reboot!</i><br>
+			Reboot after save? <input type="checkbox" name="RBT">
 		</div>
-		<div id="um">正在加载设置...</div>
-		<hr><button type="button" onclick="B()">返回</button><button type="submit">保存</button>
+		<div id="um">Loading settings...</div>
+		<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
 	</form>
 </body>
 
