@@ -507,6 +507,7 @@ void WLED::setup()
     handlePresets();  // handle boot preset
     handlePlaylist(); // handle playlist if preset queued one
     handlePresets();  // handle presets again to give a chance for anything queued by the boot preset or playlist
+    strip.setTransition(transitionDelayDefault); // restore transitions now that the boot preset applied instantly (no boot flash)
   }
   
   if (strcmp(multiWiFi[0].clientSSID, DEFAULT_CLIENT_SSID) == 0 && !configBackupExists())
@@ -617,19 +618,28 @@ void WLED::beginStrip()
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
 
-  if (turnOnAtBoot) {
+  // fix for #3196 and the boot flash: if a boot preset is configured, fully blank the strip and
+  // push a black frame before applying it. The boot preset is applied with a transition, which
+  // crossfades FROM the current (restored) segment buffer; without a black starting frame that
+  // restored state flashes at the restored brightness for the first fraction of a second.
+  // This must run for turnOnAtBoot too. Brightness 0 alone (the boot brightness still feeds the
+  // crossfade's source) and blanking colors[0] alone (palette/FX states still render) are each
+  // insufficient on their own, which is why earlier attempts still flashed.
+  if (bootPreset > 0) {
+    // set all segments black (no transition)
+    for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+      Segment &seg = strip.getSegment(i);
+      if (seg.isActive()) seg.colors[0] = BLACK;
+    }
+    colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
+    briLast = briS; bri = 0;       // stay dark; the boot preset sets its own brightness when it applies
+    strip.fill(BLACK);
+    if (rlyPin < 0)
+      strip.show();                // push a black frame so the boot preset's transition starts from black
+  } else if (turnOnAtBoot) {
     if (briS > 0) bri = briS;
     else if (bri == 0) bri = 128;
   } else {
-    // fix for #3196
-    if (bootPreset > 0) {
-      // set all segments black (no transition)
-      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-        Segment &seg = strip.getSegment(i);
-        if (seg.isActive()) seg.colors[0] = BLACK;
-      }
-      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
-    }
     briLast = briS; bri = 0;
     strip.fill(BLACK);
     if (rlyPin < 0)
@@ -638,6 +648,11 @@ void WLED::beginStrip()
   colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
+    // keep transitions disabled until the boot preset has actually been applied (in setup(), after
+    // beginStrip() returns) so it applies instantly with NO crossfade from the restored state -
+    // a crossfade is what makes the restored state flash on cold boot. Transitions are restored
+    // in setup() right after the boot preset/playlist is handled.
+    return;
   }
 
   strip.setTransition(transitionDelayDefault);  // restore transitions
