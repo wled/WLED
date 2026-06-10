@@ -1267,7 +1267,7 @@ static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color
 *   Third slider is the X multiplier
 *   Fourth slider is the Y multiplier
 *   Fifth slider is the rotation speed (0 = do not rotate)
-*   Checkbox will randomize the horizontal and vertical directions
+*   Check1 will randomize the horizontal and vertical directions (8 possible directions controlled by aux1)
 */
 static void mode_2D_perlinscape(void) {
   if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
@@ -1289,7 +1289,7 @@ static void mode_2D_perlinscape(void) {
 
   if (SEGENV.call == 0) {
     SEGENV.aux0 = hw_random16(5000, 10000);
-    SEGENV.aux1 = 0b00;
+    SEGENV.aux1 = 0;
     offX  = 0;
     offY  = 0;
     stepX = 256;   // 1.0 in Q8
@@ -1298,54 +1298,72 @@ static void mode_2D_perlinscape(void) {
     prevT = t;
   }
 
+  // change direction
   if (SEGMENT.check1 && (strip.now - SEGENV.step > SEGENV.aux0)) {
     SEGENV.aux0 = hw_random16(5000, 10000);
-    SEGENV.aux1 = hw_random8(4);
+    SEGENV.aux1 = hw_random8(8);  // random direction
     SEGENV.step = strip.now;
   }
 
-  bool flipX = SEGMENT.check1 ? (SEGENV.aux1 & 0x01) : false;
-  bool flipY = SEGMENT.check1 ? (SEGENV.aux1 & 0x02) : false;
+  // direction lookup table {targetX, targetY} in Q8 format
+  static const int16_t direction[8][2] = {
+    {   0, -256}, // down
+    { 256, -256}, // down-left
+    { 256,    0}, // left
+    { 256,  256}, // up-left
+    {   0,  256}, // up
+    {-256,  256}, // up-right
+    {-256,    0}, // right
+    {-256, -256}, // down-right
+  };
 
-  // targetX/Y: +256 or -256 in Q8
-  int32_t targetX = flipX ? -256 : 256;
-  int32_t targetY = flipY ? -256 : 256;
+  int16_t targetX = direction[SEGENV.aux1][0];
+  int16_t targetY = direction[SEGENV.aux1][1];
 
   stepX += ((targetX - stepX) * 13) >> 8;
   stepY += ((targetY - stepY) * 13) >> 8;
 
-  // dt in raw milliseconds; offX/offY accumulate scaled by speedMult
+  // dt in raw milliseconds
   uint32_t udt = strip.now - prevT;
   int32_t dt = (udt > 500) ? 0 : (int32_t)udt;
-  offX += (stepX * dt * speedMult) >> 13;
-  offY += (stepY * dt * speedMult) >> 13;
+  offX += (stepX * dt * speedMult) >> 14;
+  offY += (stepY * dt * speedMult) >> 14;
   prevT = strip.now;
 
-  // Integer pixel offsets — gradual drift motion (Q8 >> 8 = integer)
   int32_t tX = offX << 1;
   int32_t tY = offY << 1;
-
-  // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
-  constexpr uint16_t colorOffX = 300;
-  constexpr uint16_t colorOffY = 300;
 
   // Rotation — cos16/sin16 return Q15 (-32768..32767 = -1.0..1.0)
   int32_t cosA = 1024;  // Q10: 1.0 = 1024
   int32_t sinA = 0;
 
+  // rotate if rotation speed slider is not 0
+  if (SEGMENT.custom3 > 0) {
+    int32_t dirOffset = 0;
+
+    if (!SEGMENT.check1) {
+      // rotation in one direction
+      angle = ((angle + (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    } else {
+      // rotation on direction change
+      float moveAngle = atan2f((float)stepY, (float)stepX);
+      dirOffset = (int32_t)(moveAngle * 32768.0f / (float)M_PI);
+      int8_t rotDir = (stepX >= 0) ? 1 : -1;  // clockwise vs counter-clockwise
+      angle = ((angle + rotDir * (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    }
+
+    cosA = cos16_t((uint16_t)(angle + dirOffset)) >> 5;
+    sinA = sin16_t((uint16_t)(angle + dirOffset)) >> 5;
+  }
+
+  // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
+  constexpr uint16_t colorOffX = 300, colorOffY = 300;
+
   // Center in Q8 (avoids 0.5 fractions)
   int32_t cx256 = (int32_t)width  * 128;
   int32_t cy256 = (int32_t)height * 128;
 
-  // rotate if rotation speed is not 0
-  if (SEGMENT.custom3 > 0) {
-    angle = ((angle + (int32_t)SEGMENT.custom3 * dt * 2) & 0xFFFF);
-    cosA = cos16_t((uint16_t)angle) >> 5;
-    sinA = sin16_t((uint16_t)angle) >> 5;
-  }
-
   // scale: map intensity 0-255 -> 10-200, then store as Q8 (divide by 100 baked in)
-  // scale_q8 = map(...) * 256 / 100
   int32_t scale_q8 = (int32_t)map(SEGMENT.intensity, 0, 255, 10, 200) * 256 / 100;
 
   for (uint16_t x = 0; x < width; x++) {
@@ -1374,7 +1392,7 @@ static void mode_2D_perlinscape(void) {
     }
   }
 }
-static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;sx=64,c3=0,o1=1";
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;c3=0,o1=1";
 
 
 /////////////////////
