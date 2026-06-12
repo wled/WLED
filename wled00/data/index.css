@@ -953,7 +953,7 @@ a.btn {
 
 /* Quick color select buttons */
 .qcs {
-	margin: 2px;
+	margin: 0 2px;
 	border-radius: 14px;
 	display: inline-block;
 	width: 28px;

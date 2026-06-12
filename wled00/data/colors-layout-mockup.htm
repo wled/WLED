@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Colors Tab Layout Mockup</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		html, body {
+			height: 100%;
+			width: 100%;
+			background: #111;
+			color: #fff;
+			font-family: Helvetica, Verdana, sans-serif;
+			font-size: 17px;
+		}
+
+		body {
+			display: flex;
+			flex-direction: column;
+			position: fixed;
+			overflow: hidden;
+		}
+
+		/* Top nav */
+		.top-nav {
+			height: 80px;
+			background: rgba(34, 34, 34, 0.9);
+			display: flex;
+			align-items: center;
+			padding: 0 10px;
+			gap: 10px;
+			border-bottom: 1px solid #444;
+		}
+
+		.top-nav button {
+			padding: 10px 14px;
+			background: transparent;
+			border: none;
+			color: #ddd;
+			cursor: pointer;
+			font-size: 16px;
+		}
+
+		.top-nav button:hover {
+			background: rgba(51, 51, 51, 0.9);
+			color: #eee;
+		}
+
+		/* Main content area */
+		.content-area {
+			flex: 1;
+			overflow-y: auto;
+			overflow-x: hidden;
+			padding: 0 4px;
+		}
+
+		/* Bottom nav */
+		.bottom-nav {
+			height: 63px;
+			background: rgba(34, 34, 34, 0.9);
+			display: flex;
+			justify-content: space-around;
+			align-items: center;
+			border-top: 1px solid #444;
+			padding: 0 10px;
+			gap: 20px;
+		}
+
+		.bottom-nav button {
+			padding: 9px 0 7px 0;
+			background: transparent;
+			border: none;
+			color: #ccc;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: 500;
+			text-transform: uppercase;
+			flex-shrink: 0;
+		}
+
+		.bottom-nav button:hover {
+			color: #fff;
+		}
+
+		/* Content container */
+		.content-container {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			padding: 10px 0;
+		}
+
+		/* Section boxes */
+		.section {
+			width: 280px;
+			background: #222;
+			border-radius: 8px;
+			padding: 12px;
+			margin: 8px 0;
+			border: 1px solid #333;
+		}
+
+		.section-title {
+			font-size: 13px;
+			color: #888;
+			text-transform: uppercase;
+			margin-bottom: 10px;
+			font-weight: 600;
+		}
+
+		/* Color pills */
+		.color-pills {
+			display: flex;
+			gap: 6px;
+			flex-wrap: wrap;
+		}
+
+		.color-pill {
+			width: 32px;
+			height: 32px;
+			border-radius: 16px;
+			border: 2px solid #333;
+			cursor: pointer;
+			transition: transform 0.2s;
+		}
+
+		.color-pill:hover {
+			transform: scale(1.1);
+		}
+
+		/* Hex input */
+		.hex-input {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+		}
+
+		.hex-input label {
+			font-size: 14px;
+			color: #bbb;
+		}
+
+		.hex-input input {
+			flex: 1;
+			padding: 8px;
+			background: #333;
+			border: 1px solid #444;
+			color: #fff;
+			border-radius: 6px;
+			font-size: 14px;
+		}
+
+		/* Slider */
+		.slider-group {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			margin-bottom: 10px;
+		}
+
+		.slider-icon {
+			width: 24px;
+			text-align: center;
+			font-size: 18px;
+		}
+
+		.slider-wrap {
+			flex: 1;
+			display: flex;
+			gap: 4px;
+			align-items: center;
+		}
+
+		.slider-wrap input {
+			flex: 1;
+			height: 30px;
+			cursor: pointer;
+		}
+
+		.slider-value {
+			width: 40px;
+			text-align: right;
+			font-size: 12px;
+			color: #aaa;
+		}
+
+		/* Info panel */
+		.info-panel {
+			max-width: 280px;
+			background: #2a2a2a;
+			border-left: 4px solid #00a8ff;
+			border-radius: 8px;
+			padding: 12px 16px;
+			margin: 10px auto 20px auto;
+			color: #aaa;
+			font-size: 14px;
+			line-height: 1.5;
+		}
+
+		/* Sticky brightness section */
+		.sticky-section {
+			position: sticky;
+			bottom: 0;
+			width: 280px;
+			background: #1a1a1a;
+			padding: 10px 12px;
+			border-radius: 8px;
+			margin-top: 10px;
+			z-index: 2;
+			box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.5);
+		}
+
+		.sticky-label {
+			font-size: 13px;
+			color: #888;
+			margin-bottom: 8px;
+			text-transform: uppercase;
+			font-weight: 600;
+		}
+
+		/* Layout grid for structure visualization */
+		.layout-grid {
+			border: 2px dashed #666;
+			padding: 8px;
+			margin-top: 5px;
+			background: rgba(255, 255, 255, 0.02);
+			border-radius: 4px;
+		}
+
+		.layout-info {
+			font-size: 11px;
+			color: #666;
+			margin-top: 4px;
+			font-family: monospace;
+		}
+
+		/* Scrollbar styling */
+		::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #555;
+			border-radius: 3px;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: #777;
+		}
+	</style>
+</head>
+<body>
+
+<div class="top-nav">
+	<button>⚡</button>
+	<button>⌂</button>
+	<button>Nodes</button>
+	<button>Config</button>
+	<button>PC Mode</button>
+	<div style="flex: 1;"></div>
+	<span>Brightness: [====] 85%</span>
+</div>
+
+<div class="content-area">
+	<div class="content-container">
+		<div style="width: 100%; max-width: 280px;">
+
+			<!-- Quick Color Select -->
+			<div class="section">
+				<div class="section-title">Quick Colors</div>
+				<div class="color-pills">
+					<div class="color-pill" style="background: #ff0000;"></div>
+					<div class="color-pill" style="background: #ff7700;"></div>
+					<div class="color-pill" style="background: #ffff00;"></div>
+					<div class="color-pill" style="background: #00ff00;"></div>
+					<div class="color-pill" style="background: #0000ff;"></div>
+					<div class="color-pill" style="background: #ff00ff;"></div>
+					<div class="color-pill" style="background: #ffffff;"></div>
+					<div class="color-pill" style="background: #000000; border: 2px solid #666;"></div>
+				</div>
+				<div class="layout-info">max-width: 280px | margin: 0 (left-aligned)</div>
+			</div>
+
+			<!-- Hex Input -->
+			<div class="section">
+				<div class="section-title">Hex Color</div>
+				<div class="hex-input">
+					<label>#</label>
+					<input type="text" value="FF5733" placeholder="RRGGBB">
+				</div>
+				<div class="layout-info">max-width: 280px | margin: 0 (left-aligned)</div>
+			</div>
+
+			<!-- Color Sliders -->
+			<div class="section">
+				<div class="section-title">Color Sliders</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">🔴</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="255" style="background: linear-gradient(90deg, #000, #ff0000);">
+						<div class="slider-value">255</div>
+					</div>
+				</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">🟢</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="180" style="background: linear-gradient(90deg, #000, #00ff00);">
+						<div class="slider-value">180</div>
+					</div>
+				</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">🔵</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="200" style="background: linear-gradient(90deg, #000, #0000ff);">
+						<div class="slider-value">200</div>
+					</div>
+				</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">⚪</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="220" style="background: linear-gradient(90deg, #000, #ffffff);">
+						<div class="slider-value">220</div>
+					</div>
+				</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">🌡️</div>
+					<div class="slider-wrap">
+						<input type="range" min="2000" max="10000" value="6500" style="background: linear-gradient(90deg, #ff8f1f, #cbdbff);">
+						<div class="slider-value">6.5K</div>
+					</div>
+				</div>
+
+				<div class="slider-group">
+					<div class="slider-icon">⚔️</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="150">
+						<div class="slider-value">150</div>
+					</div>
+				</div>
+
+				<div class="layout-info">max-width: 280px | margin: 0 (left-aligned)</div>
+			</div>
+
+			<!-- Sticky Brightness Section -->
+			<div class="sticky-section">
+				<div class="sticky-label">Brightness</div>
+				<div class="slider-group">
+					<div class="slider-icon">🔆</div>
+					<div class="slider-wrap">
+						<input type="range" min="0" max="255" value="200" style="background: linear-gradient(90deg, #000 -15%, #fff);">
+						<div class="slider-value">200</div>
+					</div>
+				</div>
+				<div class="layout-info">position: sticky | max-width: 280px | margin: 0</div>
+			</div>
+
+			<!-- Info Panel (CENTERED) -->
+			<div class="info-panel">
+				<strong style="color: #00a8ff;">ℹ️ Colors Tab</strong>
+				<p style="margin-top: 8px;">Use the color wheel, quick buttons, or hex input to select a color. Adjust brightness with the slider at the bottom.</p>
+				<div class="layout-info" style="color: #555; margin-top: 8px;">max-width: 280px | margin: 10px auto (CENTERED)</div>
+			</div>
+
+		</div>
+	</div>
+</div>
+
+<div class="bottom-nav">
+	<button>⚡</button>
+	<button>COLORS</button>
+	<button>EFFECTS</button>
+	<button>FAVOURITES</button>
+	<button>TIMER</button>
+	<button>⚙️</button>
+</div>
+
+</body>
+</html>

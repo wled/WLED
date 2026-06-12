@@ -1,0 +1,138 @@
+# Colors Tab Layout Structure
+
+## Overall Page Structure
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        TOP NAV BAR (80px)                       │
+│   [⚡] [⌂] [Nodes] [Config] [Config] [Brightness: ===]         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                                                                 │
+│                    .tabcontent (Colors tab)                     │
+│                    (100% width, scrollable)                     │
+│                                                                 │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │                                                           │  │
+│  │              #Colors (tab content container)             │  │
+│  │                       (100% width)                        │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐ │  │
+│  │  │  #qcs-w (Quick Color Select)                        │ │  │
+│  │  │  max-width: 280px, margin: 0 (left-aligned)         │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐    │ │  │
+│  │  │  │ 🔴 🟠 🟡 🟢 🔵 🟣 ⚪ ⚫                          │    │ │  │
+│  │  │  │ [Color pill buttons - 28px each]           │    │ │  │
+│  │  │  └─────────────────────────────────────────────┘    │ │  │
+│  │  └─────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐ │  │
+│  │  │  #hexw (Hex Color Input)                            │ │  │
+│  │  │  max-width: 280px, margin: 0 (left-aligned)         │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐    │ │  │
+│  │  │  │ Hex Color:  [#FF5733]                      │    │ │  │
+│  │  │  └─────────────────────────────────────────────┘    │ │  │
+│  │  └─────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐ │  │
+│  │  │  Color Sliders Section                              │ │  │
+│  │  │  (All 280px max-width, margin: 0 - left-aligned)    │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #rwrap (Red Slider)                        │   │ │  │
+│  │  │  │  🔴 [█████████████████  ] 255               │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #gwrap (Green Slider)                      │   │ │  │
+│  │  │  │  🟢 [████████            ] 180              │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #bwrap (Blue Slider)                       │   │ │  │
+│  │  │  │  🔵 [███████████         ] 200              │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #wwrap (White Slider)                      │   │ │  │
+│  │  │  │  ⚪ [████████████████    ] 220              │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #kwrap (Kelvin Slider)                     │   │ │  │
+│  │  │  │  🌡️  [██████████████████ ] 6500K            │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐   │ │  │
+│  │  │  │  #wbal (White Balance Slider)               │   │ │  │
+│  │  │  │  ⚔️  [███████████        ] 150              │   │ │  │
+│  │  │  └─────────────────────────────────────────────┘   │ │  │
+│  │  │                                                     │ │  │
+│  │  └─────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐ │  │
+│  │  │  #sliders (Sticky Brightness Section)               │ │  │
+│  │  │  max-width: 280px, margin: 0 (left-aligned)         │ │  │
+│  │  │  position: sticky; bottom: 0; (above bottom nav)    │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐    │ │  │
+│  │  │  │  ┌───────────────────────────────────────┐ │    │ │  │
+│  │  │  │  │ Brightness               ┌──┐       │ │    │ │  │
+│  │  │  │  │ 🔆 [██████████████  ]    │85│       │ │    │ │  │
+│  │  │  │  │                          └──┘       │ │    │ │  │
+│  │  │  │  └───────────────────────────────────────┘ │    │ │  │
+│  │  │  └─────────────────────────────────────────────┘    │ │  │
+│  │  │  (Sticks to top of bottom nav bar)                 │ │  │
+│  │  └─────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  │  ┌─────────────────────────────────────────────────────┐ │  │
+│  │  │  #colorsInfoPanel (Info Box)                        │ │  │
+│  │  │  max-width: 280px, margin: 10px auto 2vh auto       │ │  │
+│  │  │  (CENTERED, not left-aligned)                       │ │  │
+│  │  │  ┌─────────────────────────────────────────────┐    │ │  │
+│  │  │  │ ℹ️ Select a color using the wheel, buttons,│    │ │  │
+│  │  │  │    or hex input. Adjust brightness with   │    │ │  │
+│  │  │  │    the slider at the bottom.              │    │ │  │
+│  │  │  └─────────────────────────────────────────────┘    │ │  │
+│  │  └─────────────────────────────────────────────────────┘ │  │
+│  │                                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      BOTTOM NAV BAR (63px)                      │
+│        [⚡] [COLORS] [EFFECTS] [FAVOURITES] [TIMER] [⚙️]       │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## CSS Width & Alignment Summary
+
+| Element | Width | Margin | Alignment | Notes |
+|---------|-------|--------|-----------|-------|
+| `.tabcontent` | 100% | 0 4px | N/A | Scrollable container |
+| `#qcs-w` | 280px max | 0 | Left | Color pill buttons |
+| `#hexw` | 280px max | 0 | Left | Hex color input |
+| `#rwrap` | 280px max | 0 | Left | Red slider |
+| `#gwrap` | 280px max | 0 | Left | Green slider |
+| `#bwrap` | 280px max | 0 | Left | Blue slider |
+| `#wwrap` | 280px max | 0 | Left | White slider |
+| `#kwrap` | 280px max | 0 | Left | Kelvin slider |
+| `#wbal` | 280px max | 0 | Left | White balance slider |
+| `#sliders` | 280px max | 0 | Left | Brightness (sticky) |
+| `#colorsInfoPanel` | 280px max | 10px auto 2vh auto | **CENTER** | Info box (exception) |
+
+## Key Layout Rules
+
+1. **Content 280px constraint**: All interactive elements (#qcs-w, #hexw, sliders) are `max-width: 280px; margin: 0;` → left-aligned
+2. **Info panel centered**: `#colorsInfoPanel` uses `margin: auto;` → stays centered despite other elements being left-aligned
+3. **Sticky slider**: `#sliders` is `position: sticky; bottom: 0;` → floats above bottom nav when scrolling
+4. **Scrollable area**: `.tabcontent` has `overflow-y: auto` → user can scroll through all content
+5. **Safe zone**: Everything respects the top nav (80px) and bottom nav (63px) spacing
+
+## Visual Spacing
+
+- **Vertical gaps**: 8-12px between sections
+- **Horizontal padding**: 4px on each side from `.tabcontent` padding
+- **280px content**: Leaves ~10px gutter on each side on a 320px viewport (device minimum)
+- **Bottom cushion**: `#sliders` has `padding-bottom: 6px` to separate from bottom nav

@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Colors Tab Wireframe</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		html, body {
+			height: 100%;
+			width: 100%;
+			background: #1a1a1a;
+			color: #fff;
+			font-family: monospace;
+			font-size: 11px;
+		}
+
+		body {
+			display: flex;
+			flex-direction: column;
+			position: fixed;
+			overflow: hidden;
+		}
+
+		/* Top nav */
+		.top-nav {
+			height: 80px;
+			border: 1px solid #0f0;
+			display: flex;
+			align-items: center;
+			padding: 2px;
+		}
+
+		.top-nav::before {
+			content: ".top-nav (80px)";
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			color: #0f0;
+			font-size: 10px;
+		}
+
+		/* Main content area */
+		.content-area {
+			flex: 1;
+			border: 1px solid #f0f;
+			overflow-y: auto;
+			overflow-x: hidden;
+			padding: 0 4px;
+			position: relative;
+		}
+
+		.content-area::before {
+			content: ".content-area / .tabcontent (scrollable)";
+			position: sticky;
+			top: 0;
+			display: block;
+			height: 14px;
+			color: #f0f;
+			font-size: 10px;
+			background: #1a1a1a;
+			border-bottom: 1px solid #f0f;
+		}
+
+		/* Content container wrapper */
+		.content-wrapper {
+			width: 100%;
+			display: flex;
+			justify-content: center;
+			padding: 4px 0;
+		}
+
+		/* Main content container */
+		.content-container {
+			width: 280px;
+			border: 1px solid #00f;
+			padding: 4px;
+			position: relative;
+		}
+
+		.content-container::before {
+			content: "#Colors (280px max-width, margin: 0 - LEFT)";
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			color: #00f;
+			font-size: 9px;
+		}
+
+		/* Sections */
+		.section {
+			border: 1px solid #0ff;
+			height: 60px;
+			margin: 4px 0;
+			margin-top: 14px;
+			position: relative;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.section:first-child {
+			margin-top: 4px;
+		}
+
+		.section::before {
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			font-size: 9px;
+			color: #0ff;
+		}
+
+		.section:nth-child(1)::before { content: "#qcs-w (Quick Colors)"; }
+		.section:nth-child(2)::before { content: "#hexw (Hex Input)"; }
+		.section:nth-child(3)::before { content: "#rwrap (Red Slider)"; }
+		.section:nth-child(4)::before { content: "#gwrap (Green Slider)"; }
+		.section:nth-child(5)::before { content: "#bwrap (Blue Slider)"; }
+		.section:nth-child(6)::before { content: "#wwrap (White Slider)"; }
+		.section:nth-child(7)::before { content: "#kwrap (Kelvin Slider)"; }
+		.section:nth-child(8)::before { content: "#wbal (White Balance)"; }
+
+		/* Sticky slider section */
+		.sticky-section {
+			border: 1px solid #ff0;
+			height: 60px;
+			margin: 4px 0;
+			position: sticky;
+			bottom: 63px;
+			z-index: 2;
+			background: #1a1a1a;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.sticky-section::before {
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			font-size: 9px;
+			color: #ff0;
+			content: "#sliders (Brightness - STICKY)";
+		}
+
+		/* Info panel */
+		.info-panel {
+			border: 1px dashed #f00;
+			height: 50px;
+			margin: 10px auto 20px auto;
+			max-width: 280px;
+			position: relative;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		.info-panel::before {
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			font-size: 9px;
+			color: #f00;
+			content: "#colorsInfoPanel (280px max-width, margin: 10px auto - CENTERED)";
+		}
+
+		/* Bottom nav */
+		.bottom-nav {
+			height: 63px;
+			border: 1px solid #0f0;
+			position: relative;
+		}
+
+		.bottom-nav::before {
+			content: ".bottom-nav (63px)";
+			position: absolute;
+			top: 2px;
+			left: 2px;
+			color: #0f0;
+			font-size: 10px;
+		}
+
+		/* Legend */
+		.legend {
+			position: fixed;
+			bottom: 65px;
+			right: 2px;
+			background: #222;
+			border: 1px solid #555;
+			padding: 4px;
+			font-size: 9px;
+			color: #888;
+			z-index: 10;
+		}
+
+		.legend-item {
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			margin: 2px 0;
+		}
+
+		.legend-color {
+			width: 12px;
+			height: 10px;
+			border: 1px solid currentColor;
+		}
+
+		/* Scrollbar */
+		::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		::-webkit-scrollbar-thumb {
+			background: #444;
+		}
+	</style>
+</head>
+<body>
+
+<div class="top-nav"></div>
+
+<div class="content-area">
+	<div class="content-wrapper">
+		<div class="content-container">
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="section"></div>
+			<div class="sticky-section"></div>
+			<div class="info-panel"></div>
+		</div>
+	</div>
+</div>
+
+<div class="bottom-nav"></div>
+
+<div class="legend">
+	<div class="legend-item"><div class="legend-color" style="border-color: #0f0;"></div> Nav (80px / 63px)</div>
+	<div class="legend-item"><div class="legend-color" style="border-color: #f0f;"></div> Scrollable area</div>
+	<div class="legend-item"><div class="legend-color" style="border-color: #00f;"></div> #Colors (280px)</div>
+	<div class="legend-item"><div class="legend-color" style="border-color: #0ff;"></div> Input sections</div>
+	<div class="legend-item"><div class="legend-color" style="border-color: #ff0;"></div> #sliders (sticky)</div>
+	<div class="legend-item"><div class="legend-color" style="border-color: #f00;"></div> Info panel (centered)</div>
+</div>
+
+</body>
+</html>
