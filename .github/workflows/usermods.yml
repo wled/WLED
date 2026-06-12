@@ -4,6 +4,9 @@ on:
   pull_request:
     paths:
       - usermods/**
+  push:
+    paths:
+      - usermods/**
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -12,28 +15,40 @@ jobs:
 
   get_usermod_envs:
     # Only run for pull requests from forks (not from branches within wled/WLED)
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
     name: Gather Usermods
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
-        cache: 'pip'
-    - name: Install PlatformIO
-      run: pip install -r requirements.txt
-    - name: Get default environments
+        fetch-depth: 0
+    - name: Get changed usermod environments
       id: envs
       run: |
-        echo "usermods=$(find usermods/ -name library.json | xargs dirname | xargs -n 1 basename | jq -R | grep -v PWM_fan | grep -v BME68X_v2| grep -v pixels_dice_tray | jq --slurp -c)" >> $GITHUB_OUTPUT
+        # Usermods whose directories changed in this PR
+        changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD \
+          | grep '^usermods/' | cut -d/ -f2 | sort -u || true)
+
+        # All usermods with a library.json (excluding known-incompatible ones)
+        all=$(find usermods/ -name library.json \
+          | xargs dirname | xargs -n 1 basename \
+          | grep -v PWM_fan | grep -v BME68X_v2 | grep -v pixels_dice_tray \
+          | sort || true)
+
+        if [ -z "$changed" ] || [ -z "$all" ]; then
+          echo "usermods=[]" >> $GITHUB_OUTPUT
+        else
+          usermods=$(comm -12 <(echo "$all") <(echo "$changed") | jq -R | jq --slurp -c)
+          echo "usermods=$usermods" >> $GITHUB_OUTPUT
+        fi
     outputs:
       usermods: ${{ steps.envs.outputs.usermods }}
 
 
   build:
     # Only run for pull requests from forks (not from branches within wled/WLED)
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    # Skip when no changed usermods were found (e.g. only non-library changes)
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository && needs.get_usermod_envs.outputs.usermods != '[]'
     name: Build Enviornments
     runs-on: ubuntu-latest
     needs: get_usermod_envs
@@ -74,4 +89,85 @@ jobs:
         cat platformio_override.ini
 
     - name: Build firmware
-      run: pio run -e ${{ matrix.environment }}    
+      run: pio run -e ${{ matrix.environment }}
+
+
+  get_custom_build_envs:
+    name: Gather Custom Build Environments
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Find usermods with custom build environments
+      id: custom_envs
+      run: |
+        # On PRs: only scan usermods whose directories changed.
+        # On push: scan all usermods (validates the full set on merge).
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD \
+            | grep '^usermods/' | cut -d/ -f2 | sort -u || true)
+          if [ -z "$changed" ]; then
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          samples=$(for mod in $changed; do
+            f="usermods/$mod/platformio_override.ini.sample"
+            [ -f "$f" ] && echo "$f"
+          done | sort)
+        else
+          samples=$(find usermods/ -name "platformio_override.ini.sample" | sort)
+        fi
+
+        result='[]'
+        for sample in $samples; do
+          usermod=$(dirname "$sample" | xargs basename)
+          # Skip usermods known to be incompatible (same list as get_usermod_envs)
+          case "$usermod" in PWM_fan|BME68X_v2|pixels_dice_tray) continue ;; esac
+          envs=$(grep -E '^\[env:[^]]+\]' "$sample" | sed 's/^\[env:\(.*\)\]$/\1/')
+          for env in $envs; do
+            result=$(echo "$result" | jq --arg u "$usermod" --arg e "$env" '. + [{usermod: $u, env: $e}]')
+          done
+        done
+        echo "matrix=$(echo "$result" | jq -c '.')" >> $GITHUB_OUTPUT
+    outputs:
+      matrix: ${{ steps.custom_envs.outputs.matrix }}
+
+
+  build_custom:
+    name: Build Custom Env (${{ matrix.usermod }} / ${{ matrix.env }})
+    runs-on: ubuntu-latest
+    needs: get_custom_build_envs
+    if: needs.get_custom_build_envs.outputs.matrix != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.get_custom_build_envs.outputs.matrix) }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: '.nvmrc'
+        cache: 'npm'
+    - run: npm ci
+    - name: Cache PlatformIO
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.platformio/.cache
+          ~/.buildcache
+          build_output
+        key: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.env }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+    - name: Install PlatformIO
+      run: pip install -r requirements.txt
+    - name: Apply custom build environment
+      run: cp -v "usermods/${{ matrix.usermod }}/platformio_override.ini.sample" platformio_override.ini
+    - name: Build firmware
+      run: pio run -e ${{ matrix.env }}
