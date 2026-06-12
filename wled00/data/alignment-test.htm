@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Alignment Test - Measure Pills vs Info Panel</title>
+	<style>
+		body {
+			font-family: monospace;
+			background: #1a1a1a;
+			color: #fff;
+			padding: 20px;
+			font-size: 12px;
+		}
+		.test-section {
+			margin: 20px 0;
+			padding: 10px;
+			border: 1px solid #666;
+		}
+		.result {
+			padding: 5px;
+			margin: 5px 0;
+			background: #222;
+		}
+		.good { background: #1a3a1a; color: #0f0; }
+		.bad { background: #3a1a1a; color: #f00; }
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin-top: 10px;
+		}
+		td {
+			border: 1px solid #444;
+			padding: 5px;
+			text-align: right;
+		}
+		td:first-child {
+			text-align: left;
+		}
+	</style>
+	<link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+<h2>Layout Alignment Test</h2>
+<p>This page loads the actual WLED UI and measures the alignment of pills vs info panels.</p>
+
+<div id="results"></div>
+
+<iframe id="ui-frame" src="index.htm" style="display:none; width:320px; height:640px;"></iframe>
+
+<script>
+setTimeout(() => {
+	const results = document.getElementById('results');
+	const frame = document.getElementById('ui-frame');
+
+	try {
+		const doc = frame.contentDocument;
+		if (!doc) throw new Error('Cannot access iframe document');
+
+		// Wait for UI to load
+		const checkUI = setInterval(() => {
+			const colors = doc.getElementById('Colors');
+			const effects = doc.getElementById('Effects');
+			const favs = doc.getElementById('Favourites');
+
+			if (colors && effects && favs) {
+				clearInterval(checkUI);
+				runTests(doc, results);
+			}
+		}, 500);
+	} catch (e) {
+		results.innerHTML = '<div class="result bad">Error: ' + e.message + '</div>';
+	}
+}, 1000);
+
+function runTests(doc, results) {
+	let html = '<div class="test-section"><h3>Colors Tab</h3>' +
+		testTab(doc, 'Colors') + '</div>';
+
+	html += '<div class="test-section"><h3>Effects Tab</h3>' +
+		testTab(doc, 'Effects') + '</div>';
+
+	html += '<div class="test-section"><h3>Favourites Tab</h3>' +
+		testTab(doc, 'Favourites') + '</div>';
+
+	results.innerHTML = html;
+}
+
+function testTab(doc, tabId) {
+	const tab = doc.getElementById(tabId);
+	if (!tabId) return '<div class="result bad">Tab not found</div>';
+
+	let html = '';
+
+	// Find pill containers
+	let pillContainer = null;
+	let pillElements = [];
+
+	if (tabId === 'Colors') {
+		pillContainer = doc.getElementById('qcs-w');
+		pillElements = Array.from(doc.querySelectorAll('#Colors .qcs'));
+	} else if (tabId === 'Effects') {
+		pillContainer = doc.getElementById('fxlist');
+		pillElements = Array.from(doc.querySelectorAll('#Effects .fx-pill-row')).slice(0, 2);
+	} else if (tabId === 'Favourites') {
+		pillContainer = doc.getElementById('pcont');
+		pillElements = Array.from(doc.querySelectorAll('#Favourites .fx-pill-row')).slice(0, 2);
+	}
+
+	// Find info panel
+	let infoPanelId = {
+		'Colors': 'colorsInfoPanel',
+		'Effects': 'fxInfoPanel',
+		'Favourites': 'presetsInfoPanel'
+	}[tabId];
+
+	const infoPanel = doc.getElementById(infoPanelId);
+
+	// Measure positions
+	const tabcontent = tab.parentElement;
+	const tabRect = tab.getBoundingClientRect();
+	const tabcontentRect = tabcontent.getBoundingClientRect();
+
+	html += '<table>';
+	html += '<tr><td>Measurement</td><td>Value</td><td>Status</td></tr>';
+
+	// Tab container
+	html += '<tr><td>Tab width</td><td>' + tabRect.width.toFixed(1) + 'px</td><td></td></tr>';
+	html += '<tr><td>Tab left offset</td><td>' + tabRect.left.toFixed(1) + 'px</td><td></td></tr>';
+
+	// Pill container
+	if (pillContainer) {
+		const pcRect = pillContainer.getBoundingClientRect();
+		html += '<tr><td>Pill container left</td><td>' + pcRect.left.toFixed(1) + 'px</td><td></td></tr>';
+		html += '<tr><td>Pill container width</td><td>' + pcRect.width.toFixed(1) + 'px</td><td></td></tr>';
+
+		// First pill
+		if (pillElements.length > 0) {
+			const pRect = pillElements[0].getBoundingClientRect();
+			html += '<tr><td>First pill left</td><td>' + pRect.left.toFixed(1) + 'px</td><td></td></tr>';
+		}
+	}
+
+	// Info panel
+	if (infoPanel) {
+		const ipRect = infoPanel.getBoundingClientRect();
+		html += '<tr><td>Info panel left</td><td>' + ipRect.left.toFixed(1) + 'px</td><td></td></tr>';
+		html += '<tr><td>Info panel width</td><td>' + ipRect.width.toFixed(1) + 'px</td><td></td></tr>';
+
+		// Check alignment
+		if (pillContainer && pillElements.length > 0) {
+			const pcRect = pillContainer.getBoundingClientRect();
+			const pRect = pillElements[0].getBoundingClientRect();
+			const diff = Math.abs(pRect.left - ipRect.left);
+
+			const status = diff < 5 ? '<span class="good">✓ ALIGNED</span>' :
+						   '<span class="bad">✗ MISALIGNED (' + diff.toFixed(1) + 'px)</span>';
+			html += '<tr><td>Pill vs Info panel alignment</td><td>' + diff.toFixed(1) + 'px offset</td><td>' + status + '</td></tr>';
+		}
+	}
+
+	html += '</table>';
+
+	return html;
+}
+</script>
+
+</body>
+</html>
