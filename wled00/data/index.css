@@ -1713,7 +1713,7 @@ dialog {
 	display: flex;
 	align-items: center;
 	gap: 5px;
-	margin: 0 auto 12px;
+	margin: 0 0 12px;
 	width: 100%;
 	box-sizing: border-box;
 }
