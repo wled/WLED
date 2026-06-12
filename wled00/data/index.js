@@ -670,13 +670,13 @@ function populatePresets(fromls)
 
 		const upDisabled = idx === 0 ? ' disabled' : '';
 		const downDisabled = idx === presetIds.length - 1 ? ' disabled' : '';
-		const arrowsHtml = `<div class="fav-reorder-btns"><button class="fav-arrow-up" onclick="moveFavUp(${i})"${upDisabled} title="Move up">⬆</button><button class="fav-arrow-down" onclick="moveFavDown(${i})"${downDisabled} title="Move down">⬇</button></div>`;
+		const arrowsHtml = `<div class="fav-reorder-btns"><button class="fav-arrow-up" onclick="moveFavUp(${i})"${upDisabled} title="Move up"><svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12,8 18,16 6,16" fill="currentColor"/></svg></button><button class="fav-arrow-down" onclick="moveFavDown(${i})"${downDisabled} title="Move down"><svg viewBox="0 0 24 24" width="20" height="20"><polygon points="12,16 18,8 6,8" fill="currentColor"/></svg></button></div>`;
 
-		cn += `<div class="fx-pill-row" data-pid="${i}">${arrowsHtml}<div class="pres lstI" id="p${i}o">`;
+		cn += `<div class="fx-pill-row" data-pid="${i}"><div class="pres lstI" id="p${i}o">`;
 		cn += `<div class="pname lstIname" onclick="setPreset(${i})">${i==lastinfo.leds.bootps?"<i class='icons btn-icon'>&#xe410;</i>":""}${isPlaylist(i)?"<i class='icons btn-icon'>&#xe139;</i>":""}${pName(i)}
 	<i class="icons edit-icon flr" id="p${i}nedit" onclick="tglSegn(${i+100})">&#xe2c6;</i></div>
 	<div class="presin lstIcontent" id="seg${i+100}"></div>
-</div>${fxBtnHtml}</div>`;
+</div>${fxBtnHtml}${arrowsHtml}</div>`;
 		pNum++;
 	}
 

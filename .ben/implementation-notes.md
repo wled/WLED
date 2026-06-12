@@ -593,3 +593,137 @@ When `pNum > 0`, the heading and `#pql` visibility are restored before normal re
 **Gotcha:** The `UT` parameter must be sent as a Unix timestamp (seconds since 1970-01-01 UTC). The device uses this to update `toki.second()`, not to directly set localTime—the UTC offset (`UO`) still applies to calculate the user's local time from the Unix timestamp.
 
 **Deploy:** 1 → 2 → 3
+
+---
+
+## Favourites arrows repositioned to right side next to star
+
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`
+
+**Approach:** Reordered the HTML structure in `populatePresets()` to move arrows to the right side of each favorite. Changed from:
+```
+<div class="fx-pill-row">${arrowsHtml}<div class="pres lstI">...</div>${fxBtnHtml}</div>
+```
+to:
+```
+<div class="fx-pill-row"><div class="pres lstI">...</div>${fxBtnHtml}${arrowsHtml}</div>
+```
+
+The `.fx-pill-row` flex container naturally left-aligns items. The `.pres lstI` has `flex: 1` which expands to fill available space, pushing the star and arrows to the right. Gap between arrows and favorite item adjusted to 5px (changed from 8px in `.fx-pill-row { gap: 5px }`).
+
+**Layout result:** 
+- Left: Favorite name (takes up available space)
+- Right: Filled/outline star + up/down arrows (5px gap from name)
+
+**Gotchas:** 
+- The `.fx-pill-row .lstI { flex: 1 }` existing CSS rule is critical — without it, items would not right-align.
+- The `gap: 5px` applies to all gaps in the row (name↔star, star↔arrows) — consistent 5px spacing throughout.
+
+**Deploy:** 1 → 3
+
+---
+
+## Info panels — unified width (280px) and blue styling across all tabs
+
+**Files:** `wled00/data/index.css`, `wled00/data/index.htm`, `wled00/data/settings.htm`
+
+**Approach:**
+1. **index.css:** Removed `#fx` from the max-width constraint rule (line 380) that was limiting the Effects section to 280px. Now only the info panel itself (`#fxInfoPanel`) is constrained to 280px and centered, matching the Colors tab behavior.
+
+2. **index.htm:** Added info panel to the Favourites tab with instructional text: "Re-order your effects by using the arrows, or remove by clicking on the star."
+
+3. **settings.htm:** Updated the "Need help?" panel to match the Colors/Effects panels styling and width.
+
+**CSS Changes:**
+
+1. Max-width constraint (line 380):
+
+Before:
+```css
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #bsp, .fnd {
+	max-width: 280px;
+}
+```
+
+After:
+```css
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #palw, #bsp, .fnd {
+	max-width: 280px;
+}
+```
+
+2. Info panel margins (line 399):
+
+Before:
+```css
+#colorsInfoPanel, #fxInfoPanel {
+	max-width: 280px;
+	margin: 10px auto 10px auto !important;
+}
+```
+
+After:
+```css
+#colorsInfoPanel, #fxInfoPanel, #presetsInfoPanel {
+	max-width: 280px;
+	margin: 10px auto 2vh auto !important;
+}
+```
+
+(Bottom margin changed from 10px to 2vh to match the gap between settings page buttons)
+
+**HTML Changes:**
+
+Settings (settings.htm line 49):
+```html
+<div style="background:#2a2a2a;padding:12px 16px;margin:10px auto;max-width:280px;border-radius:8px;border-left:4px solid #00a8ff;...">
+```
+
+Favourites (index.htm after pql div):
+```html
+<div id="presetsInfoPanel" style="background:#2a2a2a;border-radius:8px;padding:12px 16px;margin:16px 16px 10px 16px;border-left:4px solid #00a8ff;">
+	<p style="margin:0;color:#aaa;font-size:14px;">Re-order your effects by using the arrows, or remove by clicking on the star.</p>
+</div>
+```
+
+**Effect:** All info panels now have identical appearance across all pages:
+- Width: `max-width: 280px`
+- Margin: `10px auto` (top/bottom/centered) or `16px 16px 10px 16px` (with explicit padding)
+- Background: `#2a2a2a`
+- Padding: `12px 16px`
+- Border-radius: `8px`
+- Blue accent: `border-left: 4px solid #00a8ff`
+- Top spacing from nav bar: **10px** (via CSS margin)
+
+**Gotchas:**
+- The Effects tab effects list (`#fx`) is now full-width instead of 280px. The search/filter section and effects buttons expand to fill the tab width.
+- The info panel itself is still constrained to 280px via `#fxInfoPanel`, so it remains 280px wide and centered.
+
+**Deploy:** 1 → 3
+
+---
+
+## Content width constraint — 280px left-aligned across Colors, Effects, Favorites tabs
+
+**Files:** `wled00/data/index.css`
+
+**Approach:** Unified the layout across Colors, Effects, and Favorites tabs to ensure all content is constrained to 280px width and left-aligned (not centered). This ensures the pills line up with the left border of the info panels on each page.
+
+**CSS Changes:**
+
+1. **Info panels** (line 399-402): Left unchanged — remain centered with `max-width: 280px; margin: 10px auto 2vh auto;`.
+
+2. **Sliders** (line 455): Updated `max-width` from `300px` to `280px` for consistency.
+
+3. **New selector block** (after line 397): Added explicit rules for Colors, Effects, and Favorites tabs that override the previous `margin: 0 auto;` with `margin: 0;` (left-aligned) and set `max-width: 280px`:
+   - Colors tab: #qcs-w, #hexw, color sliders (#rwrap, #gwrap, #bwrap, #wwrap, #kwrap, #wbal), #sliders
+   - Effects tab: #fxFind, #fx, #fxlist, #sliders
+   - Favorites tab: #pql, #palw, #sliders
+
+**Effect:** All tab content (color pickers, effect lists, palette, sliders) is now consistently 280px wide and left-aligned, with the info panels and content pills all flush to the same left border.
+
+**Gotchas:** 
+- Info panels changed from `max-width` to fixed `width: 280px` to ensure exact alignment. If viewport is narrower than 280px, the panels will overflow — acceptable for this device (minimum 320px viewport).
+- The `margin: 0;` override removes all horizontal centering for child elements in these tabs. Any future elements added to these tabs will automatically be left-aligned.
+
+**Deploy:** 1 → 2 → 3

@@ -377,7 +377,7 @@ button {
 	padding: 10px 0 0;
 }
 
-#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #fx, #palw, #bsp,
+#segutil, #segutil2, #segcont, #putil, #pcont, #pql, #palw, #bsp,
 .fnd {
 	max-width: 280px;
 }
@@ -396,9 +396,39 @@ button {
 	margin: 0 auto;
 }
 
-#colorsInfoPanel, #fxInfoPanel {
+/* Constrain Colors, Effects, Favorites tabs to 280px and left-align */
+#Colors #qcs-w,
+#Colors #hexw,
+#Colors #rwrap,
+#Colors #gwrap,
+#Colors #bwrap,
+#Colors #wwrap,
+#Colors #kwrap,
+#Colors #wbal,
+#Colors #sliders,
+#Colors .slider,
+#Effects #fxFind,
+#Effects #fx,
+#Effects #fxlist,
+#Effects #sliders,
+#Effects .slider,
+#Favourites #pql,
+#Favourites #palw,
+#Favourites #sliders,
+#Favourites .slider {
+	margin: 0;
 	max-width: 280px;
-	margin: 10px auto 10px auto !important;
+}
+
+/* Ensure list items in these tabs are 280px width */
+#Effects #fxlist .lstI,
+#Colours #csl button {
+	width: 100%;
+}
+
+#colorsInfoPanel, #fxInfoPanel, #presetsInfoPanel {
+	max-width: 280px;
+	margin: 10px auto 2vh auto !important;
 }
 
 #putil {
@@ -452,7 +482,7 @@ button {
 	position: -webkit-sticky;
 	position: sticky;
 	bottom: 0;
-	max-width: 300px;
+	max-width: 280px;
 	z-index: 2;
 	padding-bottom: 6px;
 }
@@ -1682,7 +1712,7 @@ dialog {
 .fx-pill-row {
 	display: flex;
 	align-items: center;
-	gap: 8px;
+	gap: 5px;
 	margin: 0 auto 12px;
 	width: 100%;
 	box-sizing: border-box;
@@ -1734,25 +1764,23 @@ dialog {
 .fav-reorder-btns {
 	flex-shrink: 0;
 	display: flex;
-	gap: 8px;
+	gap: 4px;
 	align-items: center;
 }
 .fav-arrow-up,
 .fav-arrow-down {
 	background: none;
 	border: none;
-	padding: 4px 2px;
+	padding: 2px 4px;
 	cursor: pointer;
 	user-select: none;
 	line-height: 1;
 	width: auto;
 	height: auto;
-	font-size: 32px;
 	color: var(--c-6);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	transform: scaleX(4) scaleY(0.5);
 }
 .fav-arrow-up:disabled,
 .fav-arrow-down:disabled {

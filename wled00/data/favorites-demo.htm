@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Favorites with Arrows Demo</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+		body {
+			background: #111;
+			color: #fff;
+			font-family: Helvetica, Verdana, sans-serif;
+			padding: 20px;
+		}
+		h1 {
+			font-size: 24px;
+			margin-bottom: 10px;
+			text-align: center;
+		}
+		.subtitle {
+			text-align: center;
+			color: #888;
+			margin-bottom: 30px;
+			font-size: 14px;
+		}
+		.container {
+			max-width: 400px;
+			margin: 0 auto;
+		}
+		/* Replicate the actual CSS from index.css */
+		.fx-pill-row {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+			margin: 0 auto 12px;
+			width: 100%;
+			box-sizing: border-box;
+		}
+		.fav-reorder-btns {
+			flex-shrink: 0;
+			display: flex;
+			gap: 4px;
+			align-items: center;
+		}
+		.fav-arrow-up,
+		.fav-arrow-down {
+			background: none;
+			border: none;
+			padding: 2px 4px;
+			cursor: pointer;
+			user-select: none;
+			line-height: 1;
+			width: auto;
+			height: auto;
+			color: #aaa;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			transition: color 0.2s;
+		}
+		.fav-arrow-up:hover,
+		.fav-arrow-down:hover {
+			color: #fff;
+		}
+		.fav-arrow-up:disabled,
+		.fav-arrow-down:disabled {
+			opacity: 0.3;
+			cursor: default;
+		}
+		.pres {
+			background: #2a2a2a;
+			border-radius: 8px;
+			padding: 12px 16px;
+			flex: 1;
+			min-width: 0;
+		}
+		.pname {
+			color: #fff;
+			font-size: 15px;
+			font-weight: 500;
+		}
+		.label {
+			color: #666;
+			font-size: 12px;
+			margin-top: 15px;
+			padding: 10px;
+			border-left: 2px solid #00a8ff;
+		}
+	</style>
+</head>
+<body>
+
+<h1>Favorites with Reorder Arrows</h1>
+<p class="subtitle">5px margin, left-aligned (matching arrow-demo.htm)</p>
+
+<div class="container">
+
+	<div class="fx-pill-row">
+		<div class="pres">
+			<div class="pname">Warm White</div>
+		</div>
+		<span class="fx-preset-btn fx-preset-rm" title="Remove from cycle">&#x2605;</span>
+		<div class="fav-reorder-btns">
+			<button class="fav-arrow-up" title="Move up" disabled>
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,8 18,16 6,16" fill="currentColor"/>
+				</svg>
+			</button>
+			<button class="fav-arrow-down" title="Move down">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,16 18,8 6,8" fill="currentColor"/>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<div class="fx-pill-row">
+		<div class="pres">
+			<div class="pname">Cool Blue</div>
+		</div>
+		<span class="fx-preset-btn fx-preset-rm" title="Remove from cycle">&#x2605;</span>
+		<div class="fav-reorder-btns">
+			<button class="fav-arrow-up" title="Move up">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,8 18,16 6,16" fill="currentColor"/>
+				</svg>
+			</button>
+			<button class="fav-arrow-down" title="Move down">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,16 18,8 6,8" fill="currentColor"/>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<div class="fx-pill-row">
+		<div class="pres">
+			<div class="pname">Rainbow Unicorn</div>
+		</div>
+		<span class="fx-preset-btn fx-preset-rm" title="Remove from cycle">&#x2605;</span>
+		<div class="fav-reorder-btns">
+			<button class="fav-arrow-up" title="Move up">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,8 18,16 6,16" fill="currentColor"/>
+				</svg>
+			</button>
+			<button class="fav-arrow-down" title="Move down">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,16 18,8 6,8" fill="currentColor"/>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<div class="fx-pill-row">
+		<div class="pres">
+			<div class="pname">Campfire Orange</div>
+		</div>
+		<span class="fx-preset-btn fx-preset-rm" title="Remove from cycle">&#x2605;</span>
+		<div class="fav-reorder-btns">
+			<button class="fav-arrow-up" title="Move up">
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,8 18,16 6,16" fill="currentColor"/>
+				</svg>
+			</button>
+			<button class="fav-arrow-down" title="Move down" disabled>
+				<svg viewBox="0 0 24 24" width="20" height="20">
+					<polygon points="12,16 18,8 6,8" fill="currentColor"/>
+				</svg>
+			</button>
+		</div>
+	</div>
+
+	<div class="label">
+		<strong>Features:</strong><br>
+		✓ 5px gap between arrows and favorite<br>
+		✓ Arrows left-aligned<br>
+		✓ SVG triangles match arrow-demo.htm<br>
+		✓ Disabled state on first/last items<br>
+		✓ Hover effect on arrow buttons
+	</div>
+
+</div>
+
+</body>
+</html>
