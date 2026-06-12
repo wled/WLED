@@ -1741,8 +1741,8 @@ dialog {
 	align-items: center;
 	justify-content: center;
 	width: 28px;
+	height: 28px;
 	text-align: center;
-	padding-top: 9px;
 }
 .fx-preset-no-action {
 	cursor: default;
