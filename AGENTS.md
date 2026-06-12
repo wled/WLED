@@ -163,7 +163,7 @@ Background Info:
 - Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
 - **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
 - **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
-- Consider RAII as an alternative to  mutexes or semaphores.
+- Consider using `std::atomic` or RAII scoped guards as alternatives to mutexes, semaphores or queues.
 
 ## Web UI Code Style (wled00/data/)
 
@@ -198,10 +198,10 @@ REGISTER_USERMOD(myUsermod);
 
 refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in the user documentation for custom features](https://kno.wled.ge/advanced/custom-features/).
 
-### Usermod `loop()`
-
-- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
-- Frequency of calls varies with system load - up to 2000 times/sec with few LEDs and little background activity, down to 1-3 times/sec during FS activity or during high workload from effects and other usermods.
+- Activate via `custom_usermods = ` in platformio build config. The `usermod_v2_` prefix or `_v2` suffix can be omitted.
+- Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
+- Store repeated strings as `static const char[] PROGMEM`
+- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 
 ### Usermod IDs
 
@@ -213,10 +213,13 @@ A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only 
 
 If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
 
-- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see above)
-- Activate via `custom_usermods` in platformio build config
-- Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
-- Store repeated strings as `static const char[] PROGMEM`
+### Usermod `loop()`
+
+- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
+- Frequency of calls varies with system load:
+    * up to 2000 times/sec with few LEDs and little background activity,
+    * between 20 and 300 times/second during high workload from effects and other usermods,
+    * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
 
 ## CI/CD
 
@@ -230,7 +233,7 @@ No automated linting is configured. Match existing code style in files you edit.
 
 ## General Rules
 
-- Repository language is English.
+- Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
