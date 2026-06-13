@@ -432,6 +432,12 @@ button {
 	max-width: 280px;
 }
 
+/* Center align Presets (Favourites) wrapper */
+#presets-wrapper {
+	margin: 0 auto;
+	max-width: 280px;
+}
+
 /* Ensure list items in these tabs are 280px width */
 #Effects #fxlist .lstI,
 #Colors #csl button {
