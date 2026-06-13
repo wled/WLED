@@ -396,7 +396,7 @@ button {
 	margin: 0 auto;
 }
 
-/* Constrain Colors, Effects, Favorites tabs to 280px and left-align */
+/* Constrain Colors and Favorites tabs to 280px and left-align */
 #Colors #qcs-w,
 #Colors #hexw,
 #Colors #rwrap,
@@ -407,17 +407,28 @@ button {
 #Colors #wbal,
 #Colors #sliders,
 #Colors .slider,
-#Effects #fxFind,
-#Effects #fx,
-#Effects #fxlist,
-#Effects #sliders,
-#Effects .slider,
 #Favourites #pql,
 #Favourites #palw,
 #Favourites #pcont,
 #Favourites #sliders,
 #Favourites .slider {
 	margin: 0;
+	max-width: 280px;
+}
+
+/* Center align Effects tab */
+#Effects #fxFind,
+#Effects #fx,
+#Effects #fxlist,
+#Effects #sliders,
+#Effects .slider {
+	margin: 0 auto;
+	max-width: 280px;
+}
+
+/* Center align Colors wrapper */
+#colors-wrapper {
+	margin: 0 auto;
 	max-width: 280px;
 }
 

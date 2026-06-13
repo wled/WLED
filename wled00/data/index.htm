@@ -41,10 +41,11 @@
 
 <div class ="container">
 	<div id="Colors" class="tabcontent">
-		<div id="colorsInfoPanel" style="background:#2a2a2a;border-radius:8px;padding:12px 16px;margin:16px 16px 10px 16px;border-left:4px solid #00a8ff;">
-			<p style="margin:0;color:#aaa;font-size:14px;">Apply colour changes, go back to effect and star it to save colour palette</p>
-		</div>
-		<div id="picker" class="noslide"></div>
+		<div id="colors-wrapper">
+			<div id="colorsInfoPanel" style="background:#2a2a2a;border-radius:8px;padding:12px 16px;margin:16px 16px 10px 16px;border-left:4px solid #00a8ff;">
+				<p style="margin:0;color:#aaa;font-size:14px;">Apply colour changes, go back to effect and star it to save colour palette</p>
+			</div>
+			<div id="picker" class="noslide"></div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">
@@ -129,6 +130,7 @@
 		<p id="pall" style="display:none"></p>
 		<div id="palw" style="display:none">
 			<div id="pallist"></div>
+		</div>
 		</div>
 	</div>
 
