@@ -11,7 +11,7 @@ cd "WLED-Main-2026-04-29"
 ## What to run and when
 
 ### Web UI change (edited anything in wled00/data/)
-Run all three, in order (LittleFS takes priority over embedded firmware — skipping uploadfs means the device silently serves the old version):
+Run all three, in order (LittleFS takes priority powerover embedded firmware — skipping uploadfs means the device silently serves the old version):
 
 ```
 npm run build
