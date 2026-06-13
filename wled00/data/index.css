@@ -407,11 +407,11 @@ button {
 #Colors #wbal,
 #Colors #sliders,
 #Colors .slider,
-#Favourites #pql,
-#Favourites #palw,
-#Favourites #pcont,
-#Favourites #sliders,
-#Favourites .slider {
+#Presets #pql,
+#Presets #palw,
+#Presets #pcont,
+#Presets #sliders,
+#Presets .slider {
 	margin: 0;
 	max-width: 280px;
 }
