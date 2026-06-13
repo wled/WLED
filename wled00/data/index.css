@@ -423,7 +423,7 @@ button {
 
 /* Ensure list items in these tabs are 280px width */
 #Effects #fxlist .lstI,
-#Colours #csl button {
+#Colors #csl button {
 	width: 100%;
 }
 

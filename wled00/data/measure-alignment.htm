@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Measure Actual Alignment</title>
+	<style>
+		body {
+			font-family: monospace;
+			background: #1a1a1a;
+			color: #0f0;
+			padding: 20px;
+			font-size: 13px;
+		}
+		.result {
+			background: #222;
+			padding: 10px;
+			margin: 10px 0;
+			border: 1px solid #0f0;
+		}
+		.bad { color: #f00; border-color: #f00; }
+		table {
+			width: 100%;
+			border-collapse: collapse;
+			margin: 10px 0;
+		}
+		td {
+			border: 1px solid #444;
+			padding: 8px;
+		}
+		td:first-child { text-align: left; }
+		td { text-align: right; }
+	</style>
+</head>
+<body>
+
+<h2>Alignment Measurements</h2>
+<div id="output"></div>
+
+<script>
+// Wait for UI to load
+setTimeout(() => {
+	const output = document.getElementById('output');
+
+	// Test Colors tab
+	const colors = document.getElementById('Colors');
+	const colorsInfo = document.getElementById('colorsInfoPanel');
+	const qcsw = document.getElementById('qcs-w');
+	const qcs = document.querySelector('#Colors .qcs');
+
+	// Test Effects tab
+	const effects = document.getElementById('Effects');
+	const fxInfo = document.getElementById('fxInfoPanel');
+	const fxlist = document.getElementById('fxlist');
+	const fxPill = document.querySelector('#Effects .fx-pill-row');
+
+	// Test Favourites tab
+	const favs = document.getElementById('Favourites');
+	const favsInfo = document.getElementById('presetsInfoPanel');
+	const pcont = document.getElementById('pcont');
+	const favPill = document.querySelector('#Favourites .fx-pill-row');
+
+	let html = '';
+
+	// Colors tab
+	if (colors) {
+		html += '<div class="result"><h3>COLORS TAB</h3><table>';
+		html += '<tr><td>Element</td><td>Left (px)</td><td>Width (px)</td></tr>';
+
+		if (qcsw) {
+			const r = qcsw.getBoundingClientRect();
+			html += `<tr><td>#qcs-w</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (qcs) {
+			const r = qcs.getBoundingClientRect();
+			html += `<tr><td>.qcs (first pill)</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (colorsInfo) {
+			const r = colorsInfo.getBoundingClientRect();
+			html += `<tr><td>#colorsInfoPanel</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		html += '</table>';
+
+		if (qcs && colorsInfo) {
+			const qcsLeft = qcs.getBoundingClientRect().left;
+			const infLeft = colorsInfo.getBoundingClientRect().left;
+			const diff = (qcsLeft - infLeft).toFixed(1);
+			const status = Math.abs(qcsLeft - infLeft) < 5 ? '✓ ALIGNED' : '✗ MISALIGNED';
+			html += `<div>${status} - Difference: ${diff}px (pill is ${diff > 0 ? 'RIGHT' : 'LEFT'} of info panel)</div>`;
+		}
+		html += '</div>';
+	}
+
+	// Effects tab
+	if (effects) {
+		html += '<div class="result"><h3>EFFECTS TAB</h3><table>';
+		html += '<tr><td>Element</td><td>Left (px)</td><td>Width (px)</td></tr>';
+
+		if (fxlist) {
+			const r = fxlist.getBoundingClientRect();
+			html += `<tr><td>#fxlist</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (fxPill) {
+			const r = fxPill.getBoundingClientRect();
+			html += `<tr><td>.fx-pill-row (first)</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (fxInfo) {
+			const r = fxInfo.getBoundingClientRect();
+			html += `<tr><td>#fxInfoPanel</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		html += '</table>';
+
+		if (fxPill && fxInfo) {
+			const pillLeft = fxPill.getBoundingClientRect().left;
+			const infLeft = fxInfo.getBoundingClientRect().left;
+			const diff = (pillLeft - infLeft).toFixed(1);
+			const status = Math.abs(pillLeft - infLeft) < 5 ? '✓ ALIGNED' : '✗ MISALIGNED';
+			html += `<div>${status} - Difference: ${diff}px (pill is ${diff > 0 ? 'RIGHT' : 'LEFT'} of info panel)</div>`;
+		}
+		html += '</div>';
+	}
+
+	// Favourites tab
+	if (favs) {
+		html += '<div class="result"><h3>FAVOURITES TAB</h3><table>';
+		html += '<tr><td>Element</td><td>Left (px)</td><td>Width (px)</td></tr>';
+
+		if (pcont) {
+			const r = pcont.getBoundingClientRect();
+			html += `<tr><td>#pcont</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (favPill) {
+			const r = favPill.getBoundingClientRect();
+			html += `<tr><td>.fx-pill-row (first)</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		if (favsInfo) {
+			const r = favsInfo.getBoundingClientRect();
+			html += `<tr><td>#presetsInfoPanel</td><td>${r.left.toFixed(1)}</td><td>${r.width.toFixed(1)}</td></tr>`;
+		}
+		html += '</table>';
+
+		if (favPill && favsInfo) {
+			const pillLeft = favPill.getBoundingClientRect().left;
+			const infLeft = favsInfo.getBoundingClientRect().left;
+			const diff = (pillLeft - infLeft).toFixed(1);
+			const status = Math.abs(pillLeft - infLeft) < 5 ? '✓ ALIGNED' : '✗ MISALIGNED';
+			html += `<div>${status} - Difference: ${diff}px (pill is ${diff > 0 ? 'RIGHT' : 'LEFT'} of info panel)</div>`;
+		}
+		html += '</div>';
+	}
+
+	output.innerHTML = html;
+}, 1000);
+</script>
+
+</body>
+</html>
