@@ -864,8 +864,11 @@ input[type=range]::-moz-range-thumb {
 #briwrap {
 	min-width: 161px;
 	float: right;
-	margin-top: -6px;
 	padding-right: 8px;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+	height: 38px;
 }
 
 #briwrap .sliderwrap {
@@ -1834,7 +1837,7 @@ dialog {
 .bot button:nth-child(3) { display: none !important; }
 #fxFind { display: none !important; }
 #buttonNodes, #buttonPcm { display: none !important; }
-#briwrap { display: flex !important; align-items: center; gap: 4px; min-width: 140px; }
+#briwrap { min-width: 140px; }
 #briwrap .sliderwrap { width: 113px !important; max-width: 113px !important; }
 .bri-dim-icon { font-size: 20px; line-height: 1; flex-shrink: 0; }
 /* AI: end */
