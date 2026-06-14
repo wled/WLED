@@ -305,12 +305,17 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
       _t->_dur   = dur;
       _t->_prevPaletteBlends = 0; // reset palette blends
       if (_t->_oldSegment) {
-        _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
+        _t->_oldSegment->palette = _t->_palette; // restore original palette, colors, brightness and CCT (from start of transition)
+        for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        _t->_oldSegment->opacity = _t->_bri;
+        _t->_oldSegment->cct     = _t->_cct;
         // if already partway through a FADE transition, set old segment's colors to current blend to avoid jumping back to original colors
-        if (_t->_progress > 0)
+        if (_t->_progress > 0) {
+          // already in a transition, see comment below
           for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
-        else
-          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+          _t->_oldSegment->opacity = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+          _t->_oldSegment->cct     = currentCCT(); // update "original" CCT (reduces jump)
+        }
         DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
         if (!_t->_oldSegment->isActive()) stopTransition();
       }
