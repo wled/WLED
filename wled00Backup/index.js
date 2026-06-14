@@ -1060,16 +1060,11 @@ function populatePalettes()
 		if (shouldHide) {
 			row.classList.add('hide');
 		} else {
-			// Add Update? button as sibling after lstI (before lstIprev)
+			// Add Update? button as sibling to lstI
 			const updateBtn = d.createElement('div');
 			updateBtn.className = 'palette-update-btn hide';
 			updateBtn.innerHTML = 'Update preset?';
-			const prevEl = row.querySelector('.lstIprev');
-			if (prevEl) {
-				row.insertBefore(updateBtn, prevEl);
-			} else {
-				row.appendChild(updateBtn);
-			}
+			row.appendChild(updateBtn);
 
 			// Show Update? button when palette is clicked
 			pal.addEventListener('click', (e) => {
@@ -3973,4 +3968,4 @@ window.addEventListener('hashchange', handleLocationHash);
 
 //_C.addEventListener('mouseout', move, false);
 //_C.addEventListener('mouseup', move, false);
-//_C.addEventListener('touchend', move, false);  
+//_C.addEventListener('touchend', move, false); 

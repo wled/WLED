@@ -727,3 +727,41 @@ Favourites (index.htm after pql div):
 - The `margin: 0;` override removes all horizontal centering for child elements in these tabs. Any future elements added to these tabs will automatically be left-aligned.
 
 **Deploy:** 1 → 2 → 3
+
+---
+
+## Palette "Update preset?" button in Colors tab
+
+**Files:** `wled00/data/index.js`, `wled00/data/index.css`
+
+**Approach:** Each visible palette in the Colors tab gets a sibling "Update preset?" button that appears when clicked. Clicking the button updates the currently-loaded preset's palette without creating a new preset, preserving the current effect and color settings.
+
+**JavaScript changes (`index.js`):**
+- In `populatePalettes()`, after rendering all palette items, iterate `.fx-pill-row` elements (palette wrappers).
+- For each non-hidden palette, create a button div with class `palette-update-btn` and text "Update preset?".
+- Insert the button as a sibling between `.lstI` and `.lstIprev` using `row.insertBefore(updateBtn, row.querySelector('.lstIprev'))`.
+- Attach event handlers: clicking the palette item shows the button; clicking the button calls `updateCurrentPresetPalette(paletteId)`.
+- `updateCurrentPresetPalette()` function checks if a preset is loaded (`currentPreset > 0`), updates the palette in `pJson[currentPreset].seg[0].pal`, uploads via `_uploadPresetsJson()`, and shows a toast.
+- Set `currentPreset = i` in `setPreset()` so the UI immediately reflects that a preset is loaded (no waiting for device state update).
+- Hide palette 0 ("Default") from the palette list because it's a firmware-level shared resource where color values don't persist across presets.
+- Show "* Color 1" special palette for single solid color effects.
+
+**CSS changes (`index.css`):**
+- `#pallist .fx-pill-row`: `display: flex; align-items: center; gap: 8px; width: 100%`.
+- `#pallist .fx-pill-row .lstI`: `flex: 1; min-width: 0` to fill available space and allow text truncation.
+- `#pallist .fx-pill-row .lstIprev`: `flex-shrink: 0` to prevent preview shrinking.
+- `.palette-update-btn`: `color: #48a`, `font-size: 13px`, `padding: 4px 8px`, `flex-shrink: 0`. Flexbox sibling layout, no absolute positioning. Visibility toggled via `.hide` class.
+
+**Layout result:**
+- Palette name on left (flex: 1)
+- Palette preview fixed-width (flex-shrink: 0)
+- "Update preset?" button on right (flex-shrink: 0)
+- 8px gaps between all elements
+
+**Gotchas:**
+- Palette 0 ("Default") is hidden because it's firmware-level shared state — color changes don't persist.
+- "* Color 1" is shown (unlike other special palettes) for single color effects.
+- `currentPreset` must be set immediately in `setPreset()`, not waited for device state update, otherwise "No preset loaded" error appears even when preset is active.
+- Button must be a sibling (not child) of `.lstI` to avoid text overlap — flexbox layout prevents overlapping.
+
+**Deploy:** 1 → 3

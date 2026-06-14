@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<meta charset="utf-8">
+	<title>DMX Settings</title>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<script>
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+	function HW(){window.open("https://kno.wled.ge/interfaces/dmx-output/");}
+	function GCH(num) {
+		gId('dmxchannels').innerHTML += "";
+		for (i=0;i<num;i++) {
+			gId('dmxchannels').innerHTML += "<span id=CH" + (i+1) + "s >Channel " + (i+1) + ": <select name=CH" + (i+1) + " id=\"CH" + (i+1) + "\"><option value=0>Set to 0</option><option value=1>Red</option><option value=2>Green</option><option value=3>Blue</option><option value=4>White</option><option value=5>Shutter (Brightness)</option><option value=6>Set to 255</option></select></span><br />\n";
+		}
+	}
+	function mMap(){
+		numCh=document.Sf.CN.value;
+		numGap=document.Sf.CG.value;
+		if (parseInt(numCh)>parseInt(numGap)) {
+			gId("gapwarning").style.display="block";
+		} else {
+			gId("gapwarning").style.display="none";
+		}
+		for (i=0;i<15;i++) {
+			if (i>=numCh) {
+				gId("CH"+(i+1) + "s").style.opacity = "0.5";
+				gId("CH"+(i+1)).disabled = true;
+				
+			} else {
+				gId("CH"+(i+1) + "s").style.opacity = "1";
+				gId("CH"+(i+1)).disabled = false;
+			}
+		}
+	}
+	function S(){
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=7'), false, ()=>{GCH(15);}, ()=>{mMap();}); // If we set async false, file is loaded and executed, then next statement is processed
+		if (loc) d.Sf.action = getURL('/settings/dmx');
+	}
+	</script>
+</head>
+<body>
+<form id="form_s" name="Sf" method="post">
+<div class="toprow">
+<div class="helpB"><button type="button" onclick="HW()">?</button></div>
+<button type="button" onclick="B()">Back</button><button type="submit">Save</button><hr>
+</div>
+<h2>Imma firin ma lazer (if it has DMX support)</h2><!-- TODO: Change to something less-meme-related //-->
+
+Proxy Universe <input name=PU type=number min=0 max=63999 required> from E1.31 to DMX (0=disabled)<br>
+<i>This will disable the LED data output to DMX configurable below</i><br><br>
+<i>Number of fixtures is taken from LED config page</i><br>
+
+Channels per fixture (15 max): <input type="number" min="1" max="15" name="CN" maxlength="2" onchange="mMap();"><br />
+Start channel: <input type="number" min="1" max="512" name="CS" maxlength="2"><br />
+Spacing between start channels: <input type="number" min="1" max="512" name="CG" maxlength="2" onchange="mMap();"> [ <a href="javascript:alert('if set to 10, first fixture will start at 10,\nsecond will start at 20 etc.\nRegardless of the channel count.\nMakes memorizing channel numbers easier.');">info</a> ]<br>
+<div id="gapwarning" style="color: orange; display: none;">WARNING: Channel gap is lower than channels per fixture.<br />This will cause overlap.</div>
+<button type="button" onclick="location.href='/dmxmap';">DMX Map</button><br>
+DMX fixtures start LED: <input type="number" min="0" max="1500" name="SL">
+<h3>Channel functions</h3>
+<div id="dmxchannels"></div>
+<hr><button type="button" onclick="B()">Back</button><button type="submit">Save</button>
+</form>
+</body>
+</html>

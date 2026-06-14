@@ -1495,7 +1495,7 @@ dialog {
 	display: none;
 }
 
-/* palette row - flexbox layout for pill and button */
+/* palette row container */
 #pallist .fx-pill-row {
 	display: flex;
 	align-items: center;
@@ -1508,21 +1508,18 @@ dialog {
 	min-width: 0;
 }
 
-#pallist .fx-pill-row .lstIprev {
-	flex-shrink: 0;
-}
-
-/* palette update button - sibling to lstI */
+/* palette update button */
 .palette-update-btn {
 	color: #48a;
 	font-size: 13px;
 	font-weight: 500;
 	white-space: nowrap;
 	transition: color 0.2s;
-	padding: 4px 8px;
+	padding: 8px 4px;
 	cursor: pointer;
 	user-select: none;
 	flex-shrink: 0;
+	pointer-events: auto;
 }
 
 .palette-update-btn:hover {
@@ -1531,6 +1528,13 @@ dialog {
 
 .palette-update-btn.hide {
 	display: none;
+}
+
+#pallist .lstI {
+	position: relative;
+	display: flex;
+	align-items: center;
+	overflow: visible;
 }
 
 /* find/search element */

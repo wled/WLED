@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>Simple Timer</title>
+	<script>
+	(function loadFiles() {
+		var l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = function() { loadResources(['style.css'], stInit); };
+		l.onerror = function() { setTimeout(loadFiles, 100); };
+		document.head.appendChild(l);
+	})();
+	</script>
+	<style>
+	@import url("style.css");
+	html { --h: 9vh; }
+	body { margin: 0; padding-bottom: 24px; }
+	/* Back button — pill style matching settings.htm */
+	.st-back {
+		display: block;
+		border-radius: var(--h);
+		font-size: 6vmin;
+		height: var(--h);
+		width: calc(100% - 40px);
+		margin: 2vh auto 0;
+		padding: 0;
+		cursor: pointer;
+	}
+	h1 {
+		color: white;
+		font-size: 20px;
+		margin: 20px 20px 8px;
+	}
+	/* Enabled toggle row */
+	.st-enable-row {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 12px;
+		margin: 10px 20px 16px;
+		color: white;
+		font-size: 16px;
+		cursor: pointer;
+	}
+	.st-enable-row input[type="checkbox"] {
+		width: 22px;
+		height: 22px;
+		cursor: pointer;
+		accent-color: #4a4;
+	}
+	/* Form body — greyed when disabled */
+	#stFormBody {
+		transition: opacity 0.2s;
+	}
+	#stFormBody.st-disabled {
+		opacity: 0.4;
+		pointer-events: none;
+	}
+	/* Card sections */
+	.st-section {
+		background: #1e1e1e;
+		border-radius: 12px;
+		padding: 16px;
+		margin: 0 20px 14px;
+	}
+	.st-section-title {
+		color: white;
+		font-size: 16px;
+		font-weight: 600;
+		margin: 0 0 10px;
+	}
+	.st-label {
+		color: #aaa;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.7px;
+		margin: 0 0 6px;
+	}
+	.st-label-gap { margin-top: 12px; }
+	.st-time {
+		width: 100%;
+		background: #2c2c2c;
+		color: white;
+		border: 1px solid #555;
+		border-radius: 8px;
+		padding: 12px;
+		font-size: 20px;
+		box-sizing: border-box;
+	}
+	.st-select {
+		width: 100%;
+		background: #2c2c2c;
+		color: white;
+		border: 1px solid #555;
+		border-radius: 8px;
+		padding: 12px;
+		font-size: 16px;
+		box-sizing: border-box;
+	}
+	.st-warn {
+		color: #f90;
+		font-size: 14px;
+		padding: 10px 12px;
+		background: rgba(255,153,0,0.1);
+		border-radius: 8px;
+	}
+	.st-divider { border: none; border-top: 1px solid #333; margin: 0 0 10px; }
+	/* On/Off sections container */
+	.st-on-off-container {
+		display: flex;
+		flex-direction: column;
+		gap: 14px;
+	}
+	.st-on-off-container .st-section {
+		margin: 0 20px;
+	}
+	.st-effect-section {
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+	}
+	.st-effect-section > .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+	/* Row section title — not bold, normal case */
+	.st-row-title {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+	}
+	/* Lights ON section — single row layout */
+	.st-on-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px;
+	}
+	.st-on-section .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: #aaa;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.7px;
+	}
+	.st-on-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
+	/* Lights OFF section — single row layout */
+	.st-off-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px;
+	}
+	.st-off-section .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: #aaa;
+		font-size: 12px;
+		text-transform: uppercase;
+		letter-spacing: 0.7px;
+	}
+	.st-off-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
+	/* Set current time section — single row layout */
+	.st-time-section {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding: 16px;
+		background: #1e1e1e;
+		border-radius: 12px;
+		margin: 0 20px 14px;
+	}
+	.st-time-section > .st-label {
+		margin: 0;
+		flex-shrink: 0;
+		color: white;
+		font-size: 16px;
+		font-weight: 400;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+	.st-time-section .st-time {
+		flex: 0 1 150px;
+		margin: 0 0 0 auto;
+	}
+	/* Save button — pill style */
+	.st-save {
+		display: block;
+		border-radius: var(--h);
+		font-size: 6vmin;
+		height: var(--h);
+		width: calc(100% - 40px);
+		margin: 2vh auto 0;
+		padding: 0;
+		cursor: pointer;
+		background: #3a8a3a;
+		color: white;
+		border: none;
+		font-weight: 600;
+		letter-spacing: 1px;
+	}
+	.st-save:disabled {
+		background: #444;
+		color: #888;
+		cursor: default;
+	}
+	</style>
+</head>
+<body>
+
+<button class="st-back" onclick="window.location=getURL('/')">Back</button>
+
+<label class="st-enable-row">
+	<input type="checkbox" id="stEnabled" onchange="stToggleTimer()">
+	Timer enabled
+</label>
+
+<div id="stFormBody" class="st-disabled">
+
+	<div class="st-time-section">
+		<p class="st-label">Current time</p>
+		<input type="time" id="stCurrentTime" class="st-time">
+	</div>
+
+	<div class="st-on-off-container">
+		<div class="st-on-section">
+			<p class="st-row-title">Lights ON</p>
+			<p class="st-label">At</p>
+			<input type="time" id="stOnTime" class="st-time">
+		</div>
+
+		<div class="st-off-section">
+			<p class="st-row-title">Lights OFF</p>
+			<p class="st-label">At</p>
+			<input type="time" id="stOffTime" class="st-time">
+		</div>
+
+		<div class="st-section st-effect-section">
+			<p class="st-label">Display effect</p>
+			<select id="stEffectSelect" class="st-select"></select>
+			<div id="stNoPresetsWarn" class="st-warn" style="display:none">
+				&#9888; Add favourite effects first before using the timer.
+			</div>
+		</div>
+	</div>
+
+</div>
+
+<button class="st-save" id="stSaveBtn" onclick="stSave()">SAVE</button>
+
+<script>
+// AI: below section was generated by an AI
+var _ST_KEY = 'wled_simple_timer';
+var _ST_FX_KEY = 'wled_user_fx_presets';
+var _ST_LIGHTS_OFF_ID = 100; // reserved preset ID; matches _LIGHTS_OFF_PRESET_ID in index.js
+
+function stInit() {
+	getLoc();
+
+	// Pre-populate "current time" from browser clock
+	var now = new Date();
+	document.getElementById('stCurrentTime').value =
+		String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+
+	// Populate effect dropdown from localStorage fx presets
+	var fxPresets = [];
+	try { fxPresets = JSON.parse(localStorage.getItem(_ST_FX_KEY) || '[]'); } catch (e) {}
+
+	var sel = document.getElementById('stEffectSelect');
+	var warn = document.getElementById('stNoPresetsWarn');
+	var saveBtn = document.getElementById('stSaveBtn');
+
+	if (fxPresets.length === 0) {
+		sel.style.display = 'none';
+		warn.style.display = 'block';
+		saveBtn.disabled = true;
+	} else {
+		fxPresets.forEach(function(p) {
+			var opt = document.createElement('option');
+			opt.value = String(p.presetId);
+			opt.textContent = p.effectName || ('Preset ' + p.presetId);
+			sel.appendChild(opt);
+		});
+	}
+
+	// Restore previously saved settings
+	var saved = {};
+	try { saved = JSON.parse(localStorage.getItem(_ST_KEY) || '{}'); } catch (e) {}
+	if (saved.onTime) document.getElementById('stOnTime').value = saved.onTime;
+	if (saved.offTime) document.getElementById('stOffTime').value = saved.offTime;
+	if (saved.presetId && fxPresets.length > 0) sel.value = String(saved.presetId);
+	document.getElementById('stEnabled').checked = !!saved.enabled;
+	stUpdateFormState();
+}
+
+function stToggleTimer() {
+	var enabled = document.getElementById('stEnabled').checked;
+	stUpdateFormState();
+	if (!enabled) {
+		stSave();
+	}
+}
+
+function stUpdateFormState() {
+	var enabled = document.getElementById('stEnabled').checked;
+	var body = document.getElementById('stFormBody');
+	if (enabled) {
+		body.classList.remove('st-disabled');
+	} else {
+		body.classList.add('st-disabled');
+	}
+}
+
+async function stSave() {
+	var saveBtn = document.getElementById('stSaveBtn');
+	saveBtn.disabled = true;
+	saveBtn.textContent = 'Saving…';
+
+	try {
+		var currentTimeVal = document.getElementById('stCurrentTime').value;
+		var onTimeVal = document.getElementById('stOnTime').value;
+		var offTimeVal = document.getElementById('stOffTime').value;
+		var sel = document.getElementById('stEffectSelect');
+		var presetId = sel.style.display !== 'none' ? parseInt(sel.value, 10) : 0;
+		var enabled = document.getElementById('stEnabled').checked;
+
+		if (!currentTimeVal || !onTimeVal || !offTimeVal) {
+			alert('Please fill in all time fields.');
+			saveBtn.disabled = false;
+			saveBtn.textContent = 'SAVE';
+			return;
+		}
+
+		// Calculate UTC offset: entered local seconds - current browser UTC seconds
+		var cp = currentTimeVal.split(':');
+		var enteredSec = parseInt(cp[0], 10) * 3600 + parseInt(cp[1], 10) * 60;
+		var utcNow = new Date();
+		// Truncate to whole minutes — the user enters HH:MM so sub-minute seconds must not bias the offset
+		var utcSec = utcNow.getUTCHours() * 3600 + utcNow.getUTCMinutes() * 60;
+		var UO = enteredSec - utcSec;
+		// Clamp to ±12 h to handle midnight boundary
+		if (UO > 43200) UO -= 86400;
+		if (UO < -43200) UO += 86400;
+
+		// Parse ON/OFF hours and minutes
+		var op = onTimeVal.split(':');
+		var onH = parseInt(op[0], 10);
+		var onN = parseInt(op[1], 10);
+		var fp = offTimeVal.split(':');
+		var offH = parseInt(fp[0], 10);
+		var offN = parseInt(fp[1], 10);
+
+		// Ensure the lights-off preset (ID 100) exists
+		await stEnsureLightsOffPreset();
+
+		// W bitmask: bit 0 = enabled flag, bits 1-7 = Mon-Sun
+		// 255 = all days enabled, 0 = disabled
+		var w = enabled ? 255 : 0;
+
+		var params = new URLSearchParams();
+		params.append('NT', '1');
+		params.append('NS', 'pool.ntp.org');
+		params.append('CF', '1');
+		params.append('TZ', '0');
+		params.append('UO', String(UO));
+		params.append('UT', String(Math.floor(utcNow.getTime() / 1000)));
+		params.append('OL', '0');
+		params.append('CE', '0');
+		params.append('CY', '24'); params.append('CI', '1'); params.append('CD', '1');
+		params.append('CH', '0'); params.append('CM', '0'); params.append('CS', '0');
+		params.append('MC', '0');
+		params.append('MN', '0');
+		params.append('A0', '0'); params.append('A1', '0');
+		params.append('LT', '0'); params.append('LN', '0');
+		params.append('LTR', 'N'); params.append('LNR', 'E');
+
+		// Slot 0: Lights ON (user's chosen preset)
+		params.append('H0', String(onH));
+		params.append('N0', String(onN));
+		params.append('T0', String(presetId));
+		params.append('W0', String(w));
+		params.append('M0', '1'); params.append('D0', '1');
+		params.append('P0', '12'); params.append('E0', '31');
+
+		// Slot 1: Lights OFF (reserved preset 100)
+		params.append('H1', String(offH));
+		params.append('N1', String(offN));
+		params.append('T1', String(_ST_LIGHTS_OFF_ID));
+		params.append('W1', String(w));
+		params.append('M1', '1'); params.append('D1', '1');
+		params.append('P1', '12'); params.append('E1', '31');
+
+		// Slots 2-15: cleared so any previously-saved timers are removed
+		for (var i = 2; i < 16; i++) {
+			params.append('H' + i, '0');
+			params.append('N' + i, '0');
+			params.append('T' + i, '0');
+			params.append('W' + i, '0');
+			params.append('M' + i, '1'); params.append('D' + i, '1');
+			params.append('P' + i, '12'); params.append('E' + i, '31');
+		}
+
+		var resp = await fetch(getURL('/settings/time'), {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+			body: params.toString()
+		});
+		if (!resp.ok) throw new Error('Settings save failed (' + resp.status + ')');
+
+		// Persist to localStorage for restore on next visit
+		localStorage.setItem(_ST_KEY, JSON.stringify({
+			onTime: onTimeVal,
+			offTime: offTimeVal,
+			presetId: presetId,
+			enabled: enabled
+		}));
+
+		saveBtn.textContent = '✓ Saved!';
+		saveBtn.style.background = '#2a7';
+		saveBtn.disabled = false;
+		setTimeout(function() {
+			saveBtn.textContent = 'SAVE';
+			saveBtn.style.background = '';
+		}, 2000);
+
+	} catch (e) {
+		saveBtn.disabled = false;
+		saveBtn.textContent = 'SAVE';
+		alert('Error: ' + e.message);
+	}
+}
+
+async function stEnsureLightsOffPreset() {
+	var resp = await fetch(getURL('/presets.json'));
+	if (!resp.ok) throw new Error('Could not fetch presets.json (' + resp.status + ')');
+	var presets = await resp.json();
+	if (presets[String(_ST_LIGHTS_OFF_ID)]) return; // already exists — nothing to do
+	presets[String(_ST_LIGHTS_OFF_ID)] = { n: 'z_lights_off', on: false };
+	var formData = new FormData();
+	var blob = new Blob([JSON.stringify(presets)], { type: 'application/json' });
+	formData.append('data', blob, '/presets.json');
+	var upResp = await fetch(getURL('/upload'), { method: 'POST', body: formData });
+	if (!upResp.ok) throw new Error('Preset upload failed (' + upResp.status + ')');
+}
+// AI: end
+</script>
+</body>
+</html>
