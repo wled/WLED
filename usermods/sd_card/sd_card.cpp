@@ -33,10 +33,26 @@ class UsermodSdCard : public Usermod {
     bool sdInitDone = false;
 
     #ifdef WLED_USE_SD_SPI
-      int8_t configPinSourceSelect = 16;
-      int8_t configPinSourceClock = 14;
-      int8_t configPinPoci = 36; // confusing names? Then have a look :)
-      int8_t configPinPico = 15; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
+          #if defined(UM_SD_SELECT)
+		        int8_t configPinSourceSelect = UM_SD_SELECT;
+	        #else
+		        int8_t configPinSourceSelect = 16;
+	        #endif
+          #if defined(UM_SD_CLOCK)
+		        int8_t configPinSourceClock = UM_SD_CLOCK;
+	        #else
+		        int8_t configPinSourceClock = 14;
+	        #endif
+          #if defined(UM_SD_POCI)
+		        int8_t configPinPoci = UM_SD_POCI;
+	        #else
+		        int8_t configPinPoci = 36;
+	        #endif
+          #if defined(UM_SD_PICO)
+		        int8_t configPinPico = UM_SD_PICO;
+	        #else
+		        int8_t configPinPico = 15;
+	        #endif
 
       //acquired and initialize the SPI port
       void init_SD_SPI()
