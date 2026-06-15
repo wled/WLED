@@ -41,7 +41,7 @@ class UsermodSdCard : public Usermod {
     uint8_t configPinSourceSelect = 16;
   #endif
   #if defined(UM_SD_CLOCK)
-	uint8_t configPinSourceClock = UM_SD_CLOCK;
+  uint8_t configPinSourceClock = UM_SD_CLOCK;
   #else
     uint8_t configPinSourceClock = 14;
   #endif
