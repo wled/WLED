@@ -1272,11 +1272,17 @@ void WS2812FX::finalizeInit() {
   deserializeMap();     // (re)load default ledmap (will also setUpMatrix() if ledmap does not exist)
 
   // allocate frame buffer after matrix has been set up (gaps!)
+  updatePixelBuffer();
+  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
+}
+
+// update global _pixels[] buffer to match getLengthTotal() note: if allocation fails, WLED will not render anything
+void WS2812FX::updatePixelBuffer() {
+  uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
-  _pixels = static_cast<uint32_t*>(allocate_buffer(getLengthTotal() * sizeof(uint32_t), BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
-  DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), getLengthTotal() * sizeof(uint32_t));
-  DEBUG_PRINTF_P(PSTR("Heap after strip init: %uB\n"), getFreeHeapSize());
+  _pixels = static_cast<uint32_t*>(allocate_buffer(requiredMem, BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
+  DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), requiredMem);
 }
 
 void WS2812FX::service() {
@@ -2023,10 +2029,13 @@ bool WS2812FX::deserializeMap(unsigned n) {
   customMappingSize = 0; // prevent use of mapping if anything goes wrong
   currentLedmap = 0;
   if (n == 0 || isFile) interfaceUpdateCallMode = CALL_MODE_WS_SEND; // schedule WS update (to inform UI)
+  uint32_t lengthTotalBefore = strip.getLengthTotal();
 
   if (!isFile && n==0 && isMatrix) {
     // 2D panel support creates its own ledmap (on the fly) if a ledmap.json does not exist
     setUpMatrix();
+    if (strip.getLengthTotal() != lengthTotalBefore)
+      strip.updatePixelBuffer(); // allocate _pixels[] to match new length
     return false;
   }
 
@@ -2101,6 +2110,8 @@ bool WS2812FX::deserializeMap(unsigned n) {
   }
 
   releaseJSONBufferLock();
+  if (strip.getLengthTotal() != lengthTotalBefore)
+    strip.updatePixelBuffer(); // allocate _pixels[] to match new length
   return (customMappingSize > 0);
 }
 
