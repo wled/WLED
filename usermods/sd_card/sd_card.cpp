@@ -32,6 +32,8 @@ class UsermodSdCard : public Usermod {
   private:
     bool sdInitDone = false;
 
+// confusing names? Then have a look 
+// https://oshwa.org/resources/a-resolution-to-redefine-spi-signal-names/
 #ifdef WLED_USE_SD_SPI
   #if defined(UM_SD_SELECT)
     int8_t configPinSourceSelect = UM_SD_SELECT;
