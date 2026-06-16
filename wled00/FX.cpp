@@ -4759,7 +4759,7 @@ void mode_tv_simulator(void) {
         tvSimulator->actualColorB = temp[n    ];
       }
     }
-    // Apply gamma correction, further expand to 16/16/16
+    // expand to 16 bit
     nr = (uint8_t)(tvSimulator->actualColorR) * 257; // New R/G/B
     ng = (uint8_t)(tvSimulator->actualColorG) * 257;
     nb = (uint8_t)(tvSimulator->actualColorB) * 257;
