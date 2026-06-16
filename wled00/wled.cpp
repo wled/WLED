@@ -40,7 +40,7 @@ void WLED::reset()
 
 void WLED::loop()
 {
-  static uint16_t      heapTime = millis();   // timestamp for heap check
+  static uint16_t      heapTime = 0;   // timestamp for heap check
   static uint8_t       heapDanger = 0; // counter for consecutive low-heap readings
 #ifdef WLED_DEBUG
   static unsigned long lastRun = 0;
