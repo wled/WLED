@@ -40,7 +40,7 @@ void WLED::reset()
 
 void WLED::loop()
 {
-  static uint16_t      heapTime = 0;   // timestamp for heap check
+  static uint16_t      heapTime = millis();   // timestamp for heap check
   static uint8_t       heapDanger = 0; // counter for consecutive low-heap readings
 #ifdef WLED_DEBUG
   static unsigned long lastRun = 0;
@@ -177,42 +177,43 @@ void WLED::loop()
     #ifdef CONFIG_IDF_TARGET_ESP32C3
     // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
-    unsigned t0 = millis();
-    // Most strips run at 800kHz, each LED needs 24 bits = 30µs per LED
-    // Add 30% margin and convert to ms, minimum 15ms
-    uint32_t waitMs = max(15u, (unsigned)(strip.getLengthTotal() * 30 / 1000 * 1.3));
-    while (strip.isUpdating() && (millis() - t0 < waitMs)) delay(1);    // be nice, but not too nice
+    // If strip updating, defer heap check until future
+    if (strip.isUpdating()) {
+      heapTime = millis() - 4999;
+    } else
     #endif
-    uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
-    #endif
-    if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
-    else heapDanger = 0;
-    switch (heapDanger) {
-      case 15: // 15 consecutive seconds
-        DEBUG_PRINTLN(F("Heap low, purging segments"));
-        strip.purgeSegments();
-        strip.setTransition(0); // disable transitions
-        for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-          strip.getSegments()[i].setMode(FX_MODE_STATIC); // set static mode to free effect memory
-        }
-        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
-        break;
-      case 30: // 30 consecutive seconds
-        DEBUG_PRINTLN(F("Heap low, reset segments"));
-        strip.resetSegments(); // remove all but one segments from memory
-        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
-        break;
-      case 45: // 45 consecutive seconds
-        DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
-        strip.~WS2812FX();      // deallocate strip and all its memory
-        new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
-        if (!Update.isRunning()) forceReconnect = true; // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
-        errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: strip reset
-        break;
-      default:
-        break;
+    {
+      uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
+      #endif
+      if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
+      else heapDanger = 0;
+      switch (heapDanger) {
+        case 15: // 15 consecutive seconds
+          DEBUG_PRINTLN(F("Heap low, purging segments"));
+          strip.purgeSegments();
+          strip.setTransition(0); // disable transitions
+          for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+            strip.getSegments()[i].setMode(FX_MODE_STATIC); // set static mode to free effect memory
+          }
+          errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
+          break;
+        case 30: // 30 consecutive seconds
+          DEBUG_PRINTLN(F("Heap low, reset segments"));
+          strip.resetSegments(); // remove all but one segments from memory
+          errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: segment reset
+          break;
+        case 45: // 45 consecutive seconds
+          DEBUG_PRINTF_P(PSTR("Heap panic! Reset strip, reset connection\n"));
+          strip.~WS2812FX();      // deallocate strip and all its memory
+          new(&strip) WS2812FX(); // re-create strip object, respecting current memory limits
+          if (!Update.isRunning()) forceReconnect = true; // in case wifi is broken, make sure UI comes back, set disableForceReconnect = true to avert
+          errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: strip reset
+          break;
+        default:
+          break;
+      }
+      heapTime = (uint16_t)millis();
     }
-    heapTime = (uint16_t)millis();
   }
 
   //LED settings have been saved, re-init busses
