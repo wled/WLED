@@ -598,7 +598,7 @@ class Segment {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
       uint32_t bootTimeDelay = 5000;
       #ifdef WLED_BOOTUPDELAY
-      bootTimeDelay += WLED_BOOTUPDELAY
+      bootTimeDelay += WLED_BOOTUPDELAY;
       #endif
       if (millis() < bootTimeDelay)
         colors[0] = BLACK; // at bootup create black segments so boot-up fade-in does not fade to orange
