@@ -616,31 +616,30 @@ void WLED::beginStrip()
   // init offMode and relay
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
-
+  if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
+  bri = 0; // start off black by default (on a fresh install this is overruled by briS as turnOnAtBoot is true)
   if (turnOnAtBoot) {
-    if (briS > 0) bri = briS;
-    else if (bri == 0) bri = 128;
-  } else {
-    // fix for #3196
-    if (bootPreset > 0) {
-      // set all segments black (no transition)
-      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-        Segment &seg = strip.getSegment(i);
-        if (seg.isActive()) seg.colors[0] = BLACK;
-      }
-      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
-    }
-    briLast = briS; bri = 0;
-    strip.fill(BLACK);
-    if (rlyPin < 0)
-      strip.show(); // ensure LEDs are off if no relay is used
-  }
-  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
-  if (bootPreset > 0) {
-    applyPreset(bootPreset, CALL_MODE_INIT);
+    bri = briS ? briS : 128; // load startup brightness (set in UI), fall back to mid if set to 0 to make sure LEDs turn on
+    // set color to warm welcoming orange (aka DEFAULT_COLOR)
+    colPri[0] = 255;
+    colPri[1] = 160;
+    colPri[2] = colPri[3] = 0;
   }
 
-  strip.setTransition(transitionDelayDefault);  // restore transitions
+  if (bootPreset > 0) {
+    colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
+    applyPreset(bootPreset, CALL_MODE_INIT);
+    // set all segments black (no transition), their default creation color is orange (which is needed for creating new segments in the UI)
+    for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
+      Segment &seg = strip.getSegment(i);
+      if (seg.isActive()) seg.colors[0] = BLACK;
+    }
+  }
+  else
+    strip.setTransition(transitionDelayDefault);  // restore default transition time (was set to 0 above)
+
+  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition, if still zero, brightness is set immediately
+
 }
 
 void WLED::initAP(bool resetAP)
