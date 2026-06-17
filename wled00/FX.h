@@ -618,6 +618,7 @@ class Segment {
       DEBUGFX_PRINTLN();
       #endif
       clearName();
+      stopTransition();   // deallocate "_t" (transition) and with it "_segOld" note: _segOld has _t=null, see copy constructor
       #ifdef WLED_ENABLE_GIF
       endImagePlayback(this);
       #endif
