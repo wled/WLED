@@ -351,26 +351,25 @@ void BusDigital::setColorOrder(uint8_t colorOrder) {
 // credit @willmmiles & @netmindz https://github.com/wled/WLED/pull/4056
 std::vector<LEDType> BusDigital::getLEDTypes() {
   return {
-    {TYPE_WS2812_RGB,    "D",  PSTR("WS281x")},
+    {TYPE_WS2812_RGB,    "D",  PSTR("WS281x RGB")},
+    {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz RGB")},
+    {TYPE_TM1829,        "D",  PSTR("TM1829 RGB")},
+    {TYPE_UCS8903,       "D",  PSTR("UCS8903 RGB")},
+    {TYPE_APA106,        "D",  PSTR("APA106/PL9823 RGB")},
+    {TYPE_TM1914,        "D",  PSTR("TM1914 RGB")},
     {TYPE_SK6812_RGBW,   "D",  PSTR("SK6812/WS2814 RGBW")},
-    {TYPE_TM1814,        "D",  PSTR("TM1814")},
-    {TYPE_WS2811_400KHZ, "D",  PSTR("400kHz")},
-    {TYPE_TM1829,        "D",  PSTR("TM1829")},
-    {TYPE_UCS8903,       "D",  PSTR("UCS8903")},
-    {TYPE_APA106,        "D",  PSTR("APA106/PL9823")},
-    {TYPE_TM1914,        "D",  PSTR("TM1914")},
-    {TYPE_FW1906,        "D",  PSTR("FW1906 GRBCW")},
     {TYPE_UCS8904,       "D",  PSTR("UCS8904 RGBW")},
-    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCW")},
-    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCW")},
+    {TYPE_TM1814,        "D",  PSTR("TM1814 RGBW")},
+    {TYPE_FW1906,        "D",  PSTR("FW1906/WS2811 RGBCCT")},
+    {TYPE_WS2805,        "D",  PSTR("WS2805 RGBCCT")},
+    {TYPE_SM16825,       "D",  PSTR("SM16825 RGBCCT")},
     {TYPE_WS2812_1CH_X3, "D",  PSTR("WS2811 White")},
-    //{TYPE_WS2812_2CH_X3, "D",  PSTR("WS281x CCT")}, // not implemented
     {TYPE_WS2812_WWA,    "D",  PSTR("WS281x WWA")}, // amber ignored
-    {TYPE_WS2801,        "2P", PSTR("WS2801")},
-    {TYPE_APA102,        "2P", PSTR("APA102")},
-    {TYPE_LPD8806,       "2P", PSTR("LPD8806")},
-    {TYPE_LPD6803,       "2P", PSTR("LPD6803")},
-    {TYPE_P9813,         "2P", PSTR("PP9813")},
+    {TYPE_WS2801,        "2P", PSTR("WS2801 RGB")},
+    {TYPE_APA102,        "2P", PSTR("APA102 RGB")},
+    {TYPE_LPD8806,       "2P", PSTR("LPD8806 RGB")},
+    {TYPE_LPD6803,       "2P", PSTR("LPD6803 RGB")},
+    {TYPE_P9813,         "2P", PSTR("P9813 RGB")},
   };
 }
 
@@ -611,7 +610,7 @@ std::vector<LEDType> BusPwm::getLEDTypes() {
     {TYPE_ANALOG_2CH, "AA",     PSTR("PWM CCT")},
     {TYPE_ANALOG_3CH, "AAA",    PSTR("PWM RGB")},
     {TYPE_ANALOG_4CH, "AAAA",   PSTR("PWM RGBW")},
-    {TYPE_ANALOG_5CH, "AAAAA",  PSTR("PWM RGB+CCT")},
+    {TYPE_ANALOG_5CH, "AAAAA",  PSTR("PWM RGBCCT")},
     //{TYPE_ANALOG_6CH, "AAAAAA", PSTR("PWM RGB+DCCT")}, // unimplementable ATM
   };
 }
