@@ -1315,7 +1315,6 @@ class PolyBus {
       if (offset > 3) offset = 3;
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
           t = I_8266_U0_NEO_3 + offset; break;
@@ -1358,7 +1357,6 @@ class PolyBus {
       // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
           t = I_32_RN_NEO_3 + offset; break;
