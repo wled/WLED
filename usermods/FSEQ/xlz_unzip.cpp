@@ -148,26 +148,30 @@ bool XLZUnzip::unpackCurrentFile(UNZIP& zip, const String& outputPath, uint32_t 
   }
 
   bool ok = true;
+  bool done = false;
   uint32_t written = 0;
 
-  while (true) {
+  do {
     const int rc = zip.readCurrentFile(buffer, XLZ_BUFFER_SIZE);
     if (rc < 0) {
       DEBUG_PRINTF("[XLZ] readCurrentFile() failed: %d\n", rc);
       ok = false;
       break;
     }
-    if (rc == 0) break;
 
-    if (out.write(buffer, static_cast<size_t>(rc)) != static_cast<size_t>(rc)) {
-      DEBUG_PRINTLN(F("[XLZ] Failed while writing decompressed data"));
-      ok = false;
-      break;
+    if (rc == 0) {
+      done = true;
+    } else {
+      if (out.write(buffer, static_cast<size_t>(rc)) != static_cast<size_t>(rc)) {
+        DEBUG_PRINTLN(F("[XLZ] Failed while writing decompressed data"));
+        ok = false;
+        break;
+      }
+
+      written += static_cast<uint32_t>(rc);
+      yield();
     }
-
-    written += static_cast<uint32_t>(rc);
-    yield();
-  }
+  } while (!done);
 
   free(buffer);
   out.flush();
