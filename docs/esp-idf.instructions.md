@@ -413,7 +413,7 @@ WLED provides convenience wrappers with automatic fallback. **Always prefer thes
 
 ### PSRAM guidelines
 
-- **Check availability**: always test `psramFound()` before assuming PSRAM is present.
+- **Check availability**: test availability with `psramFound() && ESP.getPsramSize() > 0` before assuming PSRAM is present. Never rely on `BOARD_HAS_PSRAM`only.
 - **DMA compatibility**: on ESP32 (classic), PSRAM buffers are **not DMA-capable** — use `d_malloc_only()` to allocate DMA buffers in DRAM only. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), PSRAM buffers *can* be used with DMA when `CONFIG_SOC_PSRAM_DMA_CAPABLE` is defined.
 - **JSON documents**: use the `PSRAMDynamicJsonDocument` allocator (defined in `wled.h`) to put large JSON documents in PSRAM:
   ```cpp

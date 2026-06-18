@@ -879,6 +879,7 @@ class WS2812FX {
       printSize(),                                // prints memory usage for strip components
 #endif
       finalizeInit(),                             // initialises strip components
+      updatePixelBuffer(),                        // (re)allocate memory for _pixels[]
       service(),                                  // executes effect functions when due and calls strip.show()
       setCCT(uint16_t k),                         // sets global CCT (either in relative 0-255 value or in K)
       setBrightness(uint8_t b, bool direct = false),    // sets strip brightness
