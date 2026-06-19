@@ -774,7 +774,7 @@ void serializeInfo(JsonObject root)
 
 #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
   // calling ESP.getFreeHeap() during led update causes glitches on C3 and possibly on 8266, too
-  strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms. No need to suspend effects - ESP.getFreeHeap() will not need much time
+  strip.waitForLEDs(25); // be nice, but not too nice. Waits up to 15ms. No need to suspend effects - ESP.getFreeHeap() will not need much time
 #endif
 
   root[F("freeheap")] = ESP.getFreeHeap();
