@@ -1051,11 +1051,11 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// hide special palette entries that start with "*" (except "* Color 1") and hide "Default" (palette 0)
+	// hide special palette entries that start with "*" (except "* Solid colour") and hide "Default" (palette 0)
 	for (let row of gId('pallist').querySelectorAll('.fx-pill-row')) {
 		const pal = row.querySelector('.lstI');
 		const name = pal.querySelector('.lstIname')?.innerText || '';
-		const shouldHide = name === 'Default' || (name.startsWith('*') && name !== '* Color 1');
+		const shouldHide = name === 'Default' || (name.startsWith('*') && name !== '* Solid colour');
 
 		if (shouldHide) {
 			row.classList.add('hide');
@@ -1071,12 +1071,22 @@ function populatePalettes()
 				row.appendChild(updateBtn);
 			}
 
-			// Show Update? button when palette is clicked
+			// Show Update? button and color wheel when palette is clicked
 			pal.addEventListener('click', (e) => {
 				// Hide all other Update? buttons
 				gId('pallist').querySelectorAll('.palette-update-btn').forEach(btn => btn.classList.add('hide'));
 				// Show this palette's Update? button
 				updateBtn.classList.remove('hide');
+
+				// Show color wheel only for "Solid colour" palette
+				const picker = gId('picker');
+				if (picker) {
+					if (name === '* Solid colour') {
+						picker.style.display = 'block';
+					} else {
+						picker.style.display = 'none';
+					}
+				}
 				e.stopPropagation();
 			});
 
@@ -1549,7 +1559,8 @@ function readState(s,command=false)
 	nlTar = s.nl.tbri;
 	nlFade = s.nl.fade;
 	syncSend = s.udpn.send;
-	currentPreset = s.ps;
+	// Only reset currentPreset if device indicates a preset is loaded, don't reset to 0 if we had one selected
+	if (s.ps > 0) currentPreset = s.ps;
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
@@ -2578,7 +2589,21 @@ function _schedulePresetAutoSave()
 
 function updateCurrentPresetPalette(paletteId) {
 	// Update the currently loaded preset with a new palette
-	if (currentPreset <= 0 || !pJson[currentPreset]) {
+	// Check both currentPreset and the selected radio button to handle state resets
+	let pid = currentPreset;
+	if (pid <= 0) {
+		// Fallback 1: check which preset is actually selected in the UI (Favorites tab)
+		const selectedRadio = d.querySelector('#pql input[type="radio"]:checked') ||
+			d.querySelector('#pcont input[type="radio"]:checked');
+		if (selectedRadio) {
+			pid = parseInt(selectedRadio.value);
+		}
+	}
+	if (pid <= 0) {
+		// Fallback 2: check if device has a current preset loaded
+		pid = d.querySelector('input[name="preset"]:checked')?.value ? parseInt(d.querySelector('input[name="preset"]:checked').value) : 0;
+	}
+	if (pid <= 0 || !pJson[pid]) {
 		showToast("No preset loaded. Select a preset first.", true);
 		return;
 	}
