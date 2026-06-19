@@ -358,6 +358,7 @@ class PolyBus {
     #ifdef ESP8266
     dotStar_strip->Begin();
     #else
+    if (miso == -1) miso = 127; // note: in arduino core, -1 means "default" not "none", passing 127 as the MISO pin is a workaround to prevent SPI.begin() assign the default pin, see #5670
     if (sck == -1 && mosi == -1) dotStar_strip->Begin();
     else                         dotStar_strip->Begin(sck, miso, mosi, ss);
     #endif
