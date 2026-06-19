@@ -45,7 +45,7 @@ void closeFile() {
   // This is most relevant on ESP32-C3/C5/C6, where the RMT driver is very sensitive to interrupt timing.
   bool haveSuspended = false;
   #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
-    if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }// prevent that a new strip.show() starts after waiting
+    if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; } // prevent that a new strip.show() starts after waiting
     strip.waitForLEDs(STRIP_WAIT_MEDIUM); // be nice, but not too nice. Waits up to 150ms
   #endif
 

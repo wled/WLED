@@ -1845,21 +1845,21 @@ void WS2812FX::waitForIt() {
  **/
 bool WS2812FX::waitForLEDs(unsigned maxWaitMS, bool always) const {
   #if !defined(WLED_USE_SHARED_RMT) && !defined(__riscv) && !defined(ESP8266)
-    if (!always) return strip.isUpdating(); // no waiting needed if we have the flicker-free RMTHI driver
+    if (!always) return isUpdating(); // no waiting needed if we have the flicker-free RMTHI driver
   #endif
   #ifdef ARDUINO_ARCH_ESP32
     unsigned long waitStart = millis();
-    while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+    while (isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
   #else
     if (can_yield()) {
       // If we are in a yieldable context (main loop), wait until the LEDs output finishes
       yield();
       unsigned long waitStart = millis();
-      while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
+      while (isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
       yield();
     }
   #endif
-  return strip.isUpdating();
+  return isUpdating();
 }
 
 void WS2812FX::setTargetFps(unsigned fps) {
