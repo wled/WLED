@@ -491,6 +491,7 @@ void WLED::setup()
 
   DEBUG_PRINTLN(F("Initializing strip"));
   beginStrip();
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM); // prevent flickering - beginStrip() calls strip.show()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   DEBUG_PRINTLN(F("Usermods setup"));
