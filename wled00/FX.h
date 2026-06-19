@@ -811,8 +811,9 @@ class Segment {
 };
 
 // max wait times when waiting until !strip.isUpdating() - use with waitForLEDs(...)
-constexpr unsigned STRIP_WAIT_SHORT = 50;   // 50 ms - for cases where fluent animations are most important, and risk of flickering is low
-constexpr unsigned STRIP_WAIT_MEDIUM = 150; // 150 ms - good balance to avoid flickering on -C3 (good up to 4000 ws2812b LEDs per pin)
+constexpr unsigned STRIP_WAIT_VERYSHORT = 25; // 25 ms - when risk of flickering is low but delays should be avoided
+constexpr unsigned STRIP_WAIT_SHORT = 50;     // 50 ms - for cases where fluent animations are most important, and risk of flickering is low
+constexpr unsigned STRIP_WAIT_MEDIUM = 150;   // 150 ms - good balance to avoid flickering on -C3 (good up to 4000 ws2812b LEDs per pin)
 
 // main "strip" class (108 bytes)
 class WS2812FX {
