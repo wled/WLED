@@ -98,7 +98,7 @@ Segment& Segment::operator= (const Segment &orig) {
   if (this != &orig) {
     // clean destination
     if (name) { p_free(name); name = nullptr; }
-    if (_t) stopTransition(); // also erases _t
+    stopTransition(); // delete _t
     deallocateData();
     p_free(pixels);
     pixels = nullptr;
@@ -131,7 +131,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { p_free(name); name = nullptr; } // free old name
-    if (_t) stopTransition(); // also erases _t
+    stopTransition(); // delete _t
     deallocateData(); // free old runtime data
     p_free(pixels);   // free old pixel buffer
     // move source data
@@ -333,6 +333,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
 }
 
 void Segment::stopTransition() {
+  if (_t == nullptr) return; // no ongoing transition
   DEBUG_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
   delete _t;
   _t = nullptr;
@@ -452,7 +453,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
-  if (_t) stopTransition(); // we can't use transition if segment dimensions changed
+  stopTransition(); // we can't use transition if segment dimensions changed
   stateChanged = true;      // send UDP/WS broadcast
 
   // apply change immediately
