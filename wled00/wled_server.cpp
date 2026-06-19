@@ -215,7 +215,7 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     bool haveSuspended = false;
     #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
       if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; } // prevent that a new strip.show() starts after waiting
-      strip.waitForLEDs(25); // calling file.close() during LEDs sendout can cause glitches on C3 and on 8266
+      strip.waitForLEDs(STRIP_WAIT_SHORT, true); // calling file.close() during LEDs sendout can cause glitches on C3 and on 8266
     #endif
     request->_tempFile.close();
     if (haveSuspended) strip.resume();

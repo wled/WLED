@@ -46,7 +46,7 @@ void closeFile() {
   bool haveSuspended = false;
   #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
     if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }// prevent that a new strip.show() starts after waiting
-    strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
+    strip.waitForLEDs(STRIP_WAIT_MEDIUM); // be nice, but not too nice. Waits up to 15ms
   #endif
 
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
@@ -449,9 +449,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
   }
   #endif
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
-    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
-      strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
-    #endif
+    strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
   }
@@ -466,9 +464,7 @@ bool copyFile(const char* src_path, const char* dst_path) {
    return false;
   }
 
-  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
-    strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
-  #endif
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM, true); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   bool success = true; // is set to false on error
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
@@ -507,9 +503,7 @@ bool compareFiles(const char* path1, const char* path2) {
     return false;
   }
 
-  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
-    strip.waitForLEDs(25); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
-  #endif
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   bool identical = true; // set to false on mismatch
   File f1 = WLED_FS.open(path1, "r");
   File f2 = WLED_FS.open(path2, "r");

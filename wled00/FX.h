@@ -810,6 +810,10 @@ class Segment {
   friend class ParticleSystem1D;
 };
 
+// max wait times when waiting until !strip.isUpdating() - use with waitForLEDs(...)
+constexpr unsigned STRIP_WAIT_SHORT = 50;   // 50 ms - for cases where fluent animations are most important, and risk of flickering is low
+constexpr unsigned STRIP_WAIT_MEDIUM = 150; // 150 ms - good balance to avoid flickering on -C3 (good up to 4000 ws2812b LEDs per pin)
+
 // main "strip" class (108 bytes)
 class WS2812FX {
   typedef void (*mode_ptr)(); // pointer to mode function
@@ -914,7 +918,7 @@ class WS2812FX {
     // be nice, but not too nice - wait until LEDs are idle, or maxWaitMS have passed
     // on 8266 this call will _not_ wait outside of the main loop context
     // returns isUpdating() status after waiting
-    bool waitForLEDs(unsigned maxWaitMS) const;
+    bool waitForLEDs(unsigned maxWaitMS, bool always = false) const;
 
     void restartRuntime();
     void setTransitionMode(bool t);

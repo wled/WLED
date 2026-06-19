@@ -1838,11 +1838,15 @@ void WS2812FX::waitForIt() {
 };
 
 /**
- * Be nice, but not too nice - wait until LEDs are idle, or maxWaitMS milliseconds have passed
- * On 8266 this call will _not_ wait outside the main loop context
- *   Function returns isUpdating() status after waiting
- */
-bool WS2812FX::waitForLEDs(unsigned maxWaitMS) const {
+ * Be nice, but not too nice - wait until LEDs are idle, or maxWaitMS milliseconds have passed. 
+ * always=true enforces waiting even when using the RMTHI driver.
+ * On 8266 this call will _not_ wait outside the main loop context.
+ *  Function returns isUpdating() status after waiting.
+ **/
+bool WS2812FX::waitForLEDs(unsigned maxWaitMS, bool always) const {
+  #if !defined(WLED_USE_SHARED_RMT) && !defined(__riscv) && !defined(ESP8266)
+    if (!always) return strip.isUpdating(); // no waiting needed if we have the flicker-free RMTHI driver
+  #endif
   #ifdef ARDUINO_ARCH_ESP32
     unsigned long waitStart = millis();
     while (strip.isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
@@ -1855,7 +1859,7 @@ bool WS2812FX::waitForLEDs(unsigned maxWaitMS) const {
       yield();
     }
   #endif
-  return isUpdating();
+  return strip.isUpdating();
 }
 
 void WS2812FX::setTargetFps(unsigned fps) {
