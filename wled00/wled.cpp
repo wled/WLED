@@ -617,26 +617,36 @@ void WLED::beginStrip()
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
   if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
+  // note on how bootup behaviour:
+  // if turnOnAtBoot is false, strip is set to black. It will fade in to startup brightness and orange when turned on
+  // if a bootup preset is set, it will fade to that preset if it has on:true set (to default brightness) or to that preset's brightness if set
+  // if turnOnAtBoot is true the LEDs will fade in to orange and default brightness
+  // if a booup preset is set, it will start at the default brightness except if "fade" transition is used, then it will still fade from black
+  // there is no way to have LEDs off at boot and upon turn-on have them immediatel jump to a target brightness but users can use a playlist to do that
+
   bri = 0; // start off black by default (on a fresh install this is overruled by briS as turnOnAtBoot is true)
   if (turnOnAtBoot) {
-    bri = briS ? briS : 128; // load startup brightness (set in UI), fall back to mid if set to 0 to make sure LEDs turn on
-    // set color to warm welcoming orange (aka DEFAULT_COLOR)
-    colPri[0] = 255;
-    colPri[1] = 160;
-    colPri[2] = colPri[3] = 0;
+    bri = briS; // load startup brightness (set in UI), 0 is not allowed in UI
   }
+  else briLast = briS; // go to startup brightness (set in UI) when turning on (can be overruled by a preset)
 
   if (bootPreset > 0) {
     colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
     applyPreset(bootPreset, CALL_MODE_INIT);
-    // set all segments black (no transition), their default creation color is orange (which is needed for creating new segments in the UI)
+    // note: if turn on at boot is disabled, preset will fade in from black, even if swipe is used
+    // if fade is used, it will always fade from black.
     for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
       Segment &seg = strip.getSegment(i);
       if (seg.isActive()) seg.colors[0] = BLACK;
     }
   }
-  else
+  else {
+    // set color to warm welcoming orange (aka DEFAULT_COLOR) if no preset loaded (will fade to this color once turned on)
+    colPri[0] = 255;
+    colPri[1] = 160;
+    colPri[2] = colPri[3] = 0;
     strip.setTransition(transitionDelayDefault);  // restore default transition time (was set to 0 above)
+  }
 
   colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition, if still zero, brightness is set immediately
 
