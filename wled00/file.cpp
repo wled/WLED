@@ -52,7 +52,6 @@ void closeFile() {
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
   if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
-  doCloseFile = false;
 }
 
 //find() that reads and buffers data from file stream in 256-byte blocks.
