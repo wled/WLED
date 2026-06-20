@@ -14,16 +14,16 @@
 #endif
 
 #ifndef UM_SD_SELECT
-  #define configPinSourceSelect = 16;
+  #define UM_SD_SELECT 16;
 #endif
 #ifndef UM_SD_CLOCK
-  #define configPinSourceClock = 14;
+  #define UM_SD_CLOCK 14;
 #endif
 #ifndef UM_SD_POCI
-  #define configPinPoci = 36;
+  #define UM_SD_POCI 36;
 #endif
 #ifndef UM_SD_PICO
-  #define configPinPico = 15;
+  #define UM_SD_PICO 15;
 #endif
 
 
@@ -51,16 +51,9 @@ class UsermodSdCard : public Usermod {
 // confusing names? Then have a look 
 // https://oshwa.org/resources/a-resolution-to-redefine-spi-signal-names/
 #ifdef WLED_USE_SD_SPI
-  #if defined(UM_SD_SELECT)
     int8_t configPinSourceSelect = UM_SD_SELECT;
-  #endif
-  #if defined(UM_SD_CLOCK)
     int8_t configPinSourceClock = UM_SD_CLOCK;
-  #endif
-  #if defined(UM_SD_POCI)
     int8_t configPinPoci = UM_SD_POCI;
-  #endif
-  #if defined(UM_SD_PICO)
     int8_t configPinPico = UM_SD_PICO;
   #endif
 
