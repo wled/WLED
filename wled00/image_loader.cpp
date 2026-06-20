@@ -28,7 +28,7 @@ int fileReadCallback(void) {
 }
 
 int fileReadBlockCallback(void * buffer, int numberOfBytes) {
-  strip.waitForLEDs(STRIP_WAIT_SHORT);
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM);
   return file.read((uint8_t*)buffer, numberOfBytes);
 }
 

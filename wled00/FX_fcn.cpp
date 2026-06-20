@@ -1844,10 +1844,12 @@ void WS2812FX::waitForIt() {
  *  Function returns isUpdating() status after waiting.
  **/
 bool WS2812FX::waitForLEDs(unsigned maxWaitMS, bool always) const {
-  #if !defined(WLED_USE_SHARED_RMT) && !defined(__riscv) && !defined(ESP8266)
-    if (!always) return isUpdating(); // no waiting needed if we have the flicker-free RMTHI driver
-  #endif
-  #ifdef ARDUINO_ARCH_ESP32
+  #ifdef ARDUINO_ARCH_ESP32 
+    #if !defined(WLED_USE_SHARED_RMT) && !defined(__riscv)
+    // shortcut: don't wait if we have the RMTHI driver, unless requested with "always = true"
+    if (!always) return isUpdating();
+    #endif
+
     unsigned long waitStart = millis();
     while (isUpdating() && (millis() - waitStart < maxWaitMS)) delay(1);
   #else

@@ -448,8 +448,8 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
     }
   }
   #endif
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
-    strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
   }
@@ -459,12 +459,12 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
 // copy a file, delete destination file if incomplete to prevent corrupted files
 bool copyFile(const char* src_path, const char* dst_path) {
   DEBUG_PRINTF("copyFile from %s to %s\n", src_path, dst_path);
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM, true); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if(!WLED_FS.exists(src_path)) {
    DEBUG_PRINTLN(F("file not found"));
    return false;
   }
 
-  strip.waitForLEDs(STRIP_WAIT_MEDIUM, true); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   bool success = true; // is set to false on error
   File src = WLED_FS.open(src_path, "r");
   File dst = WLED_FS.open(dst_path, "w");
@@ -498,12 +498,12 @@ bool copyFile(const char* src_path, const char* dst_path) {
 // compare two files, return true if identical
 bool compareFiles(const char* path1, const char* path2) {
   DEBUG_PRINTF("compareFile %s and %s\n", path1, path2);
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if (!WLED_FS.exists(path1) || !WLED_FS.exists(path2)) {
     DEBUG_PRINTLN(F("file not found"));
     return false;
   }
 
-  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   bool identical = true; // set to false on mismatch
   File f1 = WLED_FS.open(path1, "r");
   File f2 = WLED_FS.open(path2, "r");
@@ -557,6 +557,7 @@ bool restoreFile(const char* filename) {
   char backupname[32];
   snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
 
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM); // wait for LEDs before file existence checking
   if (!WLED_FS.exists(backupname)) {
     DEBUG_PRINTLN(F("no backup found"));
     return false;
