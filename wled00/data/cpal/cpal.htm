@@ -5,7 +5,7 @@
 	<title>WLED Palette Editor</title>
 	<!--* <link rel="stylesheet" href="style.css">
 	<script src="common.js"></script>
-	<script src="iro.js"></script> 
+	<script src="iro.js"></script>
 	<link rel="icon" href="data:,"> *-->
 </head>
 <body>
@@ -331,17 +331,7 @@
 			});
 			draw();
 		}
-/*
-		function rndPal() {
-			gr.innerHTML = '';
-			addMk(0, rndHex(), 1);
-			const cnt = Math.floor(Math.random() * 3) + 2, pos = new Set();
-			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
-			[...pos].sort((a,b)=>a-b).forEach(t => addMk(t, rndHex()));
-			addMk(255, rndHex(), 1);
-		}*/
 
-		
 		// convert hsl to hex using canvas
 		function hslToHex(h, s, l) {
 			let ctx = cE("canvas").getContext("2d");
@@ -594,7 +584,7 @@
 		// download external palettes, these were hand picked from cpt-city (http://seaviewsensing.com/pub/cpt-city/)
 		// all palettes are licensed "free to use", converted to WLED JSON format by @dedehai
 		function fetchExt() {
-			fetch('https://dedehai.github.io/cpt_city_selection.json')
+			fetch('https://wled.github.io/wled-web-tools/cpt_city_selection.json')
 				.then(r => { if (!r.ok) throw new Error(); return r.json(); })
 				.then(data => {
 					try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}

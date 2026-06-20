@@ -14,8 +14,8 @@ See also: `.github/copilot-instructions.md`, `.github/agent-build.instructions.m
 | `npm run build` | Build web UI into `wled00/html_*.h` / `wled00/js_*.h` | 30s |
 | `npm test` | Run test suite (Node.js built-in `node --test`) | 2 min |
 | `npm run dev` | Watch mode — auto-rebuilds web UI on changes | continuous |
-| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 30 min |
-| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 30 min |
+| `pio run -e esp32dev` | Build firmware (ESP32, most common target) | 5 min |
+| `pio run -e nodemcuv2` | Build firmware (ESP8266) | 5 min |
 
 **Always run `npm ci && npm run build` before `pio run`.** The web UI build generates
 required C headers for firmware compilation.
@@ -176,6 +176,7 @@ No automated linting is configured. Match existing code style in files you edit.
 ## General Rules
 
 - Repository language is English
+- The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.
 - No force-push on open PRs

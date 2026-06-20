@@ -666,9 +666,9 @@ function parseInfo(i) {
 	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
 	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
 	if (!isM) {
-			gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
+		gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
-			gId("filter2D").classList.remove('hide');
+		gId("filter2D").classList.remove('hide');
 	}
 	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
@@ -993,6 +993,8 @@ function populatePalettes()
 	let li = lastinfo;
 	if (!isEmpty(li) && li.cpalcount) {
 		for (let j = 0; j<li.cpalcount; j++) {
+			const pd = palettesData[255-j];
+			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip all gray gap-placeholder entries
 			let div = d.createElement("div");
 			gId('pallist').appendChild(div);
 			div.outerHTML = generateListItemHtml(
