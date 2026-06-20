@@ -185,6 +185,18 @@ static void appendGPIOinfo(Print& settingsScript)
   #else
   settingsScript.print(F("d.touch=[];"));
   #endif
+
+  // add info about ADC-capable GPIO (for analog button pin filtering)
+  settingsScript.print(F("d.adc=["));
+  firstPin = true;
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (PinManager::isAnalogPin(i)) {
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
+  settingsScript.print(F("];"));
 }
 
 //get values for settings form in javascript
@@ -621,7 +633,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("MN"),macroNl);
     int ii = 0;
     for (const auto &button : buttons) {
-      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress, button.type);
     }
 
     settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);

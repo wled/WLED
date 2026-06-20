@@ -424,7 +424,7 @@ let fL; // file list
 const classics=['console_font_4x6.wbf','console_font_5x12.wbf','console_font_5x8.wbf','console_font_6x8.wbf','console_font_7x9.wbf']; // classic WLED fonts list
 let pT = []; // local tools list from JSON
 let wv = [0, 0]; // wled version [major, minor], updated in fsMem(), used to check tool compatibility
-const remoteURL = 'https://dedehai.github.io/pftools.json'; // Change to your actual repo
+const remoteURL = 'https://wled.github.io/wled-web-tools/pftools.json'; // tools list
 const toolsjson = 'pftools.json';
 // note: the pftools.json must use major.minor for tool versions (e.g. 0.95 or 1.1), otherwise the update check won't work
 //       also the code assumes that the tool url points to a gz file
@@ -498,7 +498,7 @@ function segLoad(){
 	}).catch(console.error);
 }
 
-/* which seg is showing image fx 53 */
+/* which seg is showing image fx (ID 53) */
 function curImgSeg(){
 	const sel=getId('seg');
 	for(let i=0;i<sel.options.length;i++){
