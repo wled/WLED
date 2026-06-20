@@ -617,7 +617,8 @@ void WLED::beginStrip()
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
   if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
-  // note on how bootup behaviour works:
+
+  // Note on how bootup behaviour works:
   // if turnOnAtBoot is false: strip is set to black. It will fade in to startup brightness and orange when turned on
   //   if a bootup preset is set, it will fade to that preset if it has "on:true" set (to default brightness) or to that preset's brightness if set
   // if turnOnAtBoot is true: the LEDs will fade in to orange and default brightness
@@ -638,11 +639,10 @@ void WLED::beginStrip()
     colPri[0] = 255;
     colPri[1] = 160;
     colPri[2] = colPri[3] = 0;
-    strip.setTransition(transitionDelayDefault);  // restore default transition time (was set to 0 above)
   }
 
-  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition, if still zero, brightness is set immediately
-
+  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition, brightness is set immediately
+  strip.setTransition(transitionDelayDefault);  // restore default transition time
 }
 
 void WLED::initAP(bool resetAP)
