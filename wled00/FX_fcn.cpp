@@ -98,7 +98,7 @@ Segment& Segment::operator= (const Segment &orig) {
   if (this != &orig) {
     // clean destination
     if (name) { p_free(name); name = nullptr; }
-    if (_t) stopTransition(); // also erases _t
+    stopTransition(); // delete _t
     deallocateData();
     p_free(pixels);
     pixels = nullptr;
@@ -131,7 +131,7 @@ Segment& Segment::operator= (Segment &&orig) noexcept {
   //DEBUG_PRINTF_P(PSTR("-- Moving segment: %p -> %p\n"), &orig, this);
   if (this != &orig) {
     if (name) { p_free(name); name = nullptr; } // free old name
-    if (_t) stopTransition(); // also erases _t
+    stopTransition(); // delete _t
     deallocateData(); // free old runtime data
     p_free(pixels);   // free old pixel buffer
     // move source data
@@ -290,6 +290,8 @@ void Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
 }
 
 // starting a transition has to occur before change so we get current values 1st
+// note: _t is the temporary segment that holds the values transitioned from (palette, colors, brightness,...) and the current segment holds the "to" values
+//       if this is a non FADE transition or an FX change, the _oldSegment is created which is a full copy of the segment before the change
 void Segment::startTransition(uint16_t dur, bool segmentCopy) {
   if (dur == 0 || !isActive()) {
     if (isInTransition()) _t->_dur = 0;
@@ -299,14 +301,41 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     if (segmentCopy && !_t->_oldSegment) {
       // already in transition but segment copy requested and not yet created
       _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
-      _t->_start = millis();                              // restart countdown
+      _t->_start = millis(); // restart transition timer
       _t->_dur   = dur;
-      _t->_prevPaletteBlends = 0;
+      _t->_prevPaletteBlends = 0; // reset palette blends
       if (_t->_oldSegment) {
-        _t->_oldSegment->palette = _t->_palette;          // restore original palette and colors (from start of transition)
+        _t->_oldSegment->palette = _t->_palette; // restore original palette, colors, brightness and CCT (from start of transition)
         for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = _t->_colors[i];
+        _t->_oldSegment->opacity = _t->_bri;
+        _t->_oldSegment->cct     = _t->_cct;
+        // if already partway through a FADE transition, set old segment's colors to current blend to avoid jumping back to original colors
+        if (_t->_progress > 0) {
+          // already in a transition, see comment below
+          for (unsigned i = 0; i < NUM_COLORS; i++) _t->_oldSegment->colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+          _t->_oldSegment->opacity = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+          _t->_oldSegment->cct     = currentCCT(); // update "original" CCT (reduces jump)
+        }
         DEBUGFX_PRINTF_P(PSTR("-- Updated transition with segment copy: S=%p T(%p) O[%p] OP[%p]\n"), this, _t, _t->_oldSegment, _t->_oldSegment->pixels);
         if (!_t->_oldSegment->isActive()) stopTransition();
+      }
+    } else if (_t->_progress > 0) {
+      // already in a transition: capture the current visual blend as the new "from" state so the incoming change does not cause a visible jump.
+      // _palT already holds the intermediate blended palette and will continue blending toward the new target (see beginDraw()), so no palette action needed.
+      // initial version by @blazoncek (https://github.com/blazoncek/WLED/commit/40d9812)
+      for (unsigned i = 0; i < NUM_COLORS; i++) _t->_colors[i] = color_blend16(_t->_colors[i], colors[i], _t->_progress);
+      _t->_bri = currentBri(); // update "original" brightness note: _t->_progress is updated in updateTransitionProgress() so still valid here
+      _t->_cct = currentCCT(); // update "original" CCT (reduces jump)
+      // restart transition timer only if a pure FADE transition, otherwise let the FX change or non-FADE transition finish
+      // this avoids a re-start of the transition if color or brightness is changed during an ongoing FX or non-FADE transition
+      if (blendingStyle == TRANSITION_FADE) {
+        if (_t->_oldSegment != nullptr) {
+          if (_t->_oldSegment->mode != mode)
+            return; // do not reset transition if this is an FX change, note: the disadvantage is that colors still jump in that case
+        }
+        _t->_start = millis();
+        _t->_dur   = dur;
+        _t->_prevPaletteBlends = 0;
       }
     }
     return;
@@ -333,6 +362,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
 }
 
 void Segment::stopTransition() {
+  if (_t == nullptr) return; // no ongoing transition
   DEBUG_PRINTF_P(PSTR("-- Stopping transition: S=%p T(%p) O[%p]\n"), this, _t, _t->_oldSegment);
   delete _t;
   _t = nullptr;
@@ -365,7 +395,7 @@ uint8_t Segment::currentBri() const {
   if (prog < 0xFFFFU) {
     // this will blend opacity in new mode if style is FADE (single effect call)
     if (blendingStyle == TRANSITION_FADE) curBri = (prog * curBri + _t->_bri * (0xFFFFU - prog)) / 0xFFFFU;
-    else                                   curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
+    else                                  curBri = Segment::isPreviousMode() ? _t->_bri : curBri;
   }
   return curBri;
 }
@@ -452,7 +482,7 @@ void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, ui
 
   DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
-  if (_t) stopTransition(); // we can't use transition if segment dimensions changed
+  stopTransition(); // we can't use transition if segment dimensions changed
   stateChanged = true;      // send UDP/WS broadcast
 
   // apply change immediately
@@ -1736,6 +1766,9 @@ void WS2812FX::show() {
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
+  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
+  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
@@ -1744,8 +1777,8 @@ void WS2812FX::show() {
     }
 
     uint32_t c = _pixels[i]; // need a copy, do not modify _pixels directly (no byte access allowed on ESP32)
-    if (c > 0 && !(realtimeMode && arlsDisableGammaCorrection))
-        c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+    if (c > 0 && useGammaCorrection)
+      c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
     BusManager::setPixelColor(getMappedPixelIndex(i), c);
   }
   Bus::setCCT(oldCCT);  // restore old CCT for ABL adjustments

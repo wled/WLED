@@ -1061,7 +1061,7 @@ void mode_traffic_light(void) {
       case 0: SEGMENT.setPixelColor(i, 0x00FF0000); mdelay = 150 + (100 * (uint32_t)(255 - SEGMENT.speed));break;
       case 1: SEGMENT.setPixelColor(i, 0x00FF0000); mdelay = 150 + (20 * (uint32_t)(255 - SEGMENT.speed)); SEGMENT.setPixelColor(i+1, 0x00EECC00); break;
       case 2: SEGMENT.setPixelColor(i+2, 0x0000FF00); mdelay = 150 + (100 * (uint32_t)(255 - SEGMENT.speed));break;
-      case 3: SEGMENT.setPixelColor(i+1, 0x00EECC00); mdelay = 150 + (20 * (uint32_t)(255 - SEGMENT.speed));break;
+      case 3: SEGMENT.setPixelColor(i+1, gamma32inv(0x00EECC00)); mdelay = 150 + (20 * (uint32_t)(255 - SEGMENT.speed));break; // gamma inversion to restore original pre 16.0 looks
     }
   }
 
@@ -4182,14 +4182,14 @@ void mode_pacifica()
   uint32_t nowOld = strip.now;
 
   CRGBPalette16 pacifica_palette_1 =
-    { 0x000507, 0x000409, 0x00030B, 0x00030D, 0x000210, 0x000212, 0x000114, 0x000117,
-      0x000019, 0x00001C, 0x000026, 0x000031, 0x00003B, 0x000046, 0x14554B, 0x28AA50 };
+    { 0x002229, 0x001E2F, 0x001934, 0x001938, 0x00143F, 0x001443, 0x00B047, 0x00B04C,  // note: palettes are gamma inverted using gamma 2.0 to get closer to pre 16.0 looks
+      0x00004F, 0x000054, 0x000062, 0x00006F, 0x00007A, 0x000085, 0x47938A, 0x64D08E };
   CRGBPalette16 pacifica_palette_2 =
-    { 0x000507, 0x000409, 0x00030B, 0x00030D, 0x000210, 0x000212, 0x000114, 0x000117,
-      0x000019, 0x00001C, 0x000026, 0x000031, 0x00003B, 0x000046, 0x0C5F52, 0x19BE5F };
+    { 0x002229, 0x001E2F, 0x001934, 0x001938, 0x00143F, 0x001443, 0x00B047, 0x00B04C,
+      0x00004F, 0x000054, 0x000062, 0x00006F, 0x00007A, 0x000085, 0x369B90, 0x4FDC9B };
   CRGBPalette16 pacifica_palette_3 =
-    { 0x000208, 0x00030E, 0x000514, 0x00061A, 0x000820, 0x000927, 0x000B2D, 0x000C33,
-      0x000E39, 0x001040, 0x001450, 0x001860, 0x001C70, 0x002080, 0x1040BF, 0x2060FF };
+    { 0x00142C, 0x00193B, 0x002247, 0x002551, 0x002C5A, 0x002F63, 0x00346B, 0x003671,
+      0x003B78, 0x003F7F, 0x00478E, 0x004D9C, 0x0054A9, 0x005AB4, 0x3F7FDC, 0x5A9CFF };
 
   if (SEGMENT.palette) {
     pacifica_palette_1 = SEGPALETTE;
@@ -4240,10 +4240,10 @@ void mode_pacifica()
       c += CRGB(overage, overage2, qadd8(overage2, overage2));
     }
 
-    //deepen the blues and greens
-    c.blue  = scale8(c.blue,  145);
-    c.green = scale8(c.green, 200);
-    c |= CRGB( 2, 5, 7);
+    //deepen the blues and greens  note: no longer needed with proper gamma in 16.0
+    //c.blue  = scale8(c.blue,  145);
+    //c.green = scale8(c.green, 200);
+    //c |= CRGB( 2, 5, 7);
 
     SEGMENT.setPixelColor(i, c);
   }
@@ -4373,8 +4373,8 @@ void mode_noisepal(void) {                                    // Slow noise pale
     SEGENV.step = strip.now;
 
     unsigned baseI = hw_random8();
-    //palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
-    palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(128,255)), CHSV(baseI+128, 255, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(128,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(128,255)));
+    uint32_t minBri = gamma8inv(128); // use gamma inversion on min brightness value to restore pre 16.0 looks (more brilliant palettes)
+    palettes[1] = CRGBPalette16(CHSV(baseI+hw_random8(64), 255, hw_random8(minBri,255)), CHSV(baseI+128, 255, hw_random8(minBri,255)), CHSV(baseI+hw_random8(92), 192, hw_random8(minBri,255)), CHSV(baseI+hw_random8(92), 255, hw_random8(minBri,255)));
   }
 
   //EVERY_N_MILLIS(10) { //(don't have to time this, effect function is only called every 24ms)
@@ -4759,10 +4759,10 @@ void mode_tv_simulator(void) {
         tvSimulator->actualColorB = temp[n    ];
       }
     }
-    // Apply gamma correction, further expand to 16/16/16
-    nr = (uint8_t)gamma8(tvSimulator->actualColorR) * 257; // New R/G/B
-    ng = (uint8_t)gamma8(tvSimulator->actualColorG) * 257;
-    nb = (uint8_t)gamma8(tvSimulator->actualColorB) * 257;
+    // expand to 16 bit
+    nr = (uint8_t)(tvSimulator->actualColorR) * 257; // New R/G/B
+    ng = (uint8_t)(tvSimulator->actualColorG) * 257;
+    nb = (uint8_t)(tvSimulator->actualColorB) * 257;
 
   if (SEGENV.aux0 == 0) {  // initialize next iteration
     SEGENV.aux0 = 1;
@@ -5720,7 +5720,7 @@ void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Ada
     SEGENV.step = 0;
   }
 
-  uint8_t fade = map(SEGMENT.custom1, 0, 255, 50, 250);    // equals trail size
+  uint8_t fade = map(SEGMENT.custom1, 0, 255, 30, 250);    // equals trail size
   uint8_t speed = (256-SEGMENT.speed) >> map(min(rows, 150), 0, 150, 0, 3);    // slower speeds for small displays
 
   uint32_t spawnColor;
@@ -5729,8 +5729,8 @@ void mode_2Dmatrix(void) {                  // Matrix2D. By Jeremy Williams. Ada
     spawnColor = SEGCOLOR(0);
     trailColor = SEGCOLOR(1);
   } else {
-    spawnColor = RGBW32(175,255,175,0);
-    trailColor = RGBW32(27,130,39,0);
+    spawnColor = RGBW32(gamma8inv(175), gamma8inv(255), gamma8inv(175), 0); // use gamma inversion to restor original pre 16.0 looks
+    trailColor = RGBW32(gamma8inv(27),  gamma8inv(130), gamma8inv(39),  0);
   }
 
   bool emptyScreen = true;
@@ -7005,8 +7005,8 @@ static const char _data_FX_MODE_MIDNOISE[] PROGMEM = "Midnoise@Fade rate,Max. le
 //////////////////////
 // I am the god of hellfire. . . Volume (only) reactive fire routine. Oh, look how short this is.
 void mode_noisefire(void) {                 // Noisefire. By Andrew Tuline.
-  CRGBPalette16 myPal = CRGBPalette16(CHSV(0,255,2),    CHSV(0,255,4),    CHSV(0,255,8), CHSV(0, 255, 8),  // Fire palette definition. Lower value = darker.
-                                      CHSV(0, 255, 16), CRGB::Red,        CRGB::Red,     CRGB::Red,
+  CRGBPalette16 myPal = CRGBPalette16(CHSV(0,255,20),    CHSV(0,255,30),    CHSV(0,255,40), CHSV(0, 255, 44),  // Fire palette definition. Lower value = darker.
+                                      CHSV(0, 255, 64), CRGB::Red,        CRGB::Red,     CRGB::Red,
                                       CRGB::DarkOrange, CRGB::DarkOrange, CRGB::Orange,  CRGB::Orange,
                                       CRGB::Yellow,     CRGB::Orange,     CRGB::Yellow,  CRGB::Yellow);
 
@@ -7242,7 +7242,7 @@ void mode_DJLight(void) {                   // Written by ??? Adapted by Will Ta
   if (SEGENV.aux0 != secondHand) {                        // Triggered millis timing.
     SEGENV.aux0 = secondHand;
 
-    CRGB color = CRGB(fftResult[15]/2, fftResult[5]/2, fftResult[0]/2); // 16-> 15 as 16 is out of bounds
+    CRGB color = CRGB(gamma8inv(fftResult[15]/2), gamma8inv(fftResult[5]/2), gamma8inv(fftResult[0]/2)); // apply gamma inversion to restor pre 16.0 looks
     SEGMENT.setPixelColor(mid, color.fadeToBlackBy(map(fftResult[4], 0, 255, 255, 4)));     // TODO - Update
 
     // if SEGLEN equals 1 these loops won't execute
@@ -7322,7 +7322,7 @@ void mode_freqmatrix(void) {                // Freqmatrix. By Andreas Pleschung.
       uint8_t i =  lowerLimit!=upperLimit ? map(FFT_MajorPeak, lowerLimit, upperLimit, 0, 255) : FFT_MajorPeak;  // may under/overflow - so we enforce uint8_t
       unsigned b = 255 * intensity;
       if (b > 255) b = 255;
-      color = CHSV(i, 240, (uint8_t)b); // implicit conversion to RGB supplied by FastLED
+      color = CHSV(i, 240, gamma8inv(b)); // use gamma inversion on brightness to restore pre 16.0 looks
     }
 
     // shift the pixels one pixel up
@@ -7413,7 +7413,7 @@ void mode_freqwave(void) {                  // Freqwave. By Andreas Pleschung.
       int lowerLimit = 80 + 3 * SEGMENT.custom1;
       uint8_t i =  lowerLimit!=upperLimit ? map(FFT_MajorPeak, lowerLimit, upperLimit, 0, 255) : FFT_MajorPeak; // may under/overflow - so we enforce uint8_t
       unsigned b = min(255.0f, 255.0f * intensity);
-      color = CHSV(i, 240, (uint8_t)b); // implicit conversion to RGB supplied by FastLED
+      color = CHSV(i, 240, gamma8inv(b)); // use gamma inversion on brightness to restore pre 16.0 looks
     }
 
     SEGMENT.setPixelColor(SEGLEN/2, color);
@@ -7520,7 +7520,7 @@ void mode_waterfall(void) {                   // Waterfall. By: Andrew Tuline
 
     unsigned k = SEGLEN-1;
     if (samplePeak) {
-      pixels[k] = (uint32_t)CRGB(CHSV(92,92,92));
+      pixels[k] = (uint32_t)CRGB(CHSV(92,92,gamma8inv(92))); // use gamma inversion on brightness to restore pre 16.0 looks
     } else {
       pixels[k] = color_blend(SEGCOLOR(1), SEGMENT.color_from_palette(pixCol+SEGMENT.intensity, false, PALETTE_SOLID_WRAP, 0), (uint8_t)my_magnitude);
     }
@@ -7631,7 +7631,7 @@ void mode_2DFunkyPlank(void) {              // Written by ??? Adapted by Will Ta
       int v = map(fftResult[band % 16], 0, 255, 10, 255);
       for (int w = 0; w < barWidth; w++) {
          int xpos = (barWidth * b) + w;
-         SEGMENT.setPixelColorXY(xpos, 0, CHSV(hue, 255, v));
+         SEGMENT.setPixelColorXY(xpos, 0, CHSV(hue, 255, gamma8inv(v))); // use gamma inversion on brightness to restore original pre 16.0 looks
       }
     }
 
@@ -7980,7 +7980,7 @@ void mode_2Doctopus() {
       byte radius = rMap[XY(x,y)].radius;
       //CRGB c = CHSV(SEGENV.step / 2 - radius, 255, sin8_t(sin8_t((angle * 4 - radius) / 4 + SEGENV.step) + radius - SEGENV.step * 2 + angle * (SEGMENT.custom3/3+1)));
       unsigned intensity = sin8_t(sin8_t((angle * 4 - radius) / 4 + SEGENV.step/2) + radius - SEGENV.step + angle * (SEGMENT.custom3/4+1));
-      intensity = map((intensity*intensity) & 0xFFFF, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display
+      //intensity = map((intensity*intensity) & 0xFFFF, 0, 65535, 0, 255); // add a bit of non-linearity for cleaner display -> no longer needed with proper gamma correction
       SEGMENT.setPixelColorXY(x, y, ColorFromPalette(SEGPALETTE, SEGENV.step / 2 - radius, intensity));
     }
   }
