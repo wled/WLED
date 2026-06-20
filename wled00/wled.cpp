@@ -617,11 +617,11 @@ void WLED::beginStrip()
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
   if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
-  // note on how bootup behaviour:
-  // if turnOnAtBoot is false, strip is set to black. It will fade in to startup brightness and orange when turned on
-  // if a bootup preset is set, it will fade to that preset if it has on:true set (to default brightness) or to that preset's brightness if set
-  // if turnOnAtBoot is true the LEDs will fade in to orange and default brightness
-  // if a bootup preset is set, it will start at the default brightness except if "fade" transition is used, then it will still fade from black
+  // note on how bootup behaviour works:
+  // if turnOnAtBoot is false: strip is set to black. It will fade in to startup brightness and orange when turned on
+  //   if a bootup preset is set, it will fade to that preset if it has "on:true" set (to default brightness) or to that preset's brightness if set
+  // if turnOnAtBoot is true: the LEDs will fade in to orange and default brightness
+  //   if a bootup preset is set, it will start at the default brightness except if "fade" transition is used, then it will still fade from black
   // there is no way to have LEDs off at boot and upon turn-on have them immediatel jump to a target brightness but users can use a playlist to do that
 
   bri = 0; // start off black by default (on a fresh install this is overruled by briS as turnOnAtBoot is true)
