@@ -7,6 +7,7 @@
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
 		// these functions correspond to C macros found in const.h
@@ -38,6 +39,10 @@
 		function S() {
 			getLoc();
 			if(localStorage.getItem('ASc')==='true') d.Sf.AS.checked=true;
+			fetch(getURL('/json/info'))
+				.then(r => r.ok ? r.json() : {})
+				.then(info => { hasPSRAM = Number(info.psrSz ?? 0) > 0 || Number(info.psram ?? 0) > 0; })
+				.catch(() => {});
 			loadJS(getURL('/settings/s.js?p=2'), false, ()=>{
 				d.ledTypes = [/*{i:22,c:1,t:"D",n:"WS2812"},{i:42,c:6,t:"AA",n:"PWM CCT"}*/]; // filled from GetV()
 				d.um_p = [];
@@ -147,7 +152,7 @@
 				if (isHub75(t)) {
 					let p = parseInt(d.Sf["L2"+n].value)||1, r = parseInt(d.Sf["L3"+n].value)||1, c = parseInt(d.Sf["L4"+n].value)||1, h = parseInt(d.Sf["L1"+n].value)||1;
 					if (r*c !== p) {alert(`HUB75 error: panels≠rows×cols`); e.stopPropagation(); return false;}
-					if (h >= 64 && p > 1) {alert(`HUB75 error: height >= 64, only single panel allowed`); e.stopPropagation(); return false;}
+					if (h >= 64 && p > 1 && !hasPSRAM) {alert(`HUB75 error: height >= 64, only single panel allowed`); e.stopPropagation(); return false;}
 					if(isS3()) {
 					  alert("HUB75 changes require a reboot"); // TODO: only throw this if panel config changed?
 					}

@@ -322,10 +322,36 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     } else return 0;
   }
 
-  if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
-    snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
-    dest[maxLen] = '\0';
-    return strlen(dest);
+  if (src == JSON_palette_names) {
+    if (mode > WLED_CUSTOM_PALETTE_ID_BASE) {
+      // usermod palette (IDs 201-255)
+      uint8_t umIdx = WLED_USERMOD_PALETTE_ID_BASE - mode;
+      if (umIdx >= usermodPalettes.size()) {
+        dest[0] = '\0'; // empty string if requested index is out of bounds
+        return 0;
+      }
+      const UsermodPalette &ump = usermodPalettes[umIdx];
+      char base[33];
+      strncpy_P(base, ump.name, sizeof(base) - 1);
+      base[sizeof(base) - 1] = '\0';
+      if (ump.palName) {
+        // usermod supplied a specific display name — prefix with the usermod name (e.g. "AudioReactive: Hue")
+        char palName[33];
+        strncpy_P(palName, ump.palName, sizeof(palName) - 1);
+        palName[sizeof(palName) - 1] = '\0';
+        snprintf(dest, maxLen + 1, "%s: %s", base, palName);
+      } else {
+        // fallback: "UMName index" (e.g. "AudioReactive 1")
+        snprintf(dest, maxLen + 1, "%s %u", base, (unsigned)ump.palIndex);
+      }
+      return strlen(dest);
+    }
+    if (mode >= FIXED_PALETTE_COUNT && mode <= WLED_CUSTOM_PALETTE_ID_BASE) {
+      // user custom palette (IDs FIXED_PALETTE_COUNT up to WLED_CUSTOM_PALETTE_ID_BASE=200)
+      snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), WLED_CUSTOM_PALETTE_ID_BASE - mode);
+      dest[maxLen] = '\0';
+      return strlen(dest);
+    }
   }
 
   unsigned qComma = 0;
@@ -899,7 +925,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
       buffer = p_malloc(size); // prefer PSRAM
   }
   else if (type & BFRALLOC_ENFORCE_PSRAM)
-    buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
+    buffer = p_malloc(size); // use PSRAM if available, fall back to DRAM if not (safeguard for boards without PSRAM #5629)
   buffer = validateFreeHeap(buffer);
   #endif
   if (buffer && (type & BFRALLOC_CLEAR))
@@ -1290,6 +1316,9 @@ String computeSHA1(const String& input) {
 //#include "esp_adc/adc_cali_scheme.h" // new API
 #else
 #include "esp_adc_cal.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
+  #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
+#endif
 #endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint

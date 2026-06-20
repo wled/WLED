@@ -506,7 +506,9 @@ void initServer()
   server.on(_update, HTTP_POST, [](AsyncWebServerRequest *request){
     if (request->_tempObject) {
       auto ota_result = getOTAResult(request);
-      if (ota_result.first) {
+      if (ota_result.first == OTAResultStatus::TryAgain) {
+        request->deferResponse();
+      } else if (ota_result.first == OTAResultStatus::Ready) {
         if (ota_result.second.length() > 0) {
           serveMessage(request, 500, F("Update failed!"), ota_result.second, 254);
         } else {

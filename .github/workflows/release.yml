@@ -12,6 +12,8 @@ jobs:
   
   wled_build:
     uses: ./.github/workflows/build.yml
+    with:
+      release: true
     
   release:
     name: Create Release
