@@ -178,7 +178,7 @@ void WLED::loop()
     // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
     unsigned t0 = millis();
-    while (strip.isUpdating() && (millis() - t0 < 15)) delay(1);    // be nice, but not too nice. Waits up to 15ms
+    while (strip.isUpdating() && (millis() - t0 < 150)) delay(1);    // be nice, but not too nice. Waits up to 150ms
     #endif
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif

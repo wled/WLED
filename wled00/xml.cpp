@@ -628,7 +628,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("MN"),macroNl);
     int ii = 0;
     for (const auto &button : buttons) {
-      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress, button.type);
     }
 
     settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);
