@@ -13,6 +13,20 @@
   #include "SPI.h"
 #endif
 
+#ifndef UM_SD_SELECT
+  #define configPinSourceSelect = 16;
+#endif
+#ifndef UM_SD_CLOCK
+  #define configPinSourceClock = 14;
+#endif
+#ifndef UM_SD_POCI
+  #define configPinPoci = 36;
+#endif
+#ifndef UM_SD_PICO
+  #define configPinPico = 15;
+#endif
+
+
 #ifdef WLED_USE_SD_MMC
   // SD_MMC configuration handled elsewhere
 #elif defined(WLED_USE_SD_SPI)
