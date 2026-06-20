@@ -17,12 +17,14 @@
   // SD_MMC configuration handled elsewhere
 #elif defined(WLED_USE_SD_SPI)
   #if defined(CONFIG_IDF_TARGET_ESP32S3)
-    // ESP32-S3 default hardware SPI bus is typically FSPI (or HSPI)
-    SPIClass spiPort = SPIClass(HSPI); 
+      // FSPI (SPI2) is the global SPI used by dotstar/2-pin LED drivers; use HSPI (SPI3) for SD
+      SPIClass spiPort = SPIClass(HSPI);
+  #elif defined(WLED_USE_ETHERNET)
+      // Ethernet builds: dotstar uses HSPI (SPI2), so SD uses VSPI (SPI3)
+      SPIClass spiPort = SPIClass(VSPI);
   #else
-    // Classic ESP32 defaults (VSPI is default/safest for SD cards on standard pins)
-    SPIClass spiPort = SPIClass(VSPI);
-    // Alternative for classic ESP32 if needed: SPIClass spiPort = SPIClass(HSPI);
+      // Non-Ethernet classic ESP32: dotstar uses global SPI (VSPI/SPI3), so SD uses HSPI (SPI2)
+      SPIClass spiPort = SPIClass(HSPI);
   #endif
 #endif
 
