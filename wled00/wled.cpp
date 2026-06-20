@@ -631,14 +631,7 @@ void WLED::beginStrip()
   else briLast = briS; // go to startup brightness (set in UI) when turning on (can be overruled by a preset)
 
   if (bootPreset > 0) {
-    colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
     applyPreset(bootPreset, CALL_MODE_INIT);
-    // note: if turn on at boot is disabled, preset will fade in from black, even if swipe is used
-    // if fade is used, it will always fade from black.
-    for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-      Segment &seg = strip.getSegment(i);
-      if (seg.isActive()) seg.colors[0] = BLACK;
-    }
   }
   else {
     // set color to warm welcoming orange (aka DEFAULT_COLOR) if no preset loaded (will fade to this color once turned on)
