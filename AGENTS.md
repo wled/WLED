@@ -163,7 +163,7 @@ Background Info:
 - Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
 - **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
 - **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
-- Consider RAII as an alternative to  mutexes or semaphores.
+- Consider using `std::atomic` or RAII scoped guards as alternatives to mutexes, semaphores or queues.
 
 ## Web UI Code Style (wled00/data/)
 
@@ -233,7 +233,7 @@ No automated linting is configured. Match existing code style in files you edit.
 
 ## General Rules
 
-- Repository language is English.
+- Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.

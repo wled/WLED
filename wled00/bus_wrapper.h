@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #ifndef BusWrapper_h
 #define BusWrapper_h
 
@@ -50,7 +50,7 @@
 #define I_8266_U1_UCS_4 26
 #define I_8266_DM_UCS_4 27
 #define I_8266_BB_UCS_4 28
-//FW1906 GRBCW
+//FW1906 GRBCCT
 #define I_8266_U0_FW6_5 29
 #define I_8266_U1_FW6_5 30
 #define I_8266_DM_FW6_5 31
@@ -60,7 +60,7 @@
 #define I_8266_U1_APA106_3 34
 #define I_8266_DM_APA106_3 35
 #define I_8266_BB_APA106_3 36
-//WS2805 (RGBCW)
+//WS2805 (RGBCCT)
 #define I_8266_U0_2805_5 37
 #define I_8266_U1_2805_5 38
 #define I_8266_DM_2805_5 39
@@ -70,7 +70,7 @@
 #define I_8266_U1_TM1914_3 42
 #define I_8266_DM_TM1914_3 43
 #define I_8266_BB_TM1914_3 44
-//SM16825 (RGBCW)
+//SM16825 (RGBCCT)
 #define I_8266_U0_SM16825_5 45
 #define I_8266_U1_SM16825_5 46
 #define I_8266_DM_SM16825_5 47
@@ -98,19 +98,19 @@
 //UCS8904 (RGBW)
 #define I_32_RN_UCS_4 25
 #define I_32_I2_UCS_4 26
-//FW1906 GRBCW
+//FW1906 GRBCCT 6 color channels
 #define I_32_RN_FW6_5 29
 #define I_32_I2_FW6_5 30
 //APA106
 #define I_32_RN_APA106_3 33
 #define I_32_I2_APA106_3 34
-//WS2805 (RGBCW)
+//WS2805 (RGBCCT)
 #define I_32_RN_2805_5 37
 #define I_32_I2_2805_5 38
 //TM1914 (RGB)
 #define I_32_RN_TM1914_3 41
 #define I_32_I2_TM1914_3 42
-//SM16825 (RGBCW)
+//SM16825 (RGBCCT)
 #define I_32_RN_SM16825_5 45
 #define I_32_I2_SM16825_5 46
 
@@ -180,12 +180,12 @@
 #define B_8266_U1_APA106_3 NeoPixelBus<NeoRbgFeature, NeoEsp8266Uart1Apa106Method> //3 chan, esp8266, gpio2
 #define B_8266_DM_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266DmaApa106Method>  //3 chan, esp8266, gpio3
 #define B_8266_BB_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp8266BitBangApa106Method> //3 chan, esp8266, bb (any pin but 16)
-//FW1906 GRBCW
+//FW1906 GRBCCT
 #define B_8266_U0_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart0Ws2813Method>   //esp8266, gpio1
 #define B_8266_U1_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Uart1Ws2813Method>   //esp8266, gpio2
 #define B_8266_DM_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266Dma800KbpsMethod>   //esp8266, gpio3
 #define B_8266_BB_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp8266BitBang800KbpsMethod>   //esp8266, bb
-//WS2805 GRBCW
+//WS2805 GRBCCT
 #define B_8266_U0_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart0Ws2805Method> //esp8266, gpio1
 #define B_8266_U1_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266Uart1Ws2805Method> //esp8266, gpio2
 #define B_8266_DM_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp8266DmaWs2805Method> //esp8266, gpio3
@@ -195,7 +195,7 @@
 #define B_8266_U1_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266Uart1Tm1914Method>
 #define B_8266_DM_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266DmaTm1914Method>
 #define B_8266_BB_TM1914_3 NeoPixelBus<NeoRgbTm1914Feature, NeoEsp8266BitBangTm1914Method>
-//Sm16825 (RGBWC)
+//Sm16825 (RGBCCT)
 #define B_8266_U0_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart0Ws2813Method>
 #define B_8266_U1_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Uart1Ws2813Method>
 #define B_8266_DM_SM16825_5 NeoPixelBus<NeoRgbwcSm16825eFeature, NeoEsp8266Dma800KbpsMethod>
@@ -285,11 +285,11 @@
 #define B_32_RN_APA106_3 NeoPixelBus<NeoGrbFeature, NeoEsp32RmtMethod(Apa106)>
 #define B_32_I2_APA106_3 NeoPixelBus<NeoGrbFeature, X1Apa106Method>
 #define B_32_IP_APA106_3 NeoPixelBus<NeoGrbFeature, X8Apa106Method> // parallel I2S
-//FW1906 GRBCW
+//FW1906 GRBCCT 6 color channels
 #define B_32_RN_FW6_5 NeoPixelBus<NeoGrbcwxFeature, NeoEsp32RmtMethod(Ws2812x)>
 #define B_32_I2_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X1800KbpsMethod>
 #define B_32_IP_FW6_5 NeoPixelBus<NeoGrbcwxFeature, X8800KbpsMethod> // parallel I2S
-//WS2805 RGBWC
+//WS2805 RGBCCT
 #define B_32_RN_2805_5 NeoPixelBus<NeoGrbwwFeature, NeoEsp32RmtMethod(Ws2805)>
 #define B_32_I2_2805_5 NeoPixelBus<NeoGrbwwFeature, X1Ws2805Method>
 #define B_32_IP_2805_5 NeoPixelBus<NeoGrbwwFeature, X8Ws2805Method> // parallel I2S
@@ -297,7 +297,7 @@
 #define B_32_RN_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, NeoEsp32RmtMethod(Tm1914)>
 #define B_32_I2_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X1Tm1914Method>
 #define B_32_IP_TM1914_3 NeoPixelBus<NeoGrbTm1914Feature, X8Tm1914Method> // parallel I2S
-//Sm16825 (RGBWC)
+//Sm16825 (RGBCCT)
 #define B_32_RN_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, NeoEsp32RmtMethod(Ws2812x)>
 #define B_32_I2_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X1Ws2812xMethod>
 #define B_32_IP_SM16825_5 NeoPixelBus<NeoRgbcwSm16825eFeature, X8Ws2812xMethod> // parallel I2S
@@ -358,6 +358,7 @@ class PolyBus {
     #ifdef ESP8266
     dotStar_strip->Begin();
     #else
+    if (miso == -1) miso = 127; // note: in arduino core, -1 means "default" not "none", passing 127 as the MISO pin is a workaround to prevent SPI.begin() assign the default pin, see #5670
     if (sck == -1 && mosi == -1) dotStar_strip->Begin();
     else                         dotStar_strip->Begin(sck, miso, mosi, ss);
     #endif
@@ -1315,7 +1316,6 @@ class PolyBus {
       if (offset > 3) offset = 3;
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
           t = I_8266_U0_NEO_3 + offset; break;
@@ -1358,7 +1358,6 @@ class PolyBus {
       // Now determine actual bus type with the chosen offset
       switch (busType) {
         case TYPE_WS2812_1CH_X3:
-        case TYPE_WS2812_2CH_X3:
         case TYPE_WS2812_RGB:
         case TYPE_WS2812_WWA:
           t = I_32_RN_NEO_3 + offset; break;
