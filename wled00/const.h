@@ -481,6 +481,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_SYS_BROWNOUT  91  // reboot after brownout alert
 #define ERR_PERSISTENT_THRESHOLD 100 // (WLEDMM compatibility) errors below this value are non-persistent; persistent errors stay in the UI until restart
 // ERR_PERSISTENT_THRESHOLD is a threshold value only - never assign directly to errorFlag
+// Reserved threshold for WLEDMM-compatible persistent error handling.
+// Current runtime behavior still clears errorFlag after serialization.
 #define ERR_REBOOT_NEEDED 100 // reboot needed after changing hardware setting
 #define ERR_POWEROFF_NEEDED 101 // power-cycle needed after changing hardware setting
 
