@@ -1134,6 +1134,9 @@ void BusHub75Matrix::cleanup() {
   if (display != nullptr) delete display;
   display = nullptr;
   virtualDisp = nullptr; // note: when not using "NO_GFX" this causes a memory leak
+  #if defined(CONFIG_IDF_TARGET_ESP32S3)  // runtime reconfiguration is not working on -S3
+    errorFlag = ERR_REBOOT_NEEDED;
+  #endif
   #endif
   if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
   if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
