@@ -1596,7 +1596,7 @@ function readState(s,command=false)
 				errstr = "Please switch your device off and back on.";
 		  break;
 		}
-		showToast('Error ' + s.error + ": " + errstr, true);
+		showToast((s.error<100) ? 'Error ': 'Note ' + s.error + ": " + errstr, true);  // show "please restart" as a note, all others as errors
 	}
 
 	selectedPal = i.pal;
