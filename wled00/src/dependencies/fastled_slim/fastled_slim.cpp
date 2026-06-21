@@ -102,7 +102,7 @@ __attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint
     rgbdata[0] = b;
     rgbdata[1] = g;
     rgbdata[2] = r;
-    rgbdata[3] = 0; // white
+    //rgbdata[3] = 0; // white
   } else {
     rgbdata[0] = r;
     rgbdata[1] = g;
