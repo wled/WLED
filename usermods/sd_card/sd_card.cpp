@@ -56,7 +56,6 @@ class UsermodSdCard : public Usermod {
     int8_t configPinSourceClock = UM_SD_CLOCK;
     int8_t configPinPoci = UM_SD_POCI;
     int8_t configPinPico = UM_SD_PICO;
-  #endif
 
       //acquired and initialize the SPI port
       void init_SD_SPI()
