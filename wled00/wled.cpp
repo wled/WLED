@@ -630,6 +630,7 @@ void WLED::beginStrip()
     bri = briS; // load startup brightness (set in UI), 0 is not allowed in UI
   }
   else briLast = briS; // go to startup brightness (set in UI) when turning on (can be overruled by a preset)
+  colorUpdated(CALL_MODE_INIT); // set bootup brightness immediately, do not send notification (brightness is also set for preset if used, useful for swipe etc.)
 
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
@@ -641,8 +642,8 @@ void WLED::beginStrip()
     colPri[2] = colPri[3] = 0;
   }
 
-  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition, brightness is set immediately
   strip.setTransition(transitionDelayDefault);  // restore default transition time
+  colorUpdated(CALL_MODE_INIT); // apply color & initiate transition, do not send notification
 }
 
 void WLED::initAP(bool resetAP)

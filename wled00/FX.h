@@ -562,7 +562,7 @@ class Segment {
   public:
 
     Segment(uint16_t sStart=0, uint16_t sStop=30, uint16_t sStartY = 0, uint16_t sStopY = 1)
-    : colors{DEFAULT_COLOR,BLACK,BLACK} // create "warm orange" segment by default
+    : colors{BLACK,BLACK,BLACK} // set colors to black, will be updated to orange if segment is created as "auto segment" or from UI
     , start(sStart)
     , stop(sStop > sStart ? sStop : sStart+1) // minimum length is 1
     , startY(sStartY)
@@ -596,12 +596,6 @@ class Segment {
     , _t(nullptr)
     {
       DEBUGFX_PRINTF_P(PSTR("-- Creating segment: %p [%d,%d:%d,%d]\n"), this, (int)start, (int)stop, (int)startY, (int)stopY);
-      uint32_t bootupTime = 2000; // 2s should be more than enough to init bootup-segments to black
-      #ifdef WLED_BOOTUPDELAY
-      bootupTime += WLED_BOOTUPDELAY;
-      #endif
-      if (millis() < bootupTime)
-        colors[0] = BLACK; // at bootup create black segments so boot-up fade-in does not turn to orange for presets
       // allocate render buffer (always entire segment), prefer PSRAM if DRAM is running low. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM)
       pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
       if (!pixels) {
