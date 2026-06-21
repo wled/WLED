@@ -2116,6 +2116,7 @@ bool WS2812FX::deserializeMap(unsigned n) {
         int index = atoi(number);
         if (index < 0 || index > 65535) index = 0xFFFF; // prevent integer wrap around
         customMappingTable[customMappingSize++] = index;
+        if (end != nullptr) break; // array closing ']' was in this chunk; stop before atoi() coerces trailing JSON keys into bogus entries
         if (customMappingSize >= getLengthTotal()) break;
       } else break; // there was nothing to read, stop
     }
