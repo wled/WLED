@@ -8,6 +8,7 @@
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+  #include "rom/rtc.h"      // for rtc_get_reset_reason()
   #include "esp32/rtc.h"    // for bootloop detection
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
