@@ -34,6 +34,7 @@
       // FSPI (SPI2) is the global SPI used by dotstar/2-pin LED drivers; use HSPI (SPI3) for SD
       SPIClass spiPort = SPIClass(HSPI);
   #elif defined(WLED_USE_ETHERNET)
+  #warning "SD card may have conflicts with ethernet."
       // Ethernet builds: dotstar uses HSPI (SPI2), so SD uses VSPI (SPI3)
       SPIClass spiPort = SPIClass(VSPI);
   #else
