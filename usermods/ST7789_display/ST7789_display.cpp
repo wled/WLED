@@ -225,7 +225,7 @@ class St7789DisplayUsermod : public Usermod {
         #else
             knownSsid = WiFi.SSID();
         #endif
-        knownIp = apActive ? IPAddress(4, 3, 2, 1) : WiFi.localIP();
+        knownIp = apActive ? IPAddress(4, 3, 2, 1) : WLEDNetwork.localIP();
         knownBrightness = bri;
         knownMode = strip.getMainSegment().mode;
         knownPalette = strip.getMainSegment().palette;

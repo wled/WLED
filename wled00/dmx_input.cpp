@@ -24,7 +24,7 @@ void rdmPersonalityChangedCb(dmx_port_t dmxPort, rdm_header_t *request_header,
     const uint8_t personality = dmx_get_current_personality(dmx->inputPortNum);
     DMXMode = std::min(DMX_MODE_PRESET, std::max(DMX_MODE_SINGLE_RGB, int(personality)));
     configNeedsWrite = true;
-    DEBUG_PRINTF("DMX personality changed to to: %d\n", DMXMode);
+    DEBUG_PRINTF("DMX personality changed to: %d\n", DMXMode);
   }
 }
 
