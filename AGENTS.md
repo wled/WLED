@@ -134,8 +134,8 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 Background Info:
 
-- PSRAM access is up to 18× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
-- Consider that ESP32 often crashes when the largest DRAM chunk gets below 10 KB.
+- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
 - Feature toggling: `WLED_DISABLE_*` and `WLED_ENABLE_*` flags (exact names matter!)
