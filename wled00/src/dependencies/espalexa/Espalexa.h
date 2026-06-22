@@ -1,4 +1,4 @@
-﻿#ifndef Espalexa_h
+#ifndef Espalexa_h
 #define Espalexa_h
 
 /*
