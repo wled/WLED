@@ -179,7 +179,7 @@ struct CRGBW {
   // Assignment from CHSV
   inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); return *this; }
 
-  // Assignment from r, g, b, w
+  // Assignment from CRGB
   inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
 
   // Conversion operator to uint32_t

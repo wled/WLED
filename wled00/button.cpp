@@ -230,7 +230,7 @@ void handleAnalog(uint8_t b)
       effectPalette = constrain(effectPalette, 0, getPaletteCount()-1);  // map is allowed to "overshoot", so we need to contrain the result
     } else if (buttons[b].macroDoublePress == 200) {
       // primary color, hue, full saturation
-      colorHStoRGB(aRead*256, 255, colPri);
+      colorHStoRGB(aRead*256, 255, colPri); // TODO: colPri.raw has different color order than the expected rgb pointer
     } else {
       // otherwise use "double press" for segment selection
       Segment& seg = strip.getSegment(buttons[b].macroDoublePress);

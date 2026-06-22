@@ -23,7 +23,7 @@ void XML_response(Print& dest)
   dest.printf_P(PSTR("<ns>%d</ns><nr>%d</nr><nl>%d</nl><nf>%d</nf><nd>%d</nd><nt>%d</nt><fx>%d</fx><sx>%d</sx><ix>%d</ix><fp>%d</fp><wv>%d</wv><ws>%d</ws><ps>%d</ps><cy>%d</cy><ds>%s%s</ds><ss>%d</ss></vs>"),
     notifyDirect, receiveGroups!=0, nightlightActive, nightlightMode > NL_MODE_SET, nightlightDelayMins,
     nightlightTargetBri, effectCurrent, effectSpeed, effectIntensity, effectPalette,
-    strip.hasWhiteChannel() ? colPri[3] : -1, colSec[3], currentPreset, currentPlaylist >= 0,
+    strip.hasWhiteChannel() ? colPri.w : -1, colSec.w, currentPreset, currentPlaylist >= 0,
     serverDescription, realtimeMode ? PSTR(" (live)") : "",
     strip.getFirstSelectedSegId()
   );
