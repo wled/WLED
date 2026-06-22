@@ -131,7 +131,7 @@ class PWMFanUsermod : public Usermod {
       }
       // configure LED PWM functionalitites - ESP-IDF 5.x API
       #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-      ledcAttach(pwmPin, 25000, 8);  // New API: ledcAttach(pin, freq, resolution)
+      ledcAttachChannel(pwmPin, 25000, 8, pwmChannel);  // New API: ledcAttach(pin, freq, resolution, channel); keep PinManager channel ownership consistent
       #else
       ledcSetup(pwmChannel, 25000, 8);
       ledcAttachPin(pwmPin, pwmChannel);
