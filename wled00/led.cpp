@@ -232,9 +232,9 @@ void handleNightlight() {
         for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
       }
       uint16_t transitionduration = strip.getTransition();
-      strip.setTransition(0); // temporary disable transition and set color & brightness directly, (fix for #5620)
+      strip.setTransition(0); // temporary disable transition and set color & brightness directly, (hacky fix for #5620)
       colorUpdated(CALL_MODE_NO_NOTIFY);
-      strip.setTransition(transitionduration); // restore transition time to previous value. Note: this is a dirty hack and needs proper fix by disabling transitions completely in nightlight mode
+      strip.setTransition(transitionduration); // restore transition time to previous value. Note: this needs proper fixing by disabling transitions completely in nightlight mode
     }
     if (nper >= 1) //nightlight duration over
     {
