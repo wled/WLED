@@ -234,7 +234,7 @@ void handleNightlight() {
       uint16_t transitionduration = strip.getTransition();
       strip.setTransition(0); // temporary disable transition and set color & brightness directly, (hacky fix for #5620)
       colorUpdated(CALL_MODE_NO_NOTIFY);
-      strip.setTransition(transitionduration); // restore transition time to previous value. Note: this needs proper fixing by disabling transitions completely in nightlight mode
+      strip.setTransition(transitionduration); // restore transition time to previous value. Note: this needs proper fixing by disabling transitions completely in nightlight mode, reference implementation https://github.com/blazoncek/WLED/commit/c01a6b774969b652c30e383073958302042fd1f9
     }
     if (nper >= 1) //nightlight duration over
     {
