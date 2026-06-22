@@ -485,6 +485,14 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     }
     strip.resume();
   }
+  // reset segment request
+  if (root[F("rSeg")] | false) {
+    strip.suspend();
+    strip.waitForIt();
+    strip.makeAutoSegments(true);  // respects autoSegments flag
+    strip.resume();
+    stateChanged = true;
+  }
 
   UsermodManager::readFromJsonState(root);
 
