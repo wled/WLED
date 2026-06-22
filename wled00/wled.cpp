@@ -498,8 +498,8 @@ void WLED::setup()
     #else
       esp_read_mac(mac, ESP_MAC_WIFI_STA);
     #endif
-    char buf[13];
-    sprintf(buf, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    char buf[14] = {'\0'};
+    snprintf(buf, sizeof(buf)-1, "%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     escapedMac = buf;
   }
 #endif
