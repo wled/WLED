@@ -637,9 +637,10 @@ void WLED::beginStrip()
   }
   else {
     // set color to warm welcoming orange (aka DEFAULT_COLOR) if no preset loaded (will fade to this color once turned on)
-    colPri[0] = 255;
-    colPri[1] = 160;
-    colPri[2] = colPri[3] = 0;
+    colPri[0] = R(DEFAULT_COLOR);
+    colPri[1] = G(DEFAULT_COLOR);
+    colPri[2] = B(DEFAULT_COLOR);
+    colPri[3] = W(DEFAULT_COLOR);
   }
 
   strip.setTransition(transitionDelayDefault);  // restore default transition time
