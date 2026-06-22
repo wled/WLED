@@ -135,6 +135,9 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 #ifdef WLED_USE_ETHERNET
   JsonObject ethernet = doc[F("eth")];
   CJSON(ethernetType, ethernet["type"]);
+  #if defined(WLED_ETHERNET_ONLY_BUILD) && defined(WLED_ETH_DEFAULT)
+  if (ethernetType == WLED_ETH_NONE) ethernetType = WLED_ETH_DEFAULT;
+  #endif
   // NOTE: Ethernet configuration takes priority over other use of pins
   initEthernet();
 #endif
@@ -922,18 +925,8 @@ void serializeConfig(JsonObject root) {
     if (ethernetBoards[ethernetType].eth_power>=0)     pins.add(ethernetBoards[ethernetType].eth_power);
     if (ethernetBoards[ethernetType].eth_mdc>=0)       pins.add(ethernetBoards[ethernetType].eth_mdc);
     if (ethernetBoards[ethernetType].eth_mdio>=0)      pins.add(ethernetBoards[ethernetType].eth_mdio);
-    switch (ethernetBoards[ethernetType].eth_clk_mode) {
-      case ETH_CLOCK_GPIO0_IN:
-      case ETH_CLOCK_GPIO0_OUT:
-        pins.add(0);
-        break;
-      case ETH_CLOCK_GPIO16_OUT:
-        pins.add(16);
-        break;
-      case ETH_CLOCK_GPIO17_OUT:
-        pins.add(17);
-        break;
-    }
+    managed_pin_type clockPin = ethernetClockPin(ethernetBoards[ethernetType]);
+    if (clockPin.pin >= 0) pins.add(clockPin.pin);
   }
 #endif
 

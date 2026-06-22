@@ -14,6 +14,11 @@
 #endif
 #include "mbedtls/sha1.h"   // for SHA1 on ESP32
 #include "esp_efuse.h"
+#include "esp_chip_info.h"
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #include "SHA1Builder.h"
+  #include <esp_mac.h>      // V5 requirement
+#endif
 #endif
 
 
@@ -763,17 +768,17 @@ int32_t hw_random(int32_t lowerlimit, int32_t upperlimit) {
 
 // PSRAM compile time checks to provide info for misconfigured env
 #if defined(BOARD_HAS_PSRAM)
-  #if defined(IDF_TARGET_ESP32C3) || defined(ESP8266)
+#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(ESP8266)
     #error "ESP32-C3 and ESP8266 with PSRAM is not supported, please remove BOARD_HAS_PSRAM definition"
   #else
-  #if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) // PSRAM fix only needed for classic esp32
+  #if defined(ARDUINO_ARCH_ESP32) && defined(CONFIG_IDF_TARGET_ESP32) // PSRAM fix only needed for classic esp32
     // BOARD_HAS_PSRAM also means that compiler flag "-mfix-esp32-psram-cache-issue" has to be used for old "rev.1" esp32
     #warning "BOARD_HAS_PSRAM defined, make sure to use -mfix-esp32-psram-cache-issue to prevent issues on rev.1 ESP32 boards \
               see https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/external-ram.html#esp32-rev-v1-0"
   #endif
   #endif
 #else
-  #if !defined(IDF_TARGET_ESP32C3) && !defined(ESP8266)
+  #if !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(ESP8266)
     #pragma message("BOARD_HAS_PSRAM not defined, not using PSRAM.")
   #endif
 #endif
@@ -830,7 +835,7 @@ static void *validateFreeHeap(void *buffer) {
 
 void *d_malloc(size_t size) {
   void *buffer = nullptr;
-  #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+  #if defined(WLED_HAVE_RTC_MEMORY_HEAP)
   // the newer ESP32 variants have byte-accessible fast RTC memory that can be used as heap, access speed is on-par with DRAM
   // the system does prefer normal DRAM until full, since free RTC memory is ~7.5k only, its below the minimum heap threshold and needs to be allocated explicitly
   // use RTC RAM for small allocations or if DRAM is running low to improve fragmentation
@@ -920,7 +925,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
       buffer = p_malloc(size); // prefer PSRAM
   }
   else if (type & BFRALLOC_ENFORCE_PSRAM)
-    buffer = p_malloc(size); // use PSRAM if available, fall back to DRAM if not (safeguard for boards without PSRAM #5629)
+    buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
   buffer = validateFreeHeap(buffer);
   #endif
   if (buffer && (type & BFRALLOC_CLEAR))
@@ -1268,6 +1273,8 @@ uint8_t perlin8(uint16_t x, uint16_t y, uint16_t z) {
   return (((perlin3D_raw((uint32_t)x << 8, (uint32_t)y << 8, (uint32_t)z << 8, true) * 2015) >> 10) + 33168) >> 8; //scale to 16 bit, offset, then scale to 8bit
 }
 
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0))    // ToDO: validate behaviour in V5
+
 // Platform-agnostic SHA1 computation from String input
 String computeSHA1(const String& input) {
   #ifdef ESP8266
@@ -1277,11 +1284,19 @@ String computeSHA1(const String& input) {
     unsigned char shaResult[20]; // SHA1 produces 20 bytes
     mbedtls_sha1_context ctx;
 
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     mbedtls_sha1_init(&ctx);
     mbedtls_sha1_starts_ret(&ctx);
     mbedtls_sha1_update_ret(&ctx, (const unsigned char*)input.c_str(), input.length());
     mbedtls_sha1_finish_ret(&ctx, shaResult);
     mbedtls_sha1_free(&ctx);
+#else
+    mbedtls_sha1_init(&ctx);
+    mbedtls_sha1_starts(&ctx);
+    mbedtls_sha1_update(&ctx, (const unsigned char*)input.c_str(), input.length());
+    mbedtls_sha1_finish(&ctx, shaResult);
+    mbedtls_sha1_free(&ctx);
+#endif
 
     // Convert to hexadecimal string
     char hexString[41];
@@ -1295,9 +1310,12 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+#include "esp_adc_cal.h"       //  deprecated API
+//#include "esp_adc/adc_cali.h"        // new API
+//#include "esp_adc/adc_cali_scheme.h" // new API
+#else
 #include "esp_adc_cal.h"
-#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
-  #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
 #endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
@@ -1305,10 +1323,16 @@ String generateDeviceFingerprint() {
   esp_chip_info(&chip_info);
   esp_efuse_mac_get_default((uint8_t*)fp);
   fp[1] ^= ESP.getFlashChipSize();
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
   fp[0] ^= chip_info.full_revision | (chip_info.model << 16);
-  // mix in ADC calibration data:
+#else
+  fp[0] ^= chip_info.revision | (chip_info.model << 16);
+#endif
+
+#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
+  // mix in ADC calibration data - legacy adc calibration API is not supported on new MCUs (-C6, -C61, -P4)
   esp_adc_cal_characteristics_t ch;
-  #if SOC_ADC_MAX_BITWIDTH == 13 // S2 has 13 bit ADC
+  #if (SOC_ADC_MAX_BITWIDTH == 13) || (CONFIG_SOC_ADC_RTC_MAX_BITWIDTH == 13) // S2 has 13 bit ADC
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_13;
   #else
   constexpr auto myBIT_WIDTH = ADC_WIDTH_BIT_12;
@@ -1326,6 +1350,11 @@ String generateDeviceFingerprint() {
       fp[1] ^= ch.high_curve[i];
     }
   }
+#else
+  // some extra salt, instead of ADC calibration
+  fp[0] ^= chip_info.features | chip_info.cores << 16;
+  fp[1] ^= ESP.getFlashSourceFrequencyMHz() | ESP.getFlashClockDivider() << 8 ;
+#endif
   char fp_string[17];  // 16 hex chars + null terminator
   sprintf(fp_string, "%08X%08X", fp[1], fp[0]);
   return String(fp_string);
@@ -1363,4 +1392,4 @@ String getDeviceId() {
 
   return cachedDeviceId;
 }
-
+#endif // V5/V6 workaround

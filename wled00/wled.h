@@ -75,6 +75,18 @@
 
 // Library inclusions.
 #include <Arduino.h>
+
+// buildenv sanity check
+#if !defined(ESP32) && !defined(ESP8266)
+#error neither ESP32 nor ESP8266 defined. Please fix your build environment.
+#endif
+#if defined(ESP8266) && (defined(ARDUINO_ARCH_ESP32) || defined(ESP32))
+#error both ESP8266 and ESP32/ARDUINO_ARCH_ESP32 defined. Please fix your build environment.
+#endif
+#if (defined(ARDUINO_ARCH_ESP32) && !defined(ESP32)) || (defined(ESP32) && !defined(ARDUINO_ARCH_ESP32))
+#error either ESP32 or ARDUINO_ARCH_ESP32 not defined. Please fix your build environment.
+#endif
+
 #ifdef ESP8266
   #include <ESP8266WiFi.h>
   #ifdef WLED_ENABLE_WPA_ENTERPRISE
@@ -124,6 +136,8 @@
   #include "my_config.h"
 #endif
 
+#include "wled_boards.h"  // pull in board-specific capability defines
+
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
 #include <DNSServer.h>
@@ -142,7 +156,9 @@
 #endif
 
 #ifdef WLED_ENABLE_DMX
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+ #if defined(CONFIG_IDF_TARGET_ESP32P4)
+  #error "DMX output is not supported on ESP32-P4 (esp_dmx library excluded)"
+ #elif defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3)|| defined(CONFIG_IDF_TARGET_ESP32S2)
   #include "src/dependencies/dmx/ESPDMX.h"
  #else //ESP32
   #include "src/dependencies/dmx/SparkFunDMX.h"
@@ -315,7 +331,9 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
   #define IRTYPE 0
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || (defined(RX) && defined(TX))
+// RX and TX: use "default" pins for 8266 and classic esp32
+// except when arduino-esp32 has explicitly defined RX and TX (some arduino variants don't define RX and TX)
+#if defined(ARDUINO_ARCH_ESP32) && (!defined(CONFIG_IDF_TARGET_ESP32) || (defined(RX) && defined(TX)))
   // use RX/TX as set by the framework - these boards do _not_ have RX=3 and TX=1
   constexpr uint8_t hardwareRX = RX;
   constexpr uint8_t hardwareTX = TX;
@@ -375,14 +393,18 @@ WLED_GLOBAL bool noWifiSleep _INIT(false);
   #endif
 WLED_GLOBAL bool force802_3g _INIT(false);
 #endif // WLED_SAVE_RAM
-#ifdef ARDUINO_ARCH_ESP32
-  #if defined(LOLIN_WIFI_FIX) && (defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3))
+#if defined(ARDUINO_ARCH_ESP32)
+  #if defined(LOLIN_WIFI_FIX) // extend this fix to all esp32 boards
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_8_5dBm);
   #else
 WLED_GLOBAL uint8_t txPower _INIT(WIFI_POWER_19_5dBm);
   #endif
 #endif
 #define WLED_WIFI_CONFIGURED isWiFiConfigured()
+
+#if defined(WLED_USE_ETHERNET) && defined(WLED_ETHERNET_ONLY)
+  #define WLED_ETHERNET_ONLY_BUILD
+#endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
   #ifdef WLED_ETH_DEFAULT                                          // default ethernet board type if specified
@@ -454,7 +476,9 @@ WLED_GLOBAL bool arlsDisableGammaCorrection _INIT(true);          // activate if
 WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to force max brightness if source has very dark colors that would be black
 
 #ifdef WLED_ENABLE_DMX
- #if defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
+ #if defined(CONFIG_IDF_TARGET_ESP32P4)
+  #error "DMX output is not supported on ESP32-P4 (esp_dmx library excluded)"
+ #elif defined(ESP8266) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S2)
   WLED_GLOBAL DMXESPSerial dmx;
  #else //ESP32
   WLED_GLOBAL SparkFunDMX dmx;

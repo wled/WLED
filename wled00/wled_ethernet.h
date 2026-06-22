@@ -30,6 +30,8 @@ extern const ethernet_settings ethernetBoards[];
 
 #define WLED_ETH_RSVD_PINS_COUNT 6
 extern const managed_pin_type esp32_nonconfigurable_ethernet_pins[WLED_ETH_RSVD_PINS_COUNT];
+
+managed_pin_type ethernetClockPin(const ethernet_settings& settings);
 #endif
 
 #endif

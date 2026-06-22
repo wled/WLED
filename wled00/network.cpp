@@ -4,16 +4,40 @@
 
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
-// The following six pins are neither configurable nor
-// can they be re-assigned through IOMUX / GPIO matrix.
-// See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
+#if defined(CONFIG_IDF_TARGET_ESP32P4)
+#define WLED_ETH_CLOCK_EXT_IN EMAC_CLK_EXT_IN
+#define WLED_ETH_CLOCK_OUT    EMAC_CLK_OUT
+#define WLED_ETH_CLOCK_GPIO0_IN    WLED_ETH_CLOCK_EXT_IN
+#define WLED_ETH_CLOCK_GPIO0_OUT   WLED_ETH_CLOCK_OUT
+#define WLED_ETH_CLOCK_GPIO16_OUT  WLED_ETH_CLOCK_OUT
+#define WLED_ETH_CLOCK_GPIO17_OUT  WLED_ETH_CLOCK_OUT
+#else
+#define WLED_ETH_CLOCK_EXT_IN   ETH_CLOCK_GPIO0_IN
+#define WLED_ETH_CLOCK_OUT      ETH_CLOCK_GPIO0_OUT
+#define WLED_ETH_CLOCK_GPIO0_IN    ETH_CLOCK_GPIO0_IN
+#define WLED_ETH_CLOCK_GPIO0_OUT   ETH_CLOCK_GPIO0_OUT
+#define WLED_ETH_CLOCK_GPIO16_OUT  ETH_CLOCK_GPIO16_OUT
+#define WLED_ETH_CLOCK_GPIO17_OUT  ETH_CLOCK_GPIO17_OUT
+#endif
+
+// The following six pins are neither configurable nor can they be re-assigned.
 const managed_pin_type esp32_nonconfigurable_ethernet_pins[WLED_ETH_RSVD_PINS_COUNT] = {
+#if defined(CONFIG_IDF_TARGET_ESP32P4)
+    { ETH_RMII_TX_EN,  true  }, // RMII EMAC TX EN  == When high, clocks the data on TXD0 and TXD1 to transmitter
+    { ETH_RMII_TX0,    true  }, // RMII EMAC TXD0   == First bit of transmitted data
+    { ETH_RMII_TX1,    true  }, // RMII EMAC TXD1   == Second bit of transmitted data
+    { ETH_RMII_RX0,    false }, // RMII EMAC RXD0   == First bit of received data
+    { ETH_RMII_RX1_EN, false }, // RMII EMAC RXD1   == Second bit of received data
+    { ETH_RMII_CRS_DV, false }, // RMII EMAC CRS_DV == Carrier Sense and RX Data Valid
+#else
+    // See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
     { 21, true  }, // RMII EMAC TX EN  == When high, clocks the data on TXD0 and TXD1 to transmitter
     { 19, true  }, // RMII EMAC TXD0   == First bit of transmitted data
     { 22, true  }, // RMII EMAC TXD1   == Second bit of transmitted data
     { 25, false }, // RMII EMAC RXD0   == First bit of received data
     { 26, false }, // RMII EMAC RXD1   == Second bit of received data
     { 27, true  }, // RMII EMAC CRS_DV == Carrier Sense and RX Data Valid
+#endif
 };
 
 const ethernet_settings ethernetBoards[] = {
@@ -32,7 +56,7 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO0_IN    // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN    // eth_clk_mode
   },
 
   // ESP32-POE
@@ -42,7 +66,7 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
    // WESP32
@@ -52,7 +76,7 @@ const ethernet_settings ethernetBoards[] = {
     16,			              // eth_mdc,
     17,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO0_IN	  // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN	  // eth_clk_mode
   },
 
   // QuinLed-ESP32-Ethernet
@@ -62,7 +86,7 @@ const ethernet_settings ethernetBoards[] = {
     23,			              // eth_mdc,
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
   },
 
   // TwilightLord-ESP32 Ethernet Shield
@@ -72,7 +96,7 @@ const ethernet_settings ethernetBoards[] = {
     23,			              // eth_mdc,
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
   },
 
   // ESP3DEUXQuattro
@@ -82,17 +106,17 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
   // ESP32-ETHERNET-KIT-VE
   {
-    1,                    // eth_address,
+    0,                    // eth_address,
     5,                    // eth_power,
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_IP101,        // eth_type,
-    ETH_CLOCK_GPIO0_IN    // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN    // eth_clk_mode
   },
 
   // QuinLed-Dig-Octa Brainboard-32-8L and LilyGO-T-ETH-POE
@@ -102,7 +126,7 @@ const ethernet_settings ethernetBoards[] = {
     23,			              // eth_mdc,
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
   },
 
   // ABC! WLED Controller V43 + Ethernet Shield & compatible
@@ -112,7 +136,7 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc, 
     33,                   // eth_mdio, 
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT	// eth_clk_mode
   },
 
   // Serg74-ESP32 Ethernet Shield
@@ -122,7 +146,7 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO17_OUT  // eth_clk_mode
   },
 
   // ESP32-POE-WROVER
@@ -132,7 +156,7 @@ const ethernet_settings ethernetBoards[] = {
     23,                   // eth_mdc,
     18,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO0_OUT   // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_OUT   // eth_clk_mode
   },
   
   // LILYGO T-POE Pro
@@ -143,19 +167,19 @@ const ethernet_settings ethernetBoards[] = {
     23,			              // eth_mdc,
     18,			              // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_OUT	// eth_clk_mode
   },
 
  // Gledopto Series With Ethernet
  {
-    1,                    // eth_address, 
-    5,                    // eth_power, 
-    23,                   // eth_mdc, 
-    33,                   // eth_mdio, 
+    1,                    // eth_address,
+    5,                    // eth_power,
+    23,                   // eth_mdc,
+    33,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
-    ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
   },
- 
+
  // WLED_ETH_QUINLED_V4 (14) - QuinLED Dig-Uno/Quad v4
   {
     0,                   // eth_address
@@ -163,9 +187,9 @@ const ethernet_settings ethernetBoards[] = {
     7,                   // eth_mdc
     8,                   // eth_mdio
     ETH_PHY_LAN8720,     // eth_type
-    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN   // eth_clk_mode
   },
- 
+
  // WLED_ETH_QUINLED_OCTA_V4 (15) - QuinLED Dig-Octa 32-8L v4
   {
     0,                   // eth_address
@@ -173,7 +197,17 @@ const ethernet_settings ethernetBoards[] = {
     23,                  // eth_mdc
     18,                  // eth_mdio
     ETH_PHY_LAN8720,     // eth_type
-    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+    WLED_ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
+
+  // Waveshare ESP32-P4-ETH / ESP32-P4-POE-ETH
+  {
+    1,                     // eth_address,
+    51,                    // eth_power,
+    31,                    // eth_mdc,
+    52,                    // eth_mdio,
+    ETH_PHY_IP101,         // eth_type,
+    WLED_ETH_CLOCK_EXT_IN  // eth_clk_mode
   },
 };
 
@@ -182,6 +216,21 @@ static_assert((sizeof(ethernetBoards)/sizeof(ethernetBoards[0])) == WLED_NUM_ETH
 #ifdef WLED_ETH_DEFAULT
   static_assert(((WLED_ETH_DEFAULT) >= WLED_ETH_NONE) && ((WLED_ETH_DEFAULT) < WLED_NUM_ETH_TYPES), "WLED_ETH_DEFAULT is out of range.");
 #endif
+
+managed_pin_type ethernetClockPin(const ethernet_settings& settings)
+{
+#if defined(CONFIG_IDF_TARGET_ESP32P4)
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_EXT_IN) return { ETH_RMII_CLK, false };
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_OUT)    return { ETH_RMII_CLK, true  };
+#else
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_GPIO0_IN)   return { 0,  false };
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_GPIO0_OUT)  return { 0,  true  };
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_GPIO16_OUT) return { 16, true  };
+  if (settings.eth_clk_mode == WLED_ETH_CLOCK_GPIO17_OUT) return { 17, true  };
+#endif
+
+  return { -1, false };
+}
 
 bool initEthernet()
 {
@@ -217,19 +266,8 @@ bool initEthernet()
     { ((int8_t)0xFE),       false }, // [9] = replaced with eth_clk_mode, mandatory
   };
   // update the clock pin....
-  if (es.eth_clk_mode == ETH_CLOCK_GPIO0_IN) {
-    pinsToAllocate[9].pin = 0;
-    pinsToAllocate[9].isOutput = false;
-  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO0_OUT) {
-    pinsToAllocate[9].pin = 0;
-    pinsToAllocate[9].isOutput = true;
-  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO16_OUT) {
-    pinsToAllocate[9].pin = 16;
-    pinsToAllocate[9].isOutput = true;
-  } else if (es.eth_clk_mode == ETH_CLOCK_GPIO17_OUT) {
-    pinsToAllocate[9].pin = 17;
-    pinsToAllocate[9].isOutput = true;
-  } else {
+  pinsToAllocate[9] = ethernetClockPin(es);
+  if (pinsToAllocate[9].pin < 0) {
     DEBUG_PRINTF_P(PSTR("initE: Failing due to invalid eth_clk_mode (%d)\n"), es.eth_clk_mode);
     return false;
   }
@@ -257,6 +295,16 @@ bool initEthernet()
   }
   #endif
 
+#if defined(ESP_IDF_VERSION) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+  if (!ETH.begin(    // parameter order in V5 has changed
+                (eth_phy_type_t)   es.eth_type,
+                (int32_t) es.eth_address,
+                (int)     es.eth_mdc,
+                (int)     es.eth_mdio,
+                (int)     es.eth_power,
+                (eth_clock_mode_t) es.eth_clk_mode
+                )) {
+#else
   if (!ETH.begin(
                 (uint8_t) es.eth_address,
                 (int)     es.eth_power,
@@ -265,6 +313,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
+#endif
     DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
@@ -274,7 +323,7 @@ bool initEthernet()
   }
 
   // https://github.com/wled/WLED/issues/5247
-  if (multiWiFi[0].staticIP != (uint32_t)0x00000000 && multiWiFi[0].staticGW != (uint32_t)0x00000000) {
+  if (multiWiFi[0].staticIP != IPAddress((uint32_t)0) && multiWiFi[0].staticGW != IPAddress((uint32_t)0)) {
     ETH.config(multiWiFi[0].staticIP, multiWiFi[0].staticGW, multiWiFi[0].staticSN, dnsAddress);
   } else {
     ETH.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
@@ -339,7 +388,7 @@ int findWiFi(bool doScan) {
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
     DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\n"), status, millis()/1000);
     int rssi = -9999;
-    int selected = selectedWiFi;
+    size_t selected = (static_cast<size_t>(selectedWiFi) < multiWiFi.size()) ? static_cast<size_t>(selectedWiFi) : 0; // ensure valid starting index
     for (int o = 0; o < status; o++) {
       DEBUG_PRINTF_P(PSTR(" SSID: %s (BSSID: %s) RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.BSSIDstr(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
@@ -384,6 +433,7 @@ bool isWiFiConfigured() {
   #define ARDUINO_EVENT_ETH_START               SYSTEM_EVENT_ETH_START
   #define ARDUINO_EVENT_ETH_CONNECTED           SYSTEM_EVENT_ETH_CONNECTED
   #define ARDUINO_EVENT_ETH_DISCONNECTED        SYSTEM_EVENT_ETH_DISCONNECTED
+  #define ARDUINO_EVENT_ETH_GOT_IP              SYSTEM_EVENT_ETH_GOT_IP
 #endif
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(LWIP_IPV6)
@@ -430,12 +480,12 @@ void WiFiEvent(WiFiEvent_t event)
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(WLEDNetwork.localIP());
+      wasConnected = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
       DEBUG_PRINTF_P(PSTR("WiFi-E: Connected! @ %lus\n"), millis()/1000);
-      wasConnected = true;
       break;
     case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
       if (wasConnected && interfacesInited) {
@@ -448,26 +498,10 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
-    case ARDUINO_EVENT_WIFI_READY:
-      DEBUG_PRINTLN(F("WiFi-E: driver ready."));
-      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
-    case ARDUINO_EVENT_WIFI_STA_START:
-      DEBUG_PRINTLN(F("WiFi-E: STA Started"));
-      break;
-    case ARDUINO_EVENT_WIFI_STA_STOP:
-      DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
-      break;
-    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
-      DEBUG_PRINTLN(F("WiFi-E: STA authentication mode change."));
-      break;
-    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
-      DEBUG_PRINTLN(F("WiFi-E: IP address lost."));
-      break;
-
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;
@@ -481,15 +515,21 @@ void WiFiEvent(WiFiEvent_t event)
     case ARDUINO_EVENT_ETH_CONNECTED:
       {
       DEBUG_PRINTLN(F("ETH-E: Connected"));
+#ifndef WLED_ETHERNET_ONLY_BUILD
       if (!apActive) {
         WiFi.disconnect(true); // disable WiFi entirely
       }
+#endif
       char hostname[64] = {'\0'}; // any "hostname" within a Fully Qualified Domain Name (FQDN) must not exceed 63 characters
       getWLEDhostname(hostname, sizeof(hostname), true); // create DNS name based on mDNS name if set, or fall back to standard WLED server name
       ETH.setHostname(hostname);
       showWelcomePage = false;
       break;
       }
+    case ARDUINO_EVENT_ETH_GOT_IP:
+      DEBUG_PRINT(F("ETH-E: IP address: ")); DEBUG_PRINTLN(WLEDNetwork.localIP());
+      wasConnected = true;
+      break;
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       DEBUG_PRINTLN(F("ETH-E: Disconnected"));
       // This doesn't really affect ethernet per se,
@@ -497,8 +537,13 @@ void WiFiEvent(WiFiEvent_t event)
       // may be necessary to reconnect the WiFi when
       // ethernet disconnects, as a way to provide
       // alternative access to the device.
+#ifndef WLED_ETHERNET_ONLY_BUILD
       if (interfacesInited && WiFi.scanComplete() >= 0) findWiFi(true); // reinit WiFi scan
       forceReconnect = true;
+#else
+      interfacesInited = false;
+      wasConnected = false;
+#endif
       break;
     #endif
   #endif
@@ -507,4 +552,3 @@ void WiFiEvent(WiFiEvent_t event)
       break;
   }
 }
-
