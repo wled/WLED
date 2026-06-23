@@ -118,11 +118,27 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
 
     #ifdef ARDUINO_ARCH_ESP32
     int tx = request->arg(F("TX")).toInt();
-    txPower = min(max(tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    #if (ESP_IDF_VERSION_MAJOR > 4)
+      txPower = min(max((int)tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_21dBm);  // V5 allows WIFI_POWER_21dBm = 84 ... WIFI_POWER_MINUS_1dBm = -4
+    #else
+      txPower = min(max((int)tx, (int)WIFI_POWER_2dBm), (int)WIFI_POWER_19_5dBm);
+    #endif
     #endif
 
     force802_3g = request->hasArg(F("FG"));
     noWifiSleep = request->hasArg(F("WS"));
+    #ifdef SOC_WIFI_SUPPORT_5G
+    if (request->hasArg(F("BM"))) {
+      int bm = request->arg(F("BM")).toInt();
+      if (bm >= WIFI_BAND_MODE_2G_ONLY && bm <= WIFI_BAND_MODE_AUTO) {
+        if (bm != wifiBandMode) { 
+          forceReconnect = true;
+          WiFi.scanDelete();
+        }
+        wifiBandMode = bm;
+      }
+    }
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     bool oldESPNow = enableESPNow;
@@ -340,7 +356,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
             PinManager::deallocatePin(buttons[i].pin, PinOwner::Button);
             buttons[i].type = BTN_TYPE_NONE;
           }
-          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a fucntion to check touch state but need to attach an interrupt to do so
+          #ifdef SOC_TOUCH_VERSION_2 // ESP32 S2 and S3 have a function to check touch state but need to attach an interrupt to do so
           else touchAttachInterrupt(buttons[i].pin, touchButtonISR, touchThreshold << 4); // threshold on Touch V2 is much higher (1500 is a value given by Espressif example, I measured changes of over 5000)
           #endif
         } else
@@ -532,6 +548,11 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
   if (subPage == SUBPAGE_TIME)
   {
     ntpEnabled = request->hasArg(F("NT"));
+#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests: assert failed: udp_new_ip_type udp.c:1278 (Required to lock TCPIP core functionality!)
+    if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
+    ntpEnabled = false;
+    #warning "enabling NTP lead to crashes on -C5. NTP disabled"
+#endif
     strlcpy(ntpServerName, request->arg(F("NS")).c_str(), 33);
     useAMPM = !request->hasArg(F("CF"));
     currentTimezone = request->arg(F("TZ")).toInt();
