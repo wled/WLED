@@ -248,6 +248,15 @@
 #if !defined(WLED_USE_SHARED_RMT)  && !defined(__riscv)
 #include <NeoEsp32RmtHIMethod.h>
 #define NeoEsp32RmtMethod(x) NeoEsp32RmtHIN ## x ## Method
+#elif defined(CONFIG_IDF_TARGET_ESP32C3)
+// We're going to cheat and use bitbanging
+// Wrapper type strips the 'channel' argument
+template<typename T> class NPBMethodStripChannelWrapper : public T {
+public:
+    NPBMethodStripChannelWrapper(uint8_t pin, uint16_t pixelCount, size_t elementSize, size_t settingsSize, NeoBusChannel channel) : T(pin, pixelCount, elementSize, settingsSize) {
+    };
+};
+#define NeoEsp32RmtMethod(x) NPBMethodStripChannelWrapper<NeoEsp32BitBang ## x ## Method>
 #else
 #define NeoEsp32RmtMethod(x) NeoEsp32RmtN ## x ## Method
 #endif
