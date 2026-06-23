@@ -4,6 +4,7 @@
 
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+#if CONFIG_IDF_TARGET_ESP32 // these options are only valid for classic esp32
 // The following six pins are neither configurable nor
 // can they be re-assigned through IOMUX / GPIO matrix.
 // See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
@@ -179,6 +180,15 @@ const ethernet_settings ethernetBoards[] = {
 
 // sanity checks for ethernet config table and WLED_ETH_DEFAULT
 static_assert((sizeof(ethernetBoards)/sizeof(ethernetBoards[0])) == WLED_NUM_ETH_TYPES, "WLED_NUM_ETH_TYPES does not match size of ethernetBoards[] table.");
+
+#elif CONFIG_IDF_TARGET_ESP32P4
+// ToDO: add P4 specific ethernet options
+#error "Ethernet is not yet supported on your ESP32-P4".
+
+#else
+#error "Ethernet is not yet supported on your MCU".
+#endif
+
 #ifdef WLED_ETH_DEFAULT
   static_assert(((WLED_ETH_DEFAULT) >= WLED_ETH_NONE) && ((WLED_ETH_DEFAULT) < WLED_NUM_ETH_TYPES), "WLED_ETH_DEFAULT is out of range.");
 #endif
