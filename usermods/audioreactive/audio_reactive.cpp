@@ -2071,6 +2071,13 @@ class AudioReactive : public Usermod {
       bool configComplete = !top.isNull();
       bool oldEnabled = enabled;
       bool oldAddPalettes = addPalettes;
+    #ifdef ARDUINO_ARCH_ESP32
+      auto oldDMType = dmType;
+      auto oldI2SsdPin = i2ssdPin;
+      auto oldI2swsPin = i2swsPin;
+      auto oldI2SckPin = i2sckPin;
+      auto oldI2SmclkPin = mclkPin;
+    #endif
 
       configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
       configComplete &= getJsonValue(top[FPSTR(_addPalettes)], addPalettes);
@@ -2112,6 +2119,15 @@ class AudioReactive : public Usermod {
         // add/remove custom/audioreactive palettes
         if ((oldAddPalettes && !addPalettes) || (oldAddPalettes && !enabled)) removeAudioPalettes();
         if ((addPalettes && !oldAddPalettes && enabled) || (addPalettes && !oldEnabled && enabled)) createAudioPalettes();
+	    #ifdef ARDUINO_ARCH_ESP32
+        // notify user when a reboot is necessary
+          if ((audioSource != nullptr) && (oldDMType != dmType)) errorFlag = ERR_REBOOT_NEEDED;  // changing mic type requires reboot
+          if (   (audioSource != nullptr) && (enabled==true)
+              && ((oldI2SsdPin != i2ssdPin) || (oldI2swsPin != i2swsPin) || (oldI2SckPin != i2sckPin)) ) errorFlag = ERR_REBOOT_NEEDED;  // changing mic pins requires reboot
+          if ((audioSource != nullptr) && (oldI2SmclkPin != mclkPin)) errorFlag = ERR_REBOOT_NEEDED;  // changing MCLK pin requires reboot
+          if ((oldDMType != dmType) && (oldDMType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing from analog mic requires power cycle
+          if ((oldDMType != dmType) && (dmType == 0)) errorFlag = ERR_POWEROFF_NEEDED;  // changing to analog mic requires power cycle
+        #endif
       } // else setup() will create palettes
       return configComplete;
     }

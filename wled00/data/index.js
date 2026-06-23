@@ -1567,8 +1567,36 @@ function readState(s,command=false)
 			case 19:
 				errstr = "A filesystem error has occured.";
 				break;
+// error code from WLEDMM - not supported yet
+//			case 33:
+//				errstr = "Low Memory (generic RAM).";
+//		  break;
+//			case 34:
+//				errstr = "Low Memory (effect data).";
+//		  break;
+//			case 35:
+//				errstr = "Low Memory (WS data).";
+//		  break;
+//			case 36:
+//				errstr = "Low Memory (oappend buffer).";
+//		  break;
+//			case 37:
+//				errstr = "no memory for LEDs buffer.";
+//		  break;
+			case 90:
+				errstr = "Unexpected Restart.";
+		  break;
+			case 91:
+				errstr = "Brownout Restart.";
+		  break;
+			case 100:
+				errstr = "Please reboot WLED to activate changed settings.";
+		  break;
+			case 101:
+				errstr = "Please switch your device off and back on.";
+		  break;
 		}
-		showToast('Error ' + s.error + ": " + errstr, true);
+		showToast((s.error<100) ? 'Error ': 'Note ' + s.error + ": " + errstr, true);  // show "please restart" as a note, all others as errors
 	}
 
 	selectedPal = i.pal;
