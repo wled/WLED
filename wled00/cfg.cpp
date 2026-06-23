@@ -669,7 +669,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
 
   JsonObject if_ntp = interfaces[F("ntp")];
   CJSON(ntpEnabled, if_ntp["en"]);
-#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests
+#ifdef CONFIG_IDF_TARGET_ESP32C5 // ToDO: esp32-c5 crashes on NTP requests, see https://github.com/wled/WLED/pull/5048/changes#r3003182550
   if (ntpEnabled) { DEBUG_PRINTLN("NTP disabled on -C5, as it leads to crashes"); }
                                  // assert failed: udp_new_ip_type /IDF/components/lwip/lwip/src/core/udp.c:1278 (Required to lock TCPIP core functionality!)
   ntpEnabled = false;            // --> disable NTP support, until the crash is resolved

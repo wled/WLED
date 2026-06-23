@@ -80,6 +80,10 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
   #endif
   constexpr size_t WLED_MAX_ANALOG_CHANNELS = static_cast<size_t>(LEDC_CHANNEL_MAX) * static_cast<size_t>(LEDC_SPEED_MODE_MAX);
 
+  // ToDO: check if the complete logic below can be replaced by SOC_CAPS_.. macros
+  //       SOC_I2S_NUM, SOC_RMT_CHANNELS_PER_GROUP, etc
+  //       see https://github.com/wled/WLED/pull/5048#issuecomment-3868678248
+
   #if defined(CONFIG_IDF_TARGET_ESP32C3)
     #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
     #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
