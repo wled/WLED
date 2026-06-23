@@ -7,6 +7,11 @@
 
 #include "wled_boards.h"  // pull in board-specific capability defines
 
+#ifdef CONFIG_IDF_TARGET_ESP32C5
+// see https://github.com/wled/WLED/pull/5048#issuecomment-3937888182
+#warning "second output on -C5 may fail, until NPB channel handling is fixed"
+#endif
+
 //Hardware SPI Pins
 #define P_8266_HS_MOSI 13
 #define P_8266_HS_CLK  14

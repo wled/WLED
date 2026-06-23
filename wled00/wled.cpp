@@ -494,6 +494,7 @@ void WLED::setup()
   if (escapedMac == "000000000000") {
     uint8_t mac[6] = {0};
     #if defined(CONFIG_IDF_TARGET_ESP32P4)  // P4 does not have on-chip WIFI, use ethernet MAC
+      // ToDo: decide if we prefer to use the WiFi "hosted" MAC, availeable with esp_wifi_remote_get_mac() 
       esp_read_mac(mac, ESP_MAC_ETH);
     #else
       esp_read_mac(mac, ESP_MAC_WIFI_STA);

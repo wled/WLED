@@ -8,7 +8,7 @@
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-  #include "esp32/rtc.h"    // for bootloop detection
+  #include "esp32/rtc.h"    // for bootloop detection // ToDO V5: Header file is deprecated, please include esp_rtc_time.h instead
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
 #endif
@@ -1311,7 +1311,7 @@ String computeSHA1(const String& input) {
 
 #ifdef ESP32
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-#include "esp_adc_cal.h"       //  deprecated API
+#include "esp_adc_cal.h"       //  ToDO: deprecated API
 //#include "esp_adc/adc_cali.h"        // new API
 //#include "esp_adc/adc_cali_scheme.h" // new API
 #else
