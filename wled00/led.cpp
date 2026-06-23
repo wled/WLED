@@ -7,14 +7,8 @@
  // applies chosen setment properties to legacy values
 void setValuesFromSegment(uint8_t s) {
   const Segment& seg = strip.getSegment(s);
-  colPri[0] = R(seg.colors[0]);
-  colPri[1] = G(seg.colors[0]);
-  colPri[2] = B(seg.colors[0]);
-  colPri[3] = W(seg.colors[0]);
-  colSec[0] = R(seg.colors[1]);
-  colSec[1] = G(seg.colors[1]);
-  colSec[2] = B(seg.colors[1]);
-  colSec[3] = W(seg.colors[1]);
+  colPri = seg.colors[0];
+  colSec = seg.colors[1];
   effectCurrent   = seg.mode;
   effectSpeed     = seg.speed;
   effectIntensity = seg.intensity;
@@ -31,8 +25,8 @@ void applyValuesToSelectedSegs() {
     if (effectIntensity != seg.intensity) {seg.intensity = effectIntensity; stateChanged = true;}
     if (effectPalette   != seg.palette)   {seg.setPalette(effectPalette);}
     if (effectCurrent   != seg.mode)      {seg.setMode(effectCurrent);}
-    uint32_t col0 = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
-    uint32_t col1 = RGBW32(colSec[0], colSec[1], colSec[2], colSec[3]);
+    uint32_t col0 = colPri;
+    uint32_t col1 = colSec;
     if (col0 != seg.colors[0])            {seg.setColor(0, col0);}
     if (col1 != seg.colors[1])            {seg.setColor(1, col1);}
   }
@@ -151,7 +145,7 @@ void updateInterfaces(uint8_t callMode) {
   #ifndef WLED_DISABLE_ALEXA
   if (espalexaDevice != nullptr && callMode != CALL_MODE_ALEXA) {
     espalexaDevice->setValue(bri);
-    espalexaDevice->setColor(colPri[0], colPri[1], colPri[2]);
+    espalexaDevice->setColor(colPri.r, colPri.g, colPri.b);
   }
   #endif
   #ifndef WLED_DISABLE_MQTT
@@ -205,13 +199,13 @@ void handleNightlight() {
       nightlightDelayMs = (unsigned)(nightlightDelayMins*60000);
       nightlightActiveOld = true;
       briNlT = bri;
-      for (unsigned i=0; i<4; i++) colNlT[i] = colPri[i]; // remember starting color
+      colNlT = colPri; // remember starting color
       if (nightlightMode == NL_MODE_SUN)
       {
-        //save current
-        colNlT[0] = effectCurrent;
-        colNlT[1] = effectSpeed;
-        colNlT[2] = effectPalette;
+        //save current globals in unused color channels
+        colNlT.r = effectCurrent;
+        colNlT.g = effectSpeed;
+        colNlT.b = effectPalette;
 
         strip.getFirstSelectedSeg().setMode(FX_MODE_STATIC); // make sure seg runtime is reset if it was in sunrise mode
         effectCurrent = FX_MODE_SUNRISE;            // colorUpdated() will take care of assigning that to all selected segments
@@ -230,7 +224,11 @@ void handleNightlight() {
       bri = briNlT + ((nightlightTargetBri - briNlT)*nper);
       if (nightlightMode == NL_MODE_COLORFADE)                                         // color fading only is enabled with "NF=2"
       {
-        for (unsigned i=0; i<4; i++) colPri[i] = colNlT[i]+ ((colSec[i] - colNlT[i])*nper);   // fading from actual color to secondary color
+        uint32_t blendamount = nper * 255;
+        if (blendamount > 255)
+          colPri = colSec;
+        else
+          colPri = color_blend(colNlT, colSec, blendamount);   // fading from actual color to secondary color
       }
       colorUpdated(CALL_MODE_NO_NOTIFY);
     }
@@ -245,10 +243,10 @@ void handleNightlight() {
       if (bri == 0) briLast = briNlT;
       if (nightlightMode == NL_MODE_SUN)
       {
-        if (!briNlT) { //turn off if sunset
-          effectCurrent = colNlT[0];
-          effectSpeed = colNlT[1];
-          effectPalette = colNlT[2];
+        if (!briNlT) { //turn off if sunset, restore values from color channels (see above)
+          effectCurrent = colNlT.r;
+          effectSpeed = colNlT.g;
+          effectPalette = colNlT.b;
           toggleOnOff();
           applyFinalBri();
         }
@@ -260,10 +258,10 @@ void handleNightlight() {
     }
   } else if (nightlightActiveOld) //early de-init
   {
-    if (nightlightMode == NL_MODE_SUN) { //restore previous effect
-      effectCurrent = colNlT[0];
-      effectSpeed = colNlT[1];
-      effectPalette = colNlT[2];
+    if (nightlightMode == NL_MODE_SUN) { //restore previous effect from color channels (see above)
+      effectCurrent = colNlT.r;
+      effectSpeed = colNlT.g;
+      effectPalette = colNlT.b;
       colorUpdated(CALL_MODE_NO_NOTIFY);
     }
     nightlightActiveOld = false;

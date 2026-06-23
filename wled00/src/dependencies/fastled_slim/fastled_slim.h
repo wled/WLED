@@ -49,7 +49,7 @@ typedef union {
 } TRGBGradientPaletteEntryUnion;
 
 // function prototypes
-void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW);
+void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata);
 CRGB HeatColor(uint8_t temperature); // black body radiation
 void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) ;
 void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor);
@@ -160,22 +160,22 @@ struct CRGB {
 
   // allow construction from a CHSV color
   inline CRGB(const CHSV& rhs) __attribute__((always_inline))  {
-    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw, false);
+    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw);
   }
 
   // allow assignment from hue, saturation, and value
   inline CRGB& setHSV (uint8_t hue, uint8_t sat, uint8_t val) __attribute__((always_inline)) {
-    hsv2rgb_rainbow(hue<<8, sat, val, raw, false); return *this;
+    hsv2rgb_rainbow(hue<<8, sat, val, raw); return *this;
   }
 
   // allow assignment from just a hue, sat and val are set to max
   inline CRGB& setHue (uint8_t hue) __attribute__((always_inline)) {
-    hsv2rgb_rainbow(hue<<8, 255, 255, raw, false); return *this;
+    hsv2rgb_rainbow(hue<<8, 255, 255, raw); return *this;
   }
 
   // allow assignment from HSV color
   inline CRGB& operator= (const CHSV& rhs) __attribute__((always_inline)) {
-    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw, false); return *this;
+    hsv2rgb_rainbow(rhs.h<<8, rhs.s, rhs.v, raw); return *this;
   }
   // allow assignment from one RGB struct to another
   inline CRGB& operator= (const CRGB& rhs) __attribute__((always_inline)) = default;

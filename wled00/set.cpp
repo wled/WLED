@@ -926,8 +926,8 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   uint32_t col0    = selseg.colors[0];
   uint32_t col1    = selseg.colors[1];
   uint32_t col2    = selseg.colors[2];
-  byte colIn[4]    = {R(col0), G(col0), B(col0), W(col0)};
-  byte colInSec[4] = {R(col1), G(col1), B(col1), W(col1)};
+  CRGBW colIn      = col0;
+  CRGBW colInSec   = col1;
   byte effectIn    = selseg.mode;
   byte speedIn     = selseg.speed;
   byte intensityIn = selseg.intensity;
@@ -1010,15 +1010,15 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   bool col0Changed = false, col1Changed = false, col2Changed = false;
   //set colors
-  col0Changed |= updateVal(req.c_str(), "&R=", colIn[0]);
-  col0Changed |= updateVal(req.c_str(), "&G=", colIn[1]);
-  col0Changed |= updateVal(req.c_str(), "&B=", colIn[2]);
-  col0Changed |= updateVal(req.c_str(), "&W=", colIn[3]);
+  col0Changed |= updateVal(req.c_str(), "&R=", colIn.r);
+  col0Changed |= updateVal(req.c_str(), "&G=", colIn.g);
+  col0Changed |= updateVal(req.c_str(), "&B=", colIn.b);
+  col0Changed |= updateVal(req.c_str(), "&W=", colIn.w);
 
-  col1Changed |= updateVal(req.c_str(), "R2=", colInSec[0]);
-  col1Changed |= updateVal(req.c_str(), "G2=", colInSec[1]);
-  col1Changed |= updateVal(req.c_str(), "B2=", colInSec[2]);
-  col1Changed |= updateVal(req.c_str(), "W2=", colInSec[3]);
+  col1Changed |= updateVal(req.c_str(), "R2=", colInSec.r);
+  col1Changed |= updateVal(req.c_str(), "G2=", colInSec.g);
+  col1Changed |= updateVal(req.c_str(), "B2=", colInSec.b);
+  col1Changed |= updateVal(req.c_str(), "W2=", colInSec.w);
 
   #ifdef WLED_ENABLE_LOXONE
   //lox parser
@@ -1077,9 +1077,9 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   pos = req.indexOf(F("C3="));
   if (pos > 0) {
-    byte tmpCol[4];
+    CRGBW tmpCol;
     colorFromDecOrHexString(tmpCol, (char*)req.substring(pos + 3).c_str());
-    col2 = RGBW32(tmpCol[0], tmpCol[1], tmpCol[2], tmpCol[3]);
+    col2 = tmpCol.color32;
     selseg.setColor(2, col2); // defined above (SS= or main)
     col2Changed = true;
   }
@@ -1094,12 +1094,12 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
 
   // apply colors to selected segment, and all selected segments if applicable
   if (col0Changed) {
-    col0 = RGBW32(colIn[0], colIn[1], colIn[2], colIn[3]);
+    col0 = colIn.color32;
     selseg.setColor(0, col0);
   }
 
   if (col1Changed) {
-    col1 = RGBW32(colInSec[0], colInSec[1], colInSec[2], colInSec[3]);
+    col1 = colInSec.color32;
     selseg.setColor(1, col1);
   }
 
@@ -1268,7 +1268,7 @@ bool handleSet(AsyncWebServerRequest *request, const String& req, bool apply)
   }
   // you can add more if you need
 
-  // global colPri[], effectCurrent, ... are updated in stateChanged()
+  // global colPri, effectCurrent, ... are updated in stateChanged()
   if (!apply) return true; // when called by JSON API, do not call colorUpdated() here
 
   pos = req.indexOf(F("&NN")); //do not send UDP notifications this time

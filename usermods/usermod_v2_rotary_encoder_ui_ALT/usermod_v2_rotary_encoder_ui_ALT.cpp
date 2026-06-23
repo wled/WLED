@@ -520,7 +520,7 @@ void RotaryEncoderUIUsermod::setup()
 
   loopTime = millis();
 
-  currentCCT = (approximateKelvinFromRGB(RGBW32(colPri[0], colPri[1], colPri[2], colPri[3])) - 1900) >> 5;
+  currentCCT = (approximateKelvinFromRGB(colPri.color32) - 1900) >> 5;
 
   if (!initDone) sortModesAndPalettes();
 
@@ -928,11 +928,11 @@ void RotaryEncoderUIUsermod::changeHue(bool increase){
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
-      seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
+      seg.colors[0] = colPri;
     }
   } else {
     Segment& seg = strip.getSegment(strip.getMainSegmentId());
-    seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
+    seg.colors[0] = colPri;
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY
@@ -957,11 +957,11 @@ void RotaryEncoderUIUsermod::changeSat(bool increase){
     for (unsigned i=0; i<strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive()) continue;
-      seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
+      seg.colors[0] = colPri;
     }
   } else {
     Segment& seg = strip.getSegment(strip.getMainSegmentId());
-    seg.colors[0] = RGBW32(colPri[0], colPri[1], colPri[2], colPri[3]);
+    seg.colors[0] = colPri;
   }
   lampUdated();
 #ifdef USERMOD_FOUR_LINE_DISPLAY

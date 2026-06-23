@@ -211,20 +211,20 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         //   string = hex representation of [WW]RRGGBB or "r" for random color
         //   object = individual channel control {"r":0,"g":127,"b":255,"w":255}, each being optional (valid to send {})
         //   array = direct channel values [r,g,b,w] (w element being optional)
-        int rgbw[] = {0,0,0,0};
+        CRGBW rgbw = 0;
         bool colValid = false;
         JsonArray colX = colarr[i];
         if (colX.isNull()) {
           JsonObject oCol = colarr[i];
           if (!oCol.isNull()) {
             // we have a JSON object for color {"w":123,"r":123,...}; allows individual channel control
-            rgbw[0] = oCol["r"] | R(seg.colors[i]);
-            rgbw[1] = oCol["g"] | G(seg.colors[i]);
-            rgbw[2] = oCol["b"] | B(seg.colors[i]);
-            rgbw[3] = oCol["w"] | W(seg.colors[i]);
+            rgbw.r = oCol["r"] | R(seg.colors[i]);
+            rgbw.g = oCol["g"] | G(seg.colors[i]);
+            rgbw.b = oCol["b"] | B(seg.colors[i]);
+            rgbw.w = oCol["w"] | W(seg.colors[i]);
             colValid = true;
           } else {
-            byte brgbw[] = {0,0,0,0};
+            CRGBW brgbw = 0;
             const char* hexCol = colarr[i];
             if (hexCol == nullptr) { //Kelvin color temperature (or invalid), e.g 2400
               int kelvin = colarr[i] | -1;
@@ -238,12 +238,15 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
             } else { //HEX string, e.g. "FFAA00"
               colValid = colorFromHexString(brgbw, hexCol);
             }
-            for (size_t c = 0; c < 4; c++) rgbw[c] = brgbw[c];
+            rgbw = brgbw;
           }
         } else { //Array of ints (RGB or RGBW color), e.g. [255,160,0]
           byte sz = colX.size();
           if (sz == 0) continue; //do nothing on empty array
-          copyArray(colX, rgbw, 4);
+          rgbw.r = colX["r"] | 0;
+          rgbw.g = colX["g"] | 0;
+          rgbw.b = colX["b"] | 0;
+          rgbw.w = colX["w"] | 0;
           colValid = true;
         }
 
@@ -335,16 +338,21 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
           iSet++;
         }
       } else { //color
-        uint8_t rgbw[] = {0,0,0,0};
+        CRGBW rgbw = 0;
         JsonArray icol = iarr[i];
         if (!icol.isNull()) { //array, e.g. [255,0,0]
           byte sz = icol.size();
-          if (sz > 0 && sz < 5) copyArray(icol, rgbw);
+          if (sz > 0 && sz < 5) {
+            rgbw.r = icol["r"] | 0;
+            rgbw.g = icol["g"] | 0;
+            rgbw.b = icol["b"] | 0;
+            rgbw.w = icol["w"] | 0;
+          }
         } else { //hex string, e.g. "FF0000"
-          byte brgbw[] = {0,0,0,0};
+          CRGBW brgbw = 0;
           const char* hexCol = iarr[i];
           if (colorFromHexString(brgbw, hexCol)) {
-            for (size_t c = 0; c < 4; c++) rgbw[c] = brgbw[c];
+            rgbw = brgbw;
           }
         }
 

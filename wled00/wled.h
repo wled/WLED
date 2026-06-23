@@ -413,8 +413,8 @@ WLED_GLOBAL bool gammaCorrectCol    _INIT(true);  // use gamma correction on col
 WLED_GLOBAL bool gammaCorrectBri    _INIT(false); // use gamma correction on brightness
 WLED_GLOBAL float gammaCorrectVal   _INIT(2.2f);  // gamma correction value
 
-WLED_GLOBAL byte colPri[] _INIT_N(({ 255, 160, 0, 0 }));  // current RGB(W) primary color. colPri[] should be updated if you want to change the color.
-WLED_GLOBAL byte colSec[] _INIT_N(({ 0, 0, 0, 0 }));      // current RGB(W) secondary color
+WLED_GLOBAL CRGBW colPri _INIT_N(0);  // current RGB(W) primary color. colPri should be updated if you want to change the color.
+WLED_GLOBAL CRGBW colSec _INIT_N(0);  // current RGB(W) secondary color
 
 WLED_GLOBAL byte nightlightTargetBri _INIT(0);      // brightness after nightlight is over
 WLED_GLOBAL byte nightlightDelayMins _INIT(60);
@@ -621,7 +621,7 @@ WLED_GLOBAL byte nightlightDelayMinsDefault _INIT(nightlightDelayMins);
 WLED_GLOBAL unsigned long nightlightStartTime;
 WLED_GLOBAL unsigned long lastNlUpdate;
 WLED_GLOBAL byte briNlT _INIT(0);                     // current nightlight brightness
-WLED_GLOBAL byte colNlT[] _INIT_N(({ 0, 0, 0, 0 }));        // current nightlight color
+WLED_GLOBAL CRGBW colNlT _INIT_N(0);        // current nightlight color
 
 // brightness
 WLED_GLOBAL unsigned long lastOnTime _INIT(0);
