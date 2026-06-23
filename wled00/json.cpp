@@ -252,7 +252,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
 
         if (!colValid) continue;
 
-        seg.setColor(i, RGBW32(rgbw[0],rgbw[1],rgbw[2],rgbw[3])); // use transition
+        seg.setColor(i, rgbw.color32); // use transition
         if (seg.mode == FX_MODE_STATIC) strip.trigger(); //instant refresh
       }
     } else {
@@ -357,8 +357,7 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         }
 
         if (iSet < 2 || iStop <= iStart) iStop = iStart + 1;
-        uint32_t c = RGBW32(rgbw[0], rgbw[1], rgbw[2], rgbw[3]);
-        while (iStart < iStop) seg.setRawPixelColor(iStart++, c); // sets pixel color without 1D->2D expansion, grouping or spacing
+        while (iStart < iStop) seg.setRawPixelColor(iStart++, rgbw.color32); // sets pixel color without 1D->2D expansion, grouping or spacing
         iSet = 0;
       }
     }

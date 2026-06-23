@@ -286,7 +286,7 @@ void loadCustomPalettes() {
               CRGBW rgbw = 0;
               if (colorFromHexString(rgbw, pal[i+1].as<const char *>())) { // will catch non-string entires
                 tcp[ j ] = (uint8_t) pal[ i ].as<int>(); // index
-                for (int c=3; c>=0; c++) tcp[j+1+c] = rgbw.raw[c]; // only use RGB component (raw is B,G,R,W i.e. [0] = blue
+                for (size_t c=0; c<3; c++) tcp[j+1+c] = rgbw.raw[2-c]; // only use RGB component (raw is B,G,R,W i.e. [0] = blue
                 DEBUGFX_PRINTF_P(PSTR("%2u -> %3d [%3d,%3d,%3d]\n"), i, int(tcp[j]), int(tcp[j+1]), int(tcp[j+2]), int(tcp[j+3]));
                 j += 4;
               }
