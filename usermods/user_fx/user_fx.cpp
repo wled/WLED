@@ -1258,6 +1258,143 @@ static void mode_morsecode(void) {
 static const char _data_FX_MODE_MORSECODE[] PROGMEM = "Morse Code@Speed,,,,Color mode,Color by Word,Punctuation,EndOfMessage;;!;1;sx=192,c3=8,o1=1,o2=1";
 
 
+/*
+/  Perlinscape effect - a Perlin noise Landscape
+*   Created by stepko as part of Stepko Land on soulmatelights.com
+*   Adapted to WLED by Bob Loeffler with additional features (and help from Claude)
+*   First slider is for speed/movement
+*   Second slider is for zooming in/out (Perlin scaling)
+*   Third slider is the X multiplier
+*   Fourth slider is the Y multiplier
+*   Fifth slider is the rotation speed (0 = do not rotate)
+*   Check1 will randomize the horizontal and vertical directions (8 possible directions controlled by aux1)
+*/
+static void mode_2D_perlinscape(void) {
+  if (!strip.isMatrix || !SEGMENT.is2D()) FX_FALLBACK_STATIC;
+  const uint16_t width = SEG_W;
+  const uint16_t height = SEG_H;
+  if (!SEGENV.allocateData(5 * sizeof(int32_t) + sizeof(uint32_t))) FX_FALLBACK_STATIC;
+
+  uint32_t speedMult = map(SEGMENT.speed, 0, 255, 1, 30);
+  uint32_t t = strip.now / 10;
+  uint8_t  Xmult = map(SEGMENT.custom1, 0, 255, 0, 64);
+  uint8_t  Ymult = map(SEGMENT.custom2, 0, 255, 0, 64);
+
+  int32_t &offX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 0);
+  int32_t &offY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 1);
+  int32_t &stepX = *(reinterpret_cast<int32_t*>(SEGENV.data) + 2);
+  int32_t &stepY = *(reinterpret_cast<int32_t*>(SEGENV.data) + 3);
+  int32_t &angle = *(reinterpret_cast<int32_t*>(SEGENV.data) + 4);
+  uint32_t &prevT = *(reinterpret_cast<uint32_t*>(reinterpret_cast<int32_t*>(SEGENV.data) + 5));
+
+  if (SEGENV.call == 0) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = 0;
+    offX  = 0;
+    offY  = 0;
+    stepX = 256;   // 1.0 in Q8
+    stepY = 256;   // 1.0 in Q8
+    angle = 0;
+    prevT = t;
+  }
+
+  // change direction
+  if (SEGMENT.check1 && (strip.now - SEGENV.step > SEGENV.aux0)) {
+    SEGENV.aux0 = hw_random16(5000, 10000);
+    SEGENV.aux1 = hw_random8(8);  // random direction
+    SEGENV.step = strip.now;
+  }
+
+  // direction lookup table {targetX, targetY} in Q8 format
+  static const int16_t direction[8][2] = {
+    {   0, -256}, // down
+    { 256, -256}, // down-left
+    { 256,    0}, // left
+    { 256,  256}, // up-left
+    {   0,  256}, // up
+    {-256,  256}, // up-right
+    {-256,    0}, // right
+    {-256, -256}, // down-right
+  };
+
+  int16_t targetX = direction[SEGENV.aux1][0];
+  int16_t targetY = direction[SEGENV.aux1][1];
+
+  stepX += ((targetX - stepX) * 13) >> 8;
+  stepY += ((targetY - stepY) * 13) >> 8;
+
+  // dt in raw milliseconds
+  uint32_t udt = strip.now - prevT;
+  int32_t dt = (udt > 500) ? 0 : (int32_t)udt;
+  offX += (stepX * dt * speedMult) >> 14;
+  offY += (stepY * dt * speedMult) >> 14;
+  prevT = strip.now;
+
+  int32_t tX = offX << 1;
+  int32_t tY = offY << 1;
+
+  // Rotation — cos16/sin16 return Q15 (-32768..32767 = -1.0..1.0)
+  int32_t cosA = 1024;  // Q10: 1.0 = 1024
+  int32_t sinA = 0;
+
+  // rotate if rotation speed slider is not 0
+  if (SEGMENT.custom3 > 0) {
+    int32_t dirOffset = 0;
+
+    if (!SEGMENT.check1) {
+      // rotation in one direction
+      angle = ((angle + (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    } else {
+      // rotation on direction change
+      float moveAngle = atan2f((float)stepY, (float)stepX);
+      dirOffset = (int32_t)(moveAngle * 32768.0f / (float)M_PI);
+      int8_t rotDir = (stepX >= 0) ? 1 : -1;  // clockwise vs counter-clockwise
+      angle = ((angle + rotDir * (int32_t)SEGMENT.custom3 * dt) & 0xFFFF);
+    }
+
+    cosA = cos16_t((uint16_t)(angle + dirOffset)) >> 5;
+    sinA = sin16_t((uint16_t)(angle + dirOffset)) >> 5;
+  }
+
+  // Fixed offsets to spread the three Perlin calls into different color regions (300 just looks good)
+  constexpr uint16_t colorOffX = 300, colorOffY = 300;
+
+  // Center in Q8 (avoids 0.5 fractions)
+  int32_t cx256 = (int32_t)width  * 128;
+  int32_t cy256 = (int32_t)height * 128;
+
+  // scale: map intensity 0-255 -> 10-200, then store as Q8 (divide by 100 baked in)
+  int32_t scale_q8 = (int32_t)map(SEGMENT.intensity, 0, 255, 10, 200) * 256 / 100;
+
+  for (uint16_t x = 0; x < width; x++) {
+    for (uint16_t y = 0; y < height; y++) {
+      // (x - cx) and (y - cy) in Q8
+      int32_t dx256 = (int32_t)x * 256 - cx256;
+      int32_t dy256 = (int32_t)y * 256 - cy256;
+
+      // Rotation in Q8: cosA/sinA are Q10, dx/dy are Q8
+      // cosA*dx >> 10 = Q8 result; add cx256 to re-center
+      int32_t rx256 = ((cosA * dx256 - sinA * dy256) >> 10) + cx256;
+      int32_t ry256 = ((sinA * dx256 + cosA * dy256) >> 10) + cy256;
+
+      // scaled_x = rx * Xmult * scale
+      // rx256 is Q8, scale_q8 is Q8 => product is Q16, >> 16 gives integer
+      int32_t scaled_x = int32_t((int64_t(rx256) * Xmult * scale_q8) >> 16);
+      int32_t scaled_y = int32_t((int64_t(ry256) * Ymult * scale_q8) >> 16);
+
+      if (SEGMENT.palette == 0) {
+        SEGMENT.setPixelColorXY(x, y, perlin8(scaled_x + tX, scaled_y + tY, t), perlin8(scaled_x + tX, scaled_y + tY + colorOffY), perlin8(scaled_x + tX + colorOffX, scaled_y + tY));
+      } else {
+        uint8_t paletteIndex = perlin8(scaled_x + tX, scaled_y + tY, t);
+        uint8_t brightness = perlin8(scaled_x + tX + colorOffX, scaled_y + tY + colorOffY);
+        SEGMENT.setPixelColorXY(x, y, SEGMENT.color_from_palette(paletteIndex, false, PALETTE_SOLID_WRAP, brightness));
+      }
+    }
+  }
+}
+static const char _data_FX_MODE_2D_PERLINSCAPE[] PROGMEM = "Perlinscape@!,Zoom (In/Out),X multiplier,Y multiplier,Rotation speed,Random direction;;!;2;c3=0,o1=1";
+
+
 /////////////////////
 //  UserMod Class  //
 /////////////////////
@@ -1272,6 +1409,7 @@ class UserFxUsermod : public Usermod {
     strip.addEffect(255, &mode_2D_magma, _data_FX_MODE_2D_MAGMA);
     strip.addEffect(255, &mode_ants, _data_FX_MODE_ANTS);
     strip.addEffect(255, &mode_morsecode, _data_FX_MODE_MORSECODE);
+    strip.addEffect(255, &mode_2D_perlinscape, _data_FX_MODE_2D_PERLINSCAPE);
 
     ////////////////////////////////////////
     //  add your effect function(s) here  //
