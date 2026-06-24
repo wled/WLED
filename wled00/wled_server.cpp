@@ -752,6 +752,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     else if (url.indexOf(  "2D")    > 0) subPage = SUBPAGE_2D;
 #endif
     else if (url.indexOf(F("pins")) > 0) subPage = SUBPAGE_PINS;
+    else if (url.indexOf(F("fx"))   > 0) subPage = SUBPAGE_FX;
     else if (url.indexOf(F("lock")) > 0) subPage = SUBPAGE_LOCK;
   }
   else if (url.indexOf("/update") >= 0) subPage = SUBPAGE_UPDATE; // update page, for PIN check
@@ -796,6 +797,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
       case SUBPAGE_2D     : strcpy_P(s, PSTR("2D")); break;
 #endif
       case SUBPAGE_PINREQ : strcpy_P(s, correctPIN ? PSTR("PIN accepted") : PSTR("PIN rejected")); break;
+      case SUBPAGE_FX     : strcpy_P(s, PSTR("Effect Visibility")); break;
     }
 
     if (subPage != SUBPAGE_PINREQ) strcat_P(s, PSTR(" settings saved."));
@@ -846,6 +848,7 @@ void serveSettings(AsyncWebServerRequest* request, bool post) {
     case SUBPAGE_2D      :  content = PAGE_settings_2D;   len = PAGE_settings_2D_length;   break;
 #endif
     case SUBPAGE_PINS    :  content = PAGE_settings_pininfo; len = PAGE_settings_pininfo_length; break;
+    case SUBPAGE_FX      :  content = PAGE_settings_fx;   len = PAGE_settings_fx_length;   break;
     case SUBPAGE_LOCK    : {
       correctPIN = !strlen(settingsPIN); // lock if a pin is set
       serveMessage(request, 200, strlen(settingsPIN) > 0 ? PSTR("Settings locked") : PSTR("No PIN set"), FPSTR(s_redirecting), 1);
