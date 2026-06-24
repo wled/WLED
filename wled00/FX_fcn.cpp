@@ -2024,6 +2024,9 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
     for (size_t i = 1; i < s; i++) {
       _segments.emplace_back(segStarts[i], segStops[i]);
     }
+    for (size_t i = 0; i < _segments.size(); i++) {
+      _segments[i].colors[0] = DEFAULT_COLOR; // set color to default orange on all segments
+    }
     DEBUGFX_PRINTF_P(PSTR("%d auto segments created.\n"), _segments.size());
 
   } else {
