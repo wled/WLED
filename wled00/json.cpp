@@ -243,10 +243,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         } else { //Array of ints (RGB or RGBW color), e.g. [255,160,0]
           byte sz = colX.size();
           if (sz == 0) continue; //do nothing on empty array
-          rgbw.r = colX["r"] | 0;
-          rgbw.g = colX["g"] | 0;
-          rgbw.b = colX["b"] | 0;
-          rgbw.w = colX["w"] | 0;
+          rgbw.r = colX[0] | 0;
+          rgbw.g = colX[1] | 0;
+          rgbw.b = colX[2] | 0;
+          rgbw.w = colX[3] | 0;
           colValid = true;
         }
 
@@ -343,10 +343,10 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
         if (!icol.isNull()) { //array, e.g. [255,0,0]
           byte sz = icol.size();
           if (sz > 0 && sz < 5) {
-            rgbw.r = icol["r"] | 0;
-            rgbw.g = icol["g"] | 0;
-            rgbw.b = icol["b"] | 0;
-            rgbw.w = icol["w"] | 0;
+            rgbw.r = icol[0] | 0;
+            rgbw.g = icol[1] | 0;
+            rgbw.b = icol[2] | 0;
+            rgbw.w = icol[3] | 0;
           }
         } else { //hex string, e.g. "FF0000"
           CRGBW brgbw = 0;

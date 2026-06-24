@@ -202,7 +202,7 @@ void handleNightlight() {
       colNlT = colPri; // remember starting color
       if (nightlightMode == NL_MODE_SUN)
       {
-        //save current globals in unused color channels
+        // save current globals in unused color channels
         colNlT.r = effectCurrent;
         colNlT.g = effectSpeed;
         colNlT.b = effectPalette;
@@ -243,7 +243,7 @@ void handleNightlight() {
       if (bri == 0) briLast = briNlT;
       if (nightlightMode == NL_MODE_SUN)
       {
-        if (!briNlT) { //turn off if sunset, restore values from color channels (see above)
+        if (!briNlT) { // turn off if sunset, restore values from color channels (see above)
           effectCurrent = colNlT.r;
           effectSpeed = colNlT.g;
           effectPalette = colNlT.b;
@@ -258,7 +258,7 @@ void handleNightlight() {
     }
   } else if (nightlightActiveOld) //early de-init
   {
-    if (nightlightMode == NL_MODE_SUN) { //restore previous effect from color channels (see above)
+    if (nightlightMode == NL_MODE_SUN) { // restore previous effect from color channels (see above)
       effectCurrent = colNlT.r;
       effectSpeed = colNlT.g;
       effectPalette = colNlT.b;
