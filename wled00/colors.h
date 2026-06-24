@@ -162,10 +162,10 @@ struct CRGBW {
   constexpr CRGBW(CRGB rgb) __attribute__((always_inline)) : b(rgb.b), g(rgb.g), r(rgb.r), w(0) {}
 
   // Constructor from CHSV32
-  inline CRGBW(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); w = 0; }
+  inline CRGBW(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); }
 
   // Constructor from CHSV
-  inline CRGBW(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); w = 0;}
+  inline CRGBW(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); }
 
   // Access as an array
   inline const uint8_t& operator[](uint8_t x) const __attribute__((always_inline)) { return raw[x]; }
@@ -174,10 +174,10 @@ struct CRGBW {
   inline CRGBW& operator=(uint32_t color) __attribute__((always_inline)) { color32 = color; return *this; }
 
   // Assignment from CHSV32
-  inline CRGBW& operator=(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); w = 0; return *this; }
+  inline CRGBW& operator=(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); return *this; }
 
   // Assignment from CHSV
-  inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); w = 0; return *this; }
+  inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true);  return *this; }
 
   // Assignment from CRGB
   inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
