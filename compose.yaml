@@ -1,0 +1,11 @@
+# Usage: PIO_ENV=esp32dev docker compose up
+
+services:
+  wled-build:
+    image: wled-build
+    build: .
+    environment:
+      - PIO_ENV=${PIO_ENV:-esp32dev}
+    volumes:
+      - ./build_output:/workdir/build_output
+    command: ["bash", "-c", "npm run build && pio run -e $PIO_ENV"]
