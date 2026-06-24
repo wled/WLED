@@ -663,6 +663,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
     {
       otaLock = request->hasArg(F("NO"));
       wifiLock = request->hasArg(F("OW"));
+      denyWsecUpload = request->hasArg(F("OU"));
       #ifndef WLED_DISABLE_OTA
       aOtaEnabled = request->hasArg(F("AO"));
       #endif

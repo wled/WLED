@@ -198,6 +198,12 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     if (isFinal) request->send(401, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_unlock_cfg));
     return;
   }
+
+  if (denyWsecUpload && filename.indexOf(FPSTR(s_wsec)) >= 0) {
+    if (isFinal) request->send(403, FPSTR(CONTENT_TYPE_PLAIN), FPSTR(s_accessdenied)); // block wsec.json
+    return;
+  }
+
   if (!index) {
     String finalname = filename;
     if (finalname.charAt(0) != '/') {
