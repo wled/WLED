@@ -2846,14 +2846,7 @@ function rSegs()
 	cnfrS = false;
 	bt.style.color = "var(--c-f)";
 	bt.innerHTML = "Reset segments";
-	var obj = {"seg":[{"start":0,"stop":ledCount,"sel":true}]};
-	if (isM) {
-		obj.seg[0].stop = mw;
-		obj.seg[0].startX = 0;
-		obj.seg[0].stopY = mh;
-	}
-	for (let i=1; i<=lSeg; i++) obj.seg.push({"stop":0});
-	requestJson(obj);
+	requestJson({"rSeg": true}); // send reset segment request, calls makeAutoSegments() in firmware
 }
 
 function loadPalettesData() {
