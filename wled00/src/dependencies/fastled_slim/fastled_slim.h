@@ -49,7 +49,7 @@ typedef union {
 } TRGBGradientPaletteEntryUnion;
 
 // function prototypes
-void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata);
+void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW = false);
 CRGB HeatColor(uint8_t temperature); // black body radiation
 void fill_solid_RGB(CRGB* colors, uint32_t num, const CRGB& c1) ;
 void fill_gradient_RGB(CRGB* colors, uint32_t startpos, CRGB startcolor, uint32_t endpos, CRGB endcolor);

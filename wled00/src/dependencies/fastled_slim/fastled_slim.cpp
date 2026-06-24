@@ -6,7 +6,7 @@
 // convert HSV (16bit hue) to RGB (24bit), optimized for speed (integer types and function arguments were very carefully selected for best performance)
 // this does the same as the FastLED hsv2rgb_rainbow function but with 16bit hue and optimizations for use with CRGB as well as CRGBW
 // note: this function is used when converting CHSV->CRGB or CHSV32->CRGBW by assignment or constructor, there is no need to call it explicitly
-__attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata) {
+__attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint8_t v, uint8_t* rgbdata, bool isRGBW) {
   uint8_t hue = h>>8;
   uint8_t sat = s;
   uint32_t val = v;
@@ -98,10 +98,17 @@ __attribute__((optimize("O2"))) void hsv2rgb_rainbow(uint16_t h, uint8_t s, uint
       if (b) b = ((b * val) >> 16) + 1;
     }
   }
-  rgbdata[0] = r;
-  rgbdata[1] = g;
-  rgbdata[2] = b;
-  // note: white channel is left uninitialized intentionally, set it in the caller if needed
+  if(isRGBW) {
+    rgbdata[0] = b; // CRGBW has color order [b,g,r,w]
+    rgbdata[1] = g;
+    rgbdata[2] = r;
+    //rgbdata[3] = 0; // note: white channel is left uninitialized intentionally, set it in the caller if needed
+  } else {
+    rgbdata[0] = r; // CRGB has color order [r,g,b]
+    rgbdata[1] = g;
+    rgbdata[2] = b;
+  }
+  
 
 }
 
