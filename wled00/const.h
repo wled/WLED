@@ -395,7 +395,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define BTN_TYPE_TOUCH_SWITCH     9
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES        16
+#define WLED_NUM_ETH_TYPES        17
 
 
 #define WLED_ETH_NONE              0
@@ -414,6 +414,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define WLED_ETH_GLEDOPTO         13
 #define WLED_ETH_QUINLED_V4_UNOQUAD  14
 #define WLED_ETH_QUINLED_V4_OCTA     15
+#define WLED_ETH_DOMRAEM_ETHV1       16
 
 
 //Hue error codes
