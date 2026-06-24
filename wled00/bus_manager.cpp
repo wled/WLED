@@ -1134,6 +1134,8 @@ void BusHub75Matrix::cleanup() {
   if (display != nullptr) delete display;
   display = nullptr;
   virtualDisp = nullptr; // note: when not using "NO_GFX" this causes a memory leak
+  #else  // runtime reconfiguration is not working on -S3, request reboot from user instead
+    errorFlag = ERR_REBOOT_NEEDED;
   #endif
   if (_ledBuffer != nullptr) d_free(_ledBuffer); _ledBuffer = nullptr;
   if (_ledsDirty != nullptr) d_free(_ledsDirty); _ledsDirty = nullptr;
