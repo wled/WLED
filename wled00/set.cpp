@@ -205,6 +205,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char sl[4] = "SL"; sl[2] = offset+s; sl[3] = 0; //skip first N LEDs
       char rf[4] = "RF"; rf[2] = offset+s; rf[3] = 0; //refresh required
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
+      char wk[4] = "WK"; wk[2] = offset+s; wk[3] = 0; //W channel color temperature (Kelvin)
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
@@ -230,6 +231,9 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         break;  // no parameter
       }
       awmode = request->arg(aw).toInt();
+      uint16_t whiteK = request->hasArg(wk) ? (uint16_t)request->arg(wk).toInt() : 0;
+      // Reject out-of-range or sub-1000K Kelvin values; 0 means "neutral/legacy"
+      if (whiteK != 0 && (whiteK < 1000 || whiteK > 10000)) whiteK = 0;
       uint16_t freq = request->arg(sp).toInt();
       if (Bus::isPWM(type)) {
         switch (freq) {
@@ -265,7 +269,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text, whiteK);
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed
