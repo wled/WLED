@@ -1291,17 +1291,17 @@ void WS2812FX::finalizeInit() {
 
 // update global _pixels[] buffer to match getLengthTotal() note: if allocation fails, WLED will not render anything
 void WS2812FX::updatePixelBuffer() {
-  uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  _pixels = nullptr;
   #ifdef ESP8266
   // On ESP8266, skip the global framebuffer: blendSegment() encodes directly into bus encode buffers.
   // This saves N*4 bytes of heap (e.g. 1200B for 300 LEDs, 2000B for 500 LEDs).
-  _pixels = nullptr;
-  DEBUG_PRINTF_P(PSTR("ESP8266 direct-bus mode: saved %uB\n"), getLengthTotal() * sizeof(uint32_t));
   #else
+  uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(requiredMem, BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), requiredMem);
+  #endif
 }
 
 void WS2812FX::service() {
