@@ -7,7 +7,7 @@ namespace WLEDpixelBus {
 
 // Note on timings regarding I2S/LCD/SPI buses (4 step cadence):
 // the drivers will always use a 1/4 - 3/4 duty cycle for '0' and '1' bits (e.g. 250ns high + 750ns low for a 1us period)
-// it only derives the total period from the given timings for RMT (0hi+0lo+1hi+1lo)/2)
+// it derives the total period from the given timings (0hi+0lo+1hi+1lo)/2)
 // TODO: a better strategy might be to use 0hi*4 as the period as 0 timing is most critical
 
 /**
@@ -43,42 +43,29 @@ inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
   return LedTiming(s(timing.t0h_ns), s(timing.t0l_ns), s(timing.t1h_ns), s(timing.t1l_ns), timing.reset_us);
 }
 
-// LED timing lookup table in flash (PROGMEM on ESP8266, .rodata on ESP32).
-//
-// WHY PROGMEM: On ESP8266 the linker only sends specific .rodata.* patterns to flash
-// (vtables, string literals, RTTI). All other .rodata — including named namespace-scope
-// constexpr variables — lands in DRAM. PROGMEM (__attribute__((section(".irom.text"))))
-// is the only escape. This table is read once at bus-creation time; the bus stores its own
-// copy. Zero permanent DRAM cost.
-//
-// On ESP32 PROGMEM is a no-op; const data naturally goes to flash via the SPI cache.
-//
-// Indexed by getTimingIndex() below. The switch returns uint8_t (not a struct) so the
-// compiler generates code-based selection, not a DRAM struct-copy table.
-//
-// Entries with identical timing values are shared: TM1814≡TM1914, UCS8903≡UCS8904,
-// APA102≡LPD8806≡P9813≡LPD6803.
+// LED timing lookup table in flash (PROGMEM on ESP8266, .rodata on ESP32)
+// Indexed by getTimingIndex() below.
+
 static const PROGMEM LedTiming s_ledTimings[] = {
-//            t0h   t0l   t1h   t1l  reset_us
-/* 0 WS2812 */ { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
-/* 1 400KHz */ { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
-/* 2 TM1829 */ { 300,  900,  800,  400,  200 },  // TM1829
-/* 3 UCS8x03*/ { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
-/* 4 APA106 */ { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
-/* 5 TM1x14 */ { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
-/* 6 SK6812 */ { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
-/* 7 TM1815 */ { 740, 1780, 1440, 1060,  200 },  // TM1815
-/* 8 FW1906 */ { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
-/* 9 WS2805 */ { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
-/*10 SM16825*/ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
-/*11 SPI    */ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803
-/*12 WS2801 */ { 500,  500,  500,  500, 1000 },  // WS2801
+// t0h   t0l   t1h   t1l  reset_us
+ { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
+ { 800, 1700, 1600,  900,  300 },  // Generic 400Kbps
+ { 300,  900,  800,  400,  200 },  // TM1829
+ { 400,  850,  800,  450,  500 },  // UCS8903 / UCS8904 (16-bit)
+ { 350, 1350, 1350,  350,   50 },  // APA106 / PL9823
+ { 360,  890,  720,  530,  200 },  // TM1914 / TM1814 (same timing)
+ { 300,  900,  800,  450,  200 },  // SK6812 / SK6812 RGBW
+ { 740, 1780, 1440, 1060,  200 },  // TM1815
+ { 400,  850,  800,  450,  300 },  // FW1906 GRBCW
+ { 300,  790,  790,  300,  300 },  // WS2805 RGBCW
+ { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
+ { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803 -> SPI LEDs, timing is not really used
+ { 500,  500,  500,  500, 1000 },  // WS2801
 // TYPE_CUSTOM_BUS (36) timing is passed directly as a LedTiming struct; no fixed entries here.
+// TODO: could move these timing into the UI and always pass timings down to the firmware
 };
 
-// Maps WLED TYPE_ to an index into s_ledTimings.
-// Returns uint8_t — the compiler generates code-based selection, not a 12-byte-per-entry
-// DRAM struct table.
+// Maps WLED TYPE_ to an index into s_ledTimings
 static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
     case TYPE_WS2812_RGB:

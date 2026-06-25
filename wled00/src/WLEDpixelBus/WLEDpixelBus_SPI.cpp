@@ -36,22 +36,19 @@ bool SpiBus::begin() {
   _clockHz = timingToClockHz(_timing);
 
   if (_useHardware) {
-    // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual
-    // pins so the IO matrix routes the SPI peripheral to the right GPIOs.
-    // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14)
-    // so no pin args are needed.
+    // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual pins so the IO matrix routes the SPI peripheral to the right GPIOs.
+    // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14) so no pin args are needed.
 #if defined(ARDUINO_ARCH_ESP32)
     SPI.begin(_clockPin, 127, _dataPin, -1); // note: in arduino core, -1 means "default" not "none", passing 127 as the MISO pin is a workaround to prevent SPI.begin() assign the default pin, see #5670
 #else
     SPI.begin();
 #endif
-    // Frequency and mode are applied per-frame via beginTransaction(); do NOT
-    // call the deprecated SPI.setFrequency / SPI.setDataMode here.
+    // Frequency and mode are applied per-frame via beginTransaction(); do NOT call the deprecated SPI.setFrequency / SPI.setDataMode here.
   } else {
+    // bit banged output
     pinMode(_dataPin, OUTPUT);
     pinMode(_clockPin, OUTPUT);
-    // Pre-compute bitmasks so the hot-path bit-bang loop does register writes,
-    // not the ~10x-slower digitalWrite().
+    // Pre-compute bitmasks so the hot-path bit-bang loop does register writes not the ~10x-slower digitalWrite().
 #if defined(ARDUINO_ARCH_ESP32)
     _dataHigh = (_dataPin >= 32);
     _clkHigh  = (_clockPin >= 32);
@@ -90,8 +87,7 @@ void SpiBus::end() {
 }
 
 // Fast inline helpers for bit-bang GPIO register access.
-// Using W1TS/W1TC (write-1-to-set/clear) registers avoids read-modify-write
-// race conditions and is faster than GPIO_OUT read-modify-write.
+// Using W1TS/W1TC (write-1-to-set/clear) registers avoids read-modify-write race conditions and is faster than GPIO_OUT read-modify-write.
 inline void SpiBus::bbSetData(bool high) const {
 #if defined(ARDUINO_ARCH_ESP32)
 #ifdef ESP_HAS_HIGH_GPIO_BANK
@@ -106,6 +102,7 @@ inline void SpiBus::bbSetData(bool high) const {
   } else {
     REG_WRITE(GPIO_OUT_W1TC_REG, _dataMask);
   }
+  // TODO: on the C3 BB output is much faster when using direct CPU access through cpu pin groups (see espressif documentation), could potentially achieve several MHz clockspeed
 #endif
 #elif defined(ARDUINO_ARCH_ESP8266)
   if (high) GPOS = _dataMask; else GPOC = _dataMask;
@@ -136,8 +133,7 @@ void SpiBus::sendByte(uint8_t d) {
   if (_useHardware) {
     SPI.transfer(d);
   } else {
-    // MSB-first bit-bang, SPI mode 0 (CPOL=0, CPHA=0):
-    // data is set up while clock is low, sampled on rising edge.
+    // MSB-first bit-bang, SPI mode 0 (CPOL=0, CPHA=0): data is set up while clock is low, sampled on rising edge.
     for (uint8_t i = 0; i < 8; i++) {
       bbSetData(d & 0x80);
       bbSetClk(true);
@@ -160,11 +156,9 @@ void SpiBus::sendStartFrame(uint16_t numPixels) {
 }
 
 void SpiBus::sendEndFrame(uint16_t numPixels) {
-  // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame 
-  //   Each APA102 delays the clock by one half-cycle; N LEDs need N/2 extra
-  //   clock pulses to ensure the last pixel latches. One byte = 8 clocks,
-  //   so ceil(N/16) bytes provide the required ceil(N/2) pulses.
-  //   The APA102 datasheet's "4 zero bytes" claim is only valid for N ≤ 64.
+  // APA102: ceil(N/16) zero bytes.  TODO: NPB seems to send zero bytes, datasheet states four 0xFF bytes is the end frame
+  //   Each APA102 delays the clock by one half-cycle; N LEDs need N/2 extra clock pulses to ensure the last pixel latches. One byte = 8 clocks,
+  //   so ceil(N/16) bytes provide the required ceil(N/2) pulses. The APA102 datasheet's "4 zero bytes" claim is only valid for N ≤ 64.
   // LPD6803: ceil(N/8) zero bytes (one clock per pixel required).
   // LPD8806: ceil(N/32) 0xFF bytes (high level = latch for MSB-set pixel data).
   // P9813: fixed 4 zero bytes.
@@ -191,8 +185,7 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
 
   if (_useHardware) {
     // beginTransaction applies frequency, bit order, and SPI mode atomically.
-    // This is mandatory on ESP32 — settings applied outside a transaction are
-    // ignored by the hardware.
+    // This is mandatory on ESP32 — settings applied outside a transaction are ignored by the hardware.
     SPI.beginTransaction(SPISettings(_clockHz, MSBFIRST, SPI_MODE0));
   }
 

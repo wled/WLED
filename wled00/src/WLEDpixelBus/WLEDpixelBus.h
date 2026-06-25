@@ -5,12 +5,12 @@ by @dedehai, 2026
 
 Features:
 - Runtime LED timing configuration
-- Double-buffered DMA with interrupt-driven refilling (4-step cadence)
 - Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3
-- RMT, I2S parallel, and LCD parallel output methods
+- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel
+- 2-Pin LED support (hardware SPI and BitBang)
 - RGBW uint32_t pixel buffer format (WLED native)
-- Separate CCT (WW/CW) buffer support
-- IDF v4.x compatible
+- Support for up to 6 color channels, 8bit or 16bit
+IDF v4.x compatible
 
 -------------------------------------------------------------------------*/
 

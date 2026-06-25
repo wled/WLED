@@ -7,9 +7,9 @@
 
 namespace WLEDpixelBus {
 
-//==============================================================================
+//=======================================
 // RMT Bus - Works on all ESP32 variants
-//==============================================================================
+//=======================================
 
 class RmtBus : public PixelBus {
 public:
@@ -100,7 +100,7 @@ private:
                                           size_t* translated_size, size_t* item_num);
 
   // Jump table of callbacks (defined in .cpp). Use 8 entries to match max RMT channels.
-  static const sample_to_rmt_t s_callbacks[8];
+  static const sample_to_rmt_t s_callbacks[8]; // TODO: could define this above and actually use the correct amount of callbacks
 };
 
 } // namespace WLEDpixelBus

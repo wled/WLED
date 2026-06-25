@@ -241,7 +241,7 @@ bool RmtBus::begin() {
   // route the pin, use hardware signal inversion via GPIO matrix if _inverted
   //gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // note: in IDF V5 this is called esp_rom_gpio_connect_out_signal()
   esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
-  
+
   if (_initialized) esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
 
   _initialized = true;
@@ -316,7 +316,7 @@ void RmtBus::setColorOrder(uint8_t co) {
 void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
                                          size_t src_size, size_t wanted_num,
                                          size_t* translated_size, size_t* item_num) {
-/* 
+/*
   // safety check - should never happen
   if (src == nullptr || dest == nullptr) {
     *translated_size = 0;
