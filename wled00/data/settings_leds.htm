@@ -161,7 +161,6 @@
 			if (bquot > 100) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
-				if (bquot > 100) msg += "\n\rToo many LEDs for me to handle properly!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
 				if (!d.Sf.ABL.checked || d.Sf.PPL.checked) d.Sf.MA.value = 0; // submit 0 as ABL (PPL will handle it)
 				if (d.Sf.checkValidity()) {
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{s.disabled=false;}); // just in case
