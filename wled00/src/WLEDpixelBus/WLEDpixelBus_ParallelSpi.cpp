@@ -117,7 +117,8 @@ void SpiBusContext::forceIdle() {
   // disconnect pins from SPI and set low
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
     if (_channels[i].active && _channels[i].pin >= 0) {
-      gpio_matrix_out(_channels[i].pin, SIG_GPIO_OUT_IDX, false, false); // disconnect from SPI and use as regular GPIO, non inverted
+      //gpio_matrix_out(_channels[i].pin, SIG_GPIO_OUT_IDX, false, false); // disconnect from SPI and use as regular GPIO, non inverted
+      esp_rom_gpio_connect_out_signal(_channels[i].pin, SIG_GPIO_OUT_IDX, false, false); // TODO: this is the new command in IDF V5, works in V4 too?
       gpio_set_level((gpio_num_t)_channels[i].pin, 0);
     }
   }
@@ -426,7 +427,8 @@ int8_t SpiBusContext::registerChannel(int8_t pin, ParallelSpiBus* bus, bool inve
 
   // Route SPI data signal to GPIO
   pinMode(pin, OUTPUT);
-  gpio_matrix_out(pin, SPI_SIGNAL_INDICES[idx], inverted, false);
+  //gpio_matrix_out(pin, SPI_SIGNAL_INDICES[idx], inverted, false); // note: in IDF V5 this function is called esp_rom_gpio_connect_out_signal()
+  esp_rom_gpio_connect_out_signal(pin, SPI_SIGNAL_INDICES[idx], inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
 
   return idx;
 }
@@ -586,10 +588,9 @@ bool ParallelSpiBus::begin() {
   return true;
 }
 
+// invert output signal, must be set before begin()
 void ParallelSpiBus::setInverted(bool inv) {
   _inverted = inv;
-  if (!_initialized || _channelIdx < 0) return;
-  gpio_matrix_out(_pin, SPI_SIGNAL_INDICES[_channelIdx], inv, false);
 }
 
 void ParallelSpiBus::end() {

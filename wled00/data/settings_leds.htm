@@ -55,6 +55,17 @@
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
 				fetchPinInfo(pinDropdowns);
+				// Populate per-bus Bus Speed Factor (bsf) from server config if present
+				try {
+					if (d && d.hw && d.hw.led && Array.isArray(d.hw.led.ins)) {
+						d.hw.led.ins.forEach((v,i)=>{
+							let el = d.getElementsByName("SF"+i)[0];
+							if (el) el.value = (typeof v.bsf !== 'undefined') ? (v.bsf || 100) : 100;
+						});
+					}
+				} catch(e) {}
+				// initialize UI after populating values
+				UI();
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
@@ -866,7 +877,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
 							d.getElementsByName("LT"+i)[0].value   = v.type;
-							d.getElementsByName("LD"+i)[0].value   = v.drv | 0; // output driver type (RMT or I2S, default to RMT if not set)
+							d.getElementsByName("LD"+i)[0].value   = v.drv || 0; // output driver type (RMT or I2S, default to RMT if not set)
 							d.getElementsByName("LS"+i)[0].value   = v.start;
 							d.getElementsByName("LC"+i)[0].value   = v.len;
 							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
@@ -876,7 +887,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
 							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
 							d.getElementsByName("SP"+i)[0].value   = v.freq;
-							d.getElementsByName("SF"+i)[0].value   = v.bsf | 100;
+							d.getElementsByName("SF"+i)[0].value   = v.bsf || 100; // bus speed factor, default to 100%
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
@@ -1341,4 +1352,4 @@ Swap: <select id="xw${s}" name="XW${s}">
 </form>
 <div id="toast"></div>
 </body>
-</html>    
+</html>

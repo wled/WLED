@@ -268,8 +268,6 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       case TYPE_SM16825:
         bus->setSuffixLen(4); // 4-byte per-frame configuration suffix; defaults written by allocateEncodeBuffer()
         break;
-      //case TYPE_CUSTOM_BUS:
-        //bus->setInverted(invert);  // TODO: need a parameter to set inverted for custom bus, UI already supports it but driver does not
       default:
         break;
     }

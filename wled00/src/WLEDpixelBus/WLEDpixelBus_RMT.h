@@ -3,6 +3,7 @@
 #include "WLEDpixelBus.h"
 #include "driver/rmt.h"
 #include "RmtHiDriver.h"
+#include "esp_rom_gpio.h" // for gpio routing to set inverted signal
 
 namespace WLEDpixelBus {
 
@@ -36,7 +37,6 @@ public:
   // Configuration
   void setInverted(bool inv) override {
     _inverted = inv;
-    if (_initialized) gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, inv, false);
   }
   void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);
@@ -52,15 +52,14 @@ public:
 private:
   int8_t _pin;
   int8_t _channel;
-  LedTiming _timing;
   bool _inverted;
   bool _initialized;
-  bool _usingRmtHi;
-  
+  LedTiming _timing;
   rmt_channel_t _rmtChannel;
   uint32_t _rmtBit0;
   uint32_t _rmtBit1;
   uint16_t _rmtResetTicks;
+  bool _usingRmtHi;
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
 

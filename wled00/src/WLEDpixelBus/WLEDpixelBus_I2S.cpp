@@ -370,7 +370,8 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
 #endif
   sigIdx += idx;
 
-  gpio_matrix_out(pin, sigIdx, inverted, false);
+  //gpio_matrix_out(pin, sigIdx, inverted, false);
+  esp_rom_gpio_connect_out_signal(pin, sigIdx, inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
 
   return idx;
 }
@@ -721,29 +722,9 @@ bool I2sBus::begin() {
   return true;
 }
 
+// invert output signal, must be set before begin()
 void I2sBus::setInverted(bool inv) {
   _inverted = inv;
-  if (!_initialized || _channelIdx < 0) return;
-  int sigIdx;
-#ifdef WLED_PIXELBUS_16PARALLEL
-  #if defined(WLEDPB_ESP32)
-  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX;
-  #elif defined(WLEDPB_ESP32S2)
-  sigIdx = I2S0O_DATA_OUT8_IDX;
-  #else
-  sigIdx = I2S0O_DATA_OUT0_IDX;
-  #endif
-#else
-  #if defined(WLEDPB_ESP32)
-  sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
-  #elif defined(WLEDPB_ESP32S2)
-  sigIdx = I2S0O_DATA_OUT16_IDX;
-  #else
-  sigIdx = I2S0O_DATA_OUT0_IDX;
-  #endif
-#endif
-  sigIdx += _channelIdx;
-  gpio_matrix_out(_pin, sigIdx, inv, false);
 }
 
 void I2sBus::end() {

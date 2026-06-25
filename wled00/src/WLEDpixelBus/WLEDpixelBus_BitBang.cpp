@@ -64,8 +64,7 @@ uint8_t      BitBangBus::s_pixelBytes    = 0;
 // ---------------------------------------------------------------------------
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
-BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder,
-                       uint8_t numChannels, uint8_t ledType)
+BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin), _rawTiming(timing), _initialized(false)
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
@@ -76,9 +75,6 @@ BitBangBus::~BitBangBus() {
   end();
 }
 
-// ---------------------------------------------------------------------------
-// begin()
-// ---------------------------------------------------------------------------
 bool BitBangBus::begin() {
   if (_initialized) return true;
 
@@ -132,6 +128,7 @@ bool BitBangBus::begin() {
 #endif
     return false;
   }
+  esp_rom_gpio_connect_out_signal(_pin, SIG_GPIO_OUT_IDX, _inverted, false); // route output pin, inverts signal in hardware if needed
 
   // Publish per-channel data pointers into the shared static arrays.
   // Timing is set here (same for all channels; overwriting with same values is harmless).
@@ -147,9 +144,11 @@ bool BitBangBus::begin() {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// end()
-// ---------------------------------------------------------------------------
+// invert output signal, must be set before begin()
+void BitBangBus::setInverted(bool inv) {
+  _inverted = inv;
+}
+
 void BitBangBus::end() {
   if (_initialized) {
     // Find our slot by scanning s_pins (no stored index needed).
@@ -180,7 +179,7 @@ void BitBangBus::end() {
   }
   _initialized = false;
 
-  if (_pin >= 0) gpio_reset_pin((gpio_num_t)_pin);
+  if (_pin >= 0) gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings, including inversion
 
   // Release the encode buffer via base class helper.
   if (_encodeBuffer) {
@@ -340,9 +339,10 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     uint32_t zeroMask = computeZeroMask(bitIndex);
 #endif
 
-    // ── Step 2: Pixel boundary — release ISR lock, check latch ───────────
+    // Pixel boundary — release ISR lock, check latch ───────────
     // On every pixel boundary (except the very first bit) give ISRs a chance
     // to run, then verify the idle gap has not caused an accidental LED latch.
+    // note: this can lead to glitches, so far nothing bad was detected when fully blocking for up to 140ms so this is probably unnecessary (might be problematic for ESPNow, need to check)
     /*
     if (bitIndex > 0 && (bitIndex % bitsPerPixel) == 0) {
       portEXIT_CRITICAL(&s_mux);
@@ -353,7 +353,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
       }
     }*/
 
-    // ── Step 3: Wait for the full bit period since the last HIGH edge ──────
+    // Wait for the full bit period since the last HIGH edge ──────
     while ((getCycleCount() - cyclesStart) < period);
 
     // ── Step 4: Set all outputs HIGH simultaneously ───────────────────────

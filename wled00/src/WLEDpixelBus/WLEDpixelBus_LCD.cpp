@@ -246,7 +246,7 @@ void LcdBusContext::deinit() {
   if (_initialized) {
     periph_module_disable(PERIPH_LCD_CAM_MODULE);
   }
-  
+
   _initialized = false;
 }
 
@@ -279,8 +279,7 @@ void LcdBusContext::unregisterChannel(int8_t channelIdx) {
   if (!_channels[channelIdx].active) return;
 
   if (_channels[channelIdx].pin >= 0) {
-    gpio_matrix_out(_channels[channelIdx].pin, SIG_GPIO_OUT_IDX, false, false);
-    pinMode(_channels[channelIdx].pin, INPUT);
+    gpio_reset_pin((gpio_num_t)_channels[channelIdx].pin);
   }
 
   _channels[channelIdx] = {nullptr, -1, nullptr, 0, 0, false};
@@ -596,10 +595,9 @@ bool LcdBus::begin() {
   return true;
 }
 
+// invert output signal, must be set before begin()
 void LcdBus::setInverted(bool inv) {
   _inverted = inv;
-  if (!_initialized || _channelIdx < 0) return;
-  esp_rom_gpio_connect_out_signal(_pin, LCD_DATA_OUT0_IDX + _channelIdx, inv, false);
 }
 
 void LcdBus::end() {

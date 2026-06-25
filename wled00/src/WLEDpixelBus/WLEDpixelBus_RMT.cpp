@@ -197,8 +197,7 @@ bool RmtBus::begin() {
   if (err != ESP_OK) {
     return false;
   }
-  // Apply hardware signal inversion via GPIO Matrix (rmt_config routes the pin, then we set the invert bit)
-  gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
+
   // Register hack for memory blocks normally assigned to RX (S2 / S3 / C3)   TODO: need this for ESP32 as well?
 #ifndef RMT_USE_SINGLE_MEM_BLOCK
   #if defined(WLEDPB_ESP32S3)
@@ -239,8 +238,11 @@ bool RmtBus::begin() {
     }
   }
 
-  // use hardware signal inversion via GPIO matrix if _inverted
-  gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
+  // route the pin, use hardware signal inversion via GPIO matrix if _inverted
+  //gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // note: in IDF V5 this is called esp_rom_gpio_connect_out_signal()
+  esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
+  
+  if (_initialized) esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
 
   _initialized = true;
   s_activeChannelMask |= (1 << _channel);
@@ -256,6 +258,9 @@ void RmtBus::end() {
     RmtHiDriver::Uninstall(_rmtChannel);
   } else {
     rmt_driver_uninstall(_rmtChannel);
+  }
+  if (_pin >= 0) {
+    gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings
   }
 
   // Free encode buffer with the same allocator used in allocateEncodeBuffer() (plain malloc)

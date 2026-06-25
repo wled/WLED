@@ -54,24 +54,20 @@ public:
 
   bool begin() override;
   void end()   override;
-
-  /** Stage this channel's data.  When all channels are staged, output all in parallel. */
-  bool show(const uint32_t* = nullptr, uint16_t = 0,
-            const CctPixel* = nullptr) override;
-
-  /** BitBang output is synchronous — always ready. */
-  bool canShow() const override { return true; }
+  void setInverted(bool inv) override; // invert output signal
+  bool show(const uint32_t* = nullptr, uint16_t = 0, const CctPixel* = nullptr) override; // Stage this channel's data.  When all channels are staged, output all in parallel.
+  bool canShow() const override { return true; } // BitBang output is synchronous — always ready  TODO: on multi-core systems with tasks running on different cores, this is not true (but it currently is)
 
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "BitBang"; }
 #endif
 
-  /** Reset the shared static channel registry.
-   *  Called by PixelBusAllocator::resetChannelTracking() when all buses are destroyed. */
+  // Reset the shared static channel registryc, alled by PixelBusAllocator::resetChannelTracking() when all buses are destroyed
   static void resetChannels();
 
 private:
   int8_t    _pin         = -1;
+  bool      _inverted    = false; // invert output signal
   bool      _initialized = false;
 
   LedTiming _rawTiming;       // saved at construction, converted to cycles in begin()

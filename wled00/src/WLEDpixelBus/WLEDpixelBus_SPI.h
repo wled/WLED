@@ -51,6 +51,7 @@ private:
   bool     _useHardware;
   bool     _initialized;
   uint32_t _clockHz;   // SPI clock in Hz, derived from timing at begin() time
+  // TODO: need _inverted flag here as well? output inversion is currently not supported on SPI type bus
 
   // Pre-computed GPIO bitmasks for fast bit-bang output (set in begin())
 #if defined(ARDUINO_ARCH_ESP32)

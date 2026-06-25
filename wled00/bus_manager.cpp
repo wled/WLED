@@ -171,7 +171,8 @@ BusDigital::BusDigital(const BusConfig &bc)
     _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, nch, &customTiming);
     if (_busPtr) {
       _busPtr->setEncoder(WLEDpixelBus::ColorEncoder(bc.custom.channelColors, bc.custom.numChannels, bc.custom.invertMask, bc.custom.is16bit));
-      if (bc.custom.invertOutput) _busPtr->setInverted(true);
+      if (bc.custom.invertOutput) _busPtr->setInverted(true); // invert output, needs to be set before bus->begin() (uses native hardware inversion capability)
+      // TODO: should inverted be supported for normal buses too? probably better not as it complicates things for normal users, one more option to screw up the settings.
     }
     // Derive instance capabilities from actual channel map
     _hasRgb = false; _hasWhite = false; _hasCCT = false;

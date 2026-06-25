@@ -269,7 +269,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       uint8_t bsf = request->hasArg(sf) ? (uint8_t)request->arg(sf).toInt() : 100;
       busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text, (uint8_t)bsf);
       // For TYPE_CUSTOM_BUS: parse per-channel custom config from the submitted form
-      if ((type & 0x7F) == TYPE_CUSTOM_BUS) { // type still has bit 7 set here (off-refresh flag); strip before comparing
+      if ((type & 0x7F) == TYPE_CUSTOM_BUS) { // strip bit 7 (off-refresh flag)
         BusConfig& bc_back = busConfigs.back();
         char cbch[7]  = "CBch";  cbch[4]  = offset+s; cbch[5]  = 0;
         char cbio[7]  = "CBio";  cbio[4]  = offset+s; cbio[5]  = 0;

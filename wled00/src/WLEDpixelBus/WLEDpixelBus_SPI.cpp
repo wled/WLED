@@ -82,10 +82,9 @@ void SpiBus::end() {
   if (!_initialized) return;
   if (_useHardware) {
     SPI.end();
-  } else {
-    pinMode(_dataPin, INPUT);
-    pinMode(_clockPin, INPUT);
   }
+  if (_dataPin >= 0) gpio_reset_pin((gpio_num_t)_dataPin);
+  if (_clockPin >= 0) gpio_reset_pin((gpio_num_t)_clockPin);
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
   _initialized = false;
 }
