@@ -770,7 +770,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (c.hw) {
 					if (c.hw.led) {
 						// remove all existing outputs
-						for (const i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						for (let i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
