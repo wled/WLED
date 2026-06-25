@@ -382,15 +382,11 @@
 				d.Sf.CR.checked = false;
 			}
 			// update start indexes, max values, calculate current, etc
-			let sameType = 0;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);     // field name : /L./
 				let n  = LC.name.substring(2,3);     // bus number (0-Z)
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-				if (isDig(t) && !isD2P(t)) {
-					if (sameType == 0) sameType = t; // first bus type
-				}
 				// do we have a led count field
 				if (nm=="LC") {
 					if (!isHub75(t)) {
@@ -470,8 +466,8 @@
 					}
 				}
 			});
+			// note: do not remove this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
-			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
