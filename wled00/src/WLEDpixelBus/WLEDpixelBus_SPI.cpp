@@ -41,13 +41,15 @@ bool SpiBus::begin() {
     // On ESP8266 the hardware SPI uses fixed pins (MOSI=GPIO13, SCK=GPIO14)
     // so no pin args are needed.
 #if defined(ARDUINO_ARCH_ESP32)
-    SPI.begin(_clockPin, -1, _dataPin, -1);
+    SPI.begin(_clockPin, 127, _dataPin, -1); // note: in arduino core, -1 means "default" not "none", passing 127 as the MISO pin is a workaround to prevent SPI.begin() assign the default pin, see #5670
+    Serial.println("using hardware SPI");
 #else
     SPI.begin();
 #endif
     // Frequency and mode are applied per-frame via beginTransaction(); do NOT
     // call the deprecated SPI.setFrequency / SPI.setDataMode here.
   } else {
+  Serial.println("using software SPI");
     pinMode(_dataPin, OUTPUT);
     pinMode(_clockPin, OUTPUT);
     // Pre-compute bitmasks so the hot-path bit-bang loop does register writes,

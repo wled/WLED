@@ -1574,10 +1574,10 @@ ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned during allocateHardware()
 uint8_t PixelBusAllocator::_rmtChannel = 0;     // number of RMT channels actually used during bus creation in create()
 uint8_t PixelBusAllocator::_i2sChannelsAssigned = 0;
-uint8_t PixelBusAllocator::_2PchannelsAssigned = 0;
 uint8_t PixelBusAllocator::_parallelI2sBusType = 0;
 uint8_t PixelBusAllocator::_bitBangChannelsAssigned = 0;
 uint8_t PixelBusAllocator::_bitBangBusType = 0;
+uint8_t PixelBusAllocator::_hardwareSPIused = 0;
 #else
 uint8_t PixelBusAllocator::_bitBangBusType = 0;
 #endif

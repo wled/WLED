@@ -16,7 +16,7 @@ Features:
 
 #include "WLEDpixelBus.h"
 
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_LCD.h"
@@ -205,14 +205,14 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
   PixelBus* bus = nullptr;
 
   switch (driver) {
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
     case BusDriver::RMT:
       bus = new RmtBus(pin, timing, colorOrder, numChannels, channel, ledType);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
         case BusDriver::I2S:
-#if defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
       bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize, ledType);
 #else
       bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, bufferSize, ledType);

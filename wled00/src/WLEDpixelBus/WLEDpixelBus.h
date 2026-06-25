@@ -29,17 +29,6 @@ Features:
 #include "esp_idf_version.h"
 #include "driver/rmt.h"
 
-// Platform detection
-#if defined(CONFIG_IDF_TARGET_ESP32)
-  #define WLEDPB_ESP32
-#elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  #define WLEDPB_ESP32S2
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  #define WLEDPB_ESP32S3
-#elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  #define WLEDPB_ESP32C3
-#endif
-
 // I2S support: targets where the I2S peripheral has the LCD Intel 8080 mode
 // used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and
 // ESP32-S2; absent on S3 (which has a dedicated LCD CAM) and C3.
@@ -54,8 +43,8 @@ Features:
 #endif
 
 // SPI parallel support (C3 - uses SPI quad mode with GDMA)
-#if defined(WLEDPB_ESP32C3)
-  #define WLEDPB_PARALLEL_SPI_SUPPORT 
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  #define WLEDPB_PARALLEL_SPI_SUPPORT
 #endif
 
 // ESP_HAS_HIGH_GPIO_BANK — defined when the target has GPIO > 31 and therefore
@@ -541,11 +530,11 @@ enum class BusDriver : uint8_t {
  * Get the maximum number of RMT TX channels for the current platform
  */
 constexpr uint8_t getRmtMaxChannels() {
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   return 8;   // ESP32 original: 8 RMT channels
-#elif defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3)
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   return 4;   // ESP32-S2/S3: 4 RMT TX channels
-#elif defined(WLEDPB_ESP32C3)
+#elif defined(CONFIG_IDF_TARGET_ESP32C3)
   return 2;   // ESP32-C3: 2 RMT TX channels
 #else
   return 0;
@@ -572,7 +561,7 @@ PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
 
 #include "WLEDpixelBus_SPI.h"
 
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32S3) || defined(WLEDPB_ESP32C3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_LCD.h"

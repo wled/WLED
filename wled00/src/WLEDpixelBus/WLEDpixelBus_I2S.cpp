@@ -47,7 +47,7 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
   , _stagedMask(0)
   , _maxDataLen(0)
 {
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   _i2sDev = (busNum == 0) ? &I2S0 : &I2S1;
 #else
   _i2sDev = &I2S0;
@@ -105,7 +105,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   }
 
   // Enable I2S peripheral
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   periph_module_enable(_busNum == 0 ? PERIPH_I2S0_MODULE : PERIPH_I2S1_MODULE);
 #else
   periph_module_enable(PERIPH_I2S0_MODULE);
@@ -155,7 +155,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->lc_conf.out_eof_mode = 1;
 
   // Disable PDM
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   _i2sDev->pdm_conf.tx_pdm_en = 0;
   _i2sDev->pdm_conf.pcm2pdm_conv_en = 0;
 #endif
@@ -165,7 +165,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->fifo_conf.tx_fifo_mod_force_en = 1;
   //_i2sDev->fifo_conf.tx_fifo_mod = 3;  // 0=16bit dual, 1=16bit single, 2=32bit dual, 3=32bit single (32-bit linked for 16-bit samples)
   // For ESP32 Classic, use 16-bit FIFO mode
-#if !defined(WLEDPB_ESP32S2)
+#if !defined(CONFIG_IDF_TARGET_ESP32S2)
   _i2sDev->fifo_conf.tx_fifo_mod = 1;
   //_i2sDev->conf_chan.tx_chan_mod = 0; // Standard mode
 #else
@@ -201,7 +201,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   const uint8_t bckDiv = 4;  // must be >= 2, NeoPixelBus uses 4
   uint32_t bitPeriodNs = timing.bitPeriod();
 
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   #ifndef WLED_PIXELBUS_16PARALLEL
   // 8-bit mode: lcd_tx_wrx2_en=1 halves the effective output rate (WR pulses at BCK/2).
   // Use 2x clock constant so the divider is doubled, yielding the correct BCK after the factor-of-2.
@@ -273,7 +273,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   // Install ISR
   int intSource;
-  #if defined(WLEDPB_ESP32)
+  #if defined(CONFIG_IDF_TARGET_ESP32)
   intSource = (_busNum == 0) ? ETS_I2S0_INTR_SOURCE : ETS_I2S1_INTR_SOURCE;
   #else
   intSource = ETS_I2S0_INTR_SOURCE;
@@ -317,7 +317,7 @@ void I2sBusContext::deinit() {
     }
   }
 
-#if defined(WLEDPB_ESP32)
+#if defined(CONFIG_IDF_TARGET_ESP32)
   periph_module_disable(_busNum == 0 ? PERIPH_I2S0_MODULE :  PERIPH_I2S1_MODULE);
 #else
   periph_module_disable(PERIPH_I2S0_MODULE);
@@ -351,18 +351,18 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
   int sigIdx;
 #ifdef WLED_PIXELBUS_16PARALLEL
   // 16-bit mode: mapping starts at DATA_OUT8_IDX for the wide 16-bit window
-  #if defined(WLEDPB_ESP32)
+  #if defined(CONFIG_IDF_TARGET_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT8_IDX : I2S1O_DATA_OUT8_IDX;
-  #elif defined(WLEDPB_ESP32S2)
+  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   sigIdx = I2S0O_DATA_OUT8_IDX;
   #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
   #endif
 #else
   // 8-bit mode: mapping starts at DATA_OUT0_IDX (S2: DATA_OUT16_IDX for upper byte)
-  #if defined(WLEDPB_ESP32)
+  #if defined(CONFIG_IDF_TARGET_ESP32)
   sigIdx = (_busNum == 0) ? I2S0O_DATA_OUT0_IDX : I2S1O_DATA_OUT0_IDX;
-  #elif defined(WLEDPB_ESP32S2)
+  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
   sigIdx = I2S0O_DATA_OUT16_IDX; // 8-bit parallel maps to upper bytes on S2
   #else
   sigIdx = I2S0O_DATA_OUT0_IDX;
@@ -445,7 +445,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     // ── Phase 2: Scatter ─────────────────────────────────────────────────────
     // 16 x 32-bit stores, fully unrolled.
     uint32_t* p = (uint32_t*)(dest + pos);
-#if defined(WLEDPB_ESP32S2)
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
     // S2 layout: [step0, step1, step2, step3] (no half-word swap)
     // step0=HIGH, step1=data, step2=data, step3=LOW
     // 32-bit pair: p[0]=(bN<<16)|alwaysMask,  p[1]=(0<<16)|bN
@@ -513,7 +513,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     //   = alwaysMask | (bN<<8) | (bN<<16) | 0
     //   As uint32: alwaysMask | ((uint32_t)bN<<8) | ((uint32_t)bN<<16)
     uint32_t* p = (uint32_t*)(dest + pos);
-#if defined(WLEDPB_ESP32S2)
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
     // S2: no swap, layout [S0,S1,S2,S3] = [HIGH,data,data,LOW]
     #define EMIT8(bN, OFF) \
       p[OFF] = (uint32_t)(alwaysMask) | ((uint32_t)(bN) << 8) | ((uint32_t)(bN) << 16);

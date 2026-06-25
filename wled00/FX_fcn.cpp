@@ -1195,8 +1195,6 @@ void WS2812FX::finalizeInit() {
         i2sBusCount++;
       else
         rmtBusCount++;
-      #else
-      rmtBusCount++;
       #endif
     }
   }

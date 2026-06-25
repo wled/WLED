@@ -30,10 +30,10 @@ class PixelBusAllocator {
     static uint8_t _rmtChannelsAssigned;
     static uint8_t _rmtChannel;
     static uint8_t _i2sChannelsAssigned;
-    static uint8_t _2PchannelsAssigned;
     static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
     static uint8_t _bitBangChannelsAssigned;
     static uint8_t _bitBangBusType;    // Track first BitBang type to enforce parallel timing
+    static uint8_t _hardwareSPIused;   // number of hardware SPI's used, currently only one SPI output is supported. On C3, parallel SPI output takes priority
   #else
     static uint8_t _bitBangBusType;    // Track first ESP8266 BitBang type to enforce parallel timing
   #endif
@@ -44,10 +44,10 @@ class PixelBusAllocator {
     _rmtChannelsAssigned = 0;
     _rmtChannel = 0;
     _i2sChannelsAssigned = 0;
-    _2PchannelsAssigned = 0;
     _parallelI2sBusType = 0; // TYPE_NONE
     _bitBangChannelsAssigned = 0;
     _bitBangBusType = 0; // TYPE_NONE
+    _hardwareSPIused = 0;
     WLEDpixelBus::RmtBus::resetAutoChannel();
     WLEDpixelBus::BitBangBus::resetChannels();
     #else
@@ -60,10 +60,9 @@ class PixelBusAllocator {
     if (!Bus::isDigital(busType)) return false;
 
     if (Bus::is2Pin(busType)) {
-      #ifndef ESP8266
-      _2PchannelsAssigned++;
-      #endif
-      return true; // SPI uses separate pins
+      // TODO: could check if an SPI is still available and set _hardwareSPIused to 1 to prevent hardware collision
+      // note: SPI is intentionally not reserved here as only one is supported and first come first serve is used in create()
+      return true; // for now, allow as many SPI buses as the UI allows. First one uses hardware SPI if available (on C3, if a parallel SPI output is used it takes priority)
     }
 
     #ifndef ESP8266
@@ -82,6 +81,9 @@ class PixelBusAllocator {
       // If first I2S channel request, lock the type to ensure parallel timings match
       if (_i2sChannelsAssigned == 0) {
         _parallelI2sBusType = busType;
+        #ifdef CONFIG_IDF_TARGET_ESP32C3
+        _hardwareSPIused++; // reserve SPI: C3 uses prallel SPI output for "I2S" and takes priority over 2pin buses
+        #endif
       }
       _i2sChannelsAssigned++;
     } else {
@@ -137,7 +139,11 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       #ifdef ESP8266
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
-      if (_2PchannelsAssigned == 1) isHSPI = true;
+      if (_hardwareSPIused == 0) {
+        Serial.println("spi not claimed yet");
+        isHSPI = true;
+        _hardwareSPIused++; // claim hardware SPI (currently only one is supported), on C3 this can also be claimed by parallel SPI (done so in allocateHardware)
+      }
       #endif
       return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI, busType); // TODO: move this into createbus function?
     }

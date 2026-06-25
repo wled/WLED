@@ -137,9 +137,9 @@ bool RmtBus::begin() {
     }
 
     uint8_t totalBlocks;
-#if defined(WLEDPB_ESP32) || defined(WLEDPB_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
     totalBlocks = 8; // ESP32 and S3 have 8 blocks of RMT memory
-#elif defined(WLEDPB_ESP32S2) || defined(WLEDPB_ESP32C3) // note: C6 RMT hardware is the same as C3
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) // note: C6 RMT hardware is the same as C3
     totalBlocks = 4; // other supported ESP32 variants have 4 blocks
 #else
     totalBlocks = 4; // default to 4 if unknown, should be safe
@@ -200,11 +200,11 @@ bool RmtBus::begin() {
 
   // Register hack for memory blocks normally assigned to RX (S2 / S3 / C3)   TODO: need this for ESP32 as well?
 #ifndef RMT_USE_SINGLE_MEM_BLOCK
-  #if defined(WLEDPB_ESP32S3)
+  #if defined(CONFIG_IDF_TARGET_ESP32S3)
   for (int i = 4; i < 8; i++) {
     rmt_set_memory_owner((rmt_channel_t)i, RMT_MEM_OWNER_TX);
   }
-  #elif defined(WLEDPB_ESP32C3)
+  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
   for (int i = 2; i < 4; i++) {
     rmt_set_memory_owner((rmt_channel_t)i, RMT_MEM_OWNER_TX);
   }
@@ -215,7 +215,7 @@ bool RmtBus::begin() {
   // NOTE: rmtHi can deadlock on some cores (notably ESP32-C3). By default we disable it
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
   _usingRmtHi = false;
-#if !defined(WLEDPB_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
+#if !defined(CONFIG_IDF_TARGET_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
   esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
