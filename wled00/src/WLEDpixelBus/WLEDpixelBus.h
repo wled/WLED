@@ -3,6 +3,10 @@ WLEDpixelBus - Lightweight LED driver library for WLED
 
 written by Damian Schneider @dedehai 2026
 
+I would like to thank Michael C. Miller (@Makuna):
+NeoPixelBus served me well as a reference to proper hardware initialisation
+as well as figuring out the more exotic digital LED types
+
 Features:
 - Runtime LED timing configuration
 - Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3 and ESP8266
