@@ -28,7 +28,7 @@ idna==3.10
     # via
     #   anyio
     #   requests
-marshmallow==3.26.1
+marshmallow==3.26.2
     # via platformio
 packaging==24.2
     # via marshmallow
