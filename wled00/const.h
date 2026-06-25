@@ -326,8 +326,10 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
 #define TYPE_RESERVED             1            //unused. Might indicate a "virtual" light
 //Digital types (data pin only) (16-39)
 #define TYPE_DIGITAL_MIN         16            // first usable digital type
-#define TYPE_WS2812_1CH_X3       19            // (migration only: old configs auto-migrate to TYPE_CUSTOM_BUS)
-#define TYPE_WS2812_WWA          21            // (migration only: old configs auto-migrate to TYPE_CUSTOM_BUS)
+#define TYPE_WS2812_1CH          18            //white-only chips (1 channel per IC) (unused)
+#define TYPE_WS2812_1CH_X3       19            //white-only chips (3 channels per IC)
+//#define TYPE_WS2812_2CH_X3       20            // use FW1906
+#define TYPE_WS2812_WWA          21            //amber + warm + cold white
 #define TYPE_WS2812_RGB          22
 #define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
 #define TYPE_WS2811_400KHZ       24            //half-speed WS2812 protocol, used by very old WS2811 units
@@ -481,6 +483,17 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
 #define ERR_OVERTEMP    30  // An attached temperature sensor has measured above threshold temperature (not implemented)
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
+#define ERR_LOW_MEM     33  // low memory (RAM)
+#define ERR_LOW_SEG_MEM 34  // low memory (effect data RAM)
+#define ERR_LOW_WS_MEM  35  // low memory (ws)
+//#define ERR_LOW_AJAX_MEM 36 // (not used any more) low memory (oappend)
+#define ERR_LOW_BUF     37  // low memory (LED pixels buffer)
+#define ERR_SYS_REBOOT      90  // reboot after error, trying to roll back
+#define ERR_SYS_BROWNOUT    91  // reboot after brownout alert
+#define ERR_PERSISTENT_THRESHOLD 100 // ToDO: errors below this value are non-persistent; persistent errors stay in the UI until restart
+// ERR_PERSISTENT_THRESHOLD is a threshold value only - never assign directly to errorFlag
+#define ERR_REBOOT_NEEDED   100 // reboot needed after changing hardware setting
+#define ERR_POWEROFF_NEEDED 101 // power-cycle needed after changing hardware setting
 
 // JSON buffer lock owners
 #define JSON_LOCK_UNKNOWN        255
