@@ -305,13 +305,13 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, dmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
-    DEBUG_PRINTF("I2S ISR alloc failed: %d", err);
+    //DEBUG_PRINTF("I2S ISR alloc failed: %d", err);
     deinit();
     return false;
   }
 
   _initialized = true;
-  DEBUG_PRINTF("[I2S] Init complete: bus=%u, bufSize=%u\n", _busNum, _bufferSize);
+  //DEBUG_PRINTF("[I2S] Init complete: bus=%u, bufSize=%u\n", _busNum, _bufferSize);
   return true;
 }
 

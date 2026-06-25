@@ -91,7 +91,7 @@ void RmtBus::updateRmtTiming() {
   uint16_t t1h = nsToTicks(_timing.t1h_ns);
   uint16_t t1l = nsToTicks(_timing.t1l_ns);
 
-  DEBUG_PRINTF("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
+  //DEBUG_PRINTF("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
 
   rmt_item32_t bit0, bit1;
 
@@ -119,7 +119,7 @@ void RmtBus::updateRmtTiming() {
       RmtHiDriver::Uninstall(_rmtChannel);
       esp_err_t instErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
       if (instErr != ESP_OK) {
-        DEBUG_PRINTF("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
+        //DEBUG_PRINTF("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
         // Try to fall back to IDF driver
         if (rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)) == ESP_OK) {
           rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
@@ -179,12 +179,12 @@ bool RmtBus::begin() {
   }
 
   if (_channel >= (int8_t)maxTxChannels) {
-    DEBUG_PRINTF("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, maxTxChannels);
+    //DEBUG_PRINTF("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, maxTxChannels);
     return false;
   }
   _rmtChannel = (rmt_channel_t)_channel;
 
-  DEBUG_PRINTF("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n", _channel, blocksToUse, s_allocatedCount, maxTxChannels);
+  //DEBUG_PRINTF("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n", _channel, blocksToUse, s_allocatedCount, maxTxChannels);
 
   updateRmtTiming();
 
@@ -233,7 +233,7 @@ bool RmtBus::begin() {
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
   } else {
-  DEBUG_PRINTF("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
+  //DEBUG_PRINTF("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
   }
 #endif
 
@@ -314,7 +314,7 @@ bool RmtBus::canShow() const {
 }
 
 void RmtBus::setTiming(const LedTiming& timing) {
-  DEBUG_PRINTF("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
+  //DEBUG_PRINTF("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
   _timing = timing;
   if (_initialized) {
     updateRmtTiming();
