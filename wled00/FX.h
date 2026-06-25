@@ -372,7 +372,8 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
 #define FX_MODE_PARTICLEGALAXY         217
 #define FX_MODE_COLORCLOUDS            218
 #define FX_MODE_SLOW_TRANSITION        219
-#define MODE_COUNT                     220
+#define FX_MODE_XMASTWINKLE            220
+#define MODE_COUNT                     221
 
 
 #define TRANSITION_FADE            0x00  // universal
