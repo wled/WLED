@@ -1,26 +1,16 @@
 /*-------------------------------------------------------------------------
-WLEDpixelBus_BitBang — Parallel bit-bang LED output driver for ESP32.
+WLEDpixelBus — Parallel bit-bang LED output driver
 
-All configured BitBang channels share a single static context.  Each bus
-registers its GPIO pin at begin().  When the last registered channel calls
-show(), all channels are clocked out in parallel using register-level GPIO
-writes and a uint32_t bitmask.
+written by Damian Schneider @dedehai 2026
 
-Constraints / design notes:
-  • ESP32 only (not ESP8266 — that already has its own BitBangBus).
-  • GPIO pin ranges per variant:
-      Classic ESP32: 0–39 (low bank 0–31 via GPIO_OUT_W1TS/TC_REG;
-                           high bank 32–39 via GPIO_OUT1_W1TS/TC_REG)
-      ESP32-S2:      0–46 (same dual-bank split at pin 32)
-      ESP32-S3:      0–48 (same dual-bank split at pin 32)
-      All others (C3/C6/H2): 0–31 (low bank only)
-  • All BitBang channels MUST use the same LED type / timing (enforced by
-    PixelBusAllocator when driverType == 2).
-  • The ISR lock is released and re-acquired after every output bit so that
-    the FreeRTOS scheduler and time-critical ISRs can still run.  If the gap
-    exceeds the LED latch (reset) threshold the output is aborted.
-  • driverType value: 2  (0=RMT, 1=I2S/LCD/SPI, 2=BitBang)
+works on all ESP32 variants
+
+Interrupts are fully disabled during output to avoid any glitches
+Each bus can have individual configuration of color channels but all must share the same timing
+
 -------------------------------------------------------------------------*/
+
+
 
 #pragma once
 

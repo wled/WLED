@@ -1,3 +1,13 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - special features
+
+written by Damian Schneider @dedehai 2026
+
+prefix data (TM1914), suffix data (SM16825) and brigthness to LED hardware current mapping (TM1814, TM1815 and APA102)
+
+-------------------------------------------------------------------------*/
+
 #pragma once
 
 #include "../../const.h"

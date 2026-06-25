@@ -1,3 +1,17 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - RMT output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
+
+RMT bus works on ESP32, S3, S2 and C3
+Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
+The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3
+
+-------------------------------------------------------------------------*/
+
 #include "WLEDpixelBus.h"
 #ifdef ARDUINO_ARCH_ESP32
 #include "WLEDpixelBus_RMT.h"
@@ -12,7 +26,6 @@ namespace WLEDpixelBus {
 DRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[8] = {};
 
 // Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
-// TODO: only define the ones actually needed based on available RMT channels, is there an IDF define for this?
 void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
 void IRAM_ATTR RmtBus::translator_ch1(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(1, s, d, ss, w, ts, in); }
 #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
@@ -78,7 +91,7 @@ void RmtBus::updateRmtTiming() {
   uint16_t t1h = nsToTicks(_timing.t1h_ns);
   uint16_t t1l = nsToTicks(_timing.t1l_ns);
 
-  Serial.printf("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
+  DEBUG_PRINTF("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
 
   rmt_item32_t bit0, bit1;
 
@@ -106,7 +119,7 @@ void RmtBus::updateRmtTiming() {
       RmtHiDriver::Uninstall(_rmtChannel);
       esp_err_t instErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
       if (instErr != ESP_OK) {
-        Serial.printf("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
+        DEBUG_PRINTF("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n", instErr);
         // Try to fall back to IDF driver
         if (rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)) == ESP_OK) {
           rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
@@ -130,7 +143,7 @@ bool RmtBus::begin() {
   // available to the channel to minimize the number of interrupts needed for buffer re-fills (less context switching overhead)
   // C3 and S3 have less channels than blocks, so the last channel can always use additional blocks
   // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
-  // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 blocks, and CH3 with 5 blocks
+  // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 block, and CH3 with 5 blocks
   if (_channel < 0) {
     if (s_allocatedCount >= s_expectedChannels || s_allocatedCount >= maxTxChannels) {
       return false;
@@ -166,12 +179,12 @@ bool RmtBus::begin() {
   }
 
   if (_channel >= (int8_t)maxTxChannels) {
-    Serial.printf("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, maxTxChannels);
+    DEBUG_PRINTF("[WPB] RMT channel %d >= max %u, FAIL\n", _channel, maxTxChannels);
     return false;
   }
   _rmtChannel = (rmt_channel_t)_channel;
 
-  Serial.printf("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n", _channel, blocksToUse, s_allocatedCount, maxTxChannels);
+  DEBUG_PRINTF("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n", _channel, blocksToUse, s_allocatedCount, maxTxChannels);
 
   updateRmtTiming();
 
@@ -220,7 +233,7 @@ bool RmtBus::begin() {
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
   } else {
-    Serial.printf("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
+  DEBUG_PRINTF("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n", hiErr);
   }
 #endif
 
@@ -301,7 +314,7 @@ bool RmtBus::canShow() const {
 }
 
 void RmtBus::setTiming(const LedTiming& timing) {
-  Serial.printf("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
+  DEBUG_PRINTF("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n", timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
   _timing = timing;
   if (_initialized) {
     updateRmtTiming();
@@ -313,9 +326,7 @@ void RmtBus::setColorOrder(uint8_t co) {
 }
 
 //note: using O2 optimization has little to no effect on FPS
-void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest,
-                                         size_t src_size, size_t wanted_num,
-                                         size_t* translated_size, size_t* item_num) {
+void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest, size_t src_size, size_t wanted_num, size_t* translated_size, size_t* item_num) {
 /*
   // safety check - should never happen
   if (src == nullptr || dest == nullptr) {

@@ -1,3 +1,19 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - parallel SPI output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+supports ESP32 C3
+uses 4 parallel outputs and double DMA buffering
+Data is output in 4-step cadence meaning each LED bit is encoded into 4 bits. '0' is 0b1000 and '1' is 0b1110
+Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
+The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
+2k per DMA buffer works well, enough for 42 RGB LEDs or roughly 1.2ms between buffer swaps
+Each bus can have individual configuration of color channels but all must share the same timing
+
+-------------------------------------------------------------------------*/
+
 #pragma once
 
 #include "WLEDpixelBus.h"
@@ -7,7 +23,6 @@ namespace WLEDpixelBus {
 //==============================================================================
 // SPI Parallel Bus - ESP32-C3 (uses SPI2 quad mode + GDMA)
 //==============================================================================
-
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
 #define WLEDPB_SPI_DMA_BUFFER_SIZE 2048 // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)

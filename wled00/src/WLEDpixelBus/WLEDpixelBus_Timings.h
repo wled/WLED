@@ -1,3 +1,9 @@
+/*-------------------------------------------------------------------------
+WLEDpixelBus - Lightweight LED driver library for WLED
+
+written by Damian Schneider @dedehai 2026
+-------------------------------------------------------------------------*/
+
 #pragma once
 
 #include <stdint.h>

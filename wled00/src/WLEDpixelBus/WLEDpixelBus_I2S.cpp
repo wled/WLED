@@ -1,3 +1,23 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - parallel I2S output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
+
+supports ESP32 and ESP32 S2
+Default is 8 parallel outputs and double DMA buffering but it also supports 16 parallel outputs if needed
+For 16 parallel output, triple buffering is required for glitch-free output.
+Data is output in 4-step cadence meaning each LED bit is encoded into 4 I2S bits. '0' is 0b1000 and '1' is 0b1110
+Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
+The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
+3k per DMA buffer works well, enough for 32 RGB LEDs in 8x parallel output or roughly 0.9ms between buffer swaps
+Each bus can have individual configuration of color channels but all must share the same timing
+
+-------------------------------------------------------------------------*/
+
+
 #include "WLEDpixelBus.h"
 #ifdef WLEDPB_I2S_SUPPORT
 #include "WLEDpixelBus_I2S.h"
@@ -169,8 +189,8 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->fifo_conf.tx_fifo_mod = 1;
   //_i2sDev->conf_chan.tx_chan_mod = 0; // Standard mode
 #else
-  _i2sDev->fifo_conf.tx_fifo_mod = 3; 
-  //_i2sDev->conf_chan.tx_chan_mod = 1; 
+  _i2sDev->fifo_conf.tx_fifo_mod = 3;
+  //_i2sDev->conf_chan.tx_chan_mod = 1;
 #endif
   _i2sDev->fifo_conf.tx_data_num = 32;  // FIFO threshold
 
@@ -195,17 +215,16 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->timing.val = 0;
 
   // Calculate clock divider for 4-step cadence
-  // bck_div_num must be >= 2 on ESP32 hardware (NeoPixelBus uses 4)
+  // bck_div_num must be >= 2 on ESP32 hardware
   // step_time = clkm_div * bck_div / base_clock_MHz * 1000 ns
   // clkm_div = step_time_ns * base_clock_MHz / (bck_div * 1000)
-  const uint8_t bckDiv = 4;  // must be >= 2, NeoPixelBus uses 4
+  const uint8_t bckDiv = 4;  // must be >= 2
   uint32_t bitPeriodNs = timing.bitPeriod();
 
 #if defined(CONFIG_IDF_TARGET_ESP32)
   #ifndef WLED_PIXELBUS_16PARALLEL
   // 8-bit mode: lcd_tx_wrx2_en=1 halves the effective output rate (WR pulses at BCK/2).
   // Use 2x clock constant so the divider is doubled, yielding the correct BCK after the factor-of-2.
-  // (NeoPixelBus uses the same 160MHz constant for parallel 8-bit on ESP32 classic.)
   const double baseClockMhz = 160.0;
   #else
   const double baseClockMhz = 80.0; // 16-bit mode: APB clock, lcd_tx_wrx2_en=0 has no rate halving
@@ -214,7 +233,6 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   const double baseClockMhz = 80.0; // S2: 80MHz I2S base clock (wrx2 on S2 does not halve the rate)
 #endif
 
-  // NeoPixelBus formula: clkmdiv = nsBitSendTime / bytesPerSample / dmaBitPerDataBit / bck / 1000 * baseClkMhz
   // For parallel 8-bit, bytesPerSample=1, dmaBitPerDataBit=4
   double clkmdiv = (double)bitPeriodNs / 1.0 / 4.0 / (double)bckDiv / 1000.0 * baseClockMhz;
   if (clkmdiv < 2.0) clkmdiv = 2.0;
@@ -254,7 +272,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   _i2sDev->clkm_conf.clkm_div_b = divB;
   _i2sDev->clkm_conf.clkm_div_num = clkmInteger;
 
-  // Sample rate - bck must be >= 2 (NeoPixelBus uses 4)
+  // Sample rate - bck must be >= 2
   _i2sDev->sample_rate_conf.val = 0;
   _i2sDev->sample_rate_conf.tx_bck_div_num = bckDiv;
 #ifdef WLED_PIXELBUS_16PARALLEL
@@ -264,12 +282,18 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 #endif
 
   // Final reset before ISR install
-  _i2sDev->lc_conf.in_rst = 1; _i2sDev->lc_conf.out_rst = 1;
-  _i2sDev->lc_conf.ahbm_rst = 1; _i2sDev->lc_conf.ahbm_fifo_rst = 1;
-  _i2sDev->lc_conf.in_rst = 0; _i2sDev->lc_conf.out_rst = 0;
-  _i2sDev->lc_conf.ahbm_rst = 0; _i2sDev->lc_conf.ahbm_fifo_rst = 0;
-  _i2sDev->conf.tx_reset = 1; _i2sDev->conf.tx_fifo_reset = 1;
-  _i2sDev->conf.tx_reset = 0; _i2sDev->conf.tx_fifo_reset = 0;
+  _i2sDev->lc_conf.in_rst = 1;
+  _i2sDev->lc_conf.out_rst = 1;
+  _i2sDev->lc_conf.ahbm_rst = 1;
+  _i2sDev->lc_conf.ahbm_fifo_rst = 1;
+  _i2sDev->lc_conf.in_rst = 0;
+  _i2sDev->lc_conf.out_rst = 0;
+  _i2sDev->lc_conf.ahbm_rst = 0;
+  _i2sDev->lc_conf.ahbm_fifo_rst = 0;
+  _i2sDev->conf.tx_reset = 1;
+  _i2sDev->conf.tx_fifo_reset = 1;
+  _i2sDev->conf.tx_reset = 0;
+  _i2sDev->conf.tx_fifo_reset = 0;
 
   // Install ISR
   int intSource;
@@ -281,13 +305,13 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, dmaISR, this, &_isrHandle);
   if (err != ESP_OK) {
-    Serial.printf("I2S ISR alloc failed: %d", err);
+    DEBUG_PRINTF("I2S ISR alloc failed: %d", err);
     deinit();
     return false;
   }
 
   _initialized = true;
-  Serial.printf("[I2S] Init complete: bus=%u, bufSize=%u\n", _busNum, _bufferSize);
+  DEBUG_PRINTF("[I2S] Init complete: bus=%u, bufSize=%u\n", _busNum, _bufferSize);
   return true;
 }
 
@@ -418,10 +442,9 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 
   for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
-    // ── Phase 1: Gather ───────────────────────────────────────────────────────
     // alwaysMask: channels with active data (HIGH step); bN: channels with bit N set
     uint16_t alwaysMask = 0;
-    uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler keeps in regs
+    uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler should keep in regs
     uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
     for (int ch = 0; ch < maxCh; ch++) {
@@ -430,6 +453,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
       const uint16_t m = (uint16_t)(1u << ch);
       alwaysMask |= m;
       const uint8_t b = _channels[ch].srcData[_channels[ch].srcPos++];
+      // extract bits, unrolled for speed
       b0 |= m & (uint16_t)(0u - ((b >> 7) & 1u));
       b1 |= m & (uint16_t)(0u - ((b >> 6) & 1u));
       b2 |= m & (uint16_t)(0u - ((b >> 5) & 1u));
@@ -442,12 +466,11 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
     if (!alwaysMask) break;  // no active channels produced data
 
-    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
     // 16 x 32-bit stores, fully unrolled.
     uint32_t* p = (uint32_t*)(dest + pos);
 #if defined(CONFIG_IDF_TARGET_ESP32S2)
     // S2 layout: [step0, step1, step2, step3] (no half-word swap)
-    // step0=HIGH, step1=data, step2=data, step3=LOW
+    // step0=HIGH, step1=data, step2=data, step3=LOW (or 0b1000, 0b1110)
     // 32-bit pair: p[0]=(bN<<16)|alwaysMask,  p[1]=(0<<16)|bN
     #define EMIT(bN, OFF) \
       p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
@@ -477,7 +500,6 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 
   for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
-    // ── Phase 1: Gather ───────────────────────────────────────────────────────
     uint8_t alwaysMask = 0;
     uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
@@ -499,7 +521,6 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     }
     if (!alwaysMask) break;
 
-    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
     // 8-bit LCD mode with lcd_tx_wrx2_en=1 swaps bytes within 16-bit half-words:
     //   Memory [b0,b1,b2,b3] outputs as [b2,b3,b0,b1] (half-word swap within 32-bit word)
     // Output cadence: [HIGH][data][data][LOW] -> steps [S0,S1,S2,S3]
@@ -595,7 +616,7 @@ bool I2sBusContext::startTransmit() {
   _i2sDev->out_link.start = 1;
   _i2sDev->conf.tx_start = 1;
 
-  // ----- DEBUG BLOCK START -----
+  // ----- DEBUG-----
   /*
   static uint32_t last_isr = 0;
   uint32_t diff_isr = s_i2sIsrCount - last_isr;
@@ -610,7 +631,7 @@ bool I2sBusContext::startTransmit() {
   Serial.printf("[I2S-Tx] out_link(0x%08x) lc_conf(0x%08x)\n", 
           _i2sDev->out_link.val, _i2sDev->lc_conf.val);
       */
-  // ----- DEBUG BLOCK END -----
+  // ----- DEBUG-----
 
   return true;
 }

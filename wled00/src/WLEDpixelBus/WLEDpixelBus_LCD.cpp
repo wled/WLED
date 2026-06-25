@@ -1,3 +1,22 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - parallel LCD output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
+
+LCD hardware is available on ESP32 S3 only
+Default is 8 parallel outputs and double DMA buffering but it also supports 16 parallel outputs if needed
+For 16 parallel output, triple buffering is required for glitch-free output.
+Data is output in 4-step cadence meaning each LED bit is encoded into 4 I2S bits. '0' is 0b1000 and '1' is 0b1110
+Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
+The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
+3k per DMA buffer works well, enough for 32 RGB LEDs in 8x parallel output or roughly 0.9ms between buffer swaps
+Each bus can have individual configuration of color channels but all must share the same timing
+
+-------------------------------------------------------------------------*/
+
 #include "WLEDpixelBus.h"
 #ifdef WLEDPB_LCD_SUPPORT
 #include "WLEDpixelBus_LCD.h"
@@ -309,7 +328,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 
   for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
-    // ── Phase 1: Gather ───────────────────────────────────────────────────────
     uint16_t alwaysMask = 0;
     uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
@@ -331,7 +349,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     }
     if (!alwaysMask) break;
 
-    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
     // S3 LCD: no byte swapping.
     // Output cadence [HIGH,data,data,LOW] -> as 32-bit pairs:
     //   p[0] = (bN<<16)|alwaysMask,  p[1] = (0<<16)|bN
@@ -355,7 +372,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 
   for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
-    // ── Phase 1: Gather ───────────────────────────────────────────────────────
     uint8_t alwaysMask = 0;
     uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
@@ -377,7 +393,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     }
     if (!alwaysMask) break;
 
-    // ── Phase 2: Scatter ─────────────────────────────────────────────────────
     // S3 LCD 8-bit mode (lcd_2byte_en=0): no byte swapping, output [S0,S1,S2,S3].
     // Output cadence [HIGH,data,data,LOW]:
     //   As 4 bytes: [alwaysMask, bN, bN, 0]
@@ -393,6 +408,8 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
 #endif // WLED_PIXELBUS_16PARALLEL
 
+/*
+// 3-step cadence implementation, currently unused
 #ifdef WLED_PIXELBUS_16PARALLEL
 void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
   // 3-step cadence encoding for 16-bit parallel output
@@ -420,22 +437,14 @@ void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
 
       // Unrolled loop for 8 bits
       // [HIGH][data][LOW] — step 0 always high, step 1 = data bit, step 2 always low (zero from memset)
-      // bit 7
-      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; } p += 3;
-      // bit 6
+      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; } p += 3; // bit 7
       p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; } p += 3;
-      // bit 5
       p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; } p += 3;
-      // bit 4
       p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; } p += 3;
-      // bit 3
       p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; } p += 3;
-      // bit 2
       p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; } p += 3;
-      // bit 1
       p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; } p += 3;
-      // bit 0
-      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; } p += 3;
+      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; } p += 3; // bit 0
     }
 
     if (!hasData) break;
@@ -450,6 +459,7 @@ void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
   }
 }
 #endif // WLED_PIXELBUS_16PARALLEL (encode3Step)
+*/
 
 void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
   encode4Step(_dmaBuffer[bufIdx], _bufferSize);

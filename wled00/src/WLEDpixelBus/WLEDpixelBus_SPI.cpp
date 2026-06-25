@@ -1,3 +1,13 @@
+/*-------------------------------------------------------------------------
+WLEDpixelBus - SPI 2-pin clocked LEDs driver implementation
+
+supports ESP32, S3, S2 and C3 both hardware SPI and BitBanged output
+supports hardware brightness on APA102 for improved color resolution
+
+written by Damian Schneider @dedehai 2026
+
+-------------------------------------------------------------------------*/
+
 #include "WLEDpixelBus.h"
 #include "WLEDpixelBus_SPI.h"
 
@@ -5,17 +15,19 @@
 #include "soc/gpio_reg.h"
 #endif
 
+#define SPI_MAX_CLOCK_HZ 20000000UL // maximum SPI clock supported by all target platforms (ESP8266 max is 20 MHz, ESP32 can do 80 MHz but we clamp to 20 MHz for compatibility with ESP8266 and timing accuracy)
+
 namespace WLEDpixelBus {
 
-// Derive SPI clock Hz from timing bitPeriod, clamped to [1 MHz, 20 MHz].
-// APA102 {250,250,250,250,0} -> period=500ns -> 2 MHz
-// WS2801 {500,500,500,500,1000} -> period=1000ns -> 1 MHz (clamped min)
+// Derive SPI clock Hz from timing bitPeriod, clamped to [1 MHz, SPI_MAX_CLOCK_HZ].
+// bit timing is calculated in busmanager from requested _frequencykHz  
+// TODO: this could be done more efficiently by storing the value in kHz directly in t0h_ns
 static uint32_t timingToClockHz(const LedTiming& t) {
   const uint32_t periodNs = t.bitPeriod();
   if (periodNs == 0) return 2000000;
   uint32_t hz = 1000000000UL / periodNs;
   if (hz < 1000000)  hz = 1000000;   // minimum 1 MHz
-  if (hz > 20000000) hz = 20000000;  // maximum 20 MHz  // TODO: make this a define and check if ESP8266 can do 40 MHz
+  if (hz > SPI_MAX_CLOCK_HZ) hz = SPI_MAX_CLOCK_HZ;
   return hz;
 }
 
@@ -80,8 +92,13 @@ void SpiBus::end() {
   if (_useHardware) {
     SPI.end();
   }
+  #if defined(ARDUINO_ARCH_ESP32)
   if (_dataPin >= 0) gpio_reset_pin((gpio_num_t)_dataPin);
   if (_clockPin >= 0) gpio_reset_pin((gpio_num_t)_clockPin);
+  #else
+  pinMode(_dataPin, INPUT);
+  pinMode(_clockPin, INPUT);
+  #endif
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
   _initialized = false;
 }

@@ -1,3 +1,22 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - parallel LCD output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
+
+LCD hardware is available on ESP32 S3 only
+Default is 8 parallel outputs and double DMA buffering but it also supports 16 parallel outputs if needed
+For 16 parallel output, triple buffering is required for glitch-free output.
+Data is output in 4-step cadence meaning each LED bit is encoded into 4 I2S bits. '0' is 0b1000 and '1' is 0b1110
+Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
+The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
+3k per DMA buffer works well, enough for 32 RGB LEDs in 8x parallel output or roughly 0.9ms between buffer swaps
+Each bus can have individual configuration of color channels but all must share the same timing
+
+-------------------------------------------------------------------------*/
+
 #pragma once
 #ifdef WLEDPB_LCD_SUPPORT
 #include "WLEDpixelBus.h"
@@ -66,7 +85,7 @@ public:
 
   bool startTransmit();
   bool isIdle() const { return _state == DriverState::Idle; }
-  
+
   void forceIdle() {
     LCD_CAM.lcd_user.lcd_start = 0;
     if (_dmaChannel) gdma_stop(_dmaChannel);
@@ -82,7 +101,7 @@ private:
 
   void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen);
   void fillBuffer(uint8_t bufIdx);
-  
+
   static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan,
                      gdma_event_data_t* event_data,
                      void* user_data);
@@ -119,7 +138,6 @@ private:
 
   static LcdBusContext* _instance;
   static uint8_t _refCount;
-  
   friend class LcdBus;
 };
 

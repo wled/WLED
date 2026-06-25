@@ -140,7 +140,6 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       if (pins[0] == P_8266_HS_MOSI && pins[1] == P_8266_HS_CLK) isHSPI = true;
       #else
       if (_hardwareSPIused == 0) {
-        Serial.println("spi not claimed yet");
         isHSPI = true;
         _hardwareSPIused++; // claim hardware SPI (currently only one is supported), on C3 this can also be claimed by parallel SPI (done so in allocateHardware)
       }

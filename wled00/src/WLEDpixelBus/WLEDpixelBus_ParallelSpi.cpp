@@ -1,3 +1,19 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - parallel SPI output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+supports ESP32 C3
+uses 4 parallel outputs and double DMA buffering
+Data is output in 4-step cadence meaning each LED bit is encoded into 4 bits. '0' is 0b1000 and '1' is 0b1110
+Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
+The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
+2k per DMA buffer works well, enough for 42 RGB LEDs or roughly 1.2ms between buffer swaps
+Each bus can have individual configuration of color channels but all must share the same timing
+
+-------------------------------------------------------------------------*/
+
 #include "WLEDpixelBus.h"
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
 #include "WLEDpixelBus_ParallelSpi.h"
@@ -10,9 +26,10 @@
 #include "esp_rom_gpio.h"
 namespace WLEDpixelBus {
 
-//==============================================================================
+//=============================================
 // SPI Parallel Bus Implementation (ESP32-C3)
-//==============================================================================
+//============================================
+
 volatile uint32_t spierror = 0;
 volatile uint32_t encodecalls = 0;
 volatile uint32_t dmacount = 0;
@@ -126,7 +143,7 @@ void SpiBusContext::forceIdle() {
     _hw->cmd.usr = 0; // stop SPI user transfer (will output a fast clock, so detach pins from spi before this to avoid glitches)
     _hw->dma_int_clr.val = 0xFFFFFFFF; // clear all SPI interrupt flags
   }
-  
+
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
 
@@ -262,8 +279,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
 
   // Allocate DMA buffers
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
-    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE,
-                               MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_dmaBuffer[i]) {
       Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
       deinit();

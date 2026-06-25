@@ -1,6 +1,13 @@
 /*-------------------------------------------------------------------------
-WLEDpixelBus_BitBang — Parallel bit-bang LED output driver for ESP32.
-See WLEDpixelBus_BitBang.h for architecture notes.
+WLEDpixelBus — Parallel bit-bang LED output driver
+
+written by Damian Schneider @dedehai 2026
+
+works on all ESP32 variants
+
+Interrupts are fully disabled during output to avoid any glitches
+Each bus can have individual configuration of color channels but all must share the same timing
+
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus_BitBang.h"

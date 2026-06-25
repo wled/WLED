@@ -1,3 +1,17 @@
+/*-------------------------------------------------------------------------
+
+WLEDpixelBus - RMT output driver implementation
+
+written by Damian Schneider @dedehai 2026
+
+I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
+
+RMT bus works on ESP32, S3, S2 and C3
+Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
+The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3
+
+-------------------------------------------------------------------------*/
+
 #pragma once
 
 #include "WLEDpixelBus.h"
@@ -8,7 +22,7 @@
 namespace WLEDpixelBus {
 
 //=======================================
-// RMT Bus - Works on all ESP32 variants
+// RMT Bus
 //=======================================
 
 class RmtBus : public PixelBus {
