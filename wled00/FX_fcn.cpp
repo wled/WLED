@@ -1788,9 +1788,10 @@ void WS2812FX::show() {
     return; // no pixels allocated, nothing to show
   }
   #endif
-
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
+  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
+  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   size_t totalLen = getLengthTotal();
   // CCT per-pixel tracking: only needed when multiple active segments have *different* CCT values.
@@ -1847,8 +1848,6 @@ void WS2812FX::show() {
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
   else if (!_pixelCCT) BusManager::setSegmentCCT(uniformCCT, correctWB); // uniform CCT: set once before loop
-  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
-  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
@@ -1866,6 +1865,21 @@ void WS2812FX::show() {
 
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
+  #else
+  /*
+  // TODO: this is not working, something wrong with color encoding/color order and it should use the raw pixel color, maybe move this down to bus level?
+  if (useGammaCorrection) {
+    for (auto &bus : BusManager::busses) {
+      if (bus->isDigital() && bus->isOk()) {
+        BusDigital &busd = static_cast<BusDigital&>(*bus);
+        for (int i = 0; i < busd.getLength(); i++) {
+          uint32_t c = busd.getPixelColor(i); // TODO: this uses restore color lossy, which is not needed.
+          if (c > 0) c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
+          busd.setPixelColor(i, c);
+        }
+      }
+    }
+  }*/
   #endif
 
   // pass the pixels on to the buses and start sending them out

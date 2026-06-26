@@ -60,26 +60,27 @@ private:
   LedTiming _rawTiming;       // saved at construction, converted to cycles in begin()
 
   // -----------------------------------------------------------------------
-  // Shared static state (one context for ALL BitBangBus instances)
-  // All timing fields are static because every BitBang bus must use the
-  // same LED type (enforced by PixelBusAllocator).
+  // Shared state (one context for ALL BitBangBus instances)
+  // All timing fields must use the same LED type (enforced by PixelBusAllocator).
   // -----------------------------------------------------------------------
-  static int8_t        s_pins[WLED_MAX_BB_CHANNELS];
-  static uint16_t      s_numPixels[WLED_MAX_BB_CHANNELS];  // pixel count per channel
-  static uint8_t*      s_pixelData[WLED_MAX_BB_CHANNELS];  // encoded data pointer per channel
-  static uint8_t       s_channelCount;
-  static uint32_t      s_allMask;      // GPIO bitmask of registered pins 0–31
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-  static uint32_t      s_allMaskHigh;  // GPIO bitmask of registered pins 32+ (ESP32/S2/S3)
-#endif
-  static uint8_t       s_stagedCount;  // how many channels have called show() this frame
-  static portMUX_TYPE  s_mux;          // critical-section lock used inside outputParallel()
-  // Timing in CPU cycles — identical across all channels
-  static uint32_t      s_t0h;
-  static uint32_t      s_t1h;
-  static uint32_t      s_period;
-  static uint32_t      s_latchCycles;
-  static uint8_t       s_pixelBytes;  // bytes per encoded pixel (derived from LED type)
+  struct BBstate {
+    uint8_t*      pixelData[WLED_MAX_BB_CHANNELS];  // encoded data pointer per channel
+    uint32_t      t0h; // Timing in CPU cycles — identical across all channels
+    uint32_t      t1h;
+    uint32_t      period;
+    uint32_t      latchCycles;
+    uint32_t      allMask;      // GPIO bitmask of registered pins 0–31
+    #ifdef ESP_HAS_HIGH_GPIO_BANK
+    uint32_t      allMaskHigh;  // GPIO bitmask of registered pins 32+ (ESP32/S2/S3)
+    #endif
+    portMUX_TYPE  mux; // critical-section lock used inside outputParallel()
+    int8_t        pins[WLED_MAX_BB_CHANNELS];
+    uint16_t      numPixels[WLED_MAX_BB_CHANNELS];  // pixel count per channel
+    uint8_t       channelCount;
+    uint8_t       stagedCount;  // how many channels have called show() this frame
+    uint8_t       pixelBytes;  // bytes per encoded pixel (derived from LED type)
+  };
+  static BBstate* _BBs;
 
   // -----------------------------------------------------------------------
   // Core output routine — must run from IRAM for timing accuracy

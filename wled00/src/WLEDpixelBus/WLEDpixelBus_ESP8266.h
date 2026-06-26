@@ -167,7 +167,6 @@ private:
     uint8_t  channelCount;
     uint8_t  stagedCount; // how many channels have called show() this frame
     uint8_t  pixelBytes;  // bytes per encoded pixel
-    // no trailing padding needed: ends on uint8_t after the above
   };
   static BBstate* _BBs;
 

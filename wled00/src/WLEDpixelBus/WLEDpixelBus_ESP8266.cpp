@@ -295,7 +295,7 @@ IRAM_ATTR bool Esp8266BitBangBus::show(const uint32_t* /*pixels*/, uint16_t /*nu
   }
 
   // Last channel staged — output all channels in parallel
-  _BBs->stagedCount = 0;  // reset for next frame
+  _BBs->stagedCount = 0;   // reset for next frame
   return outputParallel(); // send data to LEDs (blocking)
 }
 

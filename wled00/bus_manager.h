@@ -302,7 +302,7 @@ class BusDigital : public Bus {
 
   private:
     uint8_t  _skip;
-    uint8_t  _colorOrder;
+    uint8_t  _colorOrder; // TODO: is this still used? color order is now done in bus
     uint8_t  _pins[2] = {255, 255};
     uint8_t  _driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_I2S / BUSDRV_BITBANG
     uint16_t _frequencykHz;
