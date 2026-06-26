@@ -2,13 +2,16 @@
 
 This usermod adds a self-playing Tetris game as an 'effect'. The mod requires version 0.14 or higher as it relies on matrix support. The effect was tested on an ESP32 4MB with a WS2812B 16x16 matrix.
 
-Version 1.0
+PHOTOSENSITIVE EPILEPSY WARNING: By default the effect features a flashing animation on line clear. This can be disabled
+from the usermod settings page in WLED.
 
 ## Installation 
 
-Just activate the usermod with `-D USERMOD_TETRISAI` and the effect will become available under the name 'Tetris AI'. If you are running out of flash memory, use a different memory layout (e.g. [WLED_ESP32_4MB_256KB_FS.csv](https://github.com/wled-dev/WLED/blob/main/tools/WLED_ESP32_4MB_256KB_FS.csv)).
+To activate the usermod, add the following line to your platformio_override.ini
+`custom_usermods = tetrisai_v2`
+The effect will then become available under the name 'Tetris AI'. If you are running out of flash memory, use a different memory layout (e.g. [WLED_ESP32_4MB_256KB_FS.csv](https://github.com/wled-dev/WLED/blob/main/tools/WLED_ESP32_4MB_256KB_FS.csv)).
 
-If needed simply add to `platformio_override.ini` (or `platformio_override.ini`):
+If needed simply add to `platformio_override.ini`:
 
 ```ini
 board_build.partitions = tools/WLED_ESP32_4MB_256KB_FS.csv

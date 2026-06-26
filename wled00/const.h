@@ -10,8 +10,16 @@ constexpr size_t FASTLED_PALETTE_COUNT = 7;   //  6-12 = sizeof(fastledPalettes)
 constexpr size_t GRADIENT_PALETTE_COUNT = 59; // 13-72 = sizeof(gGradientPalettes) / sizeof(gGradientPalettes[0]);
 constexpr size_t DYNAMIC_PALETTE_COUNT = 6;   //  0- 5 = dynamic palettes (0=default(virtual),1=random,2=primary,3=primary+secondary,4=primary+secondary+tertiary,5=primary+secondary(+tertiary if not black)
 constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_COUNT + GRADIENT_PALETTE_COUNT; // total number of fixed palettes
+
+// Palette ID space layout (palette IDs are uint8_t, 0-255):
+//   0  .. FIXED_PALETTE_COUNT-1            : fixed built-in palettes
+//   72 .. WLED_CUSTOM_PALETTE_ID_BASE(200) : user custom palettes (index 0 = ID 200, growing downward)
+//   201.. WLED_USERMOD_PALETTE_ID_BASE(255): usermod-registered palettes (index 0 = ID 255, growing downward)
+constexpr uint8_t WLED_USERMOD_PALETTE_ID_BASE = 255; // highest ID for usermod palettes
+constexpr uint8_t WLED_CUSTOM_PALETTE_ID_BASE  = 200; // highest ID for user custom palettes
+constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE - WLED_CUSTOM_PALETTE_ID_BASE; // 55 slots (IDs 201-255)
 #ifndef ESP8266
-  #define WLED_MAX_CUSTOM_PALETTES (255 - FIXED_PALETTE_COUNT) // allow up to 255 total palettes, user is warned about stability issues when adding more than 10
+  #define WLED_MAX_CUSTOM_PALETTES (WLED_CUSTOM_PALETTE_ID_BASE - FIXED_PALETTE_COUNT + 1) // 129 slots (IDs 72-200)
 #else
   #define WLED_MAX_CUSTOM_PALETTES 10 // ESP8266: limit custom palettes to 10
 #endif
@@ -59,6 +67,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
   #define WLED_MAX_I2S_CHANNELS 0
   #define WLED_MAX_ANALOG_CHANNELS 5
+  #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
   #define WLED_PLATFORM_ID 0         // used in UI to distinguish ESP types, needs a proper fix!
 #else
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
@@ -86,6 +95,7 @@ constexpr size_t FIXED_PALETTE_COUNT = DYNAMIC_PALETTE_COUNT + FASTLED_PALETTE_C
     //#define WLED_MAX_ANALOG_CHANNELS 16
     #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
   #endif
+  #define WLED_MAX_TIMERS 64                // maximum number of timers
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
@@ -155,9 +165,14 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 
 #define WLED_MAX_PANELS 18                      // must not be more than 32
 
-//Usermod IDs
-#define USERMOD_ID_RESERVED               0     //Unused. Might indicate no usermod present
-#define USERMOD_ID_UNSPECIFIED            1     //Default value for a general user mod that does not specify a custom ID
+// Usermod IDs
+// A unique ID is only required when a usermod needs one or more of:
+//   1. Inter-usermod communication: UsermodManager::lookup(mod_id) or getUMData(..., mod_id)
+//   2. Pin ownership via pinManager: PinOwner enum entries map to these IDs (see pin_manager.h)
+//   3. Identification in JSON info: addToJsonInfo emits each mod's ID into the "um" array
+// If none of the above apply, omit getId() (or return USERMOD_ID_UNSPECIFIED) and do NOT add an entry here.
+#define USERMOD_ID_RESERVED               0     //Unused. Reserved; may indicate no usermod present
+#define USERMOD_ID_UNSPECIFIED            1     //Default for usermods that do not require a unique ID
 #define USERMOD_ID_EXAMPLE                2     //Usermod "usermod_v2_example.h"
 #define USERMOD_ID_TEMPERATURE            3     //Usermod "usermod_temperature.h"
 #define USERMOD_ID_FIXNETSERVICES         4     //Usermod "usermod_Fix_unreachable_netservices.h"
@@ -304,7 +319,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_DIGITAL_MIN         16            // first usable digital type
 #define TYPE_WS2812_1CH          18            //white-only chips (1 channel per IC) (unused)
 #define TYPE_WS2812_1CH_X3       19            //white-only chips (3 channels per IC)
-#define TYPE_WS2812_2CH_X3       20            //CCT chips (1st IC controls WW + CW of 1st zone and CW of 2nd zone, 2nd IC controls WW of 2nd zone and WW + CW of 3rd zone)
+//#define TYPE_WS2812_2CH_X3       20            // use FW1906
 #define TYPE_WS2812_WWA          21            //amber + warm + cold white
 #define TYPE_WS2812_RGB          22
 #define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
@@ -380,7 +395,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define BTN_TYPE_TOUCH_SWITCH     9
 
 //Ethernet board types
-#define WLED_NUM_ETH_TYPES        14
+#define WLED_NUM_ETH_TYPES        16
 
 
 #define WLED_ETH_NONE              0
@@ -397,6 +412,9 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define WLED_ETH_ESP32_POE_WROVER 11
 #define WLED_ETH_LILYGO_T_POE_PRO 12
 #define WLED_ETH_GLEDOPTO         13
+#define WLED_ETH_QUINLED_V4_UNOQUAD  14
+#define WLED_ETH_QUINLED_V4_OCTA     15
+
 
 //Hue error codes
 #define HUE_ERROR_INACTIVE        0
@@ -454,6 +472,17 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ERR_OVERTEMP    30  // An attached temperature sensor has measured above threshold temperature (not implemented)
 #define ERR_OVERCURRENT 31  // An attached current sensor has measured a current above the threshold (not implemented)
 #define ERR_UNDERVOLT   32  // An attached voltmeter has measured a voltage below the threshold (not implemented)
+#define ERR_LOW_MEM     33  // low memory (RAM)
+#define ERR_LOW_SEG_MEM 34  // low memory (effect data RAM)
+#define ERR_LOW_WS_MEM  35  // low memory (ws)
+//#define ERR_LOW_AJAX_MEM 36 // (not used any more) low memory (oappend)
+#define ERR_LOW_BUF     37  // low memory (LED pixels buffer)
+#define ERR_SYS_REBOOT      90  // reboot after error, trying to roll back
+#define ERR_SYS_BROWNOUT    91  // reboot after brownout alert
+#define ERR_PERSISTENT_THRESHOLD 100 // ToDO: errors below this value are non-persistent; persistent errors stay in the UI until restart
+// ERR_PERSISTENT_THRESHOLD is a threshold value only - never assign directly to errorFlag
+#define ERR_REBOOT_NEEDED   100 // reboot needed after changing hardware setting
+#define ERR_POWEROFF_NEEDED 101 // power-cycle needed after changing hardware setting
 
 // JSON buffer lock owners
 #define JSON_LOCK_UNKNOWN        255
@@ -479,6 +508,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define JSON_LOCK_LEDGAP          20
 #define JSON_LOCK_LEDMAP_ENUM     21
 #define JSON_LOCK_REMOTE          22
+#define JSON_LOCK_OTA             23
 
 // Timer mode types
 #define NL_MODE_SET               0            //After nightlight time elapsed, set to target brightness
@@ -736,5 +766,6 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #endif
 
 #define WLED_O2_ATTR __attribute__((optimize("O2")))
+#define WLED_O3_ATTR __attribute__((optimize("O3")))
 
 #endif

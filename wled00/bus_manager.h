@@ -6,7 +6,7 @@
 
 #include <ESP32-HUB75-MatrixPanel-I2S-DMA.h>
 #include <ESP32-VirtualMatrixPanel-I2S-DMA.h>
-#include <FastLED.h>
+#include "src/dependencies/fastled_slim/fastled_slim.h"
 
 #endif
 /*
@@ -17,6 +17,9 @@
 #include "pin_manager.h"
 #include <vector>
 #include <memory>
+#ifdef ARDUINO_ARCH_ESP32
+#include "asyncDNS.h"
+#endif
 
 #if __cplusplus >= 201402L
 using std::make_unique;
@@ -168,7 +171,7 @@ class Bus {
     inline  bool     containsPixel(uint16_t pix) const          { return pix >= _start && pix < _start + _len; }
 
     static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
-    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK
+    static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK; for HUB75 the 5 slots store config params (panelW, panelH, chain, rows, cols), not GPIO pins
     static constexpr size_t   getNumberOfChannels(uint8_t type) { return hasWhite(type) + 3*hasRGB(type) + hasCCT(type); }
     static constexpr bool hasRGB(uint8_t type) {
       return !((type >= TYPE_WS2812_1CH && type <= TYPE_WS2812_WWA) || type == TYPE_ANALOG_1CH || type == TYPE_ANALOG_2CH || type == TYPE_ONOFF);
@@ -181,10 +184,9 @@ class Bus {
               type == TYPE_NET_DDP_RGBW || type == TYPE_NET_ARTNET_RGBW;                   // network types with white channel
     }
     static constexpr bool hasCCT(uint8_t type) {
-      return  type == TYPE_WS2812_2CH_X3 || type == TYPE_WS2812_WWA ||
+      return  type == TYPE_WS2812_WWA    || type == TYPE_SM16825 ||
               type == TYPE_ANALOG_2CH    || type == TYPE_ANALOG_5CH ||
-              type == TYPE_FW1906        || type == TYPE_WS2805     ||
-              type == TYPE_SM16825;
+              type == TYPE_FW1906        || type == TYPE_WS2805;
     }
     static constexpr bool  isTypeValid(uint8_t type)  { return (type > 15 && type < 128); }
     static constexpr bool  isDigital(uint8_t type)    { return (type >= TYPE_DIGITAL_MIN && type <= TYPE_DIGITAL_MAX) || is2Pin(type); }
@@ -201,9 +203,9 @@ class Bus {
     static inline void     setGlobalAWMode(uint8_t m) { if (m < 5) _gAWM = m; else _gAWM = AW_GLOBAL_DISABLED; }
     static inline uint8_t  getGlobalAWMode()          { return _gAWM; }
     static inline void     setCCT(int16_t cct)        { _cct = cct; }
-    static inline uint8_t  getCCTBlend()              { return (_cctBlend * 100 + 64) / 127; } // returns 0-100, 100% = 127. +64 for rounding
-    static inline void     setCCTBlend(uint8_t b) {        // input is 0-100
-      _cctBlend = (std::min((int)b,100) * 127 + 50) / 100; // +50 for rounding, b=100% -> 127
+    static inline int8_t   getCCTBlend()              { return (_cctBlend * 100 + (_cctBlend >= 0 ? 64 : -64)) / 127; } // returns -100 to +100, +/-100% = +/-127. +/-64 for rounding 
+    static inline void     setCCTBlend(int8_t b) {    // input is -100 to +100
+      _cctBlend = (std::max(-100, std::min(100, (int)b)) * 127 + (b >= 0 ? 50 : -50)) / 100; // +/-50 for rounding, b=+/-100% -> +/-127
       //compile-time limiter for hardware that can't power both white channels at max
       #ifdef WLED_MAX_CCT_BLEND
         if (_cctBlend > WLED_MAX_CCT_BLEND) _cctBlend = WLED_MAX_CCT_BLEND;
@@ -232,13 +234,14 @@ class Bus {
     //    [0,255] is the exact CCT value where 0 means warm and 255 cold
     //    [1900,10060] only for color correction expressed in K (colorBalanceFromKelvin())
     static int16_t _cct;
-    // _cctBlend determines WW/CW blending:
+    // _cctBlend determines WW/CW blending, see calculateCCT()
+    //  < 0 - linear blending in center, single white at both ends, single white zone extends with decreased value (-127 min)
     //    0 - linear (CCT 127 => 50% warm, 50% cold)
     //   63 - semi additive/nonlinear (CCT 127 => 66% warm, 66% cold)
     //  127 - additive CCT blending (CCT 127 => 100% warm, 100% cold)
-    static uint8_t _cctBlend;
+    static int8_t _cctBlend;
 
-    uint32_t autoWhiteCalc(uint32_t c) const;
+    uint32_t autoWhiteCalc(uint32_t c, uint8_t &ww, uint8_t &cw) const;
 };
 
 
