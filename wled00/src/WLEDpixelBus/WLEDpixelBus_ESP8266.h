@@ -153,22 +153,23 @@ private:
   bool _initialized;
 
   // -----------------------------------------------------------------------
-  // Shared static state (one context for ALL Esp8266BitBangBus instances)
-  // All timing fields are static because every BitBang bus must use the
-  // same LED type (enforced by PixelBusAllocator).
-  // ESP8266 has only one 32-bit GPIO output register (pins 0–15 usable as output).
+  // Shared state (one context for ALL Esp8266BitBangBus instances)
+  // All timing fields must use the same LED type (enforced by PixelBusAllocator).
   // -----------------------------------------------------------------------
-  static int8_t    s_pins[WLED_MAX_BB_CHANNELS];
-  static uint16_t  s_numPixels[WLED_MAX_BB_CHANNELS];
-  static uint8_t*  s_pixelData[WLED_MAX_BB_CHANNELS];
-  static uint8_t   s_channelCount;
-  static uint32_t  s_allMask;       // GPIO bitmask of all registered output pins
-  static uint8_t   s_stagedCount;   // how many channels have called show() this frame
-  // Timing in CPU cycles — identical across all channels
-  static uint32_t  s_t0h;
-  static uint32_t  s_t1h;
-  static uint32_t  s_period;
-  static uint8_t   s_pixelBytes;    // bytes per encoded pixel
+  struct BBstate {
+    uint8_t* pixelData[WLED_MAX_BB_CHANNELS]; // 4 bytes each
+    uint32_t allMask;     // GPIO bitmask of all registered output pins
+    uint32_t t0h;         // Timing in CPU cycles — identical across all channels
+    uint32_t t1h;
+    uint32_t period;
+    uint16_t numPixels[WLED_MAX_BB_CHANNELS];
+    int8_t   pins[WLED_MAX_BB_CHANNELS];
+    uint8_t  channelCount;
+    uint8_t  stagedCount; // how many channels have called show() this frame
+    uint8_t  pixelBytes;  // bytes per encoded pixel
+    // no trailing padding needed: ends on uint8_t after the above
+  };
+  static BBstate* _BBs;
 
   // Core output routine — must run from IRAM for timing accuracy
   static bool IRAM_ATTR outputParallel();
