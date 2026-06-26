@@ -559,12 +559,6 @@ void I2sBusContext::fillBuffer(uint8_t bufIdx) {
   // desc->length stays at _bufferSize (set in init, never changes)
 }
 
-// ----- I2S ISR Tracking -----
-static volatile uint32_t s_i2sIsrCount = 0;
-static volatile uint32_t s_i2sIsrSending = 0;
-static volatile uint32_t s_i2sIsrReset = 0;
-static volatile uint32_t s_i2sIsrIdle = 0;
-
 bool I2sBusContext::startTransmit() {
   if (_state != DriverState::Idle) return false;
   if (_channelCount == 0) return false;
@@ -617,23 +611,6 @@ bool I2sBusContext::startTransmit() {
   _i2sDev->out_link.addr = (uint32_t)_dmaDesc[0];
   _i2sDev->out_link.start = 1;
   _i2sDev->conf.tx_start = 1;
-
-  // ----- DEBUG-----
-  /*
-  static uint32_t last_isr = 0;
-  uint32_t diff_isr = s_i2sIsrCount - last_isr;
-  last_isr = s_i2sIsrCount;
-  Serial.printf("[I2S-Tx] startTransmit triggering. ISR count delta since last tx: %u\n", diff_isr);
-  Serial.printf("[I2S-Tx] State vars: isrTotal=%u, send=%u, reset=%u, idle=%u\n", 
-          s_i2sIsrCount, s_i2sIsrSending, s_i2sIsrReset, s_i2sIsrIdle);
-  Serial.printf("[I2S-Tx] HW Regs: conf(0x%08x) conf1(0x%08x) conf2(0x%08x)\n", 
-          _i2sDev->conf.val, _i2sDev->conf1.val, _i2sDev->conf2.val);
-  Serial.printf("[I2S-Tx] int_ena(0x%08x) int_raw(0x%08x)\n", 
-          _i2sDev->int_ena.val, _i2sDev->int_raw.val);
-  Serial.printf("[I2S-Tx] out_link(0x%08x) lc_conf(0x%08x)\n", 
-          _i2sDev->out_link.val, _i2sDev->lc_conf.val);
-      */
-  // ----- DEBUG-----
 
   return true;
 }
