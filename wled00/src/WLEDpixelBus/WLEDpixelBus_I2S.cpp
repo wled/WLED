@@ -710,7 +710,7 @@ bool I2sBus::begin() {
 
   _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
-    DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
+    //DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
     I2sBusContext::release(_busNum);
     _ctx = nullptr;
     return false;
@@ -718,7 +718,7 @@ bool I2sBus::begin() {
 
   _initialized = true;
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
-  DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
+  //DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
   return true;
 }
 

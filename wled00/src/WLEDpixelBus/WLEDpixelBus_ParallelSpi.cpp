@@ -124,7 +124,7 @@ bool SpiBusContext::isSpiDone() {
 
 // Force SPI idle is a dirty hack to guard against some SPI error/race condition that is really hard to track down, it happens randomly and only if UI refresh plus RMT is involved
 void SpiBusContext::forceIdle() {
-  DEBUG_PRINTF_P(PSTR("Timeout - Forcing SPI idle...\n"));
+  //DEBUG_PRINTF_P(PSTR("Timeout - Forcing SPI idle...\n"));
   // print driver state for debugging
   //Serial.printf("Channels: %d, FramePos: %d, NumBytes: %d, DMA Count: %d, Encode calls: %d\n", _channelCount, _framePos, _numBytes, dmacount, encodecalls);
   //if(spierror) Serial.printf("SPI error: %d\n", spierror);
