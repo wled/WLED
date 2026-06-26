@@ -30,10 +30,6 @@ namespace WLEDpixelBus {
 // SPI Parallel Bus Implementation (ESP32-C3)
 //============================================
 
-volatile uint32_t spierror = 0;
-volatile uint32_t encodecalls = 0;
-volatile uint32_t dmacount = 0;
-
 // low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
 static inline void spi_ll_apply_config(spi_dev_t *hw)
 {
@@ -124,10 +120,6 @@ bool SpiBusContext::isSpiDone() {
 
 // Force SPI idle is a dirty hack to guard against some SPI error/race condition that is really hard to track down, it happens randomly and only if UI refresh plus RMT is involved
 void SpiBusContext::forceIdle() {
-  //DEBUG_PRINTF_P(PSTR("Timeout - Forcing SPI idle...\n"));
-  // print driver state for debugging
-  //Serial.printf("Channels: %d, FramePos: %d, NumBytes: %d, DMA Count: %d, Encode calls: %d\n", _channelCount, _framePos, _numBytes, dmacount, encodecalls);
-  //if(spierror) Serial.printf("SPI error: %d\n", spierror);
   _txdone = true;
   _stagedMask = 0;
 
@@ -156,7 +148,6 @@ void SpiBusContext::forceIdle() {
 
 //note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
-encodecalls++;
   uint8_t* dst = _dmaBuffer[bufIdx];
   uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
   for (size_t i = 0; i < (WLEDPB_SPI_DMA_BUFFER_SIZE / 4); i++) {
@@ -176,7 +167,6 @@ encodecalls++;
     //_framePos = 0;
     return;
   }
-  dmacount++;
 
   for (uint8_t lane = 0; lane < WLEDPB_SPI_MAX_CHANNELS; lane++) {
     if (!_channels[lane].active || !_channels[lane].srcData) continue;
@@ -214,16 +204,10 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
 
   SpiBusContext* ctx = (SpiBusContext*)arg;
   uint32_t status = ctx->_hw->dma_int_st.val;
-  spierror = status;
 
   if (status & SPI_TRANS_DONE_INT_ST) {
     ctx->_txdone = true; // transfer finished
     ctx->_hw->dma_int_clr.val = SPI_TRANS_DONE_INT_ST;  // clear flag
-    spierror=0;
-    //if(spierror)
-    //  spierror++;
-    //  digitalWrite(0, LOW);//!!!
-      //Serial.print("b");
   }
   else {
   //  Serial.println(status, HEX); // -> prints "2" i.e. SPI_OUTFIFO_EMPTY_ERR_INT_ST
@@ -238,7 +222,6 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     // now that pins are disconnected, we can stop the user transfer which is causing the fast clock output that leads to glitches
     ctx->_hw->cmd.usr = 0; // stop SPI user transfer TODO: will this result in a tx done or some other interrupt? -> txdone fires
   //  ctx->_sending = false;
-    spierror++; // TODO: does not seem to happen ... ever - even if trans done is not firing.
     ctx->_txdone = true; // set to tx done, need to reset the spi when checking if spi idle
   }
 
@@ -480,7 +463,6 @@ bool SpiBusContext::startTransmit() {
   if (_stagedMask != _channelMask) return true; // not all channels ready yet
   _stagedMask = 0;
   _txdone = false;
-  dmacount = 0;
 
   // debug hack: make sure rmt is not running during critical init
   //rmt_channel_t rmtChannel = (rmt_channel_t)0; // TODO: need to track this if using RMT for other purposes, or better, use a separate timer-based approach for WS2812 reset pulse timing
@@ -506,9 +488,6 @@ bool SpiBusContext::startTransmit() {
       newBytes = _channels[ch].srcLen;
     }
   }
-  //if(spierror) Serial.printf("start: SPI error: %d\n", spierror);
-  //Serial.print(".");
-  spierror = 0;
   _numBytes = newBytes;
 
   // Total bits: 16 DMA bytes per source byte × 8 bits/byte = 128 bits per source byte
@@ -531,7 +510,6 @@ bool SpiBusContext::startTransmit() {
   _currentBuffer = 0;
 
   // fill all descriptors
-  encodecalls = 0;
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     encodeSpiChunk(i);
     _dmaDesc[i].owner = 1; // make sure DMA owns the descriptor
