@@ -94,7 +94,6 @@ public:
   }
 
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
-  void printDebugStats();
 
 private:
   LcdBusContext();

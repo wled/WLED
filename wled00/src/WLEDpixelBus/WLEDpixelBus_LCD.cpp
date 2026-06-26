@@ -49,6 +49,7 @@ Key design:
 // Configuration
 // ============================================
 
+#define LCD_LOG(x...) // Serial.printf(x) // define to debug
 
 LcdBusContext* LcdBusContext::_instance = nullptr;
 uint8_t LcdBusContext::_refCount = 0;
@@ -549,10 +550,6 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
   }
 
   return false; // Do not yield OS for this DMA streaming interrupt
-}
-
-void LcdBusContext::printDebugStats() {
-  LCD_LOG("state=%u, channels=%u, mask=0x%04X", (unsigned)_state, _channelCount, _channelMask);
 }
 
 // ============================================
