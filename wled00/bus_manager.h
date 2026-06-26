@@ -13,8 +13,8 @@
  * Class for addressing various light types
  */
 
-#include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "const.h"
+#include "src/WLEDpixelBus/WLEDpixelBus.h"
 #include "pin_manager.h"
 #include <vector>
 #include <memory>

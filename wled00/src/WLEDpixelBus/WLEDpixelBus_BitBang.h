@@ -10,10 +10,9 @@ Each bus can have individual configuration of color channels but all must share 
 
 -------------------------------------------------------------------------*/
 
-
-
 #pragma once
-#if defined(ARDUINO_ARCH_ESP32)  && (WLED_MAX_BB_CHANNELS > 0)
+
+#if defined(ARDUINO_ARCH_ESP32)
 
 #include "WLEDpixelBus.h"
 #include "freertos/FreeRTOS.h"

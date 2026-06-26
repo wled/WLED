@@ -9,10 +9,9 @@ Interrupts are fully disabled during output to avoid any glitches
 Each bus can have individual configuration of color channels but all must share the same timing
 
 -------------------------------------------------------------------------*/
-#if defined(ARDUINO_ARCH_ESP32) && (WLED_MAX_BB_CHANNELS > 0)
 
+#if defined(ARDUINO_ARCH_ESP32)
 #include "WLEDpixelBus_BitBang.h"
-
 #include "esp_clk.h"    // esp_clk_cpu_freq()
 
 namespace WLEDpixelBus {
