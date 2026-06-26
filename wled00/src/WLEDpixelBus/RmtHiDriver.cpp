@@ -9,7 +9,7 @@ by @willmmiles, 2026
 
 #include <algorithm>
 #include "esp_idf_version.h"
-#include "RmtHiDriver.h"
+#include "RmtHIDriver.h"
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
 
