@@ -16,7 +16,7 @@ The glitch-free high priority interrupt implementation by @willmmiles is not ava
 
 #include "WLEDpixelBus.h"
 #include "driver/rmt.h"
-#include "RmtHiDriver.h"
+#include "RmtHIDriver.h"
 #include "esp_rom_gpio.h" // for gpio routing to set inverted signal
 
 namespace WLEDpixelBus {

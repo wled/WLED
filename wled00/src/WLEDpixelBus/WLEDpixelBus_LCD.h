@@ -37,7 +37,7 @@ namespace WLEDpixelBus {
 #include "soc/gpio_sig_map.h"
 
 #ifndef WLEDPB_LCD_DMA_BUFFER_SIZE
-#define WLEDPB_LCD_DMA_BUFFER_SIZE 2048 //2048  -> 2048 works well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
+#define WLEDPB_LCD_DMA_BUFFER_SIZE (3*1024)) // 2048 works as well, still no glitches with 512 and an RMT running as well, 1024 seems to work fine, needs more testing (larger buffer might improve FPS)
 #endif
 
 // I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering may be required for 16-parallel output
@@ -55,6 +55,14 @@ namespace WLEDpixelBus {
 #define WLEDPB_LCD_CADENCE_STEPS 4  // TODO: 3-step cadence was mostly abandoned, fully remove it? 4 step cadence is generally better to hit timing targets.
 #endif
 
+// 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
+#ifdef WLED_PIXELBUS_16PARALLEL
+  #define WLEDPB_LCD_MAX_CHANNELS 16
+#else
+  #define WLEDPB_LCD_MAX_CHANNELS 8
+#endif
+
+
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE >= 64, "DMA buffer too small");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE <= 4092, "DMA buffer too large");
 static_assert(WLEDPB_LCD_DMA_BUFFER_SIZE % 4 == 0, "DMA buffer must be multiple of 4");
@@ -63,13 +71,6 @@ static_assert(WLEDPB_LCD_CADENCE_STEPS == 3 || WLEDPB_LCD_CADENCE_STEPS == 4, "C
 // On ESP32-S3 this is 16, so 16-parallel is the hardware maximum.
 static_assert(WLEDPB_LCD_MAX_CHANNELS <= SOC_LCD_I80_BUS_WIDTH,
   "WLEDPB_LCD_MAX_CHANNELS exceeds hardware LCD bus width (SOC_LCD_I80_BUS_WIDTH)");
-
-// 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
-#ifdef WLED_PIXELBUS_16PARALLEL
-  #define WLEDPB_LCD_MAX_CHANNELS 16
-#else
-  #define WLEDPB_LCD_MAX_CHANNELS 8
-#endif
 
 class LcdBusContext {
 public:

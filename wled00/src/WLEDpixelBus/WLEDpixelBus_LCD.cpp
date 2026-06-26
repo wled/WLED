@@ -466,11 +466,11 @@ void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
 }
 
 bool LcdBusContext::startTransmit() {
-  if (_stagedMask != _channelMask) return false; // wait for all channels
-  _stagedMask = 0;
-
   if (_state != DriverState::Idle) return false;
   if (_channelCount == 0) return false;
+
+  if (_stagedMask != _channelMask) return true; // wait for all channels
+  _stagedMask = 0;
 
   // Reset channel positions
   _maxDataLen = 0;

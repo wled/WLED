@@ -37,7 +37,8 @@ I2sBusContext* I2sBusContext::get(uint8_t busNum) {
   if (_instances[busNum] == nullptr) {
     _instances[busNum] = new I2sBusContext(busNum);
   }
-  _refCount[busNum]++;
+  if (_instances[busNum] != nullptr)
+    _refCount[busNum]++;
   return _instances[busNum];
 }
 
@@ -99,7 +100,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
     if (!_dmaBuffer[i]) {
-      Serial.println("I2S DMA buffer alloc failed");
+      //Serial.println("I2S DMA buffer alloc failed");
       deinit();
       return false;
     }
@@ -107,7 +108,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
     _dmaDesc[i] = (lldesc_t*)heap_caps_aligned_alloc(4, sizeof(lldesc_t), MALLOC_CAP_DMA);
     if (!_dmaDesc[i]) {
-      Serial.println("I2S DMA desc alloc failed");
+      //Serial.println("I2S DMA desc alloc failed");
       deinit();
       return false;
     }
@@ -252,10 +253,10 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
   _clockDiv = clkmInteger;
 
-  Serial.printf("[I2S] Clock: bitPeriod=%uns, clkm_div=%u+%u/%u, bck_div=%u\n", bitPeriodNs, clkmInteger, divB, divA, bckDiv);
+  //Serial.printf("[I2S] Clock: bitPeriod=%uns, clkm_div=%u+%u/%u, bck_div=%u\n", bitPeriodNs, clkmInteger, divB, divA, bckDiv);
   double actualStepNs = (double)clkmInteger * bckDiv / baseClockMhz * 1000.0;
   if (divA > 0) actualStepNs = ((double)clkmInteger + (double)divB / divA) * bckDiv / baseClockMhz * 1000.0;
-  Serial.printf("[I2S] Step time: %.1fns (target: %.1fns), bit period: %.1fns\n", actualStepNs, (double)bitPeriodNs / 4.0, actualStepNs * 4.0);
+  //Serial.printf("[I2S] Step time: %.1fns (target: %.1fns), bit period: %.1fns\n", actualStepNs, (double)bitPeriodNs / 4.0, actualStepNs * 4.0);
 
   // Set clock (with fractional divider for accurate timing)
   _i2sDev->clkm_conf.val = 0;
@@ -317,7 +318,8 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
 
 void I2sBusContext::deinit() {
   // wait for finish sending before deinit (just in case)
-  while (!isIdle()) { vTaskDelay(1); }
+  int timeout = 100;
+  while (!isIdle() && timeout--) { vTaskDelay(1); }
 
   if (_i2sDev) {
     _i2sDev->int_ena.val = 0;      // Disable interrupts first
@@ -568,7 +570,7 @@ bool I2sBusContext::startTransmit() {
   if (_channelCount == 0) return false;
 
   // Only start transmission if ALL active channels have populated data
-  if (_stagedMask != _channelMask) return false;
+  if (_stagedMask != _channelMask) return true;
   _stagedMask = 0; // Reset for next frame
 
   _maxDataLen = 0;
@@ -731,7 +733,7 @@ bool I2sBus::begin() {
 
   _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
-    Serial.printf("[I2S] registerChannel failed for pin %d\n", _pin);
+    DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
     I2sBusContext::release(_busNum);
     _ctx = nullptr;
     return false;
@@ -739,7 +741,7 @@ bool I2sBus::begin() {
 
   _initialized = true;
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
-  Serial.printf("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n", _pin, _busNum, _channelIdx);
+  DEBUG_PRINTF_P(PSTR("[I2S] I2sBus::begin() OK: pin=%d, bus=%u, channel=%d\n"), _pin, _busNum, _channelIdx);
   return true;
 }
 

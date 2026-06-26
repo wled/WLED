@@ -124,10 +124,10 @@ bool SpiBusContext::isSpiDone() {
 
 // Force SPI idle is a dirty hack to guard against some SPI error/race condition that is really hard to track down, it happens randomly and only if UI refresh plus RMT is involved
 void SpiBusContext::forceIdle() {
-  Serial.println("Timeout - Forcing SPI idle...");
+  DEBUG_PRINTF_P(PSTR("Timeout - Forcing SPI idle...\n"));
   // print driver state for debugging
-  Serial.printf("Channels: %d, FramePos: %d, NumBytes: %d, DMA Count: %d, Encode calls: %d\n", _channelCount, _framePos, _numBytes, dmacount, encodecalls);
-  if(spierror) Serial.printf("SPI error: %d\n", spierror);
+  //Serial.printf("Channels: %d, FramePos: %d, NumBytes: %d, DMA Count: %d, Encode calls: %d\n", _channelCount, _framePos, _numBytes, dmacount, encodecalls);
+  //if(spierror) Serial.printf("SPI error: %d\n", spierror);
   _txdone = true;
   _stagedMask = 0;
 
@@ -281,7 +281,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_dmaBuffer[i]) {
-      Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
+      //Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
       deinit();
       return false;
     }
@@ -365,7 +365,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
 
   esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, gdmaISR, this, &_gdmaIsrHandle); // note: saw no flickering even when using level1
   if (err != ESP_OK) {
-    Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
+    //Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
     return false;
   }
@@ -377,7 +377,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   // _hw->dma_int_ena.val = 0xFFFFFFFF; // REMOVED: Do not enable all interrupts, they trigger false aborts!
   err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
-    Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
+    //Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
     deinit();
     return false;
   }
@@ -493,7 +493,8 @@ bool SpiBusContext::startTransmit() {
   portENTER_CRITICAL(&mux);
   // Stop SPI and DMA before reconfiguring for new transfer
   //_hw->cmd.usr = 0; // stop SPI user transfer -> this leads to errors, need to let it "cool down by itself"
-  while (_hw->cmd.usr); // wait for SPI to actually stop (this step is crucial for stability)
+  uint32_t timeout = 100;
+  while (_hw->cmd.usr && timeout--) delay(1); // wait for SPI to actually stop (this step is crucial for stability)
   spi_ll_clear_int_stat(_hw); // the order of these three commands is important
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
@@ -593,7 +594,7 @@ bool ParallelSpiBus::begin() {
 
   _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
   if (_channelIdx < 0) {
-    Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
+    //Serial.printf("[SPI] registerChannel failed for pin %d\n", _pin);
     SpiBusContext::release();
     _ctx = nullptr;
     return false;
