@@ -12,7 +12,7 @@ Supports UART and I2S DMA output as well as parallel bit-banging
 
 #include "WLEDpixelBus_ESP8266.h"
 
-#ifdef WLEDPB_ESP8266
+#if defined(ESP8266)
 
 #include <Arduino.h>
 #include <HardwareSerial.h>
@@ -828,4 +828,4 @@ bool Esp8266DmaBus::canShow() const {
 
 } // namespace WLEDpixelBus
 
-#endif // WLEDPB_ESP8266
+#endif // ESP8266

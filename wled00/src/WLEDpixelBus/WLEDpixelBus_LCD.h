@@ -43,11 +43,11 @@ namespace WLEDpixelBus {
 // I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering may be required for 16-parallel output
 // TODO: this requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 // TODO2: the buffer count and size need to be checked agains memory usage fomulas, they may be incorrect
-#ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
+#ifndef WLEDPB_LCD_DMA_BUFFER_COUNT
   #ifdef WLED_PIXELBUS_16PARALLEL
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+    #define WLEDPB_LCD_DMA_BUFFER_COUNT 3
   #else
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2
+    #define WLEDPB_LCD_DMA_BUFFER_COUNT 2
   #endif
 #endif
 

@@ -13,7 +13,7 @@ Supports UART and I2S DMA output as well as parallel bit-banging
 
 #include "WLEDpixelBus.h"
 
-#ifdef WLEDPB_ESP8266
+#if defined(ESP8266)
 
 namespace WLEDpixelBus {
 
@@ -176,5 +176,5 @@ private:
 
 } // namespace WLEDpixelBus
 
-#endif // WLEDPB_ESP8266
+#endif // ESP8266
 

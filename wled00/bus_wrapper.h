@@ -49,7 +49,9 @@ class PixelBusAllocator {
     _bitBangBusType = 0; // TYPE_NONE
     _hardwareSPIused = 0;
     WLEDpixelBus::RmtBus::resetAutoChannel();
+    #if (WLED_MAX_BB_CHANNELS > 0)
     WLEDpixelBus::BitBangBus::resetChannels();
+    #endif
     #else
     _bitBangBusType = 0; // TYPE_NONE
     WLEDpixelBus::Esp8266BitBangBus::resetChannels();

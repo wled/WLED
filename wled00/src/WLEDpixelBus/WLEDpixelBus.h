@@ -71,9 +71,8 @@ Currently based on IDF v4.x API functions and low-level HAL
 #include "rom/lldesc.h"
 #endif
 
-#elif defined(ARDUINO_ARCH_ESP8266)
-
-#define WLEDPB_ESP8266
+#elif defined(ESP8266)
+// nothing to do here
 
 #else
 #error "WLEDpixelBus only supports ESP32 and ESP8266 platforms"
@@ -574,7 +573,7 @@ PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
 #include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
 #include "WLEDpixelBus_BitBang.h"
-#elif defined(WLEDPB_ESP8266)
+#elif defined(ESP8266)
 #include "WLEDpixelBus_ESP8266.h"
 #endif
 

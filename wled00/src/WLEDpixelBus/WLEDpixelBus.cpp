@@ -30,7 +30,7 @@ Currently based on IDF v4.x API functions and low-level HAL
 #include "WLEDpixelBus_ParallelSpi.h"
 #endif
 
-#if defined(WLEDPB_ESP8266)
+#if defined(ESP8266)
 #include "WLEDpixelBus_ESP8266.h"
 #endif
 
@@ -238,12 +238,12 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels, ledType);
       break;
 #endif
-
+#if (WLED_MAX_BB_CHANNELS > 0)
     case BusDriver::BitBang:
       bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
       break;
-
-#elif defined(WLEDPB_ESP8266)
+#endif
+#elif defined(ESP8266)
     case BusDriver::UART:
       bus = new Esp8266UartBus(pin, timing, colorOrder, numChannels, ledType);
       break;

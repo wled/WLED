@@ -86,15 +86,17 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
     #else
       #define WLED_MAX_I2S_CHANNELS 8
     #endif
-    #define WLED_PLATFORM_ID 2       // used in UI to distinguish ESP type in UI
+    #define WLED_MAX_BB_CHANNELS 8          // max parallel BitBang channels
+    #define WLED_PLATFORM_ID 2              // used in UI to distinguish ESP type in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
     #define WLED_MAX_RMT_CHANNELS 4         // ESP32-S3 has 4 RMT output channels
     #ifdef WLED_PIXELBUS_16PARALLEL
-      #define WLED_MAX_I2S_CHANNELS 16        // uses LCD parallel output not I2S and supports up to 16 parallel channels
+      #define WLED_MAX_I2S_CHANNELS 16      // uses LCD parallel output not I2S and supports up to 16 parallel channels
     #else
       #define WLED_MAX_I2S_CHANNELS 8
     #endif
-    #define WLED_PLATFORM_ID 3       // used in UI to distinguish ESP type in UI, needs a proper fix!
+    #define WLED_MAX_BB_CHANNELS 0          // max parallel BitBang channels, 0 means unused
+    #define WLED_PLATFORM_ID 3              // used in UI to distinguish ESP type in UI, needs a proper fix!
   #else
     #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
     #ifdef WLED_PIXELBUS_16PARALLEL
@@ -102,10 +104,10 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
     #else
       #define WLED_MAX_I2S_CHANNELS 8
     #endif
-    #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
+    #define WLED_MAX_BB_CHANNELS 0          // max parallel BitBang channels, 0 means unused
+    #define WLED_PLATFORM_ID 4              // used in UI to distinguish ESP type in UI, needs a proper fix!
   #endif
   #define WLED_MAX_TIMERS 64                // maximum number of timers
-  #define WLED_MAX_BB_CHANNELS 8            // max parallel BitBang channels
   #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS + WLED_MAX_BB_CHANNELS) // total number of digital channels (RMT + I2S + BitBang)
 #endif
 // WLED_MAX_BUSSES was used to define the size of busses[] array which is no longer needed
