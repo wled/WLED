@@ -284,12 +284,16 @@ void BusDigital::applyBriLimit(uint8_t newBri) {
     if (_milliAmpsLimit == 0 || _milliAmpsTotal == 0) return; // ABL not used for this bus
     newBri = 255;
 
-    if (_milliAmpsTotal > _milliAmpsLimit) {
+    if (_milliAmpsLimit > getLength()) { // each LED uses about 1mA in standby
+      if (_milliAmpsTotal > _milliAmpsLimit) {
         // scale brightness down to stay in current limit
         newBri = ((uint32_t)_milliAmpsLimit * 255) / _milliAmpsTotal + 1; // +1 to avoid 0 brightness
-        if (newBri == 0) newBri = 1; // safety clamp
         _milliAmpsTotal = _milliAmpsLimit;
       }
+    } else {
+      newBri = 1; // limit too low, set brightness to 1, this will dim down all colors to minimum since we use video scaling
+      _milliAmpsTotal = getLength(); // estimate bus current as minimum
+    }
   }
 
   if (newBri < 255) {
@@ -329,9 +333,9 @@ void BusDigital::setStatusPixel(uint32_t c) {
   }
 }
 
-// note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 // TODO: this function may still need some optimization, making better use of the new bus architecture
-// TODO: is there any benefit of putting this in IRAM on ESP32?  in IRAM: 34.2fps, no IRAM: 34.3fps -> no benefit. removed IRAM_ATTR for now
+// Note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
+// Note: there is no benefit of putting this in IRAM: IRAM: 34.2fps, no IRAM: 34.3fps
 void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return;
   if (_reversed) pix = _len - pix -1;
@@ -339,7 +343,6 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
   if (c > 0) {
-    c = gamma32(c); // apply gamma correction (table is unity when realtime disables gamma)
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
     if (hasWhite()) {
       c = autoWhiteCalc(c, cctWW, cctCW);
