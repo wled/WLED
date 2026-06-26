@@ -127,7 +127,8 @@
 // #define USERMOD_BATTERY_ALLOW_REMOTE_UPDATE
 
 // battery types
-typedef enum
+// fixed uint8_t base so the enum is exactly one byte (exposed via getUMData() as UMT_BYTE)
+typedef enum : uint8_t
 {
   lipo=1,
   lion=2,

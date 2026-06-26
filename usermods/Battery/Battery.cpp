@@ -54,6 +54,8 @@ class UsermodBattery : public Usermod {
     // --- Estimated runtime (auto-enabled when INA226 detected) ---
     bool estimatedRuntimeEnabled = false;
     bool ina226Probed = false;
+    unsigned long nextInaProbeTime = 0;     // backoff gate for INA226 auto-detection
+    static const unsigned long INA_PROBE_INTERVAL_MS = 5000;
     uint16_t batteryCapacity = USERMOD_BATTERY_CAPACITY;
     int32_t estimatedTimeLeft = -1;
     float smoothedCurrent = -1.0f;
@@ -93,8 +95,7 @@ class UsermodBattery : public Usermod {
     // =============================================
 
     float dot2round(float x) {
-      float nx = (int)(x * 100 + .5);
-      return (float)(nx / 100);
+      return roundf(x * 100.0f) / 100.0f;
     }
 
     void turnOff() {
@@ -168,8 +169,8 @@ class UsermodBattery : public Usermod {
 
 #ifndef WLED_DISABLE_MQTT
     void addMqttSensor(const String &name, const String &type, const String &topic, const String &deviceClass, const String &unitOfMeasurement = "", const bool &isDiagnostic = false) {
-      StaticJsonDocument<1024> doc;
-      char uid[128], json_str[1024], buf[128];
+      StaticJsonDocument<512> doc;
+      char uid[128], json_str[512], buf[128];
 
       doc[F("name")] = name;
       doc[F("stat_t")] = topic;
@@ -289,8 +290,9 @@ class UsermodBattery : public Usermod {
         nextReadTime = millis() + readingInterval;
       }
 
-      // auto-detect INA226 usermod (keep trying until first successful sensor read)
-      if (!ina226Probed) {
+      // auto-detect INA226 usermod (retry at most every INA_PROBE_INTERVAL_MS until first success)
+      if (!ina226Probed && millis() >= nextInaProbeTime) {
+        nextInaProbeTime = millis() + INA_PROBE_INTERVAL_MS;
         um_data_t *data = nullptr;
         if (UsermodManager::getUMData(&data, USERMOD_ID_INA226) && data) {
           estimatedRuntimeEnabled = true;
@@ -553,14 +555,8 @@ class UsermodBattery : public Usermod {
 
       addBatteryToJsonObject(battery, false);
 
-      // re-read voltage in case calibration or multiplier changed
-      #ifdef ARDUINO_ARCH_ESP32
-        if (batteryPin >= 0 && PinManager::isPinAllocated(batteryPin, PinOwner::UM_Battery))
-      #else
-        if (batteryPin >= 0)
-      #endif
-          bat->setVoltage(readVoltage());
-
+      // NOTE: do not read the ADC here. addToConfig() is a pure serialization
+      // method (also used by OTA/preset paths); loop() handles voltage updates.
       DEBUG_PRINTLN(F("Battery config saved."));
     }
 

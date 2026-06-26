@@ -138,10 +138,9 @@ class UMBattery
          */
         void setVoltage(float voltage)
         {
-            // this->voltage = ( (voltage < this->getMinVoltage() * 0.85f) || (voltage > this->getMaxVoltage() * 1.1f) ) 
-            //     ? -1.0f 
-            //     : voltage;
-            this->voltage = voltage;
+            this->voltage = ( (voltage < this->getMinVoltage() * 0.85f) || (voltage > this->getMaxVoltage() * 1.1f) )
+                ? -1.0f
+                : voltage;
         }
 
         int8_t getLevel()

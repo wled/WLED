@@ -298,6 +298,15 @@ Specification from: [Molicel INR18650-M35A, 3500mAh 10A Lithium-ion battery, 3.6
 
 ## 📝 Change Log
 
+2026-06-26
+
+- Restored `setVoltage()` range guard (rejects readings outside ~min/max bounds)
+- Reduced MQTT discovery JSON buffer back to 512 bytes to lower stack usage in `addMqttSensor()`
+- Removed ADC read side effect from `addToConfig()` (serialization only)
+- Gave `batteryType` enum a fixed `uint8_t` base for safe `UMT_BYTE` exposure
+- Added backoff to INA226 auto-detection probe (retry every 5 s)
+- Fixed `dot2round()` overflow/negative handling using `roundf()`
+
 2026-02-28
 
 - Added `readFromJsonState()` for remote config updates via JSON API
