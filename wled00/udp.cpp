@@ -355,7 +355,7 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
   }
 
   // simple effect sync, applies to all selected segments
-  if ((applyEffects || receiveNotificationPalette) && (version < 11 || !receiveSegmentOptions)) {
+  if ((applyEffects || receiveNotificationPalette || receiveNotificationColor || !someSel) && (version < 11 || !receiveSegmentOptions)) {
     for (size_t i = 0; i < strip.getSegmentsNum(); i++) {
       Segment& seg = strip.getSegment(i);
       if (!seg.isActive() || !seg.isSelected()) continue;
@@ -365,9 +365,16 @@ static void parseNotifyPacket(const uint8_t *udpIn) {
         if (version > 2) seg.intensity = udpIn[16];
       }
       if (version > 4 && receiveNotificationPalette) seg.setPalette(udpIn[19]);
+      if (receiveNotificationColor || !someSel) {
+        // apply colors to all selected segments, not just the main segment (e.g. so Solid effect syncs everywhere)
+        seg.setColor(0, RGBW32(udpIn[3], udpIn[4], udpIn[5], (version > 0) ? udpIn[10] : 0));
+        if (version > 1) seg.setColor(1, RGBW32(udpIn[12], udpIn[13], udpIn[14], udpIn[15]));
+        if (version > 6) seg.setColor(2, RGBW32(udpIn[20], udpIn[21], udpIn[22], udpIn[23]));
+      }
     }
     stateChanged = true;
   }
+
 
   if (applyEffects && version > 5) {
     uint32_t t = (udpIn[25] << 24) | (udpIn[26] << 16) | (udpIn[27] << 8) | (udpIn[28]);
