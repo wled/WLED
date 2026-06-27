@@ -75,8 +75,13 @@ Turn on `fetchWeather` to pull the current outdoor temperature and condition fro
 [Open-Meteo](https://open-meteo.com) (free, no API key) every `fetchMinutes` (default 15).
 Plain HTTP, so no TLS library / `lib_deps`.
 
-- **Location:** uses WLED **Time settings** lat/lon when `useWledLocation` is on, else the
-  `latitude`/`longitude` set here. `(0,0)` disables fetching.
+- **Location:** uses WLED **Time settings** lat/lon when `useWledLocation` is on; otherwise
+  enter a **`place`** (city or ZIP — geocoded via Open-Meteo), or leave `place` blank and
+  set `latitude`/`longitude` directly (a "find lat/lon" link is provided). `(0,0)` / unresolved
+  disables fetching.
+- **Humidity & condition** are shown on the WLED **Info** page alongside temperature.
+- **Update now:** a button in the settings (and `{"WordClock16x16":{"update":true}}` via the
+  JSON API) fetches the weather immediately.
 - **Weather → preset:** turn on `weatherPresets`, then map each weather state to a preset
   (these fields are **dropdowns** of your saved presets, from `/presets.json`; 0 = none).
   When the detected state changes, that preset is applied. WMO codes are grouped as:
