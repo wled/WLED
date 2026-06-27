@@ -81,7 +81,11 @@ Plain HTTP, so no TLS library / `lib_deps`.
   disables fetching.
 - **Humidity & condition** are shown on the WLED **Info** page alongside temperature.
 - **Update now:** a button in the settings (and `{"WordClock16x16":{"update":true}}` via the
-  JSON API) fetches the weather immediately.
+  JSON API) fetches the weather immediately. The Usermod settings page shows a **live status
+  line** (temp / humidity / condition / location / last-updated, read from `/json/info`) that
+  refreshes after you press the button, so you can see whether the fetch succeeded
+  (`Updated: Xs ago`) or not (`never`, or a `not found` / `unset` location). The same info
+  also appears on the main UI **Info** panel.
 - **Weather → preset:** turn on `weatherPresets`, then map each weather state to a preset
   (these fields are **dropdowns** of your saved presets, from `/presets.json`; 0 = none).
   When the detected state changes, that preset is applied. WMO codes are grouped as:

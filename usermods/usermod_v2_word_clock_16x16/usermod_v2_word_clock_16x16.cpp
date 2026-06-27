@@ -525,7 +525,8 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     void addToJsonInfo(JsonObject &root) override {
-      if (!showTemp && !fetchWeather) return;
+      const bool wx = fetchWeather || everOk;   // also show once a manual fetch has succeeded
+      if (!showTemp && !wx) return;
       JsonObject user = root[F("u")];
       if (user.isNull()) user = root.createNestedObject(F("u"));
       char buf[24];
@@ -534,7 +535,7 @@ class WordClock16x16Usermod : public Usermod {
       JsonArray aT = user.createNestedArray(F("Word Clock temperature"));
       aT.add(buf); aT.add(tempFahrenheit ? F(" °F") : F(" °C"));
 
-      if (fetchWeather) {
+      if (wx) {
         if (haveHumidity) {
           snprintf(buf, sizeof(buf), "%.0f", humidity);
           JsonArray aH = user.createNestedArray(F("Word Clock humidity"));
@@ -659,9 +660,20 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:weatherPresets', 1, 'apply a preset when weather changes');"));
       oappend(F("addInfo('WordClock16x16:heatAbove', 1, 'HEAT when clear/cloudy and temp at/above this');"));
       oappend(F("addInfo('WordClock16x16:windAbove', 1, 'WIND when clear/cloudy and gust (km/h) at/above this');"));
-      // "Update now" button -> POST {"WordClock16x16":{"update":true}} to /json/state.
-      oappend(F("wc16upd=function(){fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"update\":true}}'});};"));
+      // Live status panel + "Update now" button (reads /json/info, posts an update request).
+      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat' style='margin:6px 0;opacity:.85'>loading current weather...</div>\");"));
+      oappend(F("wc16refresh=function(){fetch('/json/info').then(function(r){return r.json();}).then(function(j){"
+                "var u=(j&&j.u)||{};function g(k){var a=u[k];return a?(Array.isArray(a)?a.join(''):a):'-';}"
+                "var e=document.getElementById('wc16stat');if(!e)return;"
+                "e.innerHTML='&#127777; '+g('Word Clock temperature')+' &nbsp; &#128167; '+g('Word Clock humidity')+"
+                "' &nbsp; '+g('Word Clock condition')+'<br>&#128205; '+g('Word Clock location')+"
+                "' &nbsp; &#128260; '+g('Word Clock updated');}).catch(function(){"
+                "var e=document.getElementById('wc16stat');if(e)e.innerHTML='(status unavailable)';});};"));
+      oappend(F("wc16upd=function(){var e=document.getElementById('wc16stat');if(e)e.innerHTML='Updating...';"
+                "fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"update\":true}}'})"
+                ".then(function(){setTimeout(wc16refresh,3000);setTimeout(wc16refresh,7000);}).catch(function(){var e=document.getElementById('wc16stat');if(e)e.innerHTML='request failed';});};"));
       oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, \"&nbsp;<button type='button' onclick='wc16upd()'>Update now</button>\");"));
+      oappend(F("setTimeout(wc16refresh,300);"));
       // Turn the per-state preset number fields into dropdowns populated from /presets.json.
       oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder','presetIce','presetHail','presetHeat','presetWind'];"
                 "for(var i=0;i<ks.length;i++){var dd=addDropdown('WordClock16x16',ks[i]);if(!dd)continue;addOption(dd,'None',0);"
