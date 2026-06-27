@@ -245,7 +245,9 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:showPeriodOfDay', 1, 'light MORNING/AFTERNOON/EVENING/NIGHT');"));
     }
 
-    uint16_t getId() override { return USERMOD_ID_WORDCLOCK_16X16; }
+    // No getId() override: this usermod needs no unique id (it isn't detected by other
+    // usermods and exchanges no um_data), so it keeps USERMOD_ID_UNSPECIFIED and avoids
+    // touching wled00/const.h. See the note at the USERMOD_ID list in const.h.
 };
 
 const char WordClock16x16Usermod::_name[]       PROGMEM = "WordClock16x16";

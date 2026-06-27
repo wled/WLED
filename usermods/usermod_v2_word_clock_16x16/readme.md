@@ -10,8 +10,9 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 
 ## Install / Build
 
-1. The usermod lives in `usermods/usermod_v2_word_clock_16x16/` and registers usermod id
-   `USERMOD_ID_WORDCLOCK_16X16` (59 in `wled00/const.h`).
+1. The usermod lives entirely in `usermods/usermod_v2_word_clock_16x16/` — it makes no
+   changes outside this folder (it uses the default `USERMOD_ID_UNSPECIFIED`, so no edit
+   to `wled00/const.h` is needed).
 2. Add it to your build environment's `custom_usermods` in `platformio.ini` (or a
    `platformio_override.ini`), e.g.:
    ```ini
