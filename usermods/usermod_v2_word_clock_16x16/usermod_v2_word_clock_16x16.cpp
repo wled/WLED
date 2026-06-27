@@ -43,6 +43,7 @@ static const WCWord wcEVENING   = { 9,14, 7};
 static const WCWord wcNIGHT     = { 3,14, 5};
 
 // ---- Temperature words (bottom row 15): "& WARM COOL HOT COLD" -----------------
+static const WCWord wcAmp = { 0,15, 1}; // '&' at LED 240 (row 15, col 0)
 // Index == temperature band (1..4); index 0 = none/unknown.
 static const WCWord wcTempWord[5] = {
   { 0, 0, 0}, // 0 none
@@ -178,7 +179,8 @@ static void wcBuildMask(uint16_t *mask, int h24, int m) {
   }
 
   if (wc16_showTemp && wc16_tempBand >= 1 && wc16_tempBand <= 4) {
-    wcSet(mask, wcTempWord[wc16_tempBand]); // WARM/COOL/HOT/COLD on the bottom row
+    wcSet(mask, wcAmp);                      // '&' lights whenever a temperature word shows
+    wcSet(mask, wcTempWord[wc16_tempBand]);  // WARM/COOL/HOT/COLD on the bottom row
   }
 }
 

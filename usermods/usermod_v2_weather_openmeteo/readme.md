@@ -44,6 +44,7 @@ colors, the word-clock effect tinted blue for rain, etc.).
 - `useWledLocation`, `latitude`, `longitude`
 - `intervalMinutes` (default 15)
 - `weatherPresets` + `presetClear/Clouds/Fog/Drizzle/Rain/Snow/Thunder`
+  (these render as **dropdowns** of your saved presets, populated from `/presets.json`)
 
 Current temperature + weather state are shown on the WLED **Info** page.
 

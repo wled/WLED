@@ -203,13 +203,11 @@ class WeatherOpenMeteoUsermod : public Usermod {
       oappend(F("addInfo('OpenMeteo:useWledLocation', 1, 'use Time-settings lat/lon (off = use below)');"));
       oappend(F("addInfo('OpenMeteo:intervalMinutes', 1, 'minutes between fetches');"));
       oappend(F("addInfo('OpenMeteo:weatherPresets', 1, 'apply a preset when weather changes');"));
-      oappend(F("addInfo('OpenMeteo:presetClear', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetClouds', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetFog', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetDrizzle', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetRain', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetSnow', 1, 'preset id (0 = none)');"));
-      oappend(F("addInfo('OpenMeteo:presetThunder', 1, 'preset id (0 = none)');"));
+      // Turn the per-state preset number fields into dropdowns populated from /presets.json.
+      oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder'];"
+                "for(var i=0;i<ks.length;i++){var dd=addDropdown('OpenMeteo',ks[i]);if(!dd)continue;addOption(dd,'None',0);"
+                "for(var p of Object.entries(j)){if(p[0]==='0')continue;var n=(p[1]&&p[1].n)?p[1].n:('Preset '+p[0]);addOption(dd,p[0]+': '+n,p[0]);}}}"
+                "fetch('/presets.json').then(function(r){return r.json();}).then(f).catch(function(){});})();"));
     }
 
     // No getId() override (USERMOD_ID_UNSPECIFIED) — keeps changes out of wled00/const.h.

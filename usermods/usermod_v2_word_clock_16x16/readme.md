@@ -69,8 +69,9 @@ temperature + band is shown on the WLED **Info** page. The companion
 `usermod_v2_weather_openmeteo` feeds this temperature automatically (and can also switch
 presets on weather changes).
 
+When a temperature word is shown, the `&` tile (bottom-left, LED 240) lights too.
+
 ## Not yet implemented (future)
-- The `&` tile on the bottom row
 - The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
   output/bus + segment for the corners; WLED's button config for the inputs)
 
