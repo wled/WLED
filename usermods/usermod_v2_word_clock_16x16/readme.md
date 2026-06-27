@@ -93,10 +93,10 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 | GPIO9  | System      | \-                 |
 | GPIO10 | System      | \-                 |
 | GPIO11 | System      | \-                 |
-| GPIO12 | Button      | Touch, Bootstrap   |  < Button 3 | Bottom Left 
-| GPIO13 | Button      | Touch              |  < Button 2 | Top Right
-| GPIO14 | Button      | Touch              |  < Button 1 | Top Left
-| GPIO15 | Button      | Touch              |  < Button 4 | Bottom Right
+| GPIO12 | Button      | Touch, Bootstrap   |  < Button 3 | LED 256 | Bottom Left 
+| GPIO13 | Button      | Touch              |  < Button 2 | LED 259 | Top Right
+| GPIO14 | Button      | Touch              |  < Button 1 | LED 257 | Top Left
+| GPIO15 | Button      | Touch              |  < Button 4 | LED 258 | Bottom Right
 | GPIO16 | Available   | \-                 |
 | GPIO17 | Available   | \-                 |
 | GPIO18 | Available   | \-                 |
@@ -223,9 +223,10 @@ Plain HTTP, so no TLS library / `lib_deps`.
   refreshes after you press the button, so you can see whether the fetch succeeded
   (`Updated: Xs ago`) or not (`never`, or a `not found` / `unset` location). The same info
   also appears on the main UI **Info** panel.
-- **Weather → preset:** turn on `weatherPresets`, then map each weather state to a preset
-  (these fields are **dropdowns** of your saved presets, from `/presets.json`; 0 = none).
-  When the detected state changes, that preset is applied. WMO codes are grouped as:
+- **Weather → preset:** turn on `weatherPresets`, then map each weather state to a preset in
+  the **table** (Weather / Preset / Test columns). Each Preset is a **dropdown** of your saved
+  presets (from `/presets.json`; 0 = none). When the detected state changes, that preset is
+  applied. WMO codes are grouped as:
 
   | State | Source | Setting |
   | ----- | ------ | ------- |
@@ -257,10 +258,9 @@ Plain HTTP, so no TLS library / `lib_deps`.
   data goes stale (older than 30 min) the condition shows `stale` and temperature falls back to
   `manualTemp`.
 
-  To verify a mapping, use the **Test a weather preset** control at the bottom of the
-  usermod settings: pick a state and press **Apply now** — it force-applies that state's
+  To verify a mapping, press the **Test** button on that row — it force-applies the state's
   preset (bypassing the change-only check). The same works via the JSON API:
-  `{"WordClock16x16":{"wxtest":5}}` (5 = rain; 1-11 in the table order above).
+  `{"WordClock16x16":{"wxtest":5}}` (5 = rain; 1–12 in the table order above).
 
 ### Corner buttons → corner LEDs
 Lights a corner LED **while its button is held**, on top of normal **native WLED button +
@@ -276,7 +276,8 @@ Setup:
    - `LED color` — `RRGGBB` (or `RRGGBBWW` for the W channel), e.g. `FFFFFF`.
    - A **table** with one row per corner (**Top-Left, Top-Right, Bottom-Left, Bottom-Right**):
      set each corner's **button index** (WLED button number, −1 = off) and **LED index**
-     (pixel number, −1 = off). Defaults map buttons 1–4 → LEDs 256–259.
+     (pixel number, −1 = off). Defaults match the wiring in *Pin Info*: TL=btn1→LED257,
+     TR=btn2→LED259, BL=btn3→LED256, BR=btn4→LED258.
    - Each row has a **Test** button that briefly (~3 s) lights the LED index currently in that
      field, so you can confirm which physical LED maps to which corner before saving. (Same as
      the JSON API: `{"WordClock16x16":{"ledtest":256}}`.)

@@ -311,8 +311,9 @@ class WordClock16x16Usermod : public Usermod {
     bool     cornerLeds = false;
     String   cornerColorHex = "FFFFFF";           // RRGGBB or RRGGBBWW
     uint32_t cornerColor = 0xFFFFFFUL;            // parsed from cornerColorHex
+    // Corner order: Top-Left, Top-Right, Bottom-Left, Bottom-Right (matches readme wiring).
     int8_t   cbBtn[4] = { 1, 2, 3, 4 };           // WLED button index per corner (-1 = off)
-    int16_t  cbLed[4] = { 256, 257, 258, 259 };   // LED pixel index per corner (-1 = off)
+    int16_t  cbLed[4] = { 257, 259, 256, 258 };   // LED pixel index per corner (-1 = off)
     int      testLed  = -1;                        // settings "Test": light this pixel briefly
     unsigned long testLedUntil = 0;
 
@@ -685,8 +686,8 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_thrWarmHot)]  = thrWarmHot;
       top[FPSTR(_manualTemp)]  = manualTemp;
       top[FPSTR(_fetch)]       = fetchWeather;
-      top[FPSTR(_useWled)]     = useWledLocation;
       top[FPSTR(_interval)]    = fetchMinutes;
+      top[FPSTR(_useWled)]     = useWledLocation;
       top[FPSTR(_place)]       = place;
       top[FPSTR(_lat)]         = latOverride;
       top[FPSTR(_lon)]         = lonOverride;
@@ -770,66 +771,66 @@ class WordClock16x16Usermod : public Usermod {
                 "+'.wc16tbl th{color:#4aa3ff;font-weight:600;border-bottom:1px solid #2c2c2c}'"
                 "+'.wc16tbl input{width:72px}';document.head.appendChild(s);})();"));
 
-      // ---- concise field help -------------------------------------------------
-      oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot to (un)register the effect');"));
-      oappend(F("addInfo('WordClock16x16:fahrenheit', 1, 'display only; thresholds are in C');"));
-      oappend(F("addInfo('WordClock16x16:coldBelow', 1, '&deg;C: COLD below, else COOL');"));
-      oappend(F("addInfo('WordClock16x16:coolBelow', 1, '&deg;C: COOL below, else WARM');"));
-      oappend(F("addInfo('WordClock16x16:warmBelow', 1, '&deg;C: WARM below, HOT at/above');"));
-      oappend(F("addInfo('WordClock16x16:manualTemp', 1, '&deg;C; used until a live value arrives');"));
-      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use lat/lon from WLED Time settings; if those are 0/unset, use Place (or lat/lon) below');"));
-      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (\", State\" ignored; ZIP if ambiguous)');"));
-      oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
-      oappend(F("addInfo('WordClock16x16:heatAbove', 1, '&deg;C, clear/cloudy skies only');"));
-      oappend(F("addInfo('WordClock16x16:windAbove', 1, 'gust km/h, clear/cloudy skies only');"));
-
-      // ---- section headers + friendlier labels --------------------------------
+      // ---- helpers: section header, relabel, and move fields into a table ------
       oappend(F("wc16sec=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
                 "var f=a[0],r=f.previousSibling;var h=document.createElement('div');h.className='wc16h';h.textContent=t;"
                 "f.parentNode.insertBefore(h,(r&&r.nodeType===3)?r:f);};"));
       oappend(F("wc16lbl=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
                 "var r=a[0].previousSibling;if(r&&r.nodeType===3)r.textContent=' '+t+' ';};"));
+      // wc16tbl(headers, rows): rows = [label, [fieldNames...], extra(tr,cells)|null]. Moves the
+      // existing inputs into a table; cleans up stray label text/<br>; inserts at first field.
+      oappend(F("wc16tbl=function(hdr,rows){var ok=0;for(var r=0;r<rows.length;r++)if(d.getElementsByName('WordClock16x16:'+rows[r][1][0]).length){ok=1;break;}if(!ok)return;"
+                "var t=document.createElement('table');t.className='wc16tbl';var h=document.createElement('tr');"
+                "for(var i=0;i<hdr.length;i++){var th=document.createElement('th');th.textContent=hdr[i];h.appendChild(th);}t.appendChild(h);"
+                "var anchor=null,kill=[];function mv(td,nm){var e=d.getElementsByName('WordClock16x16:'+nm);if(!e.length)return;"
+                "var lbl=e[0].previousSibling,af=e[e.length-1].nextSibling;if(!anchor)anchor=(lbl&&lbl.nodeType===3)?lbl:e[0];"
+                "var a=[];for(var k=0;k<e.length;k++)a.push(e[k]);for(k=0;k<a.length;k++)td.appendChild(a[k]);"
+                "if(lbl&&lbl.nodeType===3)kill.push(lbl);if(af&&af.nodeName==='BR')kill.push(af);}"
+                "for(var ri=0;ri<rows.length;ri++){var row=rows[ri];var tr=document.createElement('tr');"
+                "var c0=document.createElement('td');c0.textContent=row[0];tr.appendChild(c0);var cells=[];"
+                "for(var fi=0;fi<row[1].length;fi++){var td=document.createElement('td');mv(td,row[1][fi]);tr.appendChild(td);cells.push(td);}"
+                "if(row[2])row[2](tr,cells);t.appendChild(tr);}"
+                "if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(t,anchor);"
+                "for(ri=0;ri<kill.length;ri++)if(kill[ri].parentNode)kill[ri].parentNode.removeChild(kill[ri]);};"));
+      // test-cell builders for the tables
+      oappend(F("wc16wxTest=function(s){return function(tr){var td=document.createElement('td');var b=document.createElement('button');"
+                "b.type='button';b.textContent='Test';b.onclick=function(){fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},"
+                "body:'{\"WordClock16x16\":{\"wxtest\":'+s+'}}'});};td.appendChild(b);tr.appendChild(td);};};"));
+      oappend(F("wc16ledTest=function(tr,cells){var td=document.createElement('td');var b=document.createElement('button');b.type='button';b.textContent='Test';"
+                "var cell=cells[1];b.onclick=function(){var ip=cell.querySelector(\"input:not([type='hidden'])\");var v=ip?ip.value:'';if(v==='')return;"
+                "fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"ledtest\":'+v+'}}'});};td.appendChild(b);tr.appendChild(td);};"));
       oappend(F("wc16sec('enabled','Display');wc16sec('showTemperature','Temperature words');"
                 "wc16sec('fetchWeather','Weather');wc16sec('useWledLocation','Location');"
                 "wc16sec('weatherPresets','Weather \\u2192 Presets');"));
+      // Labels for the non-tabled fields (tabled fields are labelled by their table rows).
       oappend(F("wc16lbl('enabled','Enabled');wc16lbl('showPeriodOfDay','Period of day');"
-                "wc16lbl('showTemperature','Temperature words');wc16lbl('fahrenheit','Use \\u00B0F');"
-                "wc16lbl('coldBelow','Cold below');wc16lbl('coolBelow','Cool below');wc16lbl('warmBelow','Warm below');"
-                "wc16lbl('manualTemp','Manual temp');"));
-      oappend(F("wc16lbl('fetchWeather','Fetch weather');"
-                "wc16lbl('useWledLocation','Use WLED location');"
-                "wc16lbl('fetchMinutes','Every (min)');wc16lbl('place','Place');wc16lbl('latitude','Latitude');"
-                "wc16lbl('longitude','Longitude');wc16lbl('weatherPresets','Enable presets');"
-                "wc16lbl('heatAbove','Heat above');wc16lbl('windAbove','Wind gust above');"));
-      oappend(F("wc16lbl('presetClear','Clear');wc16lbl('presetClouds','Clouds');wc16lbl('presetFog','Fog');"
-                "wc16lbl('presetDrizzle','Drizzle');wc16lbl('presetRain','Rain');wc16lbl('presetSnow','Snow');"
-                "wc16lbl('presetThunder','Thunder');wc16lbl('presetIce','Ice');wc16lbl('presetHail','Hail');"
-                "wc16lbl('presetHeat','Heat');wc16lbl('presetWind','Wind');wc16lbl('presetSevere','Severe');"));
-      // Corner buttons section: light a mapped LED while its native WLED button is held.
-      oappend(F("addInfo('WordClock16x16:cornerLeds', 1, 'uses native WLED buttons; lights the mapped LED while held');"));
-      oappend(F("addInfo('WordClock16x16:cornerColor', 1, 'RRGGBB or RRGGBBWW hex');"));
-      oappend(F("wc16sec('cornerLeds','Corner buttons');"
+                "wc16lbl('fetchWeather','Fetch weather');wc16lbl('fetchMinutes','Every (min)');"
+                "wc16lbl('weatherPresets','Enable presets');wc16lbl('heatAbove','Heat above (\\u00B0C)');"
+                "wc16lbl('windAbove','Wind gust above (km/h)');"
                 "wc16lbl('cornerLeds','Light LED on press');wc16lbl('cornerColor','LED color');"));
-      // Lay the 4 corner button/LED maps out as a table with corner names + a Test button
-      // (Test posts {"WordClock16x16":{"ledtest":N}} -> lights that pixel ~3 s).
-      oappend(F("(function(){if(!d.getElementsByName('WordClock16x16:cbBtn0').length)return;"
-                "var rows=[['Top-Left',0],['Top-Right',1],['Bottom-Left',2],['Bottom-Right',3]];"
-                "var t=document.createElement('table');t.className='wc16tbl';"
-                "var h=document.createElement('tr');h.innerHTML='<th>Corner</th><th>Button</th><th>LED</th><th>Test</th>';t.appendChild(h);"
-                "var anchor=null,kill=[];"
-                "function mv(td,nm){var e=d.getElementsByName(nm);if(!e.length)return;var lbl=e[0].previousSibling,af=e[e.length-1].nextSibling;"
-                "if(!anchor)anchor=(lbl&&lbl.nodeType===3)?lbl:e[0];var a=[];for(var k=0;k<e.length;k++)a.push(e[k]);for(k=0;k<a.length;k++)td.appendChild(a[k]);"
-                "if(lbl&&lbl.nodeType===3)kill.push(lbl);if(af&&af.nodeName==='BR')kill.push(af);}"
-                "for(var i=0;i<rows.length;i++){var tr=document.createElement('tr');"
-                "var c0=document.createElement('td');c0.textContent=rows[i][0];tr.appendChild(c0);"
-                "var c1=document.createElement('td');mv(c1,'WordClock16x16:cbBtn'+rows[i][1]);tr.appendChild(c1);"
-                "var c2=document.createElement('td');mv(c2,'WordClock16x16:cbLed'+rows[i][1]);tr.appendChild(c2);"
-                "var c3=document.createElement('td');(function(cell){var b=document.createElement('button');b.type='button';b.textContent='Test';"
-                "b.onclick=function(){var ip=cell.querySelector(\"input:not([type='hidden'])\");var v=ip?ip.value:'';if(v==='')return;"
-                "fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"ledtest\":'+v+'}}'});};c3.appendChild(b);})(c2);"
-                "tr.appendChild(c3);t.appendChild(tr);}"
-                "if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(t,anchor);"
-                "for(i=0;i<kill.length;i++)if(kill[i].parentNode)kill[i].parentNode.removeChild(kill[i]);})();"));
+      oappend(F("wc16sec('cornerLeds','Corner buttons');"));
+      // ---- tables -------------------------------------------------------------
+      oappend(F("wc16tbl(['Setting','Value'],[['Show temperature words',['showTemperature']],"
+                "['Use \\u00B0F (display only)',['fahrenheit']],['Cold below (\\u00B0C)',['coldBelow']],"
+                "['Cool below (\\u00B0C)',['coolBelow']],['Warm below (\\u00B0C)',['warmBelow']],"
+                "['Manual temp (\\u00B0C)',['manualTemp']]]);"));
+      oappend(F("wc16tbl(['Setting','Value'],[['Use WLED location',['useWledLocation']],"
+                "['Place (city/ZIP)',['place']],['Latitude',['latitude']],['Longitude',['longitude']]]);"));
+      oappend(F("(function(){var ps=[['Clear','presetClear',1],['Clouds','presetClouds',2],['Fog','presetFog',3],"
+                "['Drizzle','presetDrizzle',4],['Rain','presetRain',5],['Snow','presetSnow',6],['Thunder','presetThunder',7],"
+                "['Ice','presetIce',8],['Hail','presetHail',9],['Heat','presetHeat',10],['Wind','presetWind',11],['Severe','presetSevere',12]];"
+                "var rows=[];for(var i=0;i<ps.length;i++)rows.push([ps[i][0],[ps[i][1]],wc16wxTest(ps[i][2])]);"
+                "wc16tbl(['Weather','Preset','Test'],rows);})();"));
+      oappend(F("(function(){var cr=[['Top-Left',0],['Top-Right',1],['Bottom-Left',2],['Bottom-Right',3]];"
+                "var rows=[];for(var i=0;i<cr.length;i++)rows.push([cr[i][0],['cbBtn'+cr[i][1],'cbLed'+cr[i][1]],wc16ledTest]);"
+                "wc16tbl(['Corner','Button','LED','Test'],rows);})();"));
+      // ---- field help (after tables so it lands inside the value cells) --------
+      oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot to (un)register the effect');"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'WLED Time-settings lat/lon; if 0/unset, uses Place / lat-lon');"));
+      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (\", State\" ignored; ZIP if ambiguous)');"));
+      oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
+      oappend(F("addInfo('WordClock16x16:cornerLeds', 1, 'native WLED buttons; lights the mapped LED while held');"));
+      oappend(F("addInfo('WordClock16x16:cornerColor', 1, 'RRGGBB or RRGGBBWW hex');"));
 
       // ---- live status panel + "Update now" -----------------------------------
       oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
@@ -852,15 +853,6 @@ class WordClock16x16Usermod : public Usermod {
                 "for(var p of Object.entries(j)){if(p[0]==='0')continue;var n=(p[1]&&p[1].n)?p[1].n:('Preset '+p[0]);addOption(dd,p[0]+': '+n,p[0]);}}}"
                 "fetch('/presets.json').then(function(r){return r.json();}).then(f).catch(function(){});})();"));
 
-      // ---- "Test preset" control: force-apply a weather state's preset --------
-      oappend(F("(function(){var a=d.getElementsByName('WordClock16x16:presetSevere');if(!a.length)return;var anchor=a[a.length-1];"
-                "var w=document.createElement('div');w.className='wc16card';w.appendChild(document.createTextNode('Test a weather preset: '));"
-                "var sel=document.createElement('select');var st='clear clouds fog drizzle rain snow thunder ice hail heat wind severe'.split(' ');"
-                "for(var i=0;i<st.length;i++){var o=document.createElement('option');o.text=st[i];o.value=i+1;sel.appendChild(o);}"
-                "w.appendChild(sel);w.appendChild(document.createTextNode(' '));"
-                "var b=document.createElement('button');b.type='button';b.textContent='Apply now';"
-                "b.onclick=function(){fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"wxtest\":'+sel.value+'}}'});};"
-                "w.appendChild(b);anchor.insertAdjacentElement('afterend',w);})();"));
     }
 
     // No getId() override: this usermod needs no unique id (it isn't detected by other
