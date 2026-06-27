@@ -1,9 +1,63 @@
 # Wordclock MK2 | WLED 16x16 w/ ESP32
 
+This usermod adds an **Effect** named **"Word Clock 16x16"** to WLED. Because it is a
+regular effect (not an overlay like the older `usermod_v2_word_clock`), it can be
+transitioned/crossfaded, colored, palette-mapped, and saved per-preset like any other
+effect.
+
+It shows the time in English with **exact-minute** phrasing plus the period of day, e.g.
+`IT IS TWENTY ONE MINUTES PAST SEVEN IN THE EVENING`.
+
+## Install / Build
+
+1. The usermod lives in `usermods/usermod_v2_word_clock_16x16/` and registers usermod id
+   `USERMOD_ID_WORDCLOCK_16X16` (59 in `wled00/const.h`).
+2. Add it to your build environment's `custom_usermods` in `platformio.ini` (or a
+   `platformio_override.ini`), e.g.:
+   ```ini
+   custom_usermods = usermod_v2_word_clock_16x16
+   ```
+3. Build & flash for your ESP32 (Wemos Lolin32).
+
+## Usage
+
+1. In WLED **LED Preferences**, configure a **2D matrix**: 16×16, and set the
+   serpentine / orientation to match the physical wiring (the LED-ID table below is
+   serpentine). The effect works in logical X/Y (0–15), so all wiring specifics are
+   handled here, not in code.
+2. Make sure the device clock is set (NTP + time zone in **Time & Macros**).
+3. Select the **Word Clock 16x16** effect on the matrix segment.
+   - **Color 1** sets the lit-word color (or pick a **palette** to spread color across
+     the matrix).
+   - The **Background** slider (intensity) optionally lights all letters faintly behind
+     the active phrase (0 = classic all-off look).
+4. Usermod settings: `enabled` (registers the effect; reboot to apply) and
+   `showPeriodOfDay` (toggle the MORNING/AFTERNOON/EVENING/NIGHT words).
+
+### Grammar
+- On the hour: `IT IS <hour> O'CLOCK`
+- 1–30 past: `IT IS <minutes> MINUTES PAST <hour>` (`QUARTER PAST` at :15, `HALF PAST` at :30)
+- 31–59: `IT IS <minutes> MINUTES UNTIL <next hour>` (`QUARTER UNTIL` at :45)
+- Period: `IN THE MORNING` (05–11), `IN THE AFTERNOON` (12–16), `IN THE EVENING` (17–20),
+  `AT NIGHT` (21–04).
+
+## Not yet implemented (future)
+- Temperature words `WARM / COOL / HOT / COLD` (+ `&`) driven by a sensor
+- The 4 corner RGBW LEDs and 4 corner buttons (separate strip/pins)
+- Smooth per-minute crossfade within the effect
+
 ## Resources
 - NAS-00:/hardware/X-Carve/Projects/2017/Word Clock
 - [Wordclock MK1 - w/ Text Shift / Rotation (Adobe Illistrator)](https://docs.google.com/spreadsheets/d/1PluM_poY26YVuXqRocmyo1mvG5tT44V26rKZcX5UzbI/edit?gid=0#gid=0)
 - [Wordclock MK1 (Arduino w/ Firmata /w NeoPixel & Raspberry Pi Zero w/ Node-RED) - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
+
+## Hardware
+- Controller: Wemos Lolin32 w/ SSD1306 64x128 [its what I had on-hand...]
+- LED Strips: 256x + 4x WS2814 RGBW (GRB)
+- Buttons: 
+- Sensors
+  - 
+
 
 ## Layout
 A 16×16 RGBW LED matrix occupies the center of the display for the word clock functionality. Outside this matrix, each corner contains a dedicated push button and a corresponding addressable RGBW LED on a seperate strip from the 16x16 matrix. (4x discrete RGBW LEDs and 4x push buttons).
@@ -50,3 +104,51 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 | 208 | 209 | 210 | 211 | 212 | 213 | 214 | 215 | 216 | 217 | 218 | 219 | 220 | 221 | 222 | 223 |
 | 224 | 225 | 226 | 227 | 228 | 229 | 230 | 231 | 232 | 233 | 234 | 235 | 236 | 237 | 238 | 239 |
 | 240 | 241 | 242 | 243 | 244 | 245 | 246 | 247 | 248 | 249 | 250 | 251 | 252 | 253 | 254 | 255 |
+
+
+---
+
+## Pin Info
+
+| Pin    | Used by     | Pin Notes          |
+| ------ | ----------- | ------------------ |
+| GPIO0  |  Button     | Touch, Flash Boot  |
+| GPIO1  | Available   | \-                 |
+| GPIO2  | Available   | Touch, Bootstrap   |
+| GPIO3  | Available   | \-                 |
+| GPIO4  | I2C         | Touch              |
+| GPIO5  | I2C         | \-                 |
+| GPIO6  | System      | \-                 |
+| GPIO7  | System      | \-                 |
+| GPIO8  | System      | \-                 |
+| GPIO9  | System      | \-                 |
+| GPIO10 | System      | \-                 |
+| GPIO11 | System      | \-                 |
+| GPIO12 | Available   | Touch, Bootstrap   |  < Button Top Left
+| GPIO13 | Available   | Touch              |  < Button Top Right
+| GPIO14 | Available   | Touch              |  < Button Bottom Left
+| GPIO15 | Available   | Touch              |  < Button Bottom Right
+| GPIO16 | LED Digital | \-                 |
+| GPIO17 | Available   | \-                 |
+| GPIO18 | Available   | \-                 |
+| GPIO19 | Available   | \-                 |
+| GPIO20 | Available   | \-                 |
+| GPIO21 | Available   | \-                 |
+| GPIO22 | Available   | \-                 |
+| GPIO23 | Available   | \-                 |
+| GPIO24 | System      | \-                 |
+| GPIO25 | Available   | \-                 |  < LEDs 256x WS2814 | Matrix
+| GPIO26 | Available   | \-                 |  < LEDs   4x WS2814 | Corners 
+| GPIO27 | Available   | Touch              |
+| GPIO28 | System      | \-                 |
+| GPIO29 | System      | \-                 |
+| GPIO30 | System      | \-                 |
+| GPIO31 | System      | \-                 |
+| GPIO32 | Available   | Touch, Analog      |
+| GPIO33 | Available   | Touch, Analog      |
+| GPIO34 | Available   | Input Only, Analog |
+| GPIO35 | Available   | Input Only, Analog |
+| GPIO36 | Available   | Input Only, Analog |
+| GPIO37 | Available   | Input Only, Analog |
+| GPIO38 | Available   | Input Only, Analog |
+| GPIO39 | Available   | Input Only, Analog |
