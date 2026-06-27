@@ -35,8 +35,9 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
    - Minute-to-minute changes **crossfade** using the WLED **Transition** time (the
      "Transition: x.x s" control), so words fade in/out instead of snapping. Set the
      transition to 0 for instant changes.
-4. Usermod settings: `enabled` (registers the effect; reboot to apply) and
-   `showPeriodOfDay` (toggle the MORNING/AFTERNOON/EVENING/NIGHT words).
+4. Usermod settings: `enabled` (registers the effect; reboot to apply),
+   `showPeriodOfDay` (toggle the MORNING/AFTERNOON/EVENING/NIGHT words), and the
+   temperature options below.
 
 ### Grammar
 - On the hour: `IT IS <hour> O'CLOCK`
@@ -45,10 +46,34 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 - Period: `IN THE MORNING` (05–11), `IN THE AFTERNOON` (12–16), `IN THE EVENING` (17–20),
   `AT NIGHT` (21–04).
 
+### Temperature words (bottom row)
+When `showTemperature` is on, one of `COLD / COOL / WARM / HOT` is lit on the bottom row
+(folded into the same crossfade as the time). Bands are picked by numeric thresholds:
+
+| Word | Condition |
+| ---- | --------- |
+| COLD | `temp < coldBelow` |
+| COOL | `coldBelow ≤ temp < coolBelow` |
+| WARM | `coolBelow ≤ temp < warmBelow` |
+| HOT  | `temp ≥ warmBelow` |
+
+All temperature numbers — thresholds, `manualTemp`, and the JSON-API value — are in the
+unit chosen by `fahrenheit` (off = °C). Defaults are °C: 10 / 18 / 27.
+
+**Temperature source:** push a live value via the JSON API (state object), e.g.
+```json
+{"WordClock16x16":{"temp":22.5}}
+```
+The live value is used for 30 min, then falls back to `manualTemp`. The current
+temperature + band is shown on the WLED **Info** page. (Sensor and weather-API sources
+are planned — see below.)
+
 ## Not yet implemented (future)
-- Temperature words `WARM / COOL / HOT / COLD` (+ `&`) driven by a sensor
-- The 4 corner RGBW LEDs and 4 corner buttons (separate strip/pins)
-- Smooth per-minute crossfade within the effect
+- Temperature source: dedicated I²C sensor usermod (HTU21D + BMP180 + BH1750) and/or a
+  weather API (currently fed via JSON API / manual value)
+- The `&` tile on the bottom row
+- The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
+  output/bus + segment for the corners; WLED's button config for the inputs)
 
 ## Resources
 - NAS-00:/hardware/X-Carve/Projects/2017/Word Clock

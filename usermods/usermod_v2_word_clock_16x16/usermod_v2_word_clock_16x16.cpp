@@ -41,6 +41,16 @@ static const WCWord wcAFTERNOON = { 0,13, 9};
 static const WCWord wcEVENING   = { 9,14, 7};
 static const WCWord wcNIGHT     = { 3,14, 5};
 
+// ---- Temperature words (bottom row 15): "& WARM COOL HOT COLD" -----------------
+// Index == temperature band (1..4); index 0 = none/unknown.
+static const WCWord wcTempWord[5] = {
+  { 0, 0, 0}, // 0 none
+  {12,15, 4}, // 1 COLD
+  { 5,15, 4}, // 2 COOL
+  { 1,15, 4}, // 3 WARM
+  { 9,15, 3}, // 4 HOT
+};
+
 // ---- Minute number words (top region, rows 0..8); index == the number ---------
 // Index 0 unused. 21..29 are composed as TWENTY (20) + ones (1..9).
 static const WCWord wcMinuteNum[21] = {
@@ -84,8 +94,10 @@ static const WCWord wcHour[13] = {
   {10,10, 6}, // 12 TWELVE
 };
 
-// User-config mirror, read in readFromConfig(), used by the (free) effect function.
-static bool wc16_showPeriod = true;
+// Config/state mirrors, maintained by the usermod, read by the (free) effect function.
+static bool    wc16_showPeriod = true;
+static bool    wc16_showTemp   = false;   // light a temperature word on the bottom row
+static uint8_t wc16_tempBand   = 0;       // 0 none, 1 COLD, 2 COOL, 3 WARM, 4 HOT
 
 // OR a word's cells into a 16-row bitmask (bit x of row y == cell lit).
 static inline void wcSet(uint16_t *mask, const WCWord &w) {
@@ -144,6 +156,10 @@ static void wcBuildMask(uint16_t *mask, int h24, int m) {
     else if (h24 >= 17 && h24 < 21) { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcEVENING); }
     else                            { wcSet(mask, wcAT); wcSet(mask, wcNIGHT); } // 21..04
   }
+
+  if (wc16_showTemp && wc16_tempBand >= 1 && wc16_tempBand <= 4) {
+    wcSet(mask, wcTempWord[wc16_tempBand]); // WARM/COOL/HOT/COLD on the bottom row
+  }
 }
 
 // ---- The effect ---------------------------------------------------------------
@@ -163,12 +179,14 @@ void mode_word_clock_16x16(void) {
   static uint16_t curMask[16];
   static uint16_t prevMask[16];
   static unsigned long transStart = 0;
+  static uint8_t lastBand = 255;
   const uint16_t stamp = (uint16_t)(h24 * 60 + m);
-  if (SEGENV.call == 0 || SEGENV.aux0 != stamp) {
+  if (SEGENV.call == 0 || SEGENV.aux0 != stamp || lastBand != wc16_tempBand) {
     for (int y = 0; y < 16; y++) prevMask[y] = (SEGENV.call == 0) ? 0 : curMask[y];
     wcBuildMask(curMask, h24, m);
     transStart = strip.now;
     SEGENV.aux0 = stamp;
+    lastBand = wc16_tempBand;
   }
 
   // Crossfade progress 0..255 driven by the segment/global transition setting.
@@ -210,9 +228,41 @@ class WordClock16x16Usermod : public Usermod {
     bool showPeriod = true;
     bool initDone   = false;
 
+    // Temperature words. All temperature numbers below (thresholds, manual value, and
+    // the JSON-API "temp" value) are in the unit chosen by tempFahrenheit, so band
+    // selection is a plain numeric comparison and needs no conversion.
+    bool  showTemp      = false;
+    bool  tempFahrenheit= false;
+    float thrColdCool   = 10.0f;  // below this -> COLD
+    float thrCoolWarm   = 18.0f;  // below this -> COOL
+    float thrWarmHot    = 27.0f;  // below this -> WARM, at/above -> HOT
+    float manualTemp    = 20.0f;  // fallback when no live value is available
+
+    // Live value pushed via JSON API; falls back to manualTemp once stale.
+    static constexpr unsigned long LIVE_TTL = 30UL * 60UL * 1000UL; // 30 min
+    float         liveTemp  = 0.0f;
+    bool          liveValid = false;
+    unsigned long liveTime  = 0;
+    unsigned long lastEval  = 0;
+    float         curTemp   = 0.0f;       // last resolved value (for the Info page)
+
     static const char _name[];
     static const char _enabled[];
     static const char _showPeriod[];
+    static const char _showTemp[];
+    static const char _fahrenheit[];
+    static const char _thrColdCool[];
+    static const char _thrCoolWarm[];
+    static const char _thrWarmHot[];
+    static const char _manualTemp[];
+
+    uint8_t bandFor(float t) const {
+      if (!showTemp) return 0;
+      if (t < thrColdCool) return 1; // COLD
+      if (t < thrCoolWarm) return 2; // COOL
+      if (t < thrWarmHot)  return 3; // WARM
+      return 4;                      // HOT
+    }
 
   public:
     void setup() override {
@@ -220,29 +270,79 @@ class WordClock16x16Usermod : public Usermod {
         strip.addEffect(255, &mode_word_clock_16x16, _data_FX_mode_word_clock_16x16);
       }
       wc16_showPeriod = showPeriod;
+      wc16_showTemp   = showTemp;
       initDone = true;
     }
 
-    void loop() override {}
+    void loop() override {
+      if (!enabled) return;
+      const unsigned long now = millis();
+      if (now - lastEval < 1000) return; // re-evaluate at most once per second
+      lastEval = now;
+
+      curTemp = (liveValid && (now - liveTime) < LIVE_TTL) ? liveTemp : manualTemp;
+      wc16_showTemp = showTemp;
+      wc16_tempBand = bandFor(curTemp);
+    }
+
+    // Accept a temperature pushed via the JSON API, e.g.:
+    //   {"WordClock16x16":{"temp":22.5}}   (value in the configured unit)
+    void readFromJsonState(JsonObject &root) override {
+      JsonObject top = root[FPSTR(_name)];
+      if (top.isNull()) return;
+      float t;
+      if (getJsonValue(top[F("temp")], t)) { liveTemp = t; liveValid = true; liveTime = millis(); }
+    }
+
+    void addToJsonInfo(JsonObject &root) override {
+      if (!showTemp) return;
+      JsonObject user = root[F("u")];
+      if (user.isNull()) user = root.createNestedObject(F("u"));
+      static const char *bandWord[] = {"-", "COLD", "COOL", "WARM", "HOT"};
+      char buf[24];
+      snprintf(buf, sizeof(buf), "%.1f%s %s", curTemp, tempFahrenheit ? "°F" : "°C",
+               bandWord[wc16_tempBand <= 4 ? wc16_tempBand : 0]);
+      JsonArray arr = user.createNestedArray(F("Word Clock temperature"));
+      arr.add(buf);
+    }
 
     void addToConfig(JsonObject &root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
-      top[FPSTR(_enabled)]    = enabled;
-      top[FPSTR(_showPeriod)] = showPeriod;
+      top[FPSTR(_enabled)]     = enabled;
+      top[FPSTR(_showPeriod)]  = showPeriod;
+      top[FPSTR(_showTemp)]    = showTemp;
+      top[FPSTR(_fahrenheit)]  = tempFahrenheit;
+      top[FPSTR(_thrColdCool)] = thrColdCool;
+      top[FPSTR(_thrCoolWarm)] = thrCoolWarm;
+      top[FPSTR(_thrWarmHot)]  = thrWarmHot;
+      top[FPSTR(_manualTemp)]  = manualTemp;
     }
 
     bool readFromConfig(JsonObject &root) override {
       JsonObject top = root[FPSTR(_name)];
       bool configComplete = !top.isNull();
-      configComplete &= getJsonValue(top[FPSTR(_enabled)], enabled);
-      configComplete &= getJsonValue(top[FPSTR(_showPeriod)], showPeriod);
+      configComplete &= getJsonValue(top[FPSTR(_enabled)],     enabled);
+      configComplete &= getJsonValue(top[FPSTR(_showPeriod)],  showPeriod);
+      configComplete &= getJsonValue(top[FPSTR(_showTemp)],    showTemp);
+      configComplete &= getJsonValue(top[FPSTR(_fahrenheit)],  tempFahrenheit);
+      configComplete &= getJsonValue(top[FPSTR(_thrColdCool)], thrColdCool);
+      configComplete &= getJsonValue(top[FPSTR(_thrCoolWarm)], thrCoolWarm);
+      configComplete &= getJsonValue(top[FPSTR(_thrWarmHot)],  thrWarmHot);
+      configComplete &= getJsonValue(top[FPSTR(_manualTemp)],  manualTemp);
       wc16_showPeriod = showPeriod;
+      wc16_showTemp   = showTemp;
       return configComplete;
     }
 
     void appendConfigData() {
       oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot required to (un)register effect');"));
       oappend(F("addInfo('WordClock16x16:showPeriodOfDay', 1, 'light MORNING/AFTERNOON/EVENING/NIGHT');"));
+      oappend(F("addInfo('WordClock16x16:showTemperature', 1, 'light WARM/COOL/HOT/COLD on bottom row');"));
+      oappend(F("addInfo('WordClock16x16:fahrenheit', 1, 'thresholds & values in F (off = C)');"));
+      oappend(F("addInfo('WordClock16x16:coldBelow', 1, 'COLD below, else COOL');"));
+      oappend(F("addInfo('WordClock16x16:coolBelow', 1, 'COOL below, else WARM');"));
+      oappend(F("addInfo('WordClock16x16:warmBelow', 1, 'WARM below, HOT at/above');"));
+      oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a value is pushed via JSON API');"));
     }
 
     // No getId() override: this usermod needs no unique id (it isn't detected by other
@@ -250,9 +350,15 @@ class WordClock16x16Usermod : public Usermod {
     // touching wled00/const.h. See the note at the USERMOD_ID list in const.h.
 };
 
-const char WordClock16x16Usermod::_name[]       PROGMEM = "WordClock16x16";
-const char WordClock16x16Usermod::_enabled[]    PROGMEM = "enabled";
-const char WordClock16x16Usermod::_showPeriod[] PROGMEM = "showPeriodOfDay";
+const char WordClock16x16Usermod::_name[]        PROGMEM = "WordClock16x16";
+const char WordClock16x16Usermod::_enabled[]     PROGMEM = "enabled";
+const char WordClock16x16Usermod::_showPeriod[]  PROGMEM = "showPeriodOfDay";
+const char WordClock16x16Usermod::_showTemp[]    PROGMEM = "showTemperature";
+const char WordClock16x16Usermod::_fahrenheit[]  PROGMEM = "fahrenheit";
+const char WordClock16x16Usermod::_thrColdCool[] PROGMEM = "coldBelow";
+const char WordClock16x16Usermod::_thrCoolWarm[] PROGMEM = "coolBelow";
+const char WordClock16x16Usermod::_thrWarmHot[]  PROGMEM = "warmBelow";
+const char WordClock16x16Usermod::_manualTemp[]  PROGMEM = "manualTemp";
 
 static WordClock16x16Usermod usermod_v2_word_clock_16x16;
 REGISTER_USERMOD(usermod_v2_word_clock_16x16);
