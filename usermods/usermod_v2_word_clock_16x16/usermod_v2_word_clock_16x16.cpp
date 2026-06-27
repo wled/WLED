@@ -99,6 +99,24 @@ static bool    wc16_showPeriod = true;
 static bool    wc16_showTemp   = false;   // light a temperature word on the bottom row
 static uint8_t wc16_tempBand   = 0;       // 0 none, 1 COLD, 2 COOL, 3 WARM, 4 HOT
 
+// Live temperature pathway (shared by the JSON API and the sensor bridge below).
+// Stored in the configured display unit; wc16_fahrenheit mirrors the unit config so the
+// Celsius bridge can convert on entry.
+static bool          wc16_fahrenheit = false;
+static float         wc16_liveTemp   = 0.0f;
+static bool          wc16_liveValid  = false;
+static unsigned long wc16_liveTime   = 0;
+
+// Weak-symbol bridge: any companion sensor usermod can push a Celsius reading without a
+// hard link dependency by declaring this symbol weak and calling it only if present:
+//   extern "C" void wc16_setLiveTempC(float) __attribute__((weak));
+//   if (wc16_setLiveTempC) wc16_setLiveTempC(tempC);
+extern "C" void wc16_setLiveTempC(float celsius) {
+  wc16_liveTemp  = wc16_fahrenheit ? (celsius * 9.0f / 5.0f + 32.0f) : celsius;
+  wc16_liveValid = true;
+  wc16_liveTime  = millis();
+}
+
 // OR a word's cells into a 16-row bitmask (bit x of row y == cell lit).
 static inline void wcSet(uint16_t *mask, const WCWord &w) {
   if (w.len == 0 || w.y > 15) return;
@@ -238,11 +256,8 @@ class WordClock16x16Usermod : public Usermod {
     float thrWarmHot    = 27.0f;  // below this -> WARM, at/above -> HOT
     float manualTemp    = 20.0f;  // fallback when no live value is available
 
-    // Live value pushed via JSON API; falls back to manualTemp once stale.
+    // Live value pushed via JSON API or the sensor bridge; falls back to manualTemp once stale.
     static constexpr unsigned long LIVE_TTL = 30UL * 60UL * 1000UL; // 30 min
-    float         liveTemp  = 0.0f;
-    bool          liveValid = false;
-    unsigned long liveTime  = 0;
     unsigned long lastEval  = 0;
     float         curTemp   = 0.0f;       // last resolved value (for the Info page)
 
@@ -271,6 +286,7 @@ class WordClock16x16Usermod : public Usermod {
       }
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
+      wc16_fahrenheit = tempFahrenheit;
       initDone = true;
     }
 
@@ -280,7 +296,7 @@ class WordClock16x16Usermod : public Usermod {
       if (now - lastEval < 1000) return; // re-evaluate at most once per second
       lastEval = now;
 
-      curTemp = (liveValid && (now - liveTime) < LIVE_TTL) ? liveTemp : manualTemp;
+      curTemp = (wc16_liveValid && (now - wc16_liveTime) < LIVE_TTL) ? wc16_liveTemp : manualTemp;
       wc16_showTemp = showTemp;
       wc16_tempBand = bandFor(curTemp);
     }
@@ -291,7 +307,7 @@ class WordClock16x16Usermod : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) return;
       float t;
-      if (getJsonValue(top[F("temp")], t)) { liveTemp = t; liveValid = true; liveTime = millis(); }
+      if (getJsonValue(top[F("temp")], t)) { wc16_liveTemp = t; wc16_liveValid = true; wc16_liveTime = millis(); }
     }
 
     void addToJsonInfo(JsonObject &root) override {
@@ -331,6 +347,7 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_manualTemp)],  manualTemp);
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
+      wc16_fahrenheit = tempFahrenheit;
       return configComplete;
     }
 
