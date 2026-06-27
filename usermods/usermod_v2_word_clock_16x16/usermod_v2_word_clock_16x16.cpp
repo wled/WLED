@@ -169,10 +169,20 @@ static void wcBuildMask(uint16_t *mask, int h24, int m) {
   }
 }
 
+// Per-segment render state (kept in SEGENV.data so the effect is safe on 2+ segments).
+struct WC16Rt {
+  uint16_t cur[16];
+  uint16_t prev[16];
+  uint32_t transStart;
+  uint8_t  lastBand;
+};
+
 // ---- The effect ---------------------------------------------------------------
 void mode_word_clock_16x16(void) {
   // Requires a 2D matrix; fall back to solid color otherwise.
   if (!strip.isMatrix || !SEGMENT.is2D()) { SEGMENT.fill(SEGCOLOR(0)); return; }
+  if (!SEGENV.allocateData(sizeof(WC16Rt))) { SEGMENT.fill(SEGCOLOR(0)); return; }
+  WC16Rt &rt = *reinterpret_cast<WC16Rt *>(SEGENV.data); // zero-initialised on allocation
 
   const int cols = SEG_W;
   const int rows = SEG_H;
@@ -183,24 +193,20 @@ void mode_word_clock_16x16(void) {
   // Recompute the letter map only when the minute changes. On a change we keep the
   // previous map and crossfade to the new one over the segment's transition time, so
   // minute-to-minute changes fade in/out like a normal effect transition.
-  static uint16_t curMask[16];
-  static uint16_t prevMask[16];
-  static unsigned long transStart = 0;
-  static uint8_t lastBand = 255;
   const uint16_t stamp = (uint16_t)(h24 * 60 + m);
-  if (SEGENV.call == 0 || SEGENV.aux0 != stamp || lastBand != wc16_tempBand) {
-    for (int y = 0; y < 16; y++) prevMask[y] = (SEGENV.call == 0) ? 0 : curMask[y];
-    wcBuildMask(curMask, h24, m);
-    transStart = strip.now;
+  if (SEGENV.call == 0 || SEGENV.aux0 != stamp || rt.lastBand != wc16_tempBand) {
+    for (int y = 0; y < 16; y++) rt.prev[y] = (SEGENV.call == 0) ? 0 : rt.cur[y];
+    wcBuildMask(rt.cur, h24, m);
+    rt.transStart = strip.now;
     SEGENV.aux0 = stamp;
-    lastBand = wc16_tempBand;
+    rt.lastBand = wc16_tempBand;
   }
 
   // Crossfade progress 0..255 driven by the segment/global transition setting.
   const uint16_t dur = strip.getTransition();
   uint8_t prog = 255;
   if (dur > 0) {
-    const unsigned long el = strip.now - transStart;
+    const unsigned long el = strip.now - rt.transStart;
     prog = (el >= dur) ? 255 : (uint8_t)((el * 255) / dur);
   }
 
@@ -209,8 +215,8 @@ void mode_word_clock_16x16(void) {
   const int span = (cols * rows) > 0 ? (cols * rows) : 1;
 
   for (int y = 0; y < rows; y++) {
-    const uint16_t curRow  = (y < 16) ? curMask[y]  : 0;
-    const uint16_t prevRow = (y < 16) ? prevMask[y] : 0;
+    const uint16_t curRow  = (y < 16) ? rt.cur[y]  : 0;
+    const uint16_t prevRow = (y < 16) ? rt.prev[y] : 0;
     for (int x = 0; x < cols; x++) {
       const bool nowOn = (x < 16) && (curRow  & (uint16_t)(1u << x));
       const bool wasOn = (x < 16) && (prevRow & (uint16_t)(1u << x));
@@ -241,7 +247,7 @@ class WordClock16x16Usermod : public Usermod {
   private:
     bool enabled    = true;
     bool showPeriod = true;
-    bool initDone   = false;
+    bool everConnected = false;   // first WiFi connect after boot has happened
 
     // Temperature words. All thresholds/values are in °C (band selection compares °C);
     // tempFahrenheit only changes the Info-page display unit.
@@ -514,16 +520,16 @@ class WordClock16x16Usermod : public Usermod {
       transitionDelay = transitionDelayDefault = WC16_DEFAULT_TRANSITION_MS;
       strip.setTransition(transitionDelay);
     #endif
-      initDone = true;
     }
 
-    // Called whenever WiFi (re)connects (like NTP): fetch weather shortly after, and
-    // reset lastApplied so the matching preset is re-applied for the current weather.
+    // Called whenever WiFi (re)connects (like NTP): fetch weather shortly after. On the
+    // FIRST connect after boot, also reset lastApplied so the current weather's preset is
+    // applied once; later reconnects refresh data but won't override a manual selection.
     void connected() override {
       if (!enabled) return;
       fetchSoon   = true;
       fetchSoonAt = millis() + 3000; // let the network stack/NTP settle first
-      lastApplied = WX_UNKNOWN;
+      if (!everConnected) { lastApplied = WX_UNKNOWN; everConnected = true; }
     }
 
     void loop() override {
@@ -533,8 +539,9 @@ class WordClock16x16Usermod : public Usermod {
       // Resolve temperature -> band at most once per second.
       if (now - lastEval >= 1000) {
         lastEval = now;
-        curTemp = (liveValid && (now - liveTime) < LIVE_TTL) ? liveTemp : manualTemp;
-        wc16_showTemp = showTemp;
+        const bool fresh = liveValid && (now - liveTime) < LIVE_TTL;
+        curTemp = fresh ? liveTemp : manualTemp;
+        if (liveValid && !fresh) wxState = WX_UNKNOWN; // stale: don't present old condition as current
         wc16_tempBand = bandFor(curTemp);
       }
 
@@ -592,8 +599,9 @@ class WordClock16x16Usermod : public Usermod {
           JsonArray aH = user.createNestedArray(F("Word Clock humidity"));
           aH.add(buf); aH.add(F(" %"));
         }
+        const bool fresh = liveValid && (millis() - liveTime) < LIVE_TTL;
         JsonArray aC = user.createNestedArray(F("Word Clock condition"));
-        aC.add(stateName(wxState));
+        aC.add((everOk && !fresh) ? "stale" : stateName(wxState));
 
         char loc[72];
         locationInfo(loc, sizeof(loc));

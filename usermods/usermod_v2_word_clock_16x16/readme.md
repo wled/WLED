@@ -8,6 +8,9 @@ effect.
 It shows the time in English with **exact-minute** phrasing plus the period of day, e.g.
 `IT IS TWENTY ONE MINUTES PAST SEVEN IN THE EVENING`.
 
+> **Note:** this usermod (code, settings UI, and docs) was developed with **AI assistance**
+> and validated by building against WLED. Review before use and verify on your own hardware.
+
 ## Install / Build
 
 1. The usermod lives entirely in `usermods/usermod_v2_word_clock_16x16/` — it makes no
@@ -19,6 +22,10 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
    custom_usermods = usermod_v2_word_clock_16x16
    ```
 3. Build & flash for your ESP32 (Wemos Lolin32).
+
+A ready-to-copy [`platformio_override.sample.ini`](platformio_override.sample.ini) is included
+(size-trim flags, optional OLED, the `WC16_DEFAULT_TRANSITION_MS` example, NTP/timezone, and an
+OTA upload env) — copy it to the repo root as `platformio_override.ini` and adjust.
 
 ## Usage
 
@@ -120,7 +127,7 @@ Plain HTTP, so no TLS library / `lib_deps`.
   | hail    | WMO 96, 99 (thunderstorm w/ hail) | `presetHail` |
   | heat    | temp ≥ `heatAbove` on clear/cloudy skies | `presetHeat` |
   | wind    | gust ≥ `windAbove` km/h on clear/cloudy skies | `presetWind` |
-  | severe  | tornado / hurricane / tropical (not from Open-Meteo) | `presetSevere` |
+  | severe  | tornado / hurricane / tropical — **external push only** | `presetSevere` |
 
   `heat` and `wind` are *derived* states (Oklahoma heat waves / high wind) and only
   override otherwise calm (clear/cloudy) conditions, so storms still win. `heatAbove` is in
@@ -129,11 +136,13 @@ Plain HTTP, so no TLS library / `lib_deps`.
   Test picker or a JSON-API push (`{"WordClock16x16":{"wxtest":12}}`) — e.g. from Home
   Assistant when a severe alert is active.
 
-  The preset is applied on a **change** of state, and is also (re)applied on every WiFi
-  **(re)connect** — so after boot the current weather's preset is set automatically (a few
-  seconds after the network comes up, similar to NTP). A periodic re-check then runs every
-  `fetchMinutes`. The Info page also shows the
-  resolved **location** and **last-updated** time; a failed fetch retries after ~1 min.
+  The preset is applied on a **change** of state, and once on the **first WiFi connect after
+  boot** (a few seconds after the network comes up, similar to NTP) so the current weather's
+  preset is set automatically. Later reconnects refresh data but won't override a manual
+  selection. A periodic re-check runs every `fetchMinutes`. The Info page also shows the
+  resolved **location** and **last-updated** time; a failed fetch retries after ~1 min, and if
+  data goes stale (older than 30 min) the condition shows `stale` and temperature falls back to
+  `manualTemp`.
 
   To verify a mapping, use the **Test a weather preset** control at the bottom of the
   usermod settings: pick a state and press **Apply now** — it force-applies that state's
@@ -150,12 +159,11 @@ Plain HTTP, so no TLS library / `lib_deps`.
 - [Wordclock MK1 (Arduino w/ Firmata /w NeoPixel & Raspberry Pi Zero w/ Node-RED) - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
 
 ## Hardware
-- Controller: Wemos Lolin32 w/ SSD1306 64x128 [its what I had on-hand...]
+- Controller: Wemos Lolin32 w/ SSD1306 64x128 [its what I had on-hand... recommend newer esp32 controllers]
 - LED Strips: 256x + 4x WS2814 RGBW (GRB)
-- Buttons: 
-- Sensors
-  - 
-
+- Buttons: [TTP223 Touch Button Module Capacitor Type Single Channel Self Locking Touch Switch Sensor](https://www.aliexpress.us/item/2255800354323887.html?spm=a2g0o.order_list.order_list_main.30.355f1802ls0WWI&gatewayAdapt=glo2usa4itemAdapt)
+- Sensors: 
+  - [HTU21D BMP180 BH1750FVI 3 IN 1 Temperature Humidity Pressure Light Sensor Triad Module](https://www.alibaba.com/product-detail/HTU21D-BMP180-BH1750FVI-3-IN-1_1600572222151.html)
 
 ## Layout
 A 16×16 RGBW LED matrix occupies the center of the display for the word clock functionality. Outside this matrix, each corner contains a dedicated push button and a corresponding addressable RGBW LED on a seperate strip from the 16x16 matrix. (4x discrete RGBW LEDs and 4x push buttons).
@@ -222,11 +230,11 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 | GPIO9  | System      | \-                 |
 | GPIO10 | System      | \-                 |
 | GPIO11 | System      | \-                 |
-| GPIO12 | Available   | Touch, Bootstrap   |  < Button Top Left
-| GPIO13 | Available   | Touch              |  < Button Top Right
-| GPIO14 | Available   | Touch              |  < Button Bottom Left
-| GPIO15 | Available   | Touch              |  < Button Bottom Right
-| GPIO16 | LED Digital | \-                 |
+| GPIO12 | Button      | Touch, Bootstrap   |  < Button Top Left
+| GPIO13 | Button      | Touch              |  < Button Top Right
+| GPIO14 | Button      | Touch              |  < Button Bottom Left
+| GPIO15 | Button      | Touch              |  < Button Bottom Right
+| GPIO16 | Available   | \-                 |
 | GPIO17 | Available   | \-                 |
 | GPIO18 | Available   | \-                 |
 | GPIO19 | Available   | \-                 |
@@ -235,8 +243,8 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 | GPIO22 | Available   | \-                 |
 | GPIO23 | Available   | \-                 |
 | GPIO24 | System      | \-                 |
-| GPIO25 | Available   | \-                 |  < LEDs 256x WS2814 | Matrix
-| GPIO26 | Available   | \-                 |  < LEDs   4x WS2814 | Corners 
+| GPIO25 | LED Digital | \-                 |  < LEDs 256x WS2814 | Matrix
+| GPIO26 | LED Digital | \-                 |  < LEDs   4x WS2814 | Corners 
 | GPIO27 | Available   | Touch              |
 | GPIO28 | System      | \-                 |
 | GPIO29 | System      | \-                 |
