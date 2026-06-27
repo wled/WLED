@@ -229,7 +229,12 @@ void mode_word_clock_16x16(void) {
 static const char _data_FX_mode_word_clock_16x16[] PROGMEM = "Word Clock 16x16@,Background;!;!;2;ix=0";
 
 // Weather states (index into preset table / state names). 0 = unknown.
-enum WxState : uint8_t { WX_UNKNOWN=0, WX_CLEAR, WX_CLOUDS, WX_FOG, WX_DRIZZLE, WX_RAIN, WX_SNOW, WX_THUNDER, WX_COUNT };
+// ICE = freezing rain/drizzle; HAIL = thunderstorm w/ hail; HEAT/WIND derived from
+// temperature / wind gusts (Oklahoma: heat waves, hail, ice storms, high wind).
+enum WxState : uint8_t {
+  WX_UNKNOWN=0, WX_CLEAR, WX_CLOUDS, WX_FOG, WX_DRIZZLE, WX_RAIN, WX_SNOW, WX_THUNDER,
+  WX_ICE, WX_HAIL, WX_HEAT, WX_WIND, WX_COUNT
+};
 
 // ---- Usermod: registers the effect, resolves temperature, drives weather/presets --
 class WordClock16x16Usermod : public Usermod {
@@ -263,17 +268,26 @@ class WordClock16x16Usermod : public Usermod {
     String   place;                               // city or ZIP (used when not useWledLocation and set)
     float    latOverride     = 0.0f;
     float    lonOverride     = 0.0f;
-    uint8_t  preset[WX_COUNT]= {0,0,0,0,0,0,0,0}; // preset id per state (0 = none)
+    float    heatAbove       = 35.0f;             // temp (display unit) >= this -> HEAT (clear/cloudy)
+    float    windAbove       = 60.0f;             // wind gust (km/h) >= this -> WIND (clear/cloudy)
+    float    windGust        = 0.0f;
+    bool     haveWind        = false;
+    uint8_t  preset[WX_COUNT] = {};               // preset id per state (0 = none)
     uint8_t  wxState         = WX_UNKNOWN;
     uint8_t  lastApplied     = WX_UNKNOWN;
     bool     firstFetchDone  = false;
     bool     forceFetch      = false;             // "Update now" request
-    unsigned long lastFetch  = 0;
+    bool     lastTryFailed   = false;             // last fetch failed -> retry sooner
+    unsigned long lastFetch  = 0;                 // last attempt
+    unsigned long lastOkMs   = 0;                 // last successful weather parse
+    bool     everOk          = false;
+    static constexpr unsigned long RETRY_MS = 60UL * 1000UL; // retry 1 min after a failure
     float    humidity        = 0.0f;              // % relative humidity
     bool     haveHumidity    = false;
     // Geocoding cache for place -> coordinates.
     float    geoLat = 0.0f, geoLon = 0.0f;
     bool     geoDone = false;
+    bool     geoFailed = false;                   // place could not be resolved
     String   geoFor;                              // place string the geo* were resolved for
 
     static const char _name[];
@@ -292,6 +306,8 @@ class WordClock16x16Usermod : public Usermod {
     static const char _lat[];
     static const char _lon[];
     static const char _presets[];
+    static const char _heatAbove[];
+    static const char _windAbove[];
     static const char _pClear[];
     static const char _pClouds[];
     static const char _pFog[];
@@ -299,6 +315,10 @@ class WordClock16x16Usermod : public Usermod {
     static const char _pRain[];
     static const char _pSnow[];
     static const char _pThunder[];
+    static const char _pIce[];
+    static const char _pHail[];
+    static const char _pHeat[];
+    static const char _pWind[];
 
     uint8_t bandFor(float t) const {
       if (!showTemp) return 0;
@@ -336,11 +356,12 @@ class WordClock16x16Usermod : public Usermod {
 
     // Resolve place (city or ZIP) -> lat/lon via the Open-Meteo geocoding API.
     void geocode() {
+      geoFor = place; geoDone = false; geoFailed = false;
       WiFiClient client;
       HTTPClient http;
       String url = F("http://geocoding-api.open-meteo.com/v1/search?count=1&name=");
       url += urlEncode(place);
-      if (!http.begin(client, url)) return;
+      if (!http.begin(client, url)) { geoFailed = true; return; }
       http.setTimeout(5000);
       if (http.GET() == HTTP_CODE_OK) {
         String payload = http.getString();
@@ -353,11 +374,12 @@ class WordClock16x16Usermod : public Usermod {
           JsonVariant lo = doc["results"][0]["longitude"];
           if (!la.isNull() && !lo.isNull()) {
             geoLat = la.as<float>(); geoLon = lo.as<float>();
-            geoDone = true; geoFor = place;
+            geoDone = true;
           }
         }
       }
       http.end();
+      if (!geoDone) geoFailed = true;
     }
 
     static const char* stateName(uint8_t s) {
@@ -369,6 +391,10 @@ class WordClock16x16Usermod : public Usermod {
         case WX_RAIN:    return "rain";
         case WX_SNOW:    return "snow";
         case WX_THUNDER: return "thunder";
+        case WX_ICE:     return "ice";
+        case WX_HAIL:    return "hail";
+        case WX_HEAT:    return "heat";
+        case WX_WIND:    return "wind";
         default:         return "--";
       }
     }
@@ -378,11 +404,23 @@ class WordClock16x16Usermod : public Usermod {
       if (c <= 1)                       return WX_CLEAR;     // 0 clear, 1 mainly clear
       if (c == 2 || c == 3)             return WX_CLOUDS;
       if (c == 45 || c == 48)           return WX_FOG;
-      if (c >= 51 && c <= 57)           return WX_DRIZZLE;
-      if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return WX_RAIN;
+      if (c == 56 || c == 57 || c == 66 || c == 67) return WX_ICE; // freezing drizzle/rain
+      if (c >= 51 && c <= 55)           return WX_DRIZZLE;
+      if ((c >= 61 && c <= 65) || (c >= 80 && c <= 82)) return WX_RAIN;
       if ((c >= 71 && c <= 77) || c == 85 || c == 86)   return WX_SNOW;
-      if (c >= 95)                      return WX_THUNDER;   // 95,96,99
+      if (c == 96 || c == 99)           return WX_HAIL;     // thunderstorm with hail
+      if (c >= 95)                      return WX_THUNDER;   // 95
       return WX_UNKNOWN;
+    }
+
+    // Final state: condition code, with HEAT/WIND derived on otherwise calm skies.
+    uint8_t computeState(int code, float tempDisp, float gust) const {
+      uint8_t s = codeToState(code);
+      if (s == WX_CLEAR || s == WX_CLOUDS) {     // only override on calm-sky conditions
+        if (tempDisp >= heatAbove)      s = WX_HEAT;
+        else if (gust  >= windAbove)    s = WX_WIND;
+      }
+      return s;
     }
 
     void applyStatePreset() {
@@ -392,37 +430,50 @@ class WordClock16x16Usermod : public Usermod {
       if (p > 0) applyPreset(p, CALL_MODE_DIRECT_CHANGE);
     }
 
-    void fetch() {
+    bool fetch() {
       if (!useWledLocation && place.length() && (!geoDone || geoFor != place)) geocode();
       const float la = useLat(), lo = useLon();
-      if (la == 0.0f && lo == 0.0f) return;  // location not set
+      if (la == 0.0f && lo == 0.0f) return false; // location not set/unresolved
 
       WiFiClient client;                     // plain HTTP (Open-Meteo serves the API on :80)
       HTTPClient http;
-      char url[208];
+      char url[224];
       snprintf(url, sizeof(url),
         "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
-        "&current=temperature_2m,relative_humidity_2m,weather_code",
+        "&current=temperature_2m,relative_humidity_2m,weather_code,wind_gusts_10m",
         la, lo);
-      if (!http.begin(client, url)) return;
+      if (!http.begin(client, url)) return false;
       http.setTimeout(5000);
+      bool ok = false;
       if (http.GET() == HTTP_CODE_OK) {
         String payload = http.getString();
-        StaticJsonDocument<160> filter;
+        StaticJsonDocument<192> filter;
         filter["current"]["temperature_2m"]      = true;
         filter["current"]["relative_humidity_2m"]= true;
         filter["current"]["weather_code"]        = true;
-        StaticJsonDocument<256> doc;
+        filter["current"]["wind_gusts_10m"]      = true;
+        StaticJsonDocument<320> doc;
         if (!deserializeJson(doc, payload, DeserializationOption::Filter(filter))) {
-          JsonVariant t = doc["current"]["temperature_2m"];
-          if (!t.isNull()) setTempCelsius(t.as<float>());
-          JsonVariant h = doc["current"]["relative_humidity_2m"];
+          JsonObject cur = doc["current"];
+          float tC = NAN;
+          JsonVariant t = cur["temperature_2m"];
+          if (!t.isNull()) { tC = t.as<float>(); setTempCelsius(tC); ok = true; }
+          JsonVariant h = cur["relative_humidity_2m"];
           if (!h.isNull()) { humidity = h.as<float>(); haveHumidity = true; }
-          JsonVariant w = doc["current"]["weather_code"];
-          if (!w.isNull()) { wxState = codeToState(w.as<int>()); applyStatePreset(); }
+          JsonVariant g = cur["wind_gusts_10m"];
+          if (!g.isNull()) { windGust = g.as<float>(); haveWind = true; }
+          JsonVariant w = cur["weather_code"];
+          if (!w.isNull()) {
+            const float tDisp = isnan(tC) ? curTemp : (tempFahrenheit ? tC * 9.0f/5.0f + 32.0f : tC);
+            wxState = computeState(w.as<int>(), tDisp, haveWind ? windGust : 0.0f);
+            applyStatePreset();
+            ok = true;
+          }
         }
       }
       http.end();
+      if (ok) { lastOkMs = millis(); everOk = true; }
+      return ok;
     }
 
   public:
@@ -450,14 +501,15 @@ class WordClock16x16Usermod : public Usermod {
       if (!WLED_CONNECTED) return;
 
       // "Update now" request (from the settings button / JSON API).
-      if (forceFetch) { forceFetch = false; fetch(); lastFetch = now; firstFetchDone = true; return; }
+      if (forceFetch) { forceFetch = false; lastTryFailed = !fetch(); lastFetch = now; firstFetchDone = true; return; }
 
-      // Periodic Open-Meteo fetch (temperature + humidity + weather state/presets).
+      // Periodic Open-Meteo fetch; retry sooner after a failure.
       if (fetchWeather) {
+        const unsigned long due = lastTryFailed ? RETRY_MS : (unsigned long)fetchMinutes * 60000UL;
         if (!firstFetchDone) {
-          if (now >= 30000) { fetch(); firstFetchDone = true; lastFetch = now; } // settle 30 s after boot
-        } else if (now - lastFetch >= (unsigned long)fetchMinutes * 60000UL) {
-          fetch(); lastFetch = now;
+          if (now >= 30000) { lastTryFailed = !fetch(); firstFetchDone = true; lastFetch = now; } // settle 30 s after boot
+        } else if (now - lastFetch >= due) {
+          lastTryFailed = !fetch(); lastFetch = now;
         }
       }
     }
@@ -490,6 +542,33 @@ class WordClock16x16Usermod : public Usermod {
         }
         JsonArray aC = user.createNestedArray(F("Word Clock condition"));
         aC.add(stateName(wxState));
+
+        char loc[52];
+        locationInfo(loc, sizeof(loc));
+        JsonArray aL = user.createNestedArray(F("Word Clock location"));
+        aL.add(loc);
+
+        JsonArray aU = user.createNestedArray(F("Word Clock updated"));
+        if (!everOk) aU.add(F("never"));
+        else {
+          const unsigned long s = (millis() - lastOkMs) / 1000UL;
+          if (s < 90)        { snprintf(buf, sizeof(buf), "%lus ago", s); aU.add(buf); }
+          else               { snprintf(buf, sizeof(buf), "%lum ago", s / 60UL); aU.add(buf); }
+        }
+      }
+    }
+
+    void locationInfo(char *buf, size_t n) {
+      if (useWledLocation) {
+        if (latitude == 0.0f && longitude == 0.0f) snprintf(buf, n, "WLED location unset");
+        else snprintf(buf, n, "%.2f, %.2f", latitude, longitude);
+      } else if (place.length()) {
+        if (geoDone)        snprintf(buf, n, "%s (%.2f, %.2f)", place.c_str(), geoLat, geoLon);
+        else if (geoFailed) snprintf(buf, n, "'%s' not found", place.c_str());
+        else                snprintf(buf, n, "geocoding...");
+      } else {
+        if (latOverride == 0.0f && lonOverride == 0.0f) snprintf(buf, n, "location unset");
+        else snprintf(buf, n, "%.2f, %.2f", latOverride, lonOverride);
       }
     }
 
@@ -510,6 +589,8 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_lat)]         = latOverride;
       top[FPSTR(_lon)]         = lonOverride;
       top[FPSTR(_presets)]     = weatherPresets;
+      top[FPSTR(_heatAbove)]   = heatAbove;
+      top[FPSTR(_windAbove)]   = windAbove;
       top[FPSTR(_pClear)]      = preset[WX_CLEAR];
       top[FPSTR(_pClouds)]     = preset[WX_CLOUDS];
       top[FPSTR(_pFog)]        = preset[WX_FOG];
@@ -517,6 +598,10 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_pRain)]       = preset[WX_RAIN];
       top[FPSTR(_pSnow)]       = preset[WX_SNOW];
       top[FPSTR(_pThunder)]    = preset[WX_THUNDER];
+      top[FPSTR(_pIce)]        = preset[WX_ICE];
+      top[FPSTR(_pHail)]       = preset[WX_HAIL];
+      top[FPSTR(_pHeat)]       = preset[WX_HEAT];
+      top[FPSTR(_pWind)]       = preset[WX_WIND];
     }
 
     bool readFromConfig(JsonObject &root) override {
@@ -538,6 +623,8 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_lon)],         lonOverride);
       if (geoFor != place) geoDone = false; // place changed -> re-geocode on next fetch
       configComplete &= getJsonValue(top[FPSTR(_presets)],     weatherPresets);
+      configComplete &= getJsonValue(top[FPSTR(_heatAbove)],   heatAbove);
+      configComplete &= getJsonValue(top[FPSTR(_windAbove)],   windAbove);
       configComplete &= getJsonValue(top[FPSTR(_pClear)],      preset[WX_CLEAR]);
       configComplete &= getJsonValue(top[FPSTR(_pClouds)],     preset[WX_CLOUDS]);
       configComplete &= getJsonValue(top[FPSTR(_pFog)],        preset[WX_FOG]);
@@ -545,6 +632,10 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_pRain)],       preset[WX_RAIN]);
       configComplete &= getJsonValue(top[FPSTR(_pSnow)],       preset[WX_SNOW]);
       configComplete &= getJsonValue(top[FPSTR(_pThunder)],    preset[WX_THUNDER]);
+      configComplete &= getJsonValue(top[FPSTR(_pIce)],        preset[WX_ICE]);
+      configComplete &= getJsonValue(top[FPSTR(_pHail)],       preset[WX_HAIL]);
+      configComplete &= getJsonValue(top[FPSTR(_pHeat)],       preset[WX_HEAT]);
+      configComplete &= getJsonValue(top[FPSTR(_pWind)],       preset[WX_WIND]);
       if (fetchMinutes < 1) fetchMinutes = 1;
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
@@ -566,11 +657,13 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (geocoded); leave blank to use lat/lon');"));
       oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
       oappend(F("addInfo('WordClock16x16:weatherPresets', 1, 'apply a preset when weather changes');"));
+      oappend(F("addInfo('WordClock16x16:heatAbove', 1, 'HEAT when clear/cloudy and temp at/above this');"));
+      oappend(F("addInfo('WordClock16x16:windAbove', 1, 'WIND when clear/cloudy and gust (km/h) at/above this');"));
       // "Update now" button -> POST {"WordClock16x16":{"update":true}} to /json/state.
       oappend(F("wc16upd=function(){fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"update\":true}}'});};"));
       oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, \"&nbsp;<button type='button' onclick='wc16upd()'>Update now</button>\");"));
       // Turn the per-state preset number fields into dropdowns populated from /presets.json.
-      oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder'];"
+      oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder','presetIce','presetHail','presetHeat','presetWind'];"
                 "for(var i=0;i<ks.length;i++){var dd=addDropdown('WordClock16x16',ks[i]);if(!dd)continue;addOption(dd,'None',0);"
                 "for(var p of Object.entries(j)){if(p[0]==='0')continue;var n=(p[1]&&p[1].n)?p[1].n:('Preset '+p[0]);addOption(dd,p[0]+': '+n,p[0]);}}}"
                 "fetch('/presets.json').then(function(r){return r.json();}).then(f).catch(function(){});})();"));
@@ -597,6 +690,8 @@ const char WordClock16x16Usermod::_place[]       PROGMEM = "place";
 const char WordClock16x16Usermod::_lat[]         PROGMEM = "latitude";
 const char WordClock16x16Usermod::_lon[]         PROGMEM = "longitude";
 const char WordClock16x16Usermod::_presets[]     PROGMEM = "weatherPresets";
+const char WordClock16x16Usermod::_heatAbove[]   PROGMEM = "heatAbove";
+const char WordClock16x16Usermod::_windAbove[]   PROGMEM = "windAbove";
 const char WordClock16x16Usermod::_pClear[]      PROGMEM = "presetClear";
 const char WordClock16x16Usermod::_pClouds[]     PROGMEM = "presetClouds";
 const char WordClock16x16Usermod::_pFog[]        PROGMEM = "presetFog";
@@ -604,6 +699,10 @@ const char WordClock16x16Usermod::_pDrizzle[]    PROGMEM = "presetDrizzle";
 const char WordClock16x16Usermod::_pRain[]       PROGMEM = "presetRain";
 const char WordClock16x16Usermod::_pSnow[]       PROGMEM = "presetSnow";
 const char WordClock16x16Usermod::_pThunder[]    PROGMEM = "presetThunder";
+const char WordClock16x16Usermod::_pIce[]        PROGMEM = "presetIce";
+const char WordClock16x16Usermod::_pHail[]       PROGMEM = "presetHail";
+const char WordClock16x16Usermod::_pHeat[]       PROGMEM = "presetHeat";
+const char WordClock16x16Usermod::_pWind[]       PROGMEM = "presetWind";
 
 static WordClock16x16Usermod usermod_v2_word_clock_16x16;
 REGISTER_USERMOD(usermod_v2_word_clock_16x16);

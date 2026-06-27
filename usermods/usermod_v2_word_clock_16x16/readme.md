@@ -86,18 +86,28 @@ Plain HTTP, so no TLS library / `lib_deps`.
   (these fields are **dropdowns** of your saved presets, from `/presets.json`; 0 = none).
   When the detected state changes, that preset is applied. WMO codes are grouped as:
 
-  | State | WMO codes | Setting |
-  | ----- | --------- | ------- |
-  | clear   | 0, 1         | `presetClear` |
-  | clouds  | 2, 3         | `presetClouds` |
-  | fog     | 45, 48       | `presetFog` |
-  | drizzle | 51–57        | `presetDrizzle` |
-  | rain    | 61–67, 80–82 | `presetRain` |
-  | snow    | 71–77, 85,86 | `presetSnow` |
-  | thunder | 95, 96, 99   | `presetThunder` |
+  | State | Source | Setting |
+  | ----- | ------ | ------- |
+  | clear   | WMO 0, 1          | `presetClear` |
+  | clouds  | WMO 2, 3          | `presetClouds` |
+  | fog     | WMO 45, 48        | `presetFog` |
+  | drizzle | WMO 51–55         | `presetDrizzle` |
+  | rain    | WMO 61–65, 80–82  | `presetRain` |
+  | snow    | WMO 71–77, 85, 86 | `presetSnow` |
+  | ice     | WMO 56,57,66,67 (freezing rain/drizzle) | `presetIce` |
+  | thunder | WMO 95            | `presetThunder` |
+  | hail    | WMO 96, 99 (thunderstorm w/ hail) | `presetHail` |
+  | heat    | temp ≥ `heatAbove` on clear/cloudy skies | `presetHeat` |
+  | wind    | gust ≥ `windAbove` km/h on clear/cloudy skies | `presetWind` |
+
+  `heat` and `wind` are *derived* states (Oklahoma heat waves / high wind) and only
+  override otherwise calm (clear/cloudy) conditions, so storms still win. `heatAbove` is in
+  the configured unit (default 35 °C); `windAbove` is wind-gust km/h (default 60).
+  Tornado has no weather code, so it can't be auto-detected.
 
   The preset is applied only on a **change** of state (including the first reading after
-  boot). First fetch is ~30 s after boot once WiFi is up.
+  boot). First fetch is ~30 s after boot once WiFi is up. The Info page also shows the
+  resolved **location** and **last-updated** time; a failed fetch retries after ~1 min.
 
 ## Not yet implemented (future)
 - The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
