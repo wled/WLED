@@ -254,12 +254,11 @@ void BitBangBus::resetChannels() {
 //   6. After T1H cycles: pull all remaining outputs LOW (GPIO.out_w1tc = setOutputMask).
 //
 // All channels are pulsed for maxPixels × pixelBytes × 8 bits.  Channels that
-// have fewer pixels than maxPixels simply output '0' bits once their data ends.
+// have fewer pixels than maxPixels simply output '0' bits once their data ends
+// Note: checked for speed, this is pretty much optimal, no need to use O2 or optimize further
 // ---------------------------------------------------------------------------
 bool IRAM_ATTR BitBangBus::outputParallel() {
   if (!_BBs || _BBs->channelCount == 0) return true;
-
-  uint32_t starttime = micros();
 
   const uint32_t t0h          = _BBs->t0h;
   const uint32_t t1h          = _BBs->t1h;
@@ -392,9 +391,6 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 #elif defined(ESP8266)
   os_intr_unlock();
 #endif
-  
-  uint32_t endtime = micros();
-  Serial.printf("took %d us\n", endtime - starttime);
 
   return true;
 }
