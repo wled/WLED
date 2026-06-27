@@ -313,6 +313,8 @@ class WordClock16x16Usermod : public Usermod {
     uint32_t cornerColor = 0xFFFFFFUL;            // parsed from cornerColorHex
     int8_t   cbBtn[4] = { 1, 2, 3, 4 };           // WLED button index per corner (-1 = off)
     int16_t  cbLed[4] = { 256, 257, 258, 259 };   // LED pixel index per corner (-1 = off)
+    int      testLed  = -1;                        // settings "Test": light this pixel briefly
+    unsigned long testLedUntil = 0;
 
     static const char _name[];
     static const char _enabled[];
@@ -593,13 +595,17 @@ class WordClock16x16Usermod : public Usermod {
     // Light the mapped corner LED while its native WLED button is held. Runs after all
     // effects, just before show(), so it overrides the corner segment's normal output.
     void handleOverlayDraw() override {
-      if (!cornerLeds) return;
       const uint16_t total = strip.getLengthTotal();
-      for (int i = 0; i < 4; i++) {
-        if (cbBtn[i] < 0 || cbLed[i] < 0 || cbLed[i] >= (int)total) continue;
-        if (cbBtn[i] < WLED_MAX_BUTTONS && isButtonPressed((uint8_t)cbBtn[i]))
-          strip.setPixelColor((uint16_t)cbLed[i], cornerColor);
+      if (cornerLeds) {
+        for (int i = 0; i < 4; i++) {
+          if (cbBtn[i] < 0 || cbLed[i] < 0 || cbLed[i] >= (int)total) continue;
+          if (cbBtn[i] < WLED_MAX_BUTTONS && isButtonPressed((uint8_t)cbBtn[i]))
+            strip.setPixelColor((uint16_t)cbLed[i], cornerColor);
+        }
       }
+      // settings "Test" button: light a pixel for a few seconds (works even if disabled).
+      if (testLed >= 0 && testLed < (int)total && millis() < testLedUntil)
+        strip.setPixelColor((uint16_t)testLed, cornerColor);
     }
 
     // JSON API: {"WordClock16x16":{"temp":22.5}} pushes a temperature in °C;
@@ -612,6 +618,7 @@ class WordClock16x16Usermod : public Usermod {
       if (top[F("update")].as<bool>()) forceFetch = true;
       int n;
       if (getJsonValue(top[F("wxtest")], n) && n >= 1 && n < WX_COUNT) pendingTest = (uint8_t)n;
+      if (getJsonValue(top[F("ledtest")], n) && n >= 0) { testLed = n; testLedUntil = millis() + 3000; }
     }
 
     void addToJsonInfo(JsonObject &root) override {
@@ -757,7 +764,11 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("(function(){var s=document.createElement('style');s.innerHTML="
                 "'.wc16h{margin:18px 0 6px;padding-bottom:3px;font-weight:600;color:#4aa3ff;border-bottom:1px solid #2c2c2c;letter-spacing:.3px}'"
                 "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:9px 11px;margin:6px 0;display:block;line-height:1.7}'"
-                "+'#um button{cursor:pointer;border-radius:6px;padding:3px 10px}';document.head.appendChild(s);})();"));
+                "+'#um button{cursor:pointer;border-radius:6px;padding:3px 10px}'"
+                "+'.wc16tbl{border-collapse:collapse;margin:6px 0}'"
+                "+'.wc16tbl th,.wc16tbl td{padding:2px 8px;text-align:left}'"
+                "+'.wc16tbl th{color:#4aa3ff;font-weight:600;border-bottom:1px solid #2c2c2c}'"
+                "+'.wc16tbl input{width:72px}';document.head.appendChild(s);})();"));
 
       // ---- concise field help -------------------------------------------------
       oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot to (un)register the effect');"));
@@ -798,11 +809,27 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:cornerLeds', 1, 'uses native WLED buttons; lights the mapped LED while held');"));
       oappend(F("addInfo('WordClock16x16:cornerColor', 1, 'RRGGBB or RRGGBBWW hex');"));
       oappend(F("wc16sec('cornerLeds','Corner buttons');"
-                "wc16lbl('cornerLeds','Light LED on press');wc16lbl('cornerColor','LED color');"
-                "wc16lbl('cbBtn0','Corner 1 button');wc16lbl('cbLed0','Corner 1 LED');"
-                "wc16lbl('cbBtn1','Corner 2 button');wc16lbl('cbLed1','Corner 2 LED');"
-                "wc16lbl('cbBtn2','Corner 3 button');wc16lbl('cbLed2','Corner 3 LED');"
-                "wc16lbl('cbBtn3','Corner 4 button');wc16lbl('cbLed3','Corner 4 LED');"));
+                "wc16lbl('cornerLeds','Light LED on press');wc16lbl('cornerColor','LED color');"));
+      // Lay the 4 corner button/LED maps out as a table with corner names + a Test button
+      // (Test posts {"WordClock16x16":{"ledtest":N}} -> lights that pixel ~3 s).
+      oappend(F("(function(){if(!d.getElementsByName('WordClock16x16:cbBtn0').length)return;"
+                "var rows=[['Top-Left',0],['Top-Right',1],['Bottom-Left',2],['Bottom-Right',3]];"
+                "var t=document.createElement('table');t.className='wc16tbl';"
+                "var h=document.createElement('tr');h.innerHTML='<th>Corner</th><th>Button</th><th>LED</th><th>Test</th>';t.appendChild(h);"
+                "var anchor=null,kill=[];"
+                "function mv(td,nm){var e=d.getElementsByName(nm);if(!e.length)return;var lbl=e[0].previousSibling,af=e[e.length-1].nextSibling;"
+                "if(!anchor)anchor=(lbl&&lbl.nodeType===3)?lbl:e[0];var a=[];for(var k=0;k<e.length;k++)a.push(e[k]);for(k=0;k<a.length;k++)td.appendChild(a[k]);"
+                "if(lbl&&lbl.nodeType===3)kill.push(lbl);if(af&&af.nodeName==='BR')kill.push(af);}"
+                "for(var i=0;i<rows.length;i++){var tr=document.createElement('tr');"
+                "var c0=document.createElement('td');c0.textContent=rows[i][0];tr.appendChild(c0);"
+                "var c1=document.createElement('td');mv(c1,'WordClock16x16:cbBtn'+rows[i][1]);tr.appendChild(c1);"
+                "var c2=document.createElement('td');mv(c2,'WordClock16x16:cbLed'+rows[i][1]);tr.appendChild(c2);"
+                "var c3=document.createElement('td');(function(cell){var b=document.createElement('button');b.type='button';b.textContent='Test';"
+                "b.onclick=function(){var ip=cell.querySelector(\"input:not([type='hidden'])\");var v=ip?ip.value:'';if(v==='')return;"
+                "fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"ledtest\":'+v+'}}'});};c3.appendChild(b);})(c2);"
+                "tr.appendChild(c3);t.appendChild(tr);}"
+                "if(anchor&&anchor.parentNode)anchor.parentNode.insertBefore(t,anchor);"
+                "for(i=0;i<kill.length;i++)if(kill[i].parentNode)kill[i].parentNode.removeChild(kill[i]);})();"));
 
       // ---- live status panel + "Update now" -----------------------------------
       oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
