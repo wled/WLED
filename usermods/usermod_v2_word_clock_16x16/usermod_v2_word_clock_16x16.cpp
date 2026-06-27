@@ -727,7 +727,7 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:coolBelow', 1, '&deg;C: COOL below, else WARM');"));
       oappend(F("addInfo('WordClock16x16:warmBelow', 1, '&deg;C: WARM below, HOT at/above');"));
       oappend(F("addInfo('WordClock16x16:manualTemp', 1, '&deg;C; used until a live value arrives');"));
-      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'falls back to Place if WLED coords unset');"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use lat/lon from WLED Time settings; if those are 0/unset, use Place (or lat/lon) below');"));
       oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (\", State\" ignored; ZIP if ambiguous)');"));
       oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
       oappend(F("addInfo('WordClock16x16:heatAbove', 1, '&deg;C, clear/cloudy skies only');"));
