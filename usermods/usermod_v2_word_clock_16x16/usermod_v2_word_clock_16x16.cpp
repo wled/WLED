@@ -498,6 +498,12 @@ class WordClock16x16Usermod : public Usermod {
       }
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
+    #ifdef WC16_DEFAULT_TRANSITION_MS
+      // Override the boot transition (runs after cfg load), set via build flag in the
+      // platformio override, e.g. -D WC16_DEFAULT_TRANSITION_MS=1800 for 1.8 s.
+      transitionDelay = transitionDelayDefault = WC16_DEFAULT_TRANSITION_MS;
+      strip.setTransition(transitionDelay);
+    #endif
       initDone = true;
     }
 
