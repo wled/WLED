@@ -11,7 +11,7 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 > **Note:** this usermod (code, settings UI, and docs) was developed with **AI assistance**
 > and validated by building against WLED. Review before use and verify on your own hardware.
 
-**Version:** 1.0.0 · **Updated:** 2026-06-27 · **Author:** Austin St. Aubin
+**Version:** 1.1.0 · **Updated:** 2026-06-27 · **Author:** Austin St. Aubin
 (austinsaintaubin@gmail.com)
 
 ## Install / Build
@@ -152,9 +152,24 @@ Plain HTTP, so no TLS library / `lib_deps`.
   preset (bypassing the change-only check). The same works via the JSON API:
   `{"WordClock16x16":{"wxtest":5}}` (5 = rain; 1-11 in the table order above).
 
-## Not yet implemented (future)
-- The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
-  output/bus + segment for the corners; WLED's button config for the inputs)
+### Corner buttons → corner LEDs
+Lights a corner LED **while its button is held**, on top of normal **native WLED button +
+preset control** (WLED still runs whatever preset/action you assign to the button — this only
+adds the LED feedback, which WLED can't do natively).
+
+Setup:
+1. Configure the corner LEDs as a **second LED output** in WLED LED Preferences (e.g. 4 px on
+   GPIO26 starting at index 256 → pixels 256–259), and the buttons natively in the **Button**
+   setup (TTP223 = "Pushbutton (act. high)").
+2. In the usermod settings, **Corner buttons** section:
+   - `Light LED on press` — enable/disable the whole feature.
+   - `LED color` — `RRGGBB` (or `RRGGBBWW` for the W channel), e.g. `FFFFFF`.
+   - For each of the 4 corners: the **button index** (WLED button number, −1 = off) and the
+     **LED index** (pixel number, −1 = off). Defaults map buttons 1–4 → LEDs 256–259.
+
+The LED is lit (via `handleOverlayDraw`, scaled by master brightness) only while
+`isButtonPressed()` is true for that button, so momentary and self-locking touch buttons both
+work; when released it returns to its normal output.
 
 ## Resources
 - NAS-00:/hardware/X-Carve/Projects/2017/Word Clock
@@ -221,7 +236,7 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 
 | Pin    | Used by     | Pin Notes          |
 | ------ | ----------- | ------------------ |
-| GPIO0  |  Button     | Touch, Flash Boot  |
+| GPIO0  | Button      | Touch, Flash Boot  |  < Button 0 | On Controller
 | GPIO1  | Available   | \-                 |
 | GPIO2  | Available   | Touch, Bootstrap   |
 | GPIO3  | Available   | \-                 |
@@ -233,10 +248,10 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 | GPIO9  | System      | \-                 |
 | GPIO10 | System      | \-                 |
 | GPIO11 | System      | \-                 |
-| GPIO12 | Button      | Touch, Bootstrap   |  < Button Top Left
-| GPIO13 | Button      | Touch              |  < Button Top Right
-| GPIO14 | Button      | Touch              |  < Button Bottom Left
-| GPIO15 | Button      | Touch              |  < Button Bottom Right
+| GPIO12 | Button      | Touch, Bootstrap   |  < Button 3 | Bottom Left
+| GPIO13 | Button      | Touch              |  < Button 2 | Top Right
+| GPIO14 | Button      | Touch              |  < Button 1 | Top Left
+| GPIO15 | Button      | Touch              |  < Button 4 | Bottom Right
 | GPIO16 | Available   | \-                 |
 | GPIO17 | Available   | \-                 |
 | GPIO18 | Available   | \-                 |

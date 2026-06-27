@@ -8,7 +8,7 @@
 /*
  * Word Clock MK2 - 16x16 RGBW matrix, English, exact-minute phrasing.
  *
- * Version : 1.0.0
+ * Version : 1.1.0
  * Updated : 2026-06-27
  * Author  : Austin St. Aubin <austinsaintaubin@gmail.com>
  * Note    : Developed with AI assistance; validated by building against WLED.
@@ -30,7 +30,7 @@
  * Temperature can also be pushed via the JSON API ({"WordClock16x16":{"temp":N}}).
  */
 
-#define WC16_VERSION "1.0.0"   // usermod_v2_word_clock_16x16
+#define WC16_VERSION "1.1.0"   // usermod_v2_word_clock_16x16
 
 // A word is a horizontal run of letters: top-left cell (x,y) and length.
 struct WCWord { uint8_t x, y, len; };
@@ -307,6 +307,13 @@ class WordClock16x16Usermod : public Usermod {
     bool     geoFailed = false;                   // place could not be resolved
     String   geoFor;                              // place string the geo* were resolved for
 
+    // Corner buttons: light a mapped LED while its (native WLED) button is held.
+    bool     cornerLeds = false;
+    String   cornerColorHex = "FFFFFF";           // RRGGBB or RRGGBBWW
+    uint32_t cornerColor = 0xFFFFFFUL;            // parsed from cornerColorHex
+    int8_t   cbBtn[4] = { 1, 2, 3, 4 };           // WLED button index per corner (-1 = off)
+    int16_t  cbLed[4] = { 256, 257, 258, 259 };   // LED pixel index per corner (-1 = off)
+
     static const char _name[];
     static const char _enabled[];
     static const char _showPeriod[];
@@ -455,6 +462,13 @@ class WordClock16x16Usermod : public Usermod {
       return s;
     }
 
+    // "RRGGBB" or "RRGGBBWW" hex -> packed RGBW.
+    static uint32_t parseHexColor(const String &s) {
+      uint32_t v = (uint32_t)strtoul(s.c_str(), nullptr, 16);
+      if (s.length() > 6) return RGBW32((v >> 24) & 0xFF, (v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF);
+      return RGBW32((v >> 16) & 0xFF, (v >> 8) & 0xFF, v & 0xFF, 0);
+    }
+
     void applyStatePreset() {
       if (!weatherPresets || wxState == WX_UNKNOWN || wxState == lastApplied) return;
       const uint8_t p = preset[wxState];
@@ -576,6 +590,18 @@ class WordClock16x16Usermod : public Usermod {
       }
     }
 
+    // Light the mapped corner LED while its native WLED button is held. Runs after all
+    // effects, just before show(), so it overrides the corner segment's normal output.
+    void handleOverlayDraw() override {
+      if (!cornerLeds) return;
+      const uint16_t total = strip.getLengthTotal();
+      for (int i = 0; i < 4; i++) {
+        if (cbBtn[i] < 0 || cbLed[i] < 0 || cbLed[i] >= (int)total) continue;
+        if (cbBtn[i] < WLED_MAX_BUTTONS && isButtonPressed((uint8_t)cbBtn[i]))
+          strip.setPixelColor((uint16_t)cbLed[i], cornerColor);
+      }
+    }
+
     // JSON API: {"WordClock16x16":{"temp":22.5}} pushes a temperature in °C;
     //           {"WordClock16x16":{"update":true}} fetches weather now.
     void readFromJsonState(JsonObject &root) override {
@@ -672,6 +698,12 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_pHeat)]       = preset[WX_HEAT];
       top[FPSTR(_pWind)]       = preset[WX_WIND];
       top[FPSTR(_pSevere)]     = preset[WX_SEVERE];
+      top[F("cornerLeds")]     = cornerLeds;
+      top[F("cornerColor")]    = cornerColorHex;
+      top[F("cbBtn0")] = cbBtn[0]; top[F("cbLed0")] = cbLed[0];
+      top[F("cbBtn1")] = cbBtn[1]; top[F("cbLed1")] = cbLed[1];
+      top[F("cbBtn2")] = cbBtn[2]; top[F("cbLed2")] = cbLed[2];
+      top[F("cbBtn3")] = cbBtn[3]; top[F("cbLed3")] = cbLed[3];
     }
 
     bool readFromConfig(JsonObject &root) override {
@@ -707,6 +739,13 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_pHeat)],       preset[WX_HEAT]);
       configComplete &= getJsonValue(top[FPSTR(_pWind)],       preset[WX_WIND]);
       configComplete &= getJsonValue(top[FPSTR(_pSevere)],     preset[WX_SEVERE]);
+      configComplete &= getJsonValue(top[F("cornerLeds")],     cornerLeds);
+      configComplete &= getJsonValue(top[F("cornerColor")],    cornerColorHex);
+      configComplete &= getJsonValue(top[F("cbBtn0")], cbBtn[0]); configComplete &= getJsonValue(top[F("cbLed0")], cbLed[0]);
+      configComplete &= getJsonValue(top[F("cbBtn1")], cbBtn[1]); configComplete &= getJsonValue(top[F("cbLed1")], cbLed[1]);
+      configComplete &= getJsonValue(top[F("cbBtn2")], cbBtn[2]); configComplete &= getJsonValue(top[F("cbLed2")], cbLed[2]);
+      configComplete &= getJsonValue(top[F("cbBtn3")], cbBtn[3]); configComplete &= getJsonValue(top[F("cbLed3")], cbLed[3]);
+      cornerColor = parseHexColor(cornerColorHex);
       if (fetchMinutes < 1) fetchMinutes = 1;
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
@@ -755,6 +794,15 @@ class WordClock16x16Usermod : public Usermod {
                 "wc16lbl('presetDrizzle','Drizzle');wc16lbl('presetRain','Rain');wc16lbl('presetSnow','Snow');"
                 "wc16lbl('presetThunder','Thunder');wc16lbl('presetIce','Ice');wc16lbl('presetHail','Hail');"
                 "wc16lbl('presetHeat','Heat');wc16lbl('presetWind','Wind');wc16lbl('presetSevere','Severe');"));
+      // Corner buttons section: light a mapped LED while its native WLED button is held.
+      oappend(F("addInfo('WordClock16x16:cornerLeds', 1, 'uses native WLED buttons; lights the mapped LED while held');"));
+      oappend(F("addInfo('WordClock16x16:cornerColor', 1, 'RRGGBB or RRGGBBWW hex');"));
+      oappend(F("wc16sec('cornerLeds','Corner buttons');"
+                "wc16lbl('cornerLeds','Light LED on press');wc16lbl('cornerColor','LED color');"
+                "wc16lbl('cbBtn0','Corner 1 button');wc16lbl('cbLed0','Corner 1 LED');"
+                "wc16lbl('cbBtn1','Corner 2 button');wc16lbl('cbLed1','Corner 2 LED');"
+                "wc16lbl('cbBtn2','Corner 3 button');wc16lbl('cbLed2','Corner 3 LED');"
+                "wc16lbl('cbBtn3','Corner 4 button');wc16lbl('cbLed3','Corner 4 LED');"));
 
       // ---- live status panel + "Update now" -----------------------------------
       oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
