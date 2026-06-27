@@ -333,14 +333,19 @@ class WordClock16x16Usermod : public Usermod {
       liveValid = true; liveTime = millis();
     }
 
+    bool wledLocSet() const { return latitude != 0.0f || longitude != 0.0f; }
+
+    // Location precedence: WLED Time-settings coords (if enabled AND actually set) ->
+    // geocoded Place -> manual lat/lon. The "is it set" check means a Place still works
+    // even with "use WLED location" ticked when WLED's coords are 0,0.
     float useLat() const {
-      if (useWledLocation) return latitude;
-      if (place.length())  return geoDone ? geoLat : 0.0f;
+      if (useWledLocation && wledLocSet()) return latitude;
+      if (place.length())                  return geoDone ? geoLat : 0.0f;
       return latOverride;
     }
     float useLon() const {
-      if (useWledLocation) return longitude;
-      if (place.length())  return geoDone ? geoLon : 0.0f;
+      if (useWledLocation && wledLocSet()) return longitude;
+      if (place.length())                  return geoDone ? geoLon : 0.0f;
       return lonOverride;
     }
 
@@ -355,12 +360,18 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     // Resolve place (city or ZIP) -> lat/lon via the Open-Meteo geocoding API.
+    // Open-Meteo only matches the bare name, so drop any ", State/Country" qualifier.
     void geocode() {
       geoFor = place; geoDone = false; geoFailed = false;
+      String name = place;
+      int comma = name.indexOf(',');
+      if (comma >= 0) name = name.substring(0, comma);
+      name.trim();
+      if (!name.length()) { geoFailed = true; return; }
       WiFiClient client;
       HTTPClient http;
       String url = F("http://geocoding-api.open-meteo.com/v1/search?count=1&name=");
-      url += urlEncode(place);
+      url += urlEncode(name);
       if (!http.begin(client, url)) { geoFailed = true; return; }
       http.setTimeout(5000);
       if (http.GET() == HTTP_CODE_OK) {
@@ -431,7 +442,8 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     bool fetch() {
-      if (!useWledLocation && place.length() && (!geoDone || geoFor != place)) geocode();
+      const bool needPlace = !(useWledLocation && wledLocSet()) && place.length();
+      if (needPlace && (!geoDone || geoFor != place)) geocode();
       const float la = useLat(), lo = useLon();
       if (la == 0.0f && lo == 0.0f) return false; // location not set/unresolved
 
@@ -560,16 +572,16 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     void locationInfo(char *buf, size_t n) {
-      if (useWledLocation) {
-        if (latitude == 0.0f && longitude == 0.0f) snprintf(buf, n, "WLED location unset");
-        else snprintf(buf, n, "%.2f, %.2f", latitude, longitude);
+      if (useWledLocation && wledLocSet()) {
+        snprintf(buf, n, "%.2f, %.2f (WLED)", latitude, longitude);
       } else if (place.length()) {
         if (geoDone)        snprintf(buf, n, "%s (%.2f, %.2f)", place.c_str(), geoLat, geoLon);
         else if (geoFailed) snprintf(buf, n, "'%s' not found", place.c_str());
         else                snprintf(buf, n, "geocoding...");
+      } else if (latOverride != 0.0f || lonOverride != 0.0f) {
+        snprintf(buf, n, "%.2f, %.2f", latOverride, lonOverride);
       } else {
-        if (latOverride == 0.0f && lonOverride == 0.0f) snprintf(buf, n, "location unset");
-        else snprintf(buf, n, "%.2f, %.2f", latOverride, lonOverride);
+        snprintf(buf, n, "location unset");
       }
     }
 
@@ -653,9 +665,9 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:warmBelow', 1, 'WARM below, HOT at/above');"));
       oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a live value is available');"));
       oappend(F("addInfo('WordClock16x16:fetchWeather', 1, 'fetch temperature/weather from Open-Meteo');"));
-      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use Time-settings lat/lon (off = use Place or lat/lon below)');"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use Time-settings lat/lon; falls back to Place if unset');"));
       oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, 'minutes between fetches');"));
-      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (geocoded); leave blank to use lat/lon');"));
+      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (state after a comma is ignored; use ZIP if ambiguous)');"));
       oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
       oappend(F("addInfo('WordClock16x16:weatherPresets', 1, 'apply a preset when weather changes');"));
       oappend(F("addInfo('WordClock16x16:heatAbove', 1, 'HEAT when clear/cloudy and temp at/above this');"));

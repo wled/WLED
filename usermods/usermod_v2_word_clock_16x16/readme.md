@@ -75,10 +75,12 @@ Turn on `fetchWeather` to pull the current outdoor temperature and condition fro
 [Open-Meteo](https://open-meteo.com) (free, no API key) every `fetchMinutes` (default 15).
 Plain HTTP, so no TLS library / `lib_deps`.
 
-- **Location:** uses WLED **Time settings** lat/lon when `useWledLocation` is on; otherwise
-  enter a **`place`** (city or ZIP — geocoded via Open-Meteo), or leave `place` blank and
-  set `latitude`/`longitude` directly (a "find lat/lon" link is provided). `(0,0)` / unresolved
-  disables fetching.
+- **Location** precedence: WLED **Time settings** lat/lon (when `useWledLocation` is on *and*
+  actually set) → **`place`** (city or ZIP, geocoded via Open-Meteo) → manual
+  `latitude`/`longitude` (a "find lat/lon" link is provided). Because of the "actually set"
+  check, a `place` still works even if `useWledLocation` is ticked but WLED's coords are 0,0.
+  Open-Meteo only matches the bare city, so a `", State"` qualifier is **dropped** before
+  geocoding (e.g. `Edmond, Oklahoma` → `Edmond`); use a **ZIP** if the city name is ambiguous.
 - **Humidity & condition** are shown on the WLED **Info** page alongside temperature.
 - **Update now:** a button in the settings (and `{"WordClock16x16":{"update":true}}` via the
   JSON API) fetches the weather immediately. The Usermod settings page shows a **live status
