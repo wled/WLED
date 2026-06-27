@@ -277,6 +277,8 @@ class WordClock16x16Usermod : public Usermod {
     uint8_t  lastApplied     = WX_UNKNOWN;
     bool     firstFetchDone  = false;
     bool     forceFetch      = false;             // "Update now" request
+    bool     fetchSoon       = false;             // scheduled shortly after a (re)connect
+    unsigned long fetchSoonAt= 0;
     uint8_t  pendingTest     = 0;                 // force-apply this state's preset (test)
     bool     lastTryFailed   = false;             // last fetch failed -> retry sooner
     unsigned long lastFetch  = 0;                 // last attempt
@@ -499,6 +501,15 @@ class WordClock16x16Usermod : public Usermod {
       initDone = true;
     }
 
+    // Called whenever WiFi (re)connects (like NTP): fetch weather shortly after, and
+    // reset lastApplied so the matching preset is re-applied for the current weather.
+    void connected() override {
+      if (!enabled) return;
+      fetchSoon   = true;
+      fetchSoonAt = millis() + 3000; // let the network stack/NTP settle first
+      lastApplied = WX_UNKNOWN;
+    }
+
     void loop() override {
       if (!enabled) return;
       const unsigned long now = millis();
@@ -523,14 +534,15 @@ class WordClock16x16Usermod : public Usermod {
       // "Update now" request (from the settings button / JSON API).
       if (forceFetch) { forceFetch = false; lastTryFailed = !fetch(); lastFetch = now; firstFetchDone = true; return; }
 
-      // Periodic Open-Meteo fetch; retry sooner after a failure.
-      if (fetchWeather) {
+      if (!fetchWeather) return;
+
+      if (fetchSoon) {                              // shortly after a (re)connect
+        if ((long)(now - fetchSoonAt) >= 0) { fetchSoon = false; lastTryFailed = !fetch(); lastFetch = now; firstFetchDone = true; }
+      } else if (!firstFetchDone) {                 // fallback if connected() never fired
+        if (now >= 30000) { lastTryFailed = !fetch(); lastFetch = now; firstFetchDone = true; }
+      } else {                                      // periodic; retry sooner after a failure
         const unsigned long due = lastTryFailed ? RETRY_MS : (unsigned long)fetchMinutes * 60000UL;
-        if (!firstFetchDone) {
-          if (now >= 30000) { lastTryFailed = !fetch(); firstFetchDone = true; lastFetch = now; } // settle 30 s after boot
-        } else if (now - lastFetch >= due) {
-          lastTryFailed = !fetch(); lastFetch = now;
-        }
+        if (now - lastFetch >= due) { lastTryFailed = !fetch(); lastFetch = now; }
       }
     }
 

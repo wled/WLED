@@ -111,8 +111,10 @@ Plain HTTP, so no TLS library / `lib_deps`.
   the configured unit (default 35 °C); `windAbove` is wind-gust km/h (default 60).
   Tornado has no weather code, so it can't be auto-detected.
 
-  The preset is applied only on a **change** of state (including the first reading after
-  boot). First fetch is ~30 s after boot once WiFi is up. The Info page also shows the
+  The preset is applied on a **change** of state, and is also (re)applied on every WiFi
+  **(re)connect** — so after boot the current weather's preset is set automatically (a few
+  seconds after the network comes up, similar to NTP). A periodic re-check then runs every
+  `fetchMinutes`. The Info page also shows the
   resolved **location** and **last-updated** time; a failed fetch retries after ~1 min.
 
   To verify a mapping, use the **Test a weather preset** control at the bottom of the
