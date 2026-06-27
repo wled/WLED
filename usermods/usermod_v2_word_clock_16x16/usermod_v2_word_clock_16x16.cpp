@@ -107,8 +107,9 @@ static float         wc16_liveTemp   = 0.0f;
 static bool          wc16_liveValid  = false;
 static unsigned long wc16_liveTime   = 0;
 
-// Weak-symbol bridge: any companion sensor usermod can push a Celsius reading without a
-// hard link dependency by declaring this symbol weak and calling it only if present:
+// Weak-symbol bridge: a companion usermod (e.g. usermod_v2_weather_openmeteo) can push a
+// Celsius reading without a hard link dependency by declaring this symbol weak and calling
+// it only if present:
 //   extern "C" void wc16_setLiveTempC(float) __attribute__((weak));
 //   if (wc16_setLiveTempC) wc16_setLiveTempC(tempC);
 extern "C" void wc16_setLiveTempC(float celsius) {

@@ -65,12 +65,11 @@ unit chosen by `fahrenheit` (off = °C). Defaults are °C: 10 / 18 / 27.
 {"WordClock16x16":{"temp":22.5}}
 ```
 The live value is used for 30 min, then falls back to `manualTemp`. The current
-temperature + band is shown on the WLED **Info** page. (Sensor and weather-API sources
-are planned — see below.)
+temperature + band is shown on the WLED **Info** page. The companion
+`usermod_v2_weather_openmeteo` feeds this temperature automatically (and can also switch
+presets on weather changes).
 
 ## Not yet implemented (future)
-- Temperature source: dedicated I²C sensor usermod (HTU21D + BMP180 + BH1750) and/or a
-  weather API (currently fed via JSON API / manual value)
 - The `&` tile on the bottom row
 - The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
   output/bus + segment for the corners; WLED's button config for the inputs)
