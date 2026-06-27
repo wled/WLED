@@ -12,14 +12,19 @@ Each bus can have individual configuration of color channels but all must share 
 
 #pragma once
 
-#if defined(ARDUINO_ARCH_ESP32)
-
 #include "WLEDpixelBus.h"
+#if defined(ARDUINO_ARCH_ESP32)
 #include "freertos/FreeRTOS.h"
 #include "freertos/portmacro.h"
 //#include "soc/gpio_struct.h"   // GPIO.out_w1ts / GPIO.out_w1tc -> better use REG_WRITE
 #include "soc/gpio_reg.h"
 #include "driver/gpio.h"
+#elif defined(ESP8266)
+#include <Arduino.h>
+#include <eagle_soc.h>
+#include <esp8266_peri.h>
+#include <ets_sys.h>
+#endif
 
 namespace WLEDpixelBus {
 
@@ -73,7 +78,9 @@ private:
     #ifdef ESP_HAS_HIGH_GPIO_BANK
     uint32_t      allMaskHigh;  // GPIO bitmask of registered pins 32+ (ESP32/S2/S3)
     #endif
+    #if defined(ARDUINO_ARCH_ESP32)
     portMUX_TYPE  mux; // critical-section lock used inside outputParallel()
+    #endif
     int8_t        pins[WLED_MAX_BB_CHANNELS];
     uint16_t      numPixels[WLED_MAX_BB_CHANNELS];  // pixel count per channel
     uint8_t       channelCount;
@@ -89,5 +96,3 @@ private:
 };
 
 } // namespace WLEDpixelBus
-
-#endif // ARDUINO_ARCH_ESP32

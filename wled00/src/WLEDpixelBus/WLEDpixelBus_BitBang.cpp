@@ -10,9 +10,15 @@ Each bus can have individual configuration of color channels but all must share 
 
 -------------------------------------------------------------------------*/
 
-#if defined(ARDUINO_ARCH_ESP32)
 #include "WLEDpixelBus_BitBang.h"
+#if defined(ARDUINO_ARCH_ESP32)
 #include "esp_clk.h"    // esp_clk_cpu_freq()
+#elif defined(ESP8266)
+#include <Arduino.h>
+#define REG_WRITE(addr, val) GPIO_REG_WRITE(addr, val)
+#define GPIO_OUT_W1TS_REG    GPIO_OUT_W1TS_ADDRESS
+#define GPIO_OUT_W1TC_REG    GPIO_OUT_W1TC_ADDRESS
+#endif
 
 namespace WLEDpixelBus {
 // BB state, shared among all buses
@@ -22,7 +28,14 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 // getCycleCount() — read the CPU cycle counter.
 // Must be IRAM_ATTR because it is called from outputParallel() which is IRAM.
 // ---------------------------------------------------------------------------
-#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || \
+#if defined(ESP8266)
+  static inline uint32_t IRAM_ATTR getCycleCount() {
+    uint32_t ccount;
+    __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
+    return ccount;
+  }
+  static constexpr uint32_t LOOPTEST_CYCLES = 1;
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || \
     defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
   // RISC-V: machine cycle counter CSR 0x7e2 (vendor extension, same as NeoPixelBus)
   static inline uint32_t IRAM_ATTR getCycleCount() {
@@ -66,12 +79,12 @@ BitBangBus::~BitBangBus() {
 bool BitBangBus::begin() {
   if (_initialized) return true;
 
-  // GPIO pin range check using IDF macros from soc/soc_caps.h:
-  // SOC_GPIO_PIN_COUNT — total GPIO count for this target (40/ESP32, 47/S2, 49/S3, 22/C3, ...).
-  // SOC_GPIO_VALID_OUTPUT_GPIO_MASK — 64-bit bitmask of GPIOs usable as outputs
-  //   (excludes input-only pins such as GPIO 34-39 on ESP32).
-  // High bank (GPIO_OUT1) is needed for pins > 31 on ESP32/S2/S3.
+  // GPIO pin range check
+#if defined(ARDUINO_ARCH_ESP32)
   if (_pin < 0 || _pin >= SOC_GPIO_PIN_COUNT || !((SOC_GPIO_VALID_OUTPUT_GPIO_MASK >> _pin) & 1ULL)) return false;
+#elif defined(ESP8266)
+  if (_pin < 0 || _pin > 15) return false;
+#endif
 
   if (!_BBs) {
     _BBs = (BBstate*)calloc(1, sizeof(BBstate)); // Allocate shared state struct on first channel
@@ -80,11 +93,20 @@ bool BitBangBus::begin() {
   if (_BBs->channelCount >= WLED_MAX_BB_CHANNELS) return false;
 
   // Configure GPIO as output, drive LOW (idle state for non-inverted LEDs)
+#if defined(ARDUINO_ARCH_ESP32)
   gpio_set_direction((gpio_num_t)_pin, GPIO_MODE_OUTPUT);
   gpio_set_level((gpio_num_t)_pin, 0);
+#elif defined(ESP8266)
+  pinMode(_pin, OUTPUT);
+  digitalWrite(_pin, LOW);
+#endif
 
   // Convert nanosecond timings to CPU cycles
+#if defined(ARDUINO_ARCH_ESP32)
   const uint32_t cpuMHz = esp_clk_cpu_freq() / 1000000u;
+#elif defined(ESP8266)
+  const uint32_t cpuMHz = ESP.getCpuFreqMHz();
+#endif
 
   // Subtract the while-loop test overhead (one extra iteration) to compensate
   // for the latency between the condition passing and the actual GPIO write.
@@ -120,7 +142,9 @@ bool BitBangBus::begin() {
 #endif
     return false;
   }
+#if defined(ARDUINO_ARCH_ESP32)
   esp_rom_gpio_connect_out_signal(_pin, SIG_GPIO_OUT_IDX, _inverted, false); // route output pin, inverts signal in hardware if needed
+#endif
 
   // Publish per-channel data pointers into the shared static arrays.
   // Timing is set here (same for all channels; overwriting with same values is harmless).
@@ -171,13 +195,23 @@ void BitBangBus::end() {
   }
   _initialized = false;
 
+#if defined(ARDUINO_ARCH_ESP32)
   if (_pin >= 0) gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings, including inversion
+#elif defined(ESP8266)
+  if (_pin >= 0) pinMode(_pin, INPUT);
+#endif
 
   // Release the encode buffer via base class helper.
   if (_encodeBuffer) {
     free(_encodeBuffer);
     _encodeBuffer = nullptr;
     _pixelData    = nullptr;
+  }
+
+  // If no channels left, free the shared state struct
+  if (_BBs && _BBs->channelCount == 0) {
+    free(_BBs);
+    _BBs = nullptr;
   }
 }
 
@@ -224,6 +258,8 @@ void BitBangBus::resetChannels() {
 // ---------------------------------------------------------------------------
 bool IRAM_ATTR BitBangBus::outputParallel() {
   if (!_BBs || _BBs->channelCount == 0) return true;
+
+  uint32_t starttime = micros();
 
   const uint32_t t0h          = _BBs->t0h;
   const uint32_t t1h          = _BBs->t1h;
@@ -278,11 +314,10 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 #ifdef ESP_HAS_HIGH_GPIO_BANK
   auto computeZeroMasks = [&](uint32_t bitIndex, uint32_t& zmLow, uint32_t& zmHigh) {
     const uint32_t byteIndex = bitIndex >> 3;
-    const uint8_t  bitPos    = 7u - (uint8_t)(bitIndex & 7u);  // MSB first
+    const uint8_t  bitMask = 0x80u >> (bitIndex & 7u);
     zmLow = 0; zmHigh = 0;
     for (uint8_t ch = 0; ch < nCh; ch++) {
-      if (byteIndex >= chanTotalBytes[ch] ||
-          !(_BBs->pixelData[ch][byteIndex] & (1u << bitPos))) {
+      if (byteIndex >= chanTotalBytes[ch] || !(_BBs->pixelData[ch][byteIndex] & bitMask)) {
         zmLow  |= chanPinMask[ch];
         zmHigh |= chanPinMaskHigh[ch];
       }
@@ -291,11 +326,10 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 #else
   auto computeZeroMask = [&](uint32_t bitIndex) -> uint32_t {
     const uint32_t byteIndex = bitIndex >> 3;
-    const uint8_t  bitPos    = 7u - (uint8_t)(bitIndex & 7u);  // MSB first
+    const uint8_t bitMask = 0x80u >> (bitIndex & 7u);
     uint32_t zm = 0;
     for (uint8_t ch = 0; ch < nCh; ch++) {
-      if (byteIndex >= chanTotalBytes[ch] ||
-          !(_BBs->pixelData[ch][byteIndex] & (1u << bitPos))) {
+      if (byteIndex >= chanTotalBytes[ch] || !(_BBs->pixelData[ch][byteIndex] & bitMask)) {
         zm |= chanPinMask[ch];
       }
     }
@@ -306,11 +340,15 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
   // Period reference: initialise as already expired so the first pulse fires immediately.
   uint32_t cyclesStart = getCycleCount() - period;
 
+#if defined(ARDUINO_ARCH_ESP32)
   portENTER_CRITICAL(&_BBs->mux);
+#elif defined(ESP8266)
+  os_intr_lock();
+#endif
 
   for (uint32_t bitIndex = 0; bitIndex < totalBits; bitIndex++) {
 
-    // ── Step 1: Compute zero mask(s) for this bit ────────────────────────
+    // Compute zero mask(s) for this bit
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
     computeZeroMasks(bitIndex, zeroMaskLow, zeroMaskHigh);
@@ -318,24 +356,10 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     uint32_t zeroMask = computeZeroMask(bitIndex);
 #endif
 
-    // Pixel boundary — release ISR lock, check latch ───────────
-    // On every pixel boundary (except the very first bit) give ISRs a chance
-    // to run, then verify the idle gap has not caused an accidental LED latch.
-    // note: this can lead to glitches, so far nothing bad was detected when fully blocking for up to 140ms so this is probably unnecessary (might be problematic for ESPNow, need to check)
-    /*
-    if (bitIndex > 0 && (bitIndex % bitsPerPixel) == 0) {
-      portEXIT_CRITICAL(&_BBs->mux);
-      portENTER_CRITICAL(&_BBs->mux);
-      if (latchCycles > 0 && (getCycleCount() - cyclesStart) > latchCycles) {
-        portEXIT_CRITICAL(&_BBs->mux);
-        return false;  // ISR latency caused accidental LED latch — frame aborted
-      }
-    }*/
-
-    // Wait for the full bit period since the last HIGH edge ──────
+    // Wait for the full bit period since the last HIGH edge
     while ((getCycleCount() - cyclesStart) < period);
 
-    // ── Step 4: Set all outputs HIGH simultaneously ───────────────────────
+    // Set all outputs HIGH simultaneously
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TS_REG,  setOutputMaskLow);
     REG_WRITE(GPIO_OUT1_W1TS_REG, setOutputMaskHigh);
@@ -344,7 +368,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 #endif
     cyclesStart = getCycleCount();
 
-    // ── Step 5: After T0H — pull '0' outputs LOW ─────────────────────────
+    // After T0H — pull '0' outputs LOW
     while ((getCycleCount() - cyclesStart) < t0h);
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TC_REG,  zeroMaskLow);
@@ -353,7 +377,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
 #endif
 
-    // ── Step 6: After T1H — pull all remaining outputs LOW ───────────────
+    // After T1H — pull all remaining outputs LOW
     while ((getCycleCount() - cyclesStart) < t1h);
 #ifdef ESP_HAS_HIGH_GPIO_BANK
     REG_WRITE(GPIO_OUT_W1TC_REG,  setOutputMaskLow);
@@ -363,10 +387,17 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
 #endif
   }
 
+#if defined(ARDUINO_ARCH_ESP32)
   portEXIT_CRITICAL(&_BBs->mux);
+#elif defined(ESP8266)
+  os_intr_unlock();
+#endif
+  
+  uint32_t endtime = micros();
+  Serial.printf("took %d us\n", endtime - starttime);
+
   return true;
 }
 
-} // namespace WLEDpixelBus
 
-#endif // ARDUINO_ARCH_ESP32
+} // namespace WLEDpixelBus

@@ -12,6 +12,7 @@
 #include "src/WLEDpixelBus/WLEDpixelBus_ParallelSpi.h"
 #elif defined(ARDUINO_ARCH_ESP8266)
 #include "src/WLEDpixelBus/WLEDpixelBus_ESP8266.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_BitBang.h"
 #endif
 
 //Hardware SPI Pins (ESP8266 only; ESP32 uses bus allocation order to detect HSPI)
@@ -54,7 +55,7 @@ class PixelBusAllocator {
     #endif
     #else
     _bitBangBusType = 0; // TYPE_NONE
-    WLEDpixelBus::Esp8266BitBangBus::resetChannels();
+    WLEDpixelBus::BitBangBus::resetChannels();
     #endif
   }
 

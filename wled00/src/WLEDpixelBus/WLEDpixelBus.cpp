@@ -251,7 +251,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels, ledType);
       break;
     case BusDriver::BitBang:
-      bus = new Esp8266BitBangBus(pin, timing, colorOrder, numChannels, ledType);
+      bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
       break;
 #endif
 
