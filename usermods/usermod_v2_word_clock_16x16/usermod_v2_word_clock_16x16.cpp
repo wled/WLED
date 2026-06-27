@@ -8,6 +8,11 @@
 /*
  * Word Clock MK2 - 16x16 RGBW matrix, English, exact-minute phrasing.
  *
+ * Version : 1.0.0
+ * Updated : 2026-06-27
+ * Author  : Austin St. Aubin <austinsaintaubin@gmail.com>
+ * Note    : Developed with AI assistance; validated by building against WLED.
+ *
  * Unlike usermod_v2_word_clock (which is a German clock drawn as an OVERLAY in
  * handleOverlayDraw), this usermod registers the word clock as a first-class WLED
  * *Effect* ("Word Clock 16x16"). That means it can be transitioned/crossfaded,
@@ -24,6 +29,8 @@
  *   - applies a user-chosen preset when the weather state changes (e.g. a "rain" preset).
  * Temperature can also be pushed via the JSON API ({"WordClock16x16":{"temp":N}}).
  */
+
+#define WC16_VERSION "1.0.0"   // usermod_v2_word_clock_16x16
 
 // A word is a horizontal run of letters: top-left cell (x,y) and length.
 struct WCWord { uint8_t x, y, len; };
@@ -582,10 +589,12 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     void addToJsonInfo(JsonObject &root) override {
-      const bool wx = fetchWeather || everOk;   // also show once a manual fetch has succeeded
-      if (!showTemp && !wx) return;
       JsonObject user = root[F("u")];
       if (user.isNull()) user = root.createNestedObject(F("u"));
+      user.createNestedArray(F("Word Clock 16x16")).add(F("v" WC16_VERSION));
+
+      const bool wx = fetchWeather || everOk;   // also show once a manual fetch has succeeded
+      if (!showTemp && !wx) return;
       char buf[24];
 
       const float shownTemp = tempFahrenheit ? (curTemp * 9.0f / 5.0f + 32.0f) : curTemp;

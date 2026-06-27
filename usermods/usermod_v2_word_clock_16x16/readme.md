@@ -11,6 +11,9 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 > **Note:** this usermod (code, settings UI, and docs) was developed with **AI assistance**
 > and validated by building against WLED. Review before use and verify on your own hardware.
 
+**Version:** 1.0.0 · **Updated:** 2026-06-27 · **Author:** Austin St. Aubin
+(austinsaintaubin@gmail.com)
+
 ## Install / Build
 
 1. The usermod lives entirely in `usermods/usermod_v2_word_clock_16x16/` — it makes no

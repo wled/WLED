@@ -1,4 +1,10 @@
 {
   "name": "usermod_v2_word_clock_16x16",
+  "version": "1.0.0",
+  "description": "16x16 RGBW English word clock as a WLED effect, with Open-Meteo weather words and weather-driven presets.",
+  "authors": [
+    { "name": "Austin St. Aubin", "email": "austinsaintaubin@gmail.com", "maintainer": true }
+  ],
+  "keywords": "wled, usermod, word clock, matrix, weather",
   "build": { "libArchive": false }
 }
