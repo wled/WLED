@@ -41,10 +41,10 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 
 ### Grammar
 - On the hour: `IT IS <hour> O'CLOCK`
-- 1–30 past: `IT IS <minutes> MINUTES PAST <hour>` (`QUARTER PAST` at :15, `HALF PAST` at :30)
-- 31–59: `IT IS <minutes> MINUTES UNTIL <next hour>` (`QUARTER UNTIL` at :45)
-- Period: `IN THE MORNING` (05–11), `IN THE AFTERNOON` (12–16), `IN THE EVENING` (17–20),
-  `AT NIGHT` (21–04).
+- 1–30 past: `IT IS <minutes> MINUTES PAST <hour>` (`A QUARTER PAST` at :15, `HALF PAST` at :30)
+- 31–59: `IT IS <minutes> MINUTES UNTIL <next hour>` (`A QUARTER UNTIL` at :45)
+- Period: `IN THE MORNING` (00–11), `IN THE AFTERNOON` (12–16), `IN THE EVENING` (17–20),
+  `AT NIGHT` (21–23).
 
 ### Temperature words (bottom row)
 When `showTemperature` is on, one of `COLD / COOL / WARM / HOT` is lit on the bottom row

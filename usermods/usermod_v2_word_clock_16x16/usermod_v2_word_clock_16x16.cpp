@@ -29,6 +29,7 @@ static const WCWord wcIT        = { 0, 0, 2};
 static const WCWord wcIS        = { 3, 0, 2};
 static const WCWord wcMINUTES   = { 0, 7, 7};
 static const WCWord wcQUARTER   = { 8, 7, 7};
+static const WCWord wcA         = { 7, 5, 1}; // standalone 'A' (between SIXTEEN/EIGHTEEN) for "A QUARTER"
 static const WCWord wcHALF      = { 0, 8, 4};
 static const WCWord wcPAST      = { 5, 8, 4};
 static const WCWord wcUNTIL     = {10, 8, 5};
@@ -128,7 +129,7 @@ static inline void wcSet(uint16_t *mask, const WCWord &w) {
 
 // Light the spoken minute value (1..30) in the top region.
 static void wcSetMinuteValue(uint16_t *mask, int val) {
-  if (val == 15)      { wcSet(mask, wcQUARTER); return; } // no MINUTES word
+  if (val == 15)      { wcSet(mask, wcA); wcSet(mask, wcQUARTER); return; } // "A QUARTER", no MINUTES word
   else if (val == 30) { wcSet(mask, wcHALF);    return; } // no MINUTES word
   if (val <= 20) {
     wcSet(mask, wcMinuteNum[val]);
@@ -170,10 +171,10 @@ static void wcBuildMask(uint16_t *mask, int h24, int m) {
   }
 
   if (wc16_showPeriod) {            // period of day based on real 24h hour
-    if (h24 >= 5 && h24 < 12)       { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcMORNING); }
-    else if (h24 >= 12 && h24 < 17) { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcAFTERNOON); }
-    else if (h24 >= 17 && h24 < 21) { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcEVENING); }
-    else                            { wcSet(mask, wcAT); wcSet(mask, wcNIGHT); } // 21..04
+    if (h24 < 12)                   { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcMORNING); }   // 00..11 (after midnight is morning)
+    else if (h24 < 17)              { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcAFTERNOON); } // 12..16
+    else if (h24 < 21)              { wcSet(mask, wcIN); wcSet(mask, wcTHE); wcSet(mask, wcEVENING); }   // 17..20
+    else                            { wcSet(mask, wcAT); wcSet(mask, wcNIGHT); }                         // 21..23
   }
 
   if (wc16_showTemp && wc16_tempBand >= 1 && wc16_tempBand <= 4) {
