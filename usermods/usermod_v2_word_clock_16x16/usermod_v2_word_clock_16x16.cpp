@@ -1,4 +1,9 @@
 #include "wled.h"
+#ifdef ESP8266
+  #include <ESP8266HTTPClient.h>
+#else
+  #include <HTTPClient.h>
+#endif
 
 /*
  * Word Clock MK2 - 16x16 RGBW matrix, English, exact-minute phrasing.
@@ -14,11 +19,10 @@
  *
  * Grammar (exact minute), e.g. "IT IS TWENTY ONE MINUTES PAST SEVEN IN THE EVENING".
  *
- * Letter grid (row 0 = top), see readme.md:
- *   IT KIS S TWENTY TONE / TWO TEN THIRTEEN / FIVE ELEVEN FOUR / THREE NINETEEN ...
- *
- * Out of scope (future): temperature words (WARM/COOL/HOT/COLD, &), corner RGBW
- * LEDs and corner buttons, smooth per-minute crossfade inside the effect.
+ * It also has an integrated Open-Meteo weather client (free, no API key) that:
+ *   - feeds the outdoor temperature to the WARM/COOL/HOT/COLD words, and
+ *   - applies a user-chosen preset when the weather state changes (e.g. a "rain" preset).
+ * Temperature can also be pushed via the JSON API ({"WordClock16x16":{"temp":N}}).
  */
 
 // A word is a horizontal run of letters: top-left cell (x,y) and length.
@@ -96,29 +100,10 @@ static const WCWord wcHour[13] = {
   {10,10, 6}, // 12 TWELVE
 };
 
-// Config/state mirrors, maintained by the usermod, read by the (free) effect function.
+// Config/state mirrors maintained by the usermod, read by the (free) effect function.
 static bool    wc16_showPeriod = true;
 static bool    wc16_showTemp   = false;   // light a temperature word on the bottom row
 static uint8_t wc16_tempBand   = 0;       // 0 none, 1 COLD, 2 COOL, 3 WARM, 4 HOT
-
-// Live temperature pathway (shared by the JSON API and the sensor bridge below).
-// Stored in the configured display unit; wc16_fahrenheit mirrors the unit config so the
-// Celsius bridge can convert on entry.
-static bool          wc16_fahrenheit = false;
-static float         wc16_liveTemp   = 0.0f;
-static bool          wc16_liveValid  = false;
-static unsigned long wc16_liveTime   = 0;
-
-// Weak-symbol bridge: a companion usermod (e.g. usermod_v2_weather_openmeteo) can push a
-// Celsius reading without a hard link dependency by declaring this symbol weak and calling
-// it only if present:
-//   extern "C" void wc16_setLiveTempC(float) __attribute__((weak));
-//   if (wc16_setLiveTempC) wc16_setLiveTempC(tempC);
-extern "C" void wc16_setLiveTempC(float celsius) {
-  wc16_liveTemp  = wc16_fahrenheit ? (celsius * 9.0f / 5.0f + 32.0f) : celsius;
-  wc16_liveValid = true;
-  wc16_liveTime  = millis();
-}
 
 // OR a word's cells into a 16-row bitmask (bit x of row y == cell lit).
 static inline void wcSet(uint16_t *mask, const WCWord &w) {
@@ -243,16 +228,18 @@ void mode_word_clock_16x16(void) {
 // Effect metadata: name @ <speed(hidden)>,<intensity="Background"> ; color1 ; palette ; 2D ; default ix=0
 static const char _data_FX_mode_word_clock_16x16[] PROGMEM = "Word Clock 16x16@,Background;!;!;2;ix=0";
 
-// ---- Usermod (thin wrapper: registers the effect + a tiny config) -------------
+// Weather states (index into preset table / state names). 0 = unknown.
+enum WxState : uint8_t { WX_UNKNOWN=0, WX_CLEAR, WX_CLOUDS, WX_FOG, WX_DRIZZLE, WX_RAIN, WX_SNOW, WX_THUNDER, WX_COUNT };
+
+// ---- Usermod: registers the effect, resolves temperature, drives weather/presets --
 class WordClock16x16Usermod : public Usermod {
   private:
     bool enabled    = true;
     bool showPeriod = true;
     bool initDone   = false;
 
-    // Temperature words. All temperature numbers below (thresholds, manual value, and
-    // the JSON-API "temp" value) are in the unit chosen by tempFahrenheit, so band
-    // selection is a plain numeric comparison and needs no conversion.
+    // Temperature words. All temperature numbers (thresholds, manualTemp, JSON-API "temp")
+    // are in the unit chosen by tempFahrenheit, so band selection is a plain comparison.
     bool  showTemp      = false;
     bool  tempFahrenheit= false;
     float thrColdCool   = 10.0f;  // below this -> COLD
@@ -260,10 +247,26 @@ class WordClock16x16Usermod : public Usermod {
     float thrWarmHot    = 27.0f;  // below this -> WARM, at/above -> HOT
     float manualTemp    = 20.0f;  // fallback when no live value is available
 
-    // Live value pushed via JSON API or the sensor bridge; falls back to manualTemp once stale.
+    // Live temperature (from Open-Meteo or the JSON API); falls back to manualTemp once stale.
     static constexpr unsigned long LIVE_TTL = 30UL * 60UL * 1000UL; // 30 min
     unsigned long lastEval  = 0;
     float         curTemp   = 0.0f;       // last resolved value (for the Info page)
+    float         liveTemp  = 0.0f;       // in the configured display unit
+    bool          liveValid = false;
+    unsigned long liveTime  = 0;
+
+    // Open-Meteo weather client.
+    bool     fetchWeather    = false;
+    bool     useWledLocation = true;
+    bool     weatherPresets  = false;
+    uint16_t fetchMinutes    = 15;
+    float    latOverride     = 0.0f;
+    float    lonOverride     = 0.0f;
+    uint8_t  preset[WX_COUNT]= {0,0,0,0,0,0,0,0}; // preset id per state (0 = none)
+    uint8_t  wxState         = WX_UNKNOWN;
+    uint8_t  lastApplied     = WX_UNKNOWN;
+    bool     firstFetchDone  = false;
+    unsigned long lastFetch  = 0;
 
     static const char _name[];
     static const char _enabled[];
@@ -274,6 +277,19 @@ class WordClock16x16Usermod : public Usermod {
     static const char _thrCoolWarm[];
     static const char _thrWarmHot[];
     static const char _manualTemp[];
+    static const char _fetch[];
+    static const char _useWled[];
+    static const char _interval[];
+    static const char _lat[];
+    static const char _lon[];
+    static const char _presets[];
+    static const char _pClear[];
+    static const char _pClouds[];
+    static const char _pFog[];
+    static const char _pDrizzle[];
+    static const char _pRain[];
+    static const char _pSnow[];
+    static const char _pThunder[];
 
     uint8_t bandFor(float t) const {
       if (!showTemp) return 0;
@@ -283,6 +299,74 @@ class WordClock16x16Usermod : public Usermod {
       return 4;                      // HOT
     }
 
+    void setTempCelsius(float c) {           // from Open-Meteo (always Celsius)
+      liveTemp = tempFahrenheit ? (c * 9.0f / 5.0f + 32.0f) : c;
+      liveValid = true; liveTime = millis();
+    }
+
+    float useLat() const { return useWledLocation ? latitude  : latOverride; }
+    float useLon() const { return useWledLocation ? longitude : lonOverride; }
+
+    static const char* stateName(uint8_t s) {
+      switch (s) {
+        case WX_CLEAR:   return "clear";
+        case WX_CLOUDS:  return "clouds";
+        case WX_FOG:     return "fog";
+        case WX_DRIZZLE: return "drizzle";
+        case WX_RAIN:    return "rain";
+        case WX_SNOW:    return "snow";
+        case WX_THUNDER: return "thunder";
+        default:         return "--";
+      }
+    }
+
+    // Map a WMO weather interpretation code to a weather state.
+    static uint8_t codeToState(int c) {
+      if (c <= 1)                       return WX_CLEAR;     // 0 clear, 1 mainly clear
+      if (c == 2 || c == 3)             return WX_CLOUDS;
+      if (c == 45 || c == 48)           return WX_FOG;
+      if (c >= 51 && c <= 57)           return WX_DRIZZLE;
+      if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82)) return WX_RAIN;
+      if ((c >= 71 && c <= 77) || c == 85 || c == 86)   return WX_SNOW;
+      if (c >= 95)                      return WX_THUNDER;   // 95,96,99
+      return WX_UNKNOWN;
+    }
+
+    void applyStatePreset() {
+      if (!weatherPresets || wxState == WX_UNKNOWN || wxState == lastApplied) return;
+      const uint8_t p = preset[wxState];
+      lastApplied = wxState;                 // remember even if 0, so we only act on changes
+      if (p > 0) applyPreset(p, CALL_MODE_DIRECT_CHANGE);
+    }
+
+    void fetch() {
+      const float la = useLat(), lo = useLon();
+      if (la == 0.0f && lo == 0.0f) return;  // location not set
+
+      WiFiClient client;                     // plain HTTP (Open-Meteo serves the API on :80)
+      HTTPClient http;
+      char url[176];
+      snprintf(url, sizeof(url),
+        "http://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&current=temperature_2m,weather_code",
+        la, lo);
+      if (!http.begin(client, url)) return;
+      http.setTimeout(5000);
+      if (http.GET() == HTTP_CODE_OK) {
+        String payload = http.getString();
+        StaticJsonDocument<128> filter;
+        filter["current"]["temperature_2m"] = true;
+        filter["current"]["weather_code"]   = true;
+        StaticJsonDocument<256> doc;
+        if (!deserializeJson(doc, payload, DeserializationOption::Filter(filter))) {
+          JsonVariant t = doc["current"]["temperature_2m"];
+          if (!t.isNull()) setTempCelsius(t.as<float>());
+          JsonVariant w = doc["current"]["weather_code"];
+          if (!w.isNull()) { wxState = codeToState(w.as<int>()); applyStatePreset(); }
+        }
+      }
+      http.end();
+    }
+
   public:
     void setup() override {
       if (enabled) {
@@ -290,19 +374,29 @@ class WordClock16x16Usermod : public Usermod {
       }
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
-      wc16_fahrenheit = tempFahrenheit;
       initDone = true;
     }
 
     void loop() override {
       if (!enabled) return;
       const unsigned long now = millis();
-      if (now - lastEval < 1000) return; // re-evaluate at most once per second
-      lastEval = now;
 
-      curTemp = (wc16_liveValid && (now - wc16_liveTime) < LIVE_TTL) ? wc16_liveTemp : manualTemp;
-      wc16_showTemp = showTemp;
-      wc16_tempBand = bandFor(curTemp);
+      // Resolve temperature -> band at most once per second.
+      if (now - lastEval >= 1000) {
+        lastEval = now;
+        curTemp = (liveValid && (now - liveTime) < LIVE_TTL) ? liveTemp : manualTemp;
+        wc16_showTemp = showTemp;
+        wc16_tempBand = bandFor(curTemp);
+      }
+
+      // Periodic Open-Meteo fetch (temperature + weather state/presets).
+      if (fetchWeather && WLED_CONNECTED) {
+        if (!firstFetchDone) {
+          if (now >= 30000) { fetch(); firstFetchDone = true; lastFetch = now; } // settle 30 s after boot
+        } else if (now - lastFetch >= (unsigned long)fetchMinutes * 60000UL) {
+          fetch(); lastFetch = now;
+        }
+      }
     }
 
     // Accept a temperature pushed via the JSON API, e.g.:
@@ -311,18 +405,18 @@ class WordClock16x16Usermod : public Usermod {
       JsonObject top = root[FPSTR(_name)];
       if (top.isNull()) return;
       float t;
-      if (getJsonValue(top[F("temp")], t)) { wc16_liveTemp = t; wc16_liveValid = true; wc16_liveTime = millis(); }
+      if (getJsonValue(top[F("temp")], t)) { liveTemp = t; liveValid = true; liveTime = millis(); }
     }
 
     void addToJsonInfo(JsonObject &root) override {
-      if (!showTemp) return;
+      if (!showTemp && !fetchWeather) return;
       JsonObject user = root[F("u")];
       if (user.isNull()) user = root.createNestedObject(F("u"));
       static const char *bandWord[] = {"-", "COLD", "COOL", "WARM", "HOT"};
-      char buf[24];
+      char buf[40];
       snprintf(buf, sizeof(buf), "%.1f%s %s", curTemp, tempFahrenheit ? "°F" : "°C",
-               bandWord[wc16_tempBand <= 4 ? wc16_tempBand : 0]);
-      JsonArray arr = user.createNestedArray(F("Word Clock temperature"));
+               fetchWeather ? stateName(wxState) : bandWord[wc16_tempBand <= 4 ? wc16_tempBand : 0]);
+      JsonArray arr = user.createNestedArray(F("Word Clock weather"));
       arr.add(buf);
     }
 
@@ -336,6 +430,19 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_thrCoolWarm)] = thrCoolWarm;
       top[FPSTR(_thrWarmHot)]  = thrWarmHot;
       top[FPSTR(_manualTemp)]  = manualTemp;
+      top[FPSTR(_fetch)]       = fetchWeather;
+      top[FPSTR(_useWled)]     = useWledLocation;
+      top[FPSTR(_interval)]    = fetchMinutes;
+      top[FPSTR(_lat)]         = latOverride;
+      top[FPSTR(_lon)]         = lonOverride;
+      top[FPSTR(_presets)]     = weatherPresets;
+      top[FPSTR(_pClear)]      = preset[WX_CLEAR];
+      top[FPSTR(_pClouds)]     = preset[WX_CLOUDS];
+      top[FPSTR(_pFog)]        = preset[WX_FOG];
+      top[FPSTR(_pDrizzle)]    = preset[WX_DRIZZLE];
+      top[FPSTR(_pRain)]       = preset[WX_RAIN];
+      top[FPSTR(_pSnow)]       = preset[WX_SNOW];
+      top[FPSTR(_pThunder)]    = preset[WX_THUNDER];
     }
 
     bool readFromConfig(JsonObject &root) override {
@@ -349,9 +456,22 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_thrCoolWarm)], thrCoolWarm);
       configComplete &= getJsonValue(top[FPSTR(_thrWarmHot)],  thrWarmHot);
       configComplete &= getJsonValue(top[FPSTR(_manualTemp)],  manualTemp);
+      configComplete &= getJsonValue(top[FPSTR(_fetch)],       fetchWeather);
+      configComplete &= getJsonValue(top[FPSTR(_useWled)],     useWledLocation);
+      configComplete &= getJsonValue(top[FPSTR(_interval)],    fetchMinutes);
+      configComplete &= getJsonValue(top[FPSTR(_lat)],         latOverride);
+      configComplete &= getJsonValue(top[FPSTR(_lon)],         lonOverride);
+      configComplete &= getJsonValue(top[FPSTR(_presets)],     weatherPresets);
+      configComplete &= getJsonValue(top[FPSTR(_pClear)],      preset[WX_CLEAR]);
+      configComplete &= getJsonValue(top[FPSTR(_pClouds)],     preset[WX_CLOUDS]);
+      configComplete &= getJsonValue(top[FPSTR(_pFog)],        preset[WX_FOG]);
+      configComplete &= getJsonValue(top[FPSTR(_pDrizzle)],    preset[WX_DRIZZLE]);
+      configComplete &= getJsonValue(top[FPSTR(_pRain)],       preset[WX_RAIN]);
+      configComplete &= getJsonValue(top[FPSTR(_pSnow)],       preset[WX_SNOW]);
+      configComplete &= getJsonValue(top[FPSTR(_pThunder)],    preset[WX_THUNDER]);
+      if (fetchMinutes < 1) fetchMinutes = 1;
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
-      wc16_fahrenheit = tempFahrenheit;
       return configComplete;
     }
 
@@ -363,7 +483,16 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:coldBelow', 1, 'COLD below, else COOL');"));
       oappend(F("addInfo('WordClock16x16:coolBelow', 1, 'COOL below, else WARM');"));
       oappend(F("addInfo('WordClock16x16:warmBelow', 1, 'WARM below, HOT at/above');"));
-      oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a value is pushed via JSON API');"));
+      oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a live value is available');"));
+      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, 'fetch temperature/weather from Open-Meteo');"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use Time-settings lat/lon (off = use below)');"));
+      oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, 'minutes between fetches');"));
+      oappend(F("addInfo('WordClock16x16:weatherPresets', 1, 'apply a preset when weather changes');"));
+      // Turn the per-state preset number fields into dropdowns populated from /presets.json.
+      oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder'];"
+                "for(var i=0;i<ks.length;i++){var dd=addDropdown('WordClock16x16',ks[i]);if(!dd)continue;addOption(dd,'None',0);"
+                "for(var p of Object.entries(j)){if(p[0]==='0')continue;var n=(p[1]&&p[1].n)?p[1].n:('Preset '+p[0]);addOption(dd,p[0]+': '+n,p[0]);}}}"
+                "fetch('/presets.json').then(function(r){return r.json();}).then(f).catch(function(){});})();"));
     }
 
     // No getId() override: this usermod needs no unique id (it isn't detected by other
@@ -380,6 +509,19 @@ const char WordClock16x16Usermod::_thrColdCool[] PROGMEM = "coldBelow";
 const char WordClock16x16Usermod::_thrCoolWarm[] PROGMEM = "coolBelow";
 const char WordClock16x16Usermod::_thrWarmHot[]  PROGMEM = "warmBelow";
 const char WordClock16x16Usermod::_manualTemp[]  PROGMEM = "manualTemp";
+const char WordClock16x16Usermod::_fetch[]       PROGMEM = "fetchWeather";
+const char WordClock16x16Usermod::_useWled[]     PROGMEM = "useWledLocation";
+const char WordClock16x16Usermod::_interval[]    PROGMEM = "fetchMinutes";
+const char WordClock16x16Usermod::_lat[]         PROGMEM = "latitude";
+const char WordClock16x16Usermod::_lon[]         PROGMEM = "longitude";
+const char WordClock16x16Usermod::_presets[]     PROGMEM = "weatherPresets";
+const char WordClock16x16Usermod::_pClear[]      PROGMEM = "presetClear";
+const char WordClock16x16Usermod::_pClouds[]     PROGMEM = "presetClouds";
+const char WordClock16x16Usermod::_pFog[]        PROGMEM = "presetFog";
+const char WordClock16x16Usermod::_pDrizzle[]    PROGMEM = "presetDrizzle";
+const char WordClock16x16Usermod::_pRain[]       PROGMEM = "presetRain";
+const char WordClock16x16Usermod::_pSnow[]       PROGMEM = "presetSnow";
+const char WordClock16x16Usermod::_pThunder[]    PROGMEM = "presetThunder";
 
 static WordClock16x16Usermod usermod_v2_word_clock_16x16;
 REGISTER_USERMOD(usermod_v2_word_clock_16x16);

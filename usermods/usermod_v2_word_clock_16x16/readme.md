@@ -60,16 +60,39 @@ When `showTemperature` is on, one of `COLD / COOL / WARM / HOT` is lit on the bo
 All temperature numbers — thresholds, `manualTemp`, and the JSON-API value — are in the
 unit chosen by `fahrenheit` (off = °C). Defaults are °C: 10 / 18 / 27.
 
-**Temperature source:** push a live value via the JSON API (state object), e.g.
+When a temperature word is shown, the `&` tile (bottom-left, LED 240) lights too.
+
+**Temperature source:** either the built-in Open-Meteo client (below), or push a live
+value via the JSON API (state object):
 ```json
 {"WordClock16x16":{"temp":22.5}}
 ```
-The live value is used for 30 min, then falls back to `manualTemp`. The current
-temperature + band is shown on the WLED **Info** page. The companion
-`usermod_v2_weather_openmeteo` feeds this temperature automatically (and can also switch
-presets on weather changes).
+The live value (whichever source) is used for 30 min, then falls back to `manualTemp`.
+The current temperature + weather state is shown on the WLED **Info** page.
 
-When a temperature word is shown, the `&` tile (bottom-left, LED 240) lights too.
+### Weather (Open-Meteo, built in)
+Turn on `fetchWeather` to pull the current outdoor temperature and condition from
+[Open-Meteo](https://open-meteo.com) (free, no API key) every `fetchMinutes` (default 15).
+Plain HTTP, so no TLS library / `lib_deps`.
+
+- **Location:** uses WLED **Time settings** lat/lon when `useWledLocation` is on, else the
+  `latitude`/`longitude` set here. `(0,0)` disables fetching.
+- **Weather → preset:** turn on `weatherPresets`, then map each weather state to a preset
+  (these fields are **dropdowns** of your saved presets, from `/presets.json`; 0 = none).
+  When the detected state changes, that preset is applied. WMO codes are grouped as:
+
+  | State | WMO codes | Setting |
+  | ----- | --------- | ------- |
+  | clear   | 0, 1         | `presetClear` |
+  | clouds  | 2, 3         | `presetClouds` |
+  | fog     | 45, 48       | `presetFog` |
+  | drizzle | 51–57        | `presetDrizzle` |
+  | rain    | 61–67, 80–82 | `presetRain` |
+  | snow    | 71–77, 85,86 | `presetSnow` |
+  | thunder | 95, 96, 99   | `presetThunder` |
+
+  The preset is applied only on a **change** of state (including the first reading after
+  boot). First fetch is ~30 s after boot once WiFi is up.
 
 ## Not yet implemented (future)
 - The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
