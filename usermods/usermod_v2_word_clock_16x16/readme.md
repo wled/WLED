@@ -115,6 +115,11 @@ Plain HTTP, so no TLS library / `lib_deps`.
   boot). First fetch is ~30 s after boot once WiFi is up. The Info page also shows the
   resolved **location** and **last-updated** time; a failed fetch retries after ~1 min.
 
+  To verify a mapping, use the **Test a weather preset** control at the bottom of the
+  usermod settings: pick a state and press **Apply now** — it force-applies that state's
+  preset (bypassing the change-only check). The same works via the JSON API:
+  `{"WordClock16x16":{"wxtest":5}}` (5 = rain; 1-11 in the table order above).
+
 ## Not yet implemented (future)
 - The 4 corner RGBW LEDs and 4 corner buttons — use **native WLED** config (extra LED
   output/bus + segment for the corners; WLED's button config for the inputs)

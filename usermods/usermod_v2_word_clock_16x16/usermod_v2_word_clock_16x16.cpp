@@ -277,6 +277,7 @@ class WordClock16x16Usermod : public Usermod {
     uint8_t  lastApplied     = WX_UNKNOWN;
     bool     firstFetchDone  = false;
     bool     forceFetch      = false;             // "Update now" request
+    uint8_t  pendingTest     = 0;                 // force-apply this state's preset (test)
     bool     lastTryFailed   = false;             // last fetch failed -> retry sooner
     unsigned long lastFetch  = 0;                 // last attempt
     unsigned long lastOkMs   = 0;                 // last successful weather parse
@@ -510,6 +511,13 @@ class WordClock16x16Usermod : public Usermod {
         wc16_tempBand = bandFor(curTemp);
       }
 
+      // Force-apply a weather state's preset for testing (bypasses the change check).
+      if (pendingTest) {
+        const uint8_t s = pendingTest; pendingTest = 0;
+        wxState = s; lastApplied = s; everOk = true;
+        if (preset[s] > 0) applyPreset(preset[s], CALL_MODE_DIRECT_CHANGE);
+      }
+
       if (!WLED_CONNECTED) return;
 
       // "Update now" request (from the settings button / JSON API).
@@ -534,6 +542,8 @@ class WordClock16x16Usermod : public Usermod {
       float t;
       if (getJsonValue(top[F("temp")], t)) { liveTemp = t; liveValid = true; liveTime = millis(); }
       if (top[F("update")].as<bool>()) forceFetch = true;
+      int n;
+      if (getJsonValue(top[F("wxtest")], n) && n >= 1 && n < WX_COUNT) pendingTest = (uint8_t)n;
     }
 
     void addToJsonInfo(JsonObject &root) override {
@@ -656,28 +666,52 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     void appendConfigData() {
-      oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot required to (un)register effect');"));
-      oappend(F("addInfo('WordClock16x16:showPeriodOfDay', 1, 'light MORNING/AFTERNOON/EVENING/NIGHT');"));
-      oappend(F("addInfo('WordClock16x16:showTemperature', 1, 'light WARM/COOL/HOT/COLD on bottom row');"));
-      oappend(F("addInfo('WordClock16x16:fahrenheit', 1, 'thresholds & values in F (off = C)');"));
+      // ---- styling ------------------------------------------------------------
+      oappend(F("(function(){var s=document.createElement('style');s.innerHTML="
+                "'.wc16h{margin:18px 0 6px;padding-bottom:3px;font-weight:600;color:#4aa3ff;border-bottom:1px solid #2c2c2c;letter-spacing:.3px}'"
+                "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:9px 11px;margin:6px 0;display:block;line-height:1.7}'"
+                "+'#um button{cursor:pointer;border-radius:6px;padding:3px 10px}';document.head.appendChild(s);})();"));
+
+      // ---- concise field help -------------------------------------------------
+      oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot to (un)register the effect');"));
       oappend(F("addInfo('WordClock16x16:coldBelow', 1, 'COLD below, else COOL');"));
       oappend(F("addInfo('WordClock16x16:coolBelow', 1, 'COOL below, else WARM');"));
       oappend(F("addInfo('WordClock16x16:warmBelow', 1, 'WARM below, HOT at/above');"));
-      oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a live value is available');"));
-      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, 'fetch temperature/weather from Open-Meteo');"));
-      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'use Time-settings lat/lon; falls back to Place if unset');"));
-      oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, 'minutes between fetches');"));
-      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (state after a comma is ignored; use ZIP if ambiguous)');"));
+      oappend(F("addInfo('WordClock16x16:manualTemp', 1, 'used until a live value arrives');"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'falls back to Place if WLED coords unset');"));
+      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (\", State\" ignored; ZIP if ambiguous)');"));
       oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
-      oappend(F("addInfo('WordClock16x16:weatherPresets', 1, 'apply a preset when weather changes');"));
-      oappend(F("addInfo('WordClock16x16:heatAbove', 1, 'HEAT when clear/cloudy and temp at/above this');"));
-      oappend(F("addInfo('WordClock16x16:windAbove', 1, 'WIND when clear/cloudy and gust (km/h) at/above this');"));
-      // Live status panel + "Update now" button (reads /json/info, posts an update request).
-      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat' style='margin:6px 0;opacity:.85'>loading current weather...</div>\");"));
+      oappend(F("addInfo('WordClock16x16:heatAbove', 1, 'on clear/cloudy skies only');"));
+      oappend(F("addInfo('WordClock16x16:windAbove', 1, 'gust km/h, clear/cloudy skies only');"));
+
+      // ---- section headers + friendlier labels --------------------------------
+      oappend(F("wc16sec=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
+                "var f=a[0],r=f.previousSibling;var h=document.createElement('div');h.className='wc16h';h.textContent=t;"
+                "f.parentNode.insertBefore(h,(r&&r.nodeType===3)?r:f);};"));
+      oappend(F("wc16lbl=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
+                "var r=a[0].previousSibling;if(r&&r.nodeType===3)r.textContent=' '+t+' ';};"));
+      oappend(F("wc16sec('enabled','Display');wc16sec('showTemperature','Temperature words');"
+                "wc16sec('fetchWeather','Weather (Open-Meteo)');wc16sec('useWledLocation','Location');"
+                "wc16sec('weatherPresets','Weather \\u2192 Presets');"));
+      oappend(F("wc16lbl('enabled','Enabled');wc16lbl('showPeriodOfDay','Period of day');"
+                "wc16lbl('showTemperature','Temperature words');wc16lbl('fahrenheit','Use \\u00B0F');"
+                "wc16lbl('coldBelow','Cold below');wc16lbl('coolBelow','Cool below');wc16lbl('warmBelow','Warm below');"
+                "wc16lbl('manualTemp','Manual temp');"));
+      oappend(F("wc16lbl('fetchWeather','Fetch weather');wc16lbl('useWledLocation','Use WLED location');"
+                "wc16lbl('fetchMinutes','Every (min)');wc16lbl('place','Place');wc16lbl('latitude','Latitude');"
+                "wc16lbl('longitude','Longitude');wc16lbl('weatherPresets','Enable presets');"
+                "wc16lbl('heatAbove','Heat above');wc16lbl('windAbove','Wind gust above');"));
+      oappend(F("wc16lbl('presetClear','Clear');wc16lbl('presetClouds','Clouds');wc16lbl('presetFog','Fog');"
+                "wc16lbl('presetDrizzle','Drizzle');wc16lbl('presetRain','Rain');wc16lbl('presetSnow','Snow');"
+                "wc16lbl('presetThunder','Thunder');wc16lbl('presetIce','Ice');wc16lbl('presetHail','Hail');"
+                "wc16lbl('presetHeat','Heat');wc16lbl('presetWind','Wind');"));
+
+      // ---- live status panel + "Update now" -----------------------------------
+      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
       oappend(F("wc16refresh=function(){fetch('/json/info').then(function(r){return r.json();}).then(function(j){"
                 "var u=(j&&j.u)||{};function g(k){var a=u[k];return a?(Array.isArray(a)?a.join(''):a):'-';}"
                 "var e=document.getElementById('wc16stat');if(!e)return;"
-                "e.innerHTML='&#127777; '+g('Word Clock temperature')+' &nbsp; &#128167; '+g('Word Clock humidity')+"
+                "e.innerHTML='&#127777;&#65039; '+g('Word Clock temperature')+' &nbsp; &#128167; '+g('Word Clock humidity')+"
                 "' &nbsp; '+g('Word Clock condition')+'<br>&#128205; '+g('Word Clock location')+"
                 "' &nbsp; &#128260; '+g('Word Clock updated');}).catch(function(){"
                 "var e=document.getElementById('wc16stat');if(e)e.innerHTML='(status unavailable)';});};"));
@@ -686,11 +720,22 @@ class WordClock16x16Usermod : public Usermod {
                 ".then(function(){setTimeout(wc16refresh,3000);setTimeout(wc16refresh,7000);}).catch(function(){var e=document.getElementById('wc16stat');if(e)e.innerHTML='request failed';});};"));
       oappend(F("addInfo('WordClock16x16:fetchMinutes', 1, \"&nbsp;<button type='button' onclick='wc16upd()'>Update now</button>\");"));
       oappend(F("setTimeout(wc16refresh,300);"));
-      // Turn the per-state preset number fields into dropdowns populated from /presets.json.
+
+      // ---- per-state preset dropdowns (populated from /presets.json) -----------
       oappend(F("(function(){function f(j){var ks=['presetClear','presetClouds','presetFog','presetDrizzle','presetRain','presetSnow','presetThunder','presetIce','presetHail','presetHeat','presetWind'];"
                 "for(var i=0;i<ks.length;i++){var dd=addDropdown('WordClock16x16',ks[i]);if(!dd)continue;addOption(dd,'None',0);"
                 "for(var p of Object.entries(j)){if(p[0]==='0')continue;var n=(p[1]&&p[1].n)?p[1].n:('Preset '+p[0]);addOption(dd,p[0]+': '+n,p[0]);}}}"
                 "fetch('/presets.json').then(function(r){return r.json();}).then(f).catch(function(){});})();"));
+
+      // ---- "Test preset" control: force-apply a weather state's preset --------
+      oappend(F("(function(){var a=d.getElementsByName('WordClock16x16:presetWind');if(!a.length)return;var anchor=a[a.length-1];"
+                "var w=document.createElement('div');w.className='wc16card';w.appendChild(document.createTextNode('Test a weather preset: '));"
+                "var sel=document.createElement('select');var st='clear clouds fog drizzle rain snow thunder ice hail heat wind'.split(' ');"
+                "for(var i=0;i<st.length;i++){var o=document.createElement('option');o.text=st[i];o.value=i+1;sel.appendChild(o);}"
+                "w.appendChild(sel);w.appendChild(document.createTextNode(' '));"
+                "var b=document.createElement('button');b.type='button';b.textContent='Apply now';"
+                "b.onclick=function(){fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"wxtest\":'+sel.value+'}}'});};"
+                "w.appendChild(b);anchor.insertAdjacentElement('afterend',w);})();"));
     }
 
     // No getId() override: this usermod needs no unique id (it isn't detected by other
