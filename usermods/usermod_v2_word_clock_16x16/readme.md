@@ -57,13 +57,14 @@ When `showTemperature` is on, one of `COLD / COOL / WARM / HOT` is lit on the bo
 | WARM | `coolBelow ≤ temp < warmBelow` |
 | HOT  | `temp ≥ warmBelow` |
 
-All temperature numbers — thresholds, `manualTemp`, and the JSON-API value — are in the
-unit chosen by `fahrenheit` (off = °C). Defaults are °C: 10 / 18 / 27.
+All temperature numbers — thresholds, `manualTemp`, and the JSON-API value — are in **°C**
+(defaults 10 / 18 / 27). The `fahrenheit` option only changes how the temperature is shown
+on the Info page; it does **not** change the threshold units.
 
 When a temperature word is shown, the `&` tile (bottom-left, LED 240) lights too.
 
 **Temperature source:** either the built-in Open-Meteo client (below), or push a live
-value via the JSON API (state object):
+value (°C) via the JSON API (state object):
 ```json
 {"WordClock16x16":{"temp":22.5}}
 ```
@@ -74,6 +75,20 @@ The current temperature + weather state is shown on the WLED **Info** page.
 Turn on `fetchWeather` to pull the current outdoor temperature and condition from
 [Open-Meteo](https://open-meteo.com) (free, no API key) every `fetchMinutes` (default 15).
 Plain HTTP, so no TLS library / `lib_deps`.
+
+> **HTTPS is not available on this firmware.** The WLED ESP32 framework
+> (Tasmota's platform-espressif32) is built with mbedTLS **TLS disabled**
+> (`CONFIG_MBEDTLS_TLS_DISABLED=y`) and ships no `WiFiClientSecure`, so a usermod cannot
+> make HTTPS requests on-device. That's why Open-Meteo (which serves the API over plain
+> **HTTP**) is used. HTTPS-only sources such as **NWS / api.weather.gov** can't be queried
+> directly here — to use observed conditions, push them in via the JSON API from an external
+> system (e.g. Home Assistant's NWS integration → `{"WordClock16x16":{"temp":..}}`), or run
+> a local HTTP→HTTPS proxy. (On-device HTTPS would require rebuilding the framework with TLS
+> enabled.)
+
+> **Open-Meteo accuracy:** its `weather_code` is a *forecast model* value and can disagree
+> with the observed sky (e.g. report a thunderstorm on a clear day). For exact current
+> conditions, use the JSON-API push noted above.
 
 - **Location** precedence: WLED **Time settings** lat/lon (when `useWledLocation` is on *and*
   actually set) → **`place`** (city or ZIP, geocoded via Open-Meteo) → manual
@@ -105,11 +120,14 @@ Plain HTTP, so no TLS library / `lib_deps`.
   | hail    | WMO 96, 99 (thunderstorm w/ hail) | `presetHail` |
   | heat    | temp ≥ `heatAbove` on clear/cloudy skies | `presetHeat` |
   | wind    | gust ≥ `windAbove` km/h on clear/cloudy skies | `presetWind` |
+  | severe  | tornado / hurricane / tropical (not from Open-Meteo) | `presetSevere` |
 
   `heat` and `wind` are *derived* states (Oklahoma heat waves / high wind) and only
   override otherwise calm (clear/cloudy) conditions, so storms still win. `heatAbove` is in
-  the configured unit (default 35 °C); `windAbove` is wind-gust km/h (default 60).
-  Tornado has no weather code, so it can't be auto-detected.
+  **°C** (default 35); `windAbove` is wind-gust km/h (default 60).
+  `severe` has no Open-Meteo source (no WMO code for tornado), so it is only reached via the
+  Test picker or a JSON-API push (`{"WordClock16x16":{"wxtest":12}}`) — e.g. from Home
+  Assistant when a severe alert is active.
 
   The preset is applied on a **change** of state, and is also (re)applied on every WiFi
   **(re)connect** — so after boot the current weather's preset is set automatically (a few
