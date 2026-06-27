@@ -31,6 +31,9 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
      the matrix).
    - The **Background** slider (intensity) optionally lights all letters faintly behind
      the active phrase (0 = classic all-off look).
+   - Minute-to-minute changes **crossfade** using the WLED **Transition** time (the
+     "Transition: x.x s" control), so words fade in/out instead of snapping. Set the
+     transition to 0 for instant changes.
 4. Usermod settings: `enabled` (registers the effect; reboot to apply) and
    `showPeriodOfDay` (toggle the MORNING/AFTERNOON/EVENING/NIGHT words).
 

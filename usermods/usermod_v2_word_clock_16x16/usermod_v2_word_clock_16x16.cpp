@@ -157,12 +157,26 @@ void mode_word_clock_16x16(void) {
   const int h24 = hour(localTime);
   const int m   = minute(localTime);
 
-  // Recompute the letter map only when the minute changes (cache in aux0).
-  static uint16_t mask[16];
+  // Recompute the letter map only when the minute changes. On a change we keep the
+  // previous map and crossfade to the new one over the segment's transition time, so
+  // minute-to-minute changes fade in/out like a normal effect transition.
+  static uint16_t curMask[16];
+  static uint16_t prevMask[16];
+  static unsigned long transStart = 0;
   const uint16_t stamp = (uint16_t)(h24 * 60 + m);
   if (SEGENV.call == 0 || SEGENV.aux0 != stamp) {
-    wcBuildMask(mask, h24, m);
+    for (int y = 0; y < 16; y++) prevMask[y] = (SEGENV.call == 0) ? 0 : curMask[y];
+    wcBuildMask(curMask, h24, m);
+    transStart = strip.now;
     SEGENV.aux0 = stamp;
+  }
+
+  // Crossfade progress 0..255 driven by the segment/global transition setting.
+  const uint16_t dur = strip.getTransition();
+  uint8_t prog = 255;
+  if (dur > 0) {
+    const unsigned long el = strip.now - transStart;
+    prog = (el >= dur) ? 255 : (uint8_t)((el * 255) / dur);
   }
 
   const bool usePalette = SEGMENT.palette;
@@ -170,17 +184,18 @@ void mode_word_clock_16x16(void) {
   const int span = (cols * rows) > 0 ? (cols * rows) : 1;
 
   for (int y = 0; y < rows; y++) {
-    const uint16_t rowMask = (y < 16) ? mask[y] : 0;
+    const uint16_t curRow  = (y < 16) ? curMask[y]  : 0;
+    const uint16_t prevRow = (y < 16) ? prevMask[y] : 0;
     for (int x = 0; x < cols; x++) {
-      const bool on = (x < 16) && (rowMask & (uint16_t)(1u << x));
-      uint32_t col = 0;
-      if (on || bg) {
-        uint32_t base = usePalette
-          ? SEGMENT.color_from_palette((uint16_t)((x + y * cols) * 255 / span), true, false, 0)
-          : SEGCOLOR(0);
-        col = on ? base : color_fade(base, bg >> 2, true); // background capped to ~1/4 brightness
-      }
-      SEGMENT.setPixelColorXY(x, y, col);
+      const bool nowOn = (x < 16) && (curRow  & (uint16_t)(1u << x));
+      const bool wasOn = (x < 16) && (prevRow & (uint16_t)(1u << x));
+      uint32_t base = usePalette
+        ? SEGMENT.color_from_palette((uint16_t)((x + y * cols) * 255 / span), true, false, 0)
+        : SEGCOLOR(0);
+      const uint32_t bgCol = bg ? color_fade(base, bg >> 2, true) : 0; // background ~1/4 brightness
+      const uint32_t from = wasOn ? base : bgCol;
+      const uint32_t to   = nowOn ? base : bgCol;
+      SEGMENT.setPixelColorXY(x, y, (from == to) ? to : color_blend(from, to, prog));
     }
   }
 }
