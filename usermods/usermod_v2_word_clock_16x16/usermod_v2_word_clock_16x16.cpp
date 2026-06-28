@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+// usermod_v2_word_clock_16x16 — MIT © Austin St. Aubin
 #include "wled.h"
 #ifdef ESP8266
   #include <ESP8266HTTPClient.h>

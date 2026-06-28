@@ -1,5 +1,5 @@
 # Wordclock MK2 | WLED 16x16 w/ ESP32
-**Version:** 1.1.0 · **Updated:** 2026-06-27 · **Author:** Austin St. Aubin <austinsaintaubin@gmail.com>
+**Version:** 1.1.0 | **Updated:** 2026-06-27 | **Author:** Austin St. Aubin <austinsaintaubin@gmail.com> | **License:** MIT
 
 This usermod adds an **Effect** named **"Word Clock 16x16"** to WLED. Because it is a
 regular effect (not an overlay like the older `usermod_v2_word_clock`), it can be
@@ -15,17 +15,16 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 ---
 
 ## Resources
-- NAS-00:/hardware/X-Carve/Projects/2017/Word Clock
 - [Wordclock MK1 - w/ Text Shift / Rotation (Adobe Illistrator)](https://docs.google.com/spreadsheets/d/1PluM_poY26YVuXqRocmyo1mvG5tT44V26rKZcX5UzbI/edit?gid=0#gid=0)
-- [Wordclock MK1 (Arduino w/ Firmata /w NeoPixel & Raspberry Pi Zero w/ Node-RED) - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
-- [Wordclock MK1 (16x16)](https://easel.com/projects/LeV5aEw0NV_JYsKv2mjWpw)
+- [Wordclock MK1 - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
+- [Wordclock MK1 (16x16) - Inventables Easel](https://easel.com/projects/LeV5aEw0NV_JYsKv2mjWpw)
 
 ## Hardware
-- Controller: Wemos Lolin32 w/ SSD1306 64x128 [its what I had on-hand... recommend newer esp32 controllers]
+- Controller: Wemos Lolin32 w/ SSD1306 64x128 (its what I had on-hand... recommend newer esp32 controllers)
 - LED Strips: 256x + 4x WS2814 RGBW (GRB)
-- Buttons: [TTP223 Touch Button Module Capacitor Type Single Channel Self Locking Touch Switch Sensor](https://www.aliexpress.us/item/2255800354323887.html?spm=a2g0o.order_list.order_list_main.30.355f1802ls0WWI&gatewayAdapt=glo2usa4itemAdapt)
+- Buttons: TTP223 Touch Button Module (capacitive, single-channel; "self-locking" / latching variant)
 - Sensors: 
-  - [HTU21D BMP180 BH1750FVI 3 IN 1 Temperature Humidity Pressure Light Sensor Triad Module](https://www.alibaba.com/product-detail/HTU21D-BMP180-BH1750FVI-3-IN-1_1600572222151.html)
+  - HTU21D BMP180 BH1750FVI 3 IN 1 Temperature Humidity Pressure Light Sensor Triad Module
 
 ---
 
@@ -139,6 +138,10 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 A ready-to-copy [`platformio_override.sample.ini`](platformio_override.sample.ini) is included
 (size-trim flags, optional OLED, the `WC16_DEFAULT_TRANSITION_MS` example, NTP/timezone, and an
 OTA upload env) — copy it to the repo root as `platformio_override.ini` and adjust.
+
+An example preset set [`wled_presets.example.json`](wled_presets.example.json) is also included
+(a "Wordclock" preset plus the per-weather presets the table maps to) — import it via WLED's
+**Presets → Backup/Restore** to get a working starting point.
 
 ## Usage
 
@@ -285,3 +288,8 @@ Setup:
 The LED is lit (via `handleOverlayDraw`, scaled by master brightness) only while
 `isButtonPressed()` is true for that button, so momentary and self-locking touch buttons both
 work; when released it returns to its normal output.
+
+---
+
+## License
+MIT © Austin St. Aubin. See `SPDX-License-Identifier: MIT` in the source.

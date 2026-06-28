@@ -1,0 +1,4803 @@
+{
+    "0": {},
+    "1": {
+        "mainseg": 0,
+        "n": "Wordclock",
+        "ql": "wc",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "100": {
+        "mainseg": 0,
+        "n": "Matrix",
+        "ql": "mx",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 70,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 153,
+                "grp": 1,
+                "id": 0,
+                "ix": 255,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 145,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        14,
+                        190,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 88,
+                "grp": 1,
+                "id": 1,
+                "ix": 171,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 96,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "2": {
+        "mainseg": 0,
+        "n": "Wordclock Matrix",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 13,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        255,
+                        65,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 88,
+                "grp": 1,
+                "id": 1,
+                "ix": 171,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 96,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 80,
+                "c1": 70,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 153,
+                "grp": 1,
+                "id": 2,
+                "ix": 255,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 35,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 145,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "20": {
+        "mainseg": 3,
+        "n": "Word: KISS",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 88,
+                "grp": 1,
+                "id": 3,
+                "ix": 224,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "KISS",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 2,
+                "startY": 0,
+                "stop": 6,
+                "stopY": 1,
+                "sx": 96,
+                "tp": false
+            }
+        ]
+    },
+    "250": {
+        "n": "DEMO",
+        "on": true,
+        "playlist": {
+            "dur": [
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50,
+                50
+            ],
+            "end": 1,
+            "ps": [
+                100,
+                2,
+                3,
+                5,
+                4,
+                48,
+                47,
+                42,
+                41,
+                46,
+                49,
+                44,
+                45,
+                50,
+                20
+            ],
+            "r": 0,
+            "repeat": 1,
+            "transition": [
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18,
+                18
+            ]
+        }
+    },
+    "3": {
+        "mainseg": 2,
+        "n": "Wordclock Fire",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 11,
+                "c1": 110,
+                "c2": 50,
+                "c3": 31,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 188,
+                "grp": 1,
+                "id": 2,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": true,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 35,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 110,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "4": {
+        "mainseg": 0,
+        "n": "Wordclock Pride",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 11,
+                "c1": 0,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 65,
+                "grp": 1,
+                "id": 2,
+                "ix": 112,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": true,
+                "o2": false,
+                "o3": true,
+                "of": 0,
+                "on": true,
+                "pal": 11,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "41": {
+        "mainseg": 2,
+        "n": "Wordclock ~ Rain",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 29,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        0,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 96,
+                "grp": 1,
+                "id": 2,
+                "ix": 255,
+                "lc": 3,
+                "m12": 1,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 66,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "42": {
+        "mainseg": 2,
+        "n": "Wordclock ~ Drizzle",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 15,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        0,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 96,
+                "grp": 1,
+                "id": 2,
+                "ix": 34,
+                "lc": 3,
+                "m12": 1,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 76,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "43": {
+        "mainseg": 2,
+        "n": "Wordclock ~ Fog",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 27,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        255,
+                        255,
+                        0
+                    ],
+                    [
+                        255,
+                        0,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 124,
+                "grp": 1,
+                "id": 2,
+                "ix": 75,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 176,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "44": {
+        "mainseg": 2,
+        "n": "Wordclock ~ Clouds",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 10,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        186,
+                        187,
+                        255,
+                        180
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 54,
+                "grp": 1,
+                "id": 2,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 6,
+                "sx": 187,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "45": {
+        "mainseg": 3,
+        "n": "Wordclock ~ Snow",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 47,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        255,
+                        251,
+                        162
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 96,
+                "grp": 1,
+                "id": 2,
+                "ix": 132,
+                "lc": 3,
+                "m12": 1,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 14,
+                "sx": 0,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 51,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        255,
+                        251,
+                        162
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 0,
+                "grp": 1,
+                "id": 3,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 2",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 14,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "46": {
+        "mainseg": 2,
+        "n": "Wordclock ~ Thunderstorm",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 15,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        0,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 96,
+                "grp": 1,
+                "id": 2,
+                "ix": 105,
+                "lc": 3,
+                "m12": 1,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 76,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 29,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        56,
+                        63,
+                        63,
+                        255
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 1,
+                "grp": 1,
+                "id": 3,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 2",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 0,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "47": {
+        "mainseg": 3,
+        "n": "Wordclock ~ Windy",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 34,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        171,
+                        233,
+                        255,
+                        180
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 54,
+                "grp": 1,
+                "id": 2,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 5,
+                "sx": 255,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 51,
+                "c1": 2,
+                "c2": 18,
+                "c3": 6,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        235,
+                        244,
+                        255
+                    ],
+                    [
+                        41,
+                        255,
+                        73,
+                        251
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 194,
+                "grp": 1,
+                "id": 3,
+                "ix": 70,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 2",
+                "o1": true,
+                "o2": false,
+                "o3": false,
+                "of": 8,
+                "on": true,
+                "pal": 4,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 6,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 74,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "48": {
+        "mainseg": 3,
+        "n": "Wordclock ~ Heatwave",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 11,
+                "c1": 86,
+                "c2": 33,
+                "c3": 31,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 188,
+                "grp": 1,
+                "id": 2,
+                "ix": 170,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay Fire",
+                "o1": true,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 35,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 10,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 78,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 35,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 166,
+                "grp": 1,
+                "id": 3,
+                "ix": 189,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay Sun",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 12,
+                "sx": 82,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "49": {
+        "mainseg": 4,
+        "n": "Wordclock ~ Hail",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 29,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        0,
+                        0,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 96,
+                "grp": 1,
+                "id": 2,
+                "ix": 138,
+                "lc": 3,
+                "m12": 1,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay Rain",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 66,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 51,
+                "c1": 40,
+                "c2": 130,
+                "c3": 2,
+                "cct": 127,
+                "col": [
+                    [
+                        18,
+                        204,
+                        255,
+                        112
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 195,
+                "grp": 1,
+                "id": 3,
+                "ix": 24,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay Hail",
+                "o1": false,
+                "o2": false,
+                "o3": true,
+                "of": 0,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 80,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 79,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        255,
+                        255,
+                        146
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 54,
+                "grp": 1,
+                "id": 4,
+                "ix": 33,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay Clouds",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 3,
+                "sx": 168,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "5": {
+        "mainseg": 1,
+        "n": "Wordclock Candle",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 6,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 102,
+                "grp": 1,
+                "id": 2,
+                "ix": 224,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 96,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "50": {
+        "mainseg": 3,
+        "n": "Wordclock ~ Ice",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 47,
+                "c1": 0,
+                "c2": 0,
+                "c3": 31,
+                "cct": 127,
+                "col": [
+                    [
+                        54,
+                        178,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 188,
+                "grp": 1,
+                "id": 2,
+                "ix": 79,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": true,
+                "o2": false,
+                "o3": false,
+                "of": 11,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": true,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 6,
+                "sx": 0,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 48,
+                "c1": 128,
+                "c2": 128,
+                "c3": 31,
+                "cct": 127,
+                "col": [
+                    [
+                        54,
+                        178,
+                        255,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 102,
+                "grp": 1,
+                "id": 3,
+                "ix": 224,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 2",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 2,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 15,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 96,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "7": {
+        "mainseg": 2,
+        "n": "Wordclock DNA",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 152,
+                "grp": 1,
+                "id": 2,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    },
+    "8": {
+        "mainseg": 3,
+        "n": "Wordclock Trippy",
+        "seg": [
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 0,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Matrix",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 1,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 0,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 142,
+                "grp": 1,
+                "id": 1,
+                "ix": 0,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Corners",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": false,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 256,
+                "startY": 0,
+                "stop": 260,
+                "stopY": 1,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "bm": 11,
+                "bri": 255,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        153,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 124,
+                "grp": 1,
+                "id": 2,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 1",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": false,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 75,
+                "tp": false
+            },
+            {
+                "bm": 10,
+                "bri": 13,
+                "c1": 128,
+                "c2": 128,
+                "c3": 16,
+                "cct": 127,
+                "col": [
+                    [
+                        255,
+                        160,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ],
+                    [
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                ],
+                "frz": false,
+                "fx": 124,
+                "grp": 1,
+                "id": 3,
+                "ix": 128,
+                "lc": 3,
+                "m12": 0,
+                "mi": false,
+                "mY": false,
+                "n": "Overlay 2",
+                "o1": false,
+                "o2": false,
+                "o3": false,
+                "of": 0,
+                "on": true,
+                "pal": 0,
+                "rev": false,
+                "rY": false,
+                "sel": true,
+                "set": 0,
+                "si": 0,
+                "spc": 0,
+                "start": 0,
+                "startY": 0,
+                "stop": 16,
+                "stopY": 16,
+                "sx": 128,
+                "tp": false
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            },
+            {
+                "stop": 0
+            }
+        ]
+    }
+}
