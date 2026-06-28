@@ -677,14 +677,16 @@ class WordClock16x16Usermod : public Usermod {
 
     void addToConfig(JsonObject &root) override {
       JsonObject top = root.createNestedObject(FPSTR(_name));
+      // Order here = settings render order: Display, Corner buttons, Weather, Location,
+      // Weather->Presets, Temperature words.
       top[FPSTR(_enabled)]     = enabled;
       top[FPSTR(_showPeriod)]  = showPeriod;
-      top[FPSTR(_showTemp)]    = showTemp;
-      top[FPSTR(_fahrenheit)]  = tempFahrenheit;
-      top[FPSTR(_thrColdCool)] = thrColdCool;
-      top[FPSTR(_thrCoolWarm)] = thrCoolWarm;
-      top[FPSTR(_thrWarmHot)]  = thrWarmHot;
-      top[FPSTR(_manualTemp)]  = manualTemp;
+      top[F("cornerLeds")]     = cornerLeds;
+      top[F("cornerColor")]    = cornerColorHex;
+      top[F("cbBtn0")] = cbBtn[0]; top[F("cbLed0")] = cbLed[0];
+      top[F("cbBtn1")] = cbBtn[1]; top[F("cbLed1")] = cbLed[1];
+      top[F("cbBtn2")] = cbBtn[2]; top[F("cbLed2")] = cbLed[2];
+      top[F("cbBtn3")] = cbBtn[3]; top[F("cbLed3")] = cbLed[3];
       top[FPSTR(_fetch)]       = fetchWeather;
       top[FPSTR(_interval)]    = fetchMinutes;
       top[FPSTR(_useWled)]     = useWledLocation;
@@ -706,12 +708,12 @@ class WordClock16x16Usermod : public Usermod {
       top[FPSTR(_pHeat)]       = preset[WX_HEAT];
       top[FPSTR(_pWind)]       = preset[WX_WIND];
       top[FPSTR(_pSevere)]     = preset[WX_SEVERE];
-      top[F("cornerLeds")]     = cornerLeds;
-      top[F("cornerColor")]    = cornerColorHex;
-      top[F("cbBtn0")] = cbBtn[0]; top[F("cbLed0")] = cbLed[0];
-      top[F("cbBtn1")] = cbBtn[1]; top[F("cbLed1")] = cbLed[1];
-      top[F("cbBtn2")] = cbBtn[2]; top[F("cbLed2")] = cbLed[2];
-      top[F("cbBtn3")] = cbBtn[3]; top[F("cbLed3")] = cbLed[3];
+      top[FPSTR(_showTemp)]    = showTemp;
+      top[FPSTR(_fahrenheit)]  = tempFahrenheit;
+      top[FPSTR(_thrColdCool)] = thrColdCool;
+      top[FPSTR(_thrCoolWarm)] = thrCoolWarm;
+      top[FPSTR(_thrWarmHot)]  = thrWarmHot;
+      top[FPSTR(_manualTemp)]  = manualTemp;
     }
 
     bool readFromConfig(JsonObject &root) override {
@@ -764,13 +766,14 @@ class WordClock16x16Usermod : public Usermod {
       // ---- styling ------------------------------------------------------------
       oappend(F("(function(){var s=document.createElement('style');s.innerHTML="
                 "'.wc16h{margin:18px 14px 6px;padding-bottom:2px;font-weight:600;color:#4aa3ff;border-bottom:1px solid #2c2c2c;letter-spacing:.3px}'"
-                "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:8px 10px;margin:6px 14px;display:block;line-height:1.6}'"
+                "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:8px 10px;margin:4px 14px;display:block;line-height:1.6}'"
                 "+'#um button{cursor:pointer;border-radius:6px;padding:2px 9px}'"
                 "+'.wc16tbl{border-collapse:collapse;margin:4px 14px}'"
                 "+'.wc16tbl th,.wc16tbl td{padding:3px 12px 3px 0;text-align:left;vertical-align:middle}'"
                 "+'.wc16tbl th{color:#4aa3ff;font-weight:600;border-bottom:1px solid #2c2c2c}'"
-                "+'.wc16tbl input,.wc16tbl select{margin:0;vertical-align:middle;height:26px;box-sizing:border-box}'"
-                "+'.wc16tbl input{width:74px}'"
+                "+'.wc16tbl select,.wc16tbl input:not([type=checkbox]){margin:0;vertical-align:middle;height:26px;box-sizing:border-box}'"
+                "+'.wc16tbl input:not([type=checkbox]){width:74px}'"
+                "+'.wc16tbl input[type=checkbox]{margin:0;vertical-align:middle}'"
                 "+'.wc16tbl button{margin:0;vertical-align:middle}'"
                 "+'.wc16i{font-size:11px;opacity:.6;font-style:normal;margin-left:4px}'"
                 ";document.head.appendChild(s);})();"));
@@ -830,6 +833,7 @@ class WordClock16x16Usermod : public Usermod {
                 "wc16tbl(['Corner','Button','LED','Test'],rows);})();"));
       // ---- field help (after tables so it lands inside the value cells) --------
       oappend(F("addInfo('WordClock16x16:enabled', 1, \"<i class='wc16i'>reboot to apply</i>\");"));
+      oappend(F("addInfo('WordClock16x16:showPeriodOfDay', 1, \"<i class='wc16i'>lights IN THE MORNING/AFTERNOON/EVENING, AT NIGHT</i>\");"));
       oappend(F("addInfo('WordClock16x16:useWledLocation', 1, \"<i class='wc16i'>else use Place / lat-lon</i>\");"));
       oappend(F("addInfo('WordClock16x16:place', 1, \"<i class='wc16i'>city or ZIP</i>\");"));
       oappend(F("addInfo('WordClock16x16:longitude', 1, \"<i class='wc16i'><a href='https://www.latlong.net' target='_blank'>find lat/lon</a></i>\");"));
