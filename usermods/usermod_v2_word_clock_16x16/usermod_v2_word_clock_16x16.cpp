@@ -771,7 +771,7 @@ class WordClock16x16Usermod : public Usermod {
                 "+'.wc16tbl th{color:#4aa3ff;font-weight:600;border-bottom:1px solid #2c2c2c}'"
                 "+'.wc16tbl input{width:72px;margin:0}'"
                 "+'.wc16i{font-size:11px;opacity:.6;font-style:normal;margin-left:4px}'"
-                "';document.head.appendChild(s);})();"));
+                ";document.head.appendChild(s);})();"));
 
       // ---- helpers: section header, relabel, and move fields into a table ------
       oappend(F("wc16sec=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
