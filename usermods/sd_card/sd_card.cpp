@@ -29,17 +29,9 @@
 
 #ifdef WLED_USE_SD_MMC
   // SD_MMC configuration handled elsewhere
-#elif defined(WLED_USE_SD_SPI)
-  #if defined(CONFIG_IDF_TARGET_ESP32S3)
-      // FSPI (SPI2) is the global SPI used by dotstar/2-pin LED drivers; use HSPI (SPI3) for SD
-      SPIClass spiPort = SPIClass(HSPI);
-  #elif defined(WLED_USE_ETHERNET)
-  #warning "SD card may have conflicts with ethernet."
-      // Ethernet builds: dotstar uses HSPI (SPI2), so SD uses VSPI (SPI3)
-      SPIClass spiPort = SPIClass(VSPI);
-  #else
-      // Non-Ethernet classic ESP32: dotstar uses global SPI (VSPI/SPI3), so SD uses HSPI (SPI2)
-      SPIClass spiPort = SPIClass(HSPI);
+#if defined(WLED_USE_SD_SPI)
+  SPIClass spiPort = SPIClass(HSPI);
+  #warning "SD card may have conflicts with 2-pin LEDs."
   #endif
 #endif
 
