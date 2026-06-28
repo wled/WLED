@@ -763,13 +763,15 @@ class WordClock16x16Usermod : public Usermod {
     void appendConfigData() {
       // ---- styling ------------------------------------------------------------
       oappend(F("(function(){var s=document.createElement('style');s.innerHTML="
-                "'.wc16h{margin:18px 0 6px;padding-bottom:3px;font-weight:600;color:#4aa3ff;border-bottom:1px solid #2c2c2c;letter-spacing:.3px}'"
-                "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:9px 11px;margin:6px 0;display:block;line-height:1.7}'"
-                "+'#um button{cursor:pointer;border-radius:6px;padding:3px 10px}'"
-                "+'.wc16tbl{border-collapse:collapse;margin:6px 0}'"
-                "+'.wc16tbl th,.wc16tbl td{padding:2px 8px;text-align:left}'"
+                "'.wc16h{margin:16px 0 4px;padding-bottom:2px;font-weight:600;color:#4aa3ff;border-bottom:1px solid #2c2c2c;letter-spacing:.3px}'"
+                "+'#wc16stat,.wc16card{background:#101010;border:1px solid #2c2c2c;border-radius:8px;padding:8px 10px;margin:5px 0;display:block;line-height:1.6}'"
+                "+'#um button{cursor:pointer;border-radius:6px;padding:2px 9px}'"
+                "+'.wc16tbl{border-collapse:collapse;margin:4px 0}'"
+                "+'.wc16tbl th,.wc16tbl td{padding:1px 8px 1px 0;text-align:left;vertical-align:middle}'"
                 "+'.wc16tbl th{color:#4aa3ff;font-weight:600;border-bottom:1px solid #2c2c2c}'"
-                "+'.wc16tbl input{width:72px}';document.head.appendChild(s);})();"));
+                "+'.wc16tbl input{width:72px;margin:0}'"
+                "+'.wc16i{font-size:11px;opacity:.6;font-style:normal;margin-left:4px}'"
+                "';document.head.appendChild(s);})();"));
 
       // ---- helpers: section header, relabel, and move fields into a table ------
       oappend(F("wc16sec=function(fld,t){var a=d.getElementsByName('WordClock16x16:'+fld);if(!a.length)return;"
@@ -825,12 +827,12 @@ class WordClock16x16Usermod : public Usermod {
                 "var rows=[];for(var i=0;i<cr.length;i++)rows.push([cr[i][0],['cbBtn'+cr[i][1],'cbLed'+cr[i][1]],wc16ledTest]);"
                 "wc16tbl(['Corner','Button','LED','Test'],rows);})();"));
       // ---- field help (after tables so it lands inside the value cells) --------
-      oappend(F("addInfo('WordClock16x16:enabled', 1, 'reboot to (un)register the effect');"));
-      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, 'WLED Time-settings lat/lon; if 0/unset, uses Place / lat-lon');"));
-      oappend(F("addInfo('WordClock16x16:place', 1, 'city or ZIP (\", State\" ignored; ZIP if ambiguous)');"));
-      oappend(F("addInfo('WordClock16x16:longitude', 1, \"<a href='https://www.latlong.net' target='_blank'>find lat/lon</a>\");"));
-      oappend(F("addInfo('WordClock16x16:cornerLeds', 1, 'native WLED buttons; lights the mapped LED while held');"));
-      oappend(F("addInfo('WordClock16x16:cornerColor', 1, 'RRGGBB or RRGGBBWW hex');"));
+      oappend(F("addInfo('WordClock16x16:enabled', 1, \"<i class='wc16i'>reboot to apply</i>\");"));
+      oappend(F("addInfo('WordClock16x16:useWledLocation', 1, \"<i class='wc16i'>else use Place / lat-lon</i>\");"));
+      oappend(F("addInfo('WordClock16x16:place', 1, \"<i class='wc16i'>city or ZIP</i>\");"));
+      oappend(F("addInfo('WordClock16x16:longitude', 1, \"<i class='wc16i'><a href='https://www.latlong.net' target='_blank'>find lat/lon</a></i>\");"));
+      oappend(F("addInfo('WordClock16x16:cornerLeds', 1, \"<i class='wc16i'>native WLED buttons; lights mapped LED while held</i>\");"));
+      oappend(F("addInfo('WordClock16x16:cornerColor', 1, \"<i class='wc16i'>hex RGB or RGBW</i>\");"));
 
       // ---- live status panel + "Update now" -----------------------------------
       oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
