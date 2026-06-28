@@ -560,8 +560,7 @@ constexpr uint8_t getRmtMaxChannels() {
  * @return Bus instance (caller owns, delete when done)
  */
 PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
-  uint8_t colorOrder, uint8_t numChannels, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE,
-  int8_t channel = -1, uint8_t ledType = 0);
+  uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
 
 } // namespace WLEDpixelBus
 

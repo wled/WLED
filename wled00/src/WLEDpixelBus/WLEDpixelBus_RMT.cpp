@@ -57,9 +57,8 @@ uint8_t RmtBus::s_currentChannelIndex = 0;
 uint8_t RmtBus::s_usedBlocks = 0;
 uint8_t RmtBus::s_activeChannelMask = 0;
 
-RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, int8_t channel, uint8_t ledType)
+RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
-  , _channel(channel)
   , _timing(timing)
   , _inverted(false)
   , _initialized(false)
@@ -107,39 +106,39 @@ bool RmtBus::begin() {
   // C3 and S3 have less channels than blocks, so the last channel can always use additional blocks
   // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
   // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 block, and CH3 with 5 blocks
-  if (_channel < 0) {
-    if (s_allocatedCount >= s_expectedChannels || s_allocatedCount >= maxTxChannels) {
-      return false;
-    }
+  if (s_allocatedCount >= s_expectedChannels || s_allocatedCount >= maxTxChannels)
+    return false;
 
-    uint8_t totalBlocks;
+  uint8_t totalBlocks;
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
-    totalBlocks = 8; // ESP32 and S3 have 8 blocks of RMT memory
+  totalBlocks = 8; // ESP32 and S3 have 8 blocks of RMT memory
 #elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) // note: C6 RMT hardware is the same as C3
-    totalBlocks = 4; // other supported ESP32 variants have 4 blocks
+  totalBlocks = 4; // other supported ESP32 variants have 4 blocks
 #else
-    totalBlocks = 4; // default to 4 if unknown, should be safe
+  totalBlocks = 4; // default to 4 if unknown, should be safe
 #endif
 
-    int left_channels = s_expectedChannels - s_allocatedCount - 1;
+  int left_channels = s_expectedChannels - s_allocatedCount - 1;
 
-    if (left_channels == 0) {
-      _channel = s_currentChannelIndex;
-      blocksToUse = totalBlocks - s_usedBlocks;
-    } else {
-      int k = totalBlocks / s_expectedChannels;
-      int max_k_for_index = maxTxChannels - s_currentChannelIndex - left_channels;
-      if (k > max_k_for_index) k = max_k_for_index;
-      if (k < 1) k = 1;
+  if (left_channels == 0) {
+    _channel = s_currentChannelIndex;
+    blocksToUse = totalBlocks - s_usedBlocks;
+  } else {
+    int k = totalBlocks / s_expectedChannels;
+    int max_k_for_index = maxTxChannels - s_currentChannelIndex - left_channels;
+    if (k > max_k_for_index) k = max_k_for_index;
+    if (k < 1) k = 1;
 
-      _channel = s_currentChannelIndex;
-      blocksToUse = k;
-    }
-
-    s_currentChannelIndex += blocksToUse;
-    s_usedBlocks += blocksToUse;
-    s_allocatedCount++;
+    _channel = s_currentChannelIndex;
+    blocksToUse = k;
   }
+
+  s_currentChannelIndex += blocksToUse;
+  s_usedBlocks += blocksToUse;
+  s_allocatedCount++;
+#ifdef RMT_USE_SINGLE_MEM_BLOCK
+  blocksToUse = 1;
+#endif
 
   if (_channel >= (int8_t)maxTxChannels) {
     //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d >= max %u, FAIL\n"), _channel, maxTxChannels);
@@ -170,6 +169,7 @@ bool RmtBus::begin() {
   }
 
   // Register hack for memory blocks normally assigned to RX (S2 / S3 / C3)   TODO: need this for ESP32 as well?
+  // set owner to TX if blocks are shared with RX unit
 #ifndef RMT_USE_SINGLE_MEM_BLOCK
   #if defined(CONFIG_IDF_TARGET_ESP32S3)
   for (int i = 4; i < 8; i++) {
@@ -187,7 +187,7 @@ bool RmtBus::begin() {
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
   _usingRmtHi = false;
 #if !defined(CONFIG_IDF_TARGET_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
-  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, s_contexts[(int)_rmtChannel].bit0 , s_contexts[(int)_rmtChannel].bit1, s_contexts[(int)_rmtChannel].resetDuration);
+  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, s_contexts[(int)_rmtChannel].bit0 , s_contexts[(int)_rmtChannel].bit1, s_contexts[(int)_rmtChannel].resetDuration, blocksToUse);
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
   } else {

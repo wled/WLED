@@ -207,14 +207,14 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
 // Bus Factory Implementation
 //==============================================================================
 
-PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t bufferSize, int8_t channel, uint8_t ledType) {
+PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType, size_t bufferSize) {
 
   PixelBus* bus = nullptr;
 
   switch (driver) {
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
     case BusDriver::RMT:
-      bus = new RmtBus(pin, timing, colorOrder, numChannels, channel, ledType);
+      bus = new RmtBus(pin, timing, colorOrder, numChannels, ledType);
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT

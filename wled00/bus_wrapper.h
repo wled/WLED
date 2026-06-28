@@ -20,16 +20,13 @@
 #define P_8266_HS_CLK  14
 
 // Use single RMT memory block per channel — allows RMT RX channels alongside TX.
-// TODO: hi priority RMT driver does not yet support multi-memory block
-#ifndef CONFIG_IDF_TARGET_ESP32C3
-  #define RMT_USE_SINGLE_MEM_BLOCK
-#endif
+//#define RMT_USE_SINGLE_MEM_BLOCK
+
 
 class PixelBusAllocator {
   private:
   #ifndef ESP8266
     static uint8_t _rmtChannelsAssigned;
-    static uint8_t _rmtChannel;
     static uint8_t _i2sChannelsAssigned;
     static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
     static uint8_t _bitBangChannelsAssigned;
@@ -43,7 +40,6 @@ class PixelBusAllocator {
   static void resetChannelTracking() {
     #ifndef ESP8266
     _rmtChannelsAssigned = 0;
-    _rmtChannel = 0;
     _i2sChannelsAssigned = 0;
     _parallelI2sBusType = 0; // TYPE_NONE
     _bitBangChannelsAssigned = 0;
@@ -177,23 +173,8 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     }
     #endif
 
-    int8_t rmtCh = -1; // -1 = auto-select; file-scope RMT_USE_SINGLE_MEM_BLOCK switches to sequential assignment
-    #ifndef ESP8266
-    if (driver == WLEDpixelBus::BusDriver::RMT) {
-      if (_rmtChannel < WLED_MAX_RMT_CHANNELS) {
-        #ifdef RMT_USE_SINGLE_MEM_BLOCK
-        rmtCh = _rmtChannel++; // assign channels in order, do not use auto-channel function (this uses 1 memory block per channel allowing RX RMT channels to be used as well)
-        #else
-        _rmtChannel++; // increment channel count for tracking, but use auto-channel to optimize memory block allocation
-        #endif
-      } else {
-        return nullptr;
-      }
-    }
-    #endif
-
     // Chip-specific init (prefix/suffix/invert) is applied inside createBus() using ledType.
-    return WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE, rmtCh, busType);
+    return WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, busType);
   }
 };
 #endif

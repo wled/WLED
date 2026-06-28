@@ -135,13 +135,19 @@ static inline void rmt_ll_clear_tx_thres_interrupt(rmt_dev_t *dev, uint32_t chan
   dev->int_clr.val = (1 << (channel + 24));
 }
 
-
 __attribute__((always_inline))
 static inline uint32_t rmt_ll_get_tx_thres_interrupt_status(rmt_dev_t *dev)
 {
   uint32_t status =  dev->int_st.val;
   return (status & 0xFF000000) >> 24;
 }
+
+__attribute__((always_inline))
+static inline void rmt_ll_tx_set_mem_blocks(rmt_dev_t *dev, uint32_t channel, uint8_t block_num)
+{
+    dev->conf_ch[channel].conf0.mem_size = block_num;
+}
+
 #endif
 
 
@@ -207,8 +213,9 @@ struct NeoEsp32RmtHIChannelState {
 
   const byte* txDataStart;    // data array
   const byte* txDataEnd;      // one past end
-  const byte* txDataCurrent;      // current location
+  const byte* txDataCurrent;  // current location
   size_t rmtOffset;
+  size_t batchSize;           // memory blocks assigned
 };
 
 // Global variables
@@ -217,18 +224,17 @@ static intr_handle_t isrHandle = nullptr;
 #endif
 
 static NeoEsp32RmtHIChannelState** driverState = nullptr;
-constexpr size_t rmtBatchSize =  RMT_MEM_ITEM_NUM / 2;
 
 // Fill the RMT buffer memory
 // This is implemented using many arguments instead of passing the structure object to ensure we do only one lookup
 // All the arguments are passed in registers, so they don't need to be looked up again
-static void IRAM_ATTR RmtFillBuffer(uint8_t channel, const byte** src_ptr, const byte* end, uint32_t bit0, uint32_t bit1, size_t* offset_ptr, size_t reserve) {
+static void IRAM_ATTR RmtFillBuffer(uint8_t channel, const byte** src_ptr, const byte* end, uint32_t bit0, uint32_t bit1, size_t* offset_ptr, size_t reserve, size_t batchSize) {
   // We assume that (rmtToWrite % 8) == 0
-  size_t rmtToWrite = rmtBatchSize - reserve;
+  size_t rmtToWrite = batchSize - reserve;
   rmt_item32_t* dest =(rmt_item32_t*)  &RMTMEM.chan[channel].data32[*offset_ptr + reserve]; // write directly in to RMT memory
   const byte* psrc = *src_ptr;
 
-  *offset_ptr ^= rmtBatchSize;
+  *offset_ptr ^= batchSize;
 
   if (psrc != end) {
     while (rmtToWrite > 0) {
@@ -271,8 +277,8 @@ static void IRAM_ATTR RmtStartWrite(uint8_t channel, NeoEsp32RmtHIChannelState& 
   dest[7] = fill;
 
   // Fill the remaining buffer with real data
-  RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 8);
-  RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0);
+  RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 8, state.batchSize);
+  RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0, state.batchSize);
 
   // Start operation
   rmt_ll_clear_tx_thres_interrupt(&RMT, channel);
@@ -288,7 +294,7 @@ extern "C" void IRAM_ATTR NeoEsp32RmtMethodIsr(void *arg) {
     if (driverState[channel]) {
       // Normal case
       NeoEsp32RmtHIChannelState& state = *driverState[channel];
-      RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0);
+      RmtFillBuffer(channel, &state.txDataCurrent, state.txDataEnd, state.rmtBit0, state.rmtBit1, &state.rmtOffset, 0, state.batchSize);
     } else {
       // Danger - another driver got invoked?
       rmt_ll_tx_stop(&RMT, channel);
@@ -334,7 +340,7 @@ static inline bool _RmtStatusIsTransmitting(rmt_channel_t channel, uint32_t stat
 }
 
 
-esp_err_t RmtHiDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t reset) {
+esp_err_t RmtHiDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t rmtBit1, uint32_t reset, uint8_t blocksToUse) {
   // Validate channel number
   if (channel >= RMT_CHANNEL_MAX) {
   return ESP_ERR_INVALID_ARG;
@@ -390,9 +396,13 @@ esp_err_t RmtHiDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t
   state->rmtBit1 = rmtBit1;
   state->resetDuration = reset;
 
+  // Calculate batch size based on number of blocks (64 items per block)
+  state->batchSize = (RMT_MEM_ITEM_NUM * blocksToUse) / 2;
+
   // Initialize hardware
   rmt_ll_tx_stop(&RMT, channel);
   rmt_ll_tx_reset_pointer(&RMT, channel);
+  rmt_ll_tx_set_mem_blocks(&RMT, channel, blocksToUse);
   rmt_ll_enable_tx_err_interrupt(&RMT, channel, false);
   rmt_ll_enable_tx_end_interrupt(&RMT, channel, false);
   rmt_ll_enable_tx_thres_interrupt(&RMT, channel, false);
@@ -401,7 +411,7 @@ esp_err_t RmtHiDriver::Install(rmt_channel_t channel, uint32_t rmtBit0, uint32_t
   rmt_ll_clear_tx_thres_interrupt(&RMT, channel);
   rmt_ll_tx_enable_loop(&RMT, channel, false);
   rmt_ll_tx_enable_pingpong(&RMT, channel, true);
-  rmt_ll_tx_set_limit(&RMT, channel, rmtBatchSize);
+  rmt_ll_tx_set_limit(&RMT, channel, state->batchSize);
 
   driverState[channel] = state;
 

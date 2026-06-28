@@ -40,10 +40,8 @@ public:
    * @param pin GPIO pin
    * @param timing LED timing
    * @param order Color order
-   * @param channel RMT channel (-1 for auto)
    */
-  RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-       int8_t channel = -1, uint8_t ledType = 0);
+  RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0);
   ~RmtBus() override;
 
   bool begin() override;
