@@ -34,8 +34,6 @@ public:
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_UART"; }
 #endif
-
-  void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
   static void UartIsr(void* arg, void* exceptionFrame);
@@ -86,8 +84,6 @@ public:
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void updateSuffix(const uint8_t* data, uint8_t len) override;
   void scaleAll(uint8_t scale) override;
-
-  void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
   static Esp8266DmaBus* s_this;

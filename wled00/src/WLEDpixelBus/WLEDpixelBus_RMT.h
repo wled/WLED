@@ -14,6 +14,14 @@ The glitch-free high priority interrupt implementation by @willmmiles is not ava
 
 #pragma once
 
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4
+# define WPB_RMT_CHANNELS 8
+#elif SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
+# define WPB_RMT_CHANNELS 4
+#else
+# define WPB_RMT_CHANNELS 2
+#endif
+
 #include "WLEDpixelBus.h"
 #include "driver/rmt.h"
 #include "RmtHIDriver.h"
@@ -52,7 +60,6 @@ public:
   void setInverted(bool inv) override {
     _inverted = inv;
   }
-  void setTiming(const LedTiming& timing);
   void setColorOrder(uint8_t co);
 
   // Reset the auto-allocation counter (call before re-creating buses)
@@ -70,9 +77,6 @@ private:
   bool _initialized;
   LedTiming _timing;
   rmt_channel_t _rmtChannel;
-  uint32_t _rmtBit0;
-  uint32_t _rmtBit1;
-  uint16_t _rmtResetTicks;
   bool _usingRmtHi;
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
@@ -92,8 +96,8 @@ private:
     uint16_t resetDuration;
   };
 
-  // Static lookup table for ISR speed (max 8 channels)
-  static RmtContext s_contexts[8];
+  // Static lookup table for timing speeds
+  static RmtContext s_contexts[WPB_RMT_CHANNELS];
 
   // Explicit wrappers: implemented in .cpp file to ensure they are placed in IRAM
   static void IRAM_ATTR translator_ch0(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
@@ -114,7 +118,7 @@ private:
                                           size_t* translated_size, size_t* item_num);
 
   // Jump table of callbacks (defined in .cpp). Use 8 entries to match max RMT channels.
-  static const sample_to_rmt_t s_callbacks[8]; // TODO: could define this above and actually use the correct amount of callbacks
+  static const sample_to_rmt_t s_callbacks[WPB_RMT_CHANNELS];
 };
 
 } // namespace WLEDpixelBus

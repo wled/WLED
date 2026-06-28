@@ -158,7 +158,6 @@ public:
 #endif
 
   void setInverted(bool inv) override;
-  void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
 private:

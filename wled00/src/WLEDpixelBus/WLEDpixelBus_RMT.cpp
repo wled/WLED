@@ -23,7 +23,7 @@ namespace WLEDpixelBus {
 //==============================================================================
 
 // Per-channel context table - stored in DRAM for ISR access
-DRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[8] = {};
+DRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
 
 // Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
 void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
@@ -39,7 +39,7 @@ void IRAM_ATTR RmtBus::translator_ch6(const void* s, rmt_item32_t* d, size_t ss,
 void IRAM_ATTR RmtBus::translator_ch7(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(7, s, d, ss, w, ts, in); }
 #endif
 // Jump table stored in DRAM so ISR code can quickly find the correct wrapper
-DRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[8] = {
+DRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
   RmtBus::translator_ch0, RmtBus::translator_ch1
 #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
   ,RmtBus::translator_ch2, RmtBus::translator_ch3
@@ -65,9 +65,6 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   , _initialized(false)
   , _usingRmtHi(false)
   , _rmtChannel(RMT_CHANNEL_0)
-  , _rmtBit0(0)
-  , _rmtBit1(0)
-  , _rmtResetTicks(0)
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
@@ -86,50 +83,16 @@ void RmtBus::updateRmtTiming() {
     return ticks > 0 ? ticks : 1;
   };
 
-  uint16_t t0h = nsToTicks(_timing.t0h_ns);
-  uint16_t t0l = nsToTicks(_timing.t0l_ns);
-  uint16_t t1h = nsToTicks(_timing.t1h_ns);
-  uint16_t t1l = nsToTicks(_timing.t1l_ns);
-
-  //DEBUG_PRINTF_P(PSTR("[WPB] RMT timing (ns): t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n"), _timing.t0h_ns, _timing.t0l_ns, _timing.t1h_ns, _timing.t1l_ns, _timing.reset_us);
-
   rmt_item32_t bit0, bit1;
+  bit0.level0 = 1; bit0.duration0 = nsToTicks(_timing.t0h_ns);
+  bit0.level1 = 0; bit0.duration1 = nsToTicks(_timing.t0l_ns);
+  bit1.level0 = 1; bit1.duration0 = nsToTicks(_timing.t1h_ns);
+  bit1.level1 = 0; bit1.duration1 = nsToTicks(_timing.t1l_ns);
 
-  bit0.level0 = 1; bit0.duration0 = t0h;
-  bit0.level1 = 0; bit0.duration1 = t0l;
-  bit1.level0 = 1; bit1.duration0 = t1h;
-  bit1.level1 = 0; bit1.duration1 = t1l;
+  s_contexts[(int)_rmtChannel].bit0 = bit0.val;
+  s_contexts[(int)_rmtChannel].bit1 = bit1.val;
+  s_contexts[(int)_rmtChannel].resetDuration = nsToTicks(_timing.reset_us * 1000);
 
-  _rmtBit0 = bit0.val;
-  _rmtBit1 = bit1.val;
-  _rmtResetTicks = nsToTicks(_timing.reset_us * 1000);
-
-  // If already initialized, update hardware state for this channel
-  if (_initialized) {
-    // Update shared DRAM context used by the IDF translator (not needed for rmtHi)
-    if (!_usingRmtHi) {
-      s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
-      s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
-      s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
-    }
-    // If using rmtHi, reinstall the driver with new timing templates
-    if (_usingRmtHi) {
-      // wait for any in-flight transfer, then reinstall the hi driver
-      RmtHiDriver::WaitForTxDone(_rmtChannel, 1000 / portTICK_PERIOD_MS);
-      RmtHiDriver::Uninstall(_rmtChannel);
-      esp_err_t instErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
-      if (instErr != ESP_OK) {
-        //DEBUG_PRINTF_P(PSTR("[WPB] rmtHi reinstall failed: %d, falling back to IDF driver\n"), instErr);
-        // Try to fall back to IDF driver
-        if (rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)) == ESP_OK) {
-          rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
-          _usingRmtHi = false;
-        }
-      } else {
-        _usingRmtHi = true;
-      }
-    }
-  }
 }
 
 bool RmtBus::begin() {
@@ -188,11 +151,6 @@ bool RmtBus::begin() {
 
   updateRmtTiming();
 
-  // Store initial timing into the shared DRAM context for this channel
-  s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
-  s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
-  s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
-
   rmt_config_t config = {};
 
   config.rmt_mode = RMT_MODE_TX;
@@ -229,7 +187,7 @@ bool RmtBus::begin() {
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
   _usingRmtHi = false;
 #if !defined(CONFIG_IDF_TARGET_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
-  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, _rmtBit0, _rmtBit1, _rmtResetTicks);
+  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, s_contexts[(int)_rmtChannel].bit0 , s_contexts[(int)_rmtChannel].bit1, s_contexts[(int)_rmtChannel].resetDuration);
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
   } else {
@@ -297,11 +255,6 @@ bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
   // Wait for previous transmission on THIS channel to complete (IDF driver)
   rmt_wait_tx_done((rmt_channel_t)_rmtChannel, portMAX_DELAY);
 
-  // Update per-channel context for translator (ensure latest timings are visible to ISR)
-  s_contexts[(int)_rmtChannel].bit0 = _rmtBit0;
-  s_contexts[(int)_rmtChannel].bit1 = _rmtBit1;
-  s_contexts[(int)_rmtChannel].resetDuration = _rmtResetTicks;
-
   esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
 
   return err == ESP_OK;
@@ -311,14 +264,6 @@ bool RmtBus::canShow() const {
   if (!_initialized) return true;
   if (_usingRmtHi) return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0)); // 0 timout means "poll and return immediately"
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
-}
-
-void RmtBus::setTiming(const LedTiming& timing) {
-  //DEBUG_PRINTF_P(PSTR("[WPB] RMT setTiming called: t0h=%u t0l=%u t1h=%u t1l=%u reset_us=%u\n"), timing.t0h_ns, timing.t0l_ns, timing.t1h_ns, timing.t1l_ns, timing.reset_us);
-  _timing = timing;
-  if (_initialized) {
-    updateRmtTiming();
-  }
 }
 
 void RmtBus::setColorOrder(uint8_t co) {

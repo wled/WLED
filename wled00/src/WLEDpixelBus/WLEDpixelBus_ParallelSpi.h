@@ -120,7 +120,6 @@ public:
 
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void setInverted(bool inv) override;
-  void setTiming(const LedTiming& timing) { _timing = timing; }
   void setColorOrder(uint8_t co);
 
 private:
