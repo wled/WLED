@@ -15,6 +15,7 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 ---
 
 ## Resources
+- [Wordclock MK1 - Twitter/X](https://x.com/AustinStAubin/status/904725600484696069)
 - [Wordclock MK1 - w/ Text Shift / Rotation (Adobe Illistrator)](https://docs.google.com/spreadsheets/d/1PluM_poY26YVuXqRocmyo1mvG5tT44V26rKZcX5UzbI/edit?gid=0#gid=0)
 - [Wordclock MK1 - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
 - [Wordclock MK1 (16x16) - Inventables Easel](https://easel.com/projects/LeV5aEw0NV_JYsKv2mjWpw)
@@ -30,6 +31,11 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 
 ## Layout
 A 16×16 RGBW LED matrix occupies the center of the display for the word clock functionality. Outside this matrix, each corner contains a dedicated push button and a corresponding addressable RGBW LED on a seperate strip from the 16x16 matrix. (4x discrete RGBW LEDs and 4x push buttons).
+
+
+![display](./images/display.jpeg)
+![display](./images/display-faceoff.jpeg)
+
 
 ### Layout (Words)
 
@@ -168,6 +174,12 @@ An example preset set [`wled_presets.example.json`](wled_presets.example.json) i
 - 31–59: `IT IS <minutes> MINUTES UNTIL <next hour>` (`A QUARTER UNTIL` at :45)
 - Period: `IN THE MORNING` (00–11), `IN THE AFTERNOON` (12–16), `IN THE EVENING` (17–20),
   `AT NIGHT` (21–23).
+
+## Settings
+
+![settings](./images/settings.png)
+
+---
 
 ### Temperature words (bottom row)
 When `showTemperature` is on, one of `COLD / COOL / WARM / HOT` is lit on the bottom row
