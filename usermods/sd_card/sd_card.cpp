@@ -29,8 +29,13 @@
 
 #ifdef WLED_USE_SD_MMC
   // SD_MMC configuration handled elsewhere
-#elif defined(WLED_USE_SD_SPI)
-   SPIClass spiPort = SPIClass(HSPI);
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+    // ESP32-S3 default hardware SPI bus is typically FSPI (or HSPI)
+    SPIClass spiPort = SPIClass(HSPI); 
+   #warning "SD card may have conflicts with 2-pin LEDs."
+  #else
+    // Classic ESP32 defaults (VSPI is default/safest for SD cards on standard pins)
+    SPIClass spiPort = SPIClass(VSPI);
    #warning "SD card may have conflicts with 2-pin LEDs."
   #endif
 #endif
