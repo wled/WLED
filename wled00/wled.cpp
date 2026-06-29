@@ -178,7 +178,7 @@ void WLED::loop()
     // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
     unsigned t0 = millis();
-    while (strip.isUpdating() && (millis() - t0 < 15)) delay(1);    // be nice, but not too nice. Waits up to 15ms
+    while (strip.isUpdating() && (millis() - t0 < 150)) delay(1);    // be nice, but not too nice. Waits up to 150ms
     #endif
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif
@@ -616,31 +616,35 @@ void WLED::beginStrip()
   // init offMode and relay
   offMode = false;   // init to on state to allow proper relay init
   handleOnOff(true); // init relay and force off
+  if (rlyPin < 0) strip.show(); // ensure LEDs are off if no relay is used
 
+  // Note on how bootup behaviour works:
+  // if turnOnAtBoot is false: strip is set to black. It will fade in to startup brightness and orange when turned on
+  //   if a bootup preset is set, it will fade to that preset if it has "on:true" set (to default brightness) or to that preset's brightness if set
+  // if turnOnAtBoot is true: the LEDs will fade in to orange and default brightness
+  //   if a bootup preset is set, it will start at the default brightness except if "fade" transition is used, then it will still fade from black
+  // there is no way to have LEDs off at boot and upon turn-on have them immediatel jump to a target brightness but users can use a playlist to do that
+
+  bri = 0; // start off black by default (on a fresh install this is overruled by briS as turnOnAtBoot is true)
   if (turnOnAtBoot) {
-    if (briS > 0) bri = briS;
-    else if (bri == 0) bri = 128;
-  } else {
-    // fix for #3196
-    if (bootPreset > 0) {
-      // set all segments black (no transition)
-      for (unsigned i = 0; i < strip.getSegmentsNum(); i++) {
-        Segment &seg = strip.getSegment(i);
-        if (seg.isActive()) seg.colors[0] = BLACK;
-      }
-      colPri[0] = colPri[1] = colPri[2] = colPri[3] = 0;  // needed for colorUpdated()
-    }
-    briLast = briS; bri = 0;
-    strip.fill(BLACK);
-    if (rlyPin < 0)
-      strip.show(); // ensure LEDs are off if no relay is used
+    bri = briS; // load startup brightness (set in UI), 0 is not allowed in UI
   }
-  colorUpdated(CALL_MODE_INIT); // will not send notification but will initiate transition
+  else briLast = briS; // go to startup brightness (set in UI) when turning on (can be overruled by a preset)
+  colorUpdated(CALL_MODE_INIT); // set bootup brightness immediately, do not send notification (brightness is also set for preset if used, useful for swipe etc.)
+
   if (bootPreset > 0) {
     applyPreset(bootPreset, CALL_MODE_INIT);
   }
+  else {
+    // set color to warm welcoming orange (aka DEFAULT_COLOR) if no preset loaded (will fade to this color once turned on)
+    colPri[0] = R(DEFAULT_COLOR);
+    colPri[1] = G(DEFAULT_COLOR);
+    colPri[2] = B(DEFAULT_COLOR);
+    colPri[3] = W(DEFAULT_COLOR);
+  }
 
-  strip.setTransition(transitionDelayDefault);  // restore transitions
+  strip.setTransition(transitionDelayDefault);  // restore default transition time
+  colorUpdated(CALL_MODE_INIT); // apply color & initiate transition, do not send notification
 }
 
 void WLED::initAP(bool resetAP)
