@@ -291,6 +291,7 @@ function onLoad()
 	else if (tabParam === 'info')     toggleInfo();
 	cpick.on("input:end", () => {setColor(1);});
 	cpick.on("color:change", () => {updatePSliders()});
+
 	pmtLS = localStorage.getItem('wledPmt');
 
 	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
