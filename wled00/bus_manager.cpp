@@ -802,6 +802,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   _hasWhite = false;
   virtualDisp = nullptr; // todo: this should be solved properly, can cause memory leak (if omitted here, nothing seems to work)
   _isVirtual = false;
+  _isQuadScan = false;
   // aliases for easier reading
   unsigned panelWidth  = bc.pins[0];
   unsigned panelHeight = bc.pins[1];
@@ -1059,6 +1060,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   else {
     _isVirtual = false;
   }
+  _isQuadScan = bc.type == TYPE_HUB75MATRIX_QS;
 
   if (_isVirtual) {
     virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width/2, mxconfig.mx_height*2, chainType);
@@ -1199,8 +1201,8 @@ std::vector<LEDType> BusHub75Matrix::getLEDTypes() {
 
 size_t BusHub75Matrix::getPins(uint8_t* pinArray) const {
   if (pinArray) {
-    pinArray[0] = _isVirtual ? mxconfig.mx_width  /2 : mxconfig.mx_width;
-    pinArray[1] = _isVirtual ? mxconfig.mx_height *2 : mxconfig.mx_height;
+    pinArray[0] = _isQuadScan ? mxconfig.mx_width  /2 : mxconfig.mx_width;
+    pinArray[1] = _isQuadScan ? mxconfig.mx_height *2 : mxconfig.mx_height;
     pinArray[2] = mxconfig.chain_length;
     pinArray[3] = _rows;
     pinArray[4] = _cols;
