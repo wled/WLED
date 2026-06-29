@@ -847,6 +847,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     DEBUGBUS_PRINTLN("Unknown type");
     return;
   }
+  _isQuadScan = bc.type == TYPE_HUB75MATRIX_QS;
 
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)// classic esp32, or esp32-s2: reduce bitdepth for large panels
   if (mxconfig.mx_height >= 64) {
@@ -1060,7 +1061,6 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   else {
     _isVirtual = false;
   }
-  _isQuadScan = bc.type == TYPE_HUB75MATRIX_QS;
 
   if (_isVirtual) {
     virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width/2, mxconfig.mx_height*2, chainType);
