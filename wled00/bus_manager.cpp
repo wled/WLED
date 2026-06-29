@@ -958,7 +958,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
   */
   mxconfig.gpio = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 18, 4, 15, 16 };
-  #endif // CONFIG_IDF_TARGET_ESP32S3
+  #endif // CONFIG_IDF_TARGET_ESP32
 
   #else
     #error "unknown or unsupported HUB75 board."
