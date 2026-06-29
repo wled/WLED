@@ -856,61 +856,94 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 #endif
 
 
-
 //  HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
 
-#if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) // MatrixPortal ESP32-S3
-
+#if defined(ARDUINO_ADAFRUIT_MATRIXPORTAL_ESP32S3) || defined(MATRIXPORTAL_S3_PINOUT) // MatrixPortal ESP32-S3
   // https://www.adafruit.com/product/5778
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Matrix Portal S3 config");
   mxconfig.gpio = { 42, 41, 40, 38, 39, 37,  45, 36, 48, 35, 21, 47, 14, 2 };
 
-#elif defined(HD_WF2_PINOUT) // Huidu HD-WF2 ESP32-S3 (no PSRAM)
-
+#elif defined(HD_WF2_PINOUT) || defined(HD_WF2_S3_PINOUT) // Huidu HD-WF2 ESP32-S3 (no PSRAM)
   // https://www.aliexpress.com/item/1005002258734810.html
   // https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/433
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - HD-WF2 S3 config");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = { 2, 6, 10, 3, 7, 11, 39, 38, 37, 36, 21, 33, 35, 34 };
 
-#elif defined(CONFIG_IDF_TARGET_ESP32S3) && defined(BOARD_HAS_PSRAM)// ESP32-S3 with PSRAM
+#elif defined(HD_WF1_PINOUT) || defined(HD_WF1_S2_PINOUT) || defined(CONFIG_IDF_TARGET_ESP32S2)
+  #warning "using HUB75 on esp32-s2 in not recommended due to stability problems and low RAM"
+  // Huidu HD-WF1 ESP32-S2 - not recommended !
+  // https://github.com/mrcodetastic/ESP32-HUB75-MatrixPanel-DMA/issues/433
+  USER_PRINTLN("MatrixPanel_I2S_DMA - HD-WF1 S2 config");
+  mxconfig.gpio = {2, 6, 3, 4, 8, 5, 33, 35, 34, 39, 38, 37, 36, 12};
 
-#if defined(MOONHUB_S3_PINOUT)
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - T7 S3 with PSRAM, MOONHUB pinout");
+#elif defined(CONFIG_IDF_TARGET_ESP32S3) 
+  // specific ESP32-S3 pinouts
 
+  #if defined(MOONHUB_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - T7 S3, MOONHUB pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = { 1, 5, 6, 7, 13, 9, 16, 48, 47, 21, 38, 8, 4, 18 };
 
-#elif defined(WAVESHARE_S3_PINOUT)
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Waveshare S3 with PSRAM, Waveshare pinout");
-
+  #elif defined(WAVESHARE_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Waveshare S3, Waveshare pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = {4, 5, 6, 7, 15, 16, 18, 8, 3, 42, 9, 40, 2, 41};
   
-#elif defined(SEENGREAT_V2_PINOUT)
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 devKit-C with PSRAM, SEENGREAT_V2 pinout");
+  #elif defined(SEENGREAT_V1_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 devKit-C, SEENGREAT_V1 pinout");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 37, 6, 36,         // R1_PIN, G1_PIN, B1_PIN,
+                    35, 5,  0,         // R2_PIN, G2_PIN, B2_PIN,
+                    45, 1, 48,  2, 4   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    38, 21, 47 };      // LAT_PIN, OE_PIN,CLK_PIN
+
+  #elif defined(SEENGREAT_V2_S3_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 devKit-C, SEENGREAT_V2 pinout");
+  // https://seengreat.com/wiki/186
   mxconfig.gpio = { 18, 8, 17,         // R1_PIN, G1_PIN, B1_PIN,
                     16, 1, 15,         // R2_PIN, G2_PIN, B2_PIN,
                     7, 48, 6, 47, 2,   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
-                    21, 4, 5 };        //LAT_PIN, OE_PIN,CLK_PIN
-#else
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 with PSRAM");
+                    21, 4, 5 };        // LAT_PIN, OE_PIN,CLK_PIN
+
+  #else
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - S3 generic pinout");
   // HUB75_I2S_CFG::i2s_pins _pins={R1_PIN, G1_PIN, B1_PIN, R2_PIN, G2_PIN, B2_PIN, A_PIN, B_PIN, C_PIN, D_PIN, E_PIN, LAT_PIN, OE_PIN, CLK_PIN};
   mxconfig.gpio = {1, 2, 42, 41, 40, 39, 45, 48, 47, 21, 38, 8, 3, 18};
-#endif
-#elif defined(ESP32_FORUM_PINOUT) // Common format for boards designed for SmartMatrix
+  #endif // CONFIG_IDF_TARGET_ESP32S3
 
+#elif defined(CONFIG_IDF_TARGET_ESP32)
+  // generic ESP32 pinouts
+  #if defined(BOARD_HAS_PSRAM) // all ESP32 pinouts require gpio 16 or 17, which are controling PSRAM
+    #warning "ESP32 HUB75 pinout is not compatible with PSRAM boards."
+  #endif
+  #if defined(ESP32_FORUM_PINOUT) || defined(FORUM_ESP32_PINOUT) // Common format for boards designed for SmartMatrix
   DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - ESP32_FORUM_PINOUT");
 /*
     ESP32 with SmartMatrix's default pinout - ESP32_FORUM_PINOUT
     https://github.com/pixelmatix/SmartMatrix/blob/teensylc/src/MatrixHardware_ESP32_V0.h
     Can use a board like https://github.com/rorosaurus/esp32-hub75-driver
 */
-
  mxconfig.gpio = { 2, 15, 4, 16, 27, 17, 5, 18, 19, 21, 12, 26, 25, 22 };
 
-#else
-  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - Default pins");
+  #elif defined(SEENGREAT_V1_ESP32_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - EP32-DevKitC V4, SEENGREAT_V1 pinout");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 18, 25, 5,         // R1_PIN, G1_PIN, B1_PIN,
+                    17, 33, 16,        // R2_PIN, G2_PIN, B2_PIN,
+                     4,  3, 0, 21, 32, //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    19, 15, 2};        // LAT_PIN, OE_PIN,CLK_PIN
+
+  #elif defined(SEENGREAT_V2_ESP32_PINOUT)
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - EP32-DevKitC V4, SEENGREAT_V2 pinout, Latch pin IO2");
+  // https://seengreat.com/wiki/186
+  mxconfig.gpio = { 18, 17, 19,        // R1_PIN, G1_PIN, B1_PIN,
+                    21, 23, 27,        // R2_PIN, G2_PIN, B2_PIN,
+                    26, 16, 25, 4, 22, //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                     2, 32, 33};       // LAT_PIN, OE_PIN,CLK_PIN
+
+  #else
+  DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA - ESP32 Default pins");
   /*
    https://github.com/mrfaptastic/ESP32-HUB75-MatrixPanel-DMA?tab=readme-ov-file
 
@@ -920,8 +953,11 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
    https://www.electrodragon.com/product/rgb-matrix-panel-drive-interface-board-for-esp32-dma/
 
   */
- mxconfig.gpio = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 18, 4, 15, 16 };
+  mxconfig.gpio = { 25, 26, 27, 14, 12, 13, 23, 19, 5, 17, 18, 4, 15, 16 };
+  #endif // CONFIG_IDF_TARGET_ESP32S3
 
+  #else
+    #error "unknown or unsupported HUB75 board."
 #endif
 
   int8_t pins[PIN_COUNT];
