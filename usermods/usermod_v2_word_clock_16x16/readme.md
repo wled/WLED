@@ -1,5 +1,5 @@
 # Wordclock MK2 | WLED 16x16 w/ ESP32
-**Version:** 1.1.0 | **Updated:** 2026-06-27 | **Author:** Austin St. Aubin <austinsaintaubin@gmail.com> | **License:** MIT
+**Author:** Austin St. Aubin <austinsaintaubin@gmail.com> | **License:** MIT
 
 This usermod adds an **Effect** named **"Word Clock 16x16"** to WLED. Because it is a
 regular effect (not an overlay like the older `usermod_v2_word_clock`), it can be
