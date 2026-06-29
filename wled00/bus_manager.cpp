@@ -809,6 +809,8 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   unsigned chainLength = bc.pins[2];
   _rows = bc.pins[3];
   _cols = bc.pins[4];
+  unsigned physicalPanelWidth =  max(16U, min(128U, panelWidth)); // keep a copy because QS panels require modified width/height
+  unsigned physicalPanelHeight = max(16U, min(64U, panelHeight));
 
   mxconfig.double_buff = false; // Use our own memory-optimised buffer rather than the driver's own double-buffer
 
@@ -825,7 +827,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   // allow chain length up to 4, limit to prevent bad data from preventing boot due to low memory
   mxconfig.chain_length = max(1U, min(chainLength, 4U));
 
-  if (mxconfig.mx_height >= 64 && (mxconfig.chain_length > 1)) {
+  if (panelHeight >= 64 && (mxconfig.chain_length > 1)) { // need to check panelHeight; mxconfig.mx_height not assigned yet
   #if defined(BOARD_HAS_PSRAM)                    // limitation to one panel only applies to boards without PSRAM
     if (!psramFound() || ESP.getPsramSize() == 0) // PSRAM sanity check
   #endif
@@ -1056,14 +1058,14 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   // chained panels with cols and rows define need the virtual display driver, so do quarter-scan panels
   if (chainType != CHAIN_NONE || bc.type == TYPE_HUB75MATRIX_QS) {
     _isVirtual = true;
-    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, mxconfig.mx_width/2, mxconfig.mx_height*2);
+    DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, physicalPanelWidth, physicalPanelHeight);
   }
   else {
     _isVirtual = false;
   }
 
   if (_isVirtual) {
-    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, mxconfig.mx_width/2, mxconfig.mx_height*2, chainType);
+    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, physicalPanelWidth, physicalPanelHeight, chainType);
     virtualDisp->setRotation(0);
     if (bc.type == TYPE_HUB75MATRIX_QS) {
       switch(panelHeight) {
