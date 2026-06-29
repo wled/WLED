@@ -1052,10 +1052,10 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   PANEL_CHAIN_TYPE chainType = CHAIN_NONE; // default for quarter-scan panels that do not use chaining
+  if (chainLength > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the display is upside-down
   // chained panels with cols and rows define need the virtual display driver, so do quarter-scan panels
-  if (chainLength > 1 && (_rows > 1 || _cols > 1) || bc.type == TYPE_HUB75MATRIX_QS) {
+  if (chainType != CHAIN_NONE || bc.type == TYPE_HUB75MATRIX_QS) {
     _isVirtual = true;
-    if (chainLength > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the display is upside-down
     DEBUGBUS_PRINTF_P(PSTR("Using virtual matrix: %ux%u panels of %ux%u pixels\n"), _cols, _rows, mxconfig.mx_width/2, mxconfig.mx_height*2);
   }
   else {
