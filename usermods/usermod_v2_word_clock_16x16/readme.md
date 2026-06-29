@@ -15,6 +15,7 @@ It shows the time in English with **exact-minute** phrasing plus the period of d
 ---
 
 ## Resources
+- [Video demo (YouTube)](https://youtu.be/wZmo6SdLq88)
 - [Wordclock MK1 - Twitter/X](https://x.com/AustinStAubin/status/904725600484696069)
 - [Wordclock MK1 - w/ Text Shift / Rotation (Adobe Illistrator)](https://docs.google.com/spreadsheets/d/1PluM_poY26YVuXqRocmyo1mvG5tT44V26rKZcX5UzbI/edit?gid=0#gid=0)
 - [Wordclock MK1 - Build Sheet](https://docs.google.com/spreadsheets/d/1UgpLxv2-_UMIiSN81n5ciU93GWFkNPKmxRbwsBQ3MRw/edit?gid=35318254#gid=35318254)
@@ -35,6 +36,8 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 
 ![display](./images/display.jpeg)
 ![display](./images/display-faceoff.jpeg)
+
+▶️ [Watch the video demo (YouTube)](https://youtu.be/wZmo6SdLq88)
 
 
 ### Layout (Words)
@@ -84,48 +87,19 @@ A 16×16 RGBW LED matrix occupies the center of the display for the word clock f
 
 ## Pin Info
 
-| Pin    | Used by     | Pin Notes          |
-| ------ | ----------- | ------------------ |
-| GPIO0  | Button      | Touch, Flash Boot  |  < Button 0 | On Controller
-| GPIO1  | Available   | \-                 |
-| GPIO2  | Available   | Touch, Bootstrap   |
-| GPIO3  | Available   | \-                 |
-| GPIO4  | I2C         | Touch              |
-| GPIO5  | I2C         | \-                 |
-| GPIO6  | System      | \-                 |
-| GPIO7  | System      | \-                 |
-| GPIO8  | System      | \-                 |
-| GPIO9  | System      | \-                 |
-| GPIO10 | System      | \-                 |
-| GPIO11 | System      | \-                 |
-| GPIO12 | Button      | Touch, Bootstrap   |  < Button 3 | LED 256 | Bottom Left 
-| GPIO13 | Button      | Touch              |  < Button 2 | LED 259 | Top Right
-| GPIO14 | Button      | Touch              |  < Button 1 | LED 257 | Top Left
-| GPIO15 | Button      | Touch              |  < Button 4 | LED 258 | Bottom Right
-| GPIO16 | Available   | \-                 |
-| GPIO17 | Available   | \-                 |
-| GPIO18 | Available   | \-                 |
-| GPIO19 | Available   | \-                 |
-| GPIO20 | Available   | \-                 |
-| GPIO21 | Available   | \-                 |
-| GPIO22 | Available   | \-                 |
-| GPIO23 | Available   | \-                 |
-| GPIO24 | System      | \-                 |
-| GPIO25 | LED Digital | \-                 |  < LEDs 256x WS2814 | Matrix
-| GPIO26 | LED Digital | \-                 |  < LEDs   4x WS2814 | Corners 
-| GPIO27 | Available   | Touch              |
-| GPIO28 | System      | \-                 |
-| GPIO29 | System      | \-                 |
-| GPIO30 | System      | \-                 |
-| GPIO31 | System      | \-                 |
-| GPIO32 | Available   | Touch, Analog      |
-| GPIO33 | Available   | Touch, Analog      |
-| GPIO34 | Available   | Input Only, Analog |
-| GPIO35 | Available   | Input Only, Analog |
-| GPIO36 | Available   | Input Only, Analog |
-| GPIO37 | Available   | Input Only, Analog |
-| GPIO38 | Available   | Input Only, Analog |
-| GPIO39 | Available   | Input Only, Analog |
+Only the pins used by this build are listed; all other ESP32 GPIOs are free.
+
+| Pin    | Used by     | Pin Notes         | Button | LED     | Location      |
+| ------ | ----------- | ----------------- | ------ | ------- | ------------- |
+| GPIO0  | Button      | Touch, Flash Boot | 0      |         | On Controller |
+| GPIO4  | I2C         | Touch (SDA)       |        |         | OLED (opt.)   |
+| GPIO5  | I2C         | SCL               |        |         | OLED (opt.)   |
+| GPIO12 | Button      | Touch, Bootstrap  | 3      | 256     | Bottom Left   |
+| GPIO13 | Button      | Touch             | 2      | 259     | Top Right     |
+| GPIO14 | Button      | Touch             | 1      | 257     | Top Left      |
+| GPIO15 | Button      | Touch             | 4      | 258     | Bottom Right  |
+| GPIO25 | LED Digital | 256x WS2814       |        |         | Matrix        |
+| GPIO26 | LED Digital | 4x WS2814         |        | 256-259 | Corners       |
 
 ---
 

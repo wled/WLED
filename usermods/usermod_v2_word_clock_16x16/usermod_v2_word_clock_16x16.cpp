@@ -10,8 +10,8 @@
 /*
  * Word Clock MK2 - 16x16 RGBW matrix, English, exact-minute phrasing.
  *
- * Version : 1.1.0
- * Updated : 2026-06-27
+ * Version : 1.1.1
+ * Updated : 2026-06-29
  * Author  : Austin St. Aubin <austinsaintaubin@gmail.com>
  * Note    : Developed with AI assistance; validated by building against WLED.
  *
@@ -32,7 +32,7 @@
  * Temperature can also be pushed via the JSON API ({"WordClock16x16":{"temp":N}}).
  */
 
-#define WC16_VERSION "1.1.0"   // usermod_v2_word_clock_16x16
+#define WC16_VERSION "1.1.1"   // usermod_v2_word_clock_16x16
 
 // A word is a horizontal run of letters: top-left cell (x,y) and length.
 struct WCWord { uint8_t x, y, len; };
@@ -405,7 +405,7 @@ class WordClock16x16Usermod : public Usermod {
       String url = F("http://geocoding-api.open-meteo.com/v1/search?count=1&name=");
       url += urlEncode(name);
       if (!http.begin(client, url)) { geoFailed = true; return; }
-      http.setTimeout(5000);
+      http.setTimeout(2000);                 // cap how long this blocks loop(); only runs when Place changes
       if (http.GET() == HTTP_CODE_OK) {
         String payload = http.getString();
         StaticJsonDocument<96> filter;
@@ -444,6 +444,9 @@ class WordClock16x16Usermod : public Usermod {
     }
 
     // Map a WMO weather interpretation code to a weather state.
+    // Map a WMO weather code -> state. Note WX_SEVERE is intentionally NOT produced here:
+    // Open-Meteo has no tornado/warning code, so SEVERE is driven externally (JSON API /
+    // Home Assistant alert push, e.g. {"WordClock16x16":{"wxtest":12}}).
     static uint8_t codeToState(int c) {
       if (c <= 1)                       return WX_CLEAR;     // 0 clear, 1 mainly clear
       if (c == 2 || c == 3)             return WX_CLOUDS;
@@ -500,7 +503,7 @@ class WordClock16x16Usermod : public Usermod {
         "&current=temperature_2m,relative_humidity_2m,weather_code,wind_gusts_10m",
         la, lo);
       if (!http.begin(client, url)) return false;
-      http.setTimeout(5000);
+      http.setTimeout(2000);                 // cap how long this blocks loop(); fetches are infrequent + retried
       bool ok = false;
       if (http.GET() == HTTP_CODE_OK) {
         String payload = http.getString();
@@ -512,6 +515,7 @@ class WordClock16x16Usermod : public Usermod {
         StaticJsonDocument<320> doc;
         if (!deserializeJson(doc, payload, DeserializationOption::Filter(filter))) {
           JsonObject cur = doc["current"];
+          haveHumidity = false; haveWind = false; // clear; only set true if THIS response carries them
           float tC = NAN;
           JsonVariant t = cur["temperature_2m"];
           if (!t.isNull()) { tC = t.as<float>(); setTempCelsius(tC); ok = true; }
@@ -653,6 +657,17 @@ class WordClock16x16Usermod : public Usermod {
         JsonArray aL = user.createNestedArray(F("Word Clock location"));
         aL.add(loc);
 
+        // Clickable link to the exact Open-Meteo query used (handy for debugging the data).
+        const float la = useLat(), lo = useLon();
+        if (la != 0.0f || lo != 0.0f) {
+          char url[176];
+          snprintf(url, sizeof(url),
+            "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f"
+            "&current=temperature_2m,relative_humidity_2m,weather_code,wind_gusts_10m",
+            la, lo);
+          user.createNestedArray(F("Word Clock source")).add(url);
+        }
+
         JsonArray aU = user.createNestedArray(F("Word Clock updated"));
         if (!everOk) aU.add(F("never"));
         else {
@@ -759,6 +774,10 @@ class WordClock16x16Usermod : public Usermod {
       configComplete &= getJsonValue(top[F("cbBtn3")], cbBtn[3]); configComplete &= getJsonValue(top[F("cbLed3")], cbLed[3]);
       cornerColor = parseHexColor(cornerColorHex);
       if (fetchMinutes < 1) fetchMinutes = 1;
+      // Keep the temperature bands monotonic (cold <= cool <= warm) so a bad config
+      // can't leave a band unreachable. Raise each cut to the one below it.
+      if (thrCoolWarm < thrColdCool) thrCoolWarm = thrColdCool;
+      if (thrWarmHot  < thrCoolWarm) thrWarmHot  = thrCoolWarm;
       wc16_showPeriod = showPeriod;
       wc16_showTemp   = showTemp;
       return configComplete;
@@ -843,13 +862,17 @@ class WordClock16x16Usermod : public Usermod {
       oappend(F("addInfo('WordClock16x16:cornerColor', 1, \"<i class='wc16i'>hex RGB or RGBW</i>\");"));
 
       // ---- live status panel + "Update now" -----------------------------------
-      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>\");"));
+      oappend(F("addInfo('WordClock16x16:fetchWeather', 1, \"<div id='wc16stat'>loading current weather...</div>"
+                "<div class='wc16i' style='margin:3px 14px 6px'>Weather data by "
+                "<a href='https://open-meteo.com' target='_blank'>open-meteo.com</a><span id='wc16src'></span></div>\");"));
       oappend(F("wc16refresh=function(){fetch('/json/info').then(function(r){return r.json();}).then(function(j){"
                 "var u=(j&&j.u)||{};function g(k){var a=u[k];return a?(Array.isArray(a)?a.join(''):a):'-';}"
-                "var e=document.getElementById('wc16stat');if(!e)return;"
+                "var e=document.getElementById('wc16stat');if(!e)return;var src=g('Word Clock source');"
                 "e.innerHTML='&#127777;&#65039; '+g('Word Clock temperature')+' &nbsp; &#128167; '+g('Word Clock humidity')+"
                 "' &nbsp; '+g('Word Clock condition')+'<br>&#128205; '+g('Word Clock location')+"
-                "' &nbsp; &#128260; '+g('Word Clock updated');}).catch(function(){"
+                "' &nbsp; &#128260; '+g('Word Clock updated');"
+                "var sp=document.getElementById('wc16src');if(sp)sp.innerHTML=(src!=='-')?(' &middot; <a href=\"'+src+'\" target=\"_blank\">view source</a>'):'';"
+                "}).catch(function(){"
                 "var e=document.getElementById('wc16stat');if(e)e.innerHTML='(status unavailable)';});};"));
       oappend(F("wc16upd=function(){var e=document.getElementById('wc16stat');if(e)e.innerHTML='Updating...';"
                 "fetch('/json/state',{method:'POST',headers:{'Content-Type':'application/json'},body:'{\"WordClock16x16\":{\"update\":true}}'})"
