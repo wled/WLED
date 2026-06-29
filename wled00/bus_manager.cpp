@@ -993,7 +993,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
                 mxconfig.gpio.a, mxconfig.gpio.b, mxconfig.gpio.c, mxconfig.gpio.d, mxconfig.gpio.e, mxconfig.gpio.lat, mxconfig.gpio.oe, mxconfig.gpio.clk);
 
   // OK, now we can create our matrix object
-  display = new MatrixPanel_I2S_DMA(mxconfig);
+  display = new(std::nothrow) MatrixPanel_I2S_DMA(mxconfig);
   if (display == nullptr) {
       DEBUGBUS_PRINTLN("****** MatrixPanel_I2S_DMA !KABOOM! driver allocation failed ***********");
       DEBUGBUS_PRINT(F("heap usage: ")); DEBUGBUS_PRINTLN(lastHeap - ESP.getFreeHeap());
@@ -1065,10 +1065,14 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   if (_isVirtual) {
-    virtualDisp = new VirtualMatrixPanel((*display), _rows, _cols, physicalPanelWidth, physicalPanelHeight, chainType);
-    virtualDisp->setRotation(0);
-    if (bc.type == TYPE_HUB75MATRIX_QS) {
-      switch(panelHeight) {
+    virtualDisp = new(std::nothrow) VirtualMatrixPanel((*display), _rows, _cols, physicalPanelWidth, physicalPanelHeight, chainType);
+    if (!virtualDisp) { // catch alloc error
+      _isVirtual = false;
+      DEBUGBUS_PRINTLN(F("HUB75 virtual matrix: alloc failed, falling back to non-virtual driver"));
+    } else {
+      virtualDisp->setRotation(0);
+      if (bc.type == TYPE_HUB75MATRIX_QS) {
+        switch(panelHeight) {
         case 16:
           virtualDisp->setPhysicalPanelScanRate(FOUR_SCAN_16PX_HIGH);
           break;
@@ -1082,6 +1086,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
           DEBUGBUS_PRINTLN("Unsupported height");
           cleanup();
           return;
+        }
       }
     }
   }
