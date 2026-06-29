@@ -142,10 +142,14 @@ enum class DriverState : uint8_t {
 // DMA Buffer Configuration
 //==============================================================================
 
-
-constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
 constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
+#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
+constexpr size_t DEFAULT_DMA_BUFFER_SIZE = MAX_DMA_BUFFER_SIZE; // note: 3k is enough except if using 8RMT, need extra space for S3 and ESP32 classic, also requires triple buffering
+#else
+constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
+#endif
+// TODO: need to assert the default is not larger than the max allowed, which is 4092 (12bit in DMA descriptor)
 
 //==============================================================================
 // Color Encoding Helpers
@@ -554,9 +558,9 @@ constexpr uint8_t getRmtMaxChannels() {
  * @param timing  LED timing
  * @param colorOrder Color order byte
  * @param numChannels Bytes per pixel in the encoded stream
- * @param bufferSize  DMA buffer size (for I2S/LCD)
  * @param channel RMT channel to use (-1 for auto-allocate)
  * @param ledType WLED LED type constant (TYPE_*), used for chip-specific init
+ * @param bufferSize  DMA buffer size (for I2S/LCD)
  * @return Bus instance (caller owns, delete when done)
  */
 PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,

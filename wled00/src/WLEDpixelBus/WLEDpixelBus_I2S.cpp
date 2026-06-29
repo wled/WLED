@@ -57,9 +57,12 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
   : _busNum(busNum)
   , _state(DriverState::Idle)
   , _initialized(false)
+  , _maxSrcBytes(0)
   , _bufferSize(0)
+  , _dmaAllocated(false)
   , _activeBuffer(0)
   , _remainingDataBuffers(0)
+  , _resetBytesLeft(0)
   , _timing{0, 0, 0, 0, 0}
   , _clockDiv(1)
   , _isrHandle(nullptr)
@@ -88,42 +91,14 @@ I2sBusContext:: ~I2sBusContext() {
   deinit();
 }
 
-bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
+bool I2sBusContext::init(const LedTiming& timing) {
   if (_initialized) return true;
 
   //pinMode(33, OUTPUT); // debug pin for timing analysis
 
   _timing = timing;
-  _bufferSize = (bufferSize + 3) & ~3;  // align to 4 bytes
-
-  // Allocate DMA buffers (4-byte aligned for DMA)
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
-    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
-    if (!_dmaBuffer[i]) {
-      //Serial.println("I2S DMA buffer alloc failed");
-      deinit();
-      return false;
-    }
-    memset(_dmaBuffer[i], 0, _bufferSize);
-
-    _dmaDesc[i] = (lldesc_t*)heap_caps_aligned_alloc(4, sizeof(lldesc_t), MALLOC_CAP_DMA);
-    if (!_dmaDesc[i]) {
-      //Serial.println("I2S DMA desc alloc failed");
-      deinit();
-      return false;
-    }
-  }
-
-  // Setup DMA descriptors - circular chain
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
-    _dmaDesc[i]->size = _bufferSize;
-    _dmaDesc[i]->length = _bufferSize;
-    _dmaDesc[i]->buf = _dmaBuffer[i];
-    _dmaDesc[i]->eof = 1;  // Generate interrupt on completion
-    _dmaDesc[i]->sosf = 0;
-    _dmaDesc[i]->owner = 1;
-    _dmaDesc[i]->qe.stqe_next = _dmaDesc[(i + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT];
-  }
+  // DMA buffer allocation is deferred to _allocDmaBuffers(), called from startTransmit() once
+  // all channels have registered and _maxSrcBytes reflects the largest bus.
 
   // Enable I2S peripheral
 #if defined(CONFIG_IDF_TARGET_ESP32)
@@ -304,7 +279,7 @@ bool I2sBusContext::init(const LedTiming& timing, size_t bufferSize) {
   intSource = ETS_I2S0_INTR_SOURCE;
   #endif
 
-  esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, dmaISR, this, &_isrHandle);
+  esp_err_t err = esp_intr_alloc(intSource, ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3, dmaISR, this, &_isrHandle); // note: level 3 is the maximum supported without resorting to assembly
   if (err != ESP_OK) {
     //DEBUG_PRINTF("I2S ISR alloc failed: %d", err);
     deinit();
@@ -349,10 +324,48 @@ void I2sBusContext::deinit() {
   periph_module_disable(PERIPH_I2S0_MODULE);
 #endif
 
+  _dmaAllocated = false;
   _initialized = false;
 }
 
-int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
+// Compute the DMA buffer size from _maxSrcBytes (set during registerChannel() by the largest bus),
+// then allocate the circular DMA descriptor/buffer chain.
+// Called once from startTransmit() after all channels have registered.
+bool I2sBusContext::_allocDmaBuffers() {
+  // DMA buffer size: spread total pixel data evenly across the circular buffer slots,
+  // then clamp to [MIN_DMA_BUFFER_SIZE, DEFAULT_DMA_BUFFER_SIZE]
+  _bufferSize = (WLEDPB_I2S_DMABYTES * _maxSrcBytes) / WLEDPB_I2S_DMA_BUFFER_COUNT;
+  _bufferSize = (_bufferSize + 3) & ~3;                               // align to 4 bytes
+  if (_bufferSize > DEFAULT_DMA_BUFFER_SIZE) _bufferSize = DEFAULT_DMA_BUFFER_SIZE;
+  if (_bufferSize < MIN_DMA_BUFFER_SIZE)     _bufferSize = MIN_DMA_BUFFER_SIZE;
+
+  // allocate DMA-capable buffers (4-byte aligned for hardware DMA engine)
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
+    if (!_dmaBuffer[i]) return false;
+    memset(_dmaBuffer[i], 0, _bufferSize);
+
+    _dmaDesc[i] = (lldesc_t*)heap_caps_aligned_alloc(4, sizeof(lldesc_t), MALLOC_CAP_DMA);
+    if (!_dmaDesc[i]) return false;
+  }
+
+  // set up DMA descriptors as a circular linked list
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    _dmaDesc[i]->size   = _bufferSize;
+    _dmaDesc[i]->length = _bufferSize;
+    _dmaDesc[i]->buf    = _dmaBuffer[i];
+    _dmaDesc[i]->eof    = 1;  // generate EOF interrupt on completion of each buffer
+    _dmaDesc[i]->sosf   = 0;
+    _dmaDesc[i]->owner  = 1;  // hand ownership to DMA engine
+    _dmaDesc[i]->qe.stqe_next = _dmaDesc[(i + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT];
+  }
+
+  _dmaAllocated = true;
+  //DEBUG_PRINTF_P(PSTR("[I2S] DMA buffers allocated: bufSize=%u x%u\n"), _bufferSize, WLEDPB_I2S_DMA_BUFFER_COUNT);
+  return true;
+}
+
+int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, size_t srcBytes, bool inverted) {
   // Find free slot
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_I2S_MAX_CHANNELS; i++) {
@@ -369,6 +382,9 @@ int8_t I2sBusContext::registerChannel(int8_t pin, I2sBus* bus, bool inverted) {
   _channels[idx].active = true;
   _channelCount++;
   _channelMask |= (1 << idx);
+
+  // track the largest source byte count across channels; used in _allocDmaBuffers() to size DMA buffers
+  if (srcBytes > _maxSrcBytes) _maxSrcBytes = srcBytes;
 
   // Configure GPIO
   gpio_set_direction((gpio_num_t)pin, GPIO_MODE_OUTPUT);
@@ -437,19 +453,15 @@ void I2sBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 
 #ifdef WLED_PIXELBUS_16PARALLEL
 // 16-bit parallel encode: branchless gather + scatter, 64 bytes per source byte (16 channels)
-void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  uint8_t maxCh = 0;
-  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
-  }
-
+// Returns the number of bytes actually written into dest (may be < destLen when data runs out).
+void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
   for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
     // alwaysMask: channels with active data (HIGH step); bN: channels with bit N set
     uint16_t alwaysMask = 0;
     uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;   // named regs: compiler should keep in regs
     uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
-    for (int ch = 0; ch < maxCh; ch++) {
+    for (int ch = 0; ch < maxChannel; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
       const uint16_t m = (uint16_t)(1u << ch);
@@ -492,21 +504,15 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
   }
 }
 
-#else // WLED_PIXELBUS_16PARALLEL
-
+#else
 // 8-bit parallel encode: branchless gather + scatter, 32 bytes per source byte (8 channels)
-void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  uint8_t maxCh = 0;
-  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
-  }
-
+void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
   for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
     uint8_t alwaysMask = 0;
     uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
-    for (int ch = 0; ch < maxCh; ch++) {
+    for (int ch = 0; ch < maxChannel; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
       const uint8_t m = (uint8_t)(1u << ch);
@@ -554,9 +560,48 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
 #endif // WLED_PIXELBUS_16PARALLEL
 
-void I2sBusContext::fillBuffer(uint8_t bufIdx) {
-  encode4Step(_dmaBuffer[bufIdx], _bufferSize);
-  // desc->length stays at _bufferSize (set in init, never changes)
+void IRAM_ATTR I2sBusContext::fillBuffer(uint8_t bufIdx) {
+  // clear the buffer
+  memset(_dmaBuffer[bufIdx], 0, _bufferSize); // clear the buffer, will be filled or left blank as reset signal (cant be skipped, some channels may have less data)
+
+  if (_resetBytesLeft > 0) {
+    _dmaDesc[bufIdx]->length = _resetBytesLeft;
+    _dmaDesc[bufIdx]->qe.stqe_next = nullptr; // stop the engine after this one  note: this assumes the reset period fits within one buffer, so don't set buffers too small i.e. at least 1k
+    _resetBytesLeft = 3; // flag end of frame, don't queue any more buffers (is a multiple of 4 if set "naturally" below)
+    return; // nothing to encode, this is a reset pulse, keep output low (all zeroes)
+  }
+  uint32_t bytesToEncode = 0;
+  uint8_t maxCh = 0;
+  for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
+    if (_channels[ch].active) {
+      maxCh = ch + 1;
+      uint32_t channelBytesLeft = _channels[ch].srcLen - _channels[ch].srcPos;
+      if (channelBytesLeft > bytesToEncode) bytesToEncode = channelBytesLeft;
+    }
+  }
+
+  uint32_t translatedbytes = bytesToEncode * WLEDPB_I2S_DMABYTES;
+  translatedbytes = translatedbytes > _bufferSize ? _bufferSize : translatedbytes;
+  encode4Step(_dmaBuffer[bufIdx], translatedbytes, maxCh);
+
+  if (translatedbytes < _bufferSize) {
+    // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send as zero cycles
+    uint32_t resetNs = _timing.reset_us * 1000;
+    uint32_t bitPeriodNs = _timing.bitPeriod() + 1; // +1 to ensure no division by zero and slightly over-estimate the reset cycle
+    uint32_t zeroCycles = resetNs / bitPeriodNs;
+    size_t resetBytes = zeroCycles * (WLEDPB_I2S_DMABYTES / 8); // one cycle is 4 clocks, on each clock two/one buffer byte(s) sent out in parallel
+
+    size_t newLen = translatedbytes + resetBytes;
+    if (newLen > _bufferSize) {
+      _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one (see above)
+      _dmaDesc[bufIdx]->length = _bufferSize;
+    }
+    else {
+      _dmaDesc[bufIdx]->length = newLen; // send the rest (zeroes) as a reset
+      _resetBytesLeft = 3; // flag end of frame, don't queue any more buffers or it will mess up the DMA
+      _dmaDesc[bufIdx]->qe.stqe_next = nullptr;  // reset fit into this buffer, end transfer after this is sent
+    }
+  }
 }
 
 bool I2sBusContext::startTransmit() {
@@ -577,13 +622,24 @@ bool I2sBusContext::startTransmit() {
     }
   }
 
-  // Fill all buffers initially
-  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
-    fillBuffer(i);
-    _dmaDesc[i]->owner = 1;  // Restore ownership after descriptor init
+  _resetBytesLeft = 0;
+
+  // allocate or reallocate DMA buffers if needed — deferred from init() so all channels
+  // can register first and _maxSrcBytes reflects the bus with the most pixels
+  if (!_dmaAllocated) {
+    if (!_allocDmaBuffers()) return false;
   }
 
-  _activeBuffer = 0;
+  // Fill all buffers initially
+  for (int i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    _dmaDesc[i]->qe.stqe_next = _dmaDesc[(i + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT]; // restore circular buffer chain
+    _dmaDesc[i]->length = _bufferSize;
+    fillBuffer(i);
+    _dmaDesc[i]->eof = 1;    // enable eof, just in case
+    _dmaDesc[i]->owner = 1;  // hand ownership over to DMA after descriptor init
+  }
+
+  _activeBuffer = 0; // start with first buffer
   _remainingDataBuffers = WLEDPB_I2S_DMA_BUFFER_COUNT;
   _state = DriverState::Sending;
 
@@ -627,62 +683,25 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
   // The completed buffer just finished playing; DMA is now on the next buffer
   uint8_t completedBuf = ctx->_activeBuffer;
   ctx->_activeBuffer = (ctx->_activeBuffer + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
-  memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize); // clear the buffer, will be filled or left blank as reset signal
-
-  if (ctx->_state == DriverState::Sending) {
-    // Encode next chunk into the completed buffer
-    // encode4Step always fills the full buffer (zeros for any remainder)
-    ctx->encode4Step(ctx->_dmaBuffer[completedBuf], ctx->_bufferSize);
-
-    // Check if all source data has been consumed
-    bool moreData = false;
-    for (int ch = 0; ch < WLEDPB_I2S_MAX_CHANNELS; ch++) {
-      if (ctx->_channels[ch].active &&
-        ctx->_channels[ch].srcPos < ctx->_channels[ch].srcLen) {
-        moreData = true;
-        break;
-      }
-    }
-    if (!moreData) {
-      // Last data chunk was just encoded into completedBuf.
-      // DMA is currently playing the next buffer and remaining data buffers are pending.
-      ctx->_remainingDataBuffers = WLEDPB_I2S_DMA_BUFFER_COUNT;
-      ctx->_state = DriverState::SendingLast;
-    }
-
-    // Restore DMA ownership so DMA can use this buffer
-    ctx->_dmaDesc[completedBuf]->owner = 1;
-  } else if (ctx->_state == DriverState::SendingLast) {
-    // One data buffer has just finished; convert it to reset data.
-    if (ctx->_remainingDataBuffers > 0) {
-      ctx->_remainingDataBuffers--;
-    }
-
-    ctx->_dmaDesc[completedBuf]->owner = 1;
-
-    if (ctx->_remainingDataBuffers == 0) {
-      // We have cycled through all pending data buffers and have zeroed the last one.
-      // The next buffer to play will be reset data. Wait for that one finish then stop.
-      ctx->_state = DriverState::WaitingReset;
-    } else {
-      ctx->_state = DriverState::SendingLast;
-    }
-  } else {
-    // WaitingReset - last data played, zero buffer sent as reset. Stop DMA.
-    dev->int_ena.out_eof = 0;
+  if (ctx->_dmaDesc[completedBuf]->qe.stqe_next == nullptr) { // this was the last buffer
+    //ctx->_state = DriverState::WaitingReset; // if resetBytesLeft is not a multiple of 4 this flags end of transfer
+    dev->int_ena.out_eof = 0; // disable interrupt
     dev->conf.tx_start = 0;
     dev->out_link.start = 0;
     ctx->_state = DriverState::Idle;
+    return;
+  } else if ((ctx->_resetBytesLeft != 3)) { // 3 means end of transfer (i.e. reset pulse) was encoded on last fillBuffer call
+    ctx->fillBuffer(completedBuf); // fill buffer, handle reset pulse and end of
+    ctx->_dmaDesc[completedBuf]->owner = 1; // owner is reset upon eof and must be handed back to DMA, do not hand it over if bus is stopped or it breaks the state-machine
+    return;
   }
 }
 
 // I2sBus implementation
 
-I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-         uint8_t busNum, size_t bufferSize, uint8_t ledType)
+I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
   : _pin(pin)
   , _busNum(busNum)
-  , _bufferSize(bufferSize)
   , _timing(timing)
   , _initialized(false)
   , _channelIdx(-1)
@@ -690,6 +709,7 @@ I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
+  _numPixels = numPixels; // stored so begin() can report srcBytes to the shared I2sBusContext for DMA sizing
 }
 
 I2sBus::~I2sBus() {
@@ -702,13 +722,15 @@ bool I2sBus::begin() {
   _ctx = I2sBusContext::get(_busNum);
   if (!_ctx) return false;
 
-  if (!_ctx->init(_timing, _bufferSize)) {
+  if (!_ctx->init(_timing)) {
     I2sBusContext::release(_busNum);
     _ctx = nullptr;
     return false;
   }
 
-  _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
+  // pass our encoded byte count so the context can size DMA buffers for the largest bus
+  const size_t srcBytes = (size_t)_numPixels * _encoder.getPixelBytes();
+  _channelIdx = _ctx->registerChannel(_pin, this, srcBytes, _inverted);
   if (_channelIdx < 0) {
     //DEBUG_PRINTF_P(PSTR("[I2S] registerChannel failed for pin %d\n"), _pin);
     I2sBusContext::release(_busNum);

@@ -207,7 +207,7 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
 // Bus Factory Implementation
 //==============================================================================
 
-PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType, size_t bufferSize) {
+PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType, size_t numPixels) {
 
   PixelBus* bus = nullptr;
 
@@ -218,11 +218,14 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
       break;
 
 #ifdef WLEDPB_I2S_SUPPORT
-        case BusDriver::I2S:
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)
-      bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, bufferSize, ledType);
+    case BusDriver::I2S:
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  #error C3 hardware does not support parallel I2S output and single channel output is not implemented, use WLEDPB_PARALLEL_SPI_SUPPORT instead
+#endif
+#if defined(CONFIG_IDF_TARGET_ESP32S2)
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, ledType, numPixels);
 #else
-      bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, bufferSize, ledType);
+      bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, ledType, numPixels);
 #endif
       break;
 #endif

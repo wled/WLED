@@ -174,7 +174,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     #endif
 
     // Chip-specific init (prefix/suffix/invert) is applied inside createBus() using ledType.
-    return WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, busType);
+    return WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, busType, len);
   }
 };
 #endif

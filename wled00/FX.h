@@ -96,8 +96,6 @@ extern byte realtimeMode;           // used in getMappedPixelIndex()
   assuming each segment uses the same amount of data. 256 for ESP8266, 640 for ESP32. */
 #define FAIR_DATA_PER_SEG (MAX_SEGMENT_DATA / MAX_NUM_SEGMENTS)
 
-#define MIN_SHOW_DELAY   (_frametime < 16 ? 8 : 15)
-
 #define NUM_COLORS       3 /* number of colors per segment */
 #define SEGMENT          (*strip._currentSegment)
 #define SEGENV           (*strip._currentSegment)
