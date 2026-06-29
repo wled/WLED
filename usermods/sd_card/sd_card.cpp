@@ -29,9 +29,9 @@
 
 #ifdef WLED_USE_SD_MMC
   // SD_MMC configuration handled elsewhere
-#if defined(WLED_USE_SD_SPI)
-  SPIClass spiPort = SPIClass(HSPI);
-  #warning "SD card may have conflicts with 2-pin LEDs."
+#elif defined(WLED_USE_SD_SPI)
+   SPIClass spiPort = SPIClass(HSPI);
+   #warning "SD card may have conflicts with 2-pin LEDs."
   #endif
 #endif
 
