@@ -897,7 +897,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   // https://seengreat.com/wiki/186
   mxconfig.gpio = { 37, 6, 36,         // R1_PIN, G1_PIN, B1_PIN,
                     35, 5,  0,         // R2_PIN, G2_PIN, B2_PIN,
-                    45, 1, 48,  2, 4   //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
+                    45, 1, 48,  2, 4,  //  A_PIN,  B_PIN,  C_PIN,  D_PIN,  E_PIN,
                     38, 21, 47 };      // LAT_PIN, OE_PIN,CLK_PIN
 
   #elif defined(SEENGREAT_V2_S3_PINOUT)
