@@ -1,12 +1,12 @@
 /*-------------------------------------------------------------------------
 
-WLEDpixelBus - parallel I2S output driver implementation
+WLEDpixelBus - parallel I2S/LCD output driver implementation
 
 written by Damian Schneider @dedehai 2026
 
 I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
 
-supports ESP32 and ESP32 S2
+supports ESP32, ESP32 S2 and ESP32 S3 (via LCD peripheral)
 Default is 8 parallel outputs and double DMA buffering but it also supports 16 parallel outputs if needed
 For 16 parallel output, triple buffering is required for glitch-free output.
 Data is output in 4-step cadence meaning each LED bit is encoded into 4 I2S bits. '0' is 0b1000 and '1' is 0b1110
@@ -24,30 +24,41 @@ Each bus can have individual configuration of color channels but all must share 
 namespace WLEDpixelBus {
 
 //==============================================================================
-// I2S Parallel Bus - ESP32 and ESP32-S2
+// I2S Parallel Bus - ESP32, ESP32-S2, ESP32-S3 (LCD)
 //==============================================================================
 
-#include "soc/i2s_struct.h"
-#include "soc/i2s_reg.h"
 #include "driver/periph_ctrl.h"
-#include "rom/lldesc.h"
-#include "esp_intr_alloc.h"
+#include "esp_rom_gpio.h"
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  #include "esp_private/gdma.h"
+  #include "hal/dma_types.h"
+  #include "hal/gpio_hal.h"
+  #include "hal/lcd_ll.h"
+  #include "soc/lcd_cam_struct.h"
+  #include "soc/gpio_sig_map.h"
+#else
+  #include "soc/i2s_struct.h"
+  #include "soc/i2s_reg.h"
+  #include "rom/lldesc.h"
+  #include "esp_intr_alloc.h"
+#endif
 
 // SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080
-// mode. 2 on ESP32 (I2S0 + I2S1), 1 on ESP32-S2 (I2S0 only).
 // TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
+// mode. 2 on ESP32 (I2S0 + I2S1), 1 on ESP32-S2 (I2S0 only), 1 on ESP32-S3 (LCD_CAM).
 #define WLEDPB_I2S_BUS_COUNT SOC_LCD_I80_BUSES
 
-// note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
+// note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per RGB LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
 
 // I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering is required for 16-parallel output.
 // TODO: this requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 // TODO2: the buffer count and size need to be checked agains memory usage fomulas, they may be incorrect
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
   #ifdef WLED_PIXELBUS_16PARALLEL
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3 // need 3 buffers in 16x parallel mode
   #else
-    #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
+    #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT (ESP32 only)
     #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
     #else
     #define WLEDPB_I2S_DMA_BUFFER_COUNT 2 // 2 buffers is enough if not constantly interrupted by RMT
@@ -58,15 +69,14 @@ namespace WLEDpixelBus {
 // 16-bit parallel mode supports 16 channels; 8-bit supports 8 channels.
 #ifdef WLED_PIXELBUS_16PARALLEL
   #define WLEDPB_I2S_MAX_CHANNELS 16
-  #define WLEDPB_I2S_DMABYTES 64 // 64 bytes per pixel byte (4 clocks per bit, 2 bytes per clock)
+  #define WLEDPB_I2S_DMABYTES 64     // 64 bytes per pixel byte (4 clocks per bit, 2 bytes per clock)
 #else
   #define WLEDPB_I2S_MAX_CHANNELS 8
-  #define WLEDPB_I2S_DMABYTES 32 // 32 bytes per pixel byte (4 clocks per bit, 1 byte per clock)
+  #define WLEDPB_I2S_DMABYTES 32     // 32 bytes per pixel byte (4 clocks per bit, 1 byte per clock)
 #endif
-
-
+#define WLEDPB_I2S_XFER_DONE_FLAG 3  // flag to indicate end of transfer, must NOT be a multiple of 4
 /**
- * I2S bus context - manages shared I2S peripheral for parallel output
+ * I2S bus context - manages shared I2S/LCD peripheral for parallel output
  * Uses circular DMA buffers with ISR-driven buffer refill
  */
 class I2sBusContext {
@@ -96,15 +106,57 @@ private:
   void IRAM_ATTR fillBuffer(uint8_t bufIdx);
   bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
   void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // Encoding (4-step cadence)
-  static void IRAM_ATTR dmaISR(void* arg);
 
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
+#else
+  static void IRAM_ATTR dmaISR(void* arg);
+#endif
+  void IRAM_ATTR _processEof();
+
+  // Hardware abstraction
+  bool hwInit(const LedTiming& timing);
+  void hwDeinit();
+  void hwStartTransfer();
+  void IRAM_ATTR hwStopTransfer();
+  void hwRoutePin(int8_t pin, int8_t idx, bool inverted);
+
+  // DMA descriptor abstraction
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  using DmaDesc_t = dma_descriptor_t;
+  static inline void descSetBuf(DmaDesc_t* d, uint8_t* b) { d->buffer = b; }
+  static inline void descSetSizeAndLen(DmaDesc_t* d, size_t len) { d->dw0.size = len; d->dw0.length = len; }
+  static inline void descSetLength(DmaDesc_t* d, size_t len) { d->dw0.length = len; }
+  static inline void descSetNext(DmaDesc_t* d, DmaDesc_t* n) { d->next = n; }
+  static inline DmaDesc_t* descGetNext(DmaDesc_t* d) { return d->next; }
+  static inline void descSetEof(DmaDesc_t* d) { d->dw0.suc_eof = 1; }
+  static inline void descSetOwnerDma(DmaDesc_t* d) { d->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA; }
+  static inline bool descIsOwnerDma(DmaDesc_t* d) { return d->dw0.owner == DMA_DESCRIPTOR_BUFFER_OWNER_DMA; }
+#else
+  using DmaDesc_t = lldesc_t;
+  static inline void descSetBuf(DmaDesc_t* d, uint8_t* b) { d->buf = b; }
+  static inline void descSetSizeAndLen(DmaDesc_t* d, size_t len) { d->size = len; d->length = len; }
+  static inline void descSetLength(DmaDesc_t* d, size_t len) { d->length = len; }
+  static inline void descSetNext(DmaDesc_t* d, DmaDesc_t* n) { d->qe.stqe_next = n; }
+  static inline DmaDesc_t* descGetNext(DmaDesc_t* d) { return d->qe.stqe_next; }
+  static inline void descSetEof(DmaDesc_t* d) { d->eof = 1; }
+  static inline void descSetOwnerDma(DmaDesc_t* d) { d->owner = 1; }
+  static inline bool descIsOwnerDma(DmaDesc_t* d) { return d->owner == 1; }
+#endif
+
+#ifdef CONFIG_IDF_TARGET_ESP32S3
+  gdma_channel_handle_t _dmaChannel;
+#else
   uint8_t _busNum;
   i2s_dev_t* _i2sDev;
+  intr_handle_t _isrHandle;
+#endif
+
   volatile DriverState _state;
   bool _initialized;
 
   // DMA circular buffer chain
-  lldesc_t* _dmaDesc[WLEDPB_I2S_DMA_BUFFER_COUNT];
+  DmaDesc_t* _dmaDesc[WLEDPB_I2S_DMA_BUFFER_COUNT];
   uint8_t* _dmaBuffer[WLEDPB_I2S_DMA_BUFFER_COUNT];
   size_t _bufferSize;      // actual allocated DMA buffer size (per buffer)
   size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
@@ -116,9 +168,6 @@ private:
   // Timing
   LedTiming _timing;
   uint32_t _clockDiv;
-
-  // ISR handle
-  intr_handle_t _isrHandle;
 
   // Channel data
   struct ChannelData {
@@ -151,7 +200,7 @@ public:
    * @param timing LED timing
    * @param colorOrder Color order
    * @param numChannels Bytes per pixel
-   * @param busNum I2S bus number (0 or 1 on ESP32, 0 on S2)
+   * @param busNum I2S bus number (0 or 1 on ESP32, 0 on S2/S3)
    * @param ledType LED chip type constant
    * @param numPixels Number of pixels; stored for DMA buffer sizing in I2sBusContext
    */
@@ -161,8 +210,7 @@ public:
   bool begin() override;
   void end() override;
 
-  bool show(const uint32_t* pixels, uint16_t numPixels,
-        const CctPixel* cct = nullptr) override;
+  bool show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct = nullptr) override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "I2S"; }

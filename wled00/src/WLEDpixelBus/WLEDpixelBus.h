@@ -37,16 +37,10 @@ Currently based on IDF v4.x API functions and low-level HAL
 #include "driver/rmt.h"
 
 // I2S support: targets where the I2S peripheral has the LCD Intel 8080 mode
-// used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and
-// ESP32-S2; absent on S3 (which has a dedicated LCD CAM) and C3.
-#if SOC_I2S_LCD_I80_VARIANT
+// used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and ESP32-S2 only
+// SOC_LCDCAM_SUPPORTED is defined on ESP32-S3 only (uses LCD peripheral, not actually I2S)
+#if (SOC_I2S_LCD_I80_VARIANT || SOC_LCDCAM_SUPPORTED)
   #define WLEDPB_I2S_SUPPORT
-#endif
-
-// LCD support: targets with a dedicated LCD CAM peripheral.
-// SOC_LCDCAM_SUPPORTED is defined on ESP32-S3 only.
-#if SOC_LCDCAM_SUPPORTED
-  #define WLEDPB_LCD_SUPPORT
 #endif
 
 // SPI parallel support (C3 - uses SPI quad mode with GDMA)
@@ -517,23 +511,17 @@ class I2sBus;
 class I2sBusContext;
 #endif
 
-#ifdef WLEDPB_LCD_SUPPORT
-class LcdBus;
-class LcdBusContext;
-#endif
-
 //==============================================================================
 // Bus Factory - Create appropriate bus for platform
 //==============================================================================
 
 enum class BusDriver : uint8_t {
   RMT     = 0,
-  I2S     = 1,
-  LCD     = 2,
-  SPI     = 3,
-  UART    = 4,
-  DMA     = 5,
-  BitBang = 6
+  I2S     = 1, // I2S on ESP32 and S2, LCD on S3
+  SPI     = 2, // parallel SPI output
+  UART    = 3,
+  DMA     = 4,
+  BitBang = 5
 };
 
 /**
@@ -573,7 +561,6 @@ PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
-#include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
 #include "WLEDpixelBus_BitBang.h"
 #elif defined(ESP8266)

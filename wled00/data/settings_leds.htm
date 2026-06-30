@@ -539,6 +539,7 @@
 				chanuse.style.color = '#ccc';
 				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
 				if (isC3()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "SPI"); // replace I2S with "SPI" on C3
+				if (isS3()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "LCD"); // replace I2S with "LCD" on S3
 				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S || usage.bbUsed > maxBB) {
 					chanuse.style.color = 'red';
 				}
@@ -1109,6 +1110,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
 					let bbOpt  = drvsel.querySelector('option[value="2"]');
 					if (isC3()) i2sOpt.textContent = "SPI"; // rename to SPI on C3
+					if (isS3()) i2sOpt.textContent = "LCD"; // rename to LCD on S3
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
 					if (bbOpt) bbOpt.disabled = false;

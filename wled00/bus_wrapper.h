@@ -8,7 +8,6 @@
 #if defined(ARDUINO_ARCH_ESP32)
 #include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_I2S.h"
-#include "src/WLEDpixelBus/WLEDpixelBus_LCD.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_ParallelSpi.h"
 #elif defined(ARDUINO_ARCH_ESP8266)
 #include "src/WLEDpixelBus/WLEDpixelBus_ESP8266.h"
@@ -158,10 +157,8 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     switch (driverType) {
       case BUSDRV_RMT:     driver = WLEDpixelBus::BusDriver::RMT; break;
       case BUSDRV_I2S:
-        #if defined(CONFIG_IDF_TARGET_ESP32S3)
-        driver = WLEDpixelBus::BusDriver::LCD; // S3 has LCD peripheral with 16 channels, very similar to I2S
-        #elif defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)
-        driver = WLEDpixelBus::BusDriver::I2S;
+        #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
+        driver = WLEDpixelBus::BusDriver::I2S; // uses LCD hardware on S3 no actually I2S
         #elif defined(CONFIG_IDF_TARGET_ESP32C3)
         driver = WLEDpixelBus::BusDriver::SPI; // parallel SPI
         #else

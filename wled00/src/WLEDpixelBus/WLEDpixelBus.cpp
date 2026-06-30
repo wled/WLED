@@ -26,7 +26,6 @@ Currently based on IDF v4.x API functions and low-level HAL
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
-#include "WLEDpixelBus_LCD.h"
 #include "WLEDpixelBus_ParallelSpi.h"
 #endif
 
@@ -222,17 +221,11 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   #error C3 hardware does not support parallel I2S output and single channel output is not implemented, use WLEDPB_PARALLEL_SPI_SUPPORT instead
 #endif
-#if defined(CONFIG_IDF_TARGET_ESP32S2)
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
       bus = new I2sBus(pin, timing, colorOrder, numChannels, 0, ledType, numPixels);
 #else
       bus = new I2sBus(pin, timing, colorOrder, numChannels, 1, ledType, numPixels);
 #endif
-      break;
-#endif
-
-#ifdef WLEDPB_LCD_SUPPORT
-    case BusDriver::LCD:
-      bus = new LcdBus(pin, timing, colorOrder, numChannels, numPixels, false, ledType);
       break;
 #endif
 
