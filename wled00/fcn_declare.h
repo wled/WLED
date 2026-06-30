@@ -414,11 +414,6 @@ namespace UsermodManager {
 // Register usermods by building a static list via a linker section
 #define REGISTER_USERMOD(x) DYNARRAY_MEMBER(Usermod*, usermods, um_##x, 1) = &x
 
-//usermod.cpp
-void userSetup();
-void userConnected();
-void userLoop();
-
 //util.cpp
 #ifdef ESP8266
 #define HW_RND_REGISTER RANDOM_REG32
