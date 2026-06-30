@@ -137,7 +137,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
   
   strip.suspend();
-  strip.waitForLEDs(25);  // wait max 25 ms for LED transmissions to finish
+  strip.waitForLEDs(80);  // wait max 25 ms for LED transmissions to finish
   context->needsRestart = true;
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can

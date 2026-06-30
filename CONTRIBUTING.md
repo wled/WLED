@@ -14,7 +14,25 @@ A good description helps us to review and understand your proposed changes. For 
 
 ### Target branch for pull requests
 
-Please make all PRs against the `0_15` branch.
+> [!IMPORTANT]
+> Please make all PRs against the `main` branch.
+> If a bugfix is *not* relevant for `main`, make your PR against `0_15_x`.
+
+### Testing Your Changes
+
+Before submitting:
+
+- ✅ Does it compile?
+- ✅ Does your feature/fix actually work?
+- ✅ Did you break anything else?
+- ✅ Tested on actual hardware if possible?
+
+Mention your testing in the PR description (e.g., "Tested on ESP32 + WS2812B").
+
+## During Review
+
+We're all volunteers, so reviews can take some time (longer during busy times). 
+Don't worry - we haven't forgotten you! Feel free to ping after a week if there's no activity.
 
 ### Updating your code
 While the PR is open - and under review by maintainers - you may be asked to modify your PR source code.

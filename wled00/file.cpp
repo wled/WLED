@@ -46,7 +46,7 @@ void closeFile() {
   bool haveSuspended = false;
   #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
     if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; }// prevent that a new strip.show() starts after waiting
-    strip.waitForLEDs(15); // be nice, but not too nice. Waits up to 15ms
+    strip.waitForLEDs(150); // be nice, but not too nice. Waits up to 150ms
   #endif
 
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
