@@ -663,8 +663,7 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 
 uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 {
-  if (!gammaCorrectCol) return value;
-  return gammaT[value];
+  return gammaT[value]; // gammaT[] uses unity mapping if gammaCorrectCol is false
 }
 
 uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)

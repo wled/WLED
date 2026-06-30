@@ -207,6 +207,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //channel swap
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed (DotStar & PWM)
+      char sf[4] = "SF"; sf[2] = offset+s; sf[3] = 0; //bus speed factor (Fast/Default/Slow)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED mA
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max mA
       char ld[4] = "LD"; ld[2] = offset+s; ld[3] = 0; //driver type (RMT=0, I2S=1)
@@ -265,7 +266,35 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       text = request->arg(hs).substring(0,31);
       // actual finalization is done in WLED::loop() (removing old busses and adding new)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
-      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text);
+      uint8_t bsf = request->hasArg(sf) ? (uint8_t)request->arg(sf).toInt() : 100;
+      busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text, (uint8_t)bsf);
+      // For TYPE_CUSTOM_BUS: parse per-channel custom config from the submitted form
+      if ((type & 0x7F) == TYPE_CUSTOM_BUS) { // strip bit 7 (off-refresh flag)
+        BusConfig& bc_back = busConfigs.back();
+        char cbch[7]  = "CBch";  cbch[4]  = offset+s; cbch[5]  = 0;
+        char cbio[7]  = "CBio";  cbio[4]  = offset+s; cbio[5]  = 0;
+        char cbb[6]   = "CBb";   cbb[3]   = offset+s; cbb[4]   = 0;
+        char cbt0h[7] = "CBt0h"; cbt0h[5] = offset+s; cbt0h[6] = 0;
+        char cbt0l[7] = "CBt0l"; cbt0l[5] = offset+s; cbt0l[6] = 0;
+        char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
+        char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
+        char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
+        bc_back.custom.numChannels  = (uint8_t)constrain(request->arg(cbch).toInt(), 1, 6);
+        bc_back.custom.invertOutput = request->hasArg(cbio);
+        bc_back.custom.is16bit      = request->hasArg(cbb);
+        bc_back.custom.t0h  = (uint16_t)constrain(request->arg(cbt0h).toInt(), 50, 9999);
+        bc_back.custom.t0l  = (uint16_t)constrain(request->arg(cbt0l).toInt(), 50, 9999);
+        bc_back.custom.t1h  = (uint16_t)constrain(request->arg(cbt1h).toInt(), 50, 9999);
+        bc_back.custom.t1l  = (uint16_t)constrain(request->arg(cbt1l).toInt(), 50, 9999);
+        bc_back.custom.trst = (uint16_t)constrain(request->arg(cbrst).toInt(),  1, 9999);
+        bc_back.custom.invertMask   = 0;
+        for (uint8_t ci = 0; ci < 6; ci++) {
+          char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0;
+          char cbi[7] = "CBi"; cbi[3] = '0'+ci; cbi[4] = offset+s; cbi[5] = 0;
+          bc_back.custom.channelColors[ci] = (uint8_t)constrain(request->arg(cbc).toInt(), 0, 6);
+          if (request->hasArg(cbi)) bc_back.custom.invertMask |= (1u << ci);
+        }
+      }
       busesChanged = true;
     }
     //doInitBusses = busesChanged; // we will do that below to ensure all input data is processed

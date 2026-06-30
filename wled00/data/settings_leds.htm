@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxI2S=0,maxRMT=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4; //maximum bytes for LED allocation: 4kB for 8266, 32kB for 32
+		var maxD=1,maxI2S=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
 		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
@@ -55,22 +55,45 @@
 				d.Sf.addEventListener("submit", trySubmit);
 				if (d.um_p[0]==-1) d.um_p.shift();
 				fetchPinInfo(pinDropdowns);
+				// Populate per-bus Bus Speed Factor (bsf) from server config if present
+				try {
+					if (d && d.hw && d.hw.led && Array.isArray(d.hw.led.ins)) {
+						d.hw.led.ins.forEach((v,i)=>{
+							let el = d.getElementsByName("SF"+i)[0];
+							if (el) el.value = (typeof v.bsf !== 'undefined') ? (v.bsf || 100) : 100;
+						});
+					}
+				} catch(e) {}
+				// initialize UI after populating values
+				UI();
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(c,p,m,l,o,di,r,i,a,n) {
+		function bLimits(c,p,m,l,o,di,r,i,a,n,dd,dl,ds,bb) {
 			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
 			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o;		// maxCO - max Color Order mappings
-			maxD  = di;		// maxD - max digital channels (can be changed if using ESP32 parallel I2S): 16 - ESP32, 12 - S3/S2, 2 - C3, 3 - 8266
+			maxD  = di;		// maxD - max digital channels (RMT + I2S/LCD/SPI + BB): 24 - ESP32, 20 - S3/S2, 14 - C3, 3 - 8266
 			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
 			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n;		// maxBT - max buttons
+			dmaDef = dd;	// default DMA buffer size
+			dmaLcd = dl;	// DMA buffer size for LCD types ("parallel I2S")
+			dmaSpi = ds;  // DMA buffer size for SPI types (non-2pin digital)
+			maxBB = bb;		// maxBB - max parallel BitBang channels: 8 - ESP32 variants and ESP8266 (GPIO 0-15), 0 on chipsets without BB support
 		}
 		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
+		// Returns true if bus n on ESP8266 uses parallel BitBang output (pin is not GPIO1/2/3 which use UART/DMA)
+		function is8266BB(n) {
+			if (!is8266()) return false;
+			let t = parseInt(d.Sf["LT"+n]?.value);
+			if (!isDig(t) || isD2P(t)) return false;
+			let pin = parseInt(d.Sf["L0"+n]?.value);
+			return pin !== 1 && pin !== 2 && pin !== 3;
+		}
 		function isC3()   { return chipID == 1; }
 		function isS2()   { return chipID == 2; }
 		function isS3()   { return chipID == 3; }
@@ -158,13 +181,14 @@
 					}
 				}
 			};
-			if (bquot > 100) {var msg = "Too many LEDs! Can't handle that!"; alert(msg); e.stopPropagation(); return false;}
+			if (bquot > 100) {alert("Too many LEDs! Can't handle that!"); e.stopPropagation(); return false;}
 			else {
-				if (bquot > 80) {var msg = "Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.";
-				if (bquot > 100) msg += "\n\rToo many LEDs for me to handle properly!"; if (maxM < 10000) msg += "\n\rConsider using an ESP32."; alert(msg);}
+				if (bquot > 80) alert("Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.");
 				if (!d.Sf.ABL.checked || d.Sf.PPL.checked) d.Sf.MA.value = 0; // submit 0 as ABL (PPL will handle it)
 				if (d.Sf.checkValidity()) {
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{s.disabled=false;}); // just in case
+					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach((s)=>{s.disabled=false;}); // ensure SF values are submitted even if some are disabled
+					["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"].forEach(fn => { d.Sf.querySelectorAll("#mLC input[name^="+fn+"]").forEach(el=>{el.disabled=false;}); }); // ensure custom bus timing values are submitted even if mirrored/disabled
 					d.Sf.submit(); //https://stackoverflow.com/q/37323914
 				}
 			}
@@ -244,40 +268,54 @@
 		//returns mem usage for buses including two pixel buffers (segment buffer + global buffer)
 		function getMem(t, n) {
 			if (isAna(t)) return 5;	// analog
-			let len = parseInt(d.Sf["LC"+n].value);
-			len += parseInt(d.Sf["SL"+n].value); // skipped LEDs are allocated too
-			let dma = 0; // DMA memory for this bus (only for I2S)
-			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer (at least one segment buffer is required)
+			let len = parseInt(d.Sf["LC"+n].value) + parseInt(d.Sf["SL"+n].value);
+			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
-			let mul = 1;
+			if (is16b(t)) ch *= 2; // 16 bit LEDs use 2 bytes per channel
+
+			let mem = 0;
 			if (isDig(t)) {
-				if (is16b(t)) len *= 2; // 16 bit LEDs
-				if (is8266() && d.Sf["L0"+n].value == 3) { //8266 DMA uses 5x the mem
-					mul = 5;
-				}
-				if (!is8266() && !isD2P(t)) {
-					mul = 2; // default to double buffer (RMT, 2-pin digital)
-					let driverPref = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
-					if (driverPref == 1) { // I2S to be used
-						mul = 1; // NPB uses single pixel buffer for I2S, DMA buffer serves as second buffer
-						let usage = getDuse();
-						dma = usage.I2Smem; // DMA buffer for I2S/LCD, getDuse() returns the average per I2S bus so it can be distributed and summed
+				if (is8266()) {
+					pbfr = len * 4; // no global buffer on ESP8266
+					let pin = parseInt(d.Sf["L0"+n].value);
+					if (pin === 3) {
+						mem += len * ch * 4 + 40; // DMA: 4-step I2S pre-expanded encode buffer + 40 byte reset latch
+					} else {
+						mem += len * ch; // UART (pin 1,2) and BitBang: plain encode buffer, ISR expands UART on-the-fly
+					}
+				} else {
+					if (isD2P(t)) {
+						mem += len * ch + getDuse().SPImem;
+					} else {
+						mem += len * ch; // encode buffer
+						let driverPref = d.Sf["LD"+n]?.value | 0; // 0=RMT, 1=I2S
+						if (driverPref == 1) {
+							mem += getDuse().I2Smem; // DMA shared buffer averaged
+						}
 					}
 				}
-				//console.log(`LED mem for bus ${n} (NPB buffers, DMA buffer per bus, WLED pixel buffers): ${len * ch * mul} + ${dma} + ${pbfr}`);
 			}
-			return len * ch * mul + dma + pbfr;
+			return mem + pbfr;
 		}
 
 		// check if bus configuration is valid
 		function isBCok(n, usage) {
-			if (is8266()) return true; // no special bus limits on ESP8266 other than digital bus count, checked in updateTypeDropdowns()
+			if (is8266()) {
+				// Only BitBang buses have parallel constraints on ESP8266
+				if (!is8266BB(n)) return true;
+				let t = parseInt(d.Sf["LT"+n].value);
+				if (usage.bbType !== null && t !== usage.bbType) return false; // mismatched type in parallel BitBang
+				if (usage.bbUsed > maxBB) return false; // too many BitBang buses
+				return true;
+			}
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
-			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S
+			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
 			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
+			if (drv==2 && usage.bbType!==null && t!==usage.bbType) return false; // mismatched type in parallel BitBang
 			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
 			if (drv==1 && usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			if (drv==2 && usage.bbUsed > maxBB) return false; // too many BitBang buses
 			return true;
 		}
 
@@ -353,17 +391,27 @@
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
 				if (change) { // did we change LED type?
-					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31); // LEDs require data in off state (mandatory for TM1814)
+					gId("rf"+n).checked = (gId("rf"+n).checked || t == 31 || t == 35); // LEDs require data in off state (mandatory for TM1814/TM1815)
 					if (isAna(t)) d.Sf["LC"+n].value = 1;                   // for sanity change analog count just to 1 LED
 					d.Sf["LA"+n].min = (!isDig(t) || !abl) ? 0 : 1;         // set minimum value for LED mA
 					d.Sf["MA"+n].min = (!isDig(t)) ? 0 : 250;               // set minimum value for PSU mA
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";       // hide color order for PWM
-				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t)) ? "inline":"none";   // show swap channels dropdown
+				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || t==36) ? "none":"inline";       // hide color order for PWM / custom bus
+				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && t!=36) ? "inline":"none";   // show swap channels dropdown (not for custom bus)
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
+				// show/hide custom bus panel and update visible channel rows
+				const isCustBus = (t === 36);
+				gId("custbus"+n).style.display = isCustBus ? "inline":"none";
+				if (isCustBus) {
+					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
+					for (let ci=0; ci<6; ci++) {
+						let row = gId("CBrow"+n+"_"+ci);
+						if (row) row.style.display = (ci < nch) ? "" : "none";
+					}
+				}
 				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
 				gId("dig"+n+"r").style.display = (isVir(t)) ? "none":"inline";              // hide reversed for virtual
 				gId("dig"+n+"s").style.display = (isVir(t) || isAna(t) || isHub75(t)) ? "none":"inline";  // hide skip 1st for virtual & analog
@@ -382,15 +430,11 @@
 				d.Sf.CR.checked = false;
 			}
 			// update start indexes, max values, calculate current, etc
-			let sameType = 0;
 			var nList = d.Sf.querySelectorAll("#mLC input[name^=L]");
 			nList.forEach((LC,i)=>{
 				let nm = LC.name.substring(0,2);     // field name : /L./
 				let n  = LC.name.substring(2,3);     // bus number (0-Z)
 				let t  = parseInt(d.Sf["LT"+n].value); // LED type SELECT
-				if (isDig(t) && !isD2P(t)) {
-					if (sameType == 0) sameType = t; // first bus type
-				}
 				// do we have a led count field
 				if (nm=="LC") {
 					if (!isHub75(t)) {
@@ -456,31 +500,46 @@
 					drvsel.style.display = "none"; // hide by default
 					drvsel.style.color = "#fff"; // reset color
 				}
+				let bsfsel = gId("bsfsel"+n);
+				if (bsfsel) {
+					bsfsel.style.display = "none";
+					bsfsel.style.color = "#fff";
+				}
 				s.style.color = "#fff"; // reset
 
 				if (isDig(t) && !isD2P(t)) {
-					// Update I2S/RMT driver info/dropdown for ESP32 digital buses, C3 only supports RMT
-					if (!is8266() && !isC3()) {
+					// Update I2S/RMT driver info/dropdown for ESP32 digital buses
+					if (!is8266()) {
 						// Show driver selection dropdown when I2S is enabled, mark red if invalid
 						if (drvsel) {
 							if (d.Sf.AS.checked) drvsel.style.display = "inline"; // only show when advanced settings enabled
 							d.Sf["LD"+n].value = d.Sf["LD"+n].value | 0; // default to RMT
 							if (!isBCok(n, usage)) drvsel.style.color = "red"; else drvsel.style.color = "#fff";
 						}
+					} else if (is8266BB(n)) {
+						// ESP8266 BitBang: color the LED type dropdown red on type mismatch
+						if (!isBCok(n, usage)) s.style.color = "red";
+					}
+					// Show bus speed selector when advanced settings enabled
+					if (bsfsel) {
+						if (d.Sf.AS.checked) bsfsel.style.display = "block";
 					}
 				}
 			});
+			// note: do not remove this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
 			updateTypeDropdowns(); // update type dropdowns to disable unavailable digital/analog types (I2S/RMT bus count may have changed due to memory usage change)
-			// note: do not remvoe this second call to updateTypeDropdowns() as it also updates the available LED types based on the current bus configuration, not just the driver options
+			// enforce parallel-output bus speed selector rules (only first parallel bus editable; I2S/LCD/SPI and BitBang buses all share one timing)
+			syncParallelBusSpeedSelectors();
 
 			// Show channel usage warning
 			let chanuse = gId('chanuse');
 			let channelMsg = gId('chanusemsg');
-			if (chanuse && channelMsg && !is8266()) {
+			if (chanuse && channelMsg && (!is8266() || usage.bbUsed > 0)) {
 				chanuse.style.display = 'inline';
 				chanuse.style.color = '#ccc';
-				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}`;
-				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S) {
+				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
+				if (isC3()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "SPI"); // replace I2S with "SPI" on C3
+				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S || usage.bbUsed > maxBB) {
 					chanuse.style.color = 'red';
 				}
 			}
@@ -587,6 +646,18 @@ mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 Driver: <select name="LD${s}" onchange="UI()">
 <option value="0">RMT</option>
 <option value="1">I2S</option>
+<option value="2">BitBang</option>
+</select>
+</div>
+<div id="bsfsel${s}" style="display:none">
+LED Timing: <select name="SF${s}">
+<option value="70">Fastest (-30%)</option>
+<option value="80">Faster (-20%)</option>
+<option value="90">Fast (-10%)</option>
+<option value="100" selected>Default</option>
+<option value="110">Slow (+10%)</option>
+<option value="120">Slower (+20%)</option>
+<option value="130">Slowest (+30%)</option>
 </select>
 </div>
 <div id="net${s}h" class="hide">Host: <input type="text" name="HS${s}" maxlength="32" pattern="[a-zA-Z0-9_\\-]*" onchange="UI()"/>.local</div>
@@ -594,6 +665,33 @@ Driver: <select name="LD${s}" onchange="UI()">
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
 <div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select>&nbsp;</div>
+<div id="custbus${s}" style="display:none">
+<br>Custom Bus: channels: <select name="CBch${s}" onchange="UI()">
+<option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
+</select>
+<br>16-bit: <input type="checkbox" name="CBb${s}" onchange="UI()">
+<br>Invert Out: <input type="checkbox" name="CBio${s}">
+<br>Timing (ns/µs):
+<table style="font-size:0.85em;margin:0 auto">
+<tr><th>T0H</th><th>T0L</th><th>T1H</th><th>T1L</th><th>Reset(µs)</th></tr>
+<tr>
+<td><input type="number" name="CBt0h${s}" min="50" max="9999" value="300" style="width:4.5em"></td>
+<td><input type="number" name="CBt0l${s}" min="50" max="9999" value="900" style="width:4.5em"></td>
+<td><input type="number" name="CBt1h${s}" min="50" max="9999" value="700" style="width:4.5em"></td>
+<td><input type="number" name="CBt1l${s}" min="50" max="9999" value="500" style="width:4.5em"></td>
+<td><input type="number" name="CBrst${s}" min="1"  max="9999" value="300" style="width:4.5em"></td>
+</tr>
+</table>
+<table style="font-size:0.85em;margin:0 auto">
+<tr><th></th><th>Color</th><th>Invert</th></tr>
+<tr id="CBrow${s}_0"><td>Ch1</td><td><select name="CBc0${s}"><option value="0">Unused</option><option value="1">R</option><option value="2" selected>G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi0${s}"></td></tr>
+<tr id="CBrow${s}_1"><td>Ch2</td><td><select name="CBc1${s}"><option value="0">Unused</option><option value="1" selected>R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi1${s}"></td></tr>
+<tr id="CBrow${s}_2"><td>Ch3</td><td><select name="CBc2${s}"><option value="0">Unused</option><option value="1">R</option><option value="2">G</option><option value="3" selected>B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi2${s}"></td></tr>
+<tr id="CBrow${s}_3" style="display:none"><td>Ch4</td><td><select name="CBc3${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi3${s}"></td></tr>
+<tr id="CBrow${s}_4" style="display:none"><td>Ch5</td><td><select name="CBc4${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi4${s}"></td></tr>
+<tr id="CBrow${s}_5" style="display:none"><td>Ch6</td><td><select name="CBc5${s}"><option value="0" selected>Unused</option><option value="1">R</option><option value="2">G</option><option value="3">B</option><option value="4">W</option><option value="5">WW</option><option value="6">CW</option></select></td><td><input type="checkbox" name="CBi5${s}"></td></tr>
+</table>
+</div>
 </div>`;
 				f.insertAdjacentHTML("beforeend", cn);
 				// fill led types (credit @netmindz)
@@ -770,13 +868,13 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (c.hw) {
 					if (c.hw.led) {
 						// remove all existing outputs
-						for (const i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+						for (let i=0; i<36; i++) addLEDs(-1); // was i<maxb+maxV when number of virtual buses was limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 						let l = c.hw.led;
 						l.ins.forEach((v,i,a)=>{
 							addLEDs(1);
 							for (var j=0; j<v.pin.length; j++) d.getElementsByName(`L${j}${i}`)[0].value = v.pin[j];
 							d.getElementsByName("LT"+i)[0].value   = v.type;
-							d.getElementsByName("LD"+i)[0].value   = v.drv | 0; // output driver type (RMT or I2S, default to RMT if not set)
+							d.getElementsByName("LD"+i)[0].value   = v.drv || 0; // output driver type (RMT or I2S, default to RMT if not set)
 							d.getElementsByName("LS"+i)[0].value   = v.start;
 							d.getElementsByName("LC"+i)[0].value   = v.len;
 							d.getElementsByName("CO"+i)[0].value   = v.order & 0x0F;
@@ -786,6 +884,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.getElementsByName("AW"+i)[0].value   = v.rgbwm;
 							d.getElementsByName("WO"+i)[0].value   = (v.order>>4) & 0x0F;
 							d.getElementsByName("SP"+i)[0].value   = v.freq;
+							d.getElementsByName("SF"+i)[0].value   = v.bsf || 100; // bus speed factor, default to 100%
 							d.getElementsByName("LA"+i)[0].value   = v.ledma;
 							d.getElementsByName("MA"+i)[0].value   = v.maxpwr;
 						});
@@ -892,36 +991,52 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		// calculate channel usage across all buses
 		function getDuse() {
-			let rmtUsed = 0, i2sUsed = 0;
+			let rmtUsed = 0, i2sUsed = 0, spiUsed = 0;
 			let I2SType = null;
-			let I2Smem = 0; // DMA memory usage for I2S buses: 3x LED count for single I2S bus, 24x LED count for parallel I2S
-			let maxLEDs = 0; // max number of LEDs for DMA buffer calc
-			if (!is8266()) {
+			let bbUsed = 0, bbType = null;
+			let I2Smem = 0, SPImem = 0;
+			if (is8266()) {
+				// ESP8266: track parallel BitBang channels (pins other than GPIO1/2 UART and GPIO3 DMA)
+				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+					let n = sel.name.substring(2,3);
+					if (is8266BB(n)) {
+						bbUsed++;
+						if (!bbType) bbType = parseInt(sel.value);
+					}
+				});
+			} else {
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
 					let driverPref = d.Sf["LD"+n]?.value | 0;
-					let ledCount = (parseInt(d.Sf["LC"+n].value) || 0) + (parseInt(d.Sf["SL"+n].value) || 0);
 
 					if (isDig(t) && !isD2P(t)) {
 						if (driverPref === 1) {
 							i2sUsed++;
-							maxLEDs = maxLEDs > ledCount ? maxLEDs : ledCount; // for parallel I2S the memory buffer is shared, largest bus determines total memory usage
-							if (!I2SType) I2SType = t; // first I2S bus determines allowed type for all subsequent I2S buses (parallel I2S limitation)
+							if (!I2SType) I2SType = t;
+						} else if (driverPref === 2) {
+							bbUsed++;
+							if (!bbType) bbType = t;
 						} else {
 							rmtUsed++;
 						}
 					}
+					if (isDig(t) && isD2P(t)) {
+						spiUsed++;
+					}
 				});
-				// calculate I2S memory usage
-				if (I2SType) {
-					let ch = 3*hasRGB(I2SType) + hasW(I2SType) + hasCCT(I2SType); // byte channel count per LED
-					if (is16b(I2SType)) maxLEDs *= 2; // 16 bit LEDs use 2 bytes per channel
-					I2Smem = maxLEDs * ch * (i2sUsed > 1 || isS3() ? 24 : 3); // 3 bytes per LED byte for single I2S, 24 bytes per LED byte for parallel I2S (S3 always uses parallel), assumes 3-step cadence
-					I2Smem = Math.round(I2Smem / i2sUsed); // average memory per I2S bus (used for memory estimation), round to nearest integer to avoid float rounding errors
+				// calculate I2S shared memory usage (DMA double buffers + descriptors)
+				if (i2sUsed > 0) {
+					I2Smem = (isS3() ? dmaLcd : dmaDef) * 2 + 64;
+					I2Smem = Math.round(I2Smem / i2sUsed); // average so it can be distributed
+				}
+				// calculate SPI shared memory usage
+				if (spiUsed > 0 && isC3()) {
+					SPImem = dmaSpi * 2;
+					SPImem = Math.round(SPImem / spiUsed);
 				}
 			}
-			return { rmtUsed, i2sUsed, I2SType, I2Smem };
+			return { rmtUsed, i2sUsed, I2SType, I2Smem, SPImem, bbUsed, bbType };
 		}
 
 		// dynamically enforce bus type availability based on current usage
@@ -932,8 +1047,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			// calculate channel usage
 			let usage = getDuse();
 			let firstI2SType = null;
-
 			// Count all bus types
+			let firstBBType  = null; // for ESP8266 parallel BitBang type enforcement
 			LTs.forEach(sel => {
 				let t = parseInt(sel.value);
 				if (isDig(t) && !isD2P(t)) digitalB++;
@@ -945,6 +1060,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			// update each LED-type and driver dropdown with appropriate constraints
 			let RMTcount = 0;
 			let I2Scount = 0;
+			let BBcount  = 0;
 			LTs.forEach(sel => {
 				let n = sel.name.substring(2,3);
 				const curType = parseInt(sel.value);
@@ -960,6 +1076,15 @@ Swap: <select id="xw${s}" name="XW${s}">
 						else {
 							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
 								if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+							});
+						}
+					}
+					// ESP8266 BitBang: restrict all BB buses after the first to the same LED type
+					if (is8266BB(n)) {
+						if (firstBBType == null) firstBBType = curType;
+						else {
+							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
+								if (parseInt(o.value) !== firstBBType) o.disabled = true;
 							});
 						}
 					}
@@ -982,8 +1107,12 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (drvsel && isDig(curType) && !isD2P(curType)) {
 					let rmtOpt = drvsel.querySelector('option[value="0"]');
 					let i2sOpt = drvsel.querySelector('option[value="1"]');
+					let bbOpt  = drvsel.querySelector('option[value="2"]');
+					if (isC3()) i2sOpt.textContent = "SPI"; // rename to SPI on C3
 					rmtOpt.disabled = false;
 					i2sOpt.disabled = false;
+					if (bbOpt) bbOpt.disabled = false;
+					if (maxBB == 0) bbOpt.disabled = true; // BB disabled on device, make it non selectable
 					if (curDriver === 0) {
 						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
 						RMTcount++;
@@ -992,7 +1121,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.Sf["LD"+n].value = "1"; // switch to I2S (if no I2S available, digital type is disabled above)
 						}
 					}
-					else {
+					else if (curDriver === 1) {
 						if ((usage.rmtUsed >= maxRMT))	rmtOpt.disabled = true; // disable RMT selection on I2S buses if full
 						I2Scount++;
 						if (I2Scount > maxI2S) {
@@ -1000,8 +1129,100 @@ Swap: <select id="xw${s}" name="XW${s}">
 							d.Sf["LD"+n].value = "0"; // switch to RMT (if no RMT available, digital type is disabled above)
 						}
 					}
+					else if (curDriver === 2 && bbOpt) {
+						BBcount++;
+						if (BBcount > maxBB) {
+							bbOpt.disabled = true; // disable BitBang if limit reached
+							d.Sf["LD"+n].value = "0"; // fall back to RMT
+						}
+					}
+					// else: unknown driver, leave as-is
 				}
 			});
+		}
+
+		// Ensure parallel-output bus speed selectors are synchronized: only the first parallel bus
+		// (I2S/LCD/SPI or BitBang) is editable; all others mirror its value and are disabled.
+		// This reflects the hardware constraint: I2S, LCD, SPI, and BitBang all use the same
+		// shared timing and cannot have independent speed factors.
+		// For custom bus (type 36) on a parallel driver, timing inputs (CBt0h/CBt0l/CBt1h/CBt1l/CBrst)
+		// are also shared: only the first custom parallel bus can edit them; others are disabled and mirrored.
+		function syncParallelBusSpeedSelectors() {
+			try {
+				// Re-enable all SF selects and custom bus timing inputs by default
+				// (restores any that stopped being parallel since last UI() call)
+				d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
+				const cbTimingFields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
+				cbTimingFields.forEach(fn => {
+					d.Sf.querySelectorAll("#mLC input[name^="+fn+"]").forEach(el => { el.disabled = false; el.style.opacity = 1; });
+				});
+
+				let parIndices = [];      // all parallel bus IDs (I2S or BitBang)
+				let custParIndices = []; // subset: custom bus (type 36) on a parallel driver
+				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
+					let n = sel.name.substring(2,3);
+					let t = parseInt(sel.value);
+					let drv = d.Sf["LD"+n]?.value | 0;
+					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
+						parIndices.push(n);
+						if (t === 36) custParIndices.push(n);
+					}
+				});
+
+				// Sync speed factor (SF) for all parallel buses (must be the same, hardware restriction)
+				if (parIndices.length > 0) {
+					parIndices.sort((a,b)=> toNum(a) - toNum(b));
+					const first = parIndices[0];
+					for (const n of parIndices) {
+						let sf = d.getElementsByName("SF"+n)[0];
+						if (!sf) continue;
+						if (n === parIndices[0]) { // first bus
+							sf.disabled = false;
+							sf.style.opacity = 1;
+						} else {
+							sf.disabled = true;
+							sf.style.opacity = 0.6;
+							let fv = d.getElementsByName("SF"+parIndices[0])[0];
+							if (fv && sf.value !== fv.value) sf.value = fv.value;
+						}
+					}
+					let firstEl = d.getElementsByName("SF"+parIndices[0])[0];
+					if (firstEl) firstEl.onchange = function() {
+						let v = this.value;
+						for (const n of parIndices) if (n !== parIndices[0]) {
+							let sf = d.getElementsByName("SF"+n)[0]; if (sf) sf.value = v;
+						}
+					};
+				}
+
+				// Sync custom bus timing inputs for parallel custom buses, first custom bus on a parallel driver owns the timing
+				if (custParIndices.length > 1) {
+					custParIndices.sort((a,b)=> toNum(a) - toNum(b));
+					const firstCust = custParIndices[0];
+					for (const n of custParIndices) {
+						if (n === firstCust) continue; // first bus stays editable
+						cbTimingFields.forEach(fn => {
+							let input = d.getElementsByName(fn+n)[0];
+							let srcInput = d.getElementsByName(fn+firstCust)[0];
+							if (!input) return;
+							input.disabled = true;
+							input.style.opacity = 0.6;
+							if (srcInput && input.value !== srcInput.value) input.value = srcInput.value;
+						});
+					}
+					// Propagate timing changes from first custom bus to all others
+					cbTimingFields.forEach(fn => {
+						let srcInput = d.getElementsByName(fn+firstCust)[0];
+						if (!srcInput) return;
+						srcInput.oninput = function() {
+							let v = this.value;
+							for (const n of custParIndices) if (n !== firstCust) {
+								let el = d.getElementsByName(fn+n)[0]; if (el) el.value = v;
+							}
+						};
+					});
+				}
+			} catch(e) {}
 		}
 	</script>
 </head>
