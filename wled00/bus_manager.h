@@ -441,6 +441,7 @@ class BusHub75Matrix : public Bus {
     uint8_t _rows = 1; // panels per row
     uint8_t _cols = 1; // panels per column
     bool _isVirtual = false; // note: this is not strictly needed but there are padding bytes here anyway
+    bool _isQuadScan = false;
     CRGB *_ledBuffer = nullptr; // note: using uint32_t buffer is only 2% faster and not worth the extra RAM
     byte *_ledsDirty = nullptr;
     // workaround for missing constants on include path for non-MM
