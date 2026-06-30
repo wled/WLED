@@ -727,3 +727,30 @@ Favourites (index.htm after pql div):
 - The `margin: 0;` override removes all horizontal centering for child elements in these tabs. Any future elements added to these tabs will automatically be left-aligned.
 
 **Deploy:** 1 → 2 → 3
+
+---
+
+## Colour Rail — One-click colour application (Colours tab)
+
+**Files:** `wled00/data/index.htm`, `wled00/data/index.css`, `wled00/data/index.js`
+
+**Approach:** Horizontal gradient strip (hue 0°–360°) positioned below the colour wheel in the Colours tab. Clicking anywhere on the strip extracts the hue, updates the colour picker, sends the colour to the device, and applies the Default palette so the effect immediately displays that solid colour.
+
+**HTML (`index.htm`):** Added `<div id="colourRail">` with a child `<div id="colourRailMarker">` below the wheel:
+```html
+<div id="picker" class="noslide"></div>
+<div id="colourRail" onclick="applyColourFromRail(event)">
+	<div id="colourRailMarker"></div>
+</div>
+```
+
+**CSS (`index.css`):** Gradient from hsl(0°, 100%, 50%) to hsl(360°, 100%, 50%) spanning 280px max-width, 40px height. White circular marker (14px) with dark border positioned absolutely, transforms to click location. Styled with border-radius, shadow, and `pointer-events: none` on marker.
+
+**JS (`index.js`):** `applyColourFromRail(event)` calculates hue from click position as percentage of rail width, converts to HSV object with h=hue, s=100%, v=100%. Calls `setPicker(col)` to update iro.js UI, `setColor(0)` to send colour to device, `setPalette(0)` to apply Default palette. Updates marker position via `left` style.
+
+**Gotchas:**
+- **Must apply Default palette (0)** after `setColor()` — without this, the effect won't use the colour because effects often override segment colour with palette colours.
+- The three-step sequence (`setPicker()` → `setColor()` → `setPalette()`) matches the manual workflow: wheel click → Default palette click. Omitting any step breaks the effect.
+- Marker positioning uses `transform: translate(-50%, -50%)` to center the circle on the click point.
+
+**Deploy:** 1 → 2 → 3

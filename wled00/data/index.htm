@@ -46,6 +46,9 @@
 				<p style="margin:0;color:#aaa;font-size:14px;">Apply colour changes, go back to effect and star it to save colour palette</p>
 			</div>
 			<div id="picker" class="noslide"></div>
+			<div id="colourRail" onclick="applyColourFromRail(event)">
+				<div id="colourRailMarker"></div>
+			</div>
 		<div id="hwrap" class="slider">
 			<div title="Hue" class="sliderwrap il">
 				<input id="sliderH" class="noslide" oninput="fromH()" onchange="setColor(0)" max="359" min="0" type="range" value="0" step="any">

@@ -2834,6 +2834,20 @@ function setBalance(b)
 	requestJson(obj);
 }
 
+function applyColourFromRail(event)
+{
+	var rail = gId('colourRail');
+	var rect = rail.getBoundingClientRect();
+	var clickX = event.clientX - rect.left;
+	var hue = (clickX / rect.width) * 360;
+	hue = Math.max(0, Math.min(360, hue));
+	var col = {h: hue, s: 100, v: 100};
+	setPicker(col);
+	setColor(0);
+	setPalette(0);
+	gId('colourRailMarker').style.left = clickX + 'px';
+}
+
 function rmtTgl(ip,i) {
 	event.preventDefault();
 	event.stopPropagation();
