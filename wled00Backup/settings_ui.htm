@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>UI Settings</title>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<script>
+	var initial_ds, initial_st, initial_su, oldUrl;
+	var sett = null;
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
+	var l = {
+		"comp":{
+			"labels":"Show button labels",
+			"colors":{
+				"LABEL":"Color selection methods",
+				"picker": "Color Wheel",
+				"rgb": "RGB sliders",
+				"quick": "Quick color selectors",
+				"hex": "HEX color input"
+				},
+			"pcmbot": "Show bottom tab bar in PC mode",
+			"pid": "Show preset IDs",
+			"seglen": "Set segment length instead of stop LED",
+			"segpwr": "Hide segment power &amp; brightness",
+			"segexp" : "Always expand first segment",
+			"css": "Enable custom CSS",
+			"hdays": "Enable custom Holidays list",
+			"fxdef": "Use effect default parameters",
+			"on": "Power button preset override for On",
+			"off": "Power button preset override for Off",
+			"idsort": "Sort presets by ID"
+		},
+		"theme":{
+			"alpha": {
+				"bg":"Background opacity",
+				"tab":"Button opacity"
+			},
+			"bg":{
+				"url":"BG image URL",
+				"rnd":"Random BG image",
+				"rndGrayscale":"Grayscale",
+				"rndBlur":"Blur"
+			},
+			"color":{
+				"bg":"BG HEX color"
+			}
+		}
+	};
+	function set(path, obj, val) {
+		var tar = obj;
+		var pList = path.split('_');
+		var len = pList.length;
+		for(var i = 0; i < len-1; i++) {
+			var elem = pList[i];
+			if( !tar[elem] ) tar[elem] = {}
+			tar = tar[elem];
+		}
+		tar[pList[len-1]] = val;
+	}
+	function addRec(s, path = "", label = null)
+	{
+		var str = "";
+		for (let i in s)
+		{
+			var fk = path + (path?'_':'') + i;
+			if (isO(s[i])) {
+				if (label && label[i] && label[i]["LABEL"]) str += `<h3>${label[i]["LABEL"]}</h3>`;
+				str += addRec(s[i], fk, label? label[i] : null);
+			} else {
+				var lb = fk;
+				if (label && label[i]) lb = label[i];
+				else if (s[i+'LABEL']) lb = s[i+'LABEL'];
+				if (i.indexOf('LABEL') > 0) continue;
+				var t = typeof s[i];
+				if (gId(fk)) { //already exists
+					if(t === 'boolean')
+					{
+						gId(fk).checked = s[i];
+					} else {
+						gId(fk).value = s[i];
+					}
+					if (gId(fk).previousElementSibling.matches('.l')) {
+						gId(fk).previousElementSibling.innerHTML = lb;
+					}
+				} else {
+					if(t === 'boolean')
+					{
+						str += `${lb}: <input class="agi cb" type="checkbox" id=${fk} ${s[i]?"checked":""}><br>`;
+					} else if (t === 'number')
+					{
+						str += `${lb}: <input class="agi" type="number" id=${fk} value=${s[i]}><br>`;
+					} else if (t === 'string')
+					{
+						str += `${lb}:<br><input class="agi sml" id=${fk} value=${s[i]}><br>`;
+					}
+				}
+			}
+		}
+		return str;
+	}
+
+	function genForm(s) {
+		var str = "";
+		str = addRec(s,"",l);
+		oldUrl = "";
+		
+		gId('gen').innerHTML = str;
+		if (gId('theme_bg_rnd').checked) {
+			toggle("Image");
+		} else if (gId('theme_bg_url').value.startsWith('data:')) {
+			gId("bg_url").classList.add("hide");
+		} else oldUrl = gId("theme_bg_url").value;
+	}
+	function GetLS()
+	{
+		sett = localStorage.getItem('wledUiCfg');
+		if (!sett) gId('lserr').style.display = "inline";
+		try {
+			sett = JSON.parse(sett);
+		} catch (e) {
+			sett = {};
+			gId('lserr').style.display = "inline";
+			gId('lserr').innerHTML = "&#9888; Settings JSON parsing failed. (" + e + ")";
+		}
+		genForm(sett);
+		gId('dm').checked = (gId('theme_base').value === 'light');
+	}
+
+	function SetLS()
+	{
+		var l = d.querySelectorAll('.agi');
+		for (var i = 0; i < l.length; i++) {
+			var e = l[i];
+			var val = e.classList.contains('cb') ? e.checked : e.value;
+			set(e.id, sett, val);
+			console.log(`${e.id} set to ${val}`);
+		}
+		try {
+			localStorage.setItem('wledUiCfg', JSON.stringify(sett));
+			gId('lssuc').style.display = "inline";
+		} catch (e) {
+			gId('lssuc').style.display = "none";
+			gId('lserr').style.display = "inline";
+			gId('lserr').innerHTML = "&#9888; Settings JSON saving failed. (" + e + ")";
+		}
+	}
+
+	function cLS()
+	{
+		localStorage.removeItem('wledP');
+		localStorage.removeItem('wledPmt');
+		localStorage.removeItem('wledPalx');
+		showToast("Cleared.");
+	}
+	
+	function Save() {
+		SetLS();
+		if (d.Sf.DS.value != initial_ds || /*d.Sf.ST.checked != initial_st ||*/ d.Sf.SU.checked != initial_su) d.Sf.submit();
+	}
+	
+	function S() {
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=3'), false, undefined, ()=>{
+			initial_ds = d.Sf.DS.value;
+			//initial_st = d.Sf.ST.checked;
+			initial_su = d.Sf.SU.checked;
+			GetLS();
+		});	// If we set async false, file is loaded and executed, then next statement is processed
+		if (loc) d.Sf.action = getURL('/settings/ui');
+	}
+	function UI()
+	{
+		gId('idonthateyou').style.display = (gId('dm').checked) ? 'inline':'none';
+		var f = gId('theme_base');
+		if (f) f.value = (gId('dm').checked) ? 'light':'dark';
+	}
+
+	// random BG image
+	function randomBg() {
+		let url = oldUrl;
+		let t = "theme_bg_rnd";
+		if (gId(t).checked) {
+			url = "https://picsum.photos/1920/1080";
+			if (gId(`${t}Grayscale`).checked) url += "?grayscale";
+			if (gId(`${t}Blur`).checked) url += (url.includes("?") ? "&" : "?") + "blur";
+			gId("theme_bg_img").value = "";
+			gId("bg_url").classList.remove("hide");
+		}
+		gId("theme_bg_url").value = url;
+	}
+	// own BG image
+	function ownBg(element) {
+		const file = element.files[0];
+		const reader = new FileReader();
+		reader.onload = () => {
+			gId("theme_bg_url").value = reader.result;
+			gId("bg_url").classList.add("hide");
+			if (gId("theme_bg_rnd").checked) toggle("Image");
+			gId("theme_bg_rnd").checked = false;
+		}
+		reader.readAsDataURL(file);
+	}
+	function removeBgImg() {
+		gId("theme_bg_url").value = "";
+		gId("theme_bg_img").value = "";
+		gId("bg_url").classList.remove("hide");
+		if (gId("theme_bg_rnd").checked) toggle("Image");
+		gId("theme_bg_rnd").checked = false;
+	}
+	</script>
+</head>
+<body>
+<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+	<div class="helpB"><button type="button" onclick="H('features/settings/#user-interface-settings')">?</button></div>
+	<button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button><br>
+	<span id="lssuc" style="color:green; display:none">&#10004; Local UI settings saved!</span>
+	<span id="lserr" style="color:red; display:none">&#9888; Could not access local storage. Make sure it is enabled in your browser.</span><hr>
+	</div>
+	<h2>User Interface</h2>
+	<div class="sec">
+		Device Name: <input type="text" name="DS" maxlength="32"><br>
+		Enable simplified UI: <input type="checkbox" name="SU"><br>
+	</div>
+  <div class="sec">
+		<i>The following UI customization settings are unique both to the WLED device and this browser.<br>
+		You will need to set them again if using a different browser, device or WLED IP address.<br>
+		Refresh the main UI to apply changes.</i><br>
+
+		<div id="gen">Loading settings...</div>
+
+		<h3>UI Appearance</h3>
+		<span class="l"></span>: <input type="checkbox" id="comp_labels" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_idsort" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_pcmbot" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_pid" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_seglen" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_segpwr" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_segexp" class="agi cb"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_fxdef" class="agi cb"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_on" class="agi"><br>
+		<span class="l"></span>: <input type="number" min=0 max=250 step=1 id="comp_off" class="agi"><br>
+		I hate dark mode: <input type="checkbox" id="dm" onchange="UI()"><br>
+		<span id="idonthateyou" style="display:none"><i>Why would you? </i>&#x1F97A;<br></span>
+		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_tab" class="agi"><br>
+		<span class="l"></span>: <input type="checkbox" id="comp_css" class="agi cb"><br>
+		<div id="skin">Custom CSS: <input type="file" name="data" accept=".css"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data,'/skin.css');"><br></div>
+
+		<h3>UI Background</h3>
+		<span class="l"></span>: <input type="number" min=0.0 max=1.0 step=0.01 id="theme_alpha_bg" class="agi"><br>
+		<span class="l"></span>: <input type="text" id="theme_color_bg" maxlength="9" class="agi"><br>
+		BG image: <input type="file" id="theme_bg_img" accept="image/*" onchange="ownBg(this)"> <input type="button" value="Remove" onclick="removeBgImg()"><br>
+		<span class="l"></span>: <input type="checkbox" id="theme_bg_rnd" class="agi cb" onchange="randomBg();toggle('Image');">
+		<div id="Image">
+			<div id="bg_url">
+				<span class="l"></span>: <input type="text" id="theme_bg_url" class="agi"><br>
+			</div>
+		</div>
+		<div id="NoImage" class="hide">
+			<h4>Random BG image settings</h4>
+			<span class="l"></span>: <input type="checkbox" id="theme_bg_rndGrayscale" class="agi cb" onchange="randomBg()"><br>
+			<span class="l"></span>: <input type="checkbox" id="theme_bg_rndBlur" class="agi cb" onchange="randomBg()"><br>
+		</div>
+		<input id="theme_base" class="agi" style="display:none">
+		<span class="l"></span>: <input type="checkbox" id="comp_hdays" class="agi cb"><br>
+		<div id="holidays">Holidays: <input type="file" name="data2" accept=".json"> <input type="button" value="Upload" onclick="uploadFile(d.Sf.data2,'/holidays.json');"><br></div>
+	</div>
+		<div id="toast"></div>
+		<hr><button type="button" onclick="cLS()">Clear local storage</button>
+		<hr><button type="button" onclick="B()">Back</button><button type="button" onclick="Save()">Save</button>
+	</form>
+</body>
+</html>

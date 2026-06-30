@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>WLED Settings</title>
+	<script>
+		// load common.js with retry on error
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			// load style.css then initialize
+			l.onload = () => loadResources(['style.css'], () => {
+				getLoc();
+				loadJS(getURL('/settings/s.js?p=0'), false);
+			});
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+	</script>
+	<style>
+	  @import url("style.css");
+		body {
+			height: 100px;
+			margin: 0;
+		}
+		html {
+			--h: 9vh;
+		}
+		button {
+			display: block;
+			border-radius: var(--h);
+			font-size: 6vmin;
+			height: var(--h);
+			width: calc(100% - 40px);
+			margin: 2vh auto 0;
+			padding: 0;
+		}
+	</style>
+</head>
+<body>
+<button type=submit id="b" onclick="window.location=getURL('/')">Back</button>
+<button type="submit" onclick="window.location=getURL('/?tab=presets')">Presets</button>
+<button type="submit" onclick="window.location=getURL('/settings/wifi')">WiFi & Network</button>
+<button type="submit" onclick="window.location=getURL('/?tab=info')">Info</button>
+<button id="dmxbtn" style="display:none;" type="submit" onclick="window.location=getURL('/settings/dmx')">DMX Output</button>
+<button type="submit" onclick="window.location=getURL('/simple_timer.htm')">Timer</button>
+<button type="submit" onclick="showFactoryPin()">Developer Zone</button>
+<div style="background:#2a2a2a;padding:12px 16px;margin:10px auto;max-width:280px;border-radius:8px;border-left:4px solid #00a8ff;text-align:center;">
+	<p style="color:white;font-size:16px;margin:0 0 8px;font-weight:500;">Need help?</p>
+	<p id="helpText" style="color:#aaa;font-size:14px;margin:0;">www.liquidlightdesign.com/#contact</p>
+</div>
+<div id="fpinModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:1000;background:rgba(0,0,0,0.75);flex-direction:column;justify-content:center;align-items:center;">
+	<div style="background:#1c1c1e;border-radius:16px;padding:28px 24px;text-align:center;width:260px;box-sizing:border-box;">
+		<p style="color:white;font-size:16px;margin:0 0 16px;">Factory Settings PIN</p>
+		<div id="fpinDisplay" style="color:white;font-size:32px;letter-spacing:10px;margin-bottom:6px;min-height:40px;">_ _ _ _</div>
+		<div id="fpinError" style="color:#ff4d4d;font-size:13px;min-height:20px;margin-bottom:12px;"></div>
+		<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+			<button onclick="fpIn('1')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">1</button>
+			<button onclick="fpIn('2')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">2</button>
+			<button onclick="fpIn('3')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">3</button>
+			<button onclick="fpIn('4')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">4</button>
+			<button onclick="fpIn('5')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">5</button>
+			<button onclick="fpIn('6')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">6</button>
+			<button onclick="fpIn('7')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">7</button>
+			<button onclick="fpIn('8')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">8</button>
+			<button onclick="fpIn('9')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">9</button>
+			<button onclick="fpBack()" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:18px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">&#9003;</button>
+			<button onclick="fpIn('0')" style="background:#2c2c2e;color:white;border:none;border-radius:10px;font-size:22px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">0</button>
+			<button onclick="fpCancel()" style="background:#2c2c2e;color:#ff4d4d;border:none;border-radius:10px;font-size:18px;padding:14px 0;cursor:pointer;width:auto;margin:0;height:auto;">&#10005;</button>
+		</div>
+	</div>
+</div>
+<script>
+var _fpin='';
+function showFactoryPin(){_fpin='';document.getElementById('fpinDisplay').textContent='_ _ _ _';document.getElementById('fpinError').textContent='';document.getElementById('fpinModal').style.display='flex';}
+function fpIn(d){if(_fpin.length>=4)return;_fpin+=d;var s=_fpin.split('').map(function(){return'●';});while(s.length<4)s.push('_');document.getElementById('fpinDisplay').textContent=s.join(' ');if(_fpin.length===4){if(_fpin==='3865'){document.getElementById('fpinModal').style.display='none';window.location.href=getURL('/factory.htm');}else{document.getElementById('fpinError').textContent='Incorrect PIN';setTimeout(function(){_fpin='';document.getElementById('fpinDisplay').textContent='_ _ _ _';document.getElementById('fpinError').textContent='';},1200);}}}
+function fpBack(){_fpin=_fpin.slice(0,-1);var s=_fpin.split('').map(function(){return'●';});while(s.length<4)s.push('_');document.getElementById('fpinDisplay').textContent=s.join(' ');}
+function fpCancel(){document.getElementById('fpinModal').style.display='none';}
+
+// Check WiFi connection and update help link
+fetch('/json/info').then(r=>r.json()).then(i=>{
+	const helpEl = document.getElementById('helpText');
+	if(helpEl && i.wifi && i.wifi.sta && i.wifi.sta.rssi && i.wifi.sta.rssi<0){
+		helpEl.innerHTML = '<a href="https://www.liquidlightdesign.com/#contact" target="_blank" style="color:#aaa;text-decoration:none;">www.liquidlightdesign.com/#contact</a>';
+	}
+}).catch(()=>{});
+</script>
+</body>
+</html>

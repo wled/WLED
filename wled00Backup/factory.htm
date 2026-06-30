@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>Factory Settings</title>
+	<script>
+		(function loadFiles() {
+			const l = document.createElement('script');
+			l.src = 'common.js';
+			l.onload = () => loadResources(['style.css'], () => { getLoc(); });
+			l.onerror = () => setTimeout(loadFiles, 100);
+			document.head.appendChild(l);
+		})();
+	</script>
+	<style>
+	  @import url("style.css");
+		body {
+			height: 100px;
+			margin: 0;
+		}
+		html {
+			--h: 9vh;
+		}
+		button {
+			display: block;
+			border-radius: var(--h);
+			font-size: 6vmin;
+			height: var(--h);
+			width: calc(100% - 40px);
+			margin: 2vh auto 0;
+			padding: 0;
+		}
+	</style>
+</head>
+<body>
+<button type="submit" id="b" onclick="window.location=getURL('/settings')">Back</button>
+<button type="submit" onclick="window.location=getURL('/?tab=segments')">Segments</button>
+<button type="submit" onclick="window.location=getURL('/settings/leds')">LED & Hardware</button>
+<button type="submit" onclick="window.location=getURL('/settings/pins')">Pin Info</button>
+<button id="2dbtn" type="submit" onclick="window.location=getURL('/settings/2D')">2D Configuration</button>
+<button type="submit" onclick="window.location=getURL('/settings/ui')">User Interface</button>
+<button type="submit" onclick="window.location=getURL('/settings/time')">Time & Macros</button>
+<button type="submit" onclick="window.location=getURL('/settings/sync')">Sync Interfaces</button>
+<button type="submit" onclick="window.location=getURL('/settings/um')">Usermods</button>
+<button type="submit" onclick="window.location=getURL('/settings/sec')">Security & Updates</button>
+</body>
+</html>

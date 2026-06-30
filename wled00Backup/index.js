@@ -291,7 +291,6 @@ function onLoad()
 	else if (tabParam === 'info')     toggleInfo();
 	cpick.on("input:end", () => {setColor(1);});
 	cpick.on("color:change", () => {updatePSliders()});
-
 	pmtLS = localStorage.getItem('wledPmt');
 
 	// Load initial data sequentially, no parallel requests to avoid "503" errors when heap is low (slower but much more reliable)
@@ -1052,42 +1051,27 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// hide special palette entries that start with "*" (except "* Solid colour") and hide "Default" (palette 0)
+	// hide special palette entries that start with "*" (except "* Color 1") and hide "Default" (palette 0)
 	for (let row of gId('pallist').querySelectorAll('.fx-pill-row')) {
 		const pal = row.querySelector('.lstI');
 		const name = pal.querySelector('.lstIname')?.innerText || '';
-		const shouldHide = name === 'Default' || (name.startsWith('*') && name !== '* Solid colour');
+		const shouldHide = name === 'Default' || (name.startsWith('*') && name !== '* Color 1');
 
 		if (shouldHide) {
 			row.classList.add('hide');
 		} else {
-			// Add Update? button as sibling after lstI (before lstIprev)
+			// Add Update? button as sibling to lstI
 			const updateBtn = d.createElement('div');
 			updateBtn.className = 'palette-update-btn hide';
 			updateBtn.innerHTML = 'Update preset?';
-			const prevEl = row.querySelector('.lstIprev');
-			if (prevEl) {
-				row.insertBefore(updateBtn, prevEl);
-			} else {
-				row.appendChild(updateBtn);
-			}
+			row.appendChild(updateBtn);
 
-			// Show Update? button and color wheel when palette is clicked
+			// Show Update? button when palette is clicked
 			pal.addEventListener('click', (e) => {
 				// Hide all other Update? buttons
 				gId('pallist').querySelectorAll('.palette-update-btn').forEach(btn => btn.classList.add('hide'));
 				// Show this palette's Update? button
 				updateBtn.classList.remove('hide');
-
-				// Show color wheel only for "Solid colour" palette
-				const picker = gId('picker');
-				if (picker) {
-					if (name === '* Solid colour') {
-						picker.style.display = 'block';
-					} else {
-						picker.style.display = 'none';
-					}
-				}
 				e.stopPropagation();
 			});
 
@@ -1560,8 +1544,7 @@ function readState(s,command=false)
 	nlTar = s.nl.tbri;
 	nlFade = s.nl.fade;
 	syncSend = s.udpn.send;
-	// Only reset currentPreset if device indicates a preset is loaded, don't reset to 0 if we had one selected
-	if (s.ps > 0) currentPreset = s.ps;
+	currentPreset = s.ps;
 
 	tr = s.transition;
 	gId('tt').value = tr/10;
@@ -2590,21 +2573,7 @@ function _schedulePresetAutoSave()
 
 function updateCurrentPresetPalette(paletteId) {
 	// Update the currently loaded preset with a new palette
-	// Check both currentPreset and the selected radio button to handle state resets
-	let pid = currentPreset;
-	if (pid <= 0) {
-		// Fallback 1: check which preset is actually selected in the UI (Favorites tab)
-		const selectedRadio = d.querySelector('#pql input[type="radio"]:checked') ||
-			d.querySelector('#pcont input[type="radio"]:checked');
-		if (selectedRadio) {
-			pid = parseInt(selectedRadio.value);
-		}
-	}
-	if (pid <= 0) {
-		// Fallback 2: check if device has a current preset loaded
-		pid = d.querySelector('input[name="preset"]:checked')?.value ? parseInt(d.querySelector('input[name="preset"]:checked').value) : 0;
-	}
-	if (pid <= 0 || !pJson[pid]) {
+	if (currentPreset <= 0 || !pJson[currentPreset]) {
 		showToast("No preset loaded. Select a preset first.", true);
 		return;
 	}
@@ -2924,20 +2893,6 @@ function setBalance(b)
 {
 	var obj = {"seg": {"cct": parseInt(b)}};
 	requestJson(obj);
-}
-
-function applyColourFromRail(event)
-{
-	var rail = gId('colourRail');
-	var rect = rail.getBoundingClientRect();
-	var clickX = event.clientX - rect.left;
-	var hue = (clickX / rect.width) * 360;
-	hue = Math.max(0, Math.min(360, hue));
-	var col = {h: hue, s: 100, v: 100};
-	setPicker(col);
-	setColor(0);
-	setPalette(0);
-	gId('colourRailMarker').style.left = clickX + 'px';
 }
 
 function rmtTgl(ip,i) {
@@ -4013,4 +3968,4 @@ window.addEventListener('hashchange', handleLocationHash);
 
 //_C.addEventListener('mouseout', move, false);
 //_C.addEventListener('mouseup', move, false);
-//_C.addEventListener('touchend', move, false);  
+//_C.addEventListener('touchend', move, false); 

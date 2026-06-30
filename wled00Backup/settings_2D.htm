@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+	<title>2D Set-up</title>
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<script>
+	var maxPanels=64;
+	var ctx = null;
+	function fS(){d.Sf.submit();} // <button type=submit> sometimes didn't work
+	// load common.js with retry on error
+	(function loadFiles() {
+		const l = document.createElement('script');
+		l.src = 'common.js';
+		l.onload = () => loadResources(['style.css'], S); // load style.css then call S()
+		l.onerror = () => setTimeout(loadFiles, 100);
+		document.head.appendChild(l);
+	})();
+
+	function S() {
+		getLoc();
+		loadJS(getURL('/settings/s.js?p=10'), false, undefined, ()=>{
+			UI();
+			Sf.MPC.setAttribute("max",maxPanels);
+		});	// If we set async false, file is loaded and executed, then next statement is processed
+		if (loc) d.Sf.action = getURL('/settings/2D');
+	}
+
+	function UI() {
+		if (gId("somp").value === "0") {
+			gId("mpdiv").style.display = "none";
+			resetPanels();
+			return;
+		}
+		gId("mpdiv").style.display = "block";
+		draw();
+	}
+
+	function addPanels() {
+		let c = parseInt(d.Sf.MPC.value);
+		let i = gId("panels").children.length;
+		if (i<c) for (let j=i; j<c; j++) addPanel(j);
+		if (i>c) for (let j=i; j>c; j--) remPanel();
+	}
+
+	function addPanel(i=0) {
+		let p = gId("panels");
+		if (p.children.length >= maxPanels) return;
+		var pw = parseInt(d.Sf.PW.value);
+		var ph = parseInt(d.Sf.PH.value);
+		let b = `<div id="pnl${i}"><b>Panel ${i}</b><br>
+1<sup>st</sup> LED: <select name="P${i}B" oninput="UI()">
+	<option value="0">Top</option>
+	<option value="1">Bottom</option>
+</select><select name="P${i}R" oninput="UI()">
+	<option value="0">Left</option>
+	<option value="1">Right</option>
+</select><br>
+Orientation: <select name="P${i}V" oninput="UI()">
+	<option value="0">Horizontal</option>
+	<option value="1">Vertical</option>
+</select><br>
+Serpentine: <input type="checkbox" name="P${i}S" oninput="UI()"><br>
+Dimensions (WxH): <input name="P${i}W" type="number" min="1" max="255" value="${pw}" oninput="UI()"> x <input name="P${i}H" type="number" min="1" max="255" value="${ph}" oninput="UI()"><br>
+Offset X: <input name="P${i}X" type="number" min="0" max="255" value="0" oninput="UI()">
+Y: <input name="P${i}Y" type="number" min="0" max="255" value="0" oninput="UI()"><br><i>(offset from top-left corner in # LEDs)</i>
+<br><br></div>`;
+		p.insertAdjacentHTML("beforeend", b);
+	}
+
+	function remPanel() {
+		let p = gId("panels").children;
+	  	var i = p.length;
+	  	if (i <= 1) return;
+	  	p[i-1].remove();
+	}
+
+	function resetPanels() {
+		d.Sf.MPC.value = 1;
+		let e = gId("panels").children
+		for (let i = e.length; i>0; i--) e[i-1].remove();
+	}
+/*
+	function btnPanel(i) {
+		gId("pnl_add").style.display = (i<maxPanels) ? "inline":"none";
+		gId("pnl_rem").style.display = (i>1) ? "inline":"none";
+	}
+*/
+	function gen() {
+		resetPanels();
+
+		var pansH = parseInt(Sf.MPH.value);
+		var pansV = parseInt(Sf.MPV.value);
+		var c = pansH*pansV;
+		Sf.MPC.value = c; // number of panels
+
+		var ps = Sf.PS.checked;
+		var pv = Sf.PV.value==="1";
+		var pb = Sf.PB.value==="1";
+		var pr = Sf.PR.value==="1";
+		var pw = parseInt(Sf.PW.value);
+		var ph = parseInt(Sf.PH.value);
+
+		var h = pv ? pansV : pansH;
+		var v = pv ? pansH : pansV;
+		for (let j = 0, p = 0; j < v; j++) {
+			for (let i = 0; i < h; i++, p++) {
+				if (j*i < maxPanels) addPanel(p);
+				var y = (pv?pr:pb) ? v-j-1: j;
+				var x = (pv?pb:pr) ? h-i-1 : i;
+				x = ps && j%2 ? h-x-1 : x;
+				Sf[`P${p}X`].value = (pv?y:x) * pw;
+				Sf[`P${p}Y`].value = (pv?x:y) * ph
+				Sf[`P${p}W`].value = pw;
+				Sf[`P${p}H`].value = ph;
+			}
+		}
+		UI(); // Update the preview after generating panels
+	}
+
+	function expand(o,i)
+	{
+		i.style.display = i.style.display!=="none" ? "none" : "";
+		o.style.rotate = i.style.display==="none" ? "none" : "90deg";
+	}
+
+	function draw() {
+
+		if (!ctx) {
+			//WLEDMM: add canvas, initialize and set UI
+			var canvas = gId("canvas");
+			canvas.width  = window.innerWidth > 640?640:400; //Mobile gets 400, pc 640
+			canvas.height = canvas.width;
+			ctx = canvas.getContext('2d');
+
+			// window.requestAnimationFrame(animate);
+		}
+
+		//calc max height and width
+		var maxWidth = 0;
+		var maxHeight = 0;
+		for (let p=0; p<gId("panels").children.length; p++) {
+			var px = parseInt(Sf[`P${p}X`].value); //first led x
+			var py = parseInt(Sf[`P${p}Y`].value); //first led y
+			var pw = parseInt(Sf[`P${p}W`].value); //width
+			var ph = parseInt(Sf[`P${p}H`].value); //height
+			maxWidth = Math.max(maxWidth, px + pw);
+			maxHeight = Math.max(maxHeight, py + ph);
+		}
+
+		ctx.canvas.height = ctx.canvas.width / maxWidth * maxHeight;
+		ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+		var space=0; // space between panels + margin
+		var ppL = (ctx.canvas.width  - space * 2) / maxWidth; //pixels per led
+
+		ctx.lineWidth = 1;
+		ctx.strokeStyle="yellow";
+		ctx.strokeRect(0, 0, ctx.canvas.width, ctx.canvas.height); // add space between panels
+
+		for (let p=0; p<gId("panels").children.length; p++) {
+			var px = parseInt(Sf[`P${p}X`].value); //first led x
+			var py = parseInt(Sf[`P${p}Y`].value); //first led y
+			var pw = parseInt(Sf[`P${p}W`].value); //width
+			var ph = parseInt(Sf[`P${p}H`].value); //height
+
+			var pb = Sf[`P${p}B`].value == "1"; //bottom
+			var pr = Sf[`P${p}R`].value == "1"; //right
+			var pv = Sf[`P${p}V`].value == "1"; //vertical
+			var ps = Sf[`P${p}S`].checked; //serpentine
+
+			var topLeftX = px*ppL + space; //left margin
+			var topLeftY = py*ppL + space; //top margin
+
+			ctx.lineWidth = 3;
+			ctx.strokeStyle="white";
+			ctx.strokeRect(topLeftX, topLeftY, pw*ppL, ph*ppL); // add space between panels
+
+			var lnX;
+			var lnY;
+
+			//find start led
+			if (pb) //bottom
+				lnY = topLeftY + ph*ppL - ppL/2;
+			else //top
+				lnY = topLeftY + ppL/2;
+			if (pr) //right
+				lnX = topLeftX + pw*ppL - ppL/2;
+			else //left
+				lnX = topLeftX + ppL/2;
+
+			//first led
+			ctx.fillStyle = "green";
+			ctx.beginPath();
+			ctx.arc(lnX, lnY, ppL*0.5, 0, 2 * Math.PI);
+			ctx.fill();
+
+			//start line
+			ctx.lineWidth = 1;
+			ctx.beginPath();
+			ctx.moveTo(lnX, lnY);
+
+			var longLineLength = (pv?ph:pw)*ppL - ppL;
+			for (let ln=0; ln<(pv?pw:ph); ln++) { //loop over panelwidth (or height of vertical?)
+
+				var serpLine = ps && ln%2!=0; //serp: turn around if even line
+
+				if (pv) //if vertical
+					lnY += (pb?-1:1) * longLineLength * (serpLine?-1:1); //if vertical change the Y
+				else
+					lnX += (pr?-1:1) * longLineLength * (serpLine?-1:1); //if horizontal change the X
+
+				ctx.lineTo(lnX, lnY); //draw the long line
+
+				if (ln<(pv?pw:ph)-1) { //not the last
+					//find the small line end point
+					if (pv) //vertical
+						lnX += (pr?-1:1) * ppL;
+					else //horizontal
+						lnY += (pb?-1:1) * ppL;
+
+					//if serpentine go next else go down
+					if (ps) { //serpentine
+						ctx.lineTo(lnX, lnY); //draw the serpentine line
+					} else { 
+						//find the other end of the long line
+						if (pv) //vertical
+							lnY += (pb?1:-1) * longLineLength * (serpLine?-1:1); //min as we go back
+						else //horizontal
+							lnX += (pr?1:-1) * longLineLength * (serpLine?-1:1);
+						ctx.moveTo(lnX, lnY); //move to the start point of the next long line
+					}
+				}
+			}
+			ctx.stroke();
+
+			//last led
+			ctx.fillStyle = "red";
+			ctx.beginPath();
+			ctx.arc(lnX, lnY, ppL*0.5, 0, 2 * Math.PI);
+			ctx.fill();
+
+			ctx.font = '40px Arial'; 
+			ctx.fillStyle = "orange";
+			ctx.fillText(p, topLeftX + pw/2*ppL - 10, topLeftY + ph/2*ppL + 10);
+		}
+		gId("MD").innerHTML = "Matrix Dimensions (W*H=LC): " + maxWidth + " x " + maxHeight + " = " + maxWidth * maxHeight;
+	}
+	</script>
+</head>
+<body>
+	<form id="form_s" name="Sf" method="post">
+	<div class="toprow">
+		<div class="helpB"><button type="button" onclick="H('features/2D')">?</button></div>
+		<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button><hr>
+	</div>
+	<h2>2D setup</h2>
+	<div class="sec">
+	Strip or panel:
+	<select id="somp" name="SOMP" onchange="resetPanels();addPanels();UI();" >
+		<option value="0">1D Strip</option>
+		<option value="1">2D Matrix</option>
+	</select>
+	</div>
+	<div id="mpdiv" style="display:none;">
+	<div class="sec">
+		<h3>Matrix Generator <button type="button" id="expGen" onclick="expand(this,gId('mxGen'));">&gt;</button></h3>
+		<div id="mxGen" style="display:none;">
+			Panel dimensions (WxH): <input name="PW" type="number" min="1" max="128" value="8"> x <input name="PH" type="number" min="1" max="128" value="8"><br>
+			Horizontal panels: <input name="MPH" type="number" min="1" max="8" value="1">
+			Vertical panels: <input name="MPV" type="number" min="1" max="8" value="1"><br>
+			1<sup>st</sup> panel: <select name="PB">
+				<option value="0">Top</option>
+				<option value="1">Bottom</option>
+			</select><select name="PR">
+				<option value="0">Left</option>
+				<option value="1">Right</option>
+			</select><br>
+			Orientation: <select name="PV">
+				<option value="0">Horizontal</option>
+				<option value="1">Vertical</option>
+			</select><br>
+			Serpentine: <input type="checkbox" name="PS"><br>
+			<i  class="warn">Pressing Populate will create LED panel layout with pre-arranged matrix.<br>Values above <i>will not</i> affect final layout.<br>
+				WARNING: You may need to update each panel parameters after they are generated.</i><br>
+			<button type="button" onclick="gen();expand(gId('expGen'),gId('mxGen'));">Populate</button>
+		</div>
+	</div>
+	<div class="sec">
+		<h3>Panel set-up</h3>
+		Number of panels: <input name="MPC" type="number" min="1" max="64" value="1" oninput="addPanels();UI();"><br>
+		<i>A matrix is made of 1 or more physical LED panels.<br>
+		Each panel can be of different size and/or have different LED orientation and/or starting point and/or layout.</i><br>
+	</div>
+	<div class="sec">
+		<h3>LED panel layout</h3>
+		<div id="panels">
+		</div>
+	</div>
+	<div id="MD"></div>
+	<canvas id="canvas"></canvas>
+	<div class="sec">
+		<div id="json" >Gap file: <input type="file" name="data" accept=".json"><button type="button" class="sml" onclick="uploadFile(d.Sf.data,'/2d-gaps.json')">Upload</button></div>
+		<i>Note: Gap file is a <b>.json</b> file containing an array with number of elements equal to the matrix size.<br>
+			A value of -1 means that pixel at that position is missing, a value of 0 means never paint that pixel, and 1 means regular pixel.</i>
+	</div>
+	</div>
+	<hr>
+	<button type="button" onclick="B()">Back</button><button type="button" onclick="fS()">Save</button>
+	</form>
+	<div id="toast"></div>
+</body>
+</html>
