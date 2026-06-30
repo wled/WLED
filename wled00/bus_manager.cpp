@@ -849,7 +849,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
     DEBUGBUS_PRINTLN("Unknown type");
     return;
   }
-  _isQuadScan = bc.type == TYPE_HUB75MATRIX_QS;
+  _isQuadScan = (bc.type == TYPE_HUB75MATRIX_QS);
 
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2)// classic esp32, or esp32-s2: reduce bitdepth for large panels
   if (mxconfig.mx_height >= 64) {
@@ -1054,7 +1054,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   }
 
   PANEL_CHAIN_TYPE chainType = CHAIN_NONE; // default for quarter-scan panels that do not use chaining
-  if (mxconfig.chain_length > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the display is upside-down
+  if (mxconfig.chain_length > 1 && (_rows > 1 || _cols > 1)) chainType = CHAIN_TOP_RIGHT_DOWN; // we need to use a _DOWN chainType, otherwise the first panel is upside-down
   // chained panels with cols and rows define need the virtual display driver, so do quarter-scan panels
   if (chainType != CHAIN_NONE || bc.type == TYPE_HUB75MATRIX_QS) {
     _isVirtual = true;
