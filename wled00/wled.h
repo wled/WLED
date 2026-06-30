@@ -135,7 +135,7 @@
 #ifndef WLED_DISABLE_ALEXA
   #define ESPALEXA_ASYNC
   #define ESPALEXA_NO_SUBPAGE
-  #define ESPALEXA_MAXDEVICES 10
+  #define ESPALEXA_MAXDEVICES 20 // 1 main + up to 9 presets + up to 10 segment devices
   // #define ESPALEXA_DEBUG
   #include "src/dependencies/espalexa/Espalexa.h"
   #include "src/dependencies/espalexa/EspalexaDevice.h"
@@ -446,6 +446,7 @@ WLED_GLOBAL bool irApplyToAllSelected _INIT(true); //apply IR or ESP-NOW to all 
 WLED_GLOBAL bool alexaEnabled _INIT(false);                       // enable device discovery by Amazon Echo
 WLED_GLOBAL char alexaInvocationName[33] _INIT("Light");          // speech control name of device. Choose something voice-to-text can understand
 WLED_GLOBAL byte alexaNumPresets _INIT(0);                        // number of presets to expose to Alexa, starting from preset 1, up to 9
+WLED_GLOBAL bool alexaExposeSegments _INIT(false);                // expose each segment as a separate Alexa device
 #endif
 
 WLED_GLOBAL uint16_t realtimeTimeoutMs _INIT(2500);               // ms timeout of realtime mode before returning to normal mode
