@@ -94,14 +94,14 @@ private:
   ~I2sBusContext();
 
   void IRAM_ATTR fillBuffer(uint8_t bufIdx);
+  bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
+  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel); // Encoding (4-step cadence)
   static void IRAM_ATTR dmaISR(void* arg);
 
   uint8_t _busNum;
   i2s_dev_t* _i2sDev;
   volatile DriverState _state;
   bool _initialized;
-
-  bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
 
   // DMA circular buffer chain
   lldesc_t* _dmaDesc[WLEDPB_I2S_DMA_BUFFER_COUNT];
@@ -134,9 +134,6 @@ private:
   uint16_t _channelMask;
   uint16_t _stagedMask;
   size_t _maxDataLen;
-
-  // Encoding (4-step cadence)
-  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel);
 
   // Singleton instances
   static I2sBusContext* _instances[WLEDPB_I2S_BUS_COUNT];

@@ -34,6 +34,8 @@ Key design:
 - Buffers are filled with data or zeros (for reset period)
 - Stop only after reset period completes on buffer boundary
 - No DMA reconfiguration during transmission
+- DMA buffer size is computed from the largest registered bus and allocated
+  once in startTransmit() (deferred allocation).
 -------------------------------------------------------------------------*/
 
 #include "driver/periph_ctrl.h"
@@ -77,13 +79,15 @@ LcdBusContext::LcdBusContext()
   , _use16Bit(false)
   , _dmaChannel(nullptr)
   , _timing{0, 0, 0, 0, 0}
-  , _bufferSize(WLEDPB_LCD_DMA_BUFFER_SIZE)
+  , _bufferSize(0)
   , _channelCount(0)
   , _channelMask(0)
   , _stagedMask(0)
   , _maxDataLen(0)
   , _activeBuffer(0)
-  , _remainingDataBuffers(0)
+  , _maxSrcBytes(0)        // HEADER
+  , _resetBytesLeft(0)     // HEADER
+  , _dmaAllocated(false)   // HEADER
 {
   for (int i = 0; i < WLEDPB_LCD_MAX_CHANNELS; i++) {
     _channels[i] = {nullptr, -1, nullptr, 0, 0, false};
@@ -98,49 +102,16 @@ LcdBusContext::~LcdBusContext() {
   deinit();
 }
 
-bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16Bit) {
+bool LcdBusContext::init(const LedTiming& timing, bool use16Bit) {
   if (_initialized) return true;
 
-  LCD_LOG("Init: buf=%u x%d, cadence=%d, T0H=%u T1H=%u bitPeriod=%u",
-      WLEDPB_LCD_DMA_BUFFER_SIZE, WLEDPB_LCD_DMA_BUFFER_COUNT, WLEDPB_LCD_CADENCE_STEPS,
-      timing.t0h_ns, timing.t1h_ns, timing.bitPeriod());
+  LCD_LOG("Init: deferred alloc, cadence=%d, T0H=%u T1H=%u bitPeriod=%u",
+      WLEDPB_LCD_CADENCE_STEPS, timing.t0h_ns, timing.t1h_ns, timing.bitPeriod());
 
   _timing = timing;
   _use16Bit = use16Bit;
-  _bufferSize = WLEDPB_LCD_DMA_BUFFER_SIZE;
 
   uint32_t bitPeriodNs = timing.bitPeriod();
-
-  // Allocate DMA buffers
-  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
-    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_LCD_DMA_BUFFER_SIZE, MALLOC_CAP_DMA);
-    if (!_dmaBuffer[i]) {
-      LCD_LOG("ERROR: DMA buffer %d alloc failed", i);
-      deinit();
-      return false;
-    }
-    memset(_dmaBuffer[i], 0, WLEDPB_LCD_DMA_BUFFER_SIZE);
-
-    _dmaDesc[i] = (dma_descriptor_t*)heap_caps_malloc(sizeof(dma_descriptor_t), MALLOC_CAP_DMA);
-    if (!_dmaDesc[i]) {
-      LCD_LOG("ERROR: DMA desc %d alloc failed", i);
-      deinit();
-      return false;
-    }
-    memset(_dmaDesc[i], 0, sizeof(dma_descriptor_t));
-  }
-
-  // Setup DMA descriptors in CIRCULAR mode (never changes during operation!)
-  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
-    _dmaDesc[i]->dw0.size = WLEDPB_LCD_DMA_BUFFER_SIZE;
-    _dmaDesc[i]->dw0.length = WLEDPB_LCD_DMA_BUFFER_SIZE;
-    _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-    _dmaDesc[i]->dw0.suc_eof = 1;  // Always trigger EOF for ISR
-    _dmaDesc[i]->buffer = _dmaBuffer[i];
-    _dmaDesc[i]->next = _dmaDesc[(i + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT];  // circular chain
-  }
-
-
 
   // Enable LCD_CAM peripheral
   periph_module_enable(PERIPH_LCD_CAM_MODULE);
@@ -154,7 +125,7 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
 
   // Calculate clock divider
   double clkm_div = (double)bitPeriodNs / WLEDPB_LCD_CADENCE_STEPS / 1000.0 * 240.0;
-  
+
   LCD_LOG("  Bit period: %u ns, clock div: %.2f", bitPeriodNs, clkm_div);
 
   if (clkm_div > LCD_LL_CLK_FRAC_DIV_N_MAX || clkm_div < 2.0) {
@@ -165,7 +136,7 @@ bool LcdBusContext::init(const LedTiming& timing, size_t bufferSize, bool use16B
 
   uint8_t clkm_div_int = (uint8_t)clkm_div;
   double clkm_frac = clkm_div - clkm_div_int;
-  
+
   uint8_t divB = 0;
   uint8_t divA = 0;
   if (clkm_frac > 0.001) {
@@ -267,10 +238,56 @@ void LcdBusContext::deinit() {
     periph_module_disable(PERIPH_LCD_CAM_MODULE);
   }
 
+  _dmaAllocated = false;
   _initialized = false;
 }
 
-int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus, bool inverted) {
+// Compute the DMA buffer size from _maxSrcBytes (set during registerChannel() by the largest bus),
+// then allocate the circular DMA descriptor/buffer chain.
+// Called once from startTransmit() after all channels have registered.
+bool LcdBusContext::_allocDmaBuffers() {
+  if (_dmaBuffer[0] != nullptr) return true; // already allocated
+
+  size_t dmaBytesPerSrc = _use16Bit ? 64 : 32;
+  _bufferSize = (dmaBytesPerSrc * _maxSrcBytes) / WLEDPB_LCD_DMA_BUFFER_COUNT;
+  _bufferSize = (_bufferSize + 3) & ~3; // align to 4 bytes
+  if (_bufferSize > WLEDPB_LCD_DMA_BUFFER_SIZE) _bufferSize = WLEDPB_LCD_DMA_BUFFER_SIZE;
+  if (_bufferSize < 1024) _bufferSize = 1024; // MIN_DMA_BUFFER_SIZE
+
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
+    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
+    if (!_dmaBuffer[i]) {
+      LCD_LOG("ERROR: DMA buffer %d alloc failed", i);
+      deinit();
+      return false;
+    }
+    memset(_dmaBuffer[i], 0, _bufferSize);
+
+    _dmaDesc[i] = (dma_descriptor_t*)heap_caps_malloc(sizeof(dma_descriptor_t), MALLOC_CAP_DMA);
+    if (!_dmaDesc[i]) {
+      LCD_LOG("ERROR: DMA desc %d alloc failed", i);
+      deinit();
+      return false;
+    }
+    memset(_dmaDesc[i], 0, sizeof(dma_descriptor_t));
+  }
+
+  // Setup DMA descriptors in CIRCULAR mode (restored per-transmission in startTransmit)
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
+    _dmaDesc[i]->dw0.size = _bufferSize;
+    _dmaDesc[i]->dw0.length = _bufferSize;
+    _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+    _dmaDesc[i]->dw0.suc_eof = 1;  // Always trigger EOF for ISR
+    _dmaDesc[i]->buffer = _dmaBuffer[i];
+    _dmaDesc[i]->next = _dmaDesc[(i + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT];  // circular chain
+  }
+
+  _dmaAllocated = true;
+  LCD_LOG("DMA buffers allocated: bufSize=%u x%u", (unsigned)_bufferSize, WLEDPB_LCD_DMA_BUFFER_COUNT);
+  return true;
+}
+
+int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus, size_t srcBytes, bool inverted) {
   int8_t idx = -1;
   for (int i = 0; i < WLEDPB_LCD_MAX_CHANNELS; i++) {
     if (!_channels[i].active) {
@@ -286,11 +303,13 @@ int8_t LcdBusContext::registerChannel(int8_t pin, LcdBus* bus, bool inverted) {
   _channelCount++;
   _channelMask |= (1 << idx);
 
+  if (srcBytes > _maxSrcBytes) _maxSrcBytes = srcBytes;
+
   esp_rom_gpio_connect_out_signal(pin, LCD_DATA_OUT0_IDX + idx, inverted, false);
   gpio_hal_iomux_func_sel(GPIO_PIN_MUX_REG[pin], PIN_FUNC_GPIO);
   gpio_set_drive_capability((gpio_num_t)pin, GPIO_DRIVE_CAP_3);
 
-  LCD_LOG("Channel %d: pin=%d, mask=0x%04X", idx, pin, _channelMask);
+  LCD_LOG("Channel %d: pin=%d, mask=0x%04X, srcBytes=%u", idx, pin, _channelMask, (unsigned)srcBytes);
   return idx;
 }
 
@@ -322,18 +341,13 @@ void LcdBusContext::setChannelData(int8_t channelIdx, const uint8_t* data, size_
 
 #ifdef WLED_PIXELBUS_16PARALLEL
 // 16-bit parallel encode: branchless gather + scatter, 64 bytes per source byte (16 channels)
-void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  uint8_t maxCh = 0;
-  for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
-  }
-
+void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
   for (size_t pos = 0; pos + 64 <= destLen; pos += 64) {
     uint16_t alwaysMask = 0;
     uint16_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint16_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
-    for (int ch = 0; ch < maxCh; ch++) {
+    for (int ch = 0; ch < maxChannel; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
       const uint16_t m = (uint16_t)(1u << ch);
@@ -351,8 +365,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     if (!alwaysMask) break;
 
     // S3 LCD: no byte swapping.
-    // Output cadence [HIGH,data,data,LOW] -> as 32-bit pairs:
-    //   p[0] = (bN<<16)|alwaysMask,  p[1] = (0<<16)|bN
     uint32_t* p = (uint32_t*)(dest + pos);
     #define EMIT(bN, OFF) \
       p[OFF]   = ((uint32_t)(bN) << 16) | alwaysMask; \
@@ -366,18 +378,13 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 #else // WLED_PIXELBUS_16PARALLEL
 
 // 8-bit parallel encode: branchless gather + scatter, 32 bytes per source byte (8 channels)
-void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
-  uint8_t maxCh = 0;
-  for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
-  }
-
+void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel) {
   for (size_t pos = 0; pos + 32 <= destLen; pos += 32) {
     uint8_t alwaysMask = 0;
     uint8_t b0 = 0, b1 = 0, b2 = 0, b3 = 0;
     uint8_t b4 = 0, b5 = 0, b6 = 0, b7 = 0;
 
-    for (int ch = 0; ch < maxCh; ch++) {
+    for (int ch = 0; ch < maxChannel; ch++) {
       if (!_channels[ch].active) continue;
       if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
       const uint8_t m = (uint8_t)(1u << ch);
@@ -394,10 +401,6 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
     }
     if (!alwaysMask) break;
 
-    // S3 LCD 8-bit mode (lcd_2byte_en=0): no byte swapping, output [S0,S1,S2,S3].
-    // Output cadence [HIGH,data,data,LOW]:
-    //   As 4 bytes: [alwaysMask, bN, bN, 0]
-    //   As uint32_t (LE): alwaysMask | (bN<<8) | (bN<<16) | 0
     uint32_t* p = (uint32_t*)(dest + pos);
     #define EMIT8(bN, OFF) \
       p[OFF] = (uint32_t)(alwaysMask) | ((uint32_t)(bN) << 8) | ((uint32_t)(bN) << 16);
@@ -409,88 +412,87 @@ void IRAM_ATTR LcdBusContext::encode4Step(uint8_t* dest, size_t destLen) {
 
 #endif // WLED_PIXELBUS_16PARALLEL
 
-/*
-// 3-step cadence implementation, currently unused
-#ifdef WLED_PIXELBUS_16PARALLEL
-void IRAM_ATTR LcdBusContext::encode3Step(uint8_t* dest, size_t destLen) {
-  // 3-step cadence encoding for 16-bit parallel output
-  // Each source bit becomes 3 DMA words: [HIGH][data][LOW]
-  memset(dest, 0, destLen);
-  size_t pos = 0;
+void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
+  memset(_dmaBuffer[bufIdx], 0, _bufferSize);
 
+  if (_resetBytesLeft > 0) {
+    _dmaDesc[bufIdx]->dw0.length = _resetBytesLeft;
+    _dmaDesc[bufIdx]->next = nullptr; // stop the engine after this one
+    _resetBytesLeft = 3; // flag end of frame, don't queue any more buffers
+    return;
+  }
+
+  uint32_t bytesToEncode = 0;
   uint8_t maxCh = 0;
   for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
-    if (_channels[ch].active) maxCh = ch + 1;
+    if (_channels[ch].active) {
+      maxCh = ch + 1;
+      uint32_t channelBytesLeft = _channels[ch].srcLen - _channels[ch].srcPos;
+      if (channelBytesLeft > bytesToEncode) bytesToEncode = channelBytesLeft;
+    }
   }
 
-  while (pos + 48 <= destLen) {  // 8 bits * 3 steps * 2 bytes = 48 bytes per source byte
-    bool hasData = false;
+  size_t dmaBytesPerSrc = _use16Bit ? 64 : 32;
+  uint32_t translatedbytes = bytesToEncode * dmaBytesPerSrc;
+  translatedbytes = translatedbytes > _bufferSize ? _bufferSize : translatedbytes;
+  encode4Step(_dmaBuffer[bufIdx], translatedbytes, maxCh);
 
-    for (int ch = 0; ch < maxCh; ch++) {
-      if (!_channels[ch].active) continue;
-      if (_channels[ch].srcPos >= _channels[ch].srcLen) continue;
+  if (translatedbytes < _bufferSize) {
+    // Data ran out before the buffer was full (i.e. we are done), compute the minimum reset period we must send as zero cycles
+    uint32_t resetNs = _timing.reset_us * 1000;
+    uint32_t bitPeriodNs = _timing.bitPeriod() + 1; // +1 to ensure no division by zero and slightly over-estimate the reset cycle
+    uint32_t zeroCycles = resetNs / bitPeriodNs;
+    size_t resetBytes = zeroCycles * (dmaBytesPerSrc / 8); // one cycle is 4 clocks, on each clock one/two buffer byte(s) sent out in parallel
 
-      hasData = true;
-      uint8_t srcByte = _channels[ch].srcData[_channels[ch].srcPos];
-      uint16_t chMask = (1 << ch);
-
-      uint16_t* p = (uint16_t*)(dest + pos);
-
-      // Unrolled loop for 8 bits
-      // [HIGH][data][LOW] — step 0 always high, step 1 = data bit, step 2 always low (zero from memset)
-      p[0] |= chMask; if (srcByte & 0x80) { p[1] |= chMask; } p += 3; // bit 7
-      p[0] |= chMask; if (srcByte & 0x40) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x20) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x10) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x08) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x04) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x02) { p[1] |= chMask; } p += 3;
-      p[0] |= chMask; if (srcByte & 0x01) { p[1] |= chMask; } p += 3; // bit 0
+    size_t newLen = translatedbytes + resetBytes;
+    if (newLen > _bufferSize) {
+      _resetBytesLeft = newLen - _bufferSize; // reset pulse does not fit into this buffer frame, send another one
+      _dmaDesc[bufIdx]->dw0.length = _bufferSize;
+    } else {
+      _dmaDesc[bufIdx]->dw0.length = newLen; // send the rest (zeroes) as a reset
+      _resetBytesLeft = 3; // flag end of frame, don't queue any more buffers or it will mess up the DMA
+      _dmaDesc[bufIdx]->next = nullptr;  // reset fit into this buffer, end transfer after this is sent
     }
-
-    if (!hasData) break;
-
-    for (int ch = 0; ch < maxCh; ch++) {
-      if (_channels[ch].active && _channels[ch].srcPos < _channels[ch].srcLen) {
-        _channels[ch].srcPos++;
-      }
-    }
-
-    pos += 48;
   }
-}
-#endif // WLED_PIXELBUS_16PARALLEL (encode3Step)
-*/
-
-void IRAM_ATTR LcdBusContext::fillBuffer(uint8_t bufIdx) {
-  encode4Step(_dmaBuffer[bufIdx], _bufferSize);
 }
 
 bool LcdBusContext::startTransmit() {
   if (_state != DriverState::Idle) return false;
   if (_channelCount == 0) return false;
 
-  if (_stagedMask != _channelMask) return true; // wait for all channels
-  _stagedMask = 0;
+  // Only start transmission if ALL active channels have populated data
+  if (_stagedMask != _channelMask) return true;
+  _stagedMask = 0; // Reset for next frame
 
-  // Reset channel positions
   _maxDataLen = 0;
   for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
     if (_channels[ch].active) {
       _channels[ch].srcPos = 0;
-      if (_channels[ch].srcLen > _maxDataLen) _maxDataLen = _channels[ch].srcLen;
+      if (_channels[ch].srcLen > _maxDataLen) {
+        _maxDataLen = _channels[ch].srcLen;
+      }
     }
   }
   if (_maxDataLen == 0) return false;
 
-  // Fill all buffers initially
-  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
-    fillBuffer(i);
-    _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
+  _resetBytesLeft = 0;
+
+  // allocate or reallocate DMA buffers if needed — deferred from init() so all channels
+  // can register first and _maxSrcBytes reflects the bus with the most pixels
+  if (!_dmaAllocated) {
+    if (!_allocDmaBuffers()) return false;
   }
 
-  _activeBuffer = 0;
-  _remainingDataBuffers = WLEDPB_LCD_DMA_BUFFER_COUNT;
+  // Fill all buffers initially and restore circular chain
+  for (int i = 0; i < WLEDPB_LCD_DMA_BUFFER_COUNT; i++) {
+    _dmaDesc[i]->next = _dmaDesc[(i + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT]; // restore circular buffer chain
+    _dmaDesc[i]->dw0.length = _bufferSize;
+    fillBuffer(i);
+    _dmaDesc[i]->dw0.suc_eof = 1;    // enable eof, just in case
+    _dmaDesc[i]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;  // hand ownership over to DMA after descriptor init
+  }
+
+  _activeBuffer = 0; // start with first buffer
   _state = DriverState::Sending;
 
   // Start DMA (circular mode - descriptors already linked)
@@ -516,37 +518,17 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
   // The completed buffer just finished playing; DMA is now on the next buffer
   uint8_t completedBuf = ctx->_activeBuffer;
   ctx->_activeBuffer = (ctx->_activeBuffer + 1) % WLEDPB_LCD_DMA_BUFFER_COUNT;
-  memset(ctx->_dmaBuffer[completedBuf], 0, ctx->_bufferSize); // pre-clear; will be refilled or left as reset signal
 
-  if (ctx->_state == DriverState::Sending) {
-    ctx->fillBuffer(completedBuf);
-
-    bool moreData = false;
-    for (int ch = 0; ch < WLEDPB_LCD_MAX_CHANNELS; ch++) {
-      if (ctx->_channels[ch].active &&
-        ctx->_channels[ch].srcPos < ctx->_channels[ch].srcLen) {
-        moreData = true;
-        break;
-      }
-    }
-    if (!moreData) {
-      ctx->_remainingDataBuffers = WLEDPB_LCD_DMA_BUFFER_COUNT;
-      ctx->_state = DriverState::SendingLast;
-    }
-    ctx->_dmaDesc[completedBuf]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-
-  } else if (ctx->_state == DriverState::SendingLast) {
-    // completedBuf already zeroed above — acts as reset buffer
-    if (ctx->_remainingDataBuffers > 0) ctx->_remainingDataBuffers--;
-    ctx->_dmaDesc[completedBuf]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA;
-    if (ctx->_remainingDataBuffers == 0) {
-      ctx->_state = DriverState::WaitingReset;
-    }
-  } else {
-    // WaitingReset complete — stop DMA
+  if (ctx->_dmaDesc[completedBuf]->next == nullptr) { // this was the last buffer
     LCD_CAM.lcd_user.lcd_start = 0;
     gdma_stop(ctx->_dmaChannel);
     ctx->_state = DriverState::Idle;
+    return false;
+  }
+
+  if (ctx->_resetBytesLeft != 3) {
+    ctx->fillBuffer(completedBuf); // fill buffer, handle reset pulse and end of frame
+    ctx->_dmaDesc[completedBuf]->dw0.owner = DMA_DESCRIPTOR_BUFFER_OWNER_DMA; // owner is reset upon eof and must be handed back to DMA
   }
 
   return false; // Do not yield OS for this DMA streaming interrupt
@@ -556,10 +538,8 @@ IRAM_ATTR bool LcdBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
 // LcdBus Implementation
 // ============================================
 
-LcdBus::LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-         size_t bufferSize, bool use16Bit, uint8_t ledType)
+LcdBus::LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t numPixels, bool use16Bit, uint8_t ledType)
   : _pin(pin)
-  , _bufferSize(bufferSize)
   , _use16Bit(use16Bit)
   , _timing(timing)
   , _initialized(false)
@@ -580,13 +560,15 @@ bool LcdBus::begin() {
   _ctx = LcdBusContext::get();
   if (!_ctx) return false;
 
-  if (!_ctx->init(_timing, _bufferSize, _use16Bit)) {
+  if (!_ctx->init(_timing, _use16Bit)) {
     LcdBusContext::release();
     _ctx = nullptr;
     return false;
   }
 
-  _channelIdx = _ctx->registerChannel(_pin, this, _inverted);
+  // pass our encoded byte count so the context can size DMA buffers for the largest bus
+  const size_t srcBytes = (size_t)_numPixels * _encoder.getPixelBytes();
+  _channelIdx = _ctx->registerChannel(_pin, this, srcBytes, _inverted);
   if (_channelIdx < 0) {
     LcdBusContext::release();
     _ctx = nullptr;
@@ -611,13 +593,15 @@ void LcdBus::end() {
   if (!_initialized) return;
 
   if (_ctx) {
+    // Wait for any active transmission to complete before cleanup
+    while (!_ctx->isIdle()) vTaskDelay(1);
     _ctx->unregisterChannel(_channelIdx);
     LcdBusContext::release();
     _ctx = nullptr;
   }
 
   if (_encodeBuffer) {
-    free(_encodeBuffer);
+    heap_caps_free(_encodeBuffer);
     _encodeBuffer = nullptr;
     _encodeBufferSize = 0;
   }
@@ -647,8 +631,6 @@ bool LcdBus::canShow() const {
   if (!_ctx) return true;
   return _ctx->isIdle();
 }
-
-
 
 void LcdBus::setColorOrder(uint8_t co) {
   _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);

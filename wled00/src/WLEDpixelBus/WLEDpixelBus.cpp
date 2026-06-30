@@ -232,7 +232,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
 
 #ifdef WLEDPB_LCD_SUPPORT
     case BusDriver::LCD:
-      bus = new LcdBus(pin, timing, colorOrder, numChannels, bufferSize, false, ledType);
+      bus = new LcdBus(pin, timing, colorOrder, numChannels, numPixels, false, ledType);
       break;
 #endif
 

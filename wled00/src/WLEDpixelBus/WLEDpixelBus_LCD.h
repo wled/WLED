@@ -77,10 +77,10 @@ public:
   static LcdBusContext* get();
   static void release();
 
-  bool init(const LedTiming& timing, size_t bufferSize, bool use16Bit = false);
+  bool init(const LedTiming& timing, bool use16Bit = false);
   void deinit();
 
-  int8_t registerChannel(int8_t pin, LcdBus* bus, bool inverted = false);
+  int8_t registerChannel(int8_t pin, LcdBus* bus, size_t srcBytes, bool inverted = false);
   void unregisterChannel(int8_t channelIdx);
   uint8_t getChannelCount() const { return _channelCount; }
 
@@ -99,12 +99,10 @@ private:
   LcdBusContext();
   ~LcdBusContext();
 
-  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen);
+  void IRAM_ATTR encode4Step(uint8_t* dest, size_t destLen, uint8_t maxChannel);
   void fillBuffer(uint8_t bufIdx);
-
-  static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan,
-                     gdma_event_data_t* event_data,
-                     void* user_data);
+  bool _allocDmaBuffers(); // allocate/reallocate DMA buffers sized for the largest registered channel
+  static IRAM_ATTR bool dmaCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
 
   volatile DriverState _state;
   bool _initialized;
@@ -114,12 +112,15 @@ private:
   gdma_channel_handle_t _dmaChannel;
   dma_descriptor_t* _dmaDesc[WLEDPB_LCD_DMA_BUFFER_COUNT];
   uint8_t* _dmaBuffer[WLEDPB_LCD_DMA_BUFFER_COUNT];
-  volatile uint8_t _activeBuffer;
-  volatile uint8_t _remainingDataBuffers;
 
   // Timing
   LedTiming _timing;
   size_t _bufferSize;
+  size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
+  bool _dmaAllocated;      // true when DMA buffers are allocated and reflect current _maxSrcBytes
+  volatile uint8_t _activeBuffer;
+  volatile uint8_t _remainingDataBuffers;
+  volatile uint16_t _resetBytesLeft;
 
   // Channels
   struct ChannelData {
@@ -136,15 +137,15 @@ private:
   uint16_t _stagedMask;
   size_t _maxDataLen;
 
+
   static LcdBusContext* _instance;
   static uint8_t _refCount;
   friend class LcdBus;
 };
 
 class LcdBus :  public PixelBus {
-public: 
-  LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels,
-       size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE, bool use16Bit = false, uint8_t ledType = 0);
+public:
+  LcdBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, size_t numPixels,  bool use16Bit = false, uint8_t ledType = 0);
   ~LcdBus() override;
 
   bool begin() override;
@@ -162,7 +163,6 @@ public:
 
 private:
   int8_t _pin;
-  size_t _bufferSize;
   bool _use16Bit;
   LedTiming _timing;
   bool _inverted = false;
