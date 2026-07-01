@@ -196,7 +196,7 @@ void notify(byte callMode, bool followUp)
 #endif
   {
     DEBUG_PRINTLN(F("UDP sending packet."));
-    IPAddress broadcastIp = ~uint32_t(Network.subnetMask()) | uint32_t(Network.gatewayIP());
+    IPAddress broadcastIp = ~uint32_t(WLEDNetwork.subnetMask()) | uint32_t(WLEDNetwork.gatewayIP());
     notifierUdp.beginPacket(broadcastIp, udpPort);
     notifierUdp.write(udpOut, WLEDPACKETSIZE); // TODO: add actual used buffer size
     notifierUdp.endPacket();
@@ -517,7 +517,7 @@ void handleNotifications()
     }
   }
 
-  localIP = Network.localIP();
+  localIP = WLEDNetwork.localIP();
   //notifier and UDP realtime
   if (!packetSize || packetSize > UDP_IN_MAXSIZE) return;
   if (!isSupp && notifierUdp.remoteIP() == localIP) return; //don't process broadcasts we send ourselves
@@ -701,7 +701,7 @@ void sendSysInfoUDP()
 {
   if (!udp2Connected) return;
 
-  IPAddress ip = Network.localIP();
+  IPAddress ip = WLEDNetwork.localIP();
   if (!ip || ip == IPAddress(255,255,255,255)) ip = IPAddress(4,3,2,1);
 
   // TODO: make a nice struct of it and clean up
@@ -723,19 +723,7 @@ void sendSysInfoUDP()
     data[x + 2] = ip[x];
   }
   memcpy((byte *)data + 6, serverDescription, 32);
-  #ifdef ESP8266
-  data[38] = NODE_TYPE_ID_ESP8266;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  data[38] = NODE_TYPE_ID_ESP32C3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  data[38] = NODE_TYPE_ID_ESP32S3;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-  data[38] = NODE_TYPE_ID_ESP32S2;
-  #elif defined(ARDUINO_ARCH_ESP32)
-  data[38] = NODE_TYPE_ID_ESP32;
-  #else
-  data[38] = NODE_TYPE_ID_UNDEFINED;
-  #endif
+  data[38] = uint8_t(WLED_BOARD); // see wled_boards.h
   if (bri) data[38] |= 0x80U;  // add on/off state
   data[39] = ip[3]; // unit ID == last IP number
 

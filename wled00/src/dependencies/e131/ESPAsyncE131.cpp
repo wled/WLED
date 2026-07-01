@@ -76,7 +76,7 @@ bool ESPAsyncE131::initMulticast(uint16_t port, uint16_t universe, uint8_t n) {
     ip4_addr_t ifaddr;
     ip4_addr_t multicast_addr;
 
-    ifaddr.addr = static_cast<uint32_t>(Network.localIP());
+    ifaddr.addr = static_cast<uint32_t>(WLEDNetwork.localIP());
     for (uint8_t i = 1; i < n; i++) {
         multicast_addr.addr = static_cast<uint32_t>(IPAddress(239, 255,
           (((universe + i) >> 8) & 0xff), (((universe + i) >> 0)

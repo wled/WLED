@@ -29,7 +29,7 @@ License along with NeoPixel.  If not, see
 
 #include <Arduino.h>
 
-#if defined(ARDUINO_ARCH_ESP32)
+#if defined(ARDUINO_ARCH_ESP32) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 
 #include <algorithm>  
 #include "esp_idf_version.h"
