@@ -9,6 +9,9 @@
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
   #include "rom/rtc.h"      // for rtc_get_reset_reason()
+  #if CONFIG_IDF_TARGET_ESP32P4
+    #define RTCWDT_BROWN_OUT_RESET RESET_REASON::BROWN_OUT_RESET    // P4 has BROWN_OUT_RESET instead of RTCWDT_BROWN_OUT_RESET
+  #endif
   #include "esp32/rtc.h"    // for bootloop detection // ToDO V5: Header file is deprecated, please include esp_rtc_time.h instead
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
