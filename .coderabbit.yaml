@@ -33,6 +33,7 @@ reviews:
       - V5
     ignore_title_keywords:
       - WIP
+      - DO NOT MERGE
   tools:
     fbinfer:
       enabled: false   # Arduino.h not available on Linux analysis host
