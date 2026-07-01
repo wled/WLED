@@ -860,6 +860,8 @@ void serializeInfo(JsonObject root)
   root[F("lwip")] = LWIP_VERSION_MAJOR;
 #endif
 
+  // calling ESP.getFreeHeap() during led update causes glitches on C3 and possibly on 8266, too
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // be nice, but not too nice. Waits up to 50ms. No need to suspend effects - ESP.getFreeHeap() will not need much time
   root[F("freeheap")] = getFreeHeapSize();
   #if defined(ARDUINO_ARCH_ESP32) && defined(BOARD_HAS_PSRAM)
   // Report PSRAM information

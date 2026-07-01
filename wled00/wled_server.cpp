@@ -212,7 +212,14 @@ static void handleUpload(AsyncWebServerRequest *request, const String& filename,
     request->_tempFile.write(data,len);
   }
   if (isFinal) {
+    bool haveSuspended = false;
+    #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+      if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; } // prevent that a new strip.show() starts after waiting
+      strip.waitForLEDs(STRIP_WAIT_SHORT, true); // calling file.close() during LEDs sendout can cause glitches on C3 and on 8266
+    #endif
     request->_tempFile.close();
+    if (haveSuspended) strip.resume();
+
     if (filename.indexOf(F("cfg.json")) >= 0) { // check for filename with or without slash
       doReboot = true;
       request->send(200, FPSTR(CONTENT_TYPE_PLAIN), F("Config restore ok.\nRebooting..."));

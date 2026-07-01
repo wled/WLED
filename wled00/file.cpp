@@ -34,13 +34,24 @@ static File f; // don't export to other cpp files
 
 //wrapper to find out how long closing takes
 void closeFile() {
+  if (!doCloseFile || !f) { doCloseFile = false; return; }  // file not open, or no request to close -> nothing to do, nothing to wait
   #ifdef WLED_DEBUG_FS
     DEBUGFS_PRINT(F("Close -> "));
     uint32_t s = millis();
   #endif
+  doCloseFile = false; // consume flag early, to reduce the time window for concurrent closing attempts from several tasks.
+
+  // f.close() may enter flash critical sections (interrupts/cache paused), so we wait for LED transmission to finish first to avoid WS281x glitches
+  // This is most relevant on ESP32-C3/C5/C6, where the RMT driver is very sensitive to interrupt timing.
+  bool haveSuspended = false;
+  #if defined(WLED_USE_SHARED_RMT) || defined(__riscv) || !defined(ARDUINO_ARCH_ESP32)
+    if (!strip.isSuspended()) { strip.suspend(); haveSuspended = true; } // prevent that a new strip.show() starts after waiting
+    strip.waitForLEDs(STRIP_WAIT_MEDIUM); // be nice, but not too nice. Waits up to 150ms
+  #endif
+
   f.close(); // "if (f)" check is aleady done inside f.close(), and f cannot be nullptr -> no need for double checking before closing the file handle.
+  if (haveSuspended) strip.resume();  // end of critical section - new LEDs updates are allowed again
   DEBUGFS_PRINTF("took %lu ms\n", millis() - s);
-  doCloseFile = false;
 }
 
 //find() that reads and buffers data from file stream in 256-byte blocks.
@@ -437,6 +448,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
     }
   }
   #endif
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if(WLED_FS.exists(path) || WLED_FS.exists(path + ".gz")) {
     request->send(request->beginResponse(WLED_FS, path, {}, request->hasArg(F("download")), {}));
     return true;
@@ -447,6 +459,7 @@ bool handleFileRead(AsyncWebServerRequest* request, String path){
 // copy a file, delete destination file if incomplete to prevent corrupted files
 bool copyFile(const char* src_path, const char* dst_path) {
   DEBUG_PRINTF("copyFile from %s to %s\n", src_path, dst_path);
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM, true); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if(!WLED_FS.exists(src_path)) {
    DEBUG_PRINTLN(F("file not found"));
    return false;
@@ -485,6 +498,7 @@ bool copyFile(const char* src_path, const char* dst_path) {
 // compare two files, return true if identical
 bool compareFiles(const char* path1, const char* path2) {
   DEBUG_PRINTF("compareFile %s and %s\n", path1, path2);
+  strip.waitForLEDs(STRIP_WAIT_SHORT); // wait for LEDs before file access (not using strip.suspend(), to avoid effect stuttering)
   if (!WLED_FS.exists(path1) || !WLED_FS.exists(path2)) {
     DEBUG_PRINTLN(F("file not found"));
     return false;
@@ -543,6 +557,7 @@ bool restoreFile(const char* filename) {
   char backupname[32];
   snprintf_P(backupname, sizeof(backupname), s_backup_fmt, filename + 1); // skip leading '/' in filename
 
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM); // wait for LEDs before file existence checking
   if (!WLED_FS.exists(backupname)) {
     DEBUG_PRINTLN(F("no backup found"));
     return false;

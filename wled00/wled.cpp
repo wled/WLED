@@ -174,12 +174,9 @@ void WLED::loop()
     #ifdef ESP8266
     uint32_t heap = getFreeHeapSize(); // ESP8266 needs ~8k of free heap for UI to work properly
     #else
-    #ifdef CONFIG_IDF_TARGET_ESP32C3
     // calling getContiguousFreeHeap() during led update causes glitches on C3
     // this can (probably) be removed once RMT driver for C3 is fixed
-    unsigned t0 = millis();
-    while (strip.isUpdating() && (millis() - t0 < 150)) delay(1);    // be nice, but not too nice. Waits up to 150ms
-    #endif
+    strip.waitForLEDs(STRIP_WAIT_MEDIUM);  // be nice, but not too nice. Waits up to 150ms - we are in the main loop, so a new strip.show() cannot start while waiting
     uint32_t heap = getContiguousFreeHeap(); // ESP32 family needs ~10k of contiguous free heap for UI to work properly
     #endif
     if (heap < MIN_HEAP_SIZE - 1024) heapDanger+=5; // allow 1k of "wiggle room" for things that do not respect min heap limits
@@ -494,6 +491,7 @@ void WLED::setup()
 
   DEBUG_PRINTLN(F("Initializing strip"));
   beginStrip();
+  strip.waitForLEDs(STRIP_WAIT_MEDIUM); // prevent flickering - beginStrip() calls strip.show()
   DEBUG_PRINTF_P(PSTR("heap %u\n"), getFreeHeapSize());
 
   DEBUG_PRINTLN(F("Usermods setup"));
@@ -598,7 +596,7 @@ void WLED::setup()
   #endif
 
   #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_DISABLE_BROWNOUT_DET)
-  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //enable brownout detector
+  WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 1); //re-enable brownout detector
   #endif
   markOTAvalid();
 }
