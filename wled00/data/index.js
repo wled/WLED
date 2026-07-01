@@ -796,6 +796,7 @@ function populateSegments(s)
 							`<option value="2" ${inst.m12==2?' selected':''}>Arc</option>`+
 							`<option value="3" ${inst.m12==3?' selected':''}>Corner</option>`+
 							`<option value="4" ${inst.m12==4?' selected':''}>Pinwheel</option>`+
+							`<option value="5" ${inst.m12==5?' selected':''}>Cube</option>`+
 						`</select></div>`+
 					`</div>`;
 		let blend = `<div class="lbl-l">Blend mode<br>`+
