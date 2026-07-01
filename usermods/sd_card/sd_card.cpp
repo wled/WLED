@@ -13,9 +13,31 @@
   #include "SPI.h"
 #endif
 
+#ifndef UM_SD_SELECT
+  #define UM_SD_SELECT 16;
+#endif
+#ifndef UM_SD_CLOCK
+  #define UM_SD_CLOCK 14;
+#endif
+#ifndef UM_SD_POCI
+  #define UM_SD_POCI 36;
+#endif
+#ifndef UM_SD_PICO
+  #define UM_SD_PICO 15;
+#endif
+
+
 #ifdef WLED_USE_SD_MMC
-#elif defined(WLED_USE_SD_SPI)
-  SPIClass spiPort = SPIClass(VSPI);
+  // SD_MMC configuration handled elsewhere
+#if defined(CONFIG_IDF_TARGET_ESP32S3)
+    // ESP32-S3 default hardware SPI bus is typically FSPI (or HSPI)
+    SPIClass spiPort = SPIClass(HSPI); 
+   #warning "SD card may have conflicts with 2-pin LEDs."
+  #else
+    // Classic ESP32 defaults (VSPI is default/safest for SD cards on standard pins)
+    SPIClass spiPort = SPIClass(VSPI);
+   #warning "SD card may have conflicts with 2-pin LEDs."
+  #endif
 #endif
 
 void listDir( const char * dirname, uint8_t levels);
@@ -24,11 +46,13 @@ class UsermodSdCard : public Usermod {
   private:
     bool sdInitDone = false;
 
-    #ifdef WLED_USE_SD_SPI
-      int8_t configPinSourceSelect = 16;
-      int8_t configPinSourceClock = 14;
-      int8_t configPinPoci = 36; // confusing names? Then have a look :)
-      int8_t configPinPico = 15; // https://www.oshwa.org/a-resolution-to-redefine-spi-signal-names/
+// confusing names? Then have a look 
+// https://oshwa.org/resources/a-resolution-to-redefine-spi-signal-names/
+#ifdef WLED_USE_SD_SPI
+    int8_t configPinSourceSelect = UM_SD_SELECT;
+    int8_t configPinSourceClock = UM_SD_CLOCK;
+    int8_t configPinPoci = UM_SD_POCI;
+    int8_t configPinPico = UM_SD_PICO;
 
       //acquired and initialize the SPI port
       void init_SD_SPI()
