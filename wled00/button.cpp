@@ -365,6 +365,16 @@ void handleIO()
 {
   handleButton();
 
+  // If in realtime mode and presets are explicitly allowed to override (e.g., via buttons),
+  // we process them here to avoid messing with the main loop.
+  if (realtimeMode && !realtimeOverride && !(realtimeMode && useMainSegmentOnly) && realtimeAllowPresets) {
+    handlePresets();
+    if (!presetNeedsSaving()) {
+      handlePlaylist();
+    }
+    handlePresets();
+  }
+
   // if we want to control on-board LED (ESP8266) or relay we have to do it here as the final show() may not happen until
   // next loop() cycle
   handleOnOff();
