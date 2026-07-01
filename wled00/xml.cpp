@@ -467,6 +467,8 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   {
     printSetFormValue(settingsScript,PSTR("DS"),serverDescription);
     printSetFormCheckbox(settingsScript,PSTR("SU"),simplifiedUI);
+    printSetFormValue(settingsScript,PSTR("ON"),powerButtonOnPreset);
+    printSetFormValue(settingsScript,PSTR("OF"),powerButtonOffPreset);
   }
 
   if (subPage == SUBPAGE_SYNC)

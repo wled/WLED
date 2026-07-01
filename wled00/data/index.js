@@ -653,6 +653,13 @@ function parseInfo(i) {
 	d.title      = name;
 	simplifiedUI = i.simplifiedui;
 	ledCount     = i.leds.count;
+	if (typeof i.pon === "number") cfg.comp.on = i.pon;
+	if (typeof i.pof === "number") cfg.comp.off = i.pof;
+	try {
+		localStorage.setItem('wledUiCfg', JSON.stringify(cfg));
+	} catch (e) {
+		// ignore localStorage failures
+	}
 	//syncTglRecv   = i.str;
 	maxSeg       = i.leds.maxseg;
 	pmt          = i.fs.pmt;
