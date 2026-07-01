@@ -458,103 +458,83 @@ void Segment::handleRandomPalette() {
 // strip must be suspended (strip.suspend()) before calling this function
 // this function may call fill() to clear pixels if spacing or mapping changed (which requires setting _vWidth, _vHeight, _vLength or beginDraw())
 void Segment::setGeometry(uint16_t i1, uint16_t i2, uint8_t grp, uint8_t spc, uint16_t ofs, uint16_t i1Y, uint16_t i2Y, uint8_t m12) {
-  // Sanitise inputs  
-  if (i2 <= i1) { // For any values, this means deactivate the segment; we check i2 before i1 for this case
-    i2 = 0;
+  // return if neither bounds nor grouping have changed
+  bool boundsUnchanged = (start == i1 && stop == i2);
+  #ifndef WLED_DISABLE_2D
+  boundsUnchanged &= (startY == i1Y && stopY == i2Y); // 2D
+  #endif
+  boundsUnchanged &= (grouping == grp && spacing == spc); // changing grouping and/or spacing changes virtual segment length (painting dimensions)
+
+  if (stop && (spc > 0 || m12 != map1D2D)) clear();
+  if (grp) { // prevent assignment of 0
+    grouping = grp;
+    spacing = spc;
   } else {
-    // Clamp i2 to maximum length
-    if (i2 > Segment::maxWidth*Segment::maxHeight) {
-      i2 = MIN(i2,strip.getLengthTotal());
-    } else if (i2 > Segment::maxWidth) {
-      i2 = Segment::maxWidth;
-    } else if (i2 < 1) {
-      i2 = 1;
-    }     
+    grouping = 1;
+    spacing = 0;
   }
-  // If i1 is invalid, use old value
-  // Valid range is inside maxWidth, or in trailing segment range
-  if ((i1 >= Segment::maxWidth) && (i1 < Segment::maxWidth*Segment::maxHeight || i1 >= strip.getLengthTotal())) {
-    i1 = start;
-  }
-
-  #ifndef WLED_DISABLE_2D
-  if (Segment::maxHeight>1) { // 2D
-    if (i1Y >= Segment::maxHeight) i1Y = startY;
-    if (i2Y > Segment::maxHeight) {
-      i2Y = Segment::maxHeight;
-    } else if (i2Y < 1) {
-      i2Y = 1;
-    }
-  } else
-  #endif
-  { 
-    i1Y = 0;
-    i2Y = 1;
-  }
-
-  if (grp == 0) { grp = 1; spc = 0; }  // prevent assignment of 0
-  if (ofs == UINT16_MAX) ofs = offset; // keep current setting if passed illegal value
-  m12 = constrain(m12, 0, 7);
-
-  // Final safety check after all bounds adjustments
-  if ((i1 >= i2) || (i1Y >= i2Y)) { 
-    i2 = 0;  // disable segment
-  }
-
-  // Inputs are ok, check if anything has changed
-  bool boundsUnchanged = (start == i1 && stop == i2)
-  #ifndef WLED_DISABLE_2D
-                       && ((Segment::maxHeight <= 1) || (startY == i1Y && stopY == i2Y))
-  #endif
-                       && (grouping == grp)
-                       && (spacing == spc)
-                       && (offset == ofs)
-                       && (m12 == map1D2D);
+  if (ofs < UINT16_MAX) offset = ofs;
+  map1D2D  = constrain(m12, 0, 7);
 
   if (boundsUnchanged) return;
 
-  DEBUG_PRINTF_P(PSTR("Segment geometry: (%d,%d),(%d,%d) -> (%d,%d),(%d,%d) [%d,%d]\n"), start, stop, startY, stopY, (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int) grp, (int)spc);
-  
   unsigned oldLength = length();
 
-  stateChanged = true; // send UDP/WS broadcast
+  DEBUGFX_PRINTF_P(PSTR("Segment geometry: %d,%d -> %d,%d [%d,%d]\n"), (int)i1, (int)i2, (int)i1Y, (int)i2Y, (int)grp, (int)spc);
   markForReset();
   stopTransition(); // we can't use transition if segment dimensions changed
   stateChanged = true;      // send UDP/WS broadcast
 
-  // apply change
-  start = i1;
-  stop = i2;
-  startY = i1Y;
-  stopY = i2Y;
-  grouping = grp;
-  spacing = spc;
-  offset = ofs;
-  map1D2D = m12;
-
-  // Cleanup check
-  auto newLength = length();
-  if ((newLength > 0) && (newLength != oldLength)) {
-    // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
-    p_free(pixels);
-    pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
-    if (!pixels) {
-      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
-      errorFlag = ERR_NORAM_PX;
-      stop = 0; // will fall through into disable check below
-    }
-  }
-
-  if (length() == 0) {
+  // apply change immediately
+  if (i2 <= i1) { //disable segment
     #ifdef WLED_ENABLE_GIF
     endImagePlayback(this);
     #endif
     deallocateData();
     p_free(pixels);
     pixels = nullptr;
-  } else {
-    refreshLightCapabilities();
+    stop = 0;
+    return;
   }
+  if (i1 < Segment::maxWidth || (i1 >= Segment::maxWidth*Segment::maxHeight && i1 < strip.getLengthTotal())) start = i1; // Segment::maxWidth equals strip.getLengthTotal() for 1D
+  stop = i2 > Segment::maxWidth*Segment::maxHeight && i1 >= Segment::maxWidth*Segment::maxHeight ? MIN(i2,strip.getLengthTotal()) : constrain(i2, 1, Segment::maxWidth); // check for 2D trailing strip
+  startY = 0;
+  stopY  = 1;
+  #ifndef WLED_DISABLE_2D
+  if (Segment::maxHeight>1) { // 2D
+    if (i1Y < Segment::maxHeight) startY = i1Y;
+    stopY = constrain(i2Y, 1, Segment::maxHeight);
+  }
+  #endif
+  // safety check
+  if (start >= stop || startY >= stopY) {
+    #ifdef WLED_ENABLE_GIF
+    endImagePlayback(this);
+    #endif
+    deallocateData();
+    p_free(pixels);
+    pixels = nullptr;
+    stop = 0;
+    return;
+  }
+  // allocate FX render buffer
+  if (length() != oldLength) {
+    // allocate render buffer (always entire segment), prefer IRAM/PSRAM. Note: impact on FPS with PSRAM buffer is low (<2% with QSPI PSRAM) on S2/S3
+    p_free(pixels);
+    pixels = static_cast<uint32_t*>(allocate_buffer(length() * sizeof(uint32_t), BFRALLOC_PREFER_PSRAM | BFRALLOC_NOBYTEACCESS));
+    if (!pixels) {
+      DEBUGFX_PRINTLN(F("!!! Not enough RAM for pixel buffer !!!"));
+      #ifdef WLED_ENABLE_GIF
+      endImagePlayback(this);
+      #endif
+      deallocateData();
+      errorFlag = ERR_NORAM_PX;
+      stop = 0;
+      return;
+    }
+
+  }
+  refreshLightCapabilities();
 }
 
 
