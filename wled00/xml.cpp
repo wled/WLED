@@ -216,6 +216,9 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   #ifdef WLED_ENABLE_DMX // include only if DMX is enabled
     settingsScript.print(F("gId('dmxbtn').style.display='';"));
   #endif
+  #ifdef BOARD_HAS_PSRAM
+    settingsScript.print(F("gId('logbtn').style.display='';"));
+  #endif
   }
 
   if (subPage == SUBPAGE_WIFI)

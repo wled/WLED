@@ -974,6 +974,18 @@ WLED_GLOBAL JsonDocument *pDoc _INIT(&gDoc);
 #endif
 WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
 
+// PSRAM-backed log ring buffer.
+// On BOARD_HAS_PSRAM builds the DEBUG_* macros always write to the ring
+// buffer so logs are retrievable via /json/log without serial access or a
+// WLED_DEBUG build.  WLED_DEBUG additionally routes output to Serial/NetDebug.
+// Allocated at runtime only when psramFound() succeeds; writes before init()
+// or on devices without physical PSRAM are silently dropped.
+#ifdef BOARD_HAS_PSRAM
+  #include "log_buffer.h"
+  WLED_GLOBAL LogBuffer wledLogBuffer;
+  WLED_GLOBAL LogPrint  wledLog _INIT(LogPrint(wledLogBuffer));
+#endif
+
 // enable additional debug output
 #if defined(WLED_DEBUG_HOST)
   #include "net_debug.h"
@@ -990,15 +1002,32 @@ WLED_GLOBAL volatile uint8_t jsonBufferLock _INIT(0);
   #define DEBUGOUT Serial
 #endif
 
-#ifdef WLED_DEBUG
+#if defined(BOARD_HAS_PSRAM) && defined(WLED_DEBUG)
+  // PSRAM + serial debug: ring buffer AND Serial/NetDebug
   #ifndef ESP8266
   #include <rom/rtc.h>
   #endif
-  #define DEBUG_PRINT(x) DEBUGOUT.print(x)
-  #define DEBUG_PRINTLN(x) DEBUGOUT.println(x)
-  #define DEBUG_PRINTF(x...) DEBUGOUT.printf(x)
+  #define DEBUG_PRINT(x)       do { DEBUGOUT.print(x);    wledLog.print(x);    } while(0)
+  #define DEBUG_PRINTLN(x)     do { DEBUGOUT.println(x);  wledLog.println(x);  } while(0)
+  #define DEBUG_PRINTF(x...)   do { DEBUGOUT.printf(x);   wledLog.printf(x);   } while(0)
+  #define DEBUG_PRINTF_P(x...) do { DEBUGOUT.printf_P(x); wledLog.printf_P(x); } while(0)
+#elif defined(BOARD_HAS_PSRAM)
+  // PSRAM only: ring buffer, no serial output
+  #define DEBUG_PRINT(x)       wledLog.print(x)
+  #define DEBUG_PRINTLN(x)     wledLog.println(x)
+  #define DEBUG_PRINTF(x...)   wledLog.printf(x)
+  #define DEBUG_PRINTF_P(x...) wledLog.printf_P(x)
+#elif defined(WLED_DEBUG)
+  // Serial debug only: original behaviour
+  #ifndef ESP8266
+  #include <rom/rtc.h>
+  #endif
+  #define DEBUG_PRINT(x)       DEBUGOUT.print(x)
+  #define DEBUG_PRINTLN(x)     DEBUGOUT.println(x)
+  #define DEBUG_PRINTF(x...)   DEBUGOUT.printf(x)
   #define DEBUG_PRINTF_P(x...) DEBUGOUT.printf_P(x)
 #else
+  // No PSRAM, no debug: no-ops
   #define DEBUG_PRINT(x)
   #define DEBUG_PRINTLN(x)
   #define DEBUG_PRINTF(x...)
