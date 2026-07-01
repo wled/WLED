@@ -382,6 +382,26 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ESP_NOW_STATE_ON           1
 #define ESP_NOW_STATE_ERROR        2
 
+// Bidirectional ESP-NOW API
+#define ESPNOW_API_MAGIC        0x4E   // 'N' - distinct from WizMote (0x80/0x81/0x91) and sync ('W'/0x57)
+#define ESPNOW_API_VERSION      0x01   // wire protocol version
+#define ESPNOW_API_HEADER_SIZE     6   // magic, version, msgType, msgId, fragIndex, fragTotal
+#define ESPNOW_API_FRAG_SIZE     244   // payload bytes per frame (250 ESP-NOW limit - 6 header)
+// message types
+#define ESPNOW_API_REQUEST      0x01   // remote -> WLED, JSON command (deserializeState parity)
+#define ESPNOW_API_RESPONSE     0x02   // WLED -> remote, reply to a request (echoes msgId)
+#define ESPNOW_API_PUSH         0x03   // WLED -> remotes, unsolicited state broadcast on change
+#define ESPNOW_API_HELLO        0x04   // discovery: remote queries, WLED replies with name/mac/ver/ch
+#define ESPNOW_API_LIVE         0x05   // WLED -> remote, binary LED peek frame (same payload as WS liveview)
+// reassembly/serialization caps (bounded to limit RAM use, especially on ESP8266)
+#ifdef ESP8266
+#define ESPNOW_API_MAX_JSON     2048
+#else
+#define ESPNOW_API_MAX_JSON     8192
+#endif
+#define ESPNOW_API_MAX_FRAGS    ((ESPNOW_API_MAX_JSON / ESPNOW_API_FRAG_SIZE) + 1)
+#define ESPNOW_API_REASM_TIMEOUT 500   // ms before an incomplete reassembly buffer is abandoned
+
 //Button type
 #define BTN_TYPE_NONE             0
 #define BTN_TYPE_RESERVED         1

@@ -93,6 +93,7 @@ void WLED::loop()
   #endif
   #ifndef WLED_DISABLE_ESPNOW
   handleRemote();
+  handleEspNowApi();
   #endif
   #ifndef WLED_DISABLE_ALEXA
   handleAlexa();

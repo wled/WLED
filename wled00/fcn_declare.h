@@ -279,6 +279,12 @@ bool getPresetName(byte index, String& name);
 //remote.cpp
 void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
+#ifndef WLED_DISABLE_ESPNOW
+void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len, bool broadcast);
+bool espNowApiReady();
+void handleEspNowApi();
+void pushEspNowState();
+#endif
 
 //set.cpp
 bool isAsterisksOnly(const char* str, byte maxLen);

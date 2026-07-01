@@ -938,6 +938,14 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
+  // bidirectional ESP-NOW JSON API frames; reassembled here,
+  // applied later in handleEspNowApi(). Already gated by the linked_remotes whitelist above.
+  if (len >= ESPNOW_API_HEADER_SIZE && data[0] == ESPNOW_API_MAGIC && data[1] == ESPNOW_API_VERSION) {
+    if (!espNowApiReady()) return;
+    handleEspNowApiData(address, data, len, broadcast);
+    return;
+  }
+
   partial_packet_t *buffer = reinterpret_cast<partial_packet_t *>(data);
   if (len < 3 || !broadcast || buffer->magic != 'W' || !useESPNowSync || WLED_CONNECTED) {
     DEBUG_PRINTLN(F("ESP-NOW unexpected packet, not syncing or connected to WiFi."));
