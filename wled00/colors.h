@@ -80,16 +80,16 @@ void hsv2rgb_spectrum(const CHSV32& hsv, CRGBW& rgb);
 void hsv2rgb_spectrum(const CHSV& hsv, CRGB& rgb);
 void rgb2hsv(const CRGBW& rgb, CHSV32& hsv);
 CHSV rgb2hsv(const CRGB c);
-void colorHStoRGB(uint16_t hue, byte sat, byte* rgb);
-void colorKtoRGB(uint16_t kelvin, byte* rgb);
-void colorCTtoRGB(uint16_t mired, byte* rgb); //white spectrum to rgb
-void colorXYtoRGB(float x, float y, byte* rgb); // only defined if huesync disabled TODO
+void colorHStoRGB(uint16_t hue, byte sat, CRGBW &rgb);
+void colorKtoRGB(uint16_t kelvin, CRGBW &rgb);
+void colorCTtoRGB(uint16_t mired, CRGBW &rgb); //white spectrum to rgb
+void colorXYtoRGB(float x, float y, CRGBW &rgb); // only defined if huesync disabled TODO
 void colorRGBtoXY(const byte* rgb, float* xy); // only defined if huesync disabled TODO
-void colorFromDecOrHexString(byte* rgb, const char* in);
-bool colorFromHexString(byte* rgb, const char* in);
+void colorFromDecOrHexString(CRGBW &rgb, const char* in);
+bool colorFromHexString(CRGBW &rgb, const char* in);
 uint32_t colorBalanceFromKelvin(uint16_t kelvin, uint32_t rgb);
 uint16_t approximateKelvinFromRGB(uint32_t rgb);
-void setRandomColor(byte* rgb);
+void setRandomColor(CRGBW &rgb);
 
 // fast scaling function for colors, performs color*scale/256 for all four channels, speed over accuracy
 // note: inlining uses less code than actual function calls
@@ -177,9 +177,9 @@ struct CRGBW {
   inline CRGBW& operator=(CHSV32 hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h, hsv.s, hsv.v, raw, true); return *this; }
 
   // Assignment from CHSV
-  inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true); return *this; }
+  inline CRGBW& operator=(CHSV hsv) __attribute__((always_inline)) { hsv2rgb_rainbow(hsv.h<<8, hsv.s, hsv.v, raw, true);  return *this; }
 
-  // Assignment from r, g, b, w
+  // Assignment from CRGB
   inline CRGBW& operator=(const CRGB& rgb) __attribute__((always_inline)) { b = rgb.b; g = rgb.g; r = rgb.r; w = 0; return *this; }
 
   // Conversion operator to uint32_t

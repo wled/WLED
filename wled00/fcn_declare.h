@@ -199,7 +199,7 @@ byte scaledBri(byte in);
 
 #ifdef WLED_ENABLE_LOXONE
 //lx_parser.cpp
-bool parseLx(int lxValue, byte* rgbw);
+bool parseLx(int lxValue, CRGBW &rgbw);
 void parseLxJson(int lxValue, byte segId, bool secondary);
 #endif
 

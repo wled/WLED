@@ -93,9 +93,7 @@ public:
           }
           else
           {
-            fastled_col.red = colPri[0];
-            fastled_col.green = colPri[1];
-            fastled_col.blue = colPri[2];
+            fastled_col = colPri;
             prim_hsv = rgb2hsv(fastled_col);
             new_val = (int16_t)prim_hsv.h + fadeAmount;
             if (new_val > 255)
@@ -104,9 +102,7 @@ public:
               new_val += 255; // roll-over if smaller than 0
             prim_hsv.h = (byte)new_val;
             fastled_col = prim_hsv ;
-            colPri[0] = fastled_col.red;
-            colPri[1] = fastled_col.green;
-            colPri[2] = fastled_col.blue;
+            colPri = fastled_col;
           }
         }
         else if (Enc_B == LOW)
@@ -118,9 +114,7 @@ public:
           }
           else
           {
-            fastled_col.red = colPri[0];
-            fastled_col.green = colPri[1];
-            fastled_col.blue = colPri[2];
+            fastled_col = colPri;
             prim_hsv = rgb2hsv(fastled_col);
             new_val = (int16_t)prim_hsv.h - fadeAmount;
             if (new_val > 255)
@@ -129,9 +123,7 @@ public:
               new_val += 255; // roll-over if smaller than 0
             prim_hsv.h = (byte)new_val;
             fastled_col = prim_hsv;
-            colPri[0] = fastled_col.red;
-            colPri[1] = fastled_col.green;
-            colPri[2] = fastled_col.blue;
+            colPri = fastled_col;
           }
         }
         //call for notifier -> 0: init 1: direct change 2: button 3: notification 4: nightlight 5: other (No notification)
