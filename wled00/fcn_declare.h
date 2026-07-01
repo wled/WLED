@@ -256,7 +256,6 @@ void handleOverlayDraw();
 // void _overlayAnalogClock();      // local function, only used in overlay.cpp
 
 //playlist.cpp
-void shufflePlaylist();
 void unloadPlaylist();
 int16_t loadPlaylist(JsonObject playlistObject, byte presetId = 0);
 void handlePlaylist();

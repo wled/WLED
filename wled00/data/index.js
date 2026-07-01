@@ -2032,10 +2032,46 @@ function pleTr(p,i,field)
 		plJson[p].transition[i] = Math.floor(field.value*10);
 }
 
-function plR(p)
+function plUpdateOptions(p, changed)
 {
 	var pl = plJson[p];
-	pl.r = gId(`pl${p}rtgl`).checked;
+
+	const shuffle = gId(`pl${p}rtgl`).checked;
+	const deterministic = gId(`pl${p}deterministic`);
+	const clockSync = gId(`pl${p}clockSync`);
+	const manual = gId(`pl${p}manual`);
+	let manualChanged = changed == "manual";
+
+	// Ensure clock sync and manual advance can't be checked at the same time
+	if (clockSync.checked && manual.checked) {
+		if (changed == "clockSync") {
+			manual.checked = false;
+			manualChanged = true;
+		} else {
+			clockSync.checked = false;
+		}
+	}
+
+	// Reset & hide deterministic flag when not shuffling
+	if (!shuffle) deterministic.checked = false;
+	gId(`pl${p}deterministicRow`).style.display = shuffle ? "block" : "none";
+
+	pl.r = shuffle;
+	pl.deterministic = deterministic.checked;
+	pl.clockSync = clockSync.checked;
+
+	// Normalize durations when manual advance changes
+	if (manualChanged) {
+		plJson[p].dur.forEach((_,i)=>{
+			const e = manual.checked ? 0 : 100;
+			const d = gId(`pl${p}du${i}`);
+			plJson[p].dur[i] = e;
+			d.value = e/10; // 10s default
+			d.readOnly = manual.checked;
+		});
+	}
+
+	// Update repeat/end-preset controls
 	if (gId(`pl${p}rptgl`).checked) { // infinite
 		pl.repeat = 0;
 		delete pl.end;
@@ -2045,17 +2081,6 @@ function plR(p)
 		pl.end = parseInt(gId(`pl${p}selEnd`).value);
 		gId(`pl${p}o1`).style.display = "block";
 	}
-}
-
-function plM(p)
-{
-	const man = gId(`pl${p}manual`).checked;
-	plJson[p].dur.forEach((e,i)=>{
-		const d = gId(`pl${p}du${i}`);
-		plJson[p].dur[i] = e = man ? 0 : 100;
-		d.value = e/10; // 10s default 
-		d.readOnly = man;
-	});
 }
 
 function makeP(i,pl)
@@ -2069,27 +2094,39 @@ function makeP(i,pl)
 			transition: [tr],
 			repeat: 0,
 			r: false,
+			deterministic: false,
+			clockSync: false,
 			end: 0
 		};
+		const clockSync = !!plJson[i].clockSync;
+		if (!plJson[i].r) plJson[i].deterministic = false;
 		const rep = plJson[i].repeat ? plJson[i].repeat : 0;
-		const man = plJson[i].dur == 0;
+		const man = !clockSync && plJson[i].dur.every(d => d == 0);
 		content =
 `<div id="ple${i}" style="margin-top:10px;"></div><label class="check revchkl">Shuffle
-	<input type="checkbox" id="pl${i}rtgl" onchange="plR(${i})" ${plJson[i].r||rep<0?"checked":""}>
+	<input type="checkbox" id="pl${i}rtgl" onchange="plUpdateOptions(${i}, 'shuffle')" ${plJson[i].r||rep<0?"checked":""}>
+	<span class="checkmark"></span>
+</label>
+<label class="check revchkl" id="pl${i}deterministicRow" style="display:${plJson[i].r||rep<0?"block":"none"};margin-left:1.2em" title="Uses a repeatable shuffle order">Deterministic
+	<input type="checkbox" id="pl${i}deterministic" onchange="plUpdateOptions(${i}, 'deterministic')" ${plJson[i].deterministic?"checked":""}>
+	<span class="checkmark"></span>
+</label>
+<label class="check revchkl" title="Derives playlist position from wall time">Clock sync
+	<input type="checkbox" id="pl${i}clockSync" onchange="plUpdateOptions(${i}, 'clockSync')" ${clockSync?"checked":""}>
 	<span class="checkmark"></span>
 </label>
 <label class="check revchkl">Manual advance
-	<input type="checkbox" id="pl${i}manual" onchange="plM(${i})" ${man?"checked":""}>
+	<input type="checkbox" id="pl${i}manual" onchange="plUpdateOptions(${i}, 'manual')" ${man?"checked":""}>
 	<span class="checkmark"></span>
 </label>
 <label class="check revchkl">Repeat indefinitely
-	<input type="checkbox" id="pl${i}rptgl" onchange="plR(${i})" ${rep>0?"":"checked"}>
+	<input type="checkbox" id="pl${i}rptgl" onchange="plUpdateOptions(${i}, 'repeat')" ${rep>0?"":"checked"}>
 	<span class="checkmark"></span>
 </label>
 <div id="pl${i}o1" style="display:${rep>0?"block":"none"}">
-<div class="c">Repeat <input type="number" id="pl${i}rp" oninput="plR(${i})" max=127 min=0 value=${rep>0?rep:1}> times</div>
+<div class="c">Repeat <input type="number" id="pl${i}rp" oninput="plUpdateOptions(${i}, 'repeat')" max=127 min=0 value=${rep>0?rep:1}> times</div>
 <div class="sel">End preset:<br>
-<div class="sel-p"><select class="sel-ple" id="pl${i}selEnd" onchange="plR(${i})" data-val=${plJson[i].end?plJson[i].end:0}>
+<div class="sel-p"><select class="sel-ple" id="pl${i}selEnd" onchange="plUpdateOptions(${i}, 'repeat')" data-val=${plJson[i].end?plJson[i].end:0}>
 <option value="0">None</option>
 <option value="255" ${plJson[i].end && plJson[i].end==255?"selected":""}>Restore preset</option>
 ${makePlSel(i, plJson[i].end?plJson[i].end:0)}
@@ -2152,6 +2189,7 @@ function makePUtil()
 	p.classList.remove('staybot');
 	p.classList.add('pres');
 	p.innerHTML = `<div class="presin expanded">${makeP(0)}</div>`;
+	tooltip("#putil");
 	let pTx = gId('p0txt');
 	pTx.focus();
 	pTx.value = eJson.find((o)=>{return o.id==selectedFx}).name;
@@ -2201,6 +2239,7 @@ function makePlUtil()
 	p.classList.add('pres');
 	p.innerHTML = `<div class="presin expanded" id="seg100">${makeP(0,true)}</div></div>`;
 	refreshPlE(0);
+	tooltip("#putil");
 	gId('p0txt').focus();
 	p.scrollIntoView({
 		behavior: 'smooth',
@@ -3071,12 +3110,15 @@ function expand(i)
 				formatArr(plJson[p]);
 				if (isNaN(plJson[p].repeat)) plJson[p].repeat = 0;
 				if (!plJson[p].r) plJson[p].r = false;
+				if (!plJson[p].deterministic) plJson[p].deterministic = false;
+				if (!plJson[p].clockSync) plJson[p].clockSync = false;
 				if (isNaN(plJson[p].end)) plJson[p].end = 0;
 				gId('seg' +i).innerHTML = makeP(p,true);
 				refreshPlE(p);
 			} else {
 				gId('seg' +i).innerHTML = makeP(p);
 			}
+			tooltip('#seg' + i);
 			var papi = papiVal(p);
 			gId(`p${p}api`).value = papi;
 			if (papi.indexOf("Please") == 0) gId(`p${p}cstgl`).checked = false;
