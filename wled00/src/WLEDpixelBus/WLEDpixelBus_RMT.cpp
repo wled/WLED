@@ -250,7 +250,7 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
   } else {
     err = rmt_wait_tx_done(_rmtChannel, 1000 / portTICK_PERIOD_MS); // wait 1s max
     if (err == ESP_OK)
-      err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
+      err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false); // CRITICAL BUG: crashes on C3 under heavy UI refresh, this line is reached, then it stalls for some unknown reason
   }
   return err;
 }

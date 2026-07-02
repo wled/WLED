@@ -33,8 +33,25 @@ namespace WLEDpixelBus {
 class ParallelSpiBus;
 
 /**
+ * SPI driver state machine states.
+ * Error state is used for recovery from FIFO underrun or other hardware errors.
+ */
+enum class SpiState : uint8_t {
+  Idle = 0,         // Ready for new frame
+  Sending = 1,      // Data phase active, DMA running
+  SendingLast = 2,  // Last data buffer was filled; waiting for current buffer to finish
+  WaitingReset = 3, // Reset pulse being sent (zero-filled buffers)
+  Error = 4         // Error recovery needed (FIFO underrun, timeout, etc.)
+};
+
+/**
  * SPI bus context - manages SPI2 quad mode for parallel LED output on C3
  * Uses GDMA with circular linked-list and ISR-driven buffer refill
+
+ * Error handling:
+ *   If outfifo_empty_err fires, transition to Error state.
+ *   Pins are disconnected and driven low to prevent glitches.
+ *   A 100ms timeout in isSpiDone() will eventually clear Error state.
  */
 class SpiBusContext {
 public:
@@ -50,34 +67,31 @@ public:
 
   bool startTransmit();
   bool isSpiDone();
-  bool isIdle() { return isSpiDone(); }
-  void forceIdle();
+  bool isIdle() const { return _state == SpiState::Idle; }
+  void forceIdle();  // emergency stop, disconnects pins, resets hardware
 
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
 private:
   SpiBusContext();
   ~SpiBusContext();
-
   void IRAM_ATTR encodeSpiChunk(uint8_t bufIdx);
-
   static void IRAM_ATTR gdmaISR(void* arg);
   static void IRAM_ATTR spiISR(void* arg);
-
-  volatile bool _txdone;
+  // Hardware control
+  void hwStopTransfer();
+  void hwResetFifo();
+  // State machine
+  volatile SpiState _state;
   bool _initialized;
-  //bool _hasStarted;
-  volatile uint8_t _currentBuffer;
-
+  volatile uint8_t _activeBuffer;   // buffer currently being sent by DMA (like I2S _activeBuffer)
   // DMA
   uint8_t* _dmaBuffer[WLEDPB_SPI_DMA_DESC_COUNT];
   lldesc_t _dmaDesc[WLEDPB_SPI_DMA_DESC_COUNT];
   intr_handle_t _gdmaIsrHandle;
   intr_handle_t _spiIsrHandle;
-
-  // SPI device
-  spi_dev_t* _hw;
-
+  portMUX_TYPE _isrMux;
+  spi_dev_t* _hw; // SPI device
   // Source data per channel
   struct ChannelData {
     ParallelSpiBus* bus;
@@ -92,7 +106,7 @@ private:
   volatile size_t _framePos;   // current source byte position
   volatile size_t _numBytes;   // total source bytes to send
   mutable uint32_t _lastTransmitMs;
-
+  // Staging: tracks which channels have provided data for the next frame
   uint8_t _stagedMask;
   uint8_t _channelMask;
 
