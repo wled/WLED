@@ -22,8 +22,8 @@ namespace WLEDpixelBus {
 // RMT Bus Implementation
 //==============================================================================
 
-// Per-channel context table - stored in IRAM_ATTR for ISR access
-IRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
+// Per-channel context table - stored in DRAM, 4 byte aligned for ISR access
+DMA_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
 
 // Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
 void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
@@ -38,8 +38,8 @@ void IRAM_ATTR RmtBus::translator_ch5(const void* s, rmt_item32_t* d, size_t ss,
 void IRAM_ATTR RmtBus::translator_ch6(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(6, s, d, ss, w, ts, in); }
 void IRAM_ATTR RmtBus::translator_ch7(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(7, s, d, ss, w, ts, in); }
 #endif
-// Jump table stored in DRAM so ISR code can quickly find the correct wrapper
-IRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
+// Jump table stored in DRAM, 4 byte aligned so ISR code can quickly find the correct wrapper
+DMA_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
   RmtBus::translator_ch0, RmtBus::translator_ch1
 #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
   ,RmtBus::translator_ch2, RmtBus::translator_ch3
