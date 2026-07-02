@@ -24,6 +24,7 @@
 		function hasCCT(t) { return !!(gT(t).c & 0x04); }           // is white CCT enabled
 		function is16b(t)  { return !!(gT(t).c & 0x10); }           // is digital 16 bit type
 		function mustR(t)  { return !!(gT(t).c & 0x20); }           // Off refresh is mandatory
+		function isCustom(b) { return b === 39; }                   // check for custom bus type TYPE_CUSTOM_BUS, see const.h
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
@@ -398,14 +399,13 @@
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || t==36) ? "none":"inline";       // hide color order for PWM / custom bus
-				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && t!=36) ? "inline":"none";   // show swap channels dropdown (not for custom bus)
+				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || isCustom(t)) ? "none":"inline";       // hide color order for PWM / custom bus
+				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && !isCustom(t)) ? "inline":"none";   // show swap channels dropdown (not for custom bus)
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
 				// show/hide custom bus panel and update visible channel rows
-				const isCustBus = (t === 36);
-				gId("custbus"+n).style.display = isCustBus ? "inline":"none";
-				if (isCustBus) {
+				gId("custbus"+n).style.display = isCustom(t) ? "inline":"none";
+				if (isCustom(t)) {
 					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
 					for (let ci=0; ci<6; ci++) {
 						let row = gId("CBrow"+n+"_"+ci);
@@ -1147,7 +1147,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		// (I2S/LCD/SPI or BitBang) is editable; all others mirror its value and are disabled.
 		// This reflects the hardware constraint: I2S, LCD, SPI, and BitBang all use the same
 		// shared timing and cannot have independent speed factors.
-		// For custom bus (type 36) on a parallel driver, timing inputs (CBt0h/CBt0l/CBt1h/CBt1l/CBrst)
+		// For custom bus on a parallel driver, timing inputs (CBt0h/CBt0l/CBt1h/CBt1l/CBrst)
 		// are also shared: only the first custom parallel bus can edit them; others are disabled and mirrored.
 		function syncParallelBusSpeedSelectors() {
 			try {
@@ -1160,14 +1160,14 @@ Swap: <select id="xw${s}" name="XW${s}">
 				});
 
 				let parIndices = [];      // all parallel bus IDs (I2S or BitBang)
-				let custParIndices = []; // subset: custom bus (type 36) on a parallel driver
+				let custParIndices = []; // subset: custom bus on a parallel driver
 				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
 					let n = sel.name.substring(2,3);
 					let t = parseInt(sel.value);
 					let drv = d.Sf["LD"+n]?.value | 0;
 					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
 						parIndices.push(n);
-						if (t === 36) custParIndices.push(n);
+						if (isCustom(t)) custParIndices.push(n);
 					}
 				});
 

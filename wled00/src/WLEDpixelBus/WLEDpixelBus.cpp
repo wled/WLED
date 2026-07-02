@@ -209,7 +209,8 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
 PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType, size_t numPixels) {
 
   PixelBus* bus = nullptr;
-
+  // TODO: need to re-order the colorOrder here to match how NPB is mapping the colors or user configs will be wrong. NPB uses IC datasheet orders (to be confirmed)
+  // for example, SM16825 is RGBWY order on the chip. 
   switch (driver) {
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
     case BusDriver::RMT:
