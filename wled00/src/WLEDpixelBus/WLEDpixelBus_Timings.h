@@ -24,7 +24,7 @@ struct LedTiming {
   uint16_t t0l_ns;    // '0' bit low time
   uint16_t t1h_ns;    // '1' bit high time
   uint16_t t1l_ns;    // '1' bit low time
-  uint32_t reset_us;  // Reset/latch time in microseconds
+  uint32_t reset_us;  // Reset/latch time in microseconds // TODO: globally limit this? RMT can do ~800us max (32767 ticks of 25ns)
 
   constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
     : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}

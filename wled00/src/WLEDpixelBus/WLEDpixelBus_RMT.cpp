@@ -22,8 +22,8 @@ namespace WLEDpixelBus {
 // RMT Bus Implementation
 //==============================================================================
 
-// Per-channel context table - stored in DRAM for ISR access
-DRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
+// Per-channel context table - stored in IRAM_ATTR for ISR access
+IRAM_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
 
 // Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
 void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
@@ -39,7 +39,7 @@ void IRAM_ATTR RmtBus::translator_ch6(const void* s, rmt_item32_t* d, size_t ss,
 void IRAM_ATTR RmtBus::translator_ch7(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(7, s, d, ss, w, ts, in); }
 #endif
 // Jump table stored in DRAM so ISR code can quickly find the correct wrapper
-DRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
+IRAM_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
   RmtBus::translator_ch0, RmtBus::translator_ch1
 #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
   ,RmtBus::translator_ch2, RmtBus::translator_ch3
@@ -96,7 +96,6 @@ void RmtBus::updateRmtTiming() {
 
 bool RmtBus::begin() {
   if (_initialized) return true;
-
   uint8_t blocksToUse = 1;
   uint8_t maxTxChannels = getRmtMaxChannels();
 
@@ -132,13 +131,13 @@ bool RmtBus::begin() {
     _channel = s_currentChannelIndex;
     blocksToUse = k;
   }
+  #ifdef RMT_USE_SINGLE_MEM_BLOCK
+  blocksToUse = 1;
+  #endif
 
   s_currentChannelIndex += blocksToUse;
   s_usedBlocks += blocksToUse;
   s_allocatedCount++;
-#ifdef RMT_USE_SINGLE_MEM_BLOCK
-  blocksToUse = 1;
-#endif
 
   if (_channel >= (int8_t)maxTxChannels) {
     //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d >= max %u, FAIL\n"), _channel, maxTxChannels);
@@ -197,7 +196,7 @@ bool RmtBus::begin() {
 
   if (!_usingRmtHi) {
     // Fallback to IDF rmt driver + translator
-    err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LEVEL3)); // note: rmt+parallelspi even deadlocks at level1
+    err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LOWMED));
     if (err != ESP_OK) {
       return false;
     }
@@ -236,28 +235,24 @@ void RmtBus::end() {
 
   // Free encode buffer with the same allocator used in allocateEncodeBuffer() (plain malloc)
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
-
   _initialized = false;
   _usingRmtHi = false;
 }
 
-bool RmtBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
   // Encoding is done per-pixel in setPixel(); _encodeBuffer is ready to ship.
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
   const size_t dataLen = _encodeBufferSize;
-
+  esp_err_t err;
   if (_usingRmtHi) {
-    // Write() waits for any in-flight transfer internally before starting the new one
-    return RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK;
+    err = (RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK);
+  } else {
+    err = rmt_wait_tx_done(_rmtChannel, 1000 / portTICK_PERIOD_MS); // wait 1s max
+    if (err == ESP_OK)
+      err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
   }
-
-  // Wait for previous transmission on THIS channel to complete (IDF driver)
-  rmt_wait_tx_done((rmt_channel_t)_rmtChannel, portMAX_DELAY);
-
-  esp_err_t err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false);
-
-  return err == ESP_OK;
+  return err;
 }
 
 bool RmtBus::canShow() const {
@@ -272,13 +267,13 @@ void RmtBus::setColorOrder(uint8_t co) {
 
 //note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest, size_t src_size, size_t wanted_num, size_t* translated_size, size_t* item_num) {
-/*
+
   // safety check - should never happen
   if (src == nullptr || dest == nullptr) {
     *translated_size = 0;
     *item_num = 0;
     return;
-  }*/
+  }
 
   const uint8_t* psrc = (const uint8_t*)src;
 
@@ -308,8 +303,8 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
   }
 
   // If max_bytes == src_size, it means we've reached the end of the LED strip.
-  if (bytes_to_process == src_size) {
-      dest[(bytes_to_process * 8) - 1].duration1 = s_contexts[channel].resetDuration;
+  if (bytes_to_process > 0 && bytes_to_process == src_size) {
+    dest[(bytes_to_process * 8) - 1].duration1 = s_contexts[channel].resetDuration; // set the last (low) pulse to reset duration
   }
 
 //  *translated_size = bytes_to_process;

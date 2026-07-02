@@ -298,8 +298,6 @@ protected:
 
 public:
   virtual ~PixelBus() {
-    // Subclass end() should free _encodeBuffer with the correct allocator and
-    // set it to nullptr before the base destructor runs. This is a safety net.
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }
   }
 
@@ -384,15 +382,8 @@ public:
 
   virtual bool begin() = 0;
   virtual void end() = 0;
-
-  /**
-   * Show pixels — sends the pre-encoded _encodeBuffer to hardware.
-   * The pixel/numPixels/cct parameters are ignored; encoding is done
-   * per-pixel by setPixel() before show() is called.
-   */
-  virtual bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0,
-            const CctPixel* cct = nullptr) = 0;
-
+  // show() sends the pre-encoded _encodeBuffer to hardware.
+  virtual bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) = 0; // TODO: remove the parameters, they are unused
   virtual bool canShow() const = 0;
 #ifdef WLED_DEBUG_BUS
   virtual const char* getTypeStr() const = 0;

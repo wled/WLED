@@ -75,11 +75,10 @@ private:
   bool _initialized;
   LedTiming _timing;
   rmt_channel_t _rmtChannel;
-  bool _usingRmtHi;
+  bool _usingRmtHi; // TODO: use #ifdef only and remove this variable
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
-
-  static uint8_t s_expectedChannels;
+  static uint8_t s_expectedChannels; // TODO: make none static
   static uint8_t s_allocatedCount;
   static uint8_t s_currentChannelIndex;
   static uint8_t s_usedBlocks;
