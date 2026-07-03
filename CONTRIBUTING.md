@@ -10,8 +10,8 @@ We'll work with you to refine your contribution, but we'll also push back if som
 Here are a few suggestions to make it easier for you to contribute:
 
 ### Important Developer Infos
-* [Project Structure, Files and Directories](.github/copilot-instructions.md#project-structure-overview) (in our AI instructions)
-* [Instructions for creating usermods](.github/copilot-instructions.md#usermod-guidelines) (in our AI instructions)
+* [Project Structure, Files and Directories](AGENTS.md#project-structure) (in our AI instructions)
+* [Instructions for creating usermods](AGENTS.md#usermod-pattern) (in our AI instructions)
 * KB: [Compiling WLED](https://kno.wled.ge/advanced/compiling-wled/) - slightly outdated but still helpful :-)
 * Arduino IDE is not supported any more. Use VSCode with the PlatformIO extension. 
 * [Compiling in VSCode/Platformio](https://github.com/wled/WLED-Docs/issues/161) - modern way without command line or platformio.ini changes.
@@ -141,8 +141,6 @@ Sometimes you might hit merge conflicts with `main` that are harder to solve. He
 ### Additional Resources
 Want to know more? Check out:
 - 📚 [GitHub Desktop documentation](https://docs.github.com/en/desktop) - if you prefer GUI tools
-- 🎓 [How to properly submit a PR](https://github.com/wled-dev/WLED/wiki/How-to-properly-submit-a-PR) - detailed tips and tricks
-
 
 ## After Approval
 Once approved, a maintainer will merge your PR (possibly squashing commits). 

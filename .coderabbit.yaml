@@ -17,7 +17,7 @@ language: en-US
 
 reviews:
   # generic review setting, see https://docs.coderabbit.ai/reference/configuration#reference
-  auto_apply_labels: true
+  auto_apply_labels: false
   # abort_on_close: false
   high_level_summary: true
   review_status: true
@@ -33,6 +33,14 @@ reviews:
       - V5
     ignore_title_keywords:
       - WIP
+      - DO NOT MERGE
+  tools:
+    fbinfer:
+      enabled: false   # Arduino.h not available on Linux analysis host
+    cppcheck:
+      enabled: true    # cppcheck works fine without Arduino headers
+    clang:
+      enabled: true    # clang tidy likewise works
 
   path_instructions:
     - path: "**/*.{cpp,h,hpp,ino}"
@@ -48,7 +56,7 @@ reviews:
         NOT to effect functions in FX.cpp, which have diverse contributor styles.
 
         When reviewing PRs labeled "AI" or when source code appears to be AI-generated, perform these additional checks:
-        1. VERIFY all referenced constants, flags, and functions exist by searching the codebase - do not trust the AI's claims about what exists.
+        1. VERIFY all referenced preprocessor macros, constants and flags exist by searching the codebase - do not trust the AI's claims about what exists.
         2. CHECK for reinvention: search for existing functions/patterns that already solve the same problem.
         3. CHECK for singleton data (defined but never used) and for dead/disabled code, and suggest to remove them.
         4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.

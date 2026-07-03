@@ -8,6 +8,7 @@
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+  #include "rom/rtc.h"      // for rtc_get_reset_reason()
   #include "esp32/rtc.h"    // for bootloop detection
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
@@ -998,6 +999,11 @@ RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
 
 static inline ResetReason rebootReason() {
+  // check RTC restart reason first - brownout is not reliably reported by esp_reset_reason()
+  if (rtc_get_reset_reason(0) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core0 brownout
+  #if SOC_CPU_CORES_NUM > 1
+  if (rtc_get_reset_reason(1) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core1 brownout
+  #endif
   esp_reset_reason_t reason = esp_reset_reason();
   if (reason == ESP_RST_BROWNOUT) return ResetReason::Brownout;
   if (reason == ESP_RST_SW) return ResetReason::Software;
@@ -1032,6 +1038,7 @@ static bool detectBootLoop() {
     case ResetReason::Crash:
     {
       DEBUG_PRINTLN(F("crash detected!"));
+      errorFlag = ERR_SYS_REBOOT;
       uint32_t rebootinterval = rtctime - bl_last_boottime;
       if (rebootinterval < BOOTLOOP_INTERVAL_MILLIS) {
         bl_crashcounter++;
@@ -1052,6 +1059,7 @@ static bool detectBootLoop() {
     case ResetReason::Brownout:
       // crash due to brownout can't be detected unless using flash memory to store bootloop variables
       DEBUG_PRINTLN(F("brownout detected"));
+      errorFlag = ERR_SYS_BROWNOUT;
       //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
       break;
   }
@@ -1296,6 +1304,9 @@ String computeSHA1(const String& input) {
 
 #ifdef ESP32
 #include "esp_adc_cal.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
+  #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
+#endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;
