@@ -114,7 +114,7 @@ class MyExampleUsermod : public Usermod {
     void loop() override {
       // if usermod is disabled or called during strip updating just exit
       // NOTE: on very long strips strip.isUpdating() may always return true so update accordingly
-      if (!enabled || strip.isUpdating()) return;
+      if (!enabled || (strip.isUpdating() && (millis() - lastTime < 200))) return; // adjust "200" (in millisecond) to your needs - prevents starvation with very long strips 
 
       // do your magic here
       if (millis() - lastTime > 1000) {
@@ -176,7 +176,7 @@ class MyExampleUsermod : public Usermod {
       JsonObject usermod = root[FPSTR(_name)];
       if (!usermod.isNull()) {
         // expect JSON usermod data in usermod name object: {"ExampleUsermod:{"user0":10}"}
-        userVar0 = usermod["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value
+        userVar0 = usermod["user0"] | userVar0; //if "user0" key exists in JSON, update, else keep old value (userVar0 is defined in wled.h)
       }
       // you can as well check WLED state JSON keys
       //if (root["bri"] == 255) Serial.println(F("Don't burn down your garage!"));
