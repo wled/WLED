@@ -20,15 +20,4 @@ Macros for generating a "dynamic array", a static array of objects declared in d
 #define DYNARRAY_END(array_name) array_name##_end
 #define DYNARRAY_LENGTH(array_name) (&DYNARRAY_END(array_name)[0] - &DYNARRAY_BEGIN(array_name)[0])
 
-#ifdef ESP8266
-// ESP8266 linker script cannot be extended with a unique section for dynamic arrays.
-// We instead pack them in the ".dtors" section, as it's sorted and uploaded to the flash
-// (but will never be used in the embedded system)
-#define DYNARRAY_SECTION ".dtors"
-
-#else /* ESP8266 */
-
-// Use a unique named section; the linker script must be extended to ensure it's correctly placed.
 #define DYNARRAY_SECTION ".dynarray"
-
-#endif

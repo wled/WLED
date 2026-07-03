@@ -5,7 +5,7 @@
 	<title>WLED Palette Editor</title>
 	<!--* <link rel="stylesheet" href="style.css">
 	<script src="common.js"></script>
-	<script src="iro.js"></script> 
+	<script src="iro.js"></script>
 	<link rel="icon" href="data:,"> *-->
 </head>
 <body>
@@ -71,6 +71,8 @@
 		let copyColor = '#000';
 		let ws = null;
 		let maxCol; // max colors to send out in one chunk, ESP8266 is limited to ~50 (500 bytes), ESP32 can do ~128 (1340 bytes)
+		let _applySeq = 0; // incremented each time applyLED fires; used to cancel stale in-flight previews
+		let _httpQueue = [], _httpRun = 0;
 
 		// load external resources in sequence to avoid 503 errors if heap is low, repeats indefinitely until loaded
 		(function loadFiles() {
@@ -329,17 +331,7 @@
 			});
 			draw();
 		}
-/*
-		function rndPal() {
-			gr.innerHTML = '';
-			addMk(0, rndHex(), 1);
-			const cnt = Math.floor(Math.random() * 3) + 2, pos = new Set();
-			while (pos.size < cnt) pos.add(Math.floor(Math.random() * 254) + 1);
-			[...pos].sort((a,b)=>a-b).forEach(t => addMk(t, rndHex()));
-			addMk(255, rndHex(), 1);
-		}*/
 
-		
 		// convert hsl to hex using canvas
 		function hslToHex(h, s, l) {
 			let ctx = cE("canvas").getContext("2d");
@@ -468,7 +460,11 @@
 				rm.className = 'sml';
 				rm.title = 'Delete palette';
 				rm.innerHTML = '&#10006;';
-				rm.onclick = () => { requestJson({rmcpal:i}); setTimeout(refr, 500); };
+				rm.onclick = () => { 
+					requestJson({rmcpal:i}); // send remove command
+					setTimeout(refr, 500);   // slight delay to allow ESP to process deletion before fetching updated list
+					localStorage.removeItem('wledPalx'); // invalidate main UI cache
+				};
 
 				const name = isEmpty(p.palette) ? 'Empty slot' : 'Custom' + i;
 				const css = isEmpty(p.palette) ? '#666' : cssArr(p.palette);
@@ -592,7 +588,7 @@
 		// download external palettes, these were hand picked from cpt-city (http://seaviewsensing.com/pub/cpt-city/)
 		// all palettes are licensed "free to use", converted to WLED JSON format by @dedehai
 		function fetchExt() {
-			fetch('https://dedehai.github.io/cpt_city_selection.json')
+			fetch('https://wled.github.io/wled-web-tools/cpt_city_selection.json')
 				.then(r => { if (!r.ok) throw new Error(); return r.json(); })
 				.then(data => {
 					try { localStorage.setItem('wledCptCityJson', JSON.stringify(data)); } catch(e) {}
@@ -621,21 +617,16 @@
 
 		async function requestJson(cmd)
 		{
-			if (ws && ws.readyState == 1) {
+			if (ws && ws.readyState == 1 && ws.bufferedAmount < 32768) {
 				try {
 					ws.send(JSON.stringify(cmd));
+					await new Promise(r => setTimeout(r, 15)); // short delay to give ESP time to process (fewer packets dropped)
 					return 1;
 				} catch (e) {}
 			}
 
-			if (!window._httpQueue) {
-				window._httpQueue = [];
-				window._httpRun = 0;
-			}
-			if (_httpQueue.length >= 5) {
-				return Promise.resolve(-1); // reject if too many queued requests
-			}
-
+			// HTTP fallback
+			if (_httpQueue.length >= 5) return -1; // queue full; applyLED cancels stale queues before sending
 			return new Promise(resolve => {
 				_httpQueue.push({ cmd, resolve });
 				(async function run() {
@@ -650,7 +641,7 @@
 								cache: 'no-store'
 							});
 						} catch (e) {}
-						await new Promise(r => setTimeout(r, 120));
+						await new Promise(r => setTimeout(r, 120)); // delay between requests (go slow, this is the http fallback if WS fails)
 						q.resolve(0);
 					}
 					_httpRun = 0;
@@ -662,8 +653,12 @@
 		async function applyLED()
 		{
 			if (!palCache.length) return;
+			const seq = ++_applySeq;
+			// discard pending HTTP chunks from any previous preview so stale data doesn't drain slowly
+			while (_httpQueue.length) _httpQueue.shift().resolve(-1); // resolve dropped entries so their awaiters can observe the seq change and exit
 			try {
 				let st = await (await fetch(getURL('/json/state'), { cache: 'no-store' })).json();
+				if (seq !== _applySeq) return; // superseded by a newer preview request
 				if (!st.seg || !st.seg.length) return;
 
 				// get selected segments, use main segment if none selected
@@ -680,6 +675,7 @@
 						arr.push(palCache[len > 1 ? Math.round(i * 255 / (len - 1)) : 0]);
 					// send colors in chunks
 					for (let j = 0; j < arr.length; j += maxCol) {
+						if (seq !== _applySeq) return; // superseded mid-send
 						let chunk = [s.start + j, ...arr.slice(j, j + maxCol)];
 						await requestJson({ seg: { id: s.id, i: chunk } });
 					}

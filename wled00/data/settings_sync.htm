@@ -42,11 +42,29 @@
 	function SetVal(){switch(parseInt(d.Sf.EP.value)){case 5568: d.Sf.DI.value = 5568; break; case 6454: d.Sf.DI.value = 6454; break; case 4048: d.Sf.DI.value = 4048; break; }; SP();FC();}
 	function S(){
 		getLoc();
-		loadJS(getURL('/settings/s.js?p=4'), false, undefined, ()=>{SetVal();});	// If we set async false, file is loaded and executed, then next statement is processed
+		loadJS(getURL('/settings/s.js?p=4'), false, undefined, ()=>{SetVal(); fetchPinInfo(pinDropdowns);});	// If we set async false, file is loaded and executed, then next statement is processed
 		if (loc) d.Sf.action = getURL('/settings/sync');
 	}
 	function getURL(path) {
 		return (loc ? locproto + "//" + locip : "") + path;
+	}
+	const dmxNs = ["IDMR","IDMT","IDME"];
+	let dmxOwnPins; // track dmx pins to update dropdown restrictions on pin change
+	function pinDropdowns() {
+		dmxNs.forEach((n,i) => { const s = makePinSelect(n, i?1:0); if (s) s.onchange = dmxPinUpd; }); // note on the i?1:0 -> RX pin is allowed input only but TX/EN pins must be GPIO
+		dmxOwnPins = dmxNs.map(n => parseInt(gN(n)?.value??-1));
+		dmxPinUpd();
+	}
+	function dmxPinUpd() {
+		const vs = dmxNs.map(n => parseInt(gN(n)?.value??-1));
+		dmxNs.forEach((n,i) => {
+			for (const o of gN(n)?.options??[]) {
+				const p = parseInt(o.value); if (p<0) continue;
+				// unlock old selected pin, lock newly selected one
+				o.disabled = (p!==vs[i] && !dmxOwnPins.includes(p) && !!d.pinsData?.find(pi=>pi.p===p)?.a) || vs.some((v,j)=>j!==i&&v===p);
+				if (!o.disabled) o.text = String(p); // clear owner name i.e. (DMX input)
+			}
+		});
 	}
 	function hideDMXInput(){gId("dmxInput").style.display="none";}
 	function hideNoDMXInput(){gId("dmxInputOff").style.display="none";}
@@ -126,8 +144,8 @@ Send notifications on direct change: <input type="checkbox" name="SD"><br>
 Send notifications on button press or IR: <input type="checkbox" name="SB"><br>
 Send Alexa notifications: <input type="checkbox" name="SA"><br>
 Send Philips Hue change notifications: <input type="checkbox" name="SH"><br>
-UDP packet retransmissions: <input name="UR" type="number" min="0" max="30" class="d5" required><br><br>
-<i>Reboot required to apply changes. </i>
+UDP packet retransmissions: <input name="UR" type="number" min="0" max="30" class="d5" required><br>
+<i class="warn">Reboot required to apply changes. </i>
 </div>
 <div class="sec">
 <h3>Instance List</h3>
@@ -139,7 +157,7 @@ Make this instance discoverable: <input type="checkbox" name="NB">
 Receive UDP realtime: <input type="checkbox" name="RD"><br>
 Use main segment only: <input type="checkbox" name="MO"><br>
 Respect LED Maps: <input type="checkbox" name="RLM"><br><br>
-<i>Network DMX input</i><br>
+<h4>Network DMX input</h4><br>
 Type:
 <select name=DI onchange="SP(); adj();">
 <option value=5568>E1.31 (sACN)</option>
@@ -174,12 +192,14 @@ Force max brightness: <input type="checkbox" name="FB"><br>
 Disable realtime gamma correction: <input type="checkbox" name="RG"><br>
 Realtime LED offset: <input name="WO" type="number" min="-255" max="255" required>
 <div id="dmxInput">
-	<h4>Wired DMX Input Pins</h4>
-	DMX RX: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
-	DMX TX: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
-	DMX Enable: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
+	<br>
+	<h4>Wired DMX Input</h4>
+	DMX RX Pin: <input name="IDMR" type="number" min="-1" max="99">RO<br/>
+	DMX TX Pin: <input name="IDMT" type="number" min="-1" max="99">DI<br/>
+	DMX Enable Pin: <input name="IDME" type="number" min="-1" max="99">RE+DE<br/>
 	DMX Port: <input name="IDMP" type="number" min="1" max="2"><br/>
-</div> 
+	<i class="warn">Reboot required to apply changes.</i>
+</div>
 <div id="dmxInputOff">
 	<br><i class="warn">This firmware build does not include DMX Input support. <br></i>
 </div> 
@@ -223,7 +243,7 @@ Device Topic: <input type="text" name="MD" maxlength="32"><br>
 Group Topic: <input type="text" name="MG" maxlength="32"><br>
 Publish on button press: <input type="checkbox" name="BM"><br>
 Retain brightness & color messages: <input type="checkbox" name="RT"><br>
-<i>Reboot required to apply changes. </i><a href="https://kno.wled.ge/interfaces/mqtt/" target="_blank">MQTT info</a>
+<i class="warn">Reboot required to apply changes. </i><a href="https://kno.wled.ge/interfaces/mqtt/" target="_blank">MQTT info</a>
 </div>
 </div>
 <div class="sec">

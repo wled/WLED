@@ -25,6 +25,7 @@ See also: [CONTRIBUTING.md](../CONTRIBUTING.md) for general style guidelines tha
 
 - **camelCase** for functions and variables: `setValuesFromMainSeg()`, `effectCurrent`
 - **PascalCase** for classes and structs: `PinManagerClass`, `BusConfig`
+- **PascalCase** for enum values: `PinOwner::BusDigital`
 - **UPPER_CASE** for macros and constants: `WLED_MAX_USERMODS`, `DEFAULT_CLIENT_SSID`
 
 ## General
@@ -57,7 +58,7 @@ Most headers use `#ifndef` / `#define` guards. Some newer headers add `#pragma o
 void calculateCRC(const uint8_t* data, size_t len) {
   ...
 }
-// AI: end of AI-generated section
+// AI: end
 ```
 
   Single-line AI-assisted edits do not need the marker — use it when the AI produced a contiguous block that a human did not write line-by-line.
@@ -95,6 +96,7 @@ uint8_t gammaCorrect(uint8_t value, float gamma);
 - Use `const char*` for temporary/parsed strings
 - Avoid `String` (Arduino heap-allocated string) in hot paths; acceptable in config/setup code
 - Use `F("string")` for string constants (major RAM win on ESP8266; mostly overload/type compatibility on ESP32)
+- Store repeated strings as `static const char[] PROGMEM`
 <!-- HUMAN_ONLY_START -->
 
   On **ESP8266** this explicitly stores the string in flash (PROGMEM), saving precious RAM — every byte counts on that platform. 
@@ -512,6 +514,8 @@ void myTask(void*) {
 ## Caveats and Pitfalls
 
 - **LittleFS filenames**: File paths passed to `file.open()` must not exceed 255 bytes (`LFS_NAME_MAX`). Validate constructed paths (e.g., `/ledmap_` + segment name + `.json`) stay within this limit (assume standard configurations, like WLED_MAX_SEGNAME_LEN = 64).
+
+- In C/C++, additive operators (`+`, `-`) have HIGHER precedence than shift operators (`<<`, `>>`). Therefore `x - edge0 << 8` correctly parses as `(x - edge0) << 8`. Do NOT flag this pattern as a precedence bug. When reviewing WLED fixed-point code or any C/C++ shift expressions, verify against cppreference before claiming precedence issues with mixed `-`/`+` and `<<`/`>>` expressions.
 
 - **Float-to-unsigned conversion is undefined behavior when the value is out of range.** Converting a negative `float` directly to an unsigned integer type (`uint8_t`, `uint16_t`, …) is UB per the C++ standard — the Xtensa (ESP32) toolchain may silently wrap, but RISC-V (ESP32-C3/C5/C6/P4) can produce different results due to clamping. Cast through a signed integer first:
   ```cpp
