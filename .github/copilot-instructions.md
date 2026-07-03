@@ -48,9 +48,8 @@ For detailed build timeouts, development workflows, troubleshooting, and validat
 
 ```text
 main                # Main development trunk (daily/nightly) 17.0.0-dev
-  ├── V5            # special branch: code rework for esp-idf 5.5.x (unstable)
-      ├── V5-C6     # special branch: integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
-16_x                # current beta, preparations for next release 16.0.0
+  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+16_x                # maintenance for release 16.x.y
 0_15_x              # maintenance (bugfixes only) for current release 0.15.4
 (tag) v0.14.4       # previous version 0.14.4 (no maintenance)
 (tag) v0.13.3       # old version 0.13.3 (no maintenance)
@@ -59,7 +58,8 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev
 <!-- HUMAN_ONLY_END -->
 
 - ``main``: development trunk (daily/nightly)
-- ``V5`` and ``V5-C6``: code rework for esp-idf 5.5.x (unstable) - branched from ``main``.
+- ``V5`` : code rework for esp-idf 5.5.x (unstable) - branched from ``main``.
+- ``16_x``: maintenance for release 16.x.y
 - ``0_15_x``: bugfixing / maintenance for release 0.15.x
 
 ### Repository Structure
