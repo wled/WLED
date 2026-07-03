@@ -55,8 +55,8 @@ static dmx_config_t createConfig()
   config.software_version_id = VERSION;
   strcpy(config.device_label, "WLED_MM");
 
-  const std::string versionString = "WLED_V" + std::to_string(VERSION);
-  strncpy(config.software_version_label, versionString.c_str(), 32);
+  const std::string dmxWledVersionString = "WLED_V" + std::to_string(VERSION);
+  strncpy(config.software_version_label, dmxWledVersionString.c_str(), 32);
   config.software_version_label[32] = '\0'; // zero termination in case versionString string was longer than 32 chars
 
   config.personalities[0].description = "SINGLE_RGB";
@@ -122,7 +122,7 @@ bool DMXInput::installDriver()
   return true;
 }
 
-void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
+void DMXInput::init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortNum)
 {
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
@@ -142,7 +142,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     return;
   }
 
-  if (rxPin > 0 && enPin > 0 && txPin > 0) {
+  if (rxPin >= 0 && enPin >= 0 && txPin >= 0) {
 
     const managed_pin_type pins[] = {
         {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.

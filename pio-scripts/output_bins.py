@@ -2,6 +2,7 @@ Import('env')
 import os
 import shutil
 import gzip
+import json
 
 OUTPUT_DIR = "build_output{}".format(os.path.sep)
 #OUTPUT_DIR = os.path.join("build_output")
@@ -22,7 +23,8 @@ def create_release(source):
     release_name_def = _get_cpp_define_value(env, "WLED_RELEASE_NAME")
     if release_name_def:
         release_name = release_name_def.replace("\\\"", "")
-        version = _get_cpp_define_value(env, "WLED_VERSION")
+        with open("package.json", "r") as package:
+            version = json.load(package)["version"]        
         release_file = os.path.join(OUTPUT_DIR, "release", f"WLED_{version}_{release_name}.bin")
         release_gz_file = release_file + ".gz"
         print(f"Copying {source} to {release_file}")

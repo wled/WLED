@@ -141,8 +141,16 @@ discover_devices() {
         exit 1  
     fi  
 
-    # Map avahi responses to strings seperated by 0x1F (unit separator)
-    mapfile -t raw_devices < <(avahi-browse _wled._tcp --terminate -r -p | awk -F';' '/^=/ {print $7"\x1F"$8"\x1F"$9}')  
+    # Map avahi responses to strings separated by 0x1F (unit separator), deduplicated
+    mapfile -t raw_devices < <(
+        avahi-browse _wled._tcp --terminate -r -p |
+        awk -F';' '
+            /^=/ {
+                key = $7 "\x1F" $8 "\x1F" $9
+                if (!seen[key]++) print key
+            }
+        '
+    )
 
     local devices_array=()  
     for device in "${raw_devices[@]}"; do  
