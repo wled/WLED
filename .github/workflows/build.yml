@@ -3,7 +3,15 @@ name: WLED Build
 # Only included into other workflows
 on:
   workflow_call:
-  
+    inputs:
+      release:
+        description: 'Build the release env matrix (uses .github/platformio_release.ini.template)'
+        type: boolean
+        default: false
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
 
   get_default_envs:
@@ -11,6 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - name: Apply release config
+      if: inputs.release
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
@@ -35,6 +46,9 @@ jobs:
         environment: ${{ fromJSON(needs.get_default_envs.outputs.environments) }}
     steps:
     - uses: actions/checkout@v4
+    - name: Apply release config
+      if: inputs.release
+      run: cp .github/platformio_release.ini.template platformio_release.ini
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
@@ -51,8 +65,8 @@ jobs:
               ~/.platformio/.cache
               ~/.buildcache
               build_output
-        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
-        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', 'pio-scripts/output_bins.py') }}-
+        key: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-${{ hashFiles('wled00/**', 'usermods/**') }}
+        restore-keys: pio-${{ runner.os }}-${{ matrix.environment }}-${{ hashFiles('platformio.ini', '.github/platformio_release.ini.template', 'pio-scripts/output_bins.py') }}-
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -63,9 +77,21 @@ jobs:
 
     - name: Build firmware
       run: pio run -e ${{ matrix.environment }}
+    - name: Get artifact name from bin filename
+      id: artifact_name
+      run: |
+        bin=$(ls build_output/release/*.bin 2>/dev/null | head -1)
+        if [ -n "$bin" ]; then
+          # Strip WLED_<version>_ prefix from WLED_<version>_<RELEASE_NAME>.bin
+          base=$(basename "$bin" .bin)
+          release_name=$(echo "$base" | sed 's/^[^_]*_[^_]*_//')
+          echo "name=firmware-$release_name" >> $GITHUB_OUTPUT
+        else
+          echo "name=firmware-${{ matrix.environment }}" >> $GITHUB_OUTPUT
+        fi
     - uses: actions/upload-artifact@v4
       with:
-        name: firmware-${{ matrix.environment }}
+        name: ${{ steps.artifact_name.outputs.name }}
         path: |
           build_output/release/*.bin
           build_output/release/*_ESP02*.bin.gz

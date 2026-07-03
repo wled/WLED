@@ -8,6 +8,7 @@
 #else
 #include <Update.h>
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
+  #include "rom/rtc.h"      // for rtc_get_reset_reason()
   #include "esp32/rtc.h"    // for bootloop detection
 #elif ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(3, 3, 0)
   #include "soc/rtc.h"
@@ -317,10 +318,36 @@ uint8_t extractModeName(uint8_t mode, const char *src, char *dest, uint8_t maxLe
     } else return 0;
   }
 
-  if (src == JSON_palette_names && mode > 255-customPalettes.size()) {
-    snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), 255-mode);
-    dest[maxLen] = '\0';
-    return strlen(dest);
+  if (src == JSON_palette_names) {
+    if (mode > WLED_CUSTOM_PALETTE_ID_BASE) {
+      // usermod palette (IDs 201-255)
+      uint8_t umIdx = WLED_USERMOD_PALETTE_ID_BASE - mode;
+      if (umIdx >= usermodPalettes.size()) {
+        dest[0] = '\0'; // empty string if requested index is out of bounds
+        return 0;
+      }
+      const UsermodPalette &ump = usermodPalettes[umIdx];
+      char base[33];
+      strncpy_P(base, ump.name, sizeof(base) - 1);
+      base[sizeof(base) - 1] = '\0';
+      if (ump.palName) {
+        // usermod supplied a specific display name — prefix with the usermod name (e.g. "AudioReactive: Hue")
+        char palName[33];
+        strncpy_P(palName, ump.palName, sizeof(palName) - 1);
+        palName[sizeof(palName) - 1] = '\0';
+        snprintf(dest, maxLen + 1, "%s: %s", base, palName);
+      } else {
+        // fallback: "UMName index" (e.g. "AudioReactive 1")
+        snprintf(dest, maxLen + 1, "%s %u", base, (unsigned)ump.palIndex);
+      }
+      return strlen(dest);
+    }
+    if (mode >= FIXED_PALETTE_COUNT && mode <= WLED_CUSTOM_PALETTE_ID_BASE) {
+      // user custom palette (IDs FIXED_PALETTE_COUNT up to WLED_CUSTOM_PALETTE_ID_BASE=200)
+      snprintf_P(dest, maxLen, PSTR("~ Custom %d ~"), WLED_CUSTOM_PALETTE_ID_BASE - mode);
+      dest[maxLen] = '\0';
+      return strlen(dest);
+    }
   }
 
   unsigned qComma = 0;
@@ -894,7 +921,7 @@ void *allocate_buffer(size_t size, uint32_t type) {
       buffer = p_malloc(size); // prefer PSRAM
   }
   else if (type & BFRALLOC_ENFORCE_PSRAM)
-    buffer = heap_caps_malloc(size, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT); // use PSRAM only, otherwise return nullptr
+    buffer = p_malloc(size); // use PSRAM if available, fall back to DRAM if not (safeguard for boards without PSRAM #5629)
   buffer = validateFreeHeap(buffer);
   #endif
   if (buffer && (type & BFRALLOC_CLEAR))
@@ -972,6 +999,11 @@ RTC_NOINIT_ATTR static uint32_t bl_crashcounter;
 RTC_NOINIT_ATTR static uint32_t bl_actiontracker;
 
 static inline ResetReason rebootReason() {
+  // check RTC restart reason first - brownout is not reliably reported by esp_reset_reason()
+  if (rtc_get_reset_reason(0) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core0 brownout
+  #if SOC_CPU_CORES_NUM > 1
+  if (rtc_get_reset_reason(1) == RTCWDT_BROWN_OUT_RESET) return ResetReason::Brownout; // core1 brownout
+  #endif
   esp_reset_reason_t reason = esp_reset_reason();
   if (reason == ESP_RST_BROWNOUT) return ResetReason::Brownout;
   if (reason == ESP_RST_SW) return ResetReason::Software;
@@ -1006,6 +1038,7 @@ static bool detectBootLoop() {
     case ResetReason::Crash:
     {
       DEBUG_PRINTLN(F("crash detected!"));
+      errorFlag = ERR_SYS_REBOOT;
       uint32_t rebootinterval = rtctime - bl_last_boottime;
       if (rebootinterval < BOOTLOOP_INTERVAL_MILLIS) {
         bl_crashcounter++;
@@ -1026,6 +1059,7 @@ static bool detectBootLoop() {
     case ResetReason::Brownout:
       // crash due to brownout can't be detected unless using flash memory to store bootloop variables
       DEBUG_PRINTLN(F("brownout detected"));
+      errorFlag = ERR_SYS_BROWNOUT;
       //restoreConfig(); // TODO: blindly restoring config if brownout detected is a bad idea, need a better way (if at all)
       break;
   }
@@ -1270,6 +1304,9 @@ String computeSHA1(const String& input) {
 
 #ifdef ESP32
 #include "esp_adc_cal.h"
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
+  #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
+#endif
 String generateDeviceFingerprint() {
   uint32_t fp[2] = {0, 0}; // create 64 bit fingerprint
   esp_chip_info_t chip_info;

@@ -666,9 +666,9 @@ function parseInfo(i) {
 	// note: style.display='none' for option elements is not supported on all browsers (notably iOS)
 	bsSel.replaceChildren(...bsOpts.filter(o => isM || o.dataset.type !== "2D").map(o => o.cloneNode(true))); // allow all in matrix mode, filter 2D blends otherwise
 	if (!isM) {
-			gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
+		gId("filter2D").classList.add('hide'); // hide 2D effects in non-matrix mode
 	} else {
-			gId("filter2D").classList.remove('hide');
+		gId("filter2D").classList.remove('hide');
 	}
 	gId("updBt").style.display = (i.opt & 1) ? '':'none';
 //	if (i.noaudio) {
@@ -989,21 +989,39 @@ function populatePalettes()
 		);
 	}
 	gId('pallist').innerHTML=html;
-	// append custom palettes (when loading for the 1st time)
+	// append usermod palettes (fixed ID space: 255 down to 201)
 	let li = lastinfo;
-	if (!isEmpty(li) && li.cpalcount) {
-		for (let j = 0; j<li.cpalcount; j++) {
+	if (!isEmpty(li) && li.umpalcount && li.umpalnames) {
+		for (let j = 0; j < li.umpalcount; j++) {
 			let div = d.createElement("div");
 			gId('pallist').appendChild(div);
 			div.outerHTML = generateListItemHtml(
 				'palette',
 				255-j,
-				'~ Custom '+j+' ~',
+				li.umpalnames[j],
 				'setPalette',
 				`<div class="lstIprev" style="${genPalPrevCss(255-j)}"></div>`
 			);
 		}
 	}
+	// append user custom palettes (fixed ID space: 200 down to FIXED_PALETTE_COUNT+1)
+	if (!isEmpty(li) && li.cpalcount) {
+		for (let j = 0; j < li.cpalcount; j++) {
+			const id = 200 - j;
+			const pd = palettesData[id];
+			if (pd && pd.length === 16 && pd.every(e => e[1] === 128 && e[2] === 128 && e[3] === 128)) continue; // skip gray gap-placeholder entries
+			let div = d.createElement("div");
+			gId('pallist').appendChild(div);
+			div.outerHTML = generateListItemHtml(
+				'palette',
+				id,
+				'~ Custom '+j+' ~',
+				'setPalette',
+				`<div class="lstIprev" style="${genPalPrevCss(id)}"></div>`
+			);
+		}
+	}
+	updateSelectedPalette(selectedPal); // update selection after adding usermod and custom palettes
 }
 
 function redrawPalPrev()
@@ -1549,8 +1567,36 @@ function readState(s,command=false)
 			case 19:
 				errstr = "A filesystem error has occured.";
 				break;
+// error code from WLEDMM - not supported yet
+//			case 33:
+//				errstr = "Low Memory (generic RAM).";
+//		  break;
+//			case 34:
+//				errstr = "Low Memory (effect data).";
+//		  break;
+//			case 35:
+//				errstr = "Low Memory (WS data).";
+//		  break;
+//			case 36:
+//				errstr = "Low Memory (oappend buffer).";
+//		  break;
+//			case 37:
+//				errstr = "no memory for LEDs buffer.";
+//		  break;
+			case 90:
+				errstr = "Unexpected Restart.";
+		  break;
+			case 91:
+				errstr = "Brownout Restart.";
+		  break;
+			case 100:
+				errstr = "Please reboot WLED to activate changed settings.";
+		  break;
+			case 101:
+				errstr = "Please switch your device off and back on.";
+		  break;
 		}
-		showToast('Error ' + s.error + ": " + errstr, true);
+		showToast(((s.error<100) ? 'Error ': 'Note ') + s.error + ": " + errstr, true);  // show "please restart" as a note, all others as errors
 	}
 
 	selectedPal = i.pal;
@@ -2800,14 +2846,7 @@ function rSegs()
 	cnfrS = false;
 	bt.style.color = "var(--c-f)";
 	bt.innerHTML = "Reset segments";
-	var obj = {"seg":[{"start":0,"stop":ledCount,"sel":true}]};
-	if (isM) {
-		obj.seg[0].stop = mw;
-		obj.seg[0].startX = 0;
-		obj.seg[0].stopY = mh;
-	}
-	for (let i=1; i<=lSeg; i++) obj.seg.push({"stop":0});
-	requestJson(obj);
+	requestJson({"rSeg": true}); // send reset segment request, calls makeAutoSegments() in firmware
 }
 
 function loadPalettesData() {
@@ -2817,7 +2856,7 @@ function loadPalettesData() {
 		if (lsPalData) {
 			try {
 				var d = JSON.parse(lsPalData);
-				if (d && d.vid == lastinfo.vid) {
+				if (d && d.vid == lastinfo.vid && d.pcount == lastinfo.palcount) {
 					palettesData = d.p;
 					redrawPalPrev();
 					return resolve();
@@ -2829,7 +2868,8 @@ function loadPalettesData() {
 		getPalettesData(0, () => {
 			localStorage.setItem("wledPalx", JSON.stringify({
 				p: palettesData,
-				vid: lastinfo.vid
+				vid: lastinfo.vid,
+				pcount: lastinfo.palcount // total palette count, refresh cache if it changes
 			}));
 			redrawPalPrev();
 			setTimeout(resolve, 99); // delay optional
