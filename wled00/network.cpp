@@ -448,10 +448,26 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_READY:
+      DEBUG_PRINTLN(F("WiFi-E: driver ready."));
+      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
+    case ARDUINO_EVENT_WIFI_STA_START:
+      DEBUG_PRINTLN(F("WiFi-E: STA Started"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+      DEBUG_PRINTLN(F("WiFi-E: STA authentication mode change."));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      DEBUG_PRINTLN(F("WiFi-E: IP address lost."));
+      break;
+
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;

@@ -85,6 +85,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
 
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
+  if (newSeg && presetId == 0) {
+    seg.colors[0] = DEFAULT_COLOR; // set color of newly created segment to warm orange as an indicator to the user
+  }
   // we do not want to make segment copy as it may use a lot of RAM (effect data and pixel buffer)
   // so we will create a copy of segment options and compare it with original segment when done processing
   SegmentCopy prev = {
@@ -484,6 +487,14 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
       if (strip.getSegmentsNum() > 3 && deleted >= strip.getSegmentsNum()/2U) strip.purgeSegments(); // batch deleting more than half segments
     }
     strip.resume();
+  }
+  // reset segment request
+  if (root[F("rSeg")] | false) {
+    strip.suspend();
+    strip.waitForIt();
+    strip.makeAutoSegments(true);  // respects autoSegments flag
+    strip.resume();
+    stateChanged = true;
   }
 
   UsermodManager::readFromJsonState(root);
