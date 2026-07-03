@@ -6,10 +6,8 @@
 #include <esp_ota_ops.h>
 #include <esp_flash.h>
 #include <mbedtls/sha256.h>
-#endif
 
 // Platform-specific metadata locations
-#ifdef ESP32
 constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears after Espressif metadata
 #define UPDATE_ERROR errorString
 
@@ -18,9 +16,11 @@ constexpr size_t METADATA_OFFSET = 256;          // ESP32: metadata appears afte
 #if defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
 constexpr size_t BOOTLOADER_OFFSET = 0x0000; // esp32-S3, esp32-C3 and (future support) esp32-c6
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#define BOOTLOADER_OTA_UNSUPPORTED    // still needs validation on these platforms.
 #elif defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32C5)
 constexpr size_t BOOTLOADER_OFFSET = 0x2000; // (future support) esp32-P4 and esp32-C5
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
+#define BOOTLOADER_OTA_UNSUPPORTED    // still needs testing on these platforms
 #else
 constexpr size_t BOOTLOADER_OFFSET = 0x1000; // esp32 and esp32-s2
 constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
@@ -29,15 +29,43 @@ constexpr size_t BOOTLOADER_SIZE   = 0x8000; // 32KB, typical bootloader size
 #elif defined(ESP8266)
 constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4KB offset
 #define UPDATE_ERROR getErrorString
+#define SUPPORT_GZIPPED_OTA
 #endif
+
+#ifdef SUPPORT_GZIPPED_OTA
+#include <uzlib.h>  // ArduinoUZlib library: gzipped firmware uploads are decoded by eboot at boot,
+                    // so the upload stream itself can arrive compressed; we decompress just enough
+                    // to find the metadata for OTA validation.
+#endif
+
 constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
+// State structure for update process
+namespace {
+  struct UpdateContext {
+    // State flags
+    // FUTURE: the flags could be replaced by a state machine
+    bool replySent = false;
+    bool needsRestart = false;
+    bool updateStarted = false;
+    bool uploadComplete = false;
+    bool releaseCheckPassed = false;
+    String errorMessage;
+
+    // Buffer to hold block data across posts, if needed
+    std::vector<uint8_t> releaseMetadataBuffer;
+
+    #ifdef SUPPORT_GZIPPED_OTA
+    bool gzipDetected         = false;  // upload is a gzip stream (eboot will decompress at boot)
+    #endif
+  };
+}
 
 /**
  * Check if OTA should be allowed based on release compatibility using custom description
  * @param binaryData Pointer to binary file data (not modified)
  * @param dataSize Size of binary data in bytes
- * @param errorMessage Buffer to store error message if validation fails 
+ * @param errorMessage Buffer to store error message if validation fails
  * @param errorMessageLen Maximum length of error message buffer
  * @return true if OTA should proceed, false if it should be blocked
  */
@@ -64,20 +92,104 @@ static bool validateOTA(const uint8_t* binaryData, size_t dataSize, char* errorM
   }
 }
 
-struct UpdateContext {
-  // State flags
-  // FUTURE: the flags could be replaced by a state machine
-  bool replySent = false;
-  bool needsRestart = false;
-  bool updateStarted = false;
-  bool uploadComplete = false;
-  bool releaseCheckPassed = false;
-  String errorMessage;
+#ifdef SUPPORT_GZIPPED_OTA
+constexpr size_t GZIP_DECOMPRESSED_SIZE = METADATA_OFFSET + METADATA_SEARCH_RANGE;
+// We use the JSON buffer to hold the decompressed metadata, so we need to ensure it's large enough
+static_assert(JSON_BUFFER_SIZE >= GZIP_DECOMPRESSED_SIZE, "JSON_BUFFER_SIZE must be at least GZIP_DECOMPRESSED_SIZE to support gzipped OTA updates");
 
-  // Buffer to hold block data across posts, if needed
-  std::vector<uint8_t> releaseMetadataBuffer;  
-};
+// File-static flash source context for the uzlib source_read_cb.
+// The 256-byte read buffer must be 4-byte aligned for ESP.flashRead().
+static struct {
+  uint32_t flashBase;
+  uint32_t flashOffset;
+  uint8_t  buf[256] __attribute__((aligned(4)));
+} s_gzipFlashSrc;
 
+static int gzip_flash_read_cb(struct uzlib_uncomp* d)
+{
+  if (!ESP.flashRead(s_gzipFlashSrc.flashBase + s_gzipFlashSrc.flashOffset,
+                     reinterpret_cast<uint32_t*>(s_gzipFlashSrc.buf),
+                     sizeof(s_gzipFlashSrc.buf))) {
+    return -1;
+  }
+  s_gzipFlashSrc.flashOffset += sizeof(s_gzipFlashSrc.buf);
+  d->source       = s_gzipFlashSrc.buf;
+  d->source_limit = s_gzipFlashSrc.buf + sizeof(s_gzipFlashSrc.buf);
+  return *d->source++;
+}
+
+static bool unzipFlash(uint32_t flashBase, uint8_t* outBuf, char* errorMessage, size_t errorMessageLen)
+{
+  uzlib_uncomp uncomp_ctx;  // large, but we can get away with this since we're on the system stack
+
+  s_gzipFlashSrc.flashBase   = flashBase;
+  s_gzipFlashSrc.flashOffset = 0;
+  uncomp_ctx.source         = s_gzipFlashSrc.buf;
+  uncomp_ctx.source_limit   = s_gzipFlashSrc.buf;   // empty: first byte triggers callback
+  uncomp_ctx.source_read_cb = gzip_flash_read_cb;
+  uzlib_uncompress_init(&uncomp_ctx, nullptr, 0);
+
+  bool ok = false;
+  if (uzlib_gzip_parse_header(&uncomp_ctx) != TINF_OK) {
+    strncpy_P(errorMessage, PSTR("Invalid gzip header in OTA firmware"), errorMessageLen - 1);
+    errorMessage[errorMessageLen - 1] = '\0';
+  } else {
+    uncomp_ctx.dest_start = uncomp_ctx.dest = outBuf;
+    uncomp_ctx.dest_limit = outBuf + GZIP_DECOMPRESSED_SIZE;
+    int res = TINF_OK;
+    while (res == TINF_OK && uncomp_ctx.dest < uncomp_ctx.dest_limit) res = uzlib_uncompress(&uncomp_ctx);
+    if (uncomp_ctx.dest >= uncomp_ctx.dest_limit) {
+      ok = true;
+    } else {
+      strncpy_P(errorMessage, PSTR("Not enough decompressed data for validation"), errorMessageLen - 1);
+      errorMessage[errorMessageLen - 1] = '\0';
+    }
+  }
+
+  return ok;
+}
+
+static void validateGzippedOTA(UpdateContext* context) {
+  // Compute the flash address to read from based on the expected update size and the location of the FS partition, and then decompress just enough of the firmware to find the metadata for validation.
+  extern uint32_t _FS_start;
+  const size_t updateSize = Update.size();
+  // Logic borrowed from ESP8266 Updater.cpp
+  const size_t roundedSize = (updateSize + FLASH_SECTOR_SIZE - 1) & ~(FLASH_SECTOR_SIZE - 1);
+  const uintptr_t fsPhysAddr = (uintptr_t)&_FS_start - 0x40200000;
+  const uint32_t flashBase = (fsPhysAddr > roundedSize) ? (fsPhysAddr - roundedSize) : 0;
+  uint8_t* compressionBuf = static_cast<uint8_t*>(pDoc->memoryPool().buffer()); // borrow JSON buffer
+
+  char errorMessage[128];
+  bool ok = unzipFlash(flashBase, compressionBuf, errorMessage, sizeof(errorMessage));
+  if (!ok) {
+    DEBUG_PRINTF_P(PSTR("OTA unzip failed: %s\n"), errorMessage);
+    context->errorMessage = errorMessage;
+    return;
+  }
+
+  ok = validateOTA(compressionBuf, GZIP_DECOMPRESSED_SIZE, errorMessage, sizeof(errorMessage));
+  if (!ok) {
+    DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+    context->errorMessage = errorMessage;
+    context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
+    return;
+  }
+
+  DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed (gzipped)"));
+  context->releaseCheckPassed = true;
+
+  // Write the final block
+  if (!Update.hasError()) {
+    const auto& buf = context->releaseMetadataBuffer;
+    if (Update.write(const_cast<uint8_t*>(buf.data()), buf.size()) != buf.size()) {
+      DEBUG_PRINTF_P(PSTR("OTA write failed on final chunk: %s\n"), Update.UPDATE_ERROR());
+    }
+  }
+
+  DEBUG_PRINTLN(F("OTA Update End")); // for symmetry with the non-gzip path
+  context->uploadComplete = true;   // Final block was passed to Update.write()
+}
+#endif
 
 static void endOTA(AsyncWebServerRequest *request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
@@ -113,7 +225,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 {
   #ifdef ESP8266
   Update.runAsync(true);
-  #endif  
+  #endif
 
   if (Update.isRunning()) {
       request->send(503);
@@ -125,7 +237,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   WLED::instance().disableWatchdog();
   #endif
   UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
-  
+
   strip.suspend();
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can
@@ -138,15 +250,15 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
     context->releaseCheckPassed = true;
     DEBUG_PRINTLN(F("OTA validation skipped by user"));
   }
-  
+
   // Begin update with the firmware size from content length
   size_t updateSize = request->contentLength() > 0 ? request->contentLength() : ((ESP.getFreeSketchSpace() - 0x1000) & 0xFFFFF000);
-  if (!Update.begin(updateSize)) {    
+  if (!Update.begin(updateSize)) {
     context->errorMessage = Update.UPDATE_ERROR();
     DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), context->errorMessage.c_str());
     return false;
   }
-  
+
   context->updateStarted = true;
   return true;
 }
@@ -155,7 +267,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
 // Returns true if successful, false on failure.
 bool initOTA(AsyncWebServerRequest *request) {
   // Allocate update context
-  UpdateContext* context = new (std::nothrow) UpdateContext {};  
+  UpdateContext* context = new (std::nothrow) UpdateContext {};
   if (context) {
     request->_tempObject = context;
     request->onDisconnect([=]() { endOTA(request); });  // ensures we restart on failure
@@ -171,26 +283,40 @@ void setOTAReplied(AsyncWebServerRequest *request) {
   context->replySent = true;
 };
 
-// Returns pointer to error message, or nullptr if OTA was successful.
-std::pair<bool, String> getOTAResult(AsyncWebServerRequest* request) {
+// Returns the OTA outcome as an OTAResultStatus plus an optional error string.
+// TryAgain: JSON lock busy; caller must call deferResponse() and retry.
+// Replied:  response already sent; no action needed.
+// Ready:    result available; empty string = success (200), non-empty = failure (500).
+std::pair<OTAResultStatus, String> getOTAResult(AsyncWebServerRequest* request) {
   UpdateContext* context = reinterpret_cast<UpdateContext*>(request->_tempObject);
-  if (!context) return { true, F("OTA context unexpectedly missing") };
-  if (context->replySent) return { false, {} };
-  if (context->errorMessage.length()) return { true, context->errorMessage };
+  if (!context) return { OTAResultStatus::Ready, F("OTA context unexpectedly missing") };
+  if (context->replySent) return { OTAResultStatus::Replied, {} };
+
+  #ifdef SUPPORT_GZIPPED_OTA
+  if (context->gzipDetected && !context->errorMessage.length()) {
+    JSONBufferGuard jsonGuard(JSON_LOCK_OTA);
+    if (!jsonGuard) return { OTAResultStatus::TryAgain, {} };  // busy — caller will deferResponse()
+    validateGzippedOTA(context); // Stores error in context->errorMessage if there's a problem
+    context->gzipDetected = false;  // all done
+  }
+  #endif
+
+  if (context->errorMessage.length()) return { OTAResultStatus::Ready, context->errorMessage };
 
   if (context->updateStarted) {
     // Release the OTA context now.
     endOTA(request);
     if (Update.hasError()) {
-      return { true, Update.UPDATE_ERROR() };
+      return { OTAResultStatus::Ready, Update.UPDATE_ERROR() };
     } else {
-      return { true, {} };
+      return { OTAResultStatus::Ready, {} };
     }
   }
 
   // Should never happen
-  return { true, F("Internal software failure") };
+  return { OTAResultStatus::Ready, F("Internal software failure") };
 }
+
 
 
 
@@ -205,69 +331,89 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
 
   if (index == 0) {
     if (!beginOTA(request, context)) return;
+
+    #ifdef SUPPORT_GZIPPED_OTA
+    if (len >= 2 && data[0] == 0x1F && data[1] == 0x8B) {
+      DEBUG_PRINTLN(F("OTA: gzipped firmware detected"));
+      context->gzipDetected = true;
+    }
+    #endif
   }
 
-  // Perform validation if we haven't done it yet and we have reached the metadata offset
-  if (!context->releaseCheckPassed && (index+len) > METADATA_OFFSET) {
-    // Current chunk contains the metadata offset
-    size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
+  // Perform plain-firmware validation as data arrives.
+  // Gzip validation is deferred to the end of the upload; skip this path for gzip.
+  if (!context->releaseCheckPassed
+      #ifdef SUPPORT_GZIPPED_OTA
+      && !context->gzipDetected
+      #endif
+  ) {
+    if ((index+len) > METADATA_OFFSET) {
+      // Current chunk contains the metadata offset
+      size_t availableDataAfterOffset = (index + len) - METADATA_OFFSET;
 
-    DEBUG_PRINTF_P(PSTR("OTA metadata check: %d in buffer, %d received, %d available\n"), context->releaseMetadataBuffer.size(), len, availableDataAfterOffset);
+      DEBUG_PRINTF_P(PSTR("OTA metadata check: %d in buffer, %d received, %d available\n"), context->releaseMetadataBuffer.size(), len, availableDataAfterOffset);
 
-    if (availableDataAfterOffset >= METADATA_SEARCH_RANGE) {
-      // We have enough data to validate, one way or another
-      const uint8_t* search_data = data;
-      size_t search_len = len;
-      
-      // If we have saved data, use that instead
-      if (context->releaseMetadataBuffer.size()) {
-        // Add this data
-        context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
-        search_data = context->releaseMetadataBuffer.data();
-        search_len = context->releaseMetadataBuffer.size();
-      }
+      if (availableDataAfterOffset >= METADATA_SEARCH_RANGE) {
+        // We have enough data to validate, one way or another
+        const uint8_t* search_data = data;
+        size_t search_len = len;
 
-      // Do the checking
-      char errorMessage[128];
-      bool OTA_ok = validateOTA(search_data, search_len, errorMessage, sizeof(errorMessage));
-      
-      // Release buffer if there was one
-      context->releaseMetadataBuffer = decltype(context->releaseMetadataBuffer){};
-      
-      if (!OTA_ok) {
-        DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
-        context->errorMessage = errorMessage;
-        context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
-        return;
+        // If we have saved data, use that instead
+        if (context->releaseMetadataBuffer.size()) {
+          // Add this data
+          context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+          search_data = context->releaseMetadataBuffer.data();
+          search_len = context->releaseMetadataBuffer.size();
+        }
+
+        // Do the checking
+        char errorMessage[128];
+        bool OTA_ok = validateOTA(search_data, search_len, errorMessage, sizeof(errorMessage));
+
+        // Release buffer if there was one
+        context->releaseMetadataBuffer = decltype(context->releaseMetadataBuffer){};
+
+        if (!OTA_ok) {
+          DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
+          context->errorMessage = errorMessage;
+          context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
+          return;
+        } else {
+          DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
+          context->releaseCheckPassed = true;
+        }
       } else {
-        DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
-        context->releaseCheckPassed = true;
-      }        
-    } else {
-      // Store the data we just got for next pass
-      context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+        // Store the data we just got for next pass
+        context->releaseMetadataBuffer.insert(context->releaseMetadataBuffer.end(), data, data+len);
+      }
     }
   }
 
+#ifdef SUPPORT_GZIPPED_OTA
+  // Gzip: stash the final chunk and defer validation to getOTAResult(), where
+  // deferResponse() can be used if the JSON lock is not yet available.
+  if (isFinal && context->gzipDetected && !context->releaseCheckPassed) {
+    context->releaseMetadataBuffer.assign(data, data + len);
+    return;  // getOTAResult() will validate, write this chunk, and complete the update
+  }
+#endif
+
   // Check if validation was still pending (shouldn't happen normally)
-  // This is done before writing the last chunk, so endOTA can abort 
+  // This is done before writing the last chunk, so endOTA can abort
   if (isFinal && !context->releaseCheckPassed) {
     DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
-    // Don't write the last chunk to the updater: this will trip an error later
     context->errorMessage = F("Release check data never arrived?");
     return;
   }
 
-  // Write chunk data to OTA update (only if release check passed or still pending)
   if (!Update.hasError()) {
     if (Update.write(data, len) != len) {
       DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.UPDATE_ERROR());
     }
   }
 
-  if(isFinal) {
+  if (isFinal) {
     DEBUG_PRINTLN(F("OTA Update End"));
-    // Upload complete
     context->uploadComplete = true;
   }
 }
@@ -286,247 +432,263 @@ void markOTAvalid() {
 }
 
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
-// Cache for bootloader SHA256 digest as hex string
-static String bootloaderSHA256HexCache = "";
 
-// Calculate and cache the bootloader SHA256 digest as hex string
-void calculateBootloaderSHA256() {
-  if (!bootloaderSHA256HexCache.isEmpty()) return;
+// Class for computing the expected bootloader data size given a stream of the data.
+// If the image includes an SHA256 appended after the data stream, we do not consider it here.
+class BootloaderImageSizer {
+public:
 
+  bool feed(const uint8_t* data, size_t len) {
+    if (error) return false;
+
+    //DEBUG_PRINTF("Feed %d\n", len);
+
+    if (imageSize == 0) {
+      // Parse header first
+      if (len < sizeof(esp_image_header_t)) {
+        error = true;
+        return false;
+      }
+
+      esp_image_header_t header;
+      memcpy(&header, data, sizeof(esp_image_header_t));
+
+      if (header.segment_count == 0) {
+        error = true;
+        return false;
+      }
+
+      imageSize = sizeof(esp_image_header_t);
+      segmentsLeft = header.segment_count;
+      data += sizeof(esp_image_header_t);
+      len -= sizeof(esp_image_header_t);
+      //DEBUG_PRINTF("BLS parsed image header, segment count %d, is %d\n", segmentsLeft, imageSize);
+    }
+
+    while (len && segmentsLeft) {
+      if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
+        size_t headerBytes = std::min(len, sizeof(esp_image_segment_header_t) - segmentHeaderBytes);
+        memcpy(reinterpret_cast<uint8_t*>(&segmentHeader) + segmentHeaderBytes, data, headerBytes);
+        segmentHeaderBytes += headerBytes;
+        if (segmentHeaderBytes < sizeof(esp_image_segment_header_t)) {
+          return true;  // needs more bytes for the header
+        }
+
+        //DEBUG_PRINTF("BLS parsed segment [%08X %08X=%d], segment count %d, is %d\n", segmentHeader.load_addr, segmentHeader.data_len, segmentHeader.data_len, segmentsLeft, imageSize);
+
+        // Validate segment size
+        if (segmentHeader.data_len > BOOTLOADER_SIZE) {
+          error = true;
+          return false;
+        }
+
+        data += headerBytes;
+        len -= headerBytes;
+        imageSize += sizeof(esp_image_segment_header_t) + segmentHeader.data_len;
+        --segmentsLeft;
+        if (segmentsLeft == 0) {
+          // all done, actually; we don't need to read any more
+
+          // Round up to nearest 16 bytes.
+          // Always add 1 to account for the checksum byte.
+          imageSize = ((imageSize/ 16) + 1) * 16;
+
+          //DEBUG_PRINTF("BLS complete, is %d\n", imageSize);
+          return false;
+        }
+      }
+
+      // If we don't have enough bytes ...
+      if (len < segmentHeader.data_len) {
+        //DEBUG_PRINTF("Needs more bytes\n");
+        segmentHeader.data_len -= len;
+        return true;  // still in this segment
+      }
+
+      // Segment complete
+      len -= segmentHeader.data_len;
+      data += segmentHeader.data_len;
+      segmentHeaderBytes = 0;
+      //DEBUG_PRINTF("Segment complete: len %d\n", len);
+    }
+
+    return !error;
+  }
+
+  bool hasError() const { return error; }
+  bool isSizeKnown() const { return !error && imageSize != 0 && segmentsLeft == 0; }
+  size_t totalSize() const {
+    if (!isSizeKnown()) return 0;
+    return imageSize;
+  }
+
+private:
+  size_t imageSize = 0;
+  size_t segmentsLeft = 0;
+  esp_image_segment_header_t segmentHeader;
+  size_t segmentHeaderBytes = 0;
+  bool error = false;
+};
+
+static bool bootloaderSHA256CacheValid = false;
+static uint8_t bootloaderSHA256Cache[32];
+
+/**
+ * Calculate and cache the bootloader SHA256 digest
+ * Reads the bootloader from flash and computes SHA256 hash
+ *
+ * Strictly speaking, most bootloader images already contain a hash at the end of the image;
+ * we could in theory just read it.  The trouble is that we have to parse the structure anyways
+ * to find the actual endpoint, so we might as well always calculate it ourselves rather than
+ * handle a special case if the hash isn't stored.
+ *
+ */
+static void calculateBootloaderSHA256() {
   // Calculate SHA256
-  uint8_t sha256[32];
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
   mbedtls_sha256_starts(&ctx, 0); // 0 = SHA256 (not SHA224)
 
   const size_t chunkSize = 256;
-  uint8_t buffer[chunkSize];
+  alignas(esp_image_header_t) uint8_t buffer[chunkSize];
+  size_t bootloaderSize = BOOTLOADER_SIZE;
+  BootloaderImageSizer sizer;
+  size_t totalHashLen = 0;
 
-  for (uint32_t offset = 0; offset < BOOTLOADER_SIZE; offset += chunkSize) {
-    size_t readSize = min((size_t)(BOOTLOADER_SIZE - offset), chunkSize);
+  for (uint32_t offset = 0; offset < bootloaderSize; offset += chunkSize) {
+    size_t readSize = min((size_t)(bootloaderSize - offset), chunkSize);
     if (esp_flash_read(NULL, buffer, BOOTLOADER_OFFSET + offset, readSize) == ESP_OK) {
-      mbedtls_sha256_update(&ctx, buffer, readSize);
+      sizer.feed(buffer, readSize);
+
+      size_t hashLen = readSize;
+      if (sizer.isSizeKnown()) {
+        size_t totalSize = sizer.totalSize();
+        if (totalSize > 0 && totalSize <= BOOTLOADER_SIZE) {
+          bootloaderSize = totalSize;
+          if (offset + readSize > totalSize) {
+            hashLen = (totalSize > offset) ? (totalSize - offset) : 0;
+          }
+        }
+      }
+
+      if (hashLen > 0) {
+        totalHashLen += hashLen;
+        mbedtls_sha256_update(&ctx, buffer, hashLen);
+      }
     }
   }
 
-  mbedtls_sha256_finish(&ctx, sha256);
+  mbedtls_sha256_finish(&ctx, bootloaderSHA256Cache);
   mbedtls_sha256_free(&ctx);
 
-  // Convert to hex string and cache it
-  char hex[65];
-  for (int i = 0; i < 32; i++) {
-    sprintf(hex + (i * 2), "%02x", sha256[i]);
-  }
-  hex[64] = '\0';
-  bootloaderSHA256HexCache = String(hex);
+  bootloaderSHA256CacheValid = true;
 }
 
 // Get bootloader SHA256 as hex string
 String getBootloaderSHA256Hex() {
-  calculateBootloaderSHA256();
-  return bootloaderSHA256HexCache;
-}
-
-// Invalidate cached bootloader SHA256 (call after bootloader update)
-void invalidateBootloaderSHA256Cache() {
-  bootloaderSHA256HexCache = "";
-}
-
-// Verify complete buffered bootloader using ESP-IDF validation approach
-// This matches the key validation steps from esp_image_verify() in ESP-IDF
-// Returns the actual bootloader data pointer and length via the buffer and len parameters
-bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String* bootloaderErrorMsg) {
-  size_t availableLen = len;
-  if (!bootloaderErrorMsg) {
-    DEBUG_PRINTLN(F("bootloaderErrorMsg is null"));
-    return false;
+  if (!bootloaderSHA256CacheValid) {
+    calculateBootloaderSHA256();
   }
-  // ESP32 image header structure (based on esp_image_format.h)
-  // Offset 0: magic (0xE9)
-  // Offset 1: segment_count
-  // Offset 2: spi_mode
-  // Offset 3: spi_speed (4 bits) + spi_size (4 bits)
-  // Offset 4-7: entry_addr (uint32_t)
-  // Offset 8: wp_pin
-  // Offset 9-11: spi_pin_drv[3]
-  // Offset 12-13: chip_id (uint16_t, little-endian)
-  // Offset 14: min_chip_rev
-  // Offset 15-22: reserved[8]
-  // Offset 23: hash_appended
 
-  const size_t MIN_IMAGE_HEADER_SIZE = 24;
+  // Convert to hex string
+  String result;
+  result.reserve(65);
+  for (int i = 0; i < 32; i++) {
+    char b1 = bootloaderSHA256Cache[i];
+    char b2 = b1 >> 4;
+    b1 &= 0x0F; b2 &= 0x0F;
+    b1 += '0'; b2 += '0';
+    if (b1 > '9') b1 += 39;
+    if (b2 > '9') b2 += 39;
+    result.concat(b2);
+    result.concat(b1);
+  }
+  return result;
+}
+
+/**
+ * Invalidate cached bootloader SHA256 (call after bootloader update)
+ * Forces recalculation on next call to calculateBootloaderSHA256 or getBootloaderSHA256Hex
+ */
+static void invalidateBootloaderSHA256Cache() {
+  bootloaderSHA256CacheValid = false;
+}
+
+/**
+ * Verify complete buffered bootloader using ESP-IDF validation approach
+ * This matches the key validation steps from esp_image_verify() in ESP-IDF
+ * @param buffer Reference to pointer to bootloader binary data (will be adjusted if offset detected)
+ * @param len Reference to length of bootloader data (will be adjusted to actual size)
+ * @param bootloaderErrorMsg Pointer to String to store error message (must not be null)
+ * @return true if validation passed, false otherwise
+ */
+static bool verifyBootloaderImage(const uint8_t* &buffer, size_t &len, String& bootloaderErrorMsg) {
+  const size_t MIN_IMAGE_HEADER_SIZE = sizeof(esp_image_header_t);
 
   // 1. Validate minimum size for header
   if (len < MIN_IMAGE_HEADER_SIZE) {
-    *bootloaderErrorMsg = "Bootloader too small - invalid header";
+    bootloaderErrorMsg = "Too small";
     return false;
   }
 
   // Check if the bootloader starts at offset 0x1000 (common in partition table dumps)
   // This happens when someone uploads a complete flash dump instead of just the bootloader
   if (len > BOOTLOADER_OFFSET + MIN_IMAGE_HEADER_SIZE &&
-      buffer[BOOTLOADER_OFFSET] == 0xE9 &&
-      buffer[0] != 0xE9) {
-    DEBUG_PRINTF_P(PSTR("Bootloader magic byte detected at offset 0x%04X - adjusting buffer\n"), BOOTLOADER_OFFSET);
+      buffer[BOOTLOADER_OFFSET] == ESP_IMAGE_HEADER_MAGIC &&
+      buffer[0] != ESP_IMAGE_HEADER_MAGIC) {
+    DEBUG_PRINTF_P(PSTR("Bootloader detected at offset\n"));
     // Adjust buffer pointer to start at the actual bootloader
     buffer = buffer + BOOTLOADER_OFFSET;
     len = len - BOOTLOADER_OFFSET;
 
     // Re-validate size after adjustment
     if (len < MIN_IMAGE_HEADER_SIZE) {
-      *bootloaderErrorMsg = "Bootloader at offset 0x1000 too small - invalid header";
+      bootloaderErrorMsg = "Too small";
       return false;
     }
   }
 
-  // 2. Magic byte check (matches esp_image_verify step 1)
-  if (buffer[0] != 0xE9) {
-    *bootloaderErrorMsg = "Invalid bootloader magic byte (expected 0xE9, got 0x" + String(buffer[0], HEX) + ")";
+  size_t availableLen = len;
+  esp_image_header_t imageHeader{};
+  memcpy(&imageHeader, buffer, sizeof(imageHeader));
+
+  // 2. Basic header sanity checks (matches early esp_image_verify checks)
+  if (imageHeader.magic != ESP_IMAGE_HEADER_MAGIC ||
+      imageHeader.segment_count == 0 || imageHeader.segment_count > 16 ||
+      imageHeader.spi_mode > 3 ||
+      imageHeader.entry_addr < 0x40000000 || imageHeader.entry_addr > 0x50000000) {
+    bootloaderErrorMsg = "Invalid header";
     return false;
   }
 
-  // 3. Segment count validation (matches esp_image_verify step 2)
-  uint8_t segmentCount = buffer[1];
-  if (segmentCount == 0 || segmentCount > 16) {
-    *bootloaderErrorMsg = "Invalid segment count: " + String(segmentCount);
+  // 3. Chip ID validation (matches esp_image_verify step 3)
+  if (imageHeader.chip_id != CONFIG_IDF_FIRMWARE_CHIP_ID) {
+    bootloaderErrorMsg = "Chip ID mismatch";
     return false;
   }
 
-  // 4. SPI mode validation (basic sanity check)
-  uint8_t spiMode = buffer[2];
-  if (spiMode > 3) {  // Valid modes are 0-3 (QIO, QOUT, DIO, DOUT)
-    *bootloaderErrorMsg = "Invalid SPI mode: " + String(spiMode);
+  // 4. Validate image size
+  BootloaderImageSizer sizer;
+  sizer.feed(buffer, availableLen);
+  if (!sizer.isSizeKnown()) {
+    bootloaderErrorMsg = "Invalid image";
     return false;
   }
+  size_t actualBootloaderSize = sizer.totalSize();
 
-  // 5. Chip ID validation (matches esp_image_verify step 3)
-  uint16_t chipId = buffer[12] | (buffer[13] << 8);  // Little-endian
-
-  // Known ESP32 chip IDs from ESP-IDF:
-  // 0x0000 = ESP32
-  // 0x0002 = ESP32-S2
-  // 0x0005 = ESP32-C3
-  // 0x0009 = ESP32-S3
-  // 0x000C = ESP32-C2
-  // 0x000D = ESP32-C6
-  // 0x0010 = ESP32-H2
-
-  #if defined(CONFIG_IDF_TARGET_ESP32)
-    if (chipId != 0x0000) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32 (0x0000), got 0x" + String(chipId, HEX);
-      return false;
-    }
-  #elif defined(CONFIG_IDF_TARGET_ESP32S2)
-    if (chipId != 0x0002) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-S2 (0x0002), got 0x" + String(chipId, HEX);
-      return false;
-    }
-  #elif defined(CONFIG_IDF_TARGET_ESP32C3)
-    if (chipId != 0x0005) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C3 (0x0005), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-C3 update not supported yet";
-    return false;
-  #elif defined(CONFIG_IDF_TARGET_ESP32S3)
-    if (chipId != 0x0009) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-S3 (0x0009), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-S3 update not supported yet";
-    return false;
-  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
-    if (chipId != 0x000D) {
-      *bootloaderErrorMsg = "Chip ID mismatch - expected ESP32-C6 (0x000D), got 0x" + String(chipId, HEX);
-      return false;
-    }
-    *bootloaderErrorMsg = "ESP32-C6 update not supported yet";
-    return false;
-  #else
-    // Generic validation - chip ID should be valid
-    if (chipId > 0x00FF) {
-      *bootloaderErrorMsg = "Invalid chip ID: 0x" + String(chipId, HEX);
-      return false;
-    }
-   *bootloaderErrorMsg = "Unknown ESP32 target - bootloader update not supported";
-   return false;
-  #endif
-
-  // 6. Entry point validation (should be in valid memory range)
-  uint32_t entryAddr = buffer[4] | (buffer[5] << 8) | (buffer[6] << 16) | (buffer[7] << 24);
-  // ESP32 bootloader entry points are typically in IRAM range (0x40000000 - 0x40400000)
-  // or ROM range (0x40000000 and above)
-  if (entryAddr < 0x40000000 || entryAddr > 0x50000000) {
-    *bootloaderErrorMsg = "Invalid entry address: 0x" + String(entryAddr, HEX);
-    return false;
-  }
-
-  // 7. Basic segment structure validation
-  // Each segment has a header: load_addr (4 bytes) + data_len (4 bytes)
-  size_t offset = MIN_IMAGE_HEADER_SIZE;
-  size_t actualBootloaderSize = MIN_IMAGE_HEADER_SIZE;
-
-  for (uint8_t i = 0; i < segmentCount && offset + 8 <= len; i++) {
-    uint32_t segmentSize = buffer[offset + 4] | (buffer[offset + 5] << 8) |
-                           (buffer[offset + 6] << 16) | (buffer[offset + 7] << 24);
-
-    // Segment size sanity check
-    // ESP32 classic bootloader segments can be larger, C3 are smaller
-    if (segmentSize > 0x20000) {  // 128KB max per segment (very generous)
-      *bootloaderErrorMsg = "Segment " + String(i) + " too large: " + String(segmentSize) + " bytes";
-      return false;
-    }
-
-    offset += 8 + segmentSize;  // Skip segment header and data
-  }
-
-  actualBootloaderSize = offset;
-
-  // 8. Check for appended SHA256 hash (byte 23 in header)
-  // If hash_appended != 0, there's a 32-byte SHA256 hash after the segments
-  uint8_t hashAppended = buffer[23];
-  if (hashAppended != 0) {
+  // 5. SHA256 checksum (optional)
+  if (imageHeader.hash_appended == 1) {
     actualBootloaderSize += 32;
-    if (actualBootloaderSize > availableLen) {
-      *bootloaderErrorMsg = "Bootloader missing SHA256 trailer";
-      return false;
-    }
-    DEBUG_PRINTF_P(PSTR("Bootloader has appended SHA256 hash\n"));
   }
 
-  // 9. The image may also have a 1-byte checksum after segments/hash
-  // Check if there's at least one more byte available
-  if (actualBootloaderSize + 1 <= availableLen) {
-    // There's likely a checksum byte
-    actualBootloaderSize += 1;
-  } else if (actualBootloaderSize > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated before checksum";
+  if (actualBootloaderSize > len) {
+    // Same as above
+    bootloaderErrorMsg = "Too small";
     return false;
-  }
-
-  // 10. Align to 16 bytes (ESP32 requirement for flash writes)
-  // The bootloader image must be 16-byte aligned
-  if (actualBootloaderSize % 16 != 0) {
-    size_t alignedSize = ((actualBootloaderSize + 15) / 16) * 16;
-    // Make sure we don't exceed available data
-    if (alignedSize <= len) {
-      actualBootloaderSize = alignedSize;
-    }
   }
 
   DEBUG_PRINTF_P(PSTR("Bootloader validation: %d segments, actual size %d bytes (buffer size %d bytes, hash_appended=%d)\n"),
-                 segmentCount, actualBootloaderSize, len, hashAppended);
-
-  // 11. Verify we have enough data for all segments + hash + checksum
-  if (actualBootloaderSize > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(actualBootloaderSize) + " bytes, have " + String(availableLen) + " bytes";
-    return false;
-  }
-
-  if (offset > availableLen) {
-    *bootloaderErrorMsg = "Bootloader truncated - expected at least " + String(offset) + " bytes, have " + String(len) + " bytes";
-    return false;
-  }
+                 imageHeader.segment_count, actualBootloaderSize, len, imageHeader.hash_appended);
 
   // Update len to reflect actual bootloader size (including hash and checksum, with alignment)
   // This is critical - we must write the complete image including checksums
@@ -584,10 +746,13 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
     DEBUG_PRINTLN(F("Failed to allocate bootloader OTA context"));
     return false;
   }
-
   request->_tempObject = context;
   request->onDisconnect([=]() { endBootloaderOTA(request); });  // ensures cleanup on disconnect
 
+#ifdef BOOTLOADER_OTA_UNSUPPORTED
+  context->errorMessage = F("Bootloader update not supported on this chip");
+  return false;
+#else
   DEBUG_PRINTLN(F("Bootloader Update Start - initializing buffer"));
   #if WLED_WATCHDOG_TIMEOUT > 0
   WLED::instance().disableWatchdog();
@@ -597,14 +762,13 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
   strip.resetSegments();
 
   // Check available heap before attempting allocation
-  size_t freeHeap = getFreeHeapSize();
-  DEBUG_PRINTF_P(PSTR("Free heap before bootloader buffer allocation: %d bytes (need %d bytes)\n"), freeHeap, context->maxBootloaderSize);
+  DEBUG_PRINTF_P(PSTR("Free heap before bootloader buffer allocation: %d bytes (need %d bytes)\n"), getContiguousFreeHeap(), context->maxBootloaderSize);
 
   context->buffer = (uint8_t*)malloc(context->maxBootloaderSize);
   if (!context->buffer) {
-    size_t freeHeapNow = getFreeHeapSize();
-    DEBUG_PRINTF_P(PSTR("Failed to allocate %d byte bootloader buffer! Free heap: %d bytes\n"), context->maxBootloaderSize, freeHeapNow);
-    context->errorMessage = "Out of memory! Free heap: " + String(freeHeapNow) + " bytes, need: " + String(context->maxBootloaderSize) + " bytes";
+    size_t freeHeapNow = getContiguousFreeHeap();
+    DEBUG_PRINTF_P(PSTR("Failed to allocate %d byte bootloader buffer! Contiguous heap: %d bytes\n"), context->maxBootloaderSize, freeHeapNow);
+    context->errorMessage = "Out of memory! Contiguous heap: " + String(freeHeapNow) + " bytes, need: " + String(context->maxBootloaderSize) + " bytes";
     strip.resume();
     #if WLED_WATCHDOG_TIMEOUT > 0
     WLED::instance().enableWatchdog();
@@ -614,6 +778,7 @@ bool initBootloaderOTA(AsyncWebServerRequest *request) {
 
   context->bytesBuffered = 0;
   return true;
+#endif
 }
 
 // Set bootloader OTA replied flag
@@ -693,7 +858,7 @@ void handleBootloaderOTAData(AsyncWebServerRequest *request, size_t index, uint8
       // Verify the complete bootloader image before flashing
       // Note: verifyBootloaderImage may adjust bootloaderData pointer and bootloaderSize
       // for validation purposes only
-      if (!verifyBootloaderImage(bootloaderData, bootloaderSize, &context->errorMessage)) {
+      if (!verifyBootloaderImage(bootloaderData, bootloaderSize, context->errorMessage)) {
         DEBUG_PRINTLN(F("Bootloader validation failed!"));
         // Error message already set by verifyBootloaderImage
       } else {

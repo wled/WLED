@@ -26,7 +26,7 @@ const packageJson = require("../package.json");
 // Export functions for testing
 module.exports = { isFileNewerThan, isAnyFileInFolderNewerThan };
 
-const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_settings.h", "wled00/html_other.h"]
+const output = ["wled00/html_ui.h", "wled00/html_pixart.h", "wled00/html_cpal.h", "wled00/html_edit.h", "wled00/html_pxmagic.h", "wled00/html_pixelforge.h", "wled00/html_settings.h", "wled00/html_other.h", "wled00/js_iro.h", "wled00/js_omggif.h"]
 
 // \x1b[34m is blue, \x1b[36m is cyan, \x1b[0m is reset
 const wledBanner = `
@@ -134,12 +134,13 @@ async function minify(str, type = "plain") {
   throw new Error("Unknown filter: " + type);
 }
 
-async function writeHtmlGzipped(sourceFile, resultFile, page) {
+async function writeHtmlGzipped(sourceFile, resultFile, page, inlineCss = true) {
   console.info("Reading " + sourceFile);
   inline.html({
     fileContent: fs.readFileSync(sourceFile, "utf8"),
     relativeTo: path.dirname(sourceFile),
-    strict: true,
+    strict: inlineCss,     // when not inlining css, ignore errors (enables linking style.css from subfolder htm files)
+    stylesheets: inlineCss // when true (default), css is inlined
   },
     async function (error, html) {
       if (error) throw error;
@@ -252,10 +253,37 @@ if (isAlreadyBuilt("wled00/data") && process.argv[2] !== '--force' && process.ar
 
 writeHtmlGzipped("wled00/data/index.htm", "wled00/html_ui.h", 'index');
 writeHtmlGzipped("wled00/data/pixart/pixart.htm", "wled00/html_pixart.h", 'pixart');
-//writeHtmlGzipped("wled00/data/cpal/cpal.htm", "wled00/html_cpal.h", 'cpal');
 writeHtmlGzipped("wled00/data/pxmagic/pxmagic.htm", "wled00/html_pxmagic.h", 'pxmagic');
+writeHtmlGzipped("wled00/data/pixelforge/pixelforge.htm", "wled00/html_pixelforge.h", 'pixelforge', false); // do not inline css
 //writeHtmlGzipped("wled00/data/edit.htm", "wled00/html_edit.h", 'edit');
 
+writeChunks(
+  "wled00/data/",
+  [
+    {
+      file: "iro.js",
+      name: "JS_iro",
+      method: "gzip",
+      filter: "plain", // no minification, it is already minified
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_iro.h"
+);
+
+writeChunks(
+  "wled00/data/pixelforge",
+  [
+    {
+      file: "omggif.js",
+      name: "JS_omggif",
+      method: "gzip",
+      filter: "js-minify",
+      mangle: (s) => s.replace(/^\/\*![\s\S]*?\*\//, '') // remove license comment at the top
+    }
+  ],
+  "wled00/js_omggif.h"
+);
 
 writeChunks(
   "wled00/data",
@@ -364,6 +392,12 @@ writeChunks(
     {
       file: "settings_pin.htm",
       name: "PAGE_settings_pin",
+      method: "gzip",
+      filter: "html-minify"
+    },
+    {
+      file: "settings_pininfo.htm",
+      name: "PAGE_settings_pininfo",
       method: "gzip",
       filter: "html-minify"
     }

@@ -1,0 +1,260 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# CodeRabbit configuration — references existing guideline files to avoid
+# duplicating conventions.  See:
+#   .github/copilot-instructions.md   — project overview & general rules
+#   docs/cpp.instructions.md          — C++ coding conventions
+#   docs/web.instructions.md          — Web UI coding conventions
+#   docs/cicd.instructions.md         — GitHub Actions / CI-CD conventions
+#   docs/hardening.instructions.md    — basic rules for code hardening and robustness
+#   docs/securecode.instructions.md   — more detailed checklists for common vulnerabilities
+#
+# NOTE: This file must be committed (tracked by git) for CodeRabbit to read
+# it from the repository.  If it is listed in .gitignore, CodeRabbit will
+# not see it and these settings will have no effect.
+
+language: en-US
+
+reviews:
+  # generic review setting, see https://docs.coderabbit.ai/reference/configuration#reference
+  auto_apply_labels: false
+  # abort_on_close: false
+  high_level_summary: true
+  review_status: true
+  collapse_walkthrough: false
+  poem: false
+  # sequence_diagrams: false
+  auto_review:
+    enabled: true
+    base_branches:
+      - main
+      - 16_x
+      - 0_15_x
+      - V5
+    ignore_title_keywords:
+      - WIP
+      - DO NOT MERGE
+  tools:
+    fbinfer:
+      enabled: false   # Arduino.h not available on Linux analysis host
+    cppcheck:
+      enabled: true    # cppcheck works fine without Arduino headers
+    clang:
+      enabled: true    # clang tidy likewise works
+
+  path_instructions:
+    - path: "**/*.{cpp,h,hpp,ino}"
+      instructions: >
+        Follow the C++ coding conventions documented in docs/cpp.instructions.md
+        and the general project guidelines in AGENTS.md and .github/copilot-instructions.md.
+
+        Key rules: 2-space indentation (no tabs), camelCase functions/variables,
+        PascalCase classes, UPPER_CASE macros. No C++ exceptions — use return codes and debug macros.
+
+        Hot-path optimization guidelines (attributes, uint_fast types, caching,
+        unsigned range checks) apply from pixel set/get operations and strip.show() downward —
+        NOT to effect functions in FX.cpp, which have diverse contributor styles.
+
+        When reviewing PRs labeled "AI" or when source code appears to be AI-generated, perform these additional checks:
+        1. VERIFY all referenced preprocessor macros, constants and flags exist by searching the codebase - do not trust the AI's claims about what exists.
+        2. CHECK for reinvention: search for existing functions/patterns that already solve the same problem.
+        3. CHECK for singleton data (defined but never used) and for dead/disabled code, and suggest to remove them.
+        4. VERIFY comments match code behavior - AI frequently generates plausible but incorrect comments.
+        5. VERIFY numerical stability / accuracy of arithmetic expressions. AI is often wrong when it comes to math and numbers.
+        6. CHECK for implied but weakly justified assumptions - like usermod loop() call frequency - and ask for clarification.
+        7. FLAG changes that appear unrelated: deleted comments, unnecessary re-formatting or re-factoring, and modifications in files that seem unrelated to the PR description.
+
+    # ── Security hardening — firmware (trust-boundary-aware) ────────────────
+    - path: "wled00/**/*.{cpp,h,hpp,ino}"
+      instructions: >
+        Apply the WLED security hardening rules from docs/hardening.instructions.md,
+        and consult docs/securecode.instructions.md when more details are needed for actionable recommendations.
+
+        Trust Boundary Model — enforce input-validation and bounds-checking rules
+        ONLY at the first untrusted ingress point. Untrusted ingress points are:
+          - HTTP/JSON API request bodies and query parameters (/json/*, /win, etc.)
+          - WebSocket message payloads
+          - UDP datagrams (parsePacket() / recvfrom() and protocol wrappers for
+            E1.31, DDP, Art-Net, TPM2.net)
+          - TCP socket reads
+          - Serial/UART command input
+          - ESP-NOW raw messages input
+
+        A value that has been validated and range-clamped at its ingress handler is
+        considered TRUSTED for all subsequent WLED core processing. Do NOT flag or suggest
+        repeated bounds/range checks or internal uses of already-sanitized data.
+        When it is unclear whether a value has been sanitized upstream, prefer
+        requesting clarification over raising a false-positive finding.
+
+    - path: "wled00/data/**"
+      instructions: >
+        Follow the web UI conventions documented in docs/web.instructions.md.
+
+        Key rules: indent HTML and JavaScript with tabs, CSS with tabs.
+        Files here are built into wled00/html_*.h and wled00/js_*.h by tools/cdata.js — never
+        edit those generated headers directly.
+
+    # ── Security hardening — WebUI (always an ingress/output surface) ────────
+    - path: "wled00/data/**"
+      instructions: >
+        Apply the WLED web UI security rules from docs/securecode.instructions.md
+        (sections WEB1-WEB7).
+
+        The Trust Boundary Model does NOT reduce scope here: the WebUI is both
+        an ingress point (user input, postMessage, fetched config data) and an
+        output/rendering surface. Always flag DOM XSS risks, unsafe
+        innerHTML / document.write / insertAdjacentHTML / outerHTML assignments,
+        postMessage handlers without origin validation, eval() / new Function(),
+        unsafe location.href or location.replace() assignments, and DOM insertion
+        from fetched or config-derived data — regardless of where the data
+        originates.
+
+    - path: "wled00/html_*.h"
+      instructions: >
+        These files are auto-generated from wled00/data/ by tools/cdata.js.
+        They must never be manually edited or committed. Flag any PR that
+        includes changes to these files.
+
+    - path: "wled00/js_*.h"
+      instructions: >
+        These files are auto-generated from wled00/data/ by tools/cdata.js.
+        They must never be manually edited or committed. Flag any PR that
+        includes changes to these files.
+
+    - path: "usermods/**"
+      instructions: >
+        Usermods are community add-ons.
+        Each usermod lives in its own directory under usermods/ and is implemented
+        as a .cpp file with a dedicated library.json file to manage dependencies. 
+        Follow the same C++ conventions as the core firmware (docs/cpp.instructions.md).
+
+    # ── Security hardening — usermods (trust-boundary-aware, narrow scope) ───
+    - path: "usermods/**/*.{cpp,h,hpp}"
+      instructions: >
+        For usermods, the untrusted ingress points are:
+          - readFromConfig(JsonObject& root) and calls to getJsonValue()
+          - readFromJsonState(JsonObject& obj)  — JSON is parsed, but values are client-supplied
+          - onMqttMessage(char* topic, char* payload)  — raw network strings, no core sanitization
+          - onEspNowMessage(uint8_t* sender, uint8_t* payload, uint8_t len)  — raw radio bytes
+          - onUdpPacket(uint8_t* payload, size_t len)  — raw UDP buffer, no core filtering
+        Values retrieved at these ingress points are considered trusted only after the
+        usermod itself has validated and range-clamped them.
+
+        Flag ONLY downstream uses of ingress-derived values where an out-of-range or
+        unexpected value can cause misbehaviour that is not already guarded, for example:
+          - `switch` statements on an ingress-derived value with no `default` branch,
+            or with a missing `break` where fall-through is unintentional
+          - array or buffer indexing with an ingress-derived value where the index is
+            not clamped before use
+          - arithmetic with an ingress-derived value that can overflow or produce a
+            negative result used as a size or count
+
+        Do NOT flag:
+          - getJsonValue() call sites themselves (type coercion is handled by ArduinoJson)
+          - Internal logic that operates on values already confirmed safe at ingress
+          - Repeated range checks on values that have already been clamped
+          - General memory-safety patterns unrelated to ingress-derived data flow
+
+    - path: ".github/workflows/*.{yml,yaml}"
+      instructions: >
+        Follow the CI/CD conventions documented in docs/cicd.instructions.md.
+
+        Key rules: 2-space indentation, descriptive name: on every workflow/job/step.
+        Third-party actions must be pinned to a specific version tag — branch pins
+        such as @main or @master are not allowed. Declare explicit permissions: blocks
+        scoped to least privilege. Never interpolate github.event.* values directly
+        into run: steps — pass them through an env: variable to prevent script
+        injection. Do not use pull_request_target unless fully justified.
+
+    - path: "**/*.instructions.md"
+      instructions: |
+        This file contains both AI-facing rules and human-only reference sections.
+        Human-only sections are enclosed in `<!-- HUMAN_ONLY_START -->` /
+        `<!-- HUMAN_ONLY_END -->` HTML comment markers and should not be used as
+        actionable review criteria.
+
+        When this file is modified in a PR, perform the following alignment check:
+        1. For each `<!-- HUMAN_ONLY_START --> ... <!-- HUMAN_ONLY_END -->` block,
+           verify that its examples and guidance are consistent with (and do not
+           contradict) the AI-facing rules stated in the same file.
+        2. Flag any HUMAN_ONLY section whose content has drifted from the surrounding
+           AI-facing rules due to edits introduced in this PR.
+        3. If new AI-facing rules were added without updating a related HUMAN_ONLY
+           reference section, note this as a suggestion (not a required fix).
+
+    # ── Secrets / sensitive information scanning ────────────────────────────
+    - path: "platformio*.ini*"
+      instructions: >
+        Scan for secrets, passwords, and other sensitive information accidentally
+        committed to PlatformIO configuration files (platformio.ini,
+        platformio_override.ini, platformio_override.ini.sample).
+
+        Flag any of the following:
+          - build_flags entries that define credentials as literal values, e.g.:
+              -DWIFI_SSID=\"<YOUR_SSID>\" -DWIFI_PASS=\"<YOUR_PASSWORD>\"
+              -DOTA_PASS=\"<OTA_PASSWORD>\" -DMQTT_PASS=\"<MQTT_PASSWORD>\"
+            Flag only when the value is not a recognisable placeholder (see below).
+          - upload_flags or upload_port values that embed a password or auth token (e.g., --auth=<PASSWORD> or any URL using credential-bearing userinfo).
+          - Any key = <value> pair whose key name contains "pass", "password",
+            "secret", "token", "key", "credential", or "auth" where the value is
+            a non-empty, non-placeholder literal string.
+          - Hardcoded IP addresses or hostnames paired with credentials in the
+            same environment section.
+          - API keys or access tokens as literal strings in any field.
+
+        Do NOT flag:
+          - Values that are clearly template placeholders (e.g., YOUR_SSID,
+            <YOUR_PASSWORD>, changeme, example_token, your_password_here).
+          - Values that use PlatformIO environment variable substitution (${sysenv.WIFI_PASS} or ${env:WIFI_PASS}).
+          - Comments that only explain what a field should contain.
+          - platformio_override.ini.sample entries that contain only
+            placeholder/example values.
+
+    - path: "usermods/**/library.json"
+      instructions: >
+        Scan for secrets and sensitive information in usermod dependency manifests.
+
+        Flag any of the following:
+          - Dependency URLs that embed credentials in the URL itself (e.g., any URL containing credential-bearing userinfo).
+          - Personal access tokens, OAuth tokens, or API keys as literal strings
+            anywhere in the file.
+          - Values matching well-known secret patterns: GitHub PATs (ghp_...,
+            github_pat_...), AWS access keys (AKIA...), or similarly structured
+            high-entropy tokens.
+
+        Do NOT flag:
+          - Plain HTTPS or SSH URLs without embedded credentials.
+          - Version specifiers, semver ranges, or commit SHA references that
+            contain no credential prefix.
+          - Repository owner/name path segments (not credential material).
+
+    - path: "usermods/**/{readme,README,Readme}.md"
+      instructions: >
+        Scan for secrets, passwords, and sensitive information in usermod
+        documentation files, including inside code blocks, inline code, and prose.
+
+        Flag any of the following:
+          - Hardcoded Wi-Fi SSID or password values that appear to be real (non-placeholder) 
+            strings in configuration or installation examples.
+          - Hardcoded OTA, AP, or MQTT passwords in code snippets or step-by-step
+            instructions.
+          - API keys, bearer tokens, or access tokens shown as literal values.
+          - Example platformio_override.ini snippets that contain real-looking
+            credential values instead of placeholders.
+          - Hardcoded IP addresses combined with credentials in the same example.
+
+        Do NOT flag:
+          - Values that are clearly template placeholders (e.g., YOUR_SSID,
+            <password>, my_secret, changeme, ****).
+          - Generic prose describing what a field means without supplying a value.
+          - Asterisk-masked values (e.g., ******, ••••••).
+
+  finishing_touches:
+    # Docstrings | Options for generating Docstrings for your PRs/MRs.
+    docstrings:
+      # Docstrings | Allow CodeRabbit to generate docstrings for PRs/MRs.
+      # default: true - disabled in WLED: has caused confusion in the past
+      enabled: false
+    unit_tests:
+      # default: true - disabled in WLED: we don't have a unit test framework, this option just confuses contributors
+      enabled: false
