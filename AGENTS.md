@@ -68,8 +68,7 @@ docs/                # Coding convention docs
 
 ```text
 main                # Main development trunk (daily/nightly) 17.0.0-dev. Target branch for PRs.
-  ├── V5            # special branch: code rework for esp-idf 5.5.x (unstable)
-      ├── V5-C6     # special branch: integration of new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
+  ├── V5            # special branch: code rework for esp-idf 5.5.x and new MCU types: esp32-c5, esp32-c6, esp32-p4 (unstable)
 16_x                # maintenance for release 16.0.x
 0_15_x              # maintenance (bugfixes only) for previous release 0.15.x
 (tag) v0.14.4       # old version 0.14.4 (no maintenance)
@@ -134,8 +133,8 @@ main                # Main development trunk (daily/nightly) 17.0.0-dev. Target 
 
 Background Info:
 
-- PSRAM access is up to 18× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
-- Consider that ESP32 often crashes when the largest DRAM chunk gets below 10 KB.
+- PSRAM access is up to 15× slower than DRAM on ESP32 (dual-SPI bus), 3–10× slower than DRAM on ESP32-S3/-S2 with quad-SPI bus. On ESP32-S3 with octal PSRAM (`CONFIG_SPIRAM_MODE_OCT`), the penalty is smaller (~2×) because the 8-line DTR bus can transfer 8 bits in parallel. On ESP32-P4 with hex PSRAM (`CONFIG_SPIRAM_MODE_HEX`), the 16-line bus runs at 200 MHz which brings it on-par with DRAM.
+- Consider that ESP32 often crashes when the largest available DRAM chunk gets below 10 KB.
 
 ### Preprocessor / Feature Flags
 - Feature toggling: `WLED_DISABLE_*` and `WLED_ENABLE_*` flags (exact names matter!)
@@ -162,8 +161,9 @@ Background Info:
 
 - Use FreeRTOS mutexes, semaphores or queues when true concurrent access from multiple FreeRTOS tasks is possible, and race-conditions can lead to unexpected behaviour.
 - **Avoid `portENTER_CRITICAL()` / `portEXIT_CRITICAL()`**, as these functions stall the complete system and may cause LEDs flickering. Prefer FreeRTOS mutexes, semaphores or queues.
+- Don't use `portMAX_DELAY` when waiting to acquire a mutex - this can lock the task indefinitely. Find a reasonable max waiting time, and handle mutex timeouts gracefully.
 - **Important**: Not every shared resource needs a mutex. Some synchronization is guaranteed by the overall control flow, for example when function calls are sequenced within the same loop iteration.
-- Consider RAII as an alternative to  mutexes or semaphores.
+- Consider using `std::atomic` or RAII scoped guards as alternatives to mutexes, semaphores or queues.
 
 ## Web UI Code Style (wled00/data/)
 
@@ -198,10 +198,10 @@ REGISTER_USERMOD(myUsermod);
 
 refer to detailed examples in `usermods/EXAMPLE/`, `usermods/user_fx/` and [in the user documentation for custom features](https://kno.wled.ge/advanced/custom-features/).
 
-### Usermod `loop()`
-
-- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
-- Frequency of calls varies with system load - up to 2000 times/sec with few LEDs and little background activity, down to 1-3 times/sec during FS activity or during high workload from effects and other usermods.
+- Activate via `custom_usermods = ` in platformio build config. The `usermod_v2_` prefix or `_v2` suffix can be omitted.
+- Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
+- Store repeated strings as `static const char[] PROGMEM`
+- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see below)
 
 ### Usermod IDs
 
@@ -213,10 +213,13 @@ A unique ID (registered in `wled00/const.h` and overriding `getId()`) is **only 
 
 If none of the above apply, the usermod may omit `getId()` (or return the default `USERMOD_ID_UNSPECIFIED`) and does **not** need an entry in `const.h`.
 
-- Add usermod IDs to `wled00/const.h` **only when a unique ID is required** (see above)
-- Activate via `custom_usermods` in platformio build config
-- Base new usermods on `usermods/EXAMPLE/` (never edit the example directly)
-- Store repeated strings as `static const char[] PROGMEM`
+### Usermod `loop()`
+
+- Called once per main loop iteration. Usermods should simply `return` when `!enabled`.
+- Frequency of calls varies with system load:
+    * up to 2000 times/sec with few LEDs and little background activity,
+    * between 20 and 300 times/second during high workload from effects and other usermods,
+    * (worst case) down to 1-3 times/sec during FS activity or when serving lots of network API requests.
 
 ## CI/CD
 
@@ -230,7 +233,7 @@ No automated linting is configured. Match existing code style in files you edit.
 
 ## General Rules
 
-- Repository language is English.
+- Important: Repository language is **English**. This applies to source code (including comments), commit messages and any kind of documentation for developer or users.
 - The `docs/` folder is for developer/contributor information (coding conventions, architecture, etc.). User documentation is maintained in the [wled/WLED-Docs](https://github.com/wled/WLED-Docs) repository.
 - Never edit or commit auto-generated `wled00/html_*.h` / `wled00/js_*.h`.
 - When updating an existing PR, retain the original description. Only modify it to ensure technical accuracy. Add change logs after the existing description.

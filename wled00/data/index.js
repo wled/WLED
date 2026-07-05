@@ -1567,8 +1567,36 @@ function readState(s,command=false)
 			case 19:
 				errstr = "A filesystem error has occured.";
 				break;
+// error code from WLEDMM - not supported yet
+//			case 33:
+//				errstr = "Low Memory (generic RAM).";
+//		  break;
+//			case 34:
+//				errstr = "Low Memory (effect data).";
+//		  break;
+//			case 35:
+//				errstr = "Low Memory (WS data).";
+//		  break;
+//			case 36:
+//				errstr = "Low Memory (oappend buffer).";
+//		  break;
+//			case 37:
+//				errstr = "no memory for LEDs buffer.";
+//		  break;
+			case 90:
+				errstr = "Unexpected Restart.";
+		  break;
+			case 91:
+				errstr = "Brownout Restart.";
+		  break;
+			case 100:
+				errstr = "Please reboot WLED to activate changed settings.";
+		  break;
+			case 101:
+				errstr = "Please switch your device off and back on.";
+		  break;
 		}
-		showToast('Error ' + s.error + ": " + errstr, true);
+		showToast(((s.error<100) ? 'Error ': 'Note ') + s.error + ": " + errstr, true);  // show "please restart" as a note, all others as errors
 	}
 
 	selectedPal = i.pal;
@@ -2818,14 +2846,7 @@ function rSegs()
 	cnfrS = false;
 	bt.style.color = "var(--c-f)";
 	bt.innerHTML = "Reset segments";
-	var obj = {"seg":[{"start":0,"stop":ledCount,"sel":true}]};
-	if (isM) {
-		obj.seg[0].stop = mw;
-		obj.seg[0].startX = 0;
-		obj.seg[0].stopY = mh;
-	}
-	for (let i=1; i<=lSeg; i++) obj.seg.push({"stop":0});
-	requestJson(obj);
+	requestJson({"rSeg": true}); // send reset segment request, calls makeAutoSegments() in firmware
 }
 
 function loadPalettesData() {
