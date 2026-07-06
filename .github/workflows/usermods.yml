@@ -35,7 +35,7 @@ jobs:
         matrix='[]'
         for mod in $changed; do
           # Skip usermods known to be incompatible
-          case "$mod" in PWM_fan|BME68X_v2|pixels_dice_tray) continue ;; esac
+          case "$mod" in BME68X_v2|pixels_dice_tray) continue ;; esac
           # Only build usermods that ship a library.json
           [ -f "usermods/$mod/library.json" ] || continue
 
