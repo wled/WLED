@@ -24,9 +24,11 @@ jobs:
         fetch-depth: 0
     - name: Get changed usermod build matrix
       id: envs
+      env:
+        BASE_SHA: ${{ github.event.pull_request.base.sha }}
       run: |
         # Usermods whose directories changed in this PR
-        changed=$(git diff --name-only ${{ github.event.pull_request.base.sha }} HEAD \
+        changed=$(git diff --name-only "$BASE_SHA" HEAD \
           | grep '^usermods/' | cut -d/ -f2 | sort -u || true)
 
         # Shared override defining the standard build environments
@@ -92,18 +94,22 @@ jobs:
     - name: Install PlatformIO
       run: pip install -r requirements.txt
     - name: Configure build environment
+      env:
+        USERMOD: ${{ matrix.usermod }}
       run: |
         # Use the usermod's own override when it provides one, otherwise apply
         # the shared usermods override with this usermod enabled.
-        sample="usermods/${{ matrix.usermod }}/platformio_override.ini.sample"
+        sample="usermods/${USERMOD}/platformio_override.ini.sample"
         if [ -f "$sample" ]; then
           cp -v "$sample" platformio_override.ini
         else
           cp -v usermods/platformio_override.usermods.ini platformio_override.ini
           echo >> platformio_override.ini
-          echo "custom_usermods = ${{ matrix.usermod }}" >> platformio_override.ini
+          echo "custom_usermods = ${USERMOD}" >> platformio_override.ini
         fi
         cat platformio_override.ini
 
     - name: Build firmware
-      run: pio run -e ${{ matrix.env }}
+      env:
+        BUILD_ENV: ${{ matrix.env }}
+      run: pio run -e "$BUILD_ENV"
