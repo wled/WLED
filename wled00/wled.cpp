@@ -722,7 +722,7 @@ void WLED::initConnection()
   WiFi.setHostname(hostname);
 #endif
 
-  if (multiWiFi[selectedWiFi].staticIP != 0U && multiWiFi[selectedWiFi].staticGW != 0U) {
+  if (uint32_t(multiWiFi[selectedWiFi].staticIP) != 0U && uint32_t(multiWiFi[selectedWiFi].staticGW) != 0U) {  // explicit cast to uint32_t ensures we check the IPv4 adress, not IPv6
     WiFi.config(multiWiFi[selectedWiFi].staticIP, multiWiFi[selectedWiFi].staticGW, multiWiFi[selectedWiFi].staticSN, dnsAddress);
   } else {
     WiFi.config(IPAddress((uint32_t)0), IPAddress((uint32_t)0), IPAddress((uint32_t)0));
