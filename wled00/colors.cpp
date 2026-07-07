@@ -663,13 +663,13 @@ void NeoGammaWLEDMethod::calcGammaTable(float gamma)
 
 uint8_t NeoGammaWLEDMethod::Correct(uint8_t value)
 {
-  if (!gammaCorrectCol) return value;
+  if (!applyGamma) return value; // gamma is (currently) disabled
   return gammaT[value];
 }
 
 uint32_t NeoGammaWLEDMethod::inverseGamma32(uint32_t color)
 {
-  if (!gammaCorrectCol) return color;
+  if (!applyGamma) return color;
   uint8_t w = W(color);
   uint8_t r = R(color);
   uint8_t g = G(color);

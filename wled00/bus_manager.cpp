@@ -266,33 +266,44 @@ void BusDigital::setStatusPixel(uint32_t c) {
   }
 }
 
+void BusDigital::setBrightness(uint8_t b) {
+  _bri = b;
+  if (_bri < 255 && applyGamma)
+    _bri = gammaCorrectBri ? map(_bri, 1, 255, gamma8inv(2), 255) : gamma8inv(_bri+1); // limit min brightness so gamma does not dim to black
+}
+
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
-  if (!_valid) return;
-  if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
+  if (_reversed) pix = _len - pix -1;
+  pix += _skip;
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
-  if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
-  c = color_fade(c, _bri, true); // apply brightness
+  // apply brightness, color correction and white calculation, if black, we can skip all of it as they are no-ops
+  if (c > 0) {
+    c = color_fade(c, _bri, false); // apply brightness
+    c = gamma32(c); // apply gamma correction if (currently) used
+    if (!_valid) return;
+    if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
 
-  if (hasCCT()) {
-    wwcw = ((cctCW + 1) * _bri) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
-    wwcw |= ((cctWW + 1) * _bri) >> 8;
-    if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
-  }
+    if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
 
-  if (BusManager::_useABL) {
-    // if using ABL, sum all color channels to estimate current and limit brightness in show()
-    uint8_t r = R(c), g = G(c), b = B(c);
-    if (_milliAmpsPerLed < 255) { // normal ABL
-      _colorSum += r + g + b + W(c);
-    } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
-      _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
+    if (hasCCT()) {
+      wwcw = (cctCW + 1) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
+      wwcw |= (cctWW + 1) >> 8;
+      if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
+    }
+
+    if (BusManager::_useABL) {
+      // if using ABL, sum all color channels to estimate current and limit brightness in show()
+      uint8_t r = R(c), g = G(c), b = B(c);
+      if (_milliAmpsPerLed < 255) { // normal ABL
+        _colorSum += r + g + b + W(c);
+      } else { // wacky WS2815 power model, ignore white channel, use max of RGB (issue #549)
+        _colorSum += ((r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b));
+      }
     }
   }
 
-  if (_reversed) pix = _len - pix -1;
-  pix += _skip;
   const uint8_t co = _colorOrderMap.getPixelColorOrder(pix+_start, _colorOrder);
   if (_type == TYPE_WS2812_1CH_X3) { // map to correct IC, each controls 3 LEDs
     unsigned pOld = pix;
@@ -469,6 +480,7 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
+  c = gamma32(c); // apply gamma correction if (currently) used
   if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
     c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   }
@@ -560,8 +572,14 @@ void BusPwm::show() {
   // for all other cases it will just try to "spread" the load on PSU
   // Phase shifting requires that LEDC timers are synchronised (see setup()). For PWM CCT (and H-bridge) it is
   // also mandatory that both channels use the same timer (pinManager takes care of that).
+    unsigned duty;
   for (unsigned i = 0; i < numPins; i++) {
-    unsigned duty = (_data[i] * pwmBri) / 255;
+    unsigned duty;
+    if (applyGamma) {
+      duty = (unsigned)(powf((float)_data[i] / 255.0f, gammaCorrectVal) * pwmBri); // apply full resolution gamma correction: way more accurate than using gamma8(_data[i])
+    } else {
+      duty = (_data[i] * pwmBri) / 255;
+    }
     unsigned deadTime = 0;
 
     if (_type == TYPE_ANALOG_2CH && Bus::_cctBlend <= 0) {
@@ -714,6 +732,7 @@ BusNetwork::BusNetwork(const BusConfig &bc)
 void BusNetwork::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid || pix >= _len) return;
   uint8_t ww, cw; // dummy, unused
+  // TODO: should gamma be applied here or better leave it to the receiver?
   if (_hasWhite) c = autoWhiteCalc(c, ww, cw);
   if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   unsigned offset = pix * _UDPchannels;
@@ -1109,8 +1128,8 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
 
 void IRAM_ATTR BusHub75Matrix::setPixelColor(unsigned pix, uint32_t c) {
   if (!_valid) return; // note: no need to check pix >= _len as that is checked in containsPixel()
+  c = gamma32(c); // apply gamma correction if (currently) used
   // if (_cct >= 1900) c = colorBalanceFromKelvin(_cct, c); //color correction from CCT
-
   if (_ledBuffer) {
     CRGB fastled_col = CRGB(c);
     if (_ledBuffer[pix] != fastled_col) {

@@ -530,6 +530,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
     gammaCorrectBri = false;
     gammaCorrectCol = false;
   }
+  applyGamma = gammaCorrectCol; // apply gamma to colors if used
   NeoGammaWLEDMethod::calcGammaTable(gammaCorrectVal); // fill look-up tables
 
   JsonObject light_tr = light["tr"];
