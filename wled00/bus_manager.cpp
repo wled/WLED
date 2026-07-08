@@ -269,7 +269,7 @@ void BusDigital::setStatusPixel(uint32_t c) {
 void BusDigital::setBrightness(uint8_t b) {
   _bri = b;
   if (_bri < 255 && applyGamma)
-    _bri = gammaCorrectBri ? map(_bri, 1, 255, gamma8inv(2), 255) : gamma8inv(_bri+1); // limit min brightness so gamma does not dim to black
+    _bri = gamma8inv(_bri+1); // limit min brightness so gamma does not dim to black
 }
 
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
