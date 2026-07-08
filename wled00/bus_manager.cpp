@@ -268,13 +268,14 @@ void BusDigital::setStatusPixel(uint32_t c) {
 
 void BusDigital::setBrightness(uint8_t b) {
   _bri = b;
-  if (_bri < 255 && applyGamma)
-    _bri = gamma8inv(_bri+1); // limit min brightness so gamma does not dim to black
+  if (_bri > 0 && _bri < 255 && applyGamma)
+    _bri = gamma8inv(_bri + 1); // limit min brightness so gamma does not dim to black
 }
 
 // note: using WLED_O2_ATTR makes this function ~7% faster at the expense of 600 bytes of flash
 void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
-  if (_reversed) pix = _len - pix -1;
+  if (!_valid) return;
+  if (_reversed) pix = _len - pix - 1;
   pix += _skip;
   uint8_t cctWW = 0, cctCW = 0;
   uint16_t wwcw = 0;
@@ -282,14 +283,13 @@ void IRAM_ATTR BusDigital::setPixelColor(unsigned pix, uint32_t c) {
   if (c > 0) {
     c = color_fade(c, _bri, false); // apply brightness
     c = gamma32(c); // apply gamma correction if (currently) used
-    if (!_valid) return;
     if (Bus::_cct >= 1900) c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
 
     if (hasWhite()) c = autoWhiteCalc(c, cctWW, cctCW);
 
     if (hasCCT()) {
-      wwcw = (cctCW + 1) & 0xFF00; // apply brightness to CCT (store CW in upper byte)
-      wwcw |= (cctWW + 1) >> 8;
+      wwcw = uint16_t(cctCW) << 8; // store CW in upper byte
+      wwcw |= cctWW;
       if (_type == TYPE_WS2812_WWA) c = RGBW32(wwcw, wwcw >> 8, 0, W(c)); // ww,cw, 0, w
     }
 
@@ -480,7 +480,6 @@ BusPwm::BusPwm(const BusConfig &bc)
 
 void BusPwm::setPixelColor(unsigned pix, uint32_t c) {
   if (pix != 0 || !_valid) return; //only react to first pixel
-  c = gamma32(c); // apply gamma correction if (currently) used
   if (Bus::_cct >= 1900 && (_type == TYPE_ANALOG_3CH || _type == TYPE_ANALOG_4CH)) {
     c = colorBalanceFromKelvin(Bus::_cct, c); //color correction from CCT
   }
