@@ -674,7 +674,7 @@ void ParallelSpiBus::end() {
 }
 
 bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  const size_t pixelBytes = (size_t)numPixels * numChannels;
+  const size_t pixelBytes = padPixelBytesForSuffix((size_t)numPixels * numChannels, _ledType);
   size_t needed = _prefixLen + pixelBytes + _suffixLen;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   if (_encodeBuffer) { heap_caps_free(_encodeBuffer); _encodeBuffer = nullptr; }

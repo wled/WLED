@@ -24,13 +24,14 @@
 		function hasCCT(t) { return !!(gT(t).c & 0x04); }           // is white CCT enabled
 		function is16b(t)  { return !!(gT(t).c & 0x10); }           // is digital 16 bit type
 		function mustR(t)  { return !!(gT(t).c & 0x20); }           // Off refresh is mandatory
-		function isCustom(b) { return b === 39; }                   // check for custom bus type TYPE_CUSTOM_BUS, see const.h
+		function isCst(n)  { return !!d.Sf["CBen"+n]?.checked; }  // per-bus channel/timing override enabled (any digital type)
+		function canCst(t) { return isDig(t) && !isD2P(t); }        // type supports the customize option (single-wire digital)
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
-		// active color channels for a bus (honours custom-bus mapping and 16-bit flag)
+		// active color channels for a bus (honours custom channel-map override and 16-bit flag)
 		function getChannels(t, n) {
-			if (isCustom(t)) {
+			if (isCst(n)) {
 				let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
 				let ch = 0;
 				for (let ci = 0; ci < nch; ci++) {
@@ -43,6 +44,21 @@
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			if (is16b(t)) ch *= 2;
 			return ch;
+		}
+		// pre-fill the channel-map override with the native layout of type t (called when "Customize" is first checked)
+		function presetCustomDefaults(n, t) {
+			const order = ["GRB","RGB","BRG","RBG","BGR","GBR"][parseInt(d.Sf["CO"+n]?.value) || 0];
+			const colorVal = {R:1, G:2, B:3};
+			let map = order.split("").map(l => colorVal[l]);
+			if (hasCCT(t)) map.push(5,6);      // WW, CW
+			else if (hasW(t)) map.push(4);      // W
+			let nch = Math.min(Math.max(map.length, 1), 6);
+			if (d.Sf["CBch"+n]) d.Sf["CBch"+n].value = nch;
+			for (let ci = 0; ci < 6; ci++) {
+				let sel = d.Sf["CBc"+ci+n];
+				if (sel) sel.value = ci < map.length ? map[ci] : 0;
+			}
+			if (d.Sf["CBb"+n]) d.Sf["CBb"+n].checked = is16b(t);
 		}
 		// iterate every configured LED bus: fn(n, t, sel, idx)
 		function forEachBus(fn) {
@@ -399,13 +415,16 @@
 				}
 				gId("rf"+n).onclick = mustR(t) ? (()=>{return false}) : (()=>{});           // prevent change change of "Refresh" checkmark when mandatory
 				gRGBW |= hasW(t);                                                           // RGBW checkbox
-				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || isCustom(t)) ? "none":"inline";       // hide color order for PWM / custom bus
-				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && !isCustom(t)) ? "inline":"none";   // show swap channels dropdown (not for custom bus)
+				gId("co"+n).style.display = (isVir(t) || isAna(t) || isHub75(t) || isCst(n)) ? "none":"inline";       // hide color order for PWM / customized bus
+				gId("dig"+n+"w").style.display = (isDig(t) && hasW(t) && !isCst(n)) ? "inline":"none";   // show swap channels dropdown (not for customized bus)
 				gId("dig"+n+"w").querySelector("[data-opt=CCT]").disabled = !hasCCT(t);     // disable WW/CW swapping
 				if (!(isDig(t) && hasW(t))) d.Sf["WO"+n].value = 0;                         // reset swapping
-				// show/hide custom bus panel and update visible channel rows
-				gId("custbus"+n).style.display = isCustom(t) ? "inline":"none";
-				if (isCustom(t)) {
+				// show/hide "Customize" toggle (single-wire digital types, only when Advanced Settings shown) and the custom bus panel + visible channel rows
+				let cstElig = canCst(t);
+				gId("custtoggle"+n).style.display = (cstElig && d.Sf.AS.checked) ? "inline":"none";
+				if (!cstElig && d.Sf["CBen"+n]) d.Sf["CBen"+n].checked = false; // type no longer eligible: disable customization
+				gId("custbus"+n).style.display = isCst(n) ? "inline":"none";
+				if (isCst(n)) {
 					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
 					for (let ci=0; ci<6; ci++) {
 						let row = gId("CBrow"+n+"_"+ci);
@@ -440,7 +459,7 @@
 					if (!isHub75(t)) {
 						let maxLeds = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384);
 						// C3 parallel SPI (I2S/SPI driver) has a 1920 byte DMA limit
-						if (isC3() && (isDig(t) || isCustom(t)) && !isD2P(t)) {
+						if (isC3() && isDig(t) && !isD2P(t)) {
 							let drv = d.Sf["LD"+n]?.value | 0;
 							if (drv == 1) {
 								let ch = getChannels(t, n);
@@ -673,6 +692,7 @@ LED Timing: <select name="SF${s}">
 <div id="dig${s}s" style="display:inline"><br>Skip first LEDs: <input type="number" name="SL${s}" min="0" max="255" value="0" oninput="UI()"></div>
 <div id="dig${s}f" style="display:inline"><br><span id="off${s}">Off Refresh</span>: <input id="rf${s}" type="checkbox" name="RF${s}"></div>
 <div id="dig${s}a" style="display:inline"><br>Auto-calculate W channel from RGB:<br><select name="AW${s}"><option value=0>None</option><option value=1>Brighter</option><option value=2>Accurate</option><option value=3>Dual</option><option value=4>Max</option></select>&nbsp;</div>
+<div id="custtoggle${s}" style="display:none"><br>Customize bus: <input type="checkbox" name="CBen${s}" onchange="if(this.checked) presetCustomDefaults('${s}', parseInt(d.Sf['LT${s}'].value)); UI();"></div>
 <div id="custbus${s}" style="display:none">
 <br>Custom Bus: channels: <select name="CBch${s}" onchange="UI()">
 <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
@@ -1146,7 +1166,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					// 1=I2S/LCD/SPI, 2=parallelBitBang
 					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
 						parIndices.push(n);
-						if (isCustom(t)) custParIndices.push(n);
+						if (isCst(n)) custParIndices.push(n);
 					}
 				});
 

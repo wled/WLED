@@ -81,4 +81,16 @@ inline void mapBrightnessToCurrentStep(uint8_t brightness, uint8_t numSteps, uin
   scaleOut = (uint8_t)(((uint16_t)brightness * 255) / curBri);  // always <= 255
 }
 
+// Pad pixelBytes up to a whole number of native LED-IC channels if the bus has a suffix to make sure it alignes
+inline size_t padPixelBytesForSuffix(size_t pixelBytes, uint8_t ledType) {
+  uint8_t nativeBytes = 0;
+  switch (ledType) {
+    case TYPE_SM16825: nativeBytes = 10; break; // 5 channels (R,G,B,WW,CW) x 2 bytes (16-bit)
+    default: break;
+  }
+  if (nativeBytes == 0) return pixelBytes;
+  const size_t rem = pixelBytes % nativeBytes;
+  return rem ? pixelBytes + (nativeBytes - rem) : pixelBytes;
+}
+
 } // namespace WLEDpixelBus

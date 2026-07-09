@@ -421,9 +421,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
-      // Custom bus: send per-channel config fields
-      if ((bus->getType() & 0x7F) == TYPE_CUSTOM_BUS) {
+      // Custom bus: send per-channel config fields (active for any digital type when customized)
+      if (bus->getCustomBusConfig().active()) {
         const CustomBusConfig& cb = bus->getCustomBusConfig();
+        char cben[7]  = "CBen";  cben[4]  = offset+s; cben[5]  = 0; // customize enabled
         char cbch[7] = "CBch"; cbch[4] = offset+s; cbch[5] = 0; // channel count
         char cbio[7] = "CBio"; cbio[4] = offset+s; cbio[5] = 0; // invert output
         char cbb[6]  = "CBb";  cbb[3]  = offset+s; cbb[4]  = 0; // is16bit
@@ -432,6 +433,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
         char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
         char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
+        printSetFormCheckbox(settingsScript, cben, true);
         printSetFormValue(settingsScript, cbch, cb.numChannels);
         printSetFormCheckbox(settingsScript, cbio, cb.invertOutput);
         printSetFormCheckbox(settingsScript, cbb,  cb.is16bit);

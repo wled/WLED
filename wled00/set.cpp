@@ -268,8 +268,10 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       // this may happen even before this loop is finished so we do "doInitBusses" after the loop
       uint8_t bsf = request->hasArg(sf) ? (uint8_t)request->arg(sf).toInt() : 100;
       busConfigs.emplace_back(type, pins, start, length, colorOrder | (channelSwap<<4), request->hasArg(cv), skip, awmode, freq, maPerLed, maMax, driverType, text, (uint8_t)bsf);
-      // For TYPE_CUSTOM_BUS: parse per-channel custom config from the submitted form
-      if ((type & 0x7F) == TYPE_CUSTOM_BUS) { // strip bit 7 (off-refresh flag)
+      // Customized channel map/timing override: parsed for any digital LED type when the
+      // "customize" checkbox (CBen) is submitted; numChannels != 0 marks CustomBusConfig active.
+      char cben[7] = "CBen"; cben[4] = offset+s; cben[5] = 0;
+      if (request->hasArg(cben)) {
         BusConfig& bc_back = busConfigs.back();
         char cbch[7]  = "CBch";  cbch[4]  = offset+s; cbch[5]  = 0;
         char cbio[7]  = "CBio";  cbio[4]  = offset+s; cbio[5]  = 0;

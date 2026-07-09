@@ -217,8 +217,8 @@ Esp8266DmaBus::~Esp8266DmaBus() {
 //   Idle/reset are handled by _idleBuf + descriptor chain.
 // ---------------------------------------------------------------------------
 bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-  // 4-step I2S encoding: each source byte → 4 encoded bytes
-  const size_t pixelBytes = (size_t)numPixels * numChannels * 4;
+  // 4-step I2S encoding: each source byte → 4 encoded bytes; pad in logical bytes before expansion
+  const size_t pixelBytes = padPixelBytesForSuffix((size_t)numPixels * numChannels, _ledType) * 4;
   size_t needed = _prefixLen + pixelBytes + _suffixLen * 4;
   if (_encodeBuffer && _encodeBufferSize >= needed) return true;
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }

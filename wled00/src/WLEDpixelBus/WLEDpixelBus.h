@@ -157,7 +157,7 @@ constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
 // Lower nibble = logical channel count.  Upper nibble = combination of these flags.
 static constexpr uint8_t NCHF_16BIT  = 0x10; // 16-bit chip (UCS8903/8904/SM16825): wire bytes = logCh * 2
 static constexpr uint8_t NCHF_INVERT = 0x20; // one or more channels polarity-inverted (_invertMask applies)
-static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map (TYPE_CUSTOM_BUS): _channelMap[] drives encoding
+static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[] drives encoding
 // 0x80 reserved
 
 /**
@@ -180,7 +180,7 @@ public:
                    _idxR(0), _idxG(1), _idxB(2),
                    _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
-  // Custom channel map constructor for TYPE_CUSTOM_BUS
+  // Custom channel map constructor for custom color orders
   // channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
   ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit);
 
@@ -268,9 +268,8 @@ private:
   uint8_t _pixelFormat; // lower nibble = bytes per pixel, upper nibble = NCHF_ flags (invert, 16-bit, custom)
   uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT or NCHF_CUSTOM set)
   uint8_t _idxR, _idxG, _idxB;  // wire byte index for R, G, B
-  uint8_t _idxW, _idxCW;       // wire byte index for W (or WW) and CW (CCT types)
-  uint8_t _channelMap[6]; // custom channel map (TYPE_CUSTOM_BUS): _channelMap[i] = color source for wire byte i
-                          // MUST remain last — keeps _idxR/_idxG/_idxB at same offsets as before, preserving IRAM code size
+  uint8_t _idxW, _idxCW;        // wire byte index for W (or WW) and CW (CCT types)
+  uint8_t _channelMap[6];       // custom channel map: _channelMap[i] = color source for wire byte i
 
   // Helpers
   static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {
@@ -352,7 +351,7 @@ public:
   virtual void setInverted(bool /*inv*/) { }
 
   /**
-   * Replace the color encoder (e.g. for TYPE_CUSTOM_BUS after bus creation).
+   * Replace the color encoder (e.g. for curstom bus types after bus creation).
    * Must be called after construction but before begin().
    */
   void setEncoder(const ColorEncoder& enc) { _encoder = enc; }
@@ -415,9 +414,9 @@ public:
       case 3:                    _encoder.encodeRGB(c, out);                   break; // 3ch RGB
       case 4:                    _encoder.encodeRGBW(c, out);                  break; // 4ch RGBW
       case 5:                    _encoder.encodeCCT(c, cct, out);              break; // 5ch CCT
-      case (3*2) | NCHF_16BIT:   _encoder.encodeRGB16(c, out, _encBri);        break; // 16-bit RGB
-      case (4*2) | NCHF_16BIT:   _encoder.encodeRGBW16(c, out, _encBri);       break; // 16-bit RGBW
-      case (5*2) | NCHF_16BIT:   _encoder.encodeCCT16(c, cct, out, _encBri);   break; // 16-bit CCT
+      case (3*2) | NCHF_16BIT:   _encoder.encodeRGB16(c, out, _encBri);        break; // 16-bit RGB (6 bytes per pixel)
+      case (4*2) | NCHF_16BIT:   _encoder.encodeRGBW16(c, out, _encBri);       break; // 16-bit RGBW (8bytes per pixel)
+      case (5*2) | NCHF_16BIT:   _encoder.encodeCCT16(c, cct, out, _encBri);   break; // 16-bit CCT (10 bytes per pixel)
       default:                   _encoder.encodeGeneric(c, cct, out, _encBri); break; // inverted / special cases
     }
     return true;
@@ -475,7 +474,7 @@ public:
    * @param numChannels bytes per pixel in the encoded stream
    */
   virtual bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
-    const size_t pixelBytes = (size_t)numPixels * numChannels;
+    const size_t pixelBytes = padPixelBytesForSuffix((size_t)numPixels * numChannels, _ledType);
     size_t needed = _prefixLen + pixelBytes + _suffixLen;
     if (_encodeBuffer && _encodeBufferSize >= needed) return true;
     if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; }

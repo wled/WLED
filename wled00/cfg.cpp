@@ -234,23 +234,19 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t start = elm["start"] | 0;
       if (length==0 || start + length > MAX_LEDS) continue; // zero length or we reached max. number of LEDs, just stop
       uint8_t ledType = elm["type"] | TYPE_WS2812_RGB;
-      // Migrate legacy types to TYPE_CUSTOM_BUS
-      CustomBusConfig migratedCustom;
-      bool isMigrated = false;
+      // Special types that use CustomBusConfig channel-map override TODO: is there a better way to do this at bus level or do we need this in busmanager?
+      CustomBusConfig customBus;
+      bool isCustom = false;
       if (ledType == TYPE_WS2812_1CH_X3) {
-        ledType = TYPE_CUSTOM_BUS;
-        isMigrated = true;
-        migratedCustom.numChannels = 3;
-        migratedCustom.channelColors[0] = migratedCustom.channelColors[1] = migratedCustom.channelColors[2] = 4; // W,W,W
-        // timing left at struct defaults (800kHz WS2812)
+        isCustom = true;
+        customBus.numChannels = 1; // one channel per LED, enables custom bus config
+        customBus.channelColors[0] = 4; // W,W,W  TODO: get rid of magic numbers, using an enum
       } else if (ledType == TYPE_WS2812_WWA) {
-        ledType = TYPE_CUSTOM_BUS;
-        isMigrated = true;
-        migratedCustom.numChannels = 3;
-        migratedCustom.channelColors[0] = 0; // Unused (was amber)
-        migratedCustom.channelColors[1] = 5; // WW
-        migratedCustom.channelColors[2] = 6; // CW
-        // timing left at struct defaults (800kHz WS2812)
+        isCustom = true;
+        customBus.numChannels = 3; // setting numChannels enables custom bus config
+        customBus.channelColors[0] = 6; // CW
+        customBus.channelColors[1] = 5; // WW
+        customBus.channelColors[2] = 5; // WW (amber, not supported so just set it to warm white) note: channels may need different order
       }
       bool reversed = elm["rev"];
       bool refresh = elm["ref"] | false;
@@ -269,13 +265,13 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       String host = elm[F("text")] | String();
       uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);
       busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host, (uint8_t)bsf);
-      // Apply custom bus config (migration or loaded from JSON)
+      // Apply custom bus channel-map/timing override (migration, or loaded from JSON via "cch")
       BusConfig& bc_back = busConfigs.back();
-      if (bc_back.type == TYPE_CUSTOM_BUS) {
-        if (isMigrated) {
-          bc_back.custom = migratedCustom;
-        } else {
-          bc_back.custom.numChannels = elm["cch"] | 3;
+      if (isCustom) {
+        bc_back.custom = customBus;
+      } else {
+        bc_back.custom.numChannels = elm["cch"] | 0; // 0 = not set, bus uses its native channel layout
+        if (bc_back.custom.active()) {
           JsonArrayConst cmap = elm["cmap"];
           if (!cmap.isNull()) {
             for (uint8_t ci = 0; ci < 6 && ci < cmap.size(); ci++) bc_back.custom.channelColors[ci] = (uint8_t)(int)cmap[ci];
@@ -1046,7 +1042,7 @@ void serializeConfig(JsonObject root) {
     ins[F("text")]   = bus->getCustomText();
     ins[F("bsf")]    = bus->getBusSpeedFactor();
     // Custom bus extra config
-    if ((bus->getType() & 0x7F) == TYPE_CUSTOM_BUS) {
+    if (bus->getCustomBusConfig().active()) {
       const CustomBusConfig& cb = bus->getCustomBusConfig();
       ins["cch"]  = cb.numChannels;
       JsonArray cmap = ins.createNestedArray("cmap");

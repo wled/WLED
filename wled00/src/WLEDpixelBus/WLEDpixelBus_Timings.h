@@ -51,7 +51,6 @@ inline LedTiming scaleTiming(const LedTiming& timing, float factor) {
 
 // LED timing lookup table in flash (PROGMEM on ESP8266, .rodata on ESP32)
 // Indexed by getTimingIndex() below.
-
 static const PROGMEM LedTiming s_ledTimings[] = {
 // t0h   t0l   t1h   t1l  reset_us
  { 300,  900,  700,  500,  100 },  // WS2812B (and 1CH_X3, 2CH_X3, WWA)
@@ -67,14 +66,15 @@ static const PROGMEM LedTiming s_ledTimings[] = {
  { 300,  900,  900,  300,   80 },  // SM16825 (16-bit)
  { 250,  250,  250,  250,    0 },  // APA102 / LPD8806 / P9813 / LPD6803 -> SPI LEDs, timing is not really used
  { 500,  500,  500,  500, 1000 },  // WS2801
-// TYPE_CUSTOM_BUS (36) timing is passed directly as a LedTiming struct; no fixed entries here.
-// TODO: could move these timing into the UI and always pass timings down to the firmware
+// TODO: could move these timing into the UI and always pass timings down to the firmware or better: make a LED type a struct containing all info including the string and send to UI as json
 };
 
 // Maps WLED TYPE_ to an index into s_ledTimings
 static inline uint8_t getTimingIndex(uint8_t wledType) {
   switch (wledType) {
     case TYPE_WS2812_RGB:
+    case TYPE_WS2812_1CH_X3:
+    case TYPE_WS2812_1CH:
     case TYPE_WS2812_WWA:    return  0; // migration: WWA kept for timing selection only
     case TYPE_WS2811_400KHZ: return  1;
     case TYPE_TM1829:        return  2;

@@ -87,7 +87,6 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
 }
 
-// Custom channel map constructor for TYPE_CUSTOM_BUS.
 // channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
 ColorEncoder::ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit)
 {
