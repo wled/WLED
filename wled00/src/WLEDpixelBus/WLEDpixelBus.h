@@ -160,6 +160,72 @@ static constexpr uint8_t NCHF_INVERT = 0x20; // one or more channels polarity-in
 static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[] drives encoding
 // 0x80 reserved
 
+// Maximum number of wire-byte entries in a custom channel map (ColorEncoder::_channelMap[]).
+static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6;
+
+// Chip-specific prefix/suffix byte lengths reserved in the encode buffer (see createBus()).
+static constexpr uint8_t TM1814_PREFIX_LEN  = 8; // C1+C2 current-config prefix
+static constexpr uint8_t TM1914_PREFIX_LEN  = 6; // mode-setting prefix
+static constexpr uint8_t SM16825_SUFFIX_LEN = 4; // per-frame configuration suffix
+
+// Logical channel count thresholds used by the ColorEncoder(uint8_t co, ...) constructor
+// to decide which per-channel wiring rules apply.
+static constexpr uint8_t CHANNELS_RGBW = 4; // RGBW: W-swap applies, TM1814/TM1815 W-first quirk applies
+static constexpr uint8_t CHANNELS_CCT  = 5; // RGB + WW + CW: WW/CW-swap applies
+
+/**
+ * RGB wire-position permutation, decoded from the lower nibble of WLED's color-order byte.
+ * Mirrors COL_ORDER_* in wled00/const.h (kept independent here to avoid a core dependency).
+ */
+enum ColorOrder : uint8_t {
+  ORDER_GRB = 0, // default
+  ORDER_RGB = 1, // common for WS2811
+  ORDER_BRG = 2,
+  ORDER_RBG = 3,
+  ORDER_BGR = 4,
+  ORDER_GBR = 5,
+};
+
+/**
+ * White-channel swap selector, decoded from the upper nibble of WLED's color-order byte.
+ * For 4-channel (RGBW) buses, WSWAP_B/G/R swaps the W wire position with B/G/R.
+ * For 5+ channel (CCT) buses, WSWAP_WWCW swaps the warm-white and cool-white wire positions.
+ */
+enum WSwap : uint8_t {
+  WSWAP_NONE = 0,
+  WSWAP_B    = 1, // swap W & B
+  WSWAP_G    = 2, // swap W & G
+  WSWAP_R    = 3, // swap W & R
+  WSWAP_WWCW = 4, // swap WW & CW
+};
+
+/**
+ * Custom channel map color source, used by ColorEncoder::_channelMap[] and the
+ * custom-channel-map ColorEncoder constructor. Selects which color source feeds a given wire byte.
+ */
+enum ChannelSource : uint8_t {
+  CH_UNUSED = 0,
+  CH_R      = 1,
+  CH_G      = 2,
+  CH_B      = 3,
+  CH_W      = 4,
+  CH_WW     = 5,
+  CH_CW     = 6,
+};
+
+/**
+ * Wire-byte counts per pixel for each pixel format (logical channels for 8-bit types;
+ * logical channels * 2 for 16-bit types). Used to dispatch encodeGeneric()/decodeGeneric().
+ */
+enum WireBytes : uint8_t {
+  WB_RGB    = 3,
+  WB_RGBW   = 4,
+  WB_CCT    = 5,
+  WB_RGB16  = 6,
+  WB_RGBW16 = 8,
+  WB_CCT16  = 10,
+};
+
 /**
  * Pixel encoder: maps RGBW uint32_t to a per-LED byte stream according to color order.
  *
@@ -181,8 +247,8 @@ public:
                    _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
   // Custom channel map constructor for custom color orders
-  // channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
-  ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit);
+  // channelMap[i]: ChannelSource value (CH_UNUSED/CH_R/CH_G/CH_B/CH_W/CH_WW/CH_CW)
+  ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_t numChannels, uint8_t invertMask, bool is16bit);
 
   // -------------------------------------------------------------------------
   // Fast encode — standard 8-bit types (no invert)
@@ -269,7 +335,7 @@ private:
   uint8_t _invertMask;  // bitmask: bit i = invert color i (applies when NCHF_INVERT or NCHF_CUSTOM set)
   uint8_t _idxR, _idxG, _idxB;  // wire byte index for R, G, B
   uint8_t _idxW, _idxCW;        // wire byte index for W (or WW) and CW (CCT types)
-  uint8_t _channelMap[6];       // custom channel map: _channelMap[i] = color source for wire byte i
+  uint8_t _channelMap[MAX_CUSTOM_CHANNELS]; // custom channel map: _channelMap[i] = ChannelSource for wire byte i
 
   // Helpers
   static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {

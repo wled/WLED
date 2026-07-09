@@ -48,21 +48,21 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
   uint8_t flags = 0;
 
-  // Decode RGB wire positions from color order lower nibble (0=GRB,1=RGB,2=BRG,3=RBG,4=BGR,5=GBR)
+  // Decode RGB wire positions from color order lower nibble (see ColorOrder enum)
   uint8_t rPos, gPos, bPos;
   switch (co & 0x0F) {
-    case 1:  rPos=0; gPos=1; bPos=2; break; // RGB
-    case 2:  rPos=1; gPos=2; bPos=0; break; // BRG
-    case 3:  rPos=0; gPos=2; bPos=1; break; // RBG
-    case 4:  rPos=2; gPos=1; bPos=0; break; // BGR
-    case 5:  rPos=2; gPos=0; bPos=1; break; // GBR
-    default: rPos=1; gPos=0; bPos=2; break; // GRB (case 0)
+    case ORDER_RGB: rPos=0; gPos=1; bPos=2; break;
+    case ORDER_BRG: rPos=1; gPos=2; bPos=0; break;
+    case ORDER_RBG: rPos=0; gPos=2; bPos=1; break;
+    case ORDER_BGR: rPos=2; gPos=1; bPos=0; break;
+    case ORDER_GBR: rPos=2; gPos=0; bPos=1; break;
+    default:        rPos=1; gPos=0; bPos=2; break; // ORDER_GRB
   }
   _idxR = rPos; _idxG = gPos; _idxB = bPos;
   _idxW = 3; _idxCW = 4; // defaults, overridden below as needed
 
   // White/CCT channels: numChannels from bus type, W-swap from upper nibble
-  if (numChannels == 4) {
+  if (numChannels == CHANNELS_RGBW) {
     // LED-type-specific native wire order: TM1814 and TM1815 send W first.
     // Shift RGB indices up by 1 and place W at index 0 before applying user wSwap.
     if (ledType == TYPE_TM1814 || ledType == TYPE_TM1815) {
@@ -70,12 +70,12 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
       _idxW = 0;
     }
     const uint8_t wSwap = co >> 4;
-    if (wSwap == 1) { std::swap(_idxW, _idxB); } // swap W & B
-    if (wSwap == 2) { std::swap(_idxW, _idxG); } // swap W & G
-    if (wSwap == 3) { std::swap(_idxW, _idxR); } // swap W & R
-  } else if (numChannels >= 5) {
+    if (wSwap == WSWAP_B) { std::swap(_idxW, _idxB); }
+    if (wSwap == WSWAP_G) { std::swap(_idxW, _idxG); }
+    if (wSwap == WSWAP_R) { std::swap(_idxW, _idxR); }
+  } else if (numChannels >= CHANNELS_CCT) {
     const uint8_t wSwap = co >> 4;
-    if (wSwap == 4) { std::swap(_idxW, _idxCW); } // swap WW & CW
+    if (wSwap == WSWAP_WWCW) { std::swap(_idxW, _idxCW); }
   }
 
   // 16-bit chips: two wire bytes per logical channel; lower nibble stores wire bytes.
@@ -87,10 +87,10 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
 
 }
 
-// channelMap[i]: 0=Unused, 1=R, 2=G, 3=B, 4=W, 5=WW, 6=CW
-ColorEncoder::ColorEncoder(const uint8_t channelMap[6], uint8_t numChannels, uint8_t invertMask, bool is16bit)
+// channelMap[i]: ChannelSource value (CH_UNUSED/CH_R/CH_G/CH_B/CH_W/CH_WW/CH_CW)
+ColorEncoder::ColorEncoder(const uint8_t channelMap[MAX_CUSTOM_CHANNELS], uint8_t numChannels, uint8_t invertMask, bool is16bit)
 {
-  memcpy(_channelMap, channelMap, 6);
+  memcpy(_channelMap, channelMap, MAX_CUSTOM_CHANNELS);
   _invertMask = invertMask;
   _idxR = _idxG = _idxB = _idxW = _idxCW = 0; // unused in custom path
   uint8_t flags = NCHF_CUSTOM;
@@ -116,13 +116,13 @@ void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, 
     for (uint8_t i = 0; i < numLogi; i++) {
       uint8_t val;
       switch (_channelMap[i]) {
-        case 1: val = getR(c); break;
-        case 2: val = getG(c); break;
-        case 3: val = getB(c); break;
-        case 4: val = getW(c); break;
-        case 5: val = cct.ww;  break;
-        case 6: val = cct.cw;  break;
-        default: val = 0;      break; // Unused
+        case CH_R:  val = getR(c); break;
+        case CH_G:  val = getG(c); break;
+        case CH_B:  val = getB(c); break;
+        case CH_W:  val = getW(c); break;
+        case CH_WW: val = cct.ww;  break;
+        case CH_CW: val = cct.cw;  break;
+        default:    val = 0;      break; // CH_UNUSED
       }
       if (_invertMask & (1u << i)) val ^= 0xFF;
       if (b16) {
@@ -140,15 +140,15 @@ void ColorEncoder::encodeGeneric(uint32_t c, const CctPixel& cct, uint8_t* out, 
   // logCh is wire bytes: 6/8/10 for 16-bit, 3/4/5 for 8-bit
   if (flags & NCHF_16BIT) {
     switch (logCh) {
-      case 6:  encodeRGB16(c, out, bri);       break;
-      case 8:  encodeRGBW16(c, out, bri);      break;
-      default: encodeCCT16(c, cct, out, bri);  break; // 10
+      case WB_RGB16:  encodeRGB16(c, out, bri);       break;
+      case WB_RGBW16: encodeRGBW16(c, out, bri);      break;
+      default:        encodeCCT16(c, cct, out, bri);  break; // WB_CCT16
     }
   } else {
     switch (logCh) {
-      case 3: encodeRGB(c, out);        break;
-      case 4: encodeRGBW(c, out);       break;
-      default: encodeCCT(c, cct, out);  break; // 5
+      case WB_RGB:  encodeRGB(c, out);        break;
+      case WB_RGBW: encodeRGBW(c, out);       break;
+      default:      encodeCCT(c, cct, out);  break; // WB_CCT
     }
   }
   // Apply invert mask; logCh already equals wire bytes
@@ -170,10 +170,10 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
       uint8_t val = b16 ? in[i*2] : in[i]; // take high byte for 16-bit
       if (_invertMask & (1u << i)) val ^= 0xFF;
       switch (_channelMap[i]) {
-        case 1: r  = val; break;
-        case 2: g  = val; break;
-        case 3: b_ = val; break;
-        case 4: case 5: case 6: // W, WW, CW → map to W (lossy)
+        case CH_R: r  = val; break;
+        case CH_G: g  = val; break;
+        case CH_B: b_ = val; break;
+        case CH_W: case CH_WW: case CH_CW: // W, WW, CW → map to W (lossy)
           if (val > w) w = val; break;
       }
     }
@@ -185,16 +185,16 @@ uint32_t ColorEncoder::decodeGeneric(const uint8_t* in) const {
   uint8_t r, g, b, w = 0;
   if (flags & NCHF_16BIT) {
     r = readU16Hi(in, _idxR); g = readU16Hi(in, _idxG); b = readU16Hi(in, _idxB);
-    if (logCh >= 8) w = readU16Hi(in, _idxW);   // 8=RGBW16, 10=CCT16
+    if (logCh >= WB_RGBW16) w = readU16Hi(in, _idxW);   // WB_RGBW16=RGBW16, WB_CCT16=CCT16
   } else {
     r = in[_idxR]; g = in[_idxG]; b = in[_idxB];
-    if (logCh >= 4) w = in[_idxW];              // 4=RGBW, 5=CCT
+    if (logCh >= WB_RGBW) w = in[_idxW];              // WB_RGBW=RGBW, WB_CCT=CCT
   }
   if (flags & NCHF_INVERT) {
     if (_invertMask & (1u << _idxR)) r ^= 0xFF;
     if (_invertMask & (1u << _idxG)) g ^= 0xFF;
     if (_invertMask & (1u << _idxB)) b ^= 0xFF;
-    const bool hasW = (flags & NCHF_16BIT) ? (logCh >= 8) : (logCh >= 4);
+    const bool hasW = (flags & NCHF_16BIT) ? (logCh >= WB_RGBW16) : (logCh >= WB_RGBW);
     if (hasW && (_invertMask & (1u << _idxW))) w ^= 0xFF;
   }
   return makeColor(r, g, b, w);
@@ -261,15 +261,15 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
     switch (ledType) {
       case TYPE_TM1814:
       case TYPE_TM1815:
-        bus->setPrefixLen(8); // 8-byte C1+C2 current-config prefix; updated per-frame in BusDigital::setBrightness()
+        bus->setPrefixLen(TM1814_PREFIX_LEN); // C1+C2 current-config prefix; updated per-frame in BusDigital::setBrightness()
         bus->setInverted(true);
         break;
       case TYPE_TM1914:
-        bus->setPrefixLen(6); // 6-byte mode-setting prefix; written once in BusDigital::begin()
+        bus->setPrefixLen(TM1914_PREFIX_LEN); // mode-setting prefix; written once in BusDigital::begin()
         bus->setInverted(true);
         break;
       case TYPE_SM16825:
-        bus->setSuffixLen(4); // 4-byte per-frame configuration suffix; defaults written by allocateEncodeBuffer()
+        bus->setSuffixLen(SM16825_SUFFIX_LEN); // per-frame configuration suffix; defaults written by allocateEncodeBuffer()
         break;
       default:
         break;
