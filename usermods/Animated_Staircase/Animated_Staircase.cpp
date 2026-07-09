@@ -60,6 +60,9 @@ class Animated_Staircase : public Usermod {
     // Last time the lights were switched on or off
     unsigned long lastSwitchTime = 0;
 
+    // Last time loop() ran (for strip.isUpdating() throttling)
+    unsigned long lastLoopRun = 0;
+
     // segment id between onIndex and offIndex are on.
     // controll the swipe by setting/moving these indices around.
     // onIndex must be less than or equal to offIndex
@@ -377,7 +380,9 @@ class Animated_Staircase : public Usermod {
     }
 
     void loop() {
-      if (!enabled || strip.isUpdating()) return;
+      // on long/active strips isUpdating() may stay true; still run at least every 200ms
+      if (!enabled || (strip.isUpdating() && (millis() - lastLoopRun < 200))) return;
+      lastLoopRun = millis();
       minSegmentId = strip.getMainSegmentId();  // it may not be the best idea to start with main segment as it may not be the first one
       maxSegmentId = strip.getLastActiveSegmentId() + 1;
       checkSensors();
