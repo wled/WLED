@@ -29,17 +29,12 @@
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
-		// active color channels for a bus (honours custom channel-map override and 16-bit flag)
+		// memory/wire byte count for a bus (honours custom channel-map override and 16-bit flag)
 		function getChannels(t, n) {
 			if (isCst(n)) {
 				let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
-				let ch = 0;
-				for (let ci = 0; ci < nch; ci++) {
-					let csel = d.Sf["CBc"+ci+n];
-					if (csel && parseInt(csel.value) !== 0) ch++;
-				}
-				if (d.Sf["CBb"+n]?.checked) ch *= 2;
-				return ch || 1;
+				if (d.Sf["CBb"+n]?.checked) nch *= 2;
+				return nch;
 			}
 			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
 			if (is16b(t)) ch *= 2;

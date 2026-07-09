@@ -137,7 +137,9 @@ void Esp8266UartBus::updateUartTiming() {
   USC0(uartNum) |= fifoResetFlags;
   USC0(uartNum) &= ~(fifoResetFlags);
   USC0(uartNum) &= ~((1 << UCDTRI) | (1 << UCRTSI) | (1 << UCTXI) | (1 << UCDSRI) | (1 << UCCTSI) | (1 << UCRXI)); // clear invert bits
-  USC0(uartNum) |= (1 << UCTXI); // invert TX -> idle low   TODO: need to handle inverted LED output for custom bus
+  if (!_inverted) {
+    USC0(uartNum) |= (1 << UCTXI); // invert TX -> idle low
+  }
 }
 
 bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
@@ -233,7 +235,11 @@ bool Esp8266DmaBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels
     for (uint8_t i = 0; i < (uint8_t)sizeof(SM16825_SUFFIX); i++) {
       uint32_t word = 0;
       uint8_t v = SM16825_SUFFIX[i];
-      for (int bit = 7; bit >= 0; bit--) { word <<= 4; word |= (v & (1 << bit)) ? 0xEu : 0x8u; }
+      for (int bit = 7; bit >= 0; bit--) {
+        word <<= 4;
+        if (_inverted) word |= (v & (1 << bit)) ? 0x1u : 0x7u;
+        else           word |= (v & (1 << bit)) ? 0xEu : 0x8u;
+      }
       dst[i] = word;
     }
   }
@@ -401,9 +407,9 @@ bool Esp8266DmaBus::begin() {
   if (_initialized) return true;
   if (_pin != 3) return false;
 
-  // Hold GPIO3 LOW before any I2S activity (prevents startup glitch)
+  // Hold GPIO3 appropriately before any I2S activity (prevents startup glitch)
   pinMode(3, OUTPUT);
-  digitalWrite(3, LOW);
+  digitalWrite(3, _inverted ? HIGH : LOW);
 
   // Compute I2S clock divisors for 4-step cadence
   // I2S base clock = 160 MHz (even with 80 MHz CPU freq, tested)
@@ -439,7 +445,7 @@ bool Esp8266DmaBus::begin() {
   _idleBufSize = c_idleBufSize;
   _idleBuf = (uint8_t*)malloc(_idleBufSize);
   if (!_idleBuf) return false;
-  memset(_idleBuf, 0, _idleBufSize);
+  memset(_idleBuf, _inverted ? 0xFF : 0x00, _idleBufSize);
 
   // Allocate pixel encode buffer and build initial descriptor chain
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
@@ -498,7 +504,8 @@ IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) 
     uint8_t v = src[b];
     for (int bit = 7; bit >= 0; bit--) {
       word <<= 4;
-      word |= (v & (1 << bit)) ? 0xEu : 0x8u;
+      if (_inverted) word |= (v & (1 << bit)) ? 0x1u : 0x7u;
+      else           word |= (v & (1 << bit)) ? 0xEu : 0x8u;
     }
     dst[b] = word;
   }
@@ -514,7 +521,11 @@ IRAM_ATTR uint32_t Esp8266DmaBus::getPixelColor(uint16_t pix) const {
     uint8_t v = 0;
     for (int nib = 7; nib >= 0; nib--) {
       v <<= 1;
-      if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+      if (_inverted) {
+        if (((word >> (nib * 4)) & 0xF) == 0x1) v |= 1;
+      } else {
+        if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+      }
     }
     decoded[b] = v;
   }
@@ -540,13 +551,18 @@ void Esp8266DmaBus::scaleAll(uint8_t scale) {
     uint8_t v = 0;
     for (int nib = 7; nib >= 0; nib--) {
       v <<= 1;
-      if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+      if (_inverted) {
+        if (((word >> (nib * 4)) & 0xF) == 0x1) v |= 1;
+      } else {
+        if (((word >> (nib * 4)) & 0xF) == 0xE) v |= 1;
+      }
     }
     v = ((uint16_t)(v + 1) * scale) >> 8;
     uint32_t newWord = 0;
     for (int bit = 7; bit >= 0; bit--) {
       newWord <<= 4;
-      newWord |= (v & (1 << bit)) ? 0xEu : 0x8u;
+      if (_inverted) newWord |= (v & (1 << bit)) ? 0x1u : 0x7u;
+      else           newWord |= (v & (1 << bit)) ? 0xEu : 0x8u;
     }
     buf[w] = newWord;
   }
@@ -560,7 +576,11 @@ void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
   for (uint8_t i = 0; i < len; i++) {
     uint32_t word = 0;
     uint8_t v = data[i];
-    for (int bit = 7; bit >= 0; bit--) { word <<= 4; word |= (v & (1 << bit)) ? 0xEu : 0x8u; }
+    for (int bit = 7; bit >= 0; bit--) {
+      word <<= 4;
+      if (_inverted) word |= (v & (1 << bit)) ? 0x1u : 0x7u;
+      else           word |= (v & (1 << bit)) ? 0xEu : 0x8u;
+    }
     dst[i] = word;
   }
 }
