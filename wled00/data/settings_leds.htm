@@ -28,6 +28,30 @@
 		function numPins(t){ return Math.max(gT(t).t.length, 1); }  // type length determines number of GPIO pins
 		function chrID(x)  { return String.fromCharCode((x<10?48:55)+x); }
 		function toNum(c)  { let n=c.charCodeAt(0); return (n>=48 && n<=57)?n-48:(n>=65 && n<=90)?n-55:0; } // convert char (0-9A-Z) to number (0-35)
+		// active color channels for a bus (honours custom-bus mapping and 16-bit flag)
+		function getChannels(t, n) {
+			if (isCustom(t)) {
+				let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
+				let ch = 0;
+				for (let ci = 0; ci < nch; ci++) {
+					let csel = d.Sf["CBc"+ci+n];
+					if (csel && parseInt(csel.value) !== 0) ch++;
+				}
+				if (d.Sf["CBb"+n]?.checked) ch *= 2;
+				return ch || 1;
+			}
+			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
+			if (is16b(t)) ch *= 2;
+			return ch;
+		}
+		// iterate every configured LED bus: fn(n, t, sel, idx)
+		function forEachBus(fn) {
+			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((sel, idx) => {
+				let n = sel.name.substring(2,3);
+				let t = parseInt(sel.value);
+				fn(n, t, sel, idx);
+			});
+		}
 		// load common.js with retry on error
 		(function loadFiles() {
 			const l = document.createElement('script');
@@ -163,16 +187,12 @@
 			e.preventDefault();
 			if (!pinsOK()) {e.stopPropagation();return false;} // Prevent form submission and contact with server
 			let usage = getDuse(), invalidBus = false;
-			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(s=>{
-				let n = s.name.substring(2,3);
+			forEachBus((n, t, s)=>{
 				if (!isBCok(n, usage)) invalidBus = true;
 			});
 			if (invalidBus) { alert("Invalid Bus-config"); e.stopPropagation(); return false; }
 			// validate HUB75 panel config
-			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-			for (let i=0; i<LTs.length; i++) {
-    		let n = chrID(i);
-    		let t = parseInt(LTs[i].value);
+			forEachBus((n, t, s, i)=>{
 				if (isHub75(t)) {
 					let p = parseInt(d.Sf["L2"+n].value)||1, r = parseInt(d.Sf["L3"+n].value)||1, c = parseInt(d.Sf["L4"+n].value)||1, h = parseInt(d.Sf["L1"+n].value)||1;
 					if (r*c !== p) {alert(`HUB75 error: panels≠rows×cols`); e.stopPropagation(); return false;}
@@ -181,7 +201,7 @@
 					  alert("HUB75 changes require a reboot"); // TODO: only throw this if panel config changed?
 					}
 				}
-			};
+			});
 			if (bquot > 100) {alert("Too many LEDs! Can't handle that!"); e.stopPropagation(); return false;}
 			else {
 				if (bquot > 80) alert("Memory usage is high, reboot recommended!\n\rSet transitions to 0 to save memory.");
@@ -271,8 +291,7 @@
 			if (isAna(t)) return 5;	// analog
 			let len = parseInt(d.Sf["LC"+n].value) + parseInt(d.Sf["SL"+n].value);
 			let pbfr = len * 8; // pixel buffers: global buffer + segment buffer
-			let ch = 3*hasRGB(t) + hasW(t) + hasCCT(t);
-			if (is16b(t)) ch *= 2; // 16 bit LEDs use 2 bytes per channel
+			let ch = getChannels(t, n);
 
 			let mem = 0;
 			if (isDig(t)) {
@@ -383,11 +402,8 @@
 
 			// enable/disable LED fields
 			updateTypeDropdowns(); // restrict bus types in dropdowns to max allowed digital/analog buses
-			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
-			LTs.forEach((s,i)=>{
+			forEachBus((n, t, s)=>{
 				// is the field a LED type?
-				var n = s.name.substring(2,3); // bus number (0-Z)
-				var t = parseInt(s.value);
 				memu += getMem(t, n); // calc memory
 				setPinConfig(n,t);
 				gId("abl"+n).style.display = (!abl || !isDig(t)) ? "none" : "inline"; // show/hide individual ABL settings
@@ -409,7 +425,7 @@
 					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
 					for (let ci=0; ci<6; ci++) {
 						let row = gId("CBrow"+n+"_"+ci);
-						if (row) row.style.display = (ci < nch) ? "" : "none";
+						if (row) row.style.display = (ci < nch) ? "" : "none"; // show/hide custom-bus channel rows
 					}
 				}
 				gId("dig"+n+"c").style.display = (isAna(t) || isHub75(t)) ? "none":"inline";              // hide count for analog
@@ -438,7 +454,16 @@
 				// do we have a led count field
 				if (nm=="LC") {
 					if (!isHub75(t)) {
-						LC.max = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384); // set max value
+						let maxLeds = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384);
+						// C3 parallel SPI (I2S/SPI driver) has a 1920 byte DMA limit
+						if (isC3() && (isDig(t) || isCustom(t)) && !isD2P(t)) {
+							let drv = d.Sf["LD"+n]?.value | 0;
+							if (drv == 1) {
+								let ch = getChannels(t, n);
+								if (ch > 0) maxLeds = Math.min(maxLeds, Math.floor(1920 / ch));
+							}
+						}
+						LC.max = maxLeds; // set max value
 					} else {
 						LC.min = undefined;
 						LC.max = undefined;
@@ -492,9 +517,7 @@
 			// Use helper function to calculate channel usage
 			let usage = getDuse();
 
-			d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{
-				let n = s.name.substring(2,3);
-				let t = parseInt(s.value);
+			forEachBus((n, t, s)=>{
 				let drvsel = gId("drvsel"+n); // driver selection dropdown
 				if (drvsel) {
 					drvsel.style.display = "none"; // hide by default
@@ -998,32 +1021,27 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let I2Smem = 0, SPImem = 0;
 			if (is8266()) {
 				// ESP8266: track parallel BitBang channels (pins other than GPIO1/2 UART and GPIO3 DMA)
-				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
-					let n = sel.name.substring(2,3);
+				forEachBus((n, t, sel) => {
 					if (is8266BB(n)) {
 						bbUsed++;
-						if (!bbType) bbType = parseInt(sel.value);
+						if (!bbType) bbType = t;
 					}
 				});
 			} else {
-				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
-					let n = sel.name.substring(2,3);
-					let t = parseInt(sel.value);
-					let driverPref = d.Sf["LD"+n]?.value | 0;
-
-					if (isDig(t) && !isD2P(t)) {
-						if (driverPref === 1) {
+				forEachBus((n, t, sel) => {
+					let drv = d.Sf["LD"+n]?.value | 0;
+					if (isDig(t) && isD2P(t)) {
+						spiUsed++;
+					} else if (isDig(t) && !isD2P(t)) {
+						if (drv === 1) {
 							i2sUsed++;
 							if (!I2SType) I2SType = t;
-						} else if (driverPref === 2) {
+						} else if (drv === 2) {
 							bbUsed++;
 							if (!bbType) bbType = t;
 						} else {
 							rmtUsed++;
 						}
-					}
-					if (isDig(t) && isD2P(t)) {
-						spiUsed++;
 					}
 				});
 				// calculate I2S shared memory usage (DMA double buffers + descriptors)
@@ -1042,7 +1060,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
-			let LTs = d.Sf.querySelectorAll("#mLC select[name^=LT]");
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
 
 			// calculate channel usage
@@ -1050,8 +1067,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let firstI2SType = null;
 			// Count all bus types
 			let firstBBType  = null; // for ESP8266 parallel BitBang type enforcement
-			LTs.forEach(sel => {
-				let t = parseInt(sel.value);
+			forEachBus((n, t, sel) => {
 				if (isDig(t) && !isD2P(t)) digitalB++;
 				if (isPWM(t)) analogB += numPins(t);
 				if (isD2P(t)) twopinB++;
@@ -1062,10 +1078,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 			let RMTcount = 0;
 			let I2Scount = 0;
 			let BBcount  = 0;
-			LTs.forEach(sel => {
-				let n = sel.name.substring(2,3);
-				const curType = parseInt(sel.value);
-				const curDriver = d.Sf["LD"+n]?.value | 0;
+			forEachBus((n, curType, sel) => {
+				const curDriver = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
 				const disable = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = true);
 				const enable  = (q) => sel.querySelectorAll(q).forEach(o => o.disabled = false);
 				enable('option'); // reset all first
@@ -1161,10 +1175,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 				let parIndices = [];      // all parallel bus IDs (I2S or BitBang)
 				let custParIndices = []; // subset: custom bus on a parallel driver
-				d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach(sel => {
-					let n = sel.name.substring(2,3);
-					let t = parseInt(sel.value);
+				forEachBus((n, t, sel) => {C
 					let drv = d.Sf["LD"+n]?.value | 0;
+					// 1=I2S/LCD/SPI, 2=parallelBitBang
 					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
 						parIndices.push(n);
 						if (isCustom(t)) custParIndices.push(n);
