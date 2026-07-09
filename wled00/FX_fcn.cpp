@@ -1451,10 +1451,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  startIndx  = XY(topSegment.start, topSegment.startY);
   const size_t  stopIndx   = startIndx + length;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
+  uint8_t       opacityOld = opacity;                 // we set this to opacity of old segment in non-FADE transitions below
   uint8_t       cct        = topSegment.currentCCT();
   if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
 
   const Segment *segO = topSegment.getOldSegment();
+  if (segO && blendingStyle != TRANSITION_FADE) opacityOld = gamma8inv(segO->currentBri());  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
   const bool hasGrouping = topSegment.groupLength() != 1;
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
@@ -1622,6 +1624,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
     // we only traverse new segment, not old one
     for (int r = 0; r < nRows; r++) for (int c = 0; c < nCols; c++) {
       const bool clipped = topSegment.isPixelXYClipped(c, r);
+      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       int vCols = seg == segO ? oCols : nCols;         // old segment may have different dimensions
@@ -1654,7 +1657,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       }
       // expand pixel
       if (groupLen == 1) {
-        setMirroredPixel(x, y, c_a, opacity);
+        setMirroredPixel(x, y, c_a, pixelOpacity);
       } else {
         // handle grouping and spacing
         x *= groupLen; // expand to physical pixels
@@ -1663,7 +1666,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const int maxY = std::min(y + topSegment.grouping, height);
         while (y < maxY) {
           int _x = x;
-          while (_x < maxX) setMirroredPixel(_x++, y, c_a, opacity);
+          while (_x < maxX) setMirroredPixel(_x++, y, c_a, pixelOpacity);
           y++;
         }
       }
@@ -1695,6 +1698,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
     for (int k = 0; k < nLen; k++) {
       const bool clipped = topSegment.isPixelClipped(k);
+      uint8_t pixelOpacity = clipped ? opacityOld : opacity;
       // if segment is in transition and pixel is clipped take old segment's pixel and opacity
       const Segment *seg = clipped && segO ? segO : &topSegment;  // pixel is never clipped for FADE
       const int vLen = seg == segO ? oLen : nLen;
@@ -1723,7 +1727,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       i *= topSegment.groupLength();
       // set all the pixels in the group
       const int maxI = std::min(i + topSegment.grouping, length); // make sure to not go beyond physical length
-      while (i < maxI) setMirroredPixel(i++, c_a, opacity);
+      while (i < maxI) setMirroredPixel(i++, c_a, pixelOpacity);
     }
   }
 
