@@ -1453,10 +1453,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       opacityOld = opacity;                 // we set this to opacity of old segment in non-FADE transitions below
   uint8_t       cct        = topSegment.currentCCT();
-  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
-
   const Segment *segO = topSegment.getOldSegment();
-  if (segO && blendingStyle != TRANSITION_FADE) opacityOld = gamma8inv(segO->currentBri());  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
+  if (segO && blendingStyle != TRANSITION_FADE) opacityOld = segO->currentBri();  // get old segment opacity note: can not use segO->opacity as that breaks off->on transition
+  if (gammaCorrectCol) {
+    opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+    opacityOld = gamma8inv(opacityOld);
+  }
   const bool hasGrouping = topSegment.groupLength() != 1;
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
