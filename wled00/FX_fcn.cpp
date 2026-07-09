@@ -1517,6 +1517,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const unsigned progInv  = 0xFFFFU - progress;
   const unsigned dw = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * width / 0xFFFFU + 1;
   const unsigned dh = (blendingStyle==TRANSITION_OUTSIDE_IN ? progInv : progress) * height / 0xFFFFU + 1;
+  // Inside-out/Outside-in fronts are scaled so both reach their ends at the same time
+  const int      cx  = width * constrain((int)blendingCenterPct, 0, 100) / 100;
+  const int      prC = (blendingStyle==TRANSITION_OUTSIDE_IN) ? (int)progInv : (int)progress;
+  const int      dwl = prC * cx / 0xFFFF + 1;
+  const int      dwr = prC * (width - cx) / 0xFFFF + 1;
   const unsigned orgBS = blendingStyle;
   if (width*height == 1) blendingStyle = TRANSITION_FADE; // disable style for single pixel segments (use fade instead)
   switch (blendingStyle) {
@@ -1534,10 +1539,10 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       Segment::setClippingRect(width - dw, width, 0, height);
       break;
     case TRANSITION_OUTSIDE_IN:   // corners
-      Segment::setClippingRect((width + dw)/2, (width - dw)/2, (height + dh)/2, (height - dh)/2); // inverted!!
+      Segment::setClippingRect(min(width, cx + dwr), max(0, cx - dwl), (height + dh)/2, (height - dh)/2); // inverted!!
       break;
     case TRANSITION_INSIDE_OUT:  // outward
-      Segment::setClippingRect((width - dw)/2, (width + dw)/2, (height - dh)/2, (height + dh)/2);
+      Segment::setClippingRect(max(0, cx - dwl), min(width, cx + dwr), (height - dh)/2, (height + dh)/2);
       break;
     case TRANSITION_SWIPE_DOWN:  // top-to-bottom (2D)
     case TRANSITION_PUSH_DOWN:   // top-to-bottom (2D)

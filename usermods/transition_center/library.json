@@ -1,0 +1,5 @@
+{
+  "name": "transition_center",
+  "build": { "libArchive": false },
+  "dependencies": {}
+}

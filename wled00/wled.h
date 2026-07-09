@@ -605,6 +605,7 @@ WLED_GLOBAL uint8_t paletteBlend _INIT(0);        // determines blending and wra
 
 // transitions
 WLED_GLOBAL uint8_t       blendingStyle            _INIT(0);      // effect blending/transitionig style
+WLED_GLOBAL uint8_t       blendingCenterPct        _INIT(50);     // center of Inside-out/Outside-in styles in % of segment width
 WLED_GLOBAL bool          transitionActive         _INIT(false);
 WLED_GLOBAL uint16_t      transitionDelay          _INIT(750);    // global transition duration
 WLED_GLOBAL uint16_t      transitionDelayDefault   _INIT(750);    // default transition time (stored in cfg.json)
