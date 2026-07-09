@@ -173,16 +173,16 @@ Serial.println("ERROR: forced idle");
 void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   uint8_t* dst = _dmaBuffer[bufIdx];
   uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
-  for (size_t i = 0; i < (WLEDPB_SPI_DMA_BUFFER_SIZE / 4); i++) {
+  for (size_t i = 0; i < (DEFAULT_DMA_BUFFER_SIZE / 4); i++) {
     dst32[i] = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned
-    //memset(dst, 0x00, WLEDPB_SPI_DMA_BUFFER_SIZE); // TODO: memset is not ISR IRAM safe?
+    //memset(dst, 0x00, DEFAULT_DMA_BUFFER_SIZE); // TODO: memset is not ISR IRAM safe?
   }
 
   if (_state == SpiState::WaitingReset) {
     return; // No encoding needed; just return and send reset pulse (all zeros)
   }
 
-  size_t maxSrcThisChunk = WLEDPB_SPI_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
+  size_t maxSrcThisChunk = DEFAULT_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
   size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
   size_t srcThisChunk = (srcBytesLeft < maxSrcThisChunk) ? srcBytesLeft : maxSrcThisChunk;
 
@@ -303,19 +303,19 @@ bool SpiBusContext::init(const LedTiming& timing) {
 
   // Allocate DMA buffers
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
-    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, WLEDPB_SPI_DMA_BUFFER_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, DEFAULT_DMA_BUFFER_SIZE, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
     if (!_dmaBuffer[i]) {
       //Serial.printf("[SPI] DMA buffer %d alloc failed\n", i);
       deinit();
       return false;
     }
-    memset(_dmaBuffer[i], 0, WLEDPB_SPI_DMA_BUFFER_SIZE);
+    memset(_dmaBuffer[i], 0, DEFAULT_DMA_BUFFER_SIZE);
   }
 
   // Setup DMA descriptors - circular linked list
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
-    _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
-    _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    _dmaDesc[i].size = DEFAULT_DMA_BUFFER_SIZE;
+    _dmaDesc[i].length = DEFAULT_DMA_BUFFER_SIZE;
     _dmaDesc[i].owner = 1;
     _dmaDesc[i].sosf = 0;
     _dmaDesc[i].eof = 1;
@@ -553,8 +553,8 @@ bool SpiBusContext::startTransmit() {
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
     // Restore circular linked list
     _dmaDesc[i].qe.stqe_next = &_dmaDesc[(i + 1) % WLEDPB_SPI_DMA_DESC_COUNT];
-    _dmaDesc[i].size = WLEDPB_SPI_DMA_BUFFER_SIZE;
-    _dmaDesc[i].length = WLEDPB_SPI_DMA_BUFFER_SIZE;
+    _dmaDesc[i].size = DEFAULT_DMA_BUFFER_SIZE;
+    _dmaDesc[i].length = DEFAULT_DMA_BUFFER_SIZE;
     _dmaDesc[i].owner = 1;
     _dmaDesc[i].eof = 1;
     encodeSpiChunk(i);

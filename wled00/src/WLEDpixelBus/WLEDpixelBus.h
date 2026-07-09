@@ -138,10 +138,14 @@ enum class DriverState : uint8_t {
 
 constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
 constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
-#if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
-constexpr size_t DEFAULT_DMA_BUFFER_SIZE = MAX_DMA_BUFFER_SIZE; // note: 3k is enough except if using 8RMT, need extra space for S3 and ESP32 classic, also requires triple buffering
+#ifdef WLEDPB_PARALLEL_SPI_SUPPORT // C3 only
+  constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*2); // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)
 #else
-constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
+  #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
+  constexpr size_t DEFAULT_DMA_BUFFER_SIZE = MAX_DMA_BUFFER_SIZE; // note: 3k is enough except if using 8RMT, need extra space for S3 and ESP32 classic, also requires triple buffering
+  #else
+  constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
+  #endif
 #endif
 // TODO: need to assert the default is not larger than the max allowed, which is 4092 (12bit in DMA descriptor)
 

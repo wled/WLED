@@ -94,7 +94,7 @@
 			});	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
-		function bLimits(c,p,m,l,o,di,r,i,a,n,dd,dl,ds,bb) {
+		function bLimits(c,p,m,l,o,di,r,i,bb,a,n,dm) {
 			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
@@ -102,13 +102,11 @@
 			maxCO = o;		// maxCO - max Color Order mappings
 			maxD  = di;		// maxD - max digital channels (RMT + I2S/LCD/SPI + BB): 24 - ESP32, 20 - S3/S2, 14 - C3, 3 - 8266
 			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
-			maxI2S = i;		// maxI2S - max I2S/LCD channels: 8 - ESP32/S2/S3, 0 - C3/8266
+			maxI2S = i;		// maxI2S - max I2S/LCD/pSPI channels: 8 - ESP32/S2/S3, 4 - C3, 0 - 8266
+			maxBB = bb;		// maxBB - max parallel BitBang channels
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n;		// maxBT - max buttons
-			dmaDef = dd;	// default DMA buffer size
-			dmaLcd = dl;	// DMA buffer size for LCD types ("parallel I2S")
-			dmaSpi = ds;  // DMA buffer size for SPI types (non-2pin digital)
-			maxBB = bb;		// maxBB - max parallel BitBang channels: 8 - ESP32 variants and ESP8266 (GPIO 0-15), 0 on chipsets without BB support
+			dmaDef = dm;	// DMA buffer size
 		}
 		function is8266() { return chipID == 0; } // NOTE: see const.h: WLED_PLATFORM_ID (TODO: use info json lookup instead)
 		// Returns true if bus n on ESP8266 uses parallel BitBang output (pin is not GPIO1/2/3 which use UART/DMA)
@@ -304,15 +302,9 @@
 						mem += len * ch; // UART (pin 1,2) and BitBang: plain encode buffer, ISR expands UART on-the-fly
 					}
 				} else {
-					if (isD2P(t)) {
-						mem += len * ch + getDuse().SPImem;
-					} else {
-						mem += len * ch; // encode buffer
-						let driverPref = d.Sf["LD"+n]?.value | 0; // 0=RMT, 1=I2S
-						if (driverPref == 1) {
-							mem += getDuse().I2Smem; // DMA shared buffer averaged
-						}
-					}
+					mem += len * ch; // encode buffer note: ignoring prefix and suffix for simplicity and its just a few bytes
+					let driverPref = d.Sf["LD"+n]?.value | 0; // 0=RMT, 1=I2S, 2=BitBang
+					if (driverPref == 1) mem += getDuse().I2Smem; // DMA shared buffer averaged
 				}
 			}
 			return mem + pbfr;
@@ -320,17 +312,9 @@
 
 		// check if bus configuration is valid
 		function isBCok(n, usage) {
-			if (is8266()) {
-				// Only BitBang buses have parallel constraints on ESP8266
-				if (!is8266BB(n)) return true;
-				let t = parseInt(d.Sf["LT"+n].value);
-				if (usage.bbType !== null && t !== usage.bbType) return false; // mismatched type in parallel BitBang
-				if (usage.bbUsed > maxBB) return false; // too many BitBang buses
-				return true;
-			}
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
-			let drv = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
+			let drv = is8266() ? (is8266BB(n) ? 2 : 0) : (d.Sf["LD"+n]?.value | 0); // driver preference: 0=RMT, 1=I2S, 2=BitBang
 			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
 			if (drv==2 && usage.bbType!==null && t!==usage.bbType) return false; // mismatched type in parallel BitBang
 			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
@@ -437,7 +421,7 @@
 				gId("rev"+n).innerHTML = isAna(t) ? "Inverted output":"Reversed";           // change reverse text for analog else (rotated 180°)
 				//gId("psd"+n).innerHTML = isAna(t) ? "Index:":"Start:";                      // change analog start description
 				gId("net"+n+"h").style.display = isNet(t) && !is8266() ? "block" : "none";  // show host field for network types except on ESP8266
-				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
+				if (!isNet(t) || is8266()) d.Sf["HS"+n].value = "";                         // cleart host field if not network type or ESP8266
 			});
 			// display global white channel overrides
 			gId("wc").style.display = (gRGBW) ? 'inline':'none';
@@ -1015,49 +999,31 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		// calculate channel usage across all buses
 		function getDuse() {
-			let rmtUsed = 0, i2sUsed = 0, spiUsed = 0;
+			let rmtUsed = 0, i2sUsed = 0;
 			let I2SType = null;
 			let bbUsed = 0, bbType = null;
-			let I2Smem = 0, SPImem = 0;
-			if (is8266()) {
-				// ESP8266: track parallel BitBang channels (pins other than GPIO1/2 UART and GPIO3 DMA)
-				forEachBus((n, t, sel) => {
-					if (is8266BB(n)) {
+			let I2Smem = 0;
+			forEachBus((n, t, sel) => {
+				let drv = is8266() ? (is8266BB(n) ? 2 : 0) : (d.Sf["LD"+n]?.value | 0);
+				if (isDig(t) && !isD2P(t)) {
+					if (drv === 1) {
+						i2sUsed++;
+						if (!I2SType) I2SType = t;
+					} else if (drv === 2) {
 						bbUsed++;
 						if (!bbType) bbType = t;
+					} else {
+						rmtUsed++;
 					}
-				});
-			} else {
-				forEachBus((n, t, sel) => {
-					let drv = d.Sf["LD"+n]?.value | 0;
-					if (isDig(t) && isD2P(t)) {
-						spiUsed++;
-					} else if (isDig(t) && !isD2P(t)) {
-						if (drv === 1) {
-							i2sUsed++;
-							if (!I2SType) I2SType = t;
-						} else if (drv === 2) {
-							bbUsed++;
-							if (!bbType) bbType = t;
-						} else {
-							rmtUsed++;
-						}
-					}
-				});
-				// calculate I2S shared memory usage (DMA double buffers + descriptors)
-				if (i2sUsed > 0) {
-					I2Smem = (isS3() ? dmaLcd : dmaDef) * 2 + 64;
-					I2Smem = Math.round(I2Smem / i2sUsed); // average so it can be distributed
 				}
-				// calculate SPI shared memory usage
-				if (spiUsed > 0 && isC3()) {
-					SPImem = dmaSpi * 2;
-					SPImem = Math.round(SPImem / spiUsed);
-				}
+			});
+			// calculate I2S shared memory usage (DMA double buffers + descriptors)
+			if (i2sUsed > 0) {
+				I2Smem = dmaDef * 2 + 64;
+				I2Smem = Math.round(I2Smem / i2sUsed); // average so it can be distributed
 			}
-			return { rmtUsed, i2sUsed, I2SType, I2Smem, SPImem, bbUsed, bbType };
+			return { rmtUsed, i2sUsed, I2SType, I2Smem, bbUsed, bbType };
 		}
-
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
 			let digitalB = 0, analogB = 0, twopinB = 0, virtB = 0;
@@ -1175,7 +1141,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 				let parIndices = [];      // all parallel bus IDs (I2S or BitBang)
 				let custParIndices = []; // subset: custom bus on a parallel driver
-				forEachBus((n, t, sel) => {C
+				forEachBus((n, t, sel) => {
 					let drv = d.Sf["LD"+n]?.value | 0;
 					// 1=I2S/LCD/SPI, 2=parallelBitBang
 					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
