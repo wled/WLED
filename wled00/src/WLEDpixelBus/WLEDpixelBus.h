@@ -161,7 +161,7 @@ static constexpr uint8_t NCHF_CUSTOM = 0x40; // custom channel map: _channelMap[
 // 0x80 reserved
 
 // Maximum number of wire-byte entries in a custom channel map (ColorEncoder::_channelMap[]).
-static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6;
+static constexpr uint8_t MAX_CUSTOM_CHANNELS = 6; // note: changing this wont propaget to the UI, currently ICs with more than 6 channels are not supported
 
 // Chip-specific prefix/suffix byte lengths reserved in the encode buffer (see createBus()).
 static constexpr uint8_t TM1814_PREFIX_LEN  = 8; // C1+C2 current-config prefix

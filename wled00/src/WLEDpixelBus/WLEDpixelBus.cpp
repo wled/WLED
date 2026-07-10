@@ -70,12 +70,12 @@ ColorEncoder::ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType)
       _idxW = 0;
     }
     const uint8_t wSwap = co >> 4;
-    if (wSwap == WSWAP_B) { std::swap(_idxW, _idxB); }
-    if (wSwap == WSWAP_G) { std::swap(_idxW, _idxG); }
-    if (wSwap == WSWAP_R) { std::swap(_idxW, _idxR); }
+    if (wSwap == WSWAP_B) { std::swap(_idxW, _idxB); } // swap W & B
+    if (wSwap == WSWAP_G) { std::swap(_idxW, _idxG); } // swap W & G
+    if (wSwap == WSWAP_R) { std::swap(_idxW, _idxR); } // swap W & R
   } else if (numChannels >= CHANNELS_CCT) {
     const uint8_t wSwap = co >> 4;
-    if (wSwap == WSWAP_WWCW) { std::swap(_idxW, _idxCW); }
+    if (wSwap == WSWAP_WWCW) { std::swap(_idxW, _idxCW); } // swap WW & CW
   }
 
   // 16-bit chips: two wire bytes per logical channel; lower nibble stores wire bytes.

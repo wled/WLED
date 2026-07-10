@@ -93,7 +93,6 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_P9813:
     case TYPE_LPD6803:       return 11; // TODO: SPI types need testing
     case TYPE_WS2801:        return 12;
-    // TYPE_CUSTOM_BUS (36) timing is provided directly as a LedTiming* to create().
     default:                 return  0; // WS2812 fallback
   }
 }
