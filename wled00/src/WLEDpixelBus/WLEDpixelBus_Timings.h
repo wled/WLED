@@ -97,10 +97,21 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
   }
 }
 
-// Returns the LED timing for the given WLED bus type, read from flash.
-// This is a one-time read at bus-creation; the bus constructor stores its own copy.
+// Returns the LED timing for the given WLED bus type, read from flash. note: the bus constructor stores its own copy
+// TODO: can this be made non-inline? removing causes compile errors
 inline LedTiming getProtocol(uint8_t wledType) {
-  return s_ledTimings[getTimingIndex(wledType)];
+  uint8_t idx = getTimingIndex(wledType);
+#ifdef ESP8266
+  return LedTiming(
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0h_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0l_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1h_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1l_ns),
+    (uint32_t)pgm_read_dword(&s_ledTimings[idx].reset_us)
+  );
+#else
+  return s_ledTimings[idx];
+#endif
 }
 
 } // namespace WLEDpixelBus

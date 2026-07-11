@@ -40,20 +40,31 @@
 			if (is16b(t)) ch *= 2;
 			return ch;
 		}
-		// pre-fill the channel-map override with the native layout of type t (called when "Customize" is first checked)
+		// pre-fill the channel-map override with the native layout of type t (called when "Customize" is first checked or the type changes)
 		function presetCustomDefaults(n, t) {
 			const order = ["GRB","RGB","BRG","RBG","BGR","GBR"][parseInt(d.Sf["CO"+n]?.value) || 0];
 			const colorVal = {R:1, G:2, B:3};
-			let map = order.split("").map(l => colorVal[l]);
-			if (hasCCT(t)) map.push(5,6);      // WW, CW
-			else if (hasW(t)) map.push(4);      // W
-			let nch = Math.min(Math.max(map.length, 1), 6);
+			let map = [];
+			if (hasRGB(t)) map = order.split("").map(l => colorVal[l]);
+			if (hasCCT(t)) map.push(5,6);       // WW, CW
+			else if (hasW(t)) map.push(4);      // W (only when no CCT)
+			let nch = 3*hasRGB(t) + hasW(t) + hasCCT(t); // note: can not use getChannels as custom bus is now checked, we want the defaults not the (old) custom ones
+			map.length = nch; // trim/pad to exact channel count
 			if (d.Sf["CBch"+n]) d.Sf["CBch"+n].value = nch;
 			for (let ci = 0; ci < 6; ci++) {
 				let sel = d.Sf["CBc"+ci+n];
 				if (sel) sel.value = ci < map.length ? map[ci] : 0;
 			}
 			if (d.Sf["CBb"+n]) d.Sf["CBb"+n].checked = is16b(t);
+			// apply native timing defaults from firmware metadata
+			const type = gT(t);
+			if (type) {
+				if (d.Sf["CBt0h"+n]) d.Sf["CBt0h"+n].value = type.t0h || 300;
+				if (d.Sf["CBt0l"+n]) d.Sf["CBt0l"+n].value = type.t0l || 900;
+				if (d.Sf["CBt1h"+n]) d.Sf["CBt1h"+n].value = type.t1h || 700;
+				if (d.Sf["CBt1l"+n]) d.Sf["CBt1l"+n].value = type.t1l || 500;
+				if (d.Sf["CBrst"+n]) d.Sf["CBrst"+n].value = type.trst || 300;
+			}
 		}
 		// iterate every configured LED bus: fn(n, t, sel, idx)
 		function forEachBus(fn) {
@@ -631,7 +642,7 @@
 				var cn = `<div class="iST">
 <hr class="sml">
 ${i+1}:
-<select name="LT${s}" onchange="UI(true)"></select><br>
+<select name="LT${s}" onchange="if(d.Sf['CBen${s}']?.checked)presetCustomDefaults('${s}',parseInt(this.value));UI(true)"></select><br>
 <div id="abl${s}">
 mA/LED: <select name="LAsel${s}" onchange="enLA(this,'${s}');UI();">
 <option value="55" selected>55mA (typ. 5V WS281x)</option>

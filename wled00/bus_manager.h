@@ -96,13 +96,10 @@ struct ColorOrderMap {
 };
 
 
-// LED type metadata exposed to the settings UI.
-// Only timing is provided by firmware; the UI infers channels/16-bit from color capabilities.
 typedef struct {
-  uint8_t id;                       // TYPE_* value
-  const char *type;                 // UI category: "D", "2P", "A"..."AAAAA", "N", "H", "" (On/Off)
-  const char *name;                 // human-readable label (PROGMEM)
-  WLEDpixelBus::LedTiming timing;   // native timing values (single source of truth from WLEDpixelBus)
+  uint8_t id;
+  const char *type;
+  const char *name;
 } LEDType;
 
 // Optional bus channel/timing override, attachable to ANY single-wire digital numChannels == 0 means not used
@@ -193,7 +190,7 @@ class Bus {
     inline  uint8_t  getBusSpeedFactor() const                  { return _busSpeedFactor; }
     virtual const CustomBusConfig& getCustomBusConfig() const;  // valid whenever result.active() == true; returns a static default (numChannels=0) otherwise
 
-    static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None"), WLEDpixelBus::getProtocol(TYPE_NONE)}}; } // not used. just for reference for derived classes
+    static inline std::vector<LEDType> getLEDTypes()            { return {{TYPE_NONE, "", PSTR("None")}}; } // not used. just for reference for derived classes
     static constexpr size_t   getNumberOfPins(uint8_t type)     { return isVirtual(type) ? 4 : isPWM(type) ? numPWMPins(type) : isHub75(type) ? 5 : is2Pin(type) + 1; } // credit @PaoloTK; for HUB75 the 5 slots store config params (panelW, panelH, chain, rows, cols), not GPIO pins
     static constexpr size_t   getNumberOfChannels(uint8_t type) { return (hasWhite(type) + 3*hasRGB(type) + hasCCT(type)); }
     static constexpr bool hasRGB(uint8_t type) {
