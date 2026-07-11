@@ -208,12 +208,11 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
     // Expand the compact encoded buffer in-place, starting from the last pixel (no data is overwritten)
     // APA102 wire format: [0xE0|bri, B, G, R], P9813 wire format:  [flag, B, G, R]
     // note: this "extension" is intentionally not done when encoding the buffer so we can keep the encoding branch-free and fast for all types.
-    // TODO: since peek uses getPixelColor() for accurate preview respecting LEDmaps this will mess it up as sending WS live view is done after service() and show()
     const uint8_t wireBytes = pixelBytes + 1;
-    for (uint_fast16_t i = _numPixels; i > 0; --i) {
+    for (uint32_t i = _numPixels; i > 0; i--) {
       uint8_t* src = _encodeBuffer + (size_t)(i - 1) * pixelBytes;
       uint8_t* dst = _encodeBuffer + (size_t)(i - 1) * wireBytes;
-      for (int8_t b = pixelBytes - 1; b >= 0; --b) dst[b + 1] = src[b];
+      for (int8_t b = pixelBytes - 1; b >= 0; b--) dst[b + 1] = src[b];
       if (_ledType == TYPE_APA102) {
         dst[0] = 0xE0 | _apa102HwBri;
       } else { // TYPE_P9813
@@ -224,16 +223,26 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
     sendStartFrame(_numPixels);
     uint8_t* src = _encodeBuffer;
     if (_useHardware) {
-      SPI.transfer(src, (size_t)_numPixels * wireBytes);
+      SPI.writeBytes(src, (size_t)_numPixels * wireBytes);
     } else {
       const size_t total = (size_t)_numPixels * wireBytes;
       for (size_t i = 0; i < total; i++) sendByte(src[i]);
     }
+    #ifdef ESP8266 // TODO: this is also needed if _pixels[] is not used
+    // Restore the compact layout so getPixelColor() and the next frame's getPixelColor() see the buffer in its normal encoded format
+    // note: if no global _pixels[] buffer is used, this is necessary for all subsequent getPixelColor() calls. Still way faster than not doing full buffer encoding.
+    src = _encodeBuffer + 1; // skip header
+    for (uint32_t i = 0; i < _numPixels; ++i) {
+      uint8_t* dst = _encodeBuffer + (size_t)i * pixelBytes;
+      for (uint8_t b = 0; b < pixelBytes; b++) dst[b] = src[b];
+      src += wireBytes; // move to next pixel
+    }
+    #endif
   } else {
     // WS2801 / LPD8806 / LPD6803: raw encoded bytes, no per-pixel framing byte
     uint8_t* src = _encodeBuffer;
     if (_useHardware) {
-      SPI.transfer(src, pixelBytes*_numPixels);
+      SPI.writeBytes(src, pixelBytes*_numPixels);
     }
     else {
       for (uint16_t i = 0; i < _numPixels; i++) {

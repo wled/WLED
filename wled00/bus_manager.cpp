@@ -328,7 +328,7 @@ void BusDigital::clearPixels() {
 //TODO only show if no new show due in the next 50ms
 void BusDigital::setStatusPixel(uint32_t c) {
   if (_valid && _skip) {
-    _busPtr->setPixel(0, c, 0);
+    _busPtr->setPixelColor(0, c, 0);
     if (canShow()) _busPtr->show();
   }
 }
@@ -368,7 +368,7 @@ void BusDigital::setPixelColor(unsigned pix, uint32_t c) {
     }
   }
 
-  _busPtr->setPixel(pix, c, wwcw);
+  _busPtr->setPixelColor(pix, c, wwcw);
 }
 
 // returns lossly restored color from bus

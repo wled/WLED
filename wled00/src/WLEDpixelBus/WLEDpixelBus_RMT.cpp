@@ -240,7 +240,7 @@ void RmtBus::end() {
 }
 
 bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
-  // Encoding is done per-pixel in setPixel(); _encodeBuffer is ready to ship.
+  // Encoding is done per-pixel in setPixelColor(); _encodeBuffer is ready to ship.
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
   const size_t dataLen = _encodeBufferSize;

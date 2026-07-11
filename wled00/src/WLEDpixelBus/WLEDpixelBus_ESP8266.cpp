@@ -500,7 +500,7 @@ void Esp8266DmaBus::end() {
 //   Pixel data starts at offset 0 in _encodeBuffer (no lead-in needed;
 //   idle state ensures GPIO3 is LOW before the first pixel bit arrives).
 // ---------------------------------------------------------------------------
-IRAM_ATTR bool Esp8266DmaBus::setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) {
+IRAM_ATTR bool Esp8266DmaBus::setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) {
   const uint8_t pixelBytes = _encoder.getPixelBytes();
   uint8_t src[12];
   const CctPixel cct{wwcw};
