@@ -226,7 +226,7 @@ private:
   int8_t _pin;
   uint8_t _busNum;
   LedTiming _timing;
-  bool _inverted = false;
+  bool _inverted;
   bool _initialized;
 
   int8_t _channelIdx;

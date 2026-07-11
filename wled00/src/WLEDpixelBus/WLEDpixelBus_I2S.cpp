@@ -823,6 +823,7 @@ I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   : _pin(pin)
   , _busNum(busNum)
   , _timing(timing)
+  , _inverted(false)
   , _initialized(false)
   , _channelIdx(-1)
   , _ctx(nullptr)

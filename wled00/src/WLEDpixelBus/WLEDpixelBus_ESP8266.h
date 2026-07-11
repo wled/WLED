@@ -43,6 +43,7 @@ private:
   int8_t _pin;
   LedTiming _timing;
   bool _initialized;
+  bool _inverted; // invert output signal
   volatile uint8_t* _asyncBuf    = nullptr;
   volatile uint8_t* _asyncBufEnd = nullptr;
 
@@ -96,6 +97,7 @@ private:
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
   bool _initialized;
+  bool _inverted; // invert output signal
   volatile bool _sending;
 
   // SLC DMA linked-list

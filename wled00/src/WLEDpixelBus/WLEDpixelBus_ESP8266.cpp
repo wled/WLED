@@ -34,8 +34,13 @@ namespace WLEDpixelBus {
 Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
-  : _pin(pin), _timing(timing), _initialized(false),
-    _asyncBuf(nullptr), _asyncBufEnd(nullptr) {
+  : _pin(pin)
+  , _timing(timing)
+  , _inverted(false)
+  , _initialized(false)
+  , _asyncBuf(nullptr)
+  , _asyncBufEnd(nullptr)
+{
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
 }
@@ -132,7 +137,7 @@ void Esp8266UartBus::updateUartTiming() {
   } else {
     Serial.begin(baud, SERIAL_6N1, SERIAL_TX_ONLY);
   }
-  
+
   const uint32_t fifoResetFlags = (1 << UCTXRST) | (1 << UCRXRST);
   USC0(uartNum) |= fifoResetFlags;
   USC0(uartNum) &= ~(fifoResetFlags);
@@ -201,10 +206,16 @@ bool Esp8266UartBus::canShow() const {
 Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
 
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
-  : _pin(pin), _timing(timing),
-    _initialized(false), _sending(false),
-    _dmaDesc(nullptr), _dmaDescCnt(0),
-    _idleBuf(nullptr), _idleBufSize(0) {
+  :  _pin(pin)
+  , _timing(timing),
+  , _inverted(false)
+  , _initialized(false)
+  , _sending(false)
+  , _dmaDesc(nullptr)
+  , _dmaDescCnt(0)
+  , _idleBuf(nullptr)
+  , _idleBufSize(0)
+{
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
 }
