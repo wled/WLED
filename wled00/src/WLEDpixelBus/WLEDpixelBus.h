@@ -337,7 +337,7 @@ private:
   uint8_t _idxW, _idxCW;        // wire byte index for W (or WW) and CW (CCT types)
   uint8_t _channelMap[MAX_CUSTOM_CHANNELS]; // custom channel map: _channelMap[i] = ChannelSource for wire byte i
 
-  // Helpers
+  // 16bit pixel helper functions
   static inline void writeU16(uint8_t* out, uint8_t idx, uint8_t val8, uint8_t bri) {
     const uint16_t v = (uint16_t)val8 * bri;
     out[idx*2]   = v >> 8;

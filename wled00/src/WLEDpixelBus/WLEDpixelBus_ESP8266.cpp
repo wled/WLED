@@ -169,6 +169,10 @@ void Esp8266UartBus::setColorOrder(uint8_t co) {
   _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
 
+void Esp8266UartBus::setInverted(bool inv) {
+  _inverted = inv;
+}
+
 bool Esp8266UartBus::canShow() const {
   if (!_initialized) return false;
   // Ready if we have no more data to send
@@ -598,6 +602,10 @@ void Esp8266DmaBus::updateSuffix(const uint8_t* data, uint8_t len) {
 
 void Esp8266DmaBus::setColorOrder(uint8_t co) {
   _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
+}
+
+void Esp8266DmaBus::setInverted(bool inv) {
+  _inverted = inv;
 }
 
 // ---------------------------------------------------------------------------

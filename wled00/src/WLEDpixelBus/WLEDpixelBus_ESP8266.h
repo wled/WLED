@@ -35,6 +35,7 @@ public:
   const char* getTypeStr() const override { return "ESP8266_UART"; }
 #endif
   void setColorOrder(uint8_t co);
+  void setInverted(bool inv) override;
 
   static void UartIsr(void* arg, void* exceptionFrame);
   static Esp8266UartBus* s_instances[2];
@@ -81,6 +82,7 @@ public:
 #endif
 
   void setColorOrder(uint8_t co);
+  void setInverted(bool inv) override;
   IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;

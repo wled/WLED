@@ -430,6 +430,7 @@
 				gId("custtoggle"+n).style.display = (cstElig && d.Sf.AS.checked) ? "inline":"none";
 				if (!cstElig && d.Sf["CBen"+n]) d.Sf["CBen"+n].checked = false; // type no longer eligible: disable customization
 				gId("custbus"+n).style.display = isCst(n) ? "inline":"none";
+				gId("CBio"+n).style.display = is8266BB(n) ? "none" : "inline"; // inverted output is not supported on ESP8266 bit bang outputs
 				if (isCst(n)) {
 					const nch = parseInt(d.Sf["CBch"+n]?.value)||3;
 					for (let ci=0; ci<6; ci++) {
@@ -704,7 +705,7 @@ LED Timing: <select name="SF${s}">
 <option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option>
 </select>
 <br>16-bit: <input type="checkbox" name="CBb${s}" onchange="UI()">
-<br>Invert Out: <input type="checkbox" name="CBio${s}">
+<div id="CBio${s}"><br>Invert Out: <input type="checkbox" name="CBio${s}"></div>
 <br>Timing (ns/µs):
 <table style="font-size:0.85em;margin:0 auto">
 <tr><th>T0H</th><th>T0L</th><th>T1H</th><th>T1L</th><th>Reset(µs)</th></tr>
