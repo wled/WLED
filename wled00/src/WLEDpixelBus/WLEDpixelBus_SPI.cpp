@@ -204,14 +204,19 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
   }
 
   sendStartFrame(_numPixels);
-
+  // TODO: SPI transfer is a lot slower than it could be, on ESP8266 SPI overhead makes hardware output slower than BB, also BB does not respect "speed" and on ESP8266 runs at 3.3MHz...
+  // fastest would be to construct the full buffer and then use hardware transfer of everthing at once using SPI.transfer(buffer, numbytes)
+  // on ESP32 it is not a huge issue (about a factor of 2 slower than 16.x), on ESP8266 it is painfully slow (like 10x slower).
   if (_ledType == TYPE_APA102) {
     // APA102 per-pixel wire format: [0xE0|brightness5bit, byte0, byte1, byte2]
     // 0xE0|0x1F == 0xFF == full hardware brightness (5-bit field, 0x1F = max)
     for (uint16_t i = 0; i < _numPixels; i++) {
       sendByte(0xE0 | _apa102HwBri);
-      const uint8_t* src = _encodeBuffer + (size_t)i * pixelBytes;
-      for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
+      uint8_t* src = _encodeBuffer + (size_t)i * pixelBytes;
+      if (_useHardware)
+        SPI.transfer(src, pixelBytes); // note: this is barely faster than sending byte-by-byte, at least on ESP8266, probably an issue with RAM alignment and DMA transfer ability.
+      else
+        for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
     }
   } else if (_ledType == TYPE_P9813) {
     // P9813 per-pixel wire format: [flag, B, G, R]
