@@ -155,7 +155,7 @@ BusDigital::BusDigital(const BusConfig &bc)
       return;
     }
     _pins[1] = bc.pins[1];
-    _frequencykHz = bc.frequency ? bc.frequency : 2000U; // 2MHz clock if undefined
+    _frequencykHz = bc.frequency ? bc.frequency : 1000U; // 1MHz clock if undefined  TODO: this is not passed to bus correctly, got lost somewhere in the refacotring
   }
 
   _hasRgb = hasRGB(bc.type);

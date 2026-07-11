@@ -46,7 +46,7 @@ public:
 
   bool begin() override;
   void end()   override;
-  void setInverted(bool inv) override; // invert output signal
+
   bool show(const uint32_t* = nullptr, uint16_t = 0, const CctPixel* = nullptr) override; // Stage this channel's data.  When all channels are staged, output all in parallel.
   bool canShow() const override { return true; } // BitBang output is synchronous — always ready  TODO: on multi-core systems with tasks running on different cores, this is not true (but it currently is)
 
@@ -54,15 +54,16 @@ public:
   const char* getTypeStr() const override { return "BitBang"; }
 #endif
 
+  void setInverted(bool inv) override; // invert output signal
+
   // Reset the shared static channel registryc, alled by PixelBusAllocator::resetChannelTracking() when all buses are destroyed
   static void resetChannels();
 
 private:
   int8_t    _pin         = -1;
+  LedTiming _timing;       // saved at construction, converted to cycles in begin()
   bool      _inverted    = false; // invert output signal
   bool      _initialized = false;
-
-  LedTiming _rawTiming;       // saved at construction, converted to cycles in begin()
 
   // -----------------------------------------------------------------------
   // Shared state (one context for ALL BitBangBus instances)

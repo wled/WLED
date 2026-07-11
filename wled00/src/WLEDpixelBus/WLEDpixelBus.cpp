@@ -23,16 +23,6 @@ Currently based on IDF v4.x API functions and low-level HAL
 
 #include "WLEDpixelBus.h"
 
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
-#include "WLEDpixelBus_RMT.h"
-#include "WLEDpixelBus_I2S.h"
-#include "WLEDpixelBus_ParallelSpi.h"
-#endif
-
-#if defined(ESP8266)
-#include "WLEDpixelBus_ESP8266.h"
-#endif
-
 namespace WLEDpixelBus {
 
 // LED Timing Lookup

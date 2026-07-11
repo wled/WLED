@@ -8,7 +8,6 @@ written by Damian Schneider @dedehai 2026
 
 -------------------------------------------------------------------------*/
 
-#include "WLEDpixelBus.h"
 #include "WLEDpixelBus_SPI.h"
 
 #if defined(ARDUINO_ARCH_ESP32)
@@ -32,8 +31,13 @@ static uint32_t timingToClockHz(const LedTiming& t) {
 }
 
 SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi, uint8_t ledType)
-  : _dataPin(dataPin), _clockPin(clockPin), _timing(timing),
-    _useHardware(useHardwareSpi), _initialized(false), _clockHz(0) {
+  : _dataPin(dataPin)
+  , _clockPin(clockPin)
+  , _timing(timing)
+  , _useHardware(useHardwareSpi)
+  , _initialized(false)
+  , _clockHz(0)
+{
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
 }

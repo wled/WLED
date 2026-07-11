@@ -66,7 +66,9 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 // Constructor / Destructor
 // ---------------------------------------------------------------------------
 BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
-  : _pin(pin), _rawTiming(timing), _initialized(false)
+  : _pin(pin)
+  , _timing(timing)
+  , _initialized(false)
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
@@ -112,13 +114,13 @@ bool BitBangBus::begin() {
   // for the latency between the condition passing and the actual GPIO write.
   const uint32_t lo = LOOPTEST_CYCLES;
 
-  uint32_t t0h    = (_rawTiming.t0h_ns  * cpuMHz) / 1000u;
-  uint32_t t1h    = (_rawTiming.t1h_ns  * cpuMHz) / 1000u;
+  uint32_t t0h    = (_timing.t0h_ns  * cpuMHz) / 1000u;
+  uint32_t t1h    = (_timing.t1h_ns  * cpuMHz) / 1000u;
   t0h             = (t0h    > lo) ? t0h    - lo : 0u;
   t1h             = (t1h    > lo) ? t1h    - lo : 0u;
-  uint32_t period = (_rawTiming.bitPeriod() * cpuMHz) / 1000u;
+  uint32_t period = (_timing.bitPeriod() * cpuMHz) / 1000u;
   period          = (period > lo) ? period - lo : 0u;
-  const uint32_t latchCycles = (uint32_t)_rawTiming.reset_us * cpuMHz;
+  const uint32_t latchCycles = (uint32_t)_timing.reset_us * cpuMHz;
 
   // Register in the shared static table
   const uint8_t idx  = _BBs->channelCount;

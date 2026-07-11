@@ -104,8 +104,7 @@ SpiBusContext::~SpiBusContext() {
   deinit();
 }
 
-//TODO: rename to isIdle()
-bool SpiBusContext::isSpiDone() {
+bool SpiBusContext::isIdle() const {
   if (_state == SpiState::Idle) return true;
 
   // If we're in an error state, use a timeout to recover.
@@ -137,8 +136,7 @@ bool SpiBusContext::isSpiDone() {
 }
 
 // Recovery path for error conditions, cleanly stops DMA, SPI, and disconnects pins to prevent glitches
-void SpiBusContext::forceIdle() {
-Serial.println("ERROR: forced idle");
+void SpiBusContext::forceIdle() const {
   portENTER_CRITICAL(&_isrMux); // make sure no ISR will disturb the sequence
   // disconnect pins from SPI and set low
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -235,7 +233,7 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   else if (status & SPI_DMA_OUTFIFO_EMPTY_ERR_INT_ST) {
     // SPI FIFO starved, ISR latency too high
     portENTER_CRITICAL_ISR(&ctx->_isrMux); // note: on C3 this is not really needed as GDMA interrupt has the same priority, keep it just in case
-    ctx->_state = SpiState::Error; //  set Error state so isSpiDone() will timeout and forceIdle() (forceIdle may not be ISR safe)
+    ctx->_state = SpiState::Error; //  set Error state so isIdle() will timeout and forceIdle() (forceIdle may not be ISR safe)
     ctx->_lastTransmitMs = millis();
 
     //  disconnect pins from SPI to prevent garbage output (calling cmd.usr = 0 outputs a fast clock)

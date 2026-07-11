@@ -821,10 +821,10 @@ void IRAM_ATTR I2sBusContext::_processEof() {
 
 I2sBus::I2sBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t busNum, uint8_t ledType, size_t numPixels)
   : _pin(pin)
-  , _busNum(busNum)
   , _timing(timing)
   , _inverted(false)
   , _initialized(false)
+  , _busNum(busNum)
   , _channelIdx(-1)
   , _ctx(nullptr)
 {

@@ -54,18 +54,15 @@ public:
   const char* getTypeStr() const override { return "RMT"; }
 #endif
 
-  // Configuration
-  void setInverted(bool inv) override {
-    _inverted = inv;
-  }
+  void setInverted(bool inv) override;
   void setColorOrder(uint8_t co);
 
   // Reset the auto-allocation counter (call before re-creating buses)
-  static void setExpectedChannels(uint8_t expected) { s_expectedChannels = (expected > 0) ? expected : 1; }
+  static void setExpectedChannels(uint8_t expected) { expectedChannels = (expected > 0) ? expected : 1; }
   static void resetAutoChannel() {
-    s_allocatedCount = 0;
-    s_currentChannelIndex = 0;
-    s_usedBlocks = 0;
+    allocatedCount = 0;
+    currentChannelIndex = 0;
+    usedBlocks = 0;
   }
 
 private:
@@ -78,11 +75,11 @@ private:
   bool _usingRmtHi; // TODO: use #ifdef only and remove this variable
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
-  static uint8_t s_expectedChannels; // TODO: make none static
-  static uint8_t s_allocatedCount;
-  static uint8_t s_currentChannelIndex;
-  static uint8_t s_usedBlocks;
-  static uint8_t s_activeChannelMask; // bitmask of initialized channels
+  static uint8_t expectedChannels; // TODO: make none static
+  static uint8_t allocatedCount;
+  static uint8_t currentChannelIndex;
+  static uint8_t usedBlocks;
+  static uint8_t activeChannelMask; // bitmask of initialized channels
 
   void updateRmtTiming();
 
@@ -94,7 +91,7 @@ private:
   };
 
   // Static lookup table for timing speeds
-  static RmtContext s_contexts[WPB_RMT_CHANNELS];
+  static RmtContext contexts[WPB_RMT_CHANNELS];
 
   // Explicit wrappers: implemented in .cpp file to ensure they are placed in IRAM
   static void IRAM_ATTR translator_ch0(const void* src, rmt_item32_t* dest, size_t s, size_t w, size_t* ts, size_t* in);
@@ -115,7 +112,7 @@ private:
                                           size_t* translated_size, size_t* item_num);
 
   // Jump table of callbacks (defined in .cpp). Use 8 entries to match max RMT channels.
-  static const sample_to_rmt_t s_callbacks[WPB_RMT_CHANNELS];
+  static const sample_to_rmt_t callbacks[WPB_RMT_CHANNELS];
 };
 
 } // namespace WLEDpixelBus

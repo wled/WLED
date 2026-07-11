@@ -50,7 +50,7 @@ enum class SpiState : uint8_t {
  * Error handling:
  *   If outfifo_empty_err fires, transition to Error state.
  *   Pins are disconnected and driven low to prevent glitches.
- *   A 100ms timeout in isSpiDone() will eventually clear Error state.
+ *   A 100ms timeout in isIdle() will eventually clear Error state.
  */
 class SpiBusContext {
 public:
@@ -65,9 +65,8 @@ public:
   uint8_t getChannelCount() const { return _channelCount; }
 
   bool startTransmit();
-  bool isSpiDone();
-  bool isIdle() const { return _state == SpiState::Idle; }
-  void forceIdle();  // emergency stop, disconnects pins, resets hardware
+  bool isIdle() const; // returns true when idle, also handles error timeout recovery
+  void forceIdle() const;  // emergency stop, disconnects pins, resets hardware
 
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
 
@@ -81,7 +80,7 @@ private:
   void hwStopTransfer();
   void hwResetFifo();
   // State machine
-  volatile SpiState _state;
+  mutable volatile SpiState _state;
   bool _initialized;
   volatile uint8_t _activeBuffer;   // buffer currently being sent by DMA (like I2S _activeBuffer)
   // DMA
@@ -106,7 +105,7 @@ private:
   volatile size_t _numBytes;   // total source bytes to send
   mutable uint32_t _lastTransmitMs;
   // Staging: tracks which channels have provided data for the next frame
-  uint8_t _stagedMask;
+  mutable uint8_t _stagedMask;
   uint8_t _channelMask;
 
   static SpiBusContext* _instance;
@@ -131,9 +130,10 @@ public:
   const char* getTypeStr() const override { return "SPI"; }
 #endif
 
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void setInverted(bool inv) override;
   void setColorOrder(uint8_t co);
+
+  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
 
 private:
   int8_t _pin;

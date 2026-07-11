@@ -23,7 +23,7 @@ namespace WLEDpixelBus {
 //==============================================================================
 
 // Per-channel context table - stored in DRAM, 4 byte aligned for ISR access
-DMA_ATTR RmtBus::RmtContext RmtBus::s_contexts[WPB_RMT_CHANNELS] = {};
+DMA_ATTR RmtBus::RmtContext RmtBus::contexts[WPB_RMT_CHANNELS] = {};
 
 // Explicit IRAM tranlator callback wrappers for each channel (ensures the function is placed in IRAM which is dropped when using templates)
 void IRAM_ATTR RmtBus::translator_ch0(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(0, s, d, ss, w, ts, in); }
@@ -39,7 +39,7 @@ void IRAM_ATTR RmtBus::translator_ch6(const void* s, rmt_item32_t* d, size_t ss,
 void IRAM_ATTR RmtBus::translator_ch7(const void* s, rmt_item32_t* d, size_t ss, size_t w, size_t* ts, size_t* in) { translateInternal(7, s, d, ss, w, ts, in); }
 #endif
 // Jump table stored in DRAM, 4 byte aligned so ISR code can quickly find the correct wrapper
-DMA_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
+DMA_ATTR const sample_to_rmt_t RmtBus::callbacks[WPB_RMT_CHANNELS] = {
   RmtBus::translator_ch0, RmtBus::translator_ch1
 #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 2
   ,RmtBus::translator_ch2, RmtBus::translator_ch3
@@ -51,11 +51,11 @@ DMA_ATTR const sample_to_rmt_t RmtBus::s_callbacks[WPB_RMT_CHANNELS] = {
 };
 
 // Static auto-channel counter for RmtBus
-uint8_t RmtBus::s_expectedChannels = 1;
-uint8_t RmtBus::s_allocatedCount = 0;
-uint8_t RmtBus::s_currentChannelIndex = 0;
-uint8_t RmtBus::s_usedBlocks = 0;
-uint8_t RmtBus::s_activeChannelMask = 0;
+uint8_t RmtBus::expectedChannels = 1;
+uint8_t RmtBus::allocatedCount = 0;
+uint8_t RmtBus::currentChannelIndex = 0;
+uint8_t RmtBus::usedBlocks = 0;
+uint8_t RmtBus::activeChannelMask = 0;
 
 RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
@@ -88,9 +88,9 @@ void RmtBus::updateRmtTiming() {
   bit1.level0 = 1; bit1.duration0 = nsToTicks(_timing.t1h_ns);
   bit1.level1 = 0; bit1.duration1 = nsToTicks(_timing.t1l_ns);
 
-  s_contexts[(int)_rmtChannel].bit0 = bit0.val;
-  s_contexts[(int)_rmtChannel].bit1 = bit1.val;
-  s_contexts[(int)_rmtChannel].resetDuration = nsToTicks(_timing.reset_us * 1000);
+  contexts[(int)_rmtChannel].bit0 = bit0.val;
+  contexts[(int)_rmtChannel].bit1 = bit1.val;
+  contexts[(int)_rmtChannel].resetDuration = nsToTicks(_timing.reset_us * 1000);
 
 }
 
@@ -105,7 +105,7 @@ bool RmtBus::begin() {
   // C3 and S3 have less channels than blocks, so the last channel can always use additional blocks
   // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
   // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 block, and CH3 with 5 blocks
-  if (s_allocatedCount >= s_expectedChannels || s_allocatedCount >= maxTxChannels)
+  if (allocatedCount >= expectedChannels || allocatedCount >= maxTxChannels)
     return false;
 
   uint8_t totalBlocks;
@@ -117,27 +117,27 @@ bool RmtBus::begin() {
   totalBlocks = 4; // default to 4 if unknown, should be safe
 #endif
 
-  int left_channels = s_expectedChannels - s_allocatedCount - 1;
+  int left_channels = expectedChannels - allocatedCount - 1;
 
   if (left_channels == 0) {
-    _channel = s_currentChannelIndex;
-    blocksToUse = totalBlocks - s_usedBlocks;
+    _channel = currentChannelIndex;
+    blocksToUse = totalBlocks - usedBlocks;
   } else {
-    int k = totalBlocks / s_expectedChannels;
-    int max_k_for_index = maxTxChannels - s_currentChannelIndex - left_channels;
+    int k = totalBlocks / expectedChannels;
+    int max_k_for_index = maxTxChannels - currentChannelIndex - left_channels;
     if (k > max_k_for_index) k = max_k_for_index;
     if (k < 1) k = 1;
 
-    _channel = s_currentChannelIndex;
+    _channel = currentChannelIndex;
     blocksToUse = k;
   }
   #ifdef RMT_USE_SINGLE_MEM_BLOCK
   blocksToUse = 1;
   #endif
 
-  s_currentChannelIndex += blocksToUse;
-  s_usedBlocks += blocksToUse;
-  s_allocatedCount++;
+  currentChannelIndex += blocksToUse;
+  usedBlocks += blocksToUse;
+  allocatedCount++;
 
   if (_channel >= (int8_t)maxTxChannels) {
     //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d >= max %u, FAIL\n"), _channel, maxTxChannels);
@@ -145,7 +145,7 @@ bool RmtBus::begin() {
   }
   _rmtChannel = (rmt_channel_t)_channel;
 
-  //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n"), _channel, blocksToUse, s_allocatedCount, maxTxChannels);
+  //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n"), _channel, blocksToUse, allocatedCount, maxTxChannels);
 
   updateRmtTiming();
 
@@ -186,7 +186,7 @@ bool RmtBus::begin() {
   // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
   _usingRmtHi = false;
 #if !defined(CONFIG_IDF_TARGET_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
-  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, s_contexts[(int)_rmtChannel].bit0 , s_contexts[(int)_rmtChannel].bit1, s_contexts[(int)_rmtChannel].resetDuration, blocksToUse);
+  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, contexts[(int)_rmtChannel].bit0 , contexts[(int)_rmtChannel].bit1, contexts[(int)_rmtChannel].resetDuration, blocksToUse);
   if (hiErr == ESP_OK) {
     _usingRmtHi = true;
   } else {
@@ -201,7 +201,7 @@ bool RmtBus::begin() {
       return false;
     }
 
-    err = rmt_translator_init(_rmtChannel, s_callbacks[(int)_rmtChannel]);
+    err = rmt_translator_init(_rmtChannel, callbacks[(int)_rmtChannel]);
     if (err != ESP_OK) {
       rmt_driver_uninstall(_rmtChannel);
       return false;
@@ -215,7 +215,7 @@ bool RmtBus::begin() {
   if (_initialized) esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
 
   _initialized = true;
-  s_activeChannelMask |= (1 << _channel);
+  activeChannelMask |= (1 << _channel);
   if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
   return true;
 }
@@ -223,7 +223,7 @@ bool RmtBus::begin() {
 void RmtBus::end() {
   if (!_initialized) return;
 
-  s_activeChannelMask &= ~(1 << _channel);
+  activeChannelMask &= ~(1 << _channel);
   if (_usingRmtHi) {
     RmtHiDriver::Uninstall(_rmtChannel);
   } else {
@@ -261,6 +261,10 @@ bool RmtBus::canShow() const {
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
 }
 
+void RmtBus::setInverted(bool inv) {
+  _inverted = inv;
+}
+
 void RmtBus::setColorOrder(uint8_t co) {
   _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
 }
@@ -278,8 +282,8 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
   const uint8_t* psrc = (const uint8_t*)src;
 
   // Cache instance timings in registers for maximum ISR speed
-  const uint32_t bit0 = s_contexts[channel].bit0;
-  const uint32_t bit1 = s_contexts[channel].bit1;
+  const uint32_t bit0 = contexts[channel].bit0;
+  const uint32_t bit1 = contexts[channel].bit1;
 
   // Calculate how many full bytes we can translate based on RMT buffer space (wanted_num)
   const uint32_t items_limit = wanted_num / 8;
@@ -304,7 +308,7 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
 
   // If max_bytes == src_size, it means we've reached the end of the LED strip.
   if (bytes_to_process > 0 && bytes_to_process == src_size) {
-    dest[(bytes_to_process * 8) - 1].duration1 = s_contexts[channel].resetDuration; // set the last (low) pulse to reset duration
+    dest[(bytes_to_process * 8) - 1].duration1 = contexts[channel].resetDuration; // set the last (low) pulse to reset duration
   }
 
 //  *translated_size = bytes_to_process;

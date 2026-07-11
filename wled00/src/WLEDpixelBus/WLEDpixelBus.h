@@ -611,7 +611,7 @@ constexpr uint8_t getRmtMaxChannels() {
  * @param bufferSize  DMA buffer size (for I2S/LCD)
  * @return Bus instance (caller owns, delete when done)
  */
-PixelBus* createBus(BusDriver type, int8_t pin, const LedTiming& timing,
+PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing,
   uint8_t colorOrder, uint8_t numChannels, uint8_t ledType = 0, size_t bufferSize = DEFAULT_DMA_BUFFER_SIZE);
 
 } // namespace WLEDpixelBus

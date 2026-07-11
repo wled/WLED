@@ -20,12 +20,8 @@ Each bus can have individual configuration of color channels but all must share 
 #pragma once
 
 #include "WLEDpixelBus.h"
-#ifdef WLEDPB_I2S_SUPPORT
-namespace WLEDpixelBus {
 
-//==============================================================================
-// I2S Parallel Bus - ESP32, ESP32-S2, ESP32-S3 (LCD)
-//==============================================================================
+#ifdef WLEDPB_I2S_SUPPORT
 
 #include "driver/periph_ctrl.h"
 #include "esp_rom_gpio.h"
@@ -43,6 +39,12 @@ namespace WLEDpixelBus {
   #include "rom/lldesc.h"
   #include "esp_intr_alloc.h"
 #endif
+
+namespace WLEDpixelBus {
+
+//==============================================================================
+// I2S Parallel Bus - ESP32, ESP32-S2, ESP32-S3 (LCD)
+//==============================================================================
 
 // SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080
 // TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
@@ -216,24 +218,20 @@ public:
   const char* getTypeStr() const override { return "I2S"; }
 #endif
 
-  // Override to use DMA-capable allocator for I2S
-  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
-
   void setInverted(bool inv) override;
   void setColorOrder(uint8_t co);
 
+  // Override to use DMA-capable allocator for I2S
+  bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
+
 private:
   int8_t _pin;
-  uint8_t _busNum;
   LedTiming _timing;
   bool _inverted;
   bool _initialized;
-
+  uint8_t _busNum;
   int8_t _channelIdx;
   I2sBusContext* _ctx;
-
-  // _encodeBuffer and _encodeBufferSize are in PixelBus base (allocated DMA-capable via allocateEncodeBuffer override)
-  bool allocateBuffer(uint16_t numPixels);  // legacy, calls allocateEncodeBuffer
 };
 
 } // namespace WLEDpixelBus

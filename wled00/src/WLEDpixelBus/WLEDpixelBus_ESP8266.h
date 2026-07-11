@@ -42,8 +42,8 @@ public:
 private:
   int8_t _pin;
   LedTiming _timing;
-  bool _initialized;
   bool _inverted; // invert output signal
+  bool _initialized;
   volatile uint8_t* _asyncBuf    = nullptr;
   volatile uint8_t* _asyncBufEnd = nullptr;
 
@@ -80,12 +80,12 @@ public:
   const char* getTypeStr() const override { return "ESP8266_DMA"; }
 #endif
 
+  void setColorOrder(uint8_t co);
   IRAM_ATTR bool setPixel(uint16_t pos, uint32_t c, uint16_t wwcw) override;
   IRAM_ATTR uint32_t getPixelColor(uint16_t pix) const override;
   bool allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) override;
   void updateSuffix(const uint8_t* data, uint8_t len) override;
   void scaleAll(uint8_t scale) override;
-  void setColorOrder(uint8_t co);
 
   static Esp8266DmaBus* s_this;
 
@@ -96,8 +96,8 @@ private:
 
   int8_t _pin; // Only GPIO3 supported for I2S DMA on ESP8266
   LedTiming _timing;
-  bool _initialized;
   bool _inverted; // invert output signal
+  bool _initialized;
   volatile bool _sending;
 
   // SLC DMA linked-list
