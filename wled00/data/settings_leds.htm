@@ -1023,7 +1023,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 				});
 			}
 		}
-		// calculate channel usage across all buses
+		// calculate channel usage across all buses, set bus type for parallel buses
 		function getDuse() {
 			let rmtUsed = 0, i2sUsed = 0;
 			let I2SType = null;
@@ -1039,7 +1039,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						bbUsed++;
 						if (!bbType) bbType = t;
 					} else {
-						rmtUsed++;
+						if (!is8266()) rmtUsed++;
 					}
 				}
 			});
