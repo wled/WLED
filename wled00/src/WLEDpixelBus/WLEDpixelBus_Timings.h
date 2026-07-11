@@ -97,8 +97,7 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
   }
 }
 
-// Returns the LED timing for the given WLED bus type, read from flash.
-// Defined in WLEDpixelBus.cpp so it is emitted only once (non-inline).
+// Returns the LED timing for the given WLED bus type, read from flash. note: the bus constructor stores its own copy
 LedTiming getProtocol(uint8_t wledType);
 
 } // namespace WLEDpixelBus

@@ -36,8 +36,8 @@ Esp8266UartBus* Esp8266UartBus::s_instances[2] = {nullptr, nullptr};
 Esp8266UartBus::Esp8266UartBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
-  , _inverted(false)
   , _initialized(false)
+  , _inverted(false)
   , _asyncBuf(nullptr)
   , _asyncBufEnd(nullptr)
 {
@@ -207,9 +207,9 @@ Esp8266DmaBus* Esp8266DmaBus::s_this = nullptr;
 
 Esp8266DmaBus::Esp8266DmaBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   :  _pin(pin)
-  , _timing(timing),
-  , _inverted(false)
+  , _timing(timing)
   , _initialized(false)
+  , _inverted(false)
   , _sending(false)
   , _dmaDesc(nullptr)
   , _dmaDescCnt(0)
