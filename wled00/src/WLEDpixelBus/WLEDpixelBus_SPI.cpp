@@ -80,7 +80,9 @@ bool SpiBus::begin() {
   }
 
   _initialized = true;
-  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  uint8_t allocBytes = _encoder.getPixelBytes();
+  if (_ledType == TYPE_APA102 || _ledType == TYPE_P9813) allocBytes++; // need more space for per-pixel header byte, see show()
+  if (!allocateEncodeBuffer(_numPixels, allocBytes)) { end(); return false; }
   return true;
 }
 
@@ -165,7 +167,7 @@ void SpiBus::sendStartFrame(uint16_t numPixels) {
   } else if (_ledType != TYPE_WS2801) {
     // APA102 / LPD6803 / P9813: fixed 4-byte zero start frame
     // WS2801: no start frame — latch is the reset-time gap between frames
-    sendByte(0x00); sendByte(0x00); sendByte(0x00); sendByte(0x00);
+    for (uint32_t i = 0; i < 4; i++) sendByte(0x00);
   }
 }
 
@@ -178,16 +180,16 @@ void SpiBus::sendEndFrame(uint16_t numPixels) {
   // P9813: fixed 4 zero bytes.
   // WS2801: nothing — latch is a timing gap, not a byte sequence.
   if (_ledType == TYPE_APA102) {
-    const uint16_t n = (numPixels + 15) / 16;
-    for (uint16_t i = 0; i < n; i++) sendByte(0x00);
+    const uint32_t n = (numPixels + 15) / 16;
+    for (uint32_t i = 0; i < n; i++) sendByte(0x00);
   } else if (_ledType == TYPE_LPD6803) {
-    const uint16_t n = (numPixels + 7) / 8;
-    for (uint16_t i = 0; i < n; i++) sendByte(0x00);
+    const uint32_t n = (numPixels + 7) / 8;
+    for (uint32_t i = 0; i < n; i++) sendByte(0x00);
   } else if (_ledType == TYPE_LPD8806) {
-    const uint16_t n = (numPixels + 31) / 32;
-    for (uint16_t i = 0; i < n; i++) sendByte(0xFF);
+    const uint32_t n = (numPixels + 31) / 32;
+    for (uint32_t i = 0; i < n; i++) sendByte(0xFF);
   } else if (_ledType == TYPE_P9813) {
-    sendByte(0x00); sendByte(0x00); sendByte(0x00); sendByte(0x00);
+    for (uint32_t i = 0; i < 4; i++) sendByte(0x00);
   }
   // TYPE_WS2801: nothing to send
 }
@@ -198,36 +200,34 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
   const uint8_t pixelBytes = _encoder.getPixelBytes();
 
   if (_useHardware) {
-    // beginTransaction applies frequency, bit order, and SPI mode atomically.
-    // This is mandatory on ESP32 — settings applied outside a transaction are ignored by the hardware.
-    SPI.beginTransaction(SPISettings(_clockHz, MSBFIRST, SPI_MODE0));
+    SPI.beginTransaction(SPISettings(_clockHz, MSBFIRST, SPI_MODE0)); // beginTransaction applies frequency, bit order, and SPI mode
   }
 
-  sendStartFrame(_numPixels);
-  // TODO: SPI transfer is a lot slower than it could be, on ESP8266 SPI overhead makes hardware output slower than BB, also BB does not respect "speed" and on ESP8266 runs at 3.3MHz...
-  // fastest would be to construct the full buffer and then use hardware transfer of everthing at once using SPI.transfer(buffer, numbytes)
-  // on ESP32 it is not a huge issue (about a factor of 2 slower than 16.x), on ESP8266 it is painfully slow (like 10x slower).
-  if (_ledType == TYPE_APA102) {
-    // APA102 per-pixel wire format: [0xE0|brightness5bit, byte0, byte1, byte2]
-    // 0xE0|0x1F == 0xFF == full hardware brightness (5-bit field, 0x1F = max)
-    for (uint16_t i = 0; i < _numPixels; i++) {
-      sendByte(0xE0 | _apa102HwBri);
-      uint8_t* src = _encodeBuffer + (size_t)i * pixelBytes;
-      if (_useHardware)
-        SPI.transfer(src, pixelBytes); // note: this is barely faster than sending byte-by-byte, at least on ESP8266, probably an issue with RAM alignment and DMA transfer ability.
-      else
-        for (uint8_t ch = 0; ch < pixelBytes; ch++) sendByte(src[ch]);
+  if (_ledType == TYPE_APA102 || _ledType == TYPE_P9813) {
+    // These chips need a per-pixel header byte (brightness/flag) in front of the RGB data
+    // Expand the compact encoded buffer in-place, starting from the last pixel (no data is overwritten)
+    // APA102 wire format: [0xE0|bri, B, G, R], P9813 wire format:  [flag, B, G, R]
+    // note: this "extension" is intentionally not done when encoding the buffer so we can keep the encoding branch-free and fast for all types.
+    // TODO: since peek uses getPixelColor() for accurate preview respecting LEDmaps this will mess it up as sending WS live view is done after service() and show()
+    const uint8_t wireBytes = pixelBytes + 1;
+    for (uint_fast16_t i = _numPixels; i > 0; --i) {
+      uint8_t* src = _encodeBuffer + (size_t)(i - 1) * pixelBytes;
+      uint8_t* dst = _encodeBuffer + (size_t)(i - 1) * wireBytes;
+      for (int8_t b = pixelBytes - 1; b >= 0; --b) dst[b + 1] = src[b];
+      if (_ledType == TYPE_APA102) {
+        dst[0] = 0xE0 | _apa102HwBri;
+      } else { // TYPE_P9813
+        const uint8_t b = dst[1], g = dst[2], r = dst[3];
+        dst[0] = 0xC0 | ((~b & 0xC0) >> 2) | ((~g & 0xC0) >> 4) | ((~r & 0xC0) >> 6);
+      }
     }
-  } else if (_ledType == TYPE_P9813) {
-    // P9813 per-pixel wire format: [flag, B, G, R]
-    // flag = 0xC0 | (~B[7:6]>>2) | (~G[7:6]>>4) | (~R[7:6]>>6)
-    // _encodeBuffer bytes are already in wire order (BGR = indices 0,1,2 when
-    // color order is configured as BGR, which is the P9813 native order).
-    for (uint16_t i = 0; i < _numPixels; i++) {
-      const uint8_t* src = _encodeBuffer + (size_t)i * pixelBytes;
-      const uint8_t b = src[0], g = src[1], r = src[2];
-      const uint8_t flag = 0xC0 | ((~b & 0xC0) >> 2) | ((~g & 0xC0) >> 4) | ((~r & 0xC0) >> 6);
-      sendByte(flag); sendByte(b); sendByte(g); sendByte(r);
+    sendStartFrame(_numPixels);
+    uint8_t* src = _encodeBuffer;
+    if (_useHardware) {
+      SPI.transfer(src, (size_t)_numPixels * wireBytes);
+    } else {
+      const size_t total = (size_t)_numPixels * wireBytes;
+      for (size_t i = 0; i < total; i++) sendByte(src[i]);
     }
   } else {
     // WS2801 / LPD8806 / LPD6803: raw encoded bytes, no per-pixel framing byte

@@ -1866,20 +1866,7 @@ void WS2812FX::show() {
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
   #else
-  /*
-  // TODO: this is not working, something wrong with color encoding/color order and it should use the raw pixel color, maybe move this down to bus level?
-  if (useGammaCorrection) {
-    for (auto &bus : BusManager::busses) {
-      if (bus->isDigital() && bus->isOk()) {
-        BusDigital &busd = static_cast<BusDigital&>(*bus);
-        for (int i = 0; i < busd.getLength(); i++) {
-          uint32_t c = busd.getPixelColor(i); // TODO: this uses restore color lossy, which is not needed.
-          if (c > 0) c = gamma32(c); // apply gamma correction if enabled note: applying gamma after brightness has too much color loss
-          busd.setPixelColor(i, c);
-        }
-      }
-    }
-  }*/
+  // TODO: implement bus level gamma, see PR #5722
   #endif
 
   // pass the pixels on to the buses and start sending them out
