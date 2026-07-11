@@ -137,7 +137,6 @@ bool SpiBusContext::isSpiDone() {
 }
 
 // Recovery path for error conditions, cleanly stops DMA, SPI, and disconnects pins to prevent glitches
-// TODO: never seeing this being called anymore. needs more testing but can probably be removed
 void SpiBusContext::forceIdle() {
 Serial.println("ERROR: forced idle");
   portENTER_CRITICAL(&_isrMux); // make sure no ISR will disturb the sequence
@@ -227,7 +226,6 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
 // SPI ISR: handles trans_done (normal completion) and outfifo_empty_err
 // (FIFO underrun recovery). Both paths are synchronized with gdmaISR via _isrMux.
 void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
-  
   SpiBusContext* ctx = (SpiBusContext*)arg;
   uint32_t status = ctx->_hw->dma_int_st.val;
   ctx->_hw->dma_int_clr.val = status; // Clear all flags immediately
