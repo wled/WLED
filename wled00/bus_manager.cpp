@@ -168,7 +168,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     _pCustomConfig = new CustomBusConfig(bc.custom);
     const uint8_t nch = bc.custom.is16bit ? bc.custom.numChannels * 2 : bc.custom.numChannels;
     const WLEDpixelBus::LedTiming customTiming(bc.custom.t0h, bc.custom.t0l, bc.custom.t1h, bc.custom.t1l, bc.custom.trst);
-    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, nch, &customTiming);
+    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, _frequencykHz, nch, &customTiming);
     if (_busPtr) {
       _busPtr->setEncoder(WLEDpixelBus::ColorEncoder(bc.custom.channelColors, bc.custom.numChannels, bc.custom.invertMask, bc.custom.is16bit));
       if (bc.custom.invertOutput) _busPtr->setInverted(true); // invert output, needs to be set before bus->begin() (uses native hardware inversion capability)
@@ -189,7 +189,7 @@ BusDigital::BusDigital(const BusConfig &bc)
     if (hasWW && hasCW) _hasCCT = true;
   } else {
     // create bus via PixelBusAllocator wrapper which will return a WLEDpixelBus::PixelBus
-    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor);
+    _busPtr = PixelBusAllocator::create(bc.type, _pins, lenToCreate + _skip, bc.colorOrder, _driverType, bc.busSpeedFactor, _frequencykHz);
   }
   _valid = (_busPtr != nullptr) && bc.count > 0;
 

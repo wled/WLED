@@ -110,7 +110,7 @@ class PixelBusAllocator {
     return true;
   }
 
-static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = BUSDRV_RMT, uint8_t busSpeedFactor = 100, uint8_t customNumChannels = 0, const WLEDpixelBus::LedTiming* customTiming = nullptr) {
+static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t len, uint8_t colorOrder, uint8_t driverType = BUSDRV_RMT, uint8_t busSpeedFactor = 100, uint16_t frequencykHz = 0, uint8_t customNumChannels = 0, const WLEDpixelBus::LedTiming* customTiming = nullptr) {
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
@@ -142,7 +142,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         _hardwareSPIused++; // claim hardware SPI (currently only one is supported), on C3 this can also be claimed by parallel SPI (done so in allocateHardware)
       }
       #endif
-      return new WLEDpixelBus::SpiBus(pins[0], pins[1], timing, colorOrder, numChannels, isHSPI, busType); // TODO: move this into createbus function?
+      return new WLEDpixelBus::SpiBus(pins[0], pins[1], frequencykHz, colorOrder, numChannels, isHSPI, busType); // TODO: move this into createbus function?
     }
 
     WLEDpixelBus::BusDriver driver = WLEDpixelBus::BusDriver::RMT; // always overwritten below; initialised to avoid unused-variable warning

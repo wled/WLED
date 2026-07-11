@@ -18,25 +18,20 @@ written by Damian Schneider @dedehai 2026
 
 namespace WLEDpixelBus {
 
-// Derive SPI clock Hz from timing bitPeriod, clamped to [1 MHz, SPI_MAX_CLOCK_HZ].
-// bit timing is calculated in busmanager from requested _frequencykHz  
-// TODO: this could be done more efficiently by storing the value in kHz directly in t0h_ns
-static uint32_t timingToClockHz(const LedTiming& t) {
-  const uint32_t periodNs = t.bitPeriod();
-  if (periodNs == 0) return 2000000;
-  uint32_t hz = 1000000000UL / periodNs;
-  if (hz < 1000000)  hz = 1000000;   // minimum 1 MHz
-  if (hz > SPI_MAX_CLOCK_HZ) hz = SPI_MAX_CLOCK_HZ;
-  return hz;
+// Derive SPI clock Hz from kHz timing set through busconfig (see busmanager)
+static uint32_t timingToClockHz(uint16_t frequencykHz) {
+  uint32_t frequencyHz = frequencykHz*1000;
+  if (frequencyHz < 1000000)  frequencyHz = 1000000;   // minimum 1 MHz
+  if (frequencyHz > SPI_MAX_CLOCK_HZ) frequencyHz = SPI_MAX_CLOCK_HZ;
+  return frequencyHz;
 }
 
-SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi, uint8_t ledType)
+SpiBus::SpiBus(int8_t dataPin, int8_t clockPin, uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi, uint8_t ledType)
   : _dataPin(dataPin)
   , _clockPin(clockPin)
-  , _timing(timing)
   , _useHardware(useHardwareSpi)
   , _initialized(false)
-  , _clockHz(0)
+  , _clockHz(timingToClockHz(frequencykHz))
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
   _ledType = ledType;
@@ -48,8 +43,6 @@ SpiBus::~SpiBus() {
 
 bool SpiBus::begin() {
   if (_initialized) return true;
-
-  _clockHz = timingToClockHz(_timing);
 
   if (_useHardware) {
     // On ESP32 SPI.begin(sck, miso, mosi, ss) must be called with the actual pins so the IO matrix routes the SPI peripheral to the right GPIOs.

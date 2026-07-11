@@ -31,7 +31,7 @@ public:
    * @param useHardwareSpi True = hardware SPI peripheral, false = GPIO bit-bang
    * @param ledType  WLED LED type constant (TYPE_APA102, TYPE_WS2801, …)
    */
-  SpiBus(int8_t dataPin, int8_t clockPin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi = true, uint8_t ledType = 0);
+  SpiBus(int8_t dataPin, int8_t clockPin, const uint16_t frequencykHz, uint8_t colorOrder, uint8_t numChannels, bool useHardwareSpi = true, uint8_t ledType = 0);
   ~SpiBus() override;
 
   bool begin() override;
@@ -55,7 +55,6 @@ private:
   uint8_t  _apa102HwBri = 31; // APA102 5-bit hardware brightness step (0–31); 31 = max (default)
   int8_t   _dataPin;
   int8_t   _clockPin;
-  LedTiming _timing;
   bool     _useHardware;
   bool     _initialized;
   uint32_t _clockHz;   // SPI clock in Hz, derived from timing at begin() time
