@@ -234,15 +234,17 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       uint16_t start = elm["start"] | 0;
       if (length==0 || start + length > MAX_LEDS) continue; // zero length or we reached max. number of LEDs, just stop
       uint8_t ledType = elm["type"] | TYPE_WS2812_RGB;
-      // Special types that use CustomBusConfig channel-map override TODO: is there a better way to do this at bus level or do we need this in busmanager?
+      // Special types that require a CustomBusConfig channel-map override.
+      // These legacy types default to a hardcoded channel map when no custom
+      // config is saved in cfg.json; otherwise the JSON values are used.
       CustomBusConfig customBus;
-      bool isCustom = false;
+      bool isMappedType = false;
       if (ledType == TYPE_WS2812_1CH_X3) {
-        isCustom = true;
+        isMappedType = true;
         customBus.numChannels = 1; // one channel per LED, enables custom bus config
         customBus.channelColors[0] = 4; // W,W,W  TODO: get rid of magic numbers, using an enum
       } else if (ledType == TYPE_WS2812_WWA) {
-        isCustom = true;
+        isMappedType = true;
         customBus.numChannels = 3; // setting numChannels enables custom bus config
         customBus.channelColors[0] = 6; // CW
         customBus.channelColors[1] = 5; // WW
@@ -265,26 +267,26 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
       String host = elm[F("text")] | String();
       uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);
       busConfigs.emplace_back(ledType, pins, start, length, colorOrder, reversed, skipFirst, AWmode, freqkHz, maPerLed, maMax, driverType, host, (uint8_t)bsf);
-      // Apply custom bus channel-map/timing override (migration, or loaded from JSON via "cch")
+      // Apply custom bus channel-map/timing override (loaded from JSON, with
+      // legacy fallback to the hardcoded defaults for special types).
       BusConfig& bc_back = busConfigs.back();
-      if (isCustom) {
-        bc_back.custom = customBus;
-      } else {
-        bc_back.custom.numChannels = elm["cch"] | 0; // 0 = not set, bus uses its native channel layout
-        if (bc_back.custom.active()) {
-          JsonArrayConst cmap = elm["cmap"];
-          if (!cmap.isNull()) {
-            for (uint8_t ci = 0; ci < 6 && ci < cmap.size(); ci++) bc_back.custom.channelColors[ci] = (uint8_t)(int)cmap[ci];
-          }
-          bc_back.custom.invertMask   = elm["cinv"] | 0;
-          bc_back.custom.is16bit      = elm["c16"] | false;
-          bc_back.custom.invertOutput = elm["cio"] | false;
-          bc_back.custom.t0h  = elm["ct0h"] | 300;
-          bc_back.custom.t0l  = elm["ct0l"] | 900;
-          bc_back.custom.t1h  = elm["ct1h"] | 700;
-          bc_back.custom.t1l  = elm["ct1l"] | 500;
-          bc_back.custom.trst = elm["crst"]  | 300;
+      bc_back.custom.numChannels = elm["cch"] | 0; // 0 = not set, bus uses its native channel layout
+      if (bc_back.custom.active()) {
+        JsonArrayConst cmap = elm["cmap"];
+        if (!cmap.isNull()) {
+          for (uint8_t ci = 0; ci < 6 && ci < cmap.size(); ci++) bc_back.custom.channelColors[ci] = (uint8_t)(int)cmap[ci];
         }
+        bc_back.custom.invertMask   = elm["cinv"] | 0;
+        bc_back.custom.is16bit      = elm["c16"] | false;
+        bc_back.custom.invertOutput = elm["cio"] | false;
+        bc_back.custom.t0h  = elm["ct0h"] | 300;
+        bc_back.custom.t0l  = elm["ct0l"] | 900;
+        bc_back.custom.t1h  = elm["ct1h"] | 700;
+        bc_back.custom.t1l  = elm["ct1l"] | 500;
+        bc_back.custom.trst = elm["crst"]  | 300;
+      }
+      if (isMappedType && !bc_back.custom.active()) {
+        bc_back.custom = customBus; // use default custom config for special mapped types (i.e. 1 or 2 channel WS821x types), see above
       }
       doInitBusses = true;  // finalization done in beginStrip()
       if (!Bus::isVirtual(ledType)) s++; // have as many virtual buses as you want

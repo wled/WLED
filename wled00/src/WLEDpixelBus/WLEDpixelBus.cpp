@@ -35,6 +35,22 @@ Currently based on IDF v4.x API functions and low-level HAL
 
 namespace WLEDpixelBus {
 
+// LED Timing Lookup
+LedTiming getProtocol(uint8_t wledType) {
+  uint8_t idx = getTimingIndex(wledType);
+#ifdef ESP8266
+  return LedTiming(
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0h_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t0l_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1h_ns),
+    (uint16_t)pgm_read_word(&s_ledTimings[idx].t1l_ns),
+    (uint32_t)pgm_read_dword(&s_ledTimings[idx].reset_us)
+  );
+#else
+  return s_ledTimings[idx];
+#endif
+}
+
 //==============================================================================
 // Color Encoder Implementation
 //==============================================================================
