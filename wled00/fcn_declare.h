@@ -181,6 +181,7 @@ void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
+size_t buildLiveLedsPayload(uint8_t* buffer, size_t bufSize, size_t maxLeds);
 
 //led.cpp
 void setValuesFromSegment(uint8_t s);
@@ -279,9 +280,12 @@ bool getPresetName(byte index, String& name);
 //remote.cpp
 void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
+
+//espnow_api.cpp
 #ifndef WLED_DISABLE_ESPNOW
-void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len, bool broadcast);
+void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len);
 bool espNowApiReady();
+bool espNowApiRemoteActive();
 void handleEspNowApi();
 void pushEspNowState();
 #endif

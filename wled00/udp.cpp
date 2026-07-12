@@ -942,7 +942,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   // applied later in handleEspNowApi(). Already gated by the linked_remotes whitelist above.
   if (len >= ESPNOW_API_HEADER_SIZE && data[0] == ESPNOW_API_MAGIC && data[1] == ESPNOW_API_VERSION) {
     if (!espNowApiReady()) return;
-    handleEspNowApiData(address, data, len, broadcast);
+    handleEspNowApiData(address, data, len);
     return;
   }
 

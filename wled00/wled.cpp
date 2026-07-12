@@ -821,10 +821,12 @@ void WLED::initConnection()
       #ifdef ESP32
       quickEspNow.setWiFiBandwidth(WIFI_IF_AP, WIFI_BW_HT20); // Only needed for ESP32 in case you need coexistence with ESP8266 in the same network
       #endif //ESP32
-      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
+      // async sends (3rd arg): QuickESPNow's synchronous mode spins until a TX callback that
+      // never fires when esp_now_send() errors out immediately, deadlocking the main loop
+      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP, false);  // Same channel must be used for both AP and ESP-NOW
     } else {
       DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
-      espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
+      espNowOK = quickEspNow.begin(255, 0, false); // channel 255 = use the current WiFi channel, in STA mode
     }
     statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
   }
@@ -951,7 +953,13 @@ void WLED::handleConnection()
       sendImprovStateResponse(0x03, true);
       improvActive = 2;
     }
-    if (now - lastReconnectAttempt > ((stac) ? 300000 : 18000) && wifiConfigured) {
+    unsigned long retryInterval = stac ? 300000 : 18000;
+    #ifndef WLED_DISABLE_ESPNOW
+    // an active bidirectional ESP-NOW remote defers aggressive STA retries the same way an AP
+    // client does: every retry tears down ESP-NOW (and the AP on ESP32), cutting the remote off
+    if (espNowApiRemoteActive()) retryInterval = 300000;
+    #endif
+    if (now - lastReconnectAttempt > retryInterval && wifiConfigured) {
       if (improvActive == 2) improvActive = 3;
       DEBUG_PRINTF_P(PSTR("Last reconnect (%lus) too old (@ %lus).\n"), lastReconnectAttempt/1000, nowS);
       if (++selectedWiFi >= multiWiFi.size()) selectedWiFi = 0; // we couldn't connect, try with another network from the list

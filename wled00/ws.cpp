@@ -188,55 +188,19 @@ static bool sendLiveLedsWs(uint32_t wsClient)
   AsyncWebSocketClient * wsc = ws.client(wsClient);
   if (!wsc || wsc->queueLength() > 0) return false; //only send if queue free
 
-  size_t used = strip.getLengthTotal();
 #ifdef ESP8266
   const size_t MAX_LIVE_LEDS_WS = 256U;
 #else
   const size_t MAX_LIVE_LEDS_WS = 1024U;
 #endif
-  size_t n = ((used -1)/MAX_LIVE_LEDS_WS) +1; //only serve every n'th LED if count over MAX_LIVE_LEDS_WS
-  size_t pos = 2;  // start of data
-#ifndef WLED_DISABLE_2D
-  if (strip.isMatrix) {
-    // ignore anything behid matrix (i.e. extra strip)
-    used = Segment::maxWidth*Segment::maxHeight; // always the size of matrix (more or less than strip.getLengthTotal())
-    n = 1;
-    if (used > MAX_LIVE_LEDS_WS) n = 2;
-    if (used > MAX_LIVE_LEDS_WS*4) n = 4;
-    pos = 4;
-  }
-#endif
-  size_t bufSize = pos + (used/n)*3;
+  size_t bufSize = buildLiveLedsPayload(nullptr, 0, MAX_LIVE_LEDS_WS); // payload builder shared with the ESP-NOW API
+  if (!bufSize) return false;
 
   AsyncWebSocketBuffer wsBuf(bufSize);
   if (!wsBuf) return false; //out of memory
   uint8_t* buffer = reinterpret_cast<uint8_t*>(wsBuf.data());
   if (!buffer) return false; //out of memory
-  buffer[0] = 'L';
-  buffer[1] = 1; //version
-
-#ifndef WLED_DISABLE_2D
-  if (strip.isMatrix) {
-    buffer[1] = 2; //version
-    buffer[2] = Segment::maxWidth/n;
-    buffer[3] = Segment::maxHeight/n;
-  }
-#endif
-
-  for (size_t i = 0; pos < bufSize -2; i += n)
-  {
-#ifndef WLED_DISABLE_2D
-    if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
-#endif
-    uint32_t c = strip.getPixelColor(i); // note: LEDs mapped outside of valid range are set to black
-    uint8_t r = R(c);
-    uint8_t g = G(c);
-    uint8_t b = B(c);
-    uint8_t w = W(c);
-    buffer[pos++] = bri ? qadd8(w, r) : 0; //R, add white channel to RGB channels as a simple RGBW -> RGB map
-    buffer[pos++] = bri ? qadd8(w, g) : 0; //G
-    buffer[pos++] = bri ? qadd8(w, b) : 0; //B
-  }
+  if (!buildLiveLedsPayload(buffer, bufSize, MAX_LIVE_LEDS_WS)) return false;
 
   wsc->binary(std::move(wsBuf));
   return true;

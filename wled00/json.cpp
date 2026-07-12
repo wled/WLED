@@ -1393,6 +1393,59 @@ void serveJson(AsyncWebServerRequest* request)
   request->send(response);
 }
 
+// Binary liveview payload shared by the WebSocket liveview and the ESP-NOW API:
+// 'L', version (2 = 2D with width/height bytes), then sampled RGB triples.
+// Call with buffer == nullptr to get the required buffer size, then again to fill it;
+// returns 0 when there is nothing to serve or the buffer is too small.
+size_t buildLiveLedsPayload(uint8_t* buffer, size_t bufSize, size_t maxLeds)
+{
+  size_t used = strip.getLengthTotal();
+  if (!used || !maxLeds) return 0;
+  size_t n = ((used -1)/maxLeds) +1; //only serve every n'th LED if count over maxLeds
+  size_t pos = 2;  // start of data
+  size_t count = used/n;
+#ifndef WLED_DISABLE_2D
+  if (strip.isMatrix) {
+    // ignore anything behind matrix (i.e. extra strip)
+    used = Segment::maxWidth*Segment::maxHeight; // always the size of matrix (more or less than strip.getLengthTotal())
+    n = 1;
+    if (used > maxLeds) n = 2;
+    if (used > maxLeds*4) n = 4;
+    pos = 4;
+    count = (Segment::maxWidth/n) * (Segment::maxHeight/n); // matches the advertised dimensions
+  }
+#endif
+  size_t needed = pos + count*3;
+  if (!buffer) return needed;
+  if (bufSize < needed) return 0;
+
+  buffer[0] = 'L';
+  buffer[1] = 1; //version
+#ifndef WLED_DISABLE_2D
+  if (strip.isMatrix) {
+    buffer[1] = 2; //version
+    buffer[2] = Segment::maxWidth/n;
+    buffer[3] = Segment::maxHeight/n;
+  }
+#endif
+
+  for (size_t i = 0; pos < needed; i += n)
+  {
+#ifndef WLED_DISABLE_2D
+    if (strip.isMatrix && n>1 && (i/Segment::maxWidth)%n) i += Segment::maxWidth * (n-1);
+#endif
+    uint32_t c = strip.getPixelColor(i); // note: LEDs mapped outside of valid range are set to black
+    uint8_t r = R(c);
+    uint8_t g = G(c);
+    uint8_t b = B(c);
+    uint8_t w = W(c);
+    buffer[pos++] = bri ? qadd8(w, r) : 0; //R, add white channel to RGB channels as a simple RGBW -> RGB map
+    buffer[pos++] = bri ? qadd8(w, g) : 0; //G
+    buffer[pos++] = bri ? qadd8(w, b) : 0; //B
+  }
+  return needed;
+}
+
 #ifdef WLED_ENABLE_JSONLIVE
 #define MAX_LIVE_LEDS 256
 
