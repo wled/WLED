@@ -91,7 +91,6 @@
     #include <espnow.h>
     #define WIFI_MODE_STA WIFI_STA
     #define WIFI_MODE_AP WIFI_AP
-    #include <QuickEspNow.h>
   #endif
 #else // ESP32
   #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)
@@ -112,7 +111,6 @@
 
   #ifndef WLED_DISABLE_ESPNOW
     #include <esp_now.h>
-    #include <QuickEspNow.h>
   #endif
 #endif
 #include <Wire.h>

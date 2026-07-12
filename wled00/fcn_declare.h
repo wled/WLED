@@ -281,13 +281,21 @@ bool getPresetName(byte index, String& name);
 void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
 
-//espnow_api.cpp
 #ifndef WLED_DISABLE_ESPNOW
+//espnow_transport.cpp
+bool espNowTransportBegin(uint8_t channel, bool useAP);
+void espNowTransportStop();
+void handleEspNowTransport();
+bool espNowTransportReadyToSend();
+uint8_t espNowTransportSend(const uint8_t* address, const uint8_t* data, size_t len);
+
+//espnow_api.cpp
 void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len);
 bool espNowApiReady();
 bool espNowApiRemoteActive();
 void handleEspNowApi();
 void pushEspNowState();
+void espNowApiOnSendResult(uint8_t* address, uint8_t status);
 #endif
 
 //set.cpp

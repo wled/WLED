@@ -165,27 +165,25 @@ void notify(byte callMode, bool followUp)
       s0++;
     }
     if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
-    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+    auto err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
     if (!err && s0 < s) {
       // send rest of the segments
       buffer.packet++;
       packetSize = 0;
-      // WARNING: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring buffer capable of holding 3 queued messages
-      // to work around that limitation it is mandatory to utilize onDataSent() callback which should reduce number queued messages
-      // and wait until at least one space is available in the buffer
+      // The native transport has a bounded queue; stop adding fragments if it reports full.
       for (size_t i = s0; i < s; i++) {
         memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
         if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
         buffer.packet++;
         packetSize = 0;
         if (err) break;
       }
       if (!err && packetSize > 0) {
         DEBUG_PRINTF_P(PSTR("ESP-NOW sending last packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
       }
     }
     if (err) {
@@ -903,11 +901,14 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 #ifndef WLED_DISABLE_ESPNOW
 // ESP-NOW message sent callback function
 void espNowSentCB(uint8_t* address, uint8_t status) {
-    DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
+  espNowApiOnSendResult(address, status);
+  if (status) DEBUG_PRINTF_P(PSTR("ESP-NOW send to " MACSTR " failed: status=%u ch=%u wifi=%u\n"),
+                             MAC2STR(address), status, WiFi.channel(), unsigned(WiFi.status()));
 }
 
 // ESP-NOW message receive callback function
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+  if (!address || !data || len == 0) return;
   sprintf_P(last_signal_src, PSTR("%02x%02x%02x%02x%02x%02x"), address[0], address[1], address[2], address[3], address[4], address[5]);
 
   #ifdef WLED_DEBUG
@@ -957,6 +958,18 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   static uint8_t segsReceived = 0;
   static unsigned long lastProcessed = 0;
 
+  const size_t payloadLen = len - 3;
+  if (buffer->noOfPackets == 0 ||
+      (buffer->packet == 0 && payloadLen < SEG_OFFSET) ||
+      (buffer->packet > 0 && (payloadLen % UDP_SEG_SIZE) != 0)) {
+    DEBUG_PRINTLN(F("ESP-NOW malformed sync packet."));
+    if (udpIn) free(udpIn);
+    udpIn = nullptr;
+    packetsReceived = 0;
+    segsReceived = 0;
+    return;
+  }
+
   if (buffer->packet == 0) {
     packetsReceived = 0; // it will increment later (this is to make sure we start counting packets correctly)
     if (udpIn == nullptr) {
@@ -964,9 +977,9 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
       if (!udpIn) return; // memory alocation failed
       DEBUG_PRINTLN(F("ESP-NOW inited UDP buffer."));
     }
-    memcpy(udpIn, buffer->data, len-3); // global data (41 bytes + up to 5 segments)
-    segsReceived = (len - 3 - 41) / UDP_SEG_SIZE;
-  } else if (buffer->packet == packetsReceived && udpIn && ((len - 3) / UDP_SEG_SIZE) * UDP_SEG_SIZE == (len-3)) {
+    memcpy(udpIn, buffer->data, payloadLen); // global data (41 bytes + up to 5 segments)
+    segsReceived = (payloadLen - SEG_OFFSET) / UDP_SEG_SIZE;
+  } else if (buffer->packet == packetsReceived && udpIn) {
     // we received a packet full of segments
     if (segsReceived >= MAX_NUM_SEGMENTS) {
       // we are already past max segments, just ignore

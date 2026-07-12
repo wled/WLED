@@ -382,6 +382,8 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ESP_NOW_STATE_ON           1
 #define ESP_NOW_STATE_ERROR        2
 
+static constexpr uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
 // Bidirectional ESP-NOW API
 #define ESPNOW_API_MAGIC        0x4E   // 'N' - distinct from WizMote (0x80/0x81/0x91) and sync ('W'/0x57)
 #define ESPNOW_API_VERSION      0x01   // wire protocol version

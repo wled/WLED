@@ -1,14 +1,13 @@
 #include "wled.h"
 #ifndef WLED_DISABLE_ESPNOW
-#include <atomic>
 
 // Bidirectional JSON transport for linked ESP-NOW remotes. Frames are fragmented to fit
 // the 250-byte ESP-NOW payload limit
 // Received frames are reassembled in loop context before touching JSON, FS or LED state.
 
 #define ESPNOW_API_STRIPWAIT_TIMEOUT 24     // one frame timeout to wait for the strip to finish updating
-#define ESPNOW_LIVE_INTERVAL 40             // live peek cadence (ms), matching the WS liveview
-#define ESPNOW_LIVE_TIMEOUT 3000            // stop live peek if {"lv":true} is not re-armed within this window
+#define ESPNOW_LIVE_INTERVAL 100            // ESP-NOW live peek cadence (ms), bounded to avoid radio saturation
+#define ESPNOW_LIVE_TIMEOUT 30000           // stop live peek if {"lv":true} is not re-armed within this window
 #define ESPNOW_API_PRESENCE_TIMEOUT 120000  // push state only while an API remote has been seen this recently
 #define ESPNOW_API_TX_PER_LOOP 3            // max fragments transmitted per loop() pass (bounds loop stall)
 
@@ -25,14 +24,18 @@ typedef uint64_t espnow_frag_mask_t;
 #endif
 
 struct EspNowApiInbox {
-  volatile bool ready;
   uint8_t  srcMac[6];
   uint8_t  msgType;
   uint8_t  msgId;
   uint8_t* json;          // NUL-terminated heap buffer; ownership passes to the loop
   size_t   len;
 };
-static EspNowApiInbox apiInbox = {false, {0}, 0, 0, nullptr, 0};
+// Two slots absorb a request arriving while the main loop is finishing the previous one.
+// The remote still retries on timeout because ESP-NOW itself is best-effort.
+static EspNowApiInbox apiInbox[2] = {};
+static uint8_t apiInboxRead = 0;
+static uint8_t apiInboxWrite = 0;
+static uint8_t apiInboxCount = 0;
 
 static uint8_t*           apiReasmBuf   = nullptr;
 static uint8_t            apiReasmSrc[6]= {0};
@@ -43,13 +46,15 @@ static uint8_t            apiReasmCount = 0;
 static espnow_frag_mask_t apiReasmFlags = 0;   // received-fragment bitmask
 static size_t             apiReasmLen   = 0;
 static unsigned long      apiReasmLast  = 0;
-static unsigned long      apiRemoteSeen = 0;   // last time an API frame arrived; gates state pushes
+static unsigned long apiRemoteSeen = 0; // last API frame; gates state pushes/reconnect deferral
 
 static bool          apiLiveActive  = false;
 static uint8_t       apiLiveMac[6]  = {0};
 static uint8_t       apiLiveMsgId   = 0;
+static uint8_t       apiLiveSendFailures = 0;
 static unsigned long apiLastLiveTime = 0;
 static unsigned long apiLiveExpiry  = 0;       // live peek is a keepalive (no disconnect signal over ESP-NOW)
+static bool apiPushPending = false;             // coalesced state push waiting for the reliable TX slot
 
 // single pending outbound message, drained incrementally by serviceEspNowApiTx()
 struct EspNowApiTx {
@@ -63,17 +68,6 @@ struct EspNowApiTx {
 };
 static EspNowApiTx apiTx = {{0}, 0, 0, nullptr, 0, 0, 0};
 
-// The receive callback runs on a separate task; this try-lock guards the shared reassembly
-// state. It never blocks: contention just drops a fragment, which the remote re-sends.
-static std::atomic_flag apiStateLock = ATOMIC_FLAG_INIT;
-
-struct EspNowApiStateGuard {
-  bool locked;
-  EspNowApiStateGuard() : locked(!apiStateLock.test_and_set(std::memory_order_acquire)) {}
-  ~EspNowApiStateGuard() { if (locked) apiStateLock.clear(std::memory_order_release); }
-  operator bool() const { return locked; }
-};
-
 static void apiReasmReset() {
   if (apiReasmBuf) { free(apiReasmBuf); apiReasmBuf = nullptr; }
   apiReasmTotal = apiReasmCount = 0;
@@ -81,17 +75,44 @@ static void apiReasmReset() {
   apiReasmLen = 0;
 }
 
+static const char* apiTypeName(uint8_t type) {
+  switch (type) {
+    case ESPNOW_API_REQUEST:  return "REQUEST";
+    case ESPNOW_API_RESPONSE: return "RESPONSE";
+    case ESPNOW_API_PUSH:     return "PUSH";
+    case ESPNOW_API_HELLO:    return "HELLO";
+    case ESPNOW_API_LIVE:     return "LIVE";
+    default:                  return "UNKNOWN";
+  }
+}
+
 static void apiInboxReset() {
-  if (apiInbox.json) { free(apiInbox.json); apiInbox.json = nullptr; }
-  apiInbox.ready = false;
-  apiInbox.len = 0;
+  for (auto &inbox : apiInbox) {
+    if (inbox.json) { free(inbox.json); inbox.json = nullptr; }
+    inbox.len = 0;
+  }
+  apiInboxRead = apiInboxWrite = apiInboxCount = 0;
 }
 
 static void apiLiveReset() {
   apiLiveActive = false;
   apiLiveMsgId = 0;
+  apiLiveSendFailures = 0;
   apiLastLiveTime = 0;
   apiLiveExpiry = 0;
+}
+
+// Stop a stale live stream after repeated MAC-level failures; a refresh request restarts it.
+void espNowApiOnSendResult(uint8_t* address, uint8_t status) {
+  if (!apiLiveActive || !address || memcmp(address, apiLiveMac, sizeof(apiLiveMac)) != 0) return;
+  if (!status) {
+    apiLiveSendFailures = 0;
+    return;
+  }
+  if (++apiLiveSendFailures >= 3) {
+    DEBUG_PRINTLN(F("ESP-NOW API stopping live stream after 3 send failures."));
+    apiLiveReset();
+  }
 }
 
 static void apiTxReset() {
@@ -107,10 +128,11 @@ bool espNowApiReady() {
 }
 
 bool espNowApiRemoteActive() {
-  return apiRemoteSeen && millis() - apiRemoteSeen < ESPNOW_API_PRESENCE_TIMEOUT;
+  const unsigned long seen = apiRemoteSeen;
+  return seen && millis() - seen < ESPNOW_API_PRESENCE_TIMEOUT;
 }
 
-// Reassemble an inbound frame in receive-task context: validated, bounded copies only.
+// Reassemble a frame delivered by the native transport in loop context.
 void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
   if (len < ESPNOW_API_HEADER_SIZE) return;
   const uint8_t msgType   = data[2];
@@ -126,16 +148,23 @@ void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
   if (payloadLen > ESPNOW_API_FRAG_SIZE) return;
   if (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE) return; // non-final fragments are full so offsets align
 
-  EspNowApiStateGuard guard;
-  if (!guard) return;
-
   unsigned long now = millis();
   apiRemoteSeen = now;
   bool newMsg = (apiReasmBuf == nullptr) || (now - apiReasmLast > ESPNOW_API_REASM_TIMEOUT) ||
-                (memcmp(apiReasmSrc, address, 6) != 0) || (apiReasmId != msgId) || (apiReasmTotal != fragTotal);
+                (memcmp(apiReasmSrc, address, 6) != 0) || (apiReasmId != msgId) ||
+                (apiReasmType != msgType) || (apiReasmTotal != fragTotal);
   if (newMsg) {
+    if (apiReasmBuf) {
+      DEBUG_PRINTF_P(PSTR("ESP-NOW API RX replacing incomplete %s id=%u fragments=%u/%u age=%lums\n"),
+                     apiTypeName(apiReasmType), apiReasmId,
+                     apiReasmCount, apiReasmTotal, now - apiReasmLast);
+    }
     apiReasmReset();
-    if (fragIndex != 0) return;
+    if (fragIndex != 0) {
+      DEBUG_PRINTF_P(PSTR("ESP-NOW API RX dropped orphan %s id=%u fragment=%u/%u\n"),
+                     apiTypeName(msgType), msgId, fragIndex + 1, fragTotal);
+      return;
+    }
     apiReasmBuf = (uint8_t*)d_malloc((size_t)fragTotal * ESPNOW_API_FRAG_SIZE + 1);
     if (!apiReasmBuf) return;
     memcpy(apiReasmSrc, address, 6);
@@ -153,29 +182,27 @@ void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
   if (fragIndex == fragTotal - 1) apiReasmLen = (size_t)fragIndex * ESPNOW_API_FRAG_SIZE + payloadLen;
 
   if (apiReasmCount < fragTotal) return;
-  if (apiInbox.ready) { apiReasmReset(); return; } // loop hasn't drained the previous message; drop this one
+  if (apiInboxCount >= sizeof(apiInbox) / sizeof(apiInbox[0])) {
+    DEBUG_PRINTF_P(PSTR("ESP-NOW API RX inbox full; dropped %s id=%u\n"),
+                   apiTypeName(msgType), msgId);
+    apiReasmReset();
+    return;
+  }
   if (apiReasmLen > ESPNOW_API_MAX_JSON) { apiReasmReset(); return; }
   apiReasmBuf[apiReasmLen] = '\0';
-  apiInbox.json    = apiReasmBuf;
-  apiInbox.len     = apiReasmLen;
-  apiInbox.msgType = apiReasmType;
-  apiInbox.msgId   = apiReasmId;
-  memcpy(apiInbox.srcMac, apiReasmSrc, 6);
-  apiInbox.ready   = true;
+  EspNowApiInbox &inbox = apiInbox[apiInboxWrite];
+  inbox.json    = apiReasmBuf;
+  inbox.len     = apiReasmLen;
+  inbox.msgType = apiReasmType;
+  inbox.msgId   = apiReasmId;
+  memcpy(inbox.srcMac, apiReasmSrc, 6);
+  apiInboxWrite = (apiInboxWrite + 1) % (sizeof(apiInbox) / sizeof(apiInbox[0]));
+  apiInboxCount++;
+  DEBUG_PRINTF_P(PSTR("ESP-NOW API RX complete %s id=%u bytes=%u fragments=%u inbox=%u\n"),
+                 apiTypeName(msgType), msgId,
+                 unsigned(apiReasmLen), fragTotal, apiInboxCount);
   apiReasmBuf = nullptr; // ownership moved to the inbox; reset clears the remaining state
   apiReasmReset();
-}
-
-// ESP8266 QuickESPNow does not auto-register unicast peers (ESP32 does).
-static void espNowEnsurePeer(const uint8_t* mac) {
-#ifdef ESP8266
-  if (memcmp(mac, ESPNOW_BROADCAST_ADDRESS, 6) == 0) return;
-  if (!esp_now_is_peer_exist((uint8_t*)mac)) {
-    esp_now_add_peer((uint8_t*)mac, ESP_NOW_ROLE_COMBO, 0, nullptr, 0); // channel 0 = current
-  }
-#else
-  (void)mac;
-#endif
 }
 
 static bool apiTxIdle() { return apiTx.payload == nullptr; }
@@ -191,13 +218,13 @@ static void serviceEspNowApiTx() {
   frame[3] = apiTx.msgId;
   frame[5] = apiTx.fragTotal;
   for (unsigned i = 0; i < ESPNOW_API_TX_PER_LOOP && !apiTxIdle(); i++) {
-    if (!quickEspNow.readyToSendData()) return; // TX ring full; resume next loop pass
+    if (!espNowTransportReadyToSend()) return; // TX ring full; resume next loop pass
     size_t off = (size_t)apiTx.fragNext * ESPNOW_API_FRAG_SIZE;
     size_t chunk = apiTx.len - off;
     if (chunk > ESPNOW_API_FRAG_SIZE) chunk = ESPNOW_API_FRAG_SIZE;
     frame[4] = apiTx.fragNext;
     memcpy(frame + ESPNOW_API_HEADER_SIZE, apiTx.payload + off, chunk);
-    if (quickEspNow.send(apiTx.mac, frame, ESPNOW_API_HEADER_SIZE + chunk)) { apiTxReset(); return; } // link error; drop, remote retries
+    if (espNowTransportSend(apiTx.mac, frame, ESPNOW_API_HEADER_SIZE + chunk)) { apiTxReset(); return; } // link error; drop, remote retries
     if (++apiTx.fragNext >= apiTx.fragTotal) apiTxReset();
   }
 }
@@ -219,7 +246,11 @@ static bool apiTxEnqueue(const uint8_t* mac, uint8_t msgType, uint8_t msgId, uin
   apiTx.len       = len;
   apiTx.fragTotal = (uint8_t)total;
   apiTx.fragNext  = 0;
-  espNowEnsurePeer(mac);
+  if (msgType != ESPNOW_API_LIVE) {
+    DEBUG_PRINTF_P(PSTR("ESP-NOW API TX queued %s id=%u bytes=%u fragments=%u to " MACSTR " ch=%u\n"),
+                   apiTypeName(msgType), msgId, unsigned(len),
+                   unsigned(total), MAC2STR(mac), WiFi.channel());
+  }
   serviceEspNowApiTx();
   return true;
 }
@@ -265,6 +296,33 @@ static uint8_t queueEspNowApiState(const uint8_t* mac, uint8_t msgType, uint8_t 
   serializeState(state);
   JsonObject info  = pDoc->createNestedObject("info");
   serializeInfo(info);
+  return queueApiDocLocked(mac, msgType, msgId);
+}
+
+// Serialize only the fields used by companion remotes so routine state fits in one frame.
+static uint8_t queueEspNowApiCompactState(const uint8_t* mac, uint8_t msgType, uint8_t msgId) {
+  if (statusESPNow != ESP_NOW_STATE_ON) return ESPNOW_API_ERR_BUSY;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return ESPNOW_API_ERR_BUSY;
+  pDoc->clear();
+  JsonObject state = pDoc->createNestedObject("state");
+  state["on"] = bri > 0;
+  state["bri"] = briLast;
+  state["ps"] = currentPreset > 0 ? currentPreset : -1;
+  state["mainseg"] = 0;
+
+  const Segment &mainseg = strip.getMainSegment();
+  JsonObject seg = state.createNestedArray("seg").createNestedObject();
+  seg["fx"] = mainseg.mode;
+  seg["pal"] = mainseg.palette;
+  seg["sx"] = mainseg.speed;
+  seg["ix"] = mainseg.intensity;
+  seg["c1"] = mainseg.custom1;
+  seg["c2"] = mainseg.custom2;
+  seg["c3"] = mainseg.custom3;
+  JsonArray color = seg.createNestedArray("col").createNestedArray();
+  color.add(R(mainseg.colors[0]));
+  color.add(G(mainseg.colors[0]));
+  color.add(B(mainseg.colors[0]));
   return queueApiDocLocked(mac, msgType, msgId);
 }
 
@@ -335,11 +393,7 @@ static void sendEspNowApiCatalog(const uint8_t* mac, uint8_t msgId, const char* 
 static bool queueEspNowLiveLeds(const uint8_t* mac, uint8_t msgId) {
   if (statusESPNow != ESP_NOW_STATE_ON || !mac) return false;
   if (!apiTxIdle()) return false; // a live frame is stale the moment it waits; skip it
-#ifdef ESP8266
   const size_t MAX_LIVE_LEDS_ESPNOW = 256U;
-#else
-  const size_t MAX_LIVE_LEDS_ESPNOW = 1024U;
-#endif
   size_t bufSize = buildLiveLedsPayload(nullptr, 0, MAX_LIVE_LEDS_ESPNOW);
   if (!bufSize || bufSize > ESPNOW_API_MAX_JSON) return false;
   uint8_t* buffer = (uint8_t*)d_malloc(bufSize);
@@ -361,16 +415,26 @@ static void handleEspNowLive() {
   if (!success) apiLastLiveTime -= 20; // retry sooner if TX slot or heap was busy
 }
 
-static bool apiResetAll() {
-  {
-    EspNowApiStateGuard guard;
-    if (!guard) return false;
-    apiReasmReset();
-    apiInboxReset();
-  }
+static void apiResetAll() {
+  apiReasmReset();
+  apiInboxReset();
   apiLiveReset();
   apiTxReset();
   apiRemoteSeen = 0;
+  apiPushPending = false;
+}
+
+// Retry a coalesced state push after responses have drained; live preview yields to state.
+static bool handlePendingEspNowPush() {
+  if (!apiPushPending || !apiTxIdle()) return false;
+  if (!espNowApiReady() || linked_remotes.empty() || !espNowApiRemoteActive()) {
+    apiPushPending = false;
+    return false;
+  }
+  static uint8_t pushId = 0;
+  if (queueEspNowApiCompactState(ESPNOW_BROADCAST_ADDRESS, ESPNOW_API_PUSH, pushId) != 0) return false;
+  apiPushPending = false;
+  pushId++;
   return true;
 }
 
@@ -378,40 +442,48 @@ static bool apiResetAll() {
 void handleEspNowApi() {
   static bool needCleanup = false;
   if (!espNowApiReady()) {
-    if (needCleanup) needCleanup = !apiResetAll(); // once, on the on->off transition
+    if (needCleanup) { apiResetAll(); needCleanup = false; }
     return;
   }
   needCleanup = true;
 
   serviceEspNowApiTx();
-  handleEspNowLive();
+  if (!apiTxIdle()) return; // finish the previous response before consuming another request
 
   uint8_t srcMac[6];
   uint8_t msgType = 0, msgId = 0;
   uint8_t* json = nullptr;
   size_t jsonLen = 0;
 
-  {
-    EspNowApiStateGuard guard;
-    if (!guard) return;
-    apiReasmCleanupStale();
-    if (!apiInbox.ready) return;
-    memcpy(srcMac, apiInbox.srcMac, 6);
-    msgType = apiInbox.msgType;
-    msgId = apiInbox.msgId;
-    json = apiInbox.json; // ownership moves to this invocation
-    jsonLen = apiInbox.len;
-    apiInbox.json = nullptr;
-    apiInbox.len = 0;
-    apiInbox.ready = false;
+  apiReasmCleanupStale();
+  if (apiInboxCount) {
+    EspNowApiInbox &inbox = apiInbox[apiInboxRead];
+    memcpy(srcMac, inbox.srcMac, 6);
+    msgType = inbox.msgType;
+    msgId = inbox.msgId;
+    json = inbox.json; // ownership moves to this invocation
+    jsonLen = inbox.len;
+    inbox.json = nullptr;
+    inbox.len = 0;
+    apiInboxRead = (apiInboxRead + 1) % (sizeof(apiInbox) / sizeof(apiInbox[0]));
+    apiInboxCount--;
+  }
+
+  if (!json) {
+    if (!handlePendingEspNowPush()) handleEspNowLive();
+    return;
   }
 
   unsigned long start = millis();
   while (strip.isUpdating() && millis()-start < ESPNOW_API_STRIPWAIT_TIMEOUT) yield();
 
   if (msgType == ESPNOW_API_HELLO) {
+    DEBUG_PRINTF_P(PSTR("ESP-NOW API handling HELLO id=%u from " MACSTR " ch=%u\n"),
+                   msgId, MAC2STR(srcMac), WiFi.channel());
     sendEspNowHello();
   } else if (msgType == ESPNOW_API_REQUEST) {
+    DEBUG_PRINTF_P(PSTR("ESP-NOW API handling REQUEST id=%u bytes=%u from " MACSTR "\n"),
+                   msgId, unsigned(jsonLen), MAC2STR(srcMac));
     if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) {
       sendEspNowApiError(srcMac, msgId, ESPNOW_API_ERR_BUSY);
     } else {
@@ -423,7 +495,11 @@ void handleEspNowApi() {
       } else {
         // mirror wsEvent(): {"v":true} polls state, {"lv":...} toggles live peek
         bool verbose = false;
-        if (root["v"] && root.size() == 1) {
+        bool compact = false;
+        const char* responseMode = root["v"].is<const char*>() ? root["v"].as<const char*>() : nullptr;
+        if (responseMode && !strcmp(responseMode, "compact") && root.size() == 1) {
+          compact = true;
+        } else if (root["v"] && root.size() == 1) {
           verbose = true;
         } else if (root.containsKey("lv")) {
           if (root["lv"] | false) {
@@ -448,7 +524,12 @@ void handleEspNowApi() {
         // If the request changed state, a PUSH will follow soon. Acknowledge here
         // instead of serializing the same state twice.
         if (verbose && interfaceUpdateCallMode) verbose = false;
-        sendEspNowApiResponse(srcMac, msgId, verbose);
+        if (compact) {
+          uint8_t compactErr = queueEspNowApiCompactState(srcMac, ESPNOW_API_RESPONSE, msgId);
+          if (compactErr) sendEspNowApiError(srcMac, msgId, compactErr);
+        } else {
+          sendEspNowApiResponse(srcMac, msgId, verbose);
+        }
       }
     }
   }
@@ -460,8 +541,6 @@ void handleEspNowApi() {
 // Gated on a recent API frame so WizMote-only setups never see these frames.
 void pushEspNowState() {
   if (!espNowApiReady() || linked_remotes.empty() || !espNowApiRemoteActive()) return;
-  if (!apiTxIdle()) return; // best-effort: a state push never waits behind an in-flight message
-  static uint8_t pushId = 0;
-  if (queueEspNowApiState(ESPNOW_BROADCAST_ADDRESS, ESPNOW_API_PUSH, pushId) == 0) pushId++;
+  apiPushPending = true; // coalesce rapid changes; handleEspNowApi() sends the latest state
 }
 #endif // WLED_DISABLE_ESPNOW
