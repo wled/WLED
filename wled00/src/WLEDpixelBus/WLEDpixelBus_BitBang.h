@@ -87,6 +87,7 @@ private:
     uint8_t       channelCount;
     uint8_t       stagedCount;  // how many channels have called show() this frame
     uint8_t       pixelBytes;  // bytes per encoded pixel (derived from LED type)
+    bool          allowInterrupts; // if enabled, interrupts are allowed to run between LEDs, if not the output is fully blocking
   };
   static BBstate* _BBs;
 

@@ -12,7 +12,8 @@ Each bus can have individual configuration of color channels but all must share 
 
 #include "WLEDpixelBus_BitBang.h"
 #if defined(ARDUINO_ARCH_ESP32)
-#include "esp_clk.h"    // esp_clk_cpu_freq()
+#include "clk.h"    // esp_clk_cpu_freq()
+#include "esp_cpu.h"
 #elif defined(ESP8266)
 #include <Arduino.h>
 #define REG_WRITE(addr, val) GPIO_REG_WRITE(addr, val)
@@ -24,42 +25,39 @@ namespace WLEDpixelBus {
 // BB state, shared among all buses
 BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 
+// critical section macros
+#if defined(ESP8266)
+    #define WPB_BB_ENTERCRITICAL() os_intr_lock()
+    #define WPB_BB_EXITCRITICAL()  os_intr_unlock()
+#else
+    #define WPB_BB_ENTERCRITICAL() portENTER_CRITICAL(&_BBs->mux)
+    #define WPB_BB_EXITCRITICAL()  portEXIT_CRITICAL(&_BBs->mux)
+#endif
+
+
 // ---------------------------------------------------------------------------
 // getCycleCount() — read the CPU cycle counter.
 // Must be IRAM_ATTR because it is called from outputParallel() which is IRAM.
 // ---------------------------------------------------------------------------
 #if defined(ESP8266)
-  static inline uint32_t IRAM_ATTR getCycleCount() {
+  static inline uint32_t getCycleCount() {
     uint32_t ccount;
     __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
     return ccount;
   }
-  static constexpr uint32_t LOOPTEST_CYCLES = 1;
-#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || \
-    defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
-  // RISC-V: machine cycle counter CSR 0x7e2 (vendor extension, same as NeoPixelBus)
-  static inline uint32_t IRAM_ATTR getCycleCount() {
-    uint32_t ccount;
-    __asm__ __volatile__("csrr %0, 0x7e2" : "=r"(ccount));
-    return ccount;
-  }
-  static constexpr uint32_t LOOPTEST_CYCLES = 1;
-#elif defined(CONFIG_IDF_TARGET_ESP32S3)
-  // Xtensa LX7 — same rsr instruction, tighter pipeline
-  static inline uint32_t IRAM_ATTR getCycleCount() {
-    uint32_t ccount;
-    __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
-    return ccount;
-  }
-  static constexpr uint32_t LOOPTEST_CYCLES = 2;
+  static constexpr uint32_t LOOPTEST_CYCLES = 16; // TODO: LOOPTEST_CYCLES values may need fine-tuning after final implementation (this is what I found most precise for current state of things)
 #else
-  // Xtensa LX6 — ESP32, ESP32-S2
-  static inline uint32_t IRAM_ATTR getCycleCount() {
-    uint32_t ccount;
-    __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
-    return ccount;
+
+  static inline uint32_t getCycleCount() {
+    return esp_cpu_get_ccount(); // note: renamed to esp_cpu_get_cycle_count() in V5
   }
-  static constexpr uint32_t LOOPTEST_CYCLES = 4;
+#if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
+  static constexpr uint32_t LOOPTEST_CYCLES = 8;
+#elif defined(CONFIG_IDF_TARGET_ESP32S3)
+  static constexpr uint32_t LOOPTEST_CYCLES = 10;
+#else // ESP32 and S2
+  static constexpr uint32_t LOOPTEST_CYCLES = 12; // note: LOOPTEST_CYCLES values need fine-tuning
+#endif
 #endif
 
 // ---------------------------------------------------------------------------
@@ -110,8 +108,7 @@ bool BitBangBus::begin() {
   const uint32_t cpuMHz = ESP.getCpuFreqMHz();
 #endif
 
-  // Subtract the while-loop test overhead (one extra iteration) to compensate
-  // for the latency between the condition passing and the actual GPIO write.
+  // Subtract the while-loop test overhead (one extra iteration) to compensate for the latency between the condition passing and the actual GPIO write.
   const uint32_t lo = LOOPTEST_CYCLES;
 
   uint32_t t0h    = (_timing.t0h_ns  * cpuMHz) / 1000u;
@@ -120,7 +117,12 @@ bool BitBangBus::begin() {
   t1h             = (t1h    > lo) ? t1h    - lo : 0u;
   uint32_t period = (_timing.bitPeriod() * cpuMHz) / 1000u;
   period          = (period > lo) ? period - lo : 0u;
-  const uint32_t latchCycles = (uint32_t)_timing.reset_us * cpuMHz;
+   // max time allowed before we assume a latch, use half the reset period.
+   // Note: there are strips that latch after just ~10us maybe even less, users can customize this period and set it to 10us if there are issues.
+  //        if the reset period is set to 4000µs or more, interrupts are disabled (TODO: this is a bit of a hack, maybe better make it a config checkmark?)
+  const uint32_t latchCycles = (uint32_t)(_timing.reset_us >> 1) * cpuMHz;
+  if (_timing.reset_us < 4000) _BBs->allowInterrupts = true;
+  else _BBs->allowInterrupts = false;
 
   // Register in the shared static table
   const uint8_t idx  = _BBs->channelCount;
@@ -241,6 +243,7 @@ void BitBangBus::resetChannels() {
   if (_BBs) memset(_BBs, 0, sizeof(BBstate));
 }
 
+
 // ---------------------------------------------------------------------------
 // outputParallel() — the hot path, must live in IRAM.
 //
@@ -284,18 +287,14 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
   }
   if (maxPixels == 0) return true;
 
-  const uint32_t totalBits    = (uint32_t)maxPixels * pixelBytes * 8u;
-  const uint32_t bitsPerPixel = (uint32_t)pixelBytes * 8u;
-
-  // Per-channel pin masks and data extents — pre-computed for fast inner-loop access.
-  // On classic ESP32, pins ≥32 go into the high-bank mask; others into the low-bank mask.
+  // Per-channel pin masks on ESP32 & S3, pins ≥32 go into the high-bank mask; others into the low-bank mask.
   uint32_t chanPinMask[nCh];
 #ifdef ESP_HAS_HIGH_GPIO_BANK
   uint32_t chanPinMaskHigh[nCh];
 #endif
   uint32_t chanTotalBytes[nCh];
   for (uint8_t ch = 0; ch < nCh; ch++) {
-#ifdef ESP_HAS_HIGH_GPIO_BANK
+  #ifdef ESP_HAS_HIGH_GPIO_BANK
     if (_BBs->pins[ch] >= 32) {
       chanPinMask[ch]     = 0;
       chanPinMaskHigh[ch] = 1u << (_BBs->pins[ch] - 32);
@@ -303,9 +302,9 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
       chanPinMask[ch]     = 1u << _BBs->pins[ch];
       chanPinMaskHigh[ch] = 0;
     }
-#else
+  #else
     chanPinMask[ch]    = 1u << _BBs->pins[ch];
-#endif
+  #endif
     chanTotalBytes[ch] = (uint32_t)_BBs->numPixels[ch] * pixelBytes;
   }
 
@@ -337,65 +336,74 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     return zm;
   };
 #endif
+  bool allowInterrupts = _BBs->allowInterrupts; // cache for speed
+  const uint32_t bitsPerPixel = (uint32_t)pixelBytes * 8u; // TODO: for custom bus with channels<physical LEDs this may lead to flickering -> not observed on WS2812 but may be others
+  uint32_t idleStart = getCycleCount(); // used to track idle periods and abort if too long (LEDs may have latched)
+  if (!allowInterrupts) WPB_BB_ENTERCRITICAL(); // no interrupts, do the whole loop in critical section
+  for (uint16_t pixel = 0; pixel < maxPixels; pixel++) {
+    if (allowInterrupts) WPB_BB_ENTERCRITICAL();
+    uint32_t bitStart = (uint32_t)pixel * bitsPerPixel;
+    uint32_t bitEnd   = bitStart + bitsPerPixel;
+    uint32_t cyclesStart = getCycleCount();
+    //check the idle gap: if it took longer than latchCycles (25us) abort to avoid overwriting from the start and causing flicker
+    if ((cyclesStart - idleStart) > latchCycles && allowInterrupts) {
+      WPB_BB_EXITCRITICAL();
+      return false;   // abort: strip latched, do not send remaining pixels
+    }
 
-  // Period reference: initialise as already expired so the first pulse fires immediately.
-  uint32_t cyclesStart = getCycleCount() - period;
+    // Period reference: initialise as already expired so the first pulse fires immediately
+    cyclesStart = getCycleCount() - period;
 
-#if defined(ARDUINO_ARCH_ESP32)
-  portENTER_CRITICAL(&_BBs->mux);
-#elif defined(ESP8266)
-  os_intr_lock();
-#endif
-
-  for (uint32_t bitIndex = 0; bitIndex < totalBits; bitIndex++) {
+    for (uint32_t bitIndex = bitStart; bitIndex < bitEnd; bitIndex++) {
 
     // Compute zero mask(s) for this bit
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-    uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
-    computeZeroMasks(bitIndex, zeroMaskLow, zeroMaskHigh);
-#else
-    uint32_t zeroMask = computeZeroMask(bitIndex);
-#endif
+    #ifdef ESP_HAS_HIGH_GPIO_BANK
+      uint32_t zeroMaskLow = 0, zeroMaskHigh = 0;
+      computeZeroMasks(bitIndex, zeroMaskLow, zeroMaskHigh);
+    #else
+      uint32_t zeroMask = computeZeroMask(bitIndex);
+    #endif
 
-    // Wait for the full bit period since the last HIGH edge
-    while ((getCycleCount() - cyclesStart) < period);
+      while ((getCycleCount() - cyclesStart) < period);
 
-    // Set all outputs HIGH simultaneously
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-    REG_WRITE(GPIO_OUT_W1TS_REG,  setOutputMaskLow);
-    REG_WRITE(GPIO_OUT1_W1TS_REG, setOutputMaskHigh);
-#else
-    REG_WRITE(GPIO_OUT_W1TS_REG, setOutputMask);
-#endif
-    cyclesStart = getCycleCount();
+      // Set all outputs HIGH simultaneously
+    #ifdef ESP_HAS_HIGH_GPIO_BANK
+      REG_WRITE(GPIO_OUT_W1TS_REG,  setOutputMaskLow);
+      REG_WRITE(GPIO_OUT1_W1TS_REG, setOutputMaskHigh);
+    #else
+      REG_WRITE(GPIO_OUT_W1TS_REG, setOutputMask);
+    #endif
+      cyclesStart = getCycleCount();
 
     // After T0H — pull '0' outputs LOW
-    while ((getCycleCount() - cyclesStart) < t0h);
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-    REG_WRITE(GPIO_OUT_W1TC_REG,  zeroMaskLow);
-    REG_WRITE(GPIO_OUT1_W1TC_REG, zeroMaskHigh);
-#else
-    REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
-#endif
+      while ((getCycleCount() - cyclesStart) < t0h);
+    #ifdef ESP_HAS_HIGH_GPIO_BANK
+      REG_WRITE(GPIO_OUT_W1TC_REG,  zeroMaskLow);
+      REG_WRITE(GPIO_OUT1_W1TC_REG, zeroMaskHigh);
+    #else
+      REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
+    #endif
 
     // After T1H — pull all remaining outputs LOW
-    while ((getCycleCount() - cyclesStart) < t1h);
-#ifdef ESP_HAS_HIGH_GPIO_BANK
-    REG_WRITE(GPIO_OUT_W1TC_REG,  setOutputMaskLow);
-    REG_WRITE(GPIO_OUT1_W1TC_REG, setOutputMaskHigh);
-#else
-    REG_WRITE(GPIO_OUT_W1TC_REG, setOutputMask);
-#endif
+      while ((getCycleCount() - cyclesStart) < t1h);
+    #ifdef ESP_HAS_HIGH_GPIO_BANK
+      REG_WRITE(GPIO_OUT_W1TC_REG,  setOutputMaskLow);
+      REG_WRITE(GPIO_OUT1_W1TC_REG, setOutputMaskHigh);
+    #else
+      REG_WRITE(GPIO_OUT_W1TC_REG, setOutputMask);
+    #endif
+    }
+
+    // capture time just before exiting critical so we can measure the gap
+    idleStart = getCycleCount();
+    if (allowInterrupts) {
+      // allow ISRs to run between LEDs
+      WPB_BB_EXITCRITICAL();
+    }
   }
-
-#if defined(ARDUINO_ARCH_ESP32)
-  portEXIT_CRITICAL(&_BBs->mux);
-#elif defined(ESP8266)
-  os_intr_unlock();
-#endif
-
+  if (!allowInterrupts) {
+    WPB_BB_EXITCRITICAL(); // exit after we are done sending everything
+  }
   return true;
 }
-
-
 } // namespace WLEDpixelBus

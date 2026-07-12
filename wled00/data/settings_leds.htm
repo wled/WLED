@@ -230,6 +230,7 @@
 					d.Sf.querySelectorAll("#mLC select[name^=LT]").forEach((s)=>{s.disabled=false;}); // just in case
 					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach((s)=>{s.disabled=false;}); // ensure SF values are submitted even if some are disabled
 					["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"].forEach(fn => { d.Sf.querySelectorAll("#mLC input[name^="+fn+"]").forEach(el=>{el.disabled=false;}); }); // ensure custom bus timing values are submitted even if mirrored/disabled
+					d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(el=>{el.disabled=false;}); // ensure locked customize checkboxes are submitted
 					d.Sf.submit(); //https://stackoverflow.com/q/37323914
 				}
 			}
@@ -640,8 +641,7 @@
 
 			if (n==1) {
 // npm run build has trouble minimizing spaces inside string
-				var cn = `<div class="iST">
-<hr class="sml">
+				var cn = `<div class="iST" style="background: #111; border-radius: 20px;padding: 12px;margin: 12px">
 ${i+1}:
 <select name="LT${s}" onchange="if(d.Sf['CBen${s}']?.checked)presetCustomDefaults('${s}',parseInt(this.value));UI(true)"></select><br>
 <div id="abl${s}">
@@ -1150,86 +1150,79 @@ Swap: <select id="xw${s}" name="XW${s}">
 			});
 		}
 
-		// Ensure parallel-output bus speed selectors are synchronized: only the first parallel bus
-		// (I2S/LCD/SPI or BitBang) is editable; all others mirror its value and are disabled.
-		// This reflects the hardware constraint: I2S, LCD, SPI, and BitBang all use the same
-		// shared timing and cannot have independent speed factors.
-		// For custom bus on a parallel driver, timing inputs (CBt0h/CBt0l/CBt1h/CBt1l/CBrst)
-		// are also shared: only the first custom parallel bus can edit them; others are disabled and mirrored.
+		// Ensure parallel-output bus speeds are synchronized (I2S/LCD/SPI or BitBang):
+		// First bus in each group is editable; rest mirror its value. If any bus in a group is
+		// customized, all buses in that group are forced to customize and share the same timing.
 		function syncParallelBusSpeedSelectors() {
 			try {
-				// Re-enable all SF selects and custom bus timing inputs by default
-				// (restores any that stopped being parallel since last UI() call)
+				// reset all first
 				d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
-				const cbTimingFields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
-				cbTimingFields.forEach(fn => {
-					d.Sf.querySelectorAll("#mLC input[name^="+fn+"]").forEach(el => { el.disabled = false; el.style.opacity = 1; });
-				});
+				const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
+				fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => { e.disabled = false; e.style.opacity = 1; }));
+				d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(e => { e.disabled = false; e.style.opacity = 1; });
 
-				let parIndices = [];      // all parallel bus IDs (I2S or BitBang)
-				let custParIndices = []; // subset: custom bus on a parallel driver
-				forEachBus((n, t, sel) => {
+				let i2s = [], bb = [];
+				forEachBus((n, t) => {
 					let drv = d.Sf["LD"+n]?.value | 0;
-					// 1=I2S/LCD/SPI, 2=parallelBitBang
-					if (isDig(t) && !isD2P(t) && (drv === 1 || drv === 2 || is8266BB(n))) {
-						parIndices.push(n);
-						if (isCst(n)) custParIndices.push(n);
-					}
+					if (!isDig(t) || isD2P(t)) return;
+					if (drv === 1) i2s.push(n);
+					else if (drv === 2 || is8266BB(n)) bb.push(n);
 				});
 
-				// Sync speed factor (SF) for all parallel buses (must be the same, hardware restriction)
-				if (parIndices.length > 0) {
-					parIndices.sort((a,b)=> toNum(a) - toNum(b));
-					const first = parIndices[0];
-					for (const n of parIndices) {
-						let sf = d.getElementsByName("SF"+n)[0];
-						if (!sf) continue;
-						if (n === parIndices[0]) { // first bus
-							sf.disabled = false;
-							sf.style.opacity = 1;
-						} else {
-							sf.disabled = true;
-							sf.style.opacity = 0.6;
-							let fv = d.getElementsByName("SF"+parIndices[0])[0];
-							if (fv && sf.value !== fv.value) sf.value = fv.value;
+				function syncGroup(arr) {
+					if (arr.length < 2) return;
+					let first = arr[0];
+					// only first bus can toggle customize; rest are locked
+					arr.forEach((n, idx) => {
+						let cb = d.Sf["CBen"+n];
+						if (cb) {
+							cb.disabled = (idx !== 0);
+							cb.style.opacity = (idx !== 0) ? 0.6 : 1;
 						}
-					}
-					let firstEl = d.getElementsByName("SF"+parIndices[0])[0];
-					if (firstEl) firstEl.onchange = function() {
-						let v = this.value;
-						for (const n of parIndices) if (n !== parIndices[0]) {
-							let sf = d.getElementsByName("SF"+n)[0]; if (sf) sf.value = v;
+					});
+					// sync checked state from first to all others
+					let firstChecked = isCst(first);
+					arr.forEach(n => {
+						if (n === first) return;
+						let cb = d.Sf["CBen"+n];
+						if (!cb) return;
+						if (firstChecked && !cb.checked) {
+							presetCustomDefaults(n, parseInt(d.Sf["LT"+n].value));
+							cb.checked = true;
+							gId("custbus"+n).style.display = "inline";
+							let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
+							for (let i = 0; i < 6; i++) {
+								let r = gId("CBrow"+n+"_"+i);
+								if (r) r.style.display = (i < nch) ? "" : "none";
+							}
+						} else if (!firstChecked && cb.checked) {
+							cb.checked = false;
+							gId("custbus"+n).style.display = "none";
 						}
-					};
-				}
-
-				// Sync custom bus timing inputs for parallel custom buses, first custom bus on a parallel driver owns the timing
-				if (custParIndices.length > 1) {
-					custParIndices.sort((a,b)=> toNum(a) - toNum(b));
-					const firstCust = custParIndices[0];
-					for (const n of custParIndices) {
-						if (n === firstCust) continue; // first bus stays editable
-						cbTimingFields.forEach(fn => {
-							let input = d.getElementsByName(fn+n)[0];
-							let srcInput = d.getElementsByName(fn+firstCust)[0];
-							if (!input) return;
-							input.disabled = true;
-							input.style.opacity = 0.6;
-							if (srcInput && input.value !== srcInput.value) input.value = srcInput.value;
+					});
+					let src = arr.find(n => isCst(n)) || first;
+					// disable and mirror from source to rest
+					for (let i = 0; i < arr.length; i++) {
+						let n = arr[i];
+						if (n === src) continue;
+						let sf = d.Sf["SF"+n], sfSrc = d.Sf["SF"+src];
+						if (sf) { sf.disabled = true; sf.style.opacity = 0.6; if (sfSrc) sf.value = sfSrc.value; }
+						fields.forEach(fn => {
+							let el = d.Sf[fn+n], srcEl = d.Sf[fn+src];
+							if (el) { el.disabled = true; el.style.opacity = 0.6; if (srcEl) el.value = srcEl.value; }
 						});
 					}
-					// Propagate timing changes from first custom bus to all others
-					cbTimingFields.forEach(fn => {
-						let srcInput = d.getElementsByName(fn+firstCust)[0];
-						if (!srcInput) return;
-						srcInput.oninput = function() {
-							let v = this.value;
-							for (const n of custParIndices) if (n !== firstCust) {
-								let el = d.getElementsByName(fn+n)[0]; if (el) el.value = v;
-							}
-						};
+					// propagators on source bus
+					let sfSrc = d.Sf["SF"+src];
+					if (sfSrc) sfSrc.onchange = function() { for (let i = 0; i < arr.length; i++) { if (arr[i] === src) continue; let s = d.Sf["SF"+arr[i]]; if (s) s.value = this.value; } };
+					fields.forEach(fn => {
+						let srcEl = d.Sf[fn+src];
+						if (srcEl) srcEl.oninput = function() { let v = this.value; for (let i = 0; i < arr.length; i++) { if (arr[i] === src) continue; let e = d.Sf[fn+arr[i]]; if (e) e.value = v; } };
 					});
 				}
+
+				syncGroup(i2s);
+				syncGroup(bb);
 			} catch(e) {}
 		}
 	</script>
@@ -1268,7 +1261,6 @@ Swap: <select id="xw${s}" name="XW${s}">
 			</div>
 		</div>
 		<div id="mLC"><h4>LED outputs:</h4></div>
-		<hr class="sml">
 		<button type="button" id="+" onclick="addLEDs(1,false)">+</button>
 		<button type="button" id="-" onclick="addLEDs(-1,false)">-</button><br>
 		LED memory usage: <span id="m0">0</span> / <span id="m1">?</span> B<br>
