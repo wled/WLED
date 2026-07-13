@@ -893,7 +893,7 @@ class WS2812FX {
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
       #ifdef ESP8266
-      if (!_pixels) return; // direct-to-bus mode: use Segment::setPixelColor() for effect output
+      if (n < getLengthTotal()) BusManager::setPixelColor(getMappedPixelIndex(n), c);
       #endif
       if (n < getLengthTotal()) _pixels[n] = c;
     }  // paints absolute strip pixel with index n and color c
