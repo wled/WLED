@@ -1,0 +1,110 @@
+{
+  "title": "DepartStrip",
+  "subtitle": "55th St stops — live departures",
+  "template": "template_temescal.html",
+  "faq": "faq_quick.md",
+  "lines": [
+    {
+      "label": "6",
+      "desc": "Telegraph / Southbound & Northbound",
+      "hex": "#2F72FF"
+    },
+    {
+      "label": "12",
+      "desc": "MacArthur & MLK corridors",
+      "hex": "#66D2FF"
+    },
+    {
+      "label": "18",
+      "desc": "Shattuck & Lake Merritt",
+      "hex": "#FF4C4C"
+    },
+    {
+      "label": "88",
+      "desc": "Market St loop",
+      "hex": "#D6D6A0"
+    },
+    {
+      "label": "800",
+      "desc": "All-Nighter",
+      "hex": "#C4E8B2"
+    },
+    {
+      "label": "F",
+      "desc": "Transbay",
+      "hex": "#FF9A1A"
+    }
+  ],
+  "directions": [
+    {
+      "title": "Southbound",
+      "stops": [
+        {
+          "name": "Telegraph Ave. at 55th St.",
+          "id": "51851",
+          "routes": [
+            { "label": "#6", "desc": "to Downtown Oakland", "hex": "#2F72FF" },
+            { "label": "#800", "desc": "to San Francisco", "hex": "#C4E8B2" }
+          ]
+        },
+        {
+          "name": "Martin Luther King Jr Way & 55th St",
+          "id": "53773",
+          "routes": [
+            { "label": "#18", "desc": "to Montclair", "hex": "#FF4C4C" }
+          ]
+        },
+        {
+          "name": "55th St & Martin Luther King Jr Way",
+          "id": "50475",
+          "routes": [
+            { "label": "#12", "desc": "to Amtrak at Jack London Square", "hex": "#66D2FF" }
+          ]
+        },
+        {
+          "name": "Market St & 55th St",
+          "id": "57558",
+          "routes": [
+            { "label": "#88", "desc": "to Piedmont", "hex": "#D6D6A0" },
+            { "label": "#F", "desc": "to San Francisco", "hex": "#FF9A1A" }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Northbound",
+      "stops": [
+        {
+          "name": "Telegraph Av & 55th St",
+          "id": "53548",
+          "routes": [
+            { "label": "#6", "desc": "to Downtown Berkeley", "hex": "#2F72FF" },
+            { "label": "#800", "desc": "to Richmond BART", "hex": "#C4E8B2" }
+          ]
+        },
+        {
+          "name": "Martin Luther King Jr Way & 55th St",
+          "id": "50602",
+          "routes": [
+            { "label": "#12", "desc": "to Northwest Berkeley", "hex": "#66D2FF" }
+          ]
+        },
+        {
+          "name": "55th St & Martin Luther King Jr Way",
+          "id": "50475",
+          "routes": [
+            { "label": "#18", "desc": "to University Village, Albany", "hex": "#FF4C4C" }
+          ]
+        },
+        {
+          "name": "Market St & 55th St",
+          "id": "58118",
+          "routes": [
+            { "label": "#88", "desc": "to Downtown Berkeley", "hex": "#D6D6A0" },
+            { "label": "#F", "desc": "to U.C. Campus", "hex": "#FF9A1A" }
+          ]
+        }
+      ]
+    }
+  ]
+}

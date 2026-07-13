@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DepartStrip — Explainer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* ====== PRINT + PAGE SETUP ======
+       Designed for LETTER (8.5in × 11in) one-sided.
+       Print at 100% scale with background graphics enabled.
+    */
+    @page { size: 8.5in 11in; margin: 0.2in 0.4in; }
+    @media print { .noprint { display: none !important; } }
+
+    :root {
+      --text: #111;
+      --muted: #555;
+      --rule: #ddd;
+      --bg: #fff;
+      --chip-radius: 12px;
+      --swatch-size: 28px;
+      --font: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    html, body { background: var(--bg); color: var(--text); font-family: var(--font); }
+    .page { width: 8.5in; min-height: 11in; box-sizing: border-box; padding: 0.3in 0.4in 0.35in; display: flex; flex-direction: column; gap: 22px; }
+    .header { border-bottom: 1px solid var(--rule); padding-bottom: 10px; }
+    .title { font-weight: 700; letter-spacing: 0.2px; font-size: 1.6rem; }
+    .subtitle { color: var(--muted); font-size: 1rem; margin-top: 4px; }
+
+    .section { display: flex; flex-direction: column; gap: 18px; }
+    .section h2 { margin: 0; font-size: 1.3rem; font-weight: 700; }
+
+    /* ====== LEGEND LAYOUT ====== */
+    .legend-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(3.2in, 1fr)); gap: 12px; }
+    .legend-item { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--rule); border-radius: var(--chip-radius); }
+    .swatch { width: var(--swatch-size); height: var(--swatch-size); border-radius: 8px; border: 1px solid rgba(0,0,0,0.15); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25); }
+    .label { font-weight: 600; font-size: 1rem; line-height: 1.1; }
+    .desc { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+
+    /* ====== FAQ ====== */
+    .faq { display: grid; grid-template-columns: 1fr; gap: 12px; }
+    .qa { border: 1px solid var(--rule); border-radius: var(--chip-radius); padding: 10px 12px; }
+    .q { font-weight: 700; margin-bottom: 8px; font-size: 1rem; }
+    .a { color: var(--text); font-size: 0.95rem; line-height: 1.4; }
+
+    .footer { margin-top: auto; display: flex; justify-content: flex-end; align-items: center; color: var(--muted); font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <section class="page" aria-label="DepartStrip Explainer">
+    <header class="header">
+      <div>
+        <div class="title">{{TITLE}}</div>
+        <div class="subtitle">{{SUBTITLE}}</div>
+      </div>
+    </header>
+
+    <div class="section" aria-labelledby="legend-heading">
+      <h2 id="legend-heading">Line Colors</h2>
+      <div class="legend-grid" role="list">
+        {{LEGEND_ITEMS}}
+      </div>
+    </div>
+
+    <div class="section" aria-labelledby="faq-heading">
+      <h2 id="faq-heading">Quick FAQ</h2>
+      <div class="faq">
+        {{FAQ_BLOCKS}}
+      </div>
+    </div>
+  </section>
+</body>
+</html>
