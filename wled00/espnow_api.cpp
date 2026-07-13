@@ -55,8 +55,11 @@ static uint8_t       apiLiveSendFailures = 0;
 static unsigned long apiLastLiveTime = 0;
 static unsigned long apiLiveExpiry  = 0;       // live peek is a keepalive (no disconnect signal over ESP-NOW)
 static bool apiPushPending = false;             // coalesced state push waiting for the reliable TX slot
+static unsigned long apiPushDue = 0;            // MAC-derived jitter avoids simultaneous multi-WLED broadcasts
+static bool apiHelloPending = false;
+static unsigned long apiHelloDue = 0;            // discovery replies are staggered to avoid RF collisions
 
-// single pending outbound message, drained incrementally by serviceEspNowApiTx()
+// Single pending outbound message, drained incrementally by serviceEspNowApiTx().
 struct EspNowApiTx {
   uint8_t  mac[6];
   uint8_t  msgType;
@@ -102,6 +105,14 @@ static void apiLiveReset() {
   apiLiveExpiry = 0;
 }
 
+// Returns a stable per-instance delay so several WLEDs do not answer one broadcast in lockstep.
+static uint16_t apiInstanceJitter(uint16_t window, uint16_t minimum = 0) {
+  uint8_t mac[6];
+  WiFi.macAddress(mac);
+  const uint16_t hash = (uint16_t(mac[3]) << 8) ^ (uint16_t(mac[4]) << 4) ^ mac[5];
+  return minimum + (window ? hash % window : 0);
+}
+
 // Stop a stale live stream after repeated MAC-level failures; a refresh request restarts it.
 void espNowApiOnSendResult(uint8_t* address, uint8_t status) {
   if (!apiLiveActive || !address || memcmp(address, apiLiveMac, sizeof(apiLiveMac)) != 0) return;
@@ -141,7 +152,7 @@ void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
   const uint8_t fragTotal = data[5];
   const uint8_t payloadLen = len - ESPNOW_API_HEADER_SIZE;
 
-  // reject untrusted header values before any indexing or allocation
+  // Check untrusted header values before indexing or allocating.
   if (msgType != ESPNOW_API_REQUEST && msgType != ESPNOW_API_HELLO) return; // inbound direction only
   if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS) return;
   if (fragIndex >= fragTotal) return;
@@ -422,11 +433,15 @@ static void apiResetAll() {
   apiTxReset();
   apiRemoteSeen = 0;
   apiPushPending = false;
+  apiPushDue = 0;
+  apiHelloPending = false;
+  apiHelloDue = 0;
 }
 
 // Retry a coalesced state push after responses have drained; live preview yields to state.
 static bool handlePendingEspNowPush() {
   if (!apiPushPending || !apiTxIdle()) return false;
+  if ((long)(millis() - apiPushDue) < 0) return false;
   if (!espNowApiReady() || linked_remotes.empty() || !espNowApiRemoteActive()) {
     apiPushPending = false;
     return false;
@@ -435,6 +450,15 @@ static bool handlePendingEspNowPush() {
   if (queueEspNowApiCompactState(ESPNOW_BROADCAST_ADDRESS, ESPNOW_API_PUSH, pushId) != 0) return false;
   apiPushPending = false;
   pushId++;
+  return true;
+}
+
+// Sends a delayed discovery response after the reliable response slot becomes available.
+static bool handlePendingEspNowHello() {
+  if (!apiHelloPending || !apiTxIdle()) return false;
+  if ((long)(millis() - apiHelloDue) < 0) return false;
+  apiHelloPending = false;
+  sendEspNowHello();
   return true;
 }
 
@@ -470,7 +494,7 @@ void handleEspNowApi() {
   }
 
   if (!json) {
-    if (!handlePendingEspNowPush()) handleEspNowLive();
+    if (!handlePendingEspNowHello() && !handlePendingEspNowPush()) handleEspNowLive();
     return;
   }
 
@@ -480,7 +504,8 @@ void handleEspNowApi() {
   if (msgType == ESPNOW_API_HELLO) {
     DEBUG_PRINTF_P(PSTR("ESP-NOW API handling HELLO id=%u from " MACSTR " ch=%u\n"),
                    msgId, MAC2STR(srcMac), WiFi.channel());
-    sendEspNowHello();
+    apiHelloPending = true;
+    apiHelloDue = millis() + apiInstanceJitter(90, 10);
   } else if (msgType == ESPNOW_API_REQUEST) {
     DEBUG_PRINTF_P(PSTR("ESP-NOW API handling REQUEST id=%u bytes=%u from " MACSTR "\n"),
                    msgId, unsigned(jsonLen), MAC2STR(srcMac));
@@ -493,7 +518,7 @@ void handleEspNowApi() {
         releaseJSONBufferLock();
         sendEspNowApiError(srcMac, msgId, ESPNOW_API_ERR_JSON);
       } else {
-        // mirror wsEvent(): {"v":true} polls state, {"lv":...} toggles live peek
+        // Match wsEvent(): {"v":true} polls state, {"lv":...} toggles live peek.
         bool verbose = false;
         bool compact = false;
         const char* responseMode = root["v"].is<const char*>() ? root["v"].as<const char*>() : nullptr;
@@ -542,5 +567,6 @@ void handleEspNowApi() {
 void pushEspNowState() {
   if (!espNowApiReady() || linked_remotes.empty() || !espNowApiRemoteActive()) return;
   apiPushPending = true; // coalesce rapid changes; handleEspNowApi() sends the latest state
+  apiPushDue = millis() + apiInstanceJitter(35, 5);
 }
 #endif // WLED_DISABLE_ESPNOW
