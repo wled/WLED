@@ -393,8 +393,10 @@ static constexpr uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 
 #define ESPNOW_API_REQUEST      0x01   // remote -> WLED, JSON command (deserializeState parity)
 #define ESPNOW_API_RESPONSE     0x02   // WLED -> remote, reply to a request (echoes msgId)
 #define ESPNOW_API_PUSH         0x03   // WLED -> remotes, unsolicited state broadcast on change
-#define ESPNOW_API_HELLO        0x04   // discovery: remote queries, WLED replies with name/mac/ver/ch
+#define ESPNOW_API_DISCOVER     0x04   // remote -> WLED discovery query
+#define ESPNOW_API_HELLO ESPNOW_API_DISCOVER // compatibility alias for early API prototypes
 #define ESPNOW_API_LIVE         0x05   // WLED -> remote, binary LED peek frame (same payload as WS liveview)
+#define ESPNOW_API_ANNOUNCE     0x06   // WLED -> remote reliable unicast discovery response
 // reassembly/serialization caps (bounded to limit RAM use, especially on ESP8266)
 #ifdef ESP8266
 #define ESPNOW_API_MAX_JSON     2048

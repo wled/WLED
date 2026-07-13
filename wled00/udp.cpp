@@ -907,7 +907,7 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
 }
 
 // Return true only for frame types that establish the sender as a control remote. In
-// particular, WLED HELLO replies carry a payload and must not replace the bonding candidate.
+// particular, outbound ANNOUNCE frames must not replace the bonding candidate.
 static bool espNowIsBondCandidate(const uint8_t* data, uint8_t len) {
   if (!data || !len) return false;
   if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) return true; // WiZ Mote
@@ -920,7 +920,7 @@ static bool espNowIsBondCandidate(const uint8_t* data, uint8_t len) {
   if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS || fragIndex >= fragTotal) return false;
   if (payloadLen > ESPNOW_API_FRAG_SIZE || (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE)) return false;
   if (msgType == ESPNOW_API_REQUEST) return true;
-  if (msgType != ESPNOW_API_HELLO || fragIndex != 0 || fragTotal != 1) return false;
+  if (msgType != ESPNOW_API_DISCOVER || fragIndex != 0 || fragTotal != 1) return false;
   return payloadLen == 0 || (payloadLen == 2 && data[ESPNOW_API_HEADER_SIZE] == '{' && data[ESPNOW_API_HEADER_SIZE + 1] == '}');
 }
 

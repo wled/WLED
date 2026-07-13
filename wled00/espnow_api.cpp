@@ -9,7 +9,13 @@
 #define ESPNOW_LIVE_INTERVAL 100            // ESP-NOW live peek cadence (ms), bounded to avoid radio saturation
 #define ESPNOW_LIVE_TIMEOUT 30000           // stop live peek if {"lv":true} is not re-armed within this window
 #define ESPNOW_API_PRESENCE_TIMEOUT 120000  // push state only while an API remote has been seen this recently
+#define ESPNOW_API_DEDUPE_TIMEOUT 10000      // exceeds the bounded retry horizon without spanning normal msgId wrap
 #define ESPNOW_API_TX_PER_LOOP 3            // max fragments transmitted per loop() pass (bounds loop stall)
+
+#define ESPNOW_API_CAP_COMPACT 0x01
+#define ESPNOW_API_CAP_CATALOGS 0x02
+#define ESPNOW_API_CAP_PUSH     0x04
+#define ESPNOW_API_CAP_LIVE     0x08
 
 // Wire error codes.
 #define ESPNOW_API_ERR_BUSY   3             // transient (JSON buffer or TX slot busy, low heap) - retry
@@ -56,8 +62,25 @@ static unsigned long apiLastLiveTime = 0;
 static unsigned long apiLiveExpiry  = 0;       // live peek is a keepalive (no disconnect signal over ESP-NOW)
 static bool apiPushPending = false;             // coalesced state push waiting for the reliable TX slot
 static unsigned long apiPushDue = 0;            // MAC-derived jitter avoids simultaneous multi-WLED broadcasts
-static bool apiHelloPending = false;
-static unsigned long apiHelloDue = 0;            // discovery replies are staggered to avoid RF collisions
+struct EspNowApiDiscoveryReply {
+  uint8_t mac[6];
+  uint8_t msgId;
+  unsigned long due;
+  bool pending;
+};
+// Two slots allow two whitelisted remotes to discover concurrently without one replacing the other.
+static EspNowApiDiscoveryReply apiDiscoveryReplies[2] = {};
+
+struct EspNowApiCompletedMutation {
+  uint8_t mac[6];
+  uint8_t msgId;
+  uint32_t hash;
+  unsigned long completedAt;
+};
+// Retaining a few completed mutations makes retries idempotent even when their first response
+// was lost after WLED had already applied the state change.
+static EspNowApiCompletedMutation apiCompletedMutations[4] = {};
+static uint8_t apiCompletedMutationNext = 0;
 
 // Single pending outbound message, drained incrementally by serviceEspNowApiTx().
 struct EspNowApiTx {
@@ -83,8 +106,9 @@ static const char* apiTypeName(uint8_t type) {
     case ESPNOW_API_REQUEST:  return "REQUEST";
     case ESPNOW_API_RESPONSE: return "RESPONSE";
     case ESPNOW_API_PUSH:     return "PUSH";
-    case ESPNOW_API_HELLO:    return "HELLO";
+    case ESPNOW_API_DISCOVER: return "DISCOVER";
     case ESPNOW_API_LIVE:     return "LIVE";
+    case ESPNOW_API_ANNOUNCE: return "ANNOUNCE";
     default:                  return "UNKNOWN";
   }
 }
@@ -113,6 +137,31 @@ static uint16_t apiInstanceJitter(uint16_t window, uint16_t minimum = 0) {
   return minimum + (window ? hash % window : 0);
 }
 
+static uint32_t apiPayloadHash(const uint8_t* data, size_t len) {
+  uint32_t hash = 2166136261UL;
+  for (size_t i = 0; i < len; i++) hash = (hash ^ data[i]) * 16777619UL;
+  return hash;
+}
+
+static bool apiMutationWasCompleted(const uint8_t* mac, uint8_t msgId, uint32_t hash) {
+  const unsigned long now = millis();
+  for (const auto &record : apiCompletedMutations) {
+    if (!record.completedAt || now - record.completedAt > ESPNOW_API_DEDUPE_TIMEOUT) continue;
+    if (record.msgId == msgId && record.hash == hash && memcmp(record.mac, mac, sizeof(record.mac)) == 0) return true;
+  }
+  return false;
+}
+
+static void rememberCompletedMutation(const uint8_t* mac, uint8_t msgId, uint32_t hash) {
+  EspNowApiCompletedMutation &record = apiCompletedMutations[apiCompletedMutationNext];
+  memcpy(record.mac, mac, sizeof(record.mac));
+  record.msgId = msgId;
+  record.hash = hash;
+  const unsigned long now = millis();
+  record.completedAt = now ? now : 1;
+  apiCompletedMutationNext = (apiCompletedMutationNext + 1) % (sizeof(apiCompletedMutations) / sizeof(apiCompletedMutations[0]));
+}
+
 // Stop a stale live stream after repeated MAC-level failures; a refresh request restarts it.
 void espNowApiOnSendResult(uint8_t* address, uint8_t status) {
   if (!apiLiveActive || !address || memcmp(address, apiLiveMac, sizeof(apiLiveMac)) != 0) return;
@@ -134,6 +183,8 @@ static void apiReasmCleanupStale() {
   if (apiReasmBuf && millis() - apiReasmLast > ESPNOW_API_REASM_TIMEOUT) apiReasmReset();
 }
 
+static void scheduleEspNowAnnounce(const uint8_t* mac, uint8_t msgId);
+
 bool espNowApiReady() {
   return enableESPNow && statusESPNow == ESP_NOW_STATE_ON;
 }
@@ -153,14 +204,24 @@ void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
   const uint8_t payloadLen = len - ESPNOW_API_HEADER_SIZE;
 
   // Check untrusted header values before indexing or allocating.
-  if (msgType != ESPNOW_API_REQUEST && msgType != ESPNOW_API_HELLO) return; // inbound direction only
+  if (msgType != ESPNOW_API_REQUEST && msgType != ESPNOW_API_DISCOVER) return; // inbound direction only
   if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS) return;
   if (fragIndex >= fragTotal) return;
   if (payloadLen > ESPNOW_API_FRAG_SIZE) return;
   if (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE) return; // non-final fragments are full so offsets align
+  if (msgType == ESPNOW_API_DISCOVER &&
+      (fragIndex != 0 || fragTotal != 1 ||
+       (payloadLen != 0 && (payloadLen != 2 || data[ESPNOW_API_HEADER_SIZE] != '{' ||
+                            data[ESPNOW_API_HEADER_SIZE + 1] != '}')))) return;
 
   unsigned long now = millis();
-  apiRemoteSeen = now;
+  apiRemoteSeen = now ? now : 1;
+  // DISCOVER is already fully validated and carries no useful body. Scheduling it directly
+  // avoids periodic heap allocation/reassembly churn on constrained WLED targets.
+  if (msgType == ESPNOW_API_DISCOVER) {
+    scheduleEspNowAnnounce(address, msgId);
+    return;
+  }
   bool newMsg = (apiReasmBuf == nullptr) || (now - apiReasmLast > ESPNOW_API_REASM_TIMEOUT) ||
                 (memcmp(apiReasmSrc, address, 6) != 0) || (apiReasmId != msgId) ||
                 (apiReasmType != msgType) || (apiReasmTotal != fragTotal);
@@ -343,19 +404,21 @@ static void sendEspNowApiResponse(const uint8_t* mac, uint8_t msgId, bool verbos
   if (err) sendEspNowApiError(mac, msgId, err);
 }
 
-// The reply is broadcast: a unicast reply needs a MAC-level ACK, which is unreliable while
-// this radio time-shares with WiFi scanning/connecting; the remote identifies us by the
-// frame's source MAC (and the "mac" field).
-static void sendEspNowHello() {
-  if (statusESPNow != ESP_NOW_STATE_ON) return;
-  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return; // discovery is best-effort; remote re-broadcasts
+// Reply to discovery by reliable unicast. The transport registers the already-whitelisted
+// remote as a peer, and the echoed message ID binds this announcement to one discovery scan.
+static bool sendEspNowAnnounce(const uint8_t* mac, uint8_t msgId) {
+  if (statusESPNow != ESP_NOW_STATE_ON || !mac) return false;
+  if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) return false;
   pDoc->clear();
-  JsonObject hello = pDoc->createNestedObject("hello");
-  hello[F("name")] = serverDescription;
-  hello[F("mac")]  = escapedMac;
-  hello[F("ver")]  = VERSION;
-  hello[F("ch")]   = WiFi.channel();
-  queueApiDocLocked(ESPNOW_BROADCAST_ADDRESS, ESPNOW_API_HELLO, 0);
+  JsonObject announce = pDoc->createNestedObject("announce");
+  announce[F("name")] = serverDescription;
+  announce[F("mac")]  = escapedMac;
+  announce[F("ver")]  = VERSION;
+  announce[F("ch")]   = WiFi.channel();
+  announce[F("proto")] = ESPNOW_API_VERSION;
+  announce[F("cap")] = ESPNOW_API_CAP_COMPACT | ESPNOW_API_CAP_CATALOGS |
+                         ESPNOW_API_CAP_PUSH | ESPNOW_API_CAP_LIVE;
+  return queueApiDocLocked(mac, ESPNOW_API_ANNOUNCE, msgId) == 0;
 }
 
 // Answer a {"get":"fx|pal|ps"} catalog request so a remote can populate effect, palette and
@@ -434,8 +497,9 @@ static void apiResetAll() {
   apiRemoteSeen = 0;
   apiPushPending = false;
   apiPushDue = 0;
-  apiHelloPending = false;
-  apiHelloDue = 0;
+  for (auto &reply : apiDiscoveryReplies) reply = EspNowApiDiscoveryReply{};
+  for (auto &record : apiCompletedMutations) record = EspNowApiCompletedMutation{};
+  apiCompletedMutationNext = 0;
 }
 
 // Retry a coalesced state push after responses have drained; live preview yields to state.
@@ -453,13 +517,30 @@ static bool handlePendingEspNowPush() {
   return true;
 }
 
-// Sends a delayed discovery response after the reliable response slot becomes available.
-static bool handlePendingEspNowHello() {
-  if (!apiHelloPending || !apiTxIdle()) return false;
-  if ((long)(millis() - apiHelloDue) < 0) return false;
-  apiHelloPending = false;
-  sendEspNowHello();
-  return true;
+// Queue a discovery reply without letting simultaneous remotes overwrite each other.
+static void scheduleEspNowAnnounce(const uint8_t* mac, uint8_t msgId) {
+  EspNowApiDiscoveryReply* slot = nullptr;
+  for (auto &reply : apiDiscoveryReplies) {
+    if (reply.pending && memcmp(reply.mac, mac, sizeof(reply.mac)) == 0) { slot = &reply; break; }
+    if (!reply.pending && !slot) slot = &reply;
+  }
+  if (!slot) slot = &apiDiscoveryReplies[0]; // bounded replacement; the remote repeats discovery
+  memcpy(slot->mac, mac, sizeof(slot->mac));
+  slot->msgId = msgId;
+  slot->due = millis() + apiInstanceJitter(90, 10);
+  slot->pending = true;
+}
+
+// Sends one due discovery response after the reliable response slot becomes available.
+static bool handlePendingEspNowAnnounce() {
+  if (!apiTxIdle()) return false;
+  for (auto &reply : apiDiscoveryReplies) {
+    if (!reply.pending || (long)(millis() - reply.due) < 0) continue;
+    if (sendEspNowAnnounce(reply.mac, reply.msgId)) reply.pending = false;
+    else reply.due = millis() + 20;
+    return true;
+  }
+  return false;
 }
 
 // Apply a completed inbound message in loop context.
@@ -494,22 +575,22 @@ void handleEspNowApi() {
   }
 
   if (!json) {
-    if (!handlePendingEspNowHello() && !handlePendingEspNowPush()) handleEspNowLive();
+    if (!handlePendingEspNowAnnounce() && !handlePendingEspNowPush()) handleEspNowLive();
     return;
   }
 
   unsigned long start = millis();
   while (strip.isUpdating() && millis()-start < ESPNOW_API_STRIPWAIT_TIMEOUT) yield();
 
-  if (msgType == ESPNOW_API_HELLO) {
-    DEBUG_PRINTF_P(PSTR("ESP-NOW API handling HELLO id=%u from " MACSTR " ch=%u\n"),
-                   msgId, MAC2STR(srcMac), WiFi.channel());
-    apiHelloPending = true;
-    apiHelloDue = millis() + apiInstanceJitter(90, 10);
-  } else if (msgType == ESPNOW_API_REQUEST) {
+  if (msgType == ESPNOW_API_REQUEST) {
     DEBUG_PRINTF_P(PSTR("ESP-NOW API handling REQUEST id=%u bytes=%u from " MACSTR "\n"),
                    msgId, unsigned(jsonLen), MAC2STR(srcMac));
-    if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) {
+    const uint32_t requestHash = apiPayloadHash(json, jsonLen);
+    if (apiMutationWasCompleted(srcMac, msgId, requestHash)) {
+      DEBUG_PRINTF_P(PSTR("ESP-NOW API suppressing duplicate mutation id=%u from " MACSTR "\n"),
+                     msgId, MAC2STR(srcMac));
+      sendEspNowApiSuccess(srcMac, msgId);
+    } else if (!requestJSONBufferLock(JSON_LOCK_REMOTE)) {
       sendEspNowApiError(srcMac, msgId, ESPNOW_API_ERR_BUSY);
     } else {
       DeserializationError err = deserializeJson(*pDoc, json, jsonLen);
@@ -544,6 +625,7 @@ void handleEspNowApi() {
           return;
         } else {
           verbose = deserializeState(root, CALL_MODE_BUTTON);
+          rememberCompletedMutation(srcMac, msgId, requestHash);
         }
         releaseJSONBufferLock();
         // If the request changed state, a PUSH will follow soon. Acknowledge here
