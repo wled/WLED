@@ -3150,8 +3150,8 @@ static const char _data_FX_MODE_ROLLINGBALLS[] PROGMEM = "Rolling Balls@!,# of b
 *   aux1 is the main counter for timing.
 */
 typedef struct PacManChars {
-  int32_t   pos;
-  int32_t   topPos;     // LED position of farthest PacMan has moved
+  int       pos;
+  int       topPos;     // LED position of farthest PacMan has moved
   uint32_t  color;
   bool      direction;  // true = moving away from first LED
   bool      blue;       // used for ghosts only
@@ -3225,7 +3225,7 @@ static void mode_pacman(void) {
   // Draw white dots in front of PacMan if option selected
   if (SEGMENT.check1) {
     int step = SEGMENT.check3 ? 1 : 2;  // Compact or spaced dots
-    for (int32_t i = (int32_t)(SEGLEN - 1); i > character[PACMAN].topPos; i -= step) {
+    for (int i = (int32_t)(SEGLEN - 1); i > character[PACMAN].topPos; i -= step) {
       SEGMENT.setPixelColor(i, WHITEISH);
     }
   }
