@@ -281,14 +281,14 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
         char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
         char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
         char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
-        bc_back.custom.numChannels  = (uint8_t)constrain(request->arg(cbch).toInt(), 1, 6);
+        bc_back.custom.numChannels  = request->arg(cbch).toInt();
         bc_back.custom.invertOutput = request->hasArg(cbio);
         bc_back.custom.is16bit      = request->hasArg(cbb);
-        bc_back.custom.t0h  = (uint16_t)constrain(request->arg(cbt0h).toInt(), 50, 9999);
-        bc_back.custom.t0l  = (uint16_t)constrain(request->arg(cbt0l).toInt(), 50, 9999);
-        bc_back.custom.t1h  = (uint16_t)constrain(request->arg(cbt1h).toInt(), 50, 9999);
-        bc_back.custom.t1l  = (uint16_t)constrain(request->arg(cbt1l).toInt(), 50, 9999);
-        bc_back.custom.trst = (uint16_t)constrain(request->arg(cbrst).toInt(),  1, 9999);
+        bc_back.custom.t0h  = request->arg(cbt0h).toInt();
+        bc_back.custom.t0l  = request->arg(cbt0l).toInt();
+        bc_back.custom.t1h  = request->arg(cbt1h).toInt();
+        bc_back.custom.t1l  = request->arg(cbt1l).toInt();
+        bc_back.custom.trst = request->arg(cbrst).toInt();
         bc_back.custom.invertMask   = 0;
         for (uint8_t ci = 0; ci < 6; ci++) {
           char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0;

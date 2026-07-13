@@ -120,9 +120,10 @@ bool BitBangBus::begin() {
    // max time allowed before we assume a latch, use half the reset period.
    // Note: there are strips that latch after just ~10us maybe even less, users can customize this period and set it to 10us if there are issues.
   //        if the reset period is set to 4000µs or more, interrupts are disabled (TODO: this is a bit of a hack, maybe better make it a config checkmark?)
-  const uint32_t latchCycles = (uint32_t)(_timing.reset_us >> 1) * cpuMHz;
-  if (_timing.reset_us < 4000) _BBs->allowInterrupts = true;
-  else _BBs->allowInterrupts = false;
+  uint32_t resetus = _timing.reset_us < 10 ? 10 : _timing.reset_us; // note: below 10us the output will starve due to short interrupts
+  const uint32_t latchCycles = resetus * cpuMHz;
+  if (_timing.reset_us > 0) _BBs->allowInterrupts = true;
+  else _BBs->allowInterrupts = false; // disable interrupt polling if set to zero
 
   // Register in the shared static table
   const uint8_t idx  = _BBs->channelCount;
@@ -264,13 +265,14 @@ void BitBangBus::resetChannels() {
 // ---------------------------------------------------------------------------
 bool IRAM_ATTR BitBangBus::outputParallel() {
   if (!_BBs || _BBs->channelCount == 0) return true;
-
+  // cache for speed
   const uint32_t t0h          = _BBs->t0h;
   const uint32_t t1h          = _BBs->t1h;
   const uint32_t period       = _BBs->period;
   const uint32_t latchCycles  = _BBs->latchCycles;
   const uint8_t  pixelBytes   = _BBs->pixelBytes;
   const uint8_t  nCh          = _BBs->channelCount;
+  const bool allowInterrupts = _BBs->allowInterrupts;
   // GPIO output masks — split into low bank (pins 0–31, all variants) and
   // high bank (pins 32+, ESP32/S2/S3 only via GPIO_OUT1_W1TS/TC_REG).
 #ifdef ESP_HAS_HIGH_GPIO_BANK
@@ -336,23 +338,14 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     return zm;
   };
 #endif
-  bool allowInterrupts = _BBs->allowInterrupts; // cache for speed
+
   const uint32_t bitsPerPixel = (uint32_t)pixelBytes * 8u; // TODO: for custom bus with channels<physical LEDs this may lead to flickering -> not observed on WS2812 but may be others
   uint32_t idleStart = getCycleCount(); // used to track idle periods and abort if too long (LEDs may have latched)
-  if (!allowInterrupts) WPB_BB_ENTERCRITICAL(); // no interrupts, do the whole loop in critical section
+  WPB_BB_ENTERCRITICAL();
   for (uint16_t pixel = 0; pixel < maxPixels; pixel++) {
-    if (allowInterrupts) WPB_BB_ENTERCRITICAL();
     uint32_t bitStart = (uint32_t)pixel * bitsPerPixel;
     uint32_t bitEnd   = bitStart + bitsPerPixel;
-    uint32_t cyclesStart = getCycleCount();
-    //check the idle gap: if it took longer than latchCycles (25us) abort to avoid overwriting from the start and causing flicker
-    if ((cyclesStart - idleStart) > latchCycles && allowInterrupts) {
-      WPB_BB_EXITCRITICAL();
-      return false;   // abort: strip latched, do not send remaining pixels
-    }
-
-    // Period reference: initialise as already expired so the first pulse fires immediately
-    cyclesStart = getCycleCount() - period;
+    uint32_t cyclesStart = getCycleCount() - period; // Period reference: initialise as already expired so the first pulse fires immediately
 
     for (uint32_t bitIndex = bitStart; bitIndex < bitEnd; bitIndex++) {
 
@@ -375,7 +368,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     #endif
       cyclesStart = getCycleCount();
 
-    // After T0H — pull '0' outputs LOW
+      // After T0H — pull '0' outputs LOW
       while ((getCycleCount() - cyclesStart) < t0h);
     #ifdef ESP_HAS_HIGH_GPIO_BANK
       REG_WRITE(GPIO_OUT_W1TC_REG,  zeroMaskLow);
@@ -384,7 +377,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
       REG_WRITE(GPIO_OUT_W1TC_REG, zeroMask);
     #endif
 
-    // After T1H — pull all remaining outputs LOW
+      // After T1H — pull all remaining outputs LOW
       while ((getCycleCount() - cyclesStart) < t1h);
     #ifdef ESP_HAS_HIGH_GPIO_BANK
       REG_WRITE(GPIO_OUT_W1TC_REG,  setOutputMaskLow);
@@ -395,15 +388,19 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     }
 
     // capture time just before exiting critical so we can measure the gap
-    idleStart = getCycleCount();
     if (allowInterrupts) {
+      idleStart = getCycleCount();
       // allow ISRs to run between LEDs
       WPB_BB_EXITCRITICAL();
+      WPB_BB_ENTERCRITICAL();
+      //check the idle gap: if it took longer than half of latchCycles abort to avoid overwriting from the start and causing flicker
+      if ((getCycleCount() - idleStart) > latchCycles) {
+        WPB_BB_EXITCRITICAL();
+        return false;   // abort: strip latched, do not send remaining pixels
+      }
     }
   }
-  if (!allowInterrupts) {
-    WPB_BB_EXITCRITICAL(); // exit after we are done sending everything
-  }
+  WPB_BB_EXITCRITICAL(); // exit after we are done sending everything
   return true;
 }
 } // namespace WLEDpixelBus
