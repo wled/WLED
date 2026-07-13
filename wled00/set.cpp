@@ -134,13 +134,20 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       snprintf(rm, sizeof(rm), "RM%d", n); // "RM0" to "RM9"
       if (request->hasArg(rm)) {
         const String& arg = request->arg(rm);
-        if (arg.isEmpty()) continue;
+        if (arg.length() != 12) continue;
         std::array<char, 13> mac{};
-        strlcpy(mac.data(), request->arg(rm).c_str(), 13);
+        strlcpy(mac.data(), arg.c_str(), sizeof(mac));
         strlwr(mac.data());
-        if (mac[0] != '\0') {
-          linked_remotes.emplace_back(mac);
+        bool valid = true;
+        for (size_t i = 0; i < 12; i++) {
+          if ((mac[i] < '0' || mac[i] > '9') && (mac[i] < 'a' || mac[i] > 'f')) { valid = false; break; }
         }
+        if (!valid) continue;
+        bool duplicate = false;
+        for (const auto &linked : linked_remotes) {
+          if (!memcmp(linked.data(), mac.data(), 12)) { duplicate = true; break; }
+        }
+        if (!duplicate) linked_remotes.emplace_back(mac);
       }
     }
     #endif

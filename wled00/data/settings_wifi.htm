@@ -4,7 +4,15 @@
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WiFi Settings</title>
-	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<style>
+		html { visibility: hidden; }
+		.espnowInfo { margin: 8px 0; padding: 10px; border: 1px solid #555; border-radius: 8px; }
+		.remoteRow { display: flex; align-items: center; gap: 8px; margin: 6px auto; max-width: 360px; }
+		.remoteMac { flex: 1; font-family: monospace; text-align: left; }
+		.remoteMeta { display: block; font-family: sans-serif; font-size: 0.8em; opacity: 0.75; }
+		.remoteMsg { display: block; min-height: 1.4em; margin-top: 6px; }
+		.manualRemote { margin-top: 10px; }
+	</style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		// load common.js with retry on error
 		(function loadFiles() {
@@ -161,42 +169,112 @@ Static subnet mask:<br>
 			setTimeout(tE, 500); // wait for DOM to load before calling tE()
 		}
 
-		var rC = 0; // remote count
+		var rC = 0; // linked remote count
+		var detectedRemote = '';
+		const maxRemotes = 10;
+		function normalizeRemoteMac(mac) {
+			return String(mac || '').replace(/[:-]/g, '').trim().toLowerCase();
+		}
+		function formatRemoteMac(mac) {
+			const pairs = normalizeRemoteMac(mac).match(/.{2}/g);
+			return pairs ? pairs.join(':').toUpperCase() : mac;
+		}
+		function remoteExists(mac) {
+			const normalized = normalizeRemoteMac(mac);
+			return Array.from(d.querySelectorAll('#rml input')).some(input => input.value === normalized);
+		}
+		function setRemoteMessage(message, warning = false) {
+			const output = gId('remoteMsg');
+			output.textContent = message;
+			output.className = warning ? 'remoteMsg warn' : 'remoteMsg';
+		}
+		function syncRemoteInputs() {
+			const rows = Array.from(gId('rml').children);
+			rows.forEach((row, index) => row.querySelector('input').name = `RM${index}`);
+			rC = rows.length;
+			const full = rC >= maxRemotes;
+			const linked = detectedRemote && remoteExists(detectedRemote);
+			gId('pairBtn').disabled = full || !detectedRemote || linked;
+			gId('pairBtn').textContent = linked ? 'Already linked' : full ? 'Remote list full' : 'Link detected remote';
+			gId('manualAdd').disabled = full;
+		}
 		// toggle visibility of ESP-NOW remote list based on checkbox state
 		function tE() {
-			// keep the hidden input with MAC addresses, only toggle visibility of the list UI
 			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
 		}
-		// reset remotes: initialize empty list (called from xml.cpp)
+		// Reset the linked-device rows before settings are populated by xml.cpp.
 		function rstR() {
-			gId('rml').innerHTML = ''; // clear remote list
+			gId('rml').replaceChildren();
+			rC = 0;
+			syncRemoteInputs();
 		}
-		// add remote MAC to the list
+		// Add a validated MAC while keeping submitted RM indices contiguous after removals.
 		function aR(id, mac) {
-			if (!/^[0-9A-F]{12}$/i.test(mac)) return; // check for valid hex string
-			let inputs = d.querySelectorAll("#rml input");
-			for (let i of (inputs || [])) {
-				if (i.value === mac) return;
+			const normalized = normalizeRemoteMac(mac);
+			if (!/^[0-9a-f]{12}$/.test(normalized) || remoteExists(normalized) || rC >= maxRemotes) return false;
+			const row = cE('div');
+			row.className = 'remoteRow';
+			const input = cE('input');
+			input.type = 'hidden';
+			input.value = normalized;
+			row.appendChild(input);
+			const label = cE('span');
+			label.className = 'remoteMac';
+			label.textContent = formatRemoteMac(normalized);
+			const meta = cE('small');
+			meta.className = 'remoteMeta';
+			meta.textContent = 'Linked remote';
+			label.appendChild(meta);
+			row.appendChild(label);
+			const remove = cE('button');
+			remove.type = 'button';
+			remove.className = 'sml';
+			remove.textContent = 'Remove';
+			remove.setAttribute('aria-label', `Remove ${formatRemoteMac(normalized)}`);
+			remove.onclick = () => {
+				row.remove();
+				syncRemoteInputs();
+				setRemoteMessage('Remote removed. Save settings to apply.');
+			};
+			row.appendChild(remove);
+			gId('rml').appendChild(row);
+			syncRemoteInputs();
+			return true;
+		}
+		function setEspNowInfo(channel) {
+			gId('espnowChannel').textContent = channel ? channel : 'Unavailable';
+		}
+		function setDetectedRemote(mac, type, rssi, age) {
+			const normalized = normalizeRemoteMac(mac);
+			if (!/^[0-9a-f]{12}$/.test(normalized)) return;
+			detectedRemote = normalized;
+			gId('detectedMac').textContent = formatRemoteMac(normalized);
+			gId('detectedType').textContent = type === 2 ? 'Bidirectional API remote' :
+				type === 1 ? 'WiZ remote' : 'ESP-NOW device';
+			const seconds = Math.floor(Number(age || 0) / 1000);
+			gId('detectedMeta').textContent = `${rssi} dBm · seen ${seconds < 2 ? 'now' : `${seconds}s ago`}`;
+			const linkedInput = Array.from(d.querySelectorAll('#rml input')).find(input => input.value === normalized);
+			if (linkedInput) {
+				linkedInput.parentElement.querySelector('.remoteMeta').textContent =
+					`${gId('detectedType').textContent} · ${rssi} dBm · seen ${seconds < 2 ? 'now' : `${seconds}s ago`}`;
 			}
-			let l = gId('rml'), r = cE('div'), i = cE('input');
-			i.type = 'text';
-			i.name = id;
-			i.value = mac;
-			i.maxLength = 12;
-			i.minLength = 12;
-			//i.onchange = uR;
-			r.appendChild(i);
-			let b = cE('button');
-			b.type = 'button';
-			b.className = 'sml';
-			b.innerText = '-';
-			b.onclick = (e) => {
- 				r.remove();
- 			};
-			r.appendChild(b);
-			l.appendChild(r);
-			rC++;
-			gId('+').style.display = gId("rml").childElementCount < 10 ? 'inline' : 'none'; // can't append to list anymore, hide button
+			syncRemoteInputs();
+		}
+		function linkDetectedRemote() {
+			if (!detectedRemote) return setRemoteMessage('No valid remote has been detected yet.', true);
+			if (remoteExists(detectedRemote)) return setRemoteMessage('This remote is already linked.', true);
+			if (rC >= maxRemotes) return setRemoteMessage('The linked-remote list is full.', true);
+			if (aR('', detectedRemote)) setRemoteMessage('Remote added. Save settings to activate it.');
+		}
+		function addManualRemote() {
+			const input = gId('manualMac');
+			const mac = normalizeRemoteMac(input.value);
+			if (!/^[0-9a-f]{12}$/.test(mac)) return setRemoteMessage('Enter a valid 12-digit MAC address.', true);
+			if (remoteExists(mac)) return setRemoteMessage('This remote is already linked.', true);
+			if (aR('', mac)) {
+				input.value = '';
+				setRemoteMessage('Remote added. Save settings to activate it.');
+			}
 		}
 		function E(i) {
 			const select = gId("ET"+i);
@@ -295,20 +373,33 @@ Static subnet mask:<br>
 		</div>
 	</div>
 	<div class="sec">
-		<h3>ESP-NOW Wireless</h3>
+		<h3>ESP-NOW Remotes &amp; Sync</h3>
 		<div id="NoESPNOW" class="hide">
 			<i class="warn">This firmware build does not include ESP-NOW support.<br></i>
 		</div>
 		<div id="ESPNOW">
 			Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
-			<i>Listen for events over ESP-NOW<br>
-			Keep disabled if not using a remote or ESP-NOW sync, increases power consumption.<br></i>
+			<i>Allows linked remotes to control WLED and enables optional WLED-to-WLED ESP-NOW sync.<br>
+			Keep disabled when neither feature is used; ESP-NOW increases power consumption.</i><br>
 			<div id="rlc">
-				Last device seen: <span class="rlid" id="ld">None</span>
-				<button type="button" class="sml" id="+" onclick="aR('RM'+rC,gId('ld').textContent)">+</button><br>
-				Linked MACs (10 max):<br>
-				<div id="rml">
+				<div class="espnowInfo">
+					<b>Pair a remote</b><br>
+					<small>Start Scan on the remote, then reopen this page if necessary.</small><br><br>
+					Detected: <b id="detectedMac">Waiting for remote…</b><br>
+					<span id="detectedType">No pairing request received</span><br>
+					<small id="detectedMeta">No signal details</small><br>
+					<small>ESP-NOW channel: <span id="espnowChannel">Unavailable</span></small><br>
+					<button type="button" id="pairBtn" onclick="linkDetectedRemote()" disabled>Link detected remote</button>
+					<button type="button" class="sml" onclick="location.reload()">Refresh detection</button>
 				</div>
+				<b>Linked remotes</b> (10 maximum)
+				<div id="rml"></div>
+				<div class="manualRemote">
+					<input id="manualMac" type="text" maxlength="17" placeholder="AA:BB:CC:DD:EE:FF" aria-label="Remote MAC address">
+					<button type="button" class="sml" id="manualAdd" onclick="addManualRemote()">Add MAC</button>
+				</div>
+				<small id="remoteMsg" class="remoteMsg">Changes take effect after Save &amp; Connect.</small>
+				<p><small>WLED-to-WLED sync is configured separately under Sync Interfaces.</small></p>
 			</div>
 		</div>
 	</div>

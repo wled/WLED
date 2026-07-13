@@ -278,11 +278,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     #ifndef WLED_DISABLE_ESPNOW
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
-    settingsScript.printf_P(PSTR("rstR();")); // reset remote list
+    settingsScript.print(F("rstR();")); // reset remote list
     for (size_t i = 0; i < linked_remotes.size(); i++) {
       settingsScript.printf_P(PSTR("aR(\"RM%u\",\"%s\");"), i, linked_remotes[i].data()); // add remote to list
     }
-    settingsScript.print(F("tE();")); // fill fields
+    settingsScript.printf_P(PSTR("setEspNowInfo(%u);tE();"), WiFi.channel());
     #else
     //hide remote settings if not compiled
     settingsScript.print(F("toggle('ESPNOW');"));  // hide ESP-NOW setting
@@ -322,8 +322,10 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     }
 
     #ifndef WLED_DISABLE_ESPNOW
-    if (strlen(last_signal_src) > 0) { //Have seen an ESP-NOW Remote
-      printSetClassElementHTML(settingsScript,PSTR("rlid"),0,last_signal_src);
+    if (strlen(last_signal_src) > 0) { // Have seen an ESP-NOW remote
+      const unsigned long age = last_signal_time ? millis() - last_signal_time : 0;
+      settingsScript.printf_P(PSTR("setDetectedRemote(\"%s\",%u,%d,%lu);"),
+                              last_signal_src, last_signal_type, last_signal_rssi, age);
     }
     #endif
   }

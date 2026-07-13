@@ -906,22 +906,23 @@ void espNowSentCB(uint8_t* address, uint8_t status) {
                              MAC2STR(address), status, WiFi.channel(), unsigned(WiFi.status()));
 }
 
-// Return true only for frame types that establish the sender as a control remote. In
-// particular, outbound ANNOUNCE frames must not replace the bonding candidate.
-static bool espNowIsBondCandidate(const uint8_t* data, uint8_t len) {
-  if (!data || !len) return false;
-  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) return true; // WiZ Mote
-  if (len < ESPNOW_API_HEADER_SIZE || data[0] != ESPNOW_API_MAGIC || data[1] != ESPNOW_API_VERSION) return false;
+// Classify only frame types that establish the sender as a control remote. In particular,
+// outbound ANNOUNCE frames must not replace the bonding candidate.
+static uint8_t espNowBondCandidateType(const uint8_t* data, uint8_t len) {
+  if (!data || !len) return 0;
+  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) return 1; // WiZ Mote
+  if (len < ESPNOW_API_HEADER_SIZE || data[0] != ESPNOW_API_MAGIC || data[1] != ESPNOW_API_VERSION) return 0;
 
   const uint8_t msgType = data[2];
   const uint8_t fragIndex = data[4];
   const uint8_t fragTotal = data[5];
   const uint8_t payloadLen = len - ESPNOW_API_HEADER_SIZE;
-  if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS || fragIndex >= fragTotal) return false;
-  if (payloadLen > ESPNOW_API_FRAG_SIZE || (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE)) return false;
-  if (msgType == ESPNOW_API_REQUEST) return true;
-  if (msgType != ESPNOW_API_DISCOVER || fragIndex != 0 || fragTotal != 1) return false;
-  return payloadLen == 0 || (payloadLen == 2 && data[ESPNOW_API_HEADER_SIZE] == '{' && data[ESPNOW_API_HEADER_SIZE + 1] == '}');
+  if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS || fragIndex >= fragTotal) return 0;
+  if (payloadLen > ESPNOW_API_FRAG_SIZE || (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE)) return 0;
+  if (msgType == ESPNOW_API_REQUEST) return 2;
+  if (msgType != ESPNOW_API_DISCOVER || fragIndex != 0 || fragTotal != 1) return 0;
+  return payloadLen == 0 || (payloadLen == 2 && data[ESPNOW_API_HEADER_SIZE] == '{' &&
+                             data[ESPNOW_API_HEADER_SIZE + 1] == '}') ? 2 : 0;
 }
 
 // ESP-NOW message receive callback function
@@ -930,7 +931,13 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
   char senderMac[13];
   snprintf_P(senderMac, sizeof(senderMac), PSTR("%02x%02x%02x%02x%02x%02x"),
              address[0], address[1], address[2], address[3], address[4], address[5]);
-  if (espNowIsBondCandidate(data, len)) strlcpy(last_signal_src, senderMac, sizeof(last_signal_src));
+  const uint8_t candidateType = espNowBondCandidateType(data, len);
+  if (candidateType) {
+    strlcpy(last_signal_src, senderMac, sizeof(last_signal_src));
+    last_signal_type = candidateType;
+    last_signal_rssi = rssi;
+    last_signal_time = millis();
+  }
 
   #ifdef WLED_DEBUG
     DEBUG_PRINT(F("ESP-NOW: ")); DEBUG_PRINT(senderMac); DEBUG_PRINT(F(" -> ")); DEBUG_PRINTLN(len);
