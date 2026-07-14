@@ -1003,7 +1003,7 @@ BusHub75Matrix::BusHub75Matrix(const BusConfig &bc) : Bus(bc.type, bc.start, bc.
   this->_len = (display->width() * display->height()); // note: this returns correct number of pixels but incorrect dimensions if using virtual display (updated below)
 
   DEBUGBUS_PRINTF("Length: %u\n", _len);
-  if (this->_len >= MAX_LEDS) {
+  if (this->_len > MAX_LEDS) {
     DEBUGBUS_PRINTLN("MatrixPanel_I2S_DMA Too many LEDS - playing safe");
     return;
   }
