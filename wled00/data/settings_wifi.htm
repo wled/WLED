@@ -65,10 +65,6 @@
 						select.setAttribute("onchange", "T(this)");
 						preScanSSID = input.value;
 
-						for (let i = 0; i < select.children.length; i++) {
-							select.removeChild(select.children[i]);
-						}
-
 						for (let i = 0; i < networks.length; i++) {
 							const option = cE("option");
 

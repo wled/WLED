@@ -85,6 +85,9 @@ static bool deserializeSegment(JsonObject elem, byte it, byte presetId = 0)
 
   //DEBUG_PRINTLN(F("-- JSON deserialize segment."));
   Segment& seg = strip.getSegment(id);
+  if (newSeg && presetId == 0) {
+    seg.colors[0] = DEFAULT_COLOR; // set color of newly created segment to warm orange as an indicator to the user
+  }
   // we do not want to make segment copy as it may use a lot of RAM (effect data and pixel buffer)
   // so we will create a copy of segment options and compare it with original segment when done processing
   SegmentCopy prev = {
@@ -485,6 +488,14 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     }
     strip.resume();
   }
+  // reset segment request
+  if (root[F("rSeg")] | false) {
+    strip.suspend();
+    strip.waitForIt();
+    strip.makeAutoSegments(true);  // respects autoSegments flag
+    strip.resume();
+    stateChanged = true;
+  }
 
   UsermodManager::readFromJsonState(root);
 
@@ -520,7 +531,9 @@ bool deserializeState(JsonObject root, byte callMode, byte presetId)
     if (root["win"].isNull() && getVal(root["ps"], presetCycCurr, 1, 250) && presetCycCurr > 0 && presetCycCurr < 251 && presetCycCurr != currentPreset) {
       DEBUG_PRINTF_P(PSTR("Preset select: %d\n"), presetCycCurr);
       // b) preset ID only or preset that does not change state (use embedded cycling limits if they exist in getVal())
-      applyPreset(presetCycCurr, callMode); // async load from file system (only preset ID was specified)
+      // async load from file system (only preset ID was specified)
+      // avoid propogating CALL_MODE_INIT, which may cause accidental recursion
+      applyPreset(presetCycCurr, callMode == CALL_MODE_INIT ? CALL_MODE_DIRECT_CHANGE : callMode);
       return stateResponse;
     } else presetCycCurr = currentPreset; // restore presetCycCurr
   }

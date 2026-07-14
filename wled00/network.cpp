@@ -87,7 +87,7 @@ const ethernet_settings ethernetBoards[] = {
 
   // ESP32-ETHERNET-KIT-VE
   {
-    0,                    // eth_address,
+    1,                    // eth_address,
     5,                    // eth_power,
     23,                   // eth_mdc,
     18,                   // eth_mdio,
@@ -176,6 +176,12 @@ const ethernet_settings ethernetBoards[] = {
     ETH_CLOCK_GPIO0_IN   // eth_clk_mode
   },
 };
+
+// sanity checks for ethernet config table and WLED_ETH_DEFAULT
+static_assert((sizeof(ethernetBoards)/sizeof(ethernetBoards[0])) == WLED_NUM_ETH_TYPES, "WLED_NUM_ETH_TYPES does not match size of ethernetBoards[] table.");
+#ifdef WLED_ETH_DEFAULT
+  static_assert(((WLED_ETH_DEFAULT) >= WLED_ETH_NONE) && ((WLED_ETH_DEFAULT) < WLED_NUM_ETH_TYPES), "WLED_ETH_DEFAULT is out of range.");
+#endif
 
 bool initEthernet()
 {
@@ -415,7 +421,8 @@ void WiFiEvent(WiFiEvent_t event)
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
       // AP client disconnected
-      if (--apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if awailable
+      if (apClients > 0) apClients--;
+      if (apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if available
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Disconnected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
@@ -442,10 +449,26 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_READY:
+      DEBUG_PRINTLN(F("WiFi-E: driver ready."));
+      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
+    case ARDUINO_EVENT_WIFI_STA_START:
+      DEBUG_PRINTLN(F("WiFi-E: STA Started"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+      DEBUG_PRINTLN(F("WiFi-E: STA authentication mode change."));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      DEBUG_PRINTLN(F("WiFi-E: IP address lost."));
+      break;
+
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;
