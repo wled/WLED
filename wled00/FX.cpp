@@ -7761,6 +7761,7 @@ typedef struct {
   uint32_t retwnkleTime : 16;   // Time left til we recalculate 'maxCycle'
   uint32_t colorIdx : 8;        // May be fixed or change with each flash
   uint32_t isOn : 1;
+                                //   7 bits available for future use.
 } TwinkleLight;
 
 // Square a normalized value to skew toward smaller numbers
@@ -7804,7 +7805,7 @@ void mode_XmasTwinkle(void) {
   uint32_t interval = currTime - lastTime;
   
   // Initialize on first run
-  if (! SEGMENT.call || SEGMENT.aux0 != numLights) {
+  if (SEGMENT.call == 0 || SEGMENT.aux0 != numLights) {
     for (int i = 0; i < numLights; i++) {
       lights[i].colorIdx = hw_random8();
       lights[i].isOn = false;
