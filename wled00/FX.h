@@ -892,10 +892,11 @@ class WS2812FX {
 
     void setRealtimePixelColor(unsigned i, uint32_t c);
     inline void setPixelColor(unsigned n, uint32_t c) const   {
-      #ifdef ESP8266
-      if (n < getLengthTotal()) BusManager::setPixelColor(getMappedPixelIndex(n), c);
-      #endif
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      n = getMappedPixelIndex(n); if (n < getLengthTotal()) BusManager::setPixelColor(n, c);
+      #else
       if (n < getLengthTotal()) _pixels[n] = c;
+      #endif
     }  // paints absolute strip pixel with index n and color c
     inline void resetTimebase()                               { timebase = 0UL - millis(); }
     inline void setPixelColor(unsigned n, uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) const
@@ -955,16 +956,18 @@ class WS2812FX {
 
     unsigned long now, timebase;
     inline uint32_t getPixelColor(unsigned n) const {
-      #ifdef ESP8266
-      if (!_pixels) return (getMappedPixelIndex(n) < getLengthTotal()) ? BusManager::getPixelColor(getMappedPixelIndex(n)) : 0;
-      #endif
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      n = getMappedPixelIndex(n); if (n < getLengthTotal()) BusManager::getPixelColor(n, c);
+      #else
       return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0;
+      #endif
     } // returns color of pixel n, black if out of (mapped) bounds
     inline uint32_t getPixelColorNoMap(unsigned n) const {
-      #ifdef ESP8266
-      if (!_pixels) return (n < getLengthTotal()) ? BusManager::getPixelColor(n) : 0;
-      #endif
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      return (n < getLengthTotal()) ? BusManager::getPixelColor(n) : 0;
+      #else
       return (n < getLengthTotal()) ? _pixels[n] : 0;
+      #endif
     } // ignores mapping table
     inline uint32_t getLastShow() const             { return _lastShow; }                 // returns millis() timestamp of last strip.show() call
 

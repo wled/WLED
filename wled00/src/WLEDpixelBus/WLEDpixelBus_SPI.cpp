@@ -228,9 +228,9 @@ bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctP
       const size_t total = (size_t)_numPixels * wireBytes;
       for (size_t i = 0; i < total; i++) sendByte(src[i]);
     }
-    #ifdef ESP8266 // TODO: this is also needed if _pixels[] is not used
-    // Restore the compact layout so getPixelColor() and the next frame's getPixelColor() see the buffer in its normal encoded format
-    // note: if no global _pixels[] buffer is used, this is necessary for all subsequent getPixelColor() calls. Still way faster than not doing full buffer encoding.
+    #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+    // Restore the compact layout so getPixelColor() and the next frame's getPixelColor() see the buffer in its normal encoded format.
+    // When the global _pixels[] buffer is disabled, this is necessary for all subsequent getPixelColor() calls. Still way faster than not doing full buffer encoding.
     src = _encodeBuffer + 1; // skip header
     for (uint32_t i = 0; i < _numPixels; ++i) {
       uint8_t* dst = _encodeBuffer + (size_t)i * pixelBytes;
