@@ -28,15 +28,117 @@
       }
     },
     {
-      "type": "npm",
-      "script": "build",
+      "label": "Build: HTML only",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "if (Get-Command npm -ErrorAction SilentlyContinue) { npm run build } else { Write-Host 'npm not found. Skipping HTML build.'; exit 0 }"
+      ],
       "group": "build",
       "problemMatcher": [],
-      "label": "Build: HTML only",
-      "detail": "npm run build",
+      "detail": "Runs npm build if npm is installed, otherwise skips",
       "presentation": {
         "panel": "shared"
       }
+    },
+    {
+      "label": "Upload: binary only (usermod env)",
+      "type": "shell",
+      "command": "C:/Users/Chris/.platformio/penv/Scripts/platformio.exe",
+      "args": [
+        "run",
+        "-e",
+        "nodemcuv2_rotary_fan_pwm",
+        "-t",
+        "upload",
+        "--upload-port",
+        "${input:uploadPort}"
+      ],
+      "problemMatcher": [
+        "$platformio"
+      ],
+      "presentation": {
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build + Upload: HTML and binary (usermod env)",
+      "dependsOn": [
+        "Build: HTML only",
+        "Upload: binary only (usermod env)"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [
+        "$platformio"
+      ]
+    },
+    {
+      "label": "Build + Upload: binary only (usermod env)",
+      "dependsOn": [
+        "Upload: binary only (usermod env)"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [
+        "$platformio"
+      ]
+    },
+    {
+      "label": "Upload: OTA HTTP (usermod env)",
+      "type": "shell",
+      "command": "pwsh",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "if (-not (Test-Path '.pio/build/nodemcuv2_rotary_fan_pwm/firmware.bin')) { throw 'firmware.bin not found. Build first.' }; $uri = 'http://${input:wledHost}/update'; Write-Host \"Uploading to $uri\"; curl.exe -fsS -F \"update=@.pio/build/nodemcuv2_rotary_fan_pwm/firmware.bin\" $uri"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build + Upload: OTA HTTP (usermod env)",
+      "dependsOn": [
+        "Build: binary only",
+        "Upload: OTA HTTP (usermod env)"
+      ],
+      "dependsOrder": "sequence",
+      "problemMatcher": [
+        "$platformio"
+      ]
+    },
+    {
+      "label": "Monitor: serial (115200)",
+      "type": "shell",
+      "command": "C:/Users/Chris/.platformio/penv/Scripts/platformio.exe",
+      "args": [
+        "device",
+        "monitor",
+        "--baud",
+        "115200",
+        "--port",
+        "${input:uploadPort}"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "uploadPort",
+      "type": "promptString",
+      "description": "Serial port (for example COM6)",
+      "default": "COM6"
+    },
+    {
+      "id": "wledHost",
+      "type": "promptString",
+      "description": "WLED host or IP for OTA (for example 192.168.1.50 or wled.local)",
+      "default": "wled.local"
     }
   ]
 }

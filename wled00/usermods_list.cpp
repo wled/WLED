@@ -98,6 +98,10 @@
   #include "../usermods/usermod_rotary_brightness_color/usermod_rotary_brightness_color.h"
 #endif
 
+#ifdef USERMOD_ROTARY_ENCODER_FAN_PWM_PRESET
+  #include "../usermods/rotary_encoder_fan_pwm_preset/usermod_rotary_encoder_fan_pwm_preset.h"
+#endif
+
 #ifdef RGB_ROTARY_ENCODER
   #include "../usermods/rgb-rotary-encoder/rgb-rotary-encoder.h"
 #endif
@@ -329,6 +333,10 @@ void registerUsermods()
 
   #ifdef USERMOD_ROTARY_ENCODER_BRIGHTNESS_COLOR
   UsermodManager::add(new RotaryEncoderBrightnessColor());
+  #endif
+
+  #ifdef USERMOD_ROTARY_ENCODER_FAN_PWM_PRESET
+  UsermodManager::add(new RotaryEncoderFanPwmPresetUsermod());
   #endif
 
   #ifdef RGB_ROTARY_ENCODER
