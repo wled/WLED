@@ -957,7 +957,7 @@ class WS2812FX {
     unsigned long now, timebase;
     inline uint32_t getPixelColor(unsigned n) const {
       #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
-      n = getMappedPixelIndex(n); if (n < getLengthTotal()) BusManager::getPixelColor(n, c);
+      n = getMappedPixelIndex(n); return n < getLengthTotal() ? BusManager::getPixelColor(n, c) : 0;
       #else
       return (getMappedPixelIndex(n) < getLengthTotal()) ? _pixels[n] : 0;
       #endif
