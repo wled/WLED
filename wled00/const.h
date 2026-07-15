@@ -546,11 +546,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)
     #define MAX_LEDS 2048 //due to memory constraints S2
   #else
-    #ifdef BOARD_HAS_PSRAM
-    #define MAX_LEDS 24576 // 192*128 max, this will run at a handful of FPS...
-    #else
-    #define MAX_LEDS 16384
-    #endif
+    #define MAX_LEDS 16384 // note: S3 can take more but 24576 is already unstable using HUB75 (DMA buffers)
   #endif
 #endif
 
