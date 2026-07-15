@@ -533,9 +533,6 @@ WLED_GLOBAL bool useESPNowSync       _INIT(false);  // use ESP-NOW wireless tech
 //WLED_GLOBAL char linked_remote[13]   _INIT("");     // MAC of ESP-NOW remote (Wiz Mote)
 WLED_GLOBAL std::vector<std::array<char, 13>> linked_remotes; // MAC of ESP-NOW remotes (Wiz Mote)
 WLED_GLOBAL char last_signal_src[13] _INIT("");     // last seen ESP-NOW sender
-WLED_GLOBAL byte last_signal_type    _INIT(0);      // 1 = WiZ remote, 2 = bidirectional API remote
-WLED_GLOBAL int16_t last_signal_rssi _INIT(0);      // RSSI of the last valid pairing candidate
-WLED_GLOBAL unsigned long last_signal_time _INIT(0); // millis() when the pairing candidate was seen
 #endif
 
 // Time CONFIG

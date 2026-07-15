@@ -725,7 +725,7 @@ void serveSettingsJS(AsyncWebServerRequest* request)
   response->addHeader(FPSTR(s_expires), F("0"));
 
   response->print(F("function GetV(){var d=document;"));
-  getSettingsJS(subPage, *response);
+  getSettingsJS(subPage, *response, request->hasArg(F("espnow")));
   response->print(F("}"));
   request->send(response);
 }

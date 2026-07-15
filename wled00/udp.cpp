@@ -1,4 +1,7 @@
 #include "wled.h"
+#ifndef WLED_DISABLE_ESPNOW
+#include <atomic>
+#endif
 
 /*
  * UDP sync notifier / Realtime / Hyperion / TPM2.NET
@@ -899,6 +902,54 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 }
 
 #ifndef WLED_DISABLE_ESPNOW
+namespace {
+static constexpr unsigned long ESPNOW_DETECTED_REMOTE_TIMEOUT = 120000;
+static EspNowDetectedRemote detectedRemotes[ESPNOW_MAX_DETECTED_REMOTES] = {};
+static size_t detectedRemoteCount = 0;
+static std::atomic_flag detectedRemotesLock = ATOMIC_FLAG_INIT;
+
+// Keep one recent entry per pairing candidate and replace the oldest entry when the list is full.
+static void rememberEspNowRemote(const char* mac, uint8_t type, int16_t rssi) {
+  if (detectedRemotesLock.test_and_set(std::memory_order_acquire)) return;
+  const unsigned long now = millis();
+  size_t index = detectedRemoteCount;
+  for (size_t i = 0; i < detectedRemoteCount; i++) {
+    if (!strncmp(detectedRemotes[i].mac, mac, sizeof(detectedRemotes[i].mac))) {
+      index = i;
+      break;
+    }
+  }
+  if (index == detectedRemoteCount) {
+    if (detectedRemoteCount < ESPNOW_MAX_DETECTED_REMOTES) {
+      detectedRemoteCount++;
+    } else {
+      index = 0;
+      for (size_t i = 1; i < detectedRemoteCount; i++) {
+        if (now - detectedRemotes[i].seenTime > now - detectedRemotes[index].seenTime) index = i;
+      }
+    }
+  }
+  strlcpy(detectedRemotes[index].mac, mac, sizeof(detectedRemotes[index].mac));
+  detectedRemotes[index].type = type;
+  detectedRemotes[index].rssi = rssi;
+  detectedRemotes[index].seenTime = now;
+  detectedRemotesLock.clear(std::memory_order_release);
+}
+}
+
+// Copy the detected pairing candidates for display on the WiFi settings page.
+size_t espNowGetDetectedRemotes(EspNowDetectedRemote* remotes, size_t capacity) {
+  if (!remotes || !capacity) return 0;
+  if (detectedRemotesLock.test_and_set(std::memory_order_acquire)) return 0;
+  const unsigned long now = millis();
+  size_t count = 0;
+  for (size_t i = 0; i < detectedRemoteCount && count < capacity; i++) {
+    if (now - detectedRemotes[i].seenTime <= ESPNOW_DETECTED_REMOTE_TIMEOUT) remotes[count++] = detectedRemotes[i];
+  }
+  detectedRemotesLock.clear(std::memory_order_release);
+  return count;
+}
+
 // ESP-NOW message sent callback function
 void espNowSentCB(uint8_t* address, uint8_t status) {
   espNowApiOnSendResult(address, status);
@@ -933,10 +984,8 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
              address[0], address[1], address[2], address[3], address[4], address[5]);
   const uint8_t candidateType = espNowBondCandidateType(data, len);
   if (candidateType) {
+    rememberEspNowRemote(senderMac, candidateType, rssi);
     strlcpy(last_signal_src, senderMac, sizeof(last_signal_src));
-    last_signal_type = candidateType;
-    last_signal_rssi = rssi;
-    last_signal_time = millis();
   }
 
   #ifdef WLED_DEBUG

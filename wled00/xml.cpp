@@ -199,13 +199,40 @@ static void appendGPIOinfo(Print& settingsScript)
   settingsScript.print(F("];"));
 }
 
+#ifndef WLED_DISABLE_ESPNOW
+// Emit the recent ESP-NOW pairing candidates without changing other settings fields.
+static void printEspNowDetectedRemotes(Print& settingsScript) {
+  EspNowDetectedRemote detectedRemotes[ESPNOW_MAX_DETECTED_REMOTES];
+  const size_t detectedRemoteCount = espNowGetDetectedRemotes(detectedRemotes, ESPNOW_MAX_DETECTED_REMOTES);
+  settingsScript.print(F("resetDetectedRemotes();"));
+  for (size_t i = 0; i < detectedRemoteCount; i++) {
+    const EspNowDetectedRemote &remote = detectedRemotes[i];
+    const unsigned long age = remote.seenTime ? millis() - remote.seenTime : 0;
+    settingsScript.printf_P(PSTR("setDetectedRemote(\"%s\",%u,%d,%lu);"),
+                            remote.mac, remote.type, remote.rssi, age);
+  }
+  settingsScript.print(F("finishDetectedRemotes();"));
+}
+#endif
+
 //get values for settings form in javascript
-void getSettingsJS(byte subPage, Print& settingsScript)
+void getSettingsJS(byte subPage, Print& settingsScript, bool espNowOnly)
 {
   //0: menu 1: wifi 2: leds 3: ui 4: sync 5: time 6: sec
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
   if (subPage <0 || subPage >SUBPAGE_LAST) return;
+
+  if (espNowOnly) {
+    if (subPage == SUBPAGE_WIFI) {
+      #ifndef WLED_DISABLE_ESPNOW
+      settingsScript.printf_P(PSTR("setEspNowInfo(%u);"), WiFi.channel());
+      printEspNowDetectedRemotes(settingsScript);
+      #endif
+    }
+    return;
+  }
+
   char nS[32];
 
   if (subPage == SUBPAGE_MENU)
@@ -322,11 +349,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     }
 
     #ifndef WLED_DISABLE_ESPNOW
-    if (strlen(last_signal_src) > 0) { // Have seen an ESP-NOW remote
-      const unsigned long age = last_signal_time ? millis() - last_signal_time : 0;
-      settingsScript.printf_P(PSTR("setDetectedRemote(\"%s\",%u,%d,%lu);"),
-                              last_signal_src, last_signal_type, last_signal_rssi, age);
-    }
+    printEspNowDetectedRemotes(settingsScript);
     #endif
   }
 
