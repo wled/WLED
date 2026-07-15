@@ -407,7 +407,7 @@ void mode_ElasticCollisions(void) {              // by Nicholas Pisarro, Jr.
   const nfixed halfInternalY = internalY >> 1;
 
   // Radius distribution.
-	const int dmTableSize = 20;
+#define dmTableSize 20
 	static const uint8_t PROGMEM dmPercentages[20] = {40, 20, 10, 4, 3, 17, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 3};
   
   // Reinitialize evertying if the number of spheres has changed.
