@@ -1968,8 +1968,9 @@ void WS2812FX::resetSegments() {
   if (isServicing()) return;
   _segments.clear();          // destructs all Segment as part of clearing
   _segments.emplace_back(0, isMatrix ? Segment::maxWidth : _length, 0, isMatrix ? Segment::maxHeight : 1);
-  if(_segments.size() == 0) {
-    _segments.emplace_back(); // if out of heap, create a default segment
+  if (getActiveSegmentsNum() == 0) {
+    _segments.clear();        // free failed segment
+    _segments.emplace_back(); // if out of heap, create a default 30 pixel segment
     errorFlag = ERR_NORAM_PX;
   }
   _segments.shrink_to_fit();  // just in case ...
@@ -2046,6 +2047,7 @@ void WS2812FX::makeAutoSegments(bool forceReset) {
       #endif
     }
   }
+  if (getActiveSegmentsNum() == 0) resetSegments(); // fallback if auto segment creation failed
   _mainSegment = 0;
 
   fixInvalidSegments();
