@@ -115,16 +115,18 @@ WLED learns the remote's MAC from a valid inbound control `REQUEST`, remote `DIS
 
 ## Examples
 
-Set power and brightness (single fragment), expecting a verbose reply:
+Set power and brightness (single fragment):
 
-```
+```text
 header: 4E 01 01 07 00 01          msgType=REQUEST msgId=7 frag 0/1
 data  : {"on":true,"bri":128,"v":true}
 ```
+WLED replies with `{"success":true}` and then broadcasts the updated compact state in a
+`PUSH` frame.
 
 Poll current state without changing anything:
 
-```
+```text
 header: 4E 01 01 08 00 01          REQUEST msgId=8
 data  : {"v":true}
 ```
@@ -135,15 +137,15 @@ Companion remotes should poll with `{"v":"compact"}` instead. Its response conta
 
 Subscribe to LED peek frames:
 
-```
+```text
 header: 4E 01 01 09 00 01          REQUEST msgId=9
 data  : {"lv":true}
 ```
-WLED replies with `{"success":true}`, then sends `LIVE` (0x05) frames about every 40 ms. Reassemble each `LIVE` message by `msgId`; its payload starts with the WebSocket liveview binary header (`L`, version byte) followed by sampled RGB triples.
+WLED replies with `{"success":true}`, then sends `LIVE` (0x05) frames about every 100 ms. Reassemble each `LIVE` message by `msgId`; its payload starts with the WebSocket liveview binary header (`L`, version byte) followed by sampled RGB triples.
 
 Discovery:
 
-```
+```text
 header: 4E 01 04 2A 00 01          DISCOVER msgId=42, broadcast
 data  : <empty>
 ```

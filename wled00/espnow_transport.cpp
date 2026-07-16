@@ -31,8 +31,7 @@ static uint8_t rxRead = 0, rxWrite = 0, rxCount = 0;
 static uint8_t txRead = 0, txWrite = 0, txCount = 0;
 static std::atomic_flag rxLock = ATOMIC_FLAG_INIT;
 static std::atomic<bool> txInFlight{false};
-static std::atomic_flag sentEventLock = ATOMIC_FLAG_INIT;
-static bool sentEventPending = false;
+static std::atomic<bool> sentEventPending{false};
 static uint8_t sentAddress[6] = {};
 static uint8_t sentStatus = 0;
 static std::atomic<bool> transportActive{false};
@@ -44,7 +43,7 @@ static void resetQueues() {
   rxLock.clear(std::memory_order_release);
   txRead = txWrite = txCount = 0;
   txInFlight.store(false, std::memory_order_release);
-  sentEventPending = false;
+  sentEventPending.store(false, std::memory_order_release);
 }
 
 static void queueReceivedFrame(const uint8_t* address, const uint8_t* data, size_t len) {
@@ -71,13 +70,9 @@ static void onEspNowReceive(uint8_t* address, uint8_t* data, uint8_t len) {
 
 static void onEspNowSent(uint8_t* address, uint8_t status) {
   if (!transportActive.load(std::memory_order_acquire)) return;
-  if (!sentEventLock.test_and_set(std::memory_order_acquire)) {
-    memcpy(sentAddress, address, sizeof(sentAddress));
-    sentStatus = status;
-    sentEventPending = true;
-    sentEventLock.clear(std::memory_order_release);
-  }
-  txInFlight.store(false, std::memory_order_release);
+  memcpy(sentAddress, address, sizeof(sentAddress));
+  sentStatus = status;
+  sentEventPending.store(true, std::memory_order_release);
 }
 #else
 static void onEspNowReceive(const uint8_t* address, const uint8_t* data, int len) {
@@ -86,13 +81,9 @@ static void onEspNowReceive(const uint8_t* address, const uint8_t* data, int len
 
 static void onEspNowSent(const uint8_t* address, esp_now_send_status_t status) {
   if (!transportActive.load(std::memory_order_acquire)) return;
-  if (!sentEventLock.test_and_set(std::memory_order_acquire)) {
-    memcpy(sentAddress, address, sizeof(sentAddress));
-    sentStatus = uint8_t(status);
-    sentEventPending = true;
-    sentEventLock.clear(std::memory_order_release);
-  }
-  txInFlight.store(false, std::memory_order_release);
+  memcpy(sentAddress, address, sizeof(sentAddress));
+  sentStatus = uint8_t(status);
+  sentEventPending.store(true, std::memory_order_release);
 }
 #endif
 
@@ -225,15 +216,12 @@ uint8_t espNowTransportSend(const uint8_t* address, const uint8_t* data, size_t 
 void handleEspNowTransport() {
   uint8_t completedAddress[6];
   uint8_t completedStatus = 0;
-  bool haveSentEvent = false;
-  if (!sentEventLock.test_and_set(std::memory_order_acquire)) {
-    if (sentEventPending) {
-      memcpy(completedAddress, sentAddress, sizeof(completedAddress));
-      completedStatus = sentStatus;
-      sentEventPending = false;
-      haveSentEvent = true;
-    }
-    sentEventLock.clear(std::memory_order_release);
+  const bool haveSentEvent = sentEventPending.load(std::memory_order_acquire);
+  if (haveSentEvent) {
+    memcpy(completedAddress, sentAddress, sizeof(completedAddress));
+    completedStatus = sentStatus;
+    sentEventPending.store(false, std::memory_order_release);
+    txInFlight.store(false, std::memory_order_release);
   }
   if (haveSentEvent) espNowSentCB(completedAddress, completedStatus);
   EspNowTransportFrame frame;

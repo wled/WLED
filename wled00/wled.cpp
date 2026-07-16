@@ -28,7 +28,8 @@ static bool startEspNowForCurrentNetwork() {
   }
 
   bool espNowOK = false;
-  if (Network.isConnected()) {
+  const bool wifiConnected = WiFi.status() == WL_CONNECTED && WiFi.localIP()[0] != 0;
+  if (wifiConnected) {
     DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
     espNowOK = espNowTransportBegin(WiFi.channel(), false);
     espNowUsingAP = false;
@@ -90,6 +91,9 @@ void WLED::loop()
 #endif
 
   handleTime();
+  #ifndef WLED_DISABLE_ESPNOW
+  handleEspNowTransport();
+  #endif
   #ifndef WLED_DISABLE_INFRARED
   handleIR();        // 2nd call to function needed for ESP32 to return valid results -- should be good for ESP8266, too
   #endif
@@ -124,7 +128,6 @@ void WLED::loop()
   handleIR();
   #endif
   #ifndef WLED_DISABLE_ESPNOW
-  handleEspNowTransport();
   handleRemote();
   handleEspNowApi();
   #endif

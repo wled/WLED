@@ -5,7 +5,6 @@
 // the 250-byte ESP-NOW payload limit
 // Received frames are reassembled in loop context before touching JSON, FS or LED state.
 
-#define ESPNOW_API_STRIPWAIT_TIMEOUT 24     // one frame timeout to wait for the strip to finish updating
 #define ESPNOW_LIVE_INTERVAL 100            // ESP-NOW live peek cadence (ms), bounded to avoid radio saturation
 #define ESPNOW_LIVE_TIMEOUT 30000           // stop live peek if {"lv":true} is not re-armed within this window
 #define ESPNOW_API_PRESENCE_TIMEOUT 120000  // push state only while an API remote has been seen this recently
@@ -244,10 +243,9 @@ void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len) {
     apiReasmType  = msgType;
     apiReasmTotal = fragTotal;
   }
-  apiReasmLast = now;
-
   const espnow_frag_mask_t bit = (espnow_frag_mask_t)1 << fragIndex;
   if (apiReasmFlags & bit) return; // duplicate
+  apiReasmLast = now;
   memcpy(apiReasmBuf + (size_t)fragIndex * ESPNOW_API_FRAG_SIZE, data + ESPNOW_API_HEADER_SIZE, payloadLen);
   apiReasmFlags |= bit;
   apiReasmCount++;
@@ -580,7 +578,8 @@ void handleEspNowApi() {
   }
 
   unsigned long start = millis();
-  while (strip.isUpdating() && millis()-start < ESPNOW_API_STRIPWAIT_TIMEOUT) yield();
+  const unsigned long stripWaitTimeout = strip.getFrameTime();
+  while (strip.isUpdating() && millis() - start < stripWaitTimeout) yield();
 
   if (msgType == ESPNOW_API_REQUEST) {
     DEBUG_PRINTF_P(PSTR("ESP-NOW API handling REQUEST id=%u bytes=%u from " MACSTR "\n"),
