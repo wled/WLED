@@ -237,7 +237,11 @@ void notify(byte callMode, bool followUp)
       packetSize += UDP_SEG_SIZE;
       firstSegment++;
     }
-    if (s > firstSegment) buffer.noOfPackets += 1 + ((s - firstSegment) * UDP_SEG_SIZE) / bufferSize;
+    if (s > firstSegment) {
+      const size_t segmentsPerPacket = bufferSize / UDP_SEG_SIZE;
+      const size_t remaining = s - firstSegment;
+      buffer.noOfPackets += (remaining + segmentsPerPacket - 1) / segmentsPerPacket;
+    }
     auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
     if (!err && firstSegment < s) {
       buffer.packet++;
