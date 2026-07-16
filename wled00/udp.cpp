@@ -20,6 +20,78 @@ typedef struct PartialEspNowPacket {
   uint8_t data[247];
 } partial_packet_t;
 
+#ifndef WLED_DISABLE_ESPNOW
+namespace {
+static constexpr size_t ESPNOW_SYNC_FIRST_SEGMENTS = (sizeof(partial_packet_t::data) - SEG_OFFSET) / UDP_SEG_SIZE;
+static constexpr size_t ESPNOW_SYNC_NEXT_SEGMENTS = sizeof(partial_packet_t::data) / UDP_SEG_SIZE;
+
+struct EspNowSyncTx {
+  uint8_t* payload = nullptr;
+  uint8_t segmentCount = 0;
+  uint8_t packetNext = 0;
+  uint8_t packetTotal = 0;
+};
+
+static EspNowSyncTx espNowSyncTx;
+
+static void resetEspNowSyncTx() {
+  free(espNowSyncTx.payload);
+  espNowSyncTx = EspNowSyncTx{};
+}
+
+// Keep the complete notifier snapshot and generate one radio packet at a time. This avoids a
+// permanent TX ring while preserving multi-packet sync for configurations with many segments.
+static void serviceEspNowSyncTx() {
+  if (!espNowSyncTx.payload) return;
+  if (!enableESPNow || !useESPNowSync || statusESPNow != ESP_NOW_STATE_ON) {
+    resetEspNowSyncTx();
+    return;
+  }
+  if (!espNowTransportReadyToSend()) return;
+
+  partial_packet_t packet = {'W', espNowSyncTx.packetNext, espNowSyncTx.packetTotal, {0}};
+  size_t firstSegment = 0;
+  size_t segmentCount = 0;
+  size_t payloadLen = 0;
+  if (packet.packet == 0) {
+    memcpy(packet.data, espNowSyncTx.payload, SEG_OFFSET);
+    segmentCount = min<size_t>(espNowSyncTx.segmentCount, ESPNOW_SYNC_FIRST_SEGMENTS);
+    memcpy(packet.data + SEG_OFFSET, espNowSyncTx.payload + SEG_OFFSET, segmentCount * UDP_SEG_SIZE);
+    payloadLen = SEG_OFFSET + segmentCount * UDP_SEG_SIZE;
+  } else {
+    firstSegment = ESPNOW_SYNC_FIRST_SEGMENTS + size_t(packet.packet - 1) * ESPNOW_SYNC_NEXT_SEGMENTS;
+    segmentCount = min<size_t>(espNowSyncTx.segmentCount - firstSegment, ESPNOW_SYNC_NEXT_SEGMENTS);
+    memcpy(packet.data, espNowSyncTx.payload + SEG_OFFSET + firstSegment * UDP_SEG_SIZE,
+           segmentCount * UDP_SEG_SIZE);
+    payloadLen = segmentCount * UDP_SEG_SIZE;
+  }
+
+  if (espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&packet), payloadLen + 3)) {
+    DEBUG_PRINTLN(F("ESP-NOW sync send failed."));
+    resetEspNowSyncTx();
+    return;
+  }
+  if (++espNowSyncTx.packetNext >= espNowSyncTx.packetTotal) resetEspNowSyncTx();
+}
+
+static void queueEspNowSyncTx(const uint8_t* payload, size_t segmentCount) {
+  const size_t payloadLen = SEG_OFFSET + segmentCount * UDP_SEG_SIZE;
+  uint8_t* copy = (uint8_t*)d_malloc(payloadLen);
+  if (!copy) {
+    DEBUG_PRINTLN(F("ESP-NOW sync allocation failed."));
+    return;
+  }
+  memcpy(copy, payload, payloadLen);
+  resetEspNowSyncTx();
+  espNowSyncTx.payload = copy;
+  espNowSyncTx.segmentCount = segmentCount;
+  const size_t remaining = segmentCount > ESPNOW_SYNC_FIRST_SEGMENTS ? segmentCount - ESPNOW_SYNC_FIRST_SEGMENTS : 0;
+  espNowSyncTx.packetTotal = 1 + (remaining + ESPNOW_SYNC_NEXT_SEGMENTS - 1) / ESPNOW_SYNC_NEXT_SEGMENTS;
+  serviceEspNowSyncTx();
+}
+}
+#endif
+
 void notify(byte callMode, bool followUp)
 {
 #ifndef WLED_DISABLE_ESPNOW
@@ -154,44 +226,7 @@ void notify(byte callMode, bool followUp)
 
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow && useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
-    partial_packet_t buffer = {'W', 0, 1, {0}};
-    // send global data
-    DEBUG_PRINTLN(F("ESP-NOW sending first packet."));
-    const size_t bufferSize = sizeof(buffer.data)/sizeof(uint8_t);
-    size_t packetSize = 41;
-    size_t s0 = 0;
-    memcpy(buffer.data, udpOut, packetSize);
-    // stuff as many segments in first packet as possible (normally up to 5)
-    for (size_t i = 0; packetSize < bufferSize && i < s; i++) {
-      memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
-      packetSize += UDP_SEG_SIZE;
-      s0++;
-    }
-    if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
-    auto err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
-    if (!err && s0 < s) {
-      // send rest of the segments
-      buffer.packet++;
-      packetSize = 0;
-      // The native transport has a bounded queue; stop adding fragments if it reports full.
-      for (size_t i = s0; i < s; i++) {
-        memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
-        packetSize += UDP_SEG_SIZE;
-        if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
-        DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
-        err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
-        buffer.packet++;
-        packetSize = 0;
-        if (err) break;
-      }
-      if (!err && packetSize > 0) {
-        DEBUG_PRINTF_P(PSTR("ESP-NOW sending last packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
-        err = espNowTransportSend(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
-      }
-    }
-    if (err) {
-      DEBUG_PRINTLN(F("ESP-NOW sending packet failed."));
-    }
+    queueEspNowSyncTx(udpOut, s);
   }
   if (udpConnected) 
 #endif
@@ -470,6 +505,10 @@ static void sendTPM2Ack() {
 void handleNotifications()
 {
   IPAddress localIP;
+
+  #ifndef WLED_DISABLE_ESPNOW
+  serviceEspNowSyncTx();
+  #endif
 
   //send second notification if enabled
   if(udpConnected && (notificationCount < udpNumRetries) && ((millis()-notificationSentTime) > 250)){
