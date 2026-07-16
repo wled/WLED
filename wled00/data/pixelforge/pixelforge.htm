@@ -439,6 +439,7 @@ const toolsjson = 'pftools.json';
 	s.src = 'common.js';
 	s.onerror = () => setTimeout(loadFiles, 100);
 	s.onload = async () => {
+		getLoc(); // set up loc/locip for getURL() before any fetch (file mode / reverse proxy)
 		await fsMem(); // update & show file system memory info, also updates wled version (wv) and is8266
 		const resources = ['style.css'];
 		if (!is8266) resources.push('omggif.js'); // omggif is not available on ESP8266
@@ -449,7 +450,6 @@ const toolsjson = 'pftools.json';
 
 /* init */
 async function init() {
-	getLoc();
 	// create off screen canvas
 	rv = cE('canvas');
 	rvc = rv.getContext('2d',{willReadFrequently:true});
