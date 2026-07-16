@@ -461,6 +461,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
   JsonObject relay = hw[F("relay")];
 
   rlyOpenDrain  = relay[F("odrain")] | rlyOpenDrain;
+  CJSON(relayDelay, relay[F("del")]);
   int hw_relay_pin = relay["pin"] | -2;
   if (hw_relay_pin > -2) {
     PinManager::deallocatePin(rlyPin, PinOwner::Relay);
@@ -1049,6 +1050,7 @@ void serializeConfig(JsonObject root) {
   hw_relay["pin"] = rlyPin;
   hw_relay["rev"] = !rlyMde;
   hw_relay[F("odrain")] = rlyOpenDrain;
+  hw_relay[F("del")] = relayDelay;
 
   hw[F("baud")] = serialBaud;
 

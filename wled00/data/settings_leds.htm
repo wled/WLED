@@ -811,6 +811,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 						d.getElementsByName("RL")[0].value   = rl.pin;
 						d.getElementsByName("RM")[0].checked = rl.rev;
 						d.getElementsByName("RO")[0].checked = rl.odrain;
+						d.getElementsByName("RLD")[0].value  = rl.delay;
 					}
 					let li = c.light;
 					if (li) {
@@ -1115,7 +1116,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 	<div class="sec">
 		<h3>Relay</h3>
 		Relay GPIO: <input type="number" min="-1" max="48" name="RL" onchange="UI()" class="xs"><span style="cursor: pointer;" onclick="off('RL')">&nbsp;&#x2715;</span><br>
-		Invert <input type="checkbox" name="RM"> Open drain <input type="checkbox" name="RO"><br><br>
+		Invert <input type="checkbox" name="RM"> Open drain <input type="checkbox" name="RO"><br>
+		Delay: <input type="number" min="0" max="65535" name="RLD" class="xl"> ms<br><br>
 	</div>
 	<h2>General settings</h2>
 	<div class="sec">

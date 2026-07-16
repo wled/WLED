@@ -308,6 +308,7 @@ WLED_GLOBAL bool rlyOpenDrain _INIT(false);
 #else
 WLED_GLOBAL bool rlyOpenDrain _INIT(RLYODRAIN);
 #endif
+WLED_GLOBAL uint16_t relayDelay _INIT(RELAY_DELAY); // delay in ms between switching on relay and sending data to LEDs
 #ifndef IRPIN
   #define IRPIN -1
 #endif
