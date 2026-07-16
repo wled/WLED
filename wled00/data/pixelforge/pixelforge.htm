@@ -252,6 +252,7 @@ button, .btn {
 	</div>
 
 	<div id="iTab" class="tabc active">
+		<div id="iTabContent">
 		<h3 style="margin-top:20px;">Target Segment</h3>
 		<select id="seg"></select>
 
@@ -320,6 +321,8 @@ button, .btn {
 			</div>
 		</div>
 		<button class="btn" id="up">Convert & Upload to WLED</button>
+		</div>
+		<div id="iTab8266" style="display:none;">Not available on ESP8266</div>
 	</div>
 </div>
 
@@ -1267,7 +1270,15 @@ function tabSw(tab) {
 		getId(id).classList.toggle('active', tab===['img','txt','oth'][i%3]);
 	});
 	localStorage.tab=tab;
-	({txt:()=>{txtSegLoad(); scanFonts();}, img:imgLoad}[tab]||(()=>{}))(); // on tab switch, load images and available fonts
+	if (tab === 'img') {
+		getId('iTab8266').style.display = is8266 ? 'block' : 'none'; // show "not available" on ESP8266
+		getId('iTabContent').style.display = is8266 ? 'none' : '';   // show normal image tool on ESP32
+		if (!is8266) imgLoad();
+	}
+	if (tab === 'txt') {
+		txtSegLoad();
+		scanFonts();
+	}
 }
 'Img,Txt,Oth'.split(',').forEach((s,i)=>{
 	getId('t'+s).onclick=()=>tabSw(['img','txt','oth'][i]);
