@@ -281,17 +281,7 @@ bool getPresetName(byte index, String& name);
 void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
 
-#ifndef WLED_DISABLE_ESPNOW
-static constexpr size_t ESPNOW_MAX_DETECTED_REMOTES = 10;
-
-// Describes a recent ESP-NOW control device shown as a pairing candidate.
-struct EspNowDetectedRemote {
-  char mac[13];
-  uint8_t type;
-  int16_t rssi;
-  unsigned long seenTime;
-};
-
+#if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
 //espnow_transport.cpp
 bool espNowTransportBegin(uint8_t channel, bool useAP);
 void espNowTransportStop();
@@ -299,6 +289,7 @@ void handleEspNowTransport();
 bool espNowTransportReadyToSend();
 uint8_t espNowTransportSend(const uint8_t* address, const uint8_t* data, size_t len);
 
+#ifdef WLED_ENABLE_ESPNOW_API
 //espnow_api.cpp
 void handleEspNowApiData(uint8_t* address, uint8_t* data, uint8_t len);
 bool espNowApiReady();
@@ -306,6 +297,7 @@ bool espNowApiRemoteActive();
 void handleEspNowApi();
 void pushEspNowState();
 void espNowApiOnSendResult(uint8_t* address, uint8_t status);
+#endif
 #endif
 
 //set.cpp
@@ -325,7 +317,6 @@ void sendSysInfoUDP();
 #ifndef WLED_DISABLE_ESPNOW
 void espNowSentCB(uint8_t* address, uint8_t status);
 void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast);
-size_t espNowGetDetectedRemotes(EspNowDetectedRemote* remotes, size_t capacity);
 #endif
 
 //network.cpp
@@ -632,6 +623,6 @@ void sendDataWs(AsyncWebSocketClient * client = nullptr);
 
 //xml.cpp
 void XML_response(Print& dest);
-void getSettingsJS(byte subPage, Print& dest, bool espNowOnly = false);
+void getSettingsJS(byte subPage, Print& dest);
 
 #endif

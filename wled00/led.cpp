@@ -142,7 +142,7 @@ void updateInterfaces(uint8_t callMode) {
   if (!interfaceUpdateCallMode || millis() - lastInterfaceUpdate < INTERFACE_UPDATE_COOLDOWN) return;
 
   sendDataWs();
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(WLED_ENABLE_ESPNOW_API)
   pushEspNowState();
   #endif
   lastInterfaceUpdate = millis();

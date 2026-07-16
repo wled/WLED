@@ -4,33 +4,7 @@
   <meta charset="utf-8">
 	<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 	<title>WiFi Settings</title>
-	<style>
-		html { visibility: hidden; }
-		.espnowHelp { display: block; line-height: 1.5; margin: 4px 12px 12px; }
-		.remoteGroup { border-top: 1px solid #555; margin: 14px 8px 0; padding-top: 12px; }
-		.remoteGroup h4 { margin-bottom: 6px; }
-		.remoteGroupTitle { display: flex; justify-content: center; align-items: center; gap: 10px; }
-		.remoteGroupTitle h4 { margin: 0; }
-		.remoteGroupTitle button.sml { margin: 0; }
-		.remoteRow { display: flex; align-items: center; gap: 8px; margin: 5px auto; max-width: 430px; padding: 7px 9px; background: #292929; border-radius: 8px; line-height: 1.35; }
-		.remoteDetails { flex: 1; min-width: 0; text-align: left; }
-		.remoteMac { display: block; font-family: monospace; font-size: 1.05em; }
-		.remoteMeta { display: block; font-size: 0.75em; opacity: 0.75; }
-		.remoteRow button.sml { flex: none; margin-left: 4px; }
-		.remoteEmpty { display: block; margin: 6px 0; opacity: 0.75; line-height: 1.5; }
-		.refreshStatus { display: block; margin: 4px 0; opacity: 0.75; line-height: 1.5; }
-		.refreshStatus:empty { display: none; }
-		.remoteMsg { display: block; min-height: 1.4em; margin-top: 6px; line-height: 1.5; }
-		.manualRemote { display: flex; justify-content: center; align-items: center; margin-top: 6px; }
-		.macFields { display: flex; align-items: center; gap: 3px; }
-		.macFields input { box-sizing: border-box; width: 2.5em; padding: 5px 2px; font-family: monospace; font-size: 1em; text-align: center; text-transform: uppercase; }
-		.macSeparator { opacity: 0.6; }
-		.saveNotice { display: block; margin: 14px 8px 4px; padding: 7px; background: #332b16; border-radius: 8px; line-height: 1.5; }
-		@media screen and (max-width: 420px) {
-			.manualRemote { flex-direction: column; gap: 8px; }
-			.manualRemote button.sml { margin-left: 0; }
-		}
-	</style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
+	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
 		// load common.js with retry on error
 		(function loadFiles() {
@@ -91,9 +65,7 @@
 						select.setAttribute("onchange", "T(this)");
 						preScanSSID = input.value;
 
-						for (let i = 0; i < select.children.length; i++) {
-							select.removeChild(select.children[i]);
-						}
+						select.replaceChildren();
 
 						for (let i = 0; i < networks.length; i++) {
 							const option = cE("option");
@@ -182,204 +154,42 @@ Static subnet mask:<br>
 		}
 		function S() {
 			getLoc();
-			setupManualMacInputs();
 			loadJS(getURL('/settings/s.js?p=1'), false);	// If we set async false, file is loaded and executed, then next statement is processed
 			if (loc) d.Sf.action = getURL('/settings/wifi');
 			setTimeout(tE, 500); // wait for DOM to load before calling tE()
 		}
 
-		var rC = 0; // linked remote count
-		var detectedRemotes = [];
-		const maxRemotes = 10;
-
-		function normalizeRemoteMac(mac) {
-			return String(mac || '').replace(/[:-]/g, '').trim().toLowerCase();
-		}
-		function formatRemoteMac(mac) {
-			const pairs = normalizeRemoteMac(mac).match(/.{2}/g);
-			return pairs ? pairs.join(':').toUpperCase() : mac;
-		}
-		function remoteExists(mac) {
-			const normalized = normalizeRemoteMac(mac);
-			return Array.from(d.querySelectorAll('#rml input')).some(input => input.value === normalized);
-		}
-		function setRemoteMessage(message, warning = false) {
-			const output = gId('remoteMsg');
-			output.textContent = message;
-			output.className = warning ? 'remoteMsg warn' : 'remoteMsg';
-		}
+		var rC = 0;
 		function syncRemoteInputs() {
-			const rows = Array.from(gId('rml').children);
-			rows.forEach((row, index) => row.querySelector('input').name = `RM${index}`);
+			const rows = gId('rml').children;
+			for (let i = 0; i < rows.length; i++) rows[i].querySelector('input').name = `RM${i}`;
 			rC = rows.length;
-			gId('manualAdd').disabled = rC >= maxRemotes;
-			renderDetectedRemotes();
+			gId('+').style.display = rC < 10 ? 'inline' : 'none';
 		}
 		// toggle visibility of ESP-NOW remote list based on checkbox state
 		function tE() {
 			gId('rlc').style.display = d.Sf.RE.checked ? 'block' : 'none';
 		}
-		// Reset the linked-device rows before settings are populated by xml.cpp.
 		function rstR() {
 			gId('rml').replaceChildren();
-			detectedRemotes = [];
 			rC = 0;
 		}
-		// Add a validated MAC while keeping submitted RM indices contiguous after removals.
 		function aR(id, mac) {
-			const normalized = normalizeRemoteMac(mac);
-			if (!/^[0-9a-f]{12}$/.test(normalized) || remoteExists(normalized) || rC >= maxRemotes) return false;
-			const row = cE('div');
-			row.className = 'remoteRow';
-			const input = cE('input');
+			mac = String(mac).toLowerCase();
+			if (!/^[0-9a-f]{12}$/.test(mac) || rC >= 10) return;
+			for (const input of d.querySelectorAll('#rml input')) if (input.value === mac) return;
+			const row = cE('div'), input = cE('input'), label = cE('span'), button = cE('button');
 			input.type = 'hidden';
-			input.value = normalized;
-			row.appendChild(input);
-			const details = cE('span');
-			details.className = 'remoteDetails';
-			const label = cE('span');
-			label.className = 'remoteMac';
-			label.textContent = formatRemoteMac(normalized);
-			details.appendChild(label);
-			const meta = cE('small');
-			meta.className = 'remoteMeta';
-			meta.textContent = 'Linked remote';
-			details.appendChild(meta);
-			row.appendChild(details);
-			const remove = cE('button');
-			remove.type = 'button';
-			remove.className = 'sml';
-			remove.textContent = 'Remove';
-			remove.setAttribute('aria-label', `Remove ${formatRemoteMac(normalized)}`);
-			remove.onclick = () => {
-				row.remove();
-				syncRemoteInputs();
-				setRemoteMessage('Remote removed. Save settings to apply.');
-			};
-			row.appendChild(remove);
+			input.value = mac;
+			label.textContent = mac;
+			button.type = 'button';
+			button.className = 'sml';
+			button.textContent = '-';
+			button.onclick = () => { row.remove(); syncRemoteInputs(); };
+			row.append(input, label, button);
 			gId('rml').appendChild(row);
 			syncRemoteInputs();
-			return true;
 		}
-		function setEspNowInfo(channel) {
-			gId('espnowChannel').textContent = channel ? channel : 'Unavailable';
-		}
-		function setDetectedRemote(mac, type, rssi, age) {
-			const normalized = normalizeRemoteMac(mac);
-			if (!/^[0-9a-f]{12}$/.test(normalized)) return;
-			detectedRemotes.push({mac: normalized, type: Number(type), rssi: Number(rssi), age: Number(age)});
-		}
-		function resetDetectedRemotes() {
-			detectedRemotes = [];
-		}
-		function finishDetectedRemotes() {
-			detectedRemotes.sort((a, b) => a.age - b.age);
-			renderDetectedRemotes();
-		}
-		function refreshDetectedRemotes() {
-			const button = gId('refreshRemotes');
-			const status = gId('refreshStatus');
-			button.disabled = true;
-			button.textContent = 'Refreshing…';
-			status.textContent = '';
-			loadJS(getURL('/settings/s.js?p=1&espnow=1'), true, undefined, () => {
-				button.disabled = false;
-				button.textContent = 'Refresh';
-				status.textContent = detectedRemotes.length === 1 ? 'Found 1 recently seen remote.' :
-					`Found ${detectedRemotes.length} recently seen remotes.`;
-			});
-		}
-		function remoteTypeName(type) {
-			return type === 2 ? 'Bidirectional API remote' : type === 1 ? 'WiZ remote' : 'ESP-NOW device';
-		}
-		function remoteStatus(remote) {
-			const seconds = Math.floor(Math.max(0, remote.age) / 1000);
-			const seen = seconds < 2 ? 'Seen now' : `Seen ${seconds}s ago`;
-			return remote.rssi < 0 ? `${remoteTypeName(remote.type)} · ${remote.rssi} dBm · ${seen}` :
-				`${remoteTypeName(remote.type)} · ${seen}`;
-		}
-		function renderDetectedRemotes() {
-			const list = gId('detectedList');
-			list.replaceChildren();
-			gId('detectedEmpty').style.display = detectedRemotes.length ? 'none' : 'block';
-			for (const remote of detectedRemotes) {
-				const row = cE('div');
-				row.className = 'remoteRow';
-				const details = cE('span');
-				details.className = 'remoteDetails';
-				const mac = cE('span');
-				mac.className = 'remoteMac';
-				mac.textContent = formatRemoteMac(remote.mac);
-				details.appendChild(mac);
-				const meta = cE('small');
-				meta.className = 'remoteMeta';
-				meta.textContent = remoteStatus(remote);
-				details.appendChild(meta);
-				row.appendChild(details);
-				const add = cE('button');
-				add.type = 'button';
-				add.className = 'sml';
-				const linked = remoteExists(remote.mac);
-				const full = rC >= maxRemotes;
-				add.textContent = linked ? 'Added' : full ? 'List full' : 'Add';
-				add.disabled = linked || full;
-				add.setAttribute('aria-label', `Add remote ${formatRemoteMac(remote.mac)}`);
-				add.onclick = () => linkDetectedRemote(remote.mac);
-				row.appendChild(add);
-				list.appendChild(row);
-			}
-		}
-		function linkDetectedRemote(mac) {
-			if (remoteExists(mac)) return setRemoteMessage('This remote is already in the linked list.', true);
-			if (rC >= maxRemotes) return setRemoteMessage('The linked-remote list is full.', true);
-			if (aR('', mac)) setRemoteMessage('Remote added below. Select Save & Connect to apply this change.');
-		}
-		function manualMacInputs() {
-			return Array.from(d.querySelectorAll('#manualMac .macPart'));
-		}
-		function fillManualMac(mac) {
-			const normalized = normalizeRemoteMac(mac).replace(/[^0-9a-f]/g, '');
-			if (normalized.length !== 12) return false;
-			manualMacInputs().forEach((input, index) => input.value = normalized.slice(index * 2, index * 2 + 2).toUpperCase());
-			return true;
-		}
-		function setupManualMacInputs() {
-			const inputs = manualMacInputs();
-			inputs.forEach((input, index) => {
-				input.addEventListener('input', () => {
-					input.value = input.value.replace(/[^0-9a-f]/gi, '').slice(0, 2).toUpperCase();
-					if (input.value.length === 2 && inputs[index + 1]) inputs[index + 1].focus();
-				});
-				input.addEventListener('keydown', event => {
-					if (event.key === 'Enter') {
-						event.preventDefault();
-						addManualRemote();
-						return;
-					}
-					if (event.key === 'Backspace' && !input.value && inputs[index - 1]) inputs[index - 1].focus();
-					if (event.key === 'ArrowLeft' && inputs[index - 1]) inputs[index - 1].focus();
-					if (event.key === 'ArrowRight' && inputs[index + 1]) inputs[index + 1].focus();
-				});
-			});
-			gId('manualMac').addEventListener('paste', event => {
-				if (fillManualMac(event.clipboardData.getData('text'))) {
-					event.preventDefault();
-					inputs[inputs.length - 1].focus();
-				}
-			});
-		}
-		function addManualRemote() {
-			const inputs = manualMacInputs();
-			const mac = normalizeRemoteMac(inputs.map(input => input.value).join(''));
-			if (!/^[0-9a-f]{12}$/.test(mac)) return setRemoteMessage('Enter a valid 12-digit MAC address.', true);
-			if (remoteExists(mac)) return setRemoteMessage('This remote is already linked.', true);
-			if (aR('', mac)) {
-				inputs.forEach(input => input.value = '');
-				inputs[0].focus();
-				setRemoteMessage('Remote added below. Select Save & Connect to apply this change.');
-			}
-		}
-
 		function E(i) {
 			const select = gId("ET"+i);
 			if (select.value === "0") {
@@ -483,38 +293,14 @@ Static subnet mask:<br>
 		</div>
 		<div id="ESPNOW">
 			Enable ESP-NOW: <input type="checkbox" name="RE" onchange="tE()"><br>
-			<i class="espnowHelp">Listen for events over ESP-NOW.<br>
-			Keep disabled if you do not use an ESP-NOW remote or ESP-NOW sync; it increases power consumption.</i>
+			<i>Listen for events over ESP-NOW.<br>
+			Keep disabled if not using a remote or ESP-NOW sync, increases power consumption.<br></i>
 			<div id="rlc">
-				<div class="remoteGroup">
-					<div class="remoteGroupTitle">
-						<h4>Pair a remote</h4>
-						<button type="button" class="sml" id="refreshRemotes" onclick="refreshDetectedRemotes()">Refresh</button>
-					</div>
-					<small class="espnowHelp">If ESP-NOW was disabled, enable it and select Save &amp; Connect before scanning. Put your remote in pairing mode, then select Refresh. Confirm the MAC shown on your remote matches an entry below before selecting Add.</small>
-					<small>WLED is listening on channel <span id="espnowChannel">Unavailable</span>.</small>
-					<small id="refreshStatus" class="refreshStatus" aria-live="polite"></small>
-					<span id="detectedEmpty" class="remoteEmpty">No remotes detected in the last two minutes.</span>
-					<div id="detectedList"></div>
-				</div>
-				<div class="remoteGroup">
-					<h4>Linked remotes (10 maximum)</h4>
-					<div id="rml"></div>
-					<small>Add by MAC address</small>
-					<div class="manualRemote">
-						<div id="manualMac" class="macFields" role="group" aria-label="Remote MAC address">
-							<input class="macPart" type="text" maxlength="2" placeholder="AA" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 1"><span class="macSeparator">:</span>
-							<input class="macPart" type="text" maxlength="2" placeholder="BB" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 2"><span class="macSeparator">:</span>
-							<input class="macPart" type="text" maxlength="2" placeholder="CC" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 3"><span class="macSeparator">:</span>
-							<input class="macPart" type="text" maxlength="2" placeholder="DD" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 4"><span class="macSeparator">:</span>
-							<input class="macPart" type="text" maxlength="2" placeholder="EE" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 5"><span class="macSeparator">:</span>
-							<input class="macPart" type="text" maxlength="2" placeholder="FF" autocomplete="off" autocapitalize="characters" aria-label="MAC address byte 6">
-						</div>
-						<button type="button" class="sml" id="manualAdd" onclick="addManualRemote()">Add</button>
-					</div>
-					<small id="remoteMsg" class="remoteMsg" aria-live="polite"></small>
-				</div>
-				<b class="saveNotice">Adding or removing a remote does not take effect until you select Save &amp; Connect below.</b>
+				Last device seen: <span class="rlid" id="ld">None</span>
+				<button type="button" class="sml" id="+" onclick="aR('',gId('ld').textContent)">+</button>
+				<button type="button" class="sml" onclick="location.reload()">Refresh</button><br>
+				Linked MACs (10 max):<br>
+				<div id="rml"></div>
 			</div>
 		</div>
 	</div>

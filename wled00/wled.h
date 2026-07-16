@@ -51,6 +51,13 @@
 #endif
 
 //#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
+// The bidirectional JSON API is supported only on ESP32-family targets.
+#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ENABLE_ESPNOW_API)
+  #define WLED_ENABLE_ESPNOW_API
+#endif
+#if !defined(ARDUINO_ARCH_ESP32) && defined(WLED_ENABLE_ESPNOW_API)
+  #undef WLED_ENABLE_ESPNOW_API
+#endif
 
 #define WLED_ENABLE_FS_EDITOR      // enable /edit page for editing FS content. Will also be disabled with OTA lock
 
@@ -91,6 +98,7 @@
     #include <espnow.h>
     #define WIFI_MODE_STA WIFI_STA
     #define WIFI_MODE_AP WIFI_AP
+    #include <QuickEspNow.h>
   #endif
 #else // ESP32
   #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)

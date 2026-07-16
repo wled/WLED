@@ -14,7 +14,7 @@
 
 extern "C" void usePWMFixedNMI();
 
-#ifndef WLED_DISABLE_ESPNOW
+#if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
 static bool espNowUsingAP = false;
 
 // Start ESP-NOW only after the radio has a stable home channel, and rebind its native transport
@@ -91,7 +91,7 @@ void WLED::loop()
 #endif
 
   handleTime();
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
   handleEspNowTransport();
   #endif
   #ifndef WLED_DISABLE_INFRARED
@@ -129,7 +129,9 @@ void WLED::loop()
   #endif
   #ifndef WLED_DISABLE_ESPNOW
   handleRemote();
+  #ifdef WLED_ENABLE_ESPNOW_API
   handleEspNowApi();
+  #endif
   #endif
   #ifndef WLED_DISABLE_ALEXA
   handleAlexa();
@@ -723,7 +725,7 @@ void WLED::initAP(bool resetAP)
   }
   apActive = true;
 
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
   // A fallback AP may be started after ESP-NOW was initialized for STA. Rebind now so
   // the transport's peer interface and channel match the AP's actual home channel.
   if (enableESPNow && !Network.isConnected() &&
@@ -741,7 +743,11 @@ void WLED::initConnection()
 #ifndef WLED_DISABLE_ESPNOW
   if (statusESPNow == ESP_NOW_STATE_ON) {
     DEBUG_PRINTLN(F("ESP-NOW stopping."));
+    #ifdef ESP8266
+    quickEspNow.stop();
+    #else
     espNowTransportStop();
+    #endif
     statusESPNow = ESP_NOW_STATE_UNINIT;
   }
 #endif
@@ -854,7 +860,21 @@ void WLED::initConnection()
 #endif
   }
 
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(ESP8266)
+  if (enableESPNow) {
+    quickEspNow.onDataSent(espNowSentCB);
+    quickEspNow.onDataRcvd(espNowReceiveCB);
+    bool espNowOK;
+    if (apActive) {
+      DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
+      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);
+    } else {
+      DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
+      espNowOK = quickEspNow.begin();
+    }
+    statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
+  }
+  #elif !defined(WLED_DISABLE_ESPNOW)
   // With a configured STA, wait for either connection success or fallback AP startup. Starting
   // during a scan would bind ESP-NOW to a transient channel and break later peer sends.
   if (enableESPNow && statusESPNow != ESP_NOW_STATE_ON &&
@@ -866,7 +886,7 @@ void WLED::initInterfaces()
 {
   DEBUG_PRINTLN(F("Init STA interfaces"));
 
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
   if (enableESPNow && (statusESPNow != ESP_NOW_STATE_ON || espNowUsingAP)) startEspNowForCurrentNetwork();
   #endif
 
@@ -961,7 +981,7 @@ void WLED::handleConnection()
         if (stac) {
           WiFi.disconnect();        // disable search so that AP can work
         } else {
-          #ifndef WLED_DISABLE_ESPNOW
+          #if !defined(WLED_DISABLE_ESPNOW) && defined(WLED_ENABLE_ESPNOW_API)
           if (!espNowApiRemoteActive()) initConnection(); // restart search
           #else
           initConnection();         // restart search
@@ -973,7 +993,7 @@ void WLED::handleConnection()
 
   if (!Network.isConnected()) {
     if (interfacesInited) {
-      #ifndef WLED_DISABLE_ESPNOW
+      #if !defined(WLED_DISABLE_ESPNOW) && defined(WLED_ENABLE_ESPNOW_API)
       if (espNowApiRemoteActive()) {
         DEBUG_PRINTLN(F("Disconnected; keeping AP and ESP-NOW active for remote."));
         interfacesInited = false;
@@ -1000,7 +1020,7 @@ void WLED::handleConnection()
       improvActive = 2;
     }
     unsigned long retryInterval = stac ? 300000 : 18000;
-    #ifndef WLED_DISABLE_ESPNOW
+    #if !defined(WLED_DISABLE_ESPNOW) && defined(WLED_ENABLE_ESPNOW_API)
     const bool deferReconnectForEspNow = espNowApiRemoteActive();
     #else
     const bool deferReconnectForEspNow = false;

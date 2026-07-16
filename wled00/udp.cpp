@@ -1,5 +1,5 @@
 #include "wled.h"
-#ifndef WLED_DISABLE_ESPNOW
+#if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
 #include <atomic>
 #endif
 
@@ -20,7 +20,7 @@ typedef struct PartialEspNowPacket {
   uint8_t data[247];
 } partial_packet_t;
 
-#ifndef WLED_DISABLE_ESPNOW
+#if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
 namespace {
 static constexpr size_t ESPNOW_SYNC_FIRST_SEGMENTS = (sizeof(partial_packet_t::data) - SEG_OFFSET) / UDP_SEG_SIZE;
 static constexpr size_t ESPNOW_SYNC_NEXT_SEGMENTS = sizeof(partial_packet_t::data) / UDP_SEG_SIZE;
@@ -226,7 +226,39 @@ void notify(byte callMode, bool followUp)
 
 #ifndef WLED_DISABLE_ESPNOW
   if (enableESPNow && useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
+    #ifdef ESP8266
+    partial_packet_t buffer = {'W', 0, 1, {0}};
+    const size_t bufferSize = sizeof(buffer.data);
+    size_t packetSize = SEG_OFFSET;
+    size_t firstSegment = 0;
+    memcpy(buffer.data, udpOut, packetSize);
+    for (size_t i = 0; packetSize + UDP_SEG_SIZE <= bufferSize && i < s; i++) {
+      memcpy(buffer.data + packetSize, &udpOut[SEG_OFFSET + i * UDP_SEG_SIZE], UDP_SEG_SIZE);
+      packetSize += UDP_SEG_SIZE;
+      firstSegment++;
+    }
+    if (s > firstSegment) buffer.noOfPackets += 1 + ((s - firstSegment) * UDP_SEG_SIZE) / bufferSize;
+    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
+    if (!err && firstSegment < s) {
+      buffer.packet++;
+      packetSize = 0;
+      for (size_t i = firstSegment; i < s; i++) {
+        if (packetSize + UDP_SEG_SIZE > bufferSize) {
+          err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
+          buffer.packet++;
+          packetSize = 0;
+          if (err) break;
+        }
+        memcpy(buffer.data + packetSize, &udpOut[SEG_OFFSET + i * UDP_SEG_SIZE], UDP_SEG_SIZE);
+        packetSize += UDP_SEG_SIZE;
+      }
+      if (!err && packetSize > 0)
+        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
+    }
+    if (err) DEBUG_PRINTLN(F("ESP-NOW sending packet failed."));
+    #else
     queueEspNowSyncTx(udpOut, s);
+    #endif
   }
   if (udpConnected) 
 #endif
@@ -506,7 +538,7 @@ void handleNotifications()
 {
   IPAddress localIP;
 
-  #ifndef WLED_DISABLE_ESPNOW
+  #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
   serviceEspNowSyncTx();
   #endif
 
@@ -941,91 +973,49 @@ uint8_t realtimeBroadcast(uint8_t type, IPAddress client, uint16_t length, const
 }
 
 #ifndef WLED_DISABLE_ESPNOW
-namespace {
-static constexpr unsigned long ESPNOW_DETECTED_REMOTE_TIMEOUT = 120000;
-static EspNowDetectedRemote detectedRemotes[ESPNOW_MAX_DETECTED_REMOTES] = {};
-static size_t detectedRemoteCount = 0;
-static std::atomic_flag detectedRemotesLock = ATOMIC_FLAG_INIT;
-
-// Keep one recent entry per pairing candidate and replace the oldest entry when the list is full.
-static void rememberEspNowRemote(const char* mac, uint8_t type, int16_t rssi) {
-  if (detectedRemotesLock.test_and_set(std::memory_order_acquire)) return;
-  const unsigned long now = millis();
-  size_t index = detectedRemoteCount;
-  for (size_t i = 0; i < detectedRemoteCount; i++) {
-    if (!strncmp(detectedRemotes[i].mac, mac, sizeof(detectedRemotes[i].mac))) {
-      index = i;
-      break;
-    }
-  }
-  if (index == detectedRemoteCount) {
-    if (detectedRemoteCount < ESPNOW_MAX_DETECTED_REMOTES) {
-      detectedRemoteCount++;
-    } else {
-      index = 0;
-      for (size_t i = 1; i < detectedRemoteCount; i++) {
-        if (now - detectedRemotes[i].seenTime > now - detectedRemotes[index].seenTime) index = i;
-      }
-    }
-  }
-  strlcpy(detectedRemotes[index].mac, mac, sizeof(detectedRemotes[index].mac));
-  detectedRemotes[index].type = type;
-  detectedRemotes[index].rssi = rssi;
-  detectedRemotes[index].seenTime = now;
-  detectedRemotesLock.clear(std::memory_order_release);
-}
-}
-
-// Copy the detected pairing candidates for display on the WiFi settings page.
-size_t espNowGetDetectedRemotes(EspNowDetectedRemote* remotes, size_t capacity) {
-  if (!remotes || !capacity) return 0;
-  if (detectedRemotesLock.test_and_set(std::memory_order_acquire)) return 0;
-  const unsigned long now = millis();
-  size_t count = 0;
-  for (size_t i = 0; i < detectedRemoteCount && count < capacity; i++) {
-    if (now - detectedRemotes[i].seenTime <= ESPNOW_DETECTED_REMOTE_TIMEOUT) remotes[count++] = detectedRemotes[i];
-  }
-  detectedRemotesLock.clear(std::memory_order_release);
-  return count;
-}
-
 // ESP-NOW message sent callback function
 void espNowSentCB(uint8_t* address, uint8_t status) {
+  #ifdef ESP8266
+  DEBUG_PRINTF_P(PSTR("Message sent to " MACSTR ", status: %d\n"), MAC2STR(address), status);
+  #else
+  #ifdef WLED_ENABLE_ESPNOW_API
   espNowApiOnSendResult(address, status);
+  #endif
   if (status) DEBUG_PRINTF_P(PSTR("ESP-NOW send to " MACSTR " failed: status=%u ch=%u wifi=%u\n"),
                              MAC2STR(address), status, WiFi.channel(), unsigned(WiFi.status()));
+  #endif
 }
 
 // Classify only frame types that establish the sender as a control remote. In particular,
 // outbound ANNOUNCE frames must not replace the bonding candidate.
-static uint8_t espNowBondCandidateType(const uint8_t* data, uint8_t len) {
-  if (!data || !len) return 0;
-  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) return 1; // WiZ Mote
-  if (len < ESPNOW_API_HEADER_SIZE || data[0] != ESPNOW_API_MAGIC || data[1] != ESPNOW_API_VERSION) return 0;
+static bool isEspNowBondCandidate(const uint8_t* data, uint8_t len) {
+  if (!data || !len) return false;
+  if (data[0] == 0x91 || data[0] == 0x81 || data[0] == 0x80) return true; // WiZ Mote
+  #ifndef WLED_ENABLE_ESPNOW_API
+  return false;
+  #else
+  if (len < ESPNOW_API_HEADER_SIZE || data[0] != ESPNOW_API_MAGIC || data[1] != ESPNOW_API_VERSION) return false;
 
   const uint8_t msgType = data[2];
   const uint8_t fragIndex = data[4];
   const uint8_t fragTotal = data[5];
   const uint8_t payloadLen = len - ESPNOW_API_HEADER_SIZE;
-  if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS || fragIndex >= fragTotal) return 0;
-  if (payloadLen > ESPNOW_API_FRAG_SIZE || (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE)) return 0;
-  if (msgType == ESPNOW_API_REQUEST) return 2;
-  if (msgType != ESPNOW_API_DISCOVER || fragIndex != 0 || fragTotal != 1) return 0;
+  if (fragTotal < 1 || fragTotal > ESPNOW_API_MAX_FRAGS || fragIndex >= fragTotal) return false;
+  if (payloadLen > ESPNOW_API_FRAG_SIZE || (fragIndex < fragTotal - 1 && payloadLen != ESPNOW_API_FRAG_SIZE)) return false;
+  if (msgType == ESPNOW_API_REQUEST) return true;
+  if (msgType != ESPNOW_API_DISCOVER || fragIndex != 0 || fragTotal != 1) return false;
   return payloadLen == 0 || (payloadLen == 2 && data[ESPNOW_API_HEADER_SIZE] == '{' &&
-                             data[ESPNOW_API_HEADER_SIZE + 1] == '}') ? 2 : 0;
+                             data[ESPNOW_API_HEADER_SIZE + 1] == '}');
+  #endif
 }
 
 // ESP-NOW message receive callback function
-void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rssi, bool broadcast) {
+void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int, bool broadcast) {
   if (!address || !data || len == 0) return;
   char senderMac[13];
   snprintf_P(senderMac, sizeof(senderMac), PSTR("%02x%02x%02x%02x%02x%02x"),
              address[0], address[1], address[2], address[3], address[4], address[5]);
-  const uint8_t candidateType = espNowBondCandidateType(data, len);
-  if (candidateType) {
-    rememberEspNowRemote(senderMac, candidateType, rssi);
-    strlcpy(last_signal_src, senderMac, sizeof(last_signal_src));
-  }
+  if (isEspNowBondCandidate(data, len)) strlcpy(last_signal_src, senderMac, sizeof(last_signal_src));
 
   #ifdef WLED_DEBUG
     DEBUG_PRINT(F("ESP-NOW: ")); DEBUG_PRINT(senderMac); DEBUG_PRINT(F(" -> ")); DEBUG_PRINTLN(len);
@@ -1055,13 +1045,15 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
     return;
   }
 
-  // bidirectional ESP-NOW JSON API frames; reassembled here,
-  // applied later in handleEspNowApi(). Already gated by the linked_remotes whitelist above.
+  #ifdef WLED_ENABLE_ESPNOW_API
+  // Bidirectional ESP-NOW JSON API frames are reassembled here and applied later in
+  // handleEspNowApi(). They are already gated by the linked_remotes whitelist above.
   if (len >= ESPNOW_API_HEADER_SIZE && data[0] == ESPNOW_API_MAGIC && data[1] == ESPNOW_API_VERSION) {
     if (!espNowApiReady()) return;
     handleEspNowApiData(address, data, len);
     return;
   }
+  #endif
 
   partial_packet_t *buffer = reinterpret_cast<partial_packet_t *>(data);
   if (len < 3 || !broadcast || buffer->magic != 'W' || !useESPNowSync || WLED_CONNECTED) {

@@ -2,6 +2,8 @@
 
 This document specifies the wire protocol WLED uses for **bidirectional** ESP-NOW communication with a remote. It is aimed at authors of remote firmware (e.g. a touch-screen controller) that want WLED JSON state control. [See a working remote that uses this API](https://github.com/figamore/wled-touch-remote)
 
+The API is supported on ESP32-family builds. ESP8266 builds retain classic ESP-NOW sync and WizMote support but do not include this API.
+
 The classic ESP-NOW remote support is one-way: WizMote-style remotes can only *send* button presses. This API adds a two-way channel so a remote can issue WLED JSON state API commands (`/json/state` parity), receive responses, subscribe to binary LED peek frames, and be **pushed** state updates whenever WLED's state changes - including changes made from the WebUI or another remote.
 
 ## Relationship to the WebSocket / HTTP JSON API
@@ -20,7 +22,7 @@ The WebSocket live LED peek command `{"lv":true}` is also supported. It subscrib
 | `{"get":"pal"}`  | `{"palettes":["Default","* Random Cycle",…]}` - array index = palette id |
 | `{"get":"ps"}`   | `{"presets":{"1":"Sunset","2":"Party",…}}` - only existing presets, by id |
 
-The preset catalog covers the full id range 1–250 in a single pass over `presets.json`. Catalog responses are large; on an ESP8266 host they may exceed `ESPNOW_API_MAX_JSON` and return `{"error":8}`, in which case a remote should fall back to a built-in list. An unknown `get` value returns `{"error":10}`.
+The preset catalog covers the full id range 1–250 in a single pass over `presets.json`. Catalog responses can be large; if one exceeds `ESPNOW_API_MAX_JSON`, WLED returns `{"error":8}` and the remote should fall back to a built-in list. An unknown `get` value returns `{"error":10}`.
 
 ## Security model
 
@@ -70,10 +72,9 @@ Every `REQUEST` - including catalog requests - is answered with either its paylo
 
 **Live keepalive.** ESP-NOW has no connection or disconnect signal, so a `{"lv":true}` subscription is a keepalive: WLED stops streaming `LIVE` frames **30 s** after the last `{"lv":true}` unless the remote re-arms it. A remote that wants a continuous live view should re-send `{"lv":true}` every ~10 s; send `{"lv":false}` to stop immediately. Only one live subscriber is served at a time (a `LIVE` payload is binary - branch on `msgType == 0x05` before parsing reassembled bytes as JSON).
 
-> **ESP8266 size cap.** A full `{"state","info"}` response is often 1.5–3 KB, which can exceed
-> `ESPNOW_API_MAX_JSON` (2048 bytes on ESP8266; 8192 on ESP32). When it does, a verbose
-> `RESPONSE` returns `{"error":8}`. Compact polling and compact `PUSH` messages remain
-> available. On ESP8266 prefer compact polling or non-verbose commands.
+> **Response size cap.** A full `{"state","info"}` response is often 1.5–3 KB. If it exceeds
+> `ESPNOW_API_MAX_JSON`, a verbose `RESPONSE` returns `{"error":8}`. Compact polling and
+> compact `PUSH` messages remain available.
 
 ## Fragmentation & reassembly
 
@@ -81,9 +82,9 @@ Every `REQUEST` - including catalog requests - is answered with either its paylo
 - Every fragment except the last **must** carry a full 244-byte payload so byte offsets line up; the last fragment carries the remainder.
 - The receiver allocates a buffer of `fragTotal × 244` bytes on the first fragment and writes each fragment at `fragIndex × 244`. The message is complete once all fragments have arrived.
 - **Fail-closed:** any out-of-order start, mismatched `(MAC,msgType,msgId,fragTotal)`, oversized payload, or duplicate is discarded; partial buffers are abandoned after **500 ms**, even if no additional ESP-NOW API frames arrive.
-- WLED bounds a single message to `ESPNOW_API_MAX_JSON` (2048 bytes on ESP8266, 8192 on ESP32). A remote should do the same for JSON requests. A full multi-segment `{"state","info"}` is typically 1–4 KB, i.e. several fragments. If a verbose response is too large to send, WLED replies with `{"error":8}` instead of silently dropping the response.
+- WLED bounds a single message to `ESPNOW_API_MAX_JSON` (8192 bytes). A remote should do the same for JSON requests. A full multi-segment `{"state","info"}` is typically 1–4 KB, i.e. several fragments. If a verbose response is too large to send, WLED replies with `{"error":8}` instead of silently dropping the response.
 
-WLED's native transport copies callback frames into a bounded fixed queue, then reassembles and applies JSON in the main loop. It processes requests serially; a remote should wait for a matching `RESPONSE` (or retry after a short timeout) before sending the next `REQUEST`.
+WLED's native transport copies callback frames into a bounded two-frame receive queue allocated only while ESP-NOW is active, then reassembles and applies JSON in the main loop. It processes requests serially; a remote should wait for a matching `RESPONSE` (or retry after a short timeout) before sending the next `REQUEST`.
 
 ## Multiple WLED instances from one remote
 

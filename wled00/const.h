@@ -382,6 +382,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define ESP_NOW_STATE_ON           1
 #define ESP_NOW_STATE_ERROR        2
 
+#ifdef ARDUINO_ARCH_ESP32
 static constexpr uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 // Bidirectional ESP-NOW API
@@ -397,14 +398,11 @@ static constexpr uint8_t ESPNOW_BROADCAST_ADDRESS[6] = {0xFF, 0xFF, 0xFF, 0xFF, 
 #define ESPNOW_API_HELLO ESPNOW_API_DISCOVER // compatibility alias for early API prototypes
 #define ESPNOW_API_LIVE         0x05   // WLED -> remote, binary LED peek frame (same payload as WS liveview)
 #define ESPNOW_API_ANNOUNCE     0x06   // WLED -> remote reliable unicast discovery response
-// reassembly/serialization caps (bounded to limit RAM use, especially on ESP8266)
-#ifdef ESP8266
-#define ESPNOW_API_MAX_JSON     2048
-#else
+// reassembly/serialization caps
 #define ESPNOW_API_MAX_JSON     8192
-#endif
 #define ESPNOW_API_MAX_FRAGS    ((ESPNOW_API_MAX_JSON / ESPNOW_API_FRAG_SIZE) + 1)
 #define ESPNOW_API_REASM_TIMEOUT 500   // ms before an incomplete reassembly buffer is abandoned
+#endif
 
 //Button type
 #define BTN_TYPE_NONE             0

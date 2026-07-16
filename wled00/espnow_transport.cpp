@@ -1,5 +1,5 @@
 #include "wled.h"
-#ifndef WLED_DISABLE_ESPNOW
+#if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
 #include <atomic>
 
 // ESP-NOW callbacks run outside WLED's loop context. Keep callback work small: copy received
@@ -89,16 +89,8 @@ static bool ensurePeer(const uint8_t* address) {
   if (esp_now_is_peer_exist((uint8_t*)address)) return true;
   return esp_now_add_peer((uint8_t*)address, ESP_NOW_ROLE_COMBO, 0, nullptr, 0) == 0;
 #else
+  if (esp_now_is_peer_exist(address)) return true;
   esp_now_peer_info_t peer = {};
-  if (esp_now_is_peer_exist(address)) {
-    if (esp_now_get_peer(address, &peer) != ESP_OK) return false;
-    const wifi_interface_t requiredInterface = transportUsesAP ? WIFI_IF_AP : WIFI_IF_STA;
-    if (peer.channel == 0 && peer.ifidx == requiredInterface) return true;
-    peer.channel = 0; // always follow the radio's current home channel
-    peer.ifidx = requiredInterface;
-    peer.encrypt = false;
-    return esp_now_mod_peer(&peer) == ESP_OK;
-  }
   memcpy(peer.peer_addr, address, sizeof(peer.peer_addr));
   peer.channel = 0;
   peer.ifidx = transportUsesAP ? WIFI_IF_AP : WIFI_IF_STA;
@@ -211,4 +203,4 @@ void handleEspNowTransport() {
   for (uint8_t i = 0; i < ESPNOW_TRANSPORT_RX_PER_LOOP && popReceivedFrame(frame); i++)
     espNowReceiveCB(frame.address, frame.data, frame.len, frame.rssi, frame.broadcast);
 }
-#endif // WLED_DISABLE_ESPNOW
+#endif // !WLED_DISABLE_ESPNOW && ARDUINO_ARCH_ESP32
