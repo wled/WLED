@@ -301,6 +301,13 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int rs
 
 //network.cpp
 bool initEthernet(); // result is informational
+#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+bool initEthernet();
+// AI: sets lwIP primary network interface based on ethPrimaryInterface
+// by enabling wled to be dual-homed we need to be deterministic about which interface
+// wled uses for outgoing connections to minimise asyncronous routing issues.
+void setPrimaryNetworkInterface();
+#endif
 int  getSignalQuality(int rssi);
 void fillMAC2Str(char *str, const uint8_t *mac);
 void fillStr2MAC(uint8_t *mac, const char *str);
