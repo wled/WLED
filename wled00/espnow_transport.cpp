@@ -60,18 +60,6 @@ static void queueReceivedFrame(const uint8_t* address, const uint8_t* data, size
   rxLock.clear(std::memory_order_release);
 }
 
-#ifdef ESP8266
-static void onEspNowReceive(uint8_t* address, uint8_t* data, uint8_t len) {
-  queueReceivedFrame(address, data, len);
-}
-
-static void onEspNowSent(uint8_t* address, uint8_t status) {
-  if (!transportActive.load(std::memory_order_acquire)) return;
-  memcpy(sentAddress, address, sizeof(sentAddress));
-  sentStatus = status;
-  sentEventPending.store(true, std::memory_order_release);
-}
-#else
 static void onEspNowReceive(const uint8_t* address, const uint8_t* data, int len) {
   if (len > 0) queueReceivedFrame(address, data, size_t(len));
 }
@@ -82,13 +70,8 @@ static void onEspNowSent(const uint8_t* address, esp_now_send_status_t status) {
   sentStatus = uint8_t(status);
   sentEventPending.store(true, std::memory_order_release);
 }
-#endif
 
 static bool checkForPeer(const uint8_t* address) {
-#ifdef ESP8266
-  if (esp_now_is_peer_exist((uint8_t*)address)) return true;
-  return esp_now_add_peer((uint8_t*)address, ESP_NOW_ROLE_COMBO, 0, nullptr, 0) == 0;
-#else
   if (esp_now_is_peer_exist(address)) return true;
   esp_now_peer_info_t peer = {};
   memcpy(peer.peer_addr, address, sizeof(peer.peer_addr));
@@ -96,7 +79,6 @@ static bool checkForPeer(const uint8_t* address) {
   peer.ifidx = transportUsesAP ? WIFI_IF_AP : WIFI_IF_STA;
   peer.encrypt = false;
   return esp_now_add_peer(&peer) == ESP_OK;
-#endif
 }
 
 static bool popReceivedFrame(EspNowTransportFrame &frame) {
@@ -121,16 +103,6 @@ bool espNowTransportBegin(uint8_t channel, bool useAP) {
   if (!rxQueue) return false;
   transportUsesAP = useAP;
 
-#ifdef ESP8266
-  if (channel >= 1 && channel <= 13 && WiFi.channel() != channel) wifi_set_channel(channel);
-  if (esp_now_init() != 0) { freeReceiveQueue(); return false; }
-  if (esp_now_set_self_role(ESP_NOW_ROLE_COMBO) != 0) { esp_now_deinit(); freeReceiveQueue(); return false; }
-  if (esp_now_register_recv_cb(onEspNowReceive) != 0 || esp_now_register_send_cb(onEspNowSent) != 0) {
-    esp_now_deinit();
-    freeReceiveQueue();
-    return false;
-  }
-#else
   (void)channel; // WiFi owns the settled STA/AP home channel before this function is called
   if (esp_now_init() != ESP_OK) { freeReceiveQueue(); return false; }
   if (esp_now_register_recv_cb(onEspNowReceive) != ESP_OK ||
@@ -139,7 +111,6 @@ bool espNowTransportBegin(uint8_t channel, bool useAP) {
     freeReceiveQueue();
     return false;
   }
-#endif
   transportActive.store(true, std::memory_order_release);
   DEBUG_PRINTF_P(PSTR("ESP-NOW transport ready: requestedCh=%u actualCh=%u interface=%s queue=%u\n"),
                  channel, WiFi.channel(), useAP ? "AP" : "STA", ESPNOW_TRANSPORT_RX_QUEUE_SIZE);
@@ -152,13 +123,8 @@ void espNowTransportStop() {
   DEBUG_PRINTF_P(PSTR("ESP-NOW transport stopping: ch=%u interface=%s rx=%u inFlight=%u\n"),
                  WiFi.channel(), transportUsesAP ? "AP" : "STA", rxCount,
                  txInFlight.load(std::memory_order_acquire));
-#ifdef ESP8266
   esp_now_unregister_recv_cb();
   esp_now_unregister_send_cb();
-#else
-  esp_now_unregister_recv_cb();
-  esp_now_unregister_send_cb();
-#endif
   esp_now_deinit();
   resetQueues();
   freeReceiveQueue();
@@ -175,11 +141,7 @@ uint8_t espNowTransportSend(const uint8_t* address, const uint8_t* data, size_t 
       len > ESPNOW_TRANSPORT_MAX_PAYLOAD || !espNowTransportReadyToSend()) return 1;
   if (!checkForPeer(address)) return 1;
   txInFlight.store(true, std::memory_order_release);
-#ifdef ESP8266
-  const int result = esp_now_send((uint8_t*)address, (uint8_t*)data, len);
-#else
   const esp_err_t result = esp_now_send(address, data, len);
-#endif
   if (result != 0) {
     txInFlight.store(false, std::memory_order_release);
     espNowSentCB((uint8_t*)address, 1);

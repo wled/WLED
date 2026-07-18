@@ -366,10 +366,12 @@ static uint8_t queueEspNowApiState(const uint8_t* mac, uint8_t msgType, uint8_t 
 // Serialize only the fields used by companion remotes so routine state fits in one frame.
 static uint8_t queueEspNowApiCompactState(const uint8_t* mac, uint8_t msgType, uint8_t msgId) {
   if (statusESPNow != ESP_NOW_STATE_ON) return ESPNOW_API_ERR_BUSY;
+  const uint8_t mainSegmentId = strip.getMainSegmentId();
   const Segment &mainseg = strip.getMainSegment();
-  char json[160];
-  int len = snprintf_P(json, sizeof(json), PSTR("{\"state\":{\"on\":%s,\"bri\":%u,\"ps\":%d,\"mainseg\":0,\"seg\":[{\"fx\":%u,\"pal\":%u,\"sx\":%u,\"ix\":%u,\"c1\":%u,\"c2\":%u,\"c3\":%u,\"col\":[[%u,%u,%u]]}]}}"),
+  char json[176];
+  int len = snprintf_P(json, sizeof(json), PSTR("{\"state\":{\"on\":%s,\"bri\":%u,\"ps\":%d,\"mainseg\":%u,\"seg\":[{\"id\":%u,\"fx\":%u,\"pal\":%u,\"sx\":%u,\"ix\":%u,\"c1\":%u,\"c2\":%u,\"c3\":%u,\"col\":[[%u,%u,%u]]}]}}"),
                        bri > 0 ? "true" : "false", unsigned(briLast), currentPreset > 0 ? int(currentPreset) : -1,
+                       unsigned(mainSegmentId), unsigned(mainSegmentId),
                        unsigned(mainseg.mode), unsigned(mainseg.palette), unsigned(mainseg.speed), unsigned(mainseg.intensity),
                        unsigned(mainseg.custom1), unsigned(mainseg.custom2), unsigned(mainseg.custom3),
                        unsigned(R(mainseg.colors[0])), unsigned(G(mainseg.colors[0])), unsigned(B(mainseg.colors[0])));

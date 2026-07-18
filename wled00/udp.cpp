@@ -1076,8 +1076,8 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int, b
   static unsigned long lastProcessed = 0;
 
   const size_t payloadLen = len - 3;
-  if (buffer->noOfPackets == 0 ||
-      (buffer->packet == 0 && payloadLen < SEG_OFFSET) ||
+  if (buffer->noOfPackets == 0 || payloadLen > WLEDPACKETSIZE ||
+      (buffer->packet == 0 && (payloadLen < SEG_OFFSET || (payloadLen - SEG_OFFSET) % UDP_SEG_SIZE != 0)) ||
       (buffer->packet > 0 && (payloadLen % UDP_SEG_SIZE) != 0)) {
     DEBUG_PRINTLN(F("ESP-NOW malformed sync packet."));
     if (udpIn) free(udpIn);
@@ -1090,7 +1090,7 @@ void espNowReceiveCB(uint8_t* address, uint8_t* data, uint8_t len, signed int, b
   if (buffer->packet == 0) {
     packetsReceived = 0; // it will increment later (this is to make sure we start counting packets correctly)
     if (udpIn == nullptr) {
-      udpIn = (uint8_t *)malloc(WLEDPACKETSIZE); // we cannot use stack as we are in callback
+      udpIn = (uint8_t *)d_malloc(WLEDPACKETSIZE); // we cannot use stack as we are in callback
       if (!udpIn) return; // memory alocation failed
       DEBUG_PRINTLN(F("ESP-NOW inited UDP buffer."));
     }
