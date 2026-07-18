@@ -193,7 +193,8 @@ static bool sendLiveLedsWs(uint32_t wsClient)
 #else
   const size_t MAX_LIVE_LEDS_WS = 1024U;
 #endif
-  size_t bufSize = buildLiveLedsPayload(nullptr, 0, MAX_LIVE_LEDS_WS); // payload builder shared with the ESP-NOW API
+  // Query first so the WebSocket buffer is allocated at exactly the payload size.
+  size_t bufSize = buildLiveLedsPayload(nullptr, 0, MAX_LIVE_LEDS_WS);
   if (!bufSize) return false;
 
   AsyncWebSocketBuffer wsBuf(bufSize);

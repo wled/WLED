@@ -182,7 +182,7 @@ void serveJson(AsyncWebServerRequest* request);
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
 
-// Used to serve Peek/Preview over ESP-NOW
+// Used to serve Peek/Preview over ESP-NOW - Shared liveview builder; pass nullptr to query the required size.
 size_t buildLiveLedsPayload(uint8_t* buffer, size_t bufSize, size_t maxLeds);
 
 //led.cpp

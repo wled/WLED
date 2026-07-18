@@ -134,7 +134,7 @@ void handleSettingsSet(AsyncWebServerRequest *request, byte subPage)
       snprintf(rm, sizeof(rm), "RM%d", n); // "RM0" to "RM9"
       if (request->hasArg(rm)) {
         const String& arg = request->arg(rm);
-        if (arg.length() != 12) continue;
+        if (arg.length() != 12) continue; // stored form is 12 hex digits without separators, this ensures that!
         std::array<char, 13> mac{};
         strlcpy(mac.data(), arg.c_str(), sizeof(mac));
         strlwr(mac.data());

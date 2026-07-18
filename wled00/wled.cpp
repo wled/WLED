@@ -92,6 +92,7 @@ void WLED::loop()
 
   handleTime();
   #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
+  // Drain native callbacks before protocol handlers consume their events.
   handleEspNowTransport();
   #endif
   #ifndef WLED_DISABLE_INFRARED
@@ -887,6 +888,7 @@ void WLED::initInterfaces()
   DEBUG_PRINTLN(F("Init STA interfaces"));
 
   #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
+  // A successful STA connection changes the peer interface from a fallback AP to STA.
   if (enableESPNow && (statusESPNow != ESP_NOW_STATE_ON || espNowUsingAP)) startEspNowForCurrentNetwork();
   #endif
 
@@ -1021,6 +1023,7 @@ void WLED::handleConnection()
     }
     unsigned long retryInterval = stac ? 300000 : 18000;
     #if !defined(WLED_DISABLE_ESPNOW) && defined(WLED_ENABLE_ESPNOW_API)
+    // Scanning would move the radio off-channel and make the active remote unreachable.
     const bool deferReconnectForEspNow = espNowApiRemoteActive();
     #else
     const bool deferReconnectForEspNow = false;
