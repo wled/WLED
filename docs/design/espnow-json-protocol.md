@@ -26,9 +26,9 @@ The preset catalog covers the full id range 1–250 in a single pass over `prese
 
 ## Security model
 
-There is **no encryption or authentication on the wire in v1**. Access is gated by the existing **MAC allow-list** (`linked_remotes`, configured under *WiFi Settings → ESP-NOW Wireless*). Only frames from a whitelisted MAC are processed - identical to how the existing WizMote remote path already grants whitelisted MACs full JSON-API access via `remote.json`. Optional ESP-NOW PMK/LMK encryption is possible future work.
+There is **no encryption or authentication on the wire in v1**. Access is gated by the existing **MAC allow-list** (`linked_remotes`, configured under *WiFi Settings → ESP-NOW Wireless*). Only frames from an allow-listed MAC are processed, including `DISCOVER` frames - identical to how the existing WizMote remote path already grants allow-listed MACs full JSON-API access via `remote.json`. Optional ESP-NOW PMK/LMK encryption is possible future work.
 
-No extra setting is required: as with the WizMote path, the API is active whenever ESP-NOW is enabled (*WiFi Settings → ESP-NOW Wireless*) and the remote's MAC is in the allow-list. WLED only broadcasts state `PUSH` frames once it has actually seen an API frame from a remote, so a WizMote-only deployment never emits them.
+No extra setting is required: as with the WizMote path, the API is active whenever ESP-NOW is enabled (*WiFi Settings → ESP-NOW Wireless*) and the remote's MAC is in the allow-list. Before pairing, a syntactically valid WiZ Mote frame, API `REQUEST`, or API `DISCOVER` only updates the single WiFi-settings *"Last device seen"* bonding candidate; WLED does not parse JSON, send `ANNOUNCE`, or apply control from an unknown MAC. WLED only broadcasts state `PUSH` frames once it has actually seen an API frame from an allow-listed remote, so a WizMote-only deployment never emits them.
 
 ## Frame format
 
@@ -68,7 +68,7 @@ For low-overhead polling, `{"v":"compact"}` returns power, brightness, preset, a
 | 9    | Request failed to parse as JSON | Fix the request |
 | 10   | Unknown `{"get":…}` catalog key | Fix the request |
 
-Every `REQUEST` - including catalog requests - is answered with either its payload or an `{"error":…}`. `ANNOUNCE` and `RESPONSE` are reliable unicasts; `PUSH` and `LIVE` remain best-effort because a later poll or frame supersedes them.
+Every accepted `REQUEST` - including catalog requests - is answered with either its payload or an `{"error":…}`. A request may still time out before it reaches the handler if reassembly allocation fails, an incomplete request is displaced, or the receive inbox is full; the remote should retry the same request after its timeout. `ANNOUNCE` and `RESPONSE` are reliable unicasts; `PUSH` and `LIVE` remain best-effort because a later poll or frame supersedes them.
 
 **Live keepalive.** ESP-NOW has no connection or disconnect signal, so a `{"lv":true}` subscription is a keepalive: WLED stops streaming `LIVE` frames **30 s** after the last `{"lv":true}` unless the remote re-arms it. A remote that wants a continuous live view should re-send `{"lv":true}` every ~10 s; send `{"lv":false}` to stop immediately. Only one live subscriber is served at a time (a `LIVE` payload is binary - branch on `msgType == 0x05` before parsing reassembled bytes as JSON).
 
@@ -99,7 +99,7 @@ No explicit instance id is needed. Because every ESP-NOW frame carries the sende
 
 ESP-NOW peers must be on the **same WiFi channel**. A WLED instance uses the channel of the network it joined (STA mode) or its AP channel (AP mode). To discover instances, a remote broadcasts a `DISCOVER` on a channel and collects unicast `ANNOUNCE` replies whose `msgId` matches that scan; it can iterate channels until replies arrive. Matching the transaction ID prevents delayed or unrelated discovery traffic from changing the registry. The remote learns each WLED's MAC from the reply's link-layer source address (the `mac` field is convenience metadata).
 
-WLED learns the remote's MAC from a valid inbound control `REQUEST`, remote `DISCOVER`, or WiZ Mote frame; the WiFi-settings *"Last device seen"* control surfaces it so the user can add it to the allow-list. Outbound-direction frames such as `ANNOUNCE` are deliberately ignored as bonding candidates.
+WLED learns the remote's MAC for the WiFi-settings *"Last device seen"* field from a syntactically valid inbound control `REQUEST`, remote `DISCOVER`, or WiZ Mote frame, including before the remote has been allow-listed. This bonding-candidate update keeps only one MAC, performs no JSON parsing or reassembly, and sends no reply; unknown remotes must be added to the allow-list through configuration before discovery replies or control frames are processed. Outbound-direction frames such as `ANNOUNCE` are deliberately ignored as bonding candidates.
 
 `ANNOUNCE` replies use a short MAC-derived delay. This staggers several WLED instances responding to one discovery event, while unicast delivery supplies a MAC-level acknowledgement. Remotes should keep the discovery window open long enough to collect every reply rather than locking onto the first responder.
 
@@ -150,4 +150,4 @@ Discovery:
 header: 4E 01 04 2A 00 01          DISCOVER msgId=42, broadcast
 data  : <empty>
 ```
-Each WLED replies by unicast with type `ANNOUNCE` (`0x06`), `msgId=42`, and `{"announce":{"name":"Living Room","mac":"a1b2c3d4e5f6","ver":2605011,"ch":6,"proto":1,"cap":15}}`.
+Each allow-listed WLED replies by unicast with type `ANNOUNCE` (`0x06`), `msgId=42`, and `{"announce":{"name":"Living Room","mac":"a1b2c3d4e5f6","ver":2605011,"ch":6,"proto":1,"cap":15}}`.
