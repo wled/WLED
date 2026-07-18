@@ -862,15 +862,15 @@ void WLED::initConnection()
 
   #if !defined(WLED_DISABLE_ESPNOW) && defined(ESP8266)
   if (enableESPNow) {
-    quickEspNow.onDataSent(espNowSentCB);
-    quickEspNow.onDataRcvd(espNowReceiveCB);
+    quickEspNow.onDataSent(espNowSentCB);     // see udp.cpp
+    quickEspNow.onDataRcvd(espNowReceiveCB);  // see udp.cpp
     bool espNowOK;
     if (apActive) {
       DEBUG_PRINTLN(F("ESP-NOW initing in AP mode."));
-      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);
+      espNowOK = quickEspNow.begin(apChannel, WIFI_IF_AP);  // Same channel must be used for both AP and ESP-NOW
     } else {
       DEBUG_PRINTLN(F("ESP-NOW initing in STA mode."));
-      espNowOK = quickEspNow.begin();
+      espNowOK = quickEspNow.begin(); // Use no parameters to start ESP-NOW on same channel as WiFi, in STA mode
     }
     statusESPNow = espNowOK ? ESP_NOW_STATE_ON : ESP_NOW_STATE_ERROR;
   }

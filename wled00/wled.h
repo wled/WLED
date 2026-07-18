@@ -51,7 +51,8 @@
 #endif
 
 //#define WLED_DISABLE_ESPNOW      // Removes dependence on esp now
-// The bidirectional JSON API is supported only on ESP32-family targets.
+// The bidirectional JSON API is supported only on ESP32-family targets
+// Supporting it on ESP8266 would exceed its flash limit
 #if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_ENABLE_ESPNOW_API)
   #define WLED_ENABLE_ESPNOW_API
 #endif

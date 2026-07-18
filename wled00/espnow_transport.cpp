@@ -31,7 +31,7 @@ static std::atomic<bool> transportActive{false};
 static bool transportUsesAP = false;
 
 static void resetQueues() {
-  while (rxLock.test_and_set(std::memory_order_acquire)) yield();
+  while (rxLock.test_and_set(std::memory_order_acquire)) delay(1);
   rxRead = rxWrite = rxCount = 0;
   rxLock.clear(std::memory_order_release);
   txInFlight.store(false, std::memory_order_release);
@@ -84,7 +84,7 @@ static void onEspNowSent(const uint8_t* address, esp_now_send_status_t status) {
 }
 #endif
 
-static bool ensurePeer(const uint8_t* address) {
+static bool checkForPeer(const uint8_t* address) {
 #ifdef ESP8266
   if (esp_now_is_peer_exist((uint8_t*)address)) return true;
   return esp_now_add_peer((uint8_t*)address, ESP_NOW_ROLE_COMBO, 0, nullptr, 0) == 0;
@@ -173,7 +173,7 @@ bool espNowTransportReadyToSend() {
 uint8_t espNowTransportSend(const uint8_t* address, const uint8_t* data, size_t len) {
   if (!transportActive.load(std::memory_order_acquire) || !address || !data || !len ||
       len > ESPNOW_TRANSPORT_MAX_PAYLOAD || !espNowTransportReadyToSend()) return 1;
-  if (!ensurePeer(address)) return 1;
+  if (!checkForPeer(address)) return 1;
   txInFlight.store(true, std::memory_order_release);
 #ifdef ESP8266
   const int result = esp_now_send((uint8_t*)address, (uint8_t*)data, len);

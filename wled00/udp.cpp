@@ -228,36 +228,41 @@ void notify(byte callMode, bool followUp)
   if (enableESPNow && useESPNowSync && statusESPNow == ESP_NOW_STATE_ON) {
     #ifdef ESP8266
     partial_packet_t buffer = {'W', 0, 1, {0}};
-    const size_t bufferSize = sizeof(buffer.data);
-    size_t packetSize = SEG_OFFSET;
-    size_t firstSegment = 0;
+    // send global data
+    DEBUG_PRINTLN(F("ESP-NOW sending first packet."));
+    const size_t bufferSize = sizeof(buffer.data)/sizeof(uint8_t);
+    size_t packetSize = 41;
+    size_t s0 = 0;
     memcpy(buffer.data, udpOut, packetSize);
-    for (size_t i = 0; packetSize + UDP_SEG_SIZE <= bufferSize && i < s; i++) {
-      memcpy(buffer.data + packetSize, &udpOut[SEG_OFFSET + i * UDP_SEG_SIZE], UDP_SEG_SIZE);
+    // stuff as many segments in first packet as possible (normally up to 5)
+    for (size_t i = 0; packetSize < bufferSize && i < s; i++) {
+      memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
       packetSize += UDP_SEG_SIZE;
-      firstSegment++;
+      s0++;
     }
-    if (s > firstSegment) {
-      const size_t segmentsPerPacket = bufferSize / UDP_SEG_SIZE;
-      const size_t remaining = s - firstSegment;
-      buffer.noOfPackets += (remaining + segmentsPerPacket - 1) / segmentsPerPacket;
-    }
-    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
-    if (!err && firstSegment < s) {
+    if (s > s0) buffer.noOfPackets += 1 + ((s - s0) * UDP_SEG_SIZE) / bufferSize; // set number of packets
+    auto err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+    if (!err && s0 < s) {
+      // send rest of the segments
       buffer.packet++;
       packetSize = 0;
-      for (size_t i = firstSegment; i < s; i++) {
-        if (packetSize + UDP_SEG_SIZE > bufferSize) {
-          err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
-          buffer.packet++;
-          packetSize = 0;
-          if (err) break;
-        }
-        memcpy(buffer.data + packetSize, &udpOut[SEG_OFFSET + i * UDP_SEG_SIZE], UDP_SEG_SIZE);
+      // WARNING: this will only work for up to 3 messages (~17 segments) as QuickESPNOW only has a ring buffer capable of holding 3 queued messages
+      // to work around that limitation it is mandatory to utilize onDataSent() callback which should reduce number queued messages
+      // and wait until at least one space is available in the buffer
+      for (size_t i = s0; i < s; i++) {
+        memcpy(buffer.data + packetSize, &udpOut[41+i*UDP_SEG_SIZE], UDP_SEG_SIZE);
         packetSize += UDP_SEG_SIZE;
+        if (packetSize + UDP_SEG_SIZE < bufferSize) continue;
+        DEBUG_PRINTF_P(PSTR("ESP-NOW sending packet: %d (%u)\n"), (int)buffer.packet, packetSize+3);
+        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+        buffer.packet++;
+        packetSize = 0;
+        if (err) break;
       }
-      if (!err && packetSize > 0)
-        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize + 3);
+      if (!err && packetSize > 0) {
+        DEBUG_PRINTF_P(PSTR("ESP-NOW sending last packet: %d (%d)\n"), (int)buffer.packet, packetSize+3);
+        err = quickEspNow.send(ESPNOW_BROADCAST_ADDRESS, reinterpret_cast<const uint8_t*>(&buffer), packetSize+3);
+      }
     }
     if (err) DEBUG_PRINTLN(F("ESP-NOW sending packet failed."));
     #else

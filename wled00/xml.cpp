@@ -206,7 +206,6 @@ void getSettingsJS(byte subPage, Print& settingsScript)
   DEBUG_PRINTF_P(PSTR("settings resp %u\n"), (unsigned)subPage);
 
   if (subPage <0 || subPage >SUBPAGE_LAST) return;
-
   char nS[32];
 
   if (subPage == SUBPAGE_MENU)
@@ -279,7 +278,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
 
     #ifndef WLED_DISABLE_ESPNOW
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
-    settingsScript.print(F("rstR();")); // reset remote list
+    settingsScript.printf_P(PSTR("rstR();")); // reset remote list
     for (size_t i = 0; i < linked_remotes.size(); i++) {
       settingsScript.printf_P(PSTR("aR(\"RM%u\",\"%s\");"), i, linked_remotes[i].data()); // add remote to list
     }

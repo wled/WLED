@@ -209,7 +209,6 @@ void handleWiZdata(uint8_t *incomingData, size_t len) {
   last_seq = cur_seq;
 }
 
-
 // process ESPNow button data (acesses FS, should not be called while update to avoid glitches)
 void handleRemote() {
   if(ESPNowButton >= 0) {

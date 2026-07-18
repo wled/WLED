@@ -181,6 +181,8 @@ void serveJson(AsyncWebServerRequest* request);
 #ifdef WLED_ENABLE_JSONLIVE
 bool serveLiveLeds(AsyncWebServerRequest* request, uint32_t wsClient = 0);
 #endif
+
+// Used to serve Peek/Preview over ESP-NOW
 size_t buildLiveLedsPayload(uint8_t* buffer, size_t bufSize, size_t maxLeds);
 
 //led.cpp
@@ -282,7 +284,6 @@ void handleWiZdata(uint8_t *incomingData, size_t len);
 void handleRemote();
 
 #if !defined(WLED_DISABLE_ESPNOW) && defined(ARDUINO_ARCH_ESP32)
-//espnow_transport.cpp
 bool espNowTransportBegin(uint8_t channel, bool useAP);
 void espNowTransportStop();
 void handleEspNowTransport();
