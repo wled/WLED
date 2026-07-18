@@ -228,20 +228,29 @@ function getURL(path) {
 }
 
 // load usermod UI inject code (served by the device when usermods provide any);
-// umInject(state) is then called after every state render, see readState()
-function loadUmInject() {
+// umInjectSafe(state) is then called after every state render, see readState()
+function loadUmInject(s) {
 	if (gId("um")) return; // already loaded
 	let scE = d.createElement("script");
 	scE.id = "um";
 	scE.src = getURL("/um.js");
 	scE.async = false;
-	scE.onload = () => {
-		if (typeof umInject == "function") requestJson(); // render once with state available
-	};
+	scE.onload = () => umInjectSafe(s); // render once with the state captured at load time
 	scE.onerror = (ev) => {
 		console.log("Usermod inject script not present or failed to load", ev);
 	};
 	d.body.appendChild(scE);
+}
+
+// run usermod UI inject code, shielding the UI from exceptions in usermod-provided JS
+// (an uncaught throw here would abort readState() and trigger requestJson()'s retry loop)
+function umInjectSafe(s) {
+	if (typeof umInject != "function") return;
+	try {
+		umInject(s);
+	} catch (e) {
+		console.error("Usermod UI inject error:", e);
+	}
 }
 function onLoad()
 {
@@ -1621,7 +1630,7 @@ function readState(s,command=false)
 	selectedFx = i.fx;
 	redrawPalPrev(); // if any color changed (random palette did at least)
 	updateUI();
-	if (typeof umInject == "function") umInject(s); // usermod UI injections (see loadUmInject())
+	umInjectSafe(s); // usermod UI injections (see loadUmInject())
 	return true;
 }
 
@@ -1820,7 +1829,7 @@ async function requestJson(command=null, retry=0) {
 			}
 			var s = json.state ? json.state : json;
 			readState(s);
-			if (json?.info?.u) loadUmInject(); // usermods present: load their UI inject code
+			if (json.info && json.info.u) loadUmInject(s); // usermods present: load their UI inject code
 
 			reqsLegal = true;
 			resolve();
