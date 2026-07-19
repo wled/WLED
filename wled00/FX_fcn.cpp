@@ -2172,11 +2172,10 @@ bool WS2812FX::deserializeMap(unsigned n) {
     unsigned entries = 0;
     unsigned numPhy = 0;
     File f = WLED_FS.open(fileName, "r");
-    if (f && f.find("\"map\":[")) {
+    if (f && f.find("\"map\"")) {
       int value;
-      while (entries < matrixSize && readNextIntFromFile(f, value)) {
+      while (entries++ < matrixSize && readNextIntFromFile(f, value)) {
         if (value >= 0 && value < (int)_length) numPhy++; // valid physical pixel entry
-        entries++;
       }
       f.seek(0); // go back to the start of the file (closing and re-opening is slow)
     }
@@ -2193,12 +2192,12 @@ bool WS2812FX::deserializeMap(unsigned n) {
         // second pass: fill matrix entries from file
         numPhy = 0; // reset
         unsigned mapindex = 0;
-        if (f && f.find("map")) { // advance to "map", readNextIntFromFile discards any chars up to the first number
+        if (f && f.find("\"map\"")) { // advance to "map", readNextIntFromFile discards any chars up to the first number
           int value;
           while (mapindex < mapSize && readNextIntFromFile(f, value)) {
             if (value < 0 || value >= _length) value = 0xFFFF; // set out of range mappings to unused
             customMappingTable[mapindex++] = (uint16_t)value;
-            if (value < 0xFFFF) numPhy++; // count valid physical pixel entries
+            //if (value < 0xFFFF) numPhy++; // count valid physical pixel entries (needed for auto-trailing only, see below)
           }
         }
 
@@ -2206,14 +2205,16 @@ bool WS2812FX::deserializeMap(unsigned n) {
         // append any pixels missing in the LEDmap at the end in ascending order
         // very simple walk-through search, users should map all pixels, this is a fallback
         /*
-        for (unsigned p = 0; p < _length; p++) {
-          bool used = false;
-          // go through the whole map and check if this pixel index is not yet mapped
-          for (unsigned i = 0; i < mapSize; i++) {
-            if (customMappingTable[i] == p) { used = true; break; }
+        if (numPhy < _length) {
+          for (unsigned p = 0; p < _length; p++) {
+            bool used = false;
+            // go through the whole map and check if this pixel index is not yet mapped
+            for (unsigned i = 0; i < mapSize; i++) {
+              if (customMappingTable[i] == p) { used = true; break; }
+            }
+            if (!used) customMappingTable[mapindex++] = (uint16_t)p; // append the unmapped pixel
+            if (mapindex >= mapSize) break; // safety check, should not happen
           }
-          if (!used) customMappingTable[mapindex++] = (uint16_t)p; // append the unmapped pixel
-          if (mapindex >= mapSize) break; // safety check, should not happen
         }
         */
         customMappingSize = mapSize;
