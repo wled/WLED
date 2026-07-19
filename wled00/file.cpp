@@ -363,6 +363,49 @@ bool readObjectFromFile(const char* file, const char* key, JsonDocument* dest, c
   return true;
 }
 
+// helper to read comma-separated integers from a JSON array
+// reads until it finds "-" or a number char, converts the number, reads until ',' (discarded) or ']' (kept for next call)
+// returns false when the array terminator ']' or EOF is reached without a valid number
+// sets value to -1 if not a number, discards garbage values following a valid number
+bool readNextIntFromFile(File &f, int &value) {
+  value = 0;
+  bool foundDigit = false;
+  bool negative = false;
+  while (f.available()) {
+    char c = (char)f.peek();
+    if (c >= '0' && c <= '9') {
+      if (value < (0x7FFFFFFF / 10)) value = value * 10 + (c - '0'); // saturate instead of overflowing if too large
+      foundDigit = true;
+    } else if (c == '-' && !foundDigit) {
+      negative = true; // leading minus, return negative value of number
+    } else if (c == ',') {
+      f.read(); // consume separator comma
+      if (!foundDigit) {
+        value = -1;  // invalid input, make it -1
+        return true; // not end of file yet
+      }
+      break; // number complete
+    } else if (c == ']') {
+      if (foundDigit) return true; // leave ']' available for the next call to terminate with "false"
+      f.read();                    // consume array terminator (support multiple arrays in a file)
+      return false;
+    } else if (foundDigit) {
+      // number followed by a char/whitespace - malformed, skip everything up to the next ',' or ']'
+      while (f.available()) {
+        char d = (char)f.peek();
+        if (d == ',') { f.read(); return true; } // consume the ','
+        if (d == ']') { return true; } // leave ']' for the next call to terminate the array
+        f.read();
+      }
+      return true; // EOF but we have a number, let the next call return false
+    }
+    f.read(); // consume the peeked character
+  }
+  if (!foundDigit) return false;
+  if (negative) value = -value;
+  return true;
+}
+
 void updateFSInfo() {
   #ifdef ARDUINO_ARCH_ESP32
     #if WLED_FS == LITTLEFS || ESP_IDF_VERSION_MAJOR >= 4
