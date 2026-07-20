@@ -1321,11 +1321,7 @@ String computeSHA1(const String& input) {
 }
 
 #ifdef ESP32
-#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-#include "esp_adc_cal.h"       //  ToDO: deprecated API
-//#include "esp_adc/adc_cali.h"        // new API
-//#include "esp_adc/adc_cali_scheme.h" // new API
-#else
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 #include "esp_adc_cal.h"
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(4,4,7) // backwards compatibility patch
   #define ADC_ATTEN_DB_12 ADC_ATTEN_DB_11
@@ -1343,7 +1339,7 @@ String generateDeviceFingerprint() {
   fp[0] ^= chip_info.revision | (chip_info.model << 16);
 #endif
 
-#if CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0) && (CONFIG_IDF_TARGET_ESP32 || CONFIG_IDF_TARGET_ESP32S2 || CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3)
   // mix in ADC calibration data - legacy adc calibration API is not supported on new MCUs (-C5, -C6, -C61, -P4)
   esp_adc_cal_characteristics_t ch;
   #if (SOC_ADC_MAX_BITWIDTH == 13) || (CONFIG_SOC_ADC_RTC_MAX_BITWIDTH == 13) // S2 has 13 bit ADC
