@@ -176,8 +176,13 @@ void handleTransitions() {
       return;
     }
     byte briTO = briT;
-    int deltaBri = (int)bri - (int)briOld;
-    briT = briOld + (deltaBri * ti / tr);
+    if ((bri == 0 || briOld == 0) && blendingStyle != TRANSITION_FADE) {
+      // On/Off change with non-FADE transition: segment transitions render the transition, do not fade global brightness in parallel
+      briT = (bri == 0) ? briOld : bri;
+    } else {
+      int deltaBri = (int)bri - (int)briOld;
+      briT = briOld + (deltaBri * ti / tr);
+    }
     if (briTO != briT) applyBri();
   }
 }
