@@ -710,7 +710,14 @@ void serializeInfo(JsonObject root)
   root[F("cn")] = F(WLED_CODENAME);
   root[F("release")] = releaseString;
   root[F("repo")] = repoString;
+#if !defined(ARDUINO_ARCH_ESP32) || (ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)) // ToDO: verify that this works correctly in V5
   root[F("deviceId")] = getDeviceId();
+#else
+  //#if defined(ARDUINO_ARCH_ESP32) && !defined(WLED_DISABLE_OTA)
+  // fake 38char fingerprint from bootloaderSHA1. WARNING: only for testing, not suitable for production!
+  //root[F("deviceId")] = String("0000") + getBootloaderSHA256Hex().substring(4, 34) + String("0000");
+  //#endif
+#endif
 
   JsonObject leds = root.createNestedObject(F("leds"));
   leds[F("count")] = strip.getLengthTotal();
@@ -816,7 +823,18 @@ void serializeInfo(JsonObject root)
   int qrssi = WiFi.RSSI();
   wifi_info[F("rssi")] = qrssi;
   wifi_info[F("signal")] = getSignalQuality(qrssi);
-  wifi_info[F("channel")] = WiFi.channel();
+  int wifiChannel = WiFi.channel();
+  wifi_info[F("channel")] = wifiChannel;
+  if ((wifiChannel > 0) && (unsigned(WiFi.status()) < unsigned(WL_CONNECT_FAILED))) { // Wifi Status > 3 are error statuses (disconnected, stopped, signal lost)
+    #if defined(ARDUINO_ARCH_ESP32) && SOC_WIFI_SUPPORT_5G
+      auto wifiBand = WiFi.getBand();
+      wifi_info[F("band")] = wifiBand == WIFI_BAND_2G ? F("2.4GHz") : (wifiBand == WIFI_BAND_5G ? F("5GHz"): F("(other)"));
+    #else
+      wifi_info[F("band")] = F("2.4GHz");
+    #endif
+  } else {
+    wifi_info[F("band")] = F("not connected");
+  }
   wifi_info[F("ap")] = apActive;
 
   JsonObject fs_info = root.createNestedObject("fs");
@@ -911,9 +929,9 @@ void serializeInfo(JsonObject root)
   root[F("product")] = F(WLED_PRODUCT_NAME);
   root["mac"] = escapedMac;
   char s[16] = "";
-  if (Network.isConnected())
+  if (WLEDNetwork.isConnected())
   {
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
   }
   root["ip"] = s;
@@ -1043,6 +1061,9 @@ void serializeNetworks(JsonObject root)
 
   switch (status) {
     case WIFI_SCAN_FAILED:
+      #if defined(SOC_WIFI_SUPPORT_5G) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 4, 2))
+      if (!WiFi.setBandMode(wifi_band_mode_t(wifiBandMode))) { DEBUG_PRINTLN(F("serializeNetworks(): WiFi band configuration failed!")); }
+      #endif
       WiFi.scanNetworks(true);
       return;
     case WIFI_SCAN_RUNNING:
@@ -1127,6 +1148,21 @@ void serializePins(JsonObject root)
     #elif defined(CONFIG_IDF_TARGET_ESP32) // ESP32 classic
     if (gpio == 0) caps |= PIN_CAP_BOOT; // pull low to enter bootloader mode
     if (gpio == 2 || gpio == 12) caps |= PIN_CAP_BOOTSTRAP; // note: if GPIO12 must be low at boot, (high=1.8V flash mode), GPIO 2 must be low or floating to enter bootloader mode
+    #elif defined(CONFIG_IDF_TARGET_ESP32C5)
+    if (gpio == 28) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 27) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO28 is low for download mode
+    if (gpio == 2 || gpio == 3 || gpio == 7 || gpio == 25 || gpio == 26) caps |= PIN_CAP_BOOTSTRAP; // additional C5 strapping pins per Espressif boot configuration docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 4 || gpio == 5 || gpio == 15) caps |= PIN_CAP_BOOTSTRAP; // additional C6 strapping pins per Espressif strapping-pin docs
+    #elif defined(CONFIG_IDF_TARGET_ESP32C61)
+    if (gpio == 9) caps |= PIN_CAP_BOOT;   // pull low to enter bootloader mode
+    if (gpio == 8) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO9 is low for download mode
+    if (gpio == 7 || gpio == 3 || gpio == 4) caps |= PIN_CAP_BOOTSTRAP; //  GPIO7, MTMS, and MTDI are also strapping pins
+    #elif defined(CONFIG_IDF_TARGET_ESP32P4)
+    if (gpio == 35) caps |= PIN_CAP_BOOT;  // pull low to enter bootloader mode
+    if (gpio == 36) caps |= PIN_CAP_BOOTSTRAP; // must be high when GPIO35 is low for download mode    
     #endif
     #else
     // ESP8266: GPIO 0-16 + GPIO17=A0
