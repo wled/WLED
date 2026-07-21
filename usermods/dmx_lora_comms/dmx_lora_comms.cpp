@@ -13,6 +13,11 @@ class DmxLoRaComms : public Usermod {
         int dmxChannel = 0;
         int currentPreset = -1;
 
+        // Non-blocking receive accumulator — avoids blocking readStringUntil() in loop()
+        static constexpr size_t RX_BUF_SIZE = 512;
+        char    rxBuf[RX_BUF_SIZE];
+        uint16_t rxLen = 0;
+
     void setLoRaConfig() {
         Serial.println("Starting LoRa configuration...");
 
@@ -22,7 +27,6 @@ class DmxLoRaComms : public Usermod {
         LORA_SERIAL.println("+++");
         delay(1000); // Longer delay to ensure command mode
 
-        // Check for response after +++
         if (LORA_SERIAL.available()) {
             String response = LORA_SERIAL.readString();
             Serial.println("Command mode response: " + response);
@@ -65,32 +69,44 @@ class DmxLoRaComms : public Usermod {
     }
 
     void loop() override {
-        if (LORA_SERIAL.available()) {
-            String incoming = LORA_SERIAL.readStringUntil('\n');
-            Serial.println("Incoming: " + incoming);
-            incoming.trim();
+        // Accumulate bytes one at a time — never blocks the WLED main loop.
+        // readStringUntil() is intentionally avoided here: it blocks until '\n'
+        // arrives or the 1-second serial timeout expires, starving the LED pipeline.
+        while (LORA_SERIAL.available()) {
+            char c = (char)LORA_SERIAL.read();
+            if (c == '\n') {
+                rxBuf[rxLen] = '\0';
+                String incoming = String(rxBuf);
+                rxLen = 0;
+                incoming.trim();
+                if (incoming.length() == 0) continue;
 
-            DynamicJsonDocument doc(768);
-            DeserializationError err = deserializeJson(doc, incoming);
-            if (err) {
-                Serial.println("Invalid JSON: " + incoming);
-                Serial.println("Deserialization error: " + String(err.c_str()));
-                return;
-            }
-
-            Serial.println("Received LoRa message: " + incoming);
-            JsonObject obj = doc.as<JsonObject>();
-            String channelKey = String(dmxChannel);
-            Serial.println("Looking for key: " + channelKey);
-            if (obj.containsKey(channelKey)) {
-                uint8_t presetId = obj[channelKey].as<uint8_t>();
-                if (presetId > 0 && presetId != currentPreset) {
-                    Serial.println("Applying preset " + String(presetId) + " for DMX channel " + String(dmxChannel));
-                    applyPreset(presetId, CALL_MODE_BUTTON_PRESET);
-                    currentPreset = presetId;
+                DynamicJsonDocument doc(1024);
+                DeserializationError err = deserializeJson(doc, incoming);
+                if (err) {
+                    Serial.println("Invalid JSON: " + incoming);
+                    Serial.println("Deserialization error: " + String(err.c_str()));
+                    continue;
                 }
-            }
 
+                // Serial.println("Received LoRa message: " + incoming);
+                JsonObject obj = doc.as<JsonObject>();
+                String channelKey = String(dmxChannel);
+                // Serial.println("Looking for key: " + channelKey);
+                if (obj.containsKey(channelKey)) {
+                    uint8_t presetId = obj[channelKey].as<uint8_t>();
+                    if (presetId > 0 && presetId != currentPreset) {
+                        Serial.println("Applying preset " + String(presetId) + " for DMX channel " + String(dmxChannel));
+                        applyPreset(presetId, CALL_MODE_DIRECT_CHANGE);
+                        currentPreset = presetId;
+                    }
+                }
+            } else if (rxLen < RX_BUF_SIZE - 1) {
+                rxBuf[rxLen++] = c;
+            } else {
+                // Buffer overflow — discard and resync on next '\n'
+                rxLen = 0;
+            }
         }
     }
 
