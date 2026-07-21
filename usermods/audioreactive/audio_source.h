@@ -5,8 +5,8 @@
 #include <driver/adc.h>
 #include <soc/i2s_reg.h>  // needed for SPH0465 timing workaround (classic ESP32)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32S3) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-#include <driver/adc_deprecated.h>
+#if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)
+#include <driver/adc_deprecated.h>  // legacy ADC driver is not available any more in esp-idf V5.x.y
 #include <driver/adc_types_deprecated.h>
 #endif
 // type of i2s_config_t.SampleRate was changed from "int" to "unsigned" in IDF 4.4.x
@@ -571,7 +571,7 @@ class ES8388Source : public I2SSource {
 #endif
 #endif
 
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)  // legacy ADC driver is not available any more in esp-idf V5.x.y
 // ADC over I2S is only availeable in "classic" ESP32
 
 /* ADC over I2S Microphone
@@ -620,7 +620,7 @@ class I2SAdcSource : public I2SSource {
         DEBUGSR_PRINTF("Incompatible GPIO used for analog audio input: %d\n", _audioPin);
         return;
       } else {
-        adc_gpio_init(ADC_UNIT_1, adc_channel_t(channel));
+        adc_gpio_init(ADC_UNIT_1, adc_channel_t(channel));  // ToDO: this functions was removed in esp-idf v5 - we need a replacement
         _myADCchannel = channel;
       }
 
@@ -780,7 +780,7 @@ class SPH0654 : public I2SSource {
     void initialize(int8_t i2swsPin, int8_t i2ssdPin, int8_t i2sckPin, int8_t = I2S_PIN_NO_CHANGE) {
       DEBUGSR_PRINTLN(F("SPH0654:: initialize();"));
       I2SSource::initialize(i2swsPin, i2ssdPin, i2sckPin);
-#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32)
 // these registers are only existing in "classic" ESP32
       REG_SET_BIT(I2S_TIMING_REG(I2S_NUM_0), BIT(9));
       REG_SET_BIT(I2S_CONF_REG(I2S_NUM_0), I2S_RX_MSB_SHIFT);

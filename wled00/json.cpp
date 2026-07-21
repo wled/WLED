@@ -913,6 +913,8 @@ void serializeInfo(JsonObject root)
   #endif
   #ifndef WLED_DISABLE_FILESYSTEM
   os += 0x08;
+  #else
+    #error "WLED_DISABLE_FILESYSTEM is not supported any more"
   #endif
   #ifndef WLED_DISABLE_HUESYNC
   os += 0x04;
