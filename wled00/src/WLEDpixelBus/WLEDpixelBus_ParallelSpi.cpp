@@ -30,7 +30,9 @@ namespace WLEDpixelBus {
 // SPI Parallel Bus Implementation (ESP32-C3)
 //============================================
 
-// low level functions available in IDF V5 (not available in IDF V4, this is for future proofint)
+
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+// low level functions not available in IDF V4
 static inline void spi_ll_apply_config(spi_dev_t *hw) {
   hw->cmd.update = 1;
   while (hw->cmd.update);    //waiting config applied
@@ -39,6 +41,14 @@ static inline void spi_ll_apply_config(spi_dev_t *hw) {
 static inline void spi_ll_user_start(spi_dev_t *hw) {
   hw->cmd.usr = 1;
 }
+#define GPIO_HW &GPIO
+#define gpio_ll_set_func_sel(pin, sig) GPIO_HW->func_out_sel_cfg[pin].func_sel = sig
+#else
+#include "hal/gpio_ll.h" // need low level GPIO register access to disconnect pin inside the ISR
+#define GPIO_HW GPIO_LL_GET_HW(0)
+#define gpio_ll_set_func_sel(pin, sig) GPIO_HW->func_out_sel_cfg[pin].out_sel = SIG_GPIO_OUT_IDX;
+#endif
+
 
 
 // Pin assignments for SPI2 quad mode on C3
@@ -238,8 +248,13 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     //  disconnect pins from SPI to prevent garbage output (calling cmd.usr = 0 outputs a fast clock)
     for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++){
       if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
-          GPIO.func_out_sel_cfg[ctx->_channels[i].pin].func_sel = SIG_GPIO_OUT_IDX; // disconnect from SPI using direct register write (ISR safe)
-          GPIO.out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches note: if implementing this for other ESPs: need to also set the high register for pins >31
+          gpio_ll_set_func_sel(ctx->_channels[i].pin, SIG_GPIO_OUT_IDX); // disconnect from SPI using direct register write (ISR safe)
+          // set the pin to static level immediately,  note: if implementing this for other ESPs: need to also set the high register for pins >31
+          // TODO: check this work with inverted buses as intended, also check if we can use something a bit higher level (must be ISR safe so no rom functions)
+          if (ctx->_channels[i].inverted)
+            GPIO_HW->out_w1ts.out_w1ts = (1 << ctx->_channels[i].pin); // set ouput high (set) to avoid glitches
+          else
+            GPIO_HW->out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches note: if implementing this for other ESPs: need to also set the high register for pins >31
       }
     }
     ctx->_hw->cmd.usr = 0; // stop SPI user transfer

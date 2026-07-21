@@ -1208,9 +1208,9 @@ void WS2812FX::finalizeInit() {
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
   unsigned digitalCount = 0;
   unsigned rmtBusCount = 0;
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_HAS_PARALLEL_I2S)
+  #if defined(ARDUINO_ARCH_ESP32)
   // validate the bus config: count I2S buses and check if they meet requirements
-  unsigned i2sBusCount = 0;
+  unsigned i2sBusCount = 0; // TODO: this is now done in allocateHardware() and can be removed (but double check first)
   #endif
 
   for (const auto &bus : busConfigs) {
@@ -1248,7 +1248,7 @@ void WS2812FX::finalizeInit() {
   for (auto &bus : busConfigs) {
     if (BusManager::add(bus, false) != -1) {
       if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder())
-        digitalCount--; // placeholder does not consume a digital channel slot
+        digitalCount--; // placeholder does not consume a digital channel slot  TODO: check if allocateHardware respects max buses and remove this variable
     }
   }
   busConfigs.clear();
