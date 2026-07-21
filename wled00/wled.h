@@ -776,7 +776,7 @@ typedef class Udp {
       RgbConnected = c3;
     }
 } __attribute__ ((aligned(1), packed)) udp_port_t;
-WLED_GLOBAL udp_port_t udp _INIT_N(({21234, 65506, 19446, 0, false, false, false}));
+WLED_GLOBAL udp_port_t udp _INIT_N(({21324, 65506, 19446, 0, false, false, false}));
 #define udpPort         udp.Port
 #define udpPort2        udp.Port2
 #define udpRgbPort      udp.RgbPort
