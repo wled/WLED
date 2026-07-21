@@ -9,7 +9,9 @@
 */
 
 #ifdef WLED_DISABLE_2D
+#ifndef WLED_DISABLE_PARTICLESYSTEM2D
 #define WLED_DISABLE_PARTICLESYSTEM2D
+#endif
 #endif
 
 #if !(defined(WLED_DISABLE_PARTICLESYSTEM2D) && defined(WLED_DISABLE_PARTICLESYSTEM1D)) // not both disabled

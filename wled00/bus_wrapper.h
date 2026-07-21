@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #ifndef BusWrapper_h
 #define BusWrapper_h
 

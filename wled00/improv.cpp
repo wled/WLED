@@ -10,7 +10,7 @@
   #define DIMPROV_PRINTF(x...)
 #endif
 
-#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32S3)
+#if defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32S3) // ToDO check if C6, C61, P4 support this
 #undef WLED_DISABLE_IMPROV_WIFISCAN
 #define WLED_DISABLE_IMPROV_WIFISCAN
 #endif
@@ -94,7 +94,7 @@ void handleImprovPacket() {
             case ImprovRPCType::Request_State: {
               unsigned improvState = 0x02; //authorized
               if (WLED_WIFI_CONFIGURED) improvState = 0x03; //provisioning
-              if (Network.isConnected()) improvState = 0x04; //provisioned
+              if (WLEDNetwork.isConnected()) improvState = 0x04; //provisioned
               sendImprovStateResponse(improvState, false);
               if (improvState == 0x04) sendImprovIPRPCResult(ImprovRPCType::Request_State);
               break;
@@ -178,10 +178,10 @@ void sendImprovRPCResult(ImprovRPCType type, uint8_t n_strings, const char **str
 }
 
 void sendImprovIPRPCResult(ImprovRPCType type) {
-  if (Network.isConnected())
+  if (WLEDNetwork.isConnected())
   {
     char urlStr[64];
-    IPAddress localIP = Network.localIP();
+    IPAddress localIP = WLEDNetwork.localIP();
     unsigned len = sprintf(urlStr, "http://%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
     if (len > 24) return; //sprintf fail?
     const char *str[1] = {urlStr};
