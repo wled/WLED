@@ -12,7 +12,13 @@ Each bus can have individual configuration of color channels but all must share 
 
 #include "WLEDpixelBus_BitBang.h"
 #if defined(ARDUINO_ARCH_ESP32)
-#include "clk.h"    // esp_clk_cpu_freq()
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+  #include "esp_private/esp_clk.h"
+#else
+  #include "clk.h"    // esp_clk_cpu_freq()
+#endif
+
+
 #include "esp_cpu.h"
 #elif defined(ESP8266)
 #include <Arduino.h>
@@ -49,7 +55,11 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 #else
 
   static inline uint32_t getCycleCount() {
-    return esp_cpu_get_ccount(); // note: renamed to esp_cpu_get_cycle_count() in V5
+  #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    return esp_cpu_get_cycle_count(); 
+  #else
+    return esp_cpu_get_ccount();
+  #endif
   }
 #if defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
   static constexpr uint32_t LOOPTEST_CYCLES = 8;

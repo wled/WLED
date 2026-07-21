@@ -6,6 +6,17 @@ by @willmmiles, 2026
 
 #ifdef ARDUINO_ARCH_ESP32
 
+#include "esp_idf_version.h"
+
+// The high priority RMT driver is only available on the Xtensa-based ESP32, S2 and S3
+// (not on the RISC-V C3) and requires ESP-IDF < 5.0
+#if (defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)) \
+    && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
+#define WPB_USE_RMTHI
+#endif
+
+#ifdef WPB_USE_RMTHI
+
 #include <esp_err.h>
 #include "driver/rmt.h"
 #include "freertos/FreeRTOS.h"
@@ -27,4 +38,5 @@ namespace RmtHiDriver {
   esp_err_t WaitForTxDone(rmt_channel_t channel, TickType_t wait_time);
 };
 
-#endif
+#endif // WPB_USE_RMTHI
+#endif // ARDUINO_ARCH_ESP32

@@ -62,7 +62,6 @@ RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t 
   , _timing(timing)
   , _inverted(false)
   , _initialized(false)
-  , _usingRmtHi(false)
   , _rmtChannel(RMT_CHANNEL_0)
 {
   _encoder = ColorEncoder(colorOrder, numChannels, ledType);
@@ -181,38 +180,31 @@ bool RmtBus::begin() {
   #endif
 #endif
 
-  // Try to use the High Priority RMT driver (Neo rmtHi)
-  // NOTE: rmtHi can deadlock on some cores (notably ESP32-C3). By default we disable it
-  // on C3 builds, but it can be enabled explicitly with -DWLEDPB_ENABLE_RMT_HI.
-  _usingRmtHi = false;
-#if !defined(CONFIG_IDF_TARGET_ESP32C3) || defined(WLEDPB_ENABLE_RMT_HI)
-  esp_err_t hiErr = RmtHiDriver::Install(_rmtChannel, contexts[(int)_rmtChannel].bit0 , contexts[(int)_rmtChannel].bit1, contexts[(int)_rmtChannel].resetDuration, blocksToUse);
-  if (hiErr == ESP_OK) {
-    _usingRmtHi = true;
-  } else {
-  //DEBUG_PRINTF_P(PSTR("[WPB] rmtHi Install failed: %d, falling back to IDF driver\n"), hiErr);
+#ifdef WPB_USE_RMTHI
+  // Use the glitch-free high priority RMT driver (not available on C3 and IDF >= 5.0)
+  err = RmtHiDriver::Install(_rmtChannel, contexts[(int)_rmtChannel].bit0, contexts[(int)_rmtChannel].bit1, contexts[(int)_rmtChannel].resetDuration, blocksToUse);
+  if (err != ESP_OK) {
+    //DEBUG_PRINTF_P(PSTR("[WPB] rmtHi Install failed: %d\n"), err);
+    return false;
+  }
+#else
+  // Use the IDF rmt driver + translator
+  err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LOWMED));
+  if (err != ESP_OK) {
+    return false;
+  }
+
+  err = rmt_translator_init(_rmtChannel, callbacks[(int)_rmtChannel]);
+  if (err != ESP_OK) {
+    rmt_driver_uninstall(_rmtChannel);
+    return false;
   }
 #endif
 
-  if (!_usingRmtHi) {
-    // Fallback to IDF rmt driver + translator
-    err = rmt_driver_install(_rmtChannel, 0, (ESP_INTR_FLAG_IRAM | ESP_INTR_FLAG_LOWMED));
-    if (err != ESP_OK) {
-      return false;
-    }
-
-    err = rmt_translator_init(_rmtChannel, callbacks[(int)_rmtChannel]);
-    if (err != ESP_OK) {
-      rmt_driver_uninstall(_rmtChannel);
-      return false;
-    }
-  }
-
   // route the pin, use hardware signal inversion via GPIO matrix if _inverted
-  //gpio_matrix_out(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // note: in IDF V5 this is called esp_rom_gpio_connect_out_signal()
-  esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
+  esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
 
-  if (_initialized) esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false); // TODO: this is the new command in IDF V5, works in V4 too?
+  if (_initialized) esp_rom_gpio_connect_out_signal(_pin, RMT_SIG_OUT0_IDX + (int)_rmtChannel, _inverted, false);
 
   _initialized = true;
   activeChannelMask |= (1 << _channel);
@@ -224,11 +216,11 @@ void RmtBus::end() {
   if (!_initialized) return;
 
   activeChannelMask &= ~(1 << _channel);
-  if (_usingRmtHi) {
-    RmtHiDriver::Uninstall(_rmtChannel);
-  } else {
-    rmt_driver_uninstall(_rmtChannel);
-  }
+#ifdef WPB_USE_RMTHI
+  RmtHiDriver::Uninstall(_rmtChannel);
+#else
+  rmt_driver_uninstall(_rmtChannel);
+#endif
   if (_pin >= 0) {
     gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings
   }
@@ -236,7 +228,6 @@ void RmtBus::end() {
   // Free encode buffer with the same allocator used in allocateEncodeBuffer() (plain malloc)
   if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
   _initialized = false;
-  _usingRmtHi = false;
 }
 
 bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
@@ -245,20 +236,23 @@ bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 
   const size_t dataLen = _encodeBufferSize;
   esp_err_t err;
-  if (_usingRmtHi) {
-    err = (RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK);
-  } else {
-    err = rmt_wait_tx_done(_rmtChannel, 1000 / portTICK_PERIOD_MS); // wait 1s max
-    if (err == ESP_OK)
-      err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false); // CRITICAL BUG: crashes on C3 under heavy UI refresh, this line is reached, then it stalls for some unknown reason
-  }
+#ifdef WPB_USE_RMTHI
+  err = (RmtHiDriver::Write(_rmtChannel, _encodeBuffer, dataLen) == ESP_OK);
+#else
+  err = rmt_wait_tx_done(_rmtChannel, 1000 / portTICK_PERIOD_MS); // wait 1s max
+  if (err == ESP_OK)
+    err = rmt_write_sample(_rmtChannel, _encodeBuffer, dataLen, false); // CRITICAL BUG: crashes on C3 under heavy UI refresh, this line is reached, then it stalls for some unknown reason
+#endif
   return err;
 }
 
 bool RmtBus::canShow() const {
   if (!_initialized) return true;
-  if (_usingRmtHi) return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0)); // 0 timout means "poll and return immediately"
+#ifdef WPB_USE_RMTHI
+  return (ESP_OK == RmtHiDriver::WaitForTxDone(_rmtChannel, 0)); // 0 timout means "poll and return immediately"
+#else
   return (ESP_OK == rmt_wait_tx_done(_rmtChannel, 0));
+#endif
 }
 
 void RmtBus::setInverted(bool inv) {

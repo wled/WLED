@@ -8,7 +8,7 @@ I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure 
 
 RMT bus works on ESP32, S3, S2 and C3
 Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
-The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3
+The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3 and not at all in IDF V5
 
 -------------------------------------------------------------------------*/
 
@@ -24,7 +24,7 @@ The glitch-free high priority interrupt implementation by @willmmiles is not ava
 
 #include "WLEDpixelBus.h"
 #include "driver/rmt.h"
-#include "RmtHIDriver.h"
+#include "RmtHIDriver.h"  // high interrupt priority driver, only on ESP32, S2, S3 using IDF V4
 #include "esp_rom_gpio.h" // for gpio routing to set inverted signal
 
 namespace WLEDpixelBus {
@@ -72,7 +72,6 @@ private:
   bool _initialized;
   LedTiming _timing;
   rmt_channel_t _rmtChannel;
-  bool _usingRmtHi; // TODO: use #ifdef only and remove this variable
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
   static uint8_t expectedChannels; // TODO: make none static

@@ -4,12 +4,12 @@ by @willmmiles, 2026
 -------------------------------------------------------------------------*/
 
 #include <Arduino.h>
-
-#if defined(ARDUINO_ARCH_ESP32)
-
-#include <algorithm>
 #include "esp_idf_version.h"
 #include "RmtHIDriver.h"
+
+#if defined(WPB_USE_RMTHI)
+
+#include <algorithm>
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
 
