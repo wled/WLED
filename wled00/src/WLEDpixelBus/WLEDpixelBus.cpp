@@ -21,6 +21,15 @@ Currently based on IDF v4.x API functions and low-level HAL
 
 -------------------------------------------------------------------------*/
 
+/*
+TODO List
+- size DMA buffers such that the buffer completes one LED
+- add PARLIO support (available on new ESP32 variants)
+- C6 using BB out the first two LEDs flicker
+- C6 when using RMT leads to "FX ram error" in UI and single 1 pixel segment. something may be wrong in bus creation?
+*/
+
+
 #include "WLEDpixelBus.h"
 
 namespace WLEDpixelBus {
@@ -217,7 +226,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
   // TODO: need to re-order the colorOrder here to match how NPB is mapping the colors or user configs will be wrong. NPB uses IC datasheet orders (to be confirmed)
   // for example, SM16825 is RGBWY order on the chip. 
   switch (driver) {
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(ESP32)
     case BusDriver::RMT:
       bus = new RmtBus(pin, timing, colorOrder, numChannels, ledType);
       break;
@@ -252,6 +261,11 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
     case BusDriver::DMA:
       bus = new Esp8266DmaBus(pin, timing, colorOrder, numChannels, ledType);
       break;
+    case BusDriver::BitBang:
+      bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
+      break;
+#elif (WLED_MAX_BB_CHANNELS > 0)
+    // remaining ESP32 variants (C5/C6/C61/P4): BitBang is the only supported driver so far
     case BusDriver::BitBang:
       bus = new BitBangBus(pin, timing, colorOrder, numChannels, ledType);
       break;

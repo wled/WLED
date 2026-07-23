@@ -122,7 +122,7 @@ struct CustomBusConfig {
 // Driver preference for digital LED buses: stored in BusConfig::driverType and BusDigital::_driverType
 enum BusDriverType : uint8_t {
   BUSDRV_RMT     = 0, // RMT peripheral (default on most ESP32 variants)
-  BUSDRV_I2S     = 1, // I2S / LCD / parallel-SPI (chip-dependent)
+  BUSDRV_I2S     = 1, // I2S / LCD / parallel-SPI (chip-dependent)  TODO: rename this, in the future this can also be PARLIO
   BUSDRV_BITBANG = 2, // parallel bit-bang GPIO (ESP32 only)
 };
 

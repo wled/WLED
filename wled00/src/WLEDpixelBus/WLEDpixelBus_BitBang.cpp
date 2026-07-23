@@ -54,9 +54,9 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
   static constexpr uint32_t LOOPTEST_CYCLES = 16; // TODO: LOOPTEST_CYCLES values may need fine-tuning after final implementation (this is what I found most precise for current state of things)
 #else
 
-  static inline uint32_t getCycleCount() {
+  static inline __attribute__((always_inline)) uint32_t getCycleCount() {
   #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-    return esp_cpu_get_cycle_count(); 
+    return esp_cpu_get_cycle_count();
   #else
     return esp_cpu_get_ccount();
   #endif
@@ -324,7 +324,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
   // the given bit index.  Channels that have exhausted their pixel data also
   // output '0'.  Bit order is MSB-first within each byte.
 #ifdef ESP_HAS_HIGH_GPIO_BANK
-  auto computeZeroMasks = [&](uint32_t bitIndex, uint32_t& zmLow, uint32_t& zmHigh) {
+  auto computeZeroMasks = [&](uint32_t bitIndex, uint32_t& zmLow, uint32_t& zmHigh) __attribute__((always_inline)) {
     const uint32_t byteIndex = bitIndex >> 3;
     const uint8_t  bitMask = 0x80u >> (bitIndex & 7u);
     zmLow = 0; zmHigh = 0;
@@ -336,7 +336,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
     }
   };
 #else
-  auto computeZeroMask = [&](uint32_t bitIndex) -> uint32_t {
+  auto computeZeroMask = [&](uint32_t bitIndex) __attribute__((always_inline)) -> uint32_t {
     const uint32_t byteIndex = bitIndex >> 3;
     const uint8_t bitMask = 0x80u >> (bitIndex & 7u);
     uint32_t zm = 0;
@@ -367,7 +367,7 @@ bool IRAM_ATTR BitBangBus::outputParallel() {
       uint32_t zeroMask = computeZeroMask(bitIndex);
     #endif
 
-      while ((getCycleCount() - cyclesStart) < period);
+    while ((getCycleCount() - cyclesStart) < period);
 
       // Set all outputs HIGH simultaneously
     #ifdef ESP_HAS_HIGH_GPIO_BANK

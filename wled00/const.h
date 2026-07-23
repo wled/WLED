@@ -108,6 +108,16 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
     #endif
     #define WLED_MAX_BB_CHANNELS 0          // max parallel BitBang channels, 0 means unused (saves some flash and RAM)
     #define WLED_PLATFORM_ID 3              // used in UI to distinguish ESP type in UI, needs a proper fix!
+  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    #define WLED_MAX_RMT_CHANNELS 0         // ESP32-C6 has 2 RMT output channels -> output does not work yet, so currently disabled
+    #define WLED_MAX_I2S_CHANNELS 0         // TODO: need to implement PARLIO
+    #define WLED_MAX_BB_CHANNELS 8          // max parallel BitBang channels
+    #define WLED_PLATFORM_ID 4              // used in UI to distinguish ESP types, needs a proper fix!
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    #define WLED_MAX_RMT_CHANNELS 0         // RMT driver not yet supported on these targets  TODO: does RMT work on all targets?
+    #define WLED_MAX_I2S_CHANNELS 0         // no parallel I2S/LCD/SPI driver support on these targets yet
+    #define WLED_MAX_BB_CHANNELS 8          // BitBang is currently the only digital LED driver on these targets
+    #define WLED_PLATFORM_ID 4              // used in UI to distinguish ESP type in UI, needs a proper fix!
   #else
     #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
     #ifdef WLED_PIXELBUS_16PARALLEL

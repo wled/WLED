@@ -618,7 +618,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing,
 
 #include "WLEDpixelBus_SPI.h"
 
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3)
+#if defined(ESP32)
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_ParallelSpi.h"

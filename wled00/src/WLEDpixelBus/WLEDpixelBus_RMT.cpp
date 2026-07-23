@@ -107,13 +107,11 @@ bool RmtBus::begin() {
   if (allocatedCount >= expectedChannels || allocatedCount >= maxTxChannels)
     return false;
 
-  uint8_t totalBlocks;
+  uint8_t totalBlocks = 4; // default to 4 if unknown, should be safe
 #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S3)
   totalBlocks = 8; // ESP32 and S3 have 8 blocks of RMT memory
-#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3) // note: C6 RMT hardware is the same as C3
+#elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32C3)  || defined(CONFIG_IDF_TARGET_ESP32C6)// note: C6 RMT hardware is the same as C3
   totalBlocks = 4; // other supported ESP32 variants have 4 blocks
-#else
-  totalBlocks = 4; // default to 4 if unknown, should be safe
 #endif
 
   int left_channels = expectedChannels - allocatedCount - 1;

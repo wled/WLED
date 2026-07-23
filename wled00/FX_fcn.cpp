@@ -13,7 +13,7 @@
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "colors.h"
 #if defined(ARDUINO_ARCH_ESP32)
-#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h" // needed for setExpectedChannels()
 #endif
 
 /*
@@ -1206,50 +1206,32 @@ void WS2812FX::finalizeInit() {
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
-  unsigned digitalCount = 0;
-  unsigned rmtBusCount = 0;
+  // First assign driver types (RMT/I2S/... channels) for all buses before any are constructed,
+  // because parallel buses interact during channel assignment. If hardware allocation fails
+  // (no free channels), the bus is still constructed below and will fail initialization;
+  // BusManager::add() then replaces it with a BusPlaceholder.
   #if defined(ARDUINO_ARCH_ESP32)
-  // validate the bus config: count I2S buses and check if they meet requirements
-  unsigned i2sBusCount = 0; // TODO: this is now done in allocateHardware() and can be removed (but double check first)
+  unsigned rmtBusCount = 0;
   #endif
-
-  for (const auto &bus : busConfigs) {
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
-      digitalCount++;
-      //#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
-      #if defined(ARDUINO_ARCH_ESP32)
-      if (bus.driverType == BUSDRV_I2S)
-        i2sBusCount++;
-      else
-        rmtBusCount++;
-      #endif
-    }
+  for (auto &bus : busConfigs) {
+    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
+    #if defined(ARDUINO_ARCH_ESP32)
+    // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && bus.driverType == BUSDRV_RMT)
+      rmtBusCount++;
+    #endif
   }
 
-  //#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3)
   #if defined(ARDUINO_ARCH_ESP32)
-  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
-  #endif
-
-  #if defined(ARDUINO_ARCH_ESP32)
-  WLEDpixelBus::RmtBus::resetAutoChannel();
+  DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u\n"), rmtBusCount);
+  // RMT channel tracking was already reset by BusManager::removeAll() -> resetChannelTracking()
   WLEDpixelBus::RmtBus::setExpectedChannels((uint8_t)rmtBusCount);
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
-  // Pass 1: assign driver types (RMT/I2S channels) for all buses before any are constructed,
-  // because parallel I2S buses interact during channel assignment.
+  // Now construct each bus. BusManager::add() automatically falls back to a BusPlaceholder if it fails
   for (auto &bus : busConfigs) {
-    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
-  }
-  // Pass 2: construct each bus. BusManager::add() automatically falls back to a BusPlaceholder
-  // (and sets errorFlag) if a bus fails to initialize (OOM, DMA failure, pin conflict, etc.).
-  // The placeholder preserves the full config so the bus is retried on the next reboot.
-  for (auto &bus : busConfigs) {
-    if (BusManager::add(bus, false) != -1) {
-      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder())
-        digitalCount--; // placeholder does not consume a digital channel slot  TODO: check if allocateHardware respects max buses and remove this variable
-    }
+    BusManager::add(bus, false);
   }
   busConfigs.clear();
   busConfigs.shrink_to_fit();
