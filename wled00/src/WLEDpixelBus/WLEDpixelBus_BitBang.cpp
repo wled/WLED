@@ -273,7 +273,8 @@ void BitBangBus::resetChannels() {
 // have fewer pixels than maxPixels simply output '0' bits once their data ends
 // Note: checked for speed, this is pretty much optimal, no need to use O2 or optimize further
 // ---------------------------------------------------------------------------
-bool IRAM_ATTR BitBangBus::outputParallel() {
+//note the noinline attribute is needed so the compiler is forced to put this into IRAM
+bool IRAM_ATTR __attribute__((noinline)) BitBangBus::outputParallel() {
   if (!_BBs || _BBs->channelCount == 0) return true;
   // cache for speed
   const uint32_t t0h          = _BBs->t0h;

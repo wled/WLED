@@ -25,8 +25,9 @@ Currently based on IDF v4.x API functions and low-level HAL
 TODO List
 - size DMA buffers such that the buffer completes one LED
 - add PARLIO support (available on new ESP32 variants)
-- C6 using BB out the first two LEDs flicker
-- C6 when using RMT leads to "FX ram error" in UI and single 1 pixel segment. something may be wrong in bus creation?
+- Fix RMT support for C6 (and with it probably other new chips)
+
+
 */
 
 
