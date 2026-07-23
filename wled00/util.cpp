@@ -1452,6 +1452,7 @@ static void getLegacyAdcCoeffs(uint32_t *coeff_a, uint32_t *coeff_b) {
 }
 #endif // S3 or C3
 #else // not ESP32, S2, C3 or S3 and V5: read data from efuse BLOCK2 as salt
+#include "esp_efuse.h"
 uint32_t get_calib_entropy(void) {
   // Bytes 0-15 are OPTIONAL_UNIQUE_ID, which may be all-zero (undocumented feature)
   // Bytes 16+ fall in the calibration-trim region (temp calib, ADC init codes, etc.),
