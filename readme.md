@@ -56,6 +56,7 @@ Originally created by [Aircoookie](https://github.com/Aircoookie), now maintaine
 - [Adalight / TPM2](https://kno.wled.ge/interfaces/serial/) (PC ambilight via serial)
 - [Infrared remote control](https://kno.wled.ge/interfaces/infrared/) (24-key RGB, receiver required)
 - Timers and schedules (NTP time sync, full timezone and DST support)
+- **WebSocket** realtime sync for other incompatible broadcast sources (browser-based applications such as [WSync LED](https://github.com/Antonin1106/WSync-LED)).
 
 ### Developer-Friendly
 - **Usermod system** — extend WLED with community or custom modules without modifying core code

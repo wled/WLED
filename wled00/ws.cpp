@@ -13,12 +13,39 @@ constexpr uint8_t BINARY_PROTOCOL_GENERIC = 0xFF; // generic / auto detect NOT I
 constexpr uint8_t BINARY_PROTOCOL_E131    = P_E131; // = 0, untested!
 constexpr uint8_t BINARY_PROTOCOL_ARTNET  = P_ARTNET; // = 1, untested!
 constexpr uint8_t BINARY_PROTOCOL_DDP     = P_DDP; // = 2
+constexpr uint8_t BINARY_PROTOCOL_RAW_RGB = 0x10; // WS reception
 
 static uint16_t wsLiveClientId = 0;
 static unsigned long wsLastLiveTime = 0;
 //static uint8_t* wsFrameBuffer = nullptr;
 
 #define WS_LIVE_INTERVAL 40
+
+void handleRawRGB(const uint8_t *data, size_t packetLength)
+{
+  realtimeLock(
+      realtimeTimeoutMs,
+      REALTIME_MODE_GENERIC);
+
+  if (realtimeOverride)
+    return;
+
+  // Number of leds
+  const uint16_t ledCount = min(strip.getLengthTotal(), (uint16_t)(packetLength / 3)); // R, G, B so /3
+
+  // Set all leds to the color received
+  for (uint16_t i = 0, o = 0; i < ledCount; i++, o += 3)
+  {
+    setRealtimePixel(
+        i,
+        data[o],
+        data[o + 1],
+        data[o + 2],
+        0);
+  }
+
+  e131NewData = true;
+}
 
 void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventType type, void * arg, uint8_t *data, size_t len)
 {
@@ -94,7 +121,11 @@ void wsEvent(AsyncWebSocket * server, AsyncWebSocketClient * client, AwsEventTyp
             break;
           case BINARY_PROTOCOL_DDP:
             handleE131Packet((e131_packet_t*)&data[offset], client->remoteIP(), P_DDP, len - offset);
-        }
+          case BINARY_PROTOCOL_RAW_RGB:
+            realtimeIP = client->remoteIP();
+            handleRawRGB(&data[offset], len - offset);
+            break;
+          }
       }
     } else {
       DEBUG_PRINTF_P(PSTR("WS multipart message: final %u index %u len %u total %u\n"), info->final, info->index, len, (uint32_t)info->len);
