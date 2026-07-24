@@ -142,7 +142,7 @@ void DMXInput::init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortN
     return;
   }
 
-  if ((rxPin >= 0) && (enPin >= 0) && (txPin >= 0)) {
+  if ((rxPin > 0) && (enPin > 0) && (txPin > 0)) {
 
     const managed_pin_type pins[] = {
         {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.
