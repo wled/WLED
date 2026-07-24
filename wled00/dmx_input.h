@@ -12,7 +12,7 @@
 class DMXInput
 {
 public:
-  void init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum);
+  void init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortNum);
   void update();
 
   /**disable dmx receiver (do this before disabling the cache)*/

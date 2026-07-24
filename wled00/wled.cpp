@@ -532,7 +532,7 @@ void WLED::setup()
   initDMX();
 #endif
 #ifdef WLED_ENABLE_DMX_INPUT
-  const uint8_t dmxInputPortNumber = 2; //TODO turn into config variable?!
+  constexpr uint8_t dmxInputPortNumber = 2; //TODO turn into config variable?!
   dmxInput.init(dmxInputReceivePin, dmxInputTransmitPin, dmxInputEnablePin, dmxInputPortNumber);
 #endif
 

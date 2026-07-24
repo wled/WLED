@@ -122,7 +122,7 @@ bool DMXInput::installDriver()
   return true;
 }
 
-void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPortNum)
+void DMXInput::init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortNum)
 {
 
 #ifdef WLED_ENABLE_DMX_OUTPUT
@@ -142,7 +142,7 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     return;
   }
 
-  if (rxPin > 0 && enPin > 0 && txPin > 0) {
+  if ((rxPin >= 0) && (enPin >= 0) && (txPin >= 0)) {
 
     const managed_pin_type pins[] = {
         {(int8_t)txPin, false}, // these are not used as gpio pins, thus isOutput is always false.
@@ -151,9 +151,9 @@ void DMXInput::init(uint8_t rxPin, uint8_t txPin, uint8_t enPin, uint8_t inputPo
     const bool pinsAllocated = PinManager::allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
     if (!pinsAllocated) {
       DEBUG_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
-      DEBUG_PRINTF("rx in use by: %s\n", PinManager::getPinOwner(rxPin));
-      DEBUG_PRINTF("tx in use by: %s\n", PinManager::getPinOwner(txPin));
-      DEBUG_PRINTF("en in use by: %s\n", PinManager::getPinOwner(enPin));
+      DEBUG_PRINTF("rx in use by: %u\n", unsigned(PinManager::getPinOwner(rxPin)));
+      DEBUG_PRINTF("tx in use by: %u\n", unsigned(PinManager::getPinOwner(txPin)));
+      DEBUG_PRINTF("en in use by: %u\n", unsigned(PinManager::getPinOwner(enPin)));
       return;
     }
 
