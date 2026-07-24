@@ -463,7 +463,11 @@ WLED_GLOBAL bool arlsForceMaxBri _INIT(false);                    // enable to f
   WLED_GLOBAL int dmxInputTransmitPin _INIT(-1);
   WLED_GLOBAL int dmxInputReceivePin _INIT(-1);
   WLED_GLOBAL int dmxInputEnablePin _INIT(-1);
+  #if defined(ARDUINO_ARCH_ESP32) && (SOC_UART_NUM > 2)
   WLED_GLOBAL int dmxInputPort _INIT(2);
+  #else
+  WLED_GLOBAL int dmxInputPort _INIT(1);  // some MCUs only have two UART units
+  #endif
   WLED_GLOBAL DMXInput dmxInput;
 #endif
 
