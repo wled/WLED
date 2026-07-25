@@ -184,9 +184,9 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
     //memset(dst, 0x00, DEFAULT_DMA_BUFFER_SIZE); // TODO: memset is not ISR IRAM safe?
   }
 
-  if (_state == SpiState::WaitingReset) {
+  /*if (_state == SpiState::WaitingReset) {
     return; // No encoding needed; just return and send reset pulse (all zeros)
-  }
+  }*/
 
   size_t maxSrcThisChunk = DEFAULT_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
   size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
@@ -287,13 +287,14 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
 
   // If we're in WaitingReset, this EOF means the reset pulse buffer
   // has been sent. The transfer is complete.
+  /*
   if (ctx->_state == SpiState::WaitingReset) {
     // Stop DMA and SPI cleanly
     ctx->hwStopTransfer();
     ctx->_state = SpiState::Idle;
     portEXIT_CRITICAL_ISR(&ctx->_isrMux);
     return;
-  }
+  }*/
 
   // Fill the completed buffer with next chunk of data (or zeroes for reset)
   ctx->encodeSpiChunk(completedBuf);
@@ -397,7 +398,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
   dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
 
-  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, gdmaISR, this, &_gdmaIsrHandle); // note: saw no flickering even when using level1
+  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, gdmaISR, this, &_gdmaIsrHandle); // note: saw no flickering even when using level1
   if (err != ESP_OK) {
     //Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
@@ -409,7 +410,7 @@ bool SpiBusContext::init(const LedTiming& timing) {
   _hw->dma_int_ena.trans_done = 1;
   _hw->dma_int_ena.outfifo_empty_err = 1;
   // _hw->dma_int_ena.val = 0xFFFFFFFF; // REMOVED: Do not enable all interrupts, they trigger false aborts!
-  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL2, spiISR, this, &_spiIsrHandle);
+  err = esp_intr_alloc(ETS_SPI2_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, spiISR, this, &_spiIsrHandle);
   if (err != ESP_OK) {
     //Serial.printf("[SPI] SPI ISR alloc failed: %d\n", err);
     deinit();
@@ -549,6 +550,8 @@ bool SpiBusContext::startTransmit() {
   gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
 
   spi_ll_clear_int_stat(_hw);
+  _hw->dma_int_ena.trans_done = 1; // re-enable interrupts in case they got disabled due to error
+  _hw->dma_int_ena.outfifo_empty_err = 1;
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
 
@@ -591,7 +594,7 @@ bool SpiBusContext::startTransmit() {
   portEXIT_CRITICAL(&_isrMux);
   return true;
 }
-
+/*
 void SpiBusContext::hwStopTransfer() {
   if (_hw) {
     _hw->cmd.usr = 0;
@@ -608,7 +611,7 @@ void SpiBusContext::hwResetFifo() {
     spi_ll_outfifo_empty_clr(_hw);
   }
 }
-
+*/
 ///////////////////////////////////
 // ParallelSpiBus implementation //
 ///////////////////////////////////

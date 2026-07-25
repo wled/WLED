@@ -29,6 +29,20 @@ namespace WLEDpixelBus {
 #define WLEDPB_SPI_GDMA_CHANNEL 1 // TODO: how to manage the DMA channels to avoid conflicts with other peripherals? for now we just assume channel 1 is free and used exclusively by this driver
 #define WLEDPB_SPI_GDMA_INTR_SOURCE ETS_DMA_CH1_INTR_SOURCE // must match dma channel (otherwise it just loops the two DMA descriptors and will eventually time-out)
 
+// TODO: use more modern GMDA channel reservation to get rid of hard ceded GDMA_CHANNEL, something like this:
+/*
+// in init(), replacing the hardcoded WLEDPB_SPI_GDMA_CHANNEL
+gdma_channel_alloc_config_t allocCfg = {};
+allocCfg.direction = GDMA_CHANNEL_DIRECTION_TX;
+esp_err_t err = gdma_new_ahb_channel(&allocCfg, &_gdmaChan); // new member: gdma_channel_handle_t _gdmaChan
+if (err != ESP_OK) {
+  deinit();
+  return false; // no free TX channel (RMT/I2S/... took them all) -> clean failure instead of silent corruption
+}
+gdma_get_channel_id(_gdmaChan, &_dmaChan); // new member: int _dmaChan
+*/
+
+
 class ParallelSpiBus;
 
 /**
