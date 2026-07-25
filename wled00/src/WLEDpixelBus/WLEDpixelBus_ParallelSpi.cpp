@@ -33,12 +33,12 @@ namespace WLEDpixelBus {
 
 #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
 // low level functions not available in IDF V4
-static inline void spi_ll_apply_config(spi_dev_t *hw) {
+static inline void IRAM_ATTR spi_ll_apply_config(spi_dev_t *hw) {
   hw->cmd.update = 1;
   while (hw->cmd.update);    //waiting config applied
 }
 
-static inline void spi_ll_user_start(spi_dev_t *hw) {
+static inline void IRAM_ATTR spi_ll_user_start(spi_dev_t *hw) {
   hw->cmd.usr = 1;
 }
 #define GPIO_HW &GPIO
@@ -65,7 +65,13 @@ static constexpr uint16_t SPI_ONE_BIT  = 0x0111;  // output: [1,1,1,0] = 75% hig
 static constexpr uint32_t SPI_RESET_BITS = 1024;
 
 // Maximum bits per SPI user transfer (18-bit length register on C3 SPI_MS_DLEN_REG)
-static constexpr uint32_t SPI_MAX_BITS = 262143; // note: 4x parallel, 4 steps -> 16bits per source bit, 2kbyte or 680 RGB LEDs max (tested, confirmed) TODO: restrict in UI to 2048 source bytes
+static constexpr uint32_t SPI_MAX_BITS = 262143; // note: 4x parallel, 4 steps -> 16bits per source bit, 2kbyte or 680 RGB LEDs max (tested, confirmed)
+// Chained segment size in whole source bytes (128 SPI bits each), just under SPI_MAX_BITS.
+// Longer frames are sent as multiple back-to-back transfers, chained in the trans_done ISR.
+// The DMA stream is not affected by segment boundaries - only the SPI bit length is.
+static constexpr uint32_t SPI_SEG_BITS = 2047 * 128; // 262016 bits = 2047 source bytes
+// Maximum chained segments per frame (2 segments ~= 1364 RGB LEDs)
+#define WLEDPB_SPI_MAX_SEGMENTS 2
 
 SpiBusContext* SpiBusContext::_instance = nullptr;
 uint8_t SpiBusContext::_refCount = 0;
@@ -97,6 +103,7 @@ SpiBusContext::SpiBusContext()
   , _channelCount(0)
   , _framePos(0)
   , _numBytes(0)
+  , _bitsLeft(0)
   , _lastTransmitMs(0)
   , _stagedMask(0)
   , _channelMask(0)
@@ -118,7 +125,17 @@ bool SpiBusContext::isIdle() const {
   if (_state == SpiState::Idle) return true;
 
   // If we're in an error state, clean up the SPI state, then we are ready transmit again
-  if (_state == SpiState::Error || _hw->cmd.usr == 0) {
+  if (_state == SpiState::Error) {
+    forceIdle();
+    return true;
+  }
+
+  if (_hw->cmd.usr == 0) {
+    for (volatile int i = 0; i < 200; i++) {
+      if (_hw->cmd.usr != 0) return false;       // chained segment restarted, all good
+      if (_state == SpiState::Idle) return true; // trans_done ISR completed normally
+    }
+    // SPI genuinely stopped without completing: trans_done ISR was lost.
     forceIdle();
     return true;
   }
@@ -218,7 +235,19 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   uint32_t status = ctx->_hw->dma_int_st.val;
   ctx->_hw->dma_int_clr.val = status; // Clear all flags immediately
   if (status & SPI_TRANS_DONE_INT_ST) {
-      ctx->_state = SpiState::Idle; // Normal transfer completion. SPI has finished all bits.
+    if (ctx->_bitsLeft > 0) {
+      // Chain the next segment. The circular DMA never stopped, so the TX FIFO already
+      // holds the next bits: only re-arm the bit length and restart. Do NOT touch the
+      // FIFO or DMA here - that would break bit-stream continuity and stall the restart.
+      uint32_t bits = (ctx->_bitsLeft > (int32_t)SPI_SEG_BITS) ? SPI_SEG_BITS : (uint32_t)ctx->_bitsLeft;
+      ctx->_bitsLeft -= (int32_t)bits;
+      spi_ll_set_mosi_bitlen(ctx->_hw, bits);
+      spi_ll_apply_config(ctx->_hw); // fast handshake, sub-microsecond
+      spi_ll_user_start(ctx->_hw);   // clock resumes ~1-2us after the last bit
+      // state stays Sending; encode/DMA are unaffected by segment boundaries
+    } else {
+      ctx->_state = SpiState::Idle; // last segment finished (includes the reset tail)
+    }
   }
   else if (status & SPI_DMA_OUTFIFO_EMPTY_ERR_INT_ST) {
     if (ctx->_state == SpiState::Idle) return; // state machine finished cleanly, ignore
@@ -508,17 +537,18 @@ bool SpiBusContext::startTransmit() {
     }
   }
   _numBytes = newBytes;
+// clamp to chain capacity (tail pixels simply keep their previous values)
+  const size_t maxBytes = 2047 * WLEDPB_SPI_MAX_SEGMENTS;
+  if (_numBytes > maxBytes) _numBytes = maxBytes;
 
   // Total bits: 16 DMA bytes per source byte * 8 bits/byte = 128 bits per source byte
-  // Plus reset: extra zero bits at the end
+  // Plus reset: extra zero bits at the end (in the last segment).
+  // Frames longer than one transfer are chained in the trans_done ISR.
   uint32_t dataBits = _numBytes * 16 * 8;
-  uint32_t totalBits;
+  uint32_t totalBits = dataBits + SPI_RESET_BITS;
 
-  if (dataBits + SPI_RESET_BITS > SPI_MAX_BITS) {
-    totalBits = SPI_MAX_BITS; // frame does not fit, truncate (cant send more than SPI_MAX_BITS, hardware limitation)
-  } else {
-    totalBits = dataBits + SPI_RESET_BITS; // frame fits into max transfer size
-  }
+  uint32_t firstBits = (totalBits > SPI_SEG_BITS) ? SPI_SEG_BITS : totalBits;
+  _bitsLeft = (int32_t)(totalBits - firstBits); // remaining bits are chained by the ISR
 
   // Wait for SPI to be idle
   uint32_t timeout = 100;
@@ -542,7 +572,7 @@ bool SpiBusContext::startTransmit() {
   spi_ll_dma_tx_fifo_reset(_hw);
   spi_ll_outfifo_empty_clr(_hw);
 
-  spi_ll_set_mosi_bitlen(_hw, totalBits);
+  spi_ll_set_mosi_bitlen(_hw, firstBits);
 
   // Re-initialize DMA descriptors and encode initial buffers
   _framePos = 0;

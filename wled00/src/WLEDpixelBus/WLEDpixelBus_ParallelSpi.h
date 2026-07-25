@@ -117,6 +117,7 @@ private:
   uint8_t _channelCount;
   volatile size_t _framePos;   // current source byte position
   volatile size_t _numBytes;   // total source bytes to send
+  volatile int32_t _bitsLeft;  // bits still to send in chained segments (0 = last segment)
   mutable uint32_t _lastTransmitMs;
   // Staging: tracks which channels have provided data for the next frame
   mutable uint8_t _stagedMask;
