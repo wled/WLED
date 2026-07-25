@@ -24,14 +24,15 @@ struct LedTiming {
   uint16_t t0l_ns;    // '0' bit low time
   uint16_t t1h_ns;    // '1' bit high time
   uint16_t t1l_ns;    // '1' bit low time
-  uint32_t reset_us;  // Reset/latch time in microseconds // TODO: globally limit this? RMT can do ~800us max (32767 ticks of 25ns)
+  uint32_t reset_us;  // Reset/latch time in microseconds // TODO: globally limit this? RMT can do ~800us max (32767 ticks of 25ns) -> better use timer instead
 
   constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
     : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}
 
-  // Calculate bit period in ns as the average of all four pulse timings
+  // Calculate bit period in ns: used in hw-parallel buses only. since t0h is most critical and we do 4-step encoding, make the period 4*t0h
+  // we do not have the flexibility of RMT or BB outputs: t1h is fixed at t0h*3
   constexpr uint32_t bitPeriod() const {
-    return (t0h_ns + t0l_ns + t1h_ns + t1l_ns) / 2;
+    return t0h_ns * 4;
   }
 };
 
