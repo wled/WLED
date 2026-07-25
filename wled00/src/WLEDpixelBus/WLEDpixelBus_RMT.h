@@ -6,8 +6,10 @@ written by Damian Schneider @dedehai 2026
 
 I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
 
-RMT bus works on ESP32, S3, S2 and C3
+RMT bus works on ESP32, S3, S2 and C3 (C6/H2 on IDF V5)
 Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
+IDF V5: uses the new rmt_tx driver with bytes encoder; the reset/latch gap is enforced in show()
+        via a TX-done event callback timestamp instead of being encoded into the waveform
 The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3 and not at all in IDF V5
 
 -------------------------------------------------------------------------*/
@@ -23,9 +25,16 @@ The glitch-free high priority interrupt implementation by @willmmiles is not ava
 #endif
 
 #include "WLEDpixelBus.h"
-#include "driver/rmt.h"
-#include "RmtHIDriver.h"  // high interrupt priority driver, only on ESP32, S2, S3 using IDF V4
-#include "esp_rom_gpio.h" // for gpio routing to set inverted signal
+#include "esp_idf_version.h"
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
+  #include "driver/rmt_tx.h"
+  #include "driver/rmt_encoder.h"
+#else
+  #include "driver/rmt.h"
+  #include "RmtHIDriver.h"  // high interrupt priority driver, only on ESP32, S2, S3 using IDF V4
+  #include "esp_rom_gpio.h" // for gpio routing to set inverted signal
+#endif
 
 namespace WLEDpixelBus {
 
@@ -71,14 +80,20 @@ private:
   bool _inverted;
   bool _initialized;
   LedTiming _timing;
-  rmt_channel_t _rmtChannel;
 
-  // _encodeBuffer and _encodeBufferSize are in PixelBus base
-  static uint8_t expectedChannels; // TODO: make none static
-  static uint8_t allocatedCount;
-  static uint8_t currentChannelIndex;
-  static uint8_t usedBlocks;
-  static uint8_t activeChannelMask; // bitmask of initialized channels
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
+  // ---- IDF V5: new RMT driver (rmt_tx + bytes encoder) ----
+  rmt_channel_handle_t  _rmtChannel = nullptr;
+  rmt_encoder_handle_t  _bytesEncoder = nullptr;
+  rmt_transmit_config_t _txConfig = {};
+  uint32_t _resetUs = 50;
+  volatile uint32_t _lastTxEndUs = 0; // written from the TX-done ISR callback
+
+  // TX-done event callback: stamps the end of each frame so show() can enforce the reset/latch gap
+  static bool IRAM_ATTR onTxDone(rmt_channel_handle_t channel, const rmt_tx_done_event_data_t *edata, void *user_ctx);
+#else
+  // ---- IDF V4: legacy RMT driver ----
+  rmt_channel_t _rmtChannel;
 
   void updateRmtTiming();
 
@@ -112,7 +127,14 @@ private:
 
   // Jump table of callbacks (defined in .cpp). Use 8 entries to match max RMT channels.
   static const sample_to_rmt_t callbacks[WPB_RMT_CHANNELS];
+#endif
+
+  // _encodeBuffer and _encodeBufferSize are in PixelBus base
+  static uint8_t expectedChannels; // TODO: make none static
+  static uint8_t allocatedCount;
+  static uint8_t currentChannelIndex;
+  static uint8_t usedBlocks;
+  static uint8_t activeChannelMask; // bitmask of initialized channels
 };
 
 } // namespace WLEDpixelBus
-
