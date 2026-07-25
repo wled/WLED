@@ -185,6 +185,18 @@ static void appendGPIOinfo(Print& settingsScript)
   #else
   settingsScript.print(F("d.touch=[];"));
   #endif
+
+  // add info about ADC-capable GPIO (for analog button pin filtering)
+  settingsScript.print(F("d.adc=["));
+  firstPin = true;
+  for (unsigned i = 0; i < WLED_NUM_PINS; i++) {
+    if (PinManager::isAnalogPin(i)) {
+      if (!firstPin) settingsScript.print(',');
+      settingsScript.print(i);
+      firstPin = false;
+    }
+  }
+  settingsScript.print(F("];"));
 }
 
 //get values for settings form in javascript
@@ -263,6 +275,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     #endif
     printSetFormCheckbox(settingsScript,PSTR("FG"),force802_3g);
     printSetFormCheckbox(settingsScript,PSTR("WS"),noWifiSleep);
+    #ifdef SOC_WIFI_SUPPORT_5G
+    printSetFormValue(settingsScript,PSTR("BM"),wifiBandMode);
+    #else
+    settingsScript.print(F("gId('bm').style.display='none';"));
+    #endif
 
     #ifndef WLED_DISABLE_ESPNOW
     printSetFormCheckbox(settingsScript,PSTR("RE"),enableESPNow);
@@ -283,14 +300,14 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.print(F("gId('ethd').style.display='none';"));
     #endif
 
-    if (Network.isConnected()) //is connected
+    if (WLEDNetwork.isConnected()) //is connected
     {
       char s[32];
-      IPAddress localIP = Network.localIP();
+      IPAddress localIP = WLEDNetwork.localIP();
       sprintf(s, "%d.%d.%d.%d", localIP[0], localIP[1], localIP[2], localIP[3]);
 
       #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
-      if (Network.isEthernet()) strcat_P(s ,PSTR(" (Ethernet)"));
+      if (WLEDNetwork.isEthernet()) strcat_P(s ,PSTR(" (Ethernet)"));
       #endif
       printSetClassElementHTML(settingsScript,PSTR("sip"),0,s);
     } else
@@ -616,7 +633,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     printSetFormValue(settingsScript,PSTR("MN"),macroNl);
     int ii = 0;
     for (const auto &button : buttons) {
-      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress);
+      settingsScript.printf_P(PSTR("addRow(%d,%d,%d,%d,%d);"), ii++, button.macroButton, button.macroLongPress, button.macroDoublePress, button.type);
     }
 
     settingsScript.printf_P(PSTR("maxTimers=%d;"), WLED_MAX_TIMERS);

@@ -4,6 +4,7 @@
 
 
 #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_ETHERNET)
+#if CONFIG_IDF_TARGET_ESP32 // these options are only valid for classic esp32
 // The following six pins are neither configurable nor
 // can they be re-assigned through IOMUX / GPIO matrix.
 // See https://docs.espressif.com/projects/esp-idf/en/latest/esp32/hw-reference/esp32/get-started-ethernet-kit-v1.1.html#ip101gri-phy-interface
@@ -87,7 +88,7 @@ const ethernet_settings ethernetBoards[] = {
 
   // ESP32-ETHERNET-KIT-VE
   {
-    0,                    // eth_address,
+    1,                    // eth_address,
     5,                    // eth_power,
     23,                   // eth_mdc,
     18,                   // eth_mdio,
@@ -148,14 +149,49 @@ const ethernet_settings ethernetBoards[] = {
 
  // Gledopto Series With Ethernet
  {
-    1,                    // eth_address, 
-    5,                    // eth_power, 
-    23,                   // eth_mdc, 
-    33,                   // eth_mdio, 
+    1,                    // eth_address,
+    5,                    // eth_power,
+    23,                   // eth_mdc,
+    33,                   // eth_mdio,
     ETH_PHY_LAN8720,      // eth_type,
     ETH_CLOCK_GPIO0_IN	 // eth_clk_mode
   },
+ 
+ // WLED_ETH_QUINLED_V4 (14) - QuinLED Dig-Uno/Quad v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    7,                   // eth_mdc
+    8,                   // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
+ 
+ // WLED_ETH_QUINLED_OCTA_V4 (15) - QuinLED Dig-Octa 32-8L v4
+  {
+    0,                   // eth_address
+    -1,                  // eth_power
+    23,                  // eth_mdc
+    18,                  // eth_mdio
+    ETH_PHY_LAN8720,     // eth_type
+    ETH_CLOCK_GPIO0_IN   // eth_clk_mode
+  },
 };
+
+// sanity checks for ethernet config table and WLED_ETH_DEFAULT
+static_assert((sizeof(ethernetBoards)/sizeof(ethernetBoards[0])) == WLED_NUM_ETH_TYPES, "WLED_NUM_ETH_TYPES does not match size of ethernetBoards[] table.");
+
+#elif CONFIG_IDF_TARGET_ESP32P4
+// ToDO: add P4 specific ethernet options
+#error "Ethernet is not yet supported on your ESP32-P4".
+
+#else
+#error "Ethernet is not yet supported on your MCU".
+#endif
+
+#ifdef WLED_ETH_DEFAULT
+  static_assert(((WLED_ETH_DEFAULT) >= WLED_ETH_NONE) && ((WLED_ETH_DEFAULT) < WLED_NUM_ETH_TYPES), "WLED_ETH_DEFAULT is out of range.");
+#endif
 
 bool initEthernet()
 {
@@ -231,6 +267,16 @@ bool initEthernet()
   }
   #endif
 
+#if defined(ESP_IDF_VERSION) && (ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0))
+  if (!ETH.begin(    // parameter order in V5 has changed
+                (eth_phy_type_t)   es.eth_type,
+                (int32_t) es.eth_address,
+                (int)     es.eth_mdc,
+                (int)     es.eth_mdio,
+                (int)     es.eth_power,
+                (eth_clock_mode_t) es.eth_clk_mode
+                )) {
+#else
   if (!ETH.begin(
                 (uint8_t) es.eth_address,
                 (int)     es.eth_power,
@@ -239,6 +285,7 @@ bool initEthernet()
                 (eth_phy_type_t)   es.eth_type,
                 (eth_clock_mode_t) es.eth_clk_mode
                 )) {
+#endif
     DEBUG_PRINTLN(F("initE: ETH.begin() failed"));
     // de-allocate the allocated pins
     for (managed_pin_type mpt : pinsToAllocate) {
@@ -313,7 +360,7 @@ int findWiFi(bool doScan) {
   } else if (status >= 0) {   // status contains number of found networks (including duplicate SSIDs with different BSSID)
     DEBUG_PRINTF_P(PSTR("WiFi: Found %d SSIDs. @ %lus\n"), status, millis()/1000);
     int rssi = -9999;
-    int selected = selectedWiFi;
+    size_t selected = (static_cast<size_t>(selectedWiFi) < multiWiFi.size()) ? static_cast<size_t>(selectedWiFi) : 0; // ensure valid starting index
     for (int o = 0; o < status; o++) {
       DEBUG_PRINTF_P(PSTR(" SSID: %s (BSSID: %s) RSSI: %ddB\n"), WiFi.SSID(o).c_str(), WiFi.BSSIDstr(o).c_str(), WiFi.RSSI(o));
       for (unsigned n = 0; n < multiWiFi.size(); n++)
@@ -395,7 +442,8 @@ void WiFiEvent(WiFiEvent_t event)
   switch (event) {
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
       // AP client disconnected
-      if (--apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if awailable
+      if (apClients > 0) apClients--;
+      if (apClients == 0 && isWiFiConfigured()) forceReconnect = true; // no clients reconnect WiFi if available
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Disconnected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
@@ -404,7 +452,7 @@ void WiFiEvent(WiFiEvent_t event)
       DEBUG_PRINTF_P(PSTR("WiFi-E: AP Client Connected (%d) @ %lus.\n"), (int)apClients, millis()/1000);
       break;
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
-      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(Network.localIP());
+      DEBUG_PRINT(F("WiFi-E: IP address: ")); DEBUG_PRINTLN(WLEDNetwork.localIP());
       break;
     case ARDUINO_EVENT_WIFI_STA_CONNECTED:
       // followed by IDLE and SCAN_DONE
@@ -422,10 +470,26 @@ void WiFiEvent(WiFiEvent_t event)
       }
       break;
   #ifdef ARDUINO_ARCH_ESP32
+    case ARDUINO_EVENT_WIFI_READY:
+      DEBUG_PRINTLN(F("WiFi-E: driver ready."));
+      break;
     case ARDUINO_EVENT_WIFI_SCAN_DONE:
       // also triggered when connected to selected SSID
       DEBUG_PRINTLN(F("WiFi-E: SSID scan completed."));
       break;
+    case ARDUINO_EVENT_WIFI_STA_START:
+      DEBUG_PRINTLN(F("WiFi-E: STA Started"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_STOP:
+      DEBUG_PRINTLN(F("WiFi-E: STA Stopped"));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_AUTHMODE_CHANGE:
+      DEBUG_PRINTLN(F("WiFi-E: STA authentication mode change."));
+      break;
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      DEBUG_PRINTLN(F("WiFi-E: IP address lost."));
+      break;
+
     case ARDUINO_EVENT_WIFI_AP_START:
       DEBUG_PRINTLN(F("WiFi-E: AP Started"));
       break;
