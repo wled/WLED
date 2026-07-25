@@ -243,7 +243,8 @@ bool BitBangBus::show(const uint32_t*, uint16_t, const CctPixel*) {
   }
 
   _BBs->stagedCount = 0;   // reset for next frame
-  return outputParallel(); // send data to LEDs (blocking)
+  // TODO: add a loop, resend if it fails to avoid effect tearing, need to wait the "reset period" between resends to make sure LEDs have definitely latched
+  return outputParallel(); // send data to LEDs (blocking but ISRs are allowed if reset period is not set to 0)
 
 }
 

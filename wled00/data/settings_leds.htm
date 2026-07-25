@@ -6,7 +6,7 @@
 	<title>LED Settings</title>
 	<style> html { visibility: hidden; } </style> <!-- prevent white & ugly display while loading, unhidden in loadResources() -->
 	<script>
-		var maxD=1,maxI2S=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
+		var maxD=1,maxPARHW=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
 		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
 		function off(n)    { gN(n).value = -1;}
@@ -117,14 +117,14 @@
 			if (loc) d.Sf.action = getURL('/settings/leds');
 		}
 		function bLimits(c,p,m,l,o,di,r,i,bb,a,n,dm) {
-			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32
+			chipID = c;		// chip/platformID - 0 = ESP8266, 1 = C3, 2 = S2, 3 = S3, 4 = ESP32, 5 = C6, 6 = C5/C61/P4
 			maxPB = p;		// maxPB - max LEDs per bus
 			maxM  = m;		// maxM - max LED memory
 			maxL  = l;		// maxL - max LEDs (will serve to determine ESP >1664 == ESP32)
 			maxCO = o;		// maxCO - max Color Order mappings
 			maxD  = di;		// maxD - max digital channels (RMT + I2S/LCD/SPI + BB): 24 - ESP32, 20 - S3/S2, 14 - C3, 3 - 8266
 			maxRMT = r;		// maxRMT - max RMT channels: 8 - ESP32, 4 - S2/S3, 2 - C3, 0 - 8266
-			maxI2S = i;		// maxI2S - max I2S/LCD/pSPI channels: 8 - ESP32/S2/S3, 4 - C3, 0 - 8266
+			maxPARHW = i;		// maxPARHW - max parallel output channels (I2S/LCD/pSPI/PARLIO): 8 - ESP32/S2/S3/C6/C5/P4, 4 - C3, 0 - 8266
 			maxBB = bb;		// maxBB - max parallel BitBang channels
 			maxA  = a;		// maxA - max analog channels: 16 - ESP32, 8 - S3/S2, 6 - C3, 5 - 8266
 			maxBT = n;		// maxBT - max buttons
@@ -143,6 +143,7 @@
 		function isS2()   { return chipID == 2; }
 		function isS3()   { return chipID == 3; }
 		function is32()   { return chipID == 4; }
+		function isParlio() { return chipID >= 5 } // C6, C5,C61,P4: parallel output via PARLIO peripheral
 
 		function pinsOK() {
 			var ok = true;
@@ -327,7 +328,7 @@
 				} else {
 					mem += len * ch; // encode buffer note: ignoring prefix and suffix for simplicity and its just a few bytes
 					let driverPref = d.Sf["LD"+n]?.value | 0; // 0=RMT, 1=I2S, 2=BitBang
-					if (driverPref == 1) mem += getDuse().I2Smem; // DMA shared buffer averaged
+					if (driverPref == 1) mem += getDuse().parHwMem; // DMA shared buffer averaged
 				}
 			}
 			return mem + pbfr;
@@ -338,10 +339,10 @@
 			let t = parseInt(d.Sf["LT"+n].value);
 			if (!isDig(t) || isD2P(t)) return true; // only digital non-2pin types need bus check
 			let drv = is8266() ? (is8266BB(n) ? 2 : 0) : (d.Sf["LD"+n]?.value | 0); // driver preference: 0=RMT, 1=I2S, 2=BitBang
-			if (drv==1 && usage.I2SType!==null && t!==usage.I2SType) return false; // mismatched type in parallel I2S
+			if (drv==1 && usage.parHwType!==null && t!==usage.parHwType) return false; // mismatched type in parallel I2S
 			if (drv==2 && usage.bbType!==null && t!==usage.bbType) return false; // mismatched type in parallel BitBang
 			if (drv==0 && usage.rmtUsed > maxRMT) return false; // too many RMT buses
-			if (drv==1 && usage.i2sUsed > maxI2S) return false; // too many I2S buses
+			if (drv==1 && usage.parHwUsed > maxPARHW) return false; // too many I2S buses
 			if (drv==2 && usage.bbUsed > maxBB) return false; // too many BitBang buses
 			return true;
 		}
@@ -466,14 +467,6 @@
 				if (nm=="LC") {
 					if (!isHub75(t)) {
 						let maxLeds = isAna(t) ? 1 : (isDig(t) ? maxPB : 16384);
-						// C3 parallel SPI (I2S/SPI driver) has a 1920 byte DMA limit
-						if (isC3() && isDig(t) && !isD2P(t)) {
-							let drv = d.Sf["LD"+n]?.value | 0;
-							if (drv == 1) {
-								let ch = getChannels(t, n);
-								if (ch > 0) maxLeds = Math.min(maxLeds, Math.floor(1920 / ch));
-							}
-						}
 						LC.max = maxLeds; // set max value
 					} else {
 						LC.min = undefined;
@@ -571,10 +564,11 @@
 			if (chanuse && channelMsg && (!is8266() || usage.bbUsed > 0)) {
 				chanuse.style.display = 'inline';
 				chanuse.style.color = '#ccc';
-				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.i2sUsed}/${maxI2S}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
+				channelMsg.textContent = `Hardware channels used: RMT ${usage.rmtUsed}/${maxRMT}, I2S ${usage.parHwUsed}/${maxPARHW}` + (usage.bbUsed > 0 ? `, BitBang ${usage.bbUsed}/${maxBB}` : '');
 				if (isC3()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "SPI"); // replace I2S with "SPI" on C3
 				if (isS3()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "LCD"); // replace I2S with "LCD" on S3
-				if (usage.rmtUsed > maxRMT || usage.i2sUsed > maxI2S || usage.bbUsed > maxBB) {
+				if (isParlio()) channelMsg.textContent = channelMsg.textContent.replace("I2S", "PARLIO"); // replace I2S with "PARLIO" on C6/C5/C61/P4
+				if (usage.rmtUsed > maxRMT || usage.parHwUsed > maxPARHW || usage.bbUsed > maxBB) {
 					chanuse.style.color = 'red';
 				}
 			}
@@ -1026,16 +1020,16 @@ Swap: <select id="xw${s}" name="XW${s}">
 		}
 		// calculate channel usage across all buses, set bus type for parallel buses
 		function getDuse() {
-			let rmtUsed = 0, i2sUsed = 0;
-			let I2SType = null;
+			let rmtUsed = 0, parHwUsed = 0;
+			let parHwType = null;
 			let bbUsed = 0, bbType = null;
-			let I2Smem = 0;
+			let parHwMem = 0;
 			forEachBus((n, t, sel) => {
 				let drv = is8266() ? (is8266BB(n) ? 2 : 0) : (d.Sf["LD"+n]?.value | 0);
 				if (isDig(t) && !isD2P(t)) {
 					if (drv === 1) {
-						i2sUsed++;
-						if (!I2SType) I2SType = t;
+						parHwUsed++;
+						if (!parHwType) parHwType = t;
 					} else if (drv === 2) {
 						bbUsed++;
 						if (!bbType) bbType = t;
@@ -1045,11 +1039,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 				}
 			});
 			// calculate I2S shared memory usage (DMA double buffers + descriptors)
-			if (i2sUsed > 0) {
-				I2Smem = dmaDef * 2 + 64;
-				I2Smem = Math.round(I2Smem / i2sUsed); // average so it can be distributed
+			if (parHwUsed > 0) {
+				parHwMem = dmaDef * 2 + 64;
+				parHwMem = Math.round(parHwMem / parHwUsed); // average so it can be distributed
 			}
-			return { rmtUsed, i2sUsed, I2SType, I2Smem, bbUsed, bbType };
+			return { rmtUsed, parHwUsed, parHwType, parHwMem, bbUsed, bbType };
 		}
 		// dynamically enforce bus type availability based on current usage
 		function updateTypeDropdowns() {
@@ -1057,7 +1051,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			// calculate channel usage
 			let usage = getDuse();
-			let firstI2SType = null;
+			let firstParHwType = null;
 			// Count all bus types
 			let firstBBType  = null; // for ESP8266 parallel BitBang type enforcement
 			forEachBus((n, t, sel) => {
@@ -1069,7 +1063,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 
 			// update each LED-type and driver dropdown with appropriate constraints
 			let RMTcount = 0;
-			let I2Scount = 0;
+			let parHwCount = 0;
 			let BBcount  = 0;
 			forEachBus((n, curType, sel) => {
 				const curDriver = d.Sf["LD"+n]?.value | 0; // driver preference selection: 0=RMT, 1=I2S, 2=BitBang
@@ -1080,10 +1074,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 				if (isDig(curType) && !isD2P(curType)) {
 					// If this bus uses I2S and other I2S buses exist, restrict to same type
 					if (curDriver === 1) {
-						if (firstI2SType == null) firstI2SType = curType; // set first type, first I2S bus is allowed to change to any digital type
+						if (firstParHwType == null) firstParHwType = curType; // set first type, first I2S bus is allowed to change to any digital type
 						else {
 							sel.querySelectorAll('option[data-type="D"]').forEach(o => {
-								if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+								if (parseInt(o.value) !== firstParHwType) o.disabled = true;
 							});
 						}
 					}
@@ -1098,10 +1092,10 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 				} else {
 				 	if (digitalB >= maxD) disable('option[data-type="D"]'); // disable digital bus options if limit reached
-					else if (!is8266() && usage.rmtUsed >= maxRMT && (firstI2SType != null)) {
+					else if (!is8266() && usage.rmtUsed >= maxRMT && (firstParHwType != null)) {
 						// there are still digital buses available, restrict digital bus options to I2S type if RMT is full (ESP32 only)
 						sel.querySelectorAll('option[data-type="D"]').forEach(o => {
-							if (parseInt(o.value) !== firstI2SType) o.disabled = true;
+							if (parseInt(o.value) !== firstParHwType) o.disabled = true;
 						});
 					}
 				}
@@ -1114,16 +1108,17 @@ Swap: <select id="xw${s}" name="XW${s}">
 				let drvsel = gId("drvsel"+n);
 				if (drvsel && isDig(curType) && !isD2P(curType)) {
 					let rmtOpt = drvsel.querySelector('option[value="0"]');
-					let i2sOpt = drvsel.querySelector('option[value="1"]');
+					let parHwOpt = drvsel.querySelector('option[value="1"]');
 					let bbOpt  = drvsel.querySelector('option[value="2"]');
-					if (isC3()) i2sOpt.textContent = "SPI"; // rename to SPI on C3
-					if (isS3()) i2sOpt.textContent = "LCD"; // rename to LCD on S3
+					if (isC3()) parHwOpt.textContent = "SPI"; // rename to SPI on C3
+					if (isS3()) parHwOpt.textContent = "LCD"; // rename to LCD on S3
+					if (isParlio()) parHwOpt.textContent = "PARLIO"; // rename to PARLIO on C6/C5/C61/P4
 					rmtOpt.disabled = false;
-					i2sOpt.disabled = false;
+					parHwOpt.disabled = false;
 					if (bbOpt) bbOpt.disabled = false;
 					if (maxBB == 0) bbOpt.disabled = true; // BB disabled on device, make it non selectable
 					if (curDriver === 0) {
-						if ((usage.i2sUsed >= maxI2S))	i2sOpt.disabled = true; // disable I2S selection on RMT buses if full
+						if ((usage.parHwUsed >= maxPARHW))	parHwOpt.disabled = true; // disable I2S selection on RMT buses if full
 						RMTcount++;
 						if (RMTcount > maxRMT) {
 							rmtOpt.disabled = true; // disable RMT if now full (other logic disables digital types if both full)
@@ -1132,9 +1127,9 @@ Swap: <select id="xw${s}" name="XW${s}">
 					}
 					else if (curDriver === 1) {
 						if ((usage.rmtUsed >= maxRMT))	rmtOpt.disabled = true; // disable RMT selection on I2S buses if full
-						I2Scount++;
-						if (I2Scount > maxI2S) {
-							i2sOpt.disabled = true; // disable I2S if now full (other logic disables digital types if both full)
+						parHwCount++;
+						if (parHwCount > maxPARHW) {
+							parHwOpt.disabled = true; // disable I2S if now full (other logic disables digital types if both full)
 							d.Sf["LD"+n].value = "0"; // switch to RMT (if no RMT available, digital type is disabled above)
 						}
 					}
@@ -1161,11 +1156,11 @@ Swap: <select id="xw${s}" name="XW${s}">
 				fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => { e.disabled = false; e.style.opacity = 1; }));
 				d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(e => { e.disabled = false; e.style.opacity = 1; });
 
-				let i2s = [], bb = [];
+				let parHw = [], bb = [];
 				forEachBus((n, t) => {
 					let drv = d.Sf["LD"+n]?.value | 0;
 					if (!isDig(t) || isD2P(t)) return;
-					if (drv === 1) i2s.push(n);
+					if (drv === 1) parHw.push(n);
 					else if (drv === 2 || is8266BB(n)) bb.push(n);
 				});
 
@@ -1221,7 +1216,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 					});
 				}
 
-				syncGroup(i2s);
+				syncGroup(parHw);
 				syncGroup(bb);
 			} catch(e) {}
 		}

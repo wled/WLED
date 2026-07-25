@@ -9,6 +9,7 @@
 #include "src/WLEDpixelBus/WLEDpixelBus_RMT.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_I2S.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_ParallelSpi.h"
+#include "src/WLEDpixelBus/WLEDpixelBus_PARLIO.h"
 #include "src/WLEDpixelBus/WLEDpixelBus_BitBang.h"
 #elif defined(ARDUINO_ARCH_ESP8266)
 #include "src/WLEDpixelBus/WLEDpixelBus_ESP8266.h"
@@ -27,8 +28,8 @@ class PixelBusAllocator {
   private:
   #ifndef ESP8266
     static uint8_t _rmtChannelsAssigned;
-    static uint8_t _i2sChannelsAssigned;
-    static uint8_t _parallelI2sBusType; // Track first I2S type to enforce parallel timing
+    static uint8_t _parHwChannelsAssigned;    // parallel output channels: I2S/LCD (ESP32/S2/S3), parallel SPI (C3), PARLIO (C6/H2/C5/P4)
+    static uint8_t _parHwBusType; // Track first parallel bus type to enforce parallel timing
     static uint8_t _bitBangChannelsAssigned;
     static uint8_t _bitBangBusType;    // Track first BitBang type to enforce parallel timing
     static uint8_t _hardwareSPIused;   // number of hardware SPI's used, currently only one SPI output is supported. On C3, parallel SPI output takes priority
@@ -40,8 +41,8 @@ class PixelBusAllocator {
   static void resetChannelTracking() {
     #ifndef ESP8266
     _rmtChannelsAssigned = 0;
-    _i2sChannelsAssigned = 0;
-    _parallelI2sBusType = 0; // TYPE_NONE
+    _parHwChannelsAssigned = 0;
+    _parHwBusType = 0; // TYPE_NONE
     _bitBangChannelsAssigned = 0;
     _bitBangBusType = 0; // TYPE_NONE
     _hardwareSPIused = 0;
@@ -65,32 +66,37 @@ class PixelBusAllocator {
     }
 
     #ifndef ESP8266
-    // Driver fallback order: requested driver -> "I2S" (or any parallel bus) -> BitBang. If the requested driver has no
-    // free channel (or is unsupported on this target), the next available driver is used instead.
+    // Driver fallback order: requested driver -> parallel bus (I2S/LCD/SPI/PARLIO) -> BitBang.
+    // If the requested driver has no free channel (or is unsupported on this target), the next
+    // available driver is used instead.
     if (driverType == BUSDRV_RMT && _rmtChannelsAssigned < WLED_MAX_RMT_CHANNELS) {
       _rmtChannelsAssigned++;
-    } else if (driverType != BUSDRV_BITBANG && _i2sChannelsAssigned < WLED_MAX_I2S_CHANNELS) {
-      driverType = BUSDRV_I2S;
-      // If first I2S channel request, lock the type to ensure parallel timings match
-      if (_i2sChannelsAssigned == 0) {
-        _parallelI2sBusType = busType;
+      return true;
+    }
+    if (driverType != BUSDRV_BITBANG && _parHwChannelsAssigned < WLED_MAX_PARHW_CHANNELS) {
+      // BUSDRV_PARHW maps to the chip's parallel output peripheral: I2S on ESP32/S2, LCD on S3, parallel SPI on C3, PARLIO on C6/H2/C5/P4, all use 4-step cadence
+      driverType = BUSDRV_PARHW;
+      if (_parHwChannelsAssigned == 0) {
+        _parHwBusType = busType; // lock LED type to first parallel channel
         #ifdef CONFIG_IDF_TARGET_ESP32C3
-        _hardwareSPIused++; // reserve SPI: C3 uses prallel SPI output for "I2S" and takes priority over 2pin buses
+        _hardwareSPIused++; // reserve SPI: C3 uses parallel SPI output for "I2S" and takes priority over 2pin buses
         #endif
       }
-      _i2sChannelsAssigned++;
-    } else if (_bitBangChannelsAssigned < WLED_MAX_BB_CHANNELS) {
+      _parHwChannelsAssigned++;
+      return true;
+    }
+    // Last resort (or explicitly requested): parallel BitBang, all channels share one timing
+    if (_bitBangChannelsAssigned < WLED_MAX_BB_CHANNELS) {
       driverType = BUSDRV_BITBANG;
-      // BitBang: enforce single LED type for parallel output (all channels share timing)
       if (_bitBangBusType == 0) {
         _bitBangBusType = busType; // lock LED type to first BitBang channel
       } else if (_bitBangBusType != busType) {
         return false; // mismatched LED type — all BitBang channels must share timing
       }
       _bitBangChannelsAssigned++;
-    } else {
-      return false; // No channels available
+      return true;
     }
+    return false; // No channels available
     #else
     // ESP8266: assign driverType based on pin number so BusManager::show() can sequence correctly.
     // GPIO1/2 → UART (async, fire-and-forget ISR)
@@ -99,7 +105,7 @@ class PixelBusAllocator {
     if (pins[0] == 1 || pins[0] == 2) {
       driverType = BUSDRV_RMT; // reuse BUSDRV_RMT as "async UART" sentinel on ESP8266
     } else if (pins[0] == 3) {
-      driverType = BUSDRV_I2S; // async DMA
+      driverType = BUSDRV_PARHW; // async DMA
     } else {
       driverType = BUSDRV_BITBANG;
       // Enforce single LED type for parallel timing
@@ -118,12 +124,12 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     if (!Bus::isDigital(busType)) return nullptr;
 
     #ifndef ESP8266
-    if (driverType == BUSDRV_I2S && _parallelI2sBusType != 0) {
-      busType = _parallelI2sBusType; // Lock type for hardware timing sync
+    if (driverType == BUSDRV_PARHW && _parHwBusType != 0) {
+      busType = _parHwBusType; // use the locked in bus type
     }
     #endif
     if (driverType == BUSDRV_BITBANG && _bitBangBusType != 0) {
-      busType = _bitBangBusType; // Lock type for BitBang parallel timing (all channels share timing)
+      busType = _bitBangBusType; // use the locked in bus type
     }
 
     // getProtocol() reads from a PROGMEM table (flash on ESP8266, .rodata on ESP32).
@@ -155,16 +161,16 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     if (pins[0] == 1 || pins[0] == 2) driver = WLEDpixelBus::BusDriver::UART; // GPIO1=TX0, GPIO2=TX1, TX0 is used for debug if enabled
     else if (pins[0] == 3) driver = WLEDpixelBus::BusDriver::DMA; // DMA method uses a lot of RAM!
     else driver = WLEDpixelBus::BusDriver::BitBang;
-    #else
-    #if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6)
-    // targets with RMT (and I2S/LCD/parallel-SPI) driver support
+    #elif !defined(CONFIG_IDF_TARGET_ESP32C61)
     switch (driverType) {
       case BUSDRV_RMT:
-        driver = WLEDpixelBus::BusDriver::RMT; 
+        driver = WLEDpixelBus::BusDriver::RMT;
         break;
-      case BUSDRV_I2S:
-        #if defined(CONFIG_IDF_TARGET_ESP32C3)
-        driver = WLEDpixelBus::BusDriver::SPI; // parallel SPI
+      case BUSDRV_PARHW:
+        #if defined(CONFIG_IDF_TARGET_ESP32C3)  //TODO: should use hardware capabilities instead of MCU types
+        driver = WLEDpixelBus::BusDriver::SPI; // parallel SPI on C3
+        #elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
+        driver = WLEDpixelBus::BusDriver::PARLIO; // PARLIO on C5, C6, H2, P4
         #else
         driver = WLEDpixelBus::BusDriver::I2S; // note: on S3 this uses LCD hardware
         #endif
@@ -174,9 +180,8 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         break;
     }
     #else
-    // other ESP32 variants (C5/C6/C61/P4): BitBang is the only supported driver so far as it is guaranteed to work
+    // C61 only supports BB for now (might be able to use parallel SPI), it has no RMT, no I2S, no PARLIO hardware
     driver = WLEDpixelBus::BusDriver::BitBang;
-    #endif
     #endif
 
     // Chip-specific init (prefix/suffix/invert) is applied inside createBus() using ledType.

@@ -424,8 +424,8 @@ std::vector<LEDType> BusDigital::getLEDTypes() {
   };
 }
 
-bool BusDigital::isI2S() {
-  return _driverType == BUSDRV_I2S; // I2S/LCD/ParallelSPI
+bool BusDigital::isParHw() {
+  return _driverType == BUSDRV_PARHW; // I2S/LCD/ParallelSPI/PARLIO are all parallel async drivers
 }
 
 void BusDigital::begin() {
@@ -1457,7 +1457,7 @@ void BusManager::esp32RMTInvertIdle() {
   unsigned u = 0;
   for (auto &bus : busses) {
     if (bus->getLength()==0 || !bus->isDigital() || bus->is2Pin()) continue;
-    if (static_cast<BusDigital*>(bus.get())->isI2S()) continue;
+    if (static_cast<BusDigital*>(bus.get())->isParHw()) continue;
     if (u >= WLED_MAX_RMT_CHANNELS) return;
     //assumes that bus number to rmt channel mapping stays 1:1
     rmt_channel_t ch = static_cast<rmt_channel_t>(rmt);
@@ -1659,8 +1659,8 @@ ColorOrderMap& BusManager::getColorOrderMap() { return _colorOrderMap; }
 // PixelBusAllocator channel tracking for dynamic allocation
 #ifndef ESP8266
 uint8_t PixelBusAllocator::_rmtChannelsAssigned = 0; // number of RMT channels assigned during allocateHardware()
-uint8_t PixelBusAllocator::_i2sChannelsAssigned = 0;
-uint8_t PixelBusAllocator::_parallelI2sBusType = 0;
+uint8_t PixelBusAllocator::_parHwChannelsAssigned = 0; // parallel output channels assigned (I2S/LCD/SPI/PARLIO depending on chip)
+uint8_t PixelBusAllocator::_parHwBusType = 0;
 uint8_t PixelBusAllocator::_bitBangChannelsAssigned = 0;
 uint8_t PixelBusAllocator::_bitBangBusType = 0;
 uint8_t PixelBusAllocator::_hardwareSPIused = 0;

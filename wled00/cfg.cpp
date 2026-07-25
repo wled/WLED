@@ -270,7 +270,7 @@ bool deserializeConfig(JsonObject doc, bool fromFS) {
         maMax = 0;
       }
       ledType |= refresh << 7; // hack bit 7 to indicate strip requires off refresh
-      uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=I2S note: polybus may override this if driver is not available
+      uint8_t driverType = elm[F("drv")] | 0; // 0=RMT (default), 1=parallel HW (I2S/LCD/SPI/PARLIO, chip-dependent) note: polybus may override this if driver is not available
 
       String host = elm[F("text")] | String();
       uint8_t bsf = (uint8_t)(elm[F("bsf")] | 100);

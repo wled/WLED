@@ -34,7 +34,7 @@ Currently based on IDF v4.x API functions and low-level HAL
 #include "esp_attr.h"
 #include "driver/gpio.h"
 #include "esp_idf_version.h"
-#include "driver/rmt.h"
+//#include "driver/rmt.h"
 
 // I2S support: targets where the I2S peripheral has the LCD Intel 8080 mode
 // used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and ESP32-S2 only
@@ -571,6 +571,11 @@ class I2sBus;
 class I2sBusContext;
 #endif
 
+#ifdef WLEDPB_PARLIO_SUPPORT
+class ParlioBus;
+class ParlioBusContext;
+#endif
+
 //==============================================================================
 // Bus Factory - Create appropriate bus for platform
 //==============================================================================
@@ -578,10 +583,11 @@ class I2sBusContext;
 enum class BusDriver : uint8_t {
   RMT     = 0,
   I2S     = 1, // I2S on ESP32 and S2, LCD on S3
-  SPI     = 2, // parallel SPI output
+  SPI     = 2, // parallel SPI output (C3)
   UART    = 3,
   DMA     = 4,
-  BitBang = 5
+  BitBang = 5,
+  PARLIO  = 6  // PARLIO TX parallel output (C6, H2, C5, P4 — IDF >= 5.3)
 };
 
 /**
@@ -592,8 +598,8 @@ constexpr uint8_t getRmtMaxChannels() {
   return 8;   // ESP32 original: 8 RMT channels
 #elif defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3)
   return 4;   // ESP32-S2/S3: 4 RMT TX channels
-#elif defined(CONFIG_IDF_TARGET_ESP32C3)
-  return 2;   // ESP32-C3: 2 RMT TX channels
+#elif defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32H2)
+  return 2;   // ESP32-C3/C6/C5/C61/H2: 2 RMT TX channels
 #else
   return 0;
 #endif
@@ -622,6 +628,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing,
 #include "WLEDpixelBus_RMT.h"
 #include "WLEDpixelBus_I2S.h"
 #include "WLEDpixelBus_ParallelSpi.h"
+#include "WLEDpixelBus_PARLIO.h"
 #include "WLEDpixelBus_BitBang.h"
 #elif defined(ESP8266)
 #include "WLEDpixelBus_ESP8266.h"

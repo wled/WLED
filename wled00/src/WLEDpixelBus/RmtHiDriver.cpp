@@ -4,7 +4,6 @@ by @willmmiles, 2026
 -------------------------------------------------------------------------*/
 
 #include <Arduino.h>
-#include "esp_idf_version.h"
 #include "RmtHIDriver.h"
 
 #if defined(WPB_USE_RMTHI)
@@ -12,6 +11,7 @@ by @willmmiles, 2026
 #include <algorithm>
 #include "soc/soc.h"
 #include "soc/rmt_reg.h"
+#include "esp_idf_version.h"
 
 #ifdef __riscv
 #include "riscv/interrupt.h"

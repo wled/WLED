@@ -122,7 +122,7 @@ struct CustomBusConfig {
 // Driver preference for digital LED buses: stored in BusConfig::driverType and BusDigital::_driverType
 enum BusDriverType : uint8_t {
   BUSDRV_RMT     = 0, // RMT peripheral (default on most ESP32 variants)
-  BUSDRV_I2S     = 1, // I2S / LCD / parallel-SPI (chip-dependent)  TODO: rename this, in the future this can also be PARLIO
+  BUSDRV_PARHW   = 1, // parallel output (chip-dependent): ESP32/S2/S3 use I2S-LCD, C3 uses parallel SPI, C6/H2/C5/P4 use PARLIO
   BUSDRV_BITBANG = 2, // parallel bit-bang GPIO (ESP32 only)
 };
 
@@ -292,7 +292,7 @@ class BusDigital : public Bus {
     void     estimateCurrent(); // estimate used current from summed colors
     void     applyBriLimit(uint8_t newBri);
     size_t   getBusSize() const override;
-    bool isI2S(); // true if this bus uses I2S driver
+    bool isParHw(); // true if this bus uses a parallel hardware driver (I2S/LCD/SPI/PARLIO)
     void begin() override;
     void cleanup();
     const CustomBusConfig& getCustomBusConfig() const override { return _pCustomConfig ? *_pCustomConfig : Bus::getCustomBusConfig(); } // valid whenever result.active() == true
@@ -303,7 +303,7 @@ class BusDigital : public Bus {
     uint8_t  _skip;
     uint8_t  _colorOrder; // TODO: is this still used? color order is now done in bus
     uint8_t  _pins[2] = {255, 255};
-    uint8_t  _driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_I2S / BUSDRV_BITBANG
+    uint8_t  _driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_PARHW / BUSDRV_BITBANG
     uint16_t _frequencykHz;
     uint16_t _milliAmpsMax;
     uint8_t  _milliAmpsPerLed;
@@ -494,7 +494,7 @@ struct BusConfig {
   uint16_t frequency;
   uint8_t milliAmpsPerLed;
   uint16_t milliAmpsMax;
-  uint8_t driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_I2S / BUSDRV_BITBANG
+  uint8_t driverType; // BusDriverType: BUSDRV_RMT / BUSDRV_PARHW / BUSDRV_BITBANG
   String text;
   uint8_t busSpeedFactor; // percent (100 = default)
   CustomBusConfig custom; // optional override, active when custom.active() == true (1P digital LED types only)
@@ -526,7 +526,7 @@ struct BusConfig {
       (int)autoWhite,
       (int)frequency,
       (int)milliAmpsPerLed, (int)milliAmpsMax,
-      driverType == BUSDRV_RMT ? "RMT" : driverType == BUSDRV_I2S ? "I2S" : "BitBang"
+      driverType == BUSDRV_RMT ? "RMT" : driverType == BUSDRV_PARHW ? "PAR" : "BitBang"
     );
   }
 

@@ -1212,18 +1212,21 @@ void WS2812FX::finalizeInit() {
   // BusManager::add() then replaces it with a BusPlaceholder.
   #if defined(ARDUINO_ARCH_ESP32)
   unsigned rmtBusCount = 0;
+  unsigned parHwBusCount = 0; // used for debug print only
   #endif
   for (auto &bus : busConfigs) {
     BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
     #if defined(ARDUINO_ARCH_ESP32)
     // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && bus.driverType == BUSDRV_RMT)
-      rmtBusCount++;
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
+      if (bus.driverType == BUSDRV_RMT) rmtBusCount++;
+      else if (bus.driverType == BUSDRV_PARHW) parHwBusCount++; // parallel bus: I2S/LCD/SPI/PARLIO depending on chip (hardware driven, not BB)
+    }
     #endif
   }
 
   #if defined(ARDUINO_ARCH_ESP32)
-  DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u\n"), rmtBusCount);
+  DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u, parallel buses: %u\n"), rmtBusCount, parHwBusCount);
   // RMT channel tracking was already reset by BusManager::removeAll() -> resetChannelTracking()
   WLEDpixelBus::RmtBus::setExpectedChannels((uint8_t)rmtBusCount);
   #endif

@@ -24,10 +24,9 @@ Currently based on IDF v4.x API functions and low-level HAL
 /*
 TODO List
 - size DMA buffers such that the buffer completes one LED
-- add PARLIO support (available on new ESP32 variants)
-- Fix RMT support for C6 (and with it probably other new chips)
-
-
+- ESP32 C61 has no RMT and no PARLIO, either bit bang or check if parallel SPI can be used (need hardware first)
+- need to check if the features "custom bus start indices" and "global color override" work (color override probably does not work)
+- in BB bus: if sending gets cancelled due to interrupt, send it again. i.e. need a loop to resend up to 5 times or so
 */
 
 
@@ -248,6 +247,13 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
     case BusDriver::SPI:
       bus = new ParallelSpiBus(pin, timing, colorOrder, numChannels, ledType);
+      break;
+#endif
+#ifdef WLEDPB_PARLIO_SUPPORT
+    case BusDriver::PARLIO:
+      // ParlioBus registers itself with the shared ParlioBusContext singleton.
+      // numPixels is used for DMA buffer sizing.
+      bus = new ParlioBus(pin, timing, colorOrder, numChannels, 0, ledType, numPixels);
       break;
 #endif
 #if (WLED_MAX_BB_CHANNELS > 0)
