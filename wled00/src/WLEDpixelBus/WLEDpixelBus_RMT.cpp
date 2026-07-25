@@ -6,9 +6,10 @@ written by Damian Schneider @dedehai 2026
 
 I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
 
-RMT bus works on ESP32, S3, S2 and C3
+RMT bus works on ESP32, S3, S2 and C3 (C6/H2 on IDF V5)
 Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
-The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3
+IDF V5: new rmt_tx driver + bytes encoder; reset/latch gap enforced via TX-done callback timestamp in show()
+The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3 and not at all in IDF V5
 
 -------------------------------------------------------------------------*/
 
@@ -16,10 +17,223 @@ The glitch-free high priority interrupt implementation by @willmmiles is not ava
 #ifdef ARDUINO_ARCH_ESP32
 #include "WLEDpixelBus_RMT.h"
 
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
+#include "esp_timer.h" // for esp_timer_get_time() (ISR-safe microsecond timestamp)
+#endif
+
 namespace WLEDpixelBus {
 
 //==============================================================================
-// RMT Bus Implementation
+// Shared: auto-channel allocator state and constructor
+//==============================================================================
+
+// Static auto-channel counter for RmtBus
+uint8_t RmtBus::expectedChannels = 1;
+uint8_t RmtBus::allocatedCount = 0;
+uint8_t RmtBus::currentChannelIndex = 0;
+uint8_t RmtBus::usedBlocks = 0;
+uint8_t RmtBus::activeChannelMask = 0;
+
+RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
+  : _pin(pin)
+  , _timing(timing)
+  , _inverted(false)
+  , _initialized(false)
+#if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5,0,0)
+  , _rmtChannel(RMT_CHANNEL_0)
+#endif
+{
+  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
+  _ledType = ledType;
+}
+
+RmtBus::~RmtBus() {
+  end();
+}
+
+void RmtBus::setColorOrder(uint8_t co) {
+  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
+}
+
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5,0,0)
+//==============================================================================
+// IDF V5 implementation (new RMT driver: rmt_tx + bytes encoder)
+//==============================================================================
+
+bool RmtBus::begin() {
+  if (_initialized) return true;
+  uint8_t blocksToUse = 1;
+  uint8_t maxTxChannels = getRmtMaxChannels();
+
+  // Auto-channel select with optimized memory block allocation (assumes no RMT RX usage)
+  // note on channel allocation: channels are assigned such as to maximize the number of memory blocks
+  // available to the channel to minimize the number of interrupts needed for buffer re-fills (less context switching overhead)
+  // in V5 the request is passed as mem_block_symbols and the driver picks a channel with enough contiguous free blocks;
+  // memory-block ownership (the V4 rmt_set_memory_owner hack on S3/C3) is handled internally by the driver
+  // example: ESP32, 2 channels requested total -> use CH0 with 4 blocks and CH4 with 4 blocks
+  // example: ESP32-S3 with 3 channels: use CH0 with 2 block, CH2 with 1 block, and CH3 with 5 blocks
+  if (allocatedCount >= expectedChannels || allocatedCount >= maxTxChannels)
+    return false;
+
+  // total RMT memory blocks per group equals the total channel count (each channel owns one block,
+  // TX and RX channels share the same memory pool)
+  const uint8_t totalBlocks = SOC_RMT_CHANNELS_PER_GROUP;
+
+  int left_channels = expectedChannels - allocatedCount - 1;
+
+  if (left_channels == 0) {
+    _channel = currentChannelIndex;
+    blocksToUse = totalBlocks - usedBlocks;
+  } else {
+    int k = totalBlocks / expectedChannels;
+    int max_k_for_index = maxTxChannels - currentChannelIndex - left_channels;
+    if (k > max_k_for_index) k = max_k_for_index;
+    if (k < 1) k = 1;
+
+    _channel = currentChannelIndex;
+    blocksToUse = k;
+  }
+  #ifdef RMT_USE_SINGLE_MEM_BLOCK
+  blocksToUse = 1;
+  #endif
+
+  currentChannelIndex += blocksToUse;
+  usedBlocks += blocksToUse;
+  allocatedCount++;
+
+  if (_channel >= (int8_t)maxTxChannels) {
+    //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d >= max %u, FAIL\n"), _channel, maxTxChannels);
+    return false;
+  }
+
+  //DEBUG_PRINTF_P(PSTR("[WPB] RMT channel %d using %u blocks (total allocated: %u/%u)\n"), _channel, blocksToUse, allocatedCount, maxTxChannels);
+
+  // RMT clock: 40MHz -> 25ns per tick
+  const float tickNs = 25.0f;
+
+  auto nsToTicks = [tickNs](uint16_t ns) -> uint16_t {
+    uint16_t ticks = (uint16_t)((ns + tickNs / 2) / tickNs);
+    return ticks > 0 ? ticks : 1;
+  };
+
+  rmt_symbol_word_t bit0 = {}, bit1 = {};
+  bit0.level0 = 1; bit0.duration0 = nsToTicks(_timing.t0h_ns);
+  bit0.level1 = 0; bit0.duration1 = nsToTicks(_timing.t0l_ns);
+  bit1.level0 = 1; bit1.duration0 = nsToTicks(_timing.t1h_ns);
+  bit1.level1 = 0; bit1.duration1 = nsToTicks(_timing.t1l_ns);
+
+  rmt_tx_channel_config_t config = {};
+  config.gpio_num = (gpio_num_t)_pin;
+  config.clk_src = RMT_CLK_SRC_DEFAULT;
+  config.resolution_hz = 40000000; // 40MHz, 25ns per tick
+  config.mem_block_symbols = (size_t)blocksToUse * SOC_RMT_MEM_WORDS_PER_CHANNEL; // multi-block allocation: fewer refill interrupts
+  config.trans_queue_depth = 2; // we always wait for tx done before transmitting, 1 would suffice
+  config.intr_priority = 3;     // highest user priority in V5: refill ISR preempts other low/med ISRs, fewer underruns
+  config.flags.invert_out = _inverted ? 1 : 0; // hardware signal inversion via GPIO matrix (replaces esp_rom_gpio hack)
+
+  esp_err_t err = rmt_new_tx_channel(&config, &_rmtChannel);
+  if (err != ESP_OK) {
+    return false;
+  }
+
+  // bytes encoder: streams _encodeBuffer straight into RMT symbols, MSB first (replaces the V4 translator callbacks)
+  rmt_bytes_encoder_config_t encCfg = {};
+  encCfg.bit0 = bit0;
+  encCfg.bit1 = bit1;
+  encCfg.flags.msb_first = 1;
+  err = rmt_new_bytes_encoder(&encCfg, &_bytesEncoder);
+  if (err != ESP_OK) {
+    rmt_del_channel(_rmtChannel); _rmtChannel = nullptr;
+    return false;
+  }
+
+  // done callback stamps the end of each frame (used for the reset/latch gap enforcement in show())
+  rmt_tx_event_callbacks_t cbs = {};
+  cbs.on_trans_done = RmtBus::onTxDone;
+  err = rmt_tx_register_event_callbacks(_rmtChannel, &cbs, this);
+  if (err != ESP_OK) {
+    rmt_del_encoder(_bytesEncoder); _bytesEncoder = nullptr;
+    rmt_del_channel(_rmtChannel); _rmtChannel = nullptr;
+    return false;
+  }
+
+  _txConfig = {};
+  _txConfig.loop_count = 0;      // no looping
+  _txConfig.flags.eot_level = 0; // keep line low after transmission (replaces idle_output_en / idle_level LOW)
+
+  _resetUs = (_timing.reset_us > 0) ? _timing.reset_us : 300;
+  // pretend the last transmission ended long ago so the first frame never waits (unsigned wrap-safe)
+  _lastTxEndUs = (uint32_t)esp_timer_get_time() - _resetUs;
+
+  err = rmt_enable(_rmtChannel);
+  if (err != ESP_OK) {
+    rmt_del_encoder(_bytesEncoder); _bytesEncoder = nullptr;
+    rmt_del_channel(_rmtChannel); _rmtChannel = nullptr;
+    return false;
+  }
+
+  _initialized = true;
+  activeChannelMask |= (1 << _channel);
+  if (!allocateEncodeBuffer(_numPixels, _encoder.getPixelBytes())) { end(); return false; }
+  return true;
+}
+
+void RmtBus::end() {
+  if (!_initialized) return;
+
+  activeChannelMask &= ~(1 << _channel);
+
+  rmt_tx_wait_all_done(_rmtChannel, 100);
+  rmt_disable(_rmtChannel);
+  if (_bytesEncoder) { rmt_del_encoder(_bytesEncoder); _bytesEncoder = nullptr; }
+  if (_rmtChannel)   { rmt_del_channel(_rmtChannel); _rmtChannel = nullptr; }
+
+  if (_pin >= 0) {
+    gpio_reset_pin((gpio_num_t)_pin); // reset all pin settings
+  }
+
+  // Free encode buffer with the same allocator used in allocateEncodeBuffer() (plain malloc)
+  if (_encodeBuffer) { free(_encodeBuffer); _encodeBuffer = nullptr; _encodeBufferSize = 0; }
+  _initialized = false;
+}
+
+bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+  // Encoding is done per-pixel in setPixelColor(); _encodeBuffer is ready to ship.
+  if (!_initialized || !_encodeBuffer || _numPixels == 0 || !_rmtChannel) return false;
+
+  esp_err_t err = rmt_tx_wait_all_done(_rmtChannel, 1000); // wait 1s max
+  if (err != ESP_OK) return false;
+
+  // enforce the reset/latch gap: onTxDone() stamped the end of the previous frame, wait out the remainder
+  uint32_t elapsedUs = (uint32_t)esp_timer_get_time() - _lastTxEndUs; // unsigned subtraction is wrap-safe
+  if (elapsedUs < _resetUs) delayMicroseconds(_resetUs - elapsedUs);
+
+  err = rmt_transmit(_rmtChannel, _bytesEncoder, _encodeBuffer, _encodeBufferSize, &_txConfig);
+  return (err == ESP_OK); // note: the V4 legacy path returned false on success (esp_err_t as bool), fixed here
+}
+
+bool RmtBus::canShow() const {
+  if (!_initialized) return true;
+  return (ESP_OK == rmt_tx_wait_all_done(_rmtChannel, 0)); // 0 timeout means "poll and return immediately"
+}
+
+void RmtBus::setInverted(bool inv) {
+  _inverted = inv;
+  // note: in V5 inversion is applied at channel creation (flags.invert_out);
+  // if changed after begin() it takes effect on the next begin() only
+}
+
+// TX-done event callback (ISR context): stamp the end time of the frame.
+// esp_timer_get_time() is safe to call from an ISR; keep this function short and IRAM resident.
+bool IRAM_ATTR RmtBus::onTxDone(rmt_channel_handle_t channel, const rmt_tx_done_event_data_t *edata, void *user_ctx) {
+  RmtBus *self = static_cast<RmtBus*>(user_ctx);
+  self->_lastTxEndUs = (uint32_t)esp_timer_get_time();
+  return false; // no higher priority task woken
+}
+
+#else
+//==============================================================================
+// IDF V4 implementation (legacy RMT driver + translator callbacks)
 //==============================================================================
 
 // Per-channel context table - stored in DRAM, 4 byte aligned for ISR access
@@ -49,28 +263,6 @@ DMA_ATTR const sample_to_rmt_t RmtBus::callbacks[WPB_RMT_CHANNELS] = {
   RmtBus::translator_ch6, RmtBus::translator_ch7
 #endif
 };
-
-// Static auto-channel counter for RmtBus
-uint8_t RmtBus::expectedChannels = 1;
-uint8_t RmtBus::allocatedCount = 0;
-uint8_t RmtBus::currentChannelIndex = 0;
-uint8_t RmtBus::usedBlocks = 0;
-uint8_t RmtBus::activeChannelMask = 0;
-
-RmtBus::RmtBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
-  : _pin(pin)
-  , _timing(timing)
-  , _inverted(false)
-  , _initialized(false)
-  , _rmtChannel(RMT_CHANNEL_0)
-{
-  _encoder = ColorEncoder(colorOrder, numChannels, ledType);
-  _ledType = ledType;
-}
-
-RmtBus::~RmtBus() {
-  end();
-}
 
 void RmtBus::updateRmtTiming() {
   // RMT clock:  80MHz with div=2 -> 40MHz -> 25ns per tick
@@ -257,10 +449,6 @@ void RmtBus::setInverted(bool inv) {
   _inverted = inv;
 }
 
-void RmtBus::setColorOrder(uint8_t co) {
-  _encoder = ColorEncoder(co, _encoder.getColorChannels(), _ledType);
-}
-
 //note: using O2 optimization has little to no effect on FPS
 void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_item32_t* dest, size_t src_size, size_t wanted_num, size_t* translated_size, size_t* item_num) {
 
@@ -307,5 +495,7 @@ void IRAM_ATTR RmtBus::translateInternal(uint8_t channel, const void* src, rmt_i
 //  *item_num = bytes_to_process * 8;
 }
 
+#endif // ESP_IDF_VERSION
+
 } // namespace WLEDpixelBus
-#endif
+#endif // ARDUINO_ARCH_ESP32
