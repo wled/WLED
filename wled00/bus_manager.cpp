@@ -452,8 +452,13 @@ BusPwm::BusPwm(const BusConfig &bc)
       pinMode(_pins[i], OUTPUT);
       #else
       unsigned channel = _ledcStart + i;
+      #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
       ledcSetup(channel, _frequency, _depth - (dithering*4)); // with dithering _frequency doesn't really matter as resolution is 8 bit
       ledcAttachPin(_pins[i], channel);
+      #else
+      ledcAttachChannel(_pins[i], _frequency,  _depth - (dithering*4), channel);
+      // LEDC timer reset credit @dedehai
+      #endif
       // LEDC timer reset credit @dedehai
       uint8_t group = (channel / 8), timer = ((channel / 2) % 4); // same fromula as in ledcSetup()
       ledc_timer_rst((ledc_mode_t)group, (ledc_timer_t)timer); // reset timer so all timers are almost in sync (for phase shift)
@@ -585,10 +590,23 @@ void BusPwm::show() {
     unsigned ch = channel%8;  // group channel
     // directly write to LEDC struct as there is no HAL exposed function for dithering
     // duty has 20 bit resolution with 4 fractional bits (24 bits in total)
+    #if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    // TODO: we need a full rewrite of the "analog LEDs" driver!
+    //   see https://github.com/wled/WLED/pull/5048#discussion_r2794185845
+
+    // the .duty_init.duty member seems to only affect fade operations, and its necessary to also trigger an update with
+    // LEDC.channel_group[gr].channel[ch].conf0.para_up = 1;
+    // --> research latest (V5.5.x) esp-idf documentation on how to set the duty cycle registers (by API calls?).
+    //    https://docs.espressif.com/projects/esp-idf/en/v5.5.2/esp32c5/api-reference/peripherals/ledc.html#_CPPv424ledc_set_duty_and_update11ledc_mode_t14ledc_channel_t8uint32_t8uint32_t
+    //   LEDC.channel_group[gr].channel[ch].duty_init.duty = duty << ((!dithering)*4);  // C5 LEDC struct uses duty_init, but requires additional steps to activate
+    // TODO: find out if / how dithering support can be implemented on P4
+    ledc_set_duty_and_update((ledc_mode_t)gr, (ledc_channel_t)ch, duty >> bitShift, hPoint >> bitShift);
+    #else
     LEDC.channel_group[gr].channel[ch].duty.duty = duty << ((!dithering)*4);  // lowest 4 bits are used for dithering, shift by 4 bits if not using dithering
     LEDC.channel_group[gr].channel[ch].hpoint.hpoint = hPoint >> bitShift;    // hPoint is at _depth resolution (needs shifting if dithering)
     ledc_update_duty((ledc_mode_t)gr, (ledc_channel_t)ch);
-    #endif
+    #endif // ESP32C5
+    #endif // 8266
 
     if (!_reversed) hPoint += duty;
     hPoint += deadTime;        // offset to cascade the signals
@@ -623,7 +641,11 @@ void BusPwm::deallocatePins() {
     #ifdef ESP8266
     digitalWrite(_pins[i], LOW); //turn off PWM interrupt
     #else
+    #if ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 0, 0)
     if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetachPin(_pins[i]);
+    #else
+    if (_ledcStart < WLED_MAX_ANALOG_CHANNELS) ledcDetach(_pins[i]);
+    #endif
     #endif
   }
   #ifdef ARDUINO_ARCH_ESP32
@@ -744,7 +766,7 @@ size_t BusNetwork::getPins(uint8_t* pinArray) const {
 #ifdef ARDUINO_ARCH_ESP32
 void BusNetwork::resolveHostname() {
   static std::shared_ptr<AsyncDNS> DNSlookup; // TODO: make this dynamic? requires to handle the callback properly
-  if (Network.isConnected()) {
+  if (WLEDNetwork.isConnected()) {
     IPAddress clnt;
     if (strlen(cmDNS) > 0) {
       clnt = MDNS.queryHost(_hostname);
@@ -1339,6 +1361,10 @@ void BusManager::removeAll() {
 // since I2S outputs are known only during config of buses, lets just assume RMT is used for digital buses
 // unused RMT channels should have no effect
 void BusManager::esp32RMTInvertIdle() {
+#if defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+  // ESP32-C5/C6/P4 use shared RMT method - idle level inversion not supported
+  return;
+#else
   bool idle_out;
   unsigned rmt = 0;
   unsigned u = 0;
@@ -1356,6 +1382,7 @@ void BusManager::esp32RMTInvertIdle() {
     rmt_set_idle_level(ch, idle_out, lvl);
     u++;
   }
+#endif
 }
 #endif
 
