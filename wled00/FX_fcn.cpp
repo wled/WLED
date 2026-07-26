@@ -345,9 +345,7 @@ void Segment::startTransition(uint16_t dur, bool segmentCopy) {
     _t->_bri = on ? opacity : 0;
     _t->_cct = cct;
     _t->_palette = palette;
-    #ifndef WLED_SAVE_RAM
     loadPalette(_t->_palT, palette);
-    #endif
     for (int i=0; i<NUM_COLORS; i++) _t->_colors[i] = colors[i];
     if (segmentCopy) _t->_oldSegment = new(std::nothrow) Segment(*this); // store/copy current segment settings
     if (_t->_oldSegment) {
@@ -414,18 +412,10 @@ void Segment::beginDraw(uint16_t prog) {
     // blend palettes
     // there are about 255 blend passes of 48 "blends" to completely blend two palettes (in _dur time)
     // minimum blend time is 100ms maximum is 65535ms
-    #ifndef WLED_SAVE_RAM
     unsigned noOfBlends = ((255U * prog) / 0xFFFFU) - _t->_prevPaletteBlends;
     if (noOfBlends > 255) noOfBlends = 255; // safety check
     for (unsigned i = 0; i < noOfBlends; i++, _t->_prevPaletteBlends++) nblendPaletteTowardPalette(_t->_palT, Segment::_currentPalette, 48);
     Segment::_currentPalette = _t->_palT; // copy transitioning/temporary palette
-    #else
-    unsigned noOfBlends = ((255U * prog) / 0xFFFFU);
-    CRGBPalette16 tmpPalette;
-    loadPalette(tmpPalette, _t->_palette);
-    for (unsigned i = 0; i < noOfBlends; i++) nblendPaletteTowardPalette(tmpPalette, Segment::_currentPalette, 48);
-    Segment::_currentPalette = tmpPalette; // copy transitioning/temporary palette
-    #endif
   }
 }
 

@@ -504,9 +504,7 @@ class Segment {
       Segment      *_oldSegment;          // previous segment environment (may be nullptr if effect did not change)
       unsigned long _start;               // must accommodate millis()
       uint32_t      _colors[NUM_COLORS];  // current colors
-      #ifndef WLED_SAVE_RAM
       CRGBPalette16 _palT;                // temporary palette (slowly being morphed from old to new)
-      #endif
       uint16_t      _dur;                 // duration of transition in ms
       uint16_t      _progress;            // transition progress (0-65535); pre-calculated from _start & _dur in updateTransitionProgress()
       uint8_t       _prevPaletteBlends;   // number of previous palette blends (there are max 255 blends possible)
@@ -515,9 +513,7 @@ class Segment {
       : _oldSegment(nullptr)
       , _start(millis())
       , _colors{0,0,0}
-      #ifndef WLED_SAVE_RAM
       , _palT(CRGBPalette16())
-      #endif
       , _dur(dur)
       , _progress(0)
       , _prevPaletteBlends(0)

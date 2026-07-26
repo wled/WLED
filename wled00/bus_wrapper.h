@@ -211,6 +211,7 @@
 
 /*** ESP32 Neopixel methods ***/
 #ifdef ARDUINO_ARCH_ESP32
+#if defined(WLED_HAS_PARALLEL_I2S)
 // C3: I2S0 and I2S1 methods not supported (has one I2S bus)
 // S2: I2S0 methods supported (single & parallel), I2S1 methods not supported (has one I2S bus)
 // S3: I2S0 methods not supported, I2S1 supports LCD parallel methods (has two I2S buses)
@@ -238,7 +239,7 @@
   typedef NeoEsp32I2s0Apa106Method X1Apa106Method;
   typedef NeoEsp32I2s0Ws2805Method X1Ws2805Method;
   typedef NeoEsp32I2s0Tm1914Method X1Tm1914Method;
-#elif !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C5) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32C61) && !defined(CONFIG_IDF_TARGET_ESP32P4)
+#else
   // regular ESP32 will use I2S1
   typedef NeoEsp32I2s1Ws2812xMethod X1Ws2812xMethod;
   typedef NeoEsp32I2s1Sk6812Method X1Sk6812Method;
@@ -249,6 +250,8 @@
   typedef NeoEsp32I2s1Apa106Method X1Apa106Method;
   typedef NeoEsp32I2s1Ws2805Method X1Ws2805Method;
   typedef NeoEsp32I2s1Tm1914Method X1Tm1914Method;
+#endif
+// RISC-V boards don't have I2S methods
 #endif
 
 // RMT driver selection
