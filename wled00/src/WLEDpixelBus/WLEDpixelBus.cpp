@@ -27,9 +27,10 @@ TODO List
 - ESP32 C61 has no RMT and no PARLIO, either bit bang or check if parallel SPI can be used (need hardware first)
 - need to check if the features "custom bus start indices" and "global color override" work (color override probably does not work)
 - in BB bus: if sending gets cancelled due to interrupt, send it again. i.e. need a loop to resend up to 5 times or so
-- the LCD bus works but can crash due to Core  1 panic'ed (Cache disabled but cached memory region accessed). something is not put in IRAM
+- the LCD bus works but can crash due to Core  1 panic'ed (Cache disabled but cached memory region accessed). something is not put in IRAM -> should be fixed, needs testing
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 - the DMA buffer count and size need to be checked agains memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
+- I2S driver now has safe watchdog in case interrupts are missed. check if parallel spi driver and parlio driver can suffer from the same race condition (nullpointer / end of transfer overwritten or missed)
 */
 
 

@@ -5,6 +5,8 @@ WLEDpixelBus - parallel PARLIO output driver implementation
 
 written by Damian Schneider @dedehai 2026
 
+Note: PARLIO driver was generated with heavy help of an AI with lots of refinement and testing (works but needs a thorough review)
+
 supports ESP32-C6, ESP32-H2 and ESP32-C5 via the PARLIO TX peripheral (8 parallel outputs).
 ESP32-P4 has a 16-bit wide PARLIO unit, this driver uses 8 bits of it (could be extended).
 Requires IDF >= 5.3 (driver/parlio_tx.h). Not available on ESP32, S2, S3, C3, C2.

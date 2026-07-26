@@ -2,7 +2,14 @@
 /*-------------------------------------------------------------------------
 
 WLEDpixelBus - parallel PARLIO output driver implementation
-see header file for documentation
+
+written by Damian Schneider @dedehai 2026
+
+Note: PARLIO driver was generated with heavy help of an AI with lots of refinement and testing (works but needs a thorough review)
+For a detailed escription on how it works see header file
+
+TODO: need to do an in-depth review and harden edge cases, maybe also add a watchdog timeout in case things can go wrong
+      as we use low level stuff to get around the gaps the "pure API" espressif driver has when using linked DMA lists
 
 -------------------------------------------------------------------------*/
 
