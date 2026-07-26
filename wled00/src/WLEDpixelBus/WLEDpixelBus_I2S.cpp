@@ -241,7 +241,8 @@ void I2sBusContext::hwStartTransfer() {
 
 void IRAM_ATTR  I2sBusContext::hwStopTransfer() {
   LCD_CAM.lcd_user.lcd_start = 0;
-  if (_dmaChannel) gdma_stop(_dmaChannel);
+  // Register-level GDMA stop: gdma_stop() lives in flash and must not be called from ISR
+  if (_dmaChanId >= 0) GDMA.channel[_dmaChanId].out.link.stop = 1;
   _state = DriverState::Idle;
 }
 
@@ -698,7 +699,9 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
 #endif // WLED_PIXELBUS_16PARALLEL
 
 void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufIdx) {
-  memset(_dmaBuffer[bufIdx], 0, _bufferSize); // clear the buffer, will be filled or left blank as reset signal (cant be skipped, some channels may have less data)
+  uint32_t* w = (uint32_t*)_dmaBuffer[bufIdx];
+  const uint32_t* end = w + (_bufferSize >> 2);
+  while (w < end) *w++ = 0; // clear buffer: do not use memset, it is not necesarily IARM safe. _bufferSize is 4-byte aligned
 
   if (_resetBytesLeft > 0) {
     descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);

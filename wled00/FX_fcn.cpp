@@ -1215,7 +1215,7 @@ void WS2812FX::finalizeInit() {
   unsigned parHwBusCount = 0; // used for debug print only
   #endif
   for (auto &bus : busConfigs) {
-    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType);
+    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType); // TODO: if no bus type can be allocated, this returns false, could fallback to placeholder
     #if defined(ARDUINO_ARCH_ESP32)
     // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
     if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
