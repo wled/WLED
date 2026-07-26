@@ -68,9 +68,9 @@ I2sBusContext::I2sBusContext(uint8_t busNum)
   , _maxSrcBytes(0)
   , _bufferSize(0)
   , _dmaAllocated(false)
-  , _activeBuffer(0)
-  , _remainingDataBuffers(0)
+  , _lastFilled(0)
   , _resetBytesLeft(0)
+  , _txStartMillis(0)
   , _timing{0, 0, 0, 0, 0}
   , _clockDiv(1)
   , _channelCount(0)
@@ -701,7 +701,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
 void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufIdx) {
   uint32_t* w = (uint32_t*)_dmaBuffer[bufIdx];
   const uint32_t* end = w + (_bufferSize >> 2);
-  while (w < end) *w++ = 0; // clear buffer: do not use memset, it is not necesarily IARM safe. _bufferSize is 4-byte aligned
+  while (w < end) *w++ = 0; // clear buffer: do not use memset, it is not necesarily IARM safe. _bufferSize is 4-byte aligned (could clear just the reset part but it adds complexity and this is fast)
 
   if (_resetBytesLeft > 0) {
     descSetLength(_dmaDesc[bufIdx], _resetBytesLeft);
@@ -777,8 +777,9 @@ bool I2sBusContext::startTransmit() {
     descSetOwnerDma(_dmaDesc[i]);  // hand ownership over to DMA after descriptor init
   }
 
-  _activeBuffer = 0; // start with first buffer
+  _lastFilled = WLEDPB_I2S_DMA_BUFFER_COUNT - 1; // all buffers were just pre-filled, next to refill is buffer 0
   _state = DriverState::Sending;
+  _txStartMillis = millis(); // watchdog start
 
   hwStartTransfer();
 
@@ -796,7 +797,7 @@ IRAM_ATTR bool I2sBusContext::dmaCallback(gdma_channel_handle_t dma_chan, gdma_e
   if (dma_chan != ctx->_dmaChannel || ctx->_dmaChanId < 0) return false; // sanity check, just in case
 
   uint32_t eofAddr = GDMA.channel[ctx->_dmaChanId].out.eof_des_addr; // descriptor that just finished
-  uint32_t curDesc = GDMA.channel[ctx->_dmaChanId].out.dscr;         // descriptor currently in-flight
+  uint32_t curDesc = GDMA.channel[ctx->_dmaChanId].out.dscr;         // note: at EOF this still points to the just-completed descriptor, not the next one
 
   int8_t completedBuf = -1;
   for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
@@ -826,13 +827,16 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
     if ((uint32_t)ctx->_dmaDesc[i] == eofAddr) { completedBuf = i; break; }
   }
 
-  ctx->_processEof(completedBuf, dev->out_link_dscr); // TODO: verify out_link_dscr field name on S2
+  ctx->_processEof(completedBuf, dev->out_link_dscr); // note: out_link_dscr still points to the just-completed descriptor at EOF time
 }
 #endif
 
-// refill buffer upon eof, completedBuf is the one that completed last, curDescAddr is the currently in-flight descriptor (the one after the just completed one)
-// if we missed a previous eof interrupt, it refills both buffers (if we miss three, the frame gets corrupted but that should rarely ever happen)
+// refill buffer(s) upon eof, completedBuf is the descriptor that just finished (from out_eof_des_addr / GDMA eof_des_addr)
+// note: curDescAddr (out_link_dscr / GDMA out.dscr) is NOT reliable to find the in-flight descriptor: at EOF time it
+// still points to the descriptor that just completed, not the next one (verified on ESP32 and ESP32-S2). Do not use it
+// to decide what is safe to refill — completed buffers are always safe, the in-flight one is (completedBuf + 1).
 void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf, uint32_t curDescAddr) {
+  (void)curDescAddr; // unreliable, see above
   if (completedBuf < 0) return;
 
   // end of frame? checks the just finished descriptor for the terminating nullptr
@@ -841,18 +845,23 @@ void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf, uint32_t curDescA
     return;
   }
 
-  // refill every completed-but-unprocessed buffer, oldest first
-  uint8_t b = _activeBuffer;
-  while (true) {
-    if (_resetBytesLeft == WLEDPB_I2S_XFER_DONE_FLAG) break;     // frame tail already queued
-    if (curDescAddr == 0 || (uint32_t)_dmaDesc[b] != curDescAddr) { // never write the in-flight buffer
-      fillBuffer(b);  // // fill buffer, handle reset pulse and end of transfer
-    } // else: >2 buffer-times late, stale chunk goes out; recover on the following ones
-    if (b == completedBuf) break;
+#if WLEDPB_I2S_DMA_BUFFER_COUNT > 2
+  if (_lastFilled == (uint8_t)completedBuf) return; // duplicate eof, nothing pending (never refill the in-flight buffer)
+  // refill every completed-but-unprocessed buffer, oldest first, to catch up if a previous eof was missed.
+  uint8_t b = (_lastFilled + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
+  while (_resetBytesLeft != WLEDPB_I2S_XFER_DONE_FLAG) { // dont fill if reset pulse was queued
+    fillBuffer(b); // fill buffer, handles reset pulse and end of transfer
+    _lastFilled = b;
+    if (b == (uint8_t)completedBuf) break;
     b = (b + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
   }
-
-  _activeBuffer = (completedBuf + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT; // resync with hardware, slack restored
+#else
+  // double buffering: only the completed buffer is safe to refill, the other one is in-flight
+  if (_resetBytesLeft != WLEDPB_I2S_XFER_DONE_FLAG) {
+    fillBuffer(completedBuf); // fill buffer, handles reset pulse and end of transfer
+    _lastFilled = (uint8_t)completedBuf;
+  }
+#endif
 }
 
 void I2sBusContext::abortTransmit() {
@@ -953,10 +962,8 @@ bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
 bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
-  // Wait for previous transmission to complete
-  int timeout = 500; // ms, timeout should not happen, this is a fallback to guarantee driver wont get stuck
-  while (!_ctx->isIdle()) {
-    if (--timeout == 0) { _ctx->abortTransmit(); break; }
+  // Wait for previous transmission to complete, timeout should not happen, it is a fallback to guarantee driver wont get stuck
+  while (!_ctx->isIdle() && (millis() - _ctx->getTxStartMillis()) < 500) {
     vTaskDelay(1);
   }
 
@@ -967,7 +974,13 @@ bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
 
 bool I2sBus::canShow() const {
   if (!_ctx) return true;
-  return _ctx->isIdle();
+  if (_ctx->isIdle()) return true;
+  // safety watchdog if the driver ever gets stuck (e.g. a missed/overwritten terminating descriptor)
+  if ((uint32_t)(millis() - _ctx->getTxStartMillis()) > 500) {
+    _ctx->abortTransmit();
+    return true;
+  }
+  return false;
 }
 
 void I2sBus::setColorOrder(uint8_t co) {

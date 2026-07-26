@@ -96,6 +96,7 @@ public:
   // Transmission
   bool startTransmit();
   bool isIdle() const { return _state == DriverState::Idle; }
+  uint32_t getTxStartMillis() const { return _txStartMillis; }
   void abortTransmit(); // abort on timeout (just in case to avoid driver getting stuck)
 
   // Data access for channels
@@ -164,9 +165,9 @@ private:
   size_t _bufferSize;      // actual allocated DMA buffer size (per buffer)
   size_t _maxSrcBytes;     // max source (encoded pixel) bytes across all registered channels; drives DMA sizing
   bool _dmaAllocated;      // true when DMA buffers are allocated and reflect current _maxSrcBytes
-  volatile uint8_t _activeBuffer;
-  volatile uint8_t _remainingDataBuffers;
+  volatile uint8_t _lastFilled;       // last DMA buffer that was refilled; next to refill is (_lastFilled + 1) % COUNT
   volatile uint16_t _resetBytesLeft;
+  volatile uint32_t _txStartMillis;   // millis() when the current transfer started, watchdog for canShow() and show()
 
   // Timing
   LedTiming _timing;
