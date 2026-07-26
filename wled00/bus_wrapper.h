@@ -132,14 +132,6 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
       busType = _bitBangBusType; // use the locked in bus type
     }
 
-    // getProtocol() reads from a PROGMEM table (flash on ESP8266, .rodata on ESP32).
-    // The timing is a one-time read at bus creation; scale to a local if needed.
-    WLEDpixelBus::LedTiming timing = customTiming ? *customTiming : WLEDpixelBus::getProtocol(busType);
-    if (busSpeedFactor != 100) {
-      float factor = (float)busSpeedFactor / 100.0f;
-      timing = WLEDpixelBus::scaleTiming(timing, factor);
-    }
-
     const uint8_t numChannels = customNumChannels ? customNumChannels : (uint8_t)Bus::getNumberOfChannels(busType);
 
     if (Bus::is2Pin(busType)) {
@@ -172,7 +164,7 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
         #elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32P4)
         driver = WLEDpixelBus::BusDriver::PARLIO; // PARLIO on C5, C6, H2, P4
         #else
-        driver = WLEDpixelBus::BusDriver::I2S; // note: on S3 this uses LCD hardware
+        driver = WLEDpixelBus::BusDriver::I2S; // ESP32 & S2: use parallel I2S, S3: use LCD parallel out
         #endif
         break;
       default:
@@ -183,6 +175,13 @@ static WLEDpixelBus::PixelBus* create(uint8_t busType, uint8_t* pins, uint16_t l
     // C61 only supports BB for now (might be able to use parallel SPI), it has no RMT, no I2S, no PARLIO hardware
     driver = WLEDpixelBus::BusDriver::BitBang;
     #endif
+
+    // getProtocol() reads the pulse-timing from a PROGMEM table, scales by speed factor if set then passes it to the bus
+    WLEDpixelBus::LedTiming timing = customTiming ? *customTiming : WLEDpixelBus::getProtocol(busType);
+    if (busSpeedFactor != 100) {
+      float factor = (float)busSpeedFactor / 100.0f;
+      timing = WLEDpixelBus::scaleTiming(timing, factor);
+    }
 
     // Chip-specific init (prefix/suffix/invert) is applied inside createBus() using ledType.
     return WLEDpixelBus::createBus(driver, pins[0], timing, colorOrder, numChannels, busType, len);
