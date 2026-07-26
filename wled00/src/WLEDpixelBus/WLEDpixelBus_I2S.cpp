@@ -50,6 +50,7 @@ void I2sBusContext::release(uint8_t busNum) {
 #ifdef CONFIG_IDF_TARGET_ESP32S3
 I2sBusContext::I2sBusContext(uint8_t /*busNum*/)
   : _dmaChannel(nullptr)
+  , _dmaChanId(-1)
 #else
 I2sBusContext::I2sBusContext(uint8_t busNum)
   : _busNum(busNum)
@@ -198,6 +199,9 @@ bool I2sBusContext::hwInit(const LedTiming& timing) {
 
   esp_err_t err = gdma_new_channel(&dma_chan_config, &_dmaChannel);
   if (err != ESP_OK) return false;
+  int chanId = -1;
+  if (gdma_get_channel_id(_dmaChannel, &chanId) != ESP_OK) return false;
+  _dmaChanId = (int8_t)chanId;
 
   err = gdma_connect(_dmaChannel, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_LCD, 0));
   if (err != ESP_OK) return false;
@@ -238,6 +242,7 @@ void I2sBusContext::hwStartTransfer() {
 void IRAM_ATTR  I2sBusContext::hwStopTransfer() {
   LCD_CAM.lcd_user.lcd_start = 0;
   if (_dmaChannel) gdma_stop(_dmaChannel);
+  _state = DriverState::Idle;
 }
 
 void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
@@ -457,7 +462,8 @@ void I2sBusContext::hwStartTransfer() {
   _i2sDev->conf.tx_fifo_reset = 0;
 
   _i2sDev->int_clr.val = 0xFFFFFFFF;
-  _i2sDev->int_ena.out_eof = 1;
+  _i2sDev->int_ena.out_eof = 1;       // single descriptor transfer finished
+  _i2sDev->int_ena.out_total_eof = 1; // full transfer finished
 
   _i2sDev->fifo_conf.dscr_en = 1;
   _i2sDev->out_link.start = 0;
@@ -469,9 +475,11 @@ void I2sBusContext::hwStartTransfer() {
 void IRAM_ATTR I2sBusContext::hwStopTransfer() {
   if (_i2sDev) {
     _i2sDev->int_ena.out_eof = 0;
+    _i2sDev->int_ena.out_total_eof = 0;
     _i2sDev->conf.tx_start = 0;
     _i2sDev->out_link.start = 0;
   }
+  _state = DriverState::Idle;
 }
 
 void I2sBusContext::hwRoutePin(int8_t pin, int8_t idx, bool inverted) {
@@ -689,7 +697,7 @@ void IRAM_ATTR I2sBusContext::encode4Step(uint8_t* dest, size_t destLen, uint8_t
 }
 #endif // WLED_PIXELBUS_16PARALLEL
 
-void IRAM_ATTR I2sBusContext::fillBuffer(uint8_t bufIdx) {
+void IRAM_ATTR __attribute__((noinline)) I2sBusContext::fillBuffer(uint8_t bufIdx) {
   memset(_dmaBuffer[bufIdx], 0, _bufferSize); // clear the buffer, will be filled or left blank as reset signal (cant be skipped, some channels may have less data)
 
   if (_resetBytesLeft > 0) {
@@ -779,13 +787,20 @@ bool I2sBusContext::startTransmit() {
 //==============================================================================
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
-IRAM_ATTR bool I2sBusContext::dmaCallback(gdma_channel_handle_t dma_chan,
-                      gdma_event_data_t* event_data,
-                      void* user_data) {
-  (void)dma_chan;
+IRAM_ATTR bool I2sBusContext::dmaCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
   (void)event_data;
   I2sBusContext* ctx = (I2sBusContext*)user_data;
-  ctx->_processEof();
+  if (dma_chan != ctx->_dmaChannel || ctx->_dmaChanId < 0) return false; // sanity check, just in case
+
+  uint32_t eofAddr = GDMA.channel[ctx->_dmaChanId].out.eof_des_addr; // descriptor that just finished
+  uint32_t curDesc = GDMA.channel[ctx->_dmaChanId].out.dscr;         // descriptor currently in-flight
+
+  int8_t completedBuf = -1;
+  for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    if ((uint32_t)ctx->_dmaDesc[i] == eofAddr) { completedBuf = i; break; }
+  }
+
+  ctx->_processEof(completedBuf, curDesc);
   return false;
 }
 #else
@@ -794,25 +809,51 @@ void IRAM_ATTR I2sBusContext::dmaISR(void* arg) {
   i2s_dev_t* dev = ctx->_i2sDev;
   uint32_t status = dev->int_st.val;
   dev->int_clr.val = status;
+
+  if (status & I2S_OUT_TOTAL_EOF_INT_ST) { // link terminated: frame fully sent
+    ctx->hwStopTransfer();
+    return;
+  }
   if (!(status & I2S_OUT_EOF_INT_ST)) return;
-  ctx->_processEof();
+
+  // which descriptor actually produced this EOF (resyncs even if EOFs were coalesced)
+  uint32_t eofAddr = dev->out_eof_des_addr;
+  int8_t completedBuf = -1;
+  for (uint8_t i = 0; i < WLEDPB_I2S_DMA_BUFFER_COUNT; i++) {
+    if ((uint32_t)ctx->_dmaDesc[i] == eofAddr) { completedBuf = i; break; }
+  }
+
+  ctx->_processEof(completedBuf, dev->out_link_dscr); // TODO: verify out_link_dscr field name on S2
 }
 #endif
 
-void IRAM_ATTR I2sBusContext::_processEof() {
-  uint8_t completedBuf = _activeBuffer;
-  _activeBuffer = (_activeBuffer + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
+// refill buffer upon eof, completedBuf is the one that completed last, curDescAddr is the currently in-flight descriptor (the one after the just completed one)
+// if we missed a previous eof interrupt, it refills both buffers (if we miss three, the frame gets corrupted but that should rarely ever happen)
+void IRAM_ATTR I2sBusContext::_processEof(int8_t completedBuf, uint32_t curDescAddr) {
+  if (completedBuf < 0) return;
 
+  // end of frame? checks the just finished descriptor for the terminating nullptr
   if (descGetNext(_dmaDesc[completedBuf]) == nullptr) {
     hwStopTransfer();
-    _state = DriverState::Idle;
     return;
   }
 
-  if (_resetBytesLeft != WLEDPB_I2S_XFER_DONE_FLAG) { // 3 means end of transfer (i.e. reset pulse) was encoded on last fillBuffer call
-    fillBuffer(completedBuf); // fill buffer, handle reset pulse and end of
-    //descSetOwnerDma(_dmaDesc[completedBuf]); // note: it looks like the owner is not reset upon eof, we do not need to hand it back
+  // refill every completed-but-unprocessed buffer, oldest first
+  uint8_t b = _activeBuffer;
+  while (true) {
+    if (_resetBytesLeft == WLEDPB_I2S_XFER_DONE_FLAG) break;     // frame tail already queued
+    if (curDescAddr == 0 || (uint32_t)_dmaDesc[b] != curDescAddr) { // never write the in-flight buffer
+      fillBuffer(b);  // // fill buffer, handle reset pulse and end of transfer
+    } // else: >2 buffer-times late, stale chunk goes out; recover on the following ones
+    if (b == completedBuf) break;
+    b = (b + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT;
   }
+
+  _activeBuffer = (completedBuf + 1) % WLEDPB_I2S_DMA_BUFFER_COUNT; // resync with hardware, slack restored
+}
+
+void I2sBusContext::abortTransmit() {
+  hwStopTransfer();
 }
 
 // ============================================
@@ -910,7 +951,9 @@ bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cc
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete
+  int timeout = 500; // ms, timeout should not happen, this is a fallback to guarantee driver wont get stuck
   while (!_ctx->isIdle()) {
+    if (--timeout == 0) { _ctx->abortTransmit(); break; }
     vTaskDelay(1);
   }
 

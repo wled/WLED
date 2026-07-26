@@ -23,7 +23,7 @@ Each bus can have individual configuration of color channels but all must share 
 
 #ifdef WLEDPB_I2S_SUPPORT
 
-#include "driver/periph_ctrl.h"
+#include "esp_private/periph_ctrl.h" // TODO: this may get removed in future IDF (V6 still has it), need a rewrite if that ever happens
 #include "esp_rom_gpio.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
@@ -33,6 +33,7 @@ Each bus can have individual configuration of color channels but all must share 
   #include "hal/lcd_ll.h"
   #include "soc/lcd_cam_struct.h"
   #include "soc/gpio_sig_map.h"
+  #include "soc/gdma_struct.h" // for global GDMA
 #else
   #include "soc/i2s_struct.h"
   #include "soc/i2s_reg.h"
@@ -54,16 +55,14 @@ namespace WLEDpixelBus {
 // note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per RGB LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
 
 // I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering is required for 16-parallel output.
-// TODO: this requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
-// TODO2: the buffer count and size need to be checked agains memory usage fomulas, they may be incorrect
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT
   #ifdef WLED_PIXELBUS_16PARALLEL
     #define WLEDPB_I2S_DMA_BUFFER_COUNT 3 // need 3 buffers in 16x parallel mode
   #else
     #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT (ESP32 only)
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 3   // need triple buffering as RMT eat up a lot of ISR time
     #else
-    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2 // 2 buffers is enough if not constantly interrupted by RMT
+    #define WLEDPB_I2S_DMA_BUFFER_COUNT 2 // 2 buffers is enough if not constantly interrupted by RMT (i.e. with 4 RMT outputs)
     #endif
   #endif
 #endif
@@ -97,6 +96,7 @@ public:
   // Transmission
   bool startTransmit();
   bool isIdle() const { return _state == DriverState::Idle; }
+  void abortTransmit(); // abort on timeout (just in case to avoid driver getting stuck)
 
   // Data access for channels
   void setChannelData(int8_t channelIdx, const uint8_t* data, size_t len);
@@ -114,7 +114,7 @@ private:
 #else
   static void IRAM_ATTR dmaISR(void* arg);
 #endif
-  void IRAM_ATTR _processEof();
+  void IRAM_ATTR _processEof(int8_t completedBuf, uint32_t curDescAddr);
 
   // Hardware abstraction
   bool hwInit(const LedTiming& timing);
@@ -148,6 +148,7 @@ private:
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
   gdma_channel_handle_t _dmaChannel;
+  int8_t _dmaChanId;
 #else
   uint8_t _busNum;
   i2s_dev_t* _i2sDev;
