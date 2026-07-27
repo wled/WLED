@@ -136,17 +136,17 @@ enum class DriverState : uint8_t {
 //==============================================================================
 
 constexpr size_t MIN_DMA_BUFFER_SIZE = 256;
-constexpr size_t MAX_DMA_BUFFER_SIZE = 4092;
+constexpr size_t MAX_DMA_BUFFER_SIZE = 4092; // 12bit in DMA descriptor
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT // C3 only
   constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*2); // must be a multiple of 16 (16 DMA bytes per source byte), clocked out at ~2.6MHz, 4 bits per clock (2k per buffer means about 1ms interrupt intervals with 4 step cadence)
 #else
   #if SOC_RMT_TX_CANDIDATES_PER_GROUP > 4 // supports 8 RMT
-  constexpr size_t DEFAULT_DMA_BUFFER_SIZE = MAX_DMA_BUFFER_SIZE; // note: 3k is enough except if using 8RMT, need extra space for S3 and ESP32 classic, also requires triple buffering
+  constexpr size_t DEFAULT_DMA_BUFFER_SIZE = MAX_DMA_BUFFER_SIZE; // note: 3k is enough except if using 8RMT (ESP32 classic), also requires triple buffering
   #else
   constexpr size_t DEFAULT_DMA_BUFFER_SIZE = (1024*3);
   #endif
 #endif
-// TODO: need to assert the default is not larger than the max allowed, which is 4092 (12bit in DMA descriptor)
+static_assert(DEFAULT_DMA_BUFFER_SIZE <= 4092, "DEFAULT_DMA_BUFFER_SIZE exceeds the maximum possible size");
 
 //==============================================================================
 // Color Encoding Helpers
@@ -397,7 +397,7 @@ public:
    * For TM1814/TM1815: set to the fine residual scale after hardware current-step selection.
    * @param b  brightness 0–255
    */
-  void setBusBri(uint8_t b) { _busBri = b; } // TODO: brightness scaling/parameters may need some refinement or moving
+  void setBusBri(uint8_t b) { _busBri = b; } // TODO: brightness scaling/parameters may need some refinement
   void setEncBri(uint8_t b) { _encBri = b; }
   inline uint8_t getBusBri() const { return _busBri; }
 
@@ -470,7 +470,7 @@ public:
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
   // note: using O2 optimization seems to make it slower
-  // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM
+  // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM, need to test if there is any speed benefit from IRAM
   virtual bool setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     uint8_t* out = _pixelData + (size_t)pos * _encoder.getPixelBytes();
@@ -492,7 +492,6 @@ public:
    * Returns RGBW32 color. WW/CW are NOT encoded separately so CCT round-trips are lossy.
    * Override only if the bus uses non-linear encoding (e.g. Esp8266DmaBus 4-step).
    */
-   // TODO: on ESP32, do not put this in IRAM
   virtual uint32_t getPixelColor(uint16_t pix) const {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     const uint8_t* in = _pixelData + (size_t)pix * _encoder.getPixelBytes();

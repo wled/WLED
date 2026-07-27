@@ -31,6 +31,14 @@ TODO List
 - I2S/LCD requires more stress-testing to ensure glitch-free outputs, for 16-parallel maybe even 4 buffers are needed under heavy load
 - the DMA buffer count and size need to be checked agains memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
 - I2S driver now has safe watchdog in case interrupts are missed. check if parallel spi driver and parlio driver can suffer from the same race condition (nullpointer / end of transfer overwritten or missed)
+- LOOPTEST_CYCLES in BB bus need fine-tuning
+- color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain
+- move gamma down to bus level, see pending PR
+- brightness scaling for special buses with LED current (or 16bit) may need fine-tuning
+- SPI 2-wire bus types need testing on all platforms (tested working in the past but not recently)
+- SPI 2-wire types do not support signal inversion
+- ESP32_DATA_IDLE_HIGH flag is a hack to fix bad hardware design and uses the legacy RMT driver, we should drop support for that
+- UI: restrict custom timing inputs in hw-parallel buses to only allow changing t0h and calculate from that (to represent hardware limits), reset time is free to choose (check its properly limited to not cause overflows)
 */
 
 
@@ -228,7 +236,7 @@ PixelBus* createBus(BusDriver driver, int8_t pin, const LedTiming& timing, uint8
 
   PixelBus* bus = nullptr;
   // TODO: need to re-order the colorOrder here to match how NPB is mapping the colors or user configs will be wrong. NPB uses IC datasheet orders (to be confirmed)
-  // for example, SM16825 is RGBWY order on the chip. 
+  // for example, SM16825 is RGBWY order on the chip.
   switch (driver) {
 #if defined(ESP32)
     case BusDriver::RMT:

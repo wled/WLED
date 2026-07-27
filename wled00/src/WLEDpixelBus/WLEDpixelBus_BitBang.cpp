@@ -51,7 +51,7 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
     __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
     return ccount;
   }
-  static constexpr uint32_t LOOPTEST_CYCLES = 16; // TODO: LOOPTEST_CYCLES values may need fine-tuning after final implementation (this is what I found most precise for current state of things)
+  static constexpr uint32_t LOOPTEST_CYCLES = 16;
 #else
 
   static inline __attribute__((always_inline)) uint32_t getCycleCount() {

@@ -13,8 +13,7 @@ namespace WLEDpixelBus {
 
 // Note on timings regarding I2S/LCD/SPI buses (4 step cadence):
 // the drivers will always use a 1/4 - 3/4 duty cycle for '0' and '1' bits (e.g. 250ns high + 750ns low for a 1us period)
-// it derives the total period from the given timings (0hi+0lo+1hi+1lo)/2)
-// TODO: a better strategy might be to use 0hi*4 as the period as 0 timing is most critical
+// since the t0h timing is the most critical (according to my testing) make it accurate and derive the rest
 
 /**
  * LED timing parameters in nanoseconds
@@ -24,7 +23,7 @@ struct LedTiming {
   uint16_t t0l_ns;    // '0' bit low time
   uint16_t t1h_ns;    // '1' bit high time
   uint16_t t1l_ns;    // '1' bit low time
-  uint32_t reset_us;  // Reset/latch time in microseconds // TODO: globally limit this? RMT can do ~800us max (32767 ticks of 25ns) -> better use timer instead
+  uint32_t reset_us;  // Reset/latch time in microseconds
 
   constexpr LedTiming(uint16_t t0h, uint16_t t0l, uint16_t t1h, uint16_t t1l, uint32_t reset)
     : t0h_ns(t0h), t0l_ns(t0l), t1h_ns(t1h), t1l_ns(t1l), reset_us(reset) {}
@@ -92,7 +91,7 @@ static inline uint8_t getTimingIndex(uint8_t wledType) {
     case TYPE_APA102:
     case TYPE_LPD8806:
     case TYPE_P9813:
-    case TYPE_LPD6803:       return 11; // TODO: SPI types need testing
+    case TYPE_LPD6803:       return 11;
     case TYPE_WS2801:        return 12;
     default:                 return  0; // WS2812 fallback
   }
