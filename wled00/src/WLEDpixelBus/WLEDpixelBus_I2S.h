@@ -47,12 +47,12 @@ namespace WLEDpixelBus {
 // I2S Parallel Bus - ESP32, ESP32-S2, ESP32-S3 (LCD)
 //==============================================================================
 
-// SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080
-// TODO: support both buses on ESP32? (currently only bus 1 is used for LED output, one is for AR)
-// mode. 2 on ESP32 (I2S0 + I2S1), 1 on ESP32-S2 (I2S0 only), 1 on ESP32-S3 (LCD_CAM).
+// SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080 i.e. parallel output mode (ESP32: two, S2: one, S3 uses LCD driver)
+// TODO: support both buses on ESP32? (currently only I2S_NUM_1 is used for LED output, I2S_NUM_0 is for AR)
+
 #define WLEDPB_I2S_BUS_COUNT SOC_LCD_I80_BUSES
 
-// note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per RGB LED, 1k buffer can hold ~5 LEDs, ISR will fire every 144us
+// note: 4-step cadence with 16 parallel outs requires 8 bytes per source bit or 192bytes per RGB LED, i.e. a 1k buffer can hold ~5 LEDs, ISR will fire every 144us
 
 // I2S DMA buffer count for circular linked list. For 8-parallel output, double buffering is enough, tripple buffering is required for 16-parallel output.
 #ifndef WLEDPB_I2S_DMA_BUFFER_COUNT

@@ -129,7 +129,7 @@ private:
 #endif
 
   // _encodeBuffer and _encodeBufferSize are in PixelBus base
-  static uint8_t expectedChannels; // TODO: make none static
+  static uint8_t expectedChannels; // TODO: make none static? would save a few bytes of ram but use more heap
   static uint8_t allocatedCount;
   static uint8_t currentChannelIndex;
   static uint8_t usedBlocks;

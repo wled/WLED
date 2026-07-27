@@ -39,6 +39,11 @@ TODO List
 - SPI 2-wire types do not support signal inversion
 - ESP32_DATA_IDLE_HIGH flag is a hack to fix bad hardware design and uses the legacy RMT driver, we should drop support for that
 - UI: restrict custom timing inputs in hw-parallel buses to only allow changing t0h and calculate from that (to represent hardware limits), reset time is free to choose (check its properly limited to not cause overflows)
+- parallel SPI driver: use more modern GMDA channel reservation to get rid of hard ceded GDMA_CHANNEL, see todo in parallelSPI.h bus
+- parallel SPI driver: the reset pulse handling needs some improvement, currently SPI_RESET_BITS is fixed
+- PARLIO bus needs an in depth review to check for any AI slop
+- use chip capabilities instead of individual target ifdefs in buswrapper
+- ESP8266 UART and I2S buses show() return false instead of waiting which is inconsistent
 */
 
 

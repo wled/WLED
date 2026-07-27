@@ -149,7 +149,7 @@ void Esp8266UartBus::updateUartTiming() {
 
 bool Esp8266UartBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
-  if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait?
+  if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait? -> no it should wait with a timout and fallback
   // workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
   // since pinMode() is computationally cheap, it is an acceptable fix
   pinMode(_pin, SPECIAL); 

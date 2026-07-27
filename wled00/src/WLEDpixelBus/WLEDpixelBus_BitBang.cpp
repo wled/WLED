@@ -129,7 +129,7 @@ bool BitBangBus::begin() {
   period          = (period > lo) ? period - lo : 0u;
    // max time allowed before we assume a latch, use half the reset period.
    // Note: there are strips that latch after just ~10us maybe even less, users can customize this period and set it to 10us if there are issues.
-  //        if the reset period is set to 4000µs or more, interrupts are disabled (TODO: this is a bit of a hack, maybe better make it a config checkmark?)
+  //        if the reset period is set to 0, interrupts are disabled
   uint32_t resetus = _timing.reset_us < 10 ? 10 : _timing.reset_us; // note: below 10us the output will starve due to short interrupts
   const uint32_t latchCycles = resetus * cpuMHz;
   if (_timing.reset_us > 0) _BBs->allowInterrupts = true;

@@ -178,13 +178,8 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
   uint8_t* dst = _dmaBuffer[bufIdx];
   uint32_t* dst32 = reinterpret_cast<uint32_t*>(dst);
   for (size_t i = 0; i < (DEFAULT_DMA_BUFFER_SIZE / 4); i++) {
-    dst32[i] = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned
-    //memset(dst, 0x00, DEFAULT_DMA_BUFFER_SIZE); // TODO: memset is not ISR IRAM safe?
+    dst32[i] = 0; // clear buffer (set all lanes low), DMA buffer is 4 bytes aligned. Note: memset is not IRAM safe and may crash
   }
-
-  /*if (_state == SpiState::WaitingReset) {
-    return; // No encoding needed; just return and send reset pulse (all zeros)
-  }*/
 
   size_t maxSrcThisChunk = DEFAULT_DMA_BUFFER_SIZE / 16;  // 16 DMA bytes per source byte
   size_t srcBytesLeft = (_framePos < _numBytes) ? (_numBytes - _framePos) : 0;
@@ -229,8 +224,8 @@ void IRAM_ATTR SpiBusContext::encodeSpiChunk(uint8_t bufIdx) {
 }
 
 // SPI ISR: handles trans_done (normal completion) and outfifo_empty_err
-// (FIFO underrun recovery). Both paths are synchronized with gdmaISR via _isrMux.
 void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
+// (FIFO underrun recovery). Both paths are synchronized with gdmaISR via _isrMux.
   SpiBusContext* ctx = (SpiBusContext*)arg;
   uint32_t status = ctx->_hw->dma_int_st.val;
   ctx->_hw->dma_int_clr.val = status; // Clear all flags immediately
@@ -258,11 +253,10 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
       if (ctx->_channels[i].active && ctx->_channels[i].pin >= 0) {
         gpio_ll_set_func_sel(ctx->_channels[i].pin, SIG_GPIO_OUT_IDX); // disconnect from SPI using direct register write (ISR safe)
         // set the pin to static level immediately,  note: if implementing this for other ESPs: need to also set the high register for pins >31
-        // TODO: check this work with inverted buses as intended, also check if we can use something a bit higher level (must be ISR safe so no rom functions)
         if (ctx->_channels[i].inverted)
           GPIO_HW->out_w1ts.out_w1ts = (1 << ctx->_channels[i].pin); // set ouput high (set) to avoid glitches
         else
-          GPIO_HW->out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches note: if implementing this for other ESPs: need to also set the high register for pins >31
+          GPIO_HW->out_w1tc.out_w1tc = (1 << ctx->_channels[i].pin); // set ouput low (clear) to avoid glitches
       }
     }
     ctx->_hw->cmd.usr = 0;                    // stop SPI user transfer
@@ -301,23 +295,8 @@ void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
   uint8_t completedBuf = ctx->_activeBuffer;
   ctx->_activeBuffer = (completedBuf + 1) % WLEDPB_SPI_DMA_DESC_COUNT;
 
-  // If we're in WaitingReset, this EOF means the reset pulse buffer
-  // has been sent. The transfer is complete.
-  /*
-  if (ctx->_state == SpiState::WaitingReset) {
-    // Stop DMA and SPI cleanly
-    ctx->hwStopTransfer();
-    ctx->_state = SpiState::Idle;
-    portEXIT_CRITICAL_ISR(&ctx->_isrMux);
-    return;
-  }*/
-
   // Fill the completed buffer with next chunk of data (or zeroes for reset)
   ctx->encodeSpiChunk(completedBuf);
-
-  // If encodeSpiChunk transitioned to SendingLast, the NEXT buffer after this one is the reset pulse
-  // when tat EOF fires, we'll be in WaitingReset and stop the transfer
-  // TODO: this yields long reset pulses, which works but is slower than needed, check if this can be done like in I2S or if that breaks things (it did last time I tried)
 
   // Give ownership of the descriptor back to DMA so it can keep feeding SPI  TODO: this may be unnecessary
   ctx->_dmaDesc[completedBuf].eof = 1;
