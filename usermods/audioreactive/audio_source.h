@@ -2,7 +2,9 @@
 #ifdef ARDUINO_ARCH_ESP32
 #include "wled.h"
 #include <driver/i2s.h>
-#include <driver/adc.h>
+#if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)
+#include <driver/adc.h>  // legacy ADC driver causes bootloops in V5
+#endif
 #include <soc/i2s_reg.h>  // needed for SPH0465 timing workaround (classic ESP32)
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(4, 4, 0)
 #if defined(CONFIG_IDF_TARGET_ESP32) && (ESP_IDF_VERSION_MAJOR < 5)

@@ -51,9 +51,9 @@ static dmx_config_t createConfig()
   dmx_config_t config = DMX_CONFIG_DEFAULT;
   config.model_id = 0;
   config.product_category = RDM_PRODUCT_CATEGORY_FIXTURE;
-  config.software_version_id = VERSION;
+  config.software_version_id = uint32_t(VERSION);
 
-#if 0
+#if ESP_IDF_VERSION_MAJOR < 5
   // softhack007: ToDO: current code from main does not work in V5 yet
   const std::string dmxWledVersionString = "WLED_V" + std::to_string(VERSION);
   strncpy(config.software_version_label, dmxWledVersionString.c_str(), 32);
@@ -84,8 +84,8 @@ static dmx_config_t createConfig()
   // rdm personalities are numbered from 1, thus we can just set the DMXMode directly.
   config.current_personality = DMXMode;
   #else
-    // fallback code
-    const std::string DmxVersionString = "WLED_V" + std::to_string(VERSION);
+    // fallback code for V5, without config.personalities[]
+    static const std::string DmxVersionString = "WLED_V" + std::to_string(VERSION);   // static needed, to prevent that config.software_version_label becomes a dangling reference
     config.software_version_label = DmxVersionString.c_str();
   #endif
 
@@ -199,9 +199,9 @@ void DMXInput::init(int8_t rxPin, int8_t txPin, int8_t enPin, uint8_t inputPortN
     const bool pinsAllocated = PinManager::allocateMultiplePins(pins, 3, PinOwner::DMX_INPUT);
     if (!pinsAllocated) {
       DEBUG_PRINTF("DMXInput: Error: Failed to allocate pins for DMX_INPUT. Pins already in use:\n");
-      DEBUG_PRINTF("rx in use by: %hhd\n", PinManager::getPinOwner(rxPin));
-      DEBUG_PRINTF("tx in use by: %hhd\n", PinManager::getPinOwner(txPin));
-      DEBUG_PRINTF("en in use by: %hhd\n", PinManager::getPinOwner(enPin));
+      DEBUG_PRINTF("rx in use by: %u (%s)\n", unsigned(PinManager::getPinOwner(rxPin)), PinManager::getPinOwnerName(rxPin));
+      DEBUG_PRINTF("tx in use by: %u (%s)\n", unsigned(PinManager::getPinOwner(txPin)), PinManager::getPinOwnerName(txPin));
+      DEBUG_PRINTF("en in use by: %u (%s)\n", unsigned(PinManager::getPinOwner(enPin)), PinManager::getPinOwnerName(enPin));
       return;
     }
 
