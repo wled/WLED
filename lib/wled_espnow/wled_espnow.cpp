@@ -1,6 +1,6 @@
 /*
  * Lightweight ESP-NOW driver for WLED
- * by @dedehai (2026) licensed under EUPL 1.2 license (same as WLED)
+ * by @dedehai (2026) licensed under EUPL 1.2 license
  * note: currently supports only broadcast sending
  */
 
@@ -43,18 +43,27 @@ typedef struct {
 #ifdef ARDUINO_ARCH_ESP32
 
 // ----- ESP32 sent callback -----------------------------------------------
+// In IDF 5.5: the first parameter became wifi_tx_info_t* which carries the destination address.
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 5, 0)
+static void _espnowSentCB(const wifi_tx_info_t *info, esp_now_send_status_t status) {
+  if (!info) return;
+  const uint8_t *mac = info->des_addr;
+  if (espNow._inFlight > 0) espNow._inFlight--;
+  if (espNow._sentCB)
+    espNow._sentCB(const_cast<uint8_t*>(mac), (uint8_t)status);
+}
+#else
 static void _espnowSentCB(const uint8_t *mac, esp_now_send_status_t status) {
   if (espNow._inFlight > 0) espNow._inFlight--;
   if (espNow._sentCB)
     espNow._sentCB(const_cast<uint8_t*>(mac), (uint8_t)status);
 }
+#endif
 
 // ----- ESP32 recv callback -----------------------------------------------
-// Signature changed in IDF 5.0: the first parameter became esp_now_recv_info_t*
-// which carries the source address, destination address (useful to detect
-// broadcast) and the rx_ctrl struct with RSSI.
+// In IDF 5.0: the first parameter became esp_now_recv_info_t* which carries the source address,
+// destination address (useful to detectbroadcast) and the rx_ctrl struct with RSSI.
 #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
-// note: IDF V5 code is AI generated, unreviewed and untested
 static void _espnowRecvCB(const esp_now_recv_info_t *info, const uint8_t *data, int len) {
   if (!info || !data || len <= 0) return;
   const uint8_t *mac  = info->src_addr;
@@ -63,11 +72,10 @@ static void _espnowRecvCB(const esp_now_recv_info_t *info, const uint8_t *data, 
   // Broadcast when the destination address has all bits set.
   bool isBroadcast = (info->des_addr && memcmp(info->des_addr, BCAST, 6) == 0);
 
-  //espnowBroadcast.dispatch(mac, data, (uint8_t)len, rssi);
+  //espnowBroadcast.dispatch(mac, data, (uint8_t)len, rssi); // broadcast is untested code
   if (espNow._rcvdCB)
     espNow._rcvdCB(const_cast<uint8_t*>(mac), const_cast<uint8_t*>(data), (uint8_t)len, (signed int)rssi, isBroadcast);
 }
-
 #else  // IDF < 5.0
 
 static void _espnowRecvCB(const uint8_t *mac, const uint8_t *data, int len) {
