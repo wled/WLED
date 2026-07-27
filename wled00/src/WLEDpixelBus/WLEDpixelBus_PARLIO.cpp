@@ -27,6 +27,16 @@ TODO: need to do an in-depth review and harden edge cases, maybe also add a watc
   #ifndef PARLIO_LL_TX_MAX_BYTES_PER_FRAME
     #define PARLIO_LL_TX_MAX_BYTES_PER_FRAME (PARLIO_LL_TX_MAX_BITS_PER_FRAME / 8)
   #endif
+
+  // C5 MP (and future chips with AHB GDMA v2+) expose the DMA controller as AHB_DMA
+  // and use ahb_dma_ll_* helpers, while C6/H2 keep the legacy GDMA naming.
+  #if defined(SOC_AHB_GDMA_VERSION) && (SOC_AHB_GDMA_VERSION >= 2)
+    #define WLEDPB_PARLIO_GDMA_DEV (&AHB_DMA)
+    #define WLEDPB_PARLIO_GDMA_LL_TX_RESTART ahb_dma_ll_tx_restart
+  #else
+    #define WLEDPB_PARLIO_GDMA_DEV (&GDMA)
+    #define WLEDPB_PARLIO_GDMA_LL_TX_RESTART gdma_ll_tx_restart
+  #endif
 #endif
 
 namespace WLEDpixelBus {
@@ -309,9 +319,9 @@ IRAM_ATTR bool ParlioBusContext::gdmaEofCallback(gdma_channel_handle_t /*dma_cha
   // lives in flash unless CONFIG_GDMA_CTRL_FUNC_IN_IRAM=y (not the default, and unchangeable
   // on precompiled Arduino/Tasmota frameworks), while the GDMA ISR itself is IRAM-resident
   // and IRAM-flagged in those builds - calling flash from it panics with "Cache error"
-  // during NVS writes. gdma_ll_tx_restart() compiles to a single MMIO write.
+  // during NVS writes. The LL TX restart helper compiles to a single MMIO write.
   if (ctx->_dmaChanIdx >= 0) {
-    gdma_ll_tx_restart(&GDMA, (uint32_t)ctx->_dmaChanIdx);
+    WLEDPB_PARLIO_GDMA_LL_TX_RESTART(WLEDPB_PARLIO_GDMA_DEV, (uint32_t)ctx->_dmaChanIdx);
   } else {
     gdma_append(ctx->_dmaChan); // channel index unknown: last resort
   }
