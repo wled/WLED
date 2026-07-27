@@ -239,13 +239,18 @@ bool BitBangBus::show() {
 
   _BBs->stagedCount++;
   if (_BBs->stagedCount < _BBs->channelCount) {
-    return true;  // not all channels ready yet
+    return true;  // not all channels have been staged, we need all of them triggered before sending
   }
 
   _BBs->stagedCount = 0;   // reset for next frame
-  // TODO: add a loop, resend if it fails to avoid effect tearing, need to wait the "reset period" between resends to make sure LEDs have definitely latched
-  return outputParallel(); // send data to LEDs (blocking but ISRs are allowed if reset period is not set to 0)
-
+  int retryFrame = 3; // if sending is aborted, retry this frame
+  while (retryFrame-- > 0) {
+    if (outputParallel()) break; // send data to LEDs (blocking but ISRs are allowed if reset period is not set to 0)
+    // if sendout got interrupted, we need to wait for the LEDs to definitely latch
+    uint32_t resetStart = getCycleCount();
+    while ((getCycleCount() - resetStart) < _BBs->latchCycles) yield();
+  }
+  return true; // frame sent (or at least we tried)
 }
 
 // ---------------------------------------------------------------------------
