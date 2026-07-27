@@ -1148,76 +1148,76 @@ Swap: <select id="xw${s}" name="XW${s}">
 		// Ensure parallel-output bus speeds are synchronized (I2S/LCD/SPI or BitBang):
 		// First bus in each group is editable; rest mirror its value. If any bus in a group is
 		// customized, all buses in that group are forced to customize and share the same timing.
+		// for hadrware parallel outputs, only t0h and reset period can be edited (4-step cadence restriction)
 		function syncParallelBusSpeedSelectors() {
 			try {
-				// reset all first
-				d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
-				const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
-				fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => { e.disabled = false; e.style.opacity = 1; }));
-				d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(e => { e.disabled = false; e.style.opacity = 1; });
+					const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
+					// reset all first
+					d.Sf.querySelectorAll("#mLC select[name^=SF]").forEach(s => { s.disabled = false; s.style.opacity = 1; });
+					fields.forEach(f => d.Sf.querySelectorAll("#mLC input[name^="+f+"]").forEach(e => { e.disabled = false; e.readOnly = false; e.style.opacity = 1; }));
+					d.Sf.querySelectorAll("#mLC input[name^=CBen]").forEach(e => { e.disabled = false; e.style.opacity = 1; });
 
-				let parHw = [], bb = [];
-				forEachBus((n, t) => {
-					let drv = d.Sf["LD"+n]?.value | 0;
-					if (!isDig(t) || isD2P(t)) return;
-					if (drv === 1) parHw.push(n);
-					else if (drv === 2 || is8266BB(n)) bb.push(n);
-				});
-
-				function syncGroup(arr) {
-					if (arr.length < 2) return;
-					let first = arr[0];
-					// only first bus can toggle customize; rest are locked
-					arr.forEach((n, idx) => {
-						let cb = d.Sf["CBen"+n];
-						if (cb) {
-							cb.disabled = (idx !== 0);
-							cb.style.opacity = (idx !== 0) ? 0.6 : 1;
-						}
+					let parHw = [], bb = [];
+					forEachBus((n, t) => {
+							let drv = d.Sf["LD"+n]?.value | 0;
+							if (isDig(t) && !isD2P(t)) (drv === 1 ? parHw : (drv === 2 || is8266BB(n) ? bb : [])).push(n);
 					});
-					// sync checked state from first to all others
-					let firstChecked = isCst(first);
-					arr.forEach(n => {
-						if (n === first) return;
-						let cb = d.Sf["CBen"+n];
-						if (!cb) return;
-						if (firstChecked && !cb.checked) {
-							presetCustomDefaults(n, parseInt(d.Sf["LT"+n].value));
-							cb.checked = true;
-							gId("custbus"+n).style.display = "inline";
-							let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
-							for (let i = 0; i < 6; i++) {
-								let r = gId("CBrow"+n+"_"+i);
-								if (r) r.style.display = (i < nch) ? "" : "none";
+
+					function syncGroup(arr, isHwPar) {
+							if (!arr.length) return;
+							let first = arr[0], src = arr.find(n => isCst(n)) || first, checked = isCst(first);
+
+							arr.forEach((n, idx) => {
+									let cb = d.Sf["CBen"+n];
+									if (cb && idx > 0) {
+											cb.disabled = true; cb.style.opacity = 0.6;
+											if (checked !== cb.checked) {
+													if (checked) presetCustomDefaults(n, parseInt(d.Sf["LT"+n].value));
+													cb.checked = checked;
+													gId("custbus"+n).style.display = checked ? "inline" : "none";
+													let nch = parseInt(d.Sf["CBch"+n]?.value) || 3;
+													for (let j = 0; j < 6; j++) { let r = gId("CBrow"+n+"_"+j); if (r) r.style.display = j < nch ? "" : "none"; }
+											}
+									}
+									if (n !== src) {
+											let sf = d.Sf["SF"+n]; if (sf) { sf.disabled = true; sf.style.opacity = 0.6; }
+											fields.forEach(f => { let el = d.Sf[f+n]; if (el) { el.disabled = true; el.style.opacity = 0.6; } });
+									}
+							});
+
+							// Apply HW parallel limits to source
+							if (isHwPar && d.Sf["CBt0h"+src]) {
+									d.Sf["CBt0h"+src].max = 21845;
+									[1, 2, 3].forEach(i => { let el = d.Sf[fields[i]+src]; if (el) { el.readOnly = true; el.style.opacity = 0.6; } });
 							}
-						} else if (!firstChecked && cb.checked) {
-							cb.checked = false;
-							gId("custbus"+n).style.display = "none";
-						}
-					});
-					let src = arr.find(n => isCst(n)) || first;
-					// disable and mirror from source to rest
-					for (let i = 0; i < arr.length; i++) {
-						let n = arr[i];
-						if (n === src) continue;
-						let sf = d.Sf["SF"+n], sfSrc = d.Sf["SF"+src];
-						if (sf) { sf.disabled = true; sf.style.opacity = 0.6; if (sfSrc) sf.value = sfSrc.value; }
-						fields.forEach(fn => {
-							let el = d.Sf[fn+n], srcEl = d.Sf[fn+src];
-							if (el) { el.disabled = true; el.style.opacity = 0.6; if (srcEl) el.value = srcEl.value; }
-						});
-					}
-					// propagators on source bus
-					let sfSrc = d.Sf["SF"+src];
-					if (sfSrc) sfSrc.onchange = function() { for (let i = 0; i < arr.length; i++) { if (arr[i] === src) continue; let s = d.Sf["SF"+arr[i]]; if (s) s.value = this.value; } };
-					fields.forEach(fn => {
-						let srcEl = d.Sf[fn+src];
-						if (srcEl) srcEl.oninput = function() { let v = this.value; for (let i = 0; i < arr.length; i++) { if (arr[i] === src) continue; let e = d.Sf[fn+arr[i]]; if (e) e.value = v; } };
-					});
-				}
 
-				syncGroup(parHw);
-				syncGroup(bb);
+							let sfSrc = d.Sf["SF"+src];
+							if (sfSrc) sfSrc.onchange = function() { arr.forEach(n => { if (n !== src && d.Sf["SF"+n]) d.Sf["SF"+n].value = this.value; }); };
+
+							// Unified propagator and cadence calculator
+							fields.forEach((fn, idx) => {
+									let srcEl = d.Sf[fn+src];
+									if (srcEl) srcEl.oninput = function() {
+											// Auto-calculate [CBt0l, CBt1h, CBt1l] from CBt0h
+											if (isHwPar && idx === 0) {
+													let v = parseInt(this.value) || 0;
+													[1, 2, 3].forEach(i => {
+															let el = d.Sf[fields[i]+src];
+															if (el) { el.value = (i === 3 ? v : v * 3); el.oninput?.(); }
+													});
+											}
+											// Sync values across all grouped buses
+											let val = this.value;
+											arr.forEach(n => { if (n !== src && d.Sf[fn+n]) d.Sf[fn+n].value = val; });
+									};
+							});
+
+							// Trigger initialization
+							if (isHwPar && d.Sf["CBt0h"+src]) d.Sf["CBt0h"+src].oninput();
+					}
+
+					syncGroup(parHw, 1);
+					syncGroup(bb, 0);
 			} catch(e) {}
 		}
 	</script>

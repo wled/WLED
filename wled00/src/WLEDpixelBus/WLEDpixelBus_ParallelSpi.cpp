@@ -131,7 +131,7 @@ bool SpiBusContext::isIdle() const {
   }
 
   if (_hw->cmd.usr == 0) {
-    for (volatile int i = 0; i < 200; i++) {
+    for (int i = 0; i < 200; i++) {
       if (_hw->cmd.usr != 0) return false;       // chained segment restarted, all good
       if (_state == SpiState::Idle) return true; // trans_done ISR completed normally
     }
