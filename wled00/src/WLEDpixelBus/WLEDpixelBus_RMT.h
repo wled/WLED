@@ -56,8 +56,7 @@ public:
   bool begin() override;
   void end() override;
 
-  bool show(const uint32_t* pixels, uint16_t numPixels,
-        const CctPixel* cct = nullptr) override;
+  bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "RMT"; }

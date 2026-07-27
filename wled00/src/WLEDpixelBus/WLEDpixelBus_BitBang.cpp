@@ -234,7 +234,7 @@ void BitBangBus::end() {
 // show()
 // Stage this channel's data.  When the last channel stages, run outputParallel().
 // ---------------------------------------------------------------------------
-bool BitBangBus::show(const uint32_t*, uint16_t, const CctPixel*) {
+bool BitBangBus::show() {
   if (!_initialized || !_pixelData) return false;
 
   _BBs->stagedCount++;

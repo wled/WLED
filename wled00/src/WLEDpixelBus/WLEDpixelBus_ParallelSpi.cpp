@@ -718,7 +718,7 @@ bool ParallelSpiBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannel
   return true;
 }
 
-bool ParallelSpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+bool ParallelSpiBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer) return false;
 
   // Wait for previous transmission to complete with timeout (should not happen, BusManager already waits for canShow())

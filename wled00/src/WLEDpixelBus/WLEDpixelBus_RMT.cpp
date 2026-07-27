@@ -199,7 +199,7 @@ void RmtBus::end() {
   _initialized = false;
 }
 
-bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+bool RmtBus::show() {
   // Encoding is done per-pixel in setPixelColor(); _encodeBuffer is ready to ship.
   if (!_initialized || !_encodeBuffer || _numPixels == 0 || !_rmtChannel) return false;
 
@@ -424,7 +424,7 @@ void RmtBus::end() {
   _initialized = false;
 }
 
-bool RmtBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+bool RmtBus::show() {
   // Encoding is done per-pixel in setPixelColor(); _encodeBuffer is ready to ship.
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 

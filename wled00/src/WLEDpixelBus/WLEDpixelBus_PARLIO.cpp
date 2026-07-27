@@ -776,7 +776,7 @@ bool ParlioBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   return true;
 }
 
-bool ParlioBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+bool ParlioBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete

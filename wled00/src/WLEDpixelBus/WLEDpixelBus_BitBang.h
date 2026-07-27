@@ -47,7 +47,7 @@ public:
   bool begin() override;
   void end()   override;
 
-  bool show(const uint32_t* = nullptr, uint16_t = 0, const CctPixel* = nullptr) override; // Stage this channel's data.  When all channels are staged, output all in parallel.
+  bool show() override; // Stage this channel's data.  When all channels are staged, output all in parallel.
   bool canShow() const override { return true; } // BitBang output is synchronous — always ready  TODO: on multi-core systems with tasks running on different cores, this is not true (but it currently is)
 
 #ifdef WLED_DEBUG_BUS

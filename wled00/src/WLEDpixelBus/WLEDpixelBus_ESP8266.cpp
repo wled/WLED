@@ -147,7 +147,7 @@ void Esp8266UartBus::updateUartTiming() {
   }
 }
 
-bool Esp8266UartBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+bool Esp8266UartBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   if (!canShow()) return false; // TODO: is this consistent accross all drivers? i.e. return instead of wait?
   // workaround for a bug: after bootup, something changes the pin mux AFTER the bus is initialized, breaking the UART output. it only starts working after a bus re-init. could not find out what causes it.
@@ -613,7 +613,7 @@ void Esp8266DmaBus::setInverted(bool inv) {
 //   Patches state[1] to break out of the idle loop into the pixel data,
 //   then returns immediately. The ISR restores the idle loop when done.
 // ---------------------------------------------------------------------------
-bool Esp8266DmaBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+bool Esp8266DmaBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
   if (_sending) return false; // previous frame still running
 

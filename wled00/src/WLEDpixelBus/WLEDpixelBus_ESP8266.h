@@ -29,7 +29,7 @@ public:
   bool begin() override;
   void end() override;
 
-  bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
+  bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_UART"; }
@@ -75,7 +75,7 @@ public:
   bool begin() override;
   void end() override;
 
-  bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) override;
+  bool show() override;
   bool canShow() const override;
 #ifdef WLED_DEBUG_BUS
   const char* getTypeStr() const override { return "ESP8266_DMA"; }

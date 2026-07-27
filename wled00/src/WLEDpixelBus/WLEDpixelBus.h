@@ -451,7 +451,7 @@ public:
   virtual bool begin() = 0;
   virtual void end() = 0;
   // show() sends the pre-encoded _encodeBuffer to hardware.
-  virtual bool show(const uint32_t* pixels = nullptr, uint16_t numPixels = 0, const CctPixel* cct = nullptr) = 0; // TODO: remove the parameters, they are unused
+  virtual bool show() = 0;
   virtual bool canShow() const = 0;
 #ifdef WLED_DEBUG_BUS
   virtual const char* getTypeStr() const = 0;

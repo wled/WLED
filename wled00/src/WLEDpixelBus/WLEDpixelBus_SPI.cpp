@@ -194,7 +194,7 @@ void SpiBus::sendEndFrame(uint16_t numPixels) {
   // TYPE_WS2801: nothing to send
 }
 
-bool SpiBus::show(const uint32_t* /*pixels*/, uint16_t /*numPixels*/, const CctPixel* /*cct*/) {
+bool SpiBus::show() {
   if (!_initialized || !_encodeBuffer || _numPixels == 0) return false;
 
   const uint8_t pixelBytes = _encoder.getPixelBytes();

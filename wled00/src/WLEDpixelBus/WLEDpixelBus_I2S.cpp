@@ -959,7 +959,7 @@ bool I2sBus::allocateEncodeBuffer(uint16_t numPixels, uint8_t numChannels) {
   return true;
 }
 
-bool I2sBus::show(const uint32_t* pixels, uint16_t numPixels, const CctPixel* cct) {
+bool I2sBus::show() {
   if (!_initialized || !_ctx || !_encodeBuffer || _numPixels == 0) return false;
 
   // Wait for previous transmission to complete, timeout should not happen, it is a fallback to guarantee driver wont get stuck
