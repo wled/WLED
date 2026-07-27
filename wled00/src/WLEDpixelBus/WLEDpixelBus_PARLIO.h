@@ -82,10 +82,12 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
 #pragma once
 
 #include "WLEDpixelBus.h"
+#ifdef ARDUINO_ARCH_ESP32
 #include <esp_idf_version.h>
 #include "soc/soc_caps.h"
+#endif
 
-#if defined(SOC_PARLIO_SUPPORTED) && SOC_PARLIO_SUPPORTED
+#if defined(SOC_PARLIO_SUPPORTED)
   #if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 3, 0)
     #define WLEDPB_PARLIO_SUPPORT 1
   #endif
