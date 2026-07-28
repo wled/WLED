@@ -52,7 +52,7 @@ namespace WLEDpixelBus {
 // I2S Parallel Bus - ESP32, ESP32-S2, ESP32-S3 (LCD)
 //==============================================================================
 
-// SOC_LCD_I80_BUSES: number of I2S peripherals that support the LCD Intel 8080 i.e. parallel output mode (ESP32: two, S2: one, S3 uses LCD driver)
+// SOC_LCD_I80_BUSES: number of (I2S) peripherals that support the LCD Intel 8080 i.e. parallel output mode (ESP32: two, S2: one, S3: one)
 // TODO: support both buses on ESP32? (currently only I2S_NUM_1 is used for LED output, I2S_NUM_0 is for AR)
 
 #define WLEDPB_I2S_BUS_COUNT SOC_LCD_I80_BUSES

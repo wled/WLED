@@ -102,8 +102,11 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
 // PARLIO TX end-of-frame is derived from the byte counter (not from DMA EOF). Limited to
 // IDF 5.x: the driver's internals changed on 6.x (struct layout, driver-owned GDMA
 // callbacks), the fallback below is used there until verified.
+// ESP32-P4 is excluded: on current IDF versions it uses DMA EOF for frame sizing and the
+// PARLIO LL helpers require an RCC atomic environment, so keep it on the transaction queue.
 #if defined(SOC_AHB_GDMA_SUPPORTED) && SOC_AHB_GDMA_SUPPORTED && \
     !(defined(SOC_PARLIO_TX_SIZE_BY_DMA) && SOC_PARLIO_TX_SIZE_BY_DMA) && \
+    !defined(CONFIG_IDF_TARGET_ESP32P4) && \
     ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
   #define WLEDPB_PARLIO_SEAMLESS_DMA 1
 #else

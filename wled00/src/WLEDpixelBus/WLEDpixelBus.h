@@ -35,10 +35,8 @@ Currently based on IDF v4.x API functions and low-level HAL
 #include "driver/gpio.h"
 #include "esp_idf_version.h"
 
-// I2S support: targets where the I2S peripheral has the LCD Intel 8080 mode
-// used for parallel LED output. SOC_I2S_LCD_I80_VARIANT is defined on ESP32 and ESP32-S2 only
-// SOC_LCDCAM_SUPPORTED is defined on ESP32-S3 only (uses LCD peripheral, not actually I2S)
-#if (SOC_I2S_LCD_I80_VARIANT || SOC_LCDCAM_SUPPORTED)
+// I2S support: targets where the LCD Intel 8080 bus is present
+#if SOC_LCD_I80_BUSES
   #define WLEDPB_I2S_SUPPORT
 #endif
 

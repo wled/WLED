@@ -11,6 +11,9 @@ For a detailed escription on how it works see header file
 TODO: need to do an in-depth review and harden edge cases, maybe also add a watchdog timeout in case things can go wrong
       as we use low level stuff to get around the gaps the "pure API" espressif driver has when using linked DMA lists
 
+      Also C5, H2, C61 and P4 are untested (only tested working on C6)
+      P4 does not use the seamless-DMA mode (not supported by API) - it should probably not use the ping-pong buffer approach but full buffer translation and send
+
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus_PARLIO.h"
