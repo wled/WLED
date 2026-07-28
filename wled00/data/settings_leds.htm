@@ -9,7 +9,7 @@
 		var maxD=1,maxPARHW=0,maxRMT=0,maxBB=0,maxA=1,chipID=0,maxM=4000,maxPB=2048,maxL=1664,maxCO=5,maxBT=4,dmaDef=2048,dmaLcd=2048,dmaSpi=1024; // limits and constants (updated in bLimits())
 		var hasPSRAM=false; // set from /json/info on page load
 		var customStarts=false,startsDirty=[];
-		function off(n)    { gN(n).value = -1;}
+		function off(n)    { let el = gN(n); freePin(parseInt(el.value)); el.value = -1; pinDropdowns(); }
 		// these functions correspond to C macros found in const.h
 		function gT(t)     { for (let type of d.ledTypes) if (t == type.i) return type; } // getType from available ledTypes
 		function isPWM(t)  { return gT(t).t.charAt(0) === "A"; }    // is PWM type
@@ -746,7 +746,13 @@ LED Timing: <select name="SF${s}">
 				updateTypeDropdowns(); // update again for the newly selected type
 			}
 			if (n==-1) {
-				o[--i].remove();--i;
+				let rem = o[--i];--i;
+				// free this bus' pins in the cached pin data so they become selectable again
+				rem.querySelectorAll("select.pin[name^=L], input.s[name^=L]").forEach((el)=>{
+					if (/^L[0-4]/.test(el.name)) freePin(parseInt(el.value));
+				});
+				rem.remove();
+				pinDropdowns(); // rebuild selects to re-enable the freed pins
 			}
 
 			gId("+").style.display = (i<35) ? "inline":"none"; // was maxB+maxV-1 when virtual buses were limited (now :"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
@@ -843,6 +849,8 @@ Swap: <select id="xw${s}" name="XW${s}">
 		function remBtn() {
 			var b = gId("btns");
 			if (b.children.length <= 1) return;
+			let pinEl = b.lastElementChild.querySelector("select.pin[name^=BT], input[name^=BT]");
+			if (pinEl) freePin(parseInt(pinEl.value)); // free the removed button's pin
 			b.lastElementChild.remove();
 			btnBtn();
 			pinDropdowns();
@@ -981,10 +989,19 @@ Swap: <select id="xw${s}" name="XW${s}">
 					i.dataset.val = i.value;
 			});
 		}
+		// true if the pin owner is managed by this page's form (LED busses, buttons, IR, relay) - see PinOwner enum in pin_manager.h
+		function formOwner(o) { return (o >= 0x82 && o <= 0x87) || o === 0x8E; }
+		// release a pin previously claimed by a form field in the cached pin data, so it becomes selectable again
+		function freePin(v) {
+			if (!d.pinsData || isNaN(v) || v < 0) return;
+			let pInfo = d.pinsData.find(p => p.p === v);
+			if (pInfo && pInfo.a && formOwner(pInfo.o)) { pInfo.a = 0; delete pInfo.o; delete pInfo.n; }
+		}
 		function pinUpd(e) {
 			// update changed select options across all pin selects
 			let oldV = parseInt(e.dataset.val);
 			e.dataset.val = e.value;
+			if (oldV >= 0 && oldV !== parseInt(e.value)) freePin(oldV); // pin released by this field
 			let label = /^L[0-4].$/.test(e.name) ? 'LED' : e.name;
 			let pins = [];
 			// collect LED bus pin values from remaining inputs (virtual/HUB75)
