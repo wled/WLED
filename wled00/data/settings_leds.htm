@@ -1149,6 +1149,7 @@ Swap: <select id="xw${s}" name="XW${s}">
 		// First bus in each group is editable; rest mirror its value. If any bus in a group is
 		// customized, all buses in that group are forced to customize and share the same timing.
 		// for hadrware parallel outputs, only t0h and reset period can be edited (4-step cadence restriction)
+		// Ensure parallel-output bus speeds are synchronized (I2S/LCD/SPI or BitBang):
 		function syncParallelBusSpeedSelectors() {
 			try {
 					const fields = ["CBt0h","CBt0l","CBt1h","CBt1l","CBrst"];
@@ -1198,22 +1199,24 @@ Swap: <select id="xw${s}" name="XW${s}">
 							fields.forEach((fn, idx) => {
 									let srcEl = d.Sf[fn+src];
 									if (srcEl) srcEl.oninput = function() {
-											// Auto-calculate [CBt0l, CBt1h, CBt1l] from CBt0h
-											if (isHwPar && idx === 0) {
-													let v = parseInt(this.value) || 0;
+											let val = this.value;
+											// Auto-calculate [CBt0l, CBt1h, CBt1l] from CBt0h only if it's not empty
+											if (isHwPar && idx === 0 && val !== "") {
+													let v = parseInt(val) || 0;
 													[1, 2, 3].forEach(i => {
 															let el = d.Sf[fields[i]+src];
 															if (el) { el.value = (i === 3 ? v : v * 3); el.oninput?.(); }
 													});
 											}
 											// Sync values across all grouped buses
-											let val = this.value;
 											arr.forEach(n => { if (n !== src && d.Sf[fn+n]) d.Sf[fn+n].value = val; });
 									};
 							});
 
-							// Trigger initialization
-							if (isHwPar && d.Sf["CBt0h"+src]) d.Sf["CBt0h"+src].oninput();
+							// Trigger initialization only if there is a value
+							if (isHwPar && d.Sf["CBt0h"+src] && d.Sf["CBt0h"+src].value !== "") {
+									d.Sf["CBt0h"+src].oninput();
+							}
 					}
 
 					syncGroup(parHw, 1);
