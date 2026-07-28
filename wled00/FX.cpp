@@ -2424,12 +2424,11 @@ void mode_meteor() {
     unsigned start = (meteorstart + m * SEGLEN / numMeteors) % SEGLEN;
     for (unsigned j = 0; j < meteorSize; j++) {
       unsigned index = (start + j) % SEGLEN;
-      if(meteorSmooth) {
-          trail[index] = max;
-          uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
-          SEGMENT.setPixelColor(index, col);
-      }
-      else{
+      if (meteorSmooth) {
+        trail[index] = max;
+        uint32_t col = SEGMENT.check1 ? SEGMENT.color_from_palette(index, true, false, 0, trail[index]) : SEGMENT.color_from_palette(trail[index], false, true, 255);
+        SEGMENT.setPixelColor(index, col);
+      } else {
         int idx = 255;
         int i = trail[index] = max;
         if (!SEGMENT.check1) {
