@@ -43,8 +43,10 @@ install) and for its EOF ISR, which invokes our on_trans_done callback. We never
 parlio_tx_unit_transmit().
 
 Fallback (WLEDPB_PARLIO_SEAMLESS_DMA == 0, e.g. ESP32-P4 with SOC_PARLIO_TX_SIZE_BY_DMA
-or non-AHB GDMA): the original transaction-queue model, one parlio_tx_unit_transmit()
-per DMA buffer, re-queued from the on_trans_done callback.
+or non-AHB GDMA): the whole frame (data + reset period) is encoded into a single buffer
+up front and sent with one parlio_tx_unit_transmit() call per frame. The IDF driver
+builds the DMA descriptor chain internally, so the transfer is gap-free and the
+transmit-done callback fires exactly once, at the end of the frame.
 
 Data is output in 4-step cadence meaning each LED bit is encoded into 4 PARLIO clocks.
 '0' is 0b1000 and '1' is 0b1110 (one byte across the 8 data lines per clock).
@@ -104,13 +106,10 @@ If a future target names it differently, adjust the PARLIO_HW macro below.
 // callbacks), the fallback below is used there until verified.
 // ESP32-P4 is excluded: on current IDF versions it uses DMA EOF for frame sizing and the
 // PARLIO LL helpers require an RCC atomic environment, so keep it on the transaction queue.
-#if defined(SOC_AHB_GDMA_SUPPORTED) && SOC_AHB_GDMA_SUPPORTED && \
-    !(defined(SOC_PARLIO_TX_SIZE_BY_DMA) && SOC_PARLIO_TX_SIZE_BY_DMA) && \
-    !defined(CONFIG_IDF_TARGET_ESP32P4) && \
-    ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
+#if defined(SOC_AHB_GDMA_SUPPORTED) && SOC_AHB_GDMA_SUPPORTED && !(defined(SOC_PARLIO_TX_SIZE_BY_DMA) && SOC_PARLIO_TX_SIZE_BY_DMA) && !defined(CONFIG_IDF_TARGET_ESP32P4) && ESP_IDF_VERSION < ESP_IDF_VERSION_VAL(6, 0, 0)
   #define WLEDPB_PARLIO_SEAMLESS_DMA 1
 #else
-  #define WLEDPB_PARLIO_SEAMLESS_DMA 0
+  #define WLEDPB_PARLIO_SEAMLESS_DMA 0 // fall back to "single buffer transfer" mode (uses more RAM)
 #endif
 
 #if WLEDPB_PARLIO_SEAMLESS_DMA
@@ -166,7 +165,7 @@ class ParlioBus;
 /**
  * PARLIO bus context - manages the shared PARLIO TX unit for parallel output
  * Seamless mode: one transaction per frame over our own GDMA descriptor ring.
- * Fallback mode: IDF transaction queue with callback-driven buffer refill.
+ * Fallback mode: one parlio_tx_unit_transmit() per frame from a single full-frame buffer.
  */
 class ParlioBusContext {
 public:
@@ -205,8 +204,7 @@ private:
   void IRAM_ATTR _processChunkEof();          // PARLIO TX EOF: chain next byte-count chunk or finish frame
   static IRAM_ATTR bool gdmaEofCallback(gdma_channel_handle_t dma_chan, gdma_event_data_t* edata, void* user_ctx);
 #else
-  void IRAM_ATTR _processEof();
-  bool IRAM_ATTR _queueBuffer(uint8_t bufIdx); // queue one buffer as a PARLIO transaction
+  bool IRAM_ATTR _queueBuffer(uint8_t bufIdx); // queue the (single) full-frame buffer as one PARLIO transaction
 #endif
 
   // Hardware abstraction
@@ -239,8 +237,6 @@ private:
   dma_descriptor_t* _desc;
   volatile uint8_t _fillHead;        // ring index of the next descriptor to refill
   volatile uint32_t _chunkBytesLeft; // frame bytes not yet covered by a programmed tx_bytelen chunk
-#else
-  volatile uint8_t _activeBuffer;
 #endif
 
   // Timing

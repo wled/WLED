@@ -12,7 +12,10 @@ TODO: need to do an in-depth review and harden edge cases, maybe also add a watc
       as we use low level stuff to get around the gaps the "pure API" espressif driver has when using linked DMA lists
 
       Also C5, H2, C61 and P4 are untested (only tested working on C6)
-      P4 does not use the seamless-DMA mode (not supported by API) - it should probably not use the ping-pong buffer approach but full buffer translation and send
+      P4 does not use the seamless-DMA mode (not supported by API); the fallback path now
+      encodes the whole frame into one buffer and sends it with a single
+      parlio_tx_unit_transmit() call instead of ping-ponging several small buffers
+      (see _allocDmaBuffers()) - still needs testing on real P4 hardware
 
 -------------------------------------------------------------------------*/
 
@@ -85,8 +88,6 @@ ParlioBusContext::ParlioBusContext(uint8_t /*busNum*/)
   , _desc(nullptr)
   , _fillHead(0)
   , _chunkBytesLeft(0)
-#else
-  , _activeBuffer(0)
 #endif
   , _timing{0, 0, 0, 0, 0}
   , _outClockHz(0)
@@ -357,34 +358,15 @@ void IRAM_ATTR ParlioBusContext::_processChunkEof() {
 
 #else
 //==============================================================================
-// Fallback: IDF transaction queue (one transaction per DMA buffer)
+// Fallback: single full-frame buffer, one transaction per frame
 //==============================================================================
 
 bool IRAM_ATTR ParlioBusContext::_queueBuffer(uint8_t bufIdx) {
   parlio_transmit_config_t trans_config = {
-    .idle_value = _invertMask // hold lines at the reset level between/after transactions (remove field if your IDF lacks it)
+    .idle_value = _invertMask // hold lines at the reset level after the transaction (remove field if your IDF lacks it)
   };
   // note: payload size is in BITS, not bytes
   return parlio_tx_unit_transmit(_txUnit, _dmaBuffer[bufIdx], _txLen[bufIdx] * 8, &trans_config) == ESP_OK;
-}
-
-void IRAM_ATTR ParlioBusContext::_processEof() {
-  uint8_t completedBuf = _activeBuffer;
-  _activeBuffer = (_activeBuffer + 1) % WLEDPB_PARLIO_DMA_BUFFER_COUNT;
-
-  if (_endOfFrame[completedBuf]) {
-    _state = DriverState::Idle; // frame complete, stop re-queueing
-    return;
-  }
-
-  if (_resetBytesLeft == WLEDPB_PARLIO_XFER_DONE_FLAG) {
-    return; // end of frame was already queued behind this buffer
-  }
-
-  fillBuffer(completedBuf); // refill buffer, handles reset pulse and end of frame
-  if (!_queueBuffer(completedBuf)) {
-    _state = DriverState::Idle; // queue full/driver error: drop the rest of the frame
-  }
 }
 #endif // WLEDPB_PARLIO_SEAMLESS_DMA
 
@@ -395,21 +377,44 @@ void IRAM_ATTR ParlioBusContext::_processEof() {
 bool ParlioBusContext::_allocDmaBuffers() {
   if (_dmaBuffer[0] != nullptr) return true;
 
+#if WLEDPB_PARLIO_SEAMLESS_DMA
   _bufferSize = (WLEDPB_PARLIO_DMABYTES * _maxSrcBytes) / WLEDPB_PARLIO_DMA_BUFFER_COUNT;
   _bufferSize = (_bufferSize + 3) & ~3;                               // align to 4 bytes
   if (_bufferSize > DEFAULT_DMA_BUFFER_SIZE) _bufferSize = DEFAULT_DMA_BUFFER_SIZE;
-#if WLEDPB_PARLIO_SEAMLESS_DMA
   // GDMA descriptors have 12-bit size/length fields (max 4095, 4-byte aligned -> 4092)
   if (_bufferSize > DMA_DESCRIPTOR_BUFFER_MAX_SIZE_4B_ALIGNED) _bufferSize = DMA_DESCRIPTOR_BUFFER_MAX_SIZE_4B_ALIGNED;
-#endif
   if (_bufferSize < MIN_DMA_BUFFER_SIZE)     _bufferSize = MIN_DMA_BUFFER_SIZE;
 
-  // allocate DMA-capable buffers (4-byte aligned for the GDMA engine)
+  // allocate the descriptor-ring buffers (4-byte aligned for the GDMA engine)
   for (int i = 0; i < WLEDPB_PARLIO_DMA_BUFFER_COUNT; i++) {
     _dmaBuffer[i] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
     if (!_dmaBuffer[i]) return false;
     memset(_dmaBuffer[i], 0, _bufferSize);
   }
+#else
+  // Fallback (P4): there is no byte-counter EOF to chain off, so don't stream several
+  // small buffers through the transaction queue - each transaction boundary there is a
+  // full pipeline restart (engine/clock off, FIFO reset), the exact cost the seamless
+  // path exists to avoid on C6/H2/C5. Instead encode the whole frame (pixel data + the
+  // trailing reset period) into one buffer up front and hand it to
+  // parlio_tx_unit_transmit() in a single call: the IDF driver builds its own linked DMA
+  // descriptor chain to cover it (sized via max_transfer_size in hwInit(), below), so the
+  // transfer streams gap-free start to finish and completes exactly once, at the true end
+  // of the frame. With the buffer sized to hold data+reset, fillBuffer() naturally takes
+  // the "last buffer of the frame" path on the first (only) call, so hwStartTransfer()
+  // queues exactly one transaction and the transmit-done callback just marks the frame
+  // complete (no refill/re-queue logic in the fallback at all).
+  // NOTE: this trades the small rotating buffers for one buffer sized for the entire
+  // frame - for long strips this can be a lot of DMA-capable RAM (32x the source bytes).
+  // If that doesn't fit in internal RAM, consider MALLOC_CAP_SPIRAM here (verify your IDF
+  // version/target's GDMA can reach PSRAM before relying on it).
+  _bufferSize = (size_t)WLEDPB_PARLIO_DMABYTES * _maxSrcBytes + _calcResetBytes();
+  _bufferSize = (_bufferSize + 3) & ~3; // align to 4 bytes
+
+  _dmaBuffer[0] = (uint8_t*)heap_caps_aligned_alloc(4, _bufferSize, MALLOC_CAP_DMA);
+  if (!_dmaBuffer[0]) return false;
+  memset(_dmaBuffer[0], 0, _bufferSize);
+#endif
 
   _dmaAllocated = true;
   return true;
@@ -611,8 +616,7 @@ bool ParlioBusContext::startTransmit() {
   }
 
 #if !WLEDPB_PARLIO_SEAMLESS_DMA
-  _activeBuffer = 0; // start with first buffer
-  _state = DriverState::Sending; // legacy: EOF callbacks do not gate on the state
+  _state = DriverState::Sending; // fallback: EOF callbacks do not gate on the state
 #endif
   // seamless: _state is set to Sending at the end of hwStartTransfer(), after the ring
   // is fully built and the engine is running - until then EOF callbacks stay disabled
@@ -668,17 +672,11 @@ bool ParlioBusContext::hwStartTransfer() {
   _state = DriverState::Sending;
   return true;
 #else
-  // Fill and queue all buffers; stop after the buffer that completes the frame.
-  // Transactions complete in queue order (FIFO), so _activeBuffer tracks completion.
-  for (int i = 0; i < WLEDPB_PARLIO_DMA_BUFFER_COUNT; i++) {
-    fillBuffer(i);
-    if (!_queueBuffer(i)) {
-      return false;
-    }
-    if (_endOfFrame[i]) break;
-  }
-
-  return true;
+  // Single-buffer fallback: fill buffer 0 with the whole frame (data + reset period,
+  // the buffer is sized to hold both) and send it as one transaction. The IDF driver
+  // builds the DMA descriptor chain for it and raises transmit-done once, at the end.
+  fillBuffer(0);
+  return _queueBuffer(0);
 #endif
 }
 
@@ -695,7 +693,7 @@ IRAM_ATTR bool ParlioBusContext::dmaCallback(parlio_tx_unit_handle_t tx_unit,
 #if WLEDPB_PARLIO_SEAMLESS_DMA
   ctx->_processChunkEof();
 #else
-  ctx->_processEof();
+  ctx->_state = DriverState::Idle; // single transaction per frame: transmit-done = frame complete
 #endif
   return false;
 }
