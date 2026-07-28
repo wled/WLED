@@ -23,7 +23,12 @@ Each bus can have individual configuration of color channels but all must share 
 
 #ifdef WLEDPB_I2S_SUPPORT
 
+#if SP_IDF_VERSION < ESP_IDF_VERSION_VAL(5, 3, 0)
+#include "driver/periph_ctrl.h"
+#else
 #include "esp_private/periph_ctrl.h" // TODO: this may get removed in future IDF (V6 still has it), need a rewrite if that ever happens
+#endif
+
 #include "esp_rom_gpio.h"
 
 #ifdef CONFIG_IDF_TARGET_ESP32S3
