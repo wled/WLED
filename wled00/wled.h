@@ -99,12 +99,6 @@
   {
   #include <user_interface.h>
   }
-  #ifndef WLED_DISABLE_ESPNOW
-    #include <espnow.h>
-    #define WIFI_MODE_STA WIFI_STA
-    #define WIFI_MODE_AP WIFI_AP
-    #include <QuickEspNow.h>
-  #endif
 #else // ESP32
   #include <HardwareSerial.h>  // ensure we have the correct "Serial" on new MCUs (depends on ARDUINO_USB_MODE and ARDUINO_USB_CDC_ON_BOOT)
   #include <WiFi.h>
@@ -121,11 +115,6 @@
     #include <LittleFS.h>
   #endif
   #include "esp_task_wdt.h"
-
-  #ifndef WLED_DISABLE_ESPNOW
-    #include <esp_now.h>
-    #include <QuickEspNow.h>
-  #endif
 #endif
 #include <Wire.h>
 #include <SPI.h>
@@ -204,6 +193,9 @@ using PSRAMDynamicJsonDocument = BasicJsonDocument<PSRAM_Allocator>;
 #define USE_GET_MILLISECOND_TIMER
 
 #include "const.h"
+#ifndef WLED_DISABLE_ESPNOW
+  #include <wled_espnow.h>
+#endif
 #include "colors.h"
 #include "fcn_declare.h"
 #ifndef WLED_DISABLE_OTA
