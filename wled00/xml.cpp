@@ -340,7 +340,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
     settingsScript.printf_P(PSTR("d.ledTypes=%s;"), BusManager::getLEDTypesJSONString().c_str());
 
     // set limits
-    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
+    settingsScript.printf_P(PSTR("bLimits(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d);"),
       WLED_PLATFORM_ID, // TODO: replace with a info json lookup
       MAX_LEDS_PER_BUS,
       MAX_LED_MEMORY,
@@ -348,9 +348,11 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       WLED_MAX_COLOR_ORDER_MAPPINGS,
       WLED_MAX_DIGITAL_CHANNELS,
       WLED_MAX_RMT_CHANNELS,
-      WLED_MAX_I2S_CHANNELS,
+      WLED_MAX_PARHW_CHANNELS,
+      WLED_MAX_BB_CHANNELS,
       WLED_MAX_ANALOG_CHANNELS,
-      WLED_MAX_BUTTONS
+      WLED_MAX_BUTTONS,
+      WLEDpixelBus::DEFAULT_DMA_BUFFER_SIZE
     );
 
     printSetFormCheckbox(settingsScript,PSTR("MS"),strip.autoSegments);
@@ -378,6 +380,7 @@ void getSettingsJS(byte subPage, Print& settingsScript)
       char aw[4] = "AW"; aw[2] = offset+s; aw[3] = 0; //auto white mode
       char wo[4] = "WO"; wo[2] = offset+s; wo[3] = 0; //swap channels
       char sp[4] = "SP"; sp[2] = offset+s; sp[3] = 0; //bus clock speed
+      char sf[4] = "SF"; sf[2] = offset+s; sf[3] = 0; //bus speed factor (percent)
       char la[4] = "LA"; la[2] = offset+s; la[3] = 0; //LED current
       char ma[4] = "MA"; ma[2] = offset+s; ma[3] = 0; //max per-port PSU current
       char hs[4] = "HS"; hs[2] = offset+s; hs[3] = 0; //hostname (for network types, custom text for others)
@@ -419,9 +422,38 @@ void getSettingsJS(byte subPage, Print& settingsScript)
         }
       }
       printSetFormValue(settingsScript,sp,speed);
+      printSetFormValue(settingsScript,sf,bus->getBusSpeedFactor());
       printSetFormValue(settingsScript,la,bus->getLEDCurrent());
       printSetFormValue(settingsScript,ma,bus->getMaxCurrent());
       printSetFormValue(settingsScript,hs,bus->getCustomText().c_str());
+      // Custom bus: send per-channel config fields (active for any digital type when customized)
+      if (bus->getCustomBusConfig().active()) {
+        const CustomBusConfig& cb = bus->getCustomBusConfig();
+        char cben[7]  = "CBen";  cben[4]  = offset+s; cben[5]  = 0; // customize enabled
+        char cbch[7] = "CBch"; cbch[4] = offset+s; cbch[5] = 0; // channel count
+        char cbio[7] = "CBio"; cbio[4] = offset+s; cbio[5] = 0; // invert output
+        char cbb[6]  = "CBb";  cbb[3]  = offset+s; cbb[4]  = 0; // is16bit
+        char cbt0h[7] = "CBt0h"; cbt0h[5] = offset+s; cbt0h[6] = 0;
+        char cbt0l[7] = "CBt0l"; cbt0l[5] = offset+s; cbt0l[6] = 0;
+        char cbt1h[7] = "CBt1h"; cbt1h[5] = offset+s; cbt1h[6] = 0;
+        char cbt1l[7] = "CBt1l"; cbt1l[5] = offset+s; cbt1l[6] = 0;
+        char cbrst[7] = "CBrst"; cbrst[5] = offset+s; cbrst[6] = 0;
+        printSetFormCheckbox(settingsScript, cben, true);
+        printSetFormValue(settingsScript, cbch, cb.numChannels);
+        printSetFormCheckbox(settingsScript, cbio, cb.invertOutput);
+        printSetFormCheckbox(settingsScript, cbb,  cb.is16bit);
+        printSetFormValue(settingsScript, cbt0h, cb.t0h);
+        printSetFormValue(settingsScript, cbt0l, cb.t0l);
+        printSetFormValue(settingsScript, cbt1h, cb.t1h);
+        printSetFormValue(settingsScript, cbt1l, cb.t1l);
+        printSetFormValue(settingsScript, cbrst,  cb.trst);
+        for (uint8_t ci = 0; ci < 6; ci++) {
+          char cbc[7] = "CBc"; cbc[3] = '0'+ci; cbc[4] = offset+s; cbc[5] = 0; // channel color
+          char cbi[7] = "CBi"; cbi[3] = '0'+ci; cbi[4] = offset+s; cbi[5] = 0; // invert bit
+          printSetFormValue(settingsScript, cbc, cb.channelColors[ci]);
+          printSetFormCheckbox(settingsScript, cbi, (cb.invertMask >> ci) & 1);
+        }
+      }
       sumMa += bus->getMaxCurrent();
     }
     printSetFormValue(settingsScript,PSTR("MA"),BusManager::ablMilliampsMax() ? BusManager::ablMilliampsMax() : sumMa);

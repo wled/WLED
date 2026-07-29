@@ -63,12 +63,13 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
 #endif
 
 #ifdef ESP8266
-  #define WLED_MAX_DIGITAL_CHANNELS 3
+  #define WLED_MAX_DIGITAL_CHANNELS 8
   #define WLED_MAX_RMT_CHANNELS 0           // ESP8266 does not have RMT nor I2S
-  #define WLED_MAX_I2S_CHANNELS 0
+  #define WLED_MAX_PARHW_CHANNELS 0
+  #define WLED_MAX_BB_CHANNELS  4           // ESP8266 parallel bit-bang channels (all share same LED type/timing) can be set to 8 if more outputs are needed
   #define WLED_MAX_ANALOG_CHANNELS 5
   #define WLED_MAX_TIMERS 16                // reduced limit for ESP8266 due to memory constraints
-  #define WLED_PLATFORM_ID 0         // used in UI to distinguish ESP types, needs a proper fix!
+  #define WLED_PLATFORM_ID 0                // used in UI to distinguish ESP types, needs a proper fix!
 #else
   #if !defined(LEDC_CHANNEL_MAX) || !defined(LEDC_SPEED_MODE_MAX)
     #include "driver/ledc.h" // needed for analog/LEDC channel counts
@@ -86,35 +87,50 @@ constexpr size_t  WLED_MAX_USERMOD_PALETTES     = WLED_USERMOD_PALETTE_ID_BASE -
 
   #if defined(CONFIG_IDF_TARGET_ESP32C3)
     #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
-    #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
-    //#define WLED_MAX_ANALOG_CHANNELS 6
-    #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types, needs a proper fix!
+    #define WLED_MAX_PARHW_CHANNELS 4       // uses SPI hardware in 4x parallel output and not actual I2S
+    #define WLED_MAX_BB_CHANNELS 8          // max parallel BitBang channels
+    #define WLED_PLATFORM_ID 1              // used in UI to distinguish ESP types, needs a proper fix!
   #elif defined(CONFIG_IDF_TARGET_ESP32S2)  // 4 RMT, 8 LEDC, only has 1 I2S bus, supported in NPB
     #define WLED_MAX_RMT_CHANNELS 4         // ESP32-S2 has 4 RMT output channels
-    #define WLED_MAX_I2S_CHANNELS 8         // I2S parallel output supported by NPB
-    //#define WLED_MAX_ANALOG_CHANNELS 8
-    #define WLED_PLATFORM_ID 2       // used in UI to distinguish ESP type in UI
+    #ifdef WLED_PIXELBUS_16PARALLEL
+      #define WLED_MAX_PARHW_CHANNELS 16
+    #else
+      #define WLED_MAX_PARHW_CHANNELS 8
+    #endif
+    #define WLED_MAX_BB_CHANNELS 8          // max parallel BitBang channels
+    #define WLED_PLATFORM_ID 2              // used in UI to distinguish ESP type in UI
   #elif defined(CONFIG_IDF_TARGET_ESP32S3)  // 4 RMT, 8 LEDC, has 2 I2S but NPB supports parallel x8 LCD on I2S1
     #define WLED_MAX_RMT_CHANNELS 4         // ESP32-S3 has 4 RMT output channels
-    #define WLED_MAX_I2S_CHANNELS 8         // uses LCD parallel output not I2S
-    //#define WLED_MAX_ANALOG_CHANNELS 8
-    #define WLED_PLATFORM_ID 3       // used in UI to distinguish ESP type in UI, needs a proper fix!
+    #ifdef WLED_PIXELBUS_16PARALLEL
+      #define WLED_MAX_PARHW_CHANNELS 16    // uses LCD parallel output not I2S and supports up to 16 parallel channels
+    #else
+      #define WLED_MAX_PARHW_CHANNELS 8
+    #endif
+    #define WLED_MAX_BB_CHANNELS 0          // max parallel BitBang channels, 0 means unused (saves some flash and RAM)
+    #define WLED_PLATFORM_ID 3              // used in UI to distinguish ESP type in UI, needs a proper fix!
+  #elif defined(CONFIG_IDF_TARGET_ESP32C6)
+    #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C6 has 2 RMT output channels
+    #define WLED_MAX_PARHW_CHANNELS 8       // ESP32-C6 uses PARLIO peripheral for 8 parallel LED channels (IDF >= 5.3)
+    #define WLED_MAX_BB_CHANNELS 8          // max parallel BitBang channels (fallback if PARLIO unavailable)
+    #define WLED_PLATFORM_ID 5              // used in UI to distinguish ESP types, needs a proper fix!
+  #elif defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C61) || defined(CONFIG_IDF_TARGET_ESP32P4)
+    #define WLED_MAX_RMT_CHANNELS 0         // RMT driver not yet supported on these targets
+    #define WLED_MAX_PARHW_CHANNELS 8       // PARLIO peripheral provides 8 parallel LED output channels on these targets (IDF >= 5.3)
+    #define WLED_MAX_BB_CHANNELS 8          // BitBang fallback when PARLIO is unavailable
+    #define WLED_PLATFORM_ID 6              // used in UI to distinguish ESP type in UI, needs a proper fix!
   #else
-    #if defined(CONFIG_IDF_TARGET_ESP32)  // classic esp32
-      #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
-      #define WLED_MAX_I2S_CHANNELS 8         // I2S parallel output supported by NPB
-      //#define WLED_MAX_ANALOG_CHANNELS 16
-      #define WLED_PLATFORM_ID 4       // used in UI to distinguish ESP type in UI, needs a proper fix!
-    #else // all other risc-v based boards: same as C3
-      #define WLED_MAX_RMT_CHANNELS 2         // ESP32-C3 has 2 RMT output channels
-      #define WLED_MAX_I2S_CHANNELS 0         // I2S not supported by NPB
-      //#define WLED_MAX_ANALOG_CHANNELS 6
-      #define WLED_PLATFORM_ID 1       // used in UI to distinguish ESP types - falls back to "C3" until we have a proper fix!
-    #endif      
+    #define WLED_MAX_RMT_CHANNELS 8         // ESP32 has 8 RMT output channels
+    #ifdef WLED_PIXELBUS_16PARALLEL
+      #define WLED_MAX_PARHW_CHANNELS 16
+    #else
+      #define WLED_MAX_PARHW_CHANNELS 8
+    #endif
+    #define WLED_MAX_BB_CHANNELS 0          // max parallel BitBang channels, 0 means unused (saves some flash and RAM)
+    #define WLED_PLATFORM_ID 4              // used in UI to distinguish ESP type in UI, needs a proper fix!
   #endif
   #define WLED_MAX_TIMERS 64                // maximum number of timers
   #ifndef WLED_MAX_DIGITAL_CHANNELS
-    #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_I2S_CHANNELS)
+    #define WLED_MAX_DIGITAL_CHANNELS (WLED_MAX_RMT_CHANNELS + WLED_MAX_PARHW_CHANNELS + WLED_MAX_BB_CHANNELS) // total number of digital channels (RMT + parallel + BitBang)
   #else
     #warning "buildenv overrides WLED_MAX_DIGITAL_CHANNELS - please check that the value is correct" 
   #endif
@@ -344,7 +360,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 //#define TYPE_WS2812_2CH_X3       20            // use FW1906
 #define TYPE_WS2812_WWA          21            //amber + warm + cold white
 #define TYPE_WS2812_RGB          22
-#define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern)
+//#define TYPE_GS8608              23            //same driver as WS2812, but will require signal 2x per second (else displays test pattern), unused just use WS2812 with off refresh
 #define TYPE_WS2811_400KHZ       24            //half-speed WS2812 protocol, used by very old WS2811 units
 #define TYPE_TM1829              25
 #define TYPE_UCS8903             26
@@ -352,10 +368,12 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_FW1906              28            //RGB + CW + WW + unused channel (6 channels per IC)
 #define TYPE_UCS8904             29            //first RGBW digital type (hardcoded in busmanager.cpp)
 #define TYPE_SK6812_RGBW         30
-#define TYPE_TM1814              31
+#define TYPE_TM1814              31            //RGBW
 #define TYPE_WS2805              32            //RGB + WW + CW
 #define TYPE_TM1914              33            //RGB
 #define TYPE_SM16825             34            //RGB + WW + CW
+#define TYPE_TM1815              35            //RGBW (half speed TM1814)
+//TODO add support for SM16714, see https://wled.discourse.group/t/sm16714-pixel-ic/9794
 #define TYPE_DIGITAL_MAX         39            // last usable digital type
 //"Analog" types (40-47)
 #define TYPE_ONOFF               40            //binary output (relays etc.; NOT PWM)

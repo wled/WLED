@@ -12,6 +12,9 @@
 #include "wled.h"
 #include "FXparticleSystem.h"  // TODO: better define the required function (mem service) in FX.h?
 #include "colors.h"
+#if defined(ARDUINO_ARCH_ESP32)
+#include "src/WLEDpixelBus/WLEDpixelBus_RMT.h" // needed for setExpectedChannels()
+#endif
 
 /*
   Custom per-LED mapping has moved!
@@ -1193,80 +1196,44 @@ void WS2812FX::finalizeInit() {
   _hasWhiteChannel = _isOffRefreshRequired = false;
   BusManager::removeAll();
   // TODO: ideally we would free everything segment related here to reduce fragmentation (pixel buffers, ledamp, segments, etc) but that somehow leads to heap corruption if touchig any of the buffers.
-  unsigned digitalCount = 0;
-  #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_HAS_PARALLEL_I2S)
-  // validate the bus config: count I2S buses and check if they meet requirements
-  unsigned i2sBusCount = 0;
-
-  for (const auto &bus : busConfigs) {
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
-      digitalCount++;
-      if (bus.driverType == 1)
-        i2sBusCount++;
-    }
-  }
-  DEBUG_PRINTF_P(PSTR("Digital buses: %u, I2S buses: %u\n"), digitalCount, i2sBusCount);
-
-  // Determine parallel vs single I2S usage (used for memory calculation only)
-  bool useParallelI2S = false;
-  #if defined(CONFIG_IDF_TARGET_ESP32S3)
-  // ESP32-S3 always uses parallel LCD driver for I2S
-  if (i2sBusCount > 0) {
-    useParallelI2S = true;
-  }
-  #else
-  if (i2sBusCount > 1) {
-    useParallelI2S = true;
-  }
+  // First assign driver types (RMT/I2S/... channels) for all buses before any are constructed,
+  // because parallel buses interact during channel assignment. If hardware allocation fails
+  // (no free channels), the bus is still constructed below and will fail initialization;
+  // BusManager::add() then replaces it with a BusPlaceholder.
+  #if defined(ARDUINO_ARCH_ESP32)
+  unsigned rmtBusCount = 0;
+  unsigned parHwBusCount = 0; // used for debug print only
   #endif
+  for (auto &bus : busConfigs) {
+    BusManager::allocateHardware(bus.type, bus.pins, bus.driverType); // TODO: if no bus type can be allocated, this returns false, could fallback to placeholder
+    #if defined(ARDUINO_ARCH_ESP32)
+    // Count buses that will occupy an RMT channel (driverType is final after allocateHardware())
+    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type)) {
+      if (bus.driverType == BUSDRV_RMT) rmtBusCount++;
+      else if (bus.driverType == BUSDRV_PARHW) parHwBusCount++; // parallel bus: I2S/LCD/SPI/PARLIO depending on chip (hardware driven, not BB)
+    }
+    #endif
+  }
+
+  #if defined(ARDUINO_ARCH_ESP32)
+  DEBUG_PRINTF_P(PSTR("Digital RMT buses: %u, parallel buses: %u\n"), rmtBusCount, parHwBusCount);
+  // RMT channel tracking was already reset by BusManager::removeAll() -> resetChannelTracking()
+  WLEDpixelBus::RmtBus::setExpectedChannels((uint8_t)rmtBusCount);
   #endif
 
   DEBUG_PRINTF_P(PSTR("Heap before buses: %d\n"), getFreeHeapSize());
-  // create buses/outputs
-  unsigned mem = 0; // memory estimation including DMA buffer for I2S and pixel buffers
-  unsigned I2SdmaMem = 0;
+  // Now construct each bus. BusManager::add() automatically falls back to a BusPlaceholder if it fails
   for (auto &bus : busConfigs) {
-    // assign bus types: call to getI() determines bus types/drivers, allocates and tracks polybus channels
-    // store the result in iType for later use during bus creation (getI() must only be called once per BusConfig)
-    // note: this needs to be determined for all buses prior to creating them as it also determines parallel I2S usage
-    bus.iType = BusManager::getI(bus.type, bus.pins, bus.driverType);
+    BusManager::add(bus, false);
   }
-  for (auto &bus : busConfigs) {
-    bool use_placeholder = false;
-    unsigned busMemUsage = bus.memUsage(); // does not include DMA/RMT buffer but includes pixel buffers (segment buffer + global buffer)
-    mem += busMemUsage;
-    // estimate maximum I2S memory usage (only relevant for digital non-2pin busses when I2S is enabled)
-    #if defined(WLED_HAS_PARALLEL_I2S)
-    bool usesI2S = (bus.iType & 0x01) == 0; // I2S bus types are even numbered, can't use bus.driverType == 1 as getI() may have defaulted to RMT
-    if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && usesI2S) {
-      #ifdef NPB_CONF_4STEP_CADENCE
-      constexpr unsigned stepFactor = 4; // 4 step cadence (4 bits per pixel bit)
-      #else
-      constexpr unsigned stepFactor = 3; // 3 step cadence (3 bits per pixel bit)
-      #endif
-      unsigned i2sCommonMem = (stepFactor * bus.count * (3*Bus::hasRGB(bus.type)+Bus::hasWhite(bus.type)+Bus::hasCCT(bus.type)) * (Bus::is16bit(bus.type)+1));
-      if (useParallelI2S) i2sCommonMem *= 8; // parallel I2S uses 8 channels, requiring 8x the DMA buffer size (common buffer shared between all parallel busses)
-      if (i2sCommonMem > I2SdmaMem) I2SdmaMem = i2sCommonMem;
-    }
-    #endif
-    if (mem + I2SdmaMem > MAX_LED_MEMORY + 1024) { // +1k to allow some margin to not drop buses that are allowed in UI (calculation here includes bus overhead)
-      DEBUG_PRINTF_P(PSTR("Bus %d with %d LEDS memory usage exceeds limit\n"), (int)bus.type, bus.count);
-      errorFlag = ERR_NORAM; // alert UI  TODO: make this a distinct error: not enough memory for bus
-      use_placeholder = true;
-    }
-    if (BusManager::add(bus, use_placeholder) != -1) {
-      mem += BusManager::busses.back()->getBusSize();
-      if (Bus::isDigital(bus.type) && !Bus::is2Pin(bus.type) && BusManager::busses.back()->isPlaceholder()) digitalCount--; // remove placeholder from digital count
-    }
-  }
-  DEBUG_PRINTF_P(PSTR("Estimated buses + pixel-buffers size: %uB\n"), mem + I2SdmaMem);
   busConfigs.clear();
   busConfigs.shrink_to_fit();
 
   _length = 0;
   for (size_t i=0; i<BusManager::getNumBusses(); i++) {
     Bus *bus = BusManager::getBus(i);
-    if (!bus || !bus->isOk() || bus->getStart() + bus->getLength() > MAX_LEDS) break;
+    if (!bus || bus->getStart() + bus->getLength() > MAX_LEDS) break;
+    if (!bus->isOk()) continue; // placeholder bus (failed init) — skip but keep initializing remaining buses
     //RGBW mode is enabled if at least one of the strips is RGBW
     _hasWhiteChannel |= bus->hasWhite();
     //refresh is required to remain off if at least one of the strips requires the refresh.
@@ -1296,11 +1263,17 @@ void WS2812FX::finalizeInit() {
 
 // update global _pixels[] buffer to match getLengthTotal() note: if allocation fails, WLED will not render anything
 void WS2812FX::updatePixelBuffer() {
-  uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   p_free(_pixels); // using realloc on large buffers can cause additional fragmentation instead of reducing it
+  _pixels = nullptr;
+  #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+  // Skip the global framebuffer: blendSegment() encodes directly into bus encode buffers.
+  // This saves N*4 bytes of heap (e.g. 1200B for 300 LEDs, 2000B for 500 LEDs).
+  #else
+  uint32_t requiredMem = getLengthTotal() * sizeof(uint32_t);
   // use PSRAM if available: there is no measurable perfomance impact between PSRAM and DRAM on S2/S3 with QSPI PSRAM for this buffer
   _pixels = static_cast<uint32_t*>(allocate_buffer(requiredMem, BFRALLOC_ENFORCE_PSRAM | BFRALLOC_NOBYTEACCESS | BFRALLOC_CLEAR));
   DEBUG_PRINTF_P(PSTR("strip buffer size: %uB\n"), requiredMem);
+  #endif
 }
 
 void WS2812FX::service() {
@@ -1440,10 +1413,31 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
   const size_t  stopIndx   = startIndx + length;
   uint8_t       opacity    = topSegment.currentBri(); // returns transitioned opacity for style FADE
   uint8_t       cct        = topSegment.currentCCT();
-  if (gammaCorrectCol) opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
+  opacity = gamma8inv(opacity); // use inverse gamma on brightness for correct color scaling after gamma correction (see #5343 for details)
 
   const Segment *segO = topSegment.getOldSegment();
   const bool hasGrouping = topSegment.groupLength() != 1;
+
+  #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+  // Direct-to-bus mode: read/write pixels through the bus encode buffer instead of _pixels[].
+  // CCT is set per-segment (not per-pixel) — acceptable trade-off for the RAM saved.
+  // Gamma is applied inline when writing; multi-segment blending occurs in gamma-compressed space.
+  if (!cctFromRgb) BusManager::setSegmentCCT(cct, correctWB);
+  const auto blendPixelIntoFrame = [&](size_t idx, uint32_t newC, uint8_t o) {
+    unsigned physIdx = getMappedPixelIndex(idx);
+    uint32_t result;
+    // Fast path: fully-opaque top layer — result is just newC, no readback needed.
+    // This covers the dominant case (single segment, full brightness, default blend mode)
+    // and avoids an expensive bus decode call per pixel for fast effects like Palette.
+    if (o == 255 && blendMode == 0) {
+      result = newC;
+    } else {
+      uint32_t existing = BusManager::getPixelColor(physIdx);
+      result = color_blend(existing, segblend(newC, existing), o);
+    }
+    BusManager::setPixelColor(physIdx, result);
+  };
+  #endif
 
   // fast path: handle the default case - no transitions, no grouping/spacing, no mirroring, no CCT
   if (!segO && blendingStyle == TRANSITION_FADE && !hasGrouping && !topSegment.mirror && !topSegment.mirror_y) {
@@ -1461,12 +1455,18 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         if (topSegment.reverse_y) { start_offset += (height - 1) * Segment::maxWidth; y_inc = -Segment::maxWidth; }
 
         for (int y = 0; y < height; y++) {
+          #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
           uint32_t* pRow = &_pixels[start_offset + y * y_inc];
+          #endif
           const int y_width = y * width;
           for (int x = 0; x < width; x++) {
-            uint32_t* p = pRow + x * x_inc;
             uint32_t c_a = topSegment.getPixelColorRaw(x + y_width);
+            #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+            blendPixelIntoFrame((size_t)(start_offset + y * y_inc + x * x_inc), c_a, opacity);
+            #else
+            uint32_t* p = pRow + x * x_inc;
             *p = color_blend(*p, segblend(c_a, *p), opacity);
+            #endif
           }
         }
       } else { // transposed
@@ -1476,7 +1476,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
             const int py = topSegment.reverse_y ? (width  - x - 1) : x;  // source pixel: swap x into y, reverse if needed
             const uint32_t c_a = topSegment.getPixelColorRaw(px + py * height); // height = virtual width
             const size_t idx = XY(topSegment.start + x, topSegment.startY + y); // write logical (non swapped) pixel coordinate
+            #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+            blendPixelIntoFrame(idx, c_a, opacity);
+            #else
             _pixels[idx] = color_blend(_pixels[idx], segblend(c_a, _pixels[idx]), opacity);
+            #endif
           }
         }
       }
@@ -1484,7 +1488,9 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 #endif
     } else if (!isMatrix) {
       // 1D fast path, include CCT as it is more common on 1D setups
+      #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
       uint32_t* strip = _pixels;
+      #endif
       int start = topSegment.start;
       int off   = topSegment.offset;
       for (int i = 0; i < length; i++) {
@@ -1492,8 +1498,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         int p = topSegment.reverse ? (length - i - 1) : i;
         int idx = start + p + off;
         if (idx >= topSegment.stop) idx -= length;
+        #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+        blendPixelIntoFrame((size_t)idx, c_a, opacity);
+        #else
         strip[idx] = color_blend(strip[idx], segblend(c_a, strip[idx]), opacity);
         if (_pixelCCT) _pixelCCT[idx] = cct;
+        #endif
       }
       return;
     }
@@ -1570,8 +1580,12 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       const int baseX = topSegment.start  + x;
       const int baseY = topSegment.startY + y;
       size_t indx = XY(baseX, baseY); // absolute address on strip
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      blendPixelIntoFrame(indx, c, o);
+      #else
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
+      #endif
       // Apply mirroring if enabled
       if (topSegment.mirror || topSegment.mirror_y) {
         const int mirrorX = topSegment.start  + width  - x - 1;
@@ -1579,6 +1593,11 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
         const size_t idxMX = XY(topSegment.transpose ? baseX : mirrorX, topSegment.transpose ? mirrorY : baseY);
         const size_t idxMY = XY(topSegment.transpose ? mirrorX : baseX, topSegment.transpose ? baseY : mirrorY);
         const size_t idxMM = XY(mirrorX, mirrorY);
+        #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+        if (topSegment.mirror)                        blendPixelIntoFrame(idxMX, c, o);
+        if (topSegment.mirror_y)                      blendPixelIntoFrame(idxMY, c, o);
+        if (topSegment.mirror && topSegment.mirror_y) blendPixelIntoFrame(idxMM, c, o);
+        #else
         if (topSegment.mirror)                        _pixels[idxMX] = color_blend(_pixels[idxMX], segblend(c, _pixels[idxMX]), o);
         if (topSegment.mirror_y)                      _pixels[idxMY] = color_blend(_pixels[idxMY], segblend(c, _pixels[idxMY]), o);
         if (topSegment.mirror && topSegment.mirror_y) _pixels[idxMM] = color_blend(_pixels[idxMM], segblend(c, _pixels[idxMM]), o);
@@ -1587,6 +1606,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
           if (topSegment.mirror_y)                      _pixelCCT[idxMY] = cct;
           if (topSegment.mirror && topSegment.mirror_y) _pixelCCT[idxMM] = cct;
         }
+        #endif
       }
     };
 
@@ -1666,6 +1686,18 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 
     const auto setMirroredPixel = [&](int i, uint32_t c, uint8_t o) {
       int indx = topSegment.start + i;
+      #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+      // direct-to-bus: apply mirroring then encode
+      if (topSegment.mirror) {
+        unsigned indxM = topSegment.stop - i - 1;
+        indxM += topSegment.offset; // offset/phase
+        if (indxM >= topSegment.stop) indxM -= length; // wrap
+        blendPixelIntoFrame(indxM, c, o);
+      }
+      indx += topSegment.offset; // offset/phase
+      if (indx >= topSegment.stop) indx -= length; // wrap
+      blendPixelIntoFrame((size_t)indx, c, o);
+      #else
       // Apply mirroring
       if (topSegment.mirror) {
         unsigned indxM = topSegment.stop - i - 1;
@@ -1678,6 +1710,7 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
       if (indx >= topSegment.stop) indx -= length; // wrap
       _pixels[indx] = color_blend(_pixels[indx], segblend(c, _pixels[indx]), o);
       if (_pixelCCT) _pixelCCT[indx] = cct;
+      #endif
     };
 
     // if we blend using "push" style we need to "shift" canvas to left/right/
@@ -1724,47 +1757,78 @@ void WS2812FX::blendSegment(const Segment &topSegment) const {
 }
 
 void WS2812FX::show() {
+  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
   if (!_pixels) {
     DEBUGFX_PRINTLN(F("Error: no _pixels!"));
     errorFlag = ERR_NORAM;
     return; // no pixels allocated, nothing to show
   }
-
+  #endif
   unsigned long showNow = millis();
   size_t diff = showNow - _lastShow;
+  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
+  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
 
   size_t totalLen = getLengthTotal();
-  // WARNING: as WLED doesn't handle CCT on pixel level but on Segment level instead
-  // we need to keep track of each pixel's CCT when blending segments (if CCT is present)
-  // and then set appropriate CCT from that pixel during paint (see below).
-  if ((hasCCTBus() || correctWB) && !cctFromRgb)
-    _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM)); // allocate CCT buffer if necessary, prefer PSRAM
-  if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+  // CCT per-pixel tracking: only needed when multiple active segments have *different* CCT values.
+  // When all segments share the same CCT we skip the allocation entirely and set Bus::_cct once
+  // before the paint loop — identical to the original per-pixel-change path but without the buffer.
+  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
+  uint8_t uniformCCT = 127; // neutral 50:50 CCT; used when no buffer is allocated
+  if ((hasCCTBus() || correctWB) && !cctFromRgb) {
+    int16_t firstCCT = -1; // -1 = "no active segment seen yet"
+    for (const Segment &seg : _segments) {
+      if (!seg.isActive() || (!seg.on && !seg.isInTransition())) continue;
+      uint8_t segCCT = seg.currentCCT();
+      if (firstCCT < 0) {
+        firstCCT = segCCT;
+        uniformCCT = segCCT;
+      } else if ((uint8_t)firstCCT != segCCT) {
+        // segments have different CCT values — need per-pixel buffer
+        _pixelCCT = static_cast<uint8_t*>(allocate_buffer(totalLen * sizeof(uint8_t), BFRALLOC_PREFER_PSRAM));
+        if (_pixelCCT) memset(_pixelCCT, 127, totalLen); // set neutral (50:50) CCT
+        break;
+      }
+    }
+  }
+  #endif
 
   if (realtimeMode == REALTIME_MODE_INACTIVE || useMainSegmentOnly || realtimeOverride > REALTIME_OVERRIDE_NONE) {
+    #ifdef WLED_DISABLE_GLOBAL_PIXELBUFFER
+    while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
+    // Direct-to-bus mode: clear bus encode buffers then blend segments directly into them.
+    // Per-pixel CCT tracking is not supported; CCT is set per-segment in blendSegment().
+    if (cctFromRgb) BusManager::setSegmentCCT(-1); // set once; blendSegment skips CCT if cctFromRgb
+    BusManager::clearPixels(totalLen);
+    for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
+      blendSegment(seg);
+    }
+    #else
     // clear frame buffer
     memset(_pixels, 0, sizeof(uint32_t) * totalLen);
     // blend all segments into (cleared) buffer
     for (Segment &seg : _segments) if (seg.isActive() && (seg.on || seg.isInTransition())) {
       blendSegment(seg);              // blend segment's buffer into frame buffer
     }
+    #endif
   }
 
   // avoid race condition, capture _callback value
   show_callback callback = _callback;
   if (callback) callback(); // will call setPixelColor or setRealtimePixelColor
 
+  #ifndef WLED_DISABLE_GLOBAL_PIXELBUFFER
+  while (!BusManager::canAllShow()) yield(); // wait for all buses to finish sending the previous frame
   // paint actual pixels
   int oldCCT = Bus::getCCT(); // store original CCT value (since it is global)
   // when cctFromRgb is true we implicitly calculate WW and CW from RGB values (cct==-1)
   if (cctFromRgb) BusManager::setSegmentCCT(-1);
-  // use color gamma correction if enabled, not in realtime mode with gamma disabled or currently overriding RT mode
-  bool useGammaCorrection = gammaCorrectCol && !(realtimeMode && arlsDisableGammaCorrection && !realtimeOverride);
+  else if (!_pixelCCT) BusManager::setSegmentCCT(uniformCCT, correctWB); // uniform CCT: set once before loop
 
   for (size_t i = 0; i < totalLen; i++) {
     // when correctWB is true setSegmentCCT() will convert CCT into K with which we can then
     // correct/adjust RGB value according to desired CCT value, it will still affect actual WW/CW ratio
-    if (_pixelCCT) { // cctFromRgb already exluded at allocation
+    if (_pixelCCT) { // cctFromRgb already excluded at allocation
       if (i == 0 || _pixelCCT[i-1] != _pixelCCT[i]) BusManager::setSegmentCCT(_pixelCCT[i], correctWB);
     }
 
@@ -1777,10 +1841,11 @@ void WS2812FX::show() {
 
   p_free(_pixelCCT);
   _pixelCCT = nullptr;
+  #else
+  // TODO: implement bus level gamma, see PR #5722
+  #endif
 
-  // some buses send asynchronously and this method will return before
-  // all of the data has been sent.
-  // See https://github.com/Makuna/NeoPixelBus/wiki/ESP32-NeoMethods#neoesp32rmt-methods
+  // pass the pixels on to the buses and start sending them out
   BusManager::show();
 
   if (diff > 0) { // skip calculation if no time has passed
@@ -1846,7 +1911,10 @@ void WS2812FX::setCCT(uint16_t k) {
 // direct=true either expects the caller to call show() themselves (realtime modes) or be ok waiting for the next frame for the change to apply
 // direct=false immediately triggers an effect redraw
 void WS2812FX::setBrightness(uint8_t b, bool direct) {
-  if (gammaCorrectBri) b = gamma8(b);
+  if (gammaCorrectBri && b > 0) {
+    (int)(powf((float)b / 255.0f, gammaCorrectVal) * 255.0f + 0.5f); // use gamma formula instead of gamma table: gamma table is only for color correction (has unity mapping if color correction is diabled)
+    if (b == 0) b = 1; // dont go to 0 brigthness if input was non zero
+  }
   if (_brightness == b) return;
   _brightness = b;
   if (_brightness == 0) { //unfreeze all segments on power off
@@ -2213,3 +2281,4 @@ const char JSON_palette_names[] PROGMEM = R"=====([
 "Semi Blue","Pink Candy","Red Reaf","Aqua Flash","Yelblu Hot","Lite Light","Red Flash","Blink Red","Red Shift","Red Tide",
 "Candy2","Traffic Light"
 ])=====";
+
