@@ -5,7 +5,7 @@ WLEDpixelBus - parallel SPI output driver implementation
 written by Damian Schneider @dedehai 2026
 
 supports ESP32 C3
-uses 4 parallel outputs and double DMA buffering
+uses 4 parallel outputs and double DMA buffering on SPI2
 Data is output in 4-step cadence meaning each LED bit is encoded into 4 bits. '0' is 0b1000 and '1' is 0b1110
 Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.
 The RAM usage of the sendout buffer is number of LEDs * bytes per LED + DMA buffer size
@@ -22,8 +22,8 @@ Each bus can have individual configuration of color channels but all must share 
 #define FLAG_ATTR(TYPE)
 #include "hal/spi_ll.h"
 #include "driver/periph_ctrl.h"
-#include "esp_private/gdma.h"
 #include "esp_rom_gpio.h"
+#include "esp_private/gdma.h"
 namespace WLEDpixelBus {
 
 //=============================================
@@ -97,7 +97,8 @@ SpiBusContext::SpiBusContext()
   : _state(SpiState::Idle)
   , _initialized(false)
   , _activeBuffer(0)
-  , _gdmaIsrHandle(nullptr)
+  , _gdmaChan(nullptr)
+  , _dmaChan(-1)
   , _spiIsrHandle(nullptr)
   , _hw(&GPSPI2)
   , _channelCount(0)
@@ -161,8 +162,8 @@ void SpiBusContext::forceIdle() const {
 
   // Stop DMA
   gdma_dev_t* dma = &GDMA;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
-  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  dma->intr[_dmaChan].ena.out_eof = 0;
+  gdma_ll_tx_reset_channel(dma, _dmaChan);
 
   // Reset FIFOs
   spi_ll_dma_tx_fifo_reset(_hw);
@@ -262,8 +263,8 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
     ctx->_hw->cmd.usr = 0;                    // stop SPI user transfer
     ctx->_hw->dma_int_ena.val = 0;            // startTransmit() re-arms these
     gdma_dev_t* dma = &GDMA;
-    dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
-    gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+    dma->intr[ctx->_dmaChan].ena.out_eof = 0;
+    gdma_ll_tx_reset_channel(dma, ctx->_dmaChan);
     spi_ll_dma_tx_fifo_reset(ctx->_hw);
     spi_ll_outfifo_empty_clr(ctx->_hw);
     ctx->_stagedMask = 0;
@@ -272,36 +273,25 @@ void IRAM_ATTR SpiBusContext::spiISR(void* arg) {
   }
 }
 
-void IRAM_ATTR SpiBusContext::gdmaISR(void* arg) {
-  SpiBusContext* ctx = (SpiBusContext*)arg;
+bool IRAM_ATTR SpiBusContext::gdmaISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data) {
+  SpiBusContext* ctx = (SpiBusContext*)user_data;
   gdma_dev_t* dma = &GDMA;
-
-  // Check if this is our interrupt
-  if (!dma->intr[WLEDPB_SPI_GDMA_CHANNEL].st.out_eof) {
-    return;
-  }
-  // make sure we are not disturbed filling the buffer to prevent underruns
-  portENTER_CRITICAL_ISR(&ctx->_isrMux);
-  // Clear interrupt immediately
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
-
+  portENTER_CRITICAL_ISR(&ctx->_isrMux); // make sure we are not disturbed filling the buffer to prevent underruns
+  dma->intr[ctx->_dmaChan].clr.out_eof = 1;  // clear interrupt immediately, harmless if driver already cleared it
 
   // If we're idle or in error, ignore spurious interrupts
   if (ctx->_state == SpiState::Idle || ctx->_state == SpiState::Error) {
     portEXIT_CRITICAL_ISR(&ctx->_isrMux);
-    return;
+    return false;
   }
 
   uint8_t completedBuf = ctx->_activeBuffer;
   ctx->_activeBuffer = (completedBuf + 1) % WLEDPB_SPI_DMA_DESC_COUNT;
-
-  // Fill the completed buffer with next chunk of data (or zeroes for reset)
-  ctx->encodeSpiChunk(completedBuf);
-
-  // Give ownership of the descriptor back to DMA so it can keep feeding SPI  TODO: this may be unnecessary
-  ctx->_dmaDesc[completedBuf].eof = 1;
+  ctx->encodeSpiChunk(completedBuf); // fill the completed buffer with next chunk of data (or zeroes for reset)
+  ctx->_dmaDesc[completedBuf].eof = 1; // Give ownership of the descriptor back to DMA so it can keep feeding SPI  TODO: this may be unnecessary
   ctx->_dmaDesc[completedBuf].owner = 1;
   portEXIT_CRITICAL_ISR(&ctx->_isrMux);
+  return false; // no higher-priority task woken
 }
 
 bool SpiBusContext::init(const LedTiming& timing) {
@@ -384,21 +374,34 @@ bool SpiBusContext::init(const LedTiming& timing) {
   spi_ll_apply_config(_hw);
 
   // Configure GDMA
+  gdma_channel_alloc_config_t allocCfg = {};
+  allocCfg.direction = GDMA_CHANNEL_DIRECTION_TX;
+  esp_err_t err = gdma_new_ahb_channel(&allocCfg, &_gdmaChan); // get a DMA channel
+  if (err != ESP_OK) {
+    deinit();
+    return false; // no free TX channel -> clean failure instead of silent corruption
+  }
+  gdma_get_channel_id(_gdmaChan, &_dmaChan);
+
   gdma_dev_t* dma = &GDMA;
-  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  gdma_ll_tx_connect_to_periph(dma, WLEDPB_SPI_GDMA_CHANNEL, GDMA_TRIG_PERIPH_SPI, SOC_GDMA_TRIG_PERIPH_SPI2);
-  gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
-  //  gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  gdma_ll_tx_reset_channel(dma, _dmaChan);
 
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
+  err = gdma_connect(_gdmaChan, GDMA_MAKE_TRIGGER(GDMA_TRIG_PERIPH_SPI, 2));
+  if (err != ESP_OK) { deinit(); return false; }
 
-  esp_err_t err = esp_intr_alloc(WLEDPB_SPI_GDMA_INTR_SOURCE, ESP_INTR_FLAG_LEVEL3 | ESP_INTR_FLAG_IRAM, gdmaISR, this, &_gdmaIsrHandle); // note: saw no flickering even when using level1
+  gdma_ll_tx_set_desc_addr(dma, _dmaChan, (uint32_t)&_dmaDesc[0]);
+
+  gdma_tx_event_callbacks_t cbs = {};
+  cbs.on_trans_eof = gdmaISR; // signature changes, see below
+  err = gdma_register_tx_event_callbacks(_gdmaChan, &cbs, this);
   if (err != ESP_OK) {
     //Serial.printf("[SPI] GDMA ISR alloc failed: %d\n", err);
     deinit();
     return false;
   }
+  gdma_ll_tx_reset_channel(dma, _dmaChan);
+  gdma_ll_tx_set_desc_addr(dma, _dmaChan, (uint32_t)&_dmaDesc[0]);
+  //  gdma_ll_tx_start(dma, _dmaChan); // note: do not start yet, done in startTransmit()
 
   // Install SPI ISR for trans_done and outfifo_empty_err recovery
   _hw->dma_int_clr.val = 0xFFFFFFFF;
@@ -426,21 +429,18 @@ void SpiBusContext::deinit() {
   }
 
   gdma_dev_t* dma = &GDMA;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;  // Disable interrupt
-  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  dma->intr[_dmaChan].ena.out_eof = 0;  // Disable interrupt
+  gdma_ll_tx_reset_channel(dma, _dmaChan);
 
-  if (_hw) {
-    _hw->dma_int_ena.trans_done = 0;  // Disable SPI trans_done interrupt
-  }
+  if (_gdmaChan) {
+  gdma_del_channel(_gdmaChan); // also tears down the callback/interrupt it installed
+  _gdmaChan = nullptr;
+  _dmaChan = -1;
+}
 
   if (_spiIsrHandle) {
     esp_intr_free(_spiIsrHandle);
     _spiIsrHandle = nullptr;
-  }
-
-  if (_gdmaIsrHandle) {
-    esp_intr_free(_gdmaIsrHandle);
-    _gdmaIsrHandle = nullptr;
   }
 
   for (int i = 0; i < WLEDPB_SPI_DMA_DESC_COUNT; i++) {
@@ -542,8 +542,8 @@ bool SpiBusContext::startTransmit() {
   portENTER_CRITICAL(&_isrMux);
   _hw->cmd.usr = 0;
   gdma_dev_t* dma = &GDMA;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
-  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
+  dma->intr[_dmaChan].ena.out_eof = 0;
+  gdma_ll_tx_reset_channel(dma, _dmaChan);
 
   spi_ll_clear_int_stat(_hw);
   _hw->dma_int_ena.trans_done = 1; // re-enable interrupts in case they got disabled due to error
@@ -569,10 +569,10 @@ bool SpiBusContext::startTransmit() {
   }
 
   // Phase 4: Brief critical section to start DMA and SPI atomically.
-  gdma_ll_tx_set_desc_addr(dma, WLEDPB_SPI_GDMA_CHANNEL, (uint32_t)&_dmaDesc[0]);
-  gdma_ll_tx_start(dma, WLEDPB_SPI_GDMA_CHANNEL);
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].clr.out_eof = 1;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 1;
+  gdma_ll_tx_set_desc_addr(dma, _dmaChan, (uint32_t)&_dmaDesc[0]);
+  gdma_ll_tx_start(dma, _dmaChan);
+  dma->intr[_dmaChan].clr.out_eof = 1;
+  dma->intr[_dmaChan].ena.out_eof = 1;
 
   // Re-attach pins to SPI signals
   for (int i = 0; i < WLEDPB_SPI_MAX_CHANNELS; i++) {
@@ -590,24 +590,7 @@ bool SpiBusContext::startTransmit() {
   portEXIT_CRITICAL(&_isrMux);
   return true;
 }
-/*
-void SpiBusContext::hwStopTransfer() {
-  if (_hw) {
-    _hw->cmd.usr = 0;
-    _hw->dma_int_ena.val = 0; // Disable all SPI interrupts
-  }
-  gdma_dev_t* dma = &GDMA;
-  dma->intr[WLEDPB_SPI_GDMA_CHANNEL].ena.out_eof = 0;
-  gdma_ll_tx_reset_channel(dma, WLEDPB_SPI_GDMA_CHANNEL);
-}
 
-void SpiBusContext::hwResetFifo() {
-  if (_hw) {
-    spi_ll_dma_tx_fifo_reset(_hw);
-    spi_ll_outfifo_empty_clr(_hw);
-  }
-}
-*/
 ///////////////////////////////////
 // ParallelSpiBus implementation //
 ///////////////////////////////////

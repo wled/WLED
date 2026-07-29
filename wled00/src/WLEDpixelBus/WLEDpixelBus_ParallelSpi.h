@@ -18,6 +18,7 @@ Each bus can have individual configuration of color channels but all must share 
 
 #include "WLEDpixelBus.h"
 #ifdef WLEDPB_PARALLEL_SPI_SUPPORT
+#include "esp_private/gdma.h"   // for gdma_channel_handle_t
 namespace WLEDpixelBus {
 
 //==============================================================================
@@ -26,7 +27,7 @@ namespace WLEDpixelBus {
 
 #define WLEDPB_SPI_MAX_CHANNELS 4   // SPI quad mode = 4 data lines
 #define WLEDPB_SPI_DMA_DESC_COUNT 2   // number of DMA buffers, increase to 3 if there are flickering issues
-#define WLEDPB_SPI_GDMA_CHANNEL 1 // TODO: how to manage the DMA channels to avoid conflicts with other peripherals? for now we just assume channel 1 is free and used exclusively by this driver
+//#define WLEDPB_SPI_GDMA_CHANNEL 1 // TODO: how to manage the DMA channels to avoid conflicts with other peripherals? for now we just assume channel 1 is free and used exclusively by this driver
 #define WLEDPB_SPI_GDMA_INTR_SOURCE ETS_DMA_CH1_INTR_SOURCE // must match dma channel (otherwise it just loops the two DMA descriptors and will eventually time-out)
 
 // TODO: use more modern GMDA channel reservation to get rid of hard ceded GDMA_CHANNEL, something like this:
@@ -88,7 +89,7 @@ private:
   SpiBusContext();
   ~SpiBusContext();
   void IRAM_ATTR encodeSpiChunk(uint8_t bufIdx);
-  static void IRAM_ATTR gdmaISR(void* arg);
+  static bool IRAM_ATTR gdmaISR(gdma_channel_handle_t dma_chan, gdma_event_data_t* event_data, void* user_data);
   static void IRAM_ATTR spiISR(void* arg);
   // Hardware control
   void hwStopTransfer();
@@ -100,7 +101,8 @@ private:
   // DMA
   uint8_t* _dmaBuffer[WLEDPB_SPI_DMA_DESC_COUNT];
   lldesc_t _dmaDesc[WLEDPB_SPI_DMA_DESC_COUNT];
-  intr_handle_t _gdmaIsrHandle;
+  gdma_channel_handle_t _gdmaChan;
+  int _dmaChan;
   intr_handle_t _spiIsrHandle;
   portMUX_TYPE _isrMux;
   spi_dev_t* _hw; // SPI device

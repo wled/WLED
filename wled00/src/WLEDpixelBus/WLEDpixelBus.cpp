@@ -36,7 +36,6 @@ TODO List
 - SPI 2-wire bus types need testing on all platforms (tested working in the past but not recently)
 - SPI 2-wire types do not support signal inversion
 - ESP32_DATA_IDLE_HIGH flag is a hack to fix bad hardware design and uses the legacy RMT driver, we should drop support for that
-- parallel SPI driver: use more modern GMDA channel reservation to get rid of hard ceded GDMA_CHANNEL, see todo in parallelSPI.h bus
 - parallel SPI driver: the reset pulse handling needs some improvement, currently SPI_RESET_BITS is fixed
 - PARLIO bus needs an in depth review to check for any AI slop
 - use chip capabilities instead of individual target ifdefs in buswrapper
