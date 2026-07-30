@@ -900,7 +900,7 @@ class AdcContinuousSource : public AudioSource {
         DEBUGSR_PRINTF("Failed to start adc continuous driver: %d\n", err);
         adc_continuous_deinit(_adcHandle);
         _adcHandle = nullptr;
-        return;return;
+        return;
       }
       #endif
       _initialized = true;
@@ -957,7 +957,6 @@ class AdcContinuousSource : public AudioSource {
         #endif
 
         if (bytes_got < bytes_wanted) {
-        Serial.print("not enough");
         return;   // incomplete frame - keep old samples
         }
 
@@ -1018,7 +1017,7 @@ class AdcContinuousSource : public AudioSource {
     }
 
     adc_continuous_handle_t _adcHandle = nullptr;
-    int8_t _audioPin;
+    int8_t _audioPin = -1;
     int8_t _myADCchannel = 0x0F;       // current ADC channel for analog input. 0x0F means "undefined"
     int _lastADCsample = 0;            // last good sample (for filtering and rogue sample replacement)
     unsigned int _broken_samples_counter = 0; // number of consecutive broken (and fixed) ADC samples
