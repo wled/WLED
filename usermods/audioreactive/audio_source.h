@@ -859,10 +859,10 @@ class AdcContinuousSource : public AudioSource {
       }
       _myADCchannel = adc_channel;
 
-      const size_t frameSize = (size_t)_blockSize * SOC_ADC_DIGI_DATA_BYTES_PER_CONV;  // one DMA frame = one FFT block
+      const size_t frameSize = (size_t)_blockSize * 4 * SOC_ADC_DIGI_DATA_BYTES_PER_CONV;  // one DMA frame = one FFT block (assumes block = 128, FFT frame = 512) TODO: this should respect the actual numbers set in the cpp file
       adc_continuous_handle_cfg_t handle_cfg = {
-        .max_store_buf_size = frameSize * 2,    // ring buffer holds two frames
-        .conv_frame_size = frameSize,
+        .max_store_buf_size = frameSize,        // buffer size the driver writes data to from the DMA buffers (and what we read back from when), since we stop / start the acquisition, one FFT frame is enough, its not continuous anyway
+        .conv_frame_size = (size_t)_blockSize,  // use BLOCK_SIZE buffer size, driver uses 5 DMA buffers with chained descriptors in a loop
         .flags = { .flush_pool = false },       // false=drop samples if full, true=flush buffer if full
       };
       esp_err_t err = adc_continuous_new_handle(&handle_cfg, &_adcHandle);
@@ -913,12 +913,12 @@ class AdcContinuousSource : public AudioSource {
       if (_initialized) {
       esp_err_t err = ESP_OK;
       #if !defined(I2S_GRAB_ADC1_COMPLETELY)
+        adc_continuous_flush_pool(_adcHandle);  // drop any old conversions
         err = adc_continuous_start(_adcHandle);
         if (err != ESP_OK) {
           DEBUGSR_PRINTF("Failed to start adc continuous driver: %d\n", err);
           return;
         }
-        adc_continuous_flush_pool(_adcHandle);  // drop conversions that accumulated while ADC was stopped  TODO: do this before starting?
       #endif
         adc_digi_output_data_t rawBuf[num_samples];  // intermediary sample storage (stack, like the legacy version)
         uint32_t bytes_got = 0;

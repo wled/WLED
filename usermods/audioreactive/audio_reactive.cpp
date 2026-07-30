@@ -1453,7 +1453,7 @@ class AudioReactive : public Usermod {
         #if defined(AR_ANALOG_MIC_I2S_ADC)
           audioSource = new I2SAdcSource(SAMPLE_RATE, BLOCK_SIZE);
         #else
-          audioSource = new AdcContinuousSource(SAMPLE_RATE, BLOCK_SIZE);
+          audioSource = new AdcContinuousSource(SAMPLE_RATE, BLOCK_SIZE); // note: ADC driver uses 5 DMA buffers: INTERNAL_BUF_NUM in adc_continuous.c, those are set to BLOCK_SIZE bytes
         #endif
           delay(100);
           useBandPassFilter = true;  // PDM bandpass filter seems to help for bad quality analog
