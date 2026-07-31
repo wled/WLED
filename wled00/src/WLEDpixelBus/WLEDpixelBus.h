@@ -3,22 +3,6 @@ WLEDpixelBus - Lightweight LED driver library for WLED
 
 written by Damian Schneider @dedehai 2026
 
-I would like to thank Michael C. Miller (@Makuna):
-NeoPixelBus served me well as a reference to proper hardware initialisation
-as well as figuring out the more exotic digital LED types
-
-Features:
-- Runtime LED timing configuration
-- Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-C5 and ESP8266 (maybe other ESP32 flavours work too)
-- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel, PARLIO parallel
-- 2-Pin LED support (hardware SPI and BitBang)
-- RGBW uint32_t pixel buffer format (WLED native)
-- Support for up to 6 color channels, 8bit or 16bit
-- Supports output inversion (ESP32 only) and individual color channel inversion
-- Supports hardware LED brightness for improved color resolution if available
-
-Tested working on IDF V4 and V5
-
 -------------------------------------------------------------------------*/
 
 #pragma once

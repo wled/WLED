@@ -9,15 +9,15 @@ as well as figuring out the more exotic digital LED types
 
 Features:
 - Runtime LED timing configuration
-- Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3 and ESP8266
-- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel
+- Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-C5 and ESP8266 (maybe other ESP32 flavours work too)
+- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel, PARLIO parallel
 - 2-Pin LED support (hardware SPI and BitBang)
 - RGBW uint32_t pixel buffer format (WLED native)
 - Support for up to 6 color channels, 8bit or 16bit
 - Supports output inversion (ESP32 only) and individual color channel inversion
 - Supports hardware LED brightness for improved color resolution if available
 
-Currently based on IDF v4.x API functions and low-level HAL
+Tested working on IDF V4 and V5 API functions and low-level HAL
 
 -------------------------------------------------------------------------*/
 
