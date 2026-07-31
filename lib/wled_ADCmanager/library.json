@@ -1,0 +1,4 @@
+{
+  "name": "wled-ADCmanager",
+  "build": { "libArchive": false }
+}
