@@ -3,9 +3,12 @@ WLEDpixelBus — Parallel bit-bang LED output driver
 
 written by Damian Schneider @dedehai 2026
 
-works on all ESP32 variants
+works on all ESP32 variants and ESP8266
 
-Interrupts are fully disabled during output to avoid any glitches
+Uses software bit-bang timing and outputs data on all set-up pins in parallel.
+Interrupts are are re-enabled after each LED data is written, if the return time is too long, output is aborted
+The frame is then sent again to avoid effect tearing, this is repeated a few times before giving up
+If reset period is set to zero, interrupts are disabled and the sendout is blocking
 Each bus can have individual configuration of color channels but all must share the same timing
 
 -------------------------------------------------------------------------*/
@@ -41,10 +44,7 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 #endif
 
 
-// ---------------------------------------------------------------------------
-// getCycleCount() — read the CPU cycle counter.
-// Must be IRAM_ATTR because it is called from outputParallel() which is IRAM.
-// ---------------------------------------------------------------------------
+// getCycleCount() reads the CPU cycle counter for precise timing
 #if defined(ESP8266)
   static inline uint32_t getCycleCount() {
     uint32_t ccount;
@@ -70,9 +70,7 @@ BitBangBus::BBstate* BitBangBus::_BBs = nullptr;
 #endif
 #endif
 
-// ---------------------------------------------------------------------------
 // Constructor / Destructor
-// ---------------------------------------------------------------------------
 BitBangBus::BitBangBus(int8_t pin, const LedTiming& timing, uint8_t colorOrder, uint8_t numChannels, uint8_t ledType)
   : _pin(pin)
   , _timing(timing)
@@ -230,10 +228,7 @@ void BitBangBus::end() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// show()
-// Stage this channel's data.  When the last channel stages, run outputParallel().
-// ---------------------------------------------------------------------------
+// show() stages this channel's data.  When the last channel stages, run outputParallel()
 bool BitBangBus::show() {
   if (!_initialized || !_pixelData) return false;
 
@@ -253,27 +248,26 @@ bool BitBangBus::show() {
   return true; // frame sent (or at least we tried)
 }
 
-// ---------------------------------------------------------------------------
 // resetChannels() — called by PixelBusAllocator::resetChannelTracking()
-// ---------------------------------------------------------------------------
 void BitBangBus::resetChannels() {
   if (_BBs) memset(_BBs, 0, sizeof(BBstate));
 }
 
 
 // ---------------------------------------------------------------------------
-// outputParallel() — the hot path, must live in IRAM.
+// outputParallel() is the hot path and MUST be in IRAM
 //
 // Per-bit sequence:
 //   1. Compute zeroMask for the current bit (channels outputting a '0', or past
 //      their data end, contribute their pin to the mask).
-//   2. At each pixel boundary (after the first), release the ISR lock so the
+//   2. Wait for the full bit period since the previous HIGH falling edge.
+//   3. Set all output pins HIGH simultaneously (setOutputMask).
+//   4. After T0H cycles: pull the '0' outputs LOW  (GPIO.out_w1tc = zeroMask).
+//   5. After T1H cycles: pull all remaining outputs LOW (GPIO.out_w1tc = setOutputMask).
+//   6. Repeat until all bits for this LED are sent out
+//   6. At each pixel boundary, release the ISR lock if enabled so the
 //      FreeRTOS scheduler and time-critical ISRs can run.  Re-acquire and check
 //      whether the idle gap exceeded the LED latch threshold; abort if so.
-//   3. Wait for the full bit period since the previous HIGH edge.
-//   4. Set all output pins HIGH simultaneously (setOutputMask).
-//   5. After T0H cycles: pull the '0' outputs LOW  (GPIO.out_w1tc = zeroMask).
-//   6. After T1H cycles: pull all remaining outputs LOW (GPIO.out_w1tc = setOutputMask).
 //
 // All channels are pulsed for maxPixels × pixelBytes × 8 bits.  Channels that
 // have fewer pixels than maxPixels simply output '0' bits once their data ends

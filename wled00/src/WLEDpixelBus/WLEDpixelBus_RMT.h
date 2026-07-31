@@ -4,14 +4,6 @@ WLEDpixelBus - RMT output driver implementation
 
 written by Damian Schneider @dedehai 2026
 
-I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
-
-RMT bus works on ESP32, S3, S2 and C3 (C6/H2 on IDF V5)
-Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
-IDF V5: uses the new rmt_tx driver with bytes encoder; the reset/latch gap is enforced in show()
-        via a TX-done event callback timestamp instead of being encoded into the waveform
-The glitch-free high priority interrupt implementation by @willmmiles is not available on the C3 and not at all in IDF V5
-
 -------------------------------------------------------------------------*/
 
 #pragma once

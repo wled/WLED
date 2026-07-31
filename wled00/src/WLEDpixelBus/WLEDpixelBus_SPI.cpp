@@ -1,11 +1,10 @@
 /*-------------------------------------------------------------------------
 WLEDpixelBus - SPI 2-pin clocked LEDs driver implementation
 
-supports ESP32, S3, S2 and C3 both hardware SPI and BitBanged output
-supports hardware brightness on APA102 for improved color resolution
-
 written by Damian Schneider @dedehai 2026
 
+supports ESP32, S3, S2 and C3 both hardware SPI and BitBanged output
+supports hardware brightness on APA102 for improved color resolution
 -------------------------------------------------------------------------*/
 
 #include "WLEDpixelBus_SPI.h"

@@ -4,10 +4,6 @@ WLEDpixelBus - ESP8266 driver implementation
 
 written by Damian Schneider @dedehai 2026
 
-I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
-
-Supports UART and I2S DMA output as well as parallel bit-banging
-
 -------------------------------------------------------------------------*/
 #pragma once
 

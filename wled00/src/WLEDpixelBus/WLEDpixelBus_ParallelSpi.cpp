@@ -4,7 +4,7 @@ WLEDpixelBus - parallel SPI output driver implementation
 
 written by Damian Schneider @dedehai 2026
 
-supports ESP32 C3
+supports ESP32 C3, other chips may work but are untested
 uses 4 parallel outputs and double DMA buffering on SPI2
 Data is output in 4-step cadence meaning each LED bit is encoded into 4 bits. '0' is 0b1000 and '1' is 0b1110
 Encoding is highly optimized for speed as encoding is done "on the fly" while the other buffer is being sent out using DMA.

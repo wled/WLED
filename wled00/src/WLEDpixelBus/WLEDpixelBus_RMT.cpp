@@ -6,7 +6,7 @@ written by Damian Schneider @dedehai 2026
 
 I would like to thank Michael C. Miller (@Makuna), NeoPixelBus helped me figure out the proper hardware initialisation.
 
-RMT bus works on ESP32, S3, S2, C3 and C6 (tested) and should work on H2, C5 too (untested)
+RMT bus works on ESP32, S3, S2, C3 and C6 (tested) and should work on C5 (untested)
 Supports auto-distribution of available RMT memory blocks to reduce interrupt frequency - needs to be refined if ever using RMT input
 IDF V5: new rmt_tx driver + bytes encoder; reset/latch gap enforced via TX-done callback timestamp in show()
 The glitch-free high priority interrupt implementation by @willmmiles is not yet available in V5 builds

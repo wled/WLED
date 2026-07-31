@@ -9,15 +9,15 @@ as well as figuring out the more exotic digital LED types
 
 Features:
 - Runtime LED timing configuration
-- Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3 and ESP8266
-- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel
+- Support for ESP32, ESP32-S2, ESP32-S3, ESP32-C3, ESP32-C6, ESP32-C5 and ESP8266 (maybe other ESP32 flavours work too)
+- RMT, I2S parallel, LCD parallel, SPI parallel, BitBang parallel, PARLIO parallel
 - 2-Pin LED support (hardware SPI and BitBang)
 - RGBW uint32_t pixel buffer format (WLED native)
 - Support for up to 6 color channels, 8bit or 16bit
 - Supports output inversion (ESP32 only) and individual color channel inversion
 - Supports hardware LED brightness for improved color resolution if available
 
-Currently based on IDF v4.x API functions and low-level HAL
+Tested working on IDF V4 and V5
 
 -------------------------------------------------------------------------*/
 
@@ -101,13 +101,7 @@ inline uint32_t makeColor(uint8_t r, uint8_t g, uint8_t b, uint8_t w = 0) {
 
 /**
  * CCT data for a single pixel
- * Passed as separate buffer from main RGBW data
  */
- /*
-struct CctPixel {
-  uint8_t ww;  // Warm white
-  uint8_t cw;  // Cool white
-};*/
 struct CctPixel {
   union {
       uint16_t wwcw; // Access as a 16-bit value (0xWWCW), default when setting 16-bit CCT types
@@ -125,7 +119,7 @@ struct CctPixel {
 enum class DriverState : uint8_t {
   Idle = 0,
   Sending = 1,
-  SendingLast = 2,   // Last data buffer was filled; wait for current buffer to finish so last-data buffer plays
+  SendingLast = 2,   // Last data buffer was filled; wait for current buffer to finish so last-data buffer plays  TODO: check if this is still used, otherwise, remove
   WaitingReset = 3   // Last data buffer played; zero buffer playing as reset signal
 };
 
@@ -171,8 +165,8 @@ static constexpr uint8_t CHANNELS_RGBW = 4; // RGBW: W-swap applies, TM1814/TM18
 static constexpr uint8_t CHANNELS_CCT  = 5; // RGB + WW + CW: WW/CW-swap applies
 
 /**
- * RGB wire-position permutation, decoded from the lower nibble of WLED's color-order byte.
- * Mirrors COL_ORDER_* in wled00/const.h (kept independent here to avoid a core dependency).
+ * RGB wire-position permutation, decoded from the lower nibble of WLED's color-order byte (config value)
+ * Mirrors COL_ORDER_* in wled00/const.h (kept independent here to avoid dependency).
  */
 enum ColorOrder : uint8_t {
   ORDER_GRB = 0, // default
@@ -239,9 +233,7 @@ enum WireBytes : uint8_t {
  */
 class ColorEncoder {
 public:
-  ColorEncoder() : _pixelFormat(0x03), _invertMask(0),
-                   _idxR(0), _idxG(1), _idxB(2),
-                   _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
+  ColorEncoder() : _pixelFormat(0x03), _invertMask(0), _idxR(0), _idxG(1), _idxB(2), _idxW(3), _idxCW(4) { memset(_channelMap, 0, sizeof(_channelMap)); }
   ColorEncoder(uint8_t co, uint8_t numChannels, uint8_t ledType = 0);
   // Custom channel map constructor for custom color orders
   // channelMap[i]: ChannelSource value (CH_UNUSED/CH_R/CH_G/CH_B/CH_W/CH_WW/CH_CW)
@@ -468,7 +460,7 @@ public:
   //   _encodeBuffer != nullptr  (_valid == true implies begin() succeeded)
   //   pos < _numPixels          (setNumPixels = lenToCreate + _skip, pix bounded by both)
   // note: using O2 optimization seems to make it slower
-  // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM, need to test if there is any speed benefit from IRAM
+  // TODO: on ESP32, do not put this in IRAM on C3 it works in IRAM, need to test if there is any speed benefit from IRAM (note: this may have all changed in IDF V5)
   virtual bool setPixelColor(uint16_t pos, uint32_t c, uint16_t wwcw) {
     const uint8_t pixelFormat = _encoder.getPixelFormat();
     uint8_t* out = _pixelData + (size_t)pos * _encoder.getPixelBytes();
