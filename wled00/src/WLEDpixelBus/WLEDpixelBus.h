@@ -31,9 +31,6 @@ written by Damian Schneider @dedehai 2026
 
 // ESP_HAS_HIGH_GPIO_BANK — defined when the target has GPIO > 31 and therefore
 // needs the second GPIO output register bank (GPIO_OUT1_W1TS/TC_REG).
-// SOC_GPIO_PIN_COUNT is a preprocessor #define from soc/soc_caps.h (included
-// transitively via driver/gpio.h): 40 for ESP32, 47 for S2, 49 for S3,
-// 22 for C3, 31 for C6, 28 for H2.
 #if SOC_GPIO_PIN_COUNT > 32
 #  define ESP_HAS_HIGH_GPIO_BANK 1
 #endif
