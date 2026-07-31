@@ -30,7 +30,7 @@ TODO List
 - the DMA buffer count and size need to be checked agains memory usage formulas, they may be incorrect (we could do "worst case" in the UI as it wont matter much for a small amount of LEDs)
 - I2S driver now has safe watchdog in case interrupts are missed. check if parallel spi driver and parlio driver can suffer from the same race condition (nullpointer / end of transfer overwritten or missed)
 - LOOPTEST_CYCLES in BB bus need fine-tuning
-- color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain
+- color orders of some strips may differ from NPB implementation, needs checking and reordering to match legacy behaviour or users will complain (see legacy bus_wrapper where this is defined in neoXXXtype)
 - move gamma down to bus level, see pending PR
 - brightness scaling for special buses with LED current (or 16bit) may need fine-tuning
 - SPI 2-wire bus types need testing on all platforms (tested working in the past but not recently)
