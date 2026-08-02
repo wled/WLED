@@ -357,6 +357,7 @@ static_assert(WLED_MAX_BUSSES <= 32, "WLED_MAX_BUSSES exceeds hard limit");
 #define TYPE_HUB75MATRIX_MIN     64
 #define TYPE_HUB75MATRIX_HS      65
 #define TYPE_HUB75MATRIX_QS      66
+#define TYPE_HUB75MATRIX_20S     67
 #define TYPE_HUB75MATRIX_MAX     71
 
 //Network types (master broadcast) (80-95)
