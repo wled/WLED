@@ -17,7 +17,6 @@
 //#include "wled_adcmanager.h"
 #include "wled.h"
 
-//namespace wled {
 // prevent macro recursion of arduino overrides
 #undef analogRead
 #if defined(ARDUINO_ARCH_ESP32)
@@ -317,27 +316,4 @@ int WLEDAdcManager::analogReadMilliVolts(uint8_t pin) {
   int mv = 0;
   return (adc_cali_raw_to_voltage(_cali, raw, &mv) == ESP_OK) ? mv : (raw * 3300) / 4095;
 }
-
 #endif // ARDUINO_ARCH_ESP32
-
-//  C wrappers
-extern "C" {
-
-  int wled_adc_analog_read(uint8_t pin) {
-  #ifdef ARDUINO_ARCH_ESP32
-    return WLEDAdcManager::instance().analogRead(pin);
-  #else
-    return analogRead(pin);
-  #endif
-  }
-
-  int wled_adc_analog_read_mv(uint8_t pin) {
-  #ifdef ARDUINO_ARCH_ESP32
-    return WLEDAdcManager::instance().analogReadMilliVolts(pin);
-  #else
-    return (int)(analogRead(pin) / 1023.0f);
-  #endif
-  }
-
-}
-//} // namespace wled

@@ -7,16 +7,6 @@
 
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-int wled_adc_analog_read(uint8_t pin);
-int wled_adc_analog_read_mv(uint8_t pin);
-
-#ifdef __cplusplus
-}
-
 #ifdef ARDUINO_ARCH_ESP32
 
 #include <Arduino.h>
@@ -41,13 +31,13 @@ public:
 
   bool begin(uint8_t pin, uint32_t sampleRateHz, uint16_t samplesPerFrame);
   void end();
+  bool isRunning() const { return _running; }
 
   bool readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs = 100);
 
   int analogRead(uint8_t pin);
   int analogReadMilliVolts(uint8_t pin);
-
-  bool isRunning() const { return _running; }
+  //void checkADC(); // check ADC status, reset if overflow happened (watchdog function, needs to be called frequently if used, i.e. put this in main loop)
 
 private:
   WLEDAdcManager();
@@ -57,8 +47,8 @@ private:
 
   static bool _pinToChannel(uint8_t pin, adc_channel_t* ch);
 
-  bool _createHandle();
-  void _destroyHandle();
+  bool _initContinuousADC();
+  void _endContinuousADC();
   void _drainToCache();
   bool _oneshotRead(adc_channel_t ch, int* outRaw);
   bool _initCali();
@@ -82,13 +72,12 @@ private:
 #endif // ARDUINO_ARCH_ESP32
 
 // override of native Arduino functions for compatibility with external usermods
-#undef analogRead
-#define analogRead(pin) wled_adc_analog_read(pin)
 #if defined(ARDUINO_ARCH_ESP32)
+#undef analogRead
+#define analogRead(pin) WLEDAdcManager::instance().analogRead(pin)
 #undef analogReadMilliVolts
-#define analogReadMilliVolts(pin) wled_adc_analog_read_mv(pin)
+#define analogReadMilliVolts(pin) WLEDAdcManager::instance().analogReadMilliVolts(pin)
 #else
-#define analogReadMilliVolts(pin) wled_adc_analog_read_mv(pin)
+// ESP8266: do not override analogRead
+// we could add analogReadMilliVolts() which would just return (int)(analogRead(pin) / 1023.0f);
 #endif
-
-#endif // __cplusplus
