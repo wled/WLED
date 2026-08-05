@@ -33,7 +33,7 @@ public:
   void end();
   bool isRunning() const { return _running; }
 
-  bool readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs = 100);
+  uint16_t readSamples(int16_t* buffer, uint16_t numSamples, uint32_t timeoutMs = 100);
 
   int analogRead(uint8_t pin);
   int analogReadMilliVolts(uint8_t pin);
