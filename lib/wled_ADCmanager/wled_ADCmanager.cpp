@@ -10,6 +10,10 @@
  * drain the already sampled data into a buffer, read a pin in one-shot mode, then continue the sampling.
  * replaces analogRead() and analogReadMilliVolts() with managed functions for code compatibility
 
+
+Note: chip revision 0 and 1 of the C6 have a hardware bug and the effective ADC resolution is only 8bit, was solved in rev. 2 (around mid 2025)
+      https://docs.espressif.com/projects/esp-chip-errata/en/latest/esp32c6/03-errata-description/esp32c6/sar-adc-missing-lower-four-bits.html#sar-adc-loss-of-precision-in-lower-four-bits-of-sar-adc
+
  TODO:
  - could add the option to use hardware IIR filter, although the lowest coefficient setting of 2 already has a 3dB cutoff around 2kHz (to be confirmed) at 20kHz sample rate
  - IIR filter are supported on all modern ESP32 but probably lacking on ESP32 classic, there we would need to do it in post-processing i.e. when writing the sample buffer
@@ -28,7 +32,7 @@
 #ifdef ARDUINO_ARCH_ESP32
 
 #define ADCMANAGER_DMA_BLOCKSIZE 128 // DMA buffer block size, IDF driver uses 5 blocks under the hood, there is an ISR call each time a block finishes so dont make it too small
-#define ADCMANAGER_READBUFFERSIZE (128 * sizeof(adc_digi_output_data_t)) // size of stack buffer for reading samples from the driver
+#define ADCMANAGER_READBUFFERSAMPLES 256 // number of bytes read per chunk from the ADC buffer (stack buffer), samples is bytes/sizeof(adc_digi_output_data_t) i.e. divide by 4
 
 #include <string.h>
 
@@ -222,7 +226,7 @@ uint16_t WLEDAdcManager::readSamples(int16_t* buffer, uint16_t numSamples, uint3
     return out; // already get enough samples from cache
   }
 
-  const int tmpBfrSize = ADCMANAGER_READBUFFERSIZE; // use fixed size buffer on stack to read samples from the driver in chunks
+  const int tmpBfrSize = ADCMANAGER_READBUFFERSAMPLES; // use fixed size buffer on stack to read samples from the driver in chunks
   adc_digi_output_data_t temp[tmpBfrSize];
 
   while (out < numSamples) {
